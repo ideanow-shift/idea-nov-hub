@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#FFFFFF">
+  <meta name="description" content="IDEA NOVグループ 社内アプリ統合ポータル">
+  <title>NOV HUB | IDEA NOV</title>
+  <link rel="stylesheet" href="./css/design-system.css">
+  <link rel="stylesheet" href="./css/portal.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">NOV</div>
+        <div>
+          <h1 class="brand-title">NOV HUB</h1>
+          <p class="brand-subtitle">IDEA NOV Portal</p>
+        </div>
+      </div>
+      <div class="header-user" id="header-user" hidden>
+        <div class="user-summary">
+          <div class="user-name" id="user-name"></div>
+          <div class="user-store" id="user-store"></div>
+        </div>
+        <button class="icon-button" id="logout-button" type="button" aria-label="ログアウト" title="ログアウト">↪</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="portal-main">
+    <section class="screen login-screen" id="login-screen">
+      <div class="login-card">
+        <div class="login-logo" aria-hidden="true">NOV</div>
+        <h2 class="login-title">おかえりなさい</h2>
+        <p class="login-copy">社内アプリをひとつの場所から。<br>Googleアカウントでログインしてください。</p>
+        <div class="login-actions">
+          <button class="button button-primary" id="google-login" type="button">Googleでログイン</button>
+          <div id="demo-controls">
+            <label class="sr-only" for="demo-employee">デモ社員を選択</label>
+            <select class="demo-select" id="demo-employee" aria-label="デモ社員を選択"></select>
+            <button class="button button-secondary demo-button" id="demo-login" type="button">選択した社員でデモを見る</button>
+          </div>
+        </div>
+        <p class="caption login-note">社員マスタに登録されたアカウントのみ利用できます。</p>
+      </div>
+    </section>
+
+    <section class="screen loading-screen" id="loading-screen" aria-live="polite" hidden>
+      <div>
+        <div class="spinner" aria-hidden="true"></div>
+        <p>社員情報を確認しています...</p>
+      </div>
+    </section>
+
+    <section class="screen login-screen" id="denied-screen" hidden>
+      <div class="denied-card">
+        <div class="login-logo" aria-hidden="true">!</div>
+        <h2 class="denied-title">アクセスできません</h2>
+        <p class="denied-copy" id="denied-message"></p>
+        <button class="button button-secondary" id="denied-back" type="button">ログイン画面へ戻る</button>
+      </div>
+    </section>
+
+    <div class="screen" id="portal-screen" hidden>
+      <section class="welcome">
+        <h2 class="welcome-title" id="welcome-title"></h2>
+        <p class="welcome-copy">今日使うアプリを選んでください。</p>
+      </section>
+
+      <section class="section" aria-labelledby="notice-heading">
+        <div class="section-heading"><h2 class="section-title" id="notice-heading">お知らせ</h2></div>
+        <div class="notice-list" id="announcements"></div>
+      </section>
+
+      <section class="section" aria-labelledby="featured-heading">
+        <div class="section-heading"><h2 class="section-title" id="featured-heading">よく使うアプリ</h2></div>
+        <div class="app-grid featured-grid" id="featured-apps"></div>
+      </section>
+
+      <section class="section" aria-labelledby="all-apps-heading">
+        <div class="section-heading">
+          <h2 class="section-title" id="all-apps-heading">カテゴリから探す</h2>
+          <span class="section-count" id="visible-app-count"></span>
+        </div>
+        <div id="category-apps"></div>
+      </section>
+    </div>
+  </main>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

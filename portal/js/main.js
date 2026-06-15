@@ -1,0 +1,198 @@
+import { PORTAL_CONFIG } from "./firebase-config.js";
+import { authIsConfigured, signInWithGoogle, signOutUser } from "./auth.js";
+import { fetchPortalData, writeAccessLog } from "./api.js";
+import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
+import { CATEGORY_ICONS, CATEGORY_ORDER, DEMO_APPS, getVisibleApps } from "./apps.js";
+
+const state = { employee: null, apps: [], announcements: [], mode: PORTAL_CONFIG.authMode };
+const elements = Object.fromEntries([
+  "header-user", "user-name", "user-store", "login-screen", "loading-screen",
+  "denied-screen", "portal-screen", "google-login", "demo-controls", "demo-employee",
+  "demo-login", "logout-button", "denied-message", "denied-back", "welcome-title",
+  "announcements", "featured-apps", "category-apps", "visible-app-count", "toast"
+].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
+
+function showScreen(name) {
+  ["login", "loading", "denied", "portal"].forEach((screenName) => {
+    elements[`${screenName}Screen`].hidden = screenName !== name;
+  });
+  elements.headerUser.hidden = name !== "portal";
+}
+
+function showToast(message) {
+  elements.toast.textContent = message;
+  elements.toast.hidden = false;
+  window.clearTimeout(showToast.timer);
+  showToast.timer = window.setTimeout(() => { elements.toast.hidden = true; }, 3200);
+}
+
+function escapeHtml(value) {
+  const span = document.createElement("span");
+  span.textContent = String(value ?? "");
+  return span.innerHTML;
+}
+
+function getAudienceLabel(app) {
+  if (app.targetDepartment?.length) return escapeHtml(app.targetDepartment.join("・"));
+  const labels = { 1: "全スタッフ", 2: "スタイリスト以上", 3: "SD・店長以上", 4: "Mgr・部長以上", 5: "役員・本部幹部" };
+  return labels[Number(app.requiredLevel || 1)] || "対象者";
+}
+
+function createAppCard(app) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "app-card";
+  button.dataset.appId = app.appId;
+  button.innerHTML = `
+    <span class="app-icon" aria-hidden="true">${app.icon || "🔗"}</span>
+    <span class="app-info">
+      <span class="app-title-row">
+        <span class="app-title">${escapeHtml(app.appName)}</span>
+        <span class="app-arrow" aria-hidden="true">›</span>
+      </span>
+      <span class="app-description">${escapeHtml(app.description || "")}</span>
+      <span class="app-meta">
+        <span class="label">${escapeHtml(app.category || "社内アプリ")}</span>
+        <span class="label">${getAudienceLabel(app)}</span>
+      </span>
+    </span>`;
+  button.addEventListener("click", () => openApp(app));
+  return button;
+}
+
+function createEmptyState(message) {
+  const empty = document.createElement("div");
+  empty.className = "empty-state";
+  empty.textContent = message;
+  return empty;
+}
+
+function renderAnnouncements() {
+  const fallback = [
+    { type: "important", title: "ポータル試験運用中", body: "掲載アプリや権限に誤りがある場合は管理者へご連絡ください。" },
+    { type: "info", title: "スマートフォンのホーム画面に追加できます", body: "ブラウザの共有メニューから追加すると、毎日のアクセスが簡単になります。" }
+  ];
+  elements.announcements.replaceChildren(...(state.announcements.length ? state.announcements : fallback).map((notice) => {
+    const article = document.createElement("article");
+    article.className = `notice${notice.type === "important" ? " notice-important" : ""}`;
+    article.innerHTML = `
+      <span class="notice-icon" aria-hidden="true">${notice.type === "important" ? "⚠️" : "ℹ️"}</span>
+      <div><h3 class="notice-title">${escapeHtml(notice.title)}</h3><p class="notice-body">${escapeHtml(notice.body)}</p></div>`;
+    return article;
+  }));
+}
+
+function renderApps() {
+  const featured = state.apps.filter((app) => app.isFeatured);
+  elements.featuredApps.replaceChildren(...(featured.length ? featured.map(createAppCard) : [createEmptyState("よく使うアプリはまだありません。")]));
+  const categories = CATEGORY_ORDER.map((category) => ({
+    category,
+    apps: state.apps.filter((app) => app.category === category)
+  })).filter((group) => group.apps.length);
+  elements.categoryApps.replaceChildren(...(categories.length ? categories.map(({ category, apps }) => {
+    const section = document.createElement("section");
+    section.className = "category-block";
+    section.innerHTML = `<h3 class="category-title">${CATEGORY_ICONS[category] || "🔗"} ${escapeHtml(category)}</h3>`;
+    const grid = document.createElement("div");
+    grid.className = "app-grid";
+    grid.append(...apps.map(createAppCard));
+    section.append(grid);
+    return section;
+  }) : [createEmptyState("現在利用できるアプリはありません。")]));
+  elements.visibleAppCount.textContent = `${state.apps.length}件`;
+}
+
+function renderPortal() {
+  elements.userName.textContent = state.employee.name;
+  elements.userStore.textContent = state.employee.store || state.employee.department || "";
+  elements.welcomeTitle.textContent = `${state.employee.name.split(/[\s　]/)[0]}さん、お疲れさまです`;
+  renderAnnouncements();
+  renderApps();
+  showScreen("portal");
+}
+
+async function openApp(app) {
+  if (state.mode === "firebase") {
+    const target = window.open("about:blank", "_blank");
+    if (target) target.opener = null;
+    try {
+      await writeAccessLog("openApp", { appId: app.appId, appName: app.appName, result: "success" });
+      if (target) target.location = app.url;
+      else window.location.assign(app.url);
+    } catch (error) {
+      target?.close();
+      showToast("アプリを開けませんでした。時間をおいて再度お試しください。");
+      console.error(error);
+    }
+    return;
+  }
+  console.info("[demo log]", { action: "openApp", appId: app.appId, appName: app.appName, result: "success" });
+  showToast(`デモ: 「${app.appName}」を開きます`);
+}
+
+async function loginWithFirebase() {
+  showScreen("loading");
+  try {
+    await signInWithGoogle();
+    const data = await fetchPortalData();
+    state.employee = data.employee;
+    state.apps = getVisibleApps(data.employee, data.apps || []);
+    state.announcements = data.announcements || [];
+    renderPortal();
+  } catch (error) {
+    console.error(error);
+    await signOutUser();
+    elements.deniedMessage.textContent = error.code === "ACCESS_DENIED"
+      ? "このアカウントは社内ポータルの利用権限がありません。管理者へお問い合わせください。"
+      : error.message || "ログイン処理に失敗しました。";
+    showScreen("denied");
+  }
+}
+
+function loginDemo() {
+  const employee = getDemoEmployee(elements.demoEmployee.value);
+  if (!employee || employee.status !== "active") {
+    elements.deniedMessage.textContent = "このアカウントは社内ポータルの利用権限がありません。管理者へお問い合わせください。";
+    showScreen("denied");
+    return;
+  }
+  state.employee = employee;
+  state.apps = getVisibleApps(employee, DEMO_APPS);
+  state.announcements = [];
+  console.info("[demo log]", { action: "login", email: employee.email, result: "success" });
+  renderPortal();
+}
+
+async function logout() {
+  if (state.mode === "firebase") {
+    try { await writeAccessLog("logout", { result: "success" }); } catch (error) { console.error(error); }
+    await signOutUser();
+  }
+  state.employee = null;
+  state.apps = [];
+  showScreen("login");
+}
+
+function initialize() {
+  DEMO_EMPLOYEES.forEach((employee) => {
+    const option = document.createElement("option");
+    option.value = employee.email;
+    option.textContent = `${employee.name}（権限${employee.roleLevel}${employee.status === "inactive" ? "・停止中" : ""}）`;
+    elements.demoEmployee.append(option);
+  });
+  const firebaseReady = authIsConfigured();
+  elements.googleLogin.hidden = !firebaseReady;
+  elements.demoControls.hidden = state.mode === "firebase" && firebaseReady;
+  elements.googleLogin.addEventListener("click", loginWithFirebase);
+  elements.demoLogin.addEventListener("click", loginDemo);
+  elements.logoutButton.addEventListener("click", logout);
+  elements.deniedBack.addEventListener("click", () => showScreen("login"));
+  if (state.mode === "firebase" && !firebaseReady) {
+    elements.deniedMessage.textContent = "FirebaseまたはGAS APIの設定が未完了です。firebase-config.jsを確認してください。";
+    showScreen("denied");
+  } else {
+    showScreen("login");
+  }
+}
+
+initialize();

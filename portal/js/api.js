@@ -12,11 +12,30 @@ async function postToApi(action, payload = {}) {
     headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
     body
   });
-  if (!response.ok) throw new Error(`APIへの接続に失敗しました (${response.status})`);
-  const data = await response.json();
+  const responseText = await response.text();
+  if (!response.ok) {
+    const error = new Error(`APIへの接続に失敗しました (${response.status})`);
+    error.code = "HTTP_ERROR";
+    error.detail = responseText.slice(0, 240);
+    throw error;
+  }
+
+  let data;
+  try {
+    data = JSON.parse(responseText);
+  } catch (cause) {
+    const error = new Error("GAS APIからJSON以外のレスポンスが返されました。");
+    error.code = "INVALID_API_RESPONSE";
+    error.detail = responseText.slice(0, 240);
+    error.cause = cause;
+    throw error;
+  }
+
   if (!data.ok) {
     const error = new Error(data.message || "処理に失敗しました。");
     error.code = data.code || "API_ERROR";
+    error.stage = data.stage || "";
+    error.detail = data.detail || "";
     throw error;
   }
   return data;

@@ -140,11 +140,16 @@ async function loginWithFirebase() {
     state.announcements = data.announcements || [];
     renderPortal();
   } catch (error) {
-    console.error(error);
+    console.error("Portal login failed", {
+      code: error.code || "",
+      stage: error.stage || "",
+      detail: error.detail || "",
+      error
+    });
     await signOutUser();
     elements.deniedMessage.textContent = error.code === "ACCESS_DENIED"
       ? "このアカウントは社内ポータルの利用権限がありません。管理者へお問い合わせください。"
-      : error.message || "ログイン処理に失敗しました。";
+      : `${error.message || "ログイン処理に失敗しました。"}${error.code ? `（${error.code}${error.stage ? ` / ${error.stage}` : ""}）` : ""}`;
     showScreen("denied");
   }
 }

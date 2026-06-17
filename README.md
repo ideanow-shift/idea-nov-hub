@@ -1,48 +1,69 @@
 # NOV HUB MVP
 
-IDEA NOVグループ向け社内アプリ統合ポータルです。
+IDEA NOVグループ向け社内アプリ統合ポータルです。GitHub PagesのフロントエンドからFirebase AuthenticationでGoogleログインし、GAS APIでスタッフマスタ照合、権限別アプリ表示、アクセスログ記録を行います。
 
 ## 構成
 
 - `portal`: GitHub Pagesで公開するフロントエンド
-- `gas-backend`: 社員・アプリマスタ照合とアクセスログ用GAS
-- `.github/workflows/deploy-pages.yml`: `portal`のみを公開するGitHub Actions
+- `gas-backend`: Apps Script Web API
+- ポータル管理スプレッドシート: `Apps`、`Announcements`、`AccessLog`
+- スタッフマスタ: 指定された既存スプレッドシート
+- 店舗マスタ: 指定された既存スプレッドシート
 
-## 本番構成
+## スクリプトプロパティ
 
-```text
-GitHub Pages
-  -> Firebase Authentication（Googleログイン）
-  -> Apps Script Web API
-  -> Googleスプレッドシート
-```
+Apps Scriptの「プロジェクトの設定」>「スクリプトプロパティ」に以下を設定します。
 
-## GAS設定
-
-Apps Scriptのスクリプトプロパティに以下を設定します。
-
-| キー | 内容 |
+| キー | 用途 |
 | --- | --- |
-| `SPREADSHEET_ID` | マスタ用スプレッドシートID |
+| `SPREADSHEET_ID` | ポータル管理用スプレッドシートID |
 | `FIREBASE_API_KEY` | Firebase Web API Key |
+| `STAFF_SPREADSHEET_ID` | スタッフマスタID。未設定時は `1UnBwhX8AjBY_sGXNpiYg--3BB2hgh99eu18oL1uOOts` |
+| `STAFF_SHEET_GID` | スタッフマスタのgid。未設定時は `160557983` |
+| `STORE_SPREADSHEET_ID` | 店舗マスタID。未設定時は `1Ozyzi3WqYh7HkYYKBObZr8Mvsm941BQh4XL4w_qp-90` |
+| `STORE_SHEET_GID` | 店舗マスタのgid。未設定時は `0` |
 
-`setupMasterSheets()`を一度だけ実行すると、以下のシートが作成されます。
+`STAFF_SHEET_NAME`、`STORE_SHEET_NAME`を設定した場合は、gidよりシート名を優先します。
 
-- `Employees`
-- `Apps`
-- `Announcements`
-- `AccessLog`
+## スタッフマスタの列
 
-実データ登録後は`setupMasterSheets()`を再実行しないでください。
+次の列名を認識します。日本語・英語の表記ゆれに対応しています。
 
-## GitHub Pages
+- `email` / `メールアドレス` / `Googleアカウント`
+- `name` / `氏名` / `スタッフ名`
+- `store` / `所属店舗` / `店舗名`
+- `storeCode` / `店舗コード`
+- `department` / `所属部署` / `部署`
+- `position` / `役職`
+- `grade` / `等級`
+- `roleLevel` / `権限レベル`
+- `tags` / `権限タグ`
+- `status` / `在籍状況`
 
-GitHubリポジトリの Settings > Pages > Source を`GitHub Actions`に設定します。
-`main`へのpushで`portal`フォルダだけが公開されます。
+`status`が空欄、`active`、`在籍`、`有効`などの場合は利用可として扱います。`inactive`、`退職`、`休職`、`停止`、`無効`などは利用不可です。
 
-## セキュリティ
+## 店舗マスタの列
 
-- 社員マスタに存在し、`status`が`active`のユーザーだけ利用できます。
-- アプリは権限レベル、タグ、部署、役職で絞り込みます。
-- ポータルでの非表示だけでは遷移先アプリを保護できません。
-- 各GAS・Firebaseアプリ側にも認証と権限確認を実装してください。
+店舗マスタはスタッフの店舗情報補完に使います。
+
+- `store` / `店舗名`
+- `storeCode` / `店舗コード`
+- `department` / `部署`
+- `status` / `状態`
+
+## ヘルスチェック
+
+GAS WebアプリURLの末尾に `?action=health` を付けると、Firebase APIキー、ポータル管理シート、スタッフマスタ、店舗マスタの接続状態を確認できます。
+
+## 権限判定
+
+- スタッフマスタにログインメールが存在すること
+- スタッフの`status`が利用可であること
+- アプリの`isActive`が`true`
+- スタッフの`roleLevel`がアプリの`requiredLevel`以上
+- `allowedTags`指定時はスタッフのタグと一致
+- `targetDepartment`、`targetPosition`指定時は一致
+
+## 公開
+
+GitHub Pagesは`.github/workflows/deploy-pages.yml`で`portal`フォルダだけを公開します。

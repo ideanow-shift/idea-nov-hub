@@ -1,11 +1,5 @@
 function setupMasterSheets() {
-  const spreadsheet = getSpreadsheet_();
-  createOrResetSheet_(spreadsheet, SHEETS.EMPLOYEES, [
-    ['email', 'name', 'store', 'department', 'position', 'grade', 'roleLevel', 'tags', 'status'],
-    ['staff@example.com', '佐藤 スタッフ', 'BASSA 新所沢店', 'サロン事業部', 'アシスタント', '1', 1, 'all', 'active'],
-    ['manager@example.com', '鈴木 店長', 'BASSA 高田馬場店', 'サロン事業部', '店長', '3', 3, 'all,manager,sales', 'active'],
-    ['hq@example.com', '田中 本部', '本部', '経営企画部', '部長', '5', 5, 'all,executive,hq,fc', 'active']
-  ]);
+  const spreadsheet = getPortalSpreadsheet_();
   createOrResetSheet_(spreadsheet, SHEETS.APPS, [
     ['appId', 'appName', 'description', 'url', 'category', 'icon', 'requiredLevel', 'allowedTags', 'targetDepartment', 'targetPosition', 'isActive', 'isFeatured', 'priority'],
     ['attendance', '勤怠打刻', '出勤・退勤の打刻と勤務実績の確認', 'https://example.com/', '勤怠・シフト', '⏱️', 1, '', '', '', true, true, 10],

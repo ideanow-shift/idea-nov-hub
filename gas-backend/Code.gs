@@ -15,7 +15,7 @@ const ACTIVE_STATUS_VALUES = ['', 'active', 'true', '1', 'yes', 'on', '在籍', 
 const INACTIVE_STATUS_VALUES = ['inactive', 'false', '0', 'no', 'off', '退職', '休職', '停止', '無効', '利用不可', '削除'];
 
 const STAFF_HEADER_ALIASES = Object.freeze({
-  email: ['email', 'mail', 'gmail', 'googlemail', 'googleaccount', 'account', 'メール', 'メールアドレス', 'googleメール', 'googleアカウント', 'アカウント'],
+  email: ['email', 'emailaddress', 'mail', 'gmail', 'googlemail', 'googleaccount', 'account', 'loginemail', 'loginmail', 'メール', 'メールアドレス', '個人メール', '個人メールアドレス', '個人アドレス', 'gmailアドレス', 'googleメール', 'googleアカウント', 'googleアカウントメール', 'ログインメール', 'ログインアカウント', 'アカウント'],
   name: ['name', 'fullname', 'staffname', 'employeename', '氏名', '名前', 'スタッフ名', '社員名', '従業員名'],
   store: ['store', 'storename', 'shop', 'shopname', 'salon', '所属店舗', '店舗', '店舗名', 'サロン', 'サロン名'],
   storeCode: ['storecode', 'shopcode', '店舗コード', '店コード', '店舗id', 'storeid'],
@@ -213,7 +213,7 @@ function canAccessApp_(employee, app) {
 function normalizeEmployee_(row) {
   const roleLevel = Number(pick_(row, STAFF_HEADER_ALIASES.roleLevel) || 1);
   return {
-    email: String(pick_(row, STAFF_HEADER_ALIASES.email) || '').trim().toLowerCase(),
+    email: String(pickLoose_(row, STAFF_HEADER_ALIASES.email) || '').trim().toLowerCase(),
     name: String(pick_(row, STAFF_HEADER_ALIASES.name) || ''),
     store: String(pick_(row, STAFF_HEADER_ALIASES.store) || ''),
     storeCode: String(pick_(row, STAFF_HEADER_ALIASES.storeCode) || ''),
@@ -433,8 +433,12 @@ function getHealthStatus_() {
     const staffSpreadsheet = openSpreadsheetByConfig_('STAFF_SPREADSHEET_ID', DEFAULT_MASTER_CONFIG.STAFF_SPREADSHEET_ID, 'STAFF_SPREADSHEET_OPEN_FAILED');
     result.checks.staffSpreadsheetAccessible = true;
     const staffSheet = getConfiguredSheet_(staffSpreadsheet, 'STAFF_SHEET_NAME', 'STAFF_SHEET_GID', DEFAULT_MASTER_CONFIG.STAFF_SHEET_GID);
+    const staffRows = sheetToObjects_(staffSheet);
+    const normalizedStaff = staffRows.map(normalizeEmployee_);
     result.checks.staffSheetName = staffSheet.getName();
     result.checks.staffRows = Math.max(staffSheet.getLastRow() - 1, 0);
+    result.checks.staffEmailRows = normalizedStaff.filter(function(item) { return item.email; }).length;
+    result.checks.staffActiveRows = normalizedStaff.filter(function(item) { return item.email && item.status === 'active'; }).length;
   } catch (error) {
     result.checks.staffSpreadsheetError = sanitizeErrorDetail_(String(error.message || error));
   }
@@ -484,6 +488,26 @@ function pick_(row, aliases) {
     const key = normalizeHeaderKey_(aliases[i]);
     if (Object.prototype.hasOwnProperty.call(row, key)) return row[key];
   }
+  return '';
+}
+
+function pickLoose_(row, aliases) {
+  const exact = pick_(row, aliases);
+  if (exact) return exact;
+
+  const keys = Object.keys(row);
+  const normalizedAliases = aliases.map(normalizeHeaderKey_).filter(function(alias) {
+    return alias.length >= 3;
+  });
+
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    for (let j = 0; j < normalizedAliases.length; j++) {
+      const alias = normalizedAliases[j];
+      if (key.indexOf(alias) !== -1 || alias.indexOf(key) !== -1) return row[key];
+    }
+  }
+
   return '';
 }
 

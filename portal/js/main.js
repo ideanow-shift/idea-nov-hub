@@ -2,7 +2,7 @@ import { PORTAL_CONFIG } from "./firebase-config.js";
 import { authIsConfigured, signInWithGoogle, signOutUser } from "./auth.js";
 import { clearApiAuth, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js";
 import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
-import { CATEGORY_ICONS, CATEGORY_ORDER, DEMO_APPS, getVisibleApps } from "./apps.js";
+import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js";
 
 const state = { employee: null, apps: [], announcements: [], mode: PORTAL_CONFIG.authMode, authType: null };
 const elements = Object.fromEntries([
@@ -38,24 +38,37 @@ function getAudienceLabel(app) {
   return labels[Number(app.requiredLevel || 1)] || "対象者";
 }
 
+function createAppIcon(app) {
+  const wrapper = document.createElement("span");
+  wrapper.className = "app-icon";
+  wrapper.setAttribute("aria-hidden", "true");
+  const image = document.createElement("img");
+  image.className = "app-icon-image";
+  image.alt = "";
+  image.src = resolveAppIcon(app);
+  wrapper.append(image);
+  return wrapper;
+}
+
 function createAppCard(app) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "app-card";
   button.dataset.appId = app.appId;
-  button.innerHTML = `
-    <span class="app-icon" aria-hidden="true">${app.icon || "🔗"}</span>
-    <span class="app-info">
-      <span class="app-title-row">
-        <span class="app-title">${escapeHtml(app.appName)}</span>
-        <span class="app-arrow" aria-hidden="true">›</span>
-      </span>
-      <span class="app-description">${escapeHtml(app.description || "")}</span>
-      <span class="app-meta">
-        <span class="label">${escapeHtml(app.category || "社内アプリ")}</span>
-        <span class="label">${getAudienceLabel(app)}</span>
-      </span>
+  const icon = createAppIcon(app);
+  const info = document.createElement("span");
+  info.className = "app-info";
+  info.innerHTML = `
+    <span class="app-title-row">
+      <span class="app-title">${escapeHtml(app.appName)}</span>
+      <span class="app-arrow" aria-hidden="true">›</span>
+    </span>
+    <span class="app-description">${escapeHtml(app.description || "")}</span>
+    <span class="app-meta">
+      <span class="label">${escapeHtml(app.category || "社内アプリ")}</span>
+      <span class="label">${getAudienceLabel(app)}</span>
     </span>`;
+  button.append(icon, info);
   button.addEventListener("click", () => openApp(app));
   return button;
 }
@@ -76,7 +89,7 @@ function renderAnnouncements() {
     const article = document.createElement("article");
     article.className = `notice${notice.type === "important" ? " notice-important" : ""}`;
     article.innerHTML = `
-      <span class="notice-icon" aria-hidden="true">${notice.type === "important" ? "⚠️" : "ℹ️"}</span>
+      <span class="notice-icon" aria-hidden="true">${notice.type === "important" ? "!" : "i"}</span>
       <div><h3 class="notice-title">${escapeHtml(notice.title)}</h3><p class="notice-body">${escapeHtml(notice.body)}</p></div>`;
     return article;
   }));
@@ -94,7 +107,7 @@ function renderApps() {
   elements.categoryApps.replaceChildren(...(categories.length ? categories.map(({ category, apps }) => {
     const section = document.createElement("section");
     section.className = "category-block";
-    section.innerHTML = `<h3 class="category-title">${CATEGORY_ICONS[category] || "🔗"} ${escapeHtml(category)}</h3>`;
+    section.innerHTML = `<h3 class="category-title">${escapeHtml(category)}</h3>`;
     const grid = document.createElement("div");
     grid.className = "app-grid";
     grid.append(...apps.map(createAppCard));
@@ -216,7 +229,8 @@ async function logout() {
   showScreen("login");
 }
 
-function initialize() {
+async function initialize() {
+  await loadAppIconRegistry();
   DEMO_EMPLOYEES.forEach((employee) => {
     const option = document.createElement("option");
     option.value = employee.email;

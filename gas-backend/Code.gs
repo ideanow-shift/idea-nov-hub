@@ -335,7 +335,7 @@ function normalizeApp_(row) {
     description: String(pick_(row, APP_HEADER_ALIASES.description) || ''),
     url: String(pick_(row, APP_HEADER_ALIASES.url) || ''),
     category: String(pick_(row, APP_HEADER_ALIASES.category) || '社内アプリ'),
-    icon: String(pick_(row, APP_HEADER_ALIASES.icon) || '🔗'),
+    icon: String(pick_(row, APP_HEADER_ALIASES.icon) || 'default'),
     requiredLevel: Number(pick_(row, APP_HEADER_ALIASES.requiredLevel) || 1),
     allowedTags: splitList_(pick_(row, APP_HEADER_ALIASES.allowedTags)),
     targetDepartment: splitList_(pick_(row, APP_HEADER_ALIASES.targetDepartment)),

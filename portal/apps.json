@@ -1,0 +1,101 @@
+{
+  "version": "nova-design-system-v1",
+  "defaultIcon": "./assets/icons/default.svg",
+  "apps": [
+    {
+      "appId": "education-web",
+      "appName": "教育部WEBアプリ",
+      "icon": "./assets/icons/education.svg",
+      "aliases": ["教育部WEBアプリ", "教育", "learning", "NOV Academy"]
+    },
+    {
+      "appId": "sales-web",
+      "appName": "営業部WEBアプリ",
+      "icon": "./assets/icons/sales.svg",
+      "aliases": ["営業部WEBアプリ", "営業", "sales", "sales-dashboard", "売上ダッシュボード"]
+    },
+    {
+      "appId": "attendance",
+      "appName": "勤怠管理",
+      "icon": "./assets/icons/attendance.svg",
+      "aliases": ["勤怠管理", "勤怠打刻", "attendance"]
+    },
+    {
+      "appId": "shift",
+      "appName": "シフト作成",
+      "icon": "./assets/icons/shift.svg",
+      "aliases": ["シフト作成", "シフト管理", "shift"]
+    },
+    {
+      "appId": "inventory",
+      "appName": "棚卸し",
+      "icon": "./assets/icons/inventory.svg",
+      "aliases": ["棚卸し", "棚卸", "inventory"]
+    },
+    {
+      "appId": "instagram-auto-post",
+      "appName": "Instagram自動投稿",
+      "icon": "./assets/icons/instagram.svg",
+      "aliases": ["Instagram自動投稿", "instagram", "インスタ", "自動投稿"]
+    },
+    {
+      "appId": "management-system",
+      "appName": "経営管理システム",
+      "icon": "./assets/icons/management.svg",
+      "aliases": ["経営管理システム", "経営管理", "management"]
+    },
+    {
+      "appId": "one-on-one",
+      "appName": "1on1 MTG",
+      "icon": "./assets/icons/one-on-one.svg",
+      "aliases": ["1on1 MTG", "1on1", "one-on-one", "面談"]
+    },
+    {
+      "appId": "product-management",
+      "appName": "商品管理",
+      "icon": "./assets/icons/product.svg",
+      "aliases": ["商品管理", "product"]
+    },
+    {
+      "appId": "nov-hub",
+      "appName": "NOV HUB",
+      "icon": "./assets/icons/nov-hub.svg",
+      "aliases": ["NOV HUB", "IDEANOV", "portal"]
+    },
+    {
+      "appId": "task-management",
+      "appName": "タスク管理",
+      "icon": "./assets/icons/task.svg",
+      "aliases": ["タスク管理", "task"]
+    },
+    {
+      "appId": "THANKS",
+      "appName": "理念浸透システム",
+      "icon": "./assets/icons/philosophy.svg",
+      "aliases": ["THANKS", "理念浸透システム", "理念浸透", "サンクスギフト"]
+    },
+    {
+      "appId": "sales-education-db",
+      "appName": "営業部⇔教育部DB",
+      "icon": "./assets/icons/database.svg",
+      "aliases": ["営業部⇔教育部DB", "営業部教育部DB", "DB", "database"]
+    },
+    {
+      "appId": "campaign-management",
+      "appName": "キャンペーン管理",
+      "icon": "./assets/icons/campaign.svg",
+      "aliases": ["キャンペーン管理", "campaign"]
+    }
+  ],
+  "categories": {
+    "勤怠・シフト": "./assets/icons/shift.svg",
+    "教育": "./assets/icons/education.svg",
+    "売上管理": "./assets/icons/sales.svg",
+    "評価": "./assets/icons/one-on-one.svg",
+    "FC管理": "./assets/icons/management.svg",
+    "資料室": "./assets/icons/default.svg",
+    "AIツール": "./assets/icons/nov-hub.svg",
+    "総務申請": "./assets/icons/task.svg",
+    "称賛": "./assets/icons/philosophy.svg"
+  }
+}

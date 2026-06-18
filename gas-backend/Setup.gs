@@ -2,10 +2,10 @@ function setupMasterSheets() {
   const spreadsheet = getPortalSpreadsheet_();
   createOrResetSheet_(spreadsheet, SHEETS.APPS, [
     ['appId', 'appName', 'description', 'url', 'category', 'icon', 'requiredLevel', 'allowedTags', 'targetDepartment', 'targetPosition', 'isActive', 'isFeatured', 'priority'],
-    ['attendance', '勤怠打刻', '出勤・退勤の打刻と勤務実績の確認', 'https://example.com/', '勤怠・シフト', '⏱️', 1, '', '', '', true, true, 10],
-    ['shift', 'シフト管理', '勤務予定・希望休の確認', 'https://example.com/', '勤怠・シフト', '📅', 1, '', '', '', true, true, 20],
-    ['sales-dashboard', '売上ダッシュボード', '店舗実績と目標進捗を確認', 'https://example.com/', '売上管理', '📊', 3, 'sales,executive', '', '', true, true, 30],
-    ['documents', '社内資料室', '規程・申請書・ブランド資料を検索', 'https://example.com/', '資料室', '📁', 1, '', '', '', true, false, 40]
+    ['attendance', '勤怠管理', '出勤・退勤の打刻と勤務実績の確認', 'https://example.com/', '勤怠・シフト', 'attendance', 1, '', '', '', true, true, 10],
+    ['shift', 'シフト作成', '勤務予定・希望休の確認', 'https://example.com/', '勤怠・シフト', 'shift', 1, '', '', '', true, true, 20],
+    ['sales-web', '営業部WEBアプリ', '店舗実績と目標進捗を確認', 'https://example.com/', '売上管理', 'sales-web', 3, 'sales,executive', '', '', true, true, 30],
+    ['education-web', '教育部WEBアプリ', '教育動画・技術マニュアル・研修予定', 'https://example.com/', '教育', 'education-web', 1, '', '', '', true, false, 40]
   ]);
   createOrResetSheet_(spreadsheet, SHEETS.ANNOUNCEMENTS, [
     ['type', 'title', 'body', 'isActive', 'priority'],

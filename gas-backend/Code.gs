@@ -35,6 +35,30 @@ const STORE_HEADER_ALIASES = Object.freeze({
   status: ['status', 'state', 'ステータス', '状態', '利用状態']
 });
 
+const APP_HEADER_ALIASES = Object.freeze({
+  appId: ['appid', 'app_id', 'id', 'アプリid', 'アプリID', 'アプリコード', '管理id'],
+  appName: ['appname', 'app_name', 'name', 'title', 'アプリ名', '名称', 'タイトル'],
+  description: ['description', 'desc', 'summary', '説明', '説明文', '概要'],
+  url: ['url', 'link', 'href', 'リンク', '遷移先url', '遷移先URL', 'アプリurl', 'アプリURL'],
+  category: ['category', 'カテゴリ', 'カテゴリー', '分類'],
+  icon: ['icon', 'emoji', 'アイコン', '絵文字'],
+  requiredLevel: ['requiredlevel', 'required_level', 'level', '必要権限レベル', '権限レベル', '最低権限', '表示権限'],
+  allowedTags: ['allowedtags', 'allowed_tags', 'tags', 'tag', '許可タグ', '権限タグ', 'タグ'],
+  targetDepartment: ['targetdepartment', 'target_department', 'department', '対象部署', '部署'],
+  targetPosition: ['targetposition', 'target_position', 'position', '対象役職', '役職'],
+  isActive: ['isactive', 'active', 'enabled', 'visible', '表示', '公開', '有効', '表示可否'],
+  isFeatured: ['isfeatured', 'featured', 'favorite', 'よく使う', 'おすすめ', '優先表示'],
+  priority: ['priority', 'sort', 'order', '表示順', '並び順', '優先度']
+});
+
+const ANNOUNCEMENT_HEADER_ALIASES = Object.freeze({
+  type: ['type', '種別', 'タイプ'],
+  title: ['title', 'タイトル', '件名'],
+  body: ['body', '本文', '内容', 'お知らせ内容'],
+  isActive: ['isactive', 'active', 'enabled', 'visible', '表示', '公開', '有効', '表示可否'],
+  priority: ['priority', 'sort', 'order', '表示順', '並び順', '優先度']
+});
+
 function doGet(e) {
   const action = String((e && e.parameter && e.parameter.action) || '');
   if (action === 'health') return jsonOutput_(getHealthStatus_());
@@ -231,7 +255,7 @@ function findActiveEmployeeByPin_(email, pin) {
 
 function findAppById_(appId) {
   const row = readPortalSheetObjects_(SHEETS.APPS).find(function(item) {
-    return String(item.appId || '') === String(appId || '');
+    return String(pick_(item, APP_HEADER_ALIASES.appId) || '') === String(appId || '');
   });
   return row ? normalizeApp_(row) : null;
 }
@@ -306,29 +330,29 @@ function sanitizeEmployee_(employee) {
 
 function normalizeApp_(row) {
   return {
-    appId: String(row.appId || ''),
-    appName: String(row.appName || ''),
-    description: String(row.description || ''),
-    url: String(row.url || ''),
-    category: String(row.category || ''),
-    icon: String(row.icon || '🔗'),
-    requiredLevel: Number(row.requiredLevel || 1),
-    allowedTags: splitList_(row.allowedTags),
-    targetDepartment: splitList_(row.targetDepartment),
-    targetPosition: splitList_(row.targetPosition),
-    isActive: parseBoolean_(row.isActive),
-    isFeatured: parseBoolean_(row.isFeatured),
-    priority: Number(row.priority || 999)
+    appId: String(pick_(row, APP_HEADER_ALIASES.appId) || ''),
+    appName: String(pick_(row, APP_HEADER_ALIASES.appName) || ''),
+    description: String(pick_(row, APP_HEADER_ALIASES.description) || ''),
+    url: String(pick_(row, APP_HEADER_ALIASES.url) || ''),
+    category: String(pick_(row, APP_HEADER_ALIASES.category) || '社内アプリ'),
+    icon: String(pick_(row, APP_HEADER_ALIASES.icon) || '🔗'),
+    requiredLevel: Number(pick_(row, APP_HEADER_ALIASES.requiredLevel) || 1),
+    allowedTags: splitList_(pick_(row, APP_HEADER_ALIASES.allowedTags)),
+    targetDepartment: splitList_(pick_(row, APP_HEADER_ALIASES.targetDepartment)),
+    targetPosition: splitList_(pick_(row, APP_HEADER_ALIASES.targetPosition)),
+    isActive: parseBoolean_(pick_(row, APP_HEADER_ALIASES.isActive)),
+    isFeatured: parseBoolean_(pick_(row, APP_HEADER_ALIASES.isFeatured)),
+    priority: Number(pick_(row, APP_HEADER_ALIASES.priority) || 999)
   };
 }
 
 function normalizeAnnouncement_(row) {
   return {
-    type: String(row.type || 'info'),
-    title: String(row.title || ''),
-    body: String(row.body || ''),
-    isActive: parseBoolean_(row.isActive),
-    priority: Number(row.priority || 999)
+    type: String(pick_(row, ANNOUNCEMENT_HEADER_ALIASES.type) || 'info'),
+    title: String(pick_(row, ANNOUNCEMENT_HEADER_ALIASES.title) || ''),
+    body: String(pick_(row, ANNOUNCEMENT_HEADER_ALIASES.body) || ''),
+    isActive: parseBoolean_(pick_(row, ANNOUNCEMENT_HEADER_ALIASES.isActive)),
+    priority: Number(pick_(row, ANNOUNCEMENT_HEADER_ALIASES.priority) || 999)
   };
 }
 
@@ -463,6 +487,12 @@ function getHealthStatus_() {
       const name = SHEETS[key];
       result.checks.sheets[name] = Boolean(portalSpreadsheet.getSheetByName(name));
     });
+    if (result.checks.sheets[SHEETS.APPS]) {
+      const apps = readPortalSheetObjects_(SHEETS.APPS).map(normalizeApp_);
+      result.checks.appRows = apps.length;
+      result.checks.appIdRows = apps.filter(function(app) { return app.appId; }).length;
+      result.checks.appActiveRows = apps.filter(function(app) { return app.appId && app.isActive; }).length;
+    }
   } catch (error) {
     result.checks.portalSpreadsheetError = sanitizeErrorDetail_(String(error.message || error));
   }
@@ -593,7 +623,7 @@ function splitList_(value) {
 }
 
 function parseBoolean_(value) {
-  return ['true', '1', 'yes', 'on'].indexOf(String(value || '').toLowerCase()) !== -1;
+  return ['true', '1', 'yes', 'on', '表示', '公開', '有効', 'はい', '○', '〇'].indexOf(String(value || '').trim().toLowerCase()) !== -1;
 }
 
 function hasIntersection_(left, right) {

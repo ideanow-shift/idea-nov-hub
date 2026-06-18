@@ -85,7 +85,9 @@ function renderAnnouncements() {
 function renderApps() {
   const featured = state.apps.filter((app) => app.isFeatured);
   elements.featuredApps.replaceChildren(...(featured.length ? featured.map(createAppCard) : [createEmptyState("よく使うアプリはまだありません。")]));
-  const categories = CATEGORY_ORDER.map((category) => ({
+  const dynamicCategories = [...new Set(state.apps.map((app) => app.category || "社内アプリ"))]
+    .filter((category) => !CATEGORY_ORDER.includes(category));
+  const categories = [...CATEGORY_ORDER, ...dynamicCategories].map((category) => ({
     category,
     apps: state.apps.filter((app) => app.category === category)
   })).filter((group) => group.apps.length);

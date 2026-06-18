@@ -29,18 +29,12 @@ body { background: #FAFAFA; }
   gap: var(--spacing-sm);
 }
 
-.brand-mark {
-  display: grid;
-  width: 36px;
+.brand-logo {
+  display: block;
+  width: 46px;
   height: 36px;
   flex: 0 0 auto;
-  place-items: center;
-  border-radius: var(--radius-md);
-  background: var(--color-bassa);
-  color: #FFFFFF;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  object-fit: contain;
 }
 
 .brand-title {

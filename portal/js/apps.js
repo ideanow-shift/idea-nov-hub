@@ -2,7 +2,7 @@ export const CATEGORY_ORDER = ["勤怠・シフト", "教育", "売上管理", "
 
 export const DEMO_APPS = [
   { appId: "attendance", appName: "勤怠管理", description: "出勤・退勤の打刻と勤務実績の確認", url: "#demo-attendance", category: "勤怠・シフト", icon: "attendance", requiredLevel: 1, allowedTags: [], targetDepartment: [], targetPosition: [], isActive: true, isFeatured: true, priority: 10 },
-  { appId: "shift", appName: "シフト作成", description: "勤務予定・希望休の確認", url: "#demo-shift", category: "勤怠・シフト", icon: "shift", requiredLevel: 1, allowedTags: [], targetDepartment: [], targetPosition: [], isActive: true, isFeatured: true, priority: 20 },
+  { appId: "shift", appName: "シフト作成", description: "勤務予定・希望休の確認", url: "https://ideanow-shift.github.io/shift/shift_demo.html", category: "勤怠・シフト", icon: "shift", requiredLevel: 1, allowedTags: [], targetDepartment: [], targetPosition: [], isActive: true, isFeatured: true, priority: 20 },
   { appId: "education-web", appName: "教育部WEBアプリ", description: "教育動画・技術マニュアル・研修予定", url: "#demo-learning", category: "教育", icon: "education-web", requiredLevel: 1, allowedTags: [], targetDepartment: [], targetPosition: [], isActive: true, isFeatured: true, priority: 30 },
   { appId: "sales-web", appName: "営業部WEBアプリ", description: "店舗実績と目標進捗を確認", url: "#demo-sales", category: "売上管理", icon: "sales-web", requiredLevel: 3, allowedTags: ["sales", "executive"], targetDepartment: [], targetPosition: [], isActive: true, isFeatured: true, priority: 40 },
   { appId: "one-on-one", appName: "1on1 MTG", description: "面談記録とフィードバックを確認", url: "#demo-1on1", category: "評価", icon: "one-on-one", requiredLevel: 2, allowedTags: [], targetDepartment: [], targetPosition: [], isActive: true, isFeatured: false, priority: 50 },

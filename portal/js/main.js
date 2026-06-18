@@ -1,13 +1,13 @@
 import { PORTAL_CONFIG } from "./firebase-config.js";
 import { authIsConfigured, signInWithGoogle, signOutUser } from "./auth.js";
-import { fetchPortalData, writeAccessLog } from "./api.js";
+import { clearApiAuth, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js";
 import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
 import { CATEGORY_ICONS, CATEGORY_ORDER, DEMO_APPS, getVisibleApps } from "./apps.js";
 
-const state = { employee: null, apps: [], announcements: [], mode: PORTAL_CONFIG.authMode };
+const state = { employee: null, apps: [], announcements: [], mode: PORTAL_CONFIG.authMode, authType: null };
 const elements = Object.fromEntries([
   "header-user", "user-name", "user-store", "login-screen", "loading-screen",
-  "denied-screen", "portal-screen", "google-login", "demo-controls", "demo-employee",
+  "denied-screen", "portal-screen", "google-login", "pin-login-form", "pin-email", "pin-code", "demo-controls", "demo-employee",
   "demo-login", "logout-button", "denied-message", "denied-back", "welcome-title",
   "announcements", "featured-apps", "category-apps", "visible-app-count", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
@@ -133,8 +133,10 @@ async function openApp(app) {
 async function loginWithFirebase() {
   showScreen("loading");
   try {
+    setFirebaseAuth();
     await signInWithGoogle();
     const data = await fetchPortalData();
+    state.authType = "firebase";
     state.employee = data.employee;
     state.apps = getVisibleApps(data.employee, data.apps || []);
     state.announcements = data.announcements || [];
@@ -147,8 +149,38 @@ async function loginWithFirebase() {
       error
     });
     await signOutUser();
+    clearApiAuth();
     elements.deniedMessage.textContent = error.code === "ACCESS_DENIED"
       ? "このアカウントは社内ポータルの利用権限がありません。管理者へお問い合わせください。"
+      : `${error.message || "ログイン処理に失敗しました。"}${error.code ? `（${error.code}${error.stage ? ` / ${error.stage}` : ""}）` : ""}`;
+    showScreen("denied");
+  }
+}
+
+async function loginWithPin(event) {
+  event.preventDefault();
+  const email = elements.pinEmail.value;
+  const pin = elements.pinCode.value;
+  showScreen("loading");
+  try {
+    setPinAuth(email, pin);
+    const data = await fetchPortalData();
+    state.authType = "pin";
+    state.employee = data.employee;
+    state.apps = getVisibleApps(data.employee, data.apps || []);
+    state.announcements = data.announcements || [];
+    elements.pinCode.value = "";
+    renderPortal();
+  } catch (error) {
+    console.error("PIN login failed", {
+      code: error.code || "",
+      stage: error.stage || "",
+      detail: error.detail || "",
+      error
+    });
+    clearApiAuth();
+    elements.deniedMessage.textContent = error.code === "ACCESS_DENIED"
+      ? "メールアドレスまたはPINが正しくありません。"
       : `${error.message || "ログイン処理に失敗しました。"}${error.code ? `（${error.code}${error.stage ? ` / ${error.stage}` : ""}）` : ""}`;
     showScreen("denied");
   }
@@ -169,12 +201,16 @@ function loginDemo() {
 }
 
 async function logout() {
-  if (state.mode === "firebase") {
+  if (state.authType === "firebase" || state.authType === "pin") {
     try { await writeAccessLog("logout", { result: "success" }); } catch (error) { console.error(error); }
+  }
+  if (state.authType === "firebase") {
     await signOutUser();
   }
+  clearApiAuth();
   state.employee = null;
   state.apps = [];
+  state.authType = null;
   showScreen("login");
 }
 
@@ -189,9 +225,13 @@ function initialize() {
   elements.googleLogin.hidden = !firebaseReady;
   elements.demoControls.hidden = state.mode === "firebase" && firebaseReady;
   elements.googleLogin.addEventListener("click", loginWithFirebase);
+  elements.pinLoginForm.addEventListener("submit", loginWithPin);
   elements.demoLogin.addEventListener("click", loginDemo);
   elements.logoutButton.addEventListener("click", logout);
-  elements.deniedBack.addEventListener("click", () => showScreen("login"));
+  elements.deniedBack.addEventListener("click", () => {
+    clearApiAuth();
+    showScreen("login");
+  });
   if (state.mode === "firebase" && !firebaseReady) {
     elements.deniedMessage.textContent = "FirebaseまたはGAS APIの設定が未完了です。firebase-config.jsを確認してください。";
     showScreen("denied");

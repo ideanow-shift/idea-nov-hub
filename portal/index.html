@@ -34,8 +34,16 @@
       <div class="login-card">
         <div class="login-logo" aria-hidden="true">NOV</div>
         <h2 class="login-title">おかえりなさい</h2>
-        <p class="login-copy">社内アプリをひとつの場所から。<br>Googleアカウントでログインしてください。</p>
+        <p class="login-copy">社内アプリをひとつの場所から。<br>メールアドレスとPINでログインできます。</p>
         <div class="login-actions">
+          <form class="pin-login-form" id="pin-login-form">
+            <label class="form-label" for="pin-email">メールアドレス</label>
+            <input class="form-input" id="pin-email" type="email" inputmode="email" autocomplete="username" placeholder="name@example.com" required>
+            <label class="form-label" for="pin-code">PIN</label>
+            <input class="form-input" id="pin-code" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PINを入力" required>
+            <button class="button button-primary" id="pin-login" type="submit">メールとPINでログイン</button>
+          </form>
+          <div class="login-divider"><span>または</span></div>
           <button class="button button-primary" id="google-login" type="button">Googleでログイン</button>
           <div id="demo-controls">
             <label class="sr-only" for="demo-employee">デモ社員を選択</label>
@@ -43,7 +51,7 @@
             <button class="button button-secondary demo-button" id="demo-login" type="button">選択した社員でデモを見る</button>
           </div>
         </div>
-        <p class="caption login-note">社員マスタに登録されたアカウントのみ利用できます。</p>
+        <p class="caption login-note">社員名簿マスタに登録されたメールアドレスのみ利用できます。</p>
       </div>
     </section>
 

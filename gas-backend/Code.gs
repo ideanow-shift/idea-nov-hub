@@ -15,7 +15,8 @@ const ACTIVE_STATUS_VALUES = ['', 'active', 'true', '1', 'yes', 'on', '在籍', 
 const INACTIVE_STATUS_VALUES = ['inactive', 'false', '0', 'no', 'off', '退職', '休職', '停止', '無効', '利用不可', '削除'];
 
 const STAFF_HEADER_ALIASES = Object.freeze({
-  email: ['email', 'emailaddress', 'mail', 'gmail', 'googlemail', 'googleaccount', 'account', 'loginemail', 'loginmail', 'メール', 'メールアドレス', '個人メール', '個人メールアドレス', '個人アドレス', 'gmailアドレス', 'googleメール', 'googleアカウント', 'googleアカウントメール', 'ログインメール', 'ログインアカウント', 'アカウント'],
+  email: ['email', 'emailaddress', 'mail', 'gmail', 'googlemail', 'googleaccount', 'account', 'loginemail', 'loginmail', 'メール', 'メールアドレス', '個人メール', '個人メールアドレス', '個人アドレス', 'gmailアドレス', 'googleメール', 'googleアカウント', 'googleアカウントメール', 'ログインメール', 'ログインアカウント', 'アカウント', 'col19'],
+  pin: ['pin', 'password', 'passcode', '暗証番号', 'ログインpin', '認証pin', '認証コード', 'パスコード', 'col18'],
   name: ['name', 'fullname', 'staffname', 'employeename', '氏名', '名前', 'スタッフ名', '社員名', '従業員名'],
   store: ['store', 'storename', 'shop', 'shopname', 'salon', '所属店舗', '店舗', '店舗名', 'サロン', 'サロン名'],
   storeCode: ['storecode', 'shopcode', '店舗コード', '店コード', '店舗id', 'storeid'],
@@ -49,11 +50,13 @@ function doPost(e) {
     const token = String(e.parameter.token || '');
     const payload = parseJson_(e.parameter.payload, {});
 
-    stage = 'verifyFirebaseToken';
-    const authUser = verifyFirebaseToken_(token);
+    stage = 'authenticate';
+    const authUser = authenticateRequest_(token, payload);
 
     stage = 'findActiveEmployee';
-    const employee = findActiveEmployee_(authUser.email);
+    const employee = authUser.authType === 'pin'
+      ? authUser.employee
+      : findActiveEmployee_(authUser.email);
 
     if (!employee) {
       stage = 'appendDeniedLog';
@@ -184,6 +187,23 @@ function verifyFirebaseToken_(idToken) {
   };
 }
 
+function authenticateRequest_(idToken, payload) {
+  const authType = String(payload.authType || 'firebase').trim().toLowerCase();
+  if (authType === 'pin') {
+    const email = normalizeEmailValue_(payload.email);
+    return {
+      authType: 'pin',
+      email: email,
+      displayName: '',
+      employee: findActiveEmployeeByPin_(email, payload.pin)
+    };
+  }
+
+  const firebaseUser = verifyFirebaseToken_(idToken);
+  firebaseUser.authType = 'firebase';
+  return firebaseUser;
+}
+
 function findActiveEmployee_(email) {
   const employee = readStaffRows_()
     .map(normalizeEmployee_)
@@ -191,6 +211,21 @@ function findActiveEmployee_(email) {
     .find(function(item) { return item.email === String(email).trim().toLowerCase(); });
 
   if (!employee || employee.status !== 'active') return null;
+  return enrichEmployeeWithStore_(employee);
+}
+
+function findActiveEmployeeByPin_(email, pin) {
+  const normalizedEmail = normalizeEmailValue_(email);
+  const normalizedPin = normalizePinValue_(pin);
+  if (!normalizedEmail || !normalizedPin) return null;
+
+  const employee = readStaffRows_()
+    .map(normalizeEmployee_)
+    .filter(function(item) { return item.email; })
+    .find(function(item) { return item.email === normalizedEmail; });
+
+  if (!employee || employee.status !== 'active') return null;
+  if (normalizePinValue_(employee.pin) !== normalizedPin) return null;
   return enrichEmployeeWithStore_(employee);
 }
 
@@ -212,8 +247,10 @@ function canAccessApp_(employee, app) {
 
 function normalizeEmployee_(row) {
   const roleLevel = Number(pick_(row, STAFF_HEADER_ALIASES.roleLevel) || 1);
+  const email = normalizeEmailValue_(pickLoose_(row, STAFF_HEADER_ALIASES.email)) || findEmailInRow_(row);
   return {
-    email: String(pickLoose_(row, STAFF_HEADER_ALIASES.email) || '').trim().toLowerCase(),
+    email: email,
+    pin: normalizePinValue_(pick_(row, STAFF_HEADER_ALIASES.pin)),
     name: String(pick_(row, STAFF_HEADER_ALIASES.name) || ''),
     store: String(pick_(row, STAFF_HEADER_ALIASES.store) || ''),
     storeCode: String(pick_(row, STAFF_HEADER_ALIASES.storeCode) || ''),
@@ -341,6 +378,7 @@ function sheetToObjects_(sheet) {
     .filter(function(row) { return row.some(function(cell) { return String(cell).trim() !== ''; }); })
     .map(function(row) {
       return headers.reduce(function(object, header, index) {
+        object['col' + (index + 1)] = row[index];
         if (header) object[header] = row[index];
         return object;
       }, {});
@@ -438,6 +476,7 @@ function getHealthStatus_() {
     result.checks.staffSheetName = staffSheet.getName();
     result.checks.staffRows = Math.max(staffSheet.getLastRow() - 1, 0);
     result.checks.staffEmailRows = normalizedStaff.filter(function(item) { return item.email; }).length;
+    result.checks.staffPinRows = normalizedStaff.filter(function(item) { return item.pin; }).length;
     result.checks.staffActiveRows = normalizedStaff.filter(function(item) { return item.email && item.status === 'active'; }).length;
   } catch (error) {
     result.checks.staffSpreadsheetError = sanitizeErrorDetail_(String(error.message || error));
@@ -509,6 +548,25 @@ function pickLoose_(row, aliases) {
   }
 
   return '';
+}
+
+function findEmailInRow_(row) {
+  const values = Object.keys(row).map(function(key) { return row[key]; });
+  for (let i = 0; i < values.length; i++) {
+    const email = normalizeEmailValue_(values[i]);
+    if (email) return email;
+  }
+  return '';
+}
+
+function normalizeEmailValue_(value) {
+  const text = String(value || '').trim().toLowerCase();
+  const match = text.match(/[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+/);
+  return match ? match[0] : '';
+}
+
+function normalizePinValue_(value) {
+  return String(value || '').trim();
 }
 
 function normalizeHeaderKey_(value) {

@@ -148,6 +148,50 @@ body { background: #FAFAFA; }
   gap: var(--spacing-md);
 }
 
+.pin-login-form {
+  display: grid;
+  gap: var(--spacing-sm);
+  text-align: left;
+}
+
+.form-label {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.form-input {
+  min-height: 44px;
+  width: 100%;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: #FFFFFF;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 16px;
+  padding: 12px 16px;
+}
+
+.form-input:focus {
+  border-color: var(--color-bassa);
+  outline: 2px solid rgba(232, 180, 184, 0.28);
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.login-divider::before,
+.login-divider::after {
+  flex: 1;
+  height: 1px;
+  background: var(--border-light);
+  content: "";
+}
+
 .login-note { margin: var(--spacing-lg) 0 0; }
 
 .loading-screen {

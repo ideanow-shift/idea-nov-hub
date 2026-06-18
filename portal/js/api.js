@@ -1,11 +1,26 @@
 import { PORTAL_CONFIG } from "./firebase-config.js";
 import { getIdToken } from "./auth.js";
 
+let currentAuth = { authType: "firebase" };
+
+export function setPinAuth(email, pin) {
+  currentAuth = { authType: "pin", email: String(email || "").trim(), pin: String(pin || "").trim() };
+}
+
+export function setFirebaseAuth() {
+  currentAuth = { authType: "firebase" };
+}
+
+export function clearApiAuth() {
+  currentAuth = { authType: "firebase" };
+}
+
 async function postToApi(action, payload = {}) {
+  const requestPayload = { ...currentAuth, ...payload };
   const body = new URLSearchParams({
     action,
-    token: await getIdToken(),
-    payload: JSON.stringify(payload)
+    token: currentAuth.authType === "pin" ? "" : await getIdToken(),
+    payload: JSON.stringify(requestPayload)
   });
   const response = await fetch(PORTAL_CONFIG.gasApiUrl, {
     method: "POST",

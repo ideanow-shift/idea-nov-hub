@@ -1,0 +1,1060 @@
+const STORE_ACCOUNTS = [
+  { id: "kokubunji", pass: "nov-kokubunji", name: "国分寺店", admin: false },
+  { id: "tachikawa", pass: "nov-tachikawa", name: "立川店", admin: false },
+  { id: "kumegawa", pass: "nov-kumegawa", name: "久米川店", admin: false },
+  { id: "honbu", pass: "nov-admin", name: "本部", admin: true }
+];
+
+const STORE_MASTER_CONFIG = {
+  spreadsheetId: "1Ozyzi3WqYh7HkYYKBObZr8Mvsm941BQh4XL4w_qp-90",
+  logSpreadsheetId: "10ztt-hLhfm8OiDUvLi5fk0v6r8BF87hUiN1SHGAYH6M",
+  authEndpoint: "https://script.google.com/macros/s/AKfycbxRvDJC9MDC8KydrQ7qIxx3vDlcjEBdX-Eh4UOMdHJirMdEZ6e6j5HkPRFpDhObJNOb/exec"
+};
+
+const STORAGE_KEYS = {
+  session: "novConcierge.session.v1",
+  logs: "novConcierge.logs.v1",
+  knowledgeUpdates: "novConcierge.knowledgeUpdates.v1"
+};
+
+const KNOWLEDGE_AREAS = [
+  {
+    id: "sandbox",
+    name: "検証用",
+    owner: "本部",
+    notebook: "Notebook⑥",
+    description: "新しい資料、回答品質、リンク導線を本番反映前に確認する検証用Notebook",
+    sourceHref: "https://drive.google.com/drive/folders/12LiVPQt_esYMtZ0t4qftxXXXyxeBJJeK?usp=drive_link",
+    notebookHref: "https://notebooklm.google.com/notebook/518da655-be3e-4c76-a323-8beb69c6f92d"
+  },
+  {
+    id: "staff-support",
+    name: "スタッフサポート",
+    owner: "総務人事",
+    notebook: "Notebook①",
+    description: "就業規則、福利厚生、慶弔、給与、勤怠、社会保険、各種申請、FAQ",
+    sourceHref: "https://drive.google.com/drive/folders/188b_tkR04bOgXbbrfYJKeGXWLF87fWkl?usp=drive_link",
+    notebookHref: "https://notebooklm.google.com/notebook/0b22a0dd-d764-4380-8444-218683b4ee28"
+  },
+  {
+    id: "education",
+    name: "教育",
+    owner: "教育部",
+    notebook: "Notebook②",
+    description: "技術マニュアル、接客、カウンセリング、教育資料、動画文字起こし",
+    sourceHref: "https://drive.google.com/drive/folders/1Zflkf2P_cmLwpmGLw6xujjWsy5zNJ4Wp?usp=drive_link",
+    notebookHref: "https://notebooklm.google.com/notebook/e5e2efce-740b-493f-b708-f3108e7f0084"
+  },
+  {
+    id: "manager",
+    name: "管理者",
+    owner: "営業部",
+    notebook: "Notebook③",
+    description: "評価制度、面談、育成、環境整備、店長資料",
+    sourceHref: "https://drive.google.com/drive/folders/1mRK3QKfJ9_2uwhf3Pz1yRxf1PhHbtOkB?usp=drive_link",
+    notebookHref: "https://notebooklm.google.com/notebook/a6b01da9-00ea-4479-bb79-0b0fdd4300e6"
+  },
+  {
+    id: "fc",
+    name: "FC",
+    owner: "FC担当",
+    notebook: "Notebook④",
+    description: "FC契約、出店、財務、運営",
+    sourceHref: "https://drive.google.com/drive/folders/1gwAgEh2AGxzXdy1Z_odz_1B0m0Yxvlb1?usp=drive_link",
+    notebookHref: "https://notebooklm.google.com/notebook/68e228cc-7580-4b34-92e9-0528cd81b187"
+  },
+  {
+    id: "executive",
+    name: "経営",
+    owner: "幹部",
+    notebook: "Notebook⑤",
+    description: "経営会議、議事録、中期経営計画、財務、幹部資料",
+    sourceHref: "https://drive.google.com/drive/folders/1xS4JzEndusMaClJtJ69g37TVLxFDgm_w?usp=drive_link",
+    notebookHref: "https://notebooklm.google.com/notebook/07976b34-98f5-4c8b-9da0-7e5d701a9b1a"
+  }
+];
+
+class StoreAuthProvider {
+  async login(storeId, storePass) {
+    if (STORE_MASTER_CONFIG.authEndpoint) {
+      const account = await authenticateWithStoreMaster(storeId, storePass);
+      return this.persistSession(account);
+    }
+
+    const account = STORE_ACCOUNTS.find((item) => {
+      return item.id === storeId.trim().toLowerCase() && item.pass === storePass;
+    });
+
+    if (!account) {
+      throw new Error("店舗IDまたは店舗PASSが違います。");
+    }
+
+    return this.persistSession({ ...account, source: "local-fallback" });
+  }
+
+  persistSession(account) {
+    const session = {
+      id: account.id,
+      name: account.name,
+      admin: account.admin,
+      source: account.source || "store-master",
+      loginAt: new Date().toISOString()
+    };
+    localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(session));
+    return session;
+  }
+
+  currentSession() {
+    return readJson(STORAGE_KEYS.session, null);
+  }
+
+  logout() {
+    localStorage.removeItem(STORAGE_KEYS.session);
+  }
+}
+
+class KnowledgeAdapter {
+  async ask({ question, store }) {
+    const ruleResponse = await answerRuleRepository.find(question, store);
+    return ruleResponse || this.mockNotebookLmResponse(question, store);
+  }
+
+  mockNotebookLmResponse(question, store) {
+    const normalized = question.toLowerCase();
+    const route = findRoute(normalized);
+    return {
+      notebook: route.notebook,
+      answer: route.answer(store.name),
+      links: route.links,
+      confidence: route.confidence
+    };
+  }
+}
+
+class AnswerRuleRepository {
+  constructor() {
+    this.cache = null;
+  }
+
+  async all() {
+    if (this.cache) return this.cache;
+    if (!STORE_MASTER_CONFIG.authEndpoint) {
+      this.cache = [];
+      return this.cache;
+    }
+
+    try {
+      const result = await requestBackend("listAnswerRules", {});
+      this.cache = result.ok ? result.rules : [];
+      return this.cache;
+    } catch {
+      this.cache = [];
+      return this.cache;
+    }
+  }
+
+  clear() {
+    this.cache = null;
+  }
+
+  async find(question, store) {
+    const normalized = question.toLowerCase();
+    const rules = await this.all();
+    const rule = rules.find((item) => {
+      return item.keywords.some((keyword) => normalized.includes(keyword.toLowerCase()));
+    });
+
+    if (!rule) return null;
+
+    return {
+      notebook: rule.notebook,
+      answer: rule.answer.replaceAll("{{店舗名}}", store.name),
+      links: rule.linkIds.map((id) => ({ id, label: id })),
+      confidence: "rule-master"
+    };
+  }
+}
+
+class ConversationLogRepository {
+  all() {
+    return readJson(STORAGE_KEYS.logs, []);
+  }
+
+  async allForAdmin() {
+    if (!STORE_MASTER_CONFIG.authEndpoint) {
+      return this.all();
+    }
+
+    try {
+      const result = await requestBackend("listLogs", {});
+      return result.ok ? result.logs : this.all();
+    } catch {
+      return this.all();
+    }
+  }
+
+  async append(entry) {
+    const logs = this.all();
+    logs.unshift(entry);
+    localStorage.setItem(STORAGE_KEYS.logs, JSON.stringify(logs.slice(0, 300)));
+    if (STORE_MASTER_CONFIG.authEndpoint) {
+      await requestBackend("appendLog", {
+        logId: entry.id,
+        createdAt: entry.createdAt,
+        storeId: entry.storeId,
+        storeName: entry.storeName,
+        question: entry.question,
+        answer: entry.answer,
+        notebook: entry.notebook,
+        rating: entry.rating || "",
+        links: JSON.stringify(entry.links || []),
+        source: "NOV Concierge"
+      });
+    }
+  }
+
+  async updateRating(id, rating) {
+    const logs = this.all().map((entry) => {
+      return entry.id === id ? { ...entry, rating } : entry;
+    });
+    localStorage.setItem(STORAGE_KEYS.logs, JSON.stringify(logs));
+    if (STORE_MASTER_CONFIG.authEndpoint) {
+      await requestBackend("updateRating", { logId: id, rating });
+    }
+  }
+
+  clearStore(storeId) {
+    const logs = this.all().filter((entry) => entry.storeId !== storeId);
+    localStorage.setItem(STORAGE_KEYS.logs, JSON.stringify(logs));
+  }
+}
+
+class KnowledgeUpdateRepository {
+  all() {
+    return readJson(STORAGE_KEYS.knowledgeUpdates, []);
+  }
+
+  async allForAdmin() {
+    if (!STORE_MASTER_CONFIG.authEndpoint) {
+      return this.all();
+    }
+
+    try {
+      const result = await requestBackend("listKnowledgeUpdates", {});
+      return result.ok ? result.updates : this.all();
+    } catch {
+      return this.all();
+    }
+  }
+
+  async append(entry) {
+    const updates = this.all();
+    updates.unshift(entry);
+    localStorage.setItem(STORAGE_KEYS.knowledgeUpdates, JSON.stringify(updates.slice(0, 100)));
+    if (STORE_MASTER_CONFIG.authEndpoint) {
+      await requestBackend("appendKnowledgeUpdate", {
+        updateId: entry.id,
+        createdAt: entry.createdAt,
+        areaId: entry.areaId,
+        areaName: entry.areaName,
+        owner: entry.owner,
+        memo: entry.memo,
+        updatedBy: entry.updatedBy,
+        source: "NOV Concierge"
+      });
+    }
+  }
+}
+
+class LinkMasterRepository {
+  constructor() {
+    this.cache = null;
+  }
+
+  async all() {
+    if (this.cache) return this.cache;
+    if (!STORE_MASTER_CONFIG.authEndpoint) {
+      this.cache = {};
+      return this.cache;
+    }
+
+    try {
+      const result = await requestBackend("listLinks", { includeInactive: "true" });
+      this.cache = result.ok ? Object.fromEntries(result.links.map((link) => [link.id, link])) : {};
+      return this.cache;
+    } catch {
+      this.cache = {};
+      return this.cache;
+    }
+  }
+
+  clear() {
+    this.cache = null;
+  }
+
+  async resolve(links) {
+    const linkMaster = await this.all();
+    return links.map((link) => {
+      const master = linkMaster[link.id];
+      if (master && !isLinkActive(master.active)) return null;
+      return {
+        id: link.id,
+        label: master?.label || link.label,
+        href: master?.href || link.href || `#${link.id}`
+      };
+    }).filter(Boolean);
+  }
+}
+
+const authProvider = new StoreAuthProvider();
+const answerRuleRepository = new AnswerRuleRepository();
+const knowledgeAdapter = new KnowledgeAdapter();
+const logRepository = new ConversationLogRepository();
+const knowledgeUpdateRepository = new KnowledgeUpdateRepository();
+const linkMasterRepository = new LinkMasterRepository();
+
+const elements = {
+  loginView: document.querySelector("#loginView"),
+  hubView: document.querySelector("#hubView"),
+  adminView: document.querySelector("#adminView"),
+  loginForm: document.querySelector("#loginForm"),
+  loginError: document.querySelector("#loginError"),
+  storeBadge: document.querySelector("#storeBadge"),
+  logoutButton: document.querySelector("#logoutButton"),
+  adminToggle: document.querySelector("#adminToggle"),
+  backToHubButton: document.querySelector("#backToHubButton"),
+  chatMessages: document.querySelector("#chatMessages"),
+  questionForm: document.querySelector("#questionForm"),
+  questionInput: document.querySelector("#questionInput"),
+  historyList: document.querySelector("#historyList"),
+  clearHistoryButton: document.querySelector("#clearHistoryButton"),
+  totalQuestions: document.querySelector("#totalQuestions"),
+  negativeCount: document.querySelector("#negativeCount"),
+  unratedCount: document.querySelector("#unratedCount"),
+  questionRanking: document.querySelector("#questionRanking"),
+  storeUsage: document.querySelector("#storeUsage"),
+  wordRanking: document.querySelector("#wordRanking"),
+  unresolvedList: document.querySelector("#unresolvedList"),
+  knowledgeCards: document.querySelector("#knowledgeCards"),
+  knowledgeArea: document.querySelector("#knowledgeArea"),
+  knowledgeUpdateForm: document.querySelector("#knowledgeUpdateForm"),
+  knowledgeMemo: document.querySelector("#knowledgeMemo"),
+  knowledgeHistory: document.querySelector("#knowledgeHistory"),
+  knowledgeTestButton: document.querySelector("#knowledgeTestButton"),
+  answerRuleForm: document.querySelector("#answerRuleForm"),
+  answerRuleName: document.querySelector("#answerRuleName"),
+  answerRuleNotebook: document.querySelector("#answerRuleNotebook"),
+  answerRulePriority: document.querySelector("#answerRulePriority"),
+  answerRuleKeywords: document.querySelector("#answerRuleKeywords"),
+  answerRuleLinkChoices: document.querySelector("#answerRuleLinkChoices"),
+  answerRuleAnswer: document.querySelector("#answerRuleAnswer"),
+  answerRuleStatus: document.querySelector("#answerRuleStatus"),
+  answerRuleList: document.querySelector("#answerRuleList"),
+  messageTemplate: document.querySelector("#messageTemplate")
+};
+
+let session = authProvider.currentSession();
+const initialQuestion = new URLSearchParams(window.location.search).get("q")?.trim() || "";
+let initialQuestionHandled = false;
+
+elements.loginForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(elements.loginForm);
+  try {
+    session = await authProvider.login(formData.get("storeId"), formData.get("storePass"));
+    elements.loginForm.reset();
+    elements.loginError.hidden = true;
+    showHub();
+  } catch (error) {
+    elements.loginError.textContent = error.message;
+    elements.loginError.hidden = false;
+  }
+});
+
+elements.logoutButton.addEventListener("click", () => {
+  authProvider.logout();
+  session = null;
+  elements.chatMessages.innerHTML = "";
+  showLogin();
+});
+
+elements.adminToggle.addEventListener("click", showAdmin);
+elements.backToHubButton.addEventListener("click", showHub);
+
+elements.questionForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const question = elements.questionInput.value.trim();
+  if (!question || !session) return;
+  elements.questionInput.value = "";
+  await askConcierge(question);
+});
+
+document.querySelectorAll("[data-question]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    if (!session) return;
+    await askConcierge(button.dataset.question);
+  });
+});
+
+elements.clearHistoryButton.addEventListener("click", () => {
+  if (!session) return;
+  logRepository.clearStore(session.id);
+  renderHistory();
+});
+
+elements.knowledgeUpdateForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const area = KNOWLEDGE_AREAS.find((item) => item.id === elements.knowledgeArea.value);
+  const memo = elements.knowledgeMemo.value.trim();
+  if (!area || !memo || !session?.admin) return;
+  const entry = {
+    id: crypto.randomUUID(),
+    areaId: area.id,
+    areaName: area.name,
+    owner: area.owner,
+    memo,
+    updatedBy: session.name,
+    createdAt: new Date().toISOString()
+  };
+  try {
+    await knowledgeUpdateRepository.append(entry);
+  } catch (error) {
+    appendMessage("assistant", `ナレッジ更新履歴の保存に失敗しました: ${error.message || error}`, {
+      meta: "管理用メッセージ"
+    });
+  }
+  elements.knowledgeUpdateForm.reset();
+  renderKnowledgeHistory();
+});
+
+elements.knowledgeTestButton.addEventListener("click", () => {
+  showHub();
+  elements.questionInput.focus();
+});
+
+elements.answerRuleForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const ruleName = elements.answerRuleName.value.trim();
+  const keywords = elements.answerRuleKeywords.value.trim();
+  const answer = elements.answerRuleAnswer.value.trim();
+  if (!ruleName || !keywords || !answer) return;
+
+  elements.answerRuleStatus.textContent = "保存中です。";
+  try {
+    const result = await requestBackend("appendAnswerRule", {
+      ruleId: createRuleId(ruleName),
+      keywords,
+      notebook: elements.answerRuleNotebook.value,
+      answer,
+      linkIds: getSelectedAnswerRuleLinkIds().join(","),
+      active: "有効",
+      priority: elements.answerRulePriority.value || "10"
+    });
+    if (!result.ok) throw new Error(result.error || "保存できませんでした。");
+    answerRuleRepository.clear();
+    elements.answerRuleForm.reset();
+    elements.answerRulePriority.value = "10";
+    elements.answerRuleLinkChoices.querySelectorAll("input:checked").forEach((input) => {
+      input.checked = false;
+    });
+    renderAnswerRuleList();
+    elements.answerRuleStatus.textContent = `保存しました: ${result.ruleId}`;
+  } catch (error) {
+    elements.answerRuleStatus.textContent = `保存に失敗しました: ${error.message || error}`;
+  }
+});
+
+if (session) {
+  showHub();
+} else {
+  showLogin();
+}
+
+function showLogin() {
+  elements.loginView.hidden = false;
+  elements.hubView.hidden = true;
+  elements.adminView.hidden = true;
+  elements.storeBadge.hidden = true;
+  elements.logoutButton.hidden = true;
+  elements.adminToggle.hidden = true;
+}
+
+function showHub() {
+  elements.loginView.hidden = true;
+  elements.hubView.hidden = false;
+  elements.adminView.hidden = true;
+  elements.storeBadge.textContent = session.name;
+  elements.storeBadge.hidden = false;
+  elements.logoutButton.hidden = false;
+  elements.adminToggle.hidden = !session.admin;
+  renderHistory();
+  if (!elements.chatMessages.children.length) {
+    addAssistantWelcome();
+  }
+  if (initialQuestion && !initialQuestionHandled) {
+    elements.questionInput.value = initialQuestion;
+    elements.questionInput.focus();
+    initialQuestionHandled = true;
+    window.history.replaceState(null, "", window.location.pathname);
+  }
+}
+
+function showAdmin() {
+  if (!session?.admin) return;
+  elements.loginView.hidden = true;
+  elements.hubView.hidden = true;
+  elements.adminView.hidden = false;
+  renderAdmin();
+  renderKnowledgeAdmin();
+  renderAnswerRuleLinkChoices();
+  renderAnswerRuleList();
+}
+
+async function askConcierge(question) {
+  appendMessage("user", question);
+  const pending = appendMessage("assistant", "確認しています。必要な情報、申請、アプリへの導線を整理します。");
+  const response = await knowledgeAdapter.ask({ question, store: session });
+  const resolvedLinks = await linkMasterRepository.resolve(response.links || []);
+  const entry = {
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    storeId: session.id,
+    storeName: session.name,
+    question,
+    answer: response.answer,
+    notebook: response.notebook,
+    links: resolvedLinks,
+    rating: null
+  };
+  try {
+    await logRepository.append(entry);
+  } catch (error) {
+    console.warn("Failed to sync log", error);
+    appendMessage("assistant", `ログ保存に失敗しました: ${error.message || error}`, {
+      meta: "管理用メッセージ"
+    });
+  }
+  pending.remove();
+  appendMessage("assistant", response.answer, {
+    meta: response.notebook,
+    links: resolvedLinks,
+    feedbackId: entry.id
+  });
+  renderHistory();
+}
+
+function addAssistantWelcome() {
+  appendMessage(
+    "assistant",
+    "NOV Conciergeです。社内資料を探す前に、まずここで自然に聞いてください。必要に応じて申請フォーム、社内資料、各種アプリへ案内します。",
+    { meta: "社内OS入口" }
+  );
+}
+
+function appendMessage(role, text, options = {}) {
+  const node = elements.messageTemplate.content.firstElementChild.cloneNode(true);
+  node.classList.add(role);
+  const bubble = node.querySelector(".message-bubble");
+
+  if (options.meta) {
+    const meta = document.createElement("span");
+    meta.className = "message-meta";
+    meta.textContent = options.meta;
+    bubble.append(meta);
+  }
+
+  bubble.append(document.createTextNode(text));
+
+  if (options.links?.length) {
+    const linkList = document.createElement("div");
+    linkList.className = "link-list";
+    options.links.forEach((link) => {
+      const anchor = document.createElement("a");
+      anchor.href = link.href;
+      anchor.textContent = `${link.label} >`;
+      anchor.setAttribute("aria-label", `${link.label}を開く`);
+      linkList.append(anchor);
+    });
+    bubble.append(linkList);
+  }
+
+  if (options.feedbackId) {
+    bubble.append(createFeedback(options.feedbackId));
+  }
+
+  elements.chatMessages.append(node);
+  elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+  return node;
+}
+
+function createFeedback(logId) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "feedback";
+
+  const label = document.createElement("span");
+  label.textContent = "この回答は役に立ちましたか？";
+  wrapper.append(label);
+
+  [
+    { rating: "up", label: "👍" },
+    { rating: "down", label: "👎" }
+  ].forEach((item) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = item.label;
+    button.addEventListener("click", async () => {
+      try {
+        await logRepository.updateRating(logId, item.rating);
+      } catch (error) {
+        console.warn("Failed to sync rating", error);
+        appendMessage("assistant", `評価保存に失敗しました: ${error.message || error}`, {
+          meta: "管理用メッセージ"
+        });
+      }
+      wrapper.querySelectorAll("button").forEach((current) => current.classList.remove("selected"));
+      button.classList.add("selected");
+      if (elements.adminView.hidden === false) renderAdmin();
+    });
+    wrapper.append(button);
+  });
+
+  return wrapper;
+}
+
+function renderHistory() {
+  const storeLogs = logRepository.all().filter((entry) => entry.storeId === session.id);
+  elements.historyList.innerHTML = "";
+
+  if (!storeLogs.length) {
+    elements.historyList.innerHTML = '<div class="history-item">まだ質問履歴はありません。</div>';
+    return;
+  }
+
+  storeLogs.slice(0, 20).forEach((entry) => {
+    const item = document.createElement("article");
+    item.className = "history-item";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = entry.question;
+    button.addEventListener("click", () => {
+      appendMessage("user", entry.question);
+      appendMessage("assistant", entry.answer, {
+        meta: entry.notebook,
+        links: entry.links,
+        feedbackId: entry.id
+      });
+    });
+    const time = document.createElement("time");
+    time.dateTime = entry.createdAt;
+    time.textContent = formatDate(entry.createdAt);
+    item.append(button, time);
+    elements.historyList.append(item);
+  });
+}
+
+async function renderAdmin() {
+  elements.totalQuestions.textContent = "...";
+  elements.negativeCount.textContent = "...";
+  elements.unratedCount.textContent = "...";
+  renderRanking(elements.questionRanking, []);
+  renderRanking(elements.storeUsage, []);
+  renderRanking(elements.wordRanking, []);
+  elements.unresolvedList.innerHTML = '<div class="issue-item">読み込み中です。</div>';
+
+  const logs = await logRepository.allForAdmin();
+  const negativeLogs = logs.filter((entry) => entry.rating === "down");
+  const unratedLogs = logs.filter((entry) => !entry.rating);
+
+  elements.totalQuestions.textContent = String(logs.length);
+  elements.negativeCount.textContent = String(negativeLogs.length);
+  elements.unratedCount.textContent = String(unratedLogs.length);
+
+  renderRanking(elements.questionRanking, countBy(logs, (entry) => entry.question));
+  renderRanking(elements.storeUsage, countBy(logs, (entry) => entry.storeName));
+  renderRanking(elements.wordRanking, countWords(logs));
+  renderIssues([...negativeLogs, ...unratedLogs].slice(0, 20));
+}
+
+function renderKnowledgeAdmin() {
+  renderKnowledgeCards();
+  renderKnowledgeOptions();
+  renderKnowledgeHistory();
+}
+
+async function renderAnswerRuleLinkChoices() {
+  const linkMaster = await linkMasterRepository.all();
+  const links = Object.values(linkMaster)
+    .filter((link) => isLinkActive(link.active))
+    .sort((a, b) => String(a.category || "").localeCompare(String(b.category || "")) || a.label.localeCompare(b.label));
+
+  elements.answerRuleLinkChoices.innerHTML = "";
+  if (!links.length) {
+    elements.answerRuleLinkChoices.innerHTML = '<span class="empty-inline">選択できるリンクがありません。</span>';
+    return;
+  }
+
+  links.forEach((link) => {
+    const label = document.createElement("label");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = link.id;
+    const text = document.createElement("span");
+    text.textContent = link.label;
+    label.append(checkbox, text);
+    elements.answerRuleLinkChoices.append(label);
+  });
+}
+
+function getSelectedAnswerRuleLinkIds() {
+  return Array.from(elements.answerRuleLinkChoices.querySelectorAll("input:checked")).map((input) => input.value);
+}
+
+async function renderAnswerRuleList() {
+  const rules = await answerRuleRepository.all();
+  elements.answerRuleList.innerHTML = "";
+
+  if (!rules.length) {
+    elements.answerRuleList.innerHTML = '<div class="rule-list-item">登録済み回答ルールはありません。</div>';
+    return;
+  }
+
+  rules.forEach((rule) => {
+    const item = document.createElement("article");
+    item.className = "rule-list-item";
+
+    const title = document.createElement("strong");
+    title.textContent = `${rule.id} / ${rule.notebook}`;
+
+    const meta = document.createElement("span");
+    meta.textContent = `キーワード: ${rule.keywords.join(", ")} / 優先度: ${rule.priority}`;
+
+    const answer = document.createElement("p");
+    answer.textContent = rule.answer;
+
+    item.append(title, meta, answer);
+    elements.answerRuleList.append(item);
+  });
+}
+
+function renderKnowledgeCards() {
+  elements.knowledgeCards.innerHTML = "";
+  KNOWLEDGE_AREAS.forEach((area) => {
+    const card = document.createElement("article");
+    card.className = "knowledge-card";
+
+    const title = document.createElement("h4");
+    title.textContent = area.name;
+    const description = document.createElement("p");
+    description.textContent = `${area.notebook} / ${area.owner} / ${area.description}`;
+
+    const actions = document.createElement("div");
+    actions.className = "knowledge-actions";
+    const source = document.createElement("a");
+    source.href = area.sourceHref;
+    source.textContent = "正本資料を開く";
+    const notebook = document.createElement("a");
+    notebook.href = area.notebookHref;
+    notebook.target = "_blank";
+    notebook.rel = "noreferrer";
+    notebook.textContent = "NotebookLM管理";
+    actions.append(source, notebook);
+
+    card.append(title, description, actions);
+    elements.knowledgeCards.append(card);
+  });
+}
+
+function renderKnowledgeOptions() {
+  elements.knowledgeArea.innerHTML = "";
+  KNOWLEDGE_AREAS.forEach((area) => {
+    const option = document.createElement("option");
+    option.value = area.id;
+    option.textContent = `${area.name}（${area.owner}）`;
+    elements.knowledgeArea.append(option);
+  });
+}
+
+async function renderKnowledgeHistory() {
+  const updates = await knowledgeUpdateRepository.allForAdmin();
+  elements.knowledgeHistory.innerHTML = "";
+  if (!updates.length) {
+    elements.knowledgeHistory.innerHTML = '<div class="knowledge-history-item">まだ更新履歴はありません。</div>';
+    return;
+  }
+
+  updates.slice(0, 12).forEach((entry) => {
+    const item = document.createElement("article");
+    item.className = "knowledge-history-item";
+    const title = document.createElement("strong");
+    title.textContent = `${entry.areaName}: ${entry.memo}`;
+    const meta = document.createElement("small");
+    meta.textContent = `${entry.owner} / ${entry.updatedBy} / ${formatDate(entry.createdAt)}`;
+    item.append(title, meta);
+    elements.knowledgeHistory.append(item);
+  });
+}
+
+function renderRanking(target, items) {
+  target.innerHTML = "";
+  if (!items.length) {
+    const li = document.createElement("li");
+    li.textContent = "データなし";
+    target.append(li);
+    return;
+  }
+
+  items.slice(0, 8).forEach(([label, count]) => {
+    const li = document.createElement("li");
+    li.textContent = `${label}（${count}件）`;
+    target.append(li);
+  });
+}
+
+function renderIssues(items) {
+  elements.unresolvedList.innerHTML = "";
+  if (!items.length) {
+    elements.unresolvedList.innerHTML = '<div class="issue-item">データなし</div>';
+    return;
+  }
+
+  items.forEach((entry) => {
+    const item = document.createElement("article");
+    item.className = "issue-item";
+    const question = document.createElement("div");
+    question.textContent = entry.question;
+    const small = document.createElement("small");
+    small.textContent = `${entry.storeName} / ${entry.rating === "down" ? "低評価" : "未評価"} / ${formatDate(entry.createdAt)}`;
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "text-button issue-action";
+    action.textContent = "回答ルールに反映";
+    action.addEventListener("click", () => {
+      populateAnswerRuleFromIssue(entry);
+    });
+    item.append(question, small, action);
+    elements.unresolvedList.append(item);
+  });
+}
+
+function populateAnswerRuleFromIssue(entry) {
+  elements.answerRuleName.value = entry.question.slice(0, 24);
+  elements.answerRuleKeywords.value = entry.question;
+  elements.answerRuleNotebook.value = entry.notebook || "Notebook① スタッフサポート";
+  elements.answerRulePriority.value = "20";
+  elements.answerRuleAnswer.focus();
+  elements.answerRuleStatus.textContent = "質問内容を反映しました。回答文を入力してください。";
+}
+
+function findRoute(normalizedQuestion) {
+  const routes = [
+    {
+      keywords: ["引っ越", "住所", "交通費", "転居"],
+      notebook: "Notebook① スタッフサポート",
+      confidence: "high",
+      answer: (storeName) => `${storeName}の住所変更ですね。まず住所変更フォームを提出し、通勤経路が変わる場合は交通費変更フォームも提出してください。迷う場合は総務人事へ相談してください。`,
+      links: [
+        { id: "address-change", label: "住所変更フォーム" },
+        { id: "commuting-cost", label: "交通費変更フォーム" },
+        { id: "hr-contact", label: "総務問い合わせ" }
+      ]
+    },
+    {
+      keywords: ["結婚", "慶弔", "姓", "扶養"],
+      notebook: "Notebook① スタッフサポート",
+      confidence: "high",
+      answer: () => "結婚に関する手続きは、氏名変更、扶養、慶弔申請、給与口座名義の確認が必要になる場合があります。該当する申請を順番に進めてください。",
+      links: [
+        { id: "celebration-condolence", label: "慶弔申請" },
+        { id: "family-name", label: "氏名・扶養変更" },
+        { id: "hr-contact", label: "総務問い合わせ" }
+      ]
+    },
+    {
+      keywords: ["有休", "有給", "休暇"],
+      notebook: "Notebook① スタッフサポート",
+      confidence: "medium",
+      answer: () => "有休は店舗運営に支障が出ないよう店長へ相談し、勤怠・申請ルールに沿って申請します。残数確認はPhase3で勤怠DB連携予定です。",
+      links: [
+        { id: "paid-leave", label: "有休申請" },
+        { id: "attendance", label: "勤怠アプリ" }
+      ]
+    },
+    {
+      keywords: ["給与", "給料", "明細", "社会保険"],
+      notebook: "Notebook① スタッフサポート",
+      confidence: "medium",
+      answer: () => "給与・明細・社会保険はスタッフサポート領域です。支給日、控除、社会保険の確認は関連資料を確認し、不明点は総務人事へ問い合わせてください。",
+      links: [
+        { id: "payroll", label: "給与ルール" },
+        { id: "insurance", label: "社会保険" },
+        { id: "hr-contact", label: "総務問い合わせ" }
+      ]
+    },
+    {
+      keywords: ["勤怠", "打刻", "遅刻", "早退"],
+      notebook: "Notebook① スタッフサポート",
+      confidence: "high",
+      answer: () => "勤怠の打刻漏れ、遅刻、早退は店長へ共有したうえで勤怠アプリから修正申請してください。緊急時は店舗責任者の指示を優先します。",
+      links: [
+        { id: "attendance", label: "勤怠アプリ" },
+        { id: "timecard-fix", label: "打刻修正申請" }
+      ]
+    },
+    {
+      keywords: ["退職", "辞め", "退社"],
+      notebook: "Notebook① スタッフサポート",
+      confidence: "medium",
+      answer: () => "退職相談は一人で判断せず、まず店長または本部相談窓口へ連絡してください。退職手続き、貸与物、最終給与などは順番に案内します。",
+      links: [
+        { id: "retirement-contact", label: "退職相談窓口" },
+        { id: "hr-contact", label: "総務問い合わせ" }
+      ]
+    },
+    {
+      keywords: ["評価", "面談", "育成"],
+      notebook: "Notebook③ 管理者",
+      confidence: "medium",
+      answer: () => "評価制度や面談は管理者領域の資料に基づいて案内します。評価基準、面談記録、育成計画を確認してください。",
+      links: [
+        { id: "evaluation", label: "評価制度" },
+        { id: "one-on-one", label: "面談シート" }
+      ]
+    },
+    {
+      keywords: ["教育", "技術", "接客", "カウンセリング"],
+      notebook: "Notebook② 教育",
+      confidence: "high",
+      answer: () => "教育に関する内容は、技術マニュアル、接客、カウンセリング、動画文字起こしから案内します。知りたい技術名や場面を入れると絞り込めます。",
+      links: [
+        { id: "education", label: "教育資料" },
+        { id: "technical-manual", label: "技術マニュアル" }
+      ]
+    }
+  ];
+
+  return routes.find((route) => route.keywords.some((keyword) => normalizedQuestion.includes(keyword))) || {
+    notebook: "Notebook① スタッフサポート",
+    confidence: "low",
+    answer: () => "関連しそうな社内情報を確認します。現時点では確定回答に必要な情報が不足しています。申請、勤怠、給与、教育、評価など目的を少し具体的に入れてください。",
+    links: [
+      { id: "hr-contact", label: "総務問い合わせ" },
+      { id: "apps", label: "社内アプリ一覧" }
+    ]
+  };
+}
+
+function countBy(items, selector) {
+  return Object.entries(items.reduce((accumulator, item) => {
+    const key = selector(item) || "未設定";
+    accumulator[key] = (accumulator[key] || 0) + 1;
+    return accumulator;
+  }, {})).sort((a, b) => b[1] - a[1]);
+}
+
+function countWords(logs) {
+  const stopWords = new Set(["した", "です", "ます", "ますか", "ください", "について"]);
+  const counts = {};
+  logs.forEach((entry) => {
+    entry.question
+      .replace(/[、。,.!?！？]/g, " ")
+      .split(/\s+|(?=[有休給与勤怠評価教育退職結婚引越住所交通費])/)
+      .flatMap((part) => part.length > 8 ? part.match(/.{1,4}/g) : [part])
+      .filter(Boolean)
+      .filter((word) => word.length >= 2 && !stopWords.has(word))
+      .forEach((word) => {
+        counts[word] = (counts[word] || 0) + 1;
+      });
+  });
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+}
+
+function isLinkActive(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return true;
+  return !["false", "0", "no", "n", "停止", "無効", "不可", "inactive"].includes(normalized);
+}
+
+function createRuleId(value) {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized || `rule-${Date.now()}`;
+}
+
+function authenticateWithStoreMaster(storeId, storePass) {
+  return requestBackend("login", {
+    storeId: storeId.trim(),
+    storePass
+  }).then((result) => {
+    if (!result.ok) {
+      throw new Error(result.error || "店舗IDまたは店舗PASSが違います。");
+    }
+    return {
+      id: result.store.id,
+      name: result.store.name,
+      admin: Boolean(result.store.admin),
+      source: "store-master"
+    };
+  });
+}
+
+function requestBackend(action, payload) {
+  const params = new URLSearchParams({
+    action,
+    spreadsheetId: STORE_MASTER_CONFIG.spreadsheetId,
+    logSpreadsheetId: STORE_MASTER_CONFIG.logSpreadsheetId,
+    ...payload
+  });
+  return requestJsonp(`${STORE_MASTER_CONFIG.authEndpoint}?${params.toString()}`);
+}
+
+function requestJsonp(url) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `novConciergeCallback${Date.now()}${Math.floor(Math.random() * 10000)}`;
+    const script = document.createElement("script");
+    const separator = url.includes("?") ? "&" : "?";
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("店舗マスタに接続できませんでした。"));
+    }, 10000);
+
+    window[callbackName] = (payload) => {
+      cleanup();
+      resolve(payload);
+    };
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("店舗マスタに接続できませんでした。"));
+    };
+
+    function cleanup() {
+      window.clearTimeout(timeout);
+      delete window[callbackName];
+      script.remove();
+    }
+
+    script.src = `${url}${separator}callback=${callbackName}`;
+    document.body.append(script);
+  });
+}
+
+function readJson(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function formatDate(value) {
+  return new Intl.DateTimeFormat("ja-JP", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
+}

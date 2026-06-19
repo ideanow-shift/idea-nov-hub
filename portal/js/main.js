@@ -9,7 +9,7 @@ const elements = Object.fromEntries([
   "header-user", "user-name", "user-store", "login-screen", "loading-screen",
   "denied-screen", "portal-screen", "google-login", "pin-login-form", "pin-email", "pin-code", "demo-controls", "demo-employee",
   "demo-login", "logout-button", "denied-message", "denied-back", "welcome-title",
-  "announcements", "featured-apps", "category-apps", "visible-app-count", "toast"
+  "announcements", "featured-apps", "category-apps", "visible-app-count", "concierge-form", "concierge-question", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
 
 function showScreen(name) {
@@ -78,6 +78,12 @@ function createEmptyState(message) {
   empty.className = "empty-state";
   empty.textContent = message;
   return empty;
+}
+
+function openConcierge(question = "") {
+  const query = String(question || "").trim();
+  const url = query ? `./concierge/?q=${encodeURIComponent(query)}` : "./concierge/";
+  window.location.assign(url);
 }
 
 function renderAnnouncements() {
@@ -242,6 +248,13 @@ async function initialize() {
   elements.demoControls.hidden = state.mode === "firebase" && firebaseReady;
   elements.googleLogin.addEventListener("click", loginWithFirebase);
   elements.pinLoginForm.addEventListener("submit", loginWithPin);
+  elements.conciergeForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    openConcierge(elements.conciergeQuestion.value);
+  });
+  document.querySelectorAll(".concierge-chip-row [data-question]").forEach((button) => {
+    button.addEventListener("click", () => openConcierge(button.dataset.question));
+  });
   elements.demoLogin.addEventListener("click", loginDemo);
   elements.logoutButton.addEventListener("click", logout);
   elements.deniedBack.addEventListener("click", () => {

@@ -83,6 +83,29 @@
         <p class="welcome-copy">今日使うアプリを選んでください。</p>
       </section>
 
+      <section class="concierge-entry" aria-labelledby="concierge-heading">
+        <div class="concierge-entry-copy">
+          <p class="section-kicker">NOV Concierge</p>
+          <h2 id="concierge-heading">何をお手伝いできますか？</h2>
+          <p>どのアプリを使えばいいか迷ったら、まずここで相談できます。</p>
+        </div>
+        <form class="concierge-search" id="concierge-form">
+          <label class="sr-only" for="concierge-question">質問を入力</label>
+          <input id="concierge-question" type="search" placeholder="例：有休、給与、勤怠、結婚した">
+          <button class="button button-primary" type="submit">相談する</button>
+        </form>
+        <div class="concierge-chip-row" aria-label="よくある相談">
+          <button type="button" data-question="引っ越した">引っ越した</button>
+          <button type="button" data-question="結婚した">結婚した</button>
+          <button type="button" data-question="有休">有休</button>
+          <button type="button" data-question="給与">給与</button>
+          <button type="button" data-question="勤怠">勤怠</button>
+          <button type="button" data-question="評価制度">評価制度</button>
+          <button type="button" data-question="教育">教育</button>
+        </div>
+        <a class="concierge-link" href="./concierge/">NOV Conciergeを開く</a>
+      </section>
+
       <section class="section" aria-labelledby="notice-heading">
         <div class="section-heading"><h2 class="section-title" id="notice-heading">お知らせ</h2></div>
         <div class="notice-list" id="announcements"></div>

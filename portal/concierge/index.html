@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>IDEA NOV HUB | NOV Concierge</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">IDEA NOV HUB</p>
+          <h1>NOV Concierge</h1>
+        </div>
+        <div class="session-actions">
+          <span id="storeBadge" class="store-badge" hidden></span>
+          <button id="adminToggle" class="icon-text-button" type="button" hidden>管理</button>
+          <button id="logoutButton" class="icon-text-button" type="button" hidden>ログアウト</button>
+        </div>
+      </header>
+
+      <main>
+        <section id="loginView" class="login-layout" aria-labelledby="loginTitle">
+          <div class="login-panel">
+            <p class="eyebrow">Store Login</p>
+            <h2 id="loginTitle">店舗ログイン</h2>
+            <p class="body-copy">店舗IDと店舗PASSでNOV Conciergeへ入ります。</p>
+            <form id="loginForm" class="login-form">
+              <label>
+                <span>店舗ID</span>
+                <input id="storeId" name="storeId" autocomplete="username" placeholder="例: kokubunji" required>
+              </label>
+              <label>
+                <span>店舗PASS</span>
+                <input id="storePass" name="storePass" type="password" autocomplete="current-password" placeholder="店舗PASS" required>
+              </label>
+              <p id="loginError" class="form-error" role="alert" hidden></p>
+              <button class="primary-button" type="submit">入る</button>
+            </form>
+          </div>
+        </section>
+
+        <section id="hubView" class="hub-layout" hidden>
+          <section class="concierge-panel" aria-label="NOV Concierge">
+            <div class="concierge-intro">
+              <p class="eyebrow">NOV Concierge</p>
+              <h2>何をお手伝いできますか？</h2>
+            </div>
+
+            <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+
+            <div class="quick-chip-row" aria-label="よくある相談">
+              <button type="button" data-question="引っ越した">引っ越した</button>
+              <button type="button" data-question="結婚した">結婚した</button>
+              <button type="button" data-question="有休">有休</button>
+              <button type="button" data-question="給与">給与</button>
+              <button type="button" data-question="勤怠">勤怠</button>
+              <button type="button" data-question="退職相談">退職相談</button>
+              <button type="button" data-question="評価制度">評価制度</button>
+              <button type="button" data-question="教育">教育</button>
+            </div>
+
+            <form id="questionForm" class="composer">
+              <textarea id="questionInput" rows="2" placeholder="質問を入力" required></textarea>
+              <button class="send-button" type="submit" aria-label="送信">送信</button>
+            </form>
+          </section>
+
+          <aside class="side-panel" aria-label="質問履歴">
+            <div class="panel-heading">
+              <h2>質問履歴</h2>
+              <button id="clearHistoryButton" class="text-button" type="button">クリア</button>
+            </div>
+            <div id="historyList" class="history-list"></div>
+          </aside>
+        </section>
+
+        <section id="adminView" class="admin-layout" hidden aria-labelledby="adminTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Head Office</p>
+              <h2 id="adminTitle">管理画面</h2>
+            </div>
+            <button id="backToHubButton" class="text-button" type="button">Conciergeへ戻る</button>
+          </div>
+          <div class="metrics-grid">
+            <article>
+              <span>総質問数</span>
+              <strong id="totalQuestions">0</strong>
+            </article>
+            <article>
+              <span>低評価</span>
+              <strong id="negativeCount">0</strong>
+            </article>
+            <article>
+              <span>未評価</span>
+              <strong id="unratedCount">0</strong>
+            </article>
+          </div>
+          <section class="knowledge-admin" aria-labelledby="knowledgeTitle">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Knowledge Operations</p>
+                <h3 id="knowledgeTitle">ナレッジ管理</h3>
+              </div>
+              <button id="knowledgeTestButton" class="text-button" type="button">Conciergeでテスト</button>
+            </div>
+            <div id="knowledgeCards" class="knowledge-grid"></div>
+            <form id="knowledgeUpdateForm" class="knowledge-form">
+              <label>
+                <span>更新カテゴリ</span>
+                <select id="knowledgeArea" required></select>
+              </label>
+              <label>
+                <span>更新メモ</span>
+                <textarea id="knowledgeMemo" rows="3" placeholder="例: 就業規則PDFを2026年版へ差し替え" required></textarea>
+              </label>
+              <button class="primary-button" type="submit">更新履歴に記録</button>
+            </form>
+            <div class="ops-guide" aria-label="本部向け運用手順">
+              <article>
+                <span>1</span>
+                <strong>正本資料を格納</strong>
+                <p>担当カテゴリのDriveフォルダに最新版を入れる。</p>
+              </article>
+              <article>
+                <span>2</span>
+                <strong>NotebookLMに追加</strong>
+                <p>NotebookLM管理を開き、ソースを追加・更新する。</p>
+              </article>
+              <article>
+                <span>3</span>
+                <strong>回答を確認</strong>
+                <p>NotebookLM内で想定質問を試して内容を確認する。</p>
+              </article>
+              <article>
+                <span>4</span>
+                <strong>Conciergeでテスト</strong>
+                <p>HUB内のNOV Conciergeで社員目線の質問を試す。</p>
+              </article>
+              <article>
+                <span>5</span>
+                <strong>更新履歴を記録</strong>
+                <p>変更内容を更新メモとして残す。</p>
+              </article>
+            </div>
+            <div>
+              <h3 class="subheading">更新履歴</h3>
+              <div id="knowledgeHistory" class="knowledge-history"></div>
+            </div>
+          </section>
+          <section class="rule-admin" aria-labelledby="ruleAdminTitle">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Answer Operations</p>
+                <h3 id="ruleAdminTitle">回答ルール管理</h3>
+              </div>
+            </div>
+            <div class="link-rule-grid">
+              <article>
+                <strong>担当者が編集する列</strong>
+                <span>キーワード / 回答文 / 関連リンク</span>
+              </article>
+              <article>
+                <strong>変更しない列</strong>
+                <span>ルールID</span>
+              </article>
+              <article>
+                <strong>停止方法</strong>
+                <span>利用可否 = 停止</span>
+              </article>
+            </div>
+            <form id="answerRuleForm" class="admin-edit-form">
+              <label>
+                <span>ルール名</span>
+                <input id="answerRuleName" placeholder="例: 産休相談" required>
+              </label>
+              <label>
+                <span>Notebookカテゴリ</span>
+                <select id="answerRuleNotebook">
+                  <option value="Notebook① スタッフサポート">Notebook① スタッフサポート</option>
+                  <option value="Notebook② 教育">Notebook② 教育</option>
+                  <option value="Notebook③ 管理者">Notebook③ 管理者</option>
+                  <option value="Notebook④ FC">Notebook④ FC</option>
+                  <option value="Notebook⑤ 経営">Notebook⑤ 経営</option>
+                </select>
+              </label>
+              <label>
+                <span>優先度</span>
+                <input id="answerRulePriority" type="number" value="10" min="1" max="999">
+              </label>
+              <label class="wide-field">
+                <span>キーワード</span>
+                <input id="answerRuleKeywords" placeholder="例: 産休,育休,出産" required>
+              </label>
+              <fieldset class="full-field link-choice-field">
+                <legend>関連リンク</legend>
+                <div id="answerRuleLinkChoices" class="link-choice-list"></div>
+              </fieldset>
+              <label class="full-field">
+                <span>回答文</span>
+                <textarea id="answerRuleAnswer" rows="4" placeholder="スタッフに表示する回答文" required></textarea>
+              </label>
+              <button class="primary-button" type="submit">回答ルールを追加</button>
+              <p id="answerRuleStatus" class="save-status" role="status"></p>
+            </form>
+            <div class="rule-list-panel">
+              <h3 class="subheading">登録済み回答ルール</h3>
+              <div id="answerRuleList" class="rule-list"></div>
+            </div>
+          </section>
+          <div class="admin-grid">
+            <section>
+              <h3>質問ランキング</h3>
+              <ol id="questionRanking" class="rank-list"></ol>
+            </section>
+            <section>
+              <h3>店舗別利用数</h3>
+              <ol id="storeUsage" class="rank-list"></ol>
+            </section>
+            <section>
+              <h3>検索ワードランキング</h3>
+              <ol id="wordRanking" class="rank-list"></ol>
+            </section>
+            <section>
+              <h3>低評価・未解決質問</h3>
+              <div id="unresolvedList" class="issue-list"></div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <template id="messageTemplate">
+      <article class="message">
+        <div class="message-bubble"></div>
+      </article>
+    </template>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>

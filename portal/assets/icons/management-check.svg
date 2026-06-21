@@ -1,12 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-hidden="true">
   <rect x="2" y="2" width="44" height="44" rx="12" fill="#F1FAFC"/>
   <g stroke="#8FBFD0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="11" y="12" width="26" height="24" rx="4"/>
-    <path d="M11 19h26"/>
-    <path d="M17 29h4"/>
-    <path d="M25 29h7"/>
-    <path d="M17 24h14"/>
-    <path d="M17 16h.1"/>
-    <path d="M22 16h.1"/>
+    <rect x="12" y="10" width="24" height="28" rx="5"/>
+    <path d="M18 18l2 2 4-5"/>
+    <path d="M27 19h4"/>
+    <path d="M18 28l2 2 4-5"/>
+    <path d="M27 29h4"/>
+    <path d="M16 38c1.8-3 4.4-4.5 8-4.5s6.2 1.5 8 4.5"/>
   </g>
 </svg>

@@ -1,19 +1,35 @@
-export const CATEGORY_ORDER = ["勤怠・シフト", "教育", "売上管理", "評価", "FC管理", "資料室", "AIツール", "総務申請"];
+export const CATEGORY_ORDER = ["勤怠・シフト", "教育", "売上管理", "評価", "FC管理", "資料室", "AIツール", "総務申請", "称賛", "販促"];
+
+const appBase = { allowedTags: [], targetDepartment: [], targetPosition: [], isActive: true };
 
 export const DEMO_APPS = [
-  { appId: "attendance", appName: "勤怠管理", description: "出勤・退勤の打刻と勤務実績の確認", url: "#demo-attendance", category: "勤怠・シフト", icon: "attendance", requiredLevel: 1, allowedTags: [], targetDepartment: [], targetPosition: [], isActive: true, isFeatured: true, priority: 10 },
-  { appId: "shift", appName: "シフト作成", description: "勤務予定・希望休の確認", url: "https://ideanow-shift.github.io/shift/shift_demo.html", category: "勤怠・シフト", icon: "shift", requiredLevel: 1, allowedTags: [], targetDepartment: [], targetPosition: [], isActive: true, isFeatured: true, priority: 20 },
-  { appId: "education-web", appName: "教育部WEBアプリ", description: "教育動画・技術マニュアル・研修予定", url: "#demo-learning", category: "教育", icon: "education-web", requiredLevel: 1, allowedTags: [], targetDepartment: [], targetPosition: [], isActive: true, isFeatured: true, priority: 30 },
-  { appId: "sales-web", appName: "営業部WEBアプリ", description: "店舗実績と目標進捗を確認", url: "#demo-sales", category: "売上管理", icon: "sales-web", requiredLevel: 3, allowedTags: ["sales", "executive"], targetDepartment: [], targetPosition: [], isActive: true, isFeatured: true, priority: 40 },
-  { appId: "one-on-one", appName: "1on1 MTG", description: "面談記録とフィードバックを確認", url: "#demo-1on1", category: "評価", icon: "one-on-one", requiredLevel: 2, allowedTags: [], targetDepartment: [], targetPosition: [], isActive: true, isFeatured: false, priority: 50 },
-  { appId: "management-system", appName: "経営管理システム", description: "経営指標と管理レポートを確認", url: "#demo-management", category: "売上管理", icon: "management-system", requiredLevel: 4, allowedTags: ["executive"], targetDepartment: [], targetPosition: [], isActive: true, isFeatured: false, priority: 60 },
-  { appId: "product-management", appName: "商品管理", description: "商品情報・在庫・発注状況を確認", url: "#demo-product", category: "資料室", icon: "product-management", requiredLevel: 1, allowedTags: [], targetDepartment: [], targetPosition: [], isActive: true, isFeatured: false, priority: 70 },
-  { appId: "task-management", appName: "タスク管理", description: "本部タスクと進捗を確認", url: "#demo-task", category: "総務申請", icon: "task-management", requiredLevel: 1, allowedTags: ["hq"], targetDepartment: [], targetPosition: [], isActive: true, isFeatured: false, priority: 80 },
-  { appId: "disabled-sample", appName: "非公開アプリ", description: "表示されない確認用アプリ", url: "#", category: "資料室", icon: "default", requiredLevel: 1, allowedTags: [], targetDepartment: [], targetPosition: [], isActive: false, isFeatured: false, priority: 999 }
+  { ...appBase, appId: "nov-hub", appName: "NOV HUB", description: "社内アプリをまとめて探せるポータル", url: "#demo-hub", category: "AIツール", icon: "nov-hub", requiredLevel: 1, isFeatured: true, priority: 5 },
+  { ...appBase, appId: "attendance", appName: "勤怠管理", description: "出勤・退勤の打刻と勤務実績の確認", url: "#demo-attendance", category: "勤怠・シフト", icon: "attendance", requiredLevel: 1, isFeatured: true, priority: 10 },
+  { ...appBase, appId: "shift", appName: "シフト作成", description: "勤務予定・希望休の確認", url: "https://ideanow-shift.github.io/shift/shift_demo.html", category: "勤怠・シフト", icon: "shift", requiredLevel: 1, isFeatured: true, priority: 20 },
+  { ...appBase, appId: "education-web", appName: "教育部WEBアプリ", description: "教育動画・技術マニュアル・研修予定", url: "#demo-learning", category: "教育", icon: "education-web", requiredLevel: 1, isFeatured: true, priority: 30 },
+  { ...appBase, appId: "sales-web", appName: "営業部WEBアプリ", description: "店舗実績と目標進捗を確認", url: "#demo-sales", category: "売上管理", icon: "sales-web", requiredLevel: 3, allowedTags: ["sales", "executive"], isFeatured: true, priority: 40 },
+  { ...appBase, appId: "inventory", appName: "棚卸し", description: "棚卸しと在庫差異の確認", url: "#demo-inventory", category: "資料室", icon: "inventory", requiredLevel: 1, isFeatured: false, priority: 45 },
+  { ...appBase, appId: "instagram-auto-post", appName: "Instagram自動投稿", description: "投稿素材と配信状況を確認", url: "#demo-instagram", category: "販促", icon: "instagram-auto-post", requiredLevel: 1, isFeatured: false, priority: 48 },
+  { ...appBase, appId: "one-on-one", appName: "1on1 MTG", description: "面談記録とフィードバックを確認", url: "#demo-1on1", category: "評価", icon: "one-on-one", requiredLevel: 2, isFeatured: false, priority: 50 },
+  { ...appBase, appId: "management-system", appName: "経営管理システム", description: "経営指標と管理レポートを確認", url: "#demo-management", category: "売上管理", icon: "management-system", requiredLevel: 4, allowedTags: ["executive"], isFeatured: false, priority: 60 },
+  { ...appBase, appId: "product-management", appName: "商品管理", description: "商品情報・在庫・発注状況を確認", url: "#demo-product", category: "資料室", icon: "product-management", requiredLevel: 1, isFeatured: false, priority: 70 },
+  { ...appBase, appId: "task-management", appName: "タスク管理", description: "本部タスクと進捗を確認", url: "#demo-task", category: "総務申請", icon: "task-management", requiredLevel: 1, allowedTags: ["hq"], isFeatured: false, priority: 80 },
+  { ...appBase, appId: "THANKS", appName: "理念浸透システム", description: "感謝と理念行動を見える化", url: "#demo-thanks", category: "称賛", icon: "THANKS", requiredLevel: 1, isFeatured: false, priority: 90 },
+  { ...appBase, appId: "sales-education-db", appName: "営業部⇔教育部DB", description: "営業部と教育部の連携データを確認", url: "#demo-db", category: "売上管理", icon: "sales-education-db", requiredLevel: 3, allowedTags: ["sales", "executive"], isFeatured: false, priority: 100 },
+  { ...appBase, appId: "campaign-management", appName: "キャンペーン管理", description: "販促キャンペーンの進捗を確認", url: "#demo-campaign", category: "販促", icon: "campaign-management", requiredLevel: 1, isFeatured: false, priority: 110 },
+  { ...appBase, appId: "human-capital-investment", appName: "人財投資管理システム", description: "育成投資と人財指標を確認", url: "#demo-human-capital-investment", category: "FC管理", icon: "human-capital-investment", requiredLevel: 4, allowedTags: ["executive"], isFeatured: false, priority: 64 },
+  { ...appBase, appId: "management-check", appName: "マネジメントチェック", description: "店舗運営とマネジメント項目を確認", url: "#demo-management-check", category: "評価", icon: "management-check", requiredLevel: 3, allowedTags: ["manager", "executive"], isFeatured: false, priority: 62 },
+  { ...appBase, appId: "disabled-sample", appName: "非公開アプリ", description: "表示されない確認用アプリ", url: "#", category: "資料室", icon: "default", requiredLevel: 1, isActive: false, isFeatured: false, priority: 999 }
 ];
 
 const DEFAULT_ICON = "./assets/icons/default.svg";
-let iconRegistry = { defaultIcon: DEFAULT_ICON, byKey: new Map(), byCategory: new Map() };
+const DEFAULT_COLOR = "#E8B4B8";
+let iconRegistry = {
+  defaultIcon: DEFAULT_ICON,
+  defaultColor: DEFAULT_COLOR,
+  byKey: new Map(),
+  byCategory: new Map()
+};
 
 function normalizeKey(value) {
   return String(value || "")
@@ -27,6 +43,14 @@ function isEmojiLike(value) {
   return /[\p{Extended_Pictographic}\u2600-\u27BF]/u.test(String(value || ""));
 }
 
+function normalizeEntry(entry, fallbackIcon = DEFAULT_ICON, fallbackColor = DEFAULT_COLOR) {
+  if (typeof entry === "string") return { icon: entry, color: fallbackColor };
+  return {
+    icon: entry?.icon || fallbackIcon,
+    color: entry?.color || fallbackColor
+  };
+}
+
 export async function loadAppIconRegistry() {
   try {
     const response = await fetch("./apps.json", { cache: "no-cache" });
@@ -34,32 +58,43 @@ export async function loadAppIconRegistry() {
     const data = await response.json();
     const byKey = new Map();
     const byCategory = new Map();
+    const defaultIcon = data.defaultIcon || DEFAULT_ICON;
+    const defaultColor = data.defaultColor || DEFAULT_COLOR;
     (data.apps || []).forEach((item) => {
-      const icon = item.icon || data.defaultIcon || DEFAULT_ICON;
+      const visual = normalizeEntry(item, defaultIcon, defaultColor);
       [item.appId, item.appName, ...(item.aliases || [])].forEach((key) => {
         const normalized = normalizeKey(key);
-        if (normalized) byKey.set(normalized, icon);
+        if (normalized) byKey.set(normalized, visual);
       });
     });
-    Object.entries(data.categories || {}).forEach(([category, icon]) => {
-      byCategory.set(normalizeKey(category), icon);
+    Object.entries(data.categories || {}).forEach(([category, entry]) => {
+      byCategory.set(normalizeKey(category), normalizeEntry(entry, defaultIcon, defaultColor));
     });
-    iconRegistry = { defaultIcon: data.defaultIcon || DEFAULT_ICON, byKey, byCategory };
+    iconRegistry = { defaultIcon, defaultColor, byKey, byCategory };
   } catch (error) {
     console.warn("apps.json could not be loaded", error);
   }
   return iconRegistry;
 }
 
-export function resolveAppIcon(app) {
+export function resolveAppVisual(app) {
+  const appColor = app.color && !isEmojiLike(app.color) ? app.color : "";
   const candidates = [app.icon, app.appId, app.appName].filter((value) => value && !isEmojiLike(value));
   for (const candidate of candidates) {
     const text = String(candidate);
-    if (text.endsWith(".svg") || text.startsWith("./assets/icons/")) return text;
-    const icon = iconRegistry.byKey.get(normalizeKey(text));
-    if (icon) return icon;
+    if (text.endsWith(".svg") || text.startsWith("./assets/icons/")) {
+      return { icon: text, color: appColor || iconRegistry.defaultColor || DEFAULT_COLOR };
+    }
+    const visual = iconRegistry.byKey.get(normalizeKey(text));
+    if (visual) return { ...visual, color: appColor || visual.color };
   }
-  return iconRegistry.byCategory.get(normalizeKey(app.category)) || iconRegistry.defaultIcon || DEFAULT_ICON;
+  const categoryVisual = iconRegistry.byCategory.get(normalizeKey(app.category));
+  if (categoryVisual) return { ...categoryVisual, color: appColor || categoryVisual.color };
+  return { icon: iconRegistry.defaultIcon || DEFAULT_ICON, color: appColor || iconRegistry.defaultColor || DEFAULT_COLOR };
+}
+
+export function resolveAppIcon(app) {
+  return resolveAppVisual(app).icon;
 }
 
 function matchesList(value, allowedValues) {

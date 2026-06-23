@@ -627,3 +627,22 @@ tr.selected {
     position: static;
   }
 }
+
+.readonly-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: #f7f7f7;
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.form-input:disabled,
+.form-select:disabled {
+  background: #f7f7f7;
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}

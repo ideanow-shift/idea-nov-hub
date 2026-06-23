@@ -8,6 +8,11 @@ const state = {
   employees: [],
   stores: [],
   logs: [],
+  permissions: {
+    canView: false,
+    canEdit: false,
+    roleKeys: []
+  },
   masters: {
     corporations: [],
     businessUnits: [],
@@ -69,6 +74,7 @@ function formatEmployeeStatus(employee) {
 function setBootstrapData(data) {
   state.employees = data.employees || [];
   state.stores = data.stores || [];
+  state.permissions = data.permissions || { canView: false, canEdit: false, roleKeys: [] };
   state.masters = {
     corporations: data.corporations || [],
     businessUnits: data.businessUnits || [],
@@ -379,7 +385,8 @@ function getStoreName(id) {
 function renderEmployeeDetail(employee) {
   const retired = !employee.is_active || employee.employment_status === "退職";
   const storeAssignments = getStoreAssignmentsByOrder(employee.store_assignments || []);
-  const firebaseLinkPanel = state.view === "firebase" ? `
+  const readonly = !state.permissions.canEdit;
+  const firebaseLinkPanel = state.view === "firebase" && !readonly ? `
       <div class="firebase-link-panel">
         <div>
           <strong>Firebase UID連携</strong>
@@ -394,7 +401,7 @@ function renderEmployeeDetail(employee) {
   elements.detailPanel.innerHTML = `
     <h3>${escapeHtml(employee.full_name)}</h3>
     <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}</p>
-    <p class="detail-note">社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。</p>
+    <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。"}</p>
     <form class="form-grid" id="detail-form">
       ${firebaseLinkPanel}
       ${fieldInput("email", "メール", employee.email || "", "email")}
@@ -436,20 +443,21 @@ function renderEmployeeDetail(employee) {
         ${fieldInput("leave_end_date", "休職終了日・復職日", employee.leave_end_date || "", "date")}
       </section>
       ${fieldCheckbox("is_active", "有効", employee.is_active)}
-      <div class="danger-zone">
+      ${readonly ? "" : `<div class="danger-zone">
         <div>
           <strong>退職処理</strong>
           <p>退職にして、NOV HUB側の有効状態も無効にします。</p>
         </div>
         <button class="button button-danger" id="retire-employee" type="button"${retired ? " disabled" : ""}>退職処理</button>
-      </div>
+      </div>`}
       <div class="save-row">
         <span class="save-status" id="employee-save-status" aria-live="polite"></span>
-        <button class="button button-primary save-button" type="submit">保存</button>
+        ${readonly ? `<span class="readonly-label">閲覧専用</span>` : `<button class="button button-primary save-button" type="submit">保存</button>`}
       </div>
     </form>`;
-  document.querySelector("#detail-form").addEventListener("submit", saveEmployee);
-  document.querySelector("#retire-employee").addEventListener("click", retireEmployee);
+  setReadonlyState(readonly);
+  if (!readonly) document.querySelector("#detail-form").addEventListener("submit", saveEmployee);
+  document.querySelector("#retire-employee")?.addEventListener("click", retireEmployee);
   document.querySelector("#link-firebase-uid")?.addEventListener("click", linkFirebaseUid);
 }
 
@@ -461,10 +469,11 @@ function getStoreAssignmentsByOrder(assignments) {
 }
 
 function renderStoreDetail(store) {
+  const readonly = !state.permissions.canEdit;
   elements.detailPanel.innerHTML = `
     <h3>${escapeHtml(store.store_name)}</h3>
     <p class="detail-meta">店舗ID: ${escapeHtml(store.store_id)} / 店舗No: ${escapeHtml(store.store_no)}</p>
-    <p class="detail-note">店舗IDと店舗Noは固定項目です。通常運用では店舗名・法人・事業部門・有効状態のみ変更します。</p>
+    <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "店舗IDと店舗Noは固定項目です。通常運用では店舗名・法人・事業部門・有効状態のみ変更します。"}</p>
     <form class="form-grid" id="detail-form">
       ${fieldInput("store_name", "店舗名", store.store_name || "")}
       ${fieldSelect("corporation_id", "法人", state.masters.corporations, store.corporation_id, "corporation_name")}
@@ -474,10 +483,18 @@ function renderStoreDetail(store) {
       ${fieldCheckbox("is_active", "有効", store.is_active)}
       <div class="save-row">
         <span class="save-status" id="store-save-status" aria-live="polite"></span>
-        <button class="button button-primary save-button" type="submit">保存</button>
+        ${readonly ? `<span class="readonly-label">閲覧専用</span>` : `<button class="button button-primary save-button" type="submit">保存</button>`}
       </div>
     </form>`;
-  document.querySelector("#detail-form").addEventListener("submit", saveStore);
+  setReadonlyState(readonly);
+  if (!readonly) document.querySelector("#detail-form").addEventListener("submit", saveStore);
+}
+
+function setReadonlyState(readonly) {
+  if (!readonly) return;
+  document.querySelectorAll("#detail-form input, #detail-form select, #detail-form textarea").forEach((field) => {
+    field.disabled = true;
+  });
 }
 
 function fieldInput(name, label, value, type = "text") {

@@ -133,49 +133,49 @@ function doPost(e) {
 
     if (action === 'masterBootstrap') {
       stage = 'authorizeMasterAdmin';
-      assertMasterAdmin_(employee);
+      assertMasterViewer_(employee);
       stage = 'readMasterAdminData';
-      return jsonOutput_({ ok: true, data: getMasterAdminBootstrap_() });
+      return jsonOutput_({ ok: true, data: getMasterAdminBootstrap_(employee) });
     }
 
     if (action === 'masterListEmployees') {
       stage = 'authorizeMasterAdmin';
-      assertMasterAdmin_(employee);
+      assertMasterViewer_(employee);
       stage = 'readEmployees';
       return jsonOutput_({ ok: true, employees: listCoreEmployees_() });
     }
 
     if (action === 'masterListStores') {
       stage = 'authorizeMasterAdmin';
-      assertMasterAdmin_(employee);
+      assertMasterViewer_(employee);
       stage = 'readStores';
       return jsonOutput_({ ok: true, stores: listCoreStores_() });
     }
 
     if (action === 'masterListChangeLogs') {
       stage = 'authorizeMasterAdmin';
-      assertMasterAdmin_(employee);
+      assertMasterViewer_(employee);
       stage = 'readChangeLogs';
       return jsonOutput_({ ok: true, logs: listMasterChangeLogs_() });
     }
 
     if (action === 'masterUpdateEmployee') {
       stage = 'authorizeMasterAdmin';
-      assertMasterAdmin_(employee);
+      assertMasterEditor_(employee);
       stage = 'updateEmployee';
       return jsonOutput_({ ok: true, employee: updateCoreEmployee_(payload, employee) });
     }
 
     if (action === 'masterLinkFirebaseUid') {
       stage = 'authorizeMasterAdmin';
-      assertMasterAdmin_(employee);
+      assertMasterEditor_(employee);
       stage = 'linkFirebaseUid';
       return jsonOutput_({ ok: true, employee: linkFirebaseUid_(payload, employee) });
     }
 
     if (action === 'masterUpdateStore') {
       stage = 'authorizeMasterAdmin';
-      assertMasterAdmin_(employee);
+      assertMasterEditor_(employee);
       stage = 'updateStore';
       return jsonOutput_({ ok: true, store: updateCoreStore_(payload, employee) });
     }
@@ -641,7 +641,59 @@ function createMasterAdminApp_() {
   };
 }
 
-function isMasterAdmin_(employee) {
+function getCoreRoleKeysForEmployee_(employee) {
+  const email = normalizeEmailValue_(employee && employee.email);
+  if (!email) return [];
+  const employees = supabaseRequest_('employees', {
+    query: {
+      select: 'id,email,is_active',
+      email: 'eq.' + email,
+      limit: '1'
+    }
+  });
+  const coreEmployee = employees[0];
+  if (!coreEmployee || coreEmployee.is_active === false) return [];
+  const rows = supabaseRequest_('employee_roles', {
+    query: {
+      select: 'role_id',
+      employee_id: 'eq.' + coreEmployee.id,
+      limit: '50'
+    }
+  });
+  const roleIds = rows.map(function(row) { return row.role_id; }).filter(String);
+  if (!roleIds.length) return [];
+  const roles = supabaseRequest_('roles', {
+    query: {
+      select: 'id,role_key',
+      id: 'in.(' + roleIds.join(',') + ')'
+    }
+  });
+  return roles.map(function(role) { return role.role_key; }).filter(String);
+}
+
+function getMasterPermissions_(employee) {
+  let coreRoleKeys = [];
+  try {
+    coreRoleKeys = getCoreRoleKeysForEmployee_(employee);
+  } catch (error) {
+    console.error('Failed to load core role keys', error);
+  }
+  const legacyTags = employee && employee.tags ? employee.tags : [];
+  const roleKeys = coreRoleKeys.concat(legacyTags);
+  const canView = roleKeys.some(function(role) {
+    return ['super_admin', 'executive', 'department_manager'].indexOf(role) !== -1;
+  }) || isLegacyMasterAdmin_(employee);
+  const canEdit = roleKeys.some(function(role) {
+    return ['super_admin', 'backoffice'].indexOf(role) !== -1;
+  }) || isLegacyMasterAdmin_(employee);
+  return {
+    canView: canView,
+    canEdit: canEdit,
+    roleKeys: roleKeys.filter(function(role, index) { return roleKeys.indexOf(role) === index; })
+  };
+}
+
+function isLegacyMasterAdmin_(employee) {
   if (!employee || employee.status !== 'active') return false;
   const email = normalizeEmailValue_(employee.email);
   const adminEmails = String(getOptionalProperty_('MASTER_ADMIN_EMAILS', 'm.wakita@idea-nov.com'))
@@ -651,24 +703,32 @@ function isMasterAdmin_(employee) {
   if (adminEmails.indexOf(email) !== -1) return true;
   if (Number(employee.roleLevel || 0) >= 5) return true;
   const tags = employee.tags || [];
-  return ['super_admin', 'executive', 'backoffice', 'hr'].some(function(tag) {
+  return ['super_admin', 'executive', 'backoffice', 'hr', 'department_manager'].some(function(tag) {
     return tags.indexOf(tag) !== -1;
   });
 }
 
-function assertMasterAdmin_(employee) {
-  if (!isMasterAdmin_(employee)) {
+function assertMasterViewer_(employee) {
+  if (!getMasterPermissions_(employee).canView) {
     throwPortalError_('MASTER_ADMIN_DENIED', 'Master admin permission is required.');
   }
 }
 
-function getMasterAdminBootstrap_() {
+function assertMasterEditor_(employee) {
+  if (!getMasterPermissions_(employee).canEdit) {
+    throwPortalError_('MASTER_ADMIN_DENIED', 'Master admin edit permission is required.');
+  }
+}
+
+function getMasterAdminBootstrap_(employee) {
   const corporations = listCoreMaster_('corporations', 'id,corporation_no,corporation_name,is_active', 'corporation_no.asc');
   const businessUnits = listCoreMaster_('business_units', 'id,business_unit_no,business_unit_code,business_unit_name,is_active', 'business_unit_no.asc');
   const departments = listCoreMaster_('departments', 'id,department_no,department_code,department_name,is_active', 'department_no.asc');
   const stores = listCoreStores_();
   const positions = listCoreMaster_('positions', 'id,position_no,position_name,is_active', 'position_no.asc');
+  const permissions = getMasterPermissions_(employee);
   return {
+    permissions: permissions,
     corporations: corporations,
     businessUnits: businessUnits,
     departments: departments,

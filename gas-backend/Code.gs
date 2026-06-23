@@ -878,12 +878,28 @@ function groupStoreAssignmentsByEmployee_(assignments, storesById) {
 function getCoreEmployeeById_(id) {
   const rows = supabaseRequest_('employees', {
     query: {
-      select: 'id,employee_id,full_name,corporation_id,store_id,department_id,position_id,employment_status,is_active',
+      select: 'id,employee_id,full_name,email,birth_date,joined_on,retired_on,leave_start_date,leave_end_date,leave_type,employment_status,employment_type,corporation_id,store_id,department_id,position_id,is_active',
       id: 'eq.' + id,
       limit: '1'
     }
   });
   return rows[0] || null;
+}
+
+function getChangedFields_(before, updates) {
+  const changed = {};
+  Object.keys(updates).forEach(function(key) {
+    if (key === 'updated_at') return;
+    if (isFieldChanged_(before && before[key], updates[key])) changed[key] = updates[key];
+  });
+  if (Object.keys(changed).length) changed.updated_at = updates.updated_at;
+  return changed;
+}
+
+function isFieldChanged_(beforeValue, afterValue) {
+  if (beforeValue === null || beforeValue === undefined) beforeValue = '';
+  if (afterValue === null || afterValue === undefined) afterValue = '';
+  return String(beforeValue) !== String(afterValue);
 }
 
 function appendAssignmentHistoryIfNeeded_(before, after, updates, actor) {
@@ -958,19 +974,23 @@ function updateCoreEmployee_(payload, actor) {
   copyNullableUuidField_(updates, payload, 'position_id');
   if (Object.prototype.hasOwnProperty.call(payload, 'is_active')) updates.is_active = Boolean(payload.is_active);
   updates.updated_at = new Date().toISOString();
-  const result = supabaseRequest_('employees', {
-    method: 'patch',
-    query: { id: 'eq.' + id, select: '*' },
-    payload: updates,
-    prefer: 'return=representation'
-  });
-  const after = result[0] || null;
-  appendMasterChangeLogSafely_('employees', id, updates, actor, {
-    actionType: 'update',
-    targetName: after && after.full_name ? after.full_name : before.full_name
-  });
+  const changedUpdates = getChangedFields_(before, updates);
+  let after = before;
+  if (Object.keys(changedUpdates).length) {
+    const result = supabaseRequest_('employees', {
+      method: 'patch',
+      query: { id: 'eq.' + id, select: '*' },
+      payload: changedUpdates,
+      prefer: 'return=representation'
+    });
+    after = result[0] || before;
+    appendMasterChangeLogSafely_('employees', id, changedUpdates, actor, {
+      actionType: 'update',
+      targetName: after && after.full_name ? after.full_name : before.full_name
+    });
+    appendAssignmentHistoryIfNeeded_(before, after, changedUpdates, actor);
+  }
   updateEmployeeStoreAssignmentsIfPresent_(id, payload, actor);
-  appendAssignmentHistoryIfNeeded_(before, after, updates, actor);
   return after;
 }
 
@@ -1001,6 +1021,7 @@ function updateEmployeeStoreAssignmentsIfPresent_(employeeId, payload, actor) {
       limit: '20'
     }
   });
+  if (areStoreAssignmentsSame_(existing, desiredAssignments)) return;
   if (existing.length) {
     supabaseRequest_('employee_store_assignments', {
       method: 'patch',
@@ -1039,6 +1060,22 @@ function updateEmployeeStoreAssignmentsIfPresent_(employeeId, payload, actor) {
     actionType: 'update_store_assignments',
     targetName: employee && employee.full_name ? employee.full_name : ''
   });
+}
+
+function areStoreAssignmentsSame_(existing, desired) {
+  const current = existing.slice().sort(compareAssignmentOrder_);
+  const next = desired.slice().sort(compareAssignmentOrder_);
+  if (current.length !== next.length) return false;
+  return current.every(function(row, index) {
+    const expected = next[index];
+    return String(row.store_id || '') === String(expected.store_id || '')
+      && Number(row.assignment_order || 0) === Number(expected.assignment_order || 0)
+      && String(row.assignment_type || '') === String(expected.assignment_type || '');
+  });
+}
+
+function compareAssignmentOrder_(a, b) {
+  return Number(a.assignment_order || 0) - Number(b.assignment_order || 0);
 }
 
 function buildEmployeeStoreAssignments_(employeeId, payload) {

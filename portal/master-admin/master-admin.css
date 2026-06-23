@@ -310,6 +310,37 @@ tr.selected {
   line-height: 1.7;
 }
 
+.log-detail dl {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 8px 10px;
+  margin: 0 0 14px;
+  font-size: 13px;
+}
+
+.log-detail dt {
+  color: var(--text-secondary);
+}
+
+.log-detail dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.log-detail pre {
+  overflow: auto;
+  max-height: 320px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: #F8F8F8;
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 12px;
+  white-space: pre-wrap;
+}
+
 .toast {
   position: fixed;
   right: 18px;

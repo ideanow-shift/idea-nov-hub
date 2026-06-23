@@ -6,6 +6,7 @@ const state = {
   selectedId: "",
   employees: [],
   stores: [],
+  logs: [],
   masters: {
     corporations: [],
     businessUnits: [],
@@ -83,6 +84,7 @@ function getRows() {
   let rows = state.stores;
   if (state.view === "employees") rows = state.employees;
   if (state.view === "firebase") rows = state.employees.filter((employee) => employee.is_active && !employee.firebase_uid);
+  if (state.view === "logs") rows = state.logs;
   if (!query) return rows;
   return rows.filter((row) => normalizeSearch(Object.values(row).join(" ")).includes(query));
 }
@@ -94,7 +96,8 @@ function render() {
   elements.viewTitle.textContent = {
     employees: "社員マスタ",
     stores: "店舗マスタ",
-    firebase: "Firebase未連携"
+    firebase: "Firebase未連携",
+    logs: "変更履歴"
   }[state.view];
   renderTable();
   renderDetail();
@@ -114,6 +117,18 @@ function renderTable() {
         <th>状態</th>
       </tr>`;
     elements.tableBody.replaceChildren(...rows.map(renderEmployeeRow));
+    return;
+  }
+
+  if (state.view === "logs") {
+    elements.tableHead.innerHTML = `
+      <tr>
+        <th>日時</th>
+        <th>対象</th>
+        <th>変更者</th>
+        <th>変更内容</th>
+      </tr>`;
+    elements.tableBody.replaceChildren(...rows.map(renderLogRow));
     return;
   }
 
@@ -161,7 +176,41 @@ function renderStoreRow(store) {
   return tr;
 }
 
+function renderLogRow(log) {
+  const tr = document.createElement("tr");
+  tr.className = log.id === state.selectedId ? "selected" : "";
+  const payload = log.change_payload || {};
+  const changedKeys = Object.keys(payload).filter((key) => key !== "updated_at");
+  tr.innerHTML = `
+    <td>${escapeHtml(formatDateTime(log.created_at))}</td>
+    <td>${escapeHtml(log.table_name)} / ${escapeHtml(log.record_id)}</td>
+    <td>${escapeHtml(log.changed_by_email || "")}</td>
+    <td>${escapeHtml(changedKeys.join(", ") || "変更内容なし")}</td>`;
+  tr.addEventListener("click", () => {
+    state.selectedId = log.id;
+    render();
+  });
+  return tr;
+}
+
+function formatDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+}
+
 function renderDetail() {
+  if (state.view === "logs") {
+    renderLogDetail();
+    return;
+  }
   const sourceRows = state.view === "stores" ? state.stores : state.employees;
   const row = sourceRows.find((item) => item.id === state.selectedId);
   if (!row) {
@@ -170,6 +219,28 @@ function renderDetail() {
   }
   if (state.view === "employees" || state.view === "firebase") renderEmployeeDetail(row);
   else renderStoreDetail(row);
+}
+
+function renderLogDetail() {
+  const log = state.logs.find((item) => item.id === state.selectedId);
+  if (!log) {
+    elements.detailPanel.innerHTML = `<div class="empty-detail">左の一覧から履歴を選んでください。</div>`;
+    return;
+  }
+  elements.detailPanel.innerHTML = `
+    <h3>変更履歴</h3>
+    <p class="detail-meta">${escapeHtml(formatDateTime(log.created_at))}</p>
+    <div class="log-detail">
+      <dl>
+        <dt>対象テーブル</dt>
+        <dd>${escapeHtml(log.table_name)}</dd>
+        <dt>対象ID</dt>
+        <dd>${escapeHtml(log.record_id)}</dd>
+        <dt>変更者</dt>
+        <dd>${escapeHtml(log.changed_by_email || "")}</dd>
+      </dl>
+      <pre>${escapeHtml(JSON.stringify(log.change_payload || {}, null, 2))}</pre>
+    </div>`;
 }
 
 function renderEmployeeDetail(employee) {
@@ -330,6 +401,12 @@ async function refreshStores() {
   render();
 }
 
+async function refreshLogs() {
+  const response = await callApiAction("masterListChangeLogs");
+  state.logs = response.logs || [];
+  render();
+}
+
 async function handleSignIn() {
   try {
     showMode("loading");
@@ -359,6 +436,10 @@ document.querySelectorAll("[data-view]").forEach((button) => {
     state.view = button.dataset.view;
     state.selectedId = "";
     elements.search.value = "";
+    if (state.view === "logs") {
+      refreshLogs();
+      return;
+    }
     render();
   });
 });

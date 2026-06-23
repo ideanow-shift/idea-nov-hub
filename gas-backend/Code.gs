@@ -152,6 +152,13 @@ function doPost(e) {
       return jsonOutput_({ ok: true, stores: listCoreStores_() });
     }
 
+    if (action === 'masterListChangeLogs') {
+      stage = 'authorizeMasterAdmin';
+      assertMasterAdmin_(employee);
+      stage = 'readChangeLogs';
+      return jsonOutput_({ ok: true, logs: listMasterChangeLogs_() });
+    }
+
     if (action === 'masterUpdateEmployee') {
       stage = 'authorizeMasterAdmin';
       assertMasterAdmin_(employee);
@@ -750,6 +757,16 @@ function listCoreStores_() {
       business_unit_name: businessUnit.business_unit_name || '',
       business_unit_code: businessUnit.business_unit_code || ''
     });
+  });
+}
+
+function listMasterChangeLogs_() {
+  return supabaseRequest_('master_change_logs', {
+    query: {
+      select: 'id,table_name,record_id,changed_by_email,change_payload,created_at',
+      order: 'created_at.desc',
+      limit: '100'
+    }
   });
 }
 

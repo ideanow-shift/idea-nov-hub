@@ -412,7 +412,8 @@ tr.selected {
   font-size: 12px;
 }
 
-.store-assignments {
+.store-assignments,
+.leave-fields {
   display: grid;
   gap: 10px;
   margin: -6px 0 18px;
@@ -422,13 +423,15 @@ tr.selected {
   padding: 12px;
 }
 
-.store-assignments strong {
+.store-assignments strong,
+.leave-fields strong {
   display: block;
   color: #2F6B3D;
   font-size: 13px;
 }
 
-.store-assignments p {
+.store-assignments p,
+.leave-fields p {
   margin: 3px 0 0;
   color: var(--text-secondary);
   font-size: 12px;

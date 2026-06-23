@@ -298,6 +298,8 @@ function renderEmployeeDetail(employee) {
       ${firebaseLinkPanel}
       ${fieldInput("email", "メール", employee.email || "", "email")}
       ${fieldInput("birth_date", "誕生日（YYYY-MM-DD）", employee.birth_date || "")}
+      ${fieldInput("joined_on", "入社日（YYYY-MM-DD）", employee.joined_on || "")}
+      ${fieldInput("retired_on", "退職日（YYYY-MM-DD）", employee.retired_on || "")}
       ${fieldSelect("corporation_id", "法人", state.masters.corporations, employee.corporation_id, "corporation_name")}
       <section class="store-assignments">
         <div>
@@ -312,6 +314,15 @@ function renderEmployeeDetail(employee) {
       ${fieldSelect("position_id", "役職", state.masters.positions, employee.position_id, "position_name")}
       ${fieldInput("employment_type", "雇用形態", employee.employment_type || "")}
       ${fieldInput("employment_status", "現職/退職", employee.employment_status || "")}
+      <section class="leave-fields">
+        <div>
+          <strong>休職・産休・育休</strong>
+          <p>休職中の社員だけ入力します。復職済みの場合は終了日を入れておくと履歴確認に使えます。</p>
+        </div>
+        ${fieldInput("leave_type", "休職区分", employee.leave_type || "")}
+        ${fieldInput("leave_start_date", "休職開始日（YYYY-MM-DD）", employee.leave_start_date || "")}
+        ${fieldInput("leave_end_date", "休職終了日・復職日（YYYY-MM-DD）", employee.leave_end_date || "")}
+      </section>
       ${fieldCheckbox("is_active", "有効", employee.is_active)}
       <div class="danger-zone">
         <div>
@@ -402,8 +413,15 @@ async function saveEmployee(event) {
       showToast("メールアドレスの形式を確認してください。");
       return;
     }
-    if (payload.birth_date && !/^\d{4}-\d{2}-\d{2}$/.test(payload.birth_date)) {
-      showToast("誕生日は 1993-08-01 の形式で入力してください。");
+    const invalidDateField = getInvalidDateField(payload, [
+      ["birth_date", "誕生日"],
+      ["joined_on", "入社日"],
+      ["retired_on", "退職日"],
+      ["leave_start_date", "休職開始日"],
+      ["leave_end_date", "休職終了日・復職日"]
+    ]);
+    if (invalidDateField) {
+      showToast(`${invalidDateField}は 1993-08-01 の形式で入力してください。`);
       return;
     }
     const selectedStores = [payload.store_id, payload.store_assignment_2, payload.store_assignment_3].filter(Boolean);
@@ -428,6 +446,14 @@ async function saveEmployee(event) {
       button.textContent = "保存";
     }, 700);
   }
+}
+
+function getInvalidDateField(payload, fields) {
+  const invalid = fields.find(([key]) => {
+    const value = String(payload[key] || "").trim();
+    return value && !/^\d{4}-\d{2}-\d{2}$/.test(value);
+  });
+  return invalid ? invalid[1] : "";
 }
 
 async function retireEmployee(event) {

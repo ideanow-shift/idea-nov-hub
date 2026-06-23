@@ -717,7 +717,7 @@ function listCoreMaster_(tableName, select, order) {
 function listCoreEmployees_() {
   const employees = supabaseRequest_('employees', {
     query: {
-      select: 'id,employee_id,full_name,email,birth_date,employment_status,employment_type,corporation_id,store_id,department_id,position_id,firebase_uid,is_active,updated_at,source_row',
+      select: 'id,employee_id,full_name,email,birth_date,joined_on,retired_on,leave_start_date,leave_end_date,leave_type,employment_status,employment_type,corporation_id,store_id,department_id,position_id,firebase_uid,is_active,updated_at,source_row',
       order: 'employee_id.asc',
       limit: '1000'
     }
@@ -885,6 +885,11 @@ function updateCoreEmployee_(payload, actor) {
   const updates = {};
   copyStringField_(updates, payload, 'email');
   copyDateField_(updates, payload, 'birth_date');
+  copyDateField_(updates, payload, 'joined_on');
+  copyDateField_(updates, payload, 'retired_on');
+  copyDateField_(updates, payload, 'leave_start_date');
+  copyDateField_(updates, payload, 'leave_end_date');
+  copyStringField_(updates, payload, 'leave_type');
   copyStringField_(updates, payload, 'employment_status');
   copyStringField_(updates, payload, 'employment_type');
   copyNullableUuidField_(updates, payload, 'corporation_id');

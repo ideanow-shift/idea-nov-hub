@@ -286,6 +286,12 @@ tr.selected {
   color: #8A5D16;
 }
 
+.status-pill.warning {
+  background: #FFF3D8;
+  color: #8A5D16;
+  min-width: auto;
+}
+
 .detail-panel h3 {
   margin: 0;
   font-size: 18px;
@@ -305,6 +311,31 @@ tr.selected {
   font-size: 12px;
   line-height: 1.6;
   padding: 10px 12px;
+}
+
+.issue-panel {
+  border: 1px solid #F0D9A8;
+  border-radius: var(--radius-md);
+  background: #FFF9EC;
+  color: #6C5520;
+  padding: 12px;
+}
+
+.issue-panel.resolved {
+  border-color: #CDE6D5;
+  background: #F4FBF6;
+  color: #25724A;
+}
+
+.issue-panel strong {
+  display: block;
+  font-size: 13px;
+}
+
+.issue-panel p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .form-grid {

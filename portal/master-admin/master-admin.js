@@ -4,6 +4,7 @@ import { callApiAction, clearApiAuth, setFirebaseAuth } from "../js/api.js";
 const state = {
   view: "employees",
   employeeStatus: "active",
+  storeStatus: "active",
   selectedId: "",
   employees: [],
   stores: [],
@@ -25,7 +26,7 @@ const state = {
 const elements = Object.fromEntries([
   "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "refresh",
   "view-title", "search", "result-count", "table-head", "table-body",
-  "detail-panel", "employee-status-filter", "toast"
+  "detail-panel", "employee-status-filter", "store-status-filter", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
 
 function showToast(message) {
@@ -95,7 +96,7 @@ async function loadData() {
 
 function getRows() {
   const query = normalizeSearch(elements.search.value);
-  let rows = state.stores;
+  let rows = getStoresByStatus();
   if (state.view === "employees") rows = getEmployeesByStatus();
   if (state.view === "firebase") rows = state.employees.filter((employee) => employee.is_active && !employee.firebase_uid);
   if (state.view === "logs") rows = state.logs;
@@ -114,6 +115,23 @@ function getEmployeesByStatus() {
   return state.employees.filter((employee) => employee.is_active && !isRetiredEmployee(employee) && !isLeaveEmployee(employee));
 }
 
+function getStoresByStatus() {
+  if (state.view !== "stores") return state.stores;
+  if (state.storeStatus === "all") return state.stores;
+  if (state.storeStatus === "missing") return state.stores.filter((store) => getStoreIssues(store).length);
+  if (state.storeStatus === "inactive") return state.stores.filter((store) => !store.is_active);
+  return state.stores.filter((store) => store.is_active);
+}
+
+function getStoreIssues(store) {
+  const issues = [];
+  if (!store.corporation_id) issues.push("法人");
+  if (!store.business_unit_id) issues.push("事業部門");
+  if (!String(store.area || "").trim()) issues.push("エリア");
+  if (!String(store.store_type || "").trim()) issues.push("店舗種別");
+  return issues;
+}
+
 function isLeaveEmployee(employee) {
   const status = String(employee.employment_status || "");
   return /休職|産休|育休/.test(status);
@@ -129,8 +147,12 @@ function render() {
     button.classList.toggle("active", button.dataset.view === state.view);
   });
   elements.employeeStatusFilter.hidden = state.view !== "employees";
+  elements.storeStatusFilter.hidden = state.view !== "stores";
   document.querySelectorAll("[data-employee-status]").forEach((button) => {
     button.classList.toggle("active", button.dataset.employeeStatus === state.employeeStatus);
+  });
+  document.querySelectorAll("[data-store-status]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.storeStatus === state.storeStatus);
   });
   elements.viewTitle.textContent = {
     employees: "社員マスタ",
@@ -177,6 +199,7 @@ function renderTable() {
       <th>店舗ID</th>
       <th>店舗名</th>
       <th>事業</th>
+      <th>未設定</th>
       <th>状態</th>
     </tr>`;
   elements.tableBody.replaceChildren(...rows.map(renderStoreRow));
@@ -202,17 +225,24 @@ function renderEmployeeRow(employee) {
 function renderStoreRow(store) {
   const tr = document.createElement("tr");
   tr.className = store.id === state.selectedId ? "selected" : "";
+  const issues = getStoreIssues(store);
   tr.innerHTML = `
     <td>${escapeHtml(store.store_no)}</td>
     <td>${escapeHtml(store.store_id)}</td>
     <td>${escapeHtml(store.store_name)}</td>
     <td>${escapeHtml(store.business_unit_name || "")}</td>
+    <td>${formatStoreIssues(issues)}</td>
     <td>${formatActive(store.is_active)}</td>`;
   tr.addEventListener("click", () => {
     state.selectedId = store.id;
     render();
   });
   return tr;
+}
+
+function formatStoreIssues(issues) {
+  if (!issues.length) return `<span class="status-pill">OK</span>`;
+  return `<span class="status-pill warning">${escapeHtml(issues.join("・"))}</span>`;
 }
 
 function renderLogRow(log) {
@@ -491,11 +521,22 @@ function getStoreAssignmentsByOrder(assignments) {
 
 function renderStoreDetail(store) {
   const readonly = !state.permissions.canEdit;
+  const issues = getStoreIssues(store);
+  const issuePanel = issues.length ? `
+      <div class="issue-panel">
+        <strong>未設定項目</strong>
+        <p>${escapeHtml(issues.join("・"))} を確認してください。</p>
+      </div>` : `
+      <div class="issue-panel resolved">
+        <strong>未設定なし</strong>
+        <p>店舗マスタとして必要な項目は入力済みです。</p>
+      </div>`;
   elements.detailPanel.innerHTML = `
     <h3>${escapeHtml(store.store_name)}</h3>
     <p class="detail-meta">店舗ID: ${escapeHtml(store.store_id)} / 店舗No: ${escapeHtml(store.store_no)}</p>
     <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "店舗IDと店舗Noは固定項目です。通常運用では店舗名・法人・事業部門・有効状態のみ変更します。"}</p>
     <form class="form-grid" id="detail-form">
+      ${issuePanel}
       ${fieldInput("store_name", "店舗名", store.store_name || "")}
       ${fieldSelect("corporation_id", "法人", state.masters.corporations, store.corporation_id, "corporation_name")}
       ${fieldSelect("business_unit_id", "事業部門", state.masters.businessUnits, store.business_unit_id, "business_unit_name")}
@@ -820,6 +861,13 @@ elements.search.addEventListener("input", renderTable);
 document.querySelectorAll("[data-employee-status]").forEach((button) => {
   button.addEventListener("click", () => {
     state.employeeStatus = button.dataset.employeeStatus;
+    state.selectedId = "";
+    render();
+  });
+});
+document.querySelectorAll("[data-store-status]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.storeStatus = button.dataset.storeStatus;
     state.selectedId = "";
     render();
   });

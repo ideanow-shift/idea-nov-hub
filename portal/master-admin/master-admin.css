@@ -248,6 +248,11 @@ tr.selected {
   color: var(--text-secondary);
 }
 
+.status-pill.leave {
+  background: #FFF3D8;
+  color: #8A5D16;
+}
+
 .detail-panel h3 {
   margin: 0;
   font-size: 18px;

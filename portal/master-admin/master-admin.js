@@ -60,6 +60,12 @@ function formatActive(isActive) {
   return `<span class="status-pill${isActive ? "" : " inactive"}">${isActive ? "有効" : "無効"}</span>`;
 }
 
+function formatEmployeeStatus(employee) {
+  if (isLeaveEmployee(employee)) return `<span class="status-pill leave">休職</span>`;
+  if (isRetiredEmployee(employee)) return `<span class="status-pill inactive">退職</span>`;
+  return `<span class="status-pill">現職</span>`;
+}
+
 function setBootstrapData(data) {
   state.employees = data.employees || [];
   state.stores = data.stores || [];
@@ -92,10 +98,23 @@ function getRows() {
 
 function getEmployeesByStatus() {
   if (state.employeeStatus === "all") return state.employees;
-  if (state.employeeStatus === "inactive") {
-    return state.employees.filter((employee) => !employee.is_active || employee.employment_status === "退職");
+  if (state.employeeStatus === "leave") {
+    return state.employees.filter((employee) => isLeaveEmployee(employee));
   }
-  return state.employees.filter((employee) => employee.is_active && employee.employment_status !== "退職");
+  if (state.employeeStatus === "inactive") {
+    return state.employees.filter((employee) => isRetiredEmployee(employee));
+  }
+  return state.employees.filter((employee) => employee.is_active && !isRetiredEmployee(employee) && !isLeaveEmployee(employee));
+}
+
+function isLeaveEmployee(employee) {
+  const status = String(employee.employment_status || "");
+  return /休職|産休|育休/.test(status);
+}
+
+function isRetiredEmployee(employee) {
+  const status = String(employee.employment_status || "");
+  return /退職/.test(status) || (!employee.is_active && !isLeaveEmployee(employee));
 }
 
 function render() {
@@ -165,7 +184,7 @@ function renderEmployeeRow(employee) {
     <td>${escapeHtml(employee.store_name || employee.department_name || employee.source_assigned_location || "")}</td>
     <td>${escapeHtml(employee.position_name || employee.source_position_name || "")}</td>
     <td>${escapeHtml(employee.email || "")}</td>
-    <td>${formatActive(employee.is_active)}</td>`;
+    <td>${formatEmployeeStatus(employee)}</td>`;
   tr.addEventListener("click", () => {
     state.selectedId = employee.id;
     render();

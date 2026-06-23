@@ -752,7 +752,7 @@ function listCoreEmployees_() {
 function listCoreStores_() {
   const stores = supabaseRequest_('stores', {
     query: {
-      select: 'id,store_no,store_id,store_name,corporation_id,business_unit_id,is_active,updated_at',
+      select: 'id,store_no,store_id,store_name,corporation_id,business_unit_id,area,store_type,is_active,updated_at',
       order: 'store_no.asc',
       limit: '500'
     }
@@ -1031,6 +1031,8 @@ function updateCoreStore_(payload, actor) {
   if (!id) throwPortalError_('INVALID_REQUEST', 'Store id is required.');
   const updates = {};
   copyStringField_(updates, payload, 'store_name');
+  copyStringField_(updates, payload, 'area');
+  copyStringField_(updates, payload, 'store_type');
   copyNullableUuidField_(updates, payload, 'corporation_id');
   copyNullableUuidField_(updates, payload, 'business_unit_id');
   if (Object.prototype.hasOwnProperty.call(payload, 'is_active')) updates.is_active = Boolean(payload.is_active);

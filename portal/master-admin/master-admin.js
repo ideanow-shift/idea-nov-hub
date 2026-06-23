@@ -347,6 +347,8 @@ function getFieldLabel(key) {
     position_id: "役職",
     business_unit_id: "事業部門",
     store_name: "店舗名",
+    area: "エリア",
+    store_type: "店舗種別",
     firebase_uid: "Firebase UID",
     is_active: "有効状態"
   }[key] || key;
@@ -467,6 +469,8 @@ function renderStoreDetail(store) {
       ${fieldInput("store_name", "店舗名", store.store_name || "")}
       ${fieldSelect("corporation_id", "法人", state.masters.corporations, store.corporation_id, "corporation_name")}
       ${fieldSelect("business_unit_id", "事業部門", state.masters.businessUnits, store.business_unit_id, "business_unit_name")}
+      ${fieldInput("area", "エリア", store.area || "")}
+      ${fieldInput("store_type", "店舗種別", store.store_type || "")}
       ${fieldCheckbox("is_active", "有効", store.is_active)}
       <div class="save-row">
         <span class="save-status" id="store-save-status" aria-live="polite"></span>

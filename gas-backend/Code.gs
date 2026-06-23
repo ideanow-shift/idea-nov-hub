@@ -104,6 +104,7 @@ function doPost(e) {
       const apps = readPortalSheetObjects_(SHEETS.APPS)
         .map(normalizeApp_)
         .filter(function(app) { return canAccessApp_(employee, app); });
+      if (isMasterAdmin_(employee)) apps.push(createMasterAdminApp_());
 
       stage = 'readAnnouncements';
       const announcements = readPortalSheetObjects_(SHEETS.ANNOUNCEMENTS)
@@ -127,6 +128,41 @@ function doPost(e) {
         apps: apps,
         announcements: announcements
       });
+    }
+
+    if (action === 'masterBootstrap') {
+      stage = 'authorizeMasterAdmin';
+      assertMasterAdmin_(employee);
+      stage = 'readMasterAdminData';
+      return jsonOutput_({ ok: true, data: getMasterAdminBootstrap_() });
+    }
+
+    if (action === 'masterListEmployees') {
+      stage = 'authorizeMasterAdmin';
+      assertMasterAdmin_(employee);
+      stage = 'readEmployees';
+      return jsonOutput_({ ok: true, employees: listCoreEmployees_() });
+    }
+
+    if (action === 'masterListStores') {
+      stage = 'authorizeMasterAdmin';
+      assertMasterAdmin_(employee);
+      stage = 'readStores';
+      return jsonOutput_({ ok: true, stores: listCoreStores_() });
+    }
+
+    if (action === 'masterUpdateEmployee') {
+      stage = 'authorizeMasterAdmin';
+      assertMasterAdmin_(employee);
+      stage = 'updateEmployee';
+      return jsonOutput_({ ok: true, employee: updateCoreEmployee_(payload, employee) });
+    }
+
+    if (action === 'masterUpdateStore') {
+      stage = 'authorizeMasterAdmin';
+      assertMasterAdmin_(employee);
+      stage = 'updateStore';
+      return jsonOutput_({ ok: true, store: updateCoreStore_(payload, employee) });
     }
 
     if (action === 'log') {
@@ -552,6 +588,251 @@ function getHealthStatus_() {
   return result;
 }
 
+function createMasterAdminApp_() {
+  return {
+    appId: 'core-master-admin',
+    appName: 'マスタ管理',
+    description: '社員情報・店舗情報の基幹マスタを管理',
+    url: './master-admin/',
+    category: '総務申請',
+    icon: 'database',
+    requiredLevel: 4,
+    allowedTags: [],
+    targetDepartment: [],
+    targetPosition: [],
+    isActive: true,
+    isFeatured: true,
+    priority: 1
+  };
+}
+
+function isMasterAdmin_(employee) {
+  if (!employee || employee.status !== 'active') return false;
+  const email = normalizeEmailValue_(employee.email);
+  const adminEmails = String(getOptionalProperty_('MASTER_ADMIN_EMAILS', 'm.wakita@idea-nov.com'))
+    .split(/[,、\n]/)
+    .map(normalizeEmailValue_)
+    .filter(String);
+  if (adminEmails.indexOf(email) !== -1) return true;
+  if (Number(employee.roleLevel || 0) >= 5) return true;
+  const tags = employee.tags || [];
+  return ['super_admin', 'executive', 'backoffice', 'hr'].some(function(tag) {
+    return tags.indexOf(tag) !== -1;
+  });
+}
+
+function assertMasterAdmin_(employee) {
+  if (!isMasterAdmin_(employee)) {
+    throwPortalError_('MASTER_ADMIN_DENIED', 'Master admin permission is required.');
+  }
+}
+
+function getMasterAdminBootstrap_() {
+  const corporations = listCoreMaster_('corporations', 'id,corporation_no,corporation_code,corporation_name,is_active', 'corporation_no.asc');
+  const businessUnits = listCoreMaster_('business_units', 'id,business_unit_no,business_unit_code,business_unit_name,is_active', 'business_unit_no.asc');
+  const departments = listCoreMaster_('departments', 'id,department_no,department_code,department_name,is_active', 'department_no.asc');
+  const stores = listCoreStores_();
+  const positions = listCoreMaster_('positions', 'id,position_no,position_name,is_active', 'position_no.asc');
+  return {
+    corporations: corporations,
+    businessUnits: businessUnits,
+    departments: departments,
+    stores: stores,
+    positions: positions,
+    employees: listCoreEmployees_()
+  };
+}
+
+function listCoreMaster_(tableName, select, order) {
+  return supabaseRequest_(tableName, {
+    query: {
+      select: select,
+      order: order
+    }
+  });
+}
+
+function listCoreEmployees_() {
+  const employees = supabaseRequest_('employees', {
+    query: {
+      select: 'id,employee_id,full_name,email,employment_status,employment_type,corporation_id,store_id,department_id,position_id,firebase_uid,is_active,updated_at,source_row',
+      order: 'employee_id.asc',
+      limit: '1000'
+    }
+  });
+  const corporations = indexById_(listCoreMaster_('corporations', 'id,corporation_code,corporation_name', 'corporation_no.asc'));
+  const stores = indexById_(listCoreMaster_('stores', 'id,store_id,store_name', 'store_no.asc'));
+  const departments = indexById_(listCoreMaster_('departments', 'id,department_code,department_name', 'department_no.asc'));
+  const positions = indexById_(listCoreMaster_('positions', 'id,position_name', 'position_no.asc'));
+  return employees.map(function(employee) {
+    const source = employee.source_row || {};
+    const corporation = corporations[employee.corporation_id] || {};
+    const store = stores[employee.store_id] || {};
+    const department = departments[employee.department_id] || {};
+    const position = positions[employee.position_id] || {};
+    return Object.assign({}, employee, {
+      corporation_name: corporation.corporation_name || '',
+      corporation_code: corporation.corporation_code || '',
+      store_name: store.store_name || '',
+      store_code: store.store_id || '',
+      department_name: department.department_name || '',
+      department_code: department.department_code || '',
+      position_name: position.position_name || '',
+      source_company_name: String(source.company_name || ''),
+      source_assigned_location: String(source.assigned_location || ''),
+      source_position_name: String(source.position_name || '')
+    });
+  });
+}
+
+function listCoreStores_() {
+  const stores = supabaseRequest_('stores', {
+    query: {
+      select: 'id,store_no,store_id,store_name,corporation_id,business_unit_id,department_id,is_active,updated_at',
+      order: 'store_no.asc',
+      limit: '500'
+    }
+  });
+  const corporations = indexById_(listCoreMaster_('corporations', 'id,corporation_code,corporation_name', 'corporation_no.asc'));
+  const businessUnits = indexById_(listCoreMaster_('business_units', 'id,business_unit_code,business_unit_name', 'business_unit_no.asc'));
+  const departments = indexById_(listCoreMaster_('departments', 'id,department_code,department_name', 'department_no.asc'));
+  return stores.map(function(store) {
+    const corporation = corporations[store.corporation_id] || {};
+    const businessUnit = businessUnits[store.business_unit_id] || {};
+    const department = departments[store.department_id] || {};
+    return Object.assign({}, store, {
+      corporation_name: corporation.corporation_name || '',
+      corporation_code: corporation.corporation_code || '',
+      business_unit_name: businessUnit.business_unit_name || '',
+      business_unit_code: businessUnit.business_unit_code || '',
+      department_name: department.department_name || '',
+      department_code: department.department_code || ''
+    });
+  });
+}
+
+function updateCoreEmployee_(payload, actor) {
+  const id = String(payload.id || '').trim();
+  if (!id) throwPortalError_('INVALID_REQUEST', 'Employee id is required.');
+  const updates = {};
+  copyStringField_(updates, payload, 'email');
+  copyStringField_(updates, payload, 'employment_status');
+  copyStringField_(updates, payload, 'employment_type');
+  copyNullableUuidField_(updates, payload, 'corporation_id');
+  copyNullableUuidField_(updates, payload, 'store_id');
+  copyNullableUuidField_(updates, payload, 'department_id');
+  copyNullableUuidField_(updates, payload, 'position_id');
+  if (Object.prototype.hasOwnProperty.call(payload, 'is_active')) updates.is_active = Boolean(payload.is_active);
+  updates.updated_at = new Date().toISOString();
+  const result = supabaseRequest_('employees', {
+    method: 'patch',
+    query: { id: 'eq.' + id, select: '*' },
+    payload: updates,
+    prefer: 'return=representation'
+  });
+  appendMasterChangeLogSafely_('employees', id, updates, actor);
+  return result[0] || null;
+}
+
+function updateCoreStore_(payload, actor) {
+  const id = String(payload.id || '').trim();
+  if (!id) throwPortalError_('INVALID_REQUEST', 'Store id is required.');
+  const updates = {};
+  copyStringField_(updates, payload, 'store_name');
+  copyNullableUuidField_(updates, payload, 'corporation_id');
+  copyNullableUuidField_(updates, payload, 'business_unit_id');
+  copyNullableUuidField_(updates, payload, 'department_id');
+  if (Object.prototype.hasOwnProperty.call(payload, 'is_active')) updates.is_active = Boolean(payload.is_active);
+  updates.updated_at = new Date().toISOString();
+  const result = supabaseRequest_('stores', {
+    method: 'patch',
+    query: { id: 'eq.' + id, select: '*' },
+    payload: updates,
+    prefer: 'return=representation'
+  });
+  appendMasterChangeLogSafely_('stores', id, updates, actor);
+  return result[0] || null;
+}
+
+function copyStringField_(target, source, fieldName) {
+  if (Object.prototype.hasOwnProperty.call(source, fieldName)) {
+    target[fieldName] = String(source[fieldName] || '').trim();
+  }
+}
+
+function copyNullableUuidField_(target, source, fieldName) {
+  if (Object.prototype.hasOwnProperty.call(source, fieldName)) {
+    const value = String(source[fieldName] || '').trim();
+    target[fieldName] = value || null;
+  }
+}
+
+function indexById_(rows) {
+  return rows.reduce(function(index, row) {
+    index[row.id] = row;
+    return index;
+  }, {});
+}
+
+function appendMasterChangeLogSafely_(tableName, recordId, changes, actor) {
+  try {
+    supabaseRequest_('master_change_logs', {
+      method: 'post',
+      payload: {
+        table_name: tableName,
+        record_id: recordId,
+        changed_by_email: actor.email || '',
+        change_payload: changes
+      }
+    });
+  } catch (error) {
+    console.error(JSON.stringify({ code: 'MASTER_CHANGE_LOG_FAILED', message: String(error.message || error) }));
+  }
+}
+
+function supabaseRequest_(resource, options) {
+  const config = getSupabaseConfig_();
+  const query = buildQueryString_(options && options.query ? options.query : {});
+  const url = config.url + '/rest/v1/' + resource + (query ? '?' + query : '');
+  const method = String((options && options.method) || 'get').toLowerCase();
+  const headers = {
+    apikey: config.serviceRoleKey,
+    Authorization: 'Bearer ' + config.serviceRoleKey,
+    Accept: 'application/json'
+  };
+  if (options && options.prefer) headers.Prefer = options.prefer;
+  const request = {
+    method: method,
+    headers: headers,
+    muteHttpExceptions: true
+  };
+  if (Object.prototype.hasOwnProperty.call(options || {}, 'payload')) {
+    request.contentType = 'application/json';
+    request.payload = JSON.stringify(options.payload);
+  }
+  const response = UrlFetchApp.fetch(url, request);
+  const code = response.getResponseCode();
+  const text = response.getContentText();
+  if (code < 200 || code >= 300) {
+    throwPortalError_('SUPABASE_REQUEST_FAILED', resource + ' HTTP ' + code + ': ' + text.slice(0, 240));
+  }
+  if (!text) return [];
+  return parseJson_(text, []);
+}
+
+function getSupabaseConfig_() {
+  const url = String(getRequiredProperty_('SUPABASE_URL')).replace(/\/+$/, '');
+  const serviceRoleKey = getRequiredProperty_('SUPABASE_SERVICE_ROLE_KEY');
+  return { url: url, serviceRoleKey: serviceRoleKey };
+}
+
+function buildQueryString_(query) {
+  return Object.keys(query)
+    .filter(function(key) { return query[key] !== undefined && query[key] !== null && String(query[key]) !== ''; })
+    .map(function(key) { return encodeURIComponent(key) + '=' + encodeURIComponent(String(query[key])); })
+    .join('&');
+}
+
 function pick_(row, aliases) {
   for (let i = 0; i < aliases.length; i++) {
     const key = normalizeHeaderKey_(aliases[i]);
@@ -655,7 +936,9 @@ function getPublicErrorMessage_(code) {
     STORE_SPREADSHEET_OPEN_FAILED: '店舗マスタを開けませんでした。',
     MASTER_SHEET_MISSING: '必要なマスタシートがありません。',
     ACCESS_LOG_SHEET_MISSING: 'アクセスログシートがありません。',
-    INVALID_REQUEST: 'APIリクエストが正しくありません。'
+    INVALID_REQUEST: 'APIリクエストが正しくありません。',
+    MASTER_ADMIN_DENIED: 'マスタ管理を利用する権限がありません。',
+    SUPABASE_REQUEST_FAILED: 'Supabaseとの通信に失敗しました。'
   };
   return messages[code] || 'サーバー処理に失敗しました。';
 }

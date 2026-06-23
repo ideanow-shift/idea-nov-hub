@@ -156,6 +156,19 @@
       ]
     },
     {
+      "appId": "core-master-admin",
+      "appName": "マスタ管理",
+      "icon": "./assets/icons/database.svg",
+      "color": "#9FAFE8",
+      "aliases": [
+        "マスタ管理",
+        "社員マスタ",
+        "店舗マスタ",
+        "Core DB",
+        "master-admin"
+      ]
+    },
+    {
       "appId": "campaign-management",
       "appName": "キャンペーン管理",
       "icon": "./assets/icons/campaign.svg",

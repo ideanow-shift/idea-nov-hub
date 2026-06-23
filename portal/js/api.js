@@ -60,6 +60,10 @@ export function fetchPortalData() {
   return postToApi("bootstrap");
 }
 
+export function callApiAction(action, payload = {}) {
+  return postToApi(action, payload);
+}
+
 export function writeAccessLog(action, details = {}) {
   return postToApi("log", { action, ...details });
 }

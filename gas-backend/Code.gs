@@ -726,6 +726,7 @@ function listCoreEmployees_() {
   const stores = indexById_(listCoreMaster_('stores', 'id,store_id,store_name', 'store_no.asc'));
   const departments = indexById_(listCoreMaster_('departments', 'id,department_code,department_name', 'department_no.asc'));
   const positions = indexById_(listCoreMaster_('positions', 'id,position_name', 'position_no.asc'));
+  const storeAssignmentsByEmployee = groupStoreAssignmentsByEmployee_(listEmployeeStoreAssignments_(), stores);
   return employees.map(function(employee) {
     const source = employee.source_row || {};
     const corporation = corporations[employee.corporation_id] || {};
@@ -740,6 +741,7 @@ function listCoreEmployees_() {
       department_name: department.department_name || '',
       department_code: department.department_code || '',
       position_name: position.position_name || '',
+      store_assignments: storeAssignmentsByEmployee[employee.id] || [],
       source_company_name: String(source.company_name || ''),
       source_assigned_location: String(source.assigned_location || ''),
       source_position_name: String(source.position_name || '')
@@ -794,9 +796,23 @@ function listEmployeeStoreAssignments_() {
     query: {
       select: 'id,employee_id,store_id,assignment_order,assignment_type,effective_from,effective_to,is_active',
       order: 'assignment_order.asc',
-      limit: '5'
+      limit: '1000'
     }
   });
+}
+
+function groupStoreAssignmentsByEmployee_(assignments, storesById) {
+  return assignments.reduce(function(grouped, assignment) {
+    const store = storesById[assignment.store_id] || {};
+    const employeeId = assignment.employee_id || '';
+    if (!employeeId || !assignment.is_active) return grouped;
+    if (!grouped[employeeId]) grouped[employeeId] = [];
+    grouped[employeeId].push(Object.assign({}, assignment, {
+      store_name: store.store_name || '',
+      store_code: store.store_id || ''
+    }));
+    return grouped;
+  }, {});
 }
 
 function getCoreEmployeeById_(id) {

@@ -277,6 +277,7 @@ function renderLogDetail() {
 
 function renderEmployeeDetail(employee) {
   const retired = !employee.is_active || employee.employment_status === "退職";
+  const storeAssignmentsPanel = renderStoreAssignments(employee.store_assignments || []);
   const firebaseLinkPanel = state.view === "firebase" ? `
       <div class="firebase-link-panel">
         <div>
@@ -293,6 +294,7 @@ function renderEmployeeDetail(employee) {
     <h3>${escapeHtml(employee.full_name)}</h3>
     <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}</p>
     <p class="detail-note">社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。</p>
+    ${storeAssignmentsPanel}
     <form class="form-grid" id="detail-form">
       ${firebaseLinkPanel}
       ${fieldInput("email", "メール", employee.email || "", "email")}
@@ -315,6 +317,36 @@ function renderEmployeeDetail(employee) {
   document.querySelector("#detail-form").addEventListener("submit", saveEmployee);
   document.querySelector("#retire-employee").addEventListener("click", retireEmployee);
   document.querySelector("#link-firebase-uid")?.addEventListener("click", linkFirebaseUid);
+}
+
+function renderStoreAssignments(assignments) {
+  const rows = assignments
+    .slice()
+    .sort((left, right) => Number(left.assignment_order || 0) - Number(right.assignment_order || 0));
+  const labelByOrder = {
+    1: "主店舗",
+    2: "サブ店舗",
+    3: "第3店舗"
+  };
+  const content = rows.length ? rows.map((assignment) => {
+    const order = Number(assignment.assignment_order || 0);
+    const label = labelByOrder[order] || `${order}番目`;
+    const type = assignment.assignment_type === "primary" ? "primary" : "sub";
+    return `
+      <li>
+        <span class="assignment-label">${escapeHtml(label)}</span>
+        <span class="assignment-store">${escapeHtml(assignment.store_name || "未設定")}</span>
+        <span class="assignment-type">${type === "primary" ? "主" : "兼任"}</span>
+      </li>`;
+  }).join("") : `<li class="assignment-empty">複数店舗所属は未設定です。</li>`;
+  return `
+    <section class="store-assignments">
+      <div>
+        <strong>複数店舗所属</strong>
+        <p>主店舗・サブ店舗を確認するための表示です。編集機能は次の段階で追加します。</p>
+      </div>
+      <ul>${content}</ul>
+    </section>`;
 }
 
 function renderStoreDetail(store) {

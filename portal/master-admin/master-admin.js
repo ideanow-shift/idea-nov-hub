@@ -106,6 +106,9 @@ function getRows() {
 
 function getEmployeesByStatus() {
   if (state.employeeStatus === "all") return state.employees;
+  if (state.employeeStatus === "missing") {
+    return state.employees.filter((employee) => getEmployeeIssues(employee).length);
+  }
   if (state.employeeStatus === "leave") {
     return state.employees.filter((employee) => isLeaveEmployee(employee));
   }
@@ -113,6 +116,17 @@ function getEmployeesByStatus() {
     return state.employees.filter((employee) => isRetiredEmployee(employee));
   }
   return state.employees.filter((employee) => employee.is_active && !isRetiredEmployee(employee) && !isLeaveEmployee(employee));
+}
+
+function getEmployeeIssues(employee) {
+  const issues = [];
+  const hasLocation = Boolean(employee.store_id || employee.department_id || employee.store_name || employee.department_name || employee.source_assigned_location);
+  if (!employee.corporation_id) issues.push("法人");
+  if (!hasLocation) issues.push("所属");
+  if (!employee.position_id && !employee.source_position_name) issues.push("役職");
+  if (!String(employee.employment_type || "").trim()) issues.push("雇用形態");
+  if (!String(employee.employment_status || "").trim()) issues.push("現職/休職/退職");
+  return issues;
 }
 
 function getStoresByStatus() {
@@ -175,6 +189,7 @@ function renderTable() {
         <th>所属</th>
         <th>役職</th>
         <th>メール</th>
+        <th>未設定</th>
         <th>状態</th>
       </tr>`;
     elements.tableBody.replaceChildren(...rows.map(renderEmployeeRow));
@@ -208,12 +223,14 @@ function renderTable() {
 function renderEmployeeRow(employee) {
   const tr = document.createElement("tr");
   tr.className = employee.id === state.selectedId ? "selected" : "";
+  const issues = getEmployeeIssues(employee);
   tr.innerHTML = `
     <td>${escapeHtml(employee.employee_id)}</td>
     <td>${escapeHtml(employee.full_name)}</td>
     <td>${escapeHtml(employee.store_name || employee.department_name || employee.source_assigned_location || "")}</td>
     <td>${escapeHtml(employee.position_name || employee.source_position_name || "")}</td>
     <td>${escapeHtml(employee.email || "")}</td>
+    <td>${formatMasterIssues(issues)}</td>
     <td>${formatEmployeeStatus(employee)}</td>`;
   tr.addEventListener("click", () => {
     state.selectedId = employee.id;
@@ -240,9 +257,13 @@ function renderStoreRow(store) {
   return tr;
 }
 
-function formatStoreIssues(issues) {
+function formatMasterIssues(issues) {
   if (!issues.length) return `<span class="status-pill">OK</span>`;
   return `<span class="status-pill warning">${escapeHtml(issues.join("・"))}</span>`;
+}
+
+function formatStoreIssues(issues) {
+  return formatMasterIssues(issues);
 }
 
 function renderLogRow(log) {
@@ -433,6 +454,16 @@ function renderEmployeeDetail(employee) {
   const retired = !employee.is_active || employee.employment_status === "退職";
   const storeAssignments = getStoreAssignmentsByOrder(employee.store_assignments || []);
   const readonly = !state.permissions.canEdit;
+  const issues = getEmployeeIssues(employee);
+  const issuePanel = issues.length ? `
+      <div class="issue-panel">
+        <strong>未設定項目</strong>
+        <p>${escapeHtml(issues.join("・"))} を確認してください。</p>
+      </div>` : `
+      <div class="issue-panel resolved">
+        <strong>未設定なし</strong>
+        <p>社員マスタとして必要な項目は入力済みです。</p>
+      </div>`;
   const firebaseLinkPanel = state.view === "firebase" && !readonly ? `
       <div class="firebase-link-panel">
         <div>
@@ -450,6 +481,7 @@ function renderEmployeeDetail(employee) {
     <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}</p>
     <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。"}</p>
     <form class="form-grid" id="detail-form">
+      ${issuePanel}
       ${firebaseLinkPanel}
       ${fieldInput("email", "メール", employee.email || "", "email")}
       ${fieldInput("birth_date", "誕生日", employee.birth_date || "", "date")}

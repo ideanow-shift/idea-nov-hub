@@ -107,7 +107,7 @@ function getRows() {
 function getEmployeesByStatus() {
   if (state.employeeStatus === "all") return state.employees;
   if (state.employeeStatus === "missing") {
-    return state.employees.filter((employee) => getEmployeeIssues(employee).length);
+    return state.employees.filter((employee) => isCurrentEmployee(employee) && getEmployeeIssues(employee).length);
   }
   if (state.employeeStatus === "leave") {
     return state.employees.filter((employee) => isLeaveEmployee(employee));
@@ -115,13 +115,15 @@ function getEmployeesByStatus() {
   if (state.employeeStatus === "inactive") {
     return state.employees.filter((employee) => isRetiredEmployee(employee));
   }
-  return state.employees.filter((employee) => employee.is_active && !isRetiredEmployee(employee) && !isLeaveEmployee(employee));
+  return state.employees.filter((employee) => isCurrentEmployee(employee));
 }
 
 function getEmployeeIssues(employee) {
+  if (!isCurrentEmployee(employee)) return [];
   const issues = [];
   const hasLocation = Boolean(employee.store_id || employee.department_id || employee.store_name || employee.department_name || employee.source_assigned_location);
   if (!employee.corporation_id) issues.push("法人");
+  if (!String(employee.email || "").trim()) issues.push("メール");
   if (!hasLocation) issues.push("所属");
   if (!employee.position_id && !employee.source_position_name) issues.push("役職");
   if (!String(employee.employment_type || "").trim()) issues.push("雇用形態");
@@ -144,6 +146,10 @@ function getStoreIssues(store) {
   if (!String(store.area || "").trim()) issues.push("エリア");
   if (!String(store.store_type || "").trim()) issues.push("店舗種別");
   return issues;
+}
+
+function isCurrentEmployee(employee) {
+  return employee.is_active && !isRetiredEmployee(employee) && !isLeaveEmployee(employee);
 }
 
 function isLeaveEmployee(employee) {

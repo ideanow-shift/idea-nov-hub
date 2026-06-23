@@ -834,7 +834,7 @@ function listCoreStores_() {
 function listMasterChangeLogs_() {
   return supabaseRequest_('master_change_logs', {
     query: {
-      select: 'id,table_name,record_id,changed_by_email,change_payload,created_at',
+      select: 'id,table_name,record_id,changed_by_email,change_payload,action_type,target_name,change_summary,created_at',
       order: 'created_at.desc',
       limit: '100'
     }
@@ -964,8 +964,11 @@ function updateCoreEmployee_(payload, actor) {
     payload: updates,
     prefer: 'return=representation'
   });
-  appendMasterChangeLogSafely_('employees', id, updates, actor);
   const after = result[0] || null;
+  appendMasterChangeLogSafely_('employees', id, updates, actor, {
+    actionType: 'update',
+    targetName: after && after.full_name ? after.full_name : before.full_name
+  });
   updateEmployeeStoreAssignmentsIfPresent_(id, payload, actor);
   appendAssignmentHistoryIfNeeded_(before, after, updates, actor);
   return after;
@@ -1028,10 +1031,14 @@ function updateEmployeeStoreAssignmentsIfPresent_(employeeId, payload, actor) {
       prefer: 'return=minimal'
     });
   }
+  const employee = getCoreEmployeeById_(employeeId);
   appendMasterChangeLogSafely_('employee_store_assignments', employeeId, {
     before: existing,
     after: desiredAssignments
-  }, actor);
+  }, actor, {
+    actionType: 'update_store_assignments',
+    targetName: employee && employee.full_name ? employee.full_name : ''
+  });
 }
 
 function buildEmployeeStoreAssignments_(employeeId, payload) {
@@ -1082,8 +1089,12 @@ function linkFirebaseUid_(payload, actor) {
     payload: updates,
     prefer: 'return=representation'
   });
-  appendMasterChangeLogSafely_('employees', id, updates, actor);
-  return result[0] || null;
+  const after = result[0] || null;
+  appendMasterChangeLogSafely_('employees', id, updates, actor, {
+    actionType: 'link_firebase_uid',
+    targetName: after && after.full_name ? after.full_name : ''
+  });
+  return after;
 }
 
 function updateCoreStore_(payload, actor) {
@@ -1103,8 +1114,12 @@ function updateCoreStore_(payload, actor) {
     payload: updates,
     prefer: 'return=representation'
   });
-  appendMasterChangeLogSafely_('stores', id, updates, actor);
-  return result[0] || null;
+  const after = result[0] || null;
+  appendMasterChangeLogSafely_('stores', id, updates, actor, {
+    actionType: 'update',
+    targetName: after && after.store_name ? after.store_name : ''
+  });
+  return after;
 }
 
 function copyStringField_(target, source, fieldName) {
@@ -1137,20 +1152,61 @@ function indexById_(rows) {
   }, {});
 }
 
-function appendMasterChangeLogSafely_(tableName, recordId, changes, actor) {
+function appendMasterChangeLogSafely_(tableName, recordId, changes, actor, meta) {
   try {
+    const safeMeta = meta || {};
     supabaseRequest_('master_change_logs', {
       method: 'post',
       payload: {
         table_name: tableName,
         record_id: recordId,
         changed_by_email: actor.email || '',
-        change_payload: changes
+        change_payload: changes,
+        action_type: safeMeta.actionType || 'update',
+        target_name: safeMeta.targetName || '',
+        change_summary: buildMasterChangeSummary_(changes)
       }
     });
   } catch (error) {
     console.error(JSON.stringify({ code: 'MASTER_CHANGE_LOG_FAILED', message: String(error.message || error) }));
   }
+}
+
+function buildMasterChangeSummary_(changes) {
+  if (!changes) return '';
+  if (Array.isArray(changes.before) || Array.isArray(changes.after)) {
+    const beforeCount = Array.isArray(changes.before) ? changes.before.length : 0;
+    const afterCount = Array.isArray(changes.after) ? changes.after.length : 0;
+    return '店舗所属を変更（変更前 ' + beforeCount + '件 / 変更後 ' + afterCount + '件）';
+  }
+  const labels = Object.keys(changes)
+    .filter(function(key) { return key !== 'updated_at'; })
+    .map(function(key) { return getMasterChangeFieldLabel_(key); });
+  return labels.length ? labels.join('、') + 'を変更' : '変更内容なし';
+}
+
+function getMasterChangeFieldLabel_(key) {
+  return {
+    email: 'メール',
+    birth_date: '誕生日',
+    joined_on: '入社日',
+    retired_on: '退職日',
+    leave_type: '休職区分',
+    leave_start_date: '休職開始日',
+    leave_end_date: '休職終了日・復職日',
+    employment_status: '現職/休職/退職',
+    employment_type: '雇用形態',
+    corporation_id: '法人',
+    store_id: '主店舗',
+    department_id: '部署',
+    position_id: '役職',
+    business_unit_id: '事業部門',
+    store_name: '店舗名',
+    area: 'エリア',
+    store_type: '店舗種別',
+    firebase_uid: 'Firebase UID',
+    is_active: '有効状態'
+  }[key] || key;
 }
 
 function supabaseRequest_(resource, options) {

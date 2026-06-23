@@ -219,11 +219,13 @@ function renderLogRow(log) {
   tr.className = log.id === state.selectedId ? "selected" : "";
   const payload = log.change_payload || {};
   const changedKeys = Object.keys(payload).filter((key) => key !== "updated_at");
+  const targetLabel = log.target_name || `${log.table_name} / ${log.record_id}`;
+  const summary = log.change_summary || changedKeys.map(getFieldLabel).join(", ") || "変更内容なし";
   tr.innerHTML = `
     <td>${escapeHtml(formatDateTime(log.created_at))}</td>
-    <td>${escapeHtml(log.table_name)} / ${escapeHtml(log.record_id)}</td>
+    <td>${escapeHtml(targetLabel)}</td>
     <td>${escapeHtml(log.changed_by_email || "")}</td>
-    <td>${escapeHtml(changedKeys.join(", ") || "変更内容なし")}</td>`;
+    <td>${escapeHtml(formatActionType(log.action_type))} / ${escapeHtml(summary)}</td>`;
   tr.addEventListener("click", () => {
     state.selectedId = log.id;
     render();
@@ -270,15 +272,29 @@ function renderLogDetail() {
     <p class="detail-meta">${escapeHtml(formatDateTime(log.created_at))}</p>
     <div class="log-detail">
       <dl>
+        <dt>操作</dt>
+        <dd>${escapeHtml(formatActionType(log.action_type))}</dd>
+        <dt>対象名</dt>
+        <dd>${escapeHtml(log.target_name || "")}</dd>
         <dt>対象テーブル</dt>
         <dd>${escapeHtml(log.table_name)}</dd>
         <dt>対象ID</dt>
         <dd>${escapeHtml(log.record_id)}</dd>
         <dt>変更者</dt>
         <dd>${escapeHtml(log.changed_by_email || "")}</dd>
+        <dt>概要</dt>
+        <dd>${escapeHtml(log.change_summary || "")}</dd>
       </dl>
       ${renderLogPayload(log)}
     </div>`;
+}
+
+function formatActionType(actionType) {
+  return {
+    update: "更新",
+    link_firebase_uid: "Firebase UID連携",
+    update_store_assignments: "店舗所属更新"
+  }[actionType] || "更新";
 }
 
 function renderLogPayload(log) {

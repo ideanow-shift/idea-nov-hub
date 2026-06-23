@@ -245,11 +245,24 @@ function renderLogDetail() {
 
 function renderEmployeeDetail(employee) {
   const retired = !employee.is_active || employee.employment_status === "退職";
+  const firebaseLinkPanel = state.view === "firebase" ? `
+      <div class="firebase-link-panel">
+        <div>
+          <strong>Firebase UID連携</strong>
+          <p>Firebase AuthenticationのユーザーUIDを貼り付けて、この社員にログイン権限を紐付けます。</p>
+        </div>
+        <label class="form-field" for="firebase_uid">
+          <span>Firebase UID</span>
+          <input class="form-input" id="firebase_uid" name="firebase_uid" type="text" autocomplete="off" placeholder="例: y8TtlfPT9nNr8KBIBdQ5w1YJASm2">
+        </label>
+        <button class="button button-secondary" id="link-firebase-uid" type="button">Firebase UIDを連携</button>
+      </div>` : "";
   elements.detailPanel.innerHTML = `
     <h3>${escapeHtml(employee.full_name)}</h3>
     <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}</p>
     <p class="detail-note">社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。</p>
     <form class="form-grid" id="detail-form">
+      ${firebaseLinkPanel}
       ${fieldInput("email", "メール", employee.email || "", "email")}
       ${fieldSelect("corporation_id", "法人", state.masters.corporations, employee.corporation_id, "corporation_name")}
       ${fieldSelect("store_id", "所属店舗", state.stores, employee.store_id, "store_name")}
@@ -269,6 +282,7 @@ function renderEmployeeDetail(employee) {
     </form>`;
   document.querySelector("#detail-form").addEventListener("submit", saveEmployee);
   document.querySelector("#retire-employee").addEventListener("click", retireEmployee);
+  document.querySelector("#link-firebase-uid")?.addEventListener("click", linkFirebaseUid);
 }
 
 function renderStoreDetail(store) {
@@ -358,6 +372,35 @@ async function retireEmployee(event) {
     });
     showToast("退職処理を保存しました。");
     await refreshEmployees();
+  } catch (error) {
+    console.error(error);
+    showToast(getErrorMessage(error));
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function linkFirebaseUid(event) {
+  const employee = state.employees.find((item) => item.id === state.selectedId);
+  const firebaseUid = document.querySelector("#firebase_uid")?.value.trim() || "";
+  if (!employee) return;
+  if (!/^[A-Za-z0-9_-]{10,128}$/.test(firebaseUid)) {
+    showToast("Firebase UIDの形式を確認してください。");
+    return;
+  }
+  const confirmed = window.confirm(`${employee.full_name}さんにFirebase UIDを連携します。\n\n${firebaseUid}`);
+  if (!confirmed) return;
+  const button = event.currentTarget;
+  try {
+    button.disabled = true;
+    await callApiAction("masterLinkFirebaseUid", {
+      id: employee.id,
+      firebase_uid: firebaseUid
+    });
+    showToast("Firebase UIDを連携しました。");
+    await refreshEmployees();
+    if (state.view === "firebase") state.selectedId = "";
+    render();
   } catch (error) {
     console.error(error);
     showToast(getErrorMessage(error));

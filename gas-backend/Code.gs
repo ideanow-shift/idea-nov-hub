@@ -166,6 +166,13 @@ function doPost(e) {
       return jsonOutput_({ ok: true, employee: updateCoreEmployee_(payload, employee) });
     }
 
+    if (action === 'masterLinkFirebaseUid') {
+      stage = 'authorizeMasterAdmin';
+      assertMasterAdmin_(employee);
+      stage = 'linkFirebaseUid';
+      return jsonOutput_({ ok: true, employee: linkFirebaseUid_(payload, employee) });
+    }
+
     if (action === 'masterUpdateStore') {
       stage = 'authorizeMasterAdmin';
       assertMasterAdmin_(employee);
@@ -793,6 +800,41 @@ function updateCoreEmployee_(payload, actor) {
   return result[0] || null;
 }
 
+function linkFirebaseUid_(payload, actor) {
+  const id = String(payload.id || '').trim();
+  const firebaseUid = String(payload.firebase_uid || '').trim();
+  if (!id) throwPortalError_('INVALID_REQUEST', 'Employee id is required.');
+  if (!/^[A-Za-z0-9_-]{10,128}$/.test(firebaseUid)) {
+    throwPortalError_('INVALID_REQUEST', 'Firebase UID format is invalid.');
+  }
+
+  const duplicates = supabaseRequest_('employees', {
+    query: {
+      select: 'id,employee_id,full_name,email',
+      firebase_uid: 'eq.' + firebaseUid,
+      limit: '2'
+    }
+  }).filter(function(employee) {
+    return employee.id !== id;
+  });
+  if (duplicates.length) {
+    throwPortalError_('FIREBASE_UID_DUPLICATED', 'Firebase UID is already linked to ' + (duplicates[0].full_name || duplicates[0].employee_id || 'another employee') + '.');
+  }
+
+  const updates = {
+    firebase_uid: firebaseUid,
+    updated_at: new Date().toISOString()
+  };
+  const result = supabaseRequest_('employees', {
+    method: 'patch',
+    query: { id: 'eq.' + id, select: '*' },
+    payload: updates,
+    prefer: 'return=representation'
+  });
+  appendMasterChangeLogSafely_('employees', id, updates, actor);
+  return result[0] || null;
+}
+
 function updateCoreStore_(payload, actor) {
   const id = String(payload.id || '').trim();
   if (!id) throwPortalError_('INVALID_REQUEST', 'Store id is required.');
@@ -996,7 +1038,8 @@ function getPublicErrorMessage_(code) {
     ACCESS_LOG_SHEET_MISSING: 'アクセスログシートがありません。',
     INVALID_REQUEST: 'APIリクエストが正しくありません。',
     MASTER_ADMIN_DENIED: 'マスタ管理を利用する権限がありません。',
-    SUPABASE_REQUEST_FAILED: 'Supabaseとの通信に失敗しました。'
+    SUPABASE_REQUEST_FAILED: 'Supabaseとの通信に失敗しました。',
+    FIREBASE_UID_DUPLICATED: 'このFirebase UIDはすでに別の社員に紐付いています。'
   };
   return messages[code] || 'サーバー処理に失敗しました。';
 }

@@ -280,6 +280,39 @@ tr.selected {
   padding: 12px;
 }
 
+.firebase-link-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #C9D8F0;
+  border-radius: var(--radius-md);
+  background: #F6FAFF;
+  padding: 12px;
+}
+
+.firebase-link-panel strong {
+  display: block;
+  color: #29578A;
+  font-size: 13px;
+}
+
+.firebase-link-panel p {
+  margin: 3px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.firebase-link-panel .form-field {
+  margin: 0;
+}
+
+.firebase-link-panel .form-field span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
 .danger-zone strong {
   display: block;
   color: #8F2E2E;

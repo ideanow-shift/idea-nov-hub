@@ -271,8 +271,107 @@ function renderLogDetail() {
         <dt>変更者</dt>
         <dd>${escapeHtml(log.changed_by_email || "")}</dd>
       </dl>
-      <pre>${escapeHtml(JSON.stringify(log.change_payload || {}, null, 2))}</pre>
+      ${renderLogPayload(log)}
     </div>`;
+}
+
+function renderLogPayload(log) {
+  const payload = log.change_payload || {};
+  if (log.table_name === "employee_store_assignments") {
+    return renderStoreAssignmentLog(payload);
+  }
+  const rows = Object.entries(payload)
+    .filter(([key]) => key !== "updated_at")
+    .map(([key, value]) => renderLogField(key, value))
+    .join("");
+  if (!rows) return `<p class="empty-detail">表示できる変更内容はありません。</p>`;
+  return `<div class="change-list">${rows}</div>`;
+}
+
+function renderLogField(key, value) {
+  return `
+    <div class="change-row">
+      <span class="change-key">${escapeHtml(getFieldLabel(key))}</span>
+      <span class="change-value">${escapeHtml(formatLogValue(key, value))}</span>
+    </div>`;
+}
+
+function renderStoreAssignmentLog(payload) {
+  const before = Array.isArray(payload.before) ? payload.before : [];
+  const after = Array.isArray(payload.after) ? payload.after : [];
+  return `
+    <div class="store-assignment-log">
+      <h4>変更前</h4>
+      ${renderStoreAssignmentSnapshot(before)}
+      <h4>変更後</h4>
+      ${renderStoreAssignmentSnapshot(after)}
+    </div>`;
+}
+
+function renderStoreAssignmentSnapshot(assignments) {
+  if (!assignments.length) return `<p class="empty-detail">設定なし</p>`;
+  const rows = assignments
+    .slice()
+    .sort((left, right) => Number(left.assignment_order || 0) - Number(right.assignment_order || 0))
+    .map((assignment) => `
+      <li>
+        <span>${escapeHtml(getStoreAssignmentLabel(assignment.assignment_order))}</span>
+        <strong>${escapeHtml(getStoreName(assignment.store_id))}</strong>
+      </li>`)
+    .join("");
+  return `<ul>${rows}</ul>`;
+}
+
+function getStoreAssignmentLabel(order) {
+  return {
+    1: "主店舗",
+    2: "サブ店舗",
+    3: "第3店舗"
+  }[Number(order)] || `${order}番目`;
+}
+
+function getFieldLabel(key) {
+  return {
+    email: "メール",
+    birth_date: "誕生日",
+    joined_on: "入社日",
+    retired_on: "退職日",
+    leave_type: "休職区分",
+    leave_start_date: "休職開始日",
+    leave_end_date: "休職終了日・復職日",
+    employment_status: "現職/休職/退職",
+    employment_type: "雇用形態",
+    corporation_id: "法人",
+    store_id: "主店舗",
+    department_id: "部署",
+    position_id: "役職",
+    business_unit_id: "事業部門",
+    store_name: "店舗名",
+    firebase_uid: "Firebase UID",
+    is_active: "有効状態"
+  }[key] || key;
+}
+
+function formatLogValue(key, value) {
+  if (value === null || value === undefined || value === "") return "未設定";
+  if (key === "corporation_id") return getMasterName(state.masters.corporations, value, "corporation_name");
+  if (key === "department_id") return getMasterName(state.masters.departments, value, "department_name");
+  if (key === "position_id") return getMasterName(state.masters.positions, value, "position_name");
+  if (key === "business_unit_id") return getMasterName(state.masters.businessUnits, value, "business_unit_name");
+  if (key === "store_id") return getStoreName(value);
+  if (key === "is_active") return value ? "有効" : "無効";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function getMasterName(rows, id, labelKey) {
+  const row = rows.find((item) => item.id === id);
+  return row ? row[labelKey] : String(id || "");
+}
+
+function getStoreName(id) {
+  const store = state.stores.find((item) => item.id === id);
+  return store ? store.store_name : String(id || "");
 }
 
 function renderEmployeeDetail(employee) {

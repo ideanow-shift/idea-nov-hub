@@ -537,6 +537,66 @@ tr.selected {
   white-space: pre-wrap;
 }
 
+.change-list {
+  display: grid;
+  gap: 8px;
+}
+
+.change-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 10px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: #FFFFFF;
+  font-size: 13px;
+  padding: 10px 12px;
+}
+
+.change-key {
+  color: var(--text-secondary);
+}
+
+.change-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.store-assignment-log {
+  display: grid;
+  gap: 8px;
+}
+
+.store-assignment-log h4 {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.store-assignment-log ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.store-assignment-log li {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 8px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: #FFFFFF;
+  font-size: 13px;
+  padding: 9px 10px;
+}
+
+.store-assignment-log li span {
+  color: var(--text-secondary);
+}
+
 .toast {
   position: fixed;
   right: 18px;

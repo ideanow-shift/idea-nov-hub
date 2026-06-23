@@ -719,9 +719,15 @@ async function refreshStores() {
 }
 
 async function refreshLogs() {
-  const response = await callApiAction("masterListChangeLogs");
-  state.logs = response.logs || [];
-  render();
+  try {
+    const response = await callApiAction("masterListChangeLogs");
+    state.logs = response.logs || [];
+  } catch (error) {
+    console.error(error);
+    showToast(getErrorMessage(error));
+  } finally {
+    render();
+  }
 }
 
 async function handleSignIn() {
@@ -761,6 +767,7 @@ document.querySelectorAll("[data-view]").forEach((button) => {
     state.selectedId = "";
     elements.search.value = "";
     if (state.view === "logs") {
+      render();
       refreshLogs();
       return;
     }

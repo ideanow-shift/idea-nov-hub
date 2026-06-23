@@ -80,7 +80,9 @@ async function loadData() {
 
 function getRows() {
   const query = normalizeSearch(elements.search.value);
-  const rows = state.view === "employees" ? state.employees : state.stores;
+  let rows = state.stores;
+  if (state.view === "employees") rows = state.employees;
+  if (state.view === "firebase") rows = state.employees.filter((employee) => employee.is_active && !employee.firebase_uid);
   if (!query) return rows;
   return rows.filter((row) => normalizeSearch(Object.values(row).join(" ")).includes(query));
 }
@@ -89,7 +91,11 @@ function render() {
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === state.view);
   });
-  elements.viewTitle.textContent = state.view === "employees" ? "社員マスタ" : "店舗マスタ";
+  elements.viewTitle.textContent = {
+    employees: "社員マスタ",
+    stores: "店舗マスタ",
+    firebase: "Firebase未連携"
+  }[state.view];
   renderTable();
   renderDetail();
 }
@@ -97,7 +103,7 @@ function render() {
 function renderTable() {
   const rows = getRows();
   elements.resultCount.textContent = `${rows.length}件`;
-  if (state.view === "employees") {
+  if (state.view === "employees" || state.view === "firebase") {
     elements.tableHead.innerHTML = `
       <tr>
         <th>社員番号</th>
@@ -156,16 +162,18 @@ function renderStoreRow(store) {
 }
 
 function renderDetail() {
-  const row = (state.view === "employees" ? state.employees : state.stores).find((item) => item.id === state.selectedId);
+  const sourceRows = state.view === "stores" ? state.stores : state.employees;
+  const row = sourceRows.find((item) => item.id === state.selectedId);
   if (!row) {
     elements.detailPanel.innerHTML = `<div class="empty-detail">左の一覧から編集対象を選んでください。</div>`;
     return;
   }
-  if (state.view === "employees") renderEmployeeDetail(row);
+  if (state.view === "employees" || state.view === "firebase") renderEmployeeDetail(row);
   else renderStoreDetail(row);
 }
 
 function renderEmployeeDetail(employee) {
+  const retired = !employee.is_active || employee.employment_status === "退職";
   elements.detailPanel.innerHTML = `
     <h3>${escapeHtml(employee.full_name)}</h3>
     <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}</p>
@@ -179,9 +187,17 @@ function renderEmployeeDetail(employee) {
       ${fieldInput("employment_type", "雇用形態", employee.employment_type || "")}
       ${fieldInput("employment_status", "現職/退職", employee.employment_status || "")}
       ${fieldCheckbox("is_active", "有効", employee.is_active)}
+      <div class="danger-zone">
+        <div>
+          <strong>退職処理</strong>
+          <p>退職にして、NOV HUB側の有効状態も無効にします。</p>
+        </div>
+        <button class="button button-danger" id="retire-employee" type="button"${retired ? " disabled" : ""}>退職処理</button>
+      </div>
       <div class="save-row"><button class="button button-primary" type="submit">保存</button></div>
     </form>`;
   document.querySelector("#detail-form").addEventListener("submit", saveEmployee);
+  document.querySelector("#retire-employee").addEventListener("click", retireEmployee);
 }
 
 function renderStoreDetail(store) {
@@ -247,6 +263,29 @@ async function saveEmployee(event) {
     button.disabled = true;
     await callApiAction("masterUpdateEmployee", payload);
     showToast("社員情報を保存しました。");
+    await refreshEmployees();
+  } catch (error) {
+    console.error(error);
+    showToast(getErrorMessage(error));
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function retireEmployee(event) {
+  const employee = state.employees.find((item) => item.id === state.selectedId);
+  if (!employee) return;
+  const confirmed = window.confirm(`${employee.full_name}さんを退職処理します。\n\nemployment_status を「退職」、is_active を false にします。`);
+  if (!confirmed) return;
+  const button = event.currentTarget;
+  try {
+    button.disabled = true;
+    await callApiAction("masterUpdateEmployee", {
+      id: employee.id,
+      employment_status: "退職",
+      is_active: false
+    });
+    showToast("退職処理を保存しました。");
     await refreshEmployees();
   } catch (error) {
     console.error(error);

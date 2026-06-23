@@ -269,6 +269,41 @@ tr.selected {
   margin-top: 16px;
 }
 
+.danger-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #F0C6C6;
+  border-radius: var(--radius-md);
+  background: #FFF6F6;
+  padding: 12px;
+}
+
+.danger-zone strong {
+  display: block;
+  color: #8F2E2E;
+  font-size: 13px;
+}
+
+.danger-zone p {
+  margin: 3px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.button-danger {
+  border-color: #D88A8A;
+  background: #C94D4D;
+  color: #FFFFFF;
+}
+
+.button-danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .empty-detail {
   color: var(--text-secondary);
   font-size: 14px;

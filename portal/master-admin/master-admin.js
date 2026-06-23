@@ -98,7 +98,7 @@ function getRows() {
   const query = normalizeSearch(elements.search.value);
   let rows = getStoresByStatus();
   if (state.view === "employees") rows = getEmployeesByStatus();
-  if (state.view === "firebase") rows = state.employees.filter((employee) => employee.is_active && !employee.firebase_uid);
+  if (state.view === "firebase") rows = state.employees.filter((employee) => isCurrentEmployee(employee) && !employee.firebase_uid);
   if (state.view === "logs") rows = state.logs;
   if (!query) return rows;
   return rows.filter((row) => normalizeSearch(Object.values(row).join(" ")).includes(query));

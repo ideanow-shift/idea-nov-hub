@@ -236,7 +236,7 @@ function renderEmployeeRow(employee) {
     <td>${escapeHtml(employee.store_name || employee.department_name || employee.source_assigned_location || "")}</td>
     <td>${escapeHtml(employee.position_name || employee.source_position_name || "")}</td>
     <td>${escapeHtml(employee.email || "")}</td>
-    <td>${formatMasterIssues(issues)}</td>
+    <td>${formatEmployeeIssues(employee, issues)}</td>
     <td>${formatEmployeeStatus(employee)}</td>`;
   tr.addEventListener("click", () => {
     state.selectedId = employee.id;
@@ -261,6 +261,11 @@ function renderStoreRow(store) {
     render();
   });
   return tr;
+}
+
+function formatEmployeeIssues(employee, issues) {
+  if (!isCurrentEmployee(employee)) return `<span class="status-muted">対象外</span>`;
+  return formatMasterIssues(issues);
 }
 
 function formatMasterIssues(issues) {
@@ -461,15 +466,7 @@ function renderEmployeeDetail(employee) {
   const storeAssignments = getStoreAssignmentsByOrder(employee.store_assignments || []);
   const readonly = !state.permissions.canEdit;
   const issues = getEmployeeIssues(employee);
-  const issuePanel = issues.length ? `
-      <div class="issue-panel">
-        <strong>未設定項目</strong>
-        <p>${escapeHtml(issues.join("・"))} を確認してください。</p>
-      </div>` : `
-      <div class="issue-panel resolved">
-        <strong>未設定なし</strong>
-        <p>社員マスタとして必要な項目は入力済みです。</p>
-      </div>`;
+  const issuePanel = renderEmployeeIssuePanel(employee, issues);
   const firebaseLinkPanel = state.view === "firebase" && !readonly ? `
       <div class="firebase-link-panel">
         <div>
@@ -548,6 +545,28 @@ function renderEmployeeDetail(employee) {
   }
   document.querySelector("#retire-employee")?.addEventListener("click", retireEmployee);
   document.querySelector("#link-firebase-uid")?.addEventListener("click", linkFirebaseUid);
+}
+
+function renderEmployeeIssuePanel(employee, issues) {
+  if (!isCurrentEmployee(employee)) {
+    return `
+      <div class="issue-panel neutral">
+        <strong>未設定判定対象外</strong>
+        <p>休職者・退職者は未設定ありの対象外です。</p>
+      </div>`;
+  }
+  if (issues.length) {
+    return `
+      <div class="issue-panel">
+        <strong>未設定項目</strong>
+        <p>${escapeHtml(issues.join("・"))} を確認してください。</p>
+      </div>`;
+  }
+  return `
+      <div class="issue-panel resolved">
+        <strong>未設定なし</strong>
+        <p>社員マスタとして必要な項目は入力済みです。</p>
+      </div>`;
 }
 
 function getStoreAssignmentsByOrder(assignments) {

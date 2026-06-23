@@ -292,6 +292,11 @@ tr.selected {
   min-width: auto;
 }
 
+.status-muted {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
 .detail-panel h3 {
   margin: 0;
   font-size: 18px;
@@ -325,6 +330,12 @@ tr.selected {
   border-color: #CDE6D5;
   background: #F4FBF6;
   color: #25724A;
+}
+
+.issue-panel.neutral {
+  border-color: var(--border-light);
+  background: #F8F8F8;
+  color: var(--text-secondary);
 }
 
 .issue-panel strong {

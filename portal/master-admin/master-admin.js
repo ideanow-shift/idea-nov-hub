@@ -313,7 +313,10 @@ function renderEmployeeDetail(employee) {
         </div>
         <button class="button button-danger" id="retire-employee" type="button"${retired ? " disabled" : ""}>退職処理</button>
       </div>
-      <div class="save-row"><button class="button button-primary" type="submit">保存</button></div>
+      <div class="save-row">
+        <span class="save-status" id="employee-save-status" aria-live="polite"></span>
+        <button class="button button-primary save-button" type="submit">保存</button>
+      </div>
     </form>`;
   document.querySelector("#detail-form").addEventListener("submit", saveEmployee);
   document.querySelector("#retire-employee").addEventListener("click", retireEmployee);
@@ -360,7 +363,10 @@ function renderStoreDetail(store) {
       ${fieldSelect("corporation_id", "法人", state.masters.corporations, store.corporation_id, "corporation_name")}
       ${fieldSelect("business_unit_id", "事業部門", state.masters.businessUnits, store.business_unit_id, "business_unit_name")}
       ${fieldCheckbox("is_active", "有効", store.is_active)}
-      <div class="save-row"><button class="button button-primary" type="submit">保存</button></div>
+      <div class="save-row">
+        <span class="save-status" id="store-save-status" aria-live="polite"></span>
+        <button class="button button-primary save-button" type="submit">保存</button>
+      </div>
     </form>`;
   document.querySelector("#detail-form").addEventListener("submit", saveStore);
 }
@@ -402,7 +408,9 @@ function collectFormPayload() {
 async function saveEmployee(event) {
   event.preventDefault();
   const button = event.submitter;
+  const status = document.querySelector("#employee-save-status");
   try {
+    setSaveStatus(status, "");
     const payload = collectFormPayload();
     payload.id = state.selectedId;
     payload.is_active = document.querySelector("#is_active").checked;
@@ -415,14 +423,21 @@ async function saveEmployee(event) {
       return;
     }
     button.disabled = true;
+    button.textContent = "保存中...";
     await callApiAction("masterUpdateEmployee", payload);
+    button.textContent = "保存しました";
+    setSaveStatus(status, "保存しました", "success");
     showToast("社員情報を保存しました。");
     await refreshEmployees();
   } catch (error) {
     console.error(error);
+    setSaveStatus(status, getErrorMessage(error), "error");
     showToast(getErrorMessage(error));
   } finally {
-    button.disabled = false;
+    window.setTimeout(() => {
+      button.disabled = false;
+      button.textContent = "保存";
+    }, 700);
   }
 }
 
@@ -482,7 +497,9 @@ async function linkFirebaseUid(event) {
 async function saveStore(event) {
   event.preventDefault();
   const button = event.submitter;
+  const status = document.querySelector("#store-save-status");
   try {
+    setSaveStatus(status, "");
     const payload = collectFormPayload();
     payload.id = state.selectedId;
     payload.is_active = document.querySelector("#is_active").checked;
@@ -491,15 +508,28 @@ async function saveStore(event) {
       return;
     }
     button.disabled = true;
+    button.textContent = "保存中...";
     await callApiAction("masterUpdateStore", payload);
+    button.textContent = "保存しました";
+    setSaveStatus(status, "保存しました", "success");
     showToast("店舗情報を保存しました。");
     await refreshStores();
   } catch (error) {
     console.error(error);
+    setSaveStatus(status, getErrorMessage(error), "error");
     showToast(getErrorMessage(error));
   } finally {
-    button.disabled = false;
+    window.setTimeout(() => {
+      button.disabled = false;
+      button.textContent = "保存";
+    }, 700);
   }
+}
+
+function setSaveStatus(element, message, type = "") {
+  if (!element) return;
+  element.textContent = message;
+  element.className = `save-status${type ? ` ${type}` : ""}`;
 }
 
 async function refreshEmployees() {

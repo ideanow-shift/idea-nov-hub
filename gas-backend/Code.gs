@@ -687,7 +687,8 @@ function getMasterHealthStatus_() {
     ['stores', function() { return listCoreStores_(); }],
     ['positions', function() { return listCoreMaster_('positions', 'id,position_no,position_name,is_active', 'position_no.asc'); }],
     ['employees', function() { return listCoreEmployees_(); }],
-    ['employee_assignment_histories', function() { return listAssignmentHistories_(); }]
+    ['employee_assignment_histories', function() { return listAssignmentHistories_(); }],
+    ['employee_store_assignments', function() { return listEmployeeStoreAssignments_(); }]
   ].forEach(function(item) {
     const key = item[0];
     try {
@@ -783,6 +784,16 @@ function listAssignmentHistories_() {
     query: {
       select: 'id,employee_id,change_type,effective_from,source',
       order: 'created_at.desc',
+      limit: '5'
+    }
+  });
+}
+
+function listEmployeeStoreAssignments_() {
+  return supabaseRequest_('employee_store_assignments', {
+    query: {
+      select: 'id,employee_id,store_id,assignment_order,assignment_type,effective_from,effective_to,is_active',
+      order: 'assignment_order.asc',
       limit: '5'
     }
   });

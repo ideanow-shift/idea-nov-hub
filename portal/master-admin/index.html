@@ -49,6 +49,11 @@
         <section class="list-panel">
           <label class="search-label" for="search">検索</label>
           <input class="search-input" id="search" type="search" placeholder="氏名・社員番号・店舗名で検索">
+          <div class="status-filter" id="employee-status-filter">
+            <button class="filter-chip active" data-employee-status="active" type="button">現職</button>
+            <button class="filter-chip" data-employee-status="inactive" type="button">退職者</button>
+            <button class="filter-chip" data-employee-status="all" type="button">全員</button>
+          </div>
           <div class="result-count" id="result-count"></div>
           <div class="table-wrap">
             <table>

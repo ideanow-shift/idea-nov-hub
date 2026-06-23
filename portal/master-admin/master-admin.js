@@ -3,6 +3,7 @@ import { callApiAction, clearApiAuth, setFirebaseAuth } from "../js/api.js";
 
 const state = {
   view: "employees",
+  employeeStatus: "active",
   selectedId: "",
   employees: [],
   stores: [],
@@ -18,7 +19,7 @@ const state = {
 const elements = Object.fromEntries([
   "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "refresh",
   "view-title", "search", "result-count", "table-head", "table-body",
-  "detail-panel", "toast"
+  "detail-panel", "employee-status-filter", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
 
 function showToast(message) {
@@ -82,16 +83,28 @@ async function loadData() {
 function getRows() {
   const query = normalizeSearch(elements.search.value);
   let rows = state.stores;
-  if (state.view === "employees") rows = state.employees;
+  if (state.view === "employees") rows = getEmployeesByStatus();
   if (state.view === "firebase") rows = state.employees.filter((employee) => employee.is_active && !employee.firebase_uid);
   if (state.view === "logs") rows = state.logs;
   if (!query) return rows;
   return rows.filter((row) => normalizeSearch(Object.values(row).join(" ")).includes(query));
 }
 
+function getEmployeesByStatus() {
+  if (state.employeeStatus === "all") return state.employees;
+  if (state.employeeStatus === "inactive") {
+    return state.employees.filter((employee) => !employee.is_active || employee.employment_status === "退職");
+  }
+  return state.employees.filter((employee) => employee.is_active && employee.employment_status !== "退職");
+}
+
 function render() {
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === state.view);
+  });
+  elements.employeeStatusFilter.hidden = state.view !== "employees";
+  document.querySelectorAll("[data-employee-status]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.employeeStatus === state.employeeStatus);
   });
   elements.viewTitle.textContent = {
     employees: "社員マスタ",
@@ -372,6 +385,7 @@ async function retireEmployee(event) {
     });
     showToast("退職処理を保存しました。");
     await refreshEmployees();
+    state.employeeStatus = "inactive";
   } catch (error) {
     console.error(error);
     showToast(getErrorMessage(error));
@@ -474,6 +488,13 @@ elements.signIn.addEventListener("click", handleSignIn);
 elements.signOut.addEventListener("click", handleSignOut);
 elements.refresh.addEventListener("click", loadData);
 elements.search.addEventListener("input", renderTable);
+document.querySelectorAll("[data-employee-status]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.employeeStatus = button.dataset.employeeStatus;
+    state.selectedId = "";
+    render();
+  });
+});
 document.querySelectorAll("[data-view]").forEach((button) => {
   button.addEventListener("click", () => {
     state.view = button.dataset.view;

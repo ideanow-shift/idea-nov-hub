@@ -141,6 +141,8 @@ body {
 .detail-panel {
   position: sticky;
   top: 88px;
+  max-height: calc(100vh - 112px);
+  overflow: auto;
   padding: 18px;
 }
 
@@ -294,9 +296,15 @@ tr.selected {
 }
 
 .save-row {
+  position: sticky;
+  bottom: -18px;
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
+  margin: 16px -18px -18px;
+  border-top: 1px solid var(--border-light);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), #FFFFFF 35%);
+  padding: 14px 18px 18px;
+  z-index: 2;
 }
 
 .danger-zone {

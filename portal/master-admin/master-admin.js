@@ -298,7 +298,7 @@ function renderEmployeeDetail(employee) {
     <form class="form-grid" id="detail-form">
       ${firebaseLinkPanel}
       ${fieldInput("email", "メール", employee.email || "", "email")}
-      ${fieldInput("birth_date", "誕生日", employee.birth_date || "", "date")}
+      ${fieldInput("birth_date", "誕生日（YYYY-MM-DD）", employee.birth_date || "")}
       ${fieldSelect("corporation_id", "法人", state.masters.corporations, employee.corporation_id, "corporation_name")}
       ${fieldSelect("store_id", "所属店舗", state.stores, employee.store_id, "store_name")}
       ${fieldSelect("department_id", "部署", state.masters.departments, employee.department_id, "department_name")}
@@ -408,6 +408,10 @@ async function saveEmployee(event) {
     payload.is_active = document.querySelector("#is_active").checked;
     if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
       showToast("メールアドレスの形式を確認してください。");
+      return;
+    }
+    if (payload.birth_date && !/^\d{4}-\d{2}-\d{2}$/.test(payload.birth_date)) {
+      showToast("誕生日は 1993-08-01 の形式で入力してください。");
       return;
     }
     button.disabled = true;

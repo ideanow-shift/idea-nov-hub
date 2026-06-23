@@ -277,7 +277,7 @@ function renderLogDetail() {
 
 function renderEmployeeDetail(employee) {
   const retired = !employee.is_active || employee.employment_status === "退職";
-  const storeAssignmentsPanel = renderStoreAssignments(employee.store_assignments || []);
+  const storeAssignments = getStoreAssignmentsByOrder(employee.store_assignments || []);
   const firebaseLinkPanel = state.view === "firebase" ? `
       <div class="firebase-link-panel">
         <div>
@@ -294,13 +294,20 @@ function renderEmployeeDetail(employee) {
     <h3>${escapeHtml(employee.full_name)}</h3>
     <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}</p>
     <p class="detail-note">社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。</p>
-    ${storeAssignmentsPanel}
     <form class="form-grid" id="detail-form">
       ${firebaseLinkPanel}
       ${fieldInput("email", "メール", employee.email || "", "email")}
       ${fieldInput("birth_date", "誕生日（YYYY-MM-DD）", employee.birth_date || "")}
       ${fieldSelect("corporation_id", "法人", state.masters.corporations, employee.corporation_id, "corporation_name")}
-      ${fieldSelect("store_id", "所属店舗", state.stores, employee.store_id, "store_name")}
+      <section class="store-assignments">
+        <div>
+          <strong>複数店舗所属</strong>
+          <p>主店舗は社員マスタの所属店舗にも同期されます。サブ店舗・第3店舗は兼任先として保存します。</p>
+        </div>
+        ${fieldSelect("store_id", "主店舗", state.stores, storeAssignments[1] || employee.store_id, "store_name")}
+        ${fieldSelect("store_assignment_2", "サブ店舗", state.stores, storeAssignments[2] || "", "store_name")}
+        ${fieldSelect("store_assignment_3", "第3店舗", state.stores, storeAssignments[3] || "", "store_name")}
+      </section>
       ${fieldSelect("department_id", "部署", state.masters.departments, employee.department_id, "department_name")}
       ${fieldSelect("position_id", "役職", state.masters.positions, employee.position_id, "position_name")}
       ${fieldInput("employment_type", "雇用形態", employee.employment_type || "")}
@@ -323,34 +330,11 @@ function renderEmployeeDetail(employee) {
   document.querySelector("#link-firebase-uid")?.addEventListener("click", linkFirebaseUid);
 }
 
-function renderStoreAssignments(assignments) {
-  const rows = assignments
-    .slice()
-    .sort((left, right) => Number(left.assignment_order || 0) - Number(right.assignment_order || 0));
-  const labelByOrder = {
-    1: "主店舗",
-    2: "サブ店舗",
-    3: "第3店舗"
-  };
-  const content = rows.length ? rows.map((assignment) => {
-    const order = Number(assignment.assignment_order || 0);
-    const label = labelByOrder[order] || `${order}番目`;
-    const type = assignment.assignment_type === "primary" ? "primary" : "sub";
-    return `
-      <li>
-        <span class="assignment-label">${escapeHtml(label)}</span>
-        <span class="assignment-store">${escapeHtml(assignment.store_name || "未設定")}</span>
-        <span class="assignment-type">${type === "primary" ? "主" : "兼任"}</span>
-      </li>`;
-  }).join("") : `<li class="assignment-empty">複数店舗所属は未設定です。</li>`;
-  return `
-    <section class="store-assignments">
-      <div>
-        <strong>複数店舗所属</strong>
-        <p>主店舗・サブ店舗を確認するための表示です。編集機能は次の段階で追加します。</p>
-      </div>
-      <ul>${content}</ul>
-    </section>`;
+function getStoreAssignmentsByOrder(assignments) {
+  return assignments.reduce((index, assignment) => {
+    index[Number(assignment.assignment_order)] = assignment.store_id || "";
+    return index;
+  }, {});
 }
 
 function renderStoreDetail(store) {
@@ -420,6 +404,11 @@ async function saveEmployee(event) {
     }
     if (payload.birth_date && !/^\d{4}-\d{2}-\d{2}$/.test(payload.birth_date)) {
       showToast("誕生日は 1993-08-01 の形式で入力してください。");
+      return;
+    }
+    const selectedStores = [payload.store_id, payload.store_assignment_2, payload.store_assignment_3].filter(Boolean);
+    if (new Set(selectedStores).size !== selectedStores.length) {
+      showToast("主店舗・サブ店舗・第3店舗に同じ店舗は選べません。");
       return;
     }
     button.disabled = true;

@@ -901,8 +901,89 @@ function updateCoreEmployee_(payload, actor) {
   });
   appendMasterChangeLogSafely_('employees', id, updates, actor);
   const after = result[0] || null;
+  updateEmployeeStoreAssignmentsIfPresent_(id, payload, actor);
   appendAssignmentHistoryIfNeeded_(before, after, updates, actor);
   return after;
+}
+
+function updateEmployeeStoreAssignmentsIfPresent_(employeeId, payload, actor) {
+  const hasAssignmentPayload = ['store_id', 'store_assignment_2', 'store_assignment_3'].some(function(field) {
+    return Object.prototype.hasOwnProperty.call(payload, field);
+  });
+  if (!hasAssignmentPayload) return;
+
+  const desiredAssignments = buildEmployeeStoreAssignments_(employeeId, payload);
+  const storeIds = desiredAssignments.map(function(assignment) { return assignment.store_id; });
+  const uniqueStoreIds = storeIds.filter(function(storeId, index) {
+    return storeIds.indexOf(storeId) === index;
+  });
+  if (storeIds.length !== uniqueStoreIds.length) {
+    throwPortalError_('INVALID_REQUEST', 'Store assignments must be unique.');
+  }
+
+  const today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
+  const now = new Date().toISOString();
+  const existing = supabaseRequest_('employee_store_assignments', {
+    query: {
+      select: 'id,store_id,assignment_order,assignment_type',
+      employee_id: 'eq.' + employeeId,
+      is_active: 'eq.true',
+      effective_to: 'is.null',
+      order: 'assignment_order.asc',
+      limit: '20'
+    }
+  });
+  if (existing.length) {
+    supabaseRequest_('employee_store_assignments', {
+      method: 'patch',
+      query: {
+        employee_id: 'eq.' + employeeId,
+        is_active: 'eq.true',
+        effective_to: 'is.null'
+      },
+      payload: {
+        is_active: false,
+        effective_to: today,
+        updated_at: now
+      },
+      prefer: 'return=minimal'
+    });
+  }
+  if (desiredAssignments.length) {
+    supabaseRequest_('employee_store_assignments', {
+      method: 'post',
+      payload: desiredAssignments.map(function(assignment) {
+        return Object.assign({}, assignment, {
+          effective_from: today,
+          source: 'master_admin',
+          updated_at: now,
+          is_active: true
+        });
+      }),
+      prefer: 'return=minimal'
+    });
+  }
+  appendMasterChangeLogSafely_('employee_store_assignments', employeeId, {
+    before: existing,
+    after: desiredAssignments
+  }, actor);
+}
+
+function buildEmployeeStoreAssignments_(employeeId, payload) {
+  return [
+    { order: 1, field: 'store_id', type: 'primary' },
+    { order: 2, field: 'store_assignment_2', type: 'secondary' },
+    { order: 3, field: 'store_assignment_3', type: 'third' }
+  ].map(function(item) {
+    const storeId = String(payload[item.field] || '').trim();
+    if (!storeId) return null;
+    return {
+      employee_id: employeeId,
+      store_id: storeId,
+      assignment_order: item.order,
+      assignment_type: item.type
+    };
+  }).filter(Boolean);
 }
 
 function linkFirebaseUid_(payload, actor) {

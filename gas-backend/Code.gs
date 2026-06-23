@@ -686,7 +686,8 @@ function getMasterHealthStatus_() {
     ['departments', function() { return listCoreMaster_('departments', 'id,department_no,department_code,department_name,is_active', 'department_no.asc'); }],
     ['stores', function() { return listCoreStores_(); }],
     ['positions', function() { return listCoreMaster_('positions', 'id,position_no,position_name,is_active', 'position_no.asc'); }],
-    ['employees', function() { return listCoreEmployees_(); }]
+    ['employees', function() { return listCoreEmployees_(); }],
+    ['employee_assignment_histories', function() { return listAssignmentHistories_(); }]
   ].forEach(function(item) {
     const key = item[0];
     try {
@@ -777,9 +778,83 @@ function listMasterChangeLogs_() {
   });
 }
 
+function listAssignmentHistories_() {
+  return supabaseRequest_('employee_assignment_histories', {
+    query: {
+      select: 'id,employee_id,change_type,effective_from,source',
+      order: 'created_at.desc',
+      limit: '5'
+    }
+  });
+}
+
+function getCoreEmployeeById_(id) {
+  const rows = supabaseRequest_('employees', {
+    query: {
+      select: 'id,employee_id,full_name,corporation_id,store_id,department_id,position_id,employment_status,is_active',
+      id: 'eq.' + id,
+      limit: '1'
+    }
+  });
+  return rows[0] || null;
+}
+
+function appendAssignmentHistoryIfNeeded_(before, after, updates, actor) {
+  if (!before || !after) return;
+  const trackedFields = ['corporation_id', 'store_id', 'department_id', 'position_id', 'employment_status', 'is_active'];
+  const changed = trackedFields.some(function(field) {
+    return Object.prototype.hasOwnProperty.call(updates, field)
+      && String(before[field] || '') !== String(after[field] || '');
+  });
+  if (!changed) return;
+
+  const store = after.store_id ? getCoreStoreById_(after.store_id) : null;
+  const history = {
+    employee_id: after.id,
+    corporation_id: after.corporation_id || null,
+    business_unit_id: store && store.business_unit_id ? store.business_unit_id : null,
+    department_id: after.department_id || null,
+    store_id: after.store_id || null,
+    position_id: after.position_id || null,
+    employment_status: after.employment_status || '',
+    effective_from: new Date().toISOString().slice(0, 10),
+    change_type: inferAssignmentChangeType_(before, after, updates),
+    change_reason: 'マスタ管理画面から更新',
+    source: actor && actor.email ? 'master_admin:' + actor.email : 'master_admin'
+  };
+  supabaseRequest_('employee_assignment_histories', {
+    method: 'post',
+    payload: history
+  });
+}
+
+function getCoreStoreById_(id) {
+  const rows = supabaseRequest_('stores', {
+    query: {
+      select: 'id,business_unit_id',
+      id: 'eq.' + id,
+      limit: '1'
+    }
+  });
+  return rows[0] || null;
+}
+
+function inferAssignmentChangeType_(before, after, updates) {
+  const beforeStatus = String(before.employment_status || '');
+  const afterStatus = String(after.employment_status || '');
+  if (Object.prototype.hasOwnProperty.call(updates, 'is_active') && after.is_active === false) return 'retire';
+  if (/退職/.test(afterStatus)) return 'retire';
+  if (/(休職|産休|育休)/.test(afterStatus)) return 'leave';
+  if (/(休職|産休|育休)/.test(beforeStatus) && !/(休職|産休|育休)/.test(afterStatus)) return 'return';
+  if (before.store_id !== after.store_id || before.department_id !== after.department_id || before.corporation_id !== after.corporation_id) return 'transfer';
+  if (before.position_id !== after.position_id) return 'promotion';
+  return 'correction';
+}
+
 function updateCoreEmployee_(payload, actor) {
   const id = String(payload.id || '').trim();
   if (!id) throwPortalError_('INVALID_REQUEST', 'Employee id is required.');
+  const before = getCoreEmployeeById_(id);
   const updates = {};
   copyStringField_(updates, payload, 'email');
   copyStringField_(updates, payload, 'employment_status');
@@ -797,7 +872,9 @@ function updateCoreEmployee_(payload, actor) {
     prefer: 'return=representation'
   });
   appendMasterChangeLogSafely_('employees', id, updates, actor);
-  return result[0] || null;
+  const after = result[0] || null;
+  appendAssignmentHistoryIfNeeded_(before, after, updates, actor);
+  return after;
 }
 
 function linkFirebaseUid_(payload, actor) {

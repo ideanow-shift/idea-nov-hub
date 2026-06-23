@@ -298,6 +298,7 @@ function renderEmployeeDetail(employee) {
     <form class="form-grid" id="detail-form">
       ${firebaseLinkPanel}
       ${fieldInput("email", "メール", employee.email || "", "email")}
+      ${fieldInput("birth_date", "誕生日", employee.birth_date || "", "date")}
       ${fieldSelect("corporation_id", "法人", state.masters.corporations, employee.corporation_id, "corporation_name")}
       ${fieldSelect("store_id", "所属店舗", state.stores, employee.store_id, "store_name")}
       ${fieldSelect("department_id", "部署", state.masters.departments, employee.department_id, "department_name")}

@@ -717,7 +717,7 @@ function listCoreMaster_(tableName, select, order) {
 function listCoreEmployees_() {
   const employees = supabaseRequest_('employees', {
     query: {
-      select: 'id,employee_id,full_name,email,employment_status,employment_type,corporation_id,store_id,department_id,position_id,firebase_uid,is_active,updated_at,source_row',
+      select: 'id,employee_id,full_name,email,birth_date,employment_status,employment_type,corporation_id,store_id,department_id,position_id,firebase_uid,is_active,updated_at,source_row',
       order: 'employee_id.asc',
       limit: '1000'
     }
@@ -884,6 +884,7 @@ function updateCoreEmployee_(payload, actor) {
   const before = getCoreEmployeeById_(id);
   const updates = {};
   copyStringField_(updates, payload, 'email');
+  copyDateField_(updates, payload, 'birth_date');
   copyStringField_(updates, payload, 'employment_status');
   copyStringField_(updates, payload, 'employment_type');
   copyNullableUuidField_(updates, payload, 'corporation_id');
@@ -967,6 +968,16 @@ function copyStringField_(target, source, fieldName) {
 function copyNullableUuidField_(target, source, fieldName) {
   if (Object.prototype.hasOwnProperty.call(source, fieldName)) {
     const value = String(source[fieldName] || '').trim();
+    target[fieldName] = value || null;
+  }
+}
+
+function copyDateField_(target, source, fieldName) {
+  if (Object.prototype.hasOwnProperty.call(source, fieldName)) {
+    const value = String(source[fieldName] || '').trim();
+    if (value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      throwPortalError_('INVALID_REQUEST', fieldName + ' must be YYYY-MM-DD.');
+    }
     target[fieldName] = value || null;
   }
 }

@@ -234,6 +234,16 @@ tr.selected {
   font-size: 13px;
 }
 
+.detail-note {
+  margin: -6px 0 18px;
+  border-radius: var(--radius-md);
+  background: #FFF8E8;
+  color: #6C5520;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 10px 12px;
+}
+
 .form-grid {
   display: grid;
   gap: 12px;

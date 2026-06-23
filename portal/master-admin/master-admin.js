@@ -27,6 +27,16 @@ function showToast(message) {
   showToast.timer = window.setTimeout(() => { elements.toast.hidden = true; }, 3600);
 }
 
+function getErrorMessage(error) {
+  const parts = [
+    error?.message || "処理に失敗しました。",
+    error?.code ? `code: ${error.code}` : "",
+    error?.stage ? `stage: ${error.stage}` : "",
+    error?.detail ? `detail: ${error.detail}` : ""
+  ].filter(Boolean);
+  return parts.join(" / ");
+}
+
 function showMode(mode) {
   elements.authPanel.hidden = mode !== "auth";
   elements.loadingPanel.hidden = mode !== "loading";
@@ -159,6 +169,7 @@ function renderEmployeeDetail(employee) {
   elements.detailPanel.innerHTML = `
     <h3>${escapeHtml(employee.full_name)}</h3>
     <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}</p>
+    <p class="detail-note">社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。</p>
     <form class="form-grid" id="detail-form">
       ${fieldInput("email", "メール", employee.email || "", "email")}
       ${fieldSelect("corporation_id", "法人", state.masters.corporations, employee.corporation_id, "corporation_name")}
@@ -177,6 +188,7 @@ function renderStoreDetail(store) {
   elements.detailPanel.innerHTML = `
     <h3>${escapeHtml(store.store_name)}</h3>
     <p class="detail-meta">店舗ID: ${escapeHtml(store.store_id)} / 店舗No: ${escapeHtml(store.store_no)}</p>
+    <p class="detail-note">店舗IDと店舗Noは固定項目です。通常運用では店舗名・法人・事業部門・有効状態のみ変更します。</p>
     <form class="form-grid" id="detail-form">
       ${fieldInput("store_name", "店舗名", store.store_name || "")}
       ${fieldSelect("corporation_id", "法人", state.masters.corporations, store.corporation_id, "corporation_name")}
@@ -223,22 +235,48 @@ function collectFormPayload() {
 
 async function saveEmployee(event) {
   event.preventDefault();
-  const payload = collectFormPayload();
-  payload.id = state.selectedId;
-  payload.is_active = document.querySelector("#is_active").checked;
-  await callApiAction("masterUpdateEmployee", payload);
-  showToast("社員情報を保存しました。");
-  await refreshEmployees();
+  const button = event.submitter;
+  try {
+    const payload = collectFormPayload();
+    payload.id = state.selectedId;
+    payload.is_active = document.querySelector("#is_active").checked;
+    if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+      showToast("メールアドレスの形式を確認してください。");
+      return;
+    }
+    button.disabled = true;
+    await callApiAction("masterUpdateEmployee", payload);
+    showToast("社員情報を保存しました。");
+    await refreshEmployees();
+  } catch (error) {
+    console.error(error);
+    showToast(getErrorMessage(error));
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function saveStore(event) {
   event.preventDefault();
-  const payload = collectFormPayload();
-  payload.id = state.selectedId;
-  payload.is_active = document.querySelector("#is_active").checked;
-  await callApiAction("masterUpdateStore", payload);
-  showToast("店舗情報を保存しました。");
-  await refreshStores();
+  const button = event.submitter;
+  try {
+    const payload = collectFormPayload();
+    payload.id = state.selectedId;
+    payload.is_active = document.querySelector("#is_active").checked;
+    if (!payload.store_name?.trim()) {
+      showToast("店舗名は必須です。");
+      return;
+    }
+    button.disabled = true;
+    await callApiAction("masterUpdateStore", payload);
+    showToast("店舗情報を保存しました。");
+    await refreshStores();
+  } catch (error) {
+    console.error(error);
+    showToast(getErrorMessage(error));
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function refreshEmployees() {

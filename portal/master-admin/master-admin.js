@@ -13,6 +13,7 @@ const state = {
     canEdit: false,
     roleKeys: []
   },
+  formSnapshot: "",
   masters: {
     corporations: [],
     businessUnits: [],
@@ -472,7 +473,11 @@ function renderEmployeeDetail(employee) {
       </div>
     </form>`;
   setReadonlyState(readonly);
-  if (!readonly) document.querySelector("#detail-form").addEventListener("submit", saveEmployee);
+  if (!readonly) {
+    const form = document.querySelector("#detail-form");
+    form.addEventListener("submit", saveEmployee);
+    setupDirtyForm("employee");
+  }
   document.querySelector("#retire-employee")?.addEventListener("click", retireEmployee);
   document.querySelector("#link-firebase-uid")?.addEventListener("click", linkFirebaseUid);
 }
@@ -503,7 +508,11 @@ function renderStoreDetail(store) {
       </div>
     </form>`;
   setReadonlyState(readonly);
-  if (!readonly) document.querySelector("#detail-form").addEventListener("submit", saveStore);
+  if (!readonly) {
+    const form = document.querySelector("#detail-form");
+    form.addEventListener("submit", saveStore);
+    setupDirtyForm("store");
+  }
 }
 
 function setReadonlyState(readonly) {
@@ -559,15 +568,65 @@ function collectFormPayload() {
   return Object.fromEntries(formData.entries());
 }
 
+function collectEmployeePayload() {
+  const payload = collectFormPayload();
+  delete payload.firebase_uid;
+  payload.is_active = document.querySelector("#is_active").checked;
+  return payload;
+}
+
+function collectStorePayload() {
+  const payload = collectFormPayload();
+  payload.is_active = document.querySelector("#is_active").checked;
+  return payload;
+}
+
+function setupDirtyForm(type) {
+  const form = document.querySelector("#detail-form");
+  const status = document.querySelector(type === "employee" ? "#employee-save-status" : "#store-save-status");
+  const button = form?.querySelector(".save-button");
+  if (!form || !button) return;
+  state.formSnapshot = getFormSnapshot(type);
+  updateDirtyState(type, status, button);
+  form.addEventListener("input", () => updateDirtyState(type, status, button));
+  form.addEventListener("change", () => updateDirtyState(type, status, button));
+}
+
+function updateDirtyState(type, status, button) {
+  const hasChanges = getFormSnapshot(type) !== state.formSnapshot;
+  button.disabled = !hasChanges;
+  if (!hasChanges) {
+    button.textContent = "保存";
+    setSaveStatus(status, "変更はありません", "");
+  } else {
+    setSaveStatus(status, "未保存の変更があります", "pending");
+  }
+}
+
+function getFormSnapshot(type) {
+  const payload = type === "employee" ? collectEmployeePayload() : collectStorePayload();
+  delete payload.id;
+  return JSON.stringify(Object.keys(payload).sort().map((key) => [key, normalizeSnapshotValue_(payload[key])]));
+}
+
+function normalizeSnapshotValue_(value) {
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return String(value ?? "").trim();
+}
+
 async function saveEmployee(event) {
   event.preventDefault();
   const button = event.submitter;
   const status = document.querySelector("#employee-save-status");
   try {
     setSaveStatus(status, "");
-    const payload = collectFormPayload();
+    const payload = collectEmployeePayload();
     payload.id = state.selectedId;
-    payload.is_active = document.querySelector("#is_active").checked;
+    if (getFormSnapshot("employee") === state.formSnapshot) {
+      setSaveStatus(status, "変更はありません", "");
+      showToast("変更はありません。");
+      return;
+    }
     if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
       showToast("メールアドレスの形式を確認してください。");
       return;
@@ -674,9 +733,13 @@ async function saveStore(event) {
   const status = document.querySelector("#store-save-status");
   try {
     setSaveStatus(status, "");
-    const payload = collectFormPayload();
+    const payload = collectStorePayload();
     payload.id = state.selectedId;
-    payload.is_active = document.querySelector("#is_active").checked;
+    if (getFormSnapshot("store") === state.formSnapshot) {
+      setSaveStatus(status, "変更はありません", "");
+      showToast("変更はありません。");
+      return;
+    }
     if (!payload.store_name?.trim()) {
       showToast("店舗名は必須です。");
       return;

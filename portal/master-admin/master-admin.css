@@ -352,6 +352,11 @@ tr.selected {
   font-weight: 700;
 }
 
+.save-status.pending {
+  color: #9B6A28;
+  font-weight: 700;
+}
+
 .save-status.error {
   color: #A63636;
   font-weight: 700;
@@ -366,6 +371,11 @@ tr.selected {
 .save-button:hover {
   background: #287640;
   filter: none;
+}
+
+.save-button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
 }
 
 .danger-zone {

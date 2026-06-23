@@ -297,9 +297,9 @@ function renderEmployeeDetail(employee) {
     <form class="form-grid" id="detail-form">
       ${firebaseLinkPanel}
       ${fieldInput("email", "メール", employee.email || "", "email")}
-      ${fieldInput("birth_date", "誕生日（YYYY-MM-DD）", employee.birth_date || "")}
-      ${fieldInput("joined_on", "入社日（YYYY-MM-DD）", employee.joined_on || "")}
-      ${fieldInput("retired_on", "退職日（YYYY-MM-DD）", employee.retired_on || "")}
+      ${fieldInput("birth_date", "誕生日", employee.birth_date || "", "date")}
+      ${fieldInput("joined_on", "入社日", employee.joined_on || "", "date")}
+      ${fieldInput("retired_on", "退職日", employee.retired_on || "", "date")}
       ${fieldSelect("corporation_id", "法人", state.masters.corporations, employee.corporation_id, "corporation_name")}
       <section class="store-assignments">
         <div>
@@ -331,8 +331,8 @@ function renderEmployeeDetail(employee) {
           ["産休", "産休"],
           ["育休", "育休"]
         ], employee.leave_type || "")}
-        ${fieldInput("leave_start_date", "休職開始日（YYYY-MM-DD）", employee.leave_start_date || "")}
-        ${fieldInput("leave_end_date", "休職終了日・復職日（YYYY-MM-DD）", employee.leave_end_date || "")}
+        ${fieldInput("leave_start_date", "休職開始日", employee.leave_start_date || "", "date")}
+        ${fieldInput("leave_end_date", "休職終了日・復職日", employee.leave_end_date || "", "date")}
       </section>
       ${fieldCheckbox("is_active", "有効", employee.is_active)}
       <div class="danger-zone">

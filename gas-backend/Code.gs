@@ -934,7 +934,7 @@ function appendAssignmentHistoryIfNeeded_(before, after, updates, actor) {
 function getCoreStoreById_(id) {
   const rows = supabaseRequest_('stores', {
     query: {
-      select: 'id,business_unit_id',
+      select: 'id,store_name,area,store_type,corporation_id,business_unit_id,is_active',
       id: 'eq.' + id,
       limit: '1'
     }
@@ -1116,6 +1116,15 @@ function linkFirebaseUid_(payload, actor) {
     throwPortalError_('FIREBASE_UID_DUPLICATED', 'Firebase UID is already linked to ' + (duplicates[0].full_name || duplicates[0].employee_id || 'another employee') + '.');
   }
 
+  const before = supabaseRequest_('employees', {
+    query: {
+      select: 'id,full_name,firebase_uid',
+      id: 'eq.' + id,
+      limit: '1'
+    }
+  })[0] || null;
+  if (before && before.firebase_uid === firebaseUid) return before;
+
   const updates = {
     firebase_uid: firebaseUid,
     updated_at: new Date().toISOString()
@@ -1129,7 +1138,7 @@ function linkFirebaseUid_(payload, actor) {
   const after = result[0] || null;
   appendMasterChangeLogSafely_('employees', id, updates, actor, {
     actionType: 'link_firebase_uid',
-    targetName: after && after.full_name ? after.full_name : ''
+    targetName: after && after.full_name ? after.full_name : before && before.full_name ? before.full_name : ''
   });
   return after;
 }
@@ -1137,6 +1146,7 @@ function linkFirebaseUid_(payload, actor) {
 function updateCoreStore_(payload, actor) {
   const id = String(payload.id || '').trim();
   if (!id) throwPortalError_('INVALID_REQUEST', 'Store id is required.');
+  const before = getCoreStoreById_(id);
   const updates = {};
   copyStringField_(updates, payload, 'store_name');
   copyStringField_(updates, payload, 'area');
@@ -1145,16 +1155,18 @@ function updateCoreStore_(payload, actor) {
   copyNullableUuidField_(updates, payload, 'business_unit_id');
   if (Object.prototype.hasOwnProperty.call(payload, 'is_active')) updates.is_active = Boolean(payload.is_active);
   updates.updated_at = new Date().toISOString();
+  const changedUpdates = getChangedFields_(before, updates);
+  if (!Object.keys(changedUpdates).length) return before;
   const result = supabaseRequest_('stores', {
     method: 'patch',
     query: { id: 'eq.' + id, select: '*' },
-    payload: updates,
+    payload: changedUpdates,
     prefer: 'return=representation'
   });
-  const after = result[0] || null;
-  appendMasterChangeLogSafely_('stores', id, updates, actor, {
+  const after = result[0] || before;
+  appendMasterChangeLogSafely_('stores', id, changedUpdates, actor, {
     actionType: 'update',
-    targetName: after && after.store_name ? after.store_name : ''
+    targetName: after && after.store_name ? after.store_name : before.store_name
   });
   return after;
 }

@@ -62,6 +62,7 @@ const ANNOUNCEMENT_HEADER_ALIASES = Object.freeze({
 function doGet(e) {
   const action = String((e && e.parameter && e.parameter.action) || '');
   if (action === 'health') return jsonOutput_(getHealthStatus_());
+  if (action === 'masterHealth') return jsonOutput_(getMasterHealthStatus_());
   return jsonOutput_({ ok: true, service: 'NOV HUB API', timestamp: new Date().toISOString() });
 }
 
@@ -508,6 +509,9 @@ function getHealthStatus_() {
       storeSheetGid: getOptionalProperty_('STORE_SHEET_GID', DEFAULT_MASTER_CONFIG.STORE_SHEET_GID),
       firebaseApiKeyConfigured: Boolean(firebaseApiKey),
       firebaseApiKeyValid: false,
+      supabaseUrlConfigured: Boolean(properties.getProperty('SUPABASE_URL')),
+      supabaseServiceRoleKeyConfigured: Boolean(properties.getProperty('SUPABASE_SERVICE_ROLE_KEY')),
+      supabaseReachable: false,
       portalSpreadsheetAccessible: false,
       staffSpreadsheetAccessible: false,
       storeSpreadsheetAccessible: false,
@@ -578,9 +582,26 @@ function getHealthStatus_() {
     }
   }
 
+  try {
+    if (result.checks.supabaseUrlConfigured && result.checks.supabaseServiceRoleKeyConfigured) {
+      const rows = supabaseRequest_('employees', {
+        query: {
+          select: 'id',
+          limit: '1'
+        }
+      });
+      result.checks.supabaseReachable = Array.isArray(rows);
+    }
+  } catch (error) {
+    result.checks.supabaseError = sanitizeErrorDetail_(String(error.message || error));
+  }
+
   result.ok = result.checks.portalSpreadsheetIdConfigured
     && result.checks.firebaseApiKeyConfigured
     && result.checks.firebaseApiKeyValid
+    && result.checks.supabaseUrlConfigured
+    && result.checks.supabaseServiceRoleKeyConfigured
+    && result.checks.supabaseReachable
     && result.checks.portalSpreadsheetAccessible
     && result.checks.staffSpreadsheetAccessible
     && result.checks.storeSpreadsheetAccessible
@@ -628,7 +649,7 @@ function assertMasterAdmin_(employee) {
 }
 
 function getMasterAdminBootstrap_() {
-  const corporations = listCoreMaster_('corporations', 'id,corporation_no,corporation_code,corporation_name,is_active', 'corporation_no.asc');
+  const corporations = listCoreMaster_('corporations', 'id,corporation_no,corporation_name,is_active', 'corporation_no.asc');
   const businessUnits = listCoreMaster_('business_units', 'id,business_unit_no,business_unit_code,business_unit_name,is_active', 'business_unit_no.asc');
   const departments = listCoreMaster_('departments', 'id,department_no,department_code,department_name,is_active', 'department_no.asc');
   const stores = listCoreStores_();
@@ -640,6 +661,31 @@ function getMasterAdminBootstrap_() {
     stores: stores,
     positions: positions,
     employees: listCoreEmployees_()
+  };
+}
+
+function getMasterHealthStatus_() {
+  const checks = {};
+  [
+    ['corporations', function() { return listCoreMaster_('corporations', 'id,corporation_no,corporation_name,is_active', 'corporation_no.asc'); }],
+    ['business_units', function() { return listCoreMaster_('business_units', 'id,business_unit_no,business_unit_code,business_unit_name,is_active', 'business_unit_no.asc'); }],
+    ['departments', function() { return listCoreMaster_('departments', 'id,department_no,department_code,department_name,is_active', 'department_no.asc'); }],
+    ['stores', function() { return listCoreStores_(); }],
+    ['positions', function() { return listCoreMaster_('positions', 'id,position_no,position_name,is_active', 'position_no.asc'); }],
+    ['employees', function() { return listCoreEmployees_(); }]
+  ].forEach(function(item) {
+    const key = item[0];
+    try {
+      const rows = item[1]();
+      checks[key] = { ok: true, count: rows.length };
+    } catch (error) {
+      checks[key] = { ok: false, error: sanitizeErrorDetail_(String(error.message || error)) };
+    }
+  });
+  return {
+    ok: Object.keys(checks).every(function(key) { return checks[key].ok; }),
+    checks: checks,
+    timestamp: new Date().toISOString()
   };
 }
 
@@ -660,7 +706,7 @@ function listCoreEmployees_() {
       limit: '1000'
     }
   });
-  const corporations = indexById_(listCoreMaster_('corporations', 'id,corporation_code,corporation_name', 'corporation_no.asc'));
+  const corporations = indexById_(listCoreMaster_('corporations', 'id,corporation_no,corporation_name', 'corporation_no.asc'));
   const stores = indexById_(listCoreMaster_('stores', 'id,store_id,store_name', 'store_no.asc'));
   const departments = indexById_(listCoreMaster_('departments', 'id,department_code,department_name', 'department_no.asc'));
   const positions = indexById_(listCoreMaster_('positions', 'id,position_name', 'position_no.asc'));
@@ -672,7 +718,7 @@ function listCoreEmployees_() {
     const position = positions[employee.position_id] || {};
     return Object.assign({}, employee, {
       corporation_name: corporation.corporation_name || '',
-      corporation_code: corporation.corporation_code || '',
+      corporation_code: corporation.corporation_no || '',
       store_name: store.store_name || '',
       store_code: store.store_id || '',
       department_name: department.department_name || '',
@@ -688,25 +734,21 @@ function listCoreEmployees_() {
 function listCoreStores_() {
   const stores = supabaseRequest_('stores', {
     query: {
-      select: 'id,store_no,store_id,store_name,corporation_id,business_unit_id,department_id,is_active,updated_at',
+      select: 'id,store_no,store_id,store_name,corporation_id,business_unit_id,is_active,updated_at',
       order: 'store_no.asc',
       limit: '500'
     }
   });
-  const corporations = indexById_(listCoreMaster_('corporations', 'id,corporation_code,corporation_name', 'corporation_no.asc'));
+  const corporations = indexById_(listCoreMaster_('corporations', 'id,corporation_no,corporation_name', 'corporation_no.asc'));
   const businessUnits = indexById_(listCoreMaster_('business_units', 'id,business_unit_code,business_unit_name', 'business_unit_no.asc'));
-  const departments = indexById_(listCoreMaster_('departments', 'id,department_code,department_name', 'department_no.asc'));
   return stores.map(function(store) {
     const corporation = corporations[store.corporation_id] || {};
     const businessUnit = businessUnits[store.business_unit_id] || {};
-    const department = departments[store.department_id] || {};
     return Object.assign({}, store, {
       corporation_name: corporation.corporation_name || '',
-      corporation_code: corporation.corporation_code || '',
+      corporation_code: corporation.corporation_no || '',
       business_unit_name: businessUnit.business_unit_name || '',
-      business_unit_code: businessUnit.business_unit_code || '',
-      department_name: department.department_name || '',
-      department_code: department.department_code || ''
+      business_unit_code: businessUnit.business_unit_code || ''
     });
   });
 }
@@ -741,7 +783,6 @@ function updateCoreStore_(payload, actor) {
   copyStringField_(updates, payload, 'store_name');
   copyNullableUuidField_(updates, payload, 'corporation_id');
   copyNullableUuidField_(updates, payload, 'business_unit_id');
-  copyNullableUuidField_(updates, payload, 'department_id');
   if (Object.prototype.hasOwnProperty.call(payload, 'is_active')) updates.is_active = Boolean(payload.is_active);
   updates.updated_at = new Date().toISOString();
   const result = supabaseRequest_('stores', {

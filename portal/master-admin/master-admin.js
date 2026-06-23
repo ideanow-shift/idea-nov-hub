@@ -181,7 +181,6 @@ function renderStoreDetail(store) {
       ${fieldInput("store_name", "店舗名", store.store_name || "")}
       ${fieldSelect("corporation_id", "法人", state.masters.corporations, store.corporation_id, "corporation_name")}
       ${fieldSelect("business_unit_id", "事業部門", state.masters.businessUnits, store.business_unit_id, "business_unit_name")}
-      ${fieldSelect("department_id", "部署", state.masters.departments, store.department_id, "department_name")}
       ${fieldCheckbox("is_active", "有効", store.is_active)}
       <div class="save-row"><button class="button button-primary" type="submit">保存</button></div>
     </form>`;

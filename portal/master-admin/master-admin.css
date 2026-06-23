@@ -208,13 +208,13 @@ body {
 }
 
 .button-primary {
-  border-color: #2D7A45;
-  background: #2F8A4D;
+  border-color: var(--color-bassa);
+  background: var(--color-bassa);
   color: #FFFFFF;
 }
 
 .button-primary:hover {
-  background: #287640;
+  filter: brightness(0.96);
 }
 
 .button-primary:disabled {
@@ -358,7 +358,14 @@ tr.selected {
 }
 
 .save-button {
+  border-color: #2D7A45;
+  background: #2F8A4D;
   min-width: 96px;
+}
+
+.save-button:hover {
+  background: #287640;
+  filter: none;
 }
 
 .danger-zone {

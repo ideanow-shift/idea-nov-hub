@@ -379,7 +379,10 @@ function normalizeCorePortalEmployee_(employee) {
   const store = safeCoreLookup_('store', employee.store_id, getCoreStoreById_);
   const department = safeCoreLookup_('department', employee.department_id, getCoreDepartmentById_);
   const position = safeCoreLookup_('position', employee.position_id, getCorePositionById_);
-  const roleKeys = safeCoreRoleKeys_(employee);
+  const roles = safeCoreRoles_(employee);
+  const roleKeys = roles.map(function(role) { return role.roleKey; }).filter(String);
+  const storeAssignments = safeCoreStoreAssignments_(employee);
+  const primaryStore = buildPrimaryStoreContext_(store, storeAssignments);
   const tags = buildCorePortalTags_(employee, {
     corporation: corporation,
     store: store,
@@ -392,21 +395,42 @@ function normalizeCorePortalEmployee_(employee) {
     id: employee.id,
     coreEmployeeId: employee.id,
     employeeId: employee.employee_id || '',
+    employeeNumber: employee.employee_id || '',
+    firebaseUid: employee.firebase_uid || '',
     email: normalizeEmailValue_(employee.email),
     name: String(employee.full_name || employee.email || ''),
-    store: store && store.store_name ? store.store_name : String(source.assigned_location || ''),
-    storeCode: store && store.store_id ? store.store_id : '',
+    fullName: String(employee.full_name || employee.email || ''),
+    store: primaryStore && primaryStore.name ? primaryStore.name : String(source.assigned_location || ''),
+    storeCode: primaryStore && primaryStore.storeId ? primaryStore.storeId : '',
     department: department && department.department_name ? department.department_name : String(source.department_name || ''),
     position: position && position.position_name ? position.position_name : String(source.position_name || ''),
     grade: '',
     roleLevel: getCoreRoleLevel_(roleKeys),
     roleKeys: roleKeys,
+    roles: roles,
     tags: tags,
     status: 'active',
     source: 'supabase',
     corporation: corporation && corporation.corporation_name ? corporation.corporation_name : '',
     employmentStatus: employee.employment_status || '',
-    employmentType: employee.employment_type || ''
+    employmentType: employee.employment_type || '',
+    isActive: employee.is_active !== false,
+    corporationRef: corporation ? {
+      id: corporation.id || '',
+      code: corporation.corporation_no || '',
+      name: corporation.corporation_name || ''
+    } : null,
+    departmentRef: department ? {
+      id: department.id || '',
+      code: department.department_code || '',
+      name: department.department_name || ''
+    } : null,
+    positionRef: position ? {
+      id: position.id || '',
+      name: position.position_name || ''
+    } : null,
+    primaryStore: primaryStore,
+    storeAssignments: storeAssignments
   };
 }
 
@@ -427,6 +451,45 @@ function safeCoreRoleKeys_(employee) {
     console.error('Core role lookup failed', error);
     return [];
   }
+}
+
+function safeCoreRoles_(employee) {
+  try {
+    return getCoreRolesForEmployee_(employee);
+  } catch (error) {
+    console.error('Core roles lookup failed', error);
+    return safeCoreRoleKeys_(employee).map(function(roleKey) {
+      return { roleKey: roleKey, roleName: '', scopeType: '', scopeId: null };
+    });
+  }
+}
+
+function safeCoreStoreAssignments_(employee) {
+  try {
+    return getCoreStoreAssignmentsForEmployee_(employee && employee.id);
+  } catch (error) {
+    console.error('Core store assignment lookup failed', error);
+    return [];
+  }
+}
+
+function buildPrimaryStoreContext_(store, assignments) {
+  const primaryAssignment = (assignments || []).filter(function(item) { return item.assignmentType === 'primary' || Number(item.priority || 0) === 1; })[0];
+  if (primaryAssignment) {
+    return {
+      id: primaryAssignment.storeId || '',
+      storeNo: primaryAssignment.storeNo || '',
+      storeId: primaryAssignment.storeCode || '',
+      name: primaryAssignment.storeName || ''
+    };
+  }
+  if (!store) return null;
+  return {
+    id: store.id || '',
+    storeNo: store.store_no || '',
+    storeId: store.store_id || '',
+    name: store.store_name || ''
+  };
 }
 
 function buildCorePortalTags_(employee, context) {
@@ -549,17 +612,31 @@ function sanitizeEmployee_(employee) {
     id: employee.id || '',
     coreEmployeeId: employee.coreEmployeeId || '',
     employeeId: employee.employeeId || '',
+    employeeNumber: employee.employeeNumber || employee.employeeId || '',
+    firebaseUid: employee.firebaseUid || '',
     email: employee.email,
     name: employee.name,
+    fullName: employee.fullName || employee.name,
     store: employee.store,
     storeCode: employee.storeCode,
     department: employee.department,
     position: employee.position,
     grade: employee.grade,
     roleLevel: employee.roleLevel,
+    roleKeys: employee.roleKeys || [],
+    roles: employee.roles || [],
     tags: employee.tags,
     status: employee.status,
-    source: employee.source || 'legacy'
+    source: employee.source || 'legacy',
+    corporation: employee.corporation || '',
+    employmentStatus: employee.employmentStatus || '',
+    employmentType: employee.employmentType || '',
+    isActive: employee.isActive !== false,
+    corporationRef: employee.corporationRef || null,
+    departmentRef: employee.departmentRef || null,
+    positionRef: employee.positionRef || null,
+    primaryStore: employee.primaryStore || null,
+    storeAssignments: employee.storeAssignments || []
   };
 }
 
@@ -843,8 +920,12 @@ function createIdeaLinkApp_() {
 }
 
 function getCoreRoleKeysForEmployee_(employee) {
+  return getCoreRolesForEmployee_(employee).map(function(role) { return role.roleKey; }).filter(String);
+}
+
+function getCoreRolesForEmployee_(employee) {
   const directId = String(employee && (employee.id || employee.coreEmployeeId) || '').trim();
-  if (directId) return getCoreRoleKeysByEmployeeId_(directId);
+  if (directId) return getCoreRolesByEmployeeId_(directId);
 
   const email = normalizeEmailValue_(employee && employee.email);
   if (!email) return [];
@@ -857,26 +938,72 @@ function getCoreRoleKeysForEmployee_(employee) {
   });
   const coreEmployee = employees[0];
   if (!coreEmployee || coreEmployee.is_active === false) return [];
-  return getCoreRoleKeysByEmployeeId_(coreEmployee.id);
+  return getCoreRolesByEmployeeId_(coreEmployee.id);
 }
 
-function getCoreRoleKeysByEmployeeId_(employeeId) {
+function getCoreRolesByEmployeeId_(employeeId) {
   const rows = supabaseRequest_('employee_roles', {
     query: {
       select: 'role_id',
       employee_id: 'eq.' + employeeId,
+      is_active: 'eq.true',
       limit: '50'
     }
   });
   const roleIds = rows.map(function(row) { return row.role_id; }).filter(String);
   if (!roleIds.length) return [];
-  const roles = supabaseRequest_('roles', {
+  const rolesById = indexById_(supabaseRequest_('roles', {
     query: {
-      select: 'id,role_key',
+      select: 'id,role_key,role_name',
       id: 'in.(' + roleIds.join(',') + ')'
     }
+  }));
+  return rows.map(function(row) {
+    const role = rolesById[row.role_id] || {};
+    return {
+      roleKey: role.role_key || '',
+      roleName: role.role_name || '',
+      scopeType: '',
+      scopeId: null
+    };
+  }).filter(function(role) { return role.roleKey; });
+}
+
+function getCoreRoleKeysByEmployeeId_(employeeId) {
+  return getCoreRolesByEmployeeId_(employeeId).map(function(role) { return role.roleKey; }).filter(String);
+}
+
+function getCoreStoreAssignmentsForEmployee_(employeeId) {
+  employeeId = String(employeeId || '').trim();
+  if (!employeeId) return [];
+  const assignments = supabaseRequest_('employee_store_assignments', {
+    query: {
+      select: 'store_id,assignment_order,assignment_type,is_active',
+      employee_id: 'eq.' + employeeId,
+      is_active: 'eq.true',
+      order: 'assignment_order.asc',
+      limit: '10'
+    }
   });
-  return roles.map(function(role) { return role.role_key; }).filter(String);
+  const storeIds = assignments.map(function(row) { return row.store_id; }).filter(String);
+  if (!storeIds.length) return [];
+  const storesById = indexById_(supabaseRequest_('stores', {
+    query: {
+      select: 'id,store_no,store_id,store_name',
+      id: 'in.(' + storeIds.join(',') + ')'
+    }
+  }));
+  return assignments.map(function(row) {
+    const store = storesById[row.store_id] || {};
+    return {
+      storeId: row.store_id || '',
+      storeNo: store.store_no || '',
+      storeCode: store.store_id || '',
+      storeName: store.store_name || '',
+      assignmentType: row.assignment_type || '',
+      priority: Number(row.assignment_order || 0)
+    };
+  });
 }
 
 function isMasterAdmin_(employee) {
@@ -1172,7 +1299,7 @@ function appendAssignmentHistoryIfNeeded_(before, after, updates, actor) {
 function getCoreStoreById_(id) {
   const rows = supabaseRequest_('stores', {
     query: {
-      select: 'id,store_id,store_name,area,store_type,corporation_id,business_unit_id,is_active',
+      select: 'id,store_no,store_id,store_name,area,store_type,corporation_id,business_unit_id,is_active',
       id: 'eq.' + id,
       limit: '1'
     }
@@ -1183,7 +1310,7 @@ function getCoreStoreById_(id) {
 function getCoreCorporationById_(id) {
   const rows = supabaseRequest_('corporations', {
     query: {
-      select: 'id,corporation_name,is_active',
+      select: 'id,corporation_no,corporation_name,is_active',
       id: 'eq.' + id,
       limit: '1'
     }

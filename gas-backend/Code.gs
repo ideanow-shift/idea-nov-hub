@@ -79,9 +79,7 @@ function doPost(e) {
     const authUser = authenticateRequest_(token, payload);
 
     stage = 'findActiveEmployee';
-    const employee = authUser.authType === 'pin'
-      ? authUser.employee
-      : findActiveEmployee_(authUser.email);
+    const employee = findActivePortalEmployee_(authUser);
 
     if (!employee) {
       stage = 'appendDeniedLog';
@@ -258,7 +256,8 @@ function verifyFirebaseToken_(idToken) {
 
   return {
     email: String(user.email).trim().toLowerCase(),
-    displayName: String(user.displayName || '')
+    displayName: String(user.displayName || ''),
+    uid: String(user.localId || '')
   };
 }
 
@@ -287,6 +286,113 @@ function findActiveEmployee_(email) {
 
   if (!employee || employee.status !== 'active') return null;
   return enrichEmployeeWithStore_(employee);
+}
+
+function findActivePortalEmployee_(authUser) {
+  if (authUser.authType === 'pin') return authUser.employee;
+
+  try {
+    const coreEmployee = findActiveCoreEmployee_(authUser);
+    if (coreEmployee) return coreEmployee;
+  } catch (error) {
+    console.error('Core employee lookup failed. Falling back to legacy staff sheet.', error);
+  }
+
+  return findActiveEmployee_(authUser.email);
+}
+
+function findActiveCoreEmployee_(authUser) {
+  const uid = String(authUser && authUser.uid || '').trim();
+  const email = normalizeEmailValue_(authUser && authUser.email);
+  let rows = [];
+
+  if (uid) {
+    rows = queryCoreEmployeeRows_({ firebase_uid: 'eq.' + uid });
+  }
+  if (!rows.length && email) {
+    rows = queryCoreEmployeeRows_({ email: 'eq.' + email });
+  }
+
+  const employee = rows[0];
+  if (!isCoreEmployeeActiveForPortal_(employee)) return null;
+  return normalizeCorePortalEmployee_(employee);
+}
+
+function queryCoreEmployeeRows_(filters) {
+  const query = Object.assign({
+    select: 'id,employee_id,full_name,email,employment_status,employment_type,corporation_id,store_id,department_id,position_id,firebase_uid,is_active,source_row',
+    limit: '1'
+  }, filters || {});
+  return supabaseRequest_('employees', { query: query });
+}
+
+function isCoreEmployeeActiveForPortal_(employee) {
+  if (!employee || employee.is_active === false) return false;
+  const status = String(employee.employment_status || '');
+  if (/退職|休職|産休|育休/.test(status)) return false;
+  return true;
+}
+
+function normalizeCorePortalEmployee_(employee) {
+  const corporation = employee.corporation_id ? getCoreCorporationById_(employee.corporation_id) : null;
+  const store = employee.store_id ? getCoreStoreById_(employee.store_id) : null;
+  const department = employee.department_id ? getCoreDepartmentById_(employee.department_id) : null;
+  const position = employee.position_id ? getCorePositionById_(employee.position_id) : null;
+  const roleKeys = getCoreRoleKeysForEmployee_(employee);
+  const tags = buildCorePortalTags_(employee, {
+    corporation: corporation,
+    store: store,
+    department: department,
+    position: position,
+    roleKeys: roleKeys
+  });
+
+  return {
+    id: employee.id,
+    coreEmployeeId: employee.id,
+    employeeId: employee.employee_id || '',
+    email: normalizeEmailValue_(employee.email),
+    name: String(employee.full_name || employee.email || ''),
+    store: store && store.store_name ? store.store_name : '',
+    storeCode: store && store.store_id ? store.store_id : '',
+    department: department && department.department_name ? department.department_name : '',
+    position: position && position.position_name ? position.position_name : '',
+    grade: '',
+    roleLevel: getCoreRoleLevel_(roleKeys),
+    tags: tags,
+    status: 'active',
+    source: 'supabase',
+    corporation: corporation && corporation.corporation_name ? corporation.corporation_name : '',
+    employmentStatus: employee.employment_status || '',
+    employmentType: employee.employment_type || ''
+  };
+}
+
+function buildCorePortalTags_(employee, context) {
+  const tags = ['all'].concat(context.roleKeys || []);
+  const departmentName = context.department && context.department.department_name ? context.department.department_name : '';
+  const positionName = context.position && context.position.position_name ? context.position.position_name : '';
+  const storeName = context.store && context.store.store_name ? context.store.store_name : '';
+  const roleKeys = context.roleKeys || [];
+
+  if (/営業/.test(departmentName)) tags.push('sales');
+  if (/教育/.test(departmentName)) tags.push('education');
+  if (/総務|人事/.test(departmentName)) tags.push('hr', 'backoffice');
+  if (/経理/.test(departmentName)) tags.push('accounting');
+  if (/本部/.test(storeName) || departmentName) tags.push('hq');
+  if (roleKeys.indexOf('executive') !== -1 || roleKeys.indexOf('super_admin') !== -1) tags.push('executive');
+  if (roleKeys.indexOf('store_manager') !== -1 || roleKeys.indexOf('area_manager') !== -1 || /店長|部長|マネージャー/.test(positionName)) tags.push('manager');
+  if (roleKeys.indexOf('fc_owner') !== -1 || /FC/.test(positionName)) tags.push('fc_owner');
+
+  return tags.filter(function(tag, index) { return tag && tags.indexOf(tag) === index; });
+}
+
+function getCoreRoleLevel_(roleKeys) {
+  const roles = roleKeys || [];
+  if (roles.indexOf('super_admin') !== -1 || roles.indexOf('executive') !== -1) return 5;
+  if (roles.indexOf('department_manager') !== -1 || roles.indexOf('backoffice') !== -1 || roles.indexOf('accounting') !== -1) return 4;
+  if (roles.indexOf('area_manager') !== -1 || roles.indexOf('store_manager') !== -1 || roles.indexOf('fc_owner') !== -1 || roles.indexOf('trainer') !== -1) return 3;
+  return 1;
 }
 
 function findActiveEmployeeByPin_(email, pin) {
@@ -366,6 +472,9 @@ function normalizeStore_(row) {
 
 function sanitizeEmployee_(employee) {
   return {
+    id: employee.id || '',
+    coreEmployeeId: employee.coreEmployeeId || '',
+    employeeId: employee.employeeId || '',
     email: employee.email,
     name: employee.name,
     store: employee.store,
@@ -375,7 +484,8 @@ function sanitizeEmployee_(employee) {
     grade: employee.grade,
     roleLevel: employee.roleLevel,
     tags: employee.tags,
-    status: employee.status
+    status: employee.status,
+    source: employee.source || 'legacy'
   };
 }
 
@@ -642,6 +752,9 @@ function createMasterAdminApp_() {
 }
 
 function getCoreRoleKeysForEmployee_(employee) {
+  const directId = String(employee && (employee.id || employee.coreEmployeeId) || '').trim();
+  if (directId) return getCoreRoleKeysByEmployeeId_(directId);
+
   const email = normalizeEmailValue_(employee && employee.email);
   if (!email) return [];
   const employees = supabaseRequest_('employees', {
@@ -653,10 +766,14 @@ function getCoreRoleKeysForEmployee_(employee) {
   });
   const coreEmployee = employees[0];
   if (!coreEmployee || coreEmployee.is_active === false) return [];
+  return getCoreRoleKeysByEmployeeId_(coreEmployee.id);
+}
+
+function getCoreRoleKeysByEmployeeId_(employeeId) {
   const rows = supabaseRequest_('employee_roles', {
     query: {
       select: 'role_id',
-      employee_id: 'eq.' + coreEmployee.id,
+      employee_id: 'eq.' + employeeId,
       limit: '50'
     }
   });
@@ -669,6 +786,10 @@ function getCoreRoleKeysForEmployee_(employee) {
     }
   });
   return roles.map(function(role) { return role.role_key; }).filter(String);
+}
+
+function isMasterAdmin_(employee) {
+  return getMasterPermissions_(employee).canView;
 }
 
 function getMasterPermissions_(employee) {
@@ -934,7 +1055,40 @@ function appendAssignmentHistoryIfNeeded_(before, after, updates, actor) {
 function getCoreStoreById_(id) {
   const rows = supabaseRequest_('stores', {
     query: {
-      select: 'id,store_name,area,store_type,corporation_id,business_unit_id,is_active',
+      select: 'id,store_id,store_name,area,store_type,corporation_id,business_unit_id,is_active',
+      id: 'eq.' + id,
+      limit: '1'
+    }
+  });
+  return rows[0] || null;
+}
+
+function getCoreCorporationById_(id) {
+  const rows = supabaseRequest_('corporations', {
+    query: {
+      select: 'id,corporation_code,corporation_name,is_active',
+      id: 'eq.' + id,
+      limit: '1'
+    }
+  });
+  return rows[0] || null;
+}
+
+function getCoreDepartmentById_(id) {
+  const rows = supabaseRequest_('departments', {
+    query: {
+      select: 'id,department_code,department_name,is_active',
+      id: 'eq.' + id,
+      limit: '1'
+    }
+  });
+  return rows[0] || null;
+}
+
+function getCorePositionById_(id) {
+  const rows = supabaseRequest_('positions', {
+    query: {
+      select: 'id,position_name,is_active',
       id: 'eq.' + id,
       limit: '1'
     }

@@ -101,7 +101,25 @@ function getRows() {
   if (state.view === "firebase") rows = state.employees.filter((employee) => isCurrentEmployee(employee) && !employee.firebase_uid);
   if (state.view === "logs") rows = state.logs;
   if (!query) return rows;
-  return rows.filter((row) => normalizeSearch(Object.values(row).join(" ")).includes(query));
+  return rows.filter((row) => normalizeSearch(getSearchText(row)).includes(query));
+}
+
+function getSearchText(row) {
+  const values = Object.entries(row)
+    .filter(([, value]) => value === null || typeof value !== "object")
+    .map(([, value]) => value);
+  if (Array.isArray(row.store_assignments)) {
+    values.push(...row.store_assignments.flatMap((assignment) => [
+      assignment.store_name,
+      assignment.store_code,
+      assignment.assignment_type,
+      assignment.assignment_order
+    ]));
+  }
+  if (row.change_payload && typeof row.change_payload === "object") {
+    values.push(row.change_summary, row.action_type, row.target_name, row.table_name);
+  }
+  return values.join(" ");
 }
 
 function getEmployeesByStatus() {
@@ -134,12 +152,13 @@ function getEmployeeIssues(employee) {
 function getStoresByStatus() {
   if (state.view !== "stores") return state.stores;
   if (state.storeStatus === "all") return state.stores;
-  if (state.storeStatus === "missing") return state.stores.filter((store) => getStoreIssues(store).length);
+  if (state.storeStatus === "missing") return state.stores.filter((store) => store.is_active && getStoreIssues(store).length);
   if (state.storeStatus === "inactive") return state.stores.filter((store) => !store.is_active);
   return state.stores.filter((store) => store.is_active);
 }
 
 function getStoreIssues(store) {
+  if (!store.is_active) return [];
   const issues = [];
   if (!store.corporation_id) issues.push("法人");
   if (!store.business_unit_id) issues.push("事業部門");
@@ -486,7 +505,7 @@ function renderEmployeeDetail(employee) {
       </div>` : "";
   elements.detailPanel.innerHTML = `
     <h3>${escapeHtml(employee.full_name)}</h3>
-    <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}</p>
+    <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}${employee.updated_at ? ` / 最終更新: ${escapeHtml(formatDateTime(employee.updated_at))}` : ""}</p>
     <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。"}</p>
     <form class="form-grid" id="detail-form">
       ${issuePanel}
@@ -584,18 +603,10 @@ function getStoreAssignmentsByOrder(assignments) {
 function renderStoreDetail(store) {
   const readonly = !state.permissions.canEdit;
   const issues = getStoreIssues(store);
-  const issuePanel = issues.length ? `
-      <div class="issue-panel">
-        <strong>未設定項目</strong>
-        <p>${escapeHtml(issues.join("・"))} を確認してください。</p>
-      </div>` : `
-      <div class="issue-panel resolved">
-        <strong>未設定なし</strong>
-        <p>店舗マスタとして必要な項目は入力済みです。</p>
-      </div>`;
+  const issuePanel = renderStoreIssuePanel(store, issues);
   elements.detailPanel.innerHTML = `
     <h3>${escapeHtml(store.store_name)}</h3>
-    <p class="detail-meta">店舗ID: ${escapeHtml(store.store_id)} / 店舗No: ${escapeHtml(store.store_no)}</p>
+    <p class="detail-meta">店舗ID: ${escapeHtml(store.store_id)} / 店舗No: ${escapeHtml(store.store_no)}${store.updated_at ? ` / 最終更新: ${escapeHtml(formatDateTime(store.updated_at))}` : ""}</p>
     <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "店舗IDと店舗Noは固定項目です。通常運用では店舗名・法人・事業部門・有効状態のみ変更します。"}</p>
     <form class="form-grid" id="detail-form">
       ${issuePanel}
@@ -616,6 +627,28 @@ function renderStoreDetail(store) {
     form.addEventListener("submit", saveStore);
     setupDirtyForm("store");
   }
+}
+
+function renderStoreIssuePanel(store, issues) {
+  if (!store.is_active) {
+    return `
+      <div class="issue-panel neutral">
+        <strong>未設定判定対象外</strong>
+        <p>無効店舗は未設定ありの対象外です。</p>
+      </div>`;
+  }
+  if (issues.length) {
+    return `
+      <div class="issue-panel">
+        <strong>未設定項目</strong>
+        <p>${escapeHtml(issues.join("・"))} を確認してください。</p>
+      </div>`;
+  }
+  return `
+      <div class="issue-panel resolved">
+        <strong>未設定なし</strong>
+        <p>店舗マスタとして必要な項目は入力済みです。</p>
+      </div>`;
 }
 
 function setReadonlyState(readonly) {

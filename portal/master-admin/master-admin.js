@@ -1168,7 +1168,7 @@ function updateDirtyState(type, status, button) {
   button.disabled = !hasChanges;
   if (!hasChanges) {
     button.textContent = "保存";
-    setSaveStatus(status, "変更はありません", "");
+    setSaveStatus(status, "保存済みです", "");
   } else {
     setSaveStatus(status, "未保存の変更があります", "pending");
   }
@@ -1185,7 +1185,7 @@ function normalizeSnapshotValue_(value) {
   return String(value ?? "").trim();
 }
 
-function markCurrentFormSaved(type, message = "保存しました") {
+function markCurrentFormSaved(type, message = "保存しました。変更履歴にも反映済みです。") {
   const form = document.querySelector("#detail-form");
   const status = document.querySelector(type === "employee" ? "#employee-save-status" : "#store-save-status");
   const button = form?.querySelector(".save-button");
@@ -1207,12 +1207,13 @@ async function saveEmployee(event) {
   event.preventDefault();
   const button = event.submitter;
   const status = document.querySelector("#employee-save-status");
+  let saved = false;
   try {
     setSaveStatus(status, "");
     const payload = collectEmployeePayload();
     payload.id = state.selectedId;
     if (getFormSnapshot("employee") === state.formSnapshot) {
-      setSaveStatus(status, "変更はありません", "");
+      setSaveStatus(status, "保存済みです", "");
       showToast("変更はありません。");
       return;
     }
@@ -1238,20 +1239,26 @@ async function saveEmployee(event) {
     }
     button.disabled = true;
     button.textContent = "保存中...";
+    setSaveStatus(status, "保存中です...", "pending");
     await callApiAction("masterUpdateEmployee", payload);
-    button.textContent = "保存しました";
-    setSaveStatus(status, "保存しました", "success");
-    showToast("社員情報を保存しました。");
     await refreshEmployees();
-    markCurrentFormSaved("employee");
+    const logsSynced = await refreshLogsSilently();
+    saved = true;
+    markCurrentFormSaved(
+      "employee",
+      logsSynced ? "保存しました。変更履歴にも反映済みです。" : "保存しました。変更履歴は後で再読み込みしてください。"
+    );
+    showToast(logsSynced ? "社員情報を保存し、変更履歴へ反映しました。" : "社員情報を保存しました。変更履歴は後で確認してください。");
   } catch (error) {
     console.error(error);
     setSaveStatus(status, getErrorMessage(error), "error");
     showToast(getErrorMessage(error));
   } finally {
-    window.setTimeout(() => {
-      restoreSaveButtonState("employee", button);
-    }, 700);
+    if (!saved) {
+      window.setTimeout(() => {
+        restoreSaveButtonState("employee", button);
+      }, 700);
+    }
   }
 }
 
@@ -1320,12 +1327,13 @@ async function saveStore(event) {
   event.preventDefault();
   const button = event.submitter;
   const status = document.querySelector("#store-save-status");
+  let saved = false;
   try {
     setSaveStatus(status, "");
     const payload = collectStorePayload();
     payload.id = state.selectedId;
     if (getFormSnapshot("store") === state.formSnapshot) {
-      setSaveStatus(status, "変更はありません", "");
+      setSaveStatus(status, "保存済みです", "");
       showToast("変更はありません。");
       return;
     }
@@ -1335,20 +1343,26 @@ async function saveStore(event) {
     }
     button.disabled = true;
     button.textContent = "保存中...";
+    setSaveStatus(status, "保存中です...", "pending");
     await callApiAction("masterUpdateStore", payload);
-    button.textContent = "保存しました";
-    setSaveStatus(status, "保存しました", "success");
-    showToast("店舗情報を保存しました。");
     await refreshStores();
-    markCurrentFormSaved("store");
+    const logsSynced = await refreshLogsSilently();
+    saved = true;
+    markCurrentFormSaved(
+      "store",
+      logsSynced ? "保存しました。変更履歴にも反映済みです。" : "保存しました。変更履歴は後で再読み込みしてください。"
+    );
+    showToast(logsSynced ? "店舗情報を保存し、変更履歴へ反映しました。" : "店舗情報を保存しました。変更履歴は後で確認してください。");
   } catch (error) {
     console.error(error);
     setSaveStatus(status, getErrorMessage(error), "error");
     showToast(getErrorMessage(error));
   } finally {
-    window.setTimeout(() => {
-      restoreSaveButtonState("store", button);
-    }, 700);
+    if (!saved) {
+      window.setTimeout(() => {
+        restoreSaveButtonState("store", button);
+      }, 700);
+    }
   }
 }
 
@@ -1370,17 +1384,22 @@ async function refreshStores() {
   render();
 }
 
-async function refreshLogs() {
+async function refreshLogsSilently() {
   try {
     const response = await callApiAction("masterListChangeLogs");
     state.logs = response.logs || [];
     state.logsLoaded = true;
+    return true;
   } catch (error) {
     console.error(error);
-    showToast(getErrorMessage(error));
-  } finally {
-    render();
+    return false;
   }
+}
+
+async function refreshLogs() {
+  const loaded = await refreshLogsSilently();
+  if (!loaded) showToast("変更履歴の読み込みに失敗しました。");
+  render();
 }
 
 async function handleSignIn() {

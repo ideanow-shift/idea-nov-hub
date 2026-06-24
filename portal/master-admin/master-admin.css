@@ -540,18 +540,15 @@ tr.selected {
 }
 
 .save-button {
-  border-color: #2D7A45;
-  background: #2F8A4D;
   min-width: 96px;
 }
 
-.save-button:hover {
-  background: #287640;
-  filter: none;
+.save-button:hover:not(:disabled) {
+  filter: brightness(0.96);
 }
 
 .save-button:disabled {
-  opacity: 0.48;
+  opacity: 0.52;
   cursor: not-allowed;
 }
 

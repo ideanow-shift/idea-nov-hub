@@ -144,6 +144,19 @@
       ]
     },
     {
+      "appId": "idea-link",
+      "appName": "IDEA LINK",
+      "icon": "./assets/icons/philosophy.svg",
+      "color": "#E8C078",
+      "aliases": [
+        "IDEA LINK",
+        "IDEALINK",
+        "サンクスコイン",
+        "サンクス投稿",
+        "理念行動共有"
+      ]
+    },
+    {
       "appId": "sales-education-db",
       "appName": "営業部⇔教育部DB",
       "icon": "./assets/icons/database.svg",

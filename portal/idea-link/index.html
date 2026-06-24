@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IDEA LINK | NOV HUB</title>
+  <link rel="stylesheet" href="../css/design-system.css">
+  <style>
+    :root {
+      --accent: #e8b4b8;
+      --accent-strong: #d88f99;
+      --ink: #151515;
+      --muted: #6f6f75;
+      --line: #eadfe1;
+      --paper: #fffafb;
+      --green-paper: #f4fbf6;
+      --green: #2f8f57;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: #fff;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 28px 36px;
+      border-bottom: 1px solid #eee;
+    }
+    .brand {
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+    .back-link {
+      color: var(--ink);
+      text-decoration: none;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 16px;
+      background: #fff;
+      font-weight: 700;
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 54px 28px 72px;
+    }
+    .eyebrow {
+      color: var(--accent-strong);
+      font-size: 14px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+    h1 {
+      font-size: clamp(34px, 5vw, 56px);
+      line-height: 1.05;
+      margin: 0 0 14px;
+      letter-spacing: 0;
+    }
+    .lead {
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.8;
+      max-width: 760px;
+      margin: 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
+      gap: 24px;
+      margin-top: 38px;
+      align-items: start;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 28px;
+      background: #fff;
+    }
+    .panel.soft {
+      background: var(--paper);
+    }
+    .panel.green {
+      background: var(--green-paper);
+      border-color: #d8ecd8;
+    }
+    h2 {
+      font-size: 22px;
+      margin: 0 0 18px;
+    }
+    .status-list {
+      display: grid;
+      gap: 14px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .status-list li {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(0,0,0,.07);
+    }
+    .status-list li:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+    .label {
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .context-box {
+      display: grid;
+      gap: 10px;
+      font-size: 15px;
+      color: var(--muted);
+    }
+    .context-name {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .pill {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      border-radius: 999px;
+      padding: 7px 12px;
+      background: #fff;
+      color: var(--green);
+      border: 1px solid #d8ecd8;
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      text-decoration: none;
+      color: var(--ink);
+      font-weight: 800;
+      background: #fff;
+    }
+    .button.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    @media (max-width: 840px) {
+      .topbar { padding: 20px; }
+      main { padding: 34px 18px 54px; }
+      .grid { grid-template-columns: 1fr; }
+      .status-list li { grid-template-columns: 1fr; gap: 4px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">NOV HUB</div>
+    <a class="back-link" href="../">HUBへ戻る</a>
+  </header>
+
+  <main>
+    <div class="eyebrow">Phase 4 / Supabase移行準備</div>
+    <h1>IDEA LINK</h1>
+    <p class="lead">サンクス投稿と理念行動共有を、NOV HUBとCore DBにつなげるための接続準備ページです。現行GAS版の立川店・所沢店テスト運用は止めず、最初は社員・店舗マスタ参照から移行します。</p>
+
+    <div class="grid">
+      <section class="panel soft">
+        <h2>移行ステータス</h2>
+        <ul class="status-list">
+          <li><span class="label">現行運用</span><span>GAS + Googleスプレッドシートでテスト継続</span></li>
+          <li><span class="label">対象店舗</span><span>立川店・所沢店</span></li>
+          <li><span class="label">最初の接続</span><span>Supabaseの社員マスタ・店舗マスタを参照</span></li>
+          <li><span class="label">次の移行</span><span>Thanks投稿、店舗別LINE WORKS通知先、集計を段階移行</span></li>
+          <li><span class="label">キー管理</span><span>service_roleキーはGAS/サーバー側のみ。フロントには出しません。</span></li>
+        </ul>
+        <div class="actions">
+          <a class="button primary" href="../docs/nov-hub-app-context.md">HUB連携仕様を見る</a>
+          <a class="button" href="../master-admin/">Coreマスタ管理へ</a>
+        </div>
+      </section>
+
+      <aside class="panel green">
+        <h2>HUBログイン情報</h2>
+        <div id="contextBox" class="context-box">
+          <span class="pill">確認中</span>
+          <span>NOV HUBからログインすると、ここに連携対象の社員情報が表示されます。</span>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script type="module">
+    import { readHubEmployeeContext, getHubEmployeeContextSummary } from "../js/hub-context.js";
+
+    const context = readHubEmployeeContext();
+    const contextBox = document.getElementById("contextBox");
+
+    if (context) {
+      contextBox.innerHTML = `
+        <span class="pill">HUB連携済み</span>
+        <span class="context-name"></span>
+        <span class="context-summary"></span>
+        <span class="context-role"></span>
+      `;
+      contextBox.querySelector(".context-name").textContent = context.name || "氏名未設定";
+      contextBox.querySelector(".context-summary").textContent = getHubEmployeeContextSummary(context) || "連携情報あり";
+      contextBox.querySelector(".context-role").textContent = [context.store, context.department, context.position].filter(Boolean).join(" / ") || "所属情報未設定";
+    } else {
+      contextBox.innerHTML = `
+        <span class="pill">未連携</span>
+        <span>NOV HUBから開くと、社員番号・氏名・所属・権限タグをIDEA LINK側へ引き継げます。</span>
+      `;
+    }
+  </script>
+</body>
+</html>

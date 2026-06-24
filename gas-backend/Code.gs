@@ -233,11 +233,26 @@ function readVisibleAppsSafely_(employee) {
   }
 
   try {
-    if (isMasterAdmin_(employee)) apps.push(createMasterAdminApp_());
+    apps = appendFixedAppIfMissing_(apps, createIdeaLinkApp_());
+  } catch (error) {
+    console.error('Failed to add IDEA LINK visibility.', error);
+  }
+
+  try {
+    if (isMasterAdmin_(employee)) apps = appendFixedAppIfMissing_(apps, createMasterAdminApp_());
   } catch (error) {
     console.error('Failed to evaluate master admin visibility.', error);
   }
 
+  return apps;
+}
+
+function appendFixedAppIfMissing_(apps, app) {
+  if (!app || !app.appId) return apps;
+  const exists = apps.some(function(item) {
+    return String(item.appId || '') === String(app.appId || '');
+  });
+  if (!exists) apps.push(app);
   return apps;
 }
 
@@ -460,10 +475,20 @@ function findActiveEmployeeByPin_(email, pin) {
 }
 
 function findAppById_(appId) {
+  const fixedApp = findFixedAppById_(appId);
+  if (fixedApp) return fixedApp;
+
   const row = readPortalSheetObjects_(SHEETS.APPS).find(function(item) {
     return String(pick_(item, APP_HEADER_ALIASES.appId) || '') === String(appId || '');
   });
   return row ? normalizeApp_(row) : null;
+}
+
+function findFixedAppById_(appId) {
+  const id = String(appId || '');
+  if (id === 'core-master-admin') return createMasterAdminApp_();
+  if (id === 'idea-link') return createIdeaLinkApp_();
+  return null;
 }
 
 function canAccessApp_(employee, app) {
@@ -797,6 +822,23 @@ function createMasterAdminApp_() {
     isActive: true,
     isFeatured: true,
     priority: 1
+  };
+}
+function createIdeaLinkApp_() {
+  return {
+    appId: 'idea-link',
+    appName: 'IDEA LINK',
+    description: 'サンクス投稿と理念行動共有のHUB連携準備ページ',
+    url: './idea-link/',
+    category: '称賛',
+    icon: 'idea-link',
+    requiredLevel: 1,
+    allowedTags: [],
+    targetDepartment: [],
+    targetPosition: [],
+    isActive: true,
+    isFeatured: false,
+    priority: 88
   };
 }
 

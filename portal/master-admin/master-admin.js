@@ -170,6 +170,13 @@ function getStoreIssues(store) {
   return issues;
 }
 
+function getUniqueValues(rows, key) {
+  return Array.from(new Set(rows
+    .map((row) => String(row[key] || "").trim())
+    .filter(Boolean)))
+    .sort((left, right) => left.localeCompare(right, "ja"));
+}
+
 function getEmployeeStatusCounts() {
   return {
     active: state.employees.filter((employee) => isCurrentEmployee(employee)).length,
@@ -581,7 +588,7 @@ function renderEmployeeDetail(employee) {
       </section>
       ${fieldSelect("department_id", "部署", state.masters.departments, employee.department_id, "department_name")}
       ${fieldSelect("position_id", "役職", state.masters.positions, employee.position_id, "position_name")}
-      ${fieldInput("employment_type", "雇用形態", employee.employment_type || "")}
+      ${fieldValueSelect("employment_type", "雇用形態", getUniqueValues(state.employees, "employment_type"), employee.employment_type || "")}
       ${fieldStaticSelect("employment_status", "現職/休職/退職", [
         ["現職", "現職"],
         ["休職", "休職"],
@@ -668,8 +675,8 @@ function renderStoreDetail(store) {
       ${fieldInput("store_name", "店舗名", store.store_name || "")}
       ${fieldSelect("corporation_id", "法人", state.masters.corporations, store.corporation_id, "corporation_name")}
       ${fieldSelect("business_unit_id", "事業部門", state.masters.businessUnits, store.business_unit_id, "business_unit_name")}
-      ${fieldInput("area", "エリア", store.area || "")}
-      ${fieldInput("store_type", "店舗種別", store.store_type || "")}
+      ${fieldValueSelect("area", "エリア", getUniqueValues(state.stores, "area"), store.area || "")}
+      ${fieldValueSelect("store_type", "店舗種別", getUniqueValues(state.stores, "store_type"), store.store_type || "")}
       ${fieldCheckbox("is_active", "有効", store.is_active)}
       <div class="save-row">
         <span class="save-status" id="store-save-status" aria-live="polite"></span>
@@ -736,6 +743,21 @@ function fieldSelect(name, label, rows, value, labelKey) {
 function fieldStaticSelect(name, label, options, value) {
   const htmlOptions = options.map(([optionValue, optionLabel]) => {
     const selected = optionValue === value ? " selected" : "";
+    return `<option value="${escapeHtml(optionValue)}"${selected}>${escapeHtml(optionLabel)}</option>`;
+  });
+  return `
+    <div class="form-field">
+      <label for="${name}">${label}</label>
+      <select class="form-select" id="${name}" name="${name}">${htmlOptions.join("")}</select>
+    </div>`;
+}
+
+function fieldValueSelect(name, label, values, value) {
+  const normalizedValue = String(value || "").trim();
+  const optionValues = Array.from(new Set(["", ...values, normalizedValue].filter((item, index) => index === 0 || item)));
+  const htmlOptions = optionValues.map((optionValue) => {
+    const selected = optionValue === normalizedValue ? " selected" : "";
+    const optionLabel = optionValue || "未設定";
     return `<option value="${escapeHtml(optionValue)}"${selected}>${escapeHtml(optionLabel)}</option>`;
   });
   return `

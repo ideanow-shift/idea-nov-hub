@@ -284,11 +284,12 @@ function renderLogRow(log) {
   const changedKeys = Object.keys(payload).filter((key) => key !== "updated_at");
   const targetLabel = log.target_name || `${log.table_name} / ${log.record_id}`;
   const summary = log.change_summary || changedKeys.map(getFieldLabel).join(", ") || "変更内容なし";
+  const actionLabel = formatActionType(log.action_type);
   tr.innerHTML = `
     <td>${escapeHtml(formatDateTime(log.created_at))}</td>
     <td>${escapeHtml(targetLabel)}</td>
     <td>${escapeHtml(log.changed_by_email || "")}</td>
-    <td>${escapeHtml(formatActionType(log.action_type))} / ${escapeHtml(summary)}</td>`;
+    <td><span class="log-action">${escapeHtml(actionLabel)}</span>${escapeHtml(summary)}</td>`;
   tr.addEventListener("click", () => {
     state.selectedId = log.id;
     render();
@@ -330,9 +331,13 @@ function renderLogDetail() {
     elements.detailPanel.innerHTML = `<div class="empty-detail">左の一覧から履歴を選んでください。</div>`;
     return;
   }
+  const helperText = log.table_name === "employee_store_assignments"
+    ? "社員本体の更新とは別に、主店舗・サブ店舗・第3店舗の所属変更として記録しています。"
+    : "社員・店舗マスタ本体の変更として記録しています。";
   elements.detailPanel.innerHTML = `
     <h3>変更履歴</h3>
     <p class="detail-meta">${escapeHtml(formatDateTime(log.created_at))}</p>
+    <p class="detail-note">${escapeHtml(helperText)}</p>
     <div class="log-detail">
       <dl>
         <dt>操作</dt>
@@ -712,6 +717,24 @@ function normalizeSnapshotValue_(value) {
   return String(value ?? "").trim();
 }
 
+function markCurrentFormSaved(type, message = "保存しました") {
+  const form = document.querySelector("#detail-form");
+  const status = document.querySelector(type === "employee" ? "#employee-save-status" : "#store-save-status");
+  const button = form?.querySelector(".save-button");
+  if (!form || !button) return;
+  state.formSnapshot = getFormSnapshot(type);
+  button.disabled = true;
+  button.textContent = "保存";
+  setSaveStatus(status, message, "success");
+}
+
+function restoreSaveButtonState(type, button) {
+  if (!button?.isConnected) return;
+  const status = document.querySelector(type === "employee" ? "#employee-save-status" : "#store-save-status");
+  button.textContent = "保存";
+  updateDirtyState(type, status, button);
+}
+
 async function saveEmployee(event) {
   event.preventDefault();
   const button = event.submitter;
@@ -752,14 +775,14 @@ async function saveEmployee(event) {
     setSaveStatus(status, "保存しました", "success");
     showToast("社員情報を保存しました。");
     await refreshEmployees();
+    markCurrentFormSaved("employee");
   } catch (error) {
     console.error(error);
     setSaveStatus(status, getErrorMessage(error), "error");
     showToast(getErrorMessage(error));
   } finally {
     window.setTimeout(() => {
-      button.disabled = false;
-      button.textContent = "保存";
+      restoreSaveButtonState("employee", button);
     }, 700);
   }
 }
@@ -849,14 +872,14 @@ async function saveStore(event) {
     setSaveStatus(status, "保存しました", "success");
     showToast("店舗情報を保存しました。");
     await refreshStores();
+    markCurrentFormSaved("store");
   } catch (error) {
     console.error(error);
     setSaveStatus(status, getErrorMessage(error), "error");
     showToast(getErrorMessage(error));
   } finally {
     window.setTimeout(() => {
-      button.disabled = false;
-      button.textContent = "保存";
+      restoreSaveButtonState("store", button);
     }, 700);
   }
 }

@@ -258,7 +258,10 @@ function appendFixedPortalApps_(apps, employee) {
 }
 
 function getFixedPortalApps_(employee) {
-  const fixedApps = [createIdeaLinkApp_()];
+  const fixedApps = [
+    createIdeaLinkApp_(),
+    createHumanCapitalInvestmentApp_()
+  ];
   if (isMasterAdmin_(employee)) fixedApps.push(createMasterAdminApp_());
   return fixedApps.filter(function(app) {
     return canAccessApp_(employee, app);
@@ -268,7 +271,8 @@ function getFixedPortalApps_(employee) {
 function getAllFixedPortalApps_() {
   return [
     createMasterAdminApp_(),
-    createIdeaLinkApp_()
+    createIdeaLinkApp_(),
+    createHumanCapitalInvestmentApp_()
   ];
 }
 
@@ -932,6 +936,24 @@ function createIdeaLinkApp_() {
     isActive: true,
     isFeatured: false,
     priority: 88
+  };
+}
+
+function createHumanCapitalInvestmentApp_() {
+  return {
+    appId: 'human-capital-investment',
+    appName: '人財投資管理システム',
+    description: '採用活動・学校接点・人財投資状況を確認',
+    url: 'https://ideanow-shift.github.io/hr-investment-dashboard/',
+    category: 'FC管理',
+    icon: 'human-capital-investment',
+    requiredLevel: 4,
+    allowedTags: ['executive', 'backoffice'],
+    targetDepartment: [],
+    targetPosition: [],
+    isActive: true,
+    isFeatured: false,
+    priority: 64
   };
 }
 

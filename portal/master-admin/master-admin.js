@@ -109,6 +109,7 @@ function getRows() {
   if (state.view === "employees") rows = getEmployeesByStatus();
   if (state.view === "firebase") rows = state.employees.filter((employee) => isCurrentEmployee(employee) && !employee.firebase_uid);
   if (state.view === "logs") rows = state.logs;
+  if (state.view === "readiness") rows = getHubReadinessItems();
   rows = getSortedRows(rows);
   if (!query) return rows;
   return rows.filter((row) => normalizeSearch(getSearchText(row)).includes(query));
@@ -166,6 +167,9 @@ function getSearchText(row) {
   }
   if (row.change_payload && typeof row.change_payload === "object") {
     values.push(row.change_summary, row.action_type, row.target_name, row.table_name);
+  }
+  if ("readiness_key" in row) {
+    values.push(row.label, row.status, row.detail, row.nextAction);
   }
   return values.join(" ");
 }
@@ -260,7 +264,8 @@ function updateNavigationCounts() {
     employees: state.employees.length,
     stores: state.stores.length,
     firebase: state.employees.filter((employee) => isCurrentEmployee(employee) && !employee.firebase_uid).length,
-    logs: state.logsLoaded ? state.logs.length : ""
+    logs: state.logsLoaded ? state.logs.length : "",
+    readiness: getHubReadinessItems().filter((item) => item.status !== "OK").length
   };
   document.querySelectorAll("[data-view]").forEach((button) => {
     setButtonCount(button, viewCounts[button.dataset.view]);
@@ -304,7 +309,8 @@ function render() {
     employees: "社員マスタ",
     stores: "店舗マスタ",
     firebase: "Firebase未連携",
-    logs: "変更履歴"
+    logs: "変更履歴",
+    readiness: "HUB連携準備"
   }[state.view];
   renderTable();
   renderDetail();
@@ -338,6 +344,18 @@ function renderTable() {
         <th>変更内容</th>
       </tr>`;
     elements.tableBody.replaceChildren(...rows.map(renderLogRow));
+    return;
+  }
+
+  if (state.view === "readiness") {
+    elements.tableHead.innerHTML = `
+      <tr>
+        <th>判定</th>
+        <th>項目</th>
+        <th>件数</th>
+        <th>次の対応</th>
+      </tr>`;
+    elements.tableBody.replaceChildren(...rows.map(renderReadinessRow));
     return;
   }
 
@@ -409,6 +427,14 @@ function getQualitySummaryItems() {
       { label: "表示中の履歴", count: state.logsLoaded ? state.logs.length : 0, tone: "neutral" }
     ];
   }
+  if (state.view === "readiness") {
+    const items = getHubReadinessItems();
+    return [
+      { label: "OK", count: items.filter((item) => item.status === "OK").length, tone: "info" },
+      { label: "要確認", count: items.filter((item) => item.status === "要確認").length, tone: "warning" },
+      { label: "準備中", count: items.filter((item) => item.status === "準備中").length, tone: "neutral" }
+    ];
+  }
   return [];
 }
 
@@ -417,6 +443,67 @@ function countIssueLabels(labels) {
     counts[label] = (counts[label] || 0) + 1;
     return counts;
   }, {});
+}
+
+function getHubReadinessItems() {
+  const currentEmployees = state.employees.filter((employee) => isCurrentEmployee(employee));
+  const activeStores = state.stores.filter((store) => store.is_active);
+  const employeeIssueCount = currentEmployees.filter((employee) => getEmployeeIssues(employee).length).length;
+  const employeeEmailMissingCount = currentEmployees.filter((employee) => !String(employee.email || "").trim()).length;
+  const firebaseMissingCount = currentEmployees.filter((employee) => !employee.firebase_uid).length;
+  const storeIssueCount = activeStores.filter((store) => getStoreIssues(store).length).length;
+  const usableStoreCount = activeStores.filter((store) => store.store_id && store.store_name).length;
+  const canReadLogs = state.logsLoaded && state.logs.length >= 0;
+  return [
+    {
+      readiness_key: "employee_core",
+      status: employeeIssueCount ? "要確認" : "OK",
+      label: "現職社員の基幹項目",
+      count: `${employeeIssueCount}件`,
+      detail: "メール、所属、役職、雇用形態、現職/休職/退職の未設定を確認します。",
+      nextAction: employeeIssueCount ? "社員タブの未設定ありを確認" : "HUB連携に利用可能"
+    },
+    {
+      readiness_key: "employee_email",
+      status: employeeEmailMissingCount ? "要確認" : "OK",
+      label: "ログイン用メール",
+      count: `${employeeEmailMissingCount}件`,
+      detail: "Firebase Auth と社員マスタを紐づけるため、現職者のメールを確認します。",
+      nextAction: employeeEmailMissingCount ? "メール未設定を確認" : "Firebase照合に利用可能"
+    },
+    {
+      readiness_key: "firebase_link",
+      status: firebaseMissingCount ? "準備中" : "OK",
+      label: "Firebase UID連携",
+      count: `${firebaseMissingCount}件`,
+      detail: "HUBでログインユーザー本人を社員台帳へ紐づけるためのUID連携です。",
+      nextAction: firebaseMissingCount ? "Firebase未連携タブで順次連携" : "HUB権限判定へ進行可能"
+    },
+    {
+      readiness_key: "store_core",
+      status: storeIssueCount ? "要確認" : "OK",
+      label: "有効店舗の基幹項目",
+      count: `${storeIssueCount}件`,
+      detail: "有効店舗の事業部門、エリア、店舗種別を確認します。",
+      nextAction: storeIssueCount ? "店舗タブの未設定ありを確認" : "店舗メニュー連携に利用可能"
+    },
+    {
+      readiness_key: "store_reference",
+      status: usableStoreCount ? "OK" : "要確認",
+      label: "店舗参照データ",
+      count: `${usableStoreCount}件`,
+      detail: "HUBや各アプリが store_id / store_name を参照できる店舗数です。",
+      nextAction: usableStoreCount ? "各アプリの店舗参照に利用可能" : "店舗マスタを確認"
+    },
+    {
+      readiness_key: "change_logs",
+      status: canReadLogs ? "OK" : "準備中",
+      label: "変更履歴の閲覧",
+      count: state.logsLoaded ? `${state.logs.length}件` : "未読込",
+      detail: "社員・店舗マスタ更新時の監査ログを確認できる状態かを見ます。",
+      nextAction: state.logsLoaded ? "監査ログとして利用可能" : "変更履歴タブを一度開いて確認"
+    }
+  ];
 }
 
 function renderEmployeeRow(employee) {
@@ -504,6 +591,30 @@ function renderLogRow(log) {
   return tr;
 }
 
+function renderReadinessRow(item) {
+  const tr = document.createElement("tr");
+  tr.className = item.readiness_key === state.selectedId ? "selected" : "";
+  tr.innerHTML = `
+    <td>${formatReadinessStatus(item.status)}</td>
+    <td>
+      <strong>${escapeHtml(item.label)}</strong>
+      <div class="readiness-detail">${escapeHtml(item.detail)}</div>
+    </td>
+    <td>${escapeHtml(item.count)}</td>
+    <td>${escapeHtml(item.nextAction)}</td>`;
+  tr.addEventListener("click", () => {
+    state.selectedId = item.readiness_key;
+    render();
+  });
+  return tr;
+}
+
+function formatReadinessStatus(status) {
+  if (status === "OK") return `<span class="status-pill">OK</span>`;
+  if (status === "準備中") return `<span class="status-pill inactive">準備中</span>`;
+  return `<span class="status-pill warning">要確認</span>`;
+}
+
 function formatDateTime(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -518,6 +629,10 @@ function formatDateTime(value) {
 }
 
 function renderDetail() {
+  if (state.view === "readiness") {
+    renderReadinessDetail();
+    return;
+  }
   if (state.view === "logs") {
     renderLogDetail();
     return;
@@ -530,6 +645,72 @@ function renderDetail() {
   }
   if (state.view === "employees" || state.view === "firebase") renderEmployeeDetail(row);
   else renderStoreDetail(row);
+}
+
+function renderReadinessDetail() {
+  const item = getHubReadinessItems().find((candidate) => candidate.readiness_key === state.selectedId);
+  const items = getHubReadinessItems();
+  if (!item) {
+    const remaining = items.filter((candidate) => candidate.status !== "OK").length;
+    elements.detailPanel.innerHTML = `
+      <h3>HUB連携準備</h3>
+      <p class="detail-meta">要確認・準備中: ${escapeHtml(remaining)}項目</p>
+      <p class="detail-note">左の一覧から項目を選ぶと、次に見るべきタブと対応内容を確認できます。</p>
+      <div class="issue-panel${remaining ? "" : " resolved"}">
+        <strong>${remaining ? "まだ確認項目があります" : "HUB連携へ進めます"}</strong>
+        <p>${remaining ? "要確認を上から潰すと、HUBトップとの連携開始判断がしやすくなります。" : "社員・店舗・履歴の基本条件は整っています。次はHUB側でログインユーザーの社員情報取得へ進めます。"}</p>
+      </div>`;
+    setupReadinessShortcut();
+    return;
+  }
+  elements.detailPanel.innerHTML = `
+    <h3>${escapeHtml(item.label)}</h3>
+    <p class="detail-meta">判定: ${escapeHtml(item.status)} / 件数: ${escapeHtml(item.count)}</p>
+    <p class="detail-note">${escapeHtml(item.detail)}</p>
+    <div class="issue-panel${item.status === "OK" ? " resolved" : item.status === "準備中" ? " neutral" : ""}">
+      <strong>次の対応</strong>
+      <p>${escapeHtml(item.nextAction)}</p>
+    </div>
+    ${renderReadinessShortcut(item)}`;
+  setupReadinessShortcut();
+}
+
+function renderReadinessShortcut(item) {
+  const target = {
+    employee_core: ["employees", "missing", "社員タブの未設定ありを見る"],
+    employee_email: ["employees", "メール", "社員タブでメール未設定を見る"],
+    firebase_link: ["firebase", "", "Firebase未連携を見る"],
+    store_core: ["stores", "missing", "店舗タブの未設定ありを見る"],
+    store_reference: ["stores", "", "店舗タブを見る"],
+    change_logs: ["logs", "", "変更履歴を見る"]
+  }[item.readiness_key];
+  if (!target) return "";
+  return `<button class="button button-secondary readiness-shortcut" data-readiness-target="${escapeHtml(target[0])}" data-readiness-query="${escapeHtml(target[1])}" type="button">${escapeHtml(target[2])}</button>`;
+}
+
+function setupReadinessShortcut() {
+  document.querySelector(".readiness-shortcut")?.addEventListener("click", (event) => {
+    const button = event.currentTarget;
+    const target = button.dataset.readinessTarget || "employees";
+    const query = button.dataset.readinessQuery || "";
+    state.view = target;
+    state.selectedId = "";
+    elements.search.value = "";
+    if (target === "employees") {
+      state.employeeStatus = query === "missing" ? "missing" : "active";
+      if (query && query !== "missing") elements.search.value = query;
+    }
+    if (target === "stores") {
+      state.storeStatus = query === "missing" ? "missing" : "active";
+      if (query && query !== "missing") elements.search.value = query;
+    }
+    if (target === "logs") {
+      render();
+      refreshLogs();
+      return;
+    }
+    render();
+  });
 }
 
 function renderLogDetail() {

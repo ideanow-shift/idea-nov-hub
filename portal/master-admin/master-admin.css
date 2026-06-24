@@ -375,6 +375,13 @@ tr.selected {
   font-size: 12px;
 }
 
+.readiness-detail {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .detail-panel h3 {
   margin: 0;
   font-size: 18px;
@@ -646,6 +653,10 @@ tr.selected {
   color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.7;
+}
+
+.readiness-shortcut {
+  margin-top: 14px;
 }
 
 .log-detail dl {

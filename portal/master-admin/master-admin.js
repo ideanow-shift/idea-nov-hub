@@ -103,8 +103,40 @@ function getRows() {
   if (state.view === "employees") rows = getEmployeesByStatus();
   if (state.view === "firebase") rows = state.employees.filter((employee) => isCurrentEmployee(employee) && !employee.firebase_uid);
   if (state.view === "logs") rows = state.logs;
+  rows = getSortedRows(rows);
   if (!query) return rows;
   return rows.filter((row) => normalizeSearch(getSearchText(row)).includes(query));
+}
+
+function getSortedRows(rows) {
+  if (state.view === "employees" || state.view === "firebase") {
+    return rows.slice().sort(compareEmployees);
+  }
+  if (state.view === "stores") {
+    return rows.slice().sort(compareStores);
+  }
+  return rows;
+}
+
+function compareEmployees(left, right) {
+  const leftKey = getEmployeeSortKey(left.employee_id);
+  const rightKey = getEmployeeSortKey(right.employee_id);
+  if (leftKey.group !== rightKey.group) return leftKey.group - rightKey.group;
+  if (leftKey.number !== rightKey.number) return leftKey.number - rightKey.number;
+  return String(left.employee_id || "").localeCompare(String(right.employee_id || ""), "ja", { numeric: true });
+}
+
+function getEmployeeSortKey(employeeId) {
+  const value = String(employeeId || "").trim();
+  const numeric = value.match(/^\d+$/);
+  if (numeric) return { group: 0, number: Number(value) };
+  const legacy = value.match(/^LEGACY-(\d+)$/i);
+  if (legacy) return { group: 2, number: Number(legacy[1]) };
+  return { group: 1, number: Number.MAX_SAFE_INTEGER };
+}
+
+function compareStores(left, right) {
+  return String(left.store_no || "").localeCompare(String(right.store_no || ""), "ja", { numeric: true });
 }
 
 function getSearchText(row) {

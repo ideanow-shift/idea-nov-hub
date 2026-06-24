@@ -26,7 +26,7 @@ const state = {
 
 const elements = Object.fromEntries([
   "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "refresh",
-  "view-title", "search", "result-count", "table-head", "table-body",
+  "view-title", "search", "quality-summary", "result-count", "table-head", "table-body",
   "detail-panel", "employee-status-filter", "store-status-filter", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
 
@@ -299,6 +299,7 @@ function render() {
 
 function renderTable() {
   const rows = getRows();
+  renderQualitySummary();
   elements.resultCount.textContent = `${rows.length}件`;
   if (state.view === "employees" || state.view === "firebase") {
     elements.tableHead.innerHTML = `
@@ -337,6 +338,58 @@ function renderTable() {
       <th>状態</th>
     </tr>`;
   elements.tableBody.replaceChildren(...rows.map(renderStoreRow));
+}
+
+function renderQualitySummary() {
+  const items = getQualitySummaryItems();
+  elements.qualitySummary.replaceChildren(...items.map(({ label, count, tone }) => {
+    const chip = document.createElement("span");
+    chip.className = `summary-chip${tone ? ` ${tone}` : ""}`;
+    chip.textContent = `${label}: ${count}`;
+    return chip;
+  }));
+}
+
+function getQualitySummaryItems() {
+  if (state.view === "employees") {
+    const currentEmployees = state.employees.filter((employee) => isCurrentEmployee(employee));
+    const issueCounts = countIssueLabels(currentEmployees.flatMap(getEmployeeIssues));
+    return [
+      { label: "メール未設定", count: issueCounts["メール"] || 0, tone: "warning" },
+      { label: "所属未設定", count: issueCounts["所属"] || 0, tone: "warning" },
+      { label: "役職未設定", count: issueCounts["役職"] || 0, tone: "warning" },
+      { label: "Firebase未連携", count: currentEmployees.filter((employee) => !employee.firebase_uid).length, tone: "info" }
+    ];
+  }
+  if (state.view === "stores") {
+    const activeStores = state.stores.filter((store) => store.is_active);
+    const issueCounts = countIssueLabels(activeStores.flatMap(getStoreIssues));
+    return [
+      { label: "事業部門未設定", count: issueCounts["事業部門"] || 0, tone: "warning" },
+      { label: "エリア未設定", count: issueCounts["エリア"] || 0, tone: "warning" },
+      { label: "店舗種別未設定", count: issueCounts["店舗種別"] || 0, tone: "warning" },
+      { label: "無効店舗", count: state.stores.filter((store) => !store.is_active).length, tone: "neutral" }
+    ];
+  }
+  if (state.view === "firebase") {
+    return [
+      { label: "連携待ち", count: state.employees.filter((employee) => isCurrentEmployee(employee) && !employee.firebase_uid).length, tone: "warning" },
+      { label: "メール未設定", count: state.employees.filter((employee) => isCurrentEmployee(employee) && !String(employee.email || "").trim()).length, tone: "warning" }
+    ];
+  }
+  if (state.view === "logs") {
+    return [
+      { label: "表示中の履歴", count: state.logsLoaded ? state.logs.length : 0, tone: "neutral" }
+    ];
+  }
+  return [];
+}
+
+function countIssueLabels(labels) {
+  return labels.reduce((counts, label) => {
+    counts[label] = (counts[label] || 0) + 1;
+    return counts;
+  }, {});
 }
 
 function renderEmployeeRow(employee) {

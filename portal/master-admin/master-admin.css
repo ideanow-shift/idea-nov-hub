@@ -176,6 +176,43 @@ body {
   font-size: 13px;
 }
 
+.quality-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 28px;
+  margin: 12px 0 0;
+}
+
+.summary-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid var(--border-light);
+  border-radius: 999px;
+  background: #F8F8F8;
+  color: var(--text-secondary);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.summary-chip.warning {
+  border-color: #F0D9A8;
+  background: #FFF9EC;
+  color: #8A5D16;
+}
+
+.summary-chip.info {
+  border-color: #C9D8F0;
+  background: #F6FAFF;
+  color: #29578A;
+}
+
+.summary-chip.neutral {
+  color: var(--text-secondary);
+}
+
 .status-filter {
   display: flex;
   flex-wrap: wrap;

@@ -233,15 +233,9 @@ function readVisibleAppsSafely_(employee) {
   }
 
   try {
-    apps = appendFixedAppIfMissing_(apps, createIdeaLinkApp_());
+    apps = appendFixedPortalApps_(apps, employee);
   } catch (error) {
-    console.error('Failed to add IDEA LINK visibility.', error);
-  }
-
-  try {
-    if (isMasterAdmin_(employee)) apps = appendFixedAppIfMissing_(apps, createMasterAdminApp_());
-  } catch (error) {
-    console.error('Failed to evaluate master admin visibility.', error);
+    console.error('Failed to add fixed portal apps.', error);
   }
 
   return apps;
@@ -254,6 +248,28 @@ function appendFixedAppIfMissing_(apps, app) {
   });
   if (!exists) apps.push(app);
   return apps;
+}
+
+function appendFixedPortalApps_(apps, employee) {
+  getFixedPortalApps_(employee).forEach(function(app) {
+    apps = appendFixedAppIfMissing_(apps, app);
+  });
+  return apps;
+}
+
+function getFixedPortalApps_(employee) {
+  const fixedApps = [createIdeaLinkApp_()];
+  if (isMasterAdmin_(employee)) fixedApps.push(createMasterAdminApp_());
+  return fixedApps.filter(function(app) {
+    return canAccessApp_(employee, app);
+  });
+}
+
+function getAllFixedPortalApps_() {
+  return [
+    createMasterAdminApp_(),
+    createIdeaLinkApp_()
+  ];
 }
 
 function readAnnouncementsSafely_() {
@@ -549,9 +565,9 @@ function findAppById_(appId) {
 
 function findFixedAppById_(appId) {
   const id = String(appId || '');
-  if (id === 'core-master-admin') return createMasterAdminApp_();
-  if (id === 'idea-link') return createIdeaLinkApp_();
-  return null;
+  return getAllFixedPortalApps_().find(function(app) {
+    return String(app.appId || '') === id;
+  }) || null;
 }
 
 function canAccessApp_(employee, app) {

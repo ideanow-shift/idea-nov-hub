@@ -385,6 +385,7 @@ function normalizeCorePortalEmployee_(employee) {
     position: position && position.position_name ? position.position_name : String(source.position_name || ''),
     grade: '',
     roleLevel: getCoreRoleLevel_(roleKeys),
+    roleKeys: roleKeys,
     tags: tags,
     status: 'active',
     source: 'supabase',

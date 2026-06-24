@@ -8,9 +8,11 @@ const state = { employee: null, apps: [], announcements: [], mode: PORTAL_CONFIG
 const elements = Object.fromEntries([
   "header-user", "user-name", "user-store", "login-screen", "loading-screen",
   "denied-screen", "portal-screen", "google-login", "pin-login-form", "pin-email", "pin-code", "demo-controls", "demo-employee",
-  "demo-login", "logout-button", "denied-message", "denied-back", "welcome-title",
+  "demo-login", "logout-button", "denied-message", "denied-back", "welcome-title", "user-context",
   "announcements", "featured-apps", "category-apps", "visible-app-count", "concierge-form", "concierge-question", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
+
+const HUB_CONTEXT_KEY = "novHub.currentEmployee";
 
 function showScreen(name) {
   ["login", "loading", "denied", "portal"].forEach((screenName) => {
@@ -36,6 +38,56 @@ function getAudienceLabel(app) {
   if (app.targetDepartment?.length) return escapeHtml(app.targetDepartment.join("・"));
   const labels = { 1: "全スタッフ", 2: "スタイリスト以上", 3: "SD・店長以上", 4: "Mgr・部長以上", 5: "役員・本部幹部" };
   return labels[Number(app.requiredLevel || 1)] || "対象者";
+}
+
+function normalizeArray(value) {
+  return Array.isArray(value) ? value.filter(Boolean).map(String) : [];
+}
+
+function getEmployeeContext(employee, authType) {
+  const sourceLabel = employee.source === "supabase" ? "Core DB" : employee.source === "spreadsheet" ? "Spreadsheet" : "Demo";
+  return {
+    source: employee.source || "",
+    sourceLabel,
+    authType: authType || "",
+    id: employee.coreEmployeeId || employee.id || "",
+    employeeId: employee.employeeId || "",
+    name: employee.name || "",
+    email: employee.email || "",
+    corporation: employee.corporation || "",
+    storeCode: employee.storeCode || "",
+    store: employee.store || "",
+    department: employee.department || "",
+    position: employee.position || "",
+    employmentStatus: employee.employmentStatus || "",
+    employmentType: employee.employmentType || "",
+    roleLevel: Number(employee.roleLevel || 1),
+    roleKeys: normalizeArray(employee.roleKeys),
+    tags: normalizeArray(employee.tags),
+    storedAt: new Date().toISOString()
+  };
+}
+
+function persistEmployeeContext(employee, authType) {
+  const context = getEmployeeContext(employee, authType);
+  sessionStorage.setItem(HUB_CONTEXT_KEY, JSON.stringify(context));
+  window.dispatchEvent(new CustomEvent("novHub:employeeContextReady", { detail: context }));
+}
+
+function clearEmployeeContext() {
+  sessionStorage.removeItem(HUB_CONTEXT_KEY);
+}
+
+function getContextLabel(employee) {
+  const context = getEmployeeContext(employee, state.authType);
+  const authLabel = context.authType === "firebase" ? "Firebase Auth" : context.authType === "pin" ? "PIN" : "デモ";
+  return [
+    `${context.sourceLabel}連携`,
+    authLabel,
+    context.employeeId ? `社員番号 ${context.employeeId}` : "",
+    context.position || "",
+    context.roleKeys.length ? `権限 ${context.roleKeys.join(", ")}` : ""
+  ].filter(Boolean).join(" / ");
 }
 
 function createAppIcon(app) {
@@ -126,6 +178,7 @@ function renderApps() {
 function renderPortal() {
   elements.userName.textContent = state.employee.name;
   elements.userStore.textContent = state.employee.store || state.employee.department || "";
+  elements.userContext.textContent = getContextLabel(state.employee);
   elements.welcomeTitle.textContent = `${state.employee.name.split(/[\s　]/)[0]}さん、お疲れさまです`;
   renderAnnouncements();
   renderApps();
@@ -161,6 +214,7 @@ async function loginWithFirebase() {
     state.employee = data.employee;
     state.apps = getVisibleApps(data.employee, data.apps || []);
     state.announcements = data.announcements || [];
+    persistEmployeeContext(state.employee, state.authType);
     renderPortal();
   } catch (error) {
     console.error("Portal login failed", {
@@ -191,6 +245,7 @@ async function loginWithPin(event) {
     state.apps = getVisibleApps(data.employee, data.apps || []);
     state.announcements = data.announcements || [];
     elements.pinCode.value = "";
+    persistEmployeeContext(state.employee, state.authType);
     renderPortal();
   } catch (error) {
     console.error("PIN login failed", {
@@ -217,6 +272,8 @@ function loginDemo() {
   state.employee = employee;
   state.apps = getVisibleApps(employee, DEMO_APPS);
   state.announcements = [];
+  state.authType = "demo";
+  persistEmployeeContext(state.employee, state.authType);
   console.info("[demo log]", { action: "login", email: employee.email, result: "success" });
   renderPortal();
 }
@@ -229,6 +286,7 @@ async function logout() {
     await signOutUser();
   }
   clearApiAuth();
+  clearEmployeeContext();
   state.employee = null;
   state.apps = [];
   state.authType = null;

@@ -221,6 +221,19 @@ body { background: #FAFAFA; }
   line-height: 1.6;
 }
 
+.user-context {
+  display: inline-flex;
+  max-width: 100%;
+  margin: var(--spacing-md) 0 0;
+  border: 1px solid #F0D6D9;
+  border-radius: var(--radius-md);
+  background: #FFF7F8;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 7px 10px;
+}
+
 .concierge-entry {
   display: grid;
   gap: var(--spacing-md);

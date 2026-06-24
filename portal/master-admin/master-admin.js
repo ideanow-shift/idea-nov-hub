@@ -605,11 +605,22 @@ function renderLogRow(log) {
   const targetLabel = log.target_name || `${log.table_name} / ${log.record_id}`;
   const summary = log.change_summary || changedKeys.map(getFieldLabel).join(", ") || "変更内容なし";
   const actionLabel = formatActionType(log.action_type);
+  const logType = getLogTypeLabel(log);
   tr.innerHTML = `
     <td>${escapeHtml(formatDateTime(log.created_at))}</td>
-    <td>${escapeHtml(targetLabel)}</td>
+    <td>
+      <div class="log-target">
+        <strong>${escapeHtml(targetLabel)}</strong>
+        <span>${escapeHtml(logType)}</span>
+      </div>
+    </td>
     <td>${escapeHtml(log.changed_by_email || "")}</td>
-    <td><span class="log-action">${escapeHtml(actionLabel)}</span>${escapeHtml(summary)}</td>`;
+    <td>
+      <div class="log-summary">
+        <span class="log-action">${escapeHtml(actionLabel)}</span>
+        <span>${escapeHtml(summary)}</span>
+      </div>
+    </td>`;
   tr.addEventListener("click", () => {
     state.selectedId = log.id;
     render();
@@ -749,11 +760,16 @@ function renderLogDetail() {
   const helperText = log.table_name === "employee_store_assignments"
     ? "社員本体の更新とは別に、主店舗・サブ店舗・第3店舗の所属変更として記録しています。"
     : "社員・店舗マスタ本体の変更として記録しています。";
+  const logType = getLogTypeLabel(log);
   elements.detailPanel.innerHTML = `
     <h3>変更履歴</h3>
     <p class="detail-meta">${escapeHtml(formatDateTime(log.created_at))}</p>
     <p class="detail-note">${escapeHtml(helperText)}</p>
     <div class="log-detail">
+      <div class="log-detail-heading">
+        <span class="log-type-badge ${escapeHtml(getLogTypeClass(log))}">${escapeHtml(logType)}</span>
+        <strong>${escapeHtml(log.target_name || "対象名未設定")}</strong>
+      </div>
       <dl>
         <dt>操作</dt>
         <dd>${escapeHtml(formatActionType(log.action_type))}</dd>
@@ -780,6 +796,20 @@ function formatActionType(actionType) {
   }[actionType] || "更新";
 }
 
+function getLogTypeLabel(log) {
+  if (log.table_name === "employee_store_assignments") return "店舗所属";
+  if (log.table_name === "stores") return "店舗情報";
+  if (log.table_name === "employees") return "社員情報";
+  return log.table_name || "変更履歴";
+}
+
+function getLogTypeClass(log) {
+  if (log.table_name === "employee_store_assignments") return "store-assignment";
+  if (log.table_name === "stores") return "store";
+  if (log.table_name === "employees") return "employee";
+  return "";
+}
+
 function renderLogPayload(log) {
   const payload = log.change_payload || {};
   if (log.table_name === "employee_store_assignments") {
@@ -790,7 +820,9 @@ function renderLogPayload(log) {
     .map(([key, value]) => renderLogField(key, value))
     .join("");
   if (!rows) return `<p class="empty-detail">表示できる変更内容はありません。</p>`;
-  return `<div class="change-list">${rows}</div>`;
+  return `
+    <h4 class="change-section-title">更新された項目</h4>
+    <div class="change-list">${rows}</div>`;
 }
 
 function renderLogField(key, value) {

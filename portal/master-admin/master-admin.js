@@ -74,6 +74,12 @@ function formatEmployeeStatus(employee) {
   return `<span class="status-pill">現職</span>`;
 }
 
+function getEmployeeStatusLabel(employee) {
+  if (isLeaveEmployee(employee)) return "休職";
+  if (isRetiredEmployee(employee)) return "退職";
+  return "現職";
+}
+
 function setBootstrapData(data) {
   state.employees = data.employees || [];
   state.stores = data.stores || [];
@@ -143,6 +149,13 @@ function getSearchText(row) {
   const values = Object.entries(row)
     .filter(([, value]) => value === null || typeof value !== "object")
     .map(([, value]) => value);
+  if ("employee_id" in row) {
+    values.push(...getEmployeeIssues(row), formatEmployeeAffiliation(row), getEmployeeStatusLabel(row));
+    if (isCurrentEmployee(row) && !row.firebase_uid) values.push("Firebase未連携", "Firebase");
+  }
+  if ("store_no" in row) {
+    values.push(...getStoreIssues(row), row.is_active ? "有効" : "無効");
+  }
   if (Array.isArray(row.store_assignments)) {
     values.push(...row.store_assignments.flatMap((assignment) => [
       assignment.store_name,
@@ -343,11 +356,25 @@ function renderTable() {
 function renderQualitySummary() {
   const items = getQualitySummaryItems();
   elements.qualitySummary.replaceChildren(...items.map(({ label, count, tone }) => {
-    const chip = document.createElement("span");
+    const chip = document.createElement("button");
+    chip.type = "button";
     chip.className = `summary-chip${tone ? ` ${tone}` : ""}`;
     chip.textContent = `${label}: ${count}`;
+    chip.addEventListener("click", () => {
+      elements.search.value = getSummarySearchValue(label);
+      renderTable();
+    });
     return chip;
   }));
+}
+
+function getSummarySearchValue(label) {
+  return label
+    .replace("Firebase未連携", "Firebase")
+    .replace("未設定", "")
+    .replace("連携待ち", "Firebase")
+    .replace("無効店舗", "無効")
+    .replace("表示中の履歴", "");
 }
 
 function getQualitySummaryItems() {

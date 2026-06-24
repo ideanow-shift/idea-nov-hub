@@ -185,6 +185,7 @@ body {
 }
 
 .summary-chip {
+  appearance: none;
   display: inline-flex;
   align-items: center;
   min-height: 28px;
@@ -192,9 +193,20 @@ body {
   border-radius: 999px;
   background: #F8F8F8;
   color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
   padding: 0 10px;
   font-size: 12px;
   font-weight: 700;
+}
+
+.summary-chip:hover {
+  border-color: var(--color-bassa);
+}
+
+.summary-chip:focus-visible {
+  outline: 2px solid rgba(232, 180, 184, 0.75);
+  outline-offset: 2px;
 }
 
 .summary-chip.warning {

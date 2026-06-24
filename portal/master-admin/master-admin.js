@@ -30,6 +30,19 @@ const elements = Object.fromEntries([
   "detail-panel", "employee-status-filter", "store-status-filter", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
 
+const ROLE_LABELS = {
+  super_admin: "最高管理者",
+  executive: "経営層",
+  department_manager: "部門管理者",
+  area_manager: "エリア管理者",
+  store_manager: "店舗管理者",
+  staff: "スタッフ",
+  fc_owner: "FCオーナー",
+  trainer: "教育担当",
+  backoffice: "総務人事",
+  accounting: "経理"
+};
+
 function showToast(message) {
   elements.toast.textContent = message;
   elements.toast.hidden = false;
@@ -153,6 +166,9 @@ function getSearchText(row) {
   if ("employee_id" in row) {
     values.push(...getEmployeeIssues(row), formatEmployeeAffiliation(row), getEmployeeStatusLabel(row));
     if (isCurrentEmployee(row) && !row.firebase_uid) values.push("Firebase未連携", "Firebase");
+    if (Array.isArray(row.role_keys)) {
+      values.push(...row.role_keys, ...row.role_keys.map(formatRoleLabel));
+    }
   }
   if ("store_no" in row) {
     values.push(...getStoreIssues(row), row.is_active ? "有効" : "無効");
@@ -196,6 +212,7 @@ function getEmployeeIssues(employee) {
   if (!String(employee.email || "").trim()) issues.push("メール");
   if (!hasLocation) issues.push("所属");
   if (!employee.position_id && !employee.source_position_name) issues.push("役職");
+  if (!Array.isArray(employee.role_keys) || !employee.role_keys.length) issues.push("HUB権限");
   if (!String(employee.employment_type || "").trim()) issues.push("雇用形態");
   if (!String(employee.employment_status || "").trim()) issues.push("現職/休職/退職");
   return issues;
@@ -450,6 +467,7 @@ function getHubReadinessItems() {
   const activeStores = state.stores.filter((store) => store.is_active);
   const employeeIssueCount = currentEmployees.filter((employee) => getEmployeeIssues(employee).length).length;
   const employeeEmailMissingCount = currentEmployees.filter((employee) => !String(employee.email || "").trim()).length;
+  const employeeRoleMissingCount = currentEmployees.filter((employee) => !Array.isArray(employee.role_keys) || !employee.role_keys.length).length;
   const firebaseMissingCount = currentEmployees.filter((employee) => !employee.firebase_uid).length;
   const storeIssueCount = activeStores.filter((store) => getStoreIssues(store).length).length;
   const usableStoreCount = activeStores.filter((store) => store.store_id && store.store_name).length;
@@ -460,7 +478,7 @@ function getHubReadinessItems() {
       status: employeeIssueCount ? "要確認" : "OK",
       label: "現職社員の基幹項目",
       count: `${employeeIssueCount}件`,
-      detail: "メール、所属、役職、雇用形態、現職/休職/退職の未設定を確認します。",
+      detail: "メール、所属、役職、HUB権限、雇用形態、現職/休職/退職の未設定を確認します。",
       nextAction: employeeIssueCount ? "社員タブの未設定ありを確認" : "HUB連携に利用可能"
     },
     {
@@ -470,6 +488,14 @@ function getHubReadinessItems() {
       count: `${employeeEmailMissingCount}件`,
       detail: "Firebase Auth と社員マスタを紐づけるため、現職者のメールを確認します。",
       nextAction: employeeEmailMissingCount ? "メール未設定を確認" : "Firebase照合に利用可能"
+    },
+    {
+      readiness_key: "employee_roles",
+      status: employeeRoleMissingCount ? "要確認" : "OK",
+      label: "HUB表示権限",
+      count: `${employeeRoleMissingCount}件`,
+      detail: "NOV HUBのアプリ表示・管理画面閲覧に使うCore DB権限です。",
+      nextAction: employeeRoleMissingCount ? "社員タブでHUB権限未設定を確認" : "HUBメニュー制御に利用可能"
     },
     {
       readiness_key: "firebase_link",
@@ -679,6 +705,7 @@ function renderReadinessShortcut(item) {
   const target = {
     employee_core: ["employees", "missing", "社員タブの未設定ありを見る"],
     employee_email: ["employees", "メール", "社員タブでメール未設定を見る"],
+    employee_roles: ["employees", "HUB権限", "社員タブでHUB権限未設定を見る"],
     firebase_link: ["firebase", "", "Firebase未連携を見る"],
     store_core: ["stores", "missing", "店舗タブの未設定ありを見る"],
     store_reference: ["stores", "", "店舗タブを見る"],
@@ -878,6 +905,7 @@ function renderEmployeeDetail(employee) {
     <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。"}</p>
     <form class="form-grid" id="detail-form">
       ${issuePanel}
+      ${renderEmployeeRolePanel(employee)}
       ${firebaseLinkPanel}
       ${fieldInput("email", "メール", employee.email || "", "email")}
       ${fieldInput("birth_date", "誕生日", employee.birth_date || "", "date")}
@@ -938,6 +966,29 @@ function renderEmployeeDetail(employee) {
   }
   document.querySelector("#retire-employee")?.addEventListener("click", retireEmployee);
   document.querySelector("#link-firebase-uid")?.addEventListener("click", linkFirebaseUid);
+}
+
+function renderEmployeeRolePanel(employee) {
+  const roleKeys = Array.isArray(employee.role_keys) ? employee.role_keys.filter(Boolean) : [];
+  if (!roleKeys.length) {
+    return `
+      <div class="role-panel missing">
+        <strong>HUB権限</strong>
+        <p>未設定です。HUBでは基本表示のみ、または権限判定で意図しない表示になる可能性があります。</p>
+      </div>`;
+  }
+  const chips = roleKeys
+    .map((roleKey) => `<span class="role-chip">${escapeHtml(formatRoleLabel(roleKey))}<small>${escapeHtml(roleKey)}</small></span>`)
+    .join("");
+  return `
+    <div class="role-panel">
+      <strong>HUB権限</strong>
+      <div class="role-chip-list">${chips}</div>
+    </div>`;
+}
+
+function formatRoleLabel(roleKey) {
+  return ROLE_LABELS[roleKey] || roleKey;
 }
 
 function renderEmployeeIssuePanel(employee, issues) {

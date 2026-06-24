@@ -434,6 +434,56 @@ tr.selected {
   line-height: 1.6;
 }
 
+.role-panel {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #D7E8DC;
+  border-radius: var(--radius-md);
+  background: #F6FBF7;
+  padding: 12px;
+}
+
+.role-panel.missing {
+  border-color: #F0D9A8;
+  background: #FFF9EC;
+}
+
+.role-panel strong {
+  font-size: 13px;
+}
+
+.role-panel p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.role-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.role-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  border: 1px solid #CDE6D5;
+  border-radius: 999px;
+  background: #FFFFFF;
+  color: #1F6F45;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.role-chip small {
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+}
+
 .form-grid {
   display: grid;
   gap: 12px;

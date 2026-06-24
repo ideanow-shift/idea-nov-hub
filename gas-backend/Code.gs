@@ -956,6 +956,7 @@ function listCoreEmployees_() {
   const departments = indexById_(listCoreMaster_('departments', 'id,department_code,department_name', 'department_no.asc'));
   const positions = indexById_(listCoreMaster_('positions', 'id,position_name', 'position_no.asc'));
   const storeAssignmentsByEmployee = groupStoreAssignmentsByEmployee_(listEmployeeStoreAssignments_(), stores);
+  const rolesByEmployee = groupRolesByEmployee_();
   return employees.map(function(employee) {
     const source = employee.source_row || {};
     const corporation = corporations[employee.corporation_id] || {};
@@ -971,6 +972,8 @@ function listCoreEmployees_() {
       department_code: department.department_code || '',
       position_name: position.position_name || '',
       store_assignments: storeAssignmentsByEmployee[employee.id] || [],
+      role_keys: rolesByEmployee[employee.id] ? rolesByEmployee[employee.id].role_keys : [],
+      role_names: rolesByEmployee[employee.id] ? rolesByEmployee[employee.id].role_names : [],
       source_company_name: String(source.company_name || ''),
       source_assigned_location: String(source.assigned_location || ''),
       source_position_name: String(source.position_name || '')
@@ -1028,6 +1031,29 @@ function listEmployeeStoreAssignments_() {
       limit: '1000'
     }
   });
+}
+
+function listEmployeeRoles_() {
+  return supabaseRequest_('employee_roles', {
+    query: {
+      select: 'employee_id,role_id,is_active',
+      is_active: 'eq.true',
+      limit: '2000'
+    }
+  });
+}
+
+function groupRolesByEmployee_() {
+  const rolesById = indexById_(listCoreMaster_('roles', 'id,role_key,role_name', 'role_no.asc'));
+  return listEmployeeRoles_().reduce(function(grouped, employeeRole) {
+    const employeeId = employeeRole.employee_id || '';
+    const role = rolesById[employeeRole.role_id] || {};
+    if (!employeeId || !role.role_key) return grouped;
+    if (!grouped[employeeId]) grouped[employeeId] = { role_keys: [], role_names: [] };
+    if (grouped[employeeId].role_keys.indexOf(role.role_key) === -1) grouped[employeeId].role_keys.push(role.role_key);
+    if (role.role_name && grouped[employeeId].role_names.indexOf(role.role_name) === -1) grouped[employeeId].role_names.push(role.role_name);
+    return grouped;
+  }, {});
 }
 
 function groupStoreAssignmentsByEmployee_(assignments, storesById) {

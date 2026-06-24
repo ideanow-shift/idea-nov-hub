@@ -100,19 +100,13 @@ function doPost(e) {
 
     if (action === 'bootstrap') {
       stage = 'readApps';
-      const apps = readPortalSheetObjects_(SHEETS.APPS)
-        .map(normalizeApp_)
-        .filter(function(app) { return canAccessApp_(employee, app); });
-      if (isMasterAdmin_(employee)) apps.push(createMasterAdminApp_());
+      const apps = readVisibleAppsSafely_(employee);
 
       stage = 'readAnnouncements';
-      const announcements = readPortalSheetObjects_(SHEETS.ANNOUNCEMENTS)
-        .map(normalizeAnnouncement_)
-        .filter(function(item) { return item.isActive; })
-        .sort(function(a, b) { return a.priority - b.priority; });
+      const announcements = readAnnouncementsSafely_();
 
       stage = 'appendLoginLog';
-      appendAccessLog_({
+      appendAccessLogSafely_({
         email: employee.email,
         name: employee.name,
         action: 'login',
@@ -225,6 +219,37 @@ function doPost(e) {
       stage: stage,
       detail: sanitizeErrorDetail_(detail)
     });
+  }
+}
+
+function readVisibleAppsSafely_(employee) {
+  let apps = [];
+  try {
+    apps = readPortalSheetObjects_(SHEETS.APPS)
+      .map(normalizeApp_)
+      .filter(function(app) { return canAccessApp_(employee, app); });
+  } catch (error) {
+    console.error('Failed to read portal apps. Continuing with fallback apps.', error);
+  }
+
+  try {
+    if (isMasterAdmin_(employee)) apps.push(createMasterAdminApp_());
+  } catch (error) {
+    console.error('Failed to evaluate master admin visibility.', error);
+  }
+
+  return apps;
+}
+
+function readAnnouncementsSafely_() {
+  try {
+    return readPortalSheetObjects_(SHEETS.ANNOUNCEMENTS)
+      .map(normalizeAnnouncement_)
+      .filter(function(item) { return item.isActive; })
+      .sort(function(a, b) { return a.priority - b.priority; });
+  } catch (error) {
+    console.error('Failed to read portal announcements. Continuing without announcements.', error);
+    return [];
   }
 }
 

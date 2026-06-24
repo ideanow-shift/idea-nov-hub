@@ -334,11 +334,12 @@ function isCoreEmployeeActiveForPortal_(employee) {
 }
 
 function normalizeCorePortalEmployee_(employee) {
-  const corporation = employee.corporation_id ? getCoreCorporationById_(employee.corporation_id) : null;
-  const store = employee.store_id ? getCoreStoreById_(employee.store_id) : null;
-  const department = employee.department_id ? getCoreDepartmentById_(employee.department_id) : null;
-  const position = employee.position_id ? getCorePositionById_(employee.position_id) : null;
-  const roleKeys = getCoreRoleKeysForEmployee_(employee);
+  const source = employee.source_row || {};
+  const corporation = safeCoreLookup_('corporation', employee.corporation_id, getCoreCorporationById_);
+  const store = safeCoreLookup_('store', employee.store_id, getCoreStoreById_);
+  const department = safeCoreLookup_('department', employee.department_id, getCoreDepartmentById_);
+  const position = safeCoreLookup_('position', employee.position_id, getCorePositionById_);
+  const roleKeys = safeCoreRoleKeys_(employee);
   const tags = buildCorePortalTags_(employee, {
     corporation: corporation,
     store: store,
@@ -353,10 +354,10 @@ function normalizeCorePortalEmployee_(employee) {
     employeeId: employee.employee_id || '',
     email: normalizeEmailValue_(employee.email),
     name: String(employee.full_name || employee.email || ''),
-    store: store && store.store_name ? store.store_name : '',
+    store: store && store.store_name ? store.store_name : String(source.assigned_location || ''),
     storeCode: store && store.store_id ? store.store_id : '',
-    department: department && department.department_name ? department.department_name : '',
-    position: position && position.position_name ? position.position_name : '',
+    department: department && department.department_name ? department.department_name : String(source.department_name || ''),
+    position: position && position.position_name ? position.position_name : String(source.position_name || ''),
     grade: '',
     roleLevel: getCoreRoleLevel_(roleKeys),
     tags: tags,
@@ -366,6 +367,25 @@ function normalizeCorePortalEmployee_(employee) {
     employmentStatus: employee.employment_status || '',
     employmentType: employee.employment_type || ''
   };
+}
+
+function safeCoreLookup_(label, id, loader) {
+  if (!id) return null;
+  try {
+    return loader(id);
+  } catch (error) {
+    console.error('Core ' + label + ' lookup failed', error);
+    return null;
+  }
+}
+
+function safeCoreRoleKeys_(employee) {
+  try {
+    return getCoreRoleKeysForEmployee_(employee);
+  } catch (error) {
+    console.error('Core role lookup failed', error);
+    return [];
+  }
 }
 
 function buildCorePortalTags_(employee, context) {
@@ -1066,7 +1086,7 @@ function getCoreStoreById_(id) {
 function getCoreCorporationById_(id) {
   const rows = supabaseRequest_('corporations', {
     query: {
-      select: 'id,corporation_code,corporation_name,is_active',
+      select: 'id,corporation_name,is_active',
       id: 'eq.' + id,
       limit: '1'
     }

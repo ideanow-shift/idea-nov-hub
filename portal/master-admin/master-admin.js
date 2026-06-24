@@ -311,10 +311,11 @@ function renderEmployeeRow(employee) {
   const tr = document.createElement("tr");
   tr.className = employee.id === state.selectedId ? "selected" : "";
   const issues = getEmployeeIssues(employee);
+  const affiliation = formatEmployeeAffiliation(employee);
   tr.innerHTML = `
     <td>${escapeHtml(employee.employee_id)}</td>
     <td>${escapeHtml(employee.full_name)}</td>
-    <td>${escapeHtml(employee.store_name || employee.department_name || employee.source_assigned_location || "")}</td>
+    <td title="${escapeHtml(affiliation)}">${escapeHtml(affiliation)}</td>
     <td>${escapeHtml(employee.position_name || employee.source_position_name || "")}</td>
     <td>${escapeHtml(employee.email || "")}</td>
     <td>${formatEmployeeIssues(employee, issues)}</td>
@@ -324,6 +325,19 @@ function renderEmployeeRow(employee) {
     render();
   });
   return tr;
+}
+
+function formatEmployeeAffiliation(employee) {
+  const storeNames = Array.isArray(employee.store_assignments)
+    ? employee.store_assignments
+      .slice()
+      .sort((left, right) => Number(left.assignment_order || 0) - Number(right.assignment_order || 0))
+      .map((assignment) => assignment.store_name)
+      .filter(Boolean)
+    : [];
+  const uniqueStoreNames = Array.from(new Set(storeNames));
+  if (uniqueStoreNames.length) return uniqueStoreNames.join(" / ");
+  return employee.store_name || employee.department_name || employee.source_assigned_location || "";
 }
 
 function renderStoreRow(store) {

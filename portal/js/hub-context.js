@@ -1,4 +1,5 @@
 export const HUB_CONTEXT_KEY = "novHub.currentEmployee";
+const HUB_CONTEXT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
 function normalizeArray(value) {
   return Array.isArray(value) ? value.filter(Boolean).map(String) : [];
@@ -130,24 +131,38 @@ export function buildHubEmployeeContext(employee = {}, authType = "") {
 
 export function saveHubEmployeeContext(employee, authType) {
   const context = buildHubEmployeeContext(employee, authType);
-  sessionStorage.setItem(HUB_CONTEXT_KEY, JSON.stringify(context));
+  const serialized = JSON.stringify(context);
+  sessionStorage.setItem(HUB_CONTEXT_KEY, serialized);
+  localStorage.setItem(HUB_CONTEXT_KEY, serialized);
   window.dispatchEvent(new CustomEvent("novHub:employeeContextReady", { detail: context }));
   return context;
 }
 
-export function readHubEmployeeContext() {
-  const raw = sessionStorage.getItem(HUB_CONTEXT_KEY);
+function readStoredHubEmployeeContext(storage) {
+  const raw = storage.getItem(HUB_CONTEXT_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw);
+    const context = JSON.parse(raw);
+    const storedAt = Date.parse(context.storedAt || "");
+    if (storedAt && Date.now() - storedAt > HUB_CONTEXT_MAX_AGE_MS) {
+      storage.removeItem(HUB_CONTEXT_KEY);
+      return null;
+    }
+    return context;
   } catch (error) {
     console.warn("NOV HUB context could not be parsed.", error);
+    storage.removeItem(HUB_CONTEXT_KEY);
     return null;
   }
 }
 
+export function readHubEmployeeContext() {
+  return readStoredHubEmployeeContext(sessionStorage) || readStoredHubEmployeeContext(localStorage);
+}
+
 export function clearHubEmployeeContext() {
   sessionStorage.removeItem(HUB_CONTEXT_KEY);
+  localStorage.removeItem(HUB_CONTEXT_KEY);
 }
 
 export function getHubEmployeeContextSummary(context) {

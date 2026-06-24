@@ -426,7 +426,10 @@ function buildCorePortalTags_(employee, context) {
   if (/経理/.test(departmentName)) tags.push('accounting');
   if (/本部/.test(storeName) || departmentName) tags.push('hq');
   if (roleKeys.indexOf('executive') !== -1 || roleKeys.indexOf('super_admin') !== -1) tags.push('executive');
-  if (roleKeys.indexOf('store_manager') !== -1 || roleKeys.indexOf('area_manager') !== -1 || /店長|部長|マネージャー/.test(positionName)) tags.push('manager');
+  if (roleKeys.indexOf('backoffice') !== -1) tags.push('hq', 'hr', 'backoffice');
+  if (roleKeys.indexOf('accounting') !== -1) tags.push('hq', 'accounting');
+  if (roleKeys.indexOf('trainer') !== -1) tags.push('education');
+  if (roleKeys.indexOf('store_manager') !== -1 || roleKeys.indexOf('area_manager') !== -1 || roleKeys.indexOf('department_manager') !== -1 || /店長|部長|マネージャー/.test(positionName)) tags.push('manager');
   if (roleKeys.indexOf('fc_owner') !== -1 || /FC/.test(positionName)) tags.push('fc_owner');
 
   return tags.filter(function(tag, index) { return tag && tags.indexOf(tag) === index; });
@@ -847,7 +850,7 @@ function getMasterPermissions_(employee) {
   const legacyTags = employee && employee.tags ? employee.tags : [];
   const roleKeys = coreRoleKeys.concat(legacyTags);
   const canView = roleKeys.some(function(role) {
-    return ['super_admin', 'executive', 'department_manager'].indexOf(role) !== -1;
+    return ['super_admin', 'executive', 'department_manager', 'backoffice', 'accounting'].indexOf(role) !== -1;
   }) || isLegacyMasterAdmin_(employee);
   const canEdit = roleKeys.some(function(role) {
     return ['super_admin', 'backoffice'].indexOf(role) !== -1;

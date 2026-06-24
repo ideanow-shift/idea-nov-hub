@@ -9,6 +9,7 @@ const state = {
   employees: [],
   stores: [],
   logs: [],
+  logsLoaded: false,
   permissions: {
     canView: false,
     canEdit: false,
@@ -89,6 +90,8 @@ async function loadData() {
   showMode("loading");
   const response = await callApiAction("masterBootstrap");
   setBootstrapData(response.data || {});
+  state.logs = [];
+  state.logsLoaded = false;
   state.selectedId = "";
   render();
   showMode("app");
@@ -167,6 +170,57 @@ function getStoreIssues(store) {
   return issues;
 }
 
+function getEmployeeStatusCounts() {
+  return {
+    active: state.employees.filter((employee) => isCurrentEmployee(employee)).length,
+    missing: state.employees.filter((employee) => isCurrentEmployee(employee) && getEmployeeIssues(employee).length).length,
+    leave: state.employees.filter((employee) => isLeaveEmployee(employee)).length,
+    inactive: state.employees.filter((employee) => isRetiredEmployee(employee)).length,
+    all: state.employees.length
+  };
+}
+
+function getStoreStatusCounts() {
+  return {
+    active: state.stores.filter((store) => store.is_active).length,
+    missing: state.stores.filter((store) => store.is_active && getStoreIssues(store).length).length,
+    inactive: state.stores.filter((store) => !store.is_active).length,
+    all: state.stores.length
+  };
+}
+
+function setButtonCount(button, count) {
+  if (!button.dataset.baseLabel) {
+    button.dataset.baseLabel = button.textContent.trim();
+  }
+  button.replaceChildren(document.createTextNode(button.dataset.baseLabel));
+  if (count === "" || count === null || count === undefined) return;
+  const badge = document.createElement("span");
+  badge.className = "button-count";
+  badge.textContent = String(count);
+  button.appendChild(badge);
+}
+
+function updateNavigationCounts() {
+  const employeeCounts = getEmployeeStatusCounts();
+  const storeCounts = getStoreStatusCounts();
+  const viewCounts = {
+    employees: state.employees.length,
+    stores: state.stores.length,
+    firebase: state.employees.filter((employee) => isCurrentEmployee(employee) && !employee.firebase_uid).length,
+    logs: state.logsLoaded ? state.logs.length : ""
+  };
+  document.querySelectorAll("[data-view]").forEach((button) => {
+    setButtonCount(button, viewCounts[button.dataset.view]);
+  });
+  document.querySelectorAll("[data-employee-status]").forEach((button) => {
+    setButtonCount(button, employeeCounts[button.dataset.employeeStatus]);
+  });
+  document.querySelectorAll("[data-store-status]").forEach((button) => {
+    setButtonCount(button, storeCounts[button.dataset.storeStatus]);
+  });
+}
+
 function isCurrentEmployee(employee) {
   return employee.is_active && !isRetiredEmployee(employee) && !isLeaveEmployee(employee);
 }
@@ -193,6 +247,7 @@ function render() {
   document.querySelectorAll("[data-store-status]").forEach((button) => {
     button.classList.toggle("active", button.dataset.storeStatus === state.storeStatus);
   });
+  updateNavigationCounts();
   elements.viewTitle.textContent = {
     employees: "社員マスタ",
     stores: "店舗マスタ",
@@ -939,6 +994,7 @@ async function refreshLogs() {
   try {
     const response = await callApiAction("masterListChangeLogs");
     state.logs = response.logs || [];
+    state.logsLoaded = true;
   } catch (error) {
     console.error(error);
     showToast(getErrorMessage(error));

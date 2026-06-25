@@ -140,15 +140,76 @@ function refreshHubEmployeeContext() {
   if (!state.employee) return null;
   return saveHubEmployeeContext(state.employee, state.authType);
 }
+
+function encodeHubContextForAppUrl(context) {
+  if (!context || typeof context !== "object") return "";
+  try {
+    const payload = {
+      schema: context.schema,
+      schemaVersion: context.schemaVersion,
+      storedAt: context.storedAt,
+      issuedAt: context.issuedAt,
+      expiresAt: context.expiresAt,
+      id: context.id,
+      employeeId: context.employeeId,
+      employeeNumber: context.employeeNumber,
+      coreEmployeeId: context.coreEmployeeId,
+      supabaseEmployeeId: context.supabaseEmployeeId,
+      staffId: context.staffId,
+      name: context.name,
+      displayName: context.displayName,
+      fullName: context.fullName,
+      email: context.email,
+      authEmail: context.authEmail,
+      departmentName: context.departmentName,
+      positionName: context.positionName,
+      roleKeys: context.roleKeys,
+      roles: context.roles,
+      permissions: context.permissions,
+      storeId: context.storeId,
+      storeName: context.storeName,
+      departmentId: context.departmentId,
+      positionId: context.positionId,
+      corporationId: context.corporationId,
+      corporationName: context.corporationName,
+      authType: context.authType
+    };
+    const bytes = new TextEncoder().encode(JSON.stringify(payload));
+    let binary = "";
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  } catch (error) {
+    console.warn("Failed to encode HUB context for app URL", error);
+    return "";
+  }
+}
+
+function buildAppLaunchUrl(appUrl, context) {
+  const encodedContext = encodeHubContextForAppUrl(context);
+  if (!encodedContext) return appUrl;
+  try {
+    const url = new URL(appUrl, window.location.href);
+    if (url.origin !== window.location.origin) return appUrl;
+    url.searchParams.set("hub_context", encodedContext);
+    return url.toString();
+  } catch (error) {
+    console.warn("Failed to append HUB context to app URL", error);
+    return appUrl;
+  }
+}
+
 async function openApp(app) {
-  refreshHubEmployeeContext();
+  const employeeContext = refreshHubEmployeeContext();
+  const launchUrl = buildAppLaunchUrl(app.url, employeeContext);
   if (state.mode === "firebase") {
     const target = window.open("about:blank", "_blank");
     if (target) target.opener = null;
     try {
       await writeAccessLog("openApp", { appId: app.appId, appName: app.appName, result: "success" });
-      if (target) target.location = app.url;
-      else window.location.assign(app.url);
+      if (target) target.location = launchUrl;
+      else window.location.assign(launchUrl);
     } catch (error) {
       target?.close();
       showToast("アプリを開けませんでした。時間をおいて再度お試しください。");
@@ -281,3 +342,4 @@ async function initialize() {
 }
 
 initialize();
+

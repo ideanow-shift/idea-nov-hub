@@ -945,7 +945,7 @@ function createHumanCapitalInvestmentApp_() {
     appName: '人財投資管理システム',
     description: '採用活動・学校接点・人財投資状況を確認',
     url: 'https://ideanow-shift.github.io/hr-investment-dashboard/',
-    category: 'FC管理',
+    category: '人財',
     icon: 'human-capital-investment',
     requiredLevel: 4,
     allowedTags: ['executive', 'backoffice'],

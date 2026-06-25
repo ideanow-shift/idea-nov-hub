@@ -15,7 +15,9 @@ This context is for display, routing, and permission hints only. Apps that write
 
 ## Storage
 
-NOV HUB stores the current employee context in browser `sessionStorage`.
+NOV HUB stores the current employee context in browser `sessionStorage` and mirrors it to `localStorage` for cross-tab app launches.
+
+The context expires after 12 hours.
 
 Key:
 
@@ -39,26 +41,52 @@ const context = window.NovHubContext.read();
 
 ```js
 {
+  schema: "nov-hub-context",
+  schemaVersion: 1,
   source: "supabase",
   sourceLabel: "Core DB",
   authType: "firebase",
   id: "employee uuid",
-  employeeId: "1",
+  coreEmployeeId: "employee uuid",
+  supabaseEmployeeId: "employee uuid",
+  staffId: "employee uuid",
+  employeeId: "employee uuid",
+  employeeNumber: "1",
   name: "脇田 将樹",
   email: "m.wakita@idea-nov.com",
-  corporation: "IDEA NOV",
+  authEmail: "m.wakita@idea-nov.com",
+  corporation: { id: "corporation uuid", code: "IDEA_NOV", name: "IDEA NOV" },
+  corporationId: "corporation uuid",
+  corporationName: "IDEA NOV",
+  department: { id: "department uuid", code: "HR", name: "総務人事部" },
+  departmentId: "department uuid",
+  departmentName: "総務人事部",
+  position: { id: "position uuid", name: "社長" },
+  positionId: "position uuid",
+  positionName: "社長",
+  primaryStore: { id: "store uuid", storeNo: "0000", storeId: "honbu", name: "本部" },
+  primaryStoreId: "store uuid",
+  primaryStoreNo: "0000",
+  primaryStoreCode: "honbu",
+  primaryStoreName: "本部",
   storeCode: "honbu",
   store: "本部",
-  department: "総務人事部",
-  position: "社長",
   employmentStatus: "現職",
   employmentType: "代表取締役",
   roleLevel: 5,
   roleKeys: ["executive"],
   tags: ["all", "executive", "hq"],
-  storedAt: "2026-06-24T00:00:00.000Z"
+  storedAt: "2026-06-24T00:00:00.000Z",
+  issuedAt: "2026-06-24T00:00:00.000Z",
+  expiresAt: "2026-06-24T12:00:00.000Z"
 }
 ```
+
+Important ID rules:
+
+- `employeeId`, `coreEmployeeId`, `supabaseEmployeeId`, and `staffId` all mean Supabase Core DB `employees.id`.
+- `employeeNumber` means the human employee number from `employees.employee_id`.
+- New apps should store `supabaseEmployeeId` / `employees.id` as foreign keys, not employee names.
 
 ## Security Rules
 
@@ -96,6 +124,13 @@ const context = window.NovHubContext.read();
 if (!context || !context.id) {
   location.href = "https://ideanow-shift.github.io/idea-nov-hub/";
 }
+```
+
+For app-side compatibility, prefer:
+
+```js
+const actorId = context.supabaseEmployeeId || context.employeeId;
+const actorEmail = context.authEmail || context.email;
 ```
 
 ## Permission Hints

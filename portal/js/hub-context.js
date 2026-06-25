@@ -1,4 +1,6 @@
 export const HUB_CONTEXT_KEY = "novHub.currentEmployee";
+export const HUB_CONTEXT_SCHEMA = "nov-hub-context";
+export const HUB_CONTEXT_SCHEMA_VERSION = 1;
 const HUB_CONTEXT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
 function normalizeArray(value) {
@@ -95,25 +97,45 @@ export function buildHubEmployeeContext(employee = {}, authType = "") {
   const roles = normalizeRoles(employee.roles, roleKeys);
   const storeAssignments = Array.isArray(employee.storeAssignments) ? employee.storeAssignments.map(normalizeStoreAssignment).filter(Boolean) : [];
   const primaryStore = normalizeStore(employee.primaryStore, { id: employee.storeUuid || "", storeId: employee.storeCode || "", name: employee.store || "" });
+  const corporation = normalizeRef(employee.corporationRef, { name: employee.corporation || "" });
+  const department = normalizeRef(employee.departmentRef, { name: employee.department || "" });
+  const position = normalizeRef(employee.positionRef, { name: employee.position || "" });
+  const issuedAt = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + HUB_CONTEXT_MAX_AGE_MS).toISOString();
   return {
+    schema: HUB_CONTEXT_SCHEMA,
+    schemaVersion: HUB_CONTEXT_SCHEMA_VERSION,
     source: employee.source || "",
     sourceLabel,
     authType: authType || "",
     id: coreEmployeeId,
     coreEmployeeId,
+    supabaseEmployeeId: coreEmployeeId,
+    staffId: coreEmployeeId,
     employeeId: coreEmployeeId,
     employeeNumber,
     firebaseUid: employee.firebaseUid || "",
     email: employee.email || "",
+    authEmail: employee.email || "",
     fullName: employee.fullName || employee.name || "",
     name: employee.name || employee.fullName || "",
     employmentStatus: employee.employmentStatus || "",
     employmentType: employee.employmentType || "",
     isActive: employee.isActive !== false,
-    corporation: normalizeRef(employee.corporationRef, { name: employee.corporation || "" }),
-    department: normalizeRef(employee.departmentRef, { name: employee.department || "" }),
-    position: normalizeRef(employee.positionRef, { name: employee.position || "" }),
+    corporation,
+    corporationId: corporation.id,
+    corporationName: corporation.name,
+    department,
+    departmentId: department.id,
+    departmentName: department.name || employee.department || "",
+    position,
+    positionId: position.id,
+    positionName: position.name || employee.position || "",
     primaryStore,
+    primaryStoreId: primaryStore.id,
+    primaryStoreNo: primaryStore.storeNo,
+    primaryStoreCode: primaryStore.storeId,
+    primaryStoreName: primaryStore.name,
     storeAssignments,
     roleLevel: Number(employee.roleLevel || 1),
     roleKeys,
@@ -122,10 +144,10 @@ export function buildHubEmployeeContext(employee = {}, authType = "") {
     tags: normalizeArray(employee.tags),
     store: primaryStore.name || employee.store || "",
     storeCode: primaryStore.storeId || employee.storeCode || "",
-    departmentName: employee.department || "",
-    positionName: employee.position || "",
-    storedAt: new Date().toISOString(),
-    loadedAt: new Date().toISOString()
+    storedAt: issuedAt,
+    loadedAt: issuedAt,
+    issuedAt,
+    expiresAt
   };
 }
 
@@ -143,6 +165,11 @@ function readStoredHubEmployeeContext(storage) {
   if (!raw) return null;
   try {
     const context = JSON.parse(raw);
+    const expiresAt = Date.parse(context.expiresAt || "");
+    if (expiresAt && Date.now() > expiresAt) {
+      storage.removeItem(HUB_CONTEXT_KEY);
+      return null;
+    }
     const storedAt = Date.parse(context.storedAt || "");
     if (storedAt && Date.now() - storedAt > HUB_CONTEXT_MAX_AGE_MS) {
       storage.removeItem(HUB_CONTEXT_KEY);
@@ -181,7 +208,11 @@ export function getHubEmployeeContextSummary(context) {
 if (typeof window !== "undefined") {
   window.NovHubContext = {
     key: HUB_CONTEXT_KEY,
+    schema: HUB_CONTEXT_SCHEMA,
+    schemaVersion: HUB_CONTEXT_SCHEMA_VERSION,
+    build: buildHubEmployeeContext,
     read: readHubEmployeeContext,
+    clear: clearHubEmployeeContext,
     summary: getHubEmployeeContextSummary
   };
 }

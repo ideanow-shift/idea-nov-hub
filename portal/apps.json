@@ -220,6 +220,26 @@
     }
   ],
   "categories": {
+    "称賛": {
+      "icon": "./assets/icons/philosophy.svg",
+      "color": "#E8C078"
+    },
+    "全般": {
+      "icon": "./assets/icons/task.svg",
+      "color": "#96B7D8"
+    },
+    "コンピテンシー": {
+      "icon": "./assets/icons/management-check.svg",
+      "color": "#8FBFD0"
+    },
+    "経営": {
+      "icon": "./assets/icons/management.svg",
+      "color": "#8FBFD0"
+    },
+    "人財": {
+      "icon": "./assets/icons/human-capital-investment.svg",
+      "color": "#E8C078"
+    },
     "勤怠・シフト": {
       "icon": "./assets/icons/shift.svg",
       "color": "#BCA7E8"
@@ -227,38 +247,6 @@
     "教育": {
       "icon": "./assets/icons/education.svg",
       "color": "#8FB8E8"
-    },
-    "売上管理": {
-      "icon": "./assets/icons/sales.svg",
-      "color": "#E8B48F"
-    },
-    "評価": {
-      "icon": "./assets/icons/one-on-one.svg",
-      "color": "#A6C7A5"
-    },
-    "FC管理": {
-      "icon": "./assets/icons/management.svg",
-      "color": "#8FBFD0"
-    },
-    "資料室": {
-      "icon": "./assets/icons/default.svg",
-      "color": "#B9B9B9"
-    },
-    "AIツール": {
-      "icon": "./assets/icons/nov-hub.svg",
-      "color": "#E8B4B8"
-    },
-    "総務申請": {
-      "icon": "./assets/icons/task.svg",
-      "color": "#96B7D8"
-    },
-    "称賛": {
-      "icon": "./assets/icons/philosophy.svg",
-      "color": "#E8C078"
-    },
-    "販促": {
-      "icon": "./assets/icons/campaign.svg",
-      "color": "#E8A59A"
     }
   }
 }

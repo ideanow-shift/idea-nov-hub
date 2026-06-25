@@ -1,26 +1,26 @@
-export const CATEGORY_ORDER = ["勤怠・シフト", "教育", "売上管理", "評価", "FC管理", "資料室", "AIツール", "総務申請", "称賛", "販促"];
+export const CATEGORY_ORDER = ["称賛", "全般", "コンピテンシー", "経営", "人財", "勤怠・シフト", "教育"];
 
 const appBase = { allowedTags: [], targetDepartment: [], targetPosition: [], isActive: true };
 
 export const DEMO_APPS = [
-  { ...appBase, appId: "nov-hub", appName: "NOV HUB", description: "社内アプリをまとめて探せるポータル", url: "#demo-hub", category: "AIツール", icon: "nov-hub", requiredLevel: 1, isFeatured: true, priority: 5 },
+  { ...appBase, appId: "nov-hub", appName: "NOV HUB", description: "社内アプリをまとめて探せるポータル", url: "#demo-hub", category: "全般", icon: "nov-hub", requiredLevel: 1, isFeatured: true, priority: 5 },
   { ...appBase, appId: "attendance", appName: "勤怠管理", description: "出勤・退勤の打刻と勤務実績の確認", url: "#demo-attendance", category: "勤怠・シフト", icon: "attendance", requiredLevel: 1, isFeatured: true, priority: 10 },
   { ...appBase, appId: "shift", appName: "シフト作成", description: "勤務予定・希望休の確認", url: "https://ideanow-shift.github.io/shift/shift_demo.html", category: "勤怠・シフト", icon: "shift", requiredLevel: 1, isFeatured: true, priority: 20 },
   { ...appBase, appId: "education-web", appName: "教育部WEBアプリ", description: "教育動画・技術マニュアル・研修予定", url: "#demo-learning", category: "教育", icon: "education-web", requiredLevel: 1, isFeatured: true, priority: 30 },
-  { ...appBase, appId: "sales-web", appName: "営業部WEBアプリ", description: "店舗実績と目標進捗を確認", url: "#demo-sales", category: "売上管理", icon: "sales-web", requiredLevel: 3, allowedTags: ["sales", "executive"], isFeatured: true, priority: 40 },
-  { ...appBase, appId: "inventory", appName: "棚卸し", description: "棚卸しと在庫差異の確認", url: "#demo-inventory", category: "資料室", icon: "inventory", requiredLevel: 1, isFeatured: false, priority: 45 },
-  { ...appBase, appId: "instagram-auto-post", appName: "Instagram自動投稿", description: "投稿素材と配信状況を確認", url: "#demo-instagram", category: "販促", icon: "instagram-auto-post", requiredLevel: 1, isFeatured: false, priority: 48 },
-  { ...appBase, appId: "one-on-one", appName: "1on1 MTG", description: "面談記録とフィードバックを確認", url: "#demo-1on1", category: "評価", icon: "one-on-one", requiredLevel: 2, isFeatured: false, priority: 50 },
-  { ...appBase, appId: "management-system", appName: "経営管理システム", description: "経営指標と管理レポートを確認", url: "#demo-management", category: "売上管理", icon: "management-system", requiredLevel: 4, allowedTags: ["executive"], isFeatured: false, priority: 60 },
-  { ...appBase, appId: "product-management", appName: "商品管理", description: "商品情報・在庫・発注状況を確認", url: "#demo-product", category: "資料室", icon: "product-management", requiredLevel: 1, isFeatured: false, priority: 70 },
-  { ...appBase, appId: "task-management", appName: "タスク管理", description: "本部タスクと進捗を確認", url: "#demo-task", category: "総務申請", icon: "task-management", requiredLevel: 1, allowedTags: ["hq"], isFeatured: false, priority: 80 },
+  { ...appBase, appId: "sales-web", appName: "営業部WEBアプリ", description: "店舗実績と目標進捗を確認", url: "#demo-sales", category: "経営", icon: "sales-web", requiredLevel: 3, allowedTags: ["sales", "executive"], isFeatured: true, priority: 40 },
+  { ...appBase, appId: "inventory", appName: "棚卸し", description: "棚卸しと在庫差異の確認", url: "#demo-inventory", category: "全般", icon: "inventory", requiredLevel: 1, isFeatured: false, priority: 45 },
+  { ...appBase, appId: "instagram-auto-post", appName: "Instagram自動投稿", description: "投稿素材と配信状況を確認", url: "#demo-instagram", category: "全般", icon: "instagram-auto-post", requiredLevel: 1, isFeatured: false, priority: 48 },
+  { ...appBase, appId: "one-on-one", appName: "1on1 MTG", description: "面談記録とフィードバックを確認", url: "#demo-1on1", category: "コンピテンシー", icon: "one-on-one", requiredLevel: 2, isFeatured: false, priority: 50 },
+  { ...appBase, appId: "management-system", appName: "経営管理システム", description: "経営指標と管理レポートを確認", url: "#demo-management", category: "経営", icon: "management-system", requiredLevel: 4, allowedTags: ["executive"], isFeatured: false, priority: 60 },
+  { ...appBase, appId: "product-management", appName: "商品管理", description: "商品情報・在庫・発注状況を確認", url: "#demo-product", category: "全般", icon: "product-management", requiredLevel: 1, isFeatured: false, priority: 70 },
+  { ...appBase, appId: "task-management", appName: "タスク管理", description: "本部タスクと進捗を確認", url: "#demo-task", category: "全般", icon: "task-management", requiredLevel: 1, allowedTags: ["hq"], isFeatured: false, priority: 80 },
   { ...appBase, appId: "idea-link", appName: "IDEA LINK", description: "サンクス投稿と理念行動共有のHUB連携準備", url: "./idea-link/", category: "称賛", icon: "idea-link", requiredLevel: 1, isFeatured: false, priority: 88 },
   { ...appBase, appId: "THANKS", appName: "理念浸透システム", description: "感謝と理念行動を見える化", url: "#demo-thanks", category: "称賛", icon: "THANKS", requiredLevel: 1, isFeatured: false, priority: 90 },
-  { ...appBase, appId: "sales-education-db", appName: "営業部⇔教育部DB", description: "営業部と教育部の連携データを確認", url: "#demo-db", category: "売上管理", icon: "sales-education-db", requiredLevel: 3, allowedTags: ["sales", "executive"], isFeatured: false, priority: 100 },
-  { ...appBase, appId: "campaign-management", appName: "キャンペーン管理", description: "販促キャンペーンの進捗を確認", url: "#demo-campaign", category: "販促", icon: "campaign-management", requiredLevel: 1, isFeatured: false, priority: 110 },
-  { ...appBase, appId: "human-capital-investment", appName: "人財投資管理システム", description: "育成投資と人財指標を確認", url: "#demo-human-capital-investment", category: "FC管理", icon: "human-capital-investment", requiredLevel: 4, allowedTags: ["executive"], isFeatured: false, priority: 64 },
-  { ...appBase, appId: "management-check", appName: "マネジメントチェック", description: "店舗運営とマネジメント項目を確認", url: "#demo-management-check", category: "評価", icon: "management-check", requiredLevel: 3, allowedTags: ["manager", "executive"], isFeatured: false, priority: 62 },
-  { ...appBase, appId: "disabled-sample", appName: "非公開アプリ", description: "表示されない確認用アプリ", url: "#", category: "資料室", icon: "default", requiredLevel: 1, isActive: false, isFeatured: false, priority: 999 }
+  { ...appBase, appId: "sales-education-db", appName: "営業部⇔教育部DB", description: "営業部と教育部の連携データを確認", url: "#demo-db", category: "経営", icon: "sales-education-db", requiredLevel: 3, allowedTags: ["sales", "executive"], isFeatured: false, priority: 100 },
+  { ...appBase, appId: "campaign-management", appName: "キャンペーン管理", description: "販促キャンペーンの進捗を確認", url: "#demo-campaign", category: "全般", icon: "campaign-management", requiredLevel: 1, isFeatured: false, priority: 110 },
+  { ...appBase, appId: "human-capital-investment", appName: "人財投資管理システム", description: "育成投資と人財指標を確認", url: "#demo-human-capital-investment", category: "人財", icon: "human-capital-investment", requiredLevel: 4, allowedTags: ["executive"], isFeatured: false, priority: 64 },
+  { ...appBase, appId: "management-check", appName: "マネジメントチェック", description: "店舗運営とマネジメント項目を確認", url: "#demo-management-check", category: "コンピテンシー", icon: "management-check", requiredLevel: 3, allowedTags: ["manager", "executive"], isFeatured: false, priority: 62 },
+  { ...appBase, appId: "disabled-sample", appName: "非公開アプリ", description: "表示されない確認用アプリ", url: "#", category: "全般", icon: "default", requiredLevel: 1, isActive: false, isFeatured: false, priority: 999 }
 ];
 
 const DEFAULT_ICON = "./assets/icons/default.svg";

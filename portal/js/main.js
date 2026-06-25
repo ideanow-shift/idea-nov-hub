@@ -125,7 +125,7 @@ function renderApps() {
 }
 
 function renderPortal() {
-  const employeeContext = saveHubEmployeeContext(state.employee, state.authType);
+  const employeeContext = refreshHubEmployeeContext();
   elements.userName.textContent = state.employee.name;
   elements.userStore.textContent = state.employee.store || state.employee.department || "";
   elements.userContext.textContent = getHubEmployeeContextSummary(employeeContext);
@@ -135,7 +135,13 @@ function renderPortal() {
   showScreen("portal");
 }
 
+
+function refreshHubEmployeeContext() {
+  if (!state.employee) return null;
+  return saveHubEmployeeContext(state.employee, state.authType);
+}
 async function openApp(app) {
+  refreshHubEmployeeContext();
   if (state.mode === "firebase") {
     const target = window.open("about:blank", "_blank");
     if (target) target.opener = null;

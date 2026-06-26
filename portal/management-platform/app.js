@@ -282,6 +282,13 @@ function setStatusMessage(message) {
   if (status && message) status.textContent = message;
 }
 
+function setApiStatus(message, kind = "info") {
+  const status = document.getElementById("apiStatus");
+  if (!status) return;
+  status.textContent = message;
+  status.dataset.kind = kind;
+}
+
 async function updateAuthStatus() {
   const status = document.getElementById("authStatus");
   if (!status) return;
@@ -297,8 +304,10 @@ async function updateAuthStatus() {
   if (token) {
     try {
       await loadCurrentActor();
+      setApiStatus(`API接続OK: ${getDisplayName()} / ${getRoleKeys().join(", ") || "role未設定"}`, "ok");
     } catch (error) {
       console.warn("Management API actor load skipped or failed", error);
+      setApiStatus(`API本人確認エラー: ${error.message || error}`, "error");
     }
   }
   const mode = isManagementAdmin() ? "管理者モード" : "スタッフ閲覧モード";
@@ -339,17 +348,21 @@ async function handleSubmit(event) {
 
 async function refreshRecords() {
   try {
+    setApiStatus("履歴を読み込み中です...", "loading");
     await loadCurrentActor();
     const remoteRecords = await loadRemoteRecords();
     if (remoteRecords) {
       setLocalRecords(remoteRecords);
       renderRecords(remoteRecords);
+      setApiStatus(`履歴読込OK: ${remoteRecords.length}件`, "ok");
     } else {
       renderRecords();
+      setApiStatus("API未接続のためローカル履歴を表示しています。", "info");
     }
   } catch (error) {
     console.warn("Management API load skipped or failed", error);
     setStatusMessage(`履歴読込エラー: ${error.message || error}`);
+    setApiStatus(`履歴読込エラー: ${error.message || error}`, "error");
     renderRecords();
   }
   renderDashboard();
@@ -403,6 +416,16 @@ async function apiRequest(path, options = {}) {
       ...(options.headers || {})
     }
   });
-  if (!response.ok) throw new Error(`Management API failed: ${response.status}`);
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    let detail = body;
+    try {
+      const parsed = JSON.parse(body);
+      detail = parsed.error || parsed.message || body;
+    } catch (_error) {
+      detail = body;
+    }
+    throw new Error(`Management API failed: ${response.status}${detail ? ` / ${detail}` : ""}`);
+  }
   return response;
 }

@@ -20,6 +20,7 @@ const MANAGEMENT_ADMIN_ROLE_KEYS = new Set([
   "area_manager",
   "store_manager"
 ]);
+const SCORE_CHOICES = [0, 3, 5];
 
 function hasApiConfig() {
   return Boolean(managementApiBaseUrl && typeof firebaseTokenProvider === "function");
@@ -235,7 +236,7 @@ function renderScoreControls() {
           <span class="category-pill">${escapeHtml(fromCategoryId(item.management_category))}</span>
         </div>
         <div class="score-row" role="radiogroup" aria-label="${escapeHtml(item.title)}">
-          ${[1, 2, 3, 4, 5].map((score) => `
+          ${SCORE_CHOICES.map((score) => `
             <label class="score-choice">
               <input type="radio" name="score_${item.id}" value="${score}" ${score === 3 ? "checked" : ""} required>
               <span>${score}</span>
@@ -260,7 +261,7 @@ function renderScoreControls() {
     return;
   }
 
-  row.innerHTML = [1, 2, 3, 4, 5].map((score) => `
+  row.innerHTML = SCORE_CHOICES.map((score) => `
     <label class="score-choice">
       <input type="radio" name="score" value="${score}" ${score === 3 ? "checked" : ""}>
       <span>${score}</span>

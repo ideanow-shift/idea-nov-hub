@@ -455,6 +455,17 @@ tr.selected {
   line-height: 1.6;
 }
 
+.issue-hints {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.issue-hints li + li {
+  margin-top: 2px;
+}
+
 .role-panel {
   display: grid;
   gap: 8px;

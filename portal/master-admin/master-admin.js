@@ -576,7 +576,7 @@ function renderEmployeeRow(employee) {
     <td>${escapeHtml(employee.full_name)}</td>
     <td title="${escapeHtml(affiliation)}">${escapeHtml(affiliation)}</td>
     <td>${escapeHtml(employee.position_name || employee.source_position_name || "")}</td>
-    <td>${escapeHtml(employee.email || "")}</td>
+    <td>${formatEmployeeEmail(employee)}</td>
     <td>${formatEmployeeIssues(employee, issues)}</td>
     <td>${formatEmployeeStatus(employee)}</td>`;
   tr.addEventListener("click", () => {
@@ -586,6 +586,13 @@ function renderEmployeeRow(employee) {
   return tr;
 }
 
+function formatEmployeeEmail(employee) {
+  const email = String(employee.email || "").trim();
+  if (email) return escapeHtml(email);
+  const label = isCurrentEmployee(employee) ? "未設定" : "空欄";
+  const className = isCurrentEmployee(employee) ? "status-pill warning" : "status-muted";
+  return `<span class="${className}">${label}</span>`;
+}
 function formatEmployeeAffiliation(employee) {
   const storeNames = Array.isArray(employee.store_assignments)
     ? employee.store_assignments
@@ -983,7 +990,7 @@ function renderNewEmployeeDetail() {
   elements.detail.innerHTML = `
     <form class="detail-form" id="detail-form" data-form-kind="employee">
       <h2>新規社員追加</h2>
-      <p class="form-note">社員番号と氏名は必須です。社員番号なし退職者は LEGACY-0001 形式で登録します。</p>
+      <p class="form-note">社員番号と氏名は必須です。メール未発行の入社予定者は空欄で追加し、発行後に「メール未設定」から追記します。社員番号なし退職者は LEGACY-0001 形式で登録します。</p>
       ${fieldInput("employee_id", "社員番号", "", { required: true, placeholder: "例: 9999 / LEGACY-0001" })}
       ${fieldInput("full_name", "氏名", "", { required: true, placeholder: "例: 山田 太郎" })}
       ${fieldInput("email", "メール", "", "email")}
@@ -1208,10 +1215,16 @@ function renderEmployeeIssuePanel(employee, issues) {
       </div>`;
   }
   if (issues.length) {
+    const hints = [];
+    if (issues.includes("メール")) hints.push("メール未発行の場合は空欄のまま保存できます。発行後に「メール未設定」から追記してください。");
+    if (issues.includes("所属")) hints.push("主店舗または部署のどちらかを設定すると、所属未設定が解消します。");
+    if (issues.includes("HUB権限")) hints.push("HUB権限はアプリ表示・管理画面の閲覧範囲に使います。");
+    const hintList = hints.length ? `<ul class="issue-hints">${hints.map((hint) => `<li>${escapeHtml(hint)}</li>`).join("")}</ul>` : "";
     return `
       <div class="issue-panel">
         <strong>未設定項目</strong>
         <p>${escapeHtml(issues.join("・"))} を確認してください。</p>
+        ${hintList}
       </div>`;
   }
   return `

@@ -1344,11 +1344,12 @@ function setupDirtyForm(type) {
 function updateDirtyState(type, status, button) {
   const hasChanges = getFormSnapshot(type) !== state.formSnapshot;
   button.disabled = !hasChanges;
+  button.title = hasChanges ? "変更があります。保存できます。" : "変更がないため保存は不要です。";
   if (!hasChanges) {
     button.textContent = "保存";
-    setSaveStatus(status, "保存済みです", "");
+    setSaveStatus(status, "変更なし・保存済みです", "success");
   } else {
-    setSaveStatus(status, "未保存の変更があります", "pending");
+    setSaveStatus(status, "未保存の変更があります。保存ボタンを押してください。", "pending");
   }
 }
 
@@ -1370,6 +1371,7 @@ function markCurrentFormSaved(type, message = "保存しました。変更履歴
   if (!form || !button) return;
   state.formSnapshot = getFormSnapshot(type);
   button.disabled = true;
+  button.title = "変更がないため保存は不要です。";
   button.textContent = "保存";
   setSaveStatus(status, message, "success");
 }
@@ -1391,7 +1393,7 @@ async function saveEmployee(event) {
     const payload = collectEmployeePayload();
     payload.id = state.selectedId;
     if (getFormSnapshot("employee") === state.formSnapshot) {
-      setSaveStatus(status, "保存済みです", "");
+      setSaveStatus(status, "変更なし・保存済みです", "success");
       showToast("変更はありません。");
       return;
     }
@@ -1416,6 +1418,7 @@ async function saveEmployee(event) {
       return;
     }
     button.disabled = true;
+    button.title = "保存中です。";
     button.textContent = "保存中...";
     setSaveStatus(status, "保存中です...", "pending");
     await callApiAction("masterUpdateEmployee", payload);
@@ -1511,7 +1514,7 @@ async function saveStore(event) {
     const payload = collectStorePayload();
     payload.id = state.selectedId;
     if (getFormSnapshot("store") === state.formSnapshot) {
-      setSaveStatus(status, "保存済みです", "");
+      setSaveStatus(status, "変更なし・保存済みです", "success");
       showToast("変更はありません。");
       return;
     }
@@ -1520,6 +1523,7 @@ async function saveStore(event) {
       return;
     }
     button.disabled = true;
+    button.title = "保存中です。";
     button.textContent = "保存中...";
     setSaveStatus(status, "保存中です...", "pending");
     await callApiAction("masterUpdateStore", payload);

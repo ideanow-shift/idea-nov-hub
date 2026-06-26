@@ -518,23 +518,36 @@ tr.selected {
 }
 
 .save-status {
+  display: inline-flex;
+  align-items: center;
   min-width: 0;
+  min-height: 28px;
+  border-radius: 999px;
+  background: #F7F4F2;
   color: var(--text-secondary);
   font-size: 13px;
+  padding: 4px 10px;
   overflow-wrap: anywhere;
 }
 
+.save-status:empty {
+  display: none;
+}
+
 .save-status.success {
+  background: rgba(37, 114, 74, 0.1);
   color: #25724A;
   font-weight: 700;
 }
 
 .save-status.pending {
+  background: rgba(155, 106, 40, 0.12);
   color: #9B6A28;
   font-weight: 700;
 }
 
 .save-status.error {
+  background: rgba(166, 54, 54, 0.1);
   color: #A63636;
   font-weight: 700;
 }

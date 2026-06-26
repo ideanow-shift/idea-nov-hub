@@ -7,10 +7,10 @@ let trustedActor = null;
 let checkItems = [];
 
 const dashboardCards = [
-  { title: "現在地", key: "phase", value: "Phase 1", note: "環境整備チェックの入力導線を構築中。", status: "status-ok" },
-  { title: "課題", key: "issues", value: "0件", note: "スコア3以下の記録を課題候補として扱います。", status: "status-warn" },
-  { title: "改善", key: "actions", value: "0件", note: "コメントから次の行動を抽出して管理します。", status: "status-ok" },
-  { title: "成長", key: "growth", value: "履歴作成中", note: "履歴が増えるほど比較・AI分析が可能になります。", status: "status-ok" }
+  { title: "現在地", key: "current", value: "未登録", status: "status-ok" },
+  { title: "課題", key: "issues", value: "0件", status: "status-warn" },
+  { title: "改善", key: "actions", value: "0件", status: "status-ok" },
+  { title: "成長", key: "growth", value: "履歴作成中", status: "status-ok" }
 ];
 const MANAGEMENT_ADMIN_ROLE_KEYS = new Set([
   "super_admin",
@@ -357,25 +357,56 @@ function renderScoreControls() {
 }
 
 function summarize(records) {
-  const issueCount = records.filter((record) => Number(record.score) <= 3).length;
-  const actionCount = records.filter((record) => record.comment && record.comment.trim()).length;
+  return getDashboardSummary(records).values;
+}
+
+function getRecordBreakdown(record) {
+  if (record.score_breakdown) return record.score_breakdown;
+  const scores = (record.results || [])
+    .map((result) => Number(result.score))
+    .filter((score) => Number.isFinite(score));
   return {
-    phase: "Phase 1",
-    issues: `${issueCount}件`,
-    actions: `${actionCount}件`,
-    growth: `${records.length}件`
+    score0: scores.filter((score) => score === 0).length,
+    score3: scores.filter((score) => score === 3).length,
+    score5: scores.filter((score) => score === 5).length,
+    other: scores.filter((score) => ![0, 3, 5].includes(score)).length
+  };
+}
+
+function getDashboardSummary(records) {
+  const latest = records[0] || null;
+  const latestBreakdown = latest ? getRecordBreakdown(latest) : null;
+  const issueCount = latestBreakdown
+    ? Number(latestBreakdown.score0 || 0) + Number(latestBreakdown.score3 || 0)
+    : records.filter((record) => Number(record.score) <= 3).length;
+  const actionCount = records.filter((record) => record.comment && record.comment.trim()).length;
+  const latestScore = latest && Number.isFinite(Number(latest.score)) ? Number(latest.score).toFixed(1) : "未登録";
+
+  return {
+    values: {
+      current: latest ? latestScore : "未登録",
+      issues: `${issueCount}件`,
+      actions: `${actionCount}件`,
+      growth: `${records.length}件`
+    },
+    notes: {
+      current: latest ? `${latest.store || "店舗"} の最新平均スコアです。` : "最初の環境整備チェックを登録してください。",
+      issues: latest ? "最新チェックの0点・3点を課題候補として扱います。" : "履歴作成後に課題候補を表示します。",
+      actions: actionCount ? "コメントがある履歴を改善行動の材料にします。" : "コメントに次の行動を残すと改善履歴に繋がります。",
+      growth: records.length ? "履歴が増えるほど比較・AI分析が可能になります。" : "履歴が増えるほど成長推移を見られます。"
+    }
   };
 }
 
 function renderDashboard() {
   const records = getLocalRecords();
-  const summary = summarize(records);
+  const summary = getDashboardSummary(records);
   const grid = document.getElementById("dashboardGrid");
   grid.innerHTML = dashboardCards.map((card) => `
     <article class="card">
       <h3>${card.title}</h3>
-      <div class="value ${card.status}">${summary[card.key] || card.value}</div>
-      <p class="note">${card.note}</p>
+      <div class="value ${card.status}">${summary.values[card.key] || card.value}</div>
+      <p class="note">${summary.notes[card.key] || ""}</p>
     </article>
   `).join("");
 
@@ -392,7 +423,9 @@ function renderDashboard() {
     return;
   }
   const latest = records[0];
-  nextAction.textContent = Number(latest.score) <= 3 ? `${latest.store} の改善アクションを決める` : `${latest.store} の良い状態を継続する`;
+  const latestBreakdown = getRecordBreakdown(latest);
+  const issueCount = Number(latestBreakdown.score0 || 0) + Number(latestBreakdown.score3 || 0);
+  nextAction.textContent = issueCount > 0 ? `${latest.store} の改善アクションを決める` : `${latest.store} の良い状態を継続する`;
   nextNote.textContent = latest.comment || "次に取る行動をコメントに残してください。";
 }
 

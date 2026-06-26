@@ -21,6 +21,7 @@ const MANAGEMENT_ADMIN_ROLE_KEYS = new Set([
   "store_manager"
 ]);
 const SCORE_CHOICES = [0, 3, 5];
+const CATEGORY_ORDER = ["performance", "human_asset", "development", "team_function"];
 
 function hasApiConfig() {
   return Boolean(managementApiBaseUrl && typeof firebaseTokenProvider === "function");
@@ -145,6 +146,21 @@ function fromCategoryId(id) {
   return map[id] || id;
 }
 
+function groupCheckItemsByCategory(items) {
+  const groups = new Map();
+  for (const item of items) {
+    const key = item.management_category || "performance";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
+
+  return [...groups.entries()].sort(([a], [b]) => {
+    const aIndex = CATEGORY_ORDER.indexOf(a);
+    const bIndex = CATEGORY_ORDER.indexOf(b);
+    return (aIndex === -1 ? 99 : aIndex) - (bIndex === -1 ? 99 : bIndex);
+  });
+}
+
 function fromApiCheck(row) {
   return {
     record_id: row.id,
@@ -230,36 +246,51 @@ async function loadCheckItems() {
 
 function renderScoreControls() {
   const row = document.getElementById("scoreRow") || document.getElementById("checkItems");
+  const meta = document.getElementById("checkItemsMeta");
   if (!row) return;
 
   if (checkItems.length) {
-    row.innerHTML = checkItems.map((item) => `
-      <section class="check-item">
-        <div class="check-item-head">
-          <div>
-            <h3 class="check-item-title">${escapeHtml(item.title)}</h3>
-            <p class="muted-text">${escapeHtml(item.description || "")}</p>
-          </div>
-          <span class="category-pill">${escapeHtml(fromCategoryId(item.management_category))}</span>
+    if (meta) meta.textContent = `${checkItems.length}項目を読み込みました。点数は 0 / 3 / 5 で記録します。`;
+    let itemNumber = 0;
+    row.innerHTML = groupCheckItemsByCategory(checkItems).map(([category, items]) => `
+      <section class="check-category" aria-label="${escapeHtml(fromCategoryId(category))}">
+        <div class="check-category-title">
+          <span>${escapeHtml(fromCategoryId(category))}</span>
+          <span class="check-category-count">${items.length}項目</span>
         </div>
-        <div class="score-row" role="radiogroup" aria-label="${escapeHtml(item.title)}">
-          ${SCORE_CHOICES.map((score) => `
-            <label class="score-choice">
-              <input type="radio" name="score_${item.id}" value="${score}" ${score === 3 ? "checked" : ""} required>
-              <span>${score}</span>
-            </label>
-          `).join("")}
-        </div>
-        <label>
-          コメント
-          <textarea name="comment_${item.id}" rows="2" placeholder="この項目の気づき・改善点"></textarea>
-        </label>
+        ${items.map((item) => {
+          itemNumber += 1;
+          return `
+            <section class="check-item">
+              <div class="check-item-head">
+                <div>
+                  <h3 class="check-item-title"><span class="check-item-number">${itemNumber}.</span> ${escapeHtml(item.title)}</h3>
+                  <p class="muted-text">${escapeHtml(item.description || "")}</p>
+                </div>
+                <span class="category-pill">${escapeHtml(fromCategoryId(item.management_category))}</span>
+              </div>
+              <div class="score-row" role="radiogroup" aria-label="${escapeHtml(item.title)}">
+                ${SCORE_CHOICES.map((score) => `
+                  <label class="score-choice">
+                    <input type="radio" name="score_${item.id}" value="${score}" ${score === 3 ? "checked" : ""} required>
+                    <span>${score}</span>
+                  </label>
+                `).join("")}
+              </div>
+              <label>
+                コメント
+                <textarea name="comment_${item.id}" rows="2" placeholder="この項目の気づき・改善点"></textarea>
+              </label>
+            </section>
+          `;
+        }).join("")}
       </section>
     `).join("");
     return;
   }
 
   if (hasApiConfig()) {
+    if (meta) meta.textContent = "チェック項目を読み込めませんでした。";
     row.innerHTML = `
       <div class="empty-cell check-items-empty">
         チェック項目を読み込めません。NOV HUBからManagement Platformを開き直してください。
@@ -268,6 +299,7 @@ function renderScoreControls() {
     return;
   }
 
+  if (meta) meta.textContent = "API未接続のため、簡易スコア入力で動作します。";
   row.innerHTML = SCORE_CHOICES.map((score) => `
     <label class="score-choice">
       <input type="radio" name="score" value="${score}" ${score === 3 ? "checked" : ""}>

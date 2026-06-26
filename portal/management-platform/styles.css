@@ -382,7 +382,7 @@ fieldset {
 
 .history-tools {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto auto;
   align-items: end;
   gap: 10px;
   margin-bottom: 6px;

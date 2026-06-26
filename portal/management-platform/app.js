@@ -686,6 +686,56 @@ function renderRecords(records = getLocalRecords()) {
   `).join("");
 }
 
+function escapeCsvCell(value) {
+  const text = String(value ?? "");
+  const escaped = text.replace(/"/g, "\"\"");
+  return /[",\r\n]/.test(escaped) ? `"${escaped}"` : escaped;
+}
+
+function toHistoryCsvRows(records) {
+  const header = ["日時", "店舗", "対象者", "4役割", "項目数", "0点", "3点", "5点", "Score", "次の行動"];
+  const rows = records.map((record) => {
+    const breakdown = getRecordBreakdown(record);
+    return [
+      formatDate(record.checked_at),
+      record.store,
+      record.target_user,
+      record.management_category,
+      Number(record.result_count || record.results?.length || 0),
+      Number(breakdown.score0 || 0),
+      Number(breakdown.score3 || 0),
+      Number(breakdown.score5 || 0),
+      record.score,
+      record.comment
+    ];
+  });
+  return [header, ...rows].map((row) => row.map(escapeCsvCell).join(","));
+}
+
+function downloadCsv(filename, rows) {
+  const blob = new Blob(["\ufeff" + rows.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportFilteredHistoryCsv() {
+  const records = getLocalRecords();
+  const filteredRecords = getFilteredRecords(records);
+  if (!filteredRecords.length) {
+    setApiStatus("CSV出力対象の履歴がありません。", "error");
+    return;
+  }
+  const filename = `management_environment_history_${getLocalDateString()}.csv`;
+  downloadCsv(filename, toHistoryCsvRows(filteredRecords));
+  setApiStatus(`CSV出力OK: ${filteredRecords.length}件`, "ok");
+}
+
 function escapeHtml(value) {
   return String(value || "").replace(/[&<>"]/g, (char) => ({
     "&": "&amp;",
@@ -856,6 +906,7 @@ function bindEvents() {
     document.getElementById("historyIssueFilter").value = "";
     renderRecords();
   });
+  document.getElementById("exportHistoryCsvBtn").addEventListener("click", exportFilteredHistoryCsv);
   document.getElementById("environmentForm").addEventListener("submit", handleSubmit);
   document.getElementById("environmentForm").addEventListener("change", (event) => {
     if (event.target?.matches('input[type="radio"]')) {

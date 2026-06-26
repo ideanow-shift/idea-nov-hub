@@ -6,6 +6,7 @@ const NEW_EMPLOYEE_ID = "__new_employee__";
 const state = {
   view: "employees",
   employeeStatus: "active",
+  employeeIssueFilter: "",
   storeStatus: "active",
   selectedId: "",
   recentlyCreatedEmployeeId: "",
@@ -126,9 +127,24 @@ function getRows() {
   if (state.view === "firebase") rows = state.employees.filter((employee) => isCurrentEmployee(employee) && !employee.firebase_uid);
   if (state.view === "logs") rows = state.logs;
   if (state.view === "readiness") rows = getHubReadinessItems();
+  rows = applyEmployeeIssueFilter(rows);
   rows = getSortedRows(rows);
   if (!query) return rows;
   return rows.filter((row) => normalizeSearch(getSearchText(row)).includes(query));
+}
+
+function applyEmployeeIssueFilter(rows) {
+  if (state.view !== "employees" || !state.employeeIssueFilter) return rows;
+  return rows.filter((employee) => getEmployeeIssues(employee).includes(state.employeeIssueFilter));
+}
+
+function setEmployeeIssueFilter(issue) {
+  state.view = "employees";
+  state.employeeStatus = "all";
+  state.employeeIssueFilter = issue;
+  state.selectedId = "";
+  elements.search.value = "";
+  render();
 }
 
 function getSortedRows(rows) {
@@ -422,14 +438,40 @@ function renderQualitySummary() {
   elements.qualitySummary.replaceChildren(...items.map(({ label, count, tone }) => {
     const chip = document.createElement("button");
     chip.type = "button";
-    chip.className = `summary-chip${tone ? ` ${tone}` : ""}`;
-    chip.textContent = `${label}: ${count}`;
+    const issue = getSummaryIssueValue(label);
+    const isActive = state.view === "employees" && issue && state.employeeIssueFilter === issue;
+    chip.className = "summary-chip" + (tone ? " " + tone : "") + (isActive ? " active" : "");
+    chip.textContent = label + ": " + count;
     chip.addEventListener("click", () => {
+      if (label === "Firebase未連携") {
+        state.view = "firebase";
+        state.selectedId = "";
+        state.employeeIssueFilter = "";
+        elements.search.value = "";
+        render();
+        return;
+      }
+      if (issue) {
+        setEmployeeIssueFilter(issue);
+        return;
+      }
       elements.search.value = getSummarySearchValue(label);
+      state.employeeIssueFilter = "";
       renderTable();
     });
     return chip;
   }));
+}
+
+function getSummaryIssueValue(label) {
+  if (label === "メール未設定") return "メール";
+  if (label === "所属未設定") return "所属";
+  if (label === "役職未設定") return "役職";
+  if (label === "HUB権限未設定") return "HUB権限";
+  if (label === "法人未設定") return "法人";
+  if (label === "雇用形態未設定") return "雇用形態";
+  if (label === "状態未設定") return "状態";
+  return "";
 }
 
 function getSummarySearchValue(label) {
@@ -789,9 +831,18 @@ function setupReadinessShortcut() {
     const query = button.dataset.readinessQuery || "";
     state.view = target;
     state.selectedId = "";
+    state.employeeIssueFilter = "";
     elements.search.value = "";
     if (target === "employees") {
       state.employeeStatus = query === "missing" ? "missing" : "active";
+      if (query === "employee_email") {
+        setEmployeeIssueFilter("メール");
+        return;
+      }
+      if (query === "employee_roles") {
+        setEmployeeIssueFilter("HUB権限");
+        return;
+      }
       if (query && query !== "missing") elements.search.value = query;
     }
     if (target === "stores") {
@@ -1688,10 +1739,14 @@ elements.signIn.addEventListener("click", handleSignIn);
 elements.signOut.addEventListener("click", handleSignOut);
 elements.refresh.addEventListener("click", loadData);
 elements.addEmployee.addEventListener("click", startCreateEmployee);
-elements.search.addEventListener("input", renderTable);
+elements.search.addEventListener("input", () => {
+  state.employeeIssueFilter = "";
+  renderTable();
+});
 document.querySelectorAll("[data-employee-status]").forEach((button) => {
   button.addEventListener("click", () => {
     state.employeeStatus = button.dataset.employeeStatus;
+    state.employeeIssueFilter = "";
     state.selectedId = "";
     render();
   });
@@ -1699,6 +1754,7 @@ document.querySelectorAll("[data-employee-status]").forEach((button) => {
 document.querySelectorAll("[data-store-status]").forEach((button) => {
   button.addEventListener("click", () => {
     state.storeStatus = button.dataset.storeStatus;
+    state.employeeIssueFilter = "";
     state.selectedId = "";
     render();
   });
@@ -1706,6 +1762,7 @@ document.querySelectorAll("[data-store-status]").forEach((button) => {
 document.querySelectorAll("[data-view]").forEach((button) => {
   button.addEventListener("click", () => {
     state.view = button.dataset.view;
+    state.employeeIssueFilter = "";
     state.selectedId = "";
     elements.search.value = "";
     if (state.view === "logs") {
@@ -1718,3 +1775,4 @@ document.querySelectorAll("[data-view]").forEach((button) => {
 });
 
 showMode("auth");
+

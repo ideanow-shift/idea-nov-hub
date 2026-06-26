@@ -204,6 +204,13 @@ body {
   border-color: var(--color-bassa);
 }
 
+.summary-chip.active {
+  border-color: var(--color-bassa);
+  background: var(--color-bassa-light);
+  color: var(--color-bassa-dark);
+  font-weight: 700;
+}
+
 .summary-chip:focus-visible {
   outline: 2px solid rgba(232, 180, 184, 0.75);
   outline-offset: 2px;

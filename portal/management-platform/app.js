@@ -332,18 +332,36 @@ async function handleLogout() {
 async function handleSubmit(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  const submitButton = form.querySelector('button[type="submit"]');
   const record = toRecord(form);
-  saveLocalRecord(record);
+
+  if (submitButton) submitButton.disabled = true;
+  setApiStatus("環境整備チェックを保存中です...", "loading");
+
   try {
-    await saveRemoteRecord(record);
+    const result = await saveRemoteRecord(record);
+    if (result?.ok) {
+      setApiStatus(`保存OK: checkId=${result.checkId}`, "ok");
+      form.reset();
+      renderScoreControls();
+      await refreshRecords();
+      showView("records");
+      return;
+    }
+
+    saveLocalRecord(record);
+    setApiStatus(`ローカル保存: ${result?.reason || "Management API未接続"}`, "info");
+    form.reset();
+    renderScoreControls();
+    renderDashboard();
+    renderRecords();
+    showView("records");
   } catch (error) {
-    console.warn("Management API save skipped or failed", error);
+    console.warn("Management API save failed", error);
+    setApiStatus(`保存エラー: ${error.message || error}`, "error");
+  } finally {
+    if (submitButton) submitButton.disabled = false;
   }
-  form.reset();
-  renderScoreControls();
-  renderDashboard();
-  renderRecords();
-  showView("records");
 }
 
 async function refreshRecords() {

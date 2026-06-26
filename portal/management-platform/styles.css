@@ -70,6 +70,15 @@ h2 {
   line-height: 1.7;
 }
 
+#apiStatus {
+  margin-top: 8px;
+  font-weight: 700;
+}
+
+#apiStatus[data-kind="ok"] { color: var(--ok); }
+#apiStatus[data-kind="error"] { color: var(--danger); }
+#apiStatus[data-kind="loading"] { color: var(--warn); }
+
 .top-nav {
   display: flex;
   flex-wrap: wrap;

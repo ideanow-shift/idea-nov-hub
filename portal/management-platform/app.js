@@ -149,6 +149,7 @@ function fromApiCheck(row) {
     score: row.overall_score,
     comment: row.summary_comment || row.next_action || "",
     photo_url: "",
+    result_count: Number(row.result_count || 0),
     status: row.status,
     created_at: row.submitted_at || row.check_date,
     created_by: "",
@@ -317,7 +318,7 @@ function formatDate(value) {
 function renderRecords(records = getLocalRecords()) {
   const body = document.getElementById("recordsBody");
   if (records.length === 0) {
-    body.innerHTML = `<tr><td colspan="6" class="empty-cell">まだ履歴がありません。</td></tr>`;
+    body.innerHTML = `<tr><td colspan="7" class="empty-cell">まだ履歴がありません。</td></tr>`;
     return;
   }
   body.innerHTML = records.map((record) => `
@@ -326,6 +327,7 @@ function renderRecords(records = getLocalRecords()) {
       <td>${escapeHtml(record.store)}</td>
       <td>${escapeHtml(record.target_user)}</td>
       <td>${escapeHtml(record.management_category)}</td>
+      <td><span class="count-badge">${Number(record.result_count || record.results?.length || 0)}項目</span></td>
       <td><strong>${record.score}</strong></td>
       <td>${escapeHtml(record.comment)}</td>
     </tr>
@@ -437,7 +439,7 @@ async function handleSubmit(event) {
   try {
     const result = await saveRemoteRecord(record);
     if (result?.ok) {
-      setApiStatus(`保存OK: checkId=${result.checkId}`, "ok");
+      setApiStatus(`保存OK: ${result.resultCount || record.results.length}項目 / checkId=${result.checkId}`, "ok");
       form.reset();
       renderScoreControls();
       await refreshRecords();

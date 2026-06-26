@@ -409,6 +409,8 @@ function renderQualitySummary() {
 function getSummarySearchValue(label) {
   return label
     .replace("Firebase未連携", "Firebase")
+    .replace("HUB権限未設定", "HUB権限")
+    .replace("状態未設定", "現職/休職/退職")
     .replace("未設定", "")
     .replace("連携待ち", "Firebase")
     .replace("無効店舗", "無効")
@@ -420,9 +422,13 @@ function getQualitySummaryItems() {
     const currentEmployees = state.employees.filter((employee) => isCurrentEmployee(employee));
     const issueCounts = countIssueLabels(currentEmployees.flatMap(getEmployeeIssues));
     return [
+      { label: "法人未設定", count: issueCounts["法人"] || 0, tone: "warning" },
       { label: "メール未設定", count: issueCounts["メール"] || 0, tone: "warning" },
       { label: "所属未設定", count: issueCounts["所属"] || 0, tone: "warning" },
       { label: "役職未設定", count: issueCounts["役職"] || 0, tone: "warning" },
+      { label: "HUB権限未設定", count: issueCounts["HUB権限"] || 0, tone: "warning" },
+      { label: "雇用形態未設定", count: issueCounts["雇用形態"] || 0, tone: "warning" },
+      { label: "状態未設定", count: issueCounts["現職/休職/退職"] || 0, tone: "warning" },
       { label: "Firebase未連携", count: currentEmployees.filter((employee) => !employee.firebase_uid).length, tone: "info" }
     ];
   }

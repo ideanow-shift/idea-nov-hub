@@ -352,6 +352,25 @@ th {
   white-space: nowrap;
 }
 
+.score-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  margin: 0 4px 4px 0;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.score-chip.ok { color: var(--ok); }
+.score-chip.warn { color: var(--warn); }
+.score-chip.danger { color: var(--danger); }
+
 .status-ok { color: var(--ok); }
 .status-warn { color: var(--warn); }
 .status-danger { color: var(--danger); }

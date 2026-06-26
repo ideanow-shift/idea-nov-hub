@@ -200,6 +200,8 @@ function renderScoreSummary() {
 }
 
 function fromApiCheck(row) {
+  const scoreBreakdown = row.score_breakdown || {};
+  const hasScoreBreakdown = Boolean(row.score_breakdown);
   return {
     record_id: row.id,
     store: row.store_name || row.store_id,
@@ -212,6 +214,12 @@ function fromApiCheck(row) {
     comment: row.summary_comment || row.next_action || "",
     photo_url: "",
     result_count: Number(row.result_count || 0),
+    score_breakdown: hasScoreBreakdown ? {
+      score0: Number(scoreBreakdown.score0 || 0),
+      score3: Number(scoreBreakdown.score3 || 0),
+      score5: Number(scoreBreakdown.score5 || 0),
+      other: Number(scoreBreakdown.other || 0)
+    } : null,
     status: row.status,
     created_at: row.submitted_at || row.check_date,
     created_by: "",
@@ -401,10 +409,20 @@ function formatDate(value) {
   });
 }
 
+function formatScoreBreakdown(record) {
+  const breakdown = record.score_breakdown;
+  if (!breakdown) return "-";
+  return `
+    <span class="score-chip danger">0:${Number(breakdown.score0 || 0)}</span>
+    <span class="score-chip warn">3:${Number(breakdown.score3 || 0)}</span>
+    <span class="score-chip ok">5:${Number(breakdown.score5 || 0)}</span>
+  `;
+}
+
 function renderRecords(records = getLocalRecords()) {
   const body = document.getElementById("recordsBody");
   if (records.length === 0) {
-    body.innerHTML = `<tr><td colspan="7" class="empty-cell">まだ履歴がありません。</td></tr>`;
+    body.innerHTML = `<tr><td colspan="8" class="empty-cell">まだ履歴がありません。</td></tr>`;
     return;
   }
   body.innerHTML = records.map((record) => `
@@ -414,6 +432,7 @@ function renderRecords(records = getLocalRecords()) {
       <td>${escapeHtml(record.target_user)}</td>
       <td>${escapeHtml(record.management_category)}</td>
       <td><span class="count-badge">${Number(record.result_count || record.results?.length || 0)}項目</span></td>
+      <td>${formatScoreBreakdown(record)}</td>
       <td><strong>${record.score}</strong></td>
       <td>${escapeHtml(record.comment)}</td>
     </tr>

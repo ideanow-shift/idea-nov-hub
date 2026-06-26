@@ -250,6 +250,15 @@ function renderScoreControls() {
     return;
   }
 
+  if (hasApiConfig()) {
+    row.innerHTML = `
+      <div class="empty-cell check-items-empty">
+        チェック項目を読み込めません。NOV HUBからManagement Platformを開き直してください。
+      </div>
+    `;
+    return;
+  }
+
   row.innerHTML = [1, 2, 3, 4, 5].map((score) => `
     <label class="score-choice">
       <input type="radio" name="score" value="${score}" ${score === 3 ? "checked" : ""}>
@@ -353,6 +362,24 @@ function setApiStatus(message, kind = "info") {
   status.dataset.kind = kind;
 }
 
+function isTokenExpiredError(error) {
+  const message = String(error?.message || error || "");
+  return message.includes('"exp" claim timestamp check failed') ||
+    message.includes("Firebase ID token is missing") ||
+    message.includes("Firebase token verification failed");
+}
+
+function handleExpiredAuth(error) {
+  if (typeof window.MANAGEMENT_CLEAR_AUTH === "function") {
+    window.MANAGEMENT_CLEAR_AUTH();
+  }
+  trustedActor = null;
+  checkItems = [];
+  renderScoreControls();
+  const detail = error?.message || error || "token expired";
+  setApiStatus(`ログイン期限が切れました。NOV HUBからManagement Platformを開き直してください。${detail ? ` (${detail})` : ""}`, "error");
+}
+
 async function updateAuthStatus() {
   const status = document.getElementById("authStatus");
   if (!status) return;
@@ -372,7 +399,11 @@ async function updateAuthStatus() {
       setApiStatus(`API接続OK: ${getDisplayName()} / ${getRoleKeys().join(", ") || "role未設定"}`, "ok");
     } catch (error) {
       console.warn("Management API actor load skipped or failed", error);
+      if (isTokenExpiredError(error)) {
+        handleExpiredAuth(error);
+      } else {
       setApiStatus(`API本人確認エラー: ${error.message || error}`, "error");
+      }
     }
   }
   const mode = isManagementAdmin() ? "管理者モード" : "スタッフ閲覧モード";
@@ -445,8 +476,13 @@ async function refreshRecords() {
     }
   } catch (error) {
     console.warn("Management API load skipped or failed", error);
-    setStatusMessage(`履歴読込エラー: ${error.message || error}`);
-    setApiStatus(`履歴読込エラー: ${error.message || error}`, "error");
+    if (isTokenExpiredError(error)) {
+      handleExpiredAuth(error);
+      setStatusMessage("ログイン期限が切れました。NOV HUBからManagement Platformを開き直してください。");
+    } else {
+      setStatusMessage(`履歴読込エラー: ${error.message || error}`);
+      setApiStatus(`履歴読込エラー: ${error.message || error}`, "error");
+    }
     renderRecords();
   }
   renderDashboard();

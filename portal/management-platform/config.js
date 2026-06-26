@@ -5,11 +5,16 @@ const MANAGEMENT_CONTEXT_KEY = "ideaNov.management.hubContext";
 
 function readManagementToken() {
   const sessionToken = sessionStorage.getItem(MANAGEMENT_TOKEN_KEY);
-  if (sessionToken) return sessionToken;
+  if (sessionToken && isManagementTokenUsable(sessionToken)) return sessionToken;
+  if (sessionToken) sessionStorage.removeItem(MANAGEMENT_TOKEN_KEY);
 
   try {
     const stored = JSON.parse(localStorage.getItem(MANAGEMENT_TOKEN_KEY) || "{}");
-    if (stored.token && Number(stored.expiresAt || 0) > Date.now()) {
+    if (
+      stored.token &&
+      Number(stored.expiresAt || 0) > Date.now() &&
+      isManagementTokenUsable(stored.token)
+    ) {
       sessionStorage.setItem(MANAGEMENT_TOKEN_KEY, stored.token);
       return stored.token;
     }
@@ -18,6 +23,30 @@ function readManagementToken() {
     localStorage.removeItem(MANAGEMENT_TOKEN_KEY);
   }
   return "";
+}
+
+function decodeJwtPayload(token) {
+  const payload = String(token || "").split(".")[1];
+  if (!payload) return {};
+  const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "="));
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+function isManagementTokenUsable(token) {
+  try {
+    const payload = decodeJwtPayload(token);
+    if (!payload.exp) return true;
+    return payload.exp * 1000 > Date.now() + 60000;
+  } catch (error) {
+    return false;
+  }
+}
+
+function clearManagementToken() {
+  sessionStorage.removeItem(MANAGEMENT_TOKEN_KEY);
+  localStorage.removeItem(MANAGEMENT_TOKEN_KEY);
 }
 
 function decodeUrlHubContext() {
@@ -60,6 +89,10 @@ window.MANAGEMENT_FIREBASE_TOKEN_PROVIDER = async function () {
 
 window.MANAGEMENT_HUB_CONTEXT_PROVIDER = function () {
   return readManagementHubContext();
+};
+
+window.MANAGEMENT_CLEAR_AUTH = function () {
+  clearManagementToken();
 };
 
 window.MANAGEMENT_DEFAULT_STORE_ID = "";

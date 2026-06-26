@@ -835,11 +835,11 @@ function setupReadinessShortcut() {
     elements.search.value = "";
     if (target === "employees") {
       state.employeeStatus = query === "missing" ? "missing" : "active";
-      if (query === "employee_email") {
+      if (query === "メール") {
         setEmployeeIssueFilter("メール");
         return;
       }
-      if (query === "employee_roles") {
+      if (query === "HUB権限") {
         setEmployeeIssueFilter("HUB権限");
         return;
       }

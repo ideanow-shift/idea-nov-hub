@@ -47,6 +47,7 @@ function isManagementAdmin() {
 
 function getDisplayName() {
   const context = getHubContext();
+  if (trustedActor?.fullName) return trustedActor.fullName;
   return context.displayName || context.fullName || context.name || "ログインユーザー";
 }
 
@@ -116,10 +117,10 @@ function fromCategoryId(id) {
 function fromApiCheck(row) {
   return {
     record_id: row.id,
-    store: row.store_id,
-    target_user: row.submitted_by_employee_id,
+    store: row.store_name || row.store_id,
+    target_user: row.submitted_by_name || row.submitted_by_employee_id,
     role: "",
-    management_category: "",
+    management_category: "環境整備",
     checked_at: row.check_date,
     evaluator: row.submitted_by_employee_id,
     score: row.overall_score,

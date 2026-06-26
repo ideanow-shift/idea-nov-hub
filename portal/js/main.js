@@ -272,6 +272,19 @@ async function openApp(app) {
   const appUrl = isManagementPlatformApp(app) ? MANAGEMENT_APP_URL : app.url;
   const launchUrl = buildAppLaunchUrl(appUrl, employeeContext);
   if (state.mode === "firebase") {
+    if (isManagementPlatformApp(app)) {
+      try {
+        await prepareManagementPlatformLaunch(app, employeeContext);
+        writeAccessLog("openApp", { appId: app.appId, appName: app.appName, result: "success" })
+          .catch((error) => console.warn("Management Platform access log failed", error));
+        window.location.assign(launchUrl);
+      } catch (error) {
+        showToast("Management Platformを開けませんでした。再ログインしてお試しください。");
+        console.error(error);
+      }
+      return;
+    }
+
     const target = window.open("about:blank", "_blank");
     if (target) target.opener = null;
     try {

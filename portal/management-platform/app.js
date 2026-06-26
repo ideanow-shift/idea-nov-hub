@@ -60,6 +60,50 @@ function getStoreLabel() {
   return context.primaryStoreName || context.storeName || context.store || "所属店舗";
 }
 
+function getContextStoreName() {
+  const context = getHubContext();
+  return context.primaryStoreName || context.storeName || context.store || "";
+}
+
+function inferRoleLabel() {
+  const context = getHubContext();
+  if (context.positionName) return context.positionName;
+  const roles = getRoleKeys();
+  if (roles.includes("store_manager")) return "店長";
+  if (roles.includes("area_manager") || roles.includes("department_manager") || roles.includes("executive") || roles.includes("super_admin")) {
+    return "本部管理者";
+  }
+  return "";
+}
+
+function setSelectValue(select, value) {
+  if (!select || !value) return;
+  const normalized = String(value).trim();
+  if (!normalized) return;
+  const existing = [...select.options].find((option) => option.value === normalized || option.textContent === normalized);
+  if (existing) {
+    select.value = existing.value;
+    return;
+  }
+  const option = new Option(normalized, normalized);
+  select.add(option);
+  select.value = normalized;
+}
+
+function hydrateFormFromActor() {
+  const form = document.getElementById("environmentForm");
+  if (!form) return;
+  const displayName = getDisplayName();
+  if (form.elements.targetUser && !form.elements.targetUser.value) {
+    form.elements.targetUser.value = displayName;
+  }
+  if (form.elements.evaluator && !form.elements.evaluator.value) {
+    form.elements.evaluator.value = displayName;
+  }
+  setSelectValue(form.elements.store, getContextStoreName());
+  setSelectValue(form.elements.role, inferRoleLabel());
+}
+
 function getLocalRecords() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
@@ -171,6 +215,42 @@ function getSelectedScores(form = document.getElementById("environmentForm")) {
   return checkItems
     .map((item) => Number(formData.get(`score_${item.id}`)))
     .filter((score) => Number.isFinite(score));
+}
+
+function getMissingScoreItems(form = document.getElementById("environmentForm")) {
+  if (!form || !checkItems.length) return [];
+  const formData = new FormData(form);
+  return checkItems.filter((item) => {
+    const value = formData.get(`score_${item.id}`);
+    return value === null || value === "";
+  });
+}
+
+function clearMissingScoreMarkers() {
+  document.querySelectorAll(".check-item.is-missing").forEach((item) => {
+    item.classList.remove("is-missing");
+  });
+}
+
+function markMissingScoreItems(items) {
+  clearMissingScoreMarkers();
+  for (const item of items) {
+    const element = document.querySelector(`[data-check-item-id="${item.id}"]`);
+    if (element) element.classList.add("is-missing");
+  }
+}
+
+function validateEnvironmentForm(form) {
+  clearMissingScoreMarkers();
+  const missing = getMissingScoreItems(form);
+  if (missing.length) {
+    markMissingScoreItems(missing);
+    const firstMissing = document.querySelector(`[data-check-item-id="${missing[0].id}"]`);
+    if (firstMissing) firstMissing.scrollIntoView({ behavior: "smooth", block: "center" });
+    setApiStatus(`未入力のチェック項目があります: ${missing.length}件`, "error");
+    return false;
+  }
+  return form.reportValidity();
 }
 
 function renderScoreSummary() {
@@ -307,7 +387,7 @@ function renderScoreControls() {
         ${items.map((item) => {
           itemNumber += 1;
           return `
-            <section class="check-item">
+            <section class="check-item" data-check-item-id="${item.id}">
               <div class="check-item-head">
                 <div>
                   <h3 class="check-item-title"><span class="check-item-number">${itemNumber}.</span> ${escapeHtml(item.title)}</h3>
@@ -318,7 +398,7 @@ function renderScoreControls() {
               <div class="score-row" role="radiogroup" aria-label="${escapeHtml(item.title)}">
                 ${SCORE_CHOICES.map((score) => `
                   <label class="score-choice">
-                    <input type="radio" name="score_${item.id}" value="${score}" ${score === 3 ? "checked" : ""} required>
+                    <input type="radio" name="score_${item.id}" value="${score}" required>
                     <span>${score}</span>
                   </label>
                 `).join("")}
@@ -333,6 +413,7 @@ function renderScoreControls() {
       </section>
     `).join("");
     renderScoreSummary();
+    hydrateFormFromActor();
     return;
   }
 
@@ -349,11 +430,12 @@ function renderScoreControls() {
   if (meta) meta.textContent = "API未接続のため、簡易スコア入力で動作します。";
   row.innerHTML = SCORE_CHOICES.map((score) => `
     <label class="score-choice">
-      <input type="radio" name="score" value="${score}" ${score === 3 ? "checked" : ""}>
+      <input type="radio" name="score" value="${score}" required>
       <span>${score}</span>
     </label>
   `).join("");
   renderScoreSummary();
+  hydrateFormFromActor();
 }
 
 function summarize(records) {
@@ -568,6 +650,7 @@ async function handleLogout() {
 async function handleSubmit(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  if (!validateEnvironmentForm(form)) return;
   const submitButton = form.querySelector('button[type="submit"]');
   const record = toRecord(form);
 
@@ -636,7 +719,10 @@ function bindEvents() {
   document.getElementById("loadRecordsBtn").addEventListener("click", refreshRecords);
   document.getElementById("environmentForm").addEventListener("submit", handleSubmit);
   document.getElementById("environmentForm").addEventListener("change", (event) => {
-    if (event.target?.matches('input[type="radio"]')) renderScoreSummary();
+    if (event.target?.matches('input[type="radio"]')) {
+      clearMissingScoreMarkers();
+      renderScoreSummary();
+    }
   });
   document.getElementById("clearFormBtn").addEventListener("click", () => {
     document.getElementById("environmentForm").reset();
@@ -665,6 +751,7 @@ renderScoreControls();
 bindEvents();
 applyRoleBasedView();
 updateAuthStatus();
+hydrateFormFromActor();
 renderDashboard();
 renderRecords();
 

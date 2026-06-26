@@ -735,11 +735,31 @@ function formatScoreBreakdown(record) {
   `;
 }
 
+function isInCurrentMonth(value) {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
+
+function isWithinLastDays(value, days) {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  return date >= cutoff;
+}
+
 function getFilteredRecords(records) {
   const storeFilter = document.getElementById("historyStoreFilter")?.value || "";
   const issueFilter = document.getElementById("historyIssueFilter")?.value || "";
+  const periodFilter = document.getElementById("historyPeriodFilter")?.value || "";
   return records.filter((record) => {
     if (storeFilter && record.store !== storeFilter) return false;
+    if (periodFilter === "current_month" && !isInCurrentMonth(record.checked_at)) return false;
+    if (periodFilter === "last_30_days" && !isWithinLastDays(record.checked_at, 30)) return false;
     if (issueFilter === "comments") return Boolean(record.comment && record.comment.trim());
     if (issueFilter === "issues") {
       const breakdown = getRecordBreakdown(record);
@@ -752,8 +772,9 @@ function getFilteredRecords(records) {
 function renderHistoryFilters(records) {
   const storeFilter = document.getElementById("historyStoreFilter");
   const issueFilter = document.getElementById("historyIssueFilter");
+  const periodFilter = document.getElementById("historyPeriodFilter");
   const status = document.getElementById("historyFilterStatus");
-  if (!storeFilter || !issueFilter) return;
+  if (!storeFilter || !issueFilter || !periodFilter) return;
   const currentStore = storeFilter.value;
   const stores = [...new Set(records.map((record) => record.store).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ja"));
   storeFilter.innerHTML = `<option value="">すべて</option>${stores.map((store) => `
@@ -1102,9 +1123,11 @@ function bindEvents() {
   document.getElementById("loadRecordsBtn").addEventListener("click", refreshRecords);
   document.getElementById("historyStoreFilter").addEventListener("change", () => renderRecords());
   document.getElementById("historyIssueFilter").addEventListener("change", () => renderRecords());
+  document.getElementById("historyPeriodFilter").addEventListener("change", () => renderRecords());
   document.getElementById("clearHistoryFiltersBtn").addEventListener("click", () => {
     document.getElementById("historyStoreFilter").value = "";
     document.getElementById("historyIssueFilter").value = "";
+    document.getElementById("historyPeriodFilter").value = "";
     renderRecords();
   });
   document.getElementById("exportHistoryCsvBtn").addEventListener("click", exportFilteredHistoryCsv);

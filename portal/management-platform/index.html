@@ -154,6 +154,14 @@
               <option value="comments">コメントあり</option>
             </select>
           </label>
+          <label>
+            期間
+            <select id="historyPeriodFilter">
+              <option value="">すべて</option>
+              <option value="current_month">今月</option>
+              <option value="last_30_days">直近30日</option>
+            </select>
+          </label>
           <button type="button" class="ghost-btn" id="clearHistoryFiltersBtn">解除</button>
           <button type="button" class="ghost-btn" id="exportHistoryCsvBtn">CSV出力</button>
         </div>
@@ -201,8 +209,8 @@
       </section>
     </section>
   </main>
-  <script src="./config.js?v=management-platform-20260627-11"></script>
-  <script src="./app.js?v=management-platform-20260627-11"></script>
+  <script src="./config.js?v=management-platform-20260627-12"></script>
+  <script src="./app.js?v=management-platform-20260627-12"></script>
 </body>
 </html>
 

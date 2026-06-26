@@ -601,6 +601,84 @@ function renderFocusPanel(records) {
   `;
 }
 
+function getStoreSummaries(records) {
+  const storeMap = new Map();
+  for (const record of records) {
+    const store = record.store || "店舗未設定";
+    const current = storeMap.get(store) || {
+      store,
+      count: 0,
+      scoreTotal: 0,
+      scoreCount: 0,
+      issueCount: 0,
+      latestAt: null,
+      latestComment: ""
+    };
+    const score = Number(record.score);
+    const breakdown = getRecordBreakdown(record);
+    current.count += 1;
+    if (Number.isFinite(score)) {
+      current.scoreTotal += score;
+      current.scoreCount += 1;
+    }
+    current.issueCount += Number(breakdown.score0 || 0) + Number(breakdown.score3 || 0);
+    const checkedAt = record.checked_at ? new Date(record.checked_at) : null;
+    if (checkedAt && !Number.isNaN(checkedAt.getTime())) {
+      const latestTime = current.latestAt ? new Date(current.latestAt).getTime() : 0;
+      if (checkedAt.getTime() >= latestTime) {
+        current.latestAt = record.checked_at;
+        current.latestComment = record.comment || "";
+      }
+    }
+    storeMap.set(store, current);
+  }
+
+  return [...storeMap.values()]
+    .map((summary) => ({
+      ...summary,
+      averageScore: summary.scoreCount ? Math.round((summary.scoreTotal / summary.scoreCount) * 10) / 10 : null
+    }))
+    .sort((a, b) => {
+      if (b.issueCount !== a.issueCount) return b.issueCount - a.issueCount;
+      return String(a.store).localeCompare(String(b.store), "ja");
+    });
+}
+
+function renderStoreSummaryPanel(records) {
+  const panel = document.getElementById("storeSummaryPanel");
+  if (!panel) return;
+  const summaries = getStoreSummaries(records);
+  if (!summaries.length) {
+    panel.innerHTML = `
+      <div class="panel-head">
+        <p class="section-label">Store Summary</p>
+        <h2>店舗別サマリー</h2>
+        <p class="muted-text">履歴が登録されると、店舗別の平均スコア・課題数・最新チェック日を表示します。</p>
+      </div>
+    `;
+    return;
+  }
+
+  panel.innerHTML = `
+    <div class="panel-head">
+      <p class="section-label">Store Summary</p>
+      <h2>店舗別サマリー</h2>
+      <p class="muted-text">課題数が多い店舗から確認できます。</p>
+    </div>
+    <div class="store-summary-list">
+      ${summaries.map((summary) => `
+        <article class="store-summary-row">
+          <p class="store-summary-name">${escapeHtml(summary.store)}</p>
+          <p class="store-summary-metric">平均<strong>${summary.averageScore === null ? "-" : summary.averageScore.toFixed(1)}</strong></p>
+          <p class="store-summary-metric">課題<strong>${summary.issueCount}件</strong></p>
+          <p class="store-summary-metric">履歴<strong>${summary.count}件</strong></p>
+          <p class="store-summary-metric">最新<strong>${escapeHtml(formatDate(summary.latestAt))}</strong></p>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
 function renderDashboard() {
   const records = getLocalRecords();
   const summary = getDashboardSummary(records);
@@ -613,6 +691,7 @@ function renderDashboard() {
     </article>
   `).join("");
   renderFocusPanel(records);
+  renderStoreSummaryPanel(records);
 
   const nextAction = document.getElementById("todayActionTitle");
   const nextNote = document.getElementById("todayActionNote");

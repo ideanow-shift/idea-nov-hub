@@ -150,6 +150,10 @@ button:hover {
   margin-top: 12px;
 }
 
+.store-summary-panel {
+  margin-top: 12px;
+}
+
 .focus-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1.4fr;
@@ -189,6 +193,40 @@ button:hover {
   color: var(--accent-strong);
   font-size: 13px;
   font-weight: 700;
+}
+
+.store-summary-list {
+  display: grid;
+  gap: 8px;
+}
+
+.store-summary-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.2fr) repeat(4, minmax(90px, 1fr));
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.store-summary-name {
+  margin: 0;
+  font-weight: 700;
+}
+
+.store-summary-metric {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.store-summary-metric strong {
+  display: block;
+  color: var(--text);
+  font-size: 16px;
 }
 
 .card {
@@ -522,6 +560,7 @@ th {
   .top-nav { justify-content: flex-start; }
   .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .focus-grid { grid-template-columns: 1fr; }
+  .store-summary-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .record-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .split-layout { grid-template-columns: 1fr; }
 }
@@ -532,6 +571,7 @@ th {
   .choice-grid,
   .history-tools,
   .record-detail-grid,
+  .store-summary-row,
   .score-row,
   .score-summary-total,
   .category-summary { grid-template-columns: 1fr; }

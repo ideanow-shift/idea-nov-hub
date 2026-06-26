@@ -217,6 +217,17 @@ function getSelectedScores(form = document.getElementById("environmentForm")) {
     .filter((score) => Number.isFinite(score));
 }
 
+function getSelectedScoreMap(form = document.getElementById("environmentForm")) {
+  const scores = new Map();
+  if (!form || !checkItems.length) return scores;
+  const formData = new FormData(form);
+  for (const item of checkItems) {
+    const score = Number(formData.get(`score_${item.id}`));
+    if (Number.isFinite(score)) scores.set(item.id, score);
+  }
+  return scores;
+}
+
 function getMissingScoreItems(form = document.getElementById("environmentForm")) {
   if (!form || !checkItems.length) return [];
   const formData = new FormData(form);
@@ -257,6 +268,7 @@ function renderScoreSummary() {
   const summary = document.getElementById("scoreSummary");
   if (!summary) return;
   const scores = getSelectedScores();
+  const scoreMap = getSelectedScoreMap();
   const total = scores.length;
   const count0 = scores.filter((score) => score === 0).length;
   const count3 = scores.filter((score) => score === 3).length;
@@ -265,7 +277,7 @@ function renderScoreSummary() {
     ? Math.round((scores.reduce((sum, score) => sum + score, 0) / total) * 10) / 10
     : 0;
 
-  summary.innerHTML = [
+  const totalHtml = [
     { label: "入力済み", value: `${total}/${checkItems.length || total || 1}項目`, tone: "ok" },
     { label: "0点", value: `${count0}件`, tone: count0 ? "danger" : "" },
     { label: "3点", value: `${count3}件`, tone: count3 ? "warn" : "" },
@@ -277,6 +289,29 @@ function renderScoreSummary() {
       <p class="score-summary-value ${item.tone}">${item.value}</p>
     </div>
   `).join("");
+
+  const categoryHtml = checkItems.length ? groupCheckItemsByCategory(checkItems).map(([category, items]) => {
+    const categoryScores = items
+      .map((item) => scoreMap.get(item.id))
+      .filter((score) => Number.isFinite(score));
+    const issueCount = categoryScores.filter((score) => score === 0 || score === 3).length;
+    const categoryAverage = categoryScores.length
+      ? Math.round((categoryScores.reduce((sum, score) => sum + score, 0) / categoryScores.length) * 10) / 10
+      : null;
+    const tone = issueCount ? "warn" : categoryScores.length === items.length && categoryAverage >= 4 ? "ok" : "";
+    return `
+      <div class="category-summary-item">
+        <p class="score-summary-label">${escapeHtml(fromCategoryId(category))}</p>
+        <p class="score-summary-value ${tone}">${categoryAverage === null ? "-" : categoryAverage.toFixed(1)}</p>
+        <p class="category-summary-note">入力 ${categoryScores.length}/${items.length} / 課題 ${issueCount}件</p>
+      </div>
+    `;
+  }).join("") : "";
+
+  summary.innerHTML = `
+    <div class="score-summary-total">${totalHtml}</div>
+    ${categoryHtml ? `<div class="category-summary">${categoryHtml}</div>` : ""}
+  `;
 }
 
 function fromApiCheck(row) {

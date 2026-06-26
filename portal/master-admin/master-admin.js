@@ -804,6 +804,7 @@ function renderLogDetail() {
 
 function formatActionType(actionType) {
   return {
+    create: "新規追加",
     update: "更新",
     link_firebase_uid: "Firebase UID連携",
     update_store_assignments: "店舗所属更新"

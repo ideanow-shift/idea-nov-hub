@@ -161,6 +161,44 @@ function groupCheckItemsByCategory(items) {
   });
 }
 
+function getSelectedScores(form = document.getElementById("environmentForm")) {
+  if (!form) return [];
+  const formData = new FormData(form);
+  if (!checkItems.length) {
+    const score = Number(formData.get("score"));
+    return Number.isFinite(score) ? [score] : [];
+  }
+  return checkItems
+    .map((item) => Number(formData.get(`score_${item.id}`)))
+    .filter((score) => Number.isFinite(score));
+}
+
+function renderScoreSummary() {
+  const summary = document.getElementById("scoreSummary");
+  if (!summary) return;
+  const scores = getSelectedScores();
+  const total = scores.length;
+  const count0 = scores.filter((score) => score === 0).length;
+  const count3 = scores.filter((score) => score === 3).length;
+  const count5 = scores.filter((score) => score === 5).length;
+  const average = total
+    ? Math.round((scores.reduce((sum, score) => sum + score, 0) / total) * 10) / 10
+    : 0;
+
+  summary.innerHTML = [
+    { label: "入力済み", value: `${total}/${checkItems.length || total || 1}項目`, tone: "ok" },
+    { label: "0点", value: `${count0}件`, tone: count0 ? "danger" : "" },
+    { label: "3点", value: `${count3}件`, tone: count3 ? "warn" : "" },
+    { label: "5点", value: `${count5}件`, tone: count5 ? "ok" : "" },
+    { label: "平均", value: average.toFixed(1), tone: average >= 4 ? "ok" : average <= 2 ? "danger" : "warn" }
+  ].map((item) => `
+    <div class="score-summary-item">
+      <p class="score-summary-label">${item.label}</p>
+      <p class="score-summary-value ${item.tone}">${item.value}</p>
+    </div>
+  `).join("");
+}
+
 function fromApiCheck(row) {
   return {
     record_id: row.id,
@@ -286,6 +324,7 @@ function renderScoreControls() {
         }).join("")}
       </section>
     `).join("");
+    renderScoreSummary();
     return;
   }
 
@@ -306,6 +345,7 @@ function renderScoreControls() {
       <span>${score}</span>
     </label>
   `).join("");
+  renderScoreSummary();
 }
 
 function summarize(records) {
@@ -543,9 +583,13 @@ function bindEvents() {
   document.getElementById("refreshBtn").addEventListener("click", refreshRecords);
   document.getElementById("loadRecordsBtn").addEventListener("click", refreshRecords);
   document.getElementById("environmentForm").addEventListener("submit", handleSubmit);
+  document.getElementById("environmentForm").addEventListener("change", (event) => {
+    if (event.target?.matches('input[type="radio"]')) renderScoreSummary();
+  });
   document.getElementById("clearFormBtn").addEventListener("click", () => {
     document.getElementById("environmentForm").reset();
     renderScoreControls();
+    renderScoreSummary();
   });
   document.getElementById("loginForm").addEventListener("submit", handleLogin);
   document.getElementById("logoutBtn").addEventListener("click", handleLogout);

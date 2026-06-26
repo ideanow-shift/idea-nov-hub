@@ -265,6 +265,39 @@ fieldset {
   color: var(--text);
 }
 
+.score-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.score-summary-item {
+  min-height: 64px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.score-summary-label {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.score-summary-value {
+  margin: 0;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.score-summary-value.warn { color: var(--warn); }
+.score-summary-value.danger { color: var(--danger); }
+.score-summary-value.ok { color: var(--ok); }
+
 .form-actions {
   display: flex;
   gap: 8px;
@@ -340,7 +373,8 @@ th {
   .dashboard-grid,
   .field-grid,
   .choice-grid,
-  .score-row { grid-template-columns: 1fr; }
+  .score-row,
+  .score-summary { grid-template-columns: 1fr; }
   .form-actions { flex-direction: column; }
   button { width: 100%; }
 }

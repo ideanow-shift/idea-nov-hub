@@ -3,6 +3,7 @@ const managementApiBaseUrl = (window.MANAGEMENT_API_BASE_URL || "").replace(/\/$
 const firebaseTokenProvider = window.MANAGEMENT_FIREBASE_TOKEN_PROVIDER;
 const hubContextProvider = window.MANAGEMENT_HUB_CONTEXT_PROVIDER;
 const defaultCheckItemId = window.MANAGEMENT_DEFAULT_CHECK_ITEM_ID || "";
+let trustedActor = null;
 
 const dashboardCards = [
   { title: "現在地", key: "phase", value: "Phase 1", note: "環境整備チェックの入力導線を構築中。", status: "status-ok" },
@@ -30,10 +31,12 @@ function getHubContext() {
 
 function getDefaultStoreId() {
   const context = getHubContext();
+  if (trustedActor?.storeId) return trustedActor.storeId;
   return context.primaryStoreId || context.storeId || context.store_id || window.MANAGEMENT_DEFAULT_STORE_ID || "";
 }
 
 function getRoleKeys() {
+  if (trustedActor?.roles?.length) return trustedActor.roles.map(String);
   const context = getHubContext();
   return Array.isArray(context.roleKeys) ? context.roleKeys.map(String) : [];
 }
@@ -49,6 +52,7 @@ function getDisplayName() {
 
 function getStoreLabel() {
   const context = getHubContext();
+  if (trustedActor?.storeId) return `店舗ID: ${trustedActor.storeId}`;
   return context.primaryStoreName || context.storeName || context.store || "所属店舗";
 }
 
@@ -163,12 +167,20 @@ async function saveRemoteRecord(record) {
 async function loadRemoteRecords() {
   if (!hasApiConfig()) return null;
   const params = new URLSearchParams({ limit: "100" });
-  const storeId = getDefaultStoreId();
-  if (storeId) params.set("storeId", storeId);
   const response = await apiRequest(`/checks?${params.toString()}`);
   const json = await response.json();
   if (!json.ok) throw new Error(json.error || "Management API load failed");
   return (json.checks || []).map(fromApiCheck);
+}
+
+async function loadCurrentActor() {
+  if (!hasApiConfig()) return null;
+  const response = await apiRequest("/me");
+  const json = await response.json();
+  if (!json.ok) throw new Error(json.error || "Management API actor load failed");
+  trustedActor = json.actor || null;
+  applyRoleBasedView();
+  return trustedActor;
 }
 
 function renderScoreControls() {
@@ -282,6 +294,13 @@ async function updateAuthStatus() {
     return;
   }
   const token = await firebaseTokenProvider();
+  if (token) {
+    try {
+      await loadCurrentActor();
+    } catch (error) {
+      console.warn("Management API actor load skipped or failed", error);
+    }
+  }
   const mode = isManagementAdmin() ? "管理者モード" : "スタッフ閲覧モード";
   status.textContent = token
     ? `Management API設定済みです。${mode} / ${getStoreLabel()} / ${getDisplayName()}`
@@ -320,6 +339,7 @@ async function handleSubmit(event) {
 
 async function refreshRecords() {
   try {
+    await loadCurrentActor();
     const remoteRecords = await loadRemoteRecords();
     if (remoteRecords) {
       setLocalRecords(remoteRecords);

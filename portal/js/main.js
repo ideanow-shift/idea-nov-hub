@@ -245,27 +245,20 @@ function buildAppLaunchUrl(appUrl, context) {
 }
 
 function isManagementPlatformApp(app) {
-  const rawCandidates = [
-    app.appId,
-    app.appName,
-    app.icon,
-    app.url,
-    app.description
-  ].map((value) => String(value || "").toLowerCase());
-  const candidates = rawCandidates.flatMap((value) => [
-    value,
-    value.replace(/[\s　・/_-]/g, "")
-  ]);
-  return candidates.some((value) => (
-    MANAGEMENT_APP_IDS.has(value)
-    || value.includes("management-platform")
-    || value.includes("managementplatform")
-    || value.includes("management-check")
-    || value.includes("managementcheck")
-    || value.includes("マネジメントチェック")
-    || value.includes("店舗のマネジメント状況のチェック")
-    || value.includes("管理者育成")
-  ));
+  const compact = (value) => String(value || "").toLowerCase().replace(/[\s　・/_-]/g, "");
+  const appId = compact(app.appId);
+  const appName = compact(app.appName);
+  const icon = compact(app.icon);
+  const description = compact(app.description);
+  const url = String(app.url || "").toLowerCase();
+
+  return MANAGEMENT_APP_IDS.has(appId)
+    || MANAGEMENT_APP_IDS.has(icon)
+    || appName === "managementplatform"
+    || appName === "マネジメントチェック"
+    || description.includes("店舗のマネジメント状況のチェック")
+    || description.includes("管理者育成")
+    || url.includes("/management-platform/");
 }
 
 function canLaunchManagementPlatform(context) {

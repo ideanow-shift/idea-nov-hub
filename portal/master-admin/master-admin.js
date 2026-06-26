@@ -8,6 +8,7 @@ const state = {
   employeeStatus: "active",
   storeStatus: "active",
   selectedId: "",
+  recentlyCreatedEmployeeId: "",
   employees: [],
   stores: [],
   logs: [],
@@ -980,6 +981,7 @@ function startCreateEmployee() {
     return;
   }
   state.view = "employees";
+  state.recentlyCreatedEmployeeId = "";
   state.selectedId = NEW_EMPLOYEE_ID;
   state.formSnapshot = null;
   render();
@@ -1066,41 +1068,71 @@ async function saveNewEmployee(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const button = form.querySelector("button[type='submit']");
-  const invalidField = getInvalidDateField(form);
+  const status = document.querySelector("#employee-save-status");
+  const payload = collectEmployeePayload();
+  payload.employee_id = String(payload.employee_id || "").trim();
+  payload.full_name = String(payload.full_name || "").trim();
+
+  const invalidField = getInvalidDateField(payload, [
+    ["birth_date", "誕生日"],
+    ["joined_on", "入社日"],
+    ["retired_on", "退職日"],
+    ["leave_start_date", "休職開始日"],
+    ["leave_end_date", "休職終了日・復職日"]
+  ]);
   if (invalidField) {
-    showToast(`${invalidField} はカレンダーから日付を選択してください。`, "error");
+    showToast(`${invalidField}は 1993-08-01 の形式で入力してください。`, "error");
     return;
   }
   if (!isValidStoreSelection(form)) {
     showToast("主店舗・サブ店舗・第3店舗は重複しないように選択してください。", "error");
     return;
   }
-  const payload = collectEmployeePayload(form);
-  payload.employee_id = String(payload.employee_id || "").trim();
-  payload.full_name = String(payload.full_name || "").trim();
   if (!validateEmployeeFormPayload(payload)) return;
 
   button.disabled = true;
   button.textContent = "追加中...";
+  setSaveStatus(status, "社員を追加しています...", "pending");
   try {
     const result = await callApiAction("masterCreateEmployee", payload);
     const createdId = result?.employee?.id;
     showToast("社員を追加しました。", "success");
     await refreshEmployees();
-    if (createdId) state.selectedId = createdId;
+    if (createdId) {
+      state.selectedId = createdId;
+      state.recentlyCreatedEmployeeId = createdId;
+    }
     state.formSnapshot = null;
     render();
   } catch (error) {
     console.error(error);
     showToast(error.message || "社員追加に失敗しました。", "error");
-    restoreSaveButtonState(form, button);
+    setSaveStatus(status, error.message || "社員追加に失敗しました。", "error");
+    restoreSaveButtonState("employee", button);
   }
+}
+function renderEmployeeCreatedPanel(employee) {
+  if (state.recentlyCreatedEmployeeId !== employee.id) return "";
+  const hasEmail = Boolean(String(employee.email || "").trim());
+  const hasLocation = Boolean(employee.store_id || employee.department_id);
+  const hasPosition = Boolean(employee.position_id);
+  return `
+    <section class="created-employee-panel">
+      <strong>社員を追加しました</strong>
+      <p>社員台帳への登録は完了しています。月初更新では、次の3点だけ確認すると後続アプリへつなげやすくなります。</p>
+      <ul>
+        <li class="${hasEmail ? "done" : "pending"}">メール: ${hasEmail ? "設定済み" : "未設定。発行後に追記します。"}</li>
+        <li class="${hasLocation ? "done" : "pending"}">所属: ${hasLocation ? "設定済み" : "店舗または部署を設定してください。"}</li>
+        <li class="${hasPosition ? "done" : "pending"}">役職: ${hasPosition ? "設定済み" : "必要に応じて設定してください。"}</li>
+      </ul>
+    </section>`;
 }
 function renderEmployeeDetail(employee) {
   const retired = !employee.is_active || employee.employment_status === "退職";
   const storeAssignments = getStoreAssignmentsByOrder(employee.store_assignments || []);
   const readonly = !state.permissions.canEdit;
   const issues = getEmployeeIssues(employee);
+  const createdPanel = renderEmployeeCreatedPanel(employee);
   const issuePanel = renderEmployeeIssuePanel(employee, issues);
   const firebaseLinkPanel = state.view === "firebase" && !readonly ? `
       <div class="firebase-link-panel">
@@ -1119,6 +1151,7 @@ function renderEmployeeDetail(employee) {
     <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}${employee.updated_at ? ` / 最終更新: ${escapeHtml(formatDateTime(employee.updated_at))}` : ""}</p>
     <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。"}</p>
     <form class="form-grid" id="detail-form">
+      ${createdPanel}
       ${issuePanel}
       ${renderEmployeeRolePanel(employee)}
       ${firebaseLinkPanel}

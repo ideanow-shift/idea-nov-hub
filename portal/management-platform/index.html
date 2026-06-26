@@ -1,0 +1,177 @@
+﻿<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IDEA NOV Management Platform</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">IDEA NOV</p>
+        <h1>Management Platform</h1>
+        <p class="lead">管理者が自ら課題を発見し、改善し、成長を継続するためのプラットフォーム。</p>
+      </div>
+      <nav class="top-nav" aria-label="主要機能">
+        <button type="button" class="nav-btn active" data-view="dashboard">Dashboard</button>
+        <button type="button" class="nav-btn" data-view="environment">環境整備</button>
+        <button type="button" class="nav-btn" data-view="records">履歴</button>
+        <button type="button" class="nav-btn" data-view="auth">ログイン</button>
+      </nav>
+    </header>
+
+    <section class="action-panel" aria-labelledby="todayActionTitle">
+      <div>
+        <p class="section-label">Next Action</p>
+        <h2 id="todayActionTitle">環境整備チェックを1件登録する</h2>
+        <p id="todayActionNote">Phase 1では、店舗・管理者・4役割・日時に紐付く履歴データを作ることを優先します。</p>
+      </div>
+      <button type="button" id="refreshBtn">更新</button>
+    </section>
+
+    <section class="view active" id="view-dashboard" aria-label="管理者ダッシュボード">
+      <section class="dashboard-grid" id="dashboardGrid"></section>
+    </section>
+
+    <section class="view" id="view-environment" aria-label="環境整備チェック">
+      <div class="split-layout">
+        <form class="panel form-panel" id="environmentForm">
+          <div class="panel-head">
+            <p class="section-label">Environment</p>
+            <h2>環境整備チェック</h2>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              店舗
+              <select name="store" required>
+                <option value="">選択してください</option>
+                <option>所沢店</option>
+                <option>高田馬場店</option>
+                <option>新所沢店</option>
+                <option>花小金井店</option>
+                <option>albero</option>
+                <option>BIOEL</option>
+                <option>UNO</option>
+                <option>FILM</option>
+                <option>LUA</option>
+              </select>
+            </label>
+            <label>
+              対象者
+              <input name="targetUser" type="text" placeholder="例: 山田 太郎" required>
+            </label>
+            <label>
+              役職
+              <select name="role" required>
+                <option value="">選択してください</option>
+                <option>店長</option>
+                <option>チーフ</option>
+                <option>店長候補</option>
+                <option>FCオーナー</option>
+                <option>本部管理者</option>
+              </select>
+            </label>
+            <label>
+              確認者
+              <input name="evaluator" type="text" placeholder="例: 上長名" required>
+            </label>
+          </div>
+
+          <fieldset>
+            <legend>管理者の4つの役割</legend>
+            <div class="choice-grid">
+              <label><input type="radio" name="managementCategory" value="成果を上げる" required> 成果を上げる</label>
+              <label><input type="radio" name="managementCategory" value="人的資産の維持・活用"> 人的資産の維持・活用</label>
+              <label><input type="radio" name="managementCategory" value="人材育成"> 人材育成</label>
+              <label><input type="radio" name="managementCategory" value="チーム機能化"> チーム機能化</label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>チェック項目</legend>
+            <div class="check-items" id="checkItems"></div>
+          </fieldset>
+
+          <label>
+            コメント
+            <textarea name="comment" rows="5" placeholder="気づいた課題、改善したい点、次に取る行動を記録します。" required></textarea>
+          </label>
+
+          <label>
+            写真URL（Phase 2準備）
+            <input name="photoUrl" type="url" placeholder="Google Drive等の写真URL">
+          </label>
+
+          <div class="form-actions">
+            <button type="submit">チェックを保存</button>
+            <button type="button" class="ghost-btn" id="clearFormBtn">クリア</button>
+          </div>
+        </form>
+
+        <aside class="panel guide-panel">
+          <p class="section-label">Growth Rule</p>
+          <h2>保存する意味</h2>
+          <p>この入力は評価確定ではなく、管理者が課題を発見し、次の改善行動に進むための履歴です。</p>
+          <ul class="guide-list">
+            <li>店舗、対象者、役職、4役割、日時に紐付ける</li>
+            <li>文章・写真・スコアを履歴として残す</li>
+            <li>削除ではなく status で履歴管理する</li>
+            <li>AIは後で比較・要約・改善提案に使う</li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+
+    <section class="view" id="view-records" aria-label="環境整備履歴">
+      <section class="panel">
+        <div class="panel-head horizontal">
+          <div>
+            <p class="section-label">History</p>
+            <h2>環境整備履歴</h2>
+          </div>
+          <button type="button" id="loadRecordsBtn">履歴を再読込</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日時</th>
+                <th>店舗</th>
+                <th>対象者</th>
+                <th>4役割</th>
+                <th>Score</th>
+                <th>次の行動</th>
+              </tr>
+            </thead>
+            <tbody id="recordsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+    <section class="view" id="view-auth" aria-label="ログイン">
+      <section class="panel auth-panel">
+        <div class="panel-head">
+          <p class="section-label">NOV HUB Auth</p>
+          <h2>接続状態</h2>
+          <p id="authStatus" class="muted-text">NOV HUB連携まではローカル保存で動作します。</p>
+        </div>
+
+        <form id="loginForm" class="auth-form">
+          <p class="muted-text">本番ではNOV HUBからFirebase ID tokenを受け取り、Management APIへ接続します。</p>
+          <div class="form-actions">
+            <button type="submit">接続確認</button>
+            <button type="button" class="ghost-btn" id="logoutBtn">再読込</button>
+          </div>
+        </form>
+      </section>
+    </section>
+  </main>
+  <script src="./config.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
+
+

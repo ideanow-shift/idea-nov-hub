@@ -1,11 +1,15 @@
 import { PORTAL_CONFIG } from "./firebase-config.js";
-import { authIsConfigured, signInWithGoogle, signOutUser } from "./auth.js";
+import { authIsConfigured, getIdToken, signInWithGoogle, signOutUser } from "./auth.js";
 import { clearApiAuth, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js";
 import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
 import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js";
 import { clearHubEmployeeContext, getHubEmployeeContextSummary, saveHubEmployeeContext } from "./hub-context.js";
 
 const state = { employee: null, apps: [], announcements: [], mode: PORTAL_CONFIG.authMode, authType: null };
+const MANAGEMENT_HUB_CONTEXT_KEY = "ideaNov.management.hubContext";
+const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
+const MANAGEMENT_APP_IDS = new Set(["management-check", "management-platform"]);
+const MANAGEMENT_APP_URL = "./management-platform/";
 const elements = Object.fromEntries([
   "header-user", "user-name", "user-store", "login-screen", "loading-screen",
   "denied-screen", "portal-screen", "google-login", "pin-login-form", "pin-email", "pin-code", "demo-controls", "demo-employee",
@@ -87,6 +91,15 @@ function openConcierge(question = "") {
   window.location.assign(url);
 }
 
+function redirectRootHubContextToManagementPlatform() {
+  if (window.location.pathname !== "/" && !window.location.pathname.endsWith("/index.html")) return false;
+  const params = new URLSearchParams(window.location.search);
+  const hubContext = params.get("hub_context");
+  if (!hubContext) return false;
+  window.location.replace(`${MANAGEMENT_APP_URL}?hub_context=${encodeURIComponent(hubContext)}`);
+  return true;
+}
+
 function renderAnnouncements() {
   const fallback = [
     { type: "important", title: "ポータル試験運用中", body: "掲載アプリや権限に誤りがある場合は管理者へご連絡ください。" },
@@ -122,6 +135,21 @@ function renderApps() {
     return section;
   }) : [createEmptyState("現在利用できるアプリはありません。")]));
   elements.visibleAppCount.textContent = `${state.apps.length}件`;
+}
+
+function normalizeManagementPlatformApps(apps = []) {
+  return apps.map((app) => {
+    if (!isManagementPlatformApp(app)) return app;
+    return {
+      ...app,
+      appId: "management-platform",
+      appName: "Management Platform",
+      description: app.description || "環境整備と管理者成長の履歴を確認",
+      url: MANAGEMENT_APP_URL,
+      category: app.category || "コンピテンシー",
+      icon: app.icon || "management-check"
+    };
+  });
 }
 
 function renderPortal() {
@@ -200,13 +228,49 @@ function buildAppLaunchUrl(appUrl, context) {
   }
 }
 
+function isManagementPlatformApp(app) {
+  const candidates = [
+    app.appId,
+    app.appName,
+    app.icon,
+    app.url
+  ].map((value) => String(value || "").toLowerCase());
+  return candidates.some((value) => (
+    MANAGEMENT_APP_IDS.has(value)
+    || value.includes("management-platform")
+    || value.includes("management-check")
+    || value.includes("マネジメントチェック")
+    || value.includes("管理者育成")
+  ));
+}
+
+async function saveManagementPlatformAuthContext(context) {
+  if (state.authType !== "firebase") return;
+  const token = await getIdToken();
+  if (!token) throw new Error("Firebase ID tokenを取得できませんでした。再ログインしてください。");
+  sessionStorage.setItem(MANAGEMENT_FIREBASE_TOKEN_KEY, token);
+  sessionStorage.setItem(MANAGEMENT_HUB_CONTEXT_KEY, JSON.stringify(context || {}));
+  localStorage.setItem(MANAGEMENT_FIREBASE_TOKEN_KEY, JSON.stringify({
+    token,
+    expiresAt: Date.now() + 10 * 60 * 1000
+  }));
+  localStorage.setItem(MANAGEMENT_HUB_CONTEXT_KEY, JSON.stringify(context || {}));
+}
+
+async function prepareManagementPlatformLaunch(app, context) {
+  if (!isManagementPlatformApp(app)) return;
+  await saveManagementPlatformAuthContext(context);
+}
+
 async function openApp(app) {
   const employeeContext = refreshHubEmployeeContext();
-  const launchUrl = buildAppLaunchUrl(app.url, employeeContext);
+  const appUrl = isManagementPlatformApp(app) ? MANAGEMENT_APP_URL : app.url;
+  const launchUrl = buildAppLaunchUrl(appUrl, employeeContext);
   if (state.mode === "firebase") {
     const target = window.open("about:blank", "_blank");
     if (target) target.opener = null;
     try {
+      await prepareManagementPlatformLaunch(app, employeeContext);
       await writeAccessLog("openApp", { appId: app.appId, appName: app.appName, result: "success" });
       if (target) target.location = launchUrl;
       else window.location.assign(launchUrl);
@@ -229,9 +293,10 @@ async function loginWithFirebase() {
     const data = await fetchPortalData();
     state.authType = "firebase";
     state.employee = data.employee;
-    state.apps = getVisibleApps(data.employee, data.apps || []);
+    state.apps = getVisibleApps(data.employee, normalizeManagementPlatformApps(data.apps || []));
     state.announcements = data.announcements || [];
     renderPortal();
+    await saveManagementPlatformAuthContext(refreshHubEmployeeContext());
   } catch (error) {
     console.error("Portal login failed", {
       code: error.code || "",
@@ -258,7 +323,7 @@ async function loginWithPin(event) {
     const data = await fetchPortalData();
     state.authType = "pin";
     state.employee = data.employee;
-    state.apps = getVisibleApps(data.employee, data.apps || []);
+    state.apps = getVisibleApps(data.employee, normalizeManagementPlatformApps(data.apps || []));
     state.announcements = data.announcements || [];
     elements.pinCode.value = "";
     renderPortal();
@@ -301,6 +366,10 @@ async function logout() {
   }
   clearApiAuth();
   clearHubEmployeeContext();
+  sessionStorage.removeItem(MANAGEMENT_FIREBASE_TOKEN_KEY);
+  sessionStorage.removeItem(MANAGEMENT_HUB_CONTEXT_KEY);
+  localStorage.removeItem(MANAGEMENT_FIREBASE_TOKEN_KEY);
+  localStorage.removeItem(MANAGEMENT_HUB_CONTEXT_KEY);
   state.employee = null;
   state.apps = [];
   state.authType = null;
@@ -308,6 +377,7 @@ async function logout() {
 }
 
 async function initialize() {
+  if (redirectRootHubContextToManagementPlatform()) return;
   await loadAppIconRegistry();
   DEMO_EMPLOYEES.forEach((employee) => {
     const option = document.createElement("option");

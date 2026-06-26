@@ -4,6 +4,7 @@ const firebaseTokenProvider = window.MANAGEMENT_FIREBASE_TOKEN_PROVIDER;
 const hubContextProvider = window.MANAGEMENT_HUB_CONTEXT_PROVIDER;
 const defaultCheckItemId = window.MANAGEMENT_DEFAULT_CHECK_ITEM_ID || "";
 let trustedActor = null;
+let checkItems = [];
 
 const dashboardCards = [
   { title: "現在地", key: "phase", value: "Phase 1", note: "環境整備チェックの入力導線を構築中。", status: "status-ok" },
@@ -76,6 +77,11 @@ function createId() {
 function toRecord(form) {
   const formData = new FormData(form);
   const now = new Date().toISOString();
+  const results = getCheckResultsFromForm(formData);
+  const scores = results.map((result) => result.score).filter((score) => Number.isFinite(score));
+  const averageScore = scores.length
+    ? Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 100) / 100
+    : Number(formData.get("score"));
   return {
     record_id: createId(),
     store: formData.get("store"),
@@ -84,14 +90,31 @@ function toRecord(form) {
     management_category: formData.get("managementCategory"),
     checked_at: now,
     evaluator: formData.get("evaluator"),
-    score: Number(formData.get("score")),
+    score: averageScore,
     comment: formData.get("comment"),
     photo_url: formData.get("photoUrl"),
+    results,
     status: "active",
     created_at: now,
     created_by: formData.get("evaluator"),
     version: 1
   };
+}
+
+function getCheckResultsFromForm(formData) {
+  if (!checkItems.length) {
+    return [{
+      checkItemId: defaultCheckItemId,
+      score: Number(formData.get("score")),
+      comment: formData.get("comment")
+    }];
+  }
+
+  return checkItems.map((item) => ({
+    checkItemId: item.id,
+    score: Number(formData.get(`score_${item.id}`)),
+    comment: formData.get(`comment_${item.id}`) || null
+  }));
 }
 
 function toCategoryId(name) {
@@ -142,7 +165,9 @@ function saveLocalRecord(record) {
 async function saveRemoteRecord(record) {
   if (!hasApiConfig()) return { ok: false, reason: "management-api-not-configured" };
   const storeId = getDefaultStoreId();
-  if (!storeId || !defaultCheckItemId) return { ok: false, reason: "store-or-check-item-not-configured" };
+  if (!storeId || !record.results?.length || record.results.some((result) => !result.checkItemId)) {
+    return { ok: false, reason: "store-or-check-items-not-configured" };
+  }
 
   const payload = {
     storeId,
@@ -150,12 +175,12 @@ async function saveRemoteRecord(record) {
     checkScope: "store",
     summaryComment: record.comment,
     nextAction: record.comment,
-    results: [{
-      checkItemId: defaultCheckItemId,
-      score: record.score,
-      comment: record.comment,
-      photos: record.photo_url ? [{ photoUrl: record.photo_url, photoType: "evidence" }] : []
-    }]
+    results: record.results.map((result, index) => ({
+      checkItemId: result.checkItemId,
+      score: result.score,
+      comment: result.comment || record.comment,
+      photos: index === 0 && record.photo_url ? [{ photoUrl: record.photo_url, photoType: "evidence" }] : []
+    }))
   };
 
   const response = await apiRequest("/checks", {
@@ -184,9 +209,47 @@ async function loadCurrentActor() {
   return trustedActor;
 }
 
+async function loadCheckItems() {
+  if (!hasApiConfig()) return [];
+  const response = await apiRequest("/check-items");
+  const json = await response.json();
+  if (!json.ok) throw new Error(json.error || "Management check item load failed");
+  checkItems = json.items || [];
+  renderScoreControls();
+  return checkItems;
+}
+
 function renderScoreControls() {
   const row = document.getElementById("scoreRow") || document.getElementById("checkItems");
   if (!row) return;
+
+  if (checkItems.length) {
+    row.innerHTML = checkItems.map((item) => `
+      <section class="check-item">
+        <div class="check-item-head">
+          <div>
+            <h3 class="check-item-title">${escapeHtml(item.title)}</h3>
+            <p class="muted-text">${escapeHtml(item.description || "")}</p>
+          </div>
+          <span class="category-pill">${escapeHtml(fromCategoryId(item.management_category))}</span>
+        </div>
+        <div class="score-row" role="radiogroup" aria-label="${escapeHtml(item.title)}">
+          ${[1, 2, 3, 4, 5].map((score) => `
+            <label class="score-choice">
+              <input type="radio" name="score_${item.id}" value="${score}" ${score === 3 ? "checked" : ""} required>
+              <span>${score}</span>
+            </label>
+          `).join("")}
+        </div>
+        <label>
+          コメント
+          <textarea name="comment_${item.id}" rows="2" placeholder="この項目の気づき・改善点"></textarea>
+        </label>
+      </section>
+    `).join("");
+    return;
+  }
+
   row.innerHTML = [1, 2, 3, 4, 5].map((score) => `
     <label class="score-choice">
       <input type="radio" name="score" value="${score}" ${score === 3 ? "checked" : ""}>
@@ -305,6 +368,7 @@ async function updateAuthStatus() {
   if (token) {
     try {
       await loadCurrentActor();
+      await loadCheckItems();
       setApiStatus(`API接続OK: ${getDisplayName()} / ${getRoleKeys().join(", ") || "role未設定"}`, "ok");
     } catch (error) {
       console.warn("Management API actor load skipped or failed", error);
@@ -369,6 +433,7 @@ async function refreshRecords() {
   try {
     setApiStatus("履歴を読み込み中です...", "loading");
     await loadCurrentActor();
+    await loadCheckItems();
     const remoteRecords = await loadRemoteRecords();
     if (remoteRecords) {
       setLocalRecords(remoteRecords);

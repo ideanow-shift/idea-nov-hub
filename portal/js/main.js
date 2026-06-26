@@ -92,7 +92,12 @@ function openConcierge(question = "") {
 }
 
 function redirectRootHubContextToManagementPlatform() {
-  if (window.location.pathname !== "/" && !window.location.pathname.endsWith("/index.html")) return false;
+  const path = window.location.pathname;
+  const isHubRoot = path === "/"
+    || path.endsWith("/index.html")
+    || path.endsWith("/idea-nov-hub/")
+    || path.endsWith("/idea-nov-hub/index.html");
+  if (!isHubRoot) return false;
   const params = new URLSearchParams(window.location.search);
   const hubContext = params.get("hub_context");
   if (!hubContext) return false;

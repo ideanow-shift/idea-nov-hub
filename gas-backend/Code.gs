@@ -913,10 +913,10 @@ function getHealthStatus_() {
 function createMasterAdminApp_() {
   return {
     appId: 'core-master-admin',
-    appName: 'マスタ管理',
+    appName: '社員・店舗マスタ管理',
     description: '社員情報・店舗情報の基幹マスタを管理',
     url: './master-admin/',
-    category: '総務申請',
+    category: '管理',
     icon: 'database',
     requiredLevel: 4,
     allowedTags: [],

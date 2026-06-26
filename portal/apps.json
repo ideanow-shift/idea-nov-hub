@@ -170,13 +170,15 @@
     },
     {
       "appId": "core-master-admin",
-      "appName": "マスタ管理",
+      "appName": "社員・店舗マスタ管理",
       "icon": "./assets/icons/database.svg",
       "color": "#9FAFE8",
       "aliases": [
+        "社員・店舗マスタ管理",
+        "社員マスタ管理",
+        "社員名簿管理",
+        "店舗マスタ管理",
         "マスタ管理",
-        "社員マスタ",
-        "店舗マスタ",
         "Core DB",
         "master-admin"
       ]
@@ -227,6 +229,10 @@
     "全般": {
       "icon": "./assets/icons/task.svg",
       "color": "#96B7D8"
+    },
+    "管理": {
+      "icon": "./assets/icons/database.svg",
+      "color": "#9FAFE8"
     },
     "コンピテンシー": {
       "icon": "./assets/icons/management-check.svg",

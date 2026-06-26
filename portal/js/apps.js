@@ -1,4 +1,4 @@
-export const CATEGORY_ORDER = ["称賛", "全般", "コンピテンシー", "経営", "人財", "勤怠・シフト", "教育"];
+export const CATEGORY_ORDER = ["称賛", "全般", "管理", "コンピテンシー", "経営", "人財", "勤怠・シフト", "教育"];
 
 const appBase = { allowedTags: [], targetDepartment: [], targetPosition: [], isActive: true };
 

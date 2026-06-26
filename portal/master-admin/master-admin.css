@@ -403,6 +403,27 @@ tr.selected {
   padding: 10px 12px;
 }
 
+.readiness-guide {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 16px;
+  border: 1px solid #F2D4DB;
+  border-radius: var(--radius-md);
+  background: #FFF7F9;
+  padding: 12px;
+}
+
+.readiness-guide strong {
+  font-size: 13px;
+}
+
+.readiness-guide ol {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.7;
+}
 .issue-panel {
   border: 1px solid #F0D9A8;
   border-radius: var(--radius-md);

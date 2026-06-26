@@ -137,7 +137,32 @@ function getSortedRows(rows) {
   if (state.view === "stores") {
     return rows.slice().sort(compareStores);
   }
+  if (state.view === "readiness") {
+    return rows.slice().sort(compareReadinessItems);
+  }
   return rows;
+}
+
+function compareReadinessItems(left, right) {
+  const leftRank = getReadinessStatusRank(left.status);
+  const rightRank = getReadinessStatusRank(right.status);
+  if (leftRank !== rightRank) return leftRank - rightRank;
+  const leftCount = getReadinessCountNumber(left.count);
+  const rightCount = getReadinessCountNumber(right.count);
+  if (leftCount !== rightCount) return rightCount - leftCount;
+  return String(left.label || "").localeCompare(String(right.label || ""), "ja");
+}
+
+function getReadinessStatusRank(status) {
+  if (status === "要確認") return 0;
+  if (status === "準備中") return 1;
+  if (status === "OK") return 2;
+  return 3;
+}
+
+function getReadinessCountNumber(count) {
+  const matched = String(count || "").match(/\d+/);
+  return matched ? Number(matched[0]) : 0;
 }
 
 function compareEmployees(left, right) {
@@ -707,6 +732,15 @@ function renderReadinessDetail() {
       <h3>HUB連携準備</h3>
       <p class="detail-meta">要確認・準備中: ${escapeHtml(remaining)}項目</p>
       <p class="detail-note">左の一覧から項目を選ぶと、次に見るべきタブと対応内容を確認できます。</p>
+      <div class="readiness-guide">
+        <strong>月初運用の見る順番</strong>
+        <ol>
+          <li>メール未設定を埋める</li>
+          <li>所属・役職・HUB権限の未設定を確認する</li>
+          <li>Firebase未連携を確認する</li>
+          <li>店舗マスタと変更履歴を確認する</li>
+        </ol>
+      </div>
       <div class="issue-panel${remaining ? "" : " resolved"}">
         <strong>${remaining ? "まだ確認項目があります" : "HUB連携へ進めます"}</strong>
         <p>${remaining ? "要確認を上から潰すと、HUBトップとの連携開始判断がしやすくなります。" : "社員・店舗・履歴の基本条件は整っています。次はHUB側でログインユーザーの社員情報取得へ進めます。"}</p>

@@ -342,6 +342,23 @@ function fromApiCheck(row) {
   };
 }
 
+function fromApiCheckDetail(row) {
+  const record = fromApiCheck(row);
+  record.results = (row.results || []).map((result) => ({
+    checkItemId: result.check_item_id,
+    score: result.score,
+    booleanValue: result.boolean_value,
+    textValue: result.text_value,
+    comment: result.comment,
+    itemTitle: result.item_title,
+    itemDescription: result.item_description,
+    managementCategory: result.management_category,
+    sortOrder: result.sort_order
+  }));
+  record.result_count = record.results.length || record.result_count;
+  return record;
+}
+
 function saveLocalRecord(record) {
   const records = getLocalRecords();
   records.unshift(record);
@@ -383,6 +400,14 @@ async function loadRemoteRecords() {
   const json = await response.json();
   if (!json.ok) throw new Error(json.error || "Management API load failed");
   return (json.checks || []).map(fromApiCheck);
+}
+
+async function loadRemoteRecordDetail(recordId) {
+  if (!hasApiConfig()) return null;
+  const response = await apiRequest(`/checks/${encodeURIComponent(recordId)}`);
+  const json = await response.json();
+  if (!json.ok) throw new Error(json.error || "Management check detail load failed");
+  return fromApiCheckDetail(json.check);
 }
 
 async function loadCurrentActor() {
@@ -669,7 +694,7 @@ function renderRecords(records = getLocalRecords()) {
   const body = document.getElementById("recordsBody");
   const filteredRecords = renderHistoryFilters(records) || records;
   if (filteredRecords.length === 0) {
-    body.innerHTML = `<tr><td colspan="8" class="empty-cell">まだ履歴がありません。</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9" class="empty-cell">まだ履歴がありません。</td></tr>`;
     return;
   }
   body.innerHTML = filteredRecords.map((record) => `
@@ -682,8 +707,105 @@ function renderRecords(records = getLocalRecords()) {
       <td>${formatScoreBreakdown(record)}</td>
       <td><strong>${record.score}</strong></td>
       <td>${escapeHtml(record.comment)}</td>
+      <td><button type="button" class="ghost-btn detail-btn" data-record-id="${escapeHtml(record.record_id)}">詳細</button></td>
     </tr>
   `).join("");
+}
+
+function findLocalRecord(recordId) {
+  return getLocalRecords().find((record) => record.record_id === recordId) || null;
+}
+
+function getCheckItemMeta(checkItemId) {
+  return checkItems.find((item) => item.id === checkItemId) || null;
+}
+
+function formatResultValue(result) {
+  if (Number.isFinite(Number(result.score))) return `${Number(result.score)}点`;
+  if (typeof result.booleanValue === "boolean") return result.booleanValue ? "はい" : "いいえ";
+  if (result.textValue) return result.textValue;
+  return "-";
+}
+
+function renderRecordDetail(record, note = "") {
+  const content = document.getElementById("recordDetailContent");
+  if (!content) return;
+  const breakdown = getRecordBreakdown(record);
+  const results = (record.results || []).slice().sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
+  const resultHtml = results.length ? `
+    <div class="result-detail-list">
+      ${results.map((result, index) => {
+        const item = getCheckItemMeta(result.checkItemId);
+        const title = result.itemTitle || item?.title || `項目 ${index + 1}`;
+        const category = result.managementCategory || item?.management_category || "";
+        const comment = result.comment || "";
+        return `
+          <article class="result-detail-item">
+            <div class="result-detail-head">
+              <div>
+                <p class="result-detail-title">${index + 1}. ${escapeHtml(title)}</p>
+                <p class="muted-text">${escapeHtml(category ? fromCategoryId(category) : "")}</p>
+              </div>
+              <span class="score-chip ${Number(result.score) === 0 ? "danger" : Number(result.score) === 3 ? "warn" : Number(result.score) === 5 ? "ok" : ""}">${escapeHtml(formatResultValue(result))}</span>
+            </div>
+            ${comment ? `<p class="result-detail-comment">${escapeHtml(comment)}</p>` : ""}
+          </article>
+        `;
+      }).join("")}
+    </div>
+  ` : `<p class="muted-text">この履歴は一覧用の要約のみ取得済みです。Edge Function詳細取得を反映後、29項目の明細まで表示できます。</p>`;
+
+  content.innerHTML = `
+    <div class="record-detail-grid">
+      <article class="record-detail-card">
+        <p class="score-summary-label">日時</p>
+        <p class="record-detail-value">${escapeHtml(formatDate(record.checked_at))}</p>
+      </article>
+      <article class="record-detail-card">
+        <p class="score-summary-label">店舗</p>
+        <p class="record-detail-value">${escapeHtml(record.store || "-")}</p>
+      </article>
+      <article class="record-detail-card">
+        <p class="score-summary-label">対象者</p>
+        <p class="record-detail-value">${escapeHtml(record.target_user || "-")}</p>
+      </article>
+      <article class="record-detail-card">
+        <p class="score-summary-label">平均</p>
+        <p class="record-detail-value">${escapeHtml(record.score ?? "-")}</p>
+      </article>
+    </div>
+    <p class="field-help">
+      0点 ${Number(breakdown.score0 || 0)}件 / 3点 ${Number(breakdown.score3 || 0)}件 / 5点 ${Number(breakdown.score5 || 0)}件
+      ${note ? ` / ${escapeHtml(note)}` : ""}
+    </p>
+    ${record.comment ? `<p class="field-help"><strong>次の行動:</strong> ${escapeHtml(record.comment)}</p>` : ""}
+    ${resultHtml}
+  `;
+}
+
+async function showRecordDetail(recordId) {
+  const content = document.getElementById("recordDetailContent");
+  const localRecord = findLocalRecord(recordId);
+  if (content) content.innerHTML = "履歴詳細を読み込み中です。";
+  if (!recordId) return;
+
+  try {
+    const remoteRecord = await loadRemoteRecordDetail(recordId);
+    if (remoteRecord) {
+      renderRecordDetail(remoteRecord);
+      return;
+    }
+  } catch (error) {
+    console.warn("Management check detail load skipped or failed", error);
+    if (localRecord) {
+      renderRecordDetail(localRecord, "詳細API未反映のため要約を表示");
+      return;
+    }
+    if (content) content.innerHTML = `詳細読込エラー: ${escapeHtml(error.message || error)}`;
+    return;
+  }
+
+  if (localRecord) renderRecordDetail(localRecord);
 }
 
 function escapeCsvCell(value) {
@@ -907,6 +1029,10 @@ function bindEvents() {
     renderRecords();
   });
   document.getElementById("exportHistoryCsvBtn").addEventListener("click", exportFilteredHistoryCsv);
+  document.getElementById("recordsBody").addEventListener("click", (event) => {
+    const button = event.target.closest(".detail-btn");
+    if (button) showRecordDetail(button.dataset.recordId);
+  });
   document.getElementById("environmentForm").addEventListener("submit", handleSubmit);
   document.getElementById("environmentForm").addEventListener("change", (event) => {
     if (event.target?.matches('input[type="radio"]')) {

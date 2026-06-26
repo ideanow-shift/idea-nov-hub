@@ -446,6 +446,67 @@ th {
 .score-chip.warn { color: var(--warn); }
 .score-chip.danger { color: var(--danger); }
 
+.record-detail-panel {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.detail-btn {
+  min-height: 32px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.record-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.record-detail-card,
+.result-detail-item {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.record-detail-card p,
+.result-detail-item p {
+  margin: 0;
+}
+
+.record-detail-value {
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.result-detail-list {
+  display: grid;
+  gap: 8px;
+}
+
+.result-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.result-detail-title {
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.result-detail-comment {
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 .status-ok { color: var(--ok); }
 .status-warn { color: var(--warn); }
 .status-danger { color: var(--danger); }
@@ -461,6 +522,7 @@ th {
   .top-nav { justify-content: flex-start; }
   .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .focus-grid { grid-template-columns: 1fr; }
+  .record-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .split-layout { grid-template-columns: 1fr; }
 }
 
@@ -469,6 +531,7 @@ th {
   .field-grid,
   .choice-grid,
   .history-tools,
+  .record-detail-grid,
   .score-row,
   .score-summary-total,
   .category-summary { grid-template-columns: 1fr; }

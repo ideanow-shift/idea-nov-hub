@@ -75,6 +75,13 @@ function createId() {
   return `env_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function getLocalDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function toRecord(form) {
   const formData = new FormData(form);
   const now = new Date().toISOString();
@@ -145,7 +152,7 @@ function fromApiCheck(row) {
     target_user: row.submitted_by_name || row.submitted_by_employee_id,
     role: "",
     management_category: "環境整備",
-    checked_at: row.check_date,
+    checked_at: row.submitted_at || row.check_date,
     evaluator: row.submitted_by_employee_id,
     score: row.overall_score,
     comment: row.summary_comment || row.next_action || "",
@@ -173,7 +180,7 @@ async function saveRemoteRecord(record) {
 
   const payload = {
     storeId,
-    checkDate: record.checked_at.slice(0, 10),
+    checkDate: getLocalDateString(new Date(record.checked_at)),
     checkScope: "store",
     summaryComment: record.comment,
     nextAction: record.comment,
@@ -313,7 +320,13 @@ function formatDate(value) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("ja-JP", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 function renderRecords(records = getLocalRecords()) {

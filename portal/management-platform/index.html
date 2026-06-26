@@ -138,6 +138,24 @@
           </div>
           <button type="button" id="loadRecordsBtn">履歴を再読込</button>
         </div>
+        <div class="history-tools" aria-label="履歴フィルター">
+          <label>
+            店舗
+            <select id="historyStoreFilter">
+              <option value="">すべて</option>
+            </select>
+          </label>
+          <label>
+            表示
+            <select id="historyIssueFilter">
+              <option value="">すべて</option>
+              <option value="issues">課題あり</option>
+              <option value="comments">コメントあり</option>
+            </select>
+          </label>
+          <button type="button" class="ghost-btn" id="clearHistoryFiltersBtn">解除</button>
+        </div>
+        <p id="historyFilterStatus" class="field-help">履歴を読み込み中です。</p>
         <div class="table-wrap">
           <table>
             <thead>
@@ -175,8 +193,8 @@
       </section>
     </section>
   </main>
-  <script src="./config.js?v=management-platform-20260627-07"></script>
-  <script src="./app.js?v=management-platform-20260627-07"></script>
+  <script src="./config.js?v=management-platform-20260627-08"></script>
+  <script src="./app.js?v=management-platform-20260627-08"></script>
 </body>
 </html>
 

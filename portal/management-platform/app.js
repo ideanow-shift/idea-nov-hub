@@ -631,13 +631,48 @@ function formatScoreBreakdown(record) {
   `;
 }
 
+function getFilteredRecords(records) {
+  const storeFilter = document.getElementById("historyStoreFilter")?.value || "";
+  const issueFilter = document.getElementById("historyIssueFilter")?.value || "";
+  return records.filter((record) => {
+    if (storeFilter && record.store !== storeFilter) return false;
+    if (issueFilter === "comments") return Boolean(record.comment && record.comment.trim());
+    if (issueFilter === "issues") {
+      const breakdown = getRecordBreakdown(record);
+      return Number(breakdown.score0 || 0) + Number(breakdown.score3 || 0) > 0;
+    }
+    return true;
+  });
+}
+
+function renderHistoryFilters(records) {
+  const storeFilter = document.getElementById("historyStoreFilter");
+  const issueFilter = document.getElementById("historyIssueFilter");
+  const status = document.getElementById("historyFilterStatus");
+  if (!storeFilter || !issueFilter) return;
+  const currentStore = storeFilter.value;
+  const stores = [...new Set(records.map((record) => record.store).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ja"));
+  storeFilter.innerHTML = `<option value="">すべて</option>${stores.map((store) => `
+    <option value="${escapeHtml(store)}">${escapeHtml(store)}</option>
+  `).join("")}`;
+  if (stores.includes(currentStore)) storeFilter.value = currentStore;
+  const filtered = getFilteredRecords(records);
+  if (status) {
+    status.textContent = records.length
+      ? `表示 ${filtered.length}/${records.length}件`
+      : "まだ履歴がありません。";
+  }
+  return filtered;
+}
+
 function renderRecords(records = getLocalRecords()) {
   const body = document.getElementById("recordsBody");
-  if (records.length === 0) {
+  const filteredRecords = renderHistoryFilters(records) || records;
+  if (filteredRecords.length === 0) {
     body.innerHTML = `<tr><td colspan="8" class="empty-cell">まだ履歴がありません。</td></tr>`;
     return;
   }
-  body.innerHTML = records.map((record) => `
+  body.innerHTML = filteredRecords.map((record) => `
     <tr>
       <td>${formatDate(record.checked_at)}</td>
       <td>${escapeHtml(record.store)}</td>
@@ -814,6 +849,13 @@ function bindEvents() {
   });
   document.getElementById("refreshBtn").addEventListener("click", refreshRecords);
   document.getElementById("loadRecordsBtn").addEventListener("click", refreshRecords);
+  document.getElementById("historyStoreFilter").addEventListener("change", () => renderRecords());
+  document.getElementById("historyIssueFilter").addEventListener("change", () => renderRecords());
+  document.getElementById("clearHistoryFiltersBtn").addEventListener("click", () => {
+    document.getElementById("historyStoreFilter").value = "";
+    document.getElementById("historyIssueFilter").value = "";
+    renderRecords();
+  });
   document.getElementById("environmentForm").addEventListener("submit", handleSubmit);
   document.getElementById("environmentForm").addEventListener("change", (event) => {
     if (event.target?.matches('input[type="radio"]')) {

@@ -380,6 +380,14 @@ fieldset {
   line-height: 1.6;
 }
 
+.history-tools {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
 .table-wrap { overflow-x: auto; }
 
 table {
@@ -460,6 +468,7 @@ th {
   .dashboard-grid,
   .field-grid,
   .choice-grid,
+  .history-tools,
   .score-row,
   .score-summary-total,
   .category-summary { grid-template-columns: 1fr; }

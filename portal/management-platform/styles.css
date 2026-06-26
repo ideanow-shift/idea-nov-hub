@@ -146,6 +146,51 @@ button:hover {
   gap: 12px;
 }
 
+.focus-panel {
+  margin-top: 12px;
+}
+
+.focus-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.4fr;
+  gap: 12px;
+}
+
+.focus-card {
+  min-height: 116px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.focus-card h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.focus-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.focus-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid var(--accent-strong);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .card {
   min-height: 152px;
   padding: 16px;
@@ -407,6 +452,7 @@ th {
 
   .top-nav { justify-content: flex-start; }
   .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .focus-grid { grid-template-columns: 1fr; }
   .split-layout { grid-template-columns: 1fr; }
 }
 

@@ -515,6 +515,67 @@ function getDashboardSummary(records) {
   };
 }
 
+function getRecentActionRecords(records) {
+  return records
+    .filter((record) => record.comment && record.comment.trim())
+    .slice(0, 3);
+}
+
+function renderFocusPanel(records) {
+  const panel = document.getElementById("focusPanel");
+  if (!panel) return;
+  if (!records.length) {
+    panel.innerHTML = `
+      <div class="panel-head">
+        <p class="section-label">Focus</p>
+        <h2>改善フォーカス</h2>
+        <p class="muted-text">最初の環境整備チェックを保存すると、0点・3点・コメントから次の行動を整理します。</p>
+      </div>
+    `;
+    return;
+  }
+
+  const latest = records[0];
+  const breakdown = getRecordBreakdown(latest);
+  const score0 = Number(breakdown.score0 || 0);
+  const score3 = Number(breakdown.score3 || 0);
+  const issueCount = score0 + score3;
+  const actions = getRecentActionRecords(records);
+  const priorityLabel = score0 > 0 ? "最優先" : issueCount > 0 ? "確認" : "維持";
+  const priorityText = score0 > 0
+    ? `0点が${score0}件あります。まず安全・衛生・導線に関わる項目から確認します。`
+    : issueCount > 0
+      ? `3点を含む課題候補が${issueCount}件あります。次回までの改善行動を1つ決めます。`
+      : "最新チェックでは大きな課題候補はありません。良い状態を維持する行動を残します。";
+
+  panel.innerHTML = `
+    <div class="panel-head horizontal">
+      <div>
+        <p class="section-label">Focus</p>
+        <h2>改善フォーカス</h2>
+      </div>
+      <span class="focus-badge">${priorityLabel}</span>
+    </div>
+    <div class="focus-grid">
+      <article class="focus-card">
+        <p class="score-summary-label">最新チェック</p>
+        <h3>${escapeHtml(latest.store || "店舗")}</h3>
+        <p class="focus-note">平均 ${Number(latest.score || 0).toFixed(1)} / 0点 ${score0}件 / 3点 ${score3}件</p>
+      </article>
+      <article class="focus-card">
+        <p class="score-summary-label">優先判断</p>
+        <h3>${issueCount}件</h3>
+        <p class="focus-note">${priorityText}</p>
+      </article>
+      <article class="focus-card focus-card-wide">
+        <p class="score-summary-label">次の行動メモ</p>
+        <h3>${escapeHtml(latest.comment || "コメント未入力")}</h3>
+        <p class="focus-note">${actions.length ? `${actions.length}件のコメント付き履歴があります。` : "コメントを残すと改善履歴として追いやすくなります。"}</p>
+      </article>
+    </div>
+  `;
+}
+
 function renderDashboard() {
   const records = getLocalRecords();
   const summary = getDashboardSummary(records);
@@ -526,6 +587,7 @@ function renderDashboard() {
       <p class="note">${summary.notes[card.key] || ""}</p>
     </article>
   `).join("");
+  renderFocusPanel(records);
 
   const nextAction = document.getElementById("todayActionTitle");
   const nextNote = document.getElementById("todayActionNote");

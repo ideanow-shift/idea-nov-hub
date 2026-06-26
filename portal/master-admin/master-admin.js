@@ -1,6 +1,8 @@
 import { signInWithGoogle, signOutUser } from "../js/auth.js";
 import { callApiAction, clearApiAuth, setFirebaseAuth } from "../js/api.js";
 
+const NEW_EMPLOYEE_ID = "__new_employee__";
+
 const state = {
   view: "employees",
   employeeStatus: "active",
@@ -25,7 +27,7 @@ const state = {
 };
 
 const elements = Object.fromEntries([
-  "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "refresh",
+  "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "add-employee", "refresh",
   "view-title", "search", "quality-summary", "result-count", "table-head", "table-body",
   "detail-panel", "employee-status-filter", "store-status-filter", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
@@ -322,6 +324,7 @@ function render() {
     button.classList.toggle("active", button.dataset.storeStatus === state.storeStatus);
   });
   updateNavigationCounts();
+  elements.addEmployee.hidden = state.view !== "employees" || !state.permissions.canEdit;
   elements.viewTitle.textContent = {
     employees: "社員マスタ",
     stores: "店舗マスタ",
@@ -674,6 +677,11 @@ function renderDetail() {
     renderLogDetail();
     return;
   }
+  if (state.view === "employees" && state.selectedId === NEW_EMPLOYEE_ID) {
+    renderNewEmployeeDetail();
+    return;
+  }
+
   const sourceRows = state.view === "stores" ? state.stores : state.employees;
   const row = sourceRows.find((item) => item.id === state.selectedId);
   if (!row) {
@@ -873,13 +881,15 @@ function getFieldLabel(key) {
     birth_date: "誕生日",
     joined_on: "入社日",
     retired_on: "退職日",
-    leave_type: "休職区分",
     leave_start_date: "休職開始日",
     leave_end_date: "休職終了日・復職日",
+    leave_type: "休職区分",
     employment_status: "現職/休職/退職",
     employment_type: "雇用形態",
     corporation_id: "法人",
     store_id: "主店舗",
+    store_assignment_2: "サブ店舗",
+    store_assignment_3: "第3店舗",
     department_id: "部署",
     position_id: "役職",
     business_unit_id: "事業部門",
@@ -887,7 +897,10 @@ function getFieldLabel(key) {
     area: "エリア",
     store_type: "店舗種別",
     firebase_uid: "Firebase UID",
-    is_active: "有効状態"
+    is_active: "有効状態",
+    is_legacy: "LEGACY区分",
+    employee_id: "社員番号",
+    full_name: "氏名"
   }[key] || key;
 }
 
@@ -913,6 +926,128 @@ function getStoreName(id) {
   return store ? store.store_name : String(id || "");
 }
 
+function startCreateEmployee() {
+  if (!state.permissions.canEdit) {
+    showToast("編集権限がありません。", "error");
+    return;
+  }
+  state.view = "employees";
+  state.selectedId = NEW_EMPLOYEE_ID;
+  state.formSnapshot = null;
+  render();
+}
+
+function renderNewEmployeeDetail() {
+  const activeEmployeeCount = state.employees.filter((employee) => isActiveEmployee(employee)).length + 1;
+  elements.detail.innerHTML = `
+    <form class="detail-form" id="detail-form" data-form-kind="employee">
+      <h2>新規社員追加</h2>
+      <p class="form-note">社員番号と氏名は必須です。社員番号なし退職者は LEGACY-0001 形式で登録します。</p>
+      ${fieldInput("employee_id", "社員番号", "", { required: true, placeholder: "例: 9999 / LEGACY-0001" })}
+      ${fieldInput("full_name", "氏名", "", { required: true, placeholder: "例: 山田 太郎" })}
+      ${fieldInput("email", "メール", "", "email")}
+      ${fieldInput("birth_date", "誕生日", "", "date")}
+      ${fieldInput("joined_on", "入社日", "", "date")}
+      ${fieldInput("retired_on", "退職日", "", "date")}
+      ${fieldInput("leave_start_date", "休職開始日", "", "date")}
+      ${fieldInput("leave_end_date", "休職終了日・復職日", "", "date")}
+      ${fieldStaticSelect("leave_type", "休職区分", [
+        ["", "未設定"],
+        ["産休", "産休"],
+        ["育休", "育休"],
+        ["産休・育休", "産休・育休"],
+        ["休職", "休職"],
+        ["その他", "その他"]
+      ], "")}
+      ${fieldSelect("corporation_id", "法人", state.masters.corporations, "", "corporation_name")}
+      <div class="store-assignment-box">
+        <strong>複数店舗所属</strong>
+        <p>主店舗は社員マスタの所属店舗にも同期されます。サブ店舗・第3店舗は兼任先として保存します。</p>
+        ${fieldSelect("store_id", "主店舗", state.masters.stores, "", "store_name")}
+        ${fieldSelect("store_assignment_2", "サブ店舗", state.masters.stores, "", "store_name")}
+        ${fieldSelect("store_assignment_3", "第3店舗", state.masters.stores, "", "store_name")}
+      </div>
+      ${fieldSelect("department_id", "部署", state.masters.departments, "", "department_name")}
+      ${fieldSelect("position_id", "役職", state.masters.positions, "", "position_name")}
+      ${fieldStaticSelect("employment_type", "雇用形態", [
+        ["正社員", "正社員"],
+        ["パート", "パート"],
+        ["アルバイト", "アルバイト"],
+        ["業務委託", "業務委託"],
+        ["役員", "役員"],
+        ["その他", "その他"]
+      ], "正社員")}
+      ${fieldStaticSelect("employment_status", "現職/休職/退職", [
+        ["現職", "現職"],
+        ["休職", "休職"],
+        ["退職", "退職"]
+      ], "現職")}
+      <label class="checkbox-row"><input type="checkbox" id="is_active" name="is_active" checked> 有効</label>
+      <p class="form-note">追加後、必要に応じて社員一覧から選択して権限や詳細を調整してください。</p>
+      <div class="detail-actions">
+        <span id="employee-save-status" class="save-status"></span>
+        <button class="button button-primary save-button" type="submit">社員を追加</button>
+      </div>
+    </form>
+  `;
+  const form = elements.detail.querySelector("#detail-form");
+  form.addEventListener("submit", saveNewEmployee);
+  setupDirtyForm("employee");
+  elements.detail.scrollTop = 0;
+}
+
+function validateEmployeeFormPayload(payload) {
+  const employeeId = String(payload.employee_id || "").trim();
+  const fullName = String(payload.full_name || "").trim();
+  if (!employeeId) {
+    showToast("社員番号を入力してください。", "error");
+    return false;
+  }
+  if (!fullName) {
+    showToast("氏名を入力してください。", "error");
+    return false;
+  }
+  if (state.employees.some((employee) => String(employee.employee_id) === employeeId)) {
+    showToast("同じ社員番号がすでに存在します。", "error");
+    return false;
+  }
+  return true;
+}
+
+async function saveNewEmployee(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector("button[type='submit']");
+  const invalidField = getInvalidDateField(form);
+  if (invalidField) {
+    showToast(`${invalidField} はカレンダーから日付を選択してください。`, "error");
+    return;
+  }
+  if (!isValidStoreSelection(form)) {
+    showToast("主店舗・サブ店舗・第3店舗は重複しないように選択してください。", "error");
+    return;
+  }
+  const payload = collectEmployeePayload(form);
+  payload.employee_id = String(payload.employee_id || "").trim();
+  payload.full_name = String(payload.full_name || "").trim();
+  if (!validateEmployeeFormPayload(payload)) return;
+
+  button.disabled = true;
+  button.textContent = "追加中...";
+  try {
+    const result = await callApiAction("masterCreateEmployee", payload);
+    const createdId = result?.employee?.id;
+    showToast("社員を追加しました。", "success");
+    await refreshEmployees();
+    if (createdId) state.selectedId = createdId;
+    state.formSnapshot = null;
+    render();
+  } catch (error) {
+    console.error(error);
+    showToast(error.message || "社員追加に失敗しました。", "error");
+    restoreSaveButtonState(form, button);
+  }
+}
 function renderEmployeeDetail(employee) {
   const retired = !employee.is_active || employee.employment_status === "退職";
   const storeAssignments = getStoreAssignmentsByOrder(employee.store_assignments || []);
@@ -1111,10 +1246,14 @@ function setReadonlyState(readonly) {
 }
 
 function fieldInput(name, label, value, type = "text") {
+  const options = typeof type === "object" && type ? type : { type };
+  const inputType = options.type || "text";
+  const required = options.required ? " required" : "";
+  const placeholder = options.placeholder ? ` placeholder="${escapeHtml(options.placeholder)}"` : "";
   return `
     <div class="form-field">
-      <label for="${name}">${label}</label>
-      <input class="form-input" id="${name}" name="${name}" type="${type}" value="${escapeHtml(value)}">
+      <label for="${escapeHtml(name)}">${escapeHtml(label)}</label>
+      <input class="form-input" id="${escapeHtml(name)}" name="${escapeHtml(name)}" type="${escapeHtml(inputType)}" value="${escapeHtml(value || "")}"${placeholder}${required}>
     </div>`;
 }
 
@@ -1457,6 +1596,7 @@ async function handleSignOut() {
 elements.signIn.addEventListener("click", handleSignIn);
 elements.signOut.addEventListener("click", handleSignOut);
 elements.refresh.addEventListener("click", loadData);
+elements.addEmployee.addEventListener("click", startCreateEmployee);
 elements.search.addEventListener("input", renderTable);
 document.querySelectorAll("[data-employee-status]").forEach((button) => {
   button.addEventListener("click", () => {

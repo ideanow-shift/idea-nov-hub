@@ -151,6 +151,12 @@ function doPost(e) {
       return jsonOutput_({ ok: true, logs: listMasterChangeLogs_() });
     }
 
+    if (action === 'masterCreateEmployee') {
+      stage = 'authorizeMasterAdmin';
+      assertMasterEditor_(employee);
+      stage = 'createEmployee';
+      return jsonOutput_({ ok: true, employee: createCoreEmployee_(payload, employee) });
+    }
     if (action === 'masterUpdateEmployee') {
       stage = 'authorizeMasterAdmin';
       assertMasterEditor_(employee);
@@ -1390,6 +1396,95 @@ function inferAssignmentChangeType_(before, after, updates) {
   return 'correction';
 }
 
+function createCoreEmployee_(payload, actor) {
+  const employeeId = String(payload.employee_id || '').trim();
+  const fullName = String(payload.full_name || '').trim();
+  if (!employeeId) {
+    throwPortalError_('INVALID_REQUEST', '社員番号を入力してください。');
+  }
+  if (!fullName) {
+    throwPortalError_('INVALID_REQUEST', '氏名を入力してください。');
+  }
+
+  const duplicateRows = supabaseRequest_('employees', {
+    query: { select: 'id,employee_id,full_name', employee_id: 'eq.' + employeeId, limit: '1' }
+  });
+  if (duplicateRows && duplicateRows.length) {
+    throwPortalError_('DUPLICATE_EMPLOYEE_ID', '同じ社員番号がすでに存在します。');
+  }
+
+  const now = new Date().toISOString();
+  const row = {
+    employee_id: employeeId,
+    full_name: fullName,
+    is_legacy: /^LEGACY-/i.test(employeeId),
+    is_active: Object.prototype.hasOwnProperty.call(payload, 'is_active') ? Boolean(payload.is_active) : true,
+    created_at: now,
+    updated_at: now
+  };
+
+  copyStringField_(row, payload, 'email');
+  copyStringField_(row, payload, 'leave_type');
+  copyStringField_(row, payload, 'employment_status');
+  copyStringField_(row, payload, 'employment_type');
+  if (!row.employment_status) row.employment_status = '現職';
+  if (!row.employment_type) row.employment_type = '正社員';
+
+  copyDateField_(row, payload, 'birth_date');
+  copyDateField_(row, payload, 'joined_on');
+  copyDateField_(row, payload, 'retired_on');
+  copyDateField_(row, payload, 'leave_start_date');
+  copyDateField_(row, payload, 'leave_end_date');
+
+  copyNullableUuidField_(row, payload, 'corporation_id');
+  copyNullableUuidField_(row, payload, 'store_id');
+  copyNullableUuidField_(row, payload, 'department_id');
+  copyNullableUuidField_(row, payload, 'position_id');
+
+  const createdRows = supabaseRequest_('employees', {
+    method: 'post',
+    query: { select: '*' },
+    payload: row,
+    prefer: 'return=representation'
+  });
+  const created = createdRows && createdRows[0] ? createdRows[0] : row;
+
+  appendMasterChangeLogSafely_('employees', created.id, row, actor, {
+    actionType: 'create',
+    targetName: created.full_name || fullName
+  });
+  appendAssignmentHistoryForCreatedEmployee_(created, actor);
+  updateEmployeeStoreAssignmentsIfPresent_(created.id, payload, actor);
+
+  return created;
+}
+
+function appendAssignmentHistoryForCreatedEmployee_(employee, actor) {
+  if (!employee || !employee.id) return;
+  const store = employee.store_id ? getCoreStoreById_(employee.store_id) : null;
+  const history = {
+    employee_id: employee.id,
+    corporation_id: employee.corporation_id || null,
+    business_unit_id: store && store.business_unit_id ? store.business_unit_id : null,
+    department_id: employee.department_id || null,
+    store_id: employee.store_id || null,
+    position_id: employee.position_id || null,
+    employment_status: employee.employment_status || '現職',
+    effective_from: employee.joined_on || Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd'),
+    change_type: 'join',
+    change_reason: 'マスタ管理画面から新規追加',
+    source: 'master_admin:' + (actor && actor.email ? actor.email : 'unknown')
+  };
+  try {
+    supabaseRequest_('employee_assignment_histories', {
+      method: 'post',
+      payload: history,
+      prefer: 'return=minimal'
+    });
+  } catch (error) {
+    console.error('Failed to append assignment history for created employee', error);
+  }
+}
 function updateCoreEmployee_(payload, actor) {
   const id = String(payload.id || '').trim();
   if (!id) throwPortalError_('INVALID_REQUEST', 'Employee id is required.');

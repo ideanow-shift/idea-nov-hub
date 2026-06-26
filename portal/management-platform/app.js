@@ -10,6 +10,14 @@ const dashboardCards = [
   { title: "改善", key: "actions", value: "0件", note: "コメントから次の行動を抽出して管理します。", status: "status-ok" },
   { title: "成長", key: "growth", value: "履歴作成中", note: "履歴が増えるほど比較・AI分析が可能になります。", status: "status-ok" }
 ];
+const MANAGEMENT_ADMIN_ROLE_KEYS = new Set([
+  "super_admin",
+  "executive",
+  "backoffice",
+  "department_manager",
+  "area_manager",
+  "store_manager"
+]);
 
 function hasApiConfig() {
   return Boolean(managementApiBaseUrl && typeof firebaseTokenProvider === "function");
@@ -23,6 +31,25 @@ function getHubContext() {
 function getDefaultStoreId() {
   const context = getHubContext();
   return context.primaryStoreId || context.storeId || context.store_id || window.MANAGEMENT_DEFAULT_STORE_ID || "";
+}
+
+function getRoleKeys() {
+  const context = getHubContext();
+  return Array.isArray(context.roleKeys) ? context.roleKeys.map(String) : [];
+}
+
+function isManagementAdmin() {
+  return getRoleKeys().some((roleKey) => MANAGEMENT_ADMIN_ROLE_KEYS.has(roleKey));
+}
+
+function getDisplayName() {
+  const context = getHubContext();
+  return context.displayName || context.fullName || context.name || "ログインユーザー";
+}
+
+function getStoreLabel() {
+  const context = getHubContext();
+  return context.primaryStoreName || context.storeName || context.store || "所属店舗";
 }
 
 function getLocalRecords() {
@@ -180,6 +207,11 @@ function renderDashboard() {
 
   const nextAction = document.getElementById("todayActionTitle");
   const nextNote = document.getElementById("todayActionNote");
+  if (!isManagementAdmin()) {
+    nextAction.textContent = "自分のマネジメントチェックを確認する";
+    nextNote.textContent = `${getDisplayName()}さんの所属店舗・自身に紐づく履歴を表示します。`;
+    return;
+  }
   if (records.length === 0) {
     nextAction.textContent = "環境整備チェックを1件登録する";
     nextNote.textContent = "最初の履歴を作ることで、写真管理・AIコメント・改善履歴へつながります。";
@@ -250,8 +282,9 @@ async function updateAuthStatus() {
     return;
   }
   const token = await firebaseTokenProvider();
+  const mode = isManagementAdmin() ? "管理者モード" : "スタッフ閲覧モード";
   status.textContent = token
-    ? "Management API設定済みです。NOV HUBのFirebase tokenで接続します。"
+    ? `Management API設定済みです。${mode} / ${getStoreLabel()} / ${getDisplayName()}`
     : "Firebase ID tokenが見つかりません。NOV HUBから開き直してください。";
 }
 
@@ -317,8 +350,23 @@ function bindEvents() {
   document.getElementById("logoutBtn").addEventListener("click", handleLogout);
 }
 
+function applyRoleBasedView() {
+  const admin = isManagementAdmin();
+  const environmentButton = document.querySelector('[data-view="environment"]');
+  if (environmentButton) environmentButton.hidden = !admin;
+  const environmentView = document.getElementById("view-environment");
+  if (environmentView) environmentView.hidden = !admin;
+  const authButton = document.querySelector('[data-view="auth"]');
+  if (authButton) authButton.textContent = "接続状態";
+  if (!admin) {
+    const recordsButton = document.querySelector('[data-view="records"]');
+    if (recordsButton) recordsButton.textContent = "自分の履歴";
+  }
+}
+
 renderScoreControls();
 bindEvents();
+applyRoleBasedView();
 updateAuthStatus();
 renderDashboard();
 renderRecords();

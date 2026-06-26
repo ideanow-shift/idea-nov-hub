@@ -10,6 +10,15 @@ const MANAGEMENT_HUB_CONTEXT_KEY = "ideaNov.management.hubContext";
 const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_APP_IDS = new Set(["management-check", "management-platform"]);
 const MANAGEMENT_APP_URL = "./management-platform/";
+const MANAGEMENT_ALLOWED_ROLE_KEYS = new Set([
+  "super_admin",
+  "executive",
+  "backoffice",
+  "department_manager",
+  "area_manager",
+  "store_manager",
+  "staff"
+]);
 const elements = Object.fromEntries([
   "header-user", "user-name", "user-store", "login-screen", "loading-screen",
   "denied-screen", "portal-screen", "google-login", "pin-login-form", "pin-email", "pin-code", "demo-controls", "demo-employee",
@@ -152,7 +161,9 @@ function normalizeManagementPlatformApps(apps = []) {
       description: app.description || "環境整備と管理者成長の履歴を確認",
       url: MANAGEMENT_APP_URL,
       category: app.category || "コンピテンシー",
-      icon: app.icon || "management-check"
+      icon: "management-check",
+      requiredLevel: 1,
+      allowedTags: []
     };
   });
 }
@@ -234,19 +245,32 @@ function buildAppLaunchUrl(appUrl, context) {
 }
 
 function isManagementPlatformApp(app) {
-  const candidates = [
+  const rawCandidates = [
     app.appId,
     app.appName,
     app.icon,
-    app.url
+    app.url,
+    app.description
   ].map((value) => String(value || "").toLowerCase());
+  const candidates = rawCandidates.flatMap((value) => [
+    value,
+    value.replace(/[\s　・/_-]/g, "")
+  ]);
   return candidates.some((value) => (
     MANAGEMENT_APP_IDS.has(value)
     || value.includes("management-platform")
+    || value.includes("managementplatform")
     || value.includes("management-check")
+    || value.includes("managementcheck")
     || value.includes("マネジメントチェック")
+    || value.includes("店舗のマネジメント状況のチェック")
     || value.includes("管理者育成")
   ));
+}
+
+function canLaunchManagementPlatform(context) {
+  const roles = new Set((context?.roleKeys || []).map(String));
+  return [...roles].some((roleKey) => MANAGEMENT_ALLOWED_ROLE_KEYS.has(roleKey));
 }
 
 async function saveManagementPlatformAuthContext(context) {
@@ -274,6 +298,10 @@ async function openApp(app) {
   if (state.mode === "firebase") {
     if (isManagementPlatformApp(app)) {
       try {
+        if (!canLaunchManagementPlatform(employeeContext)) {
+          showToast("Management Platformの利用権限がありません。");
+          return;
+        }
         await prepareManagementPlatformLaunch(app, employeeContext);
         writeAccessLog("openApp", { appId: app.appId, appName: app.appName, result: "success" })
           .catch((error) => console.warn("Management Platform access log failed", error));

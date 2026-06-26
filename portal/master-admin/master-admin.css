@@ -1003,3 +1003,15 @@ tr.selected {
   color: #9b6a28;
   border: 1px solid rgba(155, 106, 40, 0.24);
 }
+
+.role-action-button {
+  justify-self: start;
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+.log-type-badge.role {
+  background: #F6FBF7;
+  color: #1F6F45;
+}

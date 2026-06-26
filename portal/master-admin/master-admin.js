@@ -900,12 +900,15 @@ function formatActionType(actionType) {
     create: "新規追加",
     update: "更新",
     link_firebase_uid: "Firebase UID連携",
-    update_store_assignments: "店舗所属更新"
+    update_store_assignments: "店舗所属更新",
+    assign_staff_role: "HUB権限付与",
+    auto_assign_staff_role: "HUB権限自動付与"
   }[actionType] || "更新";
 }
 
 function getLogTypeLabel(log) {
   if (log.table_name === "employee_store_assignments") return "店舗所属";
+  if (log.table_name === "employee_roles") return "HUB権限";
   if (log.table_name === "stores") return "店舗情報";
   if (log.table_name === "employees") return "社員情報";
   return log.table_name || "変更履歴";
@@ -913,6 +916,7 @@ function getLogTypeLabel(log) {
 
 function getLogTypeClass(log) {
   if (log.table_name === "employee_store_assignments") return "store-assignment";
+  if (log.table_name === "employee_roles") return "role";
   if (log.table_name === "stores") return "store";
   if (log.table_name === "employees") return "employee";
   return "";
@@ -978,6 +982,8 @@ function getStoreAssignmentLabel(order) {
 function getFieldLabel(key) {
   return {
     email: "メール",
+    hub_role: "HUB権限",
+    scope_type: "権限範囲",
     birth_date: "誕生日",
     joined_on: "入社日",
     retired_on: "退職日",
@@ -1167,10 +1173,11 @@ function renderEmployeeCreatedPanel(employee) {
   const hasEmail = Boolean(String(employee.email || "").trim());
   const hasLocation = Boolean(employee.store_id || employee.department_id);
   const hasPosition = Boolean(employee.position_id);
+  const hasHubRole = Array.isArray(employee.role_keys) && employee.role_keys.filter(Boolean).length > 0;
   return `
     <section class="created-employee-panel">
       <strong>社員を追加しました</strong>
-      <p>社員台帳への登録は完了しています。月初更新では、次の3点だけ確認すると後続アプリへつなげやすくなります。</p>
+      <p>社員台帳への登録は完了しています。月初更新では、次の4点だけ確認すると後続アプリへつなげやすくなります。</p>
       <ul>
         <li class="${hasEmail ? "done" : "pending"}">メール: ${hasEmail ? "設定済み" : "未設定。発行後に追記します。"}</li>
         <li class="${hasLocation ? "done" : "pending"}">所属: ${hasLocation ? "設定済み" : "店舗または部署を設定してください。"}</li>
@@ -1265,6 +1272,7 @@ function renderEmployeeDetail(employee) {
   }
   document.querySelector("#retire-employee")?.addEventListener("click", retireEmployee);
   document.querySelector("#link-firebase-uid")?.addEventListener("click", linkFirebaseUid);
+  document.querySelector("#assign-staff-role")?.addEventListener("click", assignStaffRole);
 }
 
 function renderEmployeeRolePanel(employee) {
@@ -1606,6 +1614,29 @@ async function retireEmployee(event) {
   }
 }
 
+async function assignStaffRole(event) {
+  const employee = state.employees.find((item) => item.id === state.selectedId);
+  if (!employee) return;
+  const confirmed = window.confirm(`${employee.full_name}さんにHUB基本権限（staff）を付与します。\n\nstaffは管理者権限ではありません。`);
+  if (!confirmed) return;
+  const button = event.currentTarget;
+  const originalText = button.textContent;
+  try {
+    button.disabled = true;
+    button.textContent = "付与中...";
+    await callApiAction("masterAssignDefaultStaffRole", { id: employee.id });
+    showToast("staff権限を付与しました。", "success");
+    await refreshEmployees();
+    await refreshLogsSilently();
+    state.selectedId = employee.id;
+    render();
+  } catch (error) {
+    console.error(error);
+    showToast(getErrorMessage(error));
+    button.disabled = false;
+    button.textContent = originalText || "staff権限を付与";
+  }
+}
 async function linkFirebaseUid(event) {
   const employee = state.employees.find((item) => item.id === state.selectedId);
   const firebaseUid = document.querySelector("#firebase_uid")?.value.trim() || "";
@@ -1775,4 +1806,3 @@ document.querySelectorAll("[data-view]").forEach((button) => {
 });
 
 showMode("auth");
-

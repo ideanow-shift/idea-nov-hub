@@ -157,6 +157,12 @@ function doPost(e) {
       stage = 'createEmployee';
       return jsonOutput_({ ok: true, employee: createCoreEmployee_(payload, employee) });
     }
+    if (action === 'masterAssignDefaultStaffRole') {
+      stage = 'authorizeMasterAdmin';
+      assertMasterEditor_(employee);
+      stage = 'assignDefaultStaffRole';
+      return jsonOutput_({ ok: true, employeeRole: assignDefaultStaffRole_(payload, employee) });
+    }
     if (action === 'masterUpdateEmployee') {
       stage = 'authorizeMasterAdmin';
       assertMasterEditor_(employee);
@@ -1455,6 +1461,7 @@ function createCoreEmployee_(payload, actor) {
   });
   appendAssignmentHistoryForCreatedEmployee_(created, actor);
   updateEmployeeStoreAssignmentsIfPresent_(created.id, payload, actor);
+  assignDefaultStaffRoleSafely_(created, actor);
 
   return created;
 }
@@ -1484,6 +1491,100 @@ function appendAssignmentHistoryForCreatedEmployee_(employee, actor) {
   } catch (error) {
     console.error('Failed to append assignment history for created employee', error);
   }
+}
+function assignDefaultStaffRole_(payload, actor) {
+  const id = String(payload.id || '').trim();
+  if (!id) throwPortalError_('INVALID_REQUEST', 'Employee id is required.');
+  const employee = getCoreEmployeeById_(id);
+  if (!employee || !employee.id) throwPortalError_('NOT_FOUND', '社員が見つかりません。');
+  if (!isStaffRoleAssignableEmployee_(employee)) {
+    throwPortalError_('INVALID_REQUEST', '退職者・休職者にはstaff権限を付与しません。');
+  }
+  return assignDefaultStaffRoleForEmployee_(employee, actor, false);
+}
+
+function assignDefaultStaffRoleSafely_(employee, actor) {
+  try {
+    if (!isStaffRoleAssignableEmployee_(employee)) return null;
+    return assignDefaultStaffRoleForEmployee_(employee, actor, true);
+  } catch (error) {
+    console.error(JSON.stringify({
+      code: 'DEFAULT_STAFF_ROLE_FAILED',
+      employee_id: employee && employee.employee_id,
+      message: String(error.message || error)
+    }));
+    return null;
+  }
+}
+
+function isStaffRoleAssignableEmployee_(employee) {
+  if (!employee || !employee.id) return false;
+  if (employee.is_active === false) return false;
+  if (/退職|休職|産休|育休/.test(String(employee.employment_status || ''))) return false;
+  return true;
+}
+
+function getStaffRole_() {
+  const rows = supabaseRequest_('roles', {
+    query: {
+      select: 'id,role_key,role_name',
+      role_key: 'eq.staff',
+      is_active: 'eq.true',
+      limit: '1'
+    }
+  });
+  const role = rows && rows[0] ? rows[0] : null;
+  if (!role || !role.id) throwPortalError_('ROLE_NOT_FOUND', 'staffロールが見つかりません。');
+  return role;
+}
+
+function assignDefaultStaffRoleForEmployee_(employee, actor, silent) {
+  const staffRole = getStaffRole_();
+  const existingRows = supabaseRequest_('employee_roles', {
+    query: {
+      select: 'id,employee_id,role_id,scope_type,is_active',
+      employee_id: 'eq.' + employee.id,
+      role_id: 'eq.' + staffRole.id,
+      scope_type: 'eq.all',
+      limit: '1'
+    }
+  });
+  const existing = existingRows && existingRows[0] ? existingRows[0] : null;
+  if (existing && existing.is_active !== false) return existing;
+
+  let employeeRole = null;
+  if (existing && existing.id) {
+    const result = supabaseRequest_('employee_roles', {
+      method: 'patch',
+      query: { id: 'eq.' + existing.id, select: '*' },
+      payload: { is_active: true },
+      prefer: 'return=representation'
+    });
+    employeeRole = result[0] || existing;
+  } else {
+    const result = supabaseRequest_('employee_roles', {
+      method: 'post',
+      query: { select: '*' },
+      payload: {
+        employee_id: employee.id,
+        role_id: staffRole.id,
+        scope_type: 'all',
+        is_active: true
+      },
+      prefer: 'return=representation'
+    });
+    employeeRole = result[0] || null;
+  }
+
+  appendMasterChangeLogSafely_('employee_roles', employee.id, {
+    hub_role: 'staff',
+    scope_type: 'all'
+  }, actor, {
+    actionType: silent ? 'auto_assign_staff_role' : 'assign_staff_role',
+    targetName: employee.full_name || employee.employee_id || employee.id
+  });
+
+  return employeeRole;
 }
 function updateCoreEmployee_(payload, actor) {
   const id = String(payload.id || '').trim();
@@ -1768,6 +1869,8 @@ function buildMasterChangeSummary_(changes) {
 function getMasterChangeFieldLabel_(key) {
   return {
     email: 'メール',
+    hub_role: 'HUB権限',
+    scope_type: '権限範囲',
     birth_date: '誕生日',
     joined_on: '入社日',
     retired_on: '退職日',

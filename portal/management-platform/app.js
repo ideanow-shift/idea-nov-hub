@@ -1108,9 +1108,10 @@ function escapeCsvCell(value) {
 }
 
 function toHistoryCsvRows(records) {
-  const header = ["日時", "店舗", "対象者", "4役割", "項目数", "写真数", "0点", "3点", "5点", "Score", "次の行動"];
+  const header = ["日時", "店舗", "対象者", "4役割", "項目数", "写真数", "0点", "3点", "5点", "Score", "次の行動", "AI改善タイトル", "AI改善要約", "AI改善提案"];
   const rows = records.map((record) => {
     const breakdown = getRecordBreakdown(record);
+    const aiDraft = generateAiCommentDraft(record, records);
     return [
       formatDate(record.checked_at),
       record.store,
@@ -1122,7 +1123,10 @@ function toHistoryCsvRows(records) {
       Number(breakdown.score3 || 0),
       Number(breakdown.score5 || 0),
       record.score,
-      record.comment
+      record.comment,
+      aiDraft.title,
+      aiDraft.summary,
+      aiDraft.suggestions.join(" / ")
     ];
   });
   return [header, ...rows].map((row) => row.map(escapeCsvCell).join(","));

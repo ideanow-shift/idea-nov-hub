@@ -329,6 +329,7 @@ function fromApiCheck(row) {
     score: row.overall_score,
     comment: row.summary_comment || row.next_action || "",
     photo_url: "",
+    photo_count: Number(row.photo_count || 0),
     result_count: Number(row.result_count || 0),
     score_breakdown: hasScoreBreakdown ? {
       score0: Number(scoreBreakdown.score0 || 0),
@@ -792,6 +793,7 @@ function getFilteredRecords(records) {
     if (periodFilter === "current_month" && !isInCurrentMonth(record.checked_at)) return false;
     if (periodFilter === "last_30_days" && !isWithinLastDays(record.checked_at, 30)) return false;
     if (issueFilter === "comments") return Boolean(record.comment && record.comment.trim());
+    if (issueFilter === "photos") return hasRecordPhotos(record);
     if (issueFilter === "issues") {
       const breakdown = getRecordBreakdown(record);
       return Number(breakdown.score0 || 0) + Number(breakdown.score3 || 0) > 0;
@@ -821,11 +823,26 @@ function renderHistoryFilters(records) {
   return filtered;
 }
 
+function hasRecordPhotos(record) {
+  if (Number(record.photo_count || 0) > 0) return true;
+  if (record.photo_url || record.photo_storage_path) return true;
+  return (record.results || []).some((result) => (result.photos || []).length > 0);
+}
+
+function getRecordPhotoCount(record) {
+  if (Number(record.photo_count || 0) > 0) return Number(record.photo_count || 0);
+  let count = record.photo_url || record.photo_storage_path ? 1 : 0;
+  for (const result of record.results || []) {
+    count += (result.photos || []).length;
+  }
+  return count;
+}
+
 function renderRecords(records = getLocalRecords()) {
   const body = document.getElementById("recordsBody");
   const filteredRecords = renderHistoryFilters(records) || records;
   if (filteredRecords.length === 0) {
-    body.innerHTML = `<tr><td colspan="9" class="empty-cell">まだ履歴がありません。</td></tr>`;
+    body.innerHTML = `<tr><td colspan="10" class="empty-cell">まだ履歴がありません。</td></tr>`;
     return;
   }
   body.innerHTML = filteredRecords.map((record) => `
@@ -835,6 +852,7 @@ function renderRecords(records = getLocalRecords()) {
       <td>${escapeHtml(record.target_user)}</td>
       <td>${escapeHtml(record.management_category)}</td>
       <td><span class="count-badge">${Number(record.result_count || record.results?.length || 0)}項目</span></td>
+      <td>${hasRecordPhotos(record) ? `<span class="count-badge photo-badge">${getRecordPhotoCount(record)}枚</span>` : "-"}</td>
       <td>${formatScoreBreakdown(record)}</td>
       <td><strong>${record.score}</strong></td>
       <td>${escapeHtml(record.comment)}</td>
@@ -1010,7 +1028,7 @@ function escapeCsvCell(value) {
 }
 
 function toHistoryCsvRows(records) {
-  const header = ["日時", "店舗", "対象者", "4役割", "項目数", "0点", "3点", "5点", "Score", "次の行動"];
+  const header = ["日時", "店舗", "対象者", "4役割", "項目数", "写真数", "0点", "3点", "5点", "Score", "次の行動"];
   const rows = records.map((record) => {
     const breakdown = getRecordBreakdown(record);
     return [
@@ -1019,6 +1037,7 @@ function toHistoryCsvRows(records) {
       record.target_user,
       record.management_category,
       Number(record.result_count || record.results?.length || 0),
+      getRecordPhotoCount(record),
       Number(breakdown.score0 || 0),
       Number(breakdown.score3 || 0),
       Number(breakdown.score5 || 0),

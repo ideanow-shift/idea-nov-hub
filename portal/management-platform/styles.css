@@ -565,6 +565,11 @@ th {
   text-decoration: none;
 }
 
+.photo-badge {
+  background: #eef9f4;
+  color: var(--ok);
+}
+
 .photo-preview-panel {
   display: grid;
   gap: 8px;

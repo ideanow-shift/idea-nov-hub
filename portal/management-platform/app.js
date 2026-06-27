@@ -580,18 +580,41 @@ function getRecentActionRecords(records) {
     .slice(0, 3);
 }
 
+function getAiCommentAudience() {
+  const roles = getRoleKeys();
+  if (roles.includes("super_admin") || roles.includes("executive") || roles.includes("backoffice")) {
+    return "global_manager";
+  }
+  if (roles.includes("area_manager") || roles.includes("department_manager")) {
+    return "area_manager";
+  }
+  if (roles.includes("store_manager")) {
+    return "store_manager";
+  }
+  return "staff";
+}
+
 function generateAiCommentDraft(record, records) {
   const breakdown = getRecordBreakdown(record);
   const score0 = Number(breakdown.score0 || 0);
   const score3 = Number(breakdown.score3 || 0);
   const photoCount = getRecordPhotoCount(record);
   const hasComment = Boolean(record.comment && record.comment.trim());
+  const audience = getAiCommentAudience();
   const suggestions = [];
 
-  if (score0 > 0) {
-    suggestions.push(`0点の${score0}項目を最優先で現場確認し、原因を1つに絞ってください。`);
+  if (audience === "staff") {
+    if (score0 > 0) {
+      suggestions.push(`0点の${score0}項目から、自分が今日改善できる行動を1つ選んでください。`);
+    } else if (score3 > 0) {
+      suggestions.push(`3点の${score3}項目を見て、次回5点に近づける行動を1つ決めてください。`);
+    } else {
+      suggestions.push("良い状態を維持できています。続けたい行動を1つ言語化してください。");
+    }
+  } else if (score0 > 0) {
+    suggestions.push(`0点の${score0}項目を最優先で現場確認し、店舗としての原因を1つに絞ってください。`);
   } else if (score3 > 0) {
-    suggestions.push(`3点の${score3}項目から、次回までに改善する項目を1つ選んでください。`);
+    suggestions.push(`3点の${score3}項目から、店舗で次回までに改善する項目を1つ選んでください。`);
   } else {
     suggestions.push("良い状態を維持するため、できている行動を店舗内で共有してください。");
   }
@@ -603,12 +626,15 @@ function generateAiCommentDraft(record, records) {
   }
 
   if (!hasComment) {
-    suggestions.push("コメントに「気づき」と「次の行動」を1文ずつ残してください。");
+    suggestions.push(audience === "staff"
+      ? "コメントに「自分の気づき」と「次にやること」を1文ずつ残してください。"
+      : "コメントに「店舗の気づき」と「次の改善行動」を1文ずつ残してください。");
   }
 
+  const titlePrefix = audience === "staff" ? "自分の" : audience === "store_manager" ? "自店の" : "担当範囲の";
   return {
-    title: score0 > 0 ? "最優先課題を絞る" : score3 > 0 ? "次の改善行動を決める" : "良い状態を継続する",
-    summary: `これは評価ではなく、最新履歴${records.length}件をもとにした改善提案です。`,
+    title: score0 > 0 ? `${titlePrefix}最優先課題を絞る` : score3 > 0 ? `${titlePrefix}次の改善行動を決める` : `${titlePrefix}良い状態を継続する`,
+    summary: `これは評価ではなく、最新履歴${records.length}件をもとにした${audience === "staff" ? "成長" : "改善"}提案です。`,
     suggestions: suggestions.slice(0, 3)
   };
 }

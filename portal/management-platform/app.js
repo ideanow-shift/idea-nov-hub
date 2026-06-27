@@ -554,6 +554,8 @@ function getDashboardSummary(records) {
     ? Number(latestBreakdown.score0 || 0) + Number(latestBreakdown.score3 || 0)
     : records.filter((record) => Number(record.score) <= 3).length;
   const actionCount = records.filter((record) => record.comment && record.comment.trim()).length;
+  const photoRecordCount = records.filter(hasRecordPhotos).length;
+  const photoCount = records.reduce((sum, record) => sum + getRecordPhotoCount(record), 0);
   const latestScore = latest && Number.isFinite(Number(latest.score)) ? Number(latest.score).toFixed(1) : "未登録";
 
   return {
@@ -561,13 +563,13 @@ function getDashboardSummary(records) {
       current: latest ? latestScore : "未登録",
       issues: `${issueCount}件`,
       actions: `${actionCount}件`,
-      growth: `${records.length}件`
+      growth: photoCount ? `写真${photoCount}枚` : `${records.length}件`
     },
     notes: {
       current: latest ? `${latest.store || "店舗"} の最新平均スコアです。` : "最初の環境整備チェックを登録してください。",
       issues: latest ? "最新チェックの0点・3点を課題候補として扱います。" : "履歴作成後に課題候補を表示します。",
       actions: actionCount ? "コメントがある履歴を改善行動の材料にします。" : "コメントに次の行動を残すと改善履歴に繋がります。",
-      growth: records.length ? "履歴が増えるほど比較・AI分析が可能になります。" : "履歴が増えるほど成長推移を見られます。"
+      growth: photoCount ? `写真付き履歴 ${photoRecordCount}件。比較・AI分析の材料が増えています。` : records.length ? "履歴が増えるほど比較・AI分析が可能になります。" : "履歴が増えるほど成長推移を見られます。"
     }
   };
 }

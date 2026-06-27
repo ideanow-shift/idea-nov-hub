@@ -177,6 +177,13 @@ function doPost(e) {
       return jsonOutput_({ ok: true, employee: linkFirebaseUid_(payload, employee) });
     }
 
+    if (action === 'masterUpdateEmployeeLoginCredential') {
+      stage = 'authorizeMasterAdmin';
+      assertMasterEditor_(employee);
+      stage = 'updateEmployeeLoginCredential';
+      return jsonOutput_({ ok: true, credential: updateEmployeeLoginCredential_(payload, employee) });
+    }
+
     if (action === 'masterUpdateStore') {
       stage = 'authorizeMasterAdmin';
       assertMasterEditor_(employee);
@@ -415,6 +422,7 @@ function normalizeCorePortalEmployee_(employee) {
   const roleKeys = roles.map(function(role) { return role.roleKey; }).filter(String);
   const storeAssignments = safeCoreStoreAssignments_(employee);
   const primaryStore = buildPrimaryStoreContext_(store, storeAssignments);
+  const loginCredential = safeCoreLoginCredential_(employee);
   const tags = buildCorePortalTags_(employee, {
     corporation: corporation,
     store: store,
@@ -447,6 +455,8 @@ function normalizeCorePortalEmployee_(employee) {
     employmentStatus: employee.employment_status || '',
     employmentType: employee.employment_type || '',
     isActive: employee.is_active !== false,
+    loginCredential: loginCredential,
+    mustChangePin: Boolean(loginCredential && loginCredential.must_change_pin),
     corporationRef: corporation ? {
       id: corporation.id || '',
       code: corporation.corporation_no || '',
@@ -505,6 +515,15 @@ function safeCoreStoreAssignments_(employee) {
   }
 }
 
+function safeCoreLoginCredential_(employee) {
+  try {
+    return sanitizeLoginCredential_(getLoginCredentialByEmployeeId_(employee && employee.id));
+  } catch (error) {
+    console.error('Core login credential lookup failed', error);
+    return null;
+  }
+}
+
 function buildPrimaryStoreContext_(store, assignments) {
   const primaryAssignment = (assignments || []).filter(function(item) { return item.assignmentType === 'primary' || Number(item.priority || 0) === 1; })[0];
   if (primaryAssignment) {
@@ -559,6 +578,13 @@ function findActiveEmployeeByPin_(email, pin) {
   const normalizedPin = normalizePinValue_(pin);
   if (!normalizedEmail || !normalizedPin) return null;
 
+  try {
+    const coreEmployee = findActiveCoreEmployeeByPin_(normalizedEmail, normalizedPin);
+    if (coreEmployee) return coreEmployee;
+  } catch (error) {
+    console.error('Core PIN login failed. Falling back to legacy staff sheet.', error);
+  }
+
   const employee = readStaffRows_()
     .map(normalizeEmployee_)
     .filter(function(item) { return item.email; })
@@ -567,6 +593,78 @@ function findActiveEmployeeByPin_(email, pin) {
   if (!employee || employee.status !== 'active') return null;
   if (normalizePinValue_(employee.pin) !== normalizedPin) return null;
   return enrichEmployeeWithStore_(employee);
+}
+
+function findActiveCoreEmployeeByPin_(email, pin) {
+  const credential = findLoginCredentialByEmail_(email);
+  if (!credential) return null;
+  if (credential.login_enabled === false) return null;
+  if (isCredentialLocked_(credential)) return null;
+
+  if (!verifyPinHash_(pin, credential.pin_hash)) {
+    registerFailedPinAttempt_(credential);
+    return null;
+  }
+
+  const employee = getCoreEmployeeById_(credential.employee_id);
+  if (!isCoreEmployeeActiveForPortal_(employee)) return null;
+  registerSuccessfulPinLogin_(credential);
+  const normalized = normalizeCorePortalEmployee_(employee);
+  normalized.email = normalizeEmailValue_(credential.login_email || normalized.email);
+  normalized.loginCredential = sanitizeLoginCredential_(credential);
+  normalized.mustChangePin = Boolean(credential.must_change_pin);
+  return normalized;
+}
+
+function findLoginCredentialByEmail_(email) {
+  const normalizedEmail = normalizeEmailValue_(email);
+  if (!normalizedEmail) return null;
+  const rows = supabaseRequest_('employee_login_credentials', {
+    query: {
+      select: 'id,employee_id,login_email,pin_hash,pin_updated_at,must_change_pin,login_enabled,failed_attempts,locked_until,last_login_at,created_at,updated_at',
+      login_email: 'eq.' + normalizedEmail,
+      limit: '1'
+    }
+  });
+  return rows[0] || null;
+}
+
+function isCredentialLocked_(credential) {
+  if (!credential || !credential.locked_until) return false;
+  return new Date(credential.locked_until).getTime() > new Date().getTime();
+}
+
+function registerFailedPinAttempt_(credential) {
+  if (!credential || !credential.id) return;
+  const failedAttempts = Number(credential.failed_attempts || 0) + 1;
+  const updates = {
+    failed_attempts: failedAttempts,
+    updated_at: new Date().toISOString()
+  };
+  if (failedAttempts >= 5) {
+    updates.locked_until = new Date(new Date().getTime() + 15 * 60 * 1000).toISOString();
+  }
+  supabaseRequest_('employee_login_credentials', {
+    method: 'patch',
+    query: { id: 'eq.' + credential.id },
+    payload: updates,
+    prefer: 'return=minimal'
+  });
+}
+
+function registerSuccessfulPinLogin_(credential) {
+  if (!credential || !credential.id) return;
+  supabaseRequest_('employee_login_credentials', {
+    method: 'patch',
+    query: { id: 'eq.' + credential.id },
+    payload: {
+      failed_attempts: 0,
+      locked_until: null,
+      last_login_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    prefer: 'return=minimal'
+  });
 }
 
 function findAppById_(appId) {
@@ -664,6 +762,8 @@ function sanitizeEmployee_(employee) {
     employmentStatus: employee.employmentStatus || '',
     employmentType: employee.employmentType || '',
     isActive: employee.isActive !== false,
+    loginCredential: employee.loginCredential || null,
+    mustChangePin: Boolean(employee.mustChangePin),
     corporationRef: employee.corporationRef || null,
     departmentRef: employee.departmentRef || null,
     positionRef: employee.positionRef || null,
@@ -818,7 +918,9 @@ function getHealthStatus_() {
       firebaseApiKeyValid: false,
       supabaseUrlConfigured: Boolean(properties.getProperty('SUPABASE_URL')),
       supabaseServiceRoleKeyConfigured: Boolean(properties.getProperty('SUPABASE_SERVICE_ROLE_KEY')),
+      pinHashPepperConfigured: Boolean(properties.getProperty('PIN_HASH_PEPPER')),
       supabaseReachable: false,
+      loginCredentialsReachable: false,
       portalSpreadsheetAccessible: false,
       staffSpreadsheetAccessible: false,
       storeSpreadsheetAccessible: false,
@@ -898,6 +1000,13 @@ function getHealthStatus_() {
         }
       });
       result.checks.supabaseReachable = Array.isArray(rows);
+      const credentials = supabaseRequest_('employee_login_credentials', {
+        query: {
+          select: 'id',
+          limit: '1'
+        }
+      });
+      result.checks.loginCredentialsReachable = Array.isArray(credentials);
     }
   } catch (error) {
     result.checks.supabaseError = sanitizeErrorDetail_(String(error.message || error));
@@ -908,7 +1017,9 @@ function getHealthStatus_() {
     && result.checks.firebaseApiKeyValid
     && result.checks.supabaseUrlConfigured
     && result.checks.supabaseServiceRoleKeyConfigured
+    && result.checks.pinHashPepperConfigured
     && result.checks.supabaseReachable
+    && result.checks.loginCredentialsReachable
     && result.checks.portalSpreadsheetAccessible
     && result.checks.staffSpreadsheetAccessible
     && result.checks.storeSpreadsheetAccessible
@@ -1136,6 +1247,7 @@ function getMasterHealthStatus_() {
     ['stores', function() { return listCoreStores_(); }],
     ['positions', function() { return listCoreMaster_('positions', 'id,position_no,position_name,is_active', 'position_no.asc'); }],
     ['employees', function() { return listCoreEmployees_(); }],
+    ['employee_login_credentials', function() { return listEmployeeLoginCredentials_(); }],
     ['employee_assignment_histories', function() { return listAssignmentHistories_(); }],
     ['employee_store_assignments', function() { return listEmployeeStoreAssignments_(); }]
   ].forEach(function(item) {
@@ -1177,12 +1289,14 @@ function listCoreEmployees_() {
   const positions = indexById_(listCoreMaster_('positions', 'id,position_name', 'position_no.asc'));
   const storeAssignmentsByEmployee = groupStoreAssignmentsByEmployee_(listEmployeeStoreAssignments_(), stores);
   const rolesByEmployee = groupRolesByEmployee_();
+  const credentialsByEmployee = indexLoginCredentialsByEmployee_();
   return employees.map(function(employee) {
     const source = employee.source_row || {};
     const corporation = corporations[employee.corporation_id] || {};
     const store = stores[employee.store_id] || {};
     const department = departments[employee.department_id] || {};
     const position = positions[employee.position_id] || {};
+    const credential = credentialsByEmployee[employee.id] || null;
     return Object.assign({}, employee, {
       corporation_name: corporation.corporation_name || '',
       corporation_code: corporation.corporation_no || '',
@@ -1196,9 +1310,64 @@ function listCoreEmployees_() {
       role_names: rolesByEmployee[employee.id] ? rolesByEmployee[employee.id].role_names : [],
       source_company_name: String(source.company_name || ''),
       source_assigned_location: String(source.assigned_location || ''),
-      source_position_name: String(source.position_name || '')
+      source_position_name: String(source.position_name || ''),
+      login_credential: credential
     });
   });
+}
+
+function listEmployeeLoginCredentials_() {
+  try {
+    return supabaseRequest_('employee_login_credentials', {
+      query: {
+        select: 'id,employee_id,login_email,pin_hash,pin_updated_at,must_change_pin,login_enabled,failed_attempts,locked_until,last_login_at,created_at,updated_at',
+        limit: '2000'
+      }
+    });
+  } catch (error) {
+    console.error('Failed to list employee login credentials', error);
+    return [];
+  }
+}
+
+function getLoginCredentialByEmployeeId_(employeeId) {
+  const id = String(employeeId || '').trim();
+  if (!id) return null;
+  const rows = supabaseRequest_('employee_login_credentials', {
+    query: {
+      select: 'id,employee_id,login_email,pin_hash,pin_updated_at,must_change_pin,login_enabled,failed_attempts,locked_until,last_login_at,created_at,updated_at',
+      employee_id: 'eq.' + id,
+      limit: '1'
+    }
+  });
+  return rows[0] || null;
+}
+
+function indexLoginCredentialsByEmployee_() {
+  return listEmployeeLoginCredentials_().reduce(function(index, credential) {
+    const employeeId = credential.employee_id || '';
+    if (!employeeId) return index;
+    index[employeeId] = sanitizeLoginCredential_(credential);
+    return index;
+  }, {});
+}
+
+function sanitizeLoginCredential_(credential) {
+  if (!credential) return null;
+  return {
+    id: credential.id || '',
+    employee_id: credential.employee_id || '',
+    login_email: normalizeEmailValue_(credential.login_email),
+    pin_set: Boolean(credential.pin_hash),
+    pin_updated_at: credential.pin_updated_at || '',
+    must_change_pin: Boolean(credential.must_change_pin),
+    login_enabled: credential.login_enabled !== false,
+    failed_attempts: Number(credential.failed_attempts || 0),
+    locked_until: credential.locked_until || '',
+    locked: isCredentialLocked_(credential),
+    last_login_at: credential.last_login_at || '',
+    updated_at: credential.updated_at || ''
+  };
 }
 
 function listCoreStores_() {
@@ -1773,6 +1942,112 @@ function linkFirebaseUid_(payload, actor) {
     targetName: after && after.full_name ? after.full_name : before && before.full_name ? before.full_name : ''
   });
   return after;
+}
+
+function updateEmployeeLoginCredential_(payload, actor) {
+  const employeeId = String(payload.id || payload.employee_id || '').trim();
+  if (!employeeId) throwPortalError_('INVALID_REQUEST', 'Employee id is required.');
+
+  const employee = getCoreEmployeeById_(employeeId);
+  if (!employee || !employee.id) throwPortalError_('NOT_FOUND', '社員が見つかりません。');
+
+  const loginEmail = normalizeEmailValue_(payload.login_email || employee.email);
+  if (!loginEmail) throwPortalError_('INVALID_REQUEST', 'ログインメールを入力してください。');
+
+  const newPin = normalizePinValue_(payload.new_pin);
+  if (newPin && !/^\d{4,12}$/.test(newPin)) {
+    throwPortalError_('INVALID_REQUEST', 'PINは4〜12桁の数字で入力してください。');
+  }
+
+  const duplicate = findLoginCredentialByEmail_(loginEmail);
+  if (duplicate && duplicate.employee_id !== employeeId) {
+    throwPortalError_('DUPLICATE_LOGIN_EMAIL', '同じログインメールが別の社員に設定されています。');
+  }
+
+  const existing = getLoginCredentialByEmployeeId_(employeeId);
+  const now = new Date().toISOString();
+  const updates = {
+    employee_id: employeeId,
+    login_email: loginEmail,
+    login_enabled: parseBooleanLike_(payload.login_enabled, true),
+    must_change_pin: parseBooleanLike_(payload.must_change_pin, false),
+    failed_attempts: parseBooleanLike_(payload.clear_lock, false) ? 0 : existing ? Number(existing.failed_attempts || 0) : 0,
+    locked_until: parseBooleanLike_(payload.clear_lock, false) ? null : existing ? existing.locked_until || null : null,
+    updated_at: now
+  };
+
+  if (newPin) {
+    updates.pin_hash = hashPin_(newPin);
+    updates.pin_updated_at = now;
+    updates.failed_attempts = 0;
+    updates.locked_until = null;
+  }
+
+  let result;
+  if (existing && existing.id) {
+    result = supabaseRequest_('employee_login_credentials', {
+      method: 'patch',
+      query: { id: 'eq.' + existing.id, select: '*' },
+      payload: updates,
+      prefer: 'return=representation'
+    });
+  } else {
+    result = supabaseRequest_('employee_login_credentials', {
+      method: 'post',
+      query: { select: '*' },
+      payload: Object.assign({
+        created_at: now
+      }, updates),
+      prefer: 'return=representation'
+    });
+  }
+
+  const credential = result && result[0] ? result[0] : getLoginCredentialByEmployeeId_(employeeId);
+  appendMasterChangeLogSafely_('employee_login_credentials', employeeId, {
+    login_email: loginEmail,
+    login_enabled: updates.login_enabled,
+    must_change_pin: updates.must_change_pin,
+    pin_changed: Boolean(newPin),
+    lock_cleared: parseBooleanLike_(payload.clear_lock, false)
+  }, actor, {
+    actionType: existing && existing.id ? 'update_login_credential' : 'create_login_credential',
+    targetName: employee.full_name || employee.employee_id || employeeId
+  });
+  return sanitizeLoginCredential_(credential);
+}
+
+function hashPin_(pin) {
+  const normalizedPin = normalizePinValue_(pin);
+  const pepper = getRequiredProperty_('PIN_HASH_PEPPER');
+  const signature = Utilities.computeHmacSha256Signature(normalizedPin, pepper);
+  return 'hmac-sha256$' + Utilities.base64Encode(signature);
+}
+
+function verifyPinHash_(pin, storedHash) {
+  const hash = String(storedHash || '');
+  if (!hash) return false;
+  if (hash.indexOf('hmac-sha256$') !== 0) return false;
+  return constantTimeEquals_(hashPin_(pin), hash);
+}
+
+function constantTimeEquals_(left, right) {
+  const a = String(left || '');
+  const b = String(right || '');
+  let diff = a.length ^ b.length;
+  const length = Math.max(a.length, b.length);
+  for (let i = 0; i < length; i++) {
+    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
+
+function parseBooleanLike_(value, defaultValue) {
+  if (value === undefined || value === null || value === '') return Boolean(defaultValue);
+  if (value === true || value === false) return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (['true', '1', 'yes', 'on', '有効', '必須', 'する'].indexOf(normalized) !== -1) return true;
+  if (['false', '0', 'no', 'off', '無効', '不要', 'しない'].indexOf(normalized) !== -1) return false;
+  return Boolean(defaultValue);
 }
 
 function updateCoreStore_(payload, actor) {

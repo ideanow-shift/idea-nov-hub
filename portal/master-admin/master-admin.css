@@ -523,6 +523,54 @@ tr.selected {
   font-weight: 600;
 }
 
+.login-credential-panel {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 16px;
+  border: 1px solid #D7E4F5;
+  border-radius: var(--radius-md);
+  background: #F7FBFF;
+  padding: 12px;
+}
+
+.login-credential-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.login-credential-heading strong {
+  display: block;
+  font-size: 13px;
+}
+
+.login-credential-heading p {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.login-credential-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.login-credential-meta {
+  display: grid;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.login-credential-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .form-grid {
   display: grid;
   gap: 12px;

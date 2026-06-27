@@ -225,6 +225,15 @@ function getSearchText(row) {
       assignment.assignment_order
     ]));
   }
+  if (row.login_credential) {
+    values.push(
+      row.login_credential.login_email,
+      row.login_credential.pin_set ? "PIN設定済み" : "PIN未設定",
+      row.login_credential.login_enabled ? "ログイン可" : "ログイン停止",
+      row.login_credential.locked ? "ロック中" : "",
+      row.login_credential.must_change_pin ? "初回変更必須" : ""
+    );
+  }
   if (row.change_payload && typeof row.change_payload === "object") {
     values.push(row.change_summary, row.action_type, row.target_name, row.table_name);
   }
@@ -257,9 +266,23 @@ function getEmployeeIssues(employee) {
   if (!hasLocation) issues.push("所属");
   if (!employee.position_id && !employee.source_position_name) issues.push("役職");
   if (!Array.isArray(employee.role_keys) || !employee.role_keys.length) issues.push("HUB権限");
+  if (!getEmployeeCredential(employee).pin_set) issues.push("PIN");
   if (!String(employee.employment_type || "").trim()) issues.push("雇用形態");
   if (!String(employee.employment_status || "").trim()) issues.push("現職/休職/退職");
   return issues;
+}
+
+function getEmployeeCredential(employee) {
+  return employee?.login_credential || {
+    login_email: employee?.email || "",
+    pin_set: false,
+    login_enabled: true,
+    must_change_pin: false,
+    failed_attempts: 0,
+    locked_until: "",
+    locked: false,
+    last_login_at: ""
+  };
 }
 
 function getStoresByStatus() {
@@ -390,6 +413,7 @@ function renderTable() {
         <th>所属</th>
         <th>役職</th>
         <th>メール</th>
+        <th>ログイン</th>
         <th>未設定</th>
         <th>状態</th>
       </tr>`;
@@ -468,6 +492,7 @@ function getSummaryIssueValue(label) {
   if (label === "所属未設定") return "所属";
   if (label === "役職未設定") return "役職";
   if (label === "HUB権限未設定") return "HUB権限";
+  if (label === "PIN未設定") return "PIN";
   if (label === "法人未設定") return "法人";
   if (label === "雇用形態未設定") return "雇用形態";
   if (label === "状態未設定") return "状態";
@@ -478,6 +503,7 @@ function getSummarySearchValue(label) {
   return label
     .replace("Firebase未連携", "Firebase")
     .replace("HUB権限未設定", "HUB権限")
+    .replace("PIN未設定", "PIN")
     .replace("状態未設定", "現職/休職/退職")
     .replace("未設定", "")
     .replace("連携待ち", "Firebase")
@@ -495,6 +521,9 @@ function getQualitySummaryItems() {
       { label: "所属未設定", count: issueCounts["所属"] || 0, tone: "warning" },
       { label: "役職未設定", count: issueCounts["役職"] || 0, tone: "warning" },
       { label: "HUB権限未設定", count: issueCounts["HUB権限"] || 0, tone: "warning" },
+      { label: "PIN未設定", count: issueCounts["PIN"] || 0, tone: "warning" },
+      { label: "ログイン停止", count: currentEmployees.filter((employee) => getEmployeeCredential(employee).login_enabled === false).length, tone: "neutral" },
+      { label: "ロック中", count: currentEmployees.filter((employee) => getEmployeeCredential(employee).locked).length, tone: "warning" },
       { label: "雇用形態未設定", count: issueCounts["雇用形態"] || 0, tone: "warning" },
       { label: "状態未設定", count: issueCounts["現職/休職/退職"] || 0, tone: "warning" },
       { label: "Firebase未連携", count: currentEmployees.filter((employee) => !employee.firebase_uid).length, tone: "info" }
@@ -620,6 +649,7 @@ function renderEmployeeRow(employee) {
     <td title="${escapeHtml(affiliation)}">${escapeHtml(affiliation)}</td>
     <td>${escapeHtml(employee.position_name || employee.source_position_name || "")}</td>
     <td>${formatEmployeeEmail(employee)}</td>
+    <td>${formatEmployeeLogin(employee)}</td>
     <td>${formatEmployeeIssues(employee, issues)}</td>
     <td>${formatEmployeeStatus(employee)}</td>`;
   tr.addEventListener("click", () => {
@@ -636,6 +666,17 @@ function formatEmployeeEmail(employee) {
   const className = isCurrentEmployee(employee) ? "status-pill warning" : "status-muted";
   return `<span class="${className}">${label}</span>`;
 }
+
+function formatEmployeeLogin(employee) {
+  const credential = getEmployeeCredential(employee);
+  if (!isCurrentEmployee(employee)) return `<span class="status-muted">対象外</span>`;
+  if (credential.locked) return `<span class="status-pill warning">ロック中</span>`;
+  if (credential.login_enabled === false) return `<span class="status-pill inactive">停止</span>`;
+  if (!credential.pin_set) return `<span class="status-pill warning">PIN未設定</span>`;
+  if (credential.must_change_pin) return `<span class="status-pill warning">初回変更</span>`;
+  return `<span class="status-pill">利用可</span>`;
+}
+
 function formatEmployeeAffiliation(employee) {
   const storeNames = Array.isArray(employee.store_assignments)
     ? employee.store_assignments
@@ -902,13 +943,16 @@ function formatActionType(actionType) {
     link_firebase_uid: "Firebase UID連携",
     update_store_assignments: "店舗所属更新",
     assign_staff_role: "HUB権限付与",
-    auto_assign_staff_role: "HUB権限自動付与"
+    auto_assign_staff_role: "HUB権限自動付与",
+    create_login_credential: "ログイン設定作成",
+    update_login_credential: "ログイン設定更新"
   }[actionType] || "更新";
 }
 
 function getLogTypeLabel(log) {
   if (log.table_name === "employee_store_assignments") return "店舗所属";
   if (log.table_name === "employee_roles") return "HUB権限";
+  if (log.table_name === "employee_login_credentials") return "ログイン設定";
   if (log.table_name === "stores") return "店舗情報";
   if (log.table_name === "employees") return "社員情報";
   return log.table_name || "変更履歴";
@@ -917,6 +961,7 @@ function getLogTypeLabel(log) {
 function getLogTypeClass(log) {
   if (log.table_name === "employee_store_assignments") return "store-assignment";
   if (log.table_name === "employee_roles") return "role";
+  if (log.table_name === "employee_login_credentials") return "login";
   if (log.table_name === "stores") return "store";
   if (log.table_name === "employees") return "employee";
   return "";
@@ -1003,6 +1048,11 @@ function getFieldLabel(key) {
     area: "エリア",
     store_type: "店舗種別",
     firebase_uid: "Firebase UID",
+    login_email: "ログインメール",
+    login_enabled: "ログイン可否",
+    must_change_pin: "次回PIN変更",
+    pin_changed: "PIN変更",
+    lock_cleared: "ロック解除",
     is_active: "有効状態",
     is_legacy: "LEGACY区分",
     employee_id: "社員番号",
@@ -1018,6 +1068,7 @@ function formatLogValue(key, value) {
   if (key === "business_unit_id") return getMasterName(state.masters.businessUnits, value, "business_unit_name");
   if (key === "store_id") return getStoreName(value);
   if (key === "is_active") return value ? "有効" : "無効";
+  if (["login_enabled", "must_change_pin", "pin_changed", "lock_cleared"].includes(key)) return value ? "はい" : "いいえ";
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
@@ -1192,6 +1243,7 @@ function renderEmployeeDetail(employee) {
   const issues = getEmployeeIssues(employee);
   const createdPanel = renderEmployeeCreatedPanel(employee);
   const issuePanel = renderEmployeeIssuePanel(employee, issues);
+  const loginPanel = renderEmployeeLoginPanel(employee, readonly);
   const firebaseLinkPanel = state.view === "firebase" && !readonly ? `
       <div class="firebase-link-panel">
         <div>
@@ -1208,6 +1260,7 @@ function renderEmployeeDetail(employee) {
     <h3>${escapeHtml(employee.full_name)}</h3>
     <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}${employee.updated_at ? ` / 最終更新: ${escapeHtml(formatDateTime(employee.updated_at))}` : ""}</p>
     <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。"}</p>
+    ${loginPanel}
     <form class="form-grid" id="detail-form">
       ${createdPanel}
       ${issuePanel}
@@ -1273,6 +1326,60 @@ function renderEmployeeDetail(employee) {
   document.querySelector("#retire-employee")?.addEventListener("click", retireEmployee);
   document.querySelector("#link-firebase-uid")?.addEventListener("click", linkFirebaseUid);
   document.querySelector("#assign-staff-role")?.addEventListener("click", assignStaffRole);
+  document.querySelector("#save-login-credential")?.addEventListener("click", saveEmployeeLoginCredential);
+}
+
+function renderEmployeeLoginPanel(employee, readonly) {
+  const credential = getEmployeeCredential(employee);
+  const loginEmail = credential.login_email || employee.email || "";
+  const pinLabel = credential.pin_set
+    ? `設定済み${credential.pin_updated_at ? ` / 更新: ${formatDateTime(credential.pin_updated_at)}` : ""}`
+    : "未設定";
+  const lockLabel = credential.locked
+    ? `ロック中: ${formatDateTime(credential.locked_until)}まで`
+    : "ロックなし";
+  return `
+    <section class="login-credential-panel">
+      <div class="login-credential-heading">
+        <div>
+          <strong>ログイン / PIN管理</strong>
+          <p>HUB・IDEA LINK共通のログイン情報です。PINは保存時にbackend側でhash化され、画面には表示しません。</p>
+        </div>
+        <span class="status-pill${credential.login_enabled === false ? " inactive" : credential.pin_set ? "" : " warning"}">${credential.login_enabled === false ? "ログイン停止" : credential.pin_set ? "ログイン可" : "PIN未設定"}</span>
+      </div>
+      <div class="login-credential-grid">
+        <label class="form-field" for="login_email">
+          <span>ログインメール</span>
+          <input class="form-input" id="login_email" type="email" value="${escapeHtml(loginEmail)}"${readonly ? " disabled" : ""}>
+        </label>
+        <label class="form-field" for="new_pin">
+          <span>新しいPIN</span>
+          <input class="form-input" id="new_pin" type="password" inputmode="numeric" autocomplete="new-password" placeholder="${credential.pin_set ? "変更時のみ入力" : "4〜12桁の数字"}"${readonly ? " disabled" : ""}>
+        </label>
+        <label class="checkbox-row">
+          <input id="login_enabled" type="checkbox"${credential.login_enabled !== false ? " checked" : ""}${readonly ? " disabled" : ""}>
+          <span>ログインを許可</span>
+        </label>
+        <label class="checkbox-row">
+          <input id="must_change_pin" type="checkbox"${credential.must_change_pin ? " checked" : ""}${readonly ? " disabled" : ""}>
+          <span>次回PIN変更を必須にする</span>
+        </label>
+        <label class="checkbox-row">
+          <input id="clear_login_lock" type="checkbox"${readonly || !credential.locked ? " disabled" : ""}>
+          <span>ロックを解除</span>
+        </label>
+      </div>
+      <div class="login-credential-meta">
+        <span>PIN: ${escapeHtml(pinLabel)}</span>
+        <span>${escapeHtml(lockLabel)}</span>
+        <span>失敗回数: ${escapeHtml(credential.failed_attempts || 0)}</span>
+        ${credential.last_login_at ? `<span>最終ログイン: ${escapeHtml(formatDateTime(credential.last_login_at))}</span>` : ""}
+      </div>
+      ${readonly ? "" : `<div class="login-credential-actions">
+        <span class="save-status" id="login-credential-save-status" aria-live="polite"></span>
+        <button class="button button-secondary" id="save-login-credential" type="button">ログイン設定を保存</button>
+      </div>`}
+    </section>`;
 }
 
 function renderEmployeeRolePanel(employee) {
@@ -1311,6 +1418,7 @@ function renderEmployeeIssuePanel(employee, issues) {
     if (issues.includes("メール")) hints.push("メール未発行の場合は空欄のまま保存できます。発行後に「メール未設定」から追記してください。");
     if (issues.includes("所属")) hints.push("主店舗または部署のどちらかを設定すると、所属未設定が解消します。");
     if (issues.includes("HUB権限")) hints.push("HUB権限はアプリ表示・管理画面の閲覧範囲に使います。");
+    if (issues.includes("PIN")) hints.push("ログイン/PIN管理で初回PINを設定すると、HUBとIDEA LINK共通ログインに使えます。");
     const hintList = hints.length ? `<ul class="issue-hints">${hints.map((hint) => `<li>${escapeHtml(hint)}</li>`).join("")}</ul>` : "";
     return `
       <div class="issue-panel">
@@ -1663,6 +1771,59 @@ async function linkFirebaseUid(event) {
     showToast(getErrorMessage(error));
   } finally {
     button.disabled = false;
+  }
+}
+
+async function saveEmployeeLoginCredential(event) {
+  const employee = state.employees.find((item) => item.id === state.selectedId);
+  if (!employee) return;
+  const button = event.currentTarget;
+  const status = document.querySelector("#login-credential-save-status");
+  const loginEmail = document.querySelector("#login_email")?.value.trim() || "";
+  const newPin = document.querySelector("#new_pin")?.value.trim() || "";
+  const loginEnabled = document.querySelector("#login_enabled")?.checked || false;
+  const mustChangePin = document.querySelector("#must_change_pin")?.checked || false;
+  const clearLock = document.querySelector("#clear_login_lock")?.checked || false;
+
+  if (!loginEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
+    setSaveStatus(status, "ログインメールの形式を確認してください。", "error");
+    showToast("ログインメールの形式を確認してください。");
+    return;
+  }
+  if (newPin && !/^\d{4,12}$/.test(newPin)) {
+    setSaveStatus(status, "PINは4〜12桁の数字で入力してください。", "error");
+    showToast("PINは4〜12桁の数字で入力してください。");
+    return;
+  }
+  if (!getEmployeeCredential(employee).pin_set && !newPin) {
+    setSaveStatus(status, "初回はPINを入力してください。", "error");
+    showToast("初回はPINを入力してください。");
+    return;
+  }
+
+  try {
+    button.disabled = true;
+    button.textContent = "保存中...";
+    setSaveStatus(status, "ログイン設定を保存中です...", "pending");
+    await callApiAction("masterUpdateEmployeeLoginCredential", {
+      id: employee.id,
+      login_email: loginEmail,
+      new_pin: newPin,
+      login_enabled: loginEnabled,
+      must_change_pin: mustChangePin,
+      clear_lock: clearLock
+    });
+    await refreshEmployees();
+    await refreshLogsSilently();
+    state.selectedId = employee.id;
+    render();
+    showToast("ログイン設定を保存しました。");
+  } catch (error) {
+    console.error(error);
+    setSaveStatus(status, getErrorMessage(error), "error");
+    showToast(getErrorMessage(error));
+    button.disabled = false;
+    button.textContent = "ログイン設定を保存";
   }
 }
 

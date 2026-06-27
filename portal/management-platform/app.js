@@ -830,6 +830,43 @@ function formatResultValue(result) {
   return "-";
 }
 
+function looksLikeImageUrl(url) {
+  return /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i.test(url);
+}
+
+function renderPhotoPreview() {
+  const form = document.getElementById("environmentForm");
+  const panel = document.getElementById("photoPreviewPanel");
+  if (!form || !panel) return;
+  const url = String(form.elements.photoUrl?.value || "").trim();
+  if (!url) {
+    panel.innerHTML = `<p class="muted-text">写真URLを入力すると、保存前にリンクを確認できます。</p>`;
+    return;
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(url);
+  } catch (_error) {
+    panel.innerHTML = `<p class="status-danger">写真URLの形式を確認してください。</p>`;
+    return;
+  }
+
+  const imagePreview = looksLikeImageUrl(parsedUrl.href)
+    ? `<img class="photo-preview-image" src="${escapeHtml(parsedUrl.href)}" alt="写真プレビュー" loading="lazy">`
+    : `<p class="muted-text">Google Drive等の共有URLは、ボタンから別タブで確認できます。</p>`;
+
+  panel.innerHTML = `
+    <div class="photo-preview-card">
+      ${imagePreview}
+      <div class="photo-preview-actions">
+        <a href="${escapeHtml(parsedUrl.href)}" target="_blank" rel="noopener" class="photo-link">写真URLを開く</a>
+        <span class="muted-text">保存すると履歴詳細に紐付きます。</span>
+      </div>
+    </div>
+  `;
+}
+
 function renderRecordDetail(record, note = "") {
   const content = document.getElementById("recordDetailContent");
   if (!content) return;
@@ -1081,6 +1118,7 @@ async function handleSubmit(event) {
       setApiStatus(`保存OK: ${result.resultCount || record.results.length}項目 / checkId=${result.checkId}`, "ok");
       form.reset();
       renderScoreControls();
+      renderPhotoPreview();
       await refreshRecords();
       showView("records");
       return;
@@ -1090,6 +1128,7 @@ async function handleSubmit(event) {
     setApiStatus(`ローカル保存: ${result?.reason || "Management API未接続"}`, "info");
     form.reset();
     renderScoreControls();
+    renderPhotoPreview();
     renderDashboard();
     renderRecords();
     showView("records");
@@ -1155,11 +1194,14 @@ function bindEvents() {
       clearMissingScoreMarkers();
       renderScoreSummary();
     }
+    if (event.target?.name === "photoUrl") renderPhotoPreview();
   });
+  document.getElementById("environmentForm").elements.photoUrl.addEventListener("input", renderPhotoPreview);
   document.getElementById("clearFormBtn").addEventListener("click", () => {
     document.getElementById("environmentForm").reset();
     renderScoreControls();
     renderScoreSummary();
+    renderPhotoPreview();
   });
   document.getElementById("loginForm").addEventListener("submit", handleLogin);
   document.getElementById("logoutBtn").addEventListener("click", handleLogout);
@@ -1184,6 +1226,7 @@ bindEvents();
 applyRoleBasedView();
 updateAuthStatus();
 hydrateFormFromActor();
+renderPhotoPreview();
 renderDashboard();
 renderRecords();
 

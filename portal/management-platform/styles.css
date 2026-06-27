@@ -565,6 +565,37 @@ th {
   text-decoration: none;
 }
 
+.photo-preview-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.photo-preview-card {
+  display: grid;
+  gap: 8px;
+}
+
+.photo-preview-image {
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.photo-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .status-ok { color: var(--ok); }
 .status-warn { color: var(--warn); }
 .status-danger { color: var(--danger); }

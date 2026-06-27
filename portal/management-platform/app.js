@@ -353,8 +353,11 @@ function fromApiCheckDetail(row) {
     itemTitle: result.item_title,
     itemDescription: result.item_description,
     managementCategory: result.management_category,
-    sortOrder: result.sort_order
+    sortOrder: result.sort_order,
+    photos: result.photos || []
   }));
+  const firstPhoto = record.results.flatMap((result) => result.photos || [])[0];
+  if (firstPhoto?.photo_url) record.photo_url = firstPhoto.photo_url;
   record.result_count = record.results.length || record.result_count;
   return record;
 }
@@ -839,6 +842,7 @@ function renderRecordDetail(record, note = "") {
         const title = result.itemTitle || item?.title || `項目 ${index + 1}`;
         const category = result.managementCategory || item?.management_category || "";
         const comment = result.comment || "";
+        const photos = result.photos || [];
         return `
           <article class="result-detail-item">
             <div class="result-detail-head">
@@ -849,6 +853,15 @@ function renderRecordDetail(record, note = "") {
               <span class="score-chip ${Number(result.score) === 0 ? "danger" : Number(result.score) === 3 ? "warn" : Number(result.score) === 5 ? "ok" : ""}">${escapeHtml(formatResultValue(result))}</span>
             </div>
             ${comment ? `<p class="result-detail-comment">${escapeHtml(comment)}</p>` : ""}
+            ${photos.length ? `
+              <div class="photo-link-list">
+                ${photos.map((photo) => `
+                  <a href="${escapeHtml(photo.photo_url || photo.storage_path || "#")}" target="_blank" rel="noopener" class="photo-link">
+                    ${escapeHtml(photo.caption || photo.photo_type || "写真を開く")}
+                  </a>
+                `).join("")}
+              </div>
+            ` : ""}
           </article>
         `;
       }).join("")}
@@ -879,6 +892,7 @@ function renderRecordDetail(record, note = "") {
       ${note ? ` / ${escapeHtml(note)}` : ""}
     </p>
     ${record.comment ? `<p class="field-help"><strong>次の行動:</strong> ${escapeHtml(record.comment)}</p>` : ""}
+    ${record.photo_url ? `<p class="field-help"><strong>写真:</strong> <a href="${escapeHtml(record.photo_url)}" target="_blank" rel="noopener">写真URLを開く</a></p>` : ""}
     ${resultHtml}
   `;
 }

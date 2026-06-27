@@ -545,6 +545,26 @@ th {
   line-height: 1.6;
 }
 
+.photo-link-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.photo-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .status-ok { color: var(--ok); }
 .status-warn { color: var(--warn); }
 .status-danger { color: var(--danger); }

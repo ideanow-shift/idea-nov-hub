@@ -945,7 +945,8 @@ function formatActionType(actionType) {
     assign_staff_role: "HUB権限付与",
     auto_assign_staff_role: "HUB権限自動付与",
     create_login_credential: "ログイン設定作成",
-    update_login_credential: "ログイン設定更新"
+    update_login_credential: "ログイン設定更新",
+    change_own_pin: "本人PIN変更"
   }[actionType] || "更新";
 }
 

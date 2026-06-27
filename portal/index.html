@@ -84,6 +84,22 @@
         <p class="user-context" id="user-context"></p>
       </section>
 
+      <section class="pin-change-panel" id="pin-change-panel" hidden>
+        <div class="pin-change-copy">
+          <p class="section-kicker">PIN変更</p>
+          <h2>初回PIN変更が必要です</h2>
+          <p>管理者が初回変更を必須にしています。新しいPINを設定するとアプリを開けます。</p>
+        </div>
+        <form class="pin-change-form" id="pin-change-form">
+          <label class="form-label" for="pin-change-new">新しいPIN</label>
+          <input class="form-input" id="pin-change-new" type="password" inputmode="numeric" autocomplete="new-password" placeholder="4〜12桁の数字" required>
+          <label class="form-label" for="pin-change-confirm">新しいPIN（確認）</label>
+          <input class="form-input" id="pin-change-confirm" type="password" inputmode="numeric" autocomplete="new-password" placeholder="もう一度入力" required>
+          <button class="button button-primary" type="submit">PINを変更する</button>
+          <p class="pin-change-status" id="pin-change-status" aria-live="polite"></p>
+        </form>
+      </section>
+
       <section class="concierge-entry" aria-labelledby="concierge-heading">
         <div class="concierge-entry-copy">
           <p class="section-kicker">NOV Concierge</p>
@@ -128,6 +144,6 @@
   </main>
 
   <div class="toast" id="toast" role="status" hidden></div>
-  <script type="module" src="./js/main.js?v=management-platform-20260626-7"></script>
+  <script type="module" src="./js/main.js?v=pin-change-20260627-1"></script>
 </body>
 </html>

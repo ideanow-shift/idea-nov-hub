@@ -1,6 +1,6 @@
 import { PORTAL_CONFIG } from "./firebase-config.js";
 import { authIsConfigured, getIdToken, signInWithGoogle, signOutUser } from "./auth.js";
-import { clearApiAuth, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js";
+import { callApiAction, clearApiAuth, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js";
 import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
 import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js";
 import { clearHubEmployeeContext, getHubEmployeeContextSummary, saveHubEmployeeContext } from "./hub-context.js";
@@ -23,7 +23,8 @@ const elements = Object.fromEntries([
   "header-user", "user-name", "user-store", "login-screen", "loading-screen",
   "denied-screen", "portal-screen", "google-login", "pin-login-form", "pin-email", "pin-code", "demo-controls", "demo-employee",
   "demo-login", "logout-button", "denied-message", "denied-back", "welcome-title", "user-context",
-  "announcements", "featured-apps", "category-apps", "visible-app-count", "concierge-form", "concierge-question", "toast"
+  "announcements", "featured-apps", "category-apps", "visible-app-count", "pin-change-panel", "pin-change-form",
+  "pin-change-new", "pin-change-confirm", "pin-change-status", "concierge-form", "concierge-question", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
 
 function showScreen(name) {
@@ -174,6 +175,8 @@ function renderPortal() {
   elements.userStore.textContent = state.employee.store || state.employee.department || "";
   elements.userContext.textContent = getHubEmployeeContextSummary(employeeContext);
   elements.welcomeTitle.textContent = `${state.employee.name.split(/[\s　]/)[0]}さん、お疲れさまです`;
+  elements.pinChangePanel.hidden = !(state.authType === "pin" && state.employee?.mustChangePin);
+  elements.pinChangeStatus.textContent = "";
   renderAnnouncements();
   renderApps();
   showScreen("portal");
@@ -285,6 +288,11 @@ async function prepareManagementPlatformLaunch(app, context) {
 }
 
 async function openApp(app) {
+  if (state.authType === "pin" && state.employee?.mustChangePin) {
+    showToast("初回PIN変更を完了してからアプリを開いてください。");
+    elements.pinChangeNew?.focus();
+    return;
+  }
   const employeeContext = refreshHubEmployeeContext();
   const appUrl = isManagementPlatformApp(app) ? MANAGEMENT_APP_URL : app.url;
   const launchUrl = buildAppLaunchUrl(appUrl, employeeContext);
@@ -322,6 +330,43 @@ async function openApp(app) {
   }
   console.info("[demo log]", { action: "openApp", appId: app.appId, appName: app.appName, result: "success" });
   showToast(`デモ: 「${app.appName}」を開きます`);
+}
+
+async function changeOwnPin(event) {
+  event.preventDefault();
+  const newPin = elements.pinChangeNew.value.trim();
+  const confirmPin = elements.pinChangeConfirm.value.trim();
+  const submitButton = elements.pinChangeForm.querySelector("button[type='submit']");
+  elements.pinChangeStatus.textContent = "";
+
+  if (!/^\d{4,12}$/.test(newPin)) {
+    elements.pinChangeStatus.textContent = "PINは4〜12桁の数字で入力してください。";
+    return;
+  }
+  if (newPin !== confirmPin) {
+    elements.pinChangeStatus.textContent = "確認用PINが一致しません。";
+    return;
+  }
+
+  submitButton.disabled = true;
+  try {
+    const data = await callApiAction("changeOwnPin", { new_pin: newPin });
+    state.employee = {
+      ...state.employee,
+      mustChangePin: false,
+      loginCredential: data.credential || state.employee.loginCredential || null
+    };
+    setPinAuth(state.employee.email || elements.pinEmail.value, newPin);
+    elements.pinChangeNew.value = "";
+    elements.pinChangeConfirm.value = "";
+    showToast("PINを変更しました。");
+    renderPortal();
+  } catch (error) {
+    console.error("PIN change failed", error);
+    elements.pinChangeStatus.textContent = error.message || "PIN変更に失敗しました。";
+  } finally {
+    submitButton.disabled = false;
+  }
 }
 
 async function loginWithFirebase() {
@@ -429,6 +474,7 @@ async function initialize() {
   elements.demoControls.hidden = state.mode === "firebase" && firebaseReady;
   elements.googleLogin.addEventListener("click", loginWithFirebase);
   elements.pinLoginForm.addEventListener("submit", loginWithPin);
+  elements.pinChangeForm.addEventListener("submit", changeOwnPin);
   elements.conciergeForm.addEventListener("submit", (event) => {
     event.preventDefault();
     openConcierge(elements.conciergeQuestion.value);

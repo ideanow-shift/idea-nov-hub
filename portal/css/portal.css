@@ -234,6 +234,41 @@ body { background: #FAFAFA; }
   padding: 7px 10px;
 }
 
+.pin-change-panel {
+  display: grid;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+  border: 1px solid #F0D6D9;
+  border-radius: var(--radius-md);
+  background: #FFF7F8;
+  padding: var(--spacing-lg);
+}
+
+.pin-change-copy h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.pin-change-copy p:last-child {
+  margin: var(--spacing-sm) 0 0;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.pin-change-form {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.pin-change-status {
+  min-height: 20px;
+  margin: 0;
+  color: var(--color-alert);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .concierge-entry {
   display: grid;
   gap: var(--spacing-md);

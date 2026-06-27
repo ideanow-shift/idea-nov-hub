@@ -123,6 +123,11 @@ function doPost(e) {
       });
     }
 
+    if (action === 'changeOwnPin') {
+      stage = 'changeOwnPin';
+      return jsonOutput_({ ok: true, credential: changeOwnPin_(authUser, employee, payload) });
+    }
+
     if (action === 'masterBootstrap') {
       stage = 'authorizeMasterAdmin';
       assertMasterViewer_(employee);
@@ -2014,6 +2019,53 @@ function updateEmployeeLoginCredential_(payload, actor) {
     targetName: employee.full_name || employee.employee_id || employeeId
   });
   return sanitizeLoginCredential_(credential);
+}
+
+function changeOwnPin_(authUser, employee, payload) {
+  if (!authUser || authUser.authType !== 'pin') {
+    throwPortalError_('INVALID_REQUEST', 'PINログイン中のみPINを変更できます。');
+  }
+  const employeeId = String(employee && (employee.coreEmployeeId || employee.id) || '').trim();
+  if (!employeeId) {
+    throwPortalError_('INVALID_REQUEST', 'Supabase社員IDがないためPINを変更できません。');
+  }
+  const newPin = normalizePinValue_(payload.new_pin);
+  if (!/^\d{4,12}$/.test(newPin)) {
+    throwPortalError_('INVALID_REQUEST', 'PINは4〜12桁の数字で入力してください。');
+  }
+  const credential = getLoginCredentialByEmployeeId_(employeeId);
+  if (!credential || !credential.id) {
+    throwPortalError_('NOT_FOUND', 'ログイン設定が見つかりません。管理者へお問い合わせください。');
+  }
+  if (verifyPinHash_(newPin, credential.pin_hash)) {
+    throwPortalError_('INVALID_REQUEST', '現在と異なるPINを設定してください。');
+  }
+
+  const now = new Date().toISOString();
+  const updates = {
+    pin_hash: hashPin_(newPin),
+    pin_updated_at: now,
+    must_change_pin: false,
+    failed_attempts: 0,
+    locked_until: null,
+    updated_at: now
+  };
+  const result = supabaseRequest_('employee_login_credentials', {
+    method: 'patch',
+    query: { id: 'eq.' + credential.id, select: '*' },
+    payload: updates,
+    prefer: 'return=representation'
+  });
+  const updated = result && result[0] ? result[0] : getLoginCredentialByEmployeeId_(employeeId);
+  appendMasterChangeLogSafely_('employee_login_credentials', employeeId, {
+    pin_changed: true,
+    must_change_pin: false,
+    changed_by_self: true
+  }, employee, {
+    actionType: 'change_own_pin',
+    targetName: employee.fullName || employee.name || employee.employeeNumber || employeeId
+  });
+  return sanitizeLoginCredential_(updated);
 }
 
 function hashPin_(pin) {

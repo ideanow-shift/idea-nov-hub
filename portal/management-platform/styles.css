@@ -575,6 +575,38 @@ th {
   margin: 12px 0;
 }
 
+.issue-summary-panel {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.issue-summary-list {
+  display: grid;
+  gap: 8px;
+}
+
+.issue-summary-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
+.issue-summary-title {
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
 .result-detail-list {
   display: grid;
   gap: 8px;

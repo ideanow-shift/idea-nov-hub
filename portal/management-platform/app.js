@@ -1076,12 +1076,49 @@ function renderPhotoLink(photo) {
   `;
 }
 
+function renderIssueResultSummary(results) {
+  const issueResults = results
+    .filter((result) => Number(result.score) === 0 || Number(result.score) === 3)
+    .slice(0, 6);
+  if (!issueResults.length) {
+    return `
+      <div class="issue-summary-panel">
+        <p class="score-summary-label">課題候補</p>
+        <p class="focus-note">0点・3点の項目はありません。良い状態を維持する行動を確認してください。</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="issue-summary-panel">
+      <p class="score-summary-label">課題候補</p>
+      <div class="issue-summary-list">
+        ${issueResults.map((result, index) => {
+          const item = getCheckItemMeta(result.checkItemId);
+          const title = result.itemTitle || item?.title || `項目 ${index + 1}`;
+          const category = result.managementCategory || item?.management_category || "";
+          return `
+            <article class="issue-summary-item">
+              <span class="score-chip ${Number(result.score) === 0 ? "danger" : "warn"}">${Number(result.score)}点</span>
+              <div>
+                <p class="issue-summary-title">${escapeHtml(title)}</p>
+                <p class="focus-note">${escapeHtml(category ? fromCategoryId(category) : "")}</p>
+              </div>
+            </article>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function renderRecordDetail(record, note = "") {
   const content = document.getElementById("recordDetailContent");
   if (!content) return;
   const breakdown = getRecordBreakdown(record);
   const aiDraft = generateAiCommentDraft(record, [record]);
   const results = (record.results || []).slice().sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
+  const issueSummaryHtml = results.length ? renderIssueResultSummary(results) : "";
   const resultHtml = results.length ? `
     <div class="result-detail-list">
       ${results.map((result, index) => {
@@ -1139,6 +1176,7 @@ function renderRecordDetail(record, note = "") {
     <div class="record-ai-comment">
       ${renderAiCommentDraft(aiDraft)}
     </div>
+    ${issueSummaryHtml}
     ${resultHtml}
   `;
 }

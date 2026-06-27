@@ -902,6 +902,19 @@ function setPhotoUploadStatus(message, kind = "info") {
   status.dataset.kind = kind;
 }
 
+function renderPhotoLink(photo) {
+  const url = photo.photo_url || photo.photoUrl || "";
+  const label = photo.caption || photo.photo_type || photo.photoType || "写真を開く";
+  if (!url) {
+    return `<span class="photo-link muted-text">${escapeHtml(photo.storage_path || photo.storagePath || "写真URL未発行")}</span>`;
+  }
+  return `
+    <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="photo-link">
+      ${escapeHtml(label)}
+    </a>
+  `;
+}
+
 function renderRecordDetail(record, note = "") {
   const content = document.getElementById("recordDetailContent");
   if (!content) return;
@@ -927,11 +940,7 @@ function renderRecordDetail(record, note = "") {
             ${comment ? `<p class="result-detail-comment">${escapeHtml(comment)}</p>` : ""}
             ${photos.length ? `
               <div class="photo-link-list">
-                ${photos.map((photo) => `
-                  <a href="${escapeHtml(photo.photo_url || photo.storage_path || "#")}" target="_blank" rel="noopener" class="photo-link">
-                    ${escapeHtml(photo.caption || photo.photo_type || "写真を開く")}
-                  </a>
-                `).join("")}
+                ${photos.map(renderPhotoLink).join("")}
               </div>
             ` : ""}
           </article>

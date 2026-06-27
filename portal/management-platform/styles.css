@@ -537,6 +537,10 @@ th {
   font-weight: 700;
 }
 
+.record-ai-comment {
+  margin: 12px 0;
+}
+
 .result-detail-list {
   display: grid;
   gap: 8px;

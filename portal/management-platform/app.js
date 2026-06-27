@@ -613,6 +613,19 @@ function generateAiCommentDraft(record, records) {
   };
 }
 
+function renderAiCommentDraft(aiDraft) {
+  return `
+    <article class="focus-card focus-card-wide ai-comment-card">
+      <p class="score-summary-label">AI改善コメント（案）</p>
+      <h3>${escapeHtml(aiDraft.title)}</h3>
+      <p class="focus-note">${escapeHtml(aiDraft.summary)}</p>
+      <ul class="ai-comment-list">
+        ${aiDraft.suggestions.map((suggestion) => `<li>${escapeHtml(suggestion)}</li>`).join("")}
+      </ul>
+    </article>
+  `;
+}
+
 function renderFocusPanel(records) {
   const panel = document.getElementById("focusPanel");
   if (!panel) return;
@@ -665,14 +678,7 @@ function renderFocusPanel(records) {
         <h3>${escapeHtml(latest.comment || "コメント未入力")}</h3>
         <p class="focus-note">${actions.length ? `${actions.length}件のコメント付き履歴があります。` : "コメントを残すと改善履歴として追いやすくなります。"}</p>
       </article>
-      <article class="focus-card focus-card-wide ai-comment-card">
-        <p class="score-summary-label">AI改善コメント（案）</p>
-        <h3>${escapeHtml(aiDraft.title)}</h3>
-        <p class="focus-note">${escapeHtml(aiDraft.summary)}</p>
-        <ul class="ai-comment-list">
-          ${aiDraft.suggestions.map((suggestion) => `<li>${escapeHtml(suggestion)}</li>`).join("")}
-        </ul>
-      </article>
+      ${renderAiCommentDraft(aiDraft)}
     </div>
   `;
 }
@@ -981,6 +987,7 @@ function renderRecordDetail(record, note = "") {
   const content = document.getElementById("recordDetailContent");
   if (!content) return;
   const breakdown = getRecordBreakdown(record);
+  const aiDraft = generateAiCommentDraft(record, [record]);
   const results = (record.results || []).slice().sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
   const resultHtml = results.length ? `
     <div class="result-detail-list">
@@ -1036,6 +1043,9 @@ function renderRecordDetail(record, note = "") {
     </p>
     ${record.comment ? `<p class="field-help"><strong>次の行動:</strong> ${escapeHtml(record.comment)}</p>` : ""}
     ${record.photo_url ? `<p class="field-help"><strong>写真:</strong> <a href="${escapeHtml(record.photo_url)}" target="_blank" rel="noopener">写真URLを開く</a></p>` : ""}
+    <div class="record-ai-comment">
+      ${renderAiCommentDraft(aiDraft)}
+    </div>
     ${resultHtml}
   `;
 }

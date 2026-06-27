@@ -109,6 +109,11 @@
             写真URL（Phase 2準備）
             <input name="photoUrl" type="url" placeholder="Google Drive等の写真URL">
           </label>
+          <label>
+            写真ファイル（Phase 2）
+            <input name="photoFile" id="photoFileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+          </label>
+          <p class="field-help" id="photoUploadStatus">写真を選択すると、StorageへアップロードしてURL欄に反映します。</p>
           <div class="photo-preview-panel" id="photoPreviewPanel" aria-live="polite">
             <p class="muted-text">写真URLを入力すると、保存前にリンクを確認できます。</p>
           </div>
@@ -212,8 +217,8 @@
       </section>
     </section>
   </main>
-  <script src="./config.js?v=management-platform-20260627-14"></script>
-  <script src="./app.js?v=management-platform-20260627-14"></script>
+  <script src="./config.js?v=management-platform-20260627-15"></script>
+  <script src="./app.js?v=management-platform-20260627-15"></script>
 </body>
 </html>
 

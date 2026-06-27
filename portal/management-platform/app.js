@@ -146,6 +146,7 @@ function toRecord(form) {
     score: averageScore,
     comment: formData.get("comment"),
     photo_url: formData.get("photoUrl"),
+    photo_storage_path: form.dataset.photoStoragePath || null,
     results,
     status: "active",
     created_at: now,
@@ -385,7 +386,11 @@ async function saveRemoteRecord(record) {
       checkItemId: result.checkItemId,
       score: result.score,
       comment: result.comment || record.comment,
-      photos: index === 0 && record.photo_url ? [{ photoUrl: record.photo_url, photoType: "evidence" }] : []
+      photos: index === 0 && (record.photo_url || record.photo_storage_path) ? [{
+        photoUrl: record.photo_url || null,
+        storagePath: record.photo_storage_path || null,
+        photoType: "evidence"
+      }] : []
     }))
   };
 
@@ -394,6 +399,29 @@ async function saveRemoteRecord(record) {
     body: JSON.stringify(payload)
   });
   return await response.json();
+}
+
+async function uploadPhotoFile(file) {
+  if (!hasApiConfig()) throw new Error("Management API未接続のため写真アップロードできません。");
+  const storeId = getDefaultStoreId();
+  if (!storeId) throw new Error("店舗IDが取得できないため写真アップロードできません。");
+  const form = document.getElementById("environmentForm");
+  const body = new FormData();
+  body.append("file", file);
+  body.append("storeId", storeId);
+  body.append("checkDate", getLocalDateString());
+
+  const response = await apiRequest("/photos/upload", {
+    method: "POST",
+    body
+  });
+  const json = await response.json();
+  if (!json.ok) throw new Error(json.error || "photo upload failed");
+  if (form) {
+    form.dataset.photoStoragePath = json.storagePath || "";
+    form.elements.photoUrl.value = json.photoUrl || "";
+  }
+  return json;
 }
 
 async function loadRemoteRecords() {
@@ -867,6 +895,13 @@ function renderPhotoPreview() {
   `;
 }
 
+function setPhotoUploadStatus(message, kind = "info") {
+  const status = document.getElementById("photoUploadStatus");
+  if (!status) return;
+  status.textContent = message;
+  status.dataset.kind = kind;
+}
+
 function renderRecordDetail(record, note = "") {
   const content = document.getElementById("recordDetailContent");
   if (!content) return;
@@ -1117,6 +1152,7 @@ async function handleSubmit(event) {
     if (result?.ok) {
       setApiStatus(`保存OK: ${result.resultCount || record.results.length}項目 / checkId=${result.checkId}`, "ok");
       form.reset();
+      delete form.dataset.photoStoragePath;
       renderScoreControls();
       renderPhotoPreview();
       await refreshRecords();
@@ -1127,6 +1163,7 @@ async function handleSubmit(event) {
     saveLocalRecord(record);
     setApiStatus(`ローカル保存: ${result?.reason || "Management API未接続"}`, "info");
     form.reset();
+    delete form.dataset.photoStoragePath;
     renderScoreControls();
     renderPhotoPreview();
     renderDashboard();
@@ -1137,6 +1174,32 @@ async function handleSubmit(event) {
     setApiStatus(`保存エラー: ${error.message || error}`, "error");
   } finally {
     if (submitButton) submitButton.disabled = false;
+  }
+}
+
+async function handlePhotoFileChange(event) {
+  const input = event.currentTarget;
+  const file = input.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    setPhotoUploadStatus("画像ファイルを選択してください。", "error");
+    input.value = "";
+    return;
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    setPhotoUploadStatus("写真は8MB以下にしてください。", "error");
+    input.value = "";
+    return;
+  }
+
+  setPhotoUploadStatus("写真をアップロード中です...", "loading");
+  try {
+    const result = await uploadPhotoFile(file);
+    setPhotoUploadStatus(`アップロードOK: ${result.storagePath}`, "ok");
+    renderPhotoPreview();
+  } catch (error) {
+    console.warn("Photo upload failed", error);
+    setPhotoUploadStatus(`写真アップロードエラー: ${error.message || error}`, "error");
   }
 }
 
@@ -1197,11 +1260,15 @@ function bindEvents() {
     if (event.target?.name === "photoUrl") renderPhotoPreview();
   });
   document.getElementById("environmentForm").elements.photoUrl.addEventListener("input", renderPhotoPreview);
+  document.getElementById("photoFileInput").addEventListener("change", handlePhotoFileChange);
   document.getElementById("clearFormBtn").addEventListener("click", () => {
-    document.getElementById("environmentForm").reset();
+    const form = document.getElementById("environmentForm");
+    form.reset();
+    delete form.dataset.photoStoragePath;
     renderScoreControls();
     renderScoreSummary();
     renderPhotoPreview();
+    setPhotoUploadStatus("写真を選択すると、StorageへアップロードしてURL欄に反映します。");
   });
   document.getElementById("loginForm").addEventListener("submit", handleLogin);
   document.getElementById("logoutBtn").addEventListener("click", handleLogout);
@@ -1233,14 +1300,16 @@ renderRecords();
 async function apiRequest(path, options = {}) {
   const token = await firebaseTokenProvider();
   if (!token) throw new Error("Firebase ID token is missing");
+  const isFormData = options.body instanceof FormData;
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "x-request-id": createId(),
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
+    ...(options.headers || {})
+  };
   const response = await fetch(`${managementApiBaseUrl}${path}`, {
     ...options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      "x-request-id": createId(),
-      ...(options.headers || {})
-    }
+    headers
   });
   if (!response.ok) {
     const body = await response.text().catch(() => "");

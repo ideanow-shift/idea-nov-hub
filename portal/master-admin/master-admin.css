@@ -565,10 +565,21 @@ tr.selected {
 }
 
 .login-credential-actions {
+  position: sticky;
+  bottom: 76px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
+  margin: 4px -12px -12px;
+  border-top: 1px solid #D7E4F5;
+  background: linear-gradient(180deg, rgba(247, 251, 255, 0.86), #F7FBFF 38%);
+  padding: 12px;
+  z-index: 3;
+}
+
+.login-credential-save-button {
+  min-width: 176px;
 }
 
 .form-grid {

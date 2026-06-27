@@ -1328,6 +1328,7 @@ function renderEmployeeDetail(employee) {
   document.querySelector("#link-firebase-uid")?.addEventListener("click", linkFirebaseUid);
   document.querySelector("#assign-staff-role")?.addEventListener("click", assignStaffRole);
   document.querySelector("#save-login-credential")?.addEventListener("click", saveEmployeeLoginCredential);
+  setupLoginCredentialDirtyState();
 }
 
 function renderEmployeeLoginPanel(employee, readonly) {
@@ -1340,7 +1341,7 @@ function renderEmployeeLoginPanel(employee, readonly) {
     ? `ロック中: ${formatDateTime(credential.locked_until)}まで`
     : "ロックなし";
   return `
-    <section class="login-credential-panel">
+    <section class="login-credential-panel" id="login-credential-panel">
       <div class="login-credential-heading">
         <div>
           <strong>ログイン / PIN管理</strong>
@@ -1378,7 +1379,7 @@ function renderEmployeeLoginPanel(employee, readonly) {
       </div>
       ${readonly ? "" : `<div class="login-credential-actions">
         <span class="save-status" id="login-credential-save-status" aria-live="polite"></span>
-        <button class="button button-secondary" id="save-login-credential" type="button">ログイン設定を保存</button>
+        <button class="button button-primary login-credential-save-button" id="save-login-credential" type="button">ログイン/PIN設定を保存</button>
       </div>`}
     </section>`;
 }
@@ -1587,6 +1588,44 @@ function setupDirtyForm(type) {
   updateDirtyState(type, status, button);
   form.addEventListener("input", () => updateDirtyState(type, status, button));
   form.addEventListener("change", () => updateDirtyState(type, status, button));
+}
+
+function setupLoginCredentialDirtyState() {
+  const panel = document.querySelector("#login-credential-panel");
+  const button = document.querySelector("#save-login-credential");
+  const status = document.querySelector("#login-credential-save-status");
+  if (!panel || !button) return;
+  const snapshot = getLoginCredentialSnapshot();
+  button.dataset.snapshot = snapshot;
+  updateLoginCredentialDirtyState(snapshot, status, button);
+  panel.querySelectorAll("input").forEach((field) => {
+    field.addEventListener("input", () => updateLoginCredentialDirtyState(snapshot, status, button));
+    field.addEventListener("change", () => updateLoginCredentialDirtyState(snapshot, status, button));
+  });
+}
+
+function getLoginCredentialSnapshot() {
+  const payload = {
+    login_email: document.querySelector("#login_email")?.value.trim() || "",
+    new_pin: document.querySelector("#new_pin")?.value.trim() || "",
+    login_enabled: document.querySelector("#login_enabled")?.checked || false,
+    must_change_pin: document.querySelector("#must_change_pin")?.checked || false,
+    clear_lock: document.querySelector("#clear_login_lock")?.checked || false
+  };
+  return JSON.stringify(Object.keys(payload).sort().map((key) => [key, normalizeSnapshotValue_(payload[key])]));
+}
+
+function updateLoginCredentialDirtyState(snapshot, status, button) {
+  const hasChanges = getLoginCredentialSnapshot() !== snapshot;
+  button.disabled = !hasChanges;
+  button.title = hasChanges
+    ? "ログイン/PIN設定に未保存の変更があります。このボタンで保存してください。"
+    : "ログイン/PIN設定に変更はありません。";
+  if (hasChanges) {
+    setSaveStatus(status, "ログイン/PIN設定に未保存の変更があります。", "pending");
+  } else {
+    setSaveStatus(status, "ログイン/PIN設定は保存済みです。", "success");
+  }
 }
 
 function updateDirtyState(type, status, button) {

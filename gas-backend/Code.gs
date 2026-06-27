@@ -249,8 +249,7 @@ function doPost(e) {
 function readVisibleAppsSafely_(employee) {
   let apps = [];
   try {
-    apps = readPortalSheetObjects_(SHEETS.APPS)
-      .map(normalizeApp_)
+    apps = readPortalApps_()
       .filter(function(app) { return canAccessApp_(employee, app); });
   } catch (error) {
     console.error('Failed to read portal apps. Continuing with fallback apps.', error);
@@ -263,6 +262,33 @@ function readVisibleAppsSafely_(employee) {
   }
 
   return apps;
+}
+
+function readPortalApps_() {
+  try {
+    const supabaseApps = readPortalAppsFromSupabase_();
+    if (supabaseApps.length) return supabaseApps;
+  } catch (error) {
+    console.error(JSON.stringify({
+      code: error.portalCode || 'PORTAL_APPS_SUPABASE_READ_FAILED',
+      message: sanitizeErrorDetail_(String(error.message || error))
+    }));
+  }
+
+  return readPortalAppsFromSheet_();
+}
+
+function readPortalAppsFromSupabase_() {
+  return supabaseRequest_('portal_apps', {
+    query: {
+      select: '*',
+      order: 'priority.asc,app_name.asc'
+    }
+  }).map(normalizeSupabaseApp_);
+}
+
+function readPortalAppsFromSheet_() {
+  return readPortalSheetObjects_(SHEETS.APPS).map(normalizeApp_);
 }
 
 function appendFixedAppIfMissing_(apps, app) {
@@ -676,10 +702,10 @@ function findAppById_(appId) {
   const fixedApp = findFixedAppById_(appId);
   if (fixedApp) return fixedApp;
 
-  const row = readPortalSheetObjects_(SHEETS.APPS).find(function(item) {
-    return String(pick_(item, APP_HEADER_ALIASES.appId) || '') === String(appId || '');
+  const app = readPortalApps_().find(function(item) {
+    return String(item.appId || '') === String(appId || '');
   });
-  return row ? normalizeApp_(row) : null;
+  return app || null;
 }
 
 function findFixedAppById_(appId) {
@@ -792,6 +818,25 @@ function normalizeApp_(row) {
     isActive: parseBoolean_(pick_(row, APP_HEADER_ALIASES.isActive)),
     isFeatured: parseBoolean_(pick_(row, APP_HEADER_ALIASES.isFeatured)),
     priority: Number(pick_(row, APP_HEADER_ALIASES.priority) || 999)
+  };
+}
+
+function normalizeSupabaseApp_(row) {
+  return {
+    appId: String((row && row.app_id) || ''),
+    appName: String((row && row.app_name) || ''),
+    description: String((row && row.description) || ''),
+    url: String((row && row.url) || ''),
+    category: String((row && row.category) || '社内アプリ'),
+    icon: String((row && row.icon) || 'default'),
+    color: String((row && row.color) || ''),
+    requiredLevel: Number((row && row.required_level) || 1),
+    allowedTags: normalizeListValue_(row && row.allowed_tags),
+    targetDepartment: normalizeListValue_(row && row.target_department),
+    targetPosition: normalizeListValue_(row && row.target_position),
+    isActive: row && row.is_active !== false,
+    isFeatured: Boolean(row && row.is_featured),
+    priority: Number((row && row.priority) || 999)
   };
 }
 
@@ -971,6 +1016,7 @@ function getHealthStatus_() {
       supabaseReachable: false,
       loginCredentialsReachable: false,
       accessLogsReachable: false,
+      portalAppsReachable: false,
       portalSpreadsheetAccessible: false,
       staffSpreadsheetAccessible: false,
       storeSpreadsheetAccessible: false,
@@ -1064,6 +1110,16 @@ function getHealthStatus_() {
         }
       });
       result.checks.accessLogsReachable = Array.isArray(accessLogs);
+      const portalApps = supabaseRequest_('portal_apps', {
+        query: {
+          select: 'id,app_id,is_active',
+          limit: '200'
+        }
+      });
+      result.checks.portalAppsReachable = Array.isArray(portalApps);
+      result.checks.portalAppRows = portalApps.length;
+      result.checks.portalAppIdRows = portalApps.filter(function(app) { return app.app_id; }).length;
+      result.checks.portalAppActiveRows = portalApps.filter(function(app) { return app.app_id && app.is_active !== false; }).length;
     }
   } catch (error) {
     result.checks.supabaseError = sanitizeErrorDetail_(String(error.message || error));
@@ -1078,6 +1134,7 @@ function getHealthStatus_() {
     && result.checks.supabaseReachable
     && result.checks.loginCredentialsReachable
     && result.checks.accessLogsReachable
+    && result.checks.portalAppsReachable
     && result.checks.portalSpreadsheetAccessible
     && result.checks.staffSpreadsheetAccessible
     && result.checks.storeSpreadsheetAccessible
@@ -2383,6 +2440,13 @@ function splitList_(value) {
     .split(/[,、\n]/)
     .map(function(item) { return item.trim(); })
     .filter(String);
+}
+
+function normalizeListValue_(value) {
+  if (Array.isArray(value)) {
+    return value.map(function(item) { return String(item || '').trim(); }).filter(String);
+  }
+  return splitList_(value);
 }
 
 function parseBoolean_(value) {

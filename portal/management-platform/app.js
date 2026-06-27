@@ -1112,6 +1112,57 @@ function renderIssueResultSummary(results) {
   `;
 }
 
+function getRecordIssueResults(record) {
+  return (record.results || [])
+    .filter((result) => Number(result.score) === 0 || Number(result.score) === 3)
+    .sort((a, b) => Number(a.score || 0) - Number(b.score || 0))
+    .slice(0, 3);
+}
+
+function getIssueResultTitle(result, index) {
+  const item = getCheckItemMeta(result.checkItemId);
+  return result.itemTitle || item?.title || `項目 ${index + 1}`;
+}
+
+function generateImprovementActionDraft(record) {
+  const issues = getRecordIssueResults(record);
+  const primaryIssue = issues[0];
+  const primaryTitle = primaryIssue ? getIssueResultTitle(primaryIssue, 0) : "";
+  const category = primaryIssue?.managementCategory || getCheckItemMeta(primaryIssue?.checkItemId)?.management_category || record.management_category || "";
+  const actionTitle = primaryIssue
+    ? `${record.store || "店舗"}: ${primaryTitle}を改善する`
+    : `${record.store || "店舗"}: 良い状態を維持する`;
+  const actionBody = [
+    `対象: ${record.target_user || "-"}`,
+    `店舗: ${record.store || "-"}`,
+    `4役割: ${category ? fromCategoryId(category) : record.management_category || "-"}`,
+    `現状: 平均${record.score ?? "-"} / 0点 ${Number(getRecordBreakdown(record).score0 || 0)}件 / 3点 ${Number(getRecordBreakdown(record).score3 || 0)}件`,
+    primaryIssue ? `改善対象: ${primaryTitle} (${Number(primaryIssue.score)}点)` : "改善対象: 0点・3点なし",
+    `次の行動: ${record.comment || "次回チェックまでに維持行動を1つ決める"}`,
+    "期限: 次回チェックまで",
+    "確認方法: 次回の環境整備チェックで同じ項目を確認する"
+  ].join("\n");
+
+  return { title: actionTitle, body: actionBody };
+}
+
+function renderImprovementActionDraft(record) {
+  const draft = generateImprovementActionDraft(record);
+  return `
+    <div class="improvement-action-panel">
+      <div>
+        <p class="score-summary-label">改善アクション案</p>
+        <h3>${escapeHtml(draft.title)}</h3>
+      </div>
+      <pre class="improvement-action-text">${escapeHtml(draft.body)}</pre>
+      <div class="improvement-action-actions">
+        <button type="button" class="ghost-btn copy-action-btn" data-action-text="${escapeHtml(draft.body)}">コピー</button>
+        <span class="field-help">Phase 4では、この内容を改善履歴としてDB保存します。</span>
+      </div>
+    </div>
+  `;
+}
+
 function renderRecordDetail(record, note = "") {
   const content = document.getElementById("recordDetailContent");
   if (!content) return;
@@ -1177,6 +1228,7 @@ function renderRecordDetail(record, note = "") {
       ${renderAiCommentDraft(aiDraft)}
     </div>
     ${issueSummaryHtml}
+    ${renderImprovementActionDraft(record)}
     ${resultHtml}
   `;
 }
@@ -1283,6 +1335,17 @@ async function openPriorityRecordDetail(recordId) {
   showView("records");
   await showRecordDetail(recordId);
   document.getElementById("recordDetailPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function copyImprovementAction(button) {
+  const text = button?.dataset?.actionText || "";
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    setApiStatus("改善アクション案をコピーしました。", "ok");
+  } catch (_error) {
+    setApiStatus("コピーできませんでした。改善アクション案の本文を選択してコピーしてください。", "error");
+  }
 }
 
 function setStatusMessage(message) {
@@ -1477,6 +1540,10 @@ function bindEvents() {
   document.getElementById("recordsBody").addEventListener("click", (event) => {
     const button = event.target.closest(".detail-btn");
     if (button) showRecordDetail(button.dataset.recordId);
+  });
+  document.getElementById("recordDetailContent").addEventListener("click", (event) => {
+    const button = event.target.closest(".copy-action-btn");
+    if (button) copyImprovementAction(button);
   });
   document.getElementById("environmentForm").addEventListener("submit", handleSubmit);
   document.getElementById("environmentForm").addEventListener("change", (event) => {

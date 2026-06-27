@@ -607,6 +607,40 @@ th {
   line-height: 1.6;
 }
 
+.improvement-action-panel {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.improvement-action-panel h3 {
+  margin: 4px 0 0;
+  font-size: 18px;
+}
+
+.improvement-action-text {
+  white-space: pre-wrap;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  line-height: 1.7;
+}
+
+.improvement-action-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
 .result-detail-list {
   display: grid;
   gap: 8px;

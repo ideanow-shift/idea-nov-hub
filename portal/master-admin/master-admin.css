@@ -540,6 +540,14 @@ tr.selected {
   gap: 12px;
 }
 
+.login-credential-heading .status-pill {
+  flex: 0 0 auto;
+  max-width: 92px;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+}
+
 .login-credential-heading strong {
   display: block;
   font-size: 13px;
@@ -565,21 +573,26 @@ tr.selected {
 }
 
 .login-credential-actions {
-  position: sticky;
-  bottom: 76px;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: flex-end;
   gap: 10px;
   margin: 4px -12px -12px;
   border-top: 1px solid #D7E4F5;
-  background: linear-gradient(180deg, rgba(247, 251, 255, 0.86), #F7FBFF 38%);
+  background: #F7FBFF;
   padding: 12px;
-  z-index: 3;
 }
 
 .login-credential-save-button {
   min-width: 176px;
+}
+
+.login-credential-actions .save-status {
+  width: 100%;
+  justify-content: flex-start;
+  border-radius: var(--radius-md);
+  line-height: 1.5;
+  white-space: normal;
 }
 
 .form-grid {

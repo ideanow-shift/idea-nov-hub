@@ -1,6 +1,6 @@
 export const PORTAL_CONFIG = {
   authMode: "firebase",
-  gasApiUrl: "https://script.google.com/macros/s/AKfycbzrZsDjzMe-97XuO8CqjUQqu22La8pN97--4J1OwNn4sA9gqebX_w9Ho6v98GtDwJ9Q/exec",
+  gasApiUrl: "https://script.google.com/macros/s/AKfycbw9TcdH3l0o8X-3CnkgjaeJBkU7x34M9BPK8OhJC2aKq2bisZGEOeQFuvgjfH3H3TPU/exec",
   firebase: {
     apiKey: "AIzaSyBJAPJbAG_SdFmJqO0dIKh8v4Sd0tI0Vkc",
     authDomain: "idea-nov-group-portal.firebaseapp.com",

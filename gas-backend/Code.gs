@@ -220,7 +220,7 @@ function doPost(e) {
       }
 
       stage = 'appendAccessLog';
-      appendAccessLog_({
+      appendAccessLogSafely_({
         email: employee.email,
         name: employee.name,
         action: logAction,
@@ -806,12 +806,56 @@ function normalizeAnnouncement_(row) {
 }
 
 function appendAccessLog_(entry) {
+  const normalized = normalizeAccessLogEntry_(entry);
+  try {
+    appendAccessLogToSupabase_(normalized);
+    return;
+  } catch (error) {
+    console.error(JSON.stringify({
+      code: error.portalCode || 'ACCESS_LOG_SUPABASE_WRITE_FAILED',
+      message: sanitizeErrorDetail_(String(error.message || error))
+    }));
+  }
+  appendAccessLogToSheet_(normalized);
+}
+
+function appendAccessLogToSupabase_(entry) {
+  supabaseRequest_('access_logs', {
+    method: 'post',
+    payload: {
+      occurred_at: entry.timestamp,
+      email: entry.email,
+      employee_name: entry.name,
+      action: entry.action,
+      app_id: entry.appId,
+      app_name: entry.appName,
+      result: entry.result,
+      detail: entry.detail
+    },
+    prefer: 'return=minimal'
+  });
+}
+
+function appendAccessLogToSheet_(entry) {
   const sheet = getPortalSpreadsheet_().getSheetByName(SHEETS.ACCESS_LOG);
   if (!sheet) throwPortalError_('ACCESS_LOG_SHEET_MISSING', 'AccessLog sheet is missing.');
   sheet.appendRow([
-    new Date(), entry.email || '', entry.name || '', entry.action || '',
+    new Date(entry.timestamp), entry.email || '', entry.name || '', entry.action || '',
     entry.appId || '', entry.appName || '', entry.result || ''
   ]);
+}
+
+function normalizeAccessLogEntry_(entry) {
+  return {
+    timestamp: new Date().toISOString(),
+    email: String((entry && entry.email) || ''),
+    name: String((entry && entry.name) || ''),
+    action: String((entry && entry.action) || ''),
+    appId: String((entry && entry.appId) || ''),
+    appName: String((entry && entry.appName) || ''),
+    result: String((entry && entry.result) || ''),
+    detail: (entry && entry.detail && typeof entry.detail === 'object') ? entry.detail : {}
+  };
 }
 
 function appendAccessLogSafely_(entry) {
@@ -926,6 +970,7 @@ function getHealthStatus_() {
       pinHashPepperConfigured: Boolean(properties.getProperty('PIN_HASH_PEPPER')),
       supabaseReachable: false,
       loginCredentialsReachable: false,
+      accessLogsReachable: false,
       portalSpreadsheetAccessible: false,
       staffSpreadsheetAccessible: false,
       storeSpreadsheetAccessible: false,
@@ -1012,6 +1057,13 @@ function getHealthStatus_() {
         }
       });
       result.checks.loginCredentialsReachable = Array.isArray(credentials);
+      const accessLogs = supabaseRequest_('access_logs', {
+        query: {
+          select: 'id',
+          limit: '1'
+        }
+      });
+      result.checks.accessLogsReachable = Array.isArray(accessLogs);
     }
   } catch (error) {
     result.checks.supabaseError = sanitizeErrorDetail_(String(error.message || error));
@@ -1025,6 +1077,7 @@ function getHealthStatus_() {
     && result.checks.pinHashPepperConfigured
     && result.checks.supabaseReachable
     && result.checks.loginCredentialsReachable
+    && result.checks.accessLogsReachable
     && result.checks.portalSpreadsheetAccessible
     && result.checks.staffSpreadsheetAccessible
     && result.checks.storeSpreadsheetAccessible

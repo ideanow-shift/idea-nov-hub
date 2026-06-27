@@ -1624,8 +1624,29 @@ function updateLoginCredentialDirtyState(snapshot, status, button) {
   if (hasChanges) {
     setSaveStatus(status, "ログイン/PIN設定に未保存の変更があります。", "pending");
   } else {
-    setSaveStatus(status, "ログイン/PIN設定は保存済みです。", "success");
+    const employee = state.employees.find((item) => item.id === state.selectedId);
+    setSaveStatus(status, getLoginCredentialStatusMessage(employee), getLoginCredentialStatusTone(employee));
   }
+}
+
+function getLoginCredentialStatusMessage(employee) {
+  const credential = getEmployeeCredential(employee);
+  const loginEmail = document.querySelector("#login_email")?.value.trim() || credential.login_email || employee?.email || "";
+  if (!loginEmail && !credential.pin_set) return "ログインメール/PINが未設定です。";
+  if (!loginEmail) return "ログインメールが未設定です。";
+  if (!credential.pin_set) return "PIN未設定です。";
+  if (credential.login_enabled === false) return "ログイン停止中です。";
+  if (credential.locked) return "ログインがロック中です。";
+  if (credential.must_change_pin) return "次回ログイン時にPIN変更が必要です。";
+  return "ログイン/PIN設定は保存済みです。";
+}
+
+function getLoginCredentialStatusTone(employee) {
+  const credential = getEmployeeCredential(employee);
+  const loginEmail = document.querySelector("#login_email")?.value.trim() || credential.login_email || employee?.email || "";
+  if (!loginEmail || !credential.pin_set || credential.locked || credential.must_change_pin) return "pending";
+  if (credential.login_enabled === false) return "error";
+  return "success";
 }
 
 function updateDirtyState(type, status, button) {

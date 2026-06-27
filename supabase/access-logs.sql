@@ -25,3 +25,5 @@ create index if not exists idx_access_logs_app_id_occurred_at
   on public.access_logs (app_id, occurred_at desc);
 
 alter table public.access_logs enable row level security;
+
+grant select, insert, update, delete on table public.access_logs to service_role;

@@ -842,7 +842,10 @@ function renderAiPriorityPanel(records) {
               <p class="score-summary-label">次の確認</p>
               <p class="ai-priority-action">${escapeHtml(aiDraft.title)}</p>
             </div>
-            <span class="focus-badge">優先度 ${priorityScore}</span>
+            <div class="ai-priority-actions">
+              <span class="focus-badge">優先度 ${priorityScore}</span>
+              <button type="button" class="ghost-btn detail-btn ai-priority-detail-btn" data-record-id="${escapeHtml(record.record_id)}">詳細</button>
+            </div>
           </article>
         `;
       }).join("")}
@@ -1238,6 +1241,12 @@ function showView(name) {
   });
 }
 
+async function openPriorityRecordDetail(recordId) {
+  showView("records");
+  await showRecordDetail(recordId);
+  document.getElementById("recordDetailPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function setStatusMessage(message) {
   const status = document.getElementById("authStatus");
   if (status && message) status.textContent = message;
@@ -1423,6 +1432,10 @@ function bindEvents() {
     renderRecords();
   });
   document.getElementById("exportHistoryCsvBtn").addEventListener("click", exportFilteredHistoryCsv);
+  document.getElementById("aiPriorityPanel").addEventListener("click", (event) => {
+    const button = event.target.closest(".ai-priority-detail-btn");
+    if (button) openPriorityRecordDetail(button.dataset.recordId);
+  });
   document.getElementById("recordsBody").addEventListener("click", (event) => {
     const button = event.target.closest(".detail-btn");
     if (button) showRecordDetail(button.dataset.recordId);

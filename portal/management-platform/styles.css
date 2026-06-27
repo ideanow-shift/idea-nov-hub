@@ -270,6 +270,14 @@ button:hover {
   line-height: 1.6;
 }
 
+.ai-priority-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .card {
   min-height: 152px;
   padding: 16px;
@@ -663,6 +671,7 @@ th {
   .focus-grid { grid-template-columns: 1fr; }
   .store-summary-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ai-priority-row { grid-template-columns: 1fr; }
+  .ai-priority-actions { justify-content: flex-start; }
   .record-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .split-layout { grid-template-columns: 1fr; }
 }

@@ -787,6 +787,69 @@ function renderStoreSummaryPanel(records) {
   `;
 }
 
+function getAiPriorityRecords(records) {
+  return records
+    .map((record) => {
+      const breakdown = getRecordBreakdown(record);
+      const score0 = Number(breakdown.score0 || 0);
+      const score3 = Number(breakdown.score3 || 0);
+      return {
+        record,
+        score0,
+        score3,
+        priorityScore: score0 * 2 + score3
+      };
+    })
+    .filter((item) => item.priorityScore > 0 || (item.record.comment && item.record.comment.trim()))
+    .sort((a, b) => {
+      if (b.priorityScore !== a.priorityScore) return b.priorityScore - a.priorityScore;
+      return new Date(b.record.checked_at || 0).getTime() - new Date(a.record.checked_at || 0).getTime();
+    })
+    .slice(0, 3);
+}
+
+function renderAiPriorityPanel(records) {
+  const panel = document.getElementById("aiPriorityPanel");
+  if (!panel) return;
+  const priorityRecords = getAiPriorityRecords(records);
+  if (!priorityRecords.length) {
+    panel.innerHTML = `
+      <div class="panel-head">
+        <p class="section-label">AI Priority</p>
+        <h2>優先確認リスト</h2>
+        <p class="muted-text">0点・3点・コメント付き履歴が増えると、確認すべき改善候補をここに表示します。</p>
+      </div>
+    `;
+    return;
+  }
+
+  panel.innerHTML = `
+    <div class="panel-head">
+      <p class="section-label">AI Priority</p>
+      <h2>優先確認リスト</h2>
+      <p class="muted-text">評価ではなく、次に見るべき改善候補を並べています。</p>
+    </div>
+    <div class="ai-priority-list">
+      ${priorityRecords.map(({ record, score0, score3, priorityScore }) => {
+        const aiDraft = generateAiCommentDraft(record, records);
+        return `
+          <article class="ai-priority-row">
+            <div>
+              <p class="store-summary-name">${escapeHtml(record.store || "店舗")}</p>
+              <p class="focus-note">${escapeHtml(formatDate(record.checked_at))} / 0点 ${score0}件 / 3点 ${score3}件</p>
+            </div>
+            <div>
+              <p class="score-summary-label">次の確認</p>
+              <p class="ai-priority-action">${escapeHtml(aiDraft.title)}</p>
+            </div>
+            <span class="focus-badge">優先度 ${priorityScore}</span>
+          </article>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
 function renderDashboard() {
   const records = getLocalRecords();
   const summary = getDashboardSummary(records);
@@ -800,6 +863,7 @@ function renderDashboard() {
   `).join("");
   renderFocusPanel(records);
   renderStoreSummaryPanel(records);
+  renderAiPriorityPanel(records);
 
   const nextAction = document.getElementById("todayActionTitle");
   const nextNote = document.getElementById("todayActionNote");

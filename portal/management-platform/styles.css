@@ -154,6 +154,10 @@ button:hover {
   margin-top: 12px;
 }
 
+.ai-priority-panel {
+  margin-top: 12px;
+}
+
 .focus-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1.4fr;
@@ -242,6 +246,28 @@ button:hover {
   display: block;
   color: var(--text);
   font-size: 16px;
+}
+
+.ai-priority-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ai-priority-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(180px, 1.2fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.ai-priority-action {
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.6;
 }
 
 .card {
@@ -636,6 +662,7 @@ th {
   .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .focus-grid { grid-template-columns: 1fr; }
   .store-summary-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ai-priority-row { grid-template-columns: 1fr; }
   .record-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .split-layout { grid-template-columns: 1fr; }
 }
@@ -647,6 +674,7 @@ th {
   .history-tools,
   .record-detail-grid,
   .store-summary-row,
+  .ai-priority-row,
   .score-row,
   .score-summary-total,
   .category-summary { grid-template-columns: 1fr; }

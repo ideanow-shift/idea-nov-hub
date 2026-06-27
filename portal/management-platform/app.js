@@ -580,6 +580,39 @@ function getRecentActionRecords(records) {
     .slice(0, 3);
 }
 
+function generateAiCommentDraft(record, records) {
+  const breakdown = getRecordBreakdown(record);
+  const score0 = Number(breakdown.score0 || 0);
+  const score3 = Number(breakdown.score3 || 0);
+  const photoCount = getRecordPhotoCount(record);
+  const hasComment = Boolean(record.comment && record.comment.trim());
+  const suggestions = [];
+
+  if (score0 > 0) {
+    suggestions.push(`0点の${score0}項目を最優先で現場確認し、原因を1つに絞ってください。`);
+  } else if (score3 > 0) {
+    suggestions.push(`3点の${score3}項目から、次回までに改善する項目を1つ選んでください。`);
+  } else {
+    suggestions.push("良い状態を維持するため、できている行動を店舗内で共有してください。");
+  }
+
+  if (photoCount > 0) {
+    suggestions.push(`写真${photoCount}枚をBefore/After比較の材料として残せています。次回も同じ場所を撮影すると成長が見えます。`);
+  } else {
+    suggestions.push("写真を1枚残すと、次回の比較とAI分析に使いやすくなります。");
+  }
+
+  if (!hasComment) {
+    suggestions.push("コメントに「気づき」と「次の行動」を1文ずつ残してください。");
+  }
+
+  return {
+    title: score0 > 0 ? "最優先課題を絞る" : score3 > 0 ? "次の改善行動を決める" : "良い状態を継続する",
+    summary: `これは評価ではなく、最新履歴${records.length}件をもとにした改善提案です。`,
+    suggestions: suggestions.slice(0, 3)
+  };
+}
+
 function renderFocusPanel(records) {
   const panel = document.getElementById("focusPanel");
   if (!panel) return;
@@ -600,6 +633,7 @@ function renderFocusPanel(records) {
   const score3 = Number(breakdown.score3 || 0);
   const issueCount = score0 + score3;
   const actions = getRecentActionRecords(records);
+  const aiDraft = generateAiCommentDraft(latest, records);
   const priorityLabel = score0 > 0 ? "最優先" : issueCount > 0 ? "確認" : "維持";
   const priorityText = score0 > 0
     ? `0点が${score0}件あります。まず安全・衛生・導線に関わる項目から確認します。`
@@ -630,6 +664,14 @@ function renderFocusPanel(records) {
         <p class="score-summary-label">次の行動メモ</p>
         <h3>${escapeHtml(latest.comment || "コメント未入力")}</h3>
         <p class="focus-note">${actions.length ? `${actions.length}件のコメント付き履歴があります。` : "コメントを残すと改善履歴として追いやすくなります。"}</p>
+      </article>
+      <article class="focus-card focus-card-wide ai-comment-card">
+        <p class="score-summary-label">AI改善コメント（案）</p>
+        <h3>${escapeHtml(aiDraft.title)}</h3>
+        <p class="focus-note">${escapeHtml(aiDraft.summary)}</p>
+        <ul class="ai-comment-list">
+          ${aiDraft.suggestions.map((suggestion) => `<li>${escapeHtml(suggestion)}</li>`).join("")}
+        </ul>
       </article>
     </div>
   `;

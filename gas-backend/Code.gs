@@ -210,6 +210,13 @@ function doPost(e) {
       return jsonOutput_({ ok: true, result: syncPortalAppsFromSheet_(employee) });
     }
 
+    if (action === 'masterCreatePortalApp') {
+      stage = 'authorizeMasterAdmin';
+      assertMasterEditor_(employee);
+      stage = 'createPortalApp';
+      return jsonOutput_({ ok: true, portalApp: createPortalApp_(payload, employee) });
+    }
+
     if (action === 'masterUpdatePortalApp') {
       stage = 'authorizeMasterAdmin';
       assertMasterEditor_(employee);
@@ -2399,6 +2406,58 @@ function updatePortalApp_(payload, actor) {
     targetName: after.app_name || before.app_name || appId
   });
   return normalizeSupabaseApp_(after);
+}
+
+function createPortalApp_(payload, actor) {
+  const appId = String(payload.appId || payload.app_id || '').trim();
+  const appName = String(payload.appName || payload.app_name || '').trim();
+  if (!appId) throwPortalError_('INVALID_REQUEST', 'App ID is required.');
+  if (!/^[A-Za-z0-9_-]{2,80}$/.test(appId)) {
+    throwPortalError_('INVALID_REQUEST', 'App ID must use letters, numbers, hyphen, or underscore.');
+  }
+  if (!appName) throwPortalError_('INVALID_REQUEST', 'App name is required.');
+
+  const duplicates = supabaseRequest_('portal_apps', {
+    query: {
+      select: 'id,app_id,app_name',
+      app_id: 'eq.' + appId,
+      limit: '1'
+    }
+  });
+  if (duplicates.length) throwPortalError_('INVALID_REQUEST', 'App ID is already used.');
+
+  const now = new Date().toISOString();
+  const row = {
+    app_id: appId,
+    app_name: appName,
+    description: String(payload.description || '').trim(),
+    url: String(payload.url || '').trim(),
+    category: String(payload.category || '').trim() || 'internal',
+    icon: String(payload.icon || '').trim() || 'default',
+    color: String(payload.color || '').trim() || null,
+    required_level: Math.max(1, Math.min(5, Number(payload.requiredLevel || payload.required_level || 1))),
+    allowed_tags: normalizeListValue_(payload.allowedTags || payload.allowed_tags),
+    target_department: normalizeListValue_(payload.targetDepartment || payload.target_department),
+    target_position: normalizeListValue_(payload.targetPosition || payload.target_position),
+    is_active: parseBooleanLike_(getPayloadValue_(payload, 'isActive', 'is_active'), true),
+    is_featured: parseBooleanLike_(getPayloadValue_(payload, 'isFeatured', 'is_featured'), false),
+    priority: Number(payload.priority || 999),
+    created_at: now,
+    updated_at: now
+  };
+
+  const result = supabaseRequest_('portal_apps', {
+    method: 'post',
+    query: { select: '*' },
+    payload: row,
+    prefer: 'return=representation'
+  });
+  const created = result[0] || row;
+  appendMasterChangeLogSafely_('portal_apps', created.id || appId, row, actor, {
+    actionType: 'create',
+    targetName: created.app_name || appName
+  });
+  return normalizeSupabaseApp_(created);
 }
 
 function copyStringField_(target, source, fieldName) {

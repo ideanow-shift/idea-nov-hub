@@ -2,6 +2,7 @@ import { signInWithGoogle, signOutUser } from "../js/auth.js";
 import { callApiAction, clearApiAuth, setFirebaseAuth } from "../js/api.js";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
+const NEW_PORTAL_APP_ID = "__new_portal_app__";
 
 const state = {
   view: "employees",
@@ -31,7 +32,7 @@ const state = {
 };
 
 const elements = Object.fromEntries([
-  "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "add-employee", "refresh", "sync-portal-apps",
+  "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "add-employee", "add-portal-app", "refresh", "sync-portal-apps",
   "view-title", "search", "quality-summary", "result-count", "table-head", "table-body",
   "detail-panel", "employee-status-filter", "store-status-filter", "app-status-filter", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
@@ -444,6 +445,7 @@ function render() {
   });
   updateNavigationCounts();
   elements.addEmployee.hidden = state.view !== "employees" || !state.permissions.canEdit;
+  elements.addPortalApp.hidden = state.view !== "apps" || !state.permissions.canEdit;
   elements.viewTitle.textContent = {
     employees: "社員マスタ",
     stores: "店舗マスタ",
@@ -907,6 +909,10 @@ function renderDetail() {
   }
   if (state.view === "employees" && state.selectedId === NEW_EMPLOYEE_ID) {
     renderNewEmployeeDetail();
+    return;
+  }
+  if (state.view === "apps" && state.selectedId === NEW_PORTAL_APP_ID) {
+    renderNewPortalAppDetail();
     return;
   }
 
@@ -1589,7 +1595,7 @@ function renderPortalAppDetail(app) {
       ${fieldInput("appId", "アプリID", app.appId || "", { required: true })}
       ${fieldInput("appName", "アプリ名", app.appName || "", { required: true })}
       ${fieldInput("description", "説明", app.description || "")}
-      ${fieldInput("url", "URL", app.url || "", "url")}
+      ${fieldInput("url", "URL", app.url || "")}
       ${fieldInput("category", "カテゴリ", app.category || "")}
       ${fieldInput("icon", "アイコンID", app.icon || "default")}
       ${fieldInput("priority", "優先度", app.priority || 999, "number")}
@@ -1616,6 +1622,52 @@ function renderPortalAppDetail(app) {
     form.addEventListener("submit", savePortalApp);
     setupDirtyForm("app");
   }
+}
+
+function startCreatePortalApp() {
+  if (!state.permissions.canEdit) {
+    showToast("編集権限がありません。", "error");
+    return;
+  }
+  state.view = "apps";
+  state.selectedId = NEW_PORTAL_APP_ID;
+  state.formSnapshot = null;
+  render();
+}
+
+function renderNewPortalAppDetail() {
+  elements.detailPanel.innerHTML = `
+    <h3>新規アプリ追加</h3>
+    <p class="detail-meta">Supabase portal_apps に新しいHUBカードを追加します。</p>
+    <p class="detail-note">アプリIDは英数字・ハイフン・アンダースコアで一意にしてください。非公開で作成してから公開すると安全です。</p>
+    <form class="form-grid" id="detail-form">
+      ${fieldInput("appId", "アプリID", "", { required: true, placeholder: "example-app" })}
+      ${fieldInput("appName", "アプリ名", "", { required: true, placeholder: "例：シフト管理" })}
+      ${fieldInput("description", "説明", "", { placeholder: "例：勤務予定・希望休の確認" })}
+      ${fieldInput("url", "URL", "", { placeholder: "https://example.com/ または ./app/" })}
+      ${fieldInput("category", "カテゴリ", "社内アプリ")}
+      ${fieldInput("icon", "アイコンID", "default")}
+      ${fieldInput("priority", "優先度", 999, "number")}
+      ${fieldStaticSelect("requiredLevel", "必要権限レベル", [
+        ["1", "1 全スタッフ"],
+        ["2", "2 スタイリスト以上"],
+        ["3", "3 SD・店長以上"],
+        ["4", "4 Mgr・部長以上"],
+        ["5", "5 役員・本部幹部"]
+      ], "1")}
+      ${fieldTextarea("allowedTags", "許可タグ（カンマ区切り）", "")}
+      ${fieldTextarea("targetDepartment", "対象部署（カンマ区切り）", "")}
+      ${fieldTextarea("targetPosition", "対象役職（カンマ区切り）", "")}
+      ${fieldCheckbox("isActive", "HUBに表示する", true)}
+      ${fieldCheckbox("isFeatured", "よく使うアプリに表示", false)}
+      <div class="save-row">
+        <span class="save-status" id="app-save-status" aria-live="polite"></span>
+        <button class="button button-primary save-button" type="submit">追加</button>
+      </div>
+    </form>`;
+  const form = document.querySelector("#detail-form");
+  form.addEventListener("submit", savePortalApp);
+  setupDirtyForm("app");
 }
 
 function renderStoreIssuePanel(store, issues) {
@@ -2092,15 +2144,19 @@ async function savePortalApp(event) {
     button.disabled = true;
     button.textContent = "保存中...";
     setSaveStatus(status, "アプリ設定を保存中です...", "pending");
-    await callApiAction("masterUpdatePortalApp", payload);
+    const action = state.selectedId === NEW_PORTAL_APP_ID ? "masterCreatePortalApp" : "masterUpdatePortalApp";
+    const response = await callApiAction(action, payload);
     await refreshPortalApps();
+    if (action === "masterCreatePortalApp" && response.portalApp?.id) {
+      state.selectedId = response.portalApp.id;
+    }
     const logsSynced = await refreshLogsSilently();
     saved = true;
     markCurrentFormSaved(
       "app",
       logsSynced ? "保存しました。変更履歴にも反映済みです。" : "保存しました。変更履歴は後で再読み込みしてください。"
     );
-    showToast("アプリ設定を保存しました。");
+    showToast(action === "masterCreatePortalApp" ? "アプリを追加しました。" : "アプリ設定を保存しました。");
   } catch (error) {
     console.error(error);
     setSaveStatus(status, getErrorMessage(error), "error");
@@ -2245,6 +2301,7 @@ elements.signOut.addEventListener("click", handleSignOut);
 elements.refresh.addEventListener("click", loadData);
 elements.syncPortalApps.addEventListener("click", syncPortalApps);
 elements.addEmployee.addEventListener("click", startCreateEmployee);
+elements.addPortalApp.addEventListener("click", startCreatePortalApp);
 elements.search.addEventListener("input", () => {
   state.employeeIssueFilter = "";
   renderTable();

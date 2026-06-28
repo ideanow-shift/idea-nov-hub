@@ -416,7 +416,8 @@ function appendFixedPortalApps_(apps, employee) {
 function getFixedPortalApps_(employee) {
   const fixedApps = [
     createIdeaLinkApp_(),
-    createHumanCapitalInvestmentApp_()
+    createHumanCapitalInvestmentApp_(),
+    createHubContextTestApp_()
   ];
   if (isMasterAdmin_(employee)) fixedApps.push(createMasterAdminApp_());
   return fixedApps.filter(function(app) {
@@ -428,7 +429,8 @@ function getAllFixedPortalApps_() {
   return [
     createMasterAdminApp_(),
     createIdeaLinkApp_(),
-    createHumanCapitalInvestmentApp_()
+    createHumanCapitalInvestmentApp_(),
+    createHubContextTestApp_()
   ];
 }
 
@@ -1301,6 +1303,24 @@ function createHumanCapitalInvestmentApp_() {
     isActive: true,
     isFeatured: false,
     priority: 64
+  };
+}
+
+function createHubContextTestApp_() {
+  return {
+    appId: 'hub-context-test',
+    appName: 'HUB Context Test',
+    description: 'HUBから各アプリへ渡すログイン情報を確認します',
+    url: './context-test/',
+    category: '開発・診断',
+    icon: 'database',
+    requiredLevel: 5,
+    allowedTags: [],
+    targetDepartment: [],
+    targetPosition: [],
+    isActive: true,
+    isFeatured: false,
+    priority: 98
   };
 }
 

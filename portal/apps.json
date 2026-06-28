@@ -207,6 +207,18 @@
       ]
     },
     {
+      "appId": "hub-context-test",
+      "appName": "HUB Context Test",
+      "icon": "./assets/icons/database.svg",
+      "color": "#9FAFE8",
+      "aliases": [
+        "HUB Context Test",
+        "hub-context-test",
+        "context-test",
+        "hub context"
+      ]
+    },
+    {
       "appId": "human-capital-investment",
       "appName": "人財投資管理システム",
       "icon": "./assets/icons/human-capital-investment.svg",

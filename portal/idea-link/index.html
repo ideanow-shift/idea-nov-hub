@@ -10,8 +10,14 @@
       --text-primary: #1f1f1f;
       --text-secondary: #767676;
       --color-bassa: #e8b4b8;
+      --color-alert: #ff3b30;
+      --color-success: #34c759;
       --border-light: #e5e5e5;
       --radius-md: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
     }
 
     body {
@@ -19,17 +25,17 @@
       min-height: 100vh;
       display: grid;
       place-items: center;
+      padding: 24px 16px;
       background: var(--bg-primary);
       color: var(--text-primary);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
     }
 
     .card {
-      width: min(440px, calc(100vw - 32px));
+      width: min(440px, 100%);
       border: 1px solid var(--border-light);
-      border-radius: 14px;
-      padding: 28px;
-      box-sizing: border-box;
+      border-radius: var(--radius-md);
+      padding: 24px;
     }
 
     .brand {
@@ -40,69 +46,121 @@
     }
 
     .brand-mark {
-      width: 36px;
-      height: 36px;
-      border-radius: 12px;
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
       background: #fff7f8;
       border: 1px solid #f1c9cd;
       display: grid;
       place-items: center;
-    }
-
-    .brand-mark svg {
-      width: 22px;
-      height: 22px;
+      color: var(--color-bassa);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .02em;
     }
 
     h1 {
       margin: 0;
-      font-size: 22px;
-      line-height: 1.3;
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 1.5;
     }
 
     p {
-      margin: 10px 0 0;
+      margin: 8px 0 0;
       color: var(--text-secondary);
-      font-size: 15px;
+      font-size: 14px;
       line-height: 1.8;
+    }
+
+    .checks {
+      display: grid;
+      gap: 8px;
+      margin: 20px 0;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      font-size: 14px;
+    }
+
+    .pill {
+      flex: 0 0 auto;
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: #f6f6f6;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .pill.ok {
+      background: #eefaf2;
+      color: #197b3a;
+    }
+
+    .pill.ng {
+      background: #fff2f2;
+      color: var(--color-alert);
     }
 
     .button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      width: 100%;
       min-height: 44px;
-      margin-top: 20px;
-      padding: 0 18px;
+      padding: 12px 16px;
+      border: 0;
       border-radius: var(--radius-md);
       background: var(--color-bassa);
       color: #fff;
       text-decoration: none;
-      font-weight: 700;
+      font-size: 14px;
+      font-weight: 600;
     }
 
-    .error {
-      color: #ff3b30;
-      font-weight: 700;
+    .button.secondary {
+      margin-top: 8px;
+      background: #fff;
+      border: 1px solid var(--border-light);
+      color: var(--text-primary);
+      font-weight: 500;
     }
   </style>
 </head>
 <body>
   <main class="card">
     <div class="brand">
-      <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M7.5 12.5 10.5 15.5 16.8 8.5" stroke="#e8b4b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <rect x="3" y="3" width="18" height="18" rx="6" stroke="#e8b4b8" stroke-width="1.8"/>
-        </svg>
-      </span>
+      <span class="brand-mark" aria-hidden="true">NOV</span>
       <div>
         <h1>IDEA LINKへ移動中</h1>
-        <p>NOV HUBのログイン情報を引き継いでいます。</p>
+        <p id="status">NOV HUBのログイン情報と権限を確認しています。</p>
       </div>
     </div>
-    <p id="status">自動で移動しない場合は、下のボタンを押してください。</p>
+
+    <div class="checks" aria-live="polite">
+      <div class="check-row">
+        <span>HUBログイン情報</span>
+        <span class="pill" id="context-status">確認中</span>
+      </div>
+      <div class="check-row">
+        <span>社員ID</span>
+        <span class="pill" id="employee-status">確認中</span>
+      </div>
+      <div class="check-row">
+        <span>IDEA LINK権限</span>
+        <span class="pill" id="role-status">確認中</span>
+      </div>
+    </div>
+
     <a id="openLink" class="button" href="#">IDEA LINKを開く</a>
+    <a class="button secondary" href="../">NOV HUBへ戻る</a>
   </main>
 
   <script type="module">
@@ -114,25 +172,61 @@
     } from "../js/hub-context.js";
 
     const IDEA_LINK_GAS_URL = "https://script.google.com/a/macros/idea-nov.com/s/AKfycbz3tmMUSvKEVZgmf8w-pKLk_H6_fXdltkwrHF5VIfpItufu41xoCa1f3-1aE0w3fJpucw/exec";
+    const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
+
     const status = document.querySelector("#status");
     const openLink = document.querySelector("#openLink");
+    const contextStatus = document.querySelector("#context-status");
+    const employeeStatus = document.querySelector("#employee-status");
+    const roleStatus = document.querySelector("#role-status");
 
-    function buildIdeaLinkUrl() {
+    function setPill(element, ok, label) {
+      element.textContent = label;
+      element.classList.remove("ok", "ng");
+      element.classList.add(ok ? "ok" : "ng");
+    }
+
+    function getRoleKeys(context) {
+      const roleKeys = new Set(Array.isArray(context?.roleKeys) ? context.roleKeys : []);
+      if (Array.isArray(context?.roles)) {
+        context.roles.forEach((role) => {
+          if (role?.roleKey) roleKeys.add(role.roleKey);
+        });
+      }
+      return roleKeys;
+    }
+
+    function buildIdeaLinkUrl(context) {
       const incoming = new URL(window.location.href).searchParams.get(HUB_CONTEXT_QUERY_KEY);
-      const context = readHubEmployeeContextFromUrl(window.location.href) || readHubEmployeeContext();
       const encoded = incoming || encodeHubContextForUrl(context);
       const url = new URL(IDEA_LINK_GAS_URL);
       if (encoded) url.searchParams.set(HUB_CONTEXT_QUERY_KEY, encoded);
-      return { url: url.toString(), hasContext: Boolean(encoded) };
+      return { url: url.toString(), encoded };
     }
 
-    const result = buildIdeaLinkUrl();
-    openLink.href = result.url;
+    const context = readHubEmployeeContextFromUrl(window.location.href) || readHubEmployeeContext();
+    const hasContext = Boolean(context);
+    const hasEmployeeId = Boolean(context?.id || context?.employeeId || context?.supabaseEmployeeId);
+    const roleKeys = getRoleKeys(context);
+    const hasIdeaLinkRole = IDEA_LINK_ROLE_KEYS.some((roleKey) => roleKeys.has(roleKey));
 
-    if (!result.hasContext) {
-      status.innerHTML = '<span class="error">HUBログイン情報が見つかりません。</span><br>NOV HUBへ戻ってログイン後、もう一度IDEA LINKを開いてください。';
+    setPill(contextStatus, hasContext, hasContext ? "あり" : "なし");
+    setPill(employeeStatus, hasEmployeeId, hasEmployeeId ? "確認済み" : "なし");
+    setPill(roleStatus, hasIdeaLinkRole, hasIdeaLinkRole ? "利用可" : "権限なし");
+
+    if (!hasContext || !hasEmployeeId) {
+      status.textContent = "HUBログイン情報が見つかりません。NOV HUBへ戻ってログイン後、もう一度IDEA LINKを開いてください。";
+      openLink.hidden = true;
+    } else if (!hasIdeaLinkRole) {
+      status.textContent = "このアカウントにはIDEA LINKの利用権限がありません。マスタ管理でIDEA LINK権限を確認してください。";
+      openLink.hidden = true;
     } else {
-      window.location.replace(result.url);
+      const result = buildIdeaLinkUrl(context);
+      openLink.href = result.url;
+      status.textContent = "確認できました。IDEA LINKへ移動します。";
+      window.setTimeout(() => {
+        window.location.replace(result.url);
+      }, 600);
     }
   </script>
 </body>

@@ -1342,9 +1342,25 @@ function buildImprovementActionPayload(record) {
   };
 }
 
+function findExistingImprovementActionForRecord(record) {
+  const sourceCheckId = record.source_check_id || record.record_id;
+  if (!sourceCheckId) return null;
+  const primaryIssue = getPrimaryImprovementIssue(record);
+  const sourceCheckResultId = primaryIssue?.resultId || primaryIssue?.id || null;
+  return improvementActions.find((action) => {
+    if (action.sourceCheckId !== sourceCheckId) return false;
+    if (!sourceCheckResultId || !action.sourceCheckResultId) return true;
+    return action.sourceCheckResultId === sourceCheckResultId;
+  }) || null;
+}
+
 function renderImprovementActionDraft(record) {
   const draft = generateImprovementActionDraft(record);
-  const canSave = hasApiConfig() && Boolean(record.source_check_id || record.record_id);
+  const existingAction = findExistingImprovementActionForRecord(record);
+  const canSave = hasApiConfig() && Boolean(record.source_check_id || record.record_id) && !existingAction;
+  const statusText = existingAction
+    ? `保存済み: ${getActionStatusLabel(existingAction.status)} / 担当 ${existingAction.ownerEmployeeName || "-"}`
+    : "保存すると、改善アクション履歴としてCore DBに残ります。";
   return `
     <div class="improvement-action-panel">
       <div>
@@ -1353,9 +1369,10 @@ function renderImprovementActionDraft(record) {
       </div>
       <pre class="improvement-action-text">${escapeHtml(draft.body)}</pre>
       <div class="improvement-action-actions">
-        <button type="button" class="save-action-btn" data-record-id="${escapeHtml(record.record_id)}" ${canSave ? "" : "disabled"}>改善履歴に保存</button>
+        <button type="button" class="save-action-btn" data-record-id="${escapeHtml(record.record_id)}" ${canSave ? "" : "disabled"}>${existingAction ? "保存済み" : "改善履歴に保存"}</button>
+        ${existingAction ? `<button type="button" class="ghost-btn open-actions-btn">改善タブで確認</button>` : ""}
         <button type="button" class="ghost-btn copy-action-btn" data-action-text="${escapeHtml(draft.body)}">コピー</button>
-        <span class="field-help">保存すると、改善アクション履歴としてCore DBに残ります。</span>
+        <span class="field-help">${escapeHtml(statusText)}</span>
       </div>
     </div>
   `;
@@ -1561,10 +1578,19 @@ async function saveImprovementAction(button) {
   setApiStatus("改善履歴を保存中です...", "loading");
   try {
     const record = await loadRemoteRecordDetail(recordId);
+    if (isManagementAdmin()) {
+      improvementActions = await loadRemoteImprovementActions();
+      const existingAction = findExistingImprovementActionForRecord(record);
+      if (existingAction) {
+        setApiStatus(`改善履歴は保存済みです: ${getActionStatusLabel(existingAction.status)}`, "ok");
+        renderRecordDetail(record);
+        return;
+      }
+    }
     const result = await saveRemoteImprovementAction(record);
     setApiStatus(`改善履歴保存OK: ${result.actionId || result.action?.id || "saved"}`, "ok");
     button.textContent = "保存済み";
-    await refreshRecords();
+    await refreshImprovementActions();
     await showRecordDetail(recordId);
   } catch (error) {
     console.warn("Improvement action save failed", error);
@@ -1832,6 +1858,12 @@ function bindEvents() {
     if (button) showRecordDetail(button.dataset.recordId);
   });
   document.getElementById("recordDetailContent").addEventListener("click", (event) => {
+    const openActionsButton = event.target.closest(".open-actions-btn");
+    if (openActionsButton) {
+      showView("actions");
+      document.getElementById("view-actions")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
     const saveButton = event.target.closest(".save-action-btn");
     if (saveButton) {
       saveImprovementAction(saveButton);

@@ -80,28 +80,46 @@ function doGet(e) {
 
 function doPost(e) {
   let stage = 'request';
+  const performance = createPerformanceTracker_();
   try {
     if (!e || !e.parameter) throwPortalError_('INVALID_REQUEST', 'POST parameters are missing.');
 
-    const action = String(e.parameter.action || '');
-    const token = String(e.parameter.token || '');
-    const payload = parseJson_(e.parameter.payload, {});
+    const request = measureStep_(performance, 'parseRequest', function() {
+      return {
+        action: String(e.parameter.action || ''),
+        token: String(e.parameter.token || ''),
+        payload: parseJson_(e.parameter.payload, {})
+      };
+    });
+    const action = request.action;
+    const token = request.token;
+    const payload = request.payload;
 
     stage = 'authenticate';
-    const authUser = authenticateRequest_(token, payload);
+    const authUser = measureStep_(performance, 'authenticate', function() {
+      return authenticateRequest_(token, payload);
+    });
 
     stage = 'findActiveEmployee';
-    const employee = findActivePortalEmployee_(authUser);
+    const employee = measureStep_(performance, 'findActiveEmployee', function() {
+      return findActivePortalEmployee_(authUser);
+    });
 
     if (!employee) {
       stage = 'appendDeniedLog';
-      appendAccessLogSafely_({
-        email: authUser.email,
-        name: authUser.displayName || '',
-        action: 'denied',
-        appId: '',
-        appName: '',
-        result: 'denied'
+      measureStep_(performance, 'appendDeniedLog', function() {
+        appendAccessLogSafely_({
+          email: authUser.email,
+          name: authUser.displayName || '',
+          action: 'denied',
+          appId: '',
+          appName: '',
+          result: 'denied',
+          detail: {
+            performance: buildPerformanceSummary_(performance, stage),
+            authType: authUser.authType || ''
+          }
+        });
       });
       return jsonOutput_({
         ok: false,
@@ -112,26 +130,40 @@ function doPost(e) {
 
     if (action === 'bootstrap') {
       stage = 'readApps';
-      const apps = readVisibleAppsSafely_(employee);
+      const apps = measureStep_(performance, 'readApps', function() {
+        return readVisibleAppsSafely_(employee);
+      });
 
       stage = 'readAnnouncements';
-      const announcements = readAnnouncementsSafely_();
+      const announcements = measureStep_(performance, 'readAnnouncements', function() {
+        return readAnnouncementsSafely_();
+      });
 
       stage = 'appendLoginLog';
-      appendAccessLogSafely_({
-        email: employee.email,
-        name: employee.name,
-        action: 'login',
-        appId: '',
-        appName: '',
-        result: 'success'
+      measureStep_(performance, 'appendLoginLog', function() {
+        appendAccessLogSafely_({
+          email: employee.email,
+          name: employee.name,
+          action: 'login',
+          appId: '',
+          appName: '',
+          result: 'success',
+          detail: {
+            performance: buildPerformanceSummary_(performance, stage),
+            authType: authUser.authType || '',
+            employeeSource: employee.source || 'legacy',
+            appCount: apps.length,
+            announcementCount: announcements.length
+          }
+        });
       });
 
       return jsonOutput_({
         ok: true,
         employee: sanitizeEmployee_(employee),
         apps: apps,
-        announcements: announcements
+        announcements: announcements,
+        performance: buildPerformanceSummary_(performance, stage)
       });
     }
 
@@ -266,13 +298,19 @@ function doPost(e) {
       }
 
       stage = 'appendAccessLog';
-      appendAccessLogSafely_({
-        email: employee.email,
-        name: employee.name,
-        action: logAction,
-        appId: String(payload.appId || ''),
-        appName: String(payload.appName || ''),
-        result: String(payload.result || 'success')
+      measureStep_(performance, 'appendAccessLog', function() {
+        appendAccessLogSafely_({
+          email: employee.email,
+          name: employee.name,
+          action: logAction,
+          appId: String(payload.appId || ''),
+          appName: String(payload.appName || ''),
+          result: String(payload.result || 'success'),
+          detail: {
+            performance: buildPerformanceSummary_(performance, stage),
+            authType: authUser.authType || ''
+          }
+        });
       });
       return jsonOutput_({ ok: true });
     }
@@ -281,15 +319,46 @@ function doPost(e) {
   } catch (error) {
     const code = error.portalCode || 'SERVER_ERROR';
     const detail = String(error.message || error);
-    console.error(JSON.stringify({ code: code, stage: stage, message: detail, stack: error.stack || '' }));
+    console.error(JSON.stringify({ code: code, stage: stage, message: detail, stack: error.stack || '', performance: buildPerformanceSummary_(performance, stage) }));
     return jsonOutput_({
       ok: false,
       code: code,
       message: getPublicErrorMessage_(code),
       stage: stage,
-      detail: sanitizeErrorDetail_(detail)
+      detail: sanitizeErrorDetail_(detail),
+      performance: buildPerformanceSummary_(performance, stage)
     });
   }
+}
+
+function createPerformanceTracker_() {
+  return {
+    startedAt: new Date().getTime(),
+    steps: {},
+    order: []
+  };
+}
+
+function measureStep_(performance, name, callback) {
+  const startedAt = new Date().getTime();
+  try {
+    return callback();
+  } finally {
+    const elapsed = new Date().getTime() - startedAt;
+    performance.steps[name] = Number(performance.steps[name] || 0) + elapsed;
+    if (performance.order.indexOf(name) === -1) performance.order.push(name);
+  }
+}
+
+function buildPerformanceSummary_(performance, stage) {
+  return {
+    totalMs: new Date().getTime() - performance.startedAt,
+    stage: stage || '',
+    steps: performance.order.reduce(function(result, name) {
+      result[name] = performance.steps[name];
+      return result;
+    }, {})
+  };
 }
 
 function readVisibleAppsSafely_(employee) {

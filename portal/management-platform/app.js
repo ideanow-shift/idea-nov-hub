@@ -1139,6 +1139,28 @@ function getLatestPerformanceInitiative() {
   })[0] || null;
 }
 
+function getFilteredPerformanceSnapshots() {
+  const periodFilter = document.getElementById("performancePeriodFilter")?.value || "";
+  return performanceSnapshots.filter((snapshot) => {
+    if (periodFilter === "current_month") return isInCurrentMonth(snapshot.snapshotDate);
+    if (periodFilter === "last_30_days") return isWithinLastDays(snapshot.snapshotDate, 30);
+    if (periodFilter === "last_month") return isInLastMonth(snapshot.snapshotDate);
+    return true;
+  });
+}
+
+function getFilteredPerformanceInitiatives() {
+  const periodFilter = document.getElementById("performancePeriodFilter")?.value || "";
+  return performanceInitiatives.filter((initiative) => {
+    if (!periodFilter) return true;
+    const dateString = `${initiative.periodYear || "0000"}-${String(initiative.periodMonth || "01").padStart(2, "0")}-01`;
+    if (periodFilter === "current_month") return isInCurrentMonth(dateString);
+    if (periodFilter === "last_30_days") return isWithinLastDays(dateString, 30);
+    if (periodFilter === "last_month") return isInLastMonth(dateString);
+    return true;
+  });
+}
+
 function getPerformanceSignals(snapshot, initiative) {
   const signals = [];
   if (snapshot) {
@@ -1218,11 +1240,13 @@ function renderPerformanceDashboard() {
   const initiativeBody = document.getElementById("performanceInitiativeBody");
   if (!grid || !snapshotBody || !initiativeBody) return;
 
-  const latestSnapshot = getLatestPerformanceSnapshot();
-  const latestInitiative = getLatestPerformanceInitiative();
+  const filteredSnapshots = getFilteredPerformanceSnapshots();
+  const filteredInitiatives = getFilteredPerformanceInitiatives();
+  const latestSnapshot = filteredSnapshots[0] || getLatestPerformanceSnapshot();
+  const latestInitiative = filteredInitiatives[0] || getLatestPerformanceInitiative();
   if (status) {
     status.textContent = hasApiConfig()
-      ? `成果API接続OK: KPI ${performanceSnapshots.length}件 / 取り組み ${performanceInitiatives.length}件`
+      ? `成果API接続OK: KPI ${filteredSnapshots.length}/${performanceSnapshots.length}件 / 取り組み ${filteredInitiatives.length}/${performanceInitiatives.length}件`
       : "API未接続のため成果データを読み込めません。";
   }
 
@@ -1241,10 +1265,10 @@ function renderPerformanceDashboard() {
     </article>
   `).join("");
 
-  if (!performanceSnapshots.length) {
+  if (!filteredSnapshots.length) {
     snapshotBody.innerHTML = `<tr><td class="empty-cell" colspan="8">成果KPIスナップショットはまだありません。</td></tr>`;
   } else {
-    snapshotBody.innerHTML = performanceSnapshots.slice(0, 20).map((snapshot) => `
+    snapshotBody.innerHTML = filteredSnapshots.slice(0, 20).map((snapshot) => `
       <tr>
         <td>${escapeHtml(formatDateOnly(snapshot.snapshotDate))}</td>
         <td>${escapeHtml(snapshot.store)}</td>
@@ -1258,10 +1282,10 @@ function renderPerformanceDashboard() {
     `).join("");
   }
 
-  if (!performanceInitiatives.length) {
+  if (!filteredInitiatives.length) {
     initiativeBody.innerHTML = `<tr><td class="empty-cell" colspan="6">店舗取り組みはまだありません。</td></tr>`;
   } else {
-    initiativeBody.innerHTML = performanceInitiatives.slice(0, 20).map((initiative) => `
+    initiativeBody.innerHTML = filteredInitiatives.slice(0, 20).map((initiative) => `
       <tr>
         <td>${escapeHtml(`${initiative.periodYear || "-"}-${String(initiative.periodMonth || "").padStart(2, "0")}`)}</td>
         <td>${escapeHtml(initiative.store)}</td>
@@ -1411,6 +1435,15 @@ function isInCurrentMonth(value) {
   if (Number.isNaN(date.getTime())) return false;
   const now = new Date();
   return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
+
+function isInLastMonth(value) {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return date.getFullYear() === lastMonth.getFullYear() && date.getMonth() === lastMonth.getMonth();
 }
 
 function isWithinLastDays(value, days) {
@@ -1840,6 +1873,61 @@ function toHistoryCsvRows(records) {
   return [header, ...rows].map((row) => row.map(escapeCsvCell).join(","));
 }
 
+function toPerformanceCsvRows(snapshots, initiatives) {
+  const snapshotHeader = ["種別", "日付/年月", "店舗", "総売上", "技術売上", "商品売上", "予算", "予算比", "前年比", "生産性", "アプローチ率", "NPS", "eNPS", "今月の取り組み", "来月の取り組み", "店舗課題", "成果コメント", "担当"];
+  const initiativeByStoreMonth = new Map();
+  for (const initiative of initiatives) {
+    initiativeByStoreMonth.set(`${initiative.storeId || initiative.store}_${initiative.periodYear}_${initiative.periodMonth}`, initiative);
+  }
+  const snapshotRows = snapshots.map((snapshot) => {
+    const initiative = initiativeByStoreMonth.get(`${snapshot.storeId || snapshot.store}_${snapshot.periodYear}_${snapshot.periodMonth}`) || {};
+    return [
+      "KPI",
+      formatDateOnly(snapshot.snapshotDate),
+      snapshot.store,
+      snapshot.salesTotal,
+      snapshot.technicalSales,
+      snapshot.productSales,
+      snapshot.budgetSales,
+      snapshot.salesBudgetRate,
+      snapshot.salesYearOverYearRate,
+      snapshot.contributionProductivity,
+      snapshot.approachRate,
+      snapshot.nps,
+      snapshot.enps,
+      initiative.currentMonthInitiative || "",
+      initiative.nextMonthInitiative || "",
+      initiative.storeIssue || "",
+      initiative.performanceComment || "",
+      initiative.ownerEmployeeName || snapshot.importedByName || ""
+    ];
+  });
+  const snapshotKeys = new Set(snapshots.map((snapshot) => `${snapshot.storeId || snapshot.store}_${snapshot.periodYear}_${snapshot.periodMonth}`));
+  const initiativeOnlyRows = initiatives
+    .filter((initiative) => !snapshotKeys.has(`${initiative.storeId || initiative.store}_${initiative.periodYear}_${initiative.periodMonth}`))
+    .map((initiative) => [
+      "取り組み",
+      `${initiative.periodYear || "-"}-${String(initiative.periodMonth || "").padStart(2, "0")}`,
+      initiative.store,
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      initiative.currentMonthInitiative,
+      initiative.nextMonthInitiative,
+      initiative.storeIssue,
+      initiative.performanceComment,
+      initiative.ownerEmployeeName
+    ]);
+  return [snapshotHeader, ...snapshotRows, ...initiativeOnlyRows].map((row) => row.map(escapeCsvCell).join(","));
+}
+
 function downloadCsv(filename, rows) {
   const blob = new Blob(["\ufeff" + rows.join("\r\n")], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -1862,6 +1950,18 @@ function exportFilteredHistoryCsv() {
   const filename = `management_environment_history_${getLocalDateString()}.csv`;
   downloadCsv(filename, toHistoryCsvRows(filteredRecords));
   setApiStatus(`CSV出力OK: ${filteredRecords.length}件`, "ok");
+}
+
+function exportFilteredPerformanceCsv() {
+  const snapshots = getFilteredPerformanceSnapshots();
+  const initiatives = getFilteredPerformanceInitiatives();
+  if (!snapshots.length && !initiatives.length) {
+    setApiStatus("CSV出力対象の成果データがありません。", "error");
+    return;
+  }
+  const filename = `management_performance_${getLocalDateString()}.csv`;
+  downloadCsv(filename, toPerformanceCsvRows(snapshots, initiatives));
+  setApiStatus(`成果CSV出力OK: KPI ${snapshots.length}件 / 取り組み ${initiatives.length}件`, "ok");
 }
 
 function escapeHtml(value) {
@@ -2236,6 +2336,12 @@ function bindEvents() {
   document.getElementById("loadRecordsBtn").addEventListener("click", refreshRecords);
   document.getElementById("refreshPerformanceBtn")?.addEventListener("click", refreshPerformanceData);
   document.getElementById("performanceForm")?.addEventListener("submit", handlePerformanceSubmit);
+  document.getElementById("performancePeriodFilter")?.addEventListener("change", renderPerformanceDashboard);
+  document.getElementById("clearPerformanceFiltersBtn")?.addEventListener("click", () => {
+    document.getElementById("performancePeriodFilter").value = "";
+    renderPerformanceDashboard();
+  });
+  document.getElementById("exportPerformanceCsvBtn")?.addEventListener("click", exportFilteredPerformanceCsv);
   document.getElementById("historyStoreFilter").addEventListener("change", () => renderRecords());
   document.getElementById("historyIssueFilter").addEventListener("change", () => renderRecords());
   document.getElementById("historyPeriodFilter").addEventListener("change", () => renderRecords());

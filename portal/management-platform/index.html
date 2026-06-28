@@ -53,6 +53,19 @@
           <button type="button" id="refreshPerformanceBtn">成果を再読込</button>
         </div>
         <p id="performanceStatus" class="field-help">成果データを読み込み中です。</p>
+        <div class="history-tools" aria-label="成果データフィルター">
+          <label>
+            期間
+            <select id="performancePeriodFilter">
+              <option value="">すべて</option>
+              <option value="current_month">今月</option>
+              <option value="last_month">先月</option>
+              <option value="last_30_days">直近30日</option>
+            </select>
+          </label>
+          <button type="button" class="ghost-btn" id="clearPerformanceFiltersBtn">解除</button>
+          <button type="button" class="ghost-btn" id="exportPerformanceCsvBtn">CSV出力</button>
+        </div>
         <div class="performance-kpi-grid" id="performanceKpiGrid"></div>
       </section>
 
@@ -390,8 +403,8 @@
       </section>
     </section>
   </main>
-  <script src="./config.js?v=management-platform-20260629-08"></script>
-  <script src="./app.js?v=management-platform-20260629-08"></script>
+  <script src="./config.js?v=management-platform-20260629-09"></script>
+  <script src="./app.js?v=management-platform-20260629-09"></script>
 </body>
 </html>
 

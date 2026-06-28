@@ -196,6 +196,13 @@ function doPost(e) {
       return jsonOutput_({ ok: true, store: updateCoreStore_(payload, employee) });
     }
 
+    if (action === 'masterSyncPortalApps') {
+      stage = 'authorizeMasterAdmin';
+      assertMasterEditor_(employee);
+      stage = 'syncPortalApps';
+      return jsonOutput_({ ok: true, result: syncPortalAppsFromSheet_(employee) });
+    }
+
     if (action === 'log') {
       const logAction = String(payload.action || '');
       if (['openApp', 'logout'].indexOf(logAction) === -1) {
@@ -289,6 +296,65 @@ function readPortalAppsFromSupabase_() {
 
 function readPortalAppsFromSheet_() {
   return readPortalSheetObjects_(SHEETS.APPS).map(normalizeApp_);
+}
+
+function syncPortalAppsFromSheetManual() {
+  return syncPortalAppsFromSheet_({ email: 'manual@apps-script.local', name: 'Manual Apps Script Run' });
+}
+
+function syncPortalAppsFromSheet_(actor) {
+  const apps = readPortalAppsFromSheet_()
+    .filter(function(app) { return app.appId; })
+    .map(toPortalAppSupabaseRow_);
+
+  if (!apps.length) {
+    return { sourceRows: 0, upsertedRows: 0, appIds: [] };
+  }
+
+  const result = supabaseRequest_('portal_apps', {
+    method: 'post',
+    query: {
+      on_conflict: 'app_id'
+    },
+    payload: apps,
+    prefer: 'resolution=merge-duplicates,return=representation'
+  });
+
+  appendMasterChangeLogSafely_('portal_apps', '00000000-0000-0000-0000-000000000000', {
+    source: 'Spreadsheet Apps',
+    sourceRows: apps.length,
+    upsertedRows: Array.isArray(result) ? result.length : 0,
+    appIds: apps.map(function(app) { return app.app_id; })
+  }, actor || {}, {
+    actionType: 'sync',
+    targetName: 'NOV HUB Apps'
+  });
+
+  return {
+    sourceRows: apps.length,
+    upsertedRows: Array.isArray(result) ? result.length : 0,
+    appIds: apps.map(function(app) { return app.app_id; })
+  };
+}
+
+function toPortalAppSupabaseRow_(app) {
+  return {
+    app_id: String(app.appId || ''),
+    app_name: String(app.appName || ''),
+    description: String(app.description || ''),
+    url: String(app.url || ''),
+    category: String(app.category || 'internal'),
+    icon: String(app.icon || 'default'),
+    color: String(app.color || ''),
+    required_level: Number(app.requiredLevel || 1),
+    allowed_tags: normalizeListValue_(app.allowedTags),
+    target_department: normalizeListValue_(app.targetDepartment),
+    target_position: normalizeListValue_(app.targetPosition),
+    is_active: app.isActive !== false,
+    is_featured: Boolean(app.isFeatured),
+    priority: Number(app.priority || 999),
+    updated_at: new Date().toISOString()
+  };
 }
 
 function appendFixedAppIfMissing_(apps, app) {

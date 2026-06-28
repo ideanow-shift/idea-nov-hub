@@ -188,6 +188,31 @@ body { background: #FAFAFA; }
 
 .login-note { margin: var(--spacing-lg) 0 0; }
 
+.mobile-home-guide {
+  margin-top: var(--spacing-md);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  background: #FFFFFF;
+  text-align: left;
+}
+
+.mobile-home-guide p {
+  margin: 0 0 var(--spacing-xs);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.mobile-home-guide a {
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  text-decoration-color: var(--color-bassa);
+  text-underline-offset: 3px;
+}
+
 .loading-screen {
   display: grid;
   place-items: center;

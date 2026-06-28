@@ -56,6 +56,83 @@
       </section>
 
       <section class="panel performance-table-panel">
+        <form id="performanceForm" class="performance-form">
+          <div class="panel-head horizontal">
+            <div>
+              <p class="section-label">Input</p>
+              <h2>成果KPI・取り組み登録</h2>
+              <p class="muted-text">POS/予算連携前の暫定入力です。同じ店舗・同じ日付/月は上書き更新します。</p>
+            </div>
+            <button type="submit">成果を保存</button>
+          </div>
+          <div class="field-grid">
+            <label>
+              日付
+              <input name="snapshotDate" type="date" required>
+            </label>
+            <label>
+              総売上
+              <input name="salesTotal" type="number" min="0" step="1" placeholder="例: 1200000">
+            </label>
+            <label>
+              技術売上
+              <input name="technicalSales" type="number" min="0" step="1" placeholder="例: 900000">
+            </label>
+            <label>
+              商品売上
+              <input name="productSales" type="number" min="0" step="1" placeholder="例: 300000">
+            </label>
+            <label>
+              予算
+              <input name="budgetSales" type="number" min="0" step="1" placeholder="例: 1100000">
+            </label>
+            <label>
+              予算比（%）
+              <input name="salesBudgetRate" type="number" step="0.1" placeholder="例: 109.1">
+            </label>
+            <label>
+              前年比（%）
+              <input name="salesYearOverYearRate" type="number" step="0.1" placeholder="例: 103.5">
+            </label>
+            <label>
+              貢献生産性
+              <input name="contributionProductivity" type="number" min="0" step="1" placeholder="例: 8200">
+            </label>
+            <label>
+              アプローチ率（%）
+              <input name="approachRate" type="number" step="0.1" placeholder="例: 72.5">
+            </label>
+            <label>
+              NPS
+              <input name="nps" type="number" step="0.1" placeholder="例: 45">
+            </label>
+            <label>
+              eNPS
+              <input name="enps" type="number" step="0.1" placeholder="例: 18">
+            </label>
+          </div>
+          <div class="field-grid initiative-fields">
+            <label>
+              今月の取り組み
+              <textarea name="currentMonthInitiative" rows="3" placeholder="今月の成果改善に向けた取り組み"></textarea>
+            </label>
+            <label>
+              来月の取り組み
+              <textarea name="nextMonthInitiative" rows="3" placeholder="来月に継続・強化する取り組み"></textarea>
+            </label>
+            <label>
+              店舗課題
+              <textarea name="storeIssue" rows="3" placeholder="弱いKPI、課題、改善したいポイント"></textarea>
+            </label>
+            <label>
+              成果コメント
+              <textarea name="performanceComment" rows="3" placeholder="振り返りや補足"></textarea>
+            </label>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel performance-table-panel">
         <div class="panel-head">
           <p class="section-label">Snapshot</p>
           <h2>KPIスナップショット</h2>
@@ -312,8 +389,8 @@
       </section>
     </section>
   </main>
-  <script src="./config.js?v=management-platform-20260628-06"></script>
-  <script src="./app.js?v=management-platform-20260628-06"></script>
+  <script src="./config.js?v=management-platform-20260629-07"></script>
+  <script src="./app.js?v=management-platform-20260629-07"></script>
 </body>
 </html>
 

@@ -181,6 +181,19 @@ button:hover {
   font-size: 16px;
 }
 
+.performance-form {
+  display: grid;
+  gap: 14px;
+}
+
+.initiative-fields {
+  align-items: stretch;
+}
+
+.initiative-fields textarea {
+  min-height: 92px;
+}
+
 .focus-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1.4fr;

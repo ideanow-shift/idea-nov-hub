@@ -107,6 +107,14 @@ function hydrateFormFromActor() {
   setSelectValue(form.elements.role, inferRoleLabel());
 }
 
+function hydratePerformanceForm() {
+  const form = document.getElementById("performanceForm");
+  if (!form) return;
+  if (form.elements.snapshotDate && !form.elements.snapshotDate.value) {
+    form.elements.snapshotDate.value = getLocalDateString();
+  }
+}
+
 function getLocalRecords() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
@@ -128,6 +136,14 @@ function getLocalDateString(date = new Date()) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function getPeriodFromDateString(value) {
+  const [year, month] = String(value || "").split("-").map((part) => Number(part));
+  return {
+    periodYear: year,
+    periodMonth: month
+  };
 }
 
 function addDays(date, days) {
@@ -598,6 +614,28 @@ async function loadRemotePerformanceInitiatives() {
   const json = await response.json();
   if (!json.ok) throw new Error(json.error || "performance initiative load failed");
   return (json.initiatives || []).map(fromApiPerformanceInitiative);
+}
+
+async function saveRemotePerformanceSnapshot(payload) {
+  if (!hasApiConfig()) throw new Error("Management API未接続のため成果KPIを保存できません。");
+  const response = await apiRequest("/performance/snapshots", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+  const json = await response.json();
+  if (!json.ok) throw new Error(json.error || "performance snapshot save failed");
+  return json;
+}
+
+async function saveRemotePerformanceInitiative(payload) {
+  if (!hasApiConfig()) throw new Error("Management API未接続のため店舗取り組みを保存できません。");
+  const response = await apiRequest("/performance/initiatives", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+  const json = await response.json();
+  if (!json.ok) throw new Error(json.error || "performance initiative save failed");
+  return json;
 }
 
 async function loadCheckItems() {
@@ -1162,6 +1200,66 @@ function renderPerformanceDashboard() {
       </tr>
     `).join("");
   }
+}
+
+function getOptionalNumber(formData, name) {
+  const value = String(formData.get(name) || "").trim();
+  if (!value) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function hasInitiativeInput(formData) {
+  return ["currentMonthInitiative", "nextMonthInitiative", "storeIssue", "performanceComment"]
+    .some((name) => String(formData.get(name) || "").trim());
+}
+
+function buildPerformanceSnapshotPayload(form) {
+  const formData = new FormData(form);
+  const snapshotDate = String(formData.get("snapshotDate") || getLocalDateString());
+  const { periodYear, periodMonth } = getPeriodFromDateString(snapshotDate);
+  const storeId = getDefaultStoreId();
+  if (!storeId) throw new Error("店舗IDが取得できないため成果KPIを保存できません。");
+  return {
+    storeId,
+    snapshotDate,
+    periodYear,
+    periodMonth,
+    salesTotal: getOptionalNumber(formData, "salesTotal"),
+    technicalSales: getOptionalNumber(formData, "technicalSales"),
+    productSales: getOptionalNumber(formData, "productSales"),
+    budgetSales: getOptionalNumber(formData, "budgetSales"),
+    salesBudgetRate: getOptionalNumber(formData, "salesBudgetRate"),
+    salesYearOverYearRate: getOptionalNumber(formData, "salesYearOverYearRate"),
+    contributionProductivity: getOptionalNumber(formData, "contributionProductivity"),
+    approachRate: getOptionalNumber(formData, "approachRate"),
+    nps: getOptionalNumber(formData, "nps"),
+    enps: getOptionalNumber(formData, "enps"),
+    sourceDetail: {
+      source: "manual_management_platform",
+      enteredBy: getDisplayName(),
+      enteredAt: new Date().toISOString()
+    },
+    status: "active"
+  };
+}
+
+function buildPerformanceInitiativePayload(form) {
+  const formData = new FormData(form);
+  const snapshotDate = String(formData.get("snapshotDate") || getLocalDateString());
+  const { periodYear, periodMonth } = getPeriodFromDateString(snapshotDate);
+  const storeId = getDefaultStoreId();
+  if (!storeId) throw new Error("店舗IDが取得できないため店舗取り組みを保存できません。");
+  return {
+    storeId,
+    periodYear,
+    periodMonth,
+    currentMonthInitiative: String(formData.get("currentMonthInitiative") || "").trim() || null,
+    nextMonthInitiative: String(formData.get("nextMonthInitiative") || "").trim() || null,
+    storeIssue: String(formData.get("storeIssue") || "").trim() || null,
+    performanceComment: String(formData.get("performanceComment") || "").trim() || null,
+    status: "active"
+  };
 }
 
 function renderDashboard() {
@@ -1833,6 +1931,40 @@ async function updateImprovementActionStatus(button) {
   }
 }
 
+async function handlePerformanceSubmit(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submitButton = form.querySelector('button[type="submit"]');
+  const originalText = submitButton?.textContent || "成果を保存";
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = "保存中";
+  }
+  setApiStatus("成果データを保存中です...", "loading");
+  try {
+    const formData = new FormData(form);
+    const snapshotResult = await saveRemotePerformanceSnapshot(buildPerformanceSnapshotPayload(form));
+    let initiativeResult = null;
+    if (hasInitiativeInput(formData)) {
+      initiativeResult = await saveRemotePerformanceInitiative(buildPerformanceInitiativePayload(form));
+    }
+    await refreshPerformanceData();
+    const snapshotMode = snapshotResult.mode === "updated" ? "KPI更新" : "KPI作成";
+    const initiativeMode = initiativeResult
+      ? (initiativeResult.mode === "updated" ? "取り組み更新" : "取り組み作成")
+      : "取り組み未入力";
+    setApiStatus(`成果保存OK: ${snapshotMode} / ${initiativeMode}`, "ok");
+  } catch (error) {
+    console.warn("Performance save failed", error);
+    setApiStatus(`成果保存エラー: ${error.message || error}`, "error");
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = originalText;
+    }
+  }
+}
+
 function setStatusMessage(message) {
   const status = document.getElementById("authStatus");
   if (status && message) status.textContent = message;
@@ -2029,6 +2161,7 @@ function bindEvents() {
   document.getElementById("refreshBtn").addEventListener("click", refreshRecords);
   document.getElementById("loadRecordsBtn").addEventListener("click", refreshRecords);
   document.getElementById("refreshPerformanceBtn")?.addEventListener("click", refreshPerformanceData);
+  document.getElementById("performanceForm")?.addEventListener("submit", handlePerformanceSubmit);
   document.getElementById("historyStoreFilter").addEventListener("change", () => renderRecords());
   document.getElementById("historyIssueFilter").addEventListener("change", () => renderRecords());
   document.getElementById("historyPeriodFilter").addEventListener("change", () => renderRecords());
@@ -2108,6 +2241,12 @@ function applyRoleBasedView() {
   if (actionsButton) actionsButton.hidden = !admin;
   const actionsView = document.getElementById("view-actions");
   if (actionsView) actionsView.hidden = !admin;
+  const performanceForm = document.getElementById("performanceForm");
+  if (performanceForm) {
+    performanceForm.querySelectorAll("input, textarea, button").forEach((element) => {
+      if (element.id !== "refreshPerformanceBtn") element.disabled = !admin;
+    });
+  }
   const authButton = document.querySelector('[data-view="auth"]');
   if (authButton) authButton.textContent = "接続状態";
   if (!admin) {
@@ -2121,6 +2260,7 @@ bindEvents();
 applyRoleBasedView();
 updateAuthStatus();
 hydrateFormFromActor();
+hydratePerformanceForm();
 renderPhotoPreview();
 renderDashboard();
 renderRecords();

@@ -127,6 +127,12 @@ function getLocalDateString(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
 function toRecord(form) {
   const formData = new FormData(form);
   const now = new Date().toISOString();
@@ -320,6 +326,10 @@ function fromApiCheck(row) {
   const hasScoreBreakdown = Boolean(row.score_breakdown);
   return {
     record_id: row.id,
+    source_check_id: row.id,
+    store_id: row.store_id,
+    department_id: row.department_id || null,
+    submitted_by_employee_id: row.submitted_by_employee_id || null,
     store: row.store_name || row.store_id,
     target_user: row.submitted_by_name || row.submitted_by_employee_id,
     role: "",
@@ -347,6 +357,9 @@ function fromApiCheck(row) {
 function fromApiCheckDetail(row) {
   const record = fromApiCheck(row);
   record.results = (row.results || []).map((result) => ({
+    id: result.id,
+    resultId: result.id,
+    checkId: result.check_id,
     checkItemId: result.check_item_id,
     score: result.score,
     booleanValue: result.boolean_value,
@@ -450,6 +463,18 @@ async function loadCurrentActor() {
   trustedActor = json.actor || null;
   applyRoleBasedView();
   return trustedActor;
+}
+
+async function saveRemoteImprovementAction(record) {
+  if (!hasApiConfig()) throw new Error("Management API未接続のため改善履歴を保存できません。");
+  const payload = buildImprovementActionPayload(record);
+  const response = await apiRequest("/improvement-actions", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+  const json = await response.json();
+  if (!json.ok) throw new Error(json.error || "improvement action save failed");
+  return json;
 }
 
 async function loadCheckItems() {
@@ -1124,9 +1149,17 @@ function getIssueResultTitle(result, index) {
   return result.itemTitle || item?.title || `項目 ${index + 1}`;
 }
 
+function normalizeManagementCategory(value) {
+  if (CATEGORY_ORDER.includes(value)) return value;
+  return toCategoryId(value);
+}
+
+function getPrimaryImprovementIssue(record) {
+  return getRecordIssueResults(record)[0] || null;
+}
+
 function generateImprovementActionDraft(record) {
-  const issues = getRecordIssueResults(record);
-  const primaryIssue = issues[0];
+  const primaryIssue = getPrimaryImprovementIssue(record);
   const primaryTitle = primaryIssue ? getIssueResultTitle(primaryIssue, 0) : "";
   const category = primaryIssue?.managementCategory || getCheckItemMeta(primaryIssue?.checkItemId)?.management_category || record.management_category || "";
   const actionTitle = primaryIssue
@@ -1146,8 +1179,38 @@ function generateImprovementActionDraft(record) {
   return { title: actionTitle, body: actionBody };
 }
 
+function buildImprovementActionPayload(record) {
+  const draft = generateImprovementActionDraft(record);
+  const primaryIssue = getPrimaryImprovementIssue(record);
+  const category = primaryIssue?.managementCategory ||
+    getCheckItemMeta(primaryIssue?.checkItemId)?.management_category ||
+    record.management_category ||
+    "performance";
+  const storeId = record.store_id || getDefaultStoreId();
+  const sourceCheckId = record.source_check_id || record.record_id;
+  if (!storeId) throw new Error("店舗IDが取得できないため改善履歴を保存できません。");
+  if (!sourceCheckId) throw new Error("元チェックIDが取得できないため改善履歴を保存できません。");
+
+  return {
+    sourceCheckId,
+    sourceCheckResultId: primaryIssue?.resultId || primaryIssue?.id || null,
+    storeId,
+    departmentId: record.department_id || null,
+    targetEmployeeId: record.submitted_by_employee_id || null,
+    ownerEmployeeId: trustedActor?.employeeId || null,
+    managementCategory: normalizeManagementCategory(category),
+    actionTitle: draft.title,
+    actionBody: draft.body,
+    priority: primaryIssue && Number(primaryIssue.score) === 0 ? "high" : primaryIssue ? "medium" : "low",
+    dueDate: getLocalDateString(addDays(new Date(), 7)),
+    scoreAtCreation: Number.isFinite(Number(record.score)) ? Number(record.score) : null,
+    aiDraft: generateAiCommentDraft(record, [record])
+  };
+}
+
 function renderImprovementActionDraft(record) {
   const draft = generateImprovementActionDraft(record);
+  const canSave = hasApiConfig() && Boolean(record.source_check_id || record.record_id);
   return `
     <div class="improvement-action-panel">
       <div>
@@ -1156,8 +1219,9 @@ function renderImprovementActionDraft(record) {
       </div>
       <pre class="improvement-action-text">${escapeHtml(draft.body)}</pre>
       <div class="improvement-action-actions">
+        <button type="button" class="save-action-btn" data-record-id="${escapeHtml(record.record_id)}" ${canSave ? "" : "disabled"}>改善履歴に保存</button>
         <button type="button" class="ghost-btn copy-action-btn" data-action-text="${escapeHtml(draft.body)}">コピー</button>
-        <span class="field-help">Phase 4では、この内容を改善履歴としてDB保存します。</span>
+        <span class="field-help">保存すると、改善アクション履歴としてCore DBに残ります。</span>
       </div>
     </div>
   `;
@@ -1345,6 +1409,28 @@ async function copyImprovementAction(button) {
     setApiStatus("改善アクション案をコピーしました。", "ok");
   } catch (_error) {
     setApiStatus("コピーできませんでした。改善アクション案の本文を選択してコピーしてください。", "error");
+  }
+}
+
+async function saveImprovementAction(button) {
+  const recordId = button?.dataset?.recordId;
+  if (!recordId) return;
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "保存中";
+  setApiStatus("改善履歴を保存中です...", "loading");
+  try {
+    const record = await loadRemoteRecordDetail(recordId);
+    const result = await saveRemoteImprovementAction(record);
+    setApiStatus(`改善履歴保存OK: ${result.actionId || result.action?.id || "saved"}`, "ok");
+    button.textContent = "保存済み";
+    await refreshRecords();
+    await showRecordDetail(recordId);
+  } catch (error) {
+    console.warn("Improvement action save failed", error);
+    setApiStatus(`改善履歴保存エラー: ${error.message || error}`, "error");
+    button.disabled = false;
+    button.textContent = originalText;
   }
 }
 
@@ -1542,8 +1628,13 @@ function bindEvents() {
     if (button) showRecordDetail(button.dataset.recordId);
   });
   document.getElementById("recordDetailContent").addEventListener("click", (event) => {
-    const button = event.target.closest(".copy-action-btn");
-    if (button) copyImprovementAction(button);
+    const saveButton = event.target.closest(".save-action-btn");
+    if (saveButton) {
+      saveImprovementAction(saveButton);
+      return;
+    }
+    const copyButton = event.target.closest(".copy-action-btn");
+    if (copyButton) copyImprovementAction(copyButton);
   });
   document.getElementById("environmentForm").addEventListener("submit", handleSubmit);
   document.getElementById("environmentForm").addEventListener("change", (event) => {

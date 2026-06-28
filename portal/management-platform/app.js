@@ -5,6 +5,7 @@ const hubContextProvider = window.MANAGEMENT_HUB_CONTEXT_PROVIDER;
 const defaultCheckItemId = window.MANAGEMENT_DEFAULT_CHECK_ITEM_ID || "";
 let trustedActor = null;
 let checkItems = [];
+let improvementActions = [];
 
 const dashboardCards = [
   { title: "現在地", key: "current", value: "未登録", status: "status-ok" },
@@ -377,6 +378,35 @@ function fromApiCheckDetail(row) {
   return record;
 }
 
+function fromApiImprovementAction(row) {
+  return {
+    id: row.id,
+    sourceCheckId: row.source_check_id,
+    sourceCheckResultId: row.source_check_result_id,
+    storeId: row.store_id,
+    store: row.store_name || row.store_id,
+    departmentId: row.department_id,
+    targetEmployeeId: row.target_employee_id,
+    targetEmployeeName: row.target_employee_name,
+    ownerEmployeeId: row.owner_employee_id,
+    ownerEmployeeName: row.owner_employee_name,
+    managementCategory: row.management_category,
+    actionTitle: row.action_title,
+    actionBody: row.action_body,
+    priority: row.priority,
+    status: row.status,
+    scoreAtCreation: row.score_at_creation,
+    dueDate: row.due_date,
+    completedAt: row.completed_at,
+    completedByName: row.completed_by_name,
+    completionComment: row.completion_comment,
+    aiDraft: row.ai_draft || {},
+    createdByName: row.created_by_name,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
 function saveLocalRecord(record) {
   const records = getLocalRecords();
   records.unshift(record);
@@ -477,6 +507,27 @@ async function saveRemoteImprovementAction(record) {
   return json;
 }
 
+async function loadRemoteImprovementActions(status = "") {
+  if (!hasApiConfig()) return [];
+  const params = new URLSearchParams({ limit: "100" });
+  if (status) params.set("status", status);
+  const response = await apiRequest(`/improvement-actions?${params.toString()}`);
+  const json = await response.json();
+  if (!json.ok) throw new Error(json.error || "improvement action load failed");
+  return (json.actions || []).map(fromApiImprovementAction);
+}
+
+async function patchRemoteImprovementAction(actionId, payload) {
+  if (!hasApiConfig()) throw new Error("Management API未接続のため改善アクションを更新できません。");
+  const response = await apiRequest(`/improvement-actions/${encodeURIComponent(actionId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+  const json = await response.json();
+  if (!json.ok) throw new Error(json.error || "improvement action update failed");
+  return json;
+}
+
 async function loadCheckItems() {
   if (!hasApiConfig()) return [];
   const response = await apiRequest("/check-items");
@@ -572,13 +623,14 @@ function getRecordBreakdown(record) {
   };
 }
 
-function getDashboardSummary(records) {
+function getDashboardSummary(records, actions = improvementActions) {
   const latest = records[0] || null;
   const latestBreakdown = latest ? getRecordBreakdown(latest) : null;
   const issueCount = latestBreakdown
     ? Number(latestBreakdown.score0 || 0) + Number(latestBreakdown.score3 || 0)
     : records.filter((record) => Number(record.score) <= 3).length;
-  const actionCount = records.filter((record) => record.comment && record.comment.trim()).length;
+  const openActionCount = actions.filter((action) => ["open", "in_progress"].includes(action.status)).length;
+  const completedActionCount = actions.filter((action) => action.status === "completed").length;
   const photoRecordCount = records.filter(hasRecordPhotos).length;
   const photoCount = records.reduce((sum, record) => sum + getRecordPhotoCount(record), 0);
   const latestScore = latest && Number.isFinite(Number(latest.score)) ? Number(latest.score).toFixed(1) : "未登録";
@@ -587,13 +639,13 @@ function getDashboardSummary(records) {
     values: {
       current: latest ? latestScore : "未登録",
       issues: `${issueCount}件`,
-      actions: `${actionCount}件`,
+      actions: `${openActionCount}件`,
       growth: photoCount ? `写真${photoCount}枚` : `${records.length}件`
     },
     notes: {
       current: latest ? `${latest.store || "店舗"} の最新平均スコアです。` : "最初の環境整備チェックを登録してください。",
       issues: latest ? "最新チェックの0点・3点を課題候補として扱います。" : "履歴作成後に課題候補を表示します。",
-      actions: actionCount ? "コメントがある履歴を改善行動の材料にします。" : "コメントに次の行動を残すと改善履歴に繋がります。",
+      actions: openActionCount ? `未完了の改善アクションです。完了済み ${completedActionCount}件。` : "履歴詳細から改善アクションを保存できます。",
       growth: photoCount ? `写真付き履歴 ${photoRecordCount}件。比較・AI分析の材料が増えています。` : records.length ? "履歴が増えるほど比較・AI分析が可能になります。" : "履歴が増えるほど成長推移を見られます。"
     }
   };
@@ -878,9 +930,79 @@ function renderAiPriorityPanel(records) {
   `;
 }
 
+function getActionStatusLabel(status) {
+  const map = {
+    open: "未着手",
+    in_progress: "進行中",
+    completed: "完了",
+    cancelled: "中止",
+    archived: "アーカイブ"
+  };
+  return map[status] || status || "-";
+}
+
+function getActionPriorityLabel(priority) {
+  const map = {
+    high: "高",
+    medium: "中",
+    low: "低"
+  };
+  return map[priority] || priority || "-";
+}
+
+function getFilteredImprovementActions() {
+  const statusFilter = document.getElementById("actionStatusFilter")?.value || "";
+  return improvementActions.filter((action) => !statusFilter || action.status === statusFilter);
+}
+
+function renderImprovementActions() {
+  const list = document.getElementById("improvementActionList");
+  const status = document.getElementById("actionListStatus");
+  if (!list) return;
+  const filteredActions = getFilteredImprovementActions();
+  if (status) {
+    status.textContent = improvementActions.length
+      ? `表示 ${filteredActions.length}/${improvementActions.length}件`
+      : "改善アクションはまだありません。履歴詳細から「改善履歴に保存」を押すとここに表示されます。";
+  }
+  if (!filteredActions.length) {
+    list.innerHTML = `<div class="empty-cell">改善アクションはまだありません。</div>`;
+    return;
+  }
+
+  list.innerHTML = filteredActions.map((action) => {
+    const isCompleted = action.status === "completed";
+    return `
+      <article class="improvement-action-card">
+        <div class="improvement-action-card-head">
+          <div>
+            <p class="score-summary-label">${escapeHtml(action.store || "店舗")} / ${escapeHtml(fromCategoryId(action.managementCategory))}</p>
+            <h3>${escapeHtml(action.actionTitle)}</h3>
+          </div>
+          <div class="improvement-action-badges">
+            <span class="focus-badge priority-${escapeHtml(action.priority)}">優先度 ${escapeHtml(getActionPriorityLabel(action.priority))}</span>
+            <span class="focus-badge status-${escapeHtml(action.status)}">${escapeHtml(getActionStatusLabel(action.status))}</span>
+          </div>
+        </div>
+        <p class="focus-note">${escapeHtml(action.actionBody || "")}</p>
+        <div class="improvement-action-meta">
+          <span>担当: ${escapeHtml(action.ownerEmployeeName || "-")}</span>
+          <span>期限: ${escapeHtml(formatDateOnly(action.dueDate))}</span>
+          <span>作成: ${escapeHtml(formatDate(action.createdAt))}</span>
+          ${isCompleted ? `<span>完了: ${escapeHtml(formatDate(action.completedAt))}</span>` : ""}
+        </div>
+        <div class="improvement-action-actions">
+          <button type="button" class="ghost-btn action-source-detail-btn" data-record-id="${escapeHtml(action.sourceCheckId)}">元履歴</button>
+          ${isCompleted ? "" : `<button type="button" class="complete-action-btn" data-action-id="${escapeHtml(action.id)}">完了にする</button>`}
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
 function renderDashboard() {
   const records = getLocalRecords();
-  const summary = getDashboardSummary(records);
+  const summary = getDashboardSummary(records, improvementActions);
   const grid = document.getElementById("dashboardGrid");
   grid.innerHTML = dashboardCards.map((card) => `
     <article class="card">
@@ -892,6 +1014,7 @@ function renderDashboard() {
   renderFocusPanel(records);
   renderStoreSummaryPanel(records);
   renderAiPriorityPanel(records);
+  renderImprovementActions();
 
   const nextAction = document.getElementById("todayActionTitle");
   const nextNote = document.getElementById("todayActionNote");
@@ -922,6 +1045,17 @@ function formatDate(value) {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit"
+  });
+}
+
+function formatDateOnly(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "2-digit",
+    day: "2-digit"
   });
 }
 
@@ -1401,6 +1535,12 @@ async function openPriorityRecordDetail(recordId) {
   document.getElementById("recordDetailPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+async function openActionSourceDetail(recordId) {
+  showView("records");
+  await showRecordDetail(recordId);
+  document.getElementById("recordDetailPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 async function copyImprovementAction(button) {
   const text = button?.dataset?.actionText || "";
   if (!text) return;
@@ -1429,6 +1569,46 @@ async function saveImprovementAction(button) {
   } catch (error) {
     console.warn("Improvement action save failed", error);
     setApiStatus(`改善履歴保存エラー: ${error.message || error}`, "error");
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+}
+
+async function refreshImprovementActions() {
+  if (!isManagementAdmin()) {
+    improvementActions = [];
+    renderImprovementActions();
+    return;
+  }
+  try {
+    improvementActions = await loadRemoteImprovementActions();
+    renderImprovementActions();
+    renderDashboard();
+  } catch (error) {
+    console.warn("Improvement action load failed", error);
+    const status = document.getElementById("actionListStatus");
+    if (status) status.textContent = `改善アクション読込エラー: ${error.message || error}`;
+    setApiStatus(`改善アクション読込エラー: ${error.message || error}`, "error");
+  }
+}
+
+async function completeImprovementAction(button) {
+  const actionId = button?.dataset?.actionId;
+  if (!actionId) return;
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "更新中";
+  setApiStatus("改善アクションを完了に更新中です...", "loading");
+  try {
+    await patchRemoteImprovementAction(actionId, {
+      status: "completed",
+      completionComment: "画面から完了"
+    });
+    setApiStatus(`改善アクション完了OK: ${actionId}`, "ok");
+    await refreshImprovementActions();
+  } catch (error) {
+    console.warn("Improvement action complete failed", error);
+    setApiStatus(`改善アクション完了エラー: ${error.message || error}`, "error");
     button.disabled = false;
     button.textContent = originalText;
   }
@@ -1583,7 +1763,18 @@ async function refreshRecords() {
     const remoteRecords = await loadRemoteRecords();
     if (remoteRecords) {
       setLocalRecords(remoteRecords);
+      if (isManagementAdmin()) {
+        try {
+          improvementActions = await loadRemoteImprovementActions();
+        } catch (actionError) {
+          console.warn("Improvement action load skipped or failed", actionError);
+          improvementActions = [];
+          const actionStatus = document.getElementById("actionListStatus");
+          if (actionStatus) actionStatus.textContent = `改善アクション読込エラー: ${actionError.message || actionError}`;
+        }
+      }
       renderRecords(remoteRecords);
+      renderImprovementActions();
       setApiStatus(`履歴読込OK: ${remoteRecords.length}件`, "ok");
     } else {
       renderRecords();
@@ -1619,6 +1810,19 @@ function bindEvents() {
     renderRecords();
   });
   document.getElementById("exportHistoryCsvBtn").addEventListener("click", exportFilteredHistoryCsv);
+  document.getElementById("refreshActionsBtn")?.addEventListener("click", refreshImprovementActions);
+  document.getElementById("actionStatusFilter")?.addEventListener("change", () => {
+    renderImprovementActions();
+  });
+  document.getElementById("improvementActionList")?.addEventListener("click", (event) => {
+    const completeButton = event.target.closest(".complete-action-btn");
+    if (completeButton) {
+      completeImprovementAction(completeButton);
+      return;
+    }
+    const sourceButton = event.target.closest(".action-source-detail-btn");
+    if (sourceButton) openActionSourceDetail(sourceButton.dataset.recordId);
+  });
   document.getElementById("aiPriorityPanel").addEventListener("click", (event) => {
     const button = event.target.closest(".ai-priority-detail-btn");
     if (button) openPriorityRecordDetail(button.dataset.recordId);
@@ -1665,6 +1869,10 @@ function applyRoleBasedView() {
   if (environmentButton) environmentButton.hidden = !admin;
   const environmentView = document.getElementById("view-environment");
   if (environmentView) environmentView.hidden = !admin;
+  const actionsButton = document.querySelector('[data-view="actions"]');
+  if (actionsButton) actionsButton.hidden = !admin;
+  const actionsView = document.getElementById("view-actions");
+  if (actionsView) actionsView.hidden = !admin;
   const authButton = document.querySelector('[data-view="auth"]');
   if (authButton) authButton.textContent = "接続状態";
   if (!admin) {

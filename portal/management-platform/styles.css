@@ -514,6 +514,62 @@ th {
   white-space: nowrap;
 }
 
+.improvement-action-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.improvement-action-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.improvement-action-card-head,
+.improvement-action-meta,
+.improvement-action-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.improvement-action-card h3 {
+  margin-bottom: 0;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.improvement-action-meta {
+  justify-content: flex-start;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.improvement-action-badges {
+  justify-content: flex-end;
+}
+
+.status-completed {
+  color: var(--ok);
+}
+
+.status-open,
+.status-in_progress,
+.priority-high {
+  color: var(--warn);
+}
+
+.priority-low {
+  color: var(--muted);
+}
+
 .score-chip {
   display: inline-flex;
   align-items: center;

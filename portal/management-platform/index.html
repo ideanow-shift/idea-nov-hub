@@ -18,6 +18,7 @@
         <button type="button" class="nav-btn active" data-view="dashboard">Dashboard</button>
         <button type="button" class="nav-btn" data-view="environment">環境整備</button>
         <button type="button" class="nav-btn" data-view="records">履歴</button>
+        <button type="button" class="nav-btn" data-view="actions">改善</button>
         <button type="button" class="nav-btn" data-view="auth">ログイン</button>
       </nav>
     </header>
@@ -202,6 +203,35 @@
         </section>
       </section>
     </section>
+
+    <section class="view" id="view-actions" aria-label="改善アクション">
+      <section class="panel">
+        <div class="panel-head horizontal">
+          <div>
+            <p class="section-label">Improvement</p>
+            <h2>改善アクション</h2>
+            <p class="muted-text">環境整備履歴から作成した改善アクションを、実行状態として管理します。</p>
+          </div>
+          <button type="button" id="refreshActionsBtn">改善を再読込</button>
+        </div>
+        <div class="history-tools" aria-label="改善アクションフィルター">
+          <label>
+            状態
+            <select id="actionStatusFilter">
+              <option value="">すべて</option>
+              <option value="open">未着手</option>
+              <option value="in_progress">進行中</option>
+              <option value="completed">完了</option>
+              <option value="cancelled">中止</option>
+              <option value="archived">アーカイブ</option>
+            </select>
+          </label>
+        </div>
+        <p id="actionListStatus" class="field-help">改善アクションを読み込み中です。</p>
+        <div class="improvement-action-list" id="improvementActionList"></div>
+      </section>
+    </section>
+
     <section class="view" id="view-auth" aria-label="ログイン">
       <section class="panel auth-panel">
         <div class="panel-head">
@@ -220,8 +250,8 @@
       </section>
     </section>
   </main>
-  <script src="./config.js?v=management-platform-20260628-01"></script>
-  <script src="./app.js?v=management-platform-20260628-01"></script>
+  <script src="./config.js?v=management-platform-20260628-02"></script>
+  <script src="./app.js?v=management-platform-20260628-02"></script>
 </body>
 </html>
 

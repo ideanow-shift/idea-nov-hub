@@ -156,6 +156,13 @@ function doPost(e) {
       return jsonOutput_({ ok: true, logs: listMasterChangeLogs_() });
     }
 
+    if (action === 'masterListPortalApps') {
+      stage = 'authorizeMasterAdmin';
+      assertMasterViewer_(employee);
+      stage = 'readPortalApps';
+      return jsonOutput_({ ok: true, portalApps: listPortalAppsForAdmin_() });
+    }
+
     if (action === 'masterCreateEmployee') {
       stage = 'authorizeMasterAdmin';
       assertMasterEditor_(employee);
@@ -201,6 +208,13 @@ function doPost(e) {
       assertMasterEditor_(employee);
       stage = 'syncPortalApps';
       return jsonOutput_({ ok: true, result: syncPortalAppsFromSheet_(employee) });
+    }
+
+    if (action === 'masterUpdatePortalApp') {
+      stage = 'authorizeMasterAdmin';
+      assertMasterEditor_(employee);
+      stage = 'updatePortalApp';
+      return jsonOutput_({ ok: true, portalApp: updatePortalApp_(payload, employee) });
     }
 
     if (action === 'log') {
@@ -296,6 +310,15 @@ function readPortalAppsFromSupabase_() {
 
 function readPortalAppsFromSheet_() {
   return readPortalSheetObjects_(SHEETS.APPS).map(normalizeApp_);
+}
+
+function listPortalAppsForAdmin_() {
+  return supabaseRequest_('portal_apps', {
+    query: {
+      select: '*',
+      order: 'priority.asc,app_name.asc'
+    }
+  }).map(normalizeSupabaseApp_);
 }
 
 function syncPortalAppsFromSheetManual() {
@@ -889,6 +912,7 @@ function normalizeApp_(row) {
 
 function normalizeSupabaseApp_(row) {
   return {
+    id: String((row && row.id) || ''),
     appId: String((row && row.app_id) || ''),
     appName: String((row && row.app_name) || ''),
     description: String((row && row.description) || ''),
@@ -902,7 +926,9 @@ function normalizeSupabaseApp_(row) {
     targetPosition: normalizeListValue_(row && row.target_position),
     isActive: row && row.is_active !== false,
     isFeatured: Boolean(row && row.is_featured),
-    priority: Number((row && row.priority) || 999)
+    priority: Number((row && row.priority) || 999),
+    createdAt: String((row && row.created_at) || ''),
+    updatedAt: String((row && row.updated_at) || '')
   };
 }
 
@@ -1415,7 +1441,8 @@ function getMasterAdminBootstrap_(employee) {
     departments: departments,
     stores: stores,
     positions: positions,
-    employees: listCoreEmployees_()
+    employees: listCoreEmployees_(),
+    portalApps: listPortalAppsForAdmin_()
   };
 }
 
@@ -1644,6 +1671,17 @@ function getCoreEmployeeById_(id) {
   const rows = supabaseRequest_('employees', {
     query: {
       select: 'id,employee_id,full_name,email,birth_date,joined_on,retired_on,leave_start_date,leave_end_date,leave_type,employment_status,employment_type,corporation_id,store_id,department_id,position_id,is_active',
+      id: 'eq.' + id,
+      limit: '1'
+    }
+  });
+  return rows[0] || null;
+}
+
+function getPortalAppById_(id) {
+  const rows = supabaseRequest_('portal_apps', {
+    query: {
+      select: '*',
       id: 'eq.' + id,
       limit: '1'
     }
@@ -2306,10 +2344,73 @@ function updateCoreStore_(payload, actor) {
   return after;
 }
 
+function updatePortalApp_(payload, actor) {
+  const id = String(payload.id || '').trim();
+  if (!id) throwPortalError_('INVALID_REQUEST', 'Portal app id is required.');
+  const before = getPortalAppById_(id);
+  if (!before || !before.id) throwPortalError_('NOT_FOUND', 'Portal app was not found.');
+
+  const appId = String(payload.appId || payload.app_id || '').trim();
+  const appName = String(payload.appName || payload.app_name || '').trim();
+  if (!appId) throwPortalError_('INVALID_REQUEST', 'App ID is required.');
+  if (!appName) throwPortalError_('INVALID_REQUEST', 'App name is required.');
+
+  if (appId !== before.app_id) {
+    const duplicates = supabaseRequest_('portal_apps', {
+      query: {
+        select: 'id,app_id,app_name',
+        app_id: 'eq.' + appId,
+        limit: '2'
+      }
+    }).filter(function(app) { return app.id !== id; });
+    if (duplicates.length) throwPortalError_('INVALID_REQUEST', 'App ID is already used.');
+  }
+
+  const updates = {
+    app_id: appId,
+    app_name: appName,
+    description: String(payload.description || '').trim(),
+    url: String(payload.url || '').trim(),
+    category: String(payload.category || '').trim() || 'internal',
+    icon: String(payload.icon || '').trim() || 'default',
+    color: String(payload.color || '').trim() || null,
+    required_level: Math.max(1, Math.min(5, Number(payload.requiredLevel || payload.required_level || 1))),
+    allowed_tags: normalizeListValue_(payload.allowedTags || payload.allowed_tags),
+    target_department: normalizeListValue_(payload.targetDepartment || payload.target_department),
+    target_position: normalizeListValue_(payload.targetPosition || payload.target_position),
+    is_active: parseBooleanLike_(getPayloadValue_(payload, 'isActive', 'is_active'), true),
+    is_featured: parseBooleanLike_(getPayloadValue_(payload, 'isFeatured', 'is_featured'), false),
+    priority: Number(payload.priority || 999),
+    updated_at: new Date().toISOString()
+  };
+
+  const changedUpdates = getChangedFields_(before, updates);
+  if (!Object.keys(changedUpdates).length) return normalizeSupabaseApp_(before);
+
+  const result = supabaseRequest_('portal_apps', {
+    method: 'patch',
+    query: { id: 'eq.' + id, select: '*' },
+    payload: changedUpdates,
+    prefer: 'return=representation'
+  });
+  const after = result[0] || before;
+  appendMasterChangeLogSafely_('portal_apps', id, changedUpdates, actor, {
+    actionType: 'update',
+    targetName: after.app_name || before.app_name || appId
+  });
+  return normalizeSupabaseApp_(after);
+}
+
 function copyStringField_(target, source, fieldName) {
   if (Object.prototype.hasOwnProperty.call(source, fieldName)) {
     target[fieldName] = String(source[fieldName] || '').trim();
   }
+}
+
+function getPayloadValue_(source, primaryKey, fallbackKey) {
+  if (Object.prototype.hasOwnProperty.call(source, primaryKey)) return source[primaryKey];
+  if (Object.prototype.hasOwnProperty.call(source, fallbackKey)) return source[fallbackKey];
+  return undefined;
 }
 
 function copyNullableUuidField_(target, source, fieldName) {

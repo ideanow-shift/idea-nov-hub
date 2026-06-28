@@ -8,10 +8,12 @@ const state = {
   employeeStatus: "active",
   employeeIssueFilter: "",
   storeStatus: "active",
+  appStatus: "active",
   selectedId: "",
   recentlyCreatedEmployeeId: "",
   employees: [],
   stores: [],
+  portalApps: [],
   logs: [],
   logsLoaded: false,
   permissions: {
@@ -31,7 +33,7 @@ const state = {
 const elements = Object.fromEntries([
   "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "add-employee", "refresh", "sync-portal-apps",
   "view-title", "search", "quality-summary", "result-count", "table-head", "table-body",
-  "detail-panel", "employee-status-filter", "store-status-filter", "toast"
+  "detail-panel", "employee-status-filter", "store-status-filter", "app-status-filter", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
 
 const ROLE_LABELS = {
@@ -100,6 +102,7 @@ function getEmployeeStatusLabel(employee) {
 function setBootstrapData(data) {
   state.employees = data.employees || [];
   state.stores = data.stores || [];
+  state.portalApps = data.portalApps || [];
   state.permissions = data.permissions || { canView: false, canEdit: false, roleKeys: [] };
   state.masters = {
     corporations: data.corporations || [],
@@ -124,6 +127,7 @@ function getRows() {
   const query = normalizeSearch(elements.search.value);
   let rows = getStoresByStatus();
   if (state.view === "employees") rows = getEmployeesByStatus();
+  if (state.view === "apps") rows = getPortalAppsByStatus();
   if (state.view === "firebase") rows = state.employees.filter((employee) => isCurrentEmployee(employee) && !employee.firebase_uid);
   if (state.view === "logs") rows = state.logs;
   if (state.view === "readiness") rows = getHubReadinessItems();
@@ -153,6 +157,9 @@ function getSortedRows(rows) {
   }
   if (state.view === "stores") {
     return rows.slice().sort(compareStores);
+  }
+  if (state.view === "apps") {
+    return rows.slice().sort(comparePortalApps);
   }
   if (state.view === "readiness") {
     return rows.slice().sort(compareReadinessItems);
@@ -203,6 +210,13 @@ function compareStores(left, right) {
   return String(left.store_no || "").localeCompare(String(right.store_no || ""), "ja", { numeric: true });
 }
 
+function comparePortalApps(left, right) {
+  const leftPriority = Number(left.priority || 999);
+  const rightPriority = Number(right.priority || 999);
+  if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+  return String(left.appName || "").localeCompare(String(right.appName || ""), "ja", { numeric: true });
+}
+
 function getSearchText(row) {
   const values = Object.entries(row)
     .filter(([, value]) => value === null || typeof value !== "object")
@@ -216,6 +230,21 @@ function getSearchText(row) {
   }
   if ("store_no" in row) {
     values.push(...getStoreIssues(row), row.is_active ? "有効" : "無効");
+  }
+  if ("appId" in row) {
+    values.push(
+      row.appId,
+      row.appName,
+      row.description,
+      row.url,
+      row.category,
+      row.icon,
+      row.isActive === false ? "inactive" : "active",
+      row.isFeatured ? "featured" : "",
+      ...(row.allowedTags || []),
+      ...(row.targetDepartment || []),
+      ...(row.targetPosition || [])
+    );
   }
   if (Array.isArray(row.store_assignments)) {
     values.push(...row.store_assignments.flatMap((assignment) => [
@@ -293,6 +322,13 @@ function getStoresByStatus() {
   return state.stores.filter((store) => store.is_active);
 }
 
+function getPortalAppsByStatus() {
+  if (state.appStatus === "all") return state.portalApps;
+  if (state.appStatus === "featured") return state.portalApps.filter((app) => app.isFeatured);
+  if (state.appStatus === "inactive") return state.portalApps.filter((app) => app.isActive === false);
+  return state.portalApps.filter((app) => app.isActive !== false);
+}
+
 function getStoreIssues(store) {
   if (!store.is_active) return [];
   const issues = [];
@@ -329,6 +365,15 @@ function getStoreStatusCounts() {
   };
 }
 
+function getPortalAppStatusCounts() {
+  return {
+    active: state.portalApps.filter((app) => app.isActive !== false).length,
+    featured: state.portalApps.filter((app) => app.isFeatured).length,
+    inactive: state.portalApps.filter((app) => app.isActive === false).length,
+    all: state.portalApps.length
+  };
+}
+
 function setButtonCount(button, count) {
   if (!button.dataset.baseLabel) {
     button.dataset.baseLabel = button.textContent.trim();
@@ -344,9 +389,11 @@ function setButtonCount(button, count) {
 function updateNavigationCounts() {
   const employeeCounts = getEmployeeStatusCounts();
   const storeCounts = getStoreStatusCounts();
+  const appCounts = getPortalAppStatusCounts();
   const viewCounts = {
     employees: state.employees.length,
     stores: state.stores.length,
+    apps: state.portalApps.length,
     firebase: state.employees.filter((employee) => isCurrentEmployee(employee) && !employee.firebase_uid).length,
     logs: state.logsLoaded ? state.logs.length : "",
     readiness: getHubReadinessItems().filter((item) => item.status !== "OK").length
@@ -359,6 +406,9 @@ function updateNavigationCounts() {
   });
   document.querySelectorAll("[data-store-status]").forEach((button) => {
     setButtonCount(button, storeCounts[button.dataset.storeStatus]);
+  });
+  document.querySelectorAll("[data-app-status]").forEach((button) => {
+    setButtonCount(button, appCounts[button.dataset.appStatus]);
   });
 }
 
@@ -382,17 +432,22 @@ function render() {
   });
   elements.employeeStatusFilter.hidden = state.view !== "employees";
   elements.storeStatusFilter.hidden = state.view !== "stores";
+  elements.appStatusFilter.hidden = state.view !== "apps";
   document.querySelectorAll("[data-employee-status]").forEach((button) => {
     button.classList.toggle("active", button.dataset.employeeStatus === state.employeeStatus);
   });
   document.querySelectorAll("[data-store-status]").forEach((button) => {
     button.classList.toggle("active", button.dataset.storeStatus === state.storeStatus);
   });
+  document.querySelectorAll("[data-app-status]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.appStatus === state.appStatus);
+  });
   updateNavigationCounts();
   elements.addEmployee.hidden = state.view !== "employees" || !state.permissions.canEdit;
   elements.viewTitle.textContent = {
     employees: "社員マスタ",
     stores: "店舗マスタ",
+    apps: "アプリ管理",
     firebase: "Firebase未連携",
     logs: "変更履歴",
     readiness: "HUB連携準備"
@@ -430,6 +485,20 @@ function renderTable() {
         <th>変更内容</th>
       </tr>`;
     elements.tableBody.replaceChildren(...rows.map(renderLogRow));
+    return;
+  }
+
+  if (state.view === "apps") {
+    elements.tableHead.innerHTML = `
+      <tr>
+        <th>アプリID</th>
+        <th>アプリ名</th>
+        <th>カテゴリ</th>
+        <th>必要権限</th>
+        <th>表示</th>
+        <th>優先度</th>
+      </tr>`;
+    elements.tableBody.replaceChildren(...rows.map(renderPortalAppRow));
     return;
   }
 
@@ -471,6 +540,13 @@ function renderQualitySummary() {
         state.view = "firebase";
         state.selectedId = "";
         state.employeeIssueFilter = "";
+        elements.search.value = "";
+        render();
+        return;
+      }
+      if (state.view === "apps") {
+        state.appStatus = label === "よく使う" ? "featured" : label === "非公開" ? "inactive" : "active";
+        state.selectedId = "";
         elements.search.value = "";
         render();
         return;
@@ -537,6 +613,13 @@ function getQualitySummaryItems() {
       { label: "エリア未設定", count: issueCounts["エリア"] || 0, tone: "warning" },
       { label: "店舗種別未設定", count: issueCounts["店舗種別"] || 0, tone: "warning" },
       { label: "無効店舗", count: state.stores.filter((store) => !store.is_active).length, tone: "neutral" }
+    ];
+  }
+  if (state.view === "apps") {
+    return [
+      { label: "公開中", count: state.portalApps.filter((app) => app.isActive !== false).length, tone: "info" },
+      { label: "よく使う", count: state.portalApps.filter((app) => app.isFeatured).length, tone: "info" },
+      { label: "非公開", count: state.portalApps.filter((app) => app.isActive === false).length, tone: "neutral" }
     ];
   }
   if (state.view === "firebase") {
@@ -708,6 +791,29 @@ function renderStoreRow(store) {
   return tr;
 }
 
+function renderPortalAppRow(app) {
+  const tr = document.createElement("tr");
+  tr.className = app.id === state.selectedId ? "selected" : "";
+  tr.innerHTML = `
+    <td>${escapeHtml(app.appId)}</td>
+    <td>${escapeHtml(app.appName)}</td>
+    <td>${escapeHtml(app.category || "")}</td>
+    <td>${escapeHtml(app.requiredLevel || 1)}</td>
+    <td>${formatPortalAppStatus(app)}</td>
+    <td>${escapeHtml(app.priority || 999)}</td>`;
+  tr.addEventListener("click", () => {
+    state.selectedId = app.id;
+    render();
+  });
+  return tr;
+}
+
+function formatPortalAppStatus(app) {
+  if (app.isActive === false) return `<span class="status-pill inactive">非公開</span>`;
+  if (app.isFeatured) return `<span class="status-pill">公開中・よく使う</span>`;
+  return `<span class="status-pill">公開中</span>`;
+}
+
 function formatEmployeeIssues(employee, issues) {
   if (!isCurrentEmployee(employee)) return `<span class="status-muted">対象外</span>`;
   return formatMasterIssues(issues);
@@ -804,13 +910,14 @@ function renderDetail() {
     return;
   }
 
-  const sourceRows = state.view === "stores" ? state.stores : state.employees;
+  const sourceRows = state.view === "stores" ? state.stores : state.view === "apps" ? state.portalApps : state.employees;
   const row = sourceRows.find((item) => item.id === state.selectedId);
   if (!row) {
     elements.detailPanel.innerHTML = `<div class="empty-detail">左の一覧から編集対象を選んでください。</div>`;
     return;
   }
-  if (state.view === "employees" || state.view === "firebase") renderEmployeeDetail(row);
+  if (state.view === "apps") renderPortalAppDetail(row);
+  else if (state.view === "employees" || state.view === "firebase") renderEmployeeDetail(row);
   else renderStoreDetail(row);
 }
 
@@ -1472,6 +1579,45 @@ function renderStoreDetail(store) {
   }
 }
 
+function renderPortalAppDetail(app) {
+  const readonly = !state.permissions.canEdit;
+  elements.detailPanel.innerHTML = `
+    <h3>${escapeHtml(app.appName)}</h3>
+    <p class="detail-meta">App ID: ${escapeHtml(app.appId)}${app.updatedAt ? ` / 最終更新: ${escapeHtml(formatDateTime(app.updatedAt))}` : ""}</p>
+    <p class="detail-note">NOV HUBに表示するアプリカードを管理します。権限がないアプリはHUB上に表示されません。</p>
+    <form class="form-grid" id="detail-form">
+      ${fieldInput("appId", "アプリID", app.appId || "", { required: true })}
+      ${fieldInput("appName", "アプリ名", app.appName || "", { required: true })}
+      ${fieldInput("description", "説明", app.description || "")}
+      ${fieldInput("url", "URL", app.url || "", "url")}
+      ${fieldInput("category", "カテゴリ", app.category || "")}
+      ${fieldInput("icon", "アイコンID", app.icon || "default")}
+      ${fieldInput("priority", "優先度", app.priority || 999, "number")}
+      ${fieldStaticSelect("requiredLevel", "必要権限レベル", [
+        ["1", "1 全スタッフ"],
+        ["2", "2 スタイリスト以上"],
+        ["3", "3 SD・店長以上"],
+        ["4", "4 Mgr・部長以上"],
+        ["5", "5 役員・本部幹部"]
+      ], String(app.requiredLevel || 1))}
+      ${fieldTextarea("allowedTags", "許可タグ（カンマ区切り）", joinListForInput(app.allowedTags))}
+      ${fieldTextarea("targetDepartment", "対象部署（カンマ区切り）", joinListForInput(app.targetDepartment))}
+      ${fieldTextarea("targetPosition", "対象役職（カンマ区切り）", joinListForInput(app.targetPosition))}
+      ${fieldCheckbox("isActive", "HUBに表示する", app.isActive !== false)}
+      ${fieldCheckbox("isFeatured", "よく使うアプリに表示", app.isFeatured)}
+      <div class="save-row">
+        <span class="save-status" id="app-save-status" aria-live="polite"></span>
+        ${readonly ? `<span class="readonly-label">閲覧専用</span>` : `<button class="button button-primary save-button" type="submit">保存</button>`}
+      </div>
+    </form>`;
+  setReadonlyState(readonly);
+  if (!readonly) {
+    const form = document.querySelector("#detail-form");
+    form.addEventListener("submit", savePortalApp);
+    setupDirtyForm("app");
+  }
+}
+
 function renderStoreIssuePanel(store, issues) {
   if (!store.is_active) {
     return `
@@ -1510,6 +1656,14 @@ function fieldInput(name, label, value, type = "text") {
     <div class="form-field">
       <label for="${escapeHtml(name)}">${escapeHtml(label)}</label>
       <input class="form-input" id="${escapeHtml(name)}" name="${escapeHtml(name)}" type="${escapeHtml(inputType)}" value="${escapeHtml(value || "")}"${placeholder}${required}>
+    </div>`;
+}
+
+function fieldTextarea(name, label, value) {
+  return `
+    <div class="form-field">
+      <label for="${escapeHtml(name)}">${escapeHtml(label)}</label>
+      <textarea class="form-input" id="${escapeHtml(name)}" name="${escapeHtml(name)}" rows="3">${escapeHtml(value || "")}</textarea>
     </div>`;
 }
 
@@ -1579,9 +1733,31 @@ function collectStorePayload() {
   return payload;
 }
 
+function collectPortalAppPayload() {
+  const payload = collectFormPayload();
+  payload.id = state.selectedId;
+  payload.isActive = document.querySelector("#isActive")?.checked || false;
+  payload.isFeatured = document.querySelector("#isFeatured")?.checked || false;
+  payload.allowedTags = splitInputList(document.querySelector("#allowedTags")?.value);
+  payload.targetDepartment = splitInputList(document.querySelector("#targetDepartment")?.value);
+  payload.targetPosition = splitInputList(document.querySelector("#targetPosition")?.value);
+  return payload;
+}
+
+function splitInputList(value) {
+  return String(value || "")
+    .split(/[,、\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function joinListForInput(value) {
+  return Array.isArray(value) ? value.join(", ") : String(value || "");
+}
+
 function setupDirtyForm(type) {
   const form = document.querySelector("#detail-form");
-  const status = document.querySelector(type === "employee" ? "#employee-save-status" : "#store-save-status");
+  const status = document.querySelector(type === "employee" ? "#employee-save-status" : type === "store" ? "#store-save-status" : "#app-save-status");
   const button = form?.querySelector(".save-button");
   if (!form || !button) return;
   state.formSnapshot = getFormSnapshot(type);
@@ -1662,7 +1838,7 @@ function updateDirtyState(type, status, button) {
 }
 
 function getFormSnapshot(type) {
-  const payload = type === "employee" ? collectEmployeePayload() : collectStorePayload();
+  const payload = type === "employee" ? collectEmployeePayload() : type === "store" ? collectStorePayload() : collectPortalAppPayload();
   delete payload.id;
   return JSON.stringify(Object.keys(payload).sort().map((key) => [key, normalizeSnapshotValue_(payload[key])]));
 }
@@ -1674,7 +1850,7 @@ function normalizeSnapshotValue_(value) {
 
 function markCurrentFormSaved(type, message = "保存しました。変更履歴にも反映済みです。") {
   const form = document.querySelector("#detail-form");
-  const status = document.querySelector(type === "employee" ? "#employee-save-status" : "#store-save-status");
+  const status = document.querySelector(type === "employee" ? "#employee-save-status" : type === "store" ? "#store-save-status" : "#app-save-status");
   const button = form?.querySelector(".save-button");
   if (!form || !button) return;
   state.formSnapshot = getFormSnapshot(type);
@@ -1686,7 +1862,7 @@ function markCurrentFormSaved(type, message = "保存しました。変更履歴
 
 function restoreSaveButtonState(type, button) {
   if (!button?.isConnected) return;
-  const status = document.querySelector(type === "employee" ? "#employee-save-status" : "#store-save-status");
+  const status = document.querySelector(type === "employee" ? "#employee-save-status" : type === "store" ? "#store-save-status" : "#app-save-status");
   button.textContent = "保存";
   updateDirtyState(type, status, button);
 }
@@ -1888,6 +2064,56 @@ async function saveEmployeeLoginCredential(event) {
   }
 }
 
+async function savePortalApp(event) {
+  event.preventDefault();
+  const button = event.submitter;
+  const status = document.querySelector("#app-save-status");
+  let saved = false;
+  try {
+    setSaveStatus(status, "");
+    const payload = collectPortalAppPayload();
+    if (getFormSnapshot("app") === state.formSnapshot) {
+      setSaveStatus(status, "変更なし・保存済みです", "success");
+      showToast("変更はありません。");
+      return;
+    }
+    if (!payload.appId?.trim()) {
+      showToast("アプリIDを入力してください。");
+      return;
+    }
+    if (!payload.appName?.trim()) {
+      showToast("アプリ名を入力してください。");
+      return;
+    }
+    if (payload.url && !/^https?:\/\/|^\.\//.test(payload.url)) {
+      showToast("URLは https:// または ./ から始めてください。");
+      return;
+    }
+    button.disabled = true;
+    button.textContent = "保存中...";
+    setSaveStatus(status, "アプリ設定を保存中です...", "pending");
+    await callApiAction("masterUpdatePortalApp", payload);
+    await refreshPortalApps();
+    const logsSynced = await refreshLogsSilently();
+    saved = true;
+    markCurrentFormSaved(
+      "app",
+      logsSynced ? "保存しました。変更履歴にも反映済みです。" : "保存しました。変更履歴は後で再読み込みしてください。"
+    );
+    showToast("アプリ設定を保存しました。");
+  } catch (error) {
+    console.error(error);
+    setSaveStatus(status, getErrorMessage(error), "error");
+    showToast(getErrorMessage(error));
+  } finally {
+    if (!saved) {
+      window.setTimeout(() => {
+        restoreSaveButtonState("app", button);
+      }, 700);
+    }
+  }
+}
+
 async function saveStore(event) {
   event.preventDefault();
   const button = event.submitter;
@@ -1950,6 +2176,12 @@ async function refreshStores() {
   render();
 }
 
+async function refreshPortalApps() {
+  const response = await callApiAction("masterListPortalApps");
+  state.portalApps = response.portalApps || [];
+  render();
+}
+
 async function refreshLogsSilently() {
   try {
     const response = await callApiAction("masterListChangeLogs");
@@ -1976,6 +2208,7 @@ async function syncPortalApps() {
     button.textContent = "同期中...";
     const response = await callApiAction("masterSyncPortalApps");
     const result = response.result || {};
+    await refreshPortalApps();
     await refreshLogsSilently();
     showToast(`Apps同期完了: ${result.upsertedRows || 0}/${result.sourceRows || 0}件`);
   } catch (error) {
@@ -2027,6 +2260,14 @@ document.querySelectorAll("[data-employee-status]").forEach((button) => {
 document.querySelectorAll("[data-store-status]").forEach((button) => {
   button.addEventListener("click", () => {
     state.storeStatus = button.dataset.storeStatus;
+    state.employeeIssueFilter = "";
+    state.selectedId = "";
+    render();
+  });
+});
+document.querySelectorAll("[data-app-status]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.appStatus = button.dataset.appStatus;
     state.employeeIssueFilter = "";
     state.selectedId = "";
     render();

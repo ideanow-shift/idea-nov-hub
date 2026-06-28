@@ -39,6 +39,7 @@
         <div class="toolbar-actions">
           <button class="segmented active" data-view="employees" type="button">社員</button>
           <button class="segmented" data-view="stores" type="button">店舗</button>
+          <button class="segmented" data-view="apps" type="button">アプリ</button>
           <button class="segmented" data-view="firebase" type="button">Firebase未連携</button>
           <button class="segmented" data-view="logs" type="button">変更履歴</button>
           <button class="segmented" data-view="readiness" type="button">HUB連携準備</button>
@@ -65,6 +66,12 @@
             <button class="filter-chip" data-store-status="inactive" type="button">無効</button>
             <button class="filter-chip" data-store-status="all" type="button">全店舗</button>
           </div>
+          <div class="status-filter" id="app-status-filter" hidden>
+            <button class="filter-chip active" data-app-status="active" type="button">公開中</button>
+            <button class="filter-chip" data-app-status="featured" type="button">よく使う</button>
+            <button class="filter-chip" data-app-status="inactive" type="button">非公開</button>
+            <button class="filter-chip" data-app-status="all" type="button">全アプリ</button>
+          </div>
           <div class="quality-summary" id="quality-summary"></div>
           <div class="result-count" id="result-count"></div>
           <div class="table-wrap">
@@ -83,6 +90,6 @@
   </main>
 
   <div class="toast" id="toast" role="status" hidden></div>
-  <script type="module" src="./master-admin.js?v=apps-sync-20260628-1"></script>
+  <script type="module" src="./master-admin.js?v=portal-app-admin-20260628-1"></script>
 </body>
 </html>

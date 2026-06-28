@@ -3,7 +3,7 @@ import { authIsConfigured, getIdToken, signInWithGoogle, signOutUser } from "./a
 import { callApiAction, clearApiAuth, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js";
 import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
 import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js";
-import { clearHubEmployeeContext, getHubEmployeeContextSummary, saveHubEmployeeContext } from "./hub-context.js";
+import { clearHubEmployeeContext, encodeHubContextForUrl, getHubEmployeeContextSummary, saveHubEmployeeContext } from "./hub-context.js";
 
 const state = { employee: null, apps: [], announcements: [], mode: PORTAL_CONFIG.authMode, authType: null };
 const MANAGEMENT_HUB_CONTEXT_KEY = "ideaNov.management.hubContext";
@@ -195,48 +195,7 @@ function refreshHubEmployeeContext() {
 }
 
 function encodeHubContextForAppUrl(context) {
-  if (!context || typeof context !== "object") return "";
-  try {
-    const payload = {
-      schema: context.schema,
-      schemaVersion: context.schemaVersion,
-      storedAt: context.storedAt,
-      issuedAt: context.issuedAt,
-      expiresAt: context.expiresAt,
-      id: context.id,
-      employeeId: context.employeeId,
-      employeeNumber: context.employeeNumber,
-      coreEmployeeId: context.coreEmployeeId,
-      supabaseEmployeeId: context.supabaseEmployeeId,
-      staffId: context.staffId,
-      name: context.name,
-      displayName: context.displayName,
-      fullName: context.fullName,
-      email: context.email,
-      authEmail: context.authEmail,
-      departmentName: context.departmentName,
-      positionName: context.positionName,
-      roleKeys: context.roleKeys,
-      roles: context.roles,
-      permissions: context.permissions,
-      storeId: context.storeId,
-      storeName: context.storeName,
-      departmentId: context.departmentId,
-      positionId: context.positionId,
-      corporationId: context.corporationId,
-      corporationName: context.corporationName,
-      authType: context.authType
-    };
-    const bytes = new TextEncoder().encode(JSON.stringify(payload));
-    let binary = "";
-    bytes.forEach((byte) => {
-      binary += String.fromCharCode(byte);
-    });
-    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-  } catch (error) {
-    console.warn("Failed to encode HUB context for app URL", error);
-    return "";
-  }
+  return encodeHubContextForUrl(context);
 }
 
 function buildAppLaunchUrl(appUrl, context) {

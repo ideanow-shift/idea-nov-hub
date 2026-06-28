@@ -1,41 +1,66 @@
 # NOV HUB App Context v1
 
-## Purpose
+## 目的
 
-NOV HUB passes a non-secret employee context to internal apps such as IDEA LINK.
+NOV HUBからIDEA LINK、THANKS、タスク管理などの社内Webアプリへ、ログイン中社員の非秘匿Contextを渡すための共通仕様です。
 
-This context is for display, routing, and permission hints only. Apps that write sensitive data must still call a server-side endpoint or Supabase RLS-protected API.
+このContextは、画面表示、初期値セット、メニュー出し分け、アプリ側ログイン判定の補助に使います。DB更新や重要処理では、必ずbackend、Edge Function、GAS、またはSupabase RLSで再検証してください。
 
-## Source
+## 正本
 
-- Auth: Firebase Auth through NOV HUB
-- Employee master: Supabase Core DB `public.employees`
-- Store master: Supabase Core DB `public.stores`
-- Roles: Supabase Core DB `public.employee_roles` and `public.roles`
+- 社員: Supabase Core DB `public.employees`
+- 店舗: Supabase Core DB `public.stores`
+- 権限: Supabase Core DB `public.roles` / `public.employee_roles`
+- ログイン情報: NOV HUB backend側で検証
 
-## Storage
+## 渡し方
 
-NOV HUB stores the current employee context in browser `sessionStorage` and mirrors it to `localStorage` for cross-tab app launches.
+NOV HUBはアプリ起動時、同一オリジンのアプリURLに `hub_context` を付与します。
 
-The context expires after 12 hours.
+```text
+https://ideanow-shift.github.io/idea-nov-hub/idea-link/?hub_context=...
+```
 
-Key:
+`hub_context` はJSONをBase64URL化した文字列です。PIN、PIN hash、Firebase ID token、Supabase service_role keyは含めません。
+
+同時にNOV HUBは以下のキーでブラウザ保存も行います。
 
 ```text
 novHub.currentEmployee
 ```
 
-Helper:
+保存先:
+
+- `sessionStorage`
+- `localStorage`
+
+有効期限:
+
+- 12時間
+
+## アプリ側の読み方
+
+同じGitHub Pages配下のアプリでは、共通ライブラリを読み込んでください。
 
 ```html
 <script type="module" src="https://ideanow-shift.github.io/idea-nov-hub/js/hub-context.js"></script>
 ```
 
-Usage:
-
 ```js
 const context = window.NovHubContext.read();
+
+if (!context || !context.id) {
+  location.href = "https://ideanow-shift.github.io/idea-nov-hub/";
+}
 ```
+
+`read()` は以下の順でContextを探します。
+
+1. URLパラメータ `hub_context`
+2. `sessionStorage`
+3. `localStorage`
+
+URLから読めたContextは、次回以降のためにブラウザ保存されます。
 
 ## Context Shape
 
@@ -46,77 +71,104 @@ const context = window.NovHubContext.read();
   source: "supabase",
   sourceLabel: "Core DB",
   authType: "firebase",
-  id: "employee uuid",
-  coreEmployeeId: "employee uuid",
-  supabaseEmployeeId: "employee uuid",
-  staffId: "employee uuid",
-  employeeId: "employee uuid",
+
+  id: "employees.id",
+  employeeId: "employees.id",
+  coreEmployeeId: "employees.id",
+  supabaseEmployeeId: "employees.id",
+  staffId: "employees.id",
   employeeNumber: "1",
+  firebaseUid: "Firebase Auth UID",
+
   name: "脇田 将樹",
+  fullName: "脇田 将樹",
+  displayName: "脇田 将樹",
   email: "m.wakita@idea-nov.com",
   authEmail: "m.wakita@idea-nov.com",
-  corporation: { id: "corporation uuid", code: "IDEA_NOV", name: "IDEA NOV" },
-  corporationId: "corporation uuid",
+
+  corporation: { id: "uuid", code: "IDEA_NOV", name: "IDEA NOV" },
+  corporationId: "uuid",
   corporationName: "IDEA NOV",
-  department: { id: "department uuid", code: "HR", name: "総務人事部" },
-  departmentId: "department uuid",
-  departmentName: "総務人事部",
-  position: { id: "position uuid", name: "社長" },
-  positionId: "position uuid",
+
+  department: { id: "uuid", code: "HQ", name: "本部" },
+  departmentId: "uuid",
+  departmentName: "本部",
+
+  position: { id: "uuid", code: "", name: "社長" },
+  positionId: "uuid",
   positionName: "社長",
-  primaryStore: { id: "store uuid", storeNo: "0000", storeId: "honbu", name: "本部" },
-  primaryStoreId: "store uuid",
+
+  primaryStore: { id: "uuid", storeNo: "0000", storeId: "honbu", name: "本部" },
+  primaryStoreId: "uuid",
   primaryStoreNo: "0000",
   primaryStoreCode: "honbu",
   primaryStoreName: "本部",
+  storeId: "uuid",
+  storeName: "本部",
   storeCode: "honbu",
   store: "本部",
+
+  storeAssignments: [
+    { storeId: "honbu", storeNo: "0000", storeCode: "honbu", storeName: "本部", assignmentType: "primary", priority: 1 }
+  ],
+
   employmentStatus: "現職",
-  employmentType: "代表取締役",
+  employmentType: "正社員",
+  isActive: true,
+
   roleLevel: 5,
-  roleKeys: ["executive"],
-  tags: ["all", "executive", "hq"],
-  storedAt: "2026-06-24T00:00:00.000Z",
-  issuedAt: "2026-06-24T00:00:00.000Z",
-  expiresAt: "2026-06-24T12:00:00.000Z"
+  roleKeys: ["executive", "idea_link.admin"],
+  roles: [
+    { roleKey: "executive", roleName: "役員", scopeType: "all", scopeId: null },
+    { roleKey: "idea_link.admin", roleName: "IDEA LINK 管理者", scopeType: "all", scopeId: null }
+  ],
+  permissions: {
+    isSuperAdmin: false,
+    isExecutive: true,
+    isBackoffice: false,
+    isAccounting: false,
+    canViewAllMasters: true,
+    canEditCoreMasters: false
+  },
+  tags: ["all", "executive"],
+
+  storedAt: "2026-06-28T00:00:00.000Z",
+  issuedAt: "2026-06-28T00:00:00.000Z",
+  expiresAt: "2026-06-28T12:00:00.000Z"
 }
 ```
 
-Important ID rules:
+## IDルール
 
-- `employeeId`, `coreEmployeeId`, `supabaseEmployeeId`, and `staffId` all mean Supabase Core DB `employees.id`.
-- `employeeNumber` means the human employee number from `employees.employee_id`.
-- New apps should store `supabaseEmployeeId` / `employees.id` as foreign keys, not employee names.
+- `id` / `employeeId` / `coreEmployeeId` / `supabaseEmployeeId` / `staffId` はすべて `public.employees.id`
+- `employeeNumber` は人間が見る社員番号 `public.employees.employee_id`
+- 新規アプリの外部キーは、氏名や社員番号ではなく `employees.id` を優先
 
-## Security Rules
+## IDEA LINK権限
 
-- Do not store `service_role` in front-end code.
-- Do not store Firebase ID tokens in `sessionStorage` for child apps.
-- Treat `novHub.currentEmployee` as a convenience context, not a security boundary.
-- Server-side writes must verify the actor again through GAS, Edge Functions, or Supabase RLS.
-- Personal information should be fetched only when the user role requires it.
+IDEA LINKは以下の `roleKeys` を見ること。
 
-## IDEA LINK Migration Use
+- `idea_link.staff`: 一般利用
+- `idea_link.manager`: 管理・確認メニュー
+- `idea_link.admin`: 全体管理・設定メニュー
 
-Phase 1:
+いずれもない場合は、IDEA LINK側で利用不可にします。
 
-- Continue current GAS + Spreadsheet test operation for Tachikawa and Tokorozawa.
-- Read employee and store identity from NOV HUB context where available.
-- Keep Thanks posting and LINE WORKS notification on the existing GAS path.
+```js
+const roleKeys = new Set(context.roleKeys || []);
+const canUseIdeaLink = ["idea_link.staff", "idea_link.manager", "idea_link.admin"]
+  .some((roleKey) => roleKeys.has(roleKey));
+```
 
-Phase 2:
+## 禁止事項
 
-- Read staff and stores from Supabase Core DB.
-- Map IDEA LINK `staff_id` to Core DB `employees.id`.
-- Map IDEA LINK `store_id` to Core DB `stores.id` or `stores.store_id`.
+- `service_role` keyをフロントへ出さない
+- `pin_hash` をContextへ含めない
+- Firebase ID tokenを子アプリのURLへ含めない
+- `hub_context` だけをDB更新の認可根拠にしない
+- 社員名やメールアドレスだけでユーザーを紐づけない
 
-Phase 3:
-
-- Move Thanks posts to an IDEA LINK-specific Supabase table.
-- Move LINE WORKS store notification channels to Supabase.
-- Keep notification sending server-side.
-
-## Recommended App Guard
+## 推奨ガード
 
 ```js
 const context = window.NovHubContext.read();
@@ -124,28 +176,12 @@ const context = window.NovHubContext.read();
 if (!context || !context.id) {
   location.href = "https://ideanow-shift.github.io/idea-nov-hub/";
 }
-```
 
-For app-side compatibility, prefer:
-
-```js
-const actorId = context.supabaseEmployeeId || context.employeeId;
+const actorId = context.supabaseEmployeeId || context.employeeId || context.id;
 const actorEmail = context.authEmail || context.email;
+const roleKeys = new Set(context.roleKeys || []);
 ```
 
-## Permission Hints
+## 重要
 
-Use `roleKeys` and `tags` for UI visibility:
-
-- `super_admin`: full system admin
-- `executive`: executive view
-- `department_manager`: department manager
-- `area_manager`: area manager
-- `store_manager`: store manager
-- `staff`: general staff
-- `fc_owner`: FC owner
-- `trainer`: education/trainer
-- `backoffice`: HR/general affairs
-- `accounting`: accounting
-
-Do not rely on these hints alone for database writes.
+`hub_context` は便利な連携情報であり、最終的なセキュリティ境界ではありません。重要な書き込み、個人情報取得、管理者操作は必ずbackend側で `employees.id` と `employee_roles` を再確認してください。

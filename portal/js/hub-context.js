@@ -1,4 +1,5 @@
 export const HUB_CONTEXT_KEY = "novHub.currentEmployee";
+export const HUB_CONTEXT_QUERY_KEY = "hub_context";
 export const HUB_CONTEXT_SCHEMA = "nov-hub-context";
 export const HUB_CONTEXT_SCHEMA_VERSION = 1;
 const HUB_CONTEXT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
@@ -89,6 +90,122 @@ function buildPermissions(roleKeys) {
   };
 }
 
+function toBase64Url(jsonText) {
+  const bytes = new TextEncoder().encode(jsonText);
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function fromBase64Url(value) {
+  const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function isUsableContext(context) {
+  if (!context || typeof context !== "object") return false;
+  if (context.schema && context.schema !== HUB_CONTEXT_SCHEMA) return false;
+  const expiresAt = Date.parse(context.expiresAt || "");
+  if (expiresAt && Date.now() > expiresAt) return false;
+  const storedAt = Date.parse(context.storedAt || context.issuedAt || "");
+  if (storedAt && Date.now() - storedAt > HUB_CONTEXT_MAX_AGE_MS) return false;
+  return Boolean(context.id || context.employeeId || context.supabaseEmployeeId || context.email);
+}
+
+function persistHubEmployeeContext(context) {
+  if (!isUsableContext(context)) return null;
+  const serialized = JSON.stringify(context);
+  sessionStorage.setItem(HUB_CONTEXT_KEY, serialized);
+  localStorage.setItem(HUB_CONTEXT_KEY, serialized);
+  return context;
+}
+
+export function encodeHubContextForUrl(context) {
+  if (!context || typeof context !== "object") return "";
+  try {
+    const payload = {
+      schema: context.schema || HUB_CONTEXT_SCHEMA,
+      schemaVersion: context.schemaVersion || HUB_CONTEXT_SCHEMA_VERSION,
+      source: context.source,
+      sourceLabel: context.sourceLabel,
+      authType: context.authType,
+      storedAt: context.storedAt,
+      issuedAt: context.issuedAt,
+      expiresAt: context.expiresAt,
+      id: context.id,
+      employeeId: context.employeeId,
+      employeeNumber: context.employeeNumber,
+      coreEmployeeId: context.coreEmployeeId,
+      supabaseEmployeeId: context.supabaseEmployeeId,
+      staffId: context.staffId,
+      firebaseUid: context.firebaseUid,
+      name: context.name,
+      displayName: context.displayName,
+      fullName: context.fullName,
+      email: context.email,
+      authEmail: context.authEmail,
+      corporation: context.corporation,
+      corporationId: context.corporationId,
+      corporationName: context.corporationName,
+      department: context.department,
+      departmentId: context.departmentId,
+      departmentName: context.departmentName,
+      position: context.position,
+      positionId: context.positionId,
+      positionName: context.positionName,
+      primaryStore: context.primaryStore,
+      primaryStoreId: context.primaryStoreId,
+      primaryStoreNo: context.primaryStoreNo,
+      primaryStoreCode: context.primaryStoreCode,
+      primaryStoreName: context.primaryStoreName,
+      storeId: context.storeId,
+      storeName: context.storeName,
+      storeCode: context.storeCode,
+      store: context.store,
+      storeAssignments: context.storeAssignments,
+      employmentStatus: context.employmentStatus,
+      employmentType: context.employmentType,
+      roleLevel: context.roleLevel,
+      roleKeys: context.roleKeys,
+      roles: context.roles,
+      permissions: context.permissions,
+      tags: context.tags
+    };
+    return toBase64Url(JSON.stringify(payload));
+  } catch (error) {
+    console.warn("Failed to encode NOV HUB context.", error);
+    return "";
+  }
+}
+
+export function decodeHubContextFromUrlValue(value) {
+  if (!value) return null;
+  try {
+    const context = JSON.parse(fromBase64Url(value));
+    return isUsableContext(context) ? context : null;
+  } catch (error) {
+    console.warn("NOV HUB context URL parameter could not be decoded.", error);
+    return null;
+  }
+}
+
+export function readHubEmployeeContextFromUrl(url) {
+  try {
+    const targetUrl = url || (typeof window !== "undefined" ? window.location.href : "");
+    if (!targetUrl) return null;
+    const value = new URL(targetUrl).searchParams.get(HUB_CONTEXT_QUERY_KEY);
+    return decodeHubContextFromUrlValue(value);
+  } catch (error) {
+    console.warn("NOV HUB context URL could not be inspected.", error);
+    return null;
+  }
+}
+
 export function buildHubEmployeeContext(employee = {}, authType = "") {
   const sourceLabel = employee.source === "supabase" ? "Core DB" : employee.source === "spreadsheet" ? "Spreadsheet" : "Demo";
   const coreEmployeeId = String(employee.coreEmployeeId || employee.id || "");
@@ -136,6 +253,8 @@ export function buildHubEmployeeContext(employee = {}, authType = "") {
     primaryStoreNo: primaryStore.storeNo,
     primaryStoreCode: primaryStore.storeId,
     primaryStoreName: primaryStore.name,
+    storeId: primaryStore.id,
+    storeName: primaryStore.name,
     storeAssignments,
     roleLevel: Number(employee.roleLevel || 1),
     roleKeys,
@@ -153,9 +272,7 @@ export function buildHubEmployeeContext(employee = {}, authType = "") {
 
 export function saveHubEmployeeContext(employee, authType) {
   const context = buildHubEmployeeContext(employee, authType);
-  const serialized = JSON.stringify(context);
-  sessionStorage.setItem(HUB_CONTEXT_KEY, serialized);
-  localStorage.setItem(HUB_CONTEXT_KEY, serialized);
+  persistHubEmployeeContext(context);
   window.dispatchEvent(new CustomEvent("novHub:employeeContextReady", { detail: context }));
   return context;
 }
@@ -175,7 +292,7 @@ function readStoredHubEmployeeContext(storage) {
       storage.removeItem(HUB_CONTEXT_KEY);
       return null;
     }
-    return context;
+    return isUsableContext(context) ? context : null;
   } catch (error) {
     console.warn("NOV HUB context could not be parsed.", error);
     storage.removeItem(HUB_CONTEXT_KEY);
@@ -184,6 +301,8 @@ function readStoredHubEmployeeContext(storage) {
 }
 
 export function readHubEmployeeContext() {
+  const urlContext = readHubEmployeeContextFromUrl();
+  if (urlContext) return persistHubEmployeeContext(urlContext);
   return readStoredHubEmployeeContext(sessionStorage) || readStoredHubEmployeeContext(localStorage);
 }
 
@@ -211,6 +330,9 @@ if (typeof window !== "undefined") {
     schema: HUB_CONTEXT_SCHEMA,
     schemaVersion: HUB_CONTEXT_SCHEMA_VERSION,
     build: buildHubEmployeeContext,
+    encodeForUrl: encodeHubContextForUrl,
+    decodeFromUrlValue: decodeHubContextFromUrlValue,
+    readFromUrl: readHubEmployeeContextFromUrl,
     read: readHubEmployeeContext,
     clear: clearHubEmployeeContext,
     summary: getHubEmployeeContextSummary

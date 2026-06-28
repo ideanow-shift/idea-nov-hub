@@ -169,6 +169,12 @@ function normalizeManagementPlatformApps(apps = []) {
   });
 }
 
+function sortPortalApps(apps = []) {
+  return normalizeManagementPlatformApps(apps)
+    .filter((app) => app && app.isActive !== false)
+    .sort((a, b) => Number(a.priority || 999) - Number(b.priority || 999));
+}
+
 function renderPortal() {
   const employeeContext = refreshHubEmployeeContext();
   elements.userName.textContent = state.employee.name;
@@ -377,7 +383,7 @@ async function loginWithFirebase() {
     const data = await fetchPortalData();
     state.authType = "firebase";
     state.employee = data.employee;
-    state.apps = getVisibleApps(data.employee, normalizeManagementPlatformApps(data.apps || []));
+    state.apps = sortPortalApps(data.apps || []);
     state.announcements = data.announcements || [];
     renderPortal();
     await saveManagementPlatformAuthContext(refreshHubEmployeeContext());
@@ -407,7 +413,7 @@ async function loginWithPin(event) {
     const data = await fetchPortalData();
     state.authType = "pin";
     state.employee = data.employee;
-    state.apps = getVisibleApps(data.employee, normalizeManagementPlatformApps(data.apps || []));
+    state.apps = sortPortalApps(data.apps || []);
     state.announcements = data.announcements || [];
     elements.pinCode.value = "";
     renderPortal();

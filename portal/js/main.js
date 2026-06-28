@@ -199,16 +199,17 @@ function encodeHubContextForAppUrl(context) {
 }
 
 function buildAppLaunchUrl(appUrl, context) {
+  const rawUrl = String(appUrl || "").trim();
+  if (!rawUrl || rawUrl.startsWith("#")) return rawUrl || "#";
   const encodedContext = encodeHubContextForAppUrl(context);
-  if (!encodedContext) return appUrl;
+  if (!encodedContext) return rawUrl;
   try {
-    const url = new URL(appUrl, window.location.href);
-    if (url.origin !== window.location.origin) return appUrl;
+    const url = new URL(rawUrl, window.location.href);
     url.searchParams.set("hub_context", encodedContext);
     return url.toString();
   } catch (error) {
     console.warn("Failed to append HUB context to app URL", error);
-    return appUrl;
+    return rawUrl;
   }
 }
 

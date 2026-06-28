@@ -139,25 +139,6 @@ function doPost(e) {
         return readAnnouncementsSafely_();
       });
 
-      stage = 'appendLoginLog';
-      measureStep_(performance, 'appendLoginLog', function() {
-        appendAccessLogSafely_({
-          email: employee.email,
-          name: employee.name,
-          action: 'login',
-          appId: '',
-          appName: '',
-          result: 'success',
-          detail: {
-            performance: buildPerformanceSummary_(performance, stage),
-            authType: authUser.authType || '',
-            employeeSource: employee.source || 'legacy',
-            appCount: apps.length,
-            announcementCount: announcements.length
-          }
-        });
-      });
-
       return jsonOutput_({
         ok: true,
         employee: sanitizeEmployee_(employee),
@@ -276,7 +257,7 @@ function doPost(e) {
 
     if (action === 'log') {
       const logAction = String(payload.action || '');
-      if (['openApp', 'logout'].indexOf(logAction) === -1) {
+      if (['login', 'openApp', 'logout'].indexOf(logAction) === -1) {
         throwPortalError_('INVALID_REQUEST', 'Unsupported log action.');
       }
 
@@ -308,7 +289,8 @@ function doPost(e) {
           result: String(payload.result || 'success'),
           detail: {
             performance: buildPerformanceSummary_(performance, stage),
-            authType: authUser.authType || ''
+            authType: authUser.authType || '',
+            bootstrapPerformance: payload.bootstrapPerformance || null
           }
         });
       });

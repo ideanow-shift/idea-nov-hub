@@ -188,6 +188,28 @@ function renderPortal() {
   showScreen("portal");
 }
 
+function runAfterPaint(callback) {
+  window.requestAnimationFrame(() => {
+    window.setTimeout(callback, 0);
+  });
+}
+
+function writeLoginAccessLogAfterPaint(data) {
+  runAfterPaint(() => {
+    writeAccessLog("login", {
+      result: "success",
+      bootstrapPerformance: data?.performance || null
+    }).catch((error) => console.warn("Login access log failed", error));
+  });
+}
+
+function saveManagementAuthContextAfterPaint(context) {
+  runAfterPaint(() => {
+    saveManagementPlatformAuthContext(context)
+      .catch((error) => console.warn("Management Platform auth context save failed", error));
+  });
+}
+
 
 function refreshHubEmployeeContext() {
   if (!state.employee) return null;
@@ -346,7 +368,8 @@ async function loginWithFirebase() {
     state.apps = sortPortalApps(data.apps || []);
     state.announcements = data.announcements || [];
     renderPortal();
-    await saveManagementPlatformAuthContext(refreshHubEmployeeContext());
+    writeLoginAccessLogAfterPaint(data);
+    saveManagementAuthContextAfterPaint(refreshHubEmployeeContext());
   } catch (error) {
     console.error("Portal login failed", {
       code: error.code || "",
@@ -377,6 +400,7 @@ async function loginWithPin(event) {
     state.announcements = data.announcements || [];
     elements.pinCode.value = "";
     renderPortal();
+    writeLoginAccessLogAfterPaint(data);
   } catch (error) {
     console.error("PIN login failed", {
       code: error.code || "",

@@ -5,6 +5,14 @@ const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_PORTAL_APP_ID = "__new_portal_app__";
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
+const APP_ROLE_GROUPS = [
+  {
+    appKey: "idea_link",
+    appName: "IDEA LINK",
+    description: "サンクスコイン・理念浸透システム",
+    roleKeys: IDEA_LINK_ROLE_KEYS
+  }
+];
 
 const state = {
   view: "employees",
@@ -134,6 +142,7 @@ function getRows() {
   let rows = getStoresByStatus();
   if (state.view === "employees") rows = getEmployeesByStatus();
   if (state.view === "apps") rows = getPortalAppsByStatus();
+  if (state.view === "permissions") rows = getAppPermissionRows();
   if (state.view === "firebase") rows = state.employees.filter((employee) => isCurrentEmployee(employee) && !employee.firebase_uid);
   if (state.view === "logs") rows = state.logs;
   if (state.view === "readiness") rows = getHubReadinessItems();
@@ -252,6 +261,9 @@ function getSearchText(row) {
       ...(row.targetPosition || [])
     );
   }
+  if ("permission_key" in row) {
+    values.push(row.appName, row.roleKey, row.roleLabel, row.description, row.count, row.activeCount);
+  }
   if (Array.isArray(row.store_assignments)) {
     values.push(...row.store_assignments.flatMap((assignment) => [
       assignment.store_name,
@@ -350,6 +362,29 @@ function getPortalAppsByStatus() {
   return state.portalApps.filter((app) => app.isActive !== false);
 }
 
+function getAppPermissionRows() {
+  return APP_ROLE_GROUPS.flatMap((group) => group.roleKeys.map((roleKey) => {
+    const employees = getEmployeesWithRoleKey(roleKey);
+    const activeEmployees = employees.filter(isCurrentEmployee);
+    return {
+      permission_key: `${group.appKey}:${roleKey}`,
+      appKey: group.appKey,
+      appName: group.appName,
+      description: group.description,
+      roleKey,
+      roleLabel: formatRoleLabel(roleKey),
+      count: employees.length,
+      activeCount: activeEmployees.length
+    };
+  }));
+}
+
+function getEmployeesWithRoleKey(roleKey) {
+  return state.employees.filter((employee) => (
+    Array.isArray(employee.role_keys) && employee.role_keys.includes(roleKey)
+  ));
+}
+
 function getStoreIssues(store) {
   if (!store.is_active) return [];
   const issues = [];
@@ -415,6 +450,7 @@ function updateNavigationCounts() {
     employees: state.employees.length,
     stores: state.stores.length,
     apps: state.portalApps.length,
+    permissions: getAppPermissionRows().reduce((total, row) => total + row.activeCount, 0),
     firebase: state.employees.filter((employee) => isCurrentEmployee(employee) && !employee.firebase_uid).length,
     logs: state.logsLoaded ? state.logs.length : "",
     readiness: getHubReadinessItems().filter((item) => item.status !== "OK").length
@@ -470,6 +506,7 @@ function render() {
     employees: "社員マスタ",
     stores: "店舗マスタ",
     apps: "アプリ管理",
+    permissions: "アプリ別権限",
     firebase: "Firebase未連携",
     logs: "変更履歴",
     readiness: "HUB連携準備"
@@ -521,6 +558,19 @@ function renderTable() {
         <th>優先度</th>
       </tr>`;
     elements.tableBody.replaceChildren(...rows.map(renderPortalAppRow));
+    return;
+  }
+
+  if (state.view === "permissions") {
+    elements.tableHead.innerHTML = `
+      <tr>
+        <th>アプリ</th>
+        <th>権限</th>
+        <th>role_key</th>
+        <th>現職</th>
+        <th>全員</th>
+      </tr>`;
+    elements.tableBody.replaceChildren(...rows.map(renderPermissionRow));
     return;
   }
 
@@ -642,6 +692,15 @@ function getQualitySummaryItems() {
       { label: "公開中", count: state.portalApps.filter((app) => app.isActive !== false).length, tone: "info" },
       { label: "よく使う", count: state.portalApps.filter((app) => app.isFeatured).length, tone: "info" },
       { label: "非公開", count: state.portalApps.filter((app) => app.isActive === false).length, tone: "neutral" }
+    ];
+  }
+  if (state.view === "permissions") {
+    const rows = getAppPermissionRows();
+    return [
+      { label: "IDEA LINK", count: rows.reduce((total, row) => total + row.activeCount, 0), tone: "info" },
+      { label: "スタッフ", count: rows.find((row) => row.roleKey === "idea_link.staff")?.activeCount || 0, tone: "neutral" },
+      { label: "マネージャー", count: rows.find((row) => row.roleKey === "idea_link.manager")?.activeCount || 0, tone: "neutral" },
+      { label: "管理者", count: rows.find((row) => row.roleKey === "idea_link.admin")?.activeCount || 0, tone: "warning" }
     ];
   }
   if (state.view === "firebase") {
@@ -830,6 +889,25 @@ function renderPortalAppRow(app) {
   return tr;
 }
 
+function renderPermissionRow(permission) {
+  const tr = document.createElement("tr");
+  tr.className = permission.permission_key === state.selectedId ? "selected" : "";
+  tr.innerHTML = `
+    <td>
+      <strong>${escapeHtml(permission.appName)}</strong>
+      <div class="readiness-detail">${escapeHtml(permission.description || "")}</div>
+    </td>
+    <td>${escapeHtml(permission.roleLabel)}</td>
+    <td><code>${escapeHtml(permission.roleKey)}</code></td>
+    <td>${escapeHtml(permission.activeCount)}</td>
+    <td>${escapeHtml(permission.count)}</td>`;
+  tr.addEventListener("click", () => {
+    state.selectedId = permission.permission_key;
+    render();
+  });
+  return tr;
+}
+
 function formatPortalAppStatus(app) {
   if (app.isActive === false) return `<span class="status-pill inactive">非公開</span>`;
   if (app.isFeatured) return `<span class="status-pill">公開中・よく使う</span>`;
@@ -919,6 +997,10 @@ function formatDateTime(value) {
 }
 
 function renderDetail() {
+  if (state.view === "permissions") {
+    renderPermissionDetail();
+    return;
+  }
   if (state.view === "readiness") {
     renderReadinessDetail();
     return;
@@ -945,6 +1027,71 @@ function renderDetail() {
   if (state.view === "apps") renderPortalAppDetail(row);
   else if (state.view === "employees" || state.view === "firebase") renderEmployeeDetail(row);
   else renderStoreDetail(row);
+}
+
+function renderPermissionDetail() {
+  const rows = getAppPermissionRows();
+  const selected = rows.find((row) => row.permission_key === state.selectedId);
+  if (!selected) {
+    const total = rows.reduce((sum, row) => sum + row.activeCount, 0);
+    elements.detailPanel.innerHTML = `
+      <h3>アプリ別権限</h3>
+      <p class="detail-meta">現在はIDEA LINK権限をCore DB employee_rolesで管理しています。</p>
+      <p class="detail-note">左の一覧から権限を選ぶと、該当社員を確認できます。編集は社員詳細の「アプリ別権限」から行います。</p>
+      <div class="permission-overview">
+        ${rows.map((row) => `
+          <button class="permission-card" data-permission-key="${escapeHtml(row.permission_key)}" type="button">
+            <strong>${escapeHtml(row.roleLabel)}</strong>
+            <span>${escapeHtml(row.roleKey)}</span>
+            <b>${escapeHtml(row.activeCount)}人</b>
+          </button>`).join("")}
+      </div>
+      <div class="issue-panel resolved">
+        <strong>合計 ${escapeHtml(total)} 件</strong>
+        <p>HUBから各アプリへ渡すroleKeysの正本は employee_roles です。</p>
+      </div>`;
+    setupPermissionDetailActions();
+    return;
+  }
+
+  const employees = getEmployeesWithRoleKey(selected.roleKey)
+    .slice()
+    .sort(compareEmployees);
+  const currentEmployees = employees.filter(isCurrentEmployee);
+  elements.detailPanel.innerHTML = `
+    <h3>${escapeHtml(selected.appName)} / ${escapeHtml(selected.roleLabel)}</h3>
+    <p class="detail-meta">${escapeHtml(selected.roleKey)} / 現職 ${escapeHtml(currentEmployees.length)}人 / 全員 ${escapeHtml(employees.length)}人</p>
+    <p class="detail-note">IDEA LINK側はこのrole_keyをHUB Contextの roleKeys で受け取り、ログイン判定と表示分岐に使います。</p>
+    <div class="permission-employee-list">
+      ${employees.length ? employees.map((employee) => `
+        <div class="permission-employee">
+          <div>
+            <strong>${escapeHtml(employee.full_name || employee.name || "")}</strong>
+            <span>${escapeHtml(employee.employee_id || "")} / ${escapeHtml(formatEmployeeAffiliation(employee) || "所属未設定")} / ${escapeHtml(employee.position_name || employee.source_position_name || "")}</span>
+          </div>
+          <button class="button button-secondary permission-edit-employee" data-employee-id="${escapeHtml(employee.id)}" type="button">社員詳細で編集</button>
+        </div>`).join("") : `<p class="empty-detail">この権限が付与されている社員はいません。</p>`}
+    </div>`;
+  setupPermissionDetailActions();
+}
+
+function setupPermissionDetailActions() {
+  document.querySelectorAll("[data-permission-key]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedId = button.dataset.permissionKey || "";
+      render();
+    });
+  });
+  document.querySelectorAll(".permission-edit-employee").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.view = "employees";
+      state.employeeStatus = "all";
+      state.employeeIssueFilter = "";
+      state.selectedId = button.dataset.employeeId || "";
+      elements.search.value = "";
+      render();
+    });
+  });
 }
 
 function renderReadinessDetail() {

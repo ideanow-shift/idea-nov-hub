@@ -231,6 +231,21 @@
         "human-capital-investment",
         "talent investment"
       ]
+    },
+    {
+      "appId": "expense-hub",
+      "appName": "Expense Hub",
+      "icon": "./assets/icons/expense-hub.svg",
+      "color": "#8FBFD0",
+      "aliases": [
+        "Expense Hub",
+        "expense-hub",
+        "経費精算",
+        "経費明細",
+        "月次精算",
+        "Finance Module",
+        "finance.expense"
+      ]
     }
   ],
   "categories": {
@@ -245,6 +260,10 @@
     "管理": {
       "icon": "./assets/icons/database.svg",
       "color": "#9FAFE8"
+    },
+    "Finance Module": {
+      "icon": "./assets/icons/expense-hub.svg",
+      "color": "#8FBFD0"
     },
     "コンピテンシー": {
       "icon": "./assets/icons/management-check.svg",

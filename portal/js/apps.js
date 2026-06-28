@@ -1,4 +1,4 @@
-export const CATEGORY_ORDER = ["称賛", "全般", "管理", "コンピテンシー", "経営", "人財", "勤怠・シフト", "教育"];
+export const CATEGORY_ORDER = ["称賛", "全般", "管理", "Finance Module", "コンピテンシー", "経営", "人財", "勤怠・シフト", "教育"];
 
 const appBase = { allowedTags: [], targetDepartment: [], targetPosition: [], isActive: true };
 
@@ -12,6 +12,7 @@ export const DEMO_APPS = [
   { ...appBase, appId: "instagram-auto-post", appName: "Instagram自動投稿", description: "投稿素材と配信状況を確認", url: "#demo-instagram", category: "全般", icon: "instagram-auto-post", requiredLevel: 1, isFeatured: false, priority: 48 },
   { ...appBase, appId: "one-on-one", appName: "1on1 MTG", description: "面談記録とフィードバックを確認", url: "#demo-1on1", category: "コンピテンシー", icon: "one-on-one", requiredLevel: 2, isFeatured: false, priority: 50 },
   { ...appBase, appId: "management-system", appName: "経営管理システム", description: "経営指標と管理レポートを確認", url: "#demo-management", category: "経営", icon: "management-system", requiredLevel: 4, allowedTags: ["executive"], isFeatured: false, priority: 60 },
+  { ...appBase, appId: "expense-hub", appName: "Expense Hub", description: "経費明細登録・月次精算・経理確認", url: "http://localhost:5177", category: "Finance Module", icon: "expense-hub", requiredLevel: 1, isFeatured: false, priority: 66 },
   { ...appBase, appId: "product-management", appName: "商品管理", description: "商品情報・在庫・発注状況を確認", url: "#demo-product", category: "全般", icon: "product-management", requiredLevel: 1, isFeatured: false, priority: 70 },
   { ...appBase, appId: "task-management", appName: "タスク管理", description: "本部タスクと進捗を確認", url: "#demo-task", category: "全般", icon: "task-management", requiredLevel: 1, allowedTags: ["hq"], isFeatured: false, priority: 80 },
   { ...appBase, appId: "idea-link", appName: "IDEA LINK", description: "サンクス投稿と理念行動共有のHUB連携準備", url: "./idea-link/", category: "称賛", icon: "idea-link", requiredLevel: 1, isFeatured: false, priority: 88 },

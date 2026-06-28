@@ -480,6 +480,7 @@ function appendFixedPortalApps_(apps, employee) {
 function getFixedPortalApps_(employee) {
   const fixedApps = [
     createIdeaLinkApp_(),
+    createExpenseHubApp_(),
     createHumanCapitalInvestmentApp_(),
     createHubContextTestApp_()
   ];
@@ -493,6 +494,7 @@ function getAllFixedPortalApps_() {
   return [
     createMasterAdminApp_(),
     createIdeaLinkApp_(),
+    createExpenseHubApp_(),
     createHumanCapitalInvestmentApp_(),
     createHubContextTestApp_()
   ];
@@ -1351,6 +1353,24 @@ function createIdeaLinkApp_() {
     isActive: true,
     isFeatured: false,
     priority: 88
+  };
+}
+
+function createExpenseHubApp_() {
+  return {
+    appId: 'expense-hub',
+    appName: 'Expense Hub',
+    description: '経費明細登録・月次精算・経理確認',
+    url: 'http://localhost:5177',
+    category: 'Finance Module',
+    icon: 'expense-hub',
+    requiredLevel: 1,
+    allowedTags: [],
+    targetDepartment: [],
+    targetPosition: [],
+    isActive: true,
+    isFeatured: false,
+    priority: 66
   };
 }
 

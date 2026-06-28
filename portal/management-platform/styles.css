@@ -158,6 +158,29 @@ button:hover {
   margin-top: 12px;
 }
 
+.performance-table-panel {
+  margin-top: 12px;
+}
+
+.performance-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.performance-kpi-card {
+  min-height: 116px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.performance-kpi-card h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
 .focus-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1.4fr;
@@ -790,6 +813,7 @@ th {
 
   .top-nav { justify-content: flex-start; }
   .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .performance-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .focus-grid { grid-template-columns: 1fr; }
   .store-summary-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ai-priority-row { grid-template-columns: 1fr; }
@@ -803,6 +827,7 @@ th {
   .field-grid,
   .choice-grid,
   .history-tools,
+  .performance-kpi-grid,
   .record-detail-grid,
   .store-summary-row,
   .ai-priority-row,

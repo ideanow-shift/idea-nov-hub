@@ -16,6 +16,7 @@
       </div>
       <nav class="top-nav" aria-label="主要機能">
         <button type="button" class="nav-btn active" data-view="dashboard">Dashboard</button>
+        <button type="button" class="nav-btn" data-view="performance">成果</button>
         <button type="button" class="nav-btn" data-view="environment">環境整備</button>
         <button type="button" class="nav-btn" data-view="records">履歴</button>
         <button type="button" class="nav-btn" data-view="actions">改善</button>
@@ -38,6 +39,67 @@
       <section class="panel focus-panel" id="focusPanel" aria-label="改善フォーカス"></section>
       <section class="panel store-summary-panel" id="storeSummaryPanel" aria-label="店舗別サマリー"></section>
       <section class="panel ai-priority-panel" id="aiPriorityPanel" aria-label="AI優先リスト"></section>
+    </section>
+
+    <section class="view" id="view-performance" aria-label="成果ダッシュボード">
+      <section class="panel">
+        <div class="panel-head horizontal">
+          <div>
+            <p class="section-label">Performance</p>
+            <h2>成果ダッシュボード</h2>
+            <p class="muted-text">売上・予算比・前年比・行動KPIから、次の成果改善行動を確認します。</p>
+          </div>
+          <button type="button" id="refreshPerformanceBtn">成果を再読込</button>
+        </div>
+        <p id="performanceStatus" class="field-help">成果データを読み込み中です。</p>
+        <div class="performance-kpi-grid" id="performanceKpiGrid"></div>
+      </section>
+
+      <section class="panel performance-table-panel">
+        <div class="panel-head">
+          <p class="section-label">Snapshot</p>
+          <h2>KPIスナップショット</h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日付</th>
+                <th>店舗</th>
+                <th>総売上</th>
+                <th>予算比</th>
+                <th>前年比</th>
+                <th>生産性</th>
+                <th>NPS</th>
+                <th>eNPS</th>
+              </tr>
+            </thead>
+            <tbody id="performanceSnapshotBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel performance-table-panel">
+        <div class="panel-head">
+          <p class="section-label">Initiative</p>
+          <h2>店舗取り組み</h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>年月</th>
+                <th>店舗</th>
+                <th>今月の取り組み</th>
+                <th>来月の取り組み</th>
+                <th>店舗課題</th>
+                <th>担当</th>
+              </tr>
+            </thead>
+            <tbody id="performanceInitiativeBody"></tbody>
+          </table>
+        </div>
+      </section>
     </section>
 
     <section class="view" id="view-environment" aria-label="環境整備チェック">
@@ -250,8 +312,8 @@
       </section>
     </section>
   </main>
-  <script src="./config.js?v=management-platform-20260628-05"></script>
-  <script src="./app.js?v=management-platform-20260628-05"></script>
+  <script src="./config.js?v=management-platform-20260628-06"></script>
+  <script src="./app.js?v=management-platform-20260628-06"></script>
 </body>
 </html>
 

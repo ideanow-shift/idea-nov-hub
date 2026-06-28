@@ -6,6 +6,8 @@ const defaultCheckItemId = window.MANAGEMENT_DEFAULT_CHECK_ITEM_ID || "";
 let trustedActor = null;
 let checkItems = [];
 let improvementActions = [];
+let performanceSnapshots = [];
+let performanceInitiatives = [];
 
 const dashboardCards = [
   { title: "現在地", key: "current", value: "未登録", status: "status-ok" },
@@ -407,6 +409,58 @@ function fromApiImprovementAction(row) {
   };
 }
 
+function fromApiPerformanceSnapshot(row) {
+  return {
+    id: row.id,
+    storeId: row.store_id,
+    store: row.store_name || row.store_id || "-",
+    departmentId: row.department_id,
+    snapshotDate: row.snapshot_date,
+    periodYear: row.period_year,
+    periodMonth: row.period_month,
+    salesTotal: row.sales_total,
+    technicalSales: row.technical_sales,
+    productSales: row.product_sales,
+    budgetSales: row.budget_sales,
+    salesBudgetRate: row.sales_budget_rate,
+    salesYearOverYearRate: row.sales_year_over_year_rate,
+    contributionProductivity: row.contribution_productivity,
+    approachRate: row.approach_rate,
+    nps: row.nps,
+    enps: row.enps,
+    campaignKpi: row.campaign_kpi || {},
+    sourceDetail: row.source_detail || {},
+    aiSummary: row.ai_summary || {},
+    status: row.status,
+    importedAt: row.imported_at,
+    importedByName: row.imported_by_name,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function fromApiPerformanceInitiative(row) {
+  return {
+    id: row.id,
+    storeId: row.store_id,
+    store: row.store_name || row.store_id || "-",
+    departmentId: row.department_id,
+    periodYear: row.period_year,
+    periodMonth: row.period_month,
+    currentMonthInitiative: row.current_month_initiative,
+    nextMonthInitiative: row.next_month_initiative,
+    storeIssue: row.store_issue,
+    performanceComment: row.performance_comment,
+    ownerEmployeeId: row.owner_employee_id,
+    ownerEmployeeName: row.owner_employee_name,
+    relatedSnapshotId: row.related_snapshot_id,
+    aiDraft: row.ai_draft || {},
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
 function saveLocalRecord(record) {
   const records = getLocalRecords();
   records.unshift(record);
@@ -526,6 +580,24 @@ async function patchRemoteImprovementAction(actionId, payload) {
   const json = await response.json();
   if (!json.ok) throw new Error(json.error || "improvement action update failed");
   return json;
+}
+
+async function loadRemotePerformanceSnapshots() {
+  if (!hasApiConfig()) return [];
+  const params = new URLSearchParams({ limit: "100" });
+  const response = await apiRequest(`/performance/snapshots?${params.toString()}`);
+  const json = await response.json();
+  if (!json.ok) throw new Error(json.error || "performance snapshot load failed");
+  return (json.snapshots || []).map(fromApiPerformanceSnapshot);
+}
+
+async function loadRemotePerformanceInitiatives() {
+  if (!hasApiConfig()) return [];
+  const params = new URLSearchParams({ limit: "100" });
+  const response = await apiRequest(`/performance/initiatives?${params.toString()}`);
+  const json = await response.json();
+  if (!json.ok) throw new Error(json.error || "performance initiative load failed");
+  return (json.initiatives || []).map(fromApiPerformanceInitiative);
 }
 
 async function loadCheckItems() {
@@ -1000,6 +1072,96 @@ function renderImprovementActions() {
       </article>
     `;
   }).join("");
+}
+
+function formatNumber(value, suffix = "") {
+  if (value === null || value === undefined || value === "") return "-";
+  const number = Number(value);
+  if (!Number.isFinite(number)) return String(value);
+  return `${number.toLocaleString("ja-JP")}${suffix}`;
+}
+
+function formatPercent(value) {
+  if (value === null || value === undefined || value === "") return "-";
+  const number = Number(value);
+  if (!Number.isFinite(number)) return String(value);
+  return `${Math.round(number * 10) / 10}%`;
+}
+
+function getLatestPerformanceSnapshot() {
+  return [...performanceSnapshots].sort((a, b) => {
+    return new Date(b.snapshotDate || 0).getTime() - new Date(a.snapshotDate || 0).getTime();
+  })[0] || null;
+}
+
+function getLatestPerformanceInitiative() {
+  return [...performanceInitiatives].sort((a, b) => {
+    if (b.periodYear !== a.periodYear) return Number(b.periodYear || 0) - Number(a.periodYear || 0);
+    return Number(b.periodMonth || 0) - Number(a.periodMonth || 0);
+  })[0] || null;
+}
+
+function renderPerformanceDashboard() {
+  const status = document.getElementById("performanceStatus");
+  const grid = document.getElementById("performanceKpiGrid");
+  const snapshotBody = document.getElementById("performanceSnapshotBody");
+  const initiativeBody = document.getElementById("performanceInitiativeBody");
+  if (!grid || !snapshotBody || !initiativeBody) return;
+
+  const latestSnapshot = getLatestPerformanceSnapshot();
+  const latestInitiative = getLatestPerformanceInitiative();
+  if (status) {
+    status.textContent = hasApiConfig()
+      ? `成果API接続OK: KPI ${performanceSnapshots.length}件 / 取り組み ${performanceInitiatives.length}件`
+      : "API未接続のため成果データを読み込めません。";
+  }
+
+  const kpis = [
+    { title: "総売上", value: latestSnapshot ? formatNumber(latestSnapshot.salesTotal, "円") : "-", note: latestSnapshot?.store || "最新KPI待ち" },
+    { title: "予算比", value: latestSnapshot ? formatPercent(latestSnapshot.salesBudgetRate) : "-", note: "売上達成率" },
+    { title: "前年比", value: latestSnapshot ? formatPercent(latestSnapshot.salesYearOverYearRate) : "-", note: "前年同日/月比較" },
+    { title: "次の成果行動", value: latestInitiative?.storeIssue ? "課題あり" : "未設定", note: latestInitiative?.storeIssue || "店舗課題を登録すると表示します" }
+  ];
+
+  grid.innerHTML = kpis.map((kpi) => `
+    <article class="performance-kpi-card">
+      <h3>${escapeHtml(kpi.title)}</h3>
+      <div class="value status-ok">${escapeHtml(kpi.value)}</div>
+      <p class="note">${escapeHtml(kpi.note)}</p>
+    </article>
+  `).join("");
+
+  if (!performanceSnapshots.length) {
+    snapshotBody.innerHTML = `<tr><td class="empty-cell" colspan="8">成果KPIスナップショットはまだありません。</td></tr>`;
+  } else {
+    snapshotBody.innerHTML = performanceSnapshots.slice(0, 20).map((snapshot) => `
+      <tr>
+        <td>${escapeHtml(formatDateOnly(snapshot.snapshotDate))}</td>
+        <td>${escapeHtml(snapshot.store)}</td>
+        <td>${escapeHtml(formatNumber(snapshot.salesTotal, "円"))}</td>
+        <td>${escapeHtml(formatPercent(snapshot.salesBudgetRate))}</td>
+        <td>${escapeHtml(formatPercent(snapshot.salesYearOverYearRate))}</td>
+        <td>${escapeHtml(formatNumber(snapshot.contributionProductivity, "円"))}</td>
+        <td>${escapeHtml(formatNumber(snapshot.nps))}</td>
+        <td>${escapeHtml(formatNumber(snapshot.enps))}</td>
+      </tr>
+    `).join("");
+  }
+
+  if (!performanceInitiatives.length) {
+    initiativeBody.innerHTML = `<tr><td class="empty-cell" colspan="6">店舗取り組みはまだありません。</td></tr>`;
+  } else {
+    initiativeBody.innerHTML = performanceInitiatives.slice(0, 20).map((initiative) => `
+      <tr>
+        <td>${escapeHtml(`${initiative.periodYear || "-"}-${String(initiative.periodMonth || "").padStart(2, "0")}`)}</td>
+        <td>${escapeHtml(initiative.store)}</td>
+        <td>${escapeHtml(initiative.currentMonthInitiative || "-")}</td>
+        <td>${escapeHtml(initiative.nextMonthInitiative || "-")}</td>
+        <td>${escapeHtml(initiative.storeIssue || "-")}</td>
+        <td>${escapeHtml(initiative.ownerEmployeeName || "-")}</td>
+      </tr>
+    `).join("");
+  }
 }
 
 function renderDashboard() {
@@ -1621,6 +1783,32 @@ async function refreshImprovementActions() {
   }
 }
 
+async function refreshPerformanceData() {
+  if (!hasApiConfig()) {
+    performanceSnapshots = [];
+    performanceInitiatives = [];
+    renderPerformanceDashboard();
+    return;
+  }
+  const status = document.getElementById("performanceStatus");
+  if (status) status.textContent = "成果データを読み込み中です。";
+  try {
+    const [snapshots, initiatives] = await Promise.all([
+      loadRemotePerformanceSnapshots(),
+      loadRemotePerformanceInitiatives()
+    ]);
+    performanceSnapshots = snapshots;
+    performanceInitiatives = initiatives;
+    renderPerformanceDashboard();
+    setApiStatus(`成果API接続OK: KPI ${snapshots.length}件 / 取り組み ${initiatives.length}件`, "ok");
+  } catch (error) {
+    console.warn("Performance data load failed", error);
+    if (status) status.textContent = `成果データ読込エラー: ${error.message || error}`;
+    setApiStatus(`成果データ読込エラー: ${error.message || error}`, "error");
+    renderPerformanceDashboard();
+  }
+}
+
 async function updateImprovementActionStatus(button) {
   const actionId = button?.dataset?.actionId;
   const nextStatus = button?.dataset?.nextStatus;
@@ -1796,16 +1984,25 @@ async function refreshRecords() {
       setLocalRecords(remoteRecords);
       if (isManagementAdmin()) {
         try {
-          improvementActions = await loadRemoteImprovementActions();
+          [improvementActions, performanceSnapshots, performanceInitiatives] = await Promise.all([
+            loadRemoteImprovementActions(),
+            loadRemotePerformanceSnapshots(),
+            loadRemotePerformanceInitiatives()
+          ]);
         } catch (actionError) {
-          console.warn("Improvement action load skipped or failed", actionError);
+          console.warn("Management related data load skipped or failed", actionError);
           improvementActions = [];
+          performanceSnapshots = [];
+          performanceInitiatives = [];
           const actionStatus = document.getElementById("actionListStatus");
-          if (actionStatus) actionStatus.textContent = `改善アクション読込エラー: ${actionError.message || actionError}`;
+          if (actionStatus) actionStatus.textContent = `関連データ読込エラー: ${actionError.message || actionError}`;
+          const performanceStatus = document.getElementById("performanceStatus");
+          if (performanceStatus) performanceStatus.textContent = `成果データ読込エラー: ${actionError.message || actionError}`;
         }
       }
       renderRecords(remoteRecords);
       renderImprovementActions();
+      renderPerformanceDashboard();
       setApiStatus(`履歴読込OK: ${remoteRecords.length}件`, "ok");
     } else {
       renderRecords();
@@ -1831,6 +2028,7 @@ function bindEvents() {
   });
   document.getElementById("refreshBtn").addEventListener("click", refreshRecords);
   document.getElementById("loadRecordsBtn").addEventListener("click", refreshRecords);
+  document.getElementById("refreshPerformanceBtn")?.addEventListener("click", refreshPerformanceData);
   document.getElementById("historyStoreFilter").addEventListener("change", () => renderRecords());
   document.getElementById("historyIssueFilter").addEventListener("change", () => renderRecords());
   document.getElementById("historyPeriodFilter").addEventListener("change", () => renderRecords());
@@ -1926,6 +2124,7 @@ hydrateFormFromActor();
 renderPhotoPreview();
 renderDashboard();
 renderRecords();
+renderPerformanceDashboard();
 
 async function apiRequest(path, options = {}) {
   const token = await firebaseTokenProvider();

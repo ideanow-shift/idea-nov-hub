@@ -153,6 +153,18 @@ function doPost(e) {
       return jsonOutput_({ ok: true, credential: changeOwnPin_(authUser, employee, payload) });
     }
 
+    if (action === 'novHubNotifications') {
+      stage = 'readNovHubNotifications';
+      const notifications = measureStep_(performance, 'readNovHubNotifications', function() {
+        return readNovHubNotificationsSafely_(employee);
+      });
+      return jsonOutput_({
+        ok: true,
+        notifications: notifications,
+        performance: buildPerformanceSummary_(performance, stage)
+      });
+    }
+
     if (action === 'masterBootstrap') {
       stage = 'authorizeMasterAdmin';
       assertMasterViewer_(employee);
@@ -512,6 +524,54 @@ function readAnnouncementsSafely_() {
     console.error('Failed to read portal announcements. Continuing without announcements.', error);
     return [];
   }
+}
+
+function readNovHubNotificationsSafely_(employee) {
+  try {
+    return readNovHubNotifications_(employee);
+  } catch (error) {
+    console.error(JSON.stringify({
+      code: error.portalCode || 'NOV_HUB_NOTIFICATIONS_READ_FAILED',
+      message: sanitizeErrorDetail_(String(error.message || error))
+    }));
+    return [];
+  }
+}
+
+function readNovHubNotifications_(employee) {
+  const employeeId = String(employee && (employee.id || employee.coreEmployeeId || employee.supabaseEmployeeId) || '').trim();
+  if (!employeeId) return [];
+
+  return supabaseRequest_('notifications', {
+    schema: 'os',
+    query: {
+      select: '*',
+      module_key: 'eq.finance.expense',
+      channel: 'eq.nov_hub',
+      recipient_employee_id: 'eq.' + employeeId,
+      status: 'in.(queued,sent)',
+      order: 'created_at.desc',
+      limit: '20'
+    }
+  }).map(normalizeNovHubNotification_);
+}
+
+function normalizeNovHubNotification_(row) {
+  row = row || {};
+  const title = row.title || row.subject || row.heading || 'Expense Hub通知';
+  const body = row.body || row.message || row.content || row.description || '';
+  return {
+    id: String(row.id || ''),
+    type: 'info',
+    title: String(title || ''),
+    body: String(body || ''),
+    moduleKey: String(row.module_key || ''),
+    channel: String(row.channel || ''),
+    status: String(row.status || ''),
+    url: String(row.action_url || row.url || ''),
+    relatedEntityId: String(row.related_entity_id || row.entity_id || ''),
+    createdAt: String(row.created_at || row.inserted_at || '')
+  };
 }
 
 function verifyFirebaseToken_(idToken) {
@@ -2842,11 +2902,16 @@ function supabaseRequest_(resource, options) {
   const query = buildQueryString_(options && options.query ? options.query : {});
   const url = config.url + '/rest/v1/' + resource + (query ? '?' + query : '');
   const method = String((options && options.method) || 'get').toLowerCase();
+  const schema = String((options && options.schema) || '').trim();
   const headers = {
     apikey: config.serviceRoleKey,
     Authorization: 'Bearer ' + config.serviceRoleKey,
     Accept: 'application/json'
   };
+  if (schema) {
+    headers['Accept-Profile'] = schema;
+    headers['Content-Profile'] = schema;
+  }
   if (options && options.prefer) headers.Prefer = options.prefer;
   const request = {
     method: method,

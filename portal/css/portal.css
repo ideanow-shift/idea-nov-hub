@@ -380,6 +380,15 @@ body { background: #FAFAFA; }
   padding: var(--spacing-md);
 }
 
+.notice-clickable {
+  cursor: pointer;
+}
+
+.notice-clickable:focus-visible {
+  outline: 2px solid var(--color-bassa);
+  outline-offset: 2px;
+}
+
 .notice-important { border-left: 4px solid var(--color-alert); }
 .notice-icon {
   display: grid;

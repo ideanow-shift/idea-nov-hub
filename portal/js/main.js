@@ -5,7 +5,7 @@ import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
 import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js";
 import { clearHubEmployeeContext, encodeHubContextForUrl, getHubEmployeeContextSummary, saveHubEmployeeContext } from "./hub-context.js";
 
-const state = { employee: null, apps: [], announcements: [], mode: PORTAL_CONFIG.authMode, authType: null };
+const state = { employee: null, apps: [], announcements: [], notifications: [], mode: PORTAL_CONFIG.authMode, authType: null };
 const MANAGEMENT_HUB_CONTEXT_KEY = "ideaNov.management.hubContext";
 const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_APP_IDS = new Set(["management-check", "management-platform"]);
@@ -120,14 +120,51 @@ function renderAnnouncements() {
     { type: "important", title: "ポータル試験運用中", body: "掲載アプリや権限に誤りがある場合は管理者へご連絡ください。" },
     { type: "info", title: "スマートフォンのホーム画面に追加できます", body: "ブラウザの共有メニューから追加すると、毎日のアクセスが簡単になります。" }
   ];
-  elements.announcements.replaceChildren(...(state.announcements.length ? state.announcements : fallback).map((notice) => {
+  const notices = [
+    ...state.notifications.map(toNotificationNotice),
+    ...state.announcements
+  ];
+  elements.announcements.replaceChildren(...(notices.length ? notices : fallback).map((notice) => {
     const article = document.createElement("article");
     article.className = `notice${notice.type === "important" ? " notice-important" : ""}`;
     article.innerHTML = `
       <span class="notice-icon" aria-hidden="true">${notice.type === "important" ? "!" : "i"}</span>
       <div><h3 class="notice-title">${escapeHtml(notice.title)}</h3><p class="notice-body">${escapeHtml(notice.body)}</p></div>`;
+    if (notice.url || notice.moduleKey === "finance.expense") {
+      article.classList.add("notice-clickable");
+      article.tabIndex = 0;
+      article.addEventListener("click", () => openNotification(notice));
+      article.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openNotification(notice);
+        }
+      });
+    }
     return article;
   }));
+}
+
+function toNotificationNotice(notification) {
+  return {
+    type: notification.type || "info",
+    title: notification.title || "Expense Hub通知",
+    body: notification.body || "",
+    url: notification.url || "",
+    moduleKey: notification.moduleKey || ""
+  };
+}
+
+function openNotification(notice) {
+  if (notice.url) {
+    const context = refreshHubEmployeeContext();
+    window.location.assign(buildAppLaunchUrl(notice.url, context));
+    return;
+  }
+  if (notice.moduleKey === "finance.expense") {
+    const expenseHub = state.apps.find((app) => app.appId === "expense-hub");
+    if (expenseHub) openApp(expenseHub);
+  }
 }
 
 function renderApps() {
@@ -200,6 +237,17 @@ function writeLoginAccessLogAfterPaint(data) {
       result: "success",
       bootstrapPerformance: data?.performance || null
     }).catch((error) => console.warn("Login access log failed", error));
+  });
+}
+
+function loadNovHubNotificationsAfterPaint() {
+  runAfterPaint(() => {
+    callApiAction("novHubNotifications")
+      .then((data) => {
+        state.notifications = Array.isArray(data.notifications) ? data.notifications : [];
+        renderAnnouncements();
+      })
+      .catch((error) => console.warn("NOV HUB notifications load failed", error));
   });
 }
 
@@ -367,8 +415,10 @@ async function loginWithFirebase() {
     state.employee = data.employee;
     state.apps = sortPortalApps(data.apps || []);
     state.announcements = data.announcements || [];
+    state.notifications = [];
     renderPortal();
     writeLoginAccessLogAfterPaint(data);
+    loadNovHubNotificationsAfterPaint();
     saveManagementAuthContextAfterPaint(refreshHubEmployeeContext());
   } catch (error) {
     console.error("Portal login failed", {
@@ -398,9 +448,11 @@ async function loginWithPin(event) {
     state.employee = data.employee;
     state.apps = sortPortalApps(data.apps || []);
     state.announcements = data.announcements || [];
+    state.notifications = [];
     elements.pinCode.value = "";
     renderPortal();
     writeLoginAccessLogAfterPaint(data);
+    loadNovHubNotificationsAfterPaint();
   } catch (error) {
     console.error("PIN login failed", {
       code: error.code || "",
@@ -426,6 +478,7 @@ function loginDemo() {
   state.employee = employee;
   state.apps = getVisibleApps(employee, DEMO_APPS);
   state.announcements = [];
+  state.notifications = [];
   state.authType = "demo";
   console.info("[demo log]", { action: "login", email: employee.email, result: "success" });
   renderPortal();
@@ -446,6 +499,8 @@ async function logout() {
   localStorage.removeItem(MANAGEMENT_HUB_CONTEXT_KEY);
   state.employee = null;
   state.apps = [];
+  state.announcements = [];
+  state.notifications = [];
   state.authType = null;
   showScreen("login");
 }

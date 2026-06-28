@@ -59,6 +59,10 @@ const ANNOUNCEMENT_HEADER_ALIASES = Object.freeze({
   priority: ['priority', 'sort', 'order', '表示順', '並び順', '優先度']
 });
 
+const APP_ROLE_GROUPS = Object.freeze({
+  idea_link: Object.freeze(['idea_link.staff', 'idea_link.manager', 'idea_link.admin'])
+});
+
 function doGet(e) {
   const action = String((e && e.parameter && e.parameter.action) || '');
   if (action === 'health') return jsonOutput_(getHealthStatus_());
@@ -174,6 +178,12 @@ function doPost(e) {
       assertMasterEditor_(employee);
       stage = 'assignDefaultStaffRole';
       return jsonOutput_({ ok: true, employeeRole: assignDefaultStaffRole_(payload, employee) });
+    }
+    if (action === 'masterUpdateEmployeeAppRoles') {
+      stage = 'authorizeMasterAdmin';
+      assertMasterEditor_(employee);
+      stage = 'updateEmployeeAppRoles';
+      return jsonOutput_({ ok: true, result: updateEmployeeAppRoles_(payload, employee) });
     }
     if (action === 'masterUpdateEmployee') {
       stage = 'authorizeMasterAdmin';
@@ -1981,6 +1991,132 @@ function assignDefaultStaffRoleForEmployee_(employee, actor, silent) {
 
   return employeeRole;
 }
+
+function updateEmployeeAppRoles_(payload, actor) {
+  const employeeId = String(payload.id || '').trim();
+  const appKey = String(payload.appKey || '').trim();
+  if (!employeeId) throwPortalError_('INVALID_REQUEST', 'Employee id is required.');
+  if (!appKey) throwPortalError_('INVALID_REQUEST', 'App key is required.');
+
+  const employee = getCoreEmployeeById_(employeeId);
+  if (!employee || !employee.id) throwPortalError_('NOT_FOUND', '社員が見つかりません。');
+
+  const allowedRoleKeys = getAllowedAppRoleKeys_(appKey);
+  const desiredRoleKeys = normalizeAppRoleKeys_(payload.roleKeys, allowedRoleKeys);
+  const rolesByKey = getRolesByKeys_(allowedRoleKeys);
+  const missingRoleKeys = allowedRoleKeys.filter(function(roleKey) { return !rolesByKey[roleKey]; });
+  if (missingRoleKeys.length) {
+    throwPortalError_('ROLE_NOT_FOUND', 'App roles are missing: ' + missingRoleKeys.join(', '));
+  }
+
+  const roleIds = allowedRoleKeys.map(function(roleKey) { return rolesByKey[roleKey].id; });
+  const existingRows = supabaseRequest_('employee_roles', {
+    query: {
+      select: 'id,employee_id,role_id,scope_type,is_active',
+      employee_id: 'eq.' + employee.id,
+      role_id: 'in.(' + roleIds.join(',') + ')',
+      limit: '100'
+    }
+  });
+
+  const existingByRoleId = existingRows.reduce(function(index, row) {
+    index[row.role_id] = row;
+    return index;
+  }, {});
+  const beforeRoleKeys = allowedRoleKeys.filter(function(roleKey) {
+    const existing = existingByRoleId[rolesByKey[roleKey].id];
+    return existing && existing.is_active !== false;
+  });
+  const desiredByKey = desiredRoleKeys.reduce(function(index, roleKey) {
+    index[roleKey] = true;
+    return index;
+  }, {});
+
+  allowedRoleKeys.forEach(function(roleKey) {
+    const role = rolesByKey[roleKey];
+    const existing = existingByRoleId[role.id] || null;
+    const shouldBeActive = Boolean(desiredByKey[roleKey]);
+
+    if (existing && existing.is_active !== false && shouldBeActive) return;
+    if (existing && existing.is_active === false && !shouldBeActive) return;
+
+    if (existing && existing.id) {
+      supabaseRequest_('employee_roles', {
+        method: 'patch',
+        query: { id: 'eq.' + existing.id, select: '*' },
+        payload: { is_active: shouldBeActive },
+        prefer: 'return=minimal'
+      });
+      return;
+    }
+
+    if (shouldBeActive) {
+      supabaseRequest_('employee_roles', {
+        method: 'post',
+        query: { select: '*' },
+        payload: {
+          employee_id: employee.id,
+          role_id: role.id,
+          scope_type: 'all',
+          is_active: true
+        },
+        prefer: 'return=minimal'
+      });
+    }
+  });
+
+  appendMasterChangeLogSafely_('employee_roles', employee.id, {
+    app_key: appKey,
+    before_role_keys: beforeRoleKeys,
+    role_keys: desiredRoleKeys
+  }, actor, {
+    actionType: 'update_app_roles',
+    targetName: employee.full_name || employee.employee_id || employee.id
+  });
+
+  return {
+    appKey: appKey,
+    roleKeys: desiredRoleKeys
+  };
+}
+
+function getAllowedAppRoleKeys_(appKey) {
+  const keys = APP_ROLE_GROUPS[appKey];
+  if (!keys || !keys.length) throwPortalError_('INVALID_REQUEST', 'Unsupported app key: ' + appKey);
+  return keys.slice();
+}
+
+function normalizeAppRoleKeys_(roleKeys, allowedRoleKeys) {
+  const source = Array.isArray(roleKeys) ? roleKeys : [];
+  const allowed = allowedRoleKeys.reduce(function(index, roleKey) {
+    index[roleKey] = true;
+    return index;
+  }, {});
+  return source.reduce(function(result, roleKey) {
+    const key = String(roleKey || '').trim();
+    if (!key) return result;
+    if (!allowed[key]) throwPortalError_('INVALID_REQUEST', 'Unsupported role key: ' + key);
+    if (result.indexOf(key) === -1) result.push(key);
+    return result;
+  }, []);
+}
+
+function getRolesByKeys_(roleKeys) {
+  if (!roleKeys.length) return {};
+  const rows = supabaseRequest_('roles', {
+    query: {
+      select: 'id,role_key,role_name,is_active',
+      role_key: 'in.(' + roleKeys.join(',') + ')',
+      is_active: 'eq.true',
+      limit: '100'
+    }
+  });
+  return rows.reduce(function(index, role) {
+    if (role.role_key) index[role.role_key] = role;
+    return index;
+  }, {});
+}
+
 function updateCoreEmployee_(payload, actor) {
   const id = String(payload.id || '').trim();
   if (!id) throwPortalError_('INVALID_REQUEST', 'Employee id is required.');

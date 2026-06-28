@@ -3,6 +3,8 @@ import { callApiAction, clearApiAuth, setFirebaseAuth } from "../js/api.js";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_PORTAL_APP_ID = "__new_portal_app__";
+const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
+const APP_ROLE_KEY_PREFIXES = ["idea_link."];
 
 const state = {
   view: "employees",
@@ -47,7 +49,10 @@ const ROLE_LABELS = {
   fc_owner: "FCオーナー",
   trainer: "教育担当",
   backoffice: "総務人事",
-  accounting: "経理"
+  accounting: "経理",
+  "idea_link.staff": "IDEA LINK スタッフ",
+  "idea_link.manager": "IDEA LINK マネージャー",
+  "idea_link.admin": "IDEA LINK 管理者"
 };
 
 function showToast(message) {
@@ -295,11 +300,26 @@ function getEmployeeIssues(employee) {
   if (!String(employee.email || "").trim()) issues.push("メール");
   if (!hasLocation) issues.push("所属");
   if (!employee.position_id && !employee.source_position_name) issues.push("役職");
-  if (!Array.isArray(employee.role_keys) || !employee.role_keys.length) issues.push("HUB権限");
+  if (!getCommonRoleKeys(employee).length) issues.push("HUB権限");
   if (!getEmployeeCredential(employee).pin_set) issues.push("PIN");
   if (!String(employee.employment_type || "").trim()) issues.push("雇用形態");
   if (!String(employee.employment_status || "").trim()) issues.push("現職/休職/退職");
   return issues;
+}
+
+function isAppRoleKey(roleKey) {
+  const key = String(roleKey || "");
+  return APP_ROLE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+
+function getCommonRoleKeys(employee) {
+  return (Array.isArray(employee?.role_keys) ? employee.role_keys : [])
+    .filter((roleKey) => roleKey && !isAppRoleKey(roleKey));
+}
+
+function getIdeaLinkRoleKeys(employee) {
+  return (Array.isArray(employee?.role_keys) ? employee.role_keys : [])
+    .filter((roleKey) => IDEA_LINK_ROLE_KEYS.includes(roleKey));
 }
 
 function getEmployeeCredential(employee) {
@@ -658,7 +678,7 @@ function getHubReadinessItems() {
   const activeStores = state.stores.filter((store) => store.is_active);
   const employeeIssueCount = currentEmployees.filter((employee) => getEmployeeIssues(employee).length).length;
   const employeeEmailMissingCount = currentEmployees.filter((employee) => !String(employee.email || "").trim()).length;
-  const employeeRoleMissingCount = currentEmployees.filter((employee) => !Array.isArray(employee.role_keys) || !employee.role_keys.length).length;
+  const employeeRoleMissingCount = currentEmployees.filter((employee) => !getCommonRoleKeys(employee).length).length;
   const firebaseMissingCount = currentEmployees.filter((employee) => !employee.firebase_uid).length;
   const storeIssueCount = activeStores.filter((store) => getStoreIssues(store).length).length;
   const usableStoreCount = activeStores.filter((store) => store.store_id && store.store_name).length;
@@ -1057,6 +1077,7 @@ function formatActionType(actionType) {
     update_store_assignments: "店舗所属更新",
     assign_staff_role: "HUB権限付与",
     auto_assign_staff_role: "HUB権限自動付与",
+    update_app_roles: "アプリ権限更新",
     create_login_credential: "ログイン設定作成",
     update_login_credential: "ログイン設定更新",
     change_own_pin: "本人PIN変更"
@@ -1064,6 +1085,7 @@ function formatActionType(actionType) {
 }
 
 function getLogTypeLabel(log) {
+  if (log.action_type === "update_app_roles") return "アプリ権限";
   if (log.table_name === "employee_store_assignments") return "店舗所属";
   if (log.table_name === "employee_roles") return "HUB権限";
   if (log.table_name === "employee_login_credentials") return "ログイン設定";
@@ -1073,6 +1095,7 @@ function getLogTypeLabel(log) {
 }
 
 function getLogTypeClass(log) {
+  if (log.action_type === "update_app_roles") return "role";
   if (log.table_name === "employee_store_assignments") return "store-assignment";
   if (log.table_name === "employee_roles") return "role";
   if (log.table_name === "employee_login_credentials") return "login";
@@ -1338,7 +1361,7 @@ function renderEmployeeCreatedPanel(employee) {
   const hasEmail = Boolean(String(employee.email || "").trim());
   const hasLocation = Boolean(employee.store_id || employee.department_id);
   const hasPosition = Boolean(employee.position_id);
-  const hasHubRole = Array.isArray(employee.role_keys) && employee.role_keys.filter(Boolean).length > 0;
+  const hasHubRole = getCommonRoleKeys(employee).length > 0;
   return `
     <section class="created-employee-panel">
       <strong>社員を追加しました</strong>
@@ -1379,6 +1402,7 @@ function renderEmployeeDetail(employee) {
       ${createdPanel}
       ${issuePanel}
       ${renderEmployeeRolePanel(employee)}
+      ${renderEmployeeAppRolePanel(employee, readonly)}
       ${firebaseLinkPanel}
       ${fieldInput("email", "メール", employee.email || "", "email")}
       ${fieldInput("birth_date", "誕生日", employee.birth_date || "", "date")}
@@ -1440,6 +1464,7 @@ function renderEmployeeDetail(employee) {
   document.querySelector("#retire-employee")?.addEventListener("click", retireEmployee);
   document.querySelector("#link-firebase-uid")?.addEventListener("click", linkFirebaseUid);
   document.querySelector("#assign-staff-role")?.addEventListener("click", assignStaffRole);
+  document.querySelector("#save-idea-link-roles")?.addEventListener("click", saveIdeaLinkRoles);
   document.querySelector("#save-login-credential")?.addEventListener("click", saveEmployeeLoginCredential);
   setupLoginCredentialDirtyState();
 }
@@ -1498,7 +1523,7 @@ function renderEmployeeLoginPanel(employee, readonly) {
 }
 
 function renderEmployeeRolePanel(employee) {
-  const roleKeys = Array.isArray(employee.role_keys) ? employee.role_keys.filter(Boolean) : [];
+  const roleKeys = getCommonRoleKeys(employee);
   if (!roleKeys.length) {
     return `
       <div class="role-panel missing">
@@ -1514,6 +1539,38 @@ function renderEmployeeRolePanel(employee) {
       <strong>HUB権限</strong>
       <div class="role-chip-list">${chips}</div>
     </div>`;
+}
+
+function renderEmployeeAppRolePanel(employee, readonly) {
+  const selectedRoleKeys = getIdeaLinkRoleKeys(employee);
+  const options = IDEA_LINK_ROLE_KEYS.map((roleKey) => `
+    <label class="app-role-option">
+      <input type="checkbox" data-idea-link-role="${escapeHtml(roleKey)}"${selectedRoleKeys.includes(roleKey) ? " checked" : ""}${readonly ? " disabled" : ""}>
+      <span>
+        <strong>${escapeHtml(formatRoleLabel(roleKey))}</strong>
+        <small>${escapeHtml(roleKey)}</small>
+      </span>
+    </label>`).join("");
+  return `
+    <section class="app-role-panel">
+      <div class="app-role-heading">
+        <div>
+          <strong>アプリ別権限</strong>
+          <p>IDEA LINK側の独自マスタは作らず、Core DBの employee_roles を正本にします。</p>
+        </div>
+        <span class="status-pill${selectedRoleKeys.length ? "" : " warning"}">${selectedRoleKeys.length ? `${selectedRoleKeys.length}件` : "未設定"}</span>
+      </div>
+      <div class="app-role-group">
+        <div>
+          <strong>IDEA LINK</strong>
+          <p>HUB context / employees.id / role_keys でログイン判定へ渡す権限です。</p>
+        </div>
+        <div class="app-role-options">${options}</div>
+        ${readonly ? "" : `<div class="app-role-actions">
+          <button class="button button-secondary" id="save-idea-link-roles" type="button">IDEA LINK権限を保存</button>
+        </div>`}
+      </div>
+    </section>`;
 }
 
 function formatRoleLabel(roleKey) {
@@ -2034,6 +2091,36 @@ async function assignStaffRole(event) {
     button.textContent = originalText || "staff権限を付与";
   }
 }
+
+async function saveIdeaLinkRoles(event) {
+  const employee = state.employees.find((item) => item.id === state.selectedId);
+  if (!employee) return;
+  const button = event.currentTarget;
+  const originalText = button.textContent;
+  const roleKeys = IDEA_LINK_ROLE_KEYS.filter((roleKey) => (
+    document.querySelector(`[data-idea-link-role="${roleKey}"]`)?.checked
+  ));
+  try {
+    button.disabled = true;
+    button.textContent = "保存中...";
+    await callApiAction("masterUpdateEmployeeAppRoles", {
+      id: employee.id,
+      appKey: "idea_link",
+      roleKeys
+    });
+    await refreshEmployees();
+    await refreshLogsSilently();
+    state.selectedId = employee.id;
+    render();
+    showToast("IDEA LINK権限を保存しました。");
+  } catch (error) {
+    console.error(error);
+    showToast(getErrorMessage(error));
+    button.disabled = false;
+    button.textContent = originalText || "IDEA LINK権限を保存";
+  }
+}
+
 async function linkFirebaseUid(event) {
   const employee = state.employees.find((item) => item.id === state.selectedId);
   const firebaseUid = document.querySelector("#firebase_uid")?.value.trim() || "";

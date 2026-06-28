@@ -1588,7 +1588,8 @@ async function saveImprovementAction(button) {
       }
     }
     const result = await saveRemoteImprovementAction(record);
-    setApiStatus(`改善履歴保存OK: ${result.actionId || result.action?.id || "saved"}`, "ok");
+    const actionId = result.actionId || result.action?.id || "saved";
+    setApiStatus(result.duplicate ? `改善履歴は保存済みです: ${actionId}` : `改善履歴保存OK: ${actionId}`, "ok");
     button.textContent = "保存済み";
     await refreshImprovementActions();
     await showRecordDetail(recordId);

@@ -993,7 +993,9 @@ function renderImprovementActions() {
         </div>
         <div class="improvement-action-actions">
           <button type="button" class="ghost-btn action-source-detail-btn" data-record-id="${escapeHtml(action.sourceCheckId)}">元履歴</button>
-          ${isCompleted ? "" : `<button type="button" class="complete-action-btn" data-action-id="${escapeHtml(action.id)}">完了にする</button>`}
+          ${action.status === "open" ? `<button type="button" class="ghost-btn update-action-status-btn" data-action-id="${escapeHtml(action.id)}" data-next-status="in_progress">進行中にする</button>` : ""}
+          ${isCompleted ? "" : `<button type="button" class="update-action-status-btn" data-action-id="${escapeHtml(action.id)}" data-next-status="completed">完了にする</button>`}
+          ${["completed", "archived"].includes(action.status) ? "" : `<button type="button" class="ghost-btn update-action-status-btn" data-action-id="${escapeHtml(action.id)}" data-next-status="archived">アーカイブ</button>`}
         </div>
       </article>
     `;
@@ -1619,23 +1621,25 @@ async function refreshImprovementActions() {
   }
 }
 
-async function completeImprovementAction(button) {
+async function updateImprovementActionStatus(button) {
   const actionId = button?.dataset?.actionId;
+  const nextStatus = button?.dataset?.nextStatus;
   if (!actionId) return;
+  if (!nextStatus) return;
   const originalText = button.textContent;
   button.disabled = true;
   button.textContent = "更新中";
-  setApiStatus("改善アクションを完了に更新中です...", "loading");
+  setApiStatus(`改善アクションを${getActionStatusLabel(nextStatus)}に更新中です...`, "loading");
   try {
     await patchRemoteImprovementAction(actionId, {
-      status: "completed",
-      completionComment: "画面から完了"
+      status: nextStatus,
+      completionComment: nextStatus === "completed" ? "画面から完了" : null
     });
-    setApiStatus(`改善アクション完了OK: ${actionId}`, "ok");
+    setApiStatus(`改善アクション更新OK: ${getActionStatusLabel(nextStatus)} / ${actionId}`, "ok");
     await refreshImprovementActions();
   } catch (error) {
-    console.warn("Improvement action complete failed", error);
-    setApiStatus(`改善アクション完了エラー: ${error.message || error}`, "error");
+    console.warn("Improvement action status update failed", error);
+    setApiStatus(`改善アクション更新エラー: ${error.message || error}`, "error");
     button.disabled = false;
     button.textContent = originalText;
   }
@@ -1842,9 +1846,9 @@ function bindEvents() {
     renderImprovementActions();
   });
   document.getElementById("improvementActionList")?.addEventListener("click", (event) => {
-    const completeButton = event.target.closest(".complete-action-btn");
-    if (completeButton) {
-      completeImprovementAction(completeButton);
+    const statusButton = event.target.closest(".update-action-status-btn");
+    if (statusButton) {
+      updateImprovementActionStatus(statusButton);
       return;
     }
     const sourceButton = event.target.closest(".action-source-detail-btn");

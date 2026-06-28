@@ -63,6 +63,14 @@ const APP_ROLE_GROUPS = Object.freeze({
   idea_link: Object.freeze(['idea_link.staff', 'idea_link.manager', 'idea_link.admin'])
 });
 
+const RUNTIME_CACHE_TTL_SECONDS = Object.freeze({
+  PORTAL_APPS: 300,
+  ANNOUNCEMENTS: 300,
+  CORE_LOOKUP: 600,
+  EMPLOYEE_ROLES: 120,
+  STORE_ASSIGNMENTS: 120
+});
+
 function doGet(e) {
   const action = String((e && e.parameter && e.parameter.action) || '');
   if (action === 'health') return jsonOutput_(getHealthStatus_());
@@ -317,16 +325,20 @@ function readPortalApps_() {
 }
 
 function readPortalAppsFromSupabase_() {
-  return supabaseRequest_('portal_apps', {
-    query: {
-      select: '*',
-      order: 'priority.asc,app_name.asc'
-    }
-  }).map(normalizeSupabaseApp_);
+  return withRuntimeCache_('portal_apps:v1', RUNTIME_CACHE_TTL_SECONDS.PORTAL_APPS, function() {
+    return supabaseRequest_('portal_apps', {
+      query: {
+        select: '*',
+        order: 'priority.asc,app_name.asc'
+      }
+    }).map(normalizeSupabaseApp_);
+  });
 }
 
 function readPortalAppsFromSheet_() {
-  return readPortalSheetObjects_(SHEETS.APPS).map(normalizeApp_);
+  return withRuntimeCache_('sheet_apps:v1', RUNTIME_CACHE_TTL_SECONDS.PORTAL_APPS, function() {
+    return readPortalSheetObjects_(SHEETS.APPS).map(normalizeApp_);
+  });
 }
 
 function listPortalAppsForAdmin_() {
@@ -343,7 +355,7 @@ function syncPortalAppsFromSheetManual() {
 }
 
 function syncPortalAppsFromSheet_(actor) {
-  const apps = readPortalAppsFromSheet_()
+  const apps = readPortalSheetObjects_(SHEETS.APPS).map(normalizeApp_)
     .filter(function(app) { return app.appId; })
     .map(toPortalAppSupabaseRow_);
 
@@ -359,6 +371,7 @@ function syncPortalAppsFromSheet_(actor) {
     payload: apps,
     prefer: 'resolution=merge-duplicates,return=representation'
   });
+  clearPortalAppCaches_();
 
   appendMasterChangeLogSafely_('portal_apps', '00000000-0000-0000-0000-000000000000', {
     source: 'Spreadsheet Apps',
@@ -436,10 +449,12 @@ function getAllFixedPortalApps_() {
 
 function readAnnouncementsSafely_() {
   try {
-    return readPortalSheetObjects_(SHEETS.ANNOUNCEMENTS)
-      .map(normalizeAnnouncement_)
-      .filter(function(item) { return item.isActive; })
-      .sort(function(a, b) { return a.priority - b.priority; });
+    return withRuntimeCache_('announcements:v1', RUNTIME_CACHE_TTL_SECONDS.ANNOUNCEMENTS, function() {
+      return readPortalSheetObjects_(SHEETS.ANNOUNCEMENTS)
+        .map(normalizeAnnouncement_)
+        .filter(function(item) { return item.isActive; })
+        .sort(function(a, b) { return a.priority - b.priority; });
+    });
   } catch (error) {
     console.error('Failed to read portal announcements. Continuing without announcements.', error);
     return [];
@@ -1347,31 +1362,41 @@ function getCoreRolesForEmployee_(employee) {
 }
 
 function getCoreRolesByEmployeeId_(employeeId) {
-  const rows = supabaseRequest_('employee_roles', {
-    query: {
-      select: 'role_id',
-      employee_id: 'eq.' + employeeId,
-      is_active: 'eq.true',
-      limit: '50'
-    }
+  return withRuntimeCache_('employee_roles:' + employeeId, RUNTIME_CACHE_TTL_SECONDS.EMPLOYEE_ROLES, function() {
+    const rows = supabaseRequest_('employee_roles', {
+      query: {
+        select: 'role_id',
+        employee_id: 'eq.' + employeeId,
+        is_active: 'eq.true',
+        limit: '50'
+      }
+    });
+    const roleIds = rows.map(function(row) { return row.role_id; }).filter(String);
+    if (!roleIds.length) return [];
+    const rolesById = indexById_(getCoreRolesByIds_(roleIds));
+    return rows.map(function(row) {
+      const role = rolesById[row.role_id] || {};
+      return {
+        roleKey: role.role_key || '',
+        roleName: role.role_name || '',
+        scopeType: '',
+        scopeId: null
+      };
+    }).filter(function(role) { return role.roleKey; });
   });
-  const roleIds = rows.map(function(row) { return row.role_id; }).filter(String);
-  if (!roleIds.length) return [];
-  const rolesById = indexById_(supabaseRequest_('roles', {
-    query: {
-      select: 'id,role_key,role_name',
-      id: 'in.(' + roleIds.join(',') + ')'
-    }
-  }));
-  return rows.map(function(row) {
-    const role = rolesById[row.role_id] || {};
-    return {
-      roleKey: role.role_key || '',
-      roleName: role.role_name || '',
-      scopeType: '',
-      scopeId: null
-    };
-  }).filter(function(role) { return role.roleKey; });
+}
+
+function getCoreRolesByIds_(roleIds) {
+  const ids = uniqueStrings_(roleIds);
+  if (!ids.length) return [];
+  return withRuntimeCache_('roles:' + ids.sort().join(','), RUNTIME_CACHE_TTL_SECONDS.CORE_LOOKUP, function() {
+    return supabaseRequest_('roles', {
+      query: {
+        select: 'id,role_key,role_name',
+        id: 'in.(' + ids.join(',') + ')'
+      }
+    });
+  });
 }
 
 function getCoreRoleKeysByEmployeeId_(employeeId) {
@@ -1381,33 +1406,43 @@ function getCoreRoleKeysByEmployeeId_(employeeId) {
 function getCoreStoreAssignmentsForEmployee_(employeeId) {
   employeeId = String(employeeId || '').trim();
   if (!employeeId) return [];
-  const assignments = supabaseRequest_('employee_store_assignments', {
-    query: {
-      select: 'store_id,assignment_order,assignment_type,is_active',
-      employee_id: 'eq.' + employeeId,
-      is_active: 'eq.true',
-      order: 'assignment_order.asc',
-      limit: '10'
-    }
+  return withRuntimeCache_('employee_store_assignments:' + employeeId, RUNTIME_CACHE_TTL_SECONDS.STORE_ASSIGNMENTS, function() {
+    const assignments = supabaseRequest_('employee_store_assignments', {
+      query: {
+        select: 'store_id,assignment_order,assignment_type,is_active',
+        employee_id: 'eq.' + employeeId,
+        is_active: 'eq.true',
+        order: 'assignment_order.asc',
+        limit: '10'
+      }
+    });
+    const storeIds = assignments.map(function(row) { return row.store_id; }).filter(String);
+    if (!storeIds.length) return [];
+    const storesById = indexById_(getCoreStoresByIds_(storeIds));
+    return assignments.map(function(row) {
+      const store = storesById[row.store_id] || {};
+      return {
+        storeId: row.store_id || '',
+        storeNo: store.store_no || '',
+        storeCode: store.store_id || '',
+        storeName: store.store_name || '',
+        assignmentType: row.assignment_type || '',
+        priority: Number(row.assignment_order || 0)
+      };
+    });
   });
-  const storeIds = assignments.map(function(row) { return row.store_id; }).filter(String);
-  if (!storeIds.length) return [];
-  const storesById = indexById_(supabaseRequest_('stores', {
-    query: {
-      select: 'id,store_no,store_id,store_name',
-      id: 'in.(' + storeIds.join(',') + ')'
-    }
-  }));
-  return assignments.map(function(row) {
-    const store = storesById[row.store_id] || {};
-    return {
-      storeId: row.store_id || '',
-      storeNo: store.store_no || '',
-      storeCode: store.store_id || '',
-      storeName: store.store_name || '',
-      assignmentType: row.assignment_type || '',
-      priority: Number(row.assignment_order || 0)
-    };
+}
+
+function getCoreStoresByIds_(storeIds) {
+  const ids = uniqueStrings_(storeIds);
+  if (!ids.length) return [];
+  return withRuntimeCache_('stores:' + ids.sort().join(','), RUNTIME_CACHE_TTL_SECONDS.CORE_LOOKUP, function() {
+    return supabaseRequest_('stores', {
+      query: {
+        select: 'id,store_no,store_id,store_name',
+        id: 'in.(' + ids.join(',') + ')'
+      }
+    });
   });
 }
 
@@ -1416,11 +1451,13 @@ function isMasterAdmin_(employee) {
 }
 
 function getMasterPermissions_(employee) {
-  let coreRoleKeys = [];
-  try {
-    coreRoleKeys = getCoreRoleKeysForEmployee_(employee);
-  } catch (error) {
-    console.error('Failed to load core role keys', error);
+  let coreRoleKeys = employee && Array.isArray(employee.roleKeys) ? employee.roleKeys.slice() : [];
+  if (!coreRoleKeys.length) {
+    try {
+      coreRoleKeys = getCoreRoleKeysForEmployee_(employee);
+    } catch (error) {
+      console.error('Failed to load core role keys', error);
+    }
   }
   const legacyTags = employee && employee.tags ? employee.tags : [];
   const roleKeys = coreRoleKeys.concat(legacyTags);
@@ -1772,47 +1809,55 @@ function appendAssignmentHistoryIfNeeded_(before, after, updates, actor) {
 }
 
 function getCoreStoreById_(id) {
-  const rows = supabaseRequest_('stores', {
-    query: {
-      select: 'id,store_no,store_id,store_name,area,store_type,corporation_id,business_unit_id,is_active',
-      id: 'eq.' + id,
-      limit: '1'
-    }
+  return withRuntimeCache_('store:' + id, RUNTIME_CACHE_TTL_SECONDS.CORE_LOOKUP, function() {
+    const rows = supabaseRequest_('stores', {
+      query: {
+        select: 'id,store_no,store_id,store_name,area,store_type,corporation_id,business_unit_id,is_active',
+        id: 'eq.' + id,
+        limit: '1'
+      }
+    });
+    return rows[0] || null;
   });
-  return rows[0] || null;
 }
 
 function getCoreCorporationById_(id) {
-  const rows = supabaseRequest_('corporations', {
-    query: {
-      select: 'id,corporation_no,corporation_name,is_active',
-      id: 'eq.' + id,
-      limit: '1'
-    }
+  return withRuntimeCache_('corporation:' + id, RUNTIME_CACHE_TTL_SECONDS.CORE_LOOKUP, function() {
+    const rows = supabaseRequest_('corporations', {
+      query: {
+        select: 'id,corporation_no,corporation_name,is_active',
+        id: 'eq.' + id,
+        limit: '1'
+      }
+    });
+    return rows[0] || null;
   });
-  return rows[0] || null;
 }
 
 function getCoreDepartmentById_(id) {
-  const rows = supabaseRequest_('departments', {
-    query: {
-      select: 'id,department_code,department_name,is_active',
-      id: 'eq.' + id,
-      limit: '1'
-    }
+  return withRuntimeCache_('department:' + id, RUNTIME_CACHE_TTL_SECONDS.CORE_LOOKUP, function() {
+    const rows = supabaseRequest_('departments', {
+      query: {
+        select: 'id,department_code,department_name,is_active',
+        id: 'eq.' + id,
+        limit: '1'
+      }
+    });
+    return rows[0] || null;
   });
-  return rows[0] || null;
 }
 
 function getCorePositionById_(id) {
-  const rows = supabaseRequest_('positions', {
-    query: {
-      select: 'id,position_name,is_active',
-      id: 'eq.' + id,
-      limit: '1'
-    }
+  return withRuntimeCache_('position:' + id, RUNTIME_CACHE_TTL_SECONDS.CORE_LOOKUP, function() {
+    const rows = supabaseRequest_('positions', {
+      query: {
+        select: 'id,position_name,is_active',
+        id: 'eq.' + id,
+        limit: '1'
+      }
+    });
+    return rows[0] || null;
   });
-  return rows[0] || null;
 }
 
 function inferAssignmentChangeType_(before, after, updates) {
@@ -2008,6 +2053,7 @@ function assignDefaultStaffRoleForEmployee_(employee, actor, silent) {
     actionType: silent ? 'auto_assign_staff_role' : 'assign_staff_role',
     targetName: employee.full_name || employee.employee_id || employee.id
   });
+  clearEmployeeRoleCaches_(employee.id);
 
   return employeeRole;
 }
@@ -2084,6 +2130,7 @@ function updateEmployeeAppRoles_(payload, actor) {
       });
     }
   });
+  clearEmployeeRoleCaches_(employee.id);
 
   appendMasterChangeLogSafely_('employee_roles', employee.id, {
     app_key: appKey,
@@ -2123,13 +2170,16 @@ function normalizeAppRoleKeys_(roleKeys, allowedRoleKeys) {
 
 function getRolesByKeys_(roleKeys) {
   if (!roleKeys.length) return {};
-  const rows = supabaseRequest_('roles', {
-    query: {
-      select: 'id,role_key,role_name,is_active',
-      role_key: 'in.(' + roleKeys.join(',') + ')',
-      is_active: 'eq.true',
-      limit: '100'
-    }
+  const normalizedRoleKeys = uniqueStrings_(roleKeys).sort();
+  const rows = withRuntimeCache_('roles_by_key:' + normalizedRoleKeys.join(','), RUNTIME_CACHE_TTL_SECONDS.CORE_LOOKUP, function() {
+    return supabaseRequest_('roles', {
+      query: {
+        select: 'id,role_key,role_name,is_active',
+        role_key: 'in.(' + normalizedRoleKeys.join(',') + ')',
+        is_active: 'eq.true',
+        limit: '100'
+      }
+    });
   });
   return rows.reduce(function(index, role) {
     if (role.role_key) index[role.role_key] = role;
@@ -2172,6 +2222,7 @@ function updateCoreEmployee_(payload, actor) {
       targetName: after && after.full_name ? after.full_name : before.full_name
     });
     appendAssignmentHistoryIfNeeded_(before, after, changedUpdates, actor);
+    clearCoreLookupCaches_(before, after);
   }
   updateEmployeeStoreAssignmentsIfPresent_(id, payload, actor);
   return after;
@@ -2243,6 +2294,7 @@ function updateEmployeeStoreAssignmentsIfPresent_(employeeId, payload, actor) {
     actionType: 'update_store_assignments',
     targetName: employee && employee.full_name ? employee.full_name : ''
   });
+  clearEmployeeStoreAssignmentCaches_(employeeId);
 }
 
 function areStoreAssignmentsSame_(existing, desired) {
@@ -2500,6 +2552,7 @@ function updateCoreStore_(payload, actor) {
     prefer: 'return=representation'
   });
   const after = result[0] || before;
+  clearStoreCaches_(id);
   appendMasterChangeLogSafely_('stores', id, changedUpdates, actor, {
     actionType: 'update',
     targetName: after && after.store_name ? after.store_name : before.store_name
@@ -2557,6 +2610,7 @@ function updatePortalApp_(payload, actor) {
     prefer: 'return=representation'
   });
   const after = result[0] || before;
+  clearPortalAppCaches_();
   appendMasterChangeLogSafely_('portal_apps', id, changedUpdates, actor, {
     actionType: 'update',
     targetName: after.app_name || before.app_name || appId
@@ -2609,6 +2663,7 @@ function createPortalApp_(payload, actor) {
     prefer: 'return=representation'
   });
   const created = result[0] || row;
+  clearPortalAppCaches_();
   appendMasterChangeLogSafely_('portal_apps', created.id || appId, row, actor, {
     actionType: 'create',
     targetName: created.app_name || appName
@@ -2739,6 +2794,75 @@ function supabaseRequest_(resource, options) {
   }
   if (!text) return [];
   return parseJson_(text, []);
+}
+
+function withRuntimeCache_(key, ttlSeconds, loader) {
+  const cacheKey = 'novhub:' + key;
+  const cache = CacheService.getScriptCache();
+  try {
+    const cached = cache.get(cacheKey);
+    if (cached) return parseJson_(cached, null);
+  } catch (error) {
+    console.error('Runtime cache read failed: ' + cacheKey, error);
+  }
+
+  const value = loader();
+  try {
+    const serialized = JSON.stringify(value);
+    if (serialized.length < 90000) {
+      cache.put(cacheKey, serialized, ttlSeconds);
+    }
+  } catch (error) {
+    console.error('Runtime cache write failed: ' + cacheKey, error);
+  }
+  return value;
+}
+
+function removeRuntimeCache_(keys) {
+  try {
+    CacheService.getScriptCache().removeAll(keys.map(function(key) { return 'novhub:' + key; }));
+  } catch (error) {
+    console.error('Runtime cache clear failed', error);
+  }
+}
+
+function clearPortalAppCaches_() {
+  removeRuntimeCache_(['portal_apps:v1', 'sheet_apps:v1']);
+}
+
+function clearEmployeeRoleCaches_(employeeId) {
+  const id = String(employeeId || '').trim();
+  if (id) removeRuntimeCache_(['employee_roles:' + id]);
+}
+
+function clearEmployeeStoreAssignmentCaches_(employeeId) {
+  const id = String(employeeId || '').trim();
+  if (id) removeRuntimeCache_(['employee_store_assignments:' + id]);
+}
+
+function clearStoreCaches_(storeId) {
+  const id = String(storeId || '').trim();
+  if (id) removeRuntimeCache_(['store:' + id]);
+}
+
+function clearCoreLookupCaches_(before, after) {
+  const keys = [];
+  [before, after].forEach(function(employee) {
+    if (!employee) return;
+    if (employee.corporation_id) keys.push('corporation:' + employee.corporation_id);
+    if (employee.store_id) keys.push('store:' + employee.store_id);
+    if (employee.department_id) keys.push('department:' + employee.department_id);
+    if (employee.position_id) keys.push('position:' + employee.position_id);
+  });
+  if (keys.length) removeRuntimeCache_(uniqueStrings_(keys));
+}
+
+function uniqueStrings_(values) {
+  return (values || []).map(function(value) {
+    return String(value || '').trim();
+  }).filter(function(value, index, list) {
+    return value && list.indexOf(value) === index;
+  });
 }
 
 function getSupabaseConfig_() {

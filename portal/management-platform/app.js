@@ -1139,6 +1139,78 @@ function getLatestPerformanceInitiative() {
   })[0] || null;
 }
 
+function getPerformanceSignals(snapshot, initiative) {
+  const signals = [];
+  if (snapshot) {
+    if (Number.isFinite(Number(snapshot.salesBudgetRate)) && Number(snapshot.salesBudgetRate) < 100) {
+      signals.push({ label: "予算比", value: formatPercent(snapshot.salesBudgetRate), note: "100%未満です。今日の売上行動を決めます。" });
+    }
+    if (Number.isFinite(Number(snapshot.salesYearOverYearRate)) && Number(snapshot.salesYearOverYearRate) < 100) {
+      signals.push({ label: "前年比", value: formatPercent(snapshot.salesYearOverYearRate), note: "前年割れです。技術/商品/客数のどこが弱いか確認します。" });
+    }
+    if (Number.isFinite(Number(snapshot.approachRate)) && Number(snapshot.approachRate) < 70) {
+      signals.push({ label: "アプローチ率", value: formatPercent(snapshot.approachRate), note: "声掛け・提案行動を確認します。" });
+    }
+    if (Number.isFinite(Number(snapshot.nps)) && Number(snapshot.nps) < 30) {
+      signals.push({ label: "NPS", value: formatNumber(snapshot.nps), note: "顧客満足のコメントや要因を確認します。" });
+    }
+  }
+  if (initiative?.storeIssue) {
+    signals.push({ label: "店舗課題", value: "登録あり", note: initiative.storeIssue });
+  }
+  return signals;
+}
+
+function renderPerformanceFocusPanel() {
+  const panel = document.getElementById("performanceFocusPanel");
+  if (!panel) return;
+  const latestSnapshot = getLatestPerformanceSnapshot();
+  const latestInitiative = getLatestPerformanceInitiative();
+  const signals = getPerformanceSignals(latestSnapshot, latestInitiative);
+
+  if (!latestSnapshot && !latestInitiative) {
+    panel.innerHTML = `
+      <div class="panel-head horizontal">
+        <div>
+          <p class="section-label">Performance Focus</p>
+          <h2>成果フォーカス</h2>
+          <p class="muted-text">成果KPIを登録すると、予算比・前年比・店舗課題から次の成果行動を表示します。</p>
+        </div>
+        <button type="button" class="ghost-btn open-performance-btn">成果を登録</button>
+      </div>
+    `;
+    return;
+  }
+
+  const headline = signals.length ? "成果課題を確認する" : "成果状態を維持する";
+  const subText = latestSnapshot
+    ? `${latestSnapshot.store} / ${formatDateOnly(latestSnapshot.snapshotDate)} の成果データ`
+    : `${latestInitiative.store} / ${latestInitiative.periodYear}-${String(latestInitiative.periodMonth).padStart(2, "0")} の取り組み`;
+  const rows = (signals.length ? signals : [
+    { label: "成果状態", value: "大きな警告なし", note: "次の取り組みを継続し、月次で変化を確認します。" }
+  ]).slice(0, 4);
+
+  panel.innerHTML = `
+    <div class="panel-head horizontal">
+      <div>
+        <p class="section-label">Performance Focus</p>
+        <h2>${escapeHtml(headline)}</h2>
+        <p class="muted-text">${escapeHtml(subText)}</p>
+      </div>
+      <button type="button" class="ghost-btn open-performance-btn">成果を見る</button>
+    </div>
+    <div class="performance-signal-grid">
+      ${rows.map((signal) => `
+        <article class="focus-card">
+          <p class="score-summary-label">${escapeHtml(signal.label)}</p>
+          <h3>${escapeHtml(signal.value)}</h3>
+          <p class="focus-note">${escapeHtml(signal.note)}</p>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
 function renderPerformanceDashboard() {
   const status = document.getElementById("performanceStatus");
   const grid = document.getElementById("performanceKpiGrid");
@@ -1200,6 +1272,7 @@ function renderPerformanceDashboard() {
       </tr>
     `).join("");
   }
+  renderPerformanceFocusPanel();
 }
 
 function getOptionalNumber(formData, name) {
@@ -1273,6 +1346,7 @@ function renderDashboard() {
       <p class="note">${summary.notes[card.key] || ""}</p>
     </article>
   `).join("");
+  renderPerformanceFocusPanel();
   renderFocusPanel(records);
   renderStoreSummaryPanel(records);
   renderAiPriorityPanel(records);
@@ -2188,6 +2262,13 @@ function bindEvents() {
   document.getElementById("aiPriorityPanel").addEventListener("click", (event) => {
     const button = event.target.closest(".ai-priority-detail-btn");
     if (button) openPriorityRecordDetail(button.dataset.recordId);
+  });
+  document.getElementById("performanceFocusPanel")?.addEventListener("click", (event) => {
+    const button = event.target.closest(".open-performance-btn");
+    if (button) {
+      showView("performance");
+      document.getElementById("view-performance")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   });
   document.getElementById("recordsBody").addEventListener("click", (event) => {
     const button = event.target.closest(".detail-btn");

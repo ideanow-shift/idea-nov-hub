@@ -1421,7 +1421,7 @@ function createExpenseHubApp_() {
     appId: 'expense-hub',
     appName: 'Expense Hub',
     description: '経費明細登録・月次精算・経理確認',
-    url: 'http://localhost:5177',
+    url: './expense-hub/',
     category: 'Finance Module',
     icon: 'expense-hub',
     requiredLevel: 1,

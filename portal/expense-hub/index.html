@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Expense Hub | NOV HUB</title>
+  <style>
+    :root {
+      --bg-primary: #ffffff;
+      --text-primary: #1f1f1f;
+      --text-secondary: #767676;
+      --color-bassa: #e8b4b8;
+      --color-alert: #ff3b30;
+      --border-light: #e5e5e5;
+      --radius-md: 8px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px 16px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+    }
+
+    .card {
+      width: min(480px, 100%);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      padding: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .brand-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      background: #f4fafc;
+      border: 1px solid #cfe6ee;
+      display: grid;
+      place-items: center;
+      color: #4e91a8;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .02em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    p {
+      margin: 8px 0 0;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .checks {
+      display: grid;
+      gap: 8px;
+      margin: 20px 0;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      font-size: 14px;
+    }
+
+    .pill {
+      flex: 0 0 auto;
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: #f6f6f6;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .pill.ok {
+      background: #eefaf2;
+      color: #197b3a;
+    }
+
+    .pill.ng {
+      background: #fff2f2;
+      color: var(--color-alert);
+    }
+
+    .note {
+      border: 1px solid #f1d7a5;
+      border-radius: var(--radius-md);
+      background: #fffaf0;
+      padding: 12px;
+      color: #7a5414;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 44px;
+      margin-top: 12px;
+      padding: 12px 16px;
+      border: 0;
+      border-radius: var(--radius-md);
+      background: var(--color-bassa);
+      color: #fff;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .button.secondary {
+      background: #fff;
+      border: 1px solid var(--border-light);
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">EXP</span>
+      <div>
+        <h1>Expense Hub</h1>
+        <p id="status">NOV HUBのログイン情報を確認しています。</p>
+      </div>
+    </div>
+
+    <div class="checks" aria-live="polite">
+      <div class="check-row">
+        <span>HUBログイン情報</span>
+        <span class="pill" id="context-status">確認中</span>
+      </div>
+      <div class="check-row">
+        <span>社員ID</span>
+        <span class="pill" id="employee-status">確認中</span>
+      </div>
+      <div class="check-row">
+        <span>初期表示タブ</span>
+        <span class="pill ok" id="tab-status">確認中</span>
+      </div>
+    </div>
+
+    <p class="note">
+      現在のExpense Hubは開発中URLです。スマホからはPCのlocalhostを開けない場合があります。
+      本番URLが決まり次第、この中継ページから本番環境へ切り替えます。
+    </p>
+
+    <a id="openExpenseHub" class="button" href="#">開発中のExpense Hubを開く</a>
+    <a class="button secondary" href="../">NOV HUBへ戻る</a>
+  </main>
+
+  <script type="module">
+    import {
+      HUB_CONTEXT_QUERY_KEY,
+      encodeHubContextForUrl,
+      readHubEmployeeContext,
+      readHubEmployeeContextFromUrl
+    } from "../js/hub-context.js";
+
+    const EXPENSE_HUB_DEV_URL = "http://localhost:5177";
+    const status = document.querySelector("#status");
+    const openExpenseHub = document.querySelector("#openExpenseHub");
+    const contextStatus = document.querySelector("#context-status");
+    const employeeStatus = document.querySelector("#employee-status");
+    const tabStatus = document.querySelector("#tab-status");
+
+    function setPill(element, ok, label) {
+      element.textContent = label;
+      element.classList.remove("ok", "ng");
+      element.classList.add(ok ? "ok" : "ng");
+    }
+
+    function getRoleKeys(context) {
+      const roleKeys = new Set(Array.isArray(context?.roleKeys) ? context.roleKeys : []);
+      if (Array.isArray(context?.roles)) {
+        context.roles.forEach((role) => {
+          if (role?.roleKey) roleKeys.add(role.roleKey);
+        });
+      }
+      return roleKeys;
+    }
+
+    function getInitialTab(roleKeys) {
+      if (roleKeys.has("super_admin")) return "管理";
+      if (roleKeys.has("executive")) return "Dashboard";
+      if (roleKeys.has("accounting")) return "経理確認";
+      return "入力";
+    }
+
+    function buildExpenseHubUrl(context, initialTab) {
+      const incoming = new URL(window.location.href).searchParams.get(HUB_CONTEXT_QUERY_KEY);
+      const encoded = incoming || encodeHubContextForUrl(context);
+      const url = new URL(EXPENSE_HUB_DEV_URL);
+      if (encoded) url.searchParams.set(HUB_CONTEXT_QUERY_KEY, encoded);
+      if (initialTab) url.searchParams.set("initial_tab", initialTab);
+      return url.toString();
+    }
+
+    const context = readHubEmployeeContextFromUrl(window.location.href) || readHubEmployeeContext();
+    const hasContext = Boolean(context);
+    const hasEmployeeId = Boolean(context?.id || context?.employeeId || context?.supabaseEmployeeId);
+    const roleKeys = getRoleKeys(context);
+    const initialTab = getInitialTab(roleKeys);
+
+    setPill(contextStatus, hasContext, hasContext ? "あり" : "なし");
+    setPill(employeeStatus, hasEmployeeId, hasEmployeeId ? "確認済み" : "なし");
+    tabStatus.textContent = initialTab;
+
+    if (!hasContext || !hasEmployeeId) {
+      status.textContent = "HUBログイン情報が見つかりません。NOV HUBへ戻ってログイン後、もう一度Expense Hubを開いてください。";
+      openExpenseHub.hidden = true;
+    } else {
+      openExpenseHub.href = buildExpenseHubUrl(context, initialTab);
+      status.textContent = "確認できました。Expense Hubへログイン情報を引き継げます。";
+    }
+  </script>
+</body>
+</html>

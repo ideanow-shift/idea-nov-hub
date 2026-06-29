@@ -1304,6 +1304,70 @@ async function savePerformanceImprovementAction(button) {
   }
 }
 
+function renderPerformanceActionPanel() {
+  const panel = document.getElementById("performanceActionPanel");
+  if (!panel) return;
+  const { snapshot, initiative } = getCurrentPerformanceActionSource();
+  const signals = getPerformanceSignals(snapshot, initiative);
+  if (!snapshot && !initiative) {
+    panel.innerHTML = `
+      <div class="panel-head horizontal">
+        <div>
+          <p class="section-label">Next Performance Action</p>
+          <h2>成果改善の入口</h2>
+          <p class="muted-text">成果KPI・店舗課題を登録すると、改善アクションへ保存できるようになります。</p>
+        </div>
+        <button type="button" class="ghost-btn open-performance-btn">成果を登録</button>
+      </div>
+    `;
+    return;
+  }
+
+  const signal = getPrimaryPerformanceSignal(snapshot, initiative);
+  const existingAction = findExistingPerformanceImprovementAction(snapshot, initiative);
+  const canSaveAction = hasApiConfig() && isManagementAdmin() && !existingAction;
+  const storeName = snapshot?.store || initiative?.store || getContextStoreName() || "店舗";
+  const sourceText = snapshot
+    ? `${storeName} / ${formatDateOnly(snapshot.snapshotDate)}`
+    : `${storeName} / ${initiative?.periodYear || "-"}-${String(initiative?.periodMonth || "").padStart(2, "0")}`;
+
+  panel.innerHTML = `
+    <div class="panel-head horizontal">
+      <div>
+        <p class="section-label">Next Performance Action</p>
+        <h2>${escapeHtml(signal.label)}から改善行動を作る</h2>
+        <p class="muted-text">${escapeHtml(sourceText)} の成果データをもとに、改善アクションへ接続します。</p>
+      </div>
+      <div class="inline-actions">
+        <button type="button" class="save-performance-action-btn" ${canSaveAction ? "" : "disabled"}>${existingAction ? "改善保存済み" : "改善に保存"}</button>
+        <button type="button" class="ghost-btn open-actions-btn">改善を見る</button>
+      </div>
+    </div>
+    <div class="performance-signal-grid">
+      <article class="focus-card">
+        <p class="score-summary-label">優先課題</p>
+        <h3>${escapeHtml(signal.value)}</h3>
+        <p class="focus-note">${escapeHtml(signal.note)}</p>
+      </article>
+      <article class="focus-card">
+        <p class="score-summary-label">店舗課題</p>
+        <h3>${escapeHtml(initiative?.storeIssue ? "登録あり" : "未設定")}</h3>
+        <p class="focus-note">${escapeHtml(initiative?.storeIssue || "店舗課題を登録すると、改善アクション本文に反映します。")}</p>
+      </article>
+      <article class="focus-card">
+        <p class="score-summary-label">今月の取り組み</p>
+        <h3>${escapeHtml(initiative?.currentMonthInitiative ? "確認" : "未設定")}</h3>
+        <p class="focus-note">${escapeHtml(initiative?.currentMonthInitiative || "今月の成果改善に向けた取り組みを記録できます。")}</p>
+      </article>
+      <article class="focus-card">
+        <p class="score-summary-label">候補数</p>
+        <h3>${signals.length}件</h3>
+        <p class="focus-note">${signals.length ? "弱いKPI・店舗課題から抽出しています。" : "大きな警告はありません。維持行動を管理します。"}</p>
+      </article>
+    </div>
+  `;
+}
+
 function renderPerformanceFocusPanel() {
   const panel = document.getElementById("performanceFocusPanel");
   if (!panel) return;
@@ -1322,6 +1386,7 @@ function renderPerformanceFocusPanel() {
         <button type="button" class="ghost-btn open-performance-btn">成果を登録</button>
       </div>
     `;
+    renderPerformanceActionPanel();
     return;
   }
 
@@ -1357,6 +1422,7 @@ function renderPerformanceFocusPanel() {
       `).join("")}
     </div>
   `;
+  renderPerformanceActionPanel();
 }
 
 function renderPerformanceDashboard() {
@@ -1423,6 +1489,7 @@ function renderPerformanceDashboard() {
     `).join("");
   }
   renderPerformanceFocusPanel();
+  renderPerformanceActionPanel();
 }
 
 function getOptionalNumber(formData, name) {
@@ -2508,6 +2575,21 @@ function bindEvents() {
     if (button) {
       showView("performance");
       document.getElementById("view-performance")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    const saveButton = event.target.closest(".save-performance-action-btn");
+    if (saveButton) savePerformanceImprovementAction(saveButton);
+  });
+  document.getElementById("performanceActionPanel")?.addEventListener("click", (event) => {
+    const openPerformanceButton = event.target.closest(".open-performance-btn");
+    if (openPerformanceButton) {
+      document.getElementById("performanceForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    const openActionsButton = event.target.closest(".open-actions-btn");
+    if (openActionsButton) {
+      showView("actions");
+      document.getElementById("view-actions")?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
     const saveButton = event.target.closest(".save-performance-action-btn");

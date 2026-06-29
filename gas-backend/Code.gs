@@ -2721,6 +2721,7 @@ function updateEmployeeLoginCredential_(payload, actor) {
   }
 
   const credential = result && result[0] ? result[0] : getLoginCredentialByEmployeeId_(employeeId);
+  syncEmployeeEmailFromLoginEmailIfEmpty_(employee, loginEmail, actor);
   appendMasterChangeLogSafely_('employee_login_credentials', employeeId, {
     login_email: loginEmail,
     login_enabled: updates.login_enabled,
@@ -2732,6 +2733,34 @@ function updateEmployeeLoginCredential_(payload, actor) {
     targetName: employee.full_name || employee.employee_id || employeeId
   });
   return sanitizeLoginCredential_(credential);
+}
+
+function syncEmployeeEmailFromLoginEmailIfEmpty_(employee, loginEmail, actor) {
+  if (!employee || !employee.id) return null;
+  const normalizedLoginEmail = normalizeEmailValue_(loginEmail);
+  if (!normalizedLoginEmail) return null;
+  if (normalizeEmailValue_(employee.email)) return null;
+
+  const now = new Date().toISOString();
+  const updates = {
+    email: normalizedLoginEmail,
+    updated_at: now
+  };
+  const result = supabaseRequest_('employees', {
+    method: 'patch',
+    query: { id: 'eq.' + employee.id, select: 'id,employee_id,full_name,email,updated_at' },
+    payload: updates,
+    prefer: 'return=representation'
+  });
+  const updated = result[0] || null;
+  appendMasterChangeLogSafely_('employees', employee.id, {
+    email: normalizedLoginEmail,
+    source: 'login_credential_email_sync'
+  }, actor, {
+    actionType: 'sync_employee_email_from_login_email',
+    targetName: employee.full_name || employee.employee_id || employee.id
+  });
+  return updated;
 }
 
 function changeOwnPin_(authUser, employee, payload) {

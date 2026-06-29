@@ -1764,6 +1764,7 @@ function renderStoreDetail(store) {
   const readonly = !state.permissions.canEdit;
   const issues = getStoreIssues(store);
   const issuePanel = renderStoreIssuePanel(store, issues);
+  const lineWorks = store.line_works_channel || {};
   elements.detailPanel.innerHTML = `
     <h3>${escapeHtml(store.store_name)}</h3>
     <p class="detail-meta">店舗ID: ${escapeHtml(store.store_id)} / 店舗No: ${escapeHtml(store.store_no)}${store.updated_at ? ` / 最終更新: ${escapeHtml(formatDateTime(store.updated_at))}` : ""}</p>
@@ -1776,6 +1777,19 @@ function renderStoreDetail(store) {
       ${fieldValueSelect("area", "エリア", getUniqueValues(state.stores, "area"), store.area || "")}
       ${fieldValueSelect("store_type", "店舗種別", getUniqueValues(state.stores, "store_type"), store.store_type || "")}
       ${fieldCheckbox("is_active", "有効", store.is_active)}
+      <section class="line-works-box">
+        <div class="line-works-header">
+          <div>
+            <strong>LINE WORKS通知先</strong>
+            <p>経費承認など、店舗宛て通知の送信先チャンネルを設定します。</p>
+          </div>
+          <span class="status-pill ${lineWorks.channel_id && lineWorks.is_active !== false ? "success" : "neutral"}">${lineWorks.channel_id && lineWorks.is_active !== false ? "設定済み" : "未設定"}</span>
+        </div>
+        ${fieldInput("line_works_channel_id", "チャンネルID", lineWorks.channel_id || "", { placeholder: "例: 1234567890" })}
+        ${fieldInput("line_works_channel_name", "表示名・メモ", lineWorks.channel_name || "", { placeholder: "例: BASSA野方店 経費通知" })}
+        ${fieldCheckbox("line_works_channel_active", "LINE WORKS通知を有効にする", lineWorks.is_active !== false && Boolean(lineWorks.channel_id))}
+        <p class="field-help">Bot Secret / Client Secret はここに登録しません。秘密情報はSupabase Edge Function SecretsまたはGAS Script Propertiesで管理します。</p>
+      </section>
       <div class="save-row">
         <span class="save-status" id="store-save-status" aria-live="polite"></span>
         ${readonly ? `<span class="readonly-label">閲覧専用</span>` : `<button class="button button-primary save-button" type="submit">保存</button>`}
@@ -1986,6 +2000,9 @@ function collectEmployeePayload() {
 function collectStorePayload() {
   const payload = collectFormPayload();
   payload.is_active = document.querySelector("#is_active").checked;
+  payload.line_works_channel_id = document.querySelector("#line_works_channel_id")?.value.trim() || "";
+  payload.line_works_channel_name = document.querySelector("#line_works_channel_name")?.value.trim() || "";
+  payload.line_works_channel_active = document.querySelector("#line_works_channel_active")?.checked || false;
   return payload;
 }
 

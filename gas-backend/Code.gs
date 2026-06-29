@@ -1345,6 +1345,7 @@ function getHealthStatus_() {
       loginCredentialsReachable: false,
       accessLogsReachable: false,
       portalAppsReachable: false,
+      notificationDestinationsReachable: false,
       portalSpreadsheetAccessible: false,
       staffSpreadsheetAccessible: false,
       storeSpreadsheetAccessible: false,
@@ -1448,6 +1449,20 @@ function getHealthStatus_() {
       result.checks.portalAppRows = portalApps.length;
       result.checks.portalAppIdRows = portalApps.filter(function(app) { return app.app_id; }).length;
       result.checks.portalAppActiveRows = portalApps.filter(function(app) { return app.app_id && app.is_active !== false; }).length;
+      try {
+        const notificationDestinations = supabaseRequest_('notification_destinations', {
+          schema: 'os',
+          query: {
+            select: 'id,provider,target_type,target_id,purpose,is_active',
+            provider: 'eq.line_works',
+            limit: '200'
+          }
+        });
+        result.checks.notificationDestinationsReachable = Array.isArray(notificationDestinations);
+        result.checks.notificationDestinationRows = notificationDestinations.length;
+      } catch (error) {
+        result.checks.notificationDestinationsError = sanitizeErrorDetail_(String(error.message || error));
+      }
     }
   } catch (error) {
     result.checks.supabaseError = sanitizeErrorDetail_(String(error.message || error));
@@ -1880,18 +1895,67 @@ function listCoreStores_() {
       limit: '500'
     }
   });
+  const notificationDestinations = indexStoreLineWorksDestinations_();
   const corporations = indexById_(listCoreMaster_('corporations', 'id,corporation_no,corporation_name', 'corporation_no.asc'));
   const businessUnits = indexById_(listCoreMaster_('business_units', 'id,business_unit_code,business_unit_name', 'business_unit_no.asc'));
   return stores.map(function(store) {
     const corporation = corporations[store.corporation_id] || {};
     const businessUnit = businessUnits[store.business_unit_id] || {};
+    const lineWorks = notificationDestinations[store.id] || null;
     return Object.assign({}, store, {
       corporation_name: corporation.corporation_name || '',
       corporation_code: corporation.corporation_no || '',
       business_unit_name: businessUnit.business_unit_name || '',
-      business_unit_code: businessUnit.business_unit_code || ''
+      business_unit_code: businessUnit.business_unit_code || '',
+      line_works_channel: sanitizeLineWorksDestination_(lineWorks)
     });
   });
+}
+
+function indexStoreLineWorksDestinations_() {
+  try {
+    return supabaseRequest_('notification_destinations', {
+      schema: 'os',
+      query: {
+        select: 'id,provider,target_type,target_id,channel_id,channel_name,purpose,is_active,updated_at',
+        provider: 'eq.line_works',
+        target_type: 'eq.store',
+        purpose: 'eq.expense_approval',
+        limit: '500'
+      }
+    }).reduce(function(index, row) {
+      if (!row || !row.target_id) return index;
+      index[row.target_id] = row;
+      return index;
+    }, {});
+  } catch (error) {
+    console.error(JSON.stringify({
+      code: 'LINE_WORKS_DESTINATIONS_READ_FAILED',
+      message: sanitizeErrorDetail_(String(error.message || error))
+    }));
+    return {};
+  }
+}
+
+function sanitizeLineWorksDestination_(destination) {
+  if (!destination) {
+    return {
+      id: '',
+      channel_id: '',
+      channel_name: '',
+      purpose: 'expense_approval',
+      is_active: false,
+      updated_at: ''
+    };
+  }
+  return {
+    id: destination.id || '',
+    channel_id: String(destination.channel_id || ''),
+    channel_name: String(destination.channel_name || ''),
+    purpose: String(destination.purpose || 'expense_approval'),
+    is_active: destination.is_active !== false,
+    updated_at: destination.updated_at || ''
+  };
 }
 
 function listMasterChangeLogs_() {
@@ -2755,6 +2819,7 @@ function updateCoreStore_(payload, actor) {
   const id = String(payload.id || '').trim();
   if (!id) throwPortalError_('INVALID_REQUEST', 'Store id is required.');
   const before = getCoreStoreById_(id);
+  if (!before || !before.id) throwPortalError_('NOT_FOUND', '店舗が見つかりません。');
   const updates = {};
   copyStringField_(updates, payload, 'store_name');
   copyStringField_(updates, payload, 'area');
@@ -2764,20 +2829,136 @@ function updateCoreStore_(payload, actor) {
   if (Object.prototype.hasOwnProperty.call(payload, 'is_active')) updates.is_active = Boolean(payload.is_active);
   updates.updated_at = new Date().toISOString();
   const changedUpdates = getChangedFields_(before, updates);
-  if (!Object.keys(changedUpdates).length) return before;
-  const result = supabaseRequest_('stores', {
-    method: 'patch',
-    query: { id: 'eq.' + id, select: '*' },
-    payload: changedUpdates,
-    prefer: 'return=representation'
+  let after = before;
+  if (Object.keys(changedUpdates).length) {
+    const result = supabaseRequest_('stores', {
+      method: 'patch',
+      query: { id: 'eq.' + id, select: '*' },
+      payload: changedUpdates,
+      prefer: 'return=representation'
+    });
+    after = result[0] || before;
+    clearStoreCaches_(id);
+    appendMasterChangeLogSafely_('stores', id, changedUpdates, actor, {
+      actionType: 'update',
+      targetName: after && after.store_name ? after.store_name : before.store_name
+    });
+  }
+
+  const lineWorksDestination = updateStoreLineWorksDestinationIfPresent_(id, payload, actor, after);
+  return Object.assign({}, after, {
+    line_works_channel: sanitizeLineWorksDestination_(lineWorksDestination)
   });
-  const after = result[0] || before;
-  clearStoreCaches_(id);
-  appendMasterChangeLogSafely_('stores', id, changedUpdates, actor, {
-    actionType: 'update',
-    targetName: after && after.store_name ? after.store_name : before.store_name
+}
+
+function updateStoreLineWorksDestinationIfPresent_(storeId, payload, actor, store) {
+  const hasPayload = ['line_works_channel_id', 'line_works_channel_name', 'line_works_channel_active'].some(function(key) {
+    return Object.prototype.hasOwnProperty.call(payload, key);
   });
-  return after;
+  if (!hasPayload) return getStoreLineWorksDestination_(storeId);
+
+  const channelId = String(payload.line_works_channel_id || '').trim();
+  const channelName = String(payload.line_works_channel_name || '').trim();
+  const isActive = parseBooleanLike_(payload.line_works_channel_active, Boolean(channelId));
+  const existing = getStoreLineWorksDestination_(storeId);
+
+  if (!channelId && !channelName && !isActive) {
+    if (!existing || !existing.id || existing.is_active === false) return existing;
+    const disabledRows = supabaseRequest_('notification_destinations', {
+      schema: 'os',
+      method: 'patch',
+      query: { id: 'eq.' + existing.id, select: '*' },
+      payload: {
+        is_active: false,
+        updated_by_employee_id: getActorEmployeeId_(actor),
+        updated_at: new Date().toISOString()
+      },
+      prefer: 'return=representation'
+    });
+    const disabled = disabledRows[0] || existing;
+    appendMasterChangeLogSafely_('os.notification_destinations', storeId, {
+      provider: 'line_works',
+      target_type: 'store',
+      purpose: 'expense_approval',
+      is_active: false
+    }, actor, {
+      actionType: 'disable_line_works_channel',
+      targetName: store && store.store_name ? store.store_name : storeId
+    });
+    return disabled;
+  }
+
+  if (!channelId) throwPortalError_('INVALID_REQUEST', 'LINE WORKSチャンネルIDを入力してください。');
+
+  const now = new Date().toISOString();
+  const row = {
+    provider: 'line_works',
+    target_type: 'store',
+    target_id: storeId,
+    channel_id: channelId,
+    channel_name: channelName,
+    purpose: 'expense_approval',
+    is_active: isActive,
+    updated_by_employee_id: getActorEmployeeId_(actor),
+    updated_at: now
+  };
+
+  let result;
+  if (existing && existing.id) {
+    result = supabaseRequest_('notification_destinations', {
+      schema: 'os',
+      method: 'patch',
+      query: { id: 'eq.' + existing.id, select: '*' },
+      payload: row,
+      prefer: 'return=representation'
+    });
+  } else {
+    result = supabaseRequest_('notification_destinations', {
+      schema: 'os',
+      method: 'post',
+      query: { select: '*' },
+      payload: Object.assign({
+        created_by_employee_id: getActorEmployeeId_(actor),
+        created_at: now
+      }, row),
+      prefer: 'return=representation'
+    });
+  }
+
+  const destination = result[0] || getStoreLineWorksDestination_(storeId);
+  appendMasterChangeLogSafely_('os.notification_destinations', storeId, {
+    provider: 'line_works',
+    target_type: 'store',
+    purpose: 'expense_approval',
+    channel_id: channelId,
+    channel_name: channelName,
+    is_active: isActive
+  }, actor, {
+    actionType: existing && existing.id ? 'update_line_works_channel' : 'create_line_works_channel',
+    targetName: store && store.store_name ? store.store_name : storeId
+  });
+  return destination;
+}
+
+function getStoreLineWorksDestination_(storeId) {
+  const id = String(storeId || '').trim();
+  if (!id) return null;
+  const rows = supabaseRequest_('notification_destinations', {
+    schema: 'os',
+    query: {
+      select: 'id,provider,target_type,target_id,channel_id,channel_name,purpose,is_active,updated_at',
+      provider: 'eq.line_works',
+      target_type: 'eq.store',
+      target_id: 'eq.' + id,
+      purpose: 'eq.expense_approval',
+      limit: '1'
+    }
+  });
+  return rows[0] || null;
+}
+
+function getActorEmployeeId_(actor) {
+  return String(actor && (actor.id || actor.coreEmployeeId || actor.supabaseEmployeeId || actor.employee_id) || '').trim() || null;
 }
 
 function updatePortalApp_(payload, actor) {

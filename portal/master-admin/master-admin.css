@@ -170,6 +170,13 @@ body {
   padding: 10px 12px;
 }
 
+.field-help {
+  margin: -4px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .result-count {
   margin: 12px 0;
   color: var(--text-secondary);
@@ -467,6 +474,59 @@ tr.selected {
   padding-left: 18px;
   font-size: 12px;
   line-height: 1.6;
+}
+
+.line-works-box {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #C9D8F0;
+  border-radius: var(--radius-md);
+  background: #F6FAFF;
+  padding: 14px;
+}
+
+.line-works-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.line-works-header strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.line-works-header p {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  border-radius: 999px;
+  background: #F8F8F8;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.status-pill.success {
+  background: #EAF8EF;
+  color: #217A3A;
+}
+
+.status-pill.neutral {
+  background: #F8F8F8;
+  color: var(--text-secondary);
 }
 
 .issue-hints li + li {

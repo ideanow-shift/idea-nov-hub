@@ -539,17 +539,34 @@ function readNovHubNotificationsSafely_(employee) {
 }
 
 function readNovHubNotifications_(employee) {
-  const employeeId = String(employee && (employee.id || employee.coreEmployeeId || employee.supabaseEmployeeId) || '').trim();
-  if (!employeeId) return [];
+  const email = normalizeEmailValue_(employee && employee.email);
+  if (!email) return [];
 
-  return supabaseRequest_('notifications', {
+  return supabaseRequest_('nov_hub_notification_inbox', {
     schema: 'os',
     query: {
-      select: '*',
+      select: [
+        'id',
+        'module_key',
+        'channel',
+        'entity_type',
+        'entity_id',
+        'recipient_email',
+        'recipient_name',
+        'title',
+        'body',
+        'status',
+        'unread',
+        'action_label',
+        'target_module',
+        'target_view',
+        'target_query',
+        'created_at'
+      ].join(','),
       module_key: 'eq.finance.expense',
       channel: 'eq.nov_hub',
-      recipient_employee_id: 'eq.' + employeeId,
-      status: 'in.(queued,sent)',
+      target_module: 'eq.expense_hub',
+      recipient_email: 'eq.' + email,
       order: 'created_at.desc',
       limit: '20'
     }
@@ -567,11 +584,30 @@ function normalizeNovHubNotification_(row) {
     body: String(body || ''),
     moduleKey: String(row.module_key || ''),
     channel: String(row.channel || ''),
+    entityType: String(row.entity_type || ''),
+    entityId: String(row.entity_id || ''),
+    recipientEmail: String(row.recipient_email || ''),
+    recipientName: String(row.recipient_name || ''),
     status: String(row.status || ''),
-    url: String(row.action_url || row.url || ''),
-    relatedEntityId: String(row.related_entity_id || row.entity_id || ''),
+    unread: normalizeNotificationUnread_(row.unread),
+    actionLabel: String(row.action_label || ''),
+    targetModule: String(row.target_module || ''),
+    targetView: String(row.target_view || ''),
+    targetQuery: normalizeNotificationTargetQuery_(row.target_query),
     createdAt: String(row.created_at || row.inserted_at || '')
   };
+}
+
+function normalizeNotificationTargetQuery_(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  return parseJson_(String(value || ''), {});
+}
+
+function normalizeNotificationUnread_(value) {
+  if (value === true) return true;
+  if (value === false || value === null || value === undefined) return false;
+  return ['true', '1', 'yes', 'on', '未読'].indexOf(String(value).trim().toLowerCase()) !== -1;
 }
 
 function verifyFirebaseToken_(idToken) {

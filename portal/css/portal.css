@@ -414,6 +414,10 @@ body { background: #FAFAFA; }
   outline-offset: 2px;
 }
 
+.notice-unread {
+  border-left: 4px solid var(--color-bassa);
+}
+
 .notice-important { border-left: 4px solid var(--color-alert); }
 .notice-icon {
   display: grid;
@@ -438,6 +442,13 @@ body { background: #FAFAFA; }
   margin: var(--spacing-xs) 0 0;
   color: var(--text-secondary);
   font-size: 13px;
+  line-height: 1.6;
+}
+
+.notice-meta {
+  margin: var(--spacing-xs) 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
   line-height: 1.6;
 }
 

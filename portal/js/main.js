@@ -126,11 +126,16 @@ function renderAnnouncements() {
   ];
   elements.announcements.replaceChildren(...(notices.length ? notices : fallback).map((notice) => {
     const article = document.createElement("article");
-    article.className = `notice${notice.type === "important" ? " notice-important" : ""}`;
+    article.className = `notice${notice.type === "important" ? " notice-important" : ""}${notice.unread ? " notice-unread" : ""}`;
+    const meta = buildNoticeMeta(notice);
     article.innerHTML = `
       <span class="notice-icon" aria-hidden="true">${notice.type === "important" ? "!" : "i"}</span>
-      <div><h3 class="notice-title">${escapeHtml(notice.title)}</h3><p class="notice-body">${escapeHtml(notice.body)}</p></div>`;
-    if (notice.url || notice.moduleKey === "finance.expense") {
+      <div>
+        <h3 class="notice-title">${escapeHtml(notice.title)}</h3>
+        <p class="notice-body">${escapeHtml(notice.body)}</p>
+        ${meta ? `<p class="notice-meta">${escapeHtml(meta)}</p>` : ""}
+      </div>`;
+    if (notice.url || isExpenseHubNotice(notice)) {
       article.classList.add("notice-clickable");
       article.tabIndex = 0;
       article.addEventListener("click", () => openNotification(notice));
@@ -147,11 +152,18 @@ function renderAnnouncements() {
 
 function toNotificationNotice(notification) {
   return {
+    id: notification.id || "",
     type: notification.type || "info",
     title: notification.title || "Expense Hub通知",
     body: notification.body || "",
     url: notification.url || "",
-    moduleKey: notification.moduleKey || ""
+    moduleKey: notification.moduleKey || "",
+    unread: Boolean(notification.unread),
+    actionLabel: notification.actionLabel || "",
+    targetModule: notification.targetModule || "",
+    targetView: notification.targetView || "",
+    targetQuery: notification.targetQuery || {},
+    createdAt: notification.createdAt || ""
   };
 }
 
@@ -161,10 +173,48 @@ function openNotification(notice) {
     window.location.assign(buildAppLaunchUrl(notice.url, context));
     return;
   }
-  if (notice.moduleKey === "finance.expense") {
+  if (isExpenseHubNotice(notice)) {
     const expenseHub = state.apps.find((app) => app.appId === "expense-hub");
-    if (expenseHub) openApp(expenseHub);
+    if (expenseHub) {
+      const appUrl = buildExpenseHubNoticeUrl(expenseHub.url, notice);
+      openApp({ ...expenseHub, url: appUrl });
+    }
   }
+}
+
+function isExpenseHubNotice(notice) {
+  return notice?.moduleKey === "finance.expense"
+    && notice?.targetModule === "expense_hub";
+}
+
+function buildExpenseHubNoticeUrl(baseUrl, notice) {
+  const url = new URL(baseUrl || "./expense-hub/", window.location.href);
+  if (notice.targetView) url.searchParams.set("target_view", notice.targetView);
+  Object.entries(notice.targetQuery || {}).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && value !== "") {
+      url.searchParams.set(key, String(value));
+    }
+  });
+  return url.toString();
+}
+
+function buildNoticeMeta(notice) {
+  const parts = [];
+  if (notice.unread) parts.push("未読");
+  if (notice.actionLabel) parts.push(notice.actionLabel);
+  if (notice.createdAt) parts.push(formatDateTime(notice.createdAt));
+  return parts.join(" / ");
+}
+
+function formatDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value || "");
+  return new Intl.DateTimeFormat("ja-JP", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
 }
 
 function renderApps() {

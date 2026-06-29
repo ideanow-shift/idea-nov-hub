@@ -271,6 +271,18 @@ button:hover {
   font-weight: 700;
 }
 
+.focus-badge.source-performance {
+  border-color: var(--ok);
+  background: #effaf3;
+  color: var(--ok);
+}
+
+.focus-badge.source-environment_check {
+  border-color: #7da7c7;
+  background: #f0f7fb;
+  color: #477b9f;
+}
+
 .store-summary-list {
   display: grid;
   gap: 8px;

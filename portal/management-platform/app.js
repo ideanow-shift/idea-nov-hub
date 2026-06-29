@@ -1068,9 +1068,22 @@ function getActionPriorityLabel(priority) {
   return map[priority] || priority || "-";
 }
 
+function getActionSourceLabel(sourceType) {
+  const map = {
+    environment_check: "環境整備",
+    performance: "成果"
+  };
+  return map[sourceType || "environment_check"] || sourceType || "-";
+}
+
 function getFilteredImprovementActions() {
   const statusFilter = document.getElementById("actionStatusFilter")?.value || "";
-  return improvementActions.filter((action) => !statusFilter || action.status === statusFilter);
+  const sourceFilter = document.getElementById("actionSourceFilter")?.value || "";
+  return improvementActions.filter((action) => {
+    if (statusFilter && action.status !== statusFilter) return false;
+    if (sourceFilter && (action.sourceType || "environment_check") !== sourceFilter) return false;
+    return true;
+  });
 }
 
 function renderImprovementActions() {
@@ -1102,6 +1115,7 @@ function renderImprovementActions() {
             <h3>${escapeHtml(action.actionTitle)}</h3>
           </div>
           <div class="improvement-action-badges">
+            <span class="focus-badge source-${escapeHtml(action.sourceType || "environment_check")}">${escapeHtml(getActionSourceLabel(action.sourceType))}</span>
             <span class="focus-badge priority-${escapeHtml(action.priority)}">優先度 ${escapeHtml(getActionPriorityLabel(action.priority))}</span>
             <span class="focus-badge status-${escapeHtml(action.status)}">${escapeHtml(getActionStatusLabel(action.status))}</span>
           </div>
@@ -2547,6 +2561,9 @@ function bindEvents() {
   document.getElementById("exportHistoryCsvBtn").addEventListener("click", exportFilteredHistoryCsv);
   document.getElementById("refreshActionsBtn")?.addEventListener("click", refreshImprovementActions);
   document.getElementById("actionStatusFilter")?.addEventListener("change", () => {
+    renderImprovementActions();
+  });
+  document.getElementById("actionSourceFilter")?.addEventListener("change", () => {
     renderImprovementActions();
   });
   document.getElementById("improvementActionList")?.addEventListener("click", (event) => {

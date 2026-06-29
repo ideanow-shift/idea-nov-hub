@@ -381,6 +381,14 @@
               <option value="archived">アーカイブ</option>
             </select>
           </label>
+          <label>
+            発生元
+            <select id="actionSourceFilter">
+              <option value="">すべて</option>
+              <option value="environment_check">環境整備</option>
+              <option value="performance">成果</option>
+            </select>
+          </label>
         </div>
         <p id="actionListStatus" class="field-help">改善アクションを読み込み中です。</p>
         <div class="improvement-action-list" id="improvementActionList"></div>

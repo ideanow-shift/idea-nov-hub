@@ -1582,6 +1582,7 @@ function renderDashboard() {
   renderStoreSummaryPanel(records);
   renderAiPriorityPanel(records);
   renderImprovementActions();
+  renderGrowthView(records);
 
   const nextAction = document.getElementById("todayActionTitle");
   const nextNote = document.getElementById("todayActionNote");
@@ -1718,6 +1719,7 @@ function getRecordPhotoCount(record) {
 
 function renderRecords(records = getLocalRecords()) {
   const body = document.getElementById("recordsBody");
+  renderGrowthView(records);
   const filteredRecords = renderHistoryFilters(records) || records;
   if (filteredRecords.length === 0) {
     body.innerHTML = `<tr><td colspan="10" class="empty-cell">まだ履歴がありません。</td></tr>`;
@@ -1737,6 +1739,139 @@ function renderRecords(records = getLocalRecords()) {
       <td><button type="button" class="ghost-btn detail-btn" data-record-id="${escapeHtml(record.record_id)}">詳細</button></td>
     </tr>
   `).join("");
+}
+
+function getRecipientRecords(records = getLocalRecords()) {
+  const displayName = getDisplayName();
+  const storeName = getContextStoreName();
+  const actorEmployeeId = trustedActor?.employeeId || getHubContext().employeeId || "";
+  const matched = records.filter((record) => {
+    if (actorEmployeeId && record.submitted_by_employee_id === actorEmployeeId) return true;
+    if (displayName && record.target_user === displayName) return true;
+    if (displayName && record.target_user && record.target_user.includes(displayName)) return true;
+    if (storeName && record.store === storeName) return true;
+    return false;
+  });
+  return (matched.length ? matched : records).slice().sort((a, b) => {
+    return new Date(b.checked_at || 0).getTime() - new Date(a.checked_at || 0).getTime();
+  });
+}
+
+function getGrowthHighlights(record) {
+  const results = (record.results || []).slice().sort((a, b) => Number(a.score || 0) - Number(b.score || 0));
+  const issueResults = results.filter((result) => Number(result.score) === 0 || Number(result.score) === 3).slice(0, 3);
+  const goodResults = results.filter((result) => Number(result.score) === 5).slice(0, 3);
+  const fallbackIssue = Number(getRecordBreakdown(record).score0 || 0) + Number(getRecordBreakdown(record).score3 || 0) > 0
+    ? [{ itemTitle: "0点・3点の項目", score: record.score, comment: record.comment }]
+    : [];
+  const fallbackGood = !issueResults.length
+    ? [{ itemTitle: "良い状態を維持", score: record.score, comment: record.comment || "次回も同じ状態を続けましょう。" }]
+    : [];
+  return {
+    issues: issueResults.length ? issueResults : fallbackIssue,
+    good: goodResults.length ? goodResults : fallbackGood
+  };
+}
+
+function renderGrowthResultList(title, items, emptyText) {
+  return `
+    <article class="growth-card">
+      <p class="score-summary-label">${escapeHtml(title)}</p>
+      ${items.length ? `
+        <div class="growth-mini-list">
+          ${items.map((item, index) => `
+            <div class="growth-mini-item">
+              <span class="score-chip ${Number(item.score) === 0 ? "danger" : Number(item.score) === 3 ? "warn" : "ok"}">${escapeHtml(formatResultValue(item))}</span>
+              <div>
+                <p class="result-detail-title">${escapeHtml(item.itemTitle || getIssueResultTitle(item, index))}</p>
+                <p class="focus-note">${escapeHtml(item.comment || "")}</p>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      ` : `<p class="focus-note">${escapeHtml(emptyText)}</p>`}
+    </article>
+  `;
+}
+
+function renderGrowthView(records = getLocalRecords()) {
+  const summaryPanel = document.getElementById("growthSummaryPanel");
+  const list = document.getElementById("growthRecordList");
+  if (!summaryPanel || !list) return;
+  const recipientRecords = getRecipientRecords(records);
+  if (!recipientRecords.length) {
+    summaryPanel.innerHTML = `
+      <div class="panel-head horizontal">
+        <div>
+          <p class="section-label">Current</p>
+          <h2>まだ確認できる履歴がありません</h2>
+          <p class="muted-text">環境整備チェックが保存されると、ここに自分向けの確認画面が表示されます。</p>
+        </div>
+      </div>
+    `;
+    list.innerHTML = "";
+    return;
+  }
+
+  const latest = recipientRecords[0];
+  const breakdown = getRecordBreakdown(latest);
+  const issueCount = Number(breakdown.score0 || 0) + Number(breakdown.score3 || 0);
+  const highlights = getGrowthHighlights(latest);
+  const nextAction = latest.comment || (issueCount ? "0点・3点の項目から、次回までに1つ改善します。" : "良い状態を次回も継続します。");
+
+  summaryPanel.innerHTML = `
+    <div class="growth-hero">
+      <div>
+        <p class="section-label">Current</p>
+        <h2>${escapeHtml(latest.store || "店舗")} の最新確認</h2>
+        <p class="muted-text">${escapeHtml(formatDate(latest.checked_at))} / ${escapeHtml(latest.target_user || getDisplayName())}</p>
+      </div>
+      <div class="growth-score">
+        <span>Score</span>
+        <strong>${escapeHtml(latest.score ?? "-")}</strong>
+      </div>
+    </div>
+    <div class="growth-card-grid">
+      <article class="growth-card">
+        <p class="score-summary-label">次にやること</p>
+        <h3>${escapeHtml(nextAction)}</h3>
+        <p class="focus-note">評価確定ではなく、次の行動を決めるための確認です。</p>
+      </article>
+      <article class="growth-card">
+        <p class="score-summary-label">内訳</p>
+        <h3>0点 ${Number(breakdown.score0 || 0)} / 3点 ${Number(breakdown.score3 || 0)} / 5点 ${Number(breakdown.score5 || 0)}</h3>
+        <p class="focus-note">${issueCount ? "改善候補があります。" : "大きな課題はありません。"}</p>
+      </article>
+      ${renderGrowthResultList("良かった点", highlights.good, "良い点は詳細取得後に表示されます。")}
+      ${renderGrowthResultList("改善候補", highlights.issues, "改善候補はありません。")}
+    </div>
+  `;
+
+  list.innerHTML = `
+    <div class="panel-head">
+      <p class="section-label">History</p>
+      <h2>自分に関係する履歴</h2>
+    </div>
+    <div class="growth-record-grid">
+      ${recipientRecords.slice(0, 8).map((record) => {
+        const recordBreakdown = getRecordBreakdown(record);
+        return `
+          <article class="growth-record-card">
+            <div>
+              <p class="score-summary-label">${escapeHtml(formatDate(record.checked_at))}</p>
+              <h3>${escapeHtml(record.store || "-")}</h3>
+              <p class="focus-note">${escapeHtml(record.comment || "次の行動コメントはありません。")}</p>
+            </div>
+            <div class="growth-record-meta">
+              <span>Score ${escapeHtml(record.score ?? "-")}</span>
+              <span>課題 ${Number(recordBreakdown.score0 || 0) + Number(recordBreakdown.score3 || 0)}件</span>
+              <button type="button" class="ghost-btn growth-detail-btn" data-record-id="${escapeHtml(record.record_id)}">詳細</button>
+            </div>
+          </article>
+        `;
+      }).join("")}
+    </div>
+  `;
 }
 
 function findLocalRecord(recordId) {
@@ -2201,6 +2336,12 @@ async function openActionSourceDetail(recordId) {
   document.getElementById("recordDetailPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+async function openGrowthRecordDetail(recordId) {
+  showView("records");
+  await showRecordDetail(recordId);
+  document.getElementById("recordDetailPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 async function copyImprovementAction(button) {
   const text = button?.dataset?.actionText || "";
   if (!text) return;
@@ -2541,6 +2682,7 @@ function bindEvents() {
   });
   document.getElementById("refreshBtn").addEventListener("click", refreshRecords);
   document.getElementById("loadRecordsBtn").addEventListener("click", refreshRecords);
+  document.getElementById("refreshGrowthBtn")?.addEventListener("click", refreshRecords);
   document.getElementById("refreshPerformanceBtn")?.addEventListener("click", refreshPerformanceData);
   document.getElementById("performanceForm")?.addEventListener("submit", handlePerformanceSubmit);
   document.getElementById("performancePeriodFilter")?.addEventListener("change", renderPerformanceDashboard);
@@ -2616,6 +2758,10 @@ function bindEvents() {
     const button = event.target.closest(".detail-btn");
     if (button) showRecordDetail(button.dataset.recordId);
   });
+  document.getElementById("growthRecordList")?.addEventListener("click", (event) => {
+    const button = event.target.closest(".growth-detail-btn");
+    if (button) openGrowthRecordDetail(button.dataset.recordId);
+  });
   document.getElementById("recordDetailContent").addEventListener("click", (event) => {
     const openActionsButton = event.target.closest(".open-actions-btn");
     if (openActionsButton) {
@@ -2674,7 +2820,9 @@ function applyRoleBasedView() {
   if (authButton) authButton.textContent = "接続状態";
   if (!admin) {
     const recordsButton = document.querySelector('[data-view="records"]');
-    if (recordsButton) recordsButton.textContent = "自分の履歴";
+    if (recordsButton) recordsButton.textContent = "詳細履歴";
+    const growthButton = document.querySelector('[data-view="growth"]');
+    if (growthButton) growthButton.textContent = "自分の確認";
   }
 }
 
@@ -2687,6 +2835,7 @@ hydratePerformanceForm();
 renderPhotoPreview();
 renderDashboard();
 renderRecords();
+renderGrowthView();
 renderPerformanceDashboard();
 
 async function apiRequest(path, options = {}) {

@@ -18,6 +18,7 @@
         <button type="button" class="nav-btn active" data-view="dashboard">Dashboard</button>
         <button type="button" class="nav-btn" data-view="performance">成果</button>
         <button type="button" class="nav-btn" data-view="environment">環境整備</button>
+        <button type="button" class="nav-btn" data-view="growth">確認</button>
         <button type="button" class="nav-btn" data-view="records">履歴</button>
         <button type="button" class="nav-btn" data-view="actions">改善</button>
         <button type="button" class="nav-btn" data-view="auth">ログイン</button>
@@ -356,6 +357,21 @@
           <h2>履歴詳細</h2>
           <div id="recordDetailContent" class="muted-text">履歴の詳細ボタンを押すと、スコア内訳と項目別の記録を確認できます。</div>
         </section>
+      </section>
+    </section>
+
+    <section class="view" id="view-growth" aria-label="受け手確認">
+      <section class="panel">
+        <div class="panel-head horizontal">
+          <div>
+            <p class="section-label">My Growth</p>
+            <h2>自分の確認・成長</h2>
+            <p class="muted-text">環境整備チェックの結果を、評価ではなく次の行動として確認します。</p>
+          </div>
+          <button type="button" id="refreshGrowthBtn">確認を再読込</button>
+        </div>
+        <div id="growthSummaryPanel" class="growth-summary-panel"></div>
+        <div id="growthRecordList" class="growth-record-list"></div>
       </section>
     </section>
 

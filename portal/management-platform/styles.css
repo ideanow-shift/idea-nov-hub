@@ -173,6 +173,94 @@ button:hover {
   margin-top: 12px;
 }
 
+.growth-summary-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.growth-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
+.growth-score {
+  min-width: 112px;
+  padding: 12px;
+  border: 1px solid var(--accent-strong);
+  border-radius: 8px;
+  background: var(--panel);
+  text-align: center;
+}
+
+.growth-score span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.growth-score strong {
+  display: block;
+  color: var(--ok);
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.growth-card-grid,
+.growth-record-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.growth-card,
+.growth-record-card {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.growth-card h3,
+.growth-record-card h3 {
+  margin-bottom: 8px;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.growth-mini-list {
+  display: grid;
+  gap: 8px;
+}
+
+.growth-mini-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: start;
+}
+
+.growth-record-list {
+  margin-top: 12px;
+}
+
+.growth-record-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .performance-focus-panel {
   margin-top: 12px;
 }
@@ -866,6 +954,8 @@ th {
   .ai-priority-row { grid-template-columns: 1fr; }
   .ai-priority-actions { justify-content: flex-start; }
   .record-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .growth-card-grid,
+  .growth-record-grid { grid-template-columns: 1fr; }
   .split-layout { grid-template-columns: 1fr; }
 }
 
@@ -881,7 +971,10 @@ th {
   .ai-priority-row,
   .score-row,
   .score-summary-total,
-  .category-summary { grid-template-columns: 1fr; }
+  .category-summary,
+  .growth-card-grid,
+  .growth-record-grid { grid-template-columns: 1fr; }
+  .growth-hero { align-items: stretch; flex-direction: column; }
   .form-actions { flex-direction: column; }
   button { width: 100%; }
 }

@@ -399,8 +399,11 @@ function fromApiCheckDetail(row) {
 function fromApiImprovementAction(row) {
   return {
     id: row.id,
+    sourceType: row.source_type || "environment_check",
     sourceCheckId: row.source_check_id,
     sourceCheckResultId: row.source_check_result_id,
+    sourcePerformanceSnapshotId: row.source_performance_snapshot_id,
+    sourcePerformanceInitiativeId: row.source_performance_initiative_id,
     storeId: row.store_id,
     store: row.store_name || row.store_id,
     departmentId: row.department_id,
@@ -568,6 +571,11 @@ async function loadCurrentActor() {
 async function saveRemoteImprovementAction(record) {
   if (!hasApiConfig()) throw new Error("Management API未接続のため改善履歴を保存できません。");
   const payload = buildImprovementActionPayload(record);
+  return await saveRemoteImprovementActionPayload(payload);
+}
+
+async function saveRemoteImprovementActionPayload(payload) {
+  if (!hasApiConfig()) throw new Error("Management API未接続のため改善履歴を保存できません。");
   const response = await apiRequest("/improvement-actions", {
     method: "POST",
     body: JSON.stringify(payload)
@@ -1082,6 +1090,10 @@ function renderImprovementActions() {
 
   list.innerHTML = filteredActions.map((action) => {
     const isCompleted = action.status === "completed";
+    const isPerformanceSource = action.sourceType === "performance";
+    const sourceButton = isPerformanceSource
+      ? `<button type="button" class="ghost-btn action-performance-detail-btn">成果</button>`
+      : `<button type="button" class="ghost-btn action-source-detail-btn" data-record-id="${escapeHtml(action.sourceCheckId || "")}">元履歴</button>`;
     return `
       <article class="improvement-action-card">
         <div class="improvement-action-card-head">
@@ -1102,7 +1114,7 @@ function renderImprovementActions() {
           ${isCompleted ? `<span>完了: ${escapeHtml(formatDate(action.completedAt))}</span>` : ""}
         </div>
         <div class="improvement-action-actions">
-          <button type="button" class="ghost-btn action-source-detail-btn" data-record-id="${escapeHtml(action.sourceCheckId)}">元履歴</button>
+          ${sourceButton}
           ${action.status === "open" ? `<button type="button" class="ghost-btn update-action-status-btn" data-action-id="${escapeHtml(action.id)}" data-next-status="in_progress">進行中にする</button>` : ""}
           ${isCompleted ? "" : `<button type="button" class="update-action-status-btn" data-action-id="${escapeHtml(action.id)}" data-next-status="completed">完了にする</button>`}
           ${["completed", "archived"].includes(action.status) ? "" : `<button type="button" class="ghost-btn update-action-status-btn" data-action-id="${escapeHtml(action.id)}" data-next-status="archived">アーカイブ</button>`}
@@ -1137,6 +1149,21 @@ function getLatestPerformanceInitiative() {
     if (b.periodYear !== a.periodYear) return Number(b.periodYear || 0) - Number(a.periodYear || 0);
     return Number(b.periodMonth || 0) - Number(a.periodMonth || 0);
   })[0] || null;
+}
+
+function getMatchingPerformanceInitiative(snapshot) {
+  if (!snapshot) return getLatestPerformanceInitiative();
+  return performanceInitiatives.find((initiative) => {
+    return initiative.storeId === snapshot.storeId &&
+      Number(initiative.periodYear) === Number(snapshot.periodYear) &&
+      Number(initiative.periodMonth) === Number(snapshot.periodMonth);
+  }) || getLatestPerformanceInitiative();
+}
+
+function getCurrentPerformanceActionSource() {
+  const snapshot = getLatestPerformanceSnapshot();
+  const initiative = snapshot ? getMatchingPerformanceInitiative(snapshot) : getLatestPerformanceInitiative();
+  return { snapshot, initiative };
 }
 
 function getFilteredPerformanceSnapshots() {
@@ -1183,11 +1210,105 @@ function getPerformanceSignals(snapshot, initiative) {
   return signals;
 }
 
+function getPrimaryPerformanceSignal(snapshot, initiative) {
+  return getPerformanceSignals(snapshot, initiative)[0] || {
+    label: "成果状態",
+    value: "維持",
+    note: initiative?.currentMonthInitiative || initiative?.storeIssue || "良い状態を維持する行動を1つ決めます。"
+  };
+}
+
+function findExistingPerformanceImprovementAction(snapshot, initiative) {
+  const snapshotId = snapshot?.id || null;
+  const initiativeId = initiative?.id || null;
+  if (!snapshotId && !initiativeId) return null;
+  return improvementActions.find((action) => {
+    if (action.sourceType !== "performance") return false;
+    if (snapshotId && action.sourcePerformanceSnapshotId === snapshotId) return true;
+    if (initiativeId && action.sourcePerformanceInitiativeId === initiativeId) return true;
+    return false;
+  }) || null;
+}
+
+function buildPerformanceImprovementActionPayload() {
+  const { snapshot, initiative } = getCurrentPerformanceActionSource();
+  if (!snapshot && !initiative) throw new Error("成果データがないため改善アクションを作成できません。");
+  const signal = getPrimaryPerformanceSignal(snapshot, initiative);
+  const storeId = snapshot?.storeId || initiative?.storeId || getDefaultStoreId();
+  const storeName = snapshot?.store || initiative?.store || getContextStoreName() || "店舗";
+  if (!storeId) throw new Error("店舗IDが取得できないため改善アクションを保存できません。");
+
+  return {
+    sourceType: "performance",
+    sourcePerformanceSnapshotId: snapshot?.id || null,
+    sourcePerformanceInitiativeId: initiative?.id || null,
+    storeId,
+    departmentId: snapshot?.departmentId || initiative?.departmentId || null,
+    targetEmployeeId: null,
+    ownerEmployeeId: trustedActor?.employeeId || null,
+    managementCategory: "performance",
+    actionTitle: `${storeName}: ${signal.label}を改善する`,
+    actionBody: [
+      `店舗: ${storeName}`,
+      `成果課題: ${signal.label} ${signal.value}`,
+      `現状: ${signal.note}`,
+      snapshot ? `日付: ${formatDateOnly(snapshot.snapshotDate)}` : `年月: ${initiative?.periodYear || "-"}-${String(initiative?.periodMonth || "").padStart(2, "0")}`,
+      initiative?.storeIssue ? `店舗課題: ${initiative.storeIssue}` : "",
+      initiative?.currentMonthInitiative ? `今月の取り組み: ${initiative.currentMonthInitiative}` : "",
+      initiative?.nextMonthInitiative ? `来月の取り組み: ${initiative.nextMonthInitiative}` : "",
+      "次の行動: 店長が今日の成果改善行動を1つ決め、改善アクションとして追跡する",
+      "確認方法: 次回の成果KPI・店舗取り組みで変化を確認する"
+    ].filter(Boolean).join("\n"),
+    priority: ["予算比", "前年比", "店舗課題"].includes(signal.label) ? "high" : "medium",
+    dueDate: getLocalDateString(addDays(new Date(), 7)),
+    scoreAtCreation: Number.isFinite(Number(snapshot?.salesBudgetRate))
+      ? Number(snapshot.salesBudgetRate)
+      : Number.isFinite(Number(snapshot?.salesYearOverYearRate))
+        ? Number(snapshot.salesYearOverYearRate)
+        : null,
+    aiDraft: {
+      source: "performance_focus",
+      signal,
+      snapshotId: snapshot?.id || null,
+      initiativeId: initiative?.id || null,
+      generatedAt: new Date().toISOString()
+    }
+  };
+}
+
+async function savePerformanceImprovementAction(button) {
+  const { snapshot, initiative } = getCurrentPerformanceActionSource();
+  const existingAction = findExistingPerformanceImprovementAction(snapshot, initiative);
+  const status = document.getElementById("performanceStatus");
+  if (existingAction) {
+    if (status) status.textContent = `改善アクション保存済み: ${getActionStatusLabel(existingAction.status)}`;
+    showView("actions");
+    return;
+  }
+  if (button) button.disabled = true;
+  try {
+    const payload = buildPerformanceImprovementActionPayload();
+    const result = await saveRemoteImprovementActionPayload(payload);
+    if (!result?.ok) throw new Error(result?.error || "improvement action save failed");
+    improvementActions = await loadRemoteImprovementActions();
+    renderImprovementActions();
+    renderPerformanceFocusPanel();
+    renderDashboard();
+    if (status) status.textContent = `成果改善アクション保存OK: ${payload.actionTitle}`;
+    showView("actions");
+  } catch (error) {
+    console.warn("Performance improvement action save failed", error);
+    if (status) status.textContent = `成果改善アクション保存エラー: ${error.message || error}`;
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 function renderPerformanceFocusPanel() {
   const panel = document.getElementById("performanceFocusPanel");
   if (!panel) return;
   const latestSnapshot = getLatestPerformanceSnapshot();
-  const latestInitiative = getLatestPerformanceInitiative();
+  const latestInitiative = latestSnapshot ? getMatchingPerformanceInitiative(latestSnapshot) : getLatestPerformanceInitiative();
   const signals = getPerformanceSignals(latestSnapshot, latestInitiative);
 
   if (!latestSnapshot && !latestInitiative) {
@@ -1211,6 +1332,8 @@ function renderPerformanceFocusPanel() {
   const rows = (signals.length ? signals : [
     { label: "成果状態", value: "大きな警告なし", note: "次の取り組みを継続し、月次で変化を確認します。" }
   ]).slice(0, 4);
+  const existingAction = findExistingPerformanceImprovementAction(latestSnapshot, latestInitiative);
+  const canSaveAction = hasApiConfig() && isManagementAdmin() && !existingAction;
 
   panel.innerHTML = `
     <div class="panel-head horizontal">
@@ -1219,7 +1342,10 @@ function renderPerformanceFocusPanel() {
         <h2>${escapeHtml(headline)}</h2>
         <p class="muted-text">${escapeHtml(subText)}</p>
       </div>
-      <button type="button" class="ghost-btn open-performance-btn">成果を見る</button>
+      <div class="inline-actions">
+        <button type="button" class="ghost-btn open-performance-btn">成果を見る</button>
+        <button type="button" class="save-performance-action-btn" ${canSaveAction ? "" : "disabled"}>${existingAction ? "改善保存済み" : "改善に保存"}</button>
+      </div>
     </div>
     <div class="performance-signal-grid">
       ${rows.map((signal) => `
@@ -2363,7 +2489,15 @@ function bindEvents() {
       return;
     }
     const sourceButton = event.target.closest(".action-source-detail-btn");
-    if (sourceButton) openActionSourceDetail(sourceButton.dataset.recordId);
+    if (sourceButton) {
+      openActionSourceDetail(sourceButton.dataset.recordId);
+      return;
+    }
+    const performanceButton = event.target.closest(".action-performance-detail-btn");
+    if (performanceButton) {
+      showView("performance");
+      document.getElementById("view-performance")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   });
   document.getElementById("aiPriorityPanel").addEventListener("click", (event) => {
     const button = event.target.closest(".ai-priority-detail-btn");
@@ -2374,7 +2508,10 @@ function bindEvents() {
     if (button) {
       showView("performance");
       document.getElementById("view-performance")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
     }
+    const saveButton = event.target.closest(".save-performance-action-btn");
+    if (saveButton) savePerformanceImprovementAction(saveButton);
   });
   document.getElementById("recordsBody").addEventListener("click", (event) => {
     const button = event.target.closest(".detail-btn");

@@ -184,7 +184,7 @@ function openNotification(notice) {
 
 function isExpenseHubNotice(notice) {
   return notice?.moduleKey === "finance.expense"
-    && notice?.targetModule === "expense_hub";
+    && (notice?.targetModule === "expense_hub" || notice?.actionLabel === "Expense Hub");
 }
 
 function buildExpenseHubNoticeUrl(baseUrl, notice) {

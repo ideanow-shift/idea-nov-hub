@@ -540,37 +540,89 @@ function readNovHubNotificationsSafely_(employee) {
 
 function readNovHubNotifications_(employee) {
   const email = normalizeEmailValue_(employee && employee.email);
+  const employeeIds = getNotificationRecipientEmployeeIds_(employee);
+  if (!email && !employeeIds.length) return [];
+
+  const rowsByEmployeeId = readNovHubNotificationRowsByEmployeeIds_(employeeIds);
+  if (rowsByEmployeeId.length) return rowsByEmployeeId.map(normalizeNovHubNotification_);
+
   if (!email) return [];
+
+  return readNovHubNotificationInboxRows_({
+    recipient_email: 'ilike.' + email
+  }).map(normalizeNovHubNotification_);
+}
+
+function readNovHubNotificationRowsByEmployeeIds_(employeeIds) {
+  const ids = uniqueStrings_(employeeIds);
+  if (!ids.length) return [];
+
+  for (let i = 0; i < ids.length; i++) {
+    try {
+      const rows = readNovHubNotificationInboxRows_({
+        select: getNovHubNotificationSelectColumns_(true),
+        recipient_employee_id: 'eq.' + ids[i]
+      });
+      if (rows.length) return rows;
+    } catch (error) {
+      console.error(JSON.stringify({
+        code: 'NOV_HUB_NOTIFICATION_EMPLOYEE_ID_LOOKUP_FAILED',
+        employee_id: ids[i],
+        message: sanitizeErrorDetail_(String(error.message || error))
+      }));
+    }
+  }
+
+  return [];
+}
+
+function readNovHubNotificationInboxRows_(extraQuery) {
+  const query = Object.assign({
+    select: getNovHubNotificationSelectColumns_(false),
+    module_key: 'eq.finance.expense',
+    channel: 'eq.nov_hub',
+    target_module: 'eq.expense_hub',
+    order: 'created_at.desc',
+    limit: '20'
+  }, extraQuery || {});
 
   return supabaseRequest_('nov_hub_notification_inbox', {
     schema: 'os',
-    query: {
-      select: [
-        'id',
-        'module_key',
-        'channel',
-        'entity_type',
-        'entity_id',
-        'recipient_email',
-        'recipient_name',
-        'title',
-        'body',
-        'status',
-        'unread',
-        'action_label',
-        'target_module',
-        'target_view',
-        'target_query',
-        'created_at'
-      ].join(','),
-      module_key: 'eq.finance.expense',
-      channel: 'eq.nov_hub',
-      target_module: 'eq.expense_hub',
-      recipient_email: 'eq.' + email,
-      order: 'created_at.desc',
-      limit: '20'
-    }
-  }).map(normalizeNovHubNotification_);
+    query: query
+  });
+}
+
+function getNovHubNotificationSelectColumns_(includeEmployeeId) {
+  const columns = [
+    'id',
+    'module_key',
+    'channel',
+    'entity_type',
+    'entity_id',
+    'recipient_email',
+    'recipient_name',
+    'title',
+    'body',
+    'status',
+    'unread',
+    'action_label',
+    'target_module',
+    'target_view',
+    'target_query',
+    'created_at'
+  ];
+  if (includeEmployeeId) columns.splice(5, 0, 'recipient_employee_id');
+  return columns.join(',');
+}
+
+function getNotificationRecipientEmployeeIds_(employee) {
+  if (!employee) return [];
+  return uniqueStrings_([
+    employee.id,
+    employee.coreEmployeeId,
+    employee.supabaseEmployeeId,
+    employee.employee_id
+  ]);
 }
 
 function normalizeNovHubNotification_(row) {
@@ -586,6 +638,7 @@ function normalizeNovHubNotification_(row) {
     channel: String(row.channel || ''),
     entityType: String(row.entity_type || ''),
     entityId: String(row.entity_id || ''),
+    recipientEmployeeId: String(row.recipient_employee_id || ''),
     recipientEmail: String(row.recipient_email || ''),
     recipientName: String(row.recipient_name || ''),
     status: String(row.status || ''),

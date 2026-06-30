@@ -309,7 +309,7 @@ function getEmployeeIssues(employee) {
   const issues = [];
   const hasLocation = Boolean(employee.store_id || employee.department_id || employee.store_name || employee.department_name || employee.source_assigned_location);
   if (!employee.corporation_id) issues.push("法人");
-  if (!String(employee.email || "").trim()) issues.push("メール");
+  if (!hasEmployeeContactEmail(employee)) issues.push("メール");
   if (!hasLocation) issues.push("所属");
   if (!employee.position_id && !employee.source_position_name) issues.push("役職");
   if (!getCommonRoleKeys(employee).length) issues.push("HUB権限");
@@ -345,6 +345,16 @@ function getEmployeeCredential(employee) {
     locked: false,
     last_login_at: ""
   };
+}
+
+function getEmployeeContactEmail(employee) {
+  const masterEmail = String(employee?.email || "").trim();
+  if (masterEmail) return masterEmail;
+  return String(getEmployeeCredential(employee).login_email || "").trim();
+}
+
+function hasEmployeeContactEmail(employee) {
+  return Boolean(getEmployeeContactEmail(employee));
 }
 
 function getStoresByStatus() {
@@ -706,7 +716,7 @@ function getQualitySummaryItems() {
   if (state.view === "firebase") {
     return [
       { label: "連携待ち", count: state.employees.filter((employee) => isCurrentEmployee(employee) && !employee.firebase_uid).length, tone: "warning" },
-      { label: "メール未設定", count: state.employees.filter((employee) => isCurrentEmployee(employee) && !String(employee.email || "").trim()).length, tone: "warning" }
+      { label: "メール未設定", count: state.employees.filter((employee) => isCurrentEmployee(employee) && !hasEmployeeContactEmail(employee)).length, tone: "warning" }
     ];
   }
   if (state.view === "logs") {
@@ -736,7 +746,7 @@ function getHubReadinessItems() {
   const currentEmployees = state.employees.filter((employee) => isCurrentEmployee(employee));
   const activeStores = state.stores.filter((store) => store.is_active);
   const employeeIssueCount = currentEmployees.filter((employee) => getEmployeeIssues(employee).length).length;
-  const employeeEmailMissingCount = currentEmployees.filter((employee) => !String(employee.email || "").trim()).length;
+  const employeeEmailMissingCount = currentEmployees.filter((employee) => !hasEmployeeContactEmail(employee)).length;
   const employeeRoleMissingCount = currentEmployees.filter((employee) => !getCommonRoleKeys(employee).length).length;
   const firebaseMissingCount = currentEmployees.filter((employee) => !employee.firebase_uid).length;
   const storeIssueCount = activeStores.filter((store) => getStoreIssues(store).length).length;
@@ -824,8 +834,12 @@ function renderEmployeeRow(employee) {
 }
 
 function formatEmployeeEmail(employee) {
-  const email = String(employee.email || "").trim();
-  if (email) return escapeHtml(email);
+  const email = getEmployeeContactEmail(employee);
+  if (email) {
+    const isLoginOnly = !String(employee.email || "").trim() && String(getEmployeeCredential(employee).login_email || "").trim();
+    const suffix = isLoginOnly ? ` <span class="status-muted">ログイン</span>` : "";
+    return `${escapeHtml(email)}${suffix}`;
+  }
   const label = isCurrentEmployee(employee) ? "未設定" : "空欄";
   const className = isCurrentEmployee(employee) ? "status-pill warning" : "status-muted";
   return `<span class="${className}">${label}</span>`;

@@ -249,8 +249,8 @@ function doPost(e) {
     if (action === 'masterSyncPortalApps') {
       stage = 'authorizeMasterAdmin';
       assertMasterEditor_(employee);
-      stage = 'syncPortalApps';
-      return jsonOutput_({ ok: true, result: syncPortalAppsFromSheet_(employee) });
+      stage = 'syncPortalAppsDisabled';
+      throwPortalError_('SPREADSHEET_SYNC_DISABLED', 'Apps同期は廃止しました。アプリマスタはHUBマスタ管理のアプリ画面で編集してください。');
     }
 
     if (action === 'masterCreatePortalApp') {
@@ -375,16 +375,14 @@ function readVisibleAppsSafely_(employee) {
 
 function readPortalApps_() {
   try {
-    const supabaseApps = readPortalAppsFromSupabase_();
-    if (supabaseApps.length) return supabaseApps;
+    return readPortalAppsFromSupabase_();
   } catch (error) {
     console.error(JSON.stringify({
       code: error.portalCode || 'PORTAL_APPS_SUPABASE_READ_FAILED',
       message: sanitizeErrorDetail_(String(error.message || error))
     }));
+    return [];
   }
-
-  return readPortalAppsFromSheet_();
 }
 
 function readPortalAppsFromSupabase_() {
@@ -414,43 +412,11 @@ function listPortalAppsForAdmin_() {
 }
 
 function syncPortalAppsFromSheetManual() {
-  return syncPortalAppsFromSheet_({ email: 'manual@apps-script.local', name: 'Manual Apps Script Run' });
+  throwPortalError_('SPREADSHEET_SYNC_DISABLED', 'Apps同期は廃止しました。アプリマスタはHUBマスタ管理のアプリ画面で編集してください。');
 }
 
 function syncPortalAppsFromSheet_(actor) {
-  const apps = readPortalSheetObjects_(SHEETS.APPS).map(normalizeApp_)
-    .filter(function(app) { return app.appId; })
-    .map(toPortalAppSupabaseRow_);
-
-  if (!apps.length) {
-    return { sourceRows: 0, upsertedRows: 0, appIds: [] };
-  }
-
-  const result = supabaseRequest_('portal_apps', {
-    method: 'post',
-    query: {
-      on_conflict: 'app_id'
-    },
-    payload: apps,
-    prefer: 'resolution=merge-duplicates,return=representation'
-  });
-  clearPortalAppCaches_();
-
-  appendMasterChangeLogSafely_('portal_apps', '00000000-0000-0000-0000-000000000000', {
-    source: 'Spreadsheet Apps',
-    sourceRows: apps.length,
-    upsertedRows: Array.isArray(result) ? result.length : 0,
-    appIds: apps.map(function(app) { return app.app_id; })
-  }, actor || {}, {
-    actionType: 'sync',
-    targetName: 'NOV HUB Apps'
-  });
-
-  return {
-    sourceRows: apps.length,
-    upsertedRows: Array.isArray(result) ? result.length : 0,
-    appIds: apps.map(function(app) { return app.app_id; })
-  };
+  throwPortalError_('SPREADSHEET_SYNC_DISABLED', 'Apps同期は廃止しました。アプリマスタはHUBマスタ管理のアプリ画面で編集してください。');
 }
 
 function toPortalAppSupabaseRow_(app) {
@@ -515,8 +481,7 @@ function getAllFixedPortalApps_() {
 function readAnnouncementsSafely_() {
   try {
     return withRuntimeCache_('announcements:v1', RUNTIME_CACHE_TTL_SECONDS.ANNOUNCEMENTS, function() {
-      return readPortalSheetObjects_(SHEETS.ANNOUNCEMENTS)
-        .map(normalizeAnnouncement_)
+      return readAnnouncementsFromSupabase_()
         .filter(function(item) { return item.isActive; })
         .sort(function(a, b) { return a.priority - b.priority; });
     });
@@ -524,6 +489,15 @@ function readAnnouncementsSafely_() {
     console.error('Failed to read portal announcements. Continuing without announcements.', error);
     return [];
   }
+}
+
+function readAnnouncementsFromSupabase_() {
+  return supabaseRequest_('announcements', {
+    query: {
+      select: '*',
+      order: 'priority.asc,title.asc'
+    }
+  }).map(normalizeSupabaseAnnouncement_);
 }
 
 function readNovHubNotificationsSafely_(employee) {
@@ -730,10 +704,10 @@ function findActivePortalEmployee_(authUser) {
     const coreEmployee = findActiveCoreEmployee_(authUser);
     if (coreEmployee) return coreEmployee;
   } catch (error) {
-    console.error('Core employee lookup failed. Falling back to legacy staff sheet.', error);
+    console.error('Core employee lookup failed.', error);
   }
 
-  return findActiveEmployee_(authUser.email);
+  return null;
 }
 
 function findActiveCoreEmployee_(authUser) {
@@ -935,20 +909,11 @@ function findActiveEmployeeByPin_(email, pin) {
   if (!normalizedEmail || !normalizedPin) return null;
 
   try {
-    const coreEmployee = findActiveCoreEmployeeByPin_(normalizedEmail, normalizedPin);
-    if (coreEmployee) return coreEmployee;
+    return findActiveCoreEmployeeByPin_(normalizedEmail, normalizedPin);
   } catch (error) {
-    console.error('Core PIN login failed. Falling back to legacy staff sheet.', error);
+    console.error('Core PIN login failed.', error);
+    return null;
   }
-
-  const employee = readStaffRows_()
-    .map(normalizeEmployee_)
-    .filter(function(item) { return item.email; })
-    .find(function(item) { return item.email === normalizedEmail; });
-
-  if (!employee || employee.status !== 'active') return null;
-  if (normalizePinValue_(employee.pin) !== normalizedPin) return null;
-  return enrichEmployeeWithStore_(employee);
 }
 
 function findActiveCoreEmployeeByPin_(email, pin) {
@@ -1178,6 +1143,16 @@ function normalizeAnnouncement_(row) {
   };
 }
 
+function normalizeSupabaseAnnouncement_(row) {
+  return {
+    type: String((row && row.type) || 'info'),
+    title: String((row && row.title) || ''),
+    body: String((row && row.body) || ''),
+    isActive: row && row.is_active !== false,
+    priority: Number((row && row.priority) || 999)
+  };
+}
+
 function appendAccessLog_(entry) {
   const normalized = normalizeAccessLogEntry_(entry);
   try {
@@ -1189,7 +1164,6 @@ function appendAccessLog_(entry) {
       message: sanitizeErrorDetail_(String(error.message || error))
     }));
   }
-  appendAccessLogToSheet_(normalized);
 }
 
 function appendAccessLogToSupabase_(entry) {
@@ -1346,6 +1320,8 @@ function getHealthStatus_() {
       accessLogsReachable: false,
       portalAppsReachable: false,
       notificationDestinationsReachable: false,
+      announcementsReachable: false,
+      legacySpreadsheetChecksDisabled: true,
       portalSpreadsheetAccessible: false,
       staffSpreadsheetAccessible: false,
       storeSpreadsheetAccessible: false,
@@ -1354,47 +1330,7 @@ function getHealthStatus_() {
     timestamp: new Date().toISOString()
   };
 
-  try {
-    const portalSpreadsheet = getPortalSpreadsheet_();
-    result.checks.portalSpreadsheetAccessible = true;
-    Object.keys(SHEETS).forEach(function(key) {
-      const name = SHEETS[key];
-      result.checks.sheets[name] = Boolean(portalSpreadsheet.getSheetByName(name));
-    });
-    if (result.checks.sheets[SHEETS.APPS]) {
-      const apps = readPortalSheetObjects_(SHEETS.APPS).map(normalizeApp_);
-      result.checks.appRows = apps.length;
-      result.checks.appIdRows = apps.filter(function(app) { return app.appId; }).length;
-      result.checks.appActiveRows = apps.filter(function(app) { return app.appId && app.isActive; }).length;
-    }
-  } catch (error) {
-    result.checks.portalSpreadsheetError = sanitizeErrorDetail_(String(error.message || error));
-  }
-
-  try {
-    const staffSpreadsheet = openSpreadsheetByConfig_('STAFF_SPREADSHEET_ID', DEFAULT_MASTER_CONFIG.STAFF_SPREADSHEET_ID, 'STAFF_SPREADSHEET_OPEN_FAILED');
-    result.checks.staffSpreadsheetAccessible = true;
-    const staffSheet = getConfiguredSheet_(staffSpreadsheet, 'STAFF_SHEET_NAME', 'STAFF_SHEET_GID', DEFAULT_MASTER_CONFIG.STAFF_SHEET_GID);
-    const staffRows = sheetToObjects_(staffSheet);
-    const normalizedStaff = staffRows.map(normalizeEmployee_);
-    result.checks.staffSheetName = staffSheet.getName();
-    result.checks.staffRows = Math.max(staffSheet.getLastRow() - 1, 0);
-    result.checks.staffEmailRows = normalizedStaff.filter(function(item) { return item.email; }).length;
-    result.checks.staffPinRows = normalizedStaff.filter(function(item) { return item.pin; }).length;
-    result.checks.staffActiveRows = normalizedStaff.filter(function(item) { return item.email && item.status === 'active'; }).length;
-  } catch (error) {
-    result.checks.staffSpreadsheetError = sanitizeErrorDetail_(String(error.message || error));
-  }
-
-  try {
-    const storeSpreadsheet = openSpreadsheetByConfig_('STORE_SPREADSHEET_ID', DEFAULT_MASTER_CONFIG.STORE_SPREADSHEET_ID, 'STORE_SPREADSHEET_OPEN_FAILED');
-    result.checks.storeSpreadsheetAccessible = true;
-    const storeSheet = getConfiguredSheet_(storeSpreadsheet, 'STORE_SHEET_NAME', 'STORE_SHEET_GID', DEFAULT_MASTER_CONFIG.STORE_SHEET_GID);
-    result.checks.storeSheetName = storeSheet.getName();
-    result.checks.storeRows = Math.max(storeSheet.getLastRow() - 1, 0);
-  } catch (error) {
-    result.checks.storeSpreadsheetError = sanitizeErrorDetail_(String(error.message || error));
-  }
+  result.checks.sheets = {};
 
   if (firebaseApiKey) {
     try {
@@ -1450,6 +1386,18 @@ function getHealthStatus_() {
       result.checks.portalAppIdRows = portalApps.filter(function(app) { return app.app_id; }).length;
       result.checks.portalAppActiveRows = portalApps.filter(function(app) { return app.app_id && app.is_active !== false; }).length;
       try {
+        const announcements = supabaseRequest_('announcements', {
+          query: {
+            select: 'id,title,is_active',
+            limit: '200'
+          }
+        });
+        result.checks.announcementsReachable = Array.isArray(announcements);
+        result.checks.announcementRows = announcements.length;
+      } catch (error) {
+        result.checks.announcementsError = sanitizeErrorDetail_(String(error.message || error));
+      }
+      try {
         const notificationDestinations = supabaseRequest_('notification_destinations', {
           schema: 'os',
           query: {
@@ -1468,8 +1416,7 @@ function getHealthStatus_() {
     result.checks.supabaseError = sanitizeErrorDetail_(String(error.message || error));
   }
 
-  result.ok = result.checks.portalSpreadsheetIdConfigured
-    && result.checks.firebaseApiKeyConfigured
+  result.ok = result.checks.firebaseApiKeyConfigured
     && result.checks.firebaseApiKeyValid
     && result.checks.supabaseUrlConfigured
     && result.checks.supabaseServiceRoleKeyConfigured
@@ -1478,10 +1425,7 @@ function getHealthStatus_() {
     && result.checks.loginCredentialsReachable
     && result.checks.accessLogsReachable
     && result.checks.portalAppsReachable
-    && result.checks.portalSpreadsheetAccessible
-    && result.checks.staffSpreadsheetAccessible
-    && result.checks.storeSpreadsheetAccessible
-    && Object.keys(SHEETS).every(function(key) { return result.checks.sheets[SHEETS[key]]; });
+    && result.checks.notificationDestinationsReachable;
   return result;
 }
 

@@ -42,7 +42,7 @@ const state = {
 };
 
 const elements = Object.fromEntries([
-  "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "add-employee", "add-portal-app", "refresh", "sync-portal-apps",
+  "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "add-employee", "add-portal-app", "refresh",
   "view-title", "search", "quality-summary", "result-count", "table-head", "table-body",
   "detail-panel", "employee-status-filter", "store-status-filter", "app-status-filter", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
@@ -2521,26 +2521,6 @@ async function refreshLogs() {
   render();
 }
 
-async function syncPortalApps() {
-  const button = elements.syncPortalApps;
-  const originalText = button.textContent;
-  try {
-    button.disabled = true;
-    button.textContent = "同期中...";
-    const response = await callApiAction("masterSyncPortalApps");
-    const result = response.result || {};
-    await refreshPortalApps();
-    await refreshLogsSilently();
-    showToast(`Apps同期完了: ${result.upsertedRows || 0}/${result.sourceRows || 0}件`);
-  } catch (error) {
-    console.error(error);
-    showToast(getErrorMessage(error));
-  } finally {
-    button.disabled = false;
-    button.textContent = originalText;
-  }
-}
-
 async function handleSignIn() {
   try {
     showMode("loading");
@@ -2564,7 +2544,6 @@ async function handleSignOut() {
 elements.signIn.addEventListener("click", handleSignIn);
 elements.signOut.addEventListener("click", handleSignOut);
 elements.refresh.addEventListener("click", loadData);
-elements.syncPortalApps.addEventListener("click", syncPortalApps);
 elements.addEmployee.addEventListener("click", startCreateEmployee);
 elements.addPortalApp.addEventListener("click", startCreatePortalApp);
 elements.search.addEventListener("input", () => {

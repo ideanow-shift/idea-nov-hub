@@ -5,7 +5,16 @@ import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
 import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js";
 import { clearHubEmployeeContext, encodeHubContextForUrl, getHubEmployeeContextSummary, saveHubEmployeeContext } from "./hub-context.js";
 
-const state = { employee: null, apps: [], announcements: [], notifications: [], mode: PORTAL_CONFIG.authMode, authType: null };
+const state = {
+  employee: null,
+  apps: [],
+  announcements: [],
+  notifications: [],
+  mode: PORTAL_CONFIG.authMode,
+  authType: null,
+  appSearch: "",
+  selectedCategory: "all"
+};
 const MANAGEMENT_HUB_CONTEXT_KEY = "ideaNov.management.hubContext";
 const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_APP_IDS = new Set(["management-check", "management-platform"]);
@@ -23,7 +32,7 @@ const elements = Object.fromEntries([
   "header-user", "user-name", "user-store", "login-screen", "loading-screen",
   "denied-screen", "portal-screen", "google-login", "pin-login-form", "pin-email", "pin-code", "demo-controls", "demo-employee",
   "demo-login", "logout-button", "denied-message", "denied-back", "welcome-title", "user-context",
-  "announcements", "featured-apps", "category-apps", "visible-app-count", "pin-change-panel", "pin-change-form",
+  "announcements", "featured-apps", "category-apps", "visible-app-count", "app-search", "category-filter", "pin-change-panel", "pin-change-form",
   "pin-change-new", "pin-change-confirm", "pin-change-status", "concierge-form", "concierge-question", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
 
@@ -150,6 +159,63 @@ function renderAnnouncements() {
   }));
 }
 
+function normalizeSearchText(value) {
+  return String(value || "").trim().toLowerCase().replace(/\s+/g, "");
+}
+
+function getAppSearchText(app) {
+  return normalizeSearchText([
+    app.appName,
+    app.description,
+    app.category,
+    app.appId,
+    ...(app.allowedTags || []),
+    ...(app.targetDepartment || []),
+    ...(app.targetPosition || [])
+  ].filter(Boolean).join(" "));
+}
+
+function getFilteredApps() {
+  const query = normalizeSearchText(state.appSearch);
+  return state.apps.filter((app) => {
+    const category = app.category || "社内アプリ";
+    const categoryMatched = state.selectedCategory === "all" || category === state.selectedCategory;
+    const queryMatched = !query || getAppSearchText(app).includes(query);
+    return categoryMatched && queryMatched;
+  });
+}
+
+function getAppCategories() {
+  const dynamicCategories = [...new Set(state.apps.map((app) => app.category || "社内アプリ"))]
+    .filter((category) => !CATEGORY_ORDER.includes(category));
+  return [...CATEGORY_ORDER, ...dynamicCategories].filter((category) => (
+    state.apps.some((app) => (app.category || "社内アプリ") === category)
+  ));
+}
+
+function renderCategoryFilter() {
+  const categories = getAppCategories();
+  const buttons = [
+    { key: "all", label: "すべて", count: state.apps.length },
+    ...categories.map((category) => ({
+      key: category,
+      label: category,
+      count: state.apps.filter((app) => (app.category || "社内アプリ") === category).length
+    }))
+  ].map(({ key, label, count }) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "category-chip" + (state.selectedCategory === key ? " active" : "");
+    button.textContent = `${label} ${count}`;
+    button.addEventListener("click", () => {
+      state.selectedCategory = key;
+      renderApps();
+    });
+    return button;
+  });
+  elements.categoryFilter.replaceChildren(...buttons);
+}
+
 function toNotificationNotice(notification) {
   return {
     id: notification.id || "",
@@ -218,13 +284,13 @@ function formatDateTime(value) {
 }
 
 function renderApps() {
-  const featured = state.apps.filter((app) => app.isFeatured);
+  renderCategoryFilter();
+  const filteredApps = getFilteredApps();
+  const featured = filteredApps.filter((app) => app.isFeatured);
   elements.featuredApps.replaceChildren(...(featured.length ? featured.map(createAppCard) : [createEmptyState("よく使うアプリはまだありません。")]));
-  const dynamicCategories = [...new Set(state.apps.map((app) => app.category || "社内アプリ"))]
-    .filter((category) => !CATEGORY_ORDER.includes(category));
-  const categories = [...CATEGORY_ORDER, ...dynamicCategories].map((category) => ({
+  const categories = getAppCategories().map((category) => ({
     category,
-    apps: state.apps.filter((app) => app.category === category)
+    apps: filteredApps.filter((app) => (app.category || "社内アプリ") === category)
   })).filter((group) => group.apps.length);
   elements.categoryApps.replaceChildren(...(categories.length ? categories.map(({ category, apps }) => {
     const section = document.createElement("section");
@@ -236,7 +302,9 @@ function renderApps() {
     section.append(grid);
     return section;
   }) : [createEmptyState("現在利用できるアプリはありません。")]));
-  elements.visibleAppCount.textContent = `${state.apps.length}件`;
+  elements.visibleAppCount.textContent = state.appSearch || state.selectedCategory !== "all"
+    ? `${filteredApps.length}/${state.apps.length}件`
+    : `${state.apps.length}件`;
 }
 
 function normalizeManagementPlatformApps(apps = []) {
@@ -273,6 +341,12 @@ function renderPortal() {
   renderAnnouncements();
   renderApps();
   showScreen("portal");
+}
+
+function resetAppFilters() {
+  state.appSearch = "";
+  state.selectedCategory = "all";
+  if (elements.appSearch) elements.appSearch.value = "";
 }
 
 function runAfterPaint(callback) {
@@ -466,6 +540,7 @@ async function loginWithFirebase() {
     state.apps = sortPortalApps(data.apps || []);
     state.announcements = data.announcements || [];
     state.notifications = [];
+    resetAppFilters();
     renderPortal();
     writeLoginAccessLogAfterPaint(data);
     loadNovHubNotificationsAfterPaint();
@@ -500,6 +575,7 @@ async function loginWithPin(event) {
     state.announcements = data.announcements || [];
     state.notifications = [];
     elements.pinCode.value = "";
+    resetAppFilters();
     renderPortal();
     writeLoginAccessLogAfterPaint(data);
     loadNovHubNotificationsAfterPaint();
@@ -530,6 +606,7 @@ function loginDemo() {
   state.announcements = [];
   state.notifications = [];
   state.authType = "demo";
+  resetAppFilters();
   console.info("[demo log]", { action: "login", email: employee.email, result: "success" });
   renderPortal();
 }
@@ -552,6 +629,7 @@ async function logout() {
   state.announcements = [];
   state.notifications = [];
   state.authType = null;
+  resetAppFilters();
   showScreen("login");
 }
 
@@ -570,6 +648,10 @@ async function initialize() {
   elements.googleLogin.addEventListener("click", loginWithFirebase);
   elements.pinLoginForm.addEventListener("submit", loginWithPin);
   elements.pinChangeForm.addEventListener("submit", changeOwnPin);
+  elements.appSearch.addEventListener("input", () => {
+    state.appSearch = elements.appSearch.value;
+    renderApps();
+  });
   elements.conciergeForm.addEventListener("submit", (event) => {
     event.preventDefault();
     openConcierge(elements.conciergeQuestion.value);

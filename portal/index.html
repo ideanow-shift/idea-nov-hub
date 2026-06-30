@@ -142,12 +142,17 @@
           <h2 class="section-title" id="all-apps-heading">カテゴリから探す</h2>
           <span class="section-count" id="visible-app-count"></span>
         </div>
+        <div class="app-toolbar" aria-label="アプリ検索とカテゴリ絞り込み">
+          <label class="sr-only" for="app-search">アプリを検索</label>
+          <input class="app-search-input" id="app-search" type="search" placeholder="アプリ名・カテゴリで検索">
+          <div class="category-filter" id="category-filter" aria-label="カテゴリ"></div>
+        </div>
         <div id="category-apps"></div>
       </section>
     </div>
   </main>
 
   <div class="toast" id="toast" role="status" hidden></div>
-  <script type="module" src="./js/main.js?v=apps-supabase-20260628-1"></script>
+  <script type="module" src="./js/main.js?v=dashboard-ui-20260701-1"></script>
 </body>
 </html>

@@ -1,64 +1,3 @@
-const SHEETS = Object.freeze({
-  APPS: 'Apps',
-  ANNOUNCEMENTS: 'Announcements',
-  ACCESS_LOG: 'AccessLog'
-});
-
-const DEFAULT_MASTER_CONFIG = Object.freeze({
-  STAFF_SPREADSHEET_ID: '1UnBwhX8AjBY_sGXNpiYg--3BB2hgh99eu18oL1uOOts',
-  STAFF_SHEET_GID: '160557983',
-  STORE_SPREADSHEET_ID: '1Ozyzi3WqYh7HkYYKBObZr8Mvsm941BQh4XL4w_qp-90',
-  STORE_SHEET_GID: '0'
-});
-
-const ACTIVE_STATUS_VALUES = ['', 'active', 'true', '1', 'yes', 'on', '在籍', '在職', '有効', '利用可', '勤務中', '所属'];
-const INACTIVE_STATUS_VALUES = ['inactive', 'false', '0', 'no', 'off', '退職', '休職', '停止', '無効', '利用不可', '削除'];
-
-const STAFF_HEADER_ALIASES = Object.freeze({
-  email: ['email', 'emailaddress', 'mail', 'gmail', 'googlemail', 'googleaccount', 'account', 'loginemail', 'loginmail', 'メール', 'メールアドレス', '個人メール', '個人メールアドレス', '個人アドレス', 'gmailアドレス', 'googleメール', 'googleアカウント', 'googleアカウントメール', 'ログインメール', 'ログインアカウント', 'アカウント', 'col19'],
-  pin: ['pin', 'password', 'passcode', '暗証番号', 'ログインpin', '認証pin', '認証コード', 'パスコード', 'col18'],
-  name: ['name', 'fullname', 'staffname', 'employeename', '氏名', '名前', 'スタッフ名', '社員名', '従業員名'],
-  store: ['store', 'storename', 'shop', 'shopname', 'salon', '所属店舗', '店舗', '店舗名', 'サロン', 'サロン名'],
-  storeCode: ['storecode', 'shopcode', '店舗コード', '店コード', '店舗id', 'storeid'],
-  department: ['department', 'division', 'dept', '所属部署', '部署', '部門'],
-  position: ['position', 'title', 'role', '役職', '職位', '職種'],
-  grade: ['grade', 'rank', '等級', 'グレード', 'ランク'],
-  roleLevel: ['rolelevel', 'role_level', 'level', '権限レベル', '権限level', 'レベル'],
-  tags: ['tags', 'tag', '権限タグ', 'タグ'],
-  status: ['status', 'state', '在籍状況', 'ステータス', '状態', '利用状態']
-});
-
-const STORE_HEADER_ALIASES = Object.freeze({
-  store: ['store', 'storename', 'shop', 'shopname', 'salon', '所属店舗', '店舗', '店舗名', 'サロン', 'サロン名'],
-  storeCode: ['storecode', 'shopcode', '店舗コード', '店コード', '店舗id', 'storeid'],
-  department: ['department', 'division', 'dept', '部署', '部門', '管轄部署'],
-  status: ['status', 'state', 'ステータス', '状態', '利用状態']
-});
-
-const APP_HEADER_ALIASES = Object.freeze({
-  appId: ['appid', 'app_id', 'id', 'アプリid', 'アプリID', 'アプリコード', '管理id'],
-  appName: ['appname', 'app_name', 'name', 'title', 'アプリ名', '名称', 'タイトル'],
-  description: ['description', 'desc', 'summary', '説明', '説明文', '概要'],
-  url: ['url', 'link', 'href', 'リンク', '遷移先url', '遷移先URL', 'アプリurl', 'アプリURL'],
-  category: ['category', 'カテゴリ', 'カテゴリー', '分類'],
-  icon: ['icon', 'emoji', 'アイコン', '絵文字'],
-  requiredLevel: ['requiredlevel', 'required_level', 'level', '必要権限レベル', '権限レベル', '最低権限', '表示権限'],
-  allowedTags: ['allowedtags', 'allowed_tags', 'tags', 'tag', '許可タグ', '権限タグ', 'タグ'],
-  targetDepartment: ['targetdepartment', 'target_department', 'department', '対象部署', '部署'],
-  targetPosition: ['targetposition', 'target_position', 'position', '対象役職', '役職'],
-  isActive: ['isactive', 'active', 'enabled', 'visible', '表示', '公開', '有効', '表示可否'],
-  isFeatured: ['isfeatured', 'featured', 'favorite', 'よく使う', 'おすすめ', '優先表示'],
-  priority: ['priority', 'sort', 'order', '表示順', '並び順', '優先度']
-});
-
-const ANNOUNCEMENT_HEADER_ALIASES = Object.freeze({
-  type: ['type', '種別', 'タイプ'],
-  title: ['title', 'タイトル', '件名'],
-  body: ['body', '本文', '内容', 'お知らせ内容'],
-  isActive: ['isactive', 'active', 'enabled', 'visible', '表示', '公開', '有効', '表示可否'],
-  priority: ['priority', 'sort', 'order', '表示順', '並び順', '優先度']
-});
-
 const APP_ROLE_GROUPS = Object.freeze({
   idea_link: Object.freeze(['idea_link.staff', 'idea_link.manager', 'idea_link.admin'])
 });
@@ -250,7 +189,7 @@ function doPost(e) {
       stage = 'authorizeMasterAdmin';
       assertMasterEditor_(employee);
       stage = 'syncPortalAppsDisabled';
-      throwPortalError_('SPREADSHEET_SYNC_DISABLED', 'Apps同期は廃止しました。アプリマスタはHUBマスタ管理のアプリ画面で編集してください。');
+      throwPortalError_('APP_SYNC_DISABLED', 'Apps同期は廃止しました。アプリマスタはHUBマスタ管理のアプリ画面で編集してください。');
     }
 
     if (action === 'masterCreatePortalApp') {
@@ -396,12 +335,6 @@ function readPortalAppsFromSupabase_() {
   });
 }
 
-function readPortalAppsFromSheet_() {
-  return withRuntimeCache_('sheet_apps:v1', RUNTIME_CACHE_TTL_SECONDS.PORTAL_APPS, function() {
-    return readPortalSheetObjects_(SHEETS.APPS).map(normalizeApp_);
-  });
-}
-
 function listPortalAppsForAdmin_() {
   return supabaseRequest_('portal_apps', {
     query: {
@@ -409,34 +342,6 @@ function listPortalAppsForAdmin_() {
       order: 'priority.asc,app_name.asc'
     }
   }).map(normalizeSupabaseApp_);
-}
-
-function syncPortalAppsFromSheetManual() {
-  throwPortalError_('SPREADSHEET_SYNC_DISABLED', 'Apps同期は廃止しました。アプリマスタはHUBマスタ管理のアプリ画面で編集してください。');
-}
-
-function syncPortalAppsFromSheet_(actor) {
-  throwPortalError_('SPREADSHEET_SYNC_DISABLED', 'Apps同期は廃止しました。アプリマスタはHUBマスタ管理のアプリ画面で編集してください。');
-}
-
-function toPortalAppSupabaseRow_(app) {
-  return {
-    app_id: String(app.appId || ''),
-    app_name: String(app.appName || ''),
-    description: String(app.description || ''),
-    url: String(app.url || ''),
-    category: String(app.category || 'internal'),
-    icon: String(app.icon || 'default'),
-    color: String(app.color || ''),
-    required_level: Number(app.requiredLevel || 1),
-    allowed_tags: normalizeListValue_(app.allowedTags),
-    target_department: normalizeListValue_(app.targetDepartment),
-    target_position: normalizeListValue_(app.targetPosition),
-    is_active: app.isActive !== false,
-    is_featured: Boolean(app.isFeatured),
-    priority: Number(app.priority || 999),
-    updated_at: new Date().toISOString()
-  };
 }
 
 function appendFixedAppIfMissing_(apps, app) {
@@ -685,16 +590,6 @@ function authenticateRequest_(idToken, payload) {
   const firebaseUser = verifyFirebaseToken_(idToken);
   firebaseUser.authType = 'firebase';
   return firebaseUser;
-}
-
-function findActiveEmployee_(email) {
-  const employee = readStaffRows_()
-    .map(normalizeEmployee_)
-    .filter(function(item) { return item.email; })
-    .find(function(item) { return item.email === String(email).trim().toLowerCase(); });
-
-  if (!employee || employee.status !== 'active') return null;
-  return enrichEmployeeWithStore_(employee);
 }
 
 function findActivePortalEmployee_(authUser) {
@@ -1014,50 +909,6 @@ function canAccessApp_(employee, app) {
   return true;
 }
 
-function normalizeEmployee_(row) {
-  const roleLevel = Number(pick_(row, STAFF_HEADER_ALIASES.roleLevel) || 1);
-  const email = normalizeEmailValue_(pickLoose_(row, STAFF_HEADER_ALIASES.email)) || findEmailInRow_(row);
-  return {
-    email: email,
-    pin: normalizePinValue_(pick_(row, STAFF_HEADER_ALIASES.pin)),
-    name: String(pick_(row, STAFF_HEADER_ALIASES.name) || ''),
-    store: String(pick_(row, STAFF_HEADER_ALIASES.store) || ''),
-    storeCode: String(pick_(row, STAFF_HEADER_ALIASES.storeCode) || ''),
-    department: String(pick_(row, STAFF_HEADER_ALIASES.department) || ''),
-    position: String(pick_(row, STAFF_HEADER_ALIASES.position) || ''),
-    grade: String(pick_(row, STAFF_HEADER_ALIASES.grade) || ''),
-    roleLevel: isNaN(roleLevel) ? 1 : roleLevel,
-    tags: splitList_(pick_(row, STAFF_HEADER_ALIASES.tags)),
-    status: normalizeStatus_(pick_(row, STAFF_HEADER_ALIASES.status), true)
-  };
-}
-
-function enrichEmployeeWithStore_(employee) {
-  if (!employee.store && !employee.storeCode) return employee;
-
-  const stores = readStoreRows_().map(normalizeStore_);
-  const store = stores.find(function(item) {
-    return (employee.storeCode && item.storeCode && item.storeCode === employee.storeCode)
-      || (employee.store && item.store && item.store === employee.store);
-  });
-
-  if (!store) return employee;
-  return Object.assign({}, employee, {
-    store: employee.store || store.store,
-    storeCode: employee.storeCode || store.storeCode,
-    department: employee.department || store.department
-  });
-}
-
-function normalizeStore_(row) {
-  return {
-    store: String(pick_(row, STORE_HEADER_ALIASES.store) || ''),
-    storeCode: String(pick_(row, STORE_HEADER_ALIASES.storeCode) || ''),
-    department: String(pick_(row, STORE_HEADER_ALIASES.department) || ''),
-    status: normalizeStatus_(pick_(row, STORE_HEADER_ALIASES.status), true)
-  };
-}
-
 function sanitizeEmployee_(employee) {
   return {
     id: employee.id || '',
@@ -1093,24 +944,6 @@ function sanitizeEmployee_(employee) {
   };
 }
 
-function normalizeApp_(row) {
-  return {
-    appId: String(pick_(row, APP_HEADER_ALIASES.appId) || ''),
-    appName: String(pick_(row, APP_HEADER_ALIASES.appName) || ''),
-    description: String(pick_(row, APP_HEADER_ALIASES.description) || ''),
-    url: String(pick_(row, APP_HEADER_ALIASES.url) || ''),
-    category: String(pick_(row, APP_HEADER_ALIASES.category) || '社内アプリ'),
-    icon: String(pick_(row, APP_HEADER_ALIASES.icon) || 'default'),
-    requiredLevel: Number(pick_(row, APP_HEADER_ALIASES.requiredLevel) || 1),
-    allowedTags: splitList_(pick_(row, APP_HEADER_ALIASES.allowedTags)),
-    targetDepartment: splitList_(pick_(row, APP_HEADER_ALIASES.targetDepartment)),
-    targetPosition: splitList_(pick_(row, APP_HEADER_ALIASES.targetPosition)),
-    isActive: parseBoolean_(pick_(row, APP_HEADER_ALIASES.isActive)),
-    isFeatured: parseBoolean_(pick_(row, APP_HEADER_ALIASES.isFeatured)),
-    priority: Number(pick_(row, APP_HEADER_ALIASES.priority) || 999)
-  };
-}
-
 function normalizeSupabaseApp_(row) {
   return {
     id: String((row && row.id) || ''),
@@ -1130,16 +963,6 @@ function normalizeSupabaseApp_(row) {
     priority: Number((row && row.priority) || 999),
     createdAt: String((row && row.created_at) || ''),
     updatedAt: String((row && row.updated_at) || '')
-  };
-}
-
-function normalizeAnnouncement_(row) {
-  return {
-    type: String(pick_(row, ANNOUNCEMENT_HEADER_ALIASES.type) || 'info'),
-    title: String(pick_(row, ANNOUNCEMENT_HEADER_ALIASES.title) || ''),
-    body: String(pick_(row, ANNOUNCEMENT_HEADER_ALIASES.body) || ''),
-    isActive: parseBoolean_(pick_(row, ANNOUNCEMENT_HEADER_ALIASES.isActive)),
-    priority: Number(pick_(row, ANNOUNCEMENT_HEADER_ALIASES.priority) || 999)
   };
 }
 
@@ -1183,15 +1006,6 @@ function appendAccessLogToSupabase_(entry) {
   });
 }
 
-function appendAccessLogToSheet_(entry) {
-  const sheet = getPortalSpreadsheet_().getSheetByName(SHEETS.ACCESS_LOG);
-  if (!sheet) throwPortalError_('ACCESS_LOG_SHEET_MISSING', 'AccessLog sheet is missing.');
-  sheet.appendRow([
-    new Date(entry.timestamp), entry.email || '', entry.name || '', entry.action || '',
-    entry.appId || '', entry.appName || '', entry.result || ''
-  ]);
-}
-
 function normalizeAccessLogEntry_(entry) {
   return {
     timestamp: new Date().toISOString(),
@@ -1213,80 +1027,6 @@ function appendAccessLogSafely_(entry) {
   }
 }
 
-function readPortalSheetObjects_(sheetName) {
-  const sheet = getPortalSpreadsheet_().getSheetByName(sheetName);
-  if (!sheet) throwPortalError_('MASTER_SHEET_MISSING', sheetName + ' sheet is missing.');
-  return sheetToObjects_(sheet);
-}
-
-function readStaffRows_() {
-  const spreadsheet = openSpreadsheetByConfig_('STAFF_SPREADSHEET_ID', DEFAULT_MASTER_CONFIG.STAFF_SPREADSHEET_ID, 'STAFF_SPREADSHEET_OPEN_FAILED');
-  const sheet = getConfiguredSheet_(spreadsheet, 'STAFF_SHEET_NAME', 'STAFF_SHEET_GID', DEFAULT_MASTER_CONFIG.STAFF_SHEET_GID);
-  return sheetToObjects_(sheet);
-}
-
-function readStoreRows_() {
-  const spreadsheet = openSpreadsheetByConfig_('STORE_SPREADSHEET_ID', DEFAULT_MASTER_CONFIG.STORE_SPREADSHEET_ID, 'STORE_SPREADSHEET_OPEN_FAILED');
-  const sheet = getConfiguredSheet_(spreadsheet, 'STORE_SHEET_NAME', 'STORE_SHEET_GID', DEFAULT_MASTER_CONFIG.STORE_SHEET_GID);
-  return sheetToObjects_(sheet).filter(function(row) {
-    return normalizeStore_(row).status === 'active';
-  });
-}
-
-function sheetToObjects_(sheet) {
-  if (!sheet) throwPortalError_('MASTER_SHEET_MISSING', 'Configured sheet was not found.');
-  const values = sheet.getDataRange().getDisplayValues();
-  if (values.length < 2) return [];
-  const headers = values[0].map(function(header) { return normalizeHeaderKey_(header); });
-  return values.slice(1)
-    .filter(function(row) { return row.some(function(cell) { return String(cell).trim() !== ''; }); })
-    .map(function(row) {
-      return headers.reduce(function(object, header, index) {
-        object['col' + (index + 1)] = row[index];
-        if (header) object[header] = row[index];
-        return object;
-      }, {});
-    });
-}
-
-function getPortalSpreadsheet_() {
-  const spreadsheetId = getRequiredProperty_('SPREADSHEET_ID');
-  try {
-    return SpreadsheetApp.openById(spreadsheetId);
-  } catch (error) {
-    throwPortalError_('SPREADSHEET_OPEN_FAILED', 'Portal spreadsheet could not be opened: ' + String(error.message || error));
-  }
-}
-
-function openSpreadsheetByConfig_(propertyName, defaultValue, errorCode) {
-  const spreadsheetId = getOptionalProperty_(propertyName, defaultValue);
-  try {
-    return SpreadsheetApp.openById(spreadsheetId);
-  } catch (error) {
-    throwPortalError_(errorCode, propertyName + ' could not be opened: ' + String(error.message || error));
-  }
-}
-
-function getConfiguredSheet_(spreadsheet, nameProperty, gidProperty, defaultGid) {
-  const sheetName = getOptionalProperty_(nameProperty, '');
-  if (sheetName) {
-    const byName = spreadsheet.getSheetByName(sheetName);
-    if (!byName) throwPortalError_('MASTER_SHEET_MISSING', sheetName + ' sheet is missing.');
-    return byName;
-  }
-
-  const gid = String(getOptionalProperty_(gidProperty, defaultGid || '')).trim();
-  if (gid) {
-    const byGid = spreadsheet.getSheets().find(function(sheet) {
-      return String(sheet.getSheetId()) === gid;
-    });
-    if (!byGid) throwPortalError_('MASTER_SHEET_MISSING', gidProperty + '=' + gid + ' sheet is missing.');
-    return byGid;
-  }
-
-  return spreadsheet.getSheets()[0];
-}
-
 function getRequiredProperty_(name) {
   const value = PropertiesService.getScriptProperties().getProperty(name);
   if (!value) throwPortalError_('SCRIPT_PROPERTY_MISSING', name + ' script property is missing.');
@@ -1305,11 +1045,6 @@ function getHealthStatus_() {
     ok: false,
     service: 'NOV HUB API',
     checks: {
-      portalSpreadsheetIdConfigured: Boolean(properties.getProperty('SPREADSHEET_ID')),
-      staffSpreadsheetId: getOptionalProperty_('STAFF_SPREADSHEET_ID', DEFAULT_MASTER_CONFIG.STAFF_SPREADSHEET_ID),
-      staffSheetGid: getOptionalProperty_('STAFF_SHEET_GID', DEFAULT_MASTER_CONFIG.STAFF_SHEET_GID),
-      storeSpreadsheetId: getOptionalProperty_('STORE_SPREADSHEET_ID', DEFAULT_MASTER_CONFIG.STORE_SPREADSHEET_ID),
-      storeSheetGid: getOptionalProperty_('STORE_SHEET_GID', DEFAULT_MASTER_CONFIG.STORE_SHEET_GID),
       firebaseApiKeyConfigured: Boolean(firebaseApiKey),
       firebaseApiKeyValid: false,
       supabaseUrlConfigured: Boolean(properties.getProperty('SUPABASE_URL')),
@@ -1320,17 +1055,10 @@ function getHealthStatus_() {
       accessLogsReachable: false,
       portalAppsReachable: false,
       notificationDestinationsReachable: false,
-      announcementsReachable: false,
-      legacySpreadsheetChecksDisabled: true,
-      portalSpreadsheetAccessible: false,
-      staffSpreadsheetAccessible: false,
-      storeSpreadsheetAccessible: false,
-      sheets: {}
+      announcementsReachable: false
     },
     timestamp: new Date().toISOString()
   };
-
-  result.checks.sheets = {};
 
   if (firebaseApiKey) {
     try {
@@ -3206,7 +2934,7 @@ function removeRuntimeCache_(keys) {
 }
 
 function clearPortalAppCaches_() {
-  removeRuntimeCache_(['portal_apps:v1', 'sheet_apps:v1']);
+  removeRuntimeCache_(['portal_apps:v1']);
 }
 
 function clearEmployeeRoleCaches_(employeeId) {
@@ -3257,43 +2985,6 @@ function buildQueryString_(query) {
     .join('&');
 }
 
-function pick_(row, aliases) {
-  for (let i = 0; i < aliases.length; i++) {
-    const key = normalizeHeaderKey_(aliases[i]);
-    if (Object.prototype.hasOwnProperty.call(row, key)) return row[key];
-  }
-  return '';
-}
-
-function pickLoose_(row, aliases) {
-  const exact = pick_(row, aliases);
-  if (exact) return exact;
-
-  const keys = Object.keys(row);
-  const normalizedAliases = aliases.map(normalizeHeaderKey_).filter(function(alias) {
-    return alias.length >= 3;
-  });
-
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
-    for (let j = 0; j < normalizedAliases.length; j++) {
-      const alias = normalizedAliases[j];
-      if (key.indexOf(alias) !== -1 || alias.indexOf(key) !== -1) return row[key];
-    }
-  }
-
-  return '';
-}
-
-function findEmailInRow_(row) {
-  const values = Object.keys(row).map(function(key) { return row[key]; });
-  for (let i = 0; i < values.length; i++) {
-    const email = normalizeEmailValue_(values[i]);
-    if (email) return email;
-  }
-  return '';
-}
-
 function normalizeEmailValue_(value) {
   const text = String(value || '').trim().toLowerCase();
   const match = text.match(/[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+/);
@@ -3302,22 +2993,6 @@ function normalizeEmailValue_(value) {
 
 function normalizePinValue_(value) {
   return String(value || '').trim();
-}
-
-function normalizeHeaderKey_(value) {
-  return String(value || '')
-    .trim()
-    .replace(/\s+/g, '')
-    .replace(/[（）()［］\[\]・\/\\_-]/g, '')
-    .toLowerCase();
-}
-
-function normalizeStatus_(value, defaultActive) {
-  const normalized = normalizeHeaderKey_(value);
-  if (!normalized && defaultActive) return 'active';
-  if (INACTIVE_STATUS_VALUES.map(normalizeHeaderKey_).indexOf(normalized) !== -1) return 'inactive';
-  if (ACTIVE_STATUS_VALUES.map(normalizeHeaderKey_).indexOf(normalized) !== -1) return 'active';
-  return defaultActive ? 'active' : 'inactive';
 }
 
 function splitList_(value) {
@@ -3332,10 +3007,6 @@ function normalizeListValue_(value) {
     return value.map(function(item) { return String(item || '').trim(); }).filter(String);
   }
   return splitList_(value);
-}
-
-function parseBoolean_(value) {
-  return ['true', '1', 'yes', 'on', '表示', '公開', '有効', 'はい', '○', '〇'].indexOf(String(value || '').trim().toLowerCase()) !== -1;
 }
 
 function hasIntersection_(left, right) {
@@ -3362,11 +3033,6 @@ function getPublicErrorMessage_(code) {
     TOKEN_VERIFICATION_FAILED: 'ログイン情報を確認できませんでした。',
     TOKEN_EMAIL_MISSING: 'Googleアカウントのメールアドレスを確認できませんでした。',
     SCRIPT_PROPERTY_MISSING: 'GASの設定が不足しています。',
-    SPREADSHEET_OPEN_FAILED: 'ポータル管理スプレッドシートを開けませんでした。',
-    STAFF_SPREADSHEET_OPEN_FAILED: 'スタッフマスタを開けませんでした。',
-    STORE_SPREADSHEET_OPEN_FAILED: '店舗マスタを開けませんでした。',
-    MASTER_SHEET_MISSING: '必要なマスタシートがありません。',
-    ACCESS_LOG_SHEET_MISSING: 'アクセスログシートがありません。',
     INVALID_REQUEST: 'APIリクエストが正しくありません。',
     MASTER_ADMIN_DENIED: 'マスタ管理を利用する権限がありません。',
     SUPABASE_REQUEST_FAILED: 'Supabaseとの通信に失敗しました。',

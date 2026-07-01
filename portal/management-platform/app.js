@@ -235,11 +235,15 @@ function getSelectedScores(form = document.getElementById("environmentForm")) {
   if (!form) return [];
   const formData = new FormData(form);
   if (!checkItems.length) {
-    const score = Number(formData.get("score"));
+    const value = formData.get("score");
+    const score = value === null || value === "" ? NaN : Number(value);
     return Number.isFinite(score) ? [score] : [];
   }
   return checkItems
-    .map((item) => Number(formData.get(`score_${item.id}`)))
+    .map((item) => {
+      const value = formData.get(`score_${item.id}`);
+      return value === null || value === "" ? NaN : Number(value);
+    })
     .filter((score) => Number.isFinite(score));
 }
 
@@ -248,7 +252,8 @@ function getSelectedScoreMap(form = document.getElementById("environmentForm")) 
   if (!form || !checkItems.length) return scores;
   const formData = new FormData(form);
   for (const item of checkItems) {
-    const score = Number(formData.get(`score_${item.id}`));
+    const value = formData.get(`score_${item.id}`);
+    const score = value === null || value === "" ? NaN : Number(value);
     if (Number.isFinite(score)) scores.set(item.id, score);
   }
   return scores;
@@ -277,6 +282,68 @@ function markMissingScoreItems(items) {
   }
 }
 
+function getEnvironmentScoreStats(form = document.getElementById("environmentForm")) {
+  const scores = getSelectedScores(form);
+  const totalItems = checkItems.length || 1;
+  return {
+    total: scores.length,
+    totalItems,
+    missing: Math.max(totalItems - scores.length, 0),
+    count0: scores.filter((score) => score === 0).length,
+    count3: scores.filter((score) => score === 3).length,
+    count5: scores.filter((score) => score === 5).length,
+    average: scores.length
+      ? Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 10) / 10
+      : 0
+  };
+}
+
+function scrollToFirstMissingScore() {
+  const form = document.getElementById("environmentForm");
+  const missing = getMissingScoreItems(form);
+  if (!missing.length) return false;
+  markMissingScoreItems(missing);
+  const firstMissing = document.querySelector(`[data-check-item-id="${missing[0].id}"]`);
+  if (firstMissing) firstMissing.scrollIntoView({ behavior: "smooth", block: "center" });
+  return true;
+}
+
+function renderCheckProgress() {
+  const panel = document.getElementById("checkProgressPanel");
+  if (!panel) return;
+
+  if (!checkItems.length) {
+    panel.innerHTML = `
+      <div class="check-progress-card">
+        <p class="score-summary-label">入力進捗</p>
+        <p class="check-progress-main">チェック項目を読み込み中</p>
+      </div>
+    `;
+    return;
+  }
+
+  const stats = getEnvironmentScoreStats();
+  const issueCount = stats.count0 + stats.count3;
+  const complete = stats.missing === 0;
+  panel.innerHTML = `
+    <div class="check-progress-card ${complete ? "is-complete" : ""}">
+      <div>
+        <p class="score-summary-label">入力進捗</p>
+        <p class="check-progress-main">${stats.total}/${stats.totalItems}項目</p>
+      </div>
+      <div>
+        <p class="score-summary-label">未入力</p>
+        <p class="check-progress-main ${stats.missing ? "danger" : "ok"}">${stats.missing}件</p>
+      </div>
+      <div>
+        <p class="score-summary-label">課題候補</p>
+        <p class="check-progress-main ${issueCount ? "warn" : "ok"}">${issueCount}件</p>
+      </div>
+      <button type="button" class="ghost-btn check-progress-jump" data-action="jump-missing" ${complete ? "disabled" : ""}>未入力へ移動</button>
+    </div>
+  `;
+}
+
 function validateEnvironmentForm(form) {
   clearMissingScoreMarkers();
   const missing = getMissingScoreItems(form);
@@ -292,23 +359,18 @@ function validateEnvironmentForm(form) {
 
 function renderScoreSummary() {
   const summary = document.getElementById("scoreSummary");
+  renderCheckProgress();
   if (!summary) return;
   const scores = getSelectedScores();
   const scoreMap = getSelectedScoreMap();
-  const total = scores.length;
-  const count0 = scores.filter((score) => score === 0).length;
-  const count3 = scores.filter((score) => score === 3).length;
-  const count5 = scores.filter((score) => score === 5).length;
-  const average = total
-    ? Math.round((scores.reduce((sum, score) => sum + score, 0) / total) * 10) / 10
-    : 0;
+  const stats = getEnvironmentScoreStats();
 
   const totalHtml = [
-    { label: "入力済み", value: `${total}/${checkItems.length || total || 1}項目`, tone: "ok" },
-    { label: "0点", value: `${count0}件`, tone: count0 ? "danger" : "" },
-    { label: "3点", value: `${count3}件`, tone: count3 ? "warn" : "" },
-    { label: "5点", value: `${count5}件`, tone: count5 ? "ok" : "" },
-    { label: "平均", value: average.toFixed(1), tone: average >= 4 ? "ok" : average <= 2 ? "danger" : "warn" }
+    { label: "入力済み", value: `${stats.total}/${stats.totalItems}項目`, tone: "ok" },
+    { label: "0点", value: `${stats.count0}件`, tone: stats.count0 ? "danger" : "" },
+    { label: "3点", value: `${stats.count3}件`, tone: stats.count3 ? "warn" : "" },
+    { label: "5点", value: `${stats.count5}件`, tone: stats.count5 ? "ok" : "" },
+    { label: "平均", value: stats.average.toFixed(1), tone: stats.average >= 4 ? "ok" : stats.average <= 2 ? "danger" : "warn" }
   ].map((item) => `
     <div class="score-summary-item">
       <p class="score-summary-label">${item.label}</p>
@@ -2784,6 +2846,10 @@ function bindEvents() {
       renderScoreSummary();
     }
     if (event.target?.name === "photoUrl") renderPhotoPreview();
+  });
+  document.getElementById("checkProgressPanel")?.addEventListener("click", (event) => {
+    const button = event.target.closest('[data-action="jump-missing"]');
+    if (button) scrollToFirstMissingScore();
   });
   document.getElementById("environmentForm").elements.photoUrl.addEventListener("input", renderPhotoPreview);
   document.getElementById("photoFileInput").addEventListener("change", handlePhotoFileChange);

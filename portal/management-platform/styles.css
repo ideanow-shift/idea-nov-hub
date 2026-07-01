@@ -1064,6 +1064,21 @@ th {
     justify-content: stretch;
   }
 
+  .check-progress-panel {
+    top: 0;
+    margin: 10px -2px;
+  }
+
+  .check-progress-card {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 8px;
+  }
+
+  .check-progress-jump {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
   .score-row {
     gap: 6px;
   }
@@ -1113,6 +1128,47 @@ th {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.6;
+}
+
+.check-progress-panel {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  margin: 12px 0;
+}
+
+.check-progress-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 20px rgba(34, 34, 34, 0.06);
+}
+
+.check-progress-card.is-complete {
+  border-color: rgba(47, 143, 91, 0.35);
+  background: #f7fff9;
+}
+
+.check-progress-card p {
+  margin: 0;
+}
+
+.check-progress-main {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.check-progress-main.ok { color: var(--ok); }
+.check-progress-main.warn { color: var(--warn); }
+.check-progress-main.danger { color: var(--danger); }
+
+.check-progress-jump {
+  white-space: nowrap;
 }
 
 .check-items {
@@ -1202,4 +1258,21 @@ th {
 
 .check-item textarea {
   min-height: 72px;
+}
+
+@media (max-width: 560px) {
+  .check-progress-panel {
+    top: 0;
+    margin: 10px -2px;
+  }
+
+  .check-progress-card {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 8px;
+  }
+
+  .check-progress-jump {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
 }

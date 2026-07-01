@@ -6,10 +6,20 @@ const STORE_ACCOUNTS = [
 ];
 
 const STORE_MASTER_CONFIG = {
-  spreadsheetId: "1Ozyzi3WqYh7HkYYKBObZr8Mvsm941BQh4XL4w_qp-90",
-  logSpreadsheetId: "10ztt-hLhfm8OiDUvLi5fk0v6r8BF87hUiN1SHGAYH6M",
-  authEndpoint: "https://script.google.com/macros/s/AKfycbxRvDJC9MDC8KydrQ7qIxx3vDlcjEBdX-Eh4UOMdHJirMdEZ6e6j5HkPRFpDhObJNOb/exec"
+  loginEndpoint: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/concierge-api",
+  apiEndpoint: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/concierge-api"
 };
+
+const SUPABASE_BACKEND_ACTIONS = new Set([
+  "listAnswerRules",
+  "appendLog",
+  "updateRating",
+  "listLogs",
+  "listLinks",
+  "appendAnswerRule",
+  "listKnowledgeUpdates",
+  "appendKnowledgeUpdate"
+]);
 
 const STORAGE_KEYS = {
   session: "novConcierge.session.v1",
@@ -76,7 +86,7 @@ const KNOWLEDGE_AREAS = [
 
 class StoreAuthProvider {
   async login(storeId, storePass) {
-    if (STORE_MASTER_CONFIG.authEndpoint) {
+    if (STORE_MASTER_CONFIG.loginEndpoint) {
       const account = await authenticateWithStoreMaster(storeId, storePass);
       return this.persistSession(account);
     }
@@ -95,8 +105,10 @@ class StoreAuthProvider {
   persistSession(account) {
     const session = {
       id: account.id,
+      storeId: account.storeId || account.id,
       name: account.name,
       admin: account.admin,
+      token: account.token,
       source: account.source || "store-master",
       loginAt: new Date().toISOString()
     };
@@ -138,7 +150,7 @@ class AnswerRuleRepository {
 
   async all() {
     if (this.cache) return this.cache;
-    if (!STORE_MASTER_CONFIG.authEndpoint) {
+    if (!hasRemoteBackend()) {
       this.cache = [];
       return this.cache;
     }
@@ -181,7 +193,7 @@ class ConversationLogRepository {
   }
 
   async allForAdmin() {
-    if (!STORE_MASTER_CONFIG.authEndpoint) {
+    if (!hasRemoteBackend()) {
       return this.all();
     }
 
@@ -197,11 +209,12 @@ class ConversationLogRepository {
     const logs = this.all();
     logs.unshift(entry);
     localStorage.setItem(STORAGE_KEYS.logs, JSON.stringify(logs.slice(0, 300)));
-    if (STORE_MASTER_CONFIG.authEndpoint) {
+    if (hasRemoteBackend()) {
       await requestBackend("appendLog", {
         logId: entry.id,
         createdAt: entry.createdAt,
-        storeId: entry.storeId,
+        storeId: entry.storeUuid || entry.storeId,
+        phase1LoginId: entry.phase1LoginId || entry.storeId,
         storeName: entry.storeName,
         question: entry.question,
         answer: entry.answer,
@@ -214,12 +227,18 @@ class ConversationLogRepository {
   }
 
   async updateRating(id, rating) {
+    const currentEntry = this.all().find((entry) => entry.id === id);
     const logs = this.all().map((entry) => {
       return entry.id === id ? { ...entry, rating } : entry;
     });
     localStorage.setItem(STORAGE_KEYS.logs, JSON.stringify(logs));
-    if (STORE_MASTER_CONFIG.authEndpoint) {
-      await requestBackend("updateRating", { logId: id, rating });
+    if (hasRemoteBackend()) {
+      await requestBackend("updateRating", {
+        logId: id,
+        rating,
+        storeId: currentEntry?.storeUuid || currentEntry?.storeId || "",
+        phase1LoginId: currentEntry?.phase1LoginId || currentEntry?.storeId || ""
+      });
     }
   }
 
@@ -235,7 +254,7 @@ class KnowledgeUpdateRepository {
   }
 
   async allForAdmin() {
-    if (!STORE_MASTER_CONFIG.authEndpoint) {
+    if (!hasRemoteBackend()) {
       return this.all();
     }
 
@@ -251,7 +270,7 @@ class KnowledgeUpdateRepository {
     const updates = this.all();
     updates.unshift(entry);
     localStorage.setItem(STORAGE_KEYS.knowledgeUpdates, JSON.stringify(updates.slice(0, 100)));
-    if (STORE_MASTER_CONFIG.authEndpoint) {
+    if (hasRemoteBackend()) {
       await requestBackend("appendKnowledgeUpdate", {
         updateId: entry.id,
         createdAt: entry.createdAt,
@@ -260,6 +279,7 @@ class KnowledgeUpdateRepository {
         owner: entry.owner,
         memo: entry.memo,
         updatedBy: entry.updatedBy,
+        phase1LoginId: entry.phase1LoginId || session?.id || "",
         source: "NOV Concierge"
       });
     }
@@ -273,7 +293,7 @@ class LinkMasterRepository {
 
   async all() {
     if (this.cache) return this.cache;
-    if (!STORE_MASTER_CONFIG.authEndpoint) {
+    if (!hasRemoteBackend()) {
       this.cache = {};
       return this.cache;
     }
@@ -354,8 +374,6 @@ const elements = {
 };
 
 let session = authProvider.currentSession();
-const initialQuestion = new URLSearchParams(window.location.search).get("q")?.trim() || "";
-let initialQuestionHandled = false;
 
 elements.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -414,6 +432,7 @@ elements.knowledgeUpdateForm.addEventListener("submit", async (event) => {
     owner: area.owner,
     memo,
     updatedBy: session.name,
+    phase1LoginId: session.id,
     createdAt: new Date().toISOString()
   };
   try {
@@ -443,6 +462,7 @@ elements.answerRuleForm.addEventListener("submit", async (event) => {
   try {
     const result = await requestBackend("appendAnswerRule", {
       ruleId: createRuleId(ruleName),
+      phase1LoginId: session.id,
       keywords,
       notebook: elements.answerRuleNotebook.value,
       answer,
@@ -491,12 +511,6 @@ function showHub() {
   if (!elements.chatMessages.children.length) {
     addAssistantWelcome();
   }
-  if (initialQuestion && !initialQuestionHandled) {
-    elements.questionInput.value = initialQuestion;
-    elements.questionInput.focus();
-    initialQuestionHandled = true;
-    window.history.replaceState(null, "", window.location.pathname);
-  }
 }
 
 function showAdmin() {
@@ -519,6 +533,8 @@ async function askConcierge(question) {
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
     storeId: session.id,
+    storeUuid: session.storeId,
+    phase1LoginId: session.id,
     storeName: session.name,
     question,
     answer: response.answer,
@@ -595,6 +611,10 @@ function createFeedback(logId) {
   label.textContent = "この回答は役に立ちましたか？";
   wrapper.append(label);
 
+  const status = document.createElement("span");
+  status.className = "feedback-status";
+  status.setAttribute("aria-live", "polite");
+
   [
     { rating: "up", label: "役に立った" },
     { rating: "down", label: "改善が必要" }
@@ -603,21 +623,37 @@ function createFeedback(logId) {
     button.type = "button";
     button.textContent = item.label;
     button.addEventListener("click", async () => {
+      const buttons = Array.from(wrapper.querySelectorAll("button"));
+      buttons.forEach((current) => {
+        current.classList.toggle("selected", current === button);
+        current.disabled = true;
+      });
+      wrapper.dataset.state = "saving";
+      status.textContent = "保存中";
+
       try {
         await logRepository.updateRating(logId, item.rating);
+        wrapper.dataset.state = "saved";
+        status.textContent = "保存しました";
       } catch (error) {
         console.warn("Failed to sync rating", error);
+        wrapper.dataset.state = "error";
+        status.textContent = "保存できませんでした";
+        button.classList.remove("selected");
         appendMessage("assistant", `評価保存に失敗しました: ${error.message || error}`, {
           meta: "管理用メッセージ"
         });
+      } finally {
+        buttons.forEach((current) => {
+          current.disabled = false;
+        });
       }
-      wrapper.querySelectorAll("button").forEach((current) => current.classList.remove("selected"));
-      button.classList.add("selected");
       if (elements.adminView.hidden === false) renderAdmin();
     });
     wrapper.append(button);
   });
 
+  wrapper.append(status);
   return wrapper;
 }
 
@@ -984,61 +1020,59 @@ function createRuleId(value) {
 }
 
 function authenticateWithStoreMaster(storeId, storePass) {
-  return requestBackend("login", {
+  const payload = {
+    action: "login",
     storeId: storeId.trim(),
     storePass
-  }).then((result) => {
+  };
+
+  const request = STORE_MASTER_CONFIG.loginEndpoint
+    ? requestJson(STORE_MASTER_CONFIG.loginEndpoint, payload)
+    : Promise.resolve({ ok: false, error: "ログインAPIが設定されていません。" });
+
+  return request.then((result) => {
     if (!result.ok) {
       throw new Error(result.error || "店舗IDまたは店舗PASSが違います。");
     }
+    const store = result.store || result;
     return {
-      id: result.store.id,
-      name: result.store.name,
-      admin: Boolean(result.store.admin),
-      source: "store-master"
+      id: store.loginId || store.id,
+      storeId: store.storeId || store.id,
+      name: store.name,
+      admin: Boolean(store.admin),
+      token: store.sessionToken || store.token,
+      source: store.source || "store-master"
     };
+  });
+}
+
+function requestJson(url, payload) {
+  return fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  }).then(async (response) => {
+    const result = await response.json().catch(() => null);
+    if (!result) {
+      throw new Error("店舗マスタに接続できませんでした。");
+    }
+    return result;
   });
 }
 
 function requestBackend(action, payload) {
-  const params = new URLSearchParams({
-    action,
-    spreadsheetId: STORE_MASTER_CONFIG.spreadsheetId,
-    logSpreadsheetId: STORE_MASTER_CONFIG.logSpreadsheetId,
-    ...payload
-  });
-  return requestJsonp(`${STORE_MASTER_CONFIG.authEndpoint}?${params.toString()}`);
+  if (STORE_MASTER_CONFIG.apiEndpoint && SUPABASE_BACKEND_ACTIONS.has(action)) {
+    const sessionPayload = session?.token ? { sessionToken: session.token } : {};
+    return requestJson(STORE_MASTER_CONFIG.apiEndpoint, { action, ...sessionPayload, ...payload });
+  }
+
+  return Promise.resolve({ ok: false, error: "未対応の操作です。" });
 }
 
-function requestJsonp(url) {
-  return new Promise((resolve, reject) => {
-    const callbackName = `novConciergeCallback${Date.now()}${Math.floor(Math.random() * 10000)}`;
-    const script = document.createElement("script");
-    const separator = url.includes("?") ? "&" : "?";
-    const timeout = window.setTimeout(() => {
-      cleanup();
-      reject(new Error("店舗マスタに接続できませんでした。"));
-    }, 10000);
-
-    window[callbackName] = (payload) => {
-      cleanup();
-      resolve(payload);
-    };
-
-    script.onerror = () => {
-      cleanup();
-      reject(new Error("店舗マスタに接続できませんでした。"));
-    };
-
-    function cleanup() {
-      window.clearTimeout(timeout);
-      delete window[callbackName];
-      script.remove();
-    }
-
-    script.src = `${url}${separator}callback=${callbackName}`;
-    document.body.append(script);
-  });
+function hasRemoteBackend() {
+  return Boolean(STORE_MASTER_CONFIG.apiEndpoint);
 }
 
 function readJson(key, fallback) {

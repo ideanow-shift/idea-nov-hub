@@ -19,9 +19,20 @@ const SUPABASE_BACKEND_ACTIONS = new Set([
   "updateLink",
   "appendAnswerRule",
   "updateAnswerRule",
+  "listDepartmentRoutes",
+  "createDepartmentInquiry",
   "listKnowledgeUpdates",
   "appendKnowledgeUpdate"
 ]);
+
+const LINK_DEPARTMENT_ROUTES = {
+  "hr-contact": "hr",
+  "retirement-contact": "hr",
+  "accounting-contact": "accounting",
+  "education-contact": "education",
+  "sales-contact": "sales",
+  "fc-contact": "fc"
+};
 
 const STORAGE_KEYS = {
   session: "novConcierge.session.v1",
@@ -354,12 +365,47 @@ class LinkMasterRepository {
   }
 }
 
+class DepartmentInquiryRepository {
+  constructor() {
+    this.routeCache = null;
+  }
+
+  async routes() {
+    if (this.routeCache) return this.routeCache;
+    if (!hasRemoteBackend()) {
+      this.routeCache = {};
+      return this.routeCache;
+    }
+
+    try {
+      const result = await requestBackend("listDepartmentRoutes", {});
+      this.routeCache = result.ok ? Object.fromEntries(result.routes.map((route) => [route.id, route])) : {};
+      return this.routeCache;
+    } catch {
+      this.routeCache = {};
+      return this.routeCache;
+    }
+  }
+
+  async create(inquiry) {
+    const result = await requestBackend("createDepartmentInquiry", {
+      routeId: inquiry.routeId,
+      questionLogId: inquiry.questionLogId || "",
+      subject: inquiry.subject,
+      body: inquiry.body
+    });
+    if (!result.ok) throw new Error(result.error || "問い合わせを送信できませんでした。");
+    return result;
+  }
+}
+
 const authProvider = new StoreAuthProvider();
 const answerRuleRepository = new AnswerRuleRepository();
 const knowledgeAdapter = new KnowledgeAdapter();
 const logRepository = new ConversationLogRepository();
 const knowledgeUpdateRepository = new KnowledgeUpdateRepository();
 const linkMasterRepository = new LinkMasterRepository();
+const departmentInquiryRepository = new DepartmentInquiryRepository();
 
 const elements = {
   loginView: document.querySelector("#loginView"),
@@ -675,9 +721,15 @@ async function askConcierge(question) {
   appendMessage("user", question);
   const pending = appendMessage("assistant", "確認しています。必要な情報、申請、アプリへの導線を整理します。");
   const response = await knowledgeAdapter.ask({ question, store: session });
+  const logId = crypto.randomUUID();
   const resolvedLinks = await linkMasterRepository.resolve(response.links || []);
+  const displayLinks = resolvedLinks.map((link) => ({
+    ...link,
+    question,
+    questionLogId: logId
+  }));
   const entry = {
-    id: crypto.randomUUID(),
+    id: logId,
     createdAt: new Date().toISOString(),
     storeId: session.id,
     storeUuid: session.storeId,
@@ -703,7 +755,7 @@ async function askConcierge(question) {
   pending.remove();
   appendMessage("assistant", response.answer, {
     meta: response.notebook,
-    links: resolvedLinks,
+    links: displayLinks,
     riskLevel: response.riskLevel,
     requiresHumanCheck: response.requiresHumanCheck || response.confidence === "low",
     feedbackId: entry.id
@@ -737,6 +789,12 @@ function appendMessage(role, text, options = {}) {
     const linkList = document.createElement("div");
     linkList.className = "link-list";
     options.links.forEach((link) => {
+      const departmentRouteId = LINK_DEPARTMENT_ROUTES[link.id];
+      if (departmentRouteId) {
+        linkList.append(createDepartmentInquiryButton(link, departmentRouteId));
+        return;
+      }
+
       const anchor = document.createElement("a");
       anchor.href = link.href;
       anchor.textContent = `${link.label} >`;
@@ -760,6 +818,98 @@ function appendMessage(role, text, options = {}) {
   elements.chatMessages.append(node);
   elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
   return node;
+}
+
+function createDepartmentInquiryButton(link, routeId) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "department-inquiry";
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "department-inquiry-button";
+  button.textContent = `${link.label} >`;
+  button.setAttribute("aria-label", `${link.label}へ問い合わせる`);
+  wrapper.append(button);
+
+  const form = document.createElement("form");
+  form.className = "department-inquiry-form";
+  form.hidden = true;
+
+  const textarea = document.createElement("textarea");
+  textarea.rows = 4;
+  textarea.placeholder = "問い合わせ内容を入力";
+  textarea.value = link.question ? `質問内容: ${link.question}\n\n相談内容: ` : "";
+  form.append(textarea);
+
+  const actions = document.createElement("div");
+  actions.className = "department-inquiry-actions";
+
+  const submitButton = document.createElement("button");
+  submitButton.type = "submit";
+  submitButton.className = "primary-button";
+  submitButton.textContent = "送信";
+  actions.append(submitButton);
+
+  const cancelButton = document.createElement("button");
+  cancelButton.type = "button";
+  cancelButton.className = "text-button";
+  cancelButton.textContent = "キャンセル";
+  actions.append(cancelButton);
+
+  const status = document.createElement("p");
+  status.className = "save-status";
+  status.setAttribute("role", "status");
+
+  form.append(actions);
+  form.append(status);
+  wrapper.append(form);
+
+  button.addEventListener("click", () => {
+    form.hidden = !form.hidden;
+    if (!form.hidden) textarea.focus();
+  });
+
+  cancelButton.addEventListener("click", () => {
+    form.hidden = true;
+    status.textContent = "";
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const body = textarea.value.trim();
+    if (!body) {
+      status.textContent = "問い合わせ内容を入力してください。";
+      return;
+    }
+
+    submitButton.disabled = true;
+    button.textContent = "送信中";
+    status.textContent = "送信中です。";
+    try {
+      const result = await departmentInquiryRepository.create({
+        routeId,
+        questionLogId: link.questionLogId,
+        subject: link.question || link.label,
+        body
+      });
+      const routeName = result.routeName || link.label;
+      const delivery = result.delivery === "queued" ? "LINE WORKS送信待ちに登録しました。" : "問い合わせ履歴に保存しました。";
+      appendMessage("assistant", `${routeName}への問い合わせを受け付けました。${delivery}`, {
+        meta: "問い合わせ受付"
+      });
+      form.hidden = true;
+      button.textContent = "受付済み";
+      button.disabled = true;
+    } catch (error) {
+      console.warn("Failed to create department inquiry", error);
+      button.textContent = `${link.label} >`;
+      status.textContent = `受付に失敗しました: ${error.message || error}`;
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+
+  return wrapper;
 }
 
 function createFeedback(logId) {

@@ -292,7 +292,8 @@ a:focus-visible {
   margin-top: 12px;
 }
 
-.link-list a {
+.link-list a,
+.department-inquiry-button {
   align-items: center;
   background: #ffffff;
   border: 1px solid var(--line);
@@ -303,12 +304,53 @@ a:focus-visible {
   justify-content: space-between;
   padding: 10px 12px;
   text-decoration: none;
+  width: 100%;
 }
 
 .link-list a:hover,
+.department-inquiry-button:hover,
 .knowledge-actions a:hover {
   background: var(--surface-tint);
   border-color: var(--brand);
+}
+
+.department-inquiry-button:disabled {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  cursor: default;
+  opacity: 0.86;
+}
+
+.department-inquiry {
+  display: grid;
+  gap: 8px;
+}
+
+.department-inquiry-form {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.department-inquiry-form textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.department-inquiry-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.department-inquiry-actions .primary-button,
+.department-inquiry-actions .text-button {
+  min-height: 40px;
+  padding: 8px 14px;
 }
 
 .human-check-notice {

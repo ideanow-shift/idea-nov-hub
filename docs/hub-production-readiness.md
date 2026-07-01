@@ -13,6 +13,7 @@ NOV HUBを本番運用するための確認項目です。
 - アプリカードは `public.portal_apps` を正本にする
 - 各アプリへは `hub_context` を渡す
 - `pin_hash`、Firebase ID token、Supabase service_role key、LINE WORKS Secretはフロントへ出さない
+- `public.employee_roles` は `service_role` に `select / insert / update` をgrant済み。共通ロール `staff` 付与とアプリ別権限更新に必要。
 
 ## Health Check
 
@@ -50,6 +51,24 @@ https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub-api?action=health
 - IDEA LINK中継ページは、現時点では既存IDEA LINK Web App URLへHUB Contextを渡す
 - 一部既存アプリは各プロジェクト側の移行完了まで外部URLとして扱う
 - `gas-backend` フォルダは履歴・緊急参照用として残すが、HUB本体の通常導線には使わない
+
+## 2026-07-02 完成時点チェック
+
+- 最新GitHub Pagesデプロイ: success
+- 最新公開スモークチェック: OK
+  - NOV HUB top: 200
+  - Master admin: 200
+  - NOV Navi: 200
+  - IDEA LINK bridge: 200
+  - Expense Hub: 200
+  - Runtime config: 200
+  - NOV HUB Edge health: 200 / 12 checks
+- `public.employee_roles` の `service_role` 権限:
+  - SELECT: true
+  - INSERT: true
+  - UPDATE: true
+- 共通ロール未設定者には、HUBマスタ管理の社員詳細上部から `staffを付与` できる
+- `staff` は一般スタッフ用のHUB基本権限であり、管理者・幹部権限ではない
 
 ## リリース前確認
 

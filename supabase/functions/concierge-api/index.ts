@@ -88,6 +88,10 @@ function normalizeLogSource(value: unknown): "rule" | "fallback" | "manual" | "a
   return "rule";
 }
 
+function notificationPurposeForRoute(routeId: string): string {
+  return `concierge_${routeId.replace(/[^a-z0-9_-]/gi, "_").toLowerCase()}`;
+}
+
 function toBoolean(value: unknown): boolean {
   if (value === true) return true;
   if (value === false) return false;
@@ -512,12 +516,36 @@ Deno.serve(async (request) => {
         return json({ ok: false, error: "問い合わせ先を取得できませんでした。" }, 500);
       }
 
+      const purposes = (data || []).map((row) => notificationPurposeForRoute(row.id));
+      const { data: destinations, error: destinationError } = purposes.length
+        ? await supabase
+          .schema("os")
+          .from("notification_destinations")
+          .select("purpose, channel_name, is_active")
+          .eq("provider", "line_works")
+          .eq("target_type", "global")
+          .in("purpose", purposes)
+          .eq("is_active", true)
+        : { data: [], error: null };
+
+      if (destinationError) {
+        console.error("listDepartmentRoutes destinations failed", destinationError);
+      }
+
+      const destinationByPurpose = new Map<string, { channel_name?: string }>();
+      for (const destination of destinations || []) {
+        destinationByPurpose.set(String(destination.purpose || ""), destination);
+      }
+
       return json({
         ok: true,
         routes: (data || []).map((row) => ({
           id: row.id,
           departmentName: row.department_name,
           owner: row.owner || "",
+          notificationPurpose: notificationPurposeForRoute(row.id),
+          notificationConfigured: destinationByPurpose.has(notificationPurposeForRoute(row.id)),
+          notificationChannelName: destinationByPurpose.get(notificationPurposeForRoute(row.id))?.channel_name || "",
           sortOrder: row.sort_order,
         })),
       });
@@ -569,6 +597,21 @@ Deno.serve(async (request) => {
         }
       }
 
+      const notificationPurpose = notificationPurposeForRoute(route.id);
+      const { data: destination, error: destinationError } = await supabase
+        .schema("os")
+        .from("notification_destinations")
+        .select("id, channel_name")
+        .eq("provider", "line_works")
+        .eq("target_type", "global")
+        .eq("purpose", notificationPurpose)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (destinationError) {
+        console.error("createDepartmentInquiry destination lookup failed", destinationError);
+      }
+
       const { data: inquiry, error } = await supabase
         .from("concierge_department_inquiries")
         .insert({
@@ -579,8 +622,13 @@ Deno.serve(async (request) => {
           subject,
           inquiry_text: body,
           status: "queued",
+          notification_error: destinationError
+            ? "notification_destination_lookup_failed"
+            : destination
+              ? null
+              : "notification_destination_not_configured",
         })
-        .select("id")
+        .select("id, notification_error")
         .single();
 
       if (error) {
@@ -593,6 +641,114 @@ Deno.serve(async (request) => {
         inquiryId: inquiry.id,
         routeName: route.department_name,
         delivery: "queued",
+        notificationPurpose,
+        notificationConfigured: Boolean(destination),
+        notificationChannelName: destination?.channel_name || "",
+        notificationError: inquiry.notification_error || "",
+      });
+    }
+
+    if (action === "listDepartmentInquiries") {
+      const admin = await requireAdmin(payload, sessionSecret);
+      if (!admin.ok) return admin.response;
+
+      const limitRaw = Number(getString(payload.limit) || "100");
+      const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 300) : 100;
+
+      const { data: inquiries, error } = await supabase
+        .from("concierge_department_inquiries")
+        .select("id, route_id, store_id, phase1_login_id, question_log_id, subject, inquiry_text, status, notification_id, notification_error, created_at, updated_at")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error("listDepartmentInquiries failed", error);
+        return json({ ok: false, error: "部門問い合わせログを取得できませんでした。" }, 500);
+      }
+
+      const rows = inquiries || [];
+      const routeIds = [...new Set(rows.map((row) => row.route_id).filter(Boolean))];
+      const storeIds = [...new Set(rows.map((row) => row.store_id).filter(Boolean))];
+
+      const { data: routes, error: routesError } = routeIds.length
+        ? await supabase
+          .from("concierge_department_routes")
+          .select("id, department_name")
+          .in("id", routeIds)
+        : { data: [], error: null };
+
+      if (routesError) {
+        console.error("listDepartmentInquiries routes failed", routesError);
+      }
+
+      const { data: stores, error: storesError } = storeIds.length
+        ? await supabase
+          .from("stores")
+          .select("id, store_name")
+          .in("id", storeIds)
+        : { data: [], error: null };
+
+      if (storesError) {
+        console.error("listDepartmentInquiries stores failed", storesError);
+      }
+
+      const purposes = routeIds.map((routeId) => notificationPurposeForRoute(String(routeId)));
+      const { data: destinations, error: destinationError } = purposes.length
+        ? await supabase
+          .schema("os")
+          .from("notification_destinations")
+          .select("purpose, channel_name, is_active")
+          .eq("provider", "line_works")
+          .eq("target_type", "global")
+          .in("purpose", purposes)
+          .eq("is_active", true)
+        : { data: [], error: null };
+
+      if (destinationError) {
+        console.error("listDepartmentInquiries destinations failed", destinationError);
+      }
+
+      const routeNameById = new Map<string, string>();
+      for (const route of routes || []) {
+        routeNameById.set(String(route.id), String(route.department_name || route.id));
+      }
+
+      const storeNameById = new Map<string, string>();
+      for (const store of stores || []) {
+        storeNameById.set(String(store.id), String(store.store_name || store.id));
+      }
+
+      const destinationByPurpose = new Map<string, { channel_name?: string }>();
+      for (const destination of destinations || []) {
+        destinationByPurpose.set(String(destination.purpose || ""), destination);
+      }
+
+      return json({
+        ok: true,
+        inquiries: rows.map((row) => {
+          const routeId = String(row.route_id || "");
+          const purpose = notificationPurposeForRoute(routeId);
+          const destination = destinationByPurpose.get(purpose);
+          return {
+            id: row.id,
+            routeId,
+            routeName: routeNameById.get(routeId) || routeId,
+            storeId: row.store_id,
+            storeName: storeNameById.get(String(row.store_id || "")) || row.phase1_login_id || "",
+            phase1LoginId: row.phase1_login_id || "",
+            questionLogId: row.question_log_id || "",
+            subject: row.subject || "",
+            inquiryText: row.inquiry_text || "",
+            status: row.status || "queued",
+            notificationId: row.notification_id || "",
+            notificationError: row.notification_error || "",
+            notificationPurpose: purpose,
+            notificationConfigured: Boolean(destination),
+            notificationChannelName: destination?.channel_name || "",
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+          };
+        }),
       });
     }
 

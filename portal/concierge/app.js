@@ -21,6 +21,7 @@ const SUPABASE_BACKEND_ACTIONS = new Set([
   "updateAnswerRule",
   "listDepartmentRoutes",
   "createDepartmentInquiry",
+  "listDepartmentInquiries",
   "listKnowledgeUpdates",
   "appendKnowledgeUpdate"
 ]);
@@ -397,6 +398,13 @@ class DepartmentInquiryRepository {
     if (!result.ok) throw new Error(result.error || "問い合わせを送信できませんでした。");
     return result;
   }
+
+  async allForAdmin() {
+    if (!hasRemoteBackend()) return [];
+    const result = await requestBackend("listDepartmentInquiries", {});
+    if (!result.ok) throw new Error(result.error || "問い合わせログを取得できませんでした。");
+    return result.inquiries || [];
+  }
 }
 
 const authProvider = new StoreAuthProvider();
@@ -433,6 +441,7 @@ const elements = {
   questionLogDateFrom: document.querySelector("#questionLogDateFrom"),
   questionLogDateTo: document.querySelector("#questionLogDateTo"),
   questionLogExportButton: document.querySelector("#questionLogExportButton"),
+  departmentInquiryList: document.querySelector("#departmentInquiryList"),
   questionRanking: document.querySelector("#questionRanking"),
   storeUsage: document.querySelector("#storeUsage"),
   wordRanking: document.querySelector("#wordRanking"),
@@ -1008,6 +1017,7 @@ async function renderAdmin() {
   renderRanking(elements.storeUsage, []);
   renderRanking(elements.wordRanking, []);
   elements.questionLogList.innerHTML = '<div class="question-log-item">読み込み中です。</div>';
+  elements.departmentInquiryList.innerHTML = '<div class="department-inquiry-item">読み込み中です。</div>';
   elements.unresolvedList.innerHTML = '<div class="issue-item">読み込み中です。</div>';
 
   const logs = await logRepository.allForAdmin();
@@ -1026,6 +1036,7 @@ async function renderAdmin() {
   renderRanking(elements.wordRanking, countWords(logs));
   renderQuestionLogList(adminLogCache);
   renderIssues(prioritizeIssues(logs).slice(0, 20));
+  renderDepartmentInquiries();
 }
 
 function renderQuestionLogList(logs) {
@@ -1065,6 +1076,56 @@ function renderQuestionLogList(logs) {
     item.append(head, meta, answer);
     elements.questionLogList.append(item);
   });
+}
+
+async function renderDepartmentInquiries() {
+  elements.departmentInquiryList.innerHTML = '<div class="department-inquiry-item">読み込み中です。</div>';
+  try {
+    const inquiries = await departmentInquiryRepository.allForAdmin();
+    elements.departmentInquiryList.innerHTML = "";
+    if (!inquiries.length) {
+      elements.departmentInquiryList.innerHTML = '<div class="department-inquiry-item">まだ部門問い合わせはありません。</div>';
+      return;
+    }
+
+    inquiries.slice(0, 30).forEach((entry) => {
+      const item = document.createElement("article");
+      item.className = "department-inquiry-item";
+
+      const head = document.createElement("div");
+      head.className = "question-log-head";
+
+      const title = document.createElement("strong");
+      title.textContent = `${entry.routeName || entry.routeId} / ${entry.subject || "問い合わせ"}`;
+
+      const status = document.createElement("span");
+      status.className = `inquiry-status ${entry.status || "queued"}`;
+      status.textContent = formatInquiryStatus(entry.status);
+      head.append(title, status);
+
+      const meta = document.createElement("small");
+      const notificationText = entry.notificationConfigured
+        ? `通知先: ${entry.notificationChannelName || "設定済み"}`
+        : "通知先未設定";
+      meta.textContent = `${formatDate(entry.createdAt)} / ${entry.storeName || entry.phase1LoginId || "不明"} / ${notificationText}`;
+
+      const body = document.createElement("p");
+      body.textContent = entry.inquiryText || "";
+
+      item.append(head, meta, body);
+      elements.departmentInquiryList.append(item);
+    });
+  } catch (error) {
+    elements.departmentInquiryList.innerHTML = `<div class="department-inquiry-item">問い合わせログを取得できませんでした: ${error.message || error}</div>`;
+  }
+}
+
+function formatInquiryStatus(status) {
+  if (status === "notified") return "通知済み";
+  if (status === "failed") return "失敗";
+  if (status === "resolved") return "対応済み";
+  if (status === "cancelled") return "取消";
+  return "通知待ち";
 }
 
 function filterQuestionLogs(logs) {

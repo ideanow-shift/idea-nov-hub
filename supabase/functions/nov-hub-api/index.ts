@@ -1,0 +1,882 @@
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+};
+
+const FIREBASE_API_KEY_FALLBACK = "AIzaSyBJAPJbAG_SdFmJqO0dIKh8v4Sd0tI0Vkc";
+const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") || "").replace(/\/+$/, "");
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const PIN_HASH_PEPPER = Deno.env.get("PIN_HASH_PEPPER") || "";
+const FIREBASE_API_KEY = Deno.env.get("FIREBASE_API_KEY") || FIREBASE_API_KEY_FALLBACK;
+
+type JsonRecord = Record<string, unknown>;
+
+class PortalError extends Error {
+  code: string;
+  status: number;
+  detail: string;
+
+  constructor(code: string, message: string, status = 400, detail = "") {
+    super(message);
+    this.code = code;
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+function jsonResponse(data: JsonRecord, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      ...CORS_HEADERS,
+      "Content-Type": "application/json; charset=utf-8",
+    },
+  });
+}
+
+function publicMessage(code: string) {
+  const messages: Record<string, string> = {
+    TOKEN_MISSING: "認証情報がありません。もう一度ログインしてください。",
+    TOKEN_VERIFICATION_FAILED: "ログイン情報を確認できませんでした。",
+    TOKEN_EMAIL_MISSING: "Googleアカウントのメールアドレスを確認できませんでした。",
+    SETUP_MISSING: "Supabase Edge Functionの設定が不足しています。",
+    ACCESS_DENIED: "このアカウントは社内ポータルの利用権限がありません。管理者へお問い合わせください。",
+    INVALID_REQUEST: "APIリクエストが正しくありません。",
+    SUPABASE_REQUEST_FAILED: "Supabaseとの通信に失敗しました。",
+    PIN_CHANGE_FAILED: "PIN変更に失敗しました。",
+  };
+  return messages[code] || "サーバー処理に失敗しました。";
+}
+
+function sanitizeErrorDetail(detail: unknown) {
+  return String(detail || "")
+    .replace(/AIza[0-9A-Za-z_-]+/g, "[API_KEY]")
+    .replace(/[A-Za-z0-9_-]{30,}/g, "[REDACTED]")
+    .slice(0, 240);
+}
+
+function normalizeEmail(value: unknown) {
+  const text = String(value || "").trim().toLowerCase();
+  const match = text.match(/[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+/);
+  return match ? match[0] : "";
+}
+
+function normalizeList(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item || "").trim()).filter(Boolean);
+  return String(value || "").split(/[,、\n]/).map((item) => item.trim()).filter(Boolean);
+}
+
+function uniqueStrings(values: unknown[]) {
+  return values.map((value) => String(value || "").trim()).filter((value, index, list) => value && list.indexOf(value) === index);
+}
+
+function assertSetup() {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new PortalError("SETUP_MISSING", "SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing.", 500);
+  }
+}
+
+function buildQuery(query: Record<string, unknown> = {}) {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value) !== "") params.set(key, String(value));
+  });
+  const text = params.toString();
+  return text ? `?${text}` : "";
+}
+
+async function supabaseRequest(path: string, options: {
+  schema?: string;
+  method?: string;
+  query?: Record<string, unknown>;
+  payload?: unknown;
+  prefer?: string;
+} = {}) {
+  assertSetup();
+  const method = (options.method || "GET").toUpperCase();
+  const schema = options.schema || "public";
+  const url = `${SUPABASE_URL}/rest/v1/${path}${buildQuery(options.query || {})}`;
+  const headers: Record<string, string> = {
+    apikey: SUPABASE_SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+    "Content-Type": "application/json",
+    "Accept-Profile": schema,
+    "Content-Profile": schema,
+  };
+  if (options.prefer) headers.Prefer = options.prefer;
+  const response = await fetch(url, {
+    method,
+    headers,
+    body: method === "GET" || method === "HEAD" ? undefined : JSON.stringify(options.payload || {}),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new PortalError("SUPABASE_REQUEST_FAILED", `${path} HTTP ${response.status}`, 502, text);
+  }
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (_error) {
+    return text;
+  }
+}
+
+async function readRows(path: string, options: Parameters<typeof supabaseRequest>[1] = {}) {
+  const data = await supabaseRequest(path, options);
+  return Array.isArray(data) ? data as JsonRecord[] : [];
+}
+
+async function verifyFirebaseToken(idToken: string) {
+  if (!idToken) throw new PortalError("TOKEN_MISSING", "Firebase ID token is required.", 401);
+  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(FIREBASE_API_KEY)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken }),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new PortalError("TOKEN_VERIFICATION_FAILED", "Firebase token verification failed.", 401, text);
+  }
+  const data = JSON.parse(text || "{}");
+  const user = data.users?.[0];
+  if (!user?.email) throw new PortalError("TOKEN_EMAIL_MISSING", "Firebase user email was not found.", 401);
+  return {
+    authType: "firebase",
+    email: normalizeEmail(user.email),
+    displayName: String(user.displayName || ""),
+    uid: String(user.localId || ""),
+  };
+}
+
+async function hashPin(pin: string) {
+  if (!PIN_HASH_PEPPER) throw new PortalError("SETUP_MISSING", "PIN_HASH_PEPPER is missing.", 500);
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(PIN_HASH_PEPPER),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(String(pin || "").trim()));
+  const bytes = new Uint8Array(signature);
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return `hmac-sha256$${btoa(binary)}`;
+}
+
+function constantTimeEquals(left: string, right: string) {
+  const a = String(left || "");
+  const b = String(right || "");
+  let diff = a.length ^ b.length;
+  const length = Math.max(a.length, b.length);
+  for (let i = 0; i < length; i += 1) {
+    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
+
+async function verifyPinHash(pin: string, storedHash: unknown) {
+  const hash = String(storedHash || "");
+  if (!hash.startsWith("hmac-sha256$")) return false;
+  return constantTimeEquals(await hashPin(pin), hash);
+}
+
+function isCredentialLocked(credential: JsonRecord) {
+  const lockedUntil = credential.locked_until;
+  return Boolean(lockedUntil && new Date(String(lockedUntil)).getTime() > Date.now());
+}
+
+function sanitizeLoginCredential(credential: JsonRecord | null) {
+  if (!credential) return null;
+  return {
+    id: String(credential.id || ""),
+    employee_id: String(credential.employee_id || ""),
+    login_email: normalizeEmail(credential.login_email),
+    pin_updated_at: String(credential.pin_updated_at || ""),
+    must_change_pin: Boolean(credential.must_change_pin),
+    login_enabled: credential.login_enabled !== false,
+    failed_attempts: Number(credential.failed_attempts || 0),
+    locked_until: credential.locked_until ? String(credential.locked_until) : null,
+    last_login_at: credential.last_login_at ? String(credential.last_login_at) : null,
+    created_at: String(credential.created_at || ""),
+    updated_at: String(credential.updated_at || ""),
+  };
+}
+
+async function findCredentialByEmail(email: string) {
+  const rows = await readRows("employee_login_credentials", {
+    query: {
+      select: "id,employee_id,login_email,pin_hash,pin_updated_at,must_change_pin,login_enabled,failed_attempts,locked_until,last_login_at,created_at,updated_at",
+      login_email: `eq.${normalizeEmail(email)}`,
+      limit: "1",
+    },
+  });
+  return rows[0] || null;
+}
+
+async function getCredentialByEmployeeId(employeeId: string) {
+  const rows = await readRows("employee_login_credentials", {
+    query: {
+      select: "id,employee_id,login_email,pin_updated_at,must_change_pin,login_enabled,failed_attempts,locked_until,last_login_at,created_at,updated_at",
+      employee_id: `eq.${employeeId}`,
+      limit: "1",
+    },
+  });
+  return rows[0] || null;
+}
+
+async function registerFailedPinAttempt(credential: JsonRecord) {
+  if (!credential?.id) return;
+  const failedAttempts = Number(credential.failed_attempts || 0) + 1;
+  const updates: JsonRecord = {
+    failed_attempts: failedAttempts,
+    updated_at: new Date().toISOString(),
+  };
+  if (failedAttempts >= 5) {
+    updates.locked_until = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  }
+  await supabaseRequest("employee_login_credentials", {
+    method: "PATCH",
+    query: { id: `eq.${credential.id}` },
+    payload: updates,
+    prefer: "return=minimal",
+  });
+}
+
+async function registerSuccessfulPinLogin(credential: JsonRecord) {
+  if (!credential?.id) return;
+  await supabaseRequest("employee_login_credentials", {
+    method: "PATCH",
+    query: { id: `eq.${credential.id}` },
+    payload: {
+      failed_attempts: 0,
+      locked_until: null,
+      last_login_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    prefer: "return=minimal",
+  });
+}
+
+async function authenticate(token: string, payload: JsonRecord) {
+  const authType = String(payload.authType || "firebase").trim().toLowerCase();
+  if (authType === "pin") {
+    const email = normalizeEmail(payload.email);
+    const pin = String(payload.pin || "").trim();
+    const credential = email ? await findCredentialByEmail(email) : null;
+    if (!credential || credential.login_enabled === false || isCredentialLocked(credential)) {
+      return { authType: "pin", email, displayName: "", employee: null };
+    }
+    const ok = await verifyPinHash(pin, credential.pin_hash);
+    if (!ok) {
+      await registerFailedPinAttempt(credential);
+      return { authType: "pin", email, displayName: "", employee: null };
+    }
+    await registerSuccessfulPinLogin(credential);
+    const employee = await getEmployeeById(String(credential.employee_id || ""));
+    return { authType: "pin", email, displayName: "", employee, credential };
+  }
+  return await verifyFirebaseToken(token);
+}
+
+async function getEmployeeById(id: string) {
+  if (!id) return null;
+  const rows = await readRows("employees", {
+    query: {
+      select: "id,employee_id,full_name,email,employment_status,employment_type,corporation_id,store_id,department_id,position_id,firebase_uid,is_active,source_row",
+      id: `eq.${id}`,
+      limit: "1",
+    },
+  });
+  return rows[0] || null;
+}
+
+async function findEmployeeForAuth(authUser: JsonRecord) {
+  if (authUser.authType === "pin") {
+    const employee = authUser.employee as JsonRecord | null;
+    if (!isEmployeeActive(employee)) return null;
+    return normalizeEmployee(employee, authUser.credential as JsonRecord | null);
+  }
+
+  const uid = String(authUser.uid || "").trim();
+  const email = normalizeEmail(authUser.email);
+  let rows: JsonRecord[] = [];
+  if (uid) {
+    rows = await readRows("employees", {
+      query: {
+        select: "id,employee_id,full_name,email,employment_status,employment_type,corporation_id,store_id,department_id,position_id,firebase_uid,is_active,source_row",
+        firebase_uid: `eq.${uid}`,
+        limit: "1",
+      },
+    });
+  }
+  if (!rows.length && email) {
+    rows = await readRows("employees", {
+      query: {
+        select: "id,employee_id,full_name,email,employment_status,employment_type,corporation_id,store_id,department_id,position_id,firebase_uid,is_active,source_row",
+        email: `eq.${email}`,
+        limit: "1",
+      },
+    });
+  }
+  const employee = rows[0] || null;
+  if (!isEmployeeActive(employee)) return null;
+  return normalizeEmployee(employee, await getCredentialByEmployeeId(String(employee.id || "")));
+}
+
+function isEmployeeActive(employee: JsonRecord | null) {
+  if (!employee || employee.is_active === false) return false;
+  const status = String(employee.employment_status || "");
+  return !/退職|休職|産休|育休/.test(status);
+}
+
+async function getOne(table: string, id: unknown, select: string) {
+  if (!id) return null;
+  const rows = await readRows(table, { query: { select, id: `eq.${id}`, limit: "1" } });
+  return rows[0] || null;
+}
+
+async function getRoles(employeeId: string) {
+  if (!employeeId) return [];
+  const employeeRoles = await readRows("employee_roles", {
+    query: {
+      select: "role_id",
+      employee_id: `eq.${employeeId}`,
+      is_active: "eq.true",
+      limit: "50",
+    },
+  });
+  const roleIds = uniqueStrings(employeeRoles.map((row) => row.role_id));
+  if (!roleIds.length) return [];
+  const roles = await readRows("roles", {
+    query: {
+      select: "id,role_key,role_name",
+      id: `in.(${roleIds.join(",")})`,
+    },
+  });
+  const byId = new Map(roles.map((role) => [String(role.id), role]));
+  return employeeRoles.map((row) => {
+    const role = byId.get(String(row.role_id)) || {};
+    return {
+      roleKey: String(role.role_key || ""),
+      roleName: String(role.role_name || ""),
+      scopeType: "",
+      scopeId: null,
+    };
+  }).filter((role) => role.roleKey);
+}
+
+async function getStoreAssignments(employeeId: string) {
+  if (!employeeId) return [];
+  const assignments = await readRows("employee_store_assignments", {
+    query: {
+      select: "store_id,assignment_order,assignment_type,is_active",
+      employee_id: `eq.${employeeId}`,
+      is_active: "eq.true",
+      order: "assignment_order.asc",
+      limit: "10",
+    },
+  });
+  const storeIds = uniqueStrings(assignments.map((row) => row.store_id));
+  if (!storeIds.length) return [];
+  const stores = await readRows("stores", {
+    query: {
+      select: "id,store_no,store_id,store_name",
+      id: `in.(${storeIds.join(",")})`,
+    },
+  });
+  const byId = new Map(stores.map((store) => [String(store.id), store]));
+  return assignments.map((row) => {
+    const store = byId.get(String(row.store_id)) || {};
+    return {
+      storeId: String(row.store_id || ""),
+      storeNo: String(store.store_no || ""),
+      storeCode: String(store.store_id || ""),
+      storeName: String(store.store_name || ""),
+      assignmentType: String(row.assignment_type || ""),
+      priority: Number(row.assignment_order || 0),
+    };
+  });
+}
+
+function buildPrimaryStore(store: JsonRecord | null, assignments: JsonRecord[]) {
+  const primary = assignments.find((item) => item.assignmentType === "primary" || Number(item.priority || 0) === 1);
+  if (primary) {
+    return {
+      id: String(primary.storeId || ""),
+      storeNo: String(primary.storeNo || ""),
+      storeId: String(primary.storeCode || ""),
+      name: String(primary.storeName || ""),
+    };
+  }
+  if (!store) return null;
+  return {
+    id: String(store.id || ""),
+    storeNo: String(store.store_no || ""),
+    storeId: String(store.store_id || ""),
+    name: String(store.store_name || ""),
+  };
+}
+
+function getRoleLevel(roleKeys: string[]) {
+  if (roleKeys.includes("super_admin") || roleKeys.includes("executive")) return 5;
+  if (roleKeys.includes("department_manager") || roleKeys.includes("backoffice") || roleKeys.includes("accounting")) return 4;
+  if (roleKeys.includes("area_manager") || roleKeys.includes("store_manager") || roleKeys.includes("fc_owner") || roleKeys.includes("trainer")) return 3;
+  return 1;
+}
+
+function buildTags(employee: JsonRecord, context: { department: JsonRecord | null; position: JsonRecord | null; store: JsonRecord | null; roleKeys: string[] }) {
+  const tags = ["all", ...context.roleKeys];
+  const departmentName = String(context.department?.department_name || "");
+  const positionName = String(context.position?.position_name || "");
+  const storeName = String(context.store?.store_name || "");
+  if (/営業/.test(departmentName)) tags.push("sales");
+  if (/教育/.test(departmentName)) tags.push("education");
+  if (/総務|人事/.test(departmentName)) tags.push("hr", "backoffice");
+  if (/経理/.test(departmentName)) tags.push("accounting");
+  if (/本部/.test(storeName) || departmentName) tags.push("hq");
+  if (context.roleKeys.includes("executive") || context.roleKeys.includes("super_admin")) tags.push("executive");
+  if (context.roleKeys.includes("backoffice")) tags.push("hq", "hr", "backoffice");
+  if (context.roleKeys.includes("accounting")) tags.push("hq", "accounting");
+  if (context.roleKeys.includes("trainer")) tags.push("education");
+  if (context.roleKeys.includes("store_manager") || context.roleKeys.includes("area_manager") || context.roleKeys.includes("department_manager") || /店長|部長|マネージャー/.test(positionName)) tags.push("manager");
+  if (context.roleKeys.includes("fc_owner") || /FC/.test(positionName)) tags.push("fc_owner");
+  return uniqueStrings(tags);
+}
+
+async function normalizeEmployee(employee: JsonRecord | null, credential: JsonRecord | null) {
+  if (!employee) return null;
+  const [corporation, store, department, position, roles, storeAssignments] = await Promise.all([
+    getOne("corporations", employee.corporation_id, "id,corporation_no,corporation_name,is_active"),
+    getOne("stores", employee.store_id, "id,store_no,store_id,store_name,area,store_type,corporation_id,business_unit_id,is_active"),
+    getOne("departments", employee.department_id, "id,department_code,department_name,is_active"),
+    getOne("positions", employee.position_id, "id,position_name,is_active"),
+    getRoles(String(employee.id || "")),
+    getStoreAssignments(String(employee.id || "")),
+  ]);
+  const roleKeys = roles.map((role) => role.roleKey).filter(Boolean);
+  const primaryStore = buildPrimaryStore(store, storeAssignments);
+  const source = (employee.source_row || {}) as JsonRecord;
+  const loginCredential = sanitizeLoginCredential(credential);
+  const tags = buildTags(employee, { department, position, store, roleKeys });
+  return {
+    id: String(employee.id || ""),
+    coreEmployeeId: String(employee.id || ""),
+    employeeId: String(employee.employee_id || ""),
+    employeeNumber: String(employee.employee_id || ""),
+    firebaseUid: String(employee.firebase_uid || ""),
+    email: normalizeEmail((loginCredential && loginCredential.login_email) || employee.email),
+    name: String(employee.full_name || employee.email || ""),
+    fullName: String(employee.full_name || employee.email || ""),
+    store: primaryStore?.name || String(source.assigned_location || ""),
+    storeCode: primaryStore?.storeId || "",
+    department: String(department?.department_name || source.department_name || ""),
+    position: String(position?.position_name || source.position_name || ""),
+    grade: "",
+    roleLevel: getRoleLevel(roleKeys),
+    roleKeys,
+    roles,
+    tags,
+    status: "active",
+    source: "supabase-edge",
+    corporation: String(corporation?.corporation_name || ""),
+    employmentStatus: String(employee.employment_status || ""),
+    employmentType: String(employee.employment_type || ""),
+    isActive: employee.is_active !== false,
+    loginCredential,
+    mustChangePin: Boolean(loginCredential?.must_change_pin),
+    corporationRef: corporation ? { id: String(corporation.id || ""), code: String(corporation.corporation_no || ""), name: String(corporation.corporation_name || "") } : null,
+    departmentRef: department ? { id: String(department.id || ""), code: String(department.department_code || ""), name: String(department.department_name || "") } : null,
+    positionRef: position ? { id: String(position.id || ""), name: String(position.position_name || "") } : null,
+    primaryStore,
+    storeAssignments,
+  };
+}
+
+function normalizeApp(row: JsonRecord) {
+  return {
+    id: String(row.id || ""),
+    appId: String(row.app_id || row.appId || ""),
+    appName: String(row.app_name || row.appName || ""),
+    description: String(row.description || ""),
+    url: String(row.url || ""),
+    category: String(row.category || "社内アプリ"),
+    icon: String(row.icon || "default"),
+    color: String(row.color || ""),
+    requiredLevel: Number(row.required_level || row.requiredLevel || 1),
+    allowedTags: normalizeList(row.allowed_tags || row.allowedTags),
+    targetDepartment: normalizeList(row.target_department || row.targetDepartment),
+    targetPosition: normalizeList(row.target_position || row.targetPosition),
+    isActive: row.is_active !== false && row.isActive !== false,
+    isFeatured: Boolean(row.is_featured || row.isFeatured),
+    priority: Number(row.priority || 999),
+    createdAt: String(row.created_at || ""),
+    updatedAt: String(row.updated_at || ""),
+  };
+}
+
+function fixedApps(employee: JsonRecord) {
+  const apps = [
+    {
+      appId: "idea-link",
+      appName: "IDEA LINK",
+      description: "サンクス投稿と理念行動共有のHUB連携準備ページ",
+      url: "./idea-link/",
+      category: "称賛",
+      icon: "idea-link",
+      requiredLevel: 1,
+      allowedTags: [],
+      targetDepartment: [],
+      targetPosition: [],
+      isActive: true,
+      isFeatured: false,
+      priority: 88,
+    },
+    {
+      appId: "expense-hub",
+      appName: "Expense Hub",
+      description: "経費明細登録・月次精算・経理確認",
+      url: "https://ideanow-shift.github.io/idea-nov-expense-hub/",
+      category: "Finance Module",
+      icon: "expense-hub",
+      requiredLevel: 1,
+      allowedTags: [],
+      targetDepartment: [],
+      targetPosition: [],
+      isActive: true,
+      isFeatured: false,
+      priority: 66,
+    },
+    {
+      appId: "human-capital-investment",
+      appName: "人財投資管理システム",
+      description: "採用活動・学校接点・人財投資状況を確認",
+      url: "https://ideanow-shift.github.io/hr-investment-dashboard/",
+      category: "人財",
+      icon: "human-capital-investment",
+      requiredLevel: 4,
+      allowedTags: ["executive", "backoffice"],
+      targetDepartment: [],
+      targetPosition: [],
+      isActive: true,
+      isFeatured: false,
+      priority: 64,
+    },
+    {
+      appId: "hub-context-test",
+      appName: "HUB Context Test",
+      description: "HUBから各アプリへ渡すログイン情報を確認します",
+      url: "./context-test/",
+      category: "開発・診断",
+      icon: "database",
+      requiredLevel: 5,
+      allowedTags: [],
+      targetDepartment: [],
+      targetPosition: [],
+      isActive: true,
+      isFeatured: false,
+      priority: 98,
+    },
+  ];
+  if (canViewMasterAdmin(employee)) {
+    apps.push({
+      appId: "core-master-admin",
+      appName: "社員・店舗マスタ管理",
+      description: "社員情報・店舗情報の基幹マスタを管理",
+      url: "./master-admin/",
+      category: "管理",
+      icon: "database",
+      requiredLevel: 4,
+      allowedTags: [],
+      targetDepartment: [],
+      targetPosition: [],
+      isActive: true,
+      isFeatured: true,
+      priority: 1,
+    });
+  }
+  return apps.map(normalizeApp);
+}
+
+function canViewMasterAdmin(employee: JsonRecord) {
+  const roleKeys = normalizeList(employee.roleKeys);
+  return roleKeys.some((role) => ["super_admin", "executive", "department_manager", "backoffice", "accounting"].includes(role))
+    || Number(employee.roleLevel || 0) >= 5
+    || normalizeEmail(employee.email) === "m.wakita@idea-nov.com";
+}
+
+function canAccessApp(employee: JsonRecord, app: ReturnType<typeof normalizeApp>) {
+  if (!employee || employee.status !== "active" || !app.isActive) return false;
+  if (Number(employee.roleLevel || 0) < Number(app.requiredLevel || 1)) return false;
+  const tags = normalizeList(employee.tags);
+  if (app.allowedTags.length && !app.allowedTags.some((tag) => tags.includes(tag))) return false;
+  if (app.targetDepartment.length && !app.targetDepartment.includes(String(employee.department || ""))) return false;
+  if (app.targetPosition.length && !app.targetPosition.includes(String(employee.position || ""))) return false;
+  return true;
+}
+
+async function readVisibleApps(employee: JsonRecord) {
+  const rows = await readRows("portal_apps", {
+    query: {
+      select: "*",
+      order: "priority.asc,app_name.asc",
+    },
+  }).catch(() => []);
+  let apps = rows.map(normalizeApp).filter((app) => canAccessApp(employee, app));
+  fixedApps(employee).forEach((fixed) => {
+    const index = apps.findIndex((app) => app.appId === fixed.appId);
+    if (index === -1) {
+      if (canAccessApp(employee, fixed)) apps.push(fixed);
+    } else if (fixed.appId === "expense-hub") {
+      apps[index] = { ...apps[index], url: fixed.url, icon: apps[index].icon || fixed.icon };
+    }
+  });
+  return apps.sort((a, b) => Number(a.priority || 999) - Number(b.priority || 999));
+}
+
+async function readAnnouncements() {
+  const rows = await readRows("announcements", {
+    query: {
+      select: "type,title,body,is_active,priority",
+      is_active: "eq.true",
+      order: "priority.asc",
+      limit: "10",
+    },
+  }).catch(() => []);
+  return rows.map((row) => ({
+    type: String(row.type || "info"),
+    title: String(row.title || ""),
+    body: String(row.body || ""),
+    isActive: row.is_active !== false,
+    priority: Number(row.priority || 999),
+  }));
+}
+
+function notificationRecipientIds(employee: JsonRecord) {
+  return uniqueStrings([employee.id, employee.coreEmployeeId, employee.supabaseEmployeeId, employee.employee_id]);
+}
+
+function normalizeNotification(row: JsonRecord) {
+  let targetQuery: unknown = row.target_query || {};
+  if (typeof targetQuery === "string") {
+    try {
+      targetQuery = JSON.parse(targetQuery);
+    } catch (_error) {
+      targetQuery = {};
+    }
+  }
+  return {
+    id: String(row.id || ""),
+    type: "info",
+    title: String(row.title || "Expense Hub通知"),
+    body: String(row.body || ""),
+    moduleKey: String(row.module_key || ""),
+    channel: String(row.channel || ""),
+    entityType: String(row.entity_type || ""),
+    entityId: String(row.entity_id || ""),
+    recipientEmployeeId: String(row.recipient_employee_id || ""),
+    recipientEmail: normalizeEmail(row.recipient_email),
+    recipientName: String(row.recipient_name || ""),
+    status: String(row.status || ""),
+    unread: row.unread === true || String(row.unread || "").toLowerCase() === "true",
+    actionLabel: String(row.action_label || ""),
+    targetModule: String(row.target_module || ""),
+    targetView: String(row.target_view || ""),
+    targetQuery,
+    createdAt: String(row.created_at || ""),
+  };
+}
+
+async function readNotifications(employee: JsonRecord) {
+  const baseQuery = {
+    select: "id,module_key,channel,entity_type,entity_id,recipient_employee_id,recipient_email,recipient_name,title,body,status,unread,action_label,target_module,target_view,target_query,created_at",
+    module_key: "eq.finance.expense",
+    channel: "eq.nov_hub",
+    target_module: "eq.expense_hub",
+    order: "created_at.desc",
+    limit: "20",
+  };
+  const ids = notificationRecipientIds(employee);
+  const queries = [
+    ...ids.map((id) => ({ ...baseQuery, recipient_employee_id: `eq.${id}` })),
+    ...(employee.email ? [{ ...baseQuery, recipient_email: `eq.${employee.email}` }] : []),
+  ];
+  const results = await Promise.all(queries.map((query) => readRows("nov_hub_notification_inbox", { schema: "os", query }).catch(() => [])));
+  const byId = new Map<string, JsonRecord>();
+  results.flat().forEach((row) => {
+    if (row.id) byId.set(String(row.id), row);
+  });
+  return [...byId.values()].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""))).slice(0, 20).map(normalizeNotification);
+}
+
+async function appendAccessLog(employee: JsonRecord | null, entry: JsonRecord) {
+  try {
+    await supabaseRequest("access_logs", {
+      method: "POST",
+      payload: {
+        occurred_at: new Date().toISOString(),
+        email: String(entry.email || employee?.email || ""),
+        employee_name: String(entry.name || employee?.name || ""),
+        action: String(entry.action || ""),
+        app_id: String(entry.appId || ""),
+        app_name: String(entry.appName || ""),
+        result: String(entry.result || ""),
+        detail: typeof entry.detail === "object" && entry.detail ? entry.detail : {},
+      },
+      prefer: "return=minimal",
+    });
+  } catch (error) {
+    console.error("Access log write failed", error);
+  }
+}
+
+async function changeOwnPin(employee: JsonRecord, payload: JsonRecord) {
+  const newPin = String(payload.new_pin || payload.newPin || "").trim();
+  if (!/^\d{4,12}$/.test(newPin)) throw new PortalError("PIN_CHANGE_FAILED", "Invalid PIN.", 400);
+  const credential = await getCredentialByEmployeeId(String(employee.id || ""));
+  if (!credential?.id) throw new PortalError("PIN_CHANGE_FAILED", "Credential not found.", 404);
+  const now = new Date().toISOString();
+  const updated = {
+    pin_hash: await hashPin(newPin),
+    pin_updated_at: now,
+    must_change_pin: false,
+    failed_attempts: 0,
+    locked_until: null,
+    updated_at: now,
+  };
+  const rows = await readRows("employee_login_credentials", {
+    method: "PATCH",
+    query: { id: `eq.${credential.id}`, select: "id,employee_id,login_email,pin_updated_at,must_change_pin,login_enabled,failed_attempts,locked_until,last_login_at,created_at,updated_at" },
+    payload: updated,
+    prefer: "return=representation",
+  });
+  return sanitizeLoginCredential(rows[0] || { ...credential, ...updated });
+}
+
+async function parseRequest(request: Request) {
+  const url = new URL(request.url);
+  if (request.method === "GET") {
+    return { action: url.searchParams.get("action") || "health", token: "", payload: {} as JsonRecord };
+  }
+  const contentType = request.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const data = await request.json().catch(() => ({}));
+    return {
+      action: String(data.action || ""),
+      token: String(data.token || ""),
+      payload: (data.payload && typeof data.payload === "object" ? data.payload : {}) as JsonRecord,
+    };
+  }
+  const form = await request.formData();
+  const payloadText = String(form.get("payload") || "{}");
+  let payload: JsonRecord = {};
+  try {
+    payload = JSON.parse(payloadText || "{}");
+  } catch (_error) {
+    payload = {};
+  }
+  return {
+    action: String(form.get("action") || ""),
+    token: String(form.get("token") || ""),
+    payload,
+  };
+}
+
+async function handleHealth() {
+  const checks: JsonRecord = {
+    supabaseUrlConfigured: Boolean(SUPABASE_URL),
+    supabaseServiceRoleKeyConfigured: Boolean(SUPABASE_SERVICE_ROLE_KEY),
+    pinHashPepperConfigured: Boolean(PIN_HASH_PEPPER),
+    firebaseApiKeyConfigured: Boolean(FIREBASE_API_KEY),
+    employeesReachable: false,
+    loginCredentialsReachable: false,
+    portalAppsReachable: false,
+    accessLogsReachable: false,
+  };
+  try {
+    checks.employeesReachable = Array.isArray(await readRows("employees", { query: { select: "id", limit: "1" } }));
+    checks.loginCredentialsReachable = Array.isArray(await readRows("employee_login_credentials", { query: { select: "id", limit: "1" } }));
+    checks.portalAppsReachable = Array.isArray(await readRows("portal_apps", { query: { select: "id,app_id,is_active", limit: "200" } }));
+    checks.accessLogsReachable = Array.isArray(await readRows("access_logs", { query: { select: "id", limit: "1" } }));
+  } catch (error) {
+    checks.error = sanitizeErrorDetail(error instanceof PortalError ? error.detail || error.message : error);
+  }
+  const ok = Boolean(checks.supabaseUrlConfigured && checks.supabaseServiceRoleKeyConfigured && checks.pinHashPepperConfigured && checks.firebaseApiKeyConfigured && checks.employeesReachable && checks.loginCredentialsReachable && checks.portalAppsReachable);
+  return jsonResponse({ ok, service: "NOV HUB Edge API", checks, timestamp: new Date().toISOString() });
+}
+
+Deno.serve(async (request) => {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
+  try {
+    const { action, token, payload } = await parseRequest(request);
+    if (action === "health") return await handleHealth();
+
+    const authUser = await authenticate(token, payload);
+    const employee = await findEmployeeForAuth(authUser);
+    if (!employee) {
+      await appendAccessLog(null, {
+        email: authUser.email,
+        name: authUser.displayName,
+        action: "denied",
+        result: "denied",
+        detail: { authType: authUser.authType || "" },
+      });
+      return jsonResponse({ ok: false, code: "ACCESS_DENIED", message: publicMessage("ACCESS_DENIED") }, 403);
+    }
+
+    if (action === "bootstrap") {
+      const apps = await readVisibleApps(employee);
+      return jsonResponse({ ok: true, employee, apps, announcements: [], performance: { source: "supabase-edge" } });
+    }
+
+    if (action === "announcements") {
+      return jsonResponse({ ok: true, announcements: await readAnnouncements(), performance: { source: "supabase-edge" } });
+    }
+
+    if (action === "novHubNotifications") {
+      return jsonResponse({ ok: true, notifications: await readNotifications(employee), performance: { source: "supabase-edge" } });
+    }
+
+    if (action === "changeOwnPin") {
+      return jsonResponse({ ok: true, credential: await changeOwnPin(employee, payload) });
+    }
+
+    if (action === "log") {
+      const logAction = String(payload.action || "");
+      if (!["login", "openApp", "logout"].includes(logAction)) {
+        throw new PortalError("INVALID_REQUEST", "Unsupported log action.", 400);
+      }
+      if (logAction === "openApp") {
+        const apps = await readVisibleApps(employee);
+        const appId = String(payload.appId || "");
+        if (!apps.some((app) => app.appId === appId)) {
+          await appendAccessLog(employee, { ...payload, action: logAction, result: "denied" });
+          return jsonResponse({ ok: false, code: "ACCESS_DENIED", message: "このアプリを利用する権限がありません。" }, 403);
+        }
+      }
+      await appendAccessLog(employee, { ...payload, action: logAction });
+      return jsonResponse({ ok: true });
+    }
+
+    return jsonResponse({ ok: false, code: "UNKNOWN_ACTION", message: "未対応の操作です。" }, 400);
+  } catch (error) {
+    const portalError = error instanceof PortalError
+      ? error
+      : new PortalError("SERVER_ERROR", "Unexpected server error.", 500, String(error));
+    console.error(JSON.stringify({
+      code: portalError.code,
+      message: sanitizeErrorDetail(portalError.message),
+      detail: sanitizeErrorDetail(portalError.detail),
+    }));
+    return jsonResponse({
+      ok: false,
+      code: portalError.code,
+      message: publicMessage(portalError.code),
+      detail: sanitizeErrorDetail(portalError.detail || portalError.message),
+    }, portalError.status);
+  }
+});

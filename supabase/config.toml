@@ -1,0 +1,4 @@
+project_id = "nkmxevmioczcmnldreyo"
+
+[functions.nov-hub-api]
+verify_jwt = false

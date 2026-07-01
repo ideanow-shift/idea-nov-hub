@@ -3,6 +3,7 @@ import { getIdToken } from "./auth.js";
 
 let currentAuth = { authType: "firebase" };
 const API_TIMEOUT_MS = 18000;
+const EDGE_ACTIONS = new Set(["bootstrap", "announcements", "novHubNotifications", "changeOwnPin", "log"]);
 
 export function setPinAuth(email, pin) {
   currentAuth = { authType: "pin", email: String(email || "").trim(), pin: String(pin || "").trim() };
@@ -23,11 +24,45 @@ async function postToApi(action, payload = {}) {
     token: currentAuth.authType === "pin" ? "" : await getIdToken(),
     payload: JSON.stringify(requestPayload)
   });
+  const endpoints = getApiEndpoints(action);
+  let lastError = null;
+  for (const endpoint of endpoints) {
+    try {
+      return await postToEndpoint(endpoint, body);
+    } catch (error) {
+      lastError = error;
+      if (!shouldFallbackToNextEndpoint(error)) throw error;
+      console.warn("NOV HUB API endpoint failed. Trying fallback.", {
+        endpoint,
+        code: error.code || "",
+        detail: error.detail || ""
+      });
+    }
+  }
+  throw lastError || new Error("API接続先が設定されていません。");
+}
+
+function getApiEndpoints(action) {
+  const endpoints = [];
+  const useEdge = PORTAL_CONFIG.apiMode === "edge"
+    && PORTAL_CONFIG.edgeApiUrl
+    && EDGE_ACTIONS.has(action)
+    && (currentAuth.authType !== "pin" || PORTAL_CONFIG.edgePinEnabled === true);
+  if (useEdge) endpoints.push(PORTAL_CONFIG.edgeApiUrl);
+  if (PORTAL_CONFIG.gasApiUrl) endpoints.push(PORTAL_CONFIG.gasApiUrl);
+  return [...new Set(endpoints)];
+}
+
+function shouldFallbackToNextEndpoint(error) {
+  return ["API_TIMEOUT", "NETWORK_ERROR", "HTTP_ERROR", "SETUP_MISSING", "SERVER_ERROR", "SUPABASE_REQUEST_FAILED"].includes(error?.code || "");
+}
+
+async function postToEndpoint(endpoint, body) {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
   let response;
   try {
-    response = await fetch(PORTAL_CONFIG.gasApiUrl, {
+    response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
       body,

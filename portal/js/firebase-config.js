@@ -1,5 +1,8 @@
 export const PORTAL_CONFIG = {
   authMode: "firebase",
+  apiMode: "edge",
+  edgePinEnabled: false,
+  edgeApiUrl: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub-api",
   gasApiUrl: "https://script.google.com/macros/s/AKfycbxhw4yy64GUn5K-3cvynOLqdTDThP1L_L-U6ViqNf9SOj5PEg9XUv7mTgyjGhe9i-V3/exec",
   firebase: {
     apiKey: "AIzaSyBJAPJbAG_SdFmJqO0dIKh8v4Sd0tI0Vkc",

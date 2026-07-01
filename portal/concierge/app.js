@@ -376,6 +376,7 @@ const elements = {
   clearHistoryButton: document.querySelector("#clearHistoryButton"),
   totalQuestions: document.querySelector("#totalQuestions"),
   negativeCount: document.querySelector("#negativeCount"),
+  humanCheckCount: document.querySelector("#humanCheckCount"),
   unratedCount: document.querySelector("#unratedCount"),
   questionLogList: document.querySelector("#questionLogList"),
   questionLogSearch: document.querySelector("#questionLogSearch"),
@@ -828,6 +829,7 @@ function renderHistory() {
 async function renderAdmin() {
   elements.totalQuestions.textContent = "...";
   elements.negativeCount.textContent = "...";
+  elements.humanCheckCount.textContent = "...";
   elements.unratedCount.textContent = "...";
   renderRanking(elements.questionRanking, []);
   renderRanking(elements.storeUsage, []);
@@ -838,17 +840,19 @@ async function renderAdmin() {
   const logs = await logRepository.allForAdmin();
   adminLogCache = logs;
   const negativeLogs = logs.filter((entry) => entry.rating === "down");
+  const humanCheckLogs = logs.filter((entry) => entry.needsHumanCheck || entry.riskLevel === "high");
   const unratedLogs = logs.filter((entry) => !entry.rating);
 
   elements.totalQuestions.textContent = String(logs.length);
   elements.negativeCount.textContent = String(negativeLogs.length);
+  elements.humanCheckCount.textContent = String(humanCheckLogs.length);
   elements.unratedCount.textContent = String(unratedLogs.length);
 
   renderRanking(elements.questionRanking, countBy(logs, (entry) => entry.question));
-  renderRanking(elements.storeUsage, countBy(logs, (entry) => entry.storeName));
+  renderRanking(elements.storeUsage, countBy(logs, (entry) => entry.storeName || entry.phase1LoginId || entry.storeId));
   renderRanking(elements.wordRanking, countWords(logs));
   renderQuestionLogList(adminLogCache);
-  renderIssues([...negativeLogs, ...unratedLogs].slice(0, 20));
+  renderIssues(prioritizeIssues(logs).slice(0, 20));
 }
 
 function renderQuestionLogList(logs) {
@@ -1328,7 +1332,7 @@ function renderIssues(items) {
     const question = document.createElement("div");
     question.textContent = entry.question;
     const small = document.createElement("small");
-    small.textContent = `${entry.storeName} / ${entry.rating === "down" ? "低評価" : "未評価"} / ${formatDate(entry.createdAt)}`;
+    small.textContent = `${entry.storeName || entry.phase1LoginId || "不明"} / ${formatIssueReason(entry)} / ${formatDate(entry.createdAt)}`;
     const action = document.createElement("button");
     action.type = "button";
     action.className = "text-button issue-action";
@@ -1339,6 +1343,34 @@ function renderIssues(items) {
     item.append(question, small, action);
     elements.unresolvedList.append(item);
   });
+}
+
+function prioritizeIssues(logs) {
+  return logs
+    .filter((entry) => entry.needsHumanCheck || entry.riskLevel === "high" || entry.rating === "down" || !entry.rating)
+    .sort((a, b) => {
+      const scoreDiff = issueScore(b) - issueScore(a);
+      if (scoreDiff) return scoreDiff;
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
+}
+
+function issueScore(entry) {
+  let score = 0;
+  if (entry.needsHumanCheck) score += 8;
+  if (entry.riskLevel === "high") score += 6;
+  if (entry.rating === "down") score += 4;
+  if (!entry.rating) score += 1;
+  return score;
+}
+
+function formatIssueReason(entry) {
+  const reasons = [];
+  if (entry.needsHumanCheck || entry.riskLevel === "high") reasons.push("要確認");
+  if (entry.rating === "down") reasons.push("低評価");
+  if (!entry.rating) reasons.push("未評価");
+  if (!reasons.length) reasons.push(formatRiskLevel(entry.riskLevel));
+  return reasons.join(" / ");
 }
 
 function populateAnswerRuleFromIssue(entry) {

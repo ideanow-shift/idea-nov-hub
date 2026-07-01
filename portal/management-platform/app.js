@@ -831,6 +831,88 @@ function getDashboardSummary(records, actions = improvementActions) {
   };
 }
 
+function getManagementFlowSteps(records = getLocalRecords(), actions = improvementActions) {
+  const admin = isManagementAdmin();
+  const latest = records[0] || null;
+  const breakdown = latest ? getRecordBreakdown(latest) : null;
+  const issueCount = breakdown
+    ? Number(breakdown.score0 || 0) + Number(breakdown.score3 || 0)
+    : 0;
+  const openActions = actions.filter((action) => ["open", "in_progress"].includes(action.status));
+  const completedActions = actions.filter((action) => action.status === "completed");
+  const { snapshot, initiative } = getCurrentPerformanceActionSource();
+  const performanceSignals = getPerformanceSignals(snapshot, initiative);
+
+  return [
+    {
+      label: "現在地",
+      title: latest ? `環境整備 ${Number(latest.score || 0).toFixed(1)}` : "未登録",
+      note: latest ? `${latest.store || "店舗"} / ${formatDate(latest.checked_at)}` : "最初のチェックを登録します。",
+      tone: latest ? "ok" : "warn",
+      view: latest ? "records" : admin ? "environment" : "growth"
+    },
+    {
+      label: "課題",
+      title: issueCount || performanceSignals.length ? `${issueCount + performanceSignals.length}件` : "0件",
+      note: issueCount
+        ? `環境整備の0点・3点が${issueCount}件あります。`
+        : performanceSignals.length
+          ? `成果KPIの確認候補が${performanceSignals.length}件あります。`
+          : "大きな課題候補はありません。",
+      tone: issueCount || performanceSignals.length ? "warn" : "ok",
+      view: issueCount ? "records" : "performance"
+    },
+    {
+      label: "改善",
+      title: `${openActions.length}件`,
+      note: openActions.length
+        ? "未完了の改善アクションがあります。"
+        : completedActions.length
+          ? `完了済み${completedActions.length}件。次の改善候補を確認します。`
+          : "課題から改善アクションを作成します。",
+      tone: openActions.length ? "warn" : "ok",
+      view: admin ? "actions" : "growth"
+    },
+    {
+      label: "成長",
+      title: `${records.length}件`,
+      note: records.length
+        ? "履歴が蓄積され、比較と振り返りができます。"
+        : "履歴を作ると成長推移が見えるようになります。",
+      tone: records.length >= 3 ? "ok" : "warn",
+      view: "growth"
+    }
+  ];
+}
+
+function renderManagementFlowPanel(records = getLocalRecords()) {
+  const panel = document.getElementById("managementFlowPanel");
+  if (!panel) return;
+  const steps = getManagementFlowSteps(records, improvementActions);
+  panel.innerHTML = `
+    <div class="panel-head horizontal">
+      <div>
+        <p class="section-label">Management Flow</p>
+        <h2>現在地 → 課題 → 改善 → 成長</h2>
+        <p class="muted-text">開いたら次に見る場所と行動が分かるように、最新データから流れを整理します。</p>
+      </div>
+    </div>
+    <div class="management-flow-grid">
+      ${steps.map((step, index) => `
+        <article class="management-flow-step tone-${step.tone}">
+          <span class="management-flow-number">${index + 1}</span>
+          <div>
+            <p class="score-summary-label">${escapeHtml(step.label)}</p>
+            <h3>${escapeHtml(step.title)}</h3>
+            <p class="focus-note">${escapeHtml(step.note)}</p>
+            <button type="button" class="ghost-btn flow-open-btn" data-view-target="${escapeHtml(step.view)}">${escapeHtml(step.label)}を見る</button>
+          </div>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
 function getRecentActionRecords(records) {
   return records
     .filter((record) => record.comment && record.comment.trim())
@@ -1639,6 +1721,7 @@ function renderDashboard() {
       <p class="note">${summary.notes[card.key] || ""}</p>
     </article>
   `).join("");
+  renderManagementFlowPanel(records);
   renderPerformanceFocusPanel();
   renderFocusPanel(records);
   renderStoreSummaryPanel(records);
@@ -2766,6 +2849,10 @@ function bindEvents() {
   document.getElementById("refreshGrowthBtn")?.addEventListener("click", refreshRecords);
   document.getElementById("refreshPerformanceBtn")?.addEventListener("click", refreshPerformanceData);
   document.getElementById("performanceForm")?.addEventListener("submit", handlePerformanceSubmit);
+  document.getElementById("managementFlowPanel")?.addEventListener("click", (event) => {
+    const button = event.target.closest(".flow-open-btn");
+    if (button) showView(button.dataset.viewTarget || "dashboard");
+  });
   document.getElementById("performancePeriodFilter")?.addEventListener("change", renderPerformanceDashboard);
   document.getElementById("clearPerformanceFiltersBtn")?.addEventListener("click", () => {
     document.getElementById("performancePeriodFilter").value = "";

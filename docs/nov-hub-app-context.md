@@ -96,25 +96,20 @@ Important ID rules:
 - Server-side writes must verify the actor again through GAS, Edge Functions, or Supabase RLS.
 - Personal information should be fetched only when the user role requires it.
 
-## IDEA LINK Migration Use
+## IDEA LINK Production Operation
 
-Phase 1:
+IDEA LINK is in production operation with NOV HUB Context as the primary login route.
 
-- Continue current GAS + Spreadsheet test operation for Tachikawa and Tokorozawa.
-- Read employee and store identity from NOV HUB context where available.
-- Keep Thanks posting and LINE WORKS notification on the existing GAS path.
-
-Phase 2:
-
-- Read staff and stores from Supabase Core DB.
-- Map IDEA LINK `staff_id` to Core DB `employees.id`.
-- Map IDEA LINK `store_id` to Core DB `stores.id` or `stores.store_id`.
-
-Phase 3:
-
-- Move Thanks posts to an IDEA LINK-specific Supabase table.
-- Move LINE WORKS store notification channels to Supabase.
-- Keep notification sending server-side.
+- NOV HUB opens IDEA LINK through `/idea-link/` and passes `hub_context`.
+- IDEA LINK reads `employeeId`, `email`, and `roleKeys` from Hub Context for login and UI permission branching.
+- IDEA LINK permissions are mastered in Supabase Core DB `public.employee_roles`.
+- Valid IDEA LINK role keys are `idea_link.staff`, `idea_link.manager`, and `idea_link.admin`.
+- Users without one of those role keys must be blocked by IDEA LINK.
+- Email + PIN login remains a migration-period fallback only.
+- Staff additions, email changes, department changes, and store assignments must be updated in NOV HUB / Core DB, not in IDEA LINK.
+- Thanks posting, store-specific reception settings, and LINE WORKS notification destinations are operated from the IDEA LINK admin UI.
+- LINE WORKS notification delivery uses Supabase Queue + Edge Function.
+- Spreadsheet operation is outside the normal production path.
 
 ## Recommended App Guard
 

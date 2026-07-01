@@ -160,6 +160,21 @@ const canUseIdeaLink = ["idea_link.staff", "idea_link.manager", "idea_link.admin
   .some((roleKey) => roleKeys.has(roleKey));
 ```
 
+## IDEA LINK本番運用
+
+IDEA LINK連携は本番運用状態です。
+
+- NOV HUB Contextログインを主経路にします。
+- NOV HUBからIDEA LINKへは `/idea-link/` 経由で `hub_context` を渡します。
+- IDEA LINK側はHub Contextの `employeeId` / `email` / `roleKeys` でログイン・権限判定を行います。
+- IDEA LINK権限の正本はCore DBの `employee_roles` です。
+- IDEA LINK利用者には `idea_link.staff` 以上を付与します。
+- メール+PINログインは移行期間のfallback扱いです。
+- スタッフ追加、メール変更、所属変更はNOV HUB/Core DB側を正本にします。
+- 店舗別サンクス受付とLINE WORKS通知先はIDEA LINK管理画面で操作します。
+- スプレッドシートは通常運用では操作しません。
+- LINE WORKS通知はSupabase Queue + Edge Function経由で扱います。
+
 ## 禁止事項
 
 - `service_role` keyをフロントへ出さない

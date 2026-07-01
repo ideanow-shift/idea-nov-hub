@@ -137,10 +137,11 @@ async function readRows(path: string, options: Parameters<typeof supabaseRequest
   return Array.isArray(data) ? data as JsonRecord[] : [];
 }
 
-async function callSupabaseRpc(functionName: string, payload: JsonRecord = {}) {
+async function callSupabaseRpc(functionName: string, payload: JsonRecord = {}, schema = "public") {
   return await supabaseRequest(`rpc/${encodeURIComponent(functionName)}`, {
     method: "POST",
     payload,
+    schema,
   });
 }
 
@@ -682,9 +683,9 @@ function fixedApps(employee: JsonRecord) {
       priority: 88,
     },
     {
-      appId: "expense-hub",
-      appName: "Expense Hub",
-      description: "経費明細登録・月次精算・経理確認",
+      appId: "expense_hub",
+      appName: "経費精算管理システム",
+      description: "経費明細登録・月次精算・経理確認・弥生会計CSV出力",
       url: "https://ideanow-shift.github.io/idea-nov-expense-hub/",
       category: "Finance Module",
       icon: "expense-hub",
@@ -2029,13 +2030,24 @@ async function readVisibleApps(employee: JsonRecord) {
   }).catch(() => []);
   let apps = rows.map(normalizeApp).filter((app) => canAccessApp(employee, app));
   fixedApps(employee).forEach((fixed) => {
-    const index = apps.findIndex((app) => app.appId === fixed.appId);
+    const index = apps.findIndex((app) => app.appId === fixed.appId || (
+      fixed.appId === "expense_hub" && app.appId === "expense-hub"
+    ));
     if (index === -1) {
       if (canAccessApp(employee, fixed)) apps.push(fixed);
-    } else if (fixed.appId === "expense-hub") {
-      apps[index] = { ...apps[index], url: fixed.url, icon: apps[index].icon || fixed.icon };
+    } else if (fixed.appId === "expense_hub") {
+      apps[index] = {
+        ...apps[index],
+        appId: fixed.appId,
+        appName: fixed.appName,
+        description: fixed.description,
+        url: fixed.url,
+        category: fixed.category,
+        icon: apps[index].icon || fixed.icon,
+      };
     }
   });
+  apps = apps.filter((app) => app.appId !== "expense-hub");
   return apps.sort((a, b) => Number(a.priority || 999) - Number(b.priority || 999));
 }
 
@@ -2073,7 +2085,7 @@ function normalizeNotification(row: JsonRecord) {
   return {
     id: String(row.id || ""),
     type: "info",
-    title: String(row.title || "Expense Hub通知"),
+    title: String(row.title || "経費精算管理システム通知"),
     body: String(row.body || ""),
     moduleKey: String(row.module_key || ""),
     channel: String(row.channel || ""),
@@ -2098,6 +2110,7 @@ async function readNotifications(employee: JsonRecord) {
     module_key: "eq.finance.expense",
     channel: "eq.nov_hub",
     target_module: "eq.expense_hub",
+    unread: "eq.true",
     order: "created_at.desc",
     limit: "20",
   };
@@ -2112,6 +2125,18 @@ async function readNotifications(employee: JsonRecord) {
     if (row.id) byId.set(String(row.id), row);
   });
   return [...byId.values()].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""))).slice(0, 20).map(normalizeNotification);
+}
+
+async function markNovHubNotificationsRead(_employee: JsonRecord, payload: JsonRecord) {
+  const notificationIds = Array.isArray(payload.notificationIds)
+    ? payload.notificationIds
+    : Array.isArray(payload.notification_ids)
+      ? payload.notification_ids
+      : [];
+  const ids = uniqueStrings(notificationIds).filter((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id));
+  if (!ids.length) return { marked: 0 };
+  await callSupabaseRpc("mark_nov_hub_notifications_read", { p_notification_ids: ids }, "os");
+  return { marked: ids.length };
 }
 
 async function appendAccessLog(employee: JsonRecord | null, entry: JsonRecord) {
@@ -2262,6 +2287,10 @@ Deno.serve(async (request) => {
 
     if (action === "novHubNotifications") {
       return jsonResponse({ ok: true, notifications: await readNotifications(employee), performance: { source: "supabase-edge" } });
+    }
+
+    if (action === "markNovHubNotificationRead") {
+      return jsonResponse({ ok: true, result: await markNovHubNotificationsRead(employee, payload) });
     }
 
     if (action === "changeOwnPin") {

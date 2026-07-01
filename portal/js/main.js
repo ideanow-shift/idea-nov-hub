@@ -220,7 +220,7 @@ function toNotificationNotice(notification) {
   return {
     id: notification.id || "",
     type: notification.type || "info",
-    title: notification.title || "Expense Hub通知",
+    title: notification.title || "経費精算管理システム通知",
     body: notification.body || "",
     url: notification.url || "",
     moduleKey: notification.moduleKey || "",
@@ -233,28 +233,30 @@ function toNotificationNotice(notification) {
   };
 }
 
-function openNotification(notice) {
+async function openNotification(notice) {
   if (notice.url) {
     const context = refreshHubEmployeeContext();
+    await markNotificationRead(notice);
     window.location.assign(buildAppLaunchUrl(notice.url, context));
     return;
   }
   if (isExpenseHubNotice(notice)) {
-    const expenseHub = state.apps.find((app) => app.appId === "expense-hub");
+    const expenseHub = state.apps.find((app) => app.appId === "expense_hub" || app.appId === "expense-hub");
     if (expenseHub) {
       const appUrl = buildExpenseHubNoticeUrl(expenseHub.url, notice);
-      openApp({ ...expenseHub, url: appUrl });
+      await markNotificationRead(notice);
+      openApp({ ...expenseHub, appId: "expense_hub", url: appUrl });
     }
   }
 }
 
 function isExpenseHubNotice(notice) {
   return notice?.moduleKey === "finance.expense"
-    && (notice?.targetModule === "expense_hub" || notice?.actionLabel === "Expense Hub");
+    && (notice?.targetModule === "expense_hub" || notice?.actionLabel === "Expense Hub" || notice?.actionLabel === "経費精算管理システム");
 }
 
 function buildExpenseHubNoticeUrl(baseUrl, notice) {
-  const url = new URL(baseUrl || "./expense-hub/", window.location.href);
+  const url = new URL(baseUrl || "https://ideanow-shift.github.io/idea-nov-expense-hub/", window.location.href);
   if (notice.targetView) url.searchParams.set("target_view", notice.targetView);
   Object.entries(notice.targetQuery || {}).forEach(([key, value]) => {
     if (value !== null && value !== undefined && value !== "") {
@@ -262,6 +264,18 @@ function buildExpenseHubNoticeUrl(baseUrl, notice) {
     }
   });
   return url.toString();
+}
+
+async function markNotificationRead(notice) {
+  if (!notice?.id || !notice.unread) return;
+  try {
+    await callApiAction("markNovHubNotificationRead", { notificationIds: [notice.id] });
+    state.notifications = state.notifications.map((notification) => (
+      notification.id === notice.id ? { ...notification, unread: false } : notification
+    ));
+  } catch (error) {
+    console.warn("NOV HUB notification read mark failed", error);
+  }
 }
 
 function buildNoticeMeta(notice) {

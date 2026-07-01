@@ -233,16 +233,19 @@
       ]
     },
     {
-      "appId": "expense-hub",
-      "appName": "Expense Hub",
+      "appId": "expense_hub",
+      "appName": "経費精算管理システム",
       "icon": "./assets/icons/expense-hub.svg",
       "color": "#8FBFD0",
       "aliases": [
+        "経費精算管理システム",
         "Expense Hub",
+        "expense_hub",
         "expense-hub",
         "経費精算",
         "経費明細",
         "月次精算",
+        "弥生会計CSV",
         "Finance Module",
         "finance.expense"
       ]

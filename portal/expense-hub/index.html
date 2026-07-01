@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Expense Hub | NOV HUB</title>
+  <title>経費精算管理システム | NOV HUB</title>
   <style>
     :root {
       --bg-primary: #ffffff;
@@ -146,7 +146,7 @@
     <div class="brand">
       <span class="brand-mark" aria-hidden="true">EXP</span>
       <div>
-        <h1>Expense Hub</h1>
+        <h1>経費精算管理システム</h1>
         <p id="status">NOV HUBのログイン情報を確認しています。</p>
       </div>
     </div>
@@ -167,10 +167,10 @@
     </div>
 
     <p class="note">
-      Expense Hubへ移動します。HUBログイン情報、対象ID、初期表示タブをURLパラメータで引き継ぎます。
+      経費精算管理システムへ移動します。HUBログイン情報、対象ID、初期表示タブをURLパラメータで引き継ぎます。
     </p>
 
-    <a id="openExpenseHub" class="button" href="#">Expense Hubを開く</a>
+    <a id="openExpenseHub" class="button" href="#">経費精算管理システムを開く</a>
     <a class="button secondary" href="../">NOV HUBへ戻る</a>
   </main>
 
@@ -245,7 +245,7 @@
     if (!hasContext) {
       status.textContent = "HUBログイン情報を確認できませんでした。NOV HUBから開き直してください。";
     } else {
-      status.textContent = "Expense Hubへ移動できます。";
+      status.textContent = "経費精算管理システムへ移動できます。";
     }
 
     openExpenseHub.href = buildExpenseHubUrl(context);

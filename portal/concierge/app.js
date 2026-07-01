@@ -399,6 +399,8 @@ const elements = {
   answerRuleNotebook: document.querySelector("#answerRuleNotebook"),
   answerRulePriority: document.querySelector("#answerRulePriority"),
   answerRuleActive: document.querySelector("#answerRuleActive"),
+  answerRuleRisk: document.querySelector("#answerRuleRisk"),
+  answerRuleHumanCheck: document.querySelector("#answerRuleHumanCheck"),
   answerRuleKeywords: document.querySelector("#answerRuleKeywords"),
   answerRuleLinkChoices: document.querySelector("#answerRuleLinkChoices"),
   answerRuleAnswer: document.querySelector("#answerRuleAnswer"),
@@ -508,6 +510,12 @@ elements.answerRuleStatusFilter.addEventListener("change", () => {
   renderAnswerRuleList(answerRuleCache);
 });
 
+elements.answerRuleRisk.addEventListener("change", () => {
+  if (elements.answerRuleRisk.value === "high") {
+    elements.answerRuleHumanCheck.value = "true";
+  }
+});
+
 elements.answerRuleCancelButton.addEventListener("click", () => {
   resetAnswerRuleForm();
 });
@@ -594,6 +602,8 @@ elements.answerRuleForm.addEventListener("submit", async (event) => {
       answer,
       linkIds: getSelectedAnswerRuleLinkIds().join(","),
       active: elements.answerRuleActive.value,
+      riskLevel: elements.answerRuleRisk.value,
+      requiresHumanCheck: elements.answerRuleRisk.value === "high" ? "true" : elements.answerRuleHumanCheck.value,
       priority: elements.answerRulePriority.value || "10"
     });
     if (!result.ok) throw new Error(result.error || "保存できませんでした。");
@@ -1126,7 +1136,7 @@ async function renderAnswerRuleList(rules = null) {
     title.textContent = rule.id;
 
     const meta = document.createElement("span");
-    meta.textContent = `${rule.notebook} / 優先度: ${rule.priority} / ${isRuleActive(rule.active) ? "有効" : "停止"}`;
+    meta.textContent = `${rule.notebook} / 優先度: ${rule.priority} / ${formatRiskLevel(rule.riskLevel)}${rule.requiresHumanCheck ? " / 本部確認" : ""} / ${isRuleActive(rule.active) ? "有効" : "停止"}`;
 
     const keywords = document.createElement("span");
     keywords.textContent = `キーワード: ${rule.keywords.join(", ")}`;
@@ -1167,6 +1177,8 @@ function populateAnswerRuleForm(rule) {
   elements.answerRuleNotebook.value = rule.notebook || "Notebook① スタッフサポート";
   elements.answerRulePriority.value = rule.priority || "10";
   elements.answerRuleActive.value = isRuleActive(rule.active) ? "有効" : "停止";
+  elements.answerRuleRisk.value = rule.riskLevel || "normal";
+  elements.answerRuleHumanCheck.value = rule.requiresHumanCheck || rule.riskLevel === "high" ? "true" : "false";
   elements.answerRuleAnswer.value = rule.answer || "";
   elements.answerRuleSubmitButton.textContent = "回答ルールを更新";
   elements.answerRuleCancelButton.hidden = false;
@@ -1184,6 +1196,8 @@ function resetAnswerRuleForm(options = {}) {
   elements.answerRuleName.disabled = false;
   elements.answerRulePriority.value = "10";
   elements.answerRuleActive.value = "有効";
+  elements.answerRuleRisk.value = "normal";
+  elements.answerRuleHumanCheck.value = "false";
   elements.answerRuleSubmitButton.textContent = "回答ルールを追加";
   elements.answerRuleCancelButton.hidden = true;
   elements.answerRuleLinkChoices.querySelectorAll("input:checked").forEach((input) => {
@@ -1203,6 +1217,8 @@ async function updateAnswerRuleActive(rule, active) {
     answer: rule.answer,
     linkIds: (rule.linkIds || []).join(","),
     active,
+    riskLevel: rule.riskLevel || "normal",
+    requiresHumanCheck: rule.requiresHumanCheck || rule.riskLevel === "high" ? "true" : "false",
     priority: String(rule.priority || "10")
   });
   if (!result.ok) {

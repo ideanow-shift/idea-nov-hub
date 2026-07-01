@@ -695,6 +695,43 @@ a:focus-visible {
   margin-top: 4px;
 }
 
+.question-log-toolbar {
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  padding: 16px;
+}
+
+.question-log-toolbar label {
+  display: grid;
+  gap: 6px;
+}
+
+.question-log-toolbar span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.question-log-toolbar input,
+.question-log-toolbar select {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  min-height: 42px;
+  padding: 9px 11px;
+  width: 100%;
+}
+
+.question-log-toolbar input:focus,
+.question-log-toolbar select:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(232, 180, 184, 0.24);
+  outline: 0;
+}
+
 .question-log-list {
   display: grid;
   gap: 10px;
@@ -954,6 +991,7 @@ a:focus-visible {
   .metrics-grid,
   .knowledge-grid,
   .knowledge-form,
+  .question-log-toolbar,
   .link-rule-grid,
   .admin-edit-form,
   .ops-guide {

@@ -352,6 +352,8 @@ const elements = {
   negativeCount: document.querySelector("#negativeCount"),
   unratedCount: document.querySelector("#unratedCount"),
   questionLogList: document.querySelector("#questionLogList"),
+  questionLogSearch: document.querySelector("#questionLogSearch"),
+  questionLogRatingFilter: document.querySelector("#questionLogRatingFilter"),
   questionRanking: document.querySelector("#questionRanking"),
   storeUsage: document.querySelector("#storeUsage"),
   wordRanking: document.querySelector("#wordRanking"),
@@ -375,6 +377,7 @@ const elements = {
 };
 
 let session = authProvider.currentSession();
+let adminLogCache = [];
 
 elements.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -419,6 +422,14 @@ elements.clearHistoryButton.addEventListener("click", () => {
   if (!session) return;
   logRepository.clearStore(session.id);
   renderHistory();
+});
+
+elements.questionLogSearch.addEventListener("input", () => {
+  renderQuestionLogList(adminLogCache);
+});
+
+elements.questionLogRatingFilter.addEventListener("change", () => {
+  renderQuestionLogList(adminLogCache);
 });
 
 elements.knowledgeUpdateForm.addEventListener("submit", async (event) => {
@@ -700,6 +711,7 @@ async function renderAdmin() {
   elements.unresolvedList.innerHTML = '<div class="issue-item">読み込み中です。</div>';
 
   const logs = await logRepository.allForAdmin();
+  adminLogCache = logs;
   const negativeLogs = logs.filter((entry) => entry.rating === "down");
   const unratedLogs = logs.filter((entry) => !entry.rating);
 
@@ -710,18 +722,23 @@ async function renderAdmin() {
   renderRanking(elements.questionRanking, countBy(logs, (entry) => entry.question));
   renderRanking(elements.storeUsage, countBy(logs, (entry) => entry.storeName));
   renderRanking(elements.wordRanking, countWords(logs));
-  renderQuestionLogList(logs);
+  renderQuestionLogList(adminLogCache);
   renderIssues([...negativeLogs, ...unratedLogs].slice(0, 20));
 }
 
 function renderQuestionLogList(logs) {
   elements.questionLogList.innerHTML = "";
+  const filteredLogs = filterQuestionLogs(logs);
   if (!logs.length) {
     elements.questionLogList.innerHTML = '<div class="question-log-item">まだ質問ログはありません。</div>';
     return;
   }
+  if (!filteredLogs.length) {
+    elements.questionLogList.innerHTML = '<div class="question-log-item">条件に合う質問ログはありません。</div>';
+    return;
+  }
 
-  logs.slice(0, 30).forEach((entry) => {
+  filteredLogs.slice(0, 30).forEach((entry) => {
     const item = document.createElement("article");
     item.className = "question-log-item";
 
@@ -745,6 +762,28 @@ function renderQuestionLogList(logs) {
 
     item.append(head, meta, answer);
     elements.questionLogList.append(item);
+  });
+}
+
+function filterQuestionLogs(logs) {
+  const keyword = elements.questionLogSearch.value.trim().toLowerCase();
+  const ratingFilter = elements.questionLogRatingFilter.value;
+
+  return logs.filter((entry) => {
+    const rating = entry.rating || "none";
+    if (ratingFilter !== "all" && rating !== ratingFilter) return false;
+    if (!keyword) return true;
+
+    const searchableText = [
+      entry.question,
+      entry.answer,
+      entry.storeName,
+      entry.storeId,
+      entry.notebook,
+      formatRating(entry.rating)
+    ].join(" ").toLowerCase();
+
+    return searchableText.includes(keyword);
   });
 }
 

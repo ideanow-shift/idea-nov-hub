@@ -105,6 +105,21 @@
                 <h3 id="questionLogTitle">質問ログ一覧</h3>
               </div>
             </div>
+            <div class="question-log-toolbar">
+              <label>
+                <span>キーワード</span>
+                <input id="questionLogSearch" type="search" placeholder="質問・回答・店舗で検索">
+              </label>
+              <label>
+                <span>評価</span>
+                <select id="questionLogRatingFilter">
+                  <option value="all">すべて</option>
+                  <option value="up">役に立った</option>
+                  <option value="down">改善が必要</option>
+                  <option value="none">未評価</option>
+                </select>
+              </label>
+            </div>
             <div id="questionLogList" class="question-log-list"></div>
           </section>
           <section class="knowledge-admin" aria-labelledby="knowledgeTitle">

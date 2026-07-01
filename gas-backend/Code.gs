@@ -353,9 +353,22 @@ function listPortalAppsForAdmin_() {
 
 function appendFixedAppIfMissing_(apps, app) {
   if (!app || !app.appId) return apps;
+  const appId = String(app.appId || '');
   const exists = apps.some(function(item) {
     return String(item.appId || '') === String(app.appId || '');
   });
+  if (exists && appId === 'expense-hub') {
+    return apps.map(function(item) {
+      if (String(item.appId || '') !== appId) return item;
+      return Object.assign({}, item, {
+        appName: item.appName || app.appName,
+        description: item.description || app.description,
+        url: app.url,
+        category: item.category || app.category,
+        icon: item.icon || app.icon
+      });
+    });
+  }
   if (!exists) apps.push(app);
   return apps;
 }

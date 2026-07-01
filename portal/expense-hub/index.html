@@ -167,11 +167,10 @@
     </div>
 
     <p class="note">
-      現在のExpense Hubは開発中URLです。スマホからはPCのlocalhostを開けない場合があります。
-      本番URLが決まり次第、この中継ページから本番環境へ切り替えます。
+      Expense Hubへ移動します。HUBログイン情報、対象ID、初期表示タブをURLパラメータで引き継ぎます。
     </p>
 
-    <a id="openExpenseHub" class="button" href="#">開発中のExpense Hubを開く</a>
+    <a id="openExpenseHub" class="button" href="#">Expense Hubを開く</a>
     <a class="button secondary" href="../">NOV HUBへ戻る</a>
   </main>
 
@@ -223,33 +222,33 @@
       });
     }
 
-    function buildExpenseHubUrl(context, initialTab) {
-      const incoming = new URL(window.location.href).searchParams.get(HUB_CONTEXT_QUERY_KEY);
-      const encoded = incoming || encodeHubContextForUrl(context);
+    function buildExpenseHubUrl(context) {
       const url = new URL(EXPENSE_HUB_URL);
       appendForwardParams(url);
-      if (encoded) url.searchParams.set(HUB_CONTEXT_QUERY_KEY, encoded);
-      if (initialTab) url.searchParams.set("initial_tab", initialTab);
+      const roleKeys = getRoleKeys(context);
+      const initialTab = getInitialTab(roleKeys);
+      url.searchParams.set("initial_tab", initialTab);
+      tabStatus.textContent = initialTab;
+      if (context) {
+        url.searchParams.set(HUB_CONTEXT_QUERY_KEY, encodeHubContextForUrl(context));
+      }
       return url.toString();
     }
 
-    const context = readHubEmployeeContextFromUrl(window.location.href) || readHubEmployeeContext();
+    const context = readHubEmployeeContextFromUrl() || readHubEmployeeContext();
     const hasContext = Boolean(context);
-    const hasEmployeeId = Boolean(context?.id || context?.employeeId || context?.supabaseEmployeeId);
-    const roleKeys = getRoleKeys(context);
-    const initialTab = getInitialTab(roleKeys);
+    const employeeId = context?.employeeId || context?.id || "";
 
-    setPill(contextStatus, hasContext, hasContext ? "あり" : "なし");
-    setPill(employeeStatus, hasEmployeeId, hasEmployeeId ? "確認済み" : "なし");
-    tabStatus.textContent = initialTab;
+    setPill(contextStatus, hasContext, hasContext ? "確認済み" : "未確認");
+    setPill(employeeStatus, Boolean(employeeId), employeeId ? String(employeeId) : "未確認");
 
-    if (!hasContext || !hasEmployeeId) {
-      status.textContent = "HUBログイン情報が見つかりません。NOV HUBへ戻ってログイン後、もう一度Expense Hubを開いてください。";
-      openExpenseHub.hidden = true;
+    if (!hasContext) {
+      status.textContent = "HUBログイン情報を確認できませんでした。NOV HUBから開き直してください。";
     } else {
-      openExpenseHub.href = buildExpenseHubUrl(context, initialTab);
-      status.textContent = "確認できました。Expense Hubへログイン情報を引き継げます。";
+      status.textContent = "Expense Hubへ移動できます。";
     }
+
+    openExpenseHub.href = buildExpenseHubUrl(context);
   </script>
 </body>
 </html>

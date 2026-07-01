@@ -65,6 +65,15 @@ function isManagementAdmin() {
   return getRoleKeys().some((roleKey) => MANAGEMENT_ADMIN_ROLE_KEYS.has(roleKey));
 }
 
+function isViewAllowed(name) {
+  if (["environment", "actions"].includes(name)) return isManagementAdmin();
+  return true;
+}
+
+function getFallbackView() {
+  return isManagementAdmin() ? "dashboard" : "growth";
+}
+
 function getDisplayName() {
   const context = getHubContext();
   if (trustedActor?.fullName) return trustedActor.fullName;
@@ -2768,14 +2777,14 @@ function escapeHtml(value) {
 }
 
 function showView(name) {
+  const viewName = isViewAllowed(name) ? name : getFallbackView();
   document.querySelectorAll(".view").forEach((view) => {
-    view.classList.toggle("active", view.id === `view-${name}`);
+    view.classList.toggle("active", !view.hidden && view.id === `view-${viewName}`);
   });
   document.querySelectorAll(".nav-btn").forEach((button) => {
-    button.classList.toggle("active", button.dataset.view === name);
+    button.classList.toggle("active", !button.hidden && button.dataset.view === viewName);
   });
 }
-
 async function openPriorityRecordDetail(recordId) {
   showView("records");
   await showRecordDetail(recordId);
@@ -2907,6 +2916,10 @@ async function updateImprovementActionStatus(button) {
 
 async function handlePerformanceSubmit(event) {
   event.preventDefault();
+  if (!isManagementAdmin()) {
+    setApiStatus("成果入力は店長以上の管理者権限で利用できます。", "error");
+    return;
+  }
   const form = event.currentTarget;
   const submitButton = form.querySelector('button[type="submit"]');
   const originalText = submitButton?.textContent || "成果を保存";
@@ -3288,34 +3301,43 @@ function bindEvents() {
 
 function applyRoleBasedView() {
   const admin = isManagementAdmin();
-  const environmentButton = document.querySelector('[data-view="environment"]');
-  if (environmentButton) environmentButton.hidden = !admin;
-  const environmentView = document.getElementById("view-environment");
-  if (environmentView) environmentView.hidden = !admin;
-  const actionsButton = document.querySelector('[data-view="actions"]');
-  if (actionsButton) actionsButton.hidden = !admin;
-  const actionsView = document.getElementById("view-actions");
-  if (actionsView) actionsView.hidden = !admin;
+  document.body.dataset.managementMode = admin ? "admin" : "recipient";
+
+  ["environment", "actions"].forEach((viewName) => {
+    const button = document.querySelector(`[data-view="${viewName}"]`);
+    const view = document.getElementById(`view-${viewName}`);
+    if (button) button.hidden = !admin;
+    if (view) view.hidden = !admin;
+  });
+
   const performanceForm = document.getElementById("performanceForm");
+  const performanceFormPanel = performanceForm?.closest(".performance-table-panel");
+  if (performanceFormPanel) performanceFormPanel.hidden = !admin;
   if (performanceForm) {
     performanceForm.querySelectorAll("input, textarea, button").forEach((element) => {
-      if (element.id !== "refreshPerformanceBtn") element.disabled = !admin;
+      element.disabled = !admin;
     });
   }
+
+  const exportPerformanceButton = document.getElementById("exportPerformanceCsvBtn");
+  if (exportPerformanceButton) exportPerformanceButton.hidden = !admin;
+  const exportHistoryButton = document.getElementById("exportHistoryCsvBtn");
+  if (exportHistoryButton) exportHistoryButton.hidden = !admin;
+
   const authButton = document.querySelector('[data-view="auth"]');
   if (authButton) authButton.textContent = "接続状態";
-  if (!admin) {
-    const recordsButton = document.querySelector('[data-view="records"]');
-    if (recordsButton) recordsButton.textContent = "詳細履歴";
-    const growthButton = document.querySelector('[data-view="growth"]');
-    if (growthButton) growthButton.textContent = "自分の確認";
-    const activeView = document.querySelector(".view.active");
-    if (!activeView || ["view-dashboard", "view-environment", "view-actions"].includes(activeView.id)) {
-      showView("growth");
-    }
+  const recordsButton = document.querySelector('[data-view="records"]');
+  if (recordsButton) recordsButton.textContent = admin ? "履歴" : "詳細履歴";
+  const growthButton = document.querySelector('[data-view="growth"]');
+  if (growthButton) growthButton.textContent = admin ? "確認" : "自分の確認";
+  const performanceButton = document.querySelector('[data-view="performance"]');
+  if (performanceButton) performanceButton.textContent = admin ? "成果" : "自店成果";
+
+  const activeView = document.querySelector(".view.active");
+  if (!activeView || activeView.hidden || !isViewAllowed(activeView.id.replace("view-", ""))) {
+    showView(getFallbackView());
   }
 }
-
 renderScoreControls();
 bindEvents();
 applyRoleBasedView();
@@ -3355,4 +3377,7 @@ async function apiRequest(path, options = {}) {
   }
   return response;
 }
+
+
+
 

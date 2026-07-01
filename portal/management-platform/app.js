@@ -1,4 +1,4 @@
-﻿const STORAGE_KEY = "ideaNovManagementPlatform.environmentRecords";
+const STORAGE_KEY = "ideaNovManagementPlatform.environmentRecords";
 const managementApiBaseUrl = (window.MANAGEMENT_API_BASE_URL || "").replace(/\/$/, "");
 const firebaseTokenProvider = window.MANAGEMENT_FIREBASE_TOKEN_PROVIDER;
 const hubContextProvider = window.MANAGEMENT_HUB_CONTEXT_PROVIDER;
@@ -2133,6 +2133,34 @@ function renderGrowthResultList(title, items, emptyText) {
   `;
 }
 
+
+function getGrowthScoreState(score, issueCount) {
+  const numericScore = Number(score);
+  if (!Number.isFinite(numericScore)) return { label: "確認待ち", tone: "warn", message: "詳細が読み込まれると状態を確認できます。" };
+  if (issueCount > 0 || numericScore < 4) return { label: "改善候補あり", tone: "warn", message: "次回までに1つだけ行動を決めると進めやすい状態です。" };
+  return { label: "良い状態", tone: "ok", message: "良い状態を続けるため、できている行動を言葉にして残しましょう。" };
+}
+
+function renderRecipientGrowthSteps(issueCount) {
+  const steps = [
+    { label: "現在地", text: issueCount ? "0点・3点の項目を確認" : "良い状態を確認" },
+    { label: "課題", text: issueCount ? "改善候補を1つ選ぶ" : "続けたい行動を決める" },
+    { label: "次の行動", text: "次回までの一歩を実行" }
+  ];
+  return `
+    <div class="recipient-step-grid" aria-label="確認の流れ">
+      ${steps.map((step, index) => `
+        <article class="recipient-step-card">
+          <span>${index + 1}</span>
+          <div>
+            <p class="score-summary-label">${escapeHtml(step.label)}</p>
+            <h3>${escapeHtml(step.text)}</h3>
+          </div>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
 function renderGrowthComparisonCard(latest, previous) {
   if (!previous) {
     return `
@@ -2222,22 +2250,25 @@ function renderGrowthView(records = getLocalRecords()) {
   ` : "";
 
   summaryPanel.innerHTML = `
-    <div class="growth-hero">
+    <div class="growth-hero recipient-growth-hero">
       <div>
         <p class="section-label">Current</p>
         <h2>${escapeHtml(latest.store || "店舗")} の最新確認</h2>
         <p class="muted-text">${escapeHtml(formatDate(latest.checked_at))} / ${escapeHtml(latest.target_user || getDisplayName())}</p>
+        <p class="growth-state ${escapeHtml(growthState.tone)}">${escapeHtml(growthState.label)}</p>
+        <p class="focus-note">${escapeHtml(growthState.message)}</p>
       </div>
       <div class="growth-score">
         <span>Score</span>
         <strong>${escapeHtml(latest.score ?? "-")}</strong>
       </div>
     </div>
+    ${renderRecipientGrowthSteps(issueCount)}
     <div class="growth-card-grid">
       <article class="growth-card">
         <p class="score-summary-label">次にやること</p>
         <h3>${escapeHtml(nextAction)}</h3>
-        <p class="focus-note">評価確定ではなく、次の行動を決めるための確認です。</p>
+        <p class="focus-note">評価確定ではなく、自分の次の行動を決めるための確認です。</p>
       </article>
       <article class="growth-card">
         <p class="score-summary-label">内訳</p>
@@ -3417,4 +3448,3 @@ async function apiRequest(path, options = {}) {
   }
   return response;
 }
-

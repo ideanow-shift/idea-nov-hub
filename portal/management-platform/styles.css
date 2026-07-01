@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   color-scheme: light;
   --bg: #f7f7f8;
   --panel: #ffffff;
@@ -348,6 +348,63 @@ button:hover {
   100% { box-shadow: 0 0 0 0 rgba(199, 120, 130, 0); }
 }
 
+
+.growth-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  margin: 10px 0 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.growth-state.ok {
+  color: var(--ok);
+  border-color: rgba(47, 143, 91, 0.35);
+}
+
+.growth-state.warn {
+  color: var(--warn);
+  border-color: rgba(184, 121, 24, 0.35);
+}
+
+.recipient-step-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.recipient-step-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.recipient-step-card span {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.recipient-step-card h3 {
+  margin-bottom: 0;
+  font-size: 15px;
+  line-height: 1.45;
+}
 .growth-comparison-card {
   background: #fff;
 }

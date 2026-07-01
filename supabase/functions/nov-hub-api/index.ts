@@ -9,6 +9,9 @@ const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") || "").replace(/\/+$/, "");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const PIN_HASH_PEPPER = Deno.env.get("PIN_HASH_PEPPER") || "";
 const FIREBASE_API_KEY = Deno.env.get("FIREBASE_API_KEY") || FIREBASE_API_KEY_FALLBACK;
+const APP_ROLE_GROUPS: Record<string, string[]> = {
+  idea_link: ["idea_link.staff", "idea_link.manager", "idea_link.admin"],
+};
 
 type JsonRecord = Record<string, unknown>;
 
@@ -45,6 +48,9 @@ function publicMessage(code: string) {
     INVALID_REQUEST: "APIリクエストが正しくありません。",
     MASTER_ADMIN_DENIED: "マスタ管理を利用する権限がありません。",
     DUPLICATE_LOGIN_EMAIL: "同じログインメールが別の社員に設定されています。",
+    DUPLICATE_EMPLOYEE_ID: "同じ社員番号がすでに存在します。",
+    FIREBASE_UID_DUPLICATED: "このFirebase UIDはすでに別の社員に紐付いています。",
+    ROLE_NOT_FOUND: "必要な権限ロールが見つかりません。",
     NOT_FOUND: "対象データが見つかりません。",
     SUPABASE_REQUEST_FAILED: "Supabaseとの通信に失敗しました。",
     PIN_CHANGE_FAILED: "PIN変更に失敗しました。",
@@ -238,8 +244,8 @@ function parseBooleanLike(value: unknown, defaultValue = false) {
   if (value === undefined || value === null || value === "") return defaultValue;
   if (typeof value === "boolean") return value;
   const text = String(value).trim().toLowerCase();
-  if (["true", "1", "yes", "y", "on"].includes(text)) return true;
-  if (["false", "0", "no", "n", "off"].includes(text)) return false;
+  if (["true", "1", "yes", "y", "on", "有効", "必須", "する"].includes(text)) return true;
+  if (["false", "0", "no", "n", "off", "無効", "不要", "しない"].includes(text)) return false;
   return defaultValue;
 }
 
@@ -889,6 +895,31 @@ function getMasterChangeFieldLabel(key: string) {
     pin_changed: "PIN変更",
     lock_cleared: "ロック解除",
     source: "更新元",
+    employee_id: "社員番号",
+    full_name: "氏名",
+    birth_date: "誕生日",
+    joined_on: "入社日",
+    retired_on: "退職日",
+    leave_start_date: "休職開始日",
+    leave_end_date: "休職終了日・復職日",
+    leave_type: "休職区分",
+    employment_status: "現職/休職/退職",
+    employment_type: "雇用形態",
+    corporation_id: "法人",
+    store_id: "主店舗",
+    department_id: "部署",
+    position_id: "役職",
+    firebase_uid: "Firebase UID",
+    hub_role: "HUB権限",
+    scope_type: "権限範囲",
+    app_key: "アプリ",
+    role_keys: "権限",
+    before_role_keys: "変更前権限",
+    provider: "通知プロバイダー",
+    target_type: "通知対象種別",
+    purpose: "通知用途",
+    channel_id: "チャンネルID",
+    channel_name: "チャンネル名",
     app_id: "アプリID",
     app_name: "アプリ名",
     description: "説明",
@@ -1029,6 +1060,680 @@ async function updateEmployeeLoginCredential(actor: JsonRecord, payload: JsonRec
     targetName: String(employee.full_name || employee.employee_id || employeeId),
   });
   return sanitizeLoginCredential(credential);
+}
+
+function copyStringField(target: JsonRecord, source: JsonRecord, fieldName: string) {
+  if (Object.prototype.hasOwnProperty.call(source, fieldName)) {
+    target[fieldName] = String(source[fieldName] || "").trim();
+  }
+}
+
+function copyNullableUuidField(target: JsonRecord, source: JsonRecord, fieldName: string) {
+  if (Object.prototype.hasOwnProperty.call(source, fieldName)) {
+    const value = String(source[fieldName] || "").trim();
+    target[fieldName] = value || null;
+  }
+}
+
+function copyDateField(target: JsonRecord, source: JsonRecord, fieldName: string) {
+  if (!Object.prototype.hasOwnProperty.call(source, fieldName)) return;
+  const value = String(source[fieldName] || "").trim();
+  if (value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new PortalError("INVALID_REQUEST", `${fieldName} must be YYYY-MM-DD.`, 400);
+  }
+  target[fieldName] = value || null;
+}
+
+function todayJst() {
+  const formatter = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return formatter.format(new Date());
+}
+
+function getActorEmployeeId(actor: JsonRecord) {
+  return String(actor.id || actor.coreEmployeeId || actor.supabaseEmployeeId || actor.employee_id || "").trim() || null;
+}
+
+async function getCoreEmployeeById(id: string) {
+  const rows = await readRows("employees", {
+    query: {
+      select: "id,employee_id,full_name,email,birth_date,joined_on,retired_on,leave_start_date,leave_end_date,leave_type,employment_status,employment_type,corporation_id,store_id,department_id,position_id,firebase_uid,is_active,source_row,created_at,updated_at",
+      id: `eq.${id}`,
+      limit: "1",
+    },
+  });
+  return rows[0] || null;
+}
+
+async function getCoreStoreById(id: unknown) {
+  const storeId = String(id || "").trim();
+  if (!storeId) return null;
+  const rows = await readRows("stores", {
+    query: {
+      select: "id,store_no,store_id,store_name,area,store_type,corporation_id,business_unit_id,is_active,updated_at",
+      id: `eq.${storeId}`,
+      limit: "1",
+    },
+  });
+  return rows[0] || null;
+}
+
+async function appendAssignmentHistoryForCreatedEmployee(employee: JsonRecord, actor: JsonRecord) {
+  if (!employee?.id) return;
+  const store = employee.store_id ? await getCoreStoreById(employee.store_id) : null;
+  const history = {
+    employee_id: employee.id,
+    corporation_id: employee.corporation_id || null,
+    business_unit_id: store?.business_unit_id || null,
+    department_id: employee.department_id || null,
+    store_id: employee.store_id || null,
+    position_id: employee.position_id || null,
+    employment_status: String(employee.employment_status || "現職"),
+    effective_from: String(employee.joined_on || todayJst()),
+    change_type: "join",
+    change_reason: "マスタ管理画面から新規追加",
+    source: `master_admin:${normalizeEmail(actor.email) || "unknown"}`,
+  };
+  try {
+    await supabaseRequest("employee_assignment_histories", {
+      method: "POST",
+      payload: history,
+      prefer: "return=minimal",
+    });
+  } catch (error) {
+    console.error("Failed to append assignment history for created employee", error);
+  }
+}
+
+function inferAssignmentChangeType(before: JsonRecord, after: JsonRecord, updates: JsonRecord) {
+  if (String(after.employment_status || "").includes("退職") || after.is_active === false) return "retire";
+  if (Object.prototype.hasOwnProperty.call(updates, "store_id")) return "transfer";
+  if (Object.prototype.hasOwnProperty.call(updates, "position_id")) return "position_change";
+  if (Object.prototype.hasOwnProperty.call(updates, "employment_status")) return "status_change";
+  return "update";
+}
+
+async function appendAssignmentHistoryIfNeeded(before: JsonRecord | null, after: JsonRecord | null, updates: JsonRecord, actor: JsonRecord) {
+  if (!before || !after) return;
+  const trackedFields = ["corporation_id", "store_id", "department_id", "position_id", "employment_status", "is_active"];
+  const changed = trackedFields.some((field) => (
+    Object.prototype.hasOwnProperty.call(updates, field)
+    && String(before[field] || "") !== String(after[field] || "")
+  ));
+  if (!changed) return;
+
+  const store = after.store_id ? await getCoreStoreById(after.store_id) : null;
+  await supabaseRequest("employee_assignment_histories", {
+    method: "POST",
+    payload: {
+      employee_id: after.id,
+      corporation_id: after.corporation_id || null,
+      business_unit_id: store?.business_unit_id || null,
+      department_id: after.department_id || null,
+      store_id: after.store_id || null,
+      position_id: after.position_id || null,
+      employment_status: String(after.employment_status || ""),
+      effective_from: todayJst(),
+      change_type: inferAssignmentChangeType(before, after, updates),
+      change_reason: "マスタ管理画面から更新",
+      source: normalizeEmail(actor.email) ? `master_admin:${normalizeEmail(actor.email)}` : "master_admin",
+    },
+    prefer: "return=minimal",
+  });
+}
+
+function buildEmployeeStoreAssignments(employeeId: string, payload: JsonRecord) {
+  return [
+    { order: 1, field: "store_id", type: "primary" },
+    { order: 2, field: "store_assignment_2", type: "secondary" },
+    { order: 3, field: "store_assignment_3", type: "third" },
+  ].map((item) => {
+    const storeId = String(payload[item.field] || "").trim();
+    if (!storeId) return null;
+    return {
+      employee_id: employeeId,
+      store_id: storeId,
+      assignment_order: item.order,
+      assignment_type: item.type,
+    };
+  }).filter(Boolean) as JsonRecord[];
+}
+
+function areStoreAssignmentsSame(existing: JsonRecord[], desired: JsonRecord[]) {
+  const sortByOrder = (left: JsonRecord, right: JsonRecord) => Number(left.assignment_order || 0) - Number(right.assignment_order || 0);
+  const current = existing.slice().sort(sortByOrder);
+  const next = desired.slice().sort(sortByOrder);
+  if (current.length !== next.length) return false;
+  return current.every((row, index) => {
+    const expected = next[index];
+    return String(row.store_id || "") === String(expected.store_id || "")
+      && Number(row.assignment_order || 0) === Number(expected.assignment_order || 0)
+      && String(row.assignment_type || "") === String(expected.assignment_type || "");
+  });
+}
+
+async function updateEmployeeStoreAssignmentsIfPresent(employeeId: string, payload: JsonRecord, actor: JsonRecord) {
+  const hasAssignmentPayload = ["store_id", "store_assignment_2", "store_assignment_3"].some((field) => (
+    Object.prototype.hasOwnProperty.call(payload, field)
+  ));
+  if (!hasAssignmentPayload) return;
+
+  const desiredAssignments = buildEmployeeStoreAssignments(employeeId, payload);
+  const storeIds = desiredAssignments.map((assignment) => String(assignment.store_id || ""));
+  if (storeIds.length !== new Set(storeIds).size) {
+    throw new PortalError("INVALID_REQUEST", "Store assignments must be unique.", 400);
+  }
+
+  const existing = await readRows("employee_store_assignments", {
+    query: {
+      select: "id,store_id,assignment_order,assignment_type",
+      employee_id: `eq.${employeeId}`,
+      is_active: "eq.true",
+      effective_to: "is.null",
+      order: "assignment_order.asc",
+      limit: "20",
+    },
+  });
+  if (areStoreAssignmentsSame(existing, desiredAssignments)) return;
+
+  const today = todayJst();
+  const now = new Date().toISOString();
+  if (existing.length) {
+    await supabaseRequest("employee_store_assignments", {
+      method: "PATCH",
+      query: {
+        employee_id: `eq.${employeeId}`,
+        is_active: "eq.true",
+        effective_to: "is.null",
+      },
+      payload: {
+        is_active: false,
+        effective_to: today,
+        updated_at: now,
+      },
+      prefer: "return=minimal",
+    });
+  }
+  if (desiredAssignments.length) {
+    await supabaseRequest("employee_store_assignments", {
+      method: "POST",
+      payload: desiredAssignments.map((assignment) => ({
+        ...assignment,
+        effective_from: today,
+        source: "master_admin",
+        updated_at: now,
+        is_active: true,
+      })),
+      prefer: "return=minimal",
+    });
+  }
+  const employee = await getCoreEmployeeById(employeeId);
+  await appendMasterChangeLog("employee_store_assignments", employeeId, {
+    before: existing,
+    after: desiredAssignments,
+  }, actor, {
+    actionType: "update_store_assignments",
+    targetName: String(employee?.full_name || ""),
+  });
+}
+
+function buildEmployeeRow(payload: JsonRecord, now: string, includeCreatedAt = false) {
+  const row: JsonRecord = {
+    employee_id: String(payload.employee_id || "").trim(),
+    full_name: String(payload.full_name || "").trim(),
+    updated_at: now,
+  };
+  if (includeCreatedAt) row.created_at = now;
+  copyStringField(row, payload, "email");
+  copyStringField(row, payload, "leave_type");
+  copyStringField(row, payload, "employment_status");
+  copyStringField(row, payload, "employment_type");
+  copyDateField(row, payload, "birth_date");
+  copyDateField(row, payload, "joined_on");
+  copyDateField(row, payload, "retired_on");
+  copyDateField(row, payload, "leave_start_date");
+  copyDateField(row, payload, "leave_end_date");
+  copyNullableUuidField(row, payload, "corporation_id");
+  copyNullableUuidField(row, payload, "store_id");
+  copyNullableUuidField(row, payload, "department_id");
+  copyNullableUuidField(row, payload, "position_id");
+  if (Object.prototype.hasOwnProperty.call(payload, "is_active")) row.is_active = parseBooleanLike(payload.is_active, true);
+  return row;
+}
+
+function isStaffRoleAssignableEmployee(employee: JsonRecord | null) {
+  if (!employee?.id) return false;
+  if (employee.is_active === false) return false;
+  if (/退職|休職|産休|育休/.test(String(employee.employment_status || ""))) return false;
+  return true;
+}
+
+async function getRoleByKey(roleKey: string) {
+  const rows = await readRows("roles", {
+    query: {
+      select: "id,role_key,role_name,is_active",
+      role_key: `eq.${roleKey}`,
+      is_active: "eq.true",
+      limit: "1",
+    },
+  });
+  return rows[0] || null;
+}
+
+async function getRolesByKeys(roleKeys: string[]) {
+  const normalizedRoleKeys = uniqueStrings(roleKeys).sort();
+  if (!normalizedRoleKeys.length) return {} as Record<string, JsonRecord>;
+  const rows = await readRows("roles", {
+    query: {
+      select: "id,role_key,role_name,is_active",
+      role_key: `in.(${normalizedRoleKeys.join(",")})`,
+      is_active: "eq.true",
+      limit: "100",
+    },
+  });
+  return rows.reduce((index, role) => {
+    const roleKey = String(role.role_key || "");
+    if (roleKey) index[roleKey] = role;
+    return index;
+  }, {} as Record<string, JsonRecord>);
+}
+
+async function assignDefaultStaffRoleForEmployee(employee: JsonRecord, actor: JsonRecord, silent = false) {
+  const staffRole = await getRoleByKey("staff");
+  if (!staffRole?.id) throw new PortalError("ROLE_NOT_FOUND", "staff role was not found.", 404);
+  const existingRows = await readRows("employee_roles", {
+    query: {
+      select: "id,employee_id,role_id,scope_type,is_active",
+      employee_id: `eq.${employee.id}`,
+      role_id: `eq.${staffRole.id}`,
+      scope_type: "eq.all",
+      limit: "1",
+    },
+  });
+  const existing = existingRows[0] || null;
+  if (existing && existing.is_active !== false) return existing;
+
+  let employeeRole: JsonRecord | null = null;
+  if (existing?.id) {
+    const rows = await readRows("employee_roles", {
+      method: "PATCH",
+      query: { id: `eq.${existing.id}`, select: "*" },
+      payload: { is_active: true },
+      prefer: "return=representation",
+    });
+    employeeRole = rows[0] || existing;
+  } else {
+    const rows = await readRows("employee_roles", {
+      method: "POST",
+      query: { select: "*" },
+      payload: {
+        employee_id: employee.id,
+        role_id: staffRole.id,
+        scope_type: "all",
+        is_active: true,
+      },
+      prefer: "return=representation",
+    });
+    employeeRole = rows[0] || null;
+  }
+
+  await appendMasterChangeLog("employee_roles", String(employee.id || ""), {
+    hub_role: "staff",
+    scope_type: "all",
+  }, actor, {
+    actionType: silent ? "auto_assign_staff_role" : "assign_staff_role",
+    targetName: String(employee.full_name || employee.employee_id || employee.id || ""),
+  });
+  return employeeRole;
+}
+
+async function assignDefaultStaffRole(payload: JsonRecord, actor: JsonRecord) {
+  const id = String(payload.id || "").trim();
+  if (!id) throw new PortalError("INVALID_REQUEST", "Employee id is required.", 400);
+  const employee = await getCoreEmployeeById(id);
+  if (!employee?.id) throw new PortalError("NOT_FOUND", "Employee was not found.", 404);
+  if (!isStaffRoleAssignableEmployee(employee)) {
+    throw new PortalError("INVALID_REQUEST", "Retired or inactive employees cannot receive staff role.", 400);
+  }
+  return await assignDefaultStaffRoleForEmployee(employee, actor, false);
+}
+
+async function assignDefaultStaffRoleSafely(employee: JsonRecord, actor: JsonRecord) {
+  try {
+    if (!isStaffRoleAssignableEmployee(employee)) return null;
+    return await assignDefaultStaffRoleForEmployee(employee, actor, true);
+  } catch (error) {
+    console.error("Default staff role failed", error);
+    return null;
+  }
+}
+
+function normalizeAppRoleKeys(roleKeys: unknown, allowedRoleKeys: string[]) {
+  const source = Array.isArray(roleKeys) ? roleKeys : [];
+  const allowed = new Set(allowedRoleKeys);
+  return source.reduce((result, roleKeyValue) => {
+    const roleKey = String(roleKeyValue || "").trim();
+    if (!roleKey) return result;
+    if (!allowed.has(roleKey)) throw new PortalError("INVALID_REQUEST", `Unsupported role key: ${roleKey}`, 400);
+    if (!result.includes(roleKey)) result.push(roleKey);
+    return result;
+  }, [] as string[]);
+}
+
+async function updateEmployeeAppRoles(payload: JsonRecord, actor: JsonRecord) {
+  const employeeId = String(payload.id || "").trim();
+  const appKey = String(payload.appKey || "").trim();
+  if (!employeeId) throw new PortalError("INVALID_REQUEST", "Employee id is required.", 400);
+  if (!appKey) throw new PortalError("INVALID_REQUEST", "App key is required.", 400);
+
+  const employee = await getCoreEmployeeById(employeeId);
+  if (!employee?.id) throw new PortalError("NOT_FOUND", "Employee was not found.", 404);
+
+  const allowedRoleKeys = APP_ROLE_GROUPS[appKey] || [];
+  if (!allowedRoleKeys.length) throw new PortalError("INVALID_REQUEST", `Unsupported app key: ${appKey}`, 400);
+  const desiredRoleKeys = normalizeAppRoleKeys(payload.roleKeys, allowedRoleKeys);
+  const rolesByKey = await getRolesByKeys(allowedRoleKeys);
+  const missingRoleKeys = allowedRoleKeys.filter((roleKey) => !rolesByKey[roleKey]?.id);
+  if (missingRoleKeys.length) throw new PortalError("ROLE_NOT_FOUND", `App roles are missing: ${missingRoleKeys.join(", ")}`, 404);
+
+  const roleIds = allowedRoleKeys.map((roleKey) => String(rolesByKey[roleKey].id || ""));
+  const existingRows = await readRows("employee_roles", {
+    query: {
+      select: "id,employee_id,role_id,scope_type,is_active",
+      employee_id: `eq.${employee.id}`,
+      role_id: `in.(${roleIds.join(",")})`,
+      limit: "100",
+    },
+  });
+  const existingByRoleId = existingRows.reduce((index, row) => {
+    index[String(row.role_id || "")] = row;
+    return index;
+  }, {} as Record<string, JsonRecord>);
+  const beforeRoleKeys = allowedRoleKeys.filter((roleKey) => {
+    const existing = existingByRoleId[String(rolesByKey[roleKey].id || "")];
+    return existing && existing.is_active !== false;
+  });
+  const desired = new Set(desiredRoleKeys);
+
+  await Promise.all(allowedRoleKeys.map(async (roleKey) => {
+    const role = rolesByKey[roleKey];
+    const existing = existingByRoleId[String(role.id || "")] || null;
+    const shouldBeActive = desired.has(roleKey);
+    if (existing && existing.is_active !== false && shouldBeActive) return;
+    if (existing && existing.is_active === false && !shouldBeActive) return;
+    if (existing?.id) {
+      await supabaseRequest("employee_roles", {
+        method: "PATCH",
+        query: { id: `eq.${existing.id}` },
+        payload: { is_active: shouldBeActive },
+        prefer: "return=minimal",
+      });
+      return;
+    }
+    if (shouldBeActive) {
+      await supabaseRequest("employee_roles", {
+        method: "POST",
+        payload: {
+          employee_id: employee.id,
+          role_id: role.id,
+          scope_type: "all",
+          is_active: true,
+        },
+        prefer: "return=minimal",
+      });
+    }
+  }));
+
+  await appendMasterChangeLog("employee_roles", String(employee.id || ""), {
+    app_key: appKey,
+    before_role_keys: beforeRoleKeys,
+    role_keys: desiredRoleKeys,
+  }, actor, {
+    actionType: "update_app_roles",
+    targetName: String(employee.full_name || employee.employee_id || employee.id || ""),
+  });
+  return { appKey, roleKeys: desiredRoleKeys };
+}
+
+async function createCoreEmployee(payload: JsonRecord, actor: JsonRecord) {
+  const employeeId = String(payload.employee_id || "").trim();
+  const fullName = String(payload.full_name || "").trim();
+  if (!employeeId) throw new PortalError("INVALID_REQUEST", "Employee id is required.", 400);
+  if (!fullName) throw new PortalError("INVALID_REQUEST", "Full name is required.", 400);
+
+  const duplicateRows = await readRows("employees", {
+    query: { select: "id,employee_id,full_name", employee_id: `eq.${employeeId}`, limit: "1" },
+  });
+  if (duplicateRows.length) throw new PortalError("DUPLICATE_EMPLOYEE_ID", "Duplicate employee id.", 409);
+
+  const now = new Date().toISOString();
+  const row = buildEmployeeRow(payload, now, true);
+  row.employee_id = employeeId;
+  row.full_name = fullName;
+  row.is_legacy = /^LEGACY-/i.test(employeeId);
+  if (!Object.prototype.hasOwnProperty.call(row, "is_active")) row.is_active = true;
+  if (!row.employment_status) row.employment_status = "現職";
+  if (!row.employment_type) row.employment_type = "正社員";
+
+  const createdRows = await readRows("employees", {
+    method: "POST",
+    query: { select: "*" },
+    payload: row,
+    prefer: "return=representation",
+  });
+  const created = createdRows[0] || row;
+  await appendMasterChangeLog("employees", String(created.id || employeeId), row, actor, {
+    actionType: "create",
+    targetName: String(created.full_name || fullName),
+  });
+  await appendAssignmentHistoryForCreatedEmployee(created, actor);
+  await updateEmployeeStoreAssignmentsIfPresent(String(created.id || ""), payload, actor);
+  await assignDefaultStaffRoleSafely(created, actor);
+  return created;
+}
+
+async function updateCoreEmployee(payload: JsonRecord, actor: JsonRecord) {
+  const id = String(payload.id || "").trim();
+  if (!id) throw new PortalError("INVALID_REQUEST", "Employee id is required.", 400);
+  const before = await getCoreEmployeeById(id);
+  if (!before?.id) throw new PortalError("NOT_FOUND", "Employee was not found.", 404);
+  const updates = buildEmployeeRow(payload, new Date().toISOString());
+  delete updates.employee_id;
+  delete updates.full_name;
+  const changedUpdates = getChangedFields(before, updates);
+  let after = before;
+  if (Object.keys(changedUpdates).length) {
+    const rows = await readRows("employees", {
+      method: "PATCH",
+      query: { id: `eq.${id}`, select: "*" },
+      payload: changedUpdates,
+      prefer: "return=representation",
+    });
+    after = rows[0] || before;
+    await appendMasterChangeLog("employees", id, changedUpdates, actor, {
+      actionType: "update",
+      targetName: String(after.full_name || before.full_name || ""),
+    });
+    await appendAssignmentHistoryIfNeeded(before, after, changedUpdates, actor);
+  }
+  await updateEmployeeStoreAssignmentsIfPresent(id, payload, actor);
+  return after;
+}
+
+async function linkFirebaseUid(payload: JsonRecord, actor: JsonRecord) {
+  const id = String(payload.id || "").trim();
+  const firebaseUid = String(payload.firebase_uid || "").trim();
+  if (!id) throw new PortalError("INVALID_REQUEST", "Employee id is required.", 400);
+  if (!/^[A-Za-z0-9_-]{10,128}$/.test(firebaseUid)) {
+    throw new PortalError("INVALID_REQUEST", "Firebase UID format is invalid.", 400);
+  }
+  const duplicates = (await readRows("employees", {
+    query: {
+      select: "id,employee_id,full_name,email",
+      firebase_uid: `eq.${firebaseUid}`,
+      limit: "2",
+    },
+  })).filter((employee) => String(employee.id || "") !== id);
+  if (duplicates.length) {
+    throw new PortalError("FIREBASE_UID_DUPLICATED", "Firebase UID is already linked to another employee.", 409);
+  }
+  const before = await getCoreEmployeeById(id);
+  if (!before?.id) throw new PortalError("NOT_FOUND", "Employee was not found.", 404);
+  if (String(before.firebase_uid || "") === firebaseUid) return before;
+  const updates = { firebase_uid: firebaseUid, updated_at: new Date().toISOString() };
+  const rows = await readRows("employees", {
+    method: "PATCH",
+    query: { id: `eq.${id}`, select: "*" },
+    payload: updates,
+    prefer: "return=representation",
+  });
+  const after = rows[0] || before;
+  await appendMasterChangeLog("employees", id, updates, actor, {
+    actionType: "link_firebase_uid",
+    targetName: String(after.full_name || before.full_name || ""),
+  });
+  return after;
+}
+
+async function getStoreLineWorksDestination(storeId: string) {
+  if (!storeId) return null;
+  const rows = await readRows("notification_destinations", {
+    schema: "os",
+    query: {
+      select: "id,provider,target_type,target_id,channel_id,channel_name,purpose,is_active,updated_at",
+      provider: "eq.line_works",
+      target_type: "eq.store",
+      target_id: `eq.${storeId}`,
+      purpose: "eq.expense_approval",
+      limit: "1",
+    },
+  });
+  return rows[0] || null;
+}
+
+async function updateStoreLineWorksDestinationIfPresent(storeId: string, payload: JsonRecord, actor: JsonRecord, store: JsonRecord) {
+  const hasPayload = ["line_works_channel_id", "line_works_channel_name", "line_works_channel_active"].some((key) => (
+    Object.prototype.hasOwnProperty.call(payload, key)
+  ));
+  if (!hasPayload) return await getStoreLineWorksDestination(storeId);
+
+  const channelId = String(payload.line_works_channel_id || "").trim();
+  const channelName = String(payload.line_works_channel_name || "").trim();
+  const isActive = parseBooleanLike(payload.line_works_channel_active, Boolean(channelId));
+  const existing = await getStoreLineWorksDestination(storeId);
+
+  if (!channelId && !channelName && !isActive) {
+    if (!existing?.id || existing.is_active === false) return existing;
+    const rows = await readRows("notification_destinations", {
+      schema: "os",
+      method: "PATCH",
+      query: { id: `eq.${existing.id}`, select: "*" },
+      payload: {
+        is_active: false,
+        updated_by_employee_id: getActorEmployeeId(actor),
+        updated_at: new Date().toISOString(),
+      },
+      prefer: "return=representation",
+    });
+    const disabled = rows[0] || existing;
+    await appendMasterChangeLog("os.notification_destinations", storeId, {
+      provider: "line_works",
+      target_type: "store",
+      purpose: "expense_approval",
+      is_active: false,
+    }, actor, {
+      actionType: "disable_line_works_channel",
+      targetName: String(store.store_name || storeId),
+    });
+    return disabled;
+  }
+
+  if (!channelId) throw new PortalError("INVALID_REQUEST", "LINE WORKS channel id is required.", 400);
+  const now = new Date().toISOString();
+  const row = {
+    provider: "line_works",
+    target_type: "store",
+    target_id: storeId,
+    channel_id: channelId,
+    channel_name: channelName,
+    purpose: "expense_approval",
+    is_active: isActive,
+    updated_by_employee_id: getActorEmployeeId(actor),
+    updated_at: now,
+  };
+  let rows: JsonRecord[];
+  if (existing?.id) {
+    rows = await readRows("notification_destinations", {
+      schema: "os",
+      method: "PATCH",
+      query: { id: `eq.${existing.id}`, select: "*" },
+      payload: row,
+      prefer: "return=representation",
+    });
+  } else {
+    rows = await readRows("notification_destinations", {
+      schema: "os",
+      method: "POST",
+      query: { select: "*" },
+      payload: {
+        created_by_employee_id: getActorEmployeeId(actor),
+        created_at: now,
+        ...row,
+      },
+      prefer: "return=representation",
+    });
+  }
+  const destination = rows[0] || await getStoreLineWorksDestination(storeId);
+  await appendMasterChangeLog("os.notification_destinations", storeId, {
+    provider: "line_works",
+    target_type: "store",
+    purpose: "expense_approval",
+    channel_id: channelId,
+    channel_name: channelName,
+    is_active: isActive,
+  }, actor, {
+    actionType: existing?.id ? "update_line_works_channel" : "create_line_works_channel",
+    targetName: String(store.store_name || storeId),
+  });
+  return destination;
+}
+
+async function updateCoreStore(payload: JsonRecord, actor: JsonRecord) {
+  const id = String(payload.id || "").trim();
+  if (!id) throw new PortalError("INVALID_REQUEST", "Store id is required.", 400);
+  const before = await getCoreStoreById(id);
+  if (!before?.id) throw new PortalError("NOT_FOUND", "Store was not found.", 404);
+  const updates: JsonRecord = { updated_at: new Date().toISOString() };
+  copyStringField(updates, payload, "store_name");
+  copyStringField(updates, payload, "area");
+  copyStringField(updates, payload, "store_type");
+  copyNullableUuidField(updates, payload, "corporation_id");
+  copyNullableUuidField(updates, payload, "business_unit_id");
+  if (Object.prototype.hasOwnProperty.call(payload, "is_active")) updates.is_active = parseBooleanLike(payload.is_active, true);
+  const changedUpdates = getChangedFields(before, updates);
+  let after = before;
+  if (Object.keys(changedUpdates).length) {
+    const rows = await readRows("stores", {
+      method: "PATCH",
+      query: { id: `eq.${id}`, select: "*" },
+      payload: changedUpdates,
+      prefer: "return=representation",
+    });
+    after = rows[0] || before;
+    await appendMasterChangeLog("stores", id, changedUpdates, actor, {
+      actionType: "update",
+      targetName: String(after.store_name || before.store_name || ""),
+    });
+  }
+  const lineWorksDestination = await updateStoreLineWorksDestinationIfPresent(id, payload, actor, after);
+  return {
+    ...after,
+    line_works_channel: sanitizeLineWorksDestination(lineWorksDestination),
+  };
 }
 
 function getPayloadValue(source: JsonRecord, primaryKey: string, fallbackKey: string) {
@@ -1365,18 +2070,33 @@ async function handleHealth() {
     firebaseApiKeyConfigured: Boolean(FIREBASE_API_KEY),
     employeesReachable: false,
     loginCredentialsReachable: false,
+    employeeRolesReachable: false,
+    storesReachable: false,
+    notificationDestinationsReachable: false,
     portalAppsReachable: false,
     accessLogsReachable: false,
   };
   try {
     checks.employeesReachable = Array.isArray(await readRows("employees", { query: { select: "id", limit: "1" } }));
     checks.loginCredentialsReachable = Array.isArray(await readRows("employee_login_credentials", { query: { select: "id", limit: "1" } }));
+    checks.employeeRolesReachable = Array.isArray(await readRows("employee_roles", { query: { select: "id", limit: "1" } }));
+    checks.storesReachable = Array.isArray(await readRows("stores", { query: { select: "id", limit: "1" } }));
+    checks.notificationDestinationsReachable = Array.isArray(await readRows("notification_destinations", { schema: "os", query: { select: "id", limit: "1" } }));
     checks.portalAppsReachable = Array.isArray(await readRows("portal_apps", { query: { select: "id,app_id,is_active", limit: "200" } }));
     checks.accessLogsReachable = Array.isArray(await readRows("access_logs", { query: { select: "id", limit: "1" } }));
   } catch (error) {
     checks.error = sanitizeErrorDetail(error instanceof PortalError ? error.detail || error.message : error);
   }
-  const ok = Boolean(checks.supabaseUrlConfigured && checks.supabaseServiceRoleKeyConfigured && checks.pinHashPepperConfigured && checks.firebaseApiKeyConfigured && checks.employeesReachable && checks.loginCredentialsReachable && checks.portalAppsReachable);
+  const ok = Boolean(checks.supabaseUrlConfigured
+    && checks.supabaseServiceRoleKeyConfigured
+    && checks.pinHashPepperConfigured
+    && checks.firebaseApiKeyConfigured
+    && checks.employeesReachable
+    && checks.loginCredentialsReachable
+    && checks.employeeRolesReachable
+    && checks.storesReachable
+    && checks.notificationDestinationsReachable
+    && checks.portalAppsReachable);
   return jsonResponse({ ok, service: "NOV HUB Edge API", checks, timestamp: new Date().toISOString() });
 }
 
@@ -1444,6 +2164,36 @@ Deno.serve(async (request) => {
     if (action === "masterUpdateEmployeeLoginCredential") {
       assertMasterEditor(employee);
       return jsonResponse({ ok: true, credential: await updateEmployeeLoginCredential(employee, payload) });
+    }
+
+    if (action === "masterCreateEmployee") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, employee: await createCoreEmployee(payload, employee) });
+    }
+
+    if (action === "masterUpdateEmployee") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, employee: await updateCoreEmployee(payload, employee) });
+    }
+
+    if (action === "masterAssignDefaultStaffRole") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, employeeRole: await assignDefaultStaffRole(payload, employee) });
+    }
+
+    if (action === "masterUpdateEmployeeAppRoles") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, result: await updateEmployeeAppRoles(payload, employee) });
+    }
+
+    if (action === "masterLinkFirebaseUid") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, employee: await linkFirebaseUid(payload, employee) });
+    }
+
+    if (action === "masterUpdateStore") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, store: await updateCoreStore(payload, employee) });
     }
 
     if (action === "masterUpdatePortalApp") {

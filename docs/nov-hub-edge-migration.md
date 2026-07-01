@@ -34,11 +34,17 @@ Supabase Core DB
 - `masterListStores`
 - `masterListPortalApps`
 - `masterListChangeLogs`
+- `masterCreateEmployee`
+- `masterUpdateEmployee`
+- `masterAssignDefaultStaffRole`
+- `masterUpdateEmployeeAppRoles`
+- `masterLinkFirebaseUid`
 - `masterUpdateEmployeeLoginCredential`
+- `masterUpdateStore`
 - `masterUpdatePortalApp`
 - `masterCreatePortalApp`
 
-`master-admin` 系APIは読み込み系、ログイン/PIN設定更新、アプリ作成・更新がEdge Function対応済み。社員基本情報更新、権限更新、店舗更新などの編集系はまだGAS fallbackを使う。
+`master-admin` 系APIは主要な読み込み・編集処理がEdge Function対応済み。GAS fallbackは一時保険として残すが、通常導線はEdge Functionを優先する。
 
 ## 必要なSupabase Secret
 
@@ -64,6 +70,9 @@ Invoke-RestMethod "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub
 - `firebaseApiKeyConfigured`
 - `employeesReachable`
 - `loginCredentialsReachable`
+- `employeeRolesReachable`
+- `storesReachable`
+- `notificationDestinationsReachable`
 - `portalAppsReachable`
 
 ## 移行状態
@@ -76,7 +85,10 @@ Invoke-RestMethod "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub
 - フロントはEdge優先、失敗時GAS fallback
 - `edgePinEnabled: true`
 - master-admin読み込み系はEdge優先
+- master-adminの社員追加・社員基本情報更新・退職処理はEdge優先
+- master-adminのstaff権限付与・IDEA LINK権限更新・Firebase UID連携はEdge優先
 - master-adminのログイン/PIN設定更新はEdge優先
+- master-adminの店舗更新・LINE WORKS通知先更新はEdge優先
 - master-adminのアプリ作成・更新はEdge優先
 
 PINログインもEdge Functionを優先する。GASはfallbackとして残す。

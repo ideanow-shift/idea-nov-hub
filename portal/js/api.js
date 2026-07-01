@@ -14,7 +14,13 @@ const EDGE_ACTIONS = new Set([
   "masterListStores",
   "masterListPortalApps",
   "masterListChangeLogs",
+  "masterCreateEmployee",
+  "masterUpdateEmployee",
+  "masterAssignDefaultStaffRole",
+  "masterUpdateEmployeeAppRoles",
+  "masterLinkFirebaseUid",
   "masterUpdateEmployeeLoginCredential",
+  "masterUpdateStore",
   "masterUpdatePortalApp",
   "masterCreatePortalApp"
 ]);

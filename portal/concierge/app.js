@@ -596,8 +596,8 @@ function createFeedback(logId) {
   wrapper.append(label);
 
   [
-    { rating: "up", label: "👍" },
-    { rating: "down", label: "👎" }
+    { rating: "up", label: "役に立った" },
+    { rating: "down", label: "改善が必要" }
   ].forEach((item) => {
     const button = document.createElement("button");
     button.type = "button";

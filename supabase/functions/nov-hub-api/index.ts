@@ -12,6 +12,7 @@ const FIREBASE_API_KEY = Deno.env.get("FIREBASE_API_KEY") || FIREBASE_API_KEY_FA
 const APP_ROLE_GROUPS: Record<string, string[]> = {
   idea_link: ["idea_link.staff", "idea_link.manager", "idea_link.admin"],
 };
+let bootstrapRpcDisabledUntil = 0;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -134,6 +135,13 @@ async function supabaseRequest(path: string, options: {
 async function readRows(path: string, options: Parameters<typeof supabaseRequest>[1] = {}) {
   const data = await supabaseRequest(path, options);
   return Array.isArray(data) ? data as JsonRecord[] : [];
+}
+
+async function callSupabaseRpc(functionName: string, payload: JsonRecord = {}) {
+  return await supabaseRequest(`rpc/${encodeURIComponent(functionName)}`, {
+    method: "POST",
+    payload,
+  });
 }
 
 async function verifyFirebaseToken(idToken: string) {
@@ -297,8 +305,7 @@ async function authenticate(token: string, payload: JsonRecord) {
       return { authType: "pin", email, displayName: "", employee: null };
     }
     await registerSuccessfulPinLogin(credential);
-    const employee = await getEmployeeById(String(credential.employee_id || ""));
-    return { authType: "pin", email, displayName: "", employee, credential };
+    return { authType: "pin", email, displayName: "", credential };
   }
   return await verifyFirebaseToken(token);
 }
@@ -316,14 +323,25 @@ async function getEmployeeById(id: string) {
 }
 
 async function findEmployeeForAuth(authUser: JsonRecord) {
+  const email = normalizeEmail(authUser.email);
   if (authUser.authType === "pin") {
-    const employee = authUser.employee as JsonRecord | null;
+    const credential = authUser.credential as JsonRecord | null;
+    if (!credential?.id) return null;
+    if (email) {
+      const rpcEmployee = await findEmployeeByEmailRpc(email);
+      if (rpcEmployee) return rpcEmployee;
+    }
+    const employee = await getEmployeeById(String(credential?.employee_id || ""));
     if (!isEmployeeActive(employee)) return null;
-    return normalizeEmployee(employee, authUser.credential as JsonRecord | null);
+    return normalizeEmployee(employee, credential);
+  }
+
+  if (email) {
+    const rpcEmployee = await findEmployeeByEmailRpc(email);
+    if (rpcEmployee) return rpcEmployee;
   }
 
   const uid = String(authUser.uid || "").trim();
-  const email = normalizeEmail(authUser.email);
   let rows: JsonRecord[] = [];
   if (uid) {
     rows = await readRows("employees", {
@@ -346,6 +364,27 @@ async function findEmployeeForAuth(authUser: JsonRecord) {
   const employee = rows[0] || null;
   if (!isEmployeeActive(employee)) return null;
   return normalizeEmployee(employee, await getCredentialByEmployeeId(String(employee.id || "")));
+}
+
+function isBootstrapRpcTemporarilyDisabled() {
+  return bootstrapRpcDisabledUntil > Date.now();
+}
+
+function temporarilyDisableBootstrapRpc() {
+  bootstrapRpcDisabledUntil = Date.now() + 60 * 1000;
+}
+
+async function findEmployeeByEmailRpc(email: string) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail || isBootstrapRpcTemporarilyDisabled()) return null;
+  try {
+    const data = await callSupabaseRpc("get_nov_hub_bootstrap_by_email", { p_email: normalizedEmail });
+    return normalizeBootstrapEmployee(data as JsonRecord | null, normalizedEmail);
+  } catch (error) {
+    temporarilyDisableBootstrapRpc();
+    console.warn("NOV HUB bootstrap RPC failed. Falling back to table reads.", sanitizeErrorDetail(error instanceof PortalError ? error.detail || error.message : error));
+    return null;
+  }
 }
 
 function isEmployeeActive(employee: JsonRecord | null) {
@@ -512,6 +551,92 @@ async function normalizeEmployee(employee: JsonRecord | null, credential: JsonRe
     corporationRef: corporation ? { id: String(corporation.id || ""), code: String(corporation.corporation_no || ""), name: String(corporation.corporation_name || "") } : null,
     departmentRef: department ? { id: String(department.id || ""), code: String(department.department_code || ""), name: String(department.department_name || "") } : null,
     positionRef: position ? { id: String(position.id || ""), name: String(position.position_name || "") } : null,
+    primaryStore,
+    storeAssignments,
+  };
+}
+
+function normalizeBootstrapRoles(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.map((role) => ({
+    roleKey: String(role?.roleKey || role?.role_key || ""),
+    roleName: String(role?.roleName || role?.role_name || ""),
+    scopeType: String(role?.scopeType || role?.scope_type || ""),
+    scopeId: role?.scopeId || role?.scope_id || null,
+  })).filter((role) => role.roleKey);
+}
+
+function normalizeBootstrapStoreAssignments(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.map((assignment) => ({
+    storeId: String(assignment?.storeId || assignment?.store_id || ""),
+    storeNo: String(assignment?.storeNo || assignment?.store_no || ""),
+    storeCode: String(assignment?.storeCode || assignment?.store_code || ""),
+    storeName: String(assignment?.storeName || assignment?.store_name || ""),
+    assignmentType: String(assignment?.assignmentType || assignment?.assignment_type || ""),
+    priority: Number(assignment?.priority || assignment?.assignment_order || 0),
+  })).filter((assignment) => assignment.storeId || assignment.storeName);
+}
+
+function normalizeBootstrapEmployee(data: JsonRecord | null, fallbackEmail: string) {
+  if (!data || !data.employee || typeof data.employee !== "object") return null;
+  const employee = data.employee as JsonRecord;
+  const employmentStatus = String(employee.employmentStatus || employee.employment_status || "");
+  if (employee.isActive === false || employee.is_active === false || /退職|休職|産休|育休/.test(employmentStatus)) return null;
+
+  const source = (employee.sourceRow || employee.source_row || {}) as JsonRecord;
+  const corporation = (data.corporation || {}) as JsonRecord;
+  const store = (data.store || {}) as JsonRecord;
+  const department = (data.department || {}) as JsonRecord;
+  const position = (data.position || {}) as JsonRecord;
+  const roles = normalizeBootstrapRoles(data.roles);
+  const roleKeys = roles.map((role) => role.roleKey).filter(Boolean);
+  const storeAssignments = normalizeBootstrapStoreAssignments(data.storeAssignments || data.store_assignments);
+  const primaryStore = buildPrimaryStore({
+    id: String(store.id || ""),
+    store_no: String(store.storeNo || store.store_no || ""),
+    store_id: String(store.storeCode || store.store_code || ""),
+    store_name: String(store.name || store.storeName || store.store_name || ""),
+  }, storeAssignments);
+  const loginCredential = sanitizeLoginCredential((data.loginStatus || data.login_status || null) as JsonRecord | null);
+  const tags = buildTags({ source_row: source }, {
+    department: { department_name: String(department.name || department.departmentName || department.department_name || "") },
+    position: { position_name: String(position.name || position.positionName || position.position_name || "") },
+    store: { store_name: String(primaryStore?.name || store.name || store.storeName || store.store_name || "") },
+    roleKeys,
+  });
+  const employeeEmail = normalizeEmail((loginCredential && loginCredential.login_email) || employee.email || fallbackEmail);
+  const fullName = String(employee.fullName || employee.full_name || employee.email || fallbackEmail || "");
+
+  return {
+    id: String(employee.id || ""),
+    coreEmployeeId: String(employee.id || ""),
+    employeeId: String(employee.employeeId || employee.employee_id || ""),
+    employeeNumber: String(employee.employeeId || employee.employee_id || ""),
+    firebaseUid: String(employee.firebaseUid || employee.firebase_uid || ""),
+    email: employeeEmail,
+    name: fullName,
+    fullName,
+    store: primaryStore?.name || String(source.assigned_location || ""),
+    storeCode: primaryStore?.storeId || "",
+    department: String(department.name || department.departmentName || department.department_name || source.department_name || ""),
+    position: String(position.name || position.positionName || position.position_name || source.position_name || ""),
+    grade: "",
+    roleLevel: getRoleLevel(roleKeys),
+    roleKeys,
+    roles,
+    tags,
+    status: "active",
+    source: "supabase-rpc",
+    corporation: String(corporation.name || corporation.corporationName || corporation.corporation_name || ""),
+    employmentStatus,
+    employmentType: String(employee.employmentType || employee.employment_type || ""),
+    isActive: employee.isActive !== false && employee.is_active !== false,
+    loginCredential,
+    mustChangePin: Boolean(loginCredential?.must_change_pin),
+    corporationRef: corporation.id ? { id: String(corporation.id || ""), code: String(corporation.code || corporation.corporation_no || ""), name: String(corporation.name || corporation.corporation_name || "") } : null,
+    departmentRef: department.id ? { id: String(department.id || ""), code: String(department.code || department.department_code || ""), name: String(department.name || department.department_name || "") } : null,
+    positionRef: position.id ? { id: String(position.id || ""), name: String(position.name || position.position_name || "") } : null,
     primaryStore,
     storeAssignments,
   };
@@ -2072,6 +2197,7 @@ async function handleHealth() {
     loginCredentialsReachable: false,
     employeeRolesReachable: false,
     storesReachable: false,
+    bootstrapRpcReachable: false,
     notificationDestinationsReachable: false,
     portalAppsReachable: false,
     accessLogsReachable: false,
@@ -2081,6 +2207,12 @@ async function handleHealth() {
     checks.loginCredentialsReachable = Array.isArray(await readRows("employee_login_credentials", { query: { select: "id", limit: "1" } }));
     checks.employeeRolesReachable = Array.isArray(await readRows("employee_roles", { query: { select: "id", limit: "1" } }));
     checks.storesReachable = Array.isArray(await readRows("stores", { query: { select: "id", limit: "1" } }));
+    try {
+      await callSupabaseRpc("get_nov_hub_bootstrap_by_email", { p_email: "__nov_hub_healthcheck__@invalid.local" });
+      checks.bootstrapRpcReachable = true;
+    } catch (error) {
+      checks.bootstrapRpcError = sanitizeErrorDetail(error instanceof PortalError ? error.detail || error.message : error);
+    }
     checks.notificationDestinationsReachable = Array.isArray(await readRows("notification_destinations", { schema: "os", query: { select: "id", limit: "1" } }));
     checks.portalAppsReachable = Array.isArray(await readRows("portal_apps", { query: { select: "id,app_id,is_active", limit: "200" } }));
     checks.accessLogsReachable = Array.isArray(await readRows("access_logs", { query: { select: "id", limit: "1" } }));

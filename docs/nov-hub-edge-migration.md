@@ -34,7 +34,7 @@ Supabase Core DB
 
 ## 必要なSupabase Secret
 
-`PIN_HASH_PEPPER` をGAS Script Propertiesと同じ値で登録する。
+`PIN_HASH_PEPPER` はGAS Script Propertiesと同じ値で登録する。
 
 ```powershell
 npx supabase secrets set PIN_HASH_PEPPER="GASと同じpepper値" --project-ref nkmxevmioczcmnldreyo
@@ -64,7 +64,8 @@ Invoke-RestMethod "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub
 
 - Edge Functionはデプロイ済み
 - Supabase DB接続は確認済み
-- `PIN_HASH_PEPPER` は未登録
+- `PIN_HASH_PEPPER` は登録済み
 - フロントはEdge優先、失敗時GAS fallback
+- `edgePinEnabled: true`
 
-`PIN_HASH_PEPPER` 登録後、PINログインもEdge Functionで完結させる。
+PINログインもEdge Functionを優先する。GASはfallbackとして残す。

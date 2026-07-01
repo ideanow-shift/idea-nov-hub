@@ -2175,16 +2175,34 @@ function renderGrowthResultList(title, items, emptyText) {
 
 function getGrowthScoreState(score, issueCount) {
   const numericScore = Number(score);
-  if (!Number.isFinite(numericScore)) return { label: "確認待ち", tone: "warn", message: "詳細が読み込まれると状態を確認できます。" };
-  if (issueCount > 0 || numericScore < 4) return { label: "改善候補あり", tone: "warn", message: "次回までに1つだけ行動を決めると進めやすい状態です。" };
-  return { label: "良い状態", tone: "ok", message: "良い状態を続けるため、できている行動を言葉にして残しましょう。" };
+  if (!Number.isFinite(numericScore)) {
+    return {
+      label: "確認待ち",
+      tone: "warn",
+      message: "詳細が読み込まれると現在地を確認できます。"
+    };
+  }
+
+  if (issueCount > 0 || numericScore < 4) {
+    return {
+      label: "改善候補あり",
+      tone: "warn",
+      message: "次回までに1つだけ行動を決めると進めやすい状態です。"
+    };
+  }
+
+  return {
+    label: "良い状態",
+    tone: "ok",
+    message: "できている行動を言葉にして残し、次回も続けましょう。"
+  };
 }
 
 function renderRecipientGrowthSteps(issueCount) {
   const steps = [
-    { label: "現在地", text: issueCount ? "0点・3点の項目を確認" : "良い状態を確認" },
-    { label: "課題", text: issueCount ? "改善候補を1つ選ぶ" : "続けたい行動を決める" },
-    { label: "次の行動", text: "次回までの一歩を実行" }
+    { label: "現在地", text: issueCount ? "改善候補を確認" : "良い状態を確認" },
+    { label: "課題", text: issueCount ? "次に直す項目を1つ選ぶ" : "続けたい行動を決める" },
+    { label: "次の行動", text: "次回までの一歩を記録" }
   ];
   return `
     <div class="recipient-step-grid" aria-label="確認の流れ">

@@ -183,7 +183,7 @@
       readHubEmployeeContextFromUrl
     } from "../js/hub-context.js";
 
-    const EXPENSE_HUB_DEV_URL = "http://localhost:5177";
+    const EXPENSE_HUB_URL = "https://ideanow-shift.github.io/idea-nov-expense-hub/";
     const status = document.querySelector("#status");
     const openExpenseHub = document.querySelector("#openExpenseHub");
     const contextStatus = document.querySelector("#context-status");
@@ -226,7 +226,7 @@
     function buildExpenseHubUrl(context, initialTab) {
       const incoming = new URL(window.location.href).searchParams.get(HUB_CONTEXT_QUERY_KEY);
       const encoded = incoming || encodeHubContextForUrl(context);
-      const url = new URL(EXPENSE_HUB_DEV_URL);
+      const url = new URL(EXPENSE_HUB_URL);
       appendForwardParams(url);
       if (encoded) url.searchParams.set(HUB_CONTEXT_QUERY_KEY, encoded);
       if (initialTab) url.searchParams.set("initial_tab", initialTab);

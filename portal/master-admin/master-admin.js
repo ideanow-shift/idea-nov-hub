@@ -1560,11 +1560,11 @@ function renderEmployeeDetail(employee) {
     <h3>${escapeHtml(employee.full_name)}</h3>
     <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}${employee.updated_at ? ` / 最終更新: ${escapeHtml(formatDateTime(employee.updated_at))}` : ""}</p>
     <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。"}</p>
+    ${renderEmployeeRolePanel(employee)}
     ${loginPanel}
     <form class="form-grid" id="detail-form">
       ${createdPanel}
       ${issuePanel}
-      ${renderEmployeeRolePanel(employee)}
       ${renderEmployeeAppRolePanel(employee, readonly)}
       ${firebaseLinkPanel}
       ${fieldInput("email", "メール", employee.email || "", "email")}
@@ -1693,7 +1693,9 @@ function renderEmployeeRolePanel(employee) {
       <div class="role-panel missing">
         <strong>HUB基本権限</strong>
         <p>共通ロールが未設定です。一般スタッフは staff を付与します。管理者・幹部権限ではありません。</p>
-        ${canEdit ? `<button class="button button-secondary" id="assign-staff-role" type="button">staffを付与</button>` : ""}
+        ${canEdit
+          ? `<button class="button button-secondary" id="assign-staff-role" type="button">staffを付与</button>`
+          : `<button class="button button-secondary" type="button" disabled>staffを付与（編集権限が必要）</button>`}
       </div>`;
   }
   const chips = roleKeys

@@ -156,6 +156,7 @@ function toRecord(form) {
   const formData = new FormData(form);
   const now = new Date().toISOString();
   const results = getCheckResultsFromForm(formData);
+  const photoRecords = getFormPhotoRecords(form, formData);
   const scores = results.map((result) => result.score).filter((score) => Number.isFinite(score));
   const averageScore = scores.length
     ? Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 100) / 100
@@ -170,14 +171,58 @@ function toRecord(form) {
     evaluator: formData.get("evaluator"),
     score: averageScore,
     comment: formData.get("comment"),
-    photo_url: formData.get("photoUrl"),
-    photo_storage_path: form.dataset.photoStoragePath || null,
+    photo_url: photoRecords[0]?.photoUrl || "",
+    photo_storage_path: photoRecords[0]?.storagePath || null,
+    photos: photoRecords,
     results,
     status: "active",
     created_at: now,
     created_by: formData.get("evaluator"),
     version: 1
   };
+}
+
+function getUploadedPhotoRecords(form) {
+  if (!form?.dataset.photoUploads) return [];
+  try {
+    const parsed = JSON.parse(form.dataset.photoUploads);
+    return Array.isArray(parsed) ? parsed.filter((photo) => photo && (photo.photoUrl || photo.storagePath)) : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+function setUploadedPhotoRecords(form, photos) {
+  if (!form) return;
+  const normalized = (photos || []).filter((photo) => photo && (photo.photoUrl || photo.storagePath));
+  if (!normalized.length) {
+    delete form.dataset.photoUploads;
+    resetFormPhotoState(form);
+    return;
+  }
+  form.dataset.photoUploads = JSON.stringify(normalized);
+  form.dataset.photoStoragePath = normalized[0]?.storagePath || "";
+}
+
+function getFormPhotoRecords(form, formData = new FormData(form)) {
+  const uploaded = getUploadedPhotoRecords(form);
+  const manualUrl = String(formData.get("photoUrl") || "").trim();
+  const photos = [...uploaded];
+  if (manualUrl && !photos.some((photo) => photo.photoUrl === manualUrl)) {
+    photos.push({
+      photoUrl: manualUrl,
+      storagePath: null,
+      photoType: "evidence",
+      caption: "外部URL"
+    });
+  }
+  return photos;
+}
+
+function resetFormPhotoState(form) {
+  if (!form) return;
+  delete form.dataset.photoStoragePath;
+  delete form.dataset.photoUploads;
 }
 
 function getCheckResultsFromForm(formData) {
@@ -565,11 +610,7 @@ async function saveRemoteRecord(record) {
       checkItemId: result.checkItemId,
       score: result.score,
       comment: result.comment || record.comment,
-      photos: index === 0 && (record.photo_url || record.photo_storage_path) ? [{
-        photoUrl: record.photo_url || null,
-        storagePath: record.photo_storage_path || null,
-        photoType: "evidence"
-      }] : []
+      photos: index === 0 ? getRecordPhotoPayload(record) : []
     }))
   };
 
@@ -580,6 +621,25 @@ async function saveRemoteRecord(record) {
   return await response.json();
 }
 
+function getRecordPhotoPayload(record) {
+  if (Array.isArray(record.photos) && record.photos.length) {
+    return record.photos.map((photo) => ({
+      photoUrl: photo.photoUrl || photo.photo_url || null,
+      storagePath: photo.storagePath || photo.storage_path || null,
+      photoType: photo.photoType || photo.photo_type || "evidence",
+      caption: photo.caption || null
+    })).filter((photo) => photo.photoUrl || photo.storagePath);
+  }
+  if (record.photo_url || record.photo_storage_path) {
+    return [{
+      photoUrl: record.photo_url || null,
+      storagePath: record.photo_storage_path || null,
+      photoType: "evidence",
+      caption: null
+    }];
+  }
+  return [];
+}
 async function uploadPhotoFile(file) {
   if (!hasApiConfig()) throw new Error("Management API未接続のため写真アップロードできません。");
   const storeId = getDefaultStoreId();
@@ -597,10 +657,23 @@ async function uploadPhotoFile(file) {
   const json = await response.json();
   if (!json.ok) throw new Error(json.error || "photo upload failed");
   if (form) {
-    form.dataset.photoStoragePath = json.storagePath || "";
-    form.elements.photoUrl.value = json.photoUrl || "";
+    const existing = getUploadedPhotoRecords(form);
+    setUploadedPhotoRecords(form, [...existing, {
+      photoUrl: json.photoUrl || null,
+      storagePath: json.storagePath || null,
+      photoType: "evidence",
+      caption: file.name || "Storage写真"
+    }]);
   }
   return json;
+}
+
+async function uploadPhotoFiles(files) {
+  const uploaded = [];
+  for (const file of files) {
+    uploaded.push(await uploadPhotoFile(file));
+  }
+  return uploaded;
 }
 
 async function loadRemoteRecords() {
@@ -2159,33 +2232,54 @@ function renderPhotoPreview() {
   const form = document.getElementById("environmentForm");
   const panel = document.getElementById("photoPreviewPanel");
   if (!form || !panel) return;
+  const uploadedPhotos = getUploadedPhotoRecords(form);
   const url = String(form.elements.photoUrl?.value || "").trim();
-  if (!url) {
-    panel.innerHTML = `<p class="muted-text">写真URLを入力すると、保存前にリンクを確認できます。</p>`;
-    return;
-  }
+  const cards = [];
 
-  let parsedUrl;
-  try {
-    parsedUrl = new URL(url);
-  } catch (_error) {
-    panel.innerHTML = `<p class="status-danger">写真URLの形式を確認してください。</p>`;
-    return;
-  }
-
-  const imagePreview = looksLikeImageUrl(parsedUrl.href)
-    ? `<img class="photo-preview-image" src="${escapeHtml(parsedUrl.href)}" alt="写真プレビュー" loading="lazy">`
-    : `<p class="muted-text">Google Drive等の共有URLは、ボタンから別タブで確認できます。</p>`;
-
-  panel.innerHTML = `
-    <div class="photo-preview-card">
-      ${imagePreview}
-      <div class="photo-preview-actions">
-        <a href="${escapeHtml(parsedUrl.href)}" target="_blank" rel="noopener" class="photo-link">写真URLを開く</a>
-        <span class="muted-text">保存すると履歴詳細に紐付きます。</span>
+  uploadedPhotos.forEach((photo, index) => {
+    const label = photo.caption || `Storage写真 ${index + 1}`;
+    const urlHtml = photo.photoUrl
+      ? `<a href="${escapeHtml(photo.photoUrl)}" target="_blank" rel="noopener" class="photo-link">写真を開く</a>`
+      : `<span class="photo-link muted-text">署名URL未発行</span>`;
+    cards.push(`
+      <div class="photo-preview-card compact">
+        <p class="score-summary-label">${escapeHtml(label)}</p>
+        ${photo.photoUrl && looksLikeImageUrl(photo.photoUrl) ? `<img class="photo-preview-image" src="${escapeHtml(photo.photoUrl)}" alt="${escapeHtml(label)}" loading="lazy">` : ""}
+        <div class="photo-preview-actions">
+          ${urlHtml}
+          <span class="muted-text">${escapeHtml(photo.storagePath || "Storage保存済み")}</span>
+        </div>
       </div>
-    </div>
-  `;
+    `);
+  });
+
+  if (url && !uploadedPhotos.some((photo) => photo.photoUrl === url)) {
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(url);
+    } catch (_error) {
+      cards.push(`<p class="status-danger">写真URLの形式を確認してください。</p>`);
+      panel.innerHTML = cards.join("");
+      return;
+    }
+    const imagePreview = looksLikeImageUrl(parsedUrl.href)
+      ? `<img class="photo-preview-image" src="${escapeHtml(parsedUrl.href)}" alt="外部写真プレビュー" loading="lazy">`
+      : `<p class="muted-text">Google Drive等の共有URLは、ボタンから別タブで確認できます。</p>`;
+    cards.push(`
+      <div class="photo-preview-card compact">
+        <p class="score-summary-label">外部URL</p>
+        ${imagePreview}
+        <div class="photo-preview-actions">
+          <a href="${escapeHtml(parsedUrl.href)}" target="_blank" rel="noopener" class="photo-link">写真URLを開く</a>
+          <span class="muted-text">保存すると履歴詳細に紐付きます。</span>
+        </div>
+      </div>
+    `);
+  }
+
+  panel.innerHTML = cards.length
+    ? `<div class="photo-preview-list">${cards.join("")}</div>`
+    : `<p class="muted-text">写真を選択するとSupabase Storageへ保存されます。外部URLも補助的に残せます。</p>`;
 }
 
 function setPhotoUploadStatus(message, kind = "info") {
@@ -2839,7 +2933,7 @@ async function handleSubmit(event) {
     if (result?.ok) {
       setApiStatus(`保存OK: ${result.resultCount || record.results.length}項目 / checkId=${result.checkId}`, "ok");
       form.reset();
-      delete form.dataset.photoStoragePath;
+      resetFormPhotoState(form);
       renderScoreControls();
       renderPhotoPreview();
       await refreshRecords();
@@ -2850,7 +2944,7 @@ async function handleSubmit(event) {
     saveLocalRecord(record);
     setApiStatus(`ローカル保存: ${result?.reason || "Management API未接続"}`, "info");
     form.reset();
-    delete form.dataset.photoStoragePath;
+    resetFormPhotoState(form);
     renderScoreControls();
     renderPhotoPreview();
     renderDashboard();
@@ -2866,27 +2960,33 @@ async function handleSubmit(event) {
 
 async function handlePhotoFileChange(event) {
   const input = event.currentTarget;
-  const file = input.files?.[0];
-  if (!file) return;
-  if (!file.type.startsWith("image/")) {
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+  const invalidType = files.find((file) => !file.type.startsWith("image/"));
+  if (invalidType) {
     setPhotoUploadStatus("画像ファイルを選択してください。", "error");
     input.value = "";
     return;
   }
-  if (file.size > 8 * 1024 * 1024) {
-    setPhotoUploadStatus("写真は8MB以下にしてください。", "error");
+  const tooLarge = files.find((file) => file.size > 8 * 1024 * 1024);
+  if (tooLarge) {
+    setPhotoUploadStatus("写真は1枚あたり8MB以下にしてください。", "error");
     input.value = "";
     return;
   }
 
-  setPhotoUploadStatus("写真をアップロード中です...", "loading");
+  setPhotoUploadStatus(`写真${files.length}枚をアップロード中です...`, "loading");
+  input.disabled = true;
   try {
-    const result = await uploadPhotoFile(file);
-    setPhotoUploadStatus(`アップロードOK: ${result.storagePath}`, "ok");
+    const uploaded = await uploadPhotoFiles(files);
+    setPhotoUploadStatus(`アップロードOK: ${uploaded.length}枚`, "ok");
     renderPhotoPreview();
   } catch (error) {
     console.warn("Photo upload failed", error);
     setPhotoUploadStatus(`写真アップロードエラー: ${error.message || error}`, "error");
+  } finally {
+    input.disabled = false;
+    input.value = "";
   }
 }
 
@@ -3080,11 +3180,11 @@ function bindEvents() {
   document.getElementById("clearFormBtn").addEventListener("click", () => {
     const form = document.getElementById("environmentForm");
     form.reset();
-    delete form.dataset.photoStoragePath;
+    resetFormPhotoState(form);
     renderScoreControls();
     renderScoreSummary();
     renderPhotoPreview();
-    setPhotoUploadStatus("写真を選択すると、StorageへアップロードしてURL欄に反映します。");
+    setPhotoUploadStatus("写真を選択すると、Supabase Storageへアップロードして履歴に紐付けます。複数枚選択できます。");
   });
   document.getElementById("loginForm").addEventListener("submit", handleLogin);
   document.getElementById("logoutBtn").addEventListener("click", handleLogout);
@@ -3159,6 +3259,4 @@ async function apiRequest(path, options = {}) {
   }
   return response;
 }
-
-
 

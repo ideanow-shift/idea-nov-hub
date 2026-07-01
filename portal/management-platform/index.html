@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>IDEA NOV Management Platform</title>
-  <link rel="stylesheet" href="./styles.css?v=management-platform-20260701-08">
+  <link rel="stylesheet" href="./styles.css?v=management-platform-20260701-09">
 </head>
 <body>
   <main class="app-shell">
@@ -270,16 +270,16 @@
           </label>
 
           <label>
-            写真URL（Phase 2準備）
-            <input name="photoUrl" type="url" placeholder="Google Drive等の写真URL">
+            外部写真URL（任意）
+            <input name="photoUrl" type="url" placeholder="Google Drive等の写真URL（補助用）">
           </label>
           <label>
-            写真ファイル（Phase 2）
-            <input name="photoFile" id="photoFileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+            写真ファイル（Supabase Storage）
+            <input name="photoFile" id="photoFileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple>
           </label>
-          <p class="field-help" id="photoUploadStatus">写真を選択すると、StorageへアップロードしてURL欄に反映します。</p>
+          <p class="field-help" id="photoUploadStatus">写真を選択すると、Supabase Storageへアップロードして履歴に紐付けます。複数枚選択できます。</p>
           <div class="photo-preview-panel" id="photoPreviewPanel" aria-live="polite">
-            <p class="muted-text">写真URLを入力すると、保存前にリンクを確認できます。</p>
+            <p class="muted-text">写真を選択するとSupabase Storageへ保存されます。外部URLも補助的に残せます。</p>
           </div>
 
           <div class="form-actions">
@@ -435,10 +435,8 @@
       </section>
     </section>
   </main>
-  <script src="./config.js?v=management-platform-20260701-08"></script>
-  <script src="./app.js?v=management-platform-20260701-08"></script>
+  <script src="./config.js?v=management-platform-20260701-09"></script>
+  <script src="./app.js?v=management-platform-20260701-09"></script>
 </body>
 </html>
-
-
 

@@ -1061,6 +1061,17 @@ th {
   display: grid;
   gap: 8px;
 }
+.photo-preview-list {
+  display: grid;
+  gap: 10px;
+}
+
+.photo-preview-card.compact {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
 
 .photo-preview-image {
   width: 100%;
@@ -1385,5 +1396,4 @@ th {
     width: 100%;
   }
 }
-
 

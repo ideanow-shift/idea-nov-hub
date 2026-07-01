@@ -306,9 +306,9 @@ body { background: #FAFAFA; }
 .concierge-entry {
   display: grid;
   gap: var(--spacing-md);
-  border: 1px solid var(--border-light);
+  border: 1px solid rgba(232, 180, 184, 0.55);
   border-radius: var(--radius-md);
-  background: #FFFFFF;
+  background: #FFF9FA;
   padding: var(--spacing-lg);
 }
 
@@ -375,6 +375,7 @@ body { background: #FAFAFA; }
   display: inline-flex;
   width: fit-content;
   align-items: center;
+  border-color: rgba(232, 180, 184, 0.55);
   background: #FFFFFF;
 }
 

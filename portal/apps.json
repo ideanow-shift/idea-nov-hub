@@ -16,6 +16,21 @@
       ]
     },
     {
+      "appId": "nov-navi",
+      "appName": "NOV Navi",
+      "icon": "./assets/icons/nov-hub.svg",
+      "color": "#E8B4B8",
+      "aliases": [
+        "NOV Navi",
+        "NOV Navigator",
+        "nov-navi",
+        "concierge",
+        "案内",
+        "申請",
+        "情報"
+      ]
+    },
+    {
       "appId": "education-web",
       "appName": "教育部WEBアプリ",
       "icon": "./assets/icons/education.svg",

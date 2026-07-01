@@ -4,6 +4,7 @@ const appBase = { allowedTags: [], targetDepartment: [], targetPosition: [], isA
 
 export const DEMO_APPS = [
   { ...appBase, appId: "nov-hub", appName: "NOV HUB", description: "社内アプリをまとめて探せるポータル", url: "#demo-hub", category: "全般", icon: "nov-hub", requiredLevel: 1, isFeatured: true, priority: 5 },
+  { ...appBase, appId: "nov-navi", appName: "NOV Navi", description: "必要な情報、申請、アプリへ案内します", url: "./concierge/", category: "全般", icon: "nov-hub", requiredLevel: 1, isFeatured: true, priority: 6 },
   { ...appBase, appId: "attendance", appName: "勤怠管理", description: "出勤・退勤の打刻と勤務実績の確認", url: "#demo-attendance", category: "勤怠・シフト", icon: "attendance", requiredLevel: 1, isFeatured: true, priority: 10 },
   { ...appBase, appId: "shift", appName: "シフト作成", description: "勤務予定・希望休の確認", url: "https://ideanow-shift.github.io/shift/shift_demo.html", category: "勤怠・シフト", icon: "shift", requiredLevel: 1, isFeatured: true, priority: 20 },
   { ...appBase, appId: "education-web", appName: "教育部WEBアプリ", description: "教育動画・技術マニュアル・研修予定", url: "#demo-learning", category: "教育", icon: "education-web", requiredLevel: 1, isFeatured: true, priority: 30 },

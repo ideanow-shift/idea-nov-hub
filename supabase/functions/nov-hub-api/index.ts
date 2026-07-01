@@ -668,6 +668,21 @@ function normalizeApp(row: JsonRecord) {
 function fixedApps(employee: JsonRecord) {
   const apps = [
     {
+      appId: "nov-navi",
+      appName: "NOV Navi",
+      description: "必要な情報、申請、アプリへ案内します",
+      url: "./concierge/",
+      category: "全般",
+      icon: "nov-hub",
+      requiredLevel: 1,
+      allowedTags: [],
+      targetDepartment: [],
+      targetPosition: [],
+      isActive: true,
+      isFeatured: true,
+      priority: 6,
+    },
+    {
       appId: "idea-link",
       appName: "IDEA LINK",
       description: "サンクス投稿と理念行動共有のHUB連携準備ページ",

@@ -106,8 +106,12 @@ function createEmptyState(message) {
 
 function openConcierge(question = "") {
   const query = String(question || "").trim();
-  const url = query ? `./concierge/?q=${encodeURIComponent(query)}` : "./concierge/";
-  window.location.assign(url);
+  const url = new URL("./concierge/", window.location.href);
+  if (query) url.searchParams.set("q", query);
+  const context = refreshHubEmployeeContext();
+  const encodedContext = encodeHubContextForAppUrl(context);
+  if (encodedContext) url.searchParams.set("hub_context", encodedContext);
+  window.location.assign(url.toString());
 }
 
 function redirectRootHubContextToManagementPlatform() {

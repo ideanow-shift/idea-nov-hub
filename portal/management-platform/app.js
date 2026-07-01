@@ -382,6 +382,30 @@ function scrollToFirstMissingScore() {
   return true;
 }
 
+function getInputReadinessMessage(stats, issueCount) {
+  if (stats.missing > 0) {
+    return {
+      tone: "danger",
+      title: "未入力があります",
+      note: "未入力を埋めると保存できます。"
+    };
+  }
+
+  if (issueCount > 0) {
+    return {
+      tone: "warn",
+      title: "保存できます",
+      note: "0点・3点の項目は保存後に改善候補として扱います。"
+    };
+  }
+
+  return {
+    tone: "ok",
+    title: "保存できます",
+    note: "良い状態を履歴として残せます。"
+  };
+}
+
 function renderCheckProgress() {
   const panel = document.getElementById("checkProgressPanel");
   if (!panel) return;
@@ -389,8 +413,10 @@ function renderCheckProgress() {
   if (!checkItems.length) {
     panel.innerHTML = `
       <div class="check-progress-card">
-        <p class="score-summary-label">入力進捗</p>
-        <p class="check-progress-main">チェック項目を読み込み中</p>
+        <div>
+          <p class="score-summary-label">入力進捗</p>
+          <p class="check-progress-main">項目を読み込み中</p>
+        </div>
       </div>
     `;
     return;
@@ -399,6 +425,7 @@ function renderCheckProgress() {
   const stats = getEnvironmentScoreStats();
   const issueCount = stats.count0 + stats.count3;
   const complete = stats.missing === 0;
+  const readiness = getInputReadinessMessage(stats, issueCount);
   panel.innerHTML = `
     <div class="check-progress-card ${complete ? "is-complete" : ""}">
       <div>
@@ -412,6 +439,10 @@ function renderCheckProgress() {
       <div>
         <p class="score-summary-label">課題候補</p>
         <p class="check-progress-main ${issueCount ? "warn" : "ok"}">${issueCount}件</p>
+      </div>
+      <div class="check-progress-state ${readiness.tone}">
+        <p class="check-progress-state-title">${readiness.title}</p>
+        <p class="check-progress-note">${readiness.note}</p>
       </div>
       <button type="button" class="ghost-btn check-progress-jump" data-action="jump-missing" ${complete ? "disabled" : ""}>未入力へ移動</button>
     </div>
@@ -435,9 +466,10 @@ function renderScoreSummary() {
   const summary = document.getElementById("scoreSummary");
   renderCheckProgress();
   if (!summary) return;
-  const scores = getSelectedScores();
   const scoreMap = getSelectedScoreMap();
   const stats = getEnvironmentScoreStats();
+  const issueCount = stats.count0 + stats.count3;
+  const readiness = getInputReadinessMessage(stats, issueCount);
 
   const totalHtml = [
     { label: "入力済み", value: `${stats.total}/${stats.totalItems}項目`, tone: "ok" },
@@ -456,21 +488,28 @@ function renderScoreSummary() {
     const categoryScores = items
       .map((item) => scoreMap.get(item.id))
       .filter((score) => Number.isFinite(score));
-    const issueCount = categoryScores.filter((score) => score === 0 || score === 3).length;
+    const categoryIssueCount = categoryScores.filter((score) => score === 0 || score === 3).length;
     const categoryAverage = categoryScores.length
       ? Math.round((categoryScores.reduce((sum, score) => sum + score, 0) / categoryScores.length) * 10) / 10
       : null;
-    const tone = issueCount ? "warn" : categoryScores.length === items.length && categoryAverage >= 4 ? "ok" : "";
+    const tone = categoryIssueCount ? "warn" : categoryScores.length === items.length && categoryAverage >= 4 ? "ok" : "";
     return `
       <div class="category-summary-item">
         <p class="score-summary-label">${escapeHtml(fromCategoryId(category))}</p>
         <p class="score-summary-value ${tone}">${categoryAverage === null ? "-" : categoryAverage.toFixed(1)}</p>
-        <p class="category-summary-note">入力 ${categoryScores.length}/${items.length} / 課題 ${issueCount}件</p>
+        <p class="category-summary-note">入力 ${categoryScores.length}/${items.length} / 課題 ${categoryIssueCount}件</p>
       </div>
     `;
   }).join("") : "";
 
   summary.innerHTML = `
+    <div class="save-readiness-card ${readiness.tone}">
+      <div>
+        <p class="score-summary-label">保存前確認</p>
+        <p class="save-readiness-title">${readiness.title}</p>
+        <p class="save-readiness-note">${readiness.note} 保存すると対象者の成長履歴に紐づきます。</p>
+      </div>
+    </div>
     <div class="score-summary-total">${totalHtml}</div>
     ${categoryHtml ? `<div class="category-summary">${categoryHtml}</div>` : ""}
   `;

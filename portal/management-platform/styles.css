@@ -1302,8 +1302,12 @@ th {
   }
 
   .check-progress-card {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     padding: 8px;
+  }
+  .check-progress-state {
+    grid-column: 1 / -1;
+    min-width: 0;
   }
 
   .check-progress-jump {
@@ -1403,6 +1407,64 @@ th {
   white-space: nowrap;
 }
 
+.check-progress-state {
+  min-width: 180px;
+}
+
+.check-progress-state-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.check-progress-note {
+  margin-top: 2px !important;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.check-progress-state.ok .check-progress-state-title { color: var(--ok); }
+.check-progress-state.warn .check-progress-state-title { color: var(--warn); }
+.check-progress-state.danger .check-progress-state-title { color: var(--danger); }
+
+.save-readiness-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.save-readiness-card.ok {
+  border-color: rgba(47, 143, 91, 0.35);
+  background: #f7fff9;
+}
+
+.save-readiness-card.warn {
+  border-color: rgba(180, 118, 23, 0.28);
+  background: #fffaf0;
+}
+
+.save-readiness-card.danger {
+  border-color: rgba(208, 77, 77, 0.28);
+  background: #fff8f8;
+}
+
+.save-readiness-title {
+  margin: 2px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.save-readiness-note {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 .check-items {
   display: grid;
   gap: 12px;
@@ -1499,8 +1561,12 @@ th {
   }
 
   .check-progress-card {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     padding: 8px;
+  }
+  .check-progress-state {
+    grid-column: 1 / -1;
+    min-width: 0;
   }
 
   .check-progress-jump {

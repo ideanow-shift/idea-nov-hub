@@ -31,9 +31,9 @@ apiFallback: "edge-only",
 ```
 
 - `edge-only`: GAS fallbackを使わない。通常運用はこの設定。
-- `auto`: Edge失敗時に `gasApiUrl` へfallbackする。
+- `auto`: Edge失敗時に `gasApiUrl` へfallbackする旧互換設定。通常運用では使わない。
 
-`gasApiUrl` は緊急復旧用に値だけ残しているが、`edge-only` では使用しない。
+`gasApiUrl` は空にしておく。HUB本体の通常導線はSupabase Edge Functionのみを使う。
 
 ## Edge Function対応済みアクション
 
@@ -58,7 +58,7 @@ apiFallback: "edge-only",
 - `masterUpdatePortalApp`
 - `masterCreatePortalApp`
 
-`master-admin` 系APIは主要な読み込み・編集処理がEdge Function対応済み。GAS fallbackは一時保険として残すが、通常導線はEdge Functionを優先する。
+`master-admin` 系APIは主要な読み込み・編集処理がEdge Function対応済み。通常導線はEdge Functionを使う。
 
 ## 必要なSupabase Secret
 
@@ -99,6 +99,7 @@ Invoke-RestMethod "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub
 - フロントはEdge-only運用
 - `edgePinEnabled: true`
 - `apiFallback: "edge-only"`
+- `gasApiUrl: ""`
 - master-admin読み込み系はEdge優先
 - master-adminの社員追加・社員基本情報更新・退職処理はEdge優先
 - master-adminのstaff権限付与・IDEA LINK権限更新・Firebase UID連携はEdge優先
@@ -106,4 +107,4 @@ Invoke-RestMethod "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub
 - master-adminの店舗更新・LINE WORKS通知先更新はEdge優先
 - master-adminのアプリ作成・更新はEdge優先
 
-PINログインもEdge Functionを使用する。GASは緊急復旧用URLとして設定値だけ残し、通常導線では使わない。
+PINログインもEdge Functionを使用する。GAS URLはHUB本体の公開設定には残さない。

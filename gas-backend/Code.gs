@@ -73,15 +73,22 @@ function doPost(e) {
         return readVisibleAppsSafely_(employee);
       });
 
-      stage = 'readAnnouncements';
-      const announcements = measureStep_(performance, 'readAnnouncements', function() {
-        return readAnnouncementsSafely_();
-      });
-
       return jsonOutput_({
         ok: true,
         employee: sanitizeEmployee_(employee),
         apps: apps,
+        announcements: [],
+        performance: buildPerformanceSummary_(performance, stage)
+      });
+    }
+
+    if (action === 'announcements') {
+      stage = 'readAnnouncements';
+      const announcements = measureStep_(performance, 'readAnnouncements', function() {
+        return readAnnouncementsSafely_();
+      });
+      return jsonOutput_({
+        ok: true,
         announcements: announcements,
         performance: buildPerformanceSummary_(performance, stage)
       });
@@ -824,7 +831,6 @@ function findActiveCoreEmployeeByPin_(email, pin) {
 
   const employee = getCoreEmployeeById_(credential.employee_id);
   if (!isCoreEmployeeActiveForPortal_(employee)) return null;
-  registerSuccessfulPinLogin_(credential);
   const normalized = normalizeCorePortalEmployee_(employee);
   normalized.email = normalizeEmailValue_(credential.login_email || normalized.email);
   normalized.loginCredential = sanitizeLoginCredential_(credential);

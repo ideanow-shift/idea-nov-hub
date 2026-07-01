@@ -375,6 +375,17 @@ function loadNovHubNotificationsAfterPaint() {
   });
 }
 
+function loadAnnouncementsAfterPaint() {
+  runAfterPaint(() => {
+    callApiAction("announcements")
+      .then((data) => {
+        state.announcements = Array.isArray(data.announcements) ? data.announcements : [];
+        renderAnnouncements();
+      })
+      .catch((error) => console.warn("Portal announcements load failed", error));
+  });
+}
+
 function saveManagementAuthContextAfterPaint(context) {
   runAfterPaint(() => {
     saveManagementPlatformAuthContext(context)
@@ -543,6 +554,7 @@ async function loginWithFirebase() {
     resetAppFilters();
     renderPortal();
     writeLoginAccessLogAfterPaint(data);
+    loadAnnouncementsAfterPaint();
     loadNovHubNotificationsAfterPaint();
     saveManagementAuthContextAfterPaint(refreshHubEmployeeContext());
   } catch (error) {
@@ -578,6 +590,7 @@ async function loginWithPin(event) {
     resetAppFilters();
     renderPortal();
     writeLoginAccessLogAfterPaint(data);
+    loadAnnouncementsAfterPaint();
     loadNovHubNotificationsAfterPaint();
   } catch (error) {
     console.error("PIN login failed", {

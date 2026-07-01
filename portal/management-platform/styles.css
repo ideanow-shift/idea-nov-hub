@@ -262,6 +262,16 @@ button:hover {
   line-height: 1.5;
 }
 
+.growth-action-card {
+  border-color: rgba(199, 120, 130, 0.45);
+  background: var(--accent-soft);
+}
+
+.growth-action-buttons {
+  justify-content: flex-start;
+  margin-top: 12px;
+}
+
 .growth-mini-list {
   display: grid;
   gap: 8px;

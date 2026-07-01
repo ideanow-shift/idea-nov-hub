@@ -1880,6 +1880,24 @@ function renderGrowthView(records = getLocalRecords()) {
   const issueCount = Number(breakdown.score0 || 0) + Number(breakdown.score3 || 0);
   const highlights = getGrowthHighlights(latest);
   const nextAction = latest.comment || (issueCount ? "0点・3点の項目から、次回までに1つ改善します。" : "良い状態を次回も継続します。");
+  const existingAction = findExistingImprovementActionForRecord(latest);
+  const canSaveLatestAction = hasApiConfig() && isManagementAdmin() && Boolean(latest.source_check_id || latest.record_id) && !existingAction;
+  const actionStatusText = existingAction
+    ? `保存済み: ${getActionStatusLabel(existingAction.status)} / 担当 ${existingAction.ownerEmployeeName || "-"}`
+    : issueCount
+      ? "改善候補を1件の改善アクションとして保存できます。"
+      : "大きな課題はありません。必要な場合のみ改善アクション化します。";
+  const actionCardHtml = isManagementAdmin() ? `
+    <article class="growth-card growth-action-card">
+      <p class="score-summary-label">改善アクション</p>
+      <h3>${escapeHtml(existingAction ? "改善履歴に保存済み" : "最新確認から改善を作る")}</h3>
+      <p class="focus-note">${escapeHtml(actionStatusText)}</p>
+      <div class="inline-actions growth-action-buttons">
+        <button type="button" class="save-action-btn" data-record-id="${escapeHtml(latest.record_id)}" ${canSaveLatestAction ? "" : "disabled"}>${existingAction ? "保存済み" : "改善履歴に保存"}</button>
+        ${existingAction ? `<button type="button" class="ghost-btn open-actions-btn">改善タブで確認</button>` : `<button type="button" class="ghost-btn growth-detail-btn" data-record-id="${escapeHtml(latest.record_id)}">詳細を見る</button>`}
+      </div>
+    </article>
+  ` : "";
 
   summaryPanel.innerHTML = `
     <div class="growth-hero">
@@ -1904,6 +1922,7 @@ function renderGrowthView(records = getLocalRecords()) {
         <h3>0点 ${Number(breakdown.score0 || 0)} / 3点 ${Number(breakdown.score3 || 0)} / 5点 ${Number(breakdown.score5 || 0)}</h3>
         <p class="focus-note">${issueCount ? "改善候補があります。" : "大きな課題はありません。"}</p>
       </article>
+      ${actionCardHtml}
       ${renderGrowthResultList("良かった点", highlights.good, "良い点は詳細取得後に表示されます。")}
       ${renderGrowthResultList("改善候補", highlights.issues, "改善候補はありません。")}
     </div>
@@ -2823,6 +2842,23 @@ function bindEvents() {
   document.getElementById("growthRecordList")?.addEventListener("click", (event) => {
     const button = event.target.closest(".growth-detail-btn");
     if (button) openGrowthRecordDetail(button.dataset.recordId);
+  });
+  document.getElementById("growthSummaryPanel")?.addEventListener("click", (event) => {
+    const detailButton = event.target.closest(".growth-detail-btn");
+    if (detailButton) {
+      openGrowthRecordDetail(detailButton.dataset.recordId);
+      return;
+    }
+    const saveButton = event.target.closest(".save-action-btn");
+    if (saveButton) {
+      saveImprovementAction(saveButton);
+      return;
+    }
+    const openActionsButton = event.target.closest(".open-actions-btn");
+    if (openActionsButton) {
+      showView("actions");
+      document.getElementById("view-actions")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   });
   document.getElementById("recordDetailContent").addEventListener("click", (event) => {
     const openActionsButton = event.target.closest(".open-actions-btn");

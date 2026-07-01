@@ -811,7 +811,7 @@ function renderKnowledgeOptions() {
 }
 
 async function renderKnowledgeHistory() {
-  const updates = await knowledgeUpdateRepository.allForAdmin();
+  const updates = (await knowledgeUpdateRepository.allForAdmin()).filter(isDisplayableKnowledgeUpdate);
   elements.knowledgeHistory.innerHTML = "";
   if (!updates.length) {
     elements.knowledgeHistory.innerHTML = '<div class="knowledge-history-item">まだ更新履歴はありません。</div>';
@@ -828,6 +828,13 @@ async function renderKnowledgeHistory() {
     item.append(title, meta);
     elements.knowledgeHistory.append(item);
   });
+}
+
+function isDisplayableKnowledgeUpdate(entry) {
+  const text = [entry.areaName, entry.memo, entry.owner, entry.updatedBy, entry.source].join(" ");
+  if (/codex/i.test(text)) return false;
+  if (/\?{4,}/.test(text)) return false;
+  return Boolean(String(entry.memo || "").trim());
 }
 
 function renderRanking(target, items) {

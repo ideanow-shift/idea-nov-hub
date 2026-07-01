@@ -81,6 +81,24 @@ https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub-api?action=health
 - `portalAppsReachable`
 - `accessLogsReachable`
 
+## Smoke Check
+
+本番公開後の最低限の動作確認は以下で実行します。
+
+```powershell
+node scripts/hub-smoke-check.mjs
+```
+
+確認対象:
+
+- NOV HUBトップ
+- HUBマスタ管理
+- NOV Navi
+- IDEA LINK中継
+- 経費精算管理システム
+- 公開版 `firebase-config.js`
+- NOV HUB Edge API health
+
 ## HUB Context
 
 NOV HUBから各アプリへは `hub_context` を渡します。

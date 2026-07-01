@@ -55,6 +55,7 @@ https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub-api?action=health
 
 - `git status` で未意図の差分がない
 - 公開フォルダ内JSの構文チェックが通る
+- `node scripts/hub-smoke-check.mjs` が成功する
 - GitHub Actions `Deploy NOV HUB to GitHub Pages` が success
 - 公開版 `firebase-config.js` に `script.google.com` が含まれていない
 - スマホホーム画面URLは `/idea-nov-hub/`

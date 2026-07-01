@@ -4,7 +4,7 @@
 
 NOV HUBからIDEA LINK、THANKS、タスク管理などの社内Webアプリへ、ログイン中社員の非秘匿Contextを渡すための共通仕様です。
 
-このContextは、画面表示、初期値セット、メニュー出し分け、アプリ側ログイン判定の補助に使います。DB更新や重要処理では、必ずbackend、Edge Function、GAS、またはSupabase RLSで再検証してください。
+このContextは、画面表示、初期値セット、メニュー出し分け、アプリ側ログイン判定の補助に使います。DB更新や重要処理では、必ずbackend、Supabase Edge Function、またはSupabase RLSで再検証してください。
 
 ## 正本
 

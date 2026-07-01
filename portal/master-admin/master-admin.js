@@ -1802,7 +1802,7 @@ function renderStoreDetail(store) {
         ${fieldInput("line_works_channel_id", "チャンネルID", lineWorks.channel_id || "", { placeholder: "例: 1234567890" })}
         ${fieldInput("line_works_channel_name", "表示名・メモ", lineWorks.channel_name || "", { placeholder: "例: BASSA野方店 経費通知" })}
         ${fieldCheckbox("line_works_channel_active", "LINE WORKS通知を有効にする", lineWorks.is_active !== false && Boolean(lineWorks.channel_id))}
-        <p class="field-help">Bot Secret / Client Secret はここに登録しません。秘密情報はSupabase Edge Function SecretsまたはGAS Script Propertiesで管理します。</p>
+        <p class="field-help">Bot Secret / Client Secret はここに登録しません。秘密情報はSupabase Edge Function Secretsで管理します。</p>
       </section>
       <div class="save-row">
         <span class="save-status" id="store-save-status" aria-live="polite"></span>

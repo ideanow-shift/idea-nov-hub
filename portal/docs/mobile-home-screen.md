@@ -15,7 +15,8 @@ https://ideanow-shift.github.io/idea-nov-hub/
 - `https://ideanow-shift.github.io/idea-nov-hub/master-admin/`
 - `https://ideanow-shift.github.io/idea-nov-hub/idea-link/`
 - `?hub_context=...` が付いたURL
-- `http://localhost:5177`
+- `https://ideanow-shift.github.io/idea-nov-expense-hub/`
+- 開発用の `localhost` URL
 
 `hub_context` はアプリ間連携用の一時情報です。ホーム画面へ保存するURLには含めません。
 
@@ -44,4 +45,4 @@ https://ideanow-shift.github.io/idea-nov-hub/
 
 ## 現在の補足
 
-HUB本体はGitHub Pagesで配信されています。ログイン後の社員確認やアプリ取得はGAS APIを通るため、表示後の認証処理が遅く見える場合があります。
+HUB本体はGitHub Pagesで配信されています。ログイン後の社員確認・アプリ取得・通知取得はNOV HUB API（Supabase Edge Function）を通ります。読み込みが遅い場合は、通信状態を確認し、必要に応じてブラウザで再読み込みしてください。

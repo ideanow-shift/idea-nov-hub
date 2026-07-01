@@ -697,7 +697,7 @@ async function initialize() {
     showScreen("login");
   });
   if (state.mode === "firebase" && !firebaseReady) {
-    elements.deniedMessage.textContent = "FirebaseまたはGAS APIの設定が未完了です。firebase-config.jsを確認してください。";
+    elements.deniedMessage.textContent = "FirebaseまたはNOV HUB APIの設定が未完了です。firebase-config.jsを確認してください。";
     showScreen("denied");
   } else {
     showScreen("login");

@@ -188,7 +188,9 @@ class AnswerRuleRepository {
       notebook: rule.notebook,
       answer: rule.answer.replaceAll("{{店舗名}}", store.name),
       links: rule.linkIds.map((id) => ({ id, label: id })),
-      confidence: "rule-master"
+      confidence: "rule-master",
+      riskLevel: rule.riskLevel || "normal",
+      requiresHumanCheck: Boolean(rule.requiresHumanCheck)
     };
   }
 }
@@ -227,6 +229,8 @@ class ConversationLogRepository {
         notebook: entry.notebook,
         rating: entry.rating || "",
         links: JSON.stringify(entry.links || []),
+        riskLevel: entry.riskLevel || "normal",
+        needsHumanCheck: entry.needsHumanCheck ? "true" : "false",
         source: "NOV Navigator"
       });
     }
@@ -660,6 +664,8 @@ async function askConcierge(question) {
     answer: response.answer,
     notebook: response.notebook,
     links: resolvedLinks,
+    riskLevel: response.riskLevel || "normal",
+    needsHumanCheck: Boolean(response.requiresHumanCheck || response.riskLevel === "high"),
     rating: null
   };
   try {
@@ -674,6 +680,8 @@ async function askConcierge(question) {
   appendMessage("assistant", response.answer, {
     meta: response.notebook,
     links: resolvedLinks,
+    riskLevel: response.riskLevel,
+    requiresHumanCheck: response.requiresHumanCheck,
     feedbackId: entry.id
   });
   renderHistory();
@@ -712,6 +720,13 @@ function appendMessage(role, text, options = {}) {
       linkList.append(anchor);
     });
     bubble.append(linkList);
+  }
+
+  if (shouldShowHumanCheckNotice(options)) {
+    const notice = document.createElement("div");
+    notice.className = "human-check-notice";
+    notice.textContent = "この内容は本部確認や正本資料の確認を優先してください。判断に迷う場合は、関連リンクまたは担当窓口へ進んでください。";
+    bubble.append(notice);
   }
 
   if (options.feedbackId) {
@@ -797,6 +812,8 @@ function renderHistory() {
       appendMessage("assistant", entry.answer, {
         meta: entry.notebook,
         links: entry.links,
+        riskLevel: entry.riskLevel,
+        requiresHumanCheck: entry.needsHumanCheck,
         feedbackId: entry.id
       });
     });
@@ -858,12 +875,12 @@ function renderQuestionLogList(logs) {
 
     const rating = document.createElement("span");
     rating.className = `question-log-rating ${entry.rating || "none"}`;
-    rating.textContent = formatRating(entry.rating);
+    rating.textContent = entry.needsHumanCheck ? `${formatRating(entry.rating)} / 要確認` : formatRating(entry.rating);
 
     head.append(question, rating);
 
     const meta = document.createElement("small");
-    meta.textContent = `${formatDate(entry.createdAt)} / ${entry.storeName || entry.storeId || "不明"} / ${entry.notebook || "分類なし"}`;
+    meta.textContent = `${formatDate(entry.createdAt)} / ${entry.storeName || entry.storeId || "不明"} / ${entry.notebook || "分類なし"} / ${formatRiskLevel(entry.riskLevel)}`;
 
     const answer = document.createElement("p");
     answer.textContent = entry.answer || "回答なし";
@@ -906,7 +923,7 @@ function exportQuestionLogsCsv(logs) {
     return;
   }
 
-  const headers = ["日時", "店舗", "店舗ID", "質問", "回答", "Notebook", "評価"];
+  const headers = ["日時", "店舗", "店舗ID", "質問", "回答", "Notebook", "評価", "リスク", "要確認"];
   const rows = logs.map((entry) => [
     formatDateTimeForCsv(entry.createdAt),
     entry.storeName || "",
@@ -914,7 +931,9 @@ function exportQuestionLogsCsv(logs) {
     entry.question || "",
     entry.answer || "",
     entry.notebook || "",
-    formatRating(entry.rating)
+    formatRating(entry.rating),
+    formatRiskLevel(entry.riskLevel),
+    entry.needsHumanCheck ? "必要" : ""
   ]);
   const csv = [headers, ...rows]
     .map((row) => row.map(escapeCsvCell).join(","))
@@ -957,6 +976,20 @@ function formatRating(rating) {
   if (rating === "up") return "役に立った";
   if (rating === "down") return "改善が必要";
   return "未評価";
+}
+
+function formatRiskLevel(riskLevel) {
+  if (riskLevel === "high") return "高";
+  if (riskLevel === "sensitive") return "注意";
+  return "通常";
+}
+
+function shouldShowHumanCheckNotice(options) {
+  return Boolean(
+    options.requiresHumanCheck ||
+    options.riskLevel === "high" ||
+    options.riskLevel === "sensitive"
+  );
 }
 
 function renderKnowledgeAdmin() {

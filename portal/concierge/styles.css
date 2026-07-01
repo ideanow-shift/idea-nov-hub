@@ -311,6 +311,18 @@ a:focus-visible {
   border-color: var(--brand);
 }
 
+.human-check-notice {
+  background: #fff7e8;
+  border: 1px solid #f0d7a8;
+  border-radius: 8px;
+  color: #6f5a30;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.55;
+  margin-top: 12px;
+  padding: 10px 12px;
+}
+
 .feedback {
   align-items: center;
   display: flex;

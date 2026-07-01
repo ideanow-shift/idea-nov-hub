@@ -233,7 +233,7 @@ class ConversationLogRepository {
         links: JSON.stringify(entry.links || []),
         riskLevel: entry.riskLevel || "normal",
         needsHumanCheck: entry.needsHumanCheck ? "true" : "false",
-        source: "NOV Navigator"
+        source: entry.source || "rule"
       });
     }
   }
@@ -682,6 +682,7 @@ async function askConcierge(question) {
     answer: response.answer,
     notebook: response.notebook,
     links: resolvedLinks,
+    source: response.confidence === "rule-master" ? "rule" : "fallback",
     riskLevel: response.riskLevel || "normal",
     needsHumanCheck: Boolean(response.requiresHumanCheck || response.riskLevel === "high" || response.confidence === "low"),
     rating: null
@@ -901,7 +902,7 @@ function renderQuestionLogList(logs) {
     head.append(question, rating);
 
     const meta = document.createElement("small");
-    meta.textContent = `${formatDate(entry.createdAt)} / ${entry.storeName || entry.storeId || "不明"} / ${entry.notebook || "分類なし"} / ${formatRiskLevel(entry.riskLevel)}`;
+    meta.textContent = `${formatDate(entry.createdAt)} / ${entry.storeName || entry.storeId || "不明"} / ${entry.notebook || "分類なし"} / ${formatLogSource(entry.source)} / ${formatRiskLevel(entry.riskLevel)}`;
 
     const answer = document.createElement("p");
     answer.textContent = entry.answer || "回答なし";
@@ -944,7 +945,7 @@ function exportQuestionLogsCsv(logs) {
     return;
   }
 
-  const headers = ["日時", "店舗", "店舗ID", "質問", "回答", "Notebook", "評価", "リスク", "要確認"];
+  const headers = ["日時", "店舗", "店舗ID", "質問", "回答", "Notebook", "評価", "取得元", "リスク", "要確認"];
   const rows = logs.map((entry) => [
     formatDateTimeForCsv(entry.createdAt),
     entry.storeName || "",
@@ -953,6 +954,7 @@ function exportQuestionLogsCsv(logs) {
     entry.answer || "",
     entry.notebook || "",
     formatRating(entry.rating),
+    formatLogSource(entry.source),
     formatRiskLevel(entry.riskLevel),
     entry.needsHumanCheck ? "必要" : ""
   ]);
@@ -997,6 +999,13 @@ function formatRating(rating) {
   if (rating === "up") return "役に立った";
   if (rating === "down") return "改善が必要";
   return "未評価";
+}
+
+function formatLogSource(source) {
+  if (source === "fallback") return "未整備候補";
+  if (source === "manual") return "手動";
+  if (source === "ai_adapter") return "AI連携";
+  return "回答ルール";
 }
 
 function formatRiskLevel(riskLevel) {

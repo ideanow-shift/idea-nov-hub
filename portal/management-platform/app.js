@@ -1710,6 +1710,18 @@ function buildPerformanceInitiativePayload(form) {
   };
 }
 
+function setNextActionPanel({ title, note, targetView, buttonText }) {
+  const nextAction = document.getElementById("todayActionTitle");
+  const nextNote = document.getElementById("todayActionNote");
+  const nextButton = document.getElementById("nextActionBtn");
+  if (nextAction) nextAction.textContent = title;
+  if (nextNote) nextNote.textContent = note;
+  if (nextButton) {
+    nextButton.textContent = buttonText || "次へ進む";
+    nextButton.dataset.viewTarget = targetView || "dashboard";
+  }
+}
+
 function renderDashboard() {
   const records = getLocalRecords();
   const summary = getDashboardSummary(records, improvementActions);
@@ -1729,23 +1741,46 @@ function renderDashboard() {
   renderImprovementActions();
   renderGrowthView(records);
 
-  const nextAction = document.getElementById("todayActionTitle");
-  const nextNote = document.getElementById("todayActionNote");
   if (!isManagementAdmin()) {
-    nextAction.textContent = "自分のマネジメントチェックを確認する";
-    nextNote.textContent = `${getDisplayName()}さんの所属店舗・自身に紐づく履歴を表示します。`;
+    setNextActionPanel({
+      title: "自分のマネジメントチェックを確認する",
+      note: `${getDisplayName()}さんの所属店舗・自身に紐づく履歴を表示します。`,
+      targetView: "growth",
+      buttonText: "確認する"
+    });
     return;
   }
+
+  const activeActions = improvementActions.filter((action) => ["open", "in_progress"].includes(action.status));
+  if (activeActions.length > 0) {
+    setNextActionPanel({
+      title: "未完了の改善アクションを進める",
+      note: `未完了の改善アクションが${activeActions.length}件あります。担当者と期限を確認してください。`,
+      targetView: "actions",
+      buttonText: "改善を見る"
+    });
+    return;
+  }
+
   if (records.length === 0) {
-    nextAction.textContent = "環境整備チェックを1件登録する";
-    nextNote.textContent = "最初の履歴を作ることで、写真管理・AIコメント・改善履歴へつながります。";
+    setNextActionPanel({
+      title: "環境整備チェックを1件登録する",
+      note: "最初の履歴を作ることで、写真管理・AIコメント・改善履歴へつながります。",
+      targetView: "environment",
+      buttonText: "登録する"
+    });
     return;
   }
+
   const latest = records[0];
   const latestBreakdown = getRecordBreakdown(latest);
   const issueCount = Number(latestBreakdown.score0 || 0) + Number(latestBreakdown.score3 || 0);
-  nextAction.textContent = issueCount > 0 ? `${latest.store} の改善アクションを決める` : `${latest.store} の良い状態を継続する`;
-  nextNote.textContent = latest.comment || "次に取る行動をコメントに残してください。";
+  setNextActionPanel({
+    title: issueCount > 0 ? `${latest.store} の改善アクションを決める` : `${latest.store} の良い状態を継続する`,
+    note: latest.comment || "次に取る行動をコメントに残してください。",
+    targetView: issueCount > 0 ? "growth" : "environment",
+    buttonText: issueCount > 0 ? "改善を作る" : "確認する"
+  });
 }
 
 function formatDate(value) {
@@ -2890,6 +2925,11 @@ function bindEvents() {
   document.querySelectorAll(".nav-btn").forEach((button) => {
     button.addEventListener("click", () => showView(button.dataset.view));
   });
+  document.getElementById("nextActionBtn")?.addEventListener("click", () => {
+    const targetView = document.getElementById("nextActionBtn")?.dataset.viewTarget || "dashboard";
+    showView(targetView);
+    document.getElementById(`view-${targetView}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
   document.getElementById("refreshBtn").addEventListener("click", refreshRecords);
   document.getElementById("loadRecordsBtn").addEventListener("click", refreshRecords);
   document.getElementById("refreshGrowthBtn")?.addEventListener("click", refreshRecords);
@@ -3104,3 +3144,5 @@ async function apiRequest(path, options = {}) {
   }
   return response;
 }
+
+

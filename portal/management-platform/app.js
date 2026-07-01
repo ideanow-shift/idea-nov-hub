@@ -8,6 +8,7 @@ let checkItems = [];
 let improvementActions = [];
 let performanceSnapshots = [];
 let performanceInitiatives = [];
+let targetEmployees = [];
 
 const dashboardCards = [
   { title: "現在地", key: "current", value: "未登録", status: "status-ok" },
@@ -52,7 +53,13 @@ function getCurrentEmployeeId() {
 }
 
 function getDefaultTargetEmployeeId() {
-  return getCurrentEmployeeId();
+  const selected = document.getElementById("targetEmployeeSelect")?.value || "";
+  return selected || getCurrentEmployeeId();
+}
+
+function getTargetEmployeeName(employeeId) {
+  const employee = targetEmployees.find((item) => item.id === employeeId);
+  return employee?.fullName || getDisplayName();
 }
 
 function getRoleKeys() {
@@ -119,10 +126,7 @@ function setSelectValue(select, value) {
 function hydrateFormFromActor() {
   const form = document.getElementById("environmentForm");
   if (!form) return;
-  const displayName = getDisplayName();
-  if (form.elements.targetUser && !form.elements.targetUser.value) {
-    form.elements.targetUser.value = displayName;
-  }
+  renderTargetEmployeeOptions();
   if (form.elements.evaluator && !form.elements.evaluator.value) {
     form.elements.evaluator.value = displayName;
   }
@@ -187,7 +191,7 @@ function toRecord(form) {
   return {
     record_id: createId(),
     store: formData.get("store"),
-    target_user: formData.get("targetUser"),
+    target_user: getTargetEmployeeName(formData.get("targetEmployeeId")),
     role: formData.get("role"),
     management_category: formData.get("managementCategory"),
     checked_at: now,
@@ -732,6 +736,42 @@ async function loadCurrentActor() {
   return trustedActor;
 }
 
+
+async function loadTargetEmployees() {
+  if (!hasApiConfig()) {
+    targetEmployees = [];
+    renderTargetEmployeeOptions();
+    return targetEmployees;
+  }
+  const params = new URLSearchParams({ limit: "200" });
+  const storeId = getDefaultStoreId();
+  if (storeId) params.set("storeId", storeId);
+  const response = await apiRequest(`/target-employees?${params.toString()}`);
+  const json = await response.json();
+  if (!json.ok) throw new Error(json.error || "target employee load failed");
+  targetEmployees = json.employees || [];
+  renderTargetEmployeeOptions();
+  return targetEmployees;
+}
+
+function renderTargetEmployeeOptions() {
+  const select = document.getElementById("targetEmployeeSelect");
+  if (!select) return;
+  const currentValue = select.value || getCurrentEmployeeId();
+  const fallbackId = getCurrentEmployeeId();
+  const fallbackName = getDisplayName();
+  const employees = targetEmployees.length
+    ? targetEmployees
+    : (fallbackId ? [{ id: fallbackId, fullName: fallbackName, storeId: getDefaultStoreId() }] : []);
+  select.innerHTML = employees.length
+    ? employees.map((employee) => `<option value="${escapeHtml(employee.id)}">${escapeHtml(employee.fullName || employee.email || employee.id)}</option>`).join("")
+    : `<option value="">対象者を取得できません</option>`;
+  if (employees.some((employee) => employee.id === currentValue)) {
+    select.value = currentValue;
+  } else if (fallbackId && employees.some((employee) => employee.id === fallbackId)) {
+    select.value = fallbackId;
+  }
+}
 async function saveRemoteImprovementAction(record) {
   if (!hasApiConfig()) throw new Error("Management API未接続のため改善履歴を保存できません。");
   const payload = buildImprovementActionPayload(record);
@@ -2997,7 +3037,7 @@ async function updateAuthStatus() {
   if (token) {
     try {
       await loadCurrentActor();
-      await loadCheckItems();
+      await Promise.all([loadCheckItems(), loadTargetEmployees()]);
       setApiStatus(`API接続OK: ${getDisplayName()} / ${getRoleKeys().join(", ") || "role未設定"}`, "ok");
     } catch (error) {
       console.warn("Management API actor load skipped or failed", error);
@@ -3103,7 +3143,7 @@ async function refreshRecords() {
   try {
     setApiStatus("履歴を読み込み中です...", "loading");
     await loadCurrentActor();
-    await loadCheckItems();
+    await Promise.all([loadCheckItems(), loadTargetEmployees()]);
     const remoteRecords = await loadRemoteRecords();
     if (remoteRecords) {
       setLocalRecords(remoteRecords);
@@ -3377,7 +3417,4 @@ async function apiRequest(path, options = {}) {
   }
   return response;
 }
-
-
-
 

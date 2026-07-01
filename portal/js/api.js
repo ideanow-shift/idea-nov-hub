@@ -46,12 +46,14 @@ async function postToApi(action, payload = {}) {
   });
   const endpoints = getApiEndpoints(action);
   let lastError = null;
-  for (const endpoint of endpoints) {
+  for (let index = 0; index < endpoints.length; index += 1) {
+    const endpoint = endpoints[index];
     try {
       return await postToEndpoint(endpoint, body);
     } catch (error) {
       lastError = error;
       if (!shouldFallbackToNextEndpoint(error)) throw error;
+      if (index >= endpoints.length - 1) throw error;
       console.warn("NOV HUB API endpoint failed. Trying fallback.", {
         endpoint,
         code: error.code || "",
@@ -64,12 +66,13 @@ async function postToApi(action, payload = {}) {
 
 function getApiEndpoints(action) {
   const endpoints = [];
+  const fallbackMode = PORTAL_CONFIG.apiFallback || "auto";
   const useEdge = PORTAL_CONFIG.apiMode === "edge"
     && PORTAL_CONFIG.edgeApiUrl
     && EDGE_ACTIONS.has(action)
     && (currentAuth.authType !== "pin" || PORTAL_CONFIG.edgePinEnabled === true);
   if (useEdge) endpoints.push(PORTAL_CONFIG.edgeApiUrl);
-  if (PORTAL_CONFIG.gasApiUrl) endpoints.push(PORTAL_CONFIG.gasApiUrl);
+  if (fallbackMode !== "edge-only" && PORTAL_CONFIG.gasApiUrl) endpoints.push(PORTAL_CONFIG.gasApiUrl);
   return [...new Set(endpoints)];
 }
 
@@ -91,7 +94,7 @@ async function postToEndpoint(endpoint, body) {
   } catch (cause) {
     const error = new Error(cause?.name === "AbortError"
       ? "社員情報の確認に時間がかかっています。通信状況を確認して、もう一度お試しください。"
-      : "GAS APIへ接続できませんでした。通信状況を確認して、もう一度お試しください。");
+      : "NOV HUB APIへ接続できませんでした。通信状況を確認して、もう一度お試しください。");
     error.code = cause?.name === "AbortError" ? "API_TIMEOUT" : "NETWORK_ERROR";
     error.cause = cause;
     throw error;
@@ -110,7 +113,7 @@ async function postToEndpoint(endpoint, body) {
   try {
     data = JSON.parse(responseText);
   } catch (cause) {
-    const error = new Error("GAS APIからJSON以外のレスポンスが返されました。");
+    const error = new Error("NOV HUB APIからJSON以外のレスポンスが返されました。");
     error.code = "INVALID_API_RESPONSE";
     error.detail = responseText.slice(0, 240);
     error.cause = cause;

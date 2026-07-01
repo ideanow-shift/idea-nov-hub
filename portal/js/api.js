@@ -14,7 +14,9 @@ const EDGE_ACTIONS = new Set([
   "masterListStores",
   "masterListPortalApps",
   "masterListChangeLogs",
-  "masterUpdateEmployeeLoginCredential"
+  "masterUpdateEmployeeLoginCredential",
+  "masterUpdatePortalApp",
+  "masterCreatePortalApp"
 ]);
 
 export function setPinAuth(email, pin) {

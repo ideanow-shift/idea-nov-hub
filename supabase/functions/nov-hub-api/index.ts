@@ -889,6 +889,20 @@ function getMasterChangeFieldLabel(key: string) {
     pin_changed: "PIN変更",
     lock_cleared: "ロック解除",
     source: "更新元",
+    app_id: "アプリID",
+    app_name: "アプリ名",
+    description: "説明",
+    url: "URL",
+    category: "カテゴリ",
+    icon: "アイコン",
+    color: "色",
+    required_level: "必要権限レベル",
+    allowed_tags: "許可タグ",
+    target_department: "対象部署",
+    target_position: "対象役職",
+    is_active: "有効状態",
+    is_featured: "よく使う表示",
+    priority: "表示順",
   } as Record<string, string>)[key] || key;
 }
 
@@ -1015,6 +1029,133 @@ async function updateEmployeeLoginCredential(actor: JsonRecord, payload: JsonRec
     targetName: String(employee.full_name || employee.employee_id || employeeId),
   });
   return sanitizeLoginCredential(credential);
+}
+
+function getPayloadValue(source: JsonRecord, primaryKey: string, fallbackKey: string) {
+  if (Object.prototype.hasOwnProperty.call(source, primaryKey)) return source[primaryKey];
+  if (Object.prototype.hasOwnProperty.call(source, fallbackKey)) return source[fallbackKey];
+  return undefined;
+}
+
+function normalizePortalAppRow(payload: JsonRecord, now: string, includeCreatedAt = false) {
+  const row: JsonRecord = {
+    app_id: String(payload.appId || payload.app_id || "").trim(),
+    app_name: String(payload.appName || payload.app_name || "").trim(),
+    description: String(payload.description || "").trim(),
+    url: String(payload.url || "").trim(),
+    category: String(payload.category || "").trim() || "internal",
+    icon: String(payload.icon || "").trim() || "default",
+    color: String(payload.color || "").trim() || null,
+    required_level: Math.max(1, Math.min(5, Number(payload.requiredLevel || payload.required_level || 1))),
+    allowed_tags: normalizeList(payload.allowedTags || payload.allowed_tags),
+    target_department: normalizeList(payload.targetDepartment || payload.target_department),
+    target_position: normalizeList(payload.targetPosition || payload.target_position),
+    is_active: parseBooleanLike(getPayloadValue(payload, "isActive", "is_active"), true),
+    is_featured: parseBooleanLike(getPayloadValue(payload, "isFeatured", "is_featured"), false),
+    priority: Number(payload.priority || 999),
+    updated_at: now,
+  };
+  if (includeCreatedAt) row.created_at = now;
+  return row;
+}
+
+async function getPortalAppById(id: string) {
+  const rows = await readRows("portal_apps", {
+    query: {
+      select: "*",
+      id: `eq.${id}`,
+      limit: "1",
+    },
+  });
+  return rows[0] || null;
+}
+
+async function findPortalAppsByAppId(appId: string, limit = "2") {
+  return await readRows("portal_apps", {
+    query: {
+      select: "id,app_id,app_name",
+      app_id: `eq.${appId}`,
+      limit,
+    },
+  });
+}
+
+function isFieldChanged(beforeValue: unknown, afterValue: unknown) {
+  const before = beforeValue === null || beforeValue === undefined ? "" : beforeValue;
+  const after = afterValue === null || afterValue === undefined ? "" : afterValue;
+  return String(before) !== String(after);
+}
+
+function getChangedFields(before: JsonRecord, updates: JsonRecord) {
+  const changed: JsonRecord = {};
+  Object.keys(updates).forEach((key) => {
+    if (key === "updated_at") return;
+    if (isFieldChanged(before?.[key], updates[key])) changed[key] = updates[key];
+  });
+  if (Object.keys(changed).length) changed.updated_at = updates.updated_at;
+  return changed;
+}
+
+async function updatePortalApp(payload: JsonRecord, actor: JsonRecord) {
+  const id = String(payload.id || "").trim();
+  if (!id) throw new PortalError("INVALID_REQUEST", "Portal app id is required.", 400);
+  const before = await getPortalAppById(id);
+  if (!before?.id) throw new PortalError("NOT_FOUND", "Portal app was not found.", 404);
+
+  const updates = normalizePortalAppRow(payload, new Date().toISOString());
+  const appId = String(updates.app_id || "");
+  const appName = String(updates.app_name || "");
+  if (!appId) throw new PortalError("INVALID_REQUEST", "App ID is required.", 400);
+  if (!appName) throw new PortalError("INVALID_REQUEST", "App name is required.", 400);
+
+  if (appId !== String(before.app_id || "")) {
+    const duplicates = (await findPortalAppsByAppId(appId)).filter((app) => String(app.id || "") !== id);
+    if (duplicates.length) throw new PortalError("INVALID_REQUEST", "App ID is already used.", 409);
+  }
+
+  const changedUpdates = getChangedFields(before, updates);
+  if (!Object.keys(changedUpdates).length) return normalizeApp(before);
+
+  const rows = await readRows("portal_apps", {
+    method: "PATCH",
+    query: { id: `eq.${id}`, select: "*" },
+    payload: changedUpdates,
+    prefer: "return=representation",
+  });
+  const after = rows[0] || before;
+  await appendMasterChangeLog("portal_apps", id, changedUpdates, actor, {
+    actionType: "update",
+    targetName: String(after.app_name || before.app_name || appId),
+  });
+  return normalizeApp(after);
+}
+
+async function createPortalApp(payload: JsonRecord, actor: JsonRecord) {
+  const now = new Date().toISOString();
+  const row = normalizePortalAppRow(payload, now, true);
+  const appId = String(row.app_id || "");
+  const appName = String(row.app_name || "");
+  if (!appId) throw new PortalError("INVALID_REQUEST", "App ID is required.", 400);
+  if (!/^[A-Za-z0-9_-]{2,80}$/.test(appId)) {
+    throw new PortalError("INVALID_REQUEST", "App ID must use letters, numbers, hyphen, or underscore.", 400);
+  }
+  if (!appName) throw new PortalError("INVALID_REQUEST", "App name is required.", 400);
+
+  const duplicates = await findPortalAppsByAppId(appId, "1");
+  if (duplicates.length) throw new PortalError("INVALID_REQUEST", "App ID is already used.", 409);
+
+  const rows = await readRows("portal_apps", {
+    method: "POST",
+    query: { select: "*" },
+    payload: row,
+    prefer: "return=representation",
+  });
+  const created = rows[0] || row;
+  await appendMasterChangeLog("portal_apps", String(created.id || appId), row, actor, {
+    actionType: "create",
+    targetName: String(created.app_name || appName),
+  });
+  return normalizeApp(created);
 }
 
 async function getMasterBootstrap(employee: JsonRecord) {
@@ -1303,6 +1444,16 @@ Deno.serve(async (request) => {
     if (action === "masterUpdateEmployeeLoginCredential") {
       assertMasterEditor(employee);
       return jsonResponse({ ok: true, credential: await updateEmployeeLoginCredential(employee, payload) });
+    }
+
+    if (action === "masterUpdatePortalApp") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, portalApp: await updatePortalApp(payload, employee) });
+    }
+
+    if (action === "masterCreatePortalApp") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, portalApp: await createPortalApp(payload, employee) });
     }
 
     if (action === "log") {

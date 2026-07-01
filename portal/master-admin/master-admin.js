@@ -312,7 +312,7 @@ function getEmployeeIssues(employee) {
   if (!hasEmployeeContactEmail(employee)) issues.push("メール");
   if (!hasLocation) issues.push("所属");
   if (!employee.position_id && !employee.source_position_name) issues.push("役職");
-  if (!getCommonRoleKeys(employee).length) issues.push("HUB権限");
+  if (!getCommonRoleKeys(employee).length) issues.push("共通ロール");
   if (!getEmployeeCredential(employee).pin_set) issues.push("PIN");
   if (!String(employee.employment_type || "").trim()) issues.push("雇用形態");
   if (!String(employee.employment_status || "").trim()) issues.push("現職/休職/退職");
@@ -649,7 +649,8 @@ function getSummaryIssueValue(label) {
   if (label === "メール未設定") return "メール";
   if (label === "所属未設定") return "所属";
   if (label === "役職未設定") return "役職";
-  if (label === "HUB権限未設定") return "HUB権限";
+  if (label === "共通ロール未設定") return "共通ロール";
+  if (label === "HUB権限未設定") return "共通ロール";
   if (label === "PIN未設定") return "PIN";
   if (label === "法人未設定") return "法人";
   if (label === "雇用形態未設定") return "雇用形態";
@@ -660,7 +661,8 @@ function getSummaryIssueValue(label) {
 function getSummarySearchValue(label) {
   return label
     .replace("Firebase未連携", "Firebase")
-    .replace("HUB権限未設定", "HUB権限")
+    .replace("共通ロール未設定", "共通ロール")
+    .replace("HUB権限未設定", "共通ロール")
     .replace("PIN未設定", "PIN")
     .replace("状態未設定", "現職/休職/退職")
     .replace("未設定", "")
@@ -678,7 +680,7 @@ function getQualitySummaryItems() {
       { label: "メール未設定", count: issueCounts["メール"] || 0, tone: "warning" },
       { label: "所属未設定", count: issueCounts["所属"] || 0, tone: "warning" },
       { label: "役職未設定", count: issueCounts["役職"] || 0, tone: "warning" },
-      { label: "HUB権限未設定", count: issueCounts["HUB権限"] || 0, tone: "warning" },
+      { label: "共通ロール未設定", count: issueCounts["共通ロール"] || 0, tone: "warning" },
       { label: "PIN未設定", count: issueCounts["PIN"] || 0, tone: "warning" },
       { label: "ログイン停止", count: currentEmployees.filter((employee) => getEmployeeCredential(employee).login_enabled === false).length, tone: "neutral" },
       { label: "ロック中", count: currentEmployees.filter((employee) => getEmployeeCredential(employee).locked).length, tone: "warning" },
@@ -758,7 +760,7 @@ function getHubReadinessItems() {
       status: employeeIssueCount ? "要確認" : "OK",
       label: "現職社員の基幹項目",
       count: `${employeeIssueCount}件`,
-      detail: "メール、所属、役職、HUB権限、雇用形態、現職/休職/退職の未設定を確認します。",
+      detail: "メール、所属、役職、共通ロール、雇用形態、現職/休職/退職の未設定を確認します。",
       nextAction: employeeIssueCount ? "社員タブの未設定ありを確認" : "HUB連携に利用可能"
     },
     {
@@ -772,10 +774,10 @@ function getHubReadinessItems() {
     {
       readiness_key: "employee_roles",
       status: employeeRoleMissingCount ? "要確認" : "OK",
-      label: "HUB表示権限",
+      label: "HUB基本権限",
       count: `${employeeRoleMissingCount}件`,
-      detail: "NOV HUBのアプリ表示・管理画面閲覧に使うCore DB権限です。",
-      nextAction: employeeRoleMissingCount ? "社員タブでHUB権限未設定を確認" : "HUBメニュー制御に利用可能"
+      detail: "NOV HUBと各アプリの基本表示に使うCore DB共通ロールです。",
+      nextAction: employeeRoleMissingCount ? "社員タブで共通ロール未設定を確認" : "HUBメニュー制御に利用可能"
     },
     {
       readiness_key: "firebase_link",
@@ -783,7 +785,7 @@ function getHubReadinessItems() {
       label: "Firebase UID連携",
       count: `${firebaseMissingCount}件`,
       detail: "HUBでログインユーザー本人を社員台帳へ紐づけるためのUID連携です。",
-      nextAction: firebaseMissingCount ? "Firebase未連携タブで順次連携" : "HUB権限判定へ進行可能"
+      nextAction: firebaseMissingCount ? "Firebase未連携タブで順次連携" : "共通ロール判定へ進行可能"
     },
     {
       readiness_key: "store_core",
@@ -1121,7 +1123,7 @@ function renderReadinessDetail() {
         <strong>月初運用の見る順番</strong>
         <ol>
           <li>メール未設定を埋める</li>
-          <li>所属・役職・HUB権限の未設定を確認する</li>
+          <li>所属・役職・共通ロールの未設定を確認する</li>
           <li>Firebase未連携を確認する</li>
           <li>店舗マスタと変更履歴を確認する</li>
         </ol>
@@ -1149,7 +1151,7 @@ function renderReadinessShortcut(item) {
   const target = {
     employee_core: ["employees", "missing", "社員タブの未設定ありを見る"],
     employee_email: ["employees", "メール", "社員タブでメール未設定を見る"],
-    employee_roles: ["employees", "HUB権限", "社員タブでHUB権限未設定を見る"],
+    employee_roles: ["employees", "共通ロール", "社員タブで共通ロール未設定を見る"],
     firebase_link: ["firebase", "", "Firebase未連携を見る"],
     store_core: ["stores", "missing", "店舗タブの未設定ありを見る"],
     store_reference: ["stores", "", "店舗タブを見る"],
@@ -1174,8 +1176,8 @@ function setupReadinessShortcut() {
         setEmployeeIssueFilter("メール");
         return;
       }
-      if (query === "HUB権限") {
-        setEmployeeIssueFilter("HUB権限");
+      if (query === "共通ロール" || query === "HUB権限") {
+        setEmployeeIssueFilter("共通ロール");
         return;
       }
       if (query && query !== "missing") elements.search.value = query;
@@ -1236,8 +1238,8 @@ function formatActionType(actionType) {
     update: "更新",
     link_firebase_uid: "Firebase UID連携",
     update_store_assignments: "店舗所属更新",
-    assign_staff_role: "HUB権限付与",
-    auto_assign_staff_role: "HUB権限自動付与",
+    assign_staff_role: "共通ロール付与",
+    auto_assign_staff_role: "共通ロール自動付与",
     update_app_roles: "アプリ権限更新",
     create_login_credential: "ログイン設定作成",
     update_login_credential: "ログイン設定更新",
@@ -1248,7 +1250,7 @@ function formatActionType(actionType) {
 function getLogTypeLabel(log) {
   if (log.action_type === "update_app_roles") return "アプリ権限";
   if (log.table_name === "employee_store_assignments") return "店舗所属";
-  if (log.table_name === "employee_roles") return "HUB権限";
+  if (log.table_name === "employee_roles") return "共通ロール";
   if (log.table_name === "employee_login_credentials") return "ログイン設定";
   if (log.table_name === "stores") return "店舗情報";
   if (log.table_name === "employees") return "社員情報";
@@ -1325,7 +1327,7 @@ function getStoreAssignmentLabel(order) {
 function getFieldLabel(key) {
   return {
     email: "メール",
-    hub_role: "HUB権限",
+    hub_role: "共通ロール",
     scope_type: "権限範囲",
     birth_date: "誕生日",
     joined_on: "入社日",
@@ -1688,8 +1690,8 @@ function renderEmployeeRolePanel(employee) {
   if (!roleKeys.length) {
     return `
       <div class="role-panel missing">
-        <strong>HUB権限</strong>
-        <p>未設定です。HUBでは基本表示のみ、または権限判定で意図しない表示になる可能性があります。</p>
+        <strong>HUB基本権限</strong>
+        <p>共通ロールが未設定です。一般スタッフは staff を付与します。管理者・幹部権限ではありません。</p>
       </div>`;
   }
   const chips = roleKeys
@@ -1697,7 +1699,7 @@ function renderEmployeeRolePanel(employee) {
     .join("");
   return `
     <div class="role-panel">
-      <strong>HUB権限</strong>
+      <strong>HUB基本権限</strong>
       <div class="role-chip-list">${chips}</div>
     </div>`;
 }
@@ -1750,7 +1752,7 @@ function renderEmployeeIssuePanel(employee, issues) {
     const hints = [];
     if (issues.includes("メール")) hints.push("メール未発行の場合は空欄のまま保存できます。発行後に「メール未設定」から追記してください。");
     if (issues.includes("所属")) hints.push("主店舗または部署のどちらかを設定すると、所属未設定が解消します。");
-    if (issues.includes("HUB権限")) hints.push("HUB権限はアプリ表示・管理画面の閲覧範囲に使います。");
+    if (issues.includes("共通ロール")) hints.push("共通ロールはHUBと各アプリの基本表示に使います。一般スタッフは staff を付与します。");
     if (issues.includes("PIN")) hints.push("ログイン/PIN管理で初回PINを設定すると、HUBとIDEA LINK共通ログインに使えます。");
     const hintList = hints.length ? `<ul class="issue-hints">${hints.map((hint) => `<li>${escapeHtml(hint)}</li>`).join("")}</ul>` : "";
     return `
@@ -2249,7 +2251,7 @@ async function retireEmployee(event) {
 async function assignStaffRole(event) {
   const employee = state.employees.find((item) => item.id === state.selectedId);
   if (!employee) return;
-  const confirmed = window.confirm(`${employee.full_name}さんにHUB基本権限（staff）を付与します。\n\nstaffは管理者権限ではありません。`);
+  const confirmed = window.confirm(`${employee.full_name}さんに共通ロール（staff）を付与します。\n\nstaffは管理者・幹部権限ではありません。`);
   if (!confirmed) return;
   const button = event.currentTarget;
   const originalText = button.textContent;

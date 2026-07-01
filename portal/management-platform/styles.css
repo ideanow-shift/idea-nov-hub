@@ -1089,6 +1089,59 @@ th {
   align-items: center;
 }
 
+.photo-gallery-panel {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.photo-gallery-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.photo-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.photo-gallery-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.photo-gallery-thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.photo-gallery-meta {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.photo-gallery-meta strong,
+.photo-gallery-meta span {
+  overflow-wrap: anywhere;
+}
+
+.photo-gallery-meta span {
+  color: var(--muted);
+  font-size: 12px;
+}
 .status-ok { color: var(--ok); }
 .status-warn { color: var(--warn); }
 .status-danger { color: var(--danger); }

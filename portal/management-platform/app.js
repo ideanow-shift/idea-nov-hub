@@ -2200,6 +2200,7 @@ function renderGrowthView(records = getLocalRecords()) {
             <div class="growth-record-meta">
               <span>Score ${escapeHtml(record.score ?? "-")}</span>
               <span>課題 ${Number(recordBreakdown.score0 || 0) + Number(recordBreakdown.score3 || 0)}件</span>
+              ${hasRecordPhotos(record) ? `<span>写真 ${getRecordPhotoCount(record)}枚</span>` : ""}
               <button type="button" class="ghost-btn growth-detail-btn" data-record-id="${escapeHtml(record.record_id)}">詳細</button>
             </div>
           </article>
@@ -2289,19 +2290,96 @@ function setPhotoUploadStatus(message, kind = "info") {
   status.dataset.kind = kind;
 }
 
+function normalizePhotoRecord(photo, extra = {}) {
+  if (!photo) return null;
+  const photoUrl = photo.photo_url || photo.photoUrl || "";
+  const storagePath = photo.storage_path || photo.storagePath || "";
+  if (!photoUrl && !storagePath) return null;
+  return {
+    photoUrl,
+    storagePath,
+    caption: photo.caption || extra.caption || photo.photo_type || photo.photoType || "写真",
+    resultTitle: extra.resultTitle || photo.resultTitle || "",
+    photoType: photo.photo_type || photo.photoType || "evidence"
+  };
+}
+
+function getRecordPhotos(record) {
+  const photos = [];
+  const seen = new Set();
+  const pushPhoto = (photo, extra = {}) => {
+    const normalized = normalizePhotoRecord(photo, extra);
+    if (!normalized) return;
+    const key = normalized.photoUrl || normalized.storagePath;
+    if (seen.has(key)) return;
+    seen.add(key);
+    photos.push(normalized);
+  };
+
+  (record.photos || []).forEach((photo) => pushPhoto(photo));
+  (record.results || []).forEach((result, index) => {
+    const item = getCheckItemMeta(result.checkItemId);
+    const resultTitle = result.itemTitle || item?.title || `項目 ${index + 1}`;
+    (result.photos || []).forEach((photo) => pushPhoto(photo, { resultTitle }));
+  });
+  if (record.photo_url || record.photo_storage_path) {
+    pushPhoto({
+      photoUrl: record.photo_url || "",
+      storagePath: record.photo_storage_path || "",
+      caption: "代表写真"
+    });
+  }
+  return photos;
+}
+
+function canPreviewPhotoUrl(url) {
+  if (!url) return false;
+  return looksLikeImageUrl(url) || url.includes("/storage/v1/object/");
+}
+
 function renderPhotoLink(photo) {
-  const url = photo.photo_url || photo.photoUrl || "";
-  const label = photo.caption || photo.photo_type || photo.photoType || "写真を開く";
-  if (!url) {
-    return `<span class="photo-link muted-text">${escapeHtml(photo.storage_path || photo.storagePath || "写真URL未発行")}</span>`;
+  const normalized = normalizePhotoRecord(photo);
+  if (!normalized) return "";
+  if (!normalized.photoUrl) {
+    return `<span class="photo-link muted-text">${escapeHtml(normalized.storagePath || "写真URL未発行")}</span>`;
   }
   return `
-    <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="photo-link">
-      ${escapeHtml(label)}
+    <a href="${escapeHtml(normalized.photoUrl)}" target="_blank" rel="noopener" class="photo-link">
+      ${escapeHtml(normalized.caption || "写真を開く")}
     </a>
   `;
 }
 
+function renderPhotoGallery(photos, title = "写真") {
+  const normalizedPhotos = (photos || []).map((photo) => normalizePhotoRecord(photo)).filter(Boolean);
+  if (!normalizedPhotos.length) return "";
+  return `
+    <section class="photo-gallery-panel" aria-label="${escapeHtml(title)}">
+      <div class="photo-gallery-head">
+        <p class="score-summary-label">${escapeHtml(title)}</p>
+        <span class="count-badge photo-badge">${normalizedPhotos.length}枚</span>
+      </div>
+      <div class="photo-gallery-grid">
+        ${normalizedPhotos.map((photo, index) => {
+          const label = photo.resultTitle || photo.caption || `写真 ${index + 1}`;
+          const linkHtml = photo.photoUrl
+            ? `<a href="${escapeHtml(photo.photoUrl)}" target="_blank" rel="noopener" class="photo-link">開く</a>`
+            : `<span class="photo-link muted-text">署名URL未発行</span>`;
+          return `
+            <article class="photo-gallery-card">
+              ${photo.photoUrl && canPreviewPhotoUrl(photo.photoUrl) ? `<img class="photo-gallery-thumb" src="${escapeHtml(photo.photoUrl)}" alt="${escapeHtml(label)}" loading="lazy" onerror="this.remove()">` : ""}
+              <div class="photo-gallery-meta">
+                <strong>${escapeHtml(label)}</strong>
+                <span>${escapeHtml(photo.storagePath || photo.caption || "外部URL")}</span>
+                ${linkHtml}
+              </div>
+            </article>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
 function renderIssueResultSummary(results) {
   const issueResults = results
     .filter((result) => Number(result.score) === 0 || Number(result.score) === 3)
@@ -2452,6 +2530,8 @@ function renderRecordDetail(record, note = "") {
   const aiDraft = generateAiCommentDraft(record, [record]);
   const results = (record.results || []).slice().sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
   const issueSummaryHtml = results.length ? renderIssueResultSummary(results) : "";
+  const recordPhotos = getRecordPhotos(record);
+  const photoGalleryHtml = renderPhotoGallery(recordPhotos, "履歴写真");
   const resultHtml = results.length ? `
     <div class="result-detail-list">
       ${results.map((result, index) => {
@@ -2470,11 +2550,7 @@ function renderRecordDetail(record, note = "") {
               <span class="score-chip ${Number(result.score) === 0 ? "danger" : Number(result.score) === 3 ? "warn" : Number(result.score) === 5 ? "ok" : ""}">${escapeHtml(formatResultValue(result))}</span>
             </div>
             ${comment ? `<p class="result-detail-comment">${escapeHtml(comment)}</p>` : ""}
-            ${photos.length ? `
-              <div class="photo-link-list">
-                ${photos.map(renderPhotoLink).join("")}
-              </div>
-            ` : ""}
+            ${photos.length ? renderPhotoGallery(photos.map((photo) => Object.assign({}, photo, { resultTitle: title })), "項目写真") : ""}
           </article>
         `;
       }).join("")}
@@ -2505,7 +2581,7 @@ function renderRecordDetail(record, note = "") {
       ${note ? ` / ${escapeHtml(note)}` : ""}
     </p>
     ${record.comment ? `<p class="field-help"><strong>次の行動:</strong> ${escapeHtml(record.comment)}</p>` : ""}
-    ${record.photo_url ? `<p class="field-help"><strong>写真:</strong> <a href="${escapeHtml(record.photo_url)}" target="_blank" rel="noopener">写真URLを開く</a></p>` : ""}
+    ${photoGalleryHtml}
     <div class="record-ai-comment">
       ${renderAiCommentDraft(aiDraft)}
     </div>

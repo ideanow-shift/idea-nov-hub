@@ -351,6 +351,7 @@ const elements = {
   totalQuestions: document.querySelector("#totalQuestions"),
   negativeCount: document.querySelector("#negativeCount"),
   unratedCount: document.querySelector("#unratedCount"),
+  questionLogList: document.querySelector("#questionLogList"),
   questionRanking: document.querySelector("#questionRanking"),
   storeUsage: document.querySelector("#storeUsage"),
   wordRanking: document.querySelector("#wordRanking"),
@@ -695,6 +696,7 @@ async function renderAdmin() {
   renderRanking(elements.questionRanking, []);
   renderRanking(elements.storeUsage, []);
   renderRanking(elements.wordRanking, []);
+  elements.questionLogList.innerHTML = '<div class="question-log-item">読み込み中です。</div>';
   elements.unresolvedList.innerHTML = '<div class="issue-item">読み込み中です。</div>';
 
   const logs = await logRepository.allForAdmin();
@@ -708,7 +710,48 @@ async function renderAdmin() {
   renderRanking(elements.questionRanking, countBy(logs, (entry) => entry.question));
   renderRanking(elements.storeUsage, countBy(logs, (entry) => entry.storeName));
   renderRanking(elements.wordRanking, countWords(logs));
+  renderQuestionLogList(logs);
   renderIssues([...negativeLogs, ...unratedLogs].slice(0, 20));
+}
+
+function renderQuestionLogList(logs) {
+  elements.questionLogList.innerHTML = "";
+  if (!logs.length) {
+    elements.questionLogList.innerHTML = '<div class="question-log-item">まだ質問ログはありません。</div>';
+    return;
+  }
+
+  logs.slice(0, 30).forEach((entry) => {
+    const item = document.createElement("article");
+    item.className = "question-log-item";
+
+    const head = document.createElement("div");
+    head.className = "question-log-head";
+
+    const question = document.createElement("strong");
+    question.textContent = entry.question;
+
+    const rating = document.createElement("span");
+    rating.className = `question-log-rating ${entry.rating || "none"}`;
+    rating.textContent = formatRating(entry.rating);
+
+    head.append(question, rating);
+
+    const meta = document.createElement("small");
+    meta.textContent = `${formatDate(entry.createdAt)} / ${entry.storeName || entry.storeId || "不明"} / ${entry.notebook || "分類なし"}`;
+
+    const answer = document.createElement("p");
+    answer.textContent = entry.answer || "回答なし";
+
+    item.append(head, meta, answer);
+    elements.questionLogList.append(item);
+  });
+}
+
+function formatRating(rating) {
+  if (rating === "up") return "役に立った";
+  if (rating === "down") return "改善が必要";
+  return "未評価";
 }
 
 function renderKnowledgeAdmin() {

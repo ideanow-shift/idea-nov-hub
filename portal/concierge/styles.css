@@ -987,6 +987,18 @@ a:focus-visible {
   margin: 0;
 }
 
+.rule-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.rule-actions .text-button {
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
 .rank-list {
   display: grid;
   gap: 8px;

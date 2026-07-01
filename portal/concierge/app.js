@@ -17,6 +17,7 @@ const SUPABASE_BACKEND_ACTIONS = new Set([
   "listLogs",
   "listLinks",
   "appendAnswerRule",
+  "updateAnswerRule",
   "listKnowledgeUpdates",
   "appendKnowledgeUpdate"
 ]);
@@ -145,35 +146,39 @@ class KnowledgeAdapter {
 
 class AnswerRuleRepository {
   constructor() {
-    this.cache = null;
+    this.activeCache = null;
+    this.adminCache = null;
   }
 
-  async all() {
-    if (this.cache) return this.cache;
+  async all(options = {}) {
+    const includeInactive = Boolean(options.includeInactive);
+    const cacheKey = includeInactive ? "adminCache" : "activeCache";
+    if (this[cacheKey]) return this[cacheKey];
     if (!hasRemoteBackend()) {
-      this.cache = [];
-      return this.cache;
+      this[cacheKey] = [];
+      return this[cacheKey];
     }
 
     try {
-      const result = await requestBackend("listAnswerRules", {});
-      this.cache = result.ok ? result.rules : [];
-      return this.cache;
+      const result = await requestBackend("listAnswerRules", includeInactive ? { includeInactive: "true" } : {});
+      this[cacheKey] = result.ok ? result.rules : [];
+      return this[cacheKey];
     } catch {
-      this.cache = [];
-      return this.cache;
+      this[cacheKey] = [];
+      return this[cacheKey];
     }
   }
 
   clear() {
-    this.cache = null;
+    this.activeCache = null;
+    this.adminCache = null;
   }
 
   async find(question, store) {
     const normalized = question.toLowerCase();
     const rules = await this.all();
     const rule = rules.find((item) => {
-      return item.keywords.some((keyword) => normalized.includes(keyword.toLowerCase()));
+      return isRuleActive(item.active) && item.keywords.some((keyword) => normalized.includes(keyword.toLowerCase()));
     });
 
     if (!rule) return null;
@@ -368,10 +373,13 @@ const elements = {
   answerRuleName: document.querySelector("#answerRuleName"),
   answerRuleNotebook: document.querySelector("#answerRuleNotebook"),
   answerRulePriority: document.querySelector("#answerRulePriority"),
+  answerRuleActive: document.querySelector("#answerRuleActive"),
   answerRuleKeywords: document.querySelector("#answerRuleKeywords"),
   answerRuleLinkChoices: document.querySelector("#answerRuleLinkChoices"),
   answerRuleAnswer: document.querySelector("#answerRuleAnswer"),
   answerRuleStatus: document.querySelector("#answerRuleStatus"),
+  answerRuleSubmitButton: document.querySelector("#answerRuleSubmitButton"),
+  answerRuleCancelButton: document.querySelector("#answerRuleCancelButton"),
   answerRuleSearch: document.querySelector("#answerRuleSearch"),
   answerRuleNotebookFilter: document.querySelector("#answerRuleNotebookFilter"),
   answerRuleStatusFilter: document.querySelector("#answerRuleStatusFilter"),
@@ -382,6 +390,7 @@ const elements = {
 let session = authProvider.currentSession();
 let adminLogCache = [];
 let answerRuleCache = [];
+let editingAnswerRuleId = null;
 
 elements.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -448,6 +457,10 @@ elements.answerRuleStatusFilter.addEventListener("change", () => {
   renderAnswerRuleList(answerRuleCache);
 });
 
+elements.answerRuleCancelButton.addEventListener("click", () => {
+  resetAnswerRuleForm();
+});
+
 elements.knowledgeUpdateForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const area = KNOWLEDGE_AREAS.find((item) => item.id === elements.knowledgeArea.value);
@@ -487,26 +500,26 @@ elements.answerRuleForm.addEventListener("submit", async (event) => {
   if (!ruleName || !keywords || !answer) return;
 
   elements.answerRuleStatus.textContent = "保存中です。";
+  const action = editingAnswerRuleId ? "updateAnswerRule" : "appendAnswerRule";
+  const wasEditing = Boolean(editingAnswerRuleId);
   try {
-    const result = await requestBackend("appendAnswerRule", {
-      ruleId: createRuleId(ruleName),
+    const result = await requestBackend(action, {
+      ruleId: editingAnswerRuleId || createRuleId(ruleName),
       phase1LoginId: session.id,
       keywords,
       notebook: elements.answerRuleNotebook.value,
       answer,
       linkIds: getSelectedAnswerRuleLinkIds().join(","),
-      active: "有効",
+      active: elements.answerRuleActive.value,
       priority: elements.answerRulePriority.value || "10"
     });
     if (!result.ok) throw new Error(result.error || "保存できませんでした。");
     answerRuleRepository.clear();
-    elements.answerRuleForm.reset();
-    elements.answerRulePriority.value = "10";
-    elements.answerRuleLinkChoices.querySelectorAll("input:checked").forEach((input) => {
-      input.checked = false;
-    });
+    resetAnswerRuleForm({ keepStatus: true });
     await renderAnswerRuleList();
-    elements.answerRuleStatus.textContent = `保存しました。NOV Naviでキーワードを入力して確認できます。`;
+    elements.answerRuleStatus.textContent = wasEditing
+      ? "更新しました。NOV Naviでキーワードを入力して確認できます。"
+      : "保存しました。NOV Naviでキーワードを入力して確認できます。";
   } catch (error) {
     elements.answerRuleStatus.textContent = `保存に失敗しました: ${error.message || error}`;
   }
@@ -845,7 +858,7 @@ function getSelectedAnswerRuleLinkIds() {
 
 async function renderAnswerRuleList(rules = null) {
   if (!rules) {
-    answerRuleCache = await answerRuleRepository.all();
+    answerRuleCache = await answerRuleRepository.all({ includeInactive: true });
   }
   const sourceRules = rules || answerRuleCache;
   const filteredRules = filterAnswerRules(sourceRules);
@@ -876,9 +889,85 @@ async function renderAnswerRuleList(rules = null) {
     const answer = document.createElement("p");
     answer.textContent = rule.answer;
 
-    item.append(title, meta, keywords, answer);
+    const actions = document.createElement("div");
+    actions.className = "rule-actions";
+
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "text-button";
+    editButton.textContent = "編集";
+    editButton.addEventListener("click", () => {
+      populateAnswerRuleForm(rule);
+    });
+
+    const toggleButton = document.createElement("button");
+    toggleButton.type = "button";
+    toggleButton.className = "text-button";
+    toggleButton.textContent = isRuleActive(rule.active) ? "停止" : "再開";
+    toggleButton.addEventListener("click", async () => {
+      await updateAnswerRuleActive(rule, isRuleActive(rule.active) ? "停止" : "有効");
+    });
+
+    actions.append(editButton, toggleButton);
+    item.append(title, meta, keywords, answer, actions);
     elements.answerRuleList.append(item);
   });
+}
+
+function populateAnswerRuleForm(rule) {
+  editingAnswerRuleId = rule.id;
+  elements.answerRuleName.value = rule.id;
+  elements.answerRuleName.disabled = true;
+  elements.answerRuleKeywords.value = (rule.keywords || []).join(",");
+  elements.answerRuleNotebook.value = rule.notebook || "Notebook① スタッフサポート";
+  elements.answerRulePriority.value = rule.priority || "10";
+  elements.answerRuleActive.value = isRuleActive(rule.active) ? "有効" : "停止";
+  elements.answerRuleAnswer.value = rule.answer || "";
+  elements.answerRuleSubmitButton.textContent = "回答ルールを更新";
+  elements.answerRuleCancelButton.hidden = false;
+  elements.answerRuleStatus.textContent = "編集中です。内容を確認して更新してください。";
+
+  elements.answerRuleLinkChoices.querySelectorAll("input").forEach((input) => {
+    input.checked = (rule.linkIds || []).includes(input.value);
+  });
+  elements.answerRuleAnswer.focus();
+}
+
+function resetAnswerRuleForm(options = {}) {
+  editingAnswerRuleId = null;
+  elements.answerRuleForm.reset();
+  elements.answerRuleName.disabled = false;
+  elements.answerRulePriority.value = "10";
+  elements.answerRuleActive.value = "有効";
+  elements.answerRuleSubmitButton.textContent = "回答ルールを追加";
+  elements.answerRuleCancelButton.hidden = true;
+  elements.answerRuleLinkChoices.querySelectorAll("input:checked").forEach((input) => {
+    input.checked = false;
+  });
+  if (!options.keepStatus) {
+    elements.answerRuleStatus.textContent = "";
+  }
+}
+
+async function updateAnswerRuleActive(rule, active) {
+  elements.answerRuleStatus.textContent = `${rule.id} を${active === "有効" ? "再開" : "停止"}しています。`;
+  const result = await requestBackend("updateAnswerRule", {
+    ruleId: rule.id,
+    keywords: (rule.keywords || []).join(","),
+    notebook: rule.notebook,
+    answer: rule.answer,
+    linkIds: (rule.linkIds || []).join(","),
+    active,
+    priority: String(rule.priority || "10")
+  });
+  if (!result.ok) {
+    elements.answerRuleStatus.textContent = `更新に失敗しました: ${result.error || "保存できませんでした。"}`;
+    return;
+  }
+  answerRuleRepository.clear();
+  resetAnswerRuleForm({ keepStatus: true });
+  await renderAnswerRuleList();
+  elements.answerRuleStatus.textContent = `${rule.id} を${active === "有効" ? "再開" : "停止"}しました。`;
 }
 
 function filterAnswerRules(rules) {

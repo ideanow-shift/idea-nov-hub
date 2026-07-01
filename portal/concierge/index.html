@@ -214,6 +214,13 @@
                 <span>優先度</span>
                 <input id="answerRulePriority" type="number" value="10" min="1" max="999">
               </label>
+              <label>
+                <span>状態</span>
+                <select id="answerRuleActive">
+                  <option value="有効">有効</option>
+                  <option value="停止">停止</option>
+                </select>
+              </label>
               <label class="wide-field">
                 <span>キーワード</span>
                 <input id="answerRuleKeywords" placeholder="例: 産休,育休,出産" required>
@@ -226,7 +233,8 @@
                 <span>回答文</span>
                 <textarea id="answerRuleAnswer" rows="4" placeholder="スタッフに表示する回答文" required></textarea>
               </label>
-              <button class="primary-button" type="submit">回答ルールを追加</button>
+              <button id="answerRuleSubmitButton" class="primary-button" type="submit">回答ルールを追加</button>
+              <button id="answerRuleCancelButton" class="text-button" type="button" hidden>編集をキャンセル</button>
               <p id="answerRuleStatus" class="save-status" role="status"></p>
             </form>
             <div class="rule-list-panel">

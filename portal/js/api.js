@@ -103,21 +103,36 @@ async function postToEndpoint(endpoint, body) {
     window.clearTimeout(timeoutId);
   }
   const responseText = await response.text();
-  if (!response.ok) {
-    const error = new Error(`APIへの接続に失敗しました (${response.status})`);
-    error.code = "HTTP_ERROR";
-    error.detail = responseText.slice(0, 240);
-    throw error;
-  }
-
   let data;
   try {
     data = JSON.parse(responseText);
   } catch (cause) {
+    if (!response.ok) {
+      const error = new Error(`APIへの接続に失敗しました (${response.status})`);
+      error.code = "HTTP_ERROR";
+      error.detail = responseText.slice(0, 240);
+      error.cause = cause;
+      throw error;
+    }
     const error = new Error("NOV HUB APIからJSON以外のレスポンスが返されました。");
     error.code = "INVALID_API_RESPONSE";
     error.detail = responseText.slice(0, 240);
     error.cause = cause;
+    throw error;
+  }
+
+  if (!response.ok && !data?.ok) {
+    const error = new Error(data.message || `APIへの接続に失敗しました (${response.status})`);
+    error.code = data.code || "HTTP_ERROR";
+    error.stage = data.stage || "";
+    error.detail = data.detail || responseText.slice(0, 240);
+    throw error;
+  }
+
+  if (!response.ok) {
+    const error = new Error(`APIへの接続に失敗しました (${response.status})`);
+    error.code = "HTTP_ERROR";
+    error.detail = responseText.slice(0, 240);
     throw error;
   }
 

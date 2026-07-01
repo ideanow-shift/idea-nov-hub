@@ -376,6 +376,7 @@ const elements = {
   questionLogList: document.querySelector("#questionLogList"),
   questionLogSearch: document.querySelector("#questionLogSearch"),
   questionLogRatingFilter: document.querySelector("#questionLogRatingFilter"),
+  questionLogExportButton: document.querySelector("#questionLogExportButton"),
   questionRanking: document.querySelector("#questionRanking"),
   storeUsage: document.querySelector("#storeUsage"),
   wordRanking: document.querySelector("#wordRanking"),
@@ -474,6 +475,10 @@ elements.questionLogSearch.addEventListener("input", () => {
 
 elements.questionLogRatingFilter.addEventListener("change", () => {
   renderQuestionLogList(adminLogCache);
+});
+
+elements.questionLogExportButton.addEventListener("click", () => {
+  exportQuestionLogsCsv(filterQuestionLogs(adminLogCache));
 });
 
 elements.answerRuleSearch.addEventListener("input", () => {
@@ -878,6 +883,59 @@ function filterQuestionLogs(logs) {
 
     return searchableText.includes(keyword);
   });
+}
+
+function exportQuestionLogsCsv(logs) {
+  if (!logs.length) {
+    elements.questionLogList.innerHTML = '<div class="question-log-item">出力できる質問ログがありません。</div>';
+    return;
+  }
+
+  const headers = ["日時", "店舗", "店舗ID", "質問", "回答", "Notebook", "評価"];
+  const rows = logs.map((entry) => [
+    formatDateTimeForCsv(entry.createdAt),
+    entry.storeName || "",
+    entry.phase1LoginId || entry.storeId || "",
+    entry.question || "",
+    entry.answer || "",
+    entry.notebook || "",
+    formatRating(entry.rating)
+  ]);
+  const csv = [headers, ...rows]
+    .map((row) => row.map(escapeCsvCell).join(","))
+    .join("\r\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `nov-navi-question-logs-${formatDateForFileName(new Date())}.csv`;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function escapeCsvCell(value) {
+  const text = String(value ?? "");
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function formatDateTimeForCsv(value) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
+function formatDateForFileName(value) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
 }
 
 function formatRating(rating) {

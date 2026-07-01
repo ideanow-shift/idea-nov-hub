@@ -2823,6 +2823,10 @@ function applyRoleBasedView() {
     if (recordsButton) recordsButton.textContent = "詳細履歴";
     const growthButton = document.querySelector('[data-view="growth"]');
     if (growthButton) growthButton.textContent = "自分の確認";
+    const activeView = document.querySelector(".view.active");
+    if (!activeView || ["view-dashboard", "view-environment", "view-actions"].includes(activeView.id)) {
+      showView("growth");
+    }
   }
 }
 

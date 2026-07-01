@@ -40,6 +40,20 @@ function getDefaultStoreId() {
   if (trustedActor?.storeId) return trustedActor.storeId;
   return context.primaryStoreId || context.storeId || context.store_id || window.MANAGEMENT_DEFAULT_STORE_ID || "";
 }
+function getCurrentEmployeeId() {
+  const context = getHubContext();
+  return trustedActor?.employeeId ||
+    context.supabaseEmployeeId ||
+    context.coreEmployeeId ||
+    context.employeeId ||
+    context.staffId ||
+    context.id ||
+    "";
+}
+
+function getDefaultTargetEmployeeId() {
+  return getCurrentEmployeeId();
+}
 
 function getRoleKeys() {
   if (trustedActor?.roles?.length) return trustedActor.roles.map(String);
@@ -173,6 +187,8 @@ function toRecord(form) {
     comment: formData.get("comment"),
     photo_url: photoRecords[0]?.photoUrl || "",
     photo_storage_path: photoRecords[0]?.storagePath || null,
+    target_employee_id: getDefaultTargetEmployeeId() || null,
+    targetEmployeeId: getDefaultTargetEmployeeId() || null,
     photos: photoRecords,
     results,
     status: "active",
@@ -457,7 +473,10 @@ function fromApiCheck(row) {
     department_id: row.department_id || null,
     submitted_by_employee_id: row.submitted_by_employee_id || null,
     store: row.store_name || row.store_id,
-    target_user: row.submitted_by_name || row.submitted_by_employee_id,
+    target_employee_id: row.target_employee_id || null,
+    targetEmployeeId: row.target_employee_id || null,
+    targetEmployeeName: row.target_employee_name || null,
+    target_user: row.target_employee_name || row.submitted_by_name || row.target_employee_id || row.submitted_by_employee_id,
     role: "",
     management_category: "環境整備",
     checked_at: row.submitted_at || row.check_date,
@@ -604,6 +623,7 @@ async function saveRemoteRecord(record) {
     storeId,
     checkDate: getLocalDateString(new Date(record.checked_at)),
     checkScope: "store",
+    targetEmployeeId: record.targetEmployeeId || record.target_employee_id || getDefaultTargetEmployeeId() || null,
     summaryComment: record.comment,
     nextAction: record.comment,
     results: record.results.map((result, index) => ({
@@ -2016,7 +2036,7 @@ function getRecipientRecords(records = getLocalRecords()) {
   const storeName = getContextStoreName();
   const actorEmployeeId = trustedActor?.employeeId || getHubContext().employeeId || "";
   const matched = records.filter((record) => {
-    if (actorEmployeeId && record.submitted_by_employee_id === actorEmployeeId) return true;
+    if (actorEmployeeId && (record.target_employee_id === actorEmployeeId || record.targetEmployeeId === actorEmployeeId || record.submitted_by_employee_id === actorEmployeeId)) return true;
     if (displayName && record.target_user === displayName) return true;
     if (displayName && record.target_user && record.target_user.includes(displayName)) return true;
     if (storeName && record.store === storeName) return true;
@@ -2475,7 +2495,7 @@ function buildImprovementActionPayload(record) {
     sourceCheckResultId: primaryIssue?.resultId || primaryIssue?.id || null,
     storeId,
     departmentId: record.department_id || null,
-    targetEmployeeId: record.submitted_by_employee_id || null,
+    targetEmployeeId: record.targetEmployeeId || record.target_employee_id || record.submitted_by_employee_id || null,
     ownerEmployeeId: trustedActor?.employeeId || null,
     managementCategory: normalizeManagementCategory(category),
     actionTitle: draft.title,

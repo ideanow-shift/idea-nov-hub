@@ -703,7 +703,7 @@ a:focus-visible {
   border-bottom: 1px solid var(--line);
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr) 180px;
+  grid-template-columns: minmax(0, 1fr) 180px 150px 150px;
   padding: 16px;
 }
 

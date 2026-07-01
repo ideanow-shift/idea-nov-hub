@@ -376,6 +376,8 @@ const elements = {
   questionLogList: document.querySelector("#questionLogList"),
   questionLogSearch: document.querySelector("#questionLogSearch"),
   questionLogRatingFilter: document.querySelector("#questionLogRatingFilter"),
+  questionLogDateFrom: document.querySelector("#questionLogDateFrom"),
+  questionLogDateTo: document.querySelector("#questionLogDateTo"),
   questionLogExportButton: document.querySelector("#questionLogExportButton"),
   questionRanking: document.querySelector("#questionRanking"),
   storeUsage: document.querySelector("#storeUsage"),
@@ -474,6 +476,14 @@ elements.questionLogSearch.addEventListener("input", () => {
 });
 
 elements.questionLogRatingFilter.addEventListener("change", () => {
+  renderQuestionLogList(adminLogCache);
+});
+
+elements.questionLogDateFrom.addEventListener("change", () => {
+  renderQuestionLogList(adminLogCache);
+});
+
+elements.questionLogDateTo.addEventListener("change", () => {
   renderQuestionLogList(adminLogCache);
 });
 
@@ -866,10 +876,15 @@ function renderQuestionLogList(logs) {
 function filterQuestionLogs(logs) {
   const keyword = elements.questionLogSearch.value.trim().toLowerCase();
   const ratingFilter = elements.questionLogRatingFilter.value;
+  const dateFrom = elements.questionLogDateFrom.value ? new Date(`${elements.questionLogDateFrom.value}T00:00:00`) : null;
+  const dateTo = elements.questionLogDateTo.value ? new Date(`${elements.questionLogDateTo.value}T23:59:59`) : null;
 
   return logs.filter((entry) => {
     const rating = entry.rating || "none";
     if (ratingFilter !== "all" && rating !== ratingFilter) return false;
+    const createdAt = entry.createdAt ? new Date(entry.createdAt) : null;
+    if (dateFrom && (!createdAt || createdAt < dateFrom)) return false;
+    if (dateTo && (!createdAt || createdAt > dateTo)) return false;
     if (!keyword) return true;
 
     const searchableText = [

@@ -329,6 +329,22 @@ button:hover {
   border-color: rgba(199, 120, 130, 0.45);
   background: var(--accent-soft);
 }
+#environmentForm,
+#growthSummaryPanel,
+#improvementActionList,
+.growth-action-card {
+  scroll-margin-top: 16px;
+}
+
+.target-pulse {
+  animation: targetPulse 1.2s ease-out;
+}
+
+@keyframes targetPulse {
+  0% { box-shadow: 0 0 0 0 rgba(199, 120, 130, 0.36); }
+  55% { box-shadow: 0 0 0 8px rgba(199, 120, 130, 0.12); }
+  100% { box-shadow: 0 0 0 0 rgba(199, 120, 130, 0); }
+}
 
 .growth-comparison-card {
   background: #fff;
@@ -1369,4 +1385,5 @@ th {
     width: 100%;
   }
 }
+
 

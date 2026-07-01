@@ -1710,7 +1710,7 @@ function buildPerformanceInitiativePayload(form) {
   };
 }
 
-function setNextActionPanel({ title, note, targetView, buttonText }) {
+function setNextActionPanel({ title, note, targetView, targetSelector, buttonText }) {
   const nextAction = document.getElementById("todayActionTitle");
   const nextNote = document.getElementById("todayActionNote");
   const nextButton = document.getElementById("nextActionBtn");
@@ -1719,6 +1719,19 @@ function setNextActionPanel({ title, note, targetView, buttonText }) {
   if (nextButton) {
     nextButton.textContent = buttonText || "次へ進む";
     nextButton.dataset.viewTarget = targetView || "dashboard";
+    nextButton.dataset.targetSelector = targetSelector || "";
+  }
+}
+
+function openNextActionTarget(button) {
+  const targetView = button?.dataset.viewTarget || "dashboard";
+  const targetSelector = button?.dataset.targetSelector || "";
+  showView(targetView);
+  const target = targetSelector ? document.querySelector(targetSelector) : document.getElementById(`view-${targetView}`);
+  if (target) {
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    target.classList.add("target-pulse");
+    window.setTimeout(() => target.classList.remove("target-pulse"), 1400);
   }
 }
 
@@ -1746,6 +1759,7 @@ function renderDashboard() {
       title: "自分のマネジメントチェックを確認する",
       note: `${getDisplayName()}さんの所属店舗・自身に紐づく履歴を表示します。`,
       targetView: "growth",
+      targetSelector: "#growthSummaryPanel",
       buttonText: "確認する"
     });
     return;
@@ -1757,6 +1771,7 @@ function renderDashboard() {
       title: "未完了の改善アクションを進める",
       note: `未完了の改善アクションが${activeActions.length}件あります。担当者と期限を確認してください。`,
       targetView: "actions",
+      targetSelector: "#improvementActionList",
       buttonText: "改善を見る"
     });
     return;
@@ -1767,6 +1782,7 @@ function renderDashboard() {
       title: "環境整備チェックを1件登録する",
       note: "最初の履歴を作ることで、写真管理・AIコメント・改善履歴へつながります。",
       targetView: "environment",
+      targetSelector: "#environmentForm",
       buttonText: "登録する"
     });
     return;
@@ -1779,6 +1795,7 @@ function renderDashboard() {
     title: issueCount > 0 ? `${latest.store} の改善アクションを決める` : `${latest.store} の良い状態を継続する`,
     note: latest.comment || "次に取る行動をコメントに残してください。",
     targetView: issueCount > 0 ? "growth" : "environment",
+    targetSelector: issueCount > 0 ? ".growth-action-card" : "#environmentForm",
     buttonText: issueCount > 0 ? "改善を作る" : "確認する"
   });
 }
@@ -2925,10 +2942,8 @@ function bindEvents() {
   document.querySelectorAll(".nav-btn").forEach((button) => {
     button.addEventListener("click", () => showView(button.dataset.view));
   });
-  document.getElementById("nextActionBtn")?.addEventListener("click", () => {
-    const targetView = document.getElementById("nextActionBtn")?.dataset.viewTarget || "dashboard";
-    showView(targetView);
-    document.getElementById(`view-${targetView}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  document.getElementById("nextActionBtn")?.addEventListener("click", (event) => {
+    openNextActionTarget(event.currentTarget);
   });
   document.getElementById("refreshBtn").addEventListener("click", refreshRecords);
   document.getElementById("loadRecordsBtn").addEventListener("click", refreshRecords);
@@ -3144,5 +3159,6 @@ async function apiRequest(path, options = {}) {
   }
   return response;
 }
+
 
 

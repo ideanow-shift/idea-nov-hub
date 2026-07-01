@@ -221,7 +221,7 @@ class ConversationLogRepository {
         notebook: entry.notebook,
         rating: entry.rating || "",
         links: JSON.stringify(entry.links || []),
-        source: "NOV Concierge"
+        source: "NOV Navigator"
       });
     }
   }
@@ -280,7 +280,7 @@ class KnowledgeUpdateRepository {
         memo: entry.memo,
         updatedBy: entry.updatedBy,
         phase1LoginId: entry.phase1LoginId || session?.id || "",
-        source: "NOV Concierge"
+        source: "NOV Navigator"
       });
     }
   }
@@ -490,7 +490,7 @@ elements.answerRuleForm.addEventListener("submit", async (event) => {
       input.checked = false;
     });
     renderAnswerRuleList();
-    elements.answerRuleStatus.textContent = `保存しました。Conciergeでキーワードを入力して確認できます。`;
+    elements.answerRuleStatus.textContent = `保存しました。NOV Naviでキーワードを入力して確認できます。`;
   } catch (error) {
     elements.answerRuleStatus.textContent = `保存に失敗しました: ${error.message || error}`;
   }
@@ -574,7 +574,7 @@ async function askConcierge(question) {
 function addAssistantWelcome() {
   appendMessage(
     "assistant",
-    "NOV Conciergeです。社内資料を探す前に、まずここで自然に聞いてください。必要に応じて申請フォーム、社内資料、各種アプリへ案内します。",
+    "NOV Naviです。社内資料を探す前に、まずここで自然に聞いてください。必要に応じて申請フォーム、社内資料、各種アプリへ案内します。",
     { meta: "社内OS入口" }
   );
 }

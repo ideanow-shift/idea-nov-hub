@@ -617,6 +617,15 @@ function findActiveCoreEmployee_(authUser) {
   const email = normalizeEmailValue_(authUser && authUser.email);
   let rows = [];
 
+  if (email) {
+    try {
+      const rpcEmployee = findActiveCoreEmployeeByEmailRpc_(email);
+      if (rpcEmployee) return rpcEmployee;
+    } catch (error) {
+      console.error('NOV HUB bootstrap RPC lookup failed. Falling back to legacy lookup.', error);
+    }
+  }
+
   if (uid) {
     rows = queryCoreEmployeeRows_({ firebase_uid: 'eq.' + uid });
   }
@@ -627,6 +636,118 @@ function findActiveCoreEmployee_(authUser) {
   const employee = rows[0];
   if (!isCoreEmployeeActiveForPortal_(employee)) return null;
   return normalizeCorePortalEmployee_(employee);
+}
+
+function findActiveCoreEmployeeByEmailRpc_(email) {
+  const normalizedEmail = normalizeEmailValue_(email);
+  if (!normalizedEmail) return null;
+  if (isNovHubBootstrapRpcTemporarilyDisabled_()) return null;
+  let data;
+  try {
+    data = supabaseRpc_('get_nov_hub_bootstrap_by_email', { p_email: normalizedEmail });
+  } catch (error) {
+    temporarilyDisableNovHubBootstrapRpc_();
+    throw error;
+  }
+  return normalizeNovHubBootstrapEmployee_(data, normalizedEmail);
+}
+
+function normalizeNovHubBootstrapEmployee_(data, fallbackEmail) {
+  if (!data || !data.employee) return null;
+  const employee = data.employee || {};
+  const employmentStatus = String(employee.employmentStatus || '');
+  if (employee.isActive === false || /騾閨ｷ|莨題・|逕｣莨掃閧ｲ莨・/.test(employmentStatus)) return null;
+
+  const source = employee.sourceRow || {};
+  const corporation = data.corporation || {};
+  const store = data.store || {};
+  const department = data.department || {};
+  const position = data.position || {};
+  const roles = normalizeNovHubBootstrapRoles_(data.roles);
+  const roleKeys = roles.map(function(role) { return role.roleKey; }).filter(String);
+  const storeAssignments = normalizeNovHubBootstrapStoreAssignments_(data.storeAssignments);
+  const primaryStore = buildPrimaryStoreContext_({
+    id: store.id || '',
+    store_no: store.storeNo || '',
+    store_id: store.storeCode || '',
+    store_name: store.name || ''
+  }, storeAssignments);
+  const loginCredential = sanitizeLoginCredential_(data.loginStatus);
+  const tags = buildCorePortalTags_({ source_row: source }, {
+    corporation: { corporation_name: corporation.name || '' },
+    store: { store_name: (primaryStore && primaryStore.name) || store.name || '' },
+    department: { department_name: department.name || '' },
+    position: { position_name: position.name || '' },
+    roleKeys: roleKeys
+  });
+
+  return {
+    id: employee.id || '',
+    coreEmployeeId: employee.id || '',
+    employeeId: employee.employeeId || '',
+    employeeNumber: employee.employeeId || '',
+    firebaseUid: employee.firebaseUid || '',
+    email: normalizeEmailValue_((loginCredential && loginCredential.login_email) || employee.email || fallbackEmail),
+    name: String(employee.fullName || employee.email || fallbackEmail || ''),
+    fullName: String(employee.fullName || employee.email || fallbackEmail || ''),
+    store: primaryStore && primaryStore.name ? primaryStore.name : String(source.assigned_location || ''),
+    storeCode: primaryStore && primaryStore.storeId ? primaryStore.storeId : '',
+    department: department.name || String(source.department_name || ''),
+    position: position.name || String(source.position_name || ''),
+    grade: '',
+    roleLevel: getCoreRoleLevel_(roleKeys),
+    roleKeys: roleKeys,
+    roles: roles,
+    tags: tags,
+    status: 'active',
+    source: 'supabase-rpc',
+    corporation: corporation.name || '',
+    employmentStatus: employmentStatus,
+    employmentType: employee.employmentType || '',
+    isActive: employee.isActive !== false,
+    loginCredential: loginCredential,
+    mustChangePin: Boolean(loginCredential && loginCredential.must_change_pin),
+    corporationRef: corporation.id ? {
+      id: corporation.id || '',
+      code: corporation.code || '',
+      name: corporation.name || ''
+    } : null,
+    departmentRef: department.id ? {
+      id: department.id || '',
+      code: department.code || '',
+      name: department.name || ''
+    } : null,
+    positionRef: position.id ? {
+      id: position.id || '',
+      name: position.name || ''
+    } : null,
+    primaryStore: primaryStore,
+    storeAssignments: storeAssignments
+  };
+}
+
+function normalizeNovHubBootstrapRoles_(roles) {
+  return (Array.isArray(roles) ? roles : []).map(function(role) {
+    return {
+      roleKey: String((role && role.roleKey) || ''),
+      roleName: String((role && role.roleName) || ''),
+      scopeType: String((role && role.scopeType) || ''),
+      scopeId: role && role.scopeId ? String(role.scopeId) : null
+    };
+  }).filter(function(role) { return role.roleKey; });
+}
+
+function normalizeNovHubBootstrapStoreAssignments_(assignments) {
+  return (Array.isArray(assignments) ? assignments : []).map(function(row) {
+    return {
+      storeId: String((row && row.storeId) || ''),
+      storeNo: String((row && row.storeNo) || ''),
+      storeCode: String((row && row.storeCode) || ''),
+      storeName: String((row && row.storeName) || ''),
+      assignmentType: String((row && row.assignmentType) || ''),
+      priority: Number((row && row.priority) || 0)
+    };
+  }).filter(function(row) { return row.storeId || row.storeName; });
 }
 
 function queryCoreEmployeeRows_(filters) {
@@ -831,6 +952,15 @@ function findActiveCoreEmployeeByPin_(email, pin) {
 
   const employee = getCoreEmployeeById_(credential.employee_id);
   if (!isCoreEmployeeActiveForPortal_(employee)) return null;
+  try {
+    const rpcEmployee = findActiveCoreEmployeeByEmailRpc_(email);
+    if (rpcEmployee) {
+      rpcEmployee.email = normalizeEmailValue_(credential.login_email || rpcEmployee.email);
+      return rpcEmployee;
+    }
+  } catch (error) {
+    console.error('NOV HUB PIN bootstrap RPC lookup failed. Falling back to legacy lookup.', error);
+  }
   const normalized = normalizeCorePortalEmployee_(employee);
   normalized.email = normalizeEmailValue_(credential.login_email || normalized.email);
   normalized.loginCredential = sanitizeLoginCredential_(credential);
@@ -1553,7 +1683,7 @@ function sanitizeLoginCredential_(credential) {
     id: credential.id || '',
     employee_id: credential.employee_id || '',
     login_email: normalizeEmailValue_(credential.login_email),
-    pin_set: Boolean(credential.pin_hash),
+    pin_set: Boolean(credential.pin_set || credential.pin_hash),
     pin_updated_at: credential.pin_updated_at || '',
     must_change_pin: Boolean(credential.must_change_pin),
     login_enabled: credential.login_enabled !== false,
@@ -2909,6 +3039,31 @@ function supabaseRequest_(resource, options) {
   return parseJson_(text, []);
 }
 
+function supabaseRpc_(functionName, payload) {
+  const config = getSupabaseConfig_();
+  const url = config.url + '/rest/v1/rpc/' + encodeURIComponent(String(functionName || ''));
+  const headers = {
+    apikey: config.serviceRoleKey,
+    Authorization: 'Bearer ' + config.serviceRoleKey,
+    Accept: 'application/json'
+  };
+  const request = {
+    method: 'post',
+    headers: headers,
+    contentType: 'application/json',
+    payload: JSON.stringify(payload || {}),
+    muteHttpExceptions: true
+  };
+  const response = UrlFetchApp.fetch(url, request);
+  const code = response.getResponseCode();
+  const text = response.getContentText();
+  if (code < 200 || code >= 300) {
+    throwPortalError_('SUPABASE_RPC_FAILED', functionName + ' HTTP ' + code + ': ' + text.slice(0, 240));
+  }
+  if (!text) return null;
+  return parseJson_(text, null);
+}
+
 function withRuntimeCache_(key, ttlSeconds, loader) {
   const cacheKey = 'novhub:' + key;
   const cache = CacheService.getScriptCache();
@@ -2929,6 +3084,22 @@ function withRuntimeCache_(key, ttlSeconds, loader) {
     console.error('Runtime cache write failed: ' + cacheKey, error);
   }
   return value;
+}
+
+function isNovHubBootstrapRpcTemporarilyDisabled_() {
+  try {
+    return CacheService.getScriptCache().get('novhub:bootstrap_rpc_disabled') === '1';
+  } catch (error) {
+    return false;
+  }
+}
+
+function temporarilyDisableNovHubBootstrapRpc_() {
+  try {
+    CacheService.getScriptCache().put('novhub:bootstrap_rpc_disabled', '1', 60);
+  } catch (error) {
+    console.error('Failed to cache bootstrap RPC disabled flag', error);
+  }
 }
 
 function removeRuntimeCache_(keys) {

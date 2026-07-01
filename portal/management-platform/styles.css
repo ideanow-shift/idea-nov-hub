@@ -15,6 +15,10 @@
 
 * { box-sizing: border-box; }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -51,6 +55,16 @@ h1,
 h2,
 h3,
 p { margin-top: 0; }
+
+h1,
+h2,
+h3,
+p,
+li,
+td,
+th {
+  overflow-wrap: anywhere;
+}
 
 h1 {
   margin-bottom: 8px;
@@ -102,6 +116,7 @@ button,
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 button:disabled,
@@ -139,6 +154,7 @@ button:hover {
 .action-panel,
 .panel,
 .card {
+  min-width: 0;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -232,6 +248,7 @@ button:hover {
 
 .growth-card,
 .growth-record-card {
+  min-width: 0;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -252,7 +269,7 @@ button:hover {
 
 .growth-mini-item {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 8px;
   align-items: start;
 }
@@ -299,6 +316,7 @@ button:hover {
 }
 
 .performance-kpi-card {
+  min-width: 0;
   min-height: 116px;
   padding: 12px;
   border: 1px solid var(--line);
@@ -331,6 +349,7 @@ button:hover {
 }
 
 .focus-card {
+  min-width: 0;
   min-height: 116px;
   padding: 12px;
   border: 1px solid var(--line);
@@ -514,6 +533,7 @@ input,
 select,
 textarea {
   width: 100%;
+  min-width: 0;
   min-height: 42px;
   padding: 9px 10px;
   border: 1px solid var(--line);
@@ -788,6 +808,7 @@ th {
 
 .record-detail-card,
 .result-detail-item {
+  min-width: 0;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -1043,6 +1064,15 @@ th {
     justify-content: stretch;
   }
 
+  .score-row {
+    gap: 6px;
+  }
+
+  .score-choice span {
+    min-height: 48px;
+    padding: 10px 6px;
+  }
+
   .growth-record-meta {
     align-items: stretch;
     flex-direction: column;
@@ -1058,6 +1088,10 @@ th {
 
   .form-actions { flex-direction: column; }
   button { width: 100%; }
+
+  .top-nav .nav-btn {
+    width: auto;
+  }
 }
 
 .auth-panel {

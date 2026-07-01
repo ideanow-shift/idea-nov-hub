@@ -16,6 +16,7 @@ const SUPABASE_BACKEND_ACTIONS = new Set([
   "updateRating",
   "listLogs",
   "listLinks",
+  "updateLink",
   "appendAnswerRule",
   "updateAnswerRule",
   "listKnowledgeUpdates",
@@ -317,6 +318,22 @@ class LinkMasterRepository {
     this.cache = null;
   }
 
+  async update(link) {
+    const result = await requestBackend("updateLink", {
+      linkId: link.id,
+      label: link.label,
+      href: link.href,
+      category: link.category,
+      owner: link.owner,
+      description: link.description,
+      active: link.active,
+      sortOrder: String(link.sortOrder || 100)
+    });
+    if (!result.ok) throw new Error(result.error || "リンクを更新できませんでした。");
+    this.clear();
+    return result;
+  }
+
   async resolve(links) {
     const linkMaster = await this.all();
     return links.map((link) => {
@@ -384,6 +401,18 @@ const elements = {
   answerRuleNotebookFilter: document.querySelector("#answerRuleNotebookFilter"),
   answerRuleStatusFilter: document.querySelector("#answerRuleStatusFilter"),
   answerRuleList: document.querySelector("#answerRuleList"),
+  linkMasterForm: document.querySelector("#linkMasterForm"),
+  linkMasterId: document.querySelector("#linkMasterId"),
+  linkMasterLabel: document.querySelector("#linkMasterLabel"),
+  linkMasterHref: document.querySelector("#linkMasterHref"),
+  linkMasterCategory: document.querySelector("#linkMasterCategory"),
+  linkMasterOwner: document.querySelector("#linkMasterOwner"),
+  linkMasterDescription: document.querySelector("#linkMasterDescription"),
+  linkMasterActive: document.querySelector("#linkMasterActive"),
+  linkMasterSortOrder: document.querySelector("#linkMasterSortOrder"),
+  linkMasterCancelButton: document.querySelector("#linkMasterCancelButton"),
+  linkMasterStatus: document.querySelector("#linkMasterStatus"),
+  linkMasterList: document.querySelector("#linkMasterList"),
   messageTemplate: document.querySelector("#messageTemplate")
 };
 
@@ -391,6 +420,8 @@ let session = authProvider.currentSession();
 let adminLogCache = [];
 let answerRuleCache = [];
 let editingAnswerRuleId = null;
+let linkMasterCache = [];
+let editingLinkId = null;
 
 elements.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -461,6 +492,10 @@ elements.answerRuleCancelButton.addEventListener("click", () => {
   resetAnswerRuleForm();
 });
 
+elements.linkMasterCancelButton.addEventListener("click", () => {
+  resetLinkMasterForm();
+});
+
 elements.knowledgeUpdateForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const area = KNOWLEDGE_AREAS.find((item) => item.id === elements.knowledgeArea.value);
@@ -490,6 +525,34 @@ elements.knowledgeUpdateForm.addEventListener("submit", async (event) => {
 elements.knowledgeTestButton.addEventListener("click", () => {
   showHub();
   elements.questionInput.focus();
+});
+
+elements.linkMasterForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!editingLinkId) {
+    elements.linkMasterStatus.textContent = "一覧から編集するリンクを選択してください。";
+    return;
+  }
+
+  elements.linkMasterStatus.textContent = "保存中です。";
+  try {
+    await linkMasterRepository.update({
+      id: editingLinkId,
+      label: elements.linkMasterLabel.value.trim(),
+      href: elements.linkMasterHref.value.trim(),
+      category: elements.linkMasterCategory.value.trim(),
+      owner: elements.linkMasterOwner.value.trim(),
+      description: elements.linkMasterDescription.value.trim(),
+      active: elements.linkMasterActive.value,
+      sortOrder: Number(elements.linkMasterSortOrder.value || "100")
+    });
+    resetLinkMasterForm({ keepStatus: true });
+    await renderLinkAdmin();
+    await renderAnswerRuleLinkChoices();
+    elements.linkMasterStatus.textContent = "リンクを更新しました。回答後リンクにも反映されます。";
+  } catch (error) {
+    elements.linkMasterStatus.textContent = `保存に失敗しました: ${error.message || error}`;
+  }
 });
 
 elements.answerRuleForm.addEventListener("submit", async (event) => {
@@ -561,6 +624,7 @@ function showAdmin() {
   elements.adminView.hidden = false;
   renderAdmin();
   renderKnowledgeAdmin();
+  renderLinkAdmin();
   renderAnswerRuleLinkChoices();
   renderAnswerRuleList();
 }
@@ -854,6 +918,77 @@ async function renderAnswerRuleLinkChoices() {
 
 function getSelectedAnswerRuleLinkIds() {
   return Array.from(elements.answerRuleLinkChoices.querySelectorAll("input:checked")).map((input) => input.value);
+}
+
+async function renderLinkAdmin() {
+  const linkMaster = await linkMasterRepository.all();
+  linkMasterCache = Object.values(linkMaster)
+    .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0) || String(a.label || "").localeCompare(String(b.label || "")));
+
+  elements.linkMasterList.innerHTML = "";
+  if (!linkMasterCache.length) {
+    elements.linkMasterList.innerHTML = '<div class="link-master-item">登録済みリンクはありません。</div>';
+    return;
+  }
+
+  linkMasterCache.forEach((link) => {
+    const item = document.createElement("article");
+    item.className = "link-master-item";
+
+    const title = document.createElement("strong");
+    title.textContent = link.label;
+
+    const meta = document.createElement("span");
+    meta.textContent = `${link.id} / ${link.category || "未分類"} / ${isLinkActive(link.active) ? "有効" : "停止"}`;
+
+    const href = document.createElement("a");
+    href.href = link.href;
+    href.target = "_blank";
+    href.rel = "noreferrer";
+    href.textContent = link.href;
+
+    const actions = document.createElement("div");
+    actions.className = "rule-actions";
+
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "text-button";
+    editButton.textContent = "編集";
+    editButton.addEventListener("click", () => {
+      populateLinkMasterForm(link);
+    });
+
+    actions.append(editButton);
+    item.append(title, meta, href, actions);
+    elements.linkMasterList.append(item);
+  });
+}
+
+function populateLinkMasterForm(link) {
+  editingLinkId = link.id;
+  elements.linkMasterId.value = link.id;
+  elements.linkMasterLabel.value = link.label || "";
+  elements.linkMasterHref.value = link.href || "";
+  elements.linkMasterCategory.value = link.category || "";
+  elements.linkMasterOwner.value = link.owner || "";
+  elements.linkMasterDescription.value = link.description || "";
+  elements.linkMasterActive.value = isLinkActive(link.active) ? "有効" : "停止";
+  elements.linkMasterSortOrder.value = link.sortOrder || "100";
+  elements.linkMasterCancelButton.hidden = false;
+  elements.linkMasterStatus.textContent = "編集中です。URLと表示名を確認して更新してください。";
+  elements.linkMasterHref.focus();
+}
+
+function resetLinkMasterForm(options = {}) {
+  editingLinkId = null;
+  elements.linkMasterForm.reset();
+  elements.linkMasterId.value = "";
+  elements.linkMasterActive.value = "有効";
+  elements.linkMasterSortOrder.value = "100";
+  elements.linkMasterCancelButton.hidden = true;
+  if (!options.keepStatus) {
+    elements.linkMasterStatus.textContent = "";
+  }
 }
 
 async function renderAnswerRuleList(rules = null) {

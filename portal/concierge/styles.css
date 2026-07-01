@@ -488,8 +488,12 @@ a:focus-visible {
   order: 4;
 }
 
-.knowledge-admin {
+.link-admin {
   order: 5;
+}
+
+.knowledge-admin {
+  order: 6;
 }
 
 .metrics-grid,
@@ -964,7 +968,19 @@ a:focus-visible {
   margin-top: 12px;
 }
 
-.rule-list-item {
+.link-list-panel {
+  border-top: 1px solid var(--line);
+  padding: 16px;
+}
+
+.link-master-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.rule-list-item,
+.link-master-item {
   background: var(--surface-soft);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -973,11 +989,13 @@ a:focus-visible {
   padding: 12px;
 }
 
-.rule-list-item strong {
+.rule-list-item strong,
+.link-master-item strong {
   display: block;
 }
 
-.rule-list-item span {
+.rule-list-item span,
+.link-master-item span {
   color: var(--muted);
   font-size: 13px;
 }
@@ -985,6 +1003,12 @@ a:focus-visible {
 .rule-list-item p {
   line-height: 1.55;
   margin: 0;
+}
+
+.link-master-item a {
+  color: var(--brand-ink);
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 .rule-actions {

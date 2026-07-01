@@ -267,6 +267,58 @@
               <div id="answerRuleList" class="rule-list"></div>
             </div>
           </section>
+          <section class="link-admin" aria-labelledby="linkAdminTitle">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Link Operations</p>
+                <h3 id="linkAdminTitle">リンク管理</h3>
+              </div>
+            </div>
+            <form id="linkMasterForm" class="admin-edit-form">
+              <label>
+                <span>リンクID</span>
+                <input id="linkMasterId" placeholder="一覧から編集するリンクを選択" disabled required>
+              </label>
+              <label>
+                <span>表示名</span>
+                <input id="linkMasterLabel" placeholder="例: 住所変更フォーム" required>
+              </label>
+              <label>
+                <span>カテゴリ</span>
+                <input id="linkMasterCategory" placeholder="例: スタッフサポート">
+              </label>
+              <label class="full-field">
+                <span>URL</span>
+                <input id="linkMasterHref" placeholder="https://... または #address-change" required>
+              </label>
+              <label>
+                <span>担当</span>
+                <input id="linkMasterOwner" placeholder="例: 総務人事">
+              </label>
+              <label>
+                <span>状態</span>
+                <select id="linkMasterActive">
+                  <option value="有効">有効</option>
+                  <option value="停止">停止</option>
+                </select>
+              </label>
+              <label>
+                <span>表示順</span>
+                <input id="linkMasterSortOrder" type="number" value="100" min="1" max="9999">
+              </label>
+              <label class="full-field">
+                <span>説明</span>
+                <textarea id="linkMasterDescription" rows="3" placeholder="管理用メモ"></textarea>
+              </label>
+              <button class="primary-button" type="submit">リンクを更新</button>
+              <button id="linkMasterCancelButton" class="text-button" type="button" hidden>編集をキャンセル</button>
+              <p id="linkMasterStatus" class="save-status" role="status"></p>
+            </form>
+            <div class="link-list-panel">
+              <h3 class="subheading">登録済みリンク</h3>
+              <div id="linkMasterList" class="link-master-list"></div>
+            </div>
+          </section>
           <div class="admin-grid">
             <section>
               <h3>質問ランキング</h3>

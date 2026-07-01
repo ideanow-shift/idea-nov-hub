@@ -140,7 +140,9 @@ class KnowledgeAdapter {
       notebook: route.notebook,
       answer: route.answer(store.name),
       links: route.links,
-      confidence: route.confidence
+      confidence: route.confidence,
+      riskLevel: route.riskLevel || "normal",
+      requiresHumanCheck: Boolean(route.requiresHumanCheck)
     };
   }
 }
@@ -681,7 +683,7 @@ async function askConcierge(question) {
     notebook: response.notebook,
     links: resolvedLinks,
     riskLevel: response.riskLevel || "normal",
-    needsHumanCheck: Boolean(response.requiresHumanCheck || response.riskLevel === "high"),
+    needsHumanCheck: Boolean(response.requiresHumanCheck || response.riskLevel === "high" || response.confidence === "low"),
     rating: null
   };
   try {
@@ -697,7 +699,7 @@ async function askConcierge(question) {
     meta: response.notebook,
     links: resolvedLinks,
     riskLevel: response.riskLevel,
-    requiresHumanCheck: response.requiresHumanCheck,
+    requiresHumanCheck: response.requiresHumanCheck || response.confidence === "low",
     feedbackId: entry.id
   });
   renderHistory();
@@ -1496,6 +1498,8 @@ function findRoute(normalizedQuestion) {
   return routes.find((route) => route.keywords.some((keyword) => normalizedQuestion.includes(keyword))) || {
     notebook: "Notebook① スタッフサポート",
     confidence: "low",
+    riskLevel: "sensitive",
+    requiresHumanCheck: true,
     answer: () => "関連しそうな社内情報を確認します。現時点では確定回答に必要な情報が不足しています。申請、勤怠、給与、教育、評価など目的を少し具体的に入れてください。",
     links: [
       { id: "hr-contact", label: "総務問い合わせ" },

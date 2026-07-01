@@ -1687,11 +1687,13 @@ function renderEmployeeLoginPanel(employee, readonly) {
 
 function renderEmployeeRolePanel(employee) {
   const roleKeys = getCommonRoleKeys(employee);
+  const canEdit = state.permissions.canEdit;
   if (!roleKeys.length) {
     return `
       <div class="role-panel missing">
         <strong>HUB基本権限</strong>
         <p>共通ロールが未設定です。一般スタッフは staff を付与します。管理者・幹部権限ではありません。</p>
+        ${canEdit ? `<button class="button button-secondary" id="assign-staff-role" type="button">staffを付与</button>` : ""}
       </div>`;
   }
   const chips = roleKeys

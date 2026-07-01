@@ -654,6 +654,7 @@ function findActiveCoreEmployee_(authUser) {
 function findActiveCoreEmployeeByEmailRpc_(email) {
   const normalizedEmail = normalizeEmailValue_(email);
   if (!normalizedEmail) return null;
+  if (!isNovHubBootstrapRpcEnabled_()) return null;
   if (isNovHubBootstrapRpcTemporarilyDisabled_()) return null;
   let data;
   try {
@@ -3102,6 +3103,14 @@ function withRuntimeCache_(key, ttlSeconds, loader) {
 function isNovHubBootstrapRpcTemporarilyDisabled_() {
   try {
     return CacheService.getScriptCache().get('novhub:bootstrap_rpc_disabled') === '1';
+  } catch (error) {
+    return false;
+  }
+}
+
+function isNovHubBootstrapRpcEnabled_() {
+  try {
+    return String(PropertiesService.getScriptProperties().getProperty('NOV_HUB_BOOTSTRAP_RPC_ENABLED') || '').toLowerCase() === 'true';
   } catch (error) {
     return false;
   }

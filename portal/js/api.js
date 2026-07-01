@@ -2,6 +2,7 @@ import { PORTAL_CONFIG } from "./firebase-config.js";
 import { getIdToken } from "./auth.js";
 
 let currentAuth = { authType: "firebase" };
+const API_TIMEOUT_MS = 18000;
 
 export function setPinAuth(email, pin) {
   currentAuth = { authType: "pin", email: String(email || "").trim(), pin: String(pin || "").trim() };
@@ -22,11 +23,26 @@ async function postToApi(action, payload = {}) {
     token: currentAuth.authType === "pin" ? "" : await getIdToken(),
     payload: JSON.stringify(requestPayload)
   });
-  const response = await fetch(PORTAL_CONFIG.gasApiUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-    body
-  });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  let response;
+  try {
+    response = await fetch(PORTAL_CONFIG.gasApiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+      body,
+      signal: controller.signal
+    });
+  } catch (cause) {
+    const error = new Error(cause?.name === "AbortError"
+      ? "社員情報の確認に時間がかかっています。通信状況を確認して、もう一度お試しください。"
+      : "GAS APIへ接続できませんでした。通信状況を確認して、もう一度お試しください。");
+    error.code = cause?.name === "AbortError" ? "API_TIMEOUT" : "NETWORK_ERROR";
+    error.cause = cause;
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
   const responseText = await response.text();
   if (!response.ok) {
     const error = new Error(`APIへの接続に失敗しました (${response.status})`);

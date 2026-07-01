@@ -196,11 +196,13 @@ function sanitizeLoginCredential(credential: JsonRecord | null) {
     id: String(credential.id || ""),
     employee_id: String(credential.employee_id || ""),
     login_email: normalizeEmail(credential.login_email),
+    pin_set: Boolean(credential.pin_set || credential.pin_hash || credential.pin_updated_at),
     pin_updated_at: String(credential.pin_updated_at || ""),
     must_change_pin: Boolean(credential.must_change_pin),
     login_enabled: credential.login_enabled !== false,
     failed_attempts: Number(credential.failed_attempts || 0),
     locked_until: credential.locked_until ? String(credential.locked_until) : null,
+    locked: isCredentialLocked(credential),
     last_login_at: credential.last_login_at ? String(credential.last_login_at) : null,
     created_at: String(credential.created_at || ""),
     updated_at: String(credential.updated_at || ""),
@@ -609,6 +611,279 @@ function canViewMasterAdmin(employee: JsonRecord) {
     || normalizeEmail(employee.email) === "m.wakita@idea-nov.com";
 }
 
+function canEditMasterAdmin(employee: JsonRecord) {
+  const roleKeys = normalizeList(employee.roleKeys);
+  return roleKeys.some((role) => ["super_admin", "backoffice"].includes(role))
+    || normalizeEmail(employee.email) === "m.wakita@idea-nov.com";
+}
+
+function getMasterPermissions(employee: JsonRecord) {
+  const roleKeys = uniqueStrings([...normalizeList(employee.roleKeys), ...normalizeList(employee.tags)]);
+  return {
+    canView: canViewMasterAdmin(employee),
+    canEdit: canEditMasterAdmin(employee),
+    roleKeys,
+  };
+}
+
+function assertMasterViewer(employee: JsonRecord) {
+  if (!canViewMasterAdmin(employee)) {
+    throw new PortalError("MASTER_ADMIN_DENIED", "Master admin view permission is required.", 403);
+  }
+}
+
+function indexById(rows: JsonRecord[]) {
+  return rows.reduce((index, row) => {
+    const id = String(row.id || "");
+    if (id) index[id] = row;
+    return index;
+  }, {} as Record<string, JsonRecord>);
+}
+
+async function listCoreMaster(tableName: string, select: string, order: string) {
+  return await readRows(tableName, { query: { select, order } });
+}
+
+async function listEmployeeLoginCredentialsForAdmin() {
+  return await readRows("employee_login_credentials", {
+    query: {
+      select: "id,employee_id,login_email,pin_hash,pin_updated_at,must_change_pin,login_enabled,failed_attempts,locked_until,last_login_at,created_at,updated_at",
+      limit: "2000",
+    },
+  }).catch(() => []);
+}
+
+async function indexLoginCredentialsByEmployee() {
+  const credentials = await listEmployeeLoginCredentialsForAdmin();
+  return credentials.reduce((index, credential) => {
+    const employeeId = String(credential.employee_id || "");
+    if (employeeId) index[employeeId] = sanitizeLoginCredential(credential);
+    return index;
+  }, {} as Record<string, ReturnType<typeof sanitizeLoginCredential>>);
+}
+
+async function listEmployeeRolesForAdmin() {
+  return await readRows("employee_roles", {
+    query: {
+      select: "employee_id,role_id,is_active",
+      is_active: "eq.true",
+      limit: "2000",
+    },
+  });
+}
+
+async function groupRolesByEmployeeForAdmin() {
+  const [roles, employeeRoles] = await Promise.all([
+    listCoreMaster("roles", "id,role_key,role_name", "role_no.asc").catch(() => []),
+    listEmployeeRolesForAdmin().catch(() => []),
+  ]);
+  const rolesById = indexById(roles);
+  return employeeRoles.reduce((grouped, employeeRole) => {
+    const employeeId = String(employeeRole.employee_id || "");
+    const role = rolesById[String(employeeRole.role_id || "")] || {};
+    const roleKey = String(role.role_key || "");
+    if (!employeeId || !roleKey) return grouped;
+    if (!grouped[employeeId]) grouped[employeeId] = { role_keys: [], role_names: [] };
+    if (!grouped[employeeId].role_keys.includes(roleKey)) grouped[employeeId].role_keys.push(roleKey);
+    const roleName = String(role.role_name || "");
+    if (roleName && !grouped[employeeId].role_names.includes(roleName)) grouped[employeeId].role_names.push(roleName);
+    return grouped;
+  }, {} as Record<string, { role_keys: string[]; role_names: string[] }>);
+}
+
+async function listEmployeeStoreAssignmentsForAdmin() {
+  return await readRows("employee_store_assignments", {
+    query: {
+      select: "id,employee_id,store_id,assignment_order,assignment_type,effective_from,effective_to,is_active",
+      order: "assignment_order.asc",
+      limit: "1000",
+    },
+  });
+}
+
+function groupStoreAssignmentsByEmployeeForAdmin(assignments: JsonRecord[], storesById: Record<string, JsonRecord>) {
+  return assignments.reduce((grouped, assignment) => {
+    const employeeId = String(assignment.employee_id || "");
+    if (!employeeId || assignment.is_active === false) return grouped;
+    const store = storesById[String(assignment.store_id || "")] || {};
+    if (!grouped[employeeId]) grouped[employeeId] = [];
+    grouped[employeeId].push({
+      ...assignment,
+      store_name: String(store.store_name || ""),
+      store_code: String(store.store_id || ""),
+    });
+    return grouped;
+  }, {} as Record<string, JsonRecord[]>);
+}
+
+async function listCoreEmployeesForAdmin() {
+  const [
+    employees,
+    corporations,
+    stores,
+    departments,
+    positions,
+    assignments,
+    rolesByEmployee,
+    credentialsByEmployee,
+  ] = await Promise.all([
+    readRows("employees", {
+      query: {
+        select: "id,employee_id,full_name,email,birth_date,joined_on,retired_on,leave_start_date,leave_end_date,leave_type,employment_status,employment_type,corporation_id,store_id,department_id,position_id,firebase_uid,is_active,updated_at,source_row",
+        order: "employee_id.asc",
+        limit: "1000",
+      },
+    }),
+    listCoreMaster("corporations", "id,corporation_no,corporation_name", "corporation_no.asc"),
+    listCoreMaster("stores", "id,store_id,store_name", "store_no.asc"),
+    listCoreMaster("departments", "id,department_code,department_name", "department_no.asc"),
+    listCoreMaster("positions", "id,position_name", "position_no.asc"),
+    listEmployeeStoreAssignmentsForAdmin().catch(() => []),
+    groupRolesByEmployeeForAdmin().catch(() => ({})),
+    indexLoginCredentialsByEmployee().catch(() => ({})),
+  ]);
+  const corporationsById = indexById(corporations);
+  const storesById = indexById(stores);
+  const departmentsById = indexById(departments);
+  const positionsById = indexById(positions);
+  const storeAssignmentsByEmployee = groupStoreAssignmentsByEmployeeForAdmin(assignments, storesById);
+  return employees.map((employee) => {
+    const source = (employee.source_row || {}) as JsonRecord;
+    const corporation = corporationsById[String(employee.corporation_id || "")] || {};
+    const store = storesById[String(employee.store_id || "")] || {};
+    const department = departmentsById[String(employee.department_id || "")] || {};
+    const position = positionsById[String(employee.position_id || "")] || {};
+    const roleGroup = rolesByEmployee[String(employee.id || "")] || { role_keys: [], role_names: [] };
+    return {
+      ...employee,
+      corporation_name: String(corporation.corporation_name || ""),
+      corporation_code: String(corporation.corporation_no || ""),
+      store_name: String(store.store_name || ""),
+      store_code: String(store.store_id || ""),
+      department_name: String(department.department_name || ""),
+      department_code: String(department.department_code || ""),
+      position_name: String(position.position_name || ""),
+      store_assignments: storeAssignmentsByEmployee[String(employee.id || "")] || [],
+      role_keys: roleGroup.role_keys,
+      role_names: roleGroup.role_names,
+      source_company_name: String(source.company_name || ""),
+      source_assigned_location: String(source.assigned_location || ""),
+      source_position_name: String(source.position_name || ""),
+      login_credential: credentialsByEmployee[String(employee.id || "")] || null,
+    };
+  });
+}
+
+function sanitizeLineWorksDestination(destination: JsonRecord | null) {
+  if (!destination) {
+    return {
+      id: "",
+      channel_id: "",
+      channel_name: "",
+      purpose: "expense_approval",
+      is_active: false,
+      updated_at: "",
+    };
+  }
+  return {
+    id: String(destination.id || ""),
+    channel_id: String(destination.channel_id || ""),
+    channel_name: String(destination.channel_name || ""),
+    purpose: String(destination.purpose || "expense_approval"),
+    is_active: destination.is_active !== false,
+    updated_at: String(destination.updated_at || ""),
+  };
+}
+
+async function indexStoreLineWorksDestinations() {
+  const rows = await readRows("notification_destinations", {
+    schema: "os",
+    query: {
+      select: "id,provider,target_type,target_id,channel_id,channel_name,purpose,is_active,updated_at",
+      provider: "eq.line_works",
+      target_type: "eq.store",
+      purpose: "eq.expense_approval",
+      limit: "500",
+    },
+  }).catch(() => []);
+  return rows.reduce((index, row) => {
+    const targetId = String(row.target_id || "");
+    if (targetId) index[targetId] = row;
+    return index;
+  }, {} as Record<string, JsonRecord>);
+}
+
+async function listCoreStoresForAdmin() {
+  const [stores, destinations, corporations, businessUnits] = await Promise.all([
+    readRows("stores", {
+      query: {
+        select: "id,store_no,store_id,store_name,corporation_id,business_unit_id,area,store_type,is_active,updated_at",
+        order: "store_no.asc",
+        limit: "500",
+      },
+    }),
+    indexStoreLineWorksDestinations(),
+    listCoreMaster("corporations", "id,corporation_no,corporation_name", "corporation_no.asc"),
+    listCoreMaster("business_units", "id,business_unit_code,business_unit_name", "business_unit_no.asc"),
+  ]);
+  const corporationsById = indexById(corporations);
+  const businessUnitsById = indexById(businessUnits);
+  return stores.map((store) => {
+    const corporation = corporationsById[String(store.corporation_id || "")] || {};
+    const businessUnit = businessUnitsById[String(store.business_unit_id || "")] || {};
+    return {
+      ...store,
+      corporation_name: String(corporation.corporation_name || ""),
+      corporation_code: String(corporation.corporation_no || ""),
+      business_unit_name: String(businessUnit.business_unit_name || ""),
+      business_unit_code: String(businessUnit.business_unit_code || ""),
+      line_works_channel: sanitizeLineWorksDestination(destinations[String(store.id || "")] || null),
+    };
+  });
+}
+
+async function listPortalAppsForAdmin() {
+  const rows = await readRows("portal_apps", {
+    query: {
+      select: "*",
+      order: "priority.asc,app_name.asc",
+    },
+  });
+  return rows.map(normalizeApp);
+}
+
+async function listMasterChangeLogsForAdmin() {
+  return await readRows("master_change_logs", {
+    query: {
+      select: "id,table_name,record_id,changed_by_email,change_payload,action_type,target_name,change_summary,created_at",
+      order: "created_at.desc",
+      limit: "100",
+    },
+  }).catch(() => []);
+}
+
+async function getMasterBootstrap(employee: JsonRecord) {
+  const [corporations, businessUnits, departments, stores, positions, employees, portalApps] = await Promise.all([
+    listCoreMaster("corporations", "id,corporation_no,corporation_name,is_active", "corporation_no.asc"),
+    listCoreMaster("business_units", "id,business_unit_no,business_unit_code,business_unit_name,is_active", "business_unit_no.asc"),
+    listCoreMaster("departments", "id,department_no,department_code,department_name,is_active", "department_no.asc"),
+    listCoreStoresForAdmin(),
+    listCoreMaster("positions", "id,position_no,position_name,is_active", "position_no.asc"),
+    listCoreEmployeesForAdmin(),
+    listPortalAppsForAdmin(),
+  ]);
+  return {
+    permissions: getMasterPermissions(employee),
+    corporations,
+    businessUnits,
+    departments,
+    stores,
+    positions,
+    employees,
+    portalApps,
+  };
+}
+
 function canAccessApp(employee: JsonRecord, app: ReturnType<typeof normalizeApp>) {
   if (!employee || employee.status !== "active" || !app.isActive) return false;
   if (Number(employee.roleLevel || 0) < Number(app.requiredLevel || 1)) return false;
@@ -843,6 +1118,31 @@ Deno.serve(async (request) => {
 
     if (action === "changeOwnPin") {
       return jsonResponse({ ok: true, credential: await changeOwnPin(employee, payload) });
+    }
+
+    if (action === "masterBootstrap") {
+      assertMasterViewer(employee);
+      return jsonResponse({ ok: true, data: await getMasterBootstrap(employee) });
+    }
+
+    if (action === "masterListEmployees") {
+      assertMasterViewer(employee);
+      return jsonResponse({ ok: true, employees: await listCoreEmployeesForAdmin() });
+    }
+
+    if (action === "masterListStores") {
+      assertMasterViewer(employee);
+      return jsonResponse({ ok: true, stores: await listCoreStoresForAdmin() });
+    }
+
+    if (action === "masterListPortalApps") {
+      assertMasterViewer(employee);
+      return jsonResponse({ ok: true, portalApps: await listPortalAppsForAdmin() });
+    }
+
+    if (action === "masterListChangeLogs") {
+      assertMasterViewer(employee);
+      return jsonResponse({ ok: true, logs: await listMasterChangeLogsForAdmin() });
     }
 
     if (action === "log") {

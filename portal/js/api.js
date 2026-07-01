@@ -3,7 +3,18 @@ import { getIdToken } from "./auth.js";
 
 let currentAuth = { authType: "firebase" };
 const API_TIMEOUT_MS = 18000;
-const EDGE_ACTIONS = new Set(["bootstrap", "announcements", "novHubNotifications", "changeOwnPin", "log"]);
+const EDGE_ACTIONS = new Set([
+  "bootstrap",
+  "announcements",
+  "novHubNotifications",
+  "changeOwnPin",
+  "log",
+  "masterBootstrap",
+  "masterListEmployees",
+  "masterListStores",
+  "masterListPortalApps",
+  "masterListChangeLogs"
+]);
 
 export function setPinAuth(email, pin) {
   currentAuth = { authType: "pin", email: String(email || "").trim(), pin: String(pin || "").trim() };

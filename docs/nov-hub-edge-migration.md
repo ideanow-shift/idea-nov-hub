@@ -29,8 +29,13 @@ Supabase Core DB
 - `changeOwnPin`
 - `log`
 - `health`
+- `masterBootstrap`
+- `masterListEmployees`
+- `masterListStores`
+- `masterListPortalApps`
+- `masterListChangeLogs`
 
-`master-admin` 系APIはまだGASを使う。HUBトップの通常利用から先にGAS依存を外す。
+`master-admin` 系APIは読み込み系のみEdge Function対応済み。社員更新、PIN設定、権限更新、店舗更新、アプリ作成・更新などの編集系はまだGAS fallbackを使う。
 
 ## 必要なSupabase Secret
 
@@ -67,5 +72,6 @@ Invoke-RestMethod "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub
 - `PIN_HASH_PEPPER` は登録済み
 - フロントはEdge優先、失敗時GAS fallback
 - `edgePinEnabled: true`
+- master-admin読み込み系はEdge優先
 
 PINログインもEdge Functionを優先する。GASはfallbackとして残す。

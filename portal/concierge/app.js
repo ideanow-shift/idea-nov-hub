@@ -893,7 +893,7 @@ function createDepartmentInquiryButton(link, routeId) {
         body
       });
       const routeName = result.routeName || link.label;
-      const delivery = result.delivery === "queued" ? "LINE WORKS送信待ちに登録しました。" : "問い合わせ履歴に保存しました。";
+      const delivery = result.delivery === "queued" ? "担当部門への通知待ちに登録しました。" : "問い合わせ履歴に保存しました。";
       appendMessage("assistant", `${routeName}への問い合わせを受け付けました。${delivery}`, {
         meta: "問い合わせ受付"
       });

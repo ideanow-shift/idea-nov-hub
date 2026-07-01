@@ -502,7 +502,7 @@ Deno.serve(async (request) => {
 
       const { data, error } = await supabase
         .from("concierge_department_routes")
-        .select("id, department_name, owner, line_works_channel_name, is_active, sort_order")
+        .select("id, department_name, owner, is_active, sort_order")
         .eq("is_active", true)
         .order("sort_order", { ascending: true })
         .order("department_name", { ascending: true });
@@ -518,7 +518,6 @@ Deno.serve(async (request) => {
           id: row.id,
           departmentName: row.department_name,
           owner: row.owner || "",
-          lineWorksChannelName: row.line_works_channel_name || "",
           sortOrder: row.sort_order,
         })),
       });
@@ -539,7 +538,7 @@ Deno.serve(async (request) => {
 
       const { data: route, error: routeError } = await supabase
         .from("concierge_department_routes")
-        .select("id, department_name, line_works_channel_id, is_active")
+        .select("id, department_name, is_active")
         .eq("id", routeId)
         .eq("is_active", true)
         .maybeSingle();
@@ -578,9 +577,8 @@ Deno.serve(async (request) => {
           phase1_login_id: auth.session.loginId,
           question_log_id: questionLogId || null,
           subject,
-          body,
+          inquiry_text: body,
           status: "queued",
-          line_works_channel_id: route.line_works_channel_id || null,
         })
         .select("id")
         .single();
@@ -594,7 +592,7 @@ Deno.serve(async (request) => {
         ok: true,
         inquiryId: inquiry.id,
         routeName: route.department_name,
-        delivery: route.line_works_channel_id ? "queued" : "not_configured",
+        delivery: "queued",
       });
     }
 

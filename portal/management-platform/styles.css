@@ -318,6 +318,20 @@ button:hover {
   background: var(--accent-soft);
 }
 
+.growth-comparison-card {
+  background: #fff;
+}
+
+.growth-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.growth-compare-grid h3.ok { color: var(--ok); }
+.growth-compare-grid h3.warn { color: var(--warn); }
+.growth-compare-grid h3.danger { color: var(--danger); }
+
 .growth-action-buttons {
   justify-content: flex-start;
   margin-top: 12px;

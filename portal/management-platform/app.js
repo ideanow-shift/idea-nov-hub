@@ -1939,6 +1939,50 @@ function renderGrowthResultList(title, items, emptyText) {
   `;
 }
 
+function renderGrowthComparisonCard(latest, previous) {
+  if (!previous) {
+    return `
+      <article class="growth-card growth-comparison-card">
+        <p class="score-summary-label">前回比較</p>
+        <h3>次回から比較開始</h3>
+        <p class="focus-note">履歴が2件以上になると、スコアと課題件数の変化を確認できます。</p>
+      </article>
+    `;
+  }
+
+  const latestScore = Number(latest.score);
+  const previousScore = Number(previous.score);
+  const scoreDelta = Number.isFinite(latestScore) && Number.isFinite(previousScore)
+    ? Math.round((latestScore - previousScore) * 10) / 10
+    : null;
+  const latestBreakdown = getRecordBreakdown(latest);
+  const previousBreakdown = getRecordBreakdown(previous);
+  const latestIssues = Number(latestBreakdown.score0 || 0) + Number(latestBreakdown.score3 || 0);
+  const previousIssues = Number(previousBreakdown.score0 || 0) + Number(previousBreakdown.score3 || 0);
+  const issueDelta = latestIssues - previousIssues;
+  const scoreTone = scoreDelta === null ? "" : scoreDelta >= 0 ? "ok" : "danger";
+  const issueTone = issueDelta <= 0 ? "ok" : "warn";
+  const scoreText = scoreDelta === null ? "-" : `${scoreDelta >= 0 ? "+" : ""}${scoreDelta.toFixed(1)}`;
+  const issueText = `${issueDelta >= 0 ? "+" : ""}${issueDelta}件`;
+
+  return `
+    <article class="growth-card growth-comparison-card">
+      <p class="score-summary-label">前回比較</p>
+      <div class="growth-compare-grid">
+        <div>
+          <p class="score-summary-label">Score</p>
+          <h3 class="${scoreTone}">${escapeHtml(scoreText)}</h3>
+        </div>
+        <div>
+          <p class="score-summary-label">課題</p>
+          <h3 class="${issueTone}">${escapeHtml(issueText)}</h3>
+        </div>
+      </div>
+      <p class="focus-note">前回: ${escapeHtml(formatDate(previous.checked_at))} / Score ${escapeHtml(previous.score ?? "-")} / 課題 ${previousIssues}件</p>
+    </article>
+  `;
+}
+
 function renderGrowthView(records = getLocalRecords()) {
   const summaryPanel = document.getElementById("growthSummaryPanel");
   const list = document.getElementById("growthRecordList");
@@ -1959,6 +2003,7 @@ function renderGrowthView(records = getLocalRecords()) {
   }
 
   const latest = recipientRecords[0];
+  const previous = recipientRecords[1] || null;
   const breakdown = getRecordBreakdown(latest);
   const issueCount = Number(breakdown.score0 || 0) + Number(breakdown.score3 || 0);
   const highlights = getGrowthHighlights(latest);
@@ -2005,6 +2050,7 @@ function renderGrowthView(records = getLocalRecords()) {
         <h3>0点 ${Number(breakdown.score0 || 0)} / 3点 ${Number(breakdown.score3 || 0)} / 5点 ${Number(breakdown.score5 || 0)}</h3>
         <p class="focus-note">${issueCount ? "改善候補があります。" : "大きな課題はありません。"}</p>
       </article>
+      ${renderGrowthComparisonCard(latest, previous)}
       ${actionCardHtml}
       ${renderGrowthResultList("良かった点", highlights.good, "良い点は詳細取得後に表示されます。")}
       ${renderGrowthResultList("改善候補", highlights.issues, "改善候補はありません。")}

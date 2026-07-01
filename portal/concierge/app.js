@@ -410,6 +410,7 @@ const elements = {
   answerRuleSearch: document.querySelector("#answerRuleSearch"),
   answerRuleNotebookFilter: document.querySelector("#answerRuleNotebookFilter"),
   answerRuleStatusFilter: document.querySelector("#answerRuleStatusFilter"),
+  answerRuleRiskFilter: document.querySelector("#answerRuleRiskFilter"),
   answerRuleList: document.querySelector("#answerRuleList"),
   linkMasterForm: document.querySelector("#linkMasterForm"),
   linkMasterId: document.querySelector("#linkMasterId"),
@@ -507,6 +508,10 @@ elements.answerRuleNotebookFilter.addEventListener("change", () => {
 });
 
 elements.answerRuleStatusFilter.addEventListener("change", () => {
+  renderAnswerRuleList(answerRuleCache);
+});
+
+elements.answerRuleRiskFilter.addEventListener("change", () => {
   renderAnswerRuleList(answerRuleCache);
 });
 
@@ -1235,11 +1240,14 @@ function filterAnswerRules(rules) {
   const keyword = elements.answerRuleSearch.value.trim().toLowerCase();
   const notebook = elements.answerRuleNotebookFilter.value;
   const status = elements.answerRuleStatusFilter.value;
+  const risk = elements.answerRuleRiskFilter.value;
 
   return rules.filter((rule) => {
     if (notebook !== "all" && rule.notebook !== notebook) return false;
     if (status === "active" && !isRuleActive(rule.active)) return false;
     if (status === "inactive" && isRuleActive(rule.active)) return false;
+    if (risk === "human-check" && !rule.requiresHumanCheck) return false;
+    if (risk !== "all" && risk !== "human-check" && (rule.riskLevel || "normal") !== risk) return false;
     if (!keyword) return true;
 
     const searchableText = [

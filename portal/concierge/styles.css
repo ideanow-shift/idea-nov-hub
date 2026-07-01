@@ -941,7 +941,7 @@ a:focus-visible {
 .rule-toolbar {
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr) 220px 140px;
+  grid-template-columns: minmax(0, 1fr) 200px 130px 130px;
   margin-top: 12px;
 }
 

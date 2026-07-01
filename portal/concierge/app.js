@@ -425,6 +425,8 @@ const elements = {
   logoutButton: document.querySelector("#logoutButton"),
   adminToggle: document.querySelector("#adminToggle"),
   backToHubButton: document.querySelector("#backToHubButton"),
+  adminTabs: document.querySelectorAll("[data-admin-tab]"),
+  adminPanels: document.querySelectorAll("[data-admin-panel]"),
   chatMessages: document.querySelector("#chatMessages"),
   questionForm: document.querySelector("#questionForm"),
   questionInput: document.querySelector("#questionInput"),
@@ -515,6 +517,12 @@ elements.logoutButton.addEventListener("click", () => {
 
 elements.adminToggle.addEventListener("click", showAdmin);
 elements.backToHubButton.addEventListener("click", showHub);
+
+elements.adminTabs.forEach((button) => {
+  button.addEventListener("click", () => {
+    switchAdminTab(button.dataset.adminTab);
+  });
+});
 
 elements.questionForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -719,11 +727,22 @@ function showAdmin() {
   elements.loginView.hidden = true;
   elements.hubView.hidden = true;
   elements.adminView.hidden = false;
+  switchAdminTab("overview");
   renderAdmin();
   renderKnowledgeAdmin();
   renderLinkAdmin();
   renderAnswerRuleLinkChoices();
   renderAnswerRuleList();
+}
+
+function switchAdminTab(tabId = "overview") {
+  elements.adminTabs.forEach((button) => {
+    button.classList.toggle("active", button.dataset.adminTab === tabId);
+    button.setAttribute("aria-selected", button.dataset.adminTab === tabId ? "true" : "false");
+  });
+  elements.adminPanels.forEach((panel) => {
+    panel.hidden = panel.dataset.adminPanel !== tabId;
+  });
 }
 
 async function askConcierge(question) {

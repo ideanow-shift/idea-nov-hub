@@ -526,6 +526,41 @@ a:focus-visible {
   order: 0;
 }
 
+.admin-tabs {
+  align-items: center;
+  background: #ffffff;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 10px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.admin-tabs button {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 800;
+  min-height: 40px;
+  padding: 8px 14px;
+}
+
+.admin-tabs button.active {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--ink);
+}
+
+.admin-panel[hidden] {
+  display: none !important;
+}
+
 .metrics-grid {
   order: 1;
 }

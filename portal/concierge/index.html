@@ -84,7 +84,15 @@
             </div>
             <button id="backToHubButton" class="text-button" type="button">NOV Naviへ戻る</button>
           </div>
-          <div class="metrics-grid">
+          <nav class="admin-tabs" aria-label="管理画面メニュー">
+            <button class="active" type="button" data-admin-tab="overview">概要</button>
+            <button type="button" data-admin-tab="questions">質問ログ</button>
+            <button type="button" data-admin-tab="inquiries">問い合わせ</button>
+            <button type="button" data-admin-tab="rules">回答ルール</button>
+            <button type="button" data-admin-tab="knowledge">ナレッジ</button>
+            <button type="button" data-admin-tab="links">リンク</button>
+          </nav>
+          <div class="metrics-grid admin-panel" data-admin-panel="overview">
             <article>
               <span>総質問数</span>
               <strong id="totalQuestions">0</strong>
@@ -102,7 +110,7 @@
               <strong id="unratedCount">0</strong>
             </article>
           </div>
-          <section class="question-log-admin" aria-labelledby="questionLogTitle">
+          <section class="question-log-admin admin-panel" data-admin-panel="questions" aria-labelledby="questionLogTitle" hidden>
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Question Logs</p>
@@ -145,7 +153,7 @@
             </div>
             <div id="questionLogList" class="question-log-list"></div>
           </section>
-          <section class="department-inquiry-admin" aria-labelledby="departmentInquiryTitle">
+          <section class="department-inquiry-admin admin-panel" data-admin-panel="inquiries" aria-labelledby="departmentInquiryTitle" hidden>
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Department Inquiries</p>
@@ -154,7 +162,7 @@
             </div>
             <div id="departmentInquiryList" class="department-inquiry-list"></div>
           </section>
-          <section class="knowledge-admin" aria-labelledby="knowledgeTitle">
+          <section class="knowledge-admin admin-panel" data-admin-panel="knowledge" aria-labelledby="knowledgeTitle" hidden>
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Knowledge Operations</p>
@@ -206,7 +214,7 @@
               <div id="knowledgeHistory" class="knowledge-history"></div>
             </div>
           </section>
-          <section class="rule-admin" aria-labelledby="ruleAdminTitle">
+          <section class="rule-admin admin-panel" data-admin-panel="rules" aria-labelledby="ruleAdminTitle" hidden>
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Answer Operations</p>
@@ -324,7 +332,7 @@
               <div id="answerRuleList" class="rule-list"></div>
             </div>
           </section>
-          <section class="link-admin" aria-labelledby="linkAdminTitle">
+          <section class="link-admin admin-panel" data-admin-panel="links" aria-labelledby="linkAdminTitle" hidden>
             <div class="section-heading">
               <div>
                 <p class="eyebrow">Link Operations</p>
@@ -376,7 +384,7 @@
               <div id="linkMasterList" class="link-master-list"></div>
             </div>
           </section>
-          <div class="admin-grid">
+          <div class="admin-grid admin-panel" data-admin-panel="overview">
             <section>
               <h3>質問ランキング</h3>
               <ol id="questionRanking" class="rank-list"></ol>

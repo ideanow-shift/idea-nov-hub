@@ -231,6 +231,31 @@
             </form>
             <div class="rule-list-panel">
               <h3 class="subheading">登録済み回答ルール</h3>
+              <div class="rule-toolbar">
+                <label>
+                  <span>キーワード</span>
+                  <input id="answerRuleSearch" type="search" placeholder="ルール名・キーワード・回答文で検索">
+                </label>
+                <label>
+                  <span>Notebook</span>
+                  <select id="answerRuleNotebookFilter">
+                    <option value="all">すべて</option>
+                    <option value="Notebook① スタッフサポート">スタッフサポート</option>
+                    <option value="Notebook② 教育">教育</option>
+                    <option value="Notebook③ 管理者">管理者</option>
+                    <option value="Notebook④ FC">FC</option>
+                    <option value="Notebook⑤ 経営">経営</option>
+                  </select>
+                </label>
+                <label>
+                  <span>状態</span>
+                  <select id="answerRuleStatusFilter">
+                    <option value="all">すべて</option>
+                    <option value="active">有効</option>
+                    <option value="inactive">停止</option>
+                  </select>
+                </label>
+              </div>
               <div id="answerRuleList" class="rule-list"></div>
             </div>
           </section>

@@ -372,12 +372,16 @@ const elements = {
   answerRuleLinkChoices: document.querySelector("#answerRuleLinkChoices"),
   answerRuleAnswer: document.querySelector("#answerRuleAnswer"),
   answerRuleStatus: document.querySelector("#answerRuleStatus"),
+  answerRuleSearch: document.querySelector("#answerRuleSearch"),
+  answerRuleNotebookFilter: document.querySelector("#answerRuleNotebookFilter"),
+  answerRuleStatusFilter: document.querySelector("#answerRuleStatusFilter"),
   answerRuleList: document.querySelector("#answerRuleList"),
   messageTemplate: document.querySelector("#messageTemplate")
 };
 
 let session = authProvider.currentSession();
 let adminLogCache = [];
+let answerRuleCache = [];
 
 elements.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -430,6 +434,18 @@ elements.questionLogSearch.addEventListener("input", () => {
 
 elements.questionLogRatingFilter.addEventListener("change", () => {
   renderQuestionLogList(adminLogCache);
+});
+
+elements.answerRuleSearch.addEventListener("input", () => {
+  renderAnswerRuleList(answerRuleCache);
+});
+
+elements.answerRuleNotebookFilter.addEventListener("change", () => {
+  renderAnswerRuleList(answerRuleCache);
+});
+
+elements.answerRuleStatusFilter.addEventListener("change", () => {
+  renderAnswerRuleList(answerRuleCache);
 });
 
 elements.knowledgeUpdateForm.addEventListener("submit", async (event) => {
@@ -489,7 +505,7 @@ elements.answerRuleForm.addEventListener("submit", async (event) => {
     elements.answerRuleLinkChoices.querySelectorAll("input:checked").forEach((input) => {
       input.checked = false;
     });
-    renderAnswerRuleList();
+    await renderAnswerRuleList();
     elements.answerRuleStatus.textContent = `保存しました。NOV Naviでキーワードを入力して確認できます。`;
   } catch (error) {
     elements.answerRuleStatus.textContent = `保存に失敗しました: ${error.message || error}`;
@@ -827,30 +843,64 @@ function getSelectedAnswerRuleLinkIds() {
   return Array.from(elements.answerRuleLinkChoices.querySelectorAll("input:checked")).map((input) => input.value);
 }
 
-async function renderAnswerRuleList() {
-  const rules = await answerRuleRepository.all();
+async function renderAnswerRuleList(rules = null) {
+  if (!rules) {
+    answerRuleCache = await answerRuleRepository.all();
+  }
+  const sourceRules = rules || answerRuleCache;
+  const filteredRules = filterAnswerRules(sourceRules);
   elements.answerRuleList.innerHTML = "";
 
-  if (!rules.length) {
+  if (!sourceRules.length) {
     elements.answerRuleList.innerHTML = '<div class="rule-list-item">登録済み回答ルールはありません。</div>';
     return;
   }
+  if (!filteredRules.length) {
+    elements.answerRuleList.innerHTML = '<div class="rule-list-item">条件に合う回答ルールはありません。</div>';
+    return;
+  }
 
-  rules.forEach((rule) => {
+  filteredRules.forEach((rule) => {
     const item = document.createElement("article");
     item.className = "rule-list-item";
 
     const title = document.createElement("strong");
-    title.textContent = `${rule.id} / ${rule.notebook}`;
+    title.textContent = rule.id;
 
     const meta = document.createElement("span");
-    meta.textContent = `キーワード: ${rule.keywords.join(", ")} / 優先度: ${rule.priority}`;
+    meta.textContent = `${rule.notebook} / 優先度: ${rule.priority} / ${isRuleActive(rule.active) ? "有効" : "停止"}`;
+
+    const keywords = document.createElement("span");
+    keywords.textContent = `キーワード: ${rule.keywords.join(", ")}`;
 
     const answer = document.createElement("p");
     answer.textContent = rule.answer;
 
-    item.append(title, meta, answer);
+    item.append(title, meta, keywords, answer);
     elements.answerRuleList.append(item);
+  });
+}
+
+function filterAnswerRules(rules) {
+  const keyword = elements.answerRuleSearch.value.trim().toLowerCase();
+  const notebook = elements.answerRuleNotebookFilter.value;
+  const status = elements.answerRuleStatusFilter.value;
+
+  return rules.filter((rule) => {
+    if (notebook !== "all" && rule.notebook !== notebook) return false;
+    if (status === "active" && !isRuleActive(rule.active)) return false;
+    if (status === "inactive" && isRuleActive(rule.active)) return false;
+    if (!keyword) return true;
+
+    const searchableText = [
+      rule.id,
+      rule.notebook,
+      rule.answer,
+      ...(rule.keywords || []),
+      ...(rule.linkIds || [])
+    ].join(" ").toLowerCase();
+
+    return searchableText.includes(keyword);
   });
 }
 
@@ -1097,6 +1147,10 @@ function isLinkActive(value) {
   const normalized = String(value || "").trim().toLowerCase();
   if (!normalized) return true;
   return !["false", "0", "no", "n", "停止", "無効", "不可", "inactive"].includes(normalized);
+}
+
+function isRuleActive(value) {
+  return isLinkActive(value);
 }
 
 function createRuleId(value) {

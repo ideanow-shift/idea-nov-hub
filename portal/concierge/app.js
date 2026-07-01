@@ -479,7 +479,7 @@ elements.answerRuleForm.addEventListener("submit", async (event) => {
       input.checked = false;
     });
     renderAnswerRuleList();
-    elements.answerRuleStatus.textContent = `保存しました: ${result.ruleId}`;
+    elements.answerRuleStatus.textContent = `保存しました。Conciergeでキーワードを入力して確認できます。`;
   } catch (error) {
     elements.answerRuleStatus.textContent = `保存に失敗しました: ${error.message || error}`;
   }

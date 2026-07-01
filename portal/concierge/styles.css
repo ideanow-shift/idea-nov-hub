@@ -461,9 +461,35 @@ a:focus-visible {
 }
 
 .admin-layout {
+  display: flex;
+  flex-direction: column;
   margin: 0 auto;
   max-width: 1180px;
   overflow: hidden;
+}
+
+.admin-layout > .panel-heading {
+  order: 0;
+}
+
+.metrics-grid {
+  order: 1;
+}
+
+.question-log-admin {
+  order: 2;
+}
+
+.admin-grid {
+  order: 3;
+}
+
+.rule-admin {
+  order: 4;
+}
+
+.knowledge-admin {
+  order: 5;
 }
 
 .metrics-grid,

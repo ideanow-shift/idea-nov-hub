@@ -1411,6 +1411,49 @@ function getFilteredImprovementActions() {
   });
 }
 
+function renderImprovementActionSummary(filteredActions) {
+  const panel = document.getElementById("actionSummaryPanel");
+  if (!panel) return;
+  const activeActions = improvementActions.filter((action) => ["open", "in_progress"].includes(action.status));
+  const dueSoon = activeActions.filter((action) => {
+    if (!action.dueDate) return false;
+    const due = new Date(action.dueDate);
+    if (Number.isNaN(due.getTime())) return false;
+    const today = new Date();
+    const diffDays = Math.ceil((due.setHours(0, 0, 0, 0) - today.setHours(0, 0, 0, 0)) / 86400000);
+    return diffDays <= 7;
+  });
+  const completed = improvementActions.filter((action) => action.status === "completed");
+  const highPriority = activeActions.filter((action) => action.priority === "high");
+  const nextAction = highPriority[0] || dueSoon[0] || activeActions[0] || null;
+
+  panel.innerHTML = `
+    <div class="action-summary-grid">
+      <article class="action-summary-card">
+        <p class="score-summary-label">未完了</p>
+        <h3>${activeActions.length}件</h3>
+        <p class="focus-note">今動いている改善アクション</p>
+      </article>
+      <article class="action-summary-card">
+        <p class="score-summary-label">期限7日以内</p>
+        <h3 class="${dueSoon.length ? "warn" : "ok"}">${dueSoon.length}件</h3>
+        <p class="focus-note">期限が近いものから確認</p>
+      </article>
+      <article class="action-summary-card">
+        <p class="score-summary-label">完了</p>
+        <h3 class="ok">${completed.length}件</h3>
+        <p class="focus-note">改善履歴として残った件数</p>
+      </article>
+      <article class="action-summary-card next">
+        <p class="score-summary-label">次に見るもの</p>
+        <h3>${escapeHtml(nextAction?.actionTitle || "改善アクションを作成")}</h3>
+        <p class="focus-note">${nextAction ? `${escapeHtml(nextAction.store || "店舗")} / ${escapeHtml(getActionStatusLabel(nextAction.status))}` : "環境整備または成果から改善に保存します。"}</p>
+      </article>
+    </div>
+    <p class="field-help">表示中: ${filteredActions.length}/${improvementActions.length}件</p>
+  `;
+}
+
 function renderImprovementActions() {
   const list = document.getElementById("improvementActionList");
   const status = document.getElementById("actionListStatus");

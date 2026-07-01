@@ -1,69 +1,127 @@
-# NOV HUB MVP
+# NOV HUB
 
-IDEA NOVグループ向け社内アプリ統合ポータルです。GitHub PagesのフロントエンドからFirebase AuthenticationでGoogleログインし、GAS APIでスタッフマスタ照合、権限別アプリ表示、アクセスログ記録を行います。
+IDEA NOVグループ向けの社内アプリ統合ポータルです。
 
-## 構成
+NOV HUBは、社員が各社内アプリへ入るための入口です。ログイン、社員情報、権限、アプリ一覧、通知、マスタ管理をCore DB / Supabase中心で扱います。
 
-- `portal`: GitHub Pagesで公開するフロントエンド
-- `gas-backend`: Apps Script Web API
-- ポータル管理スプレッドシート: `Apps`、`Announcements`、`AccessLog`
-- スタッフマスタ: 指定された既存スプレッドシート
-- 店舗マスタ: 指定された既存スプレッドシート
+## 公開URL
 
-## スクリプトプロパティ
+- NOV HUB: `https://ideanow-shift.github.io/idea-nov-hub/`
+- HUBマスタ管理: `https://ideanow-shift.github.io/idea-nov-hub/master-admin/`
 
-Apps Scriptの「プロジェクトの設定」>「スクリプトプロパティ」に以下を設定します。
+スマホのホーム画面へ追加するURLは、必ずNOV HUB本体のURLにします。`master-admin`、`idea-link`、`hub_context`付きURL、各アプリ直URLは保存しません。
 
-| キー | 用途 |
-| --- | --- |
-| `SPREADSHEET_ID` | ポータル管理用スプレッドシートID |
-| `FIREBASE_API_KEY` | Firebase Web API Key |
-| `STAFF_SPREADSHEET_ID` | スタッフマスタID。未設定時は `1UnBwhX8AjBY_sGXNpiYg--3BB2hgh99eu18oL1uOOts` |
-| `STAFF_SHEET_GID` | スタッフマスタのgid。未設定時は `160557983` |
-| `STORE_SPREADSHEET_ID` | 店舗マスタID。未設定時は `1Ozyzi3WqYh7HkYYKBObZr8Mvsm941BQh4XL4w_qp-90` |
-| `STORE_SHEET_GID` | 店舗マスタのgid。未設定時は `0` |
+## 現在の標準構成
 
-`STAFF_SHEET_NAME`、`STORE_SHEET_NAME`を設定した場合は、gidよりシート名を優先します。
+- Frontend: GitHub Pages / `portal`
+- Auth: Firebase Auth Googleログイン + メール/PINログイン
+- Backend: Supabase Edge Function `nov-hub-api`
+- Core DB: Supabase `public.employees` / `public.stores` / `public.roles` / `public.employee_roles`
+- Login credentials: Supabase `public.employee_login_credentials`
+- Portal apps: Supabase `public.portal_apps`
+- Access logs: Supabase `public.access_logs`
+- Notifications: Supabase `os.nov_hub_notification_inbox`
+- LINE WORKS通知先: Supabase `os.notification_destinations`
 
-## スタッフマスタの列
+## 通常運用の正本
 
-次の列名を認識します。日本語・英語の表記ゆれに対応しています。
+- 社員情報: HUBマスタ管理 / Core DB
+- 店舗情報: HUBマスタ管理 / Core DB
+- HUBログイン可否・PIN: HUBマスタ管理 / `employee_login_credentials`
+- アプリ表示・権限: HUBマスタ管理 / `portal_apps` + `employee_roles`
+- IDEA LINK権限: Core DB `employee_roles`
+- 通知: `os.notifications` / `os.nov_hub_notification_inbox`
 
-- `email` / `メールアドレス` / `Googleアカウント`
-- `name` / `氏名` / `スタッフ名`
-- `store` / `所属店舗` / `店舗名`
-- `storeCode` / `店舗コード`
-- `department` / `所属部署` / `部署`
-- `position` / `役職`
-- `grade` / `等級`
-- `roleLevel` / `権限レベル`
-- `tags` / `権限タグ`
-- `status` / `在籍状況`
+スプレッドシートは通常運用の正本としては使いません。過去データ、移行元、または一部外部アプリの暫定連携としてだけ扱います。
 
-`status`が空欄、`active`、`在籍`、`有効`などの場合は利用可として扱います。`inactive`、`退職`、`休職`、`停止`、`無効`などは利用不可です。
+## API方針
 
-## 店舗マスタの列
+HUB本体はSupabase Edge Functionを通常導線にします。
 
-店舗マスタはスタッフの店舗情報補完に使います。
+```text
+GitHub Pages
+↓
+Firebase Auth / PIN login
+↓
+Supabase Edge Function nov-hub-api
+↓
+Supabase Core DB
+```
 
-- `store` / `店舗名`
-- `storeCode` / `店舗コード`
-- `department` / `部署`
-- `status` / `状態`
+`portal/js/firebase-config.js` は以下を標準とします。
 
-## ヘルスチェック
+```js
+apiMode: "edge"
+apiFallback: "edge-only"
+gasApiUrl: ""
+```
 
-GAS WebアプリURLの末尾に `?action=health` を付けると、Firebase APIキー、ポータル管理シート、スタッフマスタ、店舗マスタの接続状態を確認できます。
+Apps Script / GAS Web App URLはHUB本体の公開設定へ残しません。
 
-## 権限判定
+## Health Check
 
-- スタッフマスタにログインメールが存在すること
-- スタッフの`status`が利用可であること
-- アプリの`isActive`が`true`
-- スタッフの`roleLevel`がアプリの`requiredLevel`以上
-- `allowedTags`指定時はスタッフのタグと一致
-- `targetDepartment`、`targetPosition`指定時は一致
+Edge API:
+
+```text
+https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub-api?action=health
+```
+
+以下が `true` ならHUB通常利用の基盤は準備OKです。
+
+- `supabaseUrlConfigured`
+- `supabaseServiceRoleKeyConfigured`
+- `pinHashPepperConfigured`
+- `firebaseApiKeyConfigured`
+- `employeesReachable`
+- `loginCredentialsReachable`
+- `employeeRolesReachable`
+- `storesReachable`
+- `bootstrapRpcReachable`
+- `notificationDestinationsReachable`
+- `portalAppsReachable`
+- `accessLogsReachable`
+
+## HUB Context
+
+NOV HUBから各アプリへは `hub_context` を渡します。
+
+含めるもの:
+
+- `employees.id`
+- 社員名
+- メールアドレス
+- 所属
+- `roleKeys`
+- 店舗割当
+
+含めないもの:
+
+- `pin_hash`
+- PIN
+- Firebase ID token
+- Supabase service_role key
+- LINE WORKS Secret
+
+`hub_context` は表示・初期値・メニュー出し分けの補助です。重要な書き込みや管理操作は、必ずEdge FunctionまたはSupabase RLS側で再検証します。
+
+## 主な連携アプリ
+
+- IDEA LINK: HUB Context主経路。権限は `idea_link.staff` / `idea_link.manager` / `idea_link.admin`
+- 経費精算管理システム: `https://ideanow-shift.github.io/idea-nov-expense-hub/`
+- NOV Navi: `/concierge/` 配下。画面表示名は `NOV Navi`
+- マネジメント系アプリ: HUB Context + Core DB連携を前提にする
+
+## 禁止事項
+
+- `service_role` keyをフロントへ出さない
+- LINE WORKS Secret類をフロントへ出さない
+- `pin_hash` をAPIレスポンス、ログ、Contextへ含めない
+- `hub_context` だけをDB更新の認可根拠にしない
+- アプリごとに社員・店舗・権限マスタを重複作成しない
+- 通常運用でスプレッドシートを正本として編集しない
 
 ## 公開
 
-GitHub Pagesは`.github/workflows/deploy-pages.yml`で`portal`フォルダだけを公開します。
+GitHub Pagesは `.github/workflows/deploy-pages.yml` で `portal` フォルダだけを公開します。
+
+mainへpushするとGitHub Actionsで再公開されます。

@@ -93,7 +93,7 @@ Important ID rules:
 - Do not store `service_role` in front-end code.
 - Do not store Firebase ID tokens in `sessionStorage` for child apps.
 - Treat `novHub.currentEmployee` as a convenience context, not a security boundary.
-- Server-side writes must verify the actor again through GAS, Edge Functions, or Supabase RLS.
+- Server-side writes must verify the actor again through Supabase Edge Functions or Supabase RLS.
 - Personal information should be fetched only when the user role requires it.
 
 ## IDEA LINK Production Operation

@@ -43,6 +43,9 @@ function publicMessage(code: string) {
     SETUP_MISSING: "Supabase Edge Functionの設定が不足しています。",
     ACCESS_DENIED: "このアカウントは社内ポータルの利用権限がありません。管理者へお問い合わせください。",
     INVALID_REQUEST: "APIリクエストが正しくありません。",
+    MASTER_ADMIN_DENIED: "マスタ管理を利用する権限がありません。",
+    DUPLICATE_LOGIN_EMAIL: "同じログインメールが別の社員に設定されています。",
+    NOT_FOUND: "対象データが見つかりません。",
     SUPABASE_REQUEST_FAILED: "Supabaseとの通信に失敗しました。",
     PIN_CHANGE_FAILED: "PIN変更に失敗しました。",
   };
@@ -223,12 +226,21 @@ async function findCredentialByEmail(email: string) {
 async function getCredentialByEmployeeId(employeeId: string) {
   const rows = await readRows("employee_login_credentials", {
     query: {
-      select: "id,employee_id,login_email,pin_updated_at,must_change_pin,login_enabled,failed_attempts,locked_until,last_login_at,created_at,updated_at",
+      select: "id,employee_id,login_email,pin_hash,pin_updated_at,must_change_pin,login_enabled,failed_attempts,locked_until,last_login_at,created_at,updated_at",
       employee_id: `eq.${employeeId}`,
       limit: "1",
     },
   });
   return rows[0] || null;
+}
+
+function parseBooleanLike(value: unknown, defaultValue = false) {
+  if (value === undefined || value === null || value === "") return defaultValue;
+  if (typeof value === "boolean") return value;
+  const text = String(value).trim().toLowerCase();
+  if (["true", "1", "yes", "y", "on"].includes(text)) return true;
+  if (["false", "0", "no", "n", "off"].includes(text)) return false;
+  return defaultValue;
 }
 
 async function registerFailedPinAttempt(credential: JsonRecord) {
@@ -632,6 +644,12 @@ function assertMasterViewer(employee: JsonRecord) {
   }
 }
 
+function assertMasterEditor(employee: JsonRecord) {
+  if (!canEditMasterAdmin(employee)) {
+    throw new PortalError("MASTER_ADMIN_DENIED", "Master admin edit permission is required.", 403);
+  }
+}
+
 function indexById(rows: JsonRecord[]) {
   return rows.reduce((index, row) => {
     const id = String(row.id || "");
@@ -860,6 +878,143 @@ async function listMasterChangeLogsForAdmin() {
       limit: "100",
     },
   }).catch(() => []);
+}
+
+function getMasterChangeFieldLabel(key: string) {
+  return ({
+    email: "メール",
+    login_email: "ログインメール",
+    login_enabled: "ログイン可否",
+    must_change_pin: "次回PIN変更",
+    pin_changed: "PIN変更",
+    lock_cleared: "ロック解除",
+    source: "更新元",
+  } as Record<string, string>)[key] || key;
+}
+
+function buildMasterChangeSummary(changes: JsonRecord) {
+  const labels = Object.keys(changes || {})
+    .filter((key) => key !== "updated_at")
+    .map(getMasterChangeFieldLabel);
+  return labels.length ? `${labels.join("、")}を変更` : "変更内容なし";
+}
+
+async function appendMasterChangeLog(tableName: string, recordId: string, changes: JsonRecord, actor: JsonRecord, meta: JsonRecord = {}) {
+  try {
+    await supabaseRequest("master_change_logs", {
+      method: "POST",
+      payload: {
+        table_name: tableName,
+        record_id: recordId,
+        changed_by_email: normalizeEmail(actor.email),
+        change_payload: changes,
+        action_type: String(meta.actionType || "update"),
+        target_name: String(meta.targetName || ""),
+        change_summary: buildMasterChangeSummary(changes),
+      },
+      prefer: "return=minimal",
+    });
+  } catch (error) {
+    console.error("Master change log write failed", error);
+  }
+}
+
+async function syncEmployeeEmailFromLoginEmailIfEmpty(employee: JsonRecord, loginEmail: string, actor: JsonRecord) {
+  const employeeId = String(employee.id || "").trim();
+  const normalizedLoginEmail = normalizeEmail(loginEmail);
+  if (!employeeId || !normalizedLoginEmail || normalizeEmail(employee.email)) return null;
+  const now = new Date().toISOString();
+  const updates = {
+    email: normalizedLoginEmail,
+    updated_at: now,
+  };
+  const rows = await readRows("employees", {
+    method: "PATCH",
+    query: { id: `eq.${employeeId}`, select: "id,employee_id,full_name,email,updated_at" },
+    payload: updates,
+    prefer: "return=representation",
+  });
+  await appendMasterChangeLog("employees", employeeId, {
+    email: normalizedLoginEmail,
+    source: "login_credential_email_sync",
+  }, actor, {
+    actionType: "sync_employee_email_from_login_email",
+    targetName: String(employee.full_name || employee.employee_id || employeeId),
+  });
+  return rows[0] || null;
+}
+
+async function updateEmployeeLoginCredential(actor: JsonRecord, payload: JsonRecord) {
+  const employeeId = String(payload.id || payload.employee_id || "").trim();
+  if (!employeeId) throw new PortalError("INVALID_REQUEST", "Employee id is required.", 400);
+
+  const employee = await getEmployeeById(employeeId);
+  if (!employee?.id) throw new PortalError("NOT_FOUND", "Employee was not found.", 404);
+
+  const loginEmail = normalizeEmail(payload.login_email || employee.email);
+  if (!loginEmail) throw new PortalError("INVALID_REQUEST", "Login email is required.", 400);
+
+  const newPin = String(payload.new_pin || "").trim();
+  if (newPin && !/^\d{4,12}$/.test(newPin)) {
+    throw new PortalError("INVALID_REQUEST", "PIN must be 4 to 12 digits.", 400);
+  }
+
+  const duplicate = await findCredentialByEmail(loginEmail);
+  if (duplicate?.employee_id && String(duplicate.employee_id) !== employeeId) {
+    throw new PortalError("DUPLICATE_LOGIN_EMAIL", "Duplicate login email.", 409);
+  }
+
+  const existing = await getCredentialByEmployeeId(employeeId);
+  const now = new Date().toISOString();
+  const clearLock = parseBooleanLike(payload.clear_lock, false);
+  const updates: JsonRecord = {
+    employee_id: employeeId,
+    login_email: loginEmail,
+    login_enabled: parseBooleanLike(payload.login_enabled, true),
+    must_change_pin: parseBooleanLike(payload.must_change_pin, false),
+    failed_attempts: clearLock ? 0 : Number(existing?.failed_attempts || 0),
+    locked_until: clearLock ? null : existing?.locked_until || null,
+    updated_at: now,
+  };
+
+  if (newPin) {
+    updates.pin_hash = await hashPin(newPin);
+    updates.pin_updated_at = now;
+    updates.failed_attempts = 0;
+    updates.locked_until = null;
+  }
+
+  const select = "id,employee_id,login_email,pin_hash,pin_updated_at,must_change_pin,login_enabled,failed_attempts,locked_until,last_login_at,created_at,updated_at";
+  let rows: JsonRecord[];
+  if (existing?.id) {
+    rows = await readRows("employee_login_credentials", {
+      method: "PATCH",
+      query: { id: `eq.${existing.id}`, select },
+      payload: updates,
+      prefer: "return=representation",
+    });
+  } else {
+    rows = await readRows("employee_login_credentials", {
+      method: "POST",
+      query: { select },
+      payload: { created_at: now, ...updates },
+      prefer: "return=representation",
+    });
+  }
+
+  const credential = rows[0] || { ...existing, ...updates };
+  await syncEmployeeEmailFromLoginEmailIfEmpty(employee, loginEmail, actor);
+  await appendMasterChangeLog("employee_login_credentials", employeeId, {
+    login_email: loginEmail,
+    login_enabled: Boolean(updates.login_enabled),
+    must_change_pin: Boolean(updates.must_change_pin),
+    pin_changed: Boolean(newPin),
+    lock_cleared: clearLock,
+  }, actor, {
+    actionType: existing?.id ? "update_login_credential" : "create_login_credential",
+    targetName: String(employee.full_name || employee.employee_id || employeeId),
+  });
+  return sanitizeLoginCredential(credential);
 }
 
 async function getMasterBootstrap(employee: JsonRecord) {
@@ -1143,6 +1298,11 @@ Deno.serve(async (request) => {
     if (action === "masterListChangeLogs") {
       assertMasterViewer(employee);
       return jsonResponse({ ok: true, logs: await listMasterChangeLogsForAdmin() });
+    }
+
+    if (action === "masterUpdateEmployeeLoginCredential") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, credential: await updateEmployeeLoginCredential(employee, payload) });
     }
 
     if (action === "log") {

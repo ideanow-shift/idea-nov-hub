@@ -13,7 +13,8 @@ const EDGE_ACTIONS = new Set([
   "masterListEmployees",
   "masterListStores",
   "masterListPortalApps",
-  "masterListChangeLogs"
+  "masterListChangeLogs",
+  "masterUpdateEmployeeLoginCredential"
 ]);
 
 export function setPinAuth(email, pin) {

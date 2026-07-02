@@ -3155,15 +3155,24 @@ async function updateImprovementActionStatus(button) {
   const nextStatus = button?.dataset?.nextStatus;
   if (!actionId) return;
   if (!nextStatus) return;
+  const action = improvementActions.find((item) => item.id === actionId);
+  let completionComment = null;
+  if (nextStatus === "completed") {
+    const entered = window.prompt(
+      "\u5b8c\u4e86\u5185\u5bb9\u3092\u8a18\u9332\u3057\u3066\u304f\u3060\u3055\u3044\u3002\n\u4f8b: \u7f6e\u304d\u5834\u6240\u3092\u5909\u66f4\u3057\u3001\u671d\u306e\u78ba\u8a8d\u624b\u9806\u306b\u8ffd\u52a0",
+      action?.completionComment || ""
+    );
+    if (entered === null) return;
+    completionComment = entered.trim() || "\u5b8c\u4e86";
+  }
   const originalText = button.textContent;
   button.disabled = true;
-  button.textContent = "更新中";
+  button.textContent = "\u66f4\u65b0\u4e2d";
   setApiStatus(`改善アクションを${getActionStatusLabel(nextStatus)}に更新中です...`, "loading");
   try {
-    await patchRemoteImprovementAction(actionId, {
-      status: nextStatus,
-      completionComment: nextStatus === "completed" ? "画面から完了" : null
-    });
+    const payload = { status: nextStatus };
+    if (nextStatus === "completed") payload.completionComment = completionComment;
+    await patchRemoteImprovementAction(actionId, payload);
     setApiStatus(`改善アクション更新OK: ${getActionStatusLabel(nextStatus)} / ${actionId}`, "ok");
     await refreshImprovementActions();
   } catch (error) {

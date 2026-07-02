@@ -2812,6 +2812,35 @@ function renderImprovementActionDraft(record) {
   `;
 }
 
+function renderRecordDetailSummary(record, issueCount, photoCount, existingAction) {
+  const actionLabel = existingAction
+    ? `${getActionStatusLabel(existingAction.status)} / ${existingAction.ownerEmployeeName || "担当未設定"}`
+    : issueCount
+      ? "改善アクション化できます"
+      : "必要時のみ保存";
+  const photoLabel = photoCount
+    ? `写真${photoCount}枚を比較材料として保存済み`
+    : "写真は未登録";
+  return `
+    <div class="record-next-summary" aria-label="詳細サマリー">
+      <article>
+        <p class="score-summary-label">課題候補</p>
+        <h3>${Number(issueCount || 0)}件</h3>
+        <p class="focus-note">0点・3点の項目です。</p>
+      </article>
+      <article>
+        <p class="score-summary-label">写真</p>
+        <h3>${Number(photoCount || 0)}枚</h3>
+        <p class="focus-note">${escapeHtml(photoLabel)}</p>
+      </article>
+      <article>
+        <p class="score-summary-label">改善</p>
+        <h3>${existingAction ? "保存済み" : "未保存"}</h3>
+        <p class="focus-note">${escapeHtml(actionLabel)}</p>
+      </article>
+    </div>
+  `;
+}
 function renderRecordDetail(record, note = "") {
   const content = document.getElementById("recordDetailContent");
   if (!content) return;
@@ -2821,6 +2850,8 @@ function renderRecordDetail(record, note = "") {
   const issueSummaryHtml = results.length ? renderIssueResultSummary(results) : "";
   const recordPhotos = getRecordPhotos(record);
   const photoGalleryHtml = renderPhotoGallery(recordPhotos, "履歴写真");
+  const existingAction = findExistingImprovementActionForRecord(record);
+  const recordIssueCount = Number(breakdown.score0 || 0) + Number(breakdown.score3 || 0);
   const resultHtml = results.length ? `
     <div class="result-detail-list">
       ${results.map((result, index) => {
@@ -2870,6 +2901,7 @@ function renderRecordDetail(record, note = "") {
       ${note ? ` / ${escapeHtml(note)}` : ""}
     </p>
     ${record.comment ? `<p class="field-help"><strong>次の行動:</strong> ${escapeHtml(record.comment)}</p>` : ""}
+    ${renderRecordDetailSummary(record, recordIssueCount, recordPhotos.length, existingAction)}
     ${photoGalleryHtml}
     <div class="record-ai-comment">
       ${renderAiCommentDraft(aiDraft)}

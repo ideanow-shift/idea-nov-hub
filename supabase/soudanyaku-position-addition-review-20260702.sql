@@ -1,6 +1,6 @@
 -- HUB / Core DB required position addition review.
 -- OS/Core DB instruction: 相談役 is a formal positions addition target.
--- Do not execute INSERT until OS/Core DB approval after SELECT preview.
+-- OS/Core DB approved after SELECT preview and executed on 2026-07-02.
 --
 -- Confirmed preview on 2026-07-02:
 --   public.positions.position_name = '相談役' -> no rows
@@ -27,7 +27,7 @@ select
 from public.positions
 order by position_no;
 
--- INSERT proposal. Execute only after OS/Core DB approval.
+-- Executed INSERT statement.
 /*
 begin;
 

@@ -64,6 +64,8 @@ type HubContext = {
 
 職種が必要な画面や回答ルール分岐を作る場合は、`employees.job_type_id -> public.job_types.id` を参照する。`jobTypeId = null` の場合は `未設定` と表示する。
 
+`レセプション` は役職ではなく `public.job_types` の職種として扱う。問い合わせルート、回答ルール、管理権限、HUB Context判定で `public.positions` の値として扱わない。`一般スタッフ` は `public.positions` の役職候補として扱えるが、管理権限ではなく、権限判定は必ず `roles / employee_roles` に寄せる。
+
 `会長夫人` / `創業者夫人` / `夫人` のような家族関係・敬称ラベルは、役職・職種・雇用形態・権限として扱わない。HUB Context判定、管理画面権限、回答ルール、問い合わせルート、LINE WORKS通知先の分岐に使わない。
 
 ## 店舗Contextの決定
@@ -182,12 +184,14 @@ HUB Contextなし
 - NOV Navi側で社員マスタ、店舗マスタ、部署マスタを作らない
 - NOV Navi側で職種、役職、雇用形態マスタを作らない
 - 家族関係・敬称ラベルを社員属性、権限、通知先判定に使わない
+- `レセプション` を役職として扱わない
 - フロントのlocalStorage Contextだけで管理APIを許可しない
 - `service_role` やFirebase秘密情報をフロントへ出さない
 - 店舗ID/PASSを最終認証として固定しない
 - `phase1_login_id` を個人識別の正本にしない
 - HUB側のrolesとNOV Navi側の独自rolesを二重管理しない
 - `positions` や `employment_type` を職種代わりに使わない
+- `一般スタッフ` などの役職名を管理権限の代わりに使わない
 
 ## 確認項目
 

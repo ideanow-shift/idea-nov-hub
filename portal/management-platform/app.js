@@ -6,6 +6,7 @@ const defaultCheckItemId = window.MANAGEMENT_DEFAULT_CHECK_ITEM_ID || "";
 let trustedActor = null;
 let checkItems = [];
 let improvementActions = [];
+let expandedImprovementActionId = null;
 let performanceSnapshots = [];
 let performanceInitiatives = [];
 let targetEmployees = [];
@@ -1454,6 +1455,34 @@ function renderImprovementActionSummary(filteredActions) {
   `;
 }
 
+function renderImprovementActionDetail(action) {
+  const aiNote = action.aiDraft?.summary || action.aiDraft?.reason || action.aiDraft?.note || "";
+  return `
+    <div class="improvement-action-detail">
+      <div class="record-detail-grid">
+        <article class="record-detail-card">
+          <p class="score-summary-label">対象者</p>
+          <p class="record-detail-value">${escapeHtml(action.targetEmployeeName || "-")}</p>
+        </article>
+        <article class="record-detail-card">
+          <p class="score-summary-label">作成時Score</p>
+          <p class="record-detail-value">${escapeHtml(action.scoreAtCreation ?? "-")}</p>
+        </article>
+        <article class="record-detail-card">
+          <p class="score-summary-label">更新日</p>
+          <p class="record-detail-value">${escapeHtml(formatDate(action.updatedAt || action.createdAt))}</p>
+        </article>
+        <article class="record-detail-card">
+          <p class="score-summary-label">作成者</p>
+          <p class="record-detail-value">${escapeHtml(action.createdByName || "-")}</p>
+        </article>
+      </div>
+      ${action.completionComment ? `<p class="focus-note"><strong>完了コメント:</strong> ${escapeHtml(action.completionComment)}</p>` : ""}
+      ${aiNote ? `<p class="focus-note"><strong>AI案:</strong> ${escapeHtml(aiNote)}</p>` : ""}
+    </div>
+  `;
+}
+
 function renderImprovementActions() {
   const list = document.getElementById("improvementActionList");
   const status = document.getElementById("actionListStatus");
@@ -1475,6 +1504,8 @@ function renderImprovementActions() {
     const sourceButton = isPerformanceSource
       ? `<button type="button" class="ghost-btn action-performance-detail-btn">成果</button>`
       : `<button type="button" class="ghost-btn action-source-detail-btn" data-record-id="${escapeHtml(action.sourceCheckId || "")}">元履歴</button>`;
+    const isExpanded = action.id === expandedImprovementActionId;
+    const detailHtml = isExpanded ? renderImprovementActionDetail(action) : "";
     return `
       <article class="improvement-action-card">
         <div class="improvement-action-card-head">
@@ -1495,7 +1526,9 @@ function renderImprovementActions() {
           <span>作成: ${escapeHtml(formatDate(action.createdAt))}</span>
           ${isCompleted ? `<span>完了: ${escapeHtml(formatDate(action.completedAt))}</span>` : ""}
         </div>
+        ${detailHtml}
         <div class="improvement-action-actions">
+          <button type="button" class="ghost-btn toggle-action-detail-btn" data-action-id="${escapeHtml(action.id)}">${isExpanded ? "詳細を閉じる" : "詳細"}</button>
           ${sourceButton}
           ${action.status === "open" ? `<button type="button" class="ghost-btn update-action-status-btn" data-action-id="${escapeHtml(action.id)}" data-next-status="in_progress">進行中にする</button>` : ""}
           ${isCompleted ? "" : `<button type="button" class="update-action-status-btn" data-action-id="${escapeHtml(action.id)}" data-next-status="completed">完了にする</button>`}
@@ -3358,6 +3391,12 @@ function bindEvents() {
     renderImprovementActions();
   });
   document.getElementById("improvementActionList")?.addEventListener("click", (event) => {
+    const detailButton = event.target.closest(".toggle-action-detail-btn");
+    if (detailButton) {
+      expandedImprovementActionId = expandedImprovementActionId === detailButton.dataset.actionId ? null : detailButton.dataset.actionId;
+      renderImprovementActions();
+      return;
+    }
     const statusButton = event.target.closest(".update-action-status-btn");
     if (statusButton) {
       updateImprovementActionStatus(statusButton);

@@ -104,9 +104,13 @@ function getContextStoreName() {
   return context.primaryStoreName || context.storeName || context.store || "";
 }
 
+function isFamilyHonorificLabel(value) {
+  return /会長夫人|創業者夫人|夫人/.test(String(value || ""));
+}
+
 function inferRoleLabel() {
   const context = getHubContext();
-  if (context.positionName) return context.positionName;
+  if (context.positionName && !isFamilyHonorificLabel(context.positionName)) return context.positionName;
   const roles = getRoleKeys();
   if (roles.includes("store_manager")) return "店長";
   if (roles.includes("area_manager") || roles.includes("department_manager") || roles.includes("executive") || roles.includes("super_admin")) {

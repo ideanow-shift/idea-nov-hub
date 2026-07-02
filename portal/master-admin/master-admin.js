@@ -1241,6 +1241,7 @@ function formatActionType(actionType) {
     assign_staff_role: "共通ロール付与",
     auto_assign_staff_role: "共通ロール自動付与",
     update_app_roles: "アプリ権限更新",
+    update_profile_image: "プロフィール画像更新",
     create_login_credential: "ログイン設定作成",
     update_login_credential: "ログイン設定更新",
     change_own_pin: "本人PIN変更"
@@ -1249,6 +1250,7 @@ function formatActionType(actionType) {
 
 function getLogTypeLabel(log) {
   if (log.action_type === "update_app_roles") return "アプリ権限";
+  if (log.table_name === "employee_profile_images") return "プロフィール画像";
   if (log.table_name === "employee_store_assignments") return "店舗所属";
   if (log.table_name === "employee_roles") return "共通ロール";
   if (log.table_name === "employee_login_credentials") return "ログイン設定";
@@ -1560,6 +1562,7 @@ function renderEmployeeDetail(employee) {
     <h3>${escapeHtml(employee.full_name)}</h3>
     <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}${employee.updated_at ? ` / 最終更新: ${escapeHtml(formatDateTime(employee.updated_at))}` : ""}</p>
     <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。"}</p>
+    ${renderEmployeeProfileImagePanel(employee, readonly)}
     ${renderEmployeeRolePanel(employee)}
     ${loginPanel}
     <form class="form-grid" id="detail-form">
@@ -1629,6 +1632,7 @@ function renderEmployeeDetail(employee) {
   document.querySelector("#assign-staff-role")?.addEventListener("click", assignStaffRole);
   document.querySelector("#save-idea-link-roles")?.addEventListener("click", saveIdeaLinkRoles);
   document.querySelector("#save-login-credential")?.addEventListener("click", saveEmployeeLoginCredential);
+  document.querySelector("#upload-profile-image")?.addEventListener("click", uploadEmployeeProfileImage);
   setupLoginCredentialDirtyState();
 }
 
@@ -1684,6 +1688,35 @@ function renderEmployeeLoginPanel(employee, readonly) {
       </div>`}
     </section>`;
 }
+
+function renderEmployeeProfileImagePanel(employee, readonly) {
+  const image = employee.profile_image || {};
+  const imageUrl = image.profileImageUrl || image.avatarUrl || "";
+  const updatedAt = image.profileImageUpdatedAt ? formatDateTime(image.profileImageUpdatedAt) : "";
+  return `
+    <section class="profile-image-panel">
+      <div class="profile-image-preview">
+        ${imageUrl
+          ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(employee.full_name || "社員")}のプロフィール画像">`
+          : `<div class="profile-image-placeholder">${escapeHtml(String(employee.full_name || "?").slice(0, 1) || "?")}</div>`}
+      </div>
+      <div class="profile-image-body">
+        <strong>プロフィール画像</strong>
+        <p>IDEA NOV OS共通の社員画像です。IDEA LINKや他アプリもこの画像を参照します。</p>
+        ${updatedAt ? `<small>更新: ${escapeHtml(updatedAt)}</small>` : `<small>未設定</small>`}
+        ${readonly ? "" : `
+          <label class="profile-image-upload" for="profile-image-file">
+            <span>画像ファイル</span>
+            <input id="profile-image-file" type="file" accept="image/png,image/jpeg,image/webp">
+          </label>
+          <div class="profile-image-actions">
+            <span class="save-status" id="profile-image-save-status" aria-live="polite"></span>
+            <button class="button button-secondary" id="upload-profile-image" type="button">画像を保存</button>
+          </div>`}
+      </div>
+    </section>`;
+}
+
 
 function renderEmployeeRolePanel(employee) {
   const roleKeys = getCommonRoleKeys(employee);
@@ -2333,6 +2366,60 @@ async function linkFirebaseUid(event) {
     button.disabled = false;
   }
 }
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result || "")));
+    reader.addEventListener("error", () => reject(reader.error || new Error("ファイルを読み込めませんでした。")));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadEmployeeProfileImage(event) {
+  const employee = state.employees.find((item) => item.id === state.selectedId);
+  if (!employee) return;
+  const input = document.querySelector("#profile-image-file");
+  const status = document.querySelector("#profile-image-save-status");
+  const button = event.currentTarget;
+  const file = input?.files?.[0];
+  if (!file) {
+    showToast("画像ファイルを選択してください。");
+    return;
+  }
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    showToast("画像はJPEG、PNG、WebPを選択してください。");
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    showToast("画像は5MB以下にしてください。");
+    return;
+  }
+  try {
+    button.disabled = true;
+    button.textContent = "保存中...";
+    setSaveStatus(status, "画像を保存しています...", "pending");
+    const dataUrl = await readFileAsDataUrl(file);
+    await callApiAction("masterUploadEmployeeProfileImage", {
+      id: employee.id,
+      fileName: file.name,
+      contentType: file.type,
+      dataUrl
+    });
+    await refreshEmployees();
+    state.selectedId = employee.id;
+    await refreshLogsSilently();
+    render();
+    showToast("プロフィール画像を保存しました。");
+  } catch (error) {
+    console.error(error);
+    setSaveStatus(status, getErrorMessage(error), "error");
+    showToast(getErrorMessage(error));
+    button.disabled = false;
+    button.textContent = "画像を保存";
+  }
+}
+
 
 async function saveEmployeeLoginCredential(event) {
   const employee = state.employees.find((item) => item.id === state.selectedId);

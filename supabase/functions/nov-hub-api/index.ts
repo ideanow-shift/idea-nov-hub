@@ -12,6 +12,8 @@ const FIREBASE_API_KEY = Deno.env.get("FIREBASE_API_KEY") || FIREBASE_API_KEY_FA
 const APP_ROLE_GROUPS: Record<string, string[]> = {
   idea_link: ["idea_link.staff", "idea_link.manager", "idea_link.admin"],
 };
+const EMPLOYEE_PROFILE_IMAGE_BUCKET = "employee-profile-images";
+const MAX_PROFILE_IMAGE_BYTES = 5 * 1024 * 1024;
 let bootstrapRpcDisabledUntil = 0;
 
 type JsonRecord = Record<string, unknown>;
@@ -94,6 +96,79 @@ function buildQuery(query: Record<string, unknown> = {}) {
   });
   const text = params.toString();
   return text ? `?${text}` : "";
+}
+
+function sanitizeStorageFileName(value: unknown) {
+  const name = String(value || "profile-image").trim().toLowerCase();
+  const extension = name.match(/\.(jpe?g|png|webp)$/)?.[1] || "";
+  const base = name
+    .replace(/\.[^.]+$/u, "")
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48) || "profile-image";
+  return extension ? `${base}.${extension === "jpeg" ? "jpg" : extension}` : base;
+}
+
+function parseBase64ImagePayload(payload: JsonRecord) {
+  const contentType = String(payload.contentType || "").toLowerCase();
+  if (!["image/jpeg", "image/png", "image/webp"].includes(contentType)) {
+    throw new PortalError("INVALID_REQUEST", "Profile image must be jpeg, png, or webp.", 400);
+  }
+  const base64Text = String(payload.base64 || payload.dataUrl || "")
+    .replace(/^data:image\/[a-z0-9.+-]+;base64,/i, "")
+    .replace(/\s+/g, "");
+  if (!base64Text) throw new PortalError("INVALID_REQUEST", "Profile image data is required.", 400);
+  const binary = atob(base64Text);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  if (!bytes.length || bytes.length > MAX_PROFILE_IMAGE_BYTES) {
+    throw new PortalError("INVALID_REQUEST", "Profile image must be 5MB or less.", 400);
+  }
+  return bytes;
+}
+
+async function uploadStorageObject(bucket: string, storagePath: string, bytes: Uint8Array, contentType: string) {
+  assertSetup();
+  const encodedPath = storagePath.split("/").map(encodeURIComponent).join("/");
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/${encodeURIComponent(bucket)}/${encodedPath}`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": contentType,
+      "x-upsert": "true",
+    },
+    body: bytes,
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new PortalError("SUPABASE_REQUEST_FAILED", `Storage upload HTTP ${response.status}`, 502, text);
+  }
+}
+
+async function createStorageSignedUrl(bucket: string, storagePath: string, expiresIn = 3600) {
+  if (!storagePath) return "";
+  assertSetup();
+  const encodedPath = storagePath.split("/").map(encodeURIComponent).join("/");
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${encodeURIComponent(bucket)}/${encodedPath}`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ expiresIn }),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new PortalError("SUPABASE_REQUEST_FAILED", `Storage sign HTTP ${response.status}`, 502, text);
+  }
+  const data = JSON.parse(text || "{}");
+  const signedUrl = String(data.signedURL || data.signedUrl || "");
+  if (!signedUrl) return "";
+  return signedUrl.startsWith("http") ? signedUrl : `${SUPABASE_URL}/storage/v1${signedUrl}`;
 }
 
 async function supabaseRequest(path: string, options: {
@@ -881,6 +956,93 @@ function groupStoreAssignmentsByEmployeeForAdmin(assignments: JsonRecord[], stor
   }, {} as Record<string, JsonRecord[]>);
 }
 
+function sanitizeEmployeeProfileImage(row: JsonRecord | null, signedUrl = "") {
+  if (!row) return null;
+  return {
+    id: String(row.id || ""),
+    employeeId: String(row.employee_id || ""),
+    storageBucket: String(row.storage_bucket || EMPLOYEE_PROFILE_IMAGE_BUCKET),
+    storagePath: String(row.storage_path || ""),
+    isPrimary: row.is_primary !== false,
+    uploadedByEmployeeId: String(row.uploaded_by_employee_id || ""),
+    profileImageUrl: signedUrl,
+    avatarUrl: signedUrl,
+    profileImageUpdatedAt: String(row.updated_at || row.created_at || ""),
+  };
+}
+
+async function listEmployeeProfileImagesForAdmin() {
+  return await readRows("employee_profile_images", {
+    query: {
+      select: "id,employee_id,storage_bucket,storage_path,is_primary,uploaded_by_employee_id,created_at,updated_at",
+      is_primary: "eq.true",
+      limit: "1000",
+    },
+  }).catch(() => []);
+}
+
+async function indexEmployeeProfileImagesForAdmin() {
+  const rows = await listEmployeeProfileImagesForAdmin();
+  const signedEntries = await Promise.all(rows.map(async (row) => {
+    const bucket = String(row.storage_bucket || EMPLOYEE_PROFILE_IMAGE_BUCKET);
+    const storagePath = String(row.storage_path || "");
+    const signedUrl = storagePath ? await createStorageSignedUrl(bucket, storagePath).catch(() => "") : "";
+    return [String(row.employee_id || ""), sanitizeEmployeeProfileImage(row, signedUrl)] as const;
+  }));
+  return signedEntries.reduce((index, [employeeId, image]) => {
+    if (employeeId && image) index[employeeId] = image;
+    return index;
+  }, {} as Record<string, ReturnType<typeof sanitizeEmployeeProfileImage>>);
+}
+
+async function uploadEmployeeProfileImage(payload: JsonRecord, actor: JsonRecord) {
+  const employeeId = String(payload.id || payload.employee_id || "").trim();
+  if (!employeeId) throw new PortalError("INVALID_REQUEST", "Employee id is required.", 400);
+  const employee = await getCoreEmployeeById(employeeId);
+  if (!employee?.id) throw new PortalError("NOT_FOUND", "Employee was not found.", 404);
+  const contentType = String(payload.contentType || "").toLowerCase();
+  const bytes = parseBase64ImagePayload(payload);
+  const safeFileName = sanitizeStorageFileName(payload.fileName);
+  const extension = safeFileName.match(/\.(jpg|png|webp)$/)?.[1]
+    || (contentType === "image/png" ? "png" : contentType === "image/webp" ? "webp" : "jpg");
+  const storagePath = `employees/${employeeId}/profile-${Date.now()}.${extension}`;
+  await uploadStorageObject(EMPLOYEE_PROFILE_IMAGE_BUCKET, storagePath, bytes, contentType);
+  await supabaseRequest("employee_profile_images", {
+    method: "PATCH",
+    query: {
+      employee_id: `eq.${employeeId}`,
+      is_primary: "eq.true",
+    },
+    payload: {
+      is_primary: false,
+      updated_at: new Date().toISOString(),
+    },
+    prefer: "return=minimal",
+  }).catch(() => null);
+  const rows = await supabaseRequest("employee_profile_images", {
+    method: "POST",
+    query: { select: "id,employee_id,storage_bucket,storage_path,is_primary,uploaded_by_employee_id,created_at,updated_at" },
+    payload: {
+      employee_id: employeeId,
+      storage_bucket: EMPLOYEE_PROFILE_IMAGE_BUCKET,
+      storage_path: storagePath,
+      is_primary: true,
+      uploaded_by_employee_id: actor.id || null,
+    },
+    prefer: "return=representation",
+  }) as JsonRecord[];
+  const row = Array.isArray(rows) ? rows[0] || null : null;
+  await appendMasterChangeLog("employee_profile_images", employeeId, {
+    storage_bucket: EMPLOYEE_PROFILE_IMAGE_BUCKET,
+    storage_path: storagePath,
+  }, actor, {
+    actionType: "update_profile_image",
+    targetName: String(employee.full_name || employee.employee_id || employee.id || ""),
+  });
+  const signedUrl = row ? await createStorageSignedUrl(EMPLOYEE_PROFILE_IMAGE_BUCKET, storagePath).catch(() => "") : "";
+  return sanitizeEmployeeProfileImage(row, signedUrl);
+}
+
 async function listCoreEmployeesForAdmin() {
   const [
     employees,
@@ -891,6 +1053,7 @@ async function listCoreEmployeesForAdmin() {
     assignments,
     rolesByEmployee,
     credentialsByEmployee,
+    profileImagesByEmployee,
   ] = await Promise.all([
     readRows("employees", {
       query: {
@@ -906,6 +1069,7 @@ async function listCoreEmployeesForAdmin() {
     listEmployeeStoreAssignmentsForAdmin().catch(() => []),
     groupRolesByEmployeeForAdmin().catch(() => ({})),
     indexLoginCredentialsByEmployee().catch(() => ({})),
+    indexEmployeeProfileImagesForAdmin().catch(() => ({})),
   ]);
   const corporationsById = indexById(corporations);
   const storesById = indexById(stores);
@@ -935,6 +1099,7 @@ async function listCoreEmployeesForAdmin() {
       source_assigned_location: String(source.assigned_location || ""),
       source_position_name: String(source.position_name || ""),
       login_credential: credentialsByEmployee[String(employee.id || "")] || null,
+      profile_image: profileImagesByEmployee[String(employee.id || "")] || null,
     };
   });
 }
@@ -2340,6 +2505,11 @@ Deno.serve(async (request) => {
     if (action === "masterUpdateEmployeeLoginCredential") {
       assertMasterEditor(employee);
       return jsonResponse({ ok: true, credential: await updateEmployeeLoginCredential(employee, payload) });
+    }
+
+    if (action === "masterUploadEmployeeProfileImage") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, profileImage: await uploadEmployeeProfileImage(payload, employee) });
     }
 
     if (action === "masterCreateEmployee") {

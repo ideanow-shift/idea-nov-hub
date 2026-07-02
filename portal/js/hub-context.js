@@ -210,7 +210,8 @@ export function readHubEmployeeContextFromUrl(url) {
 }
 
 export function buildHubEmployeeContext(employee = {}, authType = "") {
-  const sourceLabel = employee.source === "supabase" ? "Core DB" : employee.source === "spreadsheet" ? "Spreadsheet" : "Demo";
+  const source = String(employee.source || "").toLowerCase();
+  const sourceLabel = source.startsWith("supabase") ? "Core DB" : source === "spreadsheet" ? "Spreadsheet" : "HUB";
   const coreEmployeeId = String(employee.coreEmployeeId || employee.id || "");
   const employeeNumber = String(employee.employeeNumber || employee.employeeId || "");
   const roleKeys = normalizeArray(employee.roleKeys);

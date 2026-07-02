@@ -34,6 +34,8 @@ const LEAVE_TYPE_OPTIONS = [
   ["介護", "介護"],
   ["その他", "その他"]
 ];
+
+const FORBIDDEN_EMPLOYEE_ATTRIBUTE_LABELS = new Set(["会長夫人", "創業者夫人", "夫人"]);
 const EMPLOYMENT_TYPE_ALIASES = {
   "パート": "パート・アルバイト",
   "アルバイト": "パート・アルバイト",
@@ -2019,9 +2021,13 @@ function fieldTextarea(name, label, value) {
     </div>`;
 }
 
+function isForbiddenEmployeeAttributeLabel(row, labelKey) {
+  return FORBIDDEN_EMPLOYEE_ATTRIBUTE_LABELS.has(String(row && row[labelKey] || "").trim());
+}
+
 function fieldSelect(name, label, rows, value, labelKey) {
   const normalizedValue = String(value || "");
-  const visibleRows = rows.filter((row) => row.is_active !== false || String(row.id || "") === normalizedValue);
+  const visibleRows = rows.filter((row) => !isForbiddenEmployeeAttributeLabel(row, labelKey) && (row.is_active !== false || String(row.id || "") === normalizedValue));
   const options = [`<option value="">未設定</option>`].concat(visibleRows.map((row) => {
     const selected = String(row.id || "") === normalizedValue ? " selected" : "";
     const inactiveLabel = row.is_active === false ? "（非表示）" : "";

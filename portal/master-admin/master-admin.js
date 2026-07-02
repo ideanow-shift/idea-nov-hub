@@ -13,6 +13,17 @@ const APP_ROLE_GROUPS = [
     roleKeys: IDEA_LINK_ROLE_KEYS
   }
 ];
+const EMPLOYMENT_TYPE_OPTIONS = [
+  ["正社員", "正社員"],
+  ["パート", "パート"],
+  ["アルバイト", "アルバイト"],
+  ["業務委託", "業務委託"],
+  ["役員", "役員"],
+  ["その他", "その他"]
+];
+const EMPLOYMENT_TYPE_ALIASES = {
+  "レセプション": "パート"
+};
 
 const state = {
   view: "employees",
@@ -68,6 +79,16 @@ function showToast(message) {
   elements.toast.hidden = false;
   window.clearTimeout(showToast.timer);
   showToast.timer = window.setTimeout(() => { elements.toast.hidden = true; }, 3600);
+}
+
+function normalizeEmploymentType(value) {
+  const normalized = String(value || "").trim();
+  return EMPLOYMENT_TYPE_ALIASES[normalized] || normalized;
+}
+
+function normalizeEmploymentTypeForForm(value) {
+  const normalized = normalizeEmploymentType(value);
+  return EMPLOYMENT_TYPE_OPTIONS.some(([optionValue]) => optionValue === normalized) ? normalized : "";
 }
 
 function getErrorMessage(error) {
@@ -1429,14 +1450,7 @@ function renderNewEmployeeDetail() {
       </div>
       ${fieldSelect("department_id", "部署", state.masters.departments, "", "department_name")}
       ${fieldSelect("position_id", "役職", state.masters.positions, "", "position_name")}
-      ${fieldStaticSelect("employment_type", "雇用形態", [
-        ["正社員", "正社員"],
-        ["パート", "パート"],
-        ["アルバイト", "アルバイト"],
-        ["業務委託", "業務委託"],
-        ["役員", "役員"],
-        ["その他", "その他"]
-      ], "正社員")}
+      ${fieldStaticSelect("employment_type", "雇用形態", EMPLOYMENT_TYPE_OPTIONS, "正社員")}
       ${fieldStaticSelect("employment_status", "現職/休職/退職", [
         ["現職", "現職"],
         ["休職", "休職"],
@@ -1586,7 +1600,7 @@ function renderEmployeeDetail(employee) {
       </section>
       ${fieldSelect("department_id", "部署", state.masters.departments, employee.department_id, "department_name")}
       ${fieldSelect("position_id", "役職", state.masters.positions, employee.position_id, "position_name")}
-      ${fieldValueSelect("employment_type", "雇用形態", getUniqueValues(state.employees, "employment_type"), employee.employment_type || "")}
+      ${fieldStaticSelect("employment_type", "雇用形態", EMPLOYMENT_TYPE_OPTIONS, normalizeEmploymentTypeForForm(employee.employment_type || ""))}
       ${fieldStaticSelect("employment_status", "現職/休職/退職", [
         ["現職", "現職"],
         ["休職", "休職"],
@@ -2046,6 +2060,7 @@ function collectFormPayload() {
 function collectEmployeePayload() {
   const payload = collectFormPayload();
   delete payload.firebase_uid;
+  payload.employment_type = normalizeEmploymentType(payload.employment_type);
   payload.is_active = document.querySelector("#is_active").checked;
   return payload;
 }

@@ -14,6 +14,9 @@ const APP_ROLE_GROUPS: Record<string, string[]> = {
 };
 const EMPLOYEE_PROFILE_IMAGE_BUCKET = "employee-profile-images";
 const MAX_PROFILE_IMAGE_BYTES = 5 * 1024 * 1024;
+const EMPLOYMENT_TYPE_ALIASES: Record<string, string> = {
+  "レセプション": "パート",
+};
 let bootstrapRpcDisabledUntil = 0;
 
 type JsonRecord = Record<string, unknown>;
@@ -96,6 +99,11 @@ function buildQuery(query: Record<string, unknown> = {}) {
   });
   const text = params.toString();
   return text ? `?${text}` : "";
+}
+
+function normalizeEmploymentType(value: unknown) {
+  const normalized = String(value || "").trim();
+  return EMPLOYMENT_TYPE_ALIASES[normalized] || normalized;
 }
 
 function sanitizeStorageFileName(value: unknown) {
@@ -1598,6 +1606,9 @@ function buildEmployeeRow(payload: JsonRecord, now: string, includeCreatedAt = f
   copyStringField(row, payload, "leave_type");
   copyStringField(row, payload, "employment_status");
   copyStringField(row, payload, "employment_type");
+  if (Object.prototype.hasOwnProperty.call(row, "employment_type")) {
+    row.employment_type = normalizeEmploymentType(row.employment_type);
+  }
   copyDateField(row, payload, "birth_date");
   copyDateField(row, payload, "joined_on");
   copyDateField(row, payload, "retired_on");

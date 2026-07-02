@@ -57,6 +57,8 @@ Notification Engine が LINE WORKS へ送信
 
 Phase1では部署IDに厳密に紐づけず、global通知先として扱います。
 
+この運用は暫定です。`concierge_department_routes.department_name` はCore DB `public.departments` の正本ではなく、NOV Navi画面上の問い合わせ先route labelです。
+
 ```text
 provider = line_works
 target_type = global
@@ -75,7 +77,7 @@ purpose = concierge.department_inquiry.{route_key}
 | `fc` | `concierge.department_inquiry.fc` |
 | `system` | `concierge.department_inquiry.system` |
 
-将来、Core DBの部署管理が安定したら以下へ寄せます。
+将来、部署候補と通知先設定が揃ったら以下へ寄せます。
 
 ```text
 target_type = department
@@ -90,6 +92,8 @@ purpose = concierge.department_inquiry
 ### `public.concierge_department_routes`
 
 NOV Navi画面上の問い合わせ導線を定義します。
+
+`department_name` は既存DDL互換のため残している表示ラベルです。正式な部署参照が必要になった場合は、Core DB `public.departments.id` を別途参照します。
 
 主なカラム:
 

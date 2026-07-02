@@ -2,6 +2,8 @@
 -- Phase1: NOV Navigator records department inquiries in Supabase.
 -- Phase2: HUB backend / Edge Function resolves route_id via os.notification_destinations
 -- and sends notifications through the OS Notification Engine.
+-- Note: concierge_department_routes.department_name is a route label for Phase1,
+-- not the source of truth for public.departments.
 
 create table if not exists public.concierge_department_routes (
   id text primary key,
@@ -16,7 +18,7 @@ create table if not exists public.concierge_department_routes (
 );
 
 comment on table public.concierge_department_routes is
-  'NOV Navigator department routing master. Notification destinations are resolved by OS Notification Engine, not stored here.';
+  'NOV Navigator inquiry route labels. Department source of truth is public.departments; notification destinations are resolved by OS Notification Engine, not stored here.';
 
 create table if not exists public.concierge_department_inquiries (
   id uuid primary key default gen_random_uuid(),

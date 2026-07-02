@@ -203,6 +203,8 @@ NOV Navigatorでは社員属性を独自マスタ化しません。
 
 表示名はCore DBから取得し、NOV Navigator側に重複正本を作りません。
 
+`会長夫人` / `創業者夫人` / `夫人` などの家族関係・敬称ラベルは、役職・職種・雇用形態・権限として扱いません。回答ルール、問い合わせルート、LINE WORKS通知先、管理画面権限、HUB Context判定にも使いません。
+
 ## 質問ログ保存
 
 質問ログはSupabase `public.concierge_question_logs` に保存します。

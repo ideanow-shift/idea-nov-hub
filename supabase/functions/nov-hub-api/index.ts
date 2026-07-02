@@ -1341,6 +1341,40 @@ async function syncEmployeeEmailFromLoginEmailIfEmpty(employee: JsonRecord, logi
   return rows[0] || null;
 }
 
+async function syncLoginEmailFromEmployeeEmailIfExists(employee: JsonRecord, email: string, actor: JsonRecord) {
+  const employeeId = String(employee.id || "").trim();
+  const normalizedEmail = normalizeEmail(email);
+  if (!employeeId || !normalizedEmail) return null;
+
+  const existing = await getCredentialByEmployeeId(employeeId);
+  if (!existing?.id) return null;
+  if (normalizeEmail(existing.login_email) === normalizedEmail) return sanitizeLoginCredential(existing);
+
+  const duplicate = await findCredentialByEmail(normalizedEmail);
+  if (duplicate?.employee_id && String(duplicate.employee_id) !== employeeId) {
+    throw new PortalError("DUPLICATE_LOGIN_EMAIL", "Duplicate login email.", 409);
+  }
+
+  const now = new Date().toISOString();
+  const rows = await readRows("employee_login_credentials", {
+    method: "PATCH",
+    query: { id: `eq.${existing.id}`, select: "id,employee_id,login_email,pin_updated_at,must_change_pin,login_enabled,failed_attempts,locked_until,last_login_at,created_at,updated_at" },
+    payload: {
+      login_email: normalizedEmail,
+      updated_at: now,
+    },
+    prefer: "return=representation",
+  });
+  await appendMasterChangeLog("employee_login_credentials", employeeId, {
+    login_email: normalizedEmail,
+    source: "employee_email_sync",
+  }, actor, {
+    actionType: "sync_login_email_from_employee_email",
+    targetName: String(employee.full_name || employee.employee_id || employeeId),
+  });
+  return sanitizeLoginCredential(rows[0] || { ...existing, login_email: normalizedEmail, updated_at: now });
+}
+
 async function updateEmployeeLoginCredential(actor: JsonRecord, payload: JsonRecord) {
   const employeeId = String(payload.id || payload.employee_id || "").trim();
   if (!employeeId) throw new PortalError("INVALID_REQUEST", "Employee id is required.", 400);
@@ -1926,6 +1960,9 @@ async function updateCoreEmployee(payload: JsonRecord, actor: JsonRecord) {
     await appendAssignmentHistoryIfNeeded(before, after, changedUpdates, actor);
   }
   await updateEmployeeStoreAssignmentsIfPresent(id, payload, actor);
+  if (Object.prototype.hasOwnProperty.call(payload, "email")) {
+    await syncLoginEmailFromEmployeeEmailIfExists(after, String(payload.email || ""), actor);
+  }
   return after;
 }
 

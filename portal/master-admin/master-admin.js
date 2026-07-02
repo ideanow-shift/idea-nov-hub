@@ -1608,7 +1608,7 @@ function renderEmployeeDetail(employee) {
       ${issuePanel}
       ${renderEmployeeAppRolePanel(employee, readonly)}
       ${firebaseLinkPanel}
-      ${fieldInput("email", "メール", employee.email || "", "email")}
+      ${fieldInput("email", "メールアドレス", getEmployeeContactEmail(employee), "email")}
       ${fieldInput("birth_date", "誕生日", employee.birth_date || "", "date")}
       ${fieldInput("joined_on", "入社日", employee.joined_on || "", "date")}
       ${fieldInput("retired_on", "退職日", employee.retired_on || "", "date")}
@@ -1666,7 +1666,7 @@ function renderEmployeeDetail(employee) {
 
 function renderEmployeeLoginPanel(employee, readonly) {
   const credential = getEmployeeCredential(employee);
-  const loginEmail = credential.login_email || employee.email || "";
+  const loginEmail = employee.email || credential.login_email || "";
   const pinLabel = credential.pin_set
     ? `設定済み${credential.pin_updated_at ? ` / 更新: ${formatDateTime(credential.pin_updated_at)}` : ""}`
     : "未設定";
@@ -1683,10 +1683,11 @@ function renderEmployeeLoginPanel(employee, readonly) {
         <span class="status-pill${credential.login_enabled === false ? " inactive" : credential.pin_set ? "" : " warning"}">${credential.login_enabled === false ? "ログイン停止" : credential.pin_set ? "ログイン可" : "PIN未設定"}</span>
       </div>
       <div class="login-credential-grid">
-        <label class="form-field" for="login_email">
+        <div class="form-field">
           <span>ログインメール</span>
-          <input class="form-input" id="login_email" type="email" value="${escapeHtml(loginEmail)}"${readonly ? " disabled" : ""}>
-        </label>
+          <div class="form-static">${escapeHtml(loginEmail || "メールアドレス未設定")}</div>
+          <small>上の「メールアドレス」を保存すると、ログインメールにも同期されます。</small>
+        </div>
         <label class="form-field" for="new_pin">
           <span>新しいPIN</span>
           <input class="form-input" id="new_pin" type="password" inputmode="numeric" autocomplete="new-password" placeholder="${credential.pin_set ? "変更時のみ入力" : "4〜12桁の数字"}"${readonly ? " disabled" : ""}>
@@ -2147,7 +2148,7 @@ function setupLoginCredentialDirtyState() {
 
 function getLoginCredentialSnapshot() {
   const payload = {
-    login_email: document.querySelector("#login_email")?.value.trim() || "",
+    login_email: getCurrentEmployeeEmailInputValue(),
     new_pin: document.querySelector("#new_pin")?.value.trim() || "",
     login_enabled: document.querySelector("#login_enabled")?.checked || false,
     must_change_pin: document.querySelector("#must_change_pin")?.checked || false,
@@ -2172,9 +2173,9 @@ function updateLoginCredentialDirtyState(snapshot, status, button) {
 
 function getLoginCredentialStatusMessage(employee) {
   const credential = getEmployeeCredential(employee);
-  const loginEmail = document.querySelector("#login_email")?.value.trim() || credential.login_email || employee?.email || "";
-  if (!loginEmail && !credential.pin_set) return "ログインメール/PINが未設定です。";
-  if (!loginEmail) return "ログインメールが未設定です。";
+  const loginEmail = getCurrentEmployeeEmailInputValue() || credential.login_email || employee?.email || "";
+  if (!loginEmail && !credential.pin_set) return "メールアドレス/PINが未設定です。";
+  if (!loginEmail) return "メールアドレスが未設定です。";
   if (!credential.pin_set) return "PIN未設定です。";
   if (credential.login_enabled === false) return "ログイン停止中です。";
   if (credential.locked) return "ログインがロック中です。";
@@ -2184,10 +2185,14 @@ function getLoginCredentialStatusMessage(employee) {
 
 function getLoginCredentialStatusTone(employee) {
   const credential = getEmployeeCredential(employee);
-  const loginEmail = document.querySelector("#login_email")?.value.trim() || credential.login_email || employee?.email || "";
+  const loginEmail = getCurrentEmployeeEmailInputValue() || credential.login_email || employee?.email || "";
   if (!loginEmail || !credential.pin_set || credential.locked || credential.must_change_pin) return "pending";
   if (credential.login_enabled === false) return "error";
   return "success";
+}
+
+function getCurrentEmployeeEmailInputValue() {
+  return document.querySelector("#email")?.value.trim() || "";
 }
 
 function updateDirtyState(type, status, button) {
@@ -2465,15 +2470,15 @@ async function saveEmployeeLoginCredential(event) {
   if (!employee) return;
   const button = event.currentTarget;
   const status = document.querySelector("#login-credential-save-status");
-  const loginEmail = document.querySelector("#login_email")?.value.trim() || "";
+  const loginEmail = getCurrentEmployeeEmailInputValue();
   const newPin = document.querySelector("#new_pin")?.value.trim() || "";
   const loginEnabled = document.querySelector("#login_enabled")?.checked || false;
   const mustChangePin = document.querySelector("#must_change_pin")?.checked || false;
   const clearLock = document.querySelector("#clear_login_lock")?.checked || false;
 
   if (!loginEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
-    setSaveStatus(status, "ログインメールの形式を確認してください。", "error");
-    showToast("ログインメールの形式を確認してください。");
+    setSaveStatus(status, "メールアドレスの形式を確認してください。", "error");
+    showToast("メールアドレスの形式を確認してください。");
     return;
   }
   if (newPin && !/^\d{4,12}$/.test(newPin)) {

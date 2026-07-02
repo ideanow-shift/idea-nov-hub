@@ -36,6 +36,24 @@ const LEAVE_TYPE_OPTIONS = [
 ];
 
 const FORBIDDEN_EMPLOYEE_ATTRIBUTE_LABELS = new Set(["会長夫人", "創業者夫人", "夫人"]);
+const FORMAL_EMPLOYEE_POSITION_LABELS = new Set([
+  "相談役",
+  "会長",
+  "社長",
+  "副社長",
+  "取締役",
+  "執行役員",
+  "部長",
+  "課長",
+  "係長",
+  "エリアマネージャー",
+  "店長",
+  "店長見習い",
+  "副店長",
+  "FCオーナー",
+  "FCオーナー見習い",
+  "一般スタッフ"
+]);
 const EMPLOYMENT_TYPE_ALIASES = {
   "パート": "パート・アルバイト",
   "アルバイト": "パート・アルバイト",
@@ -2025,9 +2043,17 @@ function isForbiddenEmployeeAttributeLabel(row, labelKey) {
   return FORBIDDEN_EMPLOYEE_ATTRIBUTE_LABELS.has(String(row && row[labelKey] || "").trim());
 }
 
+function isAllowedPositionOption(row, labelKey) {
+  return FORMAL_EMPLOYEE_POSITION_LABELS.has(String(row && row[labelKey] || "").trim());
+}
+
 function fieldSelect(name, label, rows, value, labelKey) {
   const normalizedValue = String(value || "");
-  const visibleRows = rows.filter((row) => !isForbiddenEmployeeAttributeLabel(row, labelKey) && (row.is_active !== false || String(row.id || "") === normalizedValue));
+  const visibleRows = rows.filter((row) => (
+    !isForbiddenEmployeeAttributeLabel(row, labelKey)
+    && (name !== "position_id" || isAllowedPositionOption(row, labelKey))
+    && (row.is_active !== false || String(row.id || "") === normalizedValue)
+  ));
   const options = [`<option value="">未設定</option>`].concat(visibleRows.map((row) => {
     const selected = String(row.id || "") === normalizedValue ? " selected" : "";
     const inactiveLabel = row.is_active === false ? "（非表示）" : "";

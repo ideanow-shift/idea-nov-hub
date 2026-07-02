@@ -34,6 +34,24 @@ const LEAVE_TYPE_ALIASES: Record<string, string> = {
 let bootstrapRpcDisabledUntil = 0;
 
 const FORBIDDEN_EMPLOYEE_ATTRIBUTE_LABELS = new Set(["会長夫人", "創業者夫人", "夫人"]);
+const FORMAL_EMPLOYEE_POSITION_LABELS = new Set([
+  "相談役",
+  "会長",
+  "社長",
+  "副社長",
+  "取締役",
+  "執行役員",
+  "部長",
+  "課長",
+  "係長",
+  "エリアマネージャー",
+  "店長",
+  "店長見習い",
+  "副店長",
+  "FCオーナー",
+  "FCオーナー見習い",
+  "一般スタッフ",
+]);
 
 type JsonRecord = Record<string, unknown>;
 
@@ -1468,7 +1486,7 @@ async function assertAllowedEmployeePosition(positionId: unknown) {
   if (!normalizedPositionId) return;
   const rows = await readRows("positions", {
     query: {
-      select: "id,position_name",
+      select: "id,position_name,is_active",
       id: `eq.${normalizedPositionId}`,
       limit: "1",
     },
@@ -1477,6 +1495,9 @@ async function assertAllowedEmployeePosition(positionId: unknown) {
   const positionName = String(position?.position_name || "").trim();
   if (FORBIDDEN_EMPLOYEE_ATTRIBUTE_LABELS.has(positionName)) {
     throw new PortalError("INVALID_REQUEST", "家族関係・敬称ラベルは役職として設定できません。", 400);
+  }
+  if (!FORMAL_EMPLOYEE_POSITION_LABELS.has(positionName) || position?.is_active === false) {
+    throw new PortalError("INVALID_REQUEST", "正式役職リストにない値は役職として設定できません。職種は職種欄で管理してください。", 400);
   }
 }
 

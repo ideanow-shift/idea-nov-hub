@@ -1557,8 +1557,14 @@ async function appendAssignmentHistoryForCreatedEmployee(employee: JsonRecord, a
 function inferAssignmentChangeType(before: JsonRecord, after: JsonRecord, updates: JsonRecord) {
   if (String(after.employment_status || "").includes("退職") || after.is_active === false) return "retire";
   if (Object.prototype.hasOwnProperty.call(updates, "store_id")) return "transfer";
-  if (Object.prototype.hasOwnProperty.call(updates, "position_id")) return "position_change";
-  if (Object.prototype.hasOwnProperty.call(updates, "employment_status")) return "status_change";
+  if (Object.prototype.hasOwnProperty.call(updates, "employment_status")) {
+    const beforeStatus = String(before.employment_status || "");
+    const afterStatus = String(after.employment_status || "");
+    if (afterStatus.includes("休職")) return "leave";
+    if (beforeStatus.includes("休職") && afterStatus.includes("現職")) return "return";
+    return "correction";
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, "position_id")) return "correction";
   return "update";
 }
 

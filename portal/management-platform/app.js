@@ -63,6 +63,11 @@ function getTargetEmployeeName(employeeId) {
   return employee?.fullName || getDisplayName();
 }
 
+function getTargetEmployeeOptionLabel(employee) {
+  const name = employee.fullName || employee.email || employee.id;
+  return employee.jobTypeName ? `${name} / ${employee.jobTypeName}` : name;
+}
+
 function getRoleKeys() {
   if (trustedActor?.roles?.length) return trustedActor.roles.map(String);
   const context = getHubContext();
@@ -804,7 +809,7 @@ function renderTargetEmployeeOptions() {
     ? targetEmployees
     : (fallbackId ? [{ id: fallbackId, fullName: fallbackName, storeId: getDefaultStoreId() }] : []);
   select.innerHTML = employees.length
-    ? employees.map((employee) => `<option value="${escapeHtml(employee.id)}">${escapeHtml(employee.fullName || employee.email || employee.id)}</option>`).join("")
+    ? employees.map((employee) => `<option value="${escapeHtml(employee.id)}">${escapeHtml(getTargetEmployeeOptionLabel(employee))}</option>`).join("")
     : `<option value="">対象者を取得できません</option>`;
   if (employees.some((employee) => employee.id === currentValue)) {
     select.value = currentValue;

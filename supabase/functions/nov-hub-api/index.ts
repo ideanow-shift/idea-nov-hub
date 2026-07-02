@@ -33,6 +33,8 @@ const LEAVE_TYPE_ALIASES: Record<string, string> = {
 };
 let bootstrapRpcDisabledUntil = 0;
 
+const FORBIDDEN_EMPLOYEE_ATTRIBUTE_LABELS = new Set(["会長夫人", "創業者夫人", "夫人"]);
+
 type JsonRecord = Record<string, unknown>;
 
 class PortalError extends Error {
@@ -1461,6 +1463,23 @@ function copyNullableUuidField(target: JsonRecord, source: JsonRecord, fieldName
   }
 }
 
+async function assertAllowedEmployeePosition(positionId: unknown) {
+  const normalizedPositionId = String(positionId || "").trim();
+  if (!normalizedPositionId) return;
+  const rows = await readRows("positions", {
+    query: {
+      select: "id,position_name",
+      id: `eq.${normalizedPositionId}`,
+      limit: "1",
+    },
+  });
+  const position = rows[0] || null;
+  const positionName = String(position?.position_name || "").trim();
+  if (FORBIDDEN_EMPLOYEE_ATTRIBUTE_LABELS.has(positionName)) {
+    throw new PortalError("INVALID_REQUEST", "家族関係・敬称ラベルは役職として設定できません。", 400);
+  }
+}
+
 function copyDateField(target: JsonRecord, source: JsonRecord, fieldName: string) {
   if (!Object.prototype.hasOwnProperty.call(source, fieldName)) return;
   const value = String(source[fieldName] || "").trim();
@@ -1907,6 +1926,7 @@ async function createCoreEmployee(payload: JsonRecord, actor: JsonRecord) {
   if (duplicateRows.length) throw new PortalError("DUPLICATE_EMPLOYEE_ID", "Duplicate employee id.", 409);
 
   const now = new Date().toISOString();
+  await assertAllowedEmployeePosition(payload.position_id);
   const row = buildEmployeeRow(payload, now, true);
   row.employee_id = employeeId;
   row.full_name = fullName;
@@ -1940,6 +1960,7 @@ async function updateCoreEmployee(payload: JsonRecord, actor: JsonRecord) {
   if (!id) throw new PortalError("INVALID_REQUEST", "Employee id is required.", 400);
   const before = await getCoreEmployeeById(id);
   if (!before?.id) throw new PortalError("NOT_FOUND", "Employee was not found.", 404);
+  await assertAllowedEmployeePosition(Object.prototype.hasOwnProperty.call(payload, "position_id") ? payload.position_id : before.position_id);
   const updates = buildEmployeeRow(payload, new Date().toISOString());
   delete updates.employee_id;
   delete updates.full_name;

@@ -93,5 +93,9 @@
 - [ ] 旧名称 `NOV Concierge` が画面表示に残っていない
 - [ ] `service_role` や秘密情報がフロントに出ていない
 - [ ] スタッフをNotebookLMへ直接遷移させていない
+- [ ] `HUB_Context対応設計_NOVNavi.md` をHUB側へ共有済み
+- [ ] HUBログイン済みの場合は店舗ID/PASSをスキップする方針になっている
+- [ ] HUB Contextがない場合だけPhase1店舗ID/PASS fallbackを使う方針になっている
+- [ ] 管理画面表示権限は `roleKeys` とbackend検証で制御する方針になっている
 
 期待結果: NOV NaviがHUB内の社内OS入口として動く。

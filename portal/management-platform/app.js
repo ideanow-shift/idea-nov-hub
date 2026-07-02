@@ -1455,6 +1455,12 @@ function renderImprovementActionSummary(filteredActions) {
   `;
 }
 
+function canEditImprovementAction(action) {
+  if (isManagementAdmin()) return true;
+  const employeeId = getCurrentEmployeeId();
+  if (!employeeId || !action) return false;
+  return action.ownerEmployeeId === employeeId || action.targetEmployeeId === employeeId;
+}
 function renderImprovementActionDetail(action) {
   const aiNote = action.aiDraft?.summary || action.aiDraft?.reason || action.aiDraft?.note || "";
   return `
@@ -1506,6 +1512,7 @@ function renderImprovementActions() {
       : `<button type="button" class="ghost-btn action-source-detail-btn" data-record-id="${escapeHtml(action.sourceCheckId || "")}">元履歴</button>`;
     const isExpanded = action.id === expandedImprovementActionId;
     const detailHtml = isExpanded ? renderImprovementActionDetail(action) : "";
+    const canEditAction = canEditImprovementAction(action);
     return `
       <article class="improvement-action-card">
         <div class="improvement-action-card-head">
@@ -1530,9 +1537,9 @@ function renderImprovementActions() {
         <div class="improvement-action-actions">
           <button type="button" class="ghost-btn toggle-action-detail-btn" data-action-id="${escapeHtml(action.id)}">${isExpanded ? "詳細を閉じる" : "詳細"}</button>
           ${sourceButton}
-          ${action.status === "open" ? `<button type="button" class="ghost-btn update-action-status-btn" data-action-id="${escapeHtml(action.id)}" data-next-status="in_progress">進行中にする</button>` : ""}
-          ${isCompleted ? "" : `<button type="button" class="update-action-status-btn" data-action-id="${escapeHtml(action.id)}" data-next-status="completed">完了にする</button>`}
-          ${["completed", "archived"].includes(action.status) ? "" : `<button type="button" class="ghost-btn update-action-status-btn" data-action-id="${escapeHtml(action.id)}" data-next-status="archived">アーカイブ</button>`}
+          ${canEditAction && action.status === "open" ? `<button type="button" class="ghost-btn update-action-status-btn" data-action-id="${escapeHtml(action.id)}" data-next-status="in_progress">進行中にする</button>` : ""}
+          ${canEditAction && !["completed", "archived"].includes(action.status) ? `<button type="button" class="update-action-status-btn" data-action-id="${escapeHtml(action.id)}" data-next-status="completed">完了にする</button>` : ""}
+          ${canEditAction && !["completed", "archived"].includes(action.status) ? `<button type="button" class="ghost-btn update-action-status-btn" data-action-id="${escapeHtml(action.id)}" data-next-status="archived">アーカイブ</button>` : ""}
         </div>
       </article>
     `;

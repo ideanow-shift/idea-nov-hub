@@ -74,7 +74,7 @@ function isManagementAdmin() {
 }
 
 function isViewAllowed(name) {
-  if (["environment", "actions"].includes(name)) return isManagementAdmin();
+  if (name === "environment") return isManagementAdmin();
   return true;
 }
 
@@ -3610,7 +3610,7 @@ function applyRoleBasedView() {
   const admin = isManagementAdmin();
   document.body.dataset.managementMode = admin ? "admin" : "recipient";
 
-  ["environment", "actions"].forEach((viewName) => {
+  ["environment"].forEach((viewName) => {
     const button = document.querySelector(`[data-view="${viewName}"]`);
     const view = document.getElementById(`view-${viewName}`);
     if (button) button.hidden = !admin;
@@ -3639,6 +3639,8 @@ function applyRoleBasedView() {
   if (growthButton) growthButton.textContent = admin ? "確認" : "自分の確認";
   const performanceButton = document.querySelector('[data-view="performance"]');
   if (performanceButton) performanceButton.textContent = admin ? "成果" : "自店成果";
+  const actionsButton = document.querySelector('[data-view="actions"]');
+  if (actionsButton) actionsButton.textContent = admin ? "??" : "?????";
 
   const activeView = document.querySelector(".view.active");
   if (!activeView || activeView.hidden || !isViewAllowed(activeView.id.replace("view-", ""))) {

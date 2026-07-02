@@ -3340,7 +3340,17 @@ async function updateAuthStatus() {
   const mode = isManagementAdmin() ? "管理者モード" : "スタッフ閲覧モード";
   status.textContent = token
     ? `Management API設定済みです。${mode} / ${getStoreLabel()} / ${getDisplayName()}`
-    : "Firebase ID tokenが見つかりません。NOV HUBから開き直してください。";
+    : "Firebase ID tokenが見つかりません。NOV HUBへGoogleログインしてから開き直してください。";
+  if (!token) {
+    const context = getHubContext();
+    const hasHubContext = Boolean(context?.employeeId || context?.coreEmployeeId || context?.supabaseEmployeeId || context?.id);
+    setApiStatus(
+      hasHubContext
+        ? "HUB Contextは受け取っていますが、Management APIはFirebase Auth連携が必要です。NOV HUBでGoogleログインして開き直してください。"
+        : "Management APIへ接続できません。NOV HUBからManagement Platformを開き直してください。",
+      "error"
+    );
+  }
 }
 
 async function handleLogin(event) {

@@ -1402,10 +1402,24 @@ function getActionSourceLabel(sourceType) {
   return map[sourceType || "environment_check"] || sourceType || "-";
 }
 
+function isActionRelatedToCurrentUser(action) {
+  if (isManagementAdmin()) return true;
+  const employeeId = getCurrentEmployeeId();
+  const displayName = getDisplayName();
+  if (employeeId && (action.targetEmployeeId === employeeId || action.ownerEmployeeId === employeeId)) return true;
+  if (displayName && action.targetEmployeeName && action.targetEmployeeName.includes(displayName)) return true;
+  if (displayName && action.ownerEmployeeName && action.ownerEmployeeName.includes(displayName)) return true;
+  return false;
+}
+
+function getVisibleImprovementActions() {
+  return (improvementActions || []).filter(isActionRelatedToCurrentUser);
+}
+
 function getFilteredImprovementActions() {
   const statusFilter = document.getElementById("actionStatusFilter")?.value || "";
   const sourceFilter = document.getElementById("actionSourceFilter")?.value || "";
-  return improvementActions.filter((action) => {
+  return getVisibleImprovementActions().filter((action) => {
     if (statusFilter && action.status !== statusFilter) return false;
     if (sourceFilter && (action.sourceType || "environment_check") !== sourceFilter) return false;
     return true;
@@ -1415,7 +1429,8 @@ function getFilteredImprovementActions() {
 function renderImprovementActionSummary(filteredActions) {
   const panel = document.getElementById("actionSummaryPanel");
   if (!panel) return;
-  const activeActions = improvementActions.filter((action) => ["open", "in_progress"].includes(action.status));
+  const visibleActions = getVisibleImprovementActions();
+  const activeActions = visibleActions.filter((action) => ["open", "in_progress"].includes(action.status));
   const dueSoon = activeActions.filter((action) => {
     if (!action.dueDate) return false;
     const due = new Date(action.dueDate);
@@ -1424,7 +1439,7 @@ function renderImprovementActionSummary(filteredActions) {
     const diffDays = Math.ceil((due.setHours(0, 0, 0, 0) - today.setHours(0, 0, 0, 0)) / 86400000);
     return diffDays <= 7;
   });
-  const completed = improvementActions.filter((action) => action.status === "completed");
+  const completed = visibleActions.filter((action) => action.status === "completed");
   const highPriority = activeActions.filter((action) => action.priority === "high");
   const nextAction = highPriority[0] || dueSoon[0] || activeActions[0] || null;
 
@@ -1495,8 +1510,9 @@ function renderImprovementActions() {
   if (!list) return;
   const filteredActions = getFilteredImprovementActions();
   if (status) {
-    status.textContent = improvementActions.length
-      ? `表示 ${filteredActions.length}/${improvementActions.length}件`
+    const visibleActions = getVisibleImprovementActions();
+    status.textContent = visibleActions.length
+      ? `表示 ${filteredActions.length}/${visibleActions.length}件`
       : "改善アクションはまだありません。履歴詳細から「改善履歴に保存」を押すとここに表示されます。";
   }
   if (!filteredActions.length) {

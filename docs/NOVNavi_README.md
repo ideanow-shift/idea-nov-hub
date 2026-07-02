@@ -195,7 +195,7 @@ NOV Navigatorでは社員属性を独自マスタ化しません。
 | 店舗 | `public.stores.id` |
 | 部署 | `public.departments.id` |
 | 役職 | `public.positions.id` |
-| 職種 | `public.job_types.id` 新設後 |
+| 職種 | `public.job_types.id` |
 | 雇用形態 | `employees.employment_type` |
 | 就労ステータス | `employees.employment_status` |
 | 休職種別 | `employees.leave_type` |

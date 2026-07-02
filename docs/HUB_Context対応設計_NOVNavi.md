@@ -46,6 +46,9 @@ type HubContext = {
   firebaseUid?: string;        // public.employees.firebase_uid
   email?: string;
   displayName?: string;
+  departmentId?: string;       // public.departments.id。必要時のみ参照
+  positionId?: string;         // public.positions.id。必要時のみ参照
+  jobTypeId?: string | null;   // employees.job_type_id。nullは未設定表示
   roleKeys: string[];          // roles / employee_roles由来
   storeAssignments: Array<{
     storeId: string;           // public.stores.id
@@ -57,7 +60,9 @@ type HubContext = {
 };
 ```
 
-表示名、店舗名、部署名などは表示補助として受け取ってよいが、正本としてNOV Navi側へ重複保存しない。
+表示名、店舗名、部署名、役職名、職種名などは表示補助として受け取ってよいが、正本としてNOV Navi側へ重複保存しない。
+
+職種が必要な画面や回答ルール分岐を作る場合は、`employees.job_type_id -> public.job_types.id` を参照する。`jobTypeId = null` の場合は `未設定` と表示する。
 
 ## 店舗Contextの決定
 
@@ -173,11 +178,13 @@ HUB Contextなし
 ## やらないこと
 
 - NOV Navi側で社員マスタ、店舗マスタ、部署マスタを作らない
+- NOV Navi側で職種、役職、雇用形態マスタを作らない
 - フロントのlocalStorage Contextだけで管理APIを許可しない
 - `service_role` やFirebase秘密情報をフロントへ出さない
 - 店舗ID/PASSを最終認証として固定しない
 - `phase1_login_id` を個人識別の正本にしない
 - HUB側のrolesとNOV Navi側の独自rolesを二重管理しない
+- `positions` や `employment_type` を職種代わりに使わない
 
 ## 確認項目
 

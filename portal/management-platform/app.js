@@ -2211,6 +2211,59 @@ function getRecipientRecords(records = getLocalRecords()) {
   });
 }
 
+function getRecipientImprovementActions(actions = improvementActions) {
+  const actorEmployeeId = trustedActor?.employeeId || getHubContext().employeeId || "";
+  const displayName = getDisplayName();
+  const activeStatuses = new Set(["open", "in_progress"]);
+  const priorityOrder = { high: 0, medium: 1, low: 2 };
+  return (actions || [])
+    .filter((action) => activeStatuses.has(action.status))
+    .filter((action) => {
+      if (actorEmployeeId && (action.targetEmployeeId === actorEmployeeId || action.ownerEmployeeId === actorEmployeeId)) return true;
+      if (displayName && action.targetEmployeeName && action.targetEmployeeName.includes(displayName)) return true;
+      return false;
+    })
+    .slice()
+    .sort((a, b) => {
+      const priorityDiff = (priorityOrder[a.priority] ?? 9) - (priorityOrder[b.priority] ?? 9);
+      if (priorityDiff) return priorityDiff;
+      return new Date(a.dueDate || "2999-12-31").getTime() - new Date(b.dueDate || "2999-12-31").getTime();
+    });
+}
+
+function renderRecipientImprovementActions(actions) {
+  if (!actions.length) {
+    return `
+      <article class="growth-card recipient-action-card">
+        <p class="score-summary-label">\u6539\u5584\u30a2\u30af\u30b7\u30e7\u30f3</p>
+        <h3>\u672a\u5b8c\u4e86\u306f\u3042\u308a\u307e\u305b\u3093</h3>
+        <p class="focus-note">\u6b21\u306e\u78ba\u8a8d\u3067\u6539\u5584\u5019\u88dc\u304c\u51fa\u305f\u3089\u3001\u3053\u3053\u306b\u8868\u793a\u3055\u308c\u307e\u3059\u3002</p>
+      </article>
+    `;
+  }
+
+  return `
+    <article class="growth-card recipient-action-card">
+      <p class="score-summary-label">\u81ea\u5206\u306b\u95a2\u4fc2\u3059\u308b\u6539\u5584</p>
+      <h3>${actions.length}\u4ef6\u306e\u672a\u5b8c\u4e86</h3>
+      <div class="growth-mini-list">
+        ${actions.slice(0, 3).map((action) => `
+          <div class="growth-mini-item recipient-action-item">
+            <span class="focus-badge priority-${escapeHtml(action.priority || "medium")}">${escapeHtml(getActionPriorityLabel(action.priority))}</span>
+            <div>
+              <p class="result-detail-title">${escapeHtml(action.actionTitle || "\u6539\u5584\u30a2\u30af\u30b7\u30e7\u30f3")}</p>
+              <p class="focus-note">${escapeHtml(getActionStatusLabel(action.status))} / \u671f\u9650 ${escapeHtml(formatDateOnly(action.dueDate))}</p>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+      <div class="inline-actions growth-action-buttons">
+        <button type="button" class="ghost-btn open-actions-btn">\u6539\u5584\u30bf\u30d6\u3067\u78ba\u8a8d</button>
+      </div>
+    </article>
+  `;
+}
+
 function getGrowthHighlights(record) {
   const results = (record.results || []).slice().sort((a, b) => Number(a.score || 0) - Number(b.score || 0));
   const issueResults = results.filter((result) => Number(result.score) === 0 || Number(result.score) === 3).slice(0, 3);
@@ -2362,6 +2415,8 @@ function renderGrowthView(records = getLocalRecords()) {
   const breakdown = getRecordBreakdown(latest);
   const issueCount = Number(breakdown.score0 || 0) + Number(breakdown.score3 || 0);
   const highlights = getGrowthHighlights(latest);
+  const growthState = getGrowthScoreState(latest.score, issueCount);
+  const recipientActions = getRecipientImprovementActions();
   const nextAction = latest.comment || (issueCount ? "0点・3点の項目から、次回までに1つ改善します。" : "良い状態を次回も継続します。");
   const existingAction = findExistingImprovementActionForRecord(latest);
   const canSaveLatestAction = hasApiConfig() && isManagementAdmin() && Boolean(latest.source_check_id || latest.record_id) && !existingAction;
@@ -2410,6 +2465,7 @@ function renderGrowthView(records = getLocalRecords()) {
       </article>
       ${renderGrowthComparisonCard(latest, previous)}
       ${actionCardHtml}
+      ${renderRecipientImprovementActions(recipientActions)}
       ${renderGrowthResultList("良かった点", highlights.good, "良い点は詳細取得後に表示されます。")}
       ${renderGrowthResultList("改善候補", highlights.issues, "改善候補はありません。")}
     </div>

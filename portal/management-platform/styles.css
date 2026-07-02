@@ -331,6 +331,15 @@ button:hover {
   border-color: rgba(199, 120, 130, 0.45);
   background: var(--accent-soft);
 }
+
+.recipient-action-card {
+  border-color: rgba(199, 120, 130, 0.35);
+}
+
+.recipient-action-item .focus-badge {
+  min-width: 62px;
+  justify-content: center;
+}
 #environmentForm,
 #growthSummaryPanel,
 #improvementActionList,

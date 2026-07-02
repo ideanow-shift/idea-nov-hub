@@ -14,15 +14,31 @@ const APP_ROLE_GROUPS = [
   }
 ];
 const EMPLOYMENT_TYPE_OPTIONS = [
-  ["正社員", "正社員"],
-  ["パート", "パート"],
-  ["アルバイト", "アルバイト"],
-  ["業務委託", "業務委託"],
   ["役員", "役員"],
+  ["正社員", "正社員"],
+  ["パート・アルバイト", "パート・アルバイト"],
+  ["業務委託", "業務委託"],
+  ["その他", "その他"]
+];
+const EMPLOYMENT_STATUS_OPTIONS = [
+  ["現職", "現職"],
+  ["休職", "休職"],
+  ["退職", "退職"],
+  ["出向", "出向"]
+];
+const LEAVE_TYPE_OPTIONS = [
+  ["", "未設定"],
+  ["産休", "産休"],
+  ["育休", "育休"],
+  ["傷病", "傷病"],
+  ["介護", "介護"],
   ["その他", "その他"]
 ];
 const EMPLOYMENT_TYPE_ALIASES = {
-  "レセプション": "パート"
+  "パート": "パート・アルバイト",
+  "アルバイト": "パート・アルバイト",
+  "レセプション": "パート・アルバイト",
+  "レセプションパート": "パート・アルバイト"
 };
 
 const state = {
@@ -89,6 +105,19 @@ function normalizeEmploymentType(value) {
 function normalizeEmploymentTypeForForm(value) {
   const normalized = normalizeEmploymentType(value);
   return EMPLOYMENT_TYPE_OPTIONS.some(([optionValue]) => optionValue === normalized) ? normalized : "";
+}
+
+function normalizeEmploymentStatus(value) {
+  const normalized = String(value || "").trim();
+  if (["産休", "育休", "産休・育休", "傷病", "介護"].includes(normalized)) return "休職";
+  return EMPLOYMENT_STATUS_OPTIONS.some(([optionValue]) => optionValue === normalized) ? normalized : "";
+}
+
+function normalizeLeaveType(value) {
+  const normalized = String(value || "").trim();
+  if (normalized === "休職") return "";
+  if (normalized === "産休・育休") return "産休";
+  return LEAVE_TYPE_OPTIONS.some(([optionValue]) => optionValue === normalized) ? normalized : "";
 }
 
 function getErrorMessage(error) {
@@ -1432,14 +1461,7 @@ function renderNewEmployeeDetail() {
       ${fieldInput("retired_on", "退職日", "", "date")}
       ${fieldInput("leave_start_date", "休職開始日", "", "date")}
       ${fieldInput("leave_end_date", "休職終了日・復職日", "", "date")}
-      ${fieldStaticSelect("leave_type", "休職区分", [
-        ["", "未設定"],
-        ["産休", "産休"],
-        ["育休", "育休"],
-        ["産休・育休", "産休・育休"],
-        ["休職", "休職"],
-        ["その他", "その他"]
-      ], "")}
+      ${fieldStaticSelect("leave_type", "休職種別", LEAVE_TYPE_OPTIONS, "")}
       ${fieldSelect("corporation_id", "法人", state.masters.corporations, "", "corporation_name")}
       <div class="store-assignment-box">
         <strong>複数店舗所属</strong>
@@ -1451,11 +1473,7 @@ function renderNewEmployeeDetail() {
       ${fieldSelect("department_id", "部署", state.masters.departments, "", "department_name")}
       ${fieldSelect("position_id", "役職", state.masters.positions, "", "position_name")}
       ${fieldStaticSelect("employment_type", "雇用形態", EMPLOYMENT_TYPE_OPTIONS, "正社員")}
-      ${fieldStaticSelect("employment_status", "現職/休職/退職", [
-        ["現職", "現職"],
-        ["休職", "休職"],
-        ["退職", "退職"]
-      ], "現職")}
+      ${fieldStaticSelect("employment_status", "就労ステータス", EMPLOYMENT_STATUS_OPTIONS, "現職")}
       <label class="checkbox-row"><input type="checkbox" id="is_active" name="is_active" checked> 有効</label>
       <p class="form-note">追加後、必要に応じて社員一覧から選択して権限や詳細を調整してください。</p>
       <div class="detail-actions">
@@ -1601,24 +1619,13 @@ function renderEmployeeDetail(employee) {
       ${fieldSelect("department_id", "部署", state.masters.departments, employee.department_id, "department_name")}
       ${fieldSelect("position_id", "役職", state.masters.positions, employee.position_id, "position_name")}
       ${fieldStaticSelect("employment_type", "雇用形態", EMPLOYMENT_TYPE_OPTIONS, normalizeEmploymentTypeForForm(employee.employment_type || ""))}
-      ${fieldStaticSelect("employment_status", "現職/休職/退職", [
-        ["現職", "現職"],
-        ["休職", "休職"],
-        ["産休", "産休"],
-        ["育休", "育休"],
-        ["退職", "退職"]
-      ], employee.employment_status || "")}
+      ${fieldStaticSelect("employment_status", "就労ステータス", EMPLOYMENT_STATUS_OPTIONS, normalizeEmploymentStatus(employee.employment_status || ""))}
       <section class="leave-fields">
         <div>
           <strong>休職・産休・育休</strong>
           <p>休職中の社員だけ入力します。復職済みの場合は終了日を入れておくと履歴確認に使えます。</p>
         </div>
-        ${fieldStaticSelect("leave_type", "休職区分", [
-          ["", "未設定"],
-          ["休職", "休職"],
-          ["産休", "産休"],
-          ["育休", "育休"]
-        ], employee.leave_type || "")}
+        ${fieldStaticSelect("leave_type", "休職種別", LEAVE_TYPE_OPTIONS, normalizeLeaveType(employee.leave_type || ""))}
         ${fieldInput("leave_start_date", "休職開始日", employee.leave_start_date || "", "date")}
         ${fieldInput("leave_end_date", "休職終了日・復職日", employee.leave_end_date || "", "date")}
       </section>
@@ -2061,6 +2068,8 @@ function collectEmployeePayload() {
   const payload = collectFormPayload();
   delete payload.firebase_uid;
   payload.employment_type = normalizeEmploymentType(payload.employment_type);
+  payload.employment_status = normalizeEmploymentStatus(payload.employment_status);
+  payload.leave_type = normalizeLeaveType(payload.leave_type);
   payload.is_active = document.querySelector("#is_active").checked;
   return payload;
 }

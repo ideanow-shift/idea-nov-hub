@@ -15,7 +15,21 @@ const APP_ROLE_GROUPS: Record<string, string[]> = {
 const EMPLOYEE_PROFILE_IMAGE_BUCKET = "employee-profile-images";
 const MAX_PROFILE_IMAGE_BYTES = 5 * 1024 * 1024;
 const EMPLOYMENT_TYPE_ALIASES: Record<string, string> = {
-  "レセプション": "パート",
+  "パート": "パート・アルバイト",
+  "アルバイト": "パート・アルバイト",
+  "レセプション": "パート・アルバイト",
+  "レセプションパート": "パート・アルバイト",
+};
+const EMPLOYMENT_STATUS_ALIASES: Record<string, string> = {
+  "産休": "休職",
+  "育休": "休職",
+  "産休・育休": "休職",
+  "傷病": "休職",
+  "介護": "休職",
+};
+const LEAVE_TYPE_ALIASES: Record<string, string> = {
+  "休職": "",
+  "産休・育休": "産休",
 };
 let bootstrapRpcDisabledUntil = 0;
 
@@ -104,6 +118,18 @@ function buildQuery(query: Record<string, unknown> = {}) {
 function normalizeEmploymentType(value: unknown) {
   const normalized = String(value || "").trim();
   return EMPLOYMENT_TYPE_ALIASES[normalized] || normalized;
+}
+
+function normalizeEmploymentStatus(value: unknown) {
+  const normalized = String(value || "").trim();
+  return EMPLOYMENT_STATUS_ALIASES[normalized] || normalized;
+}
+
+function normalizeLeaveType(value: unknown) {
+  const normalized = String(value || "").trim();
+  return Object.prototype.hasOwnProperty.call(LEAVE_TYPE_ALIASES, normalized)
+    ? LEAVE_TYPE_ALIASES[normalized]
+    : normalized;
 }
 
 function sanitizeStorageFileName(value: unknown) {
@@ -1609,6 +1635,12 @@ function buildEmployeeRow(payload: JsonRecord, now: string, includeCreatedAt = f
   if (Object.prototype.hasOwnProperty.call(row, "employment_type")) {
     row.employment_type = normalizeEmploymentType(row.employment_type);
   }
+  if (Object.prototype.hasOwnProperty.call(row, "employment_status")) {
+    row.employment_status = normalizeEmploymentStatus(row.employment_status);
+  }
+  if (Object.prototype.hasOwnProperty.call(row, "leave_type")) {
+    row.leave_type = normalizeLeaveType(row.leave_type);
+  }
   copyDateField(row, payload, "birth_date");
   copyDateField(row, payload, "joined_on");
   copyDateField(row, payload, "retired_on");
@@ -1835,6 +1867,9 @@ async function createCoreEmployee(payload: JsonRecord, actor: JsonRecord) {
   if (!Object.prototype.hasOwnProperty.call(row, "is_active")) row.is_active = true;
   if (!row.employment_status) row.employment_status = "現職";
   if (!row.employment_type) row.employment_type = "正社員";
+  row.employment_type = normalizeEmploymentType(row.employment_type);
+  row.employment_status = normalizeEmploymentStatus(row.employment_status);
+  row.leave_type = normalizeLeaveType(row.leave_type);
 
   const createdRows = await readRows("employees", {
     method: "POST",

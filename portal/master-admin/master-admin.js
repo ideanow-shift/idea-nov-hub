@@ -64,7 +64,8 @@ const state = {
     corporations: [],
     businessUnits: [],
     departments: [],
-    positions: []
+    positions: [],
+    jobTypes: []
   }
 };
 
@@ -116,7 +117,7 @@ function normalizeEmploymentStatus(value) {
 function normalizeLeaveType(value) {
   const normalized = String(value || "").trim();
   if (normalized === "休職") return "";
-  if (normalized === "産休・育休") return "産休";
+  if (normalized === "産休・育休") return "";
   return LEAVE_TYPE_OPTIONS.some(([optionValue]) => optionValue === normalized) ? normalized : "";
 }
 
@@ -172,7 +173,8 @@ function setBootstrapData(data) {
     corporations: data.corporations || [],
     businessUnits: data.businessUnits || [],
     departments: data.departments || [],
-    positions: data.positions || []
+    positions: data.positions || [],
+    jobTypes: data.jobTypes || []
   };
 }
 
@@ -287,7 +289,7 @@ function getSearchText(row) {
     .filter(([, value]) => value === null || typeof value !== "object")
     .map(([, value]) => value);
   if ("employee_id" in row) {
-    values.push(...getEmployeeIssues(row), formatEmployeeAffiliation(row), getEmployeeStatusLabel(row));
+    values.push(...getEmployeeIssues(row), formatEmployeeAffiliation(row), getEmployeeStatusLabel(row), row.job_type_name);
     if (isCurrentEmployee(row) && !row.firebase_uid) values.push("Firebase未連携", "Firebase");
     if (Array.isArray(row.role_keys)) {
       values.push(...row.role_keys, ...row.role_keys.map(formatRoleLabel));
@@ -362,6 +364,7 @@ function getEmployeeIssues(employee) {
   if (!hasEmployeeContactEmail(employee)) issues.push("メール");
   if (!hasLocation) issues.push("所属");
   if (!employee.position_id && !employee.source_position_name) issues.push("役職");
+  if (state.masters.jobTypes.length && !employee.job_type_id && !employee.job_type_name) issues.push("職種");
   if (!getCommonRoleKeys(employee).length) issues.push("共通ロール");
   if (!getEmployeeCredential(employee).pin_set) issues.push("PIN");
   if (!String(employee.employment_type || "").trim()) issues.push("雇用形態");
@@ -1395,6 +1398,7 @@ function getFieldLabel(key) {
     store_assignment_3: "第3店舗",
     department_id: "部署",
     position_id: "役職",
+    job_type_id: "職種",
     business_unit_id: "事業部門",
     store_name: "店舗名",
     area: "エリア",
@@ -1417,6 +1421,7 @@ function formatLogValue(key, value) {
   if (key === "corporation_id") return getMasterName(state.masters.corporations, value, "corporation_name");
   if (key === "department_id") return getMasterName(state.masters.departments, value, "department_name");
   if (key === "position_id") return getMasterName(state.masters.positions, value, "position_name");
+  if (key === "job_type_id") return getMasterName(state.masters.jobTypes, value, "job_type_name");
   if (key === "business_unit_id") return getMasterName(state.masters.businessUnits, value, "business_unit_name");
   if (key === "store_id") return getStoreName(value);
   if (key === "is_active") return value ? "有効" : "無効";
@@ -1472,6 +1477,7 @@ function renderNewEmployeeDetail() {
       </div>
       ${fieldSelect("department_id", "部署", state.masters.departments, "", "department_name")}
       ${fieldSelect("position_id", "役職", state.masters.positions, "", "position_name")}
+      ${renderJobTypeField("")}
       ${fieldStaticSelect("employment_type", "雇用形態", EMPLOYMENT_TYPE_OPTIONS, "正社員")}
       ${fieldStaticSelect("employment_status", "就労ステータス", EMPLOYMENT_STATUS_OPTIONS, "現職")}
       <label class="checkbox-row"><input type="checkbox" id="is_active" name="is_active" checked> 有効</label>
@@ -1618,6 +1624,7 @@ function renderEmployeeDetail(employee) {
       </section>
       ${fieldSelect("department_id", "部署", state.masters.departments, employee.department_id, "department_name")}
       ${fieldSelect("position_id", "役職", state.masters.positions, employee.position_id, "position_name")}
+      ${renderJobTypeField(employee.job_type_id || "")}
       ${fieldStaticSelect("employment_type", "雇用形態", EMPLOYMENT_TYPE_OPTIONS, normalizeEmploymentTypeForForm(employee.employment_type || ""))}
       ${fieldStaticSelect("employment_status", "就労ステータス", EMPLOYMENT_STATUS_OPTIONS, normalizeEmploymentStatus(employee.employment_status || ""))}
       <section class="leave-fields">
@@ -2012,9 +2019,12 @@ function fieldTextarea(name, label, value) {
 }
 
 function fieldSelect(name, label, rows, value, labelKey) {
-  const options = [`<option value="">未設定</option>`].concat(rows.map((row) => {
-    const selected = row.id === value ? " selected" : "";
-    return `<option value="${escapeHtml(row.id)}"${selected}>${escapeHtml(row[labelKey])}</option>`;
+  const normalizedValue = String(value || "");
+  const visibleRows = rows.filter((row) => row.is_active !== false || String(row.id || "") === normalizedValue);
+  const options = [`<option value="">未設定</option>`].concat(visibleRows.map((row) => {
+    const selected = String(row.id || "") === normalizedValue ? " selected" : "";
+    const inactiveLabel = row.is_active === false ? "（非表示）" : "";
+    return `<option value="${escapeHtml(row.id)}"${selected}>${escapeHtml(row[labelKey])}${inactiveLabel}</option>`;
   }));
   return `
     <div class="form-field">
@@ -2033,6 +2043,11 @@ function fieldStaticSelect(name, label, options, value) {
       <label for="${name}">${label}</label>
       <select class="form-select" id="${name}" name="${name}">${htmlOptions.join("")}</select>
     </div>`;
+}
+
+function renderJobTypeField(value) {
+  if (!state.masters.jobTypes.length) return "";
+  return fieldSelect("job_type_id", "職種", state.masters.jobTypes, value, "job_type_name");
 }
 
 function fieldValueSelect(name, label, values, value) {

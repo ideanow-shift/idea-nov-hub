@@ -29,7 +29,7 @@ const EMPLOYMENT_STATUS_ALIASES: Record<string, string> = {
 };
 const LEAVE_TYPE_ALIASES: Record<string, string> = {
   "休職": "",
-  "産休・育休": "産休",
+  "産休・育休": "",
 };
 let bootstrapRpcDisabledUntil = 0;
 
@@ -424,7 +424,7 @@ async function getEmployeeById(id: string) {
   if (!id) return null;
   const rows = await readRows("employees", {
     query: {
-      select: "id,employee_id,full_name,email,employment_status,employment_type,corporation_id,store_id,department_id,position_id,firebase_uid,is_active,source_row",
+      select: "id,employee_id,full_name,email,employment_status,employment_type,corporation_id,store_id,department_id,position_id,job_type_id,firebase_uid,is_active,source_row",
       id: `eq.${id}`,
       limit: "1",
     },
@@ -456,7 +456,7 @@ async function findEmployeeForAuth(authUser: JsonRecord) {
   if (uid) {
     rows = await readRows("employees", {
       query: {
-        select: "id,employee_id,full_name,email,employment_status,employment_type,corporation_id,store_id,department_id,position_id,firebase_uid,is_active,source_row",
+        select: "id,employee_id,full_name,email,employment_status,employment_type,corporation_id,store_id,department_id,position_id,job_type_id,firebase_uid,is_active,source_row",
         firebase_uid: `eq.${uid}`,
         limit: "1",
       },
@@ -465,7 +465,7 @@ async function findEmployeeForAuth(authUser: JsonRecord) {
   if (!rows.length && email) {
     rows = await readRows("employees", {
       query: {
-        select: "id,employee_id,full_name,email,employment_status,employment_type,corporation_id,store_id,department_id,position_id,firebase_uid,is_active,source_row",
+        select: "id,employee_id,full_name,email,employment_status,employment_type,corporation_id,store_id,department_id,position_id,job_type_id,firebase_uid,is_active,source_row",
         email: `eq.${email}`,
         limit: "1",
       },
@@ -619,11 +619,12 @@ function buildTags(employee: JsonRecord, context: { department: JsonRecord | nul
 
 async function normalizeEmployee(employee: JsonRecord | null, credential: JsonRecord | null) {
   if (!employee) return null;
-  const [corporation, store, department, position, roles, storeAssignments] = await Promise.all([
+  const [corporation, store, department, position, jobType, roles, storeAssignments] = await Promise.all([
     getOne("corporations", employee.corporation_id, "id,corporation_no,corporation_name,is_active"),
     getOne("stores", employee.store_id, "id,store_no,store_id,store_name,area,store_type,corporation_id,business_unit_id,is_active"),
     getOne("departments", employee.department_id, "id,department_code,department_name,is_active"),
     getOne("positions", employee.position_id, "id,position_name,is_active"),
+    getOne("job_types", employee.job_type_id, "id,job_type_key,job_type_name,is_active"),
     getRoles(String(employee.id || "")),
     getStoreAssignments(String(employee.id || "")),
   ]);
@@ -645,6 +646,7 @@ async function normalizeEmployee(employee: JsonRecord | null, credential: JsonRe
     storeCode: primaryStore?.storeId || "",
     department: String(department?.department_name || source.department_name || ""),
     position: String(position?.position_name || source.position_name || ""),
+    jobType: String(jobType?.job_type_name || ""),
     grade: "",
     roleLevel: getRoleLevel(roleKeys),
     roleKeys,
@@ -661,6 +663,7 @@ async function normalizeEmployee(employee: JsonRecord | null, credential: JsonRe
     corporationRef: corporation ? { id: String(corporation.id || ""), code: String(corporation.corporation_no || ""), name: String(corporation.corporation_name || "") } : null,
     departmentRef: department ? { id: String(department.id || ""), code: String(department.department_code || ""), name: String(department.department_name || "") } : null,
     positionRef: position ? { id: String(position.id || ""), name: String(position.position_name || "") } : null,
+    jobTypeRef: jobType ? { id: String(jobType.id || ""), key: String(jobType.job_type_key || ""), name: String(jobType.job_type_name || "") } : null,
     primaryStore,
     storeAssignments,
   };
@@ -699,6 +702,7 @@ function normalizeBootstrapEmployee(data: JsonRecord | null, fallbackEmail: stri
   const store = (data.store || {}) as JsonRecord;
   const department = (data.department || {}) as JsonRecord;
   const position = (data.position || {}) as JsonRecord;
+  const jobType = (data.jobType || data.job_type || {}) as JsonRecord;
   const roles = normalizeBootstrapRoles(data.roles);
   const roleKeys = roles.map((role) => role.roleKey).filter(Boolean);
   const storeAssignments = normalizeBootstrapStoreAssignments(data.storeAssignments || data.store_assignments);
@@ -731,6 +735,7 @@ function normalizeBootstrapEmployee(data: JsonRecord | null, fallbackEmail: stri
     storeCode: primaryStore?.storeId || "",
     department: String(department.name || department.departmentName || department.department_name || source.department_name || ""),
     position: String(position.name || position.positionName || position.position_name || source.position_name || ""),
+    jobType: String(jobType.name || jobType.jobTypeName || jobType.job_type_name || ""),
     grade: "",
     roleLevel: getRoleLevel(roleKeys),
     roleKeys,
@@ -747,6 +752,7 @@ function normalizeBootstrapEmployee(data: JsonRecord | null, fallbackEmail: stri
     corporationRef: corporation.id ? { id: String(corporation.id || ""), code: String(corporation.code || corporation.corporation_no || ""), name: String(corporation.name || corporation.corporation_name || "") } : null,
     departmentRef: department.id ? { id: String(department.id || ""), code: String(department.code || department.department_code || ""), name: String(department.name || department.department_name || "") } : null,
     positionRef: position.id ? { id: String(position.id || ""), name: String(position.name || position.position_name || "") } : null,
+    jobTypeRef: jobType.id ? { id: String(jobType.id || ""), key: String(jobType.key || jobType.job_type_key || ""), name: String(jobType.name || jobType.job_type_name || "") } : null,
     primaryStore,
     storeAssignments,
   };
@@ -1084,6 +1090,7 @@ async function listCoreEmployeesForAdmin() {
     stores,
     departments,
     positions,
+    jobTypes,
     assignments,
     rolesByEmployee,
     credentialsByEmployee,
@@ -1091,7 +1098,7 @@ async function listCoreEmployeesForAdmin() {
   ] = await Promise.all([
     readRows("employees", {
       query: {
-        select: "id,employee_id,full_name,email,birth_date,joined_on,retired_on,leave_start_date,leave_end_date,leave_type,employment_status,employment_type,corporation_id,store_id,department_id,position_id,firebase_uid,is_active,updated_at,source_row",
+        select: "id,employee_id,full_name,email,birth_date,joined_on,retired_on,leave_start_date,leave_end_date,leave_type,employment_status,employment_type,corporation_id,store_id,department_id,position_id,job_type_id,firebase_uid,is_active,updated_at,source_row",
         order: "employee_id.asc",
         limit: "1000",
       },
@@ -1099,7 +1106,8 @@ async function listCoreEmployeesForAdmin() {
     listCoreMaster("corporations", "id,corporation_no,corporation_name", "corporation_no.asc"),
     listCoreMaster("stores", "id,store_id,store_name", "store_no.asc"),
     listCoreMaster("departments", "id,department_code,department_name", "department_no.asc"),
-    listCoreMaster("positions", "id,position_name", "position_no.asc"),
+    listCoreMaster("positions", "id,position_name,is_active", "position_no.asc"),
+    listCoreMaster("job_types", "id,job_type_key,job_type_name,sort_order,is_active", "sort_order.asc,job_type_name.asc").catch(() => []),
     listEmployeeStoreAssignmentsForAdmin().catch(() => []),
     groupRolesByEmployeeForAdmin().catch(() => ({})),
     indexLoginCredentialsByEmployee().catch(() => ({})),
@@ -1109,6 +1117,7 @@ async function listCoreEmployeesForAdmin() {
   const storesById = indexById(stores);
   const departmentsById = indexById(departments);
   const positionsById = indexById(positions);
+  const jobTypesById = indexById(jobTypes);
   const storeAssignmentsByEmployee = groupStoreAssignmentsByEmployeeForAdmin(assignments, storesById);
   return employees.map((employee) => {
     const source = (employee.source_row || {}) as JsonRecord;
@@ -1116,6 +1125,7 @@ async function listCoreEmployeesForAdmin() {
     const store = storesById[String(employee.store_id || "")] || {};
     const department = departmentsById[String(employee.department_id || "")] || {};
     const position = positionsById[String(employee.position_id || "")] || {};
+    const jobType = jobTypesById[String(employee.job_type_id || "")] || {};
     const roleGroup = rolesByEmployee[String(employee.id || "")] || { role_keys: [], role_names: [] };
     return {
       ...employee,
@@ -1126,6 +1136,8 @@ async function listCoreEmployeesForAdmin() {
       department_name: String(department.department_name || ""),
       department_code: String(department.department_code || ""),
       position_name: String(position.position_name || ""),
+      job_type_name: String(jobType.job_type_name || ""),
+      job_type_key: String(jobType.job_type_key || ""),
       store_assignments: storeAssignmentsByEmployee[String(employee.id || "")] || [],
       role_keys: roleGroup.role_keys,
       role_names: roleGroup.role_names,
@@ -1441,7 +1453,7 @@ function getActorEmployeeId(actor: JsonRecord) {
 async function getCoreEmployeeById(id: string) {
   const rows = await readRows("employees", {
     query: {
-      select: "id,employee_id,full_name,email,birth_date,joined_on,retired_on,leave_start_date,leave_end_date,leave_type,employment_status,employment_type,corporation_id,store_id,department_id,position_id,firebase_uid,is_active,source_row,created_at,updated_at",
+      select: "id,employee_id,full_name,email,birth_date,joined_on,retired_on,leave_start_date,leave_end_date,leave_type,employment_status,employment_type,corporation_id,store_id,department_id,position_id,job_type_id,firebase_uid,is_active,source_row,created_at,updated_at",
       id: `eq.${id}`,
       limit: "1",
     },
@@ -1650,6 +1662,7 @@ function buildEmployeeRow(payload: JsonRecord, now: string, includeCreatedAt = f
   copyNullableUuidField(row, payload, "store_id");
   copyNullableUuidField(row, payload, "department_id");
   copyNullableUuidField(row, payload, "position_id");
+  copyNullableUuidField(row, payload, "job_type_id");
   if (Object.prototype.hasOwnProperty.call(payload, "is_active")) row.is_active = parseBooleanLike(payload.is_active, true);
   return row;
 }
@@ -2216,12 +2229,13 @@ async function createPortalApp(payload: JsonRecord, actor: JsonRecord) {
 }
 
 async function getMasterBootstrap(employee: JsonRecord) {
-  const [corporations, businessUnits, departments, stores, positions, employees, portalApps] = await Promise.all([
+  const [corporations, businessUnits, departments, stores, positions, jobTypes, employees, portalApps] = await Promise.all([
     listCoreMaster("corporations", "id,corporation_no,corporation_name,is_active", "corporation_no.asc"),
     listCoreMaster("business_units", "id,business_unit_no,business_unit_code,business_unit_name,is_active", "business_unit_no.asc"),
     listCoreMaster("departments", "id,department_no,department_code,department_name,is_active", "department_no.asc"),
     listCoreStoresForAdmin(),
     listCoreMaster("positions", "id,position_no,position_name,is_active", "position_no.asc"),
+    listCoreMaster("job_types", "id,job_type_key,job_type_name,sort_order,is_active", "sort_order.asc,job_type_name.asc").catch(() => []),
     listCoreEmployeesForAdmin(),
     listPortalAppsForAdmin(),
   ]);
@@ -2232,6 +2246,7 @@ async function getMasterBootstrap(employee: JsonRecord) {
     departments,
     stores,
     positions,
+    jobTypes,
     employees,
     portalApps,
   };
@@ -2447,6 +2462,7 @@ async function handleHealth() {
     employeesReachable: false,
     loginCredentialsReachable: false,
     employeeRolesReachable: false,
+    jobTypesReachable: false,
     storesReachable: false,
     bootstrapRpcReachable: false,
     notificationDestinationsReachable: false,
@@ -2457,6 +2473,7 @@ async function handleHealth() {
     checks.employeesReachable = Array.isArray(await readRows("employees", { query: { select: "id", limit: "1" } }));
     checks.loginCredentialsReachable = Array.isArray(await readRows("employee_login_credentials", { query: { select: "id", limit: "1" } }));
     checks.employeeRolesReachable = Array.isArray(await readRows("employee_roles", { query: { select: "id", limit: "1" } }));
+    checks.jobTypesReachable = Array.isArray(await readRows("job_types", { query: { select: "id", limit: "1" } }));
     checks.storesReachable = Array.isArray(await readRows("stores", { query: { select: "id", limit: "1" } }));
     try {
       await callSupabaseRpc("get_nov_hub_bootstrap_by_email", { p_email: "__nov_hub_healthcheck__@invalid.local" });

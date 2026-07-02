@@ -92,6 +92,11 @@ as $$
         'id', p.id,
         'name', p.position_name
       ) end,
+      'jobType', case when jt.id is null then null else jsonb_build_object(
+        'id', jt.id,
+        'key', jt.job_type_key,
+        'name', jt.job_type_name
+      ) end,
       'roles', coalesce(rr.roles, '[]'::jsonb),
       'storeAssignments', coalesce(sar.store_assignments, '[]'::jsonb),
       'loginStatus', case when c.id is null then null else jsonb_build_object(
@@ -120,6 +125,8 @@ as $$
     on d.id = e.department_id
   left join public.positions p
     on p.id = e.position_id
+  left join public.job_types jt
+    on jt.id = e.job_type_id
   left join role_rows rr
     on rr.employee_id = e.id
   left join store_assignment_rows sar

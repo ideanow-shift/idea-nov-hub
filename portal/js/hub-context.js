@@ -158,6 +158,9 @@ export function encodeHubContextForUrl(context) {
       position: context.position,
       positionId: context.positionId,
       positionName: context.positionName,
+      jobType: context.jobType,
+      jobTypeId: context.jobTypeId,
+      jobTypeName: context.jobTypeName,
       primaryStore: context.primaryStore,
       primaryStoreId: context.primaryStoreId,
       primaryStoreNo: context.primaryStoreNo,
@@ -217,6 +220,7 @@ export function buildHubEmployeeContext(employee = {}, authType = "") {
   const corporation = normalizeRef(employee.corporationRef, { name: employee.corporation || "" });
   const department = normalizeRef(employee.departmentRef, { name: employee.department || "" });
   const position = normalizeRef(employee.positionRef, { name: employee.position || "" });
+  const jobType = normalizeRef(employee.jobTypeRef, { name: employee.jobType || employee.jobTypeName || "" });
   const issuedAt = new Date().toISOString();
   const expiresAt = new Date(Date.now() + HUB_CONTEXT_MAX_AGE_MS).toISOString();
   return {
@@ -248,6 +252,9 @@ export function buildHubEmployeeContext(employee = {}, authType = "") {
     position,
     positionId: position.id,
     positionName: position.name || employee.position || "",
+    jobType,
+    jobTypeId: jobType.id,
+    jobTypeName: jobType.name || employee.jobType || employee.jobTypeName || "",
     primaryStore,
     primaryStoreId: primaryStore.id,
     primaryStoreNo: primaryStore.storeNo,

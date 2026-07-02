@@ -125,6 +125,8 @@ NOV Navi側で社員属性を独自マスタ化しないでください。
 
 総務問い合わせ、経理問い合わせなどの各部門問い合わせは、NOV Navi内で受け付けます。
 
+詳細なOS Notification Engine連携仕様は `OS_NotificationEngine連携仕様_NOVNavi.md` を参照してください。
+
 Phase1の扱い:
 
 - 問い合わせ先ルートは `concierge_department_routes`

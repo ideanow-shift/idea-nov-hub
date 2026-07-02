@@ -89,7 +89,8 @@ function normalizeLogSource(value: unknown): "rule" | "fallback" | "manual" | "a
 }
 
 function notificationPurposeForRoute(routeId: string): string {
-  return `concierge_${routeId.replace(/[^a-z0-9_-]/gi, "_").toLowerCase()}`;
+  const routeKey = routeId.replace(/[^a-z0-9_-]/gi, "_").toLowerCase();
+  return `concierge.department_inquiry.${routeKey}`;
 }
 
 function toBoolean(value: unknown): boolean {

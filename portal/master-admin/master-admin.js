@@ -381,7 +381,6 @@ function getEmployeeIssues(employee) {
   const issues = [];
   const hasLocation = Boolean(employee.store_id || employee.department_id || employee.store_name || employee.department_name || employee.source_assigned_location);
   if (!employee.corporation_id) issues.push("法人");
-  if (!hasEmployeeContactEmail(employee)) issues.push("メール");
   if (!hasLocation) issues.push("所属");
   if (!employee.position_id && !employee.source_position_name) issues.push("役職");
   if (state.masters.jobTypes.length && !employee.job_type_id && !employee.job_type_name) issues.push("職種");
@@ -728,7 +727,6 @@ function renderQualitySummary() {
 }
 
 function getSummaryIssueValue(label) {
-  if (label === "メール未設定") return "メール";
   if (label === "所属未設定") return "所属";
   if (label === "役職未設定") return "役職";
   if (label === "共通ロール未設定") return "共通ロール";
@@ -743,6 +741,7 @@ function getSummaryIssueValue(label) {
 function getSummarySearchValue(label) {
   return label
     .replace("Firebase未連携", "Firebase")
+    .replace("メール任意未入力", "")
     .replace("共通ロール未設定", "共通ロール")
     .replace("HUB権限未設定", "共通ロール")
     .replace("PIN未設定", "PIN")
@@ -759,7 +758,7 @@ function getQualitySummaryItems() {
     const issueCounts = countIssueLabels(currentEmployees.flatMap(getEmployeeIssues));
     return [
       { label: "法人未設定", count: issueCounts["法人"] || 0, tone: "warning" },
-      { label: "メール未設定", count: issueCounts["メール"] || 0, tone: "warning" },
+      { label: "メール任意未入力", count: currentEmployees.filter((employee) => !hasEmployeeContactEmail(employee)).length, tone: "neutral" },
       { label: "所属未設定", count: issueCounts["所属"] || 0, tone: "warning" },
       { label: "役職未設定", count: issueCounts["役職"] || 0, tone: "warning" },
       { label: "共通ロール未設定", count: issueCounts["共通ロール"] || 0, tone: "warning" },
@@ -800,7 +799,7 @@ function getQualitySummaryItems() {
   if (state.view === "firebase") {
     return [
       { label: "連携待ち", count: state.employees.filter((employee) => isCurrentEmployee(employee) && !employee.firebase_uid).length, tone: "warning" },
-      { label: "メール未設定", count: state.employees.filter((employee) => isCurrentEmployee(employee) && !hasEmployeeContactEmail(employee)).length, tone: "warning" }
+      { label: "メール任意未入力", count: state.employees.filter((employee) => isCurrentEmployee(employee) && !hasEmployeeContactEmail(employee)).length, tone: "neutral" }
     ];
   }
   if (state.view === "logs") {
@@ -842,16 +841,16 @@ function getHubReadinessItems() {
       status: employeeIssueCount ? "要確認" : "OK",
       label: "現職社員の基幹項目",
       count: `${employeeIssueCount}件`,
-      detail: "メール、所属、役職、共通ロール、雇用形態、現職/休職/退職の未設定を確認します。",
+      detail: "所属、役職、共通ロール、PIN、雇用形態、現職/休職/退職の未設定を確認します。メールは任意項目です。",
       nextAction: employeeIssueCount ? "社員タブの未設定ありを確認" : "HUB連携に利用可能"
     },
     {
       readiness_key: "employee_email",
-      status: employeeEmailMissingCount ? "要確認" : "OK",
-      label: "ログイン用メール",
-      count: `${employeeEmailMissingCount}件`,
-      detail: "Firebase Auth と社員マスタを紐づけるため、現職者のメールを確認します。",
-      nextAction: employeeEmailMissingCount ? "メール未設定を確認" : "Firebase照合に利用可能"
+      status: "OK",
+      label: "メール任意登録",
+      count: `${employeeEmailMissingCount}件未入力`,
+      detail: "メールは任意です。Firebase Auth / OAuth / 外部連携が必要な社員から段階的に登録します。",
+      nextAction: employeeEmailMissingCount ? "必要な社員だけ順次登録" : "メール登録済み"
     },
     {
       readiness_key: "employee_roles",
@@ -924,9 +923,8 @@ function formatEmployeeEmail(employee) {
     const suffix = isLoginOnly ? ` <span class="status-muted">ログイン</span>` : "";
     return `${escapeHtml(email)}${suffix}`;
   }
-  const label = isCurrentEmployee(employee) ? "未設定" : "空欄";
-  const className = isCurrentEmployee(employee) ? "status-pill warning" : "status-muted";
-  return `<span class="${className}">${label}</span>`;
+  const label = isCurrentEmployee(employee) ? "任意未入力" : "空欄";
+  return `<span class="status-muted">${label}</span>`;
 }
 
 function formatEmployeeLogin(employee) {
@@ -1204,8 +1202,8 @@ function renderReadinessDetail() {
       <div class="readiness-guide">
         <strong>月初運用の見る順番</strong>
         <ol>
-          <li>メール未設定を埋める</li>
           <li>所属・役職・共通ロールの未設定を確認する</li>
+          <li>PINとログイン可否を確認する</li>
           <li>Firebase未連携を確認する</li>
           <li>店舗マスタと変更履歴を確認する</li>
         </ol>
@@ -1232,7 +1230,7 @@ function renderReadinessDetail() {
 function renderReadinessShortcut(item) {
   const target = {
     employee_core: ["employees", "missing", "社員タブの未設定ありを見る"],
-    employee_email: ["employees", "メール", "社員タブでメール未設定を見る"],
+    employee_email: ["employees", "", "社員タブを見る"],
     employee_roles: ["employees", "共通ロール", "社員タブで共通ロール未設定を見る"],
     firebase_link: ["firebase", "", "Firebase未連携を見る"],
     store_core: ["stores", "missing", "店舗タブの未設定ありを見る"],
@@ -1486,10 +1484,10 @@ function renderNewEmployeeDetail() {
   elements.detail.innerHTML = `
     <form class="detail-form" id="detail-form" data-form-kind="employee">
       <h2>新規社員追加</h2>
-      <p class="form-note">社員番号と氏名は必須です。メール未発行の入社予定者は空欄で追加し、発行後に「メール未設定」から追記します。社員番号なし退職者は LEGACY-0001 形式で登録します。</p>
+      <p class="form-note">社員番号と氏名は必須です。メールは任意です。Firebase Auth / OAuth / 外部連携が必要な社員から段階的に登録します。社員番号なし退職者は LEGACY-0001 形式で登録します。</p>
       ${fieldInput("employee_id", "社員番号", "", { required: true, placeholder: "例: 9999 / LEGACY-0001" })}
       ${fieldInput("full_name", "氏名", "", { required: true, placeholder: "例: 山田 太郎" })}
-      ${fieldInput("email", "メール", "", "email")}
+      ${fieldInput("email", "メール（任意）", "", "email")}
       ${fieldInput("birth_date", "誕生日", "", "date")}
       ${fieldInput("joined_on", "入社日", "", "date")}
       ${fieldInput("retired_on", "退職日", "", "date")}
@@ -1597,9 +1595,9 @@ function renderEmployeeCreatedPanel(employee) {
   return `
     <section class="created-employee-panel">
       <strong>社員を追加しました</strong>
-      <p>社員台帳への登録は完了しています。月初更新では、次の4点だけ確認すると後続アプリへつなげやすくなります。</p>
+      <p>社員台帳への登録は完了しています。月初更新では、所属・役職・権限・PINを確認すると後続アプリへつなげやすくなります。メールは必要な社員だけ後から登録できます。</p>
       <ul>
-        <li class="${hasEmail ? "done" : "pending"}">メール: ${hasEmail ? "設定済み" : "未設定。発行後に追記します。"}</li>
+        <li class="${hasEmail ? "done" : "pending"}">メール: ${hasEmail ? "設定済み" : "任意未入力。必要になったら追記します。"}</li>
         <li class="${hasLocation ? "done" : "pending"}">所属: ${hasLocation ? "設定済み" : "店舗または部署を設定してください。"}</li>
         <li class="${hasPosition ? "done" : "pending"}">役職: ${hasPosition ? "設定済み" : "必要に応じて設定してください。"}</li>
       </ul>
@@ -1711,7 +1709,7 @@ function renderEmployeeLoginPanel(employee, readonly) {
         <span class="status-pill${credential.login_enabled === false ? " inactive" : credential.pin_set ? "" : " warning"}">${credential.login_enabled === false ? "ログイン停止" : credential.pin_set ? "ログイン可" : "PIN未設定"}</span>
       </div>
       <div class="login-credential-grid">
-        ${fieldInput("email", "メールアドレス", loginEmail, { type: "email", placeholder: "例: staff@example.com", disabled: readonly })}
+        ${fieldInput("email", "メールアドレス（任意）", loginEmail, { type: "email", placeholder: "必要な社員のみ入力", disabled: readonly })}
         <label class="form-field" for="new_pin">
           <span>新しいPIN</span>
           <input class="form-input" id="new_pin" type="password" inputmode="numeric" autocomplete="new-password" placeholder="${credential.pin_set ? "変更時のみ入力" : "4〜12桁の数字"}"${readonly ? " disabled" : ""}>
@@ -1841,7 +1839,6 @@ function renderEmployeeIssuePanel(employee, issues) {
   }
   if (issues.length) {
     const hints = [];
-    if (issues.includes("メール")) hints.push("メール未発行の場合は空欄のまま保存できます。発行後に「メール未設定」から追記してください。");
     if (issues.includes("所属")) hints.push("主店舗または部署のどちらかを設定すると、所属未設定が解消します。");
     if (issues.includes("共通ロール")) hints.push("共通ロールはHUBと各アプリの基本表示に使います。一般スタッフは staff を付与します。");
     if (issues.includes("PIN")) hints.push("ログイン/PIN管理で初回PINを設定すると、HUBとIDEA LINK共通ログインに使えます。");
@@ -2213,9 +2210,9 @@ function updateLoginCredentialDirtyState(snapshot, status, button) {
 function getLoginCredentialStatusMessage(employee) {
   const credential = getEmployeeCredential(employee);
   const loginEmail = getCurrentEmployeeEmailInputValue() || credential.login_email || employee?.email || "";
-  if (!loginEmail && !credential.pin_set) return "メールアドレス/PINが未設定です。";
-  if (!loginEmail) return "メールアドレスが未設定です。";
+  if (!loginEmail && !credential.pin_set) return "メールアドレスは任意です。初回PINを設定してください。";
   if (!credential.pin_set) return "PIN未設定です。";
+  if (!loginEmail) return "PINログイン設定は保存済みです。メールは任意です。";
   if (credential.login_enabled === false) return "ログイン停止中です。";
   if (credential.locked) return "ログインがロック中です。";
   if (credential.must_change_pin) return "次回ログイン時にPIN変更が必要です。";
@@ -2225,7 +2222,7 @@ function getLoginCredentialStatusMessage(employee) {
 function getLoginCredentialStatusTone(employee) {
   const credential = getEmployeeCredential(employee);
   const loginEmail = getCurrentEmployeeEmailInputValue() || credential.login_email || employee?.email || "";
-  if (!loginEmail || !credential.pin_set || credential.locked || credential.must_change_pin) return "pending";
+  if (!credential.pin_set || credential.locked || credential.must_change_pin) return "pending";
   if (credential.login_enabled === false) return "error";
   return "success";
 }
@@ -2555,7 +2552,7 @@ async function saveEmployeeLoginCredential(event) {
   const mustChangePin = document.querySelector("#must_change_pin")?.checked || false;
   const clearLock = document.querySelector("#clear_login_lock")?.checked || false;
 
-  if (!loginEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
+  if (loginEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
     setSaveStatus(status, "メールアドレスの形式を確認してください。", "error");
     showToast("メールアドレスの形式を確認してください。");
     return;

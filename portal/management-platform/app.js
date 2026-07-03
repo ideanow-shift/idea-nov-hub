@@ -3682,7 +3682,7 @@ function applyRoleBasedView() {
   const performanceButton = document.querySelector('[data-view="performance"]');
   if (performanceButton) performanceButton.textContent = admin ? "成果" : "自店成果";
   const actionsButton = document.querySelector('[data-view="actions"]');
-  if (actionsButton) actionsButton.textContent = admin ? "??" : "?????";
+  if (actionsButton) actionsButton.textContent = admin ? "改善" : "自分の改善";
 
   const activeView = document.querySelector(".view.active");
   if (!activeView || activeView.hidden || !isViewAllowed(activeView.id.replace("view-", ""))) {

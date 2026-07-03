@@ -54,6 +54,12 @@
         <section class="list-panel">
           <label class="search-label" for="search">検索</label>
           <input class="search-input" id="search" type="search" placeholder="氏名・社員番号・店舗名で検索">
+          <div class="csv-tools" id="employee-csv-tools" hidden>
+            <button class="button button-secondary" id="export-employees-csv" type="button">社員CSV出力</button>
+            <label class="button button-secondary csv-import-label" for="import-employees-csv">CSV入力プレビュー</label>
+            <input id="import-employees-csv" type="file" accept=".csv,text/csv" hidden>
+            <span class="csv-tools-note">Core社員情報のみ。人事労務データは対象外です。</span>
+          </div>
           <div class="status-filter" id="employee-status-filter">
             <button class="filter-chip active" data-employee-status="active" type="button">現職</button>
             <button class="filter-chip" data-employee-status="missing" type="button">未設定あり</button>

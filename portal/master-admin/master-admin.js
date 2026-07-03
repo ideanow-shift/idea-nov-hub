@@ -1,4 +1,4 @@
-import { signInWithGoogle, signOutUser } from "../js/auth.js";
+﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
 import { callApiAction, clearApiAuth, setFirebaseAuth } from "../js/api.js";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
@@ -91,7 +91,7 @@ const state = {
 
 const elements = Object.fromEntries([
   "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "add-employee", "add-portal-app", "refresh",
-  "view-title", "search", "quality-summary", "result-count", "table-head", "table-body",
+  "view-title", "search", "employee-csv-tools", "export-employees-csv", "import-employees-csv", "quality-summary", "result-count", "table-head", "table-body",
   "detail-panel", "employee-status-filter", "store-status-filter", "app-status-filter", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
 
@@ -592,6 +592,7 @@ function render() {
   });
   updateNavigationCounts();
   elements.addEmployee.hidden = state.view !== "employees" || !state.permissions.canEdit;
+  elements.employeeCsvTools.hidden = state.view !== "employees";
   elements.addPortalApp.hidden = state.view !== "apps" || !state.permissions.canEdit;
   elements.viewTitle.textContent = {
     employees: "社員マスタ",
@@ -2700,6 +2701,227 @@ function setSaveStatus(element, message, type = "") {
   element.className = `save-status${type ? ` ${type}` : ""}`;
 }
 
+function getEmployeeCsvRows() {
+  const rows = state.view === "employees" ? getRows() : getSortedRows(getEmployeesByStatus());
+  return rows.map((employee) => ({
+    "社員DB_ID": employee.id || "",
+    "社員番号": employee.employee_id || "",
+    "氏名": employee.full_name || "",
+    "メールアドレス": getEmployeeContactEmail(employee),
+    "所属": formatEmployeeAffiliation(employee),
+    "主店舗ID": employee.store_id || "",
+    "主店舗名": employee.store_name || "",
+    "部署": employee.department_name || "",
+    "役職": employee.position_name || employee.source_position_name || "",
+    "職種": employee.job_type_name || "",
+    "雇用形態": normalizeEmploymentType(employee.employment_type || ""),
+    "就労ステータス": normalizeEmploymentStatus(employee.employment_status || "") || getEmployeeStatusLabel(employee),
+    "休職種別": normalizeLeaveType(employee.leave_type || ""),
+    "有効": employee.is_active ? "TRUE" : "FALSE",
+    "入社日": employee.joined_on || "",
+    "退職日": employee.retired_on || "",
+    "共通ロール": getCommonRoleKeys(employee).join(" "),
+    "アプリ権限": getIdeaLinkRoleKeys(employee).join(" "),
+    "Firebase UID": employee.firebase_uid || ""
+  }));
+}
+
+function escapeCsvCell(value) {
+  const text = String(value ?? "");
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function buildCsv(rows) {
+  if (!rows.length) return "";
+  const headers = Object.keys(rows[0]);
+  const lines = [
+    headers.map(escapeCsvCell).join(","),
+    ...rows.map((row) => headers.map((header) => escapeCsvCell(row[header])).join(","))
+  ];
+  return lines.join("\r\n");
+}
+
+function exportEmployeesCsv() {
+  const rows = getEmployeeCsvRows();
+  if (!rows.length) {
+    showToast("出力対象の社員がありません。");
+    return;
+  }
+  const csv = `\uFEFF${buildCsv(rows)}`;
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const now = new Date();
+  const stamp = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+    String(now.getHours()).padStart(2, "0"),
+    String(now.getMinutes()).padStart(2, "0")
+  ].join("");
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `nov-hub-employees-core-${stamp}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  showToast(`${rows.length}件の社員Core情報CSVを出力しました。`);
+}
+
+function parseCsv(text) {
+  const normalized = String(text || "").replace(/^\uFEFF/, "");
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  for (let index = 0; index < normalized.length; index += 1) {
+    const char = normalized[index];
+    const next = normalized[index + 1];
+    if (quoted) {
+      if (char === '"' && next === '"') {
+        cell += '"';
+        index += 1;
+      } else if (char === '"') {
+        quoted = false;
+      } else {
+        cell += char;
+      }
+      continue;
+    }
+    if (char === '"') {
+      quoted = true;
+    } else if (char === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (char === "\n") {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else if (char !== "\r") {
+      cell += char;
+    }
+  }
+  if (cell || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
+  return rows.filter((items) => items.some((item) => String(item || "").trim()));
+}
+
+function normalizeCsvHeader(header) {
+  return String(header || "").trim();
+}
+
+function readCsvRows(text) {
+  const table = parseCsv(text);
+  if (table.length < 2) return [];
+  const headers = table[0].map(normalizeCsvHeader);
+  return table.slice(1).map((items) => Object.fromEntries(headers.map((header, index) => [header, items[index] || ""])));
+}
+
+function getCsvEmployeeNumber(row) {
+  return String(row["社員番号"] || row.employee_id || row["社員ID"] || "").trim();
+}
+
+function getCsvComparableFields(row) {
+  return {
+    email: String(row["メールアドレス"] || row.email || "").trim(),
+    employment_type: normalizeEmploymentType(row["雇用形態"] || row.employment_type || ""),
+    employment_status: normalizeEmploymentStatus(row["就労ステータス"] || row.employment_status || ""),
+    leave_type: normalizeLeaveType(row["休職種別"] || row.leave_type || "")
+  };
+}
+
+function getEmployeeComparableFields(employee) {
+  return {
+    email: getEmployeeContactEmail(employee),
+    employment_type: normalizeEmploymentType(employee.employment_type || ""),
+    employment_status: normalizeEmploymentStatus(employee.employment_status || "") || getEmployeeStatusLabel(employee),
+    leave_type: normalizeLeaveType(employee.leave_type || "")
+  };
+}
+
+function buildCsvImportPreview(rows) {
+  const employeesByNumber = new Map(state.employees.map((employee) => [String(employee.employee_id || "").trim(), employee]));
+  const previewRows = rows.map((row) => {
+    const employeeNumber = getCsvEmployeeNumber(row);
+    const employee = employeesByNumber.get(employeeNumber);
+    if (!employee) return { row, employeeNumber, employee: null, changes: [] };
+    const csvFields = getCsvComparableFields(row);
+    const employeeFields = getEmployeeComparableFields(employee);
+    const changes = Object.entries(csvFields)
+      .filter(([, value]) => value)
+      .filter(([key, value]) => value !== employeeFields[key])
+      .map(([key, value]) => ({ key, before: employeeFields[key], after: value }));
+    return { row, employeeNumber, employee, changes };
+  });
+  const matched = previewRows.filter((item) => item.employee).length;
+  const changed = previewRows.filter((item) => item.changes.length).length;
+  return {
+    total: rows.length,
+    matched,
+    unmatched: rows.length - matched,
+    changed,
+    unchanged: matched - changed,
+    rows: previewRows
+  };
+}
+
+function renderCsvImportPreview(preview) {
+  const changedRows = preview.rows.filter((item) => item.changes.length).slice(0, 30);
+  const unmatchedRows = preview.rows.filter((item) => !item.employee).slice(0, 10);
+  elements.detailPanel.innerHTML = `
+    <h3>CSV入力プレビュー</h3>
+    <p class="detail-note">まだ保存していません。Core社員情報の差分確認だけです。人事労務データはCSV入力対象外です。</p>
+    <section class="csv-preview-summary">
+      <span>読込: ${escapeHtml(preview.total)}件</span>
+      <span>一致: ${escapeHtml(preview.matched)}件</span>
+      <span>差分: ${escapeHtml(preview.changed)}件</span>
+      <span>未一致: ${escapeHtml(preview.unmatched)}件</span>
+    </section>
+    ${changedRows.length ? `
+      <section class="csv-preview-section">
+        <strong>差分候補（先頭30件）</strong>
+        <div class="csv-preview-list">
+          ${changedRows.map((item) => `
+            <div class="csv-preview-item">
+              <b>${escapeHtml(item.employee.employee_id)} ${escapeHtml(item.employee.full_name)}</b>
+              <ul>${item.changes.map((change) => `<li>${escapeHtml(change.key)}: ${escapeHtml(change.before || "空欄")} → ${escapeHtml(change.after)}</li>`).join("")}</ul>
+            </div>
+          `).join("")}
+        </div>
+      </section>` : `<p class="status-muted">更新候補の差分はありません。</p>`}
+    ${unmatchedRows.length ? `
+      <section class="csv-preview-section warning">
+        <strong>社員番号が一致しない行（先頭10件）</strong>
+        <p>${unmatchedRows.map((item) => escapeHtml(item.employeeNumber || "社員番号なし")).join(" / ")}</p>
+      </section>` : ""}
+    <p class="field-help">保存更新機能は、SELECT preview・影響範囲・master_change_logs方針をOSレビューしてから追加します。</p>
+  `;
+}
+
+async function previewEmployeeCsvImport(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const rows = readCsvRows(text);
+    if (!rows.length) {
+      showToast("CSVの内容を確認できませんでした。");
+      return;
+    }
+    const preview = buildCsvImportPreview(rows);
+    state.selectedId = "";
+    renderCsvImportPreview(preview);
+    showToast(`CSVを読み込みました。差分候補 ${preview.changed}件 / 未一致 ${preview.unmatched}件`);
+  } catch (error) {
+    console.error(error);
+    showToast("CSVの読み込みに失敗しました。");
+  }
+}
+
 async function refreshEmployees() {
   const response = await callApiAction("masterListEmployees");
   state.employees = response.employees || [];
@@ -2761,6 +2983,8 @@ elements.signOut.addEventListener("click", handleSignOut);
 elements.refresh.addEventListener("click", loadData);
 elements.addEmployee.addEventListener("click", startCreateEmployee);
 elements.addPortalApp.addEventListener("click", startCreatePortalApp);
+elements.exportEmployeesCsv.addEventListener("click", exportEmployeesCsv);
+elements.importEmployeesCsv.addEventListener("change", previewEmployeeCsvImport);
 elements.search.addEventListener("input", () => {
   state.employeeIssueFilter = "";
   renderTable();

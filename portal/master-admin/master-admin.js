@@ -142,11 +142,11 @@ function normalizeLeaveType(value) {
 }
 
 function getErrorMessage(error) {
+  const message = error?.message || "処理に失敗しました。";
   const parts = [
-    error?.message || "処理に失敗しました。",
-    error?.code ? `code: ${error.code}` : "",
-    error?.stage ? `stage: ${error.stage}` : "",
-    error?.detail ? `detail: ${error.detail}` : ""
+    message,
+    error?.code && error.code !== "INVALID_REQUEST" ? `code: ${error.code}` : "",
+    error?.stage ? `stage: ${error.stage}` : ""
   ].filter(Boolean);
   return parts.join(" / ");
 }
@@ -564,6 +564,14 @@ function isLeaveEmployee(employee) {
 function isRetiredEmployee(employee) {
   const status = String(employee.employment_status || "");
   return /退職/.test(status) || (!employee.is_active && !isLeaveEmployee(employee));
+}
+
+function getStaffRoleBlockedReason(employee) {
+  if (!employee?.id) return "社員情報を確認できません。";
+  if (employee.is_active === false) return "有効をONにしてください。";
+  if (isRetiredEmployee(employee)) return "退職者にはstaffを付与できません。復帰する場合は就労ステータスを現職にしてください。";
+  if (isLeaveEmployee(employee)) return "休職・産休・育休中はstaff付与の対象外です。復帰時は就労ステータスを現職にしてください。";
+  return "";
 }
 
 function render() {
@@ -1620,9 +1628,9 @@ function renderEmployeeDetail(employee) {
     <h3>${escapeHtml(employee.full_name)}</h3>
     <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}${employee.updated_at ? ` / 最終更新: ${escapeHtml(formatDateTime(employee.updated_at))}` : ""}</p>
     <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。"}</p>
-    ${renderEmployeeProfileImagePanel(employee, readonly)}
-    ${renderEmployeeRolePanel(employee)}
     ${loginPanel}
+    ${renderEmployeeRolePanel(employee)}
+    ${renderEmployeeProfileImagePanel(employee, readonly)}
     <form class="form-grid" id="detail-form">
       ${createdPanel}
       ${issuePanel}
@@ -1765,14 +1773,15 @@ function renderEmployeeProfileImagePanel(employee, readonly) {
 function renderEmployeeRolePanel(employee) {
   const roleKeys = getCommonRoleKeys(employee);
   const canEdit = state.permissions.canEdit;
+  const blockedReason = getStaffRoleBlockedReason(employee);
   if (!roleKeys.length) {
     return `
       <div class="role-panel missing">
         <strong>HUB基本権限</strong>
-        <p>共通ロールが未設定です。一般スタッフは staff を付与します。管理者・幹部権限ではありません。</p>
-        ${canEdit
+        <p>${blockedReason ? `${blockedReason} 保存後にstaffを付与してください。` : "共通ロールが未設定です。一般スタッフは staff を付与します。管理者・幹部権限ではありません。"}</p>
+        ${canEdit && !blockedReason
           ? `<button class="button button-secondary" id="assign-staff-role" type="button">staffを付与</button>`
-          : `<button class="button button-secondary" type="button" disabled>staffを付与（編集権限が必要）</button>`}
+          : `<button class="button button-secondary" type="button" disabled>${canEdit ? "復職情報を先に保存" : "staffを付与（編集権限が必要）"}</button>`}
       </div>`;
   }
   const chips = roleKeys
@@ -2373,6 +2382,10 @@ async function assignStaffRole(event) {
     if (hasUnsavedEmployeeChanges) {
       employee = await saveEmployeeChangesBeforeRoleAssignment(employee);
       button.textContent = "付与中...";
+    }
+    const blockedReason = getStaffRoleBlockedReason(employee);
+    if (blockedReason) {
+      throw new Error(`${blockedReason} 保存後にstaffを付与してください。`);
     }
     await callApiAction("masterAssignDefaultStaffRole", { id: employee.id });
     showToast("staff権限を付与しました。", "success");

@@ -365,7 +365,7 @@ class LinkMasterRepository {
     }
 
     try {
-      const result = await requestBackend("listLinks", { includeInactive: "true" });
+      const result = await requestBackend("listLinks", session?.admin && session?.token ? { includeInactive: "true" } : {});
       this.cache = result.ok ? Object.fromEntries(result.links.map((link) => [link.id, link])) : {};
       return this.cache;
     } catch {

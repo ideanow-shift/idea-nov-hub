@@ -1628,7 +1628,6 @@ function renderEmployeeDetail(employee) {
       ${issuePanel}
       ${renderEmployeeAppRolePanel(employee, readonly)}
       ${firebaseLinkPanel}
-      ${fieldInput("email", "メールアドレス", getEmployeeContactEmail(employee), "email")}
       ${fieldInput("birth_date", "誕生日", employee.birth_date || "", "date")}
       ${fieldInput("joined_on", "入社日", employee.joined_on || "", "date")}
       ${fieldInput("retired_on", "退職日", employee.retired_on || "", "date")}
@@ -1703,11 +1702,7 @@ function renderEmployeeLoginPanel(employee, readonly) {
         <span class="status-pill${credential.login_enabled === false ? " inactive" : credential.pin_set ? "" : " warning"}">${credential.login_enabled === false ? "ログイン停止" : credential.pin_set ? "ログイン可" : "PIN未設定"}</span>
       </div>
       <div class="login-credential-grid">
-        <div class="form-field">
-          <span>ログインメール</span>
-          <div class="form-static">${escapeHtml(loginEmail || "メールアドレス未設定")}</div>
-          <small>上の「メールアドレス」を保存すると、ログインメールにも同期されます。</small>
-        </div>
+        ${fieldInput("email", "メールアドレス", loginEmail, { type: "email", placeholder: "例: staff@example.com", disabled: readonly })}
         <label class="form-field" for="new_pin">
           <span>新しいPIN</span>
           <input class="form-input" id="new_pin" type="password" inputmode="numeric" autocomplete="new-password" placeholder="${credential.pin_set ? "変更時のみ入力" : "4〜12桁の数字"}"${readonly ? " disabled" : ""}>
@@ -2023,11 +2018,12 @@ function fieldInput(name, label, value, type = "text") {
   const options = typeof type === "object" && type ? type : { type };
   const inputType = options.type || "text";
   const required = options.required ? " required" : "";
+  const disabled = options.disabled ? " disabled" : "";
   const placeholder = options.placeholder ? ` placeholder="${escapeHtml(options.placeholder)}"` : "";
   return `
     <div class="form-field">
       <label for="${escapeHtml(name)}">${escapeHtml(label)}</label>
-      <input class="form-input" id="${escapeHtml(name)}" name="${escapeHtml(name)}" type="${escapeHtml(inputType)}" value="${escapeHtml(value || "")}"${placeholder}${required}>
+      <input class="form-input" id="${escapeHtml(name)}" name="${escapeHtml(name)}" type="${escapeHtml(inputType)}" value="${escapeHtml(value || "")}"${placeholder}${required}${disabled}>
     </div>`;
 }
 
@@ -2115,6 +2111,7 @@ function collectFormPayload() {
 function collectEmployeePayload() {
   const payload = collectFormPayload();
   delete payload.firebase_uid;
+  payload.email = getCurrentEmployeeEmailInputValue();
   payload.employment_type = normalizeEmploymentType(payload.employment_type);
   payload.employment_status = normalizeEmploymentStatus(payload.employment_status);
   payload.leave_type = normalizeLeaveType(payload.leave_type);
@@ -2362,15 +2359,21 @@ async function retireEmployee(event) {
 }
 
 async function assignStaffRole(event) {
-  const employee = state.employees.find((item) => item.id === state.selectedId);
+  let employee = state.employees.find((item) => item.id === state.selectedId);
   if (!employee) return;
-  const confirmed = window.confirm(`${employee.full_name}さんに共通ロール（staff）を付与します。\n\nstaffは管理者・幹部権限ではありません。`);
+  const hasUnsavedEmployeeChanges = Boolean(document.querySelector("#detail-form"))
+    && getFormSnapshot("employee") !== state.formSnapshot;
+  const confirmed = window.confirm(`${employee.full_name}さんに共通ロール（staff）を付与します。\n\nstaffは管理者・幹部権限ではありません。${hasUnsavedEmployeeChanges ? "\n\n未保存の社員情報があるため、先に社員情報を保存してからstaffを付与します。" : ""}`);
   if (!confirmed) return;
   const button = event.currentTarget;
   const originalText = button.textContent;
   try {
     button.disabled = true;
-    button.textContent = "付与中...";
+    button.textContent = hasUnsavedEmployeeChanges ? "保存中..." : "付与中...";
+    if (hasUnsavedEmployeeChanges) {
+      employee = await saveEmployeeChangesBeforeRoleAssignment(employee);
+      button.textContent = "付与中...";
+    }
     await callApiAction("masterAssignDefaultStaffRole", { id: employee.id });
     showToast("staff権限を付与しました。", "success");
     await refreshEmployees();
@@ -2383,6 +2386,36 @@ async function assignStaffRole(event) {
     button.disabled = false;
     button.textContent = originalText || "staff権限を付与";
   }
+}
+
+async function saveEmployeeChangesBeforeRoleAssignment(employee) {
+  const payload = collectEmployeePayload();
+  payload.id = employee.id;
+
+  if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+    throw new Error("メールアドレスの形式を確認してください。");
+  }
+  const invalidDateField = getInvalidDateField(payload, [
+    ["birth_date", "誕生日"],
+    ["joined_on", "入社日"],
+    ["retired_on", "退職日"],
+    ["leave_start_date", "休職開始日"],
+    ["leave_end_date", "休職終了日・復職日"]
+  ]);
+  if (invalidDateField) {
+    throw new Error(`${invalidDateField}は 1993-08-01 の形式で入力してください。`);
+  }
+  const selectedStores = [payload.store_id, payload.store_assignment_2, payload.store_assignment_3].filter(Boolean);
+  if (new Set(selectedStores).size !== selectedStores.length) {
+    throw new Error("主店舗・サブ店舗・第3店舗に同じ店舗は選べません。");
+  }
+
+  await callApiAction("masterUpdateEmployee", payload);
+  await refreshEmployees();
+  await refreshLogsSilently();
+  const updated = state.employees.find((item) => item.id === employee.id);
+  if (!updated) throw new Error("社員情報の保存後に社員データを確認できませんでした。");
+  return updated;
 }
 
 async function saveIdeaLinkRoles(event) {

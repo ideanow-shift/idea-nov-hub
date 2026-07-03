@@ -1339,7 +1339,8 @@ async function appendMasterChangeLog(tableName: string, recordId: string, change
 async function syncEmployeeEmailFromLoginEmailIfEmpty(employee: JsonRecord, loginEmail: string, actor: JsonRecord) {
   const employeeId = String(employee.id || "").trim();
   const normalizedLoginEmail = normalizeEmail(loginEmail);
-  if (!employeeId || !normalizedLoginEmail || normalizeEmail(employee.email)) return null;
+  const currentEmail = normalizeEmail(employee.email);
+  if (!employeeId || !normalizedLoginEmail || currentEmail === normalizedLoginEmail) return null;
   const now = new Date().toISOString();
   const updates = {
     email: normalizedLoginEmail,
@@ -1352,6 +1353,7 @@ async function syncEmployeeEmailFromLoginEmailIfEmpty(employee: JsonRecord, logi
     prefer: "return=representation",
   });
   await appendMasterChangeLog("employees", employeeId, {
+    previous_email: currentEmail,
     email: normalizedLoginEmail,
     source: "login_credential_email_sync",
   }, actor, {
@@ -1839,7 +1841,7 @@ async function assignDefaultStaffRole(payload: JsonRecord, actor: JsonRecord) {
   const employee = await getCoreEmployeeById(id);
   if (!employee?.id) throw new PortalError("NOT_FOUND", "Employee was not found.", 404);
   if (!isStaffRoleAssignableEmployee(employee)) {
-    throw new PortalError("INVALID_REQUEST", "Retired or inactive employees cannot receive staff role.", 400);
+    throw new PortalError("INVALID_REQUEST", "現職かつ有効な社員だけstaffを付与できます。復職時は就労ステータスを現職、有効をONに保存してから付与してください。", 400);
   }
   return await assignDefaultStaffRoleForEmployee(employee, actor, false);
 }

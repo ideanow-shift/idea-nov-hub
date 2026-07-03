@@ -241,6 +241,31 @@ button:hover {
   font-size: 18px;
 }
 
+
+.mode-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.mode-guide-card {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(199, 120, 130, 0.35);
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
+.mode-guide-card h3 {
+  margin-bottom: 8px;
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+.mode-open-btn {
+  margin-top: 10px;
+}
 .flow-open-btn {
   margin-top: 10px;
 }
@@ -1313,7 +1338,8 @@ th {
 
   .record-next-summary { grid-template-columns: 1fr; }
   .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .management-flow-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .management-flow-grid,
+  .mode-guide-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .performance-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .performance-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .focus-grid { grid-template-columns: 1fr; }

@@ -1076,6 +1076,58 @@ function getManagementFlowSteps(records = getLocalRecords(), actions = improveme
   ];
 }
 
+function getModeGuideCards() {
+  if (isManagementAdmin()) {
+    return [
+      {
+        label: "Checker",
+        title: "チェックする側",
+        note: "対象者・店舗・4役割を選び、環境整備チェックを履歴として残します。",
+        view: "environment",
+        button: "チェック作成"
+      },
+      {
+        label: "Improve",
+        title: "改善を管理する側",
+        note: "0点・3点・コメントから改善アクションを作り、完了まで追います。",
+        view: "actions",
+        button: "改善を見る"
+      }
+    ];
+  }
+  return [
+    {
+      label: "Recipient",
+      title: "確認を受ける側",
+      note: "自分に紐づく履歴から、現在地・課題・次の行動を確認します。",
+      view: "growth",
+      button: "自分の確認"
+    },
+    {
+      label: "Action",
+      title: "自分の改善を進める",
+      note: "自分が対象者・担当者になっている改善アクションを確認します。",
+      view: "actions",
+      button: "自分の改善"
+    }
+  ];
+}
+
+function renderModeGuide() {
+  const cards = getModeGuideCards();
+  return `
+    <div class="mode-guide-grid" aria-label="利用モード">
+      ${cards.map((card) => `
+        <article class="mode-guide-card">
+          <p class="score-summary-label">${escapeHtml(card.label)}</p>
+          <h3>${escapeHtml(card.title)}</h3>
+          <p class="focus-note">${escapeHtml(card.note)}</p>
+          <button type="button" class="ghost-btn mode-open-btn" data-view-target="${escapeHtml(card.view)}">${escapeHtml(card.button)}</button>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
 function renderManagementFlowPanel(records = getLocalRecords()) {
   const panel = document.getElementById("managementFlowPanel");
   if (!panel) return;
@@ -1088,6 +1140,7 @@ function renderManagementFlowPanel(records = getLocalRecords()) {
         <p class="muted-text">開いたら次に見る場所と行動が分かるように、最新データから流れを整理します。</p>
       </div>
     </div>
+    ${renderModeGuide()}
     <div class="management-flow-grid">
       ${steps.map((step, index) => `
         <article class="management-flow-step tone-${step.tone}">
@@ -3503,7 +3556,7 @@ function bindEvents() {
   document.getElementById("refreshPerformanceBtn")?.addEventListener("click", refreshPerformanceData);
   document.getElementById("performanceForm")?.addEventListener("submit", handlePerformanceSubmit);
   document.getElementById("managementFlowPanel")?.addEventListener("click", (event) => {
-    const button = event.target.closest(".flow-open-btn");
+    const button = event.target.closest(".flow-open-btn, .mode-open-btn");
     if (button) showView(button.dataset.viewTarget || "dashboard");
   });
   document.getElementById("performancePeriodFilter")?.addEventListener("change", renderPerformanceDashboard);

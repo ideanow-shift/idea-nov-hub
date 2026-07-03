@@ -41,6 +41,21 @@ const STORAGE_KEYS = {
   knowledgeUpdates: "novConcierge.knowledgeUpdates.v1"
 };
 
+const HUB_CONTEXT_STORAGE_KEYS = [
+  "novHub.context.v1",
+  "novHubContext",
+  "ideaNovHub.context.v1"
+];
+
+const HUB_ADMIN_ROLE_KEYS = new Set([
+  "admin",
+  "super_admin",
+  "backoffice",
+  "executive",
+  "department_manager",
+  "nov_navi.admin"
+]);
+
 const KNOWLEDGE_AREAS = [
   {
     id: "sandbox",
@@ -136,6 +151,33 @@ class StoreAuthProvider {
 
   logout() {
     localStorage.removeItem(STORAGE_KEYS.session);
+  }
+}
+
+class HubContextAuthProvider {
+  currentSession() {
+    const context = readHubContext();
+    if (!context) return null;
+    return normalizeHubSession(context);
+  }
+}
+
+class AuthProvider {
+  constructor() {
+    this.hub = new HubContextAuthProvider();
+    this.store = new StoreAuthProvider();
+  }
+
+  async login(storeId, storePass) {
+    return this.store.login(storeId, storePass);
+  }
+
+  currentSession() {
+    return this.hub.currentSession() || this.store.currentSession();
+  }
+
+  logout() {
+    this.store.logout();
   }
 }
 
@@ -407,7 +449,7 @@ class DepartmentInquiryRepository {
   }
 }
 
-const authProvider = new StoreAuthProvider();
+const authProvider = new AuthProvider();
 const answerRuleRepository = new AnswerRuleRepository();
 const knowledgeAdapter = new KnowledgeAdapter();
 const logRepository = new ConversationLogRepository();
@@ -541,7 +583,7 @@ document.querySelectorAll("[data-question]").forEach((button) => {
 
 elements.clearHistoryButton.addEventListener("click", () => {
   if (!session) return;
-  logRepository.clearStore(session.id);
+  logRepository.clearStore(getSessionLogOwnerId());
   renderHistory();
 });
 
@@ -611,7 +653,7 @@ elements.knowledgeUpdateForm.addEventListener("submit", async (event) => {
     owner: area.owner,
     memo,
     updatedBy: session.name,
-    phase1LoginId: session.id,
+    phase1LoginId: getPhase1LoginId(),
     createdAt: new Date().toISOString()
   };
   try {
@@ -671,7 +713,7 @@ elements.answerRuleForm.addEventListener("submit", async (event) => {
   try {
     const result = await requestBackend(action, {
       ruleId: editingAnswerRuleId || createRuleId(ruleName),
-      phase1LoginId: session.id,
+      phase1LoginId: getPhase1LoginId(),
       keywords,
       notebook: elements.answerRuleNotebook.value,
       answer,
@@ -759,10 +801,10 @@ async function askConcierge(question) {
   const entry = {
     id: logId,
     createdAt: new Date().toISOString(),
-    storeId: session.id,
+    storeId: getSessionLogOwnerId(),
     storeUuid: session.storeId,
-    phase1LoginId: session.id,
-    storeName: session.name,
+    phase1LoginId: getPhase1LoginId(),
+    storeName: session.storeName || session.name,
     question,
     answer: response.answer,
     notebook: response.notebook,
@@ -995,7 +1037,8 @@ function createFeedback(logId) {
 }
 
 function renderHistory() {
-  const storeLogs = logRepository.all().filter((entry) => entry.storeId === session.id);
+  const ownerId = getSessionLogOwnerId();
+  const storeLogs = logRepository.all().filter((entry) => entry.storeId === ownerId);
   elements.historyList.innerHTML = "";
 
   if (!storeLogs.length) {
@@ -1787,6 +1830,107 @@ function isLinkActive(value) {
 
 function isRuleActive(value) {
   return isLinkActive(value);
+}
+
+function getPhase1LoginId() {
+  if (!session || session.source === "hub-context") return "";
+  return session.phase1LoginId || session.id || "";
+}
+
+function getSessionLogOwnerId() {
+  return session?.phase1LoginId || session?.employeeId || session?.id || "";
+}
+
+function readHubContext() {
+  const runtimeContext = readHubRuntimeContext();
+  if (runtimeContext) return runtimeContext;
+
+  for (const key of HUB_CONTEXT_STORAGE_KEYS) {
+    const storedContext = readJson(key, null);
+    if (storedContext) return storedContext;
+  }
+
+  return null;
+}
+
+function readHubRuntimeContext() {
+  try {
+    if (window.NovHubContext?.read) return window.NovHubContext.read();
+    if (window.NOV_HUB_CONTEXT) return window.NOV_HUB_CONTEXT;
+    if (window.IdeaNovHubContext) return window.IdeaNovHubContext;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function normalizeHubSession(context) {
+  const employee = context.employee || {};
+  const roleKeys = normalizeStringArray(context.roleKeys || context.roles || employee.roleKeys || employee.roles);
+  const selectedStore = selectHubStore(context);
+  const token = firstString(
+    context.novNaviSessionToken,
+    context.conciergeSessionToken,
+    context.sessionToken,
+    context.token
+  );
+  const employeeId = firstString(context.employeeId, employee.id, context.employee_id);
+  const email = firstString(context.email, employee.email);
+  const displayName = firstString(context.displayName, context.name, employee.displayName, employee.name, email);
+
+  return {
+    id: employeeId || email || "hub-user",
+    employeeId,
+    email,
+    storeId: selectedStore.id || selectedStore.storeId || firstString(context.storeId, context.activeStoreId),
+    phase1LoginId: "",
+    name: displayName || "HUBユーザー",
+    storeName: selectedStore.name || selectedStore.storeName || "",
+    admin: hasHubAdminRole(roleKeys),
+    roleKeys,
+    jobTypeId: firstString(context.jobTypeId, employee.jobTypeId, employee.job_type_id),
+    token,
+    source: "hub-context",
+    loginAt: new Date().toISOString()
+  };
+}
+
+function selectHubStore(context) {
+  const assignments = normalizeStoreAssignments(context.storeAssignments || context.stores || context.assignedStores);
+  const activeStoreId = firstString(context.activeStoreId, context.storeId, context.store?.id);
+  if (!assignments.length) return context.store || {};
+  return assignments.find((store) => {
+    return store.id === activeStoreId || store.storeId === activeStoreId || store.store_id === activeStoreId;
+  }) || assignments.find((store) => store.primary || store.isPrimary) || assignments[0];
+}
+
+function normalizeStoreAssignments(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (Array.isArray(value.items)) return value.items.filter(Boolean);
+  if (Array.isArray(value.stores)) return value.stores.filter(Boolean);
+  return [value].filter(Boolean);
+}
+
+function hasHubAdminRole(roleKeys) {
+  return roleKeys.some((roleKey) => HUB_ADMIN_ROLE_KEYS.has(roleKey));
+}
+
+function normalizeStringArray(value) {
+  if (!value) return [];
+  const list = Array.isArray(value) ? value : [value];
+  return list
+    .map((item) => {
+      if (typeof item === "string") return item;
+      return item?.roleKey || item?.key || item?.name || item?.id || "";
+    })
+    .map((item) => String(item).trim())
+    .filter(Boolean);
+}
+
+function firstString(...values) {
+  const value = values.find((item) => typeof item === "string" && item.trim());
+  return value ? value.trim() : "";
 }
 
 function createRuleId(value) {

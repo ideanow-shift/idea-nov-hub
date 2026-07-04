@@ -1,0 +1,152 @@
+﻿<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Decision Hub / 決裁・承認 | IDEA NOV</title>
+  <style>
+    :root {
+      --bg-primary: #ffffff;
+      --bg-soft: #faf7f7;
+      --text-primary: #1f1f1f;
+      --text-secondary: #767676;
+      --color-bassa: #e8b4b8;
+      --border-light: #e5e5e5;
+      --radius-md: 8px;
+      --spacing-sm: 8px;
+      --spacing-md: 12px;
+      --spacing-lg: 16px;
+      --spacing-xl: 24px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans JP', sans-serif;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .page {
+      width: min(680px, 100%);
+      margin: 0 auto;
+      padding: var(--spacing-xl) var(--spacing-lg) 48px;
+    }
+    .eyebrow {
+      color: var(--color-bassa);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      margin-bottom: var(--spacing-sm);
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      line-height: 1.35;
+      margin: 0 0 var(--spacing-sm);
+    }
+    .lead {
+      color: var(--text-secondary);
+      margin: 0 0 var(--spacing-xl);
+    }
+    .card {
+      background: var(--bg-soft);
+      border: 1px solid #f1cfd2;
+      border-radius: var(--radius-md);
+      padding: var(--spacing-xl);
+      margin-bottom: var(--spacing-lg);
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: var(--radius-md);
+      background: #fff7e8;
+      color: #8a5d00;
+      font-weight: 600;
+      margin-bottom: var(--spacing-md);
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0 0 var(--spacing-sm);
+    }
+    .list {
+      display: grid;
+      gap: var(--spacing-sm);
+      margin: var(--spacing-md) 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .list li {
+      background: #fff;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+    }
+    .actions {
+      display: grid;
+      gap: var(--spacing-md);
+      margin-top: var(--spacing-xl);
+    }
+    button, a.button {
+      min-height: 44px;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-light);
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    button {
+      background: #f2d6d9;
+      color: #fff;
+      cursor: not-allowed;
+    }
+    a.button {
+      background: #fff;
+      color: var(--text-primary);
+    }
+    .meta {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-top: var(--spacing-lg);
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="eyebrow">IDEA NOV</div>
+    <h1>Decision Hub / 決裁・承認</h1>
+    <p class="lead">企画・契約申請の起案、差戻し、承認、通知を確認するための入口です。</p>
+
+    <section class="card" aria-labelledby="status-title">
+      <div class="status">設計中 / DB未接続</div>
+      <h2 id="status-title" class="section-title">企画・契約申請</h2>
+      <p>この画面は確認用の安全モックです。申請保存、承認処理、通知送信、データ更新は行いません。</p>
+      <ul class="list">
+        <li>企画申請の起案</li>
+        <li>契約申請の起案</li>
+        <li>承認状況の確認</li>
+        <li>NOV HUB通知との連携予定</li>
+      </ul>
+      <div class="actions">
+        <button type="button" disabled>申請を作成する（準備中）</button>
+        <a class="button" href="../">NOV HUBへ戻る</a>
+      </div>
+      <p id="context-status" class="meta">HUB Context: 確認中</p>
+    </section>
+  </main>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const context = params.get('hub_context');
+    const el = document.getElementById('context-status');
+    el.textContent = context ? 'HUB Context: 受け取り済み（このモックでは表示確認のみ）' : 'HUB Context: なし（直接表示または確認用）';
+  </script>
+</body>
+</html>

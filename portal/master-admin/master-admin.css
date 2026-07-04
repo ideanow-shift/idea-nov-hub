@@ -1429,3 +1429,59 @@ tr.selected {
   font-size: 12px;
   line-height: 1.6;
 }
+
+
+.app-row-actions,
+.priority-control,
+.app-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.app-detail-actions {
+  margin: -6px 0 14px;
+}
+
+.mini-action {
+  min-height: 30px;
+  border: 1px solid var(--border-light);
+  border-radius: 999px;
+  background: #FFFFFF;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0 10px;
+}
+
+.mini-action.active,
+.mini-action.featured {
+  border-color: #CDE6D5;
+  background: #EEF6F1;
+  color: #25724A;
+}
+
+.mini-action.inactive {
+  background: #F2F2F2;
+  color: var(--text-secondary);
+}
+
+.mini-action.icon {
+  width: 30px;
+  padding: 0;
+}
+
+.mini-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.priority-number {
+  min-width: 24px;
+  color: var(--text-primary);
+  font-weight: 600;
+}

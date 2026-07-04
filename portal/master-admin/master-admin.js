@@ -970,20 +970,28 @@ function renderStoreRow(store) {
 
 function renderPortalAppRow(app) {
   const tr = document.createElement("tr");
+  const readonly = !state.permissions.canEdit;
   tr.className = app.id === state.selectedId ? "selected" : "";
   tr.innerHTML = `
     <td>${escapeHtml(app.appId)}</td>
     <td>${escapeHtml(app.appName)}</td>
     <td>${escapeHtml(app.category || "")}</td>
     <td>${escapeHtml(app.requiredLevel || 1)}</td>
-    <td>${formatPortalAppStatus(app)}</td>
-    <td>${escapeHtml(app.priority || 999)}</td>`;
+    <td>${renderPortalAppStatusControls(app, readonly)}</td>
+    <td>${renderPortalAppPriorityControls(app, readonly)}</td>`;
   tr.addEventListener("click", () => {
     state.selectedId = app.id;
     render();
   });
+  tr.querySelectorAll("[data-app-action]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      handlePortalAppQuickAction(app, button.dataset.appAction);
+    });
+  });
   return tr;
 }
+
 
 function renderPermissionRow(permission) {
   const tr = document.createElement("tr");
@@ -1009,6 +1017,30 @@ function formatPortalAppStatus(app) {
   if (app.isFeatured) return `<span class="status-pill">公開中・よく使う</span>`;
   return `<span class="status-pill">公開中</span>`;
 }
+
+function renderPortalAppStatusControls(app, readonly) {
+  const isActive = app.isActive !== false;
+  const isFeatured = Boolean(app.isFeatured);
+  return `
+    <div class="app-row-actions">
+      <button class="mini-action ${isActive ? "active" : "inactive"}" type="button" data-app-action="toggle-active" ${readonly ? "disabled" : ""}>
+        ${isActive ? "公開" : "非公開"}
+      </button>
+      <button class="mini-action ${isFeatured ? "featured" : ""}" type="button" data-app-action="toggle-featured" ${readonly ? "disabled" : ""}>
+        ${isFeatured ? "よく使う" : "通常"}
+      </button>
+    </div>`;
+}
+
+function renderPortalAppPriorityControls(app, readonly) {
+  return `
+    <div class="priority-control">
+      <span class="priority-number">${escapeHtml(app.priority || 999)}</span>
+      <button class="mini-action icon" type="button" data-app-action="move-up" title="上へ" ${readonly ? "disabled" : ""}>↑</button>
+      <button class="mini-action icon" type="button" data-app-action="move-down" title="下へ" ${readonly ? "disabled" : ""}>↓</button>
+    </div>`;
+}
+
 
 function formatEmployeeIssues(employee, issues) {
   if (!isCurrentEmployee(employee)) return `<span class="status-muted">対象外</span>`;
@@ -1913,6 +1945,16 @@ function renderPortalAppDetail(app) {
     <h3>${escapeHtml(app.appName)}</h3>
     <p class="detail-meta">App ID: ${escapeHtml(app.appId)}${app.updatedAt ? ` / 最終更新: ${escapeHtml(formatDateTime(app.updatedAt))}` : ""}</p>
     <p class="detail-note">NOV HUBに表示するアプリカードを管理します。権限がないアプリはHUB上に表示されません。</p>
+    <section class="app-detail-actions">
+      <button class="button button-secondary" type="button" data-app-action="toggle-active" ${readonly ? "disabled" : ""}>
+        ${app.isActive === false ? "公開する" : "非公開にする"}
+      </button>
+      <button class="button button-secondary" type="button" data-app-action="toggle-featured" ${readonly ? "disabled" : ""}>
+        ${app.isFeatured ? "よく使うから外す" : "よく使うに入れる"}
+      </button>
+      <button class="button button-secondary" type="button" data-app-action="move-up" ${readonly ? "disabled" : ""}>上へ</button>
+      <button class="button button-secondary" type="button" data-app-action="move-down" ${readonly ? "disabled" : ""}>下へ</button>
+    </section>
     <form class="form-grid" id="detail-form">
       ${fieldInput("appId", "アプリID", app.appId || "", { required: true })}
       ${fieldInput("appName", "アプリ名", app.appName || "", { required: true })}
@@ -1942,6 +1984,9 @@ function renderPortalAppDetail(app) {
   if (!readonly) {
     const form = document.querySelector("#detail-form");
     form.addEventListener("submit", savePortalApp);
+    elements.detailPanel.querySelectorAll(".app-detail-actions [data-app-action]").forEach((button) => {
+      button.addEventListener("click", () => handlePortalAppQuickAction(app, button.dataset.appAction));
+    });
     setupDirtyForm("app");
   }
 }
@@ -2594,7 +2639,88 @@ async function saveEmployeeLoginCredential(event) {
   }
 }
 
+function buildPortalAppUpdatePayload(app, patch = {}) {
+  return {
+    id: app.id,
+    appId: app.appId,
+    appName: app.appName,
+    description: app.description || "",
+    url: app.url || "",
+    category: app.category || "",
+    icon: app.icon || "default",
+    priority: Number(app.priority || 999),
+    requiredLevel: Number(app.requiredLevel || 1),
+    allowedTags: Array.isArray(app.allowedTags) ? app.allowedTags : [],
+    targetDepartment: Array.isArray(app.targetDepartment) ? app.targetDepartment : [],
+    targetPosition: Array.isArray(app.targetPosition) ? app.targetPosition : [],
+    isActive: app.isActive !== false,
+    isFeatured: Boolean(app.isFeatured),
+    ...patch
+  };
+}
+
+async function updatePortalAppQuickly(app, patch, successMessage) {
+  await callApiAction("masterUpdatePortalApp", buildPortalAppUpdatePayload(app, patch));
+  await refreshPortalApps();
+  await refreshLogsSilently();
+  state.selectedId = app.id;
+  render();
+  showToast(successMessage);
+}
+
+async function movePortalApp(app, direction) {
+  const ordered = state.portalApps.slice().sort(comparePortalApps);
+  const currentIndex = ordered.findIndex((item) => item.id === app.id);
+  const targetIndex = currentIndex + direction;
+  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= ordered.length) {
+    showToast("これ以上移動できません。");
+    return;
+  }
+  const target = ordered[targetIndex];
+  const currentPriority = Number(app.priority || 999);
+  const targetPriority = Number(target.priority || 999);
+  const nextCurrentPriority = currentPriority === targetPriority ? targetIndex + 1 : targetPriority;
+  const nextTargetPriority = currentPriority === targetPriority ? currentIndex + 1 : currentPriority;
+  await callApiAction("masterUpdatePortalApp", buildPortalAppUpdatePayload(app, { priority: nextCurrentPriority }));
+  await callApiAction("masterUpdatePortalApp", buildPortalAppUpdatePayload(target, { priority: nextTargetPriority }));
+  await refreshPortalApps();
+  await refreshLogsSilently();
+  state.selectedId = app.id;
+  render();
+  showToast("表示順を更新しました。");
+}
+
+async function handlePortalAppQuickAction(app, action) {
+  if (!state.permissions.canEdit) {
+    showToast("編集権限がありません。", "error");
+    return;
+  }
+  try {
+    if (action === "toggle-active") {
+      const nextActive = app.isActive === false;
+      await updatePortalAppQuickly(app, { isActive: nextActive }, nextActive ? "HUBに表示しました。" : "HUBで非表示にしました。");
+      return;
+    }
+    if (action === "toggle-featured") {
+      const nextFeatured = !app.isFeatured;
+      await updatePortalAppQuickly(app, { isFeatured: nextFeatured }, nextFeatured ? "よく使うに表示しました。" : "よく使うから外しました。");
+      return;
+    }
+    if (action === "move-up") {
+      await movePortalApp(app, -1);
+      return;
+    }
+    if (action === "move-down") {
+      await movePortalApp(app, 1);
+    }
+  } catch (error) {
+    console.error(error);
+    showToast(getErrorMessage(error));
+  }
+}
+
 async function savePortalApp(event) {
+
   event.preventDefault();
   const button = event.submitter;
   const status = document.querySelector("#app-save-status");

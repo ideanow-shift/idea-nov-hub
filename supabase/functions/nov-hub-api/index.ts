@@ -2378,57 +2378,14 @@ function normalizeAppUrlKey(value: unknown) {
 function canonicalAppGroupKey(app: ReturnType<typeof normalizeApp>) {
   const id = normalizeAppTextKey(app.appId);
   const name = normalizeAppTextKey(app.appName);
-  const icon = normalizeAppTextKey(app.icon);
-  const category = normalizeAppTextKey(app.category);
-  const description = normalizeAppTextKey(app.description);
-  const isIdeaLinkFamily = id === "idealink"
-    || id.includes("idealink")
-    || id.includes("thanks")
-    || id.includes("sankusu")
-    || name.includes("サンクス")
-    || name.includes("理念浸透")
-    || description.includes("サンクス")
-    || description.includes("理念")
-    || (category.includes("称賛") && icon.includes("idealink"));
-  if (isIdeaLinkFamily) {
-    return "app:idea-link";
-  }
   const urlKey = normalizeAppUrlKey(app.url);
+  if (id) return `app:${id}`;
   if (urlKey) return `url:${urlKey}`;
-  return `app:${id || name}`;
-}
-
-function isCanonicalIdeaLinkApp(app: ReturnType<typeof normalizeApp>) {
-  const id = normalizeAppTextKey(app.appId);
-  const name = normalizeAppTextKey(app.appName);
-  const url = normalizeAppUrlKey(app.url);
-  return id === "idealink"
-    || id === "idealinkhub"
-    || name === "idealink"
-    || url.includes("/idea-nov-hub/idea-link")
-    || url.endsWith("/idea-link");
-}
-
-function isLegacyIdeaLinkDuplicate(app: ReturnType<typeof normalizeApp>) {
-  if (isCanonicalIdeaLinkApp(app)) return false;
-  const id = normalizeAppTextKey(app.appId);
-  const name = normalizeAppTextKey(app.appName);
-  const description = normalizeAppTextKey(app.description);
-  return id.includes("thanks")
-    || id.includes("sankusu")
-    || name.includes("サンクス")
-    || name.includes("理念浸透")
-    || description.includes("サンクス")
-    || description.includes("理念浸透");
+  return `name:${name}`;
 }
 
 function appDedupeScore(app: ReturnType<typeof normalizeApp>) {
   let score = Number(app.priority || 999);
-  const id = normalizeAppTextKey(app.appId);
-  const name = normalizeAppTextKey(app.appName);
-  const description = normalizeAppTextKey(app.description);
-  if (id === "idealink" || name === "idealink") score -= 1000;
-  if (id.includes("thanks") || id.includes("sankusu") || name.includes("サンクス") || name.includes("理念浸透") || description.includes("サンクス")) score += 1000;
   if (!normalizeAppUrlKey(app.url)) score += 500;
   return score;
 }
@@ -2472,7 +2429,7 @@ async function readVisibleApps(employee: JsonRecord) {
     }
   });
   apps = apps.filter((app) => app.appId !== "expense-hub");
-  return dedupeVisibleApps(apps.filter((app) => !isLegacyIdeaLinkDuplicate(app)))
+  return dedupeVisibleApps(apps)
     .sort((a, b) => Number(a.priority || 999) - Number(b.priority || 999));
 }
 

@@ -371,7 +371,19 @@ function normalizeAppUrlKey(value) {
 function canonicalAppGroupKey(app) {
   const id = normalizeAppTextKey(app.appId);
   const name = normalizeAppTextKey(app.appName);
-  if (id === "idealink" || id === "thanks" || id === "thankscoin" || name.includes("サンクス") || name.includes("理念浸透")) {
+  const icon = normalizeAppTextKey(app.icon);
+  const category = normalizeAppTextKey(app.category);
+  const description = normalizeAppTextKey(app.description);
+  const isIdeaLinkFamily = id === "idealink"
+    || id.includes("idealink")
+    || id.includes("thanks")
+    || id.includes("sankusu")
+    || name.includes("サンクス")
+    || name.includes("理念浸透")
+    || description.includes("サンクス")
+    || description.includes("理念")
+    || (category.includes("称賛") && icon.includes("idealink"));
+  if (isIdeaLinkFamily) {
     return "app:idea-link";
   }
   const urlKey = normalizeAppUrlKey(app.url);
@@ -383,8 +395,9 @@ function appDedupeScore(app) {
   let score = Number(app.priority || 999);
   const id = normalizeAppTextKey(app.appId);
   const name = normalizeAppTextKey(app.appName);
-  if (id === "idealink") score -= 1000;
-  if (id === "thanks" || id === "thankscoin" || name.includes("サンクス") || name.includes("理念浸透")) score += 1000;
+  const description = normalizeAppTextKey(app.description);
+  if (id === "idealink" || name === "idealink") score -= 1000;
+  if (id.includes("thanks") || id.includes("sankusu") || name.includes("サンクス") || name.includes("理念浸透") || description.includes("サンクス")) score += 1000;
   if (!normalizeAppUrlKey(app.url)) score += 500;
   return score;
 }

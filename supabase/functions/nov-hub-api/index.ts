@@ -2402,6 +2402,13 @@ function dedupeVisibleApps(apps: ReturnType<typeof normalizeApp>[]) {
   return [...byKey.values()];
 }
 
+function ensureMasterAdminApp(apps: ReturnType<typeof normalizeApp>[], employee: JsonRecord) {
+  if (!canViewMasterAdmin(employee)) return apps;
+  if (apps.some((app) => app.appId === "core-master-admin")) return apps;
+  const masterAdminApp = fixedApps(employee).find((app) => app.appId === "core-master-admin");
+  return masterAdminApp ? [...apps, masterAdminApp] : apps;
+}
+
 async function readVisibleApps(employee: JsonRecord) {
   const rows = await readRows("portal_apps", {
     query: {
@@ -2413,6 +2420,7 @@ async function readVisibleApps(employee: JsonRecord) {
   if (!apps.length) {
     apps = fixedApps(employee);
   }
+  apps = ensureMasterAdminApp(apps, employee);
   apps = apps.filter((app) => canAccessApp(employee, app));
   apps = apps.filter((app) => app.appId !== "expense-hub");
   return dedupeVisibleApps(apps)

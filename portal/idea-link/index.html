@@ -3,7 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IDEA LINKへ移動中 | NOV HUB</title>
+  <title>サンクスコイン | NOV HUB</title>
+  <meta name="application-name" content="サンクスコイン">
+  <meta name="apple-mobile-web-app-title" content="サンクスコイン">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="../assets/icon-192.png">
   <style>
     :root {
       --bg-primary: #ffffff;
@@ -139,7 +145,7 @@
     <div class="brand">
       <span class="brand-mark" aria-hidden="true">NOV</span>
       <div>
-        <h1>IDEA LINKへ移動中</h1>
+        <h1>サンクスコイン</h1>
         <p id="status">NOV HUBのログイン情報と権限を確認しています。</p>
       </div>
     </div>
@@ -159,7 +165,7 @@
       </div>
     </div>
 
-    <a id="openLink" class="button" href="#">IDEA LINKを開く</a>
+    <a id="openLink" class="button" href="#">サンクスコインを開く</a>
     <a class="button secondary" href="../">NOV HUBへ戻る</a>
   </main>
 
@@ -204,6 +210,11 @@
       return { url: url.toString(), encoded };
     }
 
+    function isStandaloneLaunch() {
+      return window.navigator.standalone === true ||
+        window.matchMedia?.("(display-mode: standalone)")?.matches === true;
+    }
+
     const context = readHubEmployeeContextFromUrl(window.location.href) || readHubEmployeeContext();
     const hasContext = Boolean(context);
     const hasEmployeeId = Boolean(context?.id || context?.employeeId || context?.supabaseEmployeeId);
@@ -223,10 +234,13 @@
     } else {
       const result = buildIdeaLinkUrl(context);
       openLink.href = result.url;
-      status.textContent = "確認できました。IDEA LINKへ移動します。";
-      window.setTimeout(() => {
-        window.location.replace(result.url);
-      }, 600);
+      status.textContent = "確認できました。ホーム画面に追加する場合は、このページを追加してください。";
+      if (isStandaloneLaunch()) {
+        status.textContent = "確認できました。サンクスコインへ移動します。";
+        window.setTimeout(() => {
+          window.location.replace(result.url);
+        }, 600);
+      }
     }
   </script>
 </body>

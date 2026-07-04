@@ -2409,25 +2409,11 @@ async function readVisibleApps(employee: JsonRecord) {
       order: "priority.asc,app_name.asc",
     },
   }).catch(() => []);
-  let apps = rows.map(normalizeApp).filter((app) => canAccessApp(employee, app));
-  fixedApps(employee).forEach((fixed) => {
-    const index = apps.findIndex((app) => app.appId === fixed.appId || (
-      fixed.appId === "expense_hub" && app.appId === "expense-hub"
-    ));
-    if (index === -1) {
-      if (canAccessApp(employee, fixed)) apps.push(fixed);
-    } else if (fixed.appId === "expense_hub") {
-      apps[index] = {
-        ...apps[index],
-        appId: fixed.appId,
-        appName: fixed.appName,
-        description: fixed.description,
-        url: fixed.url,
-        category: fixed.category,
-        icon: apps[index].icon || fixed.icon,
-      };
-    }
-  });
+  let apps = rows.map(normalizeApp);
+  if (!apps.length) {
+    apps = fixedApps(employee);
+  }
+  apps = apps.filter((app) => canAccessApp(employee, app));
   apps = apps.filter((app) => app.appId !== "expense-hub");
   return dedupeVisibleApps(apps)
     .sort((a, b) => Number(a.priority || 999) - Number(b.priority || 999));

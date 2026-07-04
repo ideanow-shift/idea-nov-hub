@@ -2349,6 +2349,65 @@ function canAccessApp(employee: JsonRecord, app: ReturnType<typeof normalizeApp>
   return true;
 }
 
+function normalizeAppTextKey(value: unknown) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[＿_\-ー－・/／（）()\[\]［］]/g, "")
+    .toLowerCase();
+}
+
+function normalizeAppUrlKey(value: unknown) {
+  const raw = String(value || "").trim();
+  if (!raw || raw.startsWith("#")) return "";
+  try {
+    const url = new URL(raw, "https://ideanow-shift.github.io/idea-nov-hub/");
+    url.searchParams.delete("hub_context");
+    url.hash = "";
+    const params = [...url.searchParams.entries()]
+      .sort(([a], [b]) => a.localeCompare(b));
+    url.search = "";
+    params.forEach(([key, val]) => url.searchParams.set(key, val));
+    const path = url.pathname.replace(/\/+$/, "") || "/";
+    return `${url.origin}${path}${url.search}`;
+  } catch (_) {
+    return raw.replace(/[?#].*$/, "").replace(/\/+$/, "").toLowerCase();
+  }
+}
+
+function canonicalAppGroupKey(app: ReturnType<typeof normalizeApp>) {
+  const id = normalizeAppTextKey(app.appId);
+  const name = normalizeAppTextKey(app.appName);
+  if (id === "idealink" || id === "thanks" || id === "thankscoin" || name.includes("サンクス") || name.includes("理念浸透")) {
+    return "app:idea-link";
+  }
+  const urlKey = normalizeAppUrlKey(app.url);
+  if (urlKey) return `url:${urlKey}`;
+  return `app:${id || name}`;
+}
+
+function appDedupeScore(app: ReturnType<typeof normalizeApp>) {
+  let score = Number(app.priority || 999);
+  const id = normalizeAppTextKey(app.appId);
+  const name = normalizeAppTextKey(app.appName);
+  if (id === "idealink") score -= 1000;
+  if (id === "thanks" || id === "thankscoin" || name.includes("サンクス") || name.includes("理念浸透")) score += 1000;
+  if (!normalizeAppUrlKey(app.url)) score += 500;
+  return score;
+}
+
+function dedupeVisibleApps(apps: ReturnType<typeof normalizeApp>[]) {
+  const byKey = new Map<string, ReturnType<typeof normalizeApp>>();
+  apps.forEach((app) => {
+    const key = canonicalAppGroupKey(app);
+    const current = byKey.get(key);
+    if (!current || appDedupeScore(app) < appDedupeScore(current)) {
+      byKey.set(key, app);
+    }
+  });
+  return [...byKey.values()];
+}
+
 async function readVisibleApps(employee: JsonRecord) {
   const rows = await readRows("portal_apps", {
     query: {
@@ -2376,7 +2435,8 @@ async function readVisibleApps(employee: JsonRecord) {
     }
   });
   apps = apps.filter((app) => app.appId !== "expense-hub");
-  return apps.sort((a, b) => Number(a.priority || 999) - Number(b.priority || 999));
+  return dedupeVisibleApps(apps)
+    .sort((a, b) => Number(a.priority || 999) - Number(b.priority || 999));
 }
 
 async function readAnnouncements() {

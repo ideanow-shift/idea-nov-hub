@@ -342,8 +342,68 @@ function normalizeManagementPlatformApps(apps = []) {
   });
 }
 
+function normalizeAppTextKey(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[＿_\-ー－・/／（）()\[\]［］]/g, "")
+    .toLowerCase();
+}
+
+function normalizeAppUrlKey(value) {
+  const raw = String(value || "").trim();
+  if (!raw || raw.startsWith("#")) return "";
+  try {
+    const url = new URL(raw, window.location.href);
+    url.searchParams.delete("hub_context");
+    url.hash = "";
+    const params = [...url.searchParams.entries()]
+      .sort(([a], [b]) => a.localeCompare(b));
+    url.search = "";
+    params.forEach(([key, val]) => url.searchParams.set(key, val));
+    const path = url.pathname.replace(/\/+$/, "") || "/";
+    return `${url.origin}${path}${url.search}`;
+  } catch {
+    return raw.replace(/[?#].*$/, "").replace(/\/+$/, "").toLowerCase();
+  }
+}
+
+function canonicalAppGroupKey(app) {
+  const id = normalizeAppTextKey(app.appId);
+  const name = normalizeAppTextKey(app.appName);
+  if (id === "idealink" || id === "thanks" || id === "thankscoin" || name.includes("サンクス") || name.includes("理念浸透")) {
+    return "app:idea-link";
+  }
+  const urlKey = normalizeAppUrlKey(app.url);
+  if (urlKey) return `url:${urlKey}`;
+  return `app:${id || name}`;
+}
+
+function appDedupeScore(app) {
+  let score = Number(app.priority || 999);
+  const id = normalizeAppTextKey(app.appId);
+  const name = normalizeAppTextKey(app.appName);
+  if (id === "idealink") score -= 1000;
+  if (id === "thanks" || id === "thankscoin" || name.includes("サンクス") || name.includes("理念浸透")) score += 1000;
+  if (!normalizeAppUrlKey(app.url)) score += 500;
+  return score;
+}
+
+function dedupePortalApps(apps = []) {
+  const byKey = new Map();
+  apps.forEach((app) => {
+    if (!app) return;
+    const key = canonicalAppGroupKey(app);
+    const current = byKey.get(key);
+    if (!current || appDedupeScore(app) < appDedupeScore(current)) {
+      byKey.set(key, app);
+    }
+  });
+  return [...byKey.values()];
+}
+
 function sortPortalApps(apps = []) {
-  return normalizeManagementPlatformApps(apps)
+  return dedupePortalApps(normalizeManagementPlatformApps(apps))
     .filter((app) => app && app.isActive !== false)
     .sort((a, b) => Number(a.priority || 999) - Number(b.priority || 999));
 }

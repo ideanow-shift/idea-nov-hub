@@ -2398,6 +2398,30 @@ function canonicalAppGroupKey(app: ReturnType<typeof normalizeApp>) {
   return `app:${id || name}`;
 }
 
+function isCanonicalIdeaLinkApp(app: ReturnType<typeof normalizeApp>) {
+  const id = normalizeAppTextKey(app.appId);
+  const name = normalizeAppTextKey(app.appName);
+  const url = normalizeAppUrlKey(app.url);
+  return id === "idealink"
+    || id === "idealinkhub"
+    || name === "idealink"
+    || url.includes("/idea-nov-hub/idea-link")
+    || url.endsWith("/idea-link");
+}
+
+function isLegacyIdeaLinkDuplicate(app: ReturnType<typeof normalizeApp>) {
+  if (isCanonicalIdeaLinkApp(app)) return false;
+  const id = normalizeAppTextKey(app.appId);
+  const name = normalizeAppTextKey(app.appName);
+  const description = normalizeAppTextKey(app.description);
+  return id.includes("thanks")
+    || id.includes("sankusu")
+    || name.includes("サンクス")
+    || name.includes("理念浸透")
+    || description.includes("サンクス")
+    || description.includes("理念浸透");
+}
+
 function appDedupeScore(app: ReturnType<typeof normalizeApp>) {
   let score = Number(app.priority || 999);
   const id = normalizeAppTextKey(app.appId);
@@ -2448,7 +2472,7 @@ async function readVisibleApps(employee: JsonRecord) {
     }
   });
   apps = apps.filter((app) => app.appId !== "expense-hub");
-  return dedupeVisibleApps(apps)
+  return dedupeVisibleApps(apps.filter((app) => !isLegacyIdeaLinkDuplicate(app)))
     .sort((a, b) => Number(a.priority || 999) - Number(b.priority || 999));
 }
 

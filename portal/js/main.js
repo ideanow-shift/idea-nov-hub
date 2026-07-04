@@ -391,6 +391,30 @@ function canonicalAppGroupKey(app) {
   return `app:${id || name}`;
 }
 
+function isCanonicalIdeaLinkApp(app) {
+  const id = normalizeAppTextKey(app.appId);
+  const name = normalizeAppTextKey(app.appName);
+  const url = normalizeAppUrlKey(app.url);
+  return id === "idealink"
+    || id === "idealinkhub"
+    || name === "idealink"
+    || url.includes("/idea-nov-hub/idea-link")
+    || url.endsWith("/idea-link");
+}
+
+function isLegacyIdeaLinkDuplicate(app) {
+  if (isCanonicalIdeaLinkApp(app)) return false;
+  const id = normalizeAppTextKey(app.appId);
+  const name = normalizeAppTextKey(app.appName);
+  const description = normalizeAppTextKey(app.description);
+  return id.includes("thanks")
+    || id.includes("sankusu")
+    || name.includes("サンクス")
+    || name.includes("理念浸透")
+    || description.includes("サンクス")
+    || description.includes("理念浸透");
+}
+
 function appDedupeScore(app) {
   let score = Number(app.priority || 999);
   const id = normalizeAppTextKey(app.appId);
@@ -416,7 +440,7 @@ function dedupePortalApps(apps = []) {
 }
 
 function sortPortalApps(apps = []) {
-  return dedupePortalApps(normalizeManagementPlatformApps(apps))
+  return dedupePortalApps(normalizeManagementPlatformApps(apps).filter((app) => !isLegacyIdeaLinkDuplicate(app)))
     .filter((app) => app && app.isActive !== false)
     .sort((a, b) => Number(a.priority || 999) - Number(b.priority || 999));
 }

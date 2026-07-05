@@ -864,6 +864,78 @@ tr.selected {
   white-space: normal;
 }
 
+.notification-destination-panel {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 16px;
+  border: 1px solid #C9D8F0;
+  border-radius: var(--radius-md);
+  background: #F6FAFF;
+  padding: 12px;
+}
+
+.notification-destination-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notification-destination-heading .status-pill {
+  flex: 0 0 auto;
+  max-width: 92px;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+}
+
+.notification-destination-heading strong {
+  display: block;
+  font-size: 13px;
+}
+
+.notification-destination-heading p {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.notification-destination-grid,
+.notification-destination-meta {
+  display: grid;
+  gap: 8px;
+}
+
+.notification-destination-meta {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.notification-destination-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 4px -12px -12px;
+  border-top: 1px solid #D7E4F5;
+  background: #F7FBFF;
+  padding: 12px;
+}
+
+.notification-destination-save-button {
+  min-width: 140px;
+}
+
+.notification-destination-actions .save-status {
+  width: 100%;
+  justify-content: flex-start;
+  border-radius: var(--radius-md);
+  line-height: 1.5;
+  white-space: normal;
+}
+
 .form-grid {
   display: grid;
   gap: 12px;

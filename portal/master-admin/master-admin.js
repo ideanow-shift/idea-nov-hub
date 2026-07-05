@@ -353,6 +353,9 @@ function getSearchText(row) {
       row.login_credential.must_change_pin ? "初回変更必須" : ""
     );
   }
+  if ("employee_id" in row) {
+    values.push(formatEmployeeLineWorksDestinationStatus(row));
+  }
   if (row.change_payload && typeof row.change_payload === "object") {
     values.push(row.change_summary, row.action_type, row.target_name, row.table_name);
   }
@@ -417,6 +420,52 @@ function getEmployeeCredential(employee) {
     locked: false,
     last_login_at: ""
   };
+}
+
+function getEmployeeLineWorksDestination(employee) {
+  const destination = employee?.line_works_destination
+    || employee?.lineWorksDestination
+    || employee?.notification_destination
+    || {};
+  const rawValue = destination.lineWorksRecipientId
+    || destination.lineWorksTargetId
+    || destination.line_works_recipient_id
+    || destination.line_works_target_id
+    || destination.line_works_user_id
+    || destination.channel_id
+    || employee?.lineWorksRecipientId
+    || employee?.line_works_recipient_id
+    || "";
+  const displayName = destination.displayName || destination.display_name || destination.channel_name || "";
+  const isActive = destination.isActive ?? destination.is_active ?? Boolean(rawValue);
+  return {
+    id: destination.id || destination.destination_id || "",
+    value: String(rawValue || "").trim(),
+    displayName: String(displayName || "").trim(),
+    isActive: Boolean(isActive)
+  };
+}
+
+function hasEmployeeLineWorksDestination(employee) {
+  const destination = getEmployeeLineWorksDestination(employee);
+  return Boolean(destination.value && destination.isActive);
+}
+
+function maskLineWorksRecipientId(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (text.length <= 8) return "設定済み";
+  return `${text.slice(0, 4)}${"*".repeat(Math.min(8, Math.max(4, text.length - 8)))}${text.slice(-4)}`;
+}
+
+function formatEmployeeLineWorksDestinationStatus(employee) {
+  return hasEmployeeLineWorksDestination(employee) ? "LINE WORKS通知先設定済み" : "LINE WORKS通知先未設定";
+}
+
+function formatEmployeeLineWorksDestination(employee) {
+  const destination = getEmployeeLineWorksDestination(employee);
+  if (!destination.value || !destination.isActive) return `<span class="status-muted">未設定</span>`;
+  return `<span class="status-pill success" title="実値は一覧に表示しません">設定済み</span>`;
 }
 
 function getEmployeeContactEmail(employee) {
@@ -619,6 +668,7 @@ function renderTable() {
         <th>役職</th>
         <th>メール</th>
         <th>ログイン</th>
+        <th>通知先</th>
         <th>未設定</th>
         <th>状態</th>
       </tr>`;
@@ -907,6 +957,7 @@ function renderEmployeeRow(employee) {
     <td>${escapeHtml(employee.position_name || employee.source_position_name || "")}</td>
     <td>${formatEmployeeEmail(employee)}</td>
     <td>${formatEmployeeLogin(employee)}</td>
+    <td>${formatEmployeeLineWorksDestination(employee)}</td>
     <td>${formatEmployeeIssues(employee, issues)}</td>
     <td>${formatEmployeeStatus(employee)}</td>`;
   tr.addEventListener("click", () => {
@@ -1643,6 +1694,7 @@ function renderEmployeeDetail(employee) {
   const createdPanel = renderEmployeeCreatedPanel(employee);
   const issuePanel = renderEmployeeIssuePanel(employee, issues);
   const loginPanel = renderEmployeeLoginPanel(employee, readonly);
+  const lineWorksPanel = renderEmployeeLineWorksDestinationPanel(employee, readonly);
   const firebaseLinkPanel = state.view === "firebase" && !readonly ? `
       <div class="firebase-link-panel">
         <div>
@@ -1660,6 +1712,7 @@ function renderEmployeeDetail(employee) {
     <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}${employee.updated_at ? ` / 最終更新: ${escapeHtml(formatDateTime(employee.updated_at))}` : ""}</p>
     <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。"}</p>
     ${loginPanel}
+    ${lineWorksPanel}
     ${renderEmployeeRolePanel(employee)}
     ${renderEmployeeProfileImagePanel(employee, readonly)}
     <form class="form-grid" id="detail-form">
@@ -1720,6 +1773,7 @@ function renderEmployeeDetail(employee) {
   document.querySelector("#save-login-credential")?.addEventListener("click", saveEmployeeLoginCredential);
   document.querySelector("#upload-profile-image")?.addEventListener("click", uploadEmployeeProfileImage);
   setupLoginCredentialDirtyState();
+  setupLineWorksDestinationMockState();
 }
 
 function renderEmployeeLoginPanel(employee, readonly) {
@@ -1770,6 +1824,51 @@ function renderEmployeeLoginPanel(employee, readonly) {
         <button class="button button-primary login-credential-save-button" id="save-login-credential" type="button">ログイン/PIN設定を保存</button>
       </div>`}
     </section>`;
+}
+
+function renderEmployeeLineWorksDestinationPanel(employee, readonly) {
+  const destination = getEmployeeLineWorksDestination(employee);
+  const hasDestination = hasEmployeeLineWorksDestination(employee);
+  const preview = hasDestination ? maskLineWorksRecipientId(destination.value) : "未設定";
+  const disabledReason = readonly
+    ? "閲覧専用です。"
+    : "保存基盤はCore DB番人レビュー待ちです。承認後にRPC/Edge経由で保存します。";
+  return `
+    <section class="notification-destination-panel" id="line-works-destination-panel">
+      <div class="notification-destination-heading">
+        <div>
+          <strong>LINE WORKS通知先ID</strong>
+          <p>ログインには使用しません。メールアドレス・PIN・権限とは別の通知先設定です。</p>
+        </div>
+        <span class="status-pill ${hasDestination ? "success" : "neutral"}">${escapeHtml(hasDestination ? "設定済み" : "未設定")}</span>
+      </div>
+      <div class="notification-destination-grid">
+        <label class="form-field" for="line_works_recipient_id">
+          <span>LINE WORKS通知先ID</span>
+          <input class="form-input" id="line_works_recipient_id" name="line_works_recipient_id" type="text" autocomplete="off" placeholder="LINE WORKS User ID" ${readonly ? "disabled" : ""}>
+        </label>
+        <p class="field-help">社員個人宛のLINE WORKS通知に使います。ログイン情報や権限とは連動しません。</p>
+        <div class="notification-destination-meta">
+          <span>現在の状態: ${escapeHtml(preview)}</span>
+        </div>
+      </div>
+      <div class="notification-destination-actions">
+        <span class="save-status pending" id="line-works-destination-save-status">${escapeHtml(disabledReason)}</span>
+        <button class="button button-primary notification-destination-save-button" id="save-line-works-destination" type="button" disabled>通知先を保存</button>
+      </div>
+    </section>`;
+}
+
+function setupLineWorksDestinationMockState() {
+  const panel = document.querySelector("#line-works-destination-panel");
+  const button = document.querySelector("#save-line-works-destination");
+  const status = document.querySelector("#line-works-destination-save-status");
+  if (!panel || !button || !status) return;
+  panel.querySelectorAll("input").forEach((field) => {
+    field.addEventListener("input", () => {
+      setSaveStatus(status, "保存基盤はCore DB番人レビュー待ちです。承認後に通知先だけを別保存します。", "pending");
+    });
+  });
 }
 
 function renderEmployeeProfileImagePanel(employee, readonly) {
@@ -2845,7 +2944,8 @@ function getEmployeeCsvRows() {
     "退職日": employee.retired_on || "",
     "共通ロール": getCommonRoleKeys(employee).join(" "),
     "アプリ権限": getIdeaLinkRoleKeys(employee).join(" "),
-    "Firebase UID": employee.firebase_uid || ""
+    "Firebase UID": employee.firebase_uid || "",
+    "LINE WORKS通知先": hasEmployeeLineWorksDestination(employee) ? "設定済み" : "未設定"
   }));
 }
 

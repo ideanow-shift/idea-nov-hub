@@ -401,6 +401,141 @@ tr.selected {
   font-size: 18px;
 }
 
+.employee-detail-header {
+  position: sticky;
+  top: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  margin: -6px -6px 12px;
+  border-bottom: 1px solid var(--border-light);
+  background: rgba(255, 255, 255, 0.96);
+  padding: 6px 6px 12px;
+  z-index: 3;
+}
+
+.employee-detail-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 190px;
+}
+
+.employee-detail-nav {
+  position: sticky;
+  top: 68px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 -4px 12px;
+  border-bottom: 1px solid var(--border-light);
+  background: rgba(255, 255, 255, 0.96);
+  padding: 0 4px 10px;
+  z-index: 2;
+}
+
+.employee-detail-nav button {
+  min-width: 0;
+  min-height: 36px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: #FFFFFF;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.employee-detail-nav button:hover {
+  border-color: var(--color-bassa);
+  color: var(--text-primary);
+  background: #FFF8FA;
+}
+
+.employee-detail-form {
+  display: grid;
+  gap: 12px;
+}
+
+.employee-detail-section {
+  scroll-margin-top: 130px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: #FFFFFF;
+  overflow: clip;
+}
+
+.employee-detail-section + .employee-detail-section,
+.employee-detail-form + .employee-detail-section {
+  margin-top: 12px;
+}
+
+.employee-detail-section summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 54px;
+  padding: 12px 14px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.employee-detail-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.employee-detail-section summary::after {
+  content: "開く";
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #F7F4F2;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+}
+
+.employee-detail-section[open] summary {
+  border-bottom: 1px solid var(--border-light);
+  background: #FAFAFA;
+}
+
+.employee-detail-section[open] summary::after {
+  content: "閉じる";
+}
+
+.employee-detail-section summary strong,
+.employee-detail-section summary small {
+  display: block;
+}
+
+.employee-detail-section summary strong {
+  font-size: 14px;
+}
+
+.employee-detail-section summary small {
+  margin-top: 3px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.employee-detail-section-body {
+  padding: 14px;
+}
+
+.employee-detail-section-body > :first-child {
+  margin-top: 0;
+}
+
+.employee-detail-section-body > :last-child {
+  margin-bottom: 0;
+}
+
 .detail-meta {
   margin: 6px 0 18px;
   color: var(--text-secondary);
@@ -538,7 +673,7 @@ tr.selected {
   grid-template-columns: 76px minmax(0, 1fr);
   gap: 14px;
   align-items: start;
-  margin: 16px 0;
+  margin: 0;
   border: 1px solid #F0D9A8;
   border-radius: var(--radius-md);
   background: #FFF9EC;
@@ -795,11 +930,15 @@ tr.selected {
 .login-credential-panel {
   display: grid;
   gap: 12px;
-  margin: 0 0 16px;
+  margin: 0;
   border: 1px solid #D7E4F5;
   border-radius: var(--radius-md);
   background: #F7FBFF;
   padding: 12px;
+}
+
+.login-credential-panel + .notification-destination-panel {
+  margin-top: 12px;
 }
 
 .login-credential-heading {
@@ -867,7 +1006,7 @@ tr.selected {
 .notification-destination-panel {
   display: grid;
   gap: 12px;
-  margin: 0 0 16px;
+  margin: 0;
   border: 1px solid #C9D8F0;
   border-radius: var(--radius-md);
   background: #F6FAFF;
@@ -1348,6 +1487,34 @@ tr.selected {
 
   .detail-panel {
     position: static;
+  }
+
+  .employee-detail-header {
+    position: static;
+    grid-template-columns: 1fr;
+  }
+
+  .employee-detail-statuses {
+    justify-content: flex-start;
+    max-width: none;
+  }
+
+  .employee-detail-nav {
+    position: sticky;
+    top: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .login-credential-actions,
+  .notification-destination-actions {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .save-row {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: stretch;
   }
 }
 

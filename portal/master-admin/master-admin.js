@@ -1707,19 +1707,76 @@ function renderEmployeeDetail(employee) {
         </label>
         <button class="button button-secondary" id="link-firebase-uid" type="button">Firebase UIDを連携</button>
       </div>` : "";
+  const employeeStatusLabel = getEmployeeStatusLabel(employee);
+  const loginCredential = getEmployeeCredential(employee);
+  const lineWorksStatus = hasEmployeeLineWorksDestination(employee) ? "通知先あり" : "通知先未設定";
   elements.detailPanel.innerHTML = `
-    <h3>${escapeHtml(employee.full_name)}</h3>
-    <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}${employee.updated_at ? ` / 最終更新: ${escapeHtml(formatDateTime(employee.updated_at))}` : ""}</p>
+    <div class="employee-detail-header">
+      <div>
+        <h3>${escapeHtml(employee.full_name)}</h3>
+        <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id)} / Firebase: ${employee.firebase_uid ? "連携済み" : "未連携"}${employee.updated_at ? ` / 最終更新: ${escapeHtml(formatDateTime(employee.updated_at))}` : ""}</p>
+      </div>
+      <div class="employee-detail-statuses" aria-label="社員状態">
+        <span class="status-pill${retired ? " inactive" : isLeaveEmployee(employee) ? " leave" : " success"}">${escapeHtml(employeeStatusLabel)}</span>
+        <span class="status-pill${loginCredential.login_enabled === false ? " inactive" : loginCredential.pin_set ? " success" : " warning"}">${escapeHtml(loginCredential.login_enabled === false ? "ログイン停止" : loginCredential.pin_set ? "PIN設定済み" : "PIN未設定")}</span>
+        <span class="status-pill${hasEmployeeLineWorksDestination(employee) ? " success" : " neutral"}">${escapeHtml(lineWorksStatus)}</span>
+      </div>
+    </div>
     <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。"}</p>
-    ${loginPanel}
-    ${lineWorksPanel}
-    ${renderEmployeeRolePanel(employee)}
-    ${renderEmployeeProfileImagePanel(employee, readonly)}
-    <form class="form-grid" id="detail-form">
-      ${createdPanel}
-      ${issuePanel}
-      ${renderEmployeeAppRolePanel(employee, readonly)}
-      ${firebaseLinkPanel}
+    <nav class="employee-detail-nav" aria-label="社員詳細メニュー">
+      <button type="button" data-detail-section="employee-section-basic">基本</button>
+      <button type="button" data-detail-section="employee-section-auth">ログイン</button>
+      <button type="button" data-detail-section="employee-section-permissions">権限</button>
+      <button type="button" data-detail-section="employee-section-media">画像</button>
+      <button type="button" data-detail-section="employee-section-status">休職・退職</button>
+    </nav>
+    ${createdPanel}
+    ${issuePanel}
+    <details class="employee-detail-section" id="employee-section-auth" open>
+      <summary>
+        <span>
+          <strong>ログイン・通知</strong>
+          <small>PIN、ログイン可否、LINE WORKS通知先</small>
+        </span>
+      </summary>
+      <div class="employee-detail-section-body">
+        ${loginPanel}
+        ${lineWorksPanel}
+      </div>
+    </details>
+    <details class="employee-detail-section" id="employee-section-permissions">
+      <summary>
+        <span>
+          <strong>権限</strong>
+          <small>HUB基本権限、アプリ別権限、Firebase連携</small>
+        </span>
+      </summary>
+      <div class="employee-detail-section-body">
+        ${renderEmployeeRolePanel(employee)}
+        ${renderEmployeeAppRolePanel(employee, readonly)}
+        ${firebaseLinkPanel}
+      </div>
+    </details>
+    <details class="employee-detail-section" id="employee-section-media">
+      <summary>
+        <span>
+          <strong>画像</strong>
+          <small>プロフィール画像</small>
+        </span>
+      </summary>
+      <div class="employee-detail-section-body">
+        ${renderEmployeeProfileImagePanel(employee, readonly)}
+      </div>
+    </details>
+    <form class="employee-detail-form" id="detail-form">
+    <details class="employee-detail-section" id="employee-section-basic" open>
+      <summary>
+        <span>
+          <strong>基本情報・所属</strong>
+          <small>法人、店舗、部署、役職、雇用情報</small>
+        </span>
+      </summary>
+      <div class="form-grid employee-detail-section-body">
       ${fieldInput("birth_date", "誕生日", employee.birth_date || "", "date")}
       ${fieldInput("joined_on", "入社日", employee.joined_on || "", "date")}
       ${fieldInput("retired_on", "退職日", employee.retired_on || "", "date")}
@@ -1738,6 +1795,16 @@ function renderEmployeeDetail(employee) {
       ${renderJobTypeField(employee.job_type_id || "")}
       ${fieldStaticSelect("employment_type", "雇用形態", EMPLOYMENT_TYPE_OPTIONS, normalizeEmploymentTypeForForm(employee.employment_type || ""))}
       ${fieldStaticSelect("employment_status", "就労ステータス", EMPLOYMENT_STATUS_OPTIONS, normalizeEmploymentStatus(employee.employment_status || ""))}
+      </div>
+    </details>
+    <details class="employee-detail-section" id="employee-section-status">
+      <summary>
+        <span>
+          <strong>休職・退職</strong>
+          <small>休職期間、復職日、退職処理</small>
+        </span>
+      </summary>
+      <div class="form-grid employee-detail-section-body">
       <section class="leave-fields">
         <div>
           <strong>休職・産休・育休</strong>
@@ -1755,10 +1822,12 @@ function renderEmployeeDetail(employee) {
         </div>
         <button class="button button-danger" id="retire-employee" type="button"${retired ? " disabled" : ""}>退職処理</button>
       </div>`}
-      <div class="save-row">
-        <span class="save-status" id="employee-save-status" aria-live="polite"></span>
-        ${readonly ? `<span class="readonly-label">閲覧専用</span>` : `<button class="button button-primary save-button" type="submit">保存</button>`}
       </div>
+    </details>
+    <div class="save-row">
+      <span class="save-status" id="employee-save-status" aria-live="polite"></span>
+      ${readonly ? `<span class="readonly-label">閲覧専用</span>` : `<button class="button button-primary save-button" type="submit">基本情報を保存</button>`}
+    </div>
     </form>`;
   setReadonlyState(readonly);
   if (!readonly) {
@@ -1772,8 +1841,20 @@ function renderEmployeeDetail(employee) {
   document.querySelector("#save-idea-link-roles")?.addEventListener("click", saveIdeaLinkRoles);
   document.querySelector("#save-login-credential")?.addEventListener("click", saveEmployeeLoginCredential);
   document.querySelector("#upload-profile-image")?.addEventListener("click", uploadEmployeeProfileImage);
+  setupEmployeeDetailSectionNav();
   setupLoginCredentialDirtyState();
   setupLineWorksDestinationMockState();
+}
+
+function setupEmployeeDetailSectionNav() {
+  document.querySelectorAll("[data-detail-section]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const section = document.querySelector(`#${button.dataset.detailSection}`);
+      if (!section) return;
+      section.open = true;
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
 }
 
 function renderEmployeeLoginPanel(employee, readonly) {

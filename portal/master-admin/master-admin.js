@@ -1913,7 +1913,7 @@ function renderEmployeeLineWorksDestinationPanel(employee, readonly) {
   const preview = hasDestination ? maskLineWorksRecipientId(destination.value) : "未設定";
   const disabledReason = readonly
     ? "閲覧専用です。"
-    : "保存基盤はCore DB番人レビュー待ちです。承認後にRPC/Edge経由で保存します。";
+    : "保存基盤はレビュー待ち";
   return `
     <section class="notification-destination-panel" id="line-works-destination-panel">
       <div class="notification-destination-heading">
@@ -1947,7 +1947,7 @@ function setupLineWorksDestinationMockState() {
   if (!panel || !button || !status) return;
   panel.querySelectorAll("input").forEach((field) => {
     field.addEventListener("input", () => {
-      setSaveStatus(status, "保存基盤はCore DB番人レビュー待ちです。承認後に通知先だけを別保存します。", "pending");
+      setSaveStatus(status, "保存基盤はレビュー待ち", "pending");
     });
   });
 }
@@ -2435,9 +2435,9 @@ function updateLoginCredentialDirtyState(snapshot, status, button) {
 function getLoginCredentialStatusMessage(employee) {
   const credential = getEmployeeCredential(employee);
   const loginEmail = getCurrentEmployeeEmailInputValue() || credential.login_email || employee?.email || "";
-  if (!loginEmail && !credential.pin_set) return "メールアドレスは任意です。初回PINを設定してください。";
+  if (!loginEmail && !credential.pin_set) return "初回PINを設定";
   if (!credential.pin_set) return "PIN未設定です。";
-  if (!loginEmail) return "PINログイン設定は保存済みです。メールは任意です。";
+  if (!loginEmail) return "PIN設定済み";
   if (credential.login_enabled === false) return "ログイン停止中です。";
   if (credential.locked) return "ログインがロック中です。";
   if (credential.must_change_pin) return "次回ログイン時にPIN変更が必要です。";

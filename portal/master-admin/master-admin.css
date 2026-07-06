@@ -986,7 +986,7 @@ tr.selected {
 
 .login-credential-actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(128px, 1fr) minmax(156px, auto);
   align-items: center;
   gap: 10px;
   margin: 4px -12px -12px;
@@ -996,14 +996,16 @@ tr.selected {
 }
 
 .login-credential-save-button {
-  min-width: 176px;
+  min-width: 156px;
 }
 
 .login-credential-actions .save-status {
   width: 100%;
   justify-content: flex-start;
   border-radius: var(--radius-md);
-  line-height: 1.5;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
   white-space: normal;
 }
 
@@ -1058,7 +1060,7 @@ tr.selected {
 
 .notification-destination-actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(128px, 1fr) minmax(136px, auto);
   align-items: center;
   gap: 10px;
   margin: 4px -12px -12px;
@@ -1075,7 +1077,9 @@ tr.selected {
   width: 100%;
   justify-content: flex-start;
   border-radius: var(--radius-md);
-  line-height: 1.5;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
   white-space: normal;
 }
 

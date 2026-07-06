@@ -425,7 +425,7 @@ tr.selected {
 
 .employee-detail-nav {
   position: sticky;
-  top: 68px;
+  top: 98px;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
@@ -453,6 +453,32 @@ tr.selected {
   border-color: var(--color-bassa);
   color: var(--text-primary);
   background: #FFF8FA;
+}
+
+.employee-detail-nav button.active {
+  border-color: var(--color-bassa);
+  background: rgba(232, 180, 184, 0.18);
+  color: var(--text-primary);
+}
+
+.employee-detail-guide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: -8px -4px 12px;
+}
+
+.employee-detail-guide span {
+  min-width: 0;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: #FAFAFA;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+  padding: 7px 8px;
+  text-align: center;
 }
 
 .employee-detail-form {
@@ -530,6 +556,42 @@ tr.selected {
 
 .employee-detail-section-body {
   padding: 14px;
+}
+
+.section-status-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  min-width: 50px;
+  border-radius: 999px;
+  background: #F8F8F8;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0 9px;
+  white-space: nowrap;
+}
+
+.section-status-badge.success {
+  background: #EAF8EF;
+  color: #217A3A;
+}
+
+.section-status-badge.warning {
+  background: #FFF3D8;
+  color: #8A5D16;
+}
+
+.section-status-badge.inactive {
+  background: #F2F2F2;
+  color: var(--text-secondary);
+}
+
+.section-status-badge.neutral {
+  background: #F8F8F8;
+  color: var(--text-secondary);
 }
 
 .employee-detail-section-body > :first-child {
@@ -1511,6 +1573,10 @@ tr.selected {
     position: sticky;
     top: 0;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .employee-detail-guide {
+    grid-template-columns: 1fr;
   }
 
   .login-credential-actions,

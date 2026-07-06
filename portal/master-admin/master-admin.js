@@ -1710,6 +1710,9 @@ function renderEmployeeDetail(employee) {
   const employeeStatusLabel = getEmployeeStatusLabel(employee);
   const loginCredential = getEmployeeCredential(employee);
   const lineWorksStatus = hasEmployeeLineWorksDestination(employee) ? "通知先あり" : "通知先未設定";
+  const basicIssueCount = getEmployeeBasicIssueCount(issues);
+  const authIssueCount = loginCredential.pin_set ? 0 : 1;
+  const commonRoleCount = getCommonRoleKeys(employee).length;
   elements.detailPanel.innerHTML = `
     <div class="employee-detail-header">
       <div>
@@ -1723,9 +1726,14 @@ function renderEmployeeDetail(employee) {
       </div>
     </div>
     <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。"}</p>
+    <div class="employee-detail-guide" aria-label="保存単位">
+      <span>基本情報は下部保存</span>
+      <span>ログイン/PINは別保存</span>
+      <span>通知先保存は停止中</span>
+    </div>
     <nav class="employee-detail-nav" aria-label="社員詳細メニュー">
       <button type="button" data-detail-section="employee-section-basic">基本</button>
-      <button type="button" data-detail-section="employee-section-status">休職・退職</button>
+      <button type="button" data-detail-section="employee-section-status">状態</button>
       <button type="button" data-detail-section="employee-section-auth">ログイン</button>
       <button type="button" data-detail-section="employee-section-permissions">権限</button>
       <button type="button" data-detail-section="employee-section-media">画像</button>
@@ -1739,6 +1747,7 @@ function renderEmployeeDetail(employee) {
           <strong>基本情報・所属</strong>
           <small>法人、店舗、部署、役職、雇用情報</small>
         </span>
+        ${renderSectionStatusBadge(basicIssueCount ? `${basicIssueCount}件確認` : "OK", basicIssueCount ? "warning" : "success")}
       </summary>
       <div class="form-grid employee-detail-section-body">
       ${fieldInput("birth_date", "誕生日", employee.birth_date || "", "date")}
@@ -1767,6 +1776,7 @@ function renderEmployeeDetail(employee) {
           <strong>休職・退職</strong>
           <small>休職期間、復職日、退職処理</small>
         </span>
+        ${renderSectionStatusBadge(employeeStatusLabel, retired ? "inactive" : isLeaveEmployee(employee) ? "warning" : "success")}
       </summary>
       <div class="form-grid employee-detail-section-body">
       <section class="leave-fields">
@@ -1799,6 +1809,7 @@ function renderEmployeeDetail(employee) {
           <strong>ログイン・通知</strong>
           <small>PIN、ログイン可否、LINE WORKS通知先</small>
         </span>
+        ${renderSectionStatusBadge(authIssueCount ? "PIN未設定" : "OK", authIssueCount ? "warning" : "success")}
       </summary>
       <div class="employee-detail-section-body">
         ${loginPanel}
@@ -1811,6 +1822,7 @@ function renderEmployeeDetail(employee) {
           <strong>権限</strong>
           <small>HUB基本権限、アプリ別権限、Firebase連携</small>
         </span>
+        ${renderSectionStatusBadge(commonRoleCount ? "OK" : "確認", commonRoleCount ? "success" : "warning")}
       </summary>
       <div class="employee-detail-section-body">
         ${renderEmployeeRolePanel(employee)}
@@ -1824,6 +1836,7 @@ function renderEmployeeDetail(employee) {
           <strong>画像</strong>
           <small>プロフィール画像</small>
         </span>
+        ${renderSectionStatusBadge(employee.profile_image_url ? "設定済み" : "任意", employee.profile_image_url ? "success" : "neutral")}
       </summary>
       <div class="employee-detail-section-body">
         ${renderEmployeeProfileImagePanel(employee, readonly)}
@@ -1846,13 +1859,35 @@ function renderEmployeeDetail(employee) {
   setupLineWorksDestinationMockState();
 }
 
+function getEmployeeBasicIssueCount(issues) {
+  const basicIssueLabels = new Set(["法人", "所属", "役職", "職種", "雇用形態", "現職/休職/退職"]);
+  return issues.filter((issue) => basicIssueLabels.has(issue)).length;
+}
+
+function renderSectionStatusBadge(label, type = "neutral") {
+  return `<span class="section-status-badge ${escapeHtml(type)}">${escapeHtml(label)}</span>`;
+}
+
 function setupEmployeeDetailSectionNav() {
-  document.querySelectorAll("[data-detail-section]").forEach((button) => {
+  const buttons = Array.from(document.querySelectorAll("[data-detail-section]"));
+  const setActiveButton = (sectionId) => {
+    buttons.forEach((button) => {
+      button.classList.toggle("active", button.dataset.detailSection === sectionId);
+    });
+  };
+  buttons.forEach((button, index) => {
+    if (index === 0) button.classList.add("active");
     button.addEventListener("click", () => {
       const section = document.querySelector(`#${button.dataset.detailSection}`);
       if (!section) return;
       section.open = true;
+      setActiveButton(button.dataset.detailSection);
       section.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+  document.querySelectorAll(".employee-detail-section").forEach((section) => {
+    section.addEventListener("toggle", () => {
+      if (section.open) setActiveButton(section.id);
     });
   });
 }

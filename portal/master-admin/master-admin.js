@@ -2491,6 +2491,20 @@ function getCurrentEmployeeEmailInputValue() {
   return document.querySelector("#email")?.value.trim() || "";
 }
 
+function isValidEmployeeEmail(email) {
+  const value = String(email || "").trim();
+  if (!value || value.length > 254) return false;
+  const parts = value.split("@");
+  if (parts.length !== 2) return false;
+  const [localPart, domainPart] = parts;
+  if (!localPart || !domainPart || localPart.length > 64) return false;
+  if (localPart.startsWith(".") || localPart.endsWith(".") || localPart.includes("..")) return false;
+  if (!/^[^\s@]+$/.test(localPart)) return false;
+  const labels = domainPart.toLowerCase().split(".");
+  if (labels.length < 2) return false;
+  return labels.every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label));
+}
+
 function updateDirtyState(type, status, button) {
   const hasChanges = getFormSnapshot(type) !== state.formSnapshot;
   button.disabled = !hasChanges;
@@ -2547,7 +2561,7 @@ async function saveEmployee(event) {
       showToast("変更はありません。");
       return;
     }
-    if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+    if (payload.email && !isValidEmployeeEmail(payload.email)) {
       showToast("メールアドレスの形式を確認してください。");
       return;
     }
@@ -2663,7 +2677,7 @@ async function saveEmployeeChangesBeforeRoleAssignment(employee) {
   const payload = collectEmployeePayload();
   payload.id = employee.id;
 
-  if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+  if (payload.email && !isValidEmployeeEmail(payload.email)) {
     throw new Error("メールアドレスの形式を確認してください。");
   }
   const invalidDateField = getInvalidDateField(payload, [
@@ -2812,7 +2826,7 @@ async function saveEmployeeLoginCredential(event) {
   const mustChangePin = document.querySelector("#must_change_pin")?.checked || false;
   const clearLock = document.querySelector("#clear_login_lock")?.checked || false;
 
-  if (loginEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
+  if (loginEmail && !isValidEmployeeEmail(loginEmail)) {
     setSaveStatus(status, "メールアドレスの形式を確認してください。", "error");
     showToast("メールアドレスの形式を確認してください。");
     return;

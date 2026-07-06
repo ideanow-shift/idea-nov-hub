@@ -1948,7 +1948,7 @@ function renderEmployeeLineWorksDestinationPanel(employee, readonly) {
   const preview = hasDestination ? maskLineWorksRecipientId(destination.value) : "未設定";
   const disabledReason = readonly
     ? "閲覧専用です。"
-    : "保存基盤はレビュー待ち";
+    : "保存API疎通テスト前のため、まだ保存できません。";
   return `
     <section class="notification-destination-panel" id="line-works-destination-panel">
       <div class="notification-destination-heading">
@@ -1970,7 +1970,7 @@ function renderEmployeeLineWorksDestinationPanel(employee, readonly) {
       </div>
       <div class="notification-destination-actions">
         <span class="save-status pending" id="line-works-destination-save-status">${escapeHtml(disabledReason)}</span>
-        <button class="button button-primary notification-destination-save-button" id="save-line-works-destination" type="button" disabled>通知先を保存</button>
+        <button class="button button-primary notification-destination-save-button" id="save-line-works-destination" type="button" disabled>保存は承認待ち</button>
       </div>
     </section>`;
 }
@@ -1982,7 +1982,7 @@ function setupLineWorksDestinationMockState() {
   if (!panel || !button || !status) return;
   panel.querySelectorAll("input").forEach((field) => {
     field.addEventListener("input", () => {
-      setSaveStatus(status, "保存基盤はレビュー待ち", "pending");
+      setSaveStatus(status, "保存API疎通テスト前のため、まだ保存できません。", "pending");
     });
   });
 }
@@ -2491,8 +2491,16 @@ function getCurrentEmployeeEmailInputValue() {
   return document.querySelector("#email")?.value.trim() || "";
 }
 
+function normalizeEmployeeEmailInput(email) {
+  return String(email || "")
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
 function isValidEmployeeEmail(email) {
-  const value = String(email || "").trim();
+  const value = normalizeEmployeeEmailInput(email);
   if (!value || value.length > 254) return false;
   const parts = value.split("@");
   if (parts.length !== 2) return false;
@@ -2556,6 +2564,7 @@ async function saveEmployee(event) {
     setSaveStatus(status, "");
     const payload = collectEmployeePayload();
     payload.id = state.selectedId;
+    payload.email = normalizeEmployeeEmailInput(payload.email);
     if (getFormSnapshot("employee") === state.formSnapshot) {
       setSaveStatus(status, "変更なし・保存済みです", "success");
       showToast("変更はありません。");
@@ -2676,6 +2685,7 @@ async function assignStaffRole(event) {
 async function saveEmployeeChangesBeforeRoleAssignment(employee) {
   const payload = collectEmployeePayload();
   payload.id = employee.id;
+  payload.email = normalizeEmployeeEmailInput(payload.email);
 
   if (payload.email && !isValidEmployeeEmail(payload.email)) {
     throw new Error("メールアドレスの形式を確認してください。");
@@ -2820,7 +2830,7 @@ async function saveEmployeeLoginCredential(event) {
   if (!employee) return;
   const button = event.currentTarget;
   const status = document.querySelector("#login-credential-save-status");
-  const loginEmail = getCurrentEmployeeEmailInputValue();
+  const loginEmail = normalizeEmployeeEmailInput(getCurrentEmployeeEmailInputValue());
   const newPin = document.querySelector("#new_pin")?.value.trim() || "";
   const loginEnabled = document.querySelector("#login_enabled")?.checked || false;
   const mustChangePin = document.querySelector("#must_change_pin")?.checked || false;

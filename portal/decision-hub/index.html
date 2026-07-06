@@ -98,6 +98,15 @@
         font-weight: 500;
       }
 
+      .notice.is-live-disabled {
+        border-color: #d9e7ff;
+        background: #f5f9ff;
+      }
+
+      .notice.is-live-disabled strong {
+        color: #1b5da8;
+      }
+
       .tabs,
       .actions {
         display: flex;
@@ -160,6 +169,15 @@
         white-space: nowrap;
       }
 
+      .request-row[role="button"] {
+        cursor: pointer;
+      }
+
+      .request-row[aria-selected="true"] {
+        border-color: var(--color-bassa);
+        background: #fff7f8;
+      }
+
       .summary-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -178,6 +196,26 @@
         margin-top: 4px;
         font-size: 20px;
         font-weight: 500;
+      }
+
+      .detail-grid {
+        display: grid;
+        gap: var(--spacing-sm);
+      }
+
+      .empty-state,
+      .error-state {
+        padding: var(--spacing-md);
+        border: 1px dashed var(--border-light);
+        border-radius: var(--radius-md);
+        color: var(--text-secondary);
+        background: var(--bg-soft);
+      }
+
+      .error-state {
+        border-color: #ffd3cf;
+        color: var(--color-alert);
+        background: #fff5f4;
       }
 
       @media (max-width: 720px) {
@@ -207,9 +245,9 @@
       </header>
 
       <main>
-        <section class="notice" aria-label="未接続状態">
-          <strong>設計中 / DB未接続</strong>
-          <span>現在は確認用画面です。本番申請はまだ送信されません。</span>
+        <section id="connection-notice" class="notice" aria-label="未接続状態">
+          <strong id="connection-notice-title">設計中 / DB未接続</strong>
+          <span id="connection-notice-body">現在は確認用画面です。本番申請はまだ送信されません。</span>
         </section>
 
         <nav class="tabs" aria-label="Decision Hub menu">
@@ -222,21 +260,21 @@
         <section class="summary-grid" aria-label="状況サマリー">
           <article>
             <span class="muted">下書き</span>
-            <strong>0</strong>
+            <strong id="summary-draft">0</strong>
           </article>
           <article>
             <span class="muted">承認・確認待ち</span>
-            <strong>0</strong>
+            <strong id="summary-waiting">0</strong>
           </article>
           <article>
             <span class="muted">差戻し</span>
-            <strong>0</strong>
+            <strong id="summary-returned">0</strong>
           </article>
         </section>
 
         <section class="panel" aria-labelledby="list-title">
           <h2 id="list-title">企画・契約申請</h2>
-          <div class="request-list">
+          <div id="request-list" class="request-list">
             <article class="request-row">
               <span class="status">確認用</span>
               <div>
@@ -261,7 +299,22 @@
             <button type="button" disabled>却下</button>
           </div>
         </section>
+
+        <section class="panel" aria-labelledby="detail-title">
+          <h2 id="detail-title">申請詳細</h2>
+          <div id="detail-panel" class="detail-grid">
+            <div class="empty-state">申請を選択すると、表示許可済みの項目だけを表示します。</div>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="comments-title">
+          <h2 id="comments-title">コメント</h2>
+          <div id="comments-panel" class="detail-grid">
+            <div class="empty-state">コメント本文は、表示許可が通った場合のみここに表示します。</div>
+          </div>
+        </section>
       </main>
     </div>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>

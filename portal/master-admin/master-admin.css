@@ -489,14 +489,18 @@ tr.selected {
 }
 
 .employee-detail-section summary::after {
-  content: "開く";
+  content: "+";
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
   border-radius: 999px;
   background: #F7F4F2;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 700;
-  padding: 4px 8px;
 }
 
 .employee-detail-section[open] summary {
@@ -505,7 +509,7 @@ tr.selected {
 }
 
 .employee-detail-section[open] summary::after {
-  content: "閉じる";
+  content: "-";
 }
 
 .employee-detail-section summary strong,

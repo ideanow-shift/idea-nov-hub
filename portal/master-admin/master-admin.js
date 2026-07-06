@@ -1725,49 +1725,13 @@ function renderEmployeeDetail(employee) {
     <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "社員番号とFirebase UIDはこの画面では変更しません。変更が必要な場合は管理者確認後に個別対応します。"}</p>
     <nav class="employee-detail-nav" aria-label="社員詳細メニュー">
       <button type="button" data-detail-section="employee-section-basic">基本</button>
+      <button type="button" data-detail-section="employee-section-status">休職・退職</button>
       <button type="button" data-detail-section="employee-section-auth">ログイン</button>
       <button type="button" data-detail-section="employee-section-permissions">権限</button>
       <button type="button" data-detail-section="employee-section-media">画像</button>
-      <button type="button" data-detail-section="employee-section-status">休職・退職</button>
     </nav>
     ${createdPanel}
     ${issuePanel}
-    <details class="employee-detail-section" id="employee-section-auth" open>
-      <summary>
-        <span>
-          <strong>ログイン・通知</strong>
-          <small>PIN、ログイン可否、LINE WORKS通知先</small>
-        </span>
-      </summary>
-      <div class="employee-detail-section-body">
-        ${loginPanel}
-        ${lineWorksPanel}
-      </div>
-    </details>
-    <details class="employee-detail-section" id="employee-section-permissions">
-      <summary>
-        <span>
-          <strong>権限</strong>
-          <small>HUB基本権限、アプリ別権限、Firebase連携</small>
-        </span>
-      </summary>
-      <div class="employee-detail-section-body">
-        ${renderEmployeeRolePanel(employee)}
-        ${renderEmployeeAppRolePanel(employee, readonly)}
-        ${firebaseLinkPanel}
-      </div>
-    </details>
-    <details class="employee-detail-section" id="employee-section-media">
-      <summary>
-        <span>
-          <strong>画像</strong>
-          <small>プロフィール画像</small>
-        </span>
-      </summary>
-      <div class="employee-detail-section-body">
-        ${renderEmployeeProfileImagePanel(employee, readonly)}
-      </div>
-    </details>
     <form class="employee-detail-form" id="detail-form">
     <details class="employee-detail-section" id="employee-section-basic" open>
       <summary>
@@ -1828,7 +1792,43 @@ function renderEmployeeDetail(employee) {
       <span class="save-status" id="employee-save-status" aria-live="polite"></span>
       ${readonly ? `<span class="readonly-label">閲覧専用</span>` : `<button class="button button-primary save-button" type="submit">基本情報を保存</button>`}
     </div>
-    </form>`;
+    </form>
+    <details class="employee-detail-section" id="employee-section-auth" open>
+      <summary>
+        <span>
+          <strong>ログイン・通知</strong>
+          <small>PIN、ログイン可否、LINE WORKS通知先</small>
+        </span>
+      </summary>
+      <div class="employee-detail-section-body">
+        ${loginPanel}
+        ${lineWorksPanel}
+      </div>
+    </details>
+    <details class="employee-detail-section" id="employee-section-permissions">
+      <summary>
+        <span>
+          <strong>権限</strong>
+          <small>HUB基本権限、アプリ別権限、Firebase連携</small>
+        </span>
+      </summary>
+      <div class="employee-detail-section-body">
+        ${renderEmployeeRolePanel(employee)}
+        ${renderEmployeeAppRolePanel(employee, readonly)}
+        ${firebaseLinkPanel}
+      </div>
+    </details>
+    <details class="employee-detail-section" id="employee-section-media">
+      <summary>
+        <span>
+          <strong>画像</strong>
+          <small>プロフィール画像</small>
+        </span>
+      </summary>
+      <div class="employee-detail-section-body">
+        ${renderEmployeeProfileImagePanel(employee, readonly)}
+      </div>
+    </details>`;
   setReadonlyState(readonly);
   if (!readonly) {
     const form = document.querySelector("#detail-form");

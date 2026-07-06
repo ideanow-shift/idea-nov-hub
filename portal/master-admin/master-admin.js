@@ -1856,7 +1856,7 @@ function renderEmployeeDetail(employee) {
   document.querySelector("#upload-profile-image")?.addEventListener("click", uploadEmployeeProfileImage);
   setupEmployeeDetailSectionNav();
   setupLoginCredentialDirtyState();
-  setupLineWorksDestinationMockState();
+  setupLineWorksDestinationSaveState(employee, readonly);
 }
 
 function getEmployeeBasicIssueCount(issues) {
@@ -1946,9 +1946,11 @@ function renderEmployeeLineWorksDestinationPanel(employee, readonly) {
   const destination = getEmployeeLineWorksDestination(employee);
   const hasDestination = hasEmployeeLineWorksDestination(employee);
   const preview = hasDestination ? maskLineWorksRecipientId(destination.value) : "未設定";
-  const disabledReason = readonly
+  const saveStatusMessage = readonly
     ? "閲覧専用です。"
-    : "保存API疎通テスト前のため、まだ保存できません。";
+    : hasDestination
+      ? "設定済みです。変更時のみ入力して保存してください。"
+      : "未設定です。通知先IDを入力して保存できます。";
   return `
     <section class="notification-destination-panel" id="line-works-destination-panel">
       <div class="notification-destination-heading">
@@ -1969,22 +1971,65 @@ function renderEmployeeLineWorksDestinationPanel(employee, readonly) {
         </div>
       </div>
       <div class="notification-destination-actions">
-        <span class="save-status pending" id="line-works-destination-save-status">${escapeHtml(disabledReason)}</span>
-        <button class="button button-primary notification-destination-save-button" id="save-line-works-destination" type="button" disabled>保存は承認待ち</button>
+        <span class="save-status${readonly ? " pending" : ""}" id="line-works-destination-save-status">${escapeHtml(saveStatusMessage)}</span>
+        <button class="button button-primary notification-destination-save-button" id="save-line-works-destination" type="button" disabled>${readonly ? "閲覧専用" : "通知先を保存"}</button>
       </div>
     </section>`;
 }
 
-function setupLineWorksDestinationMockState() {
+function setupLineWorksDestinationSaveState(employee, readonly) {
   const panel = document.querySelector("#line-works-destination-panel");
+  const input = document.querySelector("#line_works_recipient_id");
   const button = document.querySelector("#save-line-works-destination");
   const status = document.querySelector("#line-works-destination-save-status");
-  if (!panel || !button || !status) return;
-  panel.querySelectorAll("input").forEach((field) => {
-    field.addEventListener("input", () => {
-      setSaveStatus(status, "保存API疎通テスト前のため、まだ保存できません。", "pending");
-    });
+  if (!panel || !input || !button || !status || readonly) return;
+  input.addEventListener("input", () => {
+    const value = String(input.value || "").trim();
+    button.disabled = !value;
+    setSaveStatus(
+      status,
+      value ? "未保存の通知先IDがあります。" : "通知先IDを入力してください。",
+      value ? "pending" : ""
+    );
   });
+  button.addEventListener("click", () => saveEmployeeLineWorksDestination(employee));
+}
+
+async function saveEmployeeLineWorksDestination(employee) {
+  const input = document.querySelector("#line_works_recipient_id");
+  const button = document.querySelector("#save-line-works-destination");
+  const status = document.querySelector("#line-works-destination-save-status");
+  const lineWorksRecipientId = String(input?.value || "").trim();
+  if (!employee?.id || !lineWorksRecipientId) {
+    setSaveStatus(status, "通知先IDを入力してください。", "error");
+    return;
+  }
+  try {
+    button.disabled = true;
+    button.textContent = "保存中...";
+    setSaveStatus(status, "通知先を保存中です...", "pending");
+    const response = await callApiAction("masterUpsertEmployeeLineWorksDestination", {
+      employeeId: employee.id,
+      lineWorksRecipientId,
+      displayName: "LINE WORKS primary recipient",
+      purpose: "primary"
+    });
+    if (JSON.stringify(response).includes(lineWorksRecipientId)) {
+      throw new Error("通知先IDの実値がresponseに含まれました。保存確認を停止します。");
+    }
+    await refreshEmployees();
+    await refreshLogsSilently();
+    state.selectedId = employee.id;
+    render();
+    showToast("LINE WORKS通知先IDを保存しました。");
+  } catch (error) {
+    console.warn("LINE WORKS通知先ID保存に失敗しました", {
+      message: getErrorMessage(error)
+    });
+    setSaveStatus(status, getErrorMessage(error), "error");
+    button.disabled = false;
+    button.textContent = "通知先を保存";
+  }
 }
 
 function renderEmployeeProfileImagePanel(employee, readonly) {

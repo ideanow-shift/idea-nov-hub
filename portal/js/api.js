@@ -22,6 +22,8 @@ const EDGE_ACTIONS = new Set([
   "masterLinkFirebaseUid",
   "masterUpdateEmployeeLoginCredential",
   "masterUploadEmployeeProfileImage",
+  "masterUpsertEmployeeLineWorksDestination",
+  "masterDisableEmployeeLineWorksDestination",
   "masterUpdateStore",
   "masterUpdatePortalApp",
   "masterCreatePortalApp"

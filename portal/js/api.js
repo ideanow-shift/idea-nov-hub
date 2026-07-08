@@ -13,6 +13,7 @@ const EDGE_ACTIONS = new Set([
   "decisionListApplications",
   "decisionGetApplicationDetail",
   "decisionListComments",
+  "decisionSaveDraftApplication",
   "masterBootstrap",
   "masterListEmployees",
   "masterListStores",

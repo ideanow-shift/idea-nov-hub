@@ -436,19 +436,27 @@ function getEmployeeLineWorksDestination(employee) {
     || employee?.lineWorksRecipientId
     || employee?.line_works_recipient_id
     || "";
+  const maskedValue = destination.lineWorksRecipientIdMasked
+    || destination.lineWorksTargetIdMasked
+    || destination.line_works_recipient_id_masked
+    || destination.line_works_target_id_masked
+    || "";
   const displayName = destination.displayName || destination.display_name || destination.channel_name || "";
-  const isActive = destination.isActive ?? destination.is_active ?? Boolean(rawValue);
+  const configured = destination.configured ?? Boolean(rawValue || maskedValue);
+  const isActive = destination.isActive ?? destination.is_active ?? configured;
   return {
     id: destination.id || destination.destination_id || "",
-    value: String(rawValue || "").trim(),
+    value: String(rawValue || maskedValue || "").trim(),
+    maskedValue: String(maskedValue || "").trim(),
     displayName: String(displayName || "").trim(),
+    configured: Boolean(configured),
     isActive: Boolean(isActive)
   };
 }
 
 function hasEmployeeLineWorksDestination(employee) {
   const destination = getEmployeeLineWorksDestination(employee);
-  return Boolean(destination.value && destination.isActive);
+  return Boolean((destination.configured || destination.value) && destination.isActive);
 }
 
 function maskLineWorksRecipientId(value) {
@@ -459,7 +467,7 @@ function maskLineWorksRecipientId(value) {
 }
 
 function formatEmployeeLineWorksDestinationStatus(employee) {
-  return hasEmployeeLineWorksDestination(employee) ? "LINE WORKS通知先設定済み" : "LINE WORKS通知先未設定";
+  return hasEmployeeLineWorksDestination(employee) ? "LINE WORKS個人通知先設定済み" : "LINE WORKS個人通知先未設定";
 }
 
 function formatEmployeeLineWorksDestination(employee) {
@@ -1807,7 +1815,7 @@ function renderEmployeeDetail(employee) {
       <summary>
         <span>
           <strong>ログイン・通知</strong>
-          <small>PIN、ログイン可否、LINE WORKS通知先</small>
+          <small>PIN、ログイン可否、個人通知先</small>
         </span>
         ${renderSectionStatusBadge(authIssueCount ? "PIN未設定" : "OK", authIssueCount ? "warning" : "success")}
       </summary>
@@ -1945,34 +1953,34 @@ function renderEmployeeLoginPanel(employee, readonly) {
 function renderEmployeeLineWorksDestinationPanel(employee, readonly) {
   const destination = getEmployeeLineWorksDestination(employee);
   const hasDestination = hasEmployeeLineWorksDestination(employee);
-  const preview = hasDestination ? maskLineWorksRecipientId(destination.value) : "未設定";
+  const preview = hasDestination ? "設定済み（実ID非表示）" : "未設定";
   const saveStatusMessage = readonly
     ? "閲覧専用です。"
     : hasDestination
-      ? "設定済みです。変更時のみ入力して保存してください。"
-      : "未設定です。通知先IDを入力して保存できます。";
+      ? "設定済み。変更時のみ入力。"
+      : "未設定。User IDを入力。";
   return `
     <section class="notification-destination-panel" id="line-works-destination-panel">
       <div class="notification-destination-heading">
         <div>
-          <strong>LINE WORKS通知先ID</strong>
-          <p>ログインには使用しません。メールアドレス・PIN・権限とは別の通知先設定です。</p>
+          <strong>LINE WORKS個人通知</strong>
+          <p>実IDは表示しません。変更時のみ入力。</p>
         </div>
         <span class="status-pill ${hasDestination ? "success" : "neutral"}">${escapeHtml(hasDestination ? "設定済み" : "未設定")}</span>
       </div>
       <div class="notification-destination-grid">
         <label class="form-field" for="line_works_recipient_id">
-          <span>LINE WORKS通知先ID</span>
-          <input class="form-input" id="line_works_recipient_id" name="line_works_recipient_id" type="text" autocomplete="off" placeholder="LINE WORKS User ID" ${readonly ? "disabled" : ""}>
+          <span>通知先User ID</span>
+          <input class="form-input" id="line_works_recipient_id" name="line_works_recipient_id" type="text" autocomplete="off" placeholder="${hasDestination ? "変更時のみ入力" : "User IDを入力"}" ${readonly ? "disabled" : ""}>
         </label>
-        <p class="field-help">社員個人宛のLINE WORKS通知に使います。ログイン情報や権限とは連動しません。</p>
+        <p class="field-help">個人宛て通知用。店舗・グループ宛てとは別管理です。</p>
         <div class="notification-destination-meta">
-          <span>現在の状態: ${escapeHtml(preview)}</span>
+          <span>現在: ${escapeHtml(preview)}</span>
         </div>
       </div>
       <div class="notification-destination-actions">
         <span class="save-status${readonly ? " pending" : ""}" id="line-works-destination-save-status">${escapeHtml(saveStatusMessage)}</span>
-        <button class="button button-primary notification-destination-save-button" id="save-line-works-destination" type="button" disabled>${readonly ? "閲覧専用" : "通知先を保存"}</button>
+        <button class="button button-primary notification-destination-save-button" id="save-line-works-destination" type="button" disabled>${readonly ? "閲覧専用" : hasDestination ? "更新" : "保存"}</button>
       </div>
     </section>`;
 }
@@ -1988,7 +1996,7 @@ function setupLineWorksDestinationSaveState(employee, readonly) {
     button.disabled = !value;
     setSaveStatus(
       status,
-      value ? "未保存の通知先IDがあります。" : "通知先IDを入力してください。",
+      value ? "未保存の入力があります。" : "User IDを入力してください。",
       value ? "pending" : ""
     );
   });
@@ -2001,13 +2009,13 @@ async function saveEmployeeLineWorksDestination(employee) {
   const status = document.querySelector("#line-works-destination-save-status");
   const lineWorksRecipientId = String(input?.value || "").trim();
   if (!employee?.id || !lineWorksRecipientId) {
-    setSaveStatus(status, "通知先IDを入力してください。", "error");
+    setSaveStatus(status, "User IDを入力してください。", "error");
     return;
   }
   try {
     button.disabled = true;
     button.textContent = "保存中...";
-    setSaveStatus(status, "通知先を保存中です...", "pending");
+    setSaveStatus(status, "保存中です...", "pending");
     const response = await callApiAction("masterUpsertEmployeeLineWorksDestination", {
       employeeId: employee.id,
       lineWorksRecipientId,
@@ -2015,20 +2023,20 @@ async function saveEmployeeLineWorksDestination(employee) {
       purpose: "primary"
     });
     if (JSON.stringify(response).includes(lineWorksRecipientId)) {
-      throw new Error("通知先IDの実値がresponseに含まれました。保存確認を停止します。");
+      throw new Error("LINE WORKS個人通知先User IDの実値がresponseに含まれました。保存確認を停止します。");
     }
     await refreshEmployees();
     await refreshLogsSilently();
     state.selectedId = employee.id;
     render();
-    showToast("LINE WORKS通知先IDを保存しました。");
+    showToast("LINE WORKS個人通知先を保存しました。");
   } catch (error) {
-    console.warn("LINE WORKS通知先ID保存に失敗しました", {
+    console.warn("LINE WORKS個人通知先User ID保存に失敗しました", {
       message: getErrorMessage(error)
     });
     setSaveStatus(status, getErrorMessage(error), "error");
     button.disabled = false;
-    button.textContent = "通知先を保存";
+    button.textContent = hasEmployeeLineWorksDestination(employee) ? "更新" : "保存";
   }
 }
 
@@ -3130,7 +3138,7 @@ function getEmployeeCsvRows() {
     "共通ロール": getCommonRoleKeys(employee).join(" "),
     "アプリ権限": getIdeaLinkRoleKeys(employee).join(" "),
     "Firebase UID": employee.firebase_uid || "",
-    "LINE WORKS通知先": hasEmployeeLineWorksDestination(employee) ? "設定済み" : "未設定"
+    "LINE WORKS個人通知先": hasEmployeeLineWorksDestination(employee) ? "設定済み" : "未設定"
   }));
 }
 

@@ -1904,17 +1904,17 @@ function renderEmployeeLoginPanel(employee, readonly) {
   const credential = getEmployeeCredential(employee);
   const loginEmail = employee.email || credential.login_email || "";
   const pinLabel = credential.pin_set
-    ? `設定済み${credential.pin_updated_at ? ` / 更新: ${formatDateTime(credential.pin_updated_at)}` : ""}`
+    ? "設定済み"
     : "未設定";
   const lockLabel = credential.locked
-    ? `ロック中: ${formatDateTime(credential.locked_until)}まで`
+    ? "ロック中"
     : "ロックなし";
   return `
     <section class="login-credential-panel" id="login-credential-panel">
       <div class="login-credential-heading">
         <div>
           <strong>ログイン / PIN管理</strong>
-          <p>HUB・IDEA LINK共通のログイン情報です。PINは保存時にbackend側でhash化され、画面には表示しません。</p>
+          <p>HUB共通ログイン用。PINは表示しません。</p>
         </div>
         <span class="status-pill${credential.login_enabled === false ? " inactive" : credential.pin_set ? "" : " warning"}">${credential.login_enabled === false ? "ログイン停止" : credential.pin_set ? "ログイン可" : "PIN未設定"}</span>
       </div>
@@ -1945,7 +1945,7 @@ function renderEmployeeLoginPanel(employee, readonly) {
       </div>
       ${readonly ? "" : `<div class="login-credential-actions">
         <span class="save-status" id="login-credential-save-status" aria-live="polite"></span>
-        <button class="button button-primary login-credential-save-button" id="save-login-credential" type="button">ログイン/PIN設定を保存</button>
+        <button class="button button-primary login-credential-save-button" id="save-login-credential" type="button">保存</button>
       </div>`}
     </section>`;
 }

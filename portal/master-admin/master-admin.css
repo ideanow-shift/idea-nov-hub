@@ -995,12 +995,12 @@ tr.selected {
 
 .login-credential-panel {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   margin: 0;
   border: 1px solid #D7E4F5;
   border-radius: var(--radius-md);
   background: #F7FBFF;
-  padding: 12px;
+  padding: 12px 10px;
 }
 
 .login-credential-panel + .notification-destination-panel {
@@ -1009,17 +1009,18 @@ tr.selected {
 
 .login-credential-heading {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .login-credential-heading .status-pill {
   flex: 0 0 auto;
-  max-width: 92px;
+  min-width: 74px;
+  max-width: 86px;
   justify-content: center;
   text-align: center;
-  white-space: normal;
+  white-space: nowrap;
 }
 
 .login-credential-heading strong {
@@ -1028,10 +1029,10 @@ tr.selected {
 }
 
 .login-credential-heading p {
-  margin: 4px 0 0;
+  margin: 3px 0 0;
   color: var(--text-secondary);
   font-size: 12px;
-  line-height: 1.6;
+  line-height: 1.45;
 }
 
 .login-credential-grid {
@@ -1048,26 +1049,29 @@ tr.selected {
 
 .login-credential-actions {
   display: grid;
-  grid-template-columns: minmax(128px, 1fr) minmax(156px, auto);
-  align-items: center;
-  gap: 10px;
-  margin: 4px -12px -12px;
+  grid-template-columns: 1fr;
+  align-items: stretch;
+  gap: 8px;
+  margin: 4px -10px -12px;
   border-top: 1px solid #D7E4F5;
   background: #F7FBFF;
-  padding: 12px;
+  padding: 10px;
 }
 
 .login-credential-save-button {
-  min-width: 156px;
+  min-width: 0;
+  width: 100%;
+  min-height: 42px;
 }
 
 .login-credential-actions .save-status {
   width: 100%;
-  justify-content: flex-start;
+  justify-content: center;
   border-radius: var(--radius-md);
   font-size: 12px;
   font-weight: 600;
   line-height: 1.35;
+  text-align: center;
   white-space: normal;
 }
 

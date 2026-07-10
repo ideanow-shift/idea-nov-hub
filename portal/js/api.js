@@ -14,6 +14,7 @@ const EDGE_ACTIONS = new Set([
   "ideaLinkPostCreate",
   "ideaLinkNotificationPreview",
   "ideaLinkNotificationEnqueue",
+  "ideaLinkNotificationSendScoped",
   "ideaLinkRecipientSearch",
   "ideaLinkStoreOptions",
   "decisionListApplications",

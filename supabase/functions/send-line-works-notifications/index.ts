@@ -121,6 +121,19 @@ async function readJsonBody(req: Request): Promise<Record<string, unknown>> {
 async function assertAuthorizedInvocation(req: Request) {
   const triggerSecret = Deno.env.get("LINE_WORKS_TRIGGER_SECRET") ?? "";
   const providedSecret = req.headers.get("x-trigger-secret") ?? "";
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const authorization = req.headers.get("Authorization") ?? "";
+  const bearerToken = authorization.toLowerCase().startsWith("bearer ")
+    ? authorization.replace(/^bearer\s+/i, "").trim()
+    : "";
+
+  if (serviceKey && bearerToken === serviceKey) {
+    return;
+  }
+  if (bearerToken && isVerifiedServiceRoleJwt(bearerToken)) {
+    return;
+  }
 
   if (triggerSecret) {
     if (providedSecret !== triggerSecret) {
@@ -129,20 +142,8 @@ async function assertAuthorizedInvocation(req: Request) {
     return;
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  const authorization = req.headers.get("Authorization") ?? "";
-
   if (!supabaseUrl || !authorization.toLowerCase().startsWith("bearer ")) {
     throw new Error("LINE_WORKS_TRIGGER_SECRET is not configured and bearer authorization is missing");
-  }
-
-  const bearerToken = authorization.replace(/^bearer\s+/i, "").trim();
-  if (serviceKey && bearerToken === serviceKey) {
-    return;
-  }
-  if (isVerifiedServiceRoleJwt(bearerToken)) {
-    return;
   }
 
   const response = await fetch(`${supabaseUrl}/auth/v1/user`, {

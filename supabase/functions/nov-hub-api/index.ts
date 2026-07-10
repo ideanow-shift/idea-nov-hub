@@ -1394,6 +1394,99 @@ function ideaLinkNotificationEnqueueGuards() {
   };
 }
 
+function ideaLinkNotificationSendGuards() {
+  return {
+    dbMutationExpected: true,
+    notificationEnqueued: false,
+    lineWorksNotificationSent: true,
+    notificationIdScopedSendRequired: true,
+    existingQueuedRowsTouched: false,
+    monthlyMvpQueuedRowsTouched: false,
+    browserDirectTableAccess: false,
+    browserDirectRpcExecute: false,
+    serviceRoleOnly: true,
+    rawLineWorksResponseSaved: false,
+  };
+}
+
+async function sendIdeaLinkNotificationById(employee: JsonRecord, payload: JsonRecord) {
+  assertIdeaLinkUser(employee);
+  if (!isIdeaLinkManager(employee)) throw new PortalError("ACCESS_DENIED", "IDEA LINK manager role is required.", 403);
+  const notificationId = String(payload.notificationId || payload.notification_id || payload.id || "").trim();
+  if (!isUuid(notificationId)) throw new PortalError("INVALID_REQUEST", "notificationId is required.", 400);
+
+  const notifications = await readRows("notifications", {
+    schema: "os",
+    query: {
+      select: "id,module_key,channel,entity_type,entity_id,status",
+      id: `eq.${notificationId}`,
+      limit: "1",
+    },
+  });
+  const notification = asRecord(notifications[0] || {});
+  if (!notification.id) throw new PortalError("INVALID_REQUEST", "Notification was not found.", 404);
+  const moduleKey = String(notification.module_key || "").trim();
+  const channel = String(notification.channel || "").trim();
+  const entityType = String(notification.entity_type || "").trim();
+  const status = String(notification.status || "").trim();
+  if (moduleKey !== "idea_link" || channel !== "line_works") {
+    throw new PortalError("INVALID_REQUEST", "Notification is outside IDEA LINK LINE WORKS scope.", 400);
+  }
+  if (!entityType.startsWith("line_works_target:")) {
+    throw new PortalError("INVALID_REQUEST", "Notification entity type is not approved for this gate.", 400);
+  }
+  if (entityType.includes("monthly_thanks_mvp") || entityType.includes("monthly_mvp")) {
+    throw new PortalError("INVALID_REQUEST", "Monthly MVP notification is not approved for this gate.", 400);
+  }
+  if (status !== "queued") {
+    return {
+      ok: true,
+      notificationId,
+      skipped: true,
+      status,
+      lineWorksNotificationSent: false,
+      rawLineWorksResponseSaved: false,
+      guards: ideaLinkNotificationSendGuards(),
+    };
+  }
+
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/send-line-works-notifications`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      notificationId,
+      expectedEntityType: entityType,
+    }),
+  });
+  const text = await response.text();
+  let body: JsonRecord = {};
+  try {
+    body = text ? asRecord(JSON.parse(text)) : {};
+  } catch (_error) {
+    body = {};
+  }
+  if (!response.ok || body.ok === false) {
+    throw new PortalError("LINE_WORKS_SEND_FAILED", "Scoped LINE WORKS send failed.", 502, sanitizeErrorDetail(text));
+  }
+  const results = Array.isArray(body.results) ? body.results.map((row) => asRecord(row)) : [];
+  const successCount = results.filter((row) => row.ok === true).length;
+  const errorCount = results.filter((row) => row.ok === false).length;
+  return {
+    ok: true,
+    notificationId,
+    count: Number(body.count || results.length || 0),
+    successCount,
+    errorCount,
+    lineWorksNotificationSent: successCount === 1 && errorCount === 0,
+    rawLineWorksResponseSaved: false,
+    guards: ideaLinkNotificationSendGuards(),
+  };
+}
+
 async function callSupabaseRpc(functionName: string, payload: JsonRecord = {}, schema = "public") {
   return await supabaseRequest(`rpc/${encodeURIComponent(functionName)}`, {
     method: "POST",
@@ -4620,6 +4713,10 @@ Deno.serve(async (request) => {
 
     if (action === "ideaLinkNotificationEnqueue") {
       return jsonResponse({ ok: true, result: await enqueueIdeaLinkPostNotification(employee, payload), performance: { source: "nov-hub-api-proxy" } });
+    }
+
+    if (action === "ideaLinkNotificationSendScoped") {
+      return jsonResponse({ ok: true, result: await sendIdeaLinkNotificationById(employee, payload), performance: { source: "nov-hub-api-proxy" } });
     }
 
     if (action === "ideaLinkRecipientSearch") {

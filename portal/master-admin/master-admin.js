@@ -3,6 +3,7 @@ import { callApiAction, clearApiAuth, setFirebaseAuth } from "../js/api.js";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_PORTAL_APP_ID = "__new_portal_app__";
+const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
 const APP_ROLE_GROUPS = [
@@ -1968,11 +1969,8 @@ function renderEmployeeLineWorksDestinationPanel(employee, readonly) {
   const destination = getEmployeeLineWorksDestination(employee);
   const hasDestination = hasEmployeeLineWorksDestination(employee);
   const preview = hasDestination ? "設定済み（実ID非表示）" : "未設定";
-  const saveStatusMessage = readonly
-    ? "閲覧専用です。"
-    : hasDestination
-      ? "設定済み。変更時のみ入力。"
-      : "未設定。User IDを入力。";
+  const lineWorksReadonly = readonly || !EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED;
+  const saveStatusMessage = "個人通知先の保存はDB設計レビュー後に有効化します。";
   return `
     <section class="notification-destination-panel" id="line-works-destination-panel">
       <div class="notification-destination-heading">
@@ -1985,7 +1983,7 @@ function renderEmployeeLineWorksDestinationPanel(employee, readonly) {
       <div class="notification-destination-grid">
         <label class="form-field" for="line_works_recipient_id">
           <span>LINE WORKS User ID</span>
-          <input class="form-input" id="line_works_recipient_id" name="line_works_recipient_id" type="text" autocomplete="off" placeholder="${hasDestination ? "変更時のみ入力" : "User IDを入力"}" ${readonly ? "disabled" : ""}>
+          <input class="form-input" id="line_works_recipient_id" name="line_works_recipient_id" type="text" autocomplete="off" placeholder="${hasDestination ? "変更時のみ入力" : "User IDを入力"}" ${lineWorksReadonly ? "disabled" : ""}>
         </label>
         <p class="field-help">個人宛て専用。数字だけのチャンネルIDは保存できません。</p>
         <div class="notification-destination-meta">
@@ -1993,8 +1991,8 @@ function renderEmployeeLineWorksDestinationPanel(employee, readonly) {
         </div>
       </div>
       <div class="notification-destination-actions">
-        <span class="save-status${readonly ? " pending" : ""}" id="line-works-destination-save-status">${escapeHtml(saveStatusMessage)}</span>
-        <button class="button button-primary notification-destination-save-button" id="save-line-works-destination" type="button" disabled>${readonly ? "閲覧専用" : hasDestination ? "更新" : "保存"}</button>
+        <span class="save-status pending" id="line-works-destination-save-status">${escapeHtml(saveStatusMessage)}</span>
+        <button class="button button-primary notification-destination-save-button" id="save-line-works-destination" type="button" disabled>設計レビュー待ち</button>
       </div>
     </section>`;
 }
@@ -2004,7 +2002,7 @@ function setupLineWorksDestinationSaveState(employee, readonly) {
   const input = document.querySelector("#line_works_recipient_id");
   const button = document.querySelector("#save-line-works-destination");
   const status = document.querySelector("#line-works-destination-save-status");
-  if (!panel || !input || !button || !status || readonly) return;
+  if (!panel || !input || !button || !status || readonly || !EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED) return;
   input.addEventListener("input", () => {
     const value = normalizeLineWorksUserIdInput(input.value);
     const validationError = getLineWorksUserIdValidationError(value);
@@ -2019,6 +2017,10 @@ function setupLineWorksDestinationSaveState(employee, readonly) {
 }
 
 async function saveEmployeeLineWorksDestination(employee) {
+  if (!EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED) {
+    showToast("LINE WORKS個人通知先の保存は設計レビュー後に有効化します。");
+    return;
+  }
   const input = document.querySelector("#line_works_recipient_id");
   const button = document.querySelector("#save-line-works-destination");
   const status = document.querySelector("#line-works-destination-save-status");

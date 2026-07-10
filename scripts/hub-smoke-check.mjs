@@ -17,7 +17,7 @@ const CHECKS = [
   {
     name: "IDEA LINK bridge",
     url: "https://ideanow-shift.github.io/idea-nov-hub/idea-link/",
-    includes: ["IDEA LINKへ移動中", "HUB_CONTEXT_QUERY_KEY", "encodeHubContextForUrl"],
+    includes: ["サンクスコイン", "HUB_CONTEXT_QUERY_KEY", "encodeHubContextForUrl"],
   },
   {
     name: "Expense Hub",

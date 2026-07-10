@@ -3670,6 +3670,21 @@ async function getCoreCorporationByNo(corporationNo: string) {
   return rows[0] || null;
 }
 
+function normalizeCorporationNoForWrite(value: unknown) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (!/^[0-9A-Za-z_-]{1,40}$/.test(text)) {
+    throw new PortalError("INVALID_REQUEST", "Corporation no must be 1-40 ASCII letters, numbers, hyphens, or underscores.", 400);
+  }
+  return text;
+}
+
+function generateProvisionalCorporationNo() {
+  const timestamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
+  const suffix = crypto.randomUUID().slice(0, 8).toUpperCase();
+  return `TMP-${timestamp}-${suffix}`;
+}
+
 async function saveDecisionDraftApplication(payload: JsonRecord, actor: JsonRecord) {
   assertDecisionSaveDraftPayload(payload);
   const actorEmployeeId = getActorEmployeeId(actor);
@@ -3689,12 +3704,9 @@ async function saveDecisionDraftApplication(payload: JsonRecord, actor: JsonReco
 }
 
 async function createCoreCorporation(payload: JsonRecord, actor: JsonRecord) {
-  const corporationNo = String(payload.corporation_no || payload.corporationNo || "").trim();
+  const requestedCorporationNo = normalizeCorporationNoForWrite(payload.corporation_no || payload.corporationNo || "");
+  const corporationNo = requestedCorporationNo || generateProvisionalCorporationNo();
   const corporationName = String(payload.corporation_name || payload.corporationName || "").trim();
-  if (!corporationNo) throw new PortalError("INVALID_REQUEST", "Corporation no is required.", 400);
-  if (!/^[0-9A-Za-z_-]{1,40}$/.test(corporationNo)) {
-    throw new PortalError("INVALID_REQUEST", "Corporation no must be 1-40 ASCII letters, numbers, hyphens, or underscores.", 400);
-  }
   if (!corporationName) throw new PortalError("INVALID_REQUEST", "Corporation name is required.", 400);
 
   const existing = await getCoreCorporationByNo(corporationNo);
@@ -3761,6 +3773,15 @@ async function updateCoreCorporation(payload: JsonRecord, actor: JsonRecord) {
   const beforeProfile = await getCorporationBusinessProfile(id);
 
   const updates: JsonRecord = {};
+  if (Object.prototype.hasOwnProperty.call(payload, "corporation_no")) {
+    const corporationNo = normalizeCorporationNoForWrite(payload.corporation_no);
+    if (!corporationNo) throw new PortalError("INVALID_REQUEST", "Corporation no is required.", 400);
+    const existing = await getCoreCorporationByNo(corporationNo);
+    if (existing?.id && String(existing.id) !== id) {
+      throw new PortalError("CONFLICT", "Corporation no already exists.", 409);
+    }
+    updates.corporation_no = corporationNo;
+  }
   copyStringField(updates, payload, "corporation_name");
   if (Object.prototype.hasOwnProperty.call(payload, "is_active")) updates.is_active = parseBooleanLike(payload.is_active, true);
   const changedUpdates = getChangedFields(before, updates);

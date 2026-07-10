@@ -2305,8 +2305,9 @@ function renderCorporationDetail(corporation) {
   elements.detailPanel.innerHTML = `
     <h3>${escapeHtml(corporation.corporation_name)}</h3>
     <p class="detail-meta">法人No: ${escapeHtml(corporation.corporation_no)}${profile.updated_at ? ` / 詳細更新: ${escapeHtml(formatDateTime(profile.updated_at))}` : ""}</p>
-    <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "法人名と経営判断に使う補足情報を更新できます。法人Noは固定項目です。"}</p>
+    <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "法人No、法人名、経営判断に使う補足情報を更新できます。"}</p>
     <form class="form-grid store-detail-form" id="detail-form">
+      ${fieldInput("corporation_no", "法人No", corporation.corporation_no || "", { required: true, placeholder: "例: 001" })}
       ${fieldInput("corporation_name", "法人名", corporation.corporation_name || "")}
       ${fieldCheckbox("is_active", "有効", corporation.is_active !== false)}
       <section class="store-detail-section">
@@ -2386,9 +2387,9 @@ function renderNewCorporationDetail() {
   elements.detailPanel.innerHTML = `
     <h3>新規法人追加</h3>
     <p class="detail-meta">Core DB corporations に法人を追加します。</p>
-    <p class="detail-note">法人Noと法人名は必須です。詳細項目は作成後でも追記できます。</p>
+    <p class="detail-note">法人名だけで仮登録できます。法人Noが空欄の場合は仮Noを自動発行し、後から編集できます。</p>
     <form class="form-grid store-detail-form" id="detail-form">
-      ${fieldInput("corporation_no", "法人No", "", { required: true, placeholder: "例: 001" })}
+      ${fieldInput("corporation_no", "法人No", "", { placeholder: "空欄なら仮Noを自動発行" })}
       ${fieldInput("corporation_name", "法人名", "", { required: true, placeholder: "例: 株式会社〇〇" })}
       ${fieldCheckbox("is_active", "有効", true)}
       <section class="store-detail-section">
@@ -3430,15 +3431,18 @@ async function saveCorporation(event) {
       showToast("変更はありません。");
       return;
     }
-    if (isCreate && !payload.corporation_no?.trim()) {
-      showToast("法人Noは必須です。");
-      return;
-    }
     if (!payload.corporation_name?.trim()) {
       showToast("法人名は必須です。");
       return;
     }
-    if (isCreate && state.corporations.some((corporation) => String(corporation.corporation_no || "").trim() === String(payload.corporation_no || "").trim())) {
+    if (!isCreate && !payload.corporation_no?.trim()) {
+      showToast("法人Noを入力してください。");
+      return;
+    }
+    if (payload.corporation_no?.trim() && state.corporations.some((corporation) => (
+      String(corporation.id || "") !== String(payload.id || "")
+      && String(corporation.corporation_no || "").trim() === String(payload.corporation_no || "").trim()
+    ))) {
       showToast("同じ法人Noが既に存在します。");
       return;
     }

@@ -19,6 +19,7 @@ const MANAGEMENT_HUB_CONTEXT_KEY = "ideaNov.management.hubContext";
 const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_APP_IDS = new Set(["management-check", "management-platform"]);
 const MANAGEMENT_APP_URL = "./management-platform/";
+const IDEA_LINK_APP_URL = "./idea-link-app/";
 const MANAGEMENT_ALLOWED_ROLE_KEYS = new Set([
   "super_admin",
   "executive",
@@ -537,7 +538,11 @@ async function openApp(app) {
     return;
   }
   const employeeContext = refreshHubEmployeeContext();
-  const appUrl = isManagementPlatformApp(app) ? MANAGEMENT_APP_URL : app.url;
+  const appUrl = isManagementPlatformApp(app)
+    ? MANAGEMENT_APP_URL
+    : app.appId === "idea-link"
+      ? IDEA_LINK_APP_URL
+      : app.url;
   const launchUrl = buildAppLaunchUrl(appUrl, employeeContext);
   if (state.mode === "firebase") {
     if (isManagementPlatformApp(app)) {

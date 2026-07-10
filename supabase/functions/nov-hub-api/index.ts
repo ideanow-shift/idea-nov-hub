@@ -1230,12 +1230,15 @@ async function previewIdeaLinkPostNotification(employee: JsonRecord, payload: Js
     });
     channelRows = rows.filter((row) => {
       const record = asRecord(row);
-      const rowScope = String(record.target_scope || record.scope || "").trim();
-      const rowKey = String(record.target_key || record.key || record.store_id || record.store_code || "").trim();
+      const rowScope = String(record.org_unit_type || record.target_scope || record.scope || "").trim();
+      const rowKey = String(record.store_id || record.target_key || record.key || record.store_code || "").trim();
+      const rowDepartmentId = String(record.department_id || "").trim();
       const rowType = String(record.target_type || record.type || "channel").trim();
       const enabledValue = String(record.enabled ?? record.is_enabled ?? "true").trim().toLowerCase();
       const enabled = !["false", "0", "no", "disabled"].includes(enabledValue);
-      return rowScope === targetScope && targetKeys.includes(rowKey) && rowType === "channel" && enabled;
+      const matchesStore = rowScope === targetScope && targetKeys.includes(rowKey);
+      const matchesDepartment = rowScope === "department" && departmentId && rowDepartmentId === departmentId;
+      return (matchesStore || matchesDepartment) && rowType === "channel" && enabled;
     }).slice(0, 1);
   } catch (error) {
     return {
@@ -1256,7 +1259,7 @@ async function previewIdeaLinkPostNotification(employee: JsonRecord, payload: Js
     };
   }
   const channel = asRecord(channelRows[0] || {});
-  const configured = Boolean(channel.target_key);
+  const configured = Boolean(channel.id || channel.channel_id || channel.target_key);
   return {
     ok: true,
     postId,
@@ -1264,7 +1267,7 @@ async function previewIdeaLinkPostNotification(employee: JsonRecord, payload: Js
     reason: configured ? "" : "channel_not_configured",
     target: {
       scope: targetScope,
-      key: String(channel.target_key || targetKeys[0] || ""),
+      key: String(channel.store_id || channel.department_id || channel.target_key || targetKeys[0] || ""),
       candidateKeys: targetKeys,
       targetType: "channel",
       configured,

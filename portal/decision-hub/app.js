@@ -1,6 +1,6 @@
 import { callApiAction } from "../js/api.js";
 
-const DECISION_HUB_READONLY_LIVE = false;
+const DECISION_HUB_READONLY_LIVE = true;
 const LIST_LIMIT = 50;
 
 const state = {

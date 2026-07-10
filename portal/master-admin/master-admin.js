@@ -1,5 +1,5 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
-import { callApiAction, clearApiAuth, setFirebaseAuth } from "../js/api.js?v=master-corporation-update-20260710";
+import { callApiAction, clearApiAuth, setFirebaseAuth } from "../js/api.js?v=master-corporation-list-refresh-20260710";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";

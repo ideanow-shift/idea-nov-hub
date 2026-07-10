@@ -23,6 +23,7 @@ const EDGE_ACTIONS = new Set([
   "log",
   "masterBootstrap",
   "masterListEmployees",
+  "masterListCorporations",
   "masterListStores",
   "masterListPortalApps",
   "masterListChangeLogs",

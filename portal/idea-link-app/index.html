@@ -208,6 +208,37 @@
       line-height: 1.65;
     }
 
+    .checkbox-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .checkbox-row input {
+      width: 22px;
+      height: 22px;
+      accent-color: var(--brand);
+    }
+
+    .checkbox-row strong,
+    .checkbox-row small {
+      display: block;
+      line-height: 1.45;
+    }
+
+    .checkbox-row small {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
     .actions {
       display: flex;
       justify-content: stretch;
@@ -652,6 +683,13 @@
             メッセージ
             <textarea id="message" placeholder="ありがとうを具体的に書く"></textarea>
           </label>
+          <label class="checkbox-row">
+            <input id="challenge-flag" type="checkbox">
+            <span>
+              <strong>この行動は挑戦を伴っていた</strong>
+              <small>新しいことや苦手なことに向き合った行動の場合にチェック</small>
+            </span>
+          </label>
           <div class="actions">
             <button class="secondary" type="button" id="clear-button">クリア</button>
             <button class="primary" type="button" id="submit-button">サンクスを送る</button>
@@ -824,6 +862,7 @@
     const receiver = document.querySelector("#receiver");
     const category = document.querySelector("#category");
     const message = document.querySelector("#message");
+    const challengeFlag = document.querySelector("#challenge-flag");
     const modeNotice = document.querySelector("#mode-notice");
     const clearButton = document.querySelector("#clear-button");
     const submitButton = document.querySelector("#submit-button");
@@ -1142,6 +1181,7 @@
       receiver.disabled = true;
       category.disabled = true;
       message.disabled = true;
+      challengeFlag.disabled = true;
       submitButton.disabled = true;
       submitButton.textContent = reason;
     }
@@ -1151,6 +1191,7 @@
       receiver.disabled = false;
       category.disabled = false;
       message.disabled = false;
+      challengeFlag.disabled = false;
       submitButton.disabled = false;
       submitButton.textContent = "サンクスを送る";
     }
@@ -1279,6 +1320,7 @@
     clearButton.addEventListener("click", () => {
       receiver.value = "";
       message.value = "";
+      challengeFlag.checked = false;
     });
 
     storeFilter.addEventListener("change", loadRecipientsForStore);
@@ -1316,7 +1358,7 @@
           category: category.value,
           comment,
           visibility: "public",
-          challengeFlag: false
+          challengeFlag: challengeFlag.checked === true
         });
         renderSavedPost(response.result);
         message.value = "";

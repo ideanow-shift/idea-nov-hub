@@ -67,11 +67,13 @@ const state = {
   view: "employees",
   employeeStatus: "active",
   employeeIssueFilter: "",
+  corporationStatus: "active",
   storeStatus: "active",
   appStatus: "active",
   selectedId: "",
   recentlyCreatedEmployeeId: "",
   employees: [],
+  corporations: [],
   stores: [],
   portalApps: [],
   logs: [],
@@ -94,7 +96,7 @@ const state = {
 const elements = Object.fromEntries([
   "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "add-employee", "add-portal-app", "refresh",
   "view-title", "search", "employee-csv-tools", "export-employees-csv", "import-employees-csv", "quality-summary", "result-count", "table-head", "table-body",
-  "detail-panel", "employee-status-filter", "store-status-filter", "app-status-filter", "toast"
+  "detail-panel", "employee-status-filter", "corporation-status-filter", "store-status-filter", "app-status-filter", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
 
 const ROLE_LABELS = {
@@ -201,6 +203,7 @@ function getEmployeeStatusLabel(employee) {
 
 function setBootstrapData(data) {
   state.employees = data.employees || [];
+  state.corporations = data.corporations || [];
   state.stores = data.stores || [];
   state.portalApps = data.portalApps || [];
   state.permissions = data.permissions || { canView: false, canEdit: false, roleKeys: [] };
@@ -228,6 +231,7 @@ function getRows() {
   const query = normalizeSearch(elements.search.value);
   let rows = getStoresByStatus();
   if (state.view === "employees") rows = getEmployeesByStatus();
+  if (state.view === "corporations") rows = getCorporationsByStatus();
   if (state.view === "apps") rows = getPortalAppsByStatus();
   if (state.view === "permissions") rows = getAppPermissionRows();
   if (state.view === "firebase") rows = state.employees.filter((employee) => isCurrentEmployee(employee) && !employee.firebase_uid);
@@ -259,6 +263,9 @@ function getSortedRows(rows) {
   }
   if (state.view === "stores") {
     return rows.slice().sort(compareStores);
+  }
+  if (state.view === "corporations") {
+    return rows.slice().sort(compareCorporations);
   }
   if (state.view === "apps") {
     return rows.slice().sort(comparePortalApps);
@@ -312,6 +319,10 @@ function compareStores(left, right) {
   return String(left.store_no || "").localeCompare(String(right.store_no || ""), "ja", { numeric: true });
 }
 
+function compareCorporations(left, right) {
+  return String(left.corporation_no || "").localeCompare(String(right.corporation_no || ""), "ja", { numeric: true });
+}
+
 function comparePortalApps(left, right) {
   const leftPriority = Number(left.priority || 999);
   const rightPriority = Number(right.priority || 999);
@@ -332,6 +343,17 @@ function getSearchText(row) {
   }
   if ("store_no" in row) {
     values.push(...getStoreIssues(row), row.is_active ? "有効" : "無効");
+  }
+  if ("corporation_no" in row) {
+    const profile = row.business_profile || {};
+    values.push(
+      profile.formal_corporation_name,
+      profile.corporation_number,
+      profile.invoice_registration_number,
+      profile.accounting_category,
+      profile.operating_status,
+      row.is_active ? "有効" : "無効"
+    );
   }
   if ("appId" in row) {
     values.push(
@@ -509,6 +531,12 @@ function getStoresByStatus() {
   return state.stores.filter((store) => store.is_active);
 }
 
+function getCorporationsByStatus() {
+  if (state.corporationStatus === "all") return state.corporations;
+  if (state.corporationStatus === "inactive") return state.corporations.filter((corporation) => corporation.is_active === false);
+  return state.corporations.filter((corporation) => corporation.is_active !== false);
+}
+
 function getPortalAppsByStatus() {
   if (state.appStatus === "all") return state.portalApps;
   if (state.appStatus === "featured") return state.portalApps.filter((app) => app.isFeatured);
@@ -575,6 +603,14 @@ function getStoreStatusCounts() {
   };
 }
 
+function getCorporationStatusCounts() {
+  return {
+    active: state.corporations.filter((corporation) => corporation.is_active !== false).length,
+    inactive: state.corporations.filter((corporation) => corporation.is_active === false).length,
+    all: state.corporations.length
+  };
+}
+
 function getPortalAppStatusCounts() {
   return {
     active: state.portalApps.filter((app) => app.isActive !== false).length,
@@ -598,10 +634,12 @@ function setButtonCount(button, count) {
 
 function updateNavigationCounts() {
   const employeeCounts = getEmployeeStatusCounts();
+  const corporationCounts = getCorporationStatusCounts();
   const storeCounts = getStoreStatusCounts();
   const appCounts = getPortalAppStatusCounts();
   const viewCounts = {
     employees: state.employees.length,
+    corporations: state.corporations.length,
     stores: state.stores.length,
     apps: state.portalApps.length,
     permissions: getAppPermissionRows().reduce((total, row) => total + row.activeCount, 0),
@@ -617,6 +655,9 @@ function updateNavigationCounts() {
   });
   document.querySelectorAll("[data-store-status]").forEach((button) => {
     setButtonCount(button, storeCounts[button.dataset.storeStatus]);
+  });
+  document.querySelectorAll("[data-corporation-status]").forEach((button) => {
+    setButtonCount(button, corporationCounts[button.dataset.corporationStatus]);
   });
   document.querySelectorAll("[data-app-status]").forEach((button) => {
     setButtonCount(button, appCounts[button.dataset.appStatus]);
@@ -650,6 +691,7 @@ function render() {
     button.classList.toggle("active", button.dataset.view === state.view);
   });
   elements.employeeStatusFilter.hidden = state.view !== "employees";
+  elements.corporationStatusFilter.hidden = state.view !== "corporations";
   elements.storeStatusFilter.hidden = state.view !== "stores";
   elements.appStatusFilter.hidden = state.view !== "apps";
   document.querySelectorAll("[data-employee-status]").forEach((button) => {
@@ -657,6 +699,9 @@ function render() {
   });
   document.querySelectorAll("[data-store-status]").forEach((button) => {
     button.classList.toggle("active", button.dataset.storeStatus === state.storeStatus);
+  });
+  document.querySelectorAll("[data-corporation-status]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.corporationStatus === state.corporationStatus);
   });
   document.querySelectorAll("[data-app-status]").forEach((button) => {
     button.classList.toggle("active", button.dataset.appStatus === state.appStatus);
@@ -667,6 +712,7 @@ function render() {
   elements.addPortalApp.hidden = state.view !== "apps" || !state.permissions.canEdit;
   elements.viewTitle.textContent = {
     employees: "社員マスタ",
+    corporations: "法人マスタ",
     stores: "店舗マスタ",
     apps: "アプリ管理",
     permissions: "アプリ別権限",
@@ -708,6 +754,20 @@ function renderTable() {
         <th>変更内容</th>
       </tr>`;
     elements.tableBody.replaceChildren(...rows.map(renderLogRow));
+    return;
+  }
+
+  if (state.view === "corporations") {
+    elements.tableHead.innerHTML = `
+      <tr>
+        <th>法人No</th>
+        <th>法人名</th>
+        <th>正式名</th>
+        <th>決算月</th>
+        <th>状況</th>
+        <th>有効</th>
+      </tr>`;
+    elements.tableBody.replaceChildren(...rows.map(renderCorporationRow));
     return;
   }
 
@@ -851,6 +911,13 @@ function getQualitySummaryItems() {
       { label: "エリア未設定", count: issueCounts["エリア"] || 0, tone: "warning" },
       { label: "店舗種別未設定", count: issueCounts["店舗種別"] || 0, tone: "warning" },
       { label: "無効店舗", count: state.stores.filter((store) => !store.is_active).length, tone: "neutral" }
+    ];
+  }
+  if (state.view === "corporations") {
+    return [
+      { label: "有効法人", count: state.corporations.filter((corporation) => corporation.is_active !== false).length, tone: "info" },
+      { label: "無効法人", count: state.corporations.filter((corporation) => corporation.is_active === false).length, tone: "neutral" },
+      { label: "詳細あり", count: state.corporations.filter((corporation) => corporation.business_profile).length, tone: "info" }
     ];
   }
   if (state.view === "apps") {
@@ -1042,6 +1109,25 @@ function renderStoreRow(store) {
   return tr;
 }
 
+function renderCorporationRow(corporation) {
+  const tr = document.createElement("tr");
+  tr.className = corporation.id === state.selectedId ? "selected" : "";
+  const profile = corporation.business_profile || {};
+  const fiscalMonth = profile.fiscal_year_end_month ? `${profile.fiscal_year_end_month}月` : "";
+  tr.innerHTML = `
+    <td>${escapeHtml(corporation.corporation_no)}</td>
+    <td>${escapeHtml(corporation.corporation_name)}</td>
+    <td>${escapeHtml(profile.formal_corporation_name || "")}</td>
+    <td>${escapeHtml(fiscalMonth)}</td>
+    <td>${escapeHtml(profile.operating_status || "")}</td>
+    <td>${formatActive(corporation.is_active !== false)}</td>`;
+  tr.addEventListener("click", () => {
+    state.selectedId = corporation.id;
+    render();
+  });
+  return tr;
+}
+
 function renderPortalAppRow(app) {
   const tr = document.createElement("tr");
   const readonly = !state.permissions.canEdit;
@@ -1220,13 +1306,14 @@ function renderDetail() {
     return;
   }
 
-  const sourceRows = state.view === "stores" ? state.stores : state.view === "apps" ? state.portalApps : state.employees;
+  const sourceRows = state.view === "corporations" ? state.corporations : state.view === "stores" ? state.stores : state.view === "apps" ? state.portalApps : state.employees;
   const row = sourceRows.find((item) => item.id === state.selectedId);
   if (!row) {
     elements.detailPanel.innerHTML = `<div class="empty-detail">左の一覧から編集対象を選んでください。</div>`;
     return;
   }
   if (state.view === "apps") renderPortalAppDetail(row);
+  else if (state.view === "corporations") renderCorporationDetail(row);
   else if (state.view === "employees" || state.view === "firebase") renderEmployeeDetail(row);
   else renderStoreDetail(row);
 }
@@ -1430,6 +1517,7 @@ function formatActionType(actionType) {
     update_profile_image: "プロフィール画像更新",
     create_login_credential: "ログイン設定作成",
     update_login_credential: "ログイン設定更新",
+    update_corporation_business_profile: "法人詳細更新",
     change_own_pin: "本人PIN変更"
   }[actionType] || "更新";
 }
@@ -1440,6 +1528,8 @@ function getLogTypeLabel(log) {
   if (log.table_name === "employee_store_assignments") return "店舗所属";
   if (log.table_name === "employee_roles") return "共通ロール";
   if (log.table_name === "employee_login_credentials") return "ログイン設定";
+  if (log.table_name === "corporations") return "法人情報";
+  if (log.table_name === "corporation_business_profiles") return "法人詳細";
   if (log.table_name === "stores") return "店舗情報";
   if (log.table_name === "employees") return "社員情報";
   return log.table_name || "変更履歴";
@@ -1450,6 +1540,8 @@ function getLogTypeClass(log) {
   if (log.table_name === "employee_store_assignments") return "store-assignment";
   if (log.table_name === "employee_roles") return "role";
   if (log.table_name === "employee_login_credentials") return "login";
+  if (log.table_name === "corporations") return "corporation";
+  if (log.table_name === "corporation_business_profiles") return "corporation";
   if (log.table_name === "stores") return "store";
   if (log.table_name === "employees") return "employee";
   return "";
@@ -1526,6 +1618,25 @@ function getFieldLabel(key) {
     employment_status: "現職/休職/退職",
     employment_type: "雇用形態",
     corporation_id: "法人",
+    corporation_name: "法人名",
+    formal_corporation_name: "正式名",
+    corporation_number: "法人番号",
+    invoice_registration_number: "インボイス番号",
+    representative_name: "代表者",
+    head_office_address: "所在地",
+    phone_number: "電話番号",
+    fiscal_year_end_month: "決算月",
+    payroll_closing_day: "給与締日",
+    payroll_payment_day: "給与支払日",
+    accounting_category: "会計区分",
+    social_insurance_status: "社会保険",
+    labor_insurance_status: "労保",
+    tax_accountant_label: "税理士",
+    labor_consultant_label: "社労士",
+    operating_status: "状況",
+    established_on: "設立日",
+    closed_on: "廃止日",
+    corporation_feature_note: "法人備考",
     store_id: "主店舗",
     store_assignment_2: "サブ店舗",
     store_assignment_3: "第3店舗",
@@ -2182,6 +2293,78 @@ function getStoreAssignmentsByOrder(assignments) {
   }, {});
 }
 
+function renderCorporationDetail(corporation) {
+  const readonly = !state.permissions.canEdit;
+  const profile = corporation.business_profile || {};
+  elements.detailPanel.innerHTML = `
+    <h3>${escapeHtml(corporation.corporation_name)}</h3>
+    <p class="detail-meta">法人No: ${escapeHtml(corporation.corporation_no)}${profile.updated_at ? ` / 詳細更新: ${escapeHtml(formatDateTime(profile.updated_at))}` : ""}</p>
+    <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "法人名と経営判断に使う補足情報を更新できます。法人Noは固定項目です。"}</p>
+    <form class="form-grid store-detail-form" id="detail-form">
+      ${fieldInput("corporation_name", "法人名", corporation.corporation_name || "")}
+      ${fieldCheckbox("is_active", "有効", corporation.is_active !== false)}
+      <section class="store-detail-section">
+        <div class="store-detail-section-header">
+          <div>
+            <strong>法人情報</strong>
+            <p>登記・請求で使う情報</p>
+          </div>
+        </div>
+        <div class="store-detail-compact-grid">
+          ${fieldInput("formal_corporation_name", "正式名", profile.formal_corporation_name || "", { placeholder: "例: 株式会社〇〇" })}
+          ${fieldInput("corporation_number", "法人番号", profile.corporation_number || "", { placeholder: "13桁" })}
+          ${fieldInput("invoice_registration_number", "インボイス番号", profile.invoice_registration_number || "", { placeholder: "T + 13桁" })}
+          ${fieldInput("representative_name", "代表者", profile.representative_name || "")}
+          <div class="store-detail-wide">${fieldInput("head_office_address", "所在地", profile.head_office_address || "")}</div>
+          ${fieldInput("phone_number", "電話番号", profile.phone_number || "")}
+        </div>
+      </section>
+      <section class="store-detail-section">
+        <div class="store-detail-section-header">
+          <div>
+            <strong>会計・労務</strong>
+            <p>決算・給与・保険</p>
+          </div>
+        </div>
+        <div class="store-detail-compact-grid">
+          ${fieldInput("fiscal_year_end_month", "決算月", profile.fiscal_year_end_month ?? "", { type: "number", step: "1", min: "1", max: "12", placeholder: "1-12" })}
+          ${fieldInput("accounting_category", "会計区分", profile.accounting_category || "", { placeholder: "例: 自社 / FC / 関連会社" })}
+          ${fieldInput("payroll_closing_day", "給与締日", profile.payroll_closing_day || "", { placeholder: "例: 月末" })}
+          ${fieldInput("payroll_payment_day", "給与支払日", profile.payroll_payment_day || "", { placeholder: "例: 翌月25日" })}
+          ${fieldInput("social_insurance_status", "社会保険", profile.social_insurance_status || "")}
+          ${fieldInput("labor_insurance_status", "労保", profile.labor_insurance_status || "")}
+          ${fieldInput("tax_accountant_label", "税理士", profile.tax_accountant_label || "")}
+          ${fieldInput("labor_consultant_label", "社労士", profile.labor_consultant_label || "")}
+        </div>
+      </section>
+      <section class="store-detail-section">
+        <div class="store-detail-section-header">
+          <div>
+            <strong>運用状態</strong>
+            <p>設立・廃止・補足</p>
+          </div>
+        </div>
+        <div class="store-detail-compact-grid">
+          ${fieldInput("operating_status", "状況", profile.operating_status || "", { placeholder: "運用中 / 休眠 / 廃止" })}
+          ${fieldInput("established_on", "設立日", profile.established_on || "", "date")}
+          ${fieldInput("closed_on", "廃止日", profile.closed_on || "", "date")}
+          <div class="store-detail-wide">${fieldTextarea("corporation_feature_note", "備考", profile.corporation_feature_note || "")}</div>
+          <p class="field-help store-detail-help">Secret、口座番号、税務資料本文は保存しません。</p>
+        </div>
+      </section>
+      <div class="save-row">
+        <span class="save-status" id="corporation-save-status" aria-live="polite"></span>
+        ${readonly ? `<span class="readonly-label">閲覧専用</span>` : `<button class="button button-primary save-button" type="submit">保存</button>`}
+      </div>
+    </form>`;
+  setReadonlyState(readonly);
+  if (!readonly) {
+    const form = document.querySelector("#detail-form");
+    form.addEventListener("submit", saveCorporation);
+    setupDirtyForm("corporation");
+  }
+}
+
 function renderStoreDetail(store) {
   const readonly = !state.permissions.canEdit;
   const issues = getStoreIssues(store);
@@ -2401,10 +2584,11 @@ function fieldInput(name, label, value, type = "text") {
   const placeholder = options.placeholder ? ` placeholder="${escapeHtml(options.placeholder)}"` : "";
   const step = options.step ? ` step="${escapeHtml(options.step)}"` : "";
   const min = options.min !== undefined ? ` min="${escapeHtml(options.min)}"` : "";
+  const max = options.max !== undefined ? ` max="${escapeHtml(options.max)}"` : "";
   return `
     <div class="form-field">
       <label for="${escapeHtml(name)}">${escapeHtml(label)}</label>
-      <input class="form-input" id="${escapeHtml(name)}" name="${escapeHtml(name)}" type="${escapeHtml(inputType)}" value="${escapeHtml(value ?? "")}"${placeholder}${step}${min}${required}${disabled}>
+      <input class="form-input" id="${escapeHtml(name)}" name="${escapeHtml(name)}" type="${escapeHtml(inputType)}" value="${escapeHtml(value ?? "")}"${placeholder}${step}${min}${max}${required}${disabled}>
     </div>`;
 }
 
@@ -2509,6 +2693,12 @@ function collectStorePayload() {
   return payload;
 }
 
+function collectCorporationPayload() {
+  const payload = collectFormPayload();
+  payload.is_active = document.querySelector("#is_active").checked;
+  return payload;
+}
+
 function collectPortalAppPayload() {
   const payload = collectFormPayload();
   payload.id = state.selectedId;
@@ -2533,13 +2723,22 @@ function joinListForInput(value) {
 
 function setupDirtyForm(type) {
   const form = document.querySelector("#detail-form");
-  const status = document.querySelector(type === "employee" ? "#employee-save-status" : type === "store" ? "#store-save-status" : "#app-save-status");
+  const status = getSaveStatusElement(type);
   const button = form?.querySelector(".save-button");
   if (!form || !button) return;
   state.formSnapshot = getFormSnapshot(type);
   updateDirtyState(type, status, button);
   form.addEventListener("input", () => updateDirtyState(type, status, button));
   form.addEventListener("change", () => updateDirtyState(type, status, button));
+}
+
+function getSaveStatusElement(type) {
+  return document.querySelector(
+    type === "employee" ? "#employee-save-status"
+      : type === "store" ? "#store-save-status"
+      : type === "corporation" ? "#corporation-save-status"
+      : "#app-save-status"
+  );
 }
 
 function setupLoginCredentialDirtyState() {
@@ -2640,7 +2839,10 @@ function updateDirtyState(type, status, button) {
 }
 
 function getFormSnapshot(type) {
-  const payload = type === "employee" ? collectEmployeePayload() : type === "store" ? collectStorePayload() : collectPortalAppPayload();
+  const payload = type === "employee" ? collectEmployeePayload()
+    : type === "store" ? collectStorePayload()
+      : type === "corporation" ? collectCorporationPayload()
+        : collectPortalAppPayload();
   delete payload.id;
   return JSON.stringify(Object.keys(payload).sort().map((key) => [key, normalizeSnapshotValue_(payload[key])]));
 }
@@ -2652,7 +2854,7 @@ function normalizeSnapshotValue_(value) {
 
 function markCurrentFormSaved(type, message = "保存しました。変更履歴にも反映済みです。") {
   const form = document.querySelector("#detail-form");
-  const status = document.querySelector(type === "employee" ? "#employee-save-status" : type === "store" ? "#store-save-status" : "#app-save-status");
+  const status = getSaveStatusElement(type);
   const button = form?.querySelector(".save-button");
   if (!form || !button) return;
   state.formSnapshot = getFormSnapshot(type);
@@ -2664,7 +2866,7 @@ function markCurrentFormSaved(type, message = "保存しました。変更履歴
 
 function restoreSaveButtonState(type, button) {
   if (!button?.isConnected) return;
-  const status = document.querySelector(type === "employee" ? "#employee-save-status" : type === "store" ? "#store-save-status" : "#app-save-status");
+  const status = getSaveStatusElement(type);
   button.textContent = "保存";
   updateDirtyState(type, status, button);
 }
@@ -3127,6 +3329,50 @@ async function savePortalApp(event) {
   }
 }
 
+async function saveCorporation(event) {
+  event.preventDefault();
+  const button = event.submitter;
+  const status = document.querySelector("#corporation-save-status");
+  let saved = false;
+  try {
+    setSaveStatus(status, "");
+    const payload = collectCorporationPayload();
+    payload.id = state.selectedId;
+    if (getFormSnapshot("corporation") === state.formSnapshot) {
+      setSaveStatus(status, "変更なし・保存済みです", "success");
+      showToast("変更はありません。");
+      return;
+    }
+    if (!payload.corporation_name?.trim()) {
+      showToast("法人名は必須です。");
+      return;
+    }
+    button.disabled = true;
+    button.title = "保存中です。";
+    button.textContent = "保存中...";
+    setSaveStatus(status, "保存中です...", "pending");
+    await callApiAction("masterUpdateCorporation", payload);
+    await refreshCorporations();
+    const logsSynced = await refreshLogsSilently();
+    saved = true;
+    markCurrentFormSaved(
+      "corporation",
+      logsSynced ? "保存しました。変更履歴にも反映済みです。" : "保存しました。変更履歴は後で再読み込みしてください。"
+    );
+    showToast(logsSynced ? "法人情報を保存し、変更履歴へ反映しました。" : "法人情報を保存しました。変更履歴は後で確認してください。");
+  } catch (error) {
+    console.error(error);
+    setSaveStatus(status, getErrorMessage(error), "error");
+    showToast(getErrorMessage(error));
+  } finally {
+    if (!saved) {
+      window.setTimeout(() => {
+        restoreSaveButtonState("corporation", button);
+      }, 700);
+    }
+  }
+}
+
 async function saveStore(event) {
   event.preventDefault();
   const button = event.submitter;
@@ -3405,6 +3651,13 @@ async function refreshEmployees() {
   render();
 }
 
+async function refreshCorporations() {
+  const response = await callApiAction("masterListCorporations");
+  state.corporations = response.corporations || [];
+  state.masters.corporations = state.corporations;
+  render();
+}
+
 async function refreshStores() {
   const response = await callApiAction("masterListStores");
   state.stores = response.stores || [];
@@ -3477,6 +3730,14 @@ document.querySelectorAll("[data-employee-status]").forEach((button) => {
 document.querySelectorAll("[data-store-status]").forEach((button) => {
   button.addEventListener("click", () => {
     state.storeStatus = button.dataset.storeStatus;
+    state.employeeIssueFilter = "";
+    state.selectedId = "";
+    render();
+  });
+});
+document.querySelectorAll("[data-corporation-status]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.corporationStatus = button.dataset.corporationStatus;
     state.employeeIssueFilter = "";
     state.selectedId = "";
     render();

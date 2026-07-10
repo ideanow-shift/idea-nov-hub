@@ -98,6 +98,50 @@ const STORE_BUSINESS_PROFILE_NUMBER_FIELDS = [
 ];
 const STORE_BUSINESS_PROFILE_INTEGER_FIELDS = ["styling_seat_count", "shampoo_station_count"];
 
+const CORPORATION_BUSINESS_PROFILE_SELECT = [
+  "corporation_id",
+  "formal_corporation_name",
+  "corporation_number",
+  "invoice_registration_number",
+  "representative_name",
+  "head_office_address",
+  "phone_number",
+  "fiscal_year_end_month",
+  "payroll_closing_day",
+  "payroll_payment_day",
+  "accounting_category",
+  "social_insurance_status",
+  "labor_insurance_status",
+  "tax_accountant_label",
+  "labor_consultant_label",
+  "operating_status",
+  "established_on",
+  "closed_on",
+  "corporation_feature_note",
+  "updated_at",
+].join(",");
+
+const CORPORATION_BUSINESS_PROFILE_STRING_FIELDS = [
+  "formal_corporation_name",
+  "corporation_number",
+  "invoice_registration_number",
+  "representative_name",
+  "head_office_address",
+  "phone_number",
+  "payroll_closing_day",
+  "payroll_payment_day",
+  "accounting_category",
+  "social_insurance_status",
+  "labor_insurance_status",
+  "tax_accountant_label",
+  "labor_consultant_label",
+  "operating_status",
+  "corporation_feature_note",
+];
+
+const CORPORATION_BUSINESS_PROFILE_DATE_FIELDS = ["established_on", "closed_on"];
+const CORPORATION_BUSINESS_PROFILE_INTEGER_FIELDS = ["fiscal_year_end_month"];
+
 class PortalError extends Error {
   code: string;
   status: number;
@@ -1715,6 +1759,31 @@ function sanitizeStoreBusinessProfile(row: JsonRecord | null) {
   };
 }
 
+function sanitizeCorporationBusinessProfile(row: JsonRecord | null) {
+  if (!row) return null;
+  return {
+    formal_corporation_name: String(row.formal_corporation_name || ""),
+    corporation_number: String(row.corporation_number || ""),
+    invoice_registration_number: String(row.invoice_registration_number || ""),
+    representative_name: String(row.representative_name || ""),
+    head_office_address: String(row.head_office_address || ""),
+    phone_number: String(row.phone_number || ""),
+    fiscal_year_end_month: row.fiscal_year_end_month ?? null,
+    payroll_closing_day: String(row.payroll_closing_day || ""),
+    payroll_payment_day: String(row.payroll_payment_day || ""),
+    accounting_category: String(row.accounting_category || ""),
+    social_insurance_status: String(row.social_insurance_status || ""),
+    labor_insurance_status: String(row.labor_insurance_status || ""),
+    tax_accountant_label: String(row.tax_accountant_label || ""),
+    labor_consultant_label: String(row.labor_consultant_label || ""),
+    operating_status: String(row.operating_status || ""),
+    established_on: row.established_on || null,
+    closed_on: row.closed_on || null,
+    corporation_feature_note: String(row.corporation_feature_note || ""),
+    updated_at: row.updated_at || null,
+  };
+}
+
 function indexStoreBusinessProfiles(rows: JsonRecord[]) {
   return rows.reduce<Record<string, ReturnType<typeof sanitizeStoreBusinessProfile>>>((index, row) => {
     const storeId = String(row.store_id || "");
@@ -1732,6 +1801,48 @@ async function getStoreBusinessProfile(storeId: string) {
     },
   });
   return rows[0] || null;
+}
+
+function indexCorporationBusinessProfiles(rows: JsonRecord[]) {
+  return rows.reduce<Record<string, ReturnType<typeof sanitizeCorporationBusinessProfile>>>((index, row) => {
+    const corporationId = String(row.corporation_id || "");
+    if (corporationId) index[corporationId] = sanitizeCorporationBusinessProfile(row);
+    return index;
+  }, {});
+}
+
+async function getCorporationBusinessProfile(corporationId: string) {
+  const rows = await readRows("corporation_business_profiles", {
+    query: {
+      select: CORPORATION_BUSINESS_PROFILE_SELECT,
+      corporation_id: `eq.${corporationId}`,
+      limit: "1",
+    },
+  });
+  return rows[0] || null;
+}
+
+async function listCoreCorporationsForAdmin() {
+  const [corporations, profiles] = await Promise.all([
+    readRows("corporations", {
+      query: {
+        select: "id,corporation_no,corporation_name,is_active",
+        order: "corporation_no.asc",
+        limit: "200",
+      },
+    }),
+    readRows("corporation_business_profiles", {
+      query: {
+        select: CORPORATION_BUSINESS_PROFILE_SELECT,
+        limit: "200",
+      },
+    }),
+  ]);
+  const profilesById = indexCorporationBusinessProfiles(profiles);
+  return corporations.map((corporation) => ({
+    ...corporation,
+    business_profile: profilesById[String(corporation.id || "")] || null,
+  }));
 }
 
 async function listCoreStoresForAdmin() {
@@ -2071,6 +2182,41 @@ function copyNullableIntegerField(target: JsonRecord, source: JsonRecord, fieldN
     throw new PortalError("INVALID_REQUEST", `${fieldName} must be a non-negative integer.`, 400);
   }
   target[fieldName] = value;
+}
+
+function copyNullableIntegerFieldInRange(target: JsonRecord, source: JsonRecord, fieldName: string, minValue: number, maxValue: number) {
+  if (!Object.prototype.hasOwnProperty.call(source, fieldName)) return;
+  const raw = String(source[fieldName] ?? "").replace(/,/g, "").trim();
+  if (!raw) {
+    target[fieldName] = null;
+    return;
+  }
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < minValue || value > maxValue) {
+    throw new PortalError("INVALID_REQUEST", `${fieldName} must be an integer from ${minValue} to ${maxValue}.`, 400);
+  }
+  target[fieldName] = value;
+}
+
+function buildCorporationBusinessProfileUpdates(payload: JsonRecord, actor: JsonRecord) {
+  const updates: JsonRecord = {};
+  CORPORATION_BUSINESS_PROFILE_STRING_FIELDS.forEach((fieldName) => copyStringField(updates, payload, fieldName));
+  CORPORATION_BUSINESS_PROFILE_DATE_FIELDS.forEach((fieldName) => copyDateField(updates, payload, fieldName));
+  CORPORATION_BUSINESS_PROFILE_INTEGER_FIELDS.forEach((fieldName) => copyNullableIntegerFieldInRange(updates, payload, fieldName, 1, 12));
+  if (!Object.keys(updates).length) return updates;
+  updates.source_system = "hub_dashboard";
+  updates.updated_by_employee_id = getActorEmployeeId(actor);
+  updates.updated_at = new Date().toISOString();
+  return updates;
+}
+
+function hasMeaningfulCorporationBusinessProfileValue(updates: JsonRecord) {
+  return Object.entries(updates).some(([key, value]) => (
+    !["source_system", "updated_by_employee_id", "updated_at"].includes(key)
+    && value !== null
+    && value !== ""
+    && value !== undefined
+  ));
 }
 
 function buildStoreBusinessProfileUpdates(payload: JsonRecord, actor: JsonRecord) {
@@ -3072,6 +3218,17 @@ async function listDecisionComments(payload: JsonRecord, actor: JsonRecord) {
   return stripDecisionInternalFields(result, { allowCommentBody: true });
 }
 
+async function getCoreCorporationById(id: string) {
+  const rows = await readRows("corporations", {
+    query: {
+      select: "id,corporation_no,corporation_name,is_active",
+      id: `eq.${id}`,
+      limit: "1",
+    },
+  });
+  return rows[0] || null;
+}
+
 async function saveDecisionDraftApplication(payload: JsonRecord, actor: JsonRecord) {
   assertDecisionSaveDraftPayload(payload);
   const actorEmployeeId = getActorEmployeeId(actor);
@@ -3088,6 +3245,63 @@ async function saveDecisionDraftApplication(payload: JsonRecord, actor: JsonReco
     p_desired_decision_date: normalizeOptionalDate(payload.desiredDecisionDate, "desiredDecisionDate"),
   }, "public");
   return sanitizeDecisionDraftSaveResult(result);
+}
+
+async function updateCoreCorporation(payload: JsonRecord, actor: JsonRecord) {
+  const id = String(payload.id || "").trim();
+  if (!id) throw new PortalError("INVALID_REQUEST", "Corporation id is required.", 400);
+  const before = await getCoreCorporationById(id);
+  if (!before?.id) throw new PortalError("NOT_FOUND", "Corporation was not found.", 404);
+  const beforeProfile = await getCorporationBusinessProfile(id);
+
+  const updates: JsonRecord = {};
+  copyStringField(updates, payload, "corporation_name");
+  if (Object.prototype.hasOwnProperty.call(payload, "is_active")) updates.is_active = parseBooleanLike(payload.is_active, true);
+  const changedUpdates = getChangedFields(before, updates);
+  let after = before;
+  if (Object.keys(changedUpdates).length) {
+    const rows = await readRows("corporations", {
+      method: "PATCH",
+      query: { id: `eq.${id}`, select: "*" },
+      payload: changedUpdates,
+      prefer: "return=representation",
+    });
+    after = rows[0] || before;
+    await appendMasterChangeLog("corporations", id, changedUpdates, actor, {
+      actionType: "update",
+      targetName: String(after.corporation_name || before.corporation_name || ""),
+    });
+  }
+
+  const profileUpdates = buildCorporationBusinessProfileUpdates(payload, actor);
+  const changedProfileUpdates = getChangedFields(beforeProfile || {}, profileUpdates);
+  let afterProfile = beforeProfile;
+  if (Object.keys(changedProfileUpdates).length && (beforeProfile?.corporation_id || hasMeaningfulCorporationBusinessProfileValue(profileUpdates))) {
+    const rows = await readRows("corporation_business_profiles", {
+      method: "POST",
+      query: {
+        on_conflict: "corporation_id",
+        select: CORPORATION_BUSINESS_PROFILE_SELECT,
+      },
+      payload: {
+        corporation_id: id,
+        ...profileUpdates,
+      },
+      prefer: "resolution=merge-duplicates,return=representation",
+    });
+    afterProfile = rows[0] || beforeProfile;
+    await appendMasterChangeLog("corporation_business_profiles", id, {
+      changed_profile_fields: Object.keys(changedProfileUpdates).filter((key) => !["updated_at", "updated_by_employee_id"].includes(key)),
+    }, actor, {
+      actionType: "update_corporation_business_profile",
+      targetName: String(after.corporation_name || before.corporation_name || ""),
+    });
+  }
+
+  return {
+    ...after,
+    business_profile: sanitizeCorporationBusinessProfile(afterProfile),
+  };
 }
 
 async function updateCoreStore(payload: JsonRecord, actor: JsonRecord) {
@@ -3279,7 +3493,7 @@ async function createPortalApp(payload: JsonRecord, actor: JsonRecord) {
 
 async function getMasterBootstrap(employee: JsonRecord) {
   const [corporations, businessUnits, departments, stores, positions, jobTypes, employees, portalApps] = await Promise.all([
-    listCoreMaster("corporations", "id,corporation_no,corporation_name,is_active", "corporation_no.asc"),
+    listCoreCorporationsForAdmin(),
     listCoreMaster("business_units", "id,business_unit_no,business_unit_code,business_unit_name,is_active", "business_unit_no.asc"),
     listCoreMaster("departments", "id,department_no,department_code,department_name,is_active", "department_no.asc"),
     listCoreStoresForAdmin(),
@@ -3683,6 +3897,11 @@ Deno.serve(async (request) => {
       return jsonResponse({ ok: true, employees: await listCoreEmployeesForAdmin() });
     }
 
+    if (action === "masterListCorporations") {
+      assertMasterViewer(employee);
+      return jsonResponse({ ok: true, corporations: await listCoreCorporationsForAdmin() });
+    }
+
     if (action === "masterListStores") {
       assertMasterViewer(employee);
       return jsonResponse({ ok: true, stores: await listCoreStoresForAdmin() });
@@ -3726,6 +3945,11 @@ Deno.serve(async (request) => {
     if (action === "masterUpdateEmployee") {
       assertMasterEditor(employee);
       return jsonResponse({ ok: true, employee: await updateCoreEmployee(payload, employee) });
+    }
+
+    if (action === "masterUpdateCorporation") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, corporation: await updateCoreCorporation(payload, employee) });
     }
 
     if (action === "masterAssignDefaultStaffRole") {

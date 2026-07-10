@@ -1222,22 +1222,21 @@ async function previewIdeaLinkPostNotification(employee: JsonRecord, payload: Js
 
   let channelRows: JsonRecord[] = [];
   try {
-    for (const key of targetKeys) {
-      const rows = await readRows("idea_link_notification_channels", {
-        query: {
-          select: "target_scope,target_key,target_type,enabled",
-          target_scope: `eq.${targetScope}`,
-          target_key: `eq.${key}`,
-          target_type: "eq.channel",
-          enabled: "eq.true",
-          limit: "1",
-        },
-      });
-      if (rows.length) {
-        channelRows = rows;
-        break;
-      }
-    }
+    const rows = await readRows("idea_link_notification_channels", {
+      query: {
+        select: "*",
+        limit: "500",
+      },
+    });
+    channelRows = rows.filter((row) => {
+      const record = asRecord(row);
+      const rowScope = String(record.target_scope || record.scope || "").trim();
+      const rowKey = String(record.target_key || record.key || record.store_id || record.store_code || "").trim();
+      const rowType = String(record.target_type || record.type || "channel").trim();
+      const enabledValue = String(record.enabled ?? record.is_enabled ?? "true").trim().toLowerCase();
+      const enabled = !["false", "0", "no", "disabled"].includes(enabledValue);
+      return rowScope === targetScope && targetKeys.includes(rowKey) && rowType === "channel" && enabled;
+    }).slice(0, 1);
   } catch (error) {
     return {
       ok: true,

@@ -177,7 +177,8 @@
       readHubEmployeeContextFromUrl
     } from "../js/hub-context.js";
 
-    const IDEA_LINK_GAS_URL = "https://script.google.com/a/macros/idea-nov.com/s/AKfycbz3tmMUSvKEVZgmf8w-pKLk_H6_fXdltkwrHF5VIfpItufu41xoCa1f3-1aE0w3fJpucw/exec";
+    const IDEA_LINK_WEB_APP_URL = "";
+    const IDEA_LINK_WEB_APP_ENABLED = false;
     const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 
     const status = document.querySelector("#status");
@@ -203,9 +204,10 @@
     }
 
     function buildIdeaLinkUrl(context) {
+      if (!IDEA_LINK_WEB_APP_ENABLED || !IDEA_LINK_WEB_APP_URL) return { url: "", encoded: "" };
       const incoming = new URL(window.location.href).searchParams.get(HUB_CONTEXT_QUERY_KEY);
       const encoded = incoming || encodeHubContextForUrl(context);
-      const url = new URL(IDEA_LINK_GAS_URL);
+      const url = new URL(IDEA_LINK_WEB_APP_URL);
       if (encoded) url.searchParams.set(HUB_CONTEXT_QUERY_KEY, encoded);
       return { url: url.toString(), encoded };
     }
@@ -233,13 +235,18 @@
       openLink.hidden = true;
     } else {
       const result = buildIdeaLinkUrl(context);
-      openLink.href = result.url;
-      status.textContent = "確認できました。ホーム画面に追加する場合は、このページを追加してください。";
-      if (isStandaloneLaunch()) {
-        status.textContent = "確認できました。サンクスコインへ移動します。";
-        window.setTimeout(() => {
-          window.location.replace(result.url);
-        }, 600);
+      if (!result.url) {
+        status.textContent = "HUBログインとIDEA LINK権限は確認できました。サンクスコイン本体は新Webアプリへの切替準備中です。";
+        openLink.hidden = true;
+      } else {
+        openLink.href = result.url;
+        status.textContent = "確認できました。ホーム画面に追加する場合は、このページを追加してください。";
+        if (isStandaloneLaunch()) {
+          status.textContent = "確認できました。サンクスコインへ移動します。";
+          window.setTimeout(() => {
+            window.location.replace(result.url);
+          }, 600);
+        }
       }
     }
   </script>

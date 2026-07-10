@@ -177,6 +177,72 @@ body {
   line-height: 1.6;
 }
 
+.store-detail-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.store-detail-form > .issue-panel,
+.store-detail-form > .store-detail-section,
+.store-detail-form > .save-row {
+  grid-column: 1 / -1;
+}
+
+.store-detail-section {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #D6E2F2;
+  border-radius: var(--radius-md);
+  background: #F8FBFF;
+  padding: 12px;
+}
+
+.store-detail-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.store-detail-section-header strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.store-detail-section-header p {
+  margin: 3px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.store-detail-compact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+.store-detail-compact-grid .form-field,
+.store-detail-form > .form-field {
+  min-width: 0;
+}
+
+.store-detail-wide,
+.store-detail-help {
+  grid-column: 1 / -1;
+}
+
+.store-detail-help {
+  margin: 0;
+}
+
+.store-detail-form .checkbox-row {
+  min-height: 42px;
+  align-items: center;
+}
+
 .result-count {
   margin: 12px 0;
   color: var(--text-secondary);
@@ -1591,6 +1657,11 @@ tr.selected {
   .notification-destination-actions {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .store-detail-form,
+  .store-detail-compact-grid {
+    grid-template-columns: 1fr;
   }
 
   .save-row {

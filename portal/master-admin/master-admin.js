@@ -2192,7 +2192,7 @@ function renderStoreDetail(store) {
     <h3>${escapeHtml(store.store_name)}</h3>
     <p class="detail-meta">店舗ID: ${escapeHtml(store.store_id)} / 店舗No: ${escapeHtml(store.store_no)}${store.updated_at ? ` / 最終更新: ${escapeHtml(formatDateTime(store.updated_at))}` : ""}</p>
     <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "店舗IDと店舗Noは固定項目です。店舗運営・経営判断に使う補足情報を更新できます。"}</p>
-    <form class="form-grid" id="detail-form">
+    <form class="form-grid store-detail-form" id="detail-form">
       ${issuePanel}
       ${fieldInput("store_name", "店舗名", store.store_name || "")}
       ${fieldSelect("corporation_id", "法人", state.masters.corporations, store.corporation_id, "corporation_name")}
@@ -2200,52 +2200,58 @@ function renderStoreDetail(store) {
       ${fieldValueSelect("area", "エリア", getUniqueValues(state.stores, "area"), store.area || "")}
       ${fieldValueSelect("store_type", "店舗種別", getUniqueValues(state.stores, "store_type"), store.store_type || "")}
       ${fieldCheckbox("is_active", "有効", store.is_active)}
-      <section class="line-works-box">
-        <div class="line-works-header">
+      <section class="store-detail-section">
+        <div class="store-detail-section-header">
           <div>
-            <strong>店舗運営情報</strong>
-            <p>営業時間・開閉店・設備など、判断に使う情報です。</p>
+            <strong>営業時間・開閉店</strong>
+            <p>休業日と営業状態</p>
           </div>
         </div>
-        ${fieldInput("regular_holiday_rule", "定休日ルール", profile.regular_holiday_rule || "", { placeholder: "例: 毎週火曜 / 第2月曜" })}
-        ${fieldInput("weekday_business_hours", "平日営業時間", profile.weekday_business_hours || "", { placeholder: "例: 10:00-20:00" })}
-        ${fieldInput("saturday_business_hours", "土曜日営業時間", profile.saturday_business_hours || "", { placeholder: "例: 10:00-20:00" })}
-        ${fieldInput("sunday_business_hours", "日曜日営業時間", profile.sunday_business_hours || "", { placeholder: "例: 10:00-19:00" })}
-        ${fieldInput("holiday_business_hours", "祝日営業時間", profile.holiday_business_hours || "", { placeholder: "例: 10:00-19:00" })}
-        ${fieldInput("opened_on", "オープン日", profile.opened_on || "", "date")}
-        ${fieldInput("closed_on", "閉店日", profile.closed_on || "", "date")}
-        ${fieldInput("operating_status", "状況", profile.operating_status || "", { placeholder: "例: 営業中 / 出店準備中 / 閉店" })}
-        ${fieldInput("affiliation_label", "所属", profile.affiliation_label || "", { placeholder: "例: BASSA / FC / 本部" })}
+        <div class="store-detail-compact-grid">
+          ${fieldInput("regular_holiday_rule", "定休日", profile.regular_holiday_rule || "", { placeholder: "例: 火曜" })}
+          ${fieldInput("operating_status", "状況", profile.operating_status || "", { placeholder: "営業中 / 準備中 / 閉店" })}
+          ${fieldInput("weekday_business_hours", "平日", profile.weekday_business_hours || "", { placeholder: "10:00-20:00" })}
+          ${fieldInput("saturday_business_hours", "土曜", profile.saturday_business_hours || "", { placeholder: "10:00-20:00" })}
+          ${fieldInput("sunday_business_hours", "日曜", profile.sunday_business_hours || "", { placeholder: "10:00-19:00" })}
+          ${fieldInput("holiday_business_hours", "祝日", profile.holiday_business_hours || "", { placeholder: "10:00-19:00" })}
+          ${fieldInput("opened_on", "オープン日", profile.opened_on || "", "date")}
+          ${fieldInput("closed_on", "閉店日", profile.closed_on || "", "date")}
+          ${fieldInput("affiliation_label", "所属", profile.affiliation_label || "", { placeholder: "BASSA / FC / 本部" })}
+        </div>
       </section>
-      <section class="line-works-box">
-        <div class="line-works-header">
+      <section class="store-detail-section">
+        <div class="store-detail-section-header">
           <div>
-            <strong>面積・賃料・設備</strong>
-            <p>家賃は共益費込みの月額を入力します。</p>
+            <strong>面積・賃料</strong>
+            <p>家賃は共益費込み</p>
           </div>
         </div>
-        ${fieldInput("floor_area_tsubo", "坪数", profile.floor_area_tsubo ?? "", { type: "number", step: "0.01", min: "0" })}
-        ${fieldInput("floor_area_square_meter", "㎡", profile.floor_area_square_meter ?? "", { type: "number", step: "0.01", min: "0" })}
-        ${fieldInput("monthly_rent_including_common_fee", "家賃(共益費込)", profile.monthly_rent_including_common_fee ?? "", { type: "number", step: "1", min: "0" })}
-        ${fieldInput("rent_per_tsubo", "坪単価", profile.rent_per_tsubo ?? "", { type: "number", step: "1", min: "0" })}
-        ${fieldInput("styling_seat_count", "セット面", profile.styling_seat_count ?? "", { type: "number", step: "1", min: "0" })}
-        ${fieldInput("shampoo_station_count", "シャンプー台", profile.shampoo_station_count ?? "", { type: "number", step: "1", min: "0" })}
-        ${fieldInput("rent_per_styling_seat", "席単価", profile.rent_per_styling_seat ?? "", { type: "number", step: "1", min: "0" })}
-        ${fieldTextarea("store_feature_note", "特徴", profile.store_feature_note || "")}
-        <p class="field-help">店舗PASSやSecretはここに保存しません。</p>
+        <div class="store-detail-compact-grid">
+          ${fieldInput("floor_area_tsubo", "坪数", profile.floor_area_tsubo ?? "", { type: "number", step: "0.01", min: "0" })}
+          ${fieldInput("floor_area_square_meter", "㎡", profile.floor_area_square_meter ?? "", { type: "number", step: "0.01", min: "0" })}
+          ${fieldInput("monthly_rent_including_common_fee", "家賃", profile.monthly_rent_including_common_fee ?? "", { type: "number", step: "1", min: "0" })}
+          ${fieldInput("rent_per_tsubo", "坪単価", profile.rent_per_tsubo ?? "", { type: "number", step: "1", min: "0" })}
+          ${fieldInput("styling_seat_count", "セット面", profile.styling_seat_count ?? "", { type: "number", step: "1", min: "0" })}
+          ${fieldInput("shampoo_station_count", "シャンプー台", profile.shampoo_station_count ?? "", { type: "number", step: "1", min: "0" })}
+          ${fieldInput("rent_per_styling_seat", "席単価", profile.rent_per_styling_seat ?? "", { type: "number", step: "1", min: "0" })}
+          <div class="store-detail-wide">${fieldTextarea("store_feature_note", "特徴", profile.store_feature_note || "")}</div>
+          <p class="field-help store-detail-help">PASSやSecretは保存しません。</p>
+        </div>
       </section>
-      <section class="line-works-box">
-        <div class="line-works-header">
+      <section class="store-detail-section">
+        <div class="store-detail-section-header">
           <div>
-            <strong>LINE WORKS通知先</strong>
-            <p>経費承認など、店舗宛て通知の送信先チャンネルを設定します。</p>
+            <strong>店舗通知</strong>
+            <p>店舗チャンネル宛て</p>
           </div>
           <span class="status-pill ${lineWorks.channel_id && lineWorks.is_active !== false ? "success" : "neutral"}">${lineWorks.channel_id && lineWorks.is_active !== false ? "設定済み" : "未設定"}</span>
         </div>
-        ${fieldInput("line_works_channel_id", "チャンネルID", lineWorks.channel_id || "", { placeholder: "例: 1234567890" })}
-        ${fieldInput("line_works_channel_name", "表示名・メモ", lineWorks.channel_name || "", { placeholder: "例: BASSA野方店 経費通知" })}
-        ${fieldCheckbox("line_works_channel_active", "LINE WORKS通知を有効にする", lineWorks.is_active !== false && Boolean(lineWorks.channel_id))}
-        <p class="field-help">Bot Secret / Client Secret はここに登録しません。秘密情報はSupabase Edge Function Secretsで管理します。</p>
+        <div class="store-detail-compact-grid">
+          ${fieldInput("line_works_channel_id", "チャンネルID", lineWorks.channel_id || "", { placeholder: "例: 1234567890" })}
+          ${fieldInput("line_works_channel_name", "表示名", lineWorks.channel_name || "", { placeholder: "例: BASSA野方店" })}
+          <div class="store-detail-wide">${fieldCheckbox("line_works_channel_active", "通知を有効にする", lineWorks.is_active !== false && Boolean(lineWorks.channel_id))}</div>
+          <p class="field-help store-detail-help">SecretはEdge側で管理します。</p>
+        </div>
       </section>
       <div class="save-row">
         <span class="save-status" id="store-save-status" aria-live="polite"></span>

@@ -519,6 +519,87 @@ async function readIdeaLinkTimeline(employee: JsonRecord, payload: JsonRecord) {
   };
 }
 
+function getIdeaLinkYearMonth(value: unknown) {
+  const explicit = String(value || "").trim();
+  if (/^\d{4}-\d{2}$/.test(explicit)) return explicit;
+  return todayJst().slice(0, 7);
+}
+
+function getJstYearMonth(value: unknown) {
+  const date = new Date(String(value || ""));
+  if (Number.isNaN(date.getTime())) return "";
+  const formatter = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+  });
+  return formatter.format(date);
+}
+
+async function readIdeaLinkMyPage(employee: JsonRecord, payload: JsonRecord) {
+  assertIdeaLinkUser(employee);
+  const employeeId = String(employee.id || employee.coreEmployeeId || employee.supabaseEmployeeId || "").trim();
+  if (!isUuid(employeeId)) throw new PortalError("INVALID_REQUEST", "Employee id is invalid.", 400);
+  const month = getIdeaLinkYearMonth(payload.month);
+  const categories = ["気持ち良い挨拶", "約束を守る", "チームワーク", "報連相", "思いやり"];
+  const categoryReceived: Record<string, number> = Object.fromEntries(categories.map((category) => [category, 0]));
+  const rows = await readRows("idea_link_posts", {
+    query: {
+      select: [
+        "id",
+        "request_id",
+        "legacy_post_id",
+        "sender_id",
+        "receiver_id",
+        "receiver_org_unit_type",
+        "receiver_store_id",
+        "receiver_department_id",
+        "category",
+        "challenge_flag",
+        "comment",
+        "visibility",
+        "status",
+        "created_at",
+        "updated_at",
+        "deleted_at",
+      ].join(","),
+      status: "eq.active",
+      or: `(sender_id.eq.${employeeId},receiver_id.eq.${employeeId})`,
+      order: "created_at.desc",
+      limit: "500",
+    },
+  });
+  const monthRows = rows.filter((row) => getJstYearMonth(row.created_at) === month);
+  const receivedRows = monthRows.filter((row) => String(row.receiver_id || "") === employeeId);
+  const sentRows = monthRows.filter((row) => String(row.sender_id || "") === employeeId);
+  receivedRows.forEach((row) => {
+    const category = String(row.category || "");
+    if (Object.prototype.hasOwnProperty.call(categoryReceived, category)) {
+      categoryReceived[category] += 1;
+    }
+  });
+  return {
+    month,
+    statsSource: "supabase",
+    receivedCount: receivedRows.length,
+    sentCount: sentRows.length,
+    challengeReceivedCount: receivedRows.filter((row) => row.challenge_flag === true).length,
+    categoryReceived: categories.map((category) => ({ category, count: categoryReceived[category] || 0 })),
+    receivedPosts: await hydrateIdeaLinkPosts(receivedRows.slice(0, 20)),
+    sentPosts: await hydrateIdeaLinkPosts(sentRows.slice(0, 20)),
+    historyLimited: rows.length >= 500,
+    source: "nov-hub-api-proxy",
+    guards: {
+      dbMutationExpected: false,
+      notificationEnqueued: false,
+      lineWorksNotificationSent: false,
+      browserDirectTableAccess: false,
+      browserDirectRpcExecute: false,
+    },
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 function normalizeIdeaLinkVisibility(value: unknown) {
   return String(value || "").trim().toLowerCase() === "private" ? "private" : "public";
 }
@@ -3923,6 +4004,10 @@ Deno.serve(async (request) => {
     if (action === "ideaLinkTimelineRead") {
       assertIdeaLinkUser(employee);
       return jsonResponse({ ok: true, timeline: await readIdeaLinkTimeline(employee, payload), performance: { source: "nov-hub-api-proxy" } });
+    }
+
+    if (action === "ideaLinkMyPageRead") {
+      return jsonResponse({ ok: true, myPage: await readIdeaLinkMyPage(employee, payload), performance: { source: "nov-hub-api-proxy" } });
     }
 
     if (action === "ideaLinkPostCreate") {

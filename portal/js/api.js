@@ -7,6 +7,7 @@ const EDGE_ACTIONS = new Set([
   "bootstrap",
   "announcements",
   "ideaLinkTimelineRead",
+  "ideaLinkMyPageRead",
   "novHubNotifications",
   "ideaLinkPostCreate",
   "ideaLinkRecipientSearch",

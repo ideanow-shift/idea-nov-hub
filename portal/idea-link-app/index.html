@@ -500,15 +500,15 @@
           <div class="stats">
             <div class="stat">
               <span>今月送信</span>
-              <strong>0</strong>
+              <strong data-my-stat="sent">0</strong>
             </div>
             <div class="stat">
               <span>今月受信</span>
-              <strong>0</strong>
+              <strong data-my-stat="received">0</strong>
             </div>
             <div class="stat">
               <span>チャレンジ</span>
-              <strong>0</strong>
+              <strong data-my-stat="challenge">0</strong>
             </div>
           </div>
           <div class="post">
@@ -566,18 +566,20 @@
           <div class="stats">
             <div class="stat">
               <span>今月送信</span>
-              <strong>0</strong>
+              <strong data-my-stat="sent">0</strong>
             </div>
             <div class="stat">
               <span>今月受信</span>
-              <strong>0</strong>
+              <strong data-my-stat="received">0</strong>
             </div>
             <div class="stat">
               <span>チャレンジ</span>
-              <strong>0</strong>
+              <strong data-my-stat="challenge">0</strong>
             </div>
           </div>
           <div class="profile" id="profile"></div>
+          <h3>自分のサンクス</h3>
+          <div class="feed" id="my-feed" aria-label="自分のサンクス履歴"></div>
         </div>
       </div>
     </section>
@@ -591,15 +593,15 @@
         <div class="stats">
           <div class="stat">
             <span>今月送信</span>
-            <strong>0</strong>
+            <strong data-my-stat="sent">0</strong>
           </div>
           <div class="stat">
             <span>今月受信</span>
-            <strong>0</strong>
+            <strong data-my-stat="received">0</strong>
           </div>
           <div class="stat">
             <span>チャレンジ</span>
-            <strong>0</strong>
+            <strong data-my-stat="challenge">0</strong>
           </div>
         </div>
         <div class="my-summary">HUB連携済み</div>
@@ -639,6 +641,7 @@
     const connectionStatus = document.querySelector("#connection-status");
     const profile = document.querySelector("#profile");
     const feed = document.querySelector("#feed");
+    const myFeed = document.querySelector("#my-feed");
     const storeFilter = document.querySelector("#store-filter");
     const receiver = document.querySelector("#receiver");
     const category = document.querySelector("#category");
@@ -650,6 +653,7 @@
     const views = Array.from(document.querySelectorAll("[data-view]"));
     let submitting = false;
     let timelineLoaded = false;
+    let myPageLoaded = false;
 
     function text(value, fallback = "") {
       return String(value || fallback || "").trim();
@@ -744,6 +748,53 @@
       `).join("");
     }
 
+    function setMyStats(myPage) {
+      document.querySelectorAll("[data-my-stat='sent']").forEach((item) => {
+        item.textContent = String(myPage?.sentCount || 0);
+      });
+      document.querySelectorAll("[data-my-stat='received']").forEach((item) => {
+        item.textContent = String(myPage?.receivedCount || 0);
+      });
+      document.querySelectorAll("[data-my-stat='challenge']").forEach((item) => {
+        item.textContent = String(myPage?.challengeReceivedCount || 0);
+      });
+    }
+
+    function renderMyPage(myPage) {
+      setMyStats(myPage);
+      const receivedPosts = Array.isArray(myPage?.receivedPosts) ? myPage.receivedPosts : [];
+      const sentPosts = Array.isArray(myPage?.sentPosts) ? myPage.sentPosts : [];
+      const items = [...receivedPosts.slice(0, 6), ...sentPosts.slice(0, 6)]
+        .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
+        .slice(0, 8);
+      if (!items.length) {
+        myFeed.innerHTML = "<div class=\"notice\">今月の自分のサンクスはまだありません。</div>";
+        return;
+      }
+      myFeed.innerHTML = items.map((post) => `
+        <article class="post">
+          <div class="post-top">
+            <span>${formatDate(post.created_at)}</span>
+            <span>${displayCategory(post.category)}</span>
+          </div>
+          <strong>${text(post.sender_name_snapshot, "送信者")} → ${text(post.receiver_name_snapshot, "受信者")}</strong>
+          <p>${text(post.comment)}</p>
+        </article>
+      `).join("");
+    }
+
+    async function loadMyPage() {
+      myFeed.innerHTML = "<div class=\"notice\">マイページを読み込み中です。</div>";
+      try {
+        setFirebaseAuth();
+        const response = await callApiAction("ideaLinkMyPageRead", {});
+        renderMyPage(response.myPage || {});
+        myPageLoaded = true;
+      } catch (error) {
+        myFeed.innerHTML = `<div class="notice">マイページを読み込めませんでした。${text(error?.message)}</div>`;
+      }
+    }
+
     async function loadTimeline() {
       feed.innerHTML = "<div class=\"notice\">最新のサンクスを読み込み中です。</div>";
       try {
@@ -788,6 +839,9 @@
       });
       if (target === "timeline" && !timelineLoaded) {
         loadTimeline();
+      }
+      if (target === "my" && !myPageLoaded) {
+        loadMyPage();
       }
     }
 
@@ -920,6 +974,8 @@
         });
         renderSavedPost(response.result);
         message.value = "";
+        myPageLoaded = false;
+        loadMyPage();
         setNotice("success", "保存しました。LINE WORKS通知はまだ送信していません。");
       } catch (error) {
         setNotice("error", error?.message || "保存に失敗しました。");
@@ -953,6 +1009,7 @@
       renderFeed(context);
       unlockForm();
       loadStoreOptions(context);
+      loadMyPage();
       setNotice("info", "投稿保存の確認中です。通知送信はまだ行いません。店舗を選んで送り先を選択できます。");
       const url = new URL(window.location.href);
       if (url.searchParams.has(HUB_CONTEXT_QUERY_KEY)) {

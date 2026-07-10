@@ -682,6 +682,183 @@ async function readIdeaLinkAdminSummary(employee: JsonRecord, payload: JsonRecor
   };
 }
 
+function toMonthlyMvpScore(row: JsonRecord, employeeById: Record<string, JsonRecord>, storeById: Record<string, JsonRecord>) {
+  const receiverId = String(row.receiver_id || "");
+  const receiver = asRecord(employeeById[receiverId]);
+  const storeId = String(row.receiver_store_id || receiver.store_id || "");
+  const store = asRecord(storeById[storeId]);
+  return {
+    employeeId: receiverId,
+    employeeNumber: String(receiver.employee_id || ""),
+    name: String(receiver.full_name || ""),
+    storeId,
+    storeName: String(store.store_name || ""),
+    receivedCount: 0,
+    senderIds: new Set<string>(),
+    uniqueSenderCount: 0,
+    challengeCount: 0,
+    latestReceivedAt: "",
+  };
+}
+
+function addMonthlyMvpScore(score: ReturnType<typeof toMonthlyMvpScore>, row: JsonRecord) {
+  score.receivedCount += 1;
+  const senderId = String(row.sender_id || "");
+  if (senderId) score.senderIds.add(senderId);
+  score.uniqueSenderCount = score.senderIds.size;
+  if (row.challenge_flag === true) score.challengeCount += 1;
+  const createdAt = String(row.created_at || "");
+  if (createdAt && (!score.latestReceivedAt || createdAt > score.latestReceivedAt)) {
+    score.latestReceivedAt = createdAt;
+  }
+}
+
+function compareMonthlyMvpScore(a: ReturnType<typeof toMonthlyMvpScore>, b: ReturnType<typeof toMonthlyMvpScore>) {
+  return (b.receivedCount - a.receivedCount)
+    || (b.uniqueSenderCount - a.uniqueSenderCount)
+    || (b.challengeCount - a.challengeCount)
+    || String(b.latestReceivedAt || "").localeCompare(String(a.latestReceivedAt || ""));
+}
+
+function isMonthlyMvpTie(a: ReturnType<typeof toMonthlyMvpScore>, b: ReturnType<typeof toMonthlyMvpScore>) {
+  return a.receivedCount === b.receivedCount
+    && a.uniqueSenderCount === b.uniqueSenderCount
+    && a.challengeCount === b.challengeCount;
+}
+
+function serializeMonthlyMvpScore(score: ReturnType<typeof toMonthlyMvpScore>) {
+  return {
+    employeeId: score.employeeId,
+    employeeNumber: score.employeeNumber,
+    name: score.name,
+    storeId: score.storeId,
+    storeName: score.storeName,
+    receivedCount: score.receivedCount,
+    uniqueSenderCount: score.uniqueSenderCount,
+    challengeCount: score.challengeCount,
+    latestReceivedAt: score.latestReceivedAt,
+  };
+}
+
+function pickMonthlyMvpWinners(scores: Array<ReturnType<typeof toMonthlyMvpScore>>) {
+  const sorted = [...scores].sort(compareMonthlyMvpScore);
+  const top = sorted[0];
+  return {
+    winners: top ? sorted.filter((score) => isMonthlyMvpTie(score, top)).map(serializeMonthlyMvpScore) : [],
+    candidates: sorted.slice(0, 10).map(serializeMonthlyMvpScore),
+    candidateCount: sorted.length,
+  };
+}
+
+async function readIdeaLinkMonthlyMvpPreview(employee: JsonRecord, payload: JsonRecord) {
+  assertIdeaLinkUser(employee);
+  if (!isIdeaLinkManager(employee)) throw new PortalError("ACCESS_DENIED", "IDEA LINK manager role is required.", 403);
+  const month = getIdeaLinkYearMonth(payload.month);
+  const posts = await readRows("idea_link_posts", {
+    query: {
+      select: "id,sender_id,receiver_id,receiver_store_id,category,challenge_flag,status,visibility,created_at",
+      status: "eq.active",
+      order: "created_at.desc",
+      limit: "2000",
+    },
+  });
+  const targetPosts = posts.filter((row) => {
+    return String(row.visibility || "public") !== "private"
+      && String(row.receiver_id || "")
+      && getJstYearMonth(row.created_at) === month;
+  });
+  const receiverIds = uniqueStrings(targetPosts.map((row) => row.receiver_id));
+  const storeIds = uniqueStrings(targetPosts.map((row) => row.receiver_store_id));
+  const [employees, stores] = await Promise.all([
+    receiverIds.length
+      ? readRows("employees", {
+        query: {
+          select: "id,employee_id,full_name,store_id,is_active,employment_status",
+          id: `in.(${receiverIds.join(",")})`,
+          limit: "2000",
+        },
+      })
+      : Promise.resolve([]),
+    storeIds.length
+      ? readRows("stores", {
+        query: {
+          select: "id,store_name,is_active",
+          id: `in.(${storeIds.join(",")})`,
+          limit: "500",
+        },
+      })
+      : Promise.resolve([]),
+  ]);
+  const employeeById = Object.fromEntries(employees.map((row) => [String(row.id || ""), row]));
+  const fallbackStoreIds = uniqueStrings(employees.map((row) => row.store_id)).filter((id) => !storeIds.includes(id));
+  const fallbackStores = fallbackStoreIds.length
+    ? await readRows("stores", {
+      query: {
+        select: "id,store_name,is_active",
+        id: `in.(${fallbackStoreIds.join(",")})`,
+        limit: "500",
+      },
+    })
+    : [];
+  const storeById = Object.fromEntries([...stores, ...fallbackStores].map((row) => [String(row.id || ""), row]));
+  const allScores = new Map<string, ReturnType<typeof toMonthlyMvpScore>>();
+  const storeScores = new Map<string, Map<string, ReturnType<typeof toMonthlyMvpScore>>>();
+  for (const row of targetPosts) {
+    const receiverId = String(row.receiver_id || "");
+    if (!receiverId) continue;
+    if (!allScores.has(receiverId)) {
+      allScores.set(receiverId, toMonthlyMvpScore(row, employeeById, storeById));
+    }
+    const allScore = allScores.get(receiverId);
+    if (allScore) addMonthlyMvpScore(allScore, row);
+    const storeId = allScore?.storeId || String(row.receiver_store_id || "");
+    if (storeId) {
+      if (!storeScores.has(storeId)) storeScores.set(storeId, new Map());
+      const storeMap = storeScores.get(storeId);
+      if (storeMap && !storeMap.has(receiverId)) {
+        storeMap.set(receiverId, toMonthlyMvpScore(row, employeeById, storeById));
+      }
+      const storeScore = storeMap?.get(receiverId);
+      if (storeScore) addMonthlyMvpScore(storeScore, row);
+    }
+  }
+  const allStore = pickMonthlyMvpWinners([...allScores.values()]);
+  const storeResults = [...storeScores.entries()].map(([storeId, scoreMap]) => {
+    const store = asRecord(storeById[storeId]);
+    const result = pickMonthlyMvpWinners([...scoreMap.values()]);
+    return {
+      storeId,
+      storeName: String(store.store_name || result.winners[0]?.storeName || ""),
+      ...result,
+    };
+  }).sort((a, b) => String(a.storeName || "").localeCompare(String(b.storeName || ""), "ja"));
+  return {
+    ok: true,
+    month,
+    awardName: "月間MVP",
+    source: "nov-hub-api-proxy",
+    totalPosts: targetPosts.length,
+    scannedPosts: posts.length,
+    lineWorksNotificationSent: false,
+    notificationEnqueued: false,
+    rule: {
+      target: "公開中の有効投稿のみ",
+      ranking: "受信数 > 送信者数 > チャレンジ数。同率は全員表示します。",
+      commentBodyIncludedInNotification: false,
+    },
+    allStore,
+    storeResults,
+    guards: {
+      dbMutationExpected: false,
+      notificationEnqueued: false,
+      lineWorksNotificationSent: false,
+      browserDirectTableAccess: false,
+      browserDirectRpcExecute: false,
+    },
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 function normalizeIdeaLinkVisibility(value: unknown) {
   return String(value || "").trim().toLowerCase() === "private" ? "private" : "public";
 }
@@ -4094,6 +4271,10 @@ Deno.serve(async (request) => {
 
     if (action === "ideaLinkAdminSummaryRead") {
       return jsonResponse({ ok: true, admin: await readIdeaLinkAdminSummary(employee, payload), performance: { source: "nov-hub-api-proxy" } });
+    }
+
+    if (action === "ideaLinkMonthlyMvpPreviewRead") {
+      return jsonResponse({ ok: true, monthlyMvp: await readIdeaLinkMonthlyMvpPreview(employee, payload), performance: { source: "nov-hub-api-proxy" } });
     }
 
     if (action === "ideaLinkPostCreate") {

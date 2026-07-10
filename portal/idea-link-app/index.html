@@ -603,6 +603,8 @@
             </div>
           </div>
           <div class="feed" id="admin-feed" aria-label="管理状態"></div>
+          <h3>月間MVPプレビュー</h3>
+          <div class="feed" id="mvp-feed" aria-label="月間MVPプレビュー"></div>
         </div>
       </div>
     </section>
@@ -670,6 +672,7 @@
     const feed = document.querySelector("#feed");
     const myFeed = document.querySelector("#my-feed");
     const adminFeed = document.querySelector("#admin-feed");
+    const mvpFeed = document.querySelector("#mvp-feed");
     const bottomNav = document.querySelector(".bottom-nav");
     const adminNav = document.querySelector("#admin-nav");
     const storeFilter = document.querySelector("#store-filter");
@@ -855,15 +858,65 @@
       `).join("") || "<div class=\"notice\">管理状態を取得できませんでした。</div>";
     }
 
+    function renderMvpWinnerList(winners) {
+      const items = Array.isArray(winners) ? winners : [];
+      if (!items.length) return "<p>対象者はまだいません。</p>";
+      return `<p>${items.map((winner) => {
+        const storeName = text(winner.storeName);
+        const suffix = storeName ? ` / ${storeName}` : "";
+        return `${text(winner.name, "氏名未取得")}さん（${winner.receivedCount || 0}件・${winner.uniqueSenderCount || 0}人${suffix}）`;
+      }).join("<br>")}</p>`;
+    }
+
+    function renderMonthlyMvpPreview(monthlyMvp) {
+      const allStore = monthlyMvp?.allStore || {};
+      const storeResults = Array.isArray(monthlyMvp?.storeResults) ? monthlyMvp.storeResults : [];
+      const topStores = storeResults.filter((store) => Array.isArray(store.winners) && store.winners.length).slice(0, 8);
+      mvpFeed.innerHTML = `
+        <article class="post">
+          <div class="post-top">
+            <span>${text(monthlyMvp?.month)}</span>
+            <span>preview / 通知なし</span>
+          </div>
+          <strong>全店MVP</strong>
+          ${renderMvpWinnerList(allStore.winners)}
+          <p>対象投稿 ${monthlyMvp?.totalPosts || 0}件。${text(monthlyMvp?.rule?.ranking, "受信数・送信者数・チャレンジ数で確認します。")}</p>
+        </article>
+        ${topStores.map((store) => `
+          <article class="post">
+            <div class="post-top">
+              <span>${text(store.storeName, "店舗名未取得")}</span>
+              <span>${store.candidateCount || 0}候補</span>
+            </div>
+            <strong>店舗MVP</strong>
+            ${renderMvpWinnerList(store.winners)}
+          </article>
+        `).join("")}
+      `;
+    }
+
+    async function loadMonthlyMvpPreview() {
+      mvpFeed.innerHTML = "<div class=\"notice\">月間MVPを読み込み中です。通知送信は行いません。</div>";
+      try {
+        setFirebaseAuth();
+        const response = await callApiAction("ideaLinkMonthlyMvpPreviewRead", {});
+        renderMonthlyMvpPreview(response.monthlyMvp || {});
+      } catch (error) {
+        mvpFeed.innerHTML = `<div class="notice">月間MVPを読み込めませんでした。${text(error?.message)}</div>`;
+      }
+    }
+
     async function loadAdminSummary() {
       adminFeed.innerHTML = "<div class=\"notice\">管理状態を読み込み中です。</div>";
       try {
         setFirebaseAuth();
         const response = await callApiAction("ideaLinkAdminSummaryRead", {});
         renderAdminSummary(response.admin || {});
+        await loadMonthlyMvpPreview();
         adminLoaded = true;
       } catch (error) {
         adminFeed.innerHTML = `<div class="notice">管理状態を読み込めませんでした。${text(error?.message)}</div>`;
+        mvpFeed.innerHTML = "";
       }
     }
 

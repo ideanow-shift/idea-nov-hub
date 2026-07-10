@@ -614,6 +614,7 @@ async function createIdeaLinkPost(employee: JsonRecord, payload: JsonRecord) {
 async function searchIdeaLinkRecipients(employee: JsonRecord, payload: JsonRecord) {
   assertIdeaLinkUser(employee);
   const queryText = String(payload.query || payload.q || "").trim();
+  const storeId = String(payload.storeId || "").trim();
   const limit = clampNumber(payload.limit, 8, 1, 20);
   const query: JsonRecord = {
     select: "id,employee_id,full_name,store_id,department_id,job_type_id,employment_status,is_active",
@@ -622,6 +623,7 @@ async function searchIdeaLinkRecipients(employee: JsonRecord, payload: JsonRecor
     limit: String(Math.max(limit * 3, 12)),
   };
   if (queryText) query.full_name = `ilike.*${queryText.replace(/[%*]/g, "")}*`;
+  if (isUuid(storeId)) query.store_id = `eq.${storeId}`;
   const employees = (await readRows("employees", { query }))
     .filter((row) => isEmployeeActive(row))
     .slice(0, limit);
@@ -655,6 +657,36 @@ async function searchIdeaLinkRecipients(employee: JsonRecord, payload: JsonRecor
         jobTypeName: String(jobType.job_type_name || "未設定"),
       };
     }),
+    source: "nov-hub-api-proxy",
+    guards: {
+      dbMutationExpected: false,
+      notificationEnqueued: false,
+      lineWorksNotificationSent: false,
+      browserDirectTableAccess: false,
+      browserDirectRpcExecute: false,
+    },
+  };
+}
+
+async function getIdeaLinkStoreOptions(employee: JsonRecord) {
+  assertIdeaLinkUser(employee);
+  const stores = await readRows("stores", {
+    query: {
+      select: "id,store_name,store_no,store_id,is_active",
+      is_active: "eq.true",
+      order: "store_name.asc",
+      limit: "80",
+    },
+  });
+  return {
+    stores: stores
+      .filter((store) => String(store.id || "").trim() && String(store.store_name || "").trim())
+      .map((store) => ({
+        id: String(store.id || ""),
+        storeName: String(store.store_name || ""),
+        storeNo: String(store.store_no || ""),
+        storeCode: String(store.store_id || ""),
+      })),
     source: "nov-hub-api-proxy",
     guards: {
       dbMutationExpected: false,
@@ -3607,6 +3639,10 @@ Deno.serve(async (request) => {
 
     if (action === "ideaLinkRecipientSearch") {
       return jsonResponse({ ok: true, result: await searchIdeaLinkRecipients(employee, payload), performance: { source: "nov-hub-api-proxy" } });
+    }
+
+    if (action === "ideaLinkStoreOptions") {
+      return jsonResponse({ ok: true, result: await getIdeaLinkStoreOptions(employee), performance: { source: "nov-hub-api-proxy" } });
     }
 
     if (action === "markNovHubNotificationRead") {

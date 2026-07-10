@@ -13,6 +13,7 @@ const EDGE_ACTIONS = new Set([
   "novHubNotifications",
   "ideaLinkPostCreate",
   "ideaLinkNotificationPreview",
+  "ideaLinkNotificationEnqueue",
   "ideaLinkRecipientSearch",
   "ideaLinkStoreOptions",
   "decisionListApplications",

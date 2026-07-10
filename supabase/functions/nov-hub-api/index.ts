@@ -1277,6 +1277,98 @@ async function previewIdeaLinkPostNotification(employee: JsonRecord, payload: Js
   };
 }
 
+async function enqueueIdeaLinkPostNotification(employee: JsonRecord, payload: JsonRecord) {
+  assertIdeaLinkUser(employee);
+  const postId = String(payload.postId || payload.post_id || "").trim();
+  if (!isUuid(postId)) throw new PortalError("INVALID_REQUEST", "postId is required.", 400);
+  const preview = await previewIdeaLinkPostNotification(employee, { postId });
+  if (!preview.eligible) {
+    return {
+      ok: true,
+      postId,
+      notificationId: "",
+      duplicate: false,
+      skipped: true,
+      reason: preview.reason || "notification_not_eligible",
+      notificationEnqueued: false,
+      lineWorksNotificationSent: false,
+      guards: ideaLinkNotificationEnqueueGuards(),
+    };
+  }
+
+  const post = await getOne(
+    "idea_link_posts",
+    postId,
+    "id,receiver_store_id,receiver_department_id,receiver_org_unit_type,status,visibility,category,challenge_flag,created_at",
+  );
+  if (!post) throw new PortalError("INVALID_REQUEST", "IDEA LINK post was not found.", 404);
+  const postRecord = asRecord(post);
+  const storeId = String(postRecord.receiver_store_id || "").trim();
+  const departmentId = String(postRecord.receiver_department_id || "").trim();
+  const orgUnitType = String(postRecord.receiver_org_unit_type || "").trim() || "store";
+  const entityKey = orgUnitType === "department" && departmentId ? departmentId : storeId;
+  if (!isUuid(entityKey)) throw new PortalError("INVALID_REQUEST", "Notification target is invalid.", 400);
+  const entityType = `line_works_target:${orgUnitType}:${entityKey}:channel`;
+
+  const existing = await readRows("notifications", {
+    schema: "os",
+    query: {
+      select: "id,status,entity_type,entity_id",
+      module_key: "eq.idea_link",
+      channel: "eq.line_works",
+      entity_type: `eq.${entityType}`,
+      entity_id: `eq.${postId}`,
+      status: "in.(queued,sent)",
+      limit: "1",
+    },
+  });
+  if (existing.length) {
+    const existingRecord = asRecord(existing[0]);
+    return {
+      ok: true,
+      postId,
+      notificationId: String(existingRecord.id || ""),
+      duplicate: true,
+      skipped: false,
+      notificationEnqueued: false,
+      lineWorksNotificationSent: false,
+      guards: ideaLinkNotificationEnqueueGuards(),
+    };
+  }
+
+  const now = new Date().toISOString();
+  const inserted = await supabaseRequest("notifications", {
+    schema: "os",
+    method: "POST",
+    payload: {
+      id: crypto.randomUUID(),
+      module_key: "idea_link",
+      channel: "line_works",
+      entity_type: entityType,
+      entity_id: postId,
+      recipient_employee_id: null,
+      title: "サンクスコインが投稿されました",
+      body: "サンクスコインが投稿されました。アプリで内容を確認してください。",
+      status: "queued",
+      error: null,
+      created_at: now,
+      sent_at: null,
+    },
+    prefer: "return=representation",
+  });
+  const notification = Array.isArray(inserted) ? asRecord(inserted[0]) : asRecord(inserted);
+  return {
+    ok: true,
+    postId,
+    notificationId: String(notification.id || ""),
+    duplicate: false,
+    skipped: false,
+    notificationEnqueued: true,
+    lineWorksNotificationSent: false,
+    guards: ideaLinkNotificationEnqueueGuards(),
+  };
+}
+
 function ideaLinkNotificationPreviewGuards() {
   return {
     dbMutationExpected: false,
@@ -1284,6 +1376,19 @@ function ideaLinkNotificationPreviewGuards() {
     lineWorksNotificationSent: false,
     notificationIdScopedSendRequired: true,
     existingQueuedRowsTouched: false,
+    browserDirectTableAccess: false,
+    browserDirectRpcExecute: false,
+  };
+}
+
+function ideaLinkNotificationEnqueueGuards() {
+  return {
+    dbMutationExpected: true,
+    notificationEnqueued: true,
+    lineWorksNotificationSent: false,
+    notificationIdScopedSendRequired: true,
+    existingQueuedRowsTouched: false,
+    monthlyMvpQueuedRowsTouched: false,
     browserDirectTableAccess: false,
     browserDirectRpcExecute: false,
   };
@@ -4511,6 +4616,10 @@ Deno.serve(async (request) => {
 
     if (action === "ideaLinkNotificationPreview") {
       return jsonResponse({ ok: true, result: await previewIdeaLinkPostNotification(employee, payload), performance: { source: "nov-hub-api-proxy" } });
+    }
+
+    if (action === "ideaLinkNotificationEnqueue") {
+      return jsonResponse({ ok: true, result: await enqueueIdeaLinkPostNotification(employee, payload), performance: { source: "nov-hub-api-proxy" } });
     }
 
     if (action === "ideaLinkRecipientSearch") {

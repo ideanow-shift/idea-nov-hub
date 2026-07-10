@@ -7,6 +7,9 @@ const EDGE_ACTIONS = new Set([
   "bootstrap",
   "announcements",
   "novHubNotifications",
+  "decisionListApplications",
+  "decisionGetApplicationDetail",
+  "decisionListComments",
   "markNovHubNotificationRead",
   "changeOwnPin",
   "log",
@@ -22,6 +25,7 @@ const EDGE_ACTIONS = new Set([
   "masterLinkFirebaseUid",
   "masterUpdateEmployeeLoginCredential",
   "masterUploadEmployeeProfileImage",
+  "masterUpsertEmployeeLineWorksDestination",
   "masterUpdateStore",
   "masterUpdatePortalApp",
   "masterCreatePortalApp"
@@ -46,40 +50,19 @@ async function postToApi(action, payload = {}) {
     token: currentAuth.authType === "pin" ? "" : await getIdToken(),
     payload: JSON.stringify(requestPayload)
   });
-  const endpoints = getApiEndpoints(action);
-  let lastError = null;
-  for (let index = 0; index < endpoints.length; index += 1) {
-    const endpoint = endpoints[index];
-    try {
-      return await postToEndpoint(endpoint, body);
-    } catch (error) {
-      lastError = error;
-      if (!shouldFallbackToNextEndpoint(error)) throw error;
-      if (index >= endpoints.length - 1) throw error;
-      console.warn("NOV HUB API endpoint failed. Trying fallback.", {
-        endpoint,
-        code: error.code || "",
-        detail: error.detail || ""
-      });
-    }
+  const endpoint = getApiEndpoint(action);
+  if (!endpoint) {
+    throw new Error("NOV HUB Edge API endpoint is not configured for this action.");
   }
-  throw lastError || new Error("API接続先が設定されていません。");
+  return await postToEndpoint(endpoint, body);
 }
 
-function getApiEndpoints(action) {
-  const endpoints = [];
-  const fallbackMode = PORTAL_CONFIG.apiFallback || "auto";
+function getApiEndpoint(action) {
   const useEdge = PORTAL_CONFIG.apiMode === "edge"
     && PORTAL_CONFIG.edgeApiUrl
     && EDGE_ACTIONS.has(action)
     && (currentAuth.authType !== "pin" || PORTAL_CONFIG.edgePinEnabled === true);
-  if (useEdge) endpoints.push(PORTAL_CONFIG.edgeApiUrl);
-  if (fallbackMode !== "edge-only" && PORTAL_CONFIG.gasApiUrl) endpoints.push(PORTAL_CONFIG.gasApiUrl);
-  return [...new Set(endpoints)];
-}
-
-function shouldFallbackToNextEndpoint(error) {
-  return ["API_TIMEOUT", "NETWORK_ERROR", "HTTP_ERROR", "SETUP_MISSING", "SERVER_ERROR", "SUPABASE_REQUEST_FAILED"].includes(error?.code || "");
+  return useEdge ? PORTAL_CONFIG.edgeApiUrl : "";
 }
 
 async function postToEndpoint(endpoint, body) {

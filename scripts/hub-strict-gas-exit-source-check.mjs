@@ -12,12 +12,16 @@ const forbidden = [
   "script.google.com",
   "google.script.run",
   "IDEA_LINK_GAS_URL",
+  "GAS_API_URL",
+  "gasApiUrl",
+  "apiFallback",
+  "getApiEndpoints",
+  "shouldFallbackToNextEndpoint",
 ];
 
 const expected = [
   ["portal/js/firebase-config.js", 'apiMode: "edge"'],
-  ["portal/js/firebase-config.js", 'apiFallback: "edge-only"'],
-  ["portal/js/firebase-config.js", 'gasApiUrl: ""'],
+  ["portal/js/firebase-config.js", "edgeApiUrl:"],
   ["portal/idea-link/index.html", "IDEA_LINK_WEB_APP_ENABLED = true"],
   ["portal/idea-link/index.html", "../idea-link-app/"],
   ["portal/idea-link-app/index.html", "GASなしで接続"],

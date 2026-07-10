@@ -1,10 +1,8 @@
 export const PORTAL_CONFIG = {
   authMode: "firebase",
   apiMode: "edge",
-  apiFallback: "edge-only",
   edgePinEnabled: true,
   edgeApiUrl: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub-api",
-  gasApiUrl: "",
   firebase: {
     apiKey: "AIzaSyBJAPJbAG_SdFmJqO0dIKh8v4Sd0tI0Vkc",
     authDomain: "idea-nov-group-portal.firebaseapp.com",
@@ -19,7 +17,6 @@ export const PORTAL_CONFIG = {
 export function isFirebaseConfigured() {
   return PORTAL_CONFIG.authMode === "firebase"
     && Object.values(PORTAL_CONFIG.firebase).every(Boolean)
-    && (PORTAL_CONFIG.apiMode === "edge"
-      ? Boolean(PORTAL_CONFIG.edgeApiUrl)
-      : Boolean(PORTAL_CONFIG.gasApiUrl));
+    && PORTAL_CONFIG.apiMode === "edge"
+    && Boolean(PORTAL_CONFIG.edgeApiUrl);
 }

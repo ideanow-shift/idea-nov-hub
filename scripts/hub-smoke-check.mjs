@@ -35,8 +35,8 @@ const CHECKS = [
   {
     name: "Runtime config",
     url: "https://ideanow-shift.github.io/idea-nov-hub/js/firebase-config.js",
-    includes: ['apiMode: "edge"', 'apiFallback: "edge-only"', 'gasApiUrl: ""'],
-    excludes: ["script.google.com"],
+    includes: ['apiMode: "edge"', "edgeApiUrl:"],
+    excludes: ["script.google.com", "apiFallback", "gasApiUrl"],
   },
 ];
 

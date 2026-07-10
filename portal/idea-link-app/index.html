@@ -649,6 +649,7 @@
     const navItems = Array.from(document.querySelectorAll("[data-view-target]"));
     const views = Array.from(document.querySelectorAll("[data-view]"));
     let submitting = false;
+    let timelineLoaded = false;
 
     function text(value, fallback = "") {
       return String(value || fallback || "").trim();
@@ -710,6 +711,51 @@
       `).join("");
     }
 
+    function formatDate(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      return date.toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "short" });
+    }
+
+    function displayCategory(value) {
+      const map = {
+        "気持ち良い挨拶": "笑顔で挨拶する",
+        "チームワーク": "助け合う",
+        "報連相": "伝え合う",
+        "思いやり": "思いやる"
+      };
+      return map[value] || value || "";
+    }
+
+    function renderTimelineItems(items) {
+      if (!items.length) {
+        feed.innerHTML = "<div class=\"notice\">まだ表示できるサンクスはありません。</div>";
+        return;
+      }
+      feed.innerHTML = items.map((post) => `
+        <article class="post">
+          <div class="post-top">
+            <span>${formatDate(post.created_at)}</span>
+            <span>${displayCategory(post.category)}</span>
+          </div>
+          <strong>${text(post.sender_name_snapshot, "送信者")} → ${text(post.receiver_name_snapshot, "受信者")}</strong>
+          <p>${text(post.comment)}</p>
+        </article>
+      `).join("");
+    }
+
+    async function loadTimeline() {
+      feed.innerHTML = "<div class=\"notice\">最新のサンクスを読み込み中です。</div>";
+      try {
+        setFirebaseAuth();
+        const response = await callApiAction("ideaLinkTimelineRead", { limit: 20 });
+        renderTimelineItems(response.timeline?.items || []);
+        timelineLoaded = true;
+      } catch (error) {
+        feed.innerHTML = `<div class="notice">一覧を読み込めませんでした。${text(error?.message)}</div>`;
+      }
+    }
+
     function lockForm(reason) {
       storeFilter.disabled = true;
       receiver.disabled = true;
@@ -740,6 +786,9 @@
       navItems.forEach((item) => {
         item.classList.toggle("active", item.dataset.viewTarget === target);
       });
+      if (target === "timeline" && !timelineLoaded) {
+        loadTimeline();
+      }
     }
 
     function renderStoreOptions(stores, context) {

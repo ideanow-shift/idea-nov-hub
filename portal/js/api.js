@@ -6,6 +6,7 @@ const API_TIMEOUT_MS = 18000;
 const EDGE_ACTIONS = new Set([
   "bootstrap",
   "announcements",
+  "ideaLinkTimelineRead",
   "novHubNotifications",
   "ideaLinkPostCreate",
   "ideaLinkRecipientSearch",

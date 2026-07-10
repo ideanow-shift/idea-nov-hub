@@ -105,6 +105,10 @@ function sanitizeErrorDetail(detail: unknown) {
     .slice(0, 240);
 }
 
+function asRecord(value: unknown): JsonRecord {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : {};
+}
+
 function normalizeEmail(value: unknown) {
   const text = String(value || "").trim().toLowerCase();
   const match = text.match(/[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+/);
@@ -194,7 +198,7 @@ async function uploadStorageObject(bucket: string, storagePath: string, bytes: U
       "Content-Type": contentType,
       "x-upsert": "true",
     },
-    body: bytes,
+    body: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
   });
   const text = await response.text();
   if (!response.ok) {
@@ -266,6 +270,168 @@ async function readRows(path: string, options: Parameters<typeof supabaseRequest
   return Array.isArray(data) ? data as JsonRecord[] : [];
 }
 
+function clampNumber(value: unknown, fallback: number, min: number, max: number) {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(numberValue)));
+}
+
+function hasIdeaLinkRole(employee: JsonRecord) {
+  const roleKeys = normalizeList(employee.roleKeys);
+  return roleKeys.some((roleKey) => APP_ROLE_GROUPS.idea_link.includes(roleKey));
+}
+
+function isIdeaLinkManager(employee: JsonRecord) {
+  const roleKeys = normalizeList(employee.roleKeys);
+  return roleKeys.some((roleKey) => roleKey === "idea_link.manager" || roleKey === "idea_link.admin");
+}
+
+function assertIdeaLinkUser(employee: JsonRecord) {
+  if (!hasIdeaLinkRole(employee)) {
+    throw new PortalError("ACCESS_DENIED", "IDEA LINK role is required.", 403);
+  }
+}
+
+function buildIdeaLinkVisibilityOr(employee: JsonRecord) {
+  if (isIdeaLinkManager(employee)) return "";
+  const employeeId = String(employee.id || employee.coreEmployeeId || employee.supabaseEmployeeId || "").trim();
+  const primaryStore = asRecord(employee.primaryStore);
+  const storeId = String(primaryStore.id || employee.primaryStoreId || employee.storeId || "").trim();
+  const departmentRef = asRecord(employee.departmentRef);
+  const departmentId = String(departmentRef.id || employee.departmentId || "").trim();
+  const parts = [
+    "visibility.eq.public",
+    employeeId ? `sender_id.eq.${employeeId}` : "",
+    employeeId ? `receiver_id.eq.${employeeId}` : "",
+    storeId ? `receiver_store_id.eq.${storeId}` : "",
+    departmentId ? `receiver_department_id.eq.${departmentId}` : "",
+  ].filter(Boolean);
+  return parts.length ? `(${parts.join(",")})` : "";
+}
+
+async function hydrateIdeaLinkPosts(rows: JsonRecord[]) {
+  const employeeIds = uniqueStrings(rows.flatMap((row) => [row.sender_id, row.receiver_id]));
+  const storeIds = uniqueStrings(rows.map((row) => row.receiver_store_id));
+  const departmentIds = uniqueStrings(rows.map((row) => row.receiver_department_id));
+
+  const [employees, stores, departments] = await Promise.all([
+    employeeIds.length
+      ? readRows("employees", {
+        query: {
+          select: "id,employee_id,full_name,store_id,department_id,position_id,job_type_id,is_active",
+          id: `in.(${employeeIds.join(",")})`,
+        },
+      })
+      : [],
+    storeIds.length
+      ? readRows("stores", {
+        query: {
+          select: "id,store_id,store_name,area,is_active",
+          id: `in.(${storeIds.join(",")})`,
+        },
+      })
+      : [],
+    departmentIds.length
+      ? readRows("departments", {
+        query: {
+          select: "id,department_name,is_active",
+          id: `in.(${departmentIds.join(",")})`,
+        },
+      })
+      : [],
+  ]);
+
+  const employeeById = Object.fromEntries(employees.map((employee) => [String(employee.id || ""), employee]));
+  const storeById = Object.fromEntries(stores.map((store) => [String(store.id || ""), store]));
+  const departmentById = Object.fromEntries(departments.map((department) => [String(department.id || ""), department]));
+
+  return rows.map((row) => {
+    const sender = asRecord(employeeById[String(row.sender_id || "")]);
+    const receiver = asRecord(employeeById[String(row.receiver_id || "")]);
+    const store = asRecord(storeById[String(row.receiver_store_id || "")]);
+    const department = asRecord(departmentById[String(row.receiver_department_id || "")]);
+    const orgUnitName = String(store.store_name || department.department_name || "");
+    return {
+      post_id: String(row.legacy_post_id || row.id || ""),
+      request_id: String(row.request_id || ""),
+      created_at: String(row.created_at || ""),
+      sender_id: String(row.sender_id || ""),
+      sender_supabase_employee_id: String(row.sender_id || ""),
+      sender_name_snapshot: String(sender.full_name || ""),
+      receiver_id: String(row.receiver_id || ""),
+      receiver_supabase_employee_id: String(row.receiver_id || ""),
+      receiver_name_snapshot: String(receiver.full_name || ""),
+      receiver_store_id: String(row.receiver_store_id || row.receiver_department_id || ""),
+      receiver_store_name_snapshot: orgUnitName,
+      receiver_org_unit_type: String(row.receiver_org_unit_type || (row.receiver_department_id ? "department" : "store")),
+      category: String(row.category || ""),
+      challenge_flag: row.challenge_flag === true,
+      comment: String(row.comment || ""),
+      visibility: String(row.visibility || "") === "private" ? "private" : "public",
+      status: String(row.status || "") === "active" ? "active" : "deleted",
+      updated_at: String(row.updated_at || row.created_at || ""),
+      deleted_at: String(row.deleted_at || ""),
+      deleted_by: "",
+    };
+  });
+}
+
+async function readIdeaLinkTimeline(employee: JsonRecord, payload: JsonRecord) {
+  const limit = clampNumber(payload.limit, 20, 1, 50);
+  const cursor = String(payload.cursor || "").trim();
+  const storeId = String(payload.storeId || "").trim();
+  const departmentId = String(payload.departmentId || "").trim();
+  const category = String(payload.category || "").trim();
+  const challengeOnly = payload.challengeOnly === true;
+  const query: JsonRecord = {
+    select: [
+      "id",
+      "request_id",
+      "legacy_post_id",
+      "sender_id",
+      "receiver_id",
+      "receiver_org_unit_type",
+      "receiver_store_id",
+      "receiver_department_id",
+      "category",
+      "challenge_flag",
+      "comment",
+      "visibility",
+      "status",
+      "created_at",
+      "updated_at",
+      "deleted_at",
+    ].join(","),
+    status: "eq.active",
+    order: "created_at.desc",
+    limit: String(limit + 1),
+  };
+  const visible = buildIdeaLinkVisibilityOr(employee);
+  if (visible) query.or = visible;
+  if (cursor) query.created_at = `lt.${cursor}`;
+  if (storeId) query.receiver_store_id = `eq.${storeId}`;
+  if (departmentId) query.receiver_department_id = `eq.${departmentId}`;
+  if (category) query.category = `eq.${category}`;
+  if (challengeOnly) query.challenge_flag = "eq.true";
+
+  const rows = await readRows("idea_link_posts", { query });
+  const pageRows = rows.slice(0, limit);
+  return {
+    items: await hydrateIdeaLinkPosts(pageRows),
+    nextCursor: rows.length > limit ? String(pageRows[pageRows.length - 1]?.created_at || "") : "",
+    hasMore: rows.length > limit,
+    source: "nov-hub-api-proxy",
+    guards: {
+      dbMutationExpected: false,
+      notificationEnqueued: false,
+      lineWorksNotificationSent: false,
+      browserDirectTableAccess: false,
+      browserDirectRpcExecute: false,
+    },
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 async function callSupabaseRpc(functionName: string, payload: JsonRecord = {}, schema = "public") {
   return await supabaseRequest(`rpc/${encodeURIComponent(functionName)}`, {
     method: "POST",
@@ -288,11 +454,18 @@ async function verifyFirebaseToken(idToken: string) {
   const data = JSON.parse(text || "{}");
   const user = data.users?.[0];
   if (!user?.email) throw new PortalError("TOKEN_EMAIL_MISSING", "Firebase user email was not found.", 401);
+  let customClaims: JsonRecord = {};
+  try {
+    customClaims = user.customAttributes ? JSON.parse(String(user.customAttributes)) as JsonRecord : {};
+  } catch (_error) {
+    customClaims = {};
+  }
   return {
     authType: "firebase",
     email: normalizeEmail(user.email),
     displayName: String(user.displayName || ""),
     uid: String(user.localId || ""),
+    employeeIdClaim: String(customClaims.employee_id || customClaims.employeeId || ""),
   };
 }
 
@@ -521,6 +694,11 @@ function isEmployeeActive(employee: JsonRecord | null) {
   if (!employee || employee.is_active === false) return false;
   const status = String(employee.employment_status || "");
   return !/退職|休職|産休|育休/.test(status);
+}
+
+function isDecisionInactiveEmploymentStatus(value: unknown) {
+  const status = String(value || "");
+  return /退職|休職|産休|育休/.test(status);
 }
 
 async function getOne(table: string, id: unknown, select: string) {
@@ -932,8 +1110,8 @@ function assertMasterEditor(employee: JsonRecord) {
   }
 }
 
-function indexById(rows: JsonRecord[]) {
-  return rows.reduce((index, row) => {
+function indexById(rows: JsonRecord[]): Record<string, JsonRecord> {
+  return rows.reduce<Record<string, JsonRecord>>((index, row) => {
     const id = String(row.id || "");
     if (id) index[id] = row;
     return index;
@@ -972,15 +1150,15 @@ async function listEmployeeRolesForAdmin() {
   });
 }
 
-async function groupRolesByEmployeeForAdmin() {
+async function groupRolesByEmployeeForAdmin(): Promise<Record<string, { role_keys: string[]; role_names: string[] }>> {
   const [roles, employeeRoles] = await Promise.all([
     listCoreMaster("roles", "id,role_key,role_name", "role_no.asc").catch(() => []),
     listEmployeeRolesForAdmin().catch(() => []),
   ]);
-  const rolesById = indexById(roles);
-  return employeeRoles.reduce((grouped, employeeRole) => {
+  const rolesById = indexById(roles as JsonRecord[]);
+  return (employeeRoles as JsonRecord[]).reduce<Record<string, { role_keys: string[]; role_names: string[] }>>((grouped, employeeRole) => {
     const employeeId = String(employeeRole.employee_id || "");
-    const role = rolesById[String(employeeRole.role_id || "")] || {};
+    const role = (rolesById[String(employeeRole.role_id || "")] || {}) as JsonRecord;
     const roleKey = String(role.role_key || "");
     if (!employeeId || !roleKey) return grouped;
     if (!grouped[employeeId]) grouped[employeeId] = { role_keys: [], role_names: [] };
@@ -1001,11 +1179,11 @@ async function listEmployeeStoreAssignmentsForAdmin() {
   });
 }
 
-function groupStoreAssignmentsByEmployeeForAdmin(assignments: JsonRecord[], storesById: Record<string, JsonRecord>) {
-  return assignments.reduce((grouped, assignment) => {
+function groupStoreAssignmentsByEmployeeForAdmin(assignments: JsonRecord[], storesById: Record<string, JsonRecord>): Record<string, JsonRecord[]> {
+  return assignments.reduce<Record<string, JsonRecord[]>>((grouped, assignment) => {
     const employeeId = String(assignment.employee_id || "");
     if (!employeeId || assignment.is_active === false) return grouped;
-    const store = storesById[String(assignment.store_id || "")] || {};
+    const store = (storesById[String(assignment.store_id || "")] || {}) as JsonRecord;
     if (!grouped[employeeId]) grouped[employeeId] = [];
     grouped[employeeId].push({
       ...assignment,
@@ -1115,6 +1293,7 @@ async function listCoreEmployeesForAdmin() {
     rolesByEmployee,
     credentialsByEmployee,
     profileImagesByEmployee,
+    employeeLineWorksDestinationsByEmployee,
   ] = await Promise.all([
     readRows("employees", {
       query: {
@@ -1132,21 +1311,26 @@ async function listCoreEmployeesForAdmin() {
     groupRolesByEmployeeForAdmin().catch(() => ({})),
     indexLoginCredentialsByEmployee().catch(() => ({})),
     indexEmployeeProfileImagesForAdmin().catch(() => ({})),
+    indexEmployeeLineWorksDestinationsForAdmin().catch(() => ({})),
   ]);
   const corporationsById = indexById(corporations);
   const storesById = indexById(stores);
   const departmentsById = indexById(departments);
   const positionsById = indexById(positions);
-  const jobTypesById = indexById(jobTypes);
-  const storeAssignmentsByEmployee = groupStoreAssignmentsByEmployeeForAdmin(assignments, storesById);
+  const jobTypesById = indexById(jobTypes as JsonRecord[]);
+  const rolesByEmployeeMap = rolesByEmployee as Record<string, { role_keys: string[]; role_names: string[] }>;
+  const credentialsByEmployeeMap = credentialsByEmployee as Record<string, ReturnType<typeof sanitizeLoginCredential>>;
+  const profileImagesByEmployeeMap = profileImagesByEmployee as Record<string, ReturnType<typeof sanitizeEmployeeProfileImage>>;
+  const employeeLineWorksDestinationsByEmployeeMap = employeeLineWorksDestinationsByEmployee as Record<string, ReturnType<typeof sanitizeEmployeeLineWorksDestination>>;
+  const storeAssignmentsByEmployee = groupStoreAssignmentsByEmployeeForAdmin(assignments as JsonRecord[], storesById);
   return employees.map((employee) => {
     const source = (employee.source_row || {}) as JsonRecord;
-    const corporation = corporationsById[String(employee.corporation_id || "")] || {};
-    const store = storesById[String(employee.store_id || "")] || {};
-    const department = departmentsById[String(employee.department_id || "")] || {};
-    const position = positionsById[String(employee.position_id || "")] || {};
-    const jobType = jobTypesById[String(employee.job_type_id || "")] || {};
-    const roleGroup = rolesByEmployee[String(employee.id || "")] || { role_keys: [], role_names: [] };
+    const corporation = (corporationsById[String(employee.corporation_id || "")] || {}) as JsonRecord;
+    const store = (storesById[String(employee.store_id || "")] || {}) as JsonRecord;
+    const department = (departmentsById[String(employee.department_id || "")] || {}) as JsonRecord;
+    const position = (positionsById[String(employee.position_id || "")] || {}) as JsonRecord;
+    const jobType = (jobTypesById[String(employee.job_type_id || "")] || {}) as JsonRecord;
+    const roleGroup = rolesByEmployeeMap[String(employee.id || "")] || { role_keys: [], role_names: [] };
     return {
       ...employee,
       corporation_name: String(corporation.corporation_name || ""),
@@ -1164,8 +1348,9 @@ async function listCoreEmployeesForAdmin() {
       source_company_name: String(source.company_name || ""),
       source_assigned_location: String(source.assigned_location || ""),
       source_position_name: String(source.position_name || ""),
-      login_credential: credentialsByEmployee[String(employee.id || "")] || null,
-      profile_image: profileImagesByEmployee[String(employee.id || "")] || null,
+      login_credential: credentialsByEmployeeMap[String(employee.id || "")] || null,
+      profile_image: profileImagesByEmployeeMap[String(employee.id || "")] || null,
+      line_works_destination: employeeLineWorksDestinationsByEmployeeMap[String(employee.id || "")] || null,
     };
   });
 }
@@ -1209,6 +1394,41 @@ async function indexStoreLineWorksDestinations() {
   }, {} as Record<string, JsonRecord>);
 }
 
+function maskLineWorksRecipientIdForAdmin(value: unknown) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (text.length <= 8) return "設定済み";
+  return `${text.slice(0, 4)}${"*".repeat(Math.min(8, Math.max(4, text.length - 8)))}${text.slice(-4)}`;
+}
+
+async function indexEmployeeLineWorksDestinationsForAdmin() {
+  const rows = await readRows("notification_destinations", {
+    schema: "os",
+    query: {
+      select: "id,provider,target_type,target_id,channel_id,channel_name,purpose,is_active,updated_at",
+      provider: "eq.line_works",
+      target_type: "eq.employee",
+      purpose: "eq.primary",
+      limit: "2000",
+    },
+  }).catch(() => []);
+  return (rows as JsonRecord[]).reduce<Record<string, ReturnType<typeof sanitizeEmployeeLineWorksDestination>>>((index, row) => {
+    const employeeId = String(row.target_id || "");
+    if (!employeeId) return index;
+    index[employeeId] = sanitizeEmployeeLineWorksDestination({
+      configured: Boolean(String(row.channel_id || "").trim()) && row.is_active !== false,
+      line_works_recipient_id_masked: maskLineWorksRecipientIdForAdmin(row.channel_id),
+      line_works_target_id_masked: maskLineWorksRecipientIdForAdmin(row.channel_id),
+      purpose: row.purpose,
+      is_active: row.is_active !== false,
+      updated_at: row.updated_at,
+      employee_id: employeeId,
+      display_name: row.channel_name,
+    }, employeeId, "primary");
+    return index;
+  }, {});
+}
+
 async function listCoreStoresForAdmin() {
   const [stores, destinations, corporations, businessUnits] = await Promise.all([
     readRows("stores", {
@@ -1225,15 +1445,15 @@ async function listCoreStoresForAdmin() {
   const corporationsById = indexById(corporations);
   const businessUnitsById = indexById(businessUnits);
   return stores.map((store) => {
-    const corporation = corporationsById[String(store.corporation_id || "")] || {};
-    const businessUnit = businessUnitsById[String(store.business_unit_id || "")] || {};
+    const corporation = (corporationsById[String(store.corporation_id || "")] || {}) as JsonRecord;
+    const businessUnit = (businessUnitsById[String(store.business_unit_id || "")] || {}) as JsonRecord;
     return {
       ...store,
       corporation_name: String(corporation.corporation_name || ""),
       corporation_code: String(corporation.corporation_no || ""),
       business_unit_name: String(businessUnit.business_unit_name || ""),
       business_unit_code: String(businessUnit.business_unit_code || ""),
-      line_works_channel: sanitizeLineWorksDestination(destinations[String(store.id || "")] || null),
+      line_works_channel: sanitizeLineWorksDestination((destinations[String(store.id || "")] || null) as JsonRecord | null),
     };
   });
 }
@@ -1526,6 +1746,10 @@ function getActorEmployeeId(actor: JsonRecord) {
   return String(actor.id || actor.coreEmployeeId || actor.supabaseEmployeeId || actor.employee_id || "").trim() || null;
 }
 
+function isUuid(value: unknown) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || "").trim());
+}
+
 async function getCoreEmployeeById(id: string) {
   const rows = await readRows("employees", {
     query: {
@@ -1768,7 +1992,7 @@ async function getRoleByKey(roleKey: string) {
   return rows[0] || null;
 }
 
-async function getRolesByKeys(roleKeys: string[]) {
+async function getRolesByKeys(roleKeys: string[]): Promise<Record<string, JsonRecord>> {
   const normalizedRoleKeys = uniqueStrings(roleKeys).sort();
   if (!normalizedRoleKeys.length) return {} as Record<string, JsonRecord>;
   const rows = await readRows("roles", {
@@ -1779,7 +2003,7 @@ async function getRolesByKeys(roleKeys: string[]) {
       limit: "100",
     },
   });
-  return rows.reduce((index, role) => {
+  return rows.reduce<Record<string, JsonRecord>>((index, role) => {
     const roleKey = String(role.role_key || "");
     if (roleKey) index[roleKey] = role;
     return index;
@@ -1893,19 +2117,20 @@ async function updateEmployeeAppRoles(payload: JsonRecord, actor: JsonRecord) {
       limit: "100",
     },
   });
-  const existingByRoleId = existingRows.reduce((index, row) => {
+  const existingByRoleId = existingRows.reduce<Record<string, JsonRecord>>((index, row) => {
     index[String(row.role_id || "")] = row;
     return index;
   }, {} as Record<string, JsonRecord>);
   const beforeRoleKeys = allowedRoleKeys.filter((roleKey) => {
-    const existing = existingByRoleId[String(rolesByKey[roleKey].id || "")];
+    const role = rolesByKey[roleKey] as JsonRecord;
+    const existing = existingByRoleId[String(role.id || "")];
     return existing && existing.is_active !== false;
   });
   const desired = new Set(desiredRoleKeys);
 
   await Promise.all(allowedRoleKeys.map(async (roleKey) => {
-    const role = rolesByKey[roleKey];
-    const existing = existingByRoleId[String(role.id || "")] || null;
+    const role = rolesByKey[roleKey] as JsonRecord;
+    const existing = (existingByRoleId[String(role.id || "")] || null) as JsonRecord | null;
     const shouldBeActive = desired.has(roleKey);
     if (existing && existing.is_active !== false && shouldBeActive) return;
     if (existing && existing.is_active === false && !shouldBeActive) return;
@@ -2152,6 +2377,354 @@ async function updateStoreLineWorksDestinationIfPresent(storeId: string, payload
     targetName: String(store.store_name || storeId),
   });
   return destination;
+}
+
+function assertNoClientActorOverride(payload: JsonRecord) {
+  const forbiddenKeys = ["actorEmployeeId", "actor", "createdBy", "updatedBy", "p_actor_employee_id"];
+  const foundKey = forbiddenKeys.find((key) => Object.prototype.hasOwnProperty.call(payload, key));
+  if (foundKey) throw new PortalError("INVALID_REQUEST", `${foundKey} must be resolved by Edge backend.`, 400);
+}
+
+function normalizeLineWorksPurpose(value: unknown) {
+  return String(value || "primary").trim() || "primary";
+}
+
+function sanitizeEmployeeLineWorksDestination(row: JsonRecord | null, employeeId: string, purpose: string) {
+  if (!row) {
+    return {
+      configured: false,
+      lineWorksRecipientIdMasked: "",
+      lineWorksTargetIdMasked: "",
+      purpose,
+      isActive: false,
+      updatedAt: "",
+      employeeId,
+    };
+  }
+  return {
+    configured: row.configured === true || String(row.configured || "").toLowerCase() === "true",
+    lineWorksRecipientIdMasked: String(row.line_works_recipient_id_masked || ""),
+    lineWorksTargetIdMasked: String(row.line_works_target_id_masked || row.line_works_recipient_id_masked || ""),
+    channel_id: String(row.line_works_recipient_id_masked || ""),
+    channel_name: String(row.display_name || ""),
+    purpose: String(row.purpose || purpose),
+    isActive: row.is_active !== false,
+    updatedAt: String(row.updated_at || ""),
+    employeeId: String(row.employee_id || employeeId),
+    displayName: String(row.display_name || ""),
+  };
+}
+
+async function getEmployeeLineWorksDestination(employeeId: string, purpose = "primary") {
+  const rows = await callSupabaseRpc("get_employee_line_works_destination", {
+    p_employee_id: employeeId,
+    p_purpose: normalizeLineWorksPurpose(purpose),
+  }, "os");
+  const list = Array.isArray(rows) ? rows as JsonRecord[] : [];
+  return sanitizeEmployeeLineWorksDestination(list[0] || null, employeeId, normalizeLineWorksPurpose(purpose));
+}
+
+async function upsertEmployeeLineWorksDestination(payload: JsonRecord, actor: JsonRecord) {
+  assertNoClientActorOverride(payload);
+  const employeeId = String(payload.employeeId || payload.employee_id || "").trim();
+  const actorEmployeeId = getActorEmployeeId(actor);
+  const lineWorksRecipientId = String(payload.lineWorksRecipientId || payload.lineWorksTargetId || "").trim();
+  const displayName = String(payload.displayName || "").trim();
+  const purpose = normalizeLineWorksPurpose(payload.purpose);
+  if (!isUuid(employeeId)) throw new PortalError("INVALID_REQUEST", "Employee id is invalid.", 400);
+  if (!actorEmployeeId || !isUuid(actorEmployeeId)) throw new PortalError("INVALID_REQUEST", "Actor employee id is invalid.", 400);
+  if (!lineWorksRecipientId) throw new PortalError("INVALID_REQUEST", "LINE WORKS recipient id is required.", 400);
+  await callSupabaseRpc("upsert_employee_line_works_destination", {
+    p_employee_id: employeeId,
+    p_line_works_user_id: lineWorksRecipientId,
+    p_channel_name: displayName || null,
+    p_purpose: purpose,
+    p_actor_employee_id: actorEmployeeId,
+  }, "os");
+  return await getEmployeeLineWorksDestination(employeeId, purpose);
+}
+
+async function disableEmployeeLineWorksDestination(payload: JsonRecord, actor: JsonRecord) {
+  assertNoClientActorOverride(payload);
+  const employeeId = String(payload.employeeId || payload.employee_id || "").trim();
+  const actorEmployeeId = getActorEmployeeId(actor);
+  const purpose = normalizeLineWorksPurpose(payload.purpose);
+  const reasonCode = String(payload.reasonCode || payload.reason_code || "manual_disable").trim() || "manual_disable";
+  if (!isUuid(employeeId)) throw new PortalError("INVALID_REQUEST", "Employee id is invalid.", 400);
+  if (!actorEmployeeId || !isUuid(actorEmployeeId)) throw new PortalError("INVALID_REQUEST", "Actor employee id is invalid.", 400);
+  if (!["manual_disable", "employee_left", "admin_correction"].includes(reasonCode)) {
+    throw new PortalError("INVALID_REQUEST", "Reason code is invalid.", 400);
+  }
+  const result = await callSupabaseRpc("disable_employee_line_works_destination", {
+    p_employee_id: employeeId,
+    p_purpose: purpose,
+    p_reason_code: reasonCode,
+    p_actor_employee_id: actorEmployeeId,
+  }, "os");
+  return {
+    ...sanitizeEmployeeLineWorksDestination(null, employeeId, purpose),
+    disabledCount: Number(result || 0),
+  };
+}
+
+function assertNoDecisionActorOverride(payload: JsonRecord) {
+  // Decision read-only actions only target applications by applicationId.
+  // Actor-like client payload is always rejected and resolved server-side.
+  const forbiddenKeys = [
+    "actorEmployeeId",
+    "actor_employee_id",
+    "actor",
+    "createdBy",
+    "updatedBy",
+    "p_actor_employee_id",
+    "employeeId",
+    "employee_id",
+    "roleKeys",
+    "scope",
+    "scope_type",
+    "scope_id",
+  ];
+  const foundKey = forbiddenKeys.find((key) => Object.prototype.hasOwnProperty.call(payload, key));
+  if (foundKey) throw new PortalError("INVALID_REQUEST", `${foundKey} is not allowed for Decision Hub actions.`, 400);
+}
+
+function assertDecisionSaveDraftPayload(payload: JsonRecord) {
+  const allowedKeys = new Set([
+    "authType",
+    "applicationId",
+    "applicationType",
+    "title",
+    "purpose",
+    "targetCorporationId",
+    "targetDepartmentId",
+    "targetStoreId",
+    "desiredDecisionDate",
+  ]);
+  const forbiddenKeys = new Set([
+    "actor",
+    "actorEmployeeId",
+    "actor_employee_id",
+    "employeeId",
+    "employee_id",
+    "publicEmployeeId",
+    "coreEmployeeId",
+    "createdBy",
+    "updatedBy",
+    "p_actor_employee_id",
+    "roles",
+    "roleKeys",
+    "scope",
+    "scope_type",
+    "scope_id",
+    "summary",
+    "application_id",
+    "application_no",
+    "applicationNo",
+    "is_active",
+    "isActive",
+    "archived_at",
+    "archivedAt",
+    "voided_at",
+    "voidedAt",
+    "created_at",
+    "createdAt",
+    "updated_at",
+    "updatedAt",
+    "status",
+    "statusOverride",
+    "approverEmployeeId",
+    "approver_employee_id",
+    "finalApproverEmployeeId",
+    "audit",
+    "auditMetadata",
+    "metadata",
+    "notification",
+    "notificationPayload",
+    "comment",
+    "commentBody",
+    "attachment",
+    "attachmentMetadata",
+    "storagePath",
+    "storage_path",
+    "signedUrl",
+    "signed_url",
+    "fileName",
+    "file_name",
+    "rawFilename",
+  ]);
+  for (const key of Object.keys(payload)) {
+    if (forbiddenKeys.has(key) || !allowedKeys.has(key)) {
+      throw new PortalError("INVALID_REQUEST", `${key} is not allowed for Decision Hub draft save.`, 400);
+    }
+  }
+}
+
+async function normalizeDecisionActor(employee: JsonRecord | null) {
+  if (!employee || !isUuid(employee.id)) throw new PortalError("ACTOR_UNRESOLVED", "Decision Hub actor was not resolved.", 403);
+  if (!isEmployeeActive(employee) || isDecisionInactiveEmploymentStatus(employee.employment_status)) {
+    throw new PortalError("ACTOR_INACTIVE", "Decision Hub actor is inactive.", 403);
+  }
+  const credential = await getCredentialByEmployeeId(String(employee.id || ""));
+  if (credential && credential.login_enabled === false) {
+    throw new PortalError("ACTOR_LOGIN_DISABLED", "Decision Hub actor login is disabled.", 403);
+  }
+  const normalized = await normalizeEmployee(employee, credential);
+  if (!normalized || !getActorEmployeeId(normalized)) {
+    throw new PortalError("ACTOR_UNRESOLVED", "Decision Hub actor normalization failed.", 403);
+  }
+  return normalized;
+}
+
+async function resolveDecisionActor(authUser: JsonRecord, trustedEmployee?: JsonRecord | null) {
+  if (String(authUser.authType || "").trim().toLowerCase() === "pin") {
+    const credential = authUser.credential as JsonRecord | null;
+    const credentialEmployeeId = String(credential?.employee_id || "").trim();
+    const trustedEmployeeId = String(trustedEmployee?.id || "").trim();
+    if (!isUuid(credentialEmployeeId) || !isUuid(trustedEmployeeId) || credentialEmployeeId !== trustedEmployeeId) {
+      throw new PortalError("ACTOR_CONFIDENCE_REQUIRED", "Decision Hub PIN actor credential mismatch.", 403);
+    }
+    return await normalizeDecisionActor(trustedEmployee || null);
+  }
+
+  const uid = String(authUser.uid || "").trim();
+  const claimEmployeeId = String(authUser.employeeIdClaim || "").trim();
+
+  if (claimEmployeeId) {
+    if (!isUuid(claimEmployeeId)) throw new PortalError("ACTOR_UNRESOLVED", "Decision Hub actor claim is invalid.", 403);
+    const employee = await getEmployeeById(claimEmployeeId);
+    if (!employee) throw new PortalError("ACTOR_UNRESOLVED", "Decision Hub actor claim was not found.", 403);
+    const employeeFirebaseUid = String(employee.firebase_uid || "").trim();
+    if (uid && employeeFirebaseUid && employeeFirebaseUid !== uid) {
+      throw new PortalError("ACTOR_CONFIDENCE_REQUIRED", "Decision Hub actor claim conflicts with auth uid.", 403);
+    }
+    return await normalizeDecisionActor(employee);
+  }
+
+  if (uid) {
+    const rows = await readRows("employees", {
+      query: {
+        select: "id,employee_id,full_name,email,employment_status,employment_type,corporation_id,store_id,department_id,position_id,job_type_id,firebase_uid,is_active,source_row",
+        firebase_uid: `eq.${uid}`,
+        limit: "2",
+      },
+    });
+    if (rows.length !== 1) throw new PortalError("ACTOR_UNRESOLVED", "Decision Hub actor was not uniquely resolved.", 403);
+    return await normalizeDecisionActor(rows[0]);
+  }
+
+  throw new PortalError("ACTOR_CONFIDENCE_REQUIRED", "Decision Hub does not accept email fallback actor resolution.", 403);
+}
+
+function stripDecisionInternalFields(value: unknown, options: { allowCommentBody?: boolean } = {}): unknown {
+  if (Array.isArray(value)) return value.map((item) => stripDecisionInternalFields(item, options));
+  if (!value || typeof value !== "object") return value;
+  const forbiddenKeys = new Set([
+    "storage_path",
+    "storagePath",
+    "signed_url",
+    "signedUrl",
+    "file_name",
+    "fileName",
+    "service_role",
+    "serviceRole",
+    "authorization",
+    "authToken",
+    "token",
+  ]);
+  const result: JsonRecord = {};
+  Object.entries(value as JsonRecord).forEach(([key, child]) => {
+    if (forbiddenKeys.has(key)) return;
+    if (!options.allowCommentBody && key === "body") return;
+    result[key] = stripDecisionInternalFields(child, options);
+  });
+  return result;
+}
+
+function normalizeDecisionLimit(value: unknown) {
+  const limit = Math.trunc(Number(value || 50));
+  if (!Number.isFinite(limit)) return 50;
+  return Math.max(1, Math.min(limit, 100));
+}
+
+function normalizeOptionalUuid(value: unknown, fieldName: string) {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  if (!isUuid(text)) throw new PortalError("INVALID_REQUEST", `${fieldName} is invalid.`, 400);
+  return text;
+}
+
+function normalizeOptionalDate(value: unknown, fieldName: string) {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) throw new PortalError("INVALID_REQUEST", `${fieldName} must be YYYY-MM-DD.`, 400);
+  return text;
+}
+
+function sanitizeDecisionDraftSaveResult(value: unknown) {
+  const row = value && typeof value === "object" ? value as JsonRecord : {};
+  return {
+    ok: row.ok === true,
+    applicationId: String(row.applicationId || ""),
+    status: String(row.status || ""),
+    isDraft: row.isDraft === true,
+    updatedAt: String(row.updatedAt || ""),
+  };
+}
+
+async function listDecisionApplications(payload: JsonRecord, actor: JsonRecord) {
+  assertNoDecisionActorOverride(payload);
+  const actorEmployeeId = getActorEmployeeId(actor);
+  if (!actorEmployeeId) throw new PortalError("ACTOR_UNRESOLVED", "Decision Hub actor was not resolved.", 403);
+  const result = await callSupabaseRpc("decision_list_applications", {
+    p_actor_employee_id: actorEmployeeId,
+    p_limit: normalizeDecisionLimit(payload.limit),
+    p_status: String(payload.status || "").trim() || null,
+  }, "public");
+  return stripDecisionInternalFields(result);
+}
+
+async function getDecisionApplicationDetail(payload: JsonRecord, actor: JsonRecord) {
+  assertNoDecisionActorOverride(payload);
+  const actorEmployeeId = getActorEmployeeId(actor);
+  if (!actorEmployeeId) throw new PortalError("ACTOR_UNRESOLVED", "Decision Hub actor was not resolved.", 403);
+  const applicationId = String(payload.applicationId || "").trim();
+  if (!isUuid(applicationId)) throw new PortalError("INVALID_REQUEST", "Application id is invalid.", 400);
+  const result = await callSupabaseRpc("decision_get_application_detail", {
+    p_actor_employee_id: actorEmployeeId,
+    p_application_id: applicationId,
+  }, "public");
+  return stripDecisionInternalFields(result);
+}
+
+async function listDecisionComments(payload: JsonRecord, actor: JsonRecord) {
+  assertNoDecisionActorOverride(payload);
+  const actorEmployeeId = getActorEmployeeId(actor);
+  if (!actorEmployeeId) throw new PortalError("ACTOR_UNRESOLVED", "Decision Hub actor was not resolved.", 403);
+  const applicationId = String(payload.applicationId || "").trim();
+  if (!isUuid(applicationId)) throw new PortalError("INVALID_REQUEST", "Application id is invalid.", 400);
+  const result = await callSupabaseRpc("decision_list_comments", {
+    p_actor_employee_id: actorEmployeeId,
+    p_application_id: applicationId,
+  }, "public");
+  return stripDecisionInternalFields(result, { allowCommentBody: true });
+}
+
+async function saveDecisionDraftApplication(payload: JsonRecord, actor: JsonRecord) {
+  assertDecisionSaveDraftPayload(payload);
+  const actorEmployeeId = getActorEmployeeId(actor);
+  if (!actorEmployeeId) throw new PortalError("ACTOR_UNRESOLVED", "Decision Hub actor was not resolved.", 403);
+  const result = await callSupabaseRpc("decision_save_draft_application", {
+    p_actor_employee_id: actorEmployeeId,
+    p_application_id: normalizeOptionalUuid(payload.applicationId, "applicationId"),
+    p_application_type: String(payload.applicationType || "").trim(),
+    p_title: String(payload.title || "").trim(),
+    p_purpose: String(payload.purpose || "").trim() || null,
+    p_target_corporation_id: normalizeOptionalUuid(payload.targetCorporationId, "targetCorporationId"),
+    p_target_department_id: normalizeOptionalUuid(payload.targetDepartmentId, "targetDepartmentId"),
+    p_target_store_id: normalizeOptionalUuid(payload.targetStoreId, "targetStoreId"),
+    p_desired_decision_date: normalizeOptionalDate(payload.desiredDecisionDate, "desiredDecisionDate"),
+  }, "public");
+  return sanitizeDecisionDraftSaveResult(result);
 }
 
 async function updateCoreStore(payload: JsonRecord, actor: JsonRecord) {
@@ -2640,7 +3213,6 @@ Deno.serve(async (request) => {
   try {
     const { action, token, payload } = await parseRequest(request);
     if (action === "health") return await handleHealth();
-
     const authUser = await authenticate(token, payload);
     const employee = await findEmployeeForAuth(authUser);
     if (!employee) {
@@ -2667,12 +3239,37 @@ Deno.serve(async (request) => {
       return jsonResponse({ ok: true, notifications: await readNotifications(employee), performance: { source: "supabase-edge" } });
     }
 
+    if (action === "ideaLinkTimelineRead") {
+      assertIdeaLinkUser(employee);
+      return jsonResponse({ ok: true, timeline: await readIdeaLinkTimeline(employee, payload), performance: { source: "nov-hub-api-proxy" } });
+    }
+
     if (action === "markNovHubNotificationRead") {
       return jsonResponse({ ok: true, result: await markNovHubNotificationsRead(employee, payload) });
     }
 
     if (action === "changeOwnPin") {
       return jsonResponse({ ok: true, credential: await changeOwnPin(employee, payload) });
+    }
+
+    if (action === "decisionListApplications") {
+      const decisionActor = await resolveDecisionActor(authUser, employee);
+      return jsonResponse({ ok: true, applications: await listDecisionApplications(payload, decisionActor) });
+    }
+
+    if (action === "decisionGetApplicationDetail") {
+      const decisionActor = await resolveDecisionActor(authUser, employee);
+      return jsonResponse({ ok: true, application: await getDecisionApplicationDetail(payload, decisionActor) });
+    }
+
+    if (action === "decisionListComments") {
+      const decisionActor = await resolveDecisionActor(authUser, employee);
+      return jsonResponse({ ok: true, comments: await listDecisionComments(payload, decisionActor) });
+    }
+
+    if (action === "decisionSaveDraftApplication") {
+      const decisionActor = await resolveDecisionActor(authUser, employee);
+      return jsonResponse({ ok: true, draft: await saveDecisionDraftApplication(payload, decisionActor) });
     }
 
     if (action === "masterBootstrap") {
@@ -2708,6 +3305,16 @@ Deno.serve(async (request) => {
     if (action === "masterUploadEmployeeProfileImage") {
       assertMasterEditor(employee);
       return jsonResponse({ ok: true, profileImage: await uploadEmployeeProfileImage(payload, employee) });
+    }
+
+    if (action === "masterUpsertEmployeeLineWorksDestination") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, destination: await upsertEmployeeLineWorksDestination(payload, employee) });
+    }
+
+    if (action === "masterDisableEmployeeLineWorksDestination") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, destination: await disableEmployeeLineWorksDestination(payload, employee) });
     }
 
     if (action === "masterCreateEmployee") {

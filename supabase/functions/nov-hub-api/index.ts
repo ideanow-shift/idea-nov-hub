@@ -1199,10 +1199,7 @@ function sanitizeEmployeeProfileImage(row: JsonRecord | null, signedUrl = "") {
   return {
     id: String(row.id || ""),
     employeeId: String(row.employee_id || ""),
-    storageBucket: String(row.storage_bucket || EMPLOYEE_PROFILE_IMAGE_BUCKET),
-    storagePath: String(row.storage_path || ""),
     isPrimary: row.is_primary !== false,
-    uploadedByEmployeeId: String(row.uploaded_by_employee_id || ""),
     profileImageUrl: signedUrl,
     avatarUrl: signedUrl,
     profileImageUpdatedAt: String(row.updated_at || row.created_at || ""),
@@ -1271,8 +1268,7 @@ async function uploadEmployeeProfileImage(payload: JsonRecord, actor: JsonRecord
   }) as JsonRecord[];
   const row = Array.isArray(rows) ? rows[0] || null : null;
   await appendMasterChangeLog("employee_profile_images", employeeId, {
-    storage_bucket: EMPLOYEE_PROFILE_IMAGE_BUCKET,
-    storage_path: storagePath,
+    profile_image_updated: true,
   }, actor, {
     actionType: "update_profile_image",
     targetName: String(employee.full_name || employee.employee_id || employee.id || ""),

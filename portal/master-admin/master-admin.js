@@ -714,8 +714,8 @@ function render() {
   elements.addPortalApp.hidden = state.view !== "apps" || !state.permissions.canEdit;
   elements.viewTitle.textContent = {
     employees: "社員マスタ",
-    corporations: "法人マスタ",
     stores: "店舗マスタ",
+    corporations: "法人マスタ",
     apps: "アプリ管理",
     permissions: "アプリ別権限",
     firebase: "Firebase未連携",

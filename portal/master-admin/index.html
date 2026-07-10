@@ -6,7 +6,7 @@
   <title>マスタ管理 | NOV HUB</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../css/design-system.css">
-  <link rel="stylesheet" href="./master-admin.css?v=corporation-create-20260710">
+  <link rel="stylesheet" href="./master-admin.css?v=master-order-20260710">
 </head>
 <body>
   <header class="admin-header">
@@ -38,8 +38,8 @@
         </div>
         <div class="toolbar-actions">
           <button class="segmented active" data-view="employees" type="button">社員</button>
-          <button class="segmented" data-view="corporations" type="button">法人</button>
           <button class="segmented" data-view="stores" type="button">店舗</button>
+          <button class="segmented" data-view="corporations" type="button">法人</button>
           <button class="segmented" data-view="apps" type="button">アプリ</button>
           <button class="segmented" data-view="permissions" type="button">権限</button>
           <button class="segmented" data-view="firebase" type="button">Firebase未連携</button>
@@ -69,16 +69,16 @@
             <button class="filter-chip" data-employee-status="inactive" type="button">退職者</button>
             <button class="filter-chip" data-employee-status="all" type="button">全員</button>
           </div>
-          <div class="status-filter" id="corporation-status-filter" hidden>
-            <button class="filter-chip active" data-corporation-status="active" type="button">有効</button>
-            <button class="filter-chip" data-corporation-status="inactive" type="button">無効</button>
-            <button class="filter-chip" data-corporation-status="all" type="button">全法人</button>
-          </div>
           <div class="status-filter" id="store-status-filter" hidden>
             <button class="filter-chip active" data-store-status="active" type="button">有効</button>
             <button class="filter-chip" data-store-status="missing" type="button">未設定あり</button>
             <button class="filter-chip" data-store-status="inactive" type="button">無効</button>
             <button class="filter-chip" data-store-status="all" type="button">全店舗</button>
+          </div>
+          <div class="status-filter" id="corporation-status-filter" hidden>
+            <button class="filter-chip active" data-corporation-status="active" type="button">有効</button>
+            <button class="filter-chip" data-corporation-status="inactive" type="button">無効</button>
+            <button class="filter-chip" data-corporation-status="all" type="button">全法人</button>
           </div>
           <div class="status-filter" id="app-status-filter" hidden>
             <button class="filter-chip active" data-app-status="active" type="button">公開中</button>
@@ -104,6 +104,6 @@
   </main>
 
   <div class="toast" id="toast" role="status" hidden></div>
-  <script type="module" src="./master-admin.js?v=corporation-create-20260710"></script>
+  <script type="module" src="./master-admin.js?v=master-order-20260710"></script>
 </body>
 </html>

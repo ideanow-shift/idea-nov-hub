@@ -604,7 +604,7 @@ async function readIdeaLinkAdminSummary(employee: JsonRecord, payload: JsonRecor
   assertIdeaLinkUser(employee);
   if (!isIdeaLinkManager(employee)) throw new PortalError("ACCESS_DENIED", "IDEA LINK manager role is required.", 403);
   const month = getIdeaLinkYearMonth(payload.month);
-  const [posts, stores, channels, queued, monthlyRuns] = await Promise.all([
+  const [posts, stores, employees, channels, queued, monthlyRuns, profileImages] = await Promise.all([
     readRows("idea_link_posts", {
       query: {
         select: "id,sender_id,receiver_id,receiver_store_id,receiver_department_id,category,challenge_flag,status,visibility,created_at",
@@ -620,9 +620,16 @@ async function readIdeaLinkAdminSummary(employee: JsonRecord, payload: JsonRecor
         limit: "100",
       },
     }),
+    readRows("employees", {
+      query: {
+        select: "id,store_id,is_active,employment_status",
+        is_active: "eq.true",
+        limit: "2000",
+      },
+    }),
     readRows("idea_link_notification_channels", {
       query: {
-        select: "id,target_scope,target_key,target_type,enabled",
+        select: "id,target_scope,target_key,target_type,description,enabled,updated_at",
         enabled: "eq.true",
         limit: "200",
       },
@@ -642,8 +649,71 @@ async function readIdeaLinkAdminSummary(employee: JsonRecord, payload: JsonRecor
         limit: "50",
       },
     }),
+    readRows("employee_profile_images", {
+      query: {
+        select: "id,employee_id,is_primary,updated_at",
+        limit: "2000",
+      },
+    }),
   ]);
   const monthPosts = posts.filter((row) => getJstYearMonth(row.created_at) === month);
+  const activeStaffByStore = employees.reduce((accumulator: Record<string, number>, row) => {
+    const storeId = String(row.store_id || "");
+    if (!storeId) return accumulator;
+    accumulator[storeId] = (accumulator[storeId] || 0) + 1;
+    return accumulator;
+  }, {});
+  const storeById = Object.fromEntries(stores.map((row) => [String(row.id || ""), row]));
+  const storeStatsById = new Map<string, { storeId: string; storeName: string; postCount: number; participantIds: Set<string>; activeStaffCount: number }>();
+  for (const store of stores) {
+    const storeId = String(store.id || "");
+    if (!storeId) continue;
+    storeStatsById.set(storeId, {
+      storeId,
+      storeName: String(store.store_name || ""),
+      postCount: 0,
+      participantIds: new Set<string>(),
+      activeStaffCount: activeStaffByStore[storeId] || 0,
+    });
+  }
+  const categoryCounts = monthPosts.reduce((accumulator: Record<string, number>, row) => {
+    const category = String(row.category || "未設定");
+    accumulator[category] = (accumulator[category] || 0) + 1;
+    return accumulator;
+  }, {});
+  for (const row of monthPosts) {
+    const storeId = String(row.receiver_store_id || "");
+    if (!storeId) continue;
+    if (!storeStatsById.has(storeId)) {
+      const store = asRecord(storeById[storeId]);
+      storeStatsById.set(storeId, {
+        storeId,
+        storeName: String(store.store_name || "店舗名未取得"),
+        postCount: 0,
+        participantIds: new Set<string>(),
+        activeStaffCount: activeStaffByStore[storeId] || 0,
+      });
+    }
+    const stat = storeStatsById.get(storeId);
+    if (!stat) continue;
+    stat.postCount += 1;
+    const receiverId = String(row.receiver_id || "");
+    if (receiverId) stat.participantIds.add(receiverId);
+  }
+  const storeStats = [...storeStatsById.values()]
+    .map((stat) => ({
+      storeId: stat.storeId,
+      storeName: stat.storeName,
+      postCount: stat.postCount,
+      participantCount: stat.participantIds.size,
+      activeStaffCount: stat.activeStaffCount,
+      participationRate: stat.activeStaffCount ? Math.round((stat.participantIds.size / stat.activeStaffCount) * 1000) / 10 : 0,
+    }))
+    .filter((stat) => stat.activeStaffCount > 0 || stat.postCount > 0)
+    .sort((a, b) => (b.postCount - a.postCount) || String(a.storeName).localeCompare(String(b.storeName), "ja"));
+  const categoryBreakdown = Object.entries(categoryCounts)
+    .map(([category, count]) => ({ category, count }))
+    .sort((a, b) => b.count - a.count);
   const queuedCategories = queued.reduce((accumulator: Record<string, number>, row) => {
     const entityType = String(row.entity_type || "");
     const key = entityType.startsWith("monthly_thanks_mvp") ? "monthly_mvp" : "line_works_target";
@@ -662,6 +732,24 @@ async function readIdeaLinkAdminSummary(employee: JsonRecord, payload: JsonRecor
       queuedLineWorksTargetCount: queuedCategories.line_works_target || 0,
       queuedMonthlyMvpCount: queuedCategories.monthly_mvp || 0,
       monthlyPraiseRunCount: monthlyRuns.length,
+      profileImageCount: profileImages.length,
+    },
+    storeStats,
+    categoryBreakdown,
+    notificationChannels: channels.slice(0, 80).map((row) => ({
+      id: String(row.id || ""),
+      targetScope: String(row.target_scope || ""),
+      targetKey: String(row.target_key || ""),
+      targetType: String(row.target_type || ""),
+      description: String(row.description || ""),
+      enabled: row.enabled === true,
+      updatedAt: String(row.updated_at || ""),
+    })),
+    profileImageSummary: {
+      registeredCount: profileImages.length,
+      primaryCount: profileImages.filter((row) => row.is_primary === true).length,
+      activeStaffCount: employees.length,
+      missingCount: Math.max(0, employees.length - uniqueStrings(profileImages.map((row) => row.employee_id)).length),
     },
     checks: [
       { label: "投稿DB", status: "OK", detail: `Supabase Primary / ${posts.length}件` },

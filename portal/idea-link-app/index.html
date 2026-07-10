@@ -347,6 +347,105 @@
       gap: 8px;
     }
 
+    .admin-switch {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .admin-switch button {
+      border: 0;
+      border-right: 1px solid var(--line);
+      background: #fff;
+      color: var(--muted);
+      min-height: 42px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .admin-switch button:last-child {
+      border-right: 0;
+    }
+
+    .admin-switch button.active {
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+    }
+
+    .admin-section {
+      display: none;
+      gap: 14px;
+    }
+
+    .admin-section.active {
+      display: grid;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 560px;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      background: #fafafa;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: minmax(120px, 180px) 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .bar-row:last-child {
+      border-bottom: 0;
+    }
+
+    .bar-track {
+      height: 10px;
+      border-radius: 999px;
+      background: #f0eef0;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--brand);
+    }
+
     .stat {
       border: 1px solid var(--line);
       border-radius: var(--radius);
@@ -588,6 +687,14 @@
 
         <div class="view" data-view="admin">
           <h2>管理</h2>
+          <div class="admin-switch" role="tablist" aria-label="管理画面の切り替え">
+            <button class="active" type="button" data-admin-section-target="summary">概要</button>
+            <button type="button" data-admin-section-target="settings">設定</button>
+            <button type="button" data-admin-section-target="lineworks">店舗通知</button>
+            <button type="button" data-admin-section-target="images">画像</button>
+            <button type="button" data-admin-section-target="system">状態</button>
+          </div>
+          <div class="admin-section active" data-admin-section="summary">
           <div class="stats">
             <div class="stat">
               <span>投稿数</span>
@@ -602,9 +709,43 @@
               <strong data-admin-stat="receiverCount">0</strong>
             </div>
           </div>
-          <div class="feed" id="admin-feed" aria-label="管理状態"></div>
           <h3>月間MVPプレビュー</h3>
           <div class="feed" id="mvp-feed" aria-label="月間MVPプレビュー"></div>
+            <h3>店舗別参加状況</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>店舗</th><th>投稿</th><th>参加者</th><th>参加率</th></tr>
+                </thead>
+                <tbody id="store-stats-body"></tbody>
+              </table>
+            </div>
+            <h3>カテゴリ分布</h3>
+            <div class="feed" id="category-breakdown"></div>
+          </div>
+          <div class="admin-section" data-admin-section="settings">
+            <div class="notice">設定変更は旧GAS同等の安全ガードを移植中です。この画面ではまだ保存しません。</div>
+          </div>
+          <div class="admin-section" data-admin-section="lineworks">
+            <h3>店舗別サンクスコイン通知</h3>
+            <div class="notice">通知先はSupabase参照です。ここでは表示のみで、テスト送信・保存は行いません。</div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>対象</th><th>種類</th><th>メモ</th><th>状態</th></tr>
+                </thead>
+                <tbody id="lineworks-body"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="admin-section" data-admin-section="images">
+            <h3>スタッフ画像</h3>
+            <div id="image-summary" class="feed"></div>
+          </div>
+          <div class="admin-section" data-admin-section="system">
+            <h3>運用診断</h3>
+            <div class="feed" id="admin-feed" aria-label="管理状態"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -673,6 +814,10 @@
     const myFeed = document.querySelector("#my-feed");
     const adminFeed = document.querySelector("#admin-feed");
     const mvpFeed = document.querySelector("#mvp-feed");
+    const storeStatsBody = document.querySelector("#store-stats-body");
+    const categoryBreakdown = document.querySelector("#category-breakdown");
+    const lineWorksBody = document.querySelector("#lineworks-body");
+    const imageSummary = document.querySelector("#image-summary");
     const bottomNav = document.querySelector(".bottom-nav");
     const adminNav = document.querySelector("#admin-nav");
     const storeFilter = document.querySelector("#store-filter");
@@ -684,6 +829,8 @@
     const submitButton = document.querySelector("#submit-button");
     const navItems = Array.from(document.querySelectorAll("[data-view-target]"));
     const views = Array.from(document.querySelectorAll("[data-view]"));
+    const adminSectionButtons = Array.from(document.querySelectorAll("[data-admin-section-target]"));
+    const adminSections = Array.from(document.querySelectorAll("[data-admin-section]"));
     let submitting = false;
     let timelineLoaded = false;
     let myPageLoaded = false;
@@ -856,6 +1003,64 @@
           <p>${text(check.detail)}</p>
         </article>
       `).join("") || "<div class=\"notice\">管理状態を取得できませんでした。</div>";
+      renderStoreStats(admin?.storeStats || []);
+      renderCategoryBreakdown(admin?.categoryBreakdown || []);
+      renderLineWorksChannels(admin?.notificationChannels || []);
+      renderImageSummary(admin?.profileImageSummary || {});
+    }
+
+    function renderStoreStats(rows) {
+      const items = Array.isArray(rows) ? rows : [];
+      storeStatsBody.innerHTML = items.map((row) => `
+        <tr>
+          <td>${text(row.storeName, "店舗名未取得")}</td>
+          <td>${row.postCount || 0}</td>
+          <td>${row.participantCount || 0}/${row.activeStaffCount || 0}</td>
+          <td>${row.participationRate || 0}%</td>
+        </tr>
+      `).join("") || "<tr><td colspan=\"4\">対象データはまだありません。</td></tr>";
+    }
+
+    function renderCategoryBreakdown(rows) {
+      const items = Array.isArray(rows) ? rows : [];
+      const max = Math.max(1, ...items.map((row) => Number(row.count || 0)));
+      categoryBreakdown.innerHTML = items.map((row) => {
+        const count = Number(row.count || 0);
+        const width = Math.max(4, Math.round((count / max) * 100));
+        return `
+          <div class="bar-row">
+            <strong>${displayCategory(row.category)}</strong>
+            <span class="bar-track"><span class="bar-fill" style="width:${width}%"></span></span>
+            <span>${count}</span>
+          </div>
+        `;
+      }).join("") || "<div class=\"notice\">カテゴリ集計はまだありません。</div>";
+    }
+
+    function renderLineWorksChannels(rows) {
+      const items = Array.isArray(rows) ? rows : [];
+      lineWorksBody.innerHTML = items.map((row) => `
+        <tr>
+          <td>${text(row.description || row.targetKey, "未設定")}</td>
+          <td>${text(row.targetScope)} / ${text(row.targetType)}</td>
+          <td>${text(row.targetKey)}</td>
+          <td>${row.enabled ? "有効" : "無効"}</td>
+        </tr>
+      `).join("") || "<tr><td colspan=\"4\">通知先はまだありません。</td></tr>";
+    }
+
+    function renderImageSummary(summary) {
+      imageSummary.innerHTML = `
+        <article class="post">
+          <div class="post-top">
+            <span>Storage</span>
+            <span>read-only</span>
+          </div>
+          <strong>プロフィール画像</strong>
+          <p>登録 ${summary.registeredCount || 0}件 / primary ${summary.primaryCount || 0}件 / 未設定 ${summary.missingCount || 0}件</p>
+          <p>画像登録の正本はNOV HUB master-adminです。この画面では確認のみ行います。</p>
+        </article>
+      `;
     }
 
     function renderMvpWinnerList(winners) {
@@ -973,6 +1178,15 @@
       }
     }
 
+    function setAdminSection(target) {
+      adminSectionButtons.forEach((button) => {
+        button.classList.toggle("active", button.dataset.adminSectionTarget === target);
+      });
+      adminSections.forEach((section) => {
+        section.classList.toggle("active", section.dataset.adminSection === target);
+      });
+    }
+
     function renderStoreOptions(stores, context) {
       const preferredStoreId = text(context.primaryStoreId || context.storeId || context.store_id);
       const options = [
@@ -1071,6 +1285,10 @@
 
     navItems.forEach((item) => {
       item.addEventListener("click", () => setView(item.dataset.viewTarget || "send"));
+    });
+
+    adminSectionButtons.forEach((button) => {
+      button.addEventListener("click", () => setAdminSection(button.dataset.adminSectionTarget || "summary"));
     });
 
     submitButton.addEventListener("click", async () => {

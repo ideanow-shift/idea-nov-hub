@@ -4,6 +4,7 @@ const files = [
   "portal/js/firebase-config.js",
   "portal/js/api.js",
   "portal/idea-link/index.html",
+  "portal/idea-link-app/index.html",
   "portal/js/main.js",
 ];
 
@@ -17,7 +18,9 @@ const expected = [
   ["portal/js/firebase-config.js", 'apiMode: "edge"'],
   ["portal/js/firebase-config.js", 'apiFallback: "edge-only"'],
   ["portal/js/firebase-config.js", 'gasApiUrl: ""'],
-  ["portal/idea-link/index.html", "IDEA_LINK_WEB_APP_ENABLED = false"],
+  ["portal/idea-link/index.html", "IDEA_LINK_WEB_APP_ENABLED = true"],
+  ["portal/idea-link/index.html", "../idea-link-app/"],
+  ["portal/idea-link-app/index.html", "GASなしで接続"],
 ];
 
 const failures = [];

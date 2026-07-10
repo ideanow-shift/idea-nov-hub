@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>サンクスコイン | NOV HUB</title>
+  <meta name="application-name" content="サンクスコイン">
+  <meta name="apple-mobile-web-app-title" content="サンクスコイン">
+  <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="../assets/icon-192.png">
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --surface: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --line: #d9dee7;
+      --brand: #d96c7d;
+      --brand-soft: #fff1f3;
+      --green: #16794c;
+      --green-soft: #eaf7ef;
+      --amber: #8a5a00;
+      --amber-soft: #fff7df;
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .bar {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .mark {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius);
+      display: grid;
+      place-items: center;
+      background: var(--brand-soft);
+      color: var(--brand);
+      font-weight: 700;
+      font-size: 12px;
+      flex: 0 0 auto;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .subtitle {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 20px auto 40px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(280px, .8fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    section,
+    aside {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+
+    .panel-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.4;
+    }
+
+    .panel-body {
+      padding: 16px;
+    }
+
+    .tabs {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .tab {
+      border: 0;
+      background: transparent;
+      min-height: 34px;
+      padding: 0 12px;
+      color: var(--muted);
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .tab[aria-selected="true"] {
+      background: var(--brand-soft);
+      color: var(--brand);
+      font-weight: 700;
+    }
+
+    .composer {
+      display: grid;
+      gap: 10px;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      color: var(--text);
+      background: #fff;
+      font: inherit;
+      font-size: 14px;
+    }
+
+    textarea {
+      min-height: 96px;
+      resize: vertical;
+    }
+
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button.primary,
+    a.button {
+      border: 0;
+      border-radius: var(--radius);
+      background: var(--brand);
+      color: #fff;
+      min-height: 40px;
+      padding: 0 14px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    button.secondary {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      color: var(--text);
+      min-height: 40px;
+      padding: 0 14px;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .notice {
+      border: 1px solid #f0d28a;
+      background: var(--amber-soft);
+      color: var(--amber);
+      border-radius: var(--radius);
+      padding: 12px;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .feed {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .post {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .post-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .post strong {
+      font-size: 14px;
+    }
+
+    .post p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px;
+      background: #fff;
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 20px;
+    }
+
+    .profile {
+      display: grid;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .profile-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 8px;
+    }
+
+    .profile-row:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .profile-row span {
+      color: var(--muted);
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    @media (max-width: 820px) {
+      .bar {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 14px 0;
+      }
+
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .panel-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">NOV</span>
+        <div>
+          <h1>サンクスコイン</h1>
+          <p class="subtitle">NOV HUB Web App</p>
+        </div>
+      </div>
+      <span class="pill" id="connection-status">HUB確認中</span>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="panel-header">
+        <h2>投稿</h2>
+        <div class="tabs" role="tablist" aria-label="表示切替">
+          <button class="tab" type="button" aria-selected="true">投稿</button>
+          <button class="tab" type="button" aria-selected="false">タイムライン</button>
+          <button class="tab" type="button" aria-selected="false">月間MVP</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="notice" id="mode-notice">
+          新Webアプリの受け皿として稼働中です。投稿保存とLINE WORKS通知は、専用APIの最終smoke後に有効化します。
+        </div>
+
+        <div class="composer" aria-label="サンクス投稿フォーム">
+          <label>
+            送り先
+            <input id="receiver" placeholder="社員名または店舗名" autocomplete="off">
+          </label>
+          <label>
+            カテゴリ
+            <select id="category">
+              <option>感謝</option>
+              <option>理念行動</option>
+              <option>チャレンジ</option>
+              <option>サポート</option>
+            </select>
+          </label>
+          <label>
+            メッセージ
+            <textarea id="message" placeholder="ありがとうを具体的に書く"></textarea>
+          </label>
+          <div class="actions">
+            <button class="secondary" type="button" id="clear-button">クリア</button>
+            <button class="primary" type="button" id="submit-button">API準備中</button>
+          </div>
+        </div>
+
+        <div class="feed" id="feed" aria-label="タイムライン"></div>
+      </div>
+    </section>
+
+    <aside>
+      <div class="panel-header">
+        <h2>HUBコンテキスト</h2>
+        <a class="button" href="../">HUBへ戻る</a>
+      </div>
+      <div class="panel-body">
+        <div class="stats">
+          <div class="stat">
+            <span>今月送信</span>
+            <strong>0</strong>
+          </div>
+          <div class="stat">
+            <span>今月受信</span>
+            <strong>0</strong>
+          </div>
+          <div class="stat">
+            <span>チャレンジ</span>
+            <strong>0</strong>
+          </div>
+        </div>
+        <div class="profile" id="profile"></div>
+      </div>
+    </aside>
+  </main>
+
+  <script type="module">
+    import {
+      HUB_CONTEXT_QUERY_KEY,
+      readHubEmployeeContext,
+      readHubEmployeeContextFromUrl
+    } from "../js/hub-context.js";
+
+    const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
+    const connectionStatus = document.querySelector("#connection-status");
+    const profile = document.querySelector("#profile");
+    const feed = document.querySelector("#feed");
+    const receiver = document.querySelector("#receiver");
+    const message = document.querySelector("#message");
+    const clearButton = document.querySelector("#clear-button");
+    const submitButton = document.querySelector("#submit-button");
+
+    function text(value, fallback = "") {
+      return String(value || fallback || "").trim();
+    }
+
+    function getRoleKeys(context) {
+      const roleKeys = new Set(Array.isArray(context?.roleKeys) ? context.roleKeys : []);
+      if (Array.isArray(context?.roles)) {
+        context.roles.forEach((role) => {
+          if (role?.roleKey) roleKeys.add(role.roleKey);
+        });
+      }
+      return Array.from(roleKeys);
+    }
+
+    function hasIdeaLinkRole(context) {
+      const roleKeys = new Set(getRoleKeys(context));
+      return IDEA_LINK_ROLE_KEYS.some((roleKey) => roleKeys.has(roleKey));
+    }
+
+    function renderProfile(context) {
+      const rows = [
+        ["氏名", text(context.fullName || context.name || context.displayName, "未取得")],
+        ["社員ID", text(context.employeeNumber || context.employeeId || context.id, "未取得")],
+        ["所属", text(context.primaryStoreName || context.storeName || context.departmentName, "未取得")],
+        ["権限", getRoleKeys(context).filter((key) => key.startsWith("idea_link.")).join(", ") || "未付与"],
+      ];
+      profile.innerHTML = rows.map(([label, value]) => `
+        <div class="profile-row">
+          <span>${label}</span>
+          <strong>${value}</strong>
+        </div>
+      `).join("");
+    }
+
+    function renderFeed(context) {
+      const name = text(context.fullName || context.name || context.displayName, "あなた");
+      const store = text(context.primaryStoreName || context.storeName || context.departmentName, "NOV");
+      feed.innerHTML = [
+        {
+          title: `${name}さんのHUB認証を確認しました`,
+          meta: `${store} / 新Webアプリ`,
+          body: "この画面はGASを使わずにNOV HUBのログイン情報を受け取っています。投稿APIが有効になるまでは保存と通知を行いません。"
+        },
+        {
+          title: "次の有効化対象",
+          meta: "API / Core DB / LINE WORKS",
+          body: "投稿保存、タイムライン取得、月間MVP承認、通知送信を段階的に接続します。"
+        }
+      ].map((item) => `
+        <article class="post">
+          <div class="post-top">
+            <span>${item.meta}</span>
+            <span>read-only</span>
+          </div>
+          <strong>${item.title}</strong>
+          <p>${item.body}</p>
+        </article>
+      `).join("");
+    }
+
+    function lockForm(reason) {
+      receiver.disabled = true;
+      message.disabled = true;
+      submitButton.disabled = true;
+      submitButton.textContent = reason;
+    }
+
+    clearButton.addEventListener("click", () => {
+      receiver.value = "";
+      message.value = "";
+    });
+
+    const context = readHubEmployeeContextFromUrl(window.location.href) || readHubEmployeeContext();
+    const hasContext = Boolean(context?.id || context?.employeeId || context?.supabaseEmployeeId || context?.email);
+    const allowed = hasContext && hasIdeaLinkRole(context);
+
+    if (!hasContext) {
+      connectionStatus.textContent = "HUB未確認";
+      connectionStatus.style.background = "var(--amber-soft)";
+      connectionStatus.style.color = "var(--amber)";
+      profile.innerHTML = "<div class=\"notice\">NOV HUBへ戻ってログイン後、もう一度サンクスコインを開いてください。</div>";
+      lockForm("HUBログイン待ち");
+    } else if (!allowed) {
+      connectionStatus.textContent = "権限なし";
+      connectionStatus.style.background = "var(--amber-soft)";
+      connectionStatus.style.color = "var(--amber)";
+      renderProfile(context);
+      feed.innerHTML = "<div class=\"notice\">このアカウントにはIDEA LINK権限がありません。</div>";
+      lockForm("権限なし");
+    } else {
+      connectionStatus.textContent = "GASなしで接続";
+      renderProfile(context);
+      renderFeed(context);
+      lockForm("API準備中");
+      const url = new URL(window.location.href);
+      if (url.searchParams.has(HUB_CONTEXT_QUERY_KEY)) {
+        url.searchParams.delete(HUB_CONTEXT_QUERY_KEY);
+        window.history.replaceState({}, document.title, url.toString());
+      }
+    }
+  </script>
+</body>
+</html>

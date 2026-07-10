@@ -17,7 +17,14 @@ const CHECKS = [
   {
     name: "IDEA LINK bridge",
     url: "https://ideanow-shift.github.io/idea-nov-hub/idea-link/",
-    includes: ["サンクスコイン", "HUB_CONTEXT_QUERY_KEY", "encodeHubContextForUrl"],
+    includes: ["サンクスコイン", "IDEA_LINK_WEB_APP_ENABLED = true", "../idea-link-app/"],
+    excludes: ["script.google.com"],
+  },
+  {
+    name: "IDEA LINK Web app",
+    url: "https://ideanow-shift.github.io/idea-nov-hub/idea-link-app/",
+    includes: ["サンクスコイン", "NOV HUB Web App", "GASなしで接続"],
+    excludes: ["script.google.com"],
   },
   {
     name: "Expense Hub",

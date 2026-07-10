@@ -3,23 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>サンクスコイン | NOV HUB</title>
-  <meta name="application-name" content="サンクスコイン">
-  <meta name="apple-mobile-web-app-title" content="サンクスコイン">
+  <title>IDEA LINK | NOV HUB</title>
+  <meta name="application-name" content="IDEA LINK">
+  <meta name="apple-mobile-web-app-title" content="IDEA LINK">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="../assets/icon-192.png">
   <style>
     :root {
-      --bg-primary: #ffffff;
-      --text-primary: #1f1f1f;
-      --text-secondary: #767676;
-      --color-bassa: #e8b4b8;
-      --color-alert: #ff3b30;
-      --color-success: #34c759;
-      --border-light: #e5e5e5;
-      --radius-md: 8px;
+      --bg: #ffffff;
+      --panel: #fff8f9;
+      --text: #1f1f1f;
+      --muted: #6f6f76;
+      --brand: #e8b4b8;
+      --border: #ead5d8;
+      --danger: #c03434;
+      --ok: #197b3a;
+      --radius: 8px;
     }
 
     * {
@@ -29,226 +30,316 @@
     body {
       margin: 0;
       min-height: 100vh;
-      display: grid;
-      place-items: center;
-      padding: 24px 16px;
-      background: var(--bg-primary);
-      color: var(--text-primary);
+      background: var(--bg);
+      color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
     }
 
-    .card {
-      width: min(440px, 100%);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-md);
-      padding: 24px;
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 18px 20px;
+    }
+
+    .header-inner {
+      width: min(960px, 100%);
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
     }
 
     .brand {
       display: flex;
       align-items: center;
       gap: 12px;
-      margin-bottom: 20px;
     }
 
-    .brand-mark {
+    .mark {
       width: 44px;
       height: 44px;
-      border-radius: var(--radius-md);
-      background: #fff7f8;
-      border: 1px solid #f1c9cd;
       display: grid;
       place-items: center;
-      color: var(--color-bassa);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--panel);
+      color: var(--brand);
+      font-weight: 700;
       font-size: 12px;
-      font-weight: 600;
-      letter-spacing: .02em;
     }
 
     h1 {
       margin: 0;
-      font-size: 16px;
-      font-weight: 500;
-      line-height: 1.5;
+      font-size: 20px;
+      line-height: 1.35;
     }
 
-    p {
-      margin: 8px 0 0;
-      color: var(--text-secondary);
+    .sub {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    main {
+      width: min(960px, 100%);
+      margin: 0 auto;
+      padding: 24px 20px 40px;
+    }
+
+    .status {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      background: var(--panel);
+      color: var(--muted);
+      line-height: 1.7;
       font-size: 14px;
-      line-height: 1.8;
     }
 
-    .checks {
-      display: grid;
-      gap: 8px;
-      margin: 20px 0;
+    .status.ok {
+      color: var(--ok);
+      background: #f4fbf6;
+      border-color: #cdebd5;
     }
 
-    .check-row {
+    .status.ng {
+      color: var(--danger);
+      background: #fff6f6;
+      border-color: #f1caca;
+    }
+
+    .toolbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 12px;
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-md);
-      font-size: 14px;
+      margin: 20px 0 12px;
+      flex-wrap: wrap;
     }
 
-    .pill {
-      flex: 0 0 auto;
-      border-radius: 999px;
-      padding: 4px 10px;
-      background: #f6f6f6;
-      color: var(--text-secondary);
+    .summary {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    button,
+    .button {
+      min-height: 40px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: #fff;
+      color: var(--text);
+      padding: 9px 14px;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    button.primary {
+      background: var(--brand);
+      color: #fff;
+      border-color: var(--brand);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: .55;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .post {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      background: #fff;
+    }
+
+    .post-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      color: var(--muted);
       font-size: 12px;
     }
 
-    .pill.ok {
-      background: #eefaf2;
-      color: #197b3a;
+    .post-title {
+      margin: 8px 0;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.5;
     }
 
-    .pill.ng {
-      background: #fff2f2;
-      color: var(--color-alert);
-    }
-
-    .button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      min-height: 44px;
-      padding: 12px 16px;
-      border: 0;
-      border-radius: var(--radius-md);
-      background: var(--color-bassa);
-      color: #fff;
-      text-decoration: none;
+    .post-body {
+      margin: 0;
+      color: #333;
       font-size: 14px;
-      font-weight: 600;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
     }
 
-    .button.secondary {
-      margin-top: 8px;
-      background: #fff;
-      border: 1px solid var(--border-light);
-      color: var(--text-primary);
-      font-weight: 500;
+    .empty {
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 28px 16px;
+      color: var(--muted);
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <main class="card">
-    <div class="brand">
-      <span class="brand-mark" aria-hidden="true">NOV</span>
-      <div>
-        <h1>サンクスコイン</h1>
-        <p id="status">NOV HUBのログイン情報と権限を確認しています。</p>
+  <header>
+    <div class="header-inner">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">NOV</span>
+        <div>
+          <h1>IDEA LINK</h1>
+          <p class="sub">Core DB / NOV HUB API で表示します。</p>
+        </div>
       </div>
+      <a class="button" href="../">NOV HUBへ戻る</a>
+    </div>
+  </header>
+
+  <main>
+    <div id="status" class="status">HUBログイン情報とIDEA LINK権限を確認しています。</div>
+
+    <div class="toolbar">
+      <div id="summary" class="summary">読み込み前</div>
+      <button id="reload" class="primary" type="button">再読み込み</button>
     </div>
 
-    <div class="checks" aria-live="polite">
-      <div class="check-row">
-        <span>HUBログイン情報</span>
-        <span class="pill" id="context-status">確認中</span>
-      </div>
-      <div class="check-row">
-        <span>社員ID</span>
-        <span class="pill" id="employee-status">確認中</span>
-      </div>
-      <div class="check-row">
-        <span>IDEA LINK権限</span>
-        <span class="pill" id="role-status">確認中</span>
-      </div>
-    </div>
-
-    <a id="openLink" class="button" href="#">サンクスコインを開く</a>
-    <a class="button secondary" href="../">NOV HUBへ戻る</a>
+    <section id="timeline" class="timeline" aria-live="polite"></section>
   </main>
 
   <script type="module">
+    import { callApiAction } from "../js/api.js";
     import {
-      HUB_CONTEXT_QUERY_KEY,
-      encodeHubContextForUrl,
       readHubEmployeeContext,
       readHubEmployeeContextFromUrl
     } from "../js/hub-context.js";
 
-    const IDEA_LINK_WEB_APP_URL = "../idea-link-app/";
-    const IDEA_LINK_WEB_APP_ENABLED = true;
     const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
+    const statusEl = document.querySelector("#status");
+    const summaryEl = document.querySelector("#summary");
+    const timelineEl = document.querySelector("#timeline");
+    const reloadButton = document.querySelector("#reload");
 
-    const status = document.querySelector("#status");
-    const openLink = document.querySelector("#openLink");
-    const contextStatus = document.querySelector("#context-status");
-    const employeeStatus = document.querySelector("#employee-status");
-    const roleStatus = document.querySelector("#role-status");
+    function setStatus(kind, message) {
+      statusEl.classList.remove("ok", "ng");
+      if (kind) statusEl.classList.add(kind);
+      statusEl.textContent = message;
+    }
 
-    function setPill(element, ok, label) {
-      element.textContent = label;
-      element.classList.remove("ok", "ng");
-      element.classList.add(ok ? "ok" : "ng");
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
     }
 
     function getRoleKeys(context) {
-      const roleKeys = new Set(Array.isArray(context?.roleKeys) ? context.roleKeys : []);
+      const roleKeys = new Set(Array.isArray(context?.roleKeys) ? context.roleKeys.map(String) : []);
       if (Array.isArray(context?.roles)) {
         context.roles.forEach((role) => {
-          if (role?.roleKey) roleKeys.add(role.roleKey);
+          if (typeof role === "string") roleKeys.add(role);
+          else if (role?.roleKey) roleKeys.add(String(role.roleKey));
         });
       }
       return roleKeys;
     }
 
-    function buildIdeaLinkUrl(context) {
-      if (!IDEA_LINK_WEB_APP_ENABLED || !IDEA_LINK_WEB_APP_URL) return { url: "", encoded: "" };
-      const incoming = new URL(window.location.href).searchParams.get(HUB_CONTEXT_QUERY_KEY);
-      const encoded = incoming || encodeHubContextForUrl(context);
-      const url = new URL(IDEA_LINK_WEB_APP_URL);
-      if (encoded) url.searchParams.set(HUB_CONTEXT_QUERY_KEY, encoded);
-      return { url: url.toString(), encoded };
+    function formatDateTime(value) {
+      const date = new Date(value || "");
+      if (Number.isNaN(date.getTime())) return "";
+      return new Intl.DateTimeFormat("ja-JP", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(date);
     }
 
-    function isStandaloneLaunch() {
-      return window.navigator.standalone === true ||
-        window.matchMedia?.("(display-mode: standalone)")?.matches === true;
+    function renderTimeline(items) {
+      if (!items.length) {
+        timelineEl.innerHTML = '<div class="empty">表示できる投稿はまだありません。</div>';
+        return;
+      }
+      timelineEl.innerHTML = items.map((item) => {
+        const sender = item.sender_name_snapshot || "送信者";
+        const receiver = item.receiver_name_snapshot || item.receiver_store_name_snapshot || "宛先";
+        const title = `${sender} → ${receiver}`;
+        const badges = [
+          item.category,
+          item.challenge_flag ? "チャレンジ" : "",
+          item.visibility === "private" ? "限定" : "公開"
+        ].filter(Boolean).join(" / ");
+        return `
+          <article class="post">
+            <div class="post-meta">
+              <span>${escapeHtml(formatDateTime(item.created_at))}</span>
+              <span>${escapeHtml(badges)}</span>
+            </div>
+            <h2 class="post-title">${escapeHtml(title)}</h2>
+            <p class="post-body">${escapeHtml(item.comment)}</p>
+          </article>
+        `;
+      }).join("");
     }
 
-    const context = readHubEmployeeContextFromUrl(window.location.href) || readHubEmployeeContext();
-    const hasContext = Boolean(context);
-    const hasEmployeeId = Boolean(context?.id || context?.employeeId || context?.supabaseEmployeeId);
-    const roleKeys = getRoleKeys(context);
-    const hasIdeaLinkRole = IDEA_LINK_ROLE_KEYS.some((roleKey) => roleKeys.has(roleKey));
+    function ensureContext() {
+      const context = readHubEmployeeContextFromUrl(window.location.href) || readHubEmployeeContext();
+      const hasEmployeeId = Boolean(context?.id || context?.employeeId || context?.supabaseEmployeeId);
+      const roleKeys = getRoleKeys(context);
+      const hasIdeaLinkRole = IDEA_LINK_ROLE_KEYS.some((roleKey) => roleKeys.has(roleKey));
+      return { context, hasEmployeeId, hasIdeaLinkRole };
+    }
 
-    setPill(contextStatus, hasContext, hasContext ? "あり" : "なし");
-    setPill(employeeStatus, hasEmployeeId, hasEmployeeId ? "確認済み" : "なし");
-    setPill(roleStatus, hasIdeaLinkRole, hasIdeaLinkRole ? "利用可" : "権限なし");
+    async function loadTimeline() {
+      const { context, hasEmployeeId, hasIdeaLinkRole } = ensureContext();
+      timelineEl.innerHTML = "";
+      summaryEl.textContent = "確認中";
 
-    if (!hasContext || !hasEmployeeId) {
-      status.textContent = "HUBログイン情報が見つかりません。NOV HUBへ戻ってログイン後、もう一度IDEA LINKを開いてください。";
-      openLink.hidden = true;
-    } else if (!hasIdeaLinkRole) {
-      status.textContent = "このアカウントにはIDEA LINKの利用権限がありません。マスタ管理でIDEA LINK権限を確認してください。";
-      openLink.hidden = true;
-    } else {
-      const result = buildIdeaLinkUrl(context);
-      if (!result.url) {
-        status.textContent = "HUBログインとIDEA LINK権限は確認できました。サンクスコイン本体は新Webアプリへの切替準備中です。";
-        openLink.hidden = true;
-      } else {
-        openLink.href = result.url;
-        status.textContent = "確認できました。ホーム画面に追加する場合は、このページを追加してください。";
-        if (isStandaloneLaunch()) {
-          status.textContent = "確認できました。サンクスコインへ移動します。";
-          window.setTimeout(() => {
-            window.location.replace(result.url);
-          }, 600);
-        }
+      if (!context || !hasEmployeeId) {
+        setStatus("ng", "HUBログイン情報が見つかりません。NOV HUBへ戻ってログインしてください。");
+        summaryEl.textContent = "ログイン情報なし";
+        return;
+      }
+      if (!hasIdeaLinkRole) {
+        setStatus("ng", "このアカウントにはIDEA LINKの利用権限がありません。");
+        summaryEl.textContent = "権限なし";
+        return;
+      }
+
+      reloadButton.disabled = true;
+      setStatus("", "IDEA LINKタイムラインを読み込んでいます。");
+      try {
+        const response = await callApiAction("ideaLinkTimelineRead", { limit: 30 });
+        const timeline = response.timeline || {};
+        const items = Array.isArray(timeline.items) ? timeline.items : [];
+        renderTimeline(items);
+        setStatus("ok", "NOV HUB APIから読み込みました。");
+        summaryEl.textContent = `${items.length}件 / source: ${timeline.source || "nov-hub-api"}`;
+      } catch (error) {
+        setStatus("ng", error?.message || "IDEA LINKの読み込みに失敗しました。");
+        summaryEl.textContent = error?.code || "読み込み失敗";
+        timelineEl.innerHTML = '<div class="empty">NOV HUBへ戻って再ログイン後、もう一度開いてください。</div>';
+      } finally {
+        reloadButton.disabled = false;
       }
     }
+
+    reloadButton.addEventListener("click", loadTimeline);
+    loadTimeline();
   </script>
 </body>
 </html>

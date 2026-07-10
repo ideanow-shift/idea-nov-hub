@@ -239,6 +239,72 @@
       font-weight: 500;
     }
 
+    .field-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    fieldset {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+
+    legend {
+      margin-bottom: 2px;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .radio-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .radio-row input {
+      width: 22px;
+      height: 22px;
+      accent-color: var(--brand);
+    }
+
+    .radio-row strong,
+    .radio-row small {
+      display: block;
+      line-height: 1.45;
+    }
+
+    .radio-row small {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .privacy-note {
+      border-left: 4px solid #ff5a52;
+      border-radius: var(--radius);
+      padding: 13px 14px;
+      background: #fff1f1;
+      color: #3f2525;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.7;
+    }
+
     .actions {
       display: flex;
       justify-content: stretch;
@@ -681,7 +747,11 @@
           </label>
           <label>
             メッセージ
-            <textarea id="message" placeholder="ありがとうを具体的に書く"></textarea>
+            <textarea id="message" minlength="10" maxlength="200" placeholder="ありがとうを具体的に書く"></textarea>
+            <span class="field-meta">
+              <span>10〜200文字</span>
+              <span><span id="message-count">0</span>/200</span>
+            </span>
           </label>
           <label class="checkbox-row">
             <input id="challenge-flag" type="checkbox">
@@ -690,6 +760,26 @@
               <small>新しいことや苦手なことに向き合った行動の場合にチェック</small>
             </span>
           </label>
+          <fieldset>
+            <legend>公開範囲</legend>
+            <label class="radio-row">
+              <input type="radio" name="visibility" value="public" checked>
+              <span>
+                <strong>みんなに公開</strong>
+                <small>IDEA LINKを利用するスタッフが閲覧できます</small>
+              </span>
+            </label>
+            <label class="radio-row">
+              <input type="radio" name="visibility" value="private">
+              <span>
+                <strong>非公開</strong>
+                <small>送信者・受信者と権限のある管理者のみ閲覧できます</small>
+              </span>
+            </label>
+          </fieldset>
+          <div class="privacy-note">
+            顧客名、連絡先、健康情報などの個人情報・要配慮情報は入力しないでください。
+          </div>
           <div class="actions">
             <button class="secondary" type="button" id="clear-button">クリア</button>
             <button class="primary" type="button" id="submit-button">サンクスを送る</button>
@@ -862,6 +952,7 @@
     const receiver = document.querySelector("#receiver");
     const category = document.querySelector("#category");
     const message = document.querySelector("#message");
+    const messageCount = document.querySelector("#message-count");
     const challengeFlag = document.querySelector("#challenge-flag");
     const modeNotice = document.querySelector("#mode-notice");
     const clearButton = document.querySelector("#clear-button");
@@ -1201,6 +1292,15 @@
       return UUID_PATTERN.test(explicitId) ? explicitId : "";
     }
 
+    function getVisibility() {
+      const selected = document.querySelector("input[name='visibility']:checked");
+      return selected?.value === "private" ? "private" : "public";
+    }
+
+    function updateMessageCount() {
+      messageCount.textContent = String(text(message.value).length);
+    }
+
     function setView(target) {
       views.forEach((view) => {
         view.classList.toggle("active", view.dataset.view === target);
@@ -1321,9 +1421,12 @@
       receiver.value = "";
       message.value = "";
       challengeFlag.checked = false;
+      document.querySelector("input[name='visibility'][value='public']").checked = true;
+      updateMessageCount();
     });
 
     storeFilter.addEventListener("change", loadRecipientsForStore);
+    message.addEventListener("input", updateMessageCount);
 
     navItems.forEach((item) => {
       item.addEventListener("click", () => setView(item.dataset.viewTarget || "send"));
@@ -1357,7 +1460,7 @@
           receiverId,
           category: category.value,
           comment,
-          visibility: "public",
+          visibility: getVisibility(),
           challengeFlag: challengeFlag.checked === true
         });
         renderSavedPost(response.result);

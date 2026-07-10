@@ -1220,16 +1220,42 @@ async function previewIdeaLinkPostNotification(employee: JsonRecord, payload: Js
     };
   }
 
-  const channelRows = await readRows("idea_link_notification_channels", {
-    query: {
-      select: "id,target_scope,target_key,target_type,description,enabled,updated_at",
-      target_scope: `eq.${targetScope}`,
-      target_key: `in.(${targetKeys.join(",")})`,
-      target_type: "eq.channel",
-      enabled: "eq.true",
-      limit: "5",
-    },
-  });
+  let channelRows: JsonRecord[] = [];
+  try {
+    for (const key of targetKeys) {
+      const rows = await readRows("idea_link_notification_channels", {
+        query: {
+          select: "id,target_scope,target_key,target_type,description,enabled,updated_at",
+          target_scope: `eq.${targetScope}`,
+          target_key: `eq.${key}`,
+          target_type: "eq.channel",
+          enabled: "eq.true",
+          limit: "1",
+        },
+      });
+      if (rows.length) {
+        channelRows = rows;
+        break;
+      }
+    }
+  } catch (error) {
+    return {
+      ok: true,
+      postId,
+      eligible: false,
+      reason: "channel_lookup_failed",
+      target: {
+        scope: targetScope,
+        key: targetKeys[0] || "",
+        candidateKeys: targetKeys,
+        targetType: "channel",
+        configured: false,
+      },
+      source: "nov-hub-api-proxy",
+      detail: sanitizeErrorDetail(error instanceof PortalError ? error.detail || error.message : error),
+      guards: ideaLinkNotificationPreviewGuards(),
+    };
+  }
   const channel = asRecord(channelRows[0] || {});
   const configured = Boolean(channel.id);
   return {

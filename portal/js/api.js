@@ -35,6 +35,7 @@ const EDGE_ACTIONS = new Set([
   "masterUploadEmployeeProfileImage",
   "masterUpsertEmployeeLineWorksDestination",
   "masterCreateCorporation",
+  "masterUpdateCorporation",
   "masterUpdateStore",
   "masterUpdatePortalApp",
   "masterCreatePortalApp"

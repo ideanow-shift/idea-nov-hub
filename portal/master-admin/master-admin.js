@@ -60,6 +60,7 @@ const EMPLOYMENT_TYPE_ALIASES = {
   "レセプション": "パート・アルバイト",
   "レセプションパート": "パート・アルバイト"
 };
+const LINE_WORKS_NUMERIC_ONLY_PATTERN = /^\d+$/;
 
 const state = {
   view: "employees",
@@ -132,6 +133,19 @@ function normalizeEmploymentStatus(value) {
   const normalized = String(value || "").trim();
   if (["産休", "育休", "産休・育休", "傷病", "介護"].includes(normalized)) return "休職";
   return EMPLOYMENT_STATUS_OPTIONS.some(([optionValue]) => optionValue === normalized) ? normalized : "";
+}
+
+function normalizeLineWorksUserIdInput(value) {
+  return String(value || "").trim();
+}
+
+function getLineWorksUserIdValidationError(value) {
+  const normalized = normalizeLineWorksUserIdInput(value);
+  if (!normalized) return "User IDを入力してください。";
+  if (LINE_WORKS_NUMERIC_ONLY_PATTERN.test(normalized)) {
+    return "数字だけのIDはチャンネルIDです。User IDを入力してください。";
+  }
+  return "";
 }
 
 function normalizeLeaveType(value) {
@@ -1970,10 +1984,10 @@ function renderEmployeeLineWorksDestinationPanel(employee, readonly) {
       </div>
       <div class="notification-destination-grid">
         <label class="form-field" for="line_works_recipient_id">
-          <span>通知先User ID</span>
+          <span>LINE WORKS User ID</span>
           <input class="form-input" id="line_works_recipient_id" name="line_works_recipient_id" type="text" autocomplete="off" placeholder="${hasDestination ? "変更時のみ入力" : "User IDを入力"}" ${readonly ? "disabled" : ""}>
         </label>
-        <p class="field-help">個人宛て通知用。店舗・グループ宛てとは別管理です。</p>
+        <p class="field-help">個人宛て専用。数字だけのチャンネルIDは保存できません。</p>
         <div class="notification-destination-meta">
           <span>現在: ${escapeHtml(preview)}</span>
         </div>
@@ -1992,12 +2006,13 @@ function setupLineWorksDestinationSaveState(employee, readonly) {
   const status = document.querySelector("#line-works-destination-save-status");
   if (!panel || !input || !button || !status || readonly) return;
   input.addEventListener("input", () => {
-    const value = String(input.value || "").trim();
-    button.disabled = !value;
+    const value = normalizeLineWorksUserIdInput(input.value);
+    const validationError = getLineWorksUserIdValidationError(value);
+    button.disabled = Boolean(validationError);
     setSaveStatus(
       status,
-      value ? "未保存の入力があります。" : "User IDを入力してください。",
-      value ? "pending" : ""
+      validationError || "未保存の入力があります。",
+      validationError ? "error" : "pending"
     );
   });
   button.addEventListener("click", () => saveEmployeeLineWorksDestination(employee));
@@ -2007,9 +2022,10 @@ async function saveEmployeeLineWorksDestination(employee) {
   const input = document.querySelector("#line_works_recipient_id");
   const button = document.querySelector("#save-line-works-destination");
   const status = document.querySelector("#line-works-destination-save-status");
-  const lineWorksRecipientId = String(input?.value || "").trim();
-  if (!employee?.id || !lineWorksRecipientId) {
-    setSaveStatus(status, "User IDを入力してください。", "error");
+  const lineWorksRecipientId = normalizeLineWorksUserIdInput(input?.value);
+  const validationError = getLineWorksUserIdValidationError(lineWorksRecipientId);
+  if (!employee?.id || validationError) {
+    setSaveStatus(status, validationError || "社員を選択してください。", "error");
     return;
   }
   try {

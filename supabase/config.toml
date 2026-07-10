@@ -2,3 +2,6 @@ project_id = "nkmxevmioczcmnldreyo"
 
 [functions.nov-hub-api]
 verify_jwt = false
+
+[functions.send-line-works-notifications]
+verify_jwt = true

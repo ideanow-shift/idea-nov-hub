@@ -409,6 +409,10 @@
       z-index: 20;
     }
 
+    .bottom-nav.has-admin {
+      grid-template-columns: repeat(5, 1fr);
+    }
+
     .nav-item {
       border: 0;
       background: transparent;
@@ -581,6 +585,25 @@
           <h3>自分のサンクス</h3>
           <div class="feed" id="my-feed" aria-label="自分のサンクス履歴"></div>
         </div>
+
+        <div class="view" data-view="admin">
+          <h2>管理</h2>
+          <div class="stats">
+            <div class="stat">
+              <span>投稿数</span>
+              <strong data-admin-stat="postCount">0</strong>
+            </div>
+            <div class="stat">
+              <span>送信者</span>
+              <strong data-admin-stat="senderCount">0</strong>
+            </div>
+            <div class="stat">
+              <span>受信者</span>
+              <strong data-admin-stat="receiverCount">0</strong>
+            </div>
+          </div>
+          <div class="feed" id="admin-feed" aria-label="管理状態"></div>
+        </div>
       </div>
     </section>
 
@@ -626,6 +649,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.3-6 8-6s6.5 2 8 6"/></svg>
       マイページ
     </button>
+    <button class="nav-item" type="button" data-view-target="admin" id="admin-nav" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 5h16M4 12h16M4 19h16"/><path d="M8 5v14"/></svg>
+      管理
+    </button>
   </nav>
 
   <script type="module">
@@ -642,6 +669,9 @@
     const profile = document.querySelector("#profile");
     const feed = document.querySelector("#feed");
     const myFeed = document.querySelector("#my-feed");
+    const adminFeed = document.querySelector("#admin-feed");
+    const bottomNav = document.querySelector(".bottom-nav");
+    const adminNav = document.querySelector("#admin-nav");
     const storeFilter = document.querySelector("#store-filter");
     const receiver = document.querySelector("#receiver");
     const category = document.querySelector("#category");
@@ -654,6 +684,7 @@
     let submitting = false;
     let timelineLoaded = false;
     let myPageLoaded = false;
+    let adminLoaded = false;
 
     function text(value, fallback = "") {
       return String(value || fallback || "").trim();
@@ -672,6 +703,11 @@
     function hasIdeaLinkRole(context) {
       const roleKeys = new Set(getRoleKeys(context));
       return IDEA_LINK_ROLE_KEYS.some((roleKey) => roleKeys.has(roleKey));
+    }
+
+    function canViewAdmin(context) {
+      const roleKeys = new Set(getRoleKeys(context));
+      return roleKeys.has("idea_link.manager") || roleKeys.has("idea_link.admin");
     }
 
     function renderProfile(context) {
@@ -795,6 +831,42 @@
       }
     }
 
+    function renderAdminSummary(admin) {
+      const summary = admin?.summary || {};
+      document.querySelectorAll("[data-admin-stat='postCount']").forEach((item) => {
+        item.textContent = String(summary.postCount || 0);
+      });
+      document.querySelectorAll("[data-admin-stat='senderCount']").forEach((item) => {
+        item.textContent = String(summary.senderCount || 0);
+      });
+      document.querySelectorAll("[data-admin-stat='receiverCount']").forEach((item) => {
+        item.textContent = String(summary.receiverCount || 0);
+      });
+      const checks = Array.isArray(admin?.checks) ? admin.checks : [];
+      adminFeed.innerHTML = checks.map((check) => `
+        <article class="post">
+          <div class="post-top">
+            <span>${text(check.status, "確認")}</span>
+            <span>${text(admin.month)}</span>
+          </div>
+          <strong>${text(check.label)}</strong>
+          <p>${text(check.detail)}</p>
+        </article>
+      `).join("") || "<div class=\"notice\">管理状態を取得できませんでした。</div>";
+    }
+
+    async function loadAdminSummary() {
+      adminFeed.innerHTML = "<div class=\"notice\">管理状態を読み込み中です。</div>";
+      try {
+        setFirebaseAuth();
+        const response = await callApiAction("ideaLinkAdminSummaryRead", {});
+        renderAdminSummary(response.admin || {});
+        adminLoaded = true;
+      } catch (error) {
+        adminFeed.innerHTML = `<div class="notice">管理状態を読み込めませんでした。${text(error?.message)}</div>`;
+      }
+    }
+
     async function loadTimeline() {
       feed.innerHTML = "<div class=\"notice\">最新のサンクスを読み込み中です。</div>";
       try {
@@ -842,6 +914,9 @@
       }
       if (target === "my" && !myPageLoaded) {
         loadMyPage();
+      }
+      if (target === "admin" && !adminLoaded) {
+        loadAdminSummary();
       }
     }
 
@@ -1007,6 +1082,10 @@
       connectionStatus.textContent = "接続済み";
       renderProfile(context);
       renderFeed(context);
+      if (canViewAdmin(context)) {
+        adminNav.hidden = false;
+        bottomNav.classList.add("has-admin");
+      }
       unlockForm();
       loadStoreOptions(context);
       loadMyPage();

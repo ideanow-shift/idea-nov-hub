@@ -600,6 +600,88 @@ async function readIdeaLinkMyPage(employee: JsonRecord, payload: JsonRecord) {
   };
 }
 
+async function readIdeaLinkAdminSummary(employee: JsonRecord, payload: JsonRecord) {
+  assertIdeaLinkUser(employee);
+  if (!isIdeaLinkManager(employee)) throw new PortalError("ACCESS_DENIED", "IDEA LINK manager role is required.", 403);
+  const month = getIdeaLinkYearMonth(payload.month);
+  const [posts, stores, channels, queued, monthlyRuns] = await Promise.all([
+    readRows("idea_link_posts", {
+      query: {
+        select: "id,sender_id,receiver_id,receiver_store_id,receiver_department_id,category,challenge_flag,status,visibility,created_at",
+        status: "eq.active",
+        order: "created_at.desc",
+        limit: "1000",
+      },
+    }),
+    readRows("stores", {
+      query: {
+        select: "id,store_name,is_active",
+        is_active: "eq.true",
+        limit: "100",
+      },
+    }),
+    readRows("idea_link_notification_channels", {
+      query: {
+        select: "id,target_scope,target_key,target_type,enabled",
+        enabled: "eq.true",
+        limit: "200",
+      },
+    }),
+    readRows("notifications", {
+      schema: "os",
+      query: {
+        select: "id,module_key,entity_type,status,created_at",
+        module_key: "eq.idea_link",
+        status: "eq.queued",
+        limit: "200",
+      },
+    }),
+    readRows("idea_link_monthly_praise_runs", {
+      query: {
+        select: "id,award_type,target_month,approval_status,send_status,invalidated_at,created_at",
+        limit: "50",
+      },
+    }),
+  ]);
+  const monthPosts = posts.filter((row) => getJstYearMonth(row.created_at) === month);
+  const queuedCategories = queued.reduce((accumulator: Record<string, number>, row) => {
+    const entityType = String(row.entity_type || "");
+    const key = entityType.startsWith("monthly_thanks_mvp") ? "monthly_mvp" : "line_works_target";
+    accumulator[key] = (accumulator[key] || 0) + 1;
+    return accumulator;
+  }, {});
+  return {
+    month,
+    summary: {
+      postCount: monthPosts.length,
+      senderCount: uniqueStrings(monthPosts.map((row) => row.sender_id)).length,
+      receiverCount: uniqueStrings(monthPosts.map((row) => row.receiver_id)).length,
+      challengeCount: monthPosts.filter((row) => row.challenge_flag === true).length,
+      activeStoreCount: stores.length,
+      activeNotificationChannelCount: channels.length,
+      queuedLineWorksTargetCount: queuedCategories.line_works_target || 0,
+      queuedMonthlyMvpCount: queuedCategories.monthly_mvp || 0,
+      monthlyPraiseRunCount: monthlyRuns.length,
+    },
+    checks: [
+      { label: "投稿DB", status: "OK", detail: `Supabase Primary / ${posts.length}件` },
+      { label: "店舗", status: "OK", detail: `受付対象候補 ${stores.length}件` },
+      { label: "LINE WORKS通知先", status: "OK", detail: `有効 ${channels.length}件` },
+      { label: "LINE WORKS Queue", status: "確認", detail: `通常queued ${queuedCategories.line_works_target || 0}件 / 月間MVP ${queuedCategories.monthly_mvp || 0}件` },
+      { label: "月間称賛", status: "preview", detail: `run ${monthlyRuns.length}件 / 実送信停止中` },
+    ],
+    source: "nov-hub-api-proxy",
+    guards: {
+      dbMutationExpected: false,
+      notificationEnqueued: false,
+      lineWorksNotificationSent: false,
+      browserDirectTableAccess: false,
+      browserDirectRpcExecute: false,
+    },
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 function normalizeIdeaLinkVisibility(value: unknown) {
   return String(value || "").trim().toLowerCase() === "private" ? "private" : "public";
 }
@@ -4008,6 +4090,10 @@ Deno.serve(async (request) => {
 
     if (action === "ideaLinkMyPageRead") {
       return jsonResponse({ ok: true, myPage: await readIdeaLinkMyPage(employee, payload), performance: { source: "nov-hub-api-proxy" } });
+    }
+
+    if (action === "ideaLinkAdminSummaryRead") {
+      return jsonResponse({ ok: true, admin: await readIdeaLinkAdminSummary(employee, payload), performance: { source: "nov-hub-api-proxy" } });
     }
 
     if (action === "ideaLinkPostCreate") {

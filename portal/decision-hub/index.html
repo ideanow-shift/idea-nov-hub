@@ -198,6 +198,42 @@
         font-weight: 500;
       }
 
+      .progress-list {
+        display: grid;
+        gap: var(--spacing-sm);
+      }
+
+      .progress-item {
+        display: grid;
+        grid-template-columns: 112px minmax(0, 1fr);
+        gap: var(--spacing-md);
+        align-items: start;
+        padding: var(--spacing-md);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-md);
+        background: var(--bg-soft);
+      }
+
+      .progress-item strong {
+        display: block;
+        font-weight: 500;
+      }
+
+      .status.is-done {
+        background: #f2fbf4;
+        color: #177245;
+      }
+
+      .status.is-review {
+        background: #fff9ed;
+        color: #8a5a00;
+      }
+
+      .status.is-stopped {
+        background: #f6f6f6;
+        color: var(--text-secondary);
+      }
+
       .detail-grid {
         display: grid;
         gap: var(--spacing-sm);
@@ -228,7 +264,8 @@
         }
 
         .request-row,
-        .summary-grid {
+        .summary-grid,
+        .progress-item {
           grid-template-columns: 1fr;
         }
       }
@@ -270,6 +307,40 @@
             <span class="muted">差戻し</span>
             <strong id="summary-returned">0</strong>
           </article>
+        </section>
+
+        <section class="panel" aria-labelledby="progress-title">
+          <h2 id="progress-title">進捗状況</h2>
+          <div class="progress-list">
+            <article class="progress-item">
+              <span class="status is-done">完了</span>
+              <div>
+                <strong>申請台帳・承認ログのDB土台</strong>
+                <div class="muted">新規5テーブルは作成済み。RLS自動有効、policyなし、direct grantなしのdeny-by-default状態です。</div>
+              </div>
+            </article>
+            <article class="progress-item">
+              <span class="status is-done">完了</span>
+              <div>
+                <strong>読み取り専用RPC / Edge接続</strong>
+                <div class="muted">一覧・詳細・コメント取得のRPCとEdge actionは安全境界を通過済みです。</div>
+              </div>
+            </article>
+            <article class="progress-item">
+              <span class="status is-review">確認中</span>
+              <div>
+                <strong>下書き保存のactor解決</strong>
+                <div class="muted">PIN認証で解決済みの社員IDをDecision actorへ安全に渡す修正候補をCoreOSレビュー中です。</div>
+              </div>
+            </article>
+            <article class="progress-item">
+              <span class="status is-stopped">未接続</span>
+              <div>
+                <strong>本番申請・承認操作</strong>
+                <div class="muted">送信・承認・差戻し・却下・通知送信はまだ無効です。DB接続した本番操作はCoreOS承認後に開放します。</div>
+              </div>
+            </article>
+          </div>
         </section>
 
         <section class="panel" aria-labelledby="list-title">

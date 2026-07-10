@@ -305,6 +305,55 @@
       line-height: 1.7;
     }
 
+    .choice-grid,
+    .template-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .choice-chip,
+    .template-chip {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--text);
+      min-height: 40px;
+      padding: 0 13px;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .choice-chip.active {
+      border-color: var(--brand);
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+    }
+
+    .category-help,
+    .receiver-preview {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      padding: 12px;
+      display: grid;
+      gap: 6px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .category-help strong,
+    .receiver-preview strong {
+      font-size: 15px;
+    }
+
+    .category-help span,
+    .receiver-preview span {
+      color: var(--muted);
+    }
+
     .actions {
       display: flex;
       justify-content: stretch;
@@ -735,6 +784,7 @@
               <option value="">先に店舗を選択してください</option>
             </select>
           </label>
+          <div class="receiver-preview" id="receiver-preview" hidden></div>
           <label>
             カテゴリ
             <select id="category">
@@ -745,6 +795,17 @@
               <option value="思いやり">思いやる</option>
             </select>
           </label>
+          <div class="choice-grid" aria-label="カテゴリを選ぶ">
+            <button class="choice-chip active" type="button" data-category-value="気持ち良い挨拶">笑顔で挨拶する</button>
+            <button class="choice-chip" type="button" data-category-value="約束を守る">約束を守る</button>
+            <button class="choice-chip" type="button" data-category-value="チームワーク">助け合う</button>
+            <button class="choice-chip" type="button" data-category-value="報連相">伝え合う</button>
+            <button class="choice-chip" type="button" data-category-value="思いやり">思いやる</button>
+          </div>
+          <div class="category-help" id="category-help">
+            <strong>笑顔で挨拶する</strong>
+            <span>明るい挨拶や、場の空気を良くしてくれた行動へ。</span>
+          </div>
           <label>
             メッセージ
             <textarea id="message" minlength="10" maxlength="200" placeholder="ありがとうを具体的に書く"></textarea>
@@ -753,6 +814,12 @@
               <span><span id="message-count">0</span>/200</span>
             </span>
           </label>
+          <div class="template-grid" aria-label="文例">
+            <button class="template-chip" type="button" data-template="忙しい中フォローしてくれて助かりました。ありがとう！">フォロー</button>
+            <button class="template-chip" type="button" data-template="気づいて声をかけてくれて安心しました。ありがとう！">声かけ</button>
+            <button class="template-chip" type="button" data-template="新しいことに挑戦してくれて、周りも前向きになりました。ありがとう！">挑戦</button>
+            <button class="template-chip" type="button" data-template="丁寧に確認して共有してくれて助かりました。ありがとう！">共有</button>
+          </div>
           <label class="checkbox-row">
             <input id="challenge-flag" type="checkbox">
             <span>
@@ -950,7 +1017,9 @@
     const adminNav = document.querySelector("#admin-nav");
     const storeFilter = document.querySelector("#store-filter");
     const receiver = document.querySelector("#receiver");
+    const receiverPreview = document.querySelector("#receiver-preview");
     const category = document.querySelector("#category");
+    const categoryHelp = document.querySelector("#category-help");
     const message = document.querySelector("#message");
     const messageCount = document.querySelector("#message-count");
     const challengeFlag = document.querySelector("#challenge-flag");
@@ -965,6 +1034,15 @@
     let timelineLoaded = false;
     let myPageLoaded = false;
     let adminLoaded = false;
+    let recipientOptionsById = new Map();
+
+    const categoryHelpMap = {
+      "気持ち良い挨拶": "明るい挨拶や、場の空気を良くしてくれた行動へ。",
+      "約束を守る": "時間・期限・決めたことを大切にしてくれた行動へ。",
+      "チームワーク": "フォローや助け合いで、チームを支えてくれた行動へ。",
+      "報連相": "共有・相談・確認で、仕事を進めやすくしてくれた行動へ。",
+      "思いやり": "相手やお客様を気づかってくれた行動へ。"
+    };
 
     function text(value, fallback = "") {
       return String(value || fallback || "").trim();
@@ -1045,6 +1123,17 @@
         "思いやり": "思いやる"
       };
       return map[value] || value || "";
+    }
+
+    function updateCategoryUi() {
+      const value = category.value;
+      document.querySelectorAll("[data-category-value]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.categoryValue === value);
+      });
+      categoryHelp.innerHTML = `
+        <strong>${displayCategory(value)}</strong>
+        <span>${categoryHelpMap[value] || "ありがとうを届けたい行動に近いものを選んでください。"}</span>
+      `;
     }
 
     function renderTimelineItems(items) {
@@ -1351,6 +1440,8 @@
     }
 
     function renderRecipientOptions(recipients) {
+      recipientOptionsById = new Map(recipients.map((item) => [item.id, item]));
+      renderReceiverPreview();
       if (!recipients.length) {
         receiver.innerHTML = "<option value=\"\">この店舗の候補が見つかりません</option>";
         receiver.disabled = true;
@@ -1363,12 +1454,34 @@
       receiver.disabled = false;
     }
 
+    function renderReceiverPreview() {
+      const item = recipientOptionsById.get(receiver.value);
+      if (!item) {
+        receiverPreview.hidden = true;
+        receiverPreview.innerHTML = "";
+        return;
+      }
+      const details = [
+        text(item.storeName),
+        text(item.jobTypeName),
+        text(item.positionName),
+        item.employeeNumber ? `社員番号 ${item.employeeNumber}` : ""
+      ].filter(Boolean).join(" / ");
+      receiverPreview.hidden = false;
+      receiverPreview.innerHTML = `
+        <strong>${text(item.fullName, "名前未設定")}さんへ送ります</strong>
+        <span>${details || "所属情報を確認中"}</span>
+      `;
+    }
+
     async function loadRecipientsForStore() {
       const storeId = text(storeFilter.value);
       receiver.innerHTML = storeId
         ? "<option value=\"\">送り先を読み込み中</option>"
         : "<option value=\"\">先に店舗を選択してください</option>";
       receiver.disabled = true;
+      recipientOptionsById = new Map();
+      renderReceiverPreview();
       if (!storeId) {
         return;
       }
@@ -1423,10 +1536,28 @@
       challengeFlag.checked = false;
       document.querySelector("input[name='visibility'][value='public']").checked = true;
       updateMessageCount();
+      renderReceiverPreview();
     });
 
     storeFilter.addEventListener("change", loadRecipientsForStore);
+    receiver.addEventListener("change", renderReceiverPreview);
+    category.addEventListener("change", updateCategoryUi);
     message.addEventListener("input", updateMessageCount);
+
+    document.querySelectorAll("[data-category-value]").forEach((button) => {
+      button.addEventListener("click", () => {
+        category.value = button.dataset.categoryValue || category.value;
+        updateCategoryUi();
+      });
+    });
+
+    document.querySelectorAll("[data-template]").forEach((button) => {
+      button.addEventListener("click", () => {
+        message.value = button.dataset.template || "";
+        updateMessageCount();
+        message.focus();
+      });
+    });
 
     navItems.forEach((item) => {
       item.addEventListener("click", () => setView(item.dataset.viewTarget || "send"));
@@ -1465,7 +1596,9 @@
         });
         renderSavedPost(response.result);
         message.value = "";
+        challengeFlag.checked = false;
         myPageLoaded = false;
+        updateMessageCount();
         loadMyPage();
         setNotice("success", "保存しました。LINE WORKS通知はまだ送信していません。");
       } catch (error) {
@@ -1505,6 +1638,7 @@
       unlockForm();
       loadStoreOptions(context);
       loadMyPage();
+      updateCategoryUi();
       setNotice("info", "投稿保存の確認中です。通知送信はまだ行いません。店舗を選んで送り先を選択できます。");
       const url = new URL(window.location.href);
       if (url.searchParams.has(HUB_CONTEXT_QUERY_KEY)) {

@@ -688,6 +688,7 @@ function getStaffRoleBlockedReason(employee) {
 }
 
 function render() {
+  elements.adminApp.dataset.view = state.view;
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === state.view);
   });

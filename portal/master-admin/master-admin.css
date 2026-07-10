@@ -130,6 +130,11 @@ body {
   align-items: start;
 }
 
+.admin-app[data-view="stores"] .workspace,
+.admin-app[data-view="corporations"] .workspace {
+  grid-template-columns: minmax(420px, 1fr) minmax(500px, 0.86fr);
+}
+
 .list-panel,
 .detail-panel {
   border: 1px solid var(--border-light);
@@ -222,6 +227,11 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   align-items: start;
+}
+
+.admin-app[data-view="stores"] .store-detail-compact-grid,
+.admin-app[data-view="corporations"] .store-detail-compact-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .store-detail-compact-grid .form-field,

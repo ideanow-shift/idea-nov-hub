@@ -1204,9 +1204,9 @@ async function previewIdeaLinkPostNotification(employee: JsonRecord, payload: Js
   const targetKeys = useHeadOfficeChannel
     ? ["honbu", "0000"]
     : uniqueStrings([
-      storeId,
       String(store.store_id || ""),
       String(store.store_no || ""),
+      storeId,
     ]);
   if (!targetKeys.length) {
     return {
@@ -1225,7 +1225,7 @@ async function previewIdeaLinkPostNotification(employee: JsonRecord, payload: Js
     for (const key of targetKeys) {
       const rows = await readRows("idea_link_notification_channels", {
         query: {
-          select: "target_scope,target_key,target_type,line_works_target_id,description,enabled",
+          select: "target_scope,target_key,target_type,description,enabled",
           target_scope: `eq.${targetScope}`,
           target_key: `eq.${key}`,
           target_type: "eq.channel",
@@ -1257,7 +1257,7 @@ async function previewIdeaLinkPostNotification(employee: JsonRecord, payload: Js
     };
   }
   const channel = asRecord(channelRows[0] || {});
-  const configured = Boolean(channel.line_works_target_id || channel.id);
+  const configured = Boolean(channel.target_key);
   return {
     ok: true,
     postId,

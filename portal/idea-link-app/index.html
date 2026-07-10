@@ -631,12 +631,12 @@
         {
           title: `${name}さんのHUB認証を確認しました`,
           meta: `${store} / 新Webアプリ`,
-          body: "この画面はGASを使わずにNOV HUBのログイン情報を受け取っています。投稿保存APIの接続候補を確認中です。"
+          body: "NOV HUBのログイン情報でサンクスコインを利用できます。投稿保存の確認を進めています。"
         },
         {
           title: "次の有効化対象",
           meta: "API / Core DB / LINE WORKS",
-          body: "投稿保存、タイムライン取得、月間MVP承認、通知送信を段階的に接続します。"
+          body: "投稿保存、タイムライン、月間MVPを段階的に接続します。通知送信は確認後に有効化します。"
         }
       ].map((item) => `
         <article class="post">
@@ -848,12 +848,12 @@
       feed.innerHTML = "<div class=\"notice\">このアカウントにはIDEA LINK権限がありません。</div>";
       lockForm("権限なし");
     } else {
-      connectionStatus.textContent = "GASなしで接続";
+      connectionStatus.textContent = "接続済み";
       renderProfile(context);
       renderFeed(context);
       unlockForm();
       loadStoreOptions(context);
-      setNotice("info", "保存ボタン接続候補です。通知送信は行いません。送り先を名前で検索できます。");
+      setNotice("info", "投稿保存の確認中です。通知送信はまだ行いません。店舗を選んで送り先を選択できます。");
       const url = new URL(window.location.href);
       if (url.searchParams.has(HUB_CONTEXT_QUERY_KEY)) {
         url.searchParams.delete(HUB_CONTEXT_QUERY_KEY);

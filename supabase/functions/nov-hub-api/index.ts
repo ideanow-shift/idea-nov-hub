@@ -1225,7 +1225,7 @@ async function previewIdeaLinkPostNotification(employee: JsonRecord, payload: Js
     for (const key of targetKeys) {
       const rows = await readRows("idea_link_notification_channels", {
         query: {
-          select: "id,target_scope,target_key,target_type,description,enabled,updated_at",
+          select: "target_scope,target_key,target_type,line_works_target_id,description,enabled",
           target_scope: `eq.${targetScope}`,
           target_key: `eq.${key}`,
           target_type: "eq.channel",
@@ -1257,7 +1257,7 @@ async function previewIdeaLinkPostNotification(employee: JsonRecord, payload: Js
     };
   }
   const channel = asRecord(channelRows[0] || {});
-  const configured = Boolean(channel.id);
+  const configured = Boolean(channel.line_works_target_id || channel.id);
   return {
     ok: true,
     postId,
@@ -1269,9 +1269,7 @@ async function previewIdeaLinkPostNotification(employee: JsonRecord, payload: Js
       candidateKeys: targetKeys,
       targetType: "channel",
       configured,
-      channelRowId: String(channel.id || ""),
       description: String(channel.description || ""),
-      updatedAt: String(channel.updated_at || ""),
     },
     source: "nov-hub-api-proxy",
     guards: ideaLinkNotificationPreviewGuards(),

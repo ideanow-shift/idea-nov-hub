@@ -2187,10 +2187,11 @@ function renderStoreDetail(store) {
   const issues = getStoreIssues(store);
   const issuePanel = renderStoreIssuePanel(store, issues);
   const lineWorks = store.line_works_channel || {};
+  const profile = store.business_profile || {};
   elements.detailPanel.innerHTML = `
     <h3>${escapeHtml(store.store_name)}</h3>
     <p class="detail-meta">店舗ID: ${escapeHtml(store.store_id)} / 店舗No: ${escapeHtml(store.store_no)}${store.updated_at ? ` / 最終更新: ${escapeHtml(formatDateTime(store.updated_at))}` : ""}</p>
-    <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "店舗IDと店舗Noは固定項目です。通常運用では店舗名・法人・事業部門・有効状態のみ変更します。"}</p>
+    <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "店舗IDと店舗Noは固定項目です。店舗運営・経営判断に使う補足情報を更新できます。"}</p>
     <form class="form-grid" id="detail-form">
       ${issuePanel}
       ${fieldInput("store_name", "店舗名", store.store_name || "")}
@@ -2199,6 +2200,40 @@ function renderStoreDetail(store) {
       ${fieldValueSelect("area", "エリア", getUniqueValues(state.stores, "area"), store.area || "")}
       ${fieldValueSelect("store_type", "店舗種別", getUniqueValues(state.stores, "store_type"), store.store_type || "")}
       ${fieldCheckbox("is_active", "有効", store.is_active)}
+      <section class="line-works-box">
+        <div class="line-works-header">
+          <div>
+            <strong>店舗運営情報</strong>
+            <p>営業時間・開閉店・設備など、判断に使う情報です。</p>
+          </div>
+        </div>
+        ${fieldInput("regular_holiday_rule", "定休日ルール", profile.regular_holiday_rule || "", { placeholder: "例: 毎週火曜 / 第2月曜" })}
+        ${fieldInput("weekday_business_hours", "平日営業時間", profile.weekday_business_hours || "", { placeholder: "例: 10:00-20:00" })}
+        ${fieldInput("saturday_business_hours", "土曜日営業時間", profile.saturday_business_hours || "", { placeholder: "例: 10:00-20:00" })}
+        ${fieldInput("sunday_business_hours", "日曜日営業時間", profile.sunday_business_hours || "", { placeholder: "例: 10:00-19:00" })}
+        ${fieldInput("holiday_business_hours", "祝日営業時間", profile.holiday_business_hours || "", { placeholder: "例: 10:00-19:00" })}
+        ${fieldInput("opened_on", "オープン日", profile.opened_on || "", "date")}
+        ${fieldInput("closed_on", "閉店日", profile.closed_on || "", "date")}
+        ${fieldInput("operating_status", "状況", profile.operating_status || "", { placeholder: "例: 営業中 / 出店準備中 / 閉店" })}
+        ${fieldInput("affiliation_label", "所属", profile.affiliation_label || "", { placeholder: "例: BASSA / FC / 本部" })}
+      </section>
+      <section class="line-works-box">
+        <div class="line-works-header">
+          <div>
+            <strong>面積・賃料・設備</strong>
+            <p>家賃は共益費込みの月額を入力します。</p>
+          </div>
+        </div>
+        ${fieldInput("floor_area_tsubo", "坪数", profile.floor_area_tsubo ?? "", { type: "number", step: "0.01", min: "0" })}
+        ${fieldInput("floor_area_square_meter", "㎡", profile.floor_area_square_meter ?? "", { type: "number", step: "0.01", min: "0" })}
+        ${fieldInput("monthly_rent_including_common_fee", "家賃(共益費込)", profile.monthly_rent_including_common_fee ?? "", { type: "number", step: "1", min: "0" })}
+        ${fieldInput("rent_per_tsubo", "坪単価", profile.rent_per_tsubo ?? "", { type: "number", step: "1", min: "0" })}
+        ${fieldInput("styling_seat_count", "セット面", profile.styling_seat_count ?? "", { type: "number", step: "1", min: "0" })}
+        ${fieldInput("shampoo_station_count", "シャンプー台", profile.shampoo_station_count ?? "", { type: "number", step: "1", min: "0" })}
+        ${fieldInput("rent_per_styling_seat", "席単価", profile.rent_per_styling_seat ?? "", { type: "number", step: "1", min: "0" })}
+        ${fieldTextarea("store_feature_note", "特徴", profile.store_feature_note || "")}
+        <p class="field-help">店舗PASSやSecretはここに保存しません。</p>
+      </section>
       <section class="line-works-box">
         <div class="line-works-header">
           <div>
@@ -2358,10 +2393,12 @@ function fieldInput(name, label, value, type = "text") {
   const required = options.required ? " required" : "";
   const disabled = options.disabled ? " disabled" : "";
   const placeholder = options.placeholder ? ` placeholder="${escapeHtml(options.placeholder)}"` : "";
+  const step = options.step ? ` step="${escapeHtml(options.step)}"` : "";
+  const min = options.min !== undefined ? ` min="${escapeHtml(options.min)}"` : "";
   return `
     <div class="form-field">
       <label for="${escapeHtml(name)}">${escapeHtml(label)}</label>
-      <input class="form-input" id="${escapeHtml(name)}" name="${escapeHtml(name)}" type="${escapeHtml(inputType)}" value="${escapeHtml(value || "")}"${placeholder}${required}${disabled}>
+      <input class="form-input" id="${escapeHtml(name)}" name="${escapeHtml(name)}" type="${escapeHtml(inputType)}" value="${escapeHtml(value ?? "")}"${placeholder}${step}${min}${required}${disabled}>
     </div>`;
 }
 

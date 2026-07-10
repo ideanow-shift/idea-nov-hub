@@ -55,6 +55,49 @@ const FORMAL_EMPLOYEE_POSITION_LABELS = new Set([
 
 type JsonRecord = Record<string, unknown>;
 
+const STORE_BUSINESS_PROFILE_SELECT = [
+  "store_id",
+  "regular_holiday_rule",
+  "weekday_business_hours",
+  "saturday_business_hours",
+  "sunday_business_hours",
+  "holiday_business_hours",
+  "opened_on",
+  "closed_on",
+  "floor_area_tsubo",
+  "floor_area_square_meter",
+  "monthly_rent_including_common_fee",
+  "rent_per_tsubo",
+  "styling_seat_count",
+  "shampoo_station_count",
+  "rent_per_styling_seat",
+  "affiliation_label",
+  "operating_status",
+  "store_feature_note",
+  "updated_at",
+].join(",");
+
+const STORE_BUSINESS_PROFILE_STRING_FIELDS = [
+  "regular_holiday_rule",
+  "weekday_business_hours",
+  "saturday_business_hours",
+  "sunday_business_hours",
+  "holiday_business_hours",
+  "affiliation_label",
+  "operating_status",
+  "store_feature_note",
+];
+
+const STORE_BUSINESS_PROFILE_DATE_FIELDS = ["opened_on", "closed_on"];
+const STORE_BUSINESS_PROFILE_NUMBER_FIELDS = [
+  "floor_area_tsubo",
+  "floor_area_square_meter",
+  "monthly_rent_including_common_fee",
+  "rent_per_tsubo",
+  "rent_per_styling_seat",
+];
+const STORE_BUSINESS_PROFILE_INTEGER_FIELDS = ["styling_seat_count", "shampoo_station_count"];
+
 class PortalError extends Error {
   code: string;
   status: number;
@@ -429,6 +472,142 @@ async function readIdeaLinkTimeline(employee: JsonRecord, payload: JsonRecord) {
       browserDirectRpcExecute: false,
     },
     generatedAt: new Date().toISOString(),
+  };
+}
+
+function normalizeIdeaLinkVisibility(value: unknown) {
+  return String(value || "").trim().toLowerCase() === "private" ? "private" : "public";
+}
+
+function normalizeIdeaLinkCategory(value: unknown) {
+  const category = String(value || "").trim();
+  const allowed = new Set(["気持ち良い挨拶", "約束を守る", "チームワーク", "報連相", "思いやり"]);
+  if (!allowed.has(category)) throw new PortalError("INVALID_REQUEST", "IDEA LINK category is invalid.", 400);
+  return category;
+}
+
+async function resolveIdeaLinkReceiver(payload: JsonRecord) {
+  const receiverId = String(payload.receiverId || payload.receiver_id || "").trim();
+  if (!isUuid(receiverId)) throw new PortalError("INVALID_REQUEST", "Receiver id is required.", 400);
+  const receiver = await getOne(
+    "employees",
+    receiverId,
+    "id,employee_id,full_name,store_id,department_id,employment_status,is_active",
+  );
+  if (!isEmployeeActive(receiver)) throw new PortalError("INVALID_REQUEST", "Receiver is not active.", 400);
+  const receiverRecord = asRecord(receiver);
+  const requestedOrgType = String(payload.receiverOrgUnitType || payload.receiver_org_unit_type || "").trim().toLowerCase();
+  const storeId = String(receiverRecord.store_id || "").trim();
+  const departmentId = String(receiverRecord.department_id || "").trim();
+  const useDepartment = requestedOrgType === "department" && departmentId;
+  const receiverOrgUnitType = useDepartment || (!storeId && departmentId) ? "department" : "store";
+  if (receiverOrgUnitType === "store" && !storeId) throw new PortalError("INVALID_REQUEST", "Receiver store is missing.", 400);
+  if (receiverOrgUnitType === "department" && !departmentId) throw new PortalError("INVALID_REQUEST", "Receiver department is missing.", 400);
+  return {
+    receiver: receiverRecord,
+    receiverOrgUnitType,
+    receiverStoreId: receiverOrgUnitType === "store" ? storeId : null,
+    receiverDepartmentId: receiverOrgUnitType === "department" ? departmentId : null,
+  };
+}
+
+async function readIdeaLinkPostByRequestId(requestId: string) {
+  const rows = await readRows("idea_link_posts", {
+    query: {
+      select: "id,request_id,legacy_post_id,sender_id,receiver_id,receiver_org_unit_type,receiver_store_id,receiver_department_id,category,challenge_flag,comment,visibility,status,created_at,updated_at,deleted_at",
+      request_id: `eq.${requestId}`,
+      limit: "1",
+    },
+  });
+  return rows[0] || null;
+}
+
+async function createIdeaLinkPost(employee: JsonRecord, payload: JsonRecord) {
+  assertIdeaLinkUser(employee);
+  const senderId = String(employee.id || employee.coreEmployeeId || employee.supabaseEmployeeId || "").trim();
+  if (!isUuid(senderId)) throw new PortalError("INVALID_REQUEST", "Sender id is invalid.", 400);
+  const requestId = String(payload.clientRequestId || payload.requestId || payload.request_id || "").trim();
+  if (!isUuid(requestId)) throw new PortalError("INVALID_REQUEST", "clientRequestId must be a UUID.", 400);
+  const existing = await readIdeaLinkPostByRequestId(requestId);
+  if (existing) {
+    return {
+      post: (await hydrateIdeaLinkPosts([existing]))[0],
+      duplicate: true,
+      guards: {
+        notificationEnqueued: false,
+        lineWorksNotificationSent: false,
+        browserDirectTableAccess: false,
+        browserDirectRpcExecute: false,
+      },
+    };
+  }
+
+  const category = normalizeIdeaLinkCategory(payload.category);
+  const comment = String(payload.comment || payload.body || "").trim();
+  if (comment.length < 10 || comment.length > 200) {
+    throw new PortalError("INVALID_REQUEST", "Comment must be 10 to 200 characters.", 400);
+  }
+  const visibility = normalizeIdeaLinkVisibility(payload.visibility);
+  const challengeFlag = payload.challengeFlag === true || payload.challenge_flag === true;
+  const receiverInfo = await resolveIdeaLinkReceiver(payload);
+  const now = new Date().toISOString();
+  const postId = crypto.randomUUID();
+  const postPayload: JsonRecord = {
+    id: postId,
+    request_id: requestId,
+    legacy_post_id: postId,
+    sender_id: senderId,
+    receiver_id: String(receiverInfo.receiver.id || ""),
+    receiver_org_unit_type: receiverInfo.receiverOrgUnitType,
+    receiver_store_id: receiverInfo.receiverStoreId,
+    receiver_department_id: receiverInfo.receiverDepartmentId,
+    category,
+    challenge_flag: challengeFlag,
+    comment,
+    visibility,
+    status: "active",
+    created_at: now,
+    updated_at: now,
+  };
+  const inserted = await supabaseRequest("idea_link_posts", {
+    method: "POST",
+    payload: postPayload,
+    prefer: "return=representation",
+  });
+  const post = Array.isArray(inserted) ? asRecord(inserted[0]) : asRecord(inserted);
+
+  await supabaseRequest("idea_link_audit_logs", {
+    method: "POST",
+    payload: {
+      actor_id: senderId,
+      action: "create_thanks",
+      target_type: "idea_link_post",
+      target_id: String(post.id || postId),
+      result: "success",
+      detail: {
+        visibility,
+        category,
+        challengeFlag,
+        receiverId: String(receiverInfo.receiver.id || ""),
+        receiverOrgUnitType: receiverInfo.receiverOrgUnitType,
+        notificationEnqueued: false,
+        lineWorksNotificationSent: false,
+      },
+      request_id: requestId,
+      occurred_at: now,
+    },
+    prefer: "return=minimal",
+  });
+
+  return {
+    post: (await hydrateIdeaLinkPosts([post]))[0],
+    duplicate: false,
+    guards: {
+      notificationEnqueued: false,
+      lineWorksNotificationSent: false,
+      browserDirectTableAccess: false,
+      browserDirectRpcExecute: false,
+    },
   };
 }
 
@@ -1425,8 +1604,51 @@ async function indexEmployeeLineWorksDestinationsForAdmin() {
   }, {});
 }
 
+function sanitizeStoreBusinessProfile(row: JsonRecord | null) {
+  if (!row) return null;
+  return {
+    regular_holiday_rule: String(row.regular_holiday_rule || ""),
+    weekday_business_hours: String(row.weekday_business_hours || ""),
+    saturday_business_hours: String(row.saturday_business_hours || ""),
+    sunday_business_hours: String(row.sunday_business_hours || ""),
+    holiday_business_hours: String(row.holiday_business_hours || ""),
+    opened_on: row.opened_on || null,
+    closed_on: row.closed_on || null,
+    floor_area_tsubo: row.floor_area_tsubo ?? null,
+    floor_area_square_meter: row.floor_area_square_meter ?? null,
+    monthly_rent_including_common_fee: row.monthly_rent_including_common_fee ?? null,
+    rent_per_tsubo: row.rent_per_tsubo ?? null,
+    styling_seat_count: row.styling_seat_count ?? null,
+    shampoo_station_count: row.shampoo_station_count ?? null,
+    rent_per_styling_seat: row.rent_per_styling_seat ?? null,
+    affiliation_label: String(row.affiliation_label || ""),
+    operating_status: String(row.operating_status || ""),
+    store_feature_note: String(row.store_feature_note || ""),
+    updated_at: row.updated_at || null,
+  };
+}
+
+function indexStoreBusinessProfiles(rows: JsonRecord[]) {
+  return rows.reduce<Record<string, ReturnType<typeof sanitizeStoreBusinessProfile>>>((index, row) => {
+    const storeId = String(row.store_id || "");
+    if (storeId) index[storeId] = sanitizeStoreBusinessProfile(row);
+    return index;
+  }, {});
+}
+
+async function getStoreBusinessProfile(storeId: string) {
+  const rows = await readRows("store_business_profiles", {
+    query: {
+      select: STORE_BUSINESS_PROFILE_SELECT,
+      store_id: `eq.${storeId}`,
+      limit: "1",
+    },
+  });
+  return rows[0] || null;
+}
+
 async function listCoreStoresForAdmin() {
-  const [stores, destinations, corporations, businessUnits] = await Promise.all([
+  const [stores, profiles, destinations, corporations, businessUnits] = await Promise.all([
     readRows("stores", {
       query: {
         select: "id,store_no,store_id,store_name,corporation_id,business_unit_id,area,store_type,is_active,updated_at",
@@ -1434,10 +1656,17 @@ async function listCoreStoresForAdmin() {
         limit: "500",
       },
     }),
+    readRows("store_business_profiles", {
+      query: {
+        select: STORE_BUSINESS_PROFILE_SELECT,
+        limit: "500",
+      },
+    }),
     indexStoreLineWorksDestinations(),
     listCoreMaster("corporations", "id,corporation_no,corporation_name", "corporation_no.asc"),
     listCoreMaster("business_units", "id,business_unit_code,business_unit_name", "business_unit_no.asc"),
   ]);
+  const profilesById = indexStoreBusinessProfiles(profiles);
   const corporationsById = indexById(corporations);
   const businessUnitsById = indexById(businessUnits);
   return stores.map((store) => {
@@ -1449,6 +1678,7 @@ async function listCoreStoresForAdmin() {
       corporation_code: String(corporation.corporation_no || ""),
       business_unit_name: String(businessUnit.business_unit_name || ""),
       business_unit_code: String(businessUnit.business_unit_code || ""),
+      business_profile: profilesById[String(store.id || "")] || null,
       line_works_channel: sanitizeLineWorksDestination((destinations[String(store.id || "")] || null) as JsonRecord | null),
     };
   });
@@ -1726,6 +1956,56 @@ function copyDateField(target: JsonRecord, source: JsonRecord, fieldName: string
     throw new PortalError("INVALID_REQUEST", `${fieldName} must be YYYY-MM-DD.`, 400);
   }
   target[fieldName] = value || null;
+}
+
+function copyNullableNumberField(target: JsonRecord, source: JsonRecord, fieldName: string) {
+  if (!Object.prototype.hasOwnProperty.call(source, fieldName)) return;
+  const raw = String(source[fieldName] ?? "").replace(/,/g, "").trim();
+  if (!raw) {
+    target[fieldName] = null;
+    return;
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) {
+    throw new PortalError("INVALID_REQUEST", `${fieldName} must be a non-negative number.`, 400);
+  }
+  target[fieldName] = value;
+}
+
+function copyNullableIntegerField(target: JsonRecord, source: JsonRecord, fieldName: string) {
+  if (!Object.prototype.hasOwnProperty.call(source, fieldName)) return;
+  const raw = String(source[fieldName] ?? "").replace(/,/g, "").trim();
+  if (!raw) {
+    target[fieldName] = null;
+    return;
+  }
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0) {
+    throw new PortalError("INVALID_REQUEST", `${fieldName} must be a non-negative integer.`, 400);
+  }
+  target[fieldName] = value;
+}
+
+function buildStoreBusinessProfileUpdates(payload: JsonRecord, actor: JsonRecord) {
+  const updates: JsonRecord = {};
+  STORE_BUSINESS_PROFILE_STRING_FIELDS.forEach((fieldName) => copyStringField(updates, payload, fieldName));
+  STORE_BUSINESS_PROFILE_DATE_FIELDS.forEach((fieldName) => copyDateField(updates, payload, fieldName));
+  STORE_BUSINESS_PROFILE_NUMBER_FIELDS.forEach((fieldName) => copyNullableNumberField(updates, payload, fieldName));
+  STORE_BUSINESS_PROFILE_INTEGER_FIELDS.forEach((fieldName) => copyNullableIntegerField(updates, payload, fieldName));
+  if (!Object.keys(updates).length) return updates;
+  updates.source_system = "hub_dashboard";
+  updates.updated_by_employee_id = getActorEmployeeId(actor);
+  updates.updated_at = new Date().toISOString();
+  return updates;
+}
+
+function hasMeaningfulStoreBusinessProfileValue(updates: JsonRecord) {
+  return Object.entries(updates).some(([key, value]) => (
+    !["source_system", "updated_by_employee_id", "updated_at"].includes(key)
+    && value !== null
+    && value !== ""
+    && value !== undefined
+  ));
 }
 
 function todayJst() {
@@ -2728,6 +3008,7 @@ async function updateCoreStore(payload: JsonRecord, actor: JsonRecord) {
   if (!id) throw new PortalError("INVALID_REQUEST", "Store id is required.", 400);
   const before = await getCoreStoreById(id);
   if (!before?.id) throw new PortalError("NOT_FOUND", "Store was not found.", 404);
+  const beforeProfile = await getStoreBusinessProfile(id);
   const updates: JsonRecord = { updated_at: new Date().toISOString() };
   copyStringField(updates, payload, "store_name");
   copyStringField(updates, payload, "area");
@@ -2750,9 +3031,34 @@ async function updateCoreStore(payload: JsonRecord, actor: JsonRecord) {
       targetName: String(after.store_name || before.store_name || ""),
     });
   }
+  const profileUpdates = buildStoreBusinessProfileUpdates(payload, actor);
+  const changedProfileUpdates = getChangedFields(beforeProfile || {}, profileUpdates);
+  let afterProfile = beforeProfile;
+  if (Object.keys(changedProfileUpdates).length && (beforeProfile?.store_id || hasMeaningfulStoreBusinessProfileValue(profileUpdates))) {
+    const rows = await readRows("store_business_profiles", {
+      method: "POST",
+      query: {
+        on_conflict: "store_id",
+        select: STORE_BUSINESS_PROFILE_SELECT,
+      },
+      payload: {
+        store_id: id,
+        ...profileUpdates,
+      },
+      prefer: "resolution=merge-duplicates,return=representation",
+    });
+    afterProfile = rows[0] || beforeProfile;
+    await appendMasterChangeLog("store_business_profiles", id, {
+      changed_profile_fields: Object.keys(changedProfileUpdates).filter((key) => !["updated_at", "updated_by_employee_id"].includes(key)),
+    }, actor, {
+      actionType: "update_store_business_profile",
+      targetName: String(after.store_name || before.store_name || ""),
+    });
+  }
   const lineWorksDestination = await updateStoreLineWorksDestinationIfPresent(id, payload, actor, after);
   return {
     ...after,
+    business_profile: sanitizeStoreBusinessProfile(afterProfile),
     line_works_channel: sanitizeLineWorksDestination(lineWorksDestination),
   };
 }
@@ -3238,6 +3544,10 @@ Deno.serve(async (request) => {
     if (action === "ideaLinkTimelineRead") {
       assertIdeaLinkUser(employee);
       return jsonResponse({ ok: true, timeline: await readIdeaLinkTimeline(employee, payload), performance: { source: "nov-hub-api-proxy" } });
+    }
+
+    if (action === "ideaLinkPostCreate") {
+      return jsonResponse({ ok: true, result: await createIdeaLinkPost(employee, payload), performance: { source: "nov-hub-api-proxy" } });
     }
 
     if (action === "markNovHubNotificationRead") {

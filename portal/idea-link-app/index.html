@@ -305,6 +305,15 @@
       margin-top: 16px;
     }
 
+    .view {
+      display: none;
+    }
+
+    .view.active {
+      display: grid;
+      gap: 14px;
+    }
+
     .post {
       border: 1px solid var(--line);
       border-radius: var(--radius);
@@ -357,7 +366,8 @@
       font-size: 20px;
     }
 
-    .profile {
+    .profile,
+    .my-summary {
       display: grid;
       gap: 8px;
       font-size: 14px;
@@ -486,6 +496,32 @@
           新Webアプリの受け皿として稼働中です。投稿保存とLINE WORKS通知は、専用APIの最終smoke後に有効化します。
         </div>
 
+        <div class="view" data-view="home">
+          <div class="stats">
+            <div class="stat">
+              <span>今月送信</span>
+              <strong>0</strong>
+            </div>
+            <div class="stat">
+              <span>今月受信</span>
+              <strong>0</strong>
+            </div>
+            <div class="stat">
+              <span>チャレンジ</span>
+              <strong>0</strong>
+            </div>
+          </div>
+          <div class="post">
+            <div class="post-top">
+              <span>今月のテーマ</span>
+              <span>サンクスコイン</span>
+            </div>
+            <strong>今日の「ありがとう」を見つけよう</strong>
+            <p>笑顔で挨拶する、約束を守る、助け合う、伝え合う、思いやる行動をコインで届けます。</p>
+          </div>
+        </div>
+
+        <div class="view active" data-view="send">
         <div class="composer" aria-label="サンクス投稿フォーム">
           <label>
             店舗
@@ -495,8 +531,9 @@
           </label>
           <label>
             送り先
-            <input id="receiver" placeholder="社員名または店舗名" autocomplete="off">
-            <div class="recipient-results" id="recipient-results" aria-label="送り先候補"></div>
+            <select id="receiver" disabled>
+              <option value="">先に店舗を選択してください</option>
+            </select>
           </label>
           <label>
             カテゴリ
@@ -517,8 +554,31 @@
             <button class="primary" type="button" id="submit-button">サンクスを送る</button>
           </div>
         </div>
+        </div>
 
+        <div class="view" data-view="timeline">
+          <h2>最新のサンクス</h2>
         <div class="feed" id="feed" aria-label="タイムライン"></div>
+      </div>
+
+        <div class="view" data-view="my">
+          <h2>マイページ</h2>
+          <div class="stats">
+            <div class="stat">
+              <span>今月送信</span>
+              <strong>0</strong>
+            </div>
+            <div class="stat">
+              <span>今月受信</span>
+              <strong>0</strong>
+            </div>
+            <div class="stat">
+              <span>チャレンジ</span>
+              <strong>0</strong>
+            </div>
+          </div>
+          <div class="profile" id="profile"></div>
+        </div>
       </div>
     </section>
 
@@ -542,25 +602,25 @@
             <strong>0</strong>
           </div>
         </div>
-        <div class="profile" id="profile"></div>
+        <div class="my-summary">HUB連携済み</div>
       </div>
     </aside>
   </main>
 
   <nav class="bottom-nav" aria-label="サンクスコインメニュー">
-    <button class="nav-item" type="button">
+    <button class="nav-item" type="button" data-view-target="home">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 10.8 12 3l9 7.8v9.7h-6v-6H9v6H3z"/></svg>
       ホーム
     </button>
-    <button class="nav-item active" type="button">
+    <button class="nav-item active" type="button" data-view-target="send">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>
       送る
     </button>
-    <button class="nav-item" type="button">
+    <button class="nav-item" type="button" data-view-target="timeline">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 7h10M7 12h10M7 17h10"/></svg>
       一覧
     </button>
-    <button class="nav-item" type="button">
+    <button class="nav-item" type="button" data-view-target="my">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.3-6 8-6s6.5 2 8 6"/></svg>
       マイページ
     </button>
@@ -581,14 +641,14 @@
     const feed = document.querySelector("#feed");
     const storeFilter = document.querySelector("#store-filter");
     const receiver = document.querySelector("#receiver");
-    const recipientResults = document.querySelector("#recipient-results");
     const category = document.querySelector("#category");
     const message = document.querySelector("#message");
     const modeNotice = document.querySelector("#mode-notice");
     const clearButton = document.querySelector("#clear-button");
     const submitButton = document.querySelector("#submit-button");
+    const navItems = Array.from(document.querySelectorAll("[data-view-target]"));
+    const views = Array.from(document.querySelectorAll("[data-view]"));
     let submitting = false;
-    let recipientSearchTimer = 0;
 
     function text(value, fallback = "") {
       return String(value || fallback || "").trim();
@@ -669,13 +729,17 @@
     }
 
     function getReceiverId() {
-      const explicitId = text(receiver.dataset.employeeId || receiver.value);
+      const explicitId = text(receiver.value);
       return UUID_PATTERN.test(explicitId) ? explicitId : "";
     }
 
-    function hideRecipientResults() {
-      recipientResults.classList.remove("visible");
-      recipientResults.innerHTML = "";
+    function setView(target) {
+      views.forEach((view) => {
+        view.classList.toggle("active", view.dataset.view === target);
+      });
+      navItems.forEach((item) => {
+        item.classList.toggle("active", item.dataset.viewTarget === target);
+      });
     }
 
     function renderStoreOptions(stores, context) {
@@ -694,42 +758,44 @@
       try {
         const response = await callApiAction("ideaLinkStoreOptions", {});
         renderStoreOptions(response.result?.stores || [], context);
+        if (storeFilter.value) await loadRecipientsForStore();
       } catch (_error) {
         storeFilter.innerHTML = "<option value=\"\">店舗を選択してください</option>";
       }
     }
 
-    function renderRecipientResults(recipients) {
+    function renderRecipientOptions(recipients) {
       if (!recipients.length) {
-        recipientResults.innerHTML = "<button class=\"recipient-option\" type=\"button\" disabled><strong>候補なし</strong><span>名前をもう少し入力してください</span></button>";
-        recipientResults.classList.add("visible");
+        receiver.innerHTML = "<option value=\"\">この店舗の候補が見つかりません</option>";
+        receiver.disabled = true;
         return;
       }
-      recipientResults.innerHTML = recipients.map((item) => `
-        <button class="recipient-option" type="button" data-employee-id="${item.id}">
-          <strong>${text(item.fullName, "名前未設定")}</strong>
-          <span>${[item.employeeNumber, item.storeName, item.jobTypeName].filter(Boolean).join(" / ")}</span>
-        </button>
-      `).join("");
-      recipientResults.classList.add("visible");
+      receiver.innerHTML = [
+        "<option value=\"\">送り先を選択してください</option>",
+        ...recipients.map((item) => `<option value="${item.id}">${text(item.fullName, "名前未設定")}（${[item.employeeNumber, item.jobTypeName].filter(Boolean).join(" / ")}）</option>`)
+      ].join("");
+      receiver.disabled = false;
     }
 
-    async function searchRecipients() {
-      const query = text(receiver.value);
-      delete receiver.dataset.employeeId;
-      if (query.length < 1) {
-        hideRecipientResults();
+    async function loadRecipientsForStore() {
+      const storeId = text(storeFilter.value);
+      receiver.innerHTML = storeId
+        ? "<option value=\"\">送り先を読み込み中</option>"
+        : "<option value=\"\">先に店舗を選択してください</option>";
+      receiver.disabled = true;
+      if (!storeId) {
         return;
       }
       try {
         const response = await callApiAction("ideaLinkRecipientSearch", {
-          query,
-          storeId: storeFilter.value,
-          limit: 8
+          query: "",
+          storeId,
+          limit: 80
         });
-        renderRecipientResults(response.result?.recipients || []);
+        renderRecipientOptions(response.result?.recipients || []);
       } catch (_error) {
-        hideRecipientResults();
+        receiver.innerHTML = "<option value=\"\">送り先を読み込めませんでした</option>";
+        receiver.disabled = true;
       }
     }
 
@@ -767,28 +833,13 @@
 
     clearButton.addEventListener("click", () => {
       receiver.value = "";
-      delete receiver.dataset.employeeId;
       message.value = "";
-      hideRecipientResults();
     });
 
-    storeFilter.addEventListener("change", () => {
-      receiver.value = "";
-      delete receiver.dataset.employeeId;
-      hideRecipientResults();
-    });
+    storeFilter.addEventListener("change", loadRecipientsForStore);
 
-    receiver.addEventListener("input", () => {
-      window.clearTimeout(recipientSearchTimer);
-      recipientSearchTimer = window.setTimeout(searchRecipients, 220);
-    });
-
-    recipientResults.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-employee-id]");
-      if (!button) return;
-      receiver.dataset.employeeId = button.dataset.employeeId || "";
-      receiver.value = button.querySelector("strong")?.textContent || "";
-      hideRecipientResults();
+    navItems.forEach((item) => {
+      item.addEventListener("click", () => setView(item.dataset.viewTarget || "send"));
     });
 
     submitButton.addEventListener("click", async () => {

@@ -2,6 +2,7 @@
 import { callApiAction, clearApiAuth, setFirebaseAuth } from "../js/api.js";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
+const NEW_CORPORATION_ID = "__new_corporation__";
 const NEW_PORTAL_APP_ID = "__new_portal_app__";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
@@ -94,7 +95,7 @@ const state = {
 };
 
 const elements = Object.fromEntries([
-  "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "add-employee", "add-portal-app", "refresh",
+  "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "add-employee", "add-corporation", "add-portal-app", "refresh",
   "view-title", "search", "employee-csv-tools", "export-employees-csv", "import-employees-csv", "quality-summary", "result-count", "table-head", "table-body",
   "detail-panel", "employee-status-filter", "corporation-status-filter", "store-status-filter", "app-status-filter", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
@@ -708,6 +709,7 @@ function render() {
   });
   updateNavigationCounts();
   elements.addEmployee.hidden = state.view !== "employees" || !state.permissions.canEdit;
+  elements.addCorporation.hidden = state.view !== "corporations" || !state.permissions.canEdit;
   elements.employeeCsvTools.hidden = state.view !== "employees";
   elements.addPortalApp.hidden = state.view !== "apps" || !state.permissions.canEdit;
   elements.viewTitle.textContent = {
@@ -1299,6 +1301,10 @@ function renderDetail() {
   }
   if (state.view === "employees" && state.selectedId === NEW_EMPLOYEE_ID) {
     renderNewEmployeeDetail();
+    return;
+  }
+  if (state.view === "corporations" && state.selectedId === NEW_CORPORATION_ID) {
+    renderNewCorporationDetail();
     return;
   }
   if (state.view === "apps" && state.selectedId === NEW_PORTAL_APP_ID) {
@@ -2365,6 +2371,86 @@ function renderCorporationDetail(corporation) {
   }
 }
 
+function startCreateCorporation() {
+  if (!state.permissions.canEdit) {
+    showToast("編集権限がありません。", "error");
+    return;
+  }
+  state.view = "corporations";
+  state.selectedId = NEW_CORPORATION_ID;
+  state.formSnapshot = null;
+  render();
+}
+
+function renderNewCorporationDetail() {
+  elements.detailPanel.innerHTML = `
+    <h3>新規法人追加</h3>
+    <p class="detail-meta">Core DB corporations に法人を追加します。</p>
+    <p class="detail-note">法人Noと法人名は必須です。詳細項目は作成後でも追記できます。</p>
+    <form class="form-grid store-detail-form" id="detail-form">
+      ${fieldInput("corporation_no", "法人No", "", { required: true, placeholder: "例: 001" })}
+      ${fieldInput("corporation_name", "法人名", "", { required: true, placeholder: "例: 株式会社〇〇" })}
+      ${fieldCheckbox("is_active", "有効", true)}
+      <section class="store-detail-section">
+        <div class="store-detail-section-header">
+          <div>
+            <strong>法人情報</strong>
+            <p>登記・請求で使う情報</p>
+          </div>
+        </div>
+        <div class="store-detail-compact-grid">
+          ${fieldInput("formal_corporation_name", "正式名", "", { placeholder: "例: 株式会社〇〇" })}
+          ${fieldInput("corporation_number", "法人番号", "", { placeholder: "13桁" })}
+          ${fieldInput("invoice_registration_number", "インボイス番号", "", { placeholder: "T + 13桁" })}
+          ${fieldInput("representative_name", "代表者", "")}
+          <div class="store-detail-wide">${fieldInput("head_office_address", "所在地", "")}</div>
+          ${fieldInput("phone_number", "電話番号", "")}
+        </div>
+      </section>
+      <section class="store-detail-section">
+        <div class="store-detail-section-header">
+          <div>
+            <strong>会計・労務</strong>
+            <p>決算・給与・保険</p>
+          </div>
+        </div>
+        <div class="store-detail-compact-grid">
+          ${fieldInput("fiscal_year_end_month", "決算月", "", { type: "number", step: "1", min: "1", max: "12", placeholder: "1-12" })}
+          ${fieldInput("accounting_category", "会計区分", "", { placeholder: "例: 自社 / FC / 関連会社" })}
+          ${fieldInput("payroll_closing_day", "給与締日", "", { placeholder: "例: 月末" })}
+          ${fieldInput("payroll_payment_day", "給与支払日", "", { placeholder: "例: 翌月25日" })}
+          ${fieldInput("social_insurance_status", "社会保険", "")}
+          ${fieldInput("labor_insurance_status", "労保", "")}
+          ${fieldInput("tax_accountant_label", "税理士", "")}
+          ${fieldInput("labor_consultant_label", "社労士", "")}
+        </div>
+      </section>
+      <section class="store-detail-section">
+        <div class="store-detail-section-header">
+          <div>
+            <strong>運用状態</strong>
+            <p>設立・廃止・補足</p>
+          </div>
+        </div>
+        <div class="store-detail-compact-grid">
+          ${fieldInput("operating_status", "状況", "", { placeholder: "運用中 / 休眠 / 廃止" })}
+          ${fieldInput("established_on", "設立日", "", "date")}
+          ${fieldInput("closed_on", "廃止日", "", "date")}
+          <div class="store-detail-wide">${fieldTextarea("corporation_feature_note", "備考", "")}</div>
+          <p class="field-help store-detail-help">Secret、口座番号、税務資料本文は保存しません。</p>
+        </div>
+      </section>
+      <div class="save-row">
+        <span class="save-status" id="corporation-save-status" aria-live="polite"></span>
+        <button class="button button-primary save-button" type="submit">法人を追加</button>
+      </div>
+    </form>`;
+  const form = document.querySelector("#detail-form");
+  form.addEventListener("submit", saveCorporation);
+  setupDirtyForm("corporation");
+  elements.detailPanel.scrollTop = 0;
+}
+
 function renderStoreDetail(store) {
   const readonly = !state.permissions.canEdit;
   const issues = getStoreIssues(store);
@@ -3333,33 +3419,46 @@ async function saveCorporation(event) {
   event.preventDefault();
   const button = event.submitter;
   const status = document.querySelector("#corporation-save-status");
+  const isCreate = state.selectedId === NEW_CORPORATION_ID;
   let saved = false;
   try {
     setSaveStatus(status, "");
     const payload = collectCorporationPayload();
-    payload.id = state.selectedId;
+    if (!isCreate) payload.id = state.selectedId;
     if (getFormSnapshot("corporation") === state.formSnapshot) {
       setSaveStatus(status, "変更なし・保存済みです", "success");
       showToast("変更はありません。");
+      return;
+    }
+    if (isCreate && !payload.corporation_no?.trim()) {
+      showToast("法人Noは必須です。");
       return;
     }
     if (!payload.corporation_name?.trim()) {
       showToast("法人名は必須です。");
       return;
     }
+    if (isCreate && state.corporations.some((corporation) => String(corporation.corporation_no || "").trim() === String(payload.corporation_no || "").trim())) {
+      showToast("同じ法人Noが既に存在します。");
+      return;
+    }
     button.disabled = true;
     button.title = "保存中です。";
     button.textContent = "保存中...";
     setSaveStatus(status, "保存中です...", "pending");
-    await callApiAction("masterUpdateCorporation", payload);
+    const response = await callApiAction(isCreate ? "masterCreateCorporation" : "masterUpdateCorporation", payload);
     await refreshCorporations();
+    if (isCreate && response.corporation?.id) {
+      state.selectedId = response.corporation.id;
+      render();
+    }
     const logsSynced = await refreshLogsSilently();
     saved = true;
     markCurrentFormSaved(
       "corporation",
       logsSynced ? "保存しました。変更履歴にも反映済みです。" : "保存しました。変更履歴は後で再読み込みしてください。"
     );
-    showToast(logsSynced ? "法人情報を保存し、変更履歴へ反映しました。" : "法人情報を保存しました。変更履歴は後で確認してください。");
+    showToast(isCreate ? "法人を追加しました。" : logsSynced ? "法人情報を保存し、変更履歴へ反映しました。" : "法人情報を保存しました。変更履歴は後で確認してください。");
   } catch (error) {
     console.error(error);
     setSaveStatus(status, getErrorMessage(error), "error");
@@ -3712,6 +3811,7 @@ elements.signIn.addEventListener("click", handleSignIn);
 elements.signOut.addEventListener("click", handleSignOut);
 elements.refresh.addEventListener("click", loadData);
 elements.addEmployee.addEventListener("click", startCreateEmployee);
+elements.addCorporation.addEventListener("click", startCreateCorporation);
 elements.addPortalApp.addEventListener("click", startCreatePortalApp);
 elements.exportEmployeesCsv.addEventListener("click", exportEmployeesCsv);
 elements.importEmployeesCsv.addEventListener("change", previewEmployeeCsvImport);

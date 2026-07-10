@@ -3229,6 +3229,19 @@ async function getCoreCorporationById(id: string) {
   return rows[0] || null;
 }
 
+async function getCoreCorporationByNo(corporationNo: string) {
+  const normalizedNo = String(corporationNo || "").trim();
+  if (!normalizedNo) return null;
+  const rows = await readRows("corporations", {
+    query: {
+      select: "id,corporation_no,corporation_name,is_active",
+      corporation_no: `eq.${normalizedNo}`,
+      limit: "1",
+    },
+  });
+  return rows[0] || null;
+}
+
 async function saveDecisionDraftApplication(payload: JsonRecord, actor: JsonRecord) {
   assertDecisionSaveDraftPayload(payload);
   const actorEmployeeId = getActorEmployeeId(actor);
@@ -3245,6 +3258,71 @@ async function saveDecisionDraftApplication(payload: JsonRecord, actor: JsonReco
     p_desired_decision_date: normalizeOptionalDate(payload.desiredDecisionDate, "desiredDecisionDate"),
   }, "public");
   return sanitizeDecisionDraftSaveResult(result);
+}
+
+async function createCoreCorporation(payload: JsonRecord, actor: JsonRecord) {
+  const corporationNo = String(payload.corporation_no || payload.corporationNo || "").trim();
+  const corporationName = String(payload.corporation_name || payload.corporationName || "").trim();
+  if (!corporationNo) throw new PortalError("INVALID_REQUEST", "Corporation no is required.", 400);
+  if (!/^[0-9A-Za-z_-]{1,40}$/.test(corporationNo)) {
+    throw new PortalError("INVALID_REQUEST", "Corporation no must be 1-40 ASCII letters, numbers, hyphens, or underscores.", 400);
+  }
+  if (!corporationName) throw new PortalError("INVALID_REQUEST", "Corporation name is required.", 400);
+
+  const existing = await getCoreCorporationByNo(corporationNo);
+  if (existing?.id) throw new PortalError("CONFLICT", "Corporation no already exists.", 409);
+
+  const rows = await readRows("corporations", {
+    method: "POST",
+    query: { select: "id,corporation_no,corporation_name,is_active" },
+    payload: {
+      corporation_no: corporationNo,
+      corporation_name: corporationName,
+      is_active: parseBooleanLike(payload.is_active, true),
+    },
+    prefer: "return=representation",
+  });
+  const created = rows[0];
+  if (!created?.id) throw new PortalError("CREATE_FAILED", "Corporation was not created.", 500);
+  const createdId = String(created.id);
+
+  await appendMasterChangeLog("corporations", createdId, {
+    corporation_no: corporationNo,
+    corporation_name: corporationName,
+    is_active: created.is_active,
+  }, actor, {
+    actionType: "create",
+    targetName: corporationName,
+  });
+
+  const profileUpdates = buildCorporationBusinessProfileUpdates(payload, actor);
+  let afterProfile = null;
+  if (hasMeaningfulCorporationBusinessProfileValue(profileUpdates)) {
+    const profileRows = await readRows("corporation_business_profiles", {
+      method: "POST",
+      query: {
+        on_conflict: "corporation_id",
+        select: CORPORATION_BUSINESS_PROFILE_SELECT,
+      },
+      payload: {
+        corporation_id: createdId,
+        ...profileUpdates,
+      },
+      prefer: "resolution=merge-duplicates,return=representation",
+    });
+    afterProfile = profileRows[0] || null;
+    await appendMasterChangeLog("corporation_business_profiles", createdId, {
+      changed_profile_fields: Object.keys(profileUpdates).filter((key) => !["updated_at", "updated_by_employee_id"].includes(key)),
+    }, actor, {
+      actionType: "update_corporation_business_profile",
+      targetName: corporationName,
+    });
+  }
+
+  return {
+    ...created,
+    business_profile: sanitizeCorporationBusinessProfile(afterProfile),
+  };
 }
 
 async function updateCoreCorporation(payload: JsonRecord, actor: JsonRecord) {
@@ -3945,6 +4023,11 @@ Deno.serve(async (request) => {
     if (action === "masterUpdateEmployee") {
       assertMasterEditor(employee);
       return jsonResponse({ ok: true, employee: await updateCoreEmployee(payload, employee) });
+    }
+
+    if (action === "masterCreateCorporation") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, corporation: await createCoreCorporation(payload, employee) });
     }
 
     if (action === "masterUpdateCorporation") {

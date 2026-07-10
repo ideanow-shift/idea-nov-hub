@@ -21,6 +21,7 @@ const MANAGEMENT_APP_IDS = new Set(["management-check", "management-platform"]);
 const MANAGEMENT_APP_URL = "./management-platform/";
 const IDEA_LINK_APP_URL = "./idea-link-app/";
 const IDEA_LINK_LEGACY_DEPLOYMENT_ID = "AKfycbz3tmMUSvKEVZgmf8w-pKLk_H6_fXdltkwrHF5VIfpItufu41xoCa1f3-1aE0w3fJpucw";
+const DEVELOPMENT_APP_VIEWER_ROLE_KEYS = new Set(["super_admin", "executive"]);
 const MANAGEMENT_ALLOWED_ROLE_KEYS = new Set([
   "super_admin",
   "executive",
@@ -543,6 +544,16 @@ function isIdeaLinkApp(app) {
     || /(?:^|\/)idea-link\/?(?:[?#].*)?$/.test(appUrl);
 }
 
+function selectReleasedAppsForEmployee(employee, apps) {
+  const roleKeys = new Set([
+    ...(Array.isArray(employee?.roleKeys) ? employee.roleKeys : []),
+    ...(Array.isArray(employee?.roles) ? employee.roles.map((role) => role?.roleKey || role?.role_key) : []),
+    ...(Array.isArray(employee?.tags) ? employee.tags : [])
+  ].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean));
+  if ([...DEVELOPMENT_APP_VIEWER_ROLE_KEYS].some((roleKey) => roleKeys.has(roleKey))) return apps;
+  return apps.filter(isIdeaLinkApp);
+}
+
 async function openApp(app) {
   if (state.authType === "pin" && state.employee?.mustChangePin) {
     showToast("初回PIN変更を完了してからアプリを開いてください。");
@@ -637,7 +648,7 @@ async function loginWithFirebase() {
     const data = await fetchPortalData();
     state.authType = "firebase";
     state.employee = data.employee;
-    state.apps = sortPortalApps(data.apps || []);
+    state.apps = selectReleasedAppsForEmployee(state.employee, sortPortalApps(data.apps || []));
     state.announcements = data.announcements || [];
     state.notifications = [];
     resetAppFilters();
@@ -672,7 +683,7 @@ async function loginWithPin(event) {
     const data = await fetchPortalData();
     state.authType = "pin";
     state.employee = data.employee;
-    state.apps = sortPortalApps(data.apps || []);
+    state.apps = selectReleasedAppsForEmployee(state.employee, sortPortalApps(data.apps || []));
     state.announcements = data.announcements || [];
     state.notifications = [];
     elements.pinCode.value = "";
@@ -704,7 +715,7 @@ function loginDemo() {
     return;
   }
   state.employee = employee;
-  state.apps = getVisibleApps(employee, DEMO_APPS);
+  state.apps = selectReleasedAppsForEmployee(employee, getVisibleApps(employee, DEMO_APPS));
   state.announcements = [];
   state.notifications = [];
   state.authType = "demo";

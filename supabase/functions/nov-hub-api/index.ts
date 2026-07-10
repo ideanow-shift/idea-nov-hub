@@ -1170,6 +1170,100 @@ async function getIdeaLinkStoreOptions(employee: JsonRecord) {
   };
 }
 
+async function previewIdeaLinkPostNotification(employee: JsonRecord, payload: JsonRecord) {
+  assertIdeaLinkUser(employee);
+  const postId = String(payload.postId || payload.post_id || "").trim();
+  if (!isUuid(postId)) throw new PortalError("INVALID_REQUEST", "postId is required.", 400);
+  const post = await getOne(
+    "idea_link_posts",
+    postId,
+    "id,sender_id,receiver_id,receiver_store_id,receiver_department_id,receiver_org_unit_type,status,visibility,created_at",
+  );
+  if (!post) throw new PortalError("INVALID_REQUEST", "IDEA LINK post was not found.", 404);
+  const postRecord = asRecord(post);
+  if (String(postRecord.status || "") !== "active") {
+    return {
+      ok: true,
+      postId,
+      eligible: false,
+      reason: "post_not_active",
+      target: null,
+      source: "nov-hub-api-proxy",
+      guards: ideaLinkNotificationPreviewGuards(),
+    };
+  }
+
+  const orgUnitType = String(postRecord.receiver_org_unit_type || "").trim().toLowerCase();
+  const storeId = String(postRecord.receiver_store_id || "").trim();
+  const departmentId = String(postRecord.receiver_department_id || "").trim();
+  const useHeadOfficeChannel = orgUnitType === "department" || (!storeId && departmentId);
+  const store = storeId
+    ? asRecord(await getOne("stores", storeId, "id,store_id,store_no,store_name"))
+    : {};
+  const targetScope = "store";
+  const targetKeys = useHeadOfficeChannel
+    ? ["honbu", "0000"]
+    : uniqueStrings([
+      storeId,
+      String(store.store_id || ""),
+      String(store.store_no || ""),
+    ]);
+  if (!targetKeys.length) {
+    return {
+      ok: true,
+      postId,
+      eligible: false,
+      reason: "notification_target_missing",
+      target: null,
+      source: "nov-hub-api-proxy",
+      guards: ideaLinkNotificationPreviewGuards(),
+    };
+  }
+
+  const channelRows = await readRows("idea_link_notification_channels", {
+    query: {
+      select: "id,target_scope,target_key,target_type,description,enabled,updated_at",
+      target_scope: `eq.${targetScope}`,
+      target_key: `in.(${targetKeys.join(",")})`,
+      target_type: "eq.channel",
+      enabled: "eq.true",
+      limit: "5",
+    },
+  });
+  const channel = asRecord(channelRows[0] || {});
+  const configured = Boolean(channel.id);
+  return {
+    ok: true,
+    postId,
+    eligible: configured,
+    reason: configured ? "" : "channel_not_configured",
+    target: {
+      scope: targetScope,
+      key: String(channel.target_key || targetKeys[0] || ""),
+      candidateKeys: targetKeys,
+      targetType: "channel",
+      configured,
+      channelRowId: String(channel.id || ""),
+      description: String(channel.description || ""),
+      updatedAt: String(channel.updated_at || ""),
+    },
+    source: "nov-hub-api-proxy",
+    guards: ideaLinkNotificationPreviewGuards(),
+  };
+}
+
+function ideaLinkNotificationPreviewGuards() {
+  return {
+    dbMutationExpected: false,
+    notificationEnqueued: false,
+    lineWorksNotificationSent: false,
+    notificationIdScopedSendRequired: true,
+    existingQueuedRowsTouched: false,
+    browserDirectTableAccess: false,
+    browserDirectRpcExecute: false,
+  };
+}
+
 async function callSupabaseRpc(functionName: string, payload: JsonRecord = {}, schema = "public") {
   return await supabaseRequest(`rpc/${encodeURIComponent(functionName)}`, {
     method: "POST",
@@ -4388,6 +4482,10 @@ Deno.serve(async (request) => {
 
     if (action === "ideaLinkPostCreate") {
       return jsonResponse({ ok: true, result: await createIdeaLinkPost(employee, payload), performance: { source: "nov-hub-api-proxy" } });
+    }
+
+    if (action === "ideaLinkNotificationPreview") {
+      return jsonResponse({ ok: true, result: await previewIdeaLinkPostNotification(employee, payload), performance: { source: "nov-hub-api-proxy" } });
     }
 
     if (action === "ideaLinkRecipientSearch") {

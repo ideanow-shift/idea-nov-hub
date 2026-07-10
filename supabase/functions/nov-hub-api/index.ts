@@ -611,6 +611,61 @@ async function createIdeaLinkPost(employee: JsonRecord, payload: JsonRecord) {
   };
 }
 
+async function searchIdeaLinkRecipients(employee: JsonRecord, payload: JsonRecord) {
+  assertIdeaLinkUser(employee);
+  const queryText = String(payload.query || payload.q || "").trim();
+  const limit = clampNumber(payload.limit, 8, 1, 20);
+  const query: JsonRecord = {
+    select: "id,employee_id,full_name,store_id,department_id,job_type_id,employment_status,is_active",
+    is_active: "eq.true",
+    order: "full_name.asc",
+    limit: String(Math.max(limit * 3, 12)),
+  };
+  if (queryText) query.full_name = `ilike.*${queryText.replace(/[%*]/g, "")}*`;
+  const employees = (await readRows("employees", { query }))
+    .filter((row) => isEmployeeActive(row))
+    .slice(0, limit);
+  const storeIds = uniqueStrings(employees.map((row) => row.store_id));
+  const departmentIds = uniqueStrings(employees.map((row) => row.department_id));
+  const jobTypeIds = uniqueStrings(employees.map((row) => row.job_type_id));
+  const [stores, departments, jobTypes] = await Promise.all([
+    storeIds.length
+      ? readRows("stores", { query: { select: "id,store_name", id: `in.(${storeIds.join(",")})` } })
+      : [],
+    departmentIds.length
+      ? readRows("departments", { query: { select: "id,department_name", id: `in.(${departmentIds.join(",")})` } })
+      : [],
+    jobTypeIds.length
+      ? readRows("job_types", { query: { select: "id,job_type_name", id: `in.(${jobTypeIds.join(",")})` } })
+      : [],
+  ]);
+  const storeById = Object.fromEntries(stores.map((store) => [String(store.id || ""), store]));
+  const departmentById = Object.fromEntries(departments.map((department) => [String(department.id || ""), department]));
+  const jobTypeById = Object.fromEntries(jobTypes.map((jobType) => [String(jobType.id || ""), jobType]));
+  return {
+    recipients: employees.map((candidate) => {
+      const store = asRecord(storeById[String(candidate.store_id || "")]);
+      const department = asRecord(departmentById[String(candidate.department_id || "")]);
+      const jobType = asRecord(jobTypeById[String(candidate.job_type_id || "")]);
+      return {
+        id: String(candidate.id || ""),
+        employeeNumber: String(candidate.employee_id || ""),
+        fullName: String(candidate.full_name || ""),
+        storeName: String(store.store_name || department.department_name || ""),
+        jobTypeName: String(jobType.job_type_name || "未設定"),
+      };
+    }),
+    source: "nov-hub-api-proxy",
+    guards: {
+      dbMutationExpected: false,
+      notificationEnqueued: false,
+      lineWorksNotificationSent: false,
+      browserDirectTableAccess: false,
+      browserDirectRpcExecute: false,
+    },
+  };
+}
+
 async function callSupabaseRpc(functionName: string, payload: JsonRecord = {}, schema = "public") {
   return await supabaseRequest(`rpc/${encodeURIComponent(functionName)}`, {
     method: "POST",
@@ -3548,6 +3603,10 @@ Deno.serve(async (request) => {
 
     if (action === "ideaLinkPostCreate") {
       return jsonResponse({ ok: true, result: await createIdeaLinkPost(employee, payload), performance: { source: "nov-hub-api-proxy" } });
+    }
+
+    if (action === "ideaLinkRecipientSearch") {
+      return jsonResponse({ ok: true, result: await searchIdeaLinkRecipients(employee, payload), performance: { source: "nov-hub-api-proxy" } });
     }
 
     if (action === "markNovHubNotificationRead") {

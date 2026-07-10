@@ -234,6 +234,46 @@
       line-height: 1.7;
     }
 
+    .recipient-results {
+      display: none;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .recipient-results.visible {
+      display: grid;
+    }
+
+    .recipient-option {
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      min-height: 46px;
+      padding: 8px 10px;
+      text-align: left;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .recipient-option:last-child {
+      border-bottom: 0;
+    }
+
+    .recipient-option strong {
+      display: block;
+      font-size: 14px;
+    }
+
+    .recipient-option span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
     .feed {
       display: grid;
       gap: 10px;
@@ -373,14 +413,16 @@
           <label>
             送り先
             <input id="receiver" placeholder="社員名または店舗名" autocomplete="off">
+            <div class="recipient-results" id="recipient-results" aria-label="送り先候補"></div>
           </label>
           <label>
             カテゴリ
             <select id="category">
-              <option>感謝</option>
-              <option>理念行動</option>
-              <option>チャレンジ</option>
-              <option>サポート</option>
+              <option value="気持ち良い挨拶">笑顔で挨拶する</option>
+              <option value="約束を守る">約束を守る</option>
+              <option value="チームワーク">助け合う</option>
+              <option value="報連相">伝え合う</option>
+              <option value="思いやり">思いやる</option>
             </select>
           </label>
           <label>
@@ -428,15 +470,22 @@
       readHubEmployeeContext,
       readHubEmployeeContextFromUrl
     } from "../js/hub-context.js";
+    import { callApiAction, setFirebaseAuth } from "../js/api.js";
 
     const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
+    const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     const connectionStatus = document.querySelector("#connection-status");
     const profile = document.querySelector("#profile");
     const feed = document.querySelector("#feed");
     const receiver = document.querySelector("#receiver");
+    const recipientResults = document.querySelector("#recipient-results");
+    const category = document.querySelector("#category");
     const message = document.querySelector("#message");
+    const modeNotice = document.querySelector("#mode-notice");
     const clearButton = document.querySelector("#clear-button");
     const submitButton = document.querySelector("#submit-button");
+    let submitting = false;
+    let recipientSearchTimer = 0;
 
     function text(value, fallback = "") {
       return String(value || fallback || "").trim();
@@ -479,7 +528,7 @@
         {
           title: `${name}さんのHUB認証を確認しました`,
           meta: `${store} / 新Webアプリ`,
-          body: "この画面はGASを使わずにNOV HUBのログイン情報を受け取っています。投稿APIが有効になるまでは保存と通知を行いません。"
+          body: "この画面はGASを使わずにNOV HUBのログイン情報を受け取っています。投稿保存APIの接続候補を確認中です。"
         },
         {
           title: "次の有効化対象",
@@ -500,14 +549,149 @@
 
     function lockForm(reason) {
       receiver.disabled = true;
+      category.disabled = true;
       message.disabled = true;
       submitButton.disabled = true;
       submitButton.textContent = reason;
     }
 
+    function unlockForm() {
+      receiver.disabled = false;
+      category.disabled = false;
+      message.disabled = false;
+      submitButton.disabled = false;
+      submitButton.textContent = "保存候補を実行";
+    }
+
+    function getReceiverId() {
+      const explicitId = text(receiver.dataset.employeeId || receiver.value);
+      return UUID_PATTERN.test(explicitId) ? explicitId : "";
+    }
+
+    function hideRecipientResults() {
+      recipientResults.classList.remove("visible");
+      recipientResults.innerHTML = "";
+    }
+
+    function renderRecipientResults(recipients) {
+      if (!recipients.length) {
+        recipientResults.innerHTML = "<button class=\"recipient-option\" type=\"button\" disabled><strong>候補なし</strong><span>名前をもう少し入力してください</span></button>";
+        recipientResults.classList.add("visible");
+        return;
+      }
+      recipientResults.innerHTML = recipients.map((item) => `
+        <button class="recipient-option" type="button" data-employee-id="${item.id}">
+          <strong>${text(item.fullName, "名前未設定")}</strong>
+          <span>${[item.employeeNumber, item.storeName, item.jobTypeName].filter(Boolean).join(" / ")}</span>
+        </button>
+      `).join("");
+      recipientResults.classList.add("visible");
+    }
+
+    async function searchRecipients() {
+      const query = text(receiver.value);
+      delete receiver.dataset.employeeId;
+      if (query.length < 1) {
+        hideRecipientResults();
+        return;
+      }
+      try {
+        const response = await callApiAction("ideaLinkRecipientSearch", { query, limit: 8 });
+        renderRecipientResults(response.result?.recipients || []);
+      } catch (_error) {
+        hideRecipientResults();
+      }
+    }
+
+    function setNotice(kind, body) {
+      modeNotice.textContent = body;
+      if (kind === "error") {
+        modeNotice.style.borderColor = "#ffb4b4";
+        modeNotice.style.background = "#fff1f1";
+        modeNotice.style.color = "#8a1f1f";
+      } else if (kind === "success") {
+        modeNotice.style.borderColor = "#b7e2c3";
+        modeNotice.style.background = "var(--green-soft)";
+        modeNotice.style.color = "var(--green)";
+      } else {
+        modeNotice.style.borderColor = "#f0d28a";
+        modeNotice.style.background = "var(--amber-soft)";
+        modeNotice.style.color = "var(--amber)";
+      }
+    }
+
+    function renderSavedPost(result) {
+      const post = result?.post || {};
+      const savedAt = new Date().toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "short" });
+      feed.insertAdjacentHTML("afterbegin", `
+        <article class="post">
+          <div class="post-top">
+            <span>${savedAt}</span>
+            <span>保存済み / 通知なし</span>
+          </div>
+          <strong>${text(post.sender_name_snapshot, "送信者")} → ${text(post.receiver_name_snapshot, "受信者")}</strong>
+          <p>${text(post.comment)}</p>
+        </article>
+      `);
+    }
+
     clearButton.addEventListener("click", () => {
       receiver.value = "";
+      delete receiver.dataset.employeeId;
       message.value = "";
+      hideRecipientResults();
+    });
+
+    receiver.addEventListener("input", () => {
+      window.clearTimeout(recipientSearchTimer);
+      recipientSearchTimer = window.setTimeout(searchRecipients, 220);
+    });
+
+    recipientResults.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-employee-id]");
+      if (!button) return;
+      receiver.dataset.employeeId = button.dataset.employeeId || "";
+      receiver.value = button.querySelector("strong")?.textContent || "";
+      hideRecipientResults();
+    });
+
+    submitButton.addEventListener("click", async () => {
+      if (submitting) return;
+      const receiverId = getReceiverId();
+      const comment = text(message.value);
+      if (!receiverId) {
+        setNotice("error", "送り先を候補から選択してください。");
+        receiver.focus();
+        return;
+      }
+      if (comment.length < 10 || comment.length > 200) {
+        setNotice("error", "メッセージは10〜200文字で入力してください。");
+        message.focus();
+        return;
+      }
+      submitting = true;
+      submitButton.disabled = true;
+      submitButton.textContent = "保存中";
+      try {
+        setFirebaseAuth();
+        const response = await callApiAction("ideaLinkPostCreate", {
+          clientRequestId: crypto.randomUUID(),
+          receiverId,
+          category: category.value,
+          comment,
+          visibility: "public",
+          challengeFlag: false
+        });
+        renderSavedPost(response.result);
+        message.value = "";
+        setNotice("success", "保存しました。LINE WORKS通知はまだ送信していません。");
+      } catch (error) {
+        setNotice("error", error?.message || "保存に失敗しました。");
+      } finally {
+        submitting = false;
+        submitButton.disabled = false;
+        submitButton.textContent = "保存候補を実行";
+      }
     });
 
     const context = readHubEmployeeContextFromUrl(window.location.href) || readHubEmployeeContext();
@@ -531,7 +715,8 @@
       connectionStatus.textContent = "GASなしで接続";
       renderProfile(context);
       renderFeed(context);
-      lockForm("API準備中");
+      unlockForm();
+      setNotice("info", "保存ボタン接続候補です。通知送信は行いません。送り先を名前で検索できます。");
       const url = new URL(window.location.href);
       if (url.searchParams.has(HUB_CONTEXT_QUERY_KEY)) {
         url.searchParams.delete(HUB_CONTEXT_QUERY_KEY);

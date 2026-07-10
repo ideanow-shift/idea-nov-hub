@@ -27,7 +27,20 @@ export async function signInWithGoogle() {
 }
 
 export async function getIdToken() {
-  return firebaseAuth?.currentUser ? firebaseAuth.currentUser.getIdToken() : "";
+  if (!isFirebaseConfigured()) return "";
+  const sdk = await loadFirebase();
+  const currentUser = firebaseAuth?.currentUser || await new Promise((resolve) => {
+    const timer = window.setTimeout(() => {
+      unsubscribe();
+      resolve(null);
+    }, 5000);
+    const unsubscribe = sdk.onAuthStateChanged(firebaseAuth, (user) => {
+      window.clearTimeout(timer);
+      unsubscribe();
+      resolve(user);
+    });
+  });
+  return currentUser ? currentUser.getIdToken() : "";
 }
 
 export async function signOutUser() {

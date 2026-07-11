@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v19";
+const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v20";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -588,7 +588,7 @@ function appendSafeEditActions(parent) {
   editButton.textContent = editMode ? "復旧確認表示に戻る" : state.permissions.canEdit ? "通常編集フォームを表示" : "通常詳細フォームを表示";
   editButton.addEventListener("click", () => {
     state.safeRecoveryMode = editMode ? "safe" : "edit";
-    render();
+    renderSafeMasterAdminView();
     showToast(state.safeRecoveryMode === "edit" ? "通常フォームを復旧ビュー内に表示しました。" : "復旧確認表示に戻しました。");
   });
   actions.append(editButton);
@@ -602,8 +602,7 @@ function appendSafeEditActions(parent) {
 }
 
 function rerenderAfterSafeSelectionChange() {
-  if (state.safeRecoveryMode === "edit") render();
-  else renderSafeMasterAdminView();
+  renderSafeMasterAdminView();
 }
 
 function getSafeViewTitle() {
@@ -974,8 +973,15 @@ function createSafeCell(row, value) {
   return cell;
 }
 
-function appendNormalDetailIntoSafeCard(detailCard) {
+function renderNormalDetailForSafeView(selected) {
+  if (state.view === "stores") renderStoreDetail(selected);
+  else if (state.view === "corporations") renderCorporationDetail(selected);
+  else renderEmployeeDetail(selected);
+}
+
+function appendNormalDetailIntoSafeCard(detailCard, selected) {
   appendSafeEditActions(detailCard);
+  renderNormalDetailForSafeView(selected);
   const normalDetail = document.createElement("div");
   normalDetail.className = "safe-master-normal-detail";
   while (elements.detailPanel?.firstChild) {
@@ -1069,7 +1075,7 @@ function renderSafeMasterAdminView() {
   detailCard.className = "safe-master-card safe-master-detail";
   if (selected) {
     if (state.safeRecoveryMode === "edit") {
-      appendNormalDetailIntoSafeCard(detailCard);
+      appendNormalDetailIntoSafeCard(detailCard, selected);
     } else {
       appendSafeEditActions(detailCard);
       if (state.view === "stores") renderSafeStoreDetail(detailCard, selected);

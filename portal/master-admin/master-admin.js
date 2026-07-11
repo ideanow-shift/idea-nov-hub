@@ -1,12 +1,12 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
-import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-auth-session-20260711-8";
+import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-render-recovery-20260711-9";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";
 const NEW_PORTAL_APP_ID = "__new_portal_app__";
 const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
-const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 24000;
+const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -320,7 +320,7 @@ function showRecoveryVersionMarker() {
   if (!marker) {
     marker = document.createElement("div");
     marker.id = "master-admin-recovery-version";
-    marker.textContent = "UI復旧版 v8";
+    marker.textContent = "UI復旧版 v9";
     document.body.append(marker);
   }
   setStyles(marker, {
@@ -352,27 +352,69 @@ function renderRowsSafely(rows, renderer, columnCount) {
     try {
       return renderer(row);
     } catch (error) {
-      console.error("master admin row render failed", error);
+      console.warn("master admin row render fallback", { code: error?.name || "row_render_error" });
       return renderFallbackRow(row, columnCount, "一部項目の表示形式を確認しています。");
     }
   });
 }
 
+function appendRecoveryCell(row, value) {
+  const cell = document.createElement("td");
+  cell.textContent = value == null ? "" : String(value);
+  row.append(cell);
+}
+
+function getRecoveryAffiliation(employee) {
+  return employee?.store_name || employee?.department_name || employee?.corporation_name || "";
+}
+
+function getRecoveryEmail(employee) {
+  return employee?.email || employee?.contact_email || employee?.work_email || "任意未入力";
+}
+
+function getRecoveryLoginStatus(employee) {
+  const credential = employee?.credential || employee?.login_credential || {};
+  if (credential?.login_enabled === false || employee?.login_enabled === false) return "停止";
+  if (credential?.pin_set || credential?.has_pin || employee?.pin_set || employee?.has_pin) return "利用可";
+  return "PIN未設定";
+}
+
+function getRecoveryNotificationStatus(employee) {
+  const destination = employee?.notification_destination || employee?.line_works_destination || {};
+  if (
+    destination?.has_value ||
+    destination?.hasValue ||
+    destination?.masked_value ||
+    destination?.maskedValue ||
+    employee?.line_works_user_id ||
+    employee?.lineworks_user_id ||
+    employee?.line_works_channel_id
+  ) {
+    return "設定済み";
+  }
+  return "未設定";
+}
+
+function getRecoveryEmployeeStatus(employee) {
+  const value = String(employee?.employment_status || employee?.status || "").toLowerCase();
+  if (employee?.is_active === false || value.includes("retired") || value.includes("inactive") || value.includes("退職")) return "退職";
+  if (value.includes("leave") || value.includes("休職")) return "休職";
+  return "現職";
+}
+
 function buildRecoveryEmployeeRow(employee) {
   const tr = document.createElement("tr");
-  tr.className = employee.id === state.selectedId ? "selected" : "";
-  const affiliation = formatEmployeeAffiliation(employee);
-  tr.innerHTML = `
-    <td>${escapeHtml(employee.employee_id || "")}</td>
-    <td>${escapeHtml(employee.full_name || "")}</td>
-    <td>${escapeHtml(affiliation)}</td>
-    <td>${escapeHtml(employee.position_name || employee.source_position_name || "")}</td>
-    <td>${formatEmployeeEmail(employee)}</td>
-    <td>${formatEmployeeLogin(employee)}</td>
-    <td>${formatEmployeeLineWorksDestination(employee)}</td>
-    <td>${formatEmployeeStatus(employee)}</td>`;
+  tr.className = employee?.id === state.selectedId ? "selected" : "";
+  appendRecoveryCell(tr, employee?.employee_id || "");
+  appendRecoveryCell(tr, employee?.full_name || "");
+  appendRecoveryCell(tr, getRecoveryAffiliation(employee));
+  appendRecoveryCell(tr, employee?.position_name || employee?.source_position_name || "");
+  appendRecoveryCell(tr, getRecoveryEmail(employee));
+  appendRecoveryCell(tr, getRecoveryLoginStatus(employee));
+  appendRecoveryCell(tr, getRecoveryNotificationStatus(employee));
+  appendRecoveryCell(tr, getRecoveryEmployeeStatus(employee));
   tr.addEventListener("click", () => {
-    state.selectedId = employee.id;
+    state.selectedId = employee?.id || "";
     render();
   });
   return tr;
@@ -405,7 +447,13 @@ function forceRecoveryEmployeeTable(rows) {
       <th>通知先</th>
       <th>状態</th>
     </tr>`;
-  tbody.replaceChildren(...rows.map(buildRecoveryEmployeeRow));
+  tbody.replaceChildren(...rows.map((row) => {
+    try {
+      return buildRecoveryEmployeeRow(row);
+    } catch {
+      return renderFallbackRow(row, 8, "この行の表示を確認しています。");
+    }
+  }));
   setStyles(tableWrap, {
     display: "block",
     overflow: "auto",
@@ -539,8 +587,19 @@ async function loadData() {
   state.logs = [];
   state.logsLoaded = false;
   state.selectedId = "";
-  render();
   showMode("app");
+  render();
+  requestAnimationFrame(() => {
+    try {
+      const rows = getRows();
+      if ((state.view === "employees" || state.view === "firebase") && rows.length && !elements.tableBody.children.length) {
+        forceRecoveryEmployeeTable(rows);
+      }
+      applyStableLayoutStyles();
+    } catch {
+      forceRecoveryEmployeeTable(state.employees || []);
+    }
+  });
 }
 
 function getRows() {
@@ -1044,8 +1103,19 @@ function render() {
 }
 
 function renderTable() {
-  const rows = getRows();
-  renderQualitySummary();
+  let rows = [];
+  try {
+    rows = getRows();
+  } catch (error) {
+    console.warn("master admin row collection fallback", { code: error?.name || "row_collection_error" });
+    rows = state.view === "employees" || state.view === "firebase" ? state.employees || [] : [];
+  }
+  try {
+    renderQualitySummary();
+  } catch (error) {
+    console.warn("master admin summary fallback", { code: error?.name || "summary_render_error" });
+    elements.qualitySummary.replaceChildren();
+  }
   elements.resultCount.textContent = `${rows.length}件`;
   if (state.view === "employees" || state.view === "firebase") {
     elements.tableHead.innerHTML = `
@@ -1060,8 +1130,17 @@ function renderTable() {
         <th>未設定</th>
         <th>状態</th>
       </tr>`;
-    elements.tableBody.replaceChildren(...renderRowsSafely(rows, renderEmployeeRow, 9));
-    forceRecoveryEmployeeTable(rows);
+    try {
+      elements.tableBody.replaceChildren(...renderRowsSafely(rows, renderEmployeeRow, 9));
+    } catch (error) {
+      console.warn("master admin employee table fallback", { code: error?.name || "employee_table_error" });
+      elements.tableBody.replaceChildren();
+    }
+    if (rows.length && !elements.tableBody.children.length) {
+      forceRecoveryEmployeeTable(rows);
+    } else if (rows.length) {
+      forceRecoveryEmployeeTable(rows);
+    }
     applyStableLayoutStyles();
     return;
   }
@@ -4145,11 +4224,9 @@ async function initializeMasterAdmin() {
   try {
     await loadData();
   } catch (error) {
-    console.error("Master admin bootstrap failed", {
+    console.warn("Master admin bootstrap stopped safely", {
       code: error.code || "",
-      stage: error.stage || "",
-      detail: error.detail || "",
-      error
+      stage: error.stage || ""
     });
     clearApiAuth();
     clearStoredLaunchAuth();

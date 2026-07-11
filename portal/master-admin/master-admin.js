@@ -1,9 +1,12 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
-import { callApiAction, clearApiAuth, setFirebaseAuth } from "../js/api.js?v=master-corporation-list-refresh-20260710";
+import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-auth-session-20260711-8";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";
 const NEW_PORTAL_APP_ID = "__new_portal_app__";
+const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
+const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
+const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 24000;
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -121,6 +124,61 @@ function showToast(message) {
   elements.toast.hidden = false;
   window.clearTimeout(showToast.timer);
   showToast.timer = window.setTimeout(() => { elements.toast.hidden = true; }, 3600);
+}
+
+function parseStoredJson(value) {
+  try {
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
+}
+
+function isFutureIso(value) {
+  const time = Date.parse(String(value || ""));
+  return Number.isFinite(time) && time > Date.now();
+}
+
+function restoreHubSessionAuth() {
+  const session = parseStoredJson(sessionStorage.getItem(MANAGEMENT_HUB_SESSION_KEY));
+  if (!session?.sessionToken || session.audience !== "nov_hub" || !isFutureIso(session.expiresAt)) {
+    sessionStorage.removeItem(MANAGEMENT_HUB_SESSION_KEY);
+    return false;
+  }
+  setHubSessionAuth(session.sessionToken);
+  return true;
+}
+
+function restoreFirebaseTokenAuth() {
+  const sessionToken = String(sessionStorage.getItem(MANAGEMENT_FIREBASE_TOKEN_KEY) || "").trim();
+  if (sessionToken) {
+    setFirebaseTokenAuth(sessionToken);
+    return true;
+  }
+  const stored = parseStoredJson(localStorage.getItem(MANAGEMENT_FIREBASE_TOKEN_KEY));
+  if (stored?.token && Number(stored.expiresAt || 0) > Date.now()) {
+    setFirebaseTokenAuth(stored.token);
+    return true;
+  }
+  localStorage.removeItem(MANAGEMENT_FIREBASE_TOKEN_KEY);
+  return false;
+}
+
+function restoreLaunchAuth() {
+  return restoreHubSessionAuth() || restoreFirebaseTokenAuth();
+}
+
+function clearStoredLaunchAuth() {
+  sessionStorage.removeItem(MANAGEMENT_HUB_SESSION_KEY);
+  sessionStorage.removeItem(MANAGEMENT_FIREBASE_TOKEN_KEY);
+}
+
+function withTimeout(promise, timeoutMs, message) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId));
 }
 
 function setStyles(element, styles) {
@@ -262,7 +320,7 @@ function showRecoveryVersionMarker() {
   if (!marker) {
     marker = document.createElement("div");
     marker.id = "master-admin-recovery-version";
-    marker.textContent = "UI復旧版 v7";
+    marker.textContent = "UI復旧版 v8";
     document.body.append(marker);
   }
   setStyles(marker, {
@@ -472,7 +530,11 @@ function setBootstrapData(data) {
 
 async function loadData() {
   showMode("loading");
-  const response = await callApiAction("masterBootstrap");
+  const response = await withTimeout(
+    callApiAction("masterBootstrap"),
+    MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS,
+    "マスタ情報の読み込みに時間がかかっています。HUBから開き直すか、再ログインしてください。"
+  );
   setBootstrapData(response.data || {});
   state.logs = [];
   state.logsLoaded = false;
@@ -4071,7 +4133,29 @@ async function handleSignIn() {
 async function handleSignOut() {
   await signOutUser();
   clearApiAuth();
+  clearStoredLaunchAuth();
   showMode("auth");
+}
+
+async function initializeMasterAdmin() {
+  if (!restoreLaunchAuth()) {
+    showMode("auth");
+    return;
+  }
+  try {
+    await loadData();
+  } catch (error) {
+    console.error("Master admin bootstrap failed", {
+      code: error.code || "",
+      stage: error.stage || "",
+      detail: error.detail || "",
+      error
+    });
+    clearApiAuth();
+    clearStoredLaunchAuth();
+    showMode("auth");
+    showToast(error.message || "マスタ情報の読み込みに失敗しました。HUBから開き直してください。");
+  }
 }
 
 elements.signIn.addEventListener("click", handleSignIn);
@@ -4133,4 +4217,4 @@ document.querySelectorAll("[data-view]").forEach((button) => {
   });
 });
 
-showMode("auth");
+initializeMasterAdmin();

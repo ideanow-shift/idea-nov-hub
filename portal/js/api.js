@@ -53,6 +53,18 @@ export function setFirebaseAuth() {
   currentAuth = { authType: "firebase" };
 }
 
+export function setFirebaseTokenAuth(token) {
+  const idToken = String(token || "").trim();
+  if (!idToken) throw new Error("Firebase ID token is missing.");
+  currentAuth = { authType: "firebase_token", token: idToken };
+}
+
+export function setHubSessionAuth(sessionToken) {
+  const token = String(sessionToken || "").trim();
+  if (!token) throw new Error("HUB session is missing.");
+  currentAuth = { authType: "hub_session", sessionToken: token };
+}
+
 export function setIdeaLinkSessionAuth(sessionToken) {
   const token = String(sessionToken || "").trim();
   if (!token) throw new Error("IDEA LINK session is missing.");
@@ -72,12 +84,20 @@ export function clearApiAuth() {
 async function postToApi(action, payload = {}) {
   const requestPayload = currentAuth.authType === "idea_link_session"
     ? { authType: "idea_link_session", ...payload }
-    : { ...currentAuth, ...payload };
+    : currentAuth.authType === "hub_session"
+      ? { authType: "hub_session", ...payload }
+      : currentAuth.authType === "firebase_token"
+        ? { authType: "firebase", ...payload }
+        : { ...currentAuth, ...payload };
   const token = currentAuth.authType === "pin"
     ? ""
     : currentAuth.authType === "idea_link_session"
       ? currentAuth.sessionToken
-      : await getIdToken();
+      : currentAuth.authType === "hub_session"
+        ? currentAuth.sessionToken
+        : currentAuth.authType === "firebase_token"
+          ? currentAuth.token
+          : await getIdToken();
   const body = new URLSearchParams({
     action,
     token,

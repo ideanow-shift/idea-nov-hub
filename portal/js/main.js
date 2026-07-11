@@ -7,6 +7,7 @@ import { clearHubEmployeeContext, encodeHubContextForUrl, getHubEmployeeContextS
 
 const state = {
   employee: null,
+  hubSession: null,
   apps: [],
   announcements: [],
   notifications: [],
@@ -17,9 +18,10 @@ const state = {
 };
 const MANAGEMENT_HUB_CONTEXT_KEY = "ideaNov.management.hubContext";
 const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
+const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MANAGEMENT_APP_IDS = new Set(["management-check", "management-platform"]);
 const MANAGEMENT_APP_URL = "./management-platform/";
-const CORE_MASTER_ADMIN_APP_URL = "./master-admin-stable/?v=master-admin-force-table-20260711-7";
+const CORE_MASTER_ADMIN_APP_URL = "./master-admin-stable/?v=master-admin-auth-session-20260711-8";
 const IDEA_LINK_APP_URL = "./idea-link-app/";
 const IDEA_LINK_LEGACY_DEPLOYMENT_ID = "AKfycbz3tmMUSvKEVZgmf8w-pKLk_H6_fXdltkwrHF5VIfpItufu41xoCa1f3-1aE0w3fJpucw";
 const DEVELOPMENT_APP_VIEWER_ROLE_KEYS = new Set(["super_admin", "executive"]);
@@ -540,8 +542,28 @@ async function saveManagementPlatformAuthContext(context) {
   localStorage.setItem(MANAGEMENT_HUB_CONTEXT_KEY, JSON.stringify(context || {}));
 }
 
+function saveManagementHubSessionAuthContext(context) {
+  const session = state.hubSession || {};
+  const token = String(session.sessionToken || "").trim();
+  const expiresAt = String(session.expiresAt || "").trim();
+  const audience = String(session.audience || "").trim();
+  if (!token || audience !== "nov_hub" || !Number.isFinite(Date.parse(expiresAt))) {
+    throw new Error("HUB sessionを取得できませんでした。再ログインしてください。");
+  }
+  sessionStorage.setItem(MANAGEMENT_HUB_SESSION_KEY, JSON.stringify({
+    sessionToken: token,
+    expiresAt,
+    audience
+  }));
+  sessionStorage.setItem(MANAGEMENT_HUB_CONTEXT_KEY, JSON.stringify(context || {}));
+}
+
 async function prepareManagementPlatformLaunch(app, context) {
-  if (!isManagementPlatformApp(app)) return;
+  if (!isManagementPlatformApp(app) && !isCoreMasterAdminApp(app)) return;
+  if (state.authType === "pin") {
+    saveManagementHubSessionAuthContext(context);
+    return;
+  }
   await saveManagementPlatformAuthContext(context);
 }
 
@@ -582,9 +604,9 @@ async function openApp(app) {
       : app.url;
   const launchUrl = buildAppLaunchUrl(appUrl, employeeContext);
   if (state.mode === "firebase") {
-    if (isManagementPlatformApp(app)) {
+    if (isManagementPlatformApp(app) || isCoreMasterAdminApp(app)) {
       try {
-        if (!canLaunchManagementPlatform(employeeContext)) {
+        if (isManagementPlatformApp(app) && !canLaunchManagementPlatform(employeeContext)) {
           showToast("Management Platformの利用権限がありません。");
           return;
         }
@@ -662,6 +684,7 @@ async function loginWithFirebase() {
     const data = await fetchPortalData();
     state.authType = "firebase";
     state.employee = data.employee;
+    state.hubSession = null;
     state.apps = selectReleasedAppsForEmployee(state.employee, sortPortalApps(data.apps || []));
     state.announcements = data.announcements || [];
     state.notifications = [];
@@ -697,6 +720,7 @@ async function loginWithPin(event) {
     const data = await fetchPortalData();
     state.authType = "pin";
     state.employee = data.employee;
+    state.hubSession = data.hubSession || null;
     state.apps = selectReleasedAppsForEmployee(state.employee, sortPortalApps(data.apps || []));
     state.announcements = data.announcements || [];
     state.notifications = [];
@@ -749,9 +773,11 @@ async function logout() {
   clearHubEmployeeContext();
   sessionStorage.removeItem(MANAGEMENT_FIREBASE_TOKEN_KEY);
   sessionStorage.removeItem(MANAGEMENT_HUB_CONTEXT_KEY);
+  sessionStorage.removeItem(MANAGEMENT_HUB_SESSION_KEY);
   localStorage.removeItem(MANAGEMENT_FIREBASE_TOKEN_KEY);
   localStorage.removeItem(MANAGEMENT_HUB_CONTEXT_KEY);
   state.employee = null;
+  state.hubSession = null;
   state.apps = [];
   state.announcements = [];
   state.notifications = [];

@@ -17,6 +17,7 @@ const EDGE_ACTIONS = new Set([
   "ideaLinkNotificationSendScoped",
   "ideaLinkRecipientSearch",
   "ideaLinkStoreOptions",
+  "exchangeIdeaLinkHandoff",
   "decisionListApplications",
   "decisionGetApplicationDetail",
   "decisionListComments",
@@ -52,15 +53,34 @@ export function setFirebaseAuth() {
   currentAuth = { authType: "firebase" };
 }
 
+export function setIdeaLinkSessionAuth(sessionToken) {
+  const token = String(sessionToken || "").trim();
+  if (!token) throw new Error("IDEA LINK session is missing.");
+  currentAuth = { authType: "idea_link_session", sessionToken: token };
+}
+
+export function clearIdeaLinkSessionAuth() {
+  if (currentAuth.authType === "idea_link_session") {
+    currentAuth = { authType: "firebase" };
+  }
+}
+
 export function clearApiAuth() {
   currentAuth = { authType: "firebase" };
 }
 
 async function postToApi(action, payload = {}) {
-  const requestPayload = { ...currentAuth, ...payload };
+  const requestPayload = currentAuth.authType === "idea_link_session"
+    ? { authType: "idea_link_session", ...payload }
+    : { ...currentAuth, ...payload };
+  const token = currentAuth.authType === "pin"
+    ? ""
+    : currentAuth.authType === "idea_link_session"
+      ? currentAuth.sessionToken
+      : await getIdToken();
   const body = new URLSearchParams({
     action,
-    token: currentAuth.authType === "pin" ? "" : await getIdToken(),
+    token,
     payload: JSON.stringify(requestPayload)
   });
   const endpoint = getApiEndpoint(action);
@@ -149,6 +169,20 @@ export function fetchPortalData() {
 
 export function callApiAction(action, payload = {}) {
   return postToApi(action, payload);
+}
+
+export async function exchangeIdeaLinkHandoff(handoffCode) {
+  const code = String(handoffCode || "").trim();
+  if (!/^[A-Za-z0-9_-]{40,60}$/.test(code)) {
+    throw new Error("IDEA LINK handoff code is invalid.");
+  }
+  const endpoint = getApiEndpoint("exchangeIdeaLinkHandoff");
+  if (!endpoint) throw new Error("NOV HUB Edge API endpoint is not configured for IDEA LINK handoff.");
+  return await postToEndpoint(endpoint, new URLSearchParams({
+    action: "exchangeIdeaLinkHandoff",
+    token: "",
+    payload: JSON.stringify({ handoffCode: code })
+  }));
 }
 
 export function writeAccessLog(action, details = {}) {

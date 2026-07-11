@@ -1226,11 +1226,22 @@
       readHubEmployeeContextFromUrl
     } from "../js/hub-context.js";
     import { callApiAction, setFirebaseAuth } from "../js/api.js";
+    import {
+      initializeIdeaLinkHandoff,
+      returnToHub
+    } from "../js/idea-link-handoff-candidate.js";
 
     const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
+    const IDEA_LINK_VIEW_MAP = {
+      home: "home",
+      send: "send",
+      timeline: "timeline",
+      "my-page": "my"
+    };
     const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     const connectionStatus = document.querySelector("#connection-status");
     const headerUserName = document.querySelector("#header-user-name");
+    const hubReturnLink = document.querySelector(".header-link");
     const refreshButton = document.querySelector("#refresh-button");
     const panelTitle = document.querySelector("#panel-title");
     const homeUserName = document.querySelector("#home-user-name");
@@ -1266,6 +1277,7 @@
     let myPageLoaded = false;
     let adminLoaded = false;
     let recipientOptionsById = new Map();
+    let ideaLinkAppSession = null;
 
     const categoryHelpMap = {
       "気持ち良い挨拶": "明るい挨拶や、場の空気を良くしてくれた行動へ。",
@@ -1297,6 +1309,45 @@
     function canViewAdmin(context) {
       const roleKeys = new Set(getRoleKeys(context));
       return roleKeys.has("idea_link.manager") || roleKeys.has("idea_link.admin");
+    }
+
+    function hasIdeaLinkAppSession() {
+      return ideaLinkAppSession?.audience === "idea_link";
+    }
+
+    function prepareIdeaLinkApiAuth() {
+      if (!hasIdeaLinkAppSession()) setFirebaseAuth();
+    }
+
+    function mapHandoffTargetView(value) {
+      return IDEA_LINK_VIEW_MAP[String(value || "home").trim()] || "home";
+    }
+
+    function renderAppSessionProfile() {
+      profile.innerHTML = `
+        <div class="profile-row">
+          <span>認証</span>
+          <strong>HUB session</strong>
+        </div>
+        <div class="profile-row">
+          <span>範囲</span>
+          <strong>IDEA LINK</strong>
+        </div>
+        <div class="profile-row">
+          <span>有効期限</span>
+          <strong>${formatDate(ideaLinkAppSession?.expiresAt)}</strong>
+        </div>
+      `;
+    }
+
+    function handleIdeaLinkApiError(error) {
+      const code = String(error?.code || "");
+      if (!hasIdeaLinkAppSession() || !["ACCESS_DENIED", "TOKEN_VERIFICATION_FAILED"].includes(code)) {
+        return false;
+      }
+      setNotice("error", "セッションを確認できません。NOV HUBへ戻ります。");
+      window.setTimeout(() => returnToHub(), 900);
+      return true;
     }
 
     function renderProfile(context) {
@@ -1422,11 +1473,12 @@
     async function loadMyPage() {
       myFeed.innerHTML = "<div class=\"notice\">マイページを読み込み中です。</div>";
       try {
-        setFirebaseAuth();
+        prepareIdeaLinkApiAuth();
         const response = await callApiAction("ideaLinkMyPageRead", {});
         renderMyPage(response.myPage || {});
         myPageLoaded = true;
       } catch (error) {
+        if (handleIdeaLinkApiError(error)) return;
         myFeed.innerHTML = `<div class="notice">マイページを読み込めませんでした。${text(error?.message)}</div>`;
       }
     }
@@ -1553,10 +1605,11 @@
     async function loadMonthlyMvpPreview() {
       mvpFeed.innerHTML = "<div class=\"notice\">月間MVPを読み込み中です。通知送信は行いません。</div>";
       try {
-        setFirebaseAuth();
+        prepareIdeaLinkApiAuth();
         const response = await callApiAction("ideaLinkMonthlyMvpPreviewRead", {});
         renderMonthlyMvpPreview(response.monthlyMvp || {});
       } catch (error) {
+        if (handleIdeaLinkApiError(error)) return;
         mvpFeed.innerHTML = `<div class="notice">月間MVPを読み込めませんでした。${text(error?.message)}</div>`;
       }
     }
@@ -1564,12 +1617,13 @@
     async function loadAdminSummary() {
       adminFeed.innerHTML = "<div class=\"notice\">管理状態を読み込み中です。</div>";
       try {
-        setFirebaseAuth();
+        prepareIdeaLinkApiAuth();
         const response = await callApiAction("ideaLinkAdminSummaryRead", {});
         renderAdminSummary(response.admin || {});
         await loadMonthlyMvpPreview();
         adminLoaded = true;
       } catch (error) {
+        if (handleIdeaLinkApiError(error)) return;
         adminFeed.innerHTML = `<div class="notice">管理状態を読み込めませんでした。${text(error?.message)}</div>`;
         mvpFeed.innerHTML = "";
       }
@@ -1578,11 +1632,12 @@
     async function loadTimeline() {
       feed.innerHTML = "<div class=\"notice\">最新のサンクスを読み込み中です。</div>";
       try {
-        setFirebaseAuth();
+        prepareIdeaLinkApiAuth();
         const response = await callApiAction("ideaLinkTimelineRead", { limit: 20 });
         renderTimelineItems(response.timeline?.items || []);
         timelineLoaded = true;
       } catch (error) {
+        if (handleIdeaLinkApiError(error)) return;
         feed.innerHTML = `<div class="notice">一覧を読み込めませんでした。${text(error?.message)}</div>`;
       }
     }
@@ -1670,6 +1725,7 @@
 
     async function loadStoreOptions(context) {
       try {
+        prepareIdeaLinkApiAuth();
         const response = await callApiAction("ideaLinkStoreOptions", {});
         renderStoreOptions(response.result?.stores || [], context);
         if (storeFilter.value) await loadRecipientsForStore();
@@ -1725,6 +1781,7 @@
         return;
       }
       try {
+        prepareIdeaLinkApiAuth();
         const response = await callApiAction("ideaLinkRecipientSearch", {
           query: "",
           storeId,
@@ -1803,6 +1860,10 @@
     });
 
     refreshButton.addEventListener("click", () => window.location.reload());
+    hubReturnLink?.addEventListener("click", (event) => {
+      event.preventDefault();
+      returnToHub();
+    });
 
     adminSectionButtons.forEach((button) => {
       button.addEventListener("click", () => setAdminSection(button.dataset.adminSectionTarget || "summary"));
@@ -1826,7 +1887,7 @@
       submitButton.disabled = true;
       submitButton.textContent = "保存中";
       try {
-        setFirebaseAuth();
+        prepareIdeaLinkApiAuth();
         const response = await callApiAction("ideaLinkPostCreate", {
           clientRequestId: crypto.randomUUID(),
           receiverId,
@@ -1843,6 +1904,7 @@
         loadMyPage();
         setNotice("success", "保存しました。LINE WORKS通知はまだ送信していません。");
       } catch (error) {
+        if (handleIdeaLinkApiError(error)) return;
         setNotice("error", error?.message || "保存に失敗しました。");
       } finally {
         submitting = false;
@@ -1851,11 +1913,27 @@
       }
     });
 
-    const context = readHubEmployeeContextFromUrl(window.location.href) || readHubEmployeeContext();
-    const hasContext = Boolean(context?.id || context?.employeeId || context?.supabaseEmployeeId || context?.email);
-    const allowed = hasContext && hasIdeaLinkRole(context);
+    let handoffError = null;
+    try {
+      ideaLinkAppSession = await initializeIdeaLinkHandoff(window.location.href);
+    } catch (error) {
+      handoffError = error;
+      ideaLinkAppSession = null;
+    }
 
-    if (!hasContext) {
+    const context = readHubEmployeeContextFromUrl(window.location.href) || readHubEmployeeContext();
+    const hasAppSession = hasIdeaLinkAppSession();
+    const hasContext = Boolean(context?.id || context?.employeeId || context?.supabaseEmployeeId || context?.email);
+    const allowed = hasAppSession || (hasContext && hasIdeaLinkRole(context));
+
+    if (handoffError) {
+      connectionStatus.textContent = "確認不可";
+      connectionStatus.style.background = "var(--amber-soft)";
+      connectionStatus.style.color = "var(--amber)";
+      profile.innerHTML = "<div class=\"notice\">NOV HUBへ戻って、もう一度サンクスコインを開いてください。</div>";
+      lockForm("HUBログイン待ち");
+      window.setTimeout(() => returnToHub(), 900);
+    } else if (!hasAppSession && !hasContext) {
       connectionStatus.textContent = "HUB未確認";
       connectionStatus.style.background = "var(--amber-soft)";
       connectionStatus.style.color = "var(--amber)";
@@ -1869,22 +1947,29 @@
       feed.innerHTML = "<div class=\"notice\">このアカウントにはIDEA LINK権限がありません。</div>";
       lockForm("権限なし");
     } else {
-      const displayName = text(context.fullName || context.name, "スタッフ");
-      const displayStore = text(context.primaryStoreName || context.storeName || context.store, "所属");
+      const displayName = text(context?.fullName || context?.name, "スタッフ");
+      const displayStore = text(context?.primaryStoreName || context?.storeName || context?.store, hasAppSession ? "IDEA LINK" : "所属");
       headerUserName.textContent = displayName;
       homeUserName.textContent = displayName;
       homeStoreName.textContent = displayStore;
-      renderProfile(context);
-      renderFeed(context);
-      if (canViewAdmin(context)) {
+      if (hasAppSession && !hasContext) {
+        renderAppSessionProfile();
+        renderFeed({ fullName: displayName, departmentName: displayStore });
+      } else {
+        renderProfile(context);
+        renderFeed(context);
+      }
+      if (hasContext && canViewAdmin(context)) {
         adminNav.hidden = false;
         bottomNav.classList.add("has-admin");
       }
       unlockForm();
-      loadStoreOptions(context);
+      loadStoreOptions(context || {});
       loadMyPage();
       updateCategoryUi();
       setNotice("info", "今日見つけた素敵な行動を、サンクスコインで届けましょう。");
+      const initialTargetView = mapHandoffTargetView(ideaLinkAppSession?.targetView);
+      if (initialTargetView !== "home") setView(initialTargetView);
       const url = new URL(window.location.href);
       if (url.searchParams.has(HUB_CONTEXT_QUERY_KEY)) {
         url.searchParams.delete(HUB_CONTEXT_QUERY_KEY);

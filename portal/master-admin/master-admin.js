@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v16";
+const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v17";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -74,6 +74,7 @@ const state = {
   employeeStatus: "active",
   employeeIssueFilter: "",
   safeSearch: "",
+  safeRecoveryMode: "safe",
   corporationStatus: "active",
   storeStatus: "active",
   appStatus: "active",
@@ -246,6 +247,7 @@ function installRuntimeLayoutStyles() {
     .safe-master-detail-row { display: grid !important; grid-template-columns: 96px minmax(0, 1fr) !important; gap: 10px !important; align-items: baseline !important; border-bottom: 1px solid #f1f5f9 !important; padding: 8px 0 !important; }
     .safe-master-detail-label { color: #6b7280 !important; font-size: 12px !important; }
     .safe-master-detail-value { min-width: 0 !important; overflow-wrap: anywhere !important; font-size: 13px !important; }
+    .safe-master-edit-actions { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; margin: 14px 0 !important; }
     @media (max-width: 900px) {
       #master-admin-safe-view { top: 78px !important; padding: 14px !important; }
       .safe-master-shell { grid-template-columns: 1fr !important; }
@@ -565,6 +567,29 @@ function appendSafeFilterButton(parent, active, label, onClick) {
   button.addEventListener("click", onClick);
   parent.append(button);
   return button;
+}
+
+function appendSafeEditActions(parent) {
+  const actions = document.createElement("div");
+  actions.className = "safe-master-edit-actions";
+  const editButton = document.createElement("button");
+  editButton.type = "button";
+  editButton.className = "button button-primary";
+  editButton.textContent = state.permissions.canEdit ? "通常編集フォームを表示" : "通常詳細フォームを表示";
+  editButton.addEventListener("click", () => {
+    state.safeRecoveryMode = "edit";
+    document.querySelector("#master-admin-safe-view")?.remove();
+    render();
+    showToast(state.permissions.canEdit ? "通常編集フォームに切り替えました。" : "通常詳細フォームに切り替えました。");
+  });
+  actions.append(editButton);
+  if (!state.permissions.canEdit) {
+    const note = document.createElement("span");
+    note.className = "safe-master-note";
+    note.textContent = "編集権限がない場合は保存ボタンは表示されません。";
+    actions.append(note);
+  }
+  parent.append(actions);
 }
 
 function getSafeViewTitle() {
@@ -936,6 +961,10 @@ function createSafeCell(row, value) {
 }
 
 function renderSafeMasterAdminView() {
+  if (state.safeRecoveryMode === "edit") {
+    document.querySelector("#master-admin-safe-view")?.remove();
+    return;
+  }
   if (!["employees", "firebase", "stores", "corporations"].includes(state.view)) {
     document.querySelector("#master-admin-safe-view")?.remove();
     return;
@@ -1013,6 +1042,7 @@ function renderSafeMasterAdminView() {
   const detailCard = document.createElement("aside");
   detailCard.className = "safe-master-card safe-master-detail";
   if (selected) {
+    appendSafeEditActions(detailCard);
     if (state.view === "stores") renderSafeStoreDetail(detailCard, selected);
     else if (state.view === "corporations") renderSafeCorporationDetail(detailCard, selected);
     else renderSafeEmployeeDetail(detailCard, selected);

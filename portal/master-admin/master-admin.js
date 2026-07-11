@@ -1,5 +1,5 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
-import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-safe-detail-20260711-22";
+import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-safe-detail-20260711-23";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";
@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v22";
+const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v23";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -1036,9 +1036,10 @@ function appendSafeEmployeeEditForm(detailCard, employee) {
       </div>
     </form>`;
   const form = formWrap.querySelector("#detail-form");
+  const status = formWrap.querySelector("#employee-save-status");
   form?.addEventListener("submit", saveEmployee);
-  form?.addEventListener("input", () => setSaveStatus(document.querySelector("#employee-save-status"), "未保存の変更があります。保存ボタンを押してください。", "pending"));
-  form?.addEventListener("change", () => setSaveStatus(document.querySelector("#employee-save-status"), "未保存の変更があります。保存ボタンを押してください。", "pending"));
+  form?.addEventListener("input", () => setSaveStatus(status, "未保存の変更があります。保存ボタンを押してください。", "pending"));
+  form?.addEventListener("change", () => setSaveStatus(status, "未保存の変更があります。保存ボタンを押してください。", "pending"));
   formWrap.querySelector("#upload-profile-image")?.addEventListener("click", uploadEmployeeProfileImage);
   detailCard.append(formWrap);
 }
@@ -3979,8 +3980,20 @@ function fieldCheckbox(name, label, checked) {
     </label>`;
 }
 
+function getActiveDetailForm() {
+  return document.querySelector("#master-admin-safe-view #detail-form")
+    || elements.detailPanel?.querySelector("#detail-form")
+    || document.querySelector("#detail-form");
+}
+
+function getActiveDetailElement(selector) {
+  return document.querySelector(`#master-admin-safe-view ${selector}`)
+    || elements.detailPanel?.querySelector(selector)
+    || document.querySelector(selector);
+}
+
 function collectFormPayload() {
-  const form = document.querySelector("#detail-form");
+  const form = getActiveDetailForm();
   const formData = new FormData(form);
   return Object.fromEntries(formData.entries());
 }
@@ -4034,7 +4047,7 @@ function joinListForInput(value) {
 }
 
 function setupDirtyForm(type) {
-  const form = document.querySelector("#detail-form");
+  const form = getActiveDetailForm();
   const status = getSaveStatusElement(type);
   const button = form?.querySelector(".save-button");
   if (!form || !button) return;
@@ -4045,12 +4058,11 @@ function setupDirtyForm(type) {
 }
 
 function getSaveStatusElement(type) {
-  return document.querySelector(
-    type === "employee" ? "#employee-save-status"
-      : type === "store" ? "#store-save-status"
+  const selector = type === "employee" ? "#employee-save-status"
+    : type === "store" ? "#store-save-status"
       : type === "corporation" ? "#corporation-save-status"
-      : "#app-save-status"
-  );
+        : "#app-save-status";
+  return getActiveDetailElement(selector);
 }
 
 function setupLoginCredentialDirtyState() {
@@ -4165,7 +4177,7 @@ function normalizeSnapshotValue_(value) {
 }
 
 function markCurrentFormSaved(type, message = "保存しました。変更履歴にも反映済みです。") {
-  const form = document.querySelector("#detail-form");
+  const form = getActiveDetailForm();
   const status = getSaveStatusElement(type);
   const button = form?.querySelector(".save-button");
   if (!form || !button) return;
@@ -4186,7 +4198,7 @@ function restoreSaveButtonState(type, button) {
 async function saveEmployee(event) {
   event.preventDefault();
   const button = event.submitter;
-  const status = document.querySelector("#employee-save-status");
+  const status = getSaveStatusElement("employee");
   let saved = false;
   try {
     setSaveStatus(status, "");
@@ -4411,8 +4423,8 @@ function readFileAsDataUrl(file) {
 async function uploadEmployeeProfileImage(event) {
   const employee = state.employees.find((item) => item.id === state.selectedId);
   if (!employee) return;
-  const input = document.querySelector("#profile-image-file");
-  const status = document.querySelector("#profile-image-save-status");
+  const input = getActiveDetailElement("#profile-image-file");
+  const status = getActiveDetailElement("#profile-image-save-status");
   const button = event.currentTarget;
   const file = input?.files?.[0];
   if (!file) {

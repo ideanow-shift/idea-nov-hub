@@ -19,7 +19,7 @@ const MANAGEMENT_HUB_CONTEXT_KEY = "ideaNov.management.hubContext";
 const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_APP_IDS = new Set(["management-check", "management-platform"]);
 const MANAGEMENT_APP_URL = "./management-platform/";
-const CORE_MASTER_ADMIN_APP_URL = "./master-admin/?v=master-admin-stable-layout-20260711-2";
+const CORE_MASTER_ADMIN_APP_URL = "./master-admin/?v=master-admin-inline-recovery-20260711-3";
 const IDEA_LINK_APP_URL = "./idea-link-app/";
 const IDEA_LINK_LEGACY_DEPLOYMENT_ID = "AKfycbz3tmMUSvKEVZgmf8w-pKLk_H6_fXdltkwrHF5VIfpItufu41xoCa1f3-1aE0w3fJpucw";
 const DEVELOPMENT_APP_VIEWER_ROLE_KEYS = new Set(["super_admin", "executive"]);

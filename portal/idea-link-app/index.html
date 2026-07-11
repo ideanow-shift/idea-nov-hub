@@ -1324,6 +1324,7 @@
     const adminSectionButtons = Array.from(document.querySelectorAll("[data-admin-section-target]"));
     const adminSections = Array.from(document.querySelectorAll("[data-admin-section]"));
     let submitting = false;
+    let pendingPostRequestId = "";
     let timelineLoaded = false;
     let myPageLoaded = false;
     let adminLoaded = false;
@@ -1871,14 +1872,14 @@
       }
     }
 
-    function renderSavedPost(result) {
+    function renderSavedPost(result, notificationSent = false) {
       const post = result?.post || {};
       const savedAt = new Date().toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "short" });
       feed.insertAdjacentHTML("afterbegin", `
         <article class="post">
           <div class="post-top">
             <span>${savedAt}</span>
-            <span>保存済み / 通知なし</span>
+            <span>保存済み / ${notificationSent ? "LINE WORKS通知済み" : "通知確認中"}</span>
           </div>
           <strong>${text(post.sender_name_snapshot, "送信者")} → ${text(post.receiver_name_snapshot, "受信者")}</strong>
           <p>${text(post.comment)}</p>
@@ -1886,7 +1887,12 @@
       `);
     }
 
+    function resetPendingPostRequestId() {
+      if (!submitting) pendingPostRequestId = "";
+    }
+
     clearButton.addEventListener("click", () => {
+      pendingPostRequestId = "";
       receiver.value = "";
       message.value = "";
       challengeFlag.checked = false;
@@ -1895,13 +1901,30 @@
       renderReceiverPreview();
     });
 
-    storeFilter.addEventListener("change", loadRecipientsForStore);
-    receiver.addEventListener("change", renderReceiverPreview);
-    category.addEventListener("change", updateCategoryUi);
-    message.addEventListener("input", updateMessageCount);
+    storeFilter.addEventListener("change", () => {
+      resetPendingPostRequestId();
+      loadRecipientsForStore();
+    });
+    receiver.addEventListener("change", () => {
+      resetPendingPostRequestId();
+      renderReceiverPreview();
+    });
+    category.addEventListener("change", () => {
+      resetPendingPostRequestId();
+      updateCategoryUi();
+    });
+    message.addEventListener("input", () => {
+      resetPendingPostRequestId();
+      updateMessageCount();
+    });
+    challengeFlag.addEventListener("change", resetPendingPostRequestId);
+    document.querySelectorAll("input[name='visibility']").forEach((input) => {
+      input.addEventListener("change", resetPendingPostRequestId);
+    });
 
     document.querySelectorAll("[data-category-value]").forEach((button) => {
       button.addEventListener("click", () => {
+        resetPendingPostRequestId();
         category.value = button.dataset.categoryValue || category.value;
         updateCategoryUi();
       });
@@ -1909,6 +1932,7 @@
 
     document.querySelectorAll("[data-template]").forEach((button) => {
       button.addEventListener("click", () => {
+        resetPendingPostRequestId();
         message.value = button.dataset.template || "";
         updateMessageCount();
         message.focus();
@@ -1948,21 +1972,44 @@
       submitButton.textContent = "保存中";
       try {
         prepareIdeaLinkApiAuth();
+        pendingPostRequestId ||= crypto.randomUUID();
         const response = await callApiAction("ideaLinkPostCreate", {
-          clientRequestId: crypto.randomUUID(),
+          clientRequestId: pendingPostRequestId,
           receiverId,
           category: category.value,
           comment,
           visibility: getVisibility(),
           challengeFlag: challengeFlag.checked === true
         });
-        renderSavedPost(response.result);
+        const postId = text(response.result?.post?.id || response.result?.post?.post_id);
+        let notificationSent = false;
+        let notificationMessage = "サンクスを保存しました。LINE WORKS通知は確認中です。";
+        if (postId) {
+          try {
+            const enqueueResponse = await callApiAction("ideaLinkNotificationEnqueue", { postId });
+            const notificationId = text(enqueueResponse.result?.notificationId);
+            if (notificationId) {
+              const sendResponse = await callApiAction("ideaLinkNotificationSendScoped", { notificationId });
+              notificationSent = sendResponse.result?.lineWorksNotificationSent === true
+                || sendResponse.result?.status === "sent";
+              notificationMessage = notificationSent
+                ? "サンクスを送り、LINE WORKSへ通知しました。"
+                : "サンクスを保存しました。LINE WORKS通知は確認中です。";
+            } else if (enqueueResponse.result?.skipped === true) {
+              notificationMessage = "サンクスを保存しました。LINE WORKS通知先を確認してください。";
+            }
+          } catch (_notificationError) {
+            notificationMessage = "サンクスを保存しました。LINE WORKS通知は確認中です。";
+          }
+        }
+        renderSavedPost(response.result, notificationSent);
+        pendingPostRequestId = "";
         message.value = "";
         challengeFlag.checked = false;
         myPageLoaded = false;
         updateMessageCount();
         loadMyPage();
-        setNotice("success", "保存しました。LINE WORKS通知はまだ送信していません。");
+        setNotice(notificationSent ? "success" : "warning", notificationMessage);
       } catch (error) {
         if (handleIdeaLinkApiError(error)) return;
         setNotice("error", error?.message || "保存に失敗しました。");

@@ -254,6 +254,50 @@ function applyStableLayoutStyles() {
       verticalAlign: "middle"
     });
   });
+  showRecoveryVersionMarker();
+}
+
+function showRecoveryVersionMarker() {
+  let marker = document.querySelector("#master-admin-recovery-version");
+  if (!marker) {
+    marker = document.createElement("div");
+    marker.id = "master-admin-recovery-version";
+    marker.textContent = "UI復旧版 v6";
+    document.body.append(marker);
+  }
+  setStyles(marker, {
+    position: "fixed",
+    right: "12px",
+    bottom: "12px",
+    zIndex: "9999",
+    border: "1px solid #d1d5db",
+    borderRadius: "999px",
+    background: "rgba(255,255,255,.94)",
+    color: "#374151",
+    fontSize: "11px",
+    fontWeight: "700",
+    padding: "6px 10px",
+    boxShadow: "0 4px 16px rgba(0,0,0,.08)"
+  });
+}
+
+function renderFallbackRow(row, columnCount, message) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td>${escapeHtml(row?.employee_id || row?.store_no || row?.corporation_no || row?.appId || "")}</td>
+    <td colspan="${Math.max(1, columnCount - 1)}">${escapeHtml(message || "この行の表示を確認しています。")}</td>`;
+  return tr;
+}
+
+function renderRowsSafely(rows, renderer, columnCount) {
+  return rows.map((row) => {
+    try {
+      return renderer(row);
+    } catch (error) {
+      console.error("master admin row render failed", error);
+      return renderFallbackRow(row, columnCount, "一部項目の表示形式を確認しています。");
+    }
+  });
 }
 
 function normalizeEmploymentType(value) {
@@ -879,7 +923,8 @@ function renderTable() {
         <th>未設定</th>
         <th>状態</th>
       </tr>`;
-    elements.tableBody.replaceChildren(...rows.map(renderEmployeeRow));
+    elements.tableBody.replaceChildren(...renderRowsSafely(rows, renderEmployeeRow, 9));
+    applyStableLayoutStyles();
     return;
   }
 
@@ -891,7 +936,8 @@ function renderTable() {
         <th>変更者</th>
         <th>変更内容</th>
       </tr>`;
-    elements.tableBody.replaceChildren(...rows.map(renderLogRow));
+    elements.tableBody.replaceChildren(...renderRowsSafely(rows, renderLogRow, 4));
+    applyStableLayoutStyles();
     return;
   }
 
@@ -905,7 +951,8 @@ function renderTable() {
         <th>状況</th>
         <th>有効</th>
       </tr>`;
-    elements.tableBody.replaceChildren(...rows.map(renderCorporationRow));
+    elements.tableBody.replaceChildren(...renderRowsSafely(rows, renderCorporationRow, 6));
+    applyStableLayoutStyles();
     return;
   }
 
@@ -919,7 +966,8 @@ function renderTable() {
         <th>表示</th>
         <th>優先度</th>
       </tr>`;
-    elements.tableBody.replaceChildren(...rows.map(renderPortalAppRow));
+    elements.tableBody.replaceChildren(...renderRowsSafely(rows, renderPortalAppRow, 6));
+    applyStableLayoutStyles();
     return;
   }
 
@@ -932,7 +980,8 @@ function renderTable() {
         <th>現職</th>
         <th>全員</th>
       </tr>`;
-    elements.tableBody.replaceChildren(...rows.map(renderPermissionRow));
+    elements.tableBody.replaceChildren(...renderRowsSafely(rows, renderPermissionRow, 5));
+    applyStableLayoutStyles();
     return;
   }
 
@@ -944,7 +993,8 @@ function renderTable() {
         <th>件数</th>
         <th>次の対応</th>
       </tr>`;
-    elements.tableBody.replaceChildren(...rows.map(renderReadinessRow));
+    elements.tableBody.replaceChildren(...renderRowsSafely(rows, renderReadinessRow, 4));
+    applyStableLayoutStyles();
     return;
   }
 
@@ -957,7 +1007,7 @@ function renderTable() {
       <th>未設定</th>
       <th>状態</th>
     </tr>`;
-  elements.tableBody.replaceChildren(...rows.map(renderStoreRow));
+  elements.tableBody.replaceChildren(...renderRowsSafely(rows, renderStoreRow, 6));
   applyStableLayoutStyles();
 }
 

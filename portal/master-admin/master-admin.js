@@ -1,5 +1,5 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
-import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-safe-shell-20260712-26";
+import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-normalize-ui-20260712-27";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";
@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v26";
+const MASTER_ADMIN_RECOVERY_LABEL = "マスタ管理 v27";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -583,17 +583,18 @@ function appendSafeFilterButton(parent, active, label, onClick) {
 }
 
 function appendSafeEditActions(parent) {
+  if (state.safeRecoveryMode === "edit") return;
   const actions = document.createElement("div");
   actions.className = "safe-master-edit-actions";
   const editButton = document.createElement("button");
   editButton.type = "button";
   editButton.className = "button button-primary";
   const editMode = state.safeRecoveryMode === "edit";
-  editButton.textContent = editMode ? "復旧確認表示に戻る" : state.permissions.canEdit ? "通常編集フォームを表示" : "通常詳細フォームを表示";
+  editButton.textContent = editMode ? "確認表示に戻る" : state.permissions.canEdit ? "編集フォームを表示" : "詳細フォームを表示";
   editButton.addEventListener("click", () => {
     state.safeRecoveryMode = editMode ? "safe" : "edit";
     renderSafeMasterAdminView();
-    showToast(state.safeRecoveryMode === "edit" ? "通常フォームを復旧ビュー内に表示しました。" : "復旧確認表示に戻しました。");
+    showToast(state.safeRecoveryMode === "edit" ? "編集フォームを表示しました。" : "確認表示に戻しました。");
   });
   actions.append(editButton);
   if (!state.permissions.canEdit) {
@@ -616,9 +617,9 @@ function getSafeViewTitle() {
 }
 
 function getSafeViewNote() {
-  if (state.view === "stores") return "P0復旧ビューです。店舗一覧・検索・確認表示を優先して復旧しています。";
-  if (state.view === "corporations") return "P0復旧ビューです。法人一覧・検索・確認表示を優先して復旧しています。";
-  return "P0復旧ビューです。社員一覧・検索・選択・確認表示を優先して復旧しています。";
+  if (state.view === "stores") return "店舗一覧・検索・編集を行えます。";
+  if (state.view === "corporations") return "法人一覧・検索・編集を行えます。";
+  return "社員一覧・検索・編集を行えます。";
 }
 
 function getSafeRowsForCurrentView() {
@@ -867,7 +868,7 @@ function renderSafeEmployeeDetail(detailCard, selected) {
 
   const note = document.createElement("p");
   note.className = "safe-master-note";
-  note.textContent = "現在は復旧中のため、詳細は確認表示のみです。保存操作は通常詳細フォーム復旧後に再開します。";
+  note.textContent = "編集フォームへ切り替えると保存できます。";
   detailCard.append(detailTitle, meta, profile, details, note);
 }
 
@@ -919,7 +920,7 @@ function renderSafeStoreDetail(detailCard, store) {
   ]);
   const note = document.createElement("p");
   note.className = "safe-master-note";
-  note.textContent = "確認表示のみです。店舗詳細の保存は通常詳細フォーム復旧後に再開します。";
+  note.textContent = "編集フォームへ切り替えると保存できます。";
   detailCard.append(title, meta, details, note);
 }
 
@@ -966,7 +967,7 @@ function renderSafeCorporationDetail(detailCard, corporation) {
   ]);
   const note = document.createElement("p");
   note.className = "safe-master-note";
-  note.textContent = "確認表示のみです。法人詳細の保存は通常詳細フォーム復旧後に再開します。";
+  note.textContent = "編集フォームへ切り替えると保存できます。";
   detailCard.append(title, meta, details, note);
 }
 
@@ -1006,7 +1007,7 @@ function appendNormalDetailIntoSafeCard(detailCard, selected) {
   if (!normalDetail.childNodes.length) {
     const empty = document.createElement("div");
     empty.className = "empty-detail";
-    empty.textContent = "通常詳細フォームを準備しています。再読み込みしてください。";
+    empty.textContent = "詳細フォームを準備しています。再読み込みしてください。";
     normalDetail.append(empty);
   }
   detailCard.append(normalDetail);
@@ -1032,7 +1033,7 @@ function appendSafeEmployeeEditForm(detailCard, employee) {
   formWrap.innerHTML = `
     <h3>${escapeHtml(employee.full_name || "社員編集")}</h3>
     <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id || "")} / ${escapeHtml(formatEmployeeAffiliation(employee) || getRecoveryAffiliation(employee) || "所属未設定")}</p>
-    <p class="detail-note">P0復旧用の編集フォームです。保存時は既存Edge APIで編集権限を再確認します。</p>
+    <p class="detail-note">保存時は既存Edge APIで編集権限を再確認します。</p>
     ${renderEmployeeProfileImagePanel(employee, false)}
     <form class="employee-detail-form" id="detail-form">
       <div class="form-grid employee-detail-section-body">
@@ -1258,7 +1259,7 @@ function renderSafeMasterAdminView() {
   if (!safeView) {
     safeView = document.createElement("section");
     safeView.id = "master-admin-safe-view";
-    safeView.setAttribute("aria-label", "社員マスタ復旧ビュー");
+    safeView.setAttribute("aria-label", "マスタ管理");
     document.body.append(safeView);
   }
 
@@ -1598,7 +1599,7 @@ async function loadDataFallback(primaryError) {
   const stores = Array.isArray(storesResponse?.stores) ? storesResponse.stores : [];
   const corporations = Array.isArray(corporationsResponse?.corporations) ? corporationsResponse.corporations : [];
   if (!employees.length) throw primaryError;
-  showToast("社員一覧を復旧表示しました。保存時は権限を再確認します。");
+  showToast("社員一覧を表示しました。保存時は権限を再確認します。");
   return {
     data: {
       permissions: { canView: true, canEdit: true, roleKeys: ["edge_rechecked"] },

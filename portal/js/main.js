@@ -4,6 +4,12 @@ import { callApiAction, clearApiAuth, fetchPortalData, setFirebaseAuth, setPinAu
 import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
 import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js";
 import { clearHubEmployeeContext, encodeHubContextForUrl, getHubEmployeeContextSummary, saveHubEmployeeContext } from "./hub-context.js";
+import {
+  clearNovHubSession,
+  restoreNovHubSession,
+  setNovHubSession,
+  setNovHubSessionMemoryProvider
+} from "./nov-hub-session-candidate.js?v=20260712-1";
 
 const state = {
   employee: null,
@@ -16,6 +22,8 @@ const state = {
   appSearch: "",
   selectedCategory: "all"
 };
+state.hubSession = restoreNovHubSession();
+setNovHubSessionMemoryProvider(() => state.hubSession);
 const MANAGEMENT_HUB_CONTEXT_KEY = "ideaNov.management.hubContext";
 const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
@@ -685,6 +693,7 @@ async function loginWithFirebase() {
     state.authType = "firebase";
     state.employee = data.employee;
     state.hubSession = null;
+    clearNovHubSession();
     state.apps = selectReleasedAppsForEmployee(state.employee, sortPortalApps(data.apps || []));
     state.announcements = data.announcements || [];
     state.notifications = [];
@@ -721,6 +730,9 @@ async function loginWithPin(event) {
     state.authType = "pin";
     state.employee = data.employee;
     state.hubSession = data.hubSession || null;
+    if (!setNovHubSession(state.hubSession)) {
+      throw new Error("HUB sessionを保存できませんでした。再ログインしてください。");
+    }
     state.apps = selectReleasedAppsForEmployee(state.employee, sortPortalApps(data.apps || []));
     state.announcements = data.announcements || [];
     state.notifications = [];
@@ -757,6 +769,8 @@ function loginDemo() {
   state.announcements = [];
   state.notifications = [];
   state.authType = "demo";
+  state.hubSession = null;
+  clearNovHubSession();
   resetAppFilters();
   console.info("[demo log]", { action: "login", email: employee.email, result: "success" });
   renderPortal();
@@ -771,6 +785,7 @@ async function logout() {
   }
   clearApiAuth();
   clearHubEmployeeContext();
+  clearNovHubSession();
   sessionStorage.removeItem(MANAGEMENT_FIREBASE_TOKEN_KEY);
   sessionStorage.removeItem(MANAGEMENT_HUB_CONTEXT_KEY);
   sessionStorage.removeItem(MANAGEMENT_HUB_SESSION_KEY);

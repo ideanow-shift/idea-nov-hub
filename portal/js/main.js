@@ -603,7 +603,7 @@ async function openApp(app) {
       ? IDEA_LINK_APP_URL
       : app.url;
   const launchUrl = buildAppLaunchUrl(appUrl, employeeContext);
-  if (state.mode === "firebase") {
+  if (state.authType === "firebase" || state.authType === "pin") {
     if (isManagementPlatformApp(app) || isCoreMasterAdminApp(app)) {
       try {
         if (isManagementPlatformApp(app) && !canLaunchManagementPlatform(employeeContext)) {

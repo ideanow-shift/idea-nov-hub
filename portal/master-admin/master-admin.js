@@ -1082,11 +1082,6 @@ function render() {
   document.querySelectorAll("[data-app-status]").forEach((button) => {
     button.classList.toggle("active", button.dataset.appStatus === state.appStatus);
   });
-  updateNavigationCounts();
-  elements.addEmployee.hidden = state.view !== "employees" || !state.permissions.canEdit;
-  elements.addCorporation.hidden = state.view !== "corporations" || !state.permissions.canEdit;
-  elements.employeeCsvTools.hidden = state.view !== "employees";
-  elements.addPortalApp.hidden = state.view !== "apps" || !state.permissions.canEdit;
   elements.viewTitle.textContent = {
     employees: "社員マスタ",
     stores: "店舗マスタ",
@@ -1098,7 +1093,25 @@ function render() {
     readiness: "HUB連携準備"
   }[state.view];
   renderTable();
-  renderDetail();
+  try {
+    updateNavigationCounts();
+  } catch (error) {
+    console.warn("master admin navigation count fallback", { code: error?.name || "navigation_count_error" });
+  }
+  try {
+    elements.addEmployee.hidden = state.view !== "employees" || !state.permissions.canEdit;
+    elements.addCorporation.hidden = state.view !== "corporations" || !state.permissions.canEdit;
+    elements.employeeCsvTools.hidden = state.view !== "employees";
+    elements.addPortalApp.hidden = state.view !== "apps" || !state.permissions.canEdit;
+  } catch (error) {
+    console.warn("master admin action button fallback", { code: error?.name || "action_button_error" });
+  }
+  try {
+    renderDetail();
+  } catch (error) {
+    console.warn("master admin detail fallback", { code: error?.name || "detail_render_error" });
+    elements.detailPanel.innerHTML = `<div class="empty-detail">左の一覧から編集対象を選んでください。</div>`;
+  }
   applyStableLayoutStyles();
 }
 

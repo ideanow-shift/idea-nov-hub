@@ -1,5 +1,5 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
-import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-full-detail-20260712-28";
+import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-mobile-form-guard-20260712-29";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";
@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "マスタ管理 v28";
+const MASTER_ADMIN_RECOVERY_LABEL = "マスタ管理 v29";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -3166,9 +3166,9 @@ function renderNewEmployeeDetail() {
       <div class="store-assignment-box">
         <strong>複数店舗所属</strong>
         <p>主店舗は社員マスタの所属店舗にも同期されます。サブ店舗・第3店舗は兼任先として保存します。</p>
-        ${fieldSelect("store_id", "主店舗", state.masters.stores, "", "store_name")}
-        ${fieldSelect("store_assignment_2", "サブ店舗", state.masters.stores, "", "store_name")}
-        ${fieldSelect("store_assignment_3", "第3店舗", state.masters.stores, "", "store_name")}
+        ${fieldSelect("store_id", "主店舗", state.stores, "", "store_name")}
+        ${fieldSelect("store_assignment_2", "サブ店舗", state.stores, "", "store_name")}
+        ${fieldSelect("store_assignment_3", "第3店舗", state.stores, "", "store_name")}
       </div>
       ${fieldSelect("department_id", "部署", state.masters.departments, "", "department_name")}
       ${fieldSelect("position_id", "役職", state.masters.positions, "", "position_name")}
@@ -3184,6 +3184,10 @@ function renderNewEmployeeDetail() {
     </form>
   `;
   const form = elements.detailPanel.querySelector("#detail-form");
+  if (!form) {
+    showToast("社員追加フォームを準備できませんでした。再読み込みしてください。", "error");
+    return;
+  }
   form.addEventListener("submit", saveNewEmployee);
   setupDirtyForm("employee");
   elements.detailPanel.scrollTop = 0;

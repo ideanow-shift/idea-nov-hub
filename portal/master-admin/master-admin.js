@@ -123,6 +123,139 @@ function showToast(message) {
   showToast.timer = window.setTimeout(() => { elements.toast.hidden = true; }, 3600);
 }
 
+function setStyles(element, styles) {
+  if (!element) return;
+  Object.entries(styles).forEach(([property, value]) => {
+    const cssProperty = property.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+    element.style.setProperty(cssProperty, value, "important");
+  });
+}
+
+function applyStableLayoutStyles() {
+  setStyles(document.body, {
+    margin: "0",
+    background: "#fafafa",
+    color: "#111827",
+    fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif'
+  });
+  setStyles(document.querySelector(".admin-header"), {
+    display: "grid",
+    gridTemplateColumns: "auto 1fr auto",
+    alignItems: "center",
+    gap: "16px",
+    borderBottom: "1px solid #e5e7eb",
+    background: "rgba(255,255,255,.96)",
+    padding: "14px 24px"
+  });
+  setStyles(document.querySelector(".admin-shell"), {
+    width: "min(100%, 1180px)",
+    margin: "0 auto",
+    padding: "24px",
+    boxSizing: "border-box"
+  });
+  setStyles(document.querySelector(".toolbar"), {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: "16px",
+    marginBottom: "16px"
+  });
+  setStyles(document.querySelector(".toolbar-actions"), {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+    justifyContent: "flex-end",
+    alignItems: "center"
+  });
+  document.querySelectorAll(".segmented, .filter-chip, .button").forEach((button) => {
+    setStyles(button, {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: "38px",
+      border: "1px solid #e5e7eb",
+      borderRadius: "12px",
+      background: "#fff",
+      color: "#111827",
+      cursor: "pointer",
+      font: "inherit",
+      padding: "0 14px",
+      textDecoration: "none"
+    });
+  });
+  document.querySelectorAll(".segmented.active, .filter-chip.active, .button-primary").forEach((button) => {
+    setStyles(button, {
+      borderColor: "#e8b4b8",
+      background: "#fff1f2",
+      fontWeight: "700"
+    });
+  });
+  setStyles(document.querySelector(".workspace"), {
+    display: "grid",
+    gridTemplateColumns: window.matchMedia("(max-width: 900px)").matches ? "1fr" : "minmax(0, 1fr) 380px",
+    gap: "16px",
+    alignItems: "start"
+  });
+  document.querySelectorAll(".list-panel, .detail-panel, .auth-panel, .loading-panel").forEach((panel) => {
+    setStyles(panel, {
+      border: "1px solid #e5e7eb",
+      borderRadius: "14px",
+      background: "#fff",
+      boxSizing: "border-box"
+    });
+  });
+  setStyles(document.querySelector(".list-panel"), {
+    minWidth: "0",
+    padding: "16px"
+  });
+  setStyles(document.querySelector(".detail-panel"), {
+    position: window.matchMedia("(max-width: 900px)").matches ? "static" : "sticky",
+    top: "88px",
+    maxHeight: window.matchMedia("(max-width: 900px)").matches ? "none" : "calc(100vh - 112px)",
+    overflow: "auto",
+    padding: "18px"
+  });
+  document.querySelectorAll(".status-filter, .quality-summary, .csv-tools").forEach((row) => {
+    setStyles(row, {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "8px",
+      alignItems: "center"
+    });
+  });
+  document.querySelectorAll(".search-input, .form-input, .form-select, textarea").forEach((input) => {
+    setStyles(input, {
+      minHeight: "42px",
+      width: "100%",
+      border: "1px solid #e5e7eb",
+      borderRadius: "12px",
+      background: "#fff",
+      color: "#111827",
+      boxSizing: "border-box",
+      font: "inherit",
+      padding: "10px 12px"
+    });
+  });
+  setStyles(document.querySelector(".table-wrap"), {
+    overflow: "auto",
+    maxHeight: "calc(100vh - 230px)"
+  });
+  setStyles(document.querySelector("table"), {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "13px"
+  });
+  document.querySelectorAll("th, td").forEach((cell) => {
+    setStyles(cell, {
+      borderBottom: "1px solid #e5e7eb",
+      padding: "11px 10px",
+      textAlign: "left",
+      whiteSpace: "nowrap",
+      verticalAlign: "middle"
+    });
+  });
+}
+
 function normalizeEmploymentType(value) {
   const normalized = String(value || "").trim();
   return EMPLOYMENT_TYPE_ALIASES[normalized] || normalized;
@@ -174,6 +307,7 @@ function showMode(mode) {
   elements.loadingPanel.hidden = mode !== "loading";
   elements.adminApp.hidden = mode !== "app";
   elements.signOut.hidden = mode === "auth";
+  applyStableLayoutStyles();
 }
 
 function escapeHtml(value) {
@@ -725,6 +859,7 @@ function render() {
   }[state.view];
   renderTable();
   renderDetail();
+  applyStableLayoutStyles();
 }
 
 function renderTable() {
@@ -823,6 +958,7 @@ function renderTable() {
       <th>状態</th>
     </tr>`;
   elements.tableBody.replaceChildren(...rows.map(renderStoreRow));
+  applyStableLayoutStyles();
 }
 
 function renderQualitySummary() {

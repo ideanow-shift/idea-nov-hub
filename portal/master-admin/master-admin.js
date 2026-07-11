@@ -1,5 +1,6 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
-import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-mobile-form-guard-20260712-29";
+import { getIdToken, signInWithGoogleRedirect } from "../js/auth.js";
+import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-mobile-redirect-20260712-30";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";
@@ -8,7 +9,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "マスタ管理 v29";
+const MASTER_ADMIN_RECOVERY_LABEL = "マスタ管理 v30";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -175,6 +176,30 @@ function restoreLaunchAuth() {
 function clearStoredLaunchAuth() {
   sessionStorage.removeItem(MANAGEMENT_HUB_SESSION_KEY);
   sessionStorage.removeItem(MANAGEMENT_FIREBASE_TOKEN_KEY);
+}
+
+function shouldUseSameTabGoogleSignIn() {
+  const userAgent = navigator.userAgent || "";
+  const isAppleTouch = /iPhone|iPad|iPod/i.test(userAgent)
+    || (/Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1);
+  const isMobileViewport = window.matchMedia?.("(max-width: 900px)")?.matches;
+  return Boolean(isAppleTouch || isMobileViewport);
+}
+
+async function restoreFirebaseBrowserSession() {
+  setFirebaseAuth();
+  try {
+    const token = await withTimeout(
+      getIdToken(),
+      3500,
+      "Firebaseログイン状態を確認できませんでした。"
+    );
+    if (token) return true;
+  } catch {
+    // No stored Firebase session. Keep this silent and show the explicit login button.
+  }
+  clearApiAuth();
+  return false;
 }
 
 function withTimeout(promise, timeoutMs, message) {
@@ -5258,6 +5283,10 @@ async function handleSignIn() {
   try {
     showMode("loading");
     setFirebaseAuth();
+    if (shouldUseSameTabGoogleSignIn()) {
+      await signInWithGoogleRedirect();
+      return;
+    }
     await signInWithGoogle();
     await loadData();
   } catch (error) {
@@ -5277,6 +5306,10 @@ async function handleSignOut() {
 
 async function initializeMasterAdmin() {
   if (!restoreLaunchAuth()) {
+    if (await restoreFirebaseBrowserSession()) {
+      await loadData();
+      return;
+    }
     showMode("auth");
     return;
   }

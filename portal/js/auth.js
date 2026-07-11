@@ -26,6 +26,16 @@ export async function signInWithGoogle() {
   return result.user;
 }
 
+export async function signInWithGoogleRedirect() {
+  if (!isFirebaseConfigured()) {
+    throw new Error("Firebase設定が未完了です。firebase-config.jsを更新してください。");
+  }
+  const sdk = await loadFirebase();
+  const provider = new sdk.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  await sdk.signInWithRedirect(firebaseAuth, provider);
+}
+
 export async function getIdToken() {
   if (!isFirebaseConfigured()) return "";
   const sdk = await loadFirebase();

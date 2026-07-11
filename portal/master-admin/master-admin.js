@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v14";
+const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v15";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -236,6 +236,10 @@ function installRuntimeLayoutStyles() {
     .safe-master-table tr.selected, .safe-master-table tr:hover { background: #fff7f7 !important; }
     .safe-master-pill { display: inline-flex !important; align-items: center !important; justify-content: center !important; min-width: 52px !important; border-radius: 999px !important; background: #f3f4f6 !important; color: #374151 !important; font-size: 12px !important; font-weight: 700 !important; padding: 3px 8px !important; }
     .safe-master-detail { position: sticky !important; top: 106px !important; max-height: calc(100vh - 130px) !important; overflow: auto !important; }
+    .safe-master-profile { display: grid !important; grid-template-columns: 64px minmax(0, 1fr) !important; gap: 12px !important; align-items: center !important; margin: 12px 0 !important; padding: 12px !important; border: 1px solid #f1f5f9 !important; border-radius: 14px !important; background: #fffafa !important; }
+    .safe-master-profile-visual { width: 64px !important; height: 64px !important; border-radius: 18px !important; overflow: hidden !important; background: #f3f4f6 !important; display: grid !important; place-items: center !important; color: #6b7280 !important; font-size: 24px !important; font-weight: 800 !important; }
+    .safe-master-profile-visual img { display: block !important; width: 100% !important; height: 100% !important; object-fit: cover !important; }
+    .safe-master-profile-text { display: grid !important; gap: 3px !important; min-width: 0 !important; }
     .safe-master-detail-section { display: grid !important; gap: 6px !important; margin: 14px 0 !important; }
     .safe-master-detail-section-title { margin: 0 0 2px !important; color: #111827 !important; font-size: 13px !important; font-weight: 800 !important; }
     .safe-master-detail-grid { display: grid !important; gap: 8px !important; }
@@ -491,6 +495,15 @@ function maskEmailForSafeView(value) {
   return `${visible}${"*".repeat(Math.max(3, Math.min(8, local.length - visible.length)))}@${domain}`;
 }
 
+function getRecoveryProfileImageUrl(employee) {
+  const image = employee?.profile_image || {};
+  return String(image.profileImageUrl || image.avatarUrl || "").trim();
+}
+
+function getSafeInitial(value) {
+  return String(value || "?").trim().slice(0, 1) || "?";
+}
+
 function getSafeEmployeeRows() {
   const query = normalizeSearch(state.safeSearch || "");
   return (state.employees || []).filter((employee) => {
@@ -688,6 +701,29 @@ function renderSafeMasterAdminView() {
       getSafeStatusLabel(selected)
     ].filter(Boolean).join(" / ");
 
+    const profile = document.createElement("div");
+    profile.className = "safe-master-profile";
+    const visual = document.createElement("div");
+    visual.className = "safe-master-profile-visual";
+    const imageUrl = getRecoveryProfileImageUrl(selected);
+    if (imageUrl) {
+      const image = document.createElement("img");
+      image.alt = "プロフィール画像";
+      image.src = imageUrl;
+      visual.append(image);
+    } else {
+      visual.textContent = getSafeInitial(selected.full_name);
+    }
+    const profileText = document.createElement("div");
+    profileText.className = "safe-master-profile-text";
+    const profileName = document.createElement("strong");
+    profileName.textContent = selected.full_name || "社員詳細";
+    const profileNote = document.createElement("span");
+    profileNote.className = "safe-master-note";
+    profileNote.textContent = imageUrl ? "社員画像: 設定済み" : "社員画像: 未設定";
+    profileText.append(profileName, profileNote);
+    profile.append(visual, profileText);
+
     const details = document.createElement("div");
     details.className = "safe-master-detail-sections";
     appendSafeDetailSection(details, "基本情報", [
@@ -711,7 +747,7 @@ function renderSafeMasterAdminView() {
     const note = document.createElement("p");
     note.className = "safe-master-note";
     note.textContent = "現在は復旧中のため、詳細は確認表示のみです。保存操作は通常詳細フォーム復旧後に再開します。";
-    detailCard.append(detailTitle, meta, details, note);
+    detailCard.append(detailTitle, meta, profile, details, note);
   } else {
     const empty = document.createElement("div");
     empty.className = "empty-detail";

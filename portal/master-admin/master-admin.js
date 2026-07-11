@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v13";
+const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v14";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -236,7 +236,9 @@ function installRuntimeLayoutStyles() {
     .safe-master-table tr.selected, .safe-master-table tr:hover { background: #fff7f7 !important; }
     .safe-master-pill { display: inline-flex !important; align-items: center !important; justify-content: center !important; min-width: 52px !important; border-radius: 999px !important; background: #f3f4f6 !important; color: #374151 !important; font-size: 12px !important; font-weight: 700 !important; padding: 3px 8px !important; }
     .safe-master-detail { position: sticky !important; top: 106px !important; max-height: calc(100vh - 130px) !important; overflow: auto !important; }
-    .safe-master-detail-grid { display: grid !important; gap: 8px !important; margin: 14px 0 !important; }
+    .safe-master-detail-section { display: grid !important; gap: 6px !important; margin: 14px 0 !important; }
+    .safe-master-detail-section-title { margin: 0 0 2px !important; color: #111827 !important; font-size: 13px !important; font-weight: 800 !important; }
+    .safe-master-detail-grid { display: grid !important; gap: 8px !important; }
     .safe-master-detail-row { display: grid !important; grid-template-columns: 96px minmax(0, 1fr) !important; gap: 10px !important; align-items: baseline !important; border-bottom: 1px solid #f1f5f9 !important; padding: 8px 0 !important; }
     .safe-master-detail-label { color: #6b7280 !important; font-size: 12px !important; }
     .safe-master-detail-value { min-width: 0 !important; overflow-wrap: anywhere !important; font-size: 13px !important; }
@@ -528,6 +530,20 @@ function appendSafeDetailRow(parent, label, value) {
   return row;
 }
 
+function appendSafeDetailSection(parent, titleText, rows) {
+  const section = document.createElement("section");
+  section.className = "safe-master-detail-section";
+  const title = document.createElement("h4");
+  title.className = "safe-master-detail-section-title";
+  title.textContent = titleText;
+  const grid = document.createElement("div");
+  grid.className = "safe-master-detail-grid";
+  rows.forEach(([label, value]) => appendSafeDetailRow(grid, label, value));
+  section.append(title, grid);
+  parent.append(section);
+  return section;
+}
+
 function createSafeCell(row, value) {
   const cell = document.createElement("td");
   cell.textContent = value == null ? "" : String(value);
@@ -570,7 +586,7 @@ function renderSafeMasterAdminView() {
   titleStrong.textContent = "社員マスタ";
   const titleNote = document.createElement("span");
   titleNote.className = "safe-master-note";
-  titleNote.textContent = "P0復旧ビューです。社員一覧・検索・選択を優先して復旧しています。";
+  titleNote.textContent = "P0復旧ビューです。社員一覧・検索・選択・確認表示を優先して復旧しています。";
   title.append(titleStrong, titleNote);
 
   const refreshButton = document.createElement("button");
@@ -673,16 +689,24 @@ function renderSafeMasterAdminView() {
     ].filter(Boolean).join(" / ");
 
     const details = document.createElement("div");
-    details.className = "safe-master-detail-grid";
-    appendSafeDetailRow(details, "社員番号", selected.employee_id || "");
-    appendSafeDetailRow(details, "所属", getRecoveryAffiliation(selected));
-    appendSafeDetailRow(details, "役職", selected.position_name || selected.source_position_name || "");
-    appendSafeDetailRow(details, "雇用形態", selected.employment_type || selected.job_type_name || "");
-    appendSafeDetailRow(details, "状態", getSafeStatusLabel(selected));
-    appendSafeDetailRow(details, "メール", maskEmailForSafeView(getRecoveryEmail(selected)));
-    appendSafeDetailRow(details, "ログイン", getRecoveryLoginStatus(selected));
-    appendSafeDetailRow(details, "通知先", getRecoveryNotificationStatus(selected));
-    appendSafeDetailRow(details, "Firebase", selected.firebase_uid || selected.firebaseUid ? "連携済み" : "未連携");
+    details.className = "safe-master-detail-sections";
+    appendSafeDetailSection(details, "基本情報", [
+      ["社員番号", selected.employee_id || ""],
+      ["所属", getRecoveryAffiliation(selected)],
+      ["役職", selected.position_name || selected.source_position_name || ""],
+      ["雇用形態", selected.employment_type || selected.job_type_name || ""],
+      ["状態", getSafeStatusLabel(selected)]
+    ]);
+    appendSafeDetailSection(details, "HUBログイン", [
+      ["メール", maskEmailForSafeView(getRecoveryEmail(selected))],
+      ["ログイン", getRecoveryLoginStatus(selected)],
+      ["Firebase", selected.firebase_uid || selected.firebaseUid ? "連携済み" : "未連携"]
+    ]);
+    appendSafeDetailSection(details, "通知", [
+      ["LINE WORKS", getRecoveryNotificationStatus(selected)],
+      ["用途", "社員個人宛の通知先"],
+      ["表示", "実値は伏せています"]
+    ]);
 
     const note = document.createElement("p");
     note.className = "safe-master-note";

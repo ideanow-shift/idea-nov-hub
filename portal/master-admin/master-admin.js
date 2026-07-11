@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v20";
+const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v21";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -220,7 +220,7 @@ function installRuntimeLayoutStyles() {
     tr { display: table-row !important; }
     th, td { display: table-cell !important; border-bottom: 1px solid #e5e7eb !important; padding: 11px 10px !important; text-align: left !important; white-space: nowrap !important; vertical-align: middle !important; }
     #master-admin-safe-view { position: fixed !important; inset: 88px 0 0 0 !important; z-index: 5000 !important; display: block !important; overflow: auto !important; background: #fafafa !important; padding: 22px !important; box-sizing: border-box !important; }
-    .safe-master-shell { width: min(100%, 1180px) !important; margin: 0 auto !important; display: grid !important; grid-template-columns: minmax(0, 1fr) 340px !important; gap: 16px !important; align-items: start !important; }
+    .safe-master-shell { width: min(100%, 1280px) !important; margin: 0 auto !important; display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(420px, 500px) !important; gap: 16px !important; align-items: start !important; }
     .safe-master-card { border: 1px solid #e5e7eb !important; border-radius: 14px !important; background: #fff !important; padding: 16px !important; box-sizing: border-box !important; }
     .safe-master-header { display: flex !important; flex-wrap: wrap !important; align-items: center !important; justify-content: space-between !important; gap: 12px !important; margin-bottom: 14px !important; }
     .safe-master-title { display: grid !important; gap: 3px !important; }
@@ -257,6 +257,8 @@ function installRuntimeLayoutStyles() {
     .safe-master-normal-detail .corporation-detail-form { display: grid !important; gap: 12px !important; }
     .safe-master-normal-detail .form-actions,
     .safe-master-normal-detail .detail-actions { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; }
+    .safe-master-normal-detail .save-row { position: sticky !important; bottom: 0 !important; z-index: 2 !important; display: flex !important; flex-wrap: wrap !important; gap: 8px !important; align-items: center !important; justify-content: flex-end !important; border-top: 1px solid #e5e7eb !important; background: rgba(255,255,255,.96) !important; padding: 12px 0 0 !important; margin-top: 14px !important; }
+    .safe-master-normal-detail .save-status { margin-right: auto !important; }
     @media (max-width: 900px) {
       #master-admin-safe-view { top: 78px !important; padding: 14px !important; }
       .safe-master-shell { grid-template-columns: 1fr !important; }
@@ -981,6 +983,10 @@ function renderNormalDetailForSafeView(selected) {
 
 function appendNormalDetailIntoSafeCard(detailCard, selected) {
   appendSafeEditActions(detailCard);
+  if (state.view === "employees" || state.view === "firebase") {
+    appendSafeEmployeeEditForm(detailCard, selected);
+    return;
+  }
   renderNormalDetailForSafeView(selected);
   const normalDetail = document.createElement("div");
   normalDetail.className = "safe-master-normal-detail";
@@ -994,6 +1000,45 @@ function appendNormalDetailIntoSafeCard(detailCard, selected) {
     normalDetail.append(empty);
   }
   detailCard.append(normalDetail);
+}
+
+function appendSafeEmployeeEditForm(detailCard, employee) {
+  const formWrap = document.createElement("div");
+  formWrap.className = "safe-master-normal-detail";
+  formWrap.innerHTML = `
+    <h3>${escapeHtml(employee.full_name || "社員編集")}</h3>
+    <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id || "")} / ${escapeHtml(formatEmployeeAffiliation(employee) || getRecoveryAffiliation(employee) || "所属未設定")}</p>
+    <p class="detail-note">P0復旧用の編集フォームです。保存時は既存Edge APIで編集権限を再確認します。</p>
+    <form class="employee-detail-form" id="detail-form">
+      <div class="form-grid employee-detail-section-body">
+        ${fieldInput("birth_date", "誕生日", employee.birth_date || "", "date")}
+        ${fieldInput("joined_on", "入社日", employee.joined_on || "", "date")}
+        ${fieldInput("retired_on", "退職日", employee.retired_on || "", "date")}
+        ${fieldInput("email", "メールアドレス（任意）", employee.email || getEmployeeCredential(employee).login_email || "", { type: "email", placeholder: "必要な社員のみ入力" })}
+        ${fieldSelect("corporation_id", "法人", state.masters.corporations, employee.corporation_id, "corporation_name")}
+        ${fieldSelect("store_id", "主店舗", state.stores, getStoreAssignmentsByOrder(employee.store_assignments || [])[1] || employee.store_id, "store_name")}
+        ${fieldSelect("store_assignment_2", "サブ店舗", state.stores, getStoreAssignmentsByOrder(employee.store_assignments || [])[2] || "", "store_name")}
+        ${fieldSelect("store_assignment_3", "第3店舗", state.stores, getStoreAssignmentsByOrder(employee.store_assignments || [])[3] || "", "store_name")}
+        ${fieldSelect("department_id", "部署", state.masters.departments, employee.department_id, "department_name")}
+        ${fieldSelect("position_id", "役職", state.masters.positions, employee.position_id, "position_name")}
+        ${renderJobTypeField(employee.job_type_id || "")}
+        ${fieldStaticSelect("employment_type", "雇用形態", EMPLOYMENT_TYPE_OPTIONS, normalizeEmploymentTypeForForm(employee.employment_type || ""))}
+        ${fieldStaticSelect("employment_status", "就労ステータス", EMPLOYMENT_STATUS_OPTIONS, normalizeEmploymentStatus(employee.employment_status || ""))}
+        ${fieldStaticSelect("leave_type", "休職種別", LEAVE_TYPE_OPTIONS, normalizeLeaveType(employee.leave_type || ""))}
+        ${fieldInput("leave_start_date", "休職開始日", employee.leave_start_date || "", "date")}
+        ${fieldInput("leave_end_date", "休職終了日・復職日", employee.leave_end_date || "", "date")}
+      </div>
+      ${fieldCheckbox("is_active", "有効", employee.is_active)}
+      <div class="save-row">
+        <span class="save-status" id="employee-save-status" aria-live="polite"></span>
+        <button class="button button-primary save-button" type="submit">基本情報を保存</button>
+      </div>
+    </form>`;
+  const form = formWrap.querySelector("#detail-form");
+  form?.addEventListener("submit", saveEmployee);
+  form?.addEventListener("input", () => setSaveStatus(document.querySelector("#employee-save-status"), "未保存の変更があります。保存ボタンを押してください。", "pending"));
+  form?.addEventListener("change", () => setSaveStatus(document.querySelector("#employee-save-status"), "未保存の変更があります。保存ボタンを押してください。", "pending"));
+  detailCard.append(formWrap);
 }
 
 function renderSafeMasterAdminView() {

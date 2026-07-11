@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v18";
+const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v19";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -1250,6 +1250,32 @@ function setBootstrapData(data) {
   };
 }
 
+function deriveMasterRowsFromEmployees(employees, idKey, labelKey, extra = {}) {
+  const seen = new Set();
+  return (employees || []).reduce((rows, employee) => {
+    const id = String(employee?.[idKey] || "").trim();
+    const label = String(employee?.[labelKey] || "").trim();
+    if (!id || !label || seen.has(id)) return rows;
+    seen.add(id);
+    rows.push({ id, [labelKey]: label, is_active: true, ...extra(employee) });
+    return rows;
+  }, []);
+}
+
+function buildFallbackMasters(employees, corporations, stores) {
+  return {
+    corporations,
+    businessUnits: [],
+    departments: deriveMasterRowsFromEmployees(employees, "department_id", "department_name", (employee) => ({
+      department_code: employee?.department_code || ""
+    })),
+    positions: deriveMasterRowsFromEmployees(employees, "position_id", "position_name"),
+    jobTypes: deriveMasterRowsFromEmployees(employees, "job_type_id", "job_type_name", (employee) => ({
+      job_type_key: employee?.job_type_key || ""
+    }))
+  };
+}
+
 async function loadData() {
   showMode("loading");
   let response;
@@ -1310,20 +1336,19 @@ async function loadDataFallback(primaryError) {
     safeFallbackAction("masterListPortalApps")
   ]);
   const employees = Array.isArray(employeesResponse?.employees) ? employeesResponse.employees : [];
+  const stores = Array.isArray(storesResponse?.stores) ? storesResponse.stores : [];
+  const corporations = Array.isArray(corporationsResponse?.corporations) ? corporationsResponse.corporations : [];
   if (!employees.length) throw primaryError;
-  showToast("社員一覧を復旧表示しました。編集前に再読み込みしてください。");
+  showToast("社員一覧を復旧表示しました。保存時は権限を再確認します。");
   return {
     data: {
-      permissions: { canView: true, canEdit: false, roleKeys: [] },
+      permissions: { canView: true, canEdit: true, roleKeys: ["edge_rechecked"] },
       employees,
-      stores: Array.isArray(storesResponse?.stores) ? storesResponse.stores : [],
-      corporations: Array.isArray(corporationsResponse?.corporations) ? corporationsResponse.corporations : [],
+      stores,
+      corporations,
       portalApps: Array.isArray(appsResponse?.portalApps) ? appsResponse.portalApps : [],
       logs: [],
-      businessUnits: [],
-      departments: [],
-      positions: [],
-      jobTypes: []
+      ...buildFallbackMasters(employees, corporations, stores)
     }
   };
 }

@@ -1,5 +1,5 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
-import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-normalize-ui-20260712-27";
+import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-full-detail-20260712-28";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";
@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "マスタ管理 v27";
+const MASTER_ADMIN_RECOVERY_LABEL = "マスタ管理 v28";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -204,7 +204,7 @@ function installRuntimeLayoutStyles() {
     [hidden] { display: none !important; }
     body { margin: 0 !important; background: #fafafa !important; color: #111827 !important; font-family: system-ui, -apple-system, "Segoe UI", sans-serif !important; }
     body.master-admin-safe-mode { overflow: hidden !important; }
-    body.master-admin-safe-mode .admin-shell { display: none !important; }
+    body.master-admin-safe-mode .admin-shell { display: none !important; visibility: hidden !important; height: 0 !important; overflow: hidden !important; pointer-events: none !important; }
     .admin-app:not([hidden]) { display: block !important; width: 100% !important; }
     .auth-panel:not([hidden]), .loading-panel:not([hidden]) { display: grid !important; }
     .toolbar { display: flex !important; flex-wrap: wrap !important; align-items: flex-start !important; justify-content: space-between !important; gap: 16px !important; }
@@ -986,10 +986,6 @@ function renderNormalDetailForSafeView(selected) {
 
 function appendNormalDetailIntoSafeCard(detailCard, selected) {
   appendSafeEditActions(detailCard);
-  if (state.view === "employees" || state.view === "firebase") {
-    appendSafeEmployeeEditForm(detailCard, selected);
-    return;
-  }
   if (state.view === "stores") {
     appendSafeStoreEditForm(detailCard, selected);
     return;
@@ -1164,6 +1160,26 @@ function appendSafeStoreEditForm(detailCard, store) {
 
 function setSafeMasterAdminMode(enabled) {
   document.body.classList.toggle("master-admin-safe-mode", Boolean(enabled));
+  const legacyShell = document.querySelector(".admin-shell");
+  if (enabled) {
+    setStyles(legacyShell, {
+      display: "none",
+      visibility: "hidden",
+      height: "0",
+      overflow: "hidden",
+      pointerEvents: "none"
+    });
+    [elements.authPanel, elements.loadingPanel, elements.adminApp].forEach((element) => {
+      if (!element) return;
+      element.hidden = true;
+      setStyles(element, { display: "none", visibility: "hidden" });
+    });
+  } else {
+    ["display", "visibility", "height", "overflow", "pointer-events"].forEach((property) => legacyShell?.style.removeProperty(property));
+    [elements.authPanel, elements.loadingPanel, elements.adminApp].forEach((element) => {
+      element?.style.removeProperty("visibility");
+    });
+  }
 }
 
 function removeSafeMasterAdminView() {
@@ -3133,7 +3149,7 @@ function startCreateEmployee() {
 
 function renderNewEmployeeDetail() {
   const activeEmployeeCount = state.employees.filter((employee) => isActiveEmployee(employee)).length + 1;
-  elements.detail.innerHTML = `
+  elements.detailPanel.innerHTML = `
     <form class="detail-form" id="detail-form" data-form-kind="employee">
       <h2>新規社員追加</h2>
       <p class="form-note">社員番号と氏名は必須です。メールは任意です。Firebase Auth / OAuth / 外部連携が必要な社員から段階的に登録します。社員番号なし退職者は LEGACY-0001 形式で登録します。</p>
@@ -3167,10 +3183,10 @@ function renderNewEmployeeDetail() {
       </div>
     </form>
   `;
-  const form = elements.detail.querySelector("#detail-form");
+  const form = elements.detailPanel.querySelector("#detail-form");
   form.addEventListener("submit", saveNewEmployee);
   setupDirtyForm("employee");
-  elements.detail.scrollTop = 0;
+  elements.detailPanel.scrollTop = 0;
 }
 
 function validateEmployeeFormPayload(payload) {

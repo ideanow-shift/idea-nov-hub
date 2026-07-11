@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-labelledby="coinGreetingTitle coinGreetingDesc">
+  <title id="coinGreetingTitle">挨拶コイン</title>
+  <desc id="coinGreetingDesc">笑顔と手を振るしぐさを組み合わせた、明るい挨拶のコインアイコン</desc>
+  <defs>
+    <linearGradient id="coinGreetingBg" x1="8" y1="6" x2="40" y2="42" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFBE9"/>
+      <stop offset="1" stop-color="#FFF3C7"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="40" height="40" rx="14" fill="url(#coinGreetingBg)" stroke="#E8C078" stroke-width="1.8"/>
+  <circle cx="24" cy="24" r="12" fill="#FFFFFF" fill-opacity=".42" stroke="#E8C078" stroke-width="2.2"/>
+  <g fill="none" stroke="#E8C078" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18.5 22.5h.1"/>
+    <path d="M25 22.5h.1"/>
+    <path d="M18.5 27.5c2.1 2 5.1 2 7.2 0"/>
+    <path d="M30.5 27.5c1.8-1.1 3-3 3-5.2v-3.5"/>
+    <path d="M30.5 19v-3.2"/>
+    <path d="M33.5 19.2V16"/>
+    <path d="M36.4 20.5v-2.7"/>
+    <path d="M31.5 29.5c2.5-.5 5.2-2.4 5.2-6.4"/>
+    <path d="M12.5 15.5l1.8 1.2"/>
+    <path d="M35.2 11.8l-1.4 2"/>
+  </g>
+</svg>

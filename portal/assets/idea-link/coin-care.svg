@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-labelledby="coinCareTitle coinCareDesc">
+  <title id="coinCareTitle">思いやりコイン</title>
+  <desc id="coinCareDesc">手のひらでハートを包む、思いやりを表したコインアイコン</desc>
+  <defs>
+    <linearGradient id="coinCareBg" x1="8" y1="6" x2="40" y2="42" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF7F8"/>
+      <stop offset="1" stop-color="#FFF0EF"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="40" height="40" rx="14" fill="url(#coinCareBg)" stroke="#E8B4B8" stroke-width="1.8"/>
+  <circle cx="24" cy="24" r="12" fill="#FFFFFF" fill-opacity=".42" stroke="#E8B4B8" stroke-width="2.2"/>
+  <g fill="none" stroke="#E8B4B8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 25.8s-4.8-3.1-4.8-6.5c0-1.7 1.2-3 2.8-3 .9 0 1.7.5 2.1 1.2.5-.7 1.3-1.2 2.2-1.2 1.6 0 2.8 1.3 2.8 3 0 3.4-5.1 6.5-5.1 6.5Z"/>
+    <path d="M14.2 29.8c2.8 4 6.1 5.8 9.8 5.8"/>
+    <path d="M33.8 29.8c-2.8 4-6.1 5.8-9.8 5.8"/>
+    <path d="M14.2 29.8l4.9-3.1c1.2-.8 2.8.1 2.8 1.5v1"/>
+    <path d="M33.8 29.8l-4.9-3.1c-1.2-.8-2.8.1-2.8 1.5v1"/>
+  </g>
+</svg>

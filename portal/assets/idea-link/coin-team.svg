@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-labelledby="coinTeamTitle coinTeamDesc">
+  <title id="coinTeamTitle">助け合いコイン</title>
+  <desc id="coinTeamDesc">3人のつながりと支え合う線で、助け合う姿勢を表したコインアイコン</desc>
+  <defs>
+    <linearGradient id="coinTeamBg" x1="8" y1="6" x2="40" y2="42" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F2FFF8"/>
+      <stop offset="1" stop-color="#E1F8EC"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="40" height="40" rx="14" fill="url(#coinTeamBg)" stroke="#9BCFB8" stroke-width="1.8"/>
+  <circle cx="24" cy="24" r="12" fill="#FFFFFF" fill-opacity=".42" stroke="#9BCFB8" stroke-width="2.2"/>
+  <g fill="none" stroke="#9BCFB8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="24" cy="17.7" r="3.1"/>
+    <circle cx="17.2" cy="27.2" r="3"/>
+    <circle cx="30.8" cy="27.2" r="3"/>
+    <path d="M21.8 20.1l-2.5 4"/>
+    <path d="M26.2 20.1l2.5 4"/>
+    <path d="M20 30.2c2.3 2 5.7 2 8 0"/>
+    <path d="M14.3 33.8c1.1-2 2.7-3 4.8-3"/>
+    <path d="M28.9 30.8c2.1 0 3.7 1 4.8 3"/>
+  </g>
+</svg>

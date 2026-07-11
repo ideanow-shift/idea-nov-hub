@@ -326,6 +326,21 @@
       cursor: pointer;
     }
 
+    .choice-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 48px;
+      padding: 5px 13px 5px 7px;
+    }
+
+    .choice-chip img {
+      width: 36px;
+      height: 36px;
+      flex: 0 0 36px;
+      object-fit: contain;
+    }
+
     .choice-chip.active {
       border-color: var(--brand);
       background: var(--brand-soft);
@@ -342,6 +357,41 @@
       gap: 6px;
       font-size: 14px;
       line-height: 1.6;
+    }
+
+    .category-help {
+      grid-template-columns: 48px minmax(0, 1fr);
+      align-items: center;
+      gap: 12px;
+    }
+
+    .category-help img {
+      width: 48px;
+      height: 48px;
+      grid-row: 1 / span 2;
+      object-fit: contain;
+    }
+
+    .receiver-preview {
+      grid-template-columns: 48px minmax(0, 1fr);
+      align-items: center;
+      gap: 4px 12px;
+      border-left: 4px solid var(--brand);
+      background: var(--brand-soft);
+    }
+
+    .receiver-avatar {
+      display: grid;
+      width: 48px;
+      height: 48px;
+      grid-row: 1 / span 2;
+      place-items: center;
+      border: 1px solid #f0cbd1;
+      border-radius: 50%;
+      background: #fff;
+      color: var(--brand-strong);
+      font-size: 18px;
+      font-weight: 800;
     }
 
     .category-help strong,
@@ -1022,13 +1072,14 @@
             </select>
           </label>
           <div class="choice-grid" aria-label="カテゴリを選ぶ">
-            <button class="choice-chip active" type="button" data-category-value="気持ち良い挨拶">笑顔で挨拶する</button>
-            <button class="choice-chip" type="button" data-category-value="約束を守る">約束を守る</button>
-            <button class="choice-chip" type="button" data-category-value="チームワーク">助け合う</button>
-            <button class="choice-chip" type="button" data-category-value="報連相">伝え合う</button>
-            <button class="choice-chip" type="button" data-category-value="思いやり">思いやる</button>
+            <button class="choice-chip active" type="button" data-category-value="気持ち良い挨拶"><img src="../assets/idea-link/coin-greeting.svg" alt="">笑顔で挨拶する</button>
+            <button class="choice-chip" type="button" data-category-value="約束を守る"><img src="../assets/idea-link/coin-promise.svg" alt="">約束を守る</button>
+            <button class="choice-chip" type="button" data-category-value="チームワーク"><img src="../assets/idea-link/coin-team.svg" alt="">助け合う</button>
+            <button class="choice-chip" type="button" data-category-value="報連相"><img src="../assets/idea-link/coin-communication.svg" alt="">伝え合う</button>
+            <button class="choice-chip" type="button" data-category-value="思いやり"><img src="../assets/idea-link/coin-care.svg" alt="">思いやる</button>
           </div>
           <div class="category-help" id="category-help">
+            <img src="../assets/idea-link/coin-greeting.svg" alt="">
             <strong>笑顔で挨拶する</strong>
             <span>明るい挨拶や、場の空気を良くしてくれた行動へ。</span>
           </div>
@@ -1286,6 +1337,13 @@
       "報連相": "共有・相談・確認で、仕事を進めやすくしてくれた行動へ。",
       "思いやり": "相手やお客様を気づかってくれた行動へ。"
     };
+    const categoryCoinMap = {
+      "気持ち良い挨拶": "coin-greeting.svg",
+      "約束を守る": "coin-promise.svg",
+      "チームワーク": "coin-team.svg",
+      "報連相": "coin-communication.svg",
+      "思いやり": "coin-care.svg"
+    };
 
     function text(value, fallback = "") {
       return String(value || fallback || "").trim();
@@ -1413,6 +1471,7 @@
         button.classList.toggle("active", button.dataset.categoryValue === value);
       });
       categoryHelp.innerHTML = `
+        <img src="../assets/idea-link/${categoryCoinMap[value] || "thanks-coin.svg"}" alt="">
         <strong>${displayCategory(value)}</strong>
         <span>${categoryHelpMap[value] || "ありがとうを届けたい行動に近いものを選んでください。"}</span>
       `;
@@ -1764,6 +1823,7 @@
       ].filter(Boolean).join(" / ");
       receiverPreview.hidden = false;
       receiverPreview.innerHTML = `
+        <span class="receiver-avatar" aria-hidden="true">${text(item.fullName, "人").slice(0, 1)}</span>
         <strong>${text(item.fullName, "名前未設定")}さんへ送ります</strong>
         <span>${details || "所属情報を確認中"}</span>
       `;

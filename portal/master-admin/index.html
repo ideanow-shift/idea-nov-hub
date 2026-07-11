@@ -6,31 +6,39 @@
   <title>マスタ管理 | NOV HUB</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../css/design-system.css">
-  <link rel="stylesheet" href="./master-admin.css?v=master-admin-row-safe-fix-20260711">
+  <link rel="stylesheet" href="./master-admin.css?v=master-admin-forced-layout-fix-20260711">
   <style>
     [hidden] { display: none !important; }
+    #admin-app [hidden],
+    #auth-panel[hidden],
+    #loading-panel[hidden],
+    #sign-out[hidden] { display: none !important; }
     body { margin: 0; background: #fafafa; color: #1f2933; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    .admin-header { position: sticky; top: 0; z-index: 10; display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; border-bottom: 1px solid #e5e7eb; background: #fff; padding: 14px 24px; }
+    .admin-header { position: sticky !important; top: 0; z-index: 10; display: grid !important; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; border-bottom: 1px solid #e5e7eb; background: #fff; padding: 14px 24px; }
     .admin-header h1 { margin: 0; font-size: 24px; }
     .admin-header p { margin: 4px 0 0; color: #667085; }
     .back-link { color: #111827; text-decoration: none; }
     .admin-shell { width: min(100%, 1180px); margin: 0 auto; padding: 24px; box-sizing: border-box; }
-    .auth-panel, .loading-panel { display: grid; min-height: 52vh; place-items: center; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; padding: 32px; text-align: center; }
-    .toolbar { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(0, 4fr); gap: 16px; align-items: start; margin-bottom: 16px; }
+    .auth-panel, .loading-panel { display: grid !important; min-height: 52vh; place-items: center; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; padding: 32px; text-align: center; }
+    #admin-app:not([hidden]) { display: block !important; }
+    #admin-app .toolbar { display: grid !important; grid-template-columns: minmax(180px, 1fr) minmax(0, 4fr); gap: 16px; align-items: start; margin-bottom: 16px; }
     .toolbar h2, .kicker { margin: 0; }
-    .toolbar-actions, .status-filter, .csv-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-    .button, .segmented, .filter-chip { min-height: 36px; border: 1px solid #d0d5dd; border-radius: 8px; background: #fff; color: #111827; cursor: pointer; font: inherit; padding: 0 12px; }
+    #admin-app .toolbar-actions, #admin-app .status-filter, #admin-app .csv-tools { display: flex !important; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .button, .segmented, .filter-chip { display: inline-flex !important; align-items: center; justify-content: center; min-height: 36px; border: 1px solid #d0d5dd; border-radius: 8px; background: #fff; color: #111827; cursor: pointer; font: inherit; padding: 0 12px; text-decoration: none; }
     .button-primary { border-color: #e9b8bd; background: #e9b8bd; color: #fff; font-weight: 700; }
     .button-secondary { background: #fff; font-weight: 700; }
     .segmented.active, .filter-chip.active { border-color: #d88c95; background: #f9e7ea; }
-    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+    #admin-app .workspace { display: grid !important; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
     .list-panel, .detail-panel { border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; padding: 16px; }
     .search-input { width: 100%; min-height: 40px; box-sizing: border-box; border: 1px solid #d0d5dd; border-radius: 8px; padding: 8px 10px; }
     .quality-summary { margin: 12px 0; }
     .result-count { margin: 8px 0; color: #667085; font-weight: 700; }
     .table-wrap { max-width: 100%; overflow: auto; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border-bottom: 1px solid #e5e7eb; padding: 10px; text-align: left; vertical-align: top; }
+    #admin-app table { display: table !important; width: 100%; border-collapse: collapse; }
+    #admin-app thead { display: table-header-group !important; }
+    #admin-app tbody { display: table-row-group !important; }
+    #admin-app tr { display: table-row !important; }
+    #admin-app th, #admin-app td { display: table-cell !important; border-bottom: 1px solid #e5e7eb; padding: 10px; text-align: left; vertical-align: top; white-space: nowrap; }
     .toast { position: fixed; right: 20px; bottom: 20px; max-width: 360px; border-radius: 8px; background: #111827; color: #fff; padding: 12px 14px; }
     @media (max-width: 900px) {
       .toolbar, .workspace { grid-template-columns: 1fr; }
@@ -134,6 +142,6 @@
   </main>
 
   <div class="toast" id="toast" role="status" hidden></div>
-  <script type="module" src="./master-admin.js?v=master-admin-row-safe-fix-20260711"></script>
+  <script type="module" src="./master-admin.js?v=master-admin-forced-layout-fix-20260711"></script>
 </body>
 </html>

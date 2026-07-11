@@ -1,5 +1,5 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
-import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-safe-detail-20260711-23";
+import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-edit-first-20260711-24";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";
@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v23";
+const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v24";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -74,7 +74,7 @@ const state = {
   employeeStatus: "active",
   employeeIssueFilter: "",
   safeSearch: "",
-  safeRecoveryMode: "safe",
+  safeRecoveryMode: "edit",
   corporationStatus: "active",
   storeStatus: "active",
   appStatus: "active",
@@ -1000,6 +1000,20 @@ function appendNormalDetailIntoSafeCard(detailCard, selected) {
     normalDetail.append(empty);
   }
   detailCard.append(normalDetail);
+  bindMovedNormalDetailForm(normalDetail);
+}
+
+function bindMovedNormalDetailForm(container) {
+  const form = container?.querySelector("#detail-form");
+  if (!form || form.dataset.safeMasterBound === "true") return;
+  if (state.view === "stores") {
+    form.addEventListener("submit", saveStore);
+    setupDirtyForm("store");
+  } else if (state.view === "corporations") {
+    form.addEventListener("submit", saveCorporation);
+    setupDirtyForm("corporation");
+  }
+  form.dataset.safeMasterBound = "true";
 }
 
 function appendSafeEmployeeEditForm(detailCard, employee) {

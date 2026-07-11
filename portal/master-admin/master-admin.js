@@ -1,5 +1,5 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
-import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-store-corp-edit-20260712-25";
+import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-safe-shell-20260712-26";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";
@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v25";
+const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v26";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -203,6 +203,8 @@ function installRuntimeLayoutStyles() {
   style.textContent = `
     [hidden] { display: none !important; }
     body { margin: 0 !important; background: #fafafa !important; color: #111827 !important; font-family: system-ui, -apple-system, "Segoe UI", sans-serif !important; }
+    body.master-admin-safe-mode { overflow: hidden !important; }
+    body.master-admin-safe-mode .admin-shell { display: none !important; }
     .admin-app:not([hidden]) { display: block !important; width: 100% !important; }
     .auth-panel:not([hidden]), .loading-panel:not([hidden]) { display: grid !important; }
     .toolbar { display: flex !important; flex-wrap: wrap !important; align-items: flex-start !important; justify-content: space-between !important; gap: 16px !important; }
@@ -1159,6 +1161,15 @@ function appendSafeStoreEditForm(detailCard, store) {
   }
 }
 
+function setSafeMasterAdminMode(enabled) {
+  document.body.classList.toggle("master-admin-safe-mode", Boolean(enabled));
+}
+
+function removeSafeMasterAdminView() {
+  document.querySelector("#master-admin-safe-view")?.remove();
+  setSafeMasterAdminMode(false);
+}
+
 function appendSafeCorporationEditForm(detailCard, corporation) {
   const readonly = !state.permissions.canEdit;
   const profile = corporation.business_profile || {};
@@ -1236,11 +1247,12 @@ function appendSafeCorporationEditForm(detailCard, corporation) {
 
 function renderSafeMasterAdminView() {
   if (!["employees", "firebase", "stores", "corporations"].includes(state.view)) {
-    document.querySelector("#master-admin-safe-view")?.remove();
+    removeSafeMasterAdminView();
     return;
   }
 
   installRuntimeLayoutStyles();
+  setSafeMasterAdminMode(true);
 
   let safeView = document.querySelector("#master-admin-safe-view");
   if (!safeView) {
@@ -1451,7 +1463,7 @@ function showMode(mode) {
   setStyles(elements.adminApp, { display: mode === "app" ? "block" : "none" });
   setStyles(elements.signOut, { display: mode === "auth" ? "none" : "inline-flex" });
   if (mode !== "app") {
-    document.querySelector("#master-admin-safe-view")?.remove();
+    removeSafeMasterAdminView();
   }
   applyStableLayoutStyles();
 }

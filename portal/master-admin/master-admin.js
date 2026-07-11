@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v15";
+const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v16";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -557,6 +557,377 @@ function appendSafeDetailSection(parent, titleText, rows) {
   return section;
 }
 
+function appendSafeFilterButton(parent, active, label, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `filter-chip${active ? " active" : ""}`;
+  button.textContent = label;
+  button.addEventListener("click", onClick);
+  parent.append(button);
+  return button;
+}
+
+function getSafeViewTitle() {
+  if (state.view === "stores") return "店舗マスタ";
+  if (state.view === "corporations") return "法人マスタ";
+  return "社員マスタ";
+}
+
+function getSafeViewNote() {
+  if (state.view === "stores") return "P0復旧ビューです。店舗一覧・検索・確認表示を優先して復旧しています。";
+  if (state.view === "corporations") return "P0復旧ビューです。法人一覧・検索・確認表示を優先して復旧しています。";
+  return "P0復旧ビューです。社員一覧・検索・選択・確認表示を優先して復旧しています。";
+}
+
+function getSafeRowsForCurrentView() {
+  const query = normalizeSearch(state.safeSearch || "");
+  let rows = [];
+  if (state.view === "stores") rows = getStoresByStatus();
+  else if (state.view === "corporations") rows = getCorporationsByStatus();
+  else rows = getSafeEmployeeRows();
+  if (!query) return rows;
+  return rows.filter((row) => normalizeSearch(getSearchText(row)).includes(query));
+}
+
+function getSafeSelectedRow(rows) {
+  return rows.find((row) => row?.id === state.selectedId) || rows[0] || null;
+}
+
+function getSafeRowCountLabel(rows) {
+  const label = state.view === "stores" ? "店舗" : state.view === "corporations" ? "法人" : "件";
+  return label === "件" ? `${rows.length}件` : `${rows.length}${label}`;
+}
+
+function appendSafeViewTabs(parent) {
+  [
+    ["employees", "社員"],
+    ["stores", "店舗"],
+    ["corporations", "法人"]
+  ].forEach(([view, label]) => {
+    appendSafeFilterButton(parent, state.view === view || (view === "employees" && state.view === "firebase"), label, () => {
+      state.view = view;
+      state.selectedId = "";
+      state.safeSearch = "";
+      renderSafeMasterAdminView();
+    });
+  });
+}
+
+function appendSafeStatusFilters(parent) {
+  if (state.view === "stores") {
+    [
+      ["active", "有効"],
+      ["missing", "未設定あり"],
+      ["inactive", "無効"],
+      ["all", "全店舗"]
+    ].forEach(([value, label]) => {
+      appendSafeFilterButton(parent, state.storeStatus === value, label, () => {
+        state.storeStatus = value;
+        renderSafeMasterAdminView();
+      });
+    });
+    return;
+  }
+  if (state.view === "corporations") {
+    [
+      ["active", "有効"],
+      ["inactive", "無効"],
+      ["all", "全法人"]
+    ].forEach(([value, label]) => {
+      appendSafeFilterButton(parent, state.corporationStatus === value, label, () => {
+        state.corporationStatus = value;
+        renderSafeMasterAdminView();
+      });
+    });
+    return;
+  }
+  [
+    ["active", "現職"],
+    ["missing", "未設定あり"],
+    ["leave", "休職"],
+    ["inactive", "退職者"],
+    ["all", "全員"]
+  ].forEach(([value, label]) => {
+    appendSafeFilterButton(parent, state.employeeStatus === value, label, () => {
+      state.employeeStatus = value;
+      renderSafeMasterAdminView();
+    });
+  });
+}
+
+function getSafeTableHeaders() {
+  if (state.view === "stores") return ["店舗No", "店舗ID", "店舗名", "法人", "エリア", "状態"];
+  if (state.view === "corporations") return ["法人No", "法人名", "正式名", "決算月", "状況", "有効"];
+  return ["社員番号", "氏名", "所属", "役職", "メール", "ログイン", "通知先", "状態"];
+}
+
+function appendSafeTableHeader(table) {
+  const thead = document.createElement("thead");
+  const tr = document.createElement("tr");
+  getSafeTableHeaders().forEach((label) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    tr.append(th);
+  });
+  thead.append(tr);
+  table.append(thead);
+}
+
+function appendSafeEmployeeRow(tbody, employee) {
+  const tr = document.createElement("tr");
+  if (employee?.id === state.selectedId) tr.classList.add("selected");
+  createSafeCell(tr, employee?.employee_id || "");
+  createSafeCell(tr, employee?.full_name || "");
+  createSafeCell(tr, formatEmployeeAffiliation(employee) || getRecoveryAffiliation(employee));
+  createSafeCell(tr, employee?.position_name || employee?.source_position_name || "");
+  createSafeCell(tr, maskEmailForSafeView(getRecoveryEmail(employee)));
+  createSafeCell(tr, getRecoveryLoginStatus(employee));
+  createSafeCell(tr, getRecoveryNotificationStatus(employee));
+  const statusCell = createSafeCell(tr, "");
+  const pill = document.createElement("span");
+  pill.className = "safe-master-pill";
+  pill.textContent = getSafeStatusLabel(employee);
+  statusCell.append(pill);
+  tr.addEventListener("click", () => {
+    state.selectedId = employee?.id || "";
+    renderSafeMasterAdminView();
+  });
+  tbody.append(tr);
+}
+
+function appendSafeStoreRow(tbody, store) {
+  const profile = store?.business_profile || {};
+  const tr = document.createElement("tr");
+  if (store?.id === state.selectedId) tr.classList.add("selected");
+  createSafeCell(tr, store?.store_no || "");
+  createSafeCell(tr, store?.store_id || "");
+  createSafeCell(tr, store?.store_name || "");
+  createSafeCell(tr, store?.corporation_name || getStoreCorporationName(store));
+  createSafeCell(tr, store?.area || profile.area || "");
+  const statusCell = createSafeCell(tr, "");
+  const pill = document.createElement("span");
+  pill.className = "safe-master-pill";
+  pill.textContent = store?.is_active === false ? "無効" : "有効";
+  statusCell.append(pill);
+  tr.addEventListener("click", () => {
+    state.selectedId = store?.id || "";
+    renderSafeMasterAdminView();
+  });
+  tbody.append(tr);
+}
+
+function appendSafeCorporationRow(tbody, corporation) {
+  const profile = corporation?.business_profile || {};
+  const tr = document.createElement("tr");
+  if (corporation?.id === state.selectedId) tr.classList.add("selected");
+  createSafeCell(tr, corporation?.corporation_no || "");
+  createSafeCell(tr, corporation?.corporation_name || "");
+  createSafeCell(tr, profile.formal_corporation_name || "");
+  createSafeCell(tr, profile.fiscal_year_end_month ? `${profile.fiscal_year_end_month}月` : "");
+  createSafeCell(tr, profile.operating_status || "");
+  const statusCell = createSafeCell(tr, "");
+  const pill = document.createElement("span");
+  pill.className = "safe-master-pill";
+  pill.textContent = corporation?.is_active === false ? "無効" : "有効";
+  statusCell.append(pill);
+  tr.addEventListener("click", () => {
+    state.selectedId = corporation?.id || "";
+    renderSafeMasterAdminView();
+  });
+  tbody.append(tr);
+}
+
+function appendSafeRows(tbody, rows) {
+  rows.forEach((row) => {
+    if (state.view === "stores") appendSafeStoreRow(tbody, row);
+    else if (state.view === "corporations") appendSafeCorporationRow(tbody, row);
+    else appendSafeEmployeeRow(tbody, row);
+  });
+}
+
+function getStoreCorporationName(store) {
+  const corporation = state.corporations.find((item) => item.id === store?.corporation_id);
+  return corporation?.corporation_name || "";
+}
+
+function getSafeLineWorksChannelStatus(store) {
+  const channel = store?.line_works_channel || {};
+  if ((channel.is_active === false) || (!channel.channel_id && !channel.channelId)) return "未設定";
+  return "設定済み";
+}
+
+function renderSafeEmployeeDetail(detailCard, selected) {
+  const detailTitle = document.createElement("h3");
+  detailTitle.textContent = selected.full_name || "社員詳細";
+  const meta = document.createElement("p");
+  meta.className = "safe-master-note";
+  meta.textContent = [
+    selected.employee_id ? `社員番号: ${selected.employee_id}` : "",
+    formatEmployeeAffiliation(selected) || getRecoveryAffiliation(selected),
+    selected.position_name || selected.source_position_name || "",
+    getSafeStatusLabel(selected)
+  ].filter(Boolean).join(" / ");
+
+  const profile = document.createElement("div");
+  profile.className = "safe-master-profile";
+  const visual = document.createElement("div");
+  visual.className = "safe-master-profile-visual";
+  const imageUrl = getRecoveryProfileImageUrl(selected);
+  if (imageUrl) {
+    const image = document.createElement("img");
+    image.alt = "プロフィール画像";
+    image.src = imageUrl;
+    visual.append(image);
+  } else {
+    visual.textContent = getSafeInitial(selected.full_name);
+  }
+  const profileText = document.createElement("div");
+  profileText.className = "safe-master-profile-text";
+  const profileName = document.createElement("strong");
+  profileName.textContent = selected.full_name || "社員詳細";
+  const profileNote = document.createElement("span");
+  profileNote.className = "safe-master-note";
+  profileNote.textContent = imageUrl ? "社員画像: 設定済み" : "社員画像: 未設定";
+  profileText.append(profileName, profileNote);
+  profile.append(visual, profileText);
+
+  const details = document.createElement("div");
+  details.className = "safe-master-detail-sections";
+  appendSafeDetailSection(details, "基本情報", [
+    ["社員番号", selected.employee_id || ""],
+    ["所属", formatEmployeeAffiliation(selected) || getRecoveryAffiliation(selected)],
+    ["法人", selected.corporation_name || ""],
+    ["部署", selected.department_name || ""],
+    ["役職", selected.position_name || selected.source_position_name || ""],
+    ["職種", selected.job_type_name || ""],
+    ["雇用形態", selected.employment_type || ""],
+    ["就労状態", getSafeStatusLabel(selected)]
+  ]);
+  appendSafeDetailSection(details, "在籍・状態", [
+    ["入社日", selected.joined_on || ""],
+    ["退職日", selected.retired_on || ""],
+    ["休職種別", selected.leave_type || ""],
+    ["休職開始", selected.leave_start_date || ""],
+    ["休職終了", selected.leave_end_date || ""],
+    ["有効", selected.is_active === false ? "無効" : "有効"]
+  ]);
+  appendSafeDetailSection(details, "HUBログイン", [
+    ["メール", maskEmailForSafeView(getRecoveryEmail(selected))],
+    ["ログイン", getRecoveryLoginStatus(selected)],
+    ["Firebase", selected.firebase_uid || selected.firebaseUid ? "連携済み" : "未連携"]
+  ]);
+  appendSafeDetailSection(details, "権限・通知", [
+    ["共通ロール", getCommonRoleKeys(selected).map(formatRoleLabel).join(" / ") || "未設定"],
+    ["IDEA LINK", getIdeaLinkRoleKeys(selected).map(formatRoleLabel).join(" / ") || "未設定"],
+    ["LINE WORKS", getRecoveryNotificationStatus(selected)],
+    ["表示", "通知先ID実値は伏せています"]
+  ]);
+
+  const note = document.createElement("p");
+  note.className = "safe-master-note";
+  note.textContent = "現在は復旧中のため、詳細は確認表示のみです。保存操作は通常詳細フォーム復旧後に再開します。";
+  detailCard.append(detailTitle, meta, profile, details, note);
+}
+
+function renderSafeStoreDetail(detailCard, store) {
+  const profile = store.business_profile || {};
+  const title = document.createElement("h3");
+  title.textContent = store.store_name || "店舗詳細";
+  const meta = document.createElement("p");
+  meta.className = "safe-master-note";
+  meta.textContent = [
+    store.store_no ? `店舗No: ${store.store_no}` : "",
+    store.store_id ? `店舗ID: ${store.store_id}` : "",
+    store.is_active === false ? "無効" : "有効"
+  ].filter(Boolean).join(" / ");
+  const details = document.createElement("div");
+  details.className = "safe-master-detail-sections";
+  appendSafeDetailSection(details, "基本情報", [
+    ["店舗No", store.store_no || ""],
+    ["店舗ID", store.store_id || ""],
+    ["店舗名", store.store_name || ""],
+    ["法人", store.corporation_name || getStoreCorporationName(store)],
+    ["事業部門", store.business_unit_name || ""],
+    ["エリア", store.area || ""],
+    ["種別", store.store_type || ""],
+    ["有効", store.is_active === false ? "無効" : "有効"]
+  ]);
+  appendSafeDetailSection(details, "営業・運用", [
+    ["状況", profile.operating_status || ""],
+    ["定休日", profile.regular_holiday_rule || ""],
+    ["平日", profile.weekday_business_hours || ""],
+    ["土曜", profile.saturday_business_hours || ""],
+    ["日曜", profile.sunday_business_hours || ""],
+    ["祝日", profile.holiday_business_hours || ""],
+    ["オープン日", profile.opened_on || ""],
+    ["閉店日", profile.closed_on || ""]
+  ]);
+  appendSafeDetailSection(details, "規模・賃料", [
+    ["坪数", profile.floor_area_tsubo ?? ""],
+    ["㎡", profile.floor_area_square_meter ?? ""],
+    ["家賃", profile.monthly_rent_including_common_fee ?? ""],
+    ["坪単価", profile.rent_per_tsubo ?? ""],
+    ["セット面", profile.styling_seat_count ?? ""],
+    ["シャンプー台", profile.shampoo_station_count ?? ""],
+    ["席単価", profile.rent_per_styling_seat ?? ""]
+  ]);
+  appendSafeDetailSection(details, "通知・備考", [
+    ["LINE WORKS", getSafeLineWorksChannelStatus(store)],
+    ["特徴", profile.store_feature_note || ""]
+  ]);
+  const note = document.createElement("p");
+  note.className = "safe-master-note";
+  note.textContent = "確認表示のみです。店舗詳細の保存は通常詳細フォーム復旧後に再開します。";
+  detailCard.append(title, meta, details, note);
+}
+
+function renderSafeCorporationDetail(detailCard, corporation) {
+  const profile = corporation.business_profile || {};
+  const title = document.createElement("h3");
+  title.textContent = corporation.corporation_name || "法人詳細";
+  const meta = document.createElement("p");
+  meta.className = "safe-master-note";
+  meta.textContent = [
+    corporation.corporation_no ? `法人No: ${corporation.corporation_no}` : "",
+    corporation.is_active === false ? "無効" : "有効"
+  ].filter(Boolean).join(" / ");
+  const details = document.createElement("div");
+  details.className = "safe-master-detail-sections";
+  appendSafeDetailSection(details, "基本情報", [
+    ["法人No", corporation.corporation_no || ""],
+    ["法人名", corporation.corporation_name || ""],
+    ["正式名", profile.formal_corporation_name || ""],
+    ["代表者", profile.representative_name || ""],
+    ["有効", corporation.is_active === false ? "無効" : "有効"]
+  ]);
+  appendSafeDetailSection(details, "登記・連絡先", [
+    ["法人番号", profile.corporation_number || ""],
+    ["インボイス", profile.invoice_registration_number || ""],
+    ["所在地", profile.head_office_address || ""],
+    ["電話", profile.phone_number || ""]
+  ]);
+  appendSafeDetailSection(details, "会計・労務", [
+    ["決算月", profile.fiscal_year_end_month ? `${profile.fiscal_year_end_month}月` : ""],
+    ["会計区分", profile.accounting_category || ""],
+    ["給与締日", profile.payroll_closing_day || ""],
+    ["給与支払日", profile.payroll_payment_day || ""],
+    ["社会保険", profile.social_insurance_status || ""],
+    ["労保", profile.labor_insurance_status || ""],
+    ["税理士", profile.tax_accountant_label || ""],
+    ["社労士", profile.labor_consultant_label || ""]
+  ]);
+  appendSafeDetailSection(details, "運用状態", [
+    ["状況", profile.operating_status || ""],
+    ["設立日", profile.established_on || ""],
+    ["廃止日", profile.closed_on || ""],
+    ["備考", profile.corporation_feature_note || ""]
+  ]);
+  const note = document.createElement("p");
+  note.className = "safe-master-note";
+  note.textContent = "確認表示のみです。法人詳細の保存は通常詳細フォーム復旧後に再開します。";
+  detailCard.append(title, meta, details, note);
+}
+
 function createSafeCell(row, value) {
   const cell = document.createElement("td");
   cell.textContent = value == null ? "" : String(value);
@@ -565,7 +936,7 @@ function createSafeCell(row, value) {
 }
 
 function renderSafeMasterAdminView() {
-  if (state.view !== "employees" && state.view !== "firebase") {
+  if (!["employees", "firebase", "stores", "corporations"].includes(state.view)) {
     document.querySelector("#master-admin-safe-view")?.remove();
     return;
   }
@@ -580,8 +951,8 @@ function renderSafeMasterAdminView() {
     document.body.append(safeView);
   }
 
-  const rows = getSafeEmployeeRows();
-  const selected = (state.employees || []).find((employee) => employee?.id === state.selectedId) || rows[0] || null;
+  const rows = getSafeRowsForCurrentView();
+  const selected = getSafeSelectedRow(rows);
 
   safeView.replaceChildren();
 
@@ -596,10 +967,10 @@ function renderSafeMasterAdminView() {
   const title = document.createElement("div");
   title.className = "safe-master-title";
   const titleStrong = document.createElement("strong");
-  titleStrong.textContent = "社員マスタ";
+  titleStrong.textContent = getSafeViewTitle();
   const titleNote = document.createElement("span");
   titleNote.className = "safe-master-note";
-  titleNote.textContent = "P0復旧ビューです。社員一覧・検索・選択・確認表示を優先して復旧しています。";
+  titleNote.textContent = getSafeViewNote();
   title.append(titleStrong, titleNote);
 
   const refreshButton = document.createElement("button");
@@ -611,143 +982,40 @@ function renderSafeMasterAdminView() {
 
   const controls = document.createElement("div");
   controls.className = "safe-master-controls";
+  appendSafeViewTabs(controls);
   const search = document.createElement("input");
   search.className = "safe-master-search";
   search.type = "search";
-  search.placeholder = "氏名・社員番号・店舗名で検索";
+  search.placeholder = state.view === "stores" ? "店舗名・店舗ID・法人名で検索" : state.view === "corporations" ? "法人名・正式名で検索" : "氏名・社員番号・店舗名で検索";
   search.value = state.safeSearch || "";
   search.addEventListener("input", () => {
     state.safeSearch = search.value;
     renderSafeMasterAdminView();
   });
   controls.append(search);
-
-  [
-    ["active", "現職"],
-    ["missing", "未設定あり"],
-    ["leave", "休職"],
-    ["inactive", "退職者"],
-    ["all", "全員"]
-  ].forEach(([value, label]) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `filter-chip${state.employeeStatus === value ? " active" : ""}`;
-    button.textContent = label;
-    button.addEventListener("click", () => {
-      state.employeeStatus = value;
-      renderSafeMasterAdminView();
-    });
-    controls.append(button);
-  });
+  appendSafeStatusFilters(controls);
 
   const count = document.createElement("div");
   count.className = "result-count";
-  count.textContent = `${rows.length}件`;
+  count.textContent = getSafeRowCountLabel(rows);
 
   const tableWrap = document.createElement("div");
   tableWrap.className = "safe-master-table-wrap";
   const table = document.createElement("table");
   table.className = "safe-master-table";
-  const thead = document.createElement("thead");
-  thead.innerHTML = `
-    <tr>
-      <th>社員番号</th>
-      <th>氏名</th>
-      <th>所属</th>
-      <th>役職</th>
-      <th>メール</th>
-      <th>ログイン</th>
-      <th>通知先</th>
-      <th>状態</th>
-    </tr>`;
   const tbody = document.createElement("tbody");
-
-  rows.forEach((employee) => {
-    const tr = document.createElement("tr");
-    if (employee?.id === state.selectedId) tr.classList.add("selected");
-    createSafeCell(tr, employee?.employee_id || "");
-    createSafeCell(tr, employee?.full_name || "");
-    createSafeCell(tr, getRecoveryAffiliation(employee));
-    createSafeCell(tr, employee?.position_name || employee?.source_position_name || "");
-    createSafeCell(tr, maskEmailForSafeView(getRecoveryEmail(employee)));
-    createSafeCell(tr, getRecoveryLoginStatus(employee));
-    createSafeCell(tr, getRecoveryNotificationStatus(employee));
-    const statusCell = createSafeCell(tr, "");
-    const pill = document.createElement("span");
-    pill.className = "safe-master-pill";
-    pill.textContent = getSafeStatusLabel(employee);
-    statusCell.append(pill);
-    tr.addEventListener("click", () => {
-      state.selectedId = employee?.id || "";
-      renderSafeMasterAdminView();
-    });
-    tbody.append(tr);
-  });
-  table.append(thead, tbody);
+  appendSafeTableHeader(table);
+  appendSafeRows(tbody, rows);
+  table.append(tbody);
   tableWrap.append(table);
   listCard.append(header, controls, count, tableWrap);
 
   const detailCard = document.createElement("aside");
   detailCard.className = "safe-master-card safe-master-detail";
   if (selected) {
-    const detailTitle = document.createElement("h3");
-    detailTitle.textContent = selected.full_name || "社員詳細";
-    const meta = document.createElement("p");
-    meta.className = "safe-master-note";
-    meta.textContent = [
-      selected.employee_id ? `社員番号: ${selected.employee_id}` : "",
-      getRecoveryAffiliation(selected),
-      selected.position_name || selected.source_position_name || "",
-      getSafeStatusLabel(selected)
-    ].filter(Boolean).join(" / ");
-
-    const profile = document.createElement("div");
-    profile.className = "safe-master-profile";
-    const visual = document.createElement("div");
-    visual.className = "safe-master-profile-visual";
-    const imageUrl = getRecoveryProfileImageUrl(selected);
-    if (imageUrl) {
-      const image = document.createElement("img");
-      image.alt = "プロフィール画像";
-      image.src = imageUrl;
-      visual.append(image);
-    } else {
-      visual.textContent = getSafeInitial(selected.full_name);
-    }
-    const profileText = document.createElement("div");
-    profileText.className = "safe-master-profile-text";
-    const profileName = document.createElement("strong");
-    profileName.textContent = selected.full_name || "社員詳細";
-    const profileNote = document.createElement("span");
-    profileNote.className = "safe-master-note";
-    profileNote.textContent = imageUrl ? "社員画像: 設定済み" : "社員画像: 未設定";
-    profileText.append(profileName, profileNote);
-    profile.append(visual, profileText);
-
-    const details = document.createElement("div");
-    details.className = "safe-master-detail-sections";
-    appendSafeDetailSection(details, "基本情報", [
-      ["社員番号", selected.employee_id || ""],
-      ["所属", getRecoveryAffiliation(selected)],
-      ["役職", selected.position_name || selected.source_position_name || ""],
-      ["雇用形態", selected.employment_type || selected.job_type_name || ""],
-      ["状態", getSafeStatusLabel(selected)]
-    ]);
-    appendSafeDetailSection(details, "HUBログイン", [
-      ["メール", maskEmailForSafeView(getRecoveryEmail(selected))],
-      ["ログイン", getRecoveryLoginStatus(selected)],
-      ["Firebase", selected.firebase_uid || selected.firebaseUid ? "連携済み" : "未連携"]
-    ]);
-    appendSafeDetailSection(details, "通知", [
-      ["LINE WORKS", getRecoveryNotificationStatus(selected)],
-      ["用途", "社員個人宛の通知先"],
-      ["表示", "実値は伏せています"]
-    ]);
-
-    const note = document.createElement("p");
-    note.className = "safe-master-note";
-    note.textContent = "現在は復旧中のため、詳細は確認表示のみです。保存操作は通常詳細フォーム復旧後に再開します。";
-    detailCard.append(detailTitle, meta, profile, details, note);
+    if (state.view === "stores") renderSafeStoreDetail(detailCard, selected);
+    else if (state.view === "corporations") renderSafeCorporationDetail(detailCard, selected);
+    else renderSafeEmployeeDetail(detailCard, selected);
   } else {
     const empty = document.createElement("div");
     empty.className = "empty-detail";

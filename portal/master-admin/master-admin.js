@@ -1,5 +1,5 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
-import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-safe-table-20260711-11";
+import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-safe-detail-20260711-12";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";
@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v11";
+const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v12";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -209,7 +209,8 @@ function installRuntimeLayoutStyles() {
     .button, .segmented, .filter-chip, button { display: inline-flex !important; align-items: center !important; justify-content: center !important; min-height: 38px !important; border: 1px solid #e5e7eb !important; border-radius: 12px !important; background: #fff !important; color: #111827 !important; font: inherit !important; padding: 0 14px !important; text-decoration: none !important; }
     .segmented.active, .filter-chip.active, .button-primary { border-color: #e8b4b8 !important; background: #fff1f2 !important; font-weight: 700 !important; }
     .workspace { display: grid !important; grid-template-columns: minmax(0, 1fr) 380px !important; gap: 16px !important; align-items: start !important; }
-    .list-panel, .detail-panel, .auth-panel, .loading-panel { display: block !important; border: 1px solid #e5e7eb !important; border-radius: 14px !important; background: #fff !important; box-sizing: border-box !important; }
+    .list-panel, .detail-panel { display: block !important; border: 1px solid #e5e7eb !important; border-radius: 14px !important; background: #fff !important; box-sizing: border-box !important; }
+    .auth-panel, .loading-panel { border: 1px solid #e5e7eb !important; border-radius: 14px !important; background: #fff !important; box-sizing: border-box !important; }
     .auth-panel:not([hidden]), .loading-panel:not([hidden]) { display: grid !important; }
     .table-wrap { display: block !important; overflow: auto !important; max-height: calc(100vh - 230px) !important; }
     table { display: table !important; width: 100% !important; border-collapse: collapse !important; table-layout: auto !important; font-size: 13px !important; }
@@ -235,6 +236,10 @@ function installRuntimeLayoutStyles() {
     .safe-master-table tr.selected, .safe-master-table tr:hover { background: #fff7f7 !important; }
     .safe-master-pill { display: inline-flex !important; align-items: center !important; justify-content: center !important; min-width: 52px !important; border-radius: 999px !important; background: #f3f4f6 !important; color: #374151 !important; font-size: 12px !important; font-weight: 700 !important; padding: 3px 8px !important; }
     .safe-master-detail { position: sticky !important; top: 106px !important; max-height: calc(100vh - 130px) !important; overflow: auto !important; }
+    .safe-master-detail-grid { display: grid !important; gap: 8px !important; margin: 14px 0 !important; }
+    .safe-master-detail-row { display: grid !important; grid-template-columns: 96px minmax(0, 1fr) !important; gap: 10px !important; align-items: baseline !important; border-bottom: 1px solid #f1f5f9 !important; padding: 8px 0 !important; }
+    .safe-master-detail-label { color: #6b7280 !important; font-size: 12px !important; }
+    .safe-master-detail-value { min-width: 0 !important; overflow-wrap: anywhere !important; font-size: 13px !important; }
     @media (max-width: 900px) {
       #master-admin-safe-view { top: 78px !important; padding: 14px !important; }
       .safe-master-shell { grid-template-columns: 1fr !important; }
@@ -509,6 +514,20 @@ function getSafeStatusLabel(employee) {
   return status || "現職";
 }
 
+function appendSafeDetailRow(parent, label, value) {
+  const row = document.createElement("div");
+  row.className = "safe-master-detail-row";
+  const term = document.createElement("span");
+  term.className = "safe-master-detail-label";
+  term.textContent = label;
+  const detail = document.createElement("strong");
+  detail.className = "safe-master-detail-value";
+  detail.textContent = value == null || value === "" ? "未設定" : String(value);
+  row.append(term, detail);
+  parent.append(row);
+  return row;
+}
+
 function createSafeCell(row, value) {
   const cell = document.createElement("td");
   cell.textContent = value == null ? "" : String(value);
@@ -652,10 +671,23 @@ function renderSafeMasterAdminView() {
       selected.position_name || selected.source_position_name || "",
       getSafeStatusLabel(selected)
     ].filter(Boolean).join(" / ");
+
+    const details = document.createElement("div");
+    details.className = "safe-master-detail-grid";
+    appendSafeDetailRow(details, "社員番号", selected.employee_id || "");
+    appendSafeDetailRow(details, "所属", getRecoveryAffiliation(selected));
+    appendSafeDetailRow(details, "役職", selected.position_name || selected.source_position_name || "");
+    appendSafeDetailRow(details, "雇用形態", selected.employment_type || selected.job_type_name || "");
+    appendSafeDetailRow(details, "状態", getSafeStatusLabel(selected));
+    appendSafeDetailRow(details, "メール", maskEmailForSafeView(getRecoveryEmail(selected)));
+    appendSafeDetailRow(details, "ログイン", getRecoveryLoginStatus(selected));
+    appendSafeDetailRow(details, "通知先", getRecoveryNotificationStatus(selected));
+    appendSafeDetailRow(details, "Firebase", selected.firebase_uid || selected.firebaseUid ? "連携済み" : "未連携");
+
     const note = document.createElement("p");
     note.className = "safe-master-note";
-    note.textContent = "詳細編集フォームは通常UI復旧後に再表示します。現在は一覧の確認を優先しています。";
-    detailCard.append(detailTitle, meta, note);
+    note.textContent = "現在は復旧中のため、詳細は確認表示のみです。保存操作は通常詳細フォーム復旧後に再開します。";
+    detailCard.append(detailTitle, meta, details, note);
   } else {
     const empty = document.createElement("div");
     empty.className = "empty-detail";
@@ -779,6 +811,10 @@ function showMode(mode) {
   elements.loadingPanel.hidden = mode !== "loading";
   elements.adminApp.hidden = mode !== "app";
   elements.signOut.hidden = mode === "auth";
+  setStyles(elements.authPanel, { display: mode === "auth" ? "grid" : "none" });
+  setStyles(elements.loadingPanel, { display: mode === "loading" ? "grid" : "none" });
+  setStyles(elements.adminApp, { display: mode === "app" ? "block" : "none" });
+  setStyles(elements.signOut, { display: mode === "auth" ? "none" : "inline-flex" });
   if (mode !== "app") {
     document.querySelector("#master-admin-safe-view")?.remove();
   }

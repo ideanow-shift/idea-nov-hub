@@ -19,6 +19,7 @@ const MANAGEMENT_HUB_CONTEXT_KEY = "ideaNov.management.hubContext";
 const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_APP_IDS = new Set(["management-check", "management-platform"]);
 const MANAGEMENT_APP_URL = "./management-platform/";
+const CORE_MASTER_ADMIN_APP_URL = "./master-admin/?v=master-admin-stable-20260711";
 const IDEA_LINK_APP_URL = "./idea-link-app/";
 const IDEA_LINK_LEGACY_DEPLOYMENT_ID = "AKfycbz3tmMUSvKEVZgmf8w-pKLk_H6_fXdltkwrHF5VIfpItufu41xoCa1f3-1aE0w3fJpucw";
 const DEVELOPMENT_APP_VIEWER_ROLE_KEYS = new Set(["super_admin", "executive"]);
@@ -515,6 +516,17 @@ function canLaunchManagementPlatform(context) {
   return [...roles].some((roleKey) => MANAGEMENT_ALLOWED_ROLE_KEYS.has(roleKey));
 }
 
+function isCoreMasterAdminApp(app) {
+  const appId = String(app?.appId || "").trim().toLowerCase().replaceAll("_", "-");
+  const appName = String(app?.appName || "").trim().replace(/\s+/g, "");
+  const appUrl = String(app?.url || "").toLowerCase();
+  return appId === "core-master-admin"
+    || appId === "master-admin"
+    || appName === "社員・店舗マスタ管理"
+    || appName === "社員店舗マスタ管理"
+    || appUrl.includes("/master-admin/");
+}
+
 async function saveManagementPlatformAuthContext(context) {
   if (state.authType !== "firebase") return;
   const token = await getIdToken();
@@ -563,6 +575,8 @@ async function openApp(app) {
   const employeeContext = refreshHubEmployeeContext();
   const appUrl = isManagementPlatformApp(app)
     ? MANAGEMENT_APP_URL
+    : isCoreMasterAdminApp(app)
+      ? CORE_MASTER_ADMIN_APP_URL
     : isIdeaLinkApp(app)
       ? IDEA_LINK_APP_URL
       : app.url;

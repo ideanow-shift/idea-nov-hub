@@ -1,5 +1,5 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
-import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-edit-first-20260711-24";
+import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-store-corp-edit-20260712-25";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";
@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v24";
+const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v25";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -987,6 +987,14 @@ function appendNormalDetailIntoSafeCard(detailCard, selected) {
     appendSafeEmployeeEditForm(detailCard, selected);
     return;
   }
+  if (state.view === "stores") {
+    appendSafeStoreEditForm(detailCard, selected);
+    return;
+  }
+  if (state.view === "corporations") {
+    appendSafeCorporationEditForm(detailCard, selected);
+    return;
+  }
   renderNormalDetailForSafeView(selected);
   const normalDetail = document.createElement("div");
   normalDetail.className = "safe-master-normal-detail";
@@ -1056,6 +1064,174 @@ function appendSafeEmployeeEditForm(detailCard, employee) {
   form?.addEventListener("change", () => setSaveStatus(status, "未保存の変更があります。保存ボタンを押してください。", "pending"));
   formWrap.querySelector("#upload-profile-image")?.addEventListener("click", uploadEmployeeProfileImage);
   detailCard.append(formWrap);
+}
+
+function setContainedReadonlyState(container, readonly) {
+  if (!readonly) return;
+  container.querySelectorAll("#detail-form input, #detail-form select, #detail-form textarea").forEach((field) => {
+    field.disabled = true;
+  });
+}
+
+function appendSafeStoreEditForm(detailCard, store) {
+  const readonly = !state.permissions.canEdit;
+  const issues = getStoreIssues(store);
+  const issuePanel = renderStoreIssuePanel(store, issues);
+  const lineWorks = store.line_works_channel || {};
+  const profile = store.business_profile || {};
+  const formWrap = document.createElement("div");
+  formWrap.className = "safe-master-normal-detail";
+  formWrap.innerHTML = `
+    <h3>${escapeHtml(store.store_name || "店舗編集")}</h3>
+    <p class="detail-meta">店舗ID: ${escapeHtml(store.store_id || "")} / 店舗No: ${escapeHtml(store.store_no || "")}${store.updated_at ? ` / 最終更新: ${escapeHtml(formatDateTime(store.updated_at))}` : ""}</p>
+    <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "店舗IDと店舗Noは固定項目です。店舗運営・経営判断に使う補足情報を更新できます。"}</p>
+    <form class="form-grid store-detail-form" id="detail-form">
+      ${issuePanel}
+      ${fieldInput("store_name", "店舗名", store.store_name || "")}
+      ${fieldSelect("corporation_id", "法人", state.masters.corporations, store.corporation_id, "corporation_name")}
+      ${fieldSelect("business_unit_id", "事業部門", state.masters.businessUnits, store.business_unit_id, "business_unit_name")}
+      ${fieldValueSelect("area", "エリア", getUniqueValues(state.stores, "area"), store.area || "")}
+      ${fieldValueSelect("store_type", "店舗種別", getUniqueValues(state.stores, "store_type"), store.store_type || "")}
+      ${fieldCheckbox("is_active", "有効", store.is_active)}
+      <section class="store-detail-section">
+        <div class="store-detail-section-header">
+          <div>
+            <strong>営業時間・開閉店</strong>
+            <p>休業日と営業状態</p>
+          </div>
+        </div>
+        <div class="store-detail-compact-grid">
+          ${fieldInput("regular_holiday_rule", "定休日", profile.regular_holiday_rule || "", { placeholder: "例: 火曜" })}
+          ${fieldInput("operating_status", "状況", profile.operating_status || "", { placeholder: "営業中 / 準備中 / 閉店" })}
+          ${fieldInput("weekday_business_hours", "平日", profile.weekday_business_hours || "", { placeholder: "10:00-20:00" })}
+          ${fieldInput("saturday_business_hours", "土曜", profile.saturday_business_hours || "", { placeholder: "10:00-20:00" })}
+          ${fieldInput("sunday_business_hours", "日曜", profile.sunday_business_hours || "", { placeholder: "10:00-19:00" })}
+          ${fieldInput("holiday_business_hours", "祝日", profile.holiday_business_hours || "", { placeholder: "10:00-19:00" })}
+          ${fieldInput("opened_on", "オープン日", profile.opened_on || "", "date")}
+          ${fieldInput("closed_on", "閉店日", profile.closed_on || "", "date")}
+          ${fieldInput("affiliation_label", "所属", profile.affiliation_label || "", { placeholder: "BASSA / FC / 本部" })}
+        </div>
+      </section>
+      <section class="store-detail-section">
+        <div class="store-detail-section-header">
+          <div>
+            <strong>面積・賃料</strong>
+            <p>家賃は共益費込み</p>
+          </div>
+        </div>
+        <div class="store-detail-compact-grid">
+          ${fieldInput("floor_area_tsubo", "坪数", profile.floor_area_tsubo ?? "", { type: "number", step: "0.01", min: "0" })}
+          ${fieldInput("floor_area_square_meter", "㎡", profile.floor_area_square_meter ?? "", { type: "number", step: "0.01", min: "0" })}
+          ${fieldInput("monthly_rent_including_common_fee", "家賃", profile.monthly_rent_including_common_fee ?? "", { type: "number", step: "1", min: "0" })}
+          ${fieldInput("rent_per_tsubo", "坪単価", profile.rent_per_tsubo ?? "", { type: "number", step: "1", min: "0" })}
+          ${fieldInput("styling_seat_count", "セット面", profile.styling_seat_count ?? "", { type: "number", step: "1", min: "0" })}
+          ${fieldInput("shampoo_station_count", "シャンプー台", profile.shampoo_station_count ?? "", { type: "number", step: "1", min: "0" })}
+          ${fieldInput("rent_per_styling_seat", "席単価", profile.rent_per_styling_seat ?? "", { type: "number", step: "1", min: "0" })}
+          <div class="store-detail-wide">${fieldTextarea("store_feature_note", "特徴", profile.store_feature_note || "")}</div>
+          <p class="field-help store-detail-help">PASSやSecretは保存しません。</p>
+        </div>
+      </section>
+      <section class="store-detail-section">
+        <div class="store-detail-section-header">
+          <div>
+            <strong>店舗通知</strong>
+            <p>店舗チャンネル宛て</p>
+          </div>
+          <span class="status-pill ${lineWorks.channel_id && lineWorks.is_active !== false ? "success" : "neutral"}">${lineWorks.channel_id && lineWorks.is_active !== false ? "設定済み" : "未設定"}</span>
+        </div>
+        <div class="store-detail-compact-grid">
+          ${fieldInput("line_works_channel_id", "チャンネルID", lineWorks.channel_id || "", { placeholder: "例: 1234567890" })}
+          ${fieldInput("line_works_channel_name", "表示名", lineWorks.channel_name || "", { placeholder: "例: BASSA野方店" })}
+          <div class="store-detail-wide">${fieldCheckbox("line_works_channel_active", "通知を有効にする", lineWorks.is_active !== false && Boolean(lineWorks.channel_id))}</div>
+          <p class="field-help store-detail-help">SecretはEdge側で管理します。</p>
+        </div>
+      </section>
+      <div class="save-row">
+        <span class="save-status" id="store-save-status" aria-live="polite"></span>
+        ${readonly ? `<span class="readonly-label">閲覧専用</span>` : `<button class="button button-primary save-button" type="submit">保存</button>`}
+      </div>
+    </form>`;
+  detailCard.append(formWrap);
+  setContainedReadonlyState(formWrap, readonly);
+  if (!readonly) {
+    formWrap.querySelector("#detail-form")?.addEventListener("submit", saveStore);
+    setupDirtyForm("store");
+  }
+}
+
+function appendSafeCorporationEditForm(detailCard, corporation) {
+  const readonly = !state.permissions.canEdit;
+  const profile = corporation.business_profile || {};
+  const formWrap = document.createElement("div");
+  formWrap.className = "safe-master-normal-detail";
+  formWrap.innerHTML = `
+    <h3>${escapeHtml(corporation.corporation_name || "法人編集")}</h3>
+    <p class="detail-meta">法人No: ${escapeHtml(corporation.corporation_no || "")}${profile.updated_at ? ` / 詳細更新: ${escapeHtml(formatDateTime(profile.updated_at))}` : ""}</p>
+    <p class="detail-note">${readonly ? "閲覧専用モードです。編集権限がある管理者のみ保存できます。" : "法人No、法人名、経営判断に使う補足情報を更新できます。"}</p>
+    <form class="form-grid store-detail-form" id="detail-form">
+      ${fieldInput("corporation_no", "法人No", corporation.corporation_no || "", { required: true, placeholder: "例: 001" })}
+      ${fieldInput("corporation_name", "法人名", corporation.corporation_name || "")}
+      ${fieldCheckbox("is_active", "有効", corporation.is_active !== false)}
+      <section class="store-detail-section">
+        <div class="store-detail-section-header">
+          <div>
+            <strong>法人情報</strong>
+            <p>登記・請求で使う情報</p>
+          </div>
+        </div>
+        <div class="store-detail-compact-grid">
+          ${fieldInput("formal_corporation_name", "正式名", profile.formal_corporation_name || "", { placeholder: "例: 株式会社〇〇" })}
+          ${fieldInput("corporation_number", "法人番号", profile.corporation_number || "", { placeholder: "13桁" })}
+          ${fieldInput("invoice_registration_number", "インボイス番号", profile.invoice_registration_number || "", { placeholder: "T + 13桁" })}
+          ${fieldInput("representative_name", "代表者", profile.representative_name || "")}
+          <div class="store-detail-wide">${fieldInput("head_office_address", "所在地", profile.head_office_address || "")}</div>
+          ${fieldInput("phone_number", "電話番号", profile.phone_number || "")}
+        </div>
+      </section>
+      <section class="store-detail-section">
+        <div class="store-detail-section-header">
+          <div>
+            <strong>会計・労務</strong>
+            <p>決算・給与・保険</p>
+          </div>
+        </div>
+        <div class="store-detail-compact-grid">
+          ${fieldInput("fiscal_year_end_month", "決算月", profile.fiscal_year_end_month ?? "", { type: "number", step: "1", min: "1", max: "12", placeholder: "1-12" })}
+          ${fieldInput("accounting_category", "会計区分", profile.accounting_category || "", { placeholder: "例: 自社 / FC / 関連会社" })}
+          ${fieldInput("payroll_closing_day", "給与締日", profile.payroll_closing_day || "", { placeholder: "例: 月末" })}
+          ${fieldInput("payroll_payment_day", "給与支払日", profile.payroll_payment_day || "", { placeholder: "例: 翌月25日" })}
+          ${fieldInput("social_insurance_status", "社会保険", profile.social_insurance_status || "")}
+          ${fieldInput("labor_insurance_status", "労保", profile.labor_insurance_status || "")}
+          ${fieldInput("tax_accountant_label", "税理士", profile.tax_accountant_label || "")}
+          ${fieldInput("labor_consultant_label", "社労士", profile.labor_consultant_label || "")}
+        </div>
+      </section>
+      <section class="store-detail-section">
+        <div class="store-detail-section-header">
+          <div>
+            <strong>運用状態</strong>
+            <p>設立・廃止・補足</p>
+          </div>
+        </div>
+        <div class="store-detail-compact-grid">
+          ${fieldInput("operating_status", "状況", profile.operating_status || "", { placeholder: "運用中 / 休眠 / 廃止" })}
+          ${fieldInput("established_on", "設立日", profile.established_on || "", "date")}
+          ${fieldInput("closed_on", "廃止日", profile.closed_on || "", "date")}
+          <div class="store-detail-wide">${fieldTextarea("corporation_feature_note", "備考", profile.corporation_feature_note || "")}</div>
+          <p class="field-help store-detail-help">Secret、口座番号、税務資料本文は保存しません。</p>
+        </div>
+      </section>
+      <div class="save-row">
+        <span class="save-status" id="corporation-save-status" aria-live="polite"></span>
+        ${readonly ? `<span class="readonly-label">閲覧専用</span>` : `<button class="button button-primary save-button" type="submit">保存</button>`}
+      </div>
+    </form>`;
+  detailCard.append(formWrap);
+  setContainedReadonlyState(formWrap, readonly);
+  if (!readonly) {
+    formWrap.querySelector("#detail-form")?.addEventListener("submit", saveCorporation);
+    setupDirtyForm("corporation");
+  }
 }
 
 function renderSafeMasterAdminView() {
@@ -4014,27 +4190,30 @@ function collectFormPayload() {
 
 function collectEmployeePayload() {
   const payload = collectFormPayload();
+  const form = getActiveDetailForm();
   delete payload.firebase_uid;
   payload.email = getCurrentEmployeeEmailInputValue();
   payload.employment_type = normalizeEmploymentType(payload.employment_type);
   payload.employment_status = normalizeEmploymentStatus(payload.employment_status);
   payload.leave_type = normalizeLeaveType(payload.leave_type);
-  payload.is_active = document.querySelector("#is_active").checked;
+  payload.is_active = form?.querySelector("#is_active")?.checked || false;
   return payload;
 }
 
 function collectStorePayload() {
   const payload = collectFormPayload();
-  payload.is_active = document.querySelector("#is_active").checked;
-  payload.line_works_channel_id = document.querySelector("#line_works_channel_id")?.value.trim() || "";
-  payload.line_works_channel_name = document.querySelector("#line_works_channel_name")?.value.trim() || "";
-  payload.line_works_channel_active = document.querySelector("#line_works_channel_active")?.checked || false;
+  const form = getActiveDetailForm();
+  payload.is_active = form?.querySelector("#is_active")?.checked || false;
+  payload.line_works_channel_id = form?.querySelector("#line_works_channel_id")?.value.trim() || "";
+  payload.line_works_channel_name = form?.querySelector("#line_works_channel_name")?.value.trim() || "";
+  payload.line_works_channel_active = form?.querySelector("#line_works_channel_active")?.checked || false;
   return payload;
 }
 
 function collectCorporationPayload() {
   const payload = collectFormPayload();
-  payload.is_active = document.querySelector("#is_active").checked;
+  const form = getActiveDetailForm();
+  payload.is_active = form?.querySelector("#is_active")?.checked || false;
   return payload;
 }
 

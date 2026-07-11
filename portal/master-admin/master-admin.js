@@ -1,5 +1,5 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
-import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-render-recovery-20260711-9";
+import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-list-fallback-20260711-10";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";
@@ -7,6 +7,7 @@ const NEW_PORTAL_APP_ID = "__new_portal_app__";
 const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
+const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -320,7 +321,7 @@ function showRecoveryVersionMarker() {
   if (!marker) {
     marker = document.createElement("div");
     marker.id = "master-admin-recovery-version";
-    marker.textContent = "UI復旧版 v9";
+    marker.textContent = "UI復旧版 v10";
     document.body.append(marker);
   }
   setStyles(marker, {
@@ -578,11 +579,20 @@ function setBootstrapData(data) {
 
 async function loadData() {
   showMode("loading");
-  const response = await withTimeout(
-    callApiAction("masterBootstrap"),
-    MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS,
-    "マスタ情報の読み込みに時間がかかっています。HUBから開き直すか、再ログインしてください。"
-  );
+  let response;
+  try {
+    response = await withTimeout(
+      callApiAction("masterBootstrap"),
+      MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS,
+      "マスタ情報の読み込みに時間がかかっています。HUBから開き直すか、再ログインしてください。"
+    );
+  } catch (error) {
+    console.warn("Master admin bootstrap fallback started", {
+      code: error.code || "BOOTSTRAP_STOPPED",
+      stage: error.stage || ""
+    });
+    response = await loadDataFallback(error);
+  }
   setBootstrapData(response.data || {});
   state.logs = [];
   state.logsLoaded = false;
@@ -600,6 +610,49 @@ async function loadData() {
       forceRecoveryEmployeeTable(state.employees || []);
     }
   });
+}
+
+async function safeFallbackAction(action) {
+  try {
+    return await withTimeout(
+      callApiAction(action),
+      MASTER_ADMIN_FALLBACK_TIMEOUT_MS,
+      "マスタ情報の一部読み込みに時間がかかっています。"
+    );
+  } catch (error) {
+    console.warn("Master admin fallback action stopped safely", {
+      action,
+      code: error.code || "FALLBACK_ACTION_STOPPED",
+      stage: error.stage || ""
+    });
+    return null;
+  }
+}
+
+async function loadDataFallback(primaryError) {
+  const [employeesResponse, storesResponse, corporationsResponse, appsResponse] = await Promise.all([
+    safeFallbackAction("masterListEmployees"),
+    safeFallbackAction("masterListStores"),
+    safeFallbackAction("masterListCorporations"),
+    safeFallbackAction("masterListPortalApps")
+  ]);
+  const employees = Array.isArray(employeesResponse?.employees) ? employeesResponse.employees : [];
+  if (!employees.length) throw primaryError;
+  showToast("社員一覧を復旧表示しました。編集前に再読み込みしてください。");
+  return {
+    data: {
+      permissions: { canView: true, canEdit: false, roleKeys: [] },
+      employees,
+      stores: Array.isArray(storesResponse?.stores) ? storesResponse.stores : [],
+      corporations: Array.isArray(corporationsResponse?.corporations) ? corporationsResponse.corporations : [],
+      portalApps: Array.isArray(appsResponse?.portalApps) ? appsResponse.portalApps : [],
+      logs: [],
+      businessUnits: [],
+      departments: [],
+      positions: [],
+      jobTypes: []
+    }
+  };
 }
 
 function getRows() {

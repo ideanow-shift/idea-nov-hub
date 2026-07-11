@@ -1,6 +1,6 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
 import { getIdToken, signInWithGoogleRedirect } from "../js/auth.js";
-import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-mobile-redirect-20260712-30";
+import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-mobile-form-safety-20260712-31";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";
@@ -9,7 +9,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "マスタ管理 v30";
+const MASTER_ADMIN_RECOVERY_LABEL = "マスタ管理 v31";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -3459,8 +3459,12 @@ function renderEmployeeDetail(employee) {
   setReadonlyState(readonly);
   if (!readonly) {
     const form = document.querySelector("#detail-form");
-    form.addEventListener("submit", saveEmployee);
-    setupDirtyForm("employee");
+    if (form) {
+      form.addEventListener("submit", saveEmployee);
+      setupDirtyForm("employee");
+    } else {
+      showToast("編集フォームを準備できませんでした。再読み込みしてください。");
+    }
   }
   document.querySelector("#retire-employee")?.addEventListener("click", retireEmployee);
   document.querySelector("#link-firebase-uid")?.addEventListener("click", linkFirebaseUid);
@@ -3841,8 +3845,12 @@ function renderCorporationDetail(corporation) {
   setReadonlyState(readonly);
   if (!readonly) {
     const form = document.querySelector("#detail-form");
-    form.addEventListener("submit", saveCorporation);
-    setupDirtyForm("corporation");
+    if (form) {
+      form.addEventListener("submit", saveCorporation);
+      setupDirtyForm("corporation");
+    } else {
+      showToast("編集フォームを準備できませんでした。再読み込みしてください。");
+    }
   }
 }
 
@@ -3921,8 +3929,12 @@ function renderNewCorporationDetail() {
       </div>
     </form>`;
   const form = document.querySelector("#detail-form");
-  form.addEventListener("submit", saveCorporation);
-  setupDirtyForm("corporation");
+  if (form) {
+    form.addEventListener("submit", saveCorporation);
+    setupDirtyForm("corporation");
+  } else {
+    showToast("法人追加フォームを準備できませんでした。再読み込みしてください。");
+  }
   elements.detailPanel.scrollTop = 0;
 }
 
@@ -4005,8 +4017,12 @@ function renderStoreDetail(store) {
   setReadonlyState(readonly);
   if (!readonly) {
     const form = document.querySelector("#detail-form");
-    form.addEventListener("submit", saveStore);
-    setupDirtyForm("store");
+    if (form) {
+      form.addEventListener("submit", saveStore);
+      setupDirtyForm("store");
+    } else {
+      showToast("編集フォームを準備できませんでした。再読み込みしてください。");
+    }
   }
 }
 
@@ -4054,6 +4070,10 @@ function renderPortalAppDetail(app) {
   setReadonlyState(readonly);
   if (!readonly) {
     const form = document.querySelector("#detail-form");
+    if (!form) {
+      showToast("編集フォームを準備できませんでした。再読み込みしてください。");
+      return;
+    }
     form.addEventListener("submit", savePortalApp);
     elements.detailPanel.querySelectorAll(".app-detail-actions [data-app-action]").forEach((button) => {
       button.addEventListener("click", () => handlePortalAppQuickAction(app, button.dataset.appAction));
@@ -4104,8 +4124,12 @@ function renderNewPortalAppDetail() {
       </div>
     </form>`;
   const form = document.querySelector("#detail-form");
-  form.addEventListener("submit", savePortalApp);
-  setupDirtyForm("app");
+  if (form) {
+    form.addEventListener("submit", savePortalApp);
+    setupDirtyForm("app");
+  } else {
+    showToast("アプリ追加フォームを準備できませんでした。再読み込みしてください。");
+  }
 }
 
 function renderStoreIssuePanel(store, issues) {
@@ -5293,7 +5317,7 @@ async function handleSignIn() {
     console.error(error);
     clearApiAuth();
     showMode("auth");
-    showToast(error.message || "ログインまたは読み込みに失敗しました。");
+    showToast("ログインまたは読み込みに失敗しました。もう一度お試しください。");
   }
 }
 
@@ -5323,7 +5347,7 @@ async function initializeMasterAdmin() {
     clearApiAuth();
     clearStoredLaunchAuth();
     showMode("auth");
-    showToast(error.message || "マスタ情報の読み込みに失敗しました。HUBから開き直してください。");
+    showToast("マスタ情報を読み込めませんでした。HUBから開き直してください。");
   }
 }
 

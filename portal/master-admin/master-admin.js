@@ -744,7 +744,7 @@ function renderTable() {
         <th>未設定</th>
         <th>状態</th>
       </tr>`;
-    elements.tableBody.replaceChildren(...rows.map(renderEmployeeRow));
+    replaceTableRowsSafely(rows, renderEmployeeRow, renderEmployeeFallbackRow);
     return;
   }
 
@@ -823,6 +823,23 @@ function renderTable() {
       <th>状態</th>
     </tr>`;
   elements.tableBody.replaceChildren(...rows.map(renderStoreRow));
+}
+
+function replaceTableRowsSafely(rows, renderer, fallbackRenderer) {
+  const fragment = document.createDocumentFragment();
+  let fallbackCount = 0;
+  rows.forEach((row) => {
+    try {
+      fragment.appendChild(renderer(row));
+    } catch (error) {
+      fallbackCount += 1;
+      if (fallbackRenderer) fragment.appendChild(fallbackRenderer(row));
+    }
+  });
+  elements.tableBody.replaceChildren(fragment);
+  if (fallbackCount) {
+    showToast(`一部の行を簡易表示しました（${fallbackCount}件）`);
+  }
 }
 
 function renderQualitySummary() {
@@ -1055,6 +1072,26 @@ function renderEmployeeRow(employee) {
     <td>${formatEmployeeStatus(employee)}</td>`;
   tr.addEventListener("click", () => {
     state.selectedId = employee.id;
+    render();
+  });
+  return tr;
+}
+
+function renderEmployeeFallbackRow(employee) {
+  const tr = document.createElement("tr");
+  tr.className = employee?.id === state.selectedId ? "selected" : "";
+  tr.innerHTML = `
+    <td>${escapeHtml(employee?.employee_id || "")}</td>
+    <td>${escapeHtml(employee?.full_name || "")}</td>
+    <td>${escapeHtml(employee?.store_name || employee?.department_name || employee?.source_assigned_location || "")}</td>
+    <td>${escapeHtml(employee?.position_name || employee?.source_position_name || "")}</td>
+    <td>${escapeHtml(employee?.email || employee?.login_credential?.login_email || "")}</td>
+    <td><span class="status-muted">確認中</span></td>
+    <td><span class="status-muted">確認中</span></td>
+    <td><span class="status-muted">簡易表示</span></td>
+    <td>${employee?.is_active === false ? `<span class="status-pill inactive">無効</span>` : `<span class="status-pill">有効</span>`}</td>`;
+  tr.addEventListener("click", () => {
+    state.selectedId = employee?.id || "";
     render();
   });
   return tr;

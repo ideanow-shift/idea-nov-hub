@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>マスタ管理 | NOV HUB</title>
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../css/design-system.css">
+  <link rel="stylesheet" href="../master-admin/master-admin.css?v=master-admin-route-recovery-20260711-4">
+  <style>
+    [hidden] { display: none !important; }
+    body { margin: 0; background: #fafafa; color: #111827; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .admin-header { position: sticky; top: 0; z-index: 10; display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; border-bottom: 1px solid #e5e7eb; background: rgba(255,255,255,.96); padding: 14px 24px; }
+    .admin-header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+    .admin-header p { margin: 4px 0 0; color: #6b7280; font-size: 13px; }
+    .back-link { color: #111827; text-decoration: none; }
+    .admin-shell { width: min(100%, 1180px); margin: 0 auto; padding: 24px; box-sizing: border-box; }
+    .toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+    .toolbar h2 { margin: 0; font-size: 24px; }
+    .kicker { margin: 0 0 4px; color: #9f1239; font-size: 12px; font-weight: 700; }
+    .toolbar-actions, .status-filter, .csv-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .button, .segmented, .filter-chip { min-height: 38px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; color: #111827; cursor: pointer; font: inherit; padding: 0 14px; }
+    .button-primary, .segmented.active, .filter-chip.active { border-color: #e8b4b8; background: #fff1f2; font-weight: 700; }
+    .button-secondary { background: #fff; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+    .admin-app[data-view="stores"] .workspace, .admin-app[data-view="corporations"] .workspace { grid-template-columns: minmax(420px, 1fr) minmax(500px, .86fr); }
+    .list-panel, .detail-panel, .auth-panel, .loading-panel { border: 1px solid #e5e7eb; border-radius: 14px; background: #fff; box-sizing: border-box; }
+    .list-panel { min-width: 0; padding: 16px; }
+    .detail-panel { position: sticky; top: 88px; max-height: calc(100vh - 112px); overflow: auto; padding: 18px; }
+    .auth-panel, .loading-panel { display: grid; min-height: 52vh; place-items: center; padding: 32px; text-align: center; }
+    .search-label { display: block; margin-bottom: 6px; color: #6b7280; font-size: 12px; }
+    .search-input, .form-input, .form-select, textarea { min-height: 42px; width: 100%; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; color: #111827; box-sizing: border-box; font: inherit; padding: 10px 12px; }
+    .status-filter { margin-top: 14px; }
+    .result-count { margin: 16px 0; color: #6b7280; }
+    .table-wrap { overflow: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 14px 16px; text-align: left; vertical-align: middle; }
+    th { color: #4b5563; font-size: 13px; font-weight: 700; white-space: nowrap; }
+    tbody tr { cursor: pointer; }
+    tbody tr.active, tbody tr:hover { background: #fff7f7; }
+    .empty-detail { color: #6b7280; line-height: 1.7; }
+    .toast { position: fixed; right: 24px; bottom: 24px; z-index: 30; max-width: min(420px, calc(100vw - 48px)); border-radius: 12px; background: #111827; color: #fff; padding: 12px 16px; box-shadow: 0 10px 24px rgba(0,0,0,.16); }
+    @media (max-width: 900px) { .toolbar, .admin-header { grid-template-columns: 1fr; display: grid; } .toolbar-actions { justify-content: flex-start; } .workspace, .admin-app[data-view="stores"] .workspace, .admin-app[data-view="corporations"] .workspace { grid-template-columns: 1fr; } .detail-panel { position: static; max-height: none; } }
+  </style>
+</head>
+<body>
+  <header class="admin-header">
+    <a class="back-link" href="../">NOV HUB</a>
+    <div>
+      <h1>マスタ管理</h1>
+      <p>社員情報・店舗情報の基幹マスタ</p>
+    </div>
+    <button class="button button-secondary" id="sign-out" type="button" hidden>ログアウト</button>
+  </header>
+
+  <main class="admin-shell">
+    <section class="auth-panel" id="auth-panel">
+      <h2>管理者ログイン</h2>
+      <p>Firebaseログイン済みの管理者だけが利用できます。</p>
+      <button class="button button-primary" id="sign-in" type="button">Googleでログイン</button>
+    </section>
+
+    <section class="loading-panel" id="loading-panel" hidden>
+      <div class="spinner" aria-hidden="true"></div>
+      <p>マスタ情報を読み込んでいます...</p>
+    </section>
+
+    <section class="admin-app" id="admin-app" hidden>
+      <div class="toolbar">
+        <div>
+          <p class="kicker">Core DB v1</p>
+          <h2 id="view-title">社員マスタ</h2>
+        </div>
+        <div class="toolbar-actions">
+          <button class="segmented active" data-view="employees" type="button">社員</button>
+          <button class="segmented" data-view="stores" type="button">店舗</button>
+          <button class="segmented" data-view="corporations" type="button">法人</button>
+          <button class="segmented" data-view="apps" type="button">アプリ</button>
+          <button class="segmented" data-view="permissions" type="button">権限</button>
+          <button class="segmented" data-view="firebase" type="button">Firebase未連携</button>
+          <button class="segmented" data-view="logs" type="button">変更履歴</button>
+          <button class="segmented" data-view="readiness" type="button">HUB連携準備</button>
+          <button class="button button-primary" id="add-employee" type="button" hidden>社員追加</button>
+          <button class="button button-primary" id="add-corporation" type="button" hidden>法人追加</button>
+          <button class="button button-primary" id="add-portal-app" type="button" hidden>アプリ追加</button>
+          <button class="button button-secondary" id="refresh" type="button">再読み込み</button>
+        </div>
+      </div>
+
+      <div class="workspace">
+        <section class="list-panel">
+          <label class="search-label" for="search">検索</label>
+          <input class="search-input" id="search" type="search" placeholder="氏名・社員番号・店舗名で検索">
+          <div class="csv-tools" id="employee-csv-tools" hidden>
+            <button class="button button-secondary" id="export-employees-csv" type="button">社員CSV出力</button>
+            <label class="button button-secondary csv-import-label" for="import-employees-csv">CSV入力プレビュー</label>
+            <input id="import-employees-csv" type="file" accept=".csv,text/csv" hidden>
+            <span class="csv-tools-note">Core社員情報のみ。人事労務データは対象外です。</span>
+          </div>
+          <div class="status-filter" id="employee-status-filter">
+            <button class="filter-chip active" data-employee-status="active" type="button">現職</button>
+            <button class="filter-chip" data-employee-status="missing" type="button">未設定あり</button>
+            <button class="filter-chip" data-employee-status="leave" type="button">休職</button>
+            <button class="filter-chip" data-employee-status="inactive" type="button">退職者</button>
+            <button class="filter-chip" data-employee-status="all" type="button">全員</button>
+          </div>
+          <div class="status-filter" id="store-status-filter" hidden>
+            <button class="filter-chip active" data-store-status="active" type="button">有効</button>
+            <button class="filter-chip" data-store-status="missing" type="button">未設定あり</button>
+            <button class="filter-chip" data-store-status="inactive" type="button">無効</button>
+            <button class="filter-chip" data-store-status="all" type="button">全店舗</button>
+          </div>
+          <div class="status-filter" id="corporation-status-filter" hidden>
+            <button class="filter-chip active" data-corporation-status="active" type="button">有効</button>
+            <button class="filter-chip" data-corporation-status="inactive" type="button">無効</button>
+            <button class="filter-chip" data-corporation-status="all" type="button">全法人</button>
+          </div>
+          <div class="status-filter" id="app-status-filter" hidden>
+            <button class="filter-chip active" data-app-status="active" type="button">公開中</button>
+            <button class="filter-chip" data-app-status="featured" type="button">よく使う</button>
+            <button class="filter-chip" data-app-status="inactive" type="button">非公開</button>
+            <button class="filter-chip" data-app-status="all" type="button">全アプリ</button>
+          </div>
+          <div class="quality-summary" id="quality-summary"></div>
+          <div class="result-count" id="result-count"></div>
+          <div class="table-wrap">
+            <table>
+              <thead id="table-head"></thead>
+              <tbody id="table-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <aside class="detail-panel" id="detail-panel">
+          <div class="empty-detail">左の一覧から編集対象を選んでください。</div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script type="module" src="../master-admin/master-admin.js?v=master-admin-route-recovery-20260711-4"></script>
+</body>
+</html>

@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v17";
+const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v18";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -248,6 +248,15 @@ function installRuntimeLayoutStyles() {
     .safe-master-detail-label { color: #6b7280 !important; font-size: 12px !important; }
     .safe-master-detail-value { min-width: 0 !important; overflow-wrap: anywhere !important; font-size: 13px !important; }
     .safe-master-edit-actions { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; margin: 14px 0 !important; }
+    .safe-master-normal-detail { display: block !important; min-width: 0 !important; }
+    .safe-master-normal-detail > * { max-width: 100% !important; }
+    .safe-master-normal-detail .form-grid,
+    .safe-master-normal-detail .detail-grid,
+    .safe-master-normal-detail .employee-detail-form,
+    .safe-master-normal-detail .store-detail-form,
+    .safe-master-normal-detail .corporation-detail-form { display: grid !important; gap: 12px !important; }
+    .safe-master-normal-detail .form-actions,
+    .safe-master-normal-detail .detail-actions { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; }
     @media (max-width: 900px) {
       #master-admin-safe-view { top: 78px !important; padding: 14px !important; }
       .safe-master-shell { grid-template-columns: 1fr !important; }
@@ -575,12 +584,12 @@ function appendSafeEditActions(parent) {
   const editButton = document.createElement("button");
   editButton.type = "button";
   editButton.className = "button button-primary";
-  editButton.textContent = state.permissions.canEdit ? "通常編集フォームを表示" : "通常詳細フォームを表示";
+  const editMode = state.safeRecoveryMode === "edit";
+  editButton.textContent = editMode ? "復旧確認表示に戻る" : state.permissions.canEdit ? "通常編集フォームを表示" : "通常詳細フォームを表示";
   editButton.addEventListener("click", () => {
-    state.safeRecoveryMode = "edit";
-    document.querySelector("#master-admin-safe-view")?.remove();
+    state.safeRecoveryMode = editMode ? "safe" : "edit";
     render();
-    showToast(state.permissions.canEdit ? "通常編集フォームに切り替えました。" : "通常詳細フォームに切り替えました。");
+    showToast(state.safeRecoveryMode === "edit" ? "通常フォームを復旧ビュー内に表示しました。" : "復旧確認表示に戻しました。");
   });
   actions.append(editButton);
   if (!state.permissions.canEdit) {
@@ -590,6 +599,11 @@ function appendSafeEditActions(parent) {
     actions.append(note);
   }
   parent.append(actions);
+}
+
+function rerenderAfterSafeSelectionChange() {
+  if (state.safeRecoveryMode === "edit") render();
+  else renderSafeMasterAdminView();
 }
 
 function getSafeViewTitle() {
@@ -633,7 +647,7 @@ function appendSafeViewTabs(parent) {
       state.view = view;
       state.selectedId = "";
       state.safeSearch = "";
-      renderSafeMasterAdminView();
+      rerenderAfterSafeSelectionChange();
     });
   });
 }
@@ -648,7 +662,7 @@ function appendSafeStatusFilters(parent) {
     ].forEach(([value, label]) => {
       appendSafeFilterButton(parent, state.storeStatus === value, label, () => {
         state.storeStatus = value;
-        renderSafeMasterAdminView();
+        rerenderAfterSafeSelectionChange();
       });
     });
     return;
@@ -661,7 +675,7 @@ function appendSafeStatusFilters(parent) {
     ].forEach(([value, label]) => {
       appendSafeFilterButton(parent, state.corporationStatus === value, label, () => {
         state.corporationStatus = value;
-        renderSafeMasterAdminView();
+        rerenderAfterSafeSelectionChange();
       });
     });
     return;
@@ -675,7 +689,7 @@ function appendSafeStatusFilters(parent) {
   ].forEach(([value, label]) => {
     appendSafeFilterButton(parent, state.employeeStatus === value, label, () => {
       state.employeeStatus = value;
-      renderSafeMasterAdminView();
+      rerenderAfterSafeSelectionChange();
     });
   });
 }
@@ -715,7 +729,7 @@ function appendSafeEmployeeRow(tbody, employee) {
   statusCell.append(pill);
   tr.addEventListener("click", () => {
     state.selectedId = employee?.id || "";
-    renderSafeMasterAdminView();
+    rerenderAfterSafeSelectionChange();
   });
   tbody.append(tr);
 }
@@ -736,7 +750,7 @@ function appendSafeStoreRow(tbody, store) {
   statusCell.append(pill);
   tr.addEventListener("click", () => {
     state.selectedId = store?.id || "";
-    renderSafeMasterAdminView();
+    rerenderAfterSafeSelectionChange();
   });
   tbody.append(tr);
 }
@@ -757,7 +771,7 @@ function appendSafeCorporationRow(tbody, corporation) {
   statusCell.append(pill);
   tr.addEventListener("click", () => {
     state.selectedId = corporation?.id || "";
-    renderSafeMasterAdminView();
+    rerenderAfterSafeSelectionChange();
   });
   tbody.append(tr);
 }
@@ -960,11 +974,23 @@ function createSafeCell(row, value) {
   return cell;
 }
 
-function renderSafeMasterAdminView() {
-  if (state.safeRecoveryMode === "edit") {
-    document.querySelector("#master-admin-safe-view")?.remove();
-    return;
+function appendNormalDetailIntoSafeCard(detailCard) {
+  appendSafeEditActions(detailCard);
+  const normalDetail = document.createElement("div");
+  normalDetail.className = "safe-master-normal-detail";
+  while (elements.detailPanel?.firstChild) {
+    normalDetail.append(elements.detailPanel.firstChild);
   }
+  if (!normalDetail.childNodes.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-detail";
+    empty.textContent = "通常詳細フォームを準備しています。再読み込みしてください。";
+    normalDetail.append(empty);
+  }
+  detailCard.append(normalDetail);
+}
+
+function renderSafeMasterAdminView() {
   if (!["employees", "firebase", "stores", "corporations"].includes(state.view)) {
     document.querySelector("#master-admin-safe-view")?.remove();
     return;
@@ -1019,7 +1045,7 @@ function renderSafeMasterAdminView() {
   search.value = state.safeSearch || "";
   search.addEventListener("input", () => {
     state.safeSearch = search.value;
-    renderSafeMasterAdminView();
+    rerenderAfterSafeSelectionChange();
   });
   controls.append(search);
   appendSafeStatusFilters(controls);
@@ -1042,10 +1068,14 @@ function renderSafeMasterAdminView() {
   const detailCard = document.createElement("aside");
   detailCard.className = "safe-master-card safe-master-detail";
   if (selected) {
-    appendSafeEditActions(detailCard);
-    if (state.view === "stores") renderSafeStoreDetail(detailCard, selected);
-    else if (state.view === "corporations") renderSafeCorporationDetail(detailCard, selected);
-    else renderSafeEmployeeDetail(detailCard, selected);
+    if (state.safeRecoveryMode === "edit") {
+      appendNormalDetailIntoSafeCard(detailCard);
+    } else {
+      appendSafeEditActions(detailCard);
+      if (state.view === "stores") renderSafeStoreDetail(detailCard, selected);
+      else if (state.view === "corporations") renderSafeCorporationDetail(detailCard, selected);
+      else renderSafeEmployeeDetail(detailCard, selected);
+    }
   } else {
     const empty = document.createElement("div");
     empty.className = "empty-detail";

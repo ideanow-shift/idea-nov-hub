@@ -1,5 +1,5 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
-import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-list-fallback-20260711-10";
+import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-safe-table-20260711-11";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";
@@ -8,6 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
+const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v11";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -72,6 +73,7 @@ const state = {
   view: "employees",
   employeeStatus: "active",
   employeeIssueFilter: "",
+  safeSearch: "",
   corporationStatus: "active",
   storeStatus: "active",
   appStatus: "active",
@@ -190,7 +192,59 @@ function setStyles(element, styles) {
   });
 }
 
+function installRuntimeLayoutStyles() {
+  let style = document.querySelector("#master-admin-runtime-layout");
+  if (!style) {
+    style = document.createElement("style");
+    style.id = "master-admin-runtime-layout";
+    document.head.append(style);
+  }
+  style.textContent = `
+    [hidden] { display: none !important; }
+    body { margin: 0 !important; background: #fafafa !important; color: #111827 !important; font-family: system-ui, -apple-system, "Segoe UI", sans-serif !important; }
+    .admin-app:not([hidden]) { display: block !important; width: 100% !important; }
+    .auth-panel:not([hidden]), .loading-panel:not([hidden]) { display: grid !important; }
+    .toolbar { display: flex !important; flex-wrap: wrap !important; align-items: flex-start !important; justify-content: space-between !important; gap: 16px !important; }
+    .toolbar-actions, .status-filter, .quality-summary, .csv-tools { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; align-items: center !important; }
+    .button, .segmented, .filter-chip, button { display: inline-flex !important; align-items: center !important; justify-content: center !important; min-height: 38px !important; border: 1px solid #e5e7eb !important; border-radius: 12px !important; background: #fff !important; color: #111827 !important; font: inherit !important; padding: 0 14px !important; text-decoration: none !important; }
+    .segmented.active, .filter-chip.active, .button-primary { border-color: #e8b4b8 !important; background: #fff1f2 !important; font-weight: 700 !important; }
+    .workspace { display: grid !important; grid-template-columns: minmax(0, 1fr) 380px !important; gap: 16px !important; align-items: start !important; }
+    .list-panel, .detail-panel, .auth-panel, .loading-panel { display: block !important; border: 1px solid #e5e7eb !important; border-radius: 14px !important; background: #fff !important; box-sizing: border-box !important; }
+    .auth-panel:not([hidden]), .loading-panel:not([hidden]) { display: grid !important; }
+    .table-wrap { display: block !important; overflow: auto !important; max-height: calc(100vh - 230px) !important; }
+    table { display: table !important; width: 100% !important; border-collapse: collapse !important; table-layout: auto !important; font-size: 13px !important; }
+    thead { display: table-header-group !important; }
+    tbody { display: table-row-group !important; }
+    tr { display: table-row !important; }
+    th, td { display: table-cell !important; border-bottom: 1px solid #e5e7eb !important; padding: 11px 10px !important; text-align: left !important; white-space: nowrap !important; vertical-align: middle !important; }
+    #master-admin-safe-view { position: fixed !important; inset: 88px 0 0 0 !important; z-index: 5000 !important; display: block !important; overflow: auto !important; background: #fafafa !important; padding: 22px !important; box-sizing: border-box !important; }
+    .safe-master-shell { width: min(100%, 1180px) !important; margin: 0 auto !important; display: grid !important; grid-template-columns: minmax(0, 1fr) 340px !important; gap: 16px !important; align-items: start !important; }
+    .safe-master-card { border: 1px solid #e5e7eb !important; border-radius: 14px !important; background: #fff !important; padding: 16px !important; box-sizing: border-box !important; }
+    .safe-master-header { display: flex !important; flex-wrap: wrap !important; align-items: center !important; justify-content: space-between !important; gap: 12px !important; margin-bottom: 14px !important; }
+    .safe-master-title { display: grid !important; gap: 3px !important; }
+    .safe-master-title strong { font-size: 20px !important; }
+    .safe-master-note { color: #6b7280 !important; font-size: 12px !important; line-height: 1.6 !important; }
+    .safe-master-controls { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; align-items: center !important; margin: 12px 0 !important; }
+    .safe-master-search { min-height: 42px !important; min-width: min(100%, 320px) !important; border: 1px solid #e5e7eb !important; border-radius: 12px !important; padding: 10px 12px !important; font: inherit !important; }
+    .safe-master-table-wrap { display: block !important; overflow: auto !important; max-height: calc(100vh - 260px) !important; border: 1px solid #eef2f7 !important; border-radius: 12px !important; }
+    .safe-master-table { display: table !important; width: 100% !important; border-collapse: collapse !important; background: #fff !important; font-size: 13px !important; }
+    .safe-master-table thead { display: table-header-group !important; position: sticky !important; top: 0 !important; z-index: 1 !important; background: #f9fafb !important; }
+    .safe-master-table tbody { display: table-row-group !important; }
+    .safe-master-table tr { display: table-row !important; cursor: pointer !important; }
+    .safe-master-table th, .safe-master-table td { display: table-cell !important; border-bottom: 1px solid #edf0f4 !important; padding: 10px 11px !important; white-space: nowrap !important; text-align: left !important; vertical-align: middle !important; }
+    .safe-master-table tr.selected, .safe-master-table tr:hover { background: #fff7f7 !important; }
+    .safe-master-pill { display: inline-flex !important; align-items: center !important; justify-content: center !important; min-width: 52px !important; border-radius: 999px !important; background: #f3f4f6 !important; color: #374151 !important; font-size: 12px !important; font-weight: 700 !important; padding: 3px 8px !important; }
+    .safe-master-detail { position: sticky !important; top: 106px !important; max-height: calc(100vh - 130px) !important; overflow: auto !important; }
+    @media (max-width: 900px) {
+      #master-admin-safe-view { top: 78px !important; padding: 14px !important; }
+      .safe-master-shell { grid-template-columns: 1fr !important; }
+      .safe-master-detail { position: static !important; max-height: none !important; }
+    }
+  `;
+}
+
 function applyStableLayoutStyles() {
+  installRuntimeLayoutStyles();
   setStyles(document.body, {
     margin: "0",
     background: "#fafafa",
@@ -321,7 +375,7 @@ function showRecoveryVersionMarker() {
   if (!marker) {
     marker = document.createElement("div");
     marker.id = "master-admin-recovery-version";
-    marker.textContent = "UI復旧版 v10";
+    marker.textContent = MASTER_ADMIN_RECOVERY_LABEL;
     document.body.append(marker);
   }
   setStyles(marker, {
@@ -419,6 +473,198 @@ function buildRecoveryEmployeeRow(employee) {
     render();
   });
   return tr;
+}
+
+function maskEmailForSafeView(value) {
+  const email = String(value || "").trim();
+  if (!email || email === "任意未入力") return "任意未入力";
+  const [local, domain] = email.split("@");
+  if (!local || !domain) return "設定あり";
+  const visible = local.slice(0, 2);
+  return `${visible}${"*".repeat(Math.max(3, Math.min(8, local.length - visible.length)))}@${domain}`;
+}
+
+function getSafeEmployeeRows() {
+  const query = normalizeSearch(state.safeSearch || "");
+  return (state.employees || []).filter((employee) => {
+    if (state.employeeStatus === "active" && !isCurrentEmployee(employee)) return false;
+    if (state.employeeStatus === "leave" && !isLeaveEmployee(employee)) return false;
+    if (state.employeeStatus === "inactive" && !isRetiredEmployee(employee)) return false;
+    if (state.employeeStatus === "missing" && !getEmployeeIssueValue(employee)) return false;
+    if (!query) return true;
+    const haystack = normalizeSearch([
+      employee?.employee_id,
+      employee?.full_name,
+      employee?.store_name,
+      employee?.department_name,
+      employee?.position_name,
+      employee?.email
+    ].filter(Boolean).join(" "));
+    return haystack.includes(query);
+  });
+}
+
+function getSafeStatusLabel(employee) {
+  const status = getRecoveryEmployeeStatus(employee);
+  return status || "現職";
+}
+
+function createSafeCell(row, value) {
+  const cell = document.createElement("td");
+  cell.textContent = value == null ? "" : String(value);
+  row.append(cell);
+  return cell;
+}
+
+function renderSafeMasterAdminView() {
+  if (state.view !== "employees" && state.view !== "firebase") {
+    document.querySelector("#master-admin-safe-view")?.remove();
+    return;
+  }
+
+  installRuntimeLayoutStyles();
+
+  let safeView = document.querySelector("#master-admin-safe-view");
+  if (!safeView) {
+    safeView = document.createElement("section");
+    safeView.id = "master-admin-safe-view";
+    safeView.setAttribute("aria-label", "社員マスタ復旧ビュー");
+    document.body.append(safeView);
+  }
+
+  const rows = getSafeEmployeeRows();
+  const selected = (state.employees || []).find((employee) => employee?.id === state.selectedId) || rows[0] || null;
+
+  safeView.replaceChildren();
+
+  const shell = document.createElement("div");
+  shell.className = "safe-master-shell";
+
+  const listCard = document.createElement("section");
+  listCard.className = "safe-master-card";
+
+  const header = document.createElement("div");
+  header.className = "safe-master-header";
+  const title = document.createElement("div");
+  title.className = "safe-master-title";
+  const titleStrong = document.createElement("strong");
+  titleStrong.textContent = "社員マスタ";
+  const titleNote = document.createElement("span");
+  titleNote.className = "safe-master-note";
+  titleNote.textContent = "P0復旧ビューです。社員一覧・検索・選択を優先して復旧しています。";
+  title.append(titleStrong, titleNote);
+
+  const refreshButton = document.createElement("button");
+  refreshButton.type = "button";
+  refreshButton.className = "button button-secondary";
+  refreshButton.textContent = "再読み込み";
+  refreshButton.addEventListener("click", () => elements.refresh?.click());
+  header.append(title, refreshButton);
+
+  const controls = document.createElement("div");
+  controls.className = "safe-master-controls";
+  const search = document.createElement("input");
+  search.className = "safe-master-search";
+  search.type = "search";
+  search.placeholder = "氏名・社員番号・店舗名で検索";
+  search.value = state.safeSearch || "";
+  search.addEventListener("input", () => {
+    state.safeSearch = search.value;
+    renderSafeMasterAdminView();
+  });
+  controls.append(search);
+
+  [
+    ["active", "現職"],
+    ["missing", "未設定あり"],
+    ["leave", "休職"],
+    ["inactive", "退職者"],
+    ["all", "全員"]
+  ].forEach(([value, label]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `filter-chip${state.employeeStatus === value ? " active" : ""}`;
+    button.textContent = label;
+    button.addEventListener("click", () => {
+      state.employeeStatus = value;
+      renderSafeMasterAdminView();
+    });
+    controls.append(button);
+  });
+
+  const count = document.createElement("div");
+  count.className = "result-count";
+  count.textContent = `${rows.length}件`;
+
+  const tableWrap = document.createElement("div");
+  tableWrap.className = "safe-master-table-wrap";
+  const table = document.createElement("table");
+  table.className = "safe-master-table";
+  const thead = document.createElement("thead");
+  thead.innerHTML = `
+    <tr>
+      <th>社員番号</th>
+      <th>氏名</th>
+      <th>所属</th>
+      <th>役職</th>
+      <th>メール</th>
+      <th>ログイン</th>
+      <th>通知先</th>
+      <th>状態</th>
+    </tr>`;
+  const tbody = document.createElement("tbody");
+
+  rows.forEach((employee) => {
+    const tr = document.createElement("tr");
+    if (employee?.id === state.selectedId) tr.classList.add("selected");
+    createSafeCell(tr, employee?.employee_id || "");
+    createSafeCell(tr, employee?.full_name || "");
+    createSafeCell(tr, getRecoveryAffiliation(employee));
+    createSafeCell(tr, employee?.position_name || employee?.source_position_name || "");
+    createSafeCell(tr, maskEmailForSafeView(getRecoveryEmail(employee)));
+    createSafeCell(tr, getRecoveryLoginStatus(employee));
+    createSafeCell(tr, getRecoveryNotificationStatus(employee));
+    const statusCell = createSafeCell(tr, "");
+    const pill = document.createElement("span");
+    pill.className = "safe-master-pill";
+    pill.textContent = getSafeStatusLabel(employee);
+    statusCell.append(pill);
+    tr.addEventListener("click", () => {
+      state.selectedId = employee?.id || "";
+      renderSafeMasterAdminView();
+    });
+    tbody.append(tr);
+  });
+  table.append(thead, tbody);
+  tableWrap.append(table);
+  listCard.append(header, controls, count, tableWrap);
+
+  const detailCard = document.createElement("aside");
+  detailCard.className = "safe-master-card safe-master-detail";
+  if (selected) {
+    const detailTitle = document.createElement("h3");
+    detailTitle.textContent = selected.full_name || "社員詳細";
+    const meta = document.createElement("p");
+    meta.className = "safe-master-note";
+    meta.textContent = [
+      selected.employee_id ? `社員番号: ${selected.employee_id}` : "",
+      getRecoveryAffiliation(selected),
+      selected.position_name || selected.source_position_name || "",
+      getSafeStatusLabel(selected)
+    ].filter(Boolean).join(" / ");
+    const note = document.createElement("p");
+    note.className = "safe-master-note";
+    note.textContent = "詳細編集フォームは通常UI復旧後に再表示します。現在は一覧の確認を優先しています。";
+    detailCard.append(detailTitle, meta, note);
+  } else {
+    const empty = document.createElement("div");
+    empty.className = "empty-detail";
+    empty.textContent = "左の一覧から編集対象を選んでください。";
+    detailCard.append(empty);
+  }
+
+  shell.append(listCard, detailCard);
+  safeView.append(shell);
 }
 
 function forceRecoveryEmployeeTable(rows) {
@@ -533,6 +779,9 @@ function showMode(mode) {
   elements.loadingPanel.hidden = mode !== "loading";
   elements.adminApp.hidden = mode !== "app";
   elements.signOut.hidden = mode === "auth";
+  if (mode !== "app") {
+    document.querySelector("#master-admin-safe-view")?.remove();
+  }
   applyStableLayoutStyles();
 }
 
@@ -1166,6 +1415,7 @@ function render() {
     elements.detailPanel.innerHTML = `<div class="empty-detail">左の一覧から編集対象を選んでください。</div>`;
   }
   applyStableLayoutStyles();
+  renderSafeMasterAdminView();
 }
 
 function renderTable() {

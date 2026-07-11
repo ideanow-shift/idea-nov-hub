@@ -1,5 +1,5 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
-import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-safe-detail-20260711-13";
+import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-safe-detail-20260711-22";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";
@@ -8,7 +8,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v21";
+const MASTER_ADMIN_RECOVERY_LABEL = "UI復旧版 v22";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -1009,6 +1009,7 @@ function appendSafeEmployeeEditForm(detailCard, employee) {
     <h3>${escapeHtml(employee.full_name || "社員編集")}</h3>
     <p class="detail-meta">社員番号: ${escapeHtml(employee.employee_id || "")} / ${escapeHtml(formatEmployeeAffiliation(employee) || getRecoveryAffiliation(employee) || "所属未設定")}</p>
     <p class="detail-note">P0復旧用の編集フォームです。保存時は既存Edge APIで編集権限を再確認します。</p>
+    ${renderEmployeeProfileImagePanel(employee, false)}
     <form class="employee-detail-form" id="detail-form">
       <div class="form-grid employee-detail-section-body">
         ${fieldInput("birth_date", "誕生日", employee.birth_date || "", "date")}
@@ -1038,6 +1039,7 @@ function appendSafeEmployeeEditForm(detailCard, employee) {
   form?.addEventListener("submit", saveEmployee);
   form?.addEventListener("input", () => setSaveStatus(document.querySelector("#employee-save-status"), "未保存の変更があります。保存ボタンを押してください。", "pending"));
   form?.addEventListener("change", () => setSaveStatus(document.querySelector("#employee-save-status"), "未保存の変更があります。保存ボタンを押してください。", "pending"));
+  formWrap.querySelector("#upload-profile-image")?.addEventListener("click", uploadEmployeeProfileImage);
   detailCard.append(formWrap);
 }
 
@@ -1059,6 +1061,9 @@ function renderSafeMasterAdminView() {
 
   const rows = getSafeRowsForCurrentView();
   const selected = getSafeSelectedRow(rows);
+  if (selected?.id && state.selectedId !== selected.id) {
+    state.selectedId = selected.id;
+  }
 
   safeView.replaceChildren();
 

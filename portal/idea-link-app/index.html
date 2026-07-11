@@ -709,6 +709,209 @@
           var(--bg);
       }
     }
+
+    /* Keep the new API-backed app visually aligned with the established IDEA LINK UI. */
+    :root {
+      --radius: 8px;
+    }
+
+    .bar,
+    main,
+    .bottom-nav {
+      width: min(680px, 100%);
+    }
+
+    .bar {
+      min-height: 64px;
+      padding: 8px 14px;
+    }
+
+    .mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+    }
+
+    .mark svg {
+      width: 32px;
+      height: 32px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .header-user {
+      max-width: 120px;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 13px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .header-link,
+    .refresh-button {
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .refresh-button {
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    main {
+      padding: 14px 12px 92px;
+    }
+
+    section,
+    aside,
+    .post,
+    .stat,
+    input,
+    textarea,
+    select,
+    .checkbox-row,
+    .radio-row,
+    .privacy-note {
+      border-radius: 8px;
+    }
+
+    .panel-header {
+      padding: 16px 18px 12px;
+    }
+
+    .panel-body {
+      padding: 14px 18px 18px;
+    }
+
+    .legacy-app-card,
+    .legacy-welcome-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 18px;
+    }
+
+    .legacy-app-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .legacy-app-card .mark {
+      width: 52px;
+      height: 52px;
+      flex: 0 0 52px;
+    }
+
+    .legacy-app-card strong,
+    .legacy-app-card span,
+    .legacy-welcome-card strong,
+    .legacy-welcome-card span {
+      display: block;
+    }
+
+    .legacy-app-card strong {
+      font-size: 18px;
+    }
+
+    .legacy-app-card span,
+    .legacy-welcome-card > span {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .legacy-welcome-card h2 {
+      margin: 10px 0 14px;
+      font-size: 16px;
+    }
+
+    .legacy-theme {
+      padding: 13px 15px;
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--brand);
+      border-radius: 8px;
+      background: #fffaf0;
+    }
+
+    .legacy-theme span {
+      margin: 0 0 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .legacy-theme strong {
+      font-size: 14px;
+    }
+
+    .home-stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .home-stats .stat {
+      min-height: 112px;
+      padding: 15px;
+      text-align: left;
+    }
+
+    .home-stats .stat strong {
+      margin-top: 8px;
+      font-size: 28px;
+    }
+
+    .home-stats .stat small {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .home-insight {
+      border-left: 4px solid var(--brand);
+      background: #fff8f8;
+    }
+
+    #mode-notice {
+      margin-bottom: 12px;
+    }
+
+    @media (min-width: 681px) {
+      body {
+        background: #f3f3f3;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .bar {
+        gap: 8px;
+      }
+
+      .header-user {
+        display: none;
+      }
+
+      .header-link {
+        font-size: 12px;
+      }
+
+      .panel-body {
+        padding-inline: 12px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -726,14 +929,19 @@
           <p class="subtitle">サンクスコイン</p>
         </div>
       </div>
-      <span class="pill" id="connection-status">HUB確認中</span>
+      <div class="header-actions">
+        <span class="pill" id="connection-status" hidden>HUB確認中</span>
+        <span class="header-user" id="header-user-name"></span>
+        <a class="header-link" href="../" title="NOV HUBへ戻る">HUBへ戻る</a>
+        <button class="refresh-button" id="refresh-button" type="button" aria-label="画面を更新" title="画面を更新">↻</button>
+      </div>
     </div>
   </header>
 
   <main>
     <section>
       <div class="panel-header">
-        <h2>サンクスを送る</h2>
+        <h2 id="panel-title">ホーム</h2>
         <div class="tabs" role="tablist" aria-label="表示切替">
           <button class="tab" type="button" aria-selected="true">投稿</button>
           <button class="tab" type="button" aria-selected="false">タイムライン</button>
@@ -742,35 +950,53 @@
       </div>
       <div class="panel-body">
         <div class="notice" id="mode-notice">
-          新Webアプリの受け皿として稼働中です。投稿保存とLINE WORKS通知は、専用APIの最終smoke後に有効化します。
+          今日見つけた素敵な行動を、サンクスコインで届けましょう。
         </div>
 
-        <div class="view" data-view="home">
-          <div class="stats">
-            <div class="stat">
-              <span>今月送信</span>
-              <strong data-my-stat="sent">0</strong>
-            </div>
-            <div class="stat">
-              <span>今月受信</span>
-              <strong data-my-stat="received">0</strong>
-            </div>
-            <div class="stat">
-              <span>チャレンジ</span>
-              <strong data-my-stat="challenge">0</strong>
+        <div class="view active" data-view="home">
+          <div class="legacy-app-card">
+            <span class="mark" aria-hidden="true">
+              <svg viewBox="0 0 32 32" fill="none">
+                <rect x="6" y="6" width="20" height="20" rx="6" stroke="currentColor" stroke-width="2"/>
+                <path d="M16 21s-6-3.4-6-7.2c0-2.1 1.5-3.8 3.5-3.8 1.1 0 2 .5 2.5 1.3.5-.8 1.4-1.3 2.5-1.3 2 0 3.5 1.7 3.5 3.8C22 17.6 16 21 16 21Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <div>
+              <strong>サンクスコイン</strong>
+              <span>感謝・称賛をコインで届ける</span>
             </div>
           </div>
-          <div class="post">
-            <div class="post-top">
+          <div class="legacy-welcome-card">
+            <span id="home-store-name">所属</span>
+            <h2><span id="home-user-name">スタッフ</span>さん、今日もおつかれさまです</h2>
+            <div class="legacy-theme">
               <span>今月のテーマ</span>
-              <span>サンクスコイン</span>
+              <strong>今月の素敵な行動を見つけよう</strong>
             </div>
-            <strong>今日の「ありがとう」を見つけよう</strong>
-            <p>笑顔で挨拶する、約束を守る、助け合う、伝え合う、思いやる行動をコインで届けます。</p>
+          </div>
+          <div class="stats home-stats">
+            <div class="stat">
+              <span>今月もらった</span>
+              <strong data-my-stat="received">0</strong>
+              <small>サンクス</small>
+            </div>
+            <div class="stat">
+              <span>今月送った</span>
+              <strong data-my-stat="sent">0</strong>
+              <small>サンクス</small>
+            </div>
+          </div>
+          <div class="post home-insight">
+            <div class="post-top">
+              <span>今月のありがとう</span>
+              <span>IDEA LINK</span>
+            </div>
+            <strong>良い行動を見つける力が、チームを明るくします。</strong>
+            <p>笑顔で挨拶する、約束を守る、助け合う、伝え合う、思いやる行動を届けましょう。</p>
           </div>
         </div>
 
-        <div class="view active" data-view="send">
+        <div class="view" data-view="send">
         <div class="composer" aria-label="サンクス投稿フォーム">
           <label>
             店舗
@@ -971,11 +1197,11 @@
   </main>
 
   <nav class="bottom-nav" aria-label="サンクスコインメニュー">
-    <button class="nav-item" type="button" data-view-target="home">
+    <button class="nav-item active" type="button" data-view-target="home">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 10.8 12 3l9 7.8v9.7h-6v-6H9v6H3z"/></svg>
       ホーム
     </button>
-    <button class="nav-item active" type="button" data-view-target="send">
+    <button class="nav-item" type="button" data-view-target="send">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>
       送る
     </button>
@@ -1004,6 +1230,11 @@
     const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
     const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     const connectionStatus = document.querySelector("#connection-status");
+    const headerUserName = document.querySelector("#header-user-name");
+    const refreshButton = document.querySelector("#refresh-button");
+    const panelTitle = document.querySelector("#panel-title");
+    const homeUserName = document.querySelector("#home-user-name");
+    const homeStoreName = document.querySelector("#home-store-name");
     const profile = document.querySelector("#profile");
     const feed = document.querySelector("#feed");
     const myFeed = document.querySelector("#my-feed");
@@ -1391,6 +1622,14 @@
     }
 
     function setView(target) {
+      const titles = {
+        home: "ホーム",
+        send: "サンクスを送る",
+        timeline: "最新のサンクス",
+        my: "マイページ",
+        admin: "管理"
+      };
+      panelTitle.textContent = titles[target] || "サンクスコイン";
       views.forEach((view) => {
         view.classList.toggle("active", view.dataset.view === target);
       });
@@ -1563,6 +1802,8 @@
       item.addEventListener("click", () => setView(item.dataset.viewTarget || "send"));
     });
 
+    refreshButton.addEventListener("click", () => window.location.reload());
+
     adminSectionButtons.forEach((button) => {
       button.addEventListener("click", () => setAdminSection(button.dataset.adminSectionTarget || "summary"));
     });
@@ -1628,7 +1869,11 @@
       feed.innerHTML = "<div class=\"notice\">このアカウントにはIDEA LINK権限がありません。</div>";
       lockForm("権限なし");
     } else {
-      connectionStatus.textContent = "接続済み";
+      const displayName = text(context.fullName || context.name, "スタッフ");
+      const displayStore = text(context.primaryStoreName || context.storeName || context.store, "所属");
+      headerUserName.textContent = displayName;
+      homeUserName.textContent = displayName;
+      homeStoreName.textContent = displayStore;
       renderProfile(context);
       renderFeed(context);
       if (canViewAdmin(context)) {
@@ -1639,7 +1884,7 @@
       loadStoreOptions(context);
       loadMyPage();
       updateCategoryUi();
-      setNotice("info", "投稿保存の確認中です。通知送信はまだ行いません。店舗を選んで送り先を選択できます。");
+      setNotice("info", "今日見つけた素敵な行動を、サンクスコインで届けましょう。");
       const url = new URL(window.location.href);
       if (url.searchParams.has(HUB_CONTEXT_QUERY_KEY)) {
         url.searchParams.delete(HUB_CONTEXT_QUERY_KEY);

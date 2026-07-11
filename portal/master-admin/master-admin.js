@@ -224,8 +224,127 @@ async function loadData() {
   state.logs = [];
   state.logsLoaded = false;
   state.selectedId = "";
+  if (shouldUseEmergencyLayout()) {
+    renderEmergencyLayout();
+    showMode("app");
+    return;
+  }
   render();
   showMode("app");
+}
+
+function shouldUseEmergencyLayout() {
+  return new URLSearchParams(window.location.search).get("app_v") === "master-admin-emergency-list-fix-20260711";
+}
+
+function renderEmergencyLayout() {
+  const viewLabels = [
+    ["employees", "社員"],
+    ["stores", "店舗"],
+    ["corporations", "法人"],
+    ["apps", "アプリ"]
+  ];
+  elements.adminApp.innerHTML = `
+    <section style="display:grid;gap:16px;">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;">
+        <div>
+          <p style="margin:0 0 4px;color:#b46b74;font-weight:700;font-size:12px;">Core DB v1 / emergency</p>
+          <h2 id="emergency-title" style="margin:0;font-size:24px;">社員マスタ</h2>
+        </div>
+        <div id="emergency-tabs" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+        <input id="emergency-search" type="search" placeholder="検索" style="min-height:40px;min-width:280px;flex:1;border:1px solid #d0d5dd;border-radius:8px;padding:8px 10px;font:inherit;">
+        <button id="emergency-refresh" type="button" style="min-height:40px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;padding:0 14px;font-weight:700;">再読み込み</button>
+      </div>
+      <p id="emergency-count" style="margin:0;color:#667085;font-weight:700;"></p>
+      <div style="max-width:100%;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;background:#fff;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead id="emergency-head"></thead>
+          <tbody id="emergency-body"></tbody>
+        </table>
+      </div>
+      <p style="margin:0;color:#667085;font-size:12px;">緊急表示モードです。保存系操作は通常UI復旧後に使用してください。</p>
+    </section>`;
+  const tabs = document.querySelector("#emergency-tabs");
+  viewLabels.forEach(([view, label]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.dataset.view = view;
+    button.setAttribute("style", getEmergencyButtonStyle(view === state.view));
+    button.addEventListener("click", () => {
+      state.view = view;
+      document.querySelectorAll("#emergency-tabs button").forEach((item) => {
+        item.setAttribute("style", getEmergencyButtonStyle(item.dataset.view === state.view));
+      });
+      renderEmergencyTable();
+    });
+    tabs.appendChild(button);
+  });
+  document.querySelector("#emergency-search").addEventListener("input", renderEmergencyTable);
+  document.querySelector("#emergency-refresh").addEventListener("click", loadData);
+  renderEmergencyTable();
+}
+
+function getEmergencyButtonStyle(active) {
+  return [
+    "min-height:40px",
+    "border:1px solid " + (active ? "#d88c95" : "#d0d5dd"),
+    "border-radius:8px",
+    "background:" + (active ? "#f9e7ea" : "#fff"),
+    "padding:0 14px",
+    "font:inherit",
+    "font-weight:700",
+    "cursor:pointer"
+  ].join(";");
+}
+
+function renderEmergencyTable() {
+  const query = normalizeSearch(document.querySelector("#emergency-search")?.value || "");
+  const titleMap = { employees: "社員マスタ", stores: "店舗マスタ", corporations: "法人マスタ", apps: "アプリ管理" };
+  const title = document.querySelector("#emergency-title");
+  if (title) title.textContent = titleMap[state.view] || "マスタ管理";
+  const rows = getEmergencyRows(query);
+  document.querySelector("#emergency-count").textContent = `${rows.length}件`;
+  const head = document.querySelector("#emergency-head");
+  const body = document.querySelector("#emergency-body");
+  const headers = getEmergencyHeaders();
+  head.innerHTML = `<tr>${headers.map((header) => `<th style="position:sticky;top:0;background:#fff;border-bottom:1px solid #e5e7eb;padding:10px;text-align:left;white-space:nowrap;">${escapeHtml(header)}</th>`).join("")}</tr>`;
+  body.innerHTML = rows.map((row) => `<tr>${getEmergencyCells(row).map((cell) => `<td style="border-bottom:1px solid #e5e7eb;padding:10px;text-align:left;vertical-align:top;white-space:nowrap;">${escapeHtml(cell)}</td>`).join("")}</tr>`).join("");
+}
+
+function getEmergencyRows(query) {
+  const source = {
+    employees: state.employees,
+    stores: state.stores,
+    corporations: state.corporations,
+    apps: state.portalApps
+  }[state.view] || state.employees;
+  const rows = source.slice();
+  if (!query) return rows;
+  return rows.filter((row) => normalizeSearch(Object.values(row || {}).filter((value) => value == null || typeof value !== "object").join(" ")).includes(query));
+}
+
+function getEmergencyHeaders() {
+  if (state.view === "stores") return ["店舗No", "店舗ID", "店舗名", "有効"];
+  if (state.view === "corporations") return ["法人No", "法人名", "正式名", "有効"];
+  if (state.view === "apps") return ["アプリID", "アプリ名", "カテゴリ", "公開", "優先度"];
+  return ["社員番号", "氏名", "所属", "役職", "メール", "状態"];
+}
+
+function getEmergencyCells(row) {
+  if (state.view === "stores") return [row.store_no || "", row.store_id || "", row.store_name || "", row.is_active === false ? "無効" : "有効"];
+  if (state.view === "corporations") return [row.corporation_no || "", row.corporation_name || "", row.business_profile?.formal_corporation_name || "", row.is_active === false ? "無効" : "有効"];
+  if (state.view === "apps") return [row.appId || "", row.appName || "", row.category || "", row.isActive === false ? "非公開" : "公開", row.priority || ""];
+  return [
+    row.employee_id || "",
+    row.full_name || "",
+    row.store_name || row.department_name || row.source_assigned_location || "",
+    row.position_name || row.source_position_name || "",
+    getEmployeeContactEmail(row),
+    row.is_active === false ? "無効" : getEmployeeStatusLabel(row)
+  ];
 }
 
 function getRows() {

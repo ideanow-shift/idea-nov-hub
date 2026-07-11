@@ -262,7 +262,7 @@ function showRecoveryVersionMarker() {
   if (!marker) {
     marker = document.createElement("div");
     marker.id = "master-admin-recovery-version";
-    marker.textContent = "UI復旧版 v6";
+    marker.textContent = "UI復旧版 v7";
     document.body.append(marker);
   }
   setStyles(marker, {
@@ -297,6 +297,81 @@ function renderRowsSafely(rows, renderer, columnCount) {
       console.error("master admin row render failed", error);
       return renderFallbackRow(row, columnCount, "一部項目の表示形式を確認しています。");
     }
+  });
+}
+
+function buildRecoveryEmployeeRow(employee) {
+  const tr = document.createElement("tr");
+  tr.className = employee.id === state.selectedId ? "selected" : "";
+  const affiliation = formatEmployeeAffiliation(employee);
+  tr.innerHTML = `
+    <td>${escapeHtml(employee.employee_id || "")}</td>
+    <td>${escapeHtml(employee.full_name || "")}</td>
+    <td>${escapeHtml(affiliation)}</td>
+    <td>${escapeHtml(employee.position_name || employee.source_position_name || "")}</td>
+    <td>${formatEmployeeEmail(employee)}</td>
+    <td>${formatEmployeeLogin(employee)}</td>
+    <td>${formatEmployeeLineWorksDestination(employee)}</td>
+    <td>${formatEmployeeStatus(employee)}</td>`;
+  tr.addEventListener("click", () => {
+    state.selectedId = employee.id;
+    render();
+  });
+  return tr;
+}
+
+function forceRecoveryEmployeeTable(rows) {
+  if (state.view !== "employees" && state.view !== "firebase") return;
+  if (!Array.isArray(rows) || !rows.length) return;
+  const tableWrap = document.querySelector(".table-wrap");
+  const table = tableWrap?.querySelector("table") || document.querySelector("table");
+  if (!table) return;
+  let thead = table.querySelector("thead");
+  let tbody = table.querySelector("tbody");
+  if (!thead) {
+    thead = document.createElement("thead");
+    table.prepend(thead);
+  }
+  if (!tbody) {
+    tbody = document.createElement("tbody");
+    table.append(tbody);
+  }
+  thead.innerHTML = `
+    <tr>
+      <th>社員番号</th>
+      <th>氏名</th>
+      <th>所属</th>
+      <th>役職</th>
+      <th>メール</th>
+      <th>ログイン</th>
+      <th>通知先</th>
+      <th>状態</th>
+    </tr>`;
+  tbody.replaceChildren(...rows.map(buildRecoveryEmployeeRow));
+  setStyles(tableWrap, {
+    display: "block",
+    overflow: "auto",
+    maxHeight: "calc(100vh - 230px)",
+    marginTop: "12px"
+  });
+  setStyles(table, {
+    display: "table",
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "13px"
+  });
+  setStyles(thead, { display: "table-header-group" });
+  setStyles(tbody, { display: "table-row-group" });
+  tbody.querySelectorAll("tr").forEach((row) => setStyles(row, { display: "table-row" }));
+  table.querySelectorAll("th, td").forEach((cell) => {
+    setStyles(cell, {
+      display: "table-cell",
+      borderBottom: "1px solid #e5e7eb",
+      padding: "11px 10px",
+      textAlign: "left",
+      whiteSpace: "nowrap",
+      verticalAlign: "middle"
+    });
   });
 }
 
@@ -924,6 +999,7 @@ function renderTable() {
         <th>状態</th>
       </tr>`;
     elements.tableBody.replaceChildren(...renderRowsSafely(rows, renderEmployeeRow, 9));
+    forceRecoveryEmployeeTable(rows);
     applyStableLayoutStyles();
     return;
   }

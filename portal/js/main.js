@@ -485,9 +485,6 @@ function buildAppLaunchUrl(appUrl, context) {
   if (!encodedContext) return rawUrl;
   try {
     const url = new URL(rawUrl, window.location.href);
-    if (url.pathname.endsWith("/master-admin/") || url.pathname.endsWith("/master-admin")) {
-      url.searchParams.set("app_v", "master-admin-normal-restore-fix-20260711");
-    }
     url.searchParams.set("hub_context", encodedContext);
     return url.toString();
   } catch (error) {

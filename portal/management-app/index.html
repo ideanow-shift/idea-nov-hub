@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>経営管理 | NOV HUB</title>
+  <link rel="stylesheet" href="./styles.css?v=20260712-1">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <a class="hub-link" href="../">NOV HUB</a>
+      <h1>経営管理</h1>
+      <p>法人・店舗・データ状況</p>
+    </div>
+    <div class="header-actions">
+      <span id="connection-state" class="connection-state">確認中</span>
+      <button id="reload-button" class="icon-button" type="button" title="再読み込み" aria-label="再読み込み">↻</button>
+    </div>
+  </header>
+
+  <nav class="view-tabs" aria-label="経営管理メニュー">
+    <button type="button" class="tab is-active" data-view="finance">法人管理</button>
+    <button type="button" class="tab" data-view="stores">店舗営業管理</button>
+    <button type="button" class="tab" data-view="dataops">データ状況</button>
+  </nav>
+
+  <main>
+    <section id="notice" class="notice" aria-live="polite">
+      <strong id="notice-title">HUB認証を確認しています</strong>
+      <span id="notice-body">少々お待ちください。</span>
+    </section>
+
+    <section id="finance-view" class="view-panel">
+      <div class="section-heading">
+        <div><p class="eyebrow">法人管理</p><h2>全社俯瞰</h2></div>
+        <label>対象月 <input id="finance-month" type="month"></label>
+      </div>
+      <div id="finance-kpis" class="metric-grid"></div>
+      <div class="table-wrap">
+        <table><thead><tr><th>法人</th><th>売上</th><th>経常利益率</th><th>自己資本比率</th><th>現預金</th><th>状態</th></tr></thead><tbody id="finance-rows"></tbody></table>
+      </div>
+      <div id="finance-status" class="status-band"></div>
+    </section>
+
+    <section id="stores-view" class="view-panel" hidden>
+      <div class="section-heading"><div><p class="eyebrow">店舗営業管理</p><h2>店舗別状況</h2></div><span id="store-scope" class="scope-label"></span></div>
+      <div id="store-kpis" class="metric-grid"></div>
+      <div class="table-wrap">
+        <table><thead><tr><th>店舗</th><th>法人</th><th>スタッフ</th><th>売上</th><th>目標達成率</th><th>データ状態</th></tr></thead><tbody id="store-rows"></tbody></table>
+      </div>
+      <div id="csv-requirements" class="status-band"></div>
+    </section>
+
+    <section id="dataops-view" class="view-panel" hidden>
+      <div class="section-heading"><div><p class="eyebrow">データ状況</p><h2>取込・分類ステータス</h2></div></div>
+      <div id="dataops-kpis" class="metric-grid"></div>
+      <div id="workflow" class="workflow"></div>
+      <div id="stopped-items" class="status-band"></div>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js?v=20260712-1"></script>
+</body>
+</html>

@@ -28,6 +28,7 @@ const MANAGEMENT_HUB_CONTEXT_KEY = "ideaNov.management.hubContext";
 const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MANAGEMENT_APP_IDS = new Set(["management-check", "management-platform"]);
+const MANAGEMENT_WEB_APP_IDS = new Set(["keiei", "management-system"]);
 const SHIFT_APP_IDS = new Set(["shift"]);
 const MANAGEMENT_APP_URL = "./management-platform/";
 const CORE_MASTER_ADMIN_APP_URL = "./master-admin-stable/?v=master-admin-search-pin-fix-20260712-32";
@@ -48,6 +49,14 @@ const MANAGEMENT_ALLOWED_ROLE_KEYS = new Set([
   "area_manager",
   "store_manager",
   "staff"
+]);
+const MANAGEMENT_WEB_ALLOWED_ROLE_KEYS = new Set([
+  "super_admin",
+  "executive",
+  "backoffice",
+  "accounting",
+  "area_manager",
+  "store_manager"
 ]);
 const elements = Object.fromEntries([
   "header-user", "user-name", "user-store", "login-screen", "loading-screen",
@@ -545,6 +554,19 @@ function isManagementPlatformApp(app) {
     || url.includes("/management-platform/");
 }
 
+function isManagementWebApp(app) {
+  const appId = String(app?.appId || "").trim().toLowerCase().replaceAll("_", "-");
+  const appName = String(app?.appName || "").trim().replace(/\s+/g, "");
+  return MANAGEMENT_WEB_APP_IDS.has(appId)
+    || appName === "経営管理システム"
+    || String(app?.url || "").includes("/management-app/");
+}
+
+function canLaunchManagementWeb(context) {
+  const roles = new Set((context?.roleKeys || []).map((value) => String(value || "").trim().toLowerCase()));
+  return [...roles].some((roleKey) => MANAGEMENT_WEB_ALLOWED_ROLE_KEYS.has(roleKey));
+}
+
 function isShiftApp(app) {
   const appId = String(app?.appId || "").trim().toLowerCase().replaceAll("_", "-");
   return SHIFT_APP_IDS.has(appId);
@@ -642,6 +664,8 @@ async function openApp(app) {
   const employeeContext = refreshHubEmployeeContext();
   const appUrl = isManagementPlatformApp(app)
     ? MANAGEMENT_APP_URL
+    : isManagementWebApp(app)
+      ? "./management-app/"
     : isCoreMasterAdminApp(app)
       ? CORE_MASTER_ADMIN_APP_URL
     : isIdeaLinkApp(app)
@@ -649,6 +673,20 @@ async function openApp(app) {
       : app.url;
   const launchUrl = isIdeaLinkApp(app) ? "" : buildAppLaunchUrl(appUrl, employeeContext);
   if (state.authType === "firebase" || state.authType === "pin") {
+    if (isManagementWebApp(app)) {
+      if (!canLaunchManagementWeb(employeeContext)) {
+        showToast("経営管理システムの利用権限がありません。");
+        return;
+      }
+      try {
+        await writeAccessLog("openApp", { appId: app.appId, appName: app.appName, result: "success" });
+        window.location.assign(launchUrl);
+      } catch (error) {
+        showToast("経営管理システムを開けませんでした。再ログインしてお試しください。");
+        console.error(error);
+      }
+      return;
+    }
     if (isShiftApp(app)) {
       try {
         await writeAccessLog("openApp", { appId: app.appId, appName: app.appName, result: "success" });
@@ -740,8 +778,10 @@ async function loginWithFirebase() {
     const data = await fetchPortalData();
     state.authType = "firebase";
     state.employee = data.employee;
-    state.hubSession = null;
-    clearNovHubSession();
+    state.hubSession = data.hubSession || null;
+    if (!setNovHubSession(state.hubSession)) {
+      throw new Error("HUB sessionを保存できませんでした。再ログインしてください。");
+    }
     state.apps = selectReleasedAppsForEmployee(state.employee, sortPortalApps(data.apps || []));
     state.announcements = data.announcements || [];
     state.notifications = [];

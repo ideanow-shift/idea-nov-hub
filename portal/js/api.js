@@ -22,6 +22,9 @@ const EDGE_ACTIONS = new Set([
   "decisionListApplications",
   "decisionGetApplicationDetail",
   "decisionListComments",
+  "managementFinanceSummary",
+  "managementStoresSummary",
+  "managementDataopsStatus",
   "markNovHubNotificationRead",
   "changeOwnPin",
   "log",
@@ -178,10 +181,12 @@ async function postToEndpoint(endpoint, body, extraHeaders = {}) {
   }
 
   if (!response.ok && !data?.ok) {
-    const error = new Error(data.message || `APIへの接続に失敗しました (${response.status})`);
-    error.code = data.code || "HTTP_ERROR";
+    const responseError = data?.error && typeof data.error === "object" ? data.error : data;
+    const error = new Error(responseError.message || `APIへの接続に失敗しました (${response.status})`);
+    error.code = responseError.code || "HTTP_ERROR";
     error.stage = data.stage || "";
-    error.detail = data.detail || responseText.slice(0, 240);
+    error.detail = responseError.detail || responseText.slice(0, 240);
+    error.status = response.status;
     throw error;
   }
 

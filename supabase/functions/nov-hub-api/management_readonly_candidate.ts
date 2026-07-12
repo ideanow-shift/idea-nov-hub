@@ -1,0 +1,723 @@
+export type JsonRecord = Record<string, unknown>;
+
+export type ManagementAction =
+  | "managementFinanceSummary"
+  | "managementStoresSummary"
+  | "managementDataopsStatus";
+
+export type ManagementEndpoint =
+  | "finance.summary"
+  | "stores.summary"
+  | "dataops.status";
+
+export type ManagementPermission =
+  | "finance.view"
+  | "stores.view"
+  | "dataops.view";
+
+export type ScopeMode = "all" | "own" | "assigned" | "none";
+
+export type ReadQuery = Record<string, string | number | boolean | undefined>;
+
+export interface ReadOnlyGateway {
+  select(table: string, query: ReadQuery): Promise<JsonRecord[]>;
+  count(table: string, query: ReadQuery): Promise<number>;
+}
+
+export interface VerifiedAuth {
+  subject: string;
+}
+
+export interface EmployeeReference {
+  id: string;
+}
+
+export interface ManagementDependencies {
+  verifyHubSession(token: string): Promise<VerifiedAuth | null>;
+  resolveEmployee(auth: VerifiedAuth): Promise<EmployeeReference | null>;
+  db: ReadOnlyGateway;
+  today?: () => string;
+  assignedScopeEnabled?: boolean;
+}
+
+export interface ManagementRequest {
+  action: ManagementAction;
+  token: string;
+  payload?: {
+    selectedMonth?: string;
+    scopeMode?: ScopeMode;
+    contractPhase?: string;
+  };
+}
+
+export interface ManagementResult {
+  status: number;
+  body: JsonRecord;
+}
+
+type InternalEmployee = {
+  id: string;
+  storeId: string | null;
+};
+
+type InternalScope = {
+  mode: ScopeMode;
+  storeIds: string[];
+};
+
+type AccessContext = {
+  employee: InternalEmployee;
+  roleKeys: string[];
+  permissions: ManagementPermission[];
+  scope: InternalScope;
+};
+
+const CONTRACT_PHASE = "phase2-select-only-contract";
+const ACTION_PRODUCTION_ENABLED: Record<ManagementAction, boolean> = {
+  managementFinanceSummary: true,
+  managementStoresSummary: true,
+  managementDataopsStatus: true,
+};
+const ASSIGNMENT_TYPE_ALLOWLIST = new Set(["primary", "secondary", "third"]);
+const ALL_SCOPE_ROLE_CANDIDATES = new Set([
+  "super_admin",
+  "executive",
+  "backoffice",
+  "accounting",
+]);
+
+const ROLE_PERMISSION_CANDIDATES: Record<string, ManagementPermission[]> = {
+  super_admin: ["finance.view", "stores.view", "dataops.view"],
+  executive: ["finance.view", "stores.view", "dataops.view"],
+  backoffice: ["finance.view", "stores.view", "dataops.view"],
+  accounting: ["finance.view", "stores.view", "dataops.view"],
+  area_manager: ["stores.view"],
+  store_manager: ["stores.view"],
+  department_manager: [],
+};
+
+const ACTION_DEFINITIONS: Record<ManagementAction, {
+  endpoint: ManagementEndpoint;
+  permission: ManagementPermission;
+}> = {
+  managementFinanceSummary: {
+    endpoint: "finance.summary",
+    permission: "finance.view",
+  },
+  managementStoresSummary: {
+    endpoint: "stores.summary",
+    permission: "stores.view",
+  },
+  managementDataopsStatus: {
+    endpoint: "dataops.status",
+    permission: "dataops.view",
+  },
+};
+
+class ManagementSafeError extends Error {
+  constructor(
+    readonly status: 401 | 403 | 404,
+    readonly code: "UNAUTHORIZED" | "FORBIDDEN" | "SCOPE_DENIED" | "DATA_NOT_READY" | "NOT_APPROVED",
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+function text(value: unknown): string {
+  return String(value ?? "").trim();
+}
+
+function numberValue(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function nullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function percentage(value: unknown): number {
+  return Math.round(numberValue(value) * 1000) / 10;
+}
+
+function manYen(value: unknown): number {
+  return Math.round(numberValue(value) / 10_000);
+}
+
+function unique<T>(values: T[]): T[] {
+  return values.filter((value, index) => values.indexOf(value) === index);
+}
+
+function inFilter(values: string[]): string {
+  return `in.(${values.join(",")})`;
+}
+
+function todayJstFallback(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function isEligibleEmploymentStatus(value: unknown): boolean {
+  return !/退職|休職|産休|育休/.test(text(value));
+}
+
+function isCredentialLocked(value: unknown, nowIso: string): boolean {
+  const lockedUntil = text(value);
+  if (!lockedUntil) return false;
+  const lockTime = Date.parse(lockedUntil);
+  const nowTime = Date.parse(nowIso);
+  return Number.isFinite(lockTime) && Number.isFinite(nowTime) && lockTime > nowTime;
+}
+
+function permissionsForRoles(roleKeys: string[]): ManagementPermission[] {
+  return unique(roleKeys.flatMap((roleKey) => ROLE_PERMISSION_CANDIDATES[roleKey] || []));
+}
+
+function hasAllScopeRole(roleKeys: string[]): boolean {
+  return roleKeys.some((roleKey) => ALL_SCOPE_ROLE_CANDIDATES.has(roleKey));
+}
+
+function safe401(): never {
+  throw new ManagementSafeError(401, "UNAUTHORIZED", "Authentication is required.");
+}
+
+function safe403(code: "FORBIDDEN" | "SCOPE_DENIED"): never {
+  const message = code === "SCOPE_DENIED"
+    ? "Store scope is not available for this account."
+    : "This account cannot access the requested management view.";
+  throw new ManagementSafeError(403, code, message);
+}
+
+function safe404(): never {
+  throw new ManagementSafeError(404, "DATA_NOT_READY", "Requested summary is not available.");
+}
+
+function safeNotApproved(): never {
+  throw new ManagementSafeError(403, "NOT_APPROVED", "This management action is not enabled in the current gate.");
+}
+
+async function getCurrentEmployee(
+  deps: ManagementDependencies,
+  reference: EmployeeReference,
+): Promise<InternalEmployee> {
+  const rows = await deps.db.select("employees", {
+    select: "id,store_id,employment_status,is_active",
+    id: `eq.${reference.id}`,
+    limit: 1,
+  });
+  const row = rows[0];
+  if (!row || row.is_active === false || !isEligibleEmploymentStatus(row.employment_status)) safe401();
+  return {
+    id: text(row.id),
+    storeId: text(row.store_id) || null,
+  };
+}
+
+async function assertLoginAvailable(
+  deps: ManagementDependencies,
+  employeeId: string,
+  nowIso: string,
+): Promise<void> {
+  const credentials = await deps.db.select("employee_login_credentials", {
+    select: "employee_id,login_enabled,locked_until",
+    employee_id: `eq.${employeeId}`,
+    limit: 1,
+  });
+  const credential = credentials[0];
+  if (!credential || credential.login_enabled === false || isCredentialLocked(credential.locked_until, nowIso)) {
+    safe401();
+  }
+}
+
+async function getCurrentRoleKeys(
+  deps: ManagementDependencies,
+  employeeId: string,
+): Promise<string[]> {
+  const assignments = await deps.db.select("employee_roles", {
+    select: "role_id",
+    employee_id: `eq.${employeeId}`,
+    is_active: "eq.true",
+    limit: 100,
+  });
+  const roleIds = unique(assignments.map((row) => text(row.role_id)).filter(Boolean));
+  if (!roleIds.length) return [];
+  const roles = await deps.db.select("roles", {
+    select: "id,role_key,is_active",
+    id: inFilter(roleIds),
+    is_active: "eq.true",
+    limit: 100,
+  });
+  return unique(roles
+    .filter((row) => row.is_active !== false)
+    .map((row) => text(row.role_key))
+    .filter(Boolean));
+}
+
+async function getActiveStoreIds(
+  deps: ManagementDependencies,
+  storeIds: string[],
+): Promise<string[]> {
+  const ids = unique(storeIds.filter(Boolean));
+  if (!ids.length) return [];
+  const stores = await deps.db.select("stores", {
+    select: "id,is_active",
+    id: inFilter(ids),
+    is_active: "eq.true",
+    limit: Math.max(ids.length, 1),
+  });
+  return unique(stores.filter((row) => row.is_active !== false).map((row) => text(row.id)).filter(Boolean));
+}
+
+async function getAssignedStoreIds(
+  deps: ManagementDependencies,
+  employeeId: string,
+  today: string,
+): Promise<string[]> {
+  const rows = await deps.db.select("employee_store_assignments", {
+    select: "store_id,assignment_type,assignment_order,effective_from,effective_to,is_active",
+    employee_id: `eq.${employeeId}`,
+    is_active: "eq.true",
+    effective_from: `lte.${today}`,
+    or: `(effective_to.is.null,effective_to.gte.${today})`,
+    order: "assignment_order.asc",
+    limit: 100,
+  });
+  const candidateIds = rows
+    .filter((row) => row.is_active !== false)
+    .filter((row) => ASSIGNMENT_TYPE_ALLOWLIST.has(text(row.assignment_type)))
+    .filter((row) => !text(row.effective_from) || text(row.effective_from) <= today)
+    .filter((row) => !text(row.effective_to) || text(row.effective_to) >= today)
+    .map((row) => text(row.store_id))
+    .filter(Boolean);
+  return await getActiveStoreIds(deps, candidateIds);
+}
+
+async function resolveStoreScope(
+  deps: ManagementDependencies,
+  employee: InternalEmployee,
+  roleKeys: string[],
+  requestedMode: ScopeMode | undefined,
+  today: string,
+): Promise<InternalScope> {
+  if (hasAllScopeRole(roleKeys)) {
+    return { mode: "all", storeIds: [] };
+  }
+
+  const assignedEnabled = deps.assignedScopeEnabled === true;
+  const canUseAssigned = roleKeys.includes("area_manager") || roleKeys.includes("store_manager");
+  if (assignedEnabled && canUseAssigned && (requestedMode === "assigned" || roleKeys.includes("area_manager"))) {
+    const storeIds = await getAssignedStoreIds(deps, employee.id, today);
+    if (storeIds.length) return { mode: "assigned", storeIds };
+  }
+
+  if (roleKeys.includes("store_manager") && employee.storeId) {
+    const active = await getActiveStoreIds(deps, [employee.storeId]);
+    if (active.length) return { mode: "own", storeIds: active };
+  }
+
+  return { mode: "none", storeIds: [] };
+}
+
+function requestedScopeExceedsResolved(requested: ScopeMode | undefined, resolved: ScopeMode): boolean {
+  if (!requested || requested === resolved || resolved === "all") return false;
+  if (requested === "none") return false;
+  return true;
+}
+
+async function resolveAccess(
+  deps: ManagementDependencies,
+  request: ManagementRequest,
+  requiredPermission: ManagementPermission,
+): Promise<AccessContext> {
+  let auth: VerifiedAuth | null = null;
+  try {
+    auth = request.token ? await deps.verifyHubSession(request.token) : null;
+  } catch (_error) {
+    safe401();
+  }
+  if (!auth) safe401();
+
+  const reference = await deps.resolveEmployee(auth);
+  if (!reference?.id) safe401();
+
+  const nowIso = new Date().toISOString();
+  const today = deps.today?.() || todayJstFallback();
+  const employee = await getCurrentEmployee(deps, reference);
+  await assertLoginAvailable(deps, employee.id, nowIso);
+  const roleKeys = await getCurrentRoleKeys(deps, employee.id);
+  const permissions = permissionsForRoles(roleKeys);
+  if (!permissions.includes(requiredPermission)) safe403("FORBIDDEN");
+
+  const requestedMode = request.payload?.scopeMode;
+  const scope = await resolveStoreScope(deps, employee, roleKeys, requestedMode, today);
+  if (requiredPermission === "stores.view" && scope.mode === "none") safe403("SCOPE_DENIED");
+  if (requiredPermission === "stores.view" && requestedScopeExceedsResolved(requestedMode, scope.mode)) {
+    safe403("SCOPE_DENIED");
+  }
+
+  return { employee, roleKeys, permissions, scope };
+}
+
+function endpointForAction(action: ManagementAction): ManagementEndpoint {
+  return ACTION_DEFINITIONS[action].endpoint;
+}
+
+function validMonth(value: unknown): string {
+  const month = text(value);
+  return /^\d{4}-\d{2}$/.test(month) ? `${month}-01` : "";
+}
+
+function statusFromFinance(pl: JsonRecord, bs: JsonRecord, cash: JsonRecord): "safe" | "warning" | "danger" {
+  const cashStatus = text(cash.cash_status);
+  if (cashStatus === "safe" || cashStatus === "warning" || cashStatus === "danger") return cashStatus;
+  if (numberValue(pl.ordinary_profit_yen) < 0 || numberValue(bs.net_assets_yen) < 0) return "danger";
+  if (numberValue(pl.ordinary_profit_rate) < 0.05 || numberValue(bs.equity_ratio) < 0.2) return "warning";
+  return "safe";
+}
+
+async function buildFinanceSummary(
+  deps: ManagementDependencies,
+  request: ManagementRequest,
+): Promise<JsonRecord> {
+  let selectedMonth = validMonth(request.payload?.selectedMonth);
+  if (!selectedMonth) {
+    const latest = await deps.db.select("finance_monthly_corporate_pl", {
+      select: "month",
+      order: "month.desc",
+      limit: 1,
+    });
+    selectedMonth = text(latest[0]?.month);
+  }
+  if (!selectedMonth) safe404();
+
+  const [plRows, bsRows, cashRows, draftCount, reviewCount, approvedCount] = await Promise.all([
+    deps.db.select("finance_monthly_corporate_pl", {
+      select: "month,corporation_id,total_sales_yen,ordinary_profit_yen,ordinary_profit_rate,break_even_ratio",
+      month: `eq.${selectedMonth}`,
+      order: "corporation_id.asc",
+      limit: 100,
+    }),
+    deps.db.select("finance_monthly_corporate_bs", {
+      select: "month,corporation_id,cash_yen,net_assets_yen,equity_ratio",
+      month: `eq.${selectedMonth}`,
+      limit: 100,
+    }),
+    deps.db.select("finance_monthly_cash_positions", {
+      select: "month,corporation_id,cash_balance_yen,survival_months,cash_status",
+      month: `eq.${selectedMonth}`,
+      limit: 100,
+    }),
+    deps.db.count("finance_account_classification_rules", { review_status: "eq.draft", is_active: "eq.true" }),
+    deps.db.count("finance_account_classification_rules", { review_status: "eq.review", is_active: "eq.true" }),
+    deps.db.count("finance_account_classification_rules", { review_status: "eq.approved", is_active: "eq.true" }),
+  ]);
+  if (!plRows.length) safe404();
+
+  const corporationIds = unique(plRows.map((row) => text(row.corporation_id)).filter(Boolean));
+  const corporationRows = corporationIds.length
+    ? await deps.db.select("corporations", {
+      select: "id,corporation_code,corporation_name,is_active",
+      id: inFilter(corporationIds),
+      is_active: "eq.true",
+      limit: 100,
+    })
+    : [];
+  const corporationsById = new Map(corporationRows.map((row) => [text(row.id), row]));
+  const bsByCorporation = new Map(bsRows.map((row) => [text(row.corporation_id), row]));
+  const cashByCorporation = new Map(cashRows.map((row) => [text(row.corporation_id), row]));
+
+  const corporations = plRows.map((pl, index) => {
+    const internalId = text(pl.corporation_id);
+    const corporation = corporationsById.get(internalId) || {};
+    const bs = bsByCorporation.get(internalId) || {};
+    const cash = cashByCorporation.get(internalId) || {};
+    return {
+      id: text(corporation.corporation_code) || `corporation-${index + 1}`,
+      name: text(corporation.corporation_name) || "未設定法人",
+      salesManYen: manYen(pl.total_sales_yen),
+      profitRatePercent: percentage(pl.ordinary_profit_rate),
+      equityRatioPercent: percentage(bs.equity_ratio),
+      cashManYen: manYen(cash.cash_balance_yen ?? bs.cash_yen),
+      survivalMonths: nullableNumber(cash.survival_months),
+      status: statusFromFinance(pl, bs, cash),
+    };
+  });
+
+  const classificationRuleStatus = {
+    draft: draftCount,
+    review: reviewCount,
+    approved: approvedCount,
+    usedForProductionCalculation: false,
+  };
+  const methodStatus = reviewCount > 0 ? "review" : (draftCount > 0 ? "draft" : "approved");
+  const cashBalanceYen = cashRows.reduce((sum, row) => sum + numberValue(row.cash_balance_yen), 0);
+  const salesTotalYen = plRows.reduce((sum, row) => sum + numberValue(row.total_sales_yen), 0);
+
+  return {
+    latestClosedMonth: selectedMonth.slice(0, 7),
+    cashBalanceYen,
+    salesTotalYen,
+    alertCorporationCount: corporations.filter((row) => row.status !== "safe").length,
+    methodStatus,
+    classificationRuleStatus,
+    corporations,
+    moduleStatuses: [
+      {
+        title: "科目分類",
+        status: draftCount > 0 || reviewCount > 0 ? "review" : "ready",
+        note: "状態表示のみ。本番再計算には使用しません。",
+      },
+    ],
+  };
+}
+
+function activeStaff(row: JsonRecord): boolean {
+  return row.is_active !== false && isEligibleEmploymentStatus(row.employment_status);
+}
+
+async function buildStoresSummary(
+  deps: ManagementDependencies,
+  access: AccessContext,
+): Promise<JsonRecord> {
+  const storeQuery: ReadQuery = {
+    select: "id,store_no,store_id,store_name,corporation_id,is_active",
+    is_active: "eq.true",
+    order: "store_no.asc",
+    limit: 500,
+  };
+  if (access.scope.mode !== "all") storeQuery.id = inFilter(access.scope.storeIds);
+  const storeRows = await deps.db.select("stores", storeQuery);
+  const internalStoreIds = storeRows.map((row) => text(row.id)).filter(Boolean);
+  const corporationIds = unique(storeRows.map((row) => text(row.corporation_id)).filter(Boolean));
+  const [employeeRows, corporationRows] = await Promise.all([
+    internalStoreIds.length
+      ? deps.db.select("employees", {
+        select: "store_id,employment_status,is_active",
+        store_id: inFilter(internalStoreIds),
+        is_active: "eq.true",
+        limit: 5000,
+      })
+      : Promise.resolve([]),
+    corporationIds.length
+      ? deps.db.select("corporations", {
+        select: "id,corporation_name,is_active",
+        id: inFilter(corporationIds),
+        is_active: "eq.true",
+        limit: 100,
+      })
+      : Promise.resolve([]),
+  ]);
+  const corporationsById = new Map(corporationRows.map((row) => [text(row.id), text(row.corporation_name)]));
+  const staffCounts = employeeRows.filter(activeStaff).reduce((map, row) => {
+    const storeId = text(row.store_id);
+    map.set(storeId, (map.get(storeId) || 0) + 1);
+    return map;
+  }, new Map<string, number>());
+
+  const stores = storeRows.map((row, index) => {
+    const staffCount = staffCounts.get(text(row.id)) || 0;
+    return {
+      id: text(row.store_no) || text(row.store_id) || `store-${index + 1}`,
+      name: text(row.store_name) || "未設定店舗",
+      corporationName: corporationsById.get(text(row.corporation_id)) || "未設定法人",
+      staffCount,
+      salesManYen: 0,
+      targetAchievementPercent: 0,
+      customerCount: 0,
+      unitPriceYen: 0,
+      salesPerStaffManYen: 0,
+      reservationFillRatePercent: 0,
+      posYayoiDiffManYen: null,
+      status: "warning",
+      dataReadiness: "salonanswer_csv_waiting",
+    };
+  });
+
+  const phase0Scope = access.scope.mode === "all"
+    ? "all_stores"
+    : access.scope.mode === "assigned" ? "assigned_stores" : "own_store";
+
+  return {
+    storeCount: stores.length,
+    staffCount: stores.reduce((sum, row) => sum + row.staffCount, 0),
+    source: "nov-hub-backend-api",
+    pendingCsvTypes: ["店舗別月次売上", "日次売上・客数・客単価", "予約状況"],
+    phase0Scope,
+    stores,
+    requiredCsvFiles: [
+      { name: "店舗別月次売上", fields: "対象月・店舗・売上", purpose: "店舗KPI" },
+      { name: "日次売上", fields: "営業日・店舗・売上・客数・客単価", purpose: "日次進捗" },
+      { name: "予約状況", fields: "営業日・店舗・予約枠・予約数", purpose: "予約充足率" },
+    ],
+    scopePolicy: {
+      phase0: "employees.store_id",
+      phase0_5: "employee_store_assignments",
+      assignmentTypeAllowlist: ["primary", "secondary", "third"],
+      rawIdsReturned: false,
+    },
+  };
+}
+
+async function buildDataopsStatus(deps: ManagementDependencies): Promise<JsonRecord> {
+  const [documents, rawCount, draftCount, reviewCount] = await Promise.all([
+    deps.db.select("finance_source_documents", {
+      select: "document_type,source_system,period_start_month,period_end_month,imported_at",
+      order: "imported_at.desc",
+      limit: 500,
+    }),
+    deps.db.count("finance_accounting_monthly_raw", {}),
+    deps.db.count("finance_account_classification_rules", { review_status: "eq.draft", is_active: "eq.true" }),
+    deps.db.count("finance_account_classification_rules", { review_status: "eq.review", is_active: "eq.true" }),
+  ]);
+  const sourceTypes = unique(documents.map((row) => text(row.document_type) || text(row.source_system)).filter(Boolean));
+
+  return {
+    pendingImports: 0,
+    pendingMappings: 0,
+    pendingApprovals: draftCount + reviewCount,
+    blockedReason: "Import, approval and production recalculation are not enabled in this read-only gate.",
+    sources: sourceTypes.map((name) => ({
+      name,
+      source: /salon/i.test(name) ? "salonanswer" : "finance",
+      readiness: "ready",
+      nextAction: "状態確認のみ",
+    })),
+    workflow: [
+      { step: 1, title: "原本確認", owner: "Data Operations Hub", status: documents.length ? "ready" : "waiting" },
+      { step: 2, title: "raw確認", owner: "Data Operations Hub", status: rawCount > 0 ? "ready" : "waiting" },
+      { step: 3, title: "分類承認", owner: "経営管理", status: draftCount + reviewCount > 0 ? "waiting" : "ready" },
+    ],
+    stoppedItems: [
+      "SalonAnswer raw import",
+      "classification approved update",
+      "production recalculation",
+    ],
+    statusCounts: {
+      sourceDocuments: documents.length,
+      accountingRawRows: rawCount,
+      classificationDraft: draftCount,
+      classificationReview: reviewCount,
+    },
+  };
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const FORBIDDEN_PUBLIC_KEYS = new Set([
+  "employee_id",
+  "employeeId",
+  "store_id",
+  "storeId",
+  "scope_id",
+  "scopeId",
+  "corporation_id",
+  "corporationId",
+  "firebase_uid",
+  "firebaseUid",
+  "token",
+  "secret",
+  "service_role",
+  "serviceRole",
+  "pin_hash",
+  "pinHash",
+]);
+
+export function assertPublicManagementPayloadSafe(value: unknown, path = "response"): void {
+  if (typeof value === "string" && UUID_PATTERN.test(value)) {
+    throw new Error(`Raw UUID detected at ${path}`);
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => assertPublicManagementPayloadSafe(item, `${path}[${index}]`));
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  Object.entries(value as JsonRecord).forEach(([key, child]) => {
+    if (FORBIDDEN_PUBLIC_KEYS.has(key)) throw new Error(`Forbidden response key at ${path}.${key}`);
+    assertPublicManagementPayloadSafe(child, `${path}.${key}`);
+  });
+}
+
+function success(endpoint: ManagementEndpoint, data: JsonRecord, productionEnabled: boolean): ManagementResult {
+  const body: JsonRecord = {
+    ok: true,
+    endpoint,
+    contractPhase: CONTRACT_PHASE,
+    productionEnabled,
+    source: "nov-hub-backend-api",
+    data,
+  };
+  assertPublicManagementPayloadSafe(body);
+  return { status: 200, body };
+}
+
+function failure(endpoint: ManagementEndpoint, error: unknown, productionEnabled: boolean): ManagementResult {
+  if (error instanceof ManagementSafeError) {
+    return {
+      status: error.status,
+      body: {
+        ok: false,
+        endpoint,
+        contractPhase: CONTRACT_PHASE,
+        productionEnabled,
+        error: {
+          code: error.code,
+          message: error.message,
+          retryable: false,
+        },
+      },
+    };
+  }
+  return {
+    status: 500,
+    body: {
+      ok: false,
+      endpoint,
+      contractPhase: CONTRACT_PHASE,
+      productionEnabled,
+      error: {
+        code: "UNKNOWN",
+        message: "Management summary could not be loaded.",
+        retryable: true,
+      },
+    },
+  };
+}
+
+export async function handleManagementReadOnlyAction(
+  request: ManagementRequest,
+  deps: ManagementDependencies,
+): Promise<ManagementResult> {
+  const definition = ACTION_DEFINITIONS[request.action];
+  const endpoint = definition ? definition.endpoint : "finance.summary";
+  const productionEnabled = definition ? ACTION_PRODUCTION_ENABLED[request.action] === true : false;
+  try {
+    if (!definition) safe404();
+    if (!productionEnabled) safeNotApproved();
+    const access = await resolveAccess(deps, request, definition.permission);
+    if (request.action === "managementFinanceSummary") {
+      return success(endpoint, await buildFinanceSummary(deps, request), productionEnabled);
+    }
+    if (request.action === "managementStoresSummary") {
+      return success(endpoint, await buildStoresSummary(deps, access), productionEnabled);
+    }
+    return success(endpoint, await buildDataopsStatus(deps), productionEnabled);
+  } catch (error) {
+    return failure(endpoint, error, productionEnabled);
+  }
+}
+
+export const MANAGEMENT_GATE_C4_CANDIDATE = Object.freeze({
+  productionEnabledByAction: { ...ACTION_PRODUCTION_ENABLED },
+  actions: Object.keys(ACTION_DEFINITIONS),
+  permissions: ["finance.view", "stores.view", "dataops.view"],
+  allScopeRoleCandidates: [...ALL_SCOPE_ROLE_CANDIDATES],
+  departmentManagerPermissions: [],
+  assignmentTypeAllowlist: [...ASSIGNMENT_TYPE_ALLOWLIST],
+  repositoryMode: "SELECT-only",
+});

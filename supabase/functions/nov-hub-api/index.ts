@@ -1,3 +1,11 @@
+import {
+  handleManagementReadOnlyAction,
+  type ManagementAction,
+  type ManagementDependencies,
+  type ReadQuery,
+  type ScopeMode,
+} from "./management_readonly_candidate.ts";
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -9,6 +17,15 @@ const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") || "").replace(/\/+$/, "");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const PIN_HASH_PEPPER = Deno.env.get("PIN_HASH_PEPPER") || "";
 const FIREBASE_API_KEY = Deno.env.get("FIREBASE_API_KEY") || FIREBASE_API_KEY_FALLBACK;
+const HUB_APP_SESSION_SIGNING_SECRET = Deno.env.get("HUB_APP_SESSION_SIGNING_SECRET") || "";
+const HUB_SESSION_AUDIENCE = "nov_hub";
+const IDEA_LINK_HANDOFF_AUDIENCE = "idea_link";
+const IDEA_LINK_HANDOFF_TTL_SECONDS = 60;
+const IDEA_LINK_SESSION_TTL_SECONDS = 15 * 60;
+const HUB_SESSION_TTL_SECONDS = 15 * 60;
+const HUB_APP_AUTH_HANDOFF_TABLE = "hub_app_auth_handoffs";
+const IDEA_LINK_TARGET_PATH = "/idea-link-app/";
+const IDEA_LINK_TARGET_VIEWS = new Set(["home", "send", "timeline", "my-page"]);
 const APP_ROLE_GROUPS: Record<string, string[]> = {
   idea_link: ["idea_link.staff", "idea_link.manager", "idea_link.admin"],
 };
@@ -357,6 +374,77 @@ async function readRows(path: string, options: Parameters<typeof supabaseRequest
   return Array.isArray(data) ? data as JsonRecord[] : [];
 }
 
+const MANAGEMENT_READ_ONLY_ACTIONS = new Set<string>([
+  "managementFinanceSummary",
+  "managementStoresSummary",
+  "managementDataopsStatus",
+]);
+
+function isManagementReadOnlyAction(action: string): action is ManagementAction {
+  return MANAGEMENT_READ_ONLY_ACTIONS.has(action);
+}
+
+async function readManagementExactCount(path: string, query: ReadQuery = {}) {
+  assertSetup();
+  const url = `${SUPABASE_URL}/rest/v1/${path}${buildQuery({ ...query, select: "id" })}`;
+  const response = await fetch(url, {
+    method: "HEAD",
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "Accept-Profile": "public",
+      Prefer: "count=exact",
+    },
+  });
+  if (!response.ok) {
+    throw new PortalError("SUPABASE_REQUEST_FAILED", `${path} count HTTP ${response.status}`, 502);
+  }
+  const totalText = String(response.headers.get("content-range") || "").split("/").pop() || "";
+  const total = Number(totalText);
+  return Number.isFinite(total) ? total : 0;
+}
+
+function managementScopeMode(value: unknown): ScopeMode | undefined {
+  const mode = String(value || "");
+  return ["all", "own", "assigned", "none"].includes(mode) ? mode as ScopeMode : undefined;
+}
+
+async function handleManagementFromDeployedBaseline(
+  action: ManagementAction,
+  token: string,
+  payload: JsonRecord,
+) {
+  let verifiedHubAuth: JsonRecord | null = null;
+  const deps: ManagementDependencies = {
+    async verifyHubSession(inputToken) {
+      const authUser = await authenticate(inputToken, { ...payload, authType: "hub_session" }, action);
+      if (!authUser || String(authUser.authType || "") !== "hub_session") return null;
+      const authRecord = authUser as JsonRecord;
+      verifiedHubAuth = authRecord;
+      return { subject: String(authRecord.employeeId || "verified-hub-session") };
+    },
+    async resolveEmployee() {
+      if (!verifiedHubAuth) return null;
+      const employee = await findEmployeeForAuth(verifiedHubAuth);
+      return employee?.id ? { id: String(employee.id) } : null;
+    },
+    db: {
+      select: async (table, query) => await readRows(table, { query }),
+      count: readManagementExactCount,
+    },
+    assignedScopeEnabled: false,
+  };
+  return await handleManagementReadOnlyAction({
+    action,
+    token,
+    payload: {
+      selectedMonth: String(payload.selectedMonth || "") || undefined,
+      scopeMode: managementScopeMode(payload.scopeMode),
+      contractPhase: "phase2-select-only-contract",
+    },
+  }, deps);
+}
+
 function clampNumber(value: unknown, fallback: number, min: number, max: number) {
   const numberValue = Number(value);
   if (!Number.isFinite(numberValue)) return fallback;
@@ -401,7 +489,7 @@ async function hydrateIdeaLinkPosts(rows: JsonRecord[]) {
   const storeIds = uniqueStrings(rows.map((row) => row.receiver_store_id));
   const departmentIds = uniqueStrings(rows.map((row) => row.receiver_department_id));
 
-  const [employees, stores, departments] = await Promise.all([
+  const [employees, stores, departments, profileImagesByEmployee] = await Promise.all([
     employeeIds.length
       ? readRows("employees", {
         query: {
@@ -426,6 +514,7 @@ async function hydrateIdeaLinkPosts(rows: JsonRecord[]) {
         },
       })
       : [],
+    indexIdeaLinkProfileImages(employeeIds),
   ]);
 
   const employeeById = Object.fromEntries(employees.map((employee) => [String(employee.id || ""), employee]));
@@ -445,9 +534,11 @@ async function hydrateIdeaLinkPosts(rows: JsonRecord[]) {
       sender_id: String(row.sender_id || ""),
       sender_supabase_employee_id: String(row.sender_id || ""),
       sender_name_snapshot: String(sender.full_name || ""),
+      sender_profile_image: profileImagesByEmployee[String(row.sender_id || "")] || null,
       receiver_id: String(row.receiver_id || ""),
       receiver_supabase_employee_id: String(row.receiver_id || ""),
       receiver_name_snapshot: String(receiver.full_name || ""),
+      receiver_profile_image: profileImagesByEmployee[String(row.receiver_id || "")] || null,
       receiver_store_id: String(row.receiver_store_id || row.receiver_department_id || ""),
       receiver_store_name_snapshot: orgUnitName,
       receiver_org_unit_type: String(row.receiver_org_unit_type || (row.receiver_department_id ? "department" : "store")),
@@ -1102,7 +1193,7 @@ async function searchIdeaLinkRecipients(employee: JsonRecord, payload: JsonRecor
   const storeIds = uniqueStrings(employees.map((row) => row.store_id));
   const departmentIds = uniqueStrings(employees.map((row) => row.department_id));
   const jobTypeIds = uniqueStrings(employees.map((row) => row.job_type_id));
-  const [stores, departments, jobTypes] = await Promise.all([
+  const [stores, departments, jobTypes, profileImagesByEmployee] = await Promise.all([
     storeIds.length
       ? readRows("stores", { query: { select: "id,store_name", id: `in.(${storeIds.join(",")})` } })
       : [],
@@ -1112,6 +1203,7 @@ async function searchIdeaLinkRecipients(employee: JsonRecord, payload: JsonRecor
     jobTypeIds.length
       ? readRows("job_types", { query: { select: "id,job_type_name", id: `in.(${jobTypeIds.join(",")})` } })
       : [],
+    indexIdeaLinkProfileImages(employees.map((row) => String(row.id || ""))),
   ]);
   const storeById = Object.fromEntries(stores.map((store) => [String(store.id || ""), store]));
   const departmentById = Object.fromEntries(departments.map((department) => [String(department.id || ""), department]));
@@ -1127,6 +1219,7 @@ async function searchIdeaLinkRecipients(employee: JsonRecord, payload: JsonRecor
         fullName: String(candidate.full_name || ""),
         storeName: String(store.store_name || department.department_name || ""),
         jobTypeName: String(jobType.job_type_name || "未設定"),
+        profileImage: profileImagesByEmployee[String(candidate.id || "")] || null,
       };
     }),
     source: "nov-hub-api-proxy",
@@ -1299,7 +1392,7 @@ async function enqueueIdeaLinkPostNotification(employee: JsonRecord, payload: Js
   const post = await getOne(
     "idea_link_posts",
     postId,
-    "id,receiver_store_id,receiver_department_id,receiver_org_unit_type,status,visibility,category,challenge_flag,created_at",
+    "id,sender_id,receiver_id,receiver_store_id,receiver_department_id,receiver_org_unit_type,status,visibility,category,challenge_flag,comment,created_at",
   );
   if (!post) throw new PortalError("INVALID_REQUEST", "IDEA LINK post was not found.", 404);
   const postRecord = asRecord(post);
@@ -1318,7 +1411,6 @@ async function enqueueIdeaLinkPostNotification(employee: JsonRecord, payload: Js
       channel: "eq.line_works",
       entity_type: `eq.${entityType}`,
       entity_id: `eq.${postId}`,
-      status: "in.(queued,sent)",
       limit: "1",
     },
   });
@@ -1337,6 +1429,32 @@ async function enqueueIdeaLinkPostNotification(employee: JsonRecord, payload: Js
   }
 
   const now = new Date().toISOString();
+  const hydratedPost = asRecord((await hydrateIdeaLinkPosts([postRecord]))[0] || {});
+  const senderName = String(hydratedPost.sender_name_snapshot || "送信者").trim();
+  const receiverName = String(hydratedPost.receiver_name_snapshot || "受信者").trim();
+  const storeName = String(hydratedPost.receiver_store_name_snapshot || "").trim() || "所属未設定";
+  const category = String(postRecord.category || "").trim();
+  const challenge = postRecord.challenge_flag === true ? "あり" : "なし";
+  const isPublic = String(postRecord.visibility || "public").trim() === "public";
+  const messageBody = isPublic
+    ? [
+      "🎉 サンクスメッセージ",
+      `${senderName}さん → ${receiverName}さん`,
+      `カテゴリ：${category}`,
+      `挑戦：${challenge}`,
+      String(postRecord.comment || "").trim(),
+      `店舗：${storeName}`,
+      "",
+      "#IDEALINK",
+    ].join("\n")
+    : [
+      "🎉 非公開のサンクスが投稿されました",
+      `${senderName}さん → ${receiverName}さん`,
+      "内容はアプリで確認してください。",
+      `店舗：${storeName}`,
+      "",
+      "#IDEALINK",
+    ].join("\n");
   const inserted = await supabaseRequest("notifications", {
     schema: "os",
     method: "POST",
@@ -1348,7 +1466,7 @@ async function enqueueIdeaLinkPostNotification(employee: JsonRecord, payload: Js
       entity_id: postId,
       recipient_employee_id: null,
       title: "サンクスコインが投稿されました",
-      body: "サンクスコインが投稿されました。アプリで内容を確認してください。",
+      body: messageBody,
       status: "queued",
       error: null,
       created_at: now,
@@ -1411,7 +1529,6 @@ function ideaLinkNotificationSendGuards() {
 
 async function sendIdeaLinkNotificationById(employee: JsonRecord, payload: JsonRecord) {
   assertIdeaLinkUser(employee);
-  if (!isIdeaLinkManager(employee)) throw new PortalError("ACCESS_DENIED", "IDEA LINK manager role is required.", 403);
   const notificationId = String(payload.notificationId || payload.notification_id || payload.id || "").trim();
   if (!isUuid(notificationId)) throw new PortalError("INVALID_REQUEST", "notificationId is required.", 400);
 
@@ -1437,6 +1554,15 @@ async function sendIdeaLinkNotificationById(employee: JsonRecord, payload: JsonR
   }
   if (entityType.includes("monthly_thanks_mvp") || entityType.includes("monthly_mvp")) {
     throw new PortalError("INVALID_REQUEST", "Monthly MVP notification is not approved for this gate.", 400);
+  }
+  if (!isIdeaLinkManager(employee)) {
+    const postId = String(notification.entity_id || "").trim();
+    const post = isUuid(postId)
+      ? await getOne("idea_link_posts", postId, "id,sender_id,status")
+      : null;
+    if (!post || String(asRecord(post).sender_id || "") !== String(employee.id || "")) {
+      throw new PortalError("ACCESS_DENIED", "Only the sender can deliver this IDEA LINK notification.", 403);
+    }
   }
   if (status !== "queued") {
     return {
@@ -1554,6 +1680,234 @@ function constantTimeEquals(left: string, right: string) {
   return diff === 0;
 }
 
+function bytesToBase64Url(bytes: Uint8Array) {
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/g, "");
+}
+
+function base64UrlToBytes(value: string) {
+  const normalized = String(value || "").replaceAll("-", "+").replaceAll("_", "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function encodeJsonBase64Url(value: JsonRecord) {
+  return bytesToBase64Url(new TextEncoder().encode(JSON.stringify(value)));
+}
+
+function decodeJsonBase64Url(value: string) {
+  try {
+    return JSON.parse(new TextDecoder().decode(base64UrlToBytes(value))) as JsonRecord;
+  } catch (_error) {
+    throw new PortalError("TOKEN_VERIFICATION_FAILED", "IDEA LINK session is invalid.", 401);
+  }
+}
+
+async function sha256Base64Url(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(value || "")));
+  return bytesToBase64Url(new Uint8Array(digest));
+}
+
+async function importHubAppSessionSigningKey() {
+  const signingSecret = HUB_APP_SESSION_SIGNING_SECRET.trim();
+  if (signingSecret.length < 32) {
+    throw new PortalError("SETUP_MISSING", "HUB app session signing is not configured.", 500);
+  }
+  return await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(signingSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign", "verify"],
+  );
+}
+
+async function signHubAppSession(payload: JsonRecord) {
+  const header = encodeJsonBase64Url({ alg: "HS256", typ: "NOV-HUB-APP-SESSION", v: 1 });
+  const encodedPayload = encodeJsonBase64Url(payload);
+  const signingInput = `${header}.${encodedPayload}`;
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    await importHubAppSessionSigningKey(),
+    new TextEncoder().encode(signingInput),
+  );
+  return `${signingInput}.${bytesToBase64Url(new Uint8Array(signature))}`;
+}
+
+async function verifyHubAppSession(
+  token: string,
+  expectedAudience: string,
+  verifiedAuthType: "hub_session" | "idea_link_session",
+) {
+  const parts = String(token || "").split(".");
+  if (parts.length !== 3) throw new PortalError("TOKEN_VERIFICATION_FAILED", "IDEA LINK session is invalid.", 401);
+  const signingInput = `${parts[0]}.${parts[1]}`;
+  const signatureValid = await crypto.subtle.verify(
+    "HMAC",
+    await importHubAppSessionSigningKey(),
+    base64UrlToBytes(parts[2]),
+    new TextEncoder().encode(signingInput),
+  );
+  if (!signatureValid) throw new PortalError("TOKEN_VERIFICATION_FAILED", "IDEA LINK session is invalid.", 401);
+  const payload = decodeJsonBase64Url(parts[1]);
+  const now = Math.floor(Date.now() / 1000);
+  if (String(payload.aud || "") !== expectedAudience) {
+    throw new PortalError("ACCESS_DENIED", "HUB app session audience is invalid.", 403);
+  }
+  if (!isUuid(payload.sub) || Number(payload.exp || 0) <= now || Number(payload.iat || 0) > now + 30) {
+    throw new PortalError("TOKEN_VERIFICATION_FAILED", "IDEA LINK session has expired or is invalid.", 401);
+  }
+  return {
+    authType: verifiedAuthType,
+    email: "",
+    displayName: "",
+    employeeId: String(payload.sub || ""),
+    sessionId: String(payload.sid || ""),
+    audience: String(payload.aud || ""),
+  };
+}
+
+async function issueHubSession(employee: JsonRecord) {
+  const now = Math.floor(Date.now() / 1000);
+  const expiresAt = now + HUB_SESSION_TTL_SECONDS;
+  return {
+    sessionToken: await signHubAppSession({
+      v: 1,
+      sid: crypto.randomUUID(),
+      sub: String(employee.id || ""),
+      aud: HUB_SESSION_AUDIENCE,
+      auth_source: "hub_pin",
+      iat: now,
+      exp: expiresAt,
+      role_version_checked_at: now,
+    }),
+    expiresAt: new Date(expiresAt * 1000).toISOString(),
+    audience: HUB_SESSION_AUDIENCE,
+  };
+}
+
+async function assertIdeaLinkPortalAppAvailable(employee: JsonRecord) {
+  const rows = await readRows("portal_apps", {
+    query: {
+      select: "*",
+      app_id: "eq.idea-link",
+      is_active: "eq.true",
+      limit: "1",
+    },
+  });
+  const app = rows[0] ? normalizeApp(rows[0]) : null;
+  if (!app || !canAccessApp(employee, app)) {
+    throw new PortalError("ACCESS_DENIED", "IDEA LINK is not currently available.", 403);
+  }
+}
+
+function createOpaqueHandoffCode() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return bytesToBase64Url(bytes);
+}
+
+async function createIdeaLinkHandoff(employee: JsonRecord, authUser: JsonRecord, payload: JsonRecord) {
+  const allowedKeys = new Set(["authType", "targetView"]);
+  if (Object.keys(payload).some((key) => !allowedKeys.has(key))) {
+    throw new PortalError("INVALID_REQUEST", "IDEA LINK handoff payload contains unsupported fields.", 400);
+  }
+  assertIdeaLinkUser(employee);
+  await assertIdeaLinkPortalAppAvailable(employee);
+  const authSource = String(authUser.authType || "").trim().toLowerCase();
+  if (!new Set(["hub_session", "firebase"]).has(authSource)) {
+    throw new PortalError("ACCESS_DENIED", "HUB authentication is required.", 403);
+  }
+  const targetView = String(payload.targetView || "home").trim() || "home";
+  if (!IDEA_LINK_TARGET_VIEWS.has(targetView)) {
+    throw new PortalError("INVALID_REQUEST", "IDEA LINK target view is not allowed.", 400);
+  }
+  const handoffCode = createOpaqueHandoffCode();
+  const expiresAt = new Date(Date.now() + IDEA_LINK_HANDOFF_TTL_SECONDS * 1000).toISOString();
+  const inserted = await supabaseRequest(HUB_APP_AUTH_HANDOFF_TABLE, {
+    method: "POST",
+    payload: {
+      code_hash: await sha256Base64Url(handoffCode),
+      employee_id: String(employee.id || ""),
+      audience: IDEA_LINK_HANDOFF_AUDIENCE,
+      auth_source: authSource === "hub_session" ? "hub_pin" : "hub_firebase",
+      target_path: IDEA_LINK_TARGET_PATH,
+      target_view: targetView,
+      expires_at: expiresAt,
+      consumed_at: null,
+      request_id: crypto.randomUUID(),
+    },
+    prefer: "return=representation",
+  });
+  const row = Array.isArray(inserted) ? inserted[0] as JsonRecord | undefined : undefined;
+  if (!row?.id) throw new PortalError("SUPABASE_REQUEST_FAILED", "IDEA LINK handoff could not be created.", 502);
+  return {
+    handoffCode,
+    expiresAt,
+    audience: IDEA_LINK_HANDOFF_AUDIENCE,
+    targetPath: IDEA_LINK_TARGET_PATH,
+    targetView,
+  };
+}
+
+async function exchangeIdeaLinkHandoff(payload: JsonRecord) {
+  const allowedKeys = new Set(["handoffCode"]);
+  if (Object.keys(payload).some((key) => !allowedKeys.has(key))) {
+    throw new PortalError("INVALID_REQUEST", "IDEA LINK handoff payload contains unsupported fields.", 400);
+  }
+  const handoffCode = String(payload.handoffCode || "").trim();
+  if (!/^[A-Za-z0-9_-]{40,60}$/.test(handoffCode)) {
+    throw new PortalError("INVALID_REQUEST", "IDEA LINK handoff code is invalid.", 400);
+  }
+  const nowIso = new Date().toISOString();
+  const consumed = await supabaseRequest(HUB_APP_AUTH_HANDOFF_TABLE, {
+    method: "PATCH",
+    query: {
+      code_hash: `eq.${await sha256Base64Url(handoffCode)}`,
+      audience: `eq.${IDEA_LINK_HANDOFF_AUDIENCE}`,
+      consumed_at: "is.null",
+      expires_at: `gt.${nowIso}`,
+      select: "id,employee_id,audience,auth_source,target_path,target_view,expires_at",
+    },
+    payload: { consumed_at: nowIso },
+    prefer: "return=representation",
+  });
+  const row = Array.isArray(consumed) ? consumed[0] as JsonRecord | undefined : undefined;
+  if (!row?.id || !isUuid(row.employee_id)) {
+    throw new PortalError("TOKEN_VERIFICATION_FAILED", "IDEA LINK handoff is expired or already used.", 401);
+  }
+  const employee = await findEmployeeForAuth({
+    authType: "idea_link_session",
+    employeeId: String(row.employee_id || ""),
+  });
+  if (!employee) throw new PortalError("ACCESS_DENIED", "IDEA LINK employee is not active.", 403);
+  assertIdeaLinkUser(employee);
+  await assertIdeaLinkPortalAppAvailable(employee);
+  const now = Math.floor(Date.now() / 1000);
+  const expiresAt = now + IDEA_LINK_SESSION_TTL_SECONDS;
+  const sessionId = crypto.randomUUID();
+  return {
+    ideaLinkSession: await signHubAppSession({
+      v: 1,
+      sid: sessionId,
+      sub: String(employee.id || ""),
+      aud: IDEA_LINK_HANDOFF_AUDIENCE,
+      auth_source: String(row.auth_source || "hub_pin"),
+      iat: now,
+      exp: expiresAt,
+      role_version_checked_at: now,
+    }),
+    expiresAt: new Date(expiresAt * 1000).toISOString(),
+    audience: IDEA_LINK_HANDOFF_AUDIENCE,
+    targetPath: IDEA_LINK_TARGET_PATH,
+    targetView: IDEA_LINK_TARGET_VIEWS.has(String(row.target_view || "")) ? String(row.target_view || "") : "home",
+  };
+}
+
 async function verifyPinHash(pin: string, storedHash: unknown) {
   const hash = String(storedHash || "");
   if (!hash.startsWith("hmac-sha256$")) return false;
@@ -1648,8 +2002,25 @@ async function registerSuccessfulPinLogin(credential: JsonRecord) {
   });
 }
 
-async function authenticate(token: string, payload: JsonRecord) {
+async function authenticate(token: string, payload: JsonRecord, action: string) {
   const authType = String(payload.authType || "firebase").trim().toLowerCase();
+  if (authType === "idea_link_session") {
+    if (!action.startsWith("ideaLink")) {
+      throw new PortalError("ACCESS_DENIED", "IDEA LINK session cannot access this action.", 403);
+    }
+    return await verifyHubAppSession(
+      token || String(payload.sessionToken || ""),
+      IDEA_LINK_HANDOFF_AUDIENCE,
+      "idea_link_session",
+    );
+  }
+  if (authType === "hub_session") {
+    return await verifyHubAppSession(
+      token || String(payload.sessionToken || ""),
+      HUB_SESSION_AUDIENCE,
+      "hub_session",
+    );
+  }
   if (authType === "pin") {
     const email = normalizeEmail(payload.email);
     const pin = String(payload.pin || "").trim();
@@ -1682,6 +2053,11 @@ async function getEmployeeById(id: string) {
 
 async function findEmployeeForAuth(authUser: JsonRecord) {
   const email = normalizeEmail(authUser.email);
+  if (authUser.authType === "idea_link_session" || authUser.authType === "hub_session") {
+    const employee = await getEmployeeById(String(authUser.employeeId || ""));
+    if (!isEmployeeActive(employee)) return null;
+    return normalizeEmployee(employee, await getCredentialByEmployeeId(String(employee?.id || "")));
+  }
   if (authUser.authType === "pin") {
     const credential = authUser.credential as JsonRecord | null;
     if (!credential?.id) return null;
@@ -2259,6 +2635,36 @@ function sanitizeEmployeeProfileImage(row: JsonRecord | null, signedUrl = "") {
     avatarUrl: signedUrl,
     profileImageUpdatedAt: String(row.updated_at || row.created_at || ""),
   };
+}
+
+async function indexIdeaLinkProfileImages(employeeIds: string[]) {
+  const scopedEmployeeIds = uniqueStrings(employeeIds).filter(isUuid);
+  if (!scopedEmployeeIds.length) return {};
+  try {
+    const rows = await readRows("employee_profile_images", {
+      query: {
+        select: "id,employee_id,storage_bucket,storage_path,is_primary,created_at,updated_at",
+        employee_id: `in.(${scopedEmployeeIds.join(",")})`,
+        is_primary: "eq.true",
+        limit: String(scopedEmployeeIds.length),
+      },
+    });
+    const signedEntries = await Promise.all(rows.map(async (row) => {
+      const employeeId = String(row.employee_id || "");
+      const bucket = String(row.storage_bucket || EMPLOYEE_PROFILE_IMAGE_BUCKET);
+      const storagePath = String(row.storage_path || "");
+      const signedUrl = storagePath
+        ? await createStorageSignedUrl(bucket, storagePath, 15 * 60).catch(() => "")
+        : "";
+      return [employeeId, signedUrl ? sanitizeEmployeeProfileImage(row, signedUrl) : null] as const;
+    }));
+    return signedEntries.reduce((index, [employeeId, image]) => {
+      if (employeeId && image) index[employeeId] = image;
+      return index;
+    }, {} as Record<string, ReturnType<typeof sanitizeEmployeeProfileImage>>);
+  } catch (_error) {
+    return {};
+  }
 }
 
 async function listEmployeeProfileImagesForAdmin() {
@@ -4660,7 +5066,14 @@ Deno.serve(async (request) => {
   try {
     const { action, token, payload } = await parseRequest(request);
     if (action === "health") return await handleHealth();
-    const authUser = await authenticate(token, payload);
+    if (action === "exchangeIdeaLinkHandoff") {
+      return jsonResponse({ ok: true, handoff: await exchangeIdeaLinkHandoff(payload) });
+    }
+    if (isManagementReadOnlyAction(action)) {
+      const result = await handleManagementFromDeployedBaseline(action, token, payload);
+      return jsonResponse(result.body, result.status);
+    }
+    const authUser = await authenticate(token, payload, action);
     const employee = await findEmployeeForAuth(authUser);
     if (!employee) {
       await appendAccessLog(null, {
@@ -4673,9 +5086,18 @@ Deno.serve(async (request) => {
       return jsonResponse({ ok: false, code: "ACCESS_DENIED", message: publicMessage("ACCESS_DENIED") }, 403);
     }
 
+    if (action.startsWith("ideaLink") || action === "createIdeaLinkHandoff") {
+      await assertIdeaLinkPortalAppAvailable(employee);
+    }
+
     if (action === "bootstrap") {
       const apps = await readVisibleApps(employee);
-      return jsonResponse({ ok: true, employee, apps, announcements: [], performance: { source: "supabase-edge" } });
+      const hubSession = await issueHubSession(employee);
+      return jsonResponse({ ok: true, employee, apps, hubSession, announcements: [], performance: { source: "supabase-edge" } });
+    }
+
+    if (action === "createIdeaLinkHandoff") {
+      return jsonResponse({ ok: true, handoff: await createIdeaLinkHandoff(employee, authUser, payload) });
     }
 
     if (action === "announcements") {

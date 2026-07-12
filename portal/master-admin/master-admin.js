@@ -631,8 +631,16 @@ function appendSafeEditActions(parent) {
   parent.append(actions);
 }
 
-function rerenderAfterSafeSelectionChange() {
+function rerenderAfterSafeSelectionChange({ restoreSearchFocus = false } = {}) {
   renderSafeMasterAdminView();
+  if (!restoreSearchFocus) return;
+  requestAnimationFrame(() => {
+    const search = document.querySelector("#master-admin-safe-view .safe-master-search");
+    if (!(search instanceof HTMLInputElement)) return;
+    search.focus({ preventScroll: true });
+    const cursor = search.value.length;
+    search.setSelectionRange(cursor, cursor);
+  });
 }
 
 function getSafeViewTitle() {
@@ -1346,7 +1354,7 @@ function renderSafeMasterAdminView() {
   search.value = state.safeSearch || "";
   search.addEventListener("input", () => {
     state.safeSearch = search.value;
-    rerenderAfterSafeSelectionChange();
+    rerenderAfterSafeSelectionChange({ restoreSearchFocus: true });
   });
   controls.append(search);
   appendSafeStatusFilters(controls);
@@ -3458,7 +3466,7 @@ function renderEmployeeDetail(employee) {
     </details>`;
   setReadonlyState(readonly);
   if (!readonly) {
-    const form = document.querySelector("#detail-form");
+    const form = getActiveDetailForm();
     if (form) {
       form.addEventListener("submit", saveEmployee);
       setupDirtyForm("employee");
@@ -3466,12 +3474,12 @@ function renderEmployeeDetail(employee) {
       showToast("編集フォームを準備できませんでした。再読み込みしてください。");
     }
   }
-  document.querySelector("#retire-employee")?.addEventListener("click", retireEmployee);
-  document.querySelector("#link-firebase-uid")?.addEventListener("click", linkFirebaseUid);
-  document.querySelector("#assign-staff-role")?.addEventListener("click", assignStaffRole);
-  document.querySelector("#save-idea-link-roles")?.addEventListener("click", saveIdeaLinkRoles);
-  document.querySelector("#save-login-credential")?.addEventListener("click", saveEmployeeLoginCredential);
-  document.querySelector("#upload-profile-image")?.addEventListener("click", uploadEmployeeProfileImage);
+  getActiveDetailElement("#retire-employee")?.addEventListener("click", retireEmployee);
+  getActiveDetailElement("#link-firebase-uid")?.addEventListener("click", linkFirebaseUid);
+  getActiveDetailElement("#assign-staff-role")?.addEventListener("click", assignStaffRole);
+  getActiveDetailElement("#save-idea-link-roles")?.addEventListener("click", saveIdeaLinkRoles);
+  getActiveDetailElement("#save-login-credential")?.addEventListener("click", saveEmployeeLoginCredential);
+  getActiveDetailElement("#upload-profile-image")?.addEventListener("click", uploadEmployeeProfileImage);
   setupEmployeeDetailSectionNav();
   setupLoginCredentialDirtyState();
   setupLineWorksDestinationSaveState(employee, readonly);
@@ -4341,32 +4349,32 @@ function getSaveStatusElement(type) {
 }
 
 function setupLoginCredentialDirtyState() {
-  const panel = document.querySelector("#login-credential-panel");
-  const button = document.querySelector("#save-login-credential");
-  const status = document.querySelector("#login-credential-save-status");
+  const panel = getActiveDetailElement("#login-credential-panel");
+  const button = getActiveDetailElement("#save-login-credential");
+  const status = getActiveDetailElement("#login-credential-save-status");
   if (!panel || !button) return;
-  const snapshot = getLoginCredentialSnapshot();
+  const snapshot = getLoginCredentialSnapshot(panel);
   button.dataset.snapshot = snapshot;
-  updateLoginCredentialDirtyState(snapshot, status, button);
+  updateLoginCredentialDirtyState(snapshot, status, button, panel);
   panel.querySelectorAll("input").forEach((field) => {
-    field.addEventListener("input", () => updateLoginCredentialDirtyState(snapshot, status, button));
-    field.addEventListener("change", () => updateLoginCredentialDirtyState(snapshot, status, button));
+    field.addEventListener("input", () => updateLoginCredentialDirtyState(snapshot, status, button, panel));
+    field.addEventListener("change", () => updateLoginCredentialDirtyState(snapshot, status, button, panel));
   });
 }
 
-function getLoginCredentialSnapshot() {
+function getLoginCredentialSnapshot(panel = getActiveDetailElement("#login-credential-panel")) {
   const payload = {
-    login_email: getCurrentEmployeeEmailInputValue(),
-    new_pin: document.querySelector("#new_pin")?.value.trim() || "",
-    login_enabled: document.querySelector("#login_enabled")?.checked || false,
-    must_change_pin: document.querySelector("#must_change_pin")?.checked || false,
-    clear_lock: document.querySelector("#clear_login_lock")?.checked || false
+    login_email: getCurrentEmployeeEmailInputValue(panel),
+    new_pin: panel?.querySelector("#new_pin")?.value.trim() || "",
+    login_enabled: panel?.querySelector("#login_enabled")?.checked || false,
+    must_change_pin: panel?.querySelector("#must_change_pin")?.checked || false,
+    clear_lock: panel?.querySelector("#clear_login_lock")?.checked || false
   };
   return JSON.stringify(Object.keys(payload).sort().map((key) => [key, normalizeSnapshotValue_(payload[key])]));
 }
 
-function updateLoginCredentialDirtyState(snapshot, status, button) {
-  const hasChanges = getLoginCredentialSnapshot() !== snapshot;
+function updateLoginCredentialDirtyState(snapshot, status, button, panel) {
+  const hasChanges = getLoginCredentialSnapshot(panel) !== snapshot;
   button.disabled = !hasChanges;
   button.title = hasChanges
     ? "ログイン/PIN設定に未保存の変更があります。このボタンで保存してください。"
@@ -4399,8 +4407,8 @@ function getLoginCredentialStatusTone(employee) {
   return "success";
 }
 
-function getCurrentEmployeeEmailInputValue() {
-  return document.querySelector("#email")?.value.trim() || "";
+function getCurrentEmployeeEmailInputValue(root = getActiveDetailForm()) {
+  return root?.querySelector("#email")?.value.trim() || "";
 }
 
 function normalizeEmployeeEmailInput(email) {
@@ -4744,12 +4752,13 @@ async function saveEmployeeLoginCredential(event) {
   const employee = state.employees.find((item) => item.id === state.selectedId);
   if (!employee) return;
   const button = event.currentTarget;
-  const status = document.querySelector("#login-credential-save-status");
-  const loginEmail = normalizeEmployeeEmailInput(getCurrentEmployeeEmailInputValue());
-  const newPin = document.querySelector("#new_pin")?.value.trim() || "";
-  const loginEnabled = document.querySelector("#login_enabled")?.checked || false;
-  const mustChangePin = document.querySelector("#must_change_pin")?.checked || false;
-  const clearLock = document.querySelector("#clear_login_lock")?.checked || false;
+  const panel = button.closest("#login-credential-panel") || getActiveDetailElement("#login-credential-panel");
+  const status = panel?.querySelector("#login-credential-save-status") || getActiveDetailElement("#login-credential-save-status");
+  const loginEmail = normalizeEmployeeEmailInput(getCurrentEmployeeEmailInputValue(panel));
+  const newPin = panel?.querySelector("#new_pin")?.value.trim() || "";
+  const loginEnabled = panel?.querySelector("#login_enabled")?.checked || false;
+  const mustChangePin = panel?.querySelector("#must_change_pin")?.checked || false;
+  const clearLock = panel?.querySelector("#clear_login_lock")?.checked || false;
 
   if (loginEmail && !isValidEmployeeEmail(loginEmail)) {
     setSaveStatus(status, "メールアドレスの形式を確認してください。", "error");

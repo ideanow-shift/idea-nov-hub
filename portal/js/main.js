@@ -33,6 +33,12 @@ const CORE_MASTER_ADMIN_APP_URL = "./master-admin-stable/?v=master-admin-search-
 const IDEA_LINK_APP_URL = "./idea-link-app/?v=idea-link-module-sync-20260712-1";
 const IDEA_LINK_LEGACY_DEPLOYMENT_ID = "AKfycbz3tmMUSvKEVZgmf8w-pKLk_H6_fXdltkwrHF5VIfpItufu41xoCa1f3-1aE0w3fJpucw";
 const DEVELOPMENT_APP_VIEWER_ROLE_KEYS = new Set(["super_admin", "executive"]);
+const BACKOFFICE_RELEASED_APP_IDS = new Set([
+  "core-master-admin",
+  "master-admin",
+  "jinnjibu",
+  "human-capital-investment"
+]);
 const MANAGEMENT_ALLOWED_ROLE_KEYS = new Set([
   "super_admin",
   "executive",
@@ -603,6 +609,11 @@ function isIdeaLinkApp(app) {
     || /(?:^|\/)idea-link\/?(?:[?#].*)?$/.test(appUrl);
 }
 
+function isBackofficeReleasedApp(app) {
+  const appId = String(app?.appId || "").trim().toLowerCase().replaceAll("_", "-");
+  return BACKOFFICE_RELEASED_APP_IDS.has(appId) || isCoreMasterAdminApp(app);
+}
+
 function selectReleasedAppsForEmployee(employee, apps) {
   const roleKeys = new Set([
     ...(Array.isArray(employee?.roleKeys) ? employee.roleKeys : []),
@@ -610,6 +621,9 @@ function selectReleasedAppsForEmployee(employee, apps) {
     ...(Array.isArray(employee?.tags) ? employee.tags : [])
   ].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean));
   if ([...DEVELOPMENT_APP_VIEWER_ROLE_KEYS].some((roleKey) => roleKeys.has(roleKey))) return apps;
+  if (roleKeys.has("backoffice")) {
+    return apps.filter((app) => isIdeaLinkApp(app) || isBackofficeReleasedApp(app));
+  }
   return apps.filter(isIdeaLinkApp);
 }
 

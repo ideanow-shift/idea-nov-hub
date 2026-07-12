@@ -8,7 +8,7 @@ const files = {
   api: read("portal/js/api.js"),
   main: read("portal/js/main.js"),
   html: read("portal/management-app/index.html"),
-  app: read("portal/management-app/app.js"),
+  app: read("portal/management-app/app-v2.js"),
   backend: read("supabase/functions/nov-hub-api/management_readonly_candidate.ts"),
   index: read("supabase/functions/nov-hub-api/index.ts")
 };
@@ -19,7 +19,10 @@ const required = [
   [files.api, '"managementDataopsStatus"'],
   [files.main, 'MANAGEMENT_WEB_APP_IDS'],
   [files.main, '"./management-app/"'],
-  [files.html, 'data-view="finance"'],
+  [files.html, 'data-view="overview"'],
+  [files.html, 'data-view="four-axis"'],
+  [files.html, 'data-view="departments"'],
+  [files.html, 'data-view="method"'],
   [files.html, 'data-view="stores"'],
   [files.html, 'data-view="dataops"'],
   [files.app, 'restoreNovHubSession'],
@@ -48,7 +51,7 @@ if (hits.length) throw new Error(`Forbidden frontend exposure: ${hits.join(", ")
 console.log(JSON.stringify({
   passed: true,
   managementActions: 3,
-  views: 3,
+  views: 6,
   hubSessionRequired: true,
   frontendForbiddenExposure: false,
   browserDirectSupabase: false,

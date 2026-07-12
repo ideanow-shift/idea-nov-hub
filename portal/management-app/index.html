@@ -4,15 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
-  <title>経営管理 | NOV HUB</title>
-  <link rel="stylesheet" href="./styles.css?v=20260712-1">
+  <title>BASSA GROUP 経営管理ダッシュボード</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="./styles.css?v=20260712-2">
 </head>
 <body>
   <header class="app-header">
     <div>
       <a class="hub-link" href="../">NOV HUB</a>
-      <h1>経営管理</h1>
-      <p>法人・店舗・データ状況</p>
+      <h1>BASSA GROUP 経営管理ダッシュボード</h1>
+      <p>経営管理ダッシュボード <span id="target-month" class="month-badge"></span></p>
     </div>
     <div class="header-actions">
       <span id="connection-state" class="connection-state">確認中</span>
@@ -21,10 +22,15 @@
   </header>
 
   <nav class="view-tabs" aria-label="経営管理メニュー">
-    <button type="button" class="tab is-active" data-view="finance">法人管理</button>
+    <button type="button" class="tab is-active" data-view="overview">全社俯瞰</button>
+    <button type="button" class="tab" data-view="four-axis">4軸分析</button>
+    <button type="button" class="tab" data-view="departments">部門別分析</button>
+    <button type="button" class="tab" data-view="method">高畑メソッド</button>
     <button type="button" class="tab" data-view="stores">店舗営業管理</button>
     <button type="button" class="tab" data-view="dataops">データ状況</button>
   </nav>
+
+  <div id="corporation-tabs" class="corporation-tabs" aria-label="法人切替"></div>
 
   <main>
     <section id="notice" class="notice" aria-live="polite">
@@ -32,16 +38,60 @@
       <span id="notice-body">少々お待ちください。</span>
     </section>
 
-    <section id="finance-view" class="view-panel">
+    <section id="overview-view" class="view-panel">
       <div class="section-heading">
-        <div><p class="eyebrow">法人管理</p><h2>全社俯瞰</h2></div>
+        <div><p class="eyebrow">画面①</p><h2>全社俯瞰・キャッシュ予測</h2></div>
         <label>対象月 <input id="finance-month" type="month"></label>
       </div>
-      <div id="finance-kpis" class="metric-grid"></div>
+      <div id="overview-kpis" class="metric-grid legacy-kpis"></div>
+      <section class="dashboard-card chart-card">
+        <h3>現預金残高推移 ＜実績 ＋ 絶対防衛ライン＞</h3>
+        <div class="chart-canvas"><canvas id="cash-chart"></canvas></div>
+      </section>
+      <section class="dashboard-card advice-card">
+        <div class="card-heading"><h3>今月の経営アドバイス（高畑メソッドAI）</h3><span class="read-only-label">保存済みアドバイス</span></div>
+        <div id="latest-advice" class="advice-body"></div>
+      </section>
+      <section class="dashboard-card">
+        <h3>専門家コメント</h3>
+        <div id="expert-comments" class="comment-list"></div>
+      </section>
       <div class="table-wrap">
         <table><thead><tr><th>法人</th><th>売上</th><th>経常利益率</th><th>自己資本比率</th><th>現預金</th><th>状態</th></tr></thead><tbody id="finance-rows"></tbody></table>
       </div>
       <div id="finance-status" class="status-band"></div>
+    </section>
+
+    <section id="four-axis-view" class="view-panel" hidden>
+      <div class="section-heading"><div><p class="eyebrow">画面②</p><h2>4軸分析</h2></div><span class="method-note">収益性・生産性・安全性・効率性</span></div>
+      <section id="method-diagnosis" class="dashboard-card diagnosis-card"></section>
+      <section class="dashboard-card axis-section"><h3><span class="axis-badge profit">収益性</span> 経常利益率・損益分岐点比率</h3><div class="table-wrap embedded"><table><tbody id="profitability-rows"></tbody></table></div></section>
+      <section class="dashboard-card axis-section"><h3><span class="axis-badge productivity">生産性</span> 一人当たり売上高・一人当たり経常利益</h3><div class="table-wrap embedded"><table><tbody id="productivity-rows"></tbody></table></div></section>
+      <section class="dashboard-card axis-section"><h3><span class="axis-badge safety">安全性</span> 自己資本比率・流動比率</h3><div class="table-wrap embedded"><table><tbody id="safety-rows"></tbody></table></div></section>
+      <section class="dashboard-card axis-section"><h3><span class="axis-badge efficiency">効率性</span> 総資本回転率</h3><div class="table-wrap embedded"><table><tbody id="efficiency-rows"></tbody></table></div></section>
+      <section class="dashboard-card chart-card"><h3>経常利益率 推移（法人別・%）</h3><div class="chart-canvas"><canvas id="profit-chart"></canvas></div></section>
+    </section>
+
+    <section id="departments-view" class="view-panel" hidden>
+      <div class="section-heading"><div><p class="eyebrow">画面③</p><h2>部門別分析</h2></div></div>
+      <div id="department-tabs" class="department-tabs"></div>
+      <div id="department-kpis" class="metric-grid department-kpis"></div>
+      <div class="table-wrap"><table><thead><tr><th>部門</th><th>売上</th><th>人件費</th><th>その他費用</th><th>部門利益</th><th>利益率</th></tr></thead><tbody id="department-rows"></tbody></table></div>
+      <section class="dashboard-card chart-card"><h3>部門利益比較</h3><div class="chart-canvas"><canvas id="department-chart"></canvas></div></section>
+      <section id="department-insight" class="dashboard-card advice-card"></section>
+    </section>
+
+    <section id="method-view" class="view-panel" hidden>
+      <div class="method-hero"><p class="eyebrow">高畑メソッド</p><h2>数字を「見る」だけで終わらせず、意思決定と行動につなげる</h2><p>4軸にキャッシュと組織視点を加えて、経営判断の順番を揃えます。</p></div>
+      <div class="method-grid">
+        <article><span>01</span><h3>収益性</h3><p>売上、粗利、営業利益、経常利益、固定費構造を分解します。</p></article>
+        <article><span>02</span><h3>生産性</h3><p>一人当たり売上、客数、単価、人員配置のバランスを確認します。</p></article>
+        <article><span>03</span><h3>安全性</h3><p>自己資本比率、流動比率、現預金、借入への耐性を見ます。</p></article>
+        <article><span>04</span><h3>効率性</h3><p>総資本回転率と投資回収から、資金の使い方を確認します。</p></article>
+        <article><span>05</span><h3>キャッシュ</h3><p>生存可能月数と絶対防衛ラインを基準に先手を打ちます。</p></article>
+        <article><span>06</span><h3>組織</h3><p>店長力、教育、定着、報連相を数字の背景として確認します。</p></article>
+      </div>
+      <section class="dashboard-card method-flow"><h3>意思決定の順番</h3><ol><li>赤字・資金減少の原因を特定</li><li>固定費と人件費の耐性を確認</li><li>生産性改善の打ち手を決定</li><li>投資・出店・撤退を判断</li><li>組織・教育・管理方法へ反映</li></ol></section>
     </section>
 
     <section id="stores-view" class="view-panel" hidden>
@@ -61,6 +111,6 @@
     </section>
   </main>
 
-  <script type="module" src="./app.js?v=20260712-1"></script>
+  <script type="module" src="./app-v2.js?v=20260712-1"></script>
 </body>
 </html>

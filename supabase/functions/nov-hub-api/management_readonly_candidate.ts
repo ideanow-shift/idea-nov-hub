@@ -397,26 +397,73 @@ async function buildFinanceSummary(
   }
   if (!selectedMonth) safe404();
 
-  const [plRows, bsRows, cashRows, draftCount, reviewCount, approvedCount] = await Promise.all([
+  const [
+    plRows,
+    bsRows,
+    cashRows,
+    draftCount,
+    reviewCount,
+    approvedCount,
+    staffRows,
+    departmentPlRows,
+    trendPlRows,
+    trendCashRows,
+    expertRows,
+    adviceRows,
+  ] = await Promise.all([
     deps.db.select("finance_monthly_corporate_pl", {
-      select: "month,corporation_id,total_sales_yen,ordinary_profit_yen,ordinary_profit_rate,break_even_ratio",
+      select: "month,corporation_id,total_sales_yen,technical_sales_yen,product_sales_yen,gross_profit_yen,labor_cost_yen,material_cost_yen,rent_yen,operating_profit_yen,ordinary_profit_yen,labor_cost_rate,material_cost_rate,rent_rate,operating_profit_rate,ordinary_profit_rate,break_even_ratio",
       month: `eq.${selectedMonth}`,
       order: "corporation_id.asc",
       limit: 100,
     }),
     deps.db.select("finance_monthly_corporate_bs", {
-      select: "month,corporation_id,cash_yen,net_assets_yen,equity_ratio",
+      select: "month,corporation_id,cash_yen,current_assets_yen,current_liabilities_yen,total_assets_yen,total_liabilities_yen,net_assets_yen,equity_ratio,current_ratio,total_asset_turnover",
       month: `eq.${selectedMonth}`,
       limit: 100,
     }),
     deps.db.select("finance_monthly_cash_positions", {
-      select: "month,corporation_id,cash_balance_yen,survival_months,cash_status",
+      select: "month,corporation_id,cash_balance_yen,monthly_fixed_cost_yen,defense_line_yen,survival_months,cash_status,forecast_1m_yen,forecast_3m_yen,forecast_6m_yen",
       month: `eq.${selectedMonth}`,
       limit: 100,
     }),
     deps.db.count("finance_account_classification_rules", { review_status: "eq.draft", is_active: "eq.true" }),
     deps.db.count("finance_account_classification_rules", { review_status: "eq.review", is_active: "eq.true" }),
     deps.db.count("finance_account_classification_rules", { review_status: "eq.approved", is_active: "eq.true" }),
+    deps.db.select("finance_monthly_staff_counts", {
+      select: "corporation_id,staff_count",
+      month: `eq.${selectedMonth}`,
+      limit: 100,
+    }),
+    deps.db.select("finance_monthly_department_pl", {
+      select: "month,corporation_id,department_id,sales_yen,management_fee_revenue_yen,other_sales_yen,labor_cost_yen,material_cost_yen,other_cost_yen,department_profit_yen,profit_rate,productivity_yen",
+      month: `eq.${selectedMonth}`,
+      order: "department_id.asc",
+      limit: 200,
+    }),
+    deps.db.select("finance_monthly_corporate_pl", {
+      select: "month,corporation_id,total_sales_yen,ordinary_profit_yen,ordinary_profit_rate",
+      order: "month.asc",
+      limit: 1000,
+    }),
+    deps.db.select("finance_monthly_cash_positions", {
+      select: "month,corporation_id,cash_balance_yen,defense_line_yen",
+      order: "month.asc",
+      limit: 1000,
+    }),
+    deps.db.select("finance_expert_comments", {
+      select: "comment_month,external_author_name,organization,title,body,comment_scope,is_active,created_at",
+      comment_month: `eq.${selectedMonth}`,
+      is_active: "eq.true",
+      order: "created_at.desc",
+      limit: 20,
+    }),
+    deps.db.select("finance_ai_advice_logs", {
+      select: "target_month,target_scope,model,response,created_at",
+      target_month: `eq.${selectedMonth}`,
+      order: "created_at.desc",
+      limit: 10,
+    }),
   ]);
   if (!plRows.length) safe404();
 
@@ -432,6 +479,7 @@ async function buildFinanceSummary(
   const corporationsById = new Map(corporationRows.map((row) => [text(row.id), row]));
   const bsByCorporation = new Map(bsRows.map((row) => [text(row.corporation_id), row]));
   const cashByCorporation = new Map(cashRows.map((row) => [text(row.corporation_id), row]));
+  const staffByCorporation = new Map(staffRows.map((row) => [text(row.corporation_id), numberValue(row.staff_count)]));
 
   const corporations = plRows.map((pl, index) => {
     const internalId = text(pl.corporation_id);
@@ -446,9 +494,88 @@ async function buildFinanceSummary(
       equityRatioPercent: percentage(bs.equity_ratio),
       cashManYen: manYen(cash.cash_balance_yen ?? bs.cash_yen),
       survivalMonths: nullableNumber(cash.survival_months),
+      monthlyFixedCostManYen: manYen(cash.monthly_fixed_cost_yen),
+      defenseLineManYen: manYen(cash.defense_line_yen),
       status: statusFromFinance(pl, bs, cash),
     };
   });
+
+  const fourAxis = plRows.map((pl, index) => {
+    const internalId = text(pl.corporation_id);
+    const corporation = corporationsById.get(internalId) || {};
+    const bs = bsByCorporation.get(internalId) || {};
+    const staffCount = staffByCorporation.get(internalId) || 0;
+    return {
+      id: text(corporation.corporation_code) || `corporation-${index + 1}`,
+      name: text(corporation.corporation_name) || "未設定法人",
+      salesManYen: manYen(pl.total_sales_yen),
+      ordinaryProfitManYen: manYen(pl.ordinary_profit_yen),
+      ordinaryProfitRatePercent: percentage(pl.ordinary_profit_rate),
+      operatingProfitRatePercent: percentage(pl.operating_profit_rate),
+      breakEvenRatioPercent: percentage(pl.break_even_ratio),
+      laborCostRatePercent: percentage(pl.labor_cost_rate),
+      materialCostRatePercent: percentage(pl.material_cost_rate),
+      rentRatePercent: percentage(pl.rent_rate),
+      staffCount,
+      salesPerStaffManYen: staffCount ? manYen(numberValue(pl.total_sales_yen) / staffCount) : null,
+      profitPerStaffManYen: staffCount ? manYen(numberValue(pl.ordinary_profit_yen) / staffCount) : null,
+      equityRatioPercent: percentage(bs.equity_ratio),
+      currentRatioPercent: percentage(bs.current_ratio),
+      totalAssetTurnover: nullableNumber(bs.total_asset_turnover),
+    };
+  });
+
+  const departmentIds = unique(departmentPlRows.map((row) => text(row.department_id)).filter(Boolean));
+  const departmentRows = departmentIds.length
+    ? await deps.db.select("departments", {
+      select: "id,department_code,department_name,is_active",
+      id: inFilter(departmentIds),
+      is_active: "eq.true",
+      limit: 100,
+    })
+    : [];
+  const departmentsById = new Map(departmentRows.map((row) => [text(row.id), row]));
+  const departments = departmentPlRows.map((row, index) => {
+    const department = departmentsById.get(text(row.department_id)) || {};
+    return {
+      id: text(department.department_code) || `department-${index + 1}`,
+      name: text(department.department_name) || "未設定部門",
+      salesManYen: manYen(row.sales_yen),
+      managementFeeManYen: manYen(row.management_fee_revenue_yen),
+      otherSalesManYen: manYen(row.other_sales_yen),
+      laborCostManYen: manYen(row.labor_cost_yen),
+      materialCostManYen: manYen(row.material_cost_yen),
+      otherCostManYen: manYen(row.other_cost_yen),
+      profitManYen: manYen(row.department_profit_yen),
+      profitRatePercent: percentage(row.profit_rate),
+      productivityManYen: manYen(row.productivity_yen),
+    };
+  });
+
+  const publicCorporationId = new Map(corporationRows.map((row, index) => [
+    text(row.id),
+    text(row.corporation_code) || `corporation-${index + 1}`,
+  ]));
+  const cashTrendByMonth = new Map<string, { actualYen: number; defenseYen: number }>();
+  trendCashRows.forEach((row) => {
+    const month = text(row.month).slice(0, 7);
+    const current = cashTrendByMonth.get(month) || { actualYen: 0, defenseYen: 0 };
+    current.actualYen += numberValue(row.cash_balance_yen);
+    current.defenseYen += numberValue(row.defense_line_yen);
+    cashTrendByMonth.set(month, current);
+  });
+  const cashTrend = [...cashTrendByMonth.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-12).map(([month, values]) => ({
+    month,
+    actualManYen: manYen(values.actualYen),
+    defenseManYen: manYen(values.defenseYen),
+  }));
+  const profitTrend = trendPlRows.map((row) => ({
+    month: text(row.month).slice(0, 7),
+    corporation: publicCorporationId.get(text(row.corporation_id)) || "unmapped",
+    salesManYen: manYen(row.total_sales_yen),
+    ordinaryProfitManYen: manYen(row.ordinary_profit_yen),
+    ordinaryProfitRatePercent: percentage(row.ordinary_profit_rate),
+  })).filter((row) => row.corporation !== "unmapped");
 
   const classificationRuleStatus = {
     draft: draftCount,
@@ -468,6 +595,26 @@ async function buildFinanceSummary(
     methodStatus,
     classificationRuleStatus,
     corporations,
+    fourAxis,
+    departments,
+    cashTrend,
+    profitTrend,
+    expertComments: expertRows.map((row) => ({
+      author: text(row.external_author_name) || "専門家",
+      organization: text(row.organization),
+      title: text(row.title),
+      body: text(row.body),
+      scope: text(row.comment_scope),
+      createdAt: text(row.created_at),
+    })),
+    latestAdvice: adviceRows.length
+      ? {
+        scope: text(adviceRows[0].target_scope),
+        model: text(adviceRows[0].model),
+        body: text(adviceRows[0].response),
+        createdAt: text(adviceRows[0].created_at),
+      }
+      : null,
     moduleStatuses: [
       {
         title: "科目分類",

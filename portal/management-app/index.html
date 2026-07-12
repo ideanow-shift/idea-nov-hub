@@ -6,9 +6,10 @@
   <meta name="theme-color" content="#ffffff">
   <title>BASSA GROUP 経営管理ダッシュボード</title>
   <script src="./vendor/chart.umd.min.js?v=4.4.1"></script>
-  <link rel="stylesheet" href="./styles.css?v=20260712-3">
+  <link rel="stylesheet" href="./styles.css?v=20260712-4">
 </head>
 <body>
+  <div class="dashboard">
   <header class="app-header">
     <div>
       <a class="hub-link" href="../">NOV HUB</a>
@@ -22,9 +23,9 @@
   </header>
 
   <nav class="view-tabs" aria-label="経営管理メニュー">
-    <button type="button" class="tab is-active" data-view="overview">全社俯瞰</button>
-    <button type="button" class="tab" data-view="four-axis">4軸分析</button>
-    <button type="button" class="tab" data-view="departments">部門別分析</button>
+    <button type="button" class="tab is-active" data-view="overview">画面① 全社俯瞰</button>
+    <button type="button" class="tab" data-view="four-axis">画面② 4軸分析</button>
+    <button type="button" class="tab" data-view="departments">画面③ 部門別分析</button>
     <button type="button" class="tab" data-view="method">高畑メソッド</button>
     <button type="button" class="tab" data-view="stores">店舗営業管理</button>
     <button type="button" class="tab" data-view="dataops">データ状況</button>
@@ -110,7 +111,8 @@
       <div id="stopped-items" class="status-band"></div>
     </section>
   </main>
+  </div>
 
-  <script type="module" src="./app-v2.js?v=20260712-3"></script>
+  <script type="module" src="./app-v2.js?v=20260712-4"></script>
 </body>
 </html>

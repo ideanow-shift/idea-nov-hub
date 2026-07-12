@@ -1,4 +1,4 @@
-import { callApiAction } from "../js/api.js";
+import { callApiAction, setHubSessionAuth } from "../js/api.js";
 
 const DECISION_HUB_READONLY_LIVE = true;
 const LIST_LIMIT = 50;
@@ -27,10 +27,29 @@ function initDecisionHubReadOnly() {
     setDisabledNotice();
     return;
   }
+  if (!prepareHubSessionAuth()) {
+    renderSafeError({ code: "HUB_SESSION_REQUIRED" });
+    return;
+  }
   loadApplications();
 }
 
+function prepareHubSessionAuth() {
+  try {
+    const token = window.NovHubSession?.getSessionToken?.();
+    if (!token) return false;
+    setHubSessionAuth(token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function loadApplications() {
+  if (!prepareHubSessionAuth()) {
+    renderSafeError({ code: "HUB_SESSION_REQUIRED" });
+    return;
+  }
   renderLoading("Checking applications.");
   try {
     const response = await callApiAction("decisionListApplications", {
@@ -51,6 +70,10 @@ async function loadApplications() {
 
 async function selectApplication(applicationId) {
   if (!isUuid(applicationId)) return;
+  if (!prepareHubSessionAuth()) {
+    renderSafeError({ code: "HUB_SESSION_REQUIRED" }, { keepList: true });
+    return;
+  }
   state.selectedApplicationId = applicationId;
   renderApplications(state.applications);
   renderDetailLoading();

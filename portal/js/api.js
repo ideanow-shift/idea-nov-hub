@@ -44,6 +44,11 @@ const EDGE_ACTIONS = new Set([
   "masterUpdatePortalApp",
   "masterCreatePortalApp"
 ]);
+const DECISION_READONLY_ACTIONS = new Set([
+  "decisionListApplications",
+  "decisionGetApplicationDetail",
+  "decisionListComments"
+]);
 
 export function setPinAuth(email, pin) {
   currentAuth = { authType: "pin", email: String(email || "").trim(), pin: String(pin || "").trim() };
@@ -82,14 +87,19 @@ export function clearApiAuth() {
 }
 
 async function postToApi(action, payload = {}) {
-  const requestPayload = currentAuth.authType === "idea_link_session"
+  const useDecisionReadonlyApi = DECISION_READONLY_ACTIONS.has(action) && currentAuth.authType === "hub_session";
+  const requestPayload = useDecisionReadonlyApi
+    ? { ...payload }
+    : currentAuth.authType === "idea_link_session"
     ? { authType: "idea_link_session", ...payload }
     : currentAuth.authType === "hub_session"
       ? { authType: "hub_session", ...payload }
       : currentAuth.authType === "firebase_token"
         ? { authType: "firebase", ...payload }
         : { ...currentAuth, ...payload };
-  const token = currentAuth.authType === "pin"
+  const token = useDecisionReadonlyApi
+    ? ""
+    : currentAuth.authType === "pin"
     ? ""
     : currentAuth.authType === "idea_link_session"
       ? currentAuth.sessionToken
@@ -107,10 +117,18 @@ async function postToApi(action, payload = {}) {
   if (!endpoint) {
     throw new Error("NOV HUB Edge API endpoint is not configured for this action.");
   }
-  return await postToEndpoint(endpoint, body);
+  return await postToEndpoint(endpoint, body, useDecisionReadonlyApi
+    ? { Authorization: `Bearer ${currentAuth.sessionToken}` }
+    : {});
 }
 
 function getApiEndpoint(action) {
+  if (
+    DECISION_READONLY_ACTIONS.has(action) &&
+    currentAuth.authType === "hub_session"
+  ) {
+    return PORTAL_CONFIG.decisionHubReadonlyApiUrl || "";
+  }
   const useEdge = PORTAL_CONFIG.apiMode === "edge"
     && PORTAL_CONFIG.edgeApiUrl
     && EDGE_ACTIONS.has(action)
@@ -118,14 +136,14 @@ function getApiEndpoint(action) {
   return useEdge ? PORTAL_CONFIG.edgeApiUrl : "";
 }
 
-async function postToEndpoint(endpoint, body) {
+async function postToEndpoint(endpoint, body, extraHeaders = {}) {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
   let response;
   try {
     response = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", ...extraHeaders },
       body,
       signal: controller.signal
     });

@@ -1083,6 +1083,17 @@ tr.selected {
   margin-top: 12px;
 }
 
+.login-credential-warning {
+  border: 1px solid #E7B85F;
+  border-radius: var(--radius-md);
+  background: #FFF7DF;
+  color: #7A4D00;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
 .login-credential-heading {
   display: flex;
   align-items: center;

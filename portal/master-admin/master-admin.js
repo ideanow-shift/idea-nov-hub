@@ -3520,6 +3520,7 @@ function setupEmployeeDetailSectionNav() {
 
 function renderEmployeeLoginPanel(employee, readonly) {
   const credential = getEmployeeCredential(employee);
+  const failedAttempts = Number(credential.failed_attempts || 0);
   const loginEmail = employee.email || credential.login_email || "";
   const pinLabel = credential.pin_set
     ? "設定済み"
@@ -3527,6 +3528,11 @@ function renderEmployeeLoginPanel(employee, readonly) {
   const lockLabel = credential.locked
     ? "ロック中"
     : "ロックなし";
+  const attemptWarning = credential.locked
+    ? "ログインが一時ロックされています。本人確認後にロック解除またはPIN再設定を行ってください。"
+    : failedAttempts >= 4
+      ? "PIN認証に4回失敗しています。次の失敗で15分ロックされるため、本人の入力を止めて登録メールとPINを確認してください。"
+      : "";
   return `
     <section class="login-credential-panel" id="login-credential-panel">
       <div class="login-credential-heading">
@@ -3536,6 +3542,7 @@ function renderEmployeeLoginPanel(employee, readonly) {
         </div>
         <span class="status-pill${credential.login_enabled === false ? " inactive" : credential.pin_set ? "" : " warning"}">${credential.login_enabled === false ? "ログイン停止" : credential.pin_set ? "ログイン可" : "PIN未設定"}</span>
       </div>
+      ${attemptWarning ? `<div class="login-credential-warning" role="status">${escapeHtml(attemptWarning)}</div>` : ""}
       <div class="login-credential-grid">
         ${fieldInput("email", "メールアドレス（任意）", loginEmail, { type: "email", placeholder: "必要な社員のみ入力", disabled: readonly })}
         <label class="form-field" for="new_pin">
@@ -3558,7 +3565,7 @@ function renderEmployeeLoginPanel(employee, readonly) {
       <div class="login-credential-meta">
         <span>PIN: ${escapeHtml(pinLabel)}</span>
         <span>${escapeHtml(lockLabel)}</span>
-        <span>失敗回数: ${escapeHtml(credential.failed_attempts || 0)}</span>
+        <span>失敗回数: ${escapeHtml(failedAttempts)}</span>
         ${credential.last_login_at ? `<span>最終ログイン: ${escapeHtml(formatDateTime(credential.last_login_at))}</span>` : ""}
       </div>
       ${readonly ? "" : `<div class="login-credential-actions">
@@ -4792,13 +4799,15 @@ async function saveEmployeeLoginCredential(event) {
     await refreshLogsSilently();
     state.selectedId = employee.id;
     render();
+    const renderedStatus = getActiveDetailElement("#login-credential-save-status");
+    setSaveStatus(renderedStatus, "ログイン設定を保存しました。", "success");
     showToast("ログイン設定を保存しました。");
   } catch (error) {
     console.error(error);
     setSaveStatus(status, getErrorMessage(error), "error");
     showToast(getErrorMessage(error));
     button.disabled = false;
-    button.textContent = "ログイン設定を保存";
+    button.textContent = "保存";
   }
 }
 

@@ -567,6 +567,21 @@ function canLaunchManagementWeb(context) {
   return [...roles].some((roleKey) => MANAGEMENT_WEB_ALLOWED_ROLE_KEYS.has(roleKey));
 }
 
+async function ensureManagementWebHubSession() {
+  const current = state.hubSession || restoreNovHubSession();
+  if (current?.sessionToken) {
+    state.hubSession = current;
+    return current;
+  }
+  const refreshed = await fetchPortalData();
+  const session = refreshed?.hubSession || null;
+  if (!setNovHubSession(session)) {
+    throw new Error("HUB sessionを再取得できませんでした。再ログインしてください。");
+  }
+  state.hubSession = session;
+  return session;
+}
+
 function isShiftApp(app) {
   const appId = String(app?.appId || "").trim().toLowerCase().replaceAll("_", "-");
   return SHIFT_APP_IDS.has(appId);
@@ -679,6 +694,7 @@ async function openApp(app) {
         return;
       }
       try {
+        await ensureManagementWebHubSession();
         await writeAccessLog("openApp", { appId: app.appId, appName: app.appName, result: "success" });
         window.location.assign(launchUrl);
       } catch (error) {

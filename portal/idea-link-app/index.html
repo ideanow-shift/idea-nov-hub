@@ -607,7 +607,7 @@
 
     .admin-switch {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 0;
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -1225,7 +1225,6 @@
           <h2>管理</h2>
           <div class="admin-switch" role="tablist" aria-label="管理画面の切り替え">
             <button class="active" type="button" data-admin-section-target="summary">概要</button>
-            <button type="button" data-admin-section-target="settings">設定</button>
             <button type="button" data-admin-section-target="lineworks">店舗通知</button>
             <button type="button" data-admin-section-target="images">画像</button>
             <button type="button" data-admin-section-target="system">状態</button>
@@ -1258,9 +1257,6 @@
             </div>
             <h3>カテゴリ分布</h3>
             <div class="feed" id="category-breakdown"></div>
-          </div>
-          <div class="admin-section" data-admin-section="settings">
-            <div class="notice">設定変更は旧GAS同等の安全ガードを移植中です。この画面ではまだ保存しません。</div>
           </div>
           <div class="admin-section" data-admin-section="lineworks">
             <h3>店舗別サンクスコイン通知</h3>

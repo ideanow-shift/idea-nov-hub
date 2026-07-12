@@ -392,6 +392,46 @@
       color: var(--brand-strong);
       font-size: 18px;
       font-weight: 800;
+      overflow: hidden;
+    }
+
+    .receiver-avatar img,
+    .person-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .post-people {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .post-person {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .person-avatar {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      flex: 0 0 34px;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid #f0cbd1;
+      border-radius: 50%;
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .post-arrow {
+      color: var(--muted);
     }
 
     .category-help strong,
@@ -1351,6 +1391,35 @@
       return String(value || fallback || "").trim();
     }
 
+    function getProfileImageUrl(profileImage) {
+      const candidate = text(profileImage?.profileImageUrl || profileImage?.avatarUrl);
+      if (!candidate) return "";
+      try {
+        const url = new URL(candidate);
+        return url.protocol === "https:" && url.hostname.endsWith(".supabase.co") ? url.href : "";
+      } catch (_error) {
+        return "";
+      }
+    }
+
+    function renderAvatar(name, profileImage, className = "person-avatar") {
+      const displayName = text(name, "人");
+      const imageUrl = getProfileImageUrl(profileImage);
+      return `<span class="${className}" aria-hidden="true"><span>${displayName.slice(0, 1)}</span>${imageUrl ? `<img src="${imageUrl}" alt="" loading="lazy">` : ""}</span>`;
+    }
+
+    function activateImageFallbacks(container) {
+      container?.querySelectorAll(".person-avatar img, .receiver-avatar img").forEach((image) => {
+        image.addEventListener("error", () => image.remove(), { once: true });
+      });
+    }
+
+    function renderPostPeople(post) {
+      const senderName = text(post.sender_name_snapshot, "送信者");
+      const receiverName = text(post.receiver_name_snapshot, "受信者");
+      return `<div class="post-people"><span class="post-person">${renderAvatar(senderName, post.sender_profile_image)}<strong>${senderName}</strong></span><span class="post-arrow">→</span><span class="post-person">${renderAvatar(receiverName, post.receiver_profile_image)}<strong>${receiverName}</strong></span></div>`;
+    }
+
     function getRoleKeys(context) {
       const roleKeys = new Set(Array.isArray(context?.roleKeys) ? context.roleKeys : []);
       if (Array.isArray(context?.roles)) {
@@ -1494,10 +1563,11 @@
             <span>${formatDate(post.created_at)}</span>
             <span>${displayCategory(post.category)}</span>
           </div>
-          <strong>${text(post.sender_name_snapshot, "送信者")} → ${text(post.receiver_name_snapshot, "受信者")}</strong>
+            ${renderPostPeople(post)}
           <p>${text(post.comment)}</p>
         </article>
-      `).join("");
+        `).join("");
+      activateImageFallbacks(feed);
     }
 
     function setMyStats(myPage) {
@@ -1529,10 +1599,11 @@
             <span>${formatDate(post.created_at)}</span>
             <span>${displayCategory(post.category)}</span>
           </div>
-          <strong>${text(post.sender_name_snapshot, "送信者")} → ${text(post.receiver_name_snapshot, "受信者")}</strong>
+            ${renderPostPeople(post)}
           <p>${text(post.comment)}</p>
         </article>
-      `).join("");
+        `).join("");
+      activateImageFallbacks(myFeed);
     }
 
     async function loadMyPage() {
@@ -1830,10 +1901,11 @@
       ].filter(Boolean).join(" / ");
       receiverPreview.hidden = false;
       receiverPreview.innerHTML = `
-        <span class="receiver-avatar" aria-hidden="true">${text(item.fullName, "人").slice(0, 1)}</span>
+        ${renderAvatar(item.fullName, item.profileImage, "receiver-avatar")}
         <strong>${text(item.fullName, "名前未設定")}さんへ送ります</strong>
         <span>${details || "所属情報を確認中"}</span>
       `;
+      activateImageFallbacks(receiverPreview);
     }
 
     async function loadRecipientsForStore() {

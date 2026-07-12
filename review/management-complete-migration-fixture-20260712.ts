@@ -11,6 +11,7 @@ import {
 const EMPLOYEE_ID = "11111111-1111-4111-8111-111111111111";
 const STORE_ID = "22222222-2222-4222-8222-222222222222";
 const CORPORATION_ID = "33333333-3333-4333-8333-333333333333";
+const MISSING_CORPORATION_ID = "55555555-5555-4555-8555-555555555555";
 const DEPARTMENT_ID = "44444444-4444-4444-8444-444444444444";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -32,7 +33,8 @@ function depsFor(roleKey: string, auth = true): ManagementDependencies {
         if (table === "roles") return [{ id: "role-1", role_key: roleKey, is_active: true }];
         if (table === "employee_store_assignments") return [{ store_id: STORE_ID, assignment_type: "primary", assignment_order: 1, effective_from: "2026-01-01", effective_to: null, is_active: true }];
         if (table === "stores") return [{ id: STORE_ID, store_no: "S01", store_id: "S01", store_name: "テスト店舗", corporation_id: CORPORATION_ID, is_active: true }];
-        if (table === "corporations") return [{ id: CORPORATION_ID, corporation_code: "C01", corporation_name: "テスト法人", is_active: true }];
+        if (table === "corporations" && query.id) return [{ id: CORPORATION_ID, corporation_code: "C01", corporation_name: "テスト法人", is_active: true }];
+        if (table === "corporations") return [{ id: CORPORATION_ID, corporation_code: "C01", corporation_name: "テスト法人", is_active: true }, { id: MISSING_CORPORATION_ID, corporation_code: "C02", corporation_name: "未取込法人", is_active: true }];
         if (table === "departments") return [{ id: DEPARTMENT_ID, department_code: "D01", department_name: "営業部", is_active: true }];
         if (table === "finance_monthly_corporate_pl") return [{ month: "2026-06-01", corporation_id: CORPORATION_ID, total_sales_yen: 12000000, ordinary_profit_yen: 1200000, ordinary_profit_rate: 0.1, break_even_ratio: 0.8 }];
         if (table === "finance_monthly_corporate_bs") return [{ month: "2026-06-01", corporation_id: CORPORATION_ID, cash_yen: 5000000, net_assets_yen: 20000000, equity_ratio: 0.4 }];
@@ -72,6 +74,11 @@ Deno.test("executive can read finance summary without raw UUID", async () => {
   assert(JSON.stringify(result.body).includes("テスト法人"), "corporation display name missing");
   assert(JSON.stringify(result.body).includes("営業部"), "department display name missing");
   assert(JSON.stringify(result.body).includes("保存済みアドバイス"), "saved advice missing");
+  assert(JSON.stringify(result.body).includes("未取込法人"), "missing corporation must remain visible");
+  const body = result.body as { data?: { dataQuality?: { activeCorporationCount?: number; currentMonthCorporationCount?: number; complete?: boolean } } };
+  assert(body.data?.dataQuality?.activeCorporationCount === 2, "active corporation count mismatch");
+  assert(body.data?.dataQuality?.currentMonthCorporationCount === 1, "current month coverage mismatch");
+  assert(body.data?.dataQuality?.complete === false, "incomplete month must not be marked complete");
   assert(!JSON.stringify(result.body).includes(CORPORATION_ID), "raw corporation UUID leaked");
   assert(!JSON.stringify(result.body).includes(DEPARTMENT_ID), "raw department UUID leaked");
 });

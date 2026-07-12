@@ -143,8 +143,18 @@ function percentage(value: unknown): number {
   return Math.round(numberValue(value) * 1000) / 10;
 }
 
+function nullablePercentage(value: unknown): number | null {
+  const parsed = nullableNumber(value);
+  return parsed === null ? null : Math.round(parsed * 1000) / 10;
+}
+
 function manYen(value: unknown): number {
   return Math.round(numberValue(value) / 10_000);
+}
+
+function nullableManYen(value: unknown): number | null {
+  const parsed = nullableNumber(value);
+  return parsed === null ? null : Math.round(parsed / 10_000);
 }
 
 function unique<T>(values: T[]): T[] {
@@ -467,60 +477,59 @@ async function buildFinanceSummary(
   ]);
   if (!plRows.length) safe404();
 
-  const corporationIds = unique(plRows.map((row) => text(row.corporation_id)).filter(Boolean));
-  const corporationRows = corporationIds.length
-    ? await deps.db.select("corporations", {
-      select: "id,corporation_code,corporation_name,is_active",
-      id: inFilter(corporationIds),
-      is_active: "eq.true",
-      limit: 100,
-    })
-    : [];
-  const corporationsById = new Map(corporationRows.map((row) => [text(row.id), row]));
+  const corporationRows = await deps.db.select("corporations", {
+    select: "id,corporation_code,corporation_name,is_active",
+    is_active: "eq.true",
+    order: "corporation_code.asc",
+    limit: 100,
+  });
+  const plByCorporation = new Map(plRows.map((row) => [text(row.corporation_id), row]));
   const bsByCorporation = new Map(bsRows.map((row) => [text(row.corporation_id), row]));
   const cashByCorporation = new Map(cashRows.map((row) => [text(row.corporation_id), row]));
   const staffByCorporation = new Map(staffRows.map((row) => [text(row.corporation_id), numberValue(row.staff_count)]));
 
-  const corporations = plRows.map((pl, index) => {
-    const internalId = text(pl.corporation_id);
-    const corporation = corporationsById.get(internalId) || {};
+  const corporations = corporationRows.map((corporation, index) => {
+    const internalId = text(corporation.id);
+    const pl = plByCorporation.get(internalId);
     const bs = bsByCorporation.get(internalId) || {};
     const cash = cashByCorporation.get(internalId) || {};
     return {
       id: text(corporation.corporation_code) || `corporation-${index + 1}`,
       name: text(corporation.corporation_name) || "未設定法人",
-      salesManYen: manYen(pl.total_sales_yen),
-      profitRatePercent: percentage(pl.ordinary_profit_rate),
-      equityRatioPercent: percentage(bs.equity_ratio),
-      cashManYen: manYen(cash.cash_balance_yen ?? bs.cash_yen),
+      dataAvailable: Boolean(pl),
+      salesManYen: nullableManYen(pl?.total_sales_yen),
+      profitRatePercent: nullablePercentage(pl?.ordinary_profit_rate),
+      equityRatioPercent: nullablePercentage(bs.equity_ratio),
+      cashManYen: nullableManYen(cash.cash_balance_yen ?? bs.cash_yen),
       survivalMonths: nullableNumber(cash.survival_months),
-      monthlyFixedCostManYen: manYen(cash.monthly_fixed_cost_yen),
-      defenseLineManYen: manYen(cash.defense_line_yen),
-      status: statusFromFinance(pl, bs, cash),
+      monthlyFixedCostManYen: nullableManYen(cash.monthly_fixed_cost_yen),
+      defenseLineManYen: nullableManYen(cash.defense_line_yen),
+      status: pl ? statusFromFinance(pl, bs, cash) : "missing",
     };
   });
 
-  const fourAxis = plRows.map((pl, index) => {
-    const internalId = text(pl.corporation_id);
-    const corporation = corporationsById.get(internalId) || {};
+  const fourAxis = corporationRows.map((corporation, index) => {
+    const internalId = text(corporation.id);
+    const pl = plByCorporation.get(internalId);
     const bs = bsByCorporation.get(internalId) || {};
     const staffCount = staffByCorporation.get(internalId) || 0;
     return {
       id: text(corporation.corporation_code) || `corporation-${index + 1}`,
       name: text(corporation.corporation_name) || "未設定法人",
-      salesManYen: manYen(pl.total_sales_yen),
-      ordinaryProfitManYen: manYen(pl.ordinary_profit_yen),
-      ordinaryProfitRatePercent: percentage(pl.ordinary_profit_rate),
-      operatingProfitRatePercent: percentage(pl.operating_profit_rate),
-      breakEvenRatioPercent: percentage(pl.break_even_ratio),
-      laborCostRatePercent: percentage(pl.labor_cost_rate),
-      materialCostRatePercent: percentage(pl.material_cost_rate),
-      rentRatePercent: percentage(pl.rent_rate),
-      staffCount,
-      salesPerStaffManYen: staffCount ? manYen(numberValue(pl.total_sales_yen) / staffCount) : null,
-      profitPerStaffManYen: staffCount ? manYen(numberValue(pl.ordinary_profit_yen) / staffCount) : null,
-      equityRatioPercent: percentage(bs.equity_ratio),
-      currentRatioPercent: percentage(bs.current_ratio),
+      dataAvailable: Boolean(pl),
+      salesManYen: nullableManYen(pl?.total_sales_yen),
+      ordinaryProfitManYen: nullableManYen(pl?.ordinary_profit_yen),
+      ordinaryProfitRatePercent: nullablePercentage(pl?.ordinary_profit_rate),
+      operatingProfitRatePercent: nullablePercentage(pl?.operating_profit_rate),
+      breakEvenRatioPercent: nullablePercentage(pl?.break_even_ratio),
+      laborCostRatePercent: nullablePercentage(pl?.labor_cost_rate),
+      materialCostRatePercent: nullablePercentage(pl?.material_cost_rate),
+      rentRatePercent: nullablePercentage(pl?.rent_rate),
+      staffCount: pl ? staffCount : null,
+      salesPerStaffManYen: pl && staffCount ? manYen(numberValue(pl.total_sales_yen) / staffCount) : null,
+      profitPerStaffManYen: pl && staffCount ? manYen(numberValue(pl.ordinary_profit_yen) / staffCount) : null,
+      equityRatioPercent: nullablePercentage(bs.equity_ratio),
+      currentRatioPercent: nullablePercentage(bs.current_ratio),
       totalAssetTurnover: nullableNumber(bs.total_asset_turnover),
     };
   });
@@ -556,18 +565,22 @@ async function buildFinanceSummary(
     text(row.id),
     text(row.corporation_code) || `corporation-${index + 1}`,
   ]));
-  const cashTrendByMonth = new Map<string, { actualYen: number; defenseYen: number }>();
+  const cashTrendByMonth = new Map<string, { actualYen: number; defenseYen: number; defenseCount: number }>();
   trendCashRows.forEach((row) => {
     const month = text(row.month).slice(0, 7);
-    const current = cashTrendByMonth.get(month) || { actualYen: 0, defenseYen: 0 };
+    const current = cashTrendByMonth.get(month) || { actualYen: 0, defenseYen: 0, defenseCount: 0 };
     current.actualYen += numberValue(row.cash_balance_yen);
-    current.defenseYen += numberValue(row.defense_line_yen);
+    const defense = nullableNumber(row.defense_line_yen);
+    if (defense !== null) {
+      current.defenseYen += defense;
+      current.defenseCount += 1;
+    }
     cashTrendByMonth.set(month, current);
   });
   const cashTrend = [...cashTrendByMonth.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-12).map(([month, values]) => ({
     month,
     actualManYen: manYen(values.actualYen),
-    defenseManYen: manYen(values.defenseYen),
+    defenseManYen: values.defenseCount ? manYen(values.defenseYen) : null,
   }));
   const profitTrend = trendPlRows.map((row) => ({
     month: text(row.month).slice(0, 7),
@@ -586,11 +599,21 @@ async function buildFinanceSummary(
   const methodStatus = reviewCount > 0 ? "review" : (draftCount > 0 ? "draft" : "approved");
   const cashBalanceYen = cashRows.reduce((sum, row) => sum + numberValue(row.cash_balance_yen), 0);
   const salesTotalYen = plRows.reduce((sum, row) => sum + numberValue(row.total_sales_yen), 0);
+  const missingCorporations = corporations.filter((row) => !row.dataAvailable).map((row) => row.name);
+  const dataQuality = {
+    activeCorporationCount: corporationRows.length,
+    currentMonthCorporationCount: unique(plRows.map((row) => text(row.corporation_id))).length,
+    missingCorporations,
+    defenseLineCorporationCount: cashRows.filter((row) => nullableNumber(row.defense_line_yen) !== null).length,
+    survivalMonthsCorporationCount: cashRows.filter((row) => nullableNumber(row.survival_months) !== null).length,
+    complete: missingCorporations.length === 0,
+  };
 
   return {
     latestClosedMonth: selectedMonth.slice(0, 7),
     cashBalanceYen,
     salesTotalYen,
+    dataQuality,
     alertCorporationCount: corporations.filter((row) => row.status !== "safe").length,
     methodStatus,
     classificationRuleStatus,

@@ -48,6 +48,7 @@ td.numeric { text-align: right; font-variant-numeric: tabular-nums; }
 .status.safe { color: var(--green); }
 .status.warning { color: var(--amber); }
 .status.danger { color: var(--red); }
+.status.missing { color: var(--muted); }
 .status-band { margin-top: 20px; padding: 18px; border: 1px solid var(--line); background: #fff; color: var(--muted); }
 .status-band h3 { margin: 0 0 10px; color: #18212b; font-size: 16px; }
 .status-band ul { margin: 0; padding-left: 20px; }

@@ -30,6 +30,7 @@ const required = [
   [files.chart, 'Chart.js v4.4.1'],
   [files.app, 'restoreNovHubSession'],
   [files.app, 'setHubSessionAuth'],
+  [files.app, 'IDEA_NOV_PLACEHOLDER'],
   [files.backend, 'managementFinanceSummary: true'],
   [files.backend, 'managementStoresSummary: true'],
   [files.backend, 'managementDataopsStatus: true'],

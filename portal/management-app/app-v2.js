@@ -7,6 +7,7 @@ const state = { view: "overview", corporation: "", department: "", finance: null
 const number = new Intl.NumberFormat("ja-JP");
 const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 const colors = ["#b23a48", "#17324d", "#27795f", "#a36410", "#765487", "#337d8e", "#737b83"];
+const IDEA_NOV_PLACEHOLDER = { id: "IDEA_NOV", name: "IDEA NOV", dataAvailable: false, salesManYen: null, profitRatePercent: null, equityRatioPercent: null, cashManYen: null, survivalMonths: null, status: "missing" };
 
 const byId = (id) => document.getElementById(id);
 const elements = {
@@ -73,8 +74,9 @@ function renderFinance() {
   renderOverview(); renderFourAxis(); renderDepartments();
 }
 
-function financeCorporations() { return Array.isArray(state.finance?.corporations) ? state.finance.corporations : []; }
-function fourAxisRows() { return Array.isArray(state.finance?.fourAxis) ? state.finance.fourAxis : []; }
+function withIdeaNov(rows) { return rows.some((row) => row.id === "IDEA_NOV" || row.name === "IDEA NOV") ? rows : [...rows, { ...IDEA_NOV_PLACEHOLDER }]; }
+function financeCorporations() { return withIdeaNov(Array.isArray(state.finance?.corporations) ? state.finance.corporations : []); }
+function fourAxisRows() { return withIdeaNov(Array.isArray(state.finance?.fourAxis) ? state.finance.fourAxis : []); }
 function selectedCorporation() { return financeCorporations().find((row) => row.id === state.corporation) || null; }
 
 function renderCorporationTabs() {
@@ -87,7 +89,7 @@ function renderCorporationTabs() {
 
 function renderOverview() {
   const data = state.finance || {}; const selected = selectedCorporation(); const corporations = financeCorporations();
-  const quality = data.dataQuality || {}; const selectedAvailable = !selected || selected.dataAvailable !== false;
+  const quality = data.dataQuality || { activeCorporationCount: corporations.length, currentMonthCorporationCount: corporations.filter((row) => row.dataAvailable !== false).length, missingCorporations: corporations.filter((row) => row.dataAvailable === false).map((row) => row.name), complete: false }; const selectedAvailable = !selected || selected.dataAvailable !== false;
   const coverage = `${quality.currentMonthCorporationCount || corporations.filter((row) => row.dataAvailable !== false).length}/${quality.activeCorporationCount || corporations.length}法人`;
   const cashMan = selected ? Number(selected.cashManYen || 0) : Number(data.cashBalanceYen || 0) / 10000;
   const salesMan = selected ? Number(selected.salesManYen || 0) : Number(data.salesTotalYen || 0) / 10000;
@@ -101,7 +103,7 @@ function renderOverview() {
   const comments = Array.isArray(data.expertComments) ? data.expertComments : [];
   elements.expertComments.replaceChildren(...(comments.length ? comments.map((item) => comment(item)) : [muted("対象月の専門家コメントはありません。") ]));
   const rules = data.classificationRuleStatus || {};
-  const missing = Array.isArray(quality.missingCorporations) ? quality.missingCorporations : [];
+  const missing = Array.isArray(quality.missingCorporations) && quality.missingCorporations.length ? quality.missingCorporations : corporations.filter((row) => row.dataAvailable === false).map((row) => row.name);
   elements.financeStatus.replaceChildren(heading("データ充足状況"), paragraph(`対象月は${coverage}を集計。${missing.length ? `未取込: ${missing.join("、")}。` : "全法人取込済み。"} 防衛ライン ${quality.defenseLineCorporationCount || 0}法人 / 生存可能月数 ${quality.survivalMonthsCorporationCount || 0}法人。`), heading("科目分類ルール"), paragraph(`下書き ${rules.draft || 0}件 / 確認中 ${rules.review || 0}件 / 承認済み ${rules.approved || 0}件。状態表示のみです。`));
 }
 

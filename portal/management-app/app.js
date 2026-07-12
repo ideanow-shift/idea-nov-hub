@@ -34,6 +34,7 @@ elements.month.addEventListener("change", () => { state.finance = null; loadFina
 initialize();
 
 function initialize() {
+  removeLegacyHubContextFromUrl();
   const session = restoreNovHubSession();
   if (!session?.sessionToken) {
     renderAuthRequired();
@@ -43,6 +44,13 @@ function initialize() {
   elements.connection.textContent = "HUB接続済み";
   selectView(readHashView());
   window.addEventListener("hashchange", () => selectView(readHashView(), false));
+}
+
+function removeLegacyHubContextFromUrl() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("hub_context")) return;
+  url.searchParams.delete("hub_context");
+  history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
 function readHashView() {

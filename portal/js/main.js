@@ -1,6 +1,6 @@
 import { PORTAL_CONFIG } from "./firebase-config.js";
 import { authIsConfigured, getIdToken, signInWithGoogle, signOutUser } from "./auth.js";
-import { callApiAction, clearApiAuth, createIdeaLinkHandoff, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js";
+import { callApiAction, clearApiAuth, createIdeaLinkHandoff, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js?v=idea-link-handoff-launch-20260712-6";
 import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
 import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js";
 import { clearHubEmployeeContext, encodeHubContextForUrl, getHubEmployeeContextSummary, saveHubEmployeeContext } from "./hub-context.js";

@@ -9,6 +9,7 @@ const files = {
   main: read("portal/js/main.js"),
   html: read("portal/management-app/index.html"),
   app: read("portal/management-app/app-v2.js"),
+  chart: read("portal/management-app/vendor/chart.umd.min.js"),
   backend: read("supabase/functions/nov-hub-api/management_readonly_candidate.ts"),
   index: read("supabase/functions/nov-hub-api/index.ts")
 };
@@ -25,6 +26,8 @@ const required = [
   [files.html, 'data-view="method"'],
   [files.html, 'data-view="stores"'],
   [files.html, 'data-view="dataops"'],
+  [files.html, './vendor/chart.umd.min.js?v=4.4.1'],
+  [files.chart, 'Chart.js v4.4.1'],
   [files.app, 'restoreNovHubSession'],
   [files.app, 'setHubSessionAuth'],
   [files.backend, 'managementFinanceSummary: true'],

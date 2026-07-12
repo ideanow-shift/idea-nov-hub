@@ -1,4 +1,4 @@
-import { PORTAL_CONFIG } from "./firebase-config.js";
+import { PORTAL_CONFIG } from "./firebase-config.js?v=shift-session-contract-20260712-1";
 import { authIsConfigured, getIdToken, signInWithGoogle, signOutUser } from "./auth.js";
 import { callApiAction, clearApiAuth, createIdeaLinkHandoff, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js?v=idea-link-handoff-launch-20260712-6";
 import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
@@ -28,6 +28,7 @@ const MANAGEMENT_HUB_CONTEXT_KEY = "ideaNov.management.hubContext";
 const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MANAGEMENT_APP_IDS = new Set(["management-check", "management-platform"]);
+const SHIFT_APP_IDS = new Set(["shift"]);
 const MANAGEMENT_APP_URL = "./management-platform/";
 const CORE_MASTER_ADMIN_APP_URL = "./master-admin-stable/?v=master-admin-search-pin-fix-20260712-32";
 const IDEA_LINK_APP_URL = "./idea-link-app/?v=idea-link-module-sync-20260712-1";
@@ -544,6 +545,11 @@ function isManagementPlatformApp(app) {
     || url.includes("/management-platform/");
 }
 
+function isShiftApp(app) {
+  const appId = String(app?.appId || "").trim().toLowerCase().replaceAll("_", "-");
+  return SHIFT_APP_IDS.has(appId);
+}
+
 function canLaunchManagementPlatform(context) {
   const roles = new Set((context?.roleKeys || []).map(String));
   return [...roles].some((roleKey) => MANAGEMENT_ALLOWED_ROLE_KEYS.has(roleKey));
@@ -643,6 +649,16 @@ async function openApp(app) {
       : app.url;
   const launchUrl = isIdeaLinkApp(app) ? "" : buildAppLaunchUrl(appUrl, employeeContext);
   if (state.authType === "firebase" || state.authType === "pin") {
+    if (isShiftApp(app)) {
+      try {
+        await writeAccessLog("openApp", { appId: app.appId, appName: app.appName, result: "success" });
+        window.location.assign(launchUrl);
+      } catch (error) {
+        showToast("シフト作成を開けませんでした。再ログインしてお試しください。");
+        console.error(error);
+      }
+      return;
+    }
     if (isManagementPlatformApp(app) || isCoreMasterAdminApp(app)) {
       try {
         if (isManagementPlatformApp(app) && !canLaunchManagementPlatform(employeeContext)) {

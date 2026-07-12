@@ -4,6 +4,8 @@ export const PORTAL_CONFIG = {
   edgePinEnabled: true,
   edgeApiUrl: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub-api",
   decisionHubReadonlyApiUrl: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/decision-hub-readonly-api",
+  shiftApiUrl: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/shift-api",
+  hubUrl: "https://ideanow-shift.github.io/idea-nov-hub/",
   firebase: {
     apiKey: "AIzaSyBJAPJbAG_SdFmJqO0dIKh8v4Sd0tI0Vkc",
     authDomain: "idea-nov-group-portal.firebaseapp.com",

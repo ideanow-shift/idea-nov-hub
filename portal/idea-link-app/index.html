@@ -1276,9 +1276,10 @@
       readHubEmployeeContext,
       readHubEmployeeContextFromUrl
     } from "../js/hub-context.js";
-    import { callApiAction, setFirebaseAuth } from "../js/api.js";
+    import { callApiAction } from "../js/api.js";
     import {
       initializeIdeaLinkHandoff,
+      restoreIdeaLinkSession,
       returnToHub
     } from "../js/idea-link-handoff-candidate.js";
 
@@ -1375,7 +1376,11 @@
     }
 
     function prepareIdeaLinkApiAuth() {
-      if (!hasIdeaLinkAppSession()) setFirebaseAuth();
+      ideaLinkAppSession = restoreIdeaLinkSession();
+      if (hasIdeaLinkAppSession()) return;
+      const error = new Error("IDEA LINKの認証期限が切れました。NOV HUBからもう一度開いてください。");
+      error.code = "TOKEN_MISSING";
+      throw error;
     }
 
     function mapHandoffTargetView(value) {
@@ -1401,7 +1406,7 @@
 
     function handleIdeaLinkApiError(error) {
       const code = String(error?.code || "");
-      if (!hasIdeaLinkAppSession() || !["ACCESS_DENIED", "TOKEN_VERIFICATION_FAILED"].includes(code)) {
+      if (!["ACCESS_DENIED", "TOKEN_MISSING", "TOKEN_VERIFICATION_FAILED"].includes(code)) {
         return false;
       }
       setNotice("error", "セッションを確認できません。NOV HUBへ戻ります。");
@@ -1789,7 +1794,8 @@
         const response = await callApiAction("ideaLinkStoreOptions", {});
         renderStoreOptions(response.result?.stores || [], context);
         if (storeFilter.value) await loadRecipientsForStore();
-      } catch (_error) {
+      } catch (error) {
+        if (handleIdeaLinkApiError(error)) return;
         storeFilter.innerHTML = "<option value=\"\">店舗を選択してください</option>";
       }
     }
@@ -1849,7 +1855,8 @@
           limit: 80
         });
         renderRecipientOptions(response.result?.recipients || []);
-      } catch (_error) {
+      } catch (error) {
+        if (handleIdeaLinkApiError(error)) return;
         receiver.innerHTML = "<option value=\"\">送り先を読み込めませんでした</option>";
         receiver.disabled = true;
       }
@@ -2031,7 +2038,7 @@
     const context = readHubEmployeeContextFromUrl(window.location.href) || readHubEmployeeContext();
     const hasAppSession = hasIdeaLinkAppSession();
     const hasContext = Boolean(context?.id || context?.employeeId || context?.supabaseEmployeeId || context?.email);
-    const allowed = hasAppSession || (hasContext && hasIdeaLinkRole(context));
+    const allowed = hasAppSession;
 
     if (handoffError) {
       connectionStatus.textContent = "確認不可";
@@ -2040,7 +2047,7 @@
       profile.innerHTML = "<div class=\"notice\">NOV HUBへ戻って、もう一度サンクスコインを開いてください。</div>";
       lockForm("HUBログイン待ち");
       window.setTimeout(() => returnToHub(), 900);
-    } else if (!hasAppSession && !hasContext) {
+    } else if (!hasAppSession) {
       connectionStatus.textContent = "HUB未確認";
       connectionStatus.style.background = "var(--amber-soft)";
       connectionStatus.style.color = "var(--amber)";

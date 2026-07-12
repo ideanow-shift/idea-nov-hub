@@ -17,6 +17,7 @@ const EDGE_ACTIONS = new Set([
   "ideaLinkNotificationSendScoped",
   "ideaLinkRecipientSearch",
   "ideaLinkStoreOptions",
+  "createIdeaLinkHandoff",
   "exchangeIdeaLinkHandoff",
   "decisionListApplications",
   "decisionGetApplicationDetail",
@@ -207,6 +208,20 @@ export function fetchPortalData() {
 
 export function callApiAction(action, payload = {}) {
   return postToApi(action, payload);
+}
+
+export async function createIdeaLinkHandoff({ hubSessionToken = "", targetView = "home" } = {}) {
+  const sessionToken = String(hubSessionToken || "").trim();
+  const authType = sessionToken ? "hub_session" : "firebase";
+  const token = sessionToken || await getIdToken();
+  if (!token) throw new Error("HUB authentication is missing.");
+  const endpoint = getApiEndpoint("createIdeaLinkHandoff");
+  if (!endpoint) throw new Error("NOV HUB Edge API endpoint is not configured for IDEA LINK handoff.");
+  return await postToEndpoint(endpoint, new URLSearchParams({
+    action: "createIdeaLinkHandoff",
+    token,
+    payload: JSON.stringify({ authType, targetView: String(targetView || "home") })
+  }));
 }
 
 export async function exchangeIdeaLinkHandoff(handoffCode) {

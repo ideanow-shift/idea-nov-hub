@@ -1,6 +1,6 @@
 import { PORTAL_CONFIG } from "./firebase-config.js";
 import { authIsConfigured, getIdToken, signInWithGoogle, signOutUser } from "./auth.js";
-import { callApiAction, clearApiAuth, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js";
+import { callApiAction, clearApiAuth, createIdeaLinkHandoff, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js";
 import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
 import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js";
 import { clearHubEmployeeContext, encodeHubContextForUrl, getHubEmployeeContextSummary, saveHubEmployeeContext } from "./hub-context.js";
@@ -504,6 +504,23 @@ function buildAppLaunchUrl(appUrl, context) {
   }
 }
 
+async function buildIdeaLinkLaunchUrl() {
+  const hubSessionToken = state.authType === "pin"
+    ? String(state.hubSession?.sessionToken || "").trim()
+    : "";
+  if (state.authType === "pin" && !hubSessionToken) {
+    throw new Error("HUB session is missing.");
+  }
+  const response = await createIdeaLinkHandoff({ hubSessionToken, targetView: "home" });
+  const handoffCode = String(response?.handoff?.handoffCode || "").trim();
+  if (!/^[A-Za-z0-9_-]{40,60}$/.test(handoffCode)) {
+    throw new Error("IDEA LINK handoff could not be created.");
+  }
+  const url = new URL(IDEA_LINK_APP_URL, window.location.href);
+  url.searchParams.set("handoff_code", handoffCode);
+  return url.toString();
+}
+
 function isManagementPlatformApp(app) {
   const compact = (value) => String(value || "").toLowerCase().replace(/[\s　・/_-]/g, "");
   const appId = compact(app.appId);
@@ -610,7 +627,7 @@ async function openApp(app) {
     : isIdeaLinkApp(app)
       ? IDEA_LINK_APP_URL
       : app.url;
-  const launchUrl = buildAppLaunchUrl(appUrl, employeeContext);
+  const launchUrl = isIdeaLinkApp(app) ? "" : buildAppLaunchUrl(appUrl, employeeContext);
   if (state.authType === "firebase" || state.authType === "pin") {
     if (isManagementPlatformApp(app) || isCoreMasterAdminApp(app)) {
       try {
@@ -634,8 +651,9 @@ async function openApp(app) {
     try {
       await prepareManagementPlatformLaunch(app, employeeContext);
       await writeAccessLog("openApp", { appId: app.appId, appName: app.appName, result: "success" });
-      if (target) target.location = launchUrl;
-      else window.location.assign(launchUrl);
+      const resolvedLaunchUrl = isIdeaLinkApp(app) ? await buildIdeaLinkLaunchUrl() : launchUrl;
+      if (target) target.location = resolvedLaunchUrl;
+      else window.location.assign(resolvedLaunchUrl);
     } catch (error) {
       target?.close();
       showToast("アプリを開けませんでした。時間をおいて再度お試しください。");

@@ -8,7 +8,7 @@ import {
   renderNovNaviDashboard,
   shouldEnableLocalNovNaviDemo,
   shouldEnableNovNaviDashboard
-} from "./nov-navi-dashboard.js?v=e0883021ff8f5b49";
+} from "./nov-navi-dashboard.js?v=89d25c27d1526d98";
 import {
   clearNovHubSession,
   restoreNovHubSession,

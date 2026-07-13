@@ -53,19 +53,15 @@
   text-align: left;
   box-shadow: 0 1px 3px rgba(8, 45, 99, .05);
 }
-.navi-open-button:focus-visible, .navi-support button:focus-visible { outline: 3px solid rgba(29, 105, 200, .24); outline-offset: 2px; }
+.navi-open-button:focus-visible, .navi-support-launcher:focus-visible { outline: 3px solid rgba(29, 105, 200, .24); outline-offset: 2px; }
 .navi-today-grid span { min-width: 0; color: #344861; overflow-wrap: anywhere; font-size: 11px; font-weight: 650; }
 .navi-today-grid strong { color: var(--navi-blue); font-size: 21px; font-weight: 750; line-height: 1.05; }
 .navi-today-grid small { min-width: 0; color: var(--text-secondary); font-size: 10px; overflow-wrap: anywhere; }
 .navi-support { display: grid; grid-template-columns: minmax(220px, .48fr) minmax(360px, 1.52fr); align-items: center; gap: 18px; border-color: #bccde2; border-left: 4px solid var(--navi-blue); background: #fbfdff; }
 .navi-support h2 { color: var(--navi-navy); font-size: 16px; }
 .navi-support p { margin-top: 3px; color: var(--text-secondary); font-size: 11px; }
-.navi-support form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; min-width: 0; }
-.navi-support input, .navi-support button { min-height: 42px; border: 1px solid #ccd8e6; border-radius: 7px; padding: 8px 11px; font: inherit; }
-.navi-support input { min-width: 0; background: #fff; }
-.navi-support input:focus { border-color: #3a78bf; outline: 3px solid rgba(58,120,191,.14); }
-.navi-support button { min-width: 116px; border-color: var(--navi-navy); background: var(--navi-navy); font-weight: 700; }
-.navi-support button, .navi-open-button { color: #fff; cursor: pointer; }
+.navi-support-launcher { justify-self: end; min-width: 190px; min-height: 42px; border: 1px solid var(--navi-navy); border-radius: 7px; padding: 8px 14px; background: var(--navi-navy); color: #fff; cursor: pointer; font: inherit; font-weight: 700; }
+.navi-open-button { color: #fff; cursor: pointer; }
 .navi-system-sections { display: grid; gap: 11px; min-width: 0; }
 .navi-category { padding: 12px 13px 13px; }
 .navi-category .navi-section-heading { padding-bottom: 7px; border-bottom: 1px solid #e6ebf2; }
@@ -104,7 +100,7 @@
 .navi-shortcuts { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
 .navi-shortcuts span { max-width: 100%; border: 1px solid #dce4ee; border-radius: 4px; background: var(--navi-soft); padding: 3px 7px; color: #3d526c; font-size: 10px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .navi-open-button { width: fit-content; min-height: 36px; margin-top: auto; border: 1px solid var(--navi-navy); border-radius: 5px; background: var(--navi-navy); padding: 7px 12px; font-size: 11px; font-weight: 750; }
-.navi-open-button:hover, .navi-support button:hover { background: #062650; }
+.navi-open-button:hover, .navi-support-launcher:hover { background: #062650; }
 .navi-legacy-apps summary { cursor: pointer; color: var(--navi-blue); font-size: 13px; font-weight: 700; }
 .navi-legacy-apps p { margin-top: 6px; color: var(--text-secondary); font-size: 11px; }
 .navi-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; background: #fafbfd; color: var(--text-secondary); font-size: 10px; box-shadow: none; }
@@ -149,8 +145,7 @@ body:has(#nov-navi-dashboard:not([hidden])) .site-header .icon-button:hover { ba
   .navi-today-card { min-height: 64px; padding: 7px 8px; }
   .navi-today-grid strong { font-size: 18px; }
   .navi-support { grid-template-columns: 1fr; gap: 8px; border-left-width: 3px; }
-  .navi-support form { grid-template-columns: minmax(0, 1fr) auto; }
-  .navi-support button { min-width: 84px; }
+  .navi-support-launcher { justify-self: stretch; width: 100%; min-width: 0; }
   .navi-system-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
   .navi-system-card { gap: 6px; min-height: 124px; padding: 8px; }
   .navi-card-heading { display: grid; }
@@ -162,10 +157,6 @@ body:has(#nov-navi-dashboard:not([hidden])) .site-header .icon-button:hover { ba
   .navi-shortcuts { display: none; }
   .navi-open-button { width: 100%; min-height: 40px; }
   .navi-legend { display: grid; gap: 5px; }
-}
-@media (max-width: 370px) {
-  .navi-support form { grid-template-columns: 1fr; }
-  .navi-support button { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .navi-system-card { transition: none; }

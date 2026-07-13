@@ -146,12 +146,12 @@ export function renderNovNaviDashboard({ enabled, employee, apps, onOpenApp, onO
     <div class="navi-today" aria-labelledby="navi-today-title">
       <div class="navi-section-heading"><h2 id="navi-today-title">Today</h2><span>サンプル表示</span></div>
       <div class="navi-today-grid">
-        <button type="button"><span>今日の予定</span><strong>3件</strong><small>10:00 朝礼</small></button>
-        <button type="button"><span>未完了タスク</span><strong>4件</strong><small>サンプル</small></button>
-        <button type="button"><span>承認待ち</span><strong>2件</strong></button>
-        <button type="button"><span>サンクス受信</span><strong>2件</strong></button>
-        <button type="button"><span>問い合わせ回答</span><strong>1件</strong></button>
-        <button type="button"><span>成長ポイント</span><strong>48pt</strong></button>
+        <div class="navi-today-card"><span>今日の予定</span><strong>3件</strong><small>10:00 朝礼</small></div>
+        <div class="navi-today-card"><span>未完了タスク</span><strong>4件</strong><small>サンプル</small></div>
+        <div class="navi-today-card"><span>承認待ち</span><strong>2件</strong></div>
+        <div class="navi-today-card"><span>サンクス受信</span><strong>2件</strong></div>
+        <div class="navi-today-card"><span>問い合わせ回答</span><strong>1件</strong></div>
+        <div class="navi-today-card"><span>成長ポイント</span><strong>48pt</strong></div>
       </div>
     </div>
     <div class="navi-support">

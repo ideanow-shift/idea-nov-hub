@@ -159,7 +159,7 @@ export function renderNovNaviDashboard({ enabled, employee, apps, onOpenApp, onO
       <button class="navi-support-launcher" type="button">NOVサポートを開く</button>
     </div>
     <div class="navi-system-sections"></div>
-    <p class="navi-legacy-apps">その他の既存アプリは、このダッシュボード下部の「すべての業務」から開けます。</p>
+    <p class="navi-legacy-apps">その他の既存アプリは、このダッシュボード下部の「すべての業務（既存アプリ一覧）」から開けます。</p>
     <div class="navi-legend"><span>利用可能：本番システム</span><span>試験運用：利用範囲を限定</span><span>作成中：利用可能範囲のみ</span><span>サンプル：データは保存されません</span></div>`;
 
   root.querySelector(".navi-support-launcher").addEventListener("click", () => {

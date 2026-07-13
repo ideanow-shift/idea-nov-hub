@@ -1352,9 +1352,21 @@ function renderSafeMasterAdminView() {
   search.type = "search";
   search.placeholder = state.view === "stores" ? "店舗名・店舗ID・法人名で検索" : state.view === "corporations" ? "法人名・正式名で検索" : "氏名・社員番号・店舗名で検索";
   search.value = state.safeSearch || "";
-  search.addEventListener("input", () => {
+  let isComposingSearch = false;
+  const applySafeSearch = () => {
     state.safeSearch = search.value;
     rerenderAfterSafeSelectionChange({ restoreSearchFocus: true });
+  };
+  search.addEventListener("compositionstart", () => {
+    isComposingSearch = true;
+  });
+  search.addEventListener("compositionend", () => {
+    isComposingSearch = false;
+    applySafeSearch();
+  });
+  search.addEventListener("input", (event) => {
+    if (isComposingSearch || event.isComposing) return;
+    applySafeSearch();
   });
   controls.append(search);
   appendSafeStatusFilters(controls);

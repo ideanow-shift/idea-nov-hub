@@ -110,11 +110,14 @@
 .navi-legacy-apps summary { cursor: pointer; color: var(--navi-blue); font-size: 13px; font-weight: 700; }
 .navi-legacy-apps p { margin-top: 6px; color: var(--text-secondary); font-size: 11px; }
 .navi-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; background: #fafbfd; color: var(--text-secondary); font-size: 10px; box-shadow: none; }
+.brand-copy-navi { display: none; }
 body:has(#nov-navi-dashboard:not([hidden])) .site-header {
   border-bottom-color: #123f78;
   background: #082d63;
   box-shadow: 0 2px 8px rgba(8, 45, 99, .16);
 }
+body:has(#nov-navi-dashboard:not([hidden])) .site-header .brand-copy-default { display: none; }
+body:has(#nov-navi-dashboard:not([hidden])) .site-header .brand-copy-navi { display: block; min-width: 0; }
 body:has(#nov-navi-dashboard:not([hidden])) .site-header .brand-title,
 body:has(#nov-navi-dashboard:not([hidden])) .site-header .user-name { color: #fff; }
 body:has(#nov-navi-dashboard:not([hidden])) .site-header .brand-subtitle,

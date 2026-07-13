@@ -1,3 +1,5 @@
+import { resolveAppIcon } from "./apps.js";
+
 const STATUS_LABELS = {
   available: "利用可能",
   trial: "試験運用",
@@ -85,6 +87,8 @@ function visibleSystem(system, employee) {
 function createSystemCard(system, apps, onOpenApp) {
   const app = findApp(apps, system.aliases);
   const isSampleApp = Boolean(app && String(app.url || "").startsWith("#demo-"));
+  const fallbackIcon = resolveAppIcon({});
+  const iconSource = app && !isSampleApp ? resolveAppIcon(app) : fallbackIcon;
   const actualStatus = isSampleApp
     ? "preview"
     : app
@@ -94,11 +98,13 @@ function createSystemCard(system, apps, onOpenApp) {
   card.className = `navi-system-card status-${actualStatus}`;
   card.innerHTML = `
     <div class="navi-card-heading">
-      <div><h4>${escapeHtml(system.title)}</h4>${system.subtitle ? `<p>${escapeHtml(system.subtitle)}</p>` : ""}</div>
+      <div class="navi-card-title"><span class="navi-system-icon"><img src="${escapeHtml(iconSource)}" alt="" aria-hidden="true"></span><div><h4>${escapeHtml(system.title)}</h4>${system.subtitle ? `<p>${escapeHtml(system.subtitle)}</p>` : ""}</div></div>
       <div><span class="navi-status">${escapeHtml(STATUS_LABELS[actualStatus])}</span>${system.audience ? `<small class="navi-audience">${escapeHtml(system.audience)}</small>` : ""}</div>
     </div>
     <div class="navi-shortcuts">${system.shortcuts.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>
     <button type="button" class="navi-open-button">${actualStatus === "preview" ? "サンプルを見る" : app ? "システムを開く" : "予定機能を見る"}</button>`;
+  const icon = card.querySelector(".navi-system-icon img");
+  icon.addEventListener("error", () => { icon.src = fallbackIcon; }, { once: true });
   card.querySelector("button").addEventListener("click", () => {
     if (app) onOpenApp(app);
     else window.alert(`${system.title}は${STATUS_LABELS[actualStatus]}です。現在はデータを保存しません。`);

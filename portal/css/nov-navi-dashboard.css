@@ -89,6 +89,10 @@
 .navi-system-card:hover { border-color: #bfcddd; box-shadow: 0 5px 13px rgba(27,43,65,.08); transform: translateY(-1px); }
 .navi-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; min-width: 0; }
 .navi-card-heading > div:first-child { min-width: 0; }
+.navi-card-title { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.navi-card-title > div { min-width: 0; }
+.navi-system-icon { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; border: 1px solid #dce5f0; border-radius: 6px; background: #f7f9fc; }
+.navi-system-icon img { display: block; width: 18px; height: 18px; object-fit: contain; }
 .navi-card-heading h4 { color: #0d2c54; font-size: 14px; font-weight: 750; line-height: 1.3; overflow-wrap: anywhere; }
 .navi-card-heading p { margin-top: 2px; color: var(--text-secondary); font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
 .navi-status { flex: 0 0 auto; border: 1px solid transparent; border-radius: 4px; background: #eef2f6; padding: 3px 7px; font-size: 9px; font-weight: 750; letter-spacing: 0; white-space: nowrap; }
@@ -150,6 +154,9 @@ body:has(#nov-navi-dashboard:not([hidden])) .site-header .icon-button:hover { ba
   .navi-system-card { gap: 6px; min-height: 124px; padding: 8px; }
   .navi-card-heading { display: grid; }
   .navi-card-heading > div:last-child { grid-auto-flow: column; justify-content: start; justify-items: start; }
+  .navi-card-title { gap: 6px; }
+  .navi-system-icon { flex-basis: 28px; width: 28px; height: 28px; }
+  .navi-system-icon img { width: 17px; height: 17px; }
   .navi-audience { max-width: 100%; text-align: left; }
   .navi-shortcuts { display: none; }
   .navi-open-button { width: 100%; min-height: 40px; }

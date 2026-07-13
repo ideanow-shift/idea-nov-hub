@@ -9,7 +9,7 @@ import {
   restoreNovHubSession,
   setNovHubSession,
   setNovHubSessionMemoryProvider
-} from "./nov-hub-session-candidate.js?v=20260712-1";
+} from "./nov-hub-session-candidate.js?v=hub-helper-runtime-20260713-2";
 
 const state = {
   employee: null,

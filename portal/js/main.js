@@ -15,6 +15,7 @@ import {
   setNovHubSession,
   setNovHubSessionMemoryProvider
 } from "./nov-hub-session-candidate.js?v=hub-helper-runtime-20260713-2";
+import { installManagementDataopsOneShotDiagnostic } from "./management-dataops-one-shot-diagnostic.js?v=20260713-2";
 
 const state = {
   employee: null,
@@ -27,6 +28,7 @@ const state = {
   appSearch: "",
   selectedCategory: "all"
 };
+let managementDataopsDiagnostic = null;
 state.hubSession = restoreNovHubSession();
 setNovHubSessionMemoryProvider(() => state.hubSession);
 const MANAGEMENT_HUB_CONTEXT_KEY = "ideaNov.management.hubContext";
@@ -76,6 +78,11 @@ function showScreen(name) {
     elements[`${screenName}Screen`].hidden = screenName !== name;
   });
   elements.headerUser.hidden = name !== "portal";
+}
+
+function removeManagementDataopsDiagnostic() {
+  managementDataopsDiagnostic?.remove();
+  managementDataopsDiagnostic = null;
 }
 
 function showToast(message) {
@@ -854,6 +861,11 @@ async function loginWithPin(event) {
     if (!setNovHubSession(state.hubSession)) {
       throw new Error("HUB sessionを保存できませんでした。再ログインしてください。");
     }
+    removeManagementDataopsDiagnostic();
+    managementDataopsDiagnostic = installManagementDataopsOneShotDiagnostic({
+      isPinAuthenticated: () => state.authType === "pin" && Boolean(state.employee),
+      getCurrentPinSession: () => state.authType === "pin" ? state.hubSession : null
+    });
     state.apps = selectReleasedAppsForEmployee(state.employee, sortPortalApps(data.apps || []));
     state.announcements = data.announcements || [];
     state.notifications = [];
@@ -893,6 +905,7 @@ function loginDemo() {
   state.announcements = [];
   state.notifications = [];
   state.authType = "demo";
+  removeManagementDataopsDiagnostic();
   state.hubSession = null;
   clearNovHubSession();
   resetAppFilters();
@@ -908,6 +921,7 @@ async function logout() {
     await signOutUser();
   }
   clearApiAuth();
+  removeManagementDataopsDiagnostic();
   clearHubEmployeeContext();
   clearNovHubSession();
   sessionStorage.removeItem(MANAGEMENT_FIREBASE_TOKEN_KEY);

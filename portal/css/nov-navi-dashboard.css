@@ -104,6 +104,21 @@
 .navi-legacy-apps summary { cursor: pointer; color: var(--navi-blue); font-size: 13px; font-weight: 700; }
 .navi-legacy-apps p { margin-top: 6px; color: var(--text-secondary); font-size: 11px; }
 .navi-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; background: #fafbfd; color: var(--text-secondary); font-size: 10px; box-shadow: none; }
+.navi-notification-hint[hidden] { display: none; }
+.navi-notification-hint {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(255, 255, 255, .34);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .1);
+  padding: 4px 7px;
+  color: #fff;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.navi-notification-hint strong { min-width: 18px; color: #fff; font-size: 13px; text-align: center; }
 .brand-copy-navi { display: none; }
 body:has(#nov-navi-dashboard:not([hidden])) .site-header {
   border-bottom-color: #123f78;
@@ -135,6 +150,21 @@ body:has(#nov-navi-dashboard:not([hidden])) .site-header .icon-button:hover { ba
   .navi-system-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 560px) {
+  body:has(#nov-navi-dashboard:not([hidden])) .header-inner { gap: 6px; padding-right: 10px; padding-left: 10px; }
+  body:has(#nov-navi-dashboard:not([hidden])) .brand { gap: 6px; }
+  body:has(#nov-navi-dashboard:not([hidden])) .brand-logo { width: 36px; height: 30px; }
+  body:has(#nov-navi-dashboard:not([hidden])) .header-user { min-width: 0; gap: 6px; }
+  body:has(#nov-navi-dashboard:not([hidden])) .user-summary { max-width: 72px; }
+  body:has(#nov-navi-dashboard:not([hidden])) .navi-notification-hint { min-width: 30px; justify-content: center; padding: 4px 5px; }
+  body:has(#nov-navi-dashboard:not([hidden])) .navi-notification-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
   .nov-navi-dashboard { gap: 9px; }
   .navi-role-summary { align-items: center; padding: 8px 10px; }
   .navi-role-summary small { width: 100%; margin-left: 0; }

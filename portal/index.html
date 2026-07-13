@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png">
   <link rel="stylesheet" href="./css/design-system.css">
   <link rel="stylesheet" href="./css/portal.css">
-  <link rel="stylesheet" href="./css/nov-navi-dashboard.css?v=d629ce61c160e64d">
+  <link rel="stylesheet" href="./css/nov-navi-dashboard.css?v=9b998ac739c0f105">
 </head>
 <body>
   <header class="site-header">
@@ -32,6 +32,10 @@
         </div>
       </div>
       <div class="header-user" id="header-user" hidden>
+        <span class="navi-notification-hint" id="navi-notification-hint" hidden>
+          <span class="navi-notification-label">通知</span>
+          <strong id="navi-notification-count"></strong>
+        </span>
         <div class="user-summary">
           <div class="user-name" id="user-name"></div>
           <div class="user-store" id="user-store"></div>
@@ -160,6 +164,6 @@
   </main>
 
   <div class="toast" id="toast" role="status" hidden></div>
-  <script type="module" src="./js/main.js?v=86a960f90bdf81ff"></script>
+  <script type="module" src="./js/main.js?v=286d87aeb9449d8c"></script>
 </body>
 </html>

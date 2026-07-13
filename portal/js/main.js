@@ -66,7 +66,7 @@ const MANAGEMENT_WEB_ALLOWED_ROLE_KEYS = new Set([
   "store_manager"
 ]);
 const elements = Object.fromEntries([
-  "header-user", "user-name", "user-store", "login-screen", "loading-screen",
+  "header-user", "user-name", "user-store", "navi-notification-hint", "navi-notification-count", "login-screen", "loading-screen",
   "denied-screen", "portal-screen", "google-login", "pin-login-form", "pin-email", "pin-code", "demo-controls", "demo-employee",
   "demo-login", "logout-button", "denied-message", "denied-back", "welcome-title", "user-context",
   "announcements", "featured-apps", "category-apps", "visible-app-count", "app-search", "category-filter", "pin-change-panel", "pin-change-form",
@@ -78,6 +78,29 @@ function showScreen(name) {
     elements[`${screenName}Screen`].hidden = screenName !== name;
   });
   elements.headerUser.hidden = name !== "portal";
+  if (name !== "portal") resetHeaderNotificationHint();
+}
+
+function unreadNotificationCount(notifications) {
+  if (!Array.isArray(notifications)) return 0;
+  const count = notifications.reduce((total, item) => total + (item?.unread === true ? 1 : 0), 0);
+  return Number.isSafeInteger(count) && count >= 0 ? count : 0;
+}
+
+function resetHeaderNotificationHint() {
+  if (!elements.naviNotificationHint || !elements.naviNotificationCount) return;
+  elements.naviNotificationCount.textContent = "";
+  elements.naviNotificationHint.hidden = true;
+}
+
+function renderHeaderNotificationHint() {
+  resetHeaderNotificationHint();
+  const dashboard = document.querySelector("#nov-navi-dashboard");
+  if (!state.employee || elements.portalScreen.hidden || !dashboard || dashboard.hidden) return;
+  const count = unreadNotificationCount(state.notifications);
+  if (count === 0) return;
+  elements.naviNotificationCount.textContent = count > 99 ? "99+" : String(count);
+  elements.naviNotificationHint.hidden = false;
 }
 
 function removeManagementDataopsDiagnostic() {
@@ -467,6 +490,7 @@ function renderPortal() {
     onOpenSupport: openConcierge
   });
   showScreen("portal");
+  renderHeaderNotificationHint();
 }
 
 function resetAppFilters() {
@@ -496,6 +520,7 @@ function loadNovHubNotificationsAfterPaint() {
       .then((data) => {
         state.notifications = Array.isArray(data.notifications) ? data.notifications : [];
         renderAnnouncements();
+        renderHeaderNotificationHint();
       })
       .catch((error) => console.warn("NOV HUB notifications load failed", error));
   });
@@ -989,4 +1014,3 @@ async function initialize() {
 }
 
 initialize();
-

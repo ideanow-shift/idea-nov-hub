@@ -674,6 +674,22 @@ function getSafeRowCountLabel(rows) {
   return label === "件" ? `${rows.length}件` : `${rows.length}${label}`;
 }
 
+function appendSafeEmployeeCsvControls(parent) {
+  if (state.view !== "employees") return;
+  const exportButton = document.createElement("button");
+  exportButton.type = "button";
+  exportButton.className = "button button-secondary";
+  exportButton.textContent = "社員CSV出力";
+  exportButton.addEventListener("click", () => elements.exportEmployeesCsv?.click());
+
+  const importButton = document.createElement("button");
+  importButton.type = "button";
+  importButton.className = "button button-secondary";
+  importButton.textContent = "CSV入力プレビュー";
+  importButton.addEventListener("click", () => elements.importEmployeesCsv?.click());
+  parent.append(exportButton, importButton);
+}
+
 function appendSafeViewTabs(parent) {
   [
     ["employees", "社員"],
@@ -1370,6 +1386,7 @@ function renderSafeMasterAdminView() {
   });
   controls.append(search);
   appendSafeStatusFilters(controls);
+  appendSafeEmployeeCsvControls(controls);
 
   const count = document.createElement("div");
   count.className = "result-count";

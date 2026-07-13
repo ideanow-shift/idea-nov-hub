@@ -1283,6 +1283,10 @@
           <div class="admin-section" data-admin-section="lineworks">
             <h3>店舗別サンクスコイン通知</h3>
             <div class="notice">通知先はSupabase参照です。ここでは表示のみで、テスト送信・保存は行いません。</div>
+            <div id="gate52-review-control" class="notice" hidden>
+              <button id="gate52-preview-once" type="button" hidden disabled>Gate 5.2 previewを1回確認</button>
+              <span id="gate52-preview-result" aria-live="polite"></span>
+            </div>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -1388,6 +1392,9 @@
     const storeStatsBody = document.querySelector("#store-stats-body");
     const categoryBreakdown = document.querySelector("#category-breakdown");
     const lineWorksBody = document.querySelector("#lineworks-body");
+    const gate52ReviewControl = document.querySelector("#gate52-review-control");
+    const gate52PreviewOnce = document.querySelector("#gate52-preview-once");
+    const gate52PreviewResult = document.querySelector("#gate52-preview-result");
     const imageSummary = document.querySelector("#image-summary");
     const bottomNav = document.querySelector(".bottom-nav");
     const adminNav = document.querySelector("#admin-nav");
@@ -1415,6 +1422,23 @@
     let adminLoaded = false;
     let recipientOptionsById = new Map();
     let ideaLinkAppSession = null;
+    const IDEA_LINK_GATE52_REVIEW_ENABLED = false;
+    const IDEA_LINK_GATE52_REVIEW_ID = "idea-link-gate52-preview-20260713-1";
+    const IDEA_LINK_GATE52_EXECUTION_COUNT_MAX = 1;
+    const IDEA_LINK_GATE52_SAFE_ENVELOPE_KEYS = ["ok", "result"];
+    const IDEA_LINK_GATE52_SAFE_RESPONSE_KEYS = [
+      "active_public",
+      "candidate_count",
+      "channel_configured",
+      "duplicate",
+      "eligible",
+      "existing_notification_count",
+      "expected_insert_max",
+      "mutation",
+      "preview_only",
+      "send",
+      "store_target_resolved"
+    ];
 
     const categoryHelpMap = {
       "気持ち良い挨拶": "明るい挨拶や、場の空気を良くしてくれた行動へ。",
@@ -1808,6 +1832,39 @@
         adminFeed.innerHTML = `<div class="notice">管理状態を読み込めませんでした。${text(error?.message)}</div>`;
         mvpFeed.innerHTML = "";
       }
+    }
+
+    function enableGate52PreviewReviewControl(context) {
+      if (!IDEA_LINK_GATE52_REVIEW_ENABLED || IDEA_LINK_GATE52_EXECUTION_COUNT_MAX !== 1 || !canViewAdmin(context)) return;
+      gate52ReviewControl.hidden = false;
+      gate52PreviewOnce.hidden = false;
+      gate52PreviewOnce.disabled = false;
+      const runOnce = async () => {
+        gate52PreviewOnce.removeEventListener("click", runOnce);
+        gate52PreviewOnce.remove();
+        gate52PreviewResult.textContent = "previewを確認中です。";
+        try {
+          prepareIdeaLinkApiAuth();
+          const response = await callApiAction("ideaLinkGate52PreviewReview", { gateId: IDEA_LINK_GATE52_REVIEW_ID });
+          const envelopeKeys = response && typeof response === "object" ? Object.keys(response).sort() : [];
+          if (JSON.stringify(envelopeKeys) !== JSON.stringify(IDEA_LINK_GATE52_SAFE_ENVELOPE_KEYS)) {
+            throw Object.assign(new Error("FORBIDDEN_EXPOSURE"), { code: "FORBIDDEN_EXPOSURE" });
+          }
+          const result = response?.result;
+          const keys = result && typeof result === "object" ? Object.keys(result).sort() : [];
+          if (JSON.stringify(keys) !== JSON.stringify(IDEA_LINK_GATE52_SAFE_RESPONSE_KEYS)) {
+            throw Object.assign(new Error("FORBIDDEN_EXPOSURE"), { code: "FORBIDDEN_EXPOSURE" });
+          }
+          gate52PreviewResult.textContent = result.preview_only === true && result.mutation === false && result.send === false
+            ? (result.eligible === true ? "preview確認済み（対象）" : "preview確認済み（対象外）")
+            : "previewを安全に確認できませんでした。";
+        } catch (error) {
+          gate52PreviewResult.textContent = error?.code === "FORBIDDEN_EXPOSURE"
+            ? "preview応答を安全に表示できませんでした。"
+            : "previewを確認できませんでした。";
+        }
+      };
+      gate52PreviewOnce.addEventListener("click", runOnce, { once: true });
     }
 
     async function loadTimeline() {
@@ -2206,6 +2263,7 @@
       if (hasContext && canViewAdmin(context)) {
         adminNav.hidden = false;
         bottomNav.classList.add("has-admin");
+        enableGate52PreviewReviewControl(context);
       }
       unlockForm();
       loadStoreOptions(context || {});

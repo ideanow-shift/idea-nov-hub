@@ -5,6 +5,11 @@ import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
 import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js";
 import { clearHubEmployeeContext, encodeHubContextForUrl, getHubEmployeeContextSummary, saveHubEmployeeContext } from "./hub-context.js";
 import {
+  renderNovNaviDashboard,
+  shouldEnableLocalNovNaviDemo,
+  shouldEnableNovNaviDashboard
+} from "./nov-navi-dashboard.js?v=20260713-4";
+import {
   clearNovHubSession,
   restoreNovHubSession,
   setNovHubSession,
@@ -433,6 +438,7 @@ function sortPortalApps(apps = []) {
 }
 
 function renderPortal() {
+  const query = new URLSearchParams(window.location.search);
   const employeeContext = refreshHubEmployeeContext();
   elements.userName.textContent = state.employee.name;
   elements.userStore.textContent = state.employee.store || state.employee.department || "";
@@ -442,6 +448,17 @@ function renderPortal() {
   elements.pinChangeStatus.textContent = "";
   renderAnnouncements();
   renderApps();
+  renderNovNaviDashboard({
+    enabled: shouldEnableNovNaviDashboard({
+      featureEnabled: PORTAL_CONFIG.novNaviDashboardEnabled,
+      hostname: window.location.hostname,
+      search: window.location.search
+    }),
+    employee: state.employee,
+    apps: state.apps,
+    onOpenApp: openApp,
+    onOpenSupport: openConcierge
+  });
   showScreen("portal");
 }
 
@@ -862,6 +879,9 @@ async function loginWithPin(event) {
 }
 
 function loginDemo() {
+  if (!shouldEnableLocalNovNaviDemo({ hostname: window.location.hostname, search: window.location.search })) {
+    return;
+  }
   const employee = getDemoEmployee(elements.demoEmployee.value);
   if (!employee || employee.status !== "active") {
     elements.deniedMessage.textContent = "このアカウントは社内ポータルの利用権限がありません。管理者へお問い合わせください。";
@@ -908,15 +928,22 @@ async function logout() {
 async function initialize() {
   if (redirectRootHubContextToManagementPlatform()) return;
   await loadAppIconRegistry();
-  DEMO_EMPLOYEES.forEach((employee) => {
-    const option = document.createElement("option");
-    option.value = employee.email;
-    option.textContent = `${employee.name}（権限${employee.roleLevel}${employee.status === "inactive" ? "・停止中" : ""}）`;
-    elements.demoEmployee.append(option);
-  });
   const firebaseReady = authIsConfigured();
+  const query = new URLSearchParams(window.location.search);
+  const localDemoEnabled = shouldEnableLocalNovNaviDemo({
+    hostname: window.location.hostname,
+    search: window.location.search
+  });
+  if (localDemoEnabled) {
+    DEMO_EMPLOYEES.forEach((employee) => {
+      const option = document.createElement("option");
+      option.value = employee.email;
+      option.textContent = `${employee.name}（権限${employee.roleLevel}${employee.status === "inactive" ? "・停止中" : ""}）`;
+      elements.demoEmployee.append(option);
+    });
+  }
   elements.googleLogin.hidden = !firebaseReady;
-  elements.demoControls.hidden = state.mode === "firebase" && firebaseReady;
+  elements.demoControls.hidden = !localDemoEnabled;
   elements.googleLogin.addEventListener("click", loginWithFirebase);
   elements.pinLoginForm.addEventListener("submit", loginWithPin);
   elements.pinChangeForm.addEventListener("submit", changeOwnPin);
@@ -931,7 +958,9 @@ async function initialize() {
   document.querySelectorAll(".concierge-chip-row [data-question]").forEach((button) => {
     button.addEventListener("click", () => openConcierge(button.dataset.question));
   });
-  elements.demoLogin.addEventListener("click", loginDemo);
+  if (localDemoEnabled) {
+    elements.demoLogin.addEventListener("click", loginDemo);
+  }
   elements.logoutButton.addEventListener("click", logout);
   elements.deniedBack.addEventListener("click", () => {
     clearApiAuth();

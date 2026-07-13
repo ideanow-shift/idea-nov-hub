@@ -1,4 +1,5 @@
 export const PORTAL_CONFIG = {
+  novNaviDashboardEnabled: false,
   authMode: "firebase",
   apiMode: "edge",
   edgePinEnabled: true,

@@ -1286,7 +1286,7 @@
             <div class="table-wrap">
               <table>
                 <thead>
-                  <tr><th>対象</th><th>種類</th><th>メモ</th><th>状態</th></tr>
+                  <tr><th>対象区分</th><th>種類</th><th>状態</th></tr>
                 </thead>
                 <tbody id="lineworks-body"></tbody>
               </table>
@@ -1723,12 +1723,11 @@
       const items = Array.isArray(rows) ? rows : [];
       lineWorksBody.innerHTML = items.map((row) => `
         <tr>
-          <td>${text(row.description || row.targetKey, "未設定")}</td>
+          <td>${row.targetScope === "store" ? "店舗" : row.targetScope === "department" ? "部署" : "その他"}</td>
           <td>${text(row.targetScope)} / ${text(row.targetType)}</td>
-          <td>${text(row.targetKey)}</td>
           <td>${row.enabled ? "有効" : "無効"}</td>
         </tr>
-      `).join("") || "<tr><td colspan=\"4\">通知先はまだありません。</td></tr>";
+      `).join("") || "<tr><td colspan=\"3\">通知先はまだありません。</td></tr>";
     }
 
     function renderImageSummary(summary) {

@@ -169,7 +169,8 @@ body:has(#nov-navi-dashboard:not([hidden])) .site-header .icon-button:hover { ba
   .navi-role-summary { align-items: center; flex-wrap: wrap; padding: 8px 10px; }
   .navi-role-summary small { flex-basis: 100%; width: 100%; margin-left: 0; }
   .navi-today, .navi-support, .navi-category, .navi-legacy-apps, .navi-legend { padding: 9px; }
-  .navi-section-heading { margin-bottom: 8px; }
+  .navi-section-heading { align-items: flex-start; flex-wrap: wrap; margin-bottom: 8px; }
+  .navi-section-heading span { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .navi-section-heading h2 { font-size: 15px; }
   .navi-today-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
   .navi-today-card { min-height: 64px; padding: 7px 8px; }

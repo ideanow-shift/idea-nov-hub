@@ -7,7 +7,7 @@ import {
 } from "./management-dataops-one-shot-core.js?v=2574e489b55e09a2";
 
 const BUILD_GATE = Object.freeze({
-  enabled: true,
+  enabled: false,
   id: "management-gate-c7-dataops-smoke",
   executionCountMax: 1,
   buildStamp: "management-gate-c7-5-execution-approved-20260713"

@@ -15,7 +15,7 @@ import {
   setNovHubSession,
   setNovHubSessionMemoryProvider
 } from "./nov-hub-session-candidate.js?v=hub-helper-runtime-20260713-2";
-import { installManagementDataopsOneShotDiagnostic } from "./management-dataops-one-shot-diagnostic.js?v=bd10d0f06351c492";
+import { installManagementDataopsOneShotDiagnostic } from "./management-dataops-one-shot-diagnostic.js?v=5ebe57e4f757c72d";
 
 const state = {
   employee: null,

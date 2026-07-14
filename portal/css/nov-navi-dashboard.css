@@ -84,10 +84,10 @@
 .navi-system-card:focus-within { border-top-color: var(--navi-blue); border-right-color: var(--navi-blue); border-bottom-color: var(--navi-blue); box-shadow: 0 0 0 2px rgba(21, 88, 176, .16), 0 5px 13px rgba(27,43,65,.08); }
 .navi-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; min-width: 0; }
 .navi-card-heading > div:first-child { min-width: 0; }
-.navi-card-title { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.navi-card-title { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .navi-card-title > div { min-width: 0; }
-.navi-system-icon { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; border: 1px solid #dce5f0; border-radius: 6px; background: #f7f9fc; }
-.navi-system-icon img { display: block; width: 18px; height: 18px; object-fit: contain; }
+.navi-system-icon { display: grid; flex: 0 0 36px; width: 36px; height: 36px; place-items: center; border: 1px solid #dce5f0; border-radius: 6px; background: #f7f9fc; }
+.navi-system-icon img { display: block; width: 22px; height: 22px; object-fit: contain; }
 .navi-card-heading h4 { color: #0d2c54; font-size: 14px; font-weight: 750; line-height: 1.3; overflow-wrap: anywhere; }
 .navi-card-heading p { margin-top: 2px; color: var(--text-secondary); font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
 .navi-status { flex: 0 0 auto; border: 1px solid transparent; border-radius: 4px; background: #eef2f6; padding: 3px 7px; font-size: 9px; font-weight: 750; letter-spacing: 0; white-space: nowrap; }
@@ -100,7 +100,7 @@
 .status-coming_soon { border-left-color: #8793a0; } .status-coming_soon .navi-status { border-color: #d8dde2; background: #f3f5f7; color: #5f6872; }
 .navi-shortcuts { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
 .navi-shortcuts span { max-width: 100%; border: 1px solid #dce4ee; border-radius: 4px; background: var(--navi-soft); padding: 3px 7px; color: #3d526c; font-size: 10px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
-.navi-open-button { width: fit-content; min-height: 36px; margin-top: auto; border: 1px solid var(--navi-navy); border-radius: 5px; background: var(--navi-navy); padding: 7px 12px; font-size: 11px; font-weight: 750; }
+.navi-open-button { display: inline-flex; align-items: center; justify-content: center; width: fit-content; min-height: 36px; margin-top: auto; border: 1px solid var(--navi-navy); border-radius: 5px; background: var(--navi-navy); padding: 7px 12px; font-size: 11px; font-weight: 750; line-height: 1.2; text-align: center; }
 .navi-open-button:hover, .navi-support-launcher:hover { background: #062650; }
 .navi-legacy-apps summary { cursor: pointer; color: var(--navi-blue); font-size: 13px; font-weight: 700; }
 .navi-legacy-apps p { margin-top: 6px; color: var(--text-secondary); font-size: 11px; }
@@ -182,9 +182,9 @@ body:has(#nov-navi-dashboard:not([hidden])) .site-header .icon-button:hover { ba
   .navi-system-card { gap: 6px; min-height: 124px; padding: 8px; }
   .navi-card-heading { display: grid; }
   .navi-card-heading > div:last-child { width: 100%; grid-template-columns: auto minmax(0, 1fr); grid-auto-flow: column; justify-content: start; justify-items: start; }
-  .navi-card-title { gap: 6px; }
-  .navi-system-icon { flex-basis: 28px; width: 28px; height: 28px; }
-  .navi-system-icon img { width: 17px; height: 17px; }
+  .navi-card-title { gap: 7px; }
+  .navi-system-icon { flex-basis: 34px; width: 34px; height: 34px; }
+  .navi-system-icon img { width: 21px; height: 21px; }
   .navi-audience { min-width: 0; max-width: 100%; text-align: left; }
   .navi-shortcuts { display: none; }
   .navi-open-button { width: 100%; min-height: 40px; }

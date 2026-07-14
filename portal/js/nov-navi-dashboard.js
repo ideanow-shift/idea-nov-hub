@@ -170,12 +170,14 @@ export function renderNovNaviDashboard({ enabled, employee, apps, onOpenApp, onO
   });
 
   const sections = root.querySelector(".navi-system-sections");
-  CATEGORY_ORDER.forEach((category) => {
+  CATEGORY_ORDER.forEach((category, categoryIndex) => {
     const systems = SYSTEMS.filter((system) => system.category === category && visibleSystem(system, employee));
     if (!systems.length) return;
+    const headingId = `navi-category-title-${categoryIndex + 1}`;
     const section = document.createElement("section");
     section.className = "navi-category";
-    section.innerHTML = `<div class="navi-section-heading"><h2>${escapeHtml(category)}</h2>${category === "経営管理" ? "<span>店長以上</span>" : category === "システム管理" ? "<span>システム管理者のみ</span>" : ""}</div><div class="navi-system-grid"></div>`;
+    section.setAttribute("aria-labelledby", headingId);
+    section.innerHTML = `<div class="navi-section-heading"><h2 id="${headingId}">${escapeHtml(category)}</h2>${category === "経営管理" ? "<span>店長以上</span>" : category === "システム管理" ? "<span>システム管理者のみ</span>" : ""}</div><div class="navi-system-grid"></div>`;
     const grid = section.querySelector(".navi-system-grid");
     grid.append(...systems.map((system) => createSystemCard(system, apps, onOpenApp)));
     sections.append(section);

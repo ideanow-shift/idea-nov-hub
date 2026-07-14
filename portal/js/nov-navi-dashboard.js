@@ -157,10 +157,10 @@ export function renderNovNaviDashboard({ enabled, employee, apps, onOpenApp, onO
         <div class="navi-today-card"><span>成長ポイント</span><strong>48pt</strong></div>
       </div>
     </section>
-    <div class="navi-support">
-      <div><h2>NOV サポート</h2><p>就業規則や社内手続きは、サポート画面で確認できます</p></div>
+    <section class="navi-support" aria-labelledby="navi-support-title">
+      <div><h2 id="navi-support-title">NOV サポート</h2><p>就業規則や社内手続きは、サポート画面で確認できます</p></div>
       <button class="navi-support-launcher" type="button">NOVサポートを開く</button>
-    </div>
+    </section>
     <div class="navi-system-sections"></div>
     <p class="navi-legacy-apps">その他の既存アプリは、このダッシュボード下部の「すべての業務（既存アプリ一覧）」から開けます。</p>
     <div class="navi-legend"><span>利用可能：本番システム</span><span>試験運用：利用範囲を限定</span><span>作成中：利用可能範囲のみ</span><span>サンプル：データは保存されません</span></div>`;

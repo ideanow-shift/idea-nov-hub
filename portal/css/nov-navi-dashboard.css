@@ -166,8 +166,8 @@ body:has(#nov-navi-dashboard:not([hidden])) .site-header .icon-button:hover { ba
     white-space: nowrap;
   }
   .nov-navi-dashboard { gap: 9px; }
-  .navi-role-summary { align-items: center; padding: 8px 10px; }
-  .navi-role-summary small { width: 100%; margin-left: 0; }
+  .navi-role-summary { align-items: center; flex-wrap: wrap; padding: 8px 10px; }
+  .navi-role-summary small { flex-basis: 100%; width: 100%; margin-left: 0; }
   .navi-today, .navi-support, .navi-category, .navi-legacy-apps, .navi-legend { padding: 9px; }
   .navi-section-heading { margin-bottom: 8px; }
   .navi-section-heading h2 { font-size: 15px; }

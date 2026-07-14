@@ -15,7 +15,7 @@ import {
   setNovHubSession,
   setNovHubSessionMemoryProvider
 } from "./nov-hub-session-candidate.js?v=hub-helper-runtime-20260713-2";
-import { installManagementDataopsOneShotDiagnostic } from "./management-dataops-one-shot-diagnostic.js?v=9a105ef4e92d68d9";
+import { installManagementDataopsOneShotDiagnostic } from "./management-dataops-one-shot-diagnostic.js?v=bd10d0f06351c492";
 
 const state = {
   employee: null,
@@ -889,6 +889,7 @@ async function loginWithPin(event) {
     removeManagementDataopsDiagnostic();
     managementDataopsDiagnostic = installManagementDataopsOneShotDiagnostic({
       isPinAuthenticated: () => state.authType === "pin" && Boolean(state.employee),
+      isAuthorizedForDiagnostic: () => canLaunchManagementWeb(state.employee),
       getCurrentPinSession: () => state.authType === "pin" ? state.hubSession : null
     });
     state.apps = selectReleasedAppsForEmployee(state.employee, sortPortalApps(data.apps || []));

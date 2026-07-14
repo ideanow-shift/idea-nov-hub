@@ -112,22 +112,27 @@ function sanitizeResolvedResponse(body, executionCount) {
   });
 }
 
-function styleReviewControl(control, rightPx) {
+function styleReviewControl(control, { secondary = false } = {}) {
   control.type = "button";
-  control.tabIndex = -1;
   Object.assign(control.style, {
-    position: "fixed",
-    right: `${rightPx}px`,
-    top: "24px",
-    width: "16px",
-    height: "16px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    minHeight: "44px",
     margin: "0",
-    padding: "0",
-    border: "0",
-    opacity: "0.05",
-    overflow: "hidden",
+    padding: "10px 16px",
+    border: secondary ? "1px solid #9aa8bb" : "1px solid #0b356f",
+    borderRadius: "6px",
+    background: secondary ? "#ffffff" : "#0b356f",
+    color: secondary ? "#17324d" : "#ffffff",
+    font: "inherit",
+    fontWeight: "700",
+    lineHeight: "1.4",
+    textAlign: "center",
+    outlineOffset: "3px",
     pointerEvents: "auto",
-    zIndex: "2147483647"
+    cursor: "pointer"
   });
 }
 
@@ -135,13 +140,19 @@ export function createTrustedOneShotReviewControl({ documentRef, onTrustedAttemp
   const control = documentRef.createElement("button");
   control.id = "management-c7-dataops-one-shot-control";
   control.setAttribute("data-review-control", "management-c7-dataops-one-shot");
-  styleReviewControl(control, 24);
+  control.textContent = "診断を1回実行";
+  control.setAttribute("aria-describedby", "management-c7-dataops-one-shot-description");
+  styleReviewControl(control);
   let consumed = false;
   const listener = (event) => {
     if (event?.isTrusted !== true || consumed) return;
     consumed = true;
     control.removeEventListener("click", listener);
-    control.remove();
+    control.disabled = true;
+    control.setAttribute("aria-busy", "true");
+    control.textContent = "診断中...";
+    control.style.cursor = "wait";
+    control.style.opacity = "0.72";
     onTrustedAttempt(event);
   };
   control.addEventListener("click", listener);
@@ -152,7 +163,8 @@ export function createTrustedResultCleanupControl({ documentRef, onTrustedCleanu
   const control = documentRef.createElement("button");
   control.id = "management-c7-dataops-result-cleanup";
   control.setAttribute("data-review-control", "management-c7-dataops-result-cleanup");
-  styleReviewControl(control, 44);
+  control.textContent = "結果を閉じる";
+  styleReviewControl(control, { secondary: true });
   const listener = (event) => {
     if (event?.isTrusted !== true) return;
     control.removeEventListener("click", listener);

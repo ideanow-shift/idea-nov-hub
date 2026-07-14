@@ -81,6 +81,7 @@
   transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
 }
 .navi-system-card:hover { border-color: #bfcddd; box-shadow: 0 5px 13px rgba(27,43,65,.08); transform: translateY(-1px); }
+.navi-system-card:focus-within { border-top-color: var(--navi-blue); border-right-color: var(--navi-blue); border-bottom-color: var(--navi-blue); box-shadow: 0 0 0 2px rgba(21, 88, 176, .16), 0 5px 13px rgba(27,43,65,.08); }
 .navi-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; min-width: 0; }
 .navi-card-heading > div:first-child { min-width: 0; }
 .navi-card-title { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }

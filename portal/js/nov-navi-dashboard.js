@@ -146,7 +146,7 @@ export function renderNovNaviDashboard({ enabled, employee, apps, onOpenApp, onO
   const profile = roleProfile(employee);
   root.innerHTML = `
     <div class="navi-role-summary"><span>表示区分</span><strong>${escapeHtml(profile.label)}</strong><small>起動時に各システム側で権限を再確認します</small></div>
-    <div class="navi-today" aria-labelledby="navi-today-title">
+    <section class="navi-today" aria-labelledby="navi-today-title">
       <div class="navi-section-heading"><h2 id="navi-today-title">Today</h2><span>サンプル表示</span></div>
       <div class="navi-today-grid">
         <div class="navi-today-card"><span>今日の予定</span><strong>3件</strong><small>10:00 朝礼</small></div>
@@ -156,7 +156,7 @@ export function renderNovNaviDashboard({ enabled, employee, apps, onOpenApp, onO
         <div class="navi-today-card"><span>問い合わせ回答</span><strong>1件</strong></div>
         <div class="navi-today-card"><span>成長ポイント</span><strong>48pt</strong></div>
       </div>
-    </div>
+    </section>
     <div class="navi-support">
       <div><h2>NOV サポート</h2><p>就業規則や社内手続きは、サポート画面で確認できます</p></div>
       <button class="navi-support-launcher" type="button">NOVサポートを開く</button>

@@ -94,6 +94,7 @@ function createSystemCard(system, apps, onOpenApp) {
     : app
       ? system.status
       : (system.status === "available" ? "coming_soon" : system.status);
+  const actionLabel = actualStatus === "preview" ? "サンプルを見る" : app ? "システムを開く" : "予定機能を見る";
   const card = document.createElement("article");
   card.className = `navi-system-card status-${actualStatus}`;
   card.innerHTML = `
@@ -102,10 +103,12 @@ function createSystemCard(system, apps, onOpenApp) {
       <div><span class="navi-status">${escapeHtml(STATUS_LABELS[actualStatus])}</span>${system.audience ? `<small class="navi-audience">${escapeHtml(system.audience)}</small>` : ""}</div>
     </div>
     <div class="navi-shortcuts">${system.shortcuts.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>
-    <button type="button" class="navi-open-button">${actualStatus === "preview" ? "サンプルを見る" : app ? "システムを開く" : "予定機能を見る"}</button>`;
+    <button type="button" class="navi-open-button">${actionLabel}</button>`;
+  const button = card.querySelector(".navi-open-button");
+  button.setAttribute("aria-label", `${system.title}：${actionLabel}`);
   const icon = card.querySelector(".navi-system-icon img");
   icon.addEventListener("error", () => { icon.src = fallbackIcon; }, { once: true });
-  card.querySelector("button").addEventListener("click", () => {
+  button.addEventListener("click", () => {
     if (app) onOpenApp(app);
     else window.alert(`${system.title}は${STATUS_LABELS[actualStatus]}です。現在はデータを保存しません。`);
   });

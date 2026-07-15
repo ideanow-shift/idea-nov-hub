@@ -26,6 +26,7 @@ test("sanitized six-provider model is fail-closed", () => {
   assert.equal(validateSanitizedReadinessModel(SANITIZED_CLASSIFICATION_READINESS), true);
   assert.equal(SANITIZED_CLASSIFICATION_READINESS.providers.length, 6);
   assert.equal(SANITIZED_CLASSIFICATION_READINESS.workflow.length, 3);
+  assert.equal(SANITIZED_CLASSIFICATION_READINESS.approvalRules.length, 3);
   assert.equal(SANITIZED_CLASSIFICATION_READINESS.localRehearsal, "PASS");
   assert.equal(SANITIZED_CLASSIFICATION_READINESS.productionCatalogProof, "PENDING");
   assert.equal(SANITIZED_CLASSIFICATION_READINESS.action.enabled, false);
@@ -41,6 +42,9 @@ test("panel exposes no digests, identities, or enabled action", () => {
   }
   assert.match(html, /本番カタログの権限確認が未完了です。/);
   assert.match(html, /ローカル検証[\s\S]*本番証跡[\s\S]*分類承認/);
+  assert.match(html, /レビュー済みの対象だけを扱います/);
+  assert.match(html, /対象は1件から50件まで明示選択します/);
+  assert.match(html, /変更前に版とスナップショットを再確認します/);
 });
 
 test("invalid model renders a closed empty state", () => {

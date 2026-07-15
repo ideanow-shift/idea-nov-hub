@@ -13,6 +13,12 @@ const WORKFLOW = Object.freeze([
   Object.freeze({ label: "分類承認", statusLabel: "停止中", detail: "6提供元が揃うまで操作不可" }),
 ]);
 
+const APPROVAL_RULES = Object.freeze([
+  "レビュー済みの対象だけを扱います",
+  "対象は1件から50件まで明示選択します",
+  "変更前に版とスナップショットを再確認します",
+]);
+
 const HARD_RUNTIME_GATE = false;
 
 export const SANITIZED_CLASSIFICATION_READINESS = Object.freeze({
@@ -23,6 +29,7 @@ export const SANITIZED_CLASSIFICATION_READINESS = Object.freeze({
   productionCatalogProof: "PENDING",
   providers: PROVIDERS,
   workflow: WORKFLOW,
+  approvalRules: APPROVAL_RULES,
   action: Object.freeze({ label: "分類承認", enabled: false, reason: "VERSION_PROVIDER_NOT_READY" }),
 });
 
@@ -34,6 +41,7 @@ const MODEL_KEYS = Object.freeze([
   "productionCatalogProof",
   "providers",
   "workflow",
+  "approvalRules",
   "action",
 ]);
 
@@ -57,6 +65,8 @@ export function validateSanitizedReadinessModel(model) {
     && step.label === WORKFLOW[index].label
     && step.statusLabel === WORKFLOW[index].statusLabel
     && step.detail === WORKFLOW[index].detail)) return false;
+  if (!Array.isArray(model.approvalRules) || model.approvalRules.length !== APPROVAL_RULES.length) return false;
+  if (!model.approvalRules.every((rule, index) => rule === APPROVAL_RULES[index])) return false;
   return exactKeys(model.action, ["label", "enabled", "reason"])
     && model.action.label === "分類承認"
     && model.action.enabled === false
@@ -81,6 +91,7 @@ function invalidModel() {
     productionCatalogProof: "未確認",
     providers: Object.freeze([]),
     workflow: Object.freeze([]),
+    approvalRules: Object.freeze([]),
     action: Object.freeze({ label: "分類承認", enabled: false, reason: "READINESS_INPUT_INVALID" }),
   });
 }
@@ -98,6 +109,7 @@ export function renderClassificationReadinessPanel(model = SANITIZED_CLASSIFICAT
           <div><strong>${escapeHtml(step.label)}</strong><p>${escapeHtml(step.detail)}</p></div>
           <span class="classification-readiness-step-state">${escapeHtml(step.statusLabel)}</span>
         </li>`).join("");
+  const approvalRules = view.approvalRules.map((rule) => `<li>${escapeHtml(rule)}</li>`).join("");
 
   return `
     <section class="panel classification-readiness-panel" data-readiness-status="${escapeHtml(view.status)}" aria-labelledby="classificationReadinessTitle">
@@ -117,6 +129,10 @@ export function renderClassificationReadinessPanel(model = SANITIZED_CLASSIFICAT
       </ul>
       <ol class="classification-readiness-workflow" aria-label="分類承認までの進行状況">${workflowRows}
       </ol>
+      <div class="classification-readiness-rules">
+        <strong>承認時の安全条件</strong>
+        <ul>${approvalRules}</ul>
+      </div>
       <div class="classification-readiness-action">
         <button type="button" disabled aria-disabled="true" title="現在は操作できません">${escapeHtml(view.action.label)}</button>
         <span>本番証跡と6つの提供元が揃うと利用できます。</span>

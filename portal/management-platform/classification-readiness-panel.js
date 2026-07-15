@@ -1,6 +1,6 @@
 const PROVIDERS = Object.freeze([
   Object.freeze({ label: "版管理", statusLabel: "証跡待ち", reason: "本番カタログの権限確認が未完了です。" }),
-  Object.freeze({ label: "スナップショット", statusLabel: "未接続", reason: "正規スナップショット提供元が未接続です。" }),
+  Object.freeze({ label: "スナップショット", statusLabel: "基盤候補済み", reason: "安全な基盤候補は検証済みです。runtime適用は未実施です。" }),
   Object.freeze({ label: "法人範囲", statusLabel: "未接続", reason: "法人範囲の判定提供元が未接続です。" }),
   Object.freeze({ label: "対象期間", statusLabel: "未接続", reason: "対象月と有効期間の判定提供元が未接続です。" }),
   Object.freeze({ label: "データ所有元", statusLabel: "未接続", reason: "データ所有元の判定提供元が未接続です。" }),

@@ -41,6 +41,8 @@ test("panel exposes no digests, identities, or enabled action", () => {
     assert.ok(html.includes(label));
   }
   assert.match(html, /本番カタログの権限確認が未完了です。/);
+  assert.match(html, /スナップショット[\s\S]*基盤候補済み/);
+  assert.match(html, /安全な基盤候補は検証済みです。runtime適用は未実施です。/);
   assert.match(html, /ローカル検証[\s\S]*本番証跡[\s\S]*分類承認/);
   assert.match(html, /レビュー済みの対象だけを扱います/);
   assert.match(html, /対象は1件から50件まで明示選択します/);

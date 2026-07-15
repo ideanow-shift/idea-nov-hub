@@ -19,6 +19,14 @@ const APPROVAL_RULES = Object.freeze([
   "変更前に版とスナップショットを再確認します",
 ]);
 
+const CLASSIFICATION_MILESTONES = Object.freeze([
+  Object.freeze({ label: "Source基盤", statusLabel: "完了", detail: "6提供元の非破壊基盤候補とrollback境界を検証済み" }),
+  Object.freeze({ label: "本番カタログ証跡", statusLabel: "保留", detail: "権限・owner・lock適合性のread-only確認が必要" }),
+  Object.freeze({ label: "基盤適用", statusLabel: "未実施", detail: "本番証跡PASS後に別承認で適用" }),
+  Object.freeze({ label: "Runtime接続", statusLabel: "未実施", detail: "承認済みprovider identityのみを6件接続" }),
+  Object.freeze({ label: "Preflight・承認", statusLabel: "停止中", detail: "対象1〜50件を再解決し、fail-closeで実行" }),
+]);
+
 const HARD_RUNTIME_GATE = false;
 
 export const SANITIZED_CLASSIFICATION_READINESS = Object.freeze({
@@ -140,6 +148,45 @@ export function renderClassificationReadinessPanel(model = SANITIZED_CLASSIFICAT
     </section>`;
 }
 
+export function renderClassificationWorkspace(model = SANITIZED_CLASSIFICATION_READINESS) {
+  const view = validateSanitizedReadinessModel(model) && HARD_RUNTIME_GATE === false ? model : invalidModel();
+  const milestones = view.status === "BLOCKED" ? CLASSIFICATION_MILESTONES : Object.freeze([]);
+  const milestoneRows = milestones.map((milestone, index) => `
+        <li class="classification-workspace-step">
+          <span class="classification-readiness-step-index">${index + 1}</span>
+          <div><strong>${escapeHtml(milestone.label)}</strong><p>${escapeHtml(milestone.detail)}</p></div>
+          <span class="classification-readiness-step-state">${escapeHtml(milestone.statusLabel)}</span>
+        </li>`).join("");
+
+  return `
+    <section class="panel classification-workspace" data-readiness-status="${escapeHtml(view.status)}" aria-labelledby="classificationWorkspaceTitle">
+      <div class="panel-head horizontal classification-readiness-head">
+        <div>
+          <p class="section-label">Classification Workspace</p>
+          <h2 id="classificationWorkspaceTitle">分類データを利用するまで</h2>
+          <p class="muted-text">安全確認から基盤適用、runtime接続、分類承認までの現在地を確認します。</p>
+        </div>
+        <span class="classification-readiness-badge">${escapeHtml(view.statusLabel)}</span>
+      </div>
+      <dl class="classification-workspace-metrics">
+        <div><dt>Source基盤候補</dt><dd>6 / 6</dd><span>ローカル検証済み</span></div>
+        <div><dt>本番カタログ証跡</dt><dd>${escapeHtml(view.productionCatalogProof)}</dd><span>read-only確認待ち</span></div>
+        <div><dt>Runtime接続</dt><dd>0 / 6</dd><span>identity未承認</span></div>
+        <div><dt>承認可能件数</dt><dd>0件</dd><span>fail-close停止中</span></div>
+      </dl>
+      <div class="classification-workspace-notice" role="status">
+        <strong>現在の停止理由</strong>
+        <p>本番カタログ証跡とruntime provider identityが未完了です。データ取込・分類承認はまだ実行しません。</p>
+      </div>
+      <ol class="classification-workspace-timeline" aria-label="分類データ利用までの手順">${milestoneRows}
+      </ol>
+      <div class="classification-readiness-action">
+        <button type="button" disabled aria-disabled="true" title="現在は操作できません">${escapeHtml(view.action.label)}</button>
+        <span>本番証跡とruntime接続が完了するまで無効です。</span>
+      </div>
+    </section>`;
+}
+
 export function mountClassificationReadinessPanel(root = globalThis.document) {
   const mount = root?.getElementById?.("classificationReadinessPanel");
   if (!mount) return false;
@@ -147,4 +194,14 @@ export function mountClassificationReadinessPanel(root = globalThis.document) {
   return true;
 }
 
-if (typeof document !== "undefined") mountClassificationReadinessPanel(document);
+export function mountClassificationWorkspace(root = globalThis.document) {
+  const mount = root?.getElementById?.("classificationWorkspace");
+  if (!mount) return false;
+  mount.innerHTML = renderClassificationWorkspace();
+  return true;
+}
+
+if (typeof document !== "undefined") {
+  mountClassificationReadinessPanel(document);
+  mountClassificationWorkspace(document);
+}

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>IDEA NOV Management Platform</title>
-  <link rel="stylesheet" href="./styles.css?v=ba41d2197776d191">
+  <link rel="stylesheet" href="./styles.css?v=d33be07aa3ff6ad0">
 </head>
 <body>
   <main class="app-shell">
@@ -17,6 +17,7 @@
       <nav class="top-nav" aria-label="主要機能">
         <button type="button" class="nav-btn active" data-view="dashboard">Dashboard</button>
         <button type="button" class="nav-btn" data-view="performance">成果</button>
+        <button type="button" class="nav-btn" data-view="classification">分類準備</button>
         <button type="button" class="nav-btn" data-view="environment">環境整備</button>
         <button type="button" class="nav-btn" data-view="growth">確認</button>
         <button type="button" class="nav-btn" data-view="records">履歴</button>
@@ -46,6 +47,10 @@
       <section class="panel focus-panel" id="focusPanel" aria-label="改善フォーカス"></section>
       <section class="panel store-summary-panel" id="storeSummaryPanel" aria-label="店舗別サマリー"></section>
       <section class="panel ai-priority-panel" id="aiPriorityPanel" aria-label="AI優先リスト"></section>
+    </section>
+
+    <section class="view" id="view-classification" aria-label="分類承認ワークスペース">
+      <section id="classificationWorkspace" aria-label="分類承認の実務準備"></section>
     </section>
 
     <section class="view" id="view-performance" aria-label="成果ダッシュボード">
@@ -443,7 +448,7 @@
     </section>
   </main>
   <script src="./config.js?v=management-platform-20260703-19"></script>
-  <script src="./app.js?v=management-platform-20260703-19"></script>
-  <script type="module" src="./classification-readiness-panel.js?v=132004b5b244939d"></script>
+  <script src="./app.js?v=820e1cabacb09f4c"></script>
+  <script type="module" src="./classification-readiness-panel.js?v=f4e2692d34d3220a"></script>
 </body>
 </html>

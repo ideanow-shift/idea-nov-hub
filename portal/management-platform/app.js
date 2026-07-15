@@ -79,7 +79,7 @@ function isManagementAdmin() {
 }
 
 function isViewAllowed(name) {
-  if (name === "environment") return isManagementAdmin();
+  if (name === "environment" || name === "classification") return isManagementAdmin();
   return true;
 }
 
@@ -3705,7 +3705,7 @@ function applyRoleBasedView() {
   const admin = isManagementAdmin();
   document.body.dataset.managementMode = admin ? "admin" : "recipient";
 
-  ["environment"].forEach((viewName) => {
+  ["environment", "classification"].forEach((viewName) => {
     const button = document.querySelector(`[data-view="${viewName}"]`);
     const view = document.getElementById(`view-${viewName}`);
     if (button) button.hidden = !admin;

@@ -86,8 +86,8 @@
 .navi-card-heading > div:first-child { min-width: 0; }
 .navi-card-title { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .navi-card-title > div { min-width: 0; }
-.navi-system-icon { display: grid; flex: 0 0 36px; width: 36px; height: 36px; place-items: center; border: 1px solid #dce5f0; border-radius: 6px; background: #f7f9fc; }
-.navi-system-icon img { display: block; width: 22px; height: 22px; object-fit: contain; }
+.navi-system-icon { display: grid; flex: 0 0 36px; width: 36px; height: 36px; place-items: center; }
+.navi-system-icon img { display: block; width: 32px; height: 32px; object-fit: contain; filter: saturate(1.18) contrast(1.03); }
 .navi-card-heading h4 { color: #0d2c54; font-size: 14px; font-weight: 750; line-height: 1.3; overflow-wrap: anywhere; }
 .navi-card-heading p { margin-top: 2px; color: var(--text-secondary); font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
 .navi-status { flex: 0 0 auto; border: 1px solid transparent; border-radius: 4px; background: #eef2f6; padding: 3px 7px; font-size: 9px; font-weight: 750; letter-spacing: 0; white-space: nowrap; }
@@ -184,7 +184,7 @@ body:has(#nov-navi-dashboard:not([hidden])) .site-header .icon-button:hover { ba
   .navi-card-heading > div:last-child { width: 100%; grid-template-columns: auto minmax(0, 1fr); grid-auto-flow: column; justify-content: start; justify-items: start; }
   .navi-card-title { gap: 7px; }
   .navi-system-icon { flex-basis: 34px; width: 34px; height: 34px; }
-  .navi-system-icon img { width: 21px; height: 21px; }
+  .navi-system-icon img { width: 30px; height: 30px; }
   .navi-audience { min-width: 0; max-width: 100%; text-align: left; }
   .navi-shortcuts { display: none; }
   .navi-open-button { width: 100%; min-height: 40px; }

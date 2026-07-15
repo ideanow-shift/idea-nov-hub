@@ -1,0 +1,17 @@
+{
+  "contractVersion": "classification-corporation-scope-provider-substrate-v1",
+  "decision": "SOURCE_CANDIDATE_CURRENT_NOT_READY",
+  "currentReady": false,
+  "runtimeApprovedDigest": null,
+  "schemaApplied": false,
+  "runtimeWired": false,
+  "files": {
+    "catalog-inventory.sql": { "bytes": 1941, "sha256": "84478A7516035781214D07DE60FDC0BFE4F49E703FA34B5EB9FD85670A2E4EF0" },
+    "contract.md": { "bytes": 2271, "sha256": "7204189FAFCA9B6E915B02B853AD5155688D37A5F7B1FC4B25FEE74B44665D71" },
+    "cutover-authoritative-resolver.sql": { "bytes": 431, "sha256": "34F553C9385D5FD4AB53F5C41606575D871872C823807B66E8A4E7EE51F32634" },
+    "down.sql": { "bytes": 777, "sha256": "1D149E62B979EF852CD2E2A9B44265B487AF487A3522D269D38EB511601A220A" },
+    "fixtures.mjs": { "bytes": 3454, "sha256": "AEB45D728271829F529678EECDCB60F96D0E7DBC3A0151CE1EB4CBD0824958AF" },
+    "substrate-up.sql": { "bytes": 4720, "sha256": "25DD3A380F159375803B6BB02233F19836B8CCB5CFBBB4453C95689B26FAEF48" },
+    "validator.mjs": { "bytes": 3588, "sha256": "501C2997DA5C360AFC15A78E0DA0CA3F66DDD3D7AC058832EB424E58172D69D4" }
+  }
+}

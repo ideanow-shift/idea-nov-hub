@@ -45,11 +45,13 @@ test("panel exposes no digests, identities, or enabled action", () => {
   assert.match(html, /安全な基盤候補は検証済みです。runtime適用は未実施です。/);
   assert.match(html, /法人範囲[\s\S]*基盤候補済み/);
   assert.match(html, /範囲判定の非破壊基盤候補は検証済みです。runtime適用は未実施です。/);
-  for (const label of ["対象期間", "データ所有元", "実行者・監査"]) {
+  assert.match(html, /対象期間[\s\S]*基盤候補済み/);
+  assert.match(html, /対象月と有効期間の非破壊基盤候補は検証済みです。runtime適用は未実施です。/);
+  for (const label of ["データ所有元", "実行者・監査"]) {
     assert.match(html, new RegExp(`${label}[\\s\\S]*契約検証済み`));
   }
-  assert.equal((html.match(/runtime接続は未実施です。/g) ?? []).length, 3);
-  assert.match(html, /基盤候補3件（うち本番証跡待ち1件）・契約検証3件。runtime接続まで操作不可/);
+  assert.equal((html.match(/runtime接続は未実施です。/g) ?? []).length, 2);
+  assert.match(html, /基盤候補4件（うち本番証跡待ち1件）・契約検証2件。runtime接続まで操作不可/);
   assert.match(html, /ローカル検証[\s\S]*本番証跡[\s\S]*分類承認/);
   assert.match(html, /レビュー済みの対象だけを扱います/);
   assert.match(html, /対象は1件から50件まで明示選択します/);

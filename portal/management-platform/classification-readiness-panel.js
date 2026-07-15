@@ -2,7 +2,7 @@ const PROVIDERS = Object.freeze([
   Object.freeze({ label: "版管理", statusLabel: "証跡待ち", reason: "本番カタログの権限確認が未完了です。" }),
   Object.freeze({ label: "スナップショット", statusLabel: "基盤候補済み", reason: "安全な基盤候補は検証済みです。runtime適用は未実施です。" }),
   Object.freeze({ label: "法人範囲", statusLabel: "基盤候補済み", reason: "範囲判定の非破壊基盤候補は検証済みです。runtime適用は未実施です。" }),
-  Object.freeze({ label: "対象期間", statusLabel: "契約検証済み", reason: "対象月と有効期間の安全契約は検証済みです。runtime接続は未実施です。" }),
+  Object.freeze({ label: "対象期間", statusLabel: "基盤候補済み", reason: "対象月と有効期間の非破壊基盤候補は検証済みです。runtime適用は未実施です。" }),
   Object.freeze({ label: "データ所有元", statusLabel: "契約検証済み", reason: "所有元判定の安全契約は検証済みです。runtime接続は未実施です。" }),
   Object.freeze({ label: "実行者・監査", statusLabel: "契約検証済み", reason: "実行者確認と監査記録の安全契約は検証済みです。runtime接続は未実施です。" }),
 ]);
@@ -10,7 +10,7 @@ const PROVIDERS = Object.freeze([
 const WORKFLOW = Object.freeze([
   Object.freeze({ label: "ローカル検証", statusLabel: "完了", detail: "forward・確認・rollback・cleanを完了" }),
   Object.freeze({ label: "本番証跡", statusLabel: "保留", detail: "権限リスクの切り分け待ち" }),
-  Object.freeze({ label: "分類承認", statusLabel: "停止中", detail: "基盤候補3件（うち本番証跡待ち1件）・契約検証3件。runtime接続まで操作不可" }),
+  Object.freeze({ label: "分類承認", statusLabel: "停止中", detail: "基盤候補4件（うち本番証跡待ち1件）・契約検証2件。runtime接続まで操作不可" }),
 ]);
 
 const APPROVAL_RULES = Object.freeze([

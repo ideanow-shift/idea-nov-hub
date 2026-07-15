@@ -1,6 +1,6 @@
 {
   "version": "nova-design-system-v2",
-  "defaultIcon": "./assets/icons/default.svg",
+  "defaultIcon": "./assets/icons/default.svg?v=9f05ede687419a1f",
   "defaultColor": "#E8B4B8",
   "apps": [
     {
@@ -33,7 +33,7 @@
     {
       "appId": "education-web",
       "appName": "教育部WEBアプリ",
-      "icon": "./assets/icons/education.svg",
+      "icon": "./assets/icons/education.svg?v=d7c5d0ec9f3699bd",
       "color": "#8FB8E8",
       "aliases": [
         "教育部WEBアプリ",
@@ -58,7 +58,7 @@
     {
       "appId": "attendance",
       "appName": "勤怠管理",
-      "icon": "./assets/icons/attendance.svg",
+      "icon": "./assets/icons/attendance.svg?v=0f1f07cc9e9d8836",
       "color": "#9BCFB8",
       "aliases": [
         "勤怠管理",
@@ -69,7 +69,7 @@
     {
       "appId": "shift",
       "appName": "シフト作成",
-      "icon": "./assets/icons/shift.svg",
+      "icon": "./assets/icons/shift.svg?v=ae071af5f4226926",
       "color": "#BCA7E8",
       "aliases": [
         "シフト作成",
@@ -103,7 +103,7 @@
     {
       "appId": "management-system",
       "appName": "経営管理システム",
-      "icon": "./assets/icons/management.svg",
+      "icon": "./assets/icons/management.svg?v=a5422406fdf0a523",
       "color": "#8FBFD0",
       "aliases": [
         "経営管理システム",
@@ -138,7 +138,7 @@
     {
       "appId": "task-management",
       "appName": "タスク管理",
-      "icon": "./assets/icons/task.svg",
+      "icon": "./assets/icons/task.svg?v=deff7c04254fb5af",
       "color": "#96B7D8",
       "aliases": [
         "タスク管理",
@@ -149,7 +149,7 @@
     {
       "appId": "THANKS",
       "appName": "理念浸透システム",
-      "icon": "./assets/icons/philosophy.svg",
+      "icon": "./assets/icons/philosophy.svg?v=afc0a34dcc0be752",
       "color": "#E8C078",
       "aliases": [
         "THANKS",
@@ -161,7 +161,7 @@
     {
       "appId": "idea-link",
       "appName": "IDEA LINK",
-      "icon": "./assets/icons/philosophy.svg",
+      "icon": "./assets/icons/philosophy.svg?v=afc0a34dcc0be752",
       "color": "#E8C078",
       "aliases": [
         "IDEA LINK",
@@ -212,7 +212,7 @@
     {
       "appId": "management-check",
       "appName": "マネジメントチェック",
-      "icon": "./assets/icons/management-check.svg",
+      "icon": "./assets/icons/management-check.svg?v=9cd1aa276a6297df",
       "color": "#8FBFD0",
       "aliases": [
         "マネジメントチェック",
@@ -236,7 +236,7 @@
     {
       "appId": "human-capital-investment",
       "appName": "人財投資管理システム",
-      "icon": "./assets/icons/human-capital-investment.svg",
+      "icon": "./assets/icons/human-capital-investment.svg?v=a73c2ced53be8a6a",
       "color": "#E8C078",
       "aliases": [
         "人財投資管理システム",
@@ -250,7 +250,7 @@
     {
       "appId": "expense_hub",
       "appName": "経費精算管理システム",
-      "icon": "./assets/icons/expense-hub.svg",
+      "icon": "./assets/icons/expense-hub.svg?v=bffb51fcf8310499",
       "color": "#8FBFD0",
       "aliases": [
         "経費精算管理システム",
@@ -268,11 +268,11 @@
   ],
   "categories": {
     "称賛": {
-      "icon": "./assets/icons/philosophy.svg",
+      "icon": "./assets/icons/philosophy.svg?v=afc0a34dcc0be752",
       "color": "#E8C078"
     },
     "全般": {
-      "icon": "./assets/icons/task.svg",
+      "icon": "./assets/icons/task.svg?v=deff7c04254fb5af",
       "color": "#96B7D8"
     },
     "管理": {
@@ -280,27 +280,27 @@
       "color": "#9FAFE8"
     },
     "Finance Module": {
-      "icon": "./assets/icons/expense-hub.svg",
+      "icon": "./assets/icons/expense-hub.svg?v=bffb51fcf8310499",
       "color": "#8FBFD0"
     },
     "コンピテンシー": {
-      "icon": "./assets/icons/management-check.svg",
+      "icon": "./assets/icons/management-check.svg?v=9cd1aa276a6297df",
       "color": "#8FBFD0"
     },
     "経営": {
-      "icon": "./assets/icons/management.svg",
+      "icon": "./assets/icons/management.svg?v=a5422406fdf0a523",
       "color": "#8FBFD0"
     },
     "人財": {
-      "icon": "./assets/icons/human-capital-investment.svg",
+      "icon": "./assets/icons/human-capital-investment.svg?v=a73c2ced53be8a6a",
       "color": "#E8C078"
     },
     "勤怠・シフト": {
-      "icon": "./assets/icons/shift.svg",
+      "icon": "./assets/icons/shift.svg?v=ae071af5f4226926",
       "color": "#BCA7E8"
     },
     "教育": {
-      "icon": "./assets/icons/education.svg",
+      "icon": "./assets/icons/education.svg?v=d7c5d0ec9f3699bd",
       "color": "#8FB8E8"
     }
   }

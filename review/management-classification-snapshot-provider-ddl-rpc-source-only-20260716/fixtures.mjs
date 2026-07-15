@@ -15,7 +15,7 @@ test("content manifest fixes every reviewed dependency", () => {
   assert.equal(manifest.currentReady, false);
   assert.equal(manifest.runtimeApprovedDigest, null);
   for (const [name, identity] of Object.entries(manifest.files)) {
-    const bytes = fs.readFileSync(path.join(root, name));
+    const bytes = Buffer.from(fs.readFileSync(path.join(root, name), "utf8").replace(/\r\n/g, "\n"), "utf8");
     assert.equal(bytes.length, identity.bytes);
     assert.equal(crypto.createHash("sha256").update(bytes).digest("hex").toUpperCase(), identity.sha256);
   }

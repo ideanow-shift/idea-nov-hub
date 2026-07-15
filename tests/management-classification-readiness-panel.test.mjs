@@ -25,6 +25,9 @@ test("mount follows Management Flow and module loads independently", () => {
 test("sanitized six-provider model is fail-closed", () => {
   assert.equal(validateSanitizedReadinessModel(SANITIZED_CLASSIFICATION_READINESS), true);
   assert.equal(SANITIZED_CLASSIFICATION_READINESS.providers.length, 6);
+  assert.equal(SANITIZED_CLASSIFICATION_READINESS.workflow.length, 3);
+  assert.equal(SANITIZED_CLASSIFICATION_READINESS.localRehearsal, "PASS");
+  assert.equal(SANITIZED_CLASSIFICATION_READINESS.productionCatalogProof, "PENDING");
   assert.equal(SANITIZED_CLASSIFICATION_READINESS.action.enabled, false);
   assert.equal(SANITIZED_CLASSIFICATION_READINESS.action.reason, "VERSION_PROVIDER_NOT_READY");
 });
@@ -36,6 +39,8 @@ test("panel exposes no digests, identities, or enabled action", () => {
   for (const label of ["版管理", "スナップショット", "法人範囲", "対象期間", "データ所有元", "実行者・監査"]) {
     assert.ok(html.includes(label));
   }
+  assert.match(html, /本番カタログの権限確認が未完了です。/);
+  assert.match(html, /ローカル検証[\s\S]*本番証跡[\s\S]*分類承認/);
 });
 
 test("invalid model renders a closed empty state", () => {
@@ -56,12 +61,14 @@ test("mount changes only its dedicated element", () => {
 test("desktop visual contract uses stable three-column provider grid", () => {
   assert.match(styles, /\.classification-readiness-providers\s*{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/s);
   assert.match(styles, /\.classification-readiness-facts\s*{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/s);
+  assert.match(styles, /\.classification-readiness-workflow\s*{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/s);
 });
 
 test("mobile visual contract stacks facts, providers, and action", () => {
   const mobile = styles.match(/@media \(max-width: 560px\)\s*{[\s\S]*?\n}/)?.[0] ?? "";
   assert.match(mobile, /\.classification-readiness-facts/);
   assert.match(mobile, /\.classification-readiness-providers/);
+  assert.match(styles, /@media \(max-width: 880px\)[\s\S]*\.classification-readiness-workflow\s*{\s*grid-template-columns:\s*1fr;/);
   assert.match(styles, /\.classification-readiness-action\s*{[^}]*flex-direction:\s*column/s);
 });
 

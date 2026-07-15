@@ -271,6 +271,58 @@ button:hover {
   font-weight: 600;
 }
 
+.classification-readiness-provider strong,
+.classification-readiness-step strong {
+  display: block;
+  font-size: 13px;
+}
+
+.classification-readiness-provider p,
+.classification-readiness-step p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.classification-readiness-workflow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.classification-readiness-step {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 9px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.classification-readiness-step-index {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.classification-readiness-step-state {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .classification-readiness-action {
   display: flex;
   align-items: center;
@@ -1424,6 +1476,7 @@ th {
   .management-flow-grid,
   .mode-guide-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .classification-readiness-providers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .classification-readiness-workflow { grid-template-columns: 1fr; }
   .performance-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .performance-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .focus-grid { grid-template-columns: 1fr; }
@@ -1447,6 +1500,7 @@ th {
   .management-flow-grid,
   .classification-readiness-facts,
   .classification-readiness-providers,
+  .classification-readiness-workflow,
   .field-grid,
   .choice-grid,
   .history-tools,

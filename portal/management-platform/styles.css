@@ -198,6 +198,89 @@ button:hover {
   margin-top: 12px;
 }
 
+#classificationReadinessPanel {
+  margin-top: 12px;
+}
+
+.classification-readiness-panel {
+  border-left: 4px solid var(--warn);
+}
+
+.classification-readiness-head {
+  gap: 16px;
+}
+
+.classification-readiness-badge,
+.classification-readiness-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: #fff4dc;
+  color: #754c00;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.classification-readiness-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 16px 0;
+  border: 1px solid var(--line);
+  background: var(--line);
+}
+
+.classification-readiness-facts div {
+  min-width: 0;
+  padding: 12px 14px;
+  background: var(--panel);
+}
+
+.classification-readiness-facts dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.classification-readiness-facts dd {
+  margin: 5px 0 0;
+  font-weight: 700;
+}
+
+.classification-readiness-providers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.classification-readiness-provider {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  font-weight: 600;
+}
+
+.classification-readiness-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .management-flow-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1340,6 +1423,7 @@ th {
   .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .management-flow-grid,
   .mode-guide-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .classification-readiness-providers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .performance-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .performance-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .focus-grid { grid-template-columns: 1fr; }
@@ -1361,6 +1445,8 @@ th {
 
   .dashboard-grid,
   .management-flow-grid,
+  .classification-readiness-facts,
+  .classification-readiness-providers,
   .field-grid,
   .choice-grid,
   .history-tools,
@@ -1386,6 +1472,11 @@ th {
 
   .action-panel-actions {
     justify-content: stretch;
+  }
+
+  .classification-readiness-action {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .table-wrap {

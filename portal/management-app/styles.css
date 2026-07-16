@@ -125,6 +125,10 @@ tbody tr:hover td { background: var(--card-soft); }
 .csv-template-list { display: grid; gap: 0; border-top: 1px solid var(--border-light); }
 .csv-validation-summary { margin: 0 0 12px; padding: 10px 12px; color: var(--text-secondary); background: var(--card-soft); border-left: 3px solid var(--border-light); border-radius: var(--radius-md); font-size: 13px; }
 .csv-validation-summary[data-csv-ready="LOCAL_FILES_READY"] { color: var(--text-primary); border-left-color: var(--color-success); }
+.csv-validation-receipt { width: fit-content; min-height: 36px; margin: 0 0 12px; padding: 7px 12px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-primary); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 13px; font-weight: 500; text-decoration: none; }
+.csv-validation-receipt:hover { background: var(--color-bassa-soft); }
+.csv-validation-receipt:focus-visible { outline: 2px solid var(--color-bassa); outline-offset: 2px; }
+.csv-validation-receipt[aria-disabled="true"] { color: var(--text-muted); cursor: not-allowed; opacity: .65; pointer-events: none; }
 .csv-template-item { min-width: 0; padding: 12px 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; border-bottom: 1px solid var(--border-light); }
 .csv-template-item > div { min-width: 0; display: grid; gap: 2px; }
 .csv-template-item strong { color: var(--text-primary); font-size: 14px; font-weight: 500; }

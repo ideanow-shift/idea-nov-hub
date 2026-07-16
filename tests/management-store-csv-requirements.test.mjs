@@ -5,6 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   SANITIZED_CSV_REQUIREMENTS,
+  buildLocalValidationReceipt,
   buildCsvRequirementsView,
   renderCsvRequirements,
   validateCsvRequirements,
@@ -90,24 +91,51 @@ test("file boundary enforces type, size, and read failure without raw output", a
   assert.deepEqual(await validateLocalCsvFile(0, { ...validFile, text: async () => { throw new Error("private read detail"); } }), { category: "READ_FAILED", valid: false, rowCount: 0 });
 });
 
+test("local receipt contains aggregate fixed fields only", () => {
+  const receipt = buildLocalValidationReceipt([
+    { category: "VALID", valid: true, rowCount: 12 },
+    { category: "VALID", valid: true, rowCount: 31 },
+    { category: "VALID", valid: true, rowCount: 31 },
+  ]);
+  assert.deepEqual(receipt, {
+    schemaVersion: "management-store-csv-local-validation-v1",
+    status: "LOCAL_FILES_READY",
+    files: [
+      { kind: "STORE_MONTHLY_SALES", category: "VALID", rowCount: 12 },
+      { kind: "STORE_DAILY_SALES", category: "VALID", rowCount: 31 },
+      { kind: "STORE_RESERVATIONS", category: "VALID", rowCount: 31 },
+    ],
+  });
+  assert.doesNotMatch(JSON.stringify(receipt), /employee|staff|salary|storeName|fileName|digest|private/i);
+  assert.equal(buildLocalValidationReceipt([receipt.files[0], receipt.files[1], receipt.files[2]]), null);
+  assert.equal(buildLocalValidationReceipt([
+    { category: "VALID", valid: true, rowCount: 1, rawValue: "private" },
+    { category: "VALID", valid: true, rowCount: 1 },
+    { category: "VALID", valid: true, rowCount: 1 },
+  ]), null);
+});
+
 test("renderer exposes local download and validation without runtime action", async () => {
-  const createElement = (tagName) => ({ tagName, textContent: "", className: "", href: "", download: "", type: "", accept: "", hidden: false, value: "", files: [], attributes: {}, listeners: {}, children: [], dataset: {}, append(...children) { this.children.push(...children); }, setAttribute(name, value) { this.attributes[name] = value; }, addEventListener(name, listener) { this.listeners[name] = listener; } });
+  const createElement = (tagName) => ({ tagName, textContent: "", className: "", href: "", download: "", type: "", accept: "", hidden: false, value: "", files: [], attributes: {}, listeners: {}, children: [], dataset: {}, append(...children) { this.children.push(...children); }, setAttribute(name, value) { this.attributes[name] = value; }, removeAttribute(name) { delete this.attributes[name]; if (name === "href") this.href = ""; }, addEventListener(name, listener) { this.listeners[name] = listener; } });
   const container = { dataset: {}, children: [], replaceChildren(...children) { this.children = children; } };
   assert.equal(renderCsvRequirements(container, SANITIZED_CSV_REQUIREMENTS, { createElement }), true);
   assert.equal(container.dataset.csvRequirementStatus, "READY_FOR_FILE_PREPARATION");
   assert.equal(container.dataset.csvLocalValidation, "ENABLED");
-  assert.equal(container.children.length, 4);
+  assert.equal(container.children.length, 5);
   assert.equal(container.children[2].dataset.csvReady, "NOT_READY");
   assert.equal(container.children[2].textContent, "ローカル確認 0/3");
-  assert.equal(container.children[3].children.length, 3);
-  assert.deepEqual(container.children[3].children.map((item) => item.children[1].children[0].tagName), ["a", "a", "a"]);
-  assert.deepEqual(container.children[3].children.map((item) => item.children[1].children[0].download), [
+  assert.equal(container.children[3].dataset.csvReceipt, "NOT_READY");
+  assert.equal(container.children[3].attributes["aria-disabled"], "true");
+  assert.equal(container.children[3].href, "");
+  assert.equal(container.children[4].children.length, 3);
+  assert.deepEqual(container.children[4].children.map((item) => item.children[1].children[0].tagName), ["a", "a", "a"]);
+  assert.deepEqual(container.children[4].children.map((item) => item.children[1].children[0].download), [
     "store-monthly-sales-template.csv",
     "store-daily-sales-template.csv",
     "store-reservations-template.csv",
   ]);
-  assert.equal(container.children[3].children.every((item) => item.children[1].children[0].href.startsWith("data:text/csv")), true);
-  const firstItem = container.children[3].children[0];
+  assert.equal(container.children[4].children.every((item) => item.children[1].children[0].href.startsWith("data:text/csv")), true);
+  const firstItem = container.children[4].children[0];
   const input = firstItem.children[1].children[1].children[0];
   const status = firstItem.children[2];
   input.files = [{ name: "private-name.csv", size: 48, text: async () => '対象月,店舗,売上\n2026-07,private-store,100\n' }];
@@ -124,21 +152,32 @@ test("renderer exposes local download and validation without runtime action", as
     { name: "reservations.csv", size: 70, text: async () => '営業日,店舗,予約枠,予約数\n2026-07-01,店舗A,10,5\n' },
   ];
   for (let index = 1; index < 3; index += 1) {
-    const nextInput = container.children[3].children[index].children[1].children[1].children[0];
+    const nextInput = container.children[4].children[index].children[1].children[1].children[0];
     nextInput.files = [remainingFiles[index - 1]];
     await nextInput.listeners.change({ currentTarget: nextInput });
   }
   assert.equal(container.children[2].dataset.csvReady, "LOCAL_FILES_READY");
   assert.equal(container.children[2].dataset.csvReadyCount, "3");
   assert.equal(container.children[2].textContent, "ローカル確認 3/3完了。取込はまだ実行できません。");
+  assert.equal(container.children[3].dataset.csvReceipt, "READY");
+  assert.equal(container.children[3].attributes["aria-disabled"], "false");
+  assert.match(container.children[3].href, /^data:application\/json;charset=utf-8,/);
+  const receipt = JSON.parse(decodeURIComponent(container.children[3].href.split(",")[1]));
+  assert.deepEqual(receipt.files.map(({ rowCount }) => rowCount), [1, 1, 1]);
+  assert.doesNotMatch(JSON.stringify(receipt), /private|店舗A/);
+  input.files = [{ name: "private-invalid.csv", size: 40, text: async () => "対象月,店舗,売上\n2026-13,private-store,100\n" }];
+  await input.listeners.change({ currentTarget: input });
+  assert.equal(container.children[3].dataset.csvReceipt, "NOT_READY");
+  assert.equal(container.children[3].attributes["aria-disabled"], "true");
+  assert.equal(container.children[3].href, "");
   assert.equal(renderCsvRequirements(null, SANITIZED_CSV_REQUIREMENTS, { createElement }), false);
 });
 
 test("active Management app integrates display only", () => {
   assert.match(html, /id="csv-requirements"/);
-  assert.match(html, /app-v2\.js\?v=b3a31d02a14197b2/);
-  assert.match(html, /styles\.css\?v=004ea98c55a3cb23/);
-  assert.match(app, /store-csv-requirements\.js\?v=57c7e4f0ea54068b/);
+  assert.match(html, /app-v2\.js\?v=7c8f372b82cb22d6/);
+  assert.match(html, /styles\.css\?v=afbada0edeb767df/);
+  assert.match(app, /store-csv-requirements\.js\?v=a9c05abbcad54a84/);
   assert.match(app, /renderCsvRequirements\(elements\.csvRequirements, data\.requiredCsvFiles\)/);
   assert.doesNotMatch(app, /csvRequirements[\s\S]{0,240}(upload|submit|import|mutation)/i);
 });

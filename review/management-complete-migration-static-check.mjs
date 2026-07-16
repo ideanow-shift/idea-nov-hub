@@ -41,6 +41,8 @@ const required = [
   [files.csvRequirements, 'ファイル内容は送信せず'],
   [files.csvRequirements, 'PERIOD_VALUE_INVALID'],
   [files.csvRequirements, 'LOCAL_FILES_READY'],
+  [files.csvRequirements, 'buildLocalValidationReceipt'],
+  [files.csvRequirements, 'data:application/json;charset=utf-8'],
   [files.backend, 'managementFinanceSummary: true'],
   [files.backend, 'managementStoresSummary: true'],
   [files.backend, 'managementDataopsStatus: true'],
@@ -72,5 +74,6 @@ console.log(JSON.stringify({
   dbMutationAdded: false,
   localCsvTemplates: 3,
   localCsvValidation: true,
-  localCsvSemanticValidation: true
+  localCsvSemanticValidation: true,
+  aggregateOnlyLocalReceipt: true
 }, null, 2));

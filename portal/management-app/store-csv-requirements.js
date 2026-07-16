@@ -5,6 +5,9 @@ const MONTH_PATTERN = /^20\d{2}-(0[1-9]|1[0-2])$/;
 const DATE_PATTERN = /^(20\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const DECIMAL_PATTERN = /^(0|[1-9]\d{0,11})(\.\d{1,2})?$/;
 const INTEGER_PATTERN = /^(0|[1-9]\d{0,8})$/;
+const VALIDATION_RESULT_KEYS = Object.freeze(["category", "valid", "rowCount"]);
+const RECEIPT_KINDS = Object.freeze(["STORE_MONTHLY_SALES", "STORE_DAILY_SALES", "STORE_RESERVATIONS"]);
+const RECEIPT_SCHEMA_VERSION = "management-store-csv-local-validation-v1";
 
 const CSV_TEMPLATES = Object.freeze([
   Object.freeze({ filename: "store-monthly-sales-template.csv", headers: Object.freeze(["対象月", "店舗", "売上"]) }),
@@ -45,6 +48,37 @@ function createTemplate(requirement, template) {
 
 function sanitizedValidation(category, valid = false, rowCount = 0) {
   return Object.freeze({ category, valid, rowCount });
+}
+
+function exactValidationResult(result) {
+  if (!result || typeof result !== "object" || Array.isArray(result)) return false;
+  const keys = Object.keys(result);
+  return keys.length === VALIDATION_RESULT_KEYS.length
+    && keys.every((key) => VALIDATION_RESULT_KEYS.includes(key))
+    && result.category === "VALID"
+    && result.valid === true
+    && Number.isSafeInteger(result.rowCount)
+    && result.rowCount >= 1
+    && result.rowCount <= MAX_CSV_DATA_ROWS;
+}
+
+export function buildLocalValidationReceipt(results) {
+  if (!Array.isArray(results)
+    || results.length !== RECEIPT_KINDS.length
+    || !results.every(exactValidationResult)) return null;
+  return Object.freeze({
+    schemaVersion: RECEIPT_SCHEMA_VERSION,
+    status: "LOCAL_FILES_READY",
+    files: Object.freeze(results.map((result, index) => Object.freeze({
+      kind: RECEIPT_KINDS[index],
+      category: "VALID",
+      rowCount: result.rowCount,
+    }))),
+  });
+}
+
+function validationReceiptHref(receipt) {
+  return `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(receipt))}`;
 }
 
 function parseCsvRecords(text) {
@@ -244,10 +278,17 @@ export function renderCsvRequirements(container, items, documentRef = globalThis
   const readiness = documentRef.createElement("div");
   readiness.className = "csv-validation-summary";
   readiness.setAttribute("aria-live", "polite");
+  const receipt = documentRef.createElement("a");
+  receipt.className = "csv-validation-receipt";
+  receipt.download = "management-store-csv-local-validation.json";
+  receipt.textContent = "確認結果を保存";
+  receipt.setAttribute("aria-disabled", "true");
+  receipt.dataset.csvReceipt = "NOT_READY";
   const validationResults = Array(view.templates.length).fill(null);
   const updateReadiness = () => {
     const validCount = validationResults.filter((result) => result?.valid).length;
-    const allReady = view.templates.length > 0 && validCount === view.templates.length;
+    const localReceipt = buildLocalValidationReceipt(validationResults);
+    const allReady = localReceipt !== null;
     readiness.dataset.csvReady = allReady ? "LOCAL_FILES_READY" : "NOT_READY";
     readiness.dataset.csvReadyCount = String(validCount);
     readiness.textContent = view.templates.length
@@ -255,6 +296,10 @@ export function renderCsvRequirements(container, items, documentRef = globalThis
         ? `ローカル確認 ${validCount}/${view.templates.length}完了。取込はまだ実行できません。`
         : `ローカル確認 ${validCount}/${view.templates.length}`
       : "ローカル確認は利用できません";
+    receipt.dataset.csvReceipt = allReady ? "READY" : "NOT_READY";
+    receipt.setAttribute("aria-disabled", allReady ? "false" : "true");
+    if (localReceipt) receipt.href = validationReceiptHref(localReceipt);
+    else receipt.removeAttribute("href");
   };
   updateReadiness();
   const list = documentRef.createElement("div");
@@ -311,6 +356,6 @@ export function renderCsvRequirements(container, items, documentRef = globalThis
   });
   container.dataset.csvRequirementStatus = view.status;
   container.dataset.csvLocalValidation = view.templates.length ? "ENABLED" : "DISABLED";
-  container.replaceChildren(heading, summary, readiness, list);
+  container.replaceChildren(heading, summary, readiness, receipt, list);
   return true;
 }

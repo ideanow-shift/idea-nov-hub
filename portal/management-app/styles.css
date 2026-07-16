@@ -123,13 +123,17 @@ tbody tr:hover td { background: var(--card-soft); }
 .status-band p:last-child { margin-bottom: 0; }
 .status-band ul { margin: 0; padding-left: 20px; }
 .csv-template-list { display: grid; gap: 0; border-top: 1px solid var(--border-light); }
-.csv-template-item { min-width: 0; padding: 12px 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; border-bottom: 1px solid var(--border-light); }
+.csv-template-item { min-width: 0; padding: 12px 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; border-bottom: 1px solid var(--border-light); }
 .csv-template-item > div { min-width: 0; display: grid; gap: 2px; }
 .csv-template-item strong { color: var(--text-primary); font-size: 14px; font-weight: 500; }
 .csv-template-item span { overflow-wrap: anywhere; }
-.csv-template-download { min-height: 36px; padding: 7px 12px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-primary); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap; }
-.csv-template-download:hover { background: var(--color-bassa-soft); }
-.csv-template-download:focus-visible { outline: 2px solid var(--color-bassa); outline-offset: 2px; }
+.csv-template-actions { display: flex !important; grid-template-columns: none !important; align-items: center; gap: 8px !important; }
+.csv-template-download, .csv-template-validate { min-height: 36px; padding: 7px 12px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-primary); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap; cursor: pointer; }
+.csv-template-download:hover, .csv-template-validate:hover { background: var(--color-bassa-soft); }
+.csv-template-download:focus-visible, .csv-template-validate:focus-within { outline: 2px solid var(--color-bassa); outline-offset: 2px; }
+.csv-validation-status { grid-column: 1 / -1; min-height: 21px; color: var(--text-secondary); font-size: 12px; }
+.csv-validation-status[data-csv-validation="VALID"] { color: var(--color-success); font-weight: 500; }
+.csv-validation-status[data-csv-validation="HEADER_MISMATCH"], .csv-validation-status[data-csv-validation="ROW_SHAPE_INVALID"], .csv-validation-status[data-csv-validation="ROW_LIMIT_EXCEEDED"], .csv-validation-status[data-csv-validation="CSV_MALFORMED"], .csv-validation-status[data-csv-validation="FILE_TYPE_INVALID"], .csv-validation-status[data-csv-validation="FILE_TOO_LARGE"], .csv-validation-status[data-csv-validation="READ_FAILED"] { color: var(--color-alert); }
 .workflow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
 .workflow-step { padding: 16px; background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
 .workflow-step h3 { margin: 0 0 8px; font-size: 15px; font-weight: 500; }
@@ -174,7 +178,9 @@ tbody tr:hover td { background: var(--card-soft); }
   .chart-canvas { min-height: 260px; }
   .section-heading { align-items: flex-start; }
   .csv-template-item { grid-template-columns: 1fr; }
-  .csv-template-download { width: 100%; }
+  .csv-template-actions { display: grid !important; grid-template-columns: 1fr 1fr !important; }
+  .csv-template-download, .csv-template-validate { width: 100%; white-space: normal; text-align: center; }
+  .csv-validation-status { grid-column: 1; }
 }
 @media (max-width: 480px) {
   .metric-grid { grid-template-columns: 1fr; }

@@ -37,6 +37,8 @@ const required = [
   [files.csvRequirements, '必要項目:'],
   [files.csvRequirements, 'CSVひな形を保存'],
   [files.csvRequirements, 'data:text/csv;charset=utf-8'],
+  [files.csvRequirements, 'validateLocalCsvFile'],
+  [files.csvRequirements, 'ファイル内容は送信せず'],
   [files.backend, 'managementFinanceSummary: true'],
   [files.backend, 'managementStoresSummary: true'],
   [files.backend, 'managementDataopsStatus: true'],
@@ -66,5 +68,6 @@ console.log(JSON.stringify({
   frontendForbiddenExposure: false,
   browserDirectSupabase: false,
   dbMutationAdded: false,
-  localCsvTemplates: 3
+  localCsvTemplates: 3,
+  localCsvValidation: true
 }, null, 2));

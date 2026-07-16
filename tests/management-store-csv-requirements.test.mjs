@@ -8,6 +8,8 @@ import {
   buildCsvRequirementsView,
   renderCsvRequirements,
   validateCsvRequirements,
+  validateLocalCsvFile,
+  validateLocalCsvText,
 } from "../portal/management-app/store-csv-requirements.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -52,28 +54,66 @@ test("unknown, missing, reordered, and wrong values fail closed", () => {
   assert.deepEqual(invalid, { status: "INVALID", summary: "CSV要件を安全に確認できません。取込は実行しません。", labels: [], templates: [] });
 });
 
-test("renderer exposes local downloads without upload or runtime action", () => {
-  const createElement = (tagName) => ({ tagName, textContent: "", className: "", href: "", download: "", attributes: {}, children: [], dataset: {}, append(...children) { this.children.push(...children); }, setAttribute(name, value) { this.attributes[name] = value; } });
+test("local validator accepts exact headers and returns sanitized counts only", () => {
+  assert.deepEqual(validateLocalCsvText(0, '\uFEFF"対象月","店舗","売上"\r\n"2026-07","店舗A","100"\r\n'), { category: "VALID", valid: true, rowCount: 1 });
+  assert.deepEqual(validateLocalCsvText(1, '営業日,店舗,売上,客数,客単価\n2026-07-01,"店舗,本店",100,2,50\n2026-07-02,店舗B,200,4,50\n'), { category: "VALID", valid: true, rowCount: 2 });
+  assert.deepEqual(validateLocalCsvText(2, '"営業日","店舗","予約枠","予約数"\n"2026-07-01","改\n行店舗","10","5"\n'), { category: "VALID", valid: true, rowCount: 1 });
+  const resultText = JSON.stringify(validateLocalCsvText(0, '対象月,店舗,売上\nprivate-value,private-store,100\n'));
+  assert.doesNotMatch(resultText, /private/);
+});
+
+test("local validator fails closed for malformed and mismatched CSV", () => {
+  assert.deepEqual(validateLocalCsvText(0, '\uFEFF"対象月","店舗","売上"\r\n'), { category: "NO_DATA_ROWS", valid: false, rowCount: 0 });
+  assert.deepEqual(validateLocalCsvText(0, '店舗,対象月,売上\nA,2026-07,100\n'), { category: "HEADER_MISMATCH", valid: false, rowCount: 0 });
+  assert.deepEqual(validateLocalCsvText(0, '対象月,店舗\n2026-07,A\n'), { category: "HEADER_MISMATCH", valid: false, rowCount: 0 });
+  assert.deepEqual(validateLocalCsvText(0, '対象月,店舗,売上\n2026-07,A\n'), { category: "ROW_SHAPE_INVALID", valid: false, rowCount: 0 });
+  assert.deepEqual(validateLocalCsvText(0, '対象月,店舗,売上\n"2026-07,A,100\n'), { category: "CSV_MALFORMED", valid: false, rowCount: 0 });
+  assert.deepEqual(validateLocalCsvText(0, '対象月,店\uFFFD,売上\n2026-07,A,100\n'), { category: "CSV_MALFORMED", valid: false, rowCount: 0 });
+  assert.deepEqual(validateLocalCsvText(3, 'anything'), { category: "REQUEST_INVALID", valid: false, rowCount: 0 });
+});
+
+test("file boundary enforces type, size, and read failure without raw output", async () => {
+  const validFile = { name: "monthly.csv", size: 48, text: async () => '対象月,店舗,売上\n2026-07,店舗A,100\n' };
+  assert.deepEqual(await validateLocalCsvFile(0, validFile), { category: "VALID", valid: true, rowCount: 1 });
+  assert.deepEqual(await validateLocalCsvFile(0, { ...validFile, name: "monthly.txt" }), { category: "FILE_TYPE_INVALID", valid: false, rowCount: 0 });
+  assert.deepEqual(await validateLocalCsvFile(0, { ...validFile, size: 5 * 1024 * 1024 + 1 }), { category: "FILE_TOO_LARGE", valid: false, rowCount: 0 });
+  assert.deepEqual(await validateLocalCsvFile(0, { ...validFile, text: async () => { throw new Error("private read detail"); } }), { category: "READ_FAILED", valid: false, rowCount: 0 });
+});
+
+test("renderer exposes local download and validation without runtime action", async () => {
+  const createElement = (tagName) => ({ tagName, textContent: "", className: "", href: "", download: "", type: "", accept: "", hidden: false, value: "", files: [], attributes: {}, listeners: {}, children: [], dataset: {}, append(...children) { this.children.push(...children); }, setAttribute(name, value) { this.attributes[name] = value; }, addEventListener(name, listener) { this.listeners[name] = listener; } });
   const container = { dataset: {}, children: [], replaceChildren(...children) { this.children = children; } };
   assert.equal(renderCsvRequirements(container, SANITIZED_CSV_REQUIREMENTS, { createElement }), true);
   assert.equal(container.dataset.csvRequirementStatus, "READY_FOR_FILE_PREPARATION");
+  assert.equal(container.dataset.csvLocalValidation, "ENABLED");
   assert.equal(container.children.length, 3);
   assert.equal(container.children[2].children.length, 3);
-  assert.deepEqual(container.children[2].children.map((item) => item.children[1].tagName), ["a", "a", "a"]);
-  assert.deepEqual(container.children[2].children.map((item) => item.children[1].download), [
+  assert.deepEqual(container.children[2].children.map((item) => item.children[1].children[0].tagName), ["a", "a", "a"]);
+  assert.deepEqual(container.children[2].children.map((item) => item.children[1].children[0].download), [
     "store-monthly-sales-template.csv",
     "store-daily-sales-template.csv",
     "store-reservations-template.csv",
   ]);
-  assert.equal(container.children[2].children.every((item) => item.children[1].href.startsWith("data:text/csv")), true);
+  assert.equal(container.children[2].children.every((item) => item.children[1].children[0].href.startsWith("data:text/csv")), true);
+  const firstItem = container.children[2].children[0];
+  const input = firstItem.children[1].children[1].children[0];
+  const status = firstItem.children[2];
+  input.files = [{ name: "private-name.csv", size: 48, text: async () => '対象月,店舗,売上\n2026-07,private-store,100\n' }];
+  input.value = "private-path";
+  await input.listeners.change({ currentTarget: input });
+  assert.equal(status.dataset.csvValidation, "VALID");
+  assert.equal(status.textContent, "ローカル確認OK: 1件");
+  assert.equal(input.value, "");
+  const visibleText = (node) => [node.textContent, ...(node.children || []).flatMap(visibleText)].join(" ");
+  assert.doesNotMatch(visibleText(container), /private/);
   assert.equal(renderCsvRequirements(null, SANITIZED_CSV_REQUIREMENTS, { createElement }), false);
 });
 
 test("active Management app integrates display only", () => {
   assert.match(html, /id="csv-requirements"/);
-  assert.match(html, /app-v2\.js\?v=67fbb994f1b3290b/);
-  assert.match(html, /styles\.css\?v=770c7def287cf2b9/);
-  assert.match(app, /store-csv-requirements\.js\?v=0235672a316f69f4/);
+  assert.match(html, /app-v2\.js\?v=a19910bbeb7dc252/);
+  assert.match(html, /styles\.css\?v=206e6b752a21a7bb/);
+  assert.match(app, /store-csv-requirements\.js\?v=c9d241f88835efd2/);
   assert.match(app, /renderCsvRequirements\(elements\.csvRequirements, data\.requiredCsvFiles\)/);
   assert.doesNotMatch(app, /csvRequirements[\s\S]{0,240}(upload|submit|import|mutation)/i);
 });

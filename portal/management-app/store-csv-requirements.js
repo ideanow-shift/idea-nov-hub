@@ -1,4 +1,6 @@
 const REQUIREMENT_KEYS = Object.freeze(["name", "fields", "purpose"]);
+const MAX_CSV_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_CSV_DATA_ROWS = 100000;
 
 const CSV_TEMPLATES = Object.freeze([
   Object.freeze({ filename: "store-monthly-sales-template.csv", headers: Object.freeze(["対象月", "店舗", "売上"]) }),
@@ -37,6 +39,131 @@ function createTemplate(requirement, template) {
   });
 }
 
+function sanitizedValidation(category, valid = false, rowCount = 0) {
+  return Object.freeze({ category, valid, rowCount });
+}
+
+function parseCsvRecords(text) {
+  const source = text.replace(/^\uFEFF/, "");
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  let closedQuote = false;
+  let cellStarted = false;
+
+  const finishCell = () => {
+    row.push(cell);
+    cell = "";
+    closedQuote = false;
+    cellStarted = false;
+  };
+  const finishRow = () => {
+    finishCell();
+    rows.push(row);
+    row = [];
+  };
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    const next = source[index + 1];
+    if (quoted) {
+      if (char === '"' && next === '"') {
+        cell += '"';
+        index += 1;
+      } else if (char === '"') {
+        quoted = false;
+        closedQuote = true;
+      } else {
+        cell += char;
+      }
+      continue;
+    }
+    if (closedQuote) {
+      if (char === ",") {
+        finishCell();
+      } else if (char === "\n") {
+        finishRow();
+      } else if (char === "\r" && next === "\n") {
+        finishRow();
+        index += 1;
+      } else {
+        return null;
+      }
+      continue;
+    }
+    if (char === '"') {
+      if (cellStarted) return null;
+      quoted = true;
+      cellStarted = true;
+    } else if (char === ",") {
+      finishCell();
+    } else if (char === "\n") {
+      finishRow();
+    } else if (char === "\r" && next === "\n") {
+      finishRow();
+      index += 1;
+    } else if (char === "\r") {
+      return null;
+    } else {
+      cell += char;
+      cellStarted = true;
+    }
+    if (rows.length > MAX_CSV_DATA_ROWS + 1) return null;
+  }
+
+  if (quoted) return null;
+  if (closedQuote || cellStarted || cell.length || row.length) finishRow();
+  return rows.filter((record) => record.some((value) => value.trim() !== ""));
+}
+
+export function validateLocalCsvText(templateIndex, text) {
+  if (!Number.isInteger(templateIndex) || templateIndex < 0 || templateIndex >= CSV_TEMPLATES.length || typeof text !== "string") {
+    return sanitizedValidation("REQUEST_INVALID");
+  }
+  if (text.includes("\u0000") || text.includes("\uFFFD")) return sanitizedValidation("CSV_MALFORMED");
+  const rows = parseCsvRecords(text);
+  if (!rows) return sanitizedValidation("CSV_MALFORMED");
+  const expected = CSV_TEMPLATES[templateIndex].headers;
+  const header = rows[0] || [];
+  if (header.length !== expected.length || header.some((value, index) => value !== expected[index])) {
+    return sanitizedValidation("HEADER_MISMATCH");
+  }
+  const dataRows = rows.slice(1);
+  if (dataRows.length > MAX_CSV_DATA_ROWS) return sanitizedValidation("ROW_LIMIT_EXCEEDED");
+  if (dataRows.some((record) => record.length !== expected.length)) return sanitizedValidation("ROW_SHAPE_INVALID");
+  if (!dataRows.length) return sanitizedValidation("NO_DATA_ROWS");
+  return sanitizedValidation("VALID", true, dataRows.length);
+}
+
+export async function validateLocalCsvFile(templateIndex, file) {
+  if (!file || typeof file !== "object" || typeof file.name !== "string" || !Number.isSafeInteger(file.size) || file.size < 0) {
+    return sanitizedValidation("REQUEST_INVALID");
+  }
+  if (!file.name.toLowerCase().endsWith(".csv")) return sanitizedValidation("FILE_TYPE_INVALID");
+  if (file.size > MAX_CSV_FILE_BYTES) return sanitizedValidation("FILE_TOO_LARGE");
+  if (typeof file.text !== "function") return sanitizedValidation("READ_FAILED");
+  try {
+    return validateLocalCsvText(templateIndex, await file.text());
+  } catch {
+    return sanitizedValidation("READ_FAILED");
+  }
+}
+
+function validationMessage(result) {
+  return ({
+    VALID: `ローカル確認OK: ${result.rowCount}件`,
+    NO_DATA_ROWS: "データ行がありません",
+    HEADER_MISMATCH: "必要項目と列順が一致しません",
+    ROW_SHAPE_INVALID: "データ行の列数が一致しません",
+    ROW_LIMIT_EXCEEDED: "確認できる行数上限を超えています",
+    CSV_MALFORMED: "CSV形式または文字コードを確認してください",
+    FILE_TYPE_INVALID: "CSVファイルを選択してください",
+    FILE_TOO_LARGE: "ファイルサイズ上限は5MBです",
+    READ_FAILED: "ファイルを確認できません",
+  })[result.category] || "ファイルを確認できません";
+}
+
 export function buildCsvRequirementsView(items) {
   if (!validateCsvRequirements(items)) {
     return Object.freeze({
@@ -48,7 +175,7 @@ export function buildCsvRequirementsView(items) {
   }
   return Object.freeze({
     status: "READY_FOR_FILE_PREPARATION",
-    summary: "3ファイルの必要項目を確認し、ヘッダーだけのひな形を保存できます。データ取込はまだ実行しません。",
+    summary: "ひな形の保存と作成済みCSVのローカル確認ができます。ファイル内容は送信せず、データ取込もまだ実行しません。",
     labels: Object.freeze(items.map((item) => `${item.name}｜必要項目: ${item.fields}｜用途: ${item.purpose}`)),
     templates: Object.freeze(items.map((item, index) => createTemplate(item, CSV_TEMPLATES[index]))),
   });
@@ -68,7 +195,7 @@ export function renderCsvRequirements(container, items, documentRef = globalThis
     fallback.textContent = "CSV要件の確認待ち";
     list.append(fallback);
   }
-  view.templates.forEach((template) => {
+  view.templates.forEach((template, index) => {
     const item = documentRef.createElement("div");
     item.className = "csv-template-item";
     const copy = documentRef.createElement("div");
@@ -83,10 +210,36 @@ export function renderCsvRequirements(container, items, documentRef = globalThis
     download.download = template.filename;
     download.textContent = "CSVひな形を保存";
     download.setAttribute("aria-label", `${template.name}のCSVひな形を保存`);
-    item.append(copy, download);
+    const actions = documentRef.createElement("div");
+    actions.className = "csv-template-actions";
+    const validate = documentRef.createElement("label");
+    validate.className = "csv-template-validate";
+    validate.textContent = "作成ファイルを確認";
+    const input = documentRef.createElement("input");
+    input.className = "csv-file-input";
+    input.type = "file";
+    input.setAttribute("accept", ".csv,text/csv");
+    input.hidden = true;
+    const status = documentRef.createElement("span");
+    status.className = "csv-validation-status";
+    status.textContent = "未確認";
+    status.dataset.csvValidation = "NOT_CHECKED";
+    status.setAttribute("aria-live", "polite");
+    input.addEventListener("change", async (event) => {
+      status.textContent = "確認中";
+      status.dataset.csvValidation = "CHECKING";
+      const result = await validateLocalCsvFile(index, event.currentTarget?.files?.[0]);
+      status.textContent = validationMessage(result);
+      status.dataset.csvValidation = result.category;
+      event.currentTarget.value = "";
+    });
+    validate.append(input);
+    actions.append(download, validate);
+    item.append(copy, actions, status);
     list.append(item);
   });
   container.dataset.csvRequirementStatus = view.status;
+  container.dataset.csvLocalValidation = view.templates.length ? "ENABLED" : "DISABLED";
   container.replaceChildren(heading, summary, list);
   return true;
 }

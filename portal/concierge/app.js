@@ -34,20 +34,7 @@ const STORAGE_KEYS = {
   knowledgeUpdates: "novConcierge.knowledgeUpdates.v1"
 };
 
-const HUB_CONTEXT_STORAGE_KEYS = [
-  "novHub.context.v1",
-  "novHubContext",
-  "ideaNovHub.context.v1"
-];
-
-const HUB_ADMIN_ROLE_KEYS = new Set([
-  "admin",
-  "super_admin",
-  "backoffice",
-  "executive",
-  "department_manager",
-  "nov_navi.admin"
-]);
+const LEGACY_CONCIERGE_AUTH_STORAGE_KEYS = Object.freeze([STORAGE_KEYS.session]);
 
 const KNOWLEDGE_AREAS = [
   {
@@ -107,15 +94,26 @@ const KNOWLEDGE_AREAS = [
 ];
 
 class StoreAuthProvider {
-  async login(storeId, storePass) {
-    if (!STORE_MASTER_CONFIG.loginEndpoint) {
-      throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.request);
-    }
-    const account = await authenticateWithStoreMaster(storeId, storePass);
-    return this.persistSession(account);
+  constructor() {
+    this.session = null;
+    removeLegacyConciergeAuthStorage();
   }
 
-  persistSession(account) {
+  async login(storeId, storePass) {
+    this.session = null;
+    try {
+      if (!STORE_MASTER_CONFIG.loginEndpoint) {
+        throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.request);
+      }
+      const account = await authenticateWithStoreMaster(storeId, storePass);
+      return this.createSession(account);
+    } catch (error) {
+      this.logout();
+      throw error;
+    }
+  }
+
+  createSession(account) {
     const session = {
       id: account.id,
       storeId: account.storeId || account.id,
@@ -125,30 +123,22 @@ class StoreAuthProvider {
       source: account.source || "store-master",
       loginAt: new Date().toISOString()
     };
-    localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(session));
+    this.session = session;
     return session;
   }
 
   currentSession() {
-    return readJson(STORAGE_KEYS.session, null);
+    return this.session;
   }
 
   logout() {
-    localStorage.removeItem(STORAGE_KEYS.session);
-  }
-}
-
-class HubContextAuthProvider {
-  currentSession() {
-    const context = readHubContext();
-    if (!context) return null;
-    return normalizeHubSession(context);
+    this.session = null;
+    removeLegacyConciergeAuthStorage();
   }
 }
 
 class AuthProvider {
   constructor() {
-    this.hub = new HubContextAuthProvider();
     this.store = new StoreAuthProvider();
   }
 
@@ -157,7 +147,7 @@ class AuthProvider {
   }
 
   currentSession() {
-    return this.hub.currentSession() || this.store.currentSession();
+    return this.store.currentSession();
   }
 
   logout() {
@@ -529,16 +519,15 @@ elements.loginForm.addEventListener("submit", async (event) => {
     elements.loginError.hidden = true;
     showHub();
   } catch (error) {
+    clearAuthenticationState();
     elements.loginError.textContent = error.message;
     elements.loginError.hidden = false;
   }
 });
 
 elements.logoutButton.addEventListener("click", () => {
-  authProvider.logout();
-  session = null;
+  clearAuthenticationState();
   elements.chatMessages.innerHTML = "";
-  showLogin();
 });
 
 elements.adminToggle.addEventListener("click", showAdmin);
@@ -732,6 +721,12 @@ function showLogin() {
   elements.storeBadge.hidden = true;
   elements.logoutButton.hidden = true;
   elements.adminToggle.hidden = true;
+}
+
+function clearAuthenticationState() {
+  authProvider.logout();
+  session = null;
+  showLogin();
 }
 
 function showHub() {
@@ -1825,96 +1820,14 @@ function getSessionLogOwnerId() {
   return session?.phase1LoginId || session?.employeeId || session?.id || "";
 }
 
-function readHubContext() {
-  const runtimeContext = readHubRuntimeContext();
-  if (runtimeContext) return runtimeContext;
-
-  for (const key of HUB_CONTEXT_STORAGE_KEYS) {
-    const storedContext = readJson(key, null);
-    if (storedContext) return storedContext;
+function removeLegacyConciergeAuthStorage() {
+  for (const key of LEGACY_CONCIERGE_AUTH_STORAGE_KEYS) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Storage access is optional; authentication remains memory-only.
+    }
   }
-
-  return null;
-}
-
-function readHubRuntimeContext() {
-  try {
-    if (window.NovHubContext?.read) return window.NovHubContext.read();
-    if (window.NOV_HUB_CONTEXT) return window.NOV_HUB_CONTEXT;
-    if (window.IdeaNovHubContext) return window.IdeaNovHubContext;
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-function normalizeHubSession(context) {
-  const employee = context.employee || {};
-  const roleKeys = normalizeStringArray(context.roleKeys || context.roles || employee.roleKeys || employee.roles);
-  const selectedStore = selectHubStore(context);
-  const token = firstString(
-    context.novNaviSessionToken,
-    context.conciergeSessionToken,
-    context.sessionToken,
-    context.token
-  );
-  const employeeId = firstString(context.employeeId, employee.id, context.employee_id);
-  const email = firstString(context.email, employee.email);
-  const displayName = firstString(context.displayName, context.name, employee.displayName, employee.name, email);
-
-  return {
-    id: employeeId || email || "hub-user",
-    employeeId,
-    email,
-    storeId: selectedStore.id || selectedStore.storeId || firstString(context.storeId, context.activeStoreId),
-    phase1LoginId: "",
-    name: displayName || "HUBユーザー",
-    storeName: selectedStore.name || selectedStore.storeName || "",
-    admin: hasHubAdminRole(roleKeys),
-    roleKeys,
-    jobTypeId: firstString(context.jobTypeId, employee.jobTypeId, employee.job_type_id),
-    token,
-    source: "hub-context",
-    loginAt: new Date().toISOString()
-  };
-}
-
-function selectHubStore(context) {
-  const assignments = normalizeStoreAssignments(context.storeAssignments || context.stores || context.assignedStores);
-  const activeStoreId = firstString(context.activeStoreId, context.storeId, context.store?.id);
-  if (!assignments.length) return context.store || {};
-  return assignments.find((store) => {
-    return store.id === activeStoreId || store.storeId === activeStoreId || store.store_id === activeStoreId;
-  }) || assignments.find((store) => store.primary || store.isPrimary) || assignments[0];
-}
-
-function normalizeStoreAssignments(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return value.filter(Boolean);
-  if (Array.isArray(value.items)) return value.items.filter(Boolean);
-  if (Array.isArray(value.stores)) return value.stores.filter(Boolean);
-  return [value].filter(Boolean);
-}
-
-function hasHubAdminRole(roleKeys) {
-  return roleKeys.some((roleKey) => HUB_ADMIN_ROLE_KEYS.has(roleKey));
-}
-
-function normalizeStringArray(value) {
-  if (!value) return [];
-  const list = Array.isArray(value) ? value : [value];
-  return list
-    .map((item) => {
-      if (typeof item === "string") return item;
-      return item?.roleKey || item?.key || item?.name || item?.id || "";
-    })
-    .map((item) => String(item).trim())
-    .filter(Boolean);
-}
-
-function firstString(...values) {
-  const value = values.find((item) => typeof item === "string" && item.trim());
-  return value ? value.trim() : "";
 }
 
 function createRuleId(value) {
@@ -1997,6 +1910,7 @@ function hasJsonResponseMediaType(response) {
 
 function assertConciergeResponseEnvelope(result) {
   if (!result || typeof result !== "object" || Array.isArray(result) || typeof result.ok !== "boolean") {
+    clearAuthenticationState();
     throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.envelope);
   }
   return result;
@@ -2012,8 +1926,12 @@ async function requestJson(url, payload) {
     body
   });
 
-  if (!response.ok) throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.http);
+  if (!response.ok) {
+    if (response.status === 401) clearAuthenticationState();
+    throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.http);
+  }
   if (!hasJsonResponseMediaType(response)) {
+    clearAuthenticationState();
     throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.mediaType);
   }
 
@@ -2021,6 +1939,7 @@ async function requestJson(url, payload) {
   try {
     result = await response.json();
   } catch {
+    clearAuthenticationState();
     throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.json);
   }
   return assertConciergeResponseEnvelope(result);

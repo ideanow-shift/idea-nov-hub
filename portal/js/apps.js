@@ -19,7 +19,7 @@ export const DEMO_APPS = [
   { ...appBase, appId: "idea-link", appName: "IDEA LINK", description: "サンクス投稿と理念行動の共有", url: "./idea-link-app/", category: "称賛", icon: "idea-link", requiredLevel: 1, isFeatured: false, priority: 88 },
   { ...appBase, appId: "sales-education-db", appName: "営業部⇔教育部DB", description: "営業部と教育部の連携データを確認", url: "#demo-db", category: "経営", icon: "sales-education-db", requiredLevel: 3, allowedTags: ["sales", "executive"], isFeatured: false, priority: 100 },
   { ...appBase, appId: "campaign-management", appName: "キャンペーン管理", description: "販促キャンペーンの進捗を確認", url: "#demo-campaign", category: "全般", icon: "campaign-management", requiredLevel: 1, isFeatured: false, priority: 110 },
-  { ...appBase, appId: "human-capital-investment", appName: "人財投資管理システム", description: "育成投資と人財指標を確認", url: "https://ideanow-shift.github.io/hr-investment-dashboard/", category: "人財", icon: "human-capital-investment", requiredLevel: 4, allowedTags: ["executive", "backoffice"], isFeatured: false, priority: 64 },
+  { ...appBase, appId: "human-capital-investment", appName: "人財投資管理システム", description: "育成投資と人財指標を確認", url: "./talent/", category: "人財", icon: "human-capital-investment", requiredLevel: 4, allowedTags: ["executive", "backoffice"], isFeatured: false, priority: 64 },
   { ...appBase, appId: "management-check", appName: "Management Platform", description: "環境整備と管理者成長の履歴を確認", url: "./management-platform/", category: "コンピテンシー", icon: "management-check", requiredLevel: 3, allowedTags: ["manager", "executive"], isFeatured: false, priority: 62 },
   { ...appBase, appId: "disabled-sample", appName: "非公開アプリ", description: "表示されない確認用アプリ", url: "#", category: "全般", icon: "default", requiredLevel: 1, isActive: false, isFeatured: false, priority: 999 }
 ];

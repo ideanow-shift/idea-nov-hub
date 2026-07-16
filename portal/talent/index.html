@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NOV Talent 集計ダッシュボード</title>
+  <link rel="stylesheet" href="./style.css">
+  <script src="./runtime-config.candidate.js"></script>
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <main class="dashboard-shell" aria-labelledby="dashboard-title">
+    <header class="dashboard-header">
+      <p class="eyebrow">人材投資管理</p>
+      <h1 id="dashboard-title">採用・人材投資 集計</h1>
+      <p class="lead">HUBで認証された範囲の集計だけを表示します。</p>
+      <p id="summary-status" class="status" data-state="loading">集計を確認しています</p>
+    </header>
+    <section class="summary-grid" id="summary-metrics" aria-label="採用・人材投資の集計"></section>
+  </main>
+</body>
+</html>

@@ -1969,20 +1969,77 @@ function authenticateWithStoreMaster(storeId, storePass) {
   });
 }
 
-function requestJson(url, payload) {
-  return fetch(url, {
+const CONCIERGE_CLIENT_ERRORS = Object.freeze({
+  request: "CONCIERGE_CLIENT_REQUEST_REJECTED",
+  http: "CONCIERGE_CLIENT_HTTP_REJECTED",
+  mediaType: "CONCIERGE_CLIENT_MEDIA_TYPE_REJECTED",
+  json: "CONCIERGE_CLIENT_JSON_REJECTED",
+  envelope: "CONCIERGE_CLIENT_ENVELOPE_REJECTED"
+});
+
+function conciergeClientError(category) {
+  return new Error(category);
+}
+
+function assertConciergeBodyByteLength(body) {
+  const byteLength = new TextEncoder().encode(body).byteLength;
+  if (byteLength < 1 || byteLength > 4096) {
+    throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.request);
+  }
+  return byteLength;
+}
+
+function serializeConciergePayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.request);
+  }
+  let body;
+  try {
+    body = JSON.stringify(payload);
+  } catch {
+    throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.request);
+  }
+  assertConciergeBodyByteLength(body);
+  return body;
+}
+
+function hasJsonResponseMediaType(response) {
+  const mediaType = String(response.headers.get("content-type") || "")
+    .split(";", 1)[0]
+    .trim()
+    .toLowerCase();
+  return mediaType === "application/json";
+}
+
+function assertConciergeResponseEnvelope(result) {
+  if (!result || typeof result !== "object" || Array.isArray(result) || typeof result.ok !== "boolean") {
+    throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.envelope);
+  }
+  return result;
+}
+
+async function requestJson(url, payload) {
+  const body = serializeConciergePayload(payload);
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       "content-type": "application/json"
     },
-    body: JSON.stringify(payload)
-  }).then(async (response) => {
-    const result = await response.json().catch(() => null);
-    if (!result) {
-      throw new Error("店舗マスタに接続できませんでした。");
-    }
-    return result;
+    body
   });
+
+  if (!response.ok) throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.http);
+  if (!hasJsonResponseMediaType(response)) {
+    throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.mediaType);
+  }
+
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.json);
+  }
+  return assertConciergeResponseEnvelope(result);
 }
 
 function requestBackend(action, payload) {

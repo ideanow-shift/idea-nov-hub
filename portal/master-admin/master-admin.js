@@ -102,6 +102,8 @@ const state = {
   }
 };
 
+let safeSearchRenderTimer = 0;
+
 const elements = Object.fromEntries([
   "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "add-employee", "add-corporation", "add-portal-app", "refresh",
   "view-title", "search", "employee-csv-tools", "export-employees-csv", "import-employees-csv", "quality-summary", "result-count", "table-head", "table-body",
@@ -1369,20 +1371,30 @@ function renderSafeMasterAdminView() {
   search.placeholder = state.view === "stores" ? "店舗名・店舗ID・法人名で検索" : state.view === "corporations" ? "法人名・正式名で検索" : "氏名・社員番号・店舗名で検索";
   search.value = state.safeSearch || "";
   let isComposingSearch = false;
-  const applySafeSearch = () => {
+  const applySafeSearch = (delay = 220) => {
     state.safeSearch = search.value;
-    rerenderAfterSafeSelectionChange({ restoreSearchFocus: true });
+    window.clearTimeout(safeSearchRenderTimer);
+    safeSearchRenderTimer = window.setTimeout(() => {
+      safeSearchRenderTimer = 0;
+      if (isComposingSearch) return;
+      rerenderAfterSafeSelectionChange({ restoreSearchFocus: true });
+    }, delay);
   };
   search.addEventListener("compositionstart", () => {
     isComposingSearch = true;
+    window.clearTimeout(safeSearchRenderTimer);
   });
   search.addEventListener("compositionend", () => {
     isComposingSearch = false;
-    applySafeSearch();
+    applySafeSearch(80);
   });
   search.addEventListener("input", (event) => {
+    state.safeSearch = search.value;
     if (isComposingSearch || event.isComposing) return;
-    applySafeSearch();
+    applySafeSearch(260);
+  });
+  search.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") applySafeSearch(0);
   });
   controls.append(search);
   appendSafeStatusFilters(controls);

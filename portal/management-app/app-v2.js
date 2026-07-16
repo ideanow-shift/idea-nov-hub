@@ -1,5 +1,6 @@
 import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
+import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=a9c05abbcad54a84";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
@@ -8,6 +9,8 @@ const state = { view: "overview", corporation: "", department: "", finance: null
 const number = new Intl.NumberFormat("ja-JP");
 const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 const colors = ["#b23a48", "#17324d", "#27795f", "#a36410", "#765487", "#337d8e", "#737b83"];
+const WORKFORCE_DEPENDENT_METRICS = new Set(["salesPerStaffManYen", "profitPerStaffManYen", "staffCount", "laborCostRatePercent"]);
+const workforceAggregatesVisible = canDisplayWorkforceAggregates();
 const IDEA_NOV_PLACEHOLDER = { id: "IDEA_NOV", name: "イディア・ノブ", dataAvailable: false, salesManYen: null, profitRatePercent: null, equityRatioPercent: null, cashManYen: null, survivalMonths: null, status: "missing" };
 
 const byId = (id) => document.getElementById(id);
@@ -18,7 +21,7 @@ const elements = {
   latestAdvice: byId("latest-advice"), expertComments: byId("expert-comments"), methodDiagnosis: byId("method-diagnosis"),
   profitability: byId("profitability-rows"), productivity: byId("productivity-rows"), safety: byId("safety-rows"), efficiency: byId("efficiency-rows"),
   departmentTabs: byId("department-tabs"), departmentKpis: byId("department-kpis"), departmentRows: byId("department-rows"), departmentInsight: byId("department-insight"),
-  storeScope: byId("store-scope"), storeKpis: byId("store-kpis"), storeRows: byId("store-rows"), csvRequirements: byId("csv-requirements"),
+  storeScope: byId("store-scope"), workforceEvidence: byId("workforce-evidence-status"), storeKpis: byId("store-kpis"), storeRows: byId("store-rows"), csvRequirements: byId("csv-requirements"),
   dataopsKpis: byId("dataops-kpis"), workflow: byId("workflow"), stoppedItems: byId("stopped-items")
 };
 
@@ -100,9 +103,12 @@ function renderOverview() {
   const visible = selected ? corporations.filter((row) => row.id === selected.id) : corporations;
   elements.financeRows.replaceChildren(...(visible.length ? visible.map((row) => tableRow([row.name, metricText(row.salesManYen, "万円"), metricText(row.profitRatePercent, "%"), metricText(row.equityRatioPercent, "%"), metricText(row.cashManYen, "万円"), statusNode(row.status)])) : [emptyRow(6, "表示できる法人データがありません")]));
   renderCashChart(data.cashTrend || []);
-  const advice = data.latestAdvice; elements.latestAdvice.replaceChildren(advice?.body ? paragraph(advice.body) : muted("保存済みのAIアドバイスはありません。"));
-  const comments = Array.isArray(data.expertComments) ? data.expertComments : [];
-  elements.expertComments.replaceChildren(...(comments.length ? comments.map((item) => comment(item)) : [muted("対象月の専門家コメントはありません。") ]));
+  const adviceVisible = data.aiAdviceReadiness === "aggregate-input-provenance-ready";
+  const advice = adviceVisible ? data.latestAdvice : null;
+  elements.latestAdvice.replaceChildren(advice?.body ? paragraph(advice.body) : muted(adviceVisible ? "保存済みのAIアドバイスはありません。" : "集計入力の安全確認が完了するまでAIアドバイスは表示しません。"));
+  const commentsVisible = data.expertCommentReadiness === "aggregate-content-provenance-ready";
+  const comments = commentsVisible && Array.isArray(data.expertComments) ? data.expertComments : [];
+  elements.expertComments.replaceChildren(...(comments.length ? comments.map((item) => comment(item)) : [muted(commentsVisible ? "対象月の専門家コメントはありません。" : "集計内容の安全確認が完了するまで専門家コメントは表示しません。") ]));
   const rules = data.classificationRuleStatus || {};
   const missing = Array.isArray(quality.missingCorporations) && quality.missingCorporations.length ? quality.missingCorporations : corporations.filter((row) => row.dataAvailable === false).map((row) => row.name);
   elements.financeStatus.replaceChildren(heading("データ充足状況"), paragraph(`対象月は${coverage}を集計。${missing.length ? `未取込: ${missing.join("、")}。` : "全法人取込済み。"} 防衛ライン ${quality.defenseLineCorporationCount || 0}法人 / 生存可能月数 ${quality.survivalMonthsCorporationCount || 0}法人。`), heading("科目分類ルール"), paragraph(`下書き ${rules.draft || 0}件 / 確認中 ${rules.review || 0}件 / 承認済み ${rules.approved || 0}件。状態表示のみです。`));
@@ -122,7 +128,7 @@ function renderFourAxis() {
 function axisMatrix(rows, metrics) {
   if (!rows.length) return [emptyRow(2, "表示できるデータがありません")];
   const header = tableRow(["指標", ...rows.map((row) => row.name)], true);
-  return [header, ...metrics.map(([name, key, unit, benchmark]) => tableRow([`${name}${benchmark ? ` / ${benchmark}` : ""}`, ...rows.map((row) => row[key] == null ? "未算定" : `${number.format(row[key])}${unit}`)]))];
+  return [header, ...metrics.map(([name, key, unit, benchmark]) => tableRow([`${name}${benchmark ? ` / ${benchmark}` : ""}`, ...rows.map((row) => WORKFORCE_DEPENDENT_METRICS.has(key) ? workforceMetric(row[key], unit) : row[key] == null ? "未算定" : `${number.format(row[key])}${unit}`)]))];
 }
 
 function renderDepartments() {
@@ -149,8 +155,9 @@ async function loadStores() {
 function renderStores() {
   const data = state.stores || {}; const stores = Array.isArray(data.stores) ? data.stores : [];
   elements.storeScope.textContent = scopeLabel(data.phase0Scope);
-  renderMetrics(elements.storeKpis, [["表示店舗", `${data.storeCount || 0}店舗`], ["スタッフ", `${data.staffCount || 0}人`], ["売上データ", stores.some((row) => row.dataReadiness !== "salonanswer_csv_waiting") ? "接続済み" : "CSV待ち"], ["scope", scopeLabel(data.phase0Scope)]]);
-  elements.storeRows.replaceChildren(...(stores.length ? stores.map((row) => tableRow([row.name, row.corporationName, number.format(row.staffCount || 0), row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.salesManYen || 0)}万円`, row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.targetAchievementPercent || 0)}%`, row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "接続済み"])) : [emptyRow(6, "表示できる店舗がありません")]));
+  mountWorkforceEvidenceStatus(elements.workforceEvidence);
+  renderMetrics(elements.storeKpis, [["表示店舗", `${data.storeCount || 0}店舗`], ["スタッフ", workforceMetric(data.staffCount, "人")], ["売上データ", stores.some((row) => row.dataReadiness !== "salonanswer_csv_waiting") ? "接続済み" : "CSV待ち"], ["scope", scopeLabel(data.phase0Scope)]]);
+  elements.storeRows.replaceChildren(...(stores.length ? stores.map((row) => tableRow([row.name, row.corporationName, workforceMetric(row.staffCount), row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.salesManYen || 0)}万円`, row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.targetAchievementPercent || 0)}%`, row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "接続済み"])) : [emptyRow(6, "表示できる店舗がありません")]));
   renderCsvRequirements(elements.csvRequirements, data.requiredCsvFiles);
 }
 
@@ -186,6 +193,7 @@ function list(items) { const node = document.createElement("ul"); (items.length 
 function statusNode(status) { const node = document.createElement("span"); node.className = `status ${status || "warning"}`; node.textContent = statusText(status); return node; }
 function statusText(value) { return ({ safe: "安定", warning: "確認", danger: "注意", missing: "データ待ち" })[value] || "確認"; }
 function metricText(value, unit) { return value === null || value === undefined ? "データ待ち" : `${number.format(value)}${unit}`; }
+function workforceMetric(value, unit = "") { return workforceAggregatesVisible && value !== null && value !== undefined && Number.isFinite(Number(value)) ? `${number.format(Number(value))}${unit}` : "算定待ち"; }
 function aggregateSurvival(rows) { const values = rows.map((row) => Number(row.survivalMonths)).filter(Number.isFinite); return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length * 10) / 10 : null; }
 function scopeLabel(value) { return ({ all_stores: "全店舗", assigned_stores: "担当店舗", own_store: "自店舗" })[value] || "権限確認済み"; }
 function comment(item) { const article = document.createElement("article"); article.className = "expert-comment"; const head = document.createElement("strong"); head.textContent = [item.author, item.organization].filter(Boolean).join(" / "); article.append(head, paragraph(item.body || item.title || "")); return article; }

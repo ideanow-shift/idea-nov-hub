@@ -1,0 +1,79 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+import {
+  SANITIZED_WORKFORCE_EVIDENCE,
+  WORKFORCE_EVIDENCE_CATEGORIES,
+  canDisplayWorkforceAggregates,
+  mountWorkforceEvidenceStatus,
+  renderWorkforceEvidenceStatus,
+  validateWorkforceEvidenceModel,
+} from "../portal/js/management-workforce-evidence-status.js";
+import { renderClassificationWorkspace } from "../portal/management-platform/classification-readiness-panel.js";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const managementIndex = fs.readFileSync(path.join(root, "portal/management-app/index.html"), "utf8");
+const managementApp = fs.readFileSync(path.join(root, "portal/management-app/app-v2.js"), "utf8");
+const visualFixture = fs.readFileSync(path.join(root, "tests/fixtures/management-workforce-evidence-status.html"), "utf8");
+
+test("workforce evidence categories are fixed and current source is fail-closed", () => {
+  assert.deepEqual(WORKFORCE_EVIDENCE_CATEGORIES, [
+    "AUTHORITATIVE_READY",
+    "LOCAL_VALIDATED_PENDING_PRODUCTION",
+    "SOURCE_CONTRACT_INCOMPLETE",
+    "UNAVAILABLE",
+  ]);
+  assert.equal(validateWorkforceEvidenceModel(SANITIZED_WORKFORCE_EVIDENCE), true);
+  assert.equal(SANITIZED_WORKFORCE_EVIDENCE.category, "SOURCE_CONTRACT_INCOMPLETE");
+  assert.equal(SANITIZED_WORKFORCE_EVIDENCE.aggregateValuesVisible, false);
+  assert.equal(SANITIZED_WORKFORCE_EVIDENCE.relatedActionsEnabled, false);
+  assert.equal(canDisplayWorkforceAggregates(), false);
+  assert.equal(validateWorkforceEvidenceModel({ ...SANITIZED_WORKFORCE_EVIDENCE, category: "AUTHORITATIVE_READY" }), false);
+});
+
+test("status output is aggregate-only and contains no workforce values or identities", () => {
+  const html = renderWorkforceEvidenceStatus();
+  assert.match(html, /data-workforce-evidence-category="SOURCE_CONTRACT_INCOMPLETE"/);
+  assert.match(html, /月末基準・異動履歴・休職・退職・兼務・出向/);
+  assert.match(html, /外部社員・異動マスター/);
+  assert.match(html, /<button type="button" disabled aria-disabled="true"/);
+  assert.doesNotMatch(html, /\d+\s*人|employeeId|employee_id|salary|給与|評価|健康|氏名|個人名|digest|sha256/i);
+});
+
+test("unknown evidence fails closed as unavailable", () => {
+  const html = renderWorkforceEvidenceStatus({ ...SANITIZED_WORKFORCE_EVIDENCE, rawEmployeeId: "private" });
+  assert.match(html, /data-workforce-evidence-category="UNAVAILABLE"/);
+  assert.match(html, /人数・組織集計値を表示しません/);
+  assert.doesNotMatch(html, /private/);
+  assert.equal(canDisplayWorkforceAggregates({ ...SANITIZED_WORKFORCE_EVIDENCE, aggregateValuesVisible: true }), false);
+});
+
+test("mount changes only the dedicated element", () => {
+  const mount = { innerHTML: "" };
+  assert.equal(mountWorkforceEvidenceStatus(mount), true);
+  assert.match(mount.innerHTML, /人数・組織集計の算定根拠/);
+  assert.equal(mountWorkforceEvidenceStatus(null), false);
+});
+
+test("store and classification preparation views share the same closed status", () => {
+  assert.match(managementIndex, /id="workforce-evidence-status"/);
+  assert.match(managementApp, /mountWorkforceEvidenceStatus\(elements\.workforceEvidence\)/);
+  const storeRenderer = managementApp.match(/function renderStores\(\)\s*{[\s\S]*?\n}/)?.[0] ?? "";
+  assert.match(storeRenderer, /workforceMetric\(data\.staffCount, "人"\)/);
+  assert.match(storeRenderer, /workforceMetric\(row\.staffCount\)/);
+  assert.doesNotMatch(storeRenderer, /number\.format\((?:row|data)\.staffCount|staffCount\s*\|\|\s*0/);
+  assert.match(managementApp, /function workforceMetric\([\s\S]*?: "算定待ち";/);
+  assert.match(managementApp, /data\.aiAdviceReadiness === "aggregate-input-provenance-ready"/);
+  assert.match(managementApp, /data\.expertCommentReadiness === "aggregate-content-provenance-ready"/);
+  const classification = renderClassificationWorkspace();
+  assert.match(classification, /data-workforce-evidence-category="SOURCE_CONTRACT_INCOMPLETE"/);
+  assert.match(classification, /関連AI・承認/);
+});
+
+test("visual fixture uses only local styles and browser-safe module", () => {
+  assert.match(visualFixture, /portal\/management-app\/styles\.css/);
+  assert.match(visualFixture, /portal\/js\/management-workforce-evidence-status\.js/);
+  assert.doesNotMatch(visualFixture, /fetch\(|token|session|storage|employeeId|salary/i);
+});

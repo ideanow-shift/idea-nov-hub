@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Management Workforce Evidence Visual Fixture</title>
+  <link rel="stylesheet" href="../../portal/management-app/styles.css">
+</head>
+<body>
+  <main class="dashboard">
+    <section id="workforce-evidence-status"></section>
+  </main>
+  <script type="module">
+    import { mountWorkforceEvidenceStatus } from "../../portal/js/management-workforce-evidence-status.js";
+    mountWorkforceEvidenceStatus(document.getElementById("workforce-evidence-status"));
+  </script>
+</body>
+</html>

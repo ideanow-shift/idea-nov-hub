@@ -10,6 +10,7 @@ const files = {
   html: read("portal/management-app/index.html"),
   app: read("portal/management-app/app-v2.js"),
   csvRequirements: read("portal/management-app/store-csv-requirements.js"),
+  workforceEvidence: read("portal/js/management-workforce-evidence-status.js"),
   chart: read("portal/management-app/vendor/chart.umd.min.js"),
   backend: read("supabase/functions/nov-hub-api/management_readonly_candidate.ts"),
   index: read("supabase/functions/nov-hub-api/index.ts")
@@ -43,16 +44,30 @@ const required = [
   [files.csvRequirements, 'LOCAL_FILES_READY'],
   [files.csvRequirements, 'buildLocalValidationReceipt'],
   [files.csvRequirements, 'data:application/json;charset=utf-8'],
+  [files.workforceEvidence, 'AUTHORITATIVE_READY'],
+  [files.workforceEvidence, 'LOCAL_VALIDATED_PENDING_PRODUCTION'],
+  [files.workforceEvidence, 'SOURCE_CONTRACT_INCOMPLETE'],
+  [files.workforceEvidence, 'UNAVAILABLE'],
+  [files.workforceEvidence, 'aggregateValuesVisible: false'],
+  [files.workforceEvidence, 'relatedActionsEnabled: false'],
+  [files.app, 'mountWorkforceEvidenceStatus(elements.workforceEvidence)'],
+  [files.app, 'workforceMetric(row.staffCount)'],
+  [files.app, 'data.aiAdviceReadiness === "aggregate-input-provenance-ready"'],
+  [files.app, 'data.expertCommentReadiness === "aggregate-content-provenance-ready"'],
   [files.backend, 'managementFinanceSummary: true'],
   [files.backend, 'managementStoresSummary: true'],
   [files.backend, 'managementDataopsStatus: true'],
+  [files.backend, 'text(row.source) === "employees_snapshot"'],
+  [files.backend, 'headcountContract: "authoritative-month-end-contract-pending"'],
+  [files.backend, 'currentPrimaryStoreFallbackUsed: false'],
+  [files.backend, '"full_name"'],
   [files.index, 'const hubSession = await issueHubSession(employee);']
 ];
 
 const missing = required.filter(([source, fragment]) => !source.includes(fragment)).map(([, fragment]) => fragment);
 if (missing.length) throw new Error(`Missing required fragments: ${missing.join(", ")}`);
 
-const frontend = `${files.html}\n${files.app}\n${files.csvRequirements}`;
+const frontend = `${files.html}\n${files.app}\n${files.csvRequirements}\n${files.workforceEvidence}`;
 const forbidden = [
   /service_role/i,
   /SUPABASE_SERVICE_ROLE/,
@@ -75,5 +90,8 @@ console.log(JSON.stringify({
   localCsvTemplates: 3,
   localCsvValidation: true,
   localCsvSemanticValidation: true,
-  aggregateOnlyLocalReceipt: true
+  aggregateOnlyLocalReceipt: true,
+  workforceEvidenceCategory: "SOURCE_CONTRACT_INCOMPLETE",
+  workforceValuesVisible: false,
+  aggregateFreeTextVisible: false
 }, null, 2));

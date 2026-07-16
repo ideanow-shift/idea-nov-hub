@@ -1,3 +1,5 @@
+import { renderWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
+
 const PROVIDERS = Object.freeze([
   Object.freeze({ label: "版管理", statusLabel: "証跡待ち", reason: "本番カタログの権限確認が未完了です。" }),
   Object.freeze({ label: "スナップショット", statusLabel: "基盤候補済み", reason: "安全な基盤候補は検証済みです。runtime適用は未実施です。" }),
@@ -174,6 +176,7 @@ export function renderClassificationWorkspace(model = SANITIZED_CLASSIFICATION_R
         <div><dt>Runtime接続</dt><dd>0 / 6</dd><span>identity未承認</span></div>
         <div><dt>承認可能件数</dt><dd>0件</dd><span>fail-close停止中</span></div>
       </dl>
+      ${renderWorkforceEvidenceStatus()}
       <div class="classification-workspace-notice" role="status">
         <strong>現在の停止理由</strong>
         <p>本番カタログ証跡とruntime provider identityが未完了です。データ取込・分類承認はまだ実行しません。</p>

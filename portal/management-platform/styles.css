@@ -354,6 +354,19 @@ button:hover {
   font-size: 13px;
 }
 
+.workforce-evidence-status { margin: 16px 0; padding: 14px 16px; background: var(--surface); border-left: 4px solid var(--warn); }
+.workforce-evidence-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.workforce-evidence-kicker { margin: 0 0 3px; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.workforce-evidence-status h3 { margin: 0; font-size: 16px; }
+.workforce-evidence-badge { display: inline-flex; min-height: 28px; padding: 4px 9px; align-items: center; color: #754c00; background: #fff4dc; border: 1px solid var(--line); border-radius: 6px; font-size: 12px; white-space: nowrap; }
+.workforce-evidence-summary { margin: 10px 0; color: var(--muted); font-size: 13px; }
+.workforce-evidence-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.workforce-evidence-facts div { min-width: 0; padding: 9px 10px; background: var(--panel); border: 1px solid var(--line); }
+.workforce-evidence-facts dt { color: var(--muted); font-size: 11px; }
+.workforce-evidence-facts dd { margin: 3px 0 0; font-size: 13px; overflow-wrap: anywhere; }
+.workforce-evidence-action { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 10px; color: var(--muted); font-size: 12px; }
+.workforce-evidence-action button:disabled { min-height: 36px; padding: 7px 12px; cursor: not-allowed; }
+
 .classification-workspace {
   border-left: 4px solid var(--accent-strong);
 }
@@ -1570,6 +1583,7 @@ th {
   .mode-guide-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .classification-readiness-providers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .classification-readiness-workflow { grid-template-columns: 1fr; }
+  .workforce-evidence-action { align-items: stretch; flex-direction: column; }
   .classification-workspace-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .performance-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .performance-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1594,8 +1608,9 @@ th {
   .management-flow-grid,
   .classification-readiness-facts,
   .classification-readiness-providers,
-    .classification-readiness-workflow,
-    .classification-workspace-metrics,
+  .classification-readiness-workflow,
+  .workforce-evidence-facts,
+  .classification-workspace-metrics,
   .field-grid,
   .choice-grid,
   .history-tools,

@@ -122,6 +122,18 @@ tbody tr:hover td { background: var(--card-soft); }
 .status-band p { margin: 0 0 12px; }
 .status-band p:last-child { margin-bottom: 0; }
 .status-band ul { margin: 0; padding-left: 20px; }
+.workforce-evidence-status { margin: 0 0 16px; padding: 14px 16px; background: var(--card-soft); border-left: 4px solid var(--color-alert); border-radius: var(--radius-md); }
+.workforce-evidence-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.workforce-evidence-kicker { margin: 0 0 3px !important; color: var(--text-secondary); font-size: 11px; font-weight: 500; text-transform: uppercase; }
+.workforce-evidence-status h3 { margin: 0; color: var(--text-primary); font-size: 16px; font-weight: 500; }
+.workforce-evidence-badge { display: inline-flex; min-height: 28px; padding: 4px 9px; align-items: center; color: var(--color-alert); background: #fff7ed; border: 1px solid #f1d7b8; border-radius: var(--radius-md); font-size: 12px; white-space: nowrap; }
+.workforce-evidence-summary { margin: 10px 0 !important; color: var(--text-secondary); font-size: 13px; }
+.workforce-evidence-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.workforce-evidence-facts div { min-width: 0; padding: 9px 10px; background: var(--card); border: 1px solid var(--border-light); }
+.workforce-evidence-facts dt { color: var(--text-secondary); font-size: 11px; }
+.workforce-evidence-facts dd { margin: 3px 0 0; color: var(--text-primary); font-size: 13px; overflow-wrap: anywhere; }
+.workforce-evidence-action { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 10px; color: var(--text-secondary); font-size: 12px; }
+.workforce-evidence-action button:disabled { min-height: 36px; padding: 7px 12px; color: var(--text-muted); background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); cursor: not-allowed; }
 .csv-template-list { display: grid; gap: 0; border-top: 1px solid var(--border-light); }
 .csv-validation-summary { margin: 0 0 12px; padding: 10px 12px; color: var(--text-secondary); background: var(--card-soft); border-left: 3px solid var(--border-light); border-radius: var(--radius-md); font-size: 13px; }
 .csv-validation-summary[data-csv-ready="LOCAL_FILES_READY"] { color: var(--text-primary); border-left-color: var(--color-success); }
@@ -184,6 +196,7 @@ tbody tr:hover td { background: var(--card-soft); }
   .workflow, .method-grid { grid-template-columns: 1fr; }
   .chart-canvas { min-height: 260px; }
   .section-heading { align-items: flex-start; }
+  .workforce-evidence-head, .workforce-evidence-action { align-items: stretch; flex-direction: column; }
   .csv-template-item { grid-template-columns: 1fr; }
   .csv-template-actions { display: grid !important; grid-template-columns: 1fr 1fr !important; }
   .csv-template-download, .csv-template-validate { width: 100%; white-space: normal; text-align: center; }
@@ -194,4 +207,5 @@ tbody tr:hover td { background: var(--card-soft); }
   .tab { flex: 1 0 50%; text-align: center; }
   .view-tabs { flex-wrap: wrap; overflow: visible; }
   .card-heading { align-items: flex-start; flex-direction: column; }
+  .workforce-evidence-facts { grid-template-columns: 1fr; }
 }

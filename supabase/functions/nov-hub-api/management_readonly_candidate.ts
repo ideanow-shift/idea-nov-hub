@@ -139,6 +139,11 @@ function nullableNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function staffCountValue(value: unknown): number | null {
+  const parsed = nullableNumber(value);
+  return parsed !== null && Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
 function percentage(value: unknown): number {
   return Math.round(numberValue(value) * 1000) / 10;
 }
@@ -175,7 +180,8 @@ function todayJstFallback(): string {
 }
 
 function isEligibleEmploymentStatus(value: unknown): boolean {
-  return !/退職|休職|産休|育休/.test(text(value));
+  const status = text(value);
+  return Boolean(status) && !/退職|休職|産休|育休/.test(status);
 }
 
 function isCredentialLocked(value: unknown, nowIso: string): boolean {
@@ -220,10 +226,11 @@ async function getCurrentEmployee(
   const rows = await deps.db.select("employees", {
     select: "id,store_id,employment_status,is_active",
     id: `eq.${reference.id}`,
-    limit: 1,
+    limit: 2,
   });
   const row = rows[0];
-  if (!row || row.is_active === false || !isEligibleEmploymentStatus(row.employment_status)) safe401();
+  if (rows.length !== 1 || !row || row.is_active !== true || text(row.id) !== reference.id
+    || !isEligibleEmploymentStatus(row.employment_status)) safe401();
   return {
     id: text(row.id),
     storeId: text(row.store_id) || null,
@@ -238,10 +245,11 @@ async function assertLoginAvailable(
   const credentials = await deps.db.select("employee_login_credentials", {
     select: "employee_id,login_enabled,locked_until",
     employee_id: `eq.${employeeId}`,
-    limit: 1,
+    limit: 2,
   });
   const credential = credentials[0];
-  if (!credential || credential.login_enabled === false || isCredentialLocked(credential.locked_until, nowIso)) {
+  if (credentials.length !== 1 || !credential || credential.login_enabled !== true
+    || text(credential.employee_id) !== employeeId || isCredentialLocked(credential.locked_until, nowIso)) {
     safe401();
   }
 }
@@ -251,12 +259,13 @@ async function getCurrentRoleKeys(
   employeeId: string,
 ): Promise<string[]> {
   const assignments = await deps.db.select("employee_roles", {
-    select: "role_id",
+    select: "role_id,scope_type,scope_id,is_active",
     employee_id: `eq.${employeeId}`,
     is_active: "eq.true",
     limit: 100,
   });
-  const roleIds = unique(assignments.map((row) => text(row.role_id)).filter(Boolean));
+  const activeAssignments = assignments.filter((row) => row.is_active === true);
+  const roleIds = unique(activeAssignments.map((row) => text(row.role_id)).filter(Boolean));
   if (!roleIds.length) return [];
   const roles = await deps.db.select("roles", {
     select: "id,role_key,is_active",
@@ -264,8 +273,12 @@ async function getCurrentRoleKeys(
     is_active: "eq.true",
     limit: 100,
   });
+  const globalRoleIds = new Set(activeAssignments
+    .filter((row) => ["all", "global"].includes(text(row.scope_type)) && !text(row.scope_id))
+    .map((row) => text(row.role_id)));
   return unique(roles
-    .filter((row) => row.is_active !== false)
+    .filter((row) => row.is_active === true)
+    .filter((row) => !ALL_SCOPE_ROLE_CANDIDATES.has(text(row.role_key)) || globalRoleIds.has(text(row.id)))
     .map((row) => text(row.role_key))
     .filter(Boolean));
 }
@@ -282,7 +295,7 @@ async function getActiveStoreIds(
     is_active: "eq.true",
     limit: Math.max(ids.length, 1),
   });
-  return unique(stores.filter((row) => row.is_active !== false).map((row) => text(row.id)).filter(Boolean));
+  return unique(stores.filter((row) => row.is_active === true).map((row) => text(row.id)).filter(Boolean));
 }
 
 async function getAssignedStoreIds(
@@ -300,7 +313,7 @@ async function getAssignedStoreIds(
     limit: 100,
   });
   const candidateIds = rows
-    .filter((row) => row.is_active !== false)
+    .filter((row) => row.is_active === true)
     .filter((row) => ASSIGNMENT_TYPE_ALLOWLIST.has(text(row.assignment_type)))
     .filter((row) => !text(row.effective_from) || text(row.effective_from) <= today)
     .filter((row) => !text(row.effective_to) || text(row.effective_to) >= today)
@@ -418,8 +431,6 @@ async function buildFinanceSummary(
     departmentPlRows,
     trendPlRows,
     trendCashRows,
-    expertRows,
-    adviceRows,
   ] = await Promise.all([
     deps.db.select("finance_monthly_corporate_pl", {
       select: "month,corporation_id,total_sales_yen,technical_sales_yen,product_sales_yen,gross_profit_yen,labor_cost_yen,material_cost_yen,rent_yen,operating_profit_yen,ordinary_profit_yen,labor_cost_rate,material_cost_rate,rent_rate,operating_profit_rate,ordinary_profit_rate,break_even_ratio",
@@ -441,7 +452,7 @@ async function buildFinanceSummary(
     deps.db.count("finance_account_classification_rules", { review_status: "eq.review", is_active: "eq.true" }),
     deps.db.count("finance_account_classification_rules", { review_status: "eq.approved", is_active: "eq.true" }),
     deps.db.select("finance_monthly_staff_counts", {
-      select: "corporation_id,staff_count",
+      select: "corporation_id,staff_count,source",
       month: `eq.${selectedMonth}`,
       limit: 100,
     }),
@@ -461,19 +472,6 @@ async function buildFinanceSummary(
       order: "month.asc",
       limit: 1000,
     }),
-    deps.db.select("finance_expert_comments", {
-      select: "comment_month,external_author_name,organization,title,body,comment_scope,is_active,created_at",
-      comment_month: `eq.${selectedMonth}`,
-      is_active: "eq.true",
-      order: "created_at.desc",
-      limit: 20,
-    }),
-    deps.db.select("finance_ai_advice_logs", {
-      select: "target_month,target_scope,model,response,created_at",
-      target_month: `eq.${selectedMonth}`,
-      order: "created_at.desc",
-      limit: 10,
-    }),
   ]);
   if (!plRows.length) safe404();
 
@@ -486,7 +484,10 @@ async function buildFinanceSummary(
   const plByCorporation = new Map(plRows.map((row) => [text(row.corporation_id), row]));
   const bsByCorporation = new Map(bsRows.map((row) => [text(row.corporation_id), row]));
   const cashByCorporation = new Map(cashRows.map((row) => [text(row.corporation_id), row]));
-  const staffByCorporation = new Map(staffRows.map((row) => [text(row.corporation_id), numberValue(row.staff_count)]));
+  const staffByCorporation = new Map(staffRows.map((row) => [
+    text(row.corporation_id),
+    text(row.source) === "employees_snapshot" ? staffCountValue(row.staff_count) : null,
+  ]));
 
   const corporations = corporationRows.map((corporation, index) => {
     const internalId = text(corporation.id);
@@ -512,7 +513,7 @@ async function buildFinanceSummary(
     const internalId = text(corporation.id);
     const pl = plByCorporation.get(internalId);
     const bs = bsByCorporation.get(internalId) || {};
-    const staffCount = staffByCorporation.get(internalId) || 0;
+    const staffCount = staffByCorporation.get(internalId) ?? null;
     return {
       id: text(corporation.corporation_code) || `corporation-${index + 1}`,
       name: text(corporation.corporation_name) || "未設定法人",
@@ -525,9 +526,9 @@ async function buildFinanceSummary(
       laborCostRatePercent: nullablePercentage(pl?.labor_cost_rate),
       materialCostRatePercent: nullablePercentage(pl?.material_cost_rate),
       rentRatePercent: nullablePercentage(pl?.rent_rate),
-      staffCount: pl ? staffCount : null,
-      salesPerStaffManYen: pl && staffCount ? manYen(numberValue(pl.total_sales_yen) / staffCount) : null,
-      profitPerStaffManYen: pl && staffCount ? manYen(numberValue(pl.ordinary_profit_yen) / staffCount) : null,
+      staffCount: pl && staffCount !== null ? staffCount : null,
+      salesPerStaffManYen: pl && staffCount !== null && staffCount > 0 ? manYen(numberValue(pl.total_sales_yen) / staffCount) : null,
+      profitPerStaffManYen: pl && staffCount !== null && staffCount > 0 ? manYen(numberValue(pl.ordinary_profit_yen) / staffCount) : null,
       equityRatioPercent: nullablePercentage(bs.equity_ratio),
       currentRatioPercent: nullablePercentage(bs.current_ratio),
       totalAssetTurnover: nullableNumber(bs.total_asset_turnover),
@@ -606,7 +607,12 @@ async function buildFinanceSummary(
     missingCorporations,
     defenseLineCorporationCount: cashRows.filter((row) => nullableNumber(row.defense_line_yen) !== null).length,
     survivalMonthsCorporationCount: cashRows.filter((row) => nullableNumber(row.survival_months) !== null).length,
-    complete: missingCorporations.length === 0,
+    headcountCorporationCount: corporationRows.filter((row) => staffByCorporation.get(text(row.id)) !== null
+      && staffByCorporation.has(text(row.id))).length,
+    headcountAuthoritative: false,
+    headcountContract: "authoritative-month-end-contract-pending",
+    headcountComplete: false,
+    complete: false,
   };
 
   return {
@@ -622,22 +628,10 @@ async function buildFinanceSummary(
     departments,
     cashTrend,
     profitTrend,
-    expertComments: expertRows.map((row) => ({
-      author: text(row.external_author_name) || "専門家",
-      organization: text(row.organization),
-      title: text(row.title),
-      body: text(row.body),
-      scope: text(row.comment_scope),
-      createdAt: text(row.created_at),
-    })),
-    latestAdvice: adviceRows.length
-      ? {
-        scope: text(adviceRows[0].target_scope),
-        model: text(adviceRows[0].model),
-        body: text(adviceRows[0].response),
-        createdAt: text(adviceRows[0].created_at),
-      }
-      : null,
+    expertComments: [],
+    expertCommentReadiness: "aggregate-content-provenance-pending",
+    latestAdvice: null,
+    aiAdviceReadiness: "aggregate-input-provenance-pending",
     moduleStatuses: [
       {
         title: "科目分類",
@@ -646,10 +640,6 @@ async function buildFinanceSummary(
       },
     ],
   };
-}
-
-function activeStaff(row: JsonRecord): boolean {
-  return row.is_active !== false && isEligibleEmploymentStatus(row.employment_status);
 }
 
 async function buildStoresSummary(
@@ -664,17 +654,8 @@ async function buildStoresSummary(
   };
   if (access.scope.mode !== "all") storeQuery.id = inFilter(access.scope.storeIds);
   const storeRows = await deps.db.select("stores", storeQuery);
-  const internalStoreIds = storeRows.map((row) => text(row.id)).filter(Boolean);
   const corporationIds = unique(storeRows.map((row) => text(row.corporation_id)).filter(Boolean));
-  const [employeeRows, corporationRows] = await Promise.all([
-    internalStoreIds.length
-      ? deps.db.select("employees", {
-        select: "store_id,employment_status,is_active",
-        store_id: inFilter(internalStoreIds),
-        is_active: "eq.true",
-        limit: 5000,
-      })
-      : Promise.resolve([]),
+  const corporationRows = await (
     corporationIds.length
       ? deps.db.select("corporations", {
         select: "id,corporation_name,is_active",
@@ -682,22 +663,16 @@ async function buildStoresSummary(
         is_active: "eq.true",
         limit: 100,
       })
-      : Promise.resolve([]),
-  ]);
+      : Promise.resolve([])
+  );
   const corporationsById = new Map(corporationRows.map((row) => [text(row.id), text(row.corporation_name)]));
-  const staffCounts = employeeRows.filter(activeStaff).reduce((map, row) => {
-    const storeId = text(row.store_id);
-    map.set(storeId, (map.get(storeId) || 0) + 1);
-    return map;
-  }, new Map<string, number>());
 
   const stores = storeRows.map((row, index) => {
-    const staffCount = staffCounts.get(text(row.id)) || 0;
     return {
       id: text(row.store_no) || text(row.store_id) || `store-${index + 1}`,
       name: text(row.store_name) || "未設定店舗",
       corporationName: corporationsById.get(text(row.corporation_id)) || "未設定法人",
-      staffCount,
+      staffCount: null,
       salesManYen: 0,
       targetAchievementPercent: 0,
       customerCount: 0,
@@ -716,7 +691,12 @@ async function buildStoresSummary(
 
   return {
     storeCount: stores.length,
-    staffCount: stores.reduce((sum, row) => sum + row.staffCount, 0),
+    staffCount: null,
+    headcountReadiness: {
+      authoritative: false,
+      basis: "authoritative-snapshot-provider-pending",
+      currentPrimaryStoreFallbackUsed: false,
+    },
     source: "nov-hub-backend-api",
     pendingCsvTypes: ["店舗別月次売上", "日次売上・客数・客単価", "予約状況"],
     phase0Scope,
@@ -796,6 +776,20 @@ const FORBIDDEN_PUBLIC_KEYS = new Set([
   "serviceRole",
   "pin_hash",
   "pinHash",
+  "full_name",
+  "fullName",
+  "email",
+  "birth_date",
+  "birthDate",
+  "salary",
+  "salary_yen",
+  "wage",
+  "evaluation",
+  "evaluation_score",
+  "health",
+  "medical",
+  "leave_type",
+  "leaveType",
 ]);
 
 export function assertPublicManagementPayloadSafe(value: unknown, path = "response"): void {

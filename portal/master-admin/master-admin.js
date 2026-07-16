@@ -69,6 +69,32 @@ const EMPLOYMENT_TYPE_ALIASES = {
   "レセプションパート": "パート・アルバイト"
 };
 const LINE_WORKS_NUMERIC_ONLY_PATTERN = /^\d+$/;
+const DATA_INTAKE_TARGETS = {
+  employees: {
+    label: "社員情報",
+    keyLabel: "社員番号",
+    keyHeaders: ["社員番号", "employee_id"],
+    requiredHeaders: ["社員番号", "氏名"],
+    optionalHeaders: ["メールアドレス", "所属", "雇用形態", "就労ステータス", "休職種別"],
+    templateRows: [["0000", "SYNTHETIC_EMPLOYEE", "", "SYNTHETIC_STORE", "正社員", "現職", ""]]
+  },
+  stores: {
+    label: "店舗情報",
+    keyLabel: "店舗ID",
+    keyHeaders: ["店舗ID", "store_id"],
+    requiredHeaders: ["店舗ID", "店舗名"],
+    optionalHeaders: ["店舗No", "法人", "エリア", "状態"],
+    templateRows: [["synthetic-store", "SYNTHETIC_STORE", "0000", "SYNTHETIC_CORP", "SYNTHETIC_AREA", "有効"]]
+  },
+  corporations: {
+    label: "法人情報",
+    keyLabel: "法人No",
+    keyHeaders: ["法人No", "corporation_no"],
+    requiredHeaders: ["法人No", "法人名"],
+    optionalHeaders: ["正式名", "決算月", "状況", "有効"],
+    templateRows: [["0000", "SYNTHETIC_CORP", "SYNTHETIC_CORP_FORMAL", "8", "運用中", "TRUE"]]
+  }
+};
 
 const state = {
   view: "employees",
@@ -79,6 +105,14 @@ const state = {
   corporationStatus: "active",
   storeStatus: "active",
   appStatus: "active",
+  dataIntake: {
+    target: "employees",
+    mode: "csv",
+    fileName: "",
+    fileSignature: "",
+    preview: null,
+    status: "idle"
+  },
   selectedId: "",
   recentlyCreatedEmployeeId: "",
   employees: [],
@@ -288,10 +322,23 @@ function installRuntimeLayoutStyles() {
     .safe-master-normal-detail .detail-actions { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; }
     .safe-master-normal-detail .save-row { position: sticky !important; bottom: 0 !important; z-index: 2 !important; display: flex !important; flex-wrap: wrap !important; gap: 8px !important; align-items: center !important; justify-content: flex-end !important; border-top: 1px solid #e5e7eb !important; background: rgba(255,255,255,.96) !important; padding: 12px 0 0 !important; margin-top: 14px !important; }
     .safe-master-normal-detail .save-status { margin-right: auto !important; }
+    .data-intake-table-cell { white-space: normal !important; padding: 0 !important; border-bottom: 0 !important; }
+    .data-intake-panel { display: grid !important; gap: 14px !important; min-width: 0 !important; }
+    .data-intake-hero, .data-intake-card, .data-intake-empty, .data-intake-result { display: grid !important; gap: 8px !important; border: 1px solid #e5e7eb !important; border-radius: 14px !important; background: #fff !important; padding: 14px !important; min-width: 0 !important; }
+    .data-intake-hero { grid-template-columns: minmax(0, 1fr) auto !important; align-items: start !important; background: #f8fafc !important; }
+    .data-intake-hero p, .data-intake-card p, .data-intake-empty p, .data-intake-result p { margin: 0 !important; color: #6b7280 !important; font-size: 12px !important; line-height: 1.7 !important; overflow-wrap: anywhere !important; }
+    .data-intake-options, .data-intake-methods, .data-intake-actions { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; align-items: center !important; min-width: 0 !important; }
+    .data-intake-method { display: inline-flex !important; align-items: center !important; min-height: 30px !important; border: 1px solid #e5e7eb !important; border-radius: 999px !important; background: #fff !important; color: #374151 !important; font-size: 12px !important; font-weight: 700 !important; padding: 0 10px !important; }
+    .data-intake-method.active { border-color: #cde6d5 !important; background: #eef6f1 !important; color: #25724a !important; }
+    .data-intake-method.disabled { opacity: .72 !important; }
+    .data-intake-result.success { border-color: #cde6d5 !important; background: #f4fbf6 !important; }
+    .data-intake-result.warning { border-color: #f0d9a8 !important; background: #fff9ec !important; }
+    .data-intake-error-list, .data-intake-preview-list { display: grid !important; gap: 6px !important; font-size: 12px !important; line-height: 1.6 !important; overflow-wrap: anywhere !important; }
     @media (max-width: 900px) {
       #master-admin-safe-view { top: 78px !important; padding: 14px !important; }
       .safe-master-shell { grid-template-columns: 1fr !important; }
       .safe-master-detail { position: static !important; max-height: none !important; }
+      .data-intake-hero { grid-template-columns: 1fr !important; }
     }
   `;
 }
@@ -646,18 +693,21 @@ function rerenderAfterSafeSelectionChange({ restoreSearchFocus = false } = {}) {
 }
 
 function getSafeViewTitle() {
+  if (state.view === "data-intake") return "データ入力";
   if (state.view === "stores") return "店舗マスタ";
   if (state.view === "corporations") return "法人マスタ";
   return "社員マスタ";
 }
 
 function getSafeViewNote() {
+  if (state.view === "data-intake") return "画面入力・CSV一括取込・テンプレート取得を1か所で確認できます。";
   if (state.view === "stores") return "店舗一覧・検索・編集を行えます。";
   if (state.view === "corporations") return "法人一覧・検索・編集を行えます。";
   return "社員一覧・検索・編集を行えます。";
 }
 
 function getSafeRowsForCurrentView() {
+  if (state.view === "data-intake") return [];
   const query = normalizeSearch(state.safeSearch || "");
   let rows = [];
   if (state.view === "stores") rows = getStoresByStatus();
@@ -696,7 +746,8 @@ function appendSafeViewTabs(parent) {
   [
     ["employees", "社員"],
     ["stores", "店舗"],
-    ["corporations", "法人"]
+    ["corporations", "法人"],
+    ["data-intake", "データ入力"]
   ].forEach(([view, label]) => {
     appendSafeFilterButton(parent, state.view === view || (view === "employees" && state.view === "firebase"), label, () => {
       state.view = view;
@@ -708,6 +759,7 @@ function appendSafeViewTabs(parent) {
 }
 
 function appendSafeStatusFilters(parent) {
+  if (state.view === "data-intake") return;
   if (state.view === "stores") {
     [
       ["active", "有効"],
@@ -837,6 +889,268 @@ function appendSafeRows(tbody, rows) {
     else if (state.view === "corporations") appendSafeCorporationRow(tbody, row);
     else appendSafeEmployeeRow(tbody, row);
   });
+}
+
+function getDataIntakeTarget() {
+  return DATA_INTAKE_TARGETS[state.dataIntake.target] || DATA_INTAKE_TARGETS.employees;
+}
+
+function getDataIntakeExistingMap(targetKey = state.dataIntake.target) {
+  if (targetKey === "stores") {
+    return new Map(state.stores.map((store) => [String(store.store_id || "").trim(), store]).filter(([key]) => key));
+  }
+  if (targetKey === "corporations") {
+    return new Map(state.corporations.map((corporation) => [String(corporation.corporation_no || "").trim(), corporation]).filter(([key]) => key));
+  }
+  return new Map(state.employees.map((employee) => [String(employee.employee_id || "").trim(), employee]).filter(([key]) => key));
+}
+
+function getDataIntakeRowKey(row, target = getDataIntakeTarget()) {
+  return target.keyHeaders.map((header) => String(row[header] || "").trim()).find(Boolean) || "";
+}
+
+function getDataIntakeComparableValue(record, targetKey, header) {
+  if (!record) return "";
+  if (targetKey === "stores") {
+    const map = {
+      "店舗ID": record.store_id,
+      "店舗名": record.store_name,
+      "店舗No": record.store_no,
+      "法人": record.corporation_name || getStoreCorporationName(record),
+      "エリア": record.area || record.business_profile?.area,
+      "状態": record.is_active === false ? "無効" : "有効"
+    };
+    return String(map[header] || "").trim();
+  }
+  if (targetKey === "corporations") {
+    const map = {
+      "法人No": record.corporation_no,
+      "法人名": record.corporation_name,
+      "正式名": record.business_profile?.formal_corporation_name,
+      "決算月": record.business_profile?.fiscal_year_end_month,
+      "状況": record.business_profile?.operating_status,
+      "有効": record.is_active === false ? "FALSE" : "TRUE"
+    };
+    return String(map[header] || "").trim();
+  }
+  const map = {
+    "社員番号": record.employee_id,
+    "氏名": record.full_name,
+    "メールアドレス": getEmployeeContactEmail(record),
+    "所属": formatEmployeeAffiliation(record),
+    "雇用形態": normalizeEmploymentType(record.employment_type || ""),
+    "就労ステータス": normalizeEmploymentStatus(record.employment_status || "") || getEmployeeStatusLabel(record),
+    "休職種別": normalizeLeaveType(record.leave_type || "")
+  };
+  return String(map[header] || "").trim();
+}
+
+function buildDataIntakePreview(text, file) {
+  const targetKey = state.dataIntake.target;
+  const target = getDataIntakeTarget();
+  const table = parseCsv(text);
+  const errors = [];
+  if (!table.length) {
+    return { ok: false, fileName: file?.name || "", total: 0, creates: 0, updates: 0, unchanged: 0, errors: [{ rowNumber: 1, field: "file", category: "empty_file" }], rows: [] };
+  }
+  const headers = table[0].map(normalizeCsvHeader);
+  target.requiredHeaders.forEach((header) => {
+    if (!headers.includes(header)) {
+      errors.push({ rowNumber: 1, field: header, category: "missing_required_header" });
+    }
+  });
+  const rows = table.slice(1)
+    .filter((items) => items.some((item) => String(item || "").trim()))
+    .map((items, index) => ({
+      rowNumber: index + 2,
+      values: Object.fromEntries(headers.map((header, itemIndex) => [header, items[itemIndex] || ""]))
+    }));
+  const existing = getDataIntakeExistingMap(targetKey);
+  const seenKeys = new Set();
+  const previewRows = rows.map(({ rowNumber, values }) => {
+    const rowErrors = [];
+    const key = getDataIntakeRowKey(values, target);
+    if (!key) {
+      rowErrors.push({ rowNumber, field: target.keyLabel, category: "missing_key" });
+    }
+    target.requiredHeaders.forEach((header) => {
+      if (!String(values[header] || "").trim()) {
+        rowErrors.push({ rowNumber, field: header, category: "missing_required_value" });
+      }
+    });
+    if (key && seenKeys.has(key)) {
+      rowErrors.push({ rowNumber, field: target.keyLabel, category: "duplicate_key_in_file" });
+    }
+    if (key) seenKeys.add(key);
+    if (rowErrors.length) {
+      errors.push(...rowErrors);
+      return { rowNumber, action: "error", fieldCount: headers.length, errorCount: rowErrors.length };
+    }
+    const record = existing.get(key);
+    if (!record) return { rowNumber, action: "create", fieldCount: headers.length, errorCount: 0 };
+    const changed = [...target.requiredHeaders, ...target.optionalHeaders]
+      .filter((header) => headers.includes(header))
+      .some((header) => {
+        const incoming = String(values[header] || "").trim();
+        if (!incoming) return false;
+        return incoming !== getDataIntakeComparableValue(record, targetKey, header);
+      });
+    return { rowNumber, action: changed ? "update" : "unchanged", fieldCount: headers.length, errorCount: 0 };
+  });
+  return {
+    ok: errors.length === 0,
+    fileName: file?.name || "",
+    total: previewRows.length,
+    creates: previewRows.filter((row) => row.action === "create").length,
+    updates: previewRows.filter((row) => row.action === "update").length,
+    unchanged: previewRows.filter((row) => row.action === "unchanged").length,
+    errors,
+    rows: previewRows.slice(0, 50)
+  };
+}
+
+function downloadDataIntakeTemplate() {
+  const target = getDataIntakeTarget();
+  const headers = [...target.requiredHeaders, ...target.optionalHeaders];
+  const rows = target.templateRows.map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] || ""])));
+  const csv = `\uFEFF${buildCsv(rows)}`;
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `nov-hub-${state.dataIntake.target}-template.csv`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  showToast(`${target.label}のテンプレートを取得しました。`);
+}
+
+async function handleDataIntakeFile(file) {
+  if (!file) return;
+  const signature = [state.dataIntake.target, file.name, file.size, file.lastModified].join(":");
+  if (signature === state.dataIntake.fileSignature && state.dataIntake.preview) {
+    showToast("同じファイルは既に検証済みです。");
+    render();
+    return;
+  }
+  try {
+    const text = await file.text();
+    const preview = buildDataIntakePreview(text, file);
+    state.dataIntake.fileName = file.name;
+    state.dataIntake.fileSignature = signature;
+    state.dataIntake.preview = preview;
+    state.dataIntake.status = preview.ok ? "validated" : "error";
+    showToast(preview.ok ? "CSV検証が完了しました。保存はまだ行いません。" : "CSVに確認が必要な行があります。");
+    render();
+  } catch (error) {
+    console.error(error);
+    state.dataIntake.fileName = file.name;
+    state.dataIntake.preview = { ok: false, fileName: file.name, total: 0, creates: 0, updates: 0, unchanged: 0, errors: [{ rowNumber: 1, field: "file", category: "read_failed" }], rows: [] };
+    state.dataIntake.status = "error";
+    render();
+  }
+}
+
+function appendDataIntakeView(container) {
+  const target = getDataIntakeTarget();
+  const wrapper = document.createElement("div");
+  wrapper.className = "data-intake-panel";
+  wrapper.innerHTML = `
+    <section class="data-intake-hero">
+      <div>
+        <strong>入力ハブ</strong>
+        <p>社員・店舗・法人の画面入力、CSV一括取込、テンプレート取得をまとめます。CSVは保存前の検証だけを行います。</p>
+      </div>
+      <span class="status-pill neutral">保存基盤レビュー待ち</span>
+    </section>
+    <section class="data-intake-card">
+      <strong>対象データ</strong>
+      <div class="data-intake-options" data-intake-targets></div>
+    </section>
+    <section class="data-intake-card">
+      <strong>入力方式</strong>
+      <div class="data-intake-methods">
+        <span class="data-intake-method active">CSV一括取込</span>
+        <span class="data-intake-method">テンプレート取得</span>
+        <span class="data-intake-method disabled">画面入力は各マスタ画面で実施</span>
+      </div>
+      <p class="safe-master-note">現在の対象: ${escapeHtml(target.label)} / 必須ヘッダー: ${target.requiredHeaders.map(escapeHtml).join("、")}</p>
+      <div class="data-intake-actions">
+        <button class="button button-secondary" type="button" data-template-download>テンプレート取得</button>
+        <label class="button button-secondary csv-import-label">
+          CSVファイルを選択
+          <input type="file" accept=".csv,text/csv" data-intake-file hidden>
+        </label>
+        <button class="button button-primary" type="button" disabled title="保存基盤レビュー後に有効化します。">保存基盤レビュー待ち</button>
+      </div>
+    </section>
+    <section class="data-intake-preview" data-intake-preview></section>
+  `;
+  const targetHost = wrapper.querySelector("[data-intake-targets]");
+  Object.entries(DATA_INTAKE_TARGETS).forEach(([key, item]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `filter-chip${state.dataIntake.target === key ? " active" : ""}`;
+    button.textContent = item.label;
+    button.addEventListener("click", () => {
+      state.dataIntake.target = key;
+      state.dataIntake.fileName = "";
+      state.dataIntake.fileSignature = "";
+      state.dataIntake.preview = null;
+      state.dataIntake.status = "idle";
+      render();
+    });
+    targetHost.append(button);
+  });
+  wrapper.querySelector("[data-template-download]")?.addEventListener("click", downloadDataIntakeTemplate);
+  wrapper.querySelector("[data-intake-file]")?.addEventListener("change", (event) => {
+    handleDataIntakeFile(event.target.files?.[0]);
+    event.target.value = "";
+  });
+  renderDataIntakePreviewInto(wrapper.querySelector("[data-intake-preview]"));
+  container.append(wrapper);
+}
+
+function renderDataIntakePreviewInto(container) {
+  if (!container) return;
+  const preview = state.dataIntake.preview;
+  if (!preview) {
+    container.innerHTML = `
+      <div class="data-intake-empty">
+        <strong>CSV検証待ち</strong>
+        <p>ファイル選択後、UTF-8・ヘッダー・必須項目・重複キーを確認します。保存は行いません。</p>
+      </div>`;
+    return;
+  }
+  const errorRows = preview.errors.slice(0, 30);
+  container.innerHTML = `
+    <div class="data-intake-result ${preview.ok ? "success" : "warning"}">
+      <strong>${preview.ok ? "検証済み" : "確認が必要です"}</strong>
+      <p>${escapeHtml(preview.fileName || "CSVファイル")} / 保存はまだ実行していません。</p>
+    </div>
+    <section class="csv-preview-summary">
+      <span>読込 ${escapeHtml(preview.total)}件</span>
+      <span>新規 ${escapeHtml(preview.creates)}件</span>
+      <span>更新 ${escapeHtml(preview.updates)}件</span>
+      <span>変更なし ${escapeHtml(preview.unchanged)}件</span>
+      <span>エラー ${escapeHtml(preview.errors.length)}件</span>
+    </section>
+    ${errorRows.length ? `
+      <section class="csv-preview-section warning">
+        <strong>エラー行（先頭30件）</strong>
+        <div class="data-intake-error-list">
+          ${errorRows.map((item) => `<span>行${escapeHtml(item.rowNumber)} / ${escapeHtml(item.field)} / ${escapeHtml(item.category)}</span>`).join("")}
+        </div>
+      </section>` : ""}
+    <section class="csv-preview-section">
+      <strong>sanitized preview（先頭50件）</strong>
+      <div class="data-intake-preview-list">
+        ${preview.rows.map((row) => `<span>行${escapeHtml(row.rowNumber)} / ${escapeHtml(row.action)} / 項目${escapeHtml(row.fieldCount)} / エラー${escapeHtml(row.errorCount)}</span>`).join("")}
+      </div>
+    </section>
+    <p class="field-help">保存成功後の変更履歴接続、二重送信防止、同一ファイル再取込制御は保存基盤レビュー後に有効化します。</p>
+  `;
 }
 
 function getStoreCorporationName(store) {
@@ -1314,7 +1628,7 @@ function appendSafeCorporationEditForm(detailCard, corporation) {
 }
 
 function renderSafeMasterAdminView() {
-  if (!["employees", "firebase", "stores", "corporations"].includes(state.view)) {
+  if (!["employees", "firebase", "stores", "corporations", "data-intake"].includes(state.view)) {
     removeSafeMasterAdminView();
     return;
   }
@@ -1332,7 +1646,7 @@ function renderSafeMasterAdminView() {
 
   const rows = getSafeRowsForCurrentView();
   const selected = getSafeSelectedRow(rows);
-  if (selected?.id && state.selectedId !== selected.id) {
+  if (state.view !== "data-intake" && selected?.id && state.selectedId !== selected.id) {
     state.selectedId = selected.id;
   }
 
@@ -1365,38 +1679,40 @@ function renderSafeMasterAdminView() {
   const controls = document.createElement("div");
   controls.className = "safe-master-controls";
   appendSafeViewTabs(controls);
-  const search = document.createElement("input");
-  search.className = "safe-master-search";
-  search.type = "search";
-  search.placeholder = state.view === "stores" ? "店舗名・店舗ID・法人名で検索" : state.view === "corporations" ? "法人名・正式名で検索" : "氏名・社員番号・店舗名で検索";
-  search.value = state.safeSearch || "";
-  let isComposingSearch = false;
-  const applySafeSearch = (delay = 220) => {
-    state.safeSearch = search.value;
-    window.clearTimeout(safeSearchRenderTimer);
-    safeSearchRenderTimer = window.setTimeout(() => {
-      safeSearchRenderTimer = 0;
-      if (isComposingSearch) return;
-      rerenderAfterSafeSelectionChange({ restoreSearchFocus: true });
-    }, delay);
-  };
-  search.addEventListener("compositionstart", () => {
-    isComposingSearch = true;
-    window.clearTimeout(safeSearchRenderTimer);
-  });
-  search.addEventListener("compositionend", () => {
-    isComposingSearch = false;
-    applySafeSearch(80);
-  });
-  search.addEventListener("input", (event) => {
-    state.safeSearch = search.value;
-    if (isComposingSearch || event.isComposing) return;
-    applySafeSearch(260);
-  });
-  search.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") applySafeSearch(0);
-  });
-  controls.append(search);
+  if (state.view !== "data-intake") {
+    const search = document.createElement("input");
+    search.className = "safe-master-search";
+    search.type = "search";
+    search.placeholder = state.view === "stores" ? "店舗名・店舗ID・法人名で検索" : state.view === "corporations" ? "法人名・正式名で検索" : "氏名・社員番号・店舗名で検索";
+    search.value = state.safeSearch || "";
+    let isComposingSearch = false;
+    const applySafeSearch = (delay = 220) => {
+      state.safeSearch = search.value;
+      window.clearTimeout(safeSearchRenderTimer);
+      safeSearchRenderTimer = window.setTimeout(() => {
+        safeSearchRenderTimer = 0;
+        if (isComposingSearch) return;
+        rerenderAfterSafeSelectionChange({ restoreSearchFocus: true });
+      }, delay);
+    };
+    search.addEventListener("compositionstart", () => {
+      isComposingSearch = true;
+      window.clearTimeout(safeSearchRenderTimer);
+    });
+    search.addEventListener("compositionend", () => {
+      isComposingSearch = false;
+      applySafeSearch(80);
+    });
+    search.addEventListener("input", (event) => {
+      state.safeSearch = search.value;
+      if (isComposingSearch || event.isComposing) return;
+      applySafeSearch(260);
+    });
+    search.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") applySafeSearch(0);
+    });
+    controls.append(search);
+  }
   appendSafeStatusFilters(controls);
   appendSafeEmployeeCsvControls(controls);
 
@@ -1404,20 +1720,36 @@ function renderSafeMasterAdminView() {
   count.className = "result-count";
   count.textContent = getSafeRowCountLabel(rows);
 
-  const tableWrap = document.createElement("div");
-  tableWrap.className = "safe-master-table-wrap";
-  const table = document.createElement("table");
-  table.className = "safe-master-table";
-  const tbody = document.createElement("tbody");
-  appendSafeTableHeader(table);
-  appendSafeRows(tbody, rows);
-  table.append(tbody);
-  tableWrap.append(table);
-  listCard.append(header, controls, count, tableWrap);
+  if (state.view === "data-intake") {
+    appendDataIntakeView(listCard);
+  } else {
+    const tableWrap = document.createElement("div");
+    tableWrap.className = "safe-master-table-wrap";
+    const table = document.createElement("table");
+    table.className = "safe-master-table";
+    const tbody = document.createElement("tbody");
+    appendSafeTableHeader(table);
+    appendSafeRows(tbody, rows);
+    table.append(tbody);
+    tableWrap.append(table);
+    listCard.append(header, controls, count, tableWrap);
+  }
 
   const detailCard = document.createElement("aside");
   detailCard.className = "safe-master-card safe-master-detail";
-  if (selected) {
+  if (state.view === "data-intake") {
+    detailCard.innerHTML = `
+      <h3>保存ゲート</h3>
+      <p class="safe-master-note">データ入力は入口と検証だけを先行しています。保存処理はCore DB・RLS・RPC・変更履歴のレビュー完了後に接続します。</p>
+      <div class="data-intake-empty">
+        <strong>現在できること</strong>
+        <p>対象選択、テンプレート取得、CSVヘッダー検証、必須項目確認、sanitized preview。</p>
+      </div>
+      <div class="data-intake-empty">
+        <strong>まだ止めていること</strong>
+        <p>DB保存、変更履歴登録、同一ファイル再取込の永続判定、通知、外部送信。</p>
+      </div>`;
+  } else if (selected) {
     if (state.safeRecoveryMode === "edit") {
       appendNormalDetailIntoSafeCard(detailCard, selected);
     } else {
@@ -1433,6 +1765,9 @@ function renderSafeMasterAdminView() {
     detailCard.append(empty);
   }
 
+  if (state.view === "data-intake") {
+    listCard.prepend(header, controls);
+  }
   shell.append(listCard, detailCard);
   safeView.append(shell);
 }
@@ -2191,7 +2526,8 @@ function render() {
     permissions: "アプリ別権限",
     firebase: "Firebase未連携",
     logs: "変更履歴",
-    readiness: "HUB連携準備"
+    readiness: "HUB連携準備",
+    "data-intake": "データ入力"
   }[state.view];
   renderTable();
   try {
@@ -2218,6 +2554,21 @@ function render() {
 }
 
 function renderTable() {
+  if (state.view === "data-intake") {
+    elements.qualitySummary.replaceChildren();
+    elements.resultCount.textContent = "";
+    elements.tableHead.replaceChildren();
+    elements.tableBody.replaceChildren();
+    const host = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 1;
+    cell.className = "data-intake-table-cell";
+    appendDataIntakeView(cell);
+    host.append(cell);
+    elements.tableBody.append(host);
+    applyStableLayoutStyles();
+    return;
+  }
   let rows = [];
   try {
     rows = getRows();
@@ -2806,6 +3157,16 @@ function formatDateTime(value) {
 }
 
 function renderDetail() {
+  if (state.view === "data-intake") {
+    elements.detailPanel.innerHTML = `
+      <h3>データ入力の保存境界</h3>
+      <p class="detail-note">この画面ではCSVの事前検証まで行います。保存・変更履歴反映・二重送信防止の永続化は、Core DBレビュー後の別ゲートです。</p>
+      <section class="issue-panel neutral">
+        <strong>保存基盤レビュー待ち</strong>
+        <p>service_roleをフロントへ出さず、RLS/RPC/変更履歴へ安全に接続できることを確認してから保存を有効化します。</p>
+      </section>`;
+    return;
+  }
   if (state.view === "permissions") {
     renderPermissionDetail();
     return;

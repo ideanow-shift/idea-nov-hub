@@ -353,10 +353,12 @@ class LinkMasterRepository {
   }
 
   async update(link) {
+    const safeHref = toSafeNavigationHref(link.href);
+    if (!safeHref) throw new Error("安全なリンクURLを指定してください。");
     const result = await requestBackend("updateLink", {
       linkId: link.id,
       label: link.label,
-      href: link.href,
+      href: safeHref,
       category: link.category,
       owner: link.owner,
       description: link.description,
@@ -373,10 +375,12 @@ class LinkMasterRepository {
     return links.map((link) => {
       const master = linkMaster[link.id];
       if (master && !isLinkActive(master.active)) return null;
+      const href = toSafeNavigationHref(master?.href || link.href || `#${link.id}`);
+      if (!href) return null;
       return {
         id: link.id,
         label: master?.label || link.label,
-        href: master?.href || link.href || `#${link.id}`
+        href
       };
     }).filter(Boolean);
   }
@@ -841,6 +845,8 @@ function appendMessage(role, text, options = {}) {
     const linkList = document.createElement("div");
     linkList.className = "link-list";
     options.links.forEach((link) => {
+      const safeHref = toSafeNavigationHref(link.href);
+      if (!safeHref) return;
       const departmentRouteId = LINK_DEPARTMENT_ROUTES[link.id];
       if (departmentRouteId) {
         linkList.append(createDepartmentInquiryButton(link, departmentRouteId));
@@ -848,7 +854,7 @@ function appendMessage(role, text, options = {}) {
       }
 
       const anchor = document.createElement("a");
-      anchor.href = link.href;
+      anchor.href = safeHref;
       anchor.textContent = `${link.label} >`;
       anchor.setAttribute("aria-label", `${link.label}を開く`);
       linkList.append(anchor);
@@ -1343,11 +1349,17 @@ async function renderLinkAdmin() {
     const meta = document.createElement("span");
     meta.textContent = `${link.id} / ${link.category || "未分類"} / ${isLinkActive(link.active) ? "有効" : "停止"}`;
 
-    const href = document.createElement("a");
-    href.href = link.href;
-    href.target = "_blank";
-    href.rel = "noreferrer";
-    href.textContent = link.href;
+    const safeHref = toSafeNavigationHref(link.href);
+    const href = document.createElement(safeHref ? "a" : "span");
+    if (safeHref) {
+      href.href = safeHref;
+      href.target = "_blank";
+      href.rel = "noreferrer";
+      href.textContent = link.href;
+    } else {
+      href.className = "link-invalid";
+      href.textContent = "安全でないURL";
+    }
 
     const actions = document.createElement("div");
     actions.className = "rule-actions";
@@ -1812,6 +1824,20 @@ function isLinkActive(value) {
   const normalized = String(value || "").trim().toLowerCase();
   if (!normalized) return true;
   return !["false", "0", "no", "n", "停止", "無効", "不可", "inactive"].includes(normalized);
+}
+
+function toSafeNavigationHref(value) {
+  if (typeof value !== "string") return "";
+  if (/[\u0000-\u001f\u007f]/.test(value)) return "";
+  const href = value.trim();
+  if (!href) return "";
+  try {
+    const url = new URL(href, window.location.href);
+    if (url.username || url.password) return "";
+    return url.protocol === "https:" || url.protocol === "http:" ? href : "";
+  } catch {
+    return "";
+  }
 }
 
 function isRuleActive(value) {

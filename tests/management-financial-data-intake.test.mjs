@@ -93,7 +93,7 @@ test("P/L intake validates Yayoi workbook and preserves import disabled boundary
   const result = await parseFinancialWorkbookBuffer(workbook(rows), "PL", { inflateRaw });
   assert.equal(result.status, "PL_LOCAL_READY");
   assert.equal(result.normalizedRecordCount, 144);
-  assert.equal(result.previewRows[0].entityCategory, "ENTITY_CANDIDATE");
+  assert.equal(result.previewRows[0].entityCategory, "STORE_CANDIDATE");
   const receipt = buildFinancialIntakeReceipt(result);
   assert.equal(receipt.productionImportEnabled, false);
   assert.equal(receipt.entityCandidateCount, 1);
@@ -103,6 +103,7 @@ test("P/L intake validates Yayoi workbook and preserves import disabled boundary
   assert.equal(preview.entityCandidateCount, 1);
   assert.equal(preview.rows[0].entityName, "損･BASSA新所沢店");
   assert.equal(preview.rows[0].mappingStatus, "READY");
+  assert.equal(preview.rows[0].entityCategory, "STORE_CANDIDATE");
 });
 
 test("P/L aggregate sheets and missing exact mappings stay review-only", async () => {
@@ -126,20 +127,37 @@ test("P/L local preview combines current files without enabling production impor
     row(5, ["集計期間：令和07年09月01日", "令和08年08月31日", "決算仕訳を含む"]),
     row(8, ["勘定科目", ...months]),
     ...requiredPl.map((account, index) => row(9 + index, [account, ...months.map(() => index === 0 ? 10000 : 100)])),
-  ], "損･店舗A"), "PL", { inflateRaw });
+  ], "損･BASSA所沢店"), "PL", { inflateRaw });
   const second = await parseFinancialWorkbookBuffer(workbook([
     row(1, ["帳票名：残高試算表(年間推移)"]),
     row(5, ["集計期間：令和07年09月01日", "令和08年08月31日", "決算仕訳を含む"]),
     row(8, ["勘定科目", ...months]),
     ...requiredPl.map((account, index) => row(9 + index, [account, ...months.map(() => index === 0 ? 20000 : 200)])),
-  ], "損･店舗B"), "PL", { inflateRaw });
+  ], "損･KYARA HALF"), "PL", { inflateRaw });
   const combined = combineFinancialWorkbookResults([first, second], "PL");
   assert.equal(combined.status, "PL_LOCAL_READY");
   assert.equal(combined.entityCandidateCount, 2);
   const preview = buildFinancialLocalPreview(combined);
   assert.equal(preview.salesManYen, 36);
   assert.equal(preview.importActionEnabled, false);
-  assert.deepEqual(preview.rows.map((item) => item.entityName), ["損･店舗A", "損･店舗B"]);
+  assert.deepEqual(preview.rows.map((item) => item.entityName), ["損･BASSA所沢店", "損･KYARA HALF"]);
+});
+
+test("P/L local preview keeps head-office and FC sheets out of store operations", async () => {
+  const makeRows = (amount) => [
+    row(1, ["蟶ｳ逾ｨ蜷搾ｼ壽ｮ矩ｫ倩ｩｦ邂苓｡ｨ(蟷ｴ髢捺耳遘ｻ)"]),
+    row(5, ["髮・ｨ域悄髢難ｼ壻ｻ､蜥・7蟷ｴ09譛・1譌･", "莉､蜥・8蟷ｴ08譛・1譌･", "豎ｺ邂嶺ｻ戊ｨｳ繧貞性繧"]),
+    row(8, ["蜍伜ｮ夂ｧ醍岼", ...months]),
+    ...requiredPl.map((account, index) => row(9 + index, [account, ...months.map(() => index === 0 ? amount : 100)])),
+  ];
+  const store = await parseFinancialWorkbookBuffer(workbook(makeRows(10000), "損･BASSA保谷店"), "PL", { inflateRaw });
+  const headOffice = await parseFinancialWorkbookBuffer(workbook(makeRows(20000), "損･本部･経理"), "PL", { inflateRaw });
+  const fc = await parseFinancialWorkbookBuffer(workbook(makeRows(30000), "損･FC久米川"), "PL", { inflateRaw });
+  const preview = buildFinancialLocalPreview(combineFinancialWorkbookResults([store, headOffice, fc], "PL"));
+  assert.equal(preview.entityCandidateCount, 1);
+  assert.equal(preview.reviewCandidateCount, 2);
+  assert.deepEqual(preview.rows.map((item) => item.entityName), ["損･BASSA保谷店"]);
+  assert.deepEqual(preview.reviewRows.map((item) => item.entityCategory), ["NON_STORE_REVIEW_REQUIRED", "FC_REVIEW_REQUIRED"]);
 });
 
 test("B/S intake requires exact balanced assets, liabilities, and equity", async () => {
@@ -171,7 +189,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=d46791b258753015/);
+  assert.match(app, /financial-data-intake\.js\?v=25e37791ac710eef/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);

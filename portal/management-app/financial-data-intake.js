@@ -180,12 +180,28 @@ function sumAccount(records, account) {
     .reduce((sum, record) => sum + Number(record.amount || 0), 0);
 }
 
+const STORE_SHEET_RE = /(?:BASSA.+店|KYARA\s*HALF)/iu;
+const NON_STORE_SHEET_RE = /(?:本部|総務|経理|営業|教育|アカデミー|EC事業|FC|共通|全体|合計)/u;
+
+function classifyPlEntity(sheetName, isAggregateSheet) {
+  const value = String(sheetName || "");
+  if (isAggregateSheet) return { category: "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS", label: "集計除外" };
+  if (STORE_SHEET_RE.test(value) && !NON_STORE_SHEET_RE.test(value)) return { category: "STORE_CANDIDATE", label: "店舗候補" };
+  if (/FC/u.test(value)) return { category: "FC_REVIEW_REQUIRED", label: "FC確認" };
+  if (NON_STORE_SHEET_RE.test(value)) return { category: "NON_STORE_REVIEW_REQUIRED", label: "店舗外確認" };
+  return { category: "ENTITY_REVIEW_REQUIRED", label: "mapping確認" };
+}
+
 function entityPreview(sheet, statement) {
   const salesYen = statement === "PL" ? sumAccount(sheet.records, "売上高合計") : null;
   const ordinaryProfitYen = statement === "PL" ? sumAccount(sheet.records, "経常損益金額") : null;
+  const entity = statement === "PL"
+    ? classifyPlEntity(sheet.sheet, sheet.isAggregateSheet)
+    : { category: sheet.isAggregateSheet ? "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS" : "ENTITY_CANDIDATE", label: sheet.isAggregateSheet ? "集計除外" : "候補" };
   return {
     entityName: sheet.sheet,
-    entityCategory: sheet.isAggregateSheet ? "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS" : "ENTITY_CANDIDATE",
+    entityCategory: entity.category,
+    entityCategoryLabel: entity.label,
     mappingStatus: sheet.missingAccounts.length ? "MAPPING_REQUIRED" : "READY",
     recordCount: sheet.records.length,
     salesManYen: salesYen == null ? null : Math.round(salesYen / 10000),
@@ -236,7 +252,7 @@ function summarizeStatement(statement, sheets, meta) {
     balanceCheck,
     entityPreviewRows: parsed.map((sheet) => entityPreview(sheet, statement)),
     previewRows: parsed.slice(0, 4).map((sheet) => ({
-      entityCategory: sheet.isAggregateSheet ? "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS" : "ENTITY_CANDIDATE",
+      entityCategory: statement === "PL" ? classifyPlEntity(sheet.sheet, sheet.isAggregateSheet).category : sheet.isAggregateSheet ? "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS" : "ENTITY_CANDIDATE",
       monthCount: sheet.monthColumns.length,
       accountCount: sheet.accountCount,
       recordCount: sheet.records.length,
@@ -338,7 +354,9 @@ export function buildFinancialIntakeReceipt(result) {
 export function buildFinancialLocalPreview(result) {
   const receipt = buildFinancialIntakeReceipt(result);
   if (!receipt || receipt.statement !== "PL") return null;
-  const rows = (result.entityPreviewRows || []).filter((row) => row.entityCategory === "ENTITY_CANDIDATE");
+  const allRows = result.entityPreviewRows || [];
+  const rows = allRows.filter((row) => row.entityCategory === "STORE_CANDIDATE");
+  const reviewRows = allRows.filter((row) => row.entityCategory !== "STORE_CANDIDATE");
   return {
     schemaVersion: "management-financial-local-preview-v1",
     statement: "PL",
@@ -346,6 +364,7 @@ export function buildFinancialLocalPreview(result) {
     fileNamePresent: receipt.fileNamePresent,
     periodDetected: receipt.periodDetected,
     entityCandidateCount: rows.length,
+    reviewCandidateCount: reviewRows.length,
     aggregateExcludedSheetCount: receipt.aggregateExcludedSheetCount,
     normalizedRecordCount: receipt.normalizedRecordCount,
     mappingRequiredAccountCount: receipt.mappingRequiredAccountCount,
@@ -356,6 +375,15 @@ export function buildFinancialLocalPreview(result) {
       entityName: row.entityName,
       salesManYen: row.salesManYen,
       ordinaryProfitManYen: row.ordinaryProfitManYen,
+      mappingStatus: row.mappingStatus,
+      recordCount: row.recordCount,
+      entityCategory: row.entityCategory,
+      entityCategoryLabel: row.entityCategoryLabel,
+    })),
+    reviewRows: reviewRows.slice(0, 20).map((row) => ({
+      entityName: row.entityName,
+      entityCategory: row.entityCategory,
+      entityCategoryLabel: row.entityCategoryLabel,
       mappingStatus: row.mappingStatus,
       recordCount: row.recordCount,
     })),

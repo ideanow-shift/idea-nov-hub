@@ -2,7 +2,7 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
-import { renderFinancialDataIntake } from "./financial-data-intake.js?v=d46791b258753015";
+import { renderFinancialDataIntake } from "./financial-data-intake.js?v=25e37791ac710eef";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=a9c05abbcad54a84";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
@@ -199,11 +199,22 @@ function sanitizeFinancialPreview(value) {
     ordinaryProfitManYen: Number.isFinite(Number(row.ordinaryProfitManYen)) ? Number(row.ordinaryProfitManYen) : null,
     mappingStatus: row.mappingStatus === "READY" ? "READY" : "MAPPING_REQUIRED",
     recordCount: Number.isFinite(Number(row.recordCount)) ? Number(row.recordCount) : 0,
+    entityCategory: row.entityCategory === "STORE_CANDIDATE" ? "STORE_CANDIDATE" : "ENTITY_REVIEW_REQUIRED",
+    entityCategoryLabel: String(row.entityCategoryLabel || "店舗候補").slice(0, 24),
+  })) : [];
+  const reviewRows = Array.isArray(value.reviewRows) ? value.reviewRows.slice(0, 20).map((row) => ({
+    entityName: String(row.entityName || "未判定").slice(0, 80),
+    entityCategory: String(row.entityCategory || "ENTITY_REVIEW_REQUIRED").slice(0, 48),
+    entityCategoryLabel: String(row.entityCategoryLabel || "mapping確認").slice(0, 24),
+    mappingStatus: row.mappingStatus === "READY" ? "READY" : "MAPPING_REQUIRED",
+    recordCount: Number.isFinite(Number(row.recordCount)) ? Number(row.recordCount) : 0,
   })) : [];
   return {
     ...value,
     rows,
+    reviewRows,
     entityCandidateCount: rows.length,
+    reviewCandidateCount: reviewRows.length,
     salesManYen: rows.reduce((sum, row) => sum + Number(row.salesManYen || 0), 0),
     ordinaryProfitManYen: rows.reduce((sum, row) => sum + Number(row.ordinaryProfitManYen || 0), 0),
     importActionEnabled: false,
@@ -252,6 +263,36 @@ function renderFinancialPreviewStores() {
   table.append(thead, tbody);
   wrap.append(table);
   section.append(heading("店舗営業管理へのローカルP/L反映（本番未投入）"), paragraph("弥生Excelの店舗候補シートを、確認用だけに表示しています。DB保存・本番投入・個人情報表示はありません。"), wrap);
+  elements.financialPreviewStores.replaceChildren(section);
+}
+
+function renderFinancialPreviewStores() {
+  if (!elements.financialPreviewStores) return;
+  const preview = state.financialPreview;
+  if (!preview) { renderFinancialPreviewEmpty(elements.financialPreviewStores, "店舗営業管理"); return; }
+  const section = document.createElement("section");
+  section.className = "financial-local-preview-card";
+  const wrap = document.createElement("div");
+  wrap.className = "table-wrap embedded local-preview-table";
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.append(tableRow(["店舗候補", "分類", "売上", "経常損益", "mapping", "レコード"], true));
+  const tbody = document.createElement("tbody");
+  tbody.replaceChildren(...(preview.rows.length ? preview.rows.map((row) => tableRow([
+    row.entityName,
+    row.entityCategoryLabel || "店舗候補",
+    row.salesManYen == null ? "未算定" : `${number.format(row.salesManYen)}万円`,
+    row.ordinaryProfitManYen == null ? "未算定" : `${number.format(row.ordinaryProfitManYen)}万円`,
+    row.mappingStatus === "READY" ? "確認OK" : "mapping確認",
+    `${number.format(row.recordCount)}件`,
+  ])) : [emptyRow(6, "店舗候補として表示できるP/Lシートはまだありません")]));
+  table.append(thead, tbody);
+  wrap.append(table);
+  section.append(
+    heading("店舗営業管理へのローカルP/L反映（本番未投入）"),
+    paragraph(`弥生Excelの店舗候補だけを確認用に表示しています。店舗候補 ${number.format(preview.entityCandidateCount || 0)}件 / 除外・要確認 ${number.format(preview.reviewCandidateCount || 0)}件。DB保存・本番投入・個人情報表示はありません。`),
+    wrap
+  );
   elements.financialPreviewStores.replaceChildren(section);
 }
 

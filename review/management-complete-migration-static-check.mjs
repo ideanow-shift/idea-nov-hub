@@ -45,7 +45,7 @@ const required = [
   [files.app, 'elements.corporateViewTabs.hidden = !CORPORATE_VIEWS.has(state.view)'],
   [files.app, 'IDEA_NOV_PLACEHOLDER'],
   [files.app, 'renderCsvRequirements(elements.csvRequirements, data.requiredCsvFiles)'],
-  [files.app, 'financial-data-intake.js?v=d46791b258753015'],
+  [files.app, 'financial-data-intake.js?v=25e37791ac710eef'],
   [files.app, 'management-financial-local-preview'],
   [files.app, 'renderFinancialPreviewOverview'],
   [files.app, 'renderFinancialPreviewStores'],

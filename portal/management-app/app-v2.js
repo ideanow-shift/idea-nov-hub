@@ -1,4 +1,5 @@
 import { callApiAction, setHubSessionAuth } from "../js/api.js";
+import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=a9c05abbcad54a84";
@@ -23,7 +24,7 @@ const elements = {
   profitability: byId("profitability-rows"), productivity: byId("productivity-rows"), safety: byId("safety-rows"), efficiency: byId("efficiency-rows"),
   departmentTabs: byId("department-tabs"), departmentKpis: byId("department-kpis"), departmentRows: byId("department-rows"), departmentInsight: byId("department-insight"),
   storeScope: byId("store-scope"), workforceEvidence: byId("workforce-evidence-status"), storeKpis: byId("store-kpis"), storeRows: byId("store-rows"), csvRequirements: byId("csv-requirements"),
-  dataopsKpis: byId("dataops-kpis"), workflow: byId("workflow"), stoppedItems: byId("stopped-items")
+  dataopsKpis: byId("dataops-kpis"), productionReadiness: byId("production-readiness-status"), workflow: byId("workflow"), stoppedItems: byId("stopped-items")
 };
 
 document.querySelectorAll(".tab, .section-tab").forEach((button) => button.addEventListener("click", () => selectView(button.dataset.view)));
@@ -176,6 +177,7 @@ async function loadDataops() {
 function renderDataops() {
   const data = state.dataops || {}; const counts = data.statusCounts || {};
   renderMetrics(elements.dataopsKpis, [["原本", `${counts.sourceDocuments || 0}件`], ["raw行", `${number.format(counts.accountingRawRows || 0)}行`], ["分類下書き", `${counts.classificationDraft || 0}件`], ["分類確認中", `${counts.classificationReview || 0}件`]]);
+  mountManagementProductionReadiness(elements.productionReadiness);
   elements.workflow.replaceChildren(...(data.workflow || []).map((step) => { const item = document.createElement("article"); item.className = "workflow-step"; item.append(heading(`${step.step}. ${step.title}`), paragraph(`${step.owner} / ${step.status}`)); return item; }));
   elements.stoppedItems.replaceChildren(heading("この画面から実行しない処理"), list(data.stoppedItems || []));
 }

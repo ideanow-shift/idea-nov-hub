@@ -18,6 +18,7 @@ const BS_REQUIRED_ACCOUNTS = Object.freeze(["資産合計", "負債合計", "純
 const AGGREGATE_SHEET_RE = /(?:全体|合計|共通|FC\(合計\))/u;
 const XML_ESCAPE_RE = /&(lt|gt|amp|quot|apos);/g;
 const XML_ESCAPE_MAP = Object.freeze({ lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" });
+const XLSX_TEXT_ENTRY_RE = /^(?:xl\/(?:workbook\.xml|sharedStrings\.xml|_rels\/workbook\.xml\.rels|worksheets\/sheet\d+\.xml)|\[Content_Types\]\.xml|_rels\/\.rels)$/u;
 
 function xmlText(value) {
   return String(value ?? "").replace(XML_ESCAPE_RE, (_, key) => XML_ESCAPE_MAP[key]);
@@ -81,7 +82,7 @@ export async function readXlsxEntries(arrayBuffer, options = {}) {
     if (method === 0) data = compressed;
     else if (method === 8) data = await inflateRaw(compressed, options);
     else throw new Error("ZIP_COMPRESSION_UNSUPPORTED");
-    entries.set(name, decoder.decode(data));
+    if (XLSX_TEXT_ENTRY_RE.test(name)) entries.set(name, decoder.decode(data));
     pointer += 46 + fileNameLength + extraLength + commentLength;
   }
   return entries;

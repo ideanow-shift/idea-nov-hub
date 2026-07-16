@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "management-financial-staged-import-contract-v1",
+  "status": "SOURCE_STATIC_CANDIDATE_ONLY",
+  "runtimeEnabled": false,
+  "productionMutationEnabled": false,
+  "supportedStatements": ["PL", "BS"],
+  "sourceIdentity": {
+    "required": true,
+    "fileSha256": "required",
+    "fileBytes": "required",
+    "adapterReceiptSchema": "management-financial-data-intake-local-v1",
+    "rawFileStorage": "prohibited"
+  },
+  "actorAndAudit": {
+    "actorSource": "backend_resolved_hub_session_employee",
+    "browserActorOverride": "rejected",
+    "auditRecord": "exactly_one_per_import_command",
+    "sameTransaction": true,
+    "rawEmployeeIdentityOutput": "prohibited"
+  },
+  "idempotency": {
+    "keyFields": ["statement", "period", "scopeKind", "sourceSystem", "fileSha256"],
+    "duplicatePolicy": "fail_close_same_key_existing",
+    "partialRetry": "prohibited_until_rollback_verified"
+  },
+  "stagingRows": {
+    "normalizedShape": ["statement", "period", "entityKey", "accountKey", "amount", "sourceRowCategory"],
+    "rawSheetNameOutput": "prohibited",
+    "aggregateSheets": "excluded_from_entity_totals_until_mapping_review",
+    "personalData": "prohibited"
+  },
+  "validationGates": {
+    "pl": {
+      "required": ["twelveMonthColumns", "accountMappingClosed", "aggregateSheetPolicyClosed"],
+      "supplementalRequired": ["salesSubaccount", "utilitySubaccount", "couponAmountSource"]
+    },
+    "bs": {
+      "required": ["twelveMonthColumns", "assetsEqualLiabilitiesPlusEquity", "periodEntityUniqueness"]
+    }
+  },
+  "rollback": {
+    "scope": "single_import_command",
+    "requiresAuditRecord": true,
+    "summaryVerification": "post_rollback_zero_staging_rows_for_import_key"
+  },
+  "sanitizedResult": {
+    "allowedKeys": ["category", "statement", "periodReady", "mappingReady", "stagedRowCount", "auditWritten", "rollbackAvailable"],
+    "rawAmounts": "prohibited",
+    "rawRows": "prohibited",
+    "fileNames": "prohibited",
+    "digests": "prohibited_in_browser"
+  },
+  "terminalCategories": [
+    "IMPORT_READY_FOR_REVIEW",
+    "MAPPING_REQUIRED",
+    "SUPPLEMENTAL_SOURCE_REQUIRED",
+    "BS_IMBALANCED",
+    "DUPLICATE_IMPORT_KEY",
+    "ACTOR_NOT_AUTHORIZED",
+    "AUDIT_INVARIANT_FAILED",
+    "REQUEST_INVALID"
+  ]
+}

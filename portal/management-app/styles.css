@@ -173,6 +173,21 @@ tbody tr:hover td { background: var(--card-soft); }
 .production-readiness-item span { display: inline-flex; min-height: 24px; margin-bottom: 8px; padding: 3px 8px; align-items: center; color: var(--text-primary); background: #fff; border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 11px; font-weight: 500; }
 .production-readiness-item strong { display: block; color: var(--text-primary); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
 .production-readiness-item p { margin: 6px 0 0; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
+.financial-intake-panel { margin: 0 0 16px; padding: 16px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.financial-intake-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.financial-intake-kicker { margin: 0 0 3px; color: var(--text-secondary); font-size: 11px; font-weight: 500; text-transform: uppercase; }
+.financial-intake-heading h3 { margin: 0; color: var(--text-primary); font-size: 16px; font-weight: 500; }
+.financial-intake-heading button:disabled { min-height: 36px; padding: 7px 12px; color: var(--text-muted); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); white-space: nowrap; cursor: not-allowed; }
+.financial-intake-summary { margin: 10px 0 12px; color: var(--text-secondary); font-size: 13px; }
+.financial-intake-controls { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.financial-intake-controls select, .financial-intake-controls input { min-width: 0; min-height: 38px; padding: 7px 10px; color: var(--text-primary); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.financial-intake-drop { min-height: 82px; margin-bottom: 12px; padding: 14px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); background: var(--card-soft); border: 1px dashed var(--border-light); border-radius: var(--radius-md); cursor: pointer; text-align: center; }
+.financial-intake-drop input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.financial-intake-result { padding: 12px; background: #fffaf0; border: 1px solid var(--border-light); border-left: 3px solid var(--color-bassa); border-radius: var(--radius-md); }
+.financial-intake-result strong { display: block; margin-bottom: 4px; color: var(--text-primary); font-size: 13px; overflow-wrap: anywhere; }
+.financial-intake-result p { margin: 0 0 4px; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
+.financial-intake-preview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+.financial-intake-preview li { min-width: 0; padding: 9px 10px; color: var(--text-secondary); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 12px; overflow-wrap: anywhere; }
 
 .embedded { margin: 0; padding: 0; border: 0; }
 .axis-section h3 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -211,11 +226,12 @@ tbody tr:hover td { background: var(--card-soft); }
   .corporation-tabs { padding: 10px 12px; }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .metric-value { font-size: 24px; }
-  .workflow, .method-grid, .production-readiness-grid { grid-template-columns: 1fr; }
+  .workflow, .method-grid, .production-readiness-grid, .financial-intake-controls, .financial-intake-preview { grid-template-columns: 1fr; }
   .chart-canvas { min-height: 260px; }
   .section-heading { align-items: flex-start; }
   .workforce-evidence-head, .workforce-evidence-action { align-items: stretch; flex-direction: column; }
   .production-readiness-head { align-items: stretch; flex-direction: column; }
+  .financial-intake-heading { align-items: stretch; flex-direction: column; }
   .csv-template-item { grid-template-columns: 1fr; }
   .csv-template-actions { display: grid !important; grid-template-columns: 1fr 1fr !important; }
   .csv-template-download, .csv-template-validate { width: 100%; white-space: normal; text-align: center; }

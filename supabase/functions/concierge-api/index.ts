@@ -41,6 +41,10 @@ function boundaryError(status: number, category: string, origin: string): Respon
   return withCors(json({ ok: false, error: category }, status), origin);
 }
 
+function logRuntimeError(category: string): void {
+  console.error(`CONCIERGE_RUNTIME_ERROR:${category}`);
+}
+
 function getString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
@@ -247,7 +251,7 @@ Deno.serve(async (request) => {
       });
 
       if (error) {
-        console.error("concierge_login_store failed", error);
+        logRuntimeError("LOGIN_STORE");
         return json({ ok: false, error: "ログイン確認に失敗しました。" }, 500);
       }
 
@@ -298,7 +302,7 @@ Deno.serve(async (request) => {
       const { data, error } = await query;
 
       if (error) {
-        console.error("listAnswerRules failed", error);
+        logRuntimeError("LIST_ANSWER_RULES");
         return json({ ok: false, error: "回答ルールを取得できませんでした。" }, 500);
       }
 
@@ -333,7 +337,7 @@ Deno.serve(async (request) => {
         .limit(limit);
 
       if (error) {
-        console.error("listLogs failed", error);
+        logRuntimeError("LIST_LOGS");
         return json({ ok: false, error: "質問ログを取得できませんでした。" }, 500);
       }
 
@@ -350,7 +354,7 @@ Deno.serve(async (request) => {
         : { data: [], error: null };
 
       if (feedbackError) {
-        console.error("listLogs feedback failed", feedbackError);
+        logRuntimeError("LIST_LOGS_FEEDBACK");
         return json({ ok: false, error: "評価ログを取得できませんでした。" }, 500);
       }
 
@@ -362,7 +366,7 @@ Deno.serve(async (request) => {
         : { data: [], error: null };
 
       if (storeError) {
-        console.error("listLogs stores failed", storeError);
+        logRuntimeError("LIST_LOGS_STORES");
         return json({ ok: false, error: "店舗情報を取得できませんでした。" }, 500);
       }
 
@@ -421,7 +425,7 @@ Deno.serve(async (request) => {
       const { data, error } = await query;
 
       if (error) {
-        console.error("listLinks failed", error);
+        logRuntimeError("LIST_LINKS");
         return json({ ok: false, error: "リンクマスタを取得できませんでした。" }, 500);
       }
 
@@ -467,7 +471,7 @@ Deno.serve(async (request) => {
         .maybeSingle();
 
       if (existingError) {
-        console.error("updateLink lookup failed", existingError);
+        logRuntimeError("UPDATE_LINK_LOOKUP");
         return json({ ok: false, error: "リンクを確認できませんでした。" }, 500);
       }
 
@@ -490,7 +494,7 @@ Deno.serve(async (request) => {
         .eq("id", linkId);
 
       if (error) {
-        console.error("updateLink failed", error);
+        logRuntimeError("UPDATE_LINK");
         return json({ ok: false, error: "リンクを更新できませんでした。" }, 500);
       }
 
@@ -508,7 +512,7 @@ Deno.serve(async (request) => {
         .limit(100);
 
       if (error) {
-        console.error("listKnowledgeUpdates failed", error);
+        logRuntimeError("LIST_KNOWLEDGE_UPDATES");
         return json({ ok: false, error: "ナレッジ更新履歴を取得できませんでした。" }, 500);
       }
 
@@ -541,7 +545,7 @@ Deno.serve(async (request) => {
         .order("department_name", { ascending: true });
 
       if (error) {
-        console.error("listDepartmentRoutes failed", error);
+        logRuntimeError("LIST_DEPARTMENT_ROUTES");
         return json({ ok: false, error: "問い合わせ先を取得できませんでした。" }, 500);
       }
 
@@ -558,7 +562,7 @@ Deno.serve(async (request) => {
         : { data: [], error: null };
 
       if (destinationError) {
-        console.error("listDepartmentRoutes destinations failed", destinationError);
+        logRuntimeError("LIST_DEPARTMENT_ROUTE_DESTINATIONS");
       }
 
       const destinationByPurpose = new Map<string, { channel_name?: string }>();
@@ -601,7 +605,7 @@ Deno.serve(async (request) => {
         .maybeSingle();
 
       if (routeError) {
-        console.error("createDepartmentInquiry route lookup failed", routeError);
+        logRuntimeError("CREATE_DEPARTMENT_INQUIRY_ROUTE_LOOKUP");
         return json({ ok: false, error: "問い合わせ先を確認できませんでした。" }, 500);
       }
 
@@ -617,7 +621,7 @@ Deno.serve(async (request) => {
           .maybeSingle();
 
         if (logError) {
-          console.error("createDepartmentInquiry log lookup failed", logError);
+          logRuntimeError("CREATE_DEPARTMENT_INQUIRY_LOG_LOOKUP");
           return json({ ok: false, error: "質問ログを確認できませんでした。" }, 500);
         }
 
@@ -638,7 +642,7 @@ Deno.serve(async (request) => {
         .maybeSingle();
 
       if (destinationError) {
-        console.error("createDepartmentInquiry destination lookup failed", destinationError);
+        logRuntimeError("CREATE_DEPARTMENT_INQUIRY_DESTINATION_LOOKUP");
       }
 
       const { data: inquiry, error } = await supabase
@@ -661,7 +665,7 @@ Deno.serve(async (request) => {
         .single();
 
       if (error) {
-        console.error("createDepartmentInquiry failed", error);
+        logRuntimeError("CREATE_DEPARTMENT_INQUIRY");
         return json({ ok: false, error: "問い合わせを保存できませんでした。" }, 500);
       }
 
@@ -691,7 +695,7 @@ Deno.serve(async (request) => {
         .limit(limit);
 
       if (error) {
-        console.error("listDepartmentInquiries failed", error);
+        logRuntimeError("LIST_DEPARTMENT_INQUIRIES");
         return json({ ok: false, error: "部門問い合わせログを取得できませんでした。" }, 500);
       }
 
@@ -707,7 +711,7 @@ Deno.serve(async (request) => {
         : { data: [], error: null };
 
       if (routesError) {
-        console.error("listDepartmentInquiries routes failed", routesError);
+        logRuntimeError("LIST_DEPARTMENT_INQUIRY_ROUTES");
       }
 
       const { data: stores, error: storesError } = storeIds.length
@@ -718,7 +722,7 @@ Deno.serve(async (request) => {
         : { data: [], error: null };
 
       if (storesError) {
-        console.error("listDepartmentInquiries stores failed", storesError);
+        logRuntimeError("LIST_DEPARTMENT_INQUIRY_STORES");
       }
 
       const purposes = routeIds.map((routeId) => notificationPurposeForRoute(String(routeId)));
@@ -734,7 +738,7 @@ Deno.serve(async (request) => {
         : { data: [], error: null };
 
       if (destinationError) {
-        console.error("listDepartmentInquiries destinations failed", destinationError);
+        logRuntimeError("LIST_DEPARTMENT_INQUIRY_DESTINATIONS");
       }
 
       const routeNameById = new Map<string, string>();
@@ -819,7 +823,7 @@ Deno.serve(async (request) => {
         }, { onConflict: "id" });
 
       if (error) {
-        console.error("appendKnowledgeUpdate failed", error);
+        logRuntimeError("APPEND_KNOWLEDGE_UPDATE");
         return json({ ok: false, error: "ナレッジ更新履歴を保存できませんでした。" }, 500);
       }
 
@@ -865,7 +869,7 @@ Deno.serve(async (request) => {
         }, { onConflict: "id" });
 
       if (error) {
-        console.error("appendAnswerRule failed", error);
+        logRuntimeError("APPEND_ANSWER_RULE");
         return json({ ok: false, error: "回答ルールを保存できませんでした。" }, 500);
       }
 
@@ -898,7 +902,7 @@ Deno.serve(async (request) => {
         .maybeSingle();
 
       if (existingError) {
-        console.error("updateAnswerRule lookup failed", existingError);
+        logRuntimeError("UPDATE_ANSWER_RULE_LOOKUP");
         return json({ ok: false, error: "回答ルールを確認できませんでした。" }, 500);
       }
 
@@ -922,7 +926,7 @@ Deno.serve(async (request) => {
         .eq("id", ruleId);
 
       if (error) {
-        console.error("updateAnswerRule failed", error);
+        logRuntimeError("UPDATE_ANSWER_RULE");
         return json({ ok: false, error: "回答ルールを更新できませんでした。" }, 500);
       }
 
@@ -963,7 +967,7 @@ Deno.serve(async (request) => {
         .maybeSingle();
 
       if (credentialError) {
-        console.error("appendLog credential check failed", credentialError);
+        logRuntimeError("APPEND_LOG_CREDENTIAL_CHECK");
         return json({ ok: false, error: "ログ保存前の確認に失敗しました。" }, 500);
       }
 
@@ -988,7 +992,7 @@ Deno.serve(async (request) => {
         }, { onConflict: "id" });
 
       if (error) {
-        console.error("appendLog failed", error);
+        logRuntimeError("APPEND_LOG");
         return json({ ok: false, error: "質問ログを保存できませんでした。" }, 500);
       }
 
@@ -1003,7 +1007,7 @@ Deno.serve(async (request) => {
           });
 
         if (feedbackError && feedbackError.code !== "23505") {
-          console.error("appendLog feedback insert failed", feedbackError);
+          logRuntimeError("APPEND_LOG_FEEDBACK_INSERT");
           return json({ ok: false, error: "評価を保存できませんでした。" }, 500);
         }
       }
@@ -1030,7 +1034,7 @@ Deno.serve(async (request) => {
         .maybeSingle();
 
       if (logError) {
-        console.error("updateRating log lookup failed", logError);
+        logRuntimeError("UPDATE_RATING_LOG_LOOKUP");
         return json({ ok: false, error: "評価対象ログを確認できませんでした。" }, 500);
       }
 
@@ -1051,7 +1055,7 @@ Deno.serve(async (request) => {
         .maybeSingle();
 
       if (existingError) {
-        console.error("updateRating feedback lookup failed", existingError);
+        logRuntimeError("UPDATE_RATING_FEEDBACK_LOOKUP");
         return json({ ok: false, error: "評価の確認に失敗しました。" }, 500);
       }
 
@@ -1067,7 +1071,7 @@ Deno.serve(async (request) => {
         : await supabase.from("concierge_feedback").insert(feedbackPayload);
 
       if (error) {
-        console.error("updateRating failed", error);
+        logRuntimeError("UPDATE_RATING");
         return json({ ok: false, error: "評価を保存できませんでした。" }, 500);
       }
 
@@ -1076,7 +1080,7 @@ Deno.serve(async (request) => {
 
     return json({ ok: false, error: "未対応の操作です。" }, 404);
   } catch (error) {
-    console.error(error);
+    logRuntimeError("UNHANDLED_REQUEST");
     return json({ ok: false, error: "一時的に処理できませんでした。" }, 500);
   }
   })();

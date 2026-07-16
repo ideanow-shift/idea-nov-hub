@@ -2,7 +2,7 @@ import { PORTAL_CONFIG } from "./firebase-config.js?v=shift-session-contract-202
 import { authIsConfigured, getIdToken, signInWithGoogle, signOutUser } from "./auth.js";
 import { callApiAction, clearApiAuth, createIdeaLinkHandoff, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js?v=idea-link-handoff-launch-20260712-6";
 import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
-import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js";
+import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js?v=education-url-fix-20260716-1";
 import { clearHubEmployeeContext, encodeHubContextForUrl, getHubEmployeeContextSummary, saveHubEmployeeContext } from "./hub-context.js";
 import {
   renderNovNaviDashboard,
@@ -40,6 +40,7 @@ const SHIFT_APP_IDS = new Set(["shift"]);
 const MANAGEMENT_APP_URL = "./management-platform/";
 const CORE_MASTER_ADMIN_APP_URL = "./master-admin-stable/?v=master-admin-search-pin-fix-20260712-32";
 const IDEA_LINK_APP_URL = "./idea-link-app/?v=idea-link-module-sync-20260712-1";
+const EDUCATION_APP_URL = "https://script.google.com/macros/s/AKfycbxKLThF4TN18-OwaOFKbqwoPPSAHB7HH4v3_IkTXEmAGrhDJyzS1GfkfC1GFGiA7vUZew/exec?page=home";
 const IDEA_LINK_LEGACY_DEPLOYMENT_ID = "AKfycbz3tmMUSvKEVZgmf8w-pKLk_H6_fXdltkwrHF5VIfpItufu41xoCa1f3-1aE0w3fJpucw";
 const DEVELOPMENT_APP_VIEWER_ROLE_KEYS = new Set(["super_admin", "executive"]);
 const BACKOFFICE_RELEASED_APP_IDS = new Set([
@@ -701,6 +702,21 @@ function isIdeaLinkApp(app) {
     || /(?:^|\/)idea-link\/?(?:[?#].*)?$/.test(appUrl);
 }
 
+function isEducationApp(app) {
+  const appId = String(app?.appId || "").trim().toLowerCase().replaceAll("_", "-");
+  const appName = String(app?.appName || "").trim().toLowerCase().replace(/\s+/g, "");
+  const icon = String(app?.icon || "").trim().toLowerCase().replaceAll("_", "-");
+  const category = String(app?.category || "").trim().toLowerCase();
+  return appId === "education-web"
+    || appId === "edu"
+    || icon === "education-web"
+    || icon === "education"
+    || appName.includes("education")
+    || appName.includes("edu")
+    || appName.includes("教育")
+    || category.includes("教育");
+}
+
 function isBackofficeReleasedApp(app) {
   const appId = String(app?.appId || "").trim().toLowerCase().replaceAll("_", "-");
   return BACKOFFICE_RELEASED_APP_IDS.has(appId) || isCoreMasterAdminApp(app);
@@ -734,6 +750,8 @@ async function openApp(app) {
       ? CORE_MASTER_ADMIN_APP_URL
     : isIdeaLinkApp(app)
       ? IDEA_LINK_APP_URL
+    : isEducationApp(app)
+      ? EDUCATION_APP_URL
       : app.url;
   const launchUrl = isIdeaLinkApp(app) ? "" : buildAppLaunchUrl(appUrl, employeeContext);
   if (state.authType === "firebase" || state.authType === "pin") {

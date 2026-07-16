@@ -49,6 +49,20 @@ function getString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+function normalizeSafeNavigationHref(value: unknown): string {
+  if (typeof value !== "string") return "";
+  if (/[\u0000-\u001f\u007f]/.test(value)) return "";
+  const href = value.trim();
+  if (!href) return "";
+  try {
+    const url = new URL(href, "https://portal.invalid/");
+    if (url.username || url.password) return "";
+    return url.protocol === "https:" || url.protocol === "http:" ? href : "";
+  } catch {
+    return "";
+  }
+}
+
 function normalizeArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
@@ -434,14 +448,14 @@ Deno.serve(async (request) => {
         links: (data || []).map((row) => ({
           id: row.id,
           label: row.label,
-          href: row.href,
+          href: normalizeSafeNavigationHref(row.href),
           category: row.category || "",
           owner: row.owner || "",
           description: row.description || "",
           active: row.is_active ? "有効" : "停止",
           isActive: Boolean(row.is_active),
           sortOrder: row.sort_order,
-        })),
+        })).filter((row) => row.href),
       });
     }
 
@@ -451,7 +465,7 @@ Deno.serve(async (request) => {
 
       const linkId = getString(payload.linkId || payload.id).trim();
       const label = getString(payload.label).trim();
-      const href = getString(payload.href).trim();
+      const href = normalizeSafeNavigationHref(payload.href);
       const category = getString(payload.category).trim();
       const owner = getString(payload.owner).trim();
       const description = getString(payload.description).trim();
@@ -461,7 +475,7 @@ Deno.serve(async (request) => {
       const sortOrder = Number.isFinite(sortOrderRaw) ? sortOrderRaw : 100;
 
       if (!linkId || !label || !href) {
-        return json({ ok: false, error: "リンク更新に必要な情報が不足しています。" }, 400);
+        return json({ ok: false, error: "安全なリンク更新情報を指定してください。" }, 400);
       }
 
       const { data: existing, error: existingError } = await supabase

@@ -174,9 +174,6 @@ function openConcierge(question = "") {
   const query = String(question || "").trim();
   const url = new URL("./concierge/", window.location.href);
   if (query) url.searchParams.set("q", query);
-  const context = refreshHubEmployeeContext();
-  const encodedContext = encodeHubContextForAppUrl(context);
-  if (encodedContext) url.searchParams.set("hub_context", encodedContext);
   window.location.assign(url.toString());
 }
 

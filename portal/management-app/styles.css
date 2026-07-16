@@ -191,6 +191,9 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-local-preview-card { margin: 0 0 16px; padding: 16px; background: #fffaf0; border: 1px solid var(--border-light); border-left: 3px solid var(--color-bassa); border-radius: var(--radius-md); }
 .financial-local-preview-card h3 { margin: 0 0 8px; color: var(--text-primary); font-size: 16px; font-weight: 500; }
 .financial-local-preview-card p { margin: 0 0 12px; color: var(--text-secondary); font-size: 13px; overflow-wrap: anywhere; }
+.financial-local-preview-card.is-empty { background: var(--card); border-left-color: var(--border-light); }
+.financial-local-preview-card button { min-height: 36px; padding: 7px 12px; color: var(--text-primary); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); cursor: pointer; }
+.financial-local-preview-card button:hover { background: var(--color-bassa-soft); }
 .financial-local-preview-metrics { margin-bottom: 0; }
 .financial-local-preview-metrics .metric { background: var(--card); }
 .local-preview-table table { min-width: 680px; }

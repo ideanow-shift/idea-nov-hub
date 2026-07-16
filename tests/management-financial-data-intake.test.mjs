@@ -176,9 +176,11 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);
   assert.match(app, /renderFinancialPreviewStores/);
+  assert.match(app, /renderFinancialPreviewEmpty/);
   assert.match(styles, /\.financial-intake-panel/);
   assert.match(styles, /\.financial-intake-preview/);
   assert.match(styles, /\.financial-local-preview-card/);
+  assert.match(styles, /\.financial-local-preview-card\.is-empty/);
   assert.doesNotMatch(app, /financialDataIntake[\s\S]{0,240}(upload|importAction|mutation|storage)/i);
 });
 

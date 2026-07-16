@@ -213,7 +213,7 @@ function sanitizeFinancialPreview(value) {
 function renderFinancialPreviewOverview() {
   if (!elements.financialPreviewOverview) return;
   const preview = state.financialPreview;
-  if (!preview) { elements.financialPreviewOverview.replaceChildren(); return; }
+  if (!preview) { renderFinancialPreviewEmpty(elements.financialPreviewOverview, "法人経営管理"); return; }
   const card = document.createElement("section");
   card.className = "financial-local-preview-card";
   const mapping = preview.mappingRequiredAccountCount > 0 ? "mapping確認あり" : "mapping確認OK";
@@ -233,7 +233,7 @@ function renderFinancialPreviewOverview() {
 function renderFinancialPreviewStores() {
   if (!elements.financialPreviewStores) return;
   const preview = state.financialPreview;
-  if (!preview) { elements.financialPreviewStores.replaceChildren(); return; }
+  if (!preview) { renderFinancialPreviewEmpty(elements.financialPreviewStores, "店舗営業管理"); return; }
   const section = document.createElement("section");
   section.className = "financial-local-preview-card";
   const wrap = document.createElement("div");
@@ -253,6 +253,21 @@ function renderFinancialPreviewStores() {
   wrap.append(table);
   section.append(heading("店舗営業管理へのローカルP/L反映（本番未投入）"), paragraph("弥生Excelの店舗候補シートを、確認用だけに表示しています。DB保存・本番投入・個人情報表示はありません。"), wrap);
   elements.financialPreviewStores.replaceChildren(section);
+}
+
+function renderFinancialPreviewEmpty(container, labelText) {
+  const section = document.createElement("section");
+  section.className = "financial-local-preview-card is-empty";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = "財務データ取込へ";
+  button.addEventListener("click", () => selectView("dataops"));
+  section.append(
+    heading(`${labelText}のローカルP/Lプレビュー`),
+    paragraph("弥生Excelを選択すると、この画面に確認用の売上・経常損益が表示されます。ファイル内容は送信されず、本番投入も無効です。"),
+    button
+  );
+  container.replaceChildren(section);
 }
 
 function previewMetricGrid(entries) {

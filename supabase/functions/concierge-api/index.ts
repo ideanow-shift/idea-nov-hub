@@ -9,34 +9,36 @@ type SessionPayload = {
   exp: number;
 };
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
+const PORTAL_ORIGIN = "https://ideanow-shift.github.io";
+const MAX_BODY_BYTES = 4096;
+const JSON_MEDIA_TYPE = "application/json";
 
 function json(body: ApiResponse, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...corsHeaders,
       "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "vary": "Origin",
     },
   });
 }
 
-async function readPayload(request: Request): Promise<Record<string, unknown>> {
-  if (request.method === "GET") {
-    return Object.fromEntries(new URL(request.url).searchParams.entries());
+function withCors(response: Response, origin: string): Response {
+  const headers = new Headers(response.headers);
+  headers.set("cache-control", "no-store");
+  headers.set("vary", "Origin");
+  headers.delete("access-control-allow-origin");
+  if (origin === PORTAL_ORIGIN) {
+    headers.set("access-control-allow-origin", PORTAL_ORIGIN);
+    headers.set("access-control-allow-headers", "authorization, x-client-info, apikey, content-type");
+    headers.set("access-control-allow-methods", "POST, OPTIONS");
   }
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
 
-  const contentType = request.headers.get("content-type") || "";
-  if (contentType.includes("application/json")) {
-    return await request.json();
-  }
-
-  const form = await request.formData();
-  return Object.fromEntries(form.entries());
+function boundaryError(status: number, category: string, origin: string): Response {
+  return withCors(json({ ok: false, error: category }, status), origin);
 }
 
 function getString(value: unknown): string {
@@ -185,20 +187,46 @@ async function requireAdmin(
 }
 
 Deno.serve(async (request) => {
+  const origin = request.headers.get("origin") || "";
+  if (origin !== PORTAL_ORIGIN) {
+    return boundaryError(403, "ORIGIN_REJECTED", origin);
+  }
   if (request.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return withCors(new Response(null, { status: 204 }), origin);
+  }
+  if (request.method !== "POST") return boundaryError(405, "METHOD_REJECTED", origin);
+  if ((request.headers.get("content-type") || "").trim().toLowerCase() !== JSON_MEDIA_TYPE) {
+    return boundaryError(415, "MEDIA_TYPE_REJECTED", origin);
   }
 
+  const bodyText = await request.text();
+  const bodyBytes = new TextEncoder().encode(bodyText).byteLength;
+  if (bodyBytes === 0 || bodyBytes > MAX_BODY_BYTES) {
+    return boundaryError(413, "BODY_SIZE_REJECTED", origin);
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(bodyText);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return boundaryError(400, "BODY_SHAPE_REJECTED", origin);
+    }
+    payload = parsed as Record<string, unknown>;
+  } catch {
+    return boundaryError(400, "JSON_REJECTED", origin);
+  }
+
+  const response = await (async () => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const sessionSecret = Deno.env.get("CONCIERGE_SESSION_SECRET") || serviceRoleKey;
+    const configuredSessionSecret = Deno.env.get("CONCIERGE_SESSION_SECRET");
 
     if (!supabaseUrl || !serviceRoleKey) {
       return json({ ok: false, error: "API設定が不足しています。" }, 500);
     }
+    const sessionSecret = configuredSessionSecret || serviceRoleKey;
 
-    const payload = await readPayload(request);
     const action = getString(payload.action) || new URL(request.url).pathname.split("/").pop() || "";
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
@@ -1051,4 +1079,6 @@ Deno.serve(async (request) => {
     console.error(error);
     return json({ ok: false, error: "一時的に処理できませんでした。" }, 500);
   }
+  })();
+  return withCors(response, origin);
 });

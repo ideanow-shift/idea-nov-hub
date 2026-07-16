@@ -2,7 +2,7 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
-import { renderFinancialDataIntake } from "./financial-data-intake.js?v=25e37791ac710eef";
+import { renderFinancialDataIntake } from "./financial-data-intake.js?v=88d5abea4164e534";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=a9c05abbcad54a84";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
@@ -215,6 +215,7 @@ function sanitizeFinancialPreview(value) {
     reviewRows,
     entityCandidateCount: rows.length,
     reviewCandidateCount: reviewRows.length,
+    completionPendingCount: Number.isInteger(Number(value.completionPendingCount)) ? Math.max(0, Number(value.completionPendingCount)) : 0,
     salesManYen: rows.reduce((sum, row) => sum + Number(row.salesManYen || 0), 0),
     ordinaryProfitManYen: rows.reduce((sum, row) => sum + Number(row.ordinaryProfitManYen || 0), 0),
     importActionEnabled: false,
@@ -230,7 +231,7 @@ function renderFinancialPreviewOverview() {
   const mapping = preview.mappingRequiredAccountCount > 0 ? "mapping確認あり" : "mapping確認OK";
   card.append(
     heading("ローカルP/Lプレビュー（本番未投入）"),
-    paragraph(`選択した弥生Excelを画面確認用に反映中。店舗候補 ${number.format(preview.entityCandidateCount)}件 / 除外集計 ${number.format(preview.aggregateExcludedSheetCount || 0)}件 / ${mapping}。`),
+    paragraph(`選択した弥生Excelを画面確認用に反映中。店舗候補 ${number.format(preview.entityCandidateCount)}件 / 除外集計 ${number.format(preview.aggregateExcludedSheetCount || 0)}件 / ${mapping} / 残タスク ${number.format(preview.completionPendingCount || 0)}件。`),
     previewMetricGrid([
       ["売上合計", `${number.format(preview.salesManYen)}万円`],
       ["経常損益合計", `${number.format(preview.ordinaryProfitManYen)}万円`],
@@ -239,31 +240,6 @@ function renderFinancialPreviewOverview() {
     ])
   );
   elements.financialPreviewOverview.replaceChildren(card);
-}
-
-function renderFinancialPreviewStores() {
-  if (!elements.financialPreviewStores) return;
-  const preview = state.financialPreview;
-  if (!preview) { renderFinancialPreviewEmpty(elements.financialPreviewStores, "店舗営業管理"); return; }
-  const section = document.createElement("section");
-  section.className = "financial-local-preview-card";
-  const wrap = document.createElement("div");
-  wrap.className = "table-wrap embedded local-preview-table";
-  const table = document.createElement("table");
-  const thead = document.createElement("thead");
-  thead.append(tableRow(["店舗候補", "売上", "経常損益", "mapping", "レコード"], true));
-  const tbody = document.createElement("tbody");
-  tbody.replaceChildren(...(preview.rows.length ? preview.rows.map((row) => tableRow([
-    row.entityName,
-    row.salesManYen == null ? "未算定" : `${number.format(row.salesManYen)}万円`,
-    row.ordinaryProfitManYen == null ? "未算定" : `${number.format(row.ordinaryProfitManYen)}万円`,
-    row.mappingStatus === "READY" ? "確認OK" : "mapping確認",
-    `${number.format(row.recordCount)}件`,
-  ])) : [emptyRow(5, "ローカルP/Lプレビューはありません")]));
-  table.append(thead, tbody);
-  wrap.append(table);
-  section.append(heading("店舗営業管理へのローカルP/L反映（本番未投入）"), paragraph("弥生Excelの店舗候補シートを、確認用だけに表示しています。DB保存・本番投入・個人情報表示はありません。"), wrap);
-  elements.financialPreviewStores.replaceChildren(section);
 }
 
 function renderFinancialPreviewStores() {

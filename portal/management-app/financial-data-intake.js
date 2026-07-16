@@ -15,6 +15,16 @@ const YAYOI_PL_REQUIRED_ACCOUNTS = Object.freeze([
   "経常損益金額",
 ]);
 const BS_REQUIRED_ACCOUNTS = Object.freeze(["資産合計", "負債合計", "純資産合計"]);
+const FINANCIAL_COMPLETION_REQUIREMENTS = Object.freeze([
+  Object.freeze({ key: "PL_ANNUAL_REPORT", label: "部門別年間P/L", detail: "弥生会計の部門別年間推移" }),
+  Object.freeze({ key: "PL_ACCOUNT_MAPPING", label: "P/L勘定科目対応表", detail: "地代家賃・販売管理費合計を含む正規科目への対応" }),
+  Object.freeze({ key: "SALES_SUBLEDGER", label: "売上高の補助残高一覧表", detail: "店舗別売上の照合元" }),
+  Object.freeze({ key: "UTILITY_SUBLEDGER", label: "水道光熱費の補助残高一覧表", detail: "店舗別水道光熱費の照合元" }),
+  Object.freeze({ key: "COUPON_USAGE", label: "クーポン利用額", detail: "経理手順で別入力される月次値" }),
+  Object.freeze({ key: "BALANCE_SHEET", label: "B/S年間データ", detail: "資産・負債・純資産の貸借一致確認" }),
+  Object.freeze({ key: "BUDGET_PLAN", label: "予算・計画データ", detail: "予実比較に使用する月次計画" }),
+  Object.freeze({ key: "FC_RULE", label: "FC店舗の変換ルール", detail: "FC合計・共通・個店の二重計上防止" }),
+]);
 const AGGREGATE_SHEET_RE = /(?:全体|合計|共通|FC\(合計\))/u;
 const XML_ESCAPE_RE = /&(lt|gt|amp|quot|apos);/g;
 const XML_ESCAPE_MAP = Object.freeze({ lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" });
@@ -351,12 +361,37 @@ export function buildFinancialIntakeReceipt(result) {
   };
 }
 
+export function buildFinancialCompletionItems(result) {
+  const receipt = buildFinancialIntakeReceipt(result);
+  const statement = receipt?.statement || "";
+  const parsedLocally = Number(receipt?.sheetCount || 0) > 0
+    && !String(receipt?.status || "").includes("FAILED")
+    && !String(receipt?.status || "").includes("INVALID");
+  const missingAccounts = Object.keys(result?.missingByAccount || {});
+  const bsReady = statement === "BS" && parsedLocally && receipt?.balanceCheck === "BALANCED" && receipt?.mappingRequiredAccountCount === 0;
+  return FINANCIAL_COMPLETION_REQUIREMENTS.map((requirement) => {
+    let status = "SOURCE_REQUIRED";
+    let detail = requirement.detail;
+    if (requirement.key === "PL_ANNUAL_REPORT" && statement === "PL" && parsedLocally) status = "LOCAL_VALIDATED";
+    if (requirement.key === "PL_ACCOUNT_MAPPING" && statement === "PL" && parsedLocally) {
+      status = receipt.mappingRequiredAccountCount === 0 ? "LOCAL_VALIDATED" : "MAPPING_REQUIRED";
+      if (missingAccounts.length) detail = `未対応: ${missingAccounts.join("、")}`;
+    }
+    if (requirement.key === "BALANCE_SHEET") {
+      status = bsReady ? "LOCAL_VALIDATED" : statement === "BS" && parsedLocally ? "CHECK_REQUIRED" : "SOURCE_REQUIRED";
+    }
+    if (requirement.key === "FC_RULE") status = "RULE_REQUIRED";
+    return { ...requirement, status, detail };
+  });
+}
+
 export function buildFinancialLocalPreview(result) {
   const receipt = buildFinancialIntakeReceipt(result);
   if (!receipt || receipt.statement !== "PL") return null;
   const allRows = result.entityPreviewRows || [];
   const rows = allRows.filter((row) => row.entityCategory === "STORE_CANDIDATE");
   const reviewRows = allRows.filter((row) => row.entityCategory !== "STORE_CANDIDATE");
+  const completionItems = buildFinancialCompletionItems(result);
   return {
     schemaVersion: "management-financial-local-preview-v1",
     statement: "PL",
@@ -368,6 +403,7 @@ export function buildFinancialLocalPreview(result) {
     aggregateExcludedSheetCount: receipt.aggregateExcludedSheetCount,
     normalizedRecordCount: receipt.normalizedRecordCount,
     mappingRequiredAccountCount: receipt.mappingRequiredAccountCount,
+    completionPendingCount: completionItems.filter((item) => item.status !== "LOCAL_VALIDATED").length,
     salesManYen: rows.reduce((sum, row) => sum + Number(row.salesManYen || 0), 0),
     ordinaryProfitManYen: rows.reduce((sum, row) => sum + Number(row.ordinaryProfitManYen || 0), 0),
     importActionEnabled: false,
@@ -397,6 +433,28 @@ function el(doc, tag, className, text) {
   return node;
 }
 
+const INTAKE_STATUS_LABELS = Object.freeze({
+  PL_LOCAL_READY: "P/L確認済み",
+  PL_LOCAL_VALIDATED_PENDING_MAPPING: "P/L確認済み・科目対応待ち",
+  PL_FILE_PARSE_FAILED: "P/Lファイル解析エラー",
+  PL_FORMAT_INVALID: "P/L形式を確認してください",
+  PL_MONTH_COLUMNS_INVALID: "P/L月次列を確認してください",
+  BS_LOCAL_READY: "B/S確認済み",
+  BS_LOCAL_VALIDATED_PENDING_MAPPING: "B/S確認済み・科目対応待ち",
+  BS_BALANCE_CHECK_FAILED: "B/S貸借不一致",
+  BS_FILE_PARSE_FAILED: "B/Sファイル解析エラー",
+  FILE_READ_OR_PARSE_FAILED: "ファイルを確認してください",
+});
+
+const PREVIEW_CATEGORY_LABELS = Object.freeze({
+  STORE_CANDIDATE: "店舗候補",
+  ENTITY_CANDIDATE: "候補",
+  ENTITY_REVIEW_REQUIRED: "mapping確認",
+  NON_STORE_REVIEW_REQUIRED: "店舗外確認",
+  FC_REVIEW_REQUIRED: "FC確認",
+  AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS: "集計除外",
+});
+
 function setResult(container, result) {
   const doc = container.ownerDocument;
   const receipt = buildFinancialIntakeReceipt(result);
@@ -404,21 +462,54 @@ function setResult(container, result) {
   if (!panel || !receipt) return;
   panel.dataset.financialIntakeResult = receipt.status;
   panel.replaceChildren(
-    el(doc, "strong", "", receipt.status),
-    el(doc, "p", "", `file ${receipt.fileNamePresent ? "detected" : "none"} / period ${receipt.periodDetected ? "detected" : "pending"}`),
-    el(doc, "p", "", `sheets ${receipt.sheetCount} / entities ${receipt.entityCandidateCount} / aggregate excluded ${receipt.aggregateExcludedSheetCount}`),
-    el(doc, "p", "", `normalized ${receipt.normalizedRecordCount} / mapping ${receipt.mappingRequiredAccountCount}`),
+    el(doc, "strong", "", INTAKE_STATUS_LABELS[receipt.status] || "ローカル検証結果を確認してください"),
+    el(doc, "p", "", `ファイル ${receipt.fileNamePresent ? "選択済み" : "未選択"} / 対象期間 ${receipt.periodDetected ? "検出済み" : "確認待ち"}`),
+    el(doc, "p", "", `シート ${receipt.sheetCount}件 / 対象候補 ${receipt.entityCandidateCount}件 / 集計除外 ${receipt.aggregateExcludedSheetCount}件`),
+    el(doc, "p", "", `正規化 ${receipt.normalizedRecordCount}件 / 科目対応待ち ${receipt.mappingRequiredAccountCount}件`),
     el(doc, "p", "", receipt.balanceCheck === "NOT_APPLICABLE" ? "貸借チェック: 対象外" : `貸借チェック: ${receipt.balanceCheck}`),
     el(doc, "p", "", receipt.productionImportEnabled ? "本番投入可能" : "本番投入は無効です")
   );
   const preview = container.querySelector("[data-financial-intake-preview]");
   if (preview) {
     preview.replaceChildren(...(result.previewRows || []).map((row) => {
-      const item = el(doc, "li", "", `${row.entityCategory} / ${row.mappingStatus} / ${row.recordCount}件`);
+      const category = PREVIEW_CATEGORY_LABELS[row.entityCategory] || "確認待ち";
+      const mapping = row.mappingStatus === "READY" ? "科目確認済み" : "科目対応待ち";
+      const item = el(doc, "li", "", `${category} / ${mapping} / ${row.recordCount}件`);
       item.dataset.financialPreviewCategory = row.entityCategory;
       return item;
     }));
   }
+  setCompletionChecklist(container, result);
+}
+
+const COMPLETION_STATUS_LABELS = Object.freeze({
+  LOCAL_VALIDATED: "ローカル確認済み",
+  MAPPING_REQUIRED: "対応表待ち",
+  SOURCE_REQUIRED: "資料待ち",
+  RULE_REQUIRED: "運用ルール待ち",
+  CHECK_REQUIRED: "再確認",
+});
+
+function setCompletionChecklist(container, result) {
+  const doc = container.ownerDocument;
+  const checklist = container.querySelector("[data-financial-completion-list]");
+  const summary = container.querySelector("[data-financial-completion-summary]");
+  if (!checklist || !summary) return;
+  const items = buildFinancialCompletionItems(result);
+  const readyCount = items.filter((item) => item.status === "LOCAL_VALIDATED").length;
+  summary.textContent = `${readyCount}/${items.length}項目をローカル確認済み。本番投入は全項目と本番取込契約が揃うまで無効です。`;
+  checklist.replaceChildren(...items.map((item) => {
+    const classSuffix = item.status.toLowerCase().replaceAll("_", "-");
+    const article = el(doc, "article", `financial-completion-item is-${classSuffix}`);
+    article.dataset.financialCompletionCategory = item.key;
+    article.dataset.financialCompletionStatus = item.status;
+    article.append(
+      el(doc, "span", "financial-completion-status", COMPLETION_STATUS_LABELS[item.status] || "確認待ち"),
+      el(doc, "strong", "", item.label),
+      el(doc, "p", "", item.detail)
+    );
+    return article;
+  }));
 }
 
 function publishPreview(container, result) {
@@ -479,8 +570,17 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   result.append(el(doc, "strong", "", "未検証"), el(doc, "p", "", "ファイル内容は送信されません。"));
   const preview = el(doc, "ul", "financial-intake-preview");
   preview.dataset.financialIntakePreview = "EMPTY";
-  section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, preview);
+  const completion = el(doc, "section", "financial-completion");
+  completion.append(el(doc, "h4", "", "不足データと次の準備"));
+  const completionSummary = el(doc, "p", "financial-completion-summary");
+  completionSummary.dataset.financialCompletionSummary = "true";
+  const completionList = el(doc, "div", "financial-completion-list");
+  completionList.dataset.financialCompletionList = "true";
+  completion.append(completionSummary, completionList);
+  section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, completion, preview);
   container.replaceChildren(section);
+  setCompletionChecklist(container, null);
+  if (hooks.initialResult) setResult(container, hooks.initialResult);
 
   input.addEventListener("change", async () => {
     const files = Array.from(input.files || []);

@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  buildFinancialCompletionItems,
   buildFinancialLocalPreview,
   buildFinancialIntakeReceipt,
   combineFinancialWorkbookResults,
@@ -16,6 +17,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const app = fs.readFileSync(path.join(root, "portal/management-app/app-v2.js"), "utf8");
 const html = fs.readFileSync(path.join(root, "portal/management-app/index.html"), "utf8");
 const styles = fs.readFileSync(path.join(root, "portal/management-app/styles.css"), "utf8");
+const visualFixture = fs.readFileSync(path.join(root, "tests/fixtures/management-financial-data-intake.html"), "utf8");
 
 function zipStore(entries) {
   const localParts = [];
@@ -119,6 +121,35 @@ test("P/L aggregate sheets and missing exact mappings stay review-only", async (
   assert.equal(result.entityCandidateCount, 0);
   assert.deepEqual(Object.keys(result.missingByAccount), ["地代家賃", "販売管理費合計"]);
   assert.equal(result.previewRows[0].entityCategory, "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS");
+  const completion = buildFinancialCompletionItems(result);
+  assert.deepEqual(completion.map((item) => item.status), [
+    "LOCAL_VALIDATED",
+    "MAPPING_REQUIRED",
+    "SOURCE_REQUIRED",
+    "SOURCE_REQUIRED",
+    "SOURCE_REQUIRED",
+    "SOURCE_REQUIRED",
+    "SOURCE_REQUIRED",
+    "RULE_REQUIRED",
+  ]);
+  assert.match(completion[1].detail, /地代家賃/);
+  assert.match(completion[1].detail, /販売管理費合計/);
+});
+
+test("financial completion checklist stays fail-closed before file selection", () => {
+  const completion = buildFinancialCompletionItems(null);
+  assert.equal(completion.length, 8);
+  assert.equal(completion.filter((item) => item.status === "LOCAL_VALIDATED").length, 0);
+  assert.deepEqual(completion.map((item) => item.key), [
+    "PL_ANNUAL_REPORT",
+    "PL_ACCOUNT_MAPPING",
+    "SALES_SUBLEDGER",
+    "UTILITY_SUBLEDGER",
+    "COUPON_USAGE",
+    "BALANCE_SHEET",
+    "BUDGET_PLAN",
+    "FC_RULE",
+  ]);
 });
 
 test("P/L local preview combines current files without enabling production import", async () => {
@@ -189,7 +220,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=25e37791ac710eef/);
+  assert.match(app, /financial-data-intake\.js\?v=88d5abea4164e534/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);
@@ -197,9 +228,13 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(app, /renderFinancialPreviewEmpty/);
   assert.match(styles, /\.financial-intake-panel/);
   assert.match(styles, /\.financial-intake-preview/);
+  assert.match(styles, /\.financial-completion-list/);
   assert.match(styles, /\.financial-local-preview-card/);
   assert.match(styles, /\.financial-local-preview-card\.is-empty/);
   assert.doesNotMatch(app, /financialDataIntake[\s\S]{0,240}(upload|importAction|mutation|storage)/i);
+  assert.match(visualFixture, /PL_LOCAL_VALIDATED_PENDING_MAPPING/);
+  assert.match(visualFixture, /financial-data-intake\.js/);
+  assert.doesNotMatch(visualFixture, /(employeeId|sessionToken|Authorization)/i);
 });
 
 test("renderer exposes disabled production state", () => {
@@ -227,4 +262,5 @@ test("renderer exposes disabled production state", () => {
   assert.equal(section.className, "financial-intake-panel");
   assert.equal(section.children[0].children[1].disabled, true);
   assert.equal(section.children[3].children[0].multiple, true);
+  assert.equal(section.children[5].className, "financial-completion");
 });

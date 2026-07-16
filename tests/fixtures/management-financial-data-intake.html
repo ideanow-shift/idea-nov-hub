@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>財務データ取込 visual fixture</title>
+  <link rel="stylesheet" href="../../portal/management-app/styles.css">
+  <style>body { max-width: 1280px; margin: 0 auto; } main { padding-top: 16px; }</style>
+</head>
+<body>
+  <main><div id="fixture"></div></main>
+  <script type="module">
+    import { renderFinancialDataIntake } from "../../portal/management-app/financial-data-intake.js";
+    renderFinancialDataIntake(document.getElementById("fixture"), {
+      initialResult: {
+        status: "PL_LOCAL_VALIDATED_PENDING_MAPPING",
+        statement: "PL",
+        fileName: "3 files",
+        metadata: { periodText: "3 periods" },
+        sheetCount: 104,
+        sheetsWithTwelveMonths: 104,
+        aggregateSheetCount: 16,
+        entityCandidateCount: 52,
+        normalizedRecordCount: 88236,
+        missingByAccount: { "地代家賃": 104, "販売管理費合計": 104 },
+        balanceCheck: "NOT_APPLICABLE",
+        previewRows: [
+          { entityCategory: "STORE_CANDIDATE", mappingStatus: "MAPPING_REQUIRED", recordCount: 852 },
+          { entityCategory: "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS", mappingStatus: "MAPPING_REQUIRED", recordCount: 852 }
+        ]
+      }
+    });
+  </script>
+</body>
+</html>

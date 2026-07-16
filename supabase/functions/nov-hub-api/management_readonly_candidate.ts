@@ -47,6 +47,7 @@ export interface ManagementRequest {
     selectedMonth?: string;
     scopeMode?: ScopeMode;
     contractPhase?: string;
+    responseProfile?: string;
   };
 }
 
@@ -116,12 +117,23 @@ const ACTION_DEFINITIONS: Record<ManagementAction, {
 
 class ManagementSafeError extends Error {
   constructor(
-    readonly status: 401 | 403 | 404,
-    readonly code: "UNAUTHORIZED" | "FORBIDDEN" | "SCOPE_DENIED" | "DATA_NOT_READY" | "NOT_APPROVED",
+    readonly status: 400 | 401 | 403 | 404,
+    readonly code: "INVALID_REQUEST" | "UNAUTHORIZED" | "FORBIDDEN" | "SCOPE_DENIED" | "DATA_NOT_READY" | "NOT_APPROVED",
     message: string,
   ) {
     super(message);
   }
+}
+
+const DIAGNOSTIC_RESPONSE_PROFILE = "diagnostic-sanitized-v1";
+
+function validateResponseProfile(request: ManagementRequest): string | null {
+  const profile = request.payload?.responseProfile;
+  if (profile === undefined) return null;
+  if (request.action !== "managementDataopsStatus" || profile !== DIAGNOSTIC_RESPONSE_PROFILE) {
+    throw new ManagementSafeError(400, "INVALID_REQUEST", "Unsupported management response profile.");
+  }
+  return profile;
 }
 
 function text(value: unknown): string {
@@ -758,6 +770,39 @@ async function buildDataopsStatus(deps: ManagementDependencies): Promise<JsonRec
   };
 }
 
+async function buildDataopsDiagnosticStatus(deps: ManagementDependencies): Promise<JsonRecord> {
+  const [sourceDocumentCount, rawCount, draftCount, reviewCount] = await Promise.all([
+    deps.db.count("finance_source_documents", {}),
+    deps.db.count("finance_accounting_monthly_raw", {}),
+    deps.db.count("finance_account_classification_rules", { review_status: "eq.draft", is_active: "eq.true" }),
+    deps.db.count("finance_account_classification_rules", { review_status: "eq.review", is_active: "eq.true" }),
+  ]);
+
+  return {
+    pendingCounts: {
+      imports: 0,
+      mappings: 0,
+      approvals: draftCount + reviewCount,
+    },
+    workflow: [
+      { status: sourceDocumentCount > 0 ? "ready" : "waiting" },
+      { status: rawCount > 0 ? "ready" : "waiting" },
+      { status: draftCount + reviewCount > 0 ? "waiting" : "ready" },
+    ],
+    stoppedItems: [
+      "SalonAnswer raw import",
+      "classification approved update",
+      "production recalculation",
+    ],
+    statusCounts: {
+      sourceDocuments: sourceDocumentCount,
+      accountingRawRows: rawCount,
+      classificationDraft: draftCount,
+      classificationReview: reviewCount,
+    },
+  };
+}
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const FORBIDDEN_PUBLIC_KEYS = new Set([
   "employee_id",
@@ -862,6 +907,7 @@ export async function handleManagementReadOnlyAction(
   const productionEnabled = definition ? ACTION_PRODUCTION_ENABLED[request.action] === true : false;
   try {
     if (!definition) safe404();
+    const responseProfile = validateResponseProfile(request);
     if (!productionEnabled) safeNotApproved();
     const access = await resolveAccess(deps, request, definition.permission);
     if (request.action === "managementFinanceSummary") {
@@ -870,7 +916,10 @@ export async function handleManagementReadOnlyAction(
     if (request.action === "managementStoresSummary") {
       return success(endpoint, await buildStoresSummary(deps, access), productionEnabled);
     }
-    return success(endpoint, await buildDataopsStatus(deps), productionEnabled);
+    const data = responseProfile === DIAGNOSTIC_RESPONSE_PROFILE
+      ? await buildDataopsDiagnosticStatus(deps)
+      : await buildDataopsStatus(deps);
+    return success(endpoint, data, productionEnabled);
   } catch (error) {
     return failure(endpoint, error, productionEnabled);
   }

@@ -180,3 +180,59 @@ Deno.test("public management sanitizer rejects HR personal fields", () => {
   }
   assert(rejected, "full_name must be rejected from public management payloads");
 });
+
+Deno.test("diagnostic response profile remains exact status-only", async () => {
+  const result = await handleManagementReadOnlyAction({
+    action: "managementDataopsStatus",
+    token: "fixture-token",
+    payload: { responseProfile: "diagnostic-sanitized-v1" },
+  }, depsFor("executive"));
+  assert(result.status === 200, `expected 200, got ${result.status}`);
+  const data = result.body.data as JsonRecord;
+  assert(
+    Object.keys(data).sort().join(",") === "pendingCounts,statusCounts,stoppedItems,workflow",
+    "diagnostic response keys changed",
+  );
+  const forbiddenOrdinaryKeys = [
+    "pendingImports",
+    "pendingMappings",
+    "pendingApprovals",
+    "blockedReason",
+    "sources",
+    "name",
+    "step",
+    "title",
+    "owner",
+  ];
+  const serialized = JSON.stringify(data);
+  forbiddenOrdinaryKeys.forEach((key) => assert(!serialized.includes(`\"${key}\"`), `ordinary-only key leaked: ${key}`));
+  assertPublicManagementPayloadSafe(result.body);
+});
+
+Deno.test("ordinary dataops response remains unchanged without profile", async () => {
+  const result = await run("managementDataopsStatus", "executive");
+  const data = result.body.data as JsonRecord;
+  assert(result.status === 200, `expected 200, got ${result.status}`);
+  assert(Object.hasOwn(data, "pendingImports"), "ordinary dataops producer changed");
+  assert(!Object.hasOwn(data, "pendingCounts"), "diagnostic producer used without profile");
+});
+
+Deno.test("invalid response profiles fail closed", async () => {
+  const invalidProfiles: unknown[] = ["unknown", null, false, 1, {}];
+  for (const responseProfile of invalidProfiles) {
+    const result = await handleManagementReadOnlyAction({
+      action: "managementDataopsStatus",
+      token: "fixture-token",
+      payload: { responseProfile } as { responseProfile?: string },
+    }, depsFor("executive"));
+    assert(result.status === 400, `profile must fail closed: ${String(responseProfile)}`);
+    const code = (result.body.error as JsonRecord | undefined)?.code;
+    assert(code === "INVALID_REQUEST", `unexpected invalid profile category: ${String(code)}`);
+  }
+  const wrongAction = await handleManagementReadOnlyAction({
+    action: "managementFinanceSummary",
+    token: "fixture-token",
+    payload: { responseProfile: "diagnostic-sanitized-v1" },
+  }, depsFor("executive"));
+  assert(wrongAction.status === 400, `diagnostic profile must not reach finance: ${wrongAction.status}`);
+});

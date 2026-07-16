@@ -520,9 +520,9 @@ elements.loginForm.addEventListener("submit", async (event) => {
     elements.loginForm.reset();
     elements.loginError.hidden = true;
     showHub();
-  } catch (error) {
+  } catch {
     clearAuthenticationState();
-    elements.loginError.textContent = error.message;
+    elements.loginError.textContent = "ログインに失敗しました。";
     elements.loginError.hidden = false;
   }
 });
@@ -633,8 +633,8 @@ elements.knowledgeUpdateForm.addEventListener("submit", async (event) => {
   };
   try {
     await knowledgeUpdateRepository.append(entry);
-  } catch (error) {
-    appendMessage("assistant", `ナレッジ更新履歴の保存に失敗しました: ${error.message || error}`, {
+  } catch {
+    appendMessage("assistant", "ナレッジ更新履歴の保存に失敗しました", {
       meta: "管理用メッセージ"
     });
   }
@@ -670,8 +670,8 @@ elements.linkMasterForm.addEventListener("submit", async (event) => {
     await renderLinkAdmin();
     await renderAnswerRuleLinkChoices();
     elements.linkMasterStatus.textContent = "リンクを更新しました。回答後リンクにも反映されます。";
-  } catch (error) {
-    elements.linkMasterStatus.textContent = `保存に失敗しました: ${error.message || error}`;
+  } catch {
+    elements.linkMasterStatus.textContent = "保存に失敗しました";
   }
 });
 
@@ -705,8 +705,8 @@ elements.answerRuleForm.addEventListener("submit", async (event) => {
     elements.answerRuleStatus.textContent = wasEditing
       ? "更新しました。NOV Naviでキーワードを入力して確認できます。"
       : "保存しました。NOV Naviでキーワードを入力して確認できます。";
-  } catch (error) {
-    elements.answerRuleStatus.textContent = `保存に失敗しました: ${error.message || error}`;
+  } catch {
+    elements.answerRuleStatus.textContent = "保存に失敗しました";
   }
 });
 
@@ -798,9 +798,9 @@ async function askConcierge(question) {
   };
   try {
     await logRepository.append(entry);
-  } catch (error) {
-    console.warn("Failed to sync log", error);
-    appendMessage("assistant", `ログ保存に失敗しました: ${error.message || error}`, {
+  } catch {
+    console.warn("[concierge] log_sync_failed");
+    appendMessage("assistant", "ログ保存に失敗しました", {
       meta: "管理用メッセージ"
     });
   }
@@ -952,10 +952,10 @@ function createDepartmentInquiryButton(link, routeId) {
       form.hidden = true;
       button.textContent = "受付済み";
       button.disabled = true;
-    } catch (error) {
-      console.warn("Failed to create department inquiry", error);
+    } catch {
+      console.warn("[concierge] department_inquiry_failed");
       button.textContent = `${link.label} >`;
-      status.textContent = `受付に失敗しました: ${error.message || error}`;
+      status.textContent = "受付に失敗しました";
     } finally {
       submitButton.disabled = false;
     }
@@ -996,12 +996,12 @@ function createFeedback(logId) {
         await logRepository.updateRating(logId, item.rating);
         wrapper.dataset.state = "saved";
         status.textContent = "保存しました";
-      } catch (error) {
-        console.warn("Failed to sync rating", error);
+      } catch {
+        console.warn("[concierge] rating_sync_failed");
         wrapper.dataset.state = "error";
         status.textContent = "保存できませんでした";
         button.classList.remove("selected");
-        appendMessage("assistant", `評価保存に失敗しました: ${error.message || error}`, {
+        appendMessage("assistant", "評価保存に失敗しました", {
           meta: "管理用メッセージ"
         });
       } finally {

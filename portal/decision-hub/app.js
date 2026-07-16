@@ -1,4 +1,8 @@
 import { callApiAction, setHubSessionAuth } from "../js/api.js";
+import {
+  getNovHubSessionToken,
+  handleNovHubSessionAuthFailure
+} from "../js/nov-hub-session-candidate.js";
 
 const DECISION_HUB_READONLY_LIVE = true;
 const LIST_LIMIT = 50;
@@ -36,7 +40,7 @@ function initDecisionHubReadOnly() {
 
 function prepareHubSessionAuth() {
   try {
-    const token = window.NovHubSession?.getSessionToken?.();
+    const token = getNovHubSessionToken();
     if (!token) return false;
     setHubSessionAuth(token);
     return true;
@@ -64,6 +68,7 @@ async function loadApplications() {
     renderEmptyDetail();
     renderEmptyComments();
   } catch (error) {
+    clearHubSessionOnAuthStatus(error);
     renderSafeError(error);
   }
 }
@@ -86,6 +91,7 @@ async function selectApplication(applicationId) {
     renderDetail(sanitizeDecisionValue(detailResponse));
     renderComments(sanitizeDecisionValue(commentsResponse));
   } catch (error) {
+    clearHubSessionOnAuthStatus(error);
     renderSafeError(error, { keepList: true });
   }
 }
@@ -295,10 +301,15 @@ function createStateMessage(message, className = "empty-state") {
 }
 
 function getSafeErrorMessage(code) {
+  if (code === "HUB_SESSION_REQUIRED") return "Open this screen from a signed-in NOV HUB session.";
   if (code === "TOKEN_MISSING") return "Open this screen from a signed-in NOV HUB session.";
   if (code === "INVALID_REQUEST") return "The application request is invalid.";
   if (code.startsWith("ACTOR_")) return "Access could not be confirmed.";
   return "Application data could not be checked. Please retry later.";
+}
+
+function clearHubSessionOnAuthStatus(error) {
+  handleNovHubSessionAuthFailure(error?.status);
 }
 
 function safeText(value) {

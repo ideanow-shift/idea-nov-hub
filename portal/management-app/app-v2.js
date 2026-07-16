@@ -16,7 +16,7 @@ const IDEA_NOV_PLACEHOLDER = { id: "IDEA_NOV", name: "イディア・ノブ", da
 const byId = (id) => document.getElementById(id);
 const elements = {
   connection: byId("connection-state"), notice: byId("notice"), noticeTitle: byId("notice-title"), noticeBody: byId("notice-body"),
-  monthBadge: byId("target-month"), month: byId("finance-month"), corporationTabs: byId("corporation-tabs"),
+  monthBadge: byId("target-month"), month: byId("finance-month"), financeViewTabs: byId("finance-view-tabs"), corporationTabs: byId("corporation-tabs"),
   overviewKpis: byId("overview-kpis"), financeRows: byId("finance-rows"), financeStatus: byId("finance-status"),
   latestAdvice: byId("latest-advice"), expertComments: byId("expert-comments"), methodDiagnosis: byId("method-diagnosis"),
   profitability: byId("profitability-rows"), productivity: byId("productivity-rows"), safety: byId("safety-rows"), efficiency: byId("efficiency-rows"),
@@ -25,7 +25,7 @@ const elements = {
   dataopsKpis: byId("dataops-kpis"), workflow: byId("workflow"), stoppedItems: byId("stopped-items")
 };
 
-document.querySelectorAll(".tab").forEach((button) => button.addEventListener("click", () => selectView(button.dataset.view)));
+document.querySelectorAll(".tab, .section-tab").forEach((button) => button.addEventListener("click", () => selectView(button.dataset.view)));
 byId("reload-button").addEventListener("click", () => loadCurrentView(true));
 elements.month.addEventListener("change", () => { state.finance = null; loadFinance(); });
 initialize();
@@ -48,10 +48,17 @@ function removeLegacyHubContextFromUrl() {
 }
 
 function readHashView() { const value = location.hash.replace(/^#\/?/, ""); return VIEWS.has(value) ? value : "overview"; }
+function viewSection(view) { return FINANCE_VIEWS.has(view) ? "finance" : view; }
 function selectView(view, updateHash = true) {
   state.view = VIEWS.has(view) ? view : "overview";
   document.querySelectorAll(".tab").forEach((button) => button.classList.toggle("is-active", button.dataset.view === state.view));
+  document.querySelectorAll(".section-tab").forEach((button) => {
+    const active = button.dataset.section === viewSection(state.view);
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
   document.querySelectorAll(".view-panel").forEach((panel) => { panel.hidden = panel.id !== `${state.view}-view`; });
+  elements.financeViewTabs.hidden = !FINANCE_VIEWS.has(state.view);
   elements.corporationTabs.hidden = !FINANCE_VIEWS.has(state.view) || state.view === "method";
   if (updateHash && location.hash !== `#${state.view}`) history.replaceState(null, "", `#${state.view}`);
   loadCurrentView(false);

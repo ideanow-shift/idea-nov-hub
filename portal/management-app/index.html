@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#ffffff">
   <title>BASSA GROUP 経営管理ダッシュボード</title>
   <script src="./vendor/chart.umd.min.js?v=4.4.1"></script>
-  <link rel="stylesheet" href="./styles.css?v=7d3199f257631347">
+  <link rel="stylesheet" href="./styles.css?v=1de985bed4e555c1">
 </head>
 <body>
   <div class="dashboard">
@@ -22,13 +22,17 @@
     </div>
   </header>
 
-  <nav class="view-tabs" aria-label="経営管理メニュー">
+  <nav class="section-tabs" aria-label="経営管理メニュー">
+    <button type="button" class="section-tab is-active" data-section="finance" data-view="overview" aria-selected="true">法人管理</button>
+    <button type="button" class="section-tab" data-section="stores" data-view="stores" aria-selected="false">店舗営業管理</button>
+    <button type="button" class="section-tab" data-section="dataops" data-view="dataops" aria-selected="false">データ状況</button>
+  </nav>
+
+  <nav id="finance-view-tabs" class="view-tabs" aria-label="法人管理画面">
     <button type="button" class="tab is-active" data-view="overview">画面① 全社俯瞰</button>
     <button type="button" class="tab" data-view="four-axis">画面② 4軸分析</button>
     <button type="button" class="tab" data-view="departments">画面③ 部門別分析</button>
     <button type="button" class="tab" data-view="method">高畑メソッド</button>
-    <button type="button" class="tab" data-view="stores">店舗営業管理</button>
-    <button type="button" class="tab" data-view="dataops">データ状況</button>
   </nav>
 
   <div id="corporation-tabs" class="corporation-tabs" aria-label="法人切替"></div>
@@ -114,6 +118,6 @@
   </main>
   </div>
 
-  <script type="module" src="./app-v2.js?v=5d35dfd9d824e740"></script>
+  <script type="module" src="./app-v2.js?v=4ca065ddde9589f8"></script>
 </body>
 </html>

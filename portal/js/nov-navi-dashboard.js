@@ -22,7 +22,7 @@ const SYSTEMS = [
   { category: "キャリア", title: "キャリアシステム", status: "preview", aliases: [], shortcuts: ["自己振り返り", "4ヶ月キャリア確認", "管理者確認", "昇格・等級", "次期目標設定"] },
   { category: "経営管理", title: "経営管理システム", status: "in_progress", aliases: ["keiei", "management-system"], shortcuts: ["法人管理", "店舗営業管理", "データ状況"], minLevel: 3, audience: "店長以上／管轄範囲" },
   { category: "経営管理", title: "採用・人財", subtitle: "NOV Talent / リクルート管理", status: "trial", aliases: ["jinnjibu", "human-capital-investment"], shortcuts: ["採用", "学生", "面接・選考", "現職者管理", "入社手続き", "採用ROI"], minLevel: 4, anyCapabilities: ["human_capital.all"], audience: "総務人事・経理・部長／許可範囲" },
-  { category: "システム管理", title: "システム管理", status: "available", aliases: ["core-master-admin", "master-admin"], shortcuts: ["社員情報", "店舗情報", "法人情報", "アプリ管理", "権限管理", "変更履歴", "Data Intake"], adminOnly: true }
+  { category: "システム管理", title: "システム管理", status: "available", aliases: ["core-master-admin", "master-admin"], shortcuts: ["社員情報", "店舗情報", "法人情報", "アプリ管理", "権限管理", "変更履歴", "データ入力"], adminOnly: true }
 ];
 
 const CATEGORY_ORDER = ["運営管理", "成長", "キャリア", "経営管理", "システム管理"];

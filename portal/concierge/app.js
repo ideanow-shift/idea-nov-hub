@@ -504,6 +504,7 @@ const elements = {
 };
 
 let session = authProvider.currentSession();
+let sessionGeneration = 0;
 let adminLogCache = [];
 let answerRuleCache = [];
 let editingAnswerRuleId = null;
@@ -515,6 +516,7 @@ elements.loginForm.addEventListener("submit", async (event) => {
   const formData = new FormData(elements.loginForm);
   try {
     session = await authProvider.login(formData.get("storeId"), formData.get("storePass"));
+    sessionGeneration += 1;
     elements.loginForm.reset();
     elements.loginError.hidden = true;
     showHub();
@@ -726,6 +728,7 @@ function showLogin() {
 function clearAuthenticationState() {
   authProvider.logout();
   session = null;
+  sessionGeneration += 1;
   showLogin();
 }
 
@@ -1868,6 +1871,8 @@ function authenticateWithStoreMaster(storeId, storePass) {
 
 const CONCIERGE_CLIENT_ERRORS = Object.freeze({
   request: "CONCIERGE_CLIENT_REQUEST_REJECTED",
+  authentication: "CONCIERGE_CLIENT_AUTHENTICATION_REQUIRED",
+  staleSession: "CONCIERGE_CLIENT_STALE_SESSION_REJECTED",
   http: "CONCIERGE_CLIENT_HTTP_REJECTED",
   mediaType: "CONCIERGE_CLIENT_MEDIA_TYPE_REJECTED",
   json: "CONCIERGE_CLIENT_JSON_REJECTED",
@@ -1945,10 +1950,22 @@ async function requestJson(url, payload) {
   return assertConciergeResponseEnvelope(result);
 }
 
-function requestBackend(action, payload) {
+async function requestBackend(action, payload) {
   if (STORE_MASTER_CONFIG.apiEndpoint && SUPABASE_BACKEND_ACTIONS.has(action)) {
-    const sessionPayload = session?.token ? { sessionToken: session.token } : {};
-    return requestJson(STORE_MASTER_CONFIG.apiEndpoint, { action, ...sessionPayload, ...payload });
+    const requestSession = session;
+    const requestGeneration = sessionGeneration;
+    if (!requestSession?.token) {
+      throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.authentication);
+    }
+    const result = await requestJson(STORE_MASTER_CONFIG.apiEndpoint, {
+      action,
+      sessionToken: requestSession.token,
+      ...payload
+    });
+    if (session !== requestSession || sessionGeneration !== requestGeneration) {
+      throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.staleSession);
+    }
+    return result;
   }
 
   return Promise.resolve({ ok: false, error: "未対応の操作です。" });

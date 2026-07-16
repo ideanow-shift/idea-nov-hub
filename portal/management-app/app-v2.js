@@ -4,7 +4,8 @@ import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=a9c05abbcad54a84";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
-const VIEWS = new Set([...FINANCE_VIEWS, "stores", "dataops"]);
+const CORPORATE_VIEWS = new Set([...FINANCE_VIEWS, "dataops"]);
+const VIEWS = new Set([...CORPORATE_VIEWS, "stores"]);
 const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, charts: {} };
 const number = new Intl.NumberFormat("ja-JP");
 const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
@@ -16,7 +17,7 @@ const IDEA_NOV_PLACEHOLDER = { id: "IDEA_NOV", name: "イディア・ノブ", da
 const byId = (id) => document.getElementById(id);
 const elements = {
   connection: byId("connection-state"), notice: byId("notice"), noticeTitle: byId("notice-title"), noticeBody: byId("notice-body"),
-  monthBadge: byId("target-month"), month: byId("finance-month"), financeViewTabs: byId("finance-view-tabs"), corporationTabs: byId("corporation-tabs"),
+  monthBadge: byId("target-month"), month: byId("finance-month"), corporateViewTabs: byId("corporate-view-tabs"), corporationTabs: byId("corporation-tabs"),
   overviewKpis: byId("overview-kpis"), financeRows: byId("finance-rows"), financeStatus: byId("finance-status"),
   latestAdvice: byId("latest-advice"), expertComments: byId("expert-comments"), methodDiagnosis: byId("method-diagnosis"),
   profitability: byId("profitability-rows"), productivity: byId("productivity-rows"), safety: byId("safety-rows"), efficiency: byId("efficiency-rows"),
@@ -48,7 +49,7 @@ function removeLegacyHubContextFromUrl() {
 }
 
 function readHashView() { const value = location.hash.replace(/^#\/?/, ""); return VIEWS.has(value) ? value : "overview"; }
-function viewSection(view) { return FINANCE_VIEWS.has(view) ? "finance" : view; }
+function viewSection(view) { return view === "stores" ? "stores" : "corporate"; }
 function selectView(view, updateHash = true) {
   state.view = VIEWS.has(view) ? view : "overview";
   document.querySelectorAll(".tab").forEach((button) => button.classList.toggle("is-active", button.dataset.view === state.view));
@@ -58,7 +59,7 @@ function selectView(view, updateHash = true) {
     button.setAttribute("aria-selected", String(active));
   });
   document.querySelectorAll(".view-panel").forEach((panel) => { panel.hidden = panel.id !== `${state.view}-view`; });
-  elements.financeViewTabs.hidden = !FINANCE_VIEWS.has(state.view);
+  elements.corporateViewTabs.hidden = !CORPORATE_VIEWS.has(state.view);
   elements.corporationTabs.hidden = !FINANCE_VIEWS.has(state.view) || state.view === "method";
   if (updateHash && location.hash !== `#${state.view}`) history.replaceState(null, "", `#${state.view}`);
   loadCurrentView(false);

@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#ffffff">
   <title>BASSA GROUP 経営管理ダッシュボード</title>
   <script src="./vendor/chart.umd.min.js?v=4.4.1"></script>
-  <link rel="stylesheet" href="./styles.css?v=51c096c5f2353e82">
+  <link rel="stylesheet" href="./styles.css?v=39c7fd62c88a7ed8">
 </head>
 <body>
   <div class="dashboard">
@@ -23,16 +23,16 @@
   </header>
 
   <nav class="section-tabs" aria-label="経営管理メニュー">
-    <button type="button" class="section-tab is-active" data-section="finance" data-view="overview" aria-selected="true">法人管理</button>
-    <button type="button" class="section-tab" data-section="stores" data-view="stores" aria-selected="false">店舗営業管理</button>
-    <button type="button" class="section-tab" data-section="dataops" data-view="dataops" aria-selected="false">データ状況</button>
+    <button type="button" class="section-tab is-active" data-section="corporate" data-view="overview" aria-selected="true">① 法人経営管理</button>
+    <button type="button" class="section-tab" data-section="stores" data-view="stores" aria-selected="false">② 店舗営業管理</button>
   </nav>
 
-  <nav id="finance-view-tabs" class="view-tabs" aria-label="法人管理画面">
-    <button type="button" class="tab is-active" data-view="overview">画面① 全社俯瞰</button>
-    <button type="button" class="tab" data-view="four-axis">画面② 4軸分析</button>
-    <button type="button" class="tab" data-view="departments">画面③ 部門別分析</button>
+  <nav id="corporate-view-tabs" class="view-tabs" aria-label="法人経営管理画面">
+    <button type="button" class="tab is-active" data-view="overview">全社俯瞰</button>
+    <button type="button" class="tab" data-view="four-axis">4軸分析</button>
+    <button type="button" class="tab" data-view="departments">部門別分析</button>
     <button type="button" class="tab" data-view="method">高畑メソッド</button>
+    <button type="button" class="tab" data-view="dataops">データ状況</button>
   </nav>
 
   <div id="corporation-tabs" class="corporation-tabs" aria-label="法人切替"></div>
@@ -118,6 +118,6 @@
   </main>
   </div>
 
-  <script type="module" src="./app-v2.js?v=d7237671387f377e"></script>
+  <script type="module" src="./app-v2.js?v=42b889627c79aa27"></script>
 </body>
 </html>

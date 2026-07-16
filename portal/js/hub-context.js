@@ -3,6 +3,82 @@ export const HUB_CONTEXT_QUERY_KEY = "hub_context";
 export const HUB_CONTEXT_SCHEMA = "nov-hub-context";
 export const HUB_CONTEXT_SCHEMA_VERSION = 1;
 const HUB_CONTEXT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+const HUB_CONTEXT_CLOCK_SKEW_MS = 5 * 60 * 1000;
+const URL_CONTEXT_ALLOWED_KEYS = new Set([
+  "schema",
+  "schemaVersion",
+  "source",
+  "sourceLabel",
+  "authType",
+  "storedAt",
+  "issuedAt",
+  "expiresAt",
+  "employeeId",
+  "employeeNumber",
+  "name",
+  "email",
+  "corporationId",
+  "corporationName",
+  "departmentId",
+  "departmentName",
+  "positionId",
+  "positionName",
+  "jobTypeId",
+  "jobTypeName",
+  "primaryStoreId",
+  "primaryStoreNo",
+  "primaryStoreCode",
+  "primaryStoreName",
+  "employmentStatus",
+  "employmentType"
+]);
+const URL_CONTEXT_AUTHORIZATION_KEYS = new Set([
+  "access",
+  "admin",
+  "capabilities",
+  "capability",
+  "canedit",
+  "canview",
+  "grants",
+  "isadmin",
+  "permission",
+  "permissions",
+  "role",
+  "rolekey",
+  "rolekeys",
+  "rolelevel",
+  "roles",
+  "scope",
+  "scopes"
+]);
+const URL_CONTEXT_STRING_KEYS = new Set(
+  [...URL_CONTEXT_ALLOWED_KEYS].filter((key) => key !== "schemaVersion")
+);
+
+function normalizeContextKey(value) {
+  return String(value || "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+}
+
+function isStrictUrlContext(context) {
+  if (!context || typeof context !== "object" || Array.isArray(context)) return false;
+  const keys = Object.keys(context);
+  if (!keys.length) return false;
+  if (keys.some((key) => URL_CONTEXT_AUTHORIZATION_KEYS.has(normalizeContextKey(key)))) return false;
+  if (keys.some((key) => !URL_CONTEXT_ALLOWED_KEYS.has(key))) return false;
+  if (context.schema !== HUB_CONTEXT_SCHEMA || context.schemaVersion !== HUB_CONTEXT_SCHEMA_VERSION) return false;
+  if (keys.some((key) => URL_CONTEXT_STRING_KEYS.has(key) && typeof context[key] !== "string")) return false;
+  if (!context.employeeId.trim()) return false;
+
+  const issuedAt = Date.parse(context.issuedAt || "");
+  const storedAt = Date.parse(context.storedAt || context.issuedAt || "");
+  const expiresAt = Date.parse(context.expiresAt || "");
+  if (![issuedAt, storedAt, expiresAt].every(Number.isFinite)) return false;
+  const now = Date.now();
+  if (issuedAt > now + HUB_CONTEXT_CLOCK_SKEW_MS || storedAt > now + HUB_CONTEXT_CLOCK_SKEW_MS) return false;
+  if (now > expiresAt || now - storedAt > HUB_CONTEXT_MAX_AGE_MS) return false;
+  if (expiresAt <= issuedAt || expiresAt - issuedAt > HUB_CONTEXT_MAX_AGE_MS) return false;
+  return true;
+}
 
 function normalizeArray(value) {
   return Array.isArray(value) ? value.filter(Boolean).map(String) : [];
@@ -190,7 +266,7 @@ export function decodeHubContextFromUrlValue(value) {
   if (!value) return null;
   try {
     const context = JSON.parse(fromBase64Url(value));
-    return isUsableContext(context) ? context : null;
+    return isStrictUrlContext(context) ? context : null;
   } catch (error) {
     console.warn("NOV HUB context URL parameter could not be decoded.", error);
     return null;
@@ -310,7 +386,7 @@ function readStoredHubEmployeeContext(storage) {
 
 export function readHubEmployeeContext() {
   const urlContext = readHubEmployeeContextFromUrl();
-  if (urlContext) return persistHubEmployeeContext(urlContext);
+  if (urlContext) return urlContext;
   return readStoredHubEmployeeContext(sessionStorage) || readStoredHubEmployeeContext(localStorage);
 }
 

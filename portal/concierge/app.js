@@ -1159,8 +1159,12 @@ async function renderDepartmentInquiries() {
       item.append(head, meta, body);
       elements.departmentInquiryList.append(item);
     });
-  } catch (error) {
-    elements.departmentInquiryList.innerHTML = `<div class="department-inquiry-item">問い合わせログを取得できませんでした: ${error.message || error}</div>`;
+  } catch {
+    elements.departmentInquiryList.innerHTML = "";
+    const failure = document.createElement("div");
+    failure.className = "department-inquiry-item";
+    failure.textContent = "問い合わせログを取得できませんでした。";
+    elements.departmentInquiryList.append(failure);
   }
 }
 

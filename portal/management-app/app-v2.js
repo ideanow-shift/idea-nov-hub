@@ -2,13 +2,13 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
-import { renderFinancialDataIntake } from "./financial-data-intake.js?v=164556e3f811e26a";
+import { renderFinancialDataIntake } from "./financial-data-intake.js?v=6ad1c6c805c5855a";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=a9c05abbcad54a84";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
 const CORPORATE_VIEWS = new Set([...FINANCE_VIEWS, "dataops"]);
 const VIEWS = new Set([...CORPORATE_VIEWS, "stores"]);
-const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, charts: {} };
+const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreview: null, charts: {} };
 const number = new Intl.NumberFormat("ja-JP");
 const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 const colors = ["#b23a48", "#17324d", "#27795f", "#a36410", "#765487", "#337d8e", "#737b83"];
@@ -20,17 +20,22 @@ const byId = (id) => document.getElementById(id);
 const elements = {
   connection: byId("connection-state"), notice: byId("notice"), noticeTitle: byId("notice-title"), noticeBody: byId("notice-body"),
   monthBadge: byId("target-month"), month: byId("finance-month"), corporateViewTabs: byId("corporate-view-tabs"), corporationTabs: byId("corporation-tabs"),
-  overviewKpis: byId("overview-kpis"), financeRows: byId("finance-rows"), financeStatus: byId("finance-status"),
+  overviewKpis: byId("overview-kpis"), financialPreviewOverview: byId("financial-local-preview-overview"), financeRows: byId("finance-rows"), financeStatus: byId("finance-status"),
   latestAdvice: byId("latest-advice"), expertComments: byId("expert-comments"), methodDiagnosis: byId("method-diagnosis"),
   profitability: byId("profitability-rows"), productivity: byId("productivity-rows"), safety: byId("safety-rows"), efficiency: byId("efficiency-rows"),
   departmentTabs: byId("department-tabs"), departmentKpis: byId("department-kpis"), departmentRows: byId("department-rows"), departmentInsight: byId("department-insight"),
-  storeScope: byId("store-scope"), workforceEvidence: byId("workforce-evidence-status"), storeKpis: byId("store-kpis"), storeRows: byId("store-rows"), csvRequirements: byId("csv-requirements"),
+  storeScope: byId("store-scope"), workforceEvidence: byId("workforce-evidence-status"), storeKpis: byId("store-kpis"), financialPreviewStores: byId("financial-local-preview-stores"), storeRows: byId("store-rows"), csvRequirements: byId("csv-requirements"),
   dataopsKpis: byId("dataops-kpis"), productionReadiness: byId("production-readiness-status"), financialDataIntake: byId("financial-data-intake"), workflow: byId("workflow"), stoppedItems: byId("stopped-items")
 };
 
 document.querySelectorAll(".tab, .section-tab").forEach((button) => button.addEventListener("click", () => selectView(button.dataset.view)));
 byId("reload-button").addEventListener("click", () => loadCurrentView(true));
 elements.month.addEventListener("change", () => { state.finance = null; loadFinance(); });
+window.addEventListener("management-financial-local-preview", (event) => {
+  state.financialPreview = sanitizeFinancialPreview(event.detail);
+  renderFinancialPreviewOverview();
+  renderFinancialPreviewStores();
+});
 initialize();
 
 function initialize() {
@@ -110,6 +115,7 @@ function renderOverview() {
   const survival = selected?.survivalMonths ?? aggregateSurvival(corporations);
   const status = selected?.status || (!quality.complete ? "warning" : corporations.some((row) => row.status === "danger") ? "danger" : corporations.some((row) => row.status === "warning") ? "warning" : "safe");
   renderMetrics(elements.overviewKpis, [[selected ? "現預金残高" : `現預金残高（${coverage}）`, selectedAvailable ? `${number.format(Math.round(cashMan))}万円` : "データ待ち"], ["生存可能月数", selectedAvailable && survival != null ? `${number.format(survival)}ヶ月` : "未算定"], [selected ? "売上高" : `グループ売上合計（${coverage}）`, selectedAvailable ? `${number.format(Math.round(salesMan))}万円` : "データ待ち"], ["キャッシュ状態判定", statusText(status), status]]);
+  renderFinancialPreviewOverview();
   const visible = selected ? corporations.filter((row) => row.id === selected.id) : corporations;
   elements.financeRows.replaceChildren(...(visible.length ? visible.map((row) => tableRow([row.name, metricText(row.salesManYen, "万円"), metricText(row.profitRatePercent, "%"), metricText(row.equityRatioPercent, "%"), metricText(row.cashManYen, "万円"), statusNode(row.status)])) : [emptyRow(6, "表示できる法人データがありません")]));
   renderCashChart(data.cashTrend || []);
@@ -167,6 +173,7 @@ function renderStores() {
   elements.storeScope.textContent = scopeLabel(data.phase0Scope);
   mountWorkforceEvidenceStatus(elements.workforceEvidence);
   renderMetrics(elements.storeKpis, [["表示店舗", `${data.storeCount || 0}店舗`], ["スタッフ", workforceMetric(data.staffCount, "人")], ["売上データ", stores.some((row) => row.dataReadiness !== "salonanswer_csv_waiting") ? "接続済み" : "CSV待ち"], ["scope", scopeLabel(data.phase0Scope)]]);
+  renderFinancialPreviewStores();
   elements.storeRows.replaceChildren(...(stores.length ? stores.map((row) => tableRow([row.name, row.corporationName, workforceMetric(row.staffCount), row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.salesManYen || 0)}万円`, row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.targetAchievementPercent || 0)}%`, row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "接続済み"])) : [emptyRow(6, "表示できる店舗がありません")]));
   renderCsvRequirements(elements.csvRequirements, data.requiredCsvFiles);
 }
@@ -182,6 +189,82 @@ function renderDataops() {
   renderFinancialDataIntake(elements.financialDataIntake);
   elements.workflow.replaceChildren(...(data.workflow || []).map((step) => { const item = document.createElement("article"); item.className = "workflow-step"; item.append(heading(`${step.step}. ${step.title}`), paragraph(`${step.owner} / ${step.status}`)); return item; }));
   elements.stoppedItems.replaceChildren(heading("この画面から実行しない処理"), list(data.stoppedItems || []));
+}
+
+function sanitizeFinancialPreview(value) {
+  if (!value || value.schemaVersion !== "management-financial-local-preview-v1" || value.statement !== "PL") return null;
+  const rows = Array.isArray(value.rows) ? value.rows.slice(0, 80).map((row) => ({
+    entityName: String(row.entityName || "未判定").slice(0, 80),
+    salesManYen: Number.isFinite(Number(row.salesManYen)) ? Number(row.salesManYen) : null,
+    ordinaryProfitManYen: Number.isFinite(Number(row.ordinaryProfitManYen)) ? Number(row.ordinaryProfitManYen) : null,
+    mappingStatus: row.mappingStatus === "READY" ? "READY" : "MAPPING_REQUIRED",
+    recordCount: Number.isFinite(Number(row.recordCount)) ? Number(row.recordCount) : 0,
+  })) : [];
+  return {
+    ...value,
+    rows,
+    entityCandidateCount: rows.length,
+    salesManYen: rows.reduce((sum, row) => sum + Number(row.salesManYen || 0), 0),
+    ordinaryProfitManYen: rows.reduce((sum, row) => sum + Number(row.ordinaryProfitManYen || 0), 0),
+    importActionEnabled: false,
+  };
+}
+
+function renderFinancialPreviewOverview() {
+  if (!elements.financialPreviewOverview) return;
+  const preview = state.financialPreview;
+  if (!preview) { elements.financialPreviewOverview.replaceChildren(); return; }
+  const card = document.createElement("section");
+  card.className = "financial-local-preview-card";
+  const mapping = preview.mappingRequiredAccountCount > 0 ? "mapping確認あり" : "mapping確認OK";
+  card.append(
+    heading("ローカルP/Lプレビュー（本番未投入）"),
+    paragraph(`選択した弥生Excelを画面確認用に反映中。店舗候補 ${number.format(preview.entityCandidateCount)}件 / 除外集計 ${number.format(preview.aggregateExcludedSheetCount || 0)}件 / ${mapping}。`),
+    previewMetricGrid([
+      ["売上合計", `${number.format(preview.salesManYen)}万円`],
+      ["経常損益合計", `${number.format(preview.ordinaryProfitManYen)}万円`],
+      ["候補レコード", `${number.format(preview.normalizedRecordCount || 0)}件`],
+      ["本番投入", "disabled"],
+    ])
+  );
+  elements.financialPreviewOverview.replaceChildren(card);
+}
+
+function renderFinancialPreviewStores() {
+  if (!elements.financialPreviewStores) return;
+  const preview = state.financialPreview;
+  if (!preview) { elements.financialPreviewStores.replaceChildren(); return; }
+  const section = document.createElement("section");
+  section.className = "financial-local-preview-card";
+  const wrap = document.createElement("div");
+  wrap.className = "table-wrap embedded local-preview-table";
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.append(tableRow(["店舗候補", "売上", "経常損益", "mapping", "レコード"], true));
+  const tbody = document.createElement("tbody");
+  tbody.replaceChildren(...(preview.rows.length ? preview.rows.map((row) => tableRow([
+    row.entityName,
+    row.salesManYen == null ? "未算定" : `${number.format(row.salesManYen)}万円`,
+    row.ordinaryProfitManYen == null ? "未算定" : `${number.format(row.ordinaryProfitManYen)}万円`,
+    row.mappingStatus === "READY" ? "確認OK" : "mapping確認",
+    `${number.format(row.recordCount)}件`,
+  ])) : [emptyRow(5, "ローカルP/Lプレビューはありません")]));
+  table.append(thead, tbody);
+  wrap.append(table);
+  section.append(heading("店舗営業管理へのローカルP/L反映（本番未投入）"), paragraph("弥生Excelの店舗候補シートを、確認用だけに表示しています。DB保存・本番投入・個人情報表示はありません。"), wrap);
+  elements.financialPreviewStores.replaceChildren(section);
+}
+
+function previewMetricGrid(entries) {
+  const grid = document.createElement("div");
+  grid.className = "metric-grid financial-local-preview-metrics";
+  grid.replaceChildren(...entries.map(([name, value]) => {
+    const item = document.createElement("div");
+    item.className = "metric";
+    item.append(label(name), valueNode(value));
+    return item;
+  }));
+  return grid;
 }
 
 function renderCashChart(rows) { renderChart("cash", "cash-chart", { type: "line", data: { labels: rows.map((row) => row.month), datasets: [{ label: "現預金残高（万円）", data: rows.map((row) => row.actualManYen), borderColor: colors[1], backgroundColor: "rgba(23,50,77,.12)", fill: true, tension: .25 }, { label: "絶対防衛ライン（万円）", data: rows.map((row) => row.defenseManYen), borderColor: colors[0], borderDash: [7, 5], tension: .2 }] }, options: chartOptions() }); }

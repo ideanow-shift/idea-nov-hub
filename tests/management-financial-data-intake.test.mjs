@@ -5,7 +5,9 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  buildFinancialLocalPreview,
   buildFinancialIntakeReceipt,
+  combineFinancialWorkbookResults,
   parseFinancialWorkbookBuffer,
   renderFinancialDataIntake,
 } from "../portal/management-app/financial-data-intake.js";
@@ -96,6 +98,11 @@ test("P/L intake validates Yayoi workbook and preserves import disabled boundary
   assert.equal(receipt.productionImportEnabled, false);
   assert.equal(receipt.entityCandidateCount, 1);
   assert.equal(receipt.aggregateExcludedSheetCount, 0);
+  const preview = buildFinancialLocalPreview(result);
+  assert.equal(preview.importActionEnabled, false);
+  assert.equal(preview.entityCandidateCount, 1);
+  assert.equal(preview.rows[0].entityName, "損･BASSA新所沢店");
+  assert.equal(preview.rows[0].mappingStatus, "READY");
 });
 
 test("P/L aggregate sheets and missing exact mappings stay review-only", async () => {
@@ -111,6 +118,28 @@ test("P/L aggregate sheets and missing exact mappings stay review-only", async (
   assert.equal(result.entityCandidateCount, 0);
   assert.deepEqual(Object.keys(result.missingByAccount), ["地代家賃", "販売管理費合計"]);
   assert.equal(result.previewRows[0].entityCategory, "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS");
+});
+
+test("P/L local preview combines current files without enabling production import", async () => {
+  const first = await parseFinancialWorkbookBuffer(workbook([
+    row(1, ["帳票名：残高試算表(年間推移)"]),
+    row(5, ["集計期間：令和07年09月01日", "令和08年08月31日", "決算仕訳を含む"]),
+    row(8, ["勘定科目", ...months]),
+    ...requiredPl.map((account, index) => row(9 + index, [account, ...months.map(() => index === 0 ? 10000 : 100)])),
+  ], "損･店舗A"), "PL", { inflateRaw });
+  const second = await parseFinancialWorkbookBuffer(workbook([
+    row(1, ["帳票名：残高試算表(年間推移)"]),
+    row(5, ["集計期間：令和07年09月01日", "令和08年08月31日", "決算仕訳を含む"]),
+    row(8, ["勘定科目", ...months]),
+    ...requiredPl.map((account, index) => row(9 + index, [account, ...months.map(() => index === 0 ? 20000 : 200)])),
+  ], "損･店舗B"), "PL", { inflateRaw });
+  const combined = combineFinancialWorkbookResults([first, second], "PL");
+  assert.equal(combined.status, "PL_LOCAL_READY");
+  assert.equal(combined.entityCandidateCount, 2);
+  const preview = buildFinancialLocalPreview(combined);
+  assert.equal(preview.salesManYen, 36);
+  assert.equal(preview.importActionEnabled, false);
+  assert.deepEqual(preview.rows.map((item) => item.entityName), ["損･店舗A", "損･店舗B"]);
 });
 
 test("B/S intake requires exact balanced assets, liabilities, and equity", async () => {
@@ -140,10 +169,16 @@ test("B/S intake requires exact balanced assets, liabilities, and equity", async
 
 test("Management app integrates financial data intake without runtime upload", () => {
   assert.match(html, /id="financial-data-intake"/);
-  assert.match(app, /financial-data-intake\.js\?v=164556e3f811e26a/);
+  assert.match(html, /id="financial-local-preview-overview"/);
+  assert.match(html, /id="financial-local-preview-stores"/);
+  assert.match(app, /financial-data-intake\.js\?v=6ad1c6c805c5855a/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
+  assert.match(app, /management-financial-local-preview/);
+  assert.match(app, /renderFinancialPreviewOverview/);
+  assert.match(app, /renderFinancialPreviewStores/);
   assert.match(styles, /\.financial-intake-panel/);
   assert.match(styles, /\.financial-intake-preview/);
+  assert.match(styles, /\.financial-local-preview-card/);
   assert.doesNotMatch(app, /financialDataIntake[\s\S]{0,240}(upload|importAction|mutation|storage)/i);
 });
 
@@ -171,4 +206,5 @@ test("renderer exposes disabled production state", () => {
   const section = container.children[0];
   assert.equal(section.className, "financial-intake-panel");
   assert.equal(section.children[0].children[1].disabled, true);
+  assert.equal(section.children[3].children[0].multiple, true);
 });

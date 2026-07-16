@@ -173,6 +173,25 @@ function parseSheet(sheet, rows, requiredAccounts) {
   };
 }
 
+function sumAccount(records, account) {
+  return records
+    .filter((record) => record.account === account)
+    .reduce((sum, record) => sum + Number(record.amount || 0), 0);
+}
+
+function entityPreview(sheet, statement) {
+  const salesYen = statement === "PL" ? sumAccount(sheet.records, "売上高合計") : null;
+  const ordinaryProfitYen = statement === "PL" ? sumAccount(sheet.records, "経常損益金額") : null;
+  return {
+    entityName: sheet.sheet,
+    entityCategory: sheet.isAggregateSheet ? "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS" : "ENTITY_CANDIDATE",
+    mappingStatus: sheet.missingAccounts.length ? "MAPPING_REQUIRED" : "READY",
+    recordCount: sheet.records.length,
+    salesManYen: salesYen == null ? null : Math.round(salesYen / 10000),
+    ordinaryProfitManYen: ordinaryProfitYen == null ? null : Math.round(ordinaryProfitYen / 10000),
+  };
+}
+
 function summarizeStatement(statement, sheets, meta) {
   const parsed = sheets.parsed;
   const missingByAccount = Object.fromEntries(sheets.required.map((account) => [
@@ -214,6 +233,7 @@ function summarizeStatement(statement, sheets, meta) {
     normalizedRecordCount,
     missingByAccount,
     balanceCheck,
+    entityPreviewRows: parsed.map((sheet) => entityPreview(sheet, statement)),
     previewRows: parsed.slice(0, 4).map((sheet) => ({
       entityCategory: sheet.isAggregateSheet ? "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS" : "ENTITY_CANDIDATE",
       monthCount: sheet.monthColumns.length,
@@ -221,6 +241,46 @@ function summarizeStatement(statement, sheets, meta) {
       recordCount: sheet.records.length,
       mappingStatus: sheet.missingAccounts.length ? "MAPPING_REQUIRED" : "READY",
     })),
+  };
+}
+
+function combineStatuses(statement, results) {
+  if (results.some((result) => !String(result.status || "").startsWith(statement))) return `${statement}_FILE_PARSE_FAILED`;
+  if (results.some((result) => result.status === `${statement}_BALANCE_CHECK_FAILED`)) return `${statement}_BALANCE_CHECK_FAILED`;
+  if (results.some((result) => result.status === `${statement}_LOCAL_VALIDATED_PENDING_MAPPING`)) return `${statement}_LOCAL_VALIDATED_PENDING_MAPPING`;
+  return results.every((result) => result.status === `${statement}_LOCAL_READY`) ? `${statement}_LOCAL_READY` : `${statement}_LOCAL_VALIDATED_PENDING_MAPPING`;
+}
+
+export function combineFinancialWorkbookResults(results, statement = "PL") {
+  const accepted = Array.isArray(results) ? results.filter((result) => result && typeof result === "object") : [];
+  if (!accepted.length) return { status: "FILE_READ_OR_PARSE_FAILED", statement, previewRows: [], entityPreviewRows: [] };
+  const missingByAccount = {};
+  for (const result of accepted) {
+    for (const [account, count] of Object.entries(result.missingByAccount || {})) {
+      missingByAccount[account] = (missingByAccount[account] || 0) + Number(count || 0);
+    }
+  }
+  const sheetCount = accepted.reduce((sum, result) => sum + Number(result.sheetCount || 0), 0);
+  const sheetsWithTwelveMonths = accepted.reduce((sum, result) => sum + Number(result.sheetsWithTwelveMonths || 0), 0);
+  const aggregateSheetCount = accepted.reduce((sum, result) => sum + Number(result.aggregateSheetCount || 0), 0);
+  const entityCandidateCount = accepted.reduce((sum, result) => sum + Number(result.entityCandidateCount || 0), 0);
+  const normalizedRecordCount = accepted.reduce((sum, result) => sum + Number(result.normalizedRecordCount || 0), 0);
+  const entityPreviewRows = accepted.flatMap((result) => result.entityPreviewRows || []);
+  return {
+    status: combineStatuses(statement, accepted),
+    statement,
+    fileName: accepted.length === 1 ? accepted[0].fileName : `${accepted.length} files`,
+    fileBytes: accepted.reduce((sum, result) => sum + Number(result.fileBytes || 0), 0),
+    metadata: { periodText: accepted.map((result) => result.metadata?.periodText).filter(Boolean).join(" / ") },
+    sheetCount,
+    sheetsWithTwelveMonths,
+    aggregateSheetCount,
+    entityCandidateCount,
+    normalizedRecordCount,
+    missingByAccount,
+    balanceCheck: statement === "BS" && accepted.every((result) => result.balanceCheck === "BALANCED") ? "BALANCED" : statement === "BS" ? "IMBALANCED" : "NOT_APPLICABLE",
+    previewRows: accepted.flatMap((result) => result.previewRows || []).slice(0, 8),
+    entityPreviewRows,
   };
 }
 
@@ -246,6 +306,14 @@ export async function validateFinancialWorkbookFile(file, statement = "PL", opti
   }
 }
 
+export async function validateFinancialWorkbookFiles(files, statement = "PL", options = {}) {
+  const list = Array.from(files || []);
+  if (!list.length) return { status: "FILE_READ_OR_PARSE_FAILED", statement, previewRows: [], entityPreviewRows: [] };
+  const results = [];
+  for (const file of list) results.push(await validateFinancialWorkbookFile(file, statement, options));
+  return combineFinancialWorkbookResults(results, statement);
+}
+
 export function buildFinancialIntakeReceipt(result) {
   if (!result || typeof result !== "object") return null;
   return {
@@ -263,6 +331,33 @@ export function buildFinancialIntakeReceipt(result) {
     aggregateSheetHandlingRequired: Number(result.aggregateSheetCount || 0) > 0,
     balanceCheck: result.balanceCheck || "NOT_APPLICABLE",
     productionImportEnabled: false,
+  };
+}
+
+export function buildFinancialLocalPreview(result) {
+  const receipt = buildFinancialIntakeReceipt(result);
+  if (!receipt || receipt.statement !== "PL") return null;
+  const rows = (result.entityPreviewRows || []).filter((row) => row.entityCategory === "ENTITY_CANDIDATE");
+  return {
+    schemaVersion: "management-financial-local-preview-v1",
+    statement: "PL",
+    status: receipt.status,
+    fileNamePresent: receipt.fileNamePresent,
+    periodDetected: receipt.periodDetected,
+    entityCandidateCount: rows.length,
+    aggregateExcludedSheetCount: receipt.aggregateExcludedSheetCount,
+    normalizedRecordCount: receipt.normalizedRecordCount,
+    mappingRequiredAccountCount: receipt.mappingRequiredAccountCount,
+    salesManYen: rows.reduce((sum, row) => sum + Number(row.salesManYen || 0), 0),
+    ordinaryProfitManYen: rows.reduce((sum, row) => sum + Number(row.ordinaryProfitManYen || 0), 0),
+    importActionEnabled: false,
+    rows: rows.slice(0, 80).map((row) => ({
+      entityName: row.entityName,
+      salesManYen: row.salesManYen,
+      ordinaryProfitManYen: row.ordinaryProfitManYen,
+      mappingStatus: row.mappingStatus,
+      recordCount: row.recordCount,
+    })),
   };
 }
 
@@ -295,6 +390,15 @@ function setResult(container, result) {
       return item;
     }));
   }
+}
+
+function publishPreview(container, result) {
+  const preview = buildFinancialLocalPreview(result);
+  if (!preview) return;
+  container.dispatchEvent(new CustomEvent("management-financial-local-preview", {
+    bubbles: true,
+    detail: preview,
+  }));
 }
 
 export function renderFinancialDataIntake(container, hooks = {}) {
@@ -337,6 +441,7 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const input = el(doc, "input");
   input.type = "file";
   input.accept = ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  input.multiple = true;
   const dropText = el(doc, "span", "", "Excelファイルを選択してローカル検証");
   drop.append(input, dropText);
 
@@ -349,12 +454,13 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   container.replaceChildren(section);
 
   input.addEventListener("change", async () => {
-    const file = input.files?.[0];
-    dropText.textContent = file ? file.name : "Excelファイルを選択してローカル検証";
+    const files = Array.from(input.files || []);
+    dropText.textContent = files.length === 1 ? files[0].name : files.length ? `${files.length}ファイルを選択中` : "Excelファイルを選択してローカル検証";
     result.dataset.financialIntakeResult = "CHECKING";
     result.replaceChildren(el(doc, "strong", "", "検証中"), el(doc, "p", "", "ローカルでExcel構造を確認しています。"));
-    const parsed = await validateFinancialWorkbookFile(file, statement.value, hooks);
+    const parsed = await validateFinancialWorkbookFiles(files, statement.value, hooks);
     setResult(container, parsed);
+    publishPreview(container, parsed);
     input.value = "";
   });
   return true;

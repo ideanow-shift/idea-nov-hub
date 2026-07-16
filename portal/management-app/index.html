@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#ffffff">
   <title>BASSA GROUP 経営管理ダッシュボード</title>
   <script src="./vendor/chart.umd.min.js?v=4.4.1"></script>
-  <link rel="stylesheet" href="./styles.css?v=30ab0a56e2eb5cea">
+  <link rel="stylesheet" href="./styles.css?v=28814405b970a10b">
 </head>
 <body>
   <div class="dashboard">
@@ -49,6 +49,7 @@
         <label>対象月 <input id="finance-month" type="month"></label>
       </div>
       <div id="overview-kpis" class="metric-grid legacy-kpis"></div>
+      <div id="financial-local-preview-overview"></div>
       <section class="dashboard-card chart-card">
         <h3>現預金残高推移 ＜実績 ＋ 絶対防衛ライン＞</h3>
         <div class="chart-canvas"><canvas id="cash-chart"></canvas></div>
@@ -103,6 +104,7 @@
       <div class="section-heading"><div><p class="eyebrow">店舗営業管理</p><h2>店舗別状況</h2></div><span id="store-scope" class="scope-label"></span></div>
       <div id="workforce-evidence-status"></div>
       <div id="store-kpis" class="metric-grid"></div>
+      <div id="financial-local-preview-stores"></div>
       <div class="table-wrap">
         <table><thead><tr><th>店舗</th><th>法人</th><th>スタッフ</th><th>売上</th><th>目標達成率</th><th>データ状態</th></tr></thead><tbody id="store-rows"></tbody></table>
       </div>
@@ -120,6 +122,6 @@
   </main>
   </div>
 
-  <script type="module" src="./app-v2.js?v=5c7e4ea0bfbf0f5e"></script>
+  <script type="module" src="./app-v2.js?v=5a0996d6ee4ea1e0"></script>
 </body>
 </html>

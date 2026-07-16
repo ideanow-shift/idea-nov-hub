@@ -1,6 +1,10 @@
 const REQUIREMENT_KEYS = Object.freeze(["name", "fields", "purpose"]);
 const MAX_CSV_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_CSV_DATA_ROWS = 100000;
+const MONTH_PATTERN = /^20\d{2}-(0[1-9]|1[0-2])$/;
+const DATE_PATTERN = /^(20\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+const DECIMAL_PATTERN = /^(0|[1-9]\d{0,11})(\.\d{1,2})?$/;
+const INTEGER_PATTERN = /^(0|[1-9]\d{0,8})$/;
 
 const CSV_TEMPLATES = Object.freeze([
   Object.freeze({ filename: "store-monthly-sales-template.csv", headers: Object.freeze(["対象月", "店舗", "売上"]) }),
@@ -117,6 +121,48 @@ function parseCsvRecords(text) {
   return rows.filter((record) => record.some((value) => value.trim() !== ""));
 }
 
+function isCanonicalDate(value) {
+  const match = DATE_PATTERN.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+function isCanonicalStore(value) {
+  return value.length >= 1
+    && value.length <= 100
+    && value === value.trim()
+    && value === value.normalize("NFC")
+    && !/[\u0000-\u001F\u007F]/.test(value);
+}
+
+function validateSemanticRows(templateIndex, rows) {
+  const keys = new Set();
+  for (const row of rows) {
+    const period = row[0];
+    const store = row[1];
+    if ((templateIndex === 0 && !MONTH_PATTERN.test(period)) || (templateIndex !== 0 && !isCanonicalDate(period))) {
+      return "PERIOD_VALUE_INVALID";
+    }
+    if (!isCanonicalStore(store)) return "STORE_VALUE_INVALID";
+    if (templateIndex === 0 && !DECIMAL_PATTERN.test(row[2])) return "NUMBER_VALUE_INVALID";
+    if (templateIndex === 1 && (!DECIMAL_PATTERN.test(row[2]) || !INTEGER_PATTERN.test(row[3]) || !DECIMAL_PATTERN.test(row[4]))) {
+      return "NUMBER_VALUE_INVALID";
+    }
+    if (templateIndex === 2) {
+      if (!INTEGER_PATTERN.test(row[2]) || !INTEGER_PATTERN.test(row[3])) return "NUMBER_VALUE_INVALID";
+      if (Number(row[3]) > Number(row[2])) return "RESERVATION_VALUE_INVALID";
+    }
+    const key = `${period}\u0000${store}`;
+    if (keys.has(key)) return "DUPLICATE_KEY";
+    keys.add(key);
+  }
+  return "VALID";
+}
+
 export function validateLocalCsvText(templateIndex, text) {
   if (!Number.isInteger(templateIndex) || templateIndex < 0 || templateIndex >= CSV_TEMPLATES.length || typeof text !== "string") {
     return sanitizedValidation("REQUEST_INVALID");
@@ -133,6 +179,8 @@ export function validateLocalCsvText(templateIndex, text) {
   if (dataRows.length > MAX_CSV_DATA_ROWS) return sanitizedValidation("ROW_LIMIT_EXCEEDED");
   if (dataRows.some((record) => record.length !== expected.length)) return sanitizedValidation("ROW_SHAPE_INVALID");
   if (!dataRows.length) return sanitizedValidation("NO_DATA_ROWS");
+  const semanticCategory = validateSemanticRows(templateIndex, dataRows);
+  if (semanticCategory !== "VALID") return sanitizedValidation(semanticCategory);
   return sanitizedValidation("VALID", true, dataRows.length);
 }
 
@@ -157,6 +205,11 @@ function validationMessage(result) {
     HEADER_MISMATCH: "必要項目と列順が一致しません",
     ROW_SHAPE_INVALID: "データ行の列数が一致しません",
     ROW_LIMIT_EXCEEDED: "確認できる行数上限を超えています",
+    PERIOD_VALUE_INVALID: "対象月または営業日を確認してください",
+    STORE_VALUE_INVALID: "店舗名を確認してください",
+    NUMBER_VALUE_INVALID: "金額または件数を確認してください",
+    RESERVATION_VALUE_INVALID: "予約数が予約枠を超えています",
+    DUPLICATE_KEY: "同じ対象期間と店舗の行が重複しています",
     CSV_MALFORMED: "CSV形式または文字コードを確認してください",
     FILE_TYPE_INVALID: "CSVファイルを選択してください",
     FILE_TOO_LARGE: "ファイルサイズ上限は5MBです",
@@ -188,6 +241,22 @@ export function renderCsvRequirements(container, items, documentRef = globalThis
   heading.textContent = "Data Operations Hubへ渡すデータ";
   const summary = documentRef.createElement("p");
   summary.textContent = view.summary;
+  const readiness = documentRef.createElement("div");
+  readiness.className = "csv-validation-summary";
+  readiness.setAttribute("aria-live", "polite");
+  const validationResults = Array(view.templates.length).fill(null);
+  const updateReadiness = () => {
+    const validCount = validationResults.filter((result) => result?.valid).length;
+    const allReady = view.templates.length > 0 && validCount === view.templates.length;
+    readiness.dataset.csvReady = allReady ? "LOCAL_FILES_READY" : "NOT_READY";
+    readiness.dataset.csvReadyCount = String(validCount);
+    readiness.textContent = view.templates.length
+      ? allReady
+        ? `ローカル確認 ${validCount}/${view.templates.length}完了。取込はまだ実行できません。`
+        : `ローカル確認 ${validCount}/${view.templates.length}`
+      : "ローカル確認は利用できません";
+  };
+  updateReadiness();
   const list = documentRef.createElement("div");
   list.className = "csv-template-list";
   if (!view.templates.length) {
@@ -229,8 +298,10 @@ export function renderCsvRequirements(container, items, documentRef = globalThis
       status.textContent = "確認中";
       status.dataset.csvValidation = "CHECKING";
       const result = await validateLocalCsvFile(index, event.currentTarget?.files?.[0]);
+      validationResults[index] = result;
       status.textContent = validationMessage(result);
       status.dataset.csvValidation = result.category;
+      updateReadiness();
       event.currentTarget.value = "";
     });
     validate.append(input);
@@ -240,6 +311,6 @@ export function renderCsvRequirements(container, items, documentRef = globalThis
   });
   container.dataset.csvRequirementStatus = view.status;
   container.dataset.csvLocalValidation = view.templates.length ? "ENABLED" : "DISABLED";
-  container.replaceChildren(heading, summary, list);
+  container.replaceChildren(heading, summary, readiness, list);
   return true;
 }

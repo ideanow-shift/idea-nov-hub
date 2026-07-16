@@ -123,6 +123,8 @@ tbody tr:hover td { background: var(--card-soft); }
 .status-band p:last-child { margin-bottom: 0; }
 .status-band ul { margin: 0; padding-left: 20px; }
 .csv-template-list { display: grid; gap: 0; border-top: 1px solid var(--border-light); }
+.csv-validation-summary { margin: 0 0 12px; padding: 10px 12px; color: var(--text-secondary); background: var(--card-soft); border-left: 3px solid var(--border-light); border-radius: var(--radius-md); font-size: 13px; }
+.csv-validation-summary[data-csv-ready="LOCAL_FILES_READY"] { color: var(--text-primary); border-left-color: var(--color-success); }
 .csv-template-item { min-width: 0; padding: 12px 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; border-bottom: 1px solid var(--border-light); }
 .csv-template-item > div { min-width: 0; display: grid; gap: 2px; }
 .csv-template-item strong { color: var(--text-primary); font-size: 14px; font-weight: 500; }
@@ -134,6 +136,7 @@ tbody tr:hover td { background: var(--card-soft); }
 .csv-validation-status { grid-column: 1 / -1; min-height: 21px; color: var(--text-secondary); font-size: 12px; }
 .csv-validation-status[data-csv-validation="VALID"] { color: var(--color-success); font-weight: 500; }
 .csv-validation-status[data-csv-validation="HEADER_MISMATCH"], .csv-validation-status[data-csv-validation="ROW_SHAPE_INVALID"], .csv-validation-status[data-csv-validation="ROW_LIMIT_EXCEEDED"], .csv-validation-status[data-csv-validation="CSV_MALFORMED"], .csv-validation-status[data-csv-validation="FILE_TYPE_INVALID"], .csv-validation-status[data-csv-validation="FILE_TOO_LARGE"], .csv-validation-status[data-csv-validation="READ_FAILED"] { color: var(--color-alert); }
+.csv-validation-status[data-csv-validation="PERIOD_VALUE_INVALID"], .csv-validation-status[data-csv-validation="STORE_VALUE_INVALID"], .csv-validation-status[data-csv-validation="NUMBER_VALUE_INVALID"], .csv-validation-status[data-csv-validation="RESERVATION_VALUE_INVALID"], .csv-validation-status[data-csv-validation="DUPLICATE_KEY"] { color: var(--color-alert); }
 .workflow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
 .workflow-step { padding: 16px; background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
 .workflow-step h3 { margin: 0 0 8px; font-size: 15px; font-weight: 500; }

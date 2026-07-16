@@ -39,6 +39,8 @@ const required = [
   [files.csvRequirements, 'data:text/csv;charset=utf-8'],
   [files.csvRequirements, 'validateLocalCsvFile'],
   [files.csvRequirements, 'ファイル内容は送信せず'],
+  [files.csvRequirements, 'PERIOD_VALUE_INVALID'],
+  [files.csvRequirements, 'LOCAL_FILES_READY'],
   [files.backend, 'managementFinanceSummary: true'],
   [files.backend, 'managementStoresSummary: true'],
   [files.backend, 'managementDataopsStatus: true'],
@@ -69,5 +71,6 @@ console.log(JSON.stringify({
   browserDirectSupabase: false,
   dbMutationAdded: false,
   localCsvTemplates: 3,
-  localCsvValidation: true
+  localCsvValidation: true,
+  localCsvSemanticValidation: true
 }, null, 2));

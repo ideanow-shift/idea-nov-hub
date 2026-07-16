@@ -1,10 +1,3 @@
-const STORE_ACCOUNTS = [
-  { id: "kokubunji", pass: "nov-kokubunji", name: "国分寺店", admin: false },
-  { id: "tachikawa", pass: "nov-tachikawa", name: "立川店", admin: false },
-  { id: "kumegawa", pass: "nov-kumegawa", name: "久米川店", admin: false },
-  { id: "honbu", pass: "nov-admin", name: "本部", admin: true }
-];
-
 const STORE_MASTER_CONFIG = {
   loginEndpoint: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/concierge-api",
   apiEndpoint: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/concierge-api"
@@ -115,20 +108,11 @@ const KNOWLEDGE_AREAS = [
 
 class StoreAuthProvider {
   async login(storeId, storePass) {
-    if (STORE_MASTER_CONFIG.loginEndpoint) {
-      const account = await authenticateWithStoreMaster(storeId, storePass);
-      return this.persistSession(account);
+    if (!STORE_MASTER_CONFIG.loginEndpoint) {
+      throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.request);
     }
-
-    const account = STORE_ACCOUNTS.find((item) => {
-      return item.id === storeId.trim().toLowerCase() && item.pass === storePass;
-    });
-
-    if (!account) {
-      throw new Error("店舗IDまたは店舗PASSが違います。");
-    }
-
-    return this.persistSession({ ...account, source: "local-fallback" });
+    const account = await authenticateWithStoreMaster(storeId, storePass);
+    return this.persistSession(account);
   }
 
   persistSession(account) {

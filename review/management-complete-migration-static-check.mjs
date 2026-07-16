@@ -9,6 +9,7 @@ const files = {
   main: read("portal/js/main.js"),
   html: read("portal/management-app/index.html"),
   app: read("portal/management-app/app-v2.js"),
+  csvRequirements: read("portal/management-app/store-csv-requirements.js"),
   chart: read("portal/management-app/vendor/chart.umd.min.js"),
   backend: read("supabase/functions/nov-hub-api/management_readonly_candidate.ts"),
   index: read("supabase/functions/nov-hub-api/index.ts")
@@ -31,6 +32,9 @@ const required = [
   [files.app, 'restoreNovHubSession'],
   [files.app, 'setHubSessionAuth'],
   [files.app, 'IDEA_NOV_PLACEHOLDER'],
+  [files.app, 'renderCsvRequirements(elements.csvRequirements, data.requiredCsvFiles)'],
+  [files.csvRequirements, 'READY_FOR_FILE_PREPARATION'],
+  [files.csvRequirements, '必要項目:'],
   [files.backend, 'managementFinanceSummary: true'],
   [files.backend, 'managementStoresSummary: true'],
   [files.backend, 'managementDataopsStatus: true'],
@@ -40,7 +44,7 @@ const required = [
 const missing = required.filter(([source, fragment]) => !source.includes(fragment)).map(([, fragment]) => fragment);
 if (missing.length) throw new Error(`Missing required fragments: ${missing.join(", ")}`);
 
-const frontend = `${files.html}\n${files.app}`;
+const frontend = `${files.html}\n${files.app}\n${files.csvRequirements}`;
 const forbidden = [
   /service_role/i,
   /SUPABASE_SERVICE_ROLE/,

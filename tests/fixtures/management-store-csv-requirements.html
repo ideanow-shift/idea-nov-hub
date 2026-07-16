@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Management Store CSV Requirements Visual Fixture</title>
+  <link rel="stylesheet" href="../../portal/management-app/styles.css">
+</head>
+<body>
+  <main class="dashboard">
+    <section id="csv-requirements" class="status-band" aria-label="CSV準備要件"></section>
+  </main>
+  <script type="module">
+    import { SANITIZED_CSV_REQUIREMENTS, renderCsvRequirements } from "../../portal/management-app/store-csv-requirements.js";
+    renderCsvRequirements(document.getElementById("csv-requirements"), SANITIZED_CSV_REQUIREMENTS);
+  </script>
+</body>
+</html>

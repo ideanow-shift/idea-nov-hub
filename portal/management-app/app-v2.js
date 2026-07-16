@@ -1,5 +1,6 @@
 import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
+import { renderCsvRequirements } from "./store-csv-requirements.js?v=e9a2026f3739284d";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
 const VIEWS = new Set([...FINANCE_VIEWS, "stores", "dataops"]);
@@ -150,7 +151,7 @@ function renderStores() {
   elements.storeScope.textContent = scopeLabel(data.phase0Scope);
   renderMetrics(elements.storeKpis, [["表示店舗", `${data.storeCount || 0}店舗`], ["スタッフ", `${data.staffCount || 0}人`], ["売上データ", stores.some((row) => row.dataReadiness !== "salonanswer_csv_waiting") ? "接続済み" : "CSV待ち"], ["scope", scopeLabel(data.phase0Scope)]]);
   elements.storeRows.replaceChildren(...(stores.length ? stores.map((row) => tableRow([row.name, row.corporationName, number.format(row.staffCount || 0), row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.salesManYen || 0)}万円`, row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.targetAchievementPercent || 0)}%`, row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "接続済み"])) : [emptyRow(6, "表示できる店舗がありません")]));
-  elements.csvRequirements.replaceChildren(heading("Data Operations Hubへ渡すデータ"), list((data.requiredCsvFiles || []).map((item) => `${item.name}: ${item.purpose}`)));
+  renderCsvRequirements(elements.csvRequirements, data.requiredCsvFiles);
 }
 
 async function loadDataops() {

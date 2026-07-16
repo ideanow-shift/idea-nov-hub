@@ -35,6 +35,8 @@ const required = [
   [files.app, 'renderCsvRequirements(elements.csvRequirements, data.requiredCsvFiles)'],
   [files.csvRequirements, 'READY_FOR_FILE_PREPARATION'],
   [files.csvRequirements, '必要項目:'],
+  [files.csvRequirements, 'CSVひな形を保存'],
+  [files.csvRequirements, 'data:text/csv;charset=utf-8'],
   [files.backend, 'managementFinanceSummary: true'],
   [files.backend, 'managementStoresSummary: true'],
   [files.backend, 'managementDataopsStatus: true'],
@@ -63,5 +65,6 @@ console.log(JSON.stringify({
   hubSessionRequired: true,
   frontendForbiddenExposure: false,
   browserDirectSupabase: false,
-  dbMutationAdded: false
+  dbMutationAdded: false,
+  localCsvTemplates: 3
 }, null, 2));

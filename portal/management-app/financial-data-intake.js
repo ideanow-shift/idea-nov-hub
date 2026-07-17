@@ -683,6 +683,28 @@ export function buildFinancialAccountingRequestMessage(result) {
   };
 }
 
+export function buildFinancialAccountingRequestImpact(result) {
+  const pkg = buildFinancialSubmissionPackage(result);
+  const impactByCategory = {
+    NEXT_PROVIDE_BALANCE_SHEET: ["B/S", "貸借一致チェック", "法人/部門候補の一意性"],
+    NEXT_CONFIRM_PL_MAPPING: ["P/L", "科目mapping確認", "地代家賃・販売管理費合計の候補確定"],
+    NEXT_PROVIDE_PL_ANNUAL_REPORT: ["P/L", "年度別P/Lローカル検証", "店舗候補プレビュー"],
+    NEXT_VALIDATE_STORE_SALES: ["店舗営業", "店舗売上CSVローカル検証", "会計補助残高照合待ちへの移行"],
+    NEXT_PROVIDE_SUPPLEMENTAL_SOURCES: ["店舗営業", "補助資料CSVローカル検証", "予算・FC・水道光熱費・クーポン確認"],
+    NEXT_PRODUCTION_EVIDENCE: ["本番反映", "production catalog証跡", "provider runtime identity"],
+  };
+  return {
+    schemaVersion: "management-financial-accounting-request-impact-v1",
+    category: pkg.nextAction.category,
+    targetLabels: impactByCategory[pkg.nextAction.category] || ["確認待ち"],
+    packageReadyCount: pkg.readyCount,
+    packageTotalCount: pkg.totalCount,
+    productionImportEnabled: false,
+    mutationCount: 0,
+    uploadCount: 0,
+  };
+}
+
 export function buildFinancialAccountingRequestText(result) {
   const message = buildFinancialAccountingRequestMessage(result);
   const text = [
@@ -1227,6 +1249,7 @@ function setSubmissionPackage(container, result) {
   if (!target) return;
   const pkg = buildFinancialSubmissionPackage(result);
   const message = buildFinancialAccountingRequestMessage(result);
+  const impact = buildFinancialAccountingRequestImpact(result);
   const textFile = buildFinancialAccountingRequestText(result);
   const requestDownload = el(doc, "a", "financial-accounting-request-download", "確認依頼TXTを保存");
   requestDownload.dataset.financialAccountingRequestDownload = "true";
@@ -1262,6 +1285,9 @@ function setSubmissionPackage(container, result) {
       el(doc, "strong", "", "経理へ確認する内容"),
       el(doc, "p", "", message.subject),
       el(doc, "pre", "", message.bodyLines.join("\n")),
+      el(doc, "ul", "financial-accounting-impact-list",
+        ...impact.targetLabels.map((item) => el(doc, "li", "", item))
+      ),
       requestDownload
     )
   );

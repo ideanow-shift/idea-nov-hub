@@ -198,6 +198,7 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-mapping-table table { min-width: 620px; }
 .financial-mapping-table th, .financial-mapping-table td { padding: 9px 10px; font-size: 12px; text-align: left; }
 .financial-completion { margin-top: 14px; }
+.financial-completion-heading { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
 .financial-completion h4 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 500; }
 .financial-completion-summary { margin: 5px 0 10px; color: var(--text-secondary); font-size: 12px; }
 .financial-completion-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -260,6 +261,7 @@ tbody tr:hover td { background: var(--card-soft); }
   .production-readiness-head { align-items: stretch; flex-direction: column; }
   .financial-intake-heading { align-items: stretch; flex-direction: column; }
   .financial-mapping-review-heading { align-items: stretch; flex-direction: column; }
+  .financial-completion-heading { align-items: stretch; flex-direction: column; }
   .financial-mapping-download { width: 100%; white-space: normal; text-align: center; }
   .csv-template-item { grid-template-columns: 1fr; }
   .csv-template-actions { display: grid !important; grid-template-columns: 1fr 1fr !important; }

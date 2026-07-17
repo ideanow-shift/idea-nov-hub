@@ -505,6 +505,26 @@ export function buildFinancialCompletionItems(result) {
   });
 }
 
+export function buildFinancialCompletionRequestCsv(result) {
+  const rows = buildFinancialCompletionItems(result).filter((item) => item.status !== "LOCAL_VALIDATED");
+  if (!rows.length) return null;
+  const header = ["資料区分", "資料名", "現在状態", "依頼内容"];
+  const csvRows = rows.map((item) => [
+    item.key,
+    item.label,
+    COMPLETION_STATUS_LABELS[item.status] || "確認待ち",
+    item.detail,
+  ]);
+  const csv = `\uFEFF${[header, ...csvRows].map((row) => row.map(financialCsvCell).join(",")).join("\r\n")}\r\n`;
+  return {
+    fileName: "management-financial-missing-data-request.csv",
+    rowCount: rows.length,
+    status: "ACCOUNTING_SOURCE_REQUEST_PENDING",
+    csv,
+    href: `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`,
+  };
+}
+
 export function buildFinancialMappingReviewRows(result) {
   if (!result || result.statement !== "PL") return [];
   if (Number(result.duplicateFileCount || 0) > 0 || Number(result.duplicateEntityPeriodCount || 0) > 0) return [];
@@ -826,10 +846,22 @@ function setCompletionChecklist(container, result) {
   const doc = container.ownerDocument;
   const checklist = container.querySelector("[data-financial-completion-list]");
   const summary = container.querySelector("[data-financial-completion-summary]");
-  if (!checklist || !summary) return;
+  const download = container.querySelector("[data-financial-completion-download]");
+  if (!checklist || !summary || !download) return;
   const items = buildFinancialCompletionItems(result);
   const readyCount = items.filter((item) => item.status === "LOCAL_VALIDATED").length;
+  const exportFile = buildFinancialCompletionRequestCsv(result);
   summary.textContent = `${readyCount}/${items.length}項目をローカル確認済み。本番投入は全項目と本番取込契約が揃うまで無効です。`;
+  if (exportFile) {
+    download.href = exportFile.href;
+    download.download = exportFile.fileName;
+    download.hidden = false;
+    download.textContent = `不足資料CSVを保存（${exportFile.rowCount}件）`;
+  } else {
+    download.removeAttribute("href");
+    download.removeAttribute("download");
+    download.hidden = true;
+  }
   checklist.replaceChildren(...items.map((item) => {
     const classSuffix = item.status.toLowerCase().replaceAll("_", "-");
     const article = el(doc, "article", `financial-completion-item is-${classSuffix}`);
@@ -903,12 +935,16 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const preview = el(doc, "ul", "financial-intake-preview");
   preview.dataset.financialIntakePreview = "EMPTY";
   const completion = el(doc, "section", "financial-completion");
-  completion.append(el(doc, "h4", "", "不足データと次の準備"));
+  const completionHeading = el(doc, "div", "financial-completion-heading");
+  completionHeading.append(el(doc, "h4", "", "不足データと次の準備"));
+  const completionDownload = el(doc, "a", "financial-mapping-download", "不足資料CSVを保存");
+  completionDownload.dataset.financialCompletionDownload = "true";
+  completionHeading.append(completionDownload);
   const completionSummary = el(doc, "p", "financial-completion-summary");
   completionSummary.dataset.financialCompletionSummary = "true";
   const completionList = el(doc, "div", "financial-completion-list");
   completionList.dataset.financialCompletionList = "true";
-  completion.append(completionSummary, completionList);
+  completion.append(completionHeading, completionSummary, completionList);
   const mappingReview = el(doc, "section", "financial-mapping-review");
   mappingReview.dataset.financialMappingReview = "true";
   mappingReview.hidden = true;

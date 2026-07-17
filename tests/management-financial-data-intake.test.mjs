@@ -196,6 +196,12 @@ test("financial file collection enforces count and total-size limits before pars
   }));
   const sizeResult = await validateFinancialWorkbookFiles(tooLarge, "BS", { inflateRaw });
   assert.equal(sizeResult.status, "FILE_TOTAL_SIZE_INVALID");
+  const typeResult = await validateFinancialWorkbookFiles([{
+    name: "financial.csv",
+    size: 10,
+    async arrayBuffer() { throw new Error("must not read"); },
+  }], "PL", { inflateRaw });
+  assert.equal(typeResult.status, "FILE_TYPE_INVALID");
 });
 
 test("P/L mapping review exports only fixed accounting confirmation fields", () => {
@@ -456,7 +462,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=f999067bfdb2b5ca/);
+  assert.match(app, /financial-data-intake\.js\?v=9b68073d1acb815e/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);
@@ -486,6 +492,8 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(financialIntake, /MAX_FINANCIAL_FILE_COUNT = 12/);
   assert.match(financialIntake, /MAX_FINANCIAL_TOTAL_BYTES = 100 \* 1024 \* 1024/);
   assert.match(financialIntake, /addEventListener\("drop"/);
+  assert.match(financialIntake, /SOURCE_SYSTEM_UNSUPPORTED/);
+  assert.match(financialIntake, /Excelから対象期を自動判定/);
   assert.match(styles, /\.financial-intake-drop\.is-dragover/);
   assert.match(financialIntake, /ACCOUNTING_CONFIRMATION_PENDING/);
   assert.match(financialIntake, /DUPLICATE_ENTITY_PERIOD_DETECTED/);
@@ -537,6 +545,9 @@ test("renderer exposes disabled production state", () => {
   assert.equal(section.className, "financial-intake-panel");
   assert.equal(section.children[0].children[1].disabled, true);
   assert.equal(section.children[3].children[0].multiple, true);
+  assert.equal(section.children[2].children[1].readOnly, true);
+  assert.equal(section.children[2].children[2].disabled, true);
+  assert.equal(section.children[2].children[3].children[1].value, "UNSUPPORTED");
   assert.ok(section.children[3].listeners.dragover);
   assert.ok(section.children[3].listeners.dragleave);
   assert.ok(section.children[3].listeners.drop);

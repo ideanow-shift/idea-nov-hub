@@ -35,6 +35,13 @@ const AGGREGATE_SHEET_RE = /(?:全体|合計|共通|FC\(合計\))/u;
 const XML_ESCAPE_RE = /&(lt|gt|amp|quot|apos);/g;
 const XML_ESCAPE_MAP = Object.freeze({ lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" });
 const XLSX_TEXT_ENTRY_RE = /^(?:xl\/(?:workbook\.xml|sharedStrings\.xml|_rels\/workbook\.xml\.rels|worksheets\/sheet\d+\.xml)|\[Content_Types\]\.xml|_rels\/\.rels)$/u;
+const FILE_BOUNDARY_STATUSES = new Set([
+  "FILE_TYPE_INVALID",
+  "FILE_SIZE_INVALID",
+  "FILE_COUNT_INVALID",
+  "FILE_TOTAL_SIZE_INVALID",
+  "FILE_READ_OR_PARSE_FAILED",
+]);
 
 async function sha256Identity(arrayBuffer, options = {}) {
   const digest = options.digestSha256 || (globalThis.crypto?.subtle ? (value) => globalThis.crypto.subtle.digest("SHA-256", value) : null);
@@ -362,6 +369,8 @@ function summarizeStatement(statement, sheets, meta) {
 }
 
 function combineStatuses(statement, results) {
+  const boundaryFailure = results.find((result) => FILE_BOUNDARY_STATUSES.has(result.status));
+  if (boundaryFailure) return boundaryFailure.status;
   if (results.some((result) => !String(result.status || "").startsWith(statement))) return `${statement}_FILE_PARSE_FAILED`;
   if (results.some((result) => result.status === `${statement}_BALANCE_CHECK_FAILED`)) return `${statement}_BALANCE_CHECK_FAILED`;
   if (results.some((result) => result.status === `${statement}_LOCAL_VALIDATED_PENDING_MAPPING`)) return `${statement}_LOCAL_VALIDATED_PENDING_MAPPING`;
@@ -762,6 +771,9 @@ const INTAKE_STATUS_LABELS = Object.freeze({
   BS_DUPLICATE_ENTITY_PERIOD_DETECTED: "B/S同一期・同一候補の重複を確認してください",
   FILE_COUNT_INVALID: "ファイル数は12件以内にしてください",
   FILE_TOTAL_SIZE_INVALID: "合計ファイル容量は100MB以内にしてください",
+  FILE_TYPE_INVALID: "Excel（.xlsx）ファイルを選択してください",
+  FILE_SIZE_INVALID: "1ファイルは25MB以内にしてください",
+  SOURCE_SYSTEM_UNSUPPORTED: "選択した会計システムには未対応です",
   FILE_READ_OR_PARSE_FAILED: "ファイルを確認してください",
 });
 
@@ -917,14 +929,21 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   });
   const fiscal = el(doc, "input");
   fiscal.type = "text";
-  fiscal.placeholder = "対象期";
-  fiscal.setAttribute("aria-label", "対象期");
+  fiscal.placeholder = "Excelから対象期を自動判定";
+  fiscal.readOnly = true;
+  fiscal.setAttribute("aria-label", "Excelから自動判定した対象期");
   const scope = el(doc, "select");
-  scope.setAttribute("aria-label", "scope");
-  ["法人/店舗/部門", "法人", "店舗", "部門"].forEach((label) => scope.append(el(doc, "option", "", label)));
+  scope.setAttribute("aria-label", "Excelシートから自動判定するscope");
+  scope.disabled = true;
+  scope.append(el(doc, "option", "", "scope自動判定（法人/店舗/部門）"));
   const source = el(doc, "select");
   source.setAttribute("aria-label", "source system");
-  ["弥生会計", "その他"].forEach((label) => source.append(el(doc, "option", "", label)));
+  [["YAYOI", "弥生会計"], ["UNSUPPORTED", "その他（未対応）"]].forEach(([value, label]) => {
+    const option = el(doc, "option", "", label);
+    option.value = value;
+    source.append(option);
+  });
+  source.value = "YAYOI";
   const mode = el(doc, "select");
   mode.setAttribute("aria-label", "import mode");
   ["検証のみ", "mapping review"].forEach((label) => mode.append(el(doc, "option", "", label)));
@@ -995,9 +1014,15 @@ export function renderFinancialDataIntake(container, hooks = {}) {
     result.dataset.financialIntakeResult = "CHECKING";
     result.replaceChildren(el(doc, "strong", "", "検証中"), el(doc, "p", "", "ローカルでExcel構造を確認しています。"));
     try {
-      const parsed = await validateFinancialWorkbookFiles(files, statement.value, hooks);
+      const parsed = source.value === "YAYOI"
+        ? await validateFinancialWorkbookFiles(files, statement.value, hooks)
+        : { status: "SOURCE_SYSTEM_UNSUPPORTED", statement: statement.value, previewRows: [], entityPreviewRows: [] };
       setResult(container, parsed);
       publishPreview(container, parsed);
+      const localPreview = buildFinancialLocalPreview(parsed);
+      fiscal.value = localPreview && !["対象期確認待ち", "重複確認待ち"].includes(localPreview.selectedPeriodLabel)
+        ? localPreview.selectedPeriodLabel
+        : "";
     } finally {
       input.value = "";
       input.disabled = false;

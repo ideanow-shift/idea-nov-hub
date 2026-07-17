@@ -2,13 +2,13 @@ import { PORTAL_CONFIG } from "./firebase-config.js?v=shift-session-contract-202
 import { authIsConfigured, getIdToken, signInWithGoogle, signOutUser } from "./auth.js";
 import { callApiAction, clearApiAuth, createIdeaLinkHandoff, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js?v=idea-link-handoff-launch-20260712-6";
 import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
-import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js?v=education-url-fix-20260716-1";
+import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js?v=thanks-coin-display-label-20260717-1";
 import { clearHubEmployeeContext, encodeHubContextForUrl, getHubEmployeeContextSummary, saveHubEmployeeContext } from "./hub-context.js";
 import {
   renderNovNaviDashboard,
   shouldEnableLocalNovNaviDemo,
   shouldEnableNovNaviDashboard
-} from "./nov-navi-dashboard.js?v=nov-navi-data-intake-label-20260717-1";
+} from "./nov-navi-dashboard.js?v=thanks-coin-display-label-20260717-1";
 import {
   clearNovHubSession,
   restoreNovHubSession,
@@ -128,6 +128,10 @@ function getAudienceLabel(app) {
   return labels[Number(app.requiredLevel || 1)] || "対象者";
 }
 
+function getAppDisplayName(app) {
+  return isIdeaLinkApp(app) ? "サンクスコイン" : app.appName;
+}
+
 function createAppIcon(app) {
   const wrapper = document.createElement("span");
   wrapper.className = "app-icon";
@@ -145,12 +149,13 @@ function createAppCard(app) {
   button.type = "button";
   button.className = "app-card";
   button.dataset.appId = app.appId;
+  const displayName = getAppDisplayName(app);
   const icon = createAppIcon(app);
   const info = document.createElement("span");
   info.className = "app-info";
   info.innerHTML = `
     <span class="app-title-row">
-      <span class="app-title">${escapeHtml(app.appName)}</span>
+      <span class="app-title">${escapeHtml(displayName)}</span>
       <span class="app-arrow" aria-hidden="true">›</span>
     </span>
     <span class="app-description">${escapeHtml(app.description || "")}</span>
@@ -232,6 +237,7 @@ function normalizeSearchText(value) {
 
 function getAppSearchText(app) {
   return normalizeSearchText([
+    getAppDisplayName(app),
     app.appName,
     app.description,
     app.category,

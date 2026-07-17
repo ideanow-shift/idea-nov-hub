@@ -16,7 +16,7 @@ const SYSTEMS = [
   { category: "運営管理", title: "経費精算", status: "trial", aliases: ["expense_hub", "expense-hub"], shortcuts: ["経費入力", "自分の申請", "月次精算"] },
   { category: "運営管理", title: "決裁・承認", status: "in_progress", aliases: ["decision_hub", "decision-hub"], shortcuts: ["自分の申請", "承認待ち", "申請一覧"] },
   { category: "運営管理", title: "店舗運営", status: "preview", aliases: ["pos"], shortcuts: ["POS", "販促・SNS"] },
-  { category: "成長", title: "IDEA LINK", subtitle: "サンクスコイン・称賛文化", status: "available", aliases: ["idea-link"], shortcuts: ["ホーム", "送る", "一覧", "マイページ"] },
+  { category: "成長", title: "サンクスコイン", subtitle: "感謝・称賛をコインで届ける", status: "available", aliases: ["idea-link"], shortcuts: ["ホーム", "送る", "一覧", "マイページ"] },
   { category: "成長", title: "店舗改善・成長", status: "trial", aliases: ["management-platform", "management-check", "Check-in"], shortcuts: ["チェック", "改善", "記録", "業績"] },
   { category: "成長", title: "教育・育成", status: "available", aliases: ["EDU", "education-web"], shortcuts: ["学習", "進捗", "管理"] },
   { category: "キャリア", title: "キャリアシステム", status: "preview", aliases: [], shortcuts: ["自己振り返り", "4ヶ月キャリア確認", "管理者確認", "昇格・等級", "次期目標設定"] },

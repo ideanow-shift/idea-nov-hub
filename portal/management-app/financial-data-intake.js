@@ -491,6 +491,15 @@ export function buildFinancialIntakeReceipt(result) {
   };
 }
 
+function hasExactLocalMappingEvidence(result) {
+  const expectedCount = buildFinancialMappingReviewRows(result).length;
+  const evidence = result?.localMappingConfirmation;
+  return expectedCount > 0
+    && evidence?.status === "MAPPING_CONFIRMATION_LOCAL_EVIDENCE"
+    && Number(evidence.confirmedCount) === expectedCount
+    && Number(evidence.rejectedCount) === 0;
+}
+
 export function buildFinancialCompletionItems(result) {
   const receipt = buildFinancialIntakeReceipt(result);
   const statement = receipt?.statement || "";
@@ -512,8 +521,10 @@ export function buildFinancialCompletionItems(result) {
       });
       status = receipt.mappingRequiredAccountCount === 0
         ? "LOCAL_VALIDATED"
+        : hasExactLocalMappingEvidence(result) ? "LOCAL_EVIDENCE_RECEIVED"
         : candidatePairs.length === missingAccounts.length ? "MAPPING_REVIEW_REQUIRED" : "MAPPING_REQUIRED";
-      if (candidatePairs.length === missingAccounts.length && candidatePairs.length) detail = `候補: ${candidatePairs.join("、")}（経理確認待ち）`;
+      if (status === "LOCAL_EVIDENCE_RECEIVED") detail = "経理回答CSVをローカル検証済み（本番承認・DB反映は未実施）";
+      else if (candidatePairs.length === missingAccounts.length && candidatePairs.length) detail = `候補: ${candidatePairs.join("、")}（経理確認待ち）`;
       else if (missingAccounts.length) detail = `未対応: ${missingAccounts.join("、")}`;
     }
     if (requirement.key === "BALANCE_SHEET") {
@@ -525,7 +536,7 @@ export function buildFinancialCompletionItems(result) {
 }
 
 export function buildFinancialCompletionRequestCsv(result) {
-  const rows = buildFinancialCompletionItems(result).filter((item) => item.status !== "LOCAL_VALIDATED");
+  const rows = buildFinancialCompletionItems(result).filter((item) => !["LOCAL_VALIDATED", "LOCAL_EVIDENCE_RECEIVED"].includes(item.status));
   if (!rows.length) return null;
   const header = ["資料区分", "資料名", "現在状態", "依頼内容"];
   const csvRows = rows.map((item) => [
@@ -771,6 +782,10 @@ export function buildFinancialLocalPreview(result) {
   const rows = periodRows.filter((row) => row.entityCategory === "STORE_CANDIDATE");
   const reviewRows = periodRows.filter((row) => row.entityCategory !== "STORE_CANDIDATE");
   const comparisonMonthCount = rows.reduce((maximum, row) => Math.max(maximum, Number(row.activeMonthCount || 0)), 0);
+  const localMappingEvidence = hasExactLocalMappingEvidence(result);
+  const displayMappingStatus = (status) => localMappingEvidence && status === "LOCAL_CANDIDATE_APPLIED"
+    ? "LOCAL_EVIDENCE_RECEIVED"
+    : status;
   const periodComparisonRows = orderedPeriods.slice(0, 8).map((period) => {
     const scopedRows = period.key === "PERIOD_UNRESOLVED"
       ? allRows.filter((row) => !row.periodKey || row.periodKey === "PERIOD_UNRESOLVED")
@@ -798,7 +813,7 @@ export function buildFinancialLocalPreview(result) {
       dataMonthShortfallCount: storeRows.filter((row) => Number(row.activeMonthCount || 0) < comparisonMonthCount).length,
       salesManYen: comparisonMonthCount > 0 && storeRows.length ? Math.round(salesYen / 10000) : null,
       ordinaryProfitManYen: comparisonMonthCount > 0 && storeRows.length ? Math.round(ordinaryProfitYen / 10000) : null,
-      mappingStatus,
+      mappingStatus: displayMappingStatus(mappingStatus),
     };
   });
   const selectedComparison = periodComparisonRows[0] || null;
@@ -821,7 +836,8 @@ export function buildFinancialLocalPreview(result) {
     historicalPeriodExcludedSheetCount: Math.max(0, allRows.length - periodRows.length),
     mappingRequiredAccountCount: receipt.mappingRequiredAccountCount,
     mappingCandidateAccountCount: receipt.mappingCandidateAccountCount,
-    completionPendingCount: completionItems.filter((item) => item.status !== "LOCAL_VALIDATED").length,
+    mappingConfirmationStatus: localMappingEvidence ? "LOCAL_EVIDENCE_RECEIVED" : "PENDING",
+    completionPendingCount: completionItems.filter((item) => !["LOCAL_VALIDATED", "LOCAL_EVIDENCE_RECEIVED"].includes(item.status)).length,
     comparisonRangeLabel: selectedComparison?.comparisonRangeLabel || "データ月確認待ち",
     comparisonMonthCount,
     dataMonthShortfallCount: selectedComparison?.dataMonthShortfallCount || 0,
@@ -835,7 +851,7 @@ export function buildFinancialLocalPreview(result) {
       ordinaryProfitManYen: comparisonMonthCount > 0 ? Math.round((row.ordinaryProfitByMonthYen || []).slice(0, comparisonMonthCount).reduce((sum, amount) => sum + Number(amount || 0), 0) / 10000) : null,
       dataThroughMonthLabel: row.activeThroughMonthLabel || "確認待ち",
       activeMonthCount: Number(row.activeMonthCount || 0),
-      mappingStatus: row.mappingStatus,
+      mappingStatus: displayMappingStatus(row.mappingStatus),
       mappingCandidateCount: row.mappingCandidateCount,
       recordCount: row.recordCount,
       entityCategory: row.entityCategory,
@@ -845,7 +861,7 @@ export function buildFinancialLocalPreview(result) {
       entityName: row.entityName,
       entityCategory: row.entityCategory,
       entityCategoryLabel: row.entityCategoryLabel,
-      mappingStatus: row.mappingStatus,
+      mappingStatus: displayMappingStatus(row.mappingStatus),
       mappingCandidateCount: row.mappingCandidateCount,
       recordCount: row.recordCount,
     })),
@@ -953,11 +969,12 @@ function setMappingReview(container, result) {
   summary.textContent = `${rows.length}件の候補を検出しました。CSVの確認状態を「確認済み」または「否認」に変更して返却してください。金額・原本名・個人情報は含みません。`;
   body.replaceChildren(...rows.map((row) => {
     const tr = el(doc, "tr");
+    const localEvidence = hasExactLocalMappingEvidence(result);
     tr.append(
       el(doc, "td", "", row.sourceAccount),
       el(doc, "td", "", row.canonicalAccount),
       el(doc, "td", "", `${row.sheetCount}シート`),
-      el(doc, "td", "", row.statusLabel)
+      el(doc, "td", "", localEvidence ? "ローカル回答確認済み" : row.statusLabel)
     );
     return tr;
   }));
@@ -987,6 +1004,7 @@ function setMappingConfirmationStatus(container, receipt) {
 
 const COMPLETION_STATUS_LABELS = Object.freeze({
   LOCAL_VALIDATED: "ローカル確認済み",
+  LOCAL_EVIDENCE_RECEIVED: "ローカル回答確認済み",
   MAPPING_REQUIRED: "対応表待ち",
   MAPPING_REVIEW_REQUIRED: "候補確認待ち",
   SOURCE_REQUIRED: "資料待ち",
@@ -1001,7 +1019,7 @@ function setCompletionChecklist(container, result) {
   const download = container.querySelector("[data-financial-completion-download]");
   if (!checklist || !summary || !download) return;
   const items = buildFinancialCompletionItems(result);
-  const readyCount = items.filter((item) => item.status === "LOCAL_VALIDATED").length;
+  const readyCount = items.filter((item) => ["LOCAL_VALIDATED", "LOCAL_EVIDENCE_RECEIVED"].includes(item.status)).length;
   const exportFile = buildFinancialCompletionRequestCsv(result);
   summary.textContent = `${readyCount}/${items.length}項目をローカル確認済み。本番投入は全項目と本番取込契約が揃うまで無効です。`;
   if (exportFile) {
@@ -1191,6 +1209,12 @@ export function renderFinancialDataIntake(container, hooks = {}) {
     mappingConfirmationInput.disabled = true;
     try {
       const receipt = await validateFinancialMappingConfirmationFile(selected, latestResult);
+      if (["MAPPING_CONFIRMATION_LOCAL_EVIDENCE", "MAPPING_CONFIRMATION_REJECTED"].includes(receipt.status)) {
+        latestResult = { ...latestResult, localMappingConfirmation: { ...receipt } };
+        setMappingReview(container, latestResult);
+        setCompletionChecklist(container, latestResult);
+        publishPreview(container, latestResult);
+      }
       setMappingConfirmationStatus(container, receipt);
     } finally {
       mappingConfirmationInput.value = "";

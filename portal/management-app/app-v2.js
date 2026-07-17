@@ -2,7 +2,7 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
-import { renderFinancialDataIntake } from "./financial-data-intake.js?v=e03c31c3a94b7a8a";
+import { renderFinancialDataIntake } from "./financial-data-intake.js?v=dd1e341203971d08";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=a9c05abbcad54a84";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
@@ -197,7 +197,7 @@ function sanitizeFinancialPreview(value) {
   if (!value || value.schemaVersion !== "management-financial-local-preview-v1" || !["PL", "BS"].includes(value.statement)) return null;
   if (value.statement === "BS") return sanitizeBalanceSheetPreview(value);
   const amount = (input) => input !== null && input !== undefined && Number.isFinite(Number(input)) ? Number(input) : null;
-  const mappingStatus = (status) => status === "READY" || status === "LOCAL_CANDIDATE_APPLIED" ? status : "MAPPING_REQUIRED";
+  const mappingStatus = (status) => ["READY", "LOCAL_CANDIDATE_APPLIED", "LOCAL_EVIDENCE_RECEIVED"].includes(status) ? status : "MAPPING_REQUIRED";
   const rows = Array.isArray(value.rows) ? value.rows.slice(0, 80).map((row) => ({
     entityName: String(row.entityName || "未判定").slice(0, 80),
     salesManYen: amount(row.salesManYen),
@@ -254,6 +254,7 @@ function sanitizeFinancialPreview(value) {
     aggregateExcludedSheetCount: Number.isInteger(Number(value.aggregateExcludedSheetCount)) ? Math.max(0, Number(value.aggregateExcludedSheetCount)) : 0,
     mappingRequiredAccountCount: Number.isInteger(Number(value.mappingRequiredAccountCount)) ? Math.max(0, Number(value.mappingRequiredAccountCount)) : 0,
     mappingCandidateAccountCount: Number.isInteger(Number(value.mappingCandidateAccountCount)) ? Math.max(0, Number(value.mappingCandidateAccountCount)) : 0,
+    mappingConfirmationStatus: value.mappingConfirmationStatus === "LOCAL_EVIDENCE_RECEIVED" ? "LOCAL_EVIDENCE_RECEIVED" : "PENDING",
     duplicateFileCount: Number.isInteger(Number(value.duplicateFileCount)) ? Math.max(0, Number(value.duplicateFileCount)) : 0,
     duplicateEntityPeriodCount: Number.isInteger(Number(value.duplicateEntityPeriodCount)) ? Math.max(0, Number(value.duplicateEntityPeriodCount)) : 0,
     comparisonRangeLabel: String(value.comparisonRangeLabel || "データ月確認待ち").slice(0, 64),
@@ -317,7 +318,9 @@ function buildPlOverviewPreview(preview) {
   const card = document.createElement("section");
   card.className = "financial-local-preview-card";
   const duplicateMessage = financialDuplicateMessage(preview);
-  const mapping = preview.mappingCandidateAccountCount > 0
+  const mapping = preview.mappingConfirmationStatus === "LOCAL_EVIDENCE_RECEIVED"
+    ? "候補mappingのローカル回答確認済み（本番未承認）"
+    : preview.mappingCandidateAccountCount > 0
     ? `候補mapping ${number.format(preview.mappingCandidateAccountCount)}件を仮対応（経理確認前）`
     : preview.mappingRequiredAccountCount > 0 ? "mapping確認あり" : "mapping確認OK";
   card.append(
@@ -395,7 +398,7 @@ function renderFinancialPreviewStores() {
   wrap.append(table);
   section.append(
     heading("店舗営業管理へのローカルP/L反映（本番未投入）"),
-    paragraph(duplicateMessage || `${preview.selectedPeriodLabel}の店舗候補だけを仮表示しています。店舗候補 ${number.format(preview.entityCandidateCount || 0)}件 / 除外・要確認 ${number.format(preview.reviewCandidateCount || 0)}件。候補mappingは経理確認前で、DB保存・本番投入・個人情報表示はありません。`),
+    paragraph(duplicateMessage || `${preview.selectedPeriodLabel}の店舗候補だけを仮表示しています。店舗候補 ${number.format(preview.entityCandidateCount || 0)}件 / 除外・要確認 ${number.format(preview.reviewCandidateCount || 0)}件。候補mappingは${preview.mappingConfirmationStatus === "LOCAL_EVIDENCE_RECEIVED" ? "ローカル回答確認済み（本番未承認）" : "経理確認前"}で、DB保存・本番投入・個人情報表示はありません。`),
     wrap
   );
   const comparison = buildPlPeriodComparison(preview, "年度別 店舗候補合計");
@@ -434,6 +437,7 @@ function buildPlPeriodComparison(preview, titleText) {
 
 function financialMappingLabel(status) {
   if (status === "READY") return "確認OK";
+  if (status === "LOCAL_EVIDENCE_RECEIVED") return "ローカル回答確認済み";
   if (status === "LOCAL_CANDIDATE_APPLIED") return "仮対応・経理確認前";
   return "mapping確認";
 }

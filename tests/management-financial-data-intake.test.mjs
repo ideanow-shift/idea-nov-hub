@@ -452,6 +452,28 @@ test("P/L mapping candidates are applied only to the local preview and remain un
   assert.equal(preview.mappingRequiredAccountCount, 2);
   assert.equal(preview.mappingCandidateAccountCount, 2);
   assert.equal(preview.importActionEnabled, false);
+  const confirmedResult = {
+    ...result,
+    localMappingConfirmation: {
+      status: "MAPPING_CONFIRMATION_LOCAL_EVIDENCE",
+      confirmedCount: 2,
+      rejectedCount: 0,
+    },
+  };
+  const confirmedPreview = buildFinancialLocalPreview(confirmedResult);
+  assert.equal(confirmedPreview.mappingConfirmationStatus, "LOCAL_EVIDENCE_RECEIVED");
+  assert.equal(confirmedPreview.rows[0].mappingStatus, "LOCAL_EVIDENCE_RECEIVED");
+  assert.equal(confirmedPreview.periodComparisonRows[0].mappingStatus, "LOCAL_EVIDENCE_RECEIVED");
+  assert.equal(confirmedPreview.mappingRequiredAccountCount, 2);
+  assert.equal(confirmedPreview.importActionEnabled, false);
+  assert.equal(buildFinancialCompletionItems(confirmedResult).find((item) => item.key === "PL_ACCOUNT_MAPPING").status, "LOCAL_EVIDENCE_RECEIVED");
+  assert.doesNotMatch(buildFinancialCompletionRequestCsv(confirmedResult).csv, /PL_ACCOUNT_MAPPING/u);
+  const forgedPreview = buildFinancialLocalPreview({
+    ...result,
+    localMappingConfirmation: { status: "MAPPING_CONFIRMATION_LOCAL_EVIDENCE", confirmedCount: 1, rejectedCount: 0 },
+  });
+  assert.equal(forgedPreview.mappingConfirmationStatus, "PENDING");
+  assert.equal(forgedPreview.rows[0].mappingStatus, "LOCAL_CANDIDATE_APPLIED");
 });
 
 test("P/L local preview keeps head-office and FC sheets out of store operations", async () => {
@@ -529,7 +551,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=e03c31c3a94b7a8a/);
+  assert.match(app, /financial-data-intake\.js\?v=dd1e341203971d08/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);
@@ -546,6 +568,8 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.doesNotMatch(app, /\.\.\.value/);
   assert.match(app, /renderFinancialPreviewEmpty/);
   assert.match(app, /仮対応・経理確認前/);
+  assert.match(app, /ローカル回答確認済み/);
+  assert.match(app, /mappingConfirmationStatus/);
   assert.match(app, /過年度/);
   assert.match(app, /店舗候補売上合計/);
   assert.match(styles, /\.financial-intake-panel/);

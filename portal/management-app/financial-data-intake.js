@@ -584,6 +584,43 @@ const FINANCIAL_PACKAGE_SECTIONS = Object.freeze([
   Object.freeze({ key: "BS_PACKAGE", label: "B/S", items: Object.freeze(["BALANCE_SHEET"]) }),
 ]);
 
+function buildFinancialNextAction(items) {
+  const byKey = new Map(items.map((item) => [item.key, item]));
+  const readyStatuses = new Set(["LOCAL_VALIDATED", "LOCAL_EVIDENCE_RECEIVED"]);
+  const isReady = (key) => readyStatuses.has(byKey.get(key)?.status);
+  if (!isReady("BALANCE_SHEET")) return {
+    category: "NEXT_PROVIDE_BALANCE_SHEET",
+    label: "次: B/S年間データ",
+    detail: "資産=負債+純資産の貸借チェックまでローカル確認します。",
+  };
+  if (!isReady("PL_ACCOUNT_MAPPING")) return {
+    category: "NEXT_CONFIRM_PL_MAPPING",
+    label: "次: P/L科目mapping確認",
+    detail: "地代家賃・販売管理費合計などの候補を経理回答CSVで確認します。",
+  };
+  if (!isReady("PL_ANNUAL_REPORT")) return {
+    category: "NEXT_PROVIDE_PL_ANNUAL_REPORT",
+    label: "次: P/L年間推移",
+    detail: "弥生Excelの年度別P/Lをローカル検証します。",
+  };
+  if (!isReady("SALES_SUBLEDGER")) return {
+    category: "NEXT_VALIDATE_STORE_SALES",
+    label: "次: 店舗売上CSV",
+    detail: "SalonAnswer店舗CSVをローカル検証し、会計補助残高との照合待ちに進めます。",
+  };
+  const supplementalPending = ["UTILITY_SUBLEDGER", "COUPON_USAGE", "BUDGET_PLAN", "FC_RULE"].filter((key) => !isReady(key));
+  if (supplementalPending.length) return {
+    category: "NEXT_PROVIDE_SUPPLEMENTAL_SOURCES",
+    label: "次: 補助資料CSV",
+    detail: "水道光熱費・クーポン・予算・FCルールを固定テンプレートで確認します。",
+  };
+  return {
+    category: "NEXT_PRODUCTION_EVIDENCE",
+    label: "次: 本番証跡",
+    detail: "ローカル確認済みです。本番catalog証跡とprovider identityが揃うまで投入は無効です。",
+  };
+}
+
 export function buildFinancialSubmissionPackage(result) {
   const items = buildFinancialCompletionItems(result);
   const readyStatuses = new Set(["LOCAL_VALIDATED", "LOCAL_EVIDENCE_RECEIVED"]);
@@ -608,6 +645,7 @@ export function buildFinancialSubmissionPackage(result) {
     totalCount: items.length,
     pendingCount: pendingItems.length,
     groups,
+    nextAction: buildFinancialNextAction(items),
     productionImportEnabled: false,
     mutationCount: 0,
     uploadCount: 0,
@@ -1156,6 +1194,10 @@ function setSubmissionPackage(container, result) {
         el(doc, "span", "", `${group.readyCount}/${group.totalCount}`),
         el(doc, "p", "", group.pendingKeys.length ? `${group.pendingKeys.length} 項目が未完了` : "ローカル確認済み")
       ))
+    ),
+    el(doc, "div", "financial-submission-next-action",
+      el(doc, "strong", "", pkg.nextAction.label),
+      el(doc, "p", "", pkg.nextAction.detail)
     )
   );
 }

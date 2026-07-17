@@ -263,6 +263,8 @@ test("financial submission package summarizes local readiness without enabling i
   assert.equal(pkg.productionImportEnabled, false);
   assert.equal(pkg.mutationCount, 0);
   assert.equal(pkg.uploadCount, 0);
+  assert.equal(pkg.nextAction.category, "NEXT_PROVIDE_BALANCE_SHEET");
+  assert.match(pkg.nextAction.label, /B\/S/u);
   assert.deepEqual(pkg.groups.map((group) => [group.key, group.category, group.readyCount, group.totalCount]), [
     ["PL_PACKAGE", "LOCAL_PACKAGE_SECTION_READY", 2, 2],
     ["STORE_PACKAGE", "LOCAL_PACKAGE_SECTION_READY", 5, 5],
@@ -270,6 +272,18 @@ test("financial submission package summarizes local readiness without enabling i
   ]);
   assert.deepEqual(pkg.groups.find((group) => group.key === "BS_PACKAGE").pendingKeys, ["BALANCE_SHEET"]);
   assert.doesNotMatch(JSON.stringify(pkg), /employeeId|sessionToken|Authorization|filename|digest/i);
+  const bsOnly = buildFinancialSubmissionPackage({
+    statement: "BS",
+    status: "BS_LOCAL_READY",
+    sheetCount: 1,
+    missingByAccount: {},
+    balanceCheck: "BALANCED",
+    localStoreCsvReceipt: storeReceipt,
+    localSupplementalReceipt: supplementalReceipt,
+  });
+  assert.equal(bsOnly.category, "LOCAL_PACKAGE_INCOMPLETE");
+  assert.equal(bsOnly.nextAction.category, "NEXT_CONFIRM_PL_MAPPING");
+  assert.equal(bsOnly.productionImportEnabled, false);
 });
 
 test("financial intake accepts external store CSV evidence without enabling production import", () => {
@@ -675,7 +689,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=d7cbb8a694dd935d/);
+  assert.match(app, /financial-data-intake\.js\?v=f900da67f606b13b/);
   assert.match(financialIntake, /financial-supplemental-csv\.js\?v=7cacd43781126450/);
   assert.match(financialIntake, /renderFinancialSupplementalCsv\(supplemental/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake, \{ externalEvidence: financialExternalEvidence\(\) \}\)/);
@@ -702,6 +716,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(styles, /\.financial-intake-preview/);
   assert.match(styles, /\.financial-completion-list/);
   assert.match(styles, /\.financial-submission-package-grid/);
+  assert.match(styles, /\.financial-submission-next-action/);
   assert.match(styles, /\.financial-completion-heading \{ align-items: stretch; flex-direction: column; \}/);
   assert.match(styles, /\.financial-completion-item \.financial-completion-spec/);
   assert.match(financialIntake, /提出形式/);
@@ -712,6 +727,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(financialIntake, /不足資料CSVを保存/);
   assert.match(financialIntake, /management-financial-missing-data-request\.csv/);
   assert.match(financialIntake, /management-financial-submission-package-v1/);
+  assert.match(financialIntake, /NEXT_PROVIDE_BALANCE_SHEET/);
   assert.match(financialIntake, /MAX_FINANCIAL_FILE_COUNT = 12/);
   assert.match(financialIntake, /MAX_FINANCIAL_TOTAL_BYTES = 100 \* 1024 \* 1024/);
   assert.match(financialIntake, /addEventListener\("drop"/);

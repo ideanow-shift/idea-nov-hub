@@ -1,8 +1,7 @@
 # Education Phase1 read-only API candidate result
 
-Date: 2026-07-17
-Classification: LOCAL_REHEARSAL_PASS
-Production status: not deployed; no live session or database call
+Date: 2026-07-17 Classification: LOCAL_REHEARSAL_PASS Production status: not
+deployed; no live session or database call
 
 ## Completed source boundary
 
@@ -10,33 +9,50 @@ Production status: not deployed; no live session or database call
   - `educationListMyAssignments`
   - `educationGetContentManifest`
   - `educationGetMyProgress`
-- The backend contract verifies the HUB session and resolves the employee actor server-side.
+- The backend contract verifies the HUB session and resolves the employee actor
+  server-side.
 - Browser payload actor, employee, role, and scope overrides are rejected.
-- Inactive, login-disabled, retired, retirement-status, and leave-status actors fail closed.
-- Gateway calls are always scoped with the server-resolved `public.employees.id` candidate.
-- Gateway output uses explicit response allowlists and runtime validation for UUIDs, enums, timestamps, content versions, and opaque content references.
-- Write actions, HTTP transport, table names, Storage, notifications, and deploy configuration are absent.
+- Inactive, login-disabled, retired, retirement-status, and leave-status actors
+  fail closed.
+- Gateway calls are always scoped with the server-resolved `public.employees.id`
+  candidate.
+- Gateway output uses explicit response allowlists and runtime validation for
+  UUIDs, enums, timestamps, content versions, and opaque content references.
+- Write actions, HTTP transport, table names, Storage, notifications, and deploy
+  configuration are absent.
+- Added a source-only HTTP boundary with an injected origin allowlist,
+  Bearer-only authentication, strict top-level body fields, JSON-only input, a
+  16 KB body limit, a 4096-character Bearer limit, and no-store responses.
+- The HTTP candidate has no server entrypoint, verifier implementation, DB
+  adapter, environment reads, or deploy configuration.
 
 ## Verification
 
 ```text
 deno fmt --check: PASS
 deno check domain.ts: PASS
-deno test education-readonly-domain-fixture.ts: 9/9 PASS
+deno test domain + HTTP fixtures: 17/17 PASS
 education-app-static-fixture.mjs: 12/12 PASS
 hub-zero-gas-source-fixture.mjs: PASS runtime=0 source=0
 git diff --check: PASS
 ```
 
-The fixtures also confirm that employee email, Storage paths, raw filenames, actor IDs, token fields, and Authorization fields do not enter the safe response.
+The fixtures also confirm that employee email, Storage paths, raw filenames,
+actor IDs, token fields, and Authorization fields do not enter the safe
+response.
 
 ## Remaining production evidence
 
-The source intentionally does not select production schema/table names or implement the HTTP Edge wrapper. CoreOS review is required for:
+The source intentionally does not select production schema/table names or
+implement the HTTP Edge wrapper. CoreOS review is required for:
 
-1. Production schema and table ownership for programs, content versions, assignments, progress events, and completions.
+1. Production schema and table ownership for programs, content versions,
+   assignments, progress events, and completions.
 2. RLS versus RPC ownership for employee-scoped reads.
-3. Reuse of the current canonical HUB session verifier and its audience contract.
-4. Whether the next source-only gate may add the dedicated HTTP wrapper and Supabase read adapter.
+3. Reuse of the current canonical HUB session verifier and its audience
+   contract.
+4. Whether the next source-only gate may add the deployable Deno entrypoint,
+   canonical verifier adapter, and Supabase read adapter.
 
-No production DDL, DML, RPC, GRANT, Secret, notification, Storage, push, publish, or deploy was performed.
+No production DDL, DML, RPC, GRANT, Secret, notification, Storage, push,
+publish, or deploy was performed.

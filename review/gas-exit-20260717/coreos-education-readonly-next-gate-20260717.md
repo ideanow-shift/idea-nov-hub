@@ -4,7 +4,10 @@ Date: 2026-07-17
 
 ## Current result
 
-The HUB runtime and tracked source have zero GAS references in the isolated candidate. The Education static application candidate is complete and all operational write controls remain disabled. A production-agnostic, source-only read domain candidate now passes 9/9 security fixtures.
+The HUB runtime and tracked source have zero GAS references in the isolated
+candidate. The Education static application candidate is complete and all
+operational write controls remain disabled. Production-agnostic read domain and
+HTTP boundary candidates now pass 17/17 security fixtures.
 
 ## Decision requested
 
@@ -16,25 +19,31 @@ employee_scoped_read_ownership:
   rpc: decision_required
 canonical_hub_session_verifier_reuse: decision_required
 next_source_only_gate:
-  dedicated_http_edge_wrapper: approval_requested
+  deployable_deno_entrypoint: approval_requested
+  canonical_verifier_adapter: approval_requested
   supabase_read_adapter: approval_requested
 deploy_publish_live_smoke: hold
 ```
 
 ## Proposed next source-only scope
 
-- Dedicated Education read-only Edge candidate.
+- Dedicated Education read-only deploy candidate built on the reviewed domain
+  and HTTP boundary.
 - Exactly three actions: assignment list, safe content manifest, own progress.
 - Canonical HUB session Bearer verification; no Firebase or email fallback.
 - Server-side actor, login, employment, role, and scope revalidation.
-- Employee-scoped read adapter only after production table/RPC ownership is confirmed.
-- No write helper, signed URL, Storage path, notification, external send, or Secret value.
-- Deno checks, local fixtures, exposure scan, and deploy-before pack only.
+- Employee-scoped read adapter only after production table/RPC ownership is
+  confirmed.
+- No write helper, signed URL, Storage path, notification, external send, or
+  Secret value.
+- Deno server entrypoint, canonical verifier adapter, read adapter, local
+  fixtures, exposure scan, and deploy-before pack only.
 
 ## Still stopped
 
 - Production DDL/DML/RPC/GRANT and RLS changes.
 - Edge deploy and frontend publish.
 - Live session or production data reads.
-- Completion writes, assignment administration, notification, attachments, Storage, KPI, and interview/motivation features.
+- Completion writes, assignment administration, notification, attachments,
+  Storage, KPI, and interview/motivation features.
 - Secret, role, employee_roles, portal_apps, and os.notifications changes.

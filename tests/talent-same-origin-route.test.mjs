@@ -215,3 +215,17 @@ test("source fixture keeps Japanese UI and desktop/mobile responsive rules", () 
   assert.match(apps, /appId: "human-capital-investment"[\s\S]*url: "\.\/talent\/"/);
   assert.doesNotMatch(apps.match(/appId: "human-capital-investment"[\s\S]*?priority: 64/)?.[0] || "", /hr-investment-dashboard/);
 });
+
+test("published runtime candidate enables only the approved read-only API", () => {
+  const runtimeConfig = readFileSync(
+    new URL("../portal/talent/runtime-config.candidate.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(runtimeConfig, /readonlyApiEnabled:\s*true/);
+  assert.match(
+    runtimeConfig,
+    /https:\/\/nkmxevmioczcmnldreyo\.supabase\.co\/functions\/v1\/nov-talent-readonly-api/
+  );
+  assert.doesNotMatch(runtimeConfig, /service_role|sb_secret_|eyJ/i);
+});

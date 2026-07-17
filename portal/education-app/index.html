@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>Education Hub / 教育・育成 | IDEA NOV OS</title>
+    <link rel="icon" href="../assets/favicon.svg" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../"><img src="../assets/ideanov-logo-pink.png" alt="IDEANOV" /><span><strong>Education Hub</strong><small>教育・育成</small></span></a>
+      <span class="badge">移行準備中</span>
+    </header>
+    <main>
+      <section class="heading"><div><p class="eyebrow">IDEA NOV OS</p><h1>教育・育成ダッシュボード</h1><p>学習課題、店舗の進捗、教育運用を役割別に確認します。</p></div><a href="../">NOV HUBへ戻る</a></section>
+      <section class="notice"><strong>新Web移行候補</strong><span>学習開始、完了登録、評価更新、通知送信はまだ実行されません。</span></section>
+      <nav class="tabs" aria-label="表示する業務画面">
+        <button class="active" type="button" data-view="staff" aria-selected="true">スタッフ</button>
+        <button type="button" data-view="store" aria-selected="false">店舗責任者</button>
+        <button type="button" data-view="admin" aria-selected="false">教育管理</button>
+      </nav>
+      <section class="summary" aria-label="教育状況サマリー"><article><span>未完了課題</span><strong data-summary="pending">0</strong></article><article><span>今月の完了</span><strong data-summary="completed">0</strong></article><article><span>確認待ち</span><strong data-summary="review">0</strong></article></section>
+
+      <section class="panel" data-panel="staff">
+        <div class="panel-head"><div><p class="eyebrow">MY LEARNING</p><h2>自分の学習課題</h2></div><button type="button" disabled>学習履歴を出力</button></div>
+        <div class="table-wrap"><table><thead><tr><th>教材・研修</th><th>期限</th><th>状態</th><th>操作</th></tr></thead><tbody><tr><td colspan="4" class="empty">接続後に、本人へ割り当てられた教材と研修を表示します。</td></tr></tbody></table></div>
+      </section>
+      <section class="panel" data-panel="store" hidden>
+        <div class="panel-head"><div><p class="eyebrow">STORE PROGRESS</p><h2>店舗の進捗確認</h2></div><button type="button" disabled>対象者へ連絡</button></div>
+        <div class="metrics"><article><span>対象スタッフ</span><strong>0</strong></article><article><span>期限超過</span><strong>0</strong></article><article><span>完了率</span><strong>--</strong></article></div>
+        <div class="empty">接続後に、権限scope内のスタッフだけを表示します。</div>
+      </section>
+      <section class="panel" data-panel="admin" hidden>
+        <div class="panel-head"><div><p class="eyebrow">EDUCATION OPERATIONS</p><h2>教育運用</h2></div><button type="button" disabled>新しい教材を登録</button></div>
+        <div class="admin-grid"><article><h3>教材・版管理</h3><p>教材公開、版更新、対象範囲を管理します。</p><button disabled>管理を開く</button></article><article><h3>割当・期限</h3><p>対象者、店舗、部署、期限を設定します。</p><button disabled>割当を作成</button></article><article><h3>進捗・完了監査</h3><p>完了記録と管理操作の履歴を確認します。</p><button disabled>監査ログを開く</button></article></div>
+      </section>
+      <footer><span>GAS未使用</span><span>DB未接続</span><span>通知未接続</span></footer>
+    </main>
+    <script type="module" src="./app.js?v=f7fc67dd7158"></script>
+  </body>
+</html>

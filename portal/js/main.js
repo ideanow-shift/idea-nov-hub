@@ -40,8 +40,7 @@ const SHIFT_APP_IDS = new Set(["shift"]);
 const MANAGEMENT_APP_URL = "./management-platform/";
 const CORE_MASTER_ADMIN_APP_URL = "./master-admin-stable/?v=master-admin-auth-label-20260717-1";
 const IDEA_LINK_APP_URL = "./idea-link-app/?v=idea-link-module-sync-20260712-1";
-const EDUCATION_APP_URL = "https://script.google.com/macros/s/AKfycbxKLThF4TN18-OwaOFKbqwoPPSAHB7HH4v3_IkTXEmAGrhDJyzS1GfkfC1GFGiA7vUZew/exec?page=home";
-const IDEA_LINK_LEGACY_DEPLOYMENT_ID = "AKfycbz3tmMUSvKEVZgmf8w-pKLk_H6_fXdltkwrHF5VIfpItufu41xoCa1f3-1aE0w3fJpucw";
+const EDUCATION_APP_URL = "./education-app/";
 const DEVELOPMENT_APP_VIEWER_ROLE_KEYS = new Set(["super_admin", "executive"]);
 const HR_RELEASED_APP_VIEWER_ROLE_KEYS = new Set(["backoffice", "hr.staff", "hr.admin"]);
 const BACKOFFICE_RELEASED_APP_IDS = new Set([
@@ -702,7 +701,6 @@ function isIdeaLinkApp(app) {
   return appId === "idea-link"
     || appName === "idealink"
     || appName === "サンクスコイン"
-    || appUrl.includes(IDEA_LINK_LEGACY_DEPLOYMENT_ID)
     || /(?:^|\/)idea-link\/?(?:[?#].*)?$/.test(appUrl);
 }
 

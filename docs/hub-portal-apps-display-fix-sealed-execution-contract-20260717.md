@@ -46,7 +46,7 @@ production_mutation_count: 0
 ## sealed SQL
 
 - source: `supabase/portal-apps-display-fix-sealed-20260717.sql`
-- SHA-256: `9E5F6C6BFD093775ABA00DB8C27648B5862F7F975C99934A94E61BEED5524EC9`
+- normalized LF SHA-256: `9E5F6C6BFD093775ABA00DB8C27648B5862F7F975C99934A94E61BEED5524EC9`
 - exact UPDATE:
   - `EDU`: `url`, `updated_at`
   - `THANKS`: `is_active`, `is_featured`, `updated_at`
@@ -77,7 +77,7 @@ production_mutation_count: 0
 ## sealed executor
 
 - source: `tools/run_portal_apps_display_fix_sealed_20260717.ps1`
-- SHA-256: `82022A01B3B1585247B23AB433B812D27604B9A759DB88CABB13776B78FFFDAD`
+- normalized LF SHA-256: `BE37E2BD44E5C8D46E95B65D257E70AC1E192B517163E68BB20E9A99250761BA`
 - Supabase CLI exact version: `2.109.1`
 - CLI command: `npx.cmd supabase db query --linked --output-format json --file ... --workdir ...`
 - production target identity:
@@ -92,7 +92,7 @@ production_mutation_count: 0
 ## validator
 
 - source: `tools/validate_portal_apps_display_fix_sealed_20260717.mjs`
-- SHA-256: `6E0BF7FF6243E154DE32545F9F26FD85C5A7F0A22A5D10E8F19FCAE9A4699B9E`
+- normalized LF SHA-256: `2C401DC386092B5C33D6F8FC80059266A7E8314EAF4620F2806920B5466AE28D`
 - static checks: 17
 - result: PASS
 
@@ -111,7 +111,7 @@ production_mutation_count: 0
 ## rollback
 
 - source: `supabase/portal-apps-display-fix-sealed-rollback-20260717.sql`
-- SHA-256: `4756177E2BB249C8CD6585EFD9590BAD27194D0E4B07EB1B7724A4C3395178C1`
+- normalized LF SHA-256: `4756177E2BB249C8CD6585EFD9590BAD27194D0E4B07EB1B7724A4C3395178C1`
 - status: PREPARED ONLY
 - automatic execution: false
 - execution: fresh separate approval required

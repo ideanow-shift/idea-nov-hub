@@ -12,7 +12,10 @@ const executorPath = path.join(repoRoot, "tools", "run_portal_apps_display_fix_s
 const sql = fs.readFileSync(sqlPath, "utf8");
 const rollback = fs.readFileSync(rollbackPath, "utf8");
 const executor = fs.readFileSync(executorPath, "utf8");
-const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex").toUpperCase();
+const sha256 = (value) => crypto.createHash("sha256")
+  .update(value.replace(/\r\n/g, "\n"))
+  .digest("hex")
+  .toUpperCase();
 
 const checks = {
   transaction: /^begin;[\s\S]*commit;\s*$/m.test(sql),

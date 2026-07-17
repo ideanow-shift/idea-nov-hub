@@ -171,6 +171,52 @@ SELECT-only:
 - Edge deploy
 - Secret変更
 
+## SELECT-only実行結果 2026-07-17
+
+実行元:
+
+- link済みHUB worktreeから `supabase/portal-apps-display-select-only-precheck-20260717.sql` をSELECT-only実行
+
+実行結果:
+
+- `EDU` はactive / featuredで存在
+- `EDU` のURLは旧GAS deploymentのまま
+- `idea-link` はactiveで存在し、URLは `./idea-link-app/`
+- `THANKS` はactive / featuredで存在し、旧GAS URLを指している
+- `jinnjibu` はactive / featuredで存在
+- `core-master-admin` / `master-admin` のDB行は存在しない
+
+解釈:
+
+- 教育カードが旧URLへ飛ぶ原因はDB `portal_apps.EDU.url` が旧URLのまま残っているため。
+- サンクス系は `idea-link` と `THANKS` が同時activeのため、重複または旧GASカード表示のリスクがある。
+- マスタ管理カードはDB行ではなく、HUB backend/frontendの固定アプリ補完で表示されている可能性が高い。
+
+実行していないこと:
+
+- DB更新
+- role / employee_roles更新
+- Edge deploy
+- Secret変更
+- 本番通知
+
+## DML候補
+
+Core DB番人レビュー後の候補:
+
+- `supabase/portal-apps-display-fix-candidate-20260717.sql`
+
+候補内容:
+
+- `EDU.url` を現行教育GAS URLへ更新
+- 旧 `THANKS` GASカードを `is_active=false`, `is_featured=false` にする
+- `idea-link` は変更しない
+- `core-master-admin` / `master-admin` の新規INSERTは今回含めない
+
+Rollback候補:
+
+- `supabase/portal-apps-display-fix-rollback-candidate-20260717.sql`
+
 DML候補は別gate:
 
 - 教育URLをDB `portal_apps` 側へ反映

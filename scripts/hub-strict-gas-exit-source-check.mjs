@@ -5,6 +5,8 @@ const files = [
   "portal/js/api.js",
   "portal/idea-link/index.html",
   "portal/idea-link-app/index.html",
+  "portal/education-app/index.html",
+  "portal/js/apps.js",
   "portal/js/main.js",
 ];
 
@@ -17,14 +19,23 @@ const forbidden = [
   "apiFallback",
   "getApiEndpoints",
   "shouldFallbackToNextEndpoint",
+  "IDEA_LINK_LEGACY_DEPLOYMENT_ID",
+  "AKfy",
 ];
 
 const expected = [
   ["portal/js/firebase-config.js", 'apiMode: "edge"'],
   ["portal/js/firebase-config.js", "edgeApiUrl:"],
-  ["portal/idea-link/index.html", "IDEA_LINK_WEB_APP_ENABLED = true"],
-  ["portal/idea-link/index.html", "../idea-link-app/"],
-  ["portal/idea-link-app/index.html", "GASなしで接続"],
+  [
+    "portal/idea-link/index.html",
+    'import { callApiAction } from "../js/api.js"',
+  ],
+  ["portal/idea-link/index.html", 'callApiAction("ideaLinkTimelineRead"'],
+  ["portal/idea-link-app/index.html", 'callApiAction("ideaLinkPostCreate"'],
+  ["portal/js/main.js", 'const IDEA_LINK_APP_URL = "./idea-link-app/'],
+  ["portal/js/main.js", 'const EDUCATION_APP_URL = "./education-app/"'],
+  ["portal/js/apps.js", 'url: "./education-app/"'],
+  ["portal/education-app/index.html", "Education Hub / 教育・育成"],
 ];
 
 const failures = [];
@@ -50,9 +61,13 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(JSON.stringify({
-  ok: true,
-  checkedFiles: files.length,
-  forbiddenPatterns: forbidden.length,
-  mode: "strict-gas-exit-source-candidate",
-}, null, 2));
+console.log(JSON.stringify(
+  {
+    ok: true,
+    checkedFiles: files.length,
+    forbiddenPatterns: forbidden.length,
+    mode: "strict-gas-exit-source-candidate",
+  },
+  null,
+  2,
+));

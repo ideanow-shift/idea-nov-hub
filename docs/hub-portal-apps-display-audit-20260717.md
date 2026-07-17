@@ -1,8 +1,13 @@
 # HUB portal_apps 表示整理 source-only監査 2026-07-17
 
+> **SUPERSEDED 2026-07-18 / DO NOT EXECUTE.** Historical evidence only. The
+> executable files were retired by
+> `hub-portal-apps-zero-gas-supersession-20260718.md`.
+
 ## 範囲
 
-NOV HUB / NOV NAVI / master-admin のアプリカード表示について、source-onlyで確認した。
+NOV HUB / NOV NAVI / master-admin
+のアプリカード表示について、source-onlyで確認した。
 
 実行していないこと:
 
@@ -33,7 +38,8 @@ HUBのアプリカード正本は `public.portal_apps`。
 2. `portal/js/main.js` が `sortPortalApps()` で重複排除と優先度順に整える。
 3. `selectReleasedAppsForEmployee()` がroleに応じて表示アプリを絞る。
 4. `renderApps()` が既存アプリ一覧を描画する。
-5. NOV NAVI画面は `portal/js/nov-navi-dashboard.js` のカテゴリ定義を使い、実アプリは `app_id / app_name` のaliasで照合する。
+5. NOV NAVI画面は `portal/js/nov-navi-dashboard.js`
+   のカテゴリ定義を使い、実アプリは `app_id / app_name` のaliasで照合する。
 
 ## role別表示制御
 
@@ -51,7 +57,8 @@ HUBのアプリカード正本は `public.portal_apps`。
 - 上記以外
   - IDEA LINKのみ
 
-このため、総務人事部スタッフに求人関連や労務/人材系を表示したい場合は、対象者のroleまたは `BACKOFFICE_RELEASED_APP_IDS` 側の設計確認が必要。
+このため、総務人事部スタッフに求人関連や労務/人材系を表示したい場合は、対象者のroleまたは
+`BACKOFFICE_RELEASED_APP_IDS` 側の設計確認が必要。
 
 ## 教育URL
 
@@ -62,7 +69,9 @@ HUBのアプリカード正本は `public.portal_apps`。
 - `portal/js/apps.js`
 - `portal/js/main.js`
 
-ただし、HUBログイン後の実カードはDB `portal_apps` の `url` が優先される。画面で旧URLが出る場合、原因候補はDB側 `portal_apps` の `education-web` / `EDU` レコードが旧URLのまま残っていること。
+ただし、HUBログイン後の実カードはDB `portal_apps` の `url`
+が優先される。画面で旧URLが出る場合、原因候補はDB側 `portal_apps` の
+`education-web` / `EDU` レコードが旧URLのまま残っていること。
 
 DB更新は別gate。
 
@@ -83,7 +92,8 @@ source上は次の定義が併存している。
 - IDEA LINK旧GAS deployment URL
 - `/idea-link/` URL
 
-`THANKS` はapp_idだけでは現行IDEA LINK扱いにならない。DB側で `THANKS` がactiveの場合、旧カードとして残る可能性がある。
+`THANKS` はapp_idだけでは現行IDEA LINK扱いにならない。DB側で `THANKS`
+がactiveの場合、旧カードとして残る可能性がある。
 
 方針候補:
 
@@ -102,7 +112,8 @@ HUB起動判定:
 - appNameが社員・店舗マスタ管理系
 - URLに `/master-admin/` を含む
 
-NOV NAVIのシステム管理カードは `core-master-admin` / `master-admin` aliasで照合する。
+NOV NAVIのシステム管理カードは `core-master-admin` / `master-admin`
+aliasで照合する。
 
 2026-07-17時点で、NOV NAVIのショートカット表記は `データ入力` へ更新済み。
 
@@ -119,29 +130,36 @@ master-adminには既に以下の管理UI/操作が存在する。
 - URL、カテゴリ、アイコン、必要権限、タグ、対象部署/役職の編集
 - 変更履歴への記録
 
-ただし、これらは本番 `portal_apps` 更新を伴うため、実操作はCore DB番人レビュー後。
+ただし、これらは本番 `portal_apps` 更新を伴うため、実操作はCore
+DB番人レビュー後。
 
 ## リスク
 
 High:
 
-- DB `portal_apps` のURLが古い場合、静的sourceを直しても本番カードは旧URLのままになる。
-- `THANKS` と `idea-link` が両方activeだと、サンクス系カードが重複表示される可能性がある。
+- DB `portal_apps`
+  のURLが古い場合、静的sourceを直しても本番カードは旧URLのままになる。
+- `THANKS` と `idea-link`
+  が両方activeだと、サンクス系カードが重複表示される可能性がある。
 
 Medium:
 
-- `backoffice` 以外の総務人事部roleでは、NOV Talentやマスタ管理が表示されない可能性がある。
-- NOV NAVI側のカテゴリカードと既存アプリ一覧は別ロジックのため、片方だけ表示される可能性がある。
+- `backoffice` 以外の総務人事部roleでは、NOV
+  Talentやマスタ管理が表示されない可能性がある。
+- NOV
+  NAVI側のカテゴリカードと既存アプリ一覧は別ロジックのため、片方だけ表示される可能性がある。
 
 Low:
 
-- `apps.json` / `apps.js` は主に静的アイコン・デモ・fallback用で、ログイン後の正本ではない。
+- `apps.json` / `apps.js`
+  は主に静的アイコン・デモ・fallback用で、ログイン後の正本ではない。
 
 ## 次gate候補
 
 SELECT-only:
 
-- `portal_apps` の `app_id`, `app_name`, `url`, `category`, `is_active`, `is_featured`, `priority` を確認
+- `portal_apps` の `app_id`, `app_name`, `url`, `category`, `is_active`,
+  `is_featured`, `priority` を確認
 - 対象候補:
   - `education-web`
   - `EDU`
@@ -160,8 +178,10 @@ SELECT-only:
 
 - 教育系カードが新GAS URLになっているか
 - `idea-link` と `THANKS` が同時activeで重複表示になっていないか
-- `core-master-admin` / `master-admin` がactiveで、マスタ管理カードの表示対象として残っているか
-- `jinnjibu` / `human-capital-investment` が総務人事部向け表示候補としてDB上に存在するか
+- `core-master-admin` / `master-admin`
+  がactiveで、マスタ管理カードの表示対象として残っているか
+- `jinnjibu` / `human-capital-investment`
+  が総務人事部向け表示候補としてDB上に存在するか
 
 このSQLで実行しないこと:
 
@@ -175,7 +195,9 @@ SELECT-only:
 
 実行元:
 
-- link済みHUB worktreeから `supabase/portal-apps-display-select-only-precheck-20260717.sql` をSELECT-only実行
+- link済みHUB worktreeから
+  `supabase/portal-apps-display-select-only-precheck-20260717.sql`
+  をSELECT-only実行
 
 実行結果:
 
@@ -188,9 +210,12 @@ SELECT-only:
 
 解釈:
 
-- 教育カードが旧URLへ飛ぶ原因はDB `portal_apps.EDU.url` が旧URLのまま残っているため。
-- サンクス系は `idea-link` と `THANKS` が同時activeのため、重複または旧GASカード表示のリスクがある。
-- マスタ管理カードはDB行ではなく、HUB backend/frontendの固定アプリ補完で表示されている可能性が高い。
+- 教育カードが旧URLへ飛ぶ原因はDB `portal_apps.EDU.url`
+  が旧URLのまま残っているため。
+- サンクス系は `idea-link` と `THANKS`
+  が同時activeのため、重複または旧GASカード表示のリスクがある。
+- マスタ管理カードはDB行ではなく、HUB
+  backend/frontendの固定アプリ補完で表示されている可能性が高い。
 
 実行していないこと:
 

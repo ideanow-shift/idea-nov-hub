@@ -1,8 +1,13 @@
 # HUB portal_apps 表示整理 limited execution pack 2026-07-17
 
+> **SUPERSEDED 2026-07-18 / DO NOT EXECUTE.** Historical evidence only. The
+> executable files were retired by
+> `hub-portal-apps-zero-gas-supersession-20260718.md`.
+
 ## 目的
 
-HUB / NOV NAVIのカード表示について、次の2点だけを本番 `public.portal_apps` に反映する候補を固定する。
+HUB / NOV NAVIのカード表示について、次の2点だけを本番 `public.portal_apps`
+に反映する候補を固定する。
 
 1. 教育カード `EDU` のURLを現行GAS deploymentへ更新する。
 2. 現行 `idea-link` と重複する旧GASカード `THANKS` を非表示にする。
@@ -103,4 +108,3 @@ target_app_ids:
 expected_updated_rows: 2
 rollback_execution: separate_gate_required
 ```
-

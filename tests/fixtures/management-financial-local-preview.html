@@ -35,8 +35,29 @@
         { entityName: "集計対象外", entityCategory: "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS", entityCategoryLabel: "集計除外", mappingStatus: "LOCAL_CANDIDATE_APPLIED", mappingCandidateCount: 2, recordCount: 852 }
       ]
     });
+    const balanceSheetPreview = Object.freeze({
+      schemaVersion: "management-financial-local-preview-v1",
+      statement: "BS",
+      status: "BS_LOCAL_READY",
+      selectedPeriodLabel: "2025年9月〜2026年8月",
+      availablePeriodCount: 1,
+      selectedPeriodSheetCount: 2,
+      historicalPeriodExcludedSheetCount: 0,
+      aggregateExcludedSheetCount: 0,
+      entityCandidateCount: 2,
+      balancedEntityCount: 2,
+      normalizedRecordCount: 72,
+      totalNormalizedRecordCount: 72,
+      balanceCheck: "BALANCED",
+      importActionEnabled: false,
+      rows: [
+        { entityName: "BASSA法人候補", closingMonthLabel: "8月度", assetsManYen: 12000, liabilitiesManYen: 5000, equityManYen: 7000, balanceStatus: "BALANCED", recordCount: 36 },
+        { entityName: "UNO法人候補", closingMonthLabel: "8月度", assetsManYen: 8000, liabilitiesManYen: 3000, equityManYen: 5000, balanceStatus: "BALANCED", recordCount: 36 }
+      ]
+    });
     document.getElementById("management-app").addEventListener("load", (event) => {
       event.currentTarget.contentWindow.dispatchEvent(new CustomEvent("management-financial-local-preview", { detail: preview }));
+      event.currentTarget.contentWindow.dispatchEvent(new CustomEvent("management-financial-local-preview", { detail: balanceSheetPreview }));
     });
   </script>
 </body>

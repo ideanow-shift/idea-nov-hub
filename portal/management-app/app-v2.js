@@ -2,13 +2,13 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
-import { renderFinancialDataIntake } from "./financial-data-intake.js?v=8882c753336ead3d";
+import { renderFinancialDataIntake } from "./financial-data-intake.js?v=8e5be12a2e69df12";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=a9c05abbcad54a84";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
 const CORPORATE_VIEWS = new Set([...FINANCE_VIEWS, "dataops"]);
 const VIEWS = new Set([...CORPORATE_VIEWS, "stores"]);
-const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreview: null, charts: {} };
+const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null }, charts: {} };
 const number = new Intl.NumberFormat("ja-JP");
 const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 const colors = ["#b23a48", "#17324d", "#27795f", "#a36410", "#765487", "#337d8e", "#737b83"];
@@ -32,7 +32,9 @@ document.querySelectorAll(".tab, .section-tab").forEach((button) => button.addEv
 byId("reload-button").addEventListener("click", () => loadCurrentView(true));
 elements.month.addEventListener("change", () => { state.finance = null; loadFinance(); });
 window.addEventListener("management-financial-local-preview", (event) => {
-  state.financialPreview = sanitizeFinancialPreview(event.detail);
+  const preview = sanitizeFinancialPreview(event.detail);
+  if (!preview) return;
+  state.financialPreviews[preview.statement] = preview;
   renderFinancialPreviewOverview();
   renderFinancialPreviewStores();
 });
@@ -192,7 +194,8 @@ function renderDataops() {
 }
 
 function sanitizeFinancialPreview(value) {
-  if (!value || value.schemaVersion !== "management-financial-local-preview-v1" || value.statement !== "PL") return null;
+  if (!value || value.schemaVersion !== "management-financial-local-preview-v1" || !["PL", "BS"].includes(value.statement)) return null;
+  if (value.statement === "BS") return sanitizeBalanceSheetPreview(value);
   const mappingStatus = (status) => status === "READY" || status === "LOCAL_CANDIDATE_APPLIED" ? status : "MAPPING_REQUIRED";
   const rows = Array.isArray(value.rows) ? value.rows.slice(0, 80).map((row) => ({
     entityName: String(row.entityName || "未判定").slice(0, 80),
@@ -231,10 +234,46 @@ function sanitizeFinancialPreview(value) {
   };
 }
 
+function sanitizeBalanceSheetPreview(value) {
+  const amount = (input) => Number.isFinite(Number(input)) ? Number(input) : null;
+  const rows = Array.isArray(value.rows) ? value.rows.slice(0, 80).map((row) => ({
+    entityName: String(row.entityName || "未判定").slice(0, 80),
+    assetsManYen: amount(row.assetsManYen),
+    liabilitiesManYen: amount(row.liabilitiesManYen),
+    equityManYen: amount(row.equityManYen),
+    balanceStatus: row.balanceStatus === "BALANCED" ? "BALANCED" : "NOT_READY",
+    closingMonthLabel: String(row.closingMonthLabel || "確認待ち").slice(0, 24),
+    recordCount: Number.isInteger(Number(row.recordCount)) ? Math.max(0, Number(row.recordCount)) : 0,
+  })) : [];
+  return {
+    schemaVersion: value.schemaVersion,
+    statement: "BS",
+    status: value.status === "BS_LOCAL_READY" ? "BS_LOCAL_READY" : "BS_NOT_READY",
+    selectedPeriodLabel: String(value.selectedPeriodLabel || "対象期確認待ち").slice(0, 40),
+    availablePeriodCount: Number.isInteger(Number(value.availablePeriodCount)) ? Math.max(1, Number(value.availablePeriodCount)) : 1,
+    selectedPeriodSheetCount: Number.isInteger(Number(value.selectedPeriodSheetCount)) ? Math.max(0, Number(value.selectedPeriodSheetCount)) : rows.length,
+    historicalPeriodExcludedSheetCount: Number.isInteger(Number(value.historicalPeriodExcludedSheetCount)) ? Math.max(0, Number(value.historicalPeriodExcludedSheetCount)) : 0,
+    aggregateExcludedSheetCount: Number.isInteger(Number(value.aggregateExcludedSheetCount)) ? Math.max(0, Number(value.aggregateExcludedSheetCount)) : 0,
+    entityCandidateCount: rows.length,
+    balancedEntityCount: rows.filter((row) => row.balanceStatus === "BALANCED").length,
+    normalizedRecordCount: Number.isInteger(Number(value.normalizedRecordCount)) ? Math.max(0, Number(value.normalizedRecordCount)) : 0,
+    totalNormalizedRecordCount: Number.isInteger(Number(value.totalNormalizedRecordCount)) ? Math.max(0, Number(value.totalNormalizedRecordCount)) : 0,
+    balanceCheck: value.balanceCheck === "BALANCED" ? "BALANCED" : "NOT_READY",
+    importActionEnabled: false,
+    rows,
+  };
+}
+
 function renderFinancialPreviewOverview() {
   if (!elements.financialPreviewOverview) return;
-  const preview = state.financialPreview;
-  if (!preview) { renderFinancialPreviewEmpty(elements.financialPreviewOverview, "法人経営管理"); return; }
+  const previews = [];
+  if (state.financialPreviews.PL) previews.push(buildPlOverviewPreview(state.financialPreviews.PL));
+  if (state.financialPreviews.BS) previews.push(buildBsOverviewPreview(state.financialPreviews.BS));
+  if (!previews.length) { renderFinancialPreviewEmpty(elements.financialPreviewOverview, "法人経営管理", "P/L・B/S"); return; }
+  elements.financialPreviewOverview.replaceChildren(...previews);
+}
+
+function buildPlOverviewPreview(preview) {
   const card = document.createElement("section");
   card.className = "financial-local-preview-card";
   const mapping = preview.mappingCandidateAccountCount > 0
@@ -250,12 +289,45 @@ function renderFinancialPreviewOverview() {
       ["本番投入", "disabled"],
     ])
   );
-  elements.financialPreviewOverview.replaceChildren(card);
+  return card;
+}
+
+function buildBsOverviewPreview(preview) {
+  const card = document.createElement("section");
+  card.className = "financial-local-preview-card";
+  const wrap = document.createElement("div");
+  wrap.className = "table-wrap embedded local-preview-table";
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.append(tableRow(["法人候補", "最終月", "資産", "負債", "純資産", "貸借"], true));
+  const tbody = document.createElement("tbody");
+  tbody.replaceChildren(...(preview.rows.length ? preview.rows.map((row) => tableRow([
+    row.entityName,
+    row.closingMonthLabel,
+    row.assetsManYen == null ? "未算定" : `${number.format(row.assetsManYen)}万円`,
+    row.liabilitiesManYen == null ? "未算定" : `${number.format(row.liabilitiesManYen)}万円`,
+    row.equityManYen == null ? "未算定" : `${number.format(row.equityManYen)}万円`,
+    row.balanceStatus === "BALANCED" ? "一致" : "確認待ち",
+  ])) : [emptyRow(6, "表示できるB/S候補はまだありません")]));
+  table.append(thead, tbody);
+  wrap.append(table);
+  card.append(
+    heading("ローカルB/Sプレビュー（本番未投入）"),
+    paragraph(`${preview.selectedPeriodLabel}の最終月残高だけを表示しています。貸借一致 ${number.format(preview.balancedEntityCount)}/${number.format(preview.entityCandidateCount)}候補。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
+    previewMetricGrid([
+      ["法人候補", `${number.format(preview.entityCandidateCount)}件`],
+      ["貸借一致", `${number.format(preview.balancedEntityCount)}件`],
+      ["対象期レコード", `${number.format(preview.normalizedRecordCount || 0)}件`],
+      ["本番投入", "disabled"],
+    ]),
+    wrap
+  );
+  return card;
 }
 
 function renderFinancialPreviewStores() {
   if (!elements.financialPreviewStores) return;
-  const preview = state.financialPreview;
+  const preview = state.financialPreviews.PL;
   if (!preview) { renderFinancialPreviewEmpty(elements.financialPreviewStores, "店舗営業管理"); return; }
   const section = document.createElement("section");
   section.className = "financial-local-preview-card";
@@ -289,7 +361,7 @@ function financialMappingLabel(status) {
   return "mapping確認";
 }
 
-function renderFinancialPreviewEmpty(container, labelText) {
+function renderFinancialPreviewEmpty(container, labelText, statementLabel = "P/L") {
   const section = document.createElement("section");
   section.className = "financial-local-preview-card is-empty";
   const button = document.createElement("button");
@@ -297,8 +369,8 @@ function renderFinancialPreviewEmpty(container, labelText) {
   button.textContent = "財務データ取込へ";
   button.addEventListener("click", () => selectView("dataops"));
   section.append(
-    heading(`${labelText}のローカルP/Lプレビュー`),
-    paragraph("弥生Excelを選択すると、この画面に確認用の売上・経常損益が表示されます。ファイル内容は送信されず、本番投入も無効です。"),
+    heading(`${labelText}のローカル${statementLabel}プレビュー`),
+    paragraph("弥生Excelを選択すると、この画面に確認用の財務数値が表示されます。ファイル内容は送信されず、本番投入も無効です。"),
     button
   );
   container.replaceChildren(section);

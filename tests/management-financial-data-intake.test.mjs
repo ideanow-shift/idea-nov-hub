@@ -282,20 +282,28 @@ test("B/S intake requires exact balanced assets, liabilities, and equity", async
     row(1, ["帳票名：残高試算表(年間推移)"]),
     row(5, ["集計期間：令和07年09月01日", "令和08年08月31日"]),
     row(8, ["勘定科目", ...months]),
-    row(9, ["資産合計", ...months.map(() => 100)]),
-    row(10, ["負債合計", ...months.map(() => 40)]),
-    row(11, ["純資産合計", ...months.map(() => 60)]),
+    row(9, ["資産合計", ...months.map(() => 1_000_000)]),
+    row(10, ["負債合計", ...months.map(() => 400_000)]),
+    row(11, ["純資産合計", ...months.map(() => 600_000)]),
   ]);
   const ok = await parseFinancialWorkbookBuffer(balanced, "BS", { inflateRaw });
   assert.equal(ok.status, "BS_LOCAL_READY");
   assert.equal(ok.balanceCheck, "BALANCED");
+  const preview = buildFinancialLocalPreview(ok);
+  assert.equal(preview.statement, "BS");
+  assert.equal(preview.balancedEntityCount, 1);
+  assert.equal(preview.rows[0].assetsManYen, 100);
+  assert.equal(preview.rows[0].liabilitiesManYen, 40);
+  assert.equal(preview.rows[0].equityManYen, 60);
+  assert.equal(preview.rows[0].balanceStatus, "BALANCED");
+  assert.equal(preview.importActionEnabled, false);
   const imbalanced = workbook([
     row(1, ["帳票名：残高試算表(年間推移)"]),
     row(5, ["集計期間：令和07年09月01日", "令和08年08月31日"]),
     row(8, ["勘定科目", ...months]),
-    row(9, ["資産合計", ...months.map(() => 101)]),
-    row(10, ["負債合計", ...months.map(() => 40)]),
-    row(11, ["純資産合計", ...months.map(() => 60)]),
+    row(9, ["資産合計", ...months.map(() => 1_010_000)]),
+    row(10, ["負債合計", ...months.map(() => 400_000)]),
+    row(11, ["純資産合計", ...months.map(() => 600_000)]),
   ]);
   const ng = await parseFinancialWorkbookBuffer(imbalanced, "BS", { inflateRaw });
   assert.equal(ng.status, "BS_BALANCE_CHECK_FAILED");
@@ -306,11 +314,13 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=8882c753336ead3d/);
+  assert.match(app, /financial-data-intake\.js\?v=8e5be12a2e69df12/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);
   assert.match(app, /renderFinancialPreviewStores/);
+  assert.match(app, /buildBsOverviewPreview/);
+  assert.match(app, /ローカルB\/Sプレビュー（本番未投入）/);
   assert.match(app, /renderFinancialPreviewEmpty/);
   assert.match(app, /仮対応・経理確認前/);
   assert.match(app, /過年度/);
@@ -330,6 +340,8 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(localPreviewFixture, /portal\/management-app\/index\.html#overview/);
   assert.match(localPreviewFixture, /management-financial-local-preview/);
   assert.match(localPreviewFixture, /LOCAL_CANDIDATE_APPLIED/);
+  assert.match(localPreviewFixture, /BS_LOCAL_READY/);
+  assert.match(localPreviewFixture, /balanceSheetPreview/);
   assert.match(localPreviewFixture, /historicalPeriodExcludedSheetCount: 66/);
   assert.doesNotMatch(localPreviewFixture, /fetch\(|callApiAction|localStorage|sessionStorage/);
 });

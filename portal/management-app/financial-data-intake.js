@@ -199,6 +199,11 @@ function sumAccount(records, account) {
     .reduce((sum, record) => sum + Number(record.amount || 0), 0);
 }
 
+function accountAmountForMonth(records, account, month) {
+  const record = records.find((item) => item.account === account && item.month === month);
+  return typeof record?.amount === "number" && Number.isFinite(record.amount) ? record.amount : null;
+}
+
 function fiscalPeriodIdentity(periodText) {
   const matches = [...String(periodText || "").matchAll(/令和(\d+)年(\d{1,2})月(\d{1,2})日/gu)]
     .slice(0, 2)
@@ -239,6 +244,10 @@ function entityPreview(sheet, statement, period) {
   const previewRecords = statement === "PL" ? locallyMappedRecords(sheet) : sheet.records;
   const salesYen = statement === "PL" ? sumAccount(previewRecords, "売上高合計") : null;
   const ordinaryProfitYen = statement === "PL" ? sumAccount(previewRecords, "経常損益金額") : null;
+  const closingMonthLabel = statement === "BS" ? sheet.monthColumns.at(-1)?.label || "" : "";
+  const assetsYen = statement === "BS" ? accountAmountForMonth(previewRecords, "資産合計", closingMonthLabel) : null;
+  const liabilitiesYen = statement === "BS" ? accountAmountForMonth(previewRecords, "負債合計", closingMonthLabel) : null;
+  const equityYen = statement === "BS" ? accountAmountForMonth(previewRecords, "純資産合計", closingMonthLabel) : null;
   const entity = statement === "PL"
     ? classifyPlEntity(sheet.sheet, sheet.isAggregateSheet)
     : { category: sheet.isAggregateSheet ? "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS" : "ENTITY_CANDIDATE", label: sheet.isAggregateSheet ? "集計除外" : "候補" };
@@ -253,6 +262,12 @@ function entityPreview(sheet, statement, period) {
     recordCount: previewRecords.length,
     salesManYen: salesYen == null ? null : Math.round(salesYen / 10000),
     ordinaryProfitManYen: ordinaryProfitYen == null ? null : Math.round(ordinaryProfitYen / 10000),
+    assetsManYen: assetsYen == null ? null : Math.round(assetsYen / 10000),
+    liabilitiesManYen: liabilitiesYen == null ? null : Math.round(liabilitiesYen / 10000),
+    equityManYen: equityYen == null ? null : Math.round(equityYen / 10000),
+    balanceStatus: statement !== "BS" ? "NOT_APPLICABLE"
+      : assetsYen != null && liabilitiesYen != null && equityYen != null && assetsYen === liabilitiesYen + equityYen ? "BALANCED" : "NOT_READY",
+    closingMonthLabel,
     periodKey: period.key,
     periodLabel: period.label,
     periodSortKey: period.sortKey,
@@ -499,7 +514,7 @@ export function buildFinancialMappingReviewCsv(result) {
 
 export function buildFinancialLocalPreview(result) {
   const receipt = buildFinancialIntakeReceipt(result);
-  if (!receipt || receipt.statement !== "PL") return null;
+  if (!receipt || !["PL", "BS"].includes(receipt.statement)) return null;
   const allRows = result.entityPreviewRows || [];
   const periods = [...new Map(allRows.map((row) => [row.periodKey || "PERIOD_UNRESOLVED", {
     key: row.periodKey || "PERIOD_UNRESOLVED",
@@ -510,6 +525,36 @@ export function buildFinancialLocalPreview(result) {
   const periodRows = selectedPeriod.key === "PERIOD_UNRESOLVED"
     ? allRows
     : allRows.filter((row) => row.periodKey === selectedPeriod.key);
+  if (receipt.statement === "BS") {
+    const rows = periodRows.filter((row) => row.entityCategory !== "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS");
+    const completionItems = buildFinancialCompletionItems(result);
+    return {
+      schemaVersion: "management-financial-local-preview-v1",
+      statement: "BS",
+      status: receipt.status,
+      selectedPeriodLabel: selectedPeriod.label,
+      availablePeriodCount: periods.length,
+      selectedPeriodSheetCount: periodRows.length,
+      historicalPeriodExcludedSheetCount: Math.max(0, allRows.length - periodRows.length),
+      aggregateExcludedSheetCount: periodRows.length - rows.length,
+      entityCandidateCount: rows.length,
+      balancedEntityCount: rows.filter((row) => row.balanceStatus === "BALANCED").length,
+      normalizedRecordCount: periodRows.reduce((sum, row) => sum + Number(row.recordCount || 0), 0),
+      totalNormalizedRecordCount: receipt.normalizedRecordCount,
+      completionPendingCount: completionItems.filter((item) => item.status !== "LOCAL_VALIDATED").length,
+      balanceCheck: receipt.balanceCheck,
+      importActionEnabled: false,
+      rows: rows.slice(0, 80).map((row) => ({
+        entityName: row.entityName,
+        assetsManYen: row.assetsManYen,
+        liabilitiesManYen: row.liabilitiesManYen,
+        equityManYen: row.equityManYen,
+        balanceStatus: row.balanceStatus,
+        closingMonthLabel: row.closingMonthLabel,
+        recordCount: row.recordCount,
+      })),
+    };
+  }
   const rows = periodRows.filter((row) => row.entityCategory === "STORE_CANDIDATE");
   const reviewRows = periodRows.filter((row) => row.entityCategory !== "STORE_CANDIDATE");
   const activeAggregateSheetCount = periodRows.filter((row) => row.entityCategory === "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS").length;

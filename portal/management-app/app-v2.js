@@ -190,9 +190,16 @@ async function loadStores() {
 }
 function renderStores() {
   const data = state.stores || {}; const stores = Array.isArray(data.stores) ? data.stores : [];
+  const localPl = localPlStoreSummary();
   elements.storeScope.textContent = scopeLabel(data.phase0Scope);
   mountWorkforceEvidenceStatus(elements.workforceEvidence);
-  renderMetrics(elements.storeKpis, [["表示店舗", `${data.storeCount || 0}店舗`], ["スタッフ", workforceMetric(data.staffCount, "人")], ["売上データ", stores.some((row) => row.dataReadiness !== "salonanswer_csv_waiting") ? "接続済み" : "CSV待ち"], ["scope", scopeLabel(data.phase0Scope)]]);
+  renderMetrics(elements.storeKpis, [
+    ["表示店舗", `${data.storeCount || 0}店舗`],
+    ["スタッフ", workforceMetric(data.staffCount, "人")],
+    ["売上データ", localPl ? `P/L ${number.format(localPl.storeCandidateCount)}候補` : stores.some((row) => row.dataReadiness !== "salonanswer_csv_waiting") ? "接続済み" : "CSV待ち"],
+    ["P/L損益", localPl ? `${number.format(Math.round(localPl.ordinaryProfitManYen))}万円` : "未反映"],
+    ["scope", scopeLabel(data.phase0Scope)],
+  ]);
   renderFinancialPreviewStores();
   elements.storeRows.replaceChildren(...(stores.length ? stores.map((row) => tableRow([row.name, row.corporationName, workforceMetric(row.staffCount), row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.salesManYen || 0)}万円`, row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.targetAchievementPercent || 0)}%`, row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "接続済み"])) : [emptyRow(6, "表示できる店舗がありません")]));
   renderCsvRequirements(elements.csvRequirements, data.requiredCsvFiles, {
@@ -201,6 +208,18 @@ function renderStores() {
       applyFinancialExternalEvidence();
     },
   });
+}
+
+function localPlStoreSummary() {
+  const preview = state.financialPreviews.PL;
+  if (!preview || !Array.isArray(preview.rows) || !preview.rows.length) return null;
+  const rows = preview.rows.filter((row) => row.entityCategory === "STORE_CANDIDATE");
+  if (!rows.length) return null;
+  return {
+    storeCandidateCount: rows.length,
+    salesManYen: rows.reduce((sum, row) => sum + (Number.isFinite(Number(row.salesManYen)) ? Number(row.salesManYen) : 0), 0),
+    ordinaryProfitManYen: rows.reduce((sum, row) => sum + (Number.isFinite(Number(row.ordinaryProfitManYen)) ? Number(row.ordinaryProfitManYen) : 0), 0),
+  };
 }
 
 async function loadDataops() {

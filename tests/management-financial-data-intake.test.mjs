@@ -753,6 +753,9 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(app, /P\/L・B\/S確認中/);
   assert.match(app, /renderFinancialPreviewOverview/);
   assert.match(app, /renderFinancialPreviewStores/);
+  assert.match(app, /localPlStoreSummary/);
+  assert.match(app, /P\/L \$\{number\.format\(localPl\.storeCandidateCount\)\}候補/);
+  assert.match(app, /P\/L損益/);
   assert.match(app, /buildBsOverviewPreview/);
   assert.match(app, /ローカルB\/Sプレビュー（本番未投入）/);
   assert.match(app, /貸借差額/);

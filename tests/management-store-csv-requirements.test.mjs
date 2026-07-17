@@ -207,7 +207,7 @@ test("renderer emits sanitized local receipt callback for Management finance bri
 
 test("active Management app integrates display only", () => {
   assert.match(html, /id="csv-requirements"/);
-  assert.match(html, /app-v2\.js\?v=137e848333e7993b/);
+  assert.match(html, /app-v2\.js\?v=279711af25f48ccb/);
   assert.match(html, /styles\.css\?v=92737203ffed1a80/);
   assert.match(app, /store-csv-requirements\.js\?v=9d6bb401afd343fb/);
   assert.match(app, /renderCsvRequirements\(elements\.csvRequirements, data\.requiredCsvFiles, \{/);

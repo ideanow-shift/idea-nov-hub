@@ -242,6 +242,15 @@ test("P/L local preview selects the latest fiscal period and does not add prior 
   assert.equal(preview.normalizedRecordCount, 144);
   assert.equal(preview.totalNormalizedRecordCount, 432);
   assert.equal(preview.importActionEnabled, false);
+  assert.deepEqual(preview.periodComparisonRows.map((item) => ({
+    periodLabel: item.periodLabel,
+    storeCandidateCount: item.storeCandidateCount,
+    salesManYen: item.salesManYen,
+  })), [
+    { periodLabel: "2025年9月〜2026年8月", storeCandidateCount: 1, salesManYen: 36 },
+    { periodLabel: "2024年9月〜2025年8月", storeCandidateCount: 1, salesManYen: 24 },
+    { periodLabel: "2023年9月〜2024年8月", storeCandidateCount: 1, salesManYen: 12 },
+  ]);
 });
 
 test("P/L mapping candidates are applied only to the local preview and remain unapproved", async () => {
@@ -314,13 +323,16 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=8e5be12a2e69df12/);
+  assert.match(app, /financial-data-intake\.js\?v=2b0c1c044a2046f2/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);
   assert.match(app, /renderFinancialPreviewStores/);
   assert.match(app, /buildBsOverviewPreview/);
   assert.match(app, /ローカルB\/Sプレビュー（本番未投入）/);
+  assert.match(app, /年度別P\/L比較（店舗候補のみ）/);
+  assert.match(app, /年度別 店舗候補合計/);
+  assert.match(app, /合計・本部・FC・共通シートは含みません/);
   assert.match(app, /renderFinancialPreviewEmpty/);
   assert.match(app, /仮対応・経理確認前/);
   assert.match(app, /過年度/);
@@ -342,6 +354,8 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(localPreviewFixture, /LOCAL_CANDIDATE_APPLIED/);
   assert.match(localPreviewFixture, /BS_LOCAL_READY/);
   assert.match(localPreviewFixture, /balanceSheetPreview/);
+  assert.match(localPreviewFixture, /periodComparisonRows/);
+  assert.match(localPreviewFixture, /2023年9月〜2024年8月/);
   assert.match(localPreviewFixture, /historicalPeriodExcludedSheetCount: 66/);
   assert.doesNotMatch(localPreviewFixture, /fetch\(|callApiAction|localStorage|sessionStorage/);
 });

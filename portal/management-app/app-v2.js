@@ -2,7 +2,7 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
-import { renderFinancialDataIntake } from "./financial-data-intake.js?v=8e5be12a2e69df12";
+import { renderFinancialDataIntake } from "./financial-data-intake.js?v=2b0c1c044a2046f2";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=a9c05abbcad54a84";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
@@ -215,10 +215,19 @@ function sanitizeFinancialPreview(value) {
     mappingCandidateCount: Number.isInteger(Number(row.mappingCandidateCount)) ? Math.max(0, Number(row.mappingCandidateCount)) : 0,
     recordCount: Number.isFinite(Number(row.recordCount)) ? Number(row.recordCount) : 0,
   })) : [];
+  const periodComparisonRows = Array.isArray(value.periodComparisonRows) ? value.periodComparisonRows.slice(0, 8).map((row) => ({
+    periodLabel: String(row.periodLabel || "対象期確認待ち").slice(0, 40),
+    storeCandidateCount: Number.isInteger(Number(row.storeCandidateCount)) ? Math.max(0, Number(row.storeCandidateCount)) : 0,
+    reviewCandidateCount: Number.isInteger(Number(row.reviewCandidateCount)) ? Math.max(0, Number(row.reviewCandidateCount)) : 0,
+    salesManYen: Number.isFinite(Number(row.salesManYen)) ? Number(row.salesManYen) : null,
+    ordinaryProfitManYen: Number.isFinite(Number(row.ordinaryProfitManYen)) ? Number(row.ordinaryProfitManYen) : null,
+    mappingStatus: mappingStatus(row.mappingStatus),
+  })) : [];
   return {
     ...value,
     rows,
     reviewRows,
+    periodComparisonRows,
     entityCandidateCount: rows.length,
     reviewCandidateCount: reviewRows.length,
     selectedPeriodLabel: String(value.selectedPeriodLabel || "対象期確認待ち").slice(0, 40),
@@ -289,6 +298,8 @@ function buildPlOverviewPreview(preview) {
       ["本番投入", "disabled"],
     ])
   );
+  const comparison = buildPlPeriodComparison(preview, "年度別P/L比較（店舗候補のみ）");
+  if (comparison) card.append(comparison);
   return card;
 }
 
@@ -352,7 +363,36 @@ function renderFinancialPreviewStores() {
     paragraph(`${preview.selectedPeriodLabel}の店舗候補だけを仮表示しています。店舗候補 ${number.format(preview.entityCandidateCount || 0)}件 / 除外・要確認 ${number.format(preview.reviewCandidateCount || 0)}件。候補mappingは経理確認前で、DB保存・本番投入・個人情報表示はありません。`),
     wrap
   );
+  const comparison = buildPlPeriodComparison(preview, "年度別 店舗候補合計");
+  if (comparison) section.append(comparison);
   elements.financialPreviewStores.replaceChildren(section);
+}
+
+function buildPlPeriodComparison(preview, titleText) {
+  if (!Array.isArray(preview.periodComparisonRows) || !preview.periodComparisonRows.length) return null;
+  const section = document.createElement("section");
+  section.className = "financial-period-comparison";
+  const title = document.createElement("h3");
+  title.textContent = titleText;
+  const note = paragraph("各期を独立集計し、店舗候補だけを比較しています。合計・本部・FC・共通シートは含みません。");
+  const wrap = document.createElement("div");
+  wrap.className = "table-wrap embedded local-preview-table";
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.append(tableRow(["対象期", "店舗候補", "売上", "経常損益", "要確認", "mapping"], true));
+  const tbody = document.createElement("tbody");
+  tbody.replaceChildren(...preview.periodComparisonRows.map((row) => tableRow([
+    row.periodLabel,
+    `${number.format(row.storeCandidateCount)}件`,
+    row.salesManYen == null ? "未算定" : `${number.format(row.salesManYen)}万円`,
+    row.ordinaryProfitManYen == null ? "未算定" : `${number.format(row.ordinaryProfitManYen)}万円`,
+    `${number.format(row.reviewCandidateCount)}件`,
+    financialMappingLabel(row.mappingStatus),
+  ])));
+  table.append(thead, tbody);
+  wrap.append(table);
+  section.append(title, note, wrap);
+  return section;
 }
 
 function financialMappingLabel(status) {

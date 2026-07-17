@@ -521,7 +521,8 @@ export function buildFinancialLocalPreview(result) {
     label: row.periodLabel || "対象期確認待ち",
     sortKey: Number(row.periodSortKey || 0),
   }])).values()];
-  const selectedPeriod = periods.sort((left, right) => right.sortKey - left.sortKey)[0] || { key: "PERIOD_UNRESOLVED", label: "対象期確認待ち", sortKey: 0 };
+  const orderedPeriods = periods.sort((left, right) => right.sortKey - left.sortKey);
+  const selectedPeriod = orderedPeriods[0] || { key: "PERIOD_UNRESOLVED", label: "対象期確認待ち", sortKey: 0 };
   const periodRows = selectedPeriod.key === "PERIOD_UNRESOLVED"
     ? allRows
     : allRows.filter((row) => row.periodKey === selectedPeriod.key);
@@ -557,6 +558,26 @@ export function buildFinancialLocalPreview(result) {
   }
   const rows = periodRows.filter((row) => row.entityCategory === "STORE_CANDIDATE");
   const reviewRows = periodRows.filter((row) => row.entityCategory !== "STORE_CANDIDATE");
+  const periodComparisonRows = orderedPeriods.slice(0, 8).map((period) => {
+    const scopedRows = period.key === "PERIOD_UNRESOLVED"
+      ? allRows.filter((row) => !row.periodKey || row.periodKey === "PERIOD_UNRESOLVED")
+      : allRows.filter((row) => row.periodKey === period.key);
+    const storeRows = scopedRows.filter((row) => row.entityCategory === "STORE_CANDIDATE");
+    const scopedReviewRows = scopedRows.filter((row) => row.entityCategory !== "STORE_CANDIDATE");
+    const mappingStatus = !storeRows.length || storeRows.some((row) => row.mappingStatus === "MAPPING_REQUIRED")
+      ? "MAPPING_REQUIRED"
+      : storeRows.some((row) => row.mappingStatus === "LOCAL_CANDIDATE_APPLIED")
+        ? "LOCAL_CANDIDATE_APPLIED"
+        : "READY";
+    return {
+      periodLabel: period.label,
+      storeCandidateCount: storeRows.length,
+      reviewCandidateCount: scopedReviewRows.length,
+      salesManYen: storeRows.reduce((sum, row) => sum + Number(row.salesManYen || 0), 0),
+      ordinaryProfitManYen: storeRows.reduce((sum, row) => sum + Number(row.ordinaryProfitManYen || 0), 0),
+      mappingStatus,
+    };
+  });
   const activeAggregateSheetCount = periodRows.filter((row) => row.entityCategory === "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS").length;
   const completionItems = buildFinancialCompletionItems(result);
   return {
@@ -580,6 +601,7 @@ export function buildFinancialLocalPreview(result) {
     salesManYen: rows.reduce((sum, row) => sum + Number(row.salesManYen || 0), 0),
     ordinaryProfitManYen: rows.reduce((sum, row) => sum + Number(row.ordinaryProfitManYen || 0), 0),
     importActionEnabled: false,
+    periodComparisonRows,
     rows: rows.slice(0, 80).map((row) => ({
       entityName: row.entityName,
       salesManYen: row.salesManYen,

@@ -14,6 +14,8 @@ import {
   combineFinancialWorkbookResults,
   parseFinancialWorkbookBuffer,
   renderFinancialDataIntake,
+  validateFinancialMappingConfirmationCsv,
+  validateFinancialMappingConfirmationFile,
   validateFinancialWorkbookFiles,
 } from "../portal/management-app/financial-data-intake.js";
 
@@ -242,6 +244,71 @@ test("mapping review fails closed for unknown or incomplete candidates", () => {
   assert.equal(buildFinancialMappingReviewCsv(countMismatch), null);
 });
 
+test("returned accounting mapping CSV is exact, local-only evidence", () => {
+  const result = {
+    statement: "PL",
+    missingByAccount: { "地代家賃": 104, "販売管理費合計": 104 },
+    mappingCandidatesByAccount: {
+      "地代家賃": { sourceAccount: "賃借料", sheetCount: 104 },
+      "販売管理費合計": { sourceAccount: "販売管理費計", sheetCount: 104 },
+    },
+  };
+  const header = '"弥生会計科目","正規科目","対象シート数","確認状態"';
+  const accepted = `${header}\r\n"賃借料","地代家賃","104","確認済み"\r\n"販売管理費計","販売管理費合計","104","確認済み"\r\n`;
+  assert.deepEqual(validateFinancialMappingConfirmationCsv(accepted, result), {
+    status: "MAPPING_CONFIRMATION_LOCAL_EVIDENCE",
+    confirmedCount: 2,
+    rejectedCount: 0,
+  });
+  const rejected = accepted.replace('"販売管理費計","販売管理費合計","104","確認済み"', '"販売管理費計","販売管理費合計","104","否認"');
+  assert.deepEqual(validateFinancialMappingConfirmationCsv(rejected, result), {
+    status: "MAPPING_CONFIRMATION_REJECTED",
+    confirmedCount: 1,
+    rejectedCount: 1,
+  });
+});
+
+test("returned mapping CSV rejects row, count, header, status and candidate drift", () => {
+  const result = {
+    statement: "PL",
+    missingByAccount: { "地代家賃": 2 },
+    mappingCandidatesByAccount: { "地代家賃": { sourceAccount: "賃借料", sheetCount: 2 } },
+  };
+  const valid = '"弥生会計科目","正規科目","対象シート数","確認状態"\n"賃借料","地代家賃","2","確認済み"\n';
+  for (const invalid of [
+    valid.replace("対象シート数", "件数"),
+    valid.replace('"2"', '"3"'),
+    valid.replace("確認済み", "承認"),
+    valid.replace("賃借料", "任意科目"),
+    `${valid}"賃借料","地代家賃","2","確認済み"\n`,
+  ]) {
+    assert.notEqual(validateFinancialMappingConfirmationCsv(invalid, result).status, "MAPPING_CONFIRMATION_LOCAL_EVIDENCE");
+  }
+  assert.equal(validateFinancialMappingConfirmationCsv(valid.replace(/\n/u, "\n\"extra\"\n"), result).status, "MAPPING_CONFIRMATION_FORMAT_INVALID");
+});
+
+test("mapping confirmation file enforces CSV, UTF-8 and 64KB boundary", async () => {
+  const result = {
+    statement: "PL",
+    missingByAccount: { "地代家賃": 1 },
+    mappingCandidatesByAccount: { "地代家賃": { sourceAccount: "賃借料", sheetCount: 1 } },
+  };
+  const csv = '\uFEFF"弥生会計科目","正規科目","対象シート数","確認状態"\r\n"賃借料","地代家賃","1","確認済み"\r\n';
+  const bytes = Buffer.from(csv, "utf8");
+  assert.equal((await validateFinancialMappingConfirmationFile({
+    name: "mapping.csv", size: bytes.length, async arrayBuffer() { return bytes; },
+  }, result)).status, "MAPPING_CONFIRMATION_LOCAL_EVIDENCE");
+  assert.equal((await validateFinancialMappingConfirmationFile({
+    name: "mapping.txt", size: 10, async arrayBuffer() { throw new Error("must not read"); },
+  }, result)).status, "MAPPING_CONFIRMATION_FILE_INVALID");
+  assert.equal((await validateFinancialMappingConfirmationFile({
+    name: "mapping.csv", size: 65537, async arrayBuffer() { throw new Error("must not read"); },
+  }, result)).status, "MAPPING_CONFIRMATION_FILE_INVALID");
+  assert.equal((await validateFinancialMappingConfirmationFile({
+    name: "mapping.csv", size: 2, async arrayBuffer() { return Uint8Array.from([0xc3, 0x28]); },
+  }, result)).status, "MAPPING_CONFIRMATION_FILE_INVALID");
+});
+
 test("P/L local preview combines current files without enabling production import", async () => {
   const first = await parseFinancialWorkbookBuffer(workbook([
     row(1, ["帳票名：残高試算表(年間推移)"]),
@@ -462,7 +529,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=9b68073d1acb815e/);
+  assert.match(app, /financial-data-intake\.js\?v=60b902f366960678/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);
@@ -496,6 +563,10 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(financialIntake, /Excelから対象期を自動判定/);
   assert.match(styles, /\.financial-intake-drop\.is-dragover/);
   assert.match(financialIntake, /ACCOUNTING_CONFIRMATION_PENDING/);
+  assert.match(financialIntake, /経理回答CSVを検証/);
+  assert.match(financialIntake, /MAPPING_CONFIRMATION_LOCAL_EVIDENCE/);
+  assert.match(financialIntake, /本番承認ではありません/);
+  assert.match(styles, /\.financial-mapping-confirmation/);
   assert.match(financialIntake, /DUPLICATE_ENTITY_PERIOD_DETECTED/);
   assert.match(financialIntake, /sha256Identity/);
   assert.match(styles, /\.financial-local-preview-card/);

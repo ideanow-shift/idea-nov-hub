@@ -2,6 +2,9 @@ const MONTH_LABEL_RE = /^(?:[1-9]|1[0-2])月度$/u;
 const MAX_FINANCIAL_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_FINANCIAL_FILE_COUNT = 12;
 const MAX_FINANCIAL_TOTAL_BYTES = 100 * 1024 * 1024;
+const MAX_MAPPING_CONFIRMATION_BYTES = 64 * 1024;
+const MAPPING_CONFIRMATION_HEADER = Object.freeze(["弥生会計科目", "正規科目", "対象シート数", "確認状態"]);
+const MAPPING_CONFIRMATION_STATUSES = new Set(["確認済み", "否認"]);
 const YAYOI_PL_REQUIRED_ACCOUNTS = Object.freeze([
   "売上高合計",
   "売上原価",
@@ -588,6 +591,107 @@ export function buildFinancialMappingReviewCsv(result) {
   };
 }
 
+function parseStrictCsv(text) {
+  const source = String(text ?? "").replace(/^\uFEFF/u, "");
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  let closedQuote = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (quoted) {
+      if (char === '"' && source[index + 1] === '"') {
+        cell += '"';
+        index += 1;
+      } else if (char === '"') {
+        quoted = false;
+        closedQuote = true;
+      } else {
+        cell += char;
+      }
+      continue;
+    }
+    if (closedQuote && ![",", "\r", "\n"].includes(char)) return null;
+    if (char === '"') {
+      if (cell || closedQuote) return null;
+      quoted = true;
+    } else if (char === ",") {
+      row.push(cell.normalize("NFC"));
+      cell = "";
+      closedQuote = false;
+    } else if (char === "\r" || char === "\n") {
+      if (char === "\r" && source[index + 1] === "\n") index += 1;
+      row.push(cell.normalize("NFC"));
+      rows.push(row);
+      row = [];
+      cell = "";
+      closedQuote = false;
+    } else {
+      if (closedQuote) return null;
+      cell += char;
+    }
+  }
+  if (quoted) return null;
+  if (cell || row.length || closedQuote) {
+    row.push(cell.normalize("NFC"));
+    rows.push(row);
+  }
+  while (rows.length && rows.at(-1).every((value) => value === "")) rows.pop();
+  return rows;
+}
+
+export function validateFinancialMappingConfirmationCsv(text, result) {
+  const expectedRows = buildFinancialMappingReviewRows(result);
+  if (!expectedRows.length) return { status: "MAPPING_CONFIRMATION_NOT_APPLICABLE", confirmedCount: 0, rejectedCount: 0 };
+  const rows = parseStrictCsv(text);
+  if (!rows || rows.length !== expectedRows.length + 1) {
+    return { status: "MAPPING_CONFIRMATION_FORMAT_INVALID", confirmedCount: 0, rejectedCount: 0 };
+  }
+  if (rows[0].length !== MAPPING_CONFIRMATION_HEADER.length
+    || !rows[0].every((value, index) => value === MAPPING_CONFIRMATION_HEADER[index])) {
+    return { status: "MAPPING_CONFIRMATION_FORMAT_INVALID", confirmedCount: 0, rejectedCount: 0 };
+  }
+  const expected = new Map(expectedRows.map((row) => [`${row.sourceAccount}\u0000${row.canonicalAccount}`, row]));
+  let confirmedCount = 0;
+  let rejectedCount = 0;
+  for (const values of rows.slice(1)) {
+    if (values.length !== MAPPING_CONFIRMATION_HEADER.length) {
+      return { status: "MAPPING_CONFIRMATION_FORMAT_INVALID", confirmedCount: 0, rejectedCount: 0 };
+    }
+    const [sourceAccount, canonicalAccount, sheetCountText, status] = values;
+    const key = `${sourceAccount}\u0000${canonicalAccount}`;
+    const candidate = expected.get(key);
+    if (!candidate || !/^[1-9]\d*$/u.test(sheetCountText) || Number(sheetCountText) !== candidate.sheetCount
+      || !MAPPING_CONFIRMATION_STATUSES.has(status)) {
+      return { status: "MAPPING_CONFIRMATION_MISMATCH", confirmedCount: 0, rejectedCount: 0 };
+    }
+    expected.delete(key);
+    if (status === "確認済み") confirmedCount += 1;
+    else rejectedCount += 1;
+  }
+  if (expected.size) return { status: "MAPPING_CONFIRMATION_MISMATCH", confirmedCount: 0, rejectedCount: 0 };
+  return {
+    status: rejectedCount ? "MAPPING_CONFIRMATION_REJECTED" : "MAPPING_CONFIRMATION_LOCAL_EVIDENCE",
+    confirmedCount,
+    rejectedCount,
+  };
+}
+
+export async function validateFinancialMappingConfirmationFile(file, result) {
+  if (!file || !/\.csv$/iu.test(String(file.name || "")) || !Number.isSafeInteger(Number(file.size))
+    || Number(file.size) <= 0 || Number(file.size) > MAX_MAPPING_CONFIRMATION_BYTES) {
+    return { status: "MAPPING_CONFIRMATION_FILE_INVALID", confirmedCount: 0, rejectedCount: 0 };
+  }
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return validateFinancialMappingConfirmationCsv(text, result);
+  } catch {
+    return { status: "MAPPING_CONFIRMATION_FILE_INVALID", confirmedCount: 0, rejectedCount: 0 };
+  }
+}
+
 export function buildFinancialLocalPreview(result) {
   const receipt = buildFinancialIntakeReceipt(result);
   if (!receipt || !["PL", "BS"].includes(receipt.statement)) return null;
@@ -827,6 +931,8 @@ function setMappingReview(container, result) {
   const summary = container.querySelector("[data-financial-mapping-summary]");
   const body = container.querySelector("[data-financial-mapping-rows]");
   const download = container.querySelector("[data-financial-mapping-download]");
+  const confirmationInput = container.querySelector("[data-financial-mapping-confirmation-input]");
+  const confirmationStatus = container.querySelector("[data-financial-mapping-confirmation-status]");
   if (!section || !summary || !body || !download) return;
   const rows = buildFinancialMappingReviewRows(result);
   const exportFile = buildFinancialMappingReviewCsv(result);
@@ -836,10 +942,15 @@ function setMappingReview(container, result) {
     body.replaceChildren();
     download.removeAttribute("href");
     download.removeAttribute("download");
+    if (confirmationInput) confirmationInput.disabled = true;
+    if (confirmationStatus) {
+      confirmationStatus.dataset.financialMappingConfirmationStatus = "NOT_READY";
+      confirmationStatus.textContent = "候補CSVを作成後に、経理回答CSVを検証できます。";
+    }
     return;
   }
   section.dataset.financialMappingStatus = exportFile.status;
-  summary.textContent = `${rows.length}件の候補を検出しました。金額・原本名・個人情報を含まないCSVで経理確認できます。`;
+  summary.textContent = `${rows.length}件の候補を検出しました。CSVの確認状態を「確認済み」または「否認」に変更して返却してください。金額・原本名・個人情報は含みません。`;
   body.replaceChildren(...rows.map((row) => {
     const tr = el(doc, "tr");
     tr.append(
@@ -852,6 +963,26 @@ function setMappingReview(container, result) {
   }));
   download.href = exportFile.href;
   download.download = exportFile.fileName;
+  if (confirmationInput) confirmationInput.disabled = false;
+  if (confirmationStatus) {
+    confirmationStatus.dataset.financialMappingConfirmationStatus = "PENDING";
+    confirmationStatus.textContent = "経理回答CSVはこの端末だけで検証します。本番承認には使用しません。";
+  }
+}
+
+function setMappingConfirmationStatus(container, receipt) {
+  const status = container.querySelector("[data-financial-mapping-confirmation-status]");
+  if (!status) return;
+  status.dataset.financialMappingConfirmationStatus = receipt.status;
+  const labels = {
+    MAPPING_CONFIRMATION_LOCAL_EVIDENCE: `ローカル回答検証済み ${receipt.confirmedCount}件（本番承認ではありません）`,
+    MAPPING_CONFIRMATION_REJECTED: `否認 ${receipt.rejectedCount}件を検出しました。mapping候補は未確定です。`,
+    MAPPING_CONFIRMATION_MISMATCH: "候補・対象シート数・回答状態が一致しません。",
+    MAPPING_CONFIRMATION_FORMAT_INVALID: "CSVの列・行数・形式が一致しません。",
+    MAPPING_CONFIRMATION_FILE_INVALID: "UTF-8 CSV、64KB以下の確認ファイルを選択してください。",
+    MAPPING_CONFIRMATION_NOT_APPLICABLE: "現在のP/L候補に適用できる回答CSVはありません。",
+  };
+  status.textContent = labels[receipt.status] || "経理回答CSVを検証できませんでした。";
 }
 
 const COMPLETION_STATUS_LABELS = Object.freeze({
@@ -997,11 +1128,23 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   mappingBody.dataset.financialMappingRows = "true";
   mappingTable.append(mappingHead, mappingBody);
   mappingTableWrap.append(mappingTable);
-  mappingReview.append(mappingHeading, mappingTableWrap);
+  const mappingConfirmation = el(doc, "div", "financial-mapping-confirmation");
+  const mappingConfirmationLabel = el(doc, "label", "financial-mapping-download", "経理回答CSVを検証");
+  const mappingConfirmationInput = el(doc, "input");
+  mappingConfirmationInput.type = "file";
+  mappingConfirmationInput.accept = ".csv,text/csv";
+  mappingConfirmationInput.disabled = true;
+  mappingConfirmationInput.dataset.financialMappingConfirmationInput = "true";
+  mappingConfirmationLabel.append(mappingConfirmationInput);
+  const mappingConfirmationStatus = el(doc, "p", "financial-mapping-confirmation-status", "候補CSVを作成後に、経理回答CSVを検証できます。");
+  mappingConfirmationStatus.dataset.financialMappingConfirmationStatus = "NOT_READY";
+  mappingConfirmation.append(mappingConfirmationLabel, mappingConfirmationStatus);
+  mappingReview.append(mappingHeading, mappingTableWrap, mappingConfirmation);
   section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, mappingReview, completion, preview);
   container.replaceChildren(section);
   setCompletionChecklist(container, null);
-  if (hooks.initialResult) setResult(container, hooks.initialResult);
+  let latestResult = hooks.initialResult || null;
+  if (latestResult) setResult(container, latestResult);
 
   let checking = false;
   const handleFiles = async (selectedFiles) => {
@@ -1017,6 +1160,7 @@ export function renderFinancialDataIntake(container, hooks = {}) {
       const parsed = source.value === "YAYOI"
         ? await validateFinancialWorkbookFiles(files, statement.value, hooks)
         : { status: "SOURCE_SYSTEM_UNSUPPORTED", statement: statement.value, previewRows: [], entityPreviewRows: [] };
+      latestResult = parsed;
       setResult(container, parsed);
       publishPreview(container, parsed);
       const localPreview = buildFinancialLocalPreview(parsed);
@@ -1041,6 +1185,17 @@ export function renderFinancialDataIntake(container, hooks = {}) {
     event.preventDefault();
     drop.classList.remove("is-dragover");
     handleFiles(event.dataTransfer?.files);
+  });
+  mappingConfirmationInput.addEventListener("change", async () => {
+    const selected = mappingConfirmationInput.files?.[0];
+    mappingConfirmationInput.disabled = true;
+    try {
+      const receipt = await validateFinancialMappingConfirmationFile(selected, latestResult);
+      setMappingConfirmationStatus(container, receipt);
+    } finally {
+      mappingConfirmationInput.value = "";
+      mappingConfirmationInput.disabled = !buildFinancialMappingReviewCsv(latestResult);
+    }
   });
   return true;
 }

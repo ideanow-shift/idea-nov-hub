@@ -199,6 +199,11 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-mapping-download:hover { background: var(--color-bassa-soft); }
 .financial-mapping-table table { min-width: 620px; }
 .financial-mapping-table th, .financial-mapping-table td { padding: 9px 10px; font-size: 12px; text-align: left; }
+.financial-mapping-confirmation { margin-top: 10px; display: flex; align-items: center; gap: 10px; }
+.financial-mapping-confirmation label { cursor: pointer; }
+.financial-mapping-confirmation label:has(input:disabled) { cursor: not-allowed; opacity: .55; }
+.financial-mapping-confirmation input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.financial-mapping-confirmation-status { margin: 0; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
 .financial-completion { margin-top: 14px; }
 .financial-completion-heading { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
 .financial-completion h4 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 500; }
@@ -263,6 +268,7 @@ tbody tr:hover td { background: var(--card-soft); }
   .production-readiness-head { align-items: stretch; flex-direction: column; }
   .financial-intake-heading { align-items: stretch; flex-direction: column; }
   .financial-mapping-review-heading { align-items: stretch; flex-direction: column; }
+  .financial-mapping-confirmation { align-items: stretch; flex-direction: column; }
   .financial-completion-heading { align-items: stretch; flex-direction: column; }
   .financial-mapping-download { width: 100%; white-space: normal; text-align: center; }
   .csv-template-item { grid-template-columns: 1fr; }

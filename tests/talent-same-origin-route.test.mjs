@@ -229,3 +229,12 @@ test("published runtime candidate enables only the approved read-only API", () =
   );
   assert.doesNotMatch(runtimeConfig, /service_role|sb_secret_|eyJ/i);
 });
+
+test("talent entry point cache-busts runtime config and app with one release id", () => {
+  const html = readFileSync(new URL("../portal/talent/index.html", import.meta.url), "utf8");
+  const runtimeVersion = html.match(/runtime-config\.candidate\.js\?v=([^"']+)/)?.[1];
+  const appVersion = html.match(/app\.mjs\?v=([^"']+)/)?.[1];
+
+  assert.ok(runtimeVersion, "runtime config must have a release id");
+  assert.equal(appVersion, runtimeVersion);
+});

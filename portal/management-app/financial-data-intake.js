@@ -683,6 +683,25 @@ export function buildFinancialAccountingRequestMessage(result) {
   };
 }
 
+export function buildFinancialAccountingRequestText(result) {
+  const message = buildFinancialAccountingRequestMessage(result);
+  const text = [
+    `件名: ${message.subject}`,
+    "",
+    ...message.bodyLines,
+  ].join("\r\n");
+  return {
+    fileName: "management-financial-accounting-request.txt",
+    status: message.category,
+    text,
+    href: `data:text/plain;charset=utf-8,${encodeURIComponent(`\uFEFF${text}\r\n`)}`,
+    productionImportEnabled: false,
+    externalSendEnabled: false,
+    mutationCount: 0,
+    uploadCount: 0,
+  };
+}
+
 export function buildFinancialCompletionRequestCsv(result) {
   const rows = buildFinancialCompletionItems(result).filter((item) => !["LOCAL_VALIDATED", "LOCAL_EVIDENCE_RECEIVED"].includes(item.status));
   if (!rows.length) return null;
@@ -1208,6 +1227,11 @@ function setSubmissionPackage(container, result) {
   if (!target) return;
   const pkg = buildFinancialSubmissionPackage(result);
   const message = buildFinancialAccountingRequestMessage(result);
+  const textFile = buildFinancialAccountingRequestText(result);
+  const requestDownload = el(doc, "a", "financial-accounting-request-download", "確認依頼TXTを保存");
+  requestDownload.dataset.financialAccountingRequestDownload = "true";
+  requestDownload.href = textFile.href;
+  requestDownload.download = textFile.fileName;
   target.dataset.financialSubmissionPackageStatus = pkg.category;
   const label = pkg.category === "LOCAL_PACKAGE_READY_PENDING_PRODUCTION"
     ? "ローカル確認済み / 本番投入待ち"
@@ -1237,7 +1261,8 @@ function setSubmissionPackage(container, result) {
     el(doc, "div", "financial-accounting-request",
       el(doc, "strong", "", "経理へ確認する内容"),
       el(doc, "p", "", message.subject),
-      el(doc, "pre", "", message.bodyLines.join("\n"))
+      el(doc, "pre", "", message.bodyLines.join("\n")),
+      requestDownload
     )
   );
 }

@@ -6,6 +6,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   buildFinancialAccountingRequestMessage,
+  buildFinancialAccountingRequestText,
   buildFinancialCompletionItems,
   buildFinancialCompletionRequestCsv,
   buildFinancialLocalPreview,
@@ -291,6 +292,20 @@ test("financial submission package summarizes local readiness without enabling i
   assert.equal(requestMessage.mutationCount, 0);
   assert.equal(requestMessage.uploadCount, 0);
   assert.doesNotMatch(JSON.stringify(requestMessage), /employeeId|sessionToken|Authorization|filename|digest/i);
+  const requestText = buildFinancialAccountingRequestText({
+    statement: "PL",
+    status: "PL_LOCAL_READY",
+    sheetCount: 3,
+    missingByAccount: {},
+    localStoreCsvReceipt: storeReceipt,
+    localSupplementalReceipt: supplementalReceipt,
+  });
+  assert.equal(requestText.fileName, "management-financial-accounting-request.txt");
+  assert.match(requestText.text, /件名: 経営管理システム: B\/S年間データの確認依頼/u);
+  assert.match(requestText.href, /^data:text\/plain;charset=utf-8,/u);
+  assert.equal(requestText.externalSendEnabled, false);
+  assert.equal(requestText.productionImportEnabled, false);
+  assert.doesNotMatch(JSON.stringify(requestText), /employeeId|sessionToken|Authorization|contentIdentity|rawFile/i);
   const bsOnly = buildFinancialSubmissionPackage({
     statement: "BS",
     status: "BS_LOCAL_READY",
@@ -711,7 +726,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=135b719dc2d493e2/);
+  assert.match(app, /financial-data-intake\.js\?v=0c4714487ba64c37/);
   assert.match(financialIntake, /financial-supplemental-csv\.js\?v=7cacd43781126450/);
   assert.match(financialIntake, /renderFinancialSupplementalCsv\(supplemental/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake, \{ externalEvidence: financialExternalEvidence\(\) \}\)/);
@@ -747,6 +762,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(styles, /\.financial-submission-next-action/);
   assert.match(styles, /\.financial-submission-next-list/);
   assert.match(styles, /\.financial-accounting-request/);
+  assert.match(styles, /\.financial-accounting-request-download/);
   assert.match(styles, /\.financial-completion-heading \{ align-items: stretch; flex-direction: column; \}/);
   assert.match(styles, /\.financial-completion-item \.financial-completion-spec/);
   assert.match(financialIntake, /提出形式/);
@@ -759,6 +775,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(financialIntake, /management-financial-submission-package-v1/);
   assert.match(financialIntake, /management-financial-accounting-request-message-v1/);
   assert.match(financialIntake, /経理へ確認する内容/);
+  assert.match(financialIntake, /確認依頼TXTを保存/);
   assert.match(financialIntake, /NEXT_PROVIDE_BALANCE_SHEET/);
   assert.match(financialIntake, /資産合計/);
   assert.match(financialIntake, /対象期・候補一意/);

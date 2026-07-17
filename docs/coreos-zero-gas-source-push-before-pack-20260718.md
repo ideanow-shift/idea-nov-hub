@@ -31,6 +31,20 @@
 - Production `portal_apps` is unchanged until a fresh SELECT-only precheck and
   separate DML approval.
 
+## Current public evidence
+
+Read-only HTTP checks on 2026-07-18 returned:
+
+```text
+https://ideanow-shift.github.io/idea-nov-hub/                200
+https://ideanow-shift.github.io/idea-nov-hub/education-app/  404
+```
+
+The 404 is expected before this source chain is pushed and Pages is rebuilt. It
+is also a hard reason not to activate the Education `portal_apps` route first.
+The required order remains source push, Pages HTTP 200 confirmation, fresh
+SELECT-only production evidence, then a separately approved card cutover.
+
 ## Verification after fresh rebase
 
 ```text

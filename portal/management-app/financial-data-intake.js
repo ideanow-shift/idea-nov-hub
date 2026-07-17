@@ -34,6 +34,19 @@ const XML_ESCAPE_RE = /&(lt|gt|amp|quot|apos);/g;
 const XML_ESCAPE_MAP = Object.freeze({ lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" });
 const XLSX_TEXT_ENTRY_RE = /^(?:xl\/(?:workbook\.xml|sharedStrings\.xml|_rels\/workbook\.xml\.rels|worksheets\/sheet\d+\.xml)|\[Content_Types\]\.xml|_rels\/\.rels)$/u;
 
+async function sha256Identity(arrayBuffer, options = {}) {
+  const digest = options.digestSha256 || (globalThis.crypto?.subtle ? (value) => globalThis.crypto.subtle.digest("SHA-256", value) : null);
+  if (!digest) throw new Error("FILE_IDENTITY_UNAVAILABLE");
+  const bytes = new Uint8Array(await digest(arrayBuffer));
+  return [...bytes].map((value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+function duplicateExtraCount(values) {
+  const counts = new Map();
+  for (const value of values.filter(Boolean)) counts.set(value, (counts.get(value) || 0) + 1);
+  return [...counts.values()].reduce((sum, count) => sum + Math.max(0, count - 1), 0);
+}
+
 function xmlText(value) {
   return String(value ?? "").replace(XML_ESCAPE_RE, (_, key) => XML_ESCAPE_MAP[key]);
 }
@@ -374,8 +387,17 @@ export function combineFinancialWorkbookResults(results, statement = "PL") {
   const entityCandidateCount = accepted.reduce((sum, result) => sum + Number(result.entityCandidateCount || 0), 0);
   const normalizedRecordCount = accepted.reduce((sum, result) => sum + Number(result.normalizedRecordCount || 0), 0);
   const entityPreviewRows = accepted.flatMap((result) => result.entityPreviewRows || []);
+  const duplicateFileCount = duplicateExtraCount(accepted.map((result) => result.contentIdentity));
+  const duplicateEntityPeriodCount = duplicateExtraCount(entityPreviewRows.map((row) => {
+    const period = String(row.periodKey || "PERIOD_UNRESOLVED");
+    const entity = String(row.entityName || "").normalize("NFC").toLocaleLowerCase("ja");
+    return entity ? `${period}\u0000${entity}` : "";
+  }));
+  const duplicateStatus = duplicateFileCount > 0
+    ? `${statement}_DUPLICATE_FILE_DETECTED`
+    : duplicateEntityPeriodCount > 0 ? `${statement}_DUPLICATE_ENTITY_PERIOD_DETECTED` : "";
   return {
-    status: combineStatuses(statement, accepted),
+    status: duplicateStatus || combineStatuses(statement, accepted),
     statement,
     fileName: accepted.length === 1 ? accepted[0].fileName : `${accepted.length} files`,
     fileBytes: accepted.reduce((sum, result) => sum + Number(result.fileBytes || 0), 0),
@@ -385,6 +407,8 @@ export function combineFinancialWorkbookResults(results, statement = "PL") {
     aggregateSheetCount,
     entityCandidateCount,
     normalizedRecordCount,
+    duplicateFileCount,
+    duplicateEntityPeriodCount,
     missingByAccount,
     mappingCandidatesByAccount,
     balanceCheck: statement === "BS" && accepted.every((result) => result.balanceCheck === "BALANCED") ? "BALANCED" : statement === "BS" ? "IMBALANCED" : "NOT_APPLICABLE",
@@ -408,8 +432,10 @@ export async function validateFinancialWorkbookFile(file, statement = "PL", opti
   if (!file || typeof file.name !== "string" || !file.name.toLowerCase().endsWith(".xlsx")) return { status: "FILE_TYPE_INVALID" };
   if (!Number.isFinite(file.size) || file.size <= 0 || file.size > MAX_FINANCIAL_FILE_BYTES) return { status: "FILE_SIZE_INVALID" };
   try {
-    const result = await parseFinancialWorkbookBuffer(await file.arrayBuffer(), statement, options);
-    return { ...result, fileName: file.name, fileBytes: file.size };
+    const buffer = await file.arrayBuffer();
+    const contentIdentity = await sha256Identity(buffer, options);
+    const result = await parseFinancialWorkbookBuffer(buffer, statement, options);
+    return { ...result, fileName: file.name, fileBytes: file.size, contentIdentity };
   } catch {
     return { status: "FILE_READ_OR_PARSE_FAILED" };
   }
@@ -435,6 +461,8 @@ export function buildFinancialIntakeReceipt(result) {
     entityCandidateCount: result.entityCandidateCount || 0,
     aggregateExcludedSheetCount: result.aggregateSheetCount || 0,
     normalizedRecordCount: result.normalizedRecordCount || 0,
+    duplicateFileCount: Number(result.duplicateFileCount || 0),
+    duplicateEntityPeriodCount: Number(result.duplicateEntityPeriodCount || 0),
     allSheetsHaveTwelveMonths: result.sheetCount > 0 && result.sheetsWithTwelveMonths === result.sheetCount,
     mappingRequiredAccountCount: Object.keys(result.missingByAccount ?? {}).length,
     mappingCandidateAccountCount: Object.keys(result.mappingCandidatesByAccount ?? {}).length,
@@ -449,7 +477,8 @@ export function buildFinancialCompletionItems(result) {
   const statement = receipt?.statement || "";
   const parsedLocally = Number(receipt?.sheetCount || 0) > 0
     && !String(receipt?.status || "").includes("FAILED")
-    && !String(receipt?.status || "").includes("INVALID");
+    && !String(receipt?.status || "").includes("INVALID")
+    && !String(receipt?.status || "").includes("DUPLICATE");
   const missingAccounts = Object.keys(result?.missingByAccount || {});
   const mappingCandidates = result?.mappingCandidatesByAccount || {};
   const bsReady = statement === "BS" && parsedLocally && receipt?.balanceCheck === "BALANCED" && receipt?.mappingRequiredAccountCount === 0;
@@ -478,6 +507,7 @@ export function buildFinancialCompletionItems(result) {
 
 export function buildFinancialMappingReviewRows(result) {
   if (!result || result.statement !== "PL") return [];
+  if (Number(result.duplicateFileCount || 0) > 0 || Number(result.duplicateEntityPeriodCount || 0) > 0) return [];
   const missingEntries = Object.entries(result.missingByAccount || {});
   if (!missingEntries.length) return [];
   const rows = missingEntries.map(([canonicalAccount, missingCount]) => {
@@ -525,6 +555,38 @@ export function buildFinancialMappingReviewCsv(result) {
 export function buildFinancialLocalPreview(result) {
   const receipt = buildFinancialIntakeReceipt(result);
   if (!receipt || !["PL", "BS"].includes(receipt.statement)) return null;
+  if (receipt.duplicateFileCount > 0 || receipt.duplicateEntityPeriodCount > 0) {
+    return {
+      schemaVersion: "management-financial-local-preview-v1",
+      statement: receipt.statement,
+      status: receipt.status,
+      selectedPeriodLabel: "重複確認待ち",
+      availablePeriodCount: 0,
+      selectedPeriodSheetCount: 0,
+      historicalPeriodExcludedSheetCount: 0,
+      aggregateExcludedSheetCount: 0,
+      entityCandidateCount: 0,
+      reviewCandidateCount: 0,
+      balancedEntityCount: 0,
+      normalizedRecordCount: 0,
+      totalNormalizedRecordCount: receipt.normalizedRecordCount,
+      mappingRequiredAccountCount: receipt.mappingRequiredAccountCount,
+      mappingCandidateAccountCount: receipt.mappingCandidateAccountCount,
+      completionPendingCount: FINANCIAL_COMPLETION_REQUIREMENTS.length,
+      balanceCheck: "NOT_READY",
+      duplicateFileCount: receipt.duplicateFileCount,
+      duplicateEntityPeriodCount: receipt.duplicateEntityPeriodCount,
+      comparisonRangeLabel: "重複解消待ち",
+      comparisonMonthCount: 0,
+      dataMonthShortfallCount: 0,
+      salesManYen: null,
+      ordinaryProfitManYen: null,
+      importActionEnabled: false,
+      periodComparisonRows: [],
+      rows: [],
+      reviewRows: [],
+    };
+  }
   const allRows = result.entityPreviewRows || [];
   const periods = [...new Map(allRows.map((row) => [row.periodKey || "PERIOD_UNRESOLVED", {
     key: row.periodKey || "PERIOD_UNRESOLVED",
@@ -663,10 +725,14 @@ const INTAKE_STATUS_LABELS = Object.freeze({
   PL_FILE_PARSE_FAILED: "P/Lファイル解析エラー",
   PL_FORMAT_INVALID: "P/L形式を確認してください",
   PL_MONTH_COLUMNS_INVALID: "P/L月次列を確認してください",
+  PL_DUPLICATE_FILE_DETECTED: "P/L重複ファイルを確認してください",
+  PL_DUPLICATE_ENTITY_PERIOD_DETECTED: "P/L同一期・同一候補の重複を確認してください",
   BS_LOCAL_READY: "B/S確認済み",
   BS_LOCAL_VALIDATED_PENDING_MAPPING: "B/S確認済み・科目対応待ち",
   BS_BALANCE_CHECK_FAILED: "B/S貸借不一致",
   BS_FILE_PARSE_FAILED: "B/Sファイル解析エラー",
+  BS_DUPLICATE_FILE_DETECTED: "B/S重複ファイルを確認してください",
+  BS_DUPLICATE_ENTITY_PERIOD_DETECTED: "B/S同一期・同一候補の重複を確認してください",
   FILE_READ_OR_PARSE_FAILED: "ファイルを確認してください",
 });
 
@@ -696,6 +762,7 @@ function setResult(container, result) {
     el(doc, "p", "", `ファイル ${receipt.fileNamePresent ? "選択済み" : "未選択"} / 対象期間 ${receipt.periodDetected ? "検出済み" : "確認待ち"}`),
     el(doc, "p", "", `シート ${receipt.sheetCount}件 / 対象候補 ${receipt.entityCandidateCount}件 / 集計除外 ${receipt.aggregateExcludedSheetCount}件`),
     el(doc, "p", "", `正規化 ${receipt.normalizedRecordCount}件 / 科目対応待ち ${receipt.mappingRequiredAccountCount}件 / 候補検出 ${receipt.mappingCandidateAccountCount}件`),
+    el(doc, "p", "", `重複ファイル ${receipt.duplicateFileCount}件 / 同一期・同一候補 ${receipt.duplicateEntityPeriodCount}件`),
     el(doc, "p", "", receipt.balanceCheck === "NOT_APPLICABLE" ? "貸借チェック: 対象外" : `貸借チェック: ${receipt.balanceCheck}`),
     el(doc, "p", "", receipt.productionImportEnabled ? "本番投入可能" : "本番投入は無効です")
   );

@@ -13,6 +13,7 @@ import {
   combineFinancialWorkbookResults,
   parseFinancialWorkbookBuffer,
   renderFinancialDataIntake,
+  validateFinancialWorkbookFiles,
 } from "../portal/management-app/financial-data-intake.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -87,6 +88,16 @@ function workbook(sheetRows, sheetName = "損･BASSA新所沢店") {
 const months = ["9月度", "10月度", "11月度", "12月度", "1月度", "2月度", "3月度", "4月度", "5月度", "6月度", "7月度", "8月度"];
 const requiredPl = ["売上高合計", "売上原価", "売上総損益金額", "給与手当", "法定福利費", "福利厚生費", "地代家賃", "水道光熱費", "広告宣伝費", "販売管理費合計", "営業損益金額", "経常損益金額"];
 const inflateRaw = (bytes) => zlib.inflateRawSync(Buffer.from(bytes));
+
+function workbookFile(name, bytes) {
+  return {
+    name,
+    size: bytes.byteLength,
+    async arrayBuffer() {
+      return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    },
+  };
+}
 
 test("P/L intake validates Yayoi workbook and preserves import disabled boundary", async () => {
   const rows = [
@@ -223,6 +234,51 @@ test("P/L local preview combines current files without enabling production impor
   assert.deepEqual(preview.rows.map((item) => item.entityName), ["損･BASSA所沢店", "損･KYARA HALF"]);
 });
 
+test("P/L duplicate workbook bytes fail closed without exposing the content identity", async () => {
+  const bytes = workbook([
+    row(1, ["帳票名：残高試算表(年間推移)"]),
+    row(5, ["集計期間：令和07年09月01日", "令和08年08月31日", "決算仕訳を含む"]),
+    row(8, ["勘定科目", ...months]),
+    ...requiredPl.map((account, index) => row(9 + index, [account, ...months.map(() => index === 0 ? 10000 : 100)])),
+  ], "損･BASSA所沢店");
+  const result = await validateFinancialWorkbookFiles([
+    workbookFile("period13-a.xlsx", bytes),
+    workbookFile("period13-copy.xlsx", bytes),
+  ], "PL", { inflateRaw });
+  assert.equal(result.status, "PL_DUPLICATE_FILE_DETECTED");
+  assert.equal(result.duplicateFileCount, 1);
+  const preview = buildFinancialLocalPreview(result);
+  assert.equal(preview.salesManYen, null);
+  assert.equal(preview.ordinaryProfitManYen, null);
+  assert.deepEqual(preview.rows, []);
+  assert.deepEqual(preview.periodComparisonRows, []);
+  assert.equal(preview.importActionEnabled, false);
+  assert.equal(buildFinancialMappingReviewCsv(result), null);
+  assert.doesNotMatch(JSON.stringify({ result, preview }), /(?:contentIdentity|\b[a-f0-9]{64}\b)/i);
+});
+
+test("P/L distinct files for the same period and entity fail closed", async () => {
+  const makeBytes = (sales) => workbook([
+    row(1, ["帳票名：残高試算表(年間推移)"]),
+    row(5, ["集計期間：令和07年09月01日", "令和08年08月31日", "決算仕訳を含む"]),
+    row(8, ["勘定科目", ...months]),
+    ...requiredPl.map((account, index) => row(9 + index, [account, ...months.map(() => index === 0 ? sales : 100)])),
+  ], "損･BASSA所沢店");
+  const result = await validateFinancialWorkbookFiles([
+    workbookFile("period13-a.xlsx", makeBytes(10000)),
+    workbookFile("period13-revised.xlsx", makeBytes(10001)),
+  ], "PL", { inflateRaw });
+  assert.equal(result.status, "PL_DUPLICATE_ENTITY_PERIOD_DETECTED");
+  assert.equal(result.duplicateFileCount, 0);
+  assert.equal(result.duplicateEntityPeriodCount, 1);
+  const preview = buildFinancialLocalPreview(result);
+  assert.equal(preview.status, "PL_DUPLICATE_ENTITY_PERIOD_DETECTED");
+  assert.equal(preview.entityCandidateCount, 0);
+  assert.equal(preview.salesManYen, null);
+  assert.deepEqual(preview.rows, []);
+  assert.equal(preview.importActionEnabled, false);
+});
+
 test("P/L local preview selects the latest fiscal period and does not add prior years", async () => {
   const makePeriodWorkbook = (startYear, endYear, amount) => workbook([
     row(1, ["帳票名：残高試算表(年間推移)"]),
@@ -351,11 +407,32 @@ test("B/S intake requires exact balanced assets, liabilities, and equity", async
   assert.equal(ng.balanceCheck, "IMBALANCED");
 });
 
+test("B/S duplicate workbook bytes suppress all balance amounts", async () => {
+  const balanced = workbook([
+    row(1, ["帳票名：残高試算表(年間推移)"]),
+    row(5, ["集計期間：令和07年09月01日", "令和08年08月31日"]),
+    row(8, ["勘定科目", ...months]),
+    row(9, ["資産合計", ...months.map(() => 1_000_000)]),
+    row(10, ["負債合計", ...months.map(() => 400_000)]),
+    row(11, ["純資産合計", ...months.map(() => 600_000)]),
+  ], "貸･IDEA NOV");
+  const result = await validateFinancialWorkbookFiles([
+    workbookFile("balance-a.xlsx", balanced),
+    workbookFile("balance-copy.xlsx", balanced),
+  ], "BS", { inflateRaw });
+  assert.equal(result.status, "BS_DUPLICATE_FILE_DETECTED");
+  const preview = buildFinancialLocalPreview(result);
+  assert.equal(preview.balanceCheck, "NOT_READY");
+  assert.equal(preview.balancedEntityCount, 0);
+  assert.deepEqual(preview.rows, []);
+  assert.equal(preview.importActionEnabled, false);
+});
+
 test("Management app integrates financial data intake without runtime upload", () => {
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=22091fe81174b8ae/);
+  assert.match(app, /financial-data-intake\.js\?v=42a59805ec26303b/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);
@@ -367,6 +444,9 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(app, /合計・本部・FC・共通シートは含みません/);
   assert.match(app, /データ月候補/);
   assert.match(app, /月不足/);
+  assert.match(app, /重複ファイル/);
+  assert.match(app, /PL_DUPLICATE_FILE_DETECTED/);
+  assert.doesNotMatch(app, /\.\.\.value/);
   assert.match(app, /renderFinancialPreviewEmpty/);
   assert.match(app, /仮対応・経理確認前/);
   assert.match(app, /過年度/);
@@ -377,6 +457,8 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(styles, /\.financial-mapping-review/);
   assert.match(financialIntake, /経理確認用CSVを保存/);
   assert.match(financialIntake, /ACCOUNTING_CONFIRMATION_PENDING/);
+  assert.match(financialIntake, /DUPLICATE_ENTITY_PERIOD_DETECTED/);
+  assert.match(financialIntake, /sha256Identity/);
   assert.match(styles, /\.financial-local-preview-card/);
   assert.match(styles, /\.financial-local-preview-card\.is-empty/);
   assert.doesNotMatch(app, /financialDataIntake[\s\S]{0,240}(upload|importAction|mutation|storage)/i);

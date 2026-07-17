@@ -2,7 +2,7 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
-import { renderFinancialDataIntake } from "./financial-data-intake.js?v=22091fe81174b8ae";
+import { renderFinancialDataIntake } from "./financial-data-intake.js?v=42a59805ec26303b";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=a9c05abbcad54a84";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
@@ -196,11 +196,12 @@ function renderDataops() {
 function sanitizeFinancialPreview(value) {
   if (!value || value.schemaVersion !== "management-financial-local-preview-v1" || !["PL", "BS"].includes(value.statement)) return null;
   if (value.statement === "BS") return sanitizeBalanceSheetPreview(value);
+  const amount = (input) => input !== null && input !== undefined && Number.isFinite(Number(input)) ? Number(input) : null;
   const mappingStatus = (status) => status === "READY" || status === "LOCAL_CANDIDATE_APPLIED" ? status : "MAPPING_REQUIRED";
   const rows = Array.isArray(value.rows) ? value.rows.slice(0, 80).map((row) => ({
     entityName: String(row.entityName || "未判定").slice(0, 80),
-    salesManYen: Number.isFinite(Number(row.salesManYen)) ? Number(row.salesManYen) : null,
-    ordinaryProfitManYen: Number.isFinite(Number(row.ordinaryProfitManYen)) ? Number(row.ordinaryProfitManYen) : null,
+    salesManYen: amount(row.salesManYen),
+    ordinaryProfitManYen: amount(row.ordinaryProfitManYen),
     dataThroughMonthLabel: String(row.dataThroughMonthLabel || "確認待ち").slice(0, 24),
     activeMonthCount: Number.isInteger(Number(row.activeMonthCount)) ? Math.max(0, Math.min(12, Number(row.activeMonthCount))) : 0,
     mappingStatus: mappingStatus(row.mappingStatus),
@@ -224,12 +225,20 @@ function sanitizeFinancialPreview(value) {
     storeCandidateCount: Number.isInteger(Number(row.storeCandidateCount)) ? Math.max(0, Number(row.storeCandidateCount)) : 0,
     reviewCandidateCount: Number.isInteger(Number(row.reviewCandidateCount)) ? Math.max(0, Number(row.reviewCandidateCount)) : 0,
     dataMonthShortfallCount: Number.isInteger(Number(row.dataMonthShortfallCount)) ? Math.max(0, Number(row.dataMonthShortfallCount)) : 0,
-    salesManYen: Number.isFinite(Number(row.salesManYen)) ? Number(row.salesManYen) : null,
-    ordinaryProfitManYen: Number.isFinite(Number(row.ordinaryProfitManYen)) ? Number(row.ordinaryProfitManYen) : null,
+    salesManYen: amount(row.salesManYen),
+    ordinaryProfitManYen: amount(row.ordinaryProfitManYen),
     mappingStatus: mappingStatus(row.mappingStatus),
   })) : [];
+  const allowedStatuses = new Set([
+    "PL_LOCAL_READY",
+    "PL_LOCAL_VALIDATED_PENDING_MAPPING",
+    "PL_DUPLICATE_FILE_DETECTED",
+    "PL_DUPLICATE_ENTITY_PERIOD_DETECTED",
+  ]);
   return {
-    ...value,
+    schemaVersion: "management-financial-local-preview-v1",
+    statement: "PL",
+    status: allowedStatuses.has(value.status) ? value.status : "PL_NOT_READY",
     rows,
     reviewRows,
     periodComparisonRows,
@@ -242,17 +251,22 @@ function sanitizeFinancialPreview(value) {
     normalizedRecordCount: Number.isInteger(Number(value.normalizedRecordCount)) ? Math.max(0, Number(value.normalizedRecordCount)) : 0,
     totalNormalizedRecordCount: Number.isInteger(Number(value.totalNormalizedRecordCount)) ? Math.max(0, Number(value.totalNormalizedRecordCount)) : 0,
     completionPendingCount: Number.isInteger(Number(value.completionPendingCount)) ? Math.max(0, Number(value.completionPendingCount)) : 0,
+    aggregateExcludedSheetCount: Number.isInteger(Number(value.aggregateExcludedSheetCount)) ? Math.max(0, Number(value.aggregateExcludedSheetCount)) : 0,
+    mappingRequiredAccountCount: Number.isInteger(Number(value.mappingRequiredAccountCount)) ? Math.max(0, Number(value.mappingRequiredAccountCount)) : 0,
+    mappingCandidateAccountCount: Number.isInteger(Number(value.mappingCandidateAccountCount)) ? Math.max(0, Number(value.mappingCandidateAccountCount)) : 0,
+    duplicateFileCount: Number.isInteger(Number(value.duplicateFileCount)) ? Math.max(0, Number(value.duplicateFileCount)) : 0,
+    duplicateEntityPeriodCount: Number.isInteger(Number(value.duplicateEntityPeriodCount)) ? Math.max(0, Number(value.duplicateEntityPeriodCount)) : 0,
     comparisonRangeLabel: String(value.comparisonRangeLabel || "データ月確認待ち").slice(0, 64),
     comparisonMonthCount: Number.isInteger(Number(value.comparisonMonthCount)) ? Math.max(0, Math.min(12, Number(value.comparisonMonthCount))) : 0,
     dataMonthShortfallCount: Number.isInteger(Number(value.dataMonthShortfallCount)) ? Math.max(0, Number(value.dataMonthShortfallCount)) : 0,
-    salesManYen: Number.isFinite(Number(value.salesManYen)) ? Number(value.salesManYen) : null,
-    ordinaryProfitManYen: Number.isFinite(Number(value.ordinaryProfitManYen)) ? Number(value.ordinaryProfitManYen) : null,
+    salesManYen: amount(value.salesManYen),
+    ordinaryProfitManYen: amount(value.ordinaryProfitManYen),
     importActionEnabled: false,
   };
 }
 
 function sanitizeBalanceSheetPreview(value) {
-  const amount = (input) => Number.isFinite(Number(input)) ? Number(input) : null;
+  const amount = (input) => input !== null && input !== undefined && Number.isFinite(Number(input)) ? Number(input) : null;
   const rows = Array.isArray(value.rows) ? value.rows.slice(0, 80).map((row) => ({
     entityName: String(row.entityName || "未判定").slice(0, 80),
     assetsManYen: amount(row.assetsManYen),
@@ -265,7 +279,7 @@ function sanitizeBalanceSheetPreview(value) {
   return {
     schemaVersion: value.schemaVersion,
     statement: "BS",
-    status: value.status === "BS_LOCAL_READY" ? "BS_LOCAL_READY" : "BS_NOT_READY",
+    status: ["BS_LOCAL_READY", "BS_DUPLICATE_FILE_DETECTED", "BS_DUPLICATE_ENTITY_PERIOD_DETECTED"].includes(value.status) ? value.status : "BS_NOT_READY",
     selectedPeriodLabel: String(value.selectedPeriodLabel || "対象期確認待ち").slice(0, 40),
     availablePeriodCount: Number.isInteger(Number(value.availablePeriodCount)) ? Math.max(1, Number(value.availablePeriodCount)) : 1,
     selectedPeriodSheetCount: Number.isInteger(Number(value.selectedPeriodSheetCount)) ? Math.max(0, Number(value.selectedPeriodSheetCount)) : rows.length,
@@ -275,10 +289,19 @@ function sanitizeBalanceSheetPreview(value) {
     balancedEntityCount: rows.filter((row) => row.balanceStatus === "BALANCED").length,
     normalizedRecordCount: Number.isInteger(Number(value.normalizedRecordCount)) ? Math.max(0, Number(value.normalizedRecordCount)) : 0,
     totalNormalizedRecordCount: Number.isInteger(Number(value.totalNormalizedRecordCount)) ? Math.max(0, Number(value.totalNormalizedRecordCount)) : 0,
+    duplicateFileCount: Number.isInteger(Number(value.duplicateFileCount)) ? Math.max(0, Number(value.duplicateFileCount)) : 0,
+    duplicateEntityPeriodCount: Number.isInteger(Number(value.duplicateEntityPeriodCount)) ? Math.max(0, Number(value.duplicateEntityPeriodCount)) : 0,
     balanceCheck: value.balanceCheck === "BALANCED" ? "BALANCED" : "NOT_READY",
     importActionEnabled: false,
     rows,
   };
+}
+
+function financialDuplicateMessage(preview) {
+  const fileCount = Number(preview?.duplicateFileCount || 0);
+  const entityPeriodCount = Number(preview?.duplicateEntityPeriodCount || 0);
+  if (fileCount <= 0 && entityPeriodCount <= 0) return "";
+  return `重複ファイル ${number.format(fileCount)}件 / 同一期・同一候補 ${number.format(entityPeriodCount)}件を検出したため、金額表示を停止しています。`;
 }
 
 function renderFinancialPreviewOverview() {
@@ -293,15 +316,16 @@ function renderFinancialPreviewOverview() {
 function buildPlOverviewPreview(preview) {
   const card = document.createElement("section");
   card.className = "financial-local-preview-card";
+  const duplicateMessage = financialDuplicateMessage(preview);
   const mapping = preview.mappingCandidateAccountCount > 0
     ? `候補mapping ${number.format(preview.mappingCandidateAccountCount)}件を仮対応（経理確認前）`
     : preview.mappingRequiredAccountCount > 0 ? "mapping確認あり" : "mapping確認OK";
   card.append(
     heading("ローカルP/Lプレビュー（本番未投入）"),
-    paragraph(`${preview.selectedPeriodLabel}を画面確認用に仮反映中。比較範囲 ${preview.comparisonRangeLabel}。店舗候補 ${number.format(preview.entityCandidateCount)}件 / 除外集計 ${number.format(preview.aggregateExcludedSheetCount || 0)}件 / ${mapping}。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
+    paragraph(duplicateMessage || `${preview.selectedPeriodLabel}を画面確認用に仮反映中。比較範囲 ${preview.comparisonRangeLabel}。店舗候補 ${number.format(preview.entityCandidateCount)}件 / 除外集計 ${number.format(preview.aggregateExcludedSheetCount || 0)}件 / ${mapping}。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
     previewMetricGrid([
-      ["店舗候補売上合計", `${number.format(preview.salesManYen)}万円`],
-      ["店舗候補経常損益", `${number.format(preview.ordinaryProfitManYen)}万円`],
+      ["店舗候補売上合計", preview.salesManYen == null ? "未算定" : `${number.format(preview.salesManYen)}万円`],
+      ["店舗候補経常損益", preview.ordinaryProfitManYen == null ? "未算定" : `${number.format(preview.ordinaryProfitManYen)}万円`],
       ["対象期レコード", `${number.format(preview.normalizedRecordCount || 0)}件`],
       ["本番投入", "disabled"],
     ])
@@ -314,6 +338,7 @@ function buildPlOverviewPreview(preview) {
 function buildBsOverviewPreview(preview) {
   const card = document.createElement("section");
   card.className = "financial-local-preview-card";
+  const duplicateMessage = financialDuplicateMessage(preview);
   const wrap = document.createElement("div");
   wrap.className = "table-wrap embedded local-preview-table";
   const table = document.createElement("table");
@@ -332,7 +357,7 @@ function buildBsOverviewPreview(preview) {
   wrap.append(table);
   card.append(
     heading("ローカルB/Sプレビュー（本番未投入）"),
-    paragraph(`${preview.selectedPeriodLabel}の最終月残高だけを表示しています。貸借一致 ${number.format(preview.balancedEntityCount)}/${number.format(preview.entityCandidateCount)}候補。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
+    paragraph(duplicateMessage || `${preview.selectedPeriodLabel}の最終月残高だけを表示しています。貸借一致 ${number.format(preview.balancedEntityCount)}/${number.format(preview.entityCandidateCount)}候補。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
     previewMetricGrid([
       ["法人候補", `${number.format(preview.entityCandidateCount)}件`],
       ["貸借一致", `${number.format(preview.balancedEntityCount)}件`],
@@ -350,6 +375,7 @@ function renderFinancialPreviewStores() {
   if (!preview) { renderFinancialPreviewEmpty(elements.financialPreviewStores, "店舗営業管理"); return; }
   const section = document.createElement("section");
   section.className = "financial-local-preview-card";
+  const duplicateMessage = financialDuplicateMessage(preview);
   const wrap = document.createElement("div");
   wrap.className = "table-wrap embedded local-preview-table";
   const table = document.createElement("table");
@@ -369,7 +395,7 @@ function renderFinancialPreviewStores() {
   wrap.append(table);
   section.append(
     heading("店舗営業管理へのローカルP/L反映（本番未投入）"),
-    paragraph(`${preview.selectedPeriodLabel}の店舗候補だけを仮表示しています。店舗候補 ${number.format(preview.entityCandidateCount || 0)}件 / 除外・要確認 ${number.format(preview.reviewCandidateCount || 0)}件。候補mappingは経理確認前で、DB保存・本番投入・個人情報表示はありません。`),
+    paragraph(duplicateMessage || `${preview.selectedPeriodLabel}の店舗候補だけを仮表示しています。店舗候補 ${number.format(preview.entityCandidateCount || 0)}件 / 除外・要確認 ${number.format(preview.reviewCandidateCount || 0)}件。候補mappingは経理確認前で、DB保存・本番投入・個人情報表示はありません。`),
     wrap
   );
   const comparison = buildPlPeriodComparison(preview, "年度別 店舗候補合計");

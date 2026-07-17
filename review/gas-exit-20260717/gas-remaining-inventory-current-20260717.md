@@ -37,7 +37,15 @@ The isolated Education branch contains local commits that:
 - add strict zero-GAS runtime/source fixtures;
 - add source-only Education read domain and HTTP boundary candidates.
 
-Latest local candidate commit at this audit stage: `039a445`.
+Fresh-rebased implementation commits at this audit stage:
+
+- `4acb9bb`: Education static zero-GAS source.
+- `60911d0`: tracked HUB GAS source retirement.
+- `a1783e3`: Education read-only domain boundary.
+- `f9d24fb`: Education read-only HTTP boundary.
+
+Baseline at the final local rebase: `origin/main`
+`0ee2e04c9f3727be8d4bfb73af8d947d07e60ff5`.
 
 No local candidate was pushed because fresh remote and shared HUB Core work both
 advanced.

@@ -658,6 +658,27 @@ export function buildFinancialSubmissionPackage(result) {
   };
 }
 
+export function buildFinancialReflectionSummary(result) {
+  const pkg = buildFinancialSubmissionPackage(result);
+  const groupStatus = Object.fromEntries(pkg.groups.map((group) => [group.key, group.category]));
+  return {
+    schemaVersion: "management-financial-reflection-summary-v1",
+    corporate: groupStatus.PL_PACKAGE === "LOCAL_PACKAGE_SECTION_READY" || groupStatus.BS_PACKAGE === "LOCAL_PACKAGE_SECTION_READY"
+      ? "LOCAL_PREVIEW_ACTIVE"
+      : "WAITING_FOR_SOURCE",
+    stores: groupStatus.STORE_PACKAGE === "LOCAL_PACKAGE_SECTION_READY" || groupStatus.PL_PACKAGE === "LOCAL_PACKAGE_SECTION_READY"
+      ? "LOCAL_PREVIEW_ACTIVE"
+      : "WAITING_FOR_SOURCE",
+    production: "DISABLED_PENDING_CONTRACT",
+    nextActionCategory: pkg.nextAction.category,
+    readyCount: pkg.readyCount,
+    totalCount: pkg.totalCount,
+    productionImportEnabled: false,
+    mutationCount: 0,
+    uploadCount: 0,
+  };
+}
+
 export function buildFinancialAccountingRequestMessage(result) {
   const pkg = buildFinancialSubmissionPackage(result);
   const checklist = Array.isArray(pkg.nextAction?.checklist) ? pkg.nextAction.checklist : [];
@@ -1250,6 +1271,7 @@ function setSubmissionPackage(container, result) {
   const pkg = buildFinancialSubmissionPackage(result);
   const message = buildFinancialAccountingRequestMessage(result);
   const impact = buildFinancialAccountingRequestImpact(result);
+  const reflection = buildFinancialReflectionSummary(result);
   const textFile = buildFinancialAccountingRequestText(result);
   const requestDownload = el(doc, "a", "financial-accounting-request-download", "確認依頼TXTを保存");
   requestDownload.dataset.financialAccountingRequestDownload = "true";
@@ -1266,6 +1288,20 @@ function setSubmissionPackage(container, result) {
         el(doc, "p", "", `${pkg.readyCount}/${pkg.totalCount} 項目をローカル確認済み。本番投入は無効です。`)
       ),
       el(doc, "span", "financial-completion-status", label)
+    ),
+    el(doc, "div", "financial-reflection-summary",
+      el(doc, "article", "",
+        el(doc, "span", "", "法人管理"),
+        el(doc, "strong", "", reflection.corporate === "LOCAL_PREVIEW_ACTIVE" ? "確認表示あり" : "資料待ち")
+      ),
+      el(doc, "article", "",
+        el(doc, "span", "", "店舗営業管理"),
+        el(doc, "strong", "", reflection.stores === "LOCAL_PREVIEW_ACTIVE" ? "確認表示あり" : "資料待ち")
+      ),
+      el(doc, "article", "",
+        el(doc, "span", "", "本番投入"),
+        el(doc, "strong", "", "disabled")
+      )
     ),
     el(doc, "div", "financial-submission-package-grid",
       ...pkg.groups.map((group) => el(doc, "article", "financial-submission-package-item",

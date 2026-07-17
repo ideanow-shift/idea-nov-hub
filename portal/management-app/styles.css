@@ -223,6 +223,11 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-submission-package-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .financial-submission-package-heading h4 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 500; }
 .financial-submission-package-heading p { margin: 5px 0 0; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
+.financial-reflection-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.financial-reflection-summary article { min-width: 0; padding: 8px 10px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.financial-reflection-summary span, .financial-reflection-summary strong { display: block; overflow-wrap: anywhere; }
+.financial-reflection-summary span { color: var(--text-secondary); font-size: 11px; }
+.financial-reflection-summary strong { margin-top: 2px; color: var(--text-primary); font-size: 12px; font-weight: 500; }
 .financial-submission-package-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
 .financial-submission-package-item { min-width: 0; padding: 9px 10px; background: #fff; border: 1px solid var(--border-light); border-radius: var(--radius-md); }
 .financial-submission-package-item strong, .financial-submission-package-item span { display: block; color: var(--text-primary); font-size: 12px; overflow-wrap: anywhere; }

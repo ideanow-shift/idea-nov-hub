@@ -1,14 +1,16 @@
 # CoreOS request: integrated zero-GAS source gate
 
 - Date: 2026-07-18
-- Shared HUB Core baseline: `fa99592859bca206688f75d7ff2a3e75fa8147d6`
-- Zero-GAS integration source commit: `f4d0b4a`
+- Authoritative GitHub baseline: `ebe0e6cdc6e0da41b96d25409d4d6864e6e38ed5`
+- Preserved HUB Core integration tip: `c1d3b55`
+- Zero-GAS integration source commit: `3a88161`
+- Review document commit before this SHA refresh: `5c3b3b6`
 - Push/publish/production access: 0
 
 ## Integrated result
 
 The isolated candidate starts from the latest remote plus the nine unpushed HUB
-Core commits. It then applies nine local zero-GAS commits. HR role release, LINE
+Core commits. It then applies ten local zero-GAS commits. HR role release, LINE
 WORKS readiness, Management, master-data intake, IDEA LINK, and NOV NAVI changes
 are preserved.
 
@@ -25,10 +27,10 @@ The candidate now has:
 ## Decision requested
 
 ```yaml
-integrated_source_candidate_f4d0b4a: review
+integrated_source_candidate_3a88161: review
 combined_commit_chain:
   hub_core_nine_commits: preserve
-  zero_gas_nine_commits: approve_for_normal_push
+  zero_gas_ten_commits: approve_for_normal_push
 force_push: prohibited
 production_select_precheck: separate_approval_requested
 production_dml: hold

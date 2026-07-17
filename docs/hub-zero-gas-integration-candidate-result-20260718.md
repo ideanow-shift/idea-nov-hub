@@ -1,7 +1,9 @@
 # HUB zero-GAS integration candidate result
 
 - Date: 2026-07-18
-- Baseline: shared HUB Core commit `fa99592859bca206688f75d7ff2a3e75fa8147d6`
+- Authoritative GitHub baseline: `ebe0e6cdc6e0da41b96d25409d4d6864e6e38ed5`
+- Preserved HUB Core integration tip: `c1d3b55`
+- Zero-GAS integration source commit: `3a88161`
 - Classification: `PRODUCTION_EVIDENCE_REQUIRED`
 - Push/publish/production mutation: 0
 

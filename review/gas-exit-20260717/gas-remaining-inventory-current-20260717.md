@@ -5,9 +5,15 @@
 - Audit mode: read-only; no push, publish, DML, Apps Script action, or Secret
   access
 
-## Fresh remote evidence
+## Historical fresh remote evidence
 
-Observed `origin/main`: `0ee2e04c9f3727be8d4bfb73af8d947d07e60ff5`
+Observed at the original audit: `origin/main`
+`0ee2e04c9f3727be8d4bfb73af8d947d07e60ff5`.
+
+This section is retained as historical evidence. The current integrated
+candidate was rebuilt on authoritative GitHub baseline
+`ebe0e6cdc6e0da41b96d25409d4d6864e6e38ed5`, preserves the HUB Core integration
+through `c1d3b55`, and contains the zero-GAS source integration at `3a88161`.
 
 The fresh remote still contains these GAS dependencies:
 
@@ -47,8 +53,9 @@ Fresh-rebased implementation commits at this audit stage:
 Baseline at the final local rebase: `origin/main`
 `0ee2e04c9f3727be8d4bfb73af8d947d07e60ff5`.
 
-No local candidate was pushed because fresh remote and shared HUB Core work both
-advanced.
+Those historical candidates were not pushed. Their behavior was rebuilt in the
+current isolated integration candidate; no production push, publish, database
+mutation, or Apps Script action has been performed.
 
 ## Required final cutover gates
 

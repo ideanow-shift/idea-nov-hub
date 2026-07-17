@@ -2,10 +2,11 @@
 
 ## Scope
 
-This source-only runner prepares two production catalog checks without executing them:
+This source-only runner prepares three production checks without executing them:
 
 - LINE WORKS employee destination table/RPC/RLS boundary inventory
 - Data Intake employee/store/corporation/audit catalog readiness inventory
+- HR role/login coverage aggregate inventory
 
 The SQL reads catalog metadata only. It does not read employee rows, destination IDs, CSV contents, or business records.
 
@@ -17,6 +18,7 @@ Contracts:
 
 - `line-works`
 - `data-intake`
+- `hr-role-coverage`
 
 Default invocation is validation-only. Production execution requires all of the following:
 
@@ -34,6 +36,7 @@ The runner captures CLI stdout/stderr in temporary files, returns only fixed boo
 
 - LINE WORKS normalized SHA-256: `992E37261B93810C0C4B8F55D3FEF94A8BCF19E8ADEEDB9F5C2BA80432259F0E`
 - Data Intake normalized SHA-256: `85E433A97A6CA24BF3048B9D82E6BBB8C57DB8C670606C1579F79DEA3CFBBBDF`
+- HR role coverage normalized SHA-256: `B88D6EBEE184EE63928D962CDA3215D51C5A845B84ACAE217CA3CF00362E5C12`
 
 ## Stop boundary
 

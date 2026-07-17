@@ -1,6 +1,6 @@
 param(
   [Parameter(Mandatory = $true)]
-  [ValidateSet("line-works", "data-intake")]
+  [ValidateSet("line-works", "data-intake", "hr-role-coverage")]
   [string]$Contract,
 
   [switch]$Execute
@@ -13,7 +13,7 @@ $ErrorActionPreference = "Stop"
 # marker are supplied. It never prints raw CLI output or project identifiers.
 $ExpectedCliVersion = "2.109.1"
 $ExpectedProjectRefSha256 = "D5C7FC778E9AAEE37351272C5659ED02534968A0C68DE2BA826C4FEC1CBD1EF4"
-$ApprovalMarker = "HUB_CORE_SELECT_ONLY_20260717"
+$ApprovalMarker = "HUB_CORE_SELECT_ONLY_20260718"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 
 $Contracts = @{
@@ -39,6 +39,12 @@ $Contracts = @{
       "rls_forced_table_count", "browser_write_privilege_count",
       "business_profile_table_count"
     )
+  }
+  "hr-role-coverage" = @{
+    Sql = "supabase\hub-hr-role-coverage-select-only-precheck-20260718.sql"
+    Validator = "tools\validate_hub_hr_role_coverage_precheck_20260718.mjs"
+    SqlSha = "B88D6EBEE184EE63928D962CDA3215D51C5A845B84ACAE217CA3CF00362E5C12"
+    ResultFields = @("active_hr_role_definition_count", "active_hr_role_assignment_count", "distinct_assigned_employee_count", "active_assigned_employee_count", "login_ready_employee_count", "missing_credential_count", "login_disabled_count", "currently_locked_count", "duplicate_active_assignment_group_count", "all_scope_assignment_count")
   }
 }
 

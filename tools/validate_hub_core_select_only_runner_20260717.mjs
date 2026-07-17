@@ -14,14 +14,15 @@ const checks = {
   projectIdentityPinned: runner.includes("ExpectedProjectRefSha256") && runner.includes("production_target_identity_mismatch"),
   sqlHashesPinned: [
     "992E37261B93810C0C4B8F55D3FEF94A8BCF19E8ADEEDB9F5C2BA80432259F0E",
-    "85E433A97A6CA24BF3048B9D82E6BBB8C57DB8C670606C1579F79DEA3CFBBBDF"
+    "85E433A97A6CA24BF3048B9D82E6BBB8C57DB8C670606C1579F79DEA3CFBBBDF",
+    "B88D6EBEE184EE63928D962CDA3215D51C5A845B84ACAE217CA3CF00362E5C12"
   ].every((value) => runner.includes(value)),
   cliVersionPinned: runner.includes('$ExpectedCliVersion = "2.109.1"'),
   linkedOnly: runner.includes("db query --linked") && runner.includes("supabase\\.temp\\project-ref"),
   rawOutputNotPrinted: !/Write-Output\s+\$?(raw|parsed|row|projectRef)/i.test(runner),
   tempOutputRemoved: runner.includes("Remove-Item -LiteralPath $stdoutPath") && runner.includes("Remove-Item -LiteralPath $stderrPath"),
   mutationReportedFalse: runner.includes('mutationExecuted = $false'),
-  twoContractsFixed: runner.includes('"line-works"') && runner.includes('"data-intake"')
+  threeContractsFixed: ["line-works", "data-intake", "hr-role-coverage"].every((value) => runner.includes(`"${value}"`))
 };
 
 const failedChecks = Object.entries(checks).filter(([, ok]) => !ok).map(([name]) => name);

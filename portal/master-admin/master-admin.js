@@ -2147,7 +2147,7 @@ function getSearchText(row) {
     .map(([, value]) => value);
   if ("employee_id" in row) {
     values.push(...getEmployeeIssues(row), formatEmployeeAffiliation(row), getEmployeeStatusLabel(row), row.job_type_name);
-    if (isCurrentEmployee(row) && !row.firebase_uid) values.push("Firebase未連携", "Firebase");
+    if (isCurrentEmployee(row) && !row.firebase_uid) values.push("Firebase UID未連携", "Firebase UID", "Firebase");
     if (Array.isArray(row.role_keys)) {
       values.push(...row.role_keys, ...row.role_keys.map(formatRoleLabel));
     }
@@ -2524,7 +2524,7 @@ function render() {
     corporations: "法人マスタ",
     apps: "アプリ管理",
     permissions: "アプリ別権限",
-    firebase: "Firebase未連携",
+    firebase: "Firebase UID未連携",
     logs: "変更履歴",
     readiness: "HUB連携準備",
     "data-intake": "データ入力"
@@ -2704,7 +2704,7 @@ function renderQualitySummary() {
     chip.className = "summary-chip" + (tone ? " " + tone : "") + (isActive ? " active" : "");
     chip.textContent = label + ": " + count;
     chip.addEventListener("click", () => {
-      if (label === "Firebase未連携") {
+      if (label === "Firebase未連携" || label === "Firebase UID未連携") {
         state.view = "firebase";
         state.selectedId = "";
         state.employeeIssueFilter = "";
@@ -2745,7 +2745,7 @@ function getSummaryIssueValue(label) {
 
 function getSummarySearchValue(label) {
   return label
-    .replace("Firebase未連携", "Firebase")
+    .replace("Firebase未連携", "Firebase UID")
     .replace("メール任意未入力", "")
     .replace("共通ロール未設定", "共通ロール")
     .replace("HUB権限未設定", "共通ロール")
@@ -2772,7 +2772,7 @@ function getQualitySummaryItems() {
       { label: "ロック中", count: currentEmployees.filter((employee) => getEmployeeCredential(employee).locked).length, tone: "warning" },
       { label: "雇用形態未設定", count: issueCounts["雇用形態"] || 0, tone: "warning" },
       { label: "状態未設定", count: issueCounts["現職/休職/退職"] || 0, tone: "warning" },
-      { label: "Firebase未連携", count: currentEmployees.filter((employee) => !employee.firebase_uid).length, tone: "info" }
+      { label: "Firebase UID未連携", count: currentEmployees.filter((employee) => !employee.firebase_uid).length, tone: "info" }
     ];
   }
   if (state.view === "stores") {
@@ -2878,7 +2878,7 @@ function getHubReadinessItems() {
       label: "Firebase UID連携",
       count: `${firebaseMissingCount}件`,
       detail: "HUBでログインユーザー本人を社員台帳へ紐づけるためのUID連携です。",
-      nextAction: firebaseMissingCount ? "Firebase未連携タブで順次連携" : "共通ロール判定へ進行可能"
+      nextAction: firebaseMissingCount ? "Firebase UID未連携タブで順次連携" : "共通ロール判定へ進行可能"
     },
     {
       readiness_key: "store_core",
@@ -3283,7 +3283,7 @@ function renderReadinessDetail() {
         <ol>
           <li>所属・役職・共通ロールの未設定を確認する</li>
           <li>PINとログイン可否を確認する</li>
-          <li>Firebase未連携を確認する</li>
+          <li>Firebase UID未連携を確認する</li>
           <li>店舗マスタと変更履歴を確認する</li>
         </ol>
       </div>
@@ -3311,7 +3311,7 @@ function renderReadinessShortcut(item) {
     employee_core: ["employees", "missing", "社員タブの未設定ありを見る"],
     employee_email: ["employees", "", "社員タブを見る"],
     employee_roles: ["employees", "共通ロール", "社員タブで共通ロール未設定を見る"],
-    firebase_link: ["firebase", "", "Firebase未連携を見る"],
+    firebase_link: ["firebase", "", "Firebase UID未連携を見る"],
     store_core: ["stores", "missing", "店舗タブの未設定ありを見る"],
     store_reference: ["stores", "", "店舗タブを見る"],
     change_logs: ["logs", "", "変更履歴を見る"]

@@ -56,8 +56,8 @@
   <main class="admin-shell">
     <section class="auth-panel" id="auth-panel">
       <h2>管理者ログイン</h2>
-      <p>Firebaseログイン済みの管理者だけが利用できます。</p>
-      <button class="button button-primary" id="sign-in" type="button">Googleでログイン</button>
+      <p>NOV HUBから開いた場合はHUBログインで利用できます。直接開いた場合のみGoogleで管理者確認を行います。</p>
+      <button class="button button-primary" id="sign-in" type="button">Googleで管理者確認</button>
     </section>
 
     <section class="loading-panel" id="loading-panel" hidden>
@@ -77,7 +77,7 @@
           <button class="segmented" data-view="corporations" type="button">法人</button>
           <button class="segmented" data-view="apps" type="button">アプリ</button>
           <button class="segmented" data-view="permissions" type="button">権限</button>
-          <button class="segmented" data-view="firebase" type="button">Firebase未連携</button>
+          <button class="segmented" data-view="firebase" type="button">Firebase UID未連携</button>
           <button class="segmented" data-view="logs" type="button">変更履歴</button>
           <button class="segmented" data-view="readiness" type="button">HUB連携準備</button>
           <button class="segmented" data-view="data-intake" type="button">データ入力</button>
@@ -140,6 +140,6 @@
   </main>
 
   <div class="toast" id="toast" role="status" hidden></div>
-  <script type="module" src="../master-admin/master-admin.js?v=master-admin-data-intake-20260717-1"></script>
+  <script type="module" src="../master-admin/master-admin.js?v=master-admin-auth-label-20260717-1"></script>
 </body>
 </html>

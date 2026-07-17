@@ -191,6 +191,7 @@ async function loadStores() {
 function renderStores() {
   const data = state.stores || {}; const stores = Array.isArray(data.stores) ? data.stores : [];
   const localPl = localPlStoreSummary();
+  const localPlRowsByStore = localPlStoreRowsByNormalizedName();
   elements.storeScope.textContent = scopeLabel(data.phase0Scope);
   mountWorkforceEvidenceStatus(elements.workforceEvidence);
   renderMetrics(elements.storeKpis, [
@@ -201,7 +202,13 @@ function renderStores() {
     ["scope", scopeLabel(data.phase0Scope)],
   ]);
   renderFinancialPreviewStores();
-  elements.storeRows.replaceChildren(...(stores.length ? stores.map((row) => tableRow([row.name, row.corporationName, workforceMetric(row.staffCount), row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.salesManYen || 0)}万円`, row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.targetAchievementPercent || 0)}%`, row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "接続済み"])) : [emptyRow(6, "表示できる店舗がありません")]));
+  elements.storeRows.replaceChildren(...(stores.length ? stores.map((row) => {
+    const localRow = localPlRowsByStore.get(normalizeStoreCandidateName(row.name));
+    const salesText = localRow ? `P/L ${number.format(Math.round(localRow.salesManYen || 0))}万円` : row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.salesManYen || 0)}万円`;
+    const targetText = localRow ? `損益 ${number.format(Math.round(localRow.ordinaryProfitManYen || 0))}万円` : row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.targetAchievementPercent || 0)}%`;
+    const statusText = localRow ? "ローカルP/L候補（本番未投入）" : row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "接続済み";
+    return tableRow([row.name, row.corporationName, workforceMetric(row.staffCount), salesText, targetText, statusText]);
+  }) : [emptyRow(6, "表示できる店舗がありません")]));
   renderCsvRequirements(elements.csvRequirements, data.requiredCsvFiles, {
     onReceipt: (receipt) => {
       state.localEvidence.storeCsvReceipt = receipt || null;
@@ -220,6 +227,22 @@ function localPlStoreSummary() {
     salesManYen: rows.reduce((sum, row) => sum + (Number.isFinite(Number(row.salesManYen)) ? Number(row.salesManYen) : 0), 0),
     ordinaryProfitManYen: rows.reduce((sum, row) => sum + (Number.isFinite(Number(row.ordinaryProfitManYen)) ? Number(row.ordinaryProfitManYen) : 0), 0),
   };
+}
+
+function localPlStoreRowsByNormalizedName() {
+  const preview = state.financialPreviews.PL;
+  const rows = Array.isArray(preview?.rows) ? preview.rows : [];
+  return new Map(rows
+    .filter((row) => row.entityCategory === "STORE_CANDIDATE")
+    .map((row) => [normalizeStoreCandidateName(row.entityName), row])
+    .filter(([key]) => key));
+}
+
+function normalizeStoreCandidateName(value) {
+  return String(value || "")
+    .replace(/^損[･・\s]*/u, "")
+    .replace(/\s+/gu, "")
+    .trim();
 }
 
 async function loadDataops() {

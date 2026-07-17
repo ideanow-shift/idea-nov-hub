@@ -176,7 +176,7 @@ test("renderer exposes local download and validation without runtime action", as
 test("active Management app integrates display only", () => {
   assert.match(html, /id="csv-requirements"/);
   assert.match(html, /app-v2\.js\?v=531cac85848f219a/);
-  assert.match(html, /styles\.css\?v=cd14fcfe8fcf5512/);
+  assert.match(html, /styles\.css\?v=0c5e000f2ef286f6/);
   assert.match(app, /store-csv-requirements\.js\?v=a9c05abbcad54a84/);
   assert.match(app, /renderCsvRequirements\(elements\.csvRequirements, data\.requiredCsvFiles\)/);
   assert.doesNotMatch(app, /csvRequirements[\s\S]{0,240}(upload|submit|import|mutation)/i);

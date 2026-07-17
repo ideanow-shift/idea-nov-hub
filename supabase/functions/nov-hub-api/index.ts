@@ -2509,14 +2509,14 @@ function fixedApps(employee: JsonRecord) {
 
 function canViewMasterAdmin(employee: JsonRecord) {
   const roleKeys = normalizeList(employee.roleKeys);
-  return roleKeys.some((role) => ["super_admin", "executive", "department_manager", "backoffice", "accounting"].includes(role))
+  return roleKeys.some((role) => ["super_admin", "executive", "department_manager", "backoffice", "accounting", "hr.staff", "hr.admin"].includes(role))
     || Number(employee.roleLevel || 0) >= 5
     || normalizeEmail(employee.email) === "m.wakita@idea-nov.com";
 }
 
 function canEditMasterAdmin(employee: JsonRecord) {
   const roleKeys = normalizeList(employee.roleKeys);
-  return roleKeys.some((role) => ["super_admin", "backoffice"].includes(role))
+  return roleKeys.some((role) => ["super_admin", "backoffice", "hr.staff", "hr.admin"].includes(role))
     || normalizeEmail(employee.email) === "m.wakita@idea-nov.com";
 }
 

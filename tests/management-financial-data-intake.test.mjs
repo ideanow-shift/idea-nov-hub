@@ -208,6 +208,60 @@ test("supplemental local receipt updates only the matching completion requiremen
   assert.equal(forged.find((item) => item.key === "UTILITY_SUBLEDGER").status, "SOURCE_REQUIRED");
 });
 
+test("store CSV local receipt updates only the sales subledger requirement", () => {
+  const receipt = {
+    schemaVersion: "management-store-csv-local-validation-v1",
+    status: "LOCAL_FILES_READY",
+    files: [
+      { kind: "STORE_MONTHLY_SALES", category: "VALID", rowCount: 12 },
+      { kind: "STORE_DAILY_SALES", category: "VALID", rowCount: 31 },
+      { kind: "STORE_RESERVATIONS", category: "VALID", rowCount: 31 },
+    ],
+  };
+  const completion = buildFinancialCompletionItems({ localStoreCsvReceipt: receipt });
+  assert.equal(completion.find((item) => item.key === "SALES_SUBLEDGER").status, "LOCAL_EVIDENCE_RECEIVED");
+  assert.match(completion.find((item) => item.key === "SALES_SUBLEDGER").detail, /本番照合は未実行/u);
+  assert.equal(completion.find((item) => item.key === "UTILITY_SUBLEDGER").status, "SOURCE_REQUIRED");
+  assert.equal(completion.find((item) => item.key === "PL_ANNUAL_REPORT").status, "SOURCE_REQUIRED");
+  const forged = buildFinancialCompletionItems({ localStoreCsvReceipt: { ...receipt, files: receipt.files.slice(0, 2) } });
+  assert.equal(forged.find((item) => item.key === "SALES_SUBLEDGER").status, "SOURCE_REQUIRED");
+});
+
+test("financial intake accepts external store CSV evidence without enabling production import", () => {
+  const createElement = (tagName) => ({ tagName, textContent: "", className: "", href: "", download: "", type: "", accept: "", disabled: false, readOnly: false, multiple: false, hidden: false, value: "", dataset: {}, attributes: {}, children: [], listeners: {}, append(...children) { this.children.push(...children); }, replaceChildren(...children) { this.children = children; }, setAttribute(name, value) { this.attributes[name] = value; }, removeAttribute(name) { delete this.attributes[name]; }, addEventListener(name, listener) { this.listeners[name] = listener; } });
+  const doc = { createElement };
+  const container = { dataset: {}, ownerDocument: doc, children: [], replaceChildren(...children) { this.children = children; }, querySelector(selector) {
+    const key = selector.match(/\[data-([^\]]+)\]/)?.[1]?.replace(/-([a-z])/g, (_, char) => char.toUpperCase());
+    const walk = (node) => {
+      if (key && node?.dataset && Object.hasOwn(node.dataset, key)) return node;
+      for (const child of node?.children || []) {
+        const found = walk(child);
+        if (found) return found;
+      }
+      return null;
+    };
+    return walk(this);
+  } };
+  assert.equal(renderFinancialDataIntake(container, { document: doc }), true);
+  assert.equal(typeof container.managementApplyFinancialExternalEvidence, "function");
+  container.managementApplyFinancialExternalEvidence({
+    localStoreCsvReceipt: {
+      schemaVersion: "management-store-csv-local-validation-v1",
+      status: "LOCAL_FILES_READY",
+      files: [
+        { kind: "STORE_MONTHLY_SALES", category: "VALID", rowCount: 1 },
+        { kind: "STORE_DAILY_SALES", category: "VALID", rowCount: 1 },
+        { kind: "STORE_RESERVATIONS", category: "VALID", rowCount: 1 },
+      ],
+    },
+  });
+  const list = container.querySelector("[data-financial-completion-list]");
+  const sales = list.children.find((item) => item.dataset.financialCompletionCategory === "SALES_SUBLEDGER");
+  assert.equal(sales.dataset.financialCompletionStatus, "LOCAL_EVIDENCE_RECEIVED");
+  assert.equal(container.dataset.financialIntakeMounted, "true");
+  assert.doesNotMatch(JSON.stringify(container), /upload|DB_INSERT|employeeId|sessionToken/i);
+});
+
 test("financial file collection enforces count and total-size limits before parsing", async () => {
   const tooMany = Array.from({ length: 13 }, (_, index) => ({
     name: `financial-${index}.xlsx`,
@@ -576,10 +630,10 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=f0e994717f93cb66/);
+  assert.match(app, /financial-data-intake\.js\?v=19e8566af4a590c3/);
   assert.match(financialIntake, /financial-supplemental-csv\.js\?v=7cacd43781126450/);
   assert.match(financialIntake, /renderFinancialSupplementalCsv\(supplemental/);
-  assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
+  assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake, \{ externalEvidence: financialExternalEvidence\(\) \}\)/);
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);
   assert.match(app, /renderFinancialPreviewStores/);

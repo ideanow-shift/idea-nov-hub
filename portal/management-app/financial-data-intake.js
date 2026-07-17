@@ -503,6 +503,7 @@ function hasExactLocalMappingEvidence(result) {
 }
 
 const SUPPLEMENTAL_COMPLETION_KEYS = Object.freeze(["UTILITY_SUBLEDGER", "COUPON_USAGE", "BUDGET_PLAN", "FC_RULE"]);
+const STORE_CSV_RECEIPT_KINDS = Object.freeze(["STORE_MONTHLY_SALES", "STORE_DAILY_SALES", "STORE_RESERVATIONS"]);
 
 function hasExactLocalSupplementalEvidence(result) {
   const evidence = result?.localSupplementalReceipt;
@@ -519,6 +520,20 @@ function hasExactLocalSupplementalEvidence(result) {
     && Number(evidence.uploadCount) === 0;
 }
 
+function hasExactLocalStoreCsvEvidence(result) {
+  const evidence = result?.localStoreCsvReceipt;
+  return evidence?.schemaVersion === "management-store-csv-local-validation-v1"
+    && evidence.status === "LOCAL_FILES_READY"
+    && Array.isArray(evidence.files)
+    && evidence.files.length === STORE_CSV_RECEIPT_KINDS.length
+    && evidence.files.every((file, index) => file
+      && Object.keys(file).length === 3
+      && file.kind === STORE_CSV_RECEIPT_KINDS[index]
+      && file.category === "VALID"
+      && Number.isSafeInteger(Number(file.rowCount))
+      && Number(file.rowCount) >= 1);
+}
+
 export function buildFinancialCompletionItems(result) {
   const receipt = buildFinancialIntakeReceipt(result);
   const statement = receipt?.statement || "";
@@ -530,6 +545,7 @@ export function buildFinancialCompletionItems(result) {
   const mappingCandidates = result?.mappingCandidatesByAccount || {};
   const bsReady = statement === "BS" && parsedLocally && receipt?.balanceCheck === "BALANCED" && receipt?.mappingRequiredAccountCount === 0;
   const supplementalReady = hasExactLocalSupplementalEvidence(result);
+  const storeCsvReady = hasExactLocalStoreCsvEvidence(result);
   return FINANCIAL_COMPLETION_REQUIREMENTS.map((requirement) => {
     let status = "SOURCE_REQUIRED";
     let detail = requirement.detail;
@@ -549,6 +565,10 @@ export function buildFinancialCompletionItems(result) {
     }
     if (requirement.key === "BALANCE_SHEET") {
       status = bsReady ? "LOCAL_VALIDATED" : statement === "BS" && parsedLocally ? "CHECK_REQUIRED" : "SOURCE_REQUIRED";
+    }
+    if (requirement.key === "SALES_SUBLEDGER") {
+      status = storeCsvReady ? "LOCAL_EVIDENCE_RECEIVED" : "SOURCE_REQUIRED";
+      if (storeCsvReady) detail = "店舗CSVをローカル検証済み（会計補助残高との本番照合は未実行）";
     }
     if (SUPPLEMENTAL_COMPLETION_KEYS.includes(requirement.key)) {
       status = supplementalReady ? "LOCAL_EVIDENCE_RECEIVED" : requirement.key === "FC_RULE" ? "RULE_REQUIRED" : "SOURCE_REQUIRED";
@@ -1193,6 +1213,14 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, mappingReview, completion, supplemental, preview);
   container.replaceChildren(section);
   let latestResult = hooks.initialResult || null;
+  container.managementApplyFinancialExternalEvidence = (evidence) => {
+    const nextResult = { ...(latestResult || {}) };
+    if (evidence?.localStoreCsvReceipt) nextResult.localStoreCsvReceipt = evidence.localStoreCsvReceipt;
+    else delete nextResult.localStoreCsvReceipt;
+    latestResult = nextResult;
+    setCompletionChecklist(container, latestResult);
+  };
+  if (hooks.externalEvidence) container.managementApplyFinancialExternalEvidence(hooks.externalEvidence);
   renderFinancialSupplementalCsv(supplemental, {
     document: doc,
     onReceipt: (receipt) => {
@@ -1220,12 +1248,12 @@ export function renderFinancialDataIntake(container, hooks = {}) {
       const parsed = source.value === "YAYOI"
         ? await validateFinancialWorkbookFiles(files, statement.value, hooks)
         : { status: "SOURCE_SYSTEM_UNSUPPORTED", statement: statement.value, previewRows: [], entityPreviewRows: [] };
-      latestResult = latestResult?.localSupplementalReceipt
-        ? { ...parsed, localSupplementalReceipt: latestResult.localSupplementalReceipt }
+      latestResult = latestResult?.localSupplementalReceipt || latestResult?.localStoreCsvReceipt
+        ? { ...parsed, localSupplementalReceipt: latestResult.localSupplementalReceipt, localStoreCsvReceipt: latestResult.localStoreCsvReceipt }
         : parsed;
-      setResult(container, parsed);
-      publishPreview(container, parsed);
-      const localPreview = buildFinancialLocalPreview(parsed);
+      setResult(container, latestResult);
+      publishPreview(container, latestResult);
+      const localPreview = buildFinancialLocalPreview(latestResult);
       fiscal.value = localPreview && !["対象期確認待ち", "重複確認待ち"].includes(localPreview.selectedPeriodLabel)
         ? localPreview.selectedPeriodLabel
         : "";

@@ -268,7 +268,9 @@ export function buildCsvRequirementsView(items) {
   });
 }
 
-export function renderCsvRequirements(container, items, documentRef = globalThis.document) {
+export function renderCsvRequirements(container, items, options = globalThis.document) {
+  const documentRef = options?.createElement ? options : options?.document || globalThis.document;
+  const onReceipt = typeof options?.onReceipt === "function" ? options.onReceipt : null;
   if (!container || !documentRef?.createElement) return false;
   const view = buildCsvRequirementsView(items);
   const heading = documentRef.createElement("h3");
@@ -300,6 +302,7 @@ export function renderCsvRequirements(container, items, documentRef = globalThis
     receipt.setAttribute("aria-disabled", allReady ? "false" : "true");
     if (localReceipt) receipt.href = validationReceiptHref(localReceipt);
     else receipt.removeAttribute("href");
+    if (onReceipt) onReceipt(localReceipt);
   };
   updateReadiness();
   const list = documentRef.createElement("div");

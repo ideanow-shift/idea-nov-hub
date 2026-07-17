@@ -173,11 +173,44 @@ test("renderer exposes local download and validation without runtime action", as
   assert.equal(renderCsvRequirements(null, SANITIZED_CSV_REQUIREMENTS, { createElement }), false);
 });
 
+test("renderer emits sanitized local receipt callback for Management finance bridge", async () => {
+  const createElement = (tagName) => ({ tagName, textContent: "", className: "", href: "", download: "", type: "", accept: "", hidden: false, value: "", files: [], attributes: {}, listeners: {}, children: [], dataset: {}, append(...children) { this.children.push(...children); }, setAttribute(name, value) { this.attributes[name] = value; }, removeAttribute(name) { delete this.attributes[name]; if (name === "href") this.href = ""; }, addEventListener(name, listener) { this.listeners[name] = listener; } });
+  const receipts = [];
+  const container = { dataset: {}, children: [], replaceChildren(...children) { this.children = children; } };
+  assert.equal(renderCsvRequirements(container, SANITIZED_CSV_REQUIREMENTS, { createElement, onReceipt: (receipt) => receipts.push(receipt) }), true);
+  assert.equal(receipts.at(-1), null);
+  const files = [
+    { name: "monthly.csv", size: 48, text: async () => "対象月,店舗,売上\n2026-07,店舗A,100\n" },
+    { name: "daily.csv", size: 80, text: async () => "営業日,店舗,売上,客数,客単価\n2026-07-01,店舗A,100,2,50\n" },
+    { name: "reservations.csv", size: 70, text: async () => "営業日,店舗,予約枠,予約数\n2026-07-01,店舗A,10,5\n" },
+  ];
+  for (let index = 0; index < 3; index += 1) {
+    const input = container.children[4].children[index].children[1].children[1].children[0];
+    input.files = [files[index]];
+    await input.listeners.change({ currentTarget: input });
+  }
+  assert.deepEqual(receipts.at(-1), {
+    schemaVersion: "management-store-csv-local-validation-v1",
+    status: "LOCAL_FILES_READY",
+    files: [
+      { kind: "STORE_MONTHLY_SALES", category: "VALID", rowCount: 1 },
+      { kind: "STORE_DAILY_SALES", category: "VALID", rowCount: 1 },
+      { kind: "STORE_RESERVATIONS", category: "VALID", rowCount: 1 },
+    ],
+  });
+  assert.doesNotMatch(JSON.stringify(receipts.at(-1)), /店舗A|private|digest/i);
+  const firstInput = container.children[4].children[0].children[1].children[1].children[0];
+  firstInput.files = [{ name: "monthly-invalid.csv", size: 40, text: async () => "対象月,店舗,売上\n2026-13,店舗A,100\n" }];
+  await firstInput.listeners.change({ currentTarget: firstInput });
+  assert.equal(receipts.at(-1), null);
+});
+
 test("active Management app integrates display only", () => {
   assert.match(html, /id="csv-requirements"/);
-  assert.match(html, /app-v2\.js\?v=54f5232d0025e10c/);
+  assert.match(html, /app-v2\.js\?v=aeffaee792ab3aef/);
   assert.match(html, /styles\.css\?v=17c7282346003617/);
-  assert.match(app, /store-csv-requirements\.js\?v=a9c05abbcad54a84/);
-  assert.match(app, /renderCsvRequirements\(elements\.csvRequirements, data\.requiredCsvFiles\)/);
+  assert.match(app, /store-csv-requirements\.js\?v=9d6bb401afd343fb/);
+  assert.match(app, /renderCsvRequirements\(elements\.csvRequirements, data\.requiredCsvFiles, \{/);
+  assert.match(app, /localStoreCsvReceipt/);
   assert.doesNotMatch(app, /csvRequirements[\s\S]{0,240}(upload|submit|import|mutation)/i);
 });

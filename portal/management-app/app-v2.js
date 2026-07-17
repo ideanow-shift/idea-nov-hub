@@ -2,13 +2,13 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
-import { renderFinancialDataIntake } from "./financial-data-intake.js?v=f0e994717f93cb66";
-import { renderCsvRequirements } from "./store-csv-requirements.js?v=a9c05abbcad54a84";
+import { renderFinancialDataIntake } from "./financial-data-intake.js?v=19e8566af4a590c3";
+import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
 const CORPORATE_VIEWS = new Set([...FINANCE_VIEWS, "dataops"]);
 const VIEWS = new Set([...CORPORATE_VIEWS, "stores"]);
-const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null }, charts: {} };
+const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null }, localEvidence: { storeCsvReceipt: null }, charts: {} };
 const number = new Intl.NumberFormat("ja-JP");
 const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 const colors = ["#b23a48", "#17324d", "#27795f", "#a36410", "#765487", "#337d8e", "#737b83"];
@@ -177,7 +177,12 @@ function renderStores() {
   renderMetrics(elements.storeKpis, [["表示店舗", `${data.storeCount || 0}店舗`], ["スタッフ", workforceMetric(data.staffCount, "人")], ["売上データ", stores.some((row) => row.dataReadiness !== "salonanswer_csv_waiting") ? "接続済み" : "CSV待ち"], ["scope", scopeLabel(data.phase0Scope)]]);
   renderFinancialPreviewStores();
   elements.storeRows.replaceChildren(...(stores.length ? stores.map((row) => tableRow([row.name, row.corporationName, workforceMetric(row.staffCount), row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.salesManYen || 0)}万円`, row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.targetAchievementPercent || 0)}%`, row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "接続済み"])) : [emptyRow(6, "表示できる店舗がありません")]));
-  renderCsvRequirements(elements.csvRequirements, data.requiredCsvFiles);
+  renderCsvRequirements(elements.csvRequirements, data.requiredCsvFiles, {
+    onReceipt: (receipt) => {
+      state.localEvidence.storeCsvReceipt = receipt || null;
+      applyFinancialExternalEvidence();
+    },
+  });
 }
 
 async function loadDataops() {
@@ -188,9 +193,19 @@ function renderDataops() {
   const data = state.dataops || {}; const counts = data.statusCounts || {};
   renderMetrics(elements.dataopsKpis, [["原本", `${counts.sourceDocuments || 0}件`], ["raw行", `${number.format(counts.accountingRawRows || 0)}行`], ["分類下書き", `${counts.classificationDraft || 0}件`], ["分類確認中", `${counts.classificationReview || 0}件`]]);
   mountManagementProductionReadiness(elements.productionReadiness);
-  renderFinancialDataIntake(elements.financialDataIntake);
+  renderFinancialDataIntake(elements.financialDataIntake, { externalEvidence: financialExternalEvidence() });
   elements.workflow.replaceChildren(...(data.workflow || []).map((step) => { const item = document.createElement("article"); item.className = "workflow-step"; item.append(heading(`${step.step}. ${step.title}`), paragraph(`${step.owner} / ${step.status}`)); return item; }));
   elements.stoppedItems.replaceChildren(heading("この画面から実行しない処理"), list(data.stoppedItems || []));
+}
+
+function financialExternalEvidence() {
+  return state.localEvidence.storeCsvReceipt ? { localStoreCsvReceipt: state.localEvidence.storeCsvReceipt } : {};
+}
+
+function applyFinancialExternalEvidence() {
+  if (typeof elements.financialDataIntake?.managementApplyFinancialExternalEvidence === "function") {
+    elements.financialDataIntake.managementApplyFinancialExternalEvidence(financialExternalEvidence());
+  }
 }
 
 function sanitizeFinancialPreview(value) {

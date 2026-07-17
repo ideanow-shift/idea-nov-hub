@@ -179,6 +179,7 @@ export function buildFinancialSupplementalReceipt(results) {
   return Object.freeze({
     schemaVersion: "management-financial-supplemental-local-v1",
     category: "LOCAL_SUPPLEMENTAL_FILES_READY",
+    validatedKinds: Object.freeze(FINANCIAL_SUPPLEMENTAL_DEFINITIONS.map((definition) => definition.key)),
     validatedFileCount: FINANCIAL_SUPPLEMENTAL_DEFINITIONS.length,
     validatedRowCount: [...byKey.values()].reduce((sum, item) => sum + item.rowCount, 0),
     productionImportReady: false,
@@ -242,6 +243,7 @@ export function renderFinancialSupplementalCsv(container, options = {}) {
       ? "ローカル検証 4/4 完了。本番取込は未承認です。"
       : `ローカル検証 ${validCount}/4`;
     readiness.dataset.financialSupplementalReady = receipt ? receipt.category : "NOT_READY";
+    if (typeof options.onReceipt === "function") options.onReceipt(receipt);
   };
   templates.forEach((template, index) => {
     const row = createElement(documentRef, "div", "financial-supplemental-row");

@@ -186,6 +186,28 @@ test("financial completion checklist stays fail-closed before file selection", (
   assert.doesNotMatch(exportFile.csv, /(金額|原本名|employeeId|sessionToken|Authorization|contentIdentity)/iu);
 });
 
+test("supplemental local receipt updates only the matching completion requirements", () => {
+  const receipt = {
+    schemaVersion: "management-financial-supplemental-local-v1",
+    category: "LOCAL_SUPPLEMENTAL_FILES_READY",
+    validatedKinds: ["UTILITY_SUBLEDGER", "COUPON_USAGE", "BUDGET_PLAN", "FC_RULE"],
+    validatedFileCount: 4,
+    validatedRowCount: 4,
+    productionImportReady: false,
+    mutationCount: 0,
+    uploadCount: 0,
+  };
+  const completion = buildFinancialCompletionItems({ localSupplementalReceipt: receipt });
+  const supplemental = completion.filter((item) => receipt.validatedKinds.includes(item.key));
+  assert.equal(supplemental.length, 4);
+  assert.ok(supplemental.every((item) => item.status === "LOCAL_EVIDENCE_RECEIVED"));
+  assert.ok(supplemental.every((item) => /本番未投入/u.test(item.detail)));
+  assert.equal(completion.find((item) => item.key === "SALES_SUBLEDGER").status, "SOURCE_REQUIRED");
+  const forged = buildFinancialCompletionItems({ localSupplementalReceipt: { ...receipt, validatedFileCount: 3 } });
+  assert.equal(forged.find((item) => item.key === "FC_RULE").status, "RULE_REQUIRED");
+  assert.equal(forged.find((item) => item.key === "UTILITY_SUBLEDGER").status, "SOURCE_REQUIRED");
+});
+
 test("financial file collection enforces count and total-size limits before parsing", async () => {
   const tooMany = Array.from({ length: 13 }, (_, index) => ({
     name: `financial-${index}.xlsx`,
@@ -554,8 +576,8 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=888b991082838788/);
-  assert.match(financialIntake, /financial-supplemental-csv\.js\?v=d3021671a16f375b/);
+  assert.match(app, /financial-data-intake\.js\?v=f0e994717f93cb66/);
+  assert.match(financialIntake, /financial-supplemental-csv\.js\?v=7cacd43781126450/);
   assert.match(financialIntake, /renderFinancialSupplementalCsv\(supplemental/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
   assert.match(app, /management-financial-local-preview/);

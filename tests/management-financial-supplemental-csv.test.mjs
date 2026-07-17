@@ -85,6 +85,7 @@ test("receipt contains only fixed categories and aggregate counts", () => {
   assert.deepEqual(receipt, {
     schemaVersion: "management-financial-supplemental-local-v1",
     category: "LOCAL_SUPPLEMENTAL_FILES_READY",
+    validatedKinds: ["UTILITY_SUBLEDGER", "COUPON_USAGE", "BUDGET_PLAN", "FC_RULE"],
     validatedFileCount: 4,
     validatedRowCount: 4,
     productionImportReady: false,

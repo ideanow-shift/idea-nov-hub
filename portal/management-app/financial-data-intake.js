@@ -1,4 +1,4 @@
-import { renderFinancialSupplementalCsv } from "./financial-supplemental-csv.js?v=d3021671a16f375b";
+import { renderFinancialSupplementalCsv } from "./financial-supplemental-csv.js?v=7cacd43781126450";
 
 const MONTH_LABEL_RE = /^(?:[1-9]|1[0-2])月度$/u;
 const MAX_FINANCIAL_FILE_BYTES = 25 * 1024 * 1024;
@@ -502,6 +502,23 @@ function hasExactLocalMappingEvidence(result) {
     && Number(evidence.rejectedCount) === 0;
 }
 
+const SUPPLEMENTAL_COMPLETION_KEYS = Object.freeze(["UTILITY_SUBLEDGER", "COUPON_USAGE", "BUDGET_PLAN", "FC_RULE"]);
+
+function hasExactLocalSupplementalEvidence(result) {
+  const evidence = result?.localSupplementalReceipt;
+  return evidence?.schemaVersion === "management-financial-supplemental-local-v1"
+    && evidence?.category === "LOCAL_SUPPLEMENTAL_FILES_READY"
+    && Array.isArray(evidence.validatedKinds)
+    && evidence.validatedKinds.length === SUPPLEMENTAL_COMPLETION_KEYS.length
+    && evidence.validatedKinds.every((key, index) => key === SUPPLEMENTAL_COMPLETION_KEYS[index])
+    && Number(evidence.validatedFileCount) === SUPPLEMENTAL_COMPLETION_KEYS.length
+    && Number.isSafeInteger(Number(evidence.validatedRowCount))
+    && Number(evidence.validatedRowCount) >= SUPPLEMENTAL_COMPLETION_KEYS.length
+    && evidence.productionImportReady === false
+    && Number(evidence.mutationCount) === 0
+    && Number(evidence.uploadCount) === 0;
+}
+
 export function buildFinancialCompletionItems(result) {
   const receipt = buildFinancialIntakeReceipt(result);
   const statement = receipt?.statement || "";
@@ -512,6 +529,7 @@ export function buildFinancialCompletionItems(result) {
   const missingAccounts = Object.keys(result?.missingByAccount || {});
   const mappingCandidates = result?.mappingCandidatesByAccount || {};
   const bsReady = statement === "BS" && parsedLocally && receipt?.balanceCheck === "BALANCED" && receipt?.mappingRequiredAccountCount === 0;
+  const supplementalReady = hasExactLocalSupplementalEvidence(result);
   return FINANCIAL_COMPLETION_REQUIREMENTS.map((requirement) => {
     let status = "SOURCE_REQUIRED";
     let detail = requirement.detail;
@@ -532,7 +550,10 @@ export function buildFinancialCompletionItems(result) {
     if (requirement.key === "BALANCE_SHEET") {
       status = bsReady ? "LOCAL_VALIDATED" : statement === "BS" && parsedLocally ? "CHECK_REQUIRED" : "SOURCE_REQUIRED";
     }
-    if (requirement.key === "FC_RULE") status = "RULE_REQUIRED";
+    if (SUPPLEMENTAL_COMPLETION_KEYS.includes(requirement.key)) {
+      status = supplementalReady ? "LOCAL_EVIDENCE_RECEIVED" : requirement.key === "FC_RULE" ? "RULE_REQUIRED" : "SOURCE_REQUIRED";
+      if (supplementalReady) detail = "補助資料CSVをローカル検証済み（本番未投入）";
+    }
     return { ...requirement, status, detail };
   });
 }
@@ -1171,9 +1192,18 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   mappingReview.append(mappingHeading, mappingTableWrap, mappingConfirmation);
   section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, mappingReview, completion, supplemental, preview);
   container.replaceChildren(section);
-  renderFinancialSupplementalCsv(supplemental, { document: doc });
-  setCompletionChecklist(container, null);
   let latestResult = hooks.initialResult || null;
+  renderFinancialSupplementalCsv(supplemental, {
+    document: doc,
+    onReceipt: (receipt) => {
+      const nextResult = { ...(latestResult || {}) };
+      if (receipt) nextResult.localSupplementalReceipt = receipt;
+      else delete nextResult.localSupplementalReceipt;
+      latestResult = nextResult;
+      setCompletionChecklist(container, latestResult);
+    },
+  });
+  setCompletionChecklist(container, null);
   if (latestResult) setResult(container, latestResult);
 
   let checking = false;
@@ -1190,7 +1220,9 @@ export function renderFinancialDataIntake(container, hooks = {}) {
       const parsed = source.value === "YAYOI"
         ? await validateFinancialWorkbookFiles(files, statement.value, hooks)
         : { status: "SOURCE_SYSTEM_UNSUPPORTED", statement: statement.value, previewRows: [], entityPreviewRows: [] };
-      latestResult = parsed;
+      latestResult = latestResult?.localSupplementalReceipt
+        ? { ...parsed, localSupplementalReceipt: latestResult.localSupplementalReceipt }
+        : parsed;
       setResult(container, parsed);
       publishPreview(container, parsed);
       const localPreview = buildFinancialLocalPreview(parsed);

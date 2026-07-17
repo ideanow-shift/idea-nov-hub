@@ -2,7 +2,7 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
-import { renderFinancialDataIntake } from "./financial-data-intake.js?v=2b0c1c044a2046f2";
+import { renderFinancialDataIntake } from "./financial-data-intake.js?v=22091fe81174b8ae";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=a9c05abbcad54a84";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
@@ -201,6 +201,8 @@ function sanitizeFinancialPreview(value) {
     entityName: String(row.entityName || "未判定").slice(0, 80),
     salesManYen: Number.isFinite(Number(row.salesManYen)) ? Number(row.salesManYen) : null,
     ordinaryProfitManYen: Number.isFinite(Number(row.ordinaryProfitManYen)) ? Number(row.ordinaryProfitManYen) : null,
+    dataThroughMonthLabel: String(row.dataThroughMonthLabel || "確認待ち").slice(0, 24),
+    activeMonthCount: Number.isInteger(Number(row.activeMonthCount)) ? Math.max(0, Math.min(12, Number(row.activeMonthCount))) : 0,
     mappingStatus: mappingStatus(row.mappingStatus),
     mappingCandidateCount: Number.isInteger(Number(row.mappingCandidateCount)) ? Math.max(0, Number(row.mappingCandidateCount)) : 0,
     recordCount: Number.isFinite(Number(row.recordCount)) ? Number(row.recordCount) : 0,
@@ -217,8 +219,11 @@ function sanitizeFinancialPreview(value) {
   })) : [];
   const periodComparisonRows = Array.isArray(value.periodComparisonRows) ? value.periodComparisonRows.slice(0, 8).map((row) => ({
     periodLabel: String(row.periodLabel || "対象期確認待ち").slice(0, 40),
+    comparisonRangeLabel: String(row.comparisonRangeLabel || "データ月確認待ち").slice(0, 64),
+    comparisonMonthCount: Number.isInteger(Number(row.comparisonMonthCount)) ? Math.max(0, Math.min(12, Number(row.comparisonMonthCount))) : 0,
     storeCandidateCount: Number.isInteger(Number(row.storeCandidateCount)) ? Math.max(0, Number(row.storeCandidateCount)) : 0,
     reviewCandidateCount: Number.isInteger(Number(row.reviewCandidateCount)) ? Math.max(0, Number(row.reviewCandidateCount)) : 0,
+    dataMonthShortfallCount: Number.isInteger(Number(row.dataMonthShortfallCount)) ? Math.max(0, Number(row.dataMonthShortfallCount)) : 0,
     salesManYen: Number.isFinite(Number(row.salesManYen)) ? Number(row.salesManYen) : null,
     ordinaryProfitManYen: Number.isFinite(Number(row.ordinaryProfitManYen)) ? Number(row.ordinaryProfitManYen) : null,
     mappingStatus: mappingStatus(row.mappingStatus),
@@ -237,8 +242,11 @@ function sanitizeFinancialPreview(value) {
     normalizedRecordCount: Number.isInteger(Number(value.normalizedRecordCount)) ? Math.max(0, Number(value.normalizedRecordCount)) : 0,
     totalNormalizedRecordCount: Number.isInteger(Number(value.totalNormalizedRecordCount)) ? Math.max(0, Number(value.totalNormalizedRecordCount)) : 0,
     completionPendingCount: Number.isInteger(Number(value.completionPendingCount)) ? Math.max(0, Number(value.completionPendingCount)) : 0,
-    salesManYen: rows.reduce((sum, row) => sum + Number(row.salesManYen || 0), 0),
-    ordinaryProfitManYen: rows.reduce((sum, row) => sum + Number(row.ordinaryProfitManYen || 0), 0),
+    comparisonRangeLabel: String(value.comparisonRangeLabel || "データ月確認待ち").slice(0, 64),
+    comparisonMonthCount: Number.isInteger(Number(value.comparisonMonthCount)) ? Math.max(0, Math.min(12, Number(value.comparisonMonthCount))) : 0,
+    dataMonthShortfallCount: Number.isInteger(Number(value.dataMonthShortfallCount)) ? Math.max(0, Number(value.dataMonthShortfallCount)) : 0,
+    salesManYen: Number.isFinite(Number(value.salesManYen)) ? Number(value.salesManYen) : null,
+    ordinaryProfitManYen: Number.isFinite(Number(value.ordinaryProfitManYen)) ? Number(value.ordinaryProfitManYen) : null,
     importActionEnabled: false,
   };
 }
@@ -290,7 +298,7 @@ function buildPlOverviewPreview(preview) {
     : preview.mappingRequiredAccountCount > 0 ? "mapping確認あり" : "mapping確認OK";
   card.append(
     heading("ローカルP/Lプレビュー（本番未投入）"),
-    paragraph(`${preview.selectedPeriodLabel}を画面確認用に仮反映中。店舗候補 ${number.format(preview.entityCandidateCount)}件 / 除外集計 ${number.format(preview.aggregateExcludedSheetCount || 0)}件 / ${mapping}。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
+    paragraph(`${preview.selectedPeriodLabel}を画面確認用に仮反映中。比較範囲 ${preview.comparisonRangeLabel}。店舗候補 ${number.format(preview.entityCandidateCount)}件 / 除外集計 ${number.format(preview.aggregateExcludedSheetCount || 0)}件 / ${mapping}。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
     previewMetricGrid([
       ["店舗候補売上合計", `${number.format(preview.salesManYen)}万円`],
       ["店舗候補経常損益", `${number.format(preview.ordinaryProfitManYen)}万円`],
@@ -346,16 +354,17 @@ function renderFinancialPreviewStores() {
   wrap.className = "table-wrap embedded local-preview-table";
   const table = document.createElement("table");
   const thead = document.createElement("thead");
-  thead.append(tableRow(["店舗候補", "分類", "売上", "経常損益", "mapping", "レコード"], true));
+  thead.append(tableRow(["店舗候補", "分類", "データ月候補", "売上", "経常損益", "mapping", "レコード"], true));
   const tbody = document.createElement("tbody");
   tbody.replaceChildren(...(preview.rows.length ? preview.rows.map((row) => tableRow([
     row.entityName,
     row.entityCategoryLabel || "店舗候補",
+    row.dataThroughMonthLabel,
     row.salesManYen == null ? "未算定" : `${number.format(row.salesManYen)}万円`,
     row.ordinaryProfitManYen == null ? "未算定" : `${number.format(row.ordinaryProfitManYen)}万円`,
     financialMappingLabel(row.mappingStatus),
     `${number.format(row.recordCount)}件`,
-  ])) : [emptyRow(6, "店舗候補として表示できるP/Lシートはまだありません")]));
+  ])) : [emptyRow(7, "店舗候補として表示できるP/Lシートはまだありません")]));
   table.append(thead, tbody);
   wrap.append(table);
   section.append(
@@ -379,13 +388,15 @@ function buildPlPeriodComparison(preview, titleText) {
   wrap.className = "table-wrap embedded local-preview-table";
   const table = document.createElement("table");
   const thead = document.createElement("thead");
-  thead.append(tableRow(["対象期", "店舗候補", "売上", "経常損益", "要確認", "mapping"], true));
+  thead.append(tableRow(["対象期", "比較範囲", "店舗候補", "売上", "経常損益", "月不足", "要確認", "mapping"], true));
   const tbody = document.createElement("tbody");
   tbody.replaceChildren(...preview.periodComparisonRows.map((row) => tableRow([
     row.periodLabel,
+    row.comparisonRangeLabel,
     `${number.format(row.storeCandidateCount)}件`,
     row.salesManYen == null ? "未算定" : `${number.format(row.salesManYen)}万円`,
     row.ordinaryProfitManYen == null ? "未算定" : `${number.format(row.ordinaryProfitManYen)}万円`,
+    `${number.format(row.dataMonthShortfallCount)}件`,
     `${number.format(row.reviewCandidateCount)}件`,
     financialMappingLabel(row.mappingStatus),
   ])));

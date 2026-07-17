@@ -253,6 +253,38 @@ test("P/L local preview selects the latest fiscal period and does not add prior 
   ]);
 });
 
+test("P/L period comparison uses the latest data-month candidate as the common YTD cutoff", async () => {
+  const makeYtdWorkbook = (startYear, endYear, activeMonths, salesAmount, profitAmount) => workbook([
+    row(1, ["帳票名：残高試算表(年間推移)"]),
+    row(5, [`集計期間：令和${startYear}年09月01日`, `令和${endYear}年08月31日`, "決算仕訳を含む"]),
+    row(8, ["勘定科目", ...months]),
+    ...requiredPl.map((account, index) => row(9 + index, [account, ...months.map((_, month) => {
+      if (month >= activeMonths) return 0;
+      if (account === "売上高合計") return salesAmount;
+      if (account === "経常損益金額") return profitAmount;
+      return 100;
+    })])),
+  ], "損･BASSA所沢店");
+  const current = await parseFinancialWorkbookBuffer(makeYtdWorkbook("07", "08", 9, 10000, 2000), "PL", { inflateRaw });
+  const prior = await parseFinancialWorkbookBuffer(makeYtdWorkbook("06", "07", 12, 20000, 3000), "PL", { inflateRaw });
+  const preview = buildFinancialLocalPreview(combineFinancialWorkbookResults([prior, current], "PL"));
+  assert.equal(preview.comparisonMonthCount, 9);
+  assert.equal(preview.comparisonRangeLabel, "9月度〜5月度（9か月・データ存在月候補）");
+  assert.equal(preview.rows[0].dataThroughMonthLabel, "5月度");
+  assert.equal(preview.rows[0].activeMonthCount, 9);
+  assert.equal(preview.salesManYen, 9);
+  assert.deepEqual(preview.periodComparisonRows.map((item) => ({
+    periodLabel: item.periodLabel,
+    comparisonMonthCount: item.comparisonMonthCount,
+    salesManYen: item.salesManYen,
+    dataMonthShortfallCount: item.dataMonthShortfallCount,
+  })), [
+    { periodLabel: "2025年9月〜2026年8月", comparisonMonthCount: 9, salesManYen: 9, dataMonthShortfallCount: 0 },
+    { periodLabel: "2024年9月〜2025年8月", comparisonMonthCount: 9, salesManYen: 18, dataMonthShortfallCount: 0 },
+  ]);
+  assert.equal(preview.importActionEnabled, false);
+});
+
 test("P/L mapping candidates are applied only to the local preview and remain unapproved", async () => {
   const accounts = [...requiredPl.filter((account) => account !== "地代家賃" && account !== "販売管理費合計"), "賃借料", "販売管理費計"];
   const result = await parseFinancialWorkbookBuffer(workbook([
@@ -323,7 +355,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=2b0c1c044a2046f2/);
+  assert.match(app, /financial-data-intake\.js\?v=22091fe81174b8ae/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);
@@ -333,6 +365,8 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(app, /年度別P\/L比較（店舗候補のみ）/);
   assert.match(app, /年度別 店舗候補合計/);
   assert.match(app, /合計・本部・FC・共通シートは含みません/);
+  assert.match(app, /データ月候補/);
+  assert.match(app, /月不足/);
   assert.match(app, /renderFinancialPreviewEmpty/);
   assert.match(app, /仮対応・経理確認前/);
   assert.match(app, /過年度/);
@@ -356,6 +390,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(localPreviewFixture, /balanceSheetPreview/);
   assert.match(localPreviewFixture, /periodComparisonRows/);
   assert.match(localPreviewFixture, /2023年9月〜2024年8月/);
+  assert.match(localPreviewFixture, /9月度〜5月度（9か月・データ存在月候補）/);
   assert.match(localPreviewFixture, /historicalPeriodExcludedSheetCount: 66/);
   assert.doesNotMatch(localPreviewFixture, /fetch\(|callApiAction|localStorage|sessionStorage/);
 });

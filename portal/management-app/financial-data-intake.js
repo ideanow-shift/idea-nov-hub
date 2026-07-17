@@ -242,6 +242,11 @@ function classifyPlEntity(sheetName, isAggregateSheet) {
 
 function entityPreview(sheet, statement, period) {
   const previewRecords = statement === "PL" ? locallyMappedRecords(sheet) : sheet.records;
+  const monthLabels = sheet.monthColumns.map((column) => column.label);
+  const activeMonthIndex = statement === "PL" ? monthLabels.findLastIndex((month) => previewRecords.some((record) => record.month === month && record.amount !== 0)) : -1;
+  const activeMonthCount = activeMonthIndex + 1;
+  const salesByMonthYen = statement === "PL" ? monthLabels.map((month) => accountAmountForMonth(previewRecords, "売上高合計", month) ?? 0) : [];
+  const ordinaryProfitByMonthYen = statement === "PL" ? monthLabels.map((month) => accountAmountForMonth(previewRecords, "経常損益金額", month) ?? 0) : [];
   const salesYen = statement === "PL" ? sumAccount(previewRecords, "売上高合計") : null;
   const ordinaryProfitYen = statement === "PL" ? sumAccount(previewRecords, "経常損益金額") : null;
   const closingMonthLabel = statement === "BS" ? sheet.monthColumns.at(-1)?.label || "" : "";
@@ -271,6 +276,11 @@ function entityPreview(sheet, statement, period) {
     periodKey: period.key,
     periodLabel: period.label,
     periodSortKey: period.sortKey,
+    monthLabels,
+    activeMonthCount,
+    activeThroughMonthLabel: activeMonthIndex >= 0 ? monthLabels[activeMonthIndex] : "",
+    salesByMonthYen,
+    ordinaryProfitByMonthYen,
   };
 }
 
@@ -558,6 +568,7 @@ export function buildFinancialLocalPreview(result) {
   }
   const rows = periodRows.filter((row) => row.entityCategory === "STORE_CANDIDATE");
   const reviewRows = periodRows.filter((row) => row.entityCategory !== "STORE_CANDIDATE");
+  const comparisonMonthCount = rows.reduce((maximum, row) => Math.max(maximum, Number(row.activeMonthCount || 0)), 0);
   const periodComparisonRows = orderedPeriods.slice(0, 8).map((period) => {
     const scopedRows = period.key === "PERIOD_UNRESOLVED"
       ? allRows.filter((row) => !row.periodKey || row.periodKey === "PERIOD_UNRESOLVED")
@@ -569,15 +580,26 @@ export function buildFinancialLocalPreview(result) {
       : storeRows.some((row) => row.mappingStatus === "LOCAL_CANDIDATE_APPLIED")
         ? "LOCAL_CANDIDATE_APPLIED"
         : "READY";
+    const firstMonthLabel = storeRows.find((row) => row.monthLabels?.[0])?.monthLabels?.[0] || "";
+    const throughMonthLabel = storeRows.find((row) => row.monthLabels?.[comparisonMonthCount - 1])?.monthLabels?.[comparisonMonthCount - 1] || "";
+    const comparisonRangeLabel = comparisonMonthCount > 0 && firstMonthLabel && throughMonthLabel
+      ? `${firstMonthLabel}〜${throughMonthLabel}（${comparisonMonthCount}か月・データ存在月候補）`
+      : "データ月確認待ち";
+    const salesYen = storeRows.reduce((total, row) => total + (row.salesByMonthYen || []).slice(0, comparisonMonthCount).reduce((sum, amount) => sum + Number(amount || 0), 0), 0);
+    const ordinaryProfitYen = storeRows.reduce((total, row) => total + (row.ordinaryProfitByMonthYen || []).slice(0, comparisonMonthCount).reduce((sum, amount) => sum + Number(amount || 0), 0), 0);
     return {
       periodLabel: period.label,
+      comparisonRangeLabel,
+      comparisonMonthCount,
       storeCandidateCount: storeRows.length,
       reviewCandidateCount: scopedReviewRows.length,
-      salesManYen: storeRows.reduce((sum, row) => sum + Number(row.salesManYen || 0), 0),
-      ordinaryProfitManYen: storeRows.reduce((sum, row) => sum + Number(row.ordinaryProfitManYen || 0), 0),
+      dataMonthShortfallCount: storeRows.filter((row) => Number(row.activeMonthCount || 0) < comparisonMonthCount).length,
+      salesManYen: comparisonMonthCount > 0 && storeRows.length ? Math.round(salesYen / 10000) : null,
+      ordinaryProfitManYen: comparisonMonthCount > 0 && storeRows.length ? Math.round(ordinaryProfitYen / 10000) : null,
       mappingStatus,
     };
   });
+  const selectedComparison = periodComparisonRows[0] || null;
   const activeAggregateSheetCount = periodRows.filter((row) => row.entityCategory === "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS").length;
   const completionItems = buildFinancialCompletionItems(result);
   return {
@@ -598,14 +620,19 @@ export function buildFinancialLocalPreview(result) {
     mappingRequiredAccountCount: receipt.mappingRequiredAccountCount,
     mappingCandidateAccountCount: receipt.mappingCandidateAccountCount,
     completionPendingCount: completionItems.filter((item) => item.status !== "LOCAL_VALIDATED").length,
-    salesManYen: rows.reduce((sum, row) => sum + Number(row.salesManYen || 0), 0),
-    ordinaryProfitManYen: rows.reduce((sum, row) => sum + Number(row.ordinaryProfitManYen || 0), 0),
+    comparisonRangeLabel: selectedComparison?.comparisonRangeLabel || "データ月確認待ち",
+    comparisonMonthCount,
+    dataMonthShortfallCount: selectedComparison?.dataMonthShortfallCount || 0,
+    salesManYen: selectedComparison?.salesManYen ?? null,
+    ordinaryProfitManYen: selectedComparison?.ordinaryProfitManYen ?? null,
     importActionEnabled: false,
     periodComparisonRows,
     rows: rows.slice(0, 80).map((row) => ({
       entityName: row.entityName,
-      salesManYen: row.salesManYen,
-      ordinaryProfitManYen: row.ordinaryProfitManYen,
+      salesManYen: comparisonMonthCount > 0 ? Math.round((row.salesByMonthYen || []).slice(0, comparisonMonthCount).reduce((sum, amount) => sum + Number(amount || 0), 0) / 10000) : null,
+      ordinaryProfitManYen: comparisonMonthCount > 0 ? Math.round((row.ordinaryProfitByMonthYen || []).slice(0, comparisonMonthCount).reduce((sum, amount) => sum + Number(amount || 0), 0) / 10000) : null,
+      dataThroughMonthLabel: row.activeThroughMonthLabel || "確認待ち",
+      activeMonthCount: Number(row.activeMonthCount || 0),
       mappingStatus: row.mappingStatus,
       mappingCandidateCount: row.mappingCandidateCount,
       recordCount: row.recordCount,

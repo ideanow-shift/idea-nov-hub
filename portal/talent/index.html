@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NOV Talent 集計ダッシュボード</title>
+  <title>人財投資管理システム | NOV HUB</title>
   <link rel="stylesheet" href="./style.css">
   <script src="./runtime-config.candidate.js"></script>
   <script type="module" src="./app.mjs"></script>
@@ -11,12 +11,131 @@
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
     <header class="dashboard-header">
-      <p class="eyebrow">人材投資管理</p>
-      <h1 id="dashboard-title">採用・人材投資 集計</h1>
-      <p class="lead">HUBで認証された範囲の集計だけを表示します。</p>
-      <p id="summary-status" class="status" data-state="loading">集計を確認しています</p>
+      <div>
+        <p class="eyebrow">NOV HUB / HUMAN CAPITAL</p>
+        <h1 id="dashboard-title">人財投資管理システム</h1>
+        <p class="lead">採用から入社後の手続きまで、人に関する業務を一つの画面で管理します。</p>
+      </div>
+      <div class="connection-card" aria-live="polite">
+        <span class="connection-dot" aria-hidden="true"></span>
+        <span id="connection-label">HUB接続を確認中</span>
+      </div>
     </header>
-    <section class="summary-grid" id="summary-metrics" aria-label="採用・人材投資の集計"></section>
+
+    <nav class="primary-tabs" role="tablist" aria-label="人財投資管理の業務区分">
+      <button class="primary-tab" id="tab-recruitment" type="button" role="tab"
+        aria-selected="true" aria-controls="panel-recruitment" tabindex="0" data-primary-tab="recruitment">
+        <span class="tab-number">01</span>
+        <span><strong>求人管理</strong><small>学生接点・選考・採用投資</small></span>
+      </button>
+      <button class="primary-tab" id="tab-workforce" type="button" role="tab"
+        aria-selected="false" aria-controls="panel-workforce" tabindex="-1" data-primary-tab="workforce">
+        <span class="tab-number">02</span>
+        <span><strong>現職者管理</strong><small>入社・異動・休職・退職手続き</small></span>
+      </button>
+    </nav>
+
+    <section id="panel-recruitment" class="primary-panel" role="tabpanel" aria-labelledby="tab-recruitment">
+      <nav class="secondary-tabs" role="tablist" aria-label="求人管理メニュー">
+        <button type="button" role="tab" aria-selected="true" aria-controls="recruitment-summary"
+          tabindex="0" data-secondary-tab="summary">全体サマリー</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="recruitment-students"
+          tabindex="-1" data-secondary-tab="students">学生フォロー</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="recruitment-fairs"
+          tabindex="-1" data-secondary-tab="fairs">フェア分析</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="recruitment-schools"
+          tabindex="-1" data-secondary-tab="schools">学校分析</button>
+      </nav>
+
+      <section id="recruitment-summary" class="secondary-panel" role="tabpanel">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">RECRUITMENT OVERVIEW</p>
+            <h2>採用・人材投資 集計</h2>
+          </div>
+          <p id="summary-status" class="status" data-state="loading">集計を確認しています</p>
+        </div>
+        <section class="summary-grid" id="summary-metrics" aria-label="採用・人材投資の集計">
+          <article class="metric"><p class="metric-name">接点数</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">LINE登録</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">サロン見学</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">面接</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">通過</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">内定</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">入社予定</p><p class="metric-value">-</p></article>
+        </section>
+
+        <section class="workflow-strip" aria-label="採用ファネル">
+          <div><span>接触</span><strong>学生との最初の接点</strong></div>
+          <div><span>育成</span><strong>LINE・見学フォロー</strong></div>
+          <div><span>選考</span><strong>面接・合否判断</strong></div>
+          <div><span>決定</span><strong>内定・入社準備</strong></div>
+        </section>
+      </section>
+
+      <section id="recruitment-students" class="secondary-panel" role="tabpanel" hidden>
+        <div class="section-heading"><div><p class="section-kicker">STUDENT FOLLOW-UP</p><h2>学生フォロー</h2></div></div>
+        <div class="feature-grid">
+          <article class="feature-card"><span>日常業務</span><h3>次アクション管理</h3><p>見学案内、面接連絡、内定後フォローを期日順に確認します。</p></article>
+          <article class="feature-card"><span>学生カルテ</span><h3>進捗を一か所で更新</h3><p>基本情報、選考状況、店舗希望、対応履歴を学生単位で整理します。</p></article>
+          <article class="feature-card is-pending"><span>接続準備中</span><h3>学生一覧・詳細</h3><p>新Web APIの一覧・詳細接続は次の安全ゲートで有効化します。</p></article>
+        </div>
+      </section>
+
+      <section id="recruitment-fairs" class="secondary-panel" role="tabpanel" hidden>
+        <div class="section-heading"><div><p class="section-kicker">FAIR ROI</p><h2>フェア分析</h2></div></div>
+        <div class="feature-grid">
+          <article class="feature-card"><span>投資判断</span><h3>費用対効果を比較</h3><p>費用、接触数、見学率を比較し、次年度の参加判断につなげます。</p></article>
+          <article class="feature-card"><span>運営情報</span><h3>担当・会場・運営会社</h3><p>フェアごとの担当者と実施情報をまとめて確認します。</p></article>
+        </div>
+      </section>
+
+      <section id="recruitment-schools" class="secondary-panel" role="tabpanel" hidden>
+        <div class="section-heading"><div><p class="section-kicker">SCHOOL ANALYSIS</p><h2>学校分析</h2></div></div>
+        <div class="feature-grid">
+          <article class="feature-card"><span>学校別投資</span><h3>有望校を把握</h3><p>接触、見学、面接、内定の流れから学校別の成果を確認します。</p></article>
+          <article class="feature-card"><span>訪問管理</span><h3>学校との接点を記録</h3><p>訪問日、訪問者、先生、持参物、会話内容を次回訪問へ引き継ぎます。</p></article>
+        </div>
+      </section>
+    </section>
+
+    <section id="panel-workforce" class="primary-panel" role="tabpanel" aria-labelledby="tab-workforce" hidden>
+      <div class="section-heading workforce-heading">
+        <div><p class="section-kicker">EMPLOYEE PROCEDURES</p><h2>現職者管理</h2></div>
+        <span class="phase-badge">新Web移行準備中</span>
+      </div>
+
+      <section class="workforce-summary" aria-label="現職者手続きの概要">
+        <article><span>入社手続き</span><strong>-</strong><small>準備中・確認中の案件</small></article>
+        <article><span>異動手続き</span><strong>-</strong><small>配属・所属変更の案件</small></article>
+        <article><span>休職・復職</span><strong>-</strong><small>産休・育休を含む手続き</small></article>
+        <article><span>退職手続き</span><strong>-</strong><small>完了までの確認事項</small></article>
+      </section>
+
+      <section class="procedure-board">
+        <div class="procedure-column">
+          <header><span>01</span><h3>受付</h3></header>
+          <p>必要な手続きを登録し、担当者と期限を確認します。</p>
+        </div>
+        <div class="procedure-column">
+          <header><span>02</span><h3>確認</h3></header>
+          <p>必要書類とチェック項目を進め、未完了を見える化します。</p>
+        </div>
+        <div class="procedure-column">
+          <header><span>03</span><h3>承認</h3></header>
+          <p>総務人事部が内容を確認し、Core反映前の承認を行います。</p>
+        </div>
+        <div class="procedure-column">
+          <header><span>04</span><h3>反映</h3></header>
+          <p>承認後に社員マスタへ反映し、操作履歴を残します。</p>
+        </div>
+      </section>
+
+      <aside class="boundary-note">
+        <strong>Core DB連携方針</strong>
+        <p>社員・店舗・部署・役職はCore DBを正本とし、この画面から直接マスタを書き換えません。</p>
+      </aside>
+    </section>
   </main>
 </body>
 </html>

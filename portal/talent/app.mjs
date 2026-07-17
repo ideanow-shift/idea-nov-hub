@@ -6,6 +6,9 @@ import {
 
 let startupConsumed = false;
 
+const PRIMARY_TABS = Object.freeze(["recruitment", "workforce"]);
+const RECRUITMENT_TABS = Object.freeze(["summary", "students", "fairs", "schools"]);
+
 export async function startTalentDashboardSummary({
   globalObject = globalThis,
   documentObject = globalObject.document,
@@ -55,6 +58,31 @@ export function resetTalentDashboardSummaryStartupForFixture() {
   startupConsumed = false;
 }
 
+export function initializeTalentNavigation({
+  globalObject = globalThis,
+  documentObject = globalObject.document
+} = {}) {
+  if (!documentObject?.querySelectorAll) return Object.freeze({ initialized: false });
+
+  const primaryButtons = [...documentObject.querySelectorAll("[data-primary-tab]")];
+  const secondaryButtons = [...documentObject.querySelectorAll("[data-secondary-tab]")];
+  bindTabGroup({
+    buttons: primaryButtons,
+    validKeys: PRIMARY_TABS,
+    panelFor: (key) => documentObject.getElementById(`panel-${key}`),
+    onSelect: (key) => updateLocationHash(globalObject, key)
+  });
+  bindTabGroup({
+    buttons: secondaryButtons,
+    validKeys: RECRUITMENT_TABS,
+    panelFor: (key) => documentObject.getElementById(`recruitment-${key}`)
+  });
+
+  const initialPrimary = normalizeHash(globalObject?.location?.hash);
+  if (initialPrimary) selectTab(primaryButtons, initialPrimary, (key) => documentObject.getElementById(`panel-${key}`), false);
+  return Object.freeze({ initialized: primaryButtons.length === 2, primaryTabCount: primaryButtons.length });
+}
+
 function renderMetrics(documentObject, viewModel) {
   const container = documentObject?.getElementById?.("summary-metrics");
   if (!container) return;
@@ -101,6 +129,59 @@ function setStatus(documentObject, state, text) {
   if (!status) return;
   status.dataset.state = state;
   status.textContent = text;
+  const connection = documentObject?.querySelector?.(".connection-card");
+  const connectionLabel = documentObject?.getElementById?.("connection-label");
+  if (connection) connection.dataset.state = state;
+  if (connectionLabel) {
+    connectionLabel.textContent = state === "ready" ? "HUB接続済み" : state === "stopped" ? "HUB接続を確認できません" : "HUB接続を確認中";
+  }
+}
+
+function bindTabGroup({ buttons, validKeys, panelFor, onSelect }) {
+  if (!buttons.length) return;
+  const activate = (button, focus = true) => {
+    const key = button?.dataset?.primaryTab || button?.dataset?.secondaryTab;
+    if (!validKeys.includes(key)) return;
+    selectTab(buttons, key, panelFor, focus);
+    onSelect?.(key);
+  };
+  buttons.forEach((button, index) => {
+    button.addEventListener("click", () => activate(button, false));
+    button.addEventListener("keydown", (event) => {
+      const last = buttons.length - 1;
+      let nextIndex = null;
+      if (event.key === "ArrowRight" || event.key === "ArrowDown") nextIndex = index === last ? 0 : index + 1;
+      if (event.key === "ArrowLeft" || event.key === "ArrowUp") nextIndex = index === 0 ? last : index - 1;
+      if (event.key === "Home") nextIndex = 0;
+      if (event.key === "End") nextIndex = last;
+      if (nextIndex === null) return;
+      event.preventDefault();
+      activate(buttons[nextIndex]);
+    });
+  });
+}
+
+function selectTab(buttons, selectedKey, panelFor, focus) {
+  buttons.forEach((button) => {
+    const key = button?.dataset?.primaryTab || button?.dataset?.secondaryTab;
+    const selected = key === selectedKey;
+    button.setAttribute("aria-selected", String(selected));
+    button.tabIndex = selected ? 0 : -1;
+    const panel = panelFor(key);
+    if (panel) panel.hidden = !selected;
+    if (selected && focus) button.focus();
+  });
+}
+
+function normalizeHash(hash) {
+  const key = String(hash || "").replace(/^#/, "");
+  return PRIMARY_TABS.includes(key) ? key : null;
+}
+
+function updateLocationHash(globalObject, key) {
+  if (!globalObject?.history?.replaceState || !globalObject?.location) return;
+  const url = `${globalObject.location.pathname || ""}${globalObject.location.search || ""}#${key}`;
+  globalObject.history.replaceState(null, "", url);
 }
 
 function sanitizeCategory(value) {
@@ -120,10 +201,15 @@ function safeMessage(category) {
   return messages[category] || messages.safe_stop;
 }
 
+function initializeTalentApp() {
+  initializeTalentNavigation();
+  startTalentDashboardSummary();
+}
+
 if (globalThis.document?.readyState === "loading") {
   globalThis.document.addEventListener("DOMContentLoaded", () => {
-    startTalentDashboardSummary();
+    initializeTalentApp();
   }, { once: true });
 } else if (globalThis.document) {
-  startTalentDashboardSummary();
+  initializeTalentApp();
 }

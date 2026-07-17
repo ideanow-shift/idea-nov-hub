@@ -232,6 +232,10 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-submission-next-action p { margin: 4px 0 0; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
 .financial-submission-next-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
 .financial-submission-next-list li { min-width: 0; padding: 3px 7px; color: var(--text-secondary); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 11px; overflow-wrap: anywhere; }
+.financial-accounting-request { margin-top: 10px; padding: 10px; background: #fff; border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.financial-accounting-request strong { display: block; color: var(--text-primary); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.financial-accounting-request p { margin: 4px 0 0; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
+.financial-accounting-request pre { margin: 8px 0 0; color: var(--text-primary); font: inherit; font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 .financial-supplemental { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border-light); }
 .financial-supplemental-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .financial-supplemental-heading h4 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 500; }

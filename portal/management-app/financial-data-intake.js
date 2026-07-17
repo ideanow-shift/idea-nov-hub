@@ -658,6 +658,31 @@ export function buildFinancialSubmissionPackage(result) {
   };
 }
 
+export function buildFinancialAccountingRequestMessage(result) {
+  const pkg = buildFinancialSubmissionPackage(result);
+  const checklist = Array.isArray(pkg.nextAction?.checklist) ? pkg.nextAction.checklist : [];
+  const bodyLines = [
+    "経理ご担当者様",
+    "経営管理システムのローカル検証で、次の資料または確認が必要です。",
+    `次の対応: ${pkg.nextAction.label}`,
+    `確認内容: ${pkg.nextAction.detail}`,
+    `必要項目: ${checklist.length ? checklist.join(" / ") : "本番証跡確認"}`,
+    "この依頼は確認用です。本番投入・DB保存・外部送信はまだ行いません。",
+  ];
+  return {
+    schemaVersion: "management-financial-accounting-request-message-v1",
+    category: pkg.category === "LOCAL_PACKAGE_READY_PENDING_PRODUCTION"
+      ? "PRODUCTION_EVIDENCE_REQUEST"
+      : "ACCOUNTING_SOURCE_REQUEST",
+    subject: `経営管理システム: ${pkg.nextAction.label.replace(/^次:\s*/u, "")}の確認依頼`,
+    bodyLines,
+    productionImportEnabled: false,
+    externalSendEnabled: false,
+    mutationCount: 0,
+    uploadCount: 0,
+  };
+}
+
 export function buildFinancialCompletionRequestCsv(result) {
   const rows = buildFinancialCompletionItems(result).filter((item) => !["LOCAL_VALIDATED", "LOCAL_EVIDENCE_RECEIVED"].includes(item.status));
   if (!rows.length) return null;
@@ -1182,6 +1207,7 @@ function setSubmissionPackage(container, result) {
   const target = container.querySelector("[data-financial-submission-package]");
   if (!target) return;
   const pkg = buildFinancialSubmissionPackage(result);
+  const message = buildFinancialAccountingRequestMessage(result);
   target.dataset.financialSubmissionPackageStatus = pkg.category;
   const label = pkg.category === "LOCAL_PACKAGE_READY_PENDING_PRODUCTION"
     ? "ローカル確認済み / 本番投入待ち"
@@ -1207,6 +1233,11 @@ function setSubmissionPackage(container, result) {
       el(doc, "ul", "financial-submission-next-list",
         ...(pkg.nextAction.checklist || []).map((item) => el(doc, "li", "", item))
       )
+    ),
+    el(doc, "div", "financial-accounting-request",
+      el(doc, "strong", "", "経理へ確認する内容"),
+      el(doc, "p", "", message.subject),
+      el(doc, "pre", "", message.bodyLines.join("\n"))
     )
   );
 }

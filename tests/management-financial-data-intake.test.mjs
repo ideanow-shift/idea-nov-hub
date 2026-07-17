@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 import {
   buildFinancialCompletionItems,
   buildFinancialLocalPreview,
+  buildFinancialMappingReviewCsv,
+  buildFinancialMappingReviewRows,
   buildFinancialIntakeReceipt,
   combineFinancialWorkbookResults,
   parseFinancialWorkbookBuffer,
@@ -17,6 +19,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const app = fs.readFileSync(path.join(root, "portal/management-app/app-v2.js"), "utf8");
 const html = fs.readFileSync(path.join(root, "portal/management-app/index.html"), "utf8");
 const styles = fs.readFileSync(path.join(root, "portal/management-app/styles.css"), "utf8");
+const financialIntake = fs.readFileSync(path.join(root, "portal/management-app/financial-data-intake.js"), "utf8");
 const visualFixture = fs.readFileSync(path.join(root, "tests/fixtures/management-financial-data-intake.html"), "utf8");
 const localPreviewFixture = fs.readFileSync(path.join(root, "tests/fixtures/management-financial-local-preview.html"), "utf8");
 
@@ -160,6 +163,44 @@ test("financial completion checklist stays fail-closed before file selection", (
   ]);
 });
 
+test("P/L mapping review exports only fixed accounting confirmation fields", () => {
+  const result = {
+    statement: "PL",
+    missingByAccount: { "地代家賃": 104, "販売管理費合計": 104 },
+    mappingCandidatesByAccount: {
+      "地代家賃": { sourceAccount: "賃借料", sheetCount: 104 },
+      "販売管理費合計": { sourceAccount: "販売管理費計", sheetCount: 104 },
+    },
+  };
+  assert.deepEqual(buildFinancialMappingReviewRows(result), [
+    { sourceAccount: "賃借料", canonicalAccount: "地代家賃", sheetCount: 104, status: "ACCOUNTING_CONFIRMATION_PENDING", statusLabel: "経理確認待ち" },
+    { sourceAccount: "販売管理費計", canonicalAccount: "販売管理費合計", sheetCount: 104, status: "ACCOUNTING_CONFIRMATION_PENDING", statusLabel: "経理確認待ち" },
+  ]);
+  const exportFile = buildFinancialMappingReviewCsv(result);
+  assert.equal(exportFile.rowCount, 2);
+  assert.equal(exportFile.fileName, "management-pl-account-mapping-review.csv");
+  assert.match(exportFile.csv, /^\uFEFF"弥生会計科目","正規科目","対象シート数","確認状態"/u);
+  assert.match(exportFile.csv, /"賃借料","地代家賃","104","経理確認待ち"/u);
+  assert.doesNotMatch(exportFile.csv, /(金額|原本|ファイル名|employeeId|sessionToken|Authorization)/iu);
+});
+
+test("mapping review fails closed for unknown or incomplete candidates", () => {
+  const unknown = {
+    statement: "PL",
+    missingByAccount: { "地代家賃": 2 },
+    mappingCandidatesByAccount: { "地代家賃": { sourceAccount: "任意科目", sheetCount: 2 } },
+  };
+  const countMismatch = {
+    statement: "PL",
+    missingByAccount: { "地代家賃": 2 },
+    mappingCandidatesByAccount: { "地代家賃": { sourceAccount: "賃借料", sheetCount: 1 } },
+  };
+  assert.deepEqual(buildFinancialMappingReviewRows(unknown), []);
+  assert.equal(buildFinancialMappingReviewCsv(unknown), null);
+  assert.deepEqual(buildFinancialMappingReviewRows(countMismatch), []);
+  assert.equal(buildFinancialMappingReviewCsv(countMismatch), null);
+});
+
 test("P/L local preview combines current files without enabling production import", async () => {
   const first = await parseFinancialWorkbookBuffer(workbook([
     row(1, ["帳票名：残高試算表(年間推移)"]),
@@ -265,7 +306,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=66e41d9dbd944b7c/);
+  assert.match(app, /financial-data-intake\.js\?v=8882c753336ead3d/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);
@@ -277,6 +318,9 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(styles, /\.financial-intake-panel/);
   assert.match(styles, /\.financial-intake-preview/);
   assert.match(styles, /\.financial-completion-list/);
+  assert.match(styles, /\.financial-mapping-review/);
+  assert.match(financialIntake, /経理確認用CSVを保存/);
+  assert.match(financialIntake, /ACCOUNTING_CONFIRMATION_PENDING/);
   assert.match(styles, /\.financial-local-preview-card/);
   assert.match(styles, /\.financial-local-preview-card\.is-empty/);
   assert.doesNotMatch(app, /financialDataIntake[\s\S]{0,240}(upload|importAction|mutation|storage)/i);
@@ -301,11 +345,15 @@ test("renderer exposes disabled production state", () => {
     dataset: {},
     children: [],
     attributes: {},
+    hidden: false,
+    href: "",
+    download: "",
     files: [],
     listeners: {},
     append(...children) { this.children.push(...children); },
     replaceChildren(...children) { this.children = children; },
     setAttribute(name, value) { this.attributes[name] = value; },
+    removeAttribute(name) { delete this.attributes[name]; },
     addEventListener(name, listener) { this.listeners[name] = listener; },
   });
   const document = { createElement };
@@ -315,5 +363,6 @@ test("renderer exposes disabled production state", () => {
   assert.equal(section.className, "financial-intake-panel");
   assert.equal(section.children[0].children[1].disabled, true);
   assert.equal(section.children[3].children[0].multiple, true);
-  assert.equal(section.children[5].className, "financial-completion");
+  assert.equal(section.children[5].className, "financial-mapping-review");
+  assert.equal(section.children[6].className, "financial-completion");
 });

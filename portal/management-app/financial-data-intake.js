@@ -451,6 +451,52 @@ export function buildFinancialCompletionItems(result) {
   });
 }
 
+export function buildFinancialMappingReviewRows(result) {
+  if (!result || result.statement !== "PL") return [];
+  const missingEntries = Object.entries(result.missingByAccount || {});
+  if (!missingEntries.length) return [];
+  const rows = missingEntries.map(([canonicalAccount, missingCount]) => {
+    const candidate = result.mappingCandidatesByAccount?.[canonicalAccount];
+    const sourceAccount = String(candidate?.sourceAccount || "");
+    const sheetCount = Number(candidate?.sheetCount);
+    const expectedCount = Number(missingCount);
+    const acceptedSources = PL_MAPPING_CANDIDATES[canonicalAccount] || [];
+    if (!acceptedSources.includes(sourceAccount)
+      || !Number.isSafeInteger(sheetCount)
+      || sheetCount <= 0
+      || sheetCount !== expectedCount) return null;
+    return {
+      sourceAccount,
+      canonicalAccount,
+      sheetCount,
+      status: "ACCOUNTING_CONFIRMATION_PENDING",
+      statusLabel: "経理確認待ち",
+    };
+  });
+  return rows.every(Boolean) ? rows : [];
+}
+
+function financialCsvCell(value) {
+  let text = String(value ?? "").normalize("NFC");
+  if (/^[=+\-@]/u.test(text)) text = `'${text}`;
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+export function buildFinancialMappingReviewCsv(result) {
+  const rows = buildFinancialMappingReviewRows(result);
+  if (!rows.length) return null;
+  const header = ["弥生会計科目", "正規科目", "対象シート数", "確認状態"];
+  const csvRows = rows.map((row) => [row.sourceAccount, row.canonicalAccount, row.sheetCount, row.statusLabel]);
+  const csv = `\uFEFF${[header, ...csvRows].map((row) => row.map(financialCsvCell).join(",")).join("\r\n")}\r\n`;
+  return {
+    fileName: "management-pl-account-mapping-review.csv",
+    rowCount: rows.length,
+    status: "ACCOUNTING_CONFIRMATION_PENDING",
+    csv,
+    href: `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`,
+  };
+}
+
 export function buildFinancialLocalPreview(result) {
   const receipt = buildFinancialIntakeReceipt(result);
   if (!receipt || receipt.statement !== "PL") return null;
@@ -569,7 +615,41 @@ function setResult(container, result) {
       return item;
     }));
   }
+  setMappingReview(container, result);
   setCompletionChecklist(container, result);
+}
+
+function setMappingReview(container, result) {
+  const doc = container.ownerDocument;
+  const section = container.querySelector("[data-financial-mapping-review]");
+  const summary = container.querySelector("[data-financial-mapping-summary]");
+  const body = container.querySelector("[data-financial-mapping-rows]");
+  const download = container.querySelector("[data-financial-mapping-download]");
+  if (!section || !summary || !body || !download) return;
+  const rows = buildFinancialMappingReviewRows(result);
+  const exportFile = buildFinancialMappingReviewCsv(result);
+  section.hidden = !exportFile;
+  if (!exportFile) {
+    summary.textContent = "既知の対応候補を完全に検出した場合だけ表示します。";
+    body.replaceChildren();
+    download.removeAttribute("href");
+    download.removeAttribute("download");
+    return;
+  }
+  section.dataset.financialMappingStatus = exportFile.status;
+  summary.textContent = `${rows.length}件の候補を検出しました。金額・原本名・個人情報を含まないCSVで経理確認できます。`;
+  body.replaceChildren(...rows.map((row) => {
+    const tr = el(doc, "tr");
+    tr.append(
+      el(doc, "td", "", row.sourceAccount),
+      el(doc, "td", "", row.canonicalAccount),
+      el(doc, "td", "", `${row.sheetCount}シート`),
+      el(doc, "td", "", row.statusLabel)
+    );
+    return tr;
+  }));
+  download.href = exportFile.href;
+  download.download = exportFile.fileName;
 }
 
 const COMPLETION_STATUS_LABELS = Object.freeze({
@@ -668,7 +748,31 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const completionList = el(doc, "div", "financial-completion-list");
   completionList.dataset.financialCompletionList = "true";
   completion.append(completionSummary, completionList);
-  section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, completion, preview);
+  const mappingReview = el(doc, "section", "financial-mapping-review");
+  mappingReview.dataset.financialMappingReview = "true";
+  mappingReview.hidden = true;
+  const mappingHeading = el(doc, "div", "financial-mapping-review-heading");
+  const mappingTitleWrap = el(doc, "div");
+  mappingTitleWrap.append(
+    el(doc, "h4", "", "科目対応候補（経理確認用）"),
+    el(doc, "p", "financial-mapping-review-summary", "既知の対応候補を完全に検出した場合だけ表示します。")
+  );
+  mappingTitleWrap.children[1].dataset.financialMappingSummary = "true";
+  const mappingDownload = el(doc, "a", "financial-mapping-download", "経理確認用CSVを保存");
+  mappingDownload.dataset.financialMappingDownload = "true";
+  mappingHeading.append(mappingTitleWrap, mappingDownload);
+  const mappingTableWrap = el(doc, "div", "table-wrap financial-mapping-table");
+  const mappingTable = el(doc, "table");
+  const mappingHead = el(doc, "thead");
+  const mappingHeadRow = el(doc, "tr");
+  ["弥生会計科目", "正規科目", "対象シート", "確認状態"].forEach((label) => mappingHeadRow.append(el(doc, "th", "", label)));
+  mappingHead.append(mappingHeadRow);
+  const mappingBody = el(doc, "tbody");
+  mappingBody.dataset.financialMappingRows = "true";
+  mappingTable.append(mappingHead, mappingBody);
+  mappingTableWrap.append(mappingTable);
+  mappingReview.append(mappingHeading, mappingTableWrap);
+  section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, mappingReview, completion, preview);
   container.replaceChildren(section);
   setCompletionChecklist(container, null);
   if (hooks.initialResult) setResult(container, hooks.initialResult);

@@ -188,6 +188,15 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-intake-result p { margin: 0 0 4px; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
 .financial-intake-preview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
 .financial-intake-preview li { min-width: 0; padding: 9px 10px; color: var(--text-secondary); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 12px; overflow-wrap: anywhere; }
+.financial-mapping-review { margin-top: 14px; padding: 12px; background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.financial-mapping-review[hidden] { display: none; }
+.financial-mapping-review-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.financial-mapping-review h4 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 500; }
+.financial-mapping-review-summary { margin: 5px 0 0; color: var(--text-secondary); font-size: 12px; }
+.financial-mapping-download { display: inline-flex; min-height: 36px; padding: 7px 12px; align-items: center; justify-content: center; color: var(--text-primary); background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); text-decoration: none; white-space: nowrap; }
+.financial-mapping-download:hover { background: var(--color-bassa-soft); }
+.financial-mapping-table table { min-width: 620px; }
+.financial-mapping-table th, .financial-mapping-table td { padding: 9px 10px; font-size: 12px; text-align: left; }
 .financial-completion { margin-top: 14px; }
 .financial-completion h4 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 500; }
 .financial-completion-summary { margin: 5px 0 10px; color: var(--text-secondary); font-size: 12px; }
@@ -250,6 +259,8 @@ tbody tr:hover td { background: var(--card-soft); }
   .workforce-evidence-head, .workforce-evidence-action { align-items: stretch; flex-direction: column; }
   .production-readiness-head { align-items: stretch; flex-direction: column; }
   .financial-intake-heading { align-items: stretch; flex-direction: column; }
+  .financial-mapping-review-heading { align-items: stretch; flex-direction: column; }
+  .financial-mapping-download { width: 100%; white-space: normal; text-align: center; }
   .csv-template-item { grid-template-columns: 1fr; }
   .csv-template-actions { display: grid !important; grid-template-columns: 1fr 1fr !important; }
   .csv-template-download, .csv-template-validate { width: 100%; white-space: normal; text-align: center; }

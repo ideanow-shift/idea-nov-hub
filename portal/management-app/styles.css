@@ -214,6 +214,7 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-completion-status { display: inline-flex; min-height: 22px; margin-bottom: 6px; padding: 2px 7px; align-items: center; color: var(--text-secondary); background: #fff; border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 10px; }
 .financial-completion-item strong { display: block; color: var(--text-primary); font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
 .financial-completion-item p { margin: 4px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.financial-completion-item .financial-completion-spec { color: var(--text-primary); }
 .financial-local-preview-card { margin: 0 0 16px; padding: 16px; background: #fffaf0; border: 1px solid var(--border-light); border-left: 3px solid var(--color-bassa); border-radius: var(--radius-md); }
 .financial-local-preview-card h3 { margin: 0 0 8px; color: var(--text-primary); font-size: 16px; font-weight: 500; }
 .financial-local-preview-card p { margin: 0 0 12px; color: var(--text-secondary); font-size: 13px; overflow-wrap: anywhere; }

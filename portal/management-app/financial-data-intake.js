@@ -25,14 +25,14 @@ const PL_MAPPING_CANDIDATES = Object.freeze({
   "販売管理費合計": Object.freeze(["販売管理費計"]),
 });
 const FINANCIAL_COMPLETION_REQUIREMENTS = Object.freeze([
-  Object.freeze({ key: "PL_ANNUAL_REPORT", label: "部門別年間P/L", detail: "弥生会計の部門別年間推移" }),
-  Object.freeze({ key: "PL_ACCOUNT_MAPPING", label: "P/L勘定科目対応表", detail: "地代家賃・販売管理費合計を含む正規科目への対応" }),
-  Object.freeze({ key: "SALES_SUBLEDGER", label: "売上高の補助残高一覧表", detail: "店舗別売上の照合元" }),
-  Object.freeze({ key: "UTILITY_SUBLEDGER", label: "水道光熱費の補助残高一覧表", detail: "店舗別水道光熱費の照合元" }),
-  Object.freeze({ key: "COUPON_USAGE", label: "クーポン利用額", detail: "経理手順で別入力される月次値" }),
-  Object.freeze({ key: "BALANCE_SHEET", label: "B/S年間データ", detail: "資産・負債・純資産の貸借一致確認" }),
-  Object.freeze({ key: "BUDGET_PLAN", label: "予算・計画データ", detail: "予実比較に使用する月次計画" }),
-  Object.freeze({ key: "FC_RULE", label: "FC店舗の変換ルール", detail: "FC合計・共通・個店の二重計上防止" }),
+  Object.freeze({ key: "PL_ANNUAL_REPORT", label: "部門別年間P/L", detail: "弥生会計の部門別年間推移", format: "Excel (.xlsx)", grain: "会計年度×部門シート×月次", requiredFields: "帳票名・集計期間・勘定科目・12か月列", validation: "対象期一致・12月列・集計シート除外" }),
+  Object.freeze({ key: "PL_ACCOUNT_MAPPING", label: "P/L勘定科目対応表", detail: "地代家賃・販売管理費合計を含む正規科目への対応", format: "CSV (UTF-8)", grain: "科目対応1行", requiredFields: "弥生会計科目・正規科目・対象シート数・確認状態", validation: "候補完全一致・重複なし・確認済み/否認" }),
+  Object.freeze({ key: "SALES_SUBLEDGER", label: "売上高の補助残高一覧表", detail: "店舗別売上の照合元", format: "Excel/CSV", grain: "対象月×法人×店舗/部門×勘定科目", requiredFields: "対象月・法人・店舗/部門・勘定科目・計上値", validation: "同一キー重複なし・P/L合計照合" }),
+  Object.freeze({ key: "UTILITY_SUBLEDGER", label: "水道光熱費の補助残高一覧表", detail: "店舗別水道光熱費の照合元", format: "Excel/CSV", grain: "対象月×法人×店舗/部門×勘定科目", requiredFields: "対象月・法人・店舗/部門・勘定科目・計上値", validation: "同一キー重複なし・P/L合計照合" }),
+  Object.freeze({ key: "COUPON_USAGE", label: "クーポン利用額", detail: "経理手順で別入力される月次値", format: "CSV (UTF-8)", grain: "対象月×店舗×クーポン区分", requiredFields: "対象月・店舗・クーポン区分・利用計上値", validation: "店舗/月一意・売上補正との二重計上なし" }),
+  Object.freeze({ key: "BALANCE_SHEET", label: "B/S年間データ", detail: "資産・負債・純資産の貸借一致確認", format: "Excel (.xlsx)", grain: "会計年度×法人/部門シート×月次", requiredFields: "集計期間・勘定科目・資産/負債/純資産・12か月列", validation: "資産=負債+純資産・対象期/候補一意" }),
+  Object.freeze({ key: "BUDGET_PLAN", label: "予算・計画データ", detail: "予実比較に使用する月次計画", format: "Excel/CSV", grain: "対象月×法人/店舗/部門×計画科目", requiredFields: "対象月・scope・計画科目・予算計上値", validation: "同一キー重複なし・実績科目へ対応可能" }),
+  Object.freeze({ key: "FC_RULE", label: "FC店舗の変換ルール", detail: "FC合計・共通・個店の二重計上防止", format: "CSV (UTF-8)", grain: "シート/部門候補1行", requiredFields: "候補名・区分・集計対象/除外・適用期", validation: "FC合計/共通/個店を排他的に分類" }),
 ]);
 const AGGREGATE_SHEET_RE = /(?:全体|合計|共通|FC\(合計\))/u;
 const XML_ESCAPE_RE = /&(lt|gt|amp|quot|apos);/g;
@@ -538,12 +538,16 @@ export function buildFinancialCompletionItems(result) {
 export function buildFinancialCompletionRequestCsv(result) {
   const rows = buildFinancialCompletionItems(result).filter((item) => !["LOCAL_VALIDATED", "LOCAL_EVIDENCE_RECEIVED"].includes(item.status));
   if (!rows.length) return null;
-  const header = ["資料区分", "資料名", "現在状態", "依頼内容"];
+  const header = ["資料区分", "資料名", "現在状態", "依頼内容", "提出形式", "集計粒度", "必須項目", "検証条件"];
   const csvRows = rows.map((item) => [
     item.key,
     item.label,
     COMPLETION_STATUS_LABELS[item.status] || "確認待ち",
     item.detail,
+    item.format,
+    item.grain,
+    item.requiredFields,
+    item.validation,
   ]);
   const csv = `\uFEFF${[header, ...csvRows].map((row) => row.map(financialCsvCell).join(",")).join("\r\n")}\r\n`;
   return {
@@ -1040,7 +1044,10 @@ function setCompletionChecklist(container, result) {
     article.append(
       el(doc, "span", "financial-completion-status", COMPLETION_STATUS_LABELS[item.status] || "確認待ち"),
       el(doc, "strong", "", item.label),
-      el(doc, "p", "", item.detail)
+      el(doc, "p", "", item.detail),
+      el(doc, "p", "financial-completion-spec", `形式: ${item.format} / 粒度: ${item.grain}`),
+      el(doc, "p", "financial-completion-spec", `必須: ${item.requiredFields}`),
+      el(doc, "p", "financial-completion-spec", `検証: ${item.validation}`)
     );
     return article;
   }));

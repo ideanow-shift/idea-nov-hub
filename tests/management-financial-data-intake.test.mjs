@@ -178,8 +178,11 @@ test("financial completion checklist stays fail-closed before file selection", (
   const exportFile = buildFinancialCompletionRequestCsv(null);
   assert.equal(exportFile.fileName, "management-financial-missing-data-request.csv");
   assert.equal(exportFile.rowCount, 8);
-  assert.match(exportFile.csv, /^\uFEFF"資料区分","資料名","現在状態","依頼内容"/u);
+  assert.match(exportFile.csv, /^\uFEFF"資料区分","資料名","現在状態","依頼内容","提出形式","集計粒度","必須項目","検証条件"/u);
   assert.match(exportFile.csv, /"SALES_SUBLEDGER","売上高の補助残高一覧表","資料待ち"/u);
+  assert.match(exportFile.csv, /"対象月×法人×店舗\/部門×勘定科目"/u);
+  assert.match(exportFile.csv, /"資産=負債\+純資産・対象期\/候補一意"/u);
+  assert.match(exportFile.csv, /"FC合計\/共通\/個店を排他的に分類"/u);
   assert.doesNotMatch(exportFile.csv, /(金額|原本名|employeeId|sessionToken|Authorization|contentIdentity)/iu);
 });
 
@@ -551,7 +554,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=dd1e341203971d08/);
+  assert.match(app, /financial-data-intake\.js\?v=f538606df6d17ddf/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);
@@ -576,6 +579,10 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(styles, /\.financial-intake-preview/);
   assert.match(styles, /\.financial-completion-list/);
   assert.match(styles, /\.financial-completion-heading \{ align-items: stretch; flex-direction: column; \}/);
+  assert.match(styles, /\.financial-completion-item \.financial-completion-spec/);
+  assert.match(financialIntake, /提出形式/);
+  assert.match(financialIntake, /集計粒度/);
+  assert.match(financialIntake, /候補完全一致・重複なし・確認済み\/否認/);
   assert.match(styles, /\.financial-mapping-review/);
   assert.match(financialIntake, /経理確認用CSVを保存/);
   assert.match(financialIntake, /不足資料CSVを保存/);

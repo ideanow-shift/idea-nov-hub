@@ -689,11 +689,17 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
+  assert.match(html, /data-section-status="corporate">未反映/);
+  assert.match(html, /data-section-status="stores">未反映/);
   assert.match(app, /financial-data-intake\.js\?v=f900da67f606b13b/);
   assert.match(financialIntake, /financial-supplemental-csv\.js\?v=7cacd43781126450/);
   assert.match(financialIntake, /renderFinancialSupplementalCsv\(supplemental/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake, \{ externalEvidence: financialExternalEvidence\(\) \}\)/);
   assert.match(app, /management-financial-local-preview/);
+  assert.match(app, /updateSectionDataBadges/);
+  assert.match(app, /LOCAL_PREVIEW_ACTIVE/);
+  assert.match(app, /P\/L確認中/);
+  assert.match(app, /P\/L・B\/S確認中/);
   assert.match(app, /renderFinancialPreviewOverview/);
   assert.match(app, /renderFinancialPreviewStores/);
   assert.match(app, /buildBsOverviewPreview/);
@@ -743,6 +749,8 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(financialIntake, /sha256Identity/);
   assert.match(styles, /\.financial-local-preview-card/);
   assert.match(styles, /\.financial-local-preview-card\.is-empty/);
+  assert.match(styles, /\.section-tab-status/);
+  assert.match(styles, /data-section-status-category="LOCAL_PREVIEW_ACTIVE"/);
   assert.doesNotMatch(app, /financialDataIntake[\s\S]{0,240}(upload|importAction|mutation|storage)/i);
   assert.match(visualFixture, /PL_LOCAL_VALIDATED_PENDING_MAPPING/);
   assert.match(visualFixture, /financial-data-intake\.js/);

@@ -35,6 +35,7 @@ window.addEventListener("management-financial-local-preview", (event) => {
   const preview = sanitizeFinancialPreview(event.detail);
   if (!preview) return;
   state.financialPreviews[preview.statement] = preview;
+  updateSectionDataBadges();
   renderFinancialPreviewOverview();
   renderFinancialPreviewStores();
 });
@@ -71,7 +72,24 @@ function selectView(view, updateHash = true) {
   elements.corporateViewTabs.hidden = !CORPORATE_VIEWS.has(state.view);
   elements.corporationTabs.hidden = !FINANCE_VIEWS.has(state.view) || state.view === "method";
   if (updateHash && location.hash !== `#${state.view}`) history.replaceState(null, "", `#${state.view}`);
+  updateSectionDataBadges();
   loadCurrentView(false);
+}
+
+function updateSectionDataBadges() {
+  const plReady = Boolean(state.financialPreviews.PL);
+  const bsReady = Boolean(state.financialPreviews.BS);
+  const corporate = document.querySelector('[data-section-status="corporate"]');
+  const stores = document.querySelector('[data-section-status="stores"]');
+  if (corporate) {
+    const label = plReady && bsReady ? "P/L・B/S確認中" : plReady ? "P/L確認中" : bsReady ? "B/S確認中" : "未反映";
+    corporate.textContent = label;
+    corporate.dataset.sectionStatusCategory = plReady || bsReady ? "LOCAL_PREVIEW_ACTIVE" : "LOCAL_PREVIEW_EMPTY";
+  }
+  if (stores) {
+    stores.textContent = plReady ? "P/L確認中" : "未反映";
+    stores.dataset.sectionStatusCategory = plReady ? "LOCAL_PREVIEW_ACTIVE" : "LOCAL_PREVIEW_EMPTY";
+  }
 }
 
 function loadCurrentView(force) {

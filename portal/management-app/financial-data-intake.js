@@ -15,6 +15,10 @@ const YAYOI_PL_REQUIRED_ACCOUNTS = Object.freeze([
   "経常損益金額",
 ]);
 const BS_REQUIRED_ACCOUNTS = Object.freeze(["資産合計", "負債合計", "純資産合計"]);
+const PL_MAPPING_CANDIDATES = Object.freeze({
+  "地代家賃": Object.freeze(["賃借料"]),
+  "販売管理費合計": Object.freeze(["販売管理費計"]),
+});
 const FINANCIAL_COMPLETION_REQUIREMENTS = Object.freeze([
   Object.freeze({ key: "PL_ANNUAL_REPORT", label: "部門別年間P/L", detail: "弥生会計の部門別年間推移" }),
   Object.freeze({ key: "PL_ACCOUNT_MAPPING", label: "P/L勘定科目対応表", detail: "地代家賃・販売管理費合計を含む正規科目への対応" }),
@@ -173,6 +177,10 @@ function parseSheet(sheet, rows, requiredAccounts) {
     }
   }
   const missingAccounts = requiredAccounts.filter((account) => !accounts.has(account));
+  const mappingCandidates = Object.fromEntries(missingAccounts.flatMap((canonicalAccount) => {
+    const sourceAccount = (PL_MAPPING_CANDIDATES[canonicalAccount] || []).find((candidate) => accounts.has(candidate));
+    return sourceAccount ? [[canonicalAccount, sourceAccount]] : [];
+  }));
   return {
     sheet: sheet.name,
     category: missingAccounts.length ? "SHEET_MAPPING_REQUIRED" : "SHEET_READY",
@@ -180,6 +188,7 @@ function parseSheet(sheet, rows, requiredAccounts) {
     monthColumns,
     accountCount: accounts.size,
     missingAccounts,
+    mappingCandidates,
     records,
   };
 }
@@ -225,6 +234,14 @@ function summarizeStatement(statement, sheets, meta) {
     account,
     parsed.filter((sheet) => sheet.missingAccounts.includes(account)).length,
   ]).filter(([, count]) => count > 0));
+  const mappingCandidatesByAccount = {};
+  for (const sheet of parsed) {
+    for (const [canonicalAccount, sourceAccount] of Object.entries(sheet.mappingCandidates || {})) {
+      const current = mappingCandidatesByAccount[canonicalAccount] || { sourceAccount, sheetCount: 0 };
+      if (current.sourceAccount === sourceAccount) current.sheetCount += 1;
+      mappingCandidatesByAccount[canonicalAccount] = current;
+    }
+  }
   const sheetCount = parsed.length;
   const sheetsWithTwelveMonths = parsed.filter((sheet) => sheet.monthColumns.length === 12).length;
   const aggregateSheetCount = parsed.filter((sheet) => sheet.isAggregateSheet).length;
@@ -259,6 +276,7 @@ function summarizeStatement(statement, sheets, meta) {
     entityCandidateCount,
     normalizedRecordCount,
     missingByAccount,
+    mappingCandidatesByAccount,
     balanceCheck,
     entityPreviewRows: parsed.map((sheet) => entityPreview(sheet, statement)),
     previewRows: parsed.slice(0, 4).map((sheet) => ({
@@ -282,9 +300,15 @@ export function combineFinancialWorkbookResults(results, statement = "PL") {
   const accepted = Array.isArray(results) ? results.filter((result) => result && typeof result === "object") : [];
   if (!accepted.length) return { status: "FILE_READ_OR_PARSE_FAILED", statement, previewRows: [], entityPreviewRows: [] };
   const missingByAccount = {};
+  const mappingCandidatesByAccount = {};
   for (const result of accepted) {
     for (const [account, count] of Object.entries(result.missingByAccount || {})) {
       missingByAccount[account] = (missingByAccount[account] || 0) + Number(count || 0);
+    }
+    for (const [canonicalAccount, candidate] of Object.entries(result.mappingCandidatesByAccount || {})) {
+      const current = mappingCandidatesByAccount[canonicalAccount] || { sourceAccount: candidate.sourceAccount, sheetCount: 0 };
+      if (current.sourceAccount === candidate.sourceAccount) current.sheetCount += Number(candidate.sheetCount || 0);
+      mappingCandidatesByAccount[canonicalAccount] = current;
     }
   }
   const sheetCount = accepted.reduce((sum, result) => sum + Number(result.sheetCount || 0), 0);
@@ -305,6 +329,7 @@ export function combineFinancialWorkbookResults(results, statement = "PL") {
     entityCandidateCount,
     normalizedRecordCount,
     missingByAccount,
+    mappingCandidatesByAccount,
     balanceCheck: statement === "BS" && accepted.every((result) => result.balanceCheck === "BALANCED") ? "BALANCED" : statement === "BS" ? "IMBALANCED" : "NOT_APPLICABLE",
     previewRows: accepted.flatMap((result) => result.previewRows || []).slice(0, 8),
     entityPreviewRows,
@@ -355,6 +380,7 @@ export function buildFinancialIntakeReceipt(result) {
     normalizedRecordCount: result.normalizedRecordCount || 0,
     allSheetsHaveTwelveMonths: result.sheetCount > 0 && result.sheetsWithTwelveMonths === result.sheetCount,
     mappingRequiredAccountCount: Object.keys(result.missingByAccount ?? {}).length,
+    mappingCandidateAccountCount: Object.keys(result.mappingCandidatesByAccount ?? {}).length,
     aggregateSheetHandlingRequired: Number(result.aggregateSheetCount || 0) > 0,
     balanceCheck: result.balanceCheck || "NOT_APPLICABLE",
     productionImportEnabled: false,
@@ -368,14 +394,22 @@ export function buildFinancialCompletionItems(result) {
     && !String(receipt?.status || "").includes("FAILED")
     && !String(receipt?.status || "").includes("INVALID");
   const missingAccounts = Object.keys(result?.missingByAccount || {});
+  const mappingCandidates = result?.mappingCandidatesByAccount || {};
   const bsReady = statement === "BS" && parsedLocally && receipt?.balanceCheck === "BALANCED" && receipt?.mappingRequiredAccountCount === 0;
   return FINANCIAL_COMPLETION_REQUIREMENTS.map((requirement) => {
     let status = "SOURCE_REQUIRED";
     let detail = requirement.detail;
     if (requirement.key === "PL_ANNUAL_REPORT" && statement === "PL" && parsedLocally) status = "LOCAL_VALIDATED";
     if (requirement.key === "PL_ACCOUNT_MAPPING" && statement === "PL" && parsedLocally) {
-      status = receipt.mappingRequiredAccountCount === 0 ? "LOCAL_VALIDATED" : "MAPPING_REQUIRED";
-      if (missingAccounts.length) detail = `未対応: ${missingAccounts.join("、")}`;
+      const candidatePairs = missingAccounts.flatMap((canonicalAccount) => {
+        const sourceAccount = mappingCandidates[canonicalAccount]?.sourceAccount;
+        return sourceAccount ? [`${sourceAccount} → ${canonicalAccount}`] : [];
+      });
+      status = receipt.mappingRequiredAccountCount === 0
+        ? "LOCAL_VALIDATED"
+        : candidatePairs.length === missingAccounts.length ? "MAPPING_REVIEW_REQUIRED" : "MAPPING_REQUIRED";
+      if (candidatePairs.length === missingAccounts.length && candidatePairs.length) detail = `候補: ${candidatePairs.join("、")}（経理確認待ち）`;
+      else if (missingAccounts.length) detail = `未対応: ${missingAccounts.join("、")}`;
     }
     if (requirement.key === "BALANCE_SHEET") {
       status = bsReady ? "LOCAL_VALIDATED" : statement === "BS" && parsedLocally ? "CHECK_REQUIRED" : "SOURCE_REQUIRED";
@@ -403,6 +437,7 @@ export function buildFinancialLocalPreview(result) {
     aggregateExcludedSheetCount: receipt.aggregateExcludedSheetCount,
     normalizedRecordCount: receipt.normalizedRecordCount,
     mappingRequiredAccountCount: receipt.mappingRequiredAccountCount,
+    mappingCandidateAccountCount: receipt.mappingCandidateAccountCount,
     completionPendingCount: completionItems.filter((item) => item.status !== "LOCAL_VALIDATED").length,
     salesManYen: rows.reduce((sum, row) => sum + Number(row.salesManYen || 0), 0),
     ordinaryProfitManYen: rows.reduce((sum, row) => sum + Number(row.ordinaryProfitManYen || 0), 0),
@@ -465,7 +500,7 @@ function setResult(container, result) {
     el(doc, "strong", "", INTAKE_STATUS_LABELS[receipt.status] || "ローカル検証結果を確認してください"),
     el(doc, "p", "", `ファイル ${receipt.fileNamePresent ? "選択済み" : "未選択"} / 対象期間 ${receipt.periodDetected ? "検出済み" : "確認待ち"}`),
     el(doc, "p", "", `シート ${receipt.sheetCount}件 / 対象候補 ${receipt.entityCandidateCount}件 / 集計除外 ${receipt.aggregateExcludedSheetCount}件`),
-    el(doc, "p", "", `正規化 ${receipt.normalizedRecordCount}件 / 科目対応待ち ${receipt.mappingRequiredAccountCount}件`),
+    el(doc, "p", "", `正規化 ${receipt.normalizedRecordCount}件 / 科目対応待ち ${receipt.mappingRequiredAccountCount}件 / 候補検出 ${receipt.mappingCandidateAccountCount}件`),
     el(doc, "p", "", receipt.balanceCheck === "NOT_APPLICABLE" ? "貸借チェック: 対象外" : `貸借チェック: ${receipt.balanceCheck}`),
     el(doc, "p", "", receipt.productionImportEnabled ? "本番投入可能" : "本番投入は無効です")
   );
@@ -485,6 +520,7 @@ function setResult(container, result) {
 const COMPLETION_STATUS_LABELS = Object.freeze({
   LOCAL_VALIDATED: "ローカル確認済み",
   MAPPING_REQUIRED: "対応表待ち",
+  MAPPING_REVIEW_REQUIRED: "候補確認待ち",
   SOURCE_REQUIRED: "資料待ち",
   RULE_REQUIRED: "運用ルール待ち",
   CHECK_REQUIRED: "再確認",

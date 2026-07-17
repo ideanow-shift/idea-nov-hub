@@ -18,6 +18,10 @@ const DEFAULT_REQUIRED_ACCOUNTS = Object.freeze([
   "営業損益金額",
   "経常損益金額",
 ]);
+const PL_MAPPING_CANDIDATES = Object.freeze({
+  "地代家賃": Object.freeze(["賃借料"]),
+  "販売管理費合計": Object.freeze(["販売管理費計"]),
+});
 
 const AGGREGATE_SHEET_RE = /(?:全体|合計|共通|FC\(合計\))/u;
 
@@ -160,6 +164,10 @@ function parseSheet(sheet, rows, requiredAccounts) {
     }
   }
   const missingAccounts = requiredAccounts.filter((account) => !accountRows.has(account));
+  const mappingCandidates = Object.fromEntries(missingAccounts.flatMap((canonicalAccount) => {
+    const sourceAccount = (PL_MAPPING_CANDIDATES[canonicalAccount] || []).find((candidate) => accountRows.has(candidate));
+    return sourceAccount ? [[canonicalAccount, sourceAccount]] : [];
+  }));
   return {
     sheet: sheet.name,
     category: missingAccounts.length ? "SHEET_ACCOUNT_MAPPING_REQUIRED" : "SHEET_READY",
@@ -167,6 +175,7 @@ function parseSheet(sheet, rows, requiredAccounts) {
     monthColumns: monthColumns.map(({ label }) => label),
     accountCount: accountRows.size,
     missingAccounts,
+    mappingCandidates,
     records,
   };
 }
@@ -184,6 +193,14 @@ export function parseYayoiPlWorkbook(buffer, options = {}) {
     account,
     parsedSheets.filter((sheet) => sheet.missingAccounts?.includes(account)).length,
   ]).filter(([, count]) => count > 0));
+  const mappingCandidatesByAccount = {};
+  for (const sheet of parsedSheets) {
+    for (const [canonicalAccount, sourceAccount] of Object.entries(sheet.mappingCandidates || {})) {
+      const current = mappingCandidatesByAccount[canonicalAccount] || { sourceAccount, sheetCount: 0 };
+      if (current.sourceAccount === sourceAccount) current.sheetCount += 1;
+      mappingCandidatesByAccount[canonicalAccount] = current;
+    }
+  }
   const normalizedRecordCount = parsedSheets.reduce((sum, sheet) => sum + sheet.records.length, 0);
   const aggregateSheetCount = parsedSheets.filter((sheet) => sheet.isAggregateSheet).length;
   const status = !metadata.reportNamePresent
@@ -202,6 +219,7 @@ export function parseYayoiPlWorkbook(buffer, options = {}) {
     normalizedRecordCount,
     requiredAccounts,
     missingByAccount,
+    mappingCandidatesByAccount,
     sheetSummaries: parsedSheets.map(({ sheet, category, isAggregateSheet, accountCount, monthColumns, missingAccounts, records }) => ({
       sheet,
       category,
@@ -228,6 +246,7 @@ export function buildSanitizedYayoiPlReceipt(fileResults) {
   const totalSheets = fileResults.reduce((sum, item) => sum + item.sheetCount, 0);
   const totalRecords = fileResults.reduce((sum, item) => sum + item.normalizedRecordCount, 0);
   const missingAccountNames = [...new Set(fileResults.flatMap((item) => Object.keys(item.missingByAccount ?? {})))];
+  const mappingCandidateNames = [...new Set(fileResults.flatMap((item) => Object.keys(item.mappingCandidatesByAccount ?? {})))];
   return {
     schemaVersion: "management-yayoi-pl-local-adapter-v1",
     status: missingAccountNames.length ? "LOCAL_VALIDATED_PENDING_ACCOUNT_MAPPING" : "LOCAL_READY_FOR_IMPORT_CANDIDATE",
@@ -236,6 +255,7 @@ export function buildSanitizedYayoiPlReceipt(fileResults) {
     normalizedRecordCount: totalRecords,
     allSheetsHaveTwelveMonths: fileResults.every((item) => item.sheetsWithTwelveMonths === item.sheetCount),
     mappingRequiredAccountCount: missingAccountNames.length,
+    mappingCandidateAccountCount: mappingCandidateNames.length,
     aggregateSheetHandlingRequired: fileResults.some((item) => item.aggregateSheetCount > 0),
     dbMutationReady: false,
     importActionEnabled: false,

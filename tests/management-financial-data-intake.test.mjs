@@ -113,18 +113,22 @@ test("P/L aggregate sheets and missing exact mappings stay review-only", async (
     row(1, ["帳票名：残高試算表(年間推移)"]),
     row(5, ["集計期間：令和07年09月01日", "令和08年08月31日", "決算仕訳を含む"]),
     row(8, ["勘定科目", ...months]),
-    ...requiredPl.filter((account) => account !== "地代家賃" && account !== "販売管理費合計").map((account, index) => row(9 + index, [account, ...months.map((_, month) => index * 100 + month)])),
+    ...[...requiredPl.filter((account) => account !== "地代家賃" && account !== "販売管理費合計"), "賃借料", "販売管理費計"].map((account, index) => row(9 + index, [account, ...months.map((_, month) => index * 100 + month)])),
   ];
   const result = await parseFinancialWorkbookBuffer(workbook(rows, "損･全体(合計)"), "PL", { inflateRaw });
   assert.equal(result.status, "PL_LOCAL_VALIDATED_PENDING_MAPPING");
   assert.equal(result.aggregateSheetCount, 1);
   assert.equal(result.entityCandidateCount, 0);
   assert.deepEqual(Object.keys(result.missingByAccount), ["地代家賃", "販売管理費合計"]);
+  assert.deepEqual(result.mappingCandidatesByAccount, {
+    "地代家賃": { sourceAccount: "賃借料", sheetCount: 1 },
+    "販売管理費合計": { sourceAccount: "販売管理費計", sheetCount: 1 },
+  });
   assert.equal(result.previewRows[0].entityCategory, "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS");
   const completion = buildFinancialCompletionItems(result);
   assert.deepEqual(completion.map((item) => item.status), [
     "LOCAL_VALIDATED",
-    "MAPPING_REQUIRED",
+    "MAPPING_REVIEW_REQUIRED",
     "SOURCE_REQUIRED",
     "SOURCE_REQUIRED",
     "SOURCE_REQUIRED",
@@ -132,8 +136,9 @@ test("P/L aggregate sheets and missing exact mappings stay review-only", async (
     "SOURCE_REQUIRED",
     "RULE_REQUIRED",
   ]);
-  assert.match(completion[1].detail, /地代家賃/);
-  assert.match(completion[1].detail, /販売管理費合計/);
+  assert.match(completion[1].detail, /賃借料 → 地代家賃/);
+  assert.match(completion[1].detail, /販売管理費計 → 販売管理費合計/);
+  assert.match(completion[1].detail, /経理確認待ち/);
 });
 
 test("financial completion checklist stays fail-closed before file selection", () => {
@@ -220,7 +225,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=88d5abea4164e534/);
+  assert.match(app, /financial-data-intake\.js\?v=3b8d815a12cdcaea/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);

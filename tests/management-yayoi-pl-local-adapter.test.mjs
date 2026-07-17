@@ -130,10 +130,30 @@ test("missing mapped account rows fail closed without blocking local validation"
     normalizedRecordCount: 132,
     allSheetsHaveTwelveMonths: true,
     mappingRequiredAccountCount: 1,
+    mappingCandidateAccountCount: 0,
     aggregateSheetHandlingRequired: false,
     dbMutationReady: false,
     importActionEnabled: false,
   });
+});
+
+test("source-evidenced aliases remain review candidates instead of becoming approved mappings", () => {
+  const accounts = [
+    ...requiredAccounts.filter((account) => account !== "地代家賃" && account !== "販売管理費合計"),
+    "賃借料",
+    "販売管理費計",
+  ];
+  const result = parseYayoiPlWorkbook(acceptedWorkbook(accounts));
+  assert.equal(result.status, "YAYOI_PL_LOCAL_VALIDATED_PENDING_MAPPING");
+  assert.deepEqual(result.mappingCandidatesByAccount, {
+    "地代家賃": { sourceAccount: "賃借料", sheetCount: 1 },
+    "販売管理費合計": { sourceAccount: "販売管理費計", sheetCount: 1 },
+  });
+  const receipt = buildSanitizedYayoiPlReceipt([result]);
+  assert.equal(receipt.mappingRequiredAccountCount, 2);
+  assert.equal(receipt.mappingCandidateAccountCount, 2);
+  assert.equal(receipt.dbMutationReady, false);
+  assert.equal(receipt.importActionEnabled, false);
 });
 
 test("invalid report shape rejects import readiness", () => {

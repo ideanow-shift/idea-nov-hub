@@ -46,7 +46,7 @@ evidenceとする。
 
 更新先:
 
-`https://script.google.com/macros/s/AKfycbxKLThF4TN18-OwaOFKbqwoPPSAHB7HH4v3_IkTXEmAGrhDJyzS1GfkfC1GFGiA7vUZew/exec?page=home`
+`<legacy GAS URL redacted; this execution contract is superseded>`
 
 ## sealed SQL
 

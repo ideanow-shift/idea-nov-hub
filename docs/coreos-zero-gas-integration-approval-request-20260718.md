@@ -10,9 +10,9 @@
 ## Integrated result
 
 The isolated candidate starts from the latest remote plus the nine unpushed HUB
-Core commits. It then applies ten local zero-GAS commits. HR role release, LINE
-WORKS readiness, Management, master-data intake, IDEA LINK, and NOV NAVI changes
-are preserved.
+Core commits. It then applies the reviewed zero-GAS source and evidence commits.
+HR role release, LINE WORKS readiness, Management, master-data intake, IDEA
+LINK, and NOV NAVI changes are preserved.
 
 The candidate now has:
 
@@ -30,7 +30,7 @@ The candidate now has:
 integrated_source_candidate_3a88161: review
 combined_commit_chain:
   hub_core_nine_commits: preserve
-  zero_gas_ten_commits: approve_for_normal_push
+  zero_gas_source_and_evidence_commits: approve_for_normal_push
 force_push: prohibited
 production_select_precheck: separate_approval_requested
 production_dml: hold

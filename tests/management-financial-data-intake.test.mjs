@@ -759,7 +759,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=0527350cb1a7c33e/);
+  assert.match(app, /financial-data-intake\.js\?v=0bd572c22bcad4c/);
   assert.match(financialIntake, /financial-supplemental-csv\.js\?v=7cacd43781126450/);
   assert.match(financialIntake, /renderFinancialSupplementalCsv\(supplemental/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake, \{ externalEvidence: financialExternalEvidence\(\) \}\)/);
@@ -816,7 +816,13 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(financialIntake, /management-financial-submission-package-v1/);
   assert.match(financialIntake, /management-financial-reflection-summary-v1/);
   assert.match(financialIntake, /financial-reflection-summary/);
+  assert.match(financialIntake, /financialReflectionSummary/);
+  assert.match(financialIntake, /dataset\.financialReflection/);
+  assert.match(financialIntake, /確認表示はローカル検証結果だけです/);
   assert.match(styles, /\.financial-reflection-summary/);
+  assert.match(styles, /data-financial-reflection="LOCAL_PREVIEW_ACTIVE"/);
+  assert.match(styles, /data-financial-reflection="DISABLED_PENDING_CONTRACT"/);
+  assert.match(styles, /\.financial-reflection-note/);
   assert.match(financialIntake, /management-financial-accounting-request-message-v1/);
   assert.match(financialIntake, /management-financial-accounting-request-impact-v1/);
   assert.match(financialIntake, /経理へ確認する内容/);

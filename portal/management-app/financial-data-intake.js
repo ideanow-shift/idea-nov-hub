@@ -1089,6 +1089,27 @@ function el(doc, tag, className, text) {
   return node;
 }
 
+function reflectionSummaryItem(doc, labelText, category, valueText) {
+  const item = el(doc, "article", "");
+  item.dataset.financialReflection = category;
+  item.append(
+    el(doc, "span", "", labelText),
+    el(doc, "strong", "", valueText)
+  );
+  return item;
+}
+
+function financialReflectionSummary(doc, reflection) {
+  const summary = el(doc, "div", "financial-reflection-summary");
+  summary.append(
+    reflectionSummaryItem(doc, "法人管理", reflection.corporate, reflection.corporate === "LOCAL_PREVIEW_ACTIVE" ? "確認表示あり" : "資料待ち"),
+    reflectionSummaryItem(doc, "店舗営業管理", reflection.stores, reflection.stores === "LOCAL_PREVIEW_ACTIVE" ? "確認表示あり" : "資料待ち"),
+    reflectionSummaryItem(doc, "本番投入", reflection.production, "disabled"),
+    el(doc, "p", "financial-reflection-note", "確認表示はローカル検証結果だけです。DB保存・本番投入・外部送信は行いません。")
+  );
+  return summary;
+}
+
 const INTAKE_STATUS_LABELS = Object.freeze({
   PL_LOCAL_READY: "P/L確認済み",
   PL_LOCAL_VALIDATED_PENDING_MAPPING: "P/L確認済み・科目対応待ち",
@@ -1289,20 +1310,7 @@ function setSubmissionPackage(container, result) {
       ),
       el(doc, "span", "financial-completion-status", label)
     ),
-    el(doc, "div", "financial-reflection-summary",
-      el(doc, "article", "",
-        el(doc, "span", "", "法人管理"),
-        el(doc, "strong", "", reflection.corporate === "LOCAL_PREVIEW_ACTIVE" ? "確認表示あり" : "資料待ち")
-      ),
-      el(doc, "article", "",
-        el(doc, "span", "", "店舗営業管理"),
-        el(doc, "strong", "", reflection.stores === "LOCAL_PREVIEW_ACTIVE" ? "確認表示あり" : "資料待ち")
-      ),
-      el(doc, "article", "",
-        el(doc, "span", "", "本番投入"),
-        el(doc, "strong", "", "disabled")
-      )
-    ),
+    financialReflectionSummary(doc, reflection),
     el(doc, "div", "financial-submission-package-grid",
       ...pkg.groups.map((group) => el(doc, "article", "financial-submission-package-item",
         el(doc, "strong", "", group.label),

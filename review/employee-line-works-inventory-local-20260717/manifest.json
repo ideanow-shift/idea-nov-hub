@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "caseId": "hub-lineworks-inventory-v1",
+  "files": [
+    {
+      "phase": "bootstrap",
+      "path": "work/local-nonproduction-sql-lane-20260715/bootstrap-supabase-roles.sql",
+      "sha256": "FE4446B1F2FE29F444D4B2AC7106437439443DB18F58A2D43313B86D8F1A85A3",
+      "expectExact": []
+    },
+    {
+      "phase": "bootstrap",
+      "path": "work/master-admin-search-fix-clean-20260717/review/employee-line-works-inventory-local-20260717/001-fixture.sql",
+      "sha256": "C2DD292587D3CDB17C3DD2DAB2FDD2E85AC770F3B7B98AA49EBC57C0CC7F70AC",
+      "expectExact": []
+    },
+    {
+      "phase": "verify",
+      "path": "work/master-admin-search-fix-clean-20260717/supabase/employee-line-works-destination-select-only-inventory-20260717.sql",
+      "sha256": "992E37261B93810C0C4B8F55D3FEF94A8BCF19E8ADEEDB9F5C2BA80432259F0E",
+      "expectExact": ["t|t|t|t|t|f|0|0|4|0|3|3|3|0"]
+    },
+    {
+      "phase": "rollback",
+      "path": "work/master-admin-search-fix-clean-20260717/review/employee-line-works-inventory-local-20260717/002-clean.sql",
+      "sha256": "E7EE5F5AE635FE3B4F87A75476C64FB5DCA1D3DC0ED3F3571FBB746BE6F00346",
+      "expectExact": []
+    },
+    {
+      "phase": "clean",
+      "path": "work/master-admin-search-fix-clean-20260717/review/employee-line-works-inventory-local-20260717/003-verify-clean.sql",
+      "sha256": "7F649EE259888FC7D95F829DD41A0F7B905C50F6845D2DF951C554DED6ECD142",
+      "expectExact": ["t|t"]
+    }
+  ]
+}

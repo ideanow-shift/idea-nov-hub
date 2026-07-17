@@ -578,6 +578,42 @@ export function buildFinancialCompletionItems(result) {
   });
 }
 
+const FINANCIAL_PACKAGE_SECTIONS = Object.freeze([
+  Object.freeze({ key: "PL_PACKAGE", label: "P/L", items: Object.freeze(["PL_ANNUAL_REPORT", "PL_ACCOUNT_MAPPING"]) }),
+  Object.freeze({ key: "STORE_PACKAGE", label: "店舗営業", items: Object.freeze(["SALES_SUBLEDGER", "UTILITY_SUBLEDGER", "COUPON_USAGE", "BUDGET_PLAN", "FC_RULE"]) }),
+  Object.freeze({ key: "BS_PACKAGE", label: "B/S", items: Object.freeze(["BALANCE_SHEET"]) }),
+]);
+
+export function buildFinancialSubmissionPackage(result) {
+  const items = buildFinancialCompletionItems(result);
+  const readyStatuses = new Set(["LOCAL_VALIDATED", "LOCAL_EVIDENCE_RECEIVED"]);
+  const groups = FINANCIAL_PACKAGE_SECTIONS.map((section) => {
+    const sectionItems = items.filter((item) => section.items.includes(item.key));
+    const pending = sectionItems.filter((item) => !readyStatuses.has(item.status));
+    return {
+      key: section.key,
+      label: section.label,
+      category: pending.length ? "LOCAL_PACKAGE_SECTION_INCOMPLETE" : "LOCAL_PACKAGE_SECTION_READY",
+      readyCount: sectionItems.length - pending.length,
+      totalCount: sectionItems.length,
+      pendingKeys: pending.map((item) => item.key),
+      pendingStatuses: pending.map((item) => item.status),
+    };
+  });
+  const pendingItems = items.filter((item) => !readyStatuses.has(item.status));
+  return {
+    schemaVersion: "management-financial-submission-package-v1",
+    category: pendingItems.length ? "LOCAL_PACKAGE_INCOMPLETE" : "LOCAL_PACKAGE_READY_PENDING_PRODUCTION",
+    readyCount: items.length - pendingItems.length,
+    totalCount: items.length,
+    pendingCount: pendingItems.length,
+    groups,
+    productionImportEnabled: false,
+    mutationCount: 0,
+    uploadCount: 0,
+  };
+}
+
 export function buildFinancialCompletionRequestCsv(result) {
   const rows = buildFinancialCompletionItems(result).filter((item) => !["LOCAL_VALIDATED", "LOCAL_EVIDENCE_RECEIVED"].includes(item.status));
   if (!rows.length) return null;
@@ -1094,6 +1130,34 @@ function setCompletionChecklist(container, result) {
     );
     return article;
   }));
+  setSubmissionPackage(container, result);
+}
+
+function setSubmissionPackage(container, result) {
+  const doc = container.ownerDocument;
+  const target = container.querySelector("[data-financial-submission-package]");
+  if (!target) return;
+  const pkg = buildFinancialSubmissionPackage(result);
+  target.dataset.financialSubmissionPackageStatus = pkg.category;
+  const label = pkg.category === "LOCAL_PACKAGE_READY_PENDING_PRODUCTION"
+    ? "ローカル確認済み / 本番投入待ち"
+    : "不足データあり";
+  target.replaceChildren(
+    el(doc, "div", "financial-submission-package-heading",
+      el(doc, "div", "",
+        el(doc, "h4", "", "経理提出パッケージ状況"),
+        el(doc, "p", "", `${pkg.readyCount}/${pkg.totalCount} 項目をローカル確認済み。本番投入は無効です。`)
+      ),
+      el(doc, "span", "financial-completion-status", label)
+    ),
+    el(doc, "div", "financial-submission-package-grid",
+      ...pkg.groups.map((group) => el(doc, "article", "financial-submission-package-item",
+        el(doc, "strong", "", group.label),
+        el(doc, "span", "", `${group.readyCount}/${group.totalCount}`),
+        el(doc, "p", "", group.pendingKeys.length ? `${group.pendingKeys.length} 項目が未完了` : "ローカル確認済み")
+      ))
+    )
+  );
 }
 
 function publishPreview(container, result) {
@@ -1173,6 +1237,8 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const completionList = el(doc, "div", "financial-completion-list");
   completionList.dataset.financialCompletionList = "true";
   completion.append(completionHeading, completionSummary, completionList);
+  const submissionPackage = el(doc, "section", "financial-submission-package");
+  submissionPackage.dataset.financialSubmissionPackage = "true";
   const supplemental = el(doc, "div", "financial-supplemental-host");
   supplemental.dataset.financialSupplementalHost = "true";
   const mappingReview = el(doc, "section", "financial-mapping-review");
@@ -1210,7 +1276,7 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   mappingConfirmationStatus.dataset.financialMappingConfirmationStatus = "NOT_READY";
   mappingConfirmation.append(mappingConfirmationLabel, mappingConfirmationStatus);
   mappingReview.append(mappingHeading, mappingTableWrap, mappingConfirmation);
-  section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, mappingReview, completion, supplemental, preview);
+  section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, mappingReview, completion, submissionPackage, supplemental, preview);
   container.replaceChildren(section);
   let latestResult = hooks.initialResult || null;
   container.managementApplyFinancialExternalEvidence = (evidence) => {

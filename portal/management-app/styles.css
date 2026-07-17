@@ -215,6 +215,14 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-completion-item strong { display: block; color: var(--text-primary); font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
 .financial-completion-item p { margin: 4px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 .financial-completion-item .financial-completion-spec { color: var(--text-primary); }
+.financial-submission-package { margin-top: 14px; padding: 12px; background: #fffaf0; border: 1px solid var(--border-light); border-left: 3px solid var(--color-bassa); border-radius: var(--radius-md); }
+.financial-submission-package-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.financial-submission-package-heading h4 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 500; }
+.financial-submission-package-heading p { margin: 5px 0 0; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
+.financial-submission-package-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.financial-submission-package-item { min-width: 0; padding: 9px 10px; background: #fff; border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.financial-submission-package-item strong, .financial-submission-package-item span { display: block; color: var(--text-primary); font-size: 12px; overflow-wrap: anywhere; }
+.financial-submission-package-item p { margin: 4px 0 0; color: var(--text-secondary); font-size: 11px; overflow-wrap: anywhere; }
 .financial-supplemental { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border-light); }
 .financial-supplemental-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .financial-supplemental-heading h4 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 500; }
@@ -278,7 +286,7 @@ tbody tr:hover td { background: var(--card-soft); }
   .corporation-tabs { padding: 10px 12px; }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .metric-value { font-size: 24px; }
-  .workflow, .method-grid, .production-readiness-grid, .financial-intake-controls, .financial-intake-preview, .financial-completion-list, .financial-local-preview-metrics { grid-template-columns: 1fr; }
+  .workflow, .method-grid, .production-readiness-grid, .financial-intake-controls, .financial-intake-preview, .financial-completion-list, .financial-submission-package-grid, .financial-local-preview-metrics { grid-template-columns: 1fr; }
   .chart-canvas { min-height: 260px; }
   .section-heading { align-items: flex-start; }
   .workforce-evidence-head, .workforce-evidence-action { align-items: stretch; flex-direction: column; }
@@ -287,6 +295,7 @@ tbody tr:hover td { background: var(--card-soft); }
   .financial-mapping-review-heading { align-items: stretch; flex-direction: column; }
   .financial-mapping-confirmation { align-items: stretch; flex-direction: column; }
   .financial-completion-heading { align-items: stretch; flex-direction: column; }
+  .financial-submission-package-heading { align-items: stretch; flex-direction: column; }
   .financial-supplemental-heading { align-items: stretch; flex-direction: column; }
   .financial-supplemental-row { grid-template-columns: 1fr; }
   .financial-supplemental-actions { display: grid; grid-template-columns: 1fr 1fr; }

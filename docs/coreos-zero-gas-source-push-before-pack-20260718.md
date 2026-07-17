@@ -3,11 +3,12 @@
 - Date: 2026-07-18
 - Classification: `PRODUCTION_EVIDENCE_REQUIRED`
 - Fresh authoritative GitHub main: `ebe0e6cdc6e0da41b96d25409d4d6864e6e38ed5`
-- Candidate HEAD before this pack commit:
+- Runtime/source snapshot HEAD before pack-only evidence commits:
   `ad6969c3a8241d9e33dd9ae9534a44ff758d9c8c`
-- Candidate tree: `dc5a14dbe44ae8baba90b03ec1a9f44626114553`
-- Commit count over GitHub main: 21
-- Changed tracked paths over GitHub main: 66
+- Runtime/source snapshot tree: `dc5a14dbe44ae8baba90b03ec1a9f44626114553`
+- Runtime/source snapshot over GitHub main: 21 commits / 66 tracked paths
+- Commits after that snapshot update review evidence only; they do not alter
+  portal, Edge, SQL, test, or tool runtime behavior.
 - Push, publish, production DB access, and Apps Script action: 0
 
 ## Fast-forward evidence

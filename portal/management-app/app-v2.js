@@ -379,7 +379,7 @@ function buildBsOverviewPreview(preview) {
   wrap.className = "table-wrap embedded local-preview-table";
   const table = document.createElement("table");
   const thead = document.createElement("thead");
-  thead.append(tableRow(["法人候補", "最終月", "資産", "負債", "純資産", "貸借"], true));
+  thead.append(tableRow(["法人候補", "最終月", "資産", "負債", "純資産", "貸借差額", "貸借"], true));
   const tbody = document.createElement("tbody");
   tbody.replaceChildren(...(preview.rows.length ? preview.rows.map((row) => tableRow([
     row.entityName,
@@ -387,8 +387,9 @@ function buildBsOverviewPreview(preview) {
     row.assetsManYen == null ? "未算定" : `${number.format(row.assetsManYen)}万円`,
     row.liabilitiesManYen == null ? "未算定" : `${number.format(row.liabilitiesManYen)}万円`,
     row.equityManYen == null ? "未算定" : `${number.format(row.equityManYen)}万円`,
+    bsBalanceDeltaText(row),
     row.balanceStatus === "BALANCED" ? "一致" : "確認待ち",
-  ])) : [emptyRow(6, "表示できるB/S候補はまだありません")]));
+  ])) : [emptyRow(7, "表示できるB/S候補はまだありません")]));
   table.append(thead, tbody);
   wrap.append(table);
   card.append(
@@ -403,6 +404,13 @@ function buildBsOverviewPreview(preview) {
     wrap
   );
   return card;
+}
+
+function bsBalanceDeltaText(row) {
+  if (row.assetsManYen == null || row.liabilitiesManYen == null || row.equityManYen == null) return "未算定";
+  const delta = Number(row.assetsManYen) - Number(row.liabilitiesManYen) - Number(row.equityManYen);
+  if (!Number.isFinite(delta)) return "未算定";
+  return `${number.format(Math.round(delta))}万円`;
 }
 
 function renderFinancialPreviewStores() {

@@ -554,7 +554,9 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=f538606df6d17ddf/);
+  assert.match(app, /financial-data-intake\.js\?v=888b991082838788/);
+  assert.match(financialIntake, /financial-supplemental-csv\.js\?v=d3021671a16f375b/);
+  assert.match(financialIntake, /renderFinancialSupplementalCsv\(supplemental/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);
@@ -655,4 +657,6 @@ test("renderer exposes disabled production state", () => {
   assert.ok(section.children[3].listeners.drop);
   assert.equal(section.children[5].className, "financial-mapping-review");
   assert.equal(section.children[6].className, "financial-completion");
+  assert.equal(section.children[7].className, "financial-supplemental-host");
+  assert.equal(section.children[7].dataset.productionImport, "DISABLED");
 });

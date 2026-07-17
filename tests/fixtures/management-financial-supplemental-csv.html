@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Management financial supplemental CSV visual fixture</title>
+  <link rel="stylesheet" href="../../portal/management-app/styles.css">
+</head>
+<body>
+  <main>
+    <section class="financial-intake-panel">
+      <div id="fixture"></div>
+    </section>
+  </main>
+  <script type="module">
+    import { renderFinancialSupplementalCsv } from "../../portal/management-app/financial-supplemental-csv.js";
+    renderFinancialSupplementalCsv(document.getElementById("fixture"));
+  </script>
+</body>
+</html>

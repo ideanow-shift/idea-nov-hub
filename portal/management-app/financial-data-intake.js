@@ -1,3 +1,5 @@
+import { renderFinancialSupplementalCsv } from "./financial-supplemental-csv.js?v=d3021671a16f375b";
+
 const MONTH_LABEL_RE = /^(?:[1-9]|1[0-2])月度$/u;
 const MAX_FINANCIAL_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_FINANCIAL_FILE_COUNT = 12;
@@ -1130,6 +1132,8 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const completionList = el(doc, "div", "financial-completion-list");
   completionList.dataset.financialCompletionList = "true";
   completion.append(completionHeading, completionSummary, completionList);
+  const supplemental = el(doc, "div", "financial-supplemental-host");
+  supplemental.dataset.financialSupplementalHost = "true";
   const mappingReview = el(doc, "section", "financial-mapping-review");
   mappingReview.dataset.financialMappingReview = "true";
   mappingReview.hidden = true;
@@ -1165,8 +1169,9 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   mappingConfirmationStatus.dataset.financialMappingConfirmationStatus = "NOT_READY";
   mappingConfirmation.append(mappingConfirmationLabel, mappingConfirmationStatus);
   mappingReview.append(mappingHeading, mappingTableWrap, mappingConfirmation);
-  section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, mappingReview, completion, preview);
+  section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, mappingReview, completion, supplemental, preview);
   container.replaceChildren(section);
+  renderFinancialSupplementalCsv(supplemental, { document: doc });
   setCompletionChecklist(container, null);
   let latestResult = hooks.initialResult || null;
   if (latestResult) setResult(container, latestResult);

@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 $ExpectedCliVersion = "2.109.1"
 $ExpectedProjectRefSha256 = "D5C7FC778E9AAEE37351272C5659ED02534968A0C68DE2BA826C4FEC1CBD1EF4"
 $ExpectedSqlSha256 = "9E5F6C6BFD093775ABA00DB8C27648B5862F7F975C99934A94E61BEED5524EC9"
-$ExpectedValidatorSha256 = "6E0BF7FF6243E154DE32545F9F26FD85C5A7F0A22A5D10E8F19FCAE9A4699B9E"
+$ExpectedValidatorSha256 = "2C401DC386092B5C33D6F8FC80059266A7E8314EAF4620F2806920B5466AE28D"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $SqlPath = Join-Path $RepoRoot "supabase\portal-apps-display-fix-sealed-20260717.sql"
@@ -14,7 +14,10 @@ $LinkedProjectDir = "C:\Users\bassa\Desktop\BASSA経営管理システム\work\i
 $ProjectRefPath = Join-Path $LinkedProjectDir "supabase\.temp\project-ref"
 
 function Get-UpperSha256([string]$Path) {
-  return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToUpperInvariant()
+  $normalized = (Get-Content -LiteralPath $Path -Raw -Encoding UTF8).Replace("`r`n", "`n")
+  $bytes = [Text.Encoding]::UTF8.GetBytes($normalized)
+  $hashBytes = [Security.Cryptography.SHA256]::Create().ComputeHash($bytes)
+  return ([BitConverter]::ToString($hashBytes)).Replace("-", "")
 }
 
 function Stop-Sealed([string]$Code, [bool]$Attempted = $false) {

@@ -18,6 +18,7 @@ const app = fs.readFileSync(path.join(root, "portal/management-app/app-v2.js"), 
 const html = fs.readFileSync(path.join(root, "portal/management-app/index.html"), "utf8");
 const styles = fs.readFileSync(path.join(root, "portal/management-app/styles.css"), "utf8");
 const visualFixture = fs.readFileSync(path.join(root, "tests/fixtures/management-financial-data-intake.html"), "utf8");
+const localPreviewFixture = fs.readFileSync(path.join(root, "tests/fixtures/management-financial-local-preview.html"), "utf8");
 
 function zipStore(entries) {
   const localParts = [];
@@ -124,6 +125,8 @@ test("P/L aggregate sheets and missing exact mappings stay review-only", async (
     "地代家賃": { sourceAccount: "賃借料", sheetCount: 1 },
     "販売管理費合計": { sourceAccount: "販売管理費計", sheetCount: 1 },
   });
+  assert.equal(result.entityPreviewRows[0].mappingStatus, "LOCAL_CANDIDATE_APPLIED");
+  assert.equal(result.entityPreviewRows[0].mappingCandidateCount, 2);
   assert.equal(result.previewRows[0].entityCategory, "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS");
   const completion = buildFinancialCompletionItems(result);
   assert.deepEqual(completion.map((item) => item.status), [
@@ -179,6 +182,43 @@ test("P/L local preview combines current files without enabling production impor
   assert.deepEqual(preview.rows.map((item) => item.entityName), ["損･BASSA所沢店", "損･KYARA HALF"]);
 });
 
+test("P/L local preview selects the latest fiscal period and does not add prior years", async () => {
+  const makePeriodWorkbook = (startYear, endYear, amount) => workbook([
+    row(1, ["帳票名：残高試算表(年間推移)"]),
+    row(5, [`集計期間：令和${startYear}年09月01日`, `令和${endYear}年08月31日`, "決算仕訳を含む"]),
+    row(8, ["勘定科目", ...months]),
+    ...requiredPl.map((account, index) => row(9 + index, [account, ...months.map(() => index === 0 ? amount : 100)])),
+  ], "損･BASSA所沢店");
+  const period11 = await parseFinancialWorkbookBuffer(makePeriodWorkbook("05", "06", 10000), "PL", { inflateRaw });
+  const period12 = await parseFinancialWorkbookBuffer(makePeriodWorkbook("06", "07", 20000), "PL", { inflateRaw });
+  const period13 = await parseFinancialWorkbookBuffer(makePeriodWorkbook("07", "08", 30000), "PL", { inflateRaw });
+  const preview = buildFinancialLocalPreview(combineFinancialWorkbookResults([period13, period12, period11], "PL"));
+  assert.equal(preview.selectedPeriodLabel, "2025年9月〜2026年8月");
+  assert.equal(preview.availablePeriodCount, 3);
+  assert.equal(preview.selectedPeriodSheetCount, 1);
+  assert.equal(preview.historicalPeriodExcludedSheetCount, 2);
+  assert.equal(preview.salesManYen, 36);
+  assert.equal(preview.normalizedRecordCount, 144);
+  assert.equal(preview.totalNormalizedRecordCount, 432);
+  assert.equal(preview.importActionEnabled, false);
+});
+
+test("P/L mapping candidates are applied only to the local preview and remain unapproved", async () => {
+  const accounts = [...requiredPl.filter((account) => account !== "地代家賃" && account !== "販売管理費合計"), "賃借料", "販売管理費計"];
+  const result = await parseFinancialWorkbookBuffer(workbook([
+    row(1, ["帳票名：残高試算表(年間推移)"]),
+    row(5, ["集計期間：令和07年09月01日", "令和08年08月31日", "決算仕訳を含む"]),
+    row(8, ["勘定科目", ...months]),
+    ...accounts.map((account, index) => row(9 + index, [account, ...months.map(() => index === 0 ? 10000 : 100)])),
+  ], "損･BASSA所沢店"), "PL", { inflateRaw });
+  const preview = buildFinancialLocalPreview(result);
+  assert.equal(preview.rows[0].mappingStatus, "LOCAL_CANDIDATE_APPLIED");
+  assert.equal(preview.rows[0].mappingCandidateCount, 2);
+  assert.equal(preview.mappingRequiredAccountCount, 2);
+  assert.equal(preview.mappingCandidateAccountCount, 2);
+  assert.equal(preview.importActionEnabled, false);
+});
+
 test("P/L local preview keeps head-office and FC sheets out of store operations", async () => {
   const makeRows = (amount) => [
     row(1, ["蟶ｳ逾ｨ蜷搾ｼ壽ｮ矩ｫ倩ｩｦ邂苓｡ｨ(蟷ｴ髢捺耳遘ｻ)"]),
@@ -225,12 +265,15 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=3b8d815a12cdcaea/);
+  assert.match(app, /financial-data-intake\.js\?v=66e41d9dbd944b7c/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);
   assert.match(app, /renderFinancialPreviewStores/);
   assert.match(app, /renderFinancialPreviewEmpty/);
+  assert.match(app, /仮対応・経理確認前/);
+  assert.match(app, /過年度/);
+  assert.match(app, /店舗候補売上合計/);
   assert.match(styles, /\.financial-intake-panel/);
   assert.match(styles, /\.financial-intake-preview/);
   assert.match(styles, /\.financial-completion-list/);
@@ -240,6 +283,11 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(visualFixture, /PL_LOCAL_VALIDATED_PENDING_MAPPING/);
   assert.match(visualFixture, /financial-data-intake\.js/);
   assert.doesNotMatch(visualFixture, /(employeeId|sessionToken|Authorization)/i);
+  assert.match(localPreviewFixture, /portal\/management-app\/index\.html#overview/);
+  assert.match(localPreviewFixture, /management-financial-local-preview/);
+  assert.match(localPreviewFixture, /LOCAL_CANDIDATE_APPLIED/);
+  assert.match(localPreviewFixture, /historicalPeriodExcludedSheetCount: 66/);
+  assert.doesNotMatch(localPreviewFixture, /fetch\(|callApiAction|localStorage|sessionStorage/);
 });
 
 test("renderer exposes disabled production state", () => {

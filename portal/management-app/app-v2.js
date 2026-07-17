@@ -2,7 +2,7 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
-import { renderFinancialDataIntake } from "./financial-data-intake.js?v=3b8d815a12cdcaea";
+import { renderFinancialDataIntake } from "./financial-data-intake.js?v=66e41d9dbd944b7c";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=a9c05abbcad54a84";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
@@ -193,11 +193,13 @@ function renderDataops() {
 
 function sanitizeFinancialPreview(value) {
   if (!value || value.schemaVersion !== "management-financial-local-preview-v1" || value.statement !== "PL") return null;
+  const mappingStatus = (status) => status === "READY" || status === "LOCAL_CANDIDATE_APPLIED" ? status : "MAPPING_REQUIRED";
   const rows = Array.isArray(value.rows) ? value.rows.slice(0, 80).map((row) => ({
     entityName: String(row.entityName || "未判定").slice(0, 80),
     salesManYen: Number.isFinite(Number(row.salesManYen)) ? Number(row.salesManYen) : null,
     ordinaryProfitManYen: Number.isFinite(Number(row.ordinaryProfitManYen)) ? Number(row.ordinaryProfitManYen) : null,
-    mappingStatus: row.mappingStatus === "READY" ? "READY" : "MAPPING_REQUIRED",
+    mappingStatus: mappingStatus(row.mappingStatus),
+    mappingCandidateCount: Number.isInteger(Number(row.mappingCandidateCount)) ? Math.max(0, Number(row.mappingCandidateCount)) : 0,
     recordCount: Number.isFinite(Number(row.recordCount)) ? Number(row.recordCount) : 0,
     entityCategory: row.entityCategory === "STORE_CANDIDATE" ? "STORE_CANDIDATE" : "ENTITY_REVIEW_REQUIRED",
     entityCategoryLabel: String(row.entityCategoryLabel || "店舗候補").slice(0, 24),
@@ -206,7 +208,8 @@ function sanitizeFinancialPreview(value) {
     entityName: String(row.entityName || "未判定").slice(0, 80),
     entityCategory: String(row.entityCategory || "ENTITY_REVIEW_REQUIRED").slice(0, 48),
     entityCategoryLabel: String(row.entityCategoryLabel || "mapping確認").slice(0, 24),
-    mappingStatus: row.mappingStatus === "READY" ? "READY" : "MAPPING_REQUIRED",
+    mappingStatus: mappingStatus(row.mappingStatus),
+    mappingCandidateCount: Number.isInteger(Number(row.mappingCandidateCount)) ? Math.max(0, Number(row.mappingCandidateCount)) : 0,
     recordCount: Number.isFinite(Number(row.recordCount)) ? Number(row.recordCount) : 0,
   })) : [];
   return {
@@ -215,6 +218,12 @@ function sanitizeFinancialPreview(value) {
     reviewRows,
     entityCandidateCount: rows.length,
     reviewCandidateCount: reviewRows.length,
+    selectedPeriodLabel: String(value.selectedPeriodLabel || "対象期確認待ち").slice(0, 40),
+    availablePeriodCount: Number.isInteger(Number(value.availablePeriodCount)) ? Math.max(1, Number(value.availablePeriodCount)) : 1,
+    selectedPeriodSheetCount: Number.isInteger(Number(value.selectedPeriodSheetCount)) ? Math.max(0, Number(value.selectedPeriodSheetCount)) : rows.length + reviewRows.length,
+    historicalPeriodExcludedSheetCount: Number.isInteger(Number(value.historicalPeriodExcludedSheetCount)) ? Math.max(0, Number(value.historicalPeriodExcludedSheetCount)) : 0,
+    normalizedRecordCount: Number.isInteger(Number(value.normalizedRecordCount)) ? Math.max(0, Number(value.normalizedRecordCount)) : 0,
+    totalNormalizedRecordCount: Number.isInteger(Number(value.totalNormalizedRecordCount)) ? Math.max(0, Number(value.totalNormalizedRecordCount)) : 0,
     completionPendingCount: Number.isInteger(Number(value.completionPendingCount)) ? Math.max(0, Number(value.completionPendingCount)) : 0,
     salesManYen: rows.reduce((sum, row) => sum + Number(row.salesManYen || 0), 0),
     ordinaryProfitManYen: rows.reduce((sum, row) => sum + Number(row.ordinaryProfitManYen || 0), 0),
@@ -228,14 +237,16 @@ function renderFinancialPreviewOverview() {
   if (!preview) { renderFinancialPreviewEmpty(elements.financialPreviewOverview, "法人経営管理"); return; }
   const card = document.createElement("section");
   card.className = "financial-local-preview-card";
-  const mapping = preview.mappingRequiredAccountCount > 0 ? "mapping確認あり" : "mapping確認OK";
+  const mapping = preview.mappingCandidateAccountCount > 0
+    ? `候補mapping ${number.format(preview.mappingCandidateAccountCount)}件を仮対応（経理確認前）`
+    : preview.mappingRequiredAccountCount > 0 ? "mapping確認あり" : "mapping確認OK";
   card.append(
     heading("ローカルP/Lプレビュー（本番未投入）"),
-    paragraph(`選択した弥生Excelを画面確認用に反映中。店舗候補 ${number.format(preview.entityCandidateCount)}件 / 除外集計 ${number.format(preview.aggregateExcludedSheetCount || 0)}件 / ${mapping} / 残タスク ${number.format(preview.completionPendingCount || 0)}件。`),
+    paragraph(`${preview.selectedPeriodLabel}を画面確認用に仮反映中。店舗候補 ${number.format(preview.entityCandidateCount)}件 / 除外集計 ${number.format(preview.aggregateExcludedSheetCount || 0)}件 / ${mapping}。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
     previewMetricGrid([
-      ["売上合計", `${number.format(preview.salesManYen)}万円`],
-      ["経常損益合計", `${number.format(preview.ordinaryProfitManYen)}万円`],
-      ["候補レコード", `${number.format(preview.normalizedRecordCount || 0)}件`],
+      ["店舗候補売上合計", `${number.format(preview.salesManYen)}万円`],
+      ["店舗候補経常損益", `${number.format(preview.ordinaryProfitManYen)}万円`],
+      ["対象期レコード", `${number.format(preview.normalizedRecordCount || 0)}件`],
       ["本番投入", "disabled"],
     ])
   );
@@ -259,17 +270,23 @@ function renderFinancialPreviewStores() {
     row.entityCategoryLabel || "店舗候補",
     row.salesManYen == null ? "未算定" : `${number.format(row.salesManYen)}万円`,
     row.ordinaryProfitManYen == null ? "未算定" : `${number.format(row.ordinaryProfitManYen)}万円`,
-    row.mappingStatus === "READY" ? "確認OK" : "mapping確認",
+    financialMappingLabel(row.mappingStatus),
     `${number.format(row.recordCount)}件`,
   ])) : [emptyRow(6, "店舗候補として表示できるP/Lシートはまだありません")]));
   table.append(thead, tbody);
   wrap.append(table);
   section.append(
     heading("店舗営業管理へのローカルP/L反映（本番未投入）"),
-    paragraph(`弥生Excelの店舗候補だけを確認用に表示しています。店舗候補 ${number.format(preview.entityCandidateCount || 0)}件 / 除外・要確認 ${number.format(preview.reviewCandidateCount || 0)}件。DB保存・本番投入・個人情報表示はありません。`),
+    paragraph(`${preview.selectedPeriodLabel}の店舗候補だけを仮表示しています。店舗候補 ${number.format(preview.entityCandidateCount || 0)}件 / 除外・要確認 ${number.format(preview.reviewCandidateCount || 0)}件。候補mappingは経理確認前で、DB保存・本番投入・個人情報表示はありません。`),
     wrap
   );
   elements.financialPreviewStores.replaceChildren(section);
+}
+
+function financialMappingLabel(status) {
+  if (status === "READY") return "確認OK";
+  if (status === "LOCAL_CANDIDATE_APPLIED") return "仮対応・経理確認前";
+  return "mapping確認";
 }
 
 function renderFinancialPreviewEmpty(container, labelText) {

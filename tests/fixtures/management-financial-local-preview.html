@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Management local P/L preview visual fixture</title>
+  <style>
+    html, body, iframe { width: 100%; min-height: 100%; margin: 0; border: 0; }
+    iframe { display: block; height: 100vh; }
+  </style>
+</head>
+<body>
+  <iframe id="management-app" title="Management local P/L preview" src="../../portal/management-app/index.html#overview"></iframe>
+  <script>
+    const preview = Object.freeze({
+      schemaVersion: "management-financial-local-preview-v1",
+      statement: "PL",
+      status: "PL_LOCAL_VALIDATED_PENDING_MAPPING",
+      selectedPeriodLabel: "2025年9月〜2026年8月",
+      availablePeriodCount: 3,
+      selectedPeriodSheetCount: 38,
+      historicalPeriodExcludedSheetCount: 66,
+      aggregateExcludedSheetCount: 6,
+      normalizedRecordCount: 32376,
+      totalNormalizedRecordCount: 88236,
+      mappingRequiredAccountCount: 2,
+      mappingCandidateAccountCount: 2,
+      completionPendingCount: 7,
+      importActionEnabled: false,
+      rows: [
+        { entityName: "損･BASSA所沢店", entityCategory: "STORE_CANDIDATE", entityCategoryLabel: "店舗候補", salesManYen: 9115, ordinaryProfitManYen: 1029, mappingStatus: "LOCAL_CANDIDATE_APPLIED", mappingCandidateCount: 2, recordCount: 852 },
+        { entityName: "損･KYARA HALF", entityCategory: "STORE_CANDIDATE", entityCategoryLabel: "店舗候補", salesManYen: 4833, ordinaryProfitManYen: -837, mappingStatus: "LOCAL_CANDIDATE_APPLIED", mappingCandidateCount: 2, recordCount: 852 }
+      ],
+      reviewRows: [
+        { entityName: "集計対象外", entityCategory: "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS", entityCategoryLabel: "集計除外", mappingStatus: "LOCAL_CANDIDATE_APPLIED", mappingCandidateCount: 2, recordCount: 852 }
+      ]
+    });
+    document.getElementById("management-app").addEventListener("load", (event) => {
+      event.currentTarget.contentWindow.dispatchEvent(new CustomEvent("management-financial-local-preview", { detail: preview }));
+    });
+  </script>
+</body>
+</html>

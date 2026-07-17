@@ -199,6 +199,30 @@ function sumAccount(records, account) {
     .reduce((sum, record) => sum + Number(record.amount || 0), 0);
 }
 
+function fiscalPeriodIdentity(periodText) {
+  const matches = [...String(periodText || "").matchAll(/令和(\d+)年(\d{1,2})月(\d{1,2})日/gu)]
+    .slice(0, 2)
+    .map((match) => ({ year: Number(match[1]) + 2018, month: Number(match[2]), day: Number(match[3]) }));
+  if (matches.length !== 2 || matches.some((value) => value.month < 1 || value.month > 12 || value.day < 1 || value.day > 31)) {
+    return { key: "PERIOD_UNRESOLVED", label: "対象期確認待ち", sortKey: 0 };
+  }
+  const [start, end] = matches;
+  return {
+    key: `${start.year}-${String(start.month).padStart(2, "0")}-${String(start.day).padStart(2, "0")}_${end.year}-${String(end.month).padStart(2, "0")}-${String(end.day).padStart(2, "0")}`,
+    label: `${start.year}年${start.month}月〜${end.year}年${end.month}月`,
+    sortKey: start.year * 10000 + start.month * 100 + start.day,
+  };
+}
+
+function locallyMappedRecords(sheet) {
+  const candidates = Object.entries(sheet.mappingCandidates || {});
+  if (!candidates.length) return sheet.records;
+  const canonicalBySource = new Map(candidates.map(([canonicalAccount, sourceAccount]) => [sourceAccount, canonicalAccount]));
+  return sheet.records.map((record) => canonicalBySource.has(record.account)
+    ? { ...record, account: canonicalBySource.get(record.account) }
+    : record);
+}
+
 const STORE_SHEET_RE = /(?:BASSA.+店|KYARA\s*HALF)/iu;
 const NON_STORE_SHEET_RE = /(?:本部|総務|経理|営業|教育|アカデミー|EC事業|FC|共通|全体|合計)/u;
 
@@ -211,25 +235,33 @@ function classifyPlEntity(sheetName, isAggregateSheet) {
   return { category: "ENTITY_REVIEW_REQUIRED", label: "mapping確認" };
 }
 
-function entityPreview(sheet, statement) {
-  const salesYen = statement === "PL" ? sumAccount(sheet.records, "売上高合計") : null;
-  const ordinaryProfitYen = statement === "PL" ? sumAccount(sheet.records, "経常損益金額") : null;
+function entityPreview(sheet, statement, period) {
+  const previewRecords = statement === "PL" ? locallyMappedRecords(sheet) : sheet.records;
+  const salesYen = statement === "PL" ? sumAccount(previewRecords, "売上高合計") : null;
+  const ordinaryProfitYen = statement === "PL" ? sumAccount(previewRecords, "経常損益金額") : null;
   const entity = statement === "PL"
     ? classifyPlEntity(sheet.sheet, sheet.isAggregateSheet)
     : { category: sheet.isAggregateSheet ? "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS" : "ENTITY_CANDIDATE", label: sheet.isAggregateSheet ? "集計除外" : "候補" };
+  const mappingCandidateCount = Object.keys(sheet.mappingCandidates || {}).length;
+  const candidateMappingComplete = sheet.missingAccounts.length > 0 && sheet.missingAccounts.every((account) => sheet.mappingCandidates?.[account]);
   return {
     entityName: sheet.sheet,
     entityCategory: entity.category,
     entityCategoryLabel: entity.label,
-    mappingStatus: sheet.missingAccounts.length ? "MAPPING_REQUIRED" : "READY",
-    recordCount: sheet.records.length,
+    mappingStatus: sheet.missingAccounts.length ? candidateMappingComplete ? "LOCAL_CANDIDATE_APPLIED" : "MAPPING_REQUIRED" : "READY",
+    mappingCandidateCount,
+    recordCount: previewRecords.length,
     salesManYen: salesYen == null ? null : Math.round(salesYen / 10000),
     ordinaryProfitManYen: ordinaryProfitYen == null ? null : Math.round(ordinaryProfitYen / 10000),
+    periodKey: period.key,
+    periodLabel: period.label,
+    periodSortKey: period.sortKey,
   };
 }
 
 function summarizeStatement(statement, sheets, meta) {
   const parsed = sheets.parsed;
+  const period = fiscalPeriodIdentity(meta.periodText);
   const missingByAccount = Object.fromEntries(sheets.required.map((account) => [
     account,
     parsed.filter((sheet) => sheet.missingAccounts.includes(account)).length,
@@ -278,7 +310,7 @@ function summarizeStatement(statement, sheets, meta) {
     missingByAccount,
     mappingCandidatesByAccount,
     balanceCheck,
-    entityPreviewRows: parsed.map((sheet) => entityPreview(sheet, statement)),
+    entityPreviewRows: parsed.map((sheet) => entityPreview(sheet, statement, period)),
     previewRows: parsed.slice(0, 4).map((sheet) => ({
       entityCategory: statement === "PL" ? classifyPlEntity(sheet.sheet, sheet.isAggregateSheet).category : sheet.isAggregateSheet ? "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS" : "ENTITY_CANDIDATE",
       monthCount: sheet.monthColumns.length,
@@ -423,8 +455,18 @@ export function buildFinancialLocalPreview(result) {
   const receipt = buildFinancialIntakeReceipt(result);
   if (!receipt || receipt.statement !== "PL") return null;
   const allRows = result.entityPreviewRows || [];
-  const rows = allRows.filter((row) => row.entityCategory === "STORE_CANDIDATE");
-  const reviewRows = allRows.filter((row) => row.entityCategory !== "STORE_CANDIDATE");
+  const periods = [...new Map(allRows.map((row) => [row.periodKey || "PERIOD_UNRESOLVED", {
+    key: row.periodKey || "PERIOD_UNRESOLVED",
+    label: row.periodLabel || "対象期確認待ち",
+    sortKey: Number(row.periodSortKey || 0),
+  }])).values()];
+  const selectedPeriod = periods.sort((left, right) => right.sortKey - left.sortKey)[0] || { key: "PERIOD_UNRESOLVED", label: "対象期確認待ち", sortKey: 0 };
+  const periodRows = selectedPeriod.key === "PERIOD_UNRESOLVED"
+    ? allRows
+    : allRows.filter((row) => row.periodKey === selectedPeriod.key);
+  const rows = periodRows.filter((row) => row.entityCategory === "STORE_CANDIDATE");
+  const reviewRows = periodRows.filter((row) => row.entityCategory !== "STORE_CANDIDATE");
+  const activeAggregateSheetCount = periodRows.filter((row) => row.entityCategory === "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS").length;
   const completionItems = buildFinancialCompletionItems(result);
   return {
     schemaVersion: "management-financial-local-preview-v1",
@@ -434,8 +476,13 @@ export function buildFinancialLocalPreview(result) {
     periodDetected: receipt.periodDetected,
     entityCandidateCount: rows.length,
     reviewCandidateCount: reviewRows.length,
-    aggregateExcludedSheetCount: receipt.aggregateExcludedSheetCount,
-    normalizedRecordCount: receipt.normalizedRecordCount,
+    aggregateExcludedSheetCount: activeAggregateSheetCount,
+    normalizedRecordCount: periodRows.reduce((sum, row) => sum + Number(row.recordCount || 0), 0),
+    totalNormalizedRecordCount: receipt.normalizedRecordCount,
+    availablePeriodCount: periods.length,
+    selectedPeriodLabel: selectedPeriod.label,
+    selectedPeriodSheetCount: periodRows.length,
+    historicalPeriodExcludedSheetCount: Math.max(0, allRows.length - periodRows.length),
     mappingRequiredAccountCount: receipt.mappingRequiredAccountCount,
     mappingCandidateAccountCount: receipt.mappingCandidateAccountCount,
     completionPendingCount: completionItems.filter((item) => item.status !== "LOCAL_VALIDATED").length,
@@ -447,6 +494,7 @@ export function buildFinancialLocalPreview(result) {
       salesManYen: row.salesManYen,
       ordinaryProfitManYen: row.ordinaryProfitManYen,
       mappingStatus: row.mappingStatus,
+      mappingCandidateCount: row.mappingCandidateCount,
       recordCount: row.recordCount,
       entityCategory: row.entityCategory,
       entityCategoryLabel: row.entityCategoryLabel,
@@ -456,6 +504,7 @@ export function buildFinancialLocalPreview(result) {
       entityCategory: row.entityCategory,
       entityCategoryLabel: row.entityCategoryLabel,
       mappingStatus: row.mappingStatus,
+      mappingCandidateCount: row.mappingCandidateCount,
       recordCount: row.recordCount,
     })),
   };
@@ -490,6 +539,12 @@ const PREVIEW_CATEGORY_LABELS = Object.freeze({
   AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS: "集計除外",
 });
 
+function mappingStatusLabel(status) {
+  if (status === "READY") return "科目確認済み";
+  if (status === "LOCAL_CANDIDATE_APPLIED") return "仮対応・経理確認前";
+  return "科目対応待ち";
+}
+
 function setResult(container, result) {
   const doc = container.ownerDocument;
   const receipt = buildFinancialIntakeReceipt(result);
@@ -508,7 +563,7 @@ function setResult(container, result) {
   if (preview) {
     preview.replaceChildren(...(result.previewRows || []).map((row) => {
       const category = PREVIEW_CATEGORY_LABELS[row.entityCategory] || "確認待ち";
-      const mapping = row.mappingStatus === "READY" ? "科目確認済み" : "科目対応待ち";
+      const mapping = mappingStatusLabel(row.mappingStatus);
       const item = el(doc, "li", "", `${category} / ${mapping} / ${row.recordCount}件`);
       item.dataset.financialPreviewCategory = row.entityCategory;
       return item;

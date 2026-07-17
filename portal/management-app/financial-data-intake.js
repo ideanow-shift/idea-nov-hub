@@ -1,5 +1,7 @@
 const MONTH_LABEL_RE = /^(?:[1-9]|1[0-2])月度$/u;
 const MAX_FINANCIAL_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_FINANCIAL_FILE_COUNT = 12;
+const MAX_FINANCIAL_TOTAL_BYTES = 100 * 1024 * 1024;
 const YAYOI_PL_REQUIRED_ACCOUNTS = Object.freeze([
   "売上高合計",
   "売上原価",
@@ -444,6 +446,11 @@ export async function validateFinancialWorkbookFile(file, statement = "PL", opti
 export async function validateFinancialWorkbookFiles(files, statement = "PL", options = {}) {
   const list = Array.from(files || []);
   if (!list.length) return { status: "FILE_READ_OR_PARSE_FAILED", statement, previewRows: [], entityPreviewRows: [] };
+  if (list.length > MAX_FINANCIAL_FILE_COUNT) return { status: "FILE_COUNT_INVALID", statement, previewRows: [], entityPreviewRows: [] };
+  const totalBytes = list.reduce((sum, file) => sum + Number(file?.size || 0), 0);
+  if (!Number.isSafeInteger(totalBytes) || totalBytes <= 0 || totalBytes > MAX_FINANCIAL_TOTAL_BYTES) {
+    return { status: "FILE_TOTAL_SIZE_INVALID", statement, previewRows: [], entityPreviewRows: [] };
+  }
   const results = [];
   for (const file of list) results.push(await validateFinancialWorkbookFile(file, statement, options));
   return combineFinancialWorkbookResults(results, statement);
@@ -753,6 +760,8 @@ const INTAKE_STATUS_LABELS = Object.freeze({
   BS_FILE_PARSE_FAILED: "B/Sファイル解析エラー",
   BS_DUPLICATE_FILE_DETECTED: "B/S重複ファイルを確認してください",
   BS_DUPLICATE_ENTITY_PERIOD_DETECTED: "B/S同一期・同一候補の重複を確認してください",
+  FILE_COUNT_INVALID: "ファイル数は12件以内にしてください",
+  FILE_TOTAL_SIZE_INVALID: "合計ファイル容量は100MB以内にしてください",
   FILE_READ_OR_PARSE_FAILED: "ファイルを確認してください",
 });
 
@@ -922,6 +931,7 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   controls.append(statement, fiscal, scope, source, mode);
 
   const drop = el(doc, "label", "financial-intake-drop");
+  drop.setAttribute("aria-label", "Excelファイルを選択またはドロップしてローカル検証");
   const input = el(doc, "input");
   input.type = "file";
   input.accept = ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -974,15 +984,38 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   setCompletionChecklist(container, null);
   if (hooks.initialResult) setResult(container, hooks.initialResult);
 
-  input.addEventListener("change", async () => {
-    const files = Array.from(input.files || []);
+  let checking = false;
+  const handleFiles = async (selectedFiles) => {
+    if (checking) return;
+    checking = true;
+    const files = Array.from(selectedFiles || []);
     dropText.textContent = files.length === 1 ? files[0].name : files.length ? `${files.length}ファイルを選択中` : "Excelファイルを選択してローカル検証";
+    input.disabled = true;
+    drop.setAttribute("aria-busy", "true");
     result.dataset.financialIntakeResult = "CHECKING";
     result.replaceChildren(el(doc, "strong", "", "検証中"), el(doc, "p", "", "ローカルでExcel構造を確認しています。"));
-    const parsed = await validateFinancialWorkbookFiles(files, statement.value, hooks);
-    setResult(container, parsed);
-    publishPreview(container, parsed);
-    input.value = "";
+    try {
+      const parsed = await validateFinancialWorkbookFiles(files, statement.value, hooks);
+      setResult(container, parsed);
+      publishPreview(container, parsed);
+    } finally {
+      input.value = "";
+      input.disabled = false;
+      drop.removeAttribute("aria-busy");
+      checking = false;
+    }
+  };
+  input.addEventListener("change", () => handleFiles(input.files));
+  drop.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    drop.classList.add("is-dragover");
+  });
+  drop.addEventListener("dragleave", () => drop.classList.remove("is-dragover"));
+  drop.addEventListener("drop", (event) => {
+    event.preventDefault();
+    drop.classList.remove("is-dragover");
+    handleFiles(event.dataTransfer?.files);
   });
   return true;
 }

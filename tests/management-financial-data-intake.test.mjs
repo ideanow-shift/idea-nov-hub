@@ -181,6 +181,23 @@ test("financial completion checklist stays fail-closed before file selection", (
   assert.doesNotMatch(exportFile.csv, /(金額|原本名|employeeId|sessionToken|Authorization|contentIdentity)/iu);
 });
 
+test("financial file collection enforces count and total-size limits before parsing", async () => {
+  const tooMany = Array.from({ length: 13 }, (_, index) => ({
+    name: `financial-${index}.xlsx`,
+    size: 1,
+    async arrayBuffer() { throw new Error("must not read"); },
+  }));
+  const countResult = await validateFinancialWorkbookFiles(tooMany, "PL", { inflateRaw });
+  assert.equal(countResult.status, "FILE_COUNT_INVALID");
+  const tooLarge = Array.from({ length: 5 }, (_, index) => ({
+    name: `financial-large-${index}.xlsx`,
+    size: 21 * 1024 * 1024,
+    async arrayBuffer() { throw new Error("must not read"); },
+  }));
+  const sizeResult = await validateFinancialWorkbookFiles(tooLarge, "BS", { inflateRaw });
+  assert.equal(sizeResult.status, "FILE_TOTAL_SIZE_INVALID");
+});
+
 test("P/L mapping review exports only fixed accounting confirmation fields", () => {
   const result = {
     statement: "PL",
@@ -439,7 +456,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-data-intake"/);
   assert.match(html, /id="financial-local-preview-overview"/);
   assert.match(html, /id="financial-local-preview-stores"/);
-  assert.match(app, /financial-data-intake\.js\?v=6ca8e70f2c960109/);
+  assert.match(app, /financial-data-intake\.js\?v=f999067bfdb2b5ca/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake\)/);
   assert.match(app, /management-financial-local-preview/);
   assert.match(app, /renderFinancialPreviewOverview/);
@@ -466,6 +483,10 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(financialIntake, /経理確認用CSVを保存/);
   assert.match(financialIntake, /不足資料CSVを保存/);
   assert.match(financialIntake, /management-financial-missing-data-request\.csv/);
+  assert.match(financialIntake, /MAX_FINANCIAL_FILE_COUNT = 12/);
+  assert.match(financialIntake, /MAX_FINANCIAL_TOTAL_BYTES = 100 \* 1024 \* 1024/);
+  assert.match(financialIntake, /addEventListener\("drop"/);
+  assert.match(styles, /\.financial-intake-drop\.is-dragover/);
   assert.match(financialIntake, /ACCOUNTING_CONFIRMATION_PENDING/);
   assert.match(financialIntake, /DUPLICATE_ENTITY_PERIOD_DETECTED/);
   assert.match(financialIntake, /sha256Identity/);
@@ -516,6 +537,9 @@ test("renderer exposes disabled production state", () => {
   assert.equal(section.className, "financial-intake-panel");
   assert.equal(section.children[0].children[1].disabled, true);
   assert.equal(section.children[3].children[0].multiple, true);
+  assert.ok(section.children[3].listeners.dragover);
+  assert.ok(section.children[3].listeners.dragleave);
+  assert.ok(section.children[3].listeners.drop);
   assert.equal(section.children[5].className, "financial-mapping-review");
   assert.equal(section.children[6].className, "financial-completion");
 });

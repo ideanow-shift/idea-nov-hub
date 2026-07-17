@@ -182,6 +182,8 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-intake-controls { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
 .financial-intake-controls select, .financial-intake-controls input { min-width: 0; min-height: 38px; padding: 7px 10px; color: var(--text-primary); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
 .financial-intake-drop { min-height: 82px; margin-bottom: 12px; padding: 14px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); background: var(--card-soft); border: 1px dashed var(--border-light); border-radius: var(--radius-md); cursor: pointer; text-align: center; }
+.financial-intake-drop.is-dragover { color: var(--text-primary); background: var(--color-bassa-soft); border-color: var(--color-bassa); }
+.financial-intake-drop[aria-busy="true"] { cursor: wait; opacity: .78; }
 .financial-intake-drop input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .financial-intake-result { padding: 12px; background: #fffaf0; border: 1px solid var(--border-light); border-left: 3px solid var(--color-bassa); border-radius: var(--radius-md); }
 .financial-intake-result strong { display: block; margin-bottom: 4px; color: var(--text-primary); font-size: 13px; overflow-wrap: anywhere; }

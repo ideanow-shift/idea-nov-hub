@@ -40,7 +40,7 @@ window.addEventListener("management-financial-local-preview", (event) => {
   renderFinancialPreviewOverview();
   renderFinancialPreviewFourAxis();
   renderFinancialPreviewDepartments();
-  renderFinancialPreviewStores();
+  renderFinancialPreviewStores(localPlMatch);
 });
 initialize();
 
@@ -513,7 +513,7 @@ function bsBalanceDeltaText(row) {
   return `${number.format(Math.round(delta))}万円`;
 }
 
-function renderFinancialPreviewStores() {
+function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 }) {
   if (!elements.financialPreviewStores) return;
   const preview = state.financialPreviews.PL;
   if (!preview) { renderFinancialPreviewEmpty(elements.financialPreviewStores, "店舗営業管理"); return; }
@@ -544,10 +544,26 @@ function renderFinancialPreviewStores() {
     paragraph(duplicateMessage || `${preview.selectedPeriodLabel}の店舗候補だけを仮表示しています。店舗候補 ${number.format(preview.entityCandidateCount || 0)}件 / 除外・要確認 ${number.format(preview.reviewCandidateCount || 0)}件。候補mappingは${preview.mappingConfirmationStatus === "LOCAL_EVIDENCE_RECEIVED" ? "ローカル回答確認済み（本番未承認）" : "経理確認前"}で、DB保存・本番投入・個人情報表示はありません。`),
     wrap
   );
+  if (localPlMatch.unmatched > 0) section.append(buildFinancialStoreMatchAction(localPlMatch));
   const comparison = buildPlPeriodComparison(preview, "年度別 店舗候補合計");
   if (comparison) section.append(comparison);
   section.append(buildFinancialMissingDataSummary("店舗営業管理"));
   elements.financialPreviewStores.replaceChildren(section);
+}
+
+function buildFinancialStoreMatchAction(localPlMatch) {
+  const action = document.createElement("div");
+  action.className = "financial-store-match-action";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = "店舗名対応表を確認";
+  button.addEventListener("click", () => selectView("dataops"));
+  action.append(
+    label("次に必要"),
+    paragraph(`P/L候補のうち一致 ${number.format(localPlMatch.matched)}件 / 未照合 ${number.format(localPlMatch.unmatched)}件。店舗名対応表を確認するまで、本番投入は無効です。`),
+    button
+  );
+  return action;
 }
 
 function renderFinancialPreviewFourAxis() {

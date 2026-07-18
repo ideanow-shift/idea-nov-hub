@@ -284,6 +284,9 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-local-reflection-status { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 10px; padding: 7px 9px; color: var(--text-primary); background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .financial-visible-scope { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px; }
 .financial-visible-scope p { margin: 0; padding: 8px 10px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); color: var(--text-primary); font-size: 12px; line-height: 1.55; }
+.financial-store-match-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; margin: 12px 0; padding: 10px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.financial-store-match-action p { margin: 0; }
+.financial-store-match-action button { grid-column: 2; grid-row: 1 / span 2; }
 .financial-local-preview-card button { min-height: 36px; padding: 7px 12px; color: var(--text-primary); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); cursor: pointer; }
 .financial-local-preview-card button:hover { background: var(--color-bassa-soft); }
 .financial-local-preview-metrics { margin-bottom: 0; }
@@ -329,6 +332,8 @@ tbody tr:hover td { background: var(--card-soft); }
   .metric-value { font-size: 24px; }
   .workflow, .method-grid, .production-readiness-grid, .financial-intake-controls, .financial-intake-preview, .financial-completion-list, .financial-submission-package-grid, .financial-local-preview-metrics { grid-template-columns: 1fr; }
   .financial-visible-scope { grid-template-columns: 1fr; }
+  .financial-store-match-action { grid-template-columns: 1fr; }
+  .financial-store-match-action button { grid-column: 1; grid-row: auto; width: 100%; }
   .chart-canvas { min-height: 260px; }
   .section-heading { align-items: flex-start; }
   .workforce-evidence-head, .workforce-evidence-action { align-items: stretch; flex-direction: column; }

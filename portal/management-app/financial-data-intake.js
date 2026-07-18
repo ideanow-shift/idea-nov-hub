@@ -662,6 +662,55 @@ export function buildFinancialSubmissionPackage(result) {
   };
 }
 
+export function buildFinancialSubmissionRoadmap(result) {
+  const pkg = buildFinancialSubmissionPackage(result);
+  const localReady = pkg.category === "LOCAL_PACKAGE_READY_PENDING_PRODUCTION";
+  const stages = [
+    {
+      key: "LOCAL_VALIDATION",
+      label: "ローカル検証",
+      category: localReady ? "COMPLETE" : "CURRENT",
+      detail: localReady ? "P/L・B/S・補助資料の確認候補が揃っています。" : "不足データとmapping確認を閉じます。",
+    },
+    {
+      key: "PRODUCTION_EVIDENCE",
+      label: "本番catalog証跡",
+      category: localReady ? "CURRENT" : "BLOCKED",
+      detail: "本番DBのread-only証跡が揃うまで投入しません。",
+    },
+    {
+      key: "PROVIDER_IDENTITY",
+      label: "provider runtime identity",
+      category: "BLOCKED",
+      detail: "version / snapshot / scope / auditの実行identityを承認後に進めます。",
+    },
+    {
+      key: "STAGING_IMPORT",
+      label: "本番staging",
+      category: "DISABLED",
+      detail: "重複防止・監査・rollback契約が揃うまで無効です。",
+    },
+    {
+      key: "APPROVAL_REFLECTION",
+      label: "承認・本番反映",
+      category: "DISABLED",
+      detail: "承認、再計算、反映actionはまだ実行しません。",
+    },
+  ];
+  return {
+    schemaVersion: "management-financial-submission-roadmap-v1",
+    currentStage: localReady ? "PRODUCTION_EVIDENCE" : "LOCAL_VALIDATION",
+    stages: stages.map((stage) => ({
+      ...stage,
+      mutationEnabled: false,
+      uploadEnabled: false,
+    })),
+    productionImportEnabled: false,
+    mutationCount: 0,
+    uploadCount: 0,
+  };
+}
+
 export function buildFinancialReflectionSummary(result) {
   const pkg = buildFinancialSubmissionPackage(result);
   const groupStatus = Object.fromEntries(pkg.groups.map((group) => [group.key, group.category]));
@@ -1189,6 +1238,27 @@ function submissionPackageGrid(doc, pkg) {
   return grid;
 }
 
+function submissionRoadmap(doc, roadmap) {
+  const section = el(doc, "div", "financial-submission-roadmap");
+  const listNode = el(doc, "ol", "financial-submission-roadmap-list");
+  listNode.append(...roadmap.stages.map((stage) => {
+    const item = el(doc, "li", "");
+    item.dataset.financialRoadmapStage = stage.category;
+    item.append(
+      el(doc, "span", "", stage.label),
+      el(doc, "strong", "", stage.category),
+      el(doc, "p", "", stage.detail)
+    );
+    return item;
+  }));
+  section.append(
+    el(doc, "strong", "", "本番反映までの道筋"),
+    el(doc, "p", "", "現在できる確認と、本番投入前に必ず止める境界を分けて表示しています。"),
+    listNode
+  );
+  return section;
+}
+
 function submissionNextAction(doc, nextAction) {
   const section = el(doc, "div", "financial-submission-next-action");
   const listNode = el(doc, "ul", "financial-submission-next-list");
@@ -1405,6 +1475,7 @@ function setSubmissionPackage(container, result) {
   const message = buildFinancialAccountingRequestMessage(result);
   const impact = buildFinancialAccountingRequestImpact(result);
   const reflection = buildFinancialReflectionSummary(result);
+  const roadmap = buildFinancialSubmissionRoadmap(result);
   const textFile = buildFinancialAccountingRequestText(result);
   const balanceReviewFile = buildFinancialBalanceReviewCsv(result);
   const requestDownload = el(doc, "a", "financial-accounting-request-download", "確認依頼TXTを保存");
@@ -1418,6 +1489,7 @@ function setSubmissionPackage(container, result) {
   target.replaceChildren(
     submissionPackageHeading(doc, pkg, label),
     financialReflectionSummary(doc, reflection),
+    submissionRoadmap(doc, roadmap),
     submissionPackageGrid(doc, pkg),
     submissionNextAction(doc, pkg.nextAction),
     accountingRequestSection(doc, message, impact, requestDownload, balanceReviewFile)

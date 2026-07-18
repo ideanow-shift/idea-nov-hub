@@ -17,6 +17,7 @@ import {
   buildFinancialMappingReviewRows,
   buildFinancialReflectionSummary,
   buildFinancialSubmissionPackage,
+  buildFinancialSubmissionRoadmap,
   buildFinancialIntakeReceipt,
   combineFinancialWorkbookResults,
   parseFinancialWorkbookBuffer,
@@ -288,6 +289,29 @@ test("financial submission package summarizes local readiness without enabling i
   assert.equal(reflection.mutationCount, 0);
   assert.equal(reflection.uploadCount, 0);
   assert.doesNotMatch(JSON.stringify(reflection), /employeeId|sessionToken|Authorization|filename|digest/i);
+  const roadmap = buildFinancialSubmissionRoadmap({
+    statement: "PL",
+    status: "PL_LOCAL_READY",
+    sheetCount: 3,
+    missingByAccount: {},
+    localStoreCsvReceipt: storeReceipt,
+    localSupplementalReceipt: supplementalReceipt,
+  });
+  assert.equal(roadmap.schemaVersion, "management-financial-submission-roadmap-v1");
+  assert.equal(roadmap.currentStage, "LOCAL_VALIDATION");
+  assert.deepEqual(roadmap.stages.map((stage) => stage.key), [
+    "LOCAL_VALIDATION",
+    "PRODUCTION_EVIDENCE",
+    "PROVIDER_IDENTITY",
+    "STAGING_IMPORT",
+    "APPROVAL_REFLECTION",
+  ]);
+  assert.deepEqual(roadmap.stages.map((stage) => stage.category), ["CURRENT", "BLOCKED", "BLOCKED", "DISABLED", "DISABLED"]);
+  assert.equal(roadmap.stages.every((stage) => stage.mutationEnabled === false && stage.uploadEnabled === false), true);
+  assert.equal(roadmap.productionImportEnabled, false);
+  assert.equal(roadmap.mutationCount, 0);
+  assert.equal(roadmap.uploadCount, 0);
+  assert.doesNotMatch(JSON.stringify(roadmap), /employeeId|sessionToken|Authorization|filename|digest/i);
   assert.deepEqual(pkg.groups.map((group) => [group.key, group.category, group.readyCount, group.totalCount]), [
     ["PL_PACKAGE", "LOCAL_PACKAGE_SECTION_READY", 2, 2],
     ["STORE_PACKAGE", "LOCAL_PACKAGE_SECTION_READY", 5, 5],
@@ -791,7 +815,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=57414b04339de19e/);
+  assert.match(app, /financial-data-intake\.js\?v=a177abb8aab9f186/);
   assert.match(financialIntake, /financial-supplemental-csv\.js\?v=7cacd43781126450/);
   assert.match(financialIntake, /renderFinancialSupplementalCsv\(supplemental/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake, \{ externalEvidence: financialExternalEvidence\(\) \}\)/);
@@ -895,6 +919,8 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(styles, /\.financial-intake-preview/);
   assert.match(styles, /\.financial-completion-list/);
   assert.match(styles, /\.financial-submission-package-grid/);
+  assert.match(styles, /\.financial-submission-roadmap/);
+  assert.match(styles, /\.financial-submission-roadmap-list/);
   assert.match(styles, /\.financial-submission-next-action/);
   assert.match(styles, /\.financial-submission-next-list/);
   assert.match(styles, /\.financial-accounting-request/);
@@ -917,6 +943,10 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(financialIntake, /不足資料CSVを保存/);
   assert.match(financialIntake, /management-financial-missing-data-request\.csv/);
   assert.match(financialIntake, /management-financial-submission-package-v1/);
+  assert.match(financialIntake, /management-financial-submission-roadmap-v1/);
+  assert.match(financialIntake, /buildFinancialSubmissionRoadmap/);
+  assert.match(financialIntake, /本番staging/);
+  assert.match(financialIntake, /承認・本番反映/);
   assert.match(financialIntake, /management-financial-reflection-summary-v1/);
   assert.match(financialIntake, /financial-reflection-summary/);
   assert.match(financialIntake, /financialReflectionSummary/);

@@ -252,6 +252,17 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-submission-package-item { min-width: 0; padding: 9px 10px; background: #fff; border: 1px solid var(--border-light); border-radius: var(--radius-md); }
 .financial-submission-package-item strong, .financial-submission-package-item span { display: block; color: var(--text-primary); font-size: 12px; overflow-wrap: anywhere; }
 .financial-submission-package-item p { margin: 4px 0 0; color: var(--text-secondary); font-size: 11px; overflow-wrap: anywhere; }
+.financial-submission-roadmap { margin-top: 10px; padding: 10px; background: #fff; border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.financial-submission-roadmap > strong { display: block; color: var(--text-primary); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.financial-submission-roadmap > p { margin: 4px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.financial-submission-roadmap-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.financial-submission-roadmap-list li { min-width: 0; padding: 8px; background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.financial-submission-roadmap-list li[data-financial-roadmap-stage="COMPLETE"] { border-color: var(--color-success); background: #f3fff6; }
+.financial-submission-roadmap-list li[data-financial-roadmap-stage="CURRENT"] { border-color: var(--color-bassa); background: #fffaf0; }
+.financial-submission-roadmap-list li[data-financial-roadmap-stage="BLOCKED"], .financial-submission-roadmap-list li[data-financial-roadmap-stage="DISABLED"] { opacity: .76; }
+.financial-submission-roadmap-list span, .financial-submission-roadmap-list strong { display: block; color: var(--text-primary); font-size: 11px; overflow-wrap: anywhere; }
+.financial-submission-roadmap-list strong { margin-top: 3px; font-weight: 500; }
+.financial-submission-roadmap-list p { margin: 4px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 .financial-submission-next-action { margin-top: 10px; padding: 10px; background: #fff; border: 1px solid var(--border-light); border-radius: var(--radius-md); }
 .financial-submission-next-action strong { display: block; color: var(--text-primary); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
 .financial-submission-next-action p { margin: 4px 0 0; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
@@ -346,7 +357,7 @@ tbody tr:hover td { background: var(--card-soft); }
   .corporation-tabs { padding: 10px 12px; }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .metric-value { font-size: 24px; }
-  .workflow, .method-grid, .production-readiness-grid, .financial-intake-controls, .financial-intake-preview, .financial-completion-list, .financial-submission-package-grid, .financial-local-preview-metrics { grid-template-columns: 1fr; }
+  .workflow, .method-grid, .production-readiness-grid, .financial-intake-controls, .financial-intake-preview, .financial-completion-list, .financial-submission-package-grid, .financial-submission-roadmap-list, .financial-local-preview-metrics { grid-template-columns: 1fr; }
   .financial-visible-scope, .financial-production-hold-summary { grid-template-columns: 1fr; }
   .financial-store-match-action { grid-template-columns: 1fr; }
   .financial-store-match-action button { grid-column: 1; grid-row: auto; width: 100%; }

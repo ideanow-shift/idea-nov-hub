@@ -227,7 +227,7 @@ class AnswerRuleRepository {
 
 class ConversationLogRepository {
   all() {
-    return readJson(STORAGE_KEYS.logs, []);
+    return readStoredRecords(STORAGE_KEYS.logs, 300);
   }
 
   async allForAdmin() {
@@ -290,7 +290,7 @@ class ConversationLogRepository {
 
 class KnowledgeUpdateRepository {
   all() {
-    return readJson(STORAGE_KEYS.knowledgeUpdates, []);
+    return readStoredRecords(STORAGE_KEYS.knowledgeUpdates, 100);
   }
 
   async allForAdmin() {
@@ -2011,12 +2011,24 @@ function hasRemoteBackend() {
   return Boolean(STORE_MASTER_CONFIG.apiEndpoint);
 }
 
-function readJson(key, fallback) {
+function readStoredRecords(key, maxItems) {
   try {
     const value = localStorage.getItem(key);
-    return value ? JSON.parse(value) : fallback;
+    if (!value) return [];
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((entry) => {
+        return entry !== null
+          && typeof entry === "object"
+          && !Array.isArray(entry)
+          && !Object.hasOwn(entry, "__proto__")
+          && !Object.hasOwn(entry, "constructor")
+          && !Object.hasOwn(entry, "prototype");
+      })
+      .slice(0, maxItems);
   } catch {
-    return fallback;
+    return [];
   }
 }
 

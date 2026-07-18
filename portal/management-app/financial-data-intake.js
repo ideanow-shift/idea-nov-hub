@@ -936,6 +936,32 @@ export function buildFinancialMappingReviewSummary(result) {
   };
 }
 
+export function buildFinancialMappingAccountingHandoff(result) {
+  const summary = buildFinancialMappingReviewSummary(result);
+  return {
+    schemaVersion: "management-financial-mapping-accounting-handoff-v1",
+    category: summary.category === "MAPPING_ACCOUNTING_RETURN_REQUIRED"
+      ? "ACCOUNTING_RETURN_REQUIRED"
+      : summary.category === "MAPPING_LOCAL_EVIDENCE_RECEIVED"
+        ? "ACCOUNTING_RETURN_RECEIVED_LOCAL_ONLY"
+        : "ACCOUNTING_HANDOFF_NOT_AVAILABLE",
+    requiredFile: summary.candidateCount > 0 ? "management-pl-account-mapping-review.csv" : null,
+    expectedReturnRowCount: summary.candidateCount,
+    affectedSheetCount: summary.affectedSheetCount,
+    acceptedReturnStatuses: summary.candidateCount > 0 ? ["確認済み", "否認"] : [],
+    nextOperatorStep: summary.category === "MAPPING_ACCOUNTING_RETURN_REQUIRED"
+      ? "SEND_CSV_TO_ACCOUNTING_AND_IMPORT_RETURN"
+      : summary.category === "MAPPING_LOCAL_EVIDENCE_RECEIVED"
+        ? "CONTINUE_LOCAL_VALIDATION"
+        : "WAIT_FOR_EXACT_LOCAL_PL_CANDIDATES",
+    localOnly: true,
+    productionImportEnabled: false,
+    externalSendEnabled: false,
+    mutationCount: 0,
+    uploadCount: 0,
+  };
+}
+
 function financialCsvCell(value) {
   let text = String(value ?? "").normalize("NFC");
   if (/^[=+\-@]/u.test(text)) text = `'${text}`;
@@ -1416,6 +1442,7 @@ function setMappingReview(container, result) {
   const download = container.querySelector("[data-financial-mapping-download]");
   const confirmationInput = container.querySelector("[data-financial-mapping-confirmation-input]");
   const confirmationStatus = container.querySelector("[data-financial-mapping-confirmation-status]");
+  const handoffNode = container.querySelector("[data-financial-mapping-handoff]");
   if (!section || !summary || !body || !download) return;
   const rows = buildFinancialMappingReviewRows(result);
   const exportFile = buildFinancialMappingReviewCsv(result);
@@ -1424,6 +1451,10 @@ function setMappingReview(container, result) {
     summary.textContent = "既知の対応候補を完全に検出した場合だけ表示します。";
     body.replaceChildren();
     if (facts) facts.replaceChildren();
+    if (handoffNode) {
+      handoffNode.dataset.financialMappingHandoff = "ACCOUNTING_HANDOFF_NOT_AVAILABLE";
+      handoffNode.textContent = "P/L候補が完全に揃うまで、経理返却CSVは作成しません。";
+    }
     download.removeAttribute("href");
     download.removeAttribute("download");
     if (confirmationInput) confirmationInput.disabled = true;
@@ -1435,6 +1466,7 @@ function setMappingReview(container, result) {
   }
   section.dataset.financialMappingStatus = exportFile.status;
   const reviewSummary = buildFinancialMappingReviewSummary(result);
+  const handoff = buildFinancialMappingAccountingHandoff(result);
   summary.textContent = `${rows.length}件の候補を検出しました。CSVの確認状態を「確認済み」または「否認」に変更して返却してください。金額・原本名・個人情報は含みません。`;
   if (facts) {
     facts.replaceChildren(
@@ -1443,6 +1475,12 @@ function setMappingReview(container, result) {
       mappingFact(doc, "次", reviewSummary.nextAction === "RETURN_MAPPING_CONFIRMATION_CSV" ? "CSV返却" : "ローカル確認済み"),
       mappingFact(doc, "本番投入", "disabled")
     );
+  }
+  if (handoffNode) {
+    handoffNode.dataset.financialMappingHandoff = handoff.category;
+    handoffNode.textContent = handoff.category === "ACCOUNTING_RETURN_RECEIVED_LOCAL_ONLY"
+      ? "経理回答CSVはローカル検証済みです。本番投入は引き続き無効です。"
+      : `次はCSVを経理へ返却し、${handoff.expectedReturnRowCount}行を「確認済み」または「否認」で戻してもらいます。戻ったCSVだけをこの画面で検証します。`;
   }
   body.replaceChildren(...rows.map((row) => {
     const tr = el(doc, "tr");
@@ -1661,6 +1699,8 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   mappingHeading.append(mappingTitleWrap, mappingDownload);
   const mappingFacts = el(doc, "ul", "financial-mapping-facts");
   mappingFacts.dataset.financialMappingFacts = "true";
+  const mappingHandoff = el(doc, "p", "financial-mapping-handoff", "P/L候補が揃うと、経理返却の次アクションを表示します。");
+  mappingHandoff.dataset.financialMappingHandoff = "ACCOUNTING_HANDOFF_NOT_AVAILABLE";
   const mappingTableWrap = el(doc, "div", "table-wrap financial-mapping-table");
   const mappingTable = el(doc, "table");
   const mappingHead = el(doc, "thead");
@@ -1682,7 +1722,7 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const mappingConfirmationStatus = el(doc, "p", "financial-mapping-confirmation-status", "候補CSVを作成後に、経理回答CSVを検証できます。");
   mappingConfirmationStatus.dataset.financialMappingConfirmationStatus = "NOT_READY";
   mappingConfirmation.append(mappingConfirmationLabel, mappingConfirmationStatus);
-  mappingReview.append(mappingHeading, mappingFacts, mappingTableWrap, mappingConfirmation);
+  mappingReview.append(mappingHeading, mappingFacts, mappingHandoff, mappingTableWrap, mappingConfirmation);
   section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, mappingReview, completion, submissionPackage, supplemental, preview);
   container.replaceChildren(section);
   let latestResult = hooks.initialResult || null;

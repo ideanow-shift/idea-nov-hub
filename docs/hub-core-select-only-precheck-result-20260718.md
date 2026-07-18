@@ -41,14 +41,26 @@ The existing assigned operator is ready, but the aggregate assignment count is i
 ## LINE WORKS inventory
 
 ```yaml
-status: SAFE_STOP_RESULT_WRAPPER_MISMATCH
-select_attempt_count: 1
+status: PASS
+table_exists: true
+required_columns_present: true
+employee_target_supported: true
+unique_index_present: true
+rls_enabled: true
+rls_forced: false
+policy_count: 0
+browser_policy_count: 0
+service_role_privilege_count: 4
+browser_privilege_count: 0
+required_function_count: 3
+security_definer_count: 3
+fixed_search_path_count: 3
+browser_execute_count: 0
 mutation_executed: false
 raw_output_printed: false
-retry_executed: false
 ```
 
-The SQL completed but the original runner did not recognize the CLI wrapper. The parser was repaired and passed four local wrapper fixtures. A retry requires a fresh one-shot approval.
+The production catalog supports an employee-scoped LINE WORKS destination. The unique index, RLS boundary, service-role-only table privileges, and three required security-definer functions with fixed search paths are present. Browser table privileges, browser policies, and browser function execution are all zero. This evidence permits a frontend source candidate; it does not approve production destination DML, notification enqueue, or LINE WORKS send.
 
 ## Remaining boundaries
 

@@ -10,7 +10,7 @@ const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
 const MASTER_ADMIN_RECOVERY_LABEL = "マスタ管理 v32";
-const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
+const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = true;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
 const APP_ROLE_GROUPS = [
@@ -3982,7 +3982,9 @@ function renderEmployeeLineWorksDestinationPanel(employee, readonly) {
   const hasDestination = hasEmployeeLineWorksDestination(employee);
   const preview = hasDestination ? "設定済み（実ID非表示）" : "未設定";
   const lineWorksReadonly = readonly || !EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED;
-  const saveStatusMessage = "個人通知先の保存はDB設計レビュー後に有効化します。";
+  const saveStatusMessage = EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED
+    ? "変更時のみUser IDを入力してください。"
+    : "個人通知先の保存はDB設計レビュー後に有効化します。";
   return `
     <section class="notification-destination-panel" id="line-works-destination-panel">
       <div class="notification-destination-heading">
@@ -4004,7 +4006,7 @@ function renderEmployeeLineWorksDestinationPanel(employee, readonly) {
       </div>
       <div class="notification-destination-actions">
         <span class="save-status pending" id="line-works-destination-save-status">${escapeHtml(saveStatusMessage)}</span>
-        <button class="button button-primary notification-destination-save-button" id="save-line-works-destination" type="button" disabled>設計レビュー待ち</button>
+        <button class="button button-primary notification-destination-save-button" id="save-line-works-destination" type="button" disabled>${EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED ? "保存" : "設計レビュー待ち"}</button>
       </div>
     </section>`;
 }

@@ -1,0 +1,103 @@
+{
+  "contractVersion": "gas-retirement-disable-archive-v1",
+  "scope": "source-only result contract for a later separately approved Apps Script disable/archive gate",
+  "executionApproved": false,
+  "requiresPriorEvidenceCategory": "GAS_RETIREMENT_EVIDENCE_READY",
+  "terminalCategories": [
+    "GAS_DEPLOYMENT_ARCHIVED_CLEAN",
+    "TRIGGER_DISABLE_NOT_EXACT",
+    "DEPLOYMENT_ARCHIVE_NOT_EXACT",
+    "POST_ARCHIVE_OBSERVATION_NOT_EXACT",
+    "RETIREMENT_ACTION_ABORTED_SAFE_STOP"
+  ],
+  "sanitizedResultShape": {
+    "requiredKeys": [
+      "contractVersion",
+      "category",
+      "priorEvidenceReady",
+      "legacyWriteFreezeConfirmed",
+      "replacementRoutesStillReady",
+      "approvedActiveTriggerCount",
+      "disabledTriggerCount",
+      "remainingActiveTriggerCount",
+      "deploymentArchiveAttempted",
+      "deploymentArchived",
+      "postArchiveObservationReady",
+      "mutationCount",
+      "secretInspectionCount",
+      "rawLogCaptured",
+      "rawPayloadCaptured",
+      "deletionPerformed"
+    ],
+    "forbiddenKeyPatterns": [
+      "url",
+      "token",
+      "secret",
+      "cookie",
+      "session",
+      "script",
+      "deployment",
+      "trigger",
+      "property",
+      "request",
+      "response",
+      "body",
+      "payload",
+      "stack",
+      "trace",
+      "email",
+      "employee",
+      "name",
+      "id"
+    ]
+  },
+  "readyRule": {
+    "category": "GAS_DEPLOYMENT_ARCHIVED_CLEAN",
+    "required": {
+      "priorEvidenceReady": true,
+      "legacyWriteFreezeConfirmed": true,
+      "replacementRoutesStillReady": true,
+      "deploymentArchiveAttempted": true,
+      "deploymentArchived": true,
+      "postArchiveObservationReady": true,
+      "rawLogCaptured": false,
+      "rawPayloadCaptured": false,
+      "deletionPerformed": false
+    },
+    "countBounds": {
+      "disabledTriggerCount": { "equals": "approvedActiveTriggerCount" },
+      "remainingActiveTriggerCount": { "exact": 0 },
+      "mutationCount": { "exact": 0 },
+      "secretInspectionCount": { "exact": 0 }
+    }
+  },
+  "nonCleanMapping": [
+    {
+      "category": "RETIREMENT_ACTION_ABORTED_SAFE_STOP",
+      "condition": "priorEvidenceReady=false, write freeze not confirmed, replacement route drift, raw evidence captured, Secret/Script Properties inspection, deletion request, or unexpected action boundary"
+    },
+    {
+      "category": "TRIGGER_DISABLE_NOT_EXACT",
+      "condition": "disabledTriggerCount does not equal approvedActiveTriggerCount or remainingActiveTriggerCount is not zero"
+    },
+    {
+      "category": "DEPLOYMENT_ARCHIVE_NOT_EXACT",
+      "condition": "deployment archive was not attempted exactly once or archived state is not confirmed"
+    },
+    {
+      "category": "POST_ARCHIVE_OBSERVATION_NOT_EXACT",
+      "condition": "replacement route or post-archive observation is not ready after archive"
+    }
+  ],
+  "boundaries": {
+    "allowsDeletion": false,
+    "allowsSecretAccess": false,
+    "allowsRawLogs": false,
+    "allowsRawRequestResponse": false,
+    "allowsProductionDml": false,
+    "allowsDatabaseSchemaChange": false,
+    "allowsNotificationSend": false,
+    "allowsCredentialRotation": false
+  },
+  "nextGateAfterClean": "GAS_DESTRUCTIVE_DELETE_OR_SECRET_ROTATION_SEPARATE_GATE_ONLY"
+}

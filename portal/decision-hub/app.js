@@ -5,7 +5,7 @@ import {
 } from "../js/nov-hub-session-candidate.js";
 
 const DECISION_HUB_READONLY_LIVE = true;
-const DECISION_HUB_DRAFT_WRITE_ENABLED = false;
+const DECISION_HUB_DRAFT_WRITE_ENABLED = true;
 const LIST_LIMIT = 50;
 
 const state = {

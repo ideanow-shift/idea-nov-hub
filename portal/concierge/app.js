@@ -1912,6 +1912,7 @@ const CONCIERGE_CLIENT_ERRORS = Object.freeze({
   json: "CONCIERGE_CLIENT_JSON_REJECTED",
   envelope: "CONCIERGE_CLIENT_ENVELOPE_REJECTED"
 });
+const MAX_CONCIERGE_RESPONSE_BYTES = 4 * 1024 * 1024;
 
 function conciergeClientError(category) {
   return new Error(category);
@@ -1945,6 +1946,50 @@ function hasJsonResponseMediaType(response) {
     .trim()
     .toLowerCase();
   return mediaType === "application/json";
+}
+
+async function readBoundedConciergeJson(response) {
+  const declaredLength = response.headers.get("content-length");
+  if (declaredLength !== null) {
+    if (!/^\d+$/u.test(declaredLength)) throw new Error("invalid response length");
+    const byteLength = Number(declaredLength);
+    if (!Number.isSafeInteger(byteLength) || byteLength > MAX_CONCIERGE_RESPONSE_BYTES) {
+      throw new Error("response too large");
+    }
+  }
+  if (!response.body) throw new Error("missing response body");
+
+  const reader = response.body.getReader();
+  const chunks = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!(value instanceof Uint8Array)) throw new Error("invalid response chunk");
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_CONCIERGE_RESPONSE_BYTES) {
+        try {
+          await reader.cancel();
+        } catch {
+          // The fixed caller category remains the only exposed failure detail.
+        }
+        throw new Error("response too large");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  return JSON.parse(text);
 }
 
 function assertConciergeResponseEnvelope(result) {
@@ -2040,7 +2085,7 @@ async function requestJson(url, payload) {
 
   let result;
   try {
-    result = await response.json();
+    result = await readBoundedConciergeJson(response);
   } catch {
     clearAuthenticationState();
     throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.json);

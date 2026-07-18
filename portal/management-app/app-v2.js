@@ -82,14 +82,18 @@ function updateSectionDataBadges() {
   const corporate = document.querySelector('[data-section-status="corporate"]');
   const stores = document.querySelector('[data-section-status="stores"]');
   if (corporate) {
-    const label = plReady && bsReady ? "P/L・B/S確認中" : plReady ? "P/L確認中" : bsReady ? "B/S確認中" : "未反映";
+    const label = plReady || bsReady ? `不足${financialPendingCount()}件` : "未反映";
     corporate.textContent = label;
     corporate.dataset.sectionStatusCategory = plReady || bsReady ? "LOCAL_PREVIEW_ACTIVE" : "LOCAL_PREVIEW_EMPTY";
   }
   if (stores) {
-    stores.textContent = plReady ? "P/L確認中" : "未反映";
+    stores.textContent = plReady ? `不足${financialPendingCount()}件` : "未反映";
     stores.dataset.sectionStatusCategory = plReady ? "LOCAL_PREVIEW_ACTIVE" : "LOCAL_PREVIEW_EMPTY";
   }
+}
+
+function financialPendingCount() {
+  return financialReadinessItems().filter((item) => !item.ready).length;
 }
 
 function loadCurrentView(force) {

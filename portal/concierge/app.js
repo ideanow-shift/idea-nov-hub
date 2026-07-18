@@ -2140,17 +2140,22 @@ function toUniqueIdRecordMap(records) {
 
 async function requestJson(url, payload) {
   const body = serializeConciergePayload(payload);
-  const response = await fetch(url, {
-    method: "POST",
-    redirect: "error",
-    credentials: "omit",
-    cache: "no-store",
-    referrerPolicy: "no-referrer",
-    headers: {
-      "content-type": "application/json"
-    },
-    body
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      redirect: "error",
+      credentials: "omit",
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+      headers: {
+        "content-type": "application/json"
+      },
+      body
+    });
+  } catch {
+    throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.http);
+  }
 
   if (!response.ok) {
     if (response.status === 401) clearAuthenticationState();

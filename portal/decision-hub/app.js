@@ -21,10 +21,32 @@ const elements = {
   commentsPanel: document.getElementById("comments-panel"),
   summaryDraft: document.getElementById("summary-draft"),
   summaryWaiting: document.getElementById("summary-waiting"),
-  summaryReturned: document.getElementById("summary-returned")
+  summaryReturned: document.getElementById("summary-returned"),
+  tabApplications: document.getElementById("tab-applications"),
+  tabNewApplication: document.getElementById("tab-new-application"),
+  applicationListPanel: document.getElementById("application-list-panel"),
+  newApplicationPanel: document.getElementById("new-application-panel"),
+  detailSection: document.getElementById("detail-section"),
+  commentsSection: document.getElementById("comments-section")
 };
 
+wireNavigation();
 initDecisionHubReadOnly();
+
+function wireNavigation() {
+  elements.tabApplications?.addEventListener("click", () => showView("applications"));
+  elements.tabNewApplication?.addEventListener("click", () => showView("new-application"));
+}
+
+function showView(view) {
+  const showApplications = view !== "new-application";
+  elements.applicationListPanel.hidden = !showApplications;
+  elements.newApplicationPanel.hidden = showApplications;
+  elements.detailSection.hidden = !showApplications;
+  elements.commentsSection.hidden = !showApplications;
+  elements.tabApplications?.setAttribute("aria-selected", String(showApplications));
+  elements.tabNewApplication?.setAttribute("aria-selected", String(!showApplications));
+}
 
 function initDecisionHubReadOnly() {
   if (!DECISION_HUB_READONLY_LIVE) {
@@ -54,7 +76,7 @@ async function loadApplications() {
     renderSafeError({ code: "HUB_SESSION_REQUIRED" });
     return;
   }
-  renderLoading("Checking applications.");
+  renderLoading("申請一覧を確認しています。");
   try {
     const response = await callApiAction("decisionListApplications", {
       limit: LIST_LIMIT
@@ -67,6 +89,7 @@ async function loadApplications() {
     renderSummary(applications);
     renderEmptyDetail();
     renderEmptyComments();
+    renderReady(applications.length);
   } catch (error) {
     clearHubSessionOnAuthStatus(error);
     renderSafeError(error);
@@ -98,19 +121,28 @@ async function selectApplication(applicationId) {
 
 function setDisabledNotice() {
   elements.notice?.classList.add("is-live-disabled");
-  setText(elements.noticeTitle, "Design preview / DB disconnected");
-  setText(elements.noticeBody, "This screen is a preview. No production request is submitted.");
+  setText(elements.noticeTitle, "確認用画面 / DB未接続");
+  setText(elements.noticeBody, "この画面から本番申請は送信されません。");
 }
 
 function renderLoading(message) {
-  setText(elements.noticeTitle, "Loading");
+  elements.notice?.classList.remove("is-ready");
+  setText(elements.noticeTitle, "読み込み中");
   setText(elements.noticeBody, message);
   elements.requestList.replaceChildren(createStateMessage(message));
 }
 
+function renderReady(count) {
+  elements.notice?.classList.add("is-ready");
+  setText(elements.noticeTitle, "申請一覧を確認しました");
+  setText(elements.noticeBody, count > 0
+    ? `${count}件の申請を表示しています。`
+    : "現在、表示できる申請はありません。新規申請の入力画面は準備済みです。");
+}
+
 function renderApplications(applications) {
   if (!applications.length) {
-    elements.requestList.replaceChildren(createStateMessage("No applications are available."));
+    elements.requestList.replaceChildren(createStateMessage("現在、表示できる申請はありません。"));
     return;
   }
 
@@ -130,14 +162,14 @@ function renderApplications(applications) {
 
     const status = document.createElement("span");
     status.className = "status";
-    status.textContent = application.status || "Review";
+    status.textContent = formatStatus(application.status);
 
     const body = document.createElement("div");
     const title = document.createElement("div");
-    title.textContent = application.title || application.applicationNo || "Application";
+    title.textContent = application.title || application.applicationNo || "申請";
     const meta = document.createElement("div");
     meta.className = "muted";
-    meta.textContent = application.applicationNo || "Safe fields only";
+    meta.textContent = application.applicationNo || "表示許可済みの項目のみ表示";
     body.append(title, meta);
 
     const date = document.createElement("div");
@@ -166,19 +198,19 @@ function renderSummary(applications) {
 }
 
 function renderEmptyDetail() {
-  elements.detailPanel.replaceChildren(createStateMessage("Select an application to show safe detail fields."));
+  elements.detailPanel.replaceChildren(createStateMessage("申請を選択すると、表示許可済みの項目を表示します。"));
 }
 
 function renderEmptyComments() {
-  elements.commentsPanel.replaceChildren(createStateMessage("Comment body appears here only after visibility checks."));
+  elements.commentsPanel.replaceChildren(createStateMessage("コメントは、表示権限の確認後に表示します。"));
 }
 
 function renderDetailLoading() {
-  elements.detailPanel.replaceChildren(createStateMessage("Checking application detail."));
+  elements.detailPanel.replaceChildren(createStateMessage("申請詳細を確認しています。"));
 }
 
 function renderCommentsLoading() {
-  elements.commentsPanel.replaceChildren(createStateMessage("Checking comments."));
+  elements.commentsPanel.replaceChildren(createStateMessage("コメントを確認しています。"));
 }
 
 function renderDetail(detail) {
@@ -221,9 +253,10 @@ function renderComments(commentsResponse) {
 }
 
 function renderSafeError(error, options = {}) {
+  elements.notice?.classList.remove("is-ready");
   const code = String(error?.code || "");
   const message = getSafeErrorMessage(code);
-  setText(elements.noticeTitle, "Unable to verify");
+  setText(elements.noticeTitle, "確認できませんでした");
   setText(elements.noticeBody, message);
   if (!options.keepList) {
     elements.requestList.replaceChildren(createStateMessage(message, "error-state"));
@@ -231,7 +264,7 @@ function renderSafeError(error, options = {}) {
     renderEmptyComments();
   } else {
     elements.detailPanel.replaceChildren(createStateMessage(message, "error-state"));
-    elements.commentsPanel.replaceChildren(createStateMessage("Comments could not be displayed.", "error-state"));
+    elements.commentsPanel.replaceChildren(createStateMessage("コメントを表示できませんでした。", "error-state"));
   }
 }
 
@@ -301,11 +334,24 @@ function createStateMessage(message, className = "empty-state") {
 }
 
 function getSafeErrorMessage(code) {
-  if (code === "HUB_SESSION_REQUIRED") return "Open this screen from a signed-in NOV HUB session.";
-  if (code === "TOKEN_MISSING") return "Open this screen from a signed-in NOV HUB session.";
-  if (code === "INVALID_REQUEST") return "The application request is invalid.";
-  if (code.startsWith("ACTOR_")) return "Access could not be confirmed.";
-  return "Application data could not be checked. Please retry later.";
+  if (code === "HUB_SESSION_REQUIRED") return "NOV HUBへログインし、アプリ一覧からDecision Hubを開いてください。";
+  if (code === "TOKEN_MISSING") return "NOV HUBのログイン情報を確認できませんでした。";
+  if (code === "API_TIMEOUT") return "申請一覧の確認に時間がかかっています。しばらくしてからNOV HUBより開き直してください。";
+  if (code === "INVALID_REQUEST") return "申請の確認条件が正しくありません。";
+  if (code.startsWith("ACTOR_")) return "利用者の権限を確認できませんでした。";
+  return "申請一覧を確認できませんでした。しばらくしてからお試しください。";
+}
+
+function formatStatus(value) {
+  const status = String(value || "").trim().toLowerCase();
+  if (!status) return "確認中";
+  if (status.includes("draft")) return "下書き";
+  if (status.includes("return")) return "差戻し";
+  if (status.includes("reject")) return "却下";
+  if (status.includes("approv")) return "承認済み";
+  if (status.includes("submit") || status.includes("wait")) return "承認待ち";
+  if (status.includes("cancel")) return "取消";
+  return safeText(value);
 }
 
 function clearHubSessionOnAuthStatus(error) {

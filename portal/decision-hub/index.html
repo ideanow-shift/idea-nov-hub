@@ -107,6 +107,15 @@
         color: #1b5da8;
       }
 
+      .notice.is-ready {
+        border-color: #b9dfc3;
+        background: #f2fbf4;
+      }
+
+      .notice.is-ready strong {
+        color: #177245;
+      }
+
       .tabs,
       .actions {
         display: flex;
@@ -129,6 +138,12 @@
         color: var(--text-secondary);
         cursor: not-allowed;
         background: #f6f6f6;
+      }
+
+      .tabs button[aria-selected="true"] {
+        border-color: var(--color-bassa);
+        background: #fff5f6;
+        color: #8f2630;
       }
 
       .panel {
@@ -203,6 +218,10 @@
         gap: var(--spacing-sm);
       }
 
+      .progress-panel {
+        order: 50;
+      }
+
       .progress-item {
         display: grid;
         grid-template-columns: 112px minmax(0, 1fr);
@@ -239,6 +258,48 @@
         gap: var(--spacing-sm);
       }
 
+      .application-form {
+        display: grid;
+        gap: var(--spacing-md);
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--spacing-md);
+      }
+
+      .form-field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .form-field.is-wide {
+        grid-column: 1 / -1;
+      }
+
+      .form-field input,
+      .form-field select,
+      .form-field textarea {
+        width: 100%;
+        min-height: 44px;
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-md);
+        padding: 10px 12px;
+        background: #ffffff;
+        color: var(--text-primary);
+        font: inherit;
+      }
+
+      .form-field textarea {
+        min-height: 104px;
+        resize: vertical;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
       .empty-state,
       .error-state {
         padding: var(--spacing-md);
@@ -265,8 +326,13 @@
 
         .request-row,
         .summary-grid,
-        .progress-item {
+        .progress-item,
+        .form-grid {
           grid-template-columns: 1fr;
+        }
+
+        .form-field.is-wide {
+          grid-column: auto;
         }
       }
     </style>
@@ -288,10 +354,10 @@
         </section>
 
         <nav class="tabs" aria-label="Decision Hub menu">
-          <button type="button">申請一覧</button>
-          <button type="button">新規申請</button>
-          <button type="button">承認・確認待ち</button>
-          <button type="button">通知Inbox</button>
+          <button id="tab-applications" type="button" aria-selected="true">申請一覧</button>
+          <button id="tab-new-application" type="button" aria-selected="false">新規申請</button>
+          <button type="button" disabled>承認・確認待ち</button>
+          <button type="button" disabled>通知Inbox</button>
         </nav>
 
         <section class="summary-grid" aria-label="状況サマリー">
@@ -309,7 +375,7 @@
           </article>
         </section>
 
-        <section class="panel" aria-labelledby="progress-title">
+        <section class="panel progress-panel" aria-labelledby="progress-title">
           <h2 id="progress-title">進捗状況</h2>
           <div class="progress-list">
             <article class="progress-item">
@@ -327,23 +393,23 @@
               </div>
             </article>
             <article class="progress-item">
-              <span class="status is-review">確認中</span>
+              <span class="status is-done">完了</span>
               <div>
-                <strong>下書き保存のactor解決</strong>
-                <div class="muted">PIN認証で解決済みの社員IDをDecision actorへ安全に渡す修正候補をCoreOSレビュー中です。</div>
+                <strong>利用者確認と申請一覧</strong>
+                <div class="muted">NOV HUBのログイン情報を使い、利用者をサーバー側で再確認して一覧を取得します。</div>
               </div>
             </article>
             <article class="progress-item">
-              <span class="status is-stopped">未接続</span>
+              <span class="status is-review">構築中</span>
               <div>
-                <strong>本番申請・承認操作</strong>
-                <div class="muted">送信・承認・差戻し・却下・通知送信はまだ無効です。DB接続した本番操作はCoreOS承認後に開放します。</div>
+                <strong>企画・契約申請フォーム</strong>
+                <div class="muted">入力画面は利用可能です。下書き保存・送信・承認操作は安全確認後に順次接続します。</div>
               </div>
             </article>
           </div>
         </section>
 
-        <section class="panel" aria-labelledby="list-title">
+        <section id="application-list-panel" class="panel" aria-labelledby="list-title">
           <h2 id="list-title">企画・契約申請</h2>
           <div id="request-list" class="request-list">
             <article class="request-row">
@@ -371,14 +437,75 @@
           </div>
         </section>
 
-        <section class="panel" aria-labelledby="detail-title">
+        <section id="new-application-panel" class="panel" aria-labelledby="new-application-title" hidden>
+          <div>
+            <h2 id="new-application-title">企画・契約申請</h2>
+            <div class="muted">入力内容はまだ送信されません。保存接続前の入力画面です。</div>
+          </div>
+          <form class="application-form" autocomplete="off">
+            <div class="form-grid">
+              <label class="form-field is-wide">
+                <span>企画・契約名</span>
+                <input type="text" name="title" maxlength="160" placeholder="例：新規取引先との業務委託契約" required>
+              </label>
+              <label class="form-field">
+                <span>申請区分</span>
+                <select name="applicationType" required>
+                  <option value="">選択してください</option>
+                  <option value="planning">企画・施策実施</option>
+                  <option value="contract_review">契約確認</option>
+                  <option value="external_transaction">外部取引</option>
+                </select>
+              </label>
+              <label class="form-field">
+                <span>希望決裁日</span>
+                <input type="date" name="desiredDecisionDate">
+              </label>
+              <label class="form-field is-wide">
+                <span>目的</span>
+                <textarea name="purpose" maxlength="2000" placeholder="この申請で実現したいことを入力してください" required></textarea>
+              </label>
+              <label class="form-field is-wide">
+                <span>背景・期待効果</span>
+                <textarea name="background" maxlength="3000" placeholder="背景、期待する成果、判断に必要な情報を入力してください"></textarea>
+              </label>
+              <label class="form-field">
+                <span>予算額</span>
+                <input type="number" name="budgetAmount" min="0" step="1" inputmode="numeric" placeholder="0">
+              </label>
+              <label class="form-field">
+                <span>契約先</span>
+                <input type="text" name="counterparty" maxlength="160" placeholder="会社名または取引先名">
+              </label>
+              <label class="form-field">
+                <span>契約開始日</span>
+                <input type="date" name="contractStartDate">
+              </label>
+              <label class="form-field">
+                <span>契約終了日</span>
+                <input type="date" name="contractEndDate">
+              </label>
+              <label class="form-field is-wide">
+                <span>リスク・確認事項</span>
+                <textarea name="riskNotes" maxlength="2000" placeholder="想定リスク、法務・情報管理上の確認事項を入力してください"></textarea>
+              </label>
+            </div>
+            <div class="actions">
+              <button type="button" disabled>下書き保存</button>
+              <button type="submit" disabled>申請する</button>
+              <span class="muted">保存・申請機能は現在接続準備中です。</span>
+            </div>
+          </form>
+        </section>
+
+        <section id="detail-section" class="panel" aria-labelledby="detail-title">
           <h2 id="detail-title">申請詳細</h2>
           <div id="detail-panel" class="detail-grid">
             <div class="empty-state">申請を選択すると、表示許可済みの項目だけを表示します。</div>
           </div>
         </section>
 
-        <section class="panel" aria-labelledby="comments-title">
+        <section id="comments-section" class="panel" aria-labelledby="comments-title">
           <h2 id="comments-title">コメント</h2>
           <div id="comments-panel" class="detail-grid">
             <div class="empty-state">コメント本文は、表示許可が通った場合のみここに表示します。</div>
@@ -386,6 +513,6 @@
         </section>
       </main>
     </div>
-    <script type="module" src="./app.js?v=06238e799c42"></script>
+    <script type="module" src="./app.js?v=69f399e60e24"></script>
   </body>
 </html>

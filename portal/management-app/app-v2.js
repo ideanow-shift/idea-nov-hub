@@ -580,6 +580,7 @@ function buildFinancialStoreMatchAction(localPlMatch) {
   action.append(
     label("次に必要"),
     paragraph(`P/L候補のうち一致 ${number.format(localPlMatch.matched)}件 / 未照合 ${number.format(localPlMatch.unmatched)}件。店舗名対応表を確認するまで、本番投入は無効です。`),
+    buildFinancialStoreMatchReturnRule(),
     download,
     button
   );
@@ -596,13 +597,26 @@ function buildFinancialStoreMatchAction(localPlMatch) {
   return action;
 }
 
+function buildFinancialStoreMatchReturnRule() {
+  const rule = document.createElement("ul");
+  rule.className = "financial-store-match-return-rule";
+  ["確認済み: 店舗マスター名と同一", "別名: 正しい店舗マスター名を補記", "除外: 店舗ではない候補"].forEach((text) => {
+    const item = document.createElement("li");
+    item.textContent = text;
+    rule.append(item);
+  });
+  return rule;
+}
+
 function buildFinancialStoreMatchCsv(localPlMatch) {
-  const header = ["店舗候補", "法人", "現在状態", "確認依頼", "本番投入"];
+  const header = ["店舗候補", "法人", "現在状態", "確認依頼", "確認結果", "正しい店舗名", "本番投入"];
   const rows = (localPlMatch.unmatchedRows || []).map((row) => [
     row.storeName,
     row.corporationName,
     row.currentStatus,
     "弥生P/Lシート名と店舗マスター名の対応を確認",
+    "確認済み/別名/除外",
+    "",
     "disabled",
   ]);
   const csv = `\uFEFF${[header, ...rows].map((row) => row.map(localCsvCell).join(",")).join("\r\n")}\r\n`;

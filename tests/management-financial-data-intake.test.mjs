@@ -808,6 +808,12 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(app, /localPlStoreMatchSummary/);
   assert.match(app, /buildFinancialStoreMatchAction/);
   assert.match(app, /buildFinancialStoreMatchCsv/);
+  assert.match(app, /buildFinancialStoreMatchReturnRule/);
+  assert.match(app, /確認済み: 店舗マスター名と同一/);
+  assert.match(app, /別名: 正しい店舗マスター名を補記/);
+  assert.match(app, /除外: 店舗ではない候補/);
+  assert.match(app, /確認結果/);
+  assert.match(app, /正しい店舗名/);
   assert.match(app, /localPlStoreRowsByNormalizedName/);
   assert.match(app, /normalizeStoreCandidateName/);
   assert.match(app, /\.normalize\("NFKC"\)/);
@@ -928,6 +934,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(styles, /\.financial-store-match-action/);
   assert.match(styles, /\.financial-store-match-action button/);
   assert.match(styles, /\.financial-store-match-download/);
+  assert.match(styles, /\.financial-store-match-return-rule/);
   assert.match(styles, /\.financial-store-match-unmatched/);
   assert.doesNotMatch(app, /management-pl-store-name-review\.csv[\s\S]{0,420}(employeeId|sessionToken|Authorization|rawFile|contentIdentity)/i);
   assert.match(styles, /\.section-tab-status/);

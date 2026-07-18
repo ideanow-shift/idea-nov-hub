@@ -37,6 +37,8 @@ const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MANAGEMENT_APP_IDS = new Set(["management-check", "management-platform"]);
 const MANAGEMENT_WEB_APP_IDS = new Set(["keiei", "management-system"]);
 const SHIFT_APP_IDS = new Set(["shift"]);
+const TALENT_APP_IDS = new Set(["human-capital-investment"]);
+const TALENT_APP_URL = "./talent/";
 const MANAGEMENT_APP_URL = "./management-platform/";
 const CORE_MASTER_ADMIN_APP_URL = "./master-admin-stable/?v=master-admin-auth-label-20260717-1";
 const IDEA_LINK_APP_URL = "./idea-link-app/?v=idea-link-module-sync-20260712-1";
@@ -719,6 +721,11 @@ function isEducationApp(app) {
     || category.includes("教育");
 }
 
+function isTalentApp(app) {
+  const appId = String(app?.appId || "").trim().toLowerCase().replaceAll("_", "-");
+  return TALENT_APP_IDS.has(appId);
+}
+
 function isBackofficeReleasedApp(app) {
   const appId = String(app?.appId || "").trim().toLowerCase().replaceAll("_", "-");
   return BACKOFFICE_RELEASED_APP_IDS.has(appId) || isCoreMasterAdminApp(app);
@@ -754,7 +761,9 @@ async function openApp(app) {
       ? IDEA_LINK_APP_URL
     : isEducationApp(app)
       ? EDUCATION_APP_URL
-      : app.url;
+      : isTalentApp(app)
+        ? TALENT_APP_URL
+        : app.url;
   const launchUrl = isIdeaLinkApp(app) ? "" : buildAppLaunchUrl(appUrl, employeeContext);
   if (state.authType === "firebase" || state.authType === "pin") {
     if (isManagementWebApp(app)) {

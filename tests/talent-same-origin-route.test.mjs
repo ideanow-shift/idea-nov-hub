@@ -364,3 +364,12 @@ test("talent entry point cache-busts runtime config and app with one release id"
   assert.ok(runtimeVersion, "runtime config must have a release id");
   assert.equal(appVersion, runtimeVersion);
 });
+
+test("HUB launcher canonicalizes Talent route even when backend URL is stale", () => {
+  const mainSource = readFileSync(new URL("../portal/js/main.js", import.meta.url), "utf8");
+
+  assert.match(mainSource, /const TALENT_APP_IDS = new Set\(\["human-capital-investment"\]\);/);
+  assert.match(mainSource, /const TALENT_APP_URL = "\.\/talent\/";/);
+  assert.match(mainSource, /function isTalentApp\(app\)/);
+  assert.match(mainSource, /:\s*isTalentApp\(app\)\s*\?\s*TALENT_APP_URL\s*:\s*app\.url/);
+});

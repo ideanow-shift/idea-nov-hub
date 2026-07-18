@@ -8,7 +8,7 @@ import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
 const CORPORATE_VIEWS = new Set([...FINANCE_VIEWS, "dataops"]);
 const VIEWS = new Set([...CORPORATE_VIEWS, "stores"]);
-const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null }, localEvidence: { storeCsvReceipt: null }, charts: {} };
+const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null }, localEvidence: { storeCsvReceipt: null, storeNameReceipt: null }, charts: {} };
 const number = new Intl.NumberFormat("ja-JP");
 const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 const colors = ["#b23a48", "#17324d", "#27795f", "#a36410", "#765487", "#337d8e", "#737b83"];
@@ -212,12 +212,12 @@ function renderStores() {
     ["P/L照合", localPl ? `一致${number.format(localPlMatch.matched)} / 未照合${number.format(localPlMatch.unmatched)}` : "未反映"],
     ["scope", scopeLabel(data.phase0Scope)],
   ]);
-  renderFinancialPreviewStores();
+  renderFinancialPreviewStores(localPlMatch);
   elements.storeRows.replaceChildren(...(stores.length ? stores.map((row) => {
-    const localRow = localPlRowsByStore.get(normalizeStoreCandidateName(row.name));
+    const localRow = localPlRowForStore(row, localPlRowsByStore);
     const salesText = localRow ? `P/L ${number.format(Math.round(localRow.salesManYen || 0))}万円` : row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.salesManYen || 0)}万円`;
     const targetText = localRow ? `損益 ${number.format(Math.round(localRow.ordinaryProfitManYen || 0))}万円` : row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.targetAchievementPercent || 0)}%`;
-    const statusText = localRow ? "ローカルP/L候補（本番未投入）" : localPl ? "P/L候補未照合" : row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "接続済み";
+    const statusText = localRow ? "ローカルP/L候補（本番未投入）" : storeNameExcluded(row) ? "店舗候補から除外（ローカル確認）" : localPl ? "P/L候補未照合" : row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "接続済み";
     return tableRow([row.name, row.corporationName, workforceMetric(row.staffCount), salesText, targetText, statusText]);
   }) : [emptyRow(6, "表示できる店舗がありません")]));
   renderCsvRequirements(elements.csvRequirements, data.requiredCsvFiles, {
@@ -230,9 +230,9 @@ function renderStores() {
 
 function localPlStoreMatchSummary(stores, localPlRowsByStore) {
   const rows = Array.isArray(stores) ? stores : [];
-  const matched = rows.filter((row) => localPlRowsByStore.has(normalizeStoreCandidateName(row.name))).length;
+  const matched = rows.filter((row) => localPlRowForStore(row, localPlRowsByStore)).length;
   const unmatchedRows = rows
-    .filter((row) => !localPlRowsByStore.has(normalizeStoreCandidateName(row.name)))
+    .filter((row) => !localPlRowForStore(row, localPlRowsByStore) && !storeNameExcluded(row))
     .map((row) => ({
       storeName: String(row.name || "未判定").slice(0, 40),
       corporationName: String(row.corporationName || "未判定").slice(0, 40),
@@ -241,7 +241,21 @@ function localPlStoreMatchSummary(stores, localPlRowsByStore) {
   const unmatchedNames = unmatchedRows
     .map((row) => row.storeName)
     .slice(0, 5);
-  return { matched, unmatched: Math.max(0, rows.length - matched), unmatchedNames, unmatchedRows };
+  return { matched, unmatched: unmatchedRows.length, unmatchedNames, unmatchedRows };
+}
+
+function localPlRowForStore(store, localPlRowsByStore) {
+  const key = normalizeStoreCandidateName(store?.name);
+  if (!key) return null;
+  const direct = localPlRowsByStore.get(key);
+  if (direct) return direct;
+  const aliasKey = state.localEvidence.storeNameReceipt?.aliases?.[key];
+  return aliasKey ? localPlRowsByStore.get(aliasKey) || null : null;
+}
+
+function storeNameExcluded(store) {
+  const key = normalizeStoreCandidateName(store?.name);
+  return Boolean(key && state.localEvidence.storeNameReceipt?.excluded?.[key]);
 }
 
 function localPlStoreSummary() {
@@ -577,11 +591,38 @@ function buildFinancialStoreMatchAction(localPlMatch) {
   download.href = csv.href;
   download.download = csv.fileName;
   download.textContent = `未照合店舗CSVを保存（${number.format(csv.rowCount)}件）`;
+  const reviewLabel = document.createElement("label");
+  reviewLabel.className = "financial-store-match-review";
+  reviewLabel.textContent = "返却CSVを検証";
+  const reviewInput = document.createElement("input");
+  reviewInput.type = "file";
+  reviewInput.accept = ".csv,text/csv";
+  reviewInput.addEventListener("change", async () => {
+    reviewInput.disabled = true;
+    try {
+      const receipt = await validateFinancialStoreMatchReviewFile(reviewInput.files?.[0], localPlMatch);
+      state.localEvidence.storeNameReceipt = receipt.status === "STORE_MATCH_LOCAL_EVIDENCE" ? receipt : null;
+      setStoreMatchReviewStatus(action, receipt);
+      renderStores();
+    } finally {
+      reviewInput.value = "";
+      reviewInput.disabled = false;
+    }
+  });
+  reviewLabel.append(reviewInput);
+  const reviewStatus = document.createElement("p");
+  reviewStatus.className = "financial-store-match-review-status";
+  reviewStatus.dataset.financialStoreMatchReviewStatus = state.localEvidence.storeNameReceipt ? "STORE_MATCH_LOCAL_EVIDENCE" : "PENDING";
+  reviewStatus.textContent = state.localEvidence.storeNameReceipt
+    ? `ローカル返却CSV確認済み: 別名 ${number.format(state.localEvidence.storeNameReceipt.aliasCount)}件 / 除外 ${number.format(state.localEvidence.storeNameReceipt.excludedCount)}件`
+    : "返却CSVはこの端末だけで検証します。本番投入には使用しません。";
   action.append(
     label("次に必要"),
     paragraph(`P/L候補のうち一致 ${number.format(localPlMatch.matched)}件 / 未照合 ${number.format(localPlMatch.unmatched)}件。店舗名対応表を確認するまで、本番投入は無効です。`),
     buildFinancialStoreMatchReturnRule(),
     download,
+    reviewLabel,
+    reviewStatus,
     button
   );
   if (localPlMatch.unmatchedNames?.length) {
@@ -595,6 +636,19 @@ function buildFinancialStoreMatchAction(localPlMatch) {
     action.append(list);
   }
   return action;
+}
+
+function setStoreMatchReviewStatus(container, receipt) {
+  const status = container.querySelector(".financial-store-match-review-status");
+  if (!status) return;
+  const labels = {
+    STORE_MATCH_LOCAL_EVIDENCE: `ローカル返却CSV確認済み: 別名 ${number.format(receipt.aliasCount)}件 / 除外 ${number.format(receipt.excludedCount)}件`,
+    STORE_MATCH_FORMAT_INVALID: "返却CSVの列・行数・形式が一致しません。",
+    STORE_MATCH_MISMATCH: "店舗候補・法人・状態・正しい店舗名が現在のP/L候補と一致しません。",
+    STORE_MATCH_FILE_INVALID: "UTF-8 CSV、64KB以下の返却CSVを選択してください。",
+  };
+  status.dataset.financialStoreMatchReviewStatus = receipt.status;
+  status.textContent = labels[receipt.status] || "返却CSVを検証できませんでした。";
 }
 
 function buildFinancialStoreMatchReturnRule() {
@@ -625,6 +679,80 @@ function buildFinancialStoreMatchCsv(localPlMatch) {
     rowCount: rows.length,
     href: `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`,
   };
+}
+
+async function validateFinancialStoreMatchReviewFile(file, localPlMatch) {
+  if (!file || !/\.csv$/iu.test(String(file.name || "")) || Number(file.size) <= 0 || Number(file.size) > 64 * 1024) {
+    return { status: "STORE_MATCH_FILE_INVALID", aliasCount: 0, excludedCount: 0 };
+  }
+  try {
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(await file.arrayBuffer());
+    return validateFinancialStoreMatchReviewCsv(text, localPlMatch, localPlStoreRowsByNormalizedName());
+  } catch {
+    return { status: "STORE_MATCH_FILE_INVALID", aliasCount: 0, excludedCount: 0 };
+  }
+}
+
+function validateFinancialStoreMatchReviewCsv(text, localPlMatch, localPlRowsByStore) {
+  const rows = parseLocalCsvRows(text);
+  const header = ["店舗候補", "法人", "現在状態", "確認依頼", "確認結果", "正しい店舗名", "本番投入"];
+  if (!rows.length || rows[0].length !== header.length || !rows[0].every((value, index) => value === header[index])) {
+    return { status: "STORE_MATCH_FORMAT_INVALID", aliasCount: 0, excludedCount: 0 };
+  }
+  const expectedRows = localPlMatch?.unmatchedRows || [];
+  const body = rows.slice(1);
+  if (body.length !== expectedRows.length) return { status: "STORE_MATCH_FORMAT_INVALID", aliasCount: 0, excludedCount: 0 };
+  const expected = new Map(expectedRows.map((row) => [`${row.storeName}\u0000${row.corporationName}\u0000${row.currentStatus}`, row]));
+  const aliases = {};
+  const excluded = {};
+  let aliasCount = 0;
+  let excludedCount = 0;
+  for (const values of body) {
+    if (values.length !== header.length || values[3] !== "弥生P/Lシート名と店舗マスター名の対応を確認" || values[6] !== "disabled") {
+      return { status: "STORE_MATCH_FORMAT_INVALID", aliasCount: 0, excludedCount: 0 };
+    }
+    const rowKey = `${values[0]}\u0000${values[1]}\u0000${values[2]}`;
+    if (!expected.delete(rowKey)) return { status: "STORE_MATCH_MISMATCH", aliasCount: 0, excludedCount: 0 };
+    const storeKey = normalizeStoreCandidateName(values[0]);
+    const reviewStatus = values[4];
+    const correctName = values[5];
+    if (reviewStatus === "別名") {
+      const aliasKey = normalizeStoreCandidateName(correctName);
+      if (!aliasKey || !localPlRowsByStore.has(aliasKey)) return { status: "STORE_MATCH_MISMATCH", aliasCount: 0, excludedCount: 0 };
+      aliases[storeKey] = aliasKey;
+      aliasCount += 1;
+    } else if (reviewStatus === "除外") {
+      if (correctName) return { status: "STORE_MATCH_MISMATCH", aliasCount: 0, excludedCount: 0 };
+      excluded[storeKey] = true;
+      excludedCount += 1;
+    } else if (reviewStatus !== "確認済み" || correctName) {
+      return { status: "STORE_MATCH_MISMATCH", aliasCount: 0, excludedCount: 0 };
+    }
+  }
+  if (expected.size) return { status: "STORE_MATCH_MISMATCH", aliasCount: 0, excludedCount: 0 };
+  return { status: "STORE_MATCH_LOCAL_EVIDENCE", aliasCount, excludedCount, aliases, excluded };
+}
+
+function parseLocalCsvRows(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  const source = String(text || "").replace(/^\uFEFF/u, "");
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (quoted) {
+      if (char === '"' && source[index + 1] === '"') { cell += '"'; index += 1; }
+      else if (char === '"') quoted = false;
+      else cell += char;
+    } else if (char === '"') quoted = true;
+    else if (char === ",") { row.push(cell); cell = ""; }
+    else if (char === "\n") { row.push(cell.replace(/\r$/u, "")); rows.push(row); row = []; cell = ""; }
+    else cell += char;
+  }
+  if (quoted) return [];
+  if (cell || row.length) { row.push(cell.replace(/\r$/u, "")); rows.push(row); }
+  return rows.filter((values) => values.some((value) => value !== ""));
 }
 
 function localCsvCell(value) {

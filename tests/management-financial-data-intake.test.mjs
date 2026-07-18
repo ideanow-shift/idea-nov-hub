@@ -809,6 +809,13 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(app, /buildFinancialStoreMatchAction/);
   assert.match(app, /buildFinancialStoreMatchCsv/);
   assert.match(app, /buildFinancialStoreMatchReturnRule/);
+  assert.match(app, /validateFinancialStoreMatchReviewFile/);
+  assert.match(app, /validateFinancialStoreMatchReviewCsv/);
+  assert.match(app, /STORE_MATCH_LOCAL_EVIDENCE/);
+  assert.match(app, /STORE_MATCH_MISMATCH/);
+  assert.match(app, /店舗候補から除外（ローカル確認）/);
+  assert.match(app, /返却CSVを検証/);
+  assert.match(app, /ローカル返却CSV確認済み/);
   assert.match(app, /確認済み: 店舗マスター名と同一/);
   assert.match(app, /別名: 正しい店舗マスター名を補記/);
   assert.match(app, /除外: 店舗ではない候補/);
@@ -934,6 +941,8 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(styles, /\.financial-store-match-action/);
   assert.match(styles, /\.financial-store-match-action button/);
   assert.match(styles, /\.financial-store-match-download/);
+  assert.match(styles, /\.financial-store-match-review/);
+  assert.match(styles, /\.financial-store-match-review-status/);
   assert.match(styles, /\.financial-store-match-return-rule/);
   assert.match(styles, /\.financial-store-match-unmatched/);
   assert.doesNotMatch(app, /management-pl-store-name-review\.csv[\s\S]{0,420}(employeeId|sessionToken|Authorization|rawFile|contentIdentity)/i);

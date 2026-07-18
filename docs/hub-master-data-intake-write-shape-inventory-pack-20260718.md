@@ -20,6 +20,8 @@ It returns column names/types/nullability/default-presence, constraints, indexes
 
 - SQL: `supabase/master-data-intake-write-shape-select-only-inventory-20260718.sql`
 - Validator: `tools/validate_master_data_intake_write_shape_inventory_20260718.mjs`
+- Sealed runner contract: `data-intake-write-shape`
+- Normalized SQL SHA-256: `8F19AE6B80B1CC7B565152B13CBE9A8DDA6B8F3D04C5ED3A8BFD5F064FF112F3`
 
 ## Execution gate
 
@@ -30,6 +32,8 @@ The query is source-only and has not been executed against production. A future 
 3. print no project identity, Secret, or raw business row;
 4. execute exactly one SELECT/CTE statement;
 5. stop after sanitized metadata capture.
+
+The sealed runner writes the catalog-only evidence to `review/master-data-intake-write-shape-production-evidence-20260718.json`. Standard output contains counts and the evidence SHA only; it does not print the catalog payload or project identity.
 
 ## Next design step
 

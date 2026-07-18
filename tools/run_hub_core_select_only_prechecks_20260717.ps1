@@ -1,6 +1,6 @@
 param(
   [Parameter(Mandatory = $true)]
-  [ValidateSet("line-works", "data-intake", "hr-role-coverage")]
+  [ValidateSet("line-works", "data-intake", "data-intake-write-shape", "hr-role-coverage")]
   [string]$Contract,
 
   [switch]$Execute
@@ -39,6 +39,13 @@ $Contracts = @{
       "rls_forced_table_count", "browser_write_privilege_count",
       "business_profile_table_count"
     )
+  }
+  "data-intake-write-shape" = @{
+    Sql = "supabase\master-data-intake-write-shape-select-only-inventory-20260718.sql"
+    Validator = "tools\validate_master_data_intake_write_shape_inventory_20260718.mjs"
+    SqlSha = "8F19AE6B80B1CC7B565152B13CBE9A8DDA6B8F3D04C5ED3A8BFD5F064FF112F3"
+    ResultFields = @("data_intake_write_shape")
+    Evidence = "review\master-data-intake-write-shape-production-evidence-20260718.json"
   }
   "hr-role-coverage" = @{
     Sql = "supabase\hub-hr-role-coverage-select-only-precheck-20260718.sql"
@@ -177,6 +184,42 @@ try {
   if ($null -eq $parsed) { Stop-Safely "sanitized_result_parse_failed" $true }
   $row = Find-ContractRow $parsed $definition.ResultFields
   if ($null -eq $row) { Stop-Safely "sanitized_result_missing" $true }
+
+  if ($Contract -eq "data-intake-write-shape") {
+    $shape = $row.data_intake_write_shape
+    if ($shape -is [string]) {
+      try { $shape = $shape | ConvertFrom-Json } catch { Stop-Safely "write_shape_json_invalid" $true }
+    }
+    $requiredShapeFields = @("table_count", "columns", "constraints", "indexes", "privileges", "rls")
+    foreach ($field in $requiredShapeFields) {
+      if (-not ($shape.PSObject.Properties.Name -contains $field)) { Stop-Safely "write_shape_missing_field" $true }
+    }
+    $evidenceJson = $shape | ConvertTo-Json -Depth 20 -Compress
+    $evidencePath = Join-Path $RepoRoot $definition.Evidence
+    $evidenceDirectory = Split-Path -Parent $evidencePath
+    if (-not (Test-Path -LiteralPath $evidenceDirectory)) {
+      New-Item -ItemType Directory -Path $evidenceDirectory -Force | Out-Null
+    }
+    Set-Content -LiteralPath $evidencePath -Value $evidenceJson -Encoding UTF8
+    [pscustomobject]@{
+      ok = $true
+      safeCode = "select_only_precheck_complete"
+      contract = $Contract
+      table_count = [int]$shape.table_count
+      column_count = @($shape.columns).Count
+      constraint_count = @($shape.constraints).Count
+      index_count = @($shape.indexes).Count
+      privilege_count = @($shape.privileges).Count
+      rls_count = @($shape.rls).Count
+      evidenceSha256 = Get-ValueSha256 $evidenceJson
+      executionAttempted = $true
+      mutationExecuted = $false
+      businessRowsRead = $false
+      rawOutputPrinted = $false
+      projectIdentityPrinted = $false
+    } | ConvertTo-Json -Compress | Write-Output
+    exit 0
+  }
 
   $result = [ordered]@{
     ok = $true

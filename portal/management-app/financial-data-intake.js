@@ -761,6 +761,38 @@ export function buildFinancialReflectionSummary(result) {
   };
 }
 
+export function buildFinancialProductionUseStatus(result) {
+  const pkg = buildFinancialSubmissionPackage(result);
+  const reflection = buildFinancialReflectionSummary(result);
+  const receipt = buildFinancialIntakeReceipt(result);
+  const parsedLocally = Number(receipt?.sheetCount || 0) > 0
+    && !String(receipt?.status || "").includes("FAILED")
+    && !String(receipt?.status || "").includes("INVALID")
+    && !String(receipt?.status || "").includes("DUPLICATE");
+  const localReviewAvailable = parsedLocally || reflection.corporate === "LOCAL_PREVIEW_ACTIVE" || reflection.stores === "LOCAL_PREVIEW_ACTIVE";
+  const localPackageReady = pkg.category === "LOCAL_PACKAGE_READY_PENDING_PRODUCTION";
+  const category = localPackageReady
+    ? "LOCAL_PACKAGE_READY_PRODUCTION_EVIDENCE_REQUIRED"
+    : localReviewAvailable ? "LOCAL_REVIEW_AVAILABLE_PRODUCTION_DISABLED" : "WAITING_FOR_LOCAL_SOURCE";
+  const blockedBy = localPackageReady
+    ? ["PRODUCTION_CATALOG_EVIDENCE", "PROVIDER_RUNTIME_IDENTITY", "STAGED_IMPORT_CONTRACT"]
+    : [pkg.nextAction.category, "PRODUCTION_CATALOG_EVIDENCE", "PROVIDER_RUNTIME_IDENTITY"];
+  return {
+    schemaVersion: "management-financial-production-use-status-v1",
+    category,
+    corporateSurface: parsedLocally ? "LOCAL_PREVIEW_ACTIVE" : reflection.corporate,
+    storeSurface: parsedLocally && receipt?.statement === "PL" ? "LOCAL_PREVIEW_ACTIVE" : reflection.stores,
+    localReviewAvailable,
+    localPackageReady,
+    nextActionCategory: pkg.nextAction.category,
+    blockedBy,
+    disabledActions: ["productionImport", "approval", "recalculation", "externalSend"],
+    productionImportEnabled: false,
+    mutationCount: 0,
+    uploadCount: 0,
+  };
+}
+
 export function buildFinancialAccountingRequestMessage(result) {
   const pkg = buildFinancialSubmissionPackage(result);
   const checklist = Array.isArray(pkg.nextAction?.checklist) ? pkg.nextAction.checklist : [];
@@ -1287,6 +1319,32 @@ function financialReflectionSummary(doc, reflection) {
   return summary;
 }
 
+function productionUseStatusPanel(doc, status) {
+  const panel = el(doc, "div", "financial-production-use-status");
+  panel.dataset.financialProductionUseStatus = status.category;
+  const localLabel = status.localReviewAvailable ? "確認画面として利用可" : "資料待ち";
+  const productionLabel = status.localPackageReady ? "本番証跡待ち" : "本番投入不可";
+  const metrics = el(doc, "div", "metric-grid financial-local-preview-metrics");
+  [
+    ["確認表示", localLabel],
+    ["本番反映", productionLabel],
+    ["残タスク", `${status.blockedBy.length}件`],
+  ].forEach(([labelText, valueText]) => {
+    const item = el(doc, "article", "metric");
+    item.append(el(doc, "span", "", labelText), el(doc, "strong", "", valueText));
+    metrics.append(item);
+  });
+  const blockers = el(doc, "ul", "financial-production-use-blockers");
+  blockers.append(...status.blockedBy.slice(0, 4).map((item) => el(doc, "li", "", item)));
+  panel.append(
+    el(doc, "strong", "", "本番使用に向けた現在位置"),
+    el(doc, "p", "", `${localLabel}。ただし本番DB保存・承認・再計算・外部送信はdisabledです。`),
+    metrics,
+    blockers
+  );
+  return panel;
+}
+
 function submissionPackageHeading(doc, pkg, label) {
   const heading = el(doc, "div", "financial-submission-package-heading");
   const text = el(doc, "div");
@@ -1582,6 +1640,7 @@ function setSubmissionPackage(container, result) {
   const message = buildFinancialAccountingRequestMessage(result);
   const impact = buildFinancialAccountingRequestImpact(result);
   const reflection = buildFinancialReflectionSummary(result);
+  const productionUseStatus = buildFinancialProductionUseStatus(result);
   const roadmap = buildFinancialSubmissionRoadmap(result);
   const textFile = buildFinancialAccountingRequestText(result);
   const balanceReviewFile = buildFinancialBalanceReviewCsv(result);
@@ -1596,6 +1655,7 @@ function setSubmissionPackage(container, result) {
   target.replaceChildren(
     submissionPackageHeading(doc, pkg, label),
     financialReflectionSummary(doc, reflection),
+    productionUseStatusPanel(doc, productionUseStatus),
     submissionRoadmap(doc, roadmap),
     submissionPackageGrid(doc, pkg),
     submissionNextAction(doc, pkg.nextAction),

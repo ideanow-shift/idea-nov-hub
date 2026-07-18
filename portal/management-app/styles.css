@@ -255,6 +255,13 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-reflection-summary span { color: var(--text-secondary); font-size: 11px; }
 .financial-reflection-summary strong { margin-top: 2px; color: var(--text-primary); font-size: 12px; font-weight: 500; }
 .financial-reflection-note { grid-column: 1 / -1; margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.financial-production-use-status { margin-top: 10px; padding: 10px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.financial-production-use-status[data-financial-production-use-status="LOCAL_REVIEW_AVAILABLE_PRODUCTION_DISABLED"] { border-left: 3px solid var(--color-bassa); }
+.financial-production-use-status[data-financial-production-use-status="LOCAL_PACKAGE_READY_PRODUCTION_EVIDENCE_REQUIRED"] { border-left: 3px solid var(--color-success); }
+.financial-production-use-status strong { display: block; color: var(--text-primary); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.financial-production-use-status p { margin: 5px 0 8px; color: var(--text-secondary); font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+.financial-production-use-blockers { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.financial-production-use-blockers li { max-width: 100%; padding: 5px 8px; background: #fffaf0; border: 1px solid var(--border-light); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 11px; overflow-wrap: anywhere; }
 .financial-submission-package-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
 .financial-submission-package-item { min-width: 0; padding: 9px 10px; background: #fff; border: 1px solid var(--border-light); border-radius: var(--radius-md); }
 .financial-submission-package-item strong, .financial-submission-package-item span { display: block; color: var(--text-primary); font-size: 12px; overflow-wrap: anywhere; }

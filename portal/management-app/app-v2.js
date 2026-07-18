@@ -215,9 +215,10 @@ function renderStores() {
   renderFinancialPreviewStores(localPlMatch);
   elements.storeRows.replaceChildren(...(stores.length ? stores.map((row) => {
     const localRow = localPlRowForStore(row, localPlRowsByStore);
+    const evidenceStatus = localPlStoreEvidenceStatus(row, localPlRowsByStore);
     const salesText = localRow ? `P/L ${number.format(Math.round(localRow.salesManYen || 0))}万円` : row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.salesManYen || 0)}万円`;
     const targetText = localRow ? `損益 ${number.format(Math.round(localRow.ordinaryProfitManYen || 0))}万円` : row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.targetAchievementPercent || 0)}%`;
-    const statusText = localRow ? "ローカルP/L候補（本番未投入）" : storeNameExcluded(row) ? "店舗候補から除外（ローカル確認）" : localPl ? "P/L候補未照合" : row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "接続済み";
+    const statusText = localRow ? localPlStoreEvidenceLabel(evidenceStatus) : storeNameExcluded(row) ? "店舗候補から除外（ローカル確認）" : localPl ? "P/L候補未照合" : row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "接続済み";
     return tableRow([row.name, row.corporationName, workforceMetric(row.staffCount), salesText, targetText, statusText]);
   }) : [emptyRow(6, "表示できる店舗がありません")]));
   renderCsvRequirements(elements.csvRequirements, data.requiredCsvFiles, {
@@ -256,6 +257,24 @@ function localPlRowForStore(store, localPlRowsByStore) {
 function storeNameExcluded(store) {
   const key = normalizeStoreCandidateName(store?.name);
   return Boolean(key && state.localEvidence.storeNameReceipt?.excluded?.[key]);
+}
+
+function localPlStoreEvidenceStatus(store, localPlRowsByStore) {
+  const key = normalizeStoreCandidateName(store?.name);
+  if (!key) return "STORE_MATCH_UNMATCHED";
+  if (localPlRowsByStore.has(key)) return "STORE_MATCH_DIRECT";
+  if (state.localEvidence.storeNameReceipt?.aliases?.[key]) return "STORE_MATCH_ALIAS_LOCAL";
+  if (state.localEvidence.storeNameReceipt?.excluded?.[key]) return "STORE_MATCH_EXCLUDED_LOCAL";
+  return "STORE_MATCH_UNMATCHED";
+}
+
+function localPlStoreEvidenceLabel(status) {
+  return {
+    STORE_MATCH_DIRECT: "ローカルP/L直接一致（本番未投入）",
+    STORE_MATCH_ALIAS_LOCAL: "ローカルP/L別名対応（本番未投入）",
+    STORE_MATCH_EXCLUDED_LOCAL: "店舗候補から除外（ローカル確認）",
+    STORE_MATCH_UNMATCHED: "P/L候補未照合",
+  }[status] || "P/L候補未照合";
 }
 
 function localPlStoreSummary() {
@@ -619,6 +638,7 @@ function buildFinancialStoreMatchAction(localPlMatch) {
   action.append(
     label("次に必要"),
     paragraph(`P/L候補のうち一致 ${number.format(localPlMatch.matched)}件 / 未照合 ${number.format(localPlMatch.unmatched)}件。店舗名対応表を確認するまで、本番投入は無効です。`),
+    buildFinancialStoreMatchEvidenceSummary(localPlMatch),
     buildFinancialStoreMatchReturnRule(),
     download,
     reviewLabel,
@@ -636,6 +656,23 @@ function buildFinancialStoreMatchAction(localPlMatch) {
     action.append(list);
   }
   return action;
+}
+
+function buildFinancialStoreMatchEvidenceSummary(localPlMatch) {
+  const summary = document.createElement("div");
+  summary.className = "financial-store-match-evidence-summary";
+  const receipt = state.localEvidence.storeNameReceipt;
+  [
+    ["直接一致", localPlMatch.matched],
+    ["別名対応", receipt?.aliasCount || 0],
+    ["除外", receipt?.excludedCount || 0],
+    ["未照合", localPlMatch.unmatched],
+  ].forEach(([name, value]) => {
+    const item = document.createElement("span");
+    item.textContent = `${name} ${number.format(value)}件`;
+    summary.append(item);
+  });
+  return summary;
 }
 
 function setStoreMatchReviewStatus(container, receipt) {

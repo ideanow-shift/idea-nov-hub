@@ -1895,15 +1895,11 @@ function authenticateWithStoreMaster(storeId, storePass) {
     if (!result.ok) {
       throw new Error(result.error || "店舗IDまたは店舗PASSが違います。");
     }
-    const store = result.store || result;
-    return {
-      id: store.loginId || store.id,
-      storeId: store.storeId || store.id,
-      name: store.name,
-      admin: Boolean(store.admin),
-      token: store.sessionToken || store.token,
-      source: store.source || "store-master"
-    };
+    const account = normalizeLoginAccount(result);
+    if (!account) {
+      throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.envelope);
+    }
+    return account;
   });
 }
 
@@ -1966,6 +1962,45 @@ function isSafeRecord(value) {
     && !Object.hasOwn(value, "__proto__")
     && !Object.hasOwn(value, "constructor")
     && !Object.hasOwn(value, "prototype");
+}
+
+function normalizeLoginAccount(result) {
+  if (!isSafeRecord(result)) return null;
+  const accountKeys = ["id", "loginId", "storeId", "name", "admin", "sessionToken", "token", "source"];
+  const hasNestedStore = Object.hasOwn(result, "store");
+  if (hasNestedStore && accountKeys.some((key) => Object.hasOwn(result, key))) return null;
+  const account = hasNestedStore ? result.store : result;
+  if (!isSafeRecord(account)) return null;
+
+  const hasId = Object.hasOwn(account, "id");
+  const hasLoginId = Object.hasOwn(account, "loginId");
+  if (!hasId && !hasLoginId) return null;
+  if (hasId && hasLoginId && account.id !== account.loginId) return null;
+  const id = hasLoginId ? account.loginId : account.id;
+  if (!isExactLoginString(id)) return null;
+
+  const storeId = Object.hasOwn(account, "storeId") ? account.storeId : id;
+  if (!isExactLoginString(storeId)) return null;
+  if (typeof account.name !== "string" || !account.name.trim() || /[\u0000-\u001f\u007f]/u.test(account.name)) return null;
+  if (typeof account.admin !== "boolean") return null;
+
+  const hasSessionToken = Object.hasOwn(account, "sessionToken");
+  const hasToken = Object.hasOwn(account, "token");
+  if (!hasSessionToken && !hasToken) return null;
+  if (hasSessionToken && hasToken && account.sessionToken !== account.token) return null;
+  const token = hasSessionToken ? account.sessionToken : account.token;
+  if (!isExactLoginString(token)) return null;
+
+  const source = Object.hasOwn(account, "source") ? account.source : "store-master";
+  if (!isExactLoginString(source)) return null;
+  return { id, storeId, name: account.name, admin: account.admin, token, source };
+}
+
+function isExactLoginString(value) {
+  return typeof value === "string"
+    && Boolean(value)
+    && value.trim() === value
+    && !/[\u0000-\u001f\u007f]/u.test(value);
 }
 
 function readResponseRecords(result, key) {

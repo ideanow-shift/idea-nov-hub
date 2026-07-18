@@ -593,9 +593,18 @@ function buildFinancialNextStep(pendingItems) {
     label("次に必要"),
     heading(next.label),
     paragraph(`${next.statusLabel}。この画面では確認表示だけを行い、本番投入は無効です。`),
+    buildFinancialAccountingRequestNote(next),
     button
   );
   return action;
+}
+
+function buildFinancialAccountingRequestNote(item) {
+  const note = document.createElement("p");
+  note.className = "financial-missing-data-request-note";
+  const detail = item.detail ? ` / ${item.detail}` : "";
+  note.textContent = `経理確認: ${item.label}${detail}`;
+  return note;
 }
 
 function financialReadinessItems() {

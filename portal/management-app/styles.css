@@ -229,6 +229,7 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-missing-data-next .metric-label, .financial-missing-data-next h3, .financial-missing-data-next p { grid-column: 1; }
 .financial-missing-data-next h3 { margin: 0; font-size: 14px; }
 .financial-missing-data-next p { margin: 0; }
+.financial-missing-data-next .financial-missing-data-request-note { margin-top: 4px; color: var(--text-primary); font-size: 12px; }
 .financial-missing-data-next button { grid-column: 2; grid-row: 1 / span 3; min-height: 36px; padding: 7px 12px; color: var(--text-primary); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); white-space: nowrap; cursor: pointer; }
 .financial-missing-data-next button:hover { background: var(--color-bassa-soft); }
 .financial-submission-package { margin-top: 14px; padding: 12px; background: #fffaf0; border: 1px solid var(--border-light); border-left: 3px solid var(--color-bassa); border-radius: var(--radius-md); }

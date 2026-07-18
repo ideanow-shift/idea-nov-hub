@@ -1,0 +1,103 @@
+{
+  "contractVersion": "gas-retirement-evidence-v1",
+  "scope": "source-only review contract for later production read-only evidence",
+  "executionApproved": false,
+  "productionActionApproved": false,
+  "terminalCategories": [
+    "GAS_RETIREMENT_EVIDENCE_READY",
+    "GAS_TRAFFIC_STILL_PRESENT",
+    "GAS_TRIGGER_STILL_REQUIRED",
+    "REPLACEMENT_ROUTE_NOT_READY",
+    "DEPENDENCY_OWNER_NOT_READY",
+    "EVIDENCE_CONTRACT_FAILED"
+  ],
+  "readyRule": {
+    "category": "GAS_RETIREMENT_EVIDENCE_READY",
+    "required": {
+      "replacementRoutesReady": true,
+      "recentExecutionPresence": false,
+      "activeTriggerRequired": false,
+      "knownDependencyUnresolved": false,
+      "secretOrPropertyInspection": false,
+      "rawLogCaptured": false,
+      "rawPayloadCaptured": false
+    },
+    "countBounds": {
+      "replacementRouteCount": { "min": 1 },
+      "recentExecutionCount": { "exact": 0 },
+      "requiredTriggerCount": { "exact": 0 },
+      "unresolvedDependencyCount": { "exact": 0 },
+      "mutationCount": { "exact": 0 },
+      "secretInspectionCount": { "exact": 0 }
+    }
+  },
+  "sanitizedResultShape": {
+    "requiredKeys": [
+      "contractVersion",
+      "category",
+      "replacementRouteCount",
+      "recentExecutionCount",
+      "requiredTriggerCount",
+      "unresolvedDependencyCount",
+      "mutationCount",
+      "secretInspectionCount",
+      "replacementRoutesReady",
+      "recentExecutionPresence",
+      "activeTriggerRequired",
+      "knownDependencyUnresolved",
+      "secretOrPropertyInspection",
+      "rawLogCaptured",
+      "rawPayloadCaptured"
+    ],
+    "forbiddenKeyPatterns": [
+      "url",
+      "token",
+      "secret",
+      "cookie",
+      "session",
+      "property",
+      "request",
+      "response",
+      "body",
+      "payload",
+      "stack",
+      "trace",
+      "email",
+      "employee",
+      "name",
+      "id"
+    ]
+  },
+  "nonReadyMapping": [
+    {
+      "category": "GAS_TRAFFIC_STILL_PRESENT",
+      "condition": "recentExecutionCount > 0 or recentExecutionPresence=true"
+    },
+    {
+      "category": "GAS_TRIGGER_STILL_REQUIRED",
+      "condition": "requiredTriggerCount > 0 or activeTriggerRequired=true"
+    },
+    {
+      "category": "REPLACEMENT_ROUTE_NOT_READY",
+      "condition": "replacementRouteCount < 1 or replacementRoutesReady=false"
+    },
+    {
+      "category": "DEPENDENCY_OWNER_NOT_READY",
+      "condition": "unresolvedDependencyCount > 0 or knownDependencyUnresolved=true"
+    },
+    {
+      "category": "EVIDENCE_CONTRACT_FAILED",
+      "condition": "unknown category, missing key, extra raw/private key, mutationCount > 0, secretInspectionCount > 0, rawLogCaptured=true, rawPayloadCaptured=true, or type mismatch"
+    }
+  ],
+  "boundaries": {
+    "allowsProductionSql": false,
+    "allowsAppsScriptDisable": false,
+    "allowsTriggerMutation": false,
+    "allowsSecretAccess": false,
+    "allowsRawLogs": false,
+    "allowsRawRequestResponse": false,
+    "allowsDeletion": false
+  },
+  "nextGateAfterReady": "GAS_DEPLOYMENT_DISABLE_ARCHIVE_SEPARATE_APPROVAL_ONLY"
+}

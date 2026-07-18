@@ -1,15 +1,17 @@
-import { callApiAction, setHubSessionAuth } from "../js/api.js";
+import { callApiAction, setHubSessionAuth } from "../js/api.js?v=2742128ec55c";
 import {
   getNovHubSessionToken,
   handleNovHubSessionAuthFailure
 } from "../js/nov-hub-session-candidate.js";
 
 const DECISION_HUB_READONLY_LIVE = true;
+const DECISION_HUB_DRAFT_WRITE_ENABLED = false;
 const LIST_LIMIT = 50;
 
 const state = {
   applications: [],
-  selectedApplicationId: ""
+  selectedApplicationId: "",
+  draftApplicationId: ""
 };
 
 const elements = {
@@ -27,7 +29,10 @@ const elements = {
   applicationListPanel: document.getElementById("application-list-panel"),
   newApplicationPanel: document.getElementById("new-application-panel"),
   detailSection: document.getElementById("detail-section"),
-  commentsSection: document.getElementById("comments-section")
+  commentsSection: document.getElementById("comments-section"),
+  applicationForm: document.getElementById("decision-application-form"),
+  saveDraftButton: document.getElementById("save-draft-button"),
+  draftSaveStatus: document.getElementById("draft-save-status")
 };
 
 wireNavigation();
@@ -36,6 +41,86 @@ initDecisionHubReadOnly();
 function wireNavigation() {
   elements.tabApplications?.addEventListener("click", () => showView("applications"));
   elements.tabNewApplication?.addEventListener("click", () => showView("new-application"));
+  elements.applicationForm?.addEventListener("submit", (event) => event.preventDefault());
+  elements.saveDraftButton?.addEventListener("click", saveDraftApplication);
+  elements.applicationForm?.addEventListener("input", updateDraftControls);
+  updateDraftControls();
+}
+
+function updateDraftControls() {
+  const canSave = DECISION_HUB_DRAFT_WRITE_ENABLED && Boolean(elements.applicationForm?.checkValidity());
+  if (elements.saveDraftButton) elements.saveDraftButton.disabled = !canSave;
+  setText(elements.draftSaveStatus, DECISION_HUB_DRAFT_WRITE_ENABLED
+    ? "必須項目を入力すると下書き保存できます。"
+    : "下書き保存は安全確認後に有効化します。入力内容はまだ送信されません。");
+}
+
+async function saveDraftApplication() {
+  if (!DECISION_HUB_DRAFT_WRITE_ENABLED || !elements.applicationForm?.reportValidity()) return;
+  if (!prepareHubSessionAuth()) {
+    renderSafeError({ code: "HUB_SESSION_REQUIRED" });
+    return;
+  }
+  let payload;
+  try {
+    payload = buildDraftPayload(new FormData(elements.applicationForm));
+  } catch (error) {
+    setText(elements.draftSaveStatus, getSafeErrorMessage(error?.code || "INVALID_REQUEST"));
+    return;
+  }
+  elements.saveDraftButton.disabled = true;
+  setText(elements.draftSaveStatus, "下書きを保存しています。");
+  try {
+    const response = sanitizeDecisionValue(await callApiAction("decisionSaveDraftApplication", payload));
+    if (response?.draft?.isDraft !== true && response?.isDraft !== true) {
+      throw Object.assign(new Error("Draft response is invalid."), { code: "INVALID_API_RESPONSE" });
+    }
+    const savedApplicationId = String(response?.draft?.applicationId || response?.applicationId || "");
+    if (!isUuid(savedApplicationId)) {
+      throw Object.assign(new Error("Draft identifier is invalid."), { code: "INVALID_API_RESPONSE" });
+    }
+    state.draftApplicationId = savedApplicationId;
+    setText(elements.noticeTitle, "下書きを保存しました");
+    setText(elements.noticeBody, "申請はまだ送信されていません。入力内容は下書きとして保存されています。");
+    setText(elements.draftSaveStatus, "保存済み");
+  } catch (error) {
+    clearHubSessionOnAuthStatus(error);
+    setText(elements.draftSaveStatus, getSafeErrorMessage(error?.code || ""));
+  } finally {
+    updateDraftControls();
+  }
+}
+
+function buildDraftPayload(formData) {
+  const value = (name) => safeText(formData.get(name));
+  const title = value("title");
+  const purpose = value("purpose");
+  const contractStartDate = value("contractStartDate");
+  const contractEndDate = value("contractEndDate");
+  const budgetAmountText = value("budgetAmount");
+  if (!title || title.length > 120 || !purpose || purpose.length > 2000) {
+    throw Object.assign(new Error("Draft fields are invalid."), { code: "INVALID_REQUEST" });
+  }
+  if (contractStartDate && contractEndDate && contractEndDate < contractStartDate) {
+    throw Object.assign(new Error("Contract date order is invalid."), { code: "CONTRACT_DATE_ORDER_INVALID" });
+  }
+  if (budgetAmountText && (!/^\d+(?:\.\d{1,2})?$/.test(budgetAmountText) || Number(budgetAmountText) > 999999999999.99)) {
+    throw Object.assign(new Error("Budget amount is invalid."), { code: "INVALID_REQUEST" });
+  }
+  return {
+    applicationId: isUuid(state.draftApplicationId) ? state.draftApplicationId : null,
+    applicationType: value("applicationType"),
+    title,
+    purpose,
+    background: value("background"),
+    expectedEffect: value("expectedEffect"),
+    budgetAmount: budgetAmountText || null,
+    vendorName: value("vendorName"),
+    contractStartDate: contractStartDate || null,
+    contractEndDate: contractEndDate || null,
+    desiredDecisionDate: value("desiredDecisionDate") || null,
+    riskSummary: value("riskSummary")
+  };
 }
 
 function showView(view) {
@@ -338,6 +423,7 @@ function getSafeErrorMessage(code) {
   if (code === "TOKEN_MISSING") return "NOV HUBのログイン情報を確認できませんでした。";
   if (code === "API_TIMEOUT") return "申請一覧の確認に時間がかかっています。しばらくしてからNOV HUBより開き直してください。";
   if (code === "INVALID_REQUEST") return "申請の確認条件が正しくありません。";
+  if (code === "CONTRACT_DATE_ORDER_INVALID") return "契約終了日は契約開始日以降を指定してください。";
   if (code.startsWith("ACTOR_")) return "利用者の権限を確認できませんでした。";
   return "申請一覧を確認できませんでした。しばらくしてからお試しください。";
 }

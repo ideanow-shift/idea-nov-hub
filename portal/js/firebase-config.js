@@ -5,6 +5,7 @@ export const PORTAL_CONFIG = {
   edgePinEnabled: true,
   edgeApiUrl: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub-api",
   decisionHubReadonlyApiUrl: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/decision-hub-readonly-api",
+  decisionHubWriteApiUrl: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/decision-hub-write-api",
   shiftApiUrl: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/shift-api",
   hubUrl: "https://ideanow-shift.github.io/idea-nov-hub/",
   firebase: {

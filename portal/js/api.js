@@ -1,4 +1,4 @@
-import { PORTAL_CONFIG } from "./firebase-config.js";
+import { PORTAL_CONFIG } from "./firebase-config.js?v=fddfcae502dc";
 import { getIdToken } from "./auth.js";
 
 let currentAuth = { authType: "firebase" };
@@ -23,6 +23,7 @@ const EDGE_ACTIONS = new Set([
   "decisionListApplications",
   "decisionGetApplicationDetail",
   "decisionListComments",
+  "decisionSaveDraftApplication",
   "managementFinanceSummary",
   "managementStoresSummary",
   "managementDataopsStatus",
@@ -54,6 +55,7 @@ const DECISION_READONLY_ACTIONS = new Set([
   "decisionGetApplicationDetail",
   "decisionListComments"
 ]);
+const DECISION_DRAFT_ACTIONS = new Set(["decisionSaveDraftApplication"]);
 
 export function setPinAuth(email, pin) {
   currentAuth = { authType: "pin", email: String(email || "").trim(), pin: String(pin || "").trim() };
@@ -93,7 +95,9 @@ export function clearApiAuth() {
 
 async function postToApi(action, payload = {}) {
   const useDecisionReadonlyApi = DECISION_READONLY_ACTIONS.has(action) && currentAuth.authType === "hub_session";
-  const requestPayload = useDecisionReadonlyApi
+  const useDecisionDraftApi = DECISION_DRAFT_ACTIONS.has(action) && currentAuth.authType === "hub_session";
+  const useDecisionDedicatedApi = useDecisionReadonlyApi || useDecisionDraftApi;
+  const requestPayload = useDecisionDedicatedApi
     ? { ...payload }
     : currentAuth.authType === "idea_link_session"
     ? { authType: "idea_link_session", ...payload }
@@ -102,7 +106,7 @@ async function postToApi(action, payload = {}) {
       : currentAuth.authType === "firebase_token"
         ? { authType: "firebase", ...payload }
         : { ...currentAuth, ...payload };
-  const token = useDecisionReadonlyApi
+  const token = useDecisionDedicatedApi
     ? ""
     : currentAuth.authType === "pin"
     ? ""
@@ -113,16 +117,17 @@ async function postToApi(action, payload = {}) {
         : currentAuth.authType === "firebase_token"
           ? currentAuth.token
           : await getIdToken();
-  const body = new URLSearchParams({
+  const bodyValues = {
     action,
-    token,
     payload: JSON.stringify(requestPayload)
-  });
+  };
+  if (!useDecisionDraftApi) bodyValues.token = token;
+  const body = new URLSearchParams(bodyValues);
   const endpoint = getApiEndpoint(action);
   if (!endpoint) {
     throw new Error("NOV HUB Edge API endpoint is not configured for this action.");
   }
-  return await postToEndpoint(endpoint, body, useDecisionReadonlyApi
+  return await postToEndpoint(endpoint, body, useDecisionDedicatedApi
     ? { Authorization: `Bearer ${currentAuth.sessionToken}` }
     : {});
 }
@@ -133,6 +138,12 @@ function getApiEndpoint(action) {
     currentAuth.authType === "hub_session"
   ) {
     return PORTAL_CONFIG.decisionHubReadonlyApiUrl || "";
+  }
+  if (
+    DECISION_DRAFT_ACTIONS.has(action) &&
+    currentAuth.authType === "hub_session"
+  ) {
+    return PORTAL_CONFIG.decisionHubWriteApiUrl || "";
   }
   const useEdge = PORTAL_CONFIG.apiMode === "edge"
     && PORTAL_CONFIG.edgeApiUrl

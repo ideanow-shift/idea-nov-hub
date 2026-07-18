@@ -1808,12 +1808,12 @@ function countBy(items, selector) {
     const key = selector(item) || "未設定";
     accumulator[key] = (accumulator[key] || 0) + 1;
     return accumulator;
-  }, {})).sort((a, b) => b[1] - a[1]);
+  }, Object.create(null))).sort((a, b) => b[1] - a[1]);
 }
 
 function countWords(logs) {
   const stopWords = new Set(["した", "です", "ます", "ますか", "ください", "について"]);
-  const counts = {};
+  const counts = Object.create(null);
   logs.forEach((entry) => {
     entry.question
       .replace(/[、。,.!?！？]/g, " ")

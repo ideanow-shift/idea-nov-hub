@@ -1245,8 +1245,14 @@ function exportQuestionLogsCsv(logs) {
 }
 
 function escapeCsvCell(value) {
-  const text = String(value ?? "");
+  const text = neutralizeCsvFormula(String(value ?? ""));
   return `"${text.replaceAll('"', '""')}"`;
+}
+
+function neutralizeCsvFormula(text) {
+  const startsWithSpreadsheetControl = text.startsWith("\t") || text.startsWith("\r") || text.startsWith("\n");
+  const startsWithFormula = /^[\u0000-\u0020\u00a0\u200b-\u200f\u2028\u2029\u2060\ufeff]*[=+\-@]/u.test(text);
+  return startsWithSpreadsheetControl || startsWithFormula ? `'${text}` : text;
 }
 
 function formatDateTimeForCsv(value) {

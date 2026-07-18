@@ -192,7 +192,7 @@ class AnswerRuleRepository {
 
     try {
       const result = await requestBackend("listAnswerRules", includeInactive ? { includeInactive: "true" } : {});
-      this[cacheKey] = result.ok ? result.rules : [];
+      this[cacheKey] = readResponseRecords(result, "rules") || [];
       return this[cacheKey];
     } catch {
       this[cacheKey] = [];
@@ -237,7 +237,7 @@ class ConversationLogRepository {
 
     try {
       const result = await requestBackend("listLogs", {});
-      return result.ok ? result.logs : this.all();
+      return readResponseRecords(result, "logs") || this.all();
     } catch {
       return this.all();
     }
@@ -300,7 +300,7 @@ class KnowledgeUpdateRepository {
 
     try {
       const result = await requestBackend("listKnowledgeUpdates", {});
-      return result.ok ? result.updates : this.all();
+      return readResponseRecords(result, "updates") || this.all();
     } catch {
       return this.all();
     }
@@ -340,7 +340,8 @@ class LinkMasterRepository {
 
     try {
       const result = await requestBackend("listLinks", session?.admin && session?.token ? { includeInactive: "true" } : {});
-      this.cache = result.ok ? Object.fromEntries(result.links.map((link) => [link.id, link])) : {};
+      const links = readResponseRecords(result, "links");
+      this.cache = links ? Object.fromEntries(links.map((link) => [link.id, link])) : {};
       return this.cache;
     } catch {
       this.cache = {};
@@ -400,7 +401,8 @@ class DepartmentInquiryRepository {
 
     try {
       const result = await requestBackend("listDepartmentRoutes", {});
-      this.routeCache = result.ok ? Object.fromEntries(result.routes.map((route) => [route.id, route])) : {};
+      const routes = readResponseRecords(result, "routes");
+      this.routeCache = routes ? Object.fromEntries(routes.map((route) => [route.id, route])) : {};
       return this.routeCache;
     } catch {
       this.routeCache = {};
@@ -423,7 +425,7 @@ class DepartmentInquiryRepository {
     if (!hasRemoteBackend()) return [];
     const result = await requestBackend("listDepartmentInquiries", {});
     if (!result.ok) throw new Error(result.error || "問い合わせログを取得できませんでした。");
-    return result.inquiries || [];
+    return readResponseRecords(result, "inquiries") || [];
   }
 }
 
@@ -1957,6 +1959,20 @@ function assertConciergeResponseEnvelope(result) {
   return result;
 }
 
+function isSafeRecord(value) {
+  return value !== null
+    && typeof value === "object"
+    && !Array.isArray(value)
+    && !Object.hasOwn(value, "__proto__")
+    && !Object.hasOwn(value, "constructor")
+    && !Object.hasOwn(value, "prototype");
+}
+
+function readResponseRecords(result, key) {
+  if (!result.ok || !Array.isArray(result[key]) || !result[key].every(isSafeRecord)) return null;
+  return result[key];
+}
+
 async function requestJson(url, payload) {
   const body = serializeConciergePayload(payload);
   const response = await fetch(url, {
@@ -2018,14 +2034,7 @@ function readStoredRecords(key, maxItems) {
     const parsed = JSON.parse(value);
     if (!Array.isArray(parsed)) return [];
     return parsed
-      .filter((entry) => {
-        return entry !== null
-          && typeof entry === "object"
-          && !Array.isArray(entry)
-          && !Object.hasOwn(entry, "__proto__")
-          && !Object.hasOwn(entry, "constructor")
-          && !Object.hasOwn(entry, "prototype");
-      })
+      .filter(isSafeRecord)
       .slice(0, maxItems);
   } catch {
     return [];

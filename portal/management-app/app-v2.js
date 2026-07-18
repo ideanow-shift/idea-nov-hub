@@ -405,6 +405,25 @@ function buildFinancialLocalReflectionStatus(preview, labelText) {
   return status;
 }
 
+function buildFinancialVisibleScope(preview) {
+  const box = document.createElement("div");
+  box.className = "financial-visible-scope";
+  const shown = document.createElement("p");
+  shown.append(
+    label("表示中"),
+    document.createTextNode(`${preview.selectedPeriodLabel} / 店舗・法人候補 ${number.format(preview.entityCandidateCount || 0)}件 / 対象レコード ${number.format(preview.normalizedRecordCount || 0)}件`)
+  );
+  const pending = document.createElement("p");
+  const pendingParts = [
+    `mapping確認 ${number.format(preview.mappingCandidateAccountCount || preview.mappingRequiredAccountCount || 0)}件`,
+    `除外・要確認 ${number.format(preview.reviewCandidateCount || 0)}件`,
+    `過年度除外 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シート`,
+  ];
+  pending.append(label("未反映"), document.createTextNode(pendingParts.join(" / ")));
+  box.append(shown, pending);
+  return box;
+}
+
 function renderFinancialPreviewOverview() {
   if (!elements.financialPreviewOverview) return;
   const previews = [];
@@ -426,6 +445,7 @@ function buildPlOverviewPreview(preview) {
   card.append(
     heading("ローカルP/Lプレビュー（本番未投入）"),
     buildFinancialLocalReflectionStatus(preview, "法人経営管理"),
+    buildFinancialVisibleScope(preview),
     paragraph(duplicateMessage || `${preview.selectedPeriodLabel}を画面確認用に仮反映中。比較範囲 ${preview.comparisonRangeLabel}。店舗候補 ${number.format(preview.entityCandidateCount)}件 / 除外集計 ${number.format(preview.aggregateExcludedSheetCount || 0)}件 / ${mapping}。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
     previewMetricGrid([
       ["店舗候補売上合計", preview.salesManYen == null ? "未算定" : `${number.format(preview.salesManYen)}万円`],
@@ -512,6 +532,7 @@ function renderFinancialPreviewStores() {
   section.append(
     heading("店舗営業管理へのローカルP/L反映（本番未投入）"),
     buildFinancialLocalReflectionStatus(preview, "店舗営業管理"),
+    buildFinancialVisibleScope(preview),
     paragraph(duplicateMessage || `${preview.selectedPeriodLabel}の店舗候補だけを仮表示しています。店舗候補 ${number.format(preview.entityCandidateCount || 0)}件 / 除外・要確認 ${number.format(preview.reviewCandidateCount || 0)}件。候補mappingは${preview.mappingConfirmationStatus === "LOCAL_EVIDENCE_RECEIVED" ? "ローカル回答確認済み（本番未承認）" : "経理確認前"}で、DB保存・本番投入・個人情報表示はありません。`),
     wrap
   );

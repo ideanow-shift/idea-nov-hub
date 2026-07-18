@@ -2,7 +2,7 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
-import { renderFinancialDataIntake } from "./financial-data-intake.js?v=0bd572c22bcad4c";
+import { renderFinancialDataIntake } from "./financial-data-intake.js?v=9a84b264e69228eb";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
@@ -348,6 +348,7 @@ function sanitizeBalanceSheetPreview(value) {
     assetsManYen: amount(row.assetsManYen),
     liabilitiesManYen: amount(row.liabilitiesManYen),
     equityManYen: amount(row.equityManYen),
+    balanceDeltaManYen: amount(row.balanceDeltaManYen),
     balanceStatus: row.balanceStatus === "BALANCED" ? "BALANCED" : "NOT_READY",
     closingMonthLabel: String(row.closingMonthLabel || "確認待ち").slice(0, 24),
     recordCount: Number.isInteger(Number(row.recordCount)) ? Math.max(0, Number(row.recordCount)) : 0,
@@ -363,6 +364,9 @@ function sanitizeBalanceSheetPreview(value) {
     aggregateExcludedSheetCount: Number.isInteger(Number(value.aggregateExcludedSheetCount)) ? Math.max(0, Number(value.aggregateExcludedSheetCount)) : 0,
     entityCandidateCount: rows.length,
     balancedEntityCount: rows.filter((row) => row.balanceStatus === "BALANCED").length,
+    balanceReviewRequiredCount: Number.isInteger(Number(value.balanceReviewRequiredCount)) ? Math.max(0, Number(value.balanceReviewRequiredCount)) : rows.filter((row) => row.balanceStatus !== "BALANCED").length,
+    maxAbsBalanceDeltaManYen: amount(value.maxAbsBalanceDeltaManYen),
+    balanceReadinessCategory: value.balanceReadinessCategory === "BS_BALANCE_READY" ? "BS_BALANCE_READY" : rows.length ? "BS_BALANCE_REVIEW_REQUIRED" : "BS_BALANCE_NOT_READY",
     normalizedRecordCount: Number.isInteger(Number(value.normalizedRecordCount)) ? Math.max(0, Number(value.normalizedRecordCount)) : 0,
     totalNormalizedRecordCount: Number.isInteger(Number(value.totalNormalizedRecordCount)) ? Math.max(0, Number(value.totalNormalizedRecordCount)) : 0,
     duplicateFileCount: Number.isInteger(Number(value.duplicateFileCount)) ? Math.max(0, Number(value.duplicateFileCount)) : 0,
@@ -436,11 +440,11 @@ function buildBsOverviewPreview(preview) {
   wrap.append(table);
   card.append(
     heading("ローカルB/Sプレビュー（本番未投入）"),
-    paragraph(duplicateMessage || `${preview.selectedPeriodLabel}の最終月残高だけを表示しています。貸借一致 ${number.format(preview.balancedEntityCount)}/${number.format(preview.entityCandidateCount)}候補。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
+    paragraph(duplicateMessage || `${preview.selectedPeriodLabel}の最終月残高だけを表示しています。貸借一致 ${number.format(preview.balancedEntityCount)}/${number.format(preview.entityCandidateCount)}候補、確認待ち ${number.format(preview.balanceReviewRequiredCount || 0)}件。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
     previewMetricGrid([
       ["法人候補", `${number.format(preview.entityCandidateCount)}件`],
       ["貸借一致", `${number.format(preview.balancedEntityCount)}件`],
-      ["対象期レコード", `${number.format(preview.normalizedRecordCount || 0)}件`],
+      ["最大貸借差額", preview.maxAbsBalanceDeltaManYen == null ? "未算定" : `${number.format(preview.maxAbsBalanceDeltaManYen)}万円`],
       ["本番投入", "disabled"],
     ]),
     wrap
@@ -449,6 +453,7 @@ function buildBsOverviewPreview(preview) {
 }
 
 function bsBalanceDeltaText(row) {
+  if (row.balanceDeltaManYen != null) return `${number.format(Math.round(Number(row.balanceDeltaManYen)))}万円`;
   if (row.assetsManYen == null || row.liabilitiesManYen == null || row.equityManYen == null) return "未算定";
   const delta = Number(row.assetsManYen) - Number(row.liabilitiesManYen) - Number(row.equityManYen);
   if (!Number.isFinite(delta)) return "未算定";

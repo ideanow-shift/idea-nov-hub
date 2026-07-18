@@ -717,7 +717,11 @@ test("B/S intake requires exact balanced assets, liabilities, and equity", async
   assert.equal(preview.rows[0].assetsManYen, 100);
   assert.equal(preview.rows[0].liabilitiesManYen, 40);
   assert.equal(preview.rows[0].equityManYen, 60);
+  assert.equal(preview.rows[0].balanceDeltaManYen, 0);
   assert.equal(preview.rows[0].balanceStatus, "BALANCED");
+  assert.equal(preview.balanceReviewRequiredCount, 0);
+  assert.equal(preview.maxAbsBalanceDeltaManYen, 0);
+  assert.equal(preview.balanceReadinessCategory, "BS_BALANCE_READY");
   assert.equal(preview.importActionEnabled, false);
   const imbalanced = workbook([
     row(1, ["帳票名：残高試算表(年間推移)"]),
@@ -730,6 +734,12 @@ test("B/S intake requires exact balanced assets, liabilities, and equity", async
   const ng = await parseFinancialWorkbookBuffer(imbalanced, "BS", { inflateRaw });
   assert.equal(ng.status, "BS_BALANCE_CHECK_FAILED");
   assert.equal(ng.balanceCheck, "IMBALANCED");
+  const ngPreview = buildFinancialLocalPreview(ng);
+  assert.equal(ngPreview.balancedEntityCount, 0);
+  assert.equal(ngPreview.balanceReviewRequiredCount, 1);
+  assert.equal(ngPreview.maxAbsBalanceDeltaManYen, 1);
+  assert.equal(ngPreview.rows[0].balanceDeltaManYen, 1);
+  assert.equal(ngPreview.balanceReadinessCategory, "BS_BALANCE_REVIEW_REQUIRED");
 });
 
 test("B/S duplicate workbook bytes suppress all balance amounts", async () => {
@@ -759,7 +769,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=0bd572c22bcad4c/);
+  assert.match(app, /financial-data-intake\.js\?v=9a84b264e69228eb/);
   assert.match(financialIntake, /financial-supplemental-csv\.js\?v=7cacd43781126450/);
   assert.match(financialIntake, /renderFinancialSupplementalCsv\(supplemental/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake, \{ externalEvidence: financialExternalEvidence\(\) \}\)/);
@@ -781,6 +791,9 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(app, /ローカルB\/Sプレビュー（本番未投入）/);
   assert.match(app, /貸借差額/);
   assert.match(app, /bsBalanceDeltaText/);
+  assert.match(app, /最大貸借差額/);
+  assert.match(app, /balanceReviewRequiredCount/);
+  assert.match(financialIntake, /balanceReadinessCategory/);
   assert.match(app, /年度別P\/L比較（店舗候補のみ）/);
   assert.match(app, /年度別 店舗候補合計/);
   assert.match(app, /合計・本部・FC・共通シートは含みません/);

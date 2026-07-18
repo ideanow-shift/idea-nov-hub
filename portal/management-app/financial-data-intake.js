@@ -280,6 +280,9 @@ function entityPreview(sheet, statement, period) {
   const assetsYen = statement === "BS" ? accountAmountForMonth(previewRecords, "資産合計", closingMonthLabel) : null;
   const liabilitiesYen = statement === "BS" ? accountAmountForMonth(previewRecords, "負債合計", closingMonthLabel) : null;
   const equityYen = statement === "BS" ? accountAmountForMonth(previewRecords, "純資産合計", closingMonthLabel) : null;
+  const balanceDeltaYen = statement === "BS" && assetsYen != null && liabilitiesYen != null && equityYen != null
+    ? assetsYen - liabilitiesYen - equityYen
+    : null;
   const entity = statement === "PL"
     ? classifyPlEntity(sheet.sheet, sheet.isAggregateSheet)
     : { category: sheet.isAggregateSheet ? "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS" : "ENTITY_CANDIDATE", label: sheet.isAggregateSheet ? "集計除外" : "候補" };
@@ -297,8 +300,9 @@ function entityPreview(sheet, statement, period) {
     assetsManYen: assetsYen == null ? null : Math.round(assetsYen / 10000),
     liabilitiesManYen: liabilitiesYen == null ? null : Math.round(liabilitiesYen / 10000),
     equityManYen: equityYen == null ? null : Math.round(equityYen / 10000),
+    balanceDeltaManYen: balanceDeltaYen == null ? null : Math.round(balanceDeltaYen / 10000),
     balanceStatus: statement !== "BS" ? "NOT_APPLICABLE"
-      : assetsYen != null && liabilitiesYen != null && equityYen != null && assetsYen === liabilitiesYen + equityYen ? "BALANCED" : "NOT_READY",
+      : balanceDeltaYen === 0 ? "BALANCED" : "NOT_READY",
     closingMonthLabel,
     periodKey: period.key,
     periodLabel: period.label,
@@ -966,6 +970,12 @@ export function buildFinancialLocalPreview(result) {
   if (receipt.statement === "BS") {
     const rows = periodRows.filter((row) => row.entityCategory !== "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS");
     const completionItems = buildFinancialCompletionItems(result);
+    const balancedEntityCount = rows.filter((row) => row.balanceStatus === "BALANCED").length;
+    const reviewEntityCount = rows.length - balancedEntityCount;
+    const deltas = rows
+      .map((row) => row.balanceDeltaManYen)
+      .filter((value) => Number.isFinite(Number(value)))
+      .map((value) => Math.abs(Number(value)));
     return {
       schemaVersion: "management-financial-local-preview-v1",
       statement: "BS",
@@ -976,7 +986,10 @@ export function buildFinancialLocalPreview(result) {
       historicalPeriodExcludedSheetCount: Math.max(0, allRows.length - periodRows.length),
       aggregateExcludedSheetCount: periodRows.length - rows.length,
       entityCandidateCount: rows.length,
-      balancedEntityCount: rows.filter((row) => row.balanceStatus === "BALANCED").length,
+      balancedEntityCount,
+      balanceReviewRequiredCount: reviewEntityCount,
+      maxAbsBalanceDeltaManYen: deltas.length ? Math.max(...deltas) : null,
+      balanceReadinessCategory: rows.length && reviewEntityCount === 0 ? "BS_BALANCE_READY" : rows.length ? "BS_BALANCE_REVIEW_REQUIRED" : "BS_BALANCE_NOT_READY",
       normalizedRecordCount: periodRows.reduce((sum, row) => sum + Number(row.recordCount || 0), 0),
       totalNormalizedRecordCount: receipt.normalizedRecordCount,
       completionPendingCount: completionItems.filter((item) => item.status !== "LOCAL_VALIDATED").length,
@@ -987,6 +1000,7 @@ export function buildFinancialLocalPreview(result) {
         assetsManYen: row.assetsManYen,
         liabilitiesManYen: row.liabilitiesManYen,
         equityManYen: row.equityManYen,
+        balanceDeltaManYen: row.balanceDeltaManYen,
         balanceStatus: row.balanceStatus,
         closingMonthLabel: row.closingMonthLabel,
         recordCount: row.recordCount,

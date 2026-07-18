@@ -35,22 +35,23 @@ const financialIntake = fs.readFileSync(path.join(root, "portal/management-app/f
 const visualFixture = fs.readFileSync(path.join(root, "tests/fixtures/management-financial-data-intake.html"), "utf8");
 const localPreviewFixture = fs.readFileSync(path.join(root, "tests/fixtures/management-financial-local-preview.html"), "utf8");
 
-function zipStore(entries) {
+function zipStore(entries, compressionMethod = 0) {
   const localParts = [];
   const centralParts = [];
   let offset = 0;
   for (const [name, text] of entries) {
     const nameBuffer = Buffer.from(name);
-    const data = Buffer.from(text);
+    const rawData = Buffer.from(text);
+    const data = compressionMethod === 8 ? zlib.deflateRawSync(rawData) : rawData;
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(20, 4);
     local.writeUInt16LE(0, 6);
-    local.writeUInt16LE(0, 8);
+    local.writeUInt16LE(compressionMethod, 8);
     local.writeUInt32LE(0, 10);
     local.writeUInt32LE(0, 14);
     local.writeUInt32LE(data.length, 18);
-    local.writeUInt32LE(data.length, 22);
+    local.writeUInt32LE(rawData.length, 22);
     local.writeUInt16LE(nameBuffer.length, 26);
     localParts.push(local, nameBuffer, data);
     const central = Buffer.alloc(46);
@@ -58,11 +59,11 @@ function zipStore(entries) {
     central.writeUInt16LE(20, 4);
     central.writeUInt16LE(20, 6);
     central.writeUInt16LE(0, 8);
-    central.writeUInt16LE(0, 10);
+    central.writeUInt16LE(compressionMethod, 10);
     central.writeUInt32LE(0, 12);
     central.writeUInt32LE(0, 16);
     central.writeUInt32LE(data.length, 20);
-    central.writeUInt32LE(data.length, 24);
+    central.writeUInt32LE(rawData.length, 24);
     central.writeUInt16LE(nameBuffer.length, 28);
     central.writeUInt16LE(0, 30);
     central.writeUInt16LE(0, 32);
@@ -88,12 +89,12 @@ const cell = (ref, value) => typeof value === "number"
 
 const row = (index, values) => `<row r="${index}">${values.map((value, column) => cell(`${String.fromCharCode(65 + column)}${index}`, value)).join("")}</row>`;
 
-function workbook(sheetRows, sheetName = "損･BASSA新所沢店") {
+function workbook(sheetRows, sheetName = "損･BASSA新所沢店", compressionMethod = 0) {
   return zipStore([
     ["xl/workbook.xml", `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${sheetName}" sheetId="1" r:id="rId1"/></sheets></workbook>`],
     ["xl/_rels/workbook.xml.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'],
     ["xl/worksheets/sheet1.xml", `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${sheetRows.join("")}</sheetData></worksheet>`],
-  ]);
+  ], compressionMethod);
 }
 
 const months = ["9月度", "10月度", "11月度", "12月度", "1月度", "2月度", "3月度", "4月度", "5月度", "6月度", "7月度", "8月度"];
@@ -126,12 +127,36 @@ test("P/L intake validates Yayoi workbook and preserves import disabled boundary
   assert.equal(receipt.productionImportEnabled, false);
   assert.equal(receipt.entityCandidateCount, 1);
   assert.equal(receipt.aggregateExcludedSheetCount, 0);
+  assert.deepEqual(receipt.parseFailureCategories, []);
   const preview = buildFinancialLocalPreview(result);
   assert.equal(preview.importActionEnabled, false);
   assert.equal(preview.entityCandidateCount, 1);
   assert.equal(preview.rows[0].entityName, "損･BASSA新所沢店");
   assert.equal(preview.rows[0].mappingStatus, "READY");
   assert.equal(preview.rows[0].entityCategory, "STORE_CANDIDATE");
+});
+
+test("P/L browser fallback inflates compressed Yayoi workbook without enabling import", async () => {
+  const rows = [
+    row(1, ["帳票名：残高試算表(年間推移)"]),
+    row(5, ["集計期間：令和07年09月01日", "令和08年08月31日", "決算仕訳を含む"]),
+    row(8, ["勘定科目", ...months]),
+    ...requiredPl.map((account, index) => row(9 + index, [account, ...months.map((_, month) => index * 100 + month)])),
+  ];
+  const original = globalThis.DecompressionStream;
+  const originalPako = globalThis.pako;
+  try {
+    globalThis.DecompressionStream = undefined;
+    globalThis.pako = { inflateRaw };
+    const result = await parseFinancialWorkbookBuffer(workbook(rows, "損･BASSA所沢店", 8), "PL");
+    assert.equal(result.status, "PL_LOCAL_READY");
+    assert.equal(result.sheetCount, 1);
+    assert.equal(result.normalizedRecordCount, 144);
+    assert.equal(buildFinancialLocalPreview(result).importActionEnabled, false);
+  } finally {
+    globalThis.DecompressionStream = original;
+    globalThis.pako = originalPako;
+  }
 });
 
 test("P/L aggregate sheets and missing exact mappings stay review-only", async () => {
@@ -815,8 +840,9 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=a177abb8aab9f186/);
+  assert.match(app, /financial-data-intake\.js\?v=6295d931a81c22c5/);
   assert.match(financialIntake, /financial-supplemental-csv\.js\?v=7cacd43781126450/);
+  assert.match(financialIntake, /vendor\/pako_inflate\.min\.js\?v=2ca27e9a8dae569c/);
   assert.match(financialIntake, /renderFinancialSupplementalCsv\(supplemental/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake, \{ externalEvidence: financialExternalEvidence\(\) \}\)/);
   assert.match(app, /management-financial-local-preview/);

@@ -1,4 +1,5 @@
 import { renderFinancialSupplementalCsv } from "./financial-supplemental-csv.js?v=7cacd43781126450";
+import "./vendor/pako_inflate.min.js?v=2ca27e9a8dae569c";
 
 const MONTH_LABEL_RE = /^(?:[1-9]|1[0-2])月度$/u;
 const MAX_FINANCIAL_FILE_BYTES = 25 * 1024 * 1024;
@@ -92,9 +93,26 @@ function findEndOfCentralDirectory(bytes) {
 
 async function inflateRaw(bytes, options) {
   if (options?.inflateRaw) return options.inflateRaw(bytes);
-  if (typeof DecompressionStream !== "function") throw new Error("ZIP_DEFLATE_UNSUPPORTED");
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+  if (typeof DecompressionStream === "function") {
+    try {
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    } catch {
+      // Browser support for deflate-raw has varied; fall through to the vendored inflater.
+    }
+  }
+  const pakoInflateRaw = globalThis.pako?.inflateRaw;
+  if (typeof pakoInflateRaw === "function") return pakoInflateRaw(bytes);
+  throw new Error("ZIP_DEFLATE_UNSUPPORTED");
+}
+
+function parseFailureCategory(error) {
+  const message = String(error?.message || "");
+  if (message.includes("ZIP_DEFLATE_UNSUPPORTED")) return "XLSX_DEFLATE_UNSUPPORTED";
+  if (message.includes("ZIP_")) return "XLSX_ZIP_UNREADABLE";
+  if (message.includes("XLSX_WORKBOOK_MISSING") || message.includes("XLSX_SHEET_MISSING")) return "XLSX_STRUCTURE_UNREADABLE";
+  if (message.includes("FILE_IDENTITY_UNAVAILABLE")) return "FILE_IDENTITY_UNAVAILABLE";
+  return "FILE_PARSE_UNREADABLE";
 }
 
 export async function readXlsxEntries(arrayBuffer, options = {}) {
@@ -389,6 +407,7 @@ function combineStatuses(statement, results) {
 export function combineFinancialWorkbookResults(results, statement = "PL") {
   const accepted = Array.isArray(results) ? results.filter((result) => result && typeof result === "object") : [];
   if (!accepted.length) return { status: "FILE_READ_OR_PARSE_FAILED", statement, previewRows: [], entityPreviewRows: [] };
+  const parseFailureCategories = [...new Set(accepted.map((result) => result.parseFailureCategory).filter(Boolean))];
   const missingByAccount = {};
   const mappingCandidatesByAccount = {};
   for (const result of accepted) {
@@ -429,6 +448,7 @@ export function combineFinancialWorkbookResults(results, statement = "PL") {
     normalizedRecordCount,
     duplicateFileCount,
     duplicateEntityPeriodCount,
+    parseFailureCategories,
     missingByAccount,
     mappingCandidatesByAccount,
     balanceCheck: statement === "BS" && accepted.every((result) => result.balanceCheck === "BALANCED") ? "BALANCED" : statement === "BS" ? "IMBALANCED" : "NOT_APPLICABLE",
@@ -456,8 +476,14 @@ export async function validateFinancialWorkbookFile(file, statement = "PL", opti
     const contentIdentity = await sha256Identity(buffer, options);
     const result = await parseFinancialWorkbookBuffer(buffer, statement, options);
     return { ...result, fileName: file.name, fileBytes: file.size, contentIdentity };
-  } catch {
-    return { status: "FILE_READ_OR_PARSE_FAILED" };
+  } catch (error) {
+    return {
+      status: "FILE_READ_OR_PARSE_FAILED",
+      statement,
+      parseFailureCategory: parseFailureCategory(error),
+      previewRows: [],
+      entityPreviewRows: [],
+    };
   }
 }
 
@@ -488,6 +514,9 @@ export function buildFinancialIntakeReceipt(result) {
     normalizedRecordCount: result.normalizedRecordCount || 0,
     duplicateFileCount: Number(result.duplicateFileCount || 0),
     duplicateEntityPeriodCount: Number(result.duplicateEntityPeriodCount || 0),
+    parseFailureCategories: Array.isArray(result.parseFailureCategories)
+      ? result.parseFailureCategories.filter((item) => typeof item === "string").slice(0, 3)
+      : typeof result.parseFailureCategory === "string" ? [result.parseFailureCategory] : [],
     allSheetsHaveTwelveMonths: result.sheetCount > 0 && result.sheetsWithTwelveMonths === result.sheetCount,
     mappingRequiredAccountCount: Object.keys(result.missingByAccount ?? {}).length,
     mappingCandidateAccountCount: Object.keys(result.mappingCandidatesByAccount ?? {}).length,
@@ -1341,6 +1370,7 @@ function setResult(container, result) {
     el(doc, "p", "", `シート ${receipt.sheetCount}件 / 対象候補 ${receipt.entityCandidateCount}件 / 集計除外 ${receipt.aggregateExcludedSheetCount}件`),
     el(doc, "p", "", `正規化 ${receipt.normalizedRecordCount}件 / 科目対応待ち ${receipt.mappingRequiredAccountCount}件 / 候補検出 ${receipt.mappingCandidateAccountCount}件`),
     el(doc, "p", "", `重複ファイル ${receipt.duplicateFileCount}件 / 同一期・同一候補 ${receipt.duplicateEntityPeriodCount}件`),
+    el(doc, "p", "", receipt.parseFailureCategories.length ? `読取理由: ${receipt.parseFailureCategories.join(" / ")}` : "読取理由: OK"),
     el(doc, "p", "", receipt.balanceCheck === "NOT_APPLICABLE" ? "貸借チェック: 対象外" : `貸借チェック: ${receipt.balanceCheck}`),
     el(doc, "p", "", receipt.productionImportEnabled ? "本番投入可能" : "本番投入は無効です")
   );

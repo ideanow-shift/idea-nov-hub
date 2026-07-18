@@ -2057,7 +2057,7 @@ function isSafeAnswerRuleRecord(value) {
     && Array.isArray(value.linkIds)
     && value.linkIds.every((item) => typeof item === "string")
     && typeof value.requiresHumanCheck === "boolean"
-    && typeof value.active === "string"
+    && isExactActiveState(value.active)
     && (value.notebook === null || typeof value.notebook === "string")
     && (value.notebookCategory === null || typeof value.notebookCategory === "string")
     && (value.riskLevel === null || typeof value.riskLevel === "string")
@@ -2087,6 +2087,10 @@ function hasOnlyStringFields(value, fields) {
   return fields.every((field) => typeof value[field] === "string");
 }
 
+function isExactActiveState(value) {
+  return value === "有効" || value === "停止";
+}
+
 function isSafeKnowledgeUpdateRecord(value) {
   return isSafeRecord(value) && hasOnlyStringFields(value, [
     "id", "areaId", "areaName", "owner", "memo", "source", "notebookUrl",
@@ -2096,8 +2100,10 @@ function isSafeKnowledgeUpdateRecord(value) {
 
 function isSafeLinkMasterRecord(value) {
   return isSafeRecord(value)
-    && hasOnlyStringFields(value, ["id", "label", "href", "category", "owner", "description", "active"])
+    && hasOnlyStringFields(value, ["id", "label", "href", "category", "owner", "description"])
+    && isExactActiveState(value.active)
     && typeof value.isActive === "boolean"
+    && value.isActive === (value.active === "有効")
     && (value.sortOrder === null || Number.isFinite(value.sortOrder));
 }
 

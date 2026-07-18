@@ -182,10 +182,10 @@ Deno.serve(async (request) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const configuredSessionSecret = Deno.env.get("CONCIERGE_SESSION_SECRET");
 
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (!supabaseUrl || !serviceRoleKey || !configuredSessionSecret?.trim()) {
       return json({ ok: false, error: "API設定が不足しています。" }, 500);
     }
-    const sessionSecret = configuredSessionSecret || serviceRoleKey;
+    const sessionSecret = configuredSessionSecret;
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },

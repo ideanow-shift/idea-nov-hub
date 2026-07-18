@@ -112,6 +112,16 @@ function notificationPurposeForRoute(routeId: string): string {
   return `concierge.department_inquiry.${routeKey}`;
 }
 
+const ALLOWED_NOTIFICATION_ERROR_CATEGORIES = new Set([
+  "notification_destination_lookup_failed",
+  "notification_destination_not_configured",
+]);
+
+function normalizeNotificationError(value: unknown): string {
+  const category = getString(value).trim();
+  return ALLOWED_NOTIFICATION_ERROR_CATEGORIES.has(category) ? category : "";
+}
+
 function toBoolean(value: unknown): boolean {
   if (value === true) return true;
   if (value === false) return false;
@@ -631,7 +641,7 @@ Deno.serve(async (request) => {
         notificationPurpose,
         notificationConfigured: Boolean(destination),
         notificationChannelName: destination?.channel_name || "",
-        notificationError: inquiry.notification_error || "",
+        notificationError: normalizeNotificationError(inquiry.notification_error),
       });
     }
 
@@ -728,7 +738,7 @@ Deno.serve(async (request) => {
             inquiryText: row.inquiry_text || "",
             status: row.status || "queued",
             notificationId: row.notification_id || "",
-            notificationError: row.notification_error || "",
+            notificationError: normalizeNotificationError(row.notification_error),
             notificationPurpose: purpose,
             notificationConfigured: Boolean(destination),
             notificationChannelName: destination?.channel_name || "",

@@ -1,9 +1,42 @@
 # GAS remaining inventory
 
-- Date: 2026-07-17
-- Classification: PRODUCTION_EVIDENCE_REQUIRED
-- Audit mode: read-only; no push, publish, DML, Apps Script action, or Secret
-  access
+- Date: 2026-07-18
+- Classification: SOURCE_PUBLIC_ZERO_GAS_PASS / PRODUCTION_DEPLOYMENT_RETIREMENT_EVIDENCE_REQUIRED
+- Audit mode: read-only; no DML, Apps Script action, Secret access, trigger
+  change, or credential inspection
+
+## Current result
+
+The current source and public Pages route no longer contain executable HUB GAS
+runtime dependencies.
+
+```text
+Tracked gas-backend directory: absent
+Tracked .gs / appsscript.json / .clasp.json files: 0
+Public Education route: HTTP 200
+Public HUB top script.google.com / google.script.run hits: 0
+hub-zero-gas-source-fixture: PASS runtime=0 source=0
+strict GAS exit source check: PASS (7 files / 10 forbidden patterns)
+```
+
+This closes the source/public runtime side of the GAS migration. It does not
+disable, delete, or archive any Apps Script deployment.
+
+## Remaining production-only inventory
+
+Only production retirement evidence remains:
+
+1. Confirm no current production consumer invokes the retired Apps Script
+   deployment during the approved observation window.
+2. Confirm Apps Script trigger/deployment inventory without recording request
+   bodies, Script Properties, credentials, or business values.
+3. Disable/archive the Apps Script deployment only through a separately approved
+   operator action after the new routes remain verified.
+4. Rotate or retire any legacy GAS-specific secret material only through a
+   separate credential gate.
+
+Until those operator/production gates complete, the correct status is:
+`SOURCE_PUBLIC_ZERO_GAS_PASS`, not full deployment retirement.
 
 ## Historical fresh remote evidence
 
@@ -16,7 +49,8 @@ candidate was rebuilt on authoritative GitHub baseline
 through `e7bd6b748ff25b04b408e315ab4dc2528039ab44`, and contains the zero-GAS
 source integration at `530c5684d70b3c3dacf7dcad5815f12d5be4e3cd`.
 
-The fresh remote still contains these GAS dependencies:
+At that historical point, the fresh remote still contained these GAS
+dependencies:
 
 1. Four tracked GAS backend files under `gas-backend/`.
 2. Education GAS URL in `portal/js/apps.js`.
@@ -58,7 +92,7 @@ Those historical candidates were not pushed. Their behavior was rebuilt in the
 current isolated integration candidate; no production push, publish, database
 mutation, or Apps Script action has been performed.
 
-## Required final cutover gates
+## Historical required cutover gates
 
 1. Rebuild the zero-GAS runtime/source changes on the authoritative HUB
    integration baseline while preserving the HR access change.
@@ -69,5 +103,5 @@ mutation, or Apps Script action has been performed.
 5. Disable/archive remaining Apps Script deployments through the approved
    operator path and record only non-secret deployment status evidence.
 
-Until these gates complete, the repository candidate is ready but production GAS
-removal is not complete.
+The source/public portions above are now complete on current main. The remaining
+gates are limited to production evidence and Apps Script deployment retirement.

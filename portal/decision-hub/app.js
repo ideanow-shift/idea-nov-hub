@@ -40,23 +40,43 @@ initDecisionHubReadOnly();
 
 function wireNavigation() {
   elements.tabApplications?.addEventListener("click", () => showView("applications"));
-  elements.tabNewApplication?.addEventListener("click", () => showView("new-application"));
+  elements.tabNewApplication?.addEventListener("click", () => {
+    showView("new-application");
+    updateDraftControls();
+  });
   elements.applicationForm?.addEventListener("submit", (event) => event.preventDefault());
   elements.saveDraftButton?.addEventListener("click", saveDraftApplication);
   elements.applicationForm?.addEventListener("input", updateDraftControls);
+  elements.applicationForm?.addEventListener("change", updateDraftControls);
   updateDraftControls();
 }
 
 function updateDraftControls() {
-  const canSave = DECISION_HUB_DRAFT_WRITE_ENABLED && Boolean(elements.applicationForm?.checkValidity());
+  const form = elements.applicationForm;
+  const formIsValid = Boolean(form?.checkValidity());
+  const canSave = DECISION_HUB_DRAFT_WRITE_ENABLED && formIsValid;
   if (elements.saveDraftButton) elements.saveDraftButton.disabled = !canSave;
-  setText(elements.draftSaveStatus, DECISION_HUB_DRAFT_WRITE_ENABLED
-    ? "必須項目を入力すると下書き保存できます。"
-    : "下書き保存は安全確認後に有効化します。入力内容はまだ送信されません。");
+  if (!DECISION_HUB_DRAFT_WRITE_ENABLED) {
+    setText(elements.draftSaveStatus, "下書き保存は安全確認後に有効化します。入力内容はまだ送信されません。");
+    return;
+  }
+  if (canSave) {
+    setText(elements.draftSaveStatus, "入力内容を下書き保存できます。");
+    return;
+  }
+  const invalidField = form?.querySelector(":invalid");
+  const fieldLabel = invalidField?.closest("label")?.querySelector("span")?.textContent?.trim();
+  setText(elements.draftSaveStatus, fieldLabel
+    ? `「${fieldLabel}」を入力または確認してください。`
+    : "必須項目と入力形式を確認してください。");
 }
 
 async function saveDraftApplication() {
-  if (!DECISION_HUB_DRAFT_WRITE_ENABLED || !elements.applicationForm?.reportValidity()) return;
+  if (!DECISION_HUB_DRAFT_WRITE_ENABLED) return;
+  if (!elements.applicationForm?.reportValidity()) {
+    updateDraftControls();
+    return;
+  }
   if (!prepareHubSessionAuth()) {
     renderSafeError({ code: "HUB_SESSION_REQUIRED" });
     return;

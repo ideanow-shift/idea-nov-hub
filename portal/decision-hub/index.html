@@ -440,7 +440,7 @@
         <section id="new-application-panel" class="panel" aria-labelledby="new-application-title" hidden>
           <div>
             <h2 id="new-application-title">企画・契約申請</h2>
-            <div class="muted">入力内容はまだ送信されません。保存接続前の入力画面です。</div>
+            <div class="muted">入力内容は申請されません。下書きとして保存できます。</div>
           </div>
           <form id="decision-application-form" class="application-form" autocomplete="off">
             <div class="form-grid">
@@ -475,7 +475,7 @@
               </label>
               <label class="form-field">
                 <span>予算額</span>
-                <input type="number" name="budgetAmount" min="0" step="1" inputmode="numeric" placeholder="0">
+                <input type="number" name="budgetAmount" min="0" step="0.01" inputmode="decimal" placeholder="0">
               </label>
               <label class="form-field">
                 <span>契約先</span>
@@ -497,7 +497,7 @@
             <div class="actions">
               <button id="save-draft-button" type="button" disabled>下書き保存</button>
               <button type="submit" disabled>申請する</button>
-              <span id="draft-save-status" class="muted">保存・申請機能は現在接続準備中です。</span>
+              <span id="draft-save-status" class="muted">必須項目と入力形式を確認してください。</span>
             </div>
           </form>
         </section>
@@ -517,6 +517,6 @@
         </section>
       </main>
     </div>
-    <script type="module" src="./app.js?v=54c6493735fc"></script>
+    <script type="module" src="./app.js?v=5ad8378a716d"></script>
   </body>
 </html>

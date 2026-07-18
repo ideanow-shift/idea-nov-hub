@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  initializeTalentSummaryControl,
+  invalidateTalentDashboardSummaryRun,
   resetTalentDashboardSummaryStartupForFixture,
   startTalentDashboardSummary
 } from "../portal/talent/app.mjs";
@@ -65,12 +67,30 @@ function fakeDocument() {
       this.children = children;
     }
   };
-  const status = { dataset: {}, textContent: "" };
+  const status = { dataset: {}, textContent: "", focusCount: 0, focus() { this.focusCount += 1; } };
+  const button = {
+    dataset: {},
+    disabled: false,
+    textContent: "集計を表示",
+    attributes: {},
+    listeners: new Map(),
+    addEventListener(type, listener) {
+      this.listeners.set(type, listener);
+    },
+    setAttribute(name, value) {
+      this.attributes[name] = String(value);
+    },
+    async click(event = {}) {
+      return this.listeners.get("click")?.({ type: "click", ...event });
+    }
+  };
   elements.set("summary-metrics", metrics);
   elements.set("summary-status", status);
+  elements.set("summary-load-button", button);
   return {
     metrics,
     status,
+    button,
     createElement(tagName) {
       return {
         tagName,
@@ -142,8 +162,110 @@ test("startup duplicate prevention keeps request max1 and retry0", async () => {
   const second = await startTalentDashboardSummary({ globalObject: fakeGlobal(), documentObject: fakeDocument(), fetchImpl });
 
   assert.equal(calls.length, 1);
-  assert.equal(second.stopCategory, "duplicate_startup_prevented");
+  assert.equal(second.stopCategory, "duplicate_control_prevented");
   assert.equal(second.httpRequestSent, false);
+});
+
+test("operator control initializes with request0 and token0", () => {
+  resetTalentDashboardSummaryStartupForFixture();
+  let tokenReads = 0;
+  let fetches = 0;
+  const documentObject = fakeDocument();
+  const result = initializeTalentSummaryControl({
+    globalObject: {
+      ...fakeGlobal({ helper: { async getSessionToken() { tokenReads += 1; return "fixture"; } } }),
+      AbortController,
+      addEventListener() {}
+    },
+    documentObject,
+    fetchImpl: async () => { fetches += 1; }
+  });
+
+  assert.equal(result.initialized, true);
+  assert.equal(tokenReads, 0);
+  assert.equal(fetches, 0);
+  assert.equal(documentObject.button.disabled, false);
+  assert.equal(documentObject.status.textContent, "ボタンを押すと最新の集計を表示します");
+});
+
+test("one trusted click disables first and performs exact1 while reentry stays request0", async () => {
+  resetTalentDashboardSummaryStartupForFixture();
+  const observations = [];
+  const documentObject = fakeDocument();
+  initializeTalentSummaryControl({
+    globalObject: { ...fakeGlobal(), AbortController, addEventListener() {} },
+    documentObject,
+    fetchImpl: async () => {
+      observations.push({ disabled: documentObject.button.disabled, busy: documentObject.button.attributes["aria-busy"] });
+      return {
+        status: 200,
+        ok: true,
+        headers: { get: () => "application/json" },
+        async json() { return validEnvelope(); }
+      };
+    }
+  });
+
+  const first = documentObject.button.click();
+  const second = await documentObject.button.click();
+  const result = await first;
+
+  assert.equal(observations.length, 1);
+  assert.deepEqual(observations[0], { disabled: true, busy: "true" });
+  assert.equal(result.requestCount, 1);
+  assert.equal(second.stopCategory, "duplicate_control_prevented");
+  assert.equal(documentObject.button.disabled, true);
+  assert.equal(documentObject.button.textContent, "集計を表示済み");
+  assert.equal(documentObject.status.focusCount, 1);
+});
+
+test("missing helper stops before HTTP and keeps the one-shot control deterministic", async () => {
+  resetTalentDashboardSummaryStartupForFixture();
+  let fetches = 0;
+  const documentObject = fakeDocument();
+  initializeTalentSummaryControl({
+    globalObject: { ...fakeGlobal({ helper: null }), AbortController, addEventListener() {} },
+    documentObject,
+    fetchImpl: async () => { fetches += 1; }
+  });
+  const result = await documentObject.button.click();
+
+  assert.equal(fetches, 0);
+  assert.equal(result.httpRequestSent, false);
+  assert.equal(documentObject.button.disabled, true);
+  assert.equal(documentObject.status.dataset.state, "stopped");
+});
+
+test("invalidation aborts and suppresses stale completion rendering", async () => {
+  resetTalentDashboardSummaryStartupForFixture();
+  let releaseResponse;
+  const documentObject = fakeDocument();
+  initializeTalentSummaryControl({
+    globalObject: { ...fakeGlobal(), AbortController, addEventListener() {} },
+    documentObject,
+    fetchImpl: async () => new Promise((resolve) => {
+      releaseResponse = () => resolve({
+        status: 200,
+        ok: true,
+        headers: { get: () => "application/json" },
+        async json() { return validEnvelope(); }
+      });
+    })
+  });
+
+  const pending = documentObject.button.click();
+  for (let attempt = 0; attempt < 10 && typeof releaseResponse !== "function"; attempt += 1) {
+    await Promise.resolve();
+  }
+  assert.equal(typeof releaseResponse, "function");
+  invalidateTalentDashboardSummaryRun({ documentObject });
+  releaseResponse();
+  const result = await pending;
+
+  assert.equal(result.stopCategory, "run_invalidated");
+  assert.equal(result.staleCompletionSuppressed, true);
+  assert.equal(documentObject.metrics.children.length, 0);
+  assert.equal(documentObject.status.textContent, "集計表示を中止しました");
 });
 
 test("runtime disabled, helper missing, wrong audience, and absent token fail before HTTP", async () => {
@@ -209,7 +331,11 @@ test("source fixture keeps Japanese UI and desktop/mobile responsive rules", () 
   const apps = readFileSync(new URL("../portal/js/apps.js", import.meta.url), "utf8");
 
   assert.match(html, /採用・人材投資 集計/);
+  assert.match(html, /id="summary-load-button"[\s\S]*集計を表示/);
+  assert.match(html, /aria-live="polite"/);
   assert.doesNotMatch(html, /Dashboard Summary|summary_loading/);
+  assert.match(css, /\.summary-load-button/);
+  assert.match(css, /\.summary-load-button \{ width: 100%; \}/);
   assert.match(css, /@media \(max-width: 860px\)/);
   assert.match(css, /@media \(max-width: 520px\)/);
   assert.match(apps, /appId: "human-capital-investment"[\s\S]*url: "\.\/talent\/"/);

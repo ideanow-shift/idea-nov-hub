@@ -37,8 +37,14 @@ const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MANAGEMENT_APP_IDS = new Set(["management-check", "management-platform"]);
 const MANAGEMENT_WEB_APP_IDS = new Set(["keiei", "management-system"]);
 const SHIFT_APP_IDS = new Set(["shift"]);
-const TALENT_APP_IDS = new Set(["human-capital-investment"]);
+const TALENT_APP_IDS = new Set([
+  "human-capital-investment",
+  "hr-investment-dashboard",
+  "nov-talent",
+]);
 const TALENT_APP_URL = "./talent/";
+const TALENT_LEGACY_ORIGIN = "https://ideanow-shift.github.io";
+const TALENT_LEGACY_PATH = "/hr-investment-dashboard";
 const MANAGEMENT_APP_URL = "./management-platform/";
 const CORE_MASTER_ADMIN_APP_URL = "./master-admin-stable/?v=master-admin-auth-label-20260717-1";
 const IDEA_LINK_APP_URL = "./idea-link-app/?v=idea-link-module-sync-20260712-1";
@@ -721,9 +727,23 @@ function isEducationApp(app) {
     || category.includes("教育");
 }
 
+function isLegacyTalentUrl(value) {
+  const rawUrl = String(value || "").trim();
+  if (!rawUrl) return false;
+
+  try {
+    const parsed = new URL(rawUrl, window.location.href);
+    const pathname = parsed.pathname.replace(/\/+$/, "");
+    return parsed.origin === TALENT_LEGACY_ORIGIN
+      && pathname === TALENT_LEGACY_PATH;
+  } catch {
+    return false;
+  }
+}
+
 function isTalentApp(app) {
   const appId = String(app?.appId || "").trim().toLowerCase().replaceAll("_", "-");
-  return TALENT_APP_IDS.has(appId);
+  return TALENT_APP_IDS.has(appId) || isLegacyTalentUrl(app?.url);
 }
 
 function isBackofficeReleasedApp(app) {

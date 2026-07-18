@@ -368,8 +368,14 @@ test("talent entry point cache-busts runtime config and app with one release id"
 test("HUB launcher canonicalizes Talent route even when backend URL is stale", () => {
   const mainSource = readFileSync(new URL("../portal/js/main.js", import.meta.url), "utf8");
 
-  assert.match(mainSource, /const TALENT_APP_IDS = new Set\(\["human-capital-investment"\]\);/);
+  assert.match(mainSource, /"human-capital-investment"/);
+  assert.match(mainSource, /"hr-investment-dashboard"/);
+  assert.match(mainSource, /"nov-talent"/);
   assert.match(mainSource, /const TALENT_APP_URL = "\.\/talent\/";/);
+  assert.match(mainSource, /const TALENT_LEGACY_ORIGIN = "https:\/\/ideanow-shift\.github\.io";/);
+  assert.match(mainSource, /const TALENT_LEGACY_PATH = "\/hr-investment-dashboard";/);
+  assert.match(mainSource, /function isLegacyTalentUrl\(value\)/);
   assert.match(mainSource, /function isTalentApp\(app\)/);
+  assert.match(mainSource, /TALENT_APP_IDS\.has\(appId\) \|\| isLegacyTalentUrl\(app\?\.url\)/);
   assert.match(mainSource, /:\s*isTalentApp\(app\)\s*\?\s*TALENT_APP_URL\s*:\s*app\.url/);
 });

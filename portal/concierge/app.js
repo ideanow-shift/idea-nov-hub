@@ -341,7 +341,7 @@ class LinkMasterRepository {
     try {
       const result = await requestBackend("listLinks", session?.admin && session?.token ? { includeInactive: "true" } : {});
       const links = readResponseRecords(result, "links");
-      this.cache = links ? Object.fromEntries(links.map((link) => [link.id, link])) : {};
+      this.cache = links ? toUniqueIdRecordMap(links) || {} : {};
       return this.cache;
     } catch {
       this.cache = {};
@@ -402,7 +402,7 @@ class DepartmentInquiryRepository {
     try {
       const result = await requestBackend("listDepartmentRoutes", {});
       const routes = readResponseRecords(result, "routes");
-      this.routeCache = routes ? Object.fromEntries(routes.map((route) => [route.id, route])) : {};
+      this.routeCache = routes ? toUniqueIdRecordMap(routes) || {} : {};
       return this.routeCache;
     } catch {
       this.routeCache = {};
@@ -1971,6 +1971,17 @@ function isSafeRecord(value) {
 function readResponseRecords(result, key) {
   if (!result.ok || !Array.isArray(result[key]) || !result[key].every(isSafeRecord)) return null;
   return result[key];
+}
+
+function toUniqueIdRecordMap(records) {
+  const map = Object.create(null);
+  for (const record of records) {
+    const id = record.id;
+    if (typeof id !== "string" || !id || id.trim() !== id || /[\u0000-\u001f\u007f]/u.test(id)) return null;
+    if (Object.hasOwn(map, id)) return null;
+    map[id] = record;
+  }
+  return map;
 }
 
 async function requestJson(url, payload) {

@@ -282,6 +282,8 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-local-preview-card p { margin: 0 0 12px; color: var(--text-secondary); font-size: 13px; overflow-wrap: anywhere; }
 .financial-local-preview-card.is-empty { background: var(--card); border-left-color: var(--border-light); }
 .financial-local-reflection-status { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 10px; padding: 7px 9px; color: var(--text-primary); background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.financial-production-hold-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px; }
+.financial-production-hold-summary p { margin: 0; padding: 8px 10px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); color: var(--text-primary); font-size: 12px; line-height: 1.55; }
 .financial-visible-scope { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px; }
 .financial-visible-scope p { margin: 0; padding: 8px 10px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); color: var(--text-primary); font-size: 12px; line-height: 1.55; }
 .financial-store-match-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; margin: 12px 0; padding: 10px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
@@ -341,7 +343,7 @@ tbody tr:hover td { background: var(--card-soft); }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .metric-value { font-size: 24px; }
   .workflow, .method-grid, .production-readiness-grid, .financial-intake-controls, .financial-intake-preview, .financial-completion-list, .financial-submission-package-grid, .financial-local-preview-metrics { grid-template-columns: 1fr; }
-  .financial-visible-scope { grid-template-columns: 1fr; }
+  .financial-visible-scope, .financial-production-hold-summary { grid-template-columns: 1fr; }
   .financial-store-match-action { grid-template-columns: 1fr; }
   .financial-store-match-action button { grid-column: 1; grid-row: auto; width: 100%; }
   .chart-canvas { min-height: 260px; }

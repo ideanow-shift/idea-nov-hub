@@ -842,6 +842,9 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(app, /P\/L損益/);
   assert.match(app, /ローカルP\/L候補（本番未投入）/);
   assert.match(app, /buildFinancialLocalReflectionStatus/);
+  assert.match(app, /buildFinancialProductionHoldSummary/);
+  assert.match(app, /provider identity/);
+  assert.match(app, /本番catalog/);
   assert.match(app, /ローカル反映済み/);
   assert.match(app, /本番DB保存・本番投入・承認操作は無効です/);
   assert.match(app, /buildFinancialVisibleScope/);
@@ -941,8 +944,9 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(styles, /\.financial-local-preview-card/);
   assert.match(styles, /\.financial-local-preview-card\.is-empty/);
   assert.match(styles, /\.financial-local-reflection-status/);
+  assert.match(styles, /\.financial-production-hold-summary/);
   assert.match(styles, /\.financial-visible-scope/);
-  assert.match(styles, /\.financial-visible-scope \{ grid-template-columns: 1fr; \}/);
+  assert.match(styles, /\.financial-visible-scope, \.financial-production-hold-summary \{ grid-template-columns: 1fr; \}/);
   assert.match(styles, /\.financial-store-match-action/);
   assert.match(styles, /\.financial-store-match-action button/);
   assert.match(styles, /\.financial-store-match-download/);

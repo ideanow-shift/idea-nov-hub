@@ -501,6 +501,7 @@ function buildPlOverviewPreview(preview) {
     buildFinancialLocalReflectionStatus(preview, "法人経営管理"),
     buildFinancialVisibleScope(preview),
     paragraph(duplicateMessage || `${preview.selectedPeriodLabel}を画面確認用に仮反映中。比較範囲 ${preview.comparisonRangeLabel}。店舗候補 ${number.format(preview.entityCandidateCount)}件 / 除外集計 ${number.format(preview.aggregateExcludedSheetCount || 0)}件 / ${mapping}。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
+    buildFinancialProductionHoldSummary("PL", preview),
     previewMetricGrid([
       ["店舗候補売上合計", preview.salesManYen == null ? "未算定" : `${number.format(preview.salesManYen)}万円`],
       ["店舗候補経常損益", preview.ordinaryProfitManYen == null ? "未算定" : `${number.format(preview.ordinaryProfitManYen)}万円`],
@@ -539,6 +540,7 @@ function buildBsOverviewPreview(preview) {
     heading("ローカルB/Sプレビュー（本番未投入）"),
     buildFinancialLocalReflectionStatus(preview, "法人経営管理"),
     paragraph(duplicateMessage || `${preview.selectedPeriodLabel}の最終月残高だけを表示しています。貸借一致 ${number.format(preview.balancedEntityCount)}/${number.format(preview.entityCandidateCount)}候補、確認待ち ${number.format(preview.balanceReviewRequiredCount || 0)}件。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
+    buildFinancialProductionHoldSummary("BS", preview),
     previewMetricGrid([
       ["法人候補", `${number.format(preview.entityCandidateCount)}件`],
       ["貸借一致", `${number.format(preview.balancedEntityCount)}件`],
@@ -549,6 +551,30 @@ function buildBsOverviewPreview(preview) {
   );
   card.append(buildFinancialMissingDataSummary("法人経営管理"));
   return card;
+}
+
+function buildFinancialProductionHoldSummary(statement, preview) {
+  const summary = document.createElement("div");
+  summary.className = "financial-production-hold-summary";
+  const rows = statement === "BS"
+    ? [
+      ["ローカル検証", preview.balanceReadinessCategory === "BS_BALANCE_READY" ? "PASS" : "貸借確認待ち"],
+      ["本番catalog", "PENDING"],
+      ["provider identity", "NOT_READY"],
+      ["本番投入", "DISABLED"],
+    ]
+    : [
+      ["ローカル検証", preview.status === "PL_LOCAL_READY" ? "PASS" : "確認待ち"],
+      ["科目mapping", preview.mappingConfirmationStatus === "LOCAL_EVIDENCE_RECEIVED" || preview.mappingRequiredAccountCount === 0 ? "LOCAL_OK" : "経理確認待ち"],
+      ["本番catalog", "PENDING"],
+      ["本番投入", "DISABLED"],
+    ];
+  rows.forEach(([name, value]) => {
+    const item = document.createElement("p");
+    item.append(label(name), document.createTextNode(value));
+    summary.append(item);
+  });
+  return summary;
 }
 
 function bsBalanceDeltaText(row) {

@@ -201,6 +201,11 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-mapping-review-summary { margin: 5px 0 0; color: var(--text-secondary); font-size: 12px; }
 .financial-mapping-download { display: inline-flex; min-height: 36px; padding: 7px 12px; align-items: center; justify-content: center; color: var(--text-primary); background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); text-decoration: none; white-space: nowrap; }
 .financial-mapping-download:hover { background: var(--color-bassa-soft); }
+.financial-mapping-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0 0 10px; padding: 0; list-style: none; }
+.financial-mapping-facts li { min-width: 0; padding: 8px 10px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.financial-mapping-facts span, .financial-mapping-facts strong { display: block; overflow-wrap: anywhere; }
+.financial-mapping-facts span { color: var(--text-secondary); font-size: 11px; }
+.financial-mapping-facts strong { margin-top: 2px; color: var(--text-primary); font-size: 13px; font-weight: 500; }
 .financial-mapping-table table { min-width: 620px; }
 .financial-mapping-table th, .financial-mapping-table td { padding: 9px 10px; font-size: 12px; text-align: left; }
 .financial-mapping-confirmation { margin-top: 10px; display: flex; align-items: center; gap: 10px; }
@@ -367,6 +372,7 @@ tbody tr:hover td { background: var(--card-soft); }
   .production-readiness-head { align-items: stretch; flex-direction: column; }
   .financial-intake-heading { align-items: stretch; flex-direction: column; }
   .financial-mapping-review-heading { align-items: stretch; flex-direction: column; }
+  .financial-mapping-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .financial-mapping-confirmation { align-items: stretch; flex-direction: column; }
   .financial-completion-heading { align-items: stretch; flex-direction: column; }
   .financial-missing-data-next { grid-template-columns: 1fr; }

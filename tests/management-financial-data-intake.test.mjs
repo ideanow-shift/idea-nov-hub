@@ -15,6 +15,7 @@ import {
   buildFinancialLocalPreview,
   buildFinancialMappingReviewCsv,
   buildFinancialMappingReviewRows,
+  buildFinancialMappingReviewSummary,
   buildFinancialReflectionSummary,
   buildFinancialSubmissionPackage,
   buildFinancialSubmissionRoadmap,
@@ -476,6 +477,16 @@ test("P/L mapping review exports only fixed accounting confirmation fields", () 
     { sourceAccount: "賃借料", canonicalAccount: "地代家賃", sheetCount: 104, status: "ACCOUNTING_CONFIRMATION_PENDING", statusLabel: "経理確認待ち" },
     { sourceAccount: "販売管理費計", canonicalAccount: "販売管理費合計", sheetCount: 104, status: "ACCOUNTING_CONFIRMATION_PENDING", statusLabel: "経理確認待ち" },
   ]);
+  const summary = buildFinancialMappingReviewSummary(result);
+  assert.equal(summary.schemaVersion, "management-financial-mapping-review-summary-v1");
+  assert.equal(summary.category, "MAPPING_ACCOUNTING_RETURN_REQUIRED");
+  assert.equal(summary.candidateCount, 2);
+  assert.equal(summary.affectedSheetCount, 208);
+  assert.equal(summary.nextAction, "RETURN_MAPPING_CONFIRMATION_CSV");
+  assert.equal(summary.productionImportEnabled, false);
+  assert.equal(summary.mutationCount, 0);
+  assert.equal(summary.uploadCount, 0);
+  assert.doesNotMatch(JSON.stringify(summary), /filename|digest|employeeId|sessionToken|Authorization/i);
   const exportFile = buildFinancialMappingReviewCsv(result);
   assert.equal(exportFile.rowCount, 2);
   assert.equal(exportFile.fileName, "management-pl-account-mapping-review.csv");
@@ -840,7 +851,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=6295d931a81c22c5/);
+  assert.match(app, /financial-data-intake\.js\?v=a5f752681ce40f41/);
   assert.match(financialIntake, /financial-supplemental-csv\.js\?v=7cacd43781126450/);
   assert.match(financialIntake, /vendor\/pako_inflate\.min\.js\?v=2ca27e9a8dae569c/);
   assert.match(financialIntake, /renderFinancialSupplementalCsv\(supplemental/);
@@ -965,6 +976,9 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(financialIntake, /集計粒度/);
   assert.match(financialIntake, /候補完全一致・重複なし・確認済み\/否認/);
   assert.match(styles, /\.financial-mapping-review/);
+  assert.match(styles, /\.financial-mapping-facts/);
+  assert.match(financialIntake, /management-financial-mapping-review-summary-v1/);
+  assert.match(financialIntake, /RETURN_MAPPING_CONFIRMATION_CSV/);
   assert.match(financialIntake, /経理確認用CSVを保存/);
   assert.match(financialIntake, /不足資料CSVを保存/);
   assert.match(financialIntake, /management-financial-missing-data-request\.csv/);

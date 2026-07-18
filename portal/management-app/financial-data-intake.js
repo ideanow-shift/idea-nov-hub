@@ -917,6 +917,25 @@ export function buildFinancialMappingReviewRows(result) {
   return rows.every(Boolean) ? rows : [];
 }
 
+export function buildFinancialMappingReviewSummary(result) {
+  const rows = buildFinancialMappingReviewRows(result);
+  const localEvidence = hasExactLocalMappingEvidence(result);
+  return {
+    schemaVersion: "management-financial-mapping-review-summary-v1",
+    category: rows.length
+      ? localEvidence ? "MAPPING_LOCAL_EVIDENCE_RECEIVED" : "MAPPING_ACCOUNTING_RETURN_REQUIRED"
+      : "MAPPING_REVIEW_NOT_AVAILABLE",
+    candidateCount: rows.length,
+    affectedSheetCount: rows.reduce((sum, row) => sum + Number(row.sheetCount || 0), 0),
+    nextAction: rows.length
+      ? localEvidence ? "LOCAL_VALIDATION_CONTINUES" : "RETURN_MAPPING_CONFIRMATION_CSV"
+      : "WAIT_FOR_EXACT_LOCAL_PL_CANDIDATES",
+    productionImportEnabled: false,
+    mutationCount: 0,
+    uploadCount: 0,
+  };
+}
+
 function financialCsvCell(value) {
   let text = String(value ?? "").normalize("NFC");
   if (/^[=+\-@]/u.test(text)) text = `'${text}`;
@@ -1392,6 +1411,7 @@ function setMappingReview(container, result) {
   const doc = container.ownerDocument;
   const section = container.querySelector("[data-financial-mapping-review]");
   const summary = container.querySelector("[data-financial-mapping-summary]");
+  const facts = container.querySelector("[data-financial-mapping-facts]");
   const body = container.querySelector("[data-financial-mapping-rows]");
   const download = container.querySelector("[data-financial-mapping-download]");
   const confirmationInput = container.querySelector("[data-financial-mapping-confirmation-input]");
@@ -1403,6 +1423,7 @@ function setMappingReview(container, result) {
   if (!exportFile) {
     summary.textContent = "既知の対応候補を完全に検出した場合だけ表示します。";
     body.replaceChildren();
+    if (facts) facts.replaceChildren();
     download.removeAttribute("href");
     download.removeAttribute("download");
     if (confirmationInput) confirmationInput.disabled = true;
@@ -1413,7 +1434,16 @@ function setMappingReview(container, result) {
     return;
   }
   section.dataset.financialMappingStatus = exportFile.status;
+  const reviewSummary = buildFinancialMappingReviewSummary(result);
   summary.textContent = `${rows.length}件の候補を検出しました。CSVの確認状態を「確認済み」または「否認」に変更して返却してください。金額・原本名・個人情報は含みません。`;
+  if (facts) {
+    facts.replaceChildren(
+      mappingFact(doc, "候補", `${reviewSummary.candidateCount}件`),
+      mappingFact(doc, "対象", `${reviewSummary.affectedSheetCount}シート`),
+      mappingFact(doc, "次", reviewSummary.nextAction === "RETURN_MAPPING_CONFIRMATION_CSV" ? "CSV返却" : "ローカル確認済み"),
+      mappingFact(doc, "本番投入", "disabled")
+    );
+  }
   body.replaceChildren(...rows.map((row) => {
     const tr = el(doc, "tr");
     const localEvidence = hasExactLocalMappingEvidence(result);
@@ -1432,6 +1462,15 @@ function setMappingReview(container, result) {
     confirmationStatus.dataset.financialMappingConfirmationStatus = "PENDING";
     confirmationStatus.textContent = "経理回答CSVはこの端末だけで検証します。本番承認には使用しません。";
   }
+}
+
+function mappingFact(doc, labelText, valueText) {
+  const item = el(doc, "li", "");
+  item.append(
+    el(doc, "span", "", labelText),
+    el(doc, "strong", "", valueText)
+  );
+  return item;
 }
 
 function setMappingConfirmationStatus(container, receipt) {
@@ -1620,6 +1659,8 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const mappingDownload = el(doc, "a", "financial-mapping-download", "経理確認用CSVを保存");
   mappingDownload.dataset.financialMappingDownload = "true";
   mappingHeading.append(mappingTitleWrap, mappingDownload);
+  const mappingFacts = el(doc, "ul", "financial-mapping-facts");
+  mappingFacts.dataset.financialMappingFacts = "true";
   const mappingTableWrap = el(doc, "div", "table-wrap financial-mapping-table");
   const mappingTable = el(doc, "table");
   const mappingHead = el(doc, "thead");
@@ -1641,7 +1682,7 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const mappingConfirmationStatus = el(doc, "p", "financial-mapping-confirmation-status", "候補CSVを作成後に、経理回答CSVを検証できます。");
   mappingConfirmationStatus.dataset.financialMappingConfirmationStatus = "NOT_READY";
   mappingConfirmation.append(mappingConfirmationLabel, mappingConfirmationStatus);
-  mappingReview.append(mappingHeading, mappingTableWrap, mappingConfirmation);
+  mappingReview.append(mappingHeading, mappingFacts, mappingTableWrap, mappingConfirmation);
   section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, mappingReview, completion, submissionPackage, supplemental, preview);
   container.replaceChildren(section);
   let latestResult = hooks.initialResult || null;

@@ -2179,9 +2179,9 @@ async function requestBackend(action, payload) {
       throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.authentication);
     }
     const result = await requestJson(STORE_MASTER_CONFIG.apiEndpoint, {
+      ...payload,
       action,
-      sessionToken: requestSession.token,
-      ...payload
+      sessionToken: requestSession.token
     });
     if (session !== requestSession || sessionGeneration !== requestGeneration) {
       throw conciergeClientError(CONCIERGE_CLIENT_ERRORS.staleSession);

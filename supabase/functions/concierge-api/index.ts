@@ -1,16 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { resolveSupportedAction } from "./action-boundary.ts";
+import {
+  createSessionToken,
+  type SessionPayload,
+  verifySessionToken,
+} from "./session-token-boundary.ts";
+import { parseStrictJsonRequest, StrictJsonBoundaryError } from "./strict-json-ingress.ts";
 
 type ApiResponse = Record<string, unknown>;
-type SessionPayload = {
-  loginId: string;
-  storeId: string;
-  name: string;
-  admin: boolean;
-  exp: number;
-};
 
 const PORTAL_ORIGIN = "https://ideanow-shift.github.io";
-const MAX_BODY_BYTES = 4096;
 const JSON_MEDIA_TYPE = "application/json";
 
 function json(body: ApiResponse, status = 200): Response {
@@ -127,59 +126,6 @@ function normalizeActive(value: unknown): boolean {
   return !["false", "0", "no", "n", "停止", "無効", "不可", "inactive", "disabled"].includes(activeText);
 }
 
-function bytesToBase64Url(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
-}
-
-function stringToBase64Url(value: string): string {
-  return bytesToBase64Url(new TextEncoder().encode(value));
-}
-
-function base64UrlToString(value: string): string {
-  const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
-  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-  const binary = atob(padded);
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-}
-
-async function signValue(value: string, secret: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
-  return bytesToBase64Url(new Uint8Array(signature));
-}
-
-async function createSessionToken(payload: SessionPayload, secret: string): Promise<string> {
-  const encodedPayload = stringToBase64Url(JSON.stringify(payload));
-  const signature = await signValue(encodedPayload, secret);
-  return `${encodedPayload}.${signature}`;
-}
-
-async function verifySessionToken(token: string, secret: string): Promise<SessionPayload | null> {
-  try {
-    const [encodedPayload, signature] = token.split(".");
-    if (!encodedPayload || !signature) return null;
-
-    const expected = await signValue(encodedPayload, secret);
-    if (expected !== signature) return null;
-
-    const payload = JSON.parse(base64UrlToString(encodedPayload)) as SessionPayload;
-    if (!payload.exp || payload.exp < Date.now()) return null;
-    if (!payload.loginId || !payload.storeId) return null;
-    return payload;
-  } catch {
-    return null;
-  }
-}
-
 async function requireSession(
   payload: Record<string, unknown>,
   secret: string,
@@ -217,22 +163,18 @@ Deno.serve(async (request) => {
     return boundaryError(415, "MEDIA_TYPE_REJECTED", origin);
   }
 
-  const bodyText = await request.text();
-  const bodyBytes = new TextEncoder().encode(bodyText).byteLength;
-  if (bodyBytes === 0 || bodyBytes > MAX_BODY_BYTES) {
-    return boundaryError(413, "BODY_SIZE_REJECTED", origin);
-  }
-
   let payload: Record<string, unknown>;
   try {
-    const parsed = JSON.parse(bodyText);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return boundaryError(400, "BODY_SHAPE_REJECTED", origin);
+    payload = await parseStrictJsonRequest(request);
+  } catch (error) {
+    if (error instanceof StrictJsonBoundaryError) {
+      return boundaryError(error.status, error.category, origin);
     }
-    payload = parsed as Record<string, unknown>;
-  } catch {
     return boundaryError(400, "JSON_REJECTED", origin);
   }
+
+  const action = resolveSupportedAction(payload, request.url);
+  if (!action) return boundaryError(404, "ACTION_REJECTED", origin);
 
   const response = await (async () => {
   try {
@@ -244,8 +186,6 @@ Deno.serve(async (request) => {
       return json({ ok: false, error: "API設定が不足しています。" }, 500);
     }
     const sessionSecret = configuredSessionSecret || serviceRoleKey;
-
-    const action = getString(payload.action) || new URL(request.url).pathname.split("/").pop() || "";
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },

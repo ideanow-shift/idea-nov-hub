@@ -8,6 +8,8 @@ import {
   buildFinancialAccountingRequestMessage,
   buildFinancialAccountingRequestImpact,
   buildFinancialAccountingRequestText,
+  buildFinancialBalanceReviewCsv,
+  buildFinancialBalanceReviewRows,
   buildFinancialCompletionItems,
   buildFinancialCompletionRequestCsv,
   buildFinancialLocalPreview,
@@ -740,6 +742,23 @@ test("B/S intake requires exact balanced assets, liabilities, and equity", async
   assert.equal(ngPreview.maxAbsBalanceDeltaManYen, 1);
   assert.equal(ngPreview.rows[0].balanceDeltaManYen, 1);
   assert.equal(ngPreview.balanceReadinessCategory, "BS_BALANCE_REVIEW_REQUIRED");
+  const reviewRows = buildFinancialBalanceReviewRows(ng);
+  assert.deepEqual(reviewRows, [{
+    entityName: "損･BASSA新所沢店",
+    periodLabel: "2025年9月〜2026年8月",
+    closingMonthLabel: "8月度",
+    balanceDeltaManYen: 1,
+    statusLabel: "貸借確認待ち",
+  }]);
+  const reviewCsv = buildFinancialBalanceReviewCsv(ng);
+  assert.equal(reviewCsv.fileName, "management-bs-balance-review.csv");
+  assert.equal(reviewCsv.rowCount, 1);
+  assert.equal(reviewCsv.status, "BS_BALANCE_REVIEW_REQUIRED");
+  assert.match(reviewCsv.csv, /"法人候補","対象期","最終月","貸借差額万円","確認状態"/u);
+  assert.match(reviewCsv.csv, /"貸借確認待ち"/u);
+  assert.equal(reviewCsv.productionImportEnabled, false);
+  assert.equal(reviewCsv.externalSendEnabled, false);
+  assert.doesNotMatch(JSON.stringify(reviewCsv), /contentIdentity|rawFile|sessionToken|Authorization/i);
 });
 
 test("B/S duplicate workbook bytes suppress all balance amounts", async () => {
@@ -760,6 +779,7 @@ test("B/S duplicate workbook bytes suppress all balance amounts", async () => {
   assert.equal(preview.balanceCheck, "NOT_READY");
   assert.equal(preview.balancedEntityCount, 0);
   assert.deepEqual(preview.rows, []);
+  assert.equal(buildFinancialBalanceReviewCsv(result), null);
   assert.equal(preview.importActionEnabled, false);
 });
 
@@ -769,7 +789,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=9a84b264e69228eb/);
+  assert.match(app, /financial-data-intake\.js\?v=57414b04339de19e/);
   assert.match(financialIntake, /financial-supplemental-csv\.js\?v=7cacd43781126450/);
   assert.match(financialIntake, /renderFinancialSupplementalCsv\(supplemental/);
   assert.match(app, /renderFinancialDataIntake\(elements\.financialDataIntake, \{ externalEvidence: financialExternalEvidence\(\) \}\)/);
@@ -794,6 +814,9 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(app, /最大貸借差額/);
   assert.match(app, /balanceReviewRequiredCount/);
   assert.match(financialIntake, /balanceReadinessCategory/);
+  assert.match(financialIntake, /buildFinancialBalanceReviewCsv/);
+  assert.match(financialIntake, /management-bs-balance-review\.csv/);
+  assert.match(financialIntake, /B\/S貸借確認CSVを保存/);
   assert.match(app, /年度別P\/L比較（店舗候補のみ）/);
   assert.match(app, /年度別 店舗候補合計/);
   assert.match(app, /合計・本部・FC・共通シートは含みません/);
@@ -830,6 +853,8 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(financialIntake, /management-financial-reflection-summary-v1/);
   assert.match(financialIntake, /financial-reflection-summary/);
   assert.match(financialIntake, /financialReflectionSummary/);
+  assert.match(financialIntake, /submissionPackageHeading/);
+  assert.match(financialIntake, /accountingRequestSection/);
   assert.match(financialIntake, /dataset\.financialReflection/);
   assert.match(financialIntake, /確認表示はローカル検証結果だけです/);
   assert.match(styles, /\.financial-reflection-summary/);

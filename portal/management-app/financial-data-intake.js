@@ -773,6 +773,46 @@ export function buildFinancialCompletionRequestCsv(result) {
   };
 }
 
+export function buildFinancialBalanceReviewRows(result) {
+  const preview = buildFinancialLocalPreview(result);
+  if (!preview || preview.statement !== "BS" || preview.balanceReadinessCategory !== "BS_BALANCE_REVIEW_REQUIRED") return [];
+  return (preview.rows || [])
+    .filter((row) => row.balanceStatus !== "BALANCED")
+    .slice(0, 80)
+    .map((row) => ({
+      entityName: String(row.entityName || "未判定").slice(0, 80),
+      periodLabel: String(preview.selectedPeriodLabel || "対象期確認待ち").slice(0, 40),
+      closingMonthLabel: String(row.closingMonthLabel || "確認待ち").slice(0, 24),
+      balanceDeltaManYen: Number.isFinite(Number(row.balanceDeltaManYen)) ? Number(row.balanceDeltaManYen) : null,
+      statusLabel: "貸借確認待ち",
+    }));
+}
+
+export function buildFinancialBalanceReviewCsv(result) {
+  const rows = buildFinancialBalanceReviewRows(result);
+  if (!rows.length) return null;
+  const header = ["法人候補", "対象期", "最終月", "貸借差額万円", "確認状態"];
+  const csvRows = rows.map((row) => [
+    row.entityName,
+    row.periodLabel,
+    row.closingMonthLabel,
+    row.balanceDeltaManYen == null ? "未算定" : Math.round(row.balanceDeltaManYen),
+    row.statusLabel,
+  ]);
+  const csv = `\uFEFF${[header, ...csvRows].map((row) => row.map(financialCsvCell).join(",")).join("\r\n")}\r\n`;
+  return {
+    fileName: "management-bs-balance-review.csv",
+    rowCount: rows.length,
+    status: "BS_BALANCE_REVIEW_REQUIRED",
+    csv,
+    href: `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`,
+    productionImportEnabled: false,
+    externalSendEnabled: false,
+    mutationCount: 0,
+    uploadCount: 0,
+  };
+}
+
 export function buildFinancialMappingReviewRows(result) {
   if (!result || result.statement !== "PL") return [];
   if (Number(result.duplicateFileCount || 0) > 0 || Number(result.duplicateEntityPeriodCount || 0) > 0) return [];
@@ -1124,6 +1164,64 @@ function financialReflectionSummary(doc, reflection) {
   return summary;
 }
 
+function submissionPackageHeading(doc, pkg, label) {
+  const heading = el(doc, "div", "financial-submission-package-heading");
+  const text = el(doc, "div");
+  text.append(
+    el(doc, "h4", "", "経理提出パッケージ状況"),
+    el(doc, "p", "", `${pkg.readyCount}/${pkg.totalCount} 項目をローカル確認済み。本番投入は無効です。`)
+  );
+  heading.append(text, el(doc, "span", "financial-completion-status", label));
+  return heading;
+}
+
+function submissionPackageGrid(doc, pkg) {
+  const grid = el(doc, "div", "financial-submission-package-grid");
+  grid.append(...pkg.groups.map((group) => {
+    const item = el(doc, "article", "financial-submission-package-item");
+    item.append(
+      el(doc, "strong", "", group.label),
+      el(doc, "span", "", `${group.readyCount}/${group.totalCount}`),
+      el(doc, "p", "", group.pendingKeys.length ? `${group.pendingKeys.length} 項目が未完了` : "ローカル確認済み")
+    );
+    return item;
+  }));
+  return grid;
+}
+
+function submissionNextAction(doc, nextAction) {
+  const section = el(doc, "div", "financial-submission-next-action");
+  const listNode = el(doc, "ul", "financial-submission-next-list");
+  listNode.append(...(nextAction.checklist || []).map((item) => el(doc, "li", "", item)));
+  section.append(
+    el(doc, "strong", "", nextAction.label),
+    el(doc, "p", "", nextAction.detail),
+    listNode
+  );
+  return section;
+}
+
+function accountingRequestSection(doc, message, impact, requestDownload, balanceReviewFile) {
+  const section = el(doc, "div", "financial-accounting-request");
+  const impactList = el(doc, "ul", "financial-accounting-impact-list");
+  impactList.append(...impact.targetLabels.map((item) => el(doc, "li", "", item)));
+  section.append(
+    el(doc, "strong", "", "経理へ確認する内容"),
+    el(doc, "p", "", message.subject),
+    el(doc, "pre", "", message.bodyLines.join("\n")),
+    impactList,
+    requestDownload
+  );
+  if (balanceReviewFile) {
+    const balanceDownload = el(doc, "a", "financial-accounting-request-download", `B/S貸借確認CSVを保存（${balanceReviewFile.rowCount}件）`);
+    balanceDownload.dataset.financialBalanceReviewDownload = "true";
+    balanceDownload.href = balanceReviewFile.href;
+    balanceDownload.download = balanceReviewFile.fileName;
+    section.append(balanceDownload);
+  }
+  return section;
+}
+
 const INTAKE_STATUS_LABELS = Object.freeze({
   PL_LOCAL_READY: "P/L確認済み",
   PL_LOCAL_VALIDATED_PENDING_MAPPING: "P/L確認済み・科目対応待ち",
@@ -1308,6 +1406,7 @@ function setSubmissionPackage(container, result) {
   const impact = buildFinancialAccountingRequestImpact(result);
   const reflection = buildFinancialReflectionSummary(result);
   const textFile = buildFinancialAccountingRequestText(result);
+  const balanceReviewFile = buildFinancialBalanceReviewCsv(result);
   const requestDownload = el(doc, "a", "financial-accounting-request-download", "確認依頼TXTを保存");
   requestDownload.dataset.financialAccountingRequestDownload = "true";
   requestDownload.href = textFile.href;
@@ -1317,37 +1416,11 @@ function setSubmissionPackage(container, result) {
     ? "ローカル確認済み / 本番投入待ち"
     : "不足データあり";
   target.replaceChildren(
-    el(doc, "div", "financial-submission-package-heading",
-      el(doc, "div", "",
-        el(doc, "h4", "", "経理提出パッケージ状況"),
-        el(doc, "p", "", `${pkg.readyCount}/${pkg.totalCount} 項目をローカル確認済み。本番投入は無効です。`)
-      ),
-      el(doc, "span", "financial-completion-status", label)
-    ),
+    submissionPackageHeading(doc, pkg, label),
     financialReflectionSummary(doc, reflection),
-    el(doc, "div", "financial-submission-package-grid",
-      ...pkg.groups.map((group) => el(doc, "article", "financial-submission-package-item",
-        el(doc, "strong", "", group.label),
-        el(doc, "span", "", `${group.readyCount}/${group.totalCount}`),
-        el(doc, "p", "", group.pendingKeys.length ? `${group.pendingKeys.length} 項目が未完了` : "ローカル確認済み")
-      ))
-    ),
-    el(doc, "div", "financial-submission-next-action",
-      el(doc, "strong", "", pkg.nextAction.label),
-      el(doc, "p", "", pkg.nextAction.detail),
-      el(doc, "ul", "financial-submission-next-list",
-        ...(pkg.nextAction.checklist || []).map((item) => el(doc, "li", "", item))
-      )
-    ),
-    el(doc, "div", "financial-accounting-request",
-      el(doc, "strong", "", "経理へ確認する内容"),
-      el(doc, "p", "", message.subject),
-      el(doc, "pre", "", message.bodyLines.join("\n")),
-      el(doc, "ul", "financial-accounting-impact-list",
-        ...impact.targetLabels.map((item) => el(doc, "li", "", item))
-      ),
-      requestDownload
-    )
+    submissionPackageGrid(doc, pkg),
+    submissionNextAction(doc, pkg.nextAction),
+    accountingRequestSection(doc, message, impact, requestDownload, balanceReviewFile)
   );
 }
 

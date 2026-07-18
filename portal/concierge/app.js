@@ -300,7 +300,7 @@ class KnowledgeUpdateRepository {
 
     try {
       const result = await requestBackend("listKnowledgeUpdates", {});
-      return readResponseRecords(result, "updates") || this.all();
+      return readResponseRecords(result, "updates", isSafeKnowledgeUpdateRecord) || this.all();
     } catch {
       return this.all();
     }
@@ -340,7 +340,7 @@ class LinkMasterRepository {
 
     try {
       const result = await requestBackend("listLinks", session?.admin && session?.token ? { includeInactive: "true" } : {});
-      const links = readResponseRecords(result, "links");
+      const links = readResponseRecords(result, "links", isSafeLinkMasterRecord);
       this.cache = links ? toUniqueIdRecordMap(links) || {} : {};
       return this.cache;
     } catch {
@@ -401,7 +401,7 @@ class DepartmentInquiryRepository {
 
     try {
       const result = await requestBackend("listDepartmentRoutes", {});
-      const routes = readResponseRecords(result, "routes");
+      const routes = readResponseRecords(result, "routes", isSafeDepartmentRouteRecord);
       this.routeCache = routes ? toUniqueIdRecordMap(routes) || {} : {};
       return this.routeCache;
     } catch {
@@ -425,7 +425,7 @@ class DepartmentInquiryRepository {
     if (!hasRemoteBackend()) return [];
     const result = await requestBackend("listDepartmentInquiries", {});
     if (!result.ok) throw new Error(result.error || "問い合わせログを取得できませんでした。");
-    return readResponseRecords(result, "inquiries") || [];
+    return readResponseRecords(result, "inquiries", isSafeDepartmentInquiryRecord) || [];
   }
 }
 
@@ -2081,6 +2081,45 @@ function isSafeQuestionLogRecord(value) {
     && typeof value.riskLevel === "string"
     && typeof value.needsHumanCheck === "boolean"
     && (value.rating === null || typeof value.rating === "string");
+}
+
+function hasOnlyStringFields(value, fields) {
+  return fields.every((field) => typeof value[field] === "string");
+}
+
+function isSafeKnowledgeUpdateRecord(value) {
+  return isSafeRecord(value) && hasOnlyStringFields(value, [
+    "id", "areaId", "areaName", "owner", "memo", "source", "notebookUrl",
+    "driveFolderUrl", "updatedBy", "createdAt"
+  ]);
+}
+
+function isSafeLinkMasterRecord(value) {
+  return isSafeRecord(value)
+    && hasOnlyStringFields(value, ["id", "label", "href", "category", "owner", "description", "active"])
+    && typeof value.isActive === "boolean"
+    && (value.sortOrder === null || Number.isFinite(value.sortOrder));
+}
+
+function isSafeDepartmentRouteRecord(value) {
+  return isSafeRecord(value)
+    && hasOnlyStringFields(value, [
+      "id", "departmentName", "owner", "notificationPurpose", "notificationChannelName"
+    ])
+    && typeof value.notificationConfigured === "boolean"
+    && (value.sortOrder === null || Number.isFinite(value.sortOrder));
+}
+
+function isSafeDepartmentInquiryRecord(value) {
+  return isSafeRecord(value)
+    && hasOnlyStringFields(value, [
+      "id", "routeId", "routeName", "storeName", "phase1LoginId", "questionLogId",
+      "subject", "inquiryText", "status", "notificationId", "notificationError",
+      "notificationPurpose", "notificationChannelName", "createdAt"
+    ])
+    && (value.storeId === null || typeof value.storeId === "string")
+    && (value.updatedAt === null || typeof value.updatedAt === "string")
+    && typeof value.notificationConfigured === "boolean";
 }
 
 function readResponseRecords(result, key, validator = isSafeRecord) {

@@ -1,5 +1,7 @@
 # HUB employee LINE WORKS destination save readiness audit 2026-07-17
 
+> Superseded evidence note (2026-07-18): the production SELECT-only inventory subsequently confirmed employee target support, the unique index, RLS, service-role-only privileges, and all three required security-definer functions with fixed search paths. See `hub-core-select-only-precheck-result-20260718.md` and `hub-employee-line-works-save-enable-source-candidate-20260718.md`. The HOLD below remains the historical 2026-07-17 decision and must not be treated as the current source-candidate status.
+
 ## Result
 
 ```yaml

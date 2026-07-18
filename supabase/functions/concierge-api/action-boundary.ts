@@ -17,10 +17,18 @@ const SUPPORTED_ACTIONS = new Set([
 ]);
 
 export function resolveSupportedAction(payload: Record<string, unknown>, requestUrl: string): string | null {
+  const hasPayloadAction = Object.hasOwn(payload, "action");
   const payloadAction = typeof payload.action === "string" ? payload.action : "";
   const pathAction = new URL(requestUrl).pathname.split("/").pop() || "";
-  const action = payloadAction || pathAction;
-  return SUPPORTED_ACTIONS.has(action) ? action : null;
+  const pathActionSupported = SUPPORTED_ACTIONS.has(pathAction);
+
+  if (hasPayloadAction) {
+    if (!SUPPORTED_ACTIONS.has(payloadAction)) return null;
+    if (pathActionSupported && pathAction !== payloadAction) return null;
+    return payloadAction;
+  }
+
+  return pathActionSupported ? pathAction : null;
 }
 
 export function supportedActionCount(): number {

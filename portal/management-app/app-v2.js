@@ -518,9 +518,27 @@ function buildFinancialMissingDataSummary(scopeLabelText) {
       ["確認待ち", `${pendingItems.length}項目`],
       ["本番投入", "disabled"],
     ]),
+    buildFinancialNextStep(pendingItems),
     listNode
   );
   return section;
+}
+
+function buildFinancialNextStep(pendingItems) {
+  const next = pendingItems[0] || { label: "本番catalog証跡 / provider runtime identity", statusLabel: "本番証跡待ち" };
+  const action = document.createElement("div");
+  action.className = "financial-missing-data-next";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = "財務データ取込へ";
+  button.addEventListener("click", () => selectView("dataops"));
+  action.append(
+    label("次に必要"),
+    heading(next.label),
+    paragraph(`${next.statusLabel}。この画面では確認表示だけを行い、本番投入は無効です。`),
+    button
+  );
+  return action;
 }
 
 function financialReadinessItems() {

@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "gate": "HUB_MASTER_DATA_INTAKE_REFERENCE_METADATA_AND_OWNER_DECISION_REVIEW",
+  "evidenceMode": "source_only_no_production_select",
+  "runtimeChangeAuthorized": false,
+  "references": {
+    "department": {
+      "requestedCsvHeader": "部署コード",
+      "candidateColumn": "department_code",
+      "candidateActiveColumn": "is_active",
+      "sourceProposesNotNull": true,
+      "sourceProposesUnique": true,
+      "productionConstraintEvidencePresent": false,
+      "runtimeReadsCandidateColumn": true,
+      "activationStatus": "OWNER_AND_PRODUCTION_METADATA_CONFIRMATION_REQUIRED"
+    },
+    "position": {
+      "requestedCsvHeader": "役職コード",
+      "candidateColumn": null,
+      "existingIdentifierCandidate": "position_no",
+      "candidateActiveColumn": "is_active",
+      "positionCodeFound": false,
+      "sourceProposesPositionNoUnique": true,
+      "sourceProposesPositionNameUnique": true,
+      "productionConstraintEvidencePresent": false,
+      "runtimeReadsPositionNo": true,
+      "activationStatus": "OWNER_DECISION_REQUIRED"
+    },
+    "jobType": {
+      "requestedCsvHeader": "職種コード",
+      "candidateColumn": "job_type_key",
+      "candidateActiveColumn": "is_active",
+      "sourceProposesUnique": true,
+      "sourceProposesNotNull": false,
+      "productionConstraintEvidencePresent": false,
+      "runtimeReadsCandidateColumn": true,
+      "activationStatus": "OWNER_AND_PRODUCTION_METADATA_CONFIRMATION_REQUIRED"
+    }
+  },
+  "sharedPolicyCandidate": {
+    "resolution": "exact_active_canonical_identifier",
+    "unknown": "reject_complete_batch",
+    "missing": "reject_complete_batch",
+    "inactive": "reject_complete_batch",
+    "ambiguous": "reject_complete_batch",
+    "displayNameFallback": false,
+    "aliasFallback": false,
+    "identifierMutableAfterCreate": false,
+    "displayNameMutable": true
+  },
+  "ownerDecisions": [
+    "confirm_department_code_as_canonical_immutable_identifier",
+    "choose_position_no_or_new_position_code",
+    "confirm_job_type_key_as_canonical_immutable_non_null_identifier",
+    "approve_inactive_reference_batch_rejection",
+    "approve_no_alias_and_no_display_name_fallback_for_phase_1"
+  ],
+  "stops": [
+    "template_change",
+    "frontend_validation_replacement",
+    "S2a_validator_finalization",
+    "S2b_atomic_target_write_implementation",
+    "save_enablement",
+    "production_CSV_import",
+    "production_SELECT_DB",
+    "DML_RPC_RLS_GRANT",
+    "deploy_push_publish"
+  ]
+}

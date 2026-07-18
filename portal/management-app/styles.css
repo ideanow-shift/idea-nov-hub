@@ -223,6 +223,9 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-missing-data-summary h3 { margin: 0; color: var(--text-primary); font-size: 15px; font-weight: 500; }
 .financial-missing-data-summary p { margin: 6px 0 10px; color: var(--text-secondary); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .financial-missing-data-download { width: fit-content; min-height: 34px; margin: 0 0 10px; padding: 6px 10px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-primary); background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 12px; text-decoration: none; }
+.financial-missing-data-priority { display: grid; gap: 6px; margin: 0 0 10px; padding-left: 22px; }
+.financial-missing-data-priority li { min-width: 0; padding: 6px 8px; color: var(--text-primary); background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 12px; overflow-wrap: anywhere; }
+.financial-missing-data-priority .metric-label { display: inline-flex; margin: 0 6px 0 0; color: var(--text-secondary); font-size: 11px; }
 .financial-missing-data-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
 .financial-missing-data-list li { min-width: 0; padding: 5px 8px; color: var(--text-primary); background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 12px; overflow-wrap: anywhere; }
 .financial-missing-data-list .metric-label { display: inline-flex; margin: 0 6px 0 0; color: var(--text-secondary); font-size: 11px; }

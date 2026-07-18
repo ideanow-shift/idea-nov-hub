@@ -894,10 +894,29 @@ function buildFinancialMissingDataSummary(scopeLabelText) {
       ["確認待ち", `${pendingItems.length}項目`],
       ["本番投入", "disabled"],
     ]),
+    buildFinancialMissingDataPriority(pendingItems),
     buildFinancialNextStep(pendingItems),
     listNode
   );
   return section;
+}
+
+function buildFinancialMissingDataPriority(pendingItems) {
+  const priority = document.createElement("ol");
+  priority.className = "financial-missing-data-priority";
+  const top = pendingItems.slice(0, 3);
+  if (!top.length) {
+    const item = document.createElement("li");
+    item.textContent = "production catalog証跡とprovider runtime identityを確認";
+    priority.append(item);
+    return priority;
+  }
+  top.forEach((entry) => {
+    const item = document.createElement("li");
+    item.append(label(entry.statusLabel), document.createTextNode(entry.label));
+    priority.append(item);
+  });
+  return priority;
 }
 
 function buildFinancialMissingDataDownload(scopeLabelText, pendingItems) {

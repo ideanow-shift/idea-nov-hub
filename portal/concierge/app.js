@@ -237,7 +237,7 @@ class ConversationLogRepository {
 
     try {
       const result = await requestBackend("listLogs", {});
-      return readResponseRecords(result, "logs") || this.all();
+      return readResponseRecords(result, "logs", isSafeQuestionLogRecord) || this.all();
     } catch {
       return this.all();
     }
@@ -2062,6 +2062,25 @@ function isSafeAnswerRuleRecord(value) {
     && (value.notebookCategory === null || typeof value.notebookCategory === "string")
     && (value.riskLevel === null || typeof value.riskLevel === "string")
     && (value.priority === null || Number.isFinite(value.priority));
+}
+
+function isSafeQuestionLogRecord(value) {
+  return isSafeRecord(value)
+    && typeof value.id === "string"
+    && typeof value.createdAt === "string"
+    && typeof value.storeId === "string"
+    && (value.storeUuid === null || typeof value.storeUuid === "string")
+    && (value.phase1LoginId === null || typeof value.phase1LoginId === "string")
+    && typeof value.storeName === "string"
+    && typeof value.question === "string"
+    && typeof value.answer === "string"
+    && typeof value.notebook === "string"
+    && Array.isArray(value.links)
+    && value.links.every(isSafeRecord)
+    && typeof value.source === "string"
+    && typeof value.riskLevel === "string"
+    && typeof value.needsHumanCheck === "boolean"
+    && (value.rating === null || typeof value.rating === "string");
 }
 
 function readResponseRecords(result, key, validator = isSafeRecord) {

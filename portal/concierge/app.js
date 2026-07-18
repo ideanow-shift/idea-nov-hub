@@ -1524,7 +1524,7 @@ async function updateAnswerRuleActive(rule, active) {
     priority: String(rule.priority || "10")
   });
   if (!result.ok) {
-    elements.answerRuleStatus.textContent = `更新に失敗しました: ${result.error || "保存できませんでした。"}`;
+    elements.answerRuleStatus.textContent = "更新に失敗しました: 保存できませんでした。";
     return;
   }
   answerRuleRepository.clear();

@@ -8,6 +8,7 @@ let startupConsumed = false;
 
 const PRIMARY_TABS = Object.freeze(["recruitment", "workforce"]);
 const RECRUITMENT_TABS = Object.freeze(["summary", "students", "fairs", "schools"]);
+const WORKFORCE_TABS = Object.freeze(["onboarding", "transfer", "leave", "retirement"]);
 
 export async function startTalentDashboardSummary({
   globalObject = globalThis,
@@ -66,6 +67,7 @@ export function initializeTalentNavigation({
 
   const primaryButtons = [...documentObject.querySelectorAll("[data-primary-tab]")];
   const secondaryButtons = [...documentObject.querySelectorAll("[data-secondary-tab]")];
+  const workforceButtons = [...documentObject.querySelectorAll("[data-workforce-tab]")];
   bindTabGroup({
     buttons: primaryButtons,
     validKeys: PRIMARY_TABS,
@@ -77,10 +79,19 @@ export function initializeTalentNavigation({
     validKeys: RECRUITMENT_TABS,
     panelFor: (key) => documentObject.getElementById(`recruitment-${key}`)
   });
+  bindTabGroup({
+    buttons: workforceButtons,
+    validKeys: WORKFORCE_TABS,
+    panelFor: (key) => documentObject.getElementById(`workforce-${key}`)
+  });
 
   const initialPrimary = normalizeHash(globalObject?.location?.hash);
   if (initialPrimary) selectTab(primaryButtons, initialPrimary, (key) => documentObject.getElementById(`panel-${key}`), false);
-  return Object.freeze({ initialized: primaryButtons.length === 2, primaryTabCount: primaryButtons.length });
+  return Object.freeze({
+    initialized: primaryButtons.length === 2,
+    primaryTabCount: primaryButtons.length,
+    workforceTabCount: workforceButtons.length
+  });
 }
 
 function renderMetrics(documentObject, viewModel) {
@@ -140,7 +151,7 @@ function setStatus(documentObject, state, text) {
 function bindTabGroup({ buttons, validKeys, panelFor, onSelect }) {
   if (!buttons.length) return;
   const activate = (button, focus = true) => {
-    const key = button?.dataset?.primaryTab || button?.dataset?.secondaryTab;
+    const key = button?.dataset?.primaryTab || button?.dataset?.secondaryTab || button?.dataset?.workforceTab;
     if (!validKeys.includes(key)) return;
     selectTab(buttons, key, panelFor, focus);
     onSelect?.(key);
@@ -163,7 +174,7 @@ function bindTabGroup({ buttons, validKeys, panelFor, onSelect }) {
 
 function selectTab(buttons, selectedKey, panelFor, focus) {
   buttons.forEach((button) => {
-    const key = button?.dataset?.primaryTab || button?.dataset?.secondaryTab;
+    const key = button?.dataset?.primaryTab || button?.dataset?.secondaryTab || button?.dataset?.workforceTab;
     const selected = key === selectedKey;
     button.setAttribute("aria-selected", String(selected));
     button.tabIndex = selected ? 0 : -1;

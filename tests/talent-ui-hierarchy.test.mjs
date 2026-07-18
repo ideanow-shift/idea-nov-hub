@@ -23,6 +23,19 @@ test("recruitment subtabs stay visually and semantically below the primary tabs"
   assert.match(html, /data-secondary-tab="schools"[\s\S]*学校分析/);
 });
 
+test("workforce management exposes four accessible procedure tabs", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+
+  assert.match(html, /aria-label="現職者管理メニュー"/);
+  for (const key of ["onboarding", "transfer", "leave", "retirement"]) {
+    assert.match(html, new RegExp(`data-workforce-tab="${key}"`));
+    assert.match(html, new RegExp(`id="workforce-${key}"[\\s\\S]*role="tabpanel"`));
+  }
+  assert.match(app, /WORKFORCE_TABS/);
+  assert.match(app, /data-workforce-tab/);
+});
+
 test("navigation supports keyboard movement and responsive one-column layouts", async () => {
   const app = await readFile(new URL("app.mjs", root), "utf8");
   const css = await readFile(new URL("style.css", root), "utf8");

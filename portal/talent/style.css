@@ -260,6 +260,45 @@ h3 { margin: 0; font-size: 1rem; }
 .workforce-summary span, .workforce-summary small { display: block; color: var(--muted); }
 .workforce-summary strong { display: block; margin: 10px 0 6px; color: var(--navy); font-size: 1.8rem; }
 
+.workforce-tabs {
+  margin: 22px -24px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.workforce-panel { padding-top: 18px; }
+.workforce-panel[hidden] { display: none; }
+
+.procedure-intro {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  padding: 14px 16px;
+  border-left: 4px solid var(--blue);
+  background: var(--blue-soft);
+}
+
+.procedure-intro strong { color: var(--navy); }
+.procedure-intro p { margin: 0; color: var(--muted); }
+
+.procedure-checklist {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.procedure-checklist article {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.procedure-checklist span { color: var(--blue); font-size: 0.76rem; font-weight: 800; }
+.procedure-checklist h3 { margin-top: 7px; }
+.procedure-checklist p { margin: 9px 0 0; color: var(--muted); font-size: 0.9rem; line-height: 1.65; }
+
 .procedure-board {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -290,7 +329,7 @@ h3 { margin: 0; font-size: 1rem; }
 
 @media (max-width: 860px) {
   .dashboard-header { align-items: flex-start; }
-  .summary-grid, .workforce-summary, .procedure-board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .summary-grid, .workforce-summary, .procedure-board, .procedure-checklist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workflow-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workflow-strip div:nth-child(2) { border-right: 0; }
@@ -308,7 +347,10 @@ h3 { margin: 0; font-size: 1rem; }
   .secondary-panel, #panel-workforce { padding: 18px; }
   .section-heading { display: block; }
   .status { margin-top: 10px; }
-  .summary-grid, .workforce-summary, .procedure-board, .feature-grid { grid-template-columns: 1fr; }
+  .summary-grid, .workforce-summary, .procedure-board, .procedure-checklist, .feature-grid { grid-template-columns: 1fr; }
+  .workforce-tabs { margin: 20px -18px 0; padding: 0 18px; }
+  .procedure-intro { display: block; }
+  .procedure-intro p { margin-top: 6px; }
   .workflow-strip { grid-template-columns: 1fr; }
   .workflow-strip div { border-right: 0; border-bottom: 1px solid var(--line); }
   .workflow-strip div:last-child { border-bottom: 0; }

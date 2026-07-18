@@ -112,22 +112,51 @@
         <article><span>退職手続き</span><strong>-</strong><small>完了までの確認事項</small></article>
       </section>
 
-      <section class="procedure-board">
-        <div class="procedure-column">
-          <header><span>01</span><h3>受付</h3></header>
-          <p>必要な手続きを登録し、担当者と期限を確認します。</p>
+      <nav class="secondary-tabs workforce-tabs" role="tablist" aria-label="現職者管理メニュー">
+        <button type="button" role="tab" aria-selected="true" aria-controls="workforce-onboarding"
+          tabindex="0" data-workforce-tab="onboarding">入社手続き</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="workforce-transfer"
+          tabindex="-1" data-workforce-tab="transfer">異動手続き</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="workforce-leave"
+          tabindex="-1" data-workforce-tab="leave">休職・復職</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="workforce-retirement"
+          tabindex="-1" data-workforce-tab="retirement">退職手続き</button>
+      </nav>
+
+      <section id="workforce-onboarding" class="workforce-panel" role="tabpanel">
+        <div class="procedure-intro"><strong>入社手続き</strong><p>内定後の受け入れ準備からCore反映前の承認までを順番に確認します。</p></div>
+        <div class="procedure-board">
+          <div class="procedure-column"><header><span>01</span><h3>受付</h3></header><p>入社予定日、配属予定、担当者を確認します。</p></div>
+          <div class="procedure-column"><header><span>02</span><h3>書類確認</h3></header><p>必要書類とチェック項目の未完了を確認します。</p></div>
+          <div class="procedure-column"><header><span>03</span><h3>承認</h3></header><p>総務人事部がCore反映前の内容を承認します。</p></div>
+          <div class="procedure-column"><header><span>04</span><h3>Core反映</h3></header><p>承認後に社員マスタへ連携し、操作履歴を残します。</p></div>
         </div>
-        <div class="procedure-column">
-          <header><span>02</span><h3>確認</h3></header>
-          <p>必要書類とチェック項目を進め、未完了を見える化します。</p>
+      </section>
+
+      <section id="workforce-transfer" class="workforce-panel" role="tabpanel" hidden>
+        <div class="procedure-intro"><strong>異動手続き</strong><p>異動日と新しい所属を確定し、承認後にCoreへ反映します。</p></div>
+        <div class="procedure-checklist">
+          <article><span>01</span><h3>異動内容</h3><p>異動日、異動元・異動先、役職変更の有無を確認します。</p></article>
+          <article><span>02</span><h3>関係者確認</h3><p>本人、所属責任者、総務人事部の確認状況を揃えます。</p></article>
+          <article><span>03</span><h3>反映待ち</h3><p>承認済み案件だけをCore反映の対象として管理します。</p></article>
         </div>
-        <div class="procedure-column">
-          <header><span>03</span><h3>承認</h3></header>
-          <p>総務人事部が内容を確認し、Core反映前の承認を行います。</p>
+      </section>
+
+      <section id="workforce-leave" class="workforce-panel" role="tabpanel" hidden>
+        <div class="procedure-intro"><strong>休職・復職</strong><p>産休・育休を含む休職開始と復職予定を一つの流れで確認します。</p></div>
+        <div class="procedure-checklist">
+          <article><span>01</span><h3>申請受付</h3><p>休職種別、開始日、復職予定日を確認します。</p></article>
+          <article><span>02</span><h3>手続き確認</h3><p>必要書類、社内連絡、給与・保険関連の進捗を確認します。</p></article>
+          <article><span>03</span><h3>復職確認</h3><p>復職日と所属を確定し、完了状態まで追跡します。</p></article>
         </div>
-        <div class="procedure-column">
-          <header><span>04</span><h3>反映</h3></header>
-          <p>承認後に社員マスタへ反映し、操作履歴を残します。</p>
+      </section>
+
+      <section id="workforce-retirement" class="workforce-panel" role="tabpanel" hidden>
+        <div class="procedure-intro"><strong>退職手続き</strong><p>退職日確定から返却物・書類・Core反映までの漏れを防ぎます。</p></div>
+        <div class="procedure-checklist">
+          <article><span>01</span><h3>退職受付</h3><p>退職日、理由区分、最終出勤日を確認します。</p></article>
+          <article><span>02</span><h3>回収・発行</h3><p>貸与物の返却と必要書類の発行状況を確認します。</p></article>
+          <article><span>03</span><h3>完了確認</h3><p>全項目の完了後にCore反映候補として確定します。</p></article>
         </div>
       </section>
 

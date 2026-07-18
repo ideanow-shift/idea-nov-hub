@@ -15,6 +15,23 @@ The source/public side is already zero-GAS:
 - `hub-zero-gas-source-fixture`: PASS `runtime=0 source=0`
 - strict GAS exit source check: PASS
 
+## Reviewed source-only artifacts
+
+Use these artifacts as the fixed source contracts for later operator gates:
+
+- Read-only evidence contract:
+  `review/gas-exit-20260717/gas-retirement-evidence-contract.json`
+- Read-only evidence operator handoff:
+  `review/gas-exit-20260717/gas-retirement-evidence-operator-handoff.md`
+- Disable/archive result contract:
+  `review/gas-exit-20260717/gas-retirement-disable-archive-contract.json`
+- Disable/archive operator handoff:
+  `review/gas-exit-20260717/gas-retirement-disable-archive-operator-handoff.md`
+
+These artifacts do not approve execution. They only define the sanitized
+categories, counts, and booleans that a separately approved production gate may
+return.
+
 ## Read-only evidence gate
 
 Run only after explicit production-read-only approval.

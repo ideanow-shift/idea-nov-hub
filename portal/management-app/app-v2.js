@@ -888,6 +888,7 @@ function buildFinancialMissingDataSummary(scopeLabelText) {
   section.append(
     heading(`${scopeLabelText} 本番反映までの不足データ`),
     paragraph(`${readyItems.length}/${items.length}項目をローカル確認済み。本番DBへの保存・承認・再計算は、provider identityとproduction catalog証跡が揃うまで無効です。`),
+    buildFinancialMissingDataDownload(scopeLabelText, pendingItems),
     previewMetricGrid([
       ["ローカル確認済み", `${readyItems.length}項目`],
       ["確認待ち", `${pendingItems.length}項目`],
@@ -897,6 +898,33 @@ function buildFinancialMissingDataSummary(scopeLabelText) {
     listNode
   );
   return section;
+}
+
+function buildFinancialMissingDataDownload(scopeLabelText, pendingItems) {
+  const link = document.createElement("a");
+  link.className = "financial-missing-data-download";
+  const csv = buildFinancialMissingDataCsv(scopeLabelText, pendingItems);
+  link.href = csv.href;
+  link.download = csv.fileName;
+  link.textContent = `不足項目CSVを保存（${number.format(csv.rowCount)}件）`;
+  return link;
+}
+
+function buildFinancialMissingDataCsv(scopeLabelText, pendingItems) {
+  const header = ["画面", "不足項目", "状態", "次の準備", "本番投入"];
+  const rows = pendingItems.map((item) => [
+    scopeLabelText,
+    item.label,
+    item.statusLabel,
+    item.detail || "production catalog証跡 / provider runtime identity確認",
+    "disabled",
+  ]);
+  const csv = `\uFEFF${[header, ...rows].map((row) => row.map(localCsvCell).join(",")).join("\r\n")}\r\n`;
+  return {
+    fileName: "management-financial-visible-missing-data.csv",
+    rowCount: rows.length,
+    href: `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`,
+  };
 }
 
 function buildFinancialNextStep(pendingItems) {

@@ -880,6 +880,10 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(app, /合計・共通・FC合計の二重計上は除外/);
   assert.match(app, /buildFinancialCompletionItems, renderFinancialDataIntake/);
   assert.match(app, /buildFinancialMissingDataSummary/);
+  assert.match(app, /buildFinancialMissingDataDownload/);
+  assert.match(app, /buildFinancialMissingDataCsv/);
+  assert.match(app, /management-financial-visible-missing-data\.csv/);
+  assert.match(app, /不足項目CSVを保存/);
   assert.match(app, /buildFinancialNextStep/);
   assert.match(app, /buildFinancialAccountingRequestNote/);
   assert.match(app, /本番反映までの不足データ/);
@@ -898,6 +902,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(styles, /\.financial-completion-heading \{ align-items: stretch; flex-direction: column; \}/);
   assert.match(styles, /\.financial-completion-item \.financial-completion-spec/);
   assert.match(styles, /\.financial-missing-data-summary/);
+  assert.match(styles, /\.financial-missing-data-download/);
   assert.match(styles, /\.financial-missing-data-list/);
   assert.match(styles, /\.financial-missing-data-next/);
   assert.match(styles, /\.financial-missing-data-next button/);

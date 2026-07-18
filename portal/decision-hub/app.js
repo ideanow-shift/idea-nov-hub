@@ -55,7 +55,10 @@ function updateDraftControls() {
   const form = elements.applicationForm;
   const formIsValid = Boolean(form?.checkValidity());
   const canSave = DECISION_HUB_DRAFT_WRITE_ENABLED && formIsValid;
-  if (elements.saveDraftButton) elements.saveDraftButton.disabled = !canSave;
+  if (elements.saveDraftButton) {
+    elements.saveDraftButton.disabled = !canSave;
+    setText(elements.saveDraftButton, "下書き保存");
+  }
   if (!DECISION_HUB_DRAFT_WRITE_ENABLED) {
     setText(elements.draftSaveStatus, "下書き保存は安全確認後に有効化します。入力内容はまだ送信されません。");
     return;
@@ -90,6 +93,8 @@ async function saveDraftApplication() {
   }
   elements.saveDraftButton.disabled = true;
   setText(elements.draftSaveStatus, "下書きを保存しています。");
+  let saved = false;
+  let outcomeMessage = "";
   try {
     const response = sanitizeDecisionValue(await callApiAction("decisionSaveDraftApplication", payload));
     if (response?.draft?.isDraft !== true && response?.isDraft !== true) {
@@ -100,14 +105,21 @@ async function saveDraftApplication() {
       throw Object.assign(new Error("Draft identifier is invalid."), { code: "INVALID_API_RESPONSE" });
     }
     state.draftApplicationId = savedApplicationId;
+    saved = true;
+    outcomeMessage = "保存済み";
+    elements.notice?.classList.add("is-ready");
     setText(elements.noticeTitle, "下書きを保存しました");
     setText(elements.noticeBody, "申請はまだ送信されていません。入力内容は下書きとして保存されています。");
-    setText(elements.draftSaveStatus, "保存済み");
   } catch (error) {
     clearHubSessionOnAuthStatus(error);
-    setText(elements.draftSaveStatus, getSafeErrorMessage(error?.code || ""));
+    outcomeMessage = getSafeErrorMessage(error?.code || "");
   } finally {
     updateDraftControls();
+    if (saved && elements.saveDraftButton) {
+      elements.saveDraftButton.disabled = true;
+      setText(elements.saveDraftButton, "保存済み");
+    }
+    setText(elements.draftSaveStatus, outcomeMessage);
   }
 }
 

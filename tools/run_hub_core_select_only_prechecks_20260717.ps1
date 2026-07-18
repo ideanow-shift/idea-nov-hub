@@ -93,6 +93,33 @@ function Convert-SanitizedJson([string]$Raw) {
   return $null
 }
 
+function Find-ContractRow($Node, [string[]]$ExpectedFields) {
+  if ($null -eq $Node) { return $null }
+  if ($Node -is [string] -or $Node -is [ValueType]) { return $null }
+
+  if ($Node -is [System.Collections.IEnumerable] -and -not ($Node -is [pscustomobject])) {
+    foreach ($item in $Node) {
+      $found = Find-ContractRow $item $ExpectedFields
+      if ($null -ne $found) { return $found }
+    }
+    return $null
+  }
+
+  $properties = @($Node.PSObject.Properties)
+  $propertyNames = @($properties | ForEach-Object { $_.Name })
+  $matchesAll = $true
+  foreach ($field in $ExpectedFields) {
+    if ($propertyNames -notcontains $field) { $matchesAll = $false; break }
+  }
+  if ($matchesAll) { return $Node }
+
+  foreach ($property in $properties) {
+    $found = Find-ContractRow $property.Value $ExpectedFields
+    if ($null -ne $found) { return $found }
+  }
+  return $null
+}
+
 $definition = $Contracts[$Contract]
 $SqlPath = Join-Path $RepoRoot $definition.Sql
 $ValidatorPath = Join-Path $RepoRoot $definition.Validator
@@ -148,7 +175,7 @@ try {
 
   $parsed = Convert-SanitizedJson (Get-Content -LiteralPath $stdoutPath -Raw -Encoding UTF8)
   if ($null -eq $parsed) { Stop-Safely "sanitized_result_parse_failed" $true }
-  $row = @($parsed) | Select-Object -First 1
+  $row = Find-ContractRow $parsed $definition.ResultFields
   if ($null -eq $row) { Stop-Safely "sanitized_result_missing" $true }
 
   $result = [ordered]@{

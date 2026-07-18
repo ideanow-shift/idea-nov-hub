@@ -20,6 +20,7 @@ const checks = {
   cliVersionPinned: runner.includes('$ExpectedCliVersion = "2.109.1"'),
   linkedOnly: runner.includes("db query --linked") && runner.includes("supabase\\.temp\\project-ref"),
   rawOutputNotPrinted: !/Write-Output\s+\$?(raw|parsed|row|projectRef)/i.test(runner),
+  recursiveWrappedResultParser: runner.includes("function Find-ContractRow") && runner.includes("Find-ContractRow $property.Value"),
   tempOutputRemoved: runner.includes("Remove-Item -LiteralPath $stdoutPath") && runner.includes("Remove-Item -LiteralPath $stderrPath"),
   mutationReportedFalse: runner.includes('mutationExecuted = $false'),
   threeContractsFixed: ["line-works", "data-intake", "hr-role-coverage"].every((value) => runner.includes(`"${value}"`))

@@ -32,6 +32,8 @@ Default invocation is validation-only. Production execution requires all of the 
 
 The runner captures CLI stdout/stderr in temporary files, returns only fixed booleans/counts, removes the temporary files, and never prints the project ref or raw CLI response.
 
+The parser accepts direct rows and nested CLI wrapper objects, but only returns an object containing every field fixed by the selected contract. Unknown wrapper metadata is discarded.
+
 ## Fixed SQL identities
 
 - LINE WORKS normalized SHA-256: `992E37261B93810C0C4B8F55D3FEF94A8BCF19E8ADEEDB9F5C2BA80432259F0E`

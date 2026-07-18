@@ -807,6 +807,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(app, /localPlStoreSummary/);
   assert.match(app, /localPlStoreMatchSummary/);
   assert.match(app, /buildFinancialStoreMatchAction/);
+  assert.match(app, /buildFinancialStoreMatchCsv/);
   assert.match(app, /localPlStoreRowsByNormalizedName/);
   assert.match(app, /normalizeStoreCandidateName/);
   assert.match(app, /\.normalize\("NFKC"\)/);
@@ -816,6 +817,8 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(app, /P\/L候補未照合/);
   assert.match(app, /店舗名対応表を確認/);
   assert.match(app, /店舗名対応表を確認するまで、本番投入は無効です/);
+  assert.match(app, /management-pl-store-name-review\.csv/);
+  assert.match(app, /data:text\/csv;charset=utf-8/);
   assert.match(app, /unmatchedNames/);
   assert.match(app, /\.slice\(0, 5\)/);
   assert.match(app, /P\/L損益/);
@@ -924,7 +927,9 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(styles, /\.financial-visible-scope \{ grid-template-columns: 1fr; \}/);
   assert.match(styles, /\.financial-store-match-action/);
   assert.match(styles, /\.financial-store-match-action button/);
+  assert.match(styles, /\.financial-store-match-download/);
   assert.match(styles, /\.financial-store-match-unmatched/);
+  assert.doesNotMatch(app, /management-pl-store-name-review\.csv[\s\S]{0,420}(employeeId|sessionToken|Authorization|rawFile|contentIdentity)/i);
   assert.match(styles, /\.section-tab-status/);
   assert.match(styles, /data-section-status-category="LOCAL_PREVIEW_ACTIVE"/);
   assert.doesNotMatch(app, /financialDataIntake[\s\S]{0,240}(upload|importAction|mutation|storage)/i);

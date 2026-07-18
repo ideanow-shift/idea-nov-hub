@@ -40,7 +40,7 @@ window.addEventListener("management-financial-local-preview", (event) => {
   renderFinancialPreviewOverview();
   renderFinancialPreviewFourAxis();
   renderFinancialPreviewDepartments();
-  renderFinancialPreviewStores(localPlMatch);
+  renderFinancialPreviewStores();
 });
 initialize();
 
@@ -231,11 +231,17 @@ function renderStores() {
 function localPlStoreMatchSummary(stores, localPlRowsByStore) {
   const rows = Array.isArray(stores) ? stores : [];
   const matched = rows.filter((row) => localPlRowsByStore.has(normalizeStoreCandidateName(row.name))).length;
-  const unmatchedNames = rows
+  const unmatchedRows = rows
     .filter((row) => !localPlRowsByStore.has(normalizeStoreCandidateName(row.name)))
-    .map((row) => String(row.name || "未判定").slice(0, 40))
+    .map((row) => ({
+      storeName: String(row.name || "未判定").slice(0, 40),
+      corporationName: String(row.corporationName || "未判定").slice(0, 40),
+      currentStatus: row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "P/L候補未照合",
+    }));
+  const unmatchedNames = unmatchedRows
+    .map((row) => row.storeName)
     .slice(0, 5);
-  return { matched, unmatched: Math.max(0, rows.length - matched), unmatchedNames };
+  return { matched, unmatched: Math.max(0, rows.length - matched), unmatchedNames, unmatchedRows };
 }
 
 function localPlStoreSummary() {
@@ -565,9 +571,16 @@ function buildFinancialStoreMatchAction(localPlMatch) {
   button.type = "button";
   button.textContent = "店舗名対応表を確認";
   button.addEventListener("click", () => selectView("dataops"));
+  const csv = buildFinancialStoreMatchCsv(localPlMatch);
+  const download = document.createElement("a");
+  download.className = "financial-store-match-download";
+  download.href = csv.href;
+  download.download = csv.fileName;
+  download.textContent = `未照合店舗CSVを保存（${number.format(csv.rowCount)}件）`;
   action.append(
     label("次に必要"),
     paragraph(`P/L候補のうち一致 ${number.format(localPlMatch.matched)}件 / 未照合 ${number.format(localPlMatch.unmatched)}件。店舗名対応表を確認するまで、本番投入は無効です。`),
+    download,
     button
   );
   if (localPlMatch.unmatchedNames?.length) {
@@ -581,6 +594,27 @@ function buildFinancialStoreMatchAction(localPlMatch) {
     action.append(list);
   }
   return action;
+}
+
+function buildFinancialStoreMatchCsv(localPlMatch) {
+  const header = ["店舗候補", "法人", "現在状態", "確認依頼", "本番投入"];
+  const rows = (localPlMatch.unmatchedRows || []).map((row) => [
+    row.storeName,
+    row.corporationName,
+    row.currentStatus,
+    "弥生P/Lシート名と店舗マスター名の対応を確認",
+    "disabled",
+  ]);
+  const csv = `\uFEFF${[header, ...rows].map((row) => row.map(localCsvCell).join(",")).join("\r\n")}\r\n`;
+  return {
+    fileName: "management-pl-store-name-review.csv",
+    rowCount: rows.length,
+    href: `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`,
+  };
+}
+
+function localCsvCell(value) {
+  return `"${String(value ?? "").replace(/"/g, '""')}"`;
 }
 
 function renderFinancialPreviewFourAxis() {

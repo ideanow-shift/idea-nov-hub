@@ -192,7 +192,7 @@ class AnswerRuleRepository {
 
     try {
       const result = await requestBackend("listAnswerRules", includeInactive ? { includeInactive: "true" } : {});
-      this[cacheKey] = readResponseRecords(result, "rules") || [];
+      this[cacheKey] = readResponseRecords(result, "rules", isSafeAnswerRuleRecord) || [];
       return this[cacheKey];
     } catch {
       this[cacheKey] = [];
@@ -2048,8 +2048,24 @@ function isExactLoginString(value) {
     && !/[\u0000-\u001f\u007f]/u.test(value);
 }
 
-function readResponseRecords(result, key) {
-  if (!result.ok || !Array.isArray(result[key]) || !result[key].every(isSafeRecord)) return null;
+function isSafeAnswerRuleRecord(value) {
+  return isSafeRecord(value)
+    && typeof value.id === "string"
+    && Array.isArray(value.keywords)
+    && value.keywords.every((item) => typeof item === "string")
+    && typeof value.answer === "string"
+    && Array.isArray(value.linkIds)
+    && value.linkIds.every((item) => typeof item === "string")
+    && typeof value.requiresHumanCheck === "boolean"
+    && typeof value.active === "string"
+    && (value.notebook === null || typeof value.notebook === "string")
+    && (value.notebookCategory === null || typeof value.notebookCategory === "string")
+    && (value.riskLevel === null || typeof value.riskLevel === "string")
+    && (value.priority === null || Number.isFinite(value.priority));
+}
+
+function readResponseRecords(result, key, validator = isSafeRecord) {
+  if (!result.ok || !Array.isArray(result[key]) || !result[key].every(validator)) return null;
   return result[key];
 }
 

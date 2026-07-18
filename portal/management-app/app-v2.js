@@ -201,6 +201,7 @@ function renderStores() {
   const data = state.stores || {}; const stores = Array.isArray(data.stores) ? data.stores : [];
   const localPl = localPlStoreSummary();
   const localPlRowsByStore = localPlStoreRowsByNormalizedName();
+  const localPlMatch = localPlStoreMatchSummary(stores, localPlRowsByStore);
   elements.storeScope.textContent = scopeLabel(data.phase0Scope);
   mountWorkforceEvidenceStatus(elements.workforceEvidence);
   renderMetrics(elements.storeKpis, [
@@ -208,6 +209,7 @@ function renderStores() {
     ["スタッフ", workforceMetric(data.staffCount, "人")],
     ["売上データ", localPl ? `P/L ${number.format(localPl.storeCandidateCount)}候補` : stores.some((row) => row.dataReadiness !== "salonanswer_csv_waiting") ? "接続済み" : "CSV待ち"],
     ["P/L損益", localPl ? `${number.format(Math.round(localPl.ordinaryProfitManYen))}万円` : "未反映"],
+    ["P/L照合", localPl ? `一致${number.format(localPlMatch.matched)} / 未照合${number.format(localPlMatch.unmatched)}` : "未反映"],
     ["scope", scopeLabel(data.phase0Scope)],
   ]);
   renderFinancialPreviewStores();
@@ -215,7 +217,7 @@ function renderStores() {
     const localRow = localPlRowsByStore.get(normalizeStoreCandidateName(row.name));
     const salesText = localRow ? `P/L ${number.format(Math.round(localRow.salesManYen || 0))}万円` : row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.salesManYen || 0)}万円`;
     const targetText = localRow ? `損益 ${number.format(Math.round(localRow.ordinaryProfitManYen || 0))}万円` : row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.targetAchievementPercent || 0)}%`;
-    const statusText = localRow ? "ローカルP/L候補（本番未投入）" : row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "接続済み";
+    const statusText = localRow ? "ローカルP/L候補（本番未投入）" : localPl ? "P/L候補未照合" : row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "接続済み";
     return tableRow([row.name, row.corporationName, workforceMetric(row.staffCount), salesText, targetText, statusText]);
   }) : [emptyRow(6, "表示できる店舗がありません")]));
   renderCsvRequirements(elements.csvRequirements, data.requiredCsvFiles, {
@@ -224,6 +226,12 @@ function renderStores() {
       applyFinancialExternalEvidence();
     },
   });
+}
+
+function localPlStoreMatchSummary(stores, localPlRowsByStore) {
+  const rows = Array.isArray(stores) ? stores : [];
+  const matched = rows.filter((row) => localPlRowsByStore.has(normalizeStoreCandidateName(row.name))).length;
+  return { matched, unmatched: Math.max(0, rows.length - matched) };
 }
 
 function localPlStoreSummary() {

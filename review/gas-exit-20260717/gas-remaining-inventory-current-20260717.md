@@ -12,8 +12,9 @@ Observed at the original audit: `origin/main`
 
 This section is retained as historical evidence. The current integrated
 candidate was rebuilt on authoritative GitHub baseline
-`ebe0e6cdc6e0da41b96d25409d4d6864e6e38ed5`, preserves the HUB Core integration
-through `c1d3b55`, and contains the zero-GAS source integration at `3a88161`.
+`e8182fec871456391e0097256179b527bb69c4a2`, preserves the HUB Core integration
+through `e7bd6b748ff25b04b408e315ab4dc2528039ab44`, and contains the zero-GAS
+source integration at `530c5684d70b3c3dacf7dcad5815f12d5be4e3cd`.
 
 The fresh remote still contains these GAS dependencies:
 

@@ -2,10 +2,10 @@
 
 - Date: 2026-07-18
 - Classification: `PRODUCTION_EVIDENCE_REQUIRED`
-- Fresh authoritative GitHub main: `ebe0e6cdc6e0da41b96d25409d4d6864e6e38ed5`
+- Fresh authoritative GitHub main: `e8182fec871456391e0097256179b527bb69c4a2`
 - Runtime/source snapshot HEAD before pack-only evidence commits:
-  `ad6969c3a8241d9e33dd9ae9534a44ff758d9c8c`
-- Runtime/source snapshot tree: `dc5a14dbe44ae8baba90b03ec1a9f44626114553`
+  `f5e73293506dfd9cfa1ef81119d51e32e3677de6`
+- Runtime/source snapshot tree: `ca1b8fbf8155a381250e691e83abf6d5a65b59a1`
 - Runtime/source snapshot over GitHub main: 21 commits / 66 tracked paths
 - Commits after that snapshot update review evidence only; they do not alter
   portal, Edge, SQL, test, or tool runtime behavior.

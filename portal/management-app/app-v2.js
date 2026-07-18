@@ -261,8 +261,11 @@ function localPlStoreRowsByNormalizedName() {
 
 function normalizeStoreCandidateName(value) {
   return String(value || "")
+    .normalize("NFKC")
     .replace(/^損[･・\s]*/u, "")
+    .replace(/[･・]/gu, "")
     .replace(/\s+/gu, "")
+    .toLowerCase()
     .trim();
 }
 

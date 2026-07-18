@@ -809,6 +809,8 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(app, /buildFinancialStoreMatchAction/);
   assert.match(app, /localPlStoreRowsByNormalizedName/);
   assert.match(app, /normalizeStoreCandidateName/);
+  assert.match(app, /\.normalize\("NFKC"\)/);
+  assert.match(app, /\.toLowerCase\(\)/);
   assert.match(app, /P\/L \$\{number\.format\(localPl\.storeCandidateCount\)\}候補/);
   assert.match(app, /P\/L照合/);
   assert.match(app, /P\/L候補未照合/);

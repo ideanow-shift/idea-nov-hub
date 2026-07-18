@@ -231,7 +231,11 @@ function renderStores() {
 function localPlStoreMatchSummary(stores, localPlRowsByStore) {
   const rows = Array.isArray(stores) ? stores : [];
   const matched = rows.filter((row) => localPlRowsByStore.has(normalizeStoreCandidateName(row.name))).length;
-  return { matched, unmatched: Math.max(0, rows.length - matched) };
+  const unmatchedNames = rows
+    .filter((row) => !localPlRowsByStore.has(normalizeStoreCandidateName(row.name)))
+    .map((row) => String(row.name || "未判定").slice(0, 40))
+    .slice(0, 5);
+  return { matched, unmatched: Math.max(0, rows.length - matched), unmatchedNames };
 }
 
 function localPlStoreSummary() {
@@ -563,6 +567,16 @@ function buildFinancialStoreMatchAction(localPlMatch) {
     paragraph(`P/L候補のうち一致 ${number.format(localPlMatch.matched)}件 / 未照合 ${number.format(localPlMatch.unmatched)}件。店舗名対応表を確認するまで、本番投入は無効です。`),
     button
   );
+  if (localPlMatch.unmatchedNames?.length) {
+    const list = document.createElement("ul");
+    list.className = "financial-store-match-unmatched";
+    list.replaceChildren(...localPlMatch.unmatchedNames.map((name) => {
+      const item = document.createElement("li");
+      item.textContent = name;
+      return item;
+    }));
+    action.append(list);
+  }
   return action;
 }
 

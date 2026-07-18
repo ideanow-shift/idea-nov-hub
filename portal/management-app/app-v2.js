@@ -23,6 +23,7 @@ const elements = {
   overviewKpis: byId("overview-kpis"), financialPreviewOverview: byId("financial-local-preview-overview"), financeRows: byId("finance-rows"), financeStatus: byId("finance-status"),
   latestAdvice: byId("latest-advice"), expertComments: byId("expert-comments"), methodDiagnosis: byId("method-diagnosis"),
   profitability: byId("profitability-rows"), productivity: byId("productivity-rows"), safety: byId("safety-rows"), efficiency: byId("efficiency-rows"),
+  financialPreviewFourAxis: byId("financial-local-preview-four-axis"), financialPreviewDepartments: byId("financial-local-preview-departments"),
   departmentTabs: byId("department-tabs"), departmentKpis: byId("department-kpis"), departmentRows: byId("department-rows"), departmentInsight: byId("department-insight"),
   storeScope: byId("store-scope"), workforceEvidence: byId("workforce-evidence-status"), storeKpis: byId("store-kpis"), financialPreviewStores: byId("financial-local-preview-stores"), storeRows: byId("store-rows"), csvRequirements: byId("csv-requirements"),
   dataopsKpis: byId("dataops-kpis"), productionReadiness: byId("production-readiness-status"), financialDataIntake: byId("financial-data-intake"), workflow: byId("workflow"), stoppedItems: byId("stopped-items")
@@ -37,6 +38,8 @@ window.addEventListener("management-financial-local-preview", (event) => {
   state.financialPreviews[preview.statement] = preview;
   updateSectionDataBadges();
   renderFinancialPreviewOverview();
+  renderFinancialPreviewFourAxis();
+  renderFinancialPreviewDepartments();
   renderFinancialPreviewStores();
 });
 initialize();
@@ -156,6 +159,7 @@ function renderOverview() {
 
 function renderFourAxis() {
   const all = fourAxisRows(); const rows = state.corporation ? all.filter((row) => row.id === state.corporation) : all;
+  renderFinancialPreviewFourAxis();
   elements.profitability.replaceChildren(...axisMatrix(rows, [["経常利益率", "ordinaryProfitRatePercent", "%", "目標: 10%以上"], ["損益分岐点比率", "breakEvenRatioPercent", "%", "目標: 80%以下"], ["売上高", "salesManYen", "万円", "参考"]]));
   elements.productivity.replaceChildren(...axisMatrix(rows, [["一人当たり売上高", "salesPerStaffManYen", "万円", "目標: 430万円以上"], ["一人当たり経常利益", "profitPerStaffManYen", "万円", ""], ["社員数", "staffCount", "人", ""]]));
   elements.safety.replaceChildren(...axisMatrix(rows, [["自己資本比率", "equityRatioPercent", "%", "目標: 30%以上"], ["流動比率", "currentRatioPercent", "%", "目標: 120%以上"]]));
@@ -172,6 +176,7 @@ function axisMatrix(rows, metrics) {
 }
 
 function renderDepartments() {
+  renderFinancialPreviewDepartments();
   const departments = Array.isArray(state.finance?.departments) ? state.finance.departments : [];
   if (state.department && !departments.some((row) => row.id === state.department)) state.department = "";
   const entries = [{ id: "", name: "全部門" }, ...departments.map((row) => ({ id: row.id, name: row.name }))];
@@ -499,6 +504,54 @@ function renderFinancialPreviewStores() {
   if (comparison) section.append(comparison);
   section.append(buildFinancialMissingDataSummary("店舗営業管理"));
   elements.financialPreviewStores.replaceChildren(section);
+}
+
+function renderFinancialPreviewFourAxis() {
+  if (!elements.financialPreviewFourAxis) return;
+  const preview = state.financialPreviews.PL;
+  if (!preview) { elements.financialPreviewFourAxis.replaceChildren(); return; }
+  const section = document.createElement("section");
+  section.className = "financial-local-preview-card";
+  section.append(
+    heading("4軸分析へのローカルP/L補助値（本番未投入）"),
+    paragraph(`${preview.selectedPeriodLabel}の店舗候補P/Lから、収益性の確認用合計だけを表示しています。人員・B/S・本番分類は未反映です。`),
+    previewMetricGrid([
+      ["店舗候補売上", preview.salesManYen == null ? "未算定" : `${number.format(preview.salesManYen)}万円`],
+      ["店舗候補経常損益", preview.ordinaryProfitManYen == null ? "未算定" : `${number.format(preview.ordinaryProfitManYen)}万円`],
+      ["比較月", `${number.format(preview.comparisonMonthCount || 0)}ヶ月`],
+      ["本番投入", "disabled"],
+    ])
+  );
+  elements.financialPreviewFourAxis.replaceChildren(section);
+}
+
+function renderFinancialPreviewDepartments() {
+  if (!elements.financialPreviewDepartments) return;
+  const preview = state.financialPreviews.PL;
+  if (!preview) { elements.financialPreviewDepartments.replaceChildren(); return; }
+  const candidates = [...preview.reviewRows, ...preview.rows].slice(0, 24);
+  const wrap = document.createElement("div");
+  wrap.className = "table-wrap embedded local-preview-table";
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.append(tableRow(["部門/店舗候補", "分類", "mapping", "レコード"], true));
+  const tbody = document.createElement("tbody");
+  tbody.replaceChildren(...(candidates.length ? candidates.map((row) => tableRow([
+    row.entityName,
+    row.entityCategoryLabel || "候補",
+    financialMappingLabel(row.mappingStatus),
+    `${number.format(row.recordCount || 0)}件`,
+  ])) : [emptyRow(4, "部門候補として確認できるP/Lシートはまだありません")]));
+  table.append(thead, tbody);
+  wrap.append(table);
+  const section = document.createElement("section");
+  section.className = "financial-local-preview-card";
+  section.append(
+    heading("部門別分析へのローカルP/L候補（本番未投入）"),
+    paragraph("弥生Excelのシート候補を確認用に表示しています。合計・共通・FC合計の二重計上は除外し、DB保存・本番投入は無効です。"),
+    wrap
+  );
+  elements.financialPreviewDepartments.replaceChildren(section);
 }
 
 function buildFinancialMissingDataSummary(scopeLabelText) {

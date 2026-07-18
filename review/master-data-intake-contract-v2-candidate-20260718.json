@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 2,
+  "blankOptionalCell": "no_change",
+  "explicitClearSupported": false,
+  "batchFailureMode": "atomic_fail_close",
+  "targets": {
+    "employees": {
+      "naturalKey": "社員番号",
+      "requiredAlways": ["社員番号", "氏名"],
+      "requiredOnCreate": [],
+      "optional": ["メールアドレス", "法人コード", "店舗ID", "部署コード", "役職コード", "職種コード", "雇用形態", "就労ステータス", "休職種別"],
+      "immutableAfterCreate": ["社員番号"],
+      "combinedDisplayFieldsAcceptedForWrite": false,
+      "referenceResolution": "exact_active_canonical_code"
+    },
+    "stores": {
+      "naturalKey": "店舗ID",
+      "requiredAlways": ["店舗ID", "店舗名"],
+      "requiredOnCreate": ["店舗No"],
+      "optional": ["店舗No", "法人コード", "エリア", "状態"],
+      "immutableAfterCreate": ["店舗ID", "店舗No"],
+      "referenceResolution": "exact_active_canonical_code"
+    },
+    "corporations": {
+      "naturalKey": "法人No",
+      "requiredAlways": ["法人No", "法人名"],
+      "requiredOnCreate": ["法人コード"],
+      "optional": ["法人コード", "正式名", "決算月", "状況", "有効"],
+      "immutableAfterCreate": ["法人No", "法人コード"]
+    }
+  },
+  "pendingMetadataConfirmation": ["部署コード", "役職コード", "職種コード"]
+}

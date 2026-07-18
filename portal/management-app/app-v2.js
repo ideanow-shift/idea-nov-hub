@@ -393,6 +393,18 @@ function financialDuplicateMessage(preview) {
   return `重複ファイル ${number.format(fileCount)}件 / 同一期・同一候補 ${number.format(entityPeriodCount)}件を検出したため、金額表示を停止しています。`;
 }
 
+function buildFinancialLocalReflectionStatus(preview, labelText) {
+  const status = document.createElement("div");
+  status.className = "financial-local-reflection-status";
+  const statement = preview.statement === "BS" ? "B/S" : "P/L";
+  const recordCount = number.format(preview.normalizedRecordCount || 0);
+  status.append(
+    label("ローカル反映済み"),
+    document.createTextNode(`${labelText}へ${statement}候補 ${recordCount}件を画面確認用に反映中。本番DB保存・本番投入・承認操作は無効です。`)
+  );
+  return status;
+}
+
 function renderFinancialPreviewOverview() {
   if (!elements.financialPreviewOverview) return;
   const previews = [];
@@ -413,6 +425,7 @@ function buildPlOverviewPreview(preview) {
     : preview.mappingRequiredAccountCount > 0 ? "mapping確認あり" : "mapping確認OK";
   card.append(
     heading("ローカルP/Lプレビュー（本番未投入）"),
+    buildFinancialLocalReflectionStatus(preview, "法人経営管理"),
     paragraph(duplicateMessage || `${preview.selectedPeriodLabel}を画面確認用に仮反映中。比較範囲 ${preview.comparisonRangeLabel}。店舗候補 ${number.format(preview.entityCandidateCount)}件 / 除外集計 ${number.format(preview.aggregateExcludedSheetCount || 0)}件 / ${mapping}。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
     previewMetricGrid([
       ["店舗候補売上合計", preview.salesManYen == null ? "未算定" : `${number.format(preview.salesManYen)}万円`],
@@ -450,6 +463,7 @@ function buildBsOverviewPreview(preview) {
   wrap.append(table);
   card.append(
     heading("ローカルB/Sプレビュー（本番未投入）"),
+    buildFinancialLocalReflectionStatus(preview, "法人経営管理"),
     paragraph(duplicateMessage || `${preview.selectedPeriodLabel}の最終月残高だけを表示しています。貸借一致 ${number.format(preview.balancedEntityCount)}/${number.format(preview.entityCandidateCount)}候補、確認待ち ${number.format(preview.balanceReviewRequiredCount || 0)}件。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
     previewMetricGrid([
       ["法人候補", `${number.format(preview.entityCandidateCount)}件`],
@@ -497,6 +511,7 @@ function renderFinancialPreviewStores() {
   wrap.append(table);
   section.append(
     heading("店舗営業管理へのローカルP/L反映（本番未投入）"),
+    buildFinancialLocalReflectionStatus(preview, "店舗営業管理"),
     paragraph(duplicateMessage || `${preview.selectedPeriodLabel}の店舗候補だけを仮表示しています。店舗候補 ${number.format(preview.entityCandidateCount || 0)}件 / 除外・要確認 ${number.format(preview.reviewCandidateCount || 0)}件。候補mappingは${preview.mappingConfirmationStatus === "LOCAL_EVIDENCE_RECEIVED" ? "ローカル回答確認済み（本番未承認）" : "経理確認前"}で、DB保存・本番投入・個人情報表示はありません。`),
     wrap
   );
@@ -514,6 +529,7 @@ function renderFinancialPreviewFourAxis() {
   section.className = "financial-local-preview-card";
   section.append(
     heading("4軸分析へのローカルP/L補助値（本番未投入）"),
+    buildFinancialLocalReflectionStatus(preview, "4軸分析"),
     paragraph(`${preview.selectedPeriodLabel}の店舗候補P/Lから、収益性の確認用合計だけを表示しています。人員・B/S・本番分類は未反映です。`),
     previewMetricGrid([
       ["店舗候補売上", preview.salesManYen == null ? "未算定" : `${number.format(preview.salesManYen)}万円`],
@@ -548,6 +564,7 @@ function renderFinancialPreviewDepartments() {
   section.className = "financial-local-preview-card";
   section.append(
     heading("部門別分析へのローカルP/L候補（本番未投入）"),
+    buildFinancialLocalReflectionStatus(preview, "部門別分析"),
     paragraph("弥生Excelのシート候補を確認用に表示しています。合計・共通・FC合計の二重計上は除外し、DB保存・本番投入は無効です。"),
     wrap
   );

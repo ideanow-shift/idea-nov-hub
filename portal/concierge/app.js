@@ -2068,6 +2068,10 @@ async function requestJson(url, payload) {
   const body = serializeConciergePayload(payload);
   const response = await fetch(url, {
     method: "POST",
+    redirect: "error",
+    credentials: "omit",
+    cache: "no-store",
+    referrerPolicy: "no-referrer",
     headers: {
       "content-type": "application/json"
     },

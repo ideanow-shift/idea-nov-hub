@@ -2,7 +2,7 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
-import { renderFinancialDataIntake } from "./financial-data-intake.js?v=57414b04339de19e";
+import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=57414b04339de19e";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
@@ -414,6 +414,7 @@ function buildPlOverviewPreview(preview) {
   );
   const comparison = buildPlPeriodComparison(preview, "年度別P/L比較（店舗候補のみ）");
   if (comparison) card.append(comparison);
+  card.append(buildFinancialMissingDataSummary("法人経営管理"));
   return card;
 }
 
@@ -449,6 +450,7 @@ function buildBsOverviewPreview(preview) {
     ]),
     wrap
   );
+  card.append(buildFinancialMissingDataSummary("法人経営管理"));
   return card;
 }
 
@@ -491,7 +493,80 @@ function renderFinancialPreviewStores() {
   );
   const comparison = buildPlPeriodComparison(preview, "年度別 店舗候補合計");
   if (comparison) section.append(comparison);
+  section.append(buildFinancialMissingDataSummary("店舗営業管理"));
   elements.financialPreviewStores.replaceChildren(section);
+}
+
+function buildFinancialMissingDataSummary(scopeLabelText) {
+  const items = financialReadinessItems();
+  const readyItems = items.filter((item) => item.ready);
+  const pendingItems = items.filter((item) => !item.ready);
+  const section = document.createElement("section");
+  section.className = "financial-missing-data-summary";
+  const listNode = document.createElement("ul");
+  listNode.className = "financial-missing-data-list";
+  listNode.replaceChildren(...pendingItems.slice(0, 5).map((item) => {
+    const li = document.createElement("li");
+    li.append(label(item.statusLabel), document.createTextNode(item.label));
+    return li;
+  }));
+  section.append(
+    heading(`${scopeLabelText} 本番反映までの不足データ`),
+    paragraph(`${readyItems.length}/${items.length}項目をローカル確認済み。本番DBへの保存・承認・再計算は、provider identityとproduction catalog証跡が揃うまで無効です。`),
+    previewMetricGrid([
+      ["ローカル確認済み", `${readyItems.length}項目`],
+      ["確認待ち", `${pendingItems.length}項目`],
+      ["本番投入", "disabled"],
+    ]),
+    listNode
+  );
+  return section;
+}
+
+function financialReadinessItems() {
+  const pl = state.financialPreviews.PL;
+  const bs = state.financialPreviews.BS;
+  const storeCsvReady = Boolean(state.localEvidence.storeCsvReceipt);
+  const helperItems = buildFinancialCompletionItems({
+    statement: "",
+    status: "LOCAL_SCREEN_SUMMARY",
+    sheetCount: 0,
+    missingByAccount: {},
+    mappingCandidatesByAccount: {},
+    localStoreCsvReceipt: state.localEvidence.storeCsvReceipt,
+  });
+  const itemLabel = (key, fallback) => helperItems.find((item) => item.key === key)?.label || fallback;
+  return [
+    {
+      key: "PL_ANNUAL_REPORT",
+      label: itemLabel("PL_ANNUAL_REPORT", "部門別年間P/L"),
+      statusLabel: pl ? "ローカル確認済み" : "資料待ち",
+      ready: Boolean(pl && !String(pl.status || "").includes("DUPLICATE")),
+    },
+    {
+      key: "PL_ACCOUNT_MAPPING",
+      label: itemLabel("PL_ACCOUNT_MAPPING", "P/L勘定科目対応表"),
+      statusLabel: !pl ? "資料待ち" : pl.mappingConfirmationStatus === "LOCAL_EVIDENCE_RECEIVED" || pl.mappingRequiredAccountCount === 0 ? "ローカル確認済み" : "経理確認待ち",
+      ready: Boolean(pl && (pl.mappingConfirmationStatus === "LOCAL_EVIDENCE_RECEIVED" || pl.mappingRequiredAccountCount === 0)),
+    },
+    {
+      key: "BALANCE_SHEET",
+      label: itemLabel("BALANCE_SHEET", "B/S年間データ"),
+      statusLabel: !bs ? "資料待ち" : bs.balanceReadinessCategory === "BS_BALANCE_READY" ? "ローカル確認済み" : "貸借確認待ち",
+      ready: Boolean(bs && bs.balanceReadinessCategory === "BS_BALANCE_READY"),
+    },
+    {
+      key: "SALES_SUBLEDGER",
+      label: itemLabel("SALES_SUBLEDGER", "売上高の補助残高一覧表"),
+      statusLabel: storeCsvReady ? "ローカル回答確認済み" : "資料待ち",
+      ready: storeCsvReady,
+    },
+    { key: "UTILITY_SUBLEDGER", label: itemLabel("UTILITY_SUBLEDGER", "水道光熱費の補助残高一覧表"), statusLabel: "資料待ち", ready: false },
+    { key: "COUPON_USAGE", label: itemLabel("COUPON_USAGE", "クーポン利用額"), statusLabel: "資料待ち", ready: false },
+    { key: "BUDGET_PLAN", label: itemLabel("BUDGET_PLAN", "予算・計画データ"), statusLabel: "資料待ち", ready: false },
+    { key: "FC_RULE", label: itemLabel("FC_RULE", "FC店舗の変換ルール"), statusLabel: "運用ルール待ち", ready: false },
+    { key: "PRODUCTION_EVIDENCE", label: "production catalog証跡 / provider runtime identity", statusLabel: "本番証跡待ち", ready: false },
+  ];
 }
 
 function buildPlPeriodComparison(preview, titleText) {

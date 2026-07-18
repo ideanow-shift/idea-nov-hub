@@ -219,6 +219,12 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-completion-item strong { display: block; color: var(--text-primary); font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
 .financial-completion-item p { margin: 4px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 .financial-completion-item .financial-completion-spec { color: var(--text-primary); }
+.financial-missing-data-summary { margin-top: 14px; padding: 12px; background: #fffaf0; border: 1px solid var(--border-light); border-left: 3px solid var(--color-bassa); border-radius: var(--radius-md); }
+.financial-missing-data-summary h3 { margin: 0; color: var(--text-primary); font-size: 15px; font-weight: 500; }
+.financial-missing-data-summary p { margin: 6px 0 10px; color: var(--text-secondary); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.financial-missing-data-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+.financial-missing-data-list li { min-width: 0; padding: 5px 8px; color: var(--text-primary); background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 12px; overflow-wrap: anywhere; }
+.financial-missing-data-list .metric-label { display: inline-flex; margin: 0 6px 0 0; color: var(--text-secondary); font-size: 11px; }
 .financial-submission-package { margin-top: 14px; padding: 12px; background: #fffaf0; border: 1px solid var(--border-light); border-left: 3px solid var(--color-bassa); border-radius: var(--radius-md); }
 .financial-submission-package-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .financial-submission-package-heading h4 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 500; }

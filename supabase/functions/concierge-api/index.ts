@@ -85,6 +85,29 @@ function parseLinks(value: unknown): unknown[] | null {
   }
 }
 
+type LogLink = { id: string; label: string; href: string };
+
+function normalizeLogLinks(value: unknown): LogLink[] | null {
+  const links = parseLinks(value);
+  if (!links) return null;
+  const ids = new Set<string>();
+  const normalized: LogLink[] = [];
+  for (const link of links) {
+    if (!link || typeof link !== "object" || Array.isArray(link)) return null;
+    const record = link as Record<string, unknown>;
+    const keys = Object.keys(record);
+    if (keys.length !== 3 || !keys.every((key) => key === "id" || key === "label" || key === "href")) return null;
+    if (typeof record.id !== "string" || !record.id || record.id.trim() !== record.id) return null;
+    if (typeof record.label !== "string" || !record.label || record.label.trim() !== record.label) return null;
+    if (/[\u0000-\u001f\u007f]/u.test(record.id) || /[\u0000-\u001f\u007f]/u.test(record.label)) return null;
+    const href = normalizeSafeNavigationHref(record.href);
+    if (!href || href !== record.href || ids.has(record.id)) return null;
+    ids.add(record.id);
+    normalized.push({ id: record.id, label: record.label, href });
+  }
+  return normalized;
+}
+
 function normalizeRating(value: unknown): "up" | "down" | null {
   const rating = getString(value).trim().toLowerCase();
   if (rating === "up" || rating === "good" || rating === "👍") return "up";
@@ -907,7 +930,7 @@ Deno.serve(async (request) => {
       const question = getString(payload.question).trim();
       const answer = getString(payload.answer);
       const notebook = getString(payload.notebook || payload.notebookCategory);
-      const links = parseLinks(payload.links);
+      const links = normalizeLogLinks(payload.links);
       const createdAt = getString(payload.createdAt).trim();
       const rating = normalizeRating(payload.rating);
       const riskLevel = normalizeRiskLevel(payload.riskLevel || payload.risk_level);

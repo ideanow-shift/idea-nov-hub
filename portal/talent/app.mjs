@@ -3,6 +3,7 @@ import {
   buildDashboardSummaryViewModel,
   createDashboardSummaryExact1Executor
 } from "./exact1.mjs";
+import { initializeTalentOperatorPanel } from "./operator.mjs";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -366,6 +367,7 @@ function safeMessage(category, requestCount = 0) {
 function initializeTalentApp() {
   initializeTalentNavigation();
   initializeTalentSummaryControl();
+  initializeTalentOperatorPanel();
 }
 
 function staleRunResult(result) {

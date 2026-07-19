@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
   <link rel="stylesheet" href="./style.css">
-  <script src="./runtime-config.candidate.js?v=20260718-readonly-1"></script>
-  <script type="module" src="./app.mjs?v=20260718-readonly-1"></script>
+  <script src="./runtime-config.candidate.js?v=20260720-readonly-v2-write-candidate-1"></script>
+  <script type="module" src="./app.mjs?v=20260720-readonly-v2-write-candidate-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -68,6 +68,22 @@
           <article class="metric"><p class="metric-name">通過</p><p class="metric-value">-</p></article>
           <article class="metric"><p class="metric-name">内定</p><p class="metric-value">-</p></article>
           <article class="metric"><p class="metric-name">入社予定</p><p class="metric-value">-</p></article>
+        </section>
+        <p class="coverage-label">本システム稼働開始以降の集計</p>
+
+        <section id="talent-operator-panel" class="operator-panel" aria-labelledby="operator-title" hidden>
+          <div class="operator-heading"><div><p class="section-kicker">FUNNEL EVENT ENTRY</p><h3 id="operator-title">採用イベント入力</h3></div><p id="operator-status" class="status" role="status" aria-live="polite">未送信</p></div>
+          <div class="operator-grid">
+            <label>応募番号<input id="operator-application-no" autocomplete="off" inputmode="text" placeholder="NT-YYYY-NNNNNN"></label>
+            <button id="operator-select-application" type="button">既存応募を選択</button>
+            <label>指標<select id="operator-metric"><option value="contacts">接点数</option><option value="lineRegistrations">LINE登録</option><option value="salonTours">サロン見学</option><option value="interviews">面接</option><option value="passed">通過</option><option value="offers">内定</option><option value="expectedJoiners">入社予定</option></select></label>
+            <label>業務日時<input id="operator-event-at" type="datetime-local"></label>
+            <button id="operator-create-event" type="button">新規応募と初回イベントを記録</button>
+            <button id="operator-continue-event" type="button">後続イベントを記録</button>
+            <label>年度<input id="operator-fiscal-year" type="number" min="2000" max="2199" inputmode="numeric"></label>
+            <label>失効理由<select id="operator-invalidation-code"><option value="CANCELLED">CANCELLED</option><option value="NO_SHOW">NO_SHOW</option><option value="DELETED">DELETED</option><option value="WITHDRAWN">WITHDRAWN</option></select></label>
+            <button id="operator-invalidate-event" type="button">イベントを失効</button>
+          </div>
         </section>
 
         <section class="workflow-strip" aria-label="採用ファネル">

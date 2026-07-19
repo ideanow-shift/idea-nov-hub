@@ -222,6 +222,17 @@ h3 { margin: 0; font-size: 1rem; }
 .metric-name { margin: 0; color: var(--muted); font-size: 0.92rem; }
 .metric-value { margin: 15px 0 0; color: var(--navy); font-size: 2rem; font-weight: 800; }
 
+.coverage-label { margin: 12px 0 0; color: var(--muted); font-size: 0.82rem; font-weight: 700; }
+.operator-panel { margin-top: 20px; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfd; }
+.operator-panel[hidden] { display: none; }
+.operator-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.operator-heading h3 { margin-top: 4px; }
+.operator-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.operator-grid label { display: grid; gap: 6px; min-width: 0; color: var(--muted); font-size: 0.82rem; font-weight: 700; }
+.operator-grid input, .operator-grid select, .operator-grid button { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 6px; padding: 9px 11px; font: inherit; }
+.operator-grid button { align-self: end; color: #fff; background: var(--blue); font-weight: 800; cursor: pointer; }
+.operator-grid button:disabled, .operator-grid input:disabled, .operator-grid select:disabled { cursor: wait; opacity: 0.65; }
+
 .workflow-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -354,6 +365,7 @@ h3 { margin: 0; font-size: 1rem; }
   .summary-command { flex-direction: column; align-items: flex-end; }
   .summary-grid, .workforce-summary, .procedure-board, .procedure-checklist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .operator-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workflow-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workflow-strip div:nth-child(2) { border-right: 0; }
   .workflow-strip div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
@@ -373,6 +385,8 @@ h3 { margin: 0; font-size: 1rem; }
   .summary-load-button { width: 100%; }
   .status { margin-top: 10px; }
   .summary-grid, .workforce-summary, .procedure-board, .procedure-checklist, .feature-grid { grid-template-columns: 1fr; }
+  .operator-heading { display: block; }
+  .operator-grid { grid-template-columns: 1fr; }
   .workforce-tabs { margin: 20px -18px 0; padding: 0 18px; }
   .procedure-intro { display: block; }
   .procedure-intro p { margin-top: 6px; }

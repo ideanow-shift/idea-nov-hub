@@ -1,4 +1,6 @@
 window.NOV_TALENT_CONFIG = Object.freeze({
   readonlyApiEnabled: true,
-  readonlyApiBaseUrl: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-talent-readonly-api"
+  readonlyApiBaseUrl: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-talent-readonly-api-v2",
+  writeApiEnabled: false,
+  writeApiBaseUrl: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-talent-write-api"
 });

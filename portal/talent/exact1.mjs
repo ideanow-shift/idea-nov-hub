@@ -68,7 +68,7 @@ export function createDashboardSummaryExact1Executor({
       let requestSent = false;
       try {
         const headers = await buildAuthHeaders(runtime.hubSessionHelper);
-        const url = new URL("/api/talent/v1/dashboard/summary", `${runtime.apiBaseUrl}/`);
+        const url = new URL("./api/talent/v1/dashboard/summary", `${runtime.apiBaseUrl}/`);
         url.searchParams.set("fiscalYear", fiscalYear);
         requestSent = true;
         const response = await fetchImpl(url.toString(), {

@@ -132,7 +132,14 @@ test("same-origin route uses HUB helper and performs exactly one summary request
   assert.equal(calls.length, 1);
   assert.equal(calls[0].options.method, "GET");
   assert.equal(Object.keys(calls[0].options.headers).includes("Authorization"), true);
-  assert.equal(String(calls[0].url).includes("/api/talent/v1/dashboard/summary"), true);
+  assert.equal(
+    calls[0].url,
+    "https://example.test/functions/v1/nov-talent-readonly-api/api/talent/v1/dashboard/summary?fiscalYear=current"
+  );
+  assert.equal(
+    calls[0].url.startsWith("https://example.test/api/talent/v1/dashboard/summary"),
+    false
+  );
   assert.equal(result.metricCount, 7);
   assert.equal(result.requestCount, 1);
   assert.equal(result.retryCount, 0);

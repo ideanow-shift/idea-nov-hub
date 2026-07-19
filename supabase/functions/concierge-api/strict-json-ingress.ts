@@ -325,6 +325,26 @@ class StrictJsonParser {
   }
 }
 
+export function parseStrictJsonText(
+  source: string,
+  options: ParseOptions = {},
+): unknown {
+  const limits = { ...STRICT_JSON_LIMITS, ...options };
+  const byteLength = new TextEncoder().encode(source).byteLength;
+  if (byteLength < 1 || byteLength > limits.maxBytes || source.startsWith("\ufeff")) {
+    throw new StrictJsonBoundaryError(400, byteLength > limits.maxBytes ? "BODY_SIZE_REJECTED" : "JSON_REJECTED");
+  }
+  try {
+    return new StrictJsonParser(source, limits.maxDepth, limits.maxMembers, limits.maxTokens).parse();
+  } catch (error) {
+    if (error instanceof JsonParseFailure) {
+      throw new StrictJsonBoundaryError(400, error.category);
+    }
+    if (error instanceof StrictJsonBoundaryError) throw error;
+    throw new StrictJsonBoundaryError(400, "JSON_REJECTED");
+  }
+}
+
 export async function parseStrictJsonRequest(
   request: Request,
   options: ParseOptions = {},
@@ -342,15 +362,7 @@ export async function parseStrictJsonRequest(
     throw new StrictJsonBoundaryError(400, "UTF8_REJECTED");
   }
 
-  let parsed: unknown;
-  try {
-    parsed = new StrictJsonParser(source, limits.maxDepth, limits.maxMembers, limits.maxTokens).parse();
-  } catch (error) {
-    if (error instanceof JsonParseFailure) {
-      throw new StrictJsonBoundaryError(400, error.category);
-    }
-    throw new StrictJsonBoundaryError(400, "JSON_REJECTED");
-  }
+  const parsed = parseStrictJsonText(source, limits);
 
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new StrictJsonBoundaryError(400, "BODY_SHAPE_REJECTED");

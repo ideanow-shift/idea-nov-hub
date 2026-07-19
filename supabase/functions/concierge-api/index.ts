@@ -5,7 +5,7 @@ import {
   type SessionPayload,
   verifySessionToken,
 } from "./session-token-boundary.ts";
-import { parseStrictJsonRequest, StrictJsonBoundaryError } from "./strict-json-ingress.ts";
+import { parseStrictJsonRequest, parseStrictJsonText, StrictJsonBoundaryError } from "./strict-json-ingress.ts";
 
 type ApiResponse = Record<string, unknown>;
 
@@ -74,14 +74,14 @@ function splitList(value: unknown): string[] {
     .filter(Boolean);
 }
 
-function parseLinks(value: unknown): unknown[] {
+function parseLinks(value: unknown): unknown[] | null {
   if (Array.isArray(value)) return value;
   if (typeof value !== "string" || !value.trim()) return [];
   try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed = parseStrictJsonText(value);
+    return Array.isArray(parsed) ? parsed : null;
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -914,7 +914,7 @@ Deno.serve(async (request) => {
       const needsHumanCheck = riskLevel === "high" || toBoolean(payload.needsHumanCheck || payload.needs_human_check);
       const source = normalizeLogSource(payload.source);
 
-      if (!logId || !storeId || !phase1LoginId || !question) {
+      if (!logId || !storeId || !phase1LoginId || !question || links === null) {
         return json({ ok: false, error: "ログ保存に必要な情報が不足しています。" }, 400);
       }
 

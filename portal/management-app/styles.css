@@ -263,6 +263,7 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-reflection-summary span { color: var(--text-secondary); font-size: 11px; }
 .financial-reflection-summary strong { margin-top: 2px; color: var(--text-primary); font-size: 12px; font-weight: 500; }
 .financial-reflection-summary article p { margin: 4px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
+.financial-reflection-link { width: fit-content; min-height: 30px; margin-top: 8px; padding: 5px 9px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-primary); background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-sm); font-size: 11px; text-decoration: none; }
 .financial-reflection-note { grid-column: 1 / -1; margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
 .financial-production-use-status { margin-top: 10px; padding: 10px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
 .financial-production-use-status[data-financial-production-use-status="LOCAL_REVIEW_AVAILABLE_PRODUCTION_DISABLED"] { border-left: 3px solid var(--color-bassa); }

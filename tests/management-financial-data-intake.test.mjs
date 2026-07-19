@@ -321,6 +321,11 @@ test("financial submission package summarizes local readiness without enabling i
     ["STORE_OPERATIONS", "LOCAL_PREVIEW_ACTIVE", true],
     ["PRODUCTION_IMPORT", "DISABLED_PENDING_CONTRACT", false],
   ]);
+  assert.deepEqual(reflection.screenRoutes.map((item) => [item.key, item.href]), [
+    ["CORPORATE_MANAGEMENT", "#overview"],
+    ["STORE_OPERATIONS", "#stores"],
+    ["PRODUCTION_IMPORT", ""],
+  ]);
   assert.equal(reflection.productionImportEnabled, false);
   assert.equal(reflection.mutationCount, 0);
   assert.equal(reflection.uploadCount, 0);
@@ -974,7 +979,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=80e267319249ceae/);
+  assert.match(app, /financial-data-intake\.js\?v=42dab7e5bc3845cd/);
   assert.match(app, /ローカル反映 \/ 残/);
   assert.match(app, /確認表示だけです。本番投入はdisabledです。/);
   assert.match(app, /店舗候補P\/Lの確認表示だけです。本番投入はdisabledです。/);
@@ -1128,6 +1133,9 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(financialIntake, /financialReflectionSummary/);
   assert.match(financialIntake, /screenRoutes/);
   assert.match(financialIntake, /dataset\.financialReflectionRoute/);
+  assert.match(financialIntake, /financial-reflection-link/);
+  assert.match(financialIntake, /#overview/);
+  assert.match(financialIntake, /#stores/);
   assert.match(financialIntake, /CORPORATE_MANAGEMENT/);
   assert.match(financialIntake, /STORE_OPERATIONS/);
   assert.match(financialIntake, /management-financial-production-use-status-v1/);
@@ -1151,6 +1159,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(financialIntake, /確認表示はローカル検証結果だけです/);
   assert.match(styles, /\.financial-reflection-summary/);
   assert.match(styles, /\.financial-reflection-summary article p/);
+  assert.match(styles, /\.financial-reflection-link/);
   assert.match(styles, /data-financial-reflection="LOCAL_PREVIEW_ACTIVE"/);
   assert.match(styles, /data-financial-reflection="DISABLED_PENDING_CONTRACT"/);
   assert.match(styles, /\.financial-reflection-note/);

@@ -478,6 +478,12 @@
                 <input type="number" name="budgetAmount" min="0" step="1" inputmode="numeric" placeholder="例：100000">
               </label>
               <label class="form-field">
+                <span>承認者</span>
+                <select id="approver-select" name="selectedApproverEmployeeId" disabled>
+                  <option value="">下書き保存後に選択できます</option>
+                </select>
+              </label>
+              <label class="form-field">
                 <span>契約先</span>
                 <input type="text" name="vendorName" maxlength="160" placeholder="会社名または取引先名">
               </label>
@@ -496,7 +502,7 @@
             </div>
             <div class="actions">
               <button id="save-draft-button" type="button" disabled>下書き保存</button>
-              <button type="submit" disabled>申請する</button>
+              <button id="submit-application-button" type="submit" disabled>申請する</button>
               <span id="draft-save-status" class="muted">必須項目と入力形式を確認してください。</span>
             </div>
           </form>
@@ -517,6 +523,6 @@
         </section>
       </main>
     </div>
-    <script type="module" src="./app.js?v=4e7e4fdb0347"></script>
+    <script type="module" src="./app.js?v=46797681f11d"></script>
   </body>
 </html>

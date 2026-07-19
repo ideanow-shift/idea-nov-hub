@@ -24,6 +24,7 @@ const EDGE_ACTIONS = new Set([
   "decisionListApplications",
   "decisionGetApplicationDetail",
   "decisionListComments",
+  "decisionListApproverCandidates",
   "decisionSaveDraftApplication",
   "managementFinanceSummary",
   "managementStoresSummary",
@@ -54,7 +55,8 @@ const EDGE_ACTIONS = new Set([
 const DECISION_READONLY_ACTIONS = new Set([
   "decisionListApplications",
   "decisionGetApplicationDetail",
-  "decisionListComments"
+  "decisionListComments",
+  "decisionListApproverCandidates"
 ]);
 const DECISION_DRAFT_ACTIONS = new Set(["decisionSaveDraftApplication"]);
 

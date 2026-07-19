@@ -1,4 +1,4 @@
-import { callApiAction, setHubSessionAuth } from "../js/api.js?v=2742128ec55c";
+import { callApiAction, setHubSessionAuth } from "../js/api.js?v=db869f2e756e";
 import {
   getNovHubSessionToken,
   handleNovHubSessionAuthFailure
@@ -6,12 +6,16 @@ import {
 
 const DECISION_HUB_READONLY_LIVE = true;
 const DECISION_HUB_DRAFT_WRITE_ENABLED = true;
+const DECISION_HUB_APPROVER_CANDIDATE_ENABLED = true;
+const DECISION_HUB_SUBMIT_ENABLED = false;
 const LIST_LIMIT = 50;
 
 const state = {
   applications: [],
   selectedApplicationId: "",
-  draftApplicationId: ""
+  draftApplicationId: "",
+  draftSaved: false,
+  approverCandidatesLoaded: false
 };
 
 const elements = {
@@ -32,6 +36,8 @@ const elements = {
   commentsSection: document.getElementById("comments-section"),
   applicationForm: document.getElementById("decision-application-form"),
   saveDraftButton: document.getElementById("save-draft-button"),
+  submitApplicationButton: document.getElementById("submit-application-button"),
+  approverSelect: document.getElementById("approver-select"),
   draftSaveStatus: document.getElementById("draft-save-status")
 };
 
@@ -46,21 +52,30 @@ function wireNavigation() {
   });
   elements.applicationForm?.addEventListener("submit", (event) => event.preventDefault());
   elements.saveDraftButton?.addEventListener("click", saveDraftApplication);
-  elements.applicationForm?.addEventListener("input", updateDraftControls);
-  elements.applicationForm?.addEventListener("change", updateDraftControls);
+  elements.applicationForm?.addEventListener("input", markDraftDirty);
+  elements.applicationForm?.addEventListener("change", markDraftDirty);
   updateDraftControls();
 }
 
 function updateDraftControls() {
   const form = elements.applicationForm;
   const formIsValid = Boolean(form?.checkValidity());
-  const canSave = DECISION_HUB_DRAFT_WRITE_ENABLED && formIsValid;
+  const canSave = DECISION_HUB_DRAFT_WRITE_ENABLED && formIsValid && !state.draftSaved;
   if (elements.saveDraftButton) {
     elements.saveDraftButton.disabled = !canSave;
     setText(elements.saveDraftButton, "下書き保存");
   }
+  if (elements.submitApplicationButton) {
+    elements.submitApplicationButton.disabled = true;
+  }
   if (!DECISION_HUB_DRAFT_WRITE_ENABLED) {
     setText(elements.draftSaveStatus, "下書き保存は安全確認後に有効化します。入力内容はまだ送信されません。");
+    return;
+  }
+  if (state.draftSaved) {
+    setText(elements.draftSaveStatus, DECISION_HUB_APPROVER_CANDIDATE_ENABLED
+      ? "下書きは保存済みです。承認者を選択できます。"
+      : "下書きは保存済みです。");
     return;
   }
   if (canSave) {
@@ -72,6 +87,16 @@ function updateDraftControls() {
   setText(elements.draftSaveStatus, fieldLabel
     ? `「${fieldLabel}」を入力または確認してください。`
     : "必須項目と入力形式を確認してください。");
+}
+
+function markDraftDirty(event) {
+  if (event?.target?.name === "selectedApproverEmployeeId") {
+    updateDraftControls();
+    return;
+  }
+  state.draftSaved = false;
+  resetApproverCandidates();
+  updateDraftControls();
 }
 
 async function saveDraftApplication() {
@@ -105,11 +130,17 @@ async function saveDraftApplication() {
       throw Object.assign(new Error("Draft identifier is invalid."), { code: "INVALID_API_RESPONSE" });
     }
     state.draftApplicationId = savedApplicationId;
+    state.draftSaved = true;
     saved = true;
-    outcomeMessage = "保存済み";
+    outcomeMessage = DECISION_HUB_APPROVER_CANDIDATE_ENABLED
+      ? "下書きを保存しました。承認者を選択してください。"
+      : "下書きを保存しました。";
     elements.notice?.classList.add("is-ready");
     setText(elements.noticeTitle, "下書きを保存しました");
     setText(elements.noticeBody, "申請はまだ送信されていません。入力内容は下書きとして保存されています。");
+    if (DECISION_HUB_APPROVER_CANDIDATE_ENABLED) {
+      await loadApproverCandidates();
+    }
   } catch (error) {
     clearHubSessionOnAuthStatus(error);
     outcomeMessage = getSafeErrorMessage(error?.code || "");
@@ -136,8 +167,8 @@ function buildDraftPayload(formData) {
   if (contractStartDate && contractEndDate && contractEndDate < contractStartDate) {
     throw Object.assign(new Error("Contract date order is invalid."), { code: "CONTRACT_DATE_ORDER_INVALID" });
   }
-  if (budgetAmountText && (!/^\d+(?:\.\d{1,2})?$/.test(budgetAmountText) || Number(budgetAmountText) > 999999999999.99)) {
-    throw Object.assign(new Error("Budget amount is invalid."), { code: "INVALID_REQUEST" });
+  if (budgetAmountText && (!/^\d+$/.test(budgetAmountText) || Number(budgetAmountText) > 999999999999)) {
+    throw Object.assign(new Error("Budget amount must be whole yen."), { code: "BUDGET_AMOUNT_WHOLE_YEN_REQUIRED" });
   }
   return {
     applicationId: isUuid(state.draftApplicationId) ? state.draftApplicationId : null,
@@ -153,6 +184,57 @@ function buildDraftPayload(formData) {
     desiredDecisionDate: value("desiredDecisionDate") || null,
     riskSummary: value("riskSummary")
   };
+}
+
+async function loadApproverCandidates() {
+  if (!DECISION_HUB_APPROVER_CANDIDATE_ENABLED || !isUuid(state.draftApplicationId)) return;
+  resetApproverCandidates("承認者候補を確認しています…");
+  if (!prepareHubSessionAuth()) {
+    resetApproverCandidates("NOV HUBから開き直してください");
+    return;
+  }
+  try {
+    const response = sanitizeDecisionValue(await callApiAction("decisionListApproverCandidates", {
+      applicationId: state.draftApplicationId
+    }));
+    const candidates = Array.isArray(response?.approverCandidates?.candidates)
+      ? response.approverCandidates.candidates
+      : [];
+    const safeCandidates = candidates
+      .map((candidate) => ({
+        employeeId: String(candidate?.employeeId || ""),
+        displayName: safeText(candidate?.displayName || "").slice(0, 80)
+      }))
+      .filter((candidate) => isUuid(candidate.employeeId) && candidate.displayName);
+    if (!safeCandidates.length) {
+      resetApproverCandidates("選択できる承認者がいません");
+      return;
+    }
+    elements.approverSelect.replaceChildren(
+      createOption("", "承認者を選択してください"),
+      ...safeCandidates.map((candidate) => createOption(candidate.employeeId, candidate.displayName))
+    );
+    elements.approverSelect.disabled = false;
+    state.approverCandidatesLoaded = true;
+    updateDraftControls();
+  } catch (error) {
+    clearHubSessionOnAuthStatus(error);
+    resetApproverCandidates("承認者候補を確認できませんでした");
+  }
+}
+
+function resetApproverCandidates(label = "下書き保存後に選択できます") {
+  state.approverCandidatesLoaded = false;
+  if (!elements.approverSelect) return;
+  elements.approverSelect.replaceChildren(createOption("", label));
+  elements.approverSelect.disabled = true;
+}
+
+function createOption(value, label) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = label;
+  return option;
 }
 
 function showView(view) {
@@ -456,6 +538,7 @@ function getSafeErrorMessage(code) {
   if (code === "API_TIMEOUT") return "申請一覧の確認に時間がかかっています。しばらくしてからNOV HUBより開き直してください。";
   if (code === "INVALID_REQUEST") return "申請の確認条件が正しくありません。";
   if (code === "CONTRACT_DATE_ORDER_INVALID") return "契約終了日は契約開始日以降を指定してください。";
+  if (code === "BUDGET_AMOUNT_WHOLE_YEN_REQUIRED") return "予算額は1円単位の整数で入力してください。";
   if (code.startsWith("ACTOR_")) return "利用者の権限を確認できませんでした。";
   return "申請一覧を確認できませんでした。しばらくしてからお試しください。";
 }

@@ -82,16 +82,19 @@ function selectView(view, updateHash = true) {
 function updateSectionDataBadges() {
   const plReady = Boolean(state.financialPreviews.PL);
   const bsReady = Boolean(state.financialPreviews.BS);
+  const pendingCount = financialPendingCount();
   const corporate = document.querySelector('[data-section-status="corporate"]');
   const stores = document.querySelector('[data-section-status="stores"]');
   if (corporate) {
-    const label = plReady || bsReady ? `不足${financialPendingCount()}件` : "未反映";
+    const label = plReady || bsReady ? `ローカル反映 / 残${number.format(pendingCount)}` : "未反映";
     corporate.textContent = label;
     corporate.dataset.sectionStatusCategory = plReady || bsReady ? "LOCAL_PREVIEW_ACTIVE" : "LOCAL_PREVIEW_EMPTY";
+    corporate.title = plReady || bsReady ? "確認表示だけです。本番投入はdisabledです。" : "財務データ未選択";
   }
   if (stores) {
-    stores.textContent = plReady ? `不足${financialPendingCount()}件` : "未反映";
+    stores.textContent = plReady ? `ローカル反映 / 残${number.format(pendingCount)}` : "未反映";
     stores.dataset.sectionStatusCategory = plReady ? "LOCAL_PREVIEW_ACTIVE" : "LOCAL_PREVIEW_EMPTY";
+    stores.title = plReady ? "店舗候補P/Lの確認表示だけです。本番投入はdisabledです。" : "店舗P/L未選択";
   }
 }
 

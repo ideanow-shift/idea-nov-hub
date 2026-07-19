@@ -970,6 +970,9 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
   assert.match(app, /financial-data-intake\.js\?v=ca2877dd2967cc5b/);
+  assert.match(app, /ローカル反映 \/ 残/);
+  assert.match(app, /確認表示だけです。本番投入はdisabledです。/);
+  assert.match(app, /店舗候補P\/Lの確認表示だけです。本番投入はdisabledです。/);
   assert.match(financialIntake, /financial-supplemental-csv\.js\?v=7cacd43781126450/);
   assert.match(financialIntake, /vendor\/pako_inflate\.min\.js\?v=2ca27e9a8dae569c/);
   assert.match(financialIntake, /renderFinancialSupplementalCsv\(supplemental/);
@@ -978,7 +981,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(app, /updateSectionDataBadges/);
   assert.match(app, /LOCAL_PREVIEW_ACTIVE/);
   assert.match(app, /financialPendingCount/);
-  assert.match(app, /不足\$\{financialPendingCount\(\)\}件/);
+  assert.match(app, /ローカル反映 \/ 残\$\{number\.format\(pendingCount\)\}/);
   assert.match(app, /renderFinancialPreviewOverview/);
   assert.match(app, /renderFinancialPreviewFourAxis/);
   assert.match(app, /renderFinancialPreviewDepartments/);

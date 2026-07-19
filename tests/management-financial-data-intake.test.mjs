@@ -17,6 +17,7 @@ import {
   buildFinancialMappingReviewRows,
   buildFinancialMappingReviewSummary,
   buildFinancialMappingAccountingHandoff,
+  buildFinancialMappingLocalEvidenceSummary,
   buildFinancialOperationalUseChecklist,
   buildFinancialProductionUseStatus,
   buildFinancialReflectionSummary,
@@ -603,6 +604,25 @@ test("returned accounting mapping CSV is exact, local-only evidence", () => {
     confirmedCount: 1,
     rejectedCount: 1,
   });
+  const readySummary = buildFinancialMappingLocalEvidenceSummary({
+    ...result,
+    localMappingConfirmation: { status: "MAPPING_CONFIRMATION_LOCAL_EVIDENCE", confirmedCount: 2, rejectedCount: 0 },
+  });
+  assert.equal(readySummary.schemaVersion, "management-financial-mapping-local-evidence-summary-v1");
+  assert.equal(readySummary.category, "MAPPING_LOCAL_EVIDENCE_READY");
+  assert.equal(readySummary.expectedRowCount, 2);
+  assert.equal(readySummary.confirmedCount, 2);
+  assert.equal(readySummary.canContinueLocalReview, true);
+  assert.equal(readySummary.productionImportEnabled, false);
+  assert.equal(readySummary.externalSendEnabled, false);
+  assert.equal(readySummary.mutationCount, 0);
+  assert.doesNotMatch(JSON.stringify(readySummary), /digest|employeeId|sessionToken|Authorization|raw|amount|name/i);
+  const rejectedSummary = buildFinancialMappingLocalEvidenceSummary({
+    ...result,
+    localMappingConfirmation: { status: "MAPPING_CONFIRMATION_REJECTED", confirmedCount: 1, rejectedCount: 1 },
+  });
+  assert.equal(rejectedSummary.category, "MAPPING_LOCAL_EVIDENCE_REJECTED");
+  assert.equal(rejectedSummary.canContinueLocalReview, false);
 });
 
 test("returned mapping CSV rejects row, count, header, status and candidate drift", () => {
@@ -920,7 +940,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=fdcc49eb1b62b48f/);
+  assert.match(app, /financial-data-intake\.js\?v=f2f8d7dad5599e89/);
   assert.match(financialIntake, /financial-supplemental-csv\.js\?v=7cacd43781126450/);
   assert.match(financialIntake, /vendor\/pako_inflate\.min\.js\?v=2ca27e9a8dae569c/);
   assert.match(financialIntake, /renderFinancialSupplementalCsv\(supplemental/);
@@ -1071,6 +1091,9 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(financialIntake, /financial-operational-use/);
   assert.match(financialIntake, /経理待ちの間に使える範囲/);
   assert.match(financialIntake, /ACCOUNTING_MAPPING_RETURN/);
+  assert.match(financialIntake, /management-financial-mapping-local-evidence-summary-v1/);
+  assert.match(financialIntake, /financial-mapping-evidence-summary/);
+  assert.match(financialIntake, /MAPPING_LOCAL_EVIDENCE_READY/);
   assert.match(financialIntake, /submissionPackageHeading/);
   assert.match(financialIntake, /accountingRequestSection/);
   assert.match(financialIntake, /dataset\.financialReflection/);
@@ -1084,6 +1107,8 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(styles, /\.financial-production-use-blockers/);
   assert.match(styles, /\.financial-operational-use/);
   assert.match(styles, /\.financial-operational-use-list/);
+  assert.match(styles, /\.financial-mapping-evidence-summary/);
+  assert.match(styles, /MAPPING_LOCAL_EVIDENCE_REJECTED/);
   assert.match(financialIntake, /management-financial-accounting-request-message-v1/);
   assert.match(financialIntake, /management-financial-accounting-request-impact-v1/);
   assert.match(financialIntake, /経理へ確認する内容/);

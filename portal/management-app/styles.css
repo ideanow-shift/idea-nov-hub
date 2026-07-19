@@ -208,6 +208,9 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-mapping-facts strong { margin-top: 2px; color: var(--text-primary); font-size: 13px; font-weight: 500; }
 .financial-mapping-handoff { margin: 0 0 10px; padding: 9px 10px; color: var(--text-primary); background: #fffaf0; border: 1px solid var(--border-light); border-left: 3px solid var(--color-bassa); border-radius: var(--radius-md); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .financial-mapping-handoff[data-financial-mapping-handoff="ACCOUNTING_RETURN_RECEIVED_LOCAL_ONLY"] { border-left-color: var(--color-success); background: #f8fff9; }
+.financial-mapping-evidence-summary { margin: 0 0 10px; padding: 8px 10px; color: var(--text-secondary); background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+.financial-mapping-evidence-summary[data-financial-mapping-evidence-summary="MAPPING_LOCAL_EVIDENCE_READY"] { color: var(--text-primary); border-left: 3px solid var(--color-success); background: #f8fff9; }
+.financial-mapping-evidence-summary[data-financial-mapping-evidence-summary="MAPPING_LOCAL_EVIDENCE_REJECTED"] { color: var(--color-alert); border-left: 3px solid var(--color-alert); background: #fffaf0; }
 .financial-mapping-table table { min-width: 620px; }
 .financial-mapping-table th, .financial-mapping-table td { padding: 9px 10px; font-size: 12px; text-align: left; }
 .financial-mapping-confirmation { margin-top: 10px; display: flex; align-items: center; gap: 10px; }

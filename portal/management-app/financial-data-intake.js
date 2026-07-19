@@ -1018,6 +1018,27 @@ export function buildFinancialMappingAccountingHandoff(result) {
   };
 }
 
+export function buildFinancialMappingLocalEvidenceSummary(result) {
+  const rows = buildFinancialMappingReviewRows(result);
+  const evidence = result?.localMappingConfirmation;
+  const exactEvidence = hasExactLocalMappingEvidence(result);
+  const rejected = evidence?.status === "MAPPING_CONFIRMATION_REJECTED";
+  return {
+    schemaVersion: "management-financial-mapping-local-evidence-summary-v1",
+    category: exactEvidence
+      ? "MAPPING_LOCAL_EVIDENCE_READY"
+      : rejected ? "MAPPING_LOCAL_EVIDENCE_REJECTED" : rows.length ? "MAPPING_LOCAL_EVIDENCE_PENDING" : "MAPPING_LOCAL_EVIDENCE_NOT_AVAILABLE",
+    expectedRowCount: rows.length,
+    confirmedCount: Number.isSafeInteger(Number(evidence?.confirmedCount)) ? Math.max(0, Number(evidence.confirmedCount)) : 0,
+    rejectedCount: Number.isSafeInteger(Number(evidence?.rejectedCount)) ? Math.max(0, Number(evidence.rejectedCount)) : 0,
+    canContinueLocalReview: exactEvidence,
+    productionImportEnabled: false,
+    externalSendEnabled: false,
+    mutationCount: 0,
+    uploadCount: 0,
+  };
+}
+
 function financialCsvCell(value) {
   let text = String(value ?? "").normalize("NFC");
   if (/^[=+\-@]/u.test(text)) text = `'${text}`;
@@ -1545,6 +1566,7 @@ function setMappingReview(container, result) {
   const download = container.querySelector("[data-financial-mapping-download]");
   const confirmationInput = container.querySelector("[data-financial-mapping-confirmation-input]");
   const confirmationStatus = container.querySelector("[data-financial-mapping-confirmation-status]");
+  const evidenceSummaryNode = container.querySelector("[data-financial-mapping-evidence-summary]");
   const handoffNode = container.querySelector("[data-financial-mapping-handoff]");
   if (!section || !summary || !body || !download) return;
   const rows = buildFinancialMappingReviewRows(result);
@@ -1565,11 +1587,16 @@ function setMappingReview(container, result) {
       confirmationStatus.dataset.financialMappingConfirmationStatus = "NOT_READY";
       confirmationStatus.textContent = "候補CSVを作成後に、経理回答CSVを検証できます。";
     }
+    if (evidenceSummaryNode) {
+      evidenceSummaryNode.dataset.financialMappingEvidenceSummary = "MAPPING_LOCAL_EVIDENCE_NOT_AVAILABLE";
+      evidenceSummaryNode.textContent = "経理回答CSVのローカル証跡はまだありません。";
+    }
     return;
   }
   section.dataset.financialMappingStatus = exportFile.status;
   const reviewSummary = buildFinancialMappingReviewSummary(result);
   const handoff = buildFinancialMappingAccountingHandoff(result);
+  const evidenceSummary = buildFinancialMappingLocalEvidenceSummary(result);
   summary.textContent = `${rows.length}件の候補を検出しました。CSVの確認状態を「確認済み」または「否認」に変更して返却してください。金額・原本名・個人情報は含みません。`;
   if (facts) {
     facts.replaceChildren(
@@ -1602,6 +1629,14 @@ function setMappingReview(container, result) {
   if (confirmationStatus) {
     confirmationStatus.dataset.financialMappingConfirmationStatus = "PENDING";
     confirmationStatus.textContent = "経理回答CSVはこの端末だけで検証します。本番承認には使用しません。";
+  }
+  if (evidenceSummaryNode) {
+    evidenceSummaryNode.dataset.financialMappingEvidenceSummary = evidenceSummary.category;
+    evidenceSummaryNode.textContent = evidenceSummary.category === "MAPPING_LOCAL_EVIDENCE_READY"
+      ? `経理回答CSV ${evidenceSummary.confirmedCount}/${evidenceSummary.expectedRowCount}件をローカル確認済み。本番投入はdisabledです。`
+      : evidenceSummary.category === "MAPPING_LOCAL_EVIDENCE_REJECTED"
+        ? `否認 ${evidenceSummary.rejectedCount}件。mapping候補を経理と再確認してください。`
+        : `経理回答CSV待ち ${evidenceSummary.expectedRowCount}件。本番投入はdisabledです。`;
   }
 }
 
@@ -1829,7 +1864,9 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const mappingConfirmationStatus = el(doc, "p", "financial-mapping-confirmation-status", "候補CSVを作成後に、経理回答CSVを検証できます。");
   mappingConfirmationStatus.dataset.financialMappingConfirmationStatus = "NOT_READY";
   mappingConfirmation.append(mappingConfirmationLabel, mappingConfirmationStatus);
-  mappingReview.append(mappingHeading, mappingFacts, mappingHandoff, mappingTableWrap, mappingConfirmation);
+  const mappingEvidenceSummary = el(doc, "p", "financial-mapping-evidence-summary", "経理回答CSVのローカル証跡はまだありません。");
+  mappingEvidenceSummary.dataset.financialMappingEvidenceSummary = "MAPPING_LOCAL_EVIDENCE_NOT_AVAILABLE";
+  mappingReview.append(mappingHeading, mappingFacts, mappingHandoff, mappingEvidenceSummary, mappingTableWrap, mappingConfirmation);
   section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, mappingReview, completion, submissionPackage, supplemental, preview);
   container.replaceChildren(section);
   let latestResult = hooks.initialResult || null;

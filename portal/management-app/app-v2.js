@@ -897,11 +897,35 @@ function buildFinancialMissingDataSummary(scopeLabelText) {
       ["確認待ち", `${pendingItems.length}項目`],
       ["本番投入", "disabled"],
     ]),
+    buildFinancialProductionBlockers(),
     buildFinancialMissingDataPriority(pendingItems),
     buildFinancialNextStep(pendingItems),
     listNode
   );
   return section;
+}
+
+function buildFinancialProductionBlockers() {
+  const blockers = [
+    ["PRODUCTION_CATALOG_EVIDENCE", "本番catalog証跡"],
+    ["PROVIDER_RUNTIME_IDENTITY", "provider identity"],
+    ["STAGED_IMPORT_CONTRACT", "staging/import契約"],
+  ];
+  const listNode = document.createElement("ul");
+  listNode.className = "financial-production-blocker-list";
+  listNode.replaceChildren(...blockers.map(([category, text]) => {
+    const item = document.createElement("li");
+    item.dataset.financialProductionBlocker = category;
+    item.append(label("PENDING"), document.createTextNode(text));
+    return item;
+  }));
+  const panel = document.createElement("div");
+  panel.className = "financial-production-blockers";
+  panel.append(
+    label("本番投入を止めている条件"),
+    listNode
+  );
+  return panel;
 }
 
 function buildFinancialMissingDataPriority(pendingItems) {

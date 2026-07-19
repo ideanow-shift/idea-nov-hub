@@ -44,9 +44,7 @@ export async function startTalentDashboardSummary({
   if (abortSignal?.aborted || !isCurrentGeneration(runGeneration)) {
     return staleRunResult(result);
   }
-  if (result?.okBoolean !== true) {
-    return renderSafeStop(documentObject, result?.stopCategory || "api_error");
-  }
+  if (result?.okBoolean !== true) return renderSafeStop(documentObject, result);
   const viewModel = result.viewModel || buildDashboardSummaryViewModel(result.data);
   renderMetrics(documentObject, viewModel);
   setStatus(documentObject, "ready", "集計を表示しました");
@@ -93,12 +91,16 @@ export function initializeTalentSummaryControl({
   const formalHelperAvailable = typeof globalObject?.NovHubSession?.getSessionToken === "function";
   if (!formalHelperAvailable) {
     button.disabled = true;
-    setStatus(documentObject, "stopped", "HUB接続を確認できません。HUBから開き直してください");
-    return Object.freeze({
-      initialized: true,
-      helperAvailable: false,
+    const safeStop = renderSafeStop(documentObject, {
+      stopCategory: "auth_required",
       requestCount: 0,
-      retryCount: 0
+      retryCount: 0,
+      httpStatus: 0
+    });
+    return Object.freeze({
+      ...safeStop,
+      initialized: true,
+      helperAvailable: false
     });
   }
 
@@ -224,13 +226,28 @@ function createMetricCard(documentObject, metric) {
   return card;
 }
 
-function renderSafeStop(documentObject, category) {
-  const normalized = sanitizeCategory(category);
-  setStatus(documentObject, "stopped", safeMessage(normalized));
+function renderSafeStop(documentObject, safeInput) {
+  const source = safeInput && typeof safeInput === "object"
+    ? safeInput
+    : { stopCategory: safeInput };
+  const normalized = sanitizeCategory(source.stopCategory);
+  const requestCount = normalizeSafeCount(source.requestCount, 1);
+  const retryCount = normalizeSafeCount(source.retryCount, 0);
+  const httpStatusCategory = normalizeHttpStatusCategory(source.httpStatus);
+  setStatus(documentObject, "stopped", safeMessage(normalized, requestCount));
+  setSafeDiagnosticState(documentObject, {
+    stopCategory: normalized,
+    requestCount,
+    retryCount,
+    httpStatusCategory
+  });
   return Object.freeze({
     executed: false,
-    httpRequestSent: false,
+    httpRequestSent: requestCount === 1,
     stopCategory: normalized,
+    requestCount,
+    retryCount,
+    httpStatusCategory,
     duplicatePrevented: normalized === "duplicate_control_prevented",
     rawResponseReturned: false,
     tokenValueReturned: false,
@@ -240,6 +257,30 @@ function renderSafeStop(documentObject, category) {
     studentRowsReturned: false,
     forbiddenExposureDetected: false
   });
+}
+
+function setSafeDiagnosticState(documentObject, fields) {
+  const status = documentObject?.getElementById?.("summary-status");
+  if (!status?.dataset) return;
+  status.dataset.safeCategory = fields.stopCategory;
+  status.dataset.requestCount = String(fields.requestCount);
+  status.dataset.retryCount = String(fields.retryCount);
+  status.dataset.httpStatusCategory = fields.httpStatusCategory;
+}
+
+function normalizeSafeCount(value, maximum) {
+  const numeric = Number(value || 0);
+  if (!Number.isInteger(numeric) || numeric < 0) return 0;
+  return Math.min(numeric, maximum);
+}
+
+function normalizeHttpStatusCategory(value) {
+  const status = Number(value || 0);
+  if (!Number.isInteger(status) || status < 100 || status > 599) return "none";
+  if (status < 300) return "success";
+  if (status < 400) return "redirect";
+  if (status < 500) return "client_error";
+  return "server_error";
 }
 
 function setStatus(documentObject, state, text) {
@@ -307,12 +348,14 @@ function sanitizeCategory(value) {
   return /^[a-zA-Z0-9_]{1,80}$/.test(candidate) ? candidate : "safe_stop";
 }
 
-function safeMessage(category) {
+function safeMessage(category, requestCount = 0) {
   const messages = {
     runtime_config_unavailable: "設定確認中です",
-    auth_required: "ログイン状態を確認できません",
-    invalid_response: "集計形式を確認できません",
-    api_error: "集計を取得できません",
+    auth_required: "認証確認が必要です（送信前に停止）",
+    invalid_response: "集計形式を確認できません（1回送信・再試行なし）",
+    api_error: requestCount === 1
+      ? "API接続で停止しました（1回送信・再試行なし）"
+      : "API接続前に停止しました",
     duplicate_control_prevented: "集計取得はすでに開始済みです",
     run_invalidated: "集計表示を中止しました",
     safe_stop: "安全のため停止しました"

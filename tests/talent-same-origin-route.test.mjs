@@ -238,11 +238,67 @@ test("missing helper disables control at startup with request0 and token0", () =
 
   assert.equal(result.initialized, true);
   assert.equal(result.helperAvailable, false);
+  assert.equal(result.stopCategory, "auth_required");
+  assert.equal(result.requestCount, 0);
+  assert.equal(result.retryCount, 0);
   assert.equal(fetches, 0);
   assert.equal(tokenReads, 0);
   assert.equal(documentObject.button.disabled, true);
   assert.equal(documentObject.status.dataset.state, "stopped");
-  assert.equal(documentObject.status.textContent, "HUB接続を確認できません。HUBから開き直してください");
+  assert.equal(documentObject.status.dataset.safeCategory, "auth_required");
+  assert.equal(documentObject.status.dataset.requestCount, "0");
+  assert.equal(documentObject.status.dataset.retryCount, "0");
+  assert.equal(documentObject.status.dataset.httpStatusCategory, "none");
+  assert.equal(documentObject.status.textContent, "認証確認が必要です（送信前に停止）");
+});
+
+test("API failure after one click preserves request1 retry0 as safe DOM categories", async () => {
+  resetTalentDashboardSummaryStartupForFixture();
+  const documentObject = fakeDocument();
+  const result = await startTalentDashboardSummary({
+    globalObject: fakeGlobal(),
+    documentObject,
+    fetchImpl: async () => {
+      throw new Error("fixture_network_failure");
+    }
+  });
+
+  assert.equal(result.stopCategory, "api_error");
+  assert.equal(result.requestCount, 1);
+  assert.equal(result.retryCount, 0);
+  assert.equal(result.httpStatusCategory, "none");
+  assert.equal(documentObject.status.dataset.safeCategory, "api_error");
+  assert.equal(documentObject.status.dataset.requestCount, "1");
+  assert.equal(documentObject.status.dataset.retryCount, "0");
+  assert.equal(documentObject.status.textContent, "API接続で停止しました（1回送信・再試行なし）");
+});
+
+test("contract mismatch preserves request1 as a safe invalid-response category", async () => {
+  resetTalentDashboardSummaryStartupForFixture();
+  const documentObject = fakeDocument();
+  const result = await startTalentDashboardSummary({
+    globalObject: fakeGlobal(),
+    documentObject,
+    fetchImpl: async () => ({
+      status: 200,
+      ok: true,
+      headers: { get: () => "application/json" },
+      async json() {
+        const envelope = validEnvelope();
+        envelope.data.summary.extra = 1;
+        return envelope;
+      }
+    })
+  });
+
+  assert.equal(result.stopCategory, "invalid_response");
+  assert.equal(result.requestCount, 1);
+  assert.equal(result.retryCount, 0);
+  assert.equal(result.httpStatusCategory, "none");
+  assert.equal(documentObject.status.dataset.safeCategory, "invalid_response");
+  assert.equal(documentObject.status.dataset.requestCount, "1");
+  assert.equal(documentObject.status.dataset.retryCount, "0");
+  assert.equal(documentObject.status.textContent, "集計形式を確認できません（1回送信・再試行なし）");
 });
 
 test("invalidation aborts and suppresses stale completion rendering", async () => {

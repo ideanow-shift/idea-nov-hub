@@ -90,6 +90,19 @@ export function initializeTalentSummaryControl({
 
   button.dataset.summaryControlBound = "true";
   activeSummaryButton = button;
+  const formalHelperAvailable = typeof globalObject?.NovHubSession?.getSessionToken === "function";
+  if (!formalHelperAvailable) {
+    button.disabled = true;
+    setStatus(documentObject, "stopped", "HUB接続を確認できません。HUBから開き直してください");
+    return Object.freeze({
+      initialized: true,
+      helperAvailable: false,
+      requestCount: 0,
+      retryCount: 0
+    });
+  }
+
+  button.disabled = false;
   setStatus(documentObject, "idle", "ボタンを押すと最新の集計を表示します");
 
   const run = async (event) => {
@@ -131,7 +144,7 @@ export function initializeTalentSummaryControl({
   globalObject?.addEventListener?.("pagehide", invalidate, { once: true });
   globalObject?.addEventListener?.("beforeunload", invalidate, { once: true });
   globalObject?.addEventListener?.("novhub:logout", invalidate);
-  return Object.freeze({ initialized: true, run, invalidate });
+  return Object.freeze({ initialized: true, helperAvailable: true, run, invalidate });
 }
 
 export function invalidateTalentDashboardSummaryRun({

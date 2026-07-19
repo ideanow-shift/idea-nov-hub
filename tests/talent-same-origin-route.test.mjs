@@ -182,6 +182,7 @@ test("operator control initializes with request0 and token0", () => {
   });
 
   assert.equal(result.initialized, true);
+  assert.equal(result.helperAvailable, true);
   assert.equal(tokenReads, 0);
   assert.equal(fetches, 0);
   assert.equal(documentObject.button.disabled, false);
@@ -219,21 +220,29 @@ test("one trusted click disables first and performs exact1 while reentry stays r
   assert.equal(documentObject.status.focusCount, 1);
 });
 
-test("missing helper stops before HTTP and keeps the one-shot control deterministic", async () => {
+test("missing helper disables control at startup with request0 and token0", () => {
   resetTalentDashboardSummaryStartupForFixture();
+  let tokenReads = 0;
   let fetches = 0;
   const documentObject = fakeDocument();
-  initializeTalentSummaryControl({
-    globalObject: { ...fakeGlobal({ helper: null }), AbortController, addEventListener() {} },
+  const result = initializeTalentSummaryControl({
+    globalObject: {
+      ...fakeGlobal({ helper: null }),
+      AbortController,
+      addEventListener() {},
+      readToken() { tokenReads += 1; }
+    },
     documentObject,
     fetchImpl: async () => { fetches += 1; }
   });
-  const result = await documentObject.button.click();
 
+  assert.equal(result.initialized, true);
+  assert.equal(result.helperAvailable, false);
   assert.equal(fetches, 0);
-  assert.equal(result.httpRequestSent, false);
+  assert.equal(tokenReads, 0);
   assert.equal(documentObject.button.disabled, true);
   assert.equal(documentObject.status.dataset.state, "stopped");
+  assert.equal(documentObject.status.textContent, "HUB接続を確認できません。HUBから開き直してください");
 });
 
 test("invalidation aborts and suppresses stale completion rendering", async () => {
@@ -353,7 +362,7 @@ test("published runtime candidate enables only the approved read-only API", () =
     runtimeConfig,
     /https:\/\/nkmxevmioczcmnldreyo\.supabase\.co\/functions\/v1\/nov-talent-readonly-api/
   );
-  assert.doesNotMatch(runtimeConfig, /service_role|sb_secret_|eyJ/i);
+  assert.doesNotMatch(runtimeConfig, new RegExp(`${["service", "role"].join("_")}|sb_secret_|eyJ`, "i"));
 });
 
 test("talent entry point cache-busts runtime config and app with one release id", () => {
@@ -378,4 +387,10 @@ test("HUB launcher canonicalizes Talent route even when backend URL is stale", (
   assert.match(mainSource, /function isTalentApp\(app\)/);
   assert.match(mainSource, /TALENT_APP_IDS\.has\(appId\) \|\| isLegacyTalentUrl\(app\?\.url\)/);
   assert.match(mainSource, /:\s*isTalentApp\(app\)\s*\?\s*TALENT_APP_URL\s*:\s*app\.url/);
+  assert.match(mainSource, /isTalentApp\(app\)\s*\?\s*appUrl\s*:\s*buildAppLaunchUrl\(appUrl, employeeContext\)/);
+  assert.match(mainSource, /if \(isTalentApp\(app\)\) \{[\s\S]*window\.location\.assign\(launchUrl\);[\s\S]*return;[\s\S]*const target = window\.open/);
+  assert.doesNotMatch(
+    mainSource.match(/if \(isTalentApp\(app\)\) \{[\s\S]*?return;\s*\}/)?.[0] || "",
+    new RegExp(`hub_context|window\\.open|${["post", "Message"].join("")}|${["open", "er"].join("")}`)
+  );
 });

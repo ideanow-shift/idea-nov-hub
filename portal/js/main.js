@@ -784,7 +784,11 @@ async function openApp(app) {
       : isTalentApp(app)
         ? TALENT_APP_URL
         : app.url;
-  const launchUrl = isIdeaLinkApp(app) ? "" : buildAppLaunchUrl(appUrl, employeeContext);
+  const launchUrl = isIdeaLinkApp(app)
+    ? ""
+    : isTalentApp(app)
+      ? appUrl
+      : buildAppLaunchUrl(appUrl, employeeContext);
   if (state.authType === "firebase" || state.authType === "pin") {
     if (isManagementWebApp(app)) {
       if (!canLaunchManagementWeb(employeeContext)) {
@@ -823,6 +827,17 @@ async function openApp(app) {
         window.location.assign(launchUrl);
       } catch (error) {
         showToast("Management Platformを開けませんでした。再ログインしてお試しください。");
+        console.error(error);
+      }
+      return;
+    }
+
+    if (isTalentApp(app)) {
+      try {
+        await writeAccessLog("openApp", { appId: app.appId, appName: app.appName, result: "success" });
+        window.location.assign(launchUrl);
+      } catch (error) {
+        showToast("人財投資管理システムを開けませんでした。再ログインしてお試しください。");
         console.error(error);
       }
       return;

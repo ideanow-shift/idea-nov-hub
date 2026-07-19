@@ -5,6 +5,7 @@ import {
   type ReadQuery,
   type ScopeMode,
 } from "./management_readonly_candidate.ts";
+import { readOrganizationHealthMonitoringCandidate } from "./organization_health_monitoring_candidate.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -5119,6 +5120,11 @@ Deno.serve(async (request) => {
 
     if (action === "ideaLinkAdminSummaryRead") {
       return jsonResponse({ ok: true, admin: await readIdeaLinkAdminSummary(employee, payload), performance: { source: "nov-hub-api-proxy" } });
+    }
+
+    if (action === "ideaLinkOrganizationHealthMonitoringRead") {
+      const result = await readOrganizationHealthMonitoringCandidate(employee, readRows);
+      return jsonResponse({ ok: true, result, selectOnly: true, aggregateOnly: true, mutation: false, externalSend: false });
     }
 
     if (action === "ideaLinkMonthlyMvpPreviewRead") {

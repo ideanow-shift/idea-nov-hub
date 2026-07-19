@@ -1,0 +1,15 @@
+{
+  "pack": "IDEA_LINK_ORGANIZATION_HEALTH_OBSERVATION_V3_FRESH_INTEGRATION",
+  "status": "SOURCE_STATIC_PASS",
+  "parent": "182c36c515cd105e4b9f061715b9ea0306589fc8",
+  "runtimeFiles": {
+    "portal/idea-link-app/index.html": "CFE537AAC4108C1C909BCAE73F3777EA42358C2D6037F59947F181FC6FBEB51F",
+    "portal/idea-link-app/organization-health-observation.js": "5B9647F2B2EBECD7C10F5F518B6A70664405F0E727542699D2CE48B3C848E14F",
+    "portal/js/api.js": "76804247AF1BD36A0473C6ADBF3A972BDD258ECE6428ADCF7D72F537F98A8D59",
+    "supabase/functions/nov-hub-api/index.ts": "5BE61EB51A25BD60C7697B2305D9E63E9E2A48FF0ECBDF4A59C1E59252DCDE83",
+    "supabase/functions/nov-hub-api/organization_health_monitoring_candidate.ts": "E5B25B625DAB7B3F570A0503B975ABB2B07DC938E6536A90B29DEE5C6593E837"
+  },
+  "tests": { "backend": "5/5", "frontend": "10/10", "static": "10/10", "total": "25/25" },
+  "checks": { "denoCheck": true, "diffCheck": true, "managementProtectedDiff": 0, "notificationSendProtectedDiff": 0 },
+  "authorization": { "push": false, "deploy": false, "publish": false, "productionRequest": false, "productionDb": false, "mutation": false, "notification": false, "externalSend": false }
+}

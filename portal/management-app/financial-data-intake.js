@@ -743,15 +743,41 @@ export function buildFinancialSubmissionRoadmap(result) {
 export function buildFinancialReflectionSummary(result) {
   const pkg = buildFinancialSubmissionPackage(result);
   const groupStatus = Object.fromEntries(pkg.groups.map((group) => [group.key, group.category]));
+  const corporate = groupStatus.PL_PACKAGE === "LOCAL_PACKAGE_SECTION_READY" || groupStatus.BS_PACKAGE === "LOCAL_PACKAGE_SECTION_READY"
+    ? "LOCAL_PREVIEW_ACTIVE"
+    : "WAITING_FOR_SOURCE";
+  const stores = groupStatus.STORE_PACKAGE === "LOCAL_PACKAGE_SECTION_READY" || groupStatus.PL_PACKAGE === "LOCAL_PACKAGE_SECTION_READY"
+    ? "LOCAL_PREVIEW_ACTIVE"
+    : "WAITING_FOR_SOURCE";
+  const production = "DISABLED_PENDING_CONTRACT";
   return {
     schemaVersion: "management-financial-reflection-summary-v1",
-    corporate: groupStatus.PL_PACKAGE === "LOCAL_PACKAGE_SECTION_READY" || groupStatus.BS_PACKAGE === "LOCAL_PACKAGE_SECTION_READY"
-      ? "LOCAL_PREVIEW_ACTIVE"
-      : "WAITING_FOR_SOURCE",
-    stores: groupStatus.STORE_PACKAGE === "LOCAL_PACKAGE_SECTION_READY" || groupStatus.PL_PACKAGE === "LOCAL_PACKAGE_SECTION_READY"
-      ? "LOCAL_PREVIEW_ACTIVE"
-      : "WAITING_FOR_SOURCE",
-    production: "DISABLED_PENDING_CONTRACT",
+    corporate,
+    stores,
+    production,
+    screenRoutes: [
+      {
+        key: "CORPORATE_MANAGEMENT",
+        label: "法人経営管理",
+        category: corporate,
+        enabled: corporate === "LOCAL_PREVIEW_ACTIVE",
+        detail: corporate === "LOCAL_PREVIEW_ACTIVE" ? "P/L・B/S候補を確認表示" : "P/L・B/S資料待ち",
+      },
+      {
+        key: "STORE_OPERATIONS",
+        label: "店舗営業管理",
+        category: stores,
+        enabled: stores === "LOCAL_PREVIEW_ACTIVE",
+        detail: stores === "LOCAL_PREVIEW_ACTIVE" ? "店舗候補P/Lを確認表示" : "店舗候補P/L・CSV待ち",
+      },
+      {
+        key: "PRODUCTION_IMPORT",
+        label: "本番投入",
+        category: production,
+        enabled: false,
+        detail: "catalog証跡・provider identity・staging契約待ち",
+      },
+    ],
     nextActionCategory: pkg.nextAction.category,
     readyCount: pkg.readyCount,
     totalCount: pkg.totalCount,
@@ -1433,12 +1459,17 @@ function reflectionSummaryItem(doc, labelText, category, valueText) {
 
 function financialReflectionSummary(doc, reflection) {
   const summary = el(doc, "div", "financial-reflection-summary");
-  summary.append(
-    reflectionSummaryItem(doc, "法人管理", reflection.corporate, reflection.corporate === "LOCAL_PREVIEW_ACTIVE" ? "確認表示あり" : "資料待ち"),
-    reflectionSummaryItem(doc, "店舗営業管理", reflection.stores, reflection.stores === "LOCAL_PREVIEW_ACTIVE" ? "確認表示あり" : "資料待ち"),
-    reflectionSummaryItem(doc, "本番投入", reflection.production, "disabled"),
-    el(doc, "p", "financial-reflection-note", "確認表示はローカル検証結果だけです。DB保存・本番投入・外部送信は行いません。")
-  );
+  const routes = Array.isArray(reflection.screenRoutes) ? reflection.screenRoutes : [
+    { label: "法人管理", category: reflection.corporate, enabled: reflection.corporate === "LOCAL_PREVIEW_ACTIVE", detail: reflection.corporate === "LOCAL_PREVIEW_ACTIVE" ? "確認表示あり" : "資料待ち" },
+    { label: "店舗営業管理", category: reflection.stores, enabled: reflection.stores === "LOCAL_PREVIEW_ACTIVE", detail: reflection.stores === "LOCAL_PREVIEW_ACTIVE" ? "確認表示あり" : "資料待ち" },
+    { label: "本番投入", category: reflection.production, enabled: false, detail: "disabled" },
+  ];
+  summary.append(...routes.map((route) => {
+    const item = reflectionSummaryItem(doc, route.label, route.category, route.enabled ? "確認表示あり" : "disabled");
+    item.dataset.financialReflectionRoute = route.key || route.label;
+    item.append(el(doc, "p", "", route.detail));
+    return item;
+  }), el(doc, "p", "financial-reflection-note", "確認表示はローカル検証結果だけです。DB保存・本番投入・外部送信は行いません。"));
   return summary;
 }
 

@@ -38,7 +38,11 @@ const elements = {
   saveDraftButton: document.getElementById("save-draft-button"),
   submitApplicationButton: document.getElementById("submit-application-button"),
   approverSelect: document.getElementById("approver-select"),
-  draftSaveStatus: document.getElementById("draft-save-status")
+  draftSaveStatus: document.getElementById("draft-save-status"),
+  existingDraftApproverPanel: document.getElementById("existing-draft-approver-panel"),
+  existingDraftApproverSelect: document.getElementById("existing-draft-approver-select"),
+  loadExistingDraftApproverButton: document.getElementById("load-existing-draft-approver-button"),
+  existingDraftApproverStatus: document.getElementById("existing-draft-approver-status")
 };
 
 wireNavigation();
@@ -54,6 +58,7 @@ function wireNavigation() {
   elements.saveDraftButton?.addEventListener("click", saveDraftApplication);
   elements.applicationForm?.addEventListener("input", markDraftDirty);
   elements.applicationForm?.addEventListener("change", markDraftDirty);
+  elements.loadExistingDraftApproverButton?.addEventListener("click", loadExistingDraftApproverCandidates);
   updateDraftControls();
 }
 
@@ -194,18 +199,7 @@ async function loadApproverCandidates() {
     return;
   }
   try {
-    const response = sanitizeDecisionValue(await callApiAction("decisionListApproverCandidates", {
-      applicationId: state.draftApplicationId
-    }));
-    const candidates = Array.isArray(response?.approverCandidates?.candidates)
-      ? response.approverCandidates.candidates
-      : [];
-    const safeCandidates = candidates
-      .map((candidate) => ({
-        employeeId: String(candidate?.employeeId || ""),
-        displayName: safeText(candidate?.displayName || "").slice(0, 80)
-      }))
-      .filter((candidate) => isUuid(candidate.employeeId) && candidate.displayName);
+    const safeCandidates = await fetchApproverCandidates(state.draftApplicationId);
     if (!safeCandidates.length) {
       resetApproverCandidates("選択できる承認者がいません");
       return;
@@ -221,6 +215,57 @@ async function loadApproverCandidates() {
     clearHubSessionOnAuthStatus(error);
     resetApproverCandidates("承認者候補を確認できませんでした");
   }
+}
+
+async function loadExistingDraftApproverCandidates() {
+  const applicationId = state.selectedApplicationId;
+  if (!isSelectedDraft(applicationId) || !elements.existingDraftApproverSelect) return;
+  if (!prepareHubSessionAuth()) {
+    setText(elements.existingDraftApproverStatus, "NOV HUBから開き直してください");
+    return;
+  }
+  elements.loadExistingDraftApproverButton.disabled = true;
+  elements.existingDraftApproverSelect.disabled = true;
+  elements.existingDraftApproverSelect.replaceChildren(createOption("", "承認者候補を確認しています…"));
+  setText(elements.existingDraftApproverStatus, "承認者候補を確認しています。");
+  try {
+    const safeCandidates = await fetchApproverCandidates(applicationId);
+    if (state.selectedApplicationId !== applicationId) return;
+    if (!safeCandidates.length) {
+      elements.existingDraftApproverSelect.replaceChildren(createOption("", "選択できる承認者がいません"));
+      setText(elements.existingDraftApproverStatus, "現在選択できる承認者はいません。");
+      elements.loadExistingDraftApproverButton.disabled = false;
+      return;
+    }
+    elements.existingDraftApproverSelect.replaceChildren(
+      createOption("", "承認者を選択してください"),
+      ...safeCandidates.map((candidate) => createOption(candidate.employeeId, candidate.displayName))
+    );
+    elements.existingDraftApproverSelect.disabled = false;
+    setText(elements.existingDraftApproverStatus, "承認者候補を確認しました。申請送信はまだ無効です。");
+    setText(elements.loadExistingDraftApproverButton, "確認済み");
+  } catch (error) {
+    clearHubSessionOnAuthStatus(error);
+    if (state.selectedApplicationId !== applicationId) return;
+    elements.existingDraftApproverSelect.replaceChildren(createOption("", "承認者候補を確認できませんでした"));
+    setText(elements.existingDraftApproverStatus, "承認者候補を確認できませんでした。");
+    elements.loadExistingDraftApproverButton.disabled = false;
+  }
+}
+
+async function fetchApproverCandidates(applicationId) {
+  const response = sanitizeDecisionValue(await callApiAction("decisionListApproverCandidates", {
+    applicationId
+  }));
+  const candidates = Array.isArray(response?.approverCandidates?.candidates)
+    ? response.approverCandidates.candidates
+    : [];
+  return candidates
+    .map((candidate) => ({
+      employeeId: String(candidate?.employeeId || ""),
+      displayName: safeText(candidate?.displayName || "").slice(0, 80)
+    }))
+    .filter((candidate) => isUuid(candidate.employeeId) && candidate.displayName);
 }
 
 function resetApproverCandidates(label = "下書き保存後に選択できます") {
@@ -284,6 +329,7 @@ async function loadApplications() {
     const applications = normalizeApplicationList(safeResponse);
     state.applications = applications;
     state.selectedApplicationId = "";
+    updateExistingDraftApproverControl("");
     renderApplications(applications);
     renderSummary(applications);
     renderEmptyDetail();
@@ -302,6 +348,7 @@ async function selectApplication(applicationId) {
     return;
   }
   state.selectedApplicationId = applicationId;
+  updateExistingDraftApproverControl(applicationId);
   renderApplications(state.applications);
   renderDetailLoading();
   renderCommentsLoading();
@@ -316,6 +363,27 @@ async function selectApplication(applicationId) {
     clearHubSessionOnAuthStatus(error);
     renderSafeError(error, { keepList: true });
   }
+}
+
+function updateExistingDraftApproverControl(applicationId) {
+  const selectedDraft = isSelectedDraft(applicationId);
+  if (elements.existingDraftApproverPanel) {
+    elements.existingDraftApproverPanel.hidden = !selectedDraft;
+  }
+  if (!elements.existingDraftApproverSelect || !elements.loadExistingDraftApproverButton) return;
+  elements.existingDraftApproverSelect.replaceChildren(createOption("", "候補はまだ読み込まれていません"));
+  elements.existingDraftApproverSelect.disabled = true;
+  elements.loadExistingDraftApproverButton.disabled = !selectedDraft;
+  setText(elements.loadExistingDraftApproverButton, "承認者候補を確認");
+  setText(elements.existingDraftApproverStatus, selectedDraft
+    ? "既存の下書きを変更せず、承認者候補だけを確認します。"
+    : "下書きを選択すると確認できます。");
+}
+
+function isSelectedDraft(applicationId) {
+  if (!isUuid(applicationId)) return false;
+  const application = state.applications.find((item) => item.applicationId === applicationId);
+  return String(application?.status || "").toLowerCase() === "draft";
 }
 
 function setDisabledNotice() {

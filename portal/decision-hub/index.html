@@ -513,6 +513,21 @@
           <div id="detail-panel" class="detail-grid">
             <div class="empty-state">申請を選択すると、表示許可済みの項目だけを表示します。</div>
           </div>
+          <div id="existing-draft-approver-panel" hidden>
+            <h3>承認者候補</h3>
+            <div class="form-grid">
+              <label class="form-field">
+                <span>承認者</span>
+                <select id="existing-draft-approver-select" disabled>
+                  <option value="">候補はまだ読み込まれていません</option>
+                </select>
+              </label>
+            </div>
+            <div class="actions">
+              <button id="load-existing-draft-approver-button" type="button" disabled>承認者候補を確認</button>
+              <span id="existing-draft-approver-status" class="muted">下書きを選択すると確認できます。</span>
+            </div>
+          </div>
         </section>
 
         <section id="comments-section" class="panel" aria-labelledby="comments-title">
@@ -523,6 +538,6 @@
         </section>
       </main>
     </div>
-    <script type="module" src="./app.js?v=46797681f11d"></script>
+    <script type="module" src="./app.js?v=bd340b212416"></script>
   </body>
 </html>

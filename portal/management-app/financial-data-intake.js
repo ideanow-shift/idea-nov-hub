@@ -793,6 +793,30 @@ export function buildFinancialProductionUseStatus(result) {
   };
 }
 
+export function buildFinancialOperationalUseChecklist(result) {
+  const pkg = buildFinancialSubmissionPackage(result);
+  const status = buildFinancialProductionUseStatus(result);
+  const mappingHandoff = buildFinancialMappingAccountingHandoff(result);
+  const localReview = status.localReviewAvailable ? "READY" : "WAITING_FOR_LOCAL_SOURCE";
+  const mappingReturn = mappingHandoff.category === "ACCOUNTING_RETURN_RECEIVED_LOCAL_ONLY"
+    ? "LOCAL_EVIDENCE_RECEIVED"
+    : mappingHandoff.category === "ACCOUNTING_RETURN_REQUIRED" ? "ACCOUNTING_RETURN_REQUIRED" : "WAITING_FOR_MAPPING_CANDIDATE";
+  return {
+    schemaVersion: "management-financial-operational-use-checklist-v1",
+    category: status.localReviewAvailable ? "LOCAL_OPERATIONS_AVAILABLE_PRODUCTION_DISABLED" : "LOCAL_OPERATIONS_NOT_READY",
+    items: [
+      { key: "LOCAL_PREVIEW", label: "法人管理・店舗営業管理の確認表示", status: localReview, enabled: status.localReviewAvailable },
+      { key: "MISSING_DATA_CSV", label: "不足項目CSVの保存", status: "READY", enabled: true },
+      { key: "ACCOUNTING_MAPPING_RETURN", label: "経理返却CSVのローカル検証", status: mappingReturn, enabled: mappingHandoff.category === "ACCOUNTING_RETURN_REQUIRED" || mappingHandoff.category === "ACCOUNTING_RETURN_RECEIVED_LOCAL_ONLY" },
+      { key: "PRODUCTION_IMPORT", label: "本番投入・承認・再計算", status: "DISABLED_PENDING_CONTRACT", enabled: false },
+    ],
+    nextActionCategory: pkg.nextAction.category,
+    productionImportEnabled: false,
+    mutationCount: 0,
+    uploadCount: 0,
+  };
+}
+
 export function buildFinancialAccountingRequestMessage(result) {
   const pkg = buildFinancialSubmissionPackage(result);
   const checklist = Array.isArray(pkg.nextAction?.checklist) ? pkg.nextAction.checklist : [];
@@ -1345,6 +1369,27 @@ function productionUseStatusPanel(doc, status) {
   return panel;
 }
 
+function operationalUseChecklistPanel(doc, checklist) {
+  const panel = el(doc, "div", "financial-operational-use");
+  panel.dataset.financialOperationalUse = checklist.category;
+  const listNode = el(doc, "ul", "financial-operational-use-list");
+  listNode.append(...checklist.items.map((item) => {
+    const row = el(doc, "li", "");
+    row.dataset.financialOperationalUseItem = item.status;
+    row.append(
+      el(doc, "strong", "", item.label),
+      el(doc, "span", "", item.enabled ? item.status : "disabled")
+    );
+    return row;
+  }));
+  panel.append(
+    el(doc, "strong", "", "経理待ちの間に使える範囲"),
+    el(doc, "p", "", "確認表示とCSV作成・返却検証だけを有効にし、本番投入系の操作は止めています。"),
+    listNode
+  );
+  return panel;
+}
+
 function submissionPackageHeading(doc, pkg, label) {
   const heading = el(doc, "div", "financial-submission-package-heading");
   const text = el(doc, "div");
@@ -1641,6 +1686,7 @@ function setSubmissionPackage(container, result) {
   const impact = buildFinancialAccountingRequestImpact(result);
   const reflection = buildFinancialReflectionSummary(result);
   const productionUseStatus = buildFinancialProductionUseStatus(result);
+  const operationalUse = buildFinancialOperationalUseChecklist(result);
   const roadmap = buildFinancialSubmissionRoadmap(result);
   const textFile = buildFinancialAccountingRequestText(result);
   const balanceReviewFile = buildFinancialBalanceReviewCsv(result);
@@ -1656,6 +1702,7 @@ function setSubmissionPackage(container, result) {
     submissionPackageHeading(doc, pkg, label),
     financialReflectionSummary(doc, reflection),
     productionUseStatusPanel(doc, productionUseStatus),
+    operationalUseChecklistPanel(doc, operationalUse),
     submissionRoadmap(doc, roadmap),
     submissionPackageGrid(doc, pkg),
     submissionNextAction(doc, pkg.nextAction),

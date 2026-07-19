@@ -17,6 +17,7 @@ import {
   buildFinancialMappingReviewRows,
   buildFinancialMappingReviewSummary,
   buildFinancialMappingAccountingHandoff,
+  buildFinancialOperationalUseChecklist,
   buildFinancialProductionUseStatus,
   buildFinancialReflectionSummary,
   buildFinancialSubmissionPackage,
@@ -535,6 +536,34 @@ test("production use status separates local review from production import", () =
   assert.doesNotMatch(JSON.stringify(status), /digest|employeeId|sessionToken|Authorization|raw|amount|name/i);
 });
 
+test("operational use checklist exposes only local actions while accounting data is pending", () => {
+  const result = {
+    statement: "PL",
+    status: "PL_LOCAL_VALIDATED_PENDING_MAPPING",
+    sheetCount: 104,
+    missingByAccount: { "地代家賃": 104, "販売管理費合計": 104 },
+    mappingCandidatesByAccount: {
+      "地代家賃": { sourceAccount: "賃借料", sheetCount: 104 },
+      "販売管理費合計": { sourceAccount: "販売管理費計", sheetCount: 104 },
+    },
+  };
+  const checklist = buildFinancialOperationalUseChecklist(result);
+  assert.equal(checklist.schemaVersion, "management-financial-operational-use-checklist-v1");
+  assert.equal(checklist.category, "LOCAL_OPERATIONS_AVAILABLE_PRODUCTION_DISABLED");
+  assert.equal(checklist.items.length, 4);
+  assert.deepEqual(checklist.items.map((item) => [item.key, item.enabled]), [
+    ["LOCAL_PREVIEW", true],
+    ["MISSING_DATA_CSV", true],
+    ["ACCOUNTING_MAPPING_RETURN", true],
+    ["PRODUCTION_IMPORT", false],
+  ]);
+  assert.equal(checklist.items.find((item) => item.key === "PRODUCTION_IMPORT").status, "DISABLED_PENDING_CONTRACT");
+  assert.equal(checklist.productionImportEnabled, false);
+  assert.equal(checklist.mutationCount, 0);
+  assert.equal(checklist.uploadCount, 0);
+  assert.doesNotMatch(JSON.stringify(checklist), /digest|employeeId|sessionToken|Authorization|raw|amount|name/i);
+});
+
 test("mapping review fails closed for unknown or incomplete candidates", () => {
   const unknown = {
     statement: "PL",
@@ -891,7 +920,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=a3f5312bc0bf1ce5/);
+  assert.match(app, /financial-data-intake\.js\?v=fdcc49eb1b62b48f/);
   assert.match(financialIntake, /financial-supplemental-csv\.js\?v=7cacd43781126450/);
   assert.match(financialIntake, /vendor\/pako_inflate\.min\.js\?v=2ca27e9a8dae569c/);
   assert.match(financialIntake, /renderFinancialSupplementalCsv\(supplemental/);
@@ -1038,6 +1067,10 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(financialIntake, /financial-production-use-status/);
   assert.match(financialIntake, /LOCAL_REVIEW_AVAILABLE_PRODUCTION_DISABLED/);
   assert.match(financialIntake, /productionImport", "approval", "recalculation", "externalSend"/);
+  assert.match(financialIntake, /management-financial-operational-use-checklist-v1/);
+  assert.match(financialIntake, /financial-operational-use/);
+  assert.match(financialIntake, /経理待ちの間に使える範囲/);
+  assert.match(financialIntake, /ACCOUNTING_MAPPING_RETURN/);
   assert.match(financialIntake, /submissionPackageHeading/);
   assert.match(financialIntake, /accountingRequestSection/);
   assert.match(financialIntake, /dataset\.financialReflection/);
@@ -1049,6 +1082,8 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(styles, /\.financial-production-use-status/);
   assert.match(styles, /data-financial-production-use-status="LOCAL_REVIEW_AVAILABLE_PRODUCTION_DISABLED"/);
   assert.match(styles, /\.financial-production-use-blockers/);
+  assert.match(styles, /\.financial-operational-use/);
+  assert.match(styles, /\.financial-operational-use-list/);
   assert.match(financialIntake, /management-financial-accounting-request-message-v1/);
   assert.match(financialIntake, /management-financial-accounting-request-impact-v1/);
   assert.match(financialIntake, /経理へ確認する内容/);

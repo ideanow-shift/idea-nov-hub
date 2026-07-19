@@ -18,6 +18,7 @@ import {
   buildFinancialMappingReviewSummary,
   buildFinancialMappingAccountingHandoff,
   buildFinancialMappingLocalEvidenceSummary,
+  buildFinancialLocalActionGuide,
   buildFinancialOperationalUseChecklist,
   buildFinancialProductionUseStatus,
   buildFinancialReflectionSummary,
@@ -565,6 +566,34 @@ test("operational use checklist exposes only local actions while accounting data
   assert.doesNotMatch(JSON.stringify(checklist), /digest|employeeId|sessionToken|Authorization|raw|amount|name/i);
 });
 
+test("local action guide gives the next visible step without enabling production", () => {
+  const pendingBs = {
+    statement: "PL",
+    status: "PL_LOCAL_VALIDATED_PENDING_MAPPING",
+    sheetCount: 104,
+    missingByAccount: { "地代家賃": 104, "販売管理費合計": 104 },
+    mappingCandidatesByAccount: {
+      "地代家賃": { sourceAccount: "賃借料", sheetCount: 104 },
+      "販売管理費合計": { sourceAccount: "販売管理費計", sheetCount: 104 },
+    },
+    localMappingConfirmation: { status: "MAPPING_CONFIRMATION_LOCAL_EVIDENCE", confirmedCount: 2, rejectedCount: 0 },
+  };
+  const bsGuide = buildFinancialLocalActionGuide(pendingBs);
+  assert.equal(bsGuide.schemaVersion, "management-financial-local-action-guide-v1");
+  assert.equal(bsGuide.category, "GUIDE_SELECT_BS_FILES");
+  assert.equal(bsGuide.primaryAction, "B/Sファイル選択");
+  assert.equal(bsGuide.productionImportEnabled, false);
+  assert.deepEqual(bsGuide.disabledActions, ["productionImport", "approval", "recalculation", "externalSend"]);
+  assert.doesNotMatch(JSON.stringify(bsGuide), /digest|employeeId|sessionToken|Authorization|raw|amount|name/i);
+
+  const rejected = buildFinancialLocalActionGuide({
+    ...pendingBs,
+    localMappingConfirmation: { status: "MAPPING_CONFIRMATION_REJECTED", confirmedCount: 1, rejectedCount: 1 },
+  });
+  assert.equal(rejected.category, "GUIDE_REPAIR_MAPPING");
+  assert.equal(rejected.productionImportEnabled, false);
+});
+
 test("mapping review fails closed for unknown or incomplete candidates", () => {
   const unknown = {
     statement: "PL",
@@ -940,7 +969,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=f2f8d7dad5599e89/);
+  assert.match(app, /financial-data-intake\.js\?v=ca2877dd2967cc5b/);
   assert.match(financialIntake, /financial-supplemental-csv\.js\?v=7cacd43781126450/);
   assert.match(financialIntake, /vendor\/pako_inflate\.min\.js\?v=2ca27e9a8dae569c/);
   assert.match(financialIntake, /renderFinancialSupplementalCsv\(supplemental/);
@@ -1091,6 +1120,10 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(financialIntake, /financial-operational-use/);
   assert.match(financialIntake, /経理待ちの間に使える範囲/);
   assert.match(financialIntake, /ACCOUNTING_MAPPING_RETURN/);
+  assert.match(financialIntake, /management-financial-local-action-guide-v1/);
+  assert.match(financialIntake, /financial-local-action-guide/);
+  assert.match(financialIntake, /GUIDE_SELECT_BS_FILES/);
+  assert.match(financialIntake, /GUIDE_PRODUCTION_EVIDENCE_REQUIRED/);
   assert.match(financialIntake, /management-financial-mapping-local-evidence-summary-v1/);
   assert.match(financialIntake, /financial-mapping-evidence-summary/);
   assert.match(financialIntake, /MAPPING_LOCAL_EVIDENCE_READY/);
@@ -1107,6 +1140,8 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(styles, /\.financial-production-use-blockers/);
   assert.match(styles, /\.financial-operational-use/);
   assert.match(styles, /\.financial-operational-use-list/);
+  assert.match(styles, /\.financial-local-action-guide/);
+  assert.match(styles, /GUIDE_REPAIR_MAPPING/);
   assert.match(styles, /\.financial-mapping-evidence-summary/);
   assert.match(styles, /MAPPING_LOCAL_EVIDENCE_REJECTED/);
   assert.match(financialIntake, /management-financial-accounting-request-message-v1/);

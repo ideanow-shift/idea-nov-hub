@@ -274,6 +274,14 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-operational-use-list strong, .financial-operational-use-list span { display: block; overflow-wrap: anywhere; }
 .financial-operational-use-list strong { color: var(--text-primary); font-size: 12px; font-weight: 500; }
 .financial-operational-use-list span { margin-top: 3px; color: var(--text-secondary); font-size: 11px; }
+.financial-local-action-guide { margin-top: 10px; padding: 10px; background: #fffaf0; border: 1px solid var(--border-light); border-left: 3px solid var(--color-bassa); border-radius: var(--radius-md); }
+.financial-local-action-guide[data-financial-local-action-guide="GUIDE_PRODUCTION_EVIDENCE_REQUIRED"] { border-left-color: var(--color-success); background: #f8fff9; }
+.financial-local-action-guide[data-financial-local-action-guide="GUIDE_REPAIR_MAPPING"] { border-left-color: var(--color-alert); }
+.financial-local-action-guide span, .financial-local-action-guide strong, .financial-local-action-guide p { display: block; overflow-wrap: anywhere; }
+.financial-local-action-guide span { color: var(--text-secondary); font-size: 11px; }
+.financial-local-action-guide strong { margin-top: 3px; color: var(--text-primary); font-size: 14px; font-weight: 500; }
+.financial-local-action-guide p { margin: 5px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
+.financial-local-action-guide-boundary { color: var(--text-muted); }
 .financial-submission-package-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
 .financial-submission-package-item { min-width: 0; padding: 9px 10px; background: #fff; border: 1px solid var(--border-light); border-radius: var(--radius-md); }
 .financial-submission-package-item strong, .financial-submission-package-item span { display: block; color: var(--text-primary); font-size: 12px; overflow-wrap: anywhere; }

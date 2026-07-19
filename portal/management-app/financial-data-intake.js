@@ -817,6 +817,84 @@ export function buildFinancialOperationalUseChecklist(result) {
   };
 }
 
+export function buildFinancialLocalActionGuide(result) {
+  const pkg = buildFinancialSubmissionPackage(result);
+  const mappingEvidence = buildFinancialMappingLocalEvidenceSummary(result);
+  const localStatus = buildFinancialProductionUseStatus(result);
+  if (mappingEvidence.category === "MAPPING_LOCAL_EVIDENCE_REJECTED") {
+    return {
+      schemaVersion: "management-financial-local-action-guide-v1",
+      nextActionCategory: "NEXT_CONFIRM_PL_MAPPING",
+      category: "GUIDE_REPAIR_MAPPING",
+      title: "mappingを再確認",
+      detail: "否認された科目候補があります。経理へ候補を再確認し、返却CSVをもう一度ローカル検証してください。",
+      primaryAction: "候補再確認",
+      localReviewAvailable: localStatus.localReviewAvailable,
+      productionImportEnabled: false,
+      mutationCount: 0,
+      uploadCount: 0,
+      disabledActions: ["productionImport", "approval", "recalculation", "externalSend"],
+    };
+  }
+  const guides = {
+    NEXT_PROVIDE_PL_ANNUAL_REPORT: {
+      category: "GUIDE_SELECT_PL_FILES",
+      title: "P/L Excelを選択",
+      detail: "弥生会計の部門別年間推移Excelを選ぶと、法人管理と店舗営業管理へ確認用プレビューを反映します。",
+      primaryAction: "P/Lファイル選択",
+    },
+    NEXT_CONFIRM_PL_MAPPING: {
+      category: "GUIDE_ACCOUNTING_MAPPING_RETURN",
+      title: "経理回答CSVを確認",
+      detail: "経理確認用CSVを保存し、返却されたCSVをこの画面で検証します。本番投入はまだ無効です。",
+      primaryAction: "CSV保存・返却検証",
+    },
+    NEXT_PROVIDE_BALANCE_SHEET: {
+      category: "GUIDE_SELECT_BS_FILES",
+      title: "B/S Excelを選択",
+      detail: "貸借対照表Excelを選ぶと、資産=負債+純資産の一致と法人/部門候補の一意性をローカル確認します。",
+      primaryAction: "B/Sファイル選択",
+    },
+    NEXT_VALIDATE_STORE_SALES: {
+      category: "GUIDE_VALIDATE_STORE_SALES",
+      title: "店舗売上CSVを確認",
+      detail: "SalonAnswer店舗CSVをローカル検証し、店舗営業管理の売上データ状態を確認します。",
+      primaryAction: "店舗CSV検証",
+    },
+    NEXT_PROVIDE_SUPPLEMENTAL_SOURCES: {
+      category: "GUIDE_VALIDATE_SUPPLEMENTAL",
+      title: "補助CSVを確認",
+      detail: "水道光熱費・クーポン・予算・FCルールを固定テンプレートで確認します。",
+      primaryAction: "補助CSV検証",
+    },
+    NEXT_PRODUCTION_EVIDENCE: {
+      category: "GUIDE_PRODUCTION_EVIDENCE_REQUIRED",
+      title: "本番証跡待ち",
+      detail: "ローカル確認は完了済みです。本番catalog証跡とprovider runtime identityが揃うまで投入は無効です。",
+      primaryAction: "本番証跡確認",
+    },
+  };
+  const selected = guides[pkg.nextAction.category] || {
+    category: "GUIDE_WAITING_FOR_LOCAL_SOURCE",
+    title: "ローカル資料待ち",
+    detail: "P/L・B/S・補助資料のいずれかを選ぶと、画面確認だけを開始できます。",
+    primaryAction: "資料選択",
+  };
+  return {
+    schemaVersion: "management-financial-local-action-guide-v1",
+    nextActionCategory: pkg.nextAction.category,
+    category: selected.category,
+    title: selected.title,
+    detail: selected.detail,
+    primaryAction: selected.primaryAction,
+    localReviewAvailable: localStatus.localReviewAvailable,
+    productionImportEnabled: false,
+    mutationCount: 0,
+    uploadCount: 0,
+    disabledActions: ["productionImport", "approval", "recalculation", "externalSend"],
+  };
+}
+
 export function buildFinancialAccountingRequestMessage(result) {
   const pkg = buildFinancialSubmissionPackage(result);
   const checklist = Array.isArray(pkg.nextAction?.checklist) ? pkg.nextAction.checklist : [];
@@ -1411,6 +1489,18 @@ function operationalUseChecklistPanel(doc, checklist) {
   return panel;
 }
 
+function localActionGuidePanel(doc, guide) {
+  const panel = el(doc, "div", "financial-local-action-guide");
+  panel.dataset.financialLocalActionGuide = guide.category;
+  panel.append(
+    el(doc, "span", "", guide.primaryAction),
+    el(doc, "strong", "", guide.title),
+    el(doc, "p", "", guide.detail),
+    el(doc, "p", "financial-local-action-guide-boundary", "本番DB保存・本番投入・承認・外部送信はdisabledです。")
+  );
+  return panel;
+}
+
 function submissionPackageHeading(doc, pkg, label) {
   const heading = el(doc, "div", "financial-submission-package-heading");
   const text = el(doc, "div");
@@ -1722,6 +1812,7 @@ function setSubmissionPackage(container, result) {
   const reflection = buildFinancialReflectionSummary(result);
   const productionUseStatus = buildFinancialProductionUseStatus(result);
   const operationalUse = buildFinancialOperationalUseChecklist(result);
+  const actionGuide = buildFinancialLocalActionGuide(result);
   const roadmap = buildFinancialSubmissionRoadmap(result);
   const textFile = buildFinancialAccountingRequestText(result);
   const balanceReviewFile = buildFinancialBalanceReviewCsv(result);
@@ -1738,6 +1829,7 @@ function setSubmissionPackage(container, result) {
     financialReflectionSummary(doc, reflection),
     productionUseStatusPanel(doc, productionUseStatus),
     operationalUseChecklistPanel(doc, operationalUse),
+    localActionGuidePanel(doc, actionGuide),
     submissionRoadmap(doc, roadmap),
     submissionPackageGrid(doc, pkg),
     submissionNextAction(doc, pkg.nextAction),

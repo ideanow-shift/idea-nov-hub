@@ -227,6 +227,7 @@ h3 { margin: 0; font-size: 1rem; }
 .operator-panel[hidden] { display: none; }
 .operator-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
 .operator-heading h3 { margin-top: 4px; }
+.operator-confirmation-note { margin: 10px 0 0; color: var(--muted); font-size: 0.82rem; }
 .operator-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
 .operator-grid label { display: grid; gap: 6px; min-width: 0; color: var(--muted); font-size: 0.82rem; font-weight: 700; }
 .operator-grid input, .operator-grid select, .operator-grid button { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 6px; padding: 9px 11px; font: inherit; }

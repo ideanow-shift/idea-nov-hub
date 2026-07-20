@@ -3,7 +3,7 @@ import {
   buildDashboardSummaryViewModel,
   createDashboardSummaryExact1Executor
 } from "./exact1.mjs";
-import { initializeTalentOperatorPanel } from "./operator.mjs";
+import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260720-write-enable-candidate-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;

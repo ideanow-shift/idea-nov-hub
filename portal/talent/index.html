@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css">
-  <script src="./runtime-config.candidate.js?v=20260720-readonly-v2-write-candidate-1"></script>
-  <script type="module" src="./app.mjs?v=20260720-readonly-v2-write-candidate-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260720-write-enable-candidate-1">
+  <script src="./runtime-config.candidate.js?v=20260720-write-enable-candidate-1"></script>
+  <script type="module" src="./app.mjs?v=20260720-write-enable-candidate-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -73,6 +73,7 @@
 
         <section id="talent-operator-panel" class="operator-panel" aria-labelledby="operator-title" hidden>
           <div class="operator-heading"><div><p class="section-kicker">FUNNEL EVENT ENTRY</p><h3 id="operator-title">採用イベント入力</h3></div><p id="operator-status" class="status" role="status" aria-live="polite">未送信</p></div>
+          <p class="operator-confirmation-note">記録・失効は内容確認後に1回だけ送信されます。</p>
           <div class="operator-grid">
             <label>応募番号<input id="operator-application-no" autocomplete="off" inputmode="text" placeholder="NT-YYYY-NNNNNN"></label>
             <button id="operator-select-application" type="button">既存応募を選択</button>

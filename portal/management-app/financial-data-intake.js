@@ -567,6 +567,24 @@ function hasExactLocalStoreCsvEvidence(result) {
       && Number(file.rowCount) >= 1);
 }
 
+function financialRequirementScreenTarget(key) {
+  if (["PL_ANNUAL_REPORT", "PL_ACCOUNT_MAPPING", "BALANCE_SHEET"].includes(key)) return "法人経営管理";
+  if (["SALES_SUBLEDGER", "UTILITY_SUBLEDGER", "COUPON_USAGE", "BUDGET_PLAN", "FC_RULE"].includes(key)) return "店舗営業管理";
+  return "本番反映";
+}
+
+function financialNextActionScreenTarget(category) {
+  const targets = {
+    NEXT_PROVIDE_BALANCE_SHEET: "法人経営管理",
+    NEXT_CONFIRM_PL_MAPPING: "法人経営管理",
+    NEXT_PROVIDE_PL_ANNUAL_REPORT: "法人経営管理・店舗営業管理",
+    NEXT_VALIDATE_STORE_SALES: "店舗営業管理",
+    NEXT_PROVIDE_SUPPLEMENTAL_SOURCES: "店舗営業管理",
+    NEXT_PRODUCTION_EVIDENCE: "本番反映",
+  };
+  return targets[category] || "確認待ち";
+}
+
 export function buildFinancialCompletionItems(result) {
   const receipt = buildFinancialIntakeReceipt(result);
   const statement = receipt?.statement || "";
@@ -607,7 +625,7 @@ export function buildFinancialCompletionItems(result) {
       status = supplementalReady ? "LOCAL_EVIDENCE_RECEIVED" : requirement.key === "FC_RULE" ? "RULE_REQUIRED" : "SOURCE_REQUIRED";
       if (supplementalReady) detail = "補助資料CSVをローカル検証済み（本番未投入）";
     }
-    return { ...requirement, status, detail };
+    return { ...requirement, screenTarget: financialRequirementScreenTarget(requirement.key), status, detail };
   });
 }
 
@@ -623,24 +641,28 @@ function buildFinancialNextAction(items) {
   const isReady = (key) => readyStatuses.has(byKey.get(key)?.status);
   if (!isReady("BALANCE_SHEET")) return {
     category: "NEXT_PROVIDE_BALANCE_SHEET",
+    screenTarget: financialNextActionScreenTarget("NEXT_PROVIDE_BALANCE_SHEET"),
     label: "次: B/S年間データ",
     detail: "資産=負債+純資産の貸借チェックまでローカル確認します。",
     checklist: ["資産合計", "負債合計", "純資産合計", "12か月列", "対象期・候補一意"],
   };
   if (!isReady("PL_ACCOUNT_MAPPING")) return {
     category: "NEXT_CONFIRM_PL_MAPPING",
+    screenTarget: financialNextActionScreenTarget("NEXT_CONFIRM_PL_MAPPING"),
     label: "次: P/L科目mapping確認",
     detail: "地代家賃・販売管理費合計などの候補を経理回答CSVで確認します。",
     checklist: ["弥生会計科目", "正規科目", "対象シート数", "確認済み/否認"],
   };
   if (!isReady("PL_ANNUAL_REPORT")) return {
     category: "NEXT_PROVIDE_PL_ANNUAL_REPORT",
+    screenTarget: financialNextActionScreenTarget("NEXT_PROVIDE_PL_ANNUAL_REPORT"),
     label: "次: P/L年間推移",
     detail: "弥生Excelの年度別P/Lをローカル検証します。",
     checklist: ["帳票名", "集計期間", "勘定科目", "12か月列"],
   };
   if (!isReady("SALES_SUBLEDGER")) return {
     category: "NEXT_VALIDATE_STORE_SALES",
+    screenTarget: financialNextActionScreenTarget("NEXT_VALIDATE_STORE_SALES"),
     label: "次: 店舗売上CSV",
     detail: "SalonAnswer店舗CSVをローカル検証し、会計補助残高との照合待ちに進めます。",
     checklist: ["月次売上CSV", "日次売上CSV", "予約CSV"],
@@ -648,12 +670,14 @@ function buildFinancialNextAction(items) {
   const supplementalPending = ["UTILITY_SUBLEDGER", "COUPON_USAGE", "BUDGET_PLAN", "FC_RULE"].filter((key) => !isReady(key));
   if (supplementalPending.length) return {
     category: "NEXT_PROVIDE_SUPPLEMENTAL_SOURCES",
+    screenTarget: financialNextActionScreenTarget("NEXT_PROVIDE_SUPPLEMENTAL_SOURCES"),
     label: "次: 補助資料CSV",
     detail: "水道光熱費・クーポン・予算・FCルールを固定テンプレートで確認します。",
     checklist: supplementalPending,
   };
   return {
     category: "NEXT_PRODUCTION_EVIDENCE",
+    screenTarget: financialNextActionScreenTarget("NEXT_PRODUCTION_EVIDENCE"),
     label: "次: 本番証跡",
     detail: "ローカル確認済みです。本番catalog証跡とprovider identityが揃うまで投入は無効です。",
     checklist: ["production catalog evidence", "provider runtime identity", "staging/import contract"],
@@ -932,6 +956,7 @@ export function buildFinancialAccountingRequestMessage(result) {
     "経営管理システムのローカル検証で、次の資料または確認が必要です。",
     `次の対応: ${pkg.nextAction.label}`,
     `確認内容: ${pkg.nextAction.detail}`,
+    `反映先画面: ${pkg.nextAction.screenTarget || financialNextActionScreenTarget(pkg.nextAction.category)}`,
     `必要項目: ${checklist.length ? checklist.join(" / ") : "本番証跡確認"}`,
     "この依頼は確認用です。本番投入・DB保存・外部送信はまだ行いません。",
   ];
@@ -962,6 +987,7 @@ export function buildFinancialAccountingRequestImpact(result) {
   return {
     schemaVersion: "management-financial-accounting-request-impact-v1",
     category: pkg.nextAction.category,
+    screenTarget: financialNextActionScreenTarget(pkg.nextAction.category),
     targetLabels: impactByCategory[pkg.nextAction.category] || ["確認待ち"],
     packageReadyCount: pkg.readyCount,
     packageTotalCount: pkg.totalCount,
@@ -993,10 +1019,11 @@ export function buildFinancialAccountingRequestText(result) {
 export function buildFinancialCompletionRequestCsv(result) {
   const rows = buildFinancialCompletionItems(result).filter((item) => !["LOCAL_VALIDATED", "LOCAL_EVIDENCE_RECEIVED"].includes(item.status));
   if (!rows.length) return null;
-  const header = ["資料区分", "資料名", "現在状態", "依頼内容", "提出形式", "集計粒度", "必須項目", "検証条件"];
+  const header = ["資料区分", "資料名", "反映先画面", "現在状態", "依頼内容", "提出形式", "集計粒度", "必須項目", "検証条件"];
   const csvRows = rows.map((item) => [
     item.key,
     item.label,
+    item.screenTarget,
     COMPLETION_STATUS_LABELS[item.status] || "確認待ち",
     item.detail,
     item.format,

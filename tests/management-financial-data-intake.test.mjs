@@ -217,8 +217,9 @@ test("financial completion checklist stays fail-closed before file selection", (
   const exportFile = buildFinancialCompletionRequestCsv(null);
   assert.equal(exportFile.fileName, "management-financial-missing-data-request.csv");
   assert.equal(exportFile.rowCount, 8);
-  assert.match(exportFile.csv, /^\uFEFF"資料区分","資料名","現在状態","依頼内容","提出形式","集計粒度","必須項目","検証条件"/u);
-  assert.match(exportFile.csv, /"SALES_SUBLEDGER","売上高の補助残高一覧表","資料待ち"/u);
+  assert.match(exportFile.csv, /^\uFEFF"資料区分","資料名","反映先画面","現在状態","依頼内容","提出形式","集計粒度","必須項目","検証条件"/u);
+  assert.match(exportFile.csv, /"PL_ACCOUNT_MAPPING","P\/L勘定科目対応表","法人経営管理","資料待ち"/u);
+  assert.match(exportFile.csv, /"SALES_SUBLEDGER","売上高の補助残高一覧表","店舗営業管理","資料待ち"/u);
   assert.match(exportFile.csv, /"対象月×法人×店舗\/部門×勘定科目"/u);
   assert.match(exportFile.csv, /"資産=負債\+純資産・対象期\/候補一意"/u);
   assert.match(exportFile.csv, /"FC合計\/共通\/個店を排他的に分類"/u);
@@ -371,6 +372,7 @@ test("financial submission package summarizes local readiness without enabling i
   assert.equal(requestMessage.schemaVersion, "management-financial-accounting-request-message-v1");
   assert.equal(requestMessage.category, "ACCOUNTING_SOURCE_REQUEST");
   assert.match(requestMessage.subject, /B\/S年間データ/u);
+  assert.match(requestMessage.bodyLines.join("\n"), /反映先画面: 法人経営管理/u);
   assert.match(requestMessage.bodyLines.join("\n"), /資産合計 \/ 負債合計 \/ 純資産合計/u);
   assert.equal(requestMessage.externalSendEnabled, false);
   assert.equal(requestMessage.productionImportEnabled, false);
@@ -387,6 +389,7 @@ test("financial submission package summarizes local readiness without enabling i
   });
   assert.equal(requestImpact.schemaVersion, "management-financial-accounting-request-impact-v1");
   assert.equal(requestImpact.category, "NEXT_PROVIDE_BALANCE_SHEET");
+  assert.equal(requestImpact.screenTarget, "法人経営管理");
   assert.deepEqual(requestImpact.targetLabels, ["B/S", "貸借一致チェック", "法人/部門候補の一意性"]);
   assert.equal(requestImpact.productionImportEnabled, false);
   assert.equal(requestImpact.mutationCount, 0);
@@ -979,7 +982,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=42dab7e5bc3845cd/);
+  assert.match(app, /financial-data-intake\.js\?v=ad9570aea40cc406/);
   assert.match(app, /ローカル反映 \/ 残/);
   assert.match(app, /確認表示だけです。本番投入はdisabledです。/);
   assert.match(app, /店舗候補P\/Lの確認表示だけです。本番投入はdisabledです。/);
@@ -1087,6 +1090,10 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(app, /次に必要/);
   assert.match(app, /経理確認:/);
   assert.match(app, /production catalog証跡 \/ provider runtime identity/);
+  assert.match(financialIntake, /screenTarget/);
+  assert.match(financialIntake, /反映先画面/);
+  assert.match(financialIntake, /法人経営管理/);
+  assert.match(financialIntake, /店舗営業管理/);
   assert.match(styles, /\.financial-intake-panel/);
   assert.match(styles, /\.financial-intake-preview/);
   assert.match(styles, /\.financial-completion-list/);

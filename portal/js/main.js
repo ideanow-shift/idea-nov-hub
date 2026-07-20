@@ -10,6 +10,7 @@ import {
   shouldEnableNovNaviDashboard
 } from "./nov-navi-dashboard.js?v=thanks-coin-display-label-20260717-1";
 import {
+  NOV_HUB_SESSION_CONTRACT,
   clearNovHubSession,
   restoreNovHubSession,
   setNovHubSession,
@@ -29,6 +30,7 @@ const state = {
   selectedCategory: "all"
 };
 let managementDataopsDiagnostic = null;
+let talentSessionFreshnessAttempt = null;
 state.hubSession = restoreNovHubSession();
 setNovHubSessionMemoryProvider(() => state.hubSession);
 const MANAGEMENT_HUB_CONTEXT_KEY = "ideaNov.management.hubContext";
@@ -643,6 +645,34 @@ async function ensureManagementWebHubSession() {
   return session;
 }
 
+async function ensureTalentHubSessionFreshness() {
+  if (talentSessionFreshnessAttempt) return talentSessionFreshnessAttempt;
+
+  const attempt = (async () => {
+    const current = state.hubSession || null;
+    if (current && String(current.audience || "") !== NOV_HUB_SESSION_CONTRACT.audience) {
+      throw new Error("TALENT_HUB_SESSION_UNAVAILABLE");
+    }
+    if (setNovHubSession(current, { persist: false })) {
+      return current;
+    }
+
+    const refreshed = await fetchPortalData();
+    const session = refreshed?.hubSession || null;
+    if (!setNovHubSession(session)) {
+      throw new Error("TALENT_HUB_SESSION_UNAVAILABLE");
+    }
+    state.hubSession = session;
+    return session;
+  })();
+  talentSessionFreshnessAttempt = attempt;
+  try {
+    return await attempt;
+  } finally {
+    if (talentSessionFreshnessAttempt === attempt) talentSessionFreshnessAttempt = null;
+  }
+}
+
 function isShiftApp(app) {
   const appId = String(app?.appId || "").trim().toLowerCase().replaceAll("_", "-");
   return SHIFT_APP_IDS.has(appId);
@@ -834,11 +864,11 @@ async function openApp(app) {
 
     if (isTalentApp(app)) {
       try {
+        await ensureTalentHubSessionFreshness();
         await writeAccessLog("openApp", { appId: app.appId, appName: app.appName, result: "success" });
         window.location.assign(launchUrl);
-      } catch (error) {
-        showToast("人財投資管理システムを開けませんでした。再ログインしてお試しください。");
-        console.error(error);
+      } catch {
+        showToast("HUB接続を確認できません。再ログインしてお試しください。");
       }
       return;
     }

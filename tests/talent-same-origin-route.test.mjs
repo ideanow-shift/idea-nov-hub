@@ -457,3 +457,184 @@ test("HUB launcher canonicalizes Talent route even when backend URL is stale", (
     new RegExp(`hub_context|window\\.open|${["post", "Message"].join("")}|${["open", "er"].join("")}`)
   );
 });
+
+test("Talent launch validates the canonical HUB session before same-origin navigation", () => {
+  const mainSource = readFileSync(new URL("../portal/js/main.js", import.meta.url), "utf8");
+  const freshnessSource = mainSource.match(/async function ensureTalentHubSessionFreshness\(\) \{[\s\S]*?\n\}/)?.[0] || "";
+  const talentLaunchSource = mainSource.slice(
+    mainSource.indexOf("if (isTalentApp(app))"),
+    mainSource.indexOf('const target = window.open("about:blank", "_blank")')
+  );
+
+  assert.match(freshnessSource, /setNovHubSession\(current, \{ persist: false \}\)/);
+  assert.match(freshnessSource, /current\.audience \|\| ""/);
+  assert.match(freshnessSource, /NOV_HUB_SESSION_CONTRACT\.audience/);
+  assert.match(freshnessSource, /const refreshed = await fetchPortalData\(\)/);
+  assert.match(freshnessSource, /const session = refreshed\?\.hubSession \|\| null/);
+  assert.match(freshnessSource, /if \(!setNovHubSession\(session\)\)/);
+  assert.match(talentLaunchSource, /await ensureTalentHubSessionFreshness\(\)/);
+  assert.match(talentLaunchSource, /window\.location\.assign\(launchUrl\)/);
+  assert.ok(
+    talentLaunchSource.indexOf("ensureTalentHubSessionFreshness") < talentLaunchSource.indexOf("window.location.assign"),
+    "navigation must occur only after canonical session validation"
+  );
+});
+
+test("Talent session freshness uses one fail-closed refresh attempt without forbidden fallback", () => {
+  const mainSource = readFileSync(new URL("../portal/js/main.js", import.meta.url), "utf8");
+  const freshnessSource = mainSource.match(/async function ensureTalentHubSessionFreshness\(\) \{[\s\S]*?\n\}/)?.[0] || "";
+  const talentLaunchSource = mainSource.slice(
+    mainSource.indexOf("if (isTalentApp(app))"),
+    mainSource.indexOf('const target = window.open("about:blank", "_blank")')
+  );
+
+  assert.match(freshnessSource, /if \(talentSessionFreshnessAttempt\) return talentSessionFreshnessAttempt/);
+  assert.match(freshnessSource, /finally \{/);
+  assert.match(freshnessSource, /talentSessionFreshnessAttempt === attempt/);
+  assert.match(freshnessSource, /talentSessionFreshnessAttempt = null/);
+  assert.equal((freshnessSource.match(/fetchPortalData\(\)/g) || []).length, 1);
+  assert.doesNotMatch(freshnessSource, /localStorage|sessionStorage|hub_context|postMessage|opener|setTimeout|retry/i);
+  assert.doesNotMatch(talentLaunchSource, /console\.(?:log|info|warn|error)/);
+  assert.match(talentLaunchSource, /HUB接続を確認できません/);
+});
+
+test("Talent freshness repair preserves startup request0 and click exact1 contracts", () => {
+  const mainSource = readFileSync(new URL("../portal/js/main.js", import.meta.url), "utf8");
+  const appSource = readFileSync(new URL("../portal/talent/app.mjs", import.meta.url), "utf8");
+  const exact1Source = readFileSync(new URL("../portal/talent/exact1.mjs", import.meta.url), "utf8");
+
+  assert.doesNotMatch(mainSource, /hub_context[^\n]*TALENT_APP_URL|TALENT_APP_URL[^\n]*hub_context/);
+  assert.match(appSource, /const formalHelperAvailable = typeof globalObject\?\.NovHubSession\?\.getSessionToken === "function"/);
+  assert.match(appSource, /button\.addEventListener\("click", run\)/);
+  assert.match(exact1Source, /method: "GET"/);
+  assert.match(exact1Source, /requestCount: 1/);
+  assert.match(exact1Source, /retryCount: 0/);
+});
+
+function createTalentFreshnessFixture({ current = null, refreshed = null, refreshError = null } = {}) {
+  const mainSource = readFileSync(new URL("../portal/js/main.js", import.meta.url), "utf8");
+  const functionSource = mainSource.match(/async function ensureTalentHubSessionFreshness\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(functionSource);
+  const calls = { refresh: 0, install: 0 };
+  let nextRefreshed = refreshed;
+  let nextRefreshError = refreshError;
+  const canonicalInstall = (session) => {
+    calls.install += 1;
+    return Boolean(
+      session?.sessionToken
+      && session?.audience === "nov_hub"
+      && Number.isFinite(Date.parse(session?.expiresAt))
+      && Date.parse(session.expiresAt) > Date.now()
+    );
+  };
+  const build = new Function("fixture", `
+    const state = { hubSession: fixture.current };
+    const NOV_HUB_SESSION_CONTRACT = { audience: "nov_hub" };
+    const setNovHubSession = fixture.canonicalInstall;
+    const fetchPortalData = fixture.fetchPortalData;
+    let talentSessionFreshnessAttempt = null;
+    ${functionSource}
+    return { ensure: ensureTalentHubSessionFreshness, state };
+  `);
+  const runtime = build({
+    current,
+    canonicalInstall,
+    async fetchPortalData() {
+      calls.refresh += 1;
+      if (nextRefreshError) throw nextRefreshError;
+      return { hubSession: nextRefreshed };
+    }
+  });
+  return {
+    ...runtime,
+    calls,
+    setRefreshResult(value) {
+      nextRefreshed = value;
+      nextRefreshError = null;
+    }
+  };
+}
+
+const freshSession = () => ({
+  sessionToken: "fixture-session-value-never-recorded",
+  audience: "nov_hub",
+  expiresAt: new Date(Date.now() + 60_000).toISOString()
+});
+
+test("fresh Talent session navigability needs refresh request0", async () => {
+  const session = freshSession();
+  const fixture = createTalentFreshnessFixture({ current: session });
+  assert.equal(await fixture.ensure(), session);
+  assert.equal(fixture.calls.refresh, 0);
+});
+
+test("expired and missing Talent sessions refresh exact1", async () => {
+  const expired = { ...freshSession(), expiresAt: new Date(Date.now() - 60_000).toISOString() };
+  for (const current of [expired, null]) {
+    const replacement = freshSession();
+    const fixture = createTalentFreshnessFixture({ current, refreshed: replacement });
+    assert.equal(await fixture.ensure(), replacement);
+    assert.equal(fixture.calls.refresh, 1);
+    assert.equal(fixture.state.hubSession, replacement);
+  }
+});
+
+test("wrong audience and malformed or expired refreshed sessions fail closed", async () => {
+  const wrongAudience = createTalentFreshnessFixture({ current: { ...freshSession(), audience: "other" } });
+  await assert.rejects(wrongAudience.ensure(), /TALENT_HUB_SESSION_UNAVAILABLE/);
+  assert.equal(wrongAudience.calls.refresh, 0);
+
+  for (const refreshed of [{ audience: "nov_hub" }, { ...freshSession(), expiresAt: new Date(0).toISOString() }]) {
+    const fixture = createTalentFreshnessFixture({ current: null, refreshed });
+    await assert.rejects(fixture.ensure(), /TALENT_HUB_SESSION_UNAVAILABLE/);
+    assert.equal(fixture.calls.refresh, 1);
+  }
+});
+
+test("one failed launch does not retry, while a later operator launch may recover", async () => {
+  const failed = createTalentFreshnessFixture({ current: null, refreshError: new Error("fixed-fixture-failure") });
+  await assert.rejects(failed.ensure());
+  assert.equal(failed.calls.refresh, 1);
+
+  failed.setRefreshResult(freshSession());
+  await failed.ensure();
+  assert.equal(failed.calls.refresh, 2);
+});
+
+test("concurrent calls share one in-flight refresh", async () => {
+  const fixture = createTalentFreshnessFixture({ current: null, refreshed: freshSession() });
+  const [first, second] = await Promise.all([fixture.ensure(), fixture.ensure()]);
+  assert.equal(first, second);
+  assert.equal(fixture.calls.refresh, 1);
+});
+
+test("a later expiry is revalidated and refreshed exact1", async () => {
+  const initial = freshSession();
+  const replacement = freshSession();
+  const fixture = createTalentFreshnessFixture({ current: initial, refreshed: replacement });
+  assert.equal(await fixture.ensure(), initial);
+  assert.equal(fixture.calls.refresh, 0);
+
+  fixture.state.hubSession = { ...initial, expiresAt: new Date(Date.now() - 60_000).toISOString() };
+  assert.equal(await fixture.ensure(), replacement);
+  assert.equal(fixture.calls.refresh, 1);
+
+  assert.equal(await fixture.ensure(), replacement);
+  assert.equal(fixture.calls.refresh, 1);
+});
+
+test("pageshow or BFCache restoration cannot mark a stale session connected", () => {
+  const appSource = readFileSync(new URL("../portal/talent/app.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(appSource, /addEventListener\?\.\("pageshow"[^\n]*setStatus/);
+  assert.match(appSource, /state === "ready" \? "HUB接続済み"/);
+  assert.match(appSource, /setStatus\(documentObject, "ready", "集計を表示しました"\)/);
+});
+
+test("portal entry point uses the content-addressed Talent freshness main.js identity", () => {
+  const portalIndex = readFileSync(new URL("../portal/index.html", import.meta.url), "utf8");
+  assert.match(
+    portalIndex,
+    /\.\/js\/main\.js\?v=0e672ef9c36c346349cfcba856eec3899b0fca1600b483f44d406a84df7f85e2/
+  );
+  assert.doesNotMatch(portalIndex, /hub-talent-route-20260719-1/);
+});

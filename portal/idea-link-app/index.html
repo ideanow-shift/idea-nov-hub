@@ -1057,6 +1057,7 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="./thanks-coin-analytics.css?v=20260722-2">
 </head>
 <body>
   <header>
@@ -1260,6 +1261,7 @@
             <button type="button" data-admin-section-target="lineworks">店舗通知</button>
             <button type="button" data-admin-section-target="images">画像</button>
             <button type="button" data-admin-section-target="health">分析</button>
+            <button type="button" data-admin-section-target="analytics">称賛集計</button>
             <button type="button" data-admin-section-target="system">状態</button>
           </div>
           <div class="admin-section active" data-admin-section="summary">
@@ -1316,6 +1318,23 @@
             <div class="notice">店舗集計の前期間との違いです。良否や個人を評価するものではありません。</div>
             <div id="organization-health-observation" class="org-observation-grid" aria-live="polite"></div>
             <div class="notice">対話のきっかけとして利用し、自動的な人事判断には使用しません。</div>
+          </div>
+          <div class="admin-section" data-admin-section="analytics">
+            <h3>サンクスコイン分析</h3>
+            <div class="notice">個人評価やランキングではなく、組織全体の集計です。少人数組織は表示しません。</div>
+            <div class="tc-analytics-controls">
+              <label>
+                対象期間
+                <select id="analytics-period">
+                  <option value="CURRENT_MONTH">今月</option>
+                  <option value="PREVIOUS_MONTH">前月</option>
+                  <option value="CURRENT_FISCAL_YEAR">今期</option>
+                  <option value="ROLLING_12_MONTHS">直近12か月</option>
+                </select>
+              </label>
+              <button class="primary" id="analytics-load-once" type="button">集計を表示</button>
+            </div>
+            <div id="thanks-coin-analytics" aria-live="polite"><div class="notice">表示する場合は期間を選び、ボタンを1回押してください。</div></div>
           </div>
           <div class="admin-section" data-admin-section="system">
             <h3>運用診断</h3>
@@ -1379,8 +1398,9 @@
       readHubEmployeeContext,
       readHubEmployeeContextFromUrl
     } from "../js/hub-context.js?v=idea-link-module-sync-20260712-1";
-    import { callApiAction } from "../js/api.js?v=idea-link-module-sync-20260712-1";
+    import { callApiAction, callThanksCoinAnalytics } from "../js/api.js?v=thanks-coin-analytics-20260722-2";
     import { renderOrganizationHealthObservationResponse } from "./organization-health-observation.js?v=20260718-1";
+    import { buildThanksCoinAnalyticsViewModel, renderThanksCoinAnalytics } from "./thanks-coin-analytics-view.js?v=20260722-2";
     import {
       initializeIdeaLinkHandoff,
       restoreIdeaLinkSession,
@@ -1415,6 +1435,9 @@
     const gate52PreviewResult = document.querySelector("#gate52-preview-result");
     const imageSummary = document.querySelector("#image-summary");
     const organizationHealthObservation = document.querySelector("#organization-health-observation");
+    const analyticsPeriod = document.querySelector("#analytics-period");
+    const analyticsLoadOnce = document.querySelector("#analytics-load-once");
+    const thanksCoinAnalytics = document.querySelector("#thanks-coin-analytics");
     const bottomNav = document.querySelector(".bottom-nav");
     const adminNav = document.querySelector("#admin-nav");
     const storeFilter = document.querySelector("#store-filter");
@@ -1440,6 +1463,7 @@
     let myPageLoaded = false;
     let adminLoaded = false;
     let organizationHealthObservationLoaded = false;
+    let analyticsRequestCount = 0;
     let recipientOptionsById = new Map();
     let ideaLinkAppSession = null;
     const IDEA_LINK_GATE52_REVIEW_ENABLED = false;
@@ -1982,6 +2006,28 @@
       }
     }
 
+    async function loadThanksCoinAnalyticsOnce() {
+      if (analyticsRequestCount >= 1) return;
+      analyticsRequestCount++;
+      analyticsLoadOnce.disabled = true;
+      analyticsLoadOnce.textContent = "確認中";
+      thanksCoinAnalytics.innerHTML = renderThanksCoinAnalytics(
+        buildThanksCoinAnalyticsViewModel({ category: "LOADING", data: null })
+      );
+      try {
+        prepareIdeaLinkApiAuth();
+        const envelope = await callThanksCoinAnalytics(analyticsPeriod.value);
+        thanksCoinAnalytics.innerHTML = renderThanksCoinAnalytics(buildThanksCoinAnalyticsViewModel(envelope));
+      } catch (_error) {
+        thanksCoinAnalytics.innerHTML = renderThanksCoinAnalytics({
+          state: "ERROR",
+          message: "分析結果を取得できませんでした。"
+        });
+      } finally {
+        analyticsLoadOnce.textContent = "確認済み";
+      }
+    }
+
     function renderStoreOptions(stores, context) {
       const preferredStoreId = text(context.primaryStoreId || context.storeId || context.store_id);
       const options = [
@@ -2179,6 +2225,7 @@
     adminSectionButtons.forEach((button) => {
       button.addEventListener("click", () => setAdminSection(button.dataset.adminSectionTarget || "summary"));
     });
+    analyticsLoadOnce.addEventListener("click", loadThanksCoinAnalyticsOnce, { once: true });
 
     submitButton.addEventListener("click", async () => {
       if (submitting) return;

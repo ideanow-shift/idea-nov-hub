@@ -1,6 +1,13 @@
 import { PORTAL_CONFIG } from "./firebase-config.js?v=shift-session-contract-20260712-1";
 import { authIsConfigured, getIdToken, signInWithGoogle, signOutUser } from "./auth.js";
 import { callApiAction, clearApiAuth, createIdeaLinkHandoff, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js?v=idea-link-handoff-launch-20260712-6";
+import {
+  IDEA_LINK_LAUNCH_CATEGORIES,
+  buildValidatedIdeaLinkLaunchUrl,
+  captureIdeaLinkAccessLog,
+  createIdeaLinkLaunchError,
+  getIdeaLinkLaunchFailureCategory
+} from "./idea-link-launch-contract.js?v=idea-link-handoff-prelaunch-20260722-1";
 import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
 import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js?v=thanks-coin-display-label-20260717-1";
 import { clearHubEmployeeContext, encodeHubContextForUrl, getHubEmployeeContextSummary, saveHubEmployeeContext } from "./hub-context.js";
@@ -590,14 +597,64 @@ async function buildIdeaLinkLaunchUrl() {
   if (state.authType === "pin" && !hubSessionToken) {
     throw new Error("HUB session is missing.");
   }
-  const response = await createIdeaLinkHandoff({ hubSessionToken, targetView: "home" });
-  const handoffCode = String(response?.handoff?.handoffCode || "").trim();
-  if (!/^[A-Za-z0-9_-]{40,60}$/.test(handoffCode)) {
-    throw new Error("IDEA LINK handoff could not be created.");
+  let response;
+  try {
+    response = await createIdeaLinkHandoff({ hubSessionToken, targetView: "home" });
+  } catch (_error) {
+    throw createIdeaLinkLaunchError(IDEA_LINK_LAUNCH_CATEGORIES.HANDOFF_CREATE_FAILURE);
   }
-  const url = new URL(IDEA_LINK_APP_URL, window.location.href);
-  url.searchParams.set("handoff_code", handoffCode);
-  return url.toString();
+  return buildValidatedIdeaLinkLaunchUrl(response, window.location.href, IDEA_LINK_APP_URL);
+}
+
+async function launchIdeaLinkApp(app) {
+  const target = window.open("about:blank", "_blank");
+  let targetNavigated = false;
+  try {
+    if (target) {
+      try {
+        target.opener = null;
+      } catch (_error) {
+        throw createIdeaLinkLaunchError(IDEA_LINK_LAUNCH_CATEGORIES.POPUP_PREPARATION_FAILURE);
+      }
+    }
+
+    const resolvedLaunchUrl = await buildIdeaLinkLaunchUrl();
+    const accessLogResult = captureIdeaLinkAccessLog(writeAccessLog, {
+      appId: app.appId,
+      appName: app.appName,
+      result: "success"
+    });
+
+    try {
+      if (target) {
+        target.location = resolvedLaunchUrl;
+        targetNavigated = true;
+      } else {
+        window.location.assign(resolvedLaunchUrl);
+      }
+    } catch (_error) {
+      throw createIdeaLinkLaunchError(IDEA_LINK_LAUNCH_CATEGORIES.NAVIGATION_FAILURE);
+    }
+
+    const accessLogCategory = target
+      ? await accessLogResult
+      : IDEA_LINK_LAUNCH_CATEGORIES.READY;
+    return {
+      ok: true,
+      category: IDEA_LINK_LAUNCH_CATEGORIES.READY,
+      accessLogCategory
+    };
+  } catch (error) {
+    if (target && !targetNavigated) {
+      try { target.close(); } catch (_error) { /* fail closed without raw output */ }
+    }
+    showToast("アプリを開けませんでした。時間をおいて再度お試しください。");
+    return {
+      ok: false,
+      category: getIdeaLinkLaunchFailureCategory(error),
+      accessLogCategory: null
+    };
+  }
 }
 
 function isManagementPlatformApp(app) {
@@ -873,12 +930,17 @@ async function openApp(app) {
       return;
     }
 
+    if (isIdeaLinkApp(app)) {
+      await launchIdeaLinkApp(app);
+      return;
+    }
+
     const target = window.open("about:blank", "_blank");
     if (target) target.opener = null;
     try {
       await prepareManagementPlatformLaunch(app, employeeContext);
       await writeAccessLog("openApp", { appId: app.appId, appName: app.appName, result: "success" });
-      const resolvedLaunchUrl = isIdeaLinkApp(app) ? await buildIdeaLinkLaunchUrl() : launchUrl;
+      const resolvedLaunchUrl = launchUrl;
       if (target) target.location = resolvedLaunchUrl;
       else window.location.assign(resolvedLaunchUrl);
     } catch (error) {

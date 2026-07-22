@@ -1,4 +1,4 @@
-import { clearIdeaLinkSessionAuth, exchangeIdeaLinkHandoff, setIdeaLinkSessionAuth } from "./api.js?v=idea-link-module-sync-20260712-1";
+import { clearIdeaLinkSessionAuth, exchangeIdeaLinkHandoff, setIdeaLinkSessionAuth } from "./api.js?v=idea-link-shared-auth-20260722-1";
 
 export const IDEA_LINK_SESSION_STORAGE_KEY = "ideaNov.ideaLink.appSession.v1";
 export const IDEA_LINK_HANDOFF_QUERY_KEY = "handoff_code";

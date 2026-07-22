@@ -1470,7 +1470,6 @@
     let analyticsRequestCount = 0;
     let recipientOptionsById = new Map();
     let ideaLinkAppSession = null;
-    let hubReturnScheduled = false;
     const IDEA_LINK_GATE52_REVIEW_ENABLED = false;
     const IDEA_LINK_GATE52_REVIEW_ID = "idea-link-gate52-preview-20260713-1";
     const IDEA_LINK_GATE52_EXECUTION_COUNT_MAX = 1;
@@ -1569,12 +1568,6 @@
       return result;
     }
 
-    function scheduleReturnToHub() {
-      if (hubReturnScheduled) return;
-      hubReturnScheduled = true;
-      window.setTimeout(() => returnToHub(), 900);
-    }
-
     function prepareIdeaLinkApiAuth() {
       ideaLinkAppSession = restoreIdeaLinkSession();
       if (hasIdeaLinkAppSession()) return;
@@ -1622,7 +1615,6 @@
         }));
       }
       setNotice("error", "セッションを確認できません。NOV HUBへ戻ります。");
-      scheduleReturnToHub();
       return true;
     }
 
@@ -2341,7 +2333,6 @@
       connectionStatus.style.color = "var(--amber)";
       profile.innerHTML = "<div class=\"notice\">NOV HUBへ戻って、もう一度サンクスコインを開いてください。</div>";
       lockForm("HUBログイン待ち");
-      scheduleReturnToHub();
     } else if (!hasAppSession) {
       connectionStatus.textContent = "HUB未確認";
       connectionStatus.style.background = "var(--amber-soft)";

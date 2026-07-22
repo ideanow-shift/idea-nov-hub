@@ -1402,10 +1402,14 @@
     import { renderOrganizationHealthObservationResponse } from "./organization-health-observation.js?v=20260718-1";
     import { buildThanksCoinAnalyticsViewModel, renderThanksCoinAnalytics } from "./thanks-coin-analytics-view.js?v=20260722-2";
     import {
+      IDEA_LINK_HANDOFF_RUNTIME_CATEGORIES,
+      IDEA_LINK_HANDOFF_RUNTIME_STAGES,
+      createIdeaLinkHandoffRuntimeResult,
       initializeIdeaLinkHandoff,
       restoreIdeaLinkSession,
-      returnToHub
-    } from "../js/idea-link-handoff-candidate.js?v=idea-link-module-sync-20260712-1";
+      returnToHub,
+      validateIdeaLinkHandoffRuntimeResult
+    } from "../js/idea-link-handoff-candidate.js?v=idea-link-fixed-stage-20260722-1";
 
     const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
     const IDEA_LINK_VIEW_MAP = {
@@ -1466,6 +1470,7 @@
     let analyticsRequestCount = 0;
     let recipientOptionsById = new Map();
     let ideaLinkAppSession = null;
+    let hubReturnScheduled = false;
     const IDEA_LINK_GATE52_REVIEW_ENABLED = false;
     const IDEA_LINK_GATE52_REVIEW_ID = "idea-link-gate52-preview-20260713-1";
     const IDEA_LINK_GATE52_EXECUTION_COUNT_MAX = 1;
@@ -1556,6 +1561,20 @@
       return ideaLinkAppSession?.audience === "idea_link";
     }
 
+    function publishIdeaLinkHandoffRuntimeResult(value) {
+      const result = validateIdeaLinkHandoffRuntimeResult(value);
+      document.documentElement.dataset.ideaLinkHandoffCategory = result.category;
+      document.documentElement.dataset.ideaLinkHandoffStage = result.failedStage;
+      document.documentElement.dataset.ideaLinkHandoffReady = result.ok ? "true" : "false";
+      return result;
+    }
+
+    function scheduleReturnToHub() {
+      if (hubReturnScheduled) return;
+      hubReturnScheduled = true;
+      window.setTimeout(() => returnToHub(), 900);
+    }
+
     function prepareIdeaLinkApiAuth() {
       ideaLinkAppSession = restoreIdeaLinkSession();
       if (hasIdeaLinkAppSession()) return;
@@ -1565,7 +1584,10 @@
     }
 
     function mapHandoffTargetView(value) {
-      return IDEA_LINK_VIEW_MAP[String(value || "home").trim()] || "home";
+      const targetView = String(value || "").trim();
+      return Object.prototype.hasOwnProperty.call(IDEA_LINK_VIEW_MAP, targetView)
+        ? IDEA_LINK_VIEW_MAP[targetView]
+        : null;
     }
 
     function renderAppSessionProfile() {
@@ -1585,13 +1607,22 @@
       `;
     }
 
-    function handleIdeaLinkApiError(error) {
+    function handleIdeaLinkApiError(error, { startup = false } = {}) {
       const code = String(error?.code || "");
       if (!["ACCESS_DENIED", "TOKEN_MISSING", "TOKEN_VERIFICATION_FAILED"].includes(code)) {
         return false;
       }
+      if (startup) {
+        publishIdeaLinkHandoffRuntimeResult(createIdeaLinkHandoffRuntimeResult({
+          category: IDEA_LINK_HANDOFF_RUNTIME_CATEGORIES.STARTUP_AUTH_FAILURE,
+          failedStage: IDEA_LINK_HANDOFF_RUNTIME_STAGES.STARTUP_AUTH,
+          session: ideaLinkAppSession,
+          targetPath: ideaLinkAppSession?.targetPath || "",
+          targetView: ideaLinkAppSession?.targetView || ""
+        }));
+      }
       setNotice("error", "セッションを確認できません。NOV HUBへ戻ります。");
-      window.setTimeout(() => returnToHub(), 900);
+      scheduleReturnToHub();
       return true;
     }
 
@@ -1718,7 +1749,7 @@
       activateImageFallbacks(myFeed);
     }
 
-    async function loadMyPage() {
+    async function loadMyPage({ startup = false } = {}) {
       myFeed.innerHTML = "<div class=\"notice\">マイページを読み込み中です。</div>";
       try {
         prepareIdeaLinkApiAuth();
@@ -1726,7 +1757,7 @@
         renderMyPage(response.myPage || {});
         myPageLoaded = true;
       } catch (error) {
-        if (handleIdeaLinkApiError(error)) return;
+        if (handleIdeaLinkApiError(error, { startup })) return;
         myFeed.innerHTML = `<div class="notice">マイページを読み込めませんでした。${text(error?.message)}</div>`;
       }
     }
@@ -2040,16 +2071,16 @@
       }
     }
 
-    async function loadStoreOptions(context) {
+    async function loadStoreOptions(context, { startup = false } = {}) {
       retryStoreLoad.hidden = true;
       retryStoreLoad.disabled = true;
       try {
         prepareIdeaLinkApiAuth();
         const response = await callApiAction("ideaLinkStoreOptions", {});
         renderStoreOptions(response.result?.stores || [], context);
-        if (storeFilter.value) await loadRecipientsForStore();
+        if (storeFilter.value) await loadRecipientsForStore({ startup });
       } catch (error) {
-        if (handleIdeaLinkApiError(error)) return;
+        if (handleIdeaLinkApiError(error, { startup })) return;
         storeFilter.innerHTML = "<option value=\"\">店舗を読み込めませんでした</option>";
         retryStoreLoad.hidden = false;
       } finally {
@@ -2094,7 +2125,7 @@
       activateImageFallbacks(receiverPreview);
     }
 
-    async function loadRecipientsForStore() {
+    async function loadRecipientsForStore({ startup = false } = {}) {
       const storeId = text(storeFilter.value);
       retryRecipientLoad.hidden = true;
       retryRecipientLoad.disabled = true;
@@ -2117,7 +2148,7 @@
         });
         renderRecipientOptions(response.result?.recipients || []);
       } catch (error) {
-        if (handleIdeaLinkApiError(error)) return;
+        if (handleIdeaLinkApiError(error, { startup })) return;
         receiver.innerHTML = "<option value=\"\">送り先を読み込めませんでした</option>";
         receiver.disabled = true;
         retryRecipientLoad.hidden = false;
@@ -2294,26 +2325,23 @@
       }
     });
 
-    let handoffError = null;
-    try {
-      ideaLinkAppSession = await initializeIdeaLinkHandoff(window.location.href);
-    } catch (error) {
-      handoffError = error;
-      ideaLinkAppSession = null;
-    }
+    const handoffRuntimeResult = publishIdeaLinkHandoffRuntimeResult(
+      await initializeIdeaLinkHandoff(window.location.href)
+    );
+    ideaLinkAppSession = handoffRuntimeResult.ok ? handoffRuntimeResult.session : null;
 
     const context = readHubEmployeeContextFromUrl(window.location.href) || readHubEmployeeContext();
     const hasAppSession = hasIdeaLinkAppSession();
     const hasContext = Boolean(context?.id || context?.employeeId || context?.supabaseEmployeeId || context?.email);
     const allowed = hasAppSession;
 
-    if (handoffError) {
+    if (!handoffRuntimeResult.ok) {
       connectionStatus.textContent = "確認不可";
       connectionStatus.style.background = "var(--amber-soft)";
       connectionStatus.style.color = "var(--amber)";
       profile.innerHTML = "<div class=\"notice\">NOV HUBへ戻って、もう一度サンクスコインを開いてください。</div>";
       lockForm("HUBログイン待ち");
-      window.setTimeout(() => returnToHub(), 900);
+      scheduleReturnToHub();
     } else if (!hasAppSession) {
       connectionStatus.textContent = "HUB未確認";
       connectionStatus.style.background = "var(--amber-soft)";
@@ -2346,12 +2374,12 @@
         enableGate52PreviewReviewControl(context);
       }
       unlockForm();
-      loadStoreOptions(context || {});
-      loadMyPage();
+      loadStoreOptions(context || {}, { startup: true });
+      loadMyPage({ startup: true });
       updateCategoryUi();
       setNotice("info", "今日見つけた素敵な行動を、サンクスコインで届けましょう。");
       const initialTargetView = mapHandoffTargetView(ideaLinkAppSession?.targetView);
-      if (initialTargetView !== "home") setView(initialTargetView);
+      if (initialTargetView && initialTargetView !== "home") setView(initialTargetView);
       const url = new URL(window.location.href);
       if (url.searchParams.has(HUB_CONTEXT_QUERY_KEY)) {
         url.searchParams.delete(HUB_CONTEXT_QUERY_KEY);

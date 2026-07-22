@@ -2,12 +2,19 @@ import { PORTAL_CONFIG } from "./firebase-config.js?v=shift-session-contract-202
 import { authIsConfigured, getIdToken, signInWithGoogle, signOutUser } from "./auth.js";
 import { callApiAction, clearApiAuth, createIdeaLinkHandoff, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js?v=idea-link-handoff-launch-20260712-6";
 import {
+  IDEA_LINK_ACCESS_LOG_CATEGORIES,
+  IDEA_LINK_CLEANUP_CATEGORIES,
   IDEA_LINK_LAUNCH_CATEGORIES,
+  IDEA_LINK_LAUNCH_STAGES,
+  IDEA_LINK_POPUP_CATEGORIES,
   buildValidatedIdeaLinkLaunchUrl,
   captureIdeaLinkAccessLog,
   createIdeaLinkLaunchError,
-  getIdeaLinkLaunchFailureCategory
-} from "./idea-link-launch-contract.js?v=idea-link-handoff-prelaunch-20260722-1";
+  createIdeaLinkLaunchResult,
+  getIdeaLinkLaunchFailureCategory,
+  getIdeaLinkLaunchFailureStage,
+  validateIdeaLinkLaunchResult
+} from "./idea-link-launch-contract.js?v=idea-link-handoff-result-20260722-1";
 import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
 import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js?v=thanks-coin-display-label-20260717-1";
 import { clearHubEmployeeContext, encodeHubContextForUrl, getHubEmployeeContextSummary, saveHubEmployeeContext } from "./hub-context.js";
@@ -595,7 +602,7 @@ async function buildIdeaLinkLaunchUrl() {
     ? String(state.hubSession?.sessionToken || "").trim()
     : "";
   if (state.authType === "pin" && !hubSessionToken) {
-    throw new Error("HUB session is missing.");
+    throw createIdeaLinkLaunchError(IDEA_LINK_LAUNCH_CATEGORIES.AUTH_CONTEXT_MISSING);
   }
   let response;
   try {
@@ -606,55 +613,106 @@ async function buildIdeaLinkLaunchUrl() {
   return buildValidatedIdeaLinkLaunchUrl(response, window.location.href, IDEA_LINK_APP_URL);
 }
 
+function cleanupUnnavigatedIdeaLinkPopup(target, targetNavigated) {
+  if (!target || targetNavigated) return IDEA_LINK_CLEANUP_CATEGORIES.NOT_REQUIRED;
+  try {
+    target.close();
+    return IDEA_LINK_CLEANUP_CATEGORIES.POPUP_CLOSED;
+  } catch (_error) {
+    return IDEA_LINK_CLEANUP_CATEGORIES.POPUP_CLEANUP_FAILURE;
+  }
+}
+
 async function launchIdeaLinkApp(app) {
-  const target = window.open("about:blank", "_blank");
+  let target = null;
   let targetNavigated = false;
+  let popupCategory = IDEA_LINK_POPUP_CATEGORIES.NOT_ATTEMPTED;
+  try {
+    target = window.open("about:blank", "_blank");
+    popupCategory = target
+      ? IDEA_LINK_POPUP_CATEGORIES.READY
+      : IDEA_LINK_POPUP_CATEGORIES.SAME_TAB_FALLBACK;
+  } catch (_error) {
+    return createIdeaLinkLaunchResult({
+      category: IDEA_LINK_LAUNCH_CATEGORIES.POPUP_CREATE_FAILURE,
+      failedStage: IDEA_LINK_LAUNCH_STAGES.POPUP_CREATE
+    });
+  }
+
+  if (target) {
+    try {
+      target.opener = null;
+    } catch (_error) {
+      return createIdeaLinkLaunchResult({
+        category: IDEA_LINK_LAUNCH_CATEGORIES.POPUP_PREPARATION_FAILURE,
+        failedStage: IDEA_LINK_LAUNCH_STAGES.POPUP_PREPARATION,
+        popupCategory,
+        cleanupCategory: cleanupUnnavigatedIdeaLinkPopup(target, targetNavigated)
+      });
+    }
+  }
+
+  let resolvedLaunchUrl;
+  try {
+    resolvedLaunchUrl = await buildIdeaLinkLaunchUrl();
+  } catch (error) {
+    const category = getIdeaLinkLaunchFailureCategory(error);
+    return createIdeaLinkLaunchResult({
+      category,
+      failedStage: getIdeaLinkLaunchFailureStage(category),
+      popupCategory,
+      cleanupCategory: cleanupUnnavigatedIdeaLinkPopup(target, targetNavigated)
+    });
+  }
+
+  const accessLogResult = captureIdeaLinkAccessLog(writeAccessLog, {
+    appId: app.appId,
+    appName: app.appName,
+    result: "success"
+  });
+
   try {
     if (target) {
-      try {
-        target.opener = null;
-      } catch (_error) {
-        throw createIdeaLinkLaunchError(IDEA_LINK_LAUNCH_CATEGORIES.POPUP_PREPARATION_FAILURE);
-      }
+      target.location = resolvedLaunchUrl;
+      targetNavigated = true;
+    } else {
+      window.location.assign(resolvedLaunchUrl);
     }
-
-    const resolvedLaunchUrl = await buildIdeaLinkLaunchUrl();
-    const accessLogResult = captureIdeaLinkAccessLog(writeAccessLog, {
-      appId: app.appId,
-      appName: app.appName,
-      result: "success"
+  } catch (_error) {
+    return createIdeaLinkLaunchResult({
+      category: IDEA_LINK_LAUNCH_CATEGORIES.NAVIGATION_FAILURE,
+      failedStage: IDEA_LINK_LAUNCH_STAGES.NAVIGATION,
+      popupCategory,
+      cleanupCategory: cleanupUnnavigatedIdeaLinkPopup(target, targetNavigated),
+      accessLogCategory: IDEA_LINK_ACCESS_LOG_CATEGORIES.PENDING_NONBLOCKING
     });
-
-    try {
-      if (target) {
-        target.location = resolvedLaunchUrl;
-        targetNavigated = true;
-      } else {
-        window.location.assign(resolvedLaunchUrl);
-      }
-    } catch (_error) {
-      throw createIdeaLinkLaunchError(IDEA_LINK_LAUNCH_CATEGORIES.NAVIGATION_FAILURE);
-    }
-
-    const accessLogCategory = target
-      ? await accessLogResult
-      : IDEA_LINK_LAUNCH_CATEGORIES.READY;
-    return {
-      ok: true,
-      category: IDEA_LINK_LAUNCH_CATEGORIES.READY,
-      accessLogCategory
-    };
-  } catch (error) {
-    if (target && !targetNavigated) {
-      try { target.close(); } catch (_error) { /* fail closed without raw output */ }
-    }
-    showToast("アプリを開けませんでした。時間をおいて再度お試しください。");
-    return {
-      ok: false,
-      category: getIdeaLinkLaunchFailureCategory(error),
-      accessLogCategory: null
-    };
   }
+
+  const accessLogCategory = target
+    ? await accessLogResult
+    : IDEA_LINK_ACCESS_LOG_CATEGORIES.PENDING_NONBLOCKING;
+  return createIdeaLinkLaunchResult({
+    ok: true,
+    category: IDEA_LINK_LAUNCH_CATEGORIES.READY,
+    failedStage: IDEA_LINK_LAUNCH_STAGES.NONE,
+    popupCategory,
+    cleanupCategory: IDEA_LINK_CLEANUP_CATEGORIES.NOT_REQUIRED,
+    accessLogCategory
+  });
+}
+
+function presentIdeaLinkLaunchResult(result) {
+  document.documentElement.dataset.ideaLinkLaunchCategory = result.category;
+  document.documentElement.dataset.ideaLinkLaunchStage = result.failedStage;
+  document.documentElement.dataset.ideaLinkAccessLogCategory = result.accessLogCategory;
+  document.documentElement.dataset.ideaLinkPopupCategory = result.popupCategory;
+  document.documentElement.dataset.ideaLinkCleanupCategory = result.cleanupCategory;
+  if (result.ok) return;
+  if (result.category === IDEA_LINK_LAUNCH_CATEGORIES.AUTH_CONTEXT_MISSING) {
+    showToast("HUB接続を確認できません。再ログインしてお試しください。");
+    return;
+  }
+  showToast("IDEA LINKへ接続できませんでした。時間をおいて再度お試しください。");
 }
 
 function isManagementPlatformApp(app) {
@@ -931,8 +989,9 @@ async function openApp(app) {
     }
 
     if (isIdeaLinkApp(app)) {
-      await launchIdeaLinkApp(app);
-      return;
+      const launchResult = validateIdeaLinkLaunchResult(await launchIdeaLinkApp(app));
+      presentIdeaLinkLaunchResult(launchResult);
+      return launchResult;
     }
 
     const target = window.open("about:blank", "_blank");

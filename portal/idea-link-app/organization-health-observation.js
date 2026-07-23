@@ -33,7 +33,7 @@ export function renderOrganizationHealthObservationResponse(target, response) {
     response.aggregateOnly !== true || response.mutation !== false || response.externalSend !== false) throw new Error("OBSERVATION_RESPONSE_CONTRACT_FAILED");
   const result = response.result;
   if (!exactKeys(result, RESULT_KEYS) || result.contract !== "IDEA_LINK_ORGANIZATION_HEALTH_MONITORING_V2_CANDIDATE" ||
-    !Array.isArray(result.stores) || result.stores.length > 40 || !exactKeys(result.safeguards, ["aggregateOnly", "automatedEmploymentDecision", "individualRanking", "maximumPeriods", "minimumCohort", "rawTextIncluded", "turnoverPrediction"]) ||
+    !Array.isArray(result.stores) || result.stores.length > 100 || !exactKeys(result.safeguards, ["aggregateOnly", "automatedEmploymentDecision", "individualRanking", "maximumPeriods", "minimumCohort", "rawTextIncluded", "turnoverPrediction"]) ||
     result.safeguards.aggregateOnly !== true || result.safeguards.minimumCohort < 5 || result.safeguards.maximumPeriods !== 13 ||
     result.safeguards.individualRanking !== false || result.safeguards.turnoverPrediction !== false ||
     result.safeguards.rawTextIncluded !== false || result.safeguards.automatedEmploymentDecision !== false) throw new Error("OBSERVATION_RESPONSE_CONTRACT_FAILED");

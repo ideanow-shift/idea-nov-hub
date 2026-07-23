@@ -5,6 +5,11 @@ const PERIOD_KEYS = ["categoryCount", "concentrationRate", "crossStoreRate", "pa
 const METRICS = ["participationRate", "senderCoverage", "receiverCoverage", "uniquePairCount", "concentrationRate"];
 const LABELS = { participationRate: "参加の広がり", senderCoverage: "投稿する人の広がり", receiverCoverage: "受け取る人の広がり", uniquePairCount: "交流の組合せ", concentrationRate: "交流の集中度" };
 const DIRECTIONS = { INCREASED: "前期間より増加", DECREASED: "前期間より減少", UNCHANGED: "前期間と同じ" };
+const SIGNAL_LABELS = {
+  STABLE: "大きな変化はありません",
+  WATCH: "変化を確認してください",
+  DIALOGUE_RECOMMENDED: "店舗での対話確認を推奨します",
+};
 
 function exactKeys(value, expected) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -15,6 +20,13 @@ function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => 
 function rate(value) { return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1; }
 function count(value) { return Number.isInteger(value) && value >= 0 && value <= 1000000; }
 function direction(previous, current) { return current === previous ? "UNCHANGED" : current > previous ? "INCREASED" : "DECREASED"; }
+function storeSignal(previous, current) {
+  const declines = ["participationRate", "senderCoverage", "receiverCoverage", "uniquePairCount"]
+    .filter((metric) => current[metric] < previous[metric]).length;
+  const concentrationIncrease = current.concentrationRate > previous.concentrationRate ? 1 : 0;
+  const adverseSignals = declines + concentrationIncrease;
+  return adverseSignals >= 3 ? "DIALOGUE_RECOMMENDED" : adverseSignals >= 1 ? "WATCH" : "STABLE";
+}
 
 export function renderOrganizationHealthObservationResponse(target, response) {
   if (!target || !exactKeys(response, RESPONSE_KEYS) || response.ok !== true || response.selectOnly !== true ||
@@ -33,8 +45,9 @@ export function renderOrganizationHealthObservationResponse(target, response) {
     });
     if (periods.length < 2) return `<article class="org-observation-card"><h4>${escapeHtml(store.storeLabel)}</h4><p>比較には2期間分の店舗集計が必要です。</p></article>`;
     const previous = periods.at(-2); const current = periods.at(-1);
+    const signal = storeSignal(previous, current);
     const rows = METRICS.map((metric) => { const value = direction(previous[metric], current[metric]); return `<li><span>${LABELS[metric]}</span><strong>${DIRECTIONS[value]}</strong></li>`; }).join("");
-    return `<article class="org-observation-card"><h4>${escapeHtml(store.storeLabel)}</h4><ul>${rows}</ul></article>`;
+    return `<article class="org-observation-card"><h4>${escapeHtml(store.storeLabel)}</h4><p><strong>${SIGNAL_LABELS[signal]}</strong></p><ul>${rows}</ul><p>個人や離職可能性を判定するものではありません。</p></article>`;
   }).join("");
   target.innerHTML = cards || '<div class="notice">表示できる管轄店舗はありません。</div>';
 }

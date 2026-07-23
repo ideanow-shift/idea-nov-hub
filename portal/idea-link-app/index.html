@@ -656,6 +656,10 @@
     .org-observation-card ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
     .org-observation-card li { display: flex; justify-content: space-between; gap: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
     .org-observation-card strong { flex: 0 0 auto; color: var(--muted); font-size: 13px; }
+    .org-support-signals { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .org-support-signals h5 { margin: 0 0 10px; font-size: 15px; }
+    .org-support-signals p { margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .org-support-signal strong { max-width: 58%; text-align: right; }
 
     .table-wrap {
       overflow-x: auto;
@@ -1399,7 +1403,7 @@
       readHubEmployeeContextFromUrl
     } from "../js/hub-context.js?v=idea-link-module-sync-20260712-1";
     import { callApiAction, callThanksCoinAnalytics } from "../js/api.js?v=idea-link-shared-auth-20260722-1";
-    import { renderOrganizationHealthObservationResponse } from "./organization-health-observation.js?v=20260724-1";
+    import { renderOrganizationHealthObservationResponse } from "./organization-health-observation.js?v=20260724-2";
     import { buildThanksCoinAnalyticsViewModel, renderThanksCoinAnalytics } from "./thanks-coin-analytics-view.js?v=20260722-2";
     import {
       IDEA_LINK_HANDOFF_RUNTIME_CATEGORIES,

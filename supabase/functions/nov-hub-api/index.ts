@@ -5,7 +5,9 @@ import {
   type ReadQuery,
   type ScopeMode,
 } from "./management_readonly_candidate.ts";
+import { createThanksCoinAnalyticsApiAdapter } from "./analytics-api-adapter.ts";
 import { readOrganizationHealthMonitoringCandidate } from "./organization_health_monitoring_candidate.ts";
+import { createHash } from "node:crypto";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -442,6 +444,7 @@ async function handleManagementFromDeployedBaseline(
       selectedMonth: String(payload.selectedMonth || "") || undefined,
       scopeMode: managementScopeMode(payload.scopeMode),
       contractPhase: "phase2-select-only-contract",
+      responseProfile: payload.responseProfile as string | undefined,
     },
   }, deps);
 }
@@ -692,11 +695,19 @@ async function readIdeaLinkMyPage(employee: JsonRecord, payload: JsonRecord) {
   };
 }
 
+async function settleIdeaLinkAdminRead(promise: Promise<JsonRecord[]>) {
+  try {
+    return { available: true, rows: await promise };
+  } catch (_error) {
+    return { available: false, rows: [] as JsonRecord[] };
+  }
+}
+
 async function readIdeaLinkAdminSummary(employee: JsonRecord, payload: JsonRecord) {
   assertIdeaLinkUser(employee);
   if (!isIdeaLinkManager(employee)) throw new PortalError("ACCESS_DENIED", "IDEA LINK manager role is required.", 403);
   const month = getIdeaLinkYearMonth(payload.month);
-  const [posts, stores, employees, channels, queued, monthlyRuns, profileImages] = await Promise.all([
+  const [posts, stores, employees, channelResult, queueResult, monthlyRunResult, profileImageResult] = await Promise.all([
     readRows("idea_link_posts", {
       query: {
         select: "id,sender_id,receiver_id,receiver_store_id,receiver_department_id,category,challenge_flag,status,visibility,created_at",
@@ -719,14 +730,14 @@ async function readIdeaLinkAdminSummary(employee: JsonRecord, payload: JsonRecor
         limit: "2000",
       },
     }),
-    readRows("idea_link_notification_channels", {
+    settleIdeaLinkAdminRead(readRows("idea_link_notification_channels", {
       query: {
-        select: "id,target_scope,target_key,target_type,description,enabled,updated_at",
+        select: "org_unit_type,enabled",
         enabled: "eq.true",
         limit: "200",
       },
-    }),
-    readRows("notifications", {
+    })),
+    settleIdeaLinkAdminRead(readRows("notifications", {
       schema: "os",
       query: {
         select: "id,module_key,entity_type,status,created_at",
@@ -734,20 +745,30 @@ async function readIdeaLinkAdminSummary(employee: JsonRecord, payload: JsonRecor
         status: "eq.queued",
         limit: "200",
       },
-    }),
-    readRows("idea_link_monthly_praise_runs", {
+    })),
+    settleIdeaLinkAdminRead(readRows("idea_link_monthly_praise_runs", {
       query: {
         select: "id,award_type,target_month,approval_status,send_status,invalidated_at,created_at",
         limit: "50",
       },
-    }),
-    readRows("employee_profile_images", {
+    })),
+    settleIdeaLinkAdminRead(readRows("employee_profile_images", {
       query: {
         select: "id,employee_id,is_primary,updated_at",
         limit: "2000",
       },
-    }),
+    })),
   ]);
+  const channels = channelResult.rows;
+  const queued = queueResult.rows;
+  const monthlyRuns = monthlyRunResult.rows;
+  const profileImages = profileImageResult.rows;
+  const availability = {
+    notificationChannels: channelResult.available,
+    notificationQueue: queueResult.available,
+    monthlyPraiseRuns: monthlyRunResult.available,
+    profileImages: profileImageResult.available,
+  };
   const monthPosts = posts.filter((row) => getJstYearMonth(row.created_at) === month);
   const activeStaffByStore = employees.reduce((accumulator: Record<string, number>, row) => {
     const storeId = String(row.store_id || "");
@@ -829,13 +850,9 @@ async function readIdeaLinkAdminSummary(employee: JsonRecord, payload: JsonRecor
     storeStats,
     categoryBreakdown,
     notificationChannels: channels.slice(0, 80).map((row) => ({
-      id: String(row.id || ""),
-      targetScope: String(row.target_scope || ""),
-      targetKey: String(row.target_key || ""),
-      targetType: String(row.target_type || ""),
-      description: String(row.description || ""),
+      targetScope: String(row.org_unit_type || ""),
+      targetType: "channel",
       enabled: row.enabled === true,
-      updatedAt: String(row.updated_at || ""),
     })),
     profileImageSummary: {
       registeredCount: profileImages.length,
@@ -843,12 +860,14 @@ async function readIdeaLinkAdminSummary(employee: JsonRecord, payload: JsonRecor
       activeStaffCount: employees.length,
       missingCount: Math.max(0, employees.length - uniqueStrings(profileImages.map((row) => row.employee_id)).length),
     },
+    availability,
     checks: [
       { label: "投稿DB", status: "OK", detail: `Supabase Primary / ${posts.length}件` },
       { label: "店舗", status: "OK", detail: `受付対象候補 ${stores.length}件` },
-      { label: "LINE WORKS通知先", status: "OK", detail: `有効 ${channels.length}件` },
-      { label: "LINE WORKS Queue", status: "確認", detail: `通常queued ${queuedCategories.line_works_target || 0}件 / 月間MVP ${queuedCategories.monthly_mvp || 0}件` },
-      { label: "月間称賛", status: "preview", detail: `run ${monthlyRuns.length}件 / 実送信停止中` },
+      { label: "LINE WORKS通知先", status: availability.notificationChannels ? "OK" : "確認不可", detail: availability.notificationChannels ? `有効 ${channels.length}件` : "通知先情報を取得できませんでした。" },
+      { label: "LINE WORKS Queue", status: availability.notificationQueue ? "確認" : "確認不可", detail: availability.notificationQueue ? `通常queued ${queuedCategories.line_works_target || 0}件 / 月間MVP ${queuedCategories.monthly_mvp || 0}件` : "Queue情報を取得できませんでした。" },
+      { label: "月間称賛", status: availability.monthlyPraiseRuns ? "preview" : "確認不可", detail: availability.monthlyPraiseRuns ? `run ${monthlyRuns.length}件 / 実送信停止中` : "月間称賛情報を取得できませんでした。" },
+      { label: "スタッフ画像", status: availability.profileImages ? "OK" : "確認不可", detail: availability.profileImages ? `primary ${profileImages.filter((row) => row.is_primary === true).length}件` : "画像登録状況を取得できませんでした。" },
     ],
     source: "nov-hub-api-proxy",
     guards: {
@@ -1050,6 +1069,54 @@ function normalizeIdeaLinkCategory(value: unknown) {
   return category;
 }
 
+const IDEA_LINK_POST_CREATE_ALLOWED_KEYS = Object.freeze([
+  "clientRequestId",
+  "receiverId",
+  "receiverOrgUnitType",
+  "category",
+  "comment",
+  "visibility",
+  "challengeFlag",
+] as const);
+const IDEA_LINK_POST_CREATE_REQUIRED_KEYS = Object.freeze([
+  "clientRequestId",
+  "receiverId",
+  "category",
+  "comment",
+  "visibility",
+  "challengeFlag",
+] as const);
+const IDEA_LINK_REQUEST_ID_CONTROL = /[\u0000-\u001f\u007f]/u;
+
+function normalizeIdeaLinkOpaqueRequestId(value: unknown) {
+  if (typeof value !== "string") return "";
+  const requestId = value.trim();
+  if (!requestId || Array.from(requestId).length > 255 || IDEA_LINK_REQUEST_ID_CONTROL.test(requestId)) return "";
+  return requestId;
+}
+
+function validateIdeaLinkPostCreatePayload(payload: JsonRecord) {
+  const keys = Object.keys(payload);
+  if (
+    keys.some((key) => !IDEA_LINK_POST_CREATE_ALLOWED_KEYS.includes(key as typeof IDEA_LINK_POST_CREATE_ALLOWED_KEYS[number]))
+    || IDEA_LINK_POST_CREATE_REQUIRED_KEYS.some((key) => !Object.hasOwn(payload, key))
+    || !normalizeIdeaLinkOpaqueRequestId(payload.clientRequestId)
+    || typeof payload.receiverId !== "string" || !isUuid(payload.receiverId.trim())
+    || typeof payload.category !== "string"
+    || typeof payload.comment !== "string" || payload.comment.trim().length < 10 || payload.comment.trim().length > 200
+    || (payload.visibility !== "public" && payload.visibility !== "private")
+    || typeof payload.challengeFlag !== "boolean"
+    || (Object.hasOwn(payload, "receiverOrgUnitType")
+      && payload.receiverOrgUnitType !== "store" && payload.receiverOrgUnitType !== "department")
+  ) throw new PortalError("INVALID_REQUEST", "IDEA LINK post request is invalid.", 400);
+  normalizeIdeaLinkCategory(payload.category);
+}
+
+function getIdeaLinkPostCreateBusinessPayload(payload: JsonRecord) {
+  const { authType: _transportAuthType, ...businessPayload } = payload;
+  return businessPayload;
+}
+
 async function resolveIdeaLinkReceiver(payload: JsonRecord) {
   const receiverId = String(payload.receiverId || payload.receiver_id || "").trim();
   if (!isUuid(receiverId)) throw new PortalError("INVALID_REQUEST", "Receiver id is required.", 400);
@@ -1088,10 +1155,10 @@ async function readIdeaLinkPostByRequestId(requestId: string) {
 
 async function createIdeaLinkPost(employee: JsonRecord, payload: JsonRecord) {
   assertIdeaLinkUser(employee);
+  validateIdeaLinkPostCreatePayload(payload);
   const senderId = String(employee.id || employee.coreEmployeeId || employee.supabaseEmployeeId || "").trim();
   if (!isUuid(senderId)) throw new PortalError("INVALID_REQUEST", "Sender id is invalid.", 400);
-  const requestId = String(payload.clientRequestId || payload.requestId || payload.request_id || "").trim();
-  if (!isUuid(requestId)) throw new PortalError("INVALID_REQUEST", "clientRequestId must be a UUID.", 400);
+  const requestId = normalizeIdeaLinkOpaqueRequestId(payload.clientRequestId);
   const existing = await readIdeaLinkPostByRequestId(requestId);
   if (existing) {
     return {
@@ -1107,12 +1174,12 @@ async function createIdeaLinkPost(employee: JsonRecord, payload: JsonRecord) {
   }
 
   const category = normalizeIdeaLinkCategory(payload.category);
-  const comment = String(payload.comment || payload.body || "").trim();
+  const comment = String(payload.comment || "").trim();
   if (comment.length < 10 || comment.length > 200) {
     throw new PortalError("INVALID_REQUEST", "Comment must be 10 to 200 characters.", 400);
   }
   const visibility = normalizeIdeaLinkVisibility(payload.visibility);
-  const challengeFlag = payload.challengeFlag === true || payload.challenge_flag === true;
+  const challengeFlag = payload.challengeFlag === true;
   const receiverInfo = await resolveIdeaLinkReceiver(payload);
   const now = new Date().toISOString();
   const postId = crypto.randomUUID();
@@ -1130,7 +1197,6 @@ async function createIdeaLinkPost(employee: JsonRecord, payload: JsonRecord) {
     comment,
     visibility,
     status: "active",
-    created_at: now,
     updated_at: now,
   };
   const inserted = await supabaseRequest("idea_link_posts", {
@@ -1261,6 +1327,147 @@ async function getIdeaLinkStoreOptions(employee: JsonRecord) {
       browserDirectTableAccess: false,
       browserDirectRpcExecute: false,
     },
+  };
+}
+
+const IDEA_LINK_GATE52_REVIEW_ID = "idea-link-gate52-preview-20260713-1";
+const IDEA_LINK_GATE52_SELECTOR = {
+  fingerprint: "04db4c7c993c",
+  timeBucket: "2026-07-04 18:27",
+  category: "報連相",
+  targetType: "store",
+};
+
+async function previewIdeaLinkGate52SelectedPost(employee: JsonRecord, payload: JsonRecord) {
+  assertIdeaLinkUser(employee);
+  if (!isIdeaLinkManager(employee)) throw new PortalError("ACCESS_DENIED", "IDEA LINK manager role is required.", 403);
+  if (String(payload.gateId || "") !== IDEA_LINK_GATE52_REVIEW_ID) {
+    throw new PortalError("INVALID_REQUEST", "Review gate is not available.", 400);
+  }
+
+  const rows = await readRows("idea_link_posts", {
+    query: {
+      select: "id,status,visibility,receiver_org_unit_type,receiver_store_id,category,created_at",
+      status: "eq.active",
+      visibility: "eq.public",
+      receiver_org_unit_type: "eq.store",
+      category: `eq.${IDEA_LINK_GATE52_SELECTOR.category}`,
+      and: "(created_at.gte.2026-07-04T09:27:00.000Z,created_at.lt.2026-07-04T09:28:00.000Z)",
+      limit: "1000",
+    },
+  });
+  const candidates = rows.filter((row) => {
+    const createdAt = new Date(String(row.created_at || ""));
+    const timeBucket = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Asia/Tokyo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(createdAt);
+    const fingerprint = createHash("md5").update(String(row.id || "")).digest("hex").slice(0, 12);
+    return timeBucket === IDEA_LINK_GATE52_SELECTOR.timeBucket
+      && fingerprint === IDEA_LINK_GATE52_SELECTOR.fingerprint
+      && String(row.category || "") === IDEA_LINK_GATE52_SELECTOR.category
+      && String(row.receiver_org_unit_type || "") === IDEA_LINK_GATE52_SELECTOR.targetType
+      && Boolean(row.receiver_store_id);
+  });
+
+  const candidateCount = candidates.length;
+  if (candidateCount !== 1) {
+    return {
+      candidate_count: candidateCount,
+      eligible: false,
+      active_public: false,
+      store_target_resolved: false,
+      channel_configured: false,
+      existing_notification_count: 0,
+      duplicate: false,
+      expected_insert_max: 0,
+      preview_only: true,
+      mutation: false,
+      send: false,
+    };
+  }
+
+  const post = asRecord(candidates[0]);
+  const postId = String(post.id || "");
+  const roleKeys = normalizeList(employee.roleKeys);
+  const isGlobalAdmin = roleKeys.includes("idea_link.admin");
+  if (!isGlobalAdmin) {
+    const employeeId = String(employee.id || employee.coreEmployeeId || employee.supabaseEmployeeId || "").trim();
+    const assignments = await readRows("employee_store_assignments", {
+      query: {
+        select: "store_id,effective_from,effective_to,is_active",
+        employee_id: `eq.${employeeId}`,
+        is_active: "eq.true",
+        limit: "100",
+      },
+    });
+    const today = new Date().toISOString().slice(0, 10);
+    const inScope = assignments.some((assignment) => {
+      const effectiveFrom = String(assignment.effective_from || "");
+      const effectiveTo = String(assignment.effective_to || "");
+      return String(assignment.store_id || "") === String(post.receiver_store_id || "")
+        && (!effectiveFrom || effectiveFrom <= today)
+        && (!effectiveTo || effectiveTo >= today)
+        && assignment.is_active !== false;
+    });
+    if (!inScope) throw new PortalError("ACCESS_DENIED", "IDEA LINK manager store scope is required.", 403);
+  }
+  const existing = await readRows("notifications", {
+    schema: "os",
+    query: {
+      select: "id",
+      module_key: "eq.idea_link",
+      channel: "eq.line_works",
+      entity_id: `eq.${postId}`,
+      limit: "2",
+    },
+  });
+  const existingNotificationCount = existing.length;
+  const activePublic = String(post.status || "") === "active" && String(post.visibility || "") === "public";
+  const storeTargetResolved = String(post.receiver_org_unit_type || "") === "store" && Boolean(post.receiver_store_id);
+  if (existingNotificationCount > 0) {
+    return {
+      candidate_count: 1,
+      eligible: false,
+      active_public: activePublic,
+      store_target_resolved: storeTargetResolved,
+      channel_configured: false,
+      existing_notification_count: existingNotificationCount,
+      duplicate: true,
+      expected_insert_max: 0,
+      preview_only: true,
+      mutation: false,
+      send: false,
+    };
+  }
+  const channels = await readRows("idea_link_notification_channels", {
+    query: {
+      select: "id,org_unit_type,store_id,enabled",
+      org_unit_type: "eq.store",
+      store_id: `eq.${String(post.receiver_store_id || "")}`,
+      enabled: "eq.true",
+      limit: "2",
+    },
+  });
+  const channelConfigured = channels.length === 1;
+  const eligible = activePublic && storeTargetResolved && channelConfigured;
+  return {
+    candidate_count: 1,
+    eligible,
+    active_public: activePublic,
+    store_target_resolved: storeTargetResolved,
+    channel_configured: channelConfigured,
+    existing_notification_count: existingNotificationCount,
+    duplicate: existingNotificationCount > 0,
+    expected_insert_max: eligible ? 1 : 0,
+    preview_only: true,
+    mutation: false,
+    send: false,
   };
 }
 
@@ -2510,14 +2717,14 @@ function fixedApps(employee: JsonRecord) {
 
 function canViewMasterAdmin(employee: JsonRecord) {
   const roleKeys = normalizeList(employee.roleKeys);
-  return roleKeys.some((role) => ["super_admin", "executive", "department_manager", "backoffice", "accounting", "hr.staff", "hr.admin"].includes(role))
+  return roleKeys.some((role) => ["super_admin", "executive", "department_manager", "backoffice", "accounting"].includes(role))
     || Number(employee.roleLevel || 0) >= 5
     || normalizeEmail(employee.email) === "m.wakita@idea-nov.com";
 }
 
 function canEditMasterAdmin(employee: JsonRecord) {
   const roleKeys = normalizeList(employee.roleKeys);
-  return roleKeys.some((role) => ["super_admin", "backoffice", "hr.staff", "hr.admin"].includes(role))
+  return roleKeys.some((role) => ["super_admin", "backoffice"].includes(role))
     || normalizeEmail(employee.email) === "m.wakita@idea-nov.com";
 }
 
@@ -4986,10 +5193,92 @@ async function changeOwnPin(employee: JsonRecord, payload: JsonRecord) {
   return sanitizeLoginCredential(rows[0] || { ...credential, ...updated });
 }
 
+function readAuthorizationBearer(request: Request) {
+  const authorization = String(request.headers.get("authorization") || "");
+  const match = authorization.match(/^Bearer ([^\s]+)$/);
+  return match ? match[1] : "";
+}
+
+const EDGE_FUNCTION_PATH = "/nov-hub-api";
+const EDGE_PUBLIC_GATEWAY_PATH = `/functions/v1${EDGE_FUNCTION_PATH}`;
+const THANKS_COIN_ANALYTICS_PATH = `${EDGE_FUNCTION_PATH}/idea-link/thanks-coin/analytics`;
+const EDGE_LIVENESS_PATH = `${EDGE_FUNCTION_PATH}/healthz`;
+
+function isSupportedEdgePathname(pathname: string) {
+  return pathname === EDGE_FUNCTION_PATH
+    || pathname === THANKS_COIN_ANALYTICS_PATH
+    || pathname === EDGE_LIVENESS_PATH;
+}
+
+function resolveEdgeFunctionPathname(request: Request) {
+  const pathname = new URL(request.url).pathname;
+  if (pathname === EDGE_FUNCTION_PATH || pathname.startsWith(`${EDGE_FUNCTION_PATH}/`)) return pathname;
+  if (pathname === EDGE_PUBLIC_GATEWAY_PATH || pathname.startsWith(`${EDGE_PUBLIC_GATEWAY_PATH}/`)) {
+    return pathname.slice("/functions/v1".length);
+  }
+  return "";
+}
+
+function fixedNotFoundResponse() {
+  return jsonResponse({ ok: false, error: "NOT_FOUND" }, 404);
+}
+
+function handleLiveness() {
+  return jsonResponse({
+    ok: true,
+    category: "LIVE",
+    service: "NOV HUB Edge API",
+    dataAccessed: false,
+  });
+}
+
+async function dispatchThanksCoinAnalytics(
+  request: Request,
+  routedPathname = resolveEdgeFunctionPathname(request),
+): Promise<Response | null> {
+  if (routedPathname !== THANKS_COIN_ANALYTICS_PATH) return null;
+  const adapter = createThanksCoinAnalyticsApiAdapter({
+    async authorizeServerSide(inputRequest) {
+      const token = readAuthorizationBearer(inputRequest);
+      if (!token) return { category: "DENIED" };
+      try {
+        const authUser = await authenticate(token, { authType: "idea_link_session" }, "ideaLinkAnalyticsRead");
+        const employee = await findEmployeeForAuth(authUser);
+        if (!employee) return { category: "DENIED" };
+        assertIdeaLinkUser(employee);
+        return { category: "AUTHORIZED_ANALYTICS_BACKEND" };
+      } catch {
+        return { category: "DENIED" };
+      }
+    },
+    async callAggregateRpc(input) {
+      return await callSupabaseRpc("thanks_coin_appreciation_analytics", {
+        p_period_category: input.p_period_category,
+      });
+    },
+  });
+  const envelope = await adapter(request);
+  const status = envelope.category === "READY"
+    ? 200
+    : envelope.category === "INVALID_REQUEST"
+    ? 400
+    : envelope.category === "UNAUTHORIZED"
+    ? 403
+    : 502;
+  return new Response(JSON.stringify(envelope), {
+    status,
+    headers: {
+      ...CORS_HEADERS,
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
 async function parseRequest(request: Request) {
   const url = new URL(request.url);
   if (request.method === "GET") {
-    return { action: url.searchParams.get("action") || "health", token: "", payload: {} as JsonRecord };
+    return { action: url.searchParams.get("action") || "", token: "", payload: {} as JsonRecord };
   }
   const contentType = request.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
@@ -5063,9 +5352,16 @@ async function handleHealth() {
 }
 
 Deno.serve(async (request) => {
+  const routedPathname = resolveEdgeFunctionPathname(request);
+  if (!routedPathname || !isSupportedEdgePathname(routedPathname)) return fixedNotFoundResponse();
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
   try {
+    if (routedPathname === EDGE_LIVENESS_PATH) return handleLiveness();
+    const analyticsResponse = await dispatchThanksCoinAnalytics(request, routedPathname);
+    if (analyticsResponse) return analyticsResponse;
+    if (routedPathname !== EDGE_FUNCTION_PATH) return fixedNotFoundResponse();
     const { action, token, payload } = await parseRequest(request);
+    if (!action) return fixedNotFoundResponse();
     if (action === "health") return await handleHealth();
     if (action === "exchangeIdeaLinkHandoff") {
       return jsonResponse({ ok: true, handoff: await exchangeIdeaLinkHandoff(payload) });
@@ -5132,11 +5428,16 @@ Deno.serve(async (request) => {
     }
 
     if (action === "ideaLinkPostCreate") {
-      return jsonResponse({ ok: true, result: await createIdeaLinkPost(employee, payload), performance: { source: "nov-hub-api-proxy" } });
+      const businessPayload = getIdeaLinkPostCreateBusinessPayload(payload);
+      return jsonResponse({ ok: true, result: await createIdeaLinkPost(employee, businessPayload), performance: { source: "nov-hub-api-proxy" } });
     }
 
     if (action === "ideaLinkNotificationPreview") {
       return jsonResponse({ ok: true, result: await previewIdeaLinkPostNotification(employee, payload), performance: { source: "nov-hub-api-proxy" } });
+    }
+
+    if (action === "ideaLinkGate52PreviewReview") {
+      return jsonResponse({ ok: true, result: await previewIdeaLinkGate52SelectedPost(employee, payload) });
     }
 
     if (action === "ideaLinkNotificationEnqueue") {

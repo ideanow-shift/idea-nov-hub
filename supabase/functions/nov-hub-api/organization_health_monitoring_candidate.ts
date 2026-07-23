@@ -2,9 +2,10 @@ type JsonRecord = Record<string, unknown>;
 type ReadRows = (table: string, options: { query: JsonRecord }) => Promise<JsonRecord[]>;
 
 const MIN_COHORT = 5;
-const MAX_STORES = 40;
+const MAX_STORES = 100;
 const MAX_EMPLOYEES = 2000;
 const MAX_POSTS = 10000;
+const MAX_SUPPORT_SIGNALS_PER_STORE = 25;
 const WINDOW_MS = 28 * 24 * 60 * 60 * 1000;
 
 function strings(value: unknown) {
@@ -40,8 +41,8 @@ function aggregate(rows: JsonRecord[], activeIds: Set<string>, employeeStore: Ma
   for (const row of rows) {
     const sender = String(row.sender_id || "");
     const receiver = String(row.receiver_id || "");
-    if (sender) senders.add(sender);
-    if (receiver) receivers.add(receiver);
+    if (activeIds.has(sender)) senders.add(sender);
+    if (activeIds.has(receiver)) receivers.add(receiver);
     if (activeIds.has(sender)) participants.add(sender);
     if (activeIds.has(receiver)) participants.add(receiver);
     if (sender && receiver) pairs.add(`${sender}>${receiver}`);
@@ -61,6 +62,45 @@ function aggregate(rows: JsonRecord[], activeIds: Set<string>, employeeStore: Ma
   };
 }
 
+function activitySupportSignals(
+  employees: JsonRecord[],
+  posts: JsonRecord[],
+  previousStart: Date,
+  currentStart: Date,
+  now: Date,
+) {
+  const previousCounts = new Map<string, number>();
+  const currentCounts = new Map<string, number>();
+  for (const row of posts) {
+    const sender = String(row.sender_id || "");
+    const time = new Date(String(row.created_at || "")).getTime();
+    if (!sender || !Number.isFinite(time) || time < previousStart.getTime() || time >= now.getTime()) continue;
+    const counts = time < currentStart.getTime() ? previousCounts : currentCounts;
+    counts.set(sender, (counts.get(sender) || 0) + 1);
+  }
+  const signals = employees.flatMap((employee) => {
+    const employeeId = String(employee.id || "");
+    const employeeLabel = String(employee.full_name || "").trim();
+    if (!employeeId || !employeeLabel) return [];
+    const joinedAt = new Date(String(employee.joined_on || "")).getTime();
+    const fullObservationWindow = !Number.isFinite(joinedAt) || joinedAt < previousStart.getTime();
+    const previous = previousCounts.get(employeeId) || 0;
+    const current = currentCounts.get(employeeId) || 0;
+    if (previous >= 3 && current === 0) return [{ employeeLabel, signalCategory: "PUBLIC_SEND_ACTIVITY_STOPPED" }];
+    if (previous >= 6 && current * 3 <= previous) return [{ employeeLabel, signalCategory: "PUBLIC_SEND_ACTIVITY_DROPPED" }];
+    if (fullObservationWindow && previous === 0 && current === 0) return [{ employeeLabel, signalCategory: "NO_PUBLIC_SEND_ACTIVITY" }];
+    return [];
+  }).sort((left, right) => {
+    const priority = { PUBLIC_SEND_ACTIVITY_STOPPED: 0, PUBLIC_SEND_ACTIVITY_DROPPED: 1, NO_PUBLIC_SEND_ACTIVITY: 2 };
+    const difference = priority[left.signalCategory as keyof typeof priority] - priority[right.signalCategory as keyof typeof priority];
+    return difference || left.employeeLabel.localeCompare(right.employeeLabel, "ja");
+  });
+  return {
+    activitySignals: signals.slice(0, MAX_SUPPORT_SIGNALS_PER_STORE),
+    activitySignalOverflow: signals.length > MAX_SUPPORT_SIGNALS_PER_STORE,
+  };
+}
+
 export async function readOrganizationHealthMonitoringCandidate(actor: JsonRecord, readRows: ReadRows, now = new Date()) {
   if (actor.isActive !== true || /退職|休職|産休|育休/.test(String(actor.employmentStatus || ""))) throw new Error("ACCESS_DENIED");
   const scope = scopeFor(actor);
@@ -72,17 +112,29 @@ export async function readOrganizationHealthMonitoringCandidate(actor: JsonRecor
   if (stores.length > MAX_STORES) throw new Error("RESULT_LIMIT_EXCEEDED");
   const storeIds = unique(stores.map((store) => store.id)).filter(uuid);
   if (!storeIds.length) return monitoringResult([]);
+  const storeIdSet = new Set(storeIds);
   const [employees, posts] = await Promise.all([
-    readRows("employees", { query: { select: "id,store_id,is_active,employment_status", store_id: `in.(${storeIds.join(",")})`, is_active: "eq.true", limit: String(MAX_EMPLOYEES + 1) } }),
-    readRows("idea_link_posts", { query: { select: "sender_id,receiver_id,receiver_store_id,category,status,visibility,created_at", receiver_store_id: `in.(${storeIds.join(",")})`, status: "eq.active", visibility: "eq.public", and: `(created_at.gte.${previousStart.toISOString()},created_at.lt.${now.toISOString()})`, order: "created_at.asc", limit: String(MAX_POSTS + 1) } }),
+    readRows("employees", { query: { select: "id,full_name,store_id,is_active,employment_status,joined_on", is_active: "eq.true", limit: String(MAX_EMPLOYEES + 1) } }),
+    readRows("idea_link_posts", { query: { select: "sender_id,receiver_id,receiver_store_id,category,status,visibility,created_at", status: "eq.active", visibility: "eq.public", created_at: `gte.${previousStart.toISOString()}`, order: "created_at.asc", limit: String(MAX_POSTS + 1) } }),
   ]);
   if (employees.length > MAX_EMPLOYEES || posts.length > MAX_POSTS) throw new Error("RESULT_LIMIT_EXCEEDED");
-  const activeEmployees = employees.filter((row) => row.is_active === true && !/退職|休職|産休|育休/.test(String(row.employment_status || "")));
+  const activeEmployees = employees.filter((row) =>
+    storeIdSet.has(String(row.store_id || "")) &&
+    row.is_active === true &&
+    !/退職|休職|産休|育休/.test(String(row.employment_status || ""))
+  );
+  const boundedPosts = posts.filter((row) => {
+    if (!storeIdSet.has(String(row.receiver_store_id || ""))) return false;
+    const time = new Date(String(row.created_at || "")).getTime();
+    return Number.isFinite(time) && time >= previousStart.getTime() && time < now.getTime();
+  });
   const employeeStore = new Map(activeEmployees.map((row) => [String(row.id || ""), String(row.store_id || "")]));
-  const output = stores.map((store) => {
+  const output = stores.flatMap((store) => {
     const storeId = String(store.id || "");
     const activeIds = new Set(activeEmployees.filter((row) => String(row.store_id || "") === storeId).map((row) => String(row.id || "")));
-    const storePosts = posts.filter((row) => String(row.receiver_store_id || "") === storeId);
+    if (activeIds.size < MIN_COHORT) return [];
+    const storeEmployees = activeEmployees.filter((row) => String(row.store_id || "") === storeId);
+    const storePosts = boundedPosts.filter((row) => String(row.receiver_store_id || "") === storeId);
     const ranges = [[previousStart, currentStart], [currentStart, now]] as const;
     const periods = ranges.flatMap(([start, end]) => {
       const rows = storePosts.filter((row) => {
@@ -92,17 +144,31 @@ export async function readOrganizationHealthMonitoringCandidate(actor: JsonRecor
       if (activeIds.size < MIN_COHORT || rows.length < MIN_COHORT) return [];
       return [{ periodStart: start.toISOString().slice(0, 10), periodEnd: new Date(end.getTime() - 1).toISOString().slice(0, 10), ...aggregate(rows, activeIds, employeeStore, storeId) }];
     });
-    return { storeLabel: String(store.store_name || "店舗"), availability: periods.length ? "AGGREGATE_READY" : "INSUFFICIENT_DATA", periods };
+    const support = activitySupportSignals(storeEmployees, posts, previousStart, currentStart, now);
+    return [{
+      storeLabel: String(store.store_name || "店舗"),
+      availability: periods.length === 2 ? "AGGREGATE_READY" : "INSUFFICIENT_DATA",
+      periods,
+      ...support,
+    }];
   });
   return monitoringResult(output);
 }
 
 function monitoringResult(stores: JsonRecord[]) {
   return {
-    contract: "IDEA_LINK_ORGANIZATION_HEALTH_MONITORING_V2_CANDIDATE",
+    contract: "IDEA_LINK_ORGANIZATION_HEALTH_MONITORING_V3",
     stores,
-    safeguards: { aggregateOnly: true, minimumCohort: MIN_COHORT, maximumPeriods: 13, individualRanking: false, turnoverPrediction: false, rawTextIncluded: false, automatedEmploymentDecision: false },
+    safeguards: {
+      aggregateOnly: true,
+      minimumCohort: MIN_COHORT,
+      maximumPeriods: 13,
+      individualSupportSignals: true,
+      individualRanking: false,
+      turnoverPrediction: false,
+      rawTextIncluded: false,
+      automatedEmploymentDecision: false,
+      supportSignalMeaning: "CONVERSATION_PROMPT_ONLY",
+    },
   };
 }
-
-

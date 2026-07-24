@@ -46,6 +46,9 @@ test("status output uses employee master aggregates without identities", () => {
   assert.match(html, /在職<\/dt><dd>190名/);
   assert.match(html, /退職\/退職日あり<\/dt><dd>241名/);
   assert.match(html, /所属部門<\/dt><dd>22区分/);
+  assert.match(html, /所属なし在職<\/dt><dd>29名/);
+  assert.match(html, /法人配賦<\/dt><dd>未収録/);
+  assert.match(html, /店舗配賦<\/dt><dd>未収録/);
   assert.match(html, /退職補助証跡<\/dt><dd>5シート/);
   assert.match(html, /<button type="button" disabled aria-disabled="true"/);
   assert.doesNotMatch(html, /employeeId|employee_id|社員番号|氏名|salary|給与|評価|健康|個人名|digest|sha256/i);

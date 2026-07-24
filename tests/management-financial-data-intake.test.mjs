@@ -900,6 +900,64 @@ test("P/L local preview keeps head-office and FC sheets out of store operations"
   assert.deepEqual(preview.reviewRows.map((item) => item.entityCategory), ["NON_STORE_REVIEW_REQUIRED", "FC_REVIEW_REQUIRED"]);
 });
 
+test("mixed Yayoi trial balance workbooks scope P/L and B/S sheets separately", async () => {
+  const commonHeader = [
+    row(1, ["帳票名：残高試算表(年間推移)"]),
+    row(5, ["集計期間：令和07年09月01日", "令和08年08月31日"]),
+    row(8, ["勘定科目", ...months]),
+  ];
+  const mixed = workbookSheets([
+    {
+      name: "貸",
+      rows: [
+        ...commonHeader,
+        row(9, ["資産合計", ...months.map(() => 1_000_000)]),
+        row(10, ["負債合計", ...months.map(() => 400_000)]),
+        row(11, ["純資産合計", ...months.map(() => 600_000)]),
+      ],
+    },
+    {
+      name: "損",
+      rows: [
+        ...commonHeader,
+        ...requiredPl.map((account, index) => row(9 + index, [account, ...months.map(() => index === 0 ? 10000 : 100)])),
+      ],
+    },
+  ]);
+  const pl = await parseFinancialWorkbookBuffer(mixed, "PL", { inflateRaw });
+  assert.equal(pl.status, "PL_LOCAL_READY");
+  assert.equal(pl.sheetCount, 1);
+  assert.equal(pl.entityPreviewRows[0].entityName, "損");
+  assert.deepEqual(Object.keys(pl.missingByAccount), []);
+  const bs = await parseFinancialWorkbookBuffer(mixed, "BS", { inflateRaw });
+  assert.equal(bs.status, "BS_LOCAL_READY");
+  assert.equal(bs.sheetCount, 1);
+  assert.equal(bs.entityPreviewRows[0].entityName, "貸");
+  assert.equal(bs.balanceCheck, "BALANCED");
+});
+
+test("bare Yayoi trial balance sheet names are disambiguated by business name", async () => {
+  const makeRows = (businessName) => [
+    row(1, ["帳票名：残高試算表(年間推移)"]),
+    row(3, [`事業所名：${businessName}`]),
+    row(5, ["集計期間：令和07年09月01日", "令和08年08月31日"]),
+    row(8, ["勘定科目", ...months]),
+    ...requiredPl.map((account, index) => row(9 + index, [account, ...months.map(() => index === 0 ? 10000 : 100)])),
+  ];
+  const first = await parseFinancialWorkbookBuffer(workbook(makeRows("株式会社A"), "損"), "PL", { inflateRaw });
+  const second = await parseFinancialWorkbookBuffer(workbook(makeRows("株式会社B"), "損"), "PL", { inflateRaw });
+  const combined = combineFinancialWorkbookResults([
+    { ...first, contentIdentity: "first" },
+    { ...second, contentIdentity: "second" },
+  ], "PL");
+  assert.equal(combined.status, "PL_LOCAL_READY");
+  assert.equal(combined.duplicateEntityPeriodCount, 0);
+  assert.deepEqual(combined.entityPreviewRows.map((rowItem) => rowItem.entityName), [
+    "損･株式会社A",
+    "損･株式会社B",
+  ]);
+});
+
 test("B/S intake requires exact balanced assets, liabilities, and equity", async () => {
   const balanced = workbook([
     row(1, ["帳票名：残高試算表(年間推移)"]),
@@ -998,6 +1056,41 @@ test("B/S intake accepts balanced aggregate sheets while keeping department cand
   assert.equal(completion.find((item) => item.key === "BALANCE_SHEET").status, "LOCAL_VALIDATED");
 });
 
+test("B/S intake treats business aggregate as authoritative and keeps common rows review-only", async () => {
+  const header = [
+    row(1, ["帳票名：残高試算表(年間推移)"]),
+    row(3, ["事業所名：株式会社A"]),
+    row(5, ["集計期間：令和07年09月01日", "令和08年08月31日"]),
+    row(8, ["勘定科目", ...months]),
+  ];
+  const balancedAggregateRows = [
+    ...header,
+    row(9, ["資産合計", ...months.map(() => 1_000_000)]),
+    row(10, ["負債合計", ...months.map(() => 400_000)]),
+    row(11, ["純資産合計", ...months.map(() => 600_000)]),
+  ];
+  const imbalancedCommonRows = [
+    ...header,
+    row(9, ["資産合計", ...months.map(() => 1_010_000)]),
+    row(10, ["負債合計", ...months.map(() => 400_000)]),
+    row(11, ["純資産合計", ...months.map(() => 600_000)]),
+  ];
+  const result = await parseFinancialWorkbookBuffer(workbookSheets([
+    { name: "貸･事業所(合計)", rows: balancedAggregateRows },
+    { name: "貸･事業所(共通)", rows: imbalancedCommonRows },
+  ]), "BS", { inflateRaw });
+  assert.equal(result.status, "BS_LOCAL_READY");
+  assert.equal(result.balanceCheck, "BALANCED");
+  assert.deepEqual(result.entityPreviewRows.map((rowItem) => rowItem.entityName), [
+    "貸･株式会社A･事業所(合計)",
+    "貸･株式会社A･事業所(共通)",
+  ]);
+  const preview = buildFinancialLocalPreview(result);
+  assert.equal(preview.rows[0].balanceStatus, "BALANCED");
+  assert.equal(preview.reviewRows[0].balanceStatus, "NOT_READY");
+  assert.equal(preview.importActionEnabled, false);
+});
+
 test("B/S duplicate workbook bytes suppress all balance amounts", async () => {
   const balanced = workbook([
     row(1, ["帳票名：残高試算表(年間推移)"]),
@@ -1028,7 +1121,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=a87b9c15f73aac3b/);
+  assert.match(app, /financial-data-intake\.js\?v=cf6e4cd923c301ee/);
   assert.match(app, /ローカル反映 \/ 残/);
   assert.match(app, /確認表示だけです。本番投入はdisabledです。/);
   assert.match(app, /店舗候補P\/Lの確認表示だけです。本番投入はdisabledです。/);

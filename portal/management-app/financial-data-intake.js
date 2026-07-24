@@ -38,7 +38,7 @@ const FINANCIAL_COMPLETION_REQUIREMENTS = Object.freeze([
   Object.freeze({ key: "FC_RULE", label: "FC店舗の変換ルール", detail: "FC合計・共通・個店の二重計上防止", format: "CSV (UTF-8)", grain: "シート/部門候補1行", requiredFields: "候補名・区分・集計対象/除外・適用期", validation: "FC合計/共通/個店を排他的に分類" }),
 ]);
 const AGGREGATE_SHEET_RE = /(?:全体|合計|共通|FC\(合計\))/u;
-const BS_AUTHORITATIVE_AGGREGATE_SHEET_RE = /全体\(合計\)/u;
+const BS_AUTHORITATIVE_AGGREGATE_SHEET_RE = /(?:全体|事業所)\(合計\)/u;
 const XML_ESCAPE_RE = /&(lt|gt|amp|quot|apos);/g;
 const XML_ESCAPE_MAP = Object.freeze({ lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" });
 const XLSX_TEXT_ENTRY_RE = /^(?:xl\/(?:workbook\.xml|sharedStrings\.xml|_rels\/workbook\.xml\.rels|worksheets\/sheet\d+\.xml)|\[Content_Types\]\.xml|_rels\/\.rels)$/u;
@@ -191,6 +191,13 @@ function parseRows(entries, sheet, sharedStrings) {
   });
 }
 
+function financialStatementSheetRows(rowsBySheet, statement) {
+  const prefix = statement === "BS" ? "貸" : statement === "PL" ? "損" : "";
+  if (!prefix) return rowsBySheet;
+  const scoped = rowsBySheet.filter(({ sheet }) => String(sheet.name || "").startsWith(prefix));
+  return scoped.length ? scoped : rowsBySheet;
+}
+
 const labelOf = (value) => String(value ?? "").trim();
 
 function metadata(rows) {
@@ -198,11 +205,23 @@ function metadata(rows) {
   const periodRow = rows.slice(0, 8)
     .map((row) => row.map(labelOf).filter(Boolean))
     .find((row) => row.some((value) => value.includes("決算仕訳")) || row.filter((value) => /令和\d{2}年\d{2}月\d{2}日/u.test(value)).length >= 2);
+  const businessName = flat.find((value) => value.startsWith("事業所名："))?.replace(/^事業所名：/u, "").trim() || "";
   return {
     reportNamePresent: flat.some((value) => value.includes("残高試算表") && value.includes("年間推移")),
+    businessName,
     periodText: periodRow ? periodRow.join(",") : "",
     taxMode: flat.find((value) => value.includes("税抜") || value.includes("税込")) ?? "",
   };
+}
+
+function financialSheetDisplayName(sheetName, statement, meta) {
+  const name = String(sheetName || "");
+  const prefix = statement === "PL" ? "損" : statement === "BS" ? "貸" : "";
+  if (prefix && meta.businessName && name.startsWith(prefix) && !name.includes(meta.businessName)) {
+    const suffix = name.slice(prefix.length);
+    return `${prefix}･${meta.businessName}${suffix}`;
+  }
+  return name;
 }
 
 function parseSheet(sheet, rows, requiredAccounts) {
@@ -468,9 +487,13 @@ export async function parseFinancialWorkbookBuffer(buffer, statement = "PL", opt
   const workbookSheets = parseWorkbook(entries);
   const rowsBySheet = workbookSheets.map((sheet) => ({ sheet, rows: parseRows(entries, sheet, sharedStrings) }));
   const firstRows = rowsBySheet[0]?.rows ?? [];
+  const meta = metadata(firstRows);
   const required = statement === "BS" ? BS_REQUIRED_ACCOUNTS : YAYOI_PL_REQUIRED_ACCOUNTS;
-  const parsed = rowsBySheet.map(({ sheet, rows }) => parseSheet(sheet, rows, required));
-  return summarizeStatement(statement, { parsed, required }, metadata(firstRows));
+  const parsed = financialStatementSheetRows(rowsBySheet, statement).map(({ sheet, rows }) => parseSheet({
+    ...sheet,
+    name: financialSheetDisplayName(sheet.name, statement, meta),
+  }, rows, required));
+  return summarizeStatement(statement, { parsed, required }, meta);
 }
 
 export async function validateFinancialWorkbookFile(file, statement = "PL", options = {}) {

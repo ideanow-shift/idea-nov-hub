@@ -2,13 +2,13 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
-import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=3924300a1b766cff";
+import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=326143584102463E";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
 const CORPORATE_VIEWS = new Set([...FINANCE_VIEWS, "dataops"]);
 const VIEWS = new Set([...CORPORATE_VIEWS, "stores"]);
-const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null }, localEvidence: { storeCsvReceipt: null, storeNameReceipt: null }, charts: {} };
+const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null, BUDGET: null }, localEvidence: { storeCsvReceipt: null, storeNameReceipt: null }, charts: {} };
 const number = new Intl.NumberFormat("ja-JP");
 const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 const colors = ["#b23a48", "#17324d", "#27795f", "#a36410", "#765487", "#337d8e", "#737b83"];
@@ -335,7 +335,8 @@ function applyFinancialExternalEvidence() {
 }
 
 function sanitizeFinancialPreview(value) {
-  if (!value || value.schemaVersion !== "management-financial-local-preview-v1" || !["PL", "BS"].includes(value.statement)) return null;
+  if (!value || value.schemaVersion !== "management-financial-local-preview-v1" || !["PL", "BS", "BUDGET"].includes(value.statement)) return null;
+  if (value.statement === "BUDGET") return sanitizeBudgetPreview(value);
   if (value.statement === "BS") return sanitizeBalanceSheetPreview(value);
   const amount = (input) => input !== null && input !== undefined && Number.isFinite(Number(input)) ? Number(input) : null;
   const mappingStatus = (status) => ["READY", "LOCAL_CANDIDATE_APPLIED", "LOCAL_EVIDENCE_RECEIVED"].includes(status) ? status : "MAPPING_REQUIRED";
@@ -407,6 +408,52 @@ function sanitizeFinancialPreview(value) {
   };
 }
 
+function sanitizeBudgetPreview(value) {
+  const amount = (input) => input !== null && input !== undefined && Number.isFinite(Number(input)) ? Number(input) : null;
+  const rows = Array.isArray(value.rows) ? value.rows.slice(0, 80).map((row) => ({
+    entityName: String(row.entityName || "未判定").slice(0, 80),
+    entityCategory: row.entityCategory === "STORE_CANDIDATE" ? "STORE_CANDIDATE" : "ENTITY_REVIEW_REQUIRED",
+    entityCategoryLabel: String(row.entityCategoryLabel || "候補").slice(0, 24),
+    budgetSalesManYen: amount(row.budgetSalesManYen),
+    actualSalesManYen: amount(row.actualSalesManYen),
+    budgetProfitManYen: amount(row.budgetProfitManYen),
+    actualProfitManYen: amount(row.actualProfitManYen),
+    varianceSalesManYen: amount(row.varianceSalesManYen),
+    varianceProfitManYen: amount(row.varianceProfitManYen),
+    activeMonthCount: Number.isInteger(Number(row.activeMonthCount)) ? Math.max(0, Math.min(12, Number(row.activeMonthCount))) : 0,
+    mappingStatus: row.mappingStatus === "READY" ? "READY" : "MAPPING_REQUIRED",
+    recordCount: Number.isFinite(Number(row.recordCount)) ? Number(row.recordCount) : 0,
+  })) : [];
+  const reviewRows = Array.isArray(value.reviewRows) ? value.reviewRows.slice(0, 20).map((row) => ({
+    entityName: String(row.entityName || "未判定").slice(0, 80),
+    entityCategory: String(row.entityCategory || "ENTITY_REVIEW_REQUIRED").slice(0, 48),
+    entityCategoryLabel: String(row.entityCategoryLabel || "確認").slice(0, 24),
+    activeMonthCount: Number.isInteger(Number(row.activeMonthCount)) ? Math.max(0, Math.min(12, Number(row.activeMonthCount))) : 0,
+    mappingStatus: row.mappingStatus === "READY" ? "READY" : "MAPPING_REQUIRED",
+    recordCount: Number.isFinite(Number(row.recordCount)) ? Number(row.recordCount) : 0,
+  })) : [];
+  return {
+    schemaVersion: "management-financial-local-preview-v1",
+    statement: "BUDGET",
+    status: value.status === "BUDGET_LOCAL_READY" ? "BUDGET_LOCAL_READY" : "BUDGET_NOT_READY",
+    selectedPeriodLabel: String(value.selectedPeriodLabel || "予実表").slice(0, 40),
+    comparisonRangeLabel: String(value.comparisonRangeLabel || "12か月").slice(0, 64),
+    comparisonMonthCount: Number.isInteger(Number(value.comparisonMonthCount)) ? Math.max(0, Math.min(12, Number(value.comparisonMonthCount))) : 0,
+    entityCandidateCount: rows.length,
+    reviewCandidateCount: reviewRows.length,
+    aggregateExcludedSheetCount: Number.isInteger(Number(value.aggregateExcludedSheetCount)) ? Math.max(0, Number(value.aggregateExcludedSheetCount)) : 0,
+    normalizedRecordCount: Number.isInteger(Number(value.normalizedRecordCount)) ? Math.max(0, Number(value.normalizedRecordCount)) : 0,
+    dataMonthShortfallCount: Number.isInteger(Number(value.dataMonthShortfallCount)) ? Math.max(0, Number(value.dataMonthShortfallCount)) : 0,
+    budgetSalesManYen: amount(value.budgetSalesManYen),
+    actualSalesManYen: amount(value.actualSalesManYen),
+    budgetProfitManYen: amount(value.budgetProfitManYen),
+    actualProfitManYen: amount(value.actualProfitManYen),
+    rows,
+    reviewRows,
+    importActionEnabled: false,
+  };
+}
+
 function sanitizeBalanceSheetPreview(value) {
   const amount = (input) => input !== null && input !== undefined && Number.isFinite(Number(input)) ? Number(input) : null;
   const rows = Array.isArray(value.rows) ? value.rows.slice(0, 80).map((row) => ({
@@ -453,7 +500,7 @@ function financialDuplicateMessage(preview) {
 function buildFinancialLocalReflectionStatus(preview, labelText) {
   const status = document.createElement("div");
   status.className = "financial-local-reflection-status";
-  const statement = preview.statement === "BS" ? "B/S" : "P/L";
+  const statement = preview.statement === "BS" ? "B/S" : preview.statement === "BUDGET" ? "予実" : "P/L";
   const recordCount = number.format(preview.normalizedRecordCount || 0);
   status.append(
     label("ローカル反映済み"),
@@ -486,8 +533,46 @@ function renderFinancialPreviewOverview() {
   const previews = [];
   if (state.financialPreviews.PL) previews.push(buildPlOverviewPreview(state.financialPreviews.PL));
   if (state.financialPreviews.BS) previews.push(buildBsOverviewPreview(state.financialPreviews.BS));
+  if (state.financialPreviews.BUDGET) previews.push(buildBudgetPreviewCard(state.financialPreviews.BUDGET, "法人経営管理のローカル予実プレビュー"));
   if (!previews.length) { renderFinancialPreviewEmpty(elements.financialPreviewOverview, "法人経営管理", "P/L・B/S"); return; }
   elements.financialPreviewOverview.replaceChildren(...previews);
+}
+
+function buildBudgetPreviewCard(preview, titleText = "店舗営業管理のローカル予実プレビュー") {
+  const card = document.createElement("section");
+  card.className = "financial-local-preview-card";
+  const wrap = document.createElement("div");
+  wrap.className = "table-wrap embedded local-preview-table";
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.append(tableRow(["候補", "分類", "月数", "計画売上", "当期売上", "売上差異", "計画損益", "当期損益", "損益差異"], true));
+  const tbody = document.createElement("tbody");
+  tbody.replaceChildren(...(preview.rows.length ? preview.rows.map((row) => tableRow([
+    row.entityName,
+    row.entityCategoryLabel,
+    `${number.format(row.activeMonthCount)}か月`,
+    row.budgetSalesManYen == null ? "未算定" : `${number.format(row.budgetSalesManYen)}万円`,
+    row.actualSalesManYen == null ? "未算定" : `${number.format(row.actualSalesManYen)}万円`,
+    row.varianceSalesManYen == null ? "未算定" : `${number.format(row.varianceSalesManYen)}万円`,
+    row.budgetProfitManYen == null ? "未算定" : `${number.format(row.budgetProfitManYen)}万円`,
+    row.actualProfitManYen == null ? "未算定" : `${number.format(row.actualProfitManYen)}万円`,
+    row.varianceProfitManYen == null ? "未算定" : `${number.format(row.varianceProfitManYen)}万円`,
+  ])) : [emptyRow(9, "表示できる予実候補はまだありません")]));
+  table.append(thead, tbody);
+  wrap.append(table);
+  card.append(
+    heading(titleText),
+    buildFinancialLocalReflectionStatus(preview, "店舗営業管理"),
+    paragraph(`${preview.selectedPeriodLabel} をローカル確認用に表示しています。DB保存・本番投入・個人情報表示はありません。店舗候補 ${number.format(preview.entityCandidateCount)}件 / 確認候補 ${number.format(preview.reviewCandidateCount)}件 / 除外集計 ${number.format(preview.aggregateExcludedSheetCount)}件。`),
+    previewMetricGrid([
+      ["計画売上", preview.budgetSalesManYen == null ? "未算定" : `${number.format(preview.budgetSalesManYen)}万円`],
+      ["当期売上", preview.actualSalesManYen == null ? "未算定" : `${number.format(preview.actualSalesManYen)}万円`],
+      ["計画損益", preview.budgetProfitManYen == null ? "未算定" : `${number.format(preview.budgetProfitManYen)}万円`],
+      ["本番投入", "disabled"],
+    ]),
+    wrap
+  );
+  return card;
 }
 
 function buildPlOverviewPreview(preview) {
@@ -591,6 +676,8 @@ function bsBalanceDeltaText(row) {
 function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 }) {
   if (!elements.financialPreviewStores) return;
   const preview = state.financialPreviews.PL;
+  const budgetPreview = state.financialPreviews.BUDGET;
+  if (!preview && budgetPreview) { elements.financialPreviewStores.replaceChildren(buildBudgetPreviewCard(budgetPreview)); return; }
   if (!preview) { renderFinancialPreviewEmpty(elements.financialPreviewStores, "店舗営業管理"); return; }
   const section = document.createElement("section");
   section.className = "financial-local-preview-card";
@@ -623,7 +710,7 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
   const comparison = buildPlPeriodComparison(preview, "年度別 店舗候補合計");
   if (comparison) section.append(comparison);
   section.append(buildFinancialMissingDataSummary("店舗営業管理"));
-  elements.financialPreviewStores.replaceChildren(section);
+  elements.financialPreviewStores.replaceChildren(...(budgetPreview ? [section, buildBudgetPreviewCard(budgetPreview)] : [section]));
 }
 
 function buildFinancialStoreMatchAction(localPlMatch) {
@@ -1002,6 +1089,7 @@ function buildFinancialAccountingRequestNote(item) {
 function financialReadinessItems() {
   const pl = state.financialPreviews.PL;
   const bs = state.financialPreviews.BS;
+  const budget = state.financialPreviews.BUDGET;
   const storeCsvReady = Boolean(state.localEvidence.storeCsvReceipt);
   const helperItems = buildFinancialCompletionItems({
     statement: "",
@@ -1042,7 +1130,9 @@ function financialReadinessItems() {
     { key: "BUDGET_PLAN", label: itemLabel("BUDGET_PLAN", "予算・計画データ"), statusLabel: "資料待ち", ready: false },
     { key: "FC_RULE", label: itemLabel("FC_RULE", "FC店舗の変換ルール"), statusLabel: "運用ルール待ち", ready: false },
     { key: "PRODUCTION_EVIDENCE", label: "production catalog証跡 / provider runtime identity", statusLabel: "本番証跡待ち", ready: false },
-  ];
+  ].map((item) => item.key === "BUDGET_PLAN"
+    ? { ...item, statusLabel: budget ? "ローカル確認済み" : item.statusLabel, ready: Boolean(budget) }
+    : item);
 }
 
 function buildPlPeriodComparison(preview, titleText) {

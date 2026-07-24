@@ -94,6 +94,17 @@ const cell = (ref, value) => typeof value === "number"
   : `<c r="${ref}" t="inlineStr"><is><t>${String(value)}</t></is></c>`;
 
 const row = (index, values) => `<row r="${index}">${values.map((value, column) => cell(`${String.fromCharCode(65 + column)}${index}`, value)).join("")}</row>`;
+function columnName(index) {
+  let value = index + 1;
+  let name = "";
+  while (value > 0) {
+    const remainder = (value - 1) % 26;
+    name = String.fromCharCode(65 + remainder) + name;
+    value = Math.floor((value - 1) / 26);
+  }
+  return name;
+}
+const wideRow = (index, values) => `<row r="${index}">${values.map((value, column) => cell(`${columnName(column)}${index}`, value)).join("")}</row>`;
 
 function workbook(sheetRows, sheetName = "損･BASSA新所沢店", compressionMethod = 0) {
   return zipStore([
@@ -171,6 +182,64 @@ test("P/L browser fallback inflates compressed Yayoi workbook without enabling i
     globalThis.DecompressionStream = original;
     globalThis.pako = originalPako;
   }
+});
+
+function budgetRows(entityName, salesPlan = 1000000, salesActual = 1200000, profitPlan = 100000, profitActual = 130000) {
+  const header = Array.from({ length: 104 }, () => "");
+  header[2] = "R7／9月";
+  for (let block = 1; block < 12; block += 1) header[2 + block * 8] = `${block + 9}月`;
+  const sales = Array.from({ length: 104 }, () => "");
+  const profit = Array.from({ length: 104 }, () => "");
+  sales[2] = "売上高合計ゴウケイ";
+  profit[2] = "経常損益金額ケイジョウソンエキキングク";
+  for (let block = 0; block < 12; block += 1) {
+    const start = 3 + block * 8;
+    sales[start + 2] = salesPlan;
+    sales[start + 4] = salesActual;
+    profit[start + 2] = profitPlan;
+    profit[start + 4] = profitActual;
+  }
+  return [
+    wideRow(1, ["", "", "月次損益予実表"]),
+    wideRow(2, ["", "", entityName]),
+    wideRow(3, ["", "", "（単位：円）"]),
+    wideRow(4, header),
+    wideRow(5, sales),
+    wideRow(6, profit),
+  ];
+}
+
+test("budget plan workbook validates local preview without enabling production import", async () => {
+  const result = await parseFinancialWorkbookBuffer(workbookSheets([
+    { name: "BASSA所沢予実", rows: budgetRows("BASSA所沢") },
+    { name: "全社合計予実", rows: budgetRows("全社合計") },
+  ]), "BUDGET", { inflateRaw });
+  assert.equal(result.status, "BUDGET_LOCAL_READY");
+  assert.equal(result.entityCandidateCount, 1);
+  assert.equal(result.aggregateSheetCount, 1);
+  assert.equal(result.normalizedRecordCount, 96);
+  const preview = buildFinancialLocalPreview(result);
+  assert.equal(preview.statement, "BUDGET");
+  assert.equal(preview.importActionEnabled, false);
+  assert.equal(preview.rows[0].budgetSalesManYen, 1200);
+  assert.equal(preview.rows[0].actualSalesManYen, 1440);
+  assert.equal(preview.rows[0].budgetProfitManYen, 120);
+  assert.equal(preview.rows[0].actualProfitManYen, 156);
+  assert.equal(preview.rows[0].varianceSalesManYen, 240);
+  assert.equal(buildFinancialCompletionItems(result).find((item) => item.key === "BUDGET_PLAN").status, "LOCAL_VALIDATED");
+  assert.equal(buildFinancialIntakeReceipt(result).productionImportEnabled, false);
+  assert.doesNotMatch(JSON.stringify(preview), /employeeId|sessionToken|Authorization|contentIdentity|rawFile/i);
+});
+
+test("budget plan duplicate store candidates fail closed", async () => {
+  const result = await parseFinancialWorkbookBuffer(workbookSheets([
+    { name: "BASSA所沢予実", rows: budgetRows("BASSA所沢") },
+    { name: "BASSA所沢2予実", rows: budgetRows("BASSA所沢") },
+  ]), "BUDGET", { inflateRaw });
+  assert.equal(result.status, "BUDGET_DUPLICATE_ENTITY_DETECTED");
+  const preview = buildFinancialLocalPreview(result);
+  assert.equal(preview.importActionEnabled, false);
+  assert.equal(buildFinancialCompletionItems(result).find((item) => item.key === "BUDGET_PLAN").status, "SOURCE_REQUIRED");
 });
 
 test("P/L aggregate sheets and missing exact mappings stay review-only", async () => {
@@ -1134,7 +1203,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=3924300a1b766cff/);
+  assert.match(app, /financial-data-intake\.js\?v=326143584102463E/);
   assert.match(app, /ローカル反映 \/ 残/);
   assert.match(app, /確認表示だけです。本番投入はdisabledです。/);
   assert.match(app, /店舗候補P\/Lの確認表示だけです。本番投入はdisabledです。/);

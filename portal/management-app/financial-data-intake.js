@@ -495,6 +495,7 @@ export async function parseFinancialWorkbookBuffer(buffer, statement = "PL", opt
   const sharedStrings = parseSharedStrings(entries);
   const workbookSheets = parseWorkbook(entries);
   const rowsBySheet = workbookSheets.map((sheet) => ({ sheet, rows: parseRows(entries, sheet, sharedStrings) }));
+  if (statement === BUDGET_STATEMENT) return summarizeBudgetWorkbook(workbookSheets, rowsBySheet);
   const firstRows = rowsBySheet[0]?.rows ?? [];
   const meta = metadata(firstRows);
   const required = statement === "BS" ? BS_REQUIRED_ACCOUNTS : YAYOI_PL_REQUIRED_ACCOUNTS;
@@ -578,6 +579,17 @@ function hasAcceptedLocalPlMapping(canonicalAccount, sourceAccount) {
 
 const SUPPLEMENTAL_COMPLETION_KEYS = Object.freeze(["UTILITY_SUBLEDGER", "COUPON_USAGE", "BUDGET_PLAN", "FC_RULE"]);
 const STORE_CSV_RECEIPT_KINDS = Object.freeze(["STORE_MONTHLY_SALES", "STORE_DAILY_SALES", "STORE_RESERVATIONS"]);
+const BUDGET_STATEMENT = "BUDGET";
+const BUDGET_MONTH_BLOCK_WIDTH = 8;
+const BUDGET_FIRST_VALUE_COLUMN = 3;
+const BUDGET_PLAN_OFFSET = 2;
+const BUDGET_ACTUAL_OFFSET = 4;
+const BUDGET_MAX_MONTH_BLOCKS = 12;
+const BUDGET_SHEET_RE = /予実/u;
+const BUDGET_AGGREGATE_SHEET_RE = /(?:合計|全社|全体|チェック|印刷不要)/u;
+const BUDGET_NON_STORE_SHEET_RE = /(?:本部|EC事業部)/u;
+const BUDGET_SALES_RE = /^売上高合計/u;
+const BUDGET_PROFIT_RE = /^経常損益/u;
 
 function hasExactLocalSupplementalEvidence(result) {
   const evidence = result?.localSupplementalReceipt;
@@ -606,6 +618,102 @@ function hasExactLocalStoreCsvEvidence(result) {
       && file.category === "VALID"
       && Number.isSafeInteger(Number(file.rowCount))
       && Number(file.rowCount) >= 1);
+}
+
+function budgetNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function budgetEntityName(sheet, rows) {
+  const candidate = rows.slice(0, 4).flat().map(labelOf).find((value) => value && !value.includes("月次損益予実表") && !value.includes("単位"));
+  return candidate || String(sheet.name || "").replace(/予実$/u, "");
+}
+
+function budgetEntityCategory(sheetName, entityName = "") {
+  const name = String(sheetName || "");
+  const entity = String(entityName || "");
+  if (BUDGET_AGGREGATE_SHEET_RE.test(name)) return "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS";
+  if (entity.startsWith("※") || entity === "FC") return "NON_STORE_REVIEW_REQUIRED";
+  if (BUDGET_NON_STORE_SHEET_RE.test(name)) return "NON_STORE_REVIEW_REQUIRED";
+  return "STORE_CANDIDATE";
+}
+
+function budgetRowByAccount(rows, pattern) {
+  return rows.find((row) => pattern.test(labelOf(row[2])));
+}
+
+function budgetSum(row, offset) {
+  if (!row) return null;
+  let total = 0;
+  let count = 0;
+  for (let block = 0; block < BUDGET_MAX_MONTH_BLOCKS; block += 1) {
+    const index = BUDGET_FIRST_VALUE_COLUMN + (block * BUDGET_MONTH_BLOCK_WIDTH) + offset;
+    const value = budgetNumber(row[index]);
+    if (value !== null) {
+      total += value;
+      count += 1;
+    }
+  }
+  return count ? { total, count } : null;
+}
+
+function parseBudgetSheet(sheet, rows) {
+  if (!BUDGET_SHEET_RE.test(String(sheet.name || ""))) return null;
+  const flat = rows.slice(0, 8).flat().map(labelOf);
+  if (!flat.some((value) => value.includes("月次損益予実表"))) return null;
+  const sales = budgetRowByAccount(rows, BUDGET_SALES_RE);
+  const profit = budgetRowByAccount(rows, BUDGET_PROFIT_RE);
+  const salesPlan = budgetSum(sales, BUDGET_PLAN_OFFSET);
+  const salesActual = budgetSum(sales, BUDGET_ACTUAL_OFFSET);
+  const profitPlan = budgetSum(profit, BUDGET_PLAN_OFFSET);
+  const profitActual = budgetSum(profit, BUDGET_ACTUAL_OFFSET);
+  const entityName = budgetEntityName(sheet, rows);
+  const entityCategory = budgetEntityCategory(sheet.name, entityName);
+  const recordCount = [salesPlan, salesActual, profitPlan, profitActual].reduce((sum, item) => sum + Number(item?.count || 0), 0);
+  return {
+    entityName,
+    entityCategory,
+    entityCategoryLabel: PREVIEW_CATEGORY_LABELS[entityCategory] || entityCategory,
+    budgetSalesYen: salesPlan?.total ?? null,
+    actualSalesYen: salesActual?.total ?? null,
+    budgetProfitYen: profitPlan?.total ?? null,
+    actualProfitYen: profitActual?.total ?? null,
+    monthCount: Math.max(salesPlan?.count || 0, salesActual?.count || 0, profitPlan?.count || 0, profitActual?.count || 0),
+    recordCount,
+    mappingStatus: sales && profit ? "READY" : "MAPPING_REQUIRED",
+  };
+}
+
+function budgetStatus(rows, duplicateEntityCount) {
+  if (!rows.length) return "BUDGET_FORMAT_INVALID";
+  if (duplicateEntityCount > 0) return "BUDGET_DUPLICATE_ENTITY_DETECTED";
+  if (rows.some((row) => row.mappingStatus !== "READY")) return "BUDGET_MAPPING_REQUIRED";
+  return "BUDGET_LOCAL_READY";
+}
+
+function summarizeBudgetWorkbook(workbookSheets, rowsBySheet) {
+  const budgetRows = rowsBySheet.map(({ sheet, rows }) => parseBudgetSheet(sheet, rows)).filter(Boolean);
+  const storeRows = budgetRows.filter((row) => row.entityCategory === "STORE_CANDIDATE");
+  const duplicateEntityCount = duplicateExtraCount(storeRows.map((row) => String(row.entityName || "").normalize("NFC").toLocaleLowerCase("ja")));
+  const reviewRows = budgetRows.filter((row) => row.entityCategory !== "STORE_CANDIDATE");
+  return {
+    status: budgetStatus(budgetRows, duplicateEntityCount),
+    statement: BUDGET_STATEMENT,
+    metadata: { periodText: "R7 annual budget workbook" },
+    sheetCount: workbookSheets.length,
+    sheetsWithTwelveMonths: budgetRows.filter((row) => Number(row.monthCount || 0) >= BUDGET_MAX_MONTH_BLOCKS).length,
+    aggregateSheetCount: budgetRows.filter((row) => row.entityCategory === "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS").length,
+    entityCandidateCount: storeRows.length,
+    normalizedRecordCount: budgetRows.reduce((sum, row) => sum + Number(row.recordCount || 0), 0),
+    duplicateFileCount: 0,
+    duplicateEntityPeriodCount: duplicateEntityCount,
+    parseFailureCategories: [],
+    missingByAccount: {},
+    mappingCandidatesByAccount: {},
+    balanceCheck: "NOT_APPLICABLE",
+    previewRows: budgetRows.slice(0, 8),
+    entityPreviewRows: [...storeRows, ...reviewRows],
+  };
 }
 
 function financialRequirementScreenTarget(key) {
@@ -670,7 +778,10 @@ export function buildFinancialCompletionItems(result) {
       status = storeCsvReady ? "LOCAL_EVIDENCE_RECEIVED" : "SOURCE_REQUIRED";
       if (storeCsvReady) detail = "店舗CSVをローカル検証済み（会計補助残高との本番照合は未実行）";
     }
-    if (SUPPLEMENTAL_COMPLETION_KEYS.includes(requirement.key)) {
+    if (requirement.key === "BUDGET_PLAN" && statement === BUDGET_STATEMENT && parsedLocally && receipt?.status === "BUDGET_LOCAL_READY") {
+      status = "LOCAL_VALIDATED";
+      detail = "予実表Excelをローカル検証済み。本番投入は未承認です。";
+    } else if (SUPPLEMENTAL_COMPLETION_KEYS.includes(requirement.key)) {
       status = supplementalReady ? "LOCAL_EVIDENCE_RECEIVED" : requirement.key === "FC_RULE" ? "RULE_REQUIRED" : "SOURCE_REQUIRED";
       if (supplementalReady) detail = "補助資料CSVをローカル検証済み（本番未投入）";
     }
@@ -1348,7 +1459,62 @@ export async function validateFinancialMappingConfirmationFile(file, result) {
 
 export function buildFinancialLocalPreview(result) {
   const receipt = buildFinancialIntakeReceipt(result);
-  if (!receipt || !["PL", "BS"].includes(receipt.statement)) return null;
+  if (!receipt || !["PL", "BS", BUDGET_STATEMENT].includes(receipt.statement)) return null;
+  if (receipt.statement === BUDGET_STATEMENT) {
+    const allRows = result.entityPreviewRows || [];
+    const rows = allRows.filter((row) => row.entityCategory === "STORE_CANDIDATE");
+    const reviewRows = allRows.filter((row) => row.entityCategory !== "STORE_CANDIDATE");
+    const man = (value) => value == null || !Number.isFinite(Number(value)) ? null : Math.round(Number(value) / 10000);
+    const sum = (key) => rows.reduce((total, row) => total + Number(row[key] || 0), 0);
+    return {
+      schemaVersion: "management-financial-local-preview-v1",
+      statement: BUDGET_STATEMENT,
+      status: receipt.status,
+      selectedPeriodLabel: "R7 annual budget workbook",
+      availablePeriodCount: 1,
+      selectedPeriodSheetCount: allRows.length,
+      historicalPeriodExcludedSheetCount: 0,
+      aggregateExcludedSheetCount: receipt.aggregateExcludedSheetCount,
+      entityCandidateCount: rows.length,
+      reviewCandidateCount: reviewRows.length,
+      normalizedRecordCount: receipt.normalizedRecordCount,
+      totalNormalizedRecordCount: receipt.normalizedRecordCount,
+      mappingRequiredAccountCount: receipt.status === "BUDGET_MAPPING_REQUIRED" ? 1 : 0,
+      mappingCandidateAccountCount: 0,
+      completionPendingCount: buildFinancialCompletionItems(result).filter((item) => !["LOCAL_VALIDATED", "LOCAL_EVIDENCE_RECEIVED"].includes(item.status)).length,
+      comparisonRangeLabel: "12か月・予実表ローカル候補",
+      comparisonMonthCount: BUDGET_MAX_MONTH_BLOCKS,
+      dataMonthShortfallCount: rows.filter((row) => Number(row.monthCount || 0) < BUDGET_MAX_MONTH_BLOCKS).length,
+      budgetSalesManYen: man(sum("budgetSalesYen")),
+      actualSalesManYen: man(sum("actualSalesYen")),
+      budgetProfitManYen: man(sum("budgetProfitYen")),
+      actualProfitManYen: man(sum("actualProfitYen")),
+      importActionEnabled: false,
+      periodComparisonRows: [],
+      rows: rows.slice(0, 80).map((row) => ({
+        entityName: row.entityName,
+        entityCategory: row.entityCategory,
+        entityCategoryLabel: row.entityCategoryLabel,
+        budgetSalesManYen: man(row.budgetSalesYen),
+        actualSalesManYen: man(row.actualSalesYen),
+        budgetProfitManYen: man(row.budgetProfitYen),
+        actualProfitManYen: man(row.actualProfitYen),
+        varianceSalesManYen: row.actualSalesYen == null || row.budgetSalesYen == null ? null : man(Number(row.actualSalesYen) - Number(row.budgetSalesYen)),
+        varianceProfitManYen: row.actualProfitYen == null || row.budgetProfitYen == null ? null : man(Number(row.actualProfitYen) - Number(row.budgetProfitYen)),
+        activeMonthCount: Number(row.monthCount || 0),
+        mappingStatus: row.mappingStatus === "READY" ? "READY" : "MAPPING_REQUIRED",
+        recordCount: Number(row.recordCount || 0),
+      })),
+      reviewRows: reviewRows.slice(0, 20).map((row) => ({
+        entityName: row.entityName,
+        entityCategory: row.entityCategory,
+        entityCategoryLabel: row.entityCategoryLabel,
+        activeMonthCount: Number(row.monthCount || 0),
+        mappingStatus: row.mappingStatus === "READY" ? "READY" : "MAPPING_REQUIRED",
+        recordCount: Number(row.recordCount || 0),
+      })),
+    };
+  }
   if (receipt.duplicateFileCount > 0 || receipt.duplicateEntityPeriodCount > 0) {
     return {
       schemaVersion: "management-financial-local-preview-v1",
@@ -2006,7 +2172,7 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const controls = el(doc, "div", "financial-intake-controls");
   const statement = el(doc, "select");
   statement.setAttribute("aria-label", "取込種別");
-  [["PL", "P/L"], ["BS", "B/S"]].forEach(([value, label]) => {
+  [["PL", "P/L"], ["BS", "B/S"], [BUDGET_STATEMENT, "予実/目標"]].forEach(([value, label]) => {
     const option = el(doc, "option", "", label);
     option.value = value;
     statement.append(option);

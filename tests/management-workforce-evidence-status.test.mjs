@@ -65,10 +65,11 @@ test("status output uses employee master aggregates without identities", () => {
 test("allocation template is department scoped and contains no personal identifiers", () => {
   const csv = buildWorkforceAllocationTemplateCsv();
   const file = workforceAllocationTemplateFile();
-  assert.match(csv, /^"所属部門","法人配賦","店舗配賦","配賦区分","備考"/u);
+  assert.equal(csv.charCodeAt(0), 0xFEFF);
+  assert.match(csv, /^\uFEFF"所属部門","法人配賦","店舗配賦","配賦区分","備考"/u);
   assert.match(csv, /"UNASSIGNED_REVIEW"/u);
   assert.equal(file.fileName, "management-workforce-department-allocation-template.csv");
-  assert.equal(file.mimeType, "text/csv;charset=utf-8");
+  assert.equal(file.mimeType, "text/csv;charset=utf-8;header=present");
   assert.equal(file.rowCount, 2);
   assert.match(file.href, /^data:text\/csv;charset=utf-8,/u);
   assert.doesNotMatch(csv, /employeeId|employee_id|社員番号|氏名|給与|評価|健康|個人名|メール|電話|住所|token|session|digest|sha256/i);

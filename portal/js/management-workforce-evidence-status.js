@@ -104,14 +104,14 @@ function csvCell(value) {
 }
 
 export function buildWorkforceAllocationTemplateCsv() {
-  return WORKFORCE_ALLOCATION_TEMPLATE_ROWS.map((row) => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
+  return `\uFEFF${WORKFORCE_ALLOCATION_TEMPLATE_ROWS.map((row) => row.map(csvCell).join(",")).join("\r\n")}\r\n`;
 }
 
 export function workforceAllocationTemplateFile() {
   const csv = buildWorkforceAllocationTemplateCsv();
   return Object.freeze({
     fileName: "management-workforce-department-allocation-template.csv",
-    mimeType: "text/csv;charset=utf-8",
+    mimeType: "text/csv;charset=utf-8;header=present",
     rowCount: WORKFORCE_ALLOCATION_TEMPLATE_ROWS.length - 1,
     href: `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`,
   });

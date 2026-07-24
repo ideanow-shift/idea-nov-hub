@@ -20,12 +20,23 @@ const HARD_RUNTIME_GATE = false;
 const WORKFORCE_ALLOCATION_TEMPLATE_ROWS = Object.freeze([
   Object.freeze(["所属部門", "法人配賦", "店舗配賦", "配賦区分", "備考"]),
   Object.freeze(["本部", "IDEA NOV", "本部", "HQ_OR_SHARED", "例: 本部・総務・経理など共通部門"]),
+  Object.freeze(["総務", "IDEA NOV", "本部", "HQ_OR_SHARED", "例: 本部共通費として扱う部門"]),
+  Object.freeze(["経理", "IDEA NOV", "本部", "HQ_OR_SHARED", "例: 店舗へ直接人数配賦しない管理部門"]),
   Object.freeze(["教育", "IDEA NOV", "本部", "HQ_OR_SHARED", "例: 店舗へ直接配賦しない教育部門"]),
+  Object.freeze(["採用", "IDEA NOV", "本部", "HQ_OR_SHARED", "例: 採用・人事など全社支援部門"]),
   Object.freeze(["店舗運営", "IDEA NOV", "BASSA所沢店", "STORE", "例: 特定店舗に紐づく部門"]),
   Object.freeze(["BASSA所沢店", "IDEA NOV", "BASSA所沢店", "STORE", "例: 部門名が店舗名と一致する場合"]),
+  Object.freeze(["BASSA新所沢店", "ALBERO", "BASSA新所沢店", "STORE", "例: 法人が別会社の店舗"]),
+  Object.freeze(["BASSA久米川店", "UNO", "BASSA久米川店", "STORE", "例: FC法人の店舗"]),
+  Object.freeze(["BASSA所沢店アシスタント", "IDEA NOV", "BASSA所沢店", "STORE", "例: 職種名が付いた部門は店舗へ寄せる"]),
+  Object.freeze(["BASSA所沢店スタイリスト", "IDEA NOV", "BASSA所沢店", "STORE", "例: 同じ店舗の職種別部門"]),
+  Object.freeze(["KYARA HALF", "IDEA NOV", "KYARA HALF", "STORE", "例: 店舗候補名をそのまま使う"]),
   Object.freeze(["FC店舗候補", "UNO", "BASSA久米川店", "STORE", "例: 法人と店舗を両方入力"]),
+  Object.freeze(["LUA店舗候補", "LUA", "店舗名確認中", "STORE", "例: 店舗名は後で正式名へ直す"]),
+  Object.freeze(["法人のみ判明", "BIOEL", "", "UNASSIGNED_REVIEW", "例: 店舗が未確定なら要確認のまま"]),
   Object.freeze(["所属なし", "", "", "UNASSIGNED_REVIEW", "例: 不明・未配賦はこのまま要確認"]),
   Object.freeze(["不明部門", "", "", "UNASSIGNED_REVIEW", "例: 判断できない部門は無理に埋めない"]),
+  Object.freeze(["退職者・過去所属", "", "", "UNASSIGNED_REVIEW", "例: 月末/as-of契約が未確定なら要確認"]),
 ]);
 const WORKFORCE_ALLOCATION_HEADER = WORKFORCE_ALLOCATION_TEMPLATE_ROWS[0];
 const WORKFORCE_ALLOCATION_STATUSES = Object.freeze([

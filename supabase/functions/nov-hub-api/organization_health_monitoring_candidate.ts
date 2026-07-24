@@ -236,13 +236,22 @@ export async function saveIdeaLinkActivityFollowup(
   const observation = await readOrganizationHealthMonitoringCandidate(actor, readRows, now);
   let matchedStore: JsonRecord | null = null;
   let matchedSignal: JsonRecord | null = null;
+  let matchedFollowup: JsonRecord | null = null;
   for (const store of Array.isArray(observation.stores) ? observation.stores as JsonRecord[] : []) {
     const signal = (Array.isArray(store.activitySignals) ? store.activitySignals : [])
       .map(record)
       .find((item) => String(item.targetEmployeeId || "") === targetEmployeeId);
-    if (signal) { matchedStore = store; matchedSignal = signal; break; }
+    const followup = (Array.isArray(store.followups) ? store.followups : [])
+      .map(record)
+      .find((item) => String(item.targetEmployeeId || "") === targetEmployeeId);
+    if (signal || followup) {
+      matchedStore = store;
+      matchedSignal = signal || null;
+      matchedFollowup = followup || null;
+      break;
+    }
   }
-  if (!matchedStore || !matchedSignal) throw new Error("FOLLOWUP_TARGET_NOT_ELIGIBLE");
+  if (!matchedStore || (!matchedSignal && !matchedFollowup)) throw new Error("FOLLOWUP_TARGET_NOT_ELIGIBLE");
   const targetRows = await readRows("employees", {
     query: { select: "id,store_id,is_active,employment_status", id: `eq.${targetEmployeeId}`, limit: "1" },
   });
@@ -251,26 +260,44 @@ export async function saveIdeaLinkActivityFollowup(
   const targetStoreId = String(target?.store_id || "");
   if (!target || target.is_active !== true || !uuid(targetStoreId) ||
     (!scope.all && !scope.storeIds.includes(targetStoreId))) throw new Error("ACCESS_DENIED");
-  const categories = Array.isArray(matchedSignal.signalCategories)
+  let categories = Array.isArray(matchedSignal?.signalCategories)
     ? matchedSignal.signalCategories.map(String).filter((category) => ACTIVITY_SIGNAL_CATEGORIES.has(category))
     : [];
+  let existingRow: JsonRecord | null = null;
+  if (matchedFollowup) {
+    const existingRows = await readRows("idea_link_activity_followups", {
+      query: {
+        select: "target_employee_id,store_id,signal_categories",
+        target_employee_id: `eq.${targetEmployeeId}`,
+        store_id: `eq.${targetStoreId}`,
+        limit: "1",
+      },
+    });
+    existingRow = existingRows[0] || null;
+    if (!categories.length && Array.isArray(existingRow?.signal_categories)) {
+      categories = existingRow.signal_categories.map(String).filter((category) => ACTIVITY_SIGNAL_CATEGORIES.has(category));
+    }
+  }
   if (!categories.length) throw new Error("FOLLOWUP_TARGET_NOT_ELIGIBLE");
   const updatedAt = now.toISOString();
+  const payloadBase = {
+    store_id: targetStoreId,
+    signal_categories: categories,
+    status,
+    assigned_to_employee_id: actorId,
+    next_review_on: nextReviewOn,
+    updated_by_employee_id: actorId,
+    updated_at: updatedAt,
+  };
   const saved = await readRows("idea_link_activity_followups", {
-    method: "POST",
-    query: { on_conflict: "target_employee_id", select: "target_employee_id,status,next_review_on,updated_at" },
-    payload: {
-      target_employee_id: targetEmployeeId,
-      store_id: targetStoreId,
-      signal_categories: categories,
-      status,
-      assigned_to_employee_id: actorId,
-      next_review_on: nextReviewOn,
-      created_by_employee_id: actorId,
-      updated_by_employee_id: actorId,
-      updated_at: updatedAt,
-    },
-    prefer: "resolution=merge-duplicates,return=representation",
+    method: existingRow ? "PATCH" : "POST",
+    query: existingRow
+      ? { target_employee_id: `eq.${targetEmployeeId}`, select: "target_employee_id,status,next_review_on,updated_at" }
+      : { on_conflict: "target_employee_id", select: "target_employee_id,status,next_review_on,updated_at" },
+    payload: existingRow
+      ? payloadBase
+      : { target_employee_id: targetEmployeeId, created_by_employee_id: actorId, ...payloadBase },
+    prefer: existingRow ? "return=representation" : "resolution=merge-duplicates,return=representation",
   });
   if (saved.length !== 1) throw new Error("FOLLOWUP_SAVE_FAILED");
   return {

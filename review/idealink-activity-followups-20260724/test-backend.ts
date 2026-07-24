@@ -114,6 +114,48 @@ Deno.test("extra, missing, invalid fields fail before DB access", async () => {
   }
 });
 
+Deno.test("continuing followup can complete without replacing creator", async () => {
+  let writeMethod = "";
+  let writtenPayload: Row = {};
+  const continuingReader = async (table: string, options: { method?: string; query?: Row; payload?: unknown } = {}) => {
+    if (options.method) {
+      writeMethod = options.method;
+      writtenPayload = options.payload as Row;
+      return [{ target_employee_id: ids[0], status: writtenPayload.status, next_review_on: null, updated_at: writtenPayload.updated_at }];
+    }
+    if (table === "stores") return [{ id: storeId, store_name: "立川店", is_active: true }];
+    if (table === "employees") return employees;
+    if (table === "idea_link_posts") return [
+      ...posts.filter((row) => row.sender_id !== ids[0] && row.receiver_id !== ids[0]),
+      post("2026-05-20T00:00:00.000Z", ids[0], ids[2]),
+      post("2026-06-20T00:00:00.000Z", ids[0], ids[2]),
+      post("2026-05-20T00:00:00.000Z", ids[2], ids[0]),
+      post("2026-06-20T00:00:00.000Z", ids[2], ids[0]),
+    ];
+    if (table === "idea_link_activity_followups" && options.query?.target_employee_id) {
+      return [{ target_employee_id: ids[0], store_id: storeId, signal_categories: ["PUBLIC_SEND_ACTIVITY_STOPPED"] }];
+    }
+    if (table === "idea_link_activity_followups") {
+      return [{
+        target_employee_id: ids[0],
+        store_id: storeId,
+        status: "MONITORING",
+        assigned_to_employee_id: actorId,
+        next_review_on: null,
+        updated_at: "2026-06-30T00:00:00.000Z",
+      }];
+    }
+    return [];
+  };
+  const result = await saveIdeaLinkActivityFollowup(actor, {
+    targetEmployeeId: ids[0],
+    status: "COMPLETED",
+    nextReviewOn: null,
+  }, continuingReader, new Date("2026-07-01T00:00:00.000Z"));
+  assert(result.status === "COMPLETED" && writeMethod === "PATCH", "continuing followup update");
+  assert(!Object.hasOwn(writtenPayload, "created_by_employee_id"), "creator was replaced");
+});
+
 Deno.test("manager without store scope fails closed", async () => {
   let failed = false;
   try {

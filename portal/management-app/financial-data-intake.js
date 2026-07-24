@@ -38,6 +38,7 @@ const FINANCIAL_COMPLETION_REQUIREMENTS = Object.freeze([
   Object.freeze({ key: "FC_RULE", label: "FC店舗の変換ルール", detail: "FC合計・共通・個店の二重計上防止", format: "CSV (UTF-8)", grain: "シート/部門候補1行", requiredFields: "候補名・区分・集計対象/除外・適用期", validation: "FC合計/共通/個店を排他的に分類" }),
 ]);
 const AGGREGATE_SHEET_RE = /(?:全体|合計|共通|FC\(合計\))/u;
+const BS_AUTHORITATIVE_AGGREGATE_SHEET_RE = /全体\(合計\)/u;
 const XML_ESCAPE_RE = /&(lt|gt|amp|quot|apos);/g;
 const XML_ESCAPE_MAP = Object.freeze({ lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" });
 const XLSX_TEXT_ENTRY_RE = /^(?:xl\/(?:workbook\.xml|sharedStrings\.xml|_rels\/workbook\.xml\.rels|worksheets\/sheet\d+\.xml)|\[Content_Types\]\.xml|_rels\/\.rels)$/u;
@@ -359,7 +360,11 @@ function summarizeStatement(statement, sheets, meta) {
         : `${statement}_LOCAL_READY`;
   let balanceCheck = "NOT_APPLICABLE";
   if (statement === "BS" && !Object.keys(missingByAccount).length) {
-    const imbalanced = parsed.some((sheet) => {
+    const authoritativeSheets = parsed.filter((sheet) => BS_AUTHORITATIVE_AGGREGATE_SHEET_RE.test(sheet.sheet));
+    const balanceSourceSheets = authoritativeSheets.length ? authoritativeSheets
+      : parsed.some((sheet) => sheet.isAggregateSheet) ? parsed.filter((sheet) => sheet.isAggregateSheet)
+        : parsed;
+    const imbalanced = balanceSourceSheets.some((sheet) => {
       const byMonth = new Map();
       for (const record of sheet.records) {
         if (!BS_REQUIRED_ACCOUNTS.includes(record.account)) continue;
@@ -1342,7 +1347,12 @@ export function buildFinancialLocalPreview(result) {
     ? allRows
     : allRows.filter((row) => row.periodKey === selectedPeriod.key);
   if (receipt.statement === "BS") {
-    const rows = periodRows.filter((row) => row.entityCategory !== "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS");
+    const aggregateRows = periodRows.filter((row) => row.entityCategory === "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS");
+    const authoritativeRows = aggregateRows.filter((row) => BS_AUTHORITATIVE_AGGREGATE_SHEET_RE.test(row.entityName));
+    const entityRows = periodRows.filter((row) => row.entityCategory !== "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS");
+    const rows = authoritativeRows.length ? authoritativeRows : aggregateRows.length ? aggregateRows : entityRows;
+    const rowNames = new Set(rows.map((row) => row.entityName));
+    const reviewRows = aggregateRows.length ? periodRows.filter((row) => !rowNames.has(row.entityName)) : [];
     const completionItems = buildFinancialCompletionItems(result);
     const balancedEntityCount = rows.filter((row) => row.balanceStatus === "BALANCED").length;
     const reviewEntityCount = rows.length - balancedEntityCount;
@@ -1358,8 +1368,9 @@ export function buildFinancialLocalPreview(result) {
       availablePeriodCount: periods.length,
       selectedPeriodSheetCount: periodRows.length,
       historicalPeriodExcludedSheetCount: Math.max(0, allRows.length - periodRows.length),
-      aggregateExcludedSheetCount: periodRows.length - rows.length,
+      aggregateExcludedSheetCount: aggregateRows.length,
       entityCandidateCount: rows.length,
+      reviewCandidateCount: reviewRows.length,
       balancedEntityCount,
       balanceReviewRequiredCount: reviewEntityCount,
       maxAbsBalanceDeltaManYen: deltas.length ? Math.max(...deltas) : null,
@@ -1370,6 +1381,16 @@ export function buildFinancialLocalPreview(result) {
       balanceCheck: receipt.balanceCheck,
       importActionEnabled: false,
       rows: rows.slice(0, 80).map((row) => ({
+        entityName: row.entityName,
+        assetsManYen: row.assetsManYen,
+        liabilitiesManYen: row.liabilitiesManYen,
+        equityManYen: row.equityManYen,
+        balanceDeltaManYen: row.balanceDeltaManYen,
+        balanceStatus: row.balanceStatus,
+        closingMonthLabel: row.closingMonthLabel,
+        recordCount: row.recordCount,
+      })),
+      reviewRows: reviewRows.slice(0, 80).map((row) => ({
         entityName: row.entityName,
         assetsManYen: row.assetsManYen,
         liabilitiesManYen: row.liabilitiesManYen,

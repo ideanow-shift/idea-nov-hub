@@ -103,6 +103,14 @@ function workbook(sheetRows, sheetName = "損･BASSA新所沢店", compressionM
   ], compressionMethod);
 }
 
+function workbookSheets(sheets, compressionMethod = 0) {
+  return zipStore([
+    ["xl/workbook.xml", `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((sheet, index) => `<sheet name="${sheet.name}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`).join("")}</sheets></workbook>`],
+    ["xl/_rels/workbook.xml.rels", `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`).join("")}</Relationships>`],
+    ...sheets.map((sheet, index) => [`xl/worksheets/sheet${index + 1}.xml`, `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${sheet.rows.join("")}</sheetData></worksheet>`]),
+  ], compressionMethod);
+}
+
 const months = ["9月度", "10月度", "11月度", "12月度", "1月度", "2月度", "3月度", "4月度", "5月度", "6月度", "7月度", "8月度"];
 const requiredPl = ["売上高合計", "売上原価", "売上総損益金額", "給与手当", "法定福利費", "福利厚生費", "地代家賃", "水道光熱費", "広告宣伝費", "販売管理費合計", "営業損益金額", "経常損益金額"];
 const inflateRaw = (bytes) => zlib.inflateRawSync(Buffer.from(bytes));
@@ -952,6 +960,44 @@ test("B/S intake requires exact balanced assets, liabilities, and equity", async
   assert.doesNotMatch(JSON.stringify(reviewCsv), /contentIdentity|rawFile|sessionToken|Authorization/i);
 });
 
+test("B/S intake accepts balanced aggregate sheets while keeping department candidates review-only", async () => {
+  const header = [
+    row(1, ["帳票名：残高試算表(年間推移)"]),
+    row(5, ["集計期間：令和07年09月01日", "令和08年08月31日"]),
+    row(8, ["勘定科目", ...months]),
+  ];
+  const balancedAggregateRows = [
+    ...header,
+    row(9, ["資産合計", ...months.map(() => 1_000_000)]),
+    row(10, ["負債合計", ...months.map(() => 400_000)]),
+    row(11, ["純資産合計", ...months.map(() => 600_000)]),
+  ];
+  const imbalancedDepartmentRows = [
+    ...header,
+    row(9, ["資産合計", ...months.map(() => 1_010_000)]),
+    row(10, ["負債合計", ...months.map(() => 400_000)]),
+    row(11, ["純資産合計", ...months.map(() => 600_000)]),
+  ];
+  const result = await parseFinancialWorkbookBuffer(workbookSheets([
+    { name: "貸･全体(合計)", rows: balancedAggregateRows },
+    { name: "貸･BASSA新所沢店", rows: imbalancedDepartmentRows },
+  ]), "BS", { inflateRaw });
+  assert.equal(result.status, "BS_LOCAL_READY");
+  assert.equal(result.balanceCheck, "BALANCED");
+  assert.equal(result.aggregateSheetCount, 1);
+  assert.equal(result.entityCandidateCount, 1);
+  const preview = buildFinancialLocalPreview(result);
+  assert.equal(preview.balanceReadinessCategory, "BS_BALANCE_READY");
+  assert.equal(preview.entityCandidateCount, 1);
+  assert.equal(preview.reviewCandidateCount, 1);
+  assert.equal(preview.rows[0].balanceStatus, "BALANCED");
+  assert.equal(preview.rows[0].balanceDeltaManYen, 0);
+  assert.equal(preview.reviewRows[0].balanceStatus, "NOT_READY");
+  assert.equal(preview.importActionEnabled, false);
+  const completion = buildFinancialCompletionItems(result);
+  assert.equal(completion.find((item) => item.key === "BALANCE_SHEET").status, "LOCAL_VALIDATED");
+});
+
 test("B/S duplicate workbook bytes suppress all balance amounts", async () => {
   const balanced = workbook([
     row(1, ["帳票名：残高試算表(年間推移)"]),
@@ -982,7 +1028,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=ad9570aea40cc406/);
+  assert.match(app, /financial-data-intake\.js\?v=a87b9c15f73aac3b/);
   assert.match(app, /ローカル反映 \/ 残/);
   assert.match(app, /確認表示だけです。本番投入はdisabledです。/);
   assert.match(app, /店舗候補P\/Lの確認表示だけです。本番投入はdisabledです。/);

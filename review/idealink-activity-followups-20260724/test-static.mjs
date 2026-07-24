@@ -5,6 +5,7 @@ const root = new URL("../../", import.meta.url);
 const backend = await readFile(new URL("supabase/functions/nov-hub-api/index.ts", root), "utf8");
 const module = await readFile(new URL("supabase/functions/nov-hub-api/organization_health_monitoring_candidate.ts", root), "utf8");
 const frontend = await readFile(new URL("portal/idea-link-app/index.html", root), "utf8");
+const observationFrontend = await readFile(new URL("portal/idea-link-app/organization-health-observation.js", root), "utf8");
 const api = await readFile(new URL("portal/js/api.js", root), "utf8");
 const migration = await readFile(new URL("supabase/idea-link-activity-followups-20260724.sql", root), "utf8");
 let passed = 0;
@@ -20,6 +21,13 @@ test(() => assert.doesNotMatch(frontend, /離職予測スコア|モチベーシ�
 test(() => assert.match(frontend, /\.org-observation-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/));
 test(() => assert.match(frontend, /\.org-support-signals\s*>\s*ul\s*>\s*\.org-support-signal\s*\{[^}]*display:\s*grid/));
 test(() => assert.doesNotMatch(frontend, /\.org-observation-card\s+li\s*\{/));
+test(() => assert.match(frontend, /\.org-store-tabs\s*\{[^}]*overflow-x:\s*auto/));
+test(() => assert.match(frontend, /organization-health-observation\.js\?v=20260724-4/));
+test(() => {
+  assert.match(observationFrontend, /role="tablist"/);
+  assert.match(observationFrontend, /data-store-tab/);
+  assert.match(observationFrontend, /data-store-panel/);
+});
 test(() => assert.match(migration, /enable row level security/i));
 test(() => assert.match(migration, /revoke all.+anon, authenticated/i));
 test(() => assert.match(migration, /grant select, insert, update.+service_role/i));
@@ -30,4 +38,4 @@ test(() => assert.match(migration, /^begin;/i));
 test(() => assert.match(migration, /commit;\s*$/i));
 test(() => assert.doesNotMatch(module, /notification|line.?works|enqueue/i));
 test(() => assert.match(module, /visibility: "eq\.public"/));
-console.log(JSON.stringify({ scenarios: 21, passed }));
+console.log(JSON.stringify({ scenarios: 24, passed }));

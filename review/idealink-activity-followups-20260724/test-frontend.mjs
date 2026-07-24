@@ -81,4 +81,17 @@ test(() => {
   renderOrganizationHealthObservationResponse(node, response());
   assert.doesNotMatch(node.innerHTML, /textarea|自由記述|離職予測|ランキング/);
 });
-console.log(JSON.stringify({ scenarios: 5, passed }));
+test(() => {
+  const node = target();
+  const value = response();
+  value.result.stores.push({
+    ...structuredClone(value.result.stores[0]),
+    storeLabel: "吉祥寺店",
+  });
+  renderOrganizationHealthObservationResponse(node, value);
+  assert.match(node.innerHTML, /role="tablist"/);
+  assert.match(node.innerHTML, /role="tab"[^>]*aria-selected="true"[^>]*>立川店<\/button>/);
+  assert.match(node.innerHTML, /role="tab"[^>]*aria-selected="false"[^>]*>吉祥寺店<\/button>/);
+  assert.match(node.innerHTML, /role="tabpanel"[^>]*data-store-panel="1" hidden/);
+});
+console.log(JSON.stringify({ scenarios: 6, passed }));

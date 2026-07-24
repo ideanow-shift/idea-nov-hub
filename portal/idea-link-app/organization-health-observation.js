@@ -32,6 +32,7 @@ const FOLLOWUP_STATUS_LABELS = {
   MONITORING: "経過確認中",
   COMPLETED: "完了",
 };
+let selectedStoreLabel = "";
 
 function exactKeys(value, expected) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -87,7 +88,10 @@ export function renderOrganizationHealthObservationResponse(target, response, on
     result.safeguards.followupFreeText !== false || result.safeguards.followupStatusesOnly !== true ||
     result.safeguards.individualRanking !== false || result.safeguards.turnoverPrediction !== false ||
     result.safeguards.rawTextIncluded !== false || result.safeguards.automatedEmploymentDecision !== false) throw new Error("OBSERVATION_RESPONSE_CONTRACT_FAILED");
-  const cards = result.stores.map((store) => {
+  const selectedStoreIndex = Math.max(0, result.stores.findIndex((store) =>
+    store && typeof store === "object" && store.storeLabel === selectedStoreLabel
+  ));
+  const cards = result.stores.map((store, storeIndex) => {
     if (!exactKeys(store, STORE_KEYS) || typeof store.storeLabel !== "string" || !["AGGREGATE_READY", "INSUFFICIENT_DATA"].includes(store.availability) ||
       !Array.isArray(store.periods) || store.periods.length > 13 || !Array.isArray(store.activitySignals) ||
       store.activitySignals.length > 25 || !Array.isArray(store.followups) || store.followups.length > 25 ||
@@ -123,16 +127,37 @@ export function renderOrganizationHealthObservationResponse(target, response, on
       activityRows || continuing ? `<ul>${activityRows}${continuing}</ul>${store.activitySignalOverflow ? "<p>このほかにも確認候補があります。</p>" : ""}` :
         "<p>現在、公開投稿の大きな変化は検出されていません。</p>"
     }<p>公開投稿の送信・受信の変化だけを示します。モチベーションや離職可能性の判定には使用しません。</p></section>`;
-    if (periods.length < 2) return `<article class="org-observation-card"><h4>${escapeHtml(store.storeLabel)}</h4><p>店舗比較には2期間分の集計が必要です。</p>${supportSection}</article>`;
+    const panelStart = `<article class="org-observation-card" role="tabpanel" id="org-store-panel-${storeIndex}" aria-labelledby="org-store-tab-${storeIndex}" data-store-panel="${storeIndex}"${storeIndex === selectedStoreIndex ? "" : " hidden"}>`;
+    if (periods.length < 2) return `${panelStart}<h4>${escapeHtml(store.storeLabel)}</h4><p>店舗比較には2期間分の集計が必要です。</p>${supportSection}</article>`;
     const previous = periods.at(-2); const current = periods.at(-1);
     const signal = storeSignal(previous, current);
     const rows = METRICS.map((metric) => {
       const value = direction(previous[metric], current[metric]);
       return `<li><span>${LABELS[metric]}</span><strong>${DIRECTIONS[value]}</strong></li>`;
     }).join("");
-    return `<article class="org-observation-card"><h4>${escapeHtml(store.storeLabel)}</h4><p><strong>${SIGNAL_LABELS[signal]}</strong></p><ul>${rows}</ul>${supportSection}<p>個人や離職可能性を判定するものではありません。</p></article>`;
+    return `${panelStart}<h4>${escapeHtml(store.storeLabel)}</h4><p><strong>${SIGNAL_LABELS[signal]}</strong></p><ul>${rows}</ul>${supportSection}<p>個人や離職可能性を判定するものではありません。</p></article>`;
   }).join("");
-  target.innerHTML = cards || '<div class="notice">表示できる対象店舗はありません。</div>';
+  const tabs = result.stores.map((store, storeIndex) =>
+    `<button type="button" role="tab" id="org-store-tab-${storeIndex}" aria-controls="org-store-panel-${storeIndex}" aria-selected="${storeIndex === selectedStoreIndex}" tabindex="${storeIndex === selectedStoreIndex ? "0" : "-1"}" data-store-tab="${storeIndex}">${escapeHtml(store.storeLabel)}</button>`
+  ).join("");
+  target.innerHTML = cards
+    ? `<div class="org-store-tabs" role="tablist" aria-label="分析する店舗を選択">${tabs}</div>${cards}`
+    : '<div class="notice">表示できる対象店舗はありません。</div>';
+  target.querySelectorAll("[data-store-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const storeIndex = Number(button.dataset.storeTab);
+      if (!Number.isInteger(storeIndex) || storeIndex < 0 || storeIndex >= result.stores.length) return;
+      selectedStoreLabel = result.stores[storeIndex].storeLabel;
+      target.querySelectorAll("[data-store-tab]").forEach((tab) => {
+        const selected = Number(tab.dataset.storeTab) === storeIndex;
+        tab.setAttribute("aria-selected", String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+      });
+      target.querySelectorAll("[data-store-panel]").forEach((panel) => {
+        panel.hidden = Number(panel.dataset.storePanel) !== storeIndex;
+      });
+    });
+  });
   if (typeof onSave === "function") {
     target.querySelectorAll("[data-followup-save]").forEach((button) => {
       button.addEventListener("click", async () => {

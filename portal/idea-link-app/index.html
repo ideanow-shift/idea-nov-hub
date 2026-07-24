@@ -650,21 +650,22 @@
       display: grid;
     }
 
-    .org-observation-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+    .org-observation-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
     .org-observation-card { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
     .org-observation-card h4 { margin: 0 0 10px; overflow-wrap: anywhere; }
     .org-observation-card ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-    .org-observation-card li { display: flex; justify-content: space-between; gap: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+    .org-observation-card > ul > li { display: flex; justify-content: space-between; gap: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
     .org-observation-card strong { flex: 0 0 auto; color: var(--muted); font-size: 13px; }
     .org-support-signals { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
     .org-support-signals h5 { margin: 0 0 10px; font-size: 15px; }
     .org-support-signals p { margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
-    .org-support-signal { align-items: start; }
-    .org-support-signal > div:first-child { display: grid; gap: 4px; }
-    .org-support-signal strong { max-width: 100%; text-align: left; }
-    .org-followup-control { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(140px, 1fr) auto; gap: 8px; align-items: end; min-width: min(100%, 420px); }
+    .org-support-signals > ul > .org-support-signal { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(360px, 1.4fr); gap: 18px; align-items: start; min-width: 0; padding: 14px 0; border-top: 1px solid var(--line); }
+    .org-support-signal > div:first-child { display: grid; gap: 6px; min-width: 0; }
+    .org-support-signal > div:first-child > span { font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
+    .org-support-signal strong { display: block; max-width: 100%; color: var(--muted); text-align: left; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }
+    .org-followup-control { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(160px, 1fr) minmax(76px, auto); gap: 10px; align-items: end; width: 100%; min-width: 0; }
     .org-followup-control label { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
-    .org-followup-control select, .org-followup-control input { min-height: 40px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font: inherit; }
+    .org-followup-control select, .org-followup-control input { width: 100%; min-width: 0; min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font: inherit; }
     .org-followup-control button { min-height: 40px; padding: 7px 14px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 700; }
     .org-followup-control small { grid-column: 1 / -1; color: var(--muted); }
 
@@ -1061,7 +1062,8 @@
       }
 
       .org-observation-grid { grid-template-columns: 1fr; }
-      .org-observation-card li { display: grid; gap: 4px; }
+      .org-observation-card > ul > li { display: grid; gap: 4px; }
+      .org-support-signals > ul > .org-support-signal { grid-template-columns: 1fr; gap: 12px; }
       .org-followup-control { grid-template-columns: 1fr; }
       .org-followup-control small { grid-column: 1; }
 

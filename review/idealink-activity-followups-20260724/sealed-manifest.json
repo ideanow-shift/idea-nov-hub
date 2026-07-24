@@ -2,7 +2,7 @@
   "pack": "IDEA_LINK_ACTIVITY_CHANGE_AND_FOLLOWUP_V1_20260724",
   "sourceBaseCommit": "824760e4dabad8ba9fb57c5e3c0f0bd59ea0cf32",
   "files": {
-    "portal/idea-link-app/index.html": "6B3A81A02987ABC12BB8766AF16BA65458418411F4AAF7E0D01BCECCA9C0B8F4",
+    "portal/idea-link-app/index.html": "4F09893F66CE1FE80C71B9A339CF2B6F9E9349E013075B7F2199FB7112A0D8E6",
     "portal/idea-link-app/organization-health-observation.js": "3E39E95DCF6CC2CE7B606384C15F20D11804A9C92551BEA7FEFD2BD320348AFA",
     "portal/js/api.js": "45562AA23409E382D08C47280D53A2237AF89BC8F65AA1C842B78931DCF8E7F4",
     "supabase/functions/nov-hub-api/index.ts": "6431DAC47267EB58FD2F721F61D4FEBA11A185C5770886B6C98A99C5EDF64F9F",
@@ -11,7 +11,7 @@
     "supabase/idea-link-activity-followups-preflight-20260724.sql": "32BFA734920F8C6D90E89082365434F2F50AC2FF2A102431363F879DAD90C073",
     "review/idealink-activity-followups-20260724/test-backend.ts": "F15B7DB3579082FEF79CA2B4FE1025FE6CAB9258D3A293E655D127B021E7C750",
     "review/idealink-activity-followups-20260724/test-frontend.mjs": "8375C8DA197E1AD2BF88713540C46D53863A3DBADD9DAE4C5C42546269D69247",
-    "review/idealink-activity-followups-20260724/test-static.mjs": "0C58BCB673E8800954F118B629BCC65B82A45C9D2FA6A008DDFA13EB36185C55",
+    "review/idealink-activity-followups-20260724/test-static.mjs": "61DE7E5B0D713AD581EB26185EC3389CFDD259E4B3A799A3B6BCCD4FA59137BB",
     "review/idealink-activity-followups-20260724/pglite-rehearsal.mjs": "1A58C122BADE1B95C6E10C2B9731D326488A49E31B25EB43657B9E9DB45D2746"
   },
   "contracts": {
@@ -27,7 +27,7 @@
   "validation": {
     "backendFixtures": "6/6_PASS",
     "frontendFixtures": "5/5_PASS",
-    "staticFixtures": "18/18_PASS",
+    "staticFixtures": "21/21_PASS",
     "pgliteSupplemental": "PASS",
     "denoCheck": "PASS"
   }

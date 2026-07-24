@@ -76,6 +76,13 @@ export function canDisplayWorkforceAggregates(model = SANITIZED_WORKFORCE_EVIDEN
     && model.aggregateValuesVisible === true;
 }
 
+export function localWorkforceAggregateMetric(model = SANITIZED_WORKFORCE_EVIDENCE) {
+  if (!validateWorkforceEvidenceModel(model) || model.category !== "LOCAL_VALIDATED_PENDING_PRODUCTION") return null;
+  if (model.aggregateValuesVisible !== true) return null;
+  const activeFact = model.facts[1];
+  return activeFact?.value ? `社員マスタ ${activeFact.value}` : null;
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")

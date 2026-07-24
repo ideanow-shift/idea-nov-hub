@@ -1,7 +1,7 @@
 import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
-import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=C2871D9E46AEBA1A";
+import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=259063F35862884C";
 import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=326143584102463E";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 
@@ -209,7 +209,7 @@ function renderStores() {
   mountWorkforceEvidenceStatus(elements.workforceEvidence);
   renderMetrics(elements.storeKpis, [
     ["表示店舗", `${data.storeCount || 0}店舗`],
-    ["スタッフ", workforceMetric(data.staffCount, "人")],
+    ["スタッフ", localWorkforceAggregateMetric() || workforceMetric(data.staffCount, "人")],
     ["売上データ", localPl ? `P/L ${number.format(localPl.storeCandidateCount)}候補` : stores.some((row) => row.dataReadiness !== "salonanswer_csv_waiting") ? "接続済み" : "CSV待ち"],
     ["P/L損益", localPl ? `${number.format(Math.round(localPl.ordinaryProfitManYen))}万円` : "未反映"],
     ["P/L照合", localPl ? `一致${number.format(localPlMatch.matched)} / 未照合${number.format(localPlMatch.unmatched)}` : "未反映"],

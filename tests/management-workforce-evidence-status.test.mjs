@@ -7,6 +7,7 @@ import {
   SANITIZED_WORKFORCE_EVIDENCE,
   WORKFORCE_EVIDENCE_CATEGORIES,
   canDisplayWorkforceAggregates,
+  localWorkforceAggregateMetric,
   mountWorkforceEvidenceStatus,
   renderWorkforceEvidenceStatus,
   validateWorkforceEvidenceModel,
@@ -29,8 +30,10 @@ test("workforce evidence categories are fixed and local source remains runtime f
   assert.equal(SANITIZED_WORKFORCE_EVIDENCE.category, "LOCAL_VALIDATED_PENDING_PRODUCTION");
   assert.equal(SANITIZED_WORKFORCE_EVIDENCE.aggregateValuesVisible, true);
   assert.equal(SANITIZED_WORKFORCE_EVIDENCE.relatedActionsEnabled, false);
+  assert.equal(localWorkforceAggregateMetric(), "社員マスタ 190名");
   assert.equal(canDisplayWorkforceAggregates(), false);
   assert.equal(validateWorkforceEvidenceModel({ ...SANITIZED_WORKFORCE_EVIDENCE, category: "AUTHORITATIVE_READY" }), false);
+  assert.equal(localWorkforceAggregateMetric({ ...SANITIZED_WORKFORCE_EVIDENCE, category: "AUTHORITATIVE_READY" }), null);
 });
 
 test("status output uses employee master aggregates without identities", () => {
@@ -67,6 +70,7 @@ test("store and classification preparation views share the same closed status", 
   assert.match(managementIndex, /id="workforce-evidence-status"/);
   assert.match(managementApp, /mountWorkforceEvidenceStatus\(elements\.workforceEvidence\)/);
   const storeRenderer = managementApp.match(/function renderStores\(\)\s*{[\s\S]*?\n}/)?.[0] ?? "";
+  assert.match(storeRenderer, /localWorkforceAggregateMetric\(\) \|\| workforceMetric\(data\.staffCount, "人"\)/);
   assert.match(storeRenderer, /workforceMetric\(data\.staffCount, "人"\)/);
   assert.match(storeRenderer, /workforceMetric\(row\.staffCount\)/);
   assert.doesNotMatch(storeRenderer, /number\.format\((?:row|data)\.staffCount|staffCount\s*\|\|\s*0/);

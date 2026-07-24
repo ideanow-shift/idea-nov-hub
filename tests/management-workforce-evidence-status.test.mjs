@@ -70,7 +70,10 @@ test("allocation template is department scoped and contains no personal identifi
   assert.match(csv, /"UNASSIGNED_REVIEW"/u);
   assert.equal(file.fileName, "management-workforce-department-allocation-template.csv");
   assert.equal(file.mimeType, "text/csv;charset=utf-8;header=present");
-  assert.equal(file.rowCount, 2);
+  assert.equal(file.rowCount, 7);
+  assert.match(csv, /"店舗運営","IDEA NOV","BASSA所沢店","STORE"/u);
+  assert.match(csv, /"FC店舗候補","UNO","BASSA久米川店","STORE"/u);
+  assert.match(csv, /"不明部門","","","UNASSIGNED_REVIEW"/u);
   assert.match(file.href, /^data:text\/csv;charset=utf-8,/u);
   assert.doesNotMatch(csv, /employeeId|employee_id|社員番号|氏名|給与|評価|健康|個人名|メール|電話|住所|token|session|digest|sha256/i);
 });

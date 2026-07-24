@@ -19,8 +19,13 @@ const FACT_KEYS = Object.freeze(["label", "value"]);
 const HARD_RUNTIME_GATE = false;
 const WORKFORCE_ALLOCATION_TEMPLATE_ROWS = Object.freeze([
   Object.freeze(["所属部門", "法人配賦", "店舗配賦", "配賦区分", "備考"]),
-  Object.freeze(["本部", "IDEA NOV", "本部", "HQ_OR_SHARED", "例: 本部共通として確認"]),
-  Object.freeze(["所属なし", "", "", "UNASSIGNED_REVIEW", "例: 配賦せず要確認"]),
+  Object.freeze(["本部", "IDEA NOV", "本部", "HQ_OR_SHARED", "例: 本部・総務・経理など共通部門"]),
+  Object.freeze(["教育", "IDEA NOV", "本部", "HQ_OR_SHARED", "例: 店舗へ直接配賦しない教育部門"]),
+  Object.freeze(["店舗運営", "IDEA NOV", "BASSA所沢店", "STORE", "例: 特定店舗に紐づく部門"]),
+  Object.freeze(["BASSA所沢店", "IDEA NOV", "BASSA所沢店", "STORE", "例: 部門名が店舗名と一致する場合"]),
+  Object.freeze(["FC店舗候補", "UNO", "BASSA久米川店", "STORE", "例: 法人と店舗を両方入力"]),
+  Object.freeze(["所属なし", "", "", "UNASSIGNED_REVIEW", "例: 不明・未配賦はこのまま要確認"]),
+  Object.freeze(["不明部門", "", "", "UNASSIGNED_REVIEW", "例: 判断できない部門は無理に埋めない"]),
 ]);
 const WORKFORCE_ALLOCATION_HEADER = WORKFORCE_ALLOCATION_TEMPLATE_ROWS[0];
 const WORKFORCE_ALLOCATION_STATUSES = Object.freeze([

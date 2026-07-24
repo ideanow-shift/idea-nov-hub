@@ -230,6 +230,9 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-reload")?.addEventListener("click", () => {
     loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
   });
+  documentObject.getElementById("summary-load-button")?.addEventListener("click", () => {
+    loadTalentStudentWorkspace({ globalObject, documentObject });
+  });
   globalObject?.addEventListener?.("pagehide", () => activeStudentWorkspaceController?.abort?.(), { once: true });
   globalObject?.addEventListener?.("novhub:logout", () => {
     activeStudentWorkspaceController?.abort?.();

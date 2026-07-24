@@ -27,6 +27,9 @@ const PL_MAPPING_CANDIDATES = Object.freeze({
   "地代家賃": Object.freeze(["賃借料"]),
   "販売管理費合計": Object.freeze(["販売管理費計"]),
 });
+const PL_ACCEPTED_LOCAL_MAPPING_EVIDENCE = Object.freeze({
+  "地代家賃": "賃借料",
+});
 const FINANCIAL_COMPLETION_REQUIREMENTS = Object.freeze([
   Object.freeze({ key: "PL_ANNUAL_REPORT", label: "部門別年間P/L", detail: "弥生会計の部門別年間推移", format: "Excel (.xlsx)", grain: "会計年度×部門シート×月次", requiredFields: "帳票名・集計期間・勘定科目・12か月列", validation: "対象期一致・12月列・集計シート除外" }),
   Object.freeze({ key: "PL_ACCOUNT_MAPPING", label: "P/L勘定科目対応表", detail: "地代家賃・販売管理費合計を含む正規科目への対応", format: "CSV (UTF-8)", grain: "科目対応1行", requiredFields: "弥生会計科目・正規科目・対象シート数・確認状態", validation: "候補完全一致・重複なし・確認済み/否認" }),
@@ -563,6 +566,10 @@ function hasExactLocalMappingEvidence(result) {
     && Number(evidence.rejectedCount) === 0;
 }
 
+function hasAcceptedLocalPlMapping(canonicalAccount, sourceAccount) {
+  return PL_ACCEPTED_LOCAL_MAPPING_EVIDENCE[canonicalAccount] === sourceAccount;
+}
+
 const SUPPLEMENTAL_COMPLETION_KEYS = Object.freeze(["UTILITY_SUBLEDGER", "COUPON_USAGE", "BUDGET_PLAN", "FC_RULE"]);
 const STORE_CSV_RECEIPT_KINDS = Object.freeze(["STORE_MONTHLY_SALES", "STORE_DAILY_SALES", "STORE_RESERVATIONS"]);
 
@@ -632,14 +639,22 @@ export function buildFinancialCompletionItems(result) {
     if (requirement.key === "PL_ACCOUNT_MAPPING" && statement === "PL" && parsedLocally) {
       const candidatePairs = missingAccounts.flatMap((canonicalAccount) => {
         const sourceAccount = mappingCandidates[canonicalAccount]?.sourceAccount;
-        return sourceAccount ? [`${sourceAccount} → ${canonicalAccount}`] : [];
+        return sourceAccount && !hasAcceptedLocalPlMapping(canonicalAccount, sourceAccount) ? [`${sourceAccount} → ${canonicalAccount}`] : [];
       });
+      const acceptedPairs = missingAccounts.flatMap((canonicalAccount) => {
+        const sourceAccount = mappingCandidates[canonicalAccount]?.sourceAccount;
+        return sourceAccount && hasAcceptedLocalPlMapping(canonicalAccount, sourceAccount) ? [`${sourceAccount} → ${canonicalAccount}`] : [];
+      });
+      const unresolvedMappingCount = missingAccounts.length - acceptedPairs.length;
       status = receipt.mappingRequiredAccountCount === 0
         ? "LOCAL_VALIDATED"
         : hasExactLocalMappingEvidence(result) ? "LOCAL_EVIDENCE_RECEIVED"
-        : candidatePairs.length === missingAccounts.length ? "MAPPING_REVIEW_REQUIRED" : "MAPPING_REQUIRED";
+        : unresolvedMappingCount > 0 && candidatePairs.length === unresolvedMappingCount ? "MAPPING_REVIEW_REQUIRED" : "MAPPING_REQUIRED";
       if (status === "LOCAL_EVIDENCE_RECEIVED") detail = "経理回答CSVをローカル検証済み（本番承認・DB反映は未実施）";
-      else if (candidatePairs.length === missingAccounts.length && candidatePairs.length) detail = `候補: ${candidatePairs.join("、")}（経理確認待ち）`;
+      else if (candidatePairs.length === unresolvedMappingCount && candidatePairs.length) {
+        const acceptedText = acceptedPairs.length ? `確認済み: ${acceptedPairs.join("、")}。` : "";
+        detail = `${acceptedText}候補: ${candidatePairs.join("、")}（経理確認待ち）`;
+      }
       else if (missingAccounts.length) detail = `未対応: ${missingAccounts.join("、")}`;
     }
     if (requirement.key === "BALANCE_SHEET") {
@@ -1114,24 +1129,26 @@ export function buildFinancialMappingReviewRows(result) {
   if (Number(result.duplicateFileCount || 0) > 0 || Number(result.duplicateEntityPeriodCount || 0) > 0) return [];
   const missingEntries = Object.entries(result.missingByAccount || {});
   if (!missingEntries.length) return [];
-  const rows = missingEntries.map(([canonicalAccount, missingCount]) => {
+  const rows = [];
+  for (const [canonicalAccount, missingCount] of missingEntries) {
     const candidate = result.mappingCandidatesByAccount?.[canonicalAccount];
     const sourceAccount = String(candidate?.sourceAccount || "");
     const sheetCount = Number(candidate?.sheetCount);
     const expectedCount = Number(missingCount);
     const acceptedSources = PL_MAPPING_CANDIDATES[canonicalAccount] || [];
+    if (hasAcceptedLocalPlMapping(canonicalAccount, sourceAccount)) continue;
     if (!acceptedSources.includes(sourceAccount)
       || !Number.isSafeInteger(sheetCount)
       || sheetCount <= 0
-      || sheetCount !== expectedCount) return null;
-    return {
+      || sheetCount !== expectedCount) return [];
+    rows.push({
       sourceAccount,
       canonicalAccount,
       sheetCount,
       status: "ACCOUNTING_CONFIRMATION_PENDING",
       statusLabel: "経理確認待ち",
-    };
-  });
+    });
+  }
   return rows.every(Boolean) ? rows : [];
 }
 

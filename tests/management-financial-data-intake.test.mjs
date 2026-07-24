@@ -500,14 +500,13 @@ test("P/L mapping review exports only fixed accounting confirmation fields", () 
     },
   };
   assert.deepEqual(buildFinancialMappingReviewRows(result), [
-    { sourceAccount: "賃借料", canonicalAccount: "地代家賃", sheetCount: 104, status: "ACCOUNTING_CONFIRMATION_PENDING", statusLabel: "経理確認待ち" },
     { sourceAccount: "販売管理費計", canonicalAccount: "販売管理費合計", sheetCount: 104, status: "ACCOUNTING_CONFIRMATION_PENDING", statusLabel: "経理確認待ち" },
   ]);
   const summary = buildFinancialMappingReviewSummary(result);
   assert.equal(summary.schemaVersion, "management-financial-mapping-review-summary-v1");
   assert.equal(summary.category, "MAPPING_ACCOUNTING_RETURN_REQUIRED");
-  assert.equal(summary.candidateCount, 2);
-  assert.equal(summary.affectedSheetCount, 208);
+  assert.equal(summary.candidateCount, 1);
+  assert.equal(summary.affectedSheetCount, 104);
   assert.equal(summary.nextAction, "RETURN_MAPPING_CONFIRMATION_CSV");
   assert.equal(summary.productionImportEnabled, false);
   assert.equal(summary.mutationCount, 0);
@@ -517,8 +516,8 @@ test("P/L mapping review exports only fixed accounting confirmation fields", () 
   assert.equal(handoff.schemaVersion, "management-financial-mapping-accounting-handoff-v1");
   assert.equal(handoff.category, "ACCOUNTING_RETURN_REQUIRED");
   assert.equal(handoff.requiredFile, "management-pl-account-mapping-review.csv");
-  assert.equal(handoff.expectedReturnRowCount, 2);
-  assert.equal(handoff.affectedSheetCount, 208);
+  assert.equal(handoff.expectedReturnRowCount, 1);
+  assert.equal(handoff.affectedSheetCount, 104);
   assert.deepEqual(handoff.acceptedReturnStatuses, ["確認済み", "否認"]);
   assert.equal(handoff.nextOperatorStep, "SEND_CSV_TO_ACCOUNTING_AND_IMPORT_RETURN");
   assert.equal(handoff.productionImportEnabled, false);
@@ -526,10 +525,11 @@ test("P/L mapping review exports only fixed accounting confirmation fields", () 
   assert.equal(handoff.mutationCount, 0);
   assert.doesNotMatch(JSON.stringify(handoff), /digest|employeeId|sessionToken|Authorization|raw/i);
   const exportFile = buildFinancialMappingReviewCsv(result);
-  assert.equal(exportFile.rowCount, 2);
+  assert.equal(exportFile.rowCount, 1);
   assert.equal(exportFile.fileName, "management-pl-account-mapping-review.csv");
   assert.match(exportFile.csv, /^\uFEFF"弥生会計科目","正規科目","対象シート数","確認状態"/u);
-  assert.match(exportFile.csv, /"賃借料","地代家賃","104","経理確認待ち"/u);
+  assert.match(exportFile.csv, /"販売管理費計","販売管理費合計","104","経理確認待ち"/u);
+  assert.doesNotMatch(exportFile.csv, /"賃借料","地代家賃"/u);
   assert.doesNotMatch(exportFile.csv, /(金額|原本|ファイル名|employeeId|sessionToken|Authorization)/iu);
 });
 
@@ -642,26 +642,26 @@ test("returned accounting mapping CSV is exact, local-only evidence", () => {
     },
   };
   const header = '"弥生会計科目","正規科目","対象シート数","確認状態"';
-  const accepted = `${header}\r\n"賃借料","地代家賃","104","確認済み"\r\n"販売管理費計","販売管理費合計","104","確認済み"\r\n`;
+  const accepted = `${header}\r\n"販売管理費計","販売管理費合計","104","確認済み"\r\n`;
   assert.deepEqual(validateFinancialMappingConfirmationCsv(accepted, result), {
     status: "MAPPING_CONFIRMATION_LOCAL_EVIDENCE",
-    confirmedCount: 2,
+    confirmedCount: 1,
     rejectedCount: 0,
   });
   const rejected = accepted.replace('"販売管理費計","販売管理費合計","104","確認済み"', '"販売管理費計","販売管理費合計","104","否認"');
   assert.deepEqual(validateFinancialMappingConfirmationCsv(rejected, result), {
     status: "MAPPING_CONFIRMATION_REJECTED",
-    confirmedCount: 1,
+    confirmedCount: 0,
     rejectedCount: 1,
   });
   const readySummary = buildFinancialMappingLocalEvidenceSummary({
     ...result,
-    localMappingConfirmation: { status: "MAPPING_CONFIRMATION_LOCAL_EVIDENCE", confirmedCount: 2, rejectedCount: 0 },
+    localMappingConfirmation: { status: "MAPPING_CONFIRMATION_LOCAL_EVIDENCE", confirmedCount: 1, rejectedCount: 0 },
   });
   assert.equal(readySummary.schemaVersion, "management-financial-mapping-local-evidence-summary-v1");
   assert.equal(readySummary.category, "MAPPING_LOCAL_EVIDENCE_READY");
-  assert.equal(readySummary.expectedRowCount, 2);
-  assert.equal(readySummary.confirmedCount, 2);
+  assert.equal(readySummary.expectedRowCount, 1);
+  assert.equal(readySummary.confirmedCount, 1);
   assert.equal(readySummary.canContinueLocalReview, true);
   assert.equal(readySummary.productionImportEnabled, false);
   assert.equal(readySummary.externalSendEnabled, false);
@@ -669,7 +669,7 @@ test("returned accounting mapping CSV is exact, local-only evidence", () => {
   assert.doesNotMatch(JSON.stringify(readySummary), /digest|employeeId|sessionToken|Authorization|raw|amount|name/i);
   const rejectedSummary = buildFinancialMappingLocalEvidenceSummary({
     ...result,
-    localMappingConfirmation: { status: "MAPPING_CONFIRMATION_REJECTED", confirmedCount: 1, rejectedCount: 1 },
+    localMappingConfirmation: { status: "MAPPING_CONFIRMATION_REJECTED", confirmedCount: 0, rejectedCount: 1 },
   });
   assert.equal(rejectedSummary.category, "MAPPING_LOCAL_EVIDENCE_REJECTED");
   assert.equal(rejectedSummary.canContinueLocalReview, false);
@@ -678,16 +678,16 @@ test("returned accounting mapping CSV is exact, local-only evidence", () => {
 test("returned mapping CSV rejects row, count, header, status and candidate drift", () => {
   const result = {
     statement: "PL",
-    missingByAccount: { "地代家賃": 2 },
-    mappingCandidatesByAccount: { "地代家賃": { sourceAccount: "賃借料", sheetCount: 2 } },
+    missingByAccount: { "販売管理費合計": 2 },
+    mappingCandidatesByAccount: { "販売管理費合計": { sourceAccount: "販売管理費計", sheetCount: 2 } },
   };
-  const valid = '"弥生会計科目","正規科目","対象シート数","確認状態"\n"賃借料","地代家賃","2","確認済み"\n';
+  const valid = '"弥生会計科目","正規科目","対象シート数","確認状態"\n"販売管理費計","販売管理費合計","2","確認済み"\n';
   for (const invalid of [
     valid.replace("対象シート数", "件数"),
     valid.replace('"2"', '"3"'),
     valid.replace("確認済み", "承認"),
-    valid.replace("賃借料", "任意科目"),
-    `${valid}"賃借料","地代家賃","2","確認済み"\n`,
+    valid.replace("販売管理費計", "任意科目"),
+    `${valid}"販売管理費計","販売管理費合計","2","確認済み"\n`,
   ]) {
     assert.notEqual(validateFinancialMappingConfirmationCsv(invalid, result).status, "MAPPING_CONFIRMATION_LOCAL_EVIDENCE");
   }
@@ -697,10 +697,10 @@ test("returned mapping CSV rejects row, count, header, status and candidate drif
 test("mapping confirmation file enforces CSV, UTF-8 and 64KB boundary", async () => {
   const result = {
     statement: "PL",
-    missingByAccount: { "地代家賃": 1 },
-    mappingCandidatesByAccount: { "地代家賃": { sourceAccount: "賃借料", sheetCount: 1 } },
+    missingByAccount: { "販売管理費合計": 1 },
+    mappingCandidatesByAccount: { "販売管理費合計": { sourceAccount: "販売管理費計", sheetCount: 1 } },
   };
-  const csv = '\uFEFF"弥生会計科目","正規科目","対象シート数","確認状態"\r\n"賃借料","地代家賃","1","確認済み"\r\n';
+  const csv = '\uFEFF"弥生会計科目","正規科目","対象シート数","確認状態"\r\n"販売管理費計","販売管理費合計","1","確認済み"\r\n';
   const bytes = Buffer.from(csv, "utf8");
   assert.equal((await validateFinancialMappingConfirmationFile({
     name: "mapping.csv", size: bytes.length, async arrayBuffer() { return bytes; },
@@ -863,7 +863,7 @@ test("P/L mapping candidates are applied only to the local preview and remain un
     ...result,
     localMappingConfirmation: {
       status: "MAPPING_CONFIRMATION_LOCAL_EVIDENCE",
-      confirmedCount: 2,
+      confirmedCount: 1,
       rejectedCount: 0,
     },
   };
@@ -877,7 +877,7 @@ test("P/L mapping candidates are applied only to the local preview and remain un
   assert.doesNotMatch(buildFinancialCompletionRequestCsv(confirmedResult).csv, /PL_ACCOUNT_MAPPING/u);
   const forgedPreview = buildFinancialLocalPreview({
     ...result,
-    localMappingConfirmation: { status: "MAPPING_CONFIRMATION_LOCAL_EVIDENCE", confirmedCount: 1, rejectedCount: 0 },
+    localMappingConfirmation: { status: "MAPPING_CONFIRMATION_LOCAL_EVIDENCE", confirmedCount: 2, rejectedCount: 0 },
   });
   assert.equal(forgedPreview.mappingConfirmationStatus, "PENDING");
   assert.equal(forgedPreview.rows[0].mappingStatus, "LOCAL_CANDIDATE_APPLIED");
@@ -1121,7 +1121,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=cf6e4cd923c301ee/);
+  assert.match(app, /financial-data-intake\.js\?v=dc0c6d0592b7e6f5/);
   assert.match(app, /ローカル反映 \/ 残/);
   assert.match(app, /確認表示だけです。本番投入はdisabledです。/);
   assert.match(app, /店舗候補P\/Lの確認表示だけです。本番投入はdisabledです。/);

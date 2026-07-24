@@ -490,6 +490,19 @@ test("financial file collection enforces count and total-size limits before pars
   assert.equal(typeResult.status, "FILE_TYPE_INVALID");
 });
 
+test("financial intake reports legacy or protected Excel containers without raw output", async () => {
+  const legacyOleHeader = Buffer.from("d0cf11e0a1b11ae10000000000000000", "hex");
+  const result = await validateFinancialWorkbookFiles([workbookFile("budget.xlsx", legacyOleHeader)], "PL", { inflateRaw });
+  assert.equal(result.status, "FILE_READ_OR_PARSE_FAILED");
+  assert.deepEqual(result.parseFailureCategories, ["XLS_LEGACY_OR_PROTECTED_UNSUPPORTED"]);
+  const receipt = buildFinancialIntakeReceipt(result);
+  assert.equal(receipt.status, "FILE_READ_OR_PARSE_FAILED");
+  assert.deepEqual(receipt.parseFailureCategories, ["XLS_LEGACY_OR_PROTECTED_UNSUPPORTED"]);
+  assert.equal(receipt.mutationCount || 0, 0);
+  assert.equal(receipt.uploadCount || 0, 0);
+  assert.doesNotMatch(JSON.stringify(receipt), /password|path|raw|sessionToken|Authorization/i);
+});
+
 test("P/L mapping review exports only fixed accounting confirmation fields", () => {
   const result = {
     statement: "PL",
@@ -1121,7 +1134,7 @@ test("Management app integrates financial data intake without runtime upload", (
   assert.match(html, /id="financial-local-preview-stores"/);
   assert.match(html, /data-section-status="corporate">未反映/);
   assert.match(html, /data-section-status="stores">未反映/);
-  assert.match(app, /financial-data-intake\.js\?v=dc0c6d0592b7e6f5/);
+  assert.match(app, /financial-data-intake\.js\?v=3924300a1b766cff/);
   assert.match(app, /ローカル反映 \/ 残/);
   assert.match(app, /確認表示だけです。本番投入はdisabledです。/);
   assert.match(app, /店舗候補P\/Lの確認表示だけです。本番投入はdisabledです。/);

@@ -89,6 +89,11 @@ function columnIndex(ref) {
 
 function findEndOfCentralDirectory(bytes) {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (bytes.byteLength >= 8
+    && view.getUint32(0, true) === 0xe011cfd0
+    && view.getUint32(4, true) === 0xe11ab1a1) {
+    throw new Error("XLS_LEGACY_OR_PROTECTED_UNSUPPORTED");
+  }
   for (let offset = bytes.byteLength - 22; offset >= Math.max(0, bytes.byteLength - 66000); offset -= 1) {
     if (view.getUint32(offset, true) === 0x06054b50) return offset;
   }
@@ -112,6 +117,7 @@ async function inflateRaw(bytes, options) {
 
 function parseFailureCategory(error) {
   const message = String(error?.message || "");
+  if (message.includes("XLS_LEGACY_OR_PROTECTED_UNSUPPORTED")) return "XLS_LEGACY_OR_PROTECTED_UNSUPPORTED";
   if (message.includes("ZIP_DEFLATE_UNSUPPORTED")) return "XLSX_DEFLATE_UNSUPPORTED";
   if (message.includes("ZIP_")) return "XLSX_ZIP_UNREADABLE";
   if (message.includes("XLSX_WORKBOOK_MISSING") || message.includes("XLSX_SHEET_MISSING")) return "XLSX_STRUCTURE_UNREADABLE";
@@ -1729,6 +1735,15 @@ const INTAKE_STATUS_LABELS = Object.freeze({
   FILE_READ_OR_PARSE_FAILED: "ファイルを確認してください",
 });
 
+const PARSE_FAILURE_LABELS = Object.freeze({
+  XLS_LEGACY_OR_PROTECTED_UNSUPPORTED: "旧Excel/保護形式のため、Excelで開いて通常の.xlsxとして保存し直してください",
+  XLSX_DEFLATE_UNSUPPORTED: "圧縮形式を読み取れません",
+  XLSX_ZIP_UNREADABLE: "Excelファイル構造を読み取れません",
+  XLSX_STRUCTURE_UNREADABLE: "必要なシート構造を読み取れません",
+  FILE_IDENTITY_UNAVAILABLE: "ファイル識別を作成できません",
+  FILE_PARSE_UNREADABLE: "ファイル内容を読み取れません",
+});
+
 const PREVIEW_CATEGORY_LABELS = Object.freeze({
   STORE_CANDIDATE: "店舗候補",
   ENTITY_CANDIDATE: "候補",
@@ -1756,7 +1771,9 @@ function setResult(container, result) {
     el(doc, "p", "", `シート ${receipt.sheetCount}件 / 対象候補 ${receipt.entityCandidateCount}件 / 集計除外 ${receipt.aggregateExcludedSheetCount}件`),
     el(doc, "p", "", `正規化 ${receipt.normalizedRecordCount}件 / 科目対応待ち ${receipt.mappingRequiredAccountCount}件 / 候補検出 ${receipt.mappingCandidateAccountCount}件`),
     el(doc, "p", "", `重複ファイル ${receipt.duplicateFileCount}件 / 同一期・同一候補 ${receipt.duplicateEntityPeriodCount}件`),
-    el(doc, "p", "", receipt.parseFailureCategories.length ? `読取理由: ${receipt.parseFailureCategories.join(" / ")}` : "読取理由: OK"),
+    el(doc, "p", "", receipt.parseFailureCategories.length
+      ? `読取理由: ${receipt.parseFailureCategories.map((category) => PARSE_FAILURE_LABELS[category] || category).join(" / ")}`
+      : "読取理由: OK"),
     el(doc, "p", "", receipt.balanceCheck === "NOT_APPLICABLE" ? "貸借チェック: 対象外" : `貸借チェック: ${receipt.balanceCheck}`),
     el(doc, "p", "", receipt.productionImportEnabled ? "本番投入可能" : "本番投入は無効です")
   );

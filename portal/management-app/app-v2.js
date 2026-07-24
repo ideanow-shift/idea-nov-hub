@@ -2,7 +2,7 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
-import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=dc0c6d0592b7e6f5";
+import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=3924300a1b766cff";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);

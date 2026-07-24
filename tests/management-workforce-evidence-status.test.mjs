@@ -11,6 +11,7 @@ import {
   localWorkforceAggregateMetric,
   mountWorkforceEvidenceStatus,
   renderWorkforceEvidenceStatus,
+  validateWorkforceAllocationCsv,
   validateWorkforceEvidenceModel,
   workforceAllocationTemplateFile,
 } from "../portal/js/management-workforce-evidence-status.js";
@@ -55,6 +56,8 @@ test("status output uses employee master aggregates without identities", () => {
   assert.match(html, /退職補助証跡<\/dt><dd>5シート/);
   assert.match(html, /<button type="button" disabled aria-disabled="true"/);
   assert.match(html, /部門配賦CSVを保存/);
+  assert.match(html, /配賦CSVを確認/);
+  assert.match(html, /data-workforce-allocation-input/);
   assert.match(html, /management-workforce-department-allocation-template\.csv/);
   assert.doesNotMatch(html, /employeeId|employee_id|社員番号|氏名|salary|給与|評価|健康|個人名|digest|sha256/i);
 });
@@ -69,6 +72,25 @@ test("allocation template is department scoped and contains no personal identifi
   assert.equal(file.rowCount, 2);
   assert.match(file.href, /^data:text\/csv;charset=utf-8,/u);
   assert.doesNotMatch(csv, /employeeId|employee_id|社員番号|氏名|給与|評価|健康|個人名|メール|電話|住所|token|session|digest|sha256/i);
+});
+
+test("allocation receipt validates only aggregate department scope evidence", () => {
+  const ready = [
+    "所属部門,法人配賦,店舗配賦,配賦区分,備考",
+    "本部,IDEA NOV,本部,HQ_OR_SHARED,共有部門",
+    "店舗A,IDEA NOV,BASSA所沢店,STORE,店舗配賦",
+    "所属なし,,,UNASSIGNED_REVIEW,要確認",
+  ].join("\n");
+  assert.deepEqual(validateWorkforceAllocationCsv(ready), {
+    status: "WORKFORCE_ALLOCATION_LOCAL_EVIDENCE",
+    departmentCount: 3,
+    storeMappedCount: 1,
+    unassignedReviewCount: 1,
+  });
+  assert.equal(validateWorkforceAllocationCsv("所属部門,法人配賦,店舗配賦,配賦区分,備考\n店舗A,IDEA NOV,,STORE,\n").status, "WORKFORCE_ALLOCATION_SCOPE_INCOMPLETE");
+  assert.equal(validateWorkforceAllocationCsv("所属部門,法人配賦,店舗配賦,配賦区分,備考\n店舗A,IDEA NOV,BASSA所沢店,BAD,\n").status, "WORKFORCE_ALLOCATION_FORMAT_INVALID");
+  assert.equal(validateWorkforceAllocationCsv("所属部門,法人配賦,店舗配賦,配賦区分,備考\n店舗A,IDEA NOV,BASSA所沢店,STORE,\n店舗A,IDEA NOV,BASSA所沢店,STORE,\n").status, "WORKFORCE_ALLOCATION_FORMAT_INVALID");
+  assert.equal(validateWorkforceAllocationCsv("所属部門,法人配賦,店舗配賦,配賦区分,備考\n氏名,IDEA NOV,BASSA所沢店,STORE,\n").status, "WORKFORCE_ALLOCATION_FORMAT_INVALID");
 });
 
 test("unknown evidence fails closed as unavailable", () => {

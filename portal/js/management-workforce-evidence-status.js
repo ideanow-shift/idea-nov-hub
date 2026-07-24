@@ -22,6 +22,14 @@ const WORKFORCE_ALLOCATION_TEMPLATE_ROWS = Object.freeze([
   Object.freeze(["本部", "IDEA NOV", "本部", "HQ_OR_SHARED", "例: 本部共通として確認"]),
   Object.freeze(["所属なし", "", "", "UNASSIGNED_REVIEW", "例: 配賦せず要確認"]),
 ]);
+const WORKFORCE_ALLOCATION_HEADER = WORKFORCE_ALLOCATION_TEMPLATE_ROWS[0];
+const WORKFORCE_ALLOCATION_STATUSES = Object.freeze([
+  "WORKFORCE_ALLOCATION_LOCAL_EVIDENCE",
+  "WORKFORCE_ALLOCATION_FILE_INVALID",
+  "WORKFORCE_ALLOCATION_FORMAT_INVALID",
+  "WORKFORCE_ALLOCATION_SCOPE_INCOMPLETE",
+]);
+const WORKFORCE_ALLOCATION_KINDS = new Set(["STORE", "HQ_OR_SHARED", "UNASSIGNED_REVIEW"]);
 
 export const SANITIZED_WORKFORCE_EVIDENCE = Object.freeze({
   category: "LOCAL_VALIDATED_PENDING_PRODUCTION",
@@ -109,6 +117,74 @@ export function workforceAllocationTemplateFile() {
   });
 }
 
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+    if (quoted && char === '"' && next === '"') { cell += '"'; index += 1; continue; }
+    if (char === '"') { quoted = !quoted; continue; }
+    if (!quoted && char === ",") { row.push(cell); cell = ""; continue; }
+    if (!quoted && (char === "\n" || char === "\r")) {
+      if (char === "\r" && next === "\n") index += 1;
+      row.push(cell);
+      if (row.some((value) => value.length)) rows.push(row);
+      row = [];
+      cell = "";
+      continue;
+    }
+    cell += char;
+  }
+  row.push(cell);
+  if (row.some((value) => value.length)) rows.push(row);
+  return quoted ? null : rows;
+}
+
+export function validateWorkforceAllocationCsv(text) {
+  if (typeof text !== "string" || !text.length || text.length > 64 * 1024) {
+    return { status: "WORKFORCE_ALLOCATION_FILE_INVALID", departmentCount: 0, storeMappedCount: 0, unassignedReviewCount: 0 };
+  }
+  if (/\uFFFD|employeeId|employee_id|社員番号|氏名|給与|評価|健康|個人名|メール|電話|住所|token|session|digest|sha256/iu.test(text)) {
+    return { status: "WORKFORCE_ALLOCATION_FORMAT_INVALID", departmentCount: 0, storeMappedCount: 0, unassignedReviewCount: 0 };
+  }
+  const rows = parseCsvRows(text.replace(/^\uFEFF/u, ""));
+  if (!rows || rows.length < 2 || rows.length > 81) {
+    return { status: "WORKFORCE_ALLOCATION_FORMAT_INVALID", departmentCount: 0, storeMappedCount: 0, unassignedReviewCount: 0 };
+  }
+  const [header, ...body] = rows;
+  if (header.length !== WORKFORCE_ALLOCATION_HEADER.length || !header.every((value, index) => value === WORKFORCE_ALLOCATION_HEADER[index])) {
+    return { status: "WORKFORCE_ALLOCATION_FORMAT_INVALID", departmentCount: 0, storeMappedCount: 0, unassignedReviewCount: 0 };
+  }
+  const seen = new Set();
+  let storeMappedCount = 0;
+  let unassignedReviewCount = 0;
+  for (const row of body) {
+    if (row.length !== WORKFORCE_ALLOCATION_HEADER.length) {
+      return { status: "WORKFORCE_ALLOCATION_FORMAT_INVALID", departmentCount: 0, storeMappedCount: 0, unassignedReviewCount: 0 };
+    }
+    const [department, corporation, store, kind] = row.map((value) => String(value || "").trim());
+    if (!department || seen.has(department) || !WORKFORCE_ALLOCATION_KINDS.has(kind)) {
+      return { status: "WORKFORCE_ALLOCATION_FORMAT_INVALID", departmentCount: 0, storeMappedCount: 0, unassignedReviewCount: 0 };
+    }
+    seen.add(department);
+    if (kind === "STORE") {
+      if (!corporation || !store) return { status: "WORKFORCE_ALLOCATION_SCOPE_INCOMPLETE", departmentCount: seen.size, storeMappedCount, unassignedReviewCount };
+      storeMappedCount += 1;
+    }
+    if (kind === "HQ_OR_SHARED" && !corporation) return { status: "WORKFORCE_ALLOCATION_SCOPE_INCOMPLETE", departmentCount: seen.size, storeMappedCount, unassignedReviewCount };
+    if (kind === "UNASSIGNED_REVIEW") unassignedReviewCount += 1;
+  }
+  return {
+    status: "WORKFORCE_ALLOCATION_LOCAL_EVIDENCE",
+    departmentCount: seen.size,
+    storeMappedCount,
+    unassignedReviewCount,
+  };
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -158,6 +234,8 @@ export function renderWorkforceEvidenceStatus(model = SANITIZED_WORKFORCE_EVIDEN
       <div class="workforce-evidence-action">
         <button type="button" disabled aria-disabled="true" title="本番反映契約の確定まで利用できません">関連AI・承認</button>
         ${template ? `<a class="workforce-evidence-template" href="${template.href}" download="${escapeHtml(template.fileName)}">部門配賦CSVを保存</a>` : ""}
+        ${template ? `<label class="workforce-evidence-template">配賦CSVを確認<input data-workforce-allocation-input type="file" accept=".csv,text/csv" hidden></label>` : ""}
+        ${template ? `<span data-workforce-allocation-status>配賦CSVは未確認です。</span>` : ""}
         <span>社員マスタ正本のローカル集計は確認済みです。本番反映・承認・再計算はdisabledです。</span>
       </div>
     </section>`;
@@ -166,5 +244,29 @@ export function renderWorkforceEvidenceStatus(model = SANITIZED_WORKFORCE_EVIDEN
 export function mountWorkforceEvidenceStatus(container, model = SANITIZED_WORKFORCE_EVIDENCE) {
   if (!container || typeof container !== "object" || !("innerHTML" in container)) return false;
   container.innerHTML = renderWorkforceEvidenceStatus(model);
+  const input = typeof container.querySelector === "function" ? container.querySelector("[data-workforce-allocation-input]") : null;
+  const status = typeof container.querySelector === "function" ? container.querySelector("[data-workforce-allocation-status]") : null;
+  if (input && status) {
+    input.addEventListener("change", async (event) => {
+      const file = event.currentTarget?.files?.[0];
+      let receipt = { status: "WORKFORCE_ALLOCATION_FILE_INVALID", departmentCount: 0, storeMappedCount: 0, unassignedReviewCount: 0 };
+      try {
+        if (!file || !/\.csv$/iu.test(String(file.name || "")) || Number(file.size) <= 0 || Number(file.size) > 64 * 1024) throw new Error("invalid");
+        const text = new TextDecoder("utf-8", { fatal: true }).decode(await file.arrayBuffer());
+        receipt = validateWorkforceAllocationCsv(text);
+      } catch {
+        receipt = { status: "WORKFORCE_ALLOCATION_FILE_INVALID", departmentCount: 0, storeMappedCount: 0, unassignedReviewCount: 0 };
+      }
+      container.dataset.workforceAllocationStatus = receipt.status;
+      const labels = {
+        WORKFORCE_ALLOCATION_LOCAL_EVIDENCE: `ローカル確認済み: 部門 ${receipt.departmentCount} / 店舗配賦 ${receipt.storeMappedCount} / 要確認 ${receipt.unassignedReviewCount}`,
+        WORKFORCE_ALLOCATION_FILE_INVALID: "UTF-8 CSV、64KB以下の配賦CSVを選択してください。",
+        WORKFORCE_ALLOCATION_FORMAT_INVALID: "配賦CSVの列・行・固定categoryが一致しません。",
+        WORKFORCE_ALLOCATION_SCOPE_INCOMPLETE: "法人または店舗の配賦欄が未確定です。",
+      };
+      status.textContent = labels[receipt.status] || "配賦CSVを検証できませんでした。";
+      event.currentTarget.value = "";
+    });
+  }
   return true;
 }

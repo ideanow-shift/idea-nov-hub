@@ -366,6 +366,7 @@ button:hover {
 .workforce-evidence-facts dd { margin: 3px 0 0; font-size: 13px; overflow-wrap: anywhere; }
 .workforce-evidence-action { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 10px; color: var(--muted); font-size: 12px; }
 .workforce-evidence-action button:disabled { min-height: 36px; padding: 7px 12px; cursor: not-allowed; }
+.workforce-evidence-template { min-height: 36px; padding: 7px 12px; display: inline-flex; align-items: center; justify-content: center; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; text-decoration: none; white-space: nowrap; }
 
 .classification-workspace {
   border-left: 4px solid var(--accent-strong);

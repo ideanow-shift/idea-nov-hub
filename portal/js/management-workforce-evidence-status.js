@@ -17,6 +17,11 @@ const MODEL_KEYS = Object.freeze([
 ]);
 const FACT_KEYS = Object.freeze(["label", "value"]);
 const HARD_RUNTIME_GATE = false;
+const WORKFORCE_ALLOCATION_TEMPLATE_ROWS = Object.freeze([
+  Object.freeze(["所属部門", "法人配賦", "店舗配賦", "配賦区分", "備考"]),
+  Object.freeze(["本部", "IDEA NOV", "本部", "HQ_OR_SHARED", "例: 本部共通として確認"]),
+  Object.freeze(["所属なし", "", "", "UNASSIGNED_REVIEW", "例: 配賦せず要確認"]),
+]);
 
 export const SANITIZED_WORKFORCE_EVIDENCE = Object.freeze({
   category: "LOCAL_VALIDATED_PENDING_PRODUCTION",
@@ -86,6 +91,24 @@ export function localWorkforceAggregateMetric(model = SANITIZED_WORKFORCE_EVIDEN
   return activeFact?.value ? `社員マスタ ${activeFact.value}` : null;
 }
 
+function csvCell(value) {
+  return `"${String(value).replaceAll('"', '""')}"`;
+}
+
+export function buildWorkforceAllocationTemplateCsv() {
+  return WORKFORCE_ALLOCATION_TEMPLATE_ROWS.map((row) => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
+}
+
+export function workforceAllocationTemplateFile() {
+  const csv = buildWorkforceAllocationTemplateCsv();
+  return Object.freeze({
+    fileName: "management-workforce-department-allocation-template.csv",
+    mimeType: "text/csv;charset=utf-8",
+    rowCount: WORKFORCE_ALLOCATION_TEMPLATE_ROWS.length - 1,
+    href: `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`,
+  });
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -118,6 +141,7 @@ function renderFacts(facts) {
 
 export function renderWorkforceEvidenceStatus(model = SANITIZED_WORKFORCE_EVIDENCE) {
   const view = validateWorkforceEvidenceModel(model) && HARD_RUNTIME_GATE === false ? model : invalidEvidence();
+  const template = view.category === "LOCAL_VALIDATED_PENDING_PRODUCTION" ? workforceAllocationTemplateFile() : null;
   return `
     <section class="workforce-evidence-status" data-workforce-evidence-category="${escapeHtml(view.category)}" aria-label="人数・組織集計の算定根拠状態">
       <div class="workforce-evidence-head">
@@ -133,6 +157,7 @@ export function renderWorkforceEvidenceStatus(model = SANITIZED_WORKFORCE_EVIDEN
         <div><dt>本番証跡</dt><dd>${escapeHtml(view.productionEvidence)}</dd></div>${renderFacts(view.facts)}</dl>
       <div class="workforce-evidence-action">
         <button type="button" disabled aria-disabled="true" title="本番反映契約の確定まで利用できません">関連AI・承認</button>
+        ${template ? `<a class="workforce-evidence-template" href="${template.href}" download="${escapeHtml(template.fileName)}">部門配賦CSVを保存</a>` : ""}
         <span>社員マスタ正本のローカル集計は確認済みです。本番反映・承認・再計算はdisabledです。</span>
       </div>
     </section>`;

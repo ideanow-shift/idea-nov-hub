@@ -6,17 +6,20 @@ import { fileURLToPath } from "node:url";
 import {
   SANITIZED_WORKFORCE_EVIDENCE,
   WORKFORCE_EVIDENCE_CATEGORIES,
+  buildWorkforceAllocationTemplateCsv,
   canDisplayWorkforceAggregates,
   localWorkforceAggregateMetric,
   mountWorkforceEvidenceStatus,
   renderWorkforceEvidenceStatus,
   validateWorkforceEvidenceModel,
+  workforceAllocationTemplateFile,
 } from "../portal/js/management-workforce-evidence-status.js";
 import { renderClassificationWorkspace } from "../portal/management-platform/classification-readiness-panel.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const managementIndex = fs.readFileSync(path.join(root, "portal/management-app/index.html"), "utf8");
 const managementApp = fs.readFileSync(path.join(root, "portal/management-app/app-v2.js"), "utf8");
+const managementStyles = fs.readFileSync(path.join(root, "portal/management-app/styles.css"), "utf8");
 const visualFixture = fs.readFileSync(path.join(root, "tests/fixtures/management-workforce-evidence-status.html"), "utf8");
 
 test("workforce evidence categories are fixed and local source remains runtime fail-closed", () => {
@@ -51,7 +54,21 @@ test("status output uses employee master aggregates without identities", () => {
   assert.match(html, /店舗配賦<\/dt><dd>未収録/);
   assert.match(html, /退職補助証跡<\/dt><dd>5シート/);
   assert.match(html, /<button type="button" disabled aria-disabled="true"/);
+  assert.match(html, /部門配賦CSVを保存/);
+  assert.match(html, /management-workforce-department-allocation-template\.csv/);
   assert.doesNotMatch(html, /employeeId|employee_id|社員番号|氏名|salary|給与|評価|健康|個人名|digest|sha256/i);
+});
+
+test("allocation template is department scoped and contains no personal identifiers", () => {
+  const csv = buildWorkforceAllocationTemplateCsv();
+  const file = workforceAllocationTemplateFile();
+  assert.match(csv, /^"所属部門","法人配賦","店舗配賦","配賦区分","備考"/u);
+  assert.match(csv, /"UNASSIGNED_REVIEW"/u);
+  assert.equal(file.fileName, "management-workforce-department-allocation-template.csv");
+  assert.equal(file.mimeType, "text/csv;charset=utf-8");
+  assert.equal(file.rowCount, 2);
+  assert.match(file.href, /^data:text\/csv;charset=utf-8,/u);
+  assert.doesNotMatch(csv, /employeeId|employee_id|社員番号|氏名|給与|評価|健康|個人名|メール|電話|住所|token|session|digest|sha256/i);
 });
 
 test("unknown evidence fails closed as unavailable", () => {
@@ -88,5 +105,6 @@ test("store and classification preparation views share the same closed status", 
 test("visual fixture uses only local styles and browser-safe module", () => {
   assert.match(visualFixture, /portal\/management-app\/styles\.css/);
   assert.match(visualFixture, /portal\/js\/management-workforce-evidence-status\.js/);
+  assert.match(managementStyles, /\.workforce-evidence-template/);
   assert.doesNotMatch(visualFixture, /fetch\(|token|session|storage|employeeId|salary/i);
 });

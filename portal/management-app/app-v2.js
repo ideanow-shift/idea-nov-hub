@@ -1,14 +1,14 @@
 import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
-import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=F5ECE1AF57BAAEEC";
+import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=F25092A8EEE6ED90";
 import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=326143584102463E";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
 const CORPORATE_VIEWS = new Set([...FINANCE_VIEWS, "dataops"]);
 const VIEWS = new Set([...CORPORATE_VIEWS, "stores"]);
-const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null, BUDGET: null }, localEvidence: { storeCsvReceipt: null, storeNameReceipt: null }, charts: {} };
+const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null, BUDGET: null }, localEvidence: { storeCsvReceipt: null, storeNameReceipt: null, workforceAllocationReceipt: null }, charts: {} };
 const number = new Intl.NumberFormat("ja-JP");
 const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 const colors = ["#b23a48", "#17324d", "#27795f", "#a36410", "#765487", "#337d8e", "#737b83"];
@@ -206,10 +206,16 @@ function renderStores() {
   const localPlRowsByStore = localPlStoreRowsByNormalizedName();
   const localPlMatch = localPlStoreMatchSummary(stores, localPlRowsByStore);
   elements.storeScope.textContent = scopeLabel(data.phase0Scope);
-  mountWorkforceEvidenceStatus(elements.workforceEvidence);
+  mountWorkforceEvidenceStatus(elements.workforceEvidence, undefined, {
+    onReceipt: (receipt) => {
+      state.localEvidence.workforceAllocationReceipt = receipt || null;
+      renderStores();
+    },
+  });
   renderMetrics(elements.storeKpis, [
     ["表示店舗", `${data.storeCount || 0}店舗`],
-    ["スタッフ", localWorkforceAggregateMetric() || workforceMetric(data.staffCount, "人")],
+    ["スタッフ", localWorkforceStaffMetric(data.staffCount)],
+    ["配賦根拠", workforceAllocationMetric()],
     ["売上データ", localPl ? `P/L ${number.format(localPl.storeCandidateCount)}候補` : stores.some((row) => row.dataReadiness !== "salonanswer_csv_waiting") ? "接続済み" : "CSV待ち"],
     ["P/L損益", localPl ? `${number.format(Math.round(localPl.ordinaryProfitManYen))}万円` : "未反映"],
     ["P/L照合", localPl ? `一致${number.format(localPlMatch.matched)} / 未照合${number.format(localPlMatch.unmatched)}` : "未反映"],
@@ -222,7 +228,7 @@ function renderStores() {
     const salesText = localRow ? `P/L ${number.format(Math.round(localRow.salesManYen || 0))}万円` : row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.salesManYen || 0)}万円`;
     const targetText = localRow ? `損益 ${number.format(Math.round(localRow.ordinaryProfitManYen || 0))}万円` : row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.targetAchievementPercent || 0)}%`;
     const statusText = localRow ? localPlStoreEvidenceLabel(evidenceStatus) : storeNameExcluded(row) ? "店舗候補から除外（ローカル確認）" : localPl ? "P/L候補未照合" : row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "接続済み";
-    return tableRow([row.name, row.corporationName, workforceMetric(row.staffCount), salesText, targetText, statusText]);
+    return tableRow([row.name, row.corporationName, localWorkforceStoreStaffText(row.staffCount), salesText, targetText, statusText]);
   }) : [emptyRow(6, "表示できる店舗がありません")]));
   renderCsvRequirements(elements.csvRequirements, data.requiredCsvFiles, {
     onReceipt: (receipt) => {
@@ -1220,6 +1226,9 @@ function statusNode(status) { const node = document.createElement("span"); node.
 function statusText(value) { return ({ safe: "安定", warning: "確認", danger: "注意", missing: "データ待ち" })[value] || "確認"; }
 function metricText(value, unit) { return value === null || value === undefined ? "データ待ち" : `${number.format(value)}${unit}`; }
 function workforceMetric(value, unit = "") { return workforceAggregatesVisible && value !== null && value !== undefined && Number.isFinite(Number(value)) ? `${number.format(Number(value))}${unit}` : "算定待ち"; }
+function localWorkforceStaffMetric(value) { return state.localEvidence.workforceAllocationReceipt ? `配賦確認 ${number.format(state.localEvidence.workforceAllocationReceipt.storeMappedCount)}部門` : localWorkforceAggregateMetric() || workforceMetric(value, "人"); }
+function workforceAllocationMetric() { return state.localEvidence.workforceAllocationReceipt ? `ローカル確認 ${number.format(state.localEvidence.workforceAllocationReceipt.departmentCount)}部門` : "CSV待ち"; }
+function localWorkforceStoreStaffText(value) { return state.localEvidence.workforceAllocationReceipt ? "配賦確認済み（人数未投入）" : workforceMetric(value); }
 function aggregateSurvival(rows) { const values = rows.map((row) => Number(row.survivalMonths)).filter(Number.isFinite); return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length * 10) / 10 : null; }
 function scopeLabel(value) { return ({ all_stores: "全店舗", assigned_stores: "担当店舗", own_store: "自店舗" })[value] || "権限確認済み"; }
 function comment(item) { const article = document.createElement("article"); article.className = "expert-comment"; const head = document.createElement("strong"); head.textContent = [item.author, item.organization].filter(Boolean).join(" / "); article.append(head, paragraph(item.body || item.title || "")); return article; }

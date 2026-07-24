@@ -1,4 +1,4 @@
-import { renderWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=F5ECE1AF57BAAEEC";
+import { renderWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=F25092A8EEE6ED90";
 
 const PROVIDERS = Object.freeze([
   Object.freeze({ label: "版管理", statusLabel: "証跡待ち", reason: "本番カタログの権限確認が未完了です。" }),

@@ -241,7 +241,7 @@ export function renderWorkforceEvidenceStatus(model = SANITIZED_WORKFORCE_EVIDEN
     </section>`;
 }
 
-export function mountWorkforceEvidenceStatus(container, model = SANITIZED_WORKFORCE_EVIDENCE) {
+export function mountWorkforceEvidenceStatus(container, model = SANITIZED_WORKFORCE_EVIDENCE, options = {}) {
   if (!container || typeof container !== "object" || !("innerHTML" in container)) return false;
   container.innerHTML = renderWorkforceEvidenceStatus(model);
   const input = typeof container.querySelector === "function" ? container.querySelector("[data-workforce-allocation-input]") : null;
@@ -265,6 +265,7 @@ export function mountWorkforceEvidenceStatus(container, model = SANITIZED_WORKFO
         WORKFORCE_ALLOCATION_SCOPE_INCOMPLETE: "法人または店舗の配賦欄が未確定です。",
       };
       status.textContent = labels[receipt.status] || "配賦CSVを検証できませんでした。";
+      if (typeof options.onReceipt === "function") options.onReceipt(receipt.status === "WORKFORCE_ALLOCATION_LOCAL_EVIDENCE" ? receipt : null);
       event.currentTarget.value = "";
     });
   }

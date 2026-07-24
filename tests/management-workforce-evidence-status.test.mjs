@@ -110,11 +110,16 @@ test("mount changes only the dedicated element", () => {
 
 test("store and classification preparation views share the same closed status", () => {
   assert.match(managementIndex, /id="workforce-evidence-status"/);
-  assert.match(managementApp, /mountWorkforceEvidenceStatus\(elements\.workforceEvidence\)/);
+  assert.match(managementApp, /mountWorkforceEvidenceStatus\(elements\.workforceEvidence, undefined, \{/);
+  assert.match(managementApp, /workforceAllocationReceipt/);
+  assert.match(managementApp, /配賦確認済み（人数未投入）/);
   const storeRenderer = managementApp.match(/function renderStores\(\)\s*{[\s\S]*?\n}/)?.[0] ?? "";
-  assert.match(storeRenderer, /localWorkforceAggregateMetric\(\) \|\| workforceMetric\(data\.staffCount, "人"\)/);
-  assert.match(storeRenderer, /workforceMetric\(data\.staffCount, "人"\)/);
-  assert.match(storeRenderer, /workforceMetric\(row\.staffCount\)/);
+  assert.match(storeRenderer, /localWorkforceStaffMetric\(data\.staffCount\)/);
+  assert.match(storeRenderer, /workforceAllocationMetric\(\)/);
+  assert.match(storeRenderer, /localWorkforceStoreStaffText\(row\.staffCount\)/);
+  assert.match(managementApp, /function localWorkforceStaffMetric/);
+  assert.match(managementApp, /localWorkforceAggregateMetric\(\) \|\| workforceMetric\(value, "人"\)/);
+  assert.match(managementApp, /配賦確認済み（人数未投入）/);
   assert.doesNotMatch(storeRenderer, /number\.format\((?:row|data)\.staffCount|staffCount\s*\|\|\s*0/);
   assert.match(managementApp, /function workforceMetric\(/);
   assert.match(managementApp, /data\.aiAdviceReadiness === "aggregate-input-provenance-ready"/);

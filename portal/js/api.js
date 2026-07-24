@@ -16,6 +16,7 @@ const EDGE_ACTIONS = new Set([
   "ideaLinkMyPageRead",
   "ideaLinkAdminSummaryRead",
   "ideaLinkOrganizationHealthMonitoringRead",
+  "ideaLinkActivityFollowupSave",
   "ideaLinkMonthlyMvpPreviewRead",
   "novHubNotifications",
   "ideaLinkPostCreate",

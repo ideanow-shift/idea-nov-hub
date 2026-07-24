@@ -659,7 +659,14 @@
     .org-support-signals { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
     .org-support-signals h5 { margin: 0 0 10px; font-size: 15px; }
     .org-support-signals p { margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
-    .org-support-signal strong { max-width: 58%; text-align: right; }
+    .org-support-signal { align-items: start; }
+    .org-support-signal > div:first-child { display: grid; gap: 4px; }
+    .org-support-signal strong { max-width: 100%; text-align: left; }
+    .org-followup-control { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(140px, 1fr) auto; gap: 8px; align-items: end; min-width: min(100%, 420px); }
+    .org-followup-control label { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
+    .org-followup-control select, .org-followup-control input { min-height: 40px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font: inherit; }
+    .org-followup-control button { min-height: 40px; padding: 7px 14px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 700; }
+    .org-followup-control small { grid-column: 1 / -1; color: var(--muted); }
 
     .table-wrap {
       overflow-x: auto;
@@ -1055,6 +1062,8 @@
 
       .org-observation-grid { grid-template-columns: 1fr; }
       .org-observation-card li { display: grid; gap: 4px; }
+      .org-followup-control { grid-template-columns: 1fr; }
+      .org-followup-control small { grid-column: 1; }
 
       .post-people {
         align-items: flex-start;
@@ -1403,7 +1412,7 @@
       readHubEmployeeContextFromUrl
     } from "../js/hub-context.js?v=idea-link-module-sync-20260712-1";
     import { callApiAction, callThanksCoinAnalytics } from "../js/api.js?v=idea-link-shared-auth-20260722-1";
-    import { renderOrganizationHealthObservationResponse } from "./organization-health-observation.js?v=20260724-2";
+    import { renderOrganizationHealthObservationResponse } from "./organization-health-observation.js?v=20260724-3";
     import { buildThanksCoinAnalyticsViewModel, renderThanksCoinAnalytics } from "./thanks-coin-analytics-view.js?v=20260722-2";
     import {
       IDEA_LINK_HANDOFF_RUNTIME_CATEGORIES,
@@ -2026,11 +2035,22 @@
       try {
         prepareIdeaLinkApiAuth();
         const response = await callApiAction("ideaLinkOrganizationHealthMonitoringRead", {});
-        renderOrganizationHealthObservationResponse(organizationHealthObservation, response);
+        renderOrganizationHealthObservationResponse(organizationHealthObservation, response, saveActivityFollowup);
         organizationHealthObservationLoaded = true;
       } catch (_error) {
         organizationHealthObservation.innerHTML = '<div class="notice">現在この集計は利用できません。</div>';
       }
+    }
+
+    async function saveActivityFollowup(payload) {
+      prepareIdeaLinkApiAuth();
+      const response = await callApiAction("ideaLinkActivityFollowupSave", payload);
+      if (!response?.ok || response?.mutation !== true || response?.externalSend !== false ||
+        response?.result?.mutationCount !== 1 || response?.result?.rawValuesIncluded !== false) {
+        throw new Error("FOLLOWUP_SAVE_CONTRACT_FAILED");
+      }
+      organizationHealthObservationLoaded = false;
+      await loadOrganizationHealthObservation();
     }
 
     async function loadThanksCoinAnalyticsOnce() {

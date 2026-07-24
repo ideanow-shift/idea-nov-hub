@@ -6,7 +6,10 @@ import {
   type ScopeMode,
 } from "./management_readonly_candidate.ts";
 import { createThanksCoinAnalyticsApiAdapter } from "./analytics-api-adapter.ts";
-import { readOrganizationHealthMonitoringCandidate } from "./organization_health_monitoring_candidate.ts";
+import {
+  readOrganizationHealthMonitoringCandidate,
+  saveIdeaLinkActivityFollowup,
+} from "./organization_health_monitoring_candidate.ts";
 import { createHash } from "node:crypto";
 
 const CORS_HEADERS = {
@@ -5421,6 +5424,11 @@ Deno.serve(async (request) => {
     if (action === "ideaLinkOrganizationHealthMonitoringRead") {
       const result = await readOrganizationHealthMonitoringCandidate(employee, readRows);
       return jsonResponse({ ok: true, result, selectOnly: true, aggregateOnly: true, mutation: false, externalSend: false });
+    }
+
+    if (action === "ideaLinkActivityFollowupSave") {
+      const result = await saveIdeaLinkActivityFollowup(employee, asRecord(payload), readRows);
+      return jsonResponse({ ok: true, result, mutation: true, externalSend: false });
     }
 
     if (action === "ideaLinkMonthlyMvpPreviewRead") {

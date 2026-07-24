@@ -6,6 +6,7 @@ import {
 } from "./exact1.mjs?v=20260725-owner-review-workspace-1";
 import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260725-owner-review-workspace-1";
 import { createTalentHistoricalReviewController } from "./review.mjs?v=20260725-owner-review-workspace-1";
+import { buildTalentAnalytics } from "./analytics.mjs?v=20260725-talent-analytics-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -196,7 +197,7 @@ export function initializeTalentNavigation({
     validKeys: RECRUITMENT_TABS,
     panelFor: (key) => documentObject.getElementById(`recruitment-${key}`),
     onSelect: (key) => {
-      if (key === "students" && !studentWorkspaceData) {
+      if (["summary", "students", "fairs", "schools"].includes(key) && !studentWorkspaceData) {
         loadTalentStudentWorkspace({ globalObject, documentObject });
       }
     }
@@ -229,6 +230,12 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-search")?.addEventListener("input", refresh);
   documentObject.getElementById("student-source-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-state-filter")?.addEventListener("change", refresh);
+  documentObject.getElementById("school-search")?.addEventListener("input", () => {
+    renderTalentAnalytics(documentObject);
+  });
+  documentObject.getElementById("school-sort")?.addEventListener("change", () => {
+    renderTalentAnalytics(documentObject);
+  });
   documentObject.getElementById("student-reload")?.addEventListener("click", () => {
     loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
   });
@@ -300,12 +307,16 @@ export async function loadTalentStudentWorkspace({
     reload.setAttribute("aria-busy", "false");
   }
   if (result?.okBoolean !== true) {
+    const message = result?.stopCategory === "auth_required"
+      ? "HUBへ再ログインしてください"
+      : "27卒データを取得できません";
     if (status) {
       status.dataset.state = "stopped";
-      status.textContent = result?.stopCategory === "auth_required"
-        ? "HUBへ再ログインしてください"
-        : "学生データを取得できません";
+      status.textContent = message;
     }
+    setText(documentObject, "historical-summary-status", message);
+    setText(documentObject, "fair-analysis-status", message);
+    setText(documentObject, "school-analysis-status", message);
     return Object.freeze({
       executed: false,
       studentRowsReturned: false,
@@ -321,6 +332,7 @@ export async function loadTalentStudentWorkspace({
   renderStudentWorkspace(documentObject);
   renderImportOverview(documentObject, result.data.overview);
   renderHistoricalReviewSummary(documentObject, result.data.overview);
+  renderTalentAnalytics(documentObject);
   if (status) {
     status.dataset.state = "ready";
     status.textContent = `${result.data.students.length}件を表示`;
@@ -432,6 +444,91 @@ function renderImportOverview(documentObject, overview) {
   });
   const status = documentObject?.getElementById?.("import-overview-status");
   if (status) status.textContent = "本番stagingに取り込まれた27卒データ";
+}
+
+function renderTalentAnalytics(documentObject) {
+  if (!studentWorkspaceData) return;
+  const analytics = buildTalentAnalytics(studentWorkspaceData);
+  renderMetricCollection(documentObject, "historical-summary-metrics", analytics.summary);
+  renderAnalyticsCoverage(documentObject, analytics);
+  renderMonthlyFlow(documentObject, analytics.flow);
+  renderSchoolAnalysis(documentObject, analytics.schools);
+  setText(documentObject, "historical-summary-status", `${analytics.summary[0].value}件を集計`);
+  setText(documentObject, "fair-analysis-status", `${analytics.flow.length}か月分を表示`);
+  setText(documentObject, "school-analysis-status", `${analytics.schools.length}校を表示`);
+}
+
+function renderMetricCollection(documentObject, containerId, metrics) {
+  const container = documentObject.getElementById(containerId);
+  if (!container) return;
+  container.replaceChildren(...metrics.map((metric) => createMetricCard(documentObject, metric)));
+}
+
+function renderAnalyticsCoverage(documentObject, analytics) {
+  setText(documentObject, "fair-contact-count", analytics.summary.find((item) => item.key === "contacts")?.value ?? 0);
+  setText(documentObject, "fair-line-rate", `${analytics.coverage.lineRegistrationRate}%`);
+  setText(documentObject, "fair-month-count", analytics.coverage.monthCount);
+  setText(documentObject, "school-count", analytics.schools.length);
+  setText(documentObject, "school-registered-count", analytics.schools.length);
+  setText(documentObject, "school-missing-count", analytics.coverage.schoolMissing);
+  const topSchool = analytics.schools[0];
+  setText(documentObject, "school-top-name", topSchool?.school || "未集計");
+}
+
+function renderMonthlyFlow(documentObject, rows) {
+  const body = documentObject.getElementById("fair-flow-body");
+  const empty = documentObject.getElementById("fair-flow-empty");
+  if (!body) return;
+  const visible = rows.slice(0, 18);
+  body.replaceChildren(...visible.map((row) => createAnalysisRow(documentObject, [
+    row.label,
+    row.contacts,
+    row.lineRegistrations,
+    row.entries,
+    row.offers,
+    row.needsAction
+  ])));
+  if (empty) empty.hidden = visible.length > 0;
+}
+
+function renderSchoolAnalysis(documentObject, rows) {
+  const query = normalizeSearch(documentObject.getElementById("school-search")?.value);
+  const sort = documentObject.getElementById("school-sort")?.value || "contacts";
+  const sorted = rows
+    .filter((row) => !query || normalizeSearch(row.school).includes(query))
+    .sort((left, right) => (
+      Number(right[sort] || 0) - Number(left[sort] || 0)
+      || right.contacts - left.contacts
+      || left.school.localeCompare(right.school, "ja")
+    ));
+  const body = documentObject.getElementById("school-analysis-body");
+  const empty = documentObject.getElementById("school-analysis-empty");
+  const count = documentObject.getElementById("school-result-count");
+  if (count) count.textContent = `${sorted.length}校`;
+  if (body) {
+    body.replaceChildren(...sorted.slice(0, 100).map((row) => createAnalysisRow(documentObject, [
+      row.school,
+      row.contacts,
+      row.lineRegistrations,
+      row.entries,
+      row.offers,
+      `${row.entryRate}%`,
+      `${row.offerRate}%`,
+      row.needsAction
+    ])));
+  }
+  if (empty) empty.hidden = sorted.length > 0;
+}
+
+function createAnalysisRow(documentObject, values) {
+  const row = documentObject.createElement("tr");
+  values.forEach((value, index) => {
+    const cell = documentObject.createElement(index === 0 ? "th" : "td");
+    if (index === 0) cell.scope = "row";
+    cell.textContent = String(value);
+    row.append(cell);
+  });
+  return row;
 }
 
 function renderStudentWorkspace(documentObject) {
@@ -715,6 +812,7 @@ function initializeTalentApp() {
   initializeTalentNavigation();
   initializeTalentSummaryControl();
   initializeTalentOperatorPanel();
+  loadTalentStudentWorkspace();
 }
 
 function staleRunResult(result) {

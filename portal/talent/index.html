@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260725-owner-review-workspace-1">
-  <script src="./runtime-config.candidate.js?v=20260725-owner-review-workspace-1"></script>
-  <script type="module" src="./app.mjs?v=20260725-owner-review-workspace-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260725-talent-analytics-1">
+  <script src="./runtime-config.candidate.js?v=20260725-talent-analytics-1"></script>
+  <script type="module" src="./app.mjs?v=20260725-talent-analytics-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -51,7 +51,24 @@
         <div class="section-heading">
           <div>
             <p class="section-kicker">RECRUITMENT OVERVIEW</p>
-            <h2>採用・人材投資 集計</h2>
+            <h2>27卒 採用状況</h2>
+          </div>
+          <p id="historical-summary-status" class="status" data-state="loading" role="status" aria-live="polite">27卒データを集計しています</p>
+        </div>
+        <section class="summary-grid historical-summary-grid" id="historical-summary-metrics" aria-label="27卒の採用状況">
+          <article class="metric"><p class="metric-name">取込データ</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">接触</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">LINE登録</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">エントリー</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">内定</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">紐付け済み</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">要確認・隔離</p><p class="metric-value">-</p></article>
+        </section>
+
+        <div class="section-heading confirmed-summary-heading">
+          <div>
+            <p class="section-kicker">CONFIRMED OPERATIONS</p>
+            <h3>運用開始後の確定イベント</h3>
           </div>
           <div class="summary-command">
             <button id="summary-load-button" class="summary-load-button" type="button"
@@ -69,7 +86,7 @@
           <article class="metric"><p class="metric-name">内定</p><p class="metric-value">-</p></article>
           <article class="metric"><p class="metric-name">入社予定</p><p class="metric-value">-</p></article>
         </section>
-        <p class="coverage-label">本システム稼働開始以降の集計（確定済み）</p>
+        <p class="coverage-label">本システム稼働開始以降の集計（確定済み）です。</p>
 
         <section class="import-overview" aria-labelledby="import-overview-title">
           <div>
@@ -230,19 +247,56 @@
       </dialog>
 
       <section id="recruitment-fairs" class="secondary-panel" role="tabpanel" hidden>
-        <div class="section-heading"><div><p class="section-kicker">FAIR ROI</p><h2>フェア分析</h2></div></div>
-        <div class="feature-grid">
-          <article class="feature-card"><span>投資判断</span><h3>費用対効果を比較</h3><p>費用、接触数、見学率を比較し、次年度の参加判断につなげます。</p></article>
-          <article class="feature-card"><span>運営情報</span><h3>担当・会場・運営会社</h3><p>フェアごとの担当者と実施情報をまとめて確認します。</p></article>
+        <div class="section-heading">
+          <div><p class="section-kicker">FAIR &amp; ACQUISITION FLOW</p><h2>フェア・流入分析</h2></div>
+          <p id="fair-analysis-status" class="status" data-state="loading" role="status">集計しています</p>
         </div>
+        <section class="analysis-kpis" aria-label="接触データの概要">
+          <article><span>接触データ</span><strong id="fair-contact-count">-</strong></article>
+          <article><span>LINE登録率</span><strong id="fair-line-rate">-</strong></article>
+          <article><span>記録月数</span><strong id="fair-month-count">-</strong></article>
+          <article><span>学校数</span><strong id="school-count">-</strong></article>
+        </section>
+        <section class="analysis-panel" aria-labelledby="fair-flow-title">
+          <header>
+            <div><h3 id="fair-flow-title">月別 接点・選考推移</h3><p>27卒の記録月を基準に、各データ区分の件数を比較します。</p></div>
+            <span class="data-badge">STAGING</span>
+          </header>
+          <div class="analysis-table-scroll">
+            <table class="analysis-table">
+              <thead><tr><th>記録月</th><th>接触</th><th>LINE登録</th><th>エントリー</th><th>内定</th><th>要確認</th></tr></thead>
+              <tbody id="fair-flow-body"></tbody>
+            </table>
+          </div>
+          <p id="fair-flow-empty" class="analysis-empty" hidden>集計できる日付情報がありません。</p>
+        </section>
+        <p class="analysis-note">フェア名・参加費用は現在の取込元に確定項目がないため、推測せず月別の流入実績を表示しています。</p>
       </section>
 
       <section id="recruitment-schools" class="secondary-panel" role="tabpanel" hidden>
-        <div class="section-heading"><div><p class="section-kicker">SCHOOL ANALYSIS</p><h2>学校分析</h2></div></div>
-        <div class="feature-grid">
-          <article class="feature-card"><span>学校別投資</span><h3>有望校を把握</h3><p>接触、見学、面接、内定の流れから学校別の成果を確認します。</p></article>
-          <article class="feature-card"><span>訪問管理</span><h3>学校との接点を記録</h3><p>訪問日、訪問者、先生、持参物、会話内容を次回訪問へ引き継ぎます。</p></article>
+        <div class="section-heading">
+          <div><p class="section-kicker">SCHOOL ANALYSIS</p><h2>学校別 採用状況</h2></div>
+          <p id="school-analysis-status" class="status" data-state="loading" role="status">集計しています</p>
         </div>
+        <section class="analysis-kpis" aria-label="学校情報の登録状況">
+          <article><span>集計対象校</span><strong id="school-registered-count">-</strong></article>
+          <article><span>学校未登録</span><strong id="school-missing-count">-</strong></article>
+          <article class="analysis-kpi-wide"><span>接触数トップ</span><strong id="school-top-name">-</strong></article>
+        </section>
+        <section class="analysis-panel" aria-labelledby="school-table-title">
+          <header class="analysis-toolbar">
+            <div><h3 id="school-table-title">学校別一覧</h3><span id="school-result-count">0校</span></div>
+            <label><span>学校検索</span><input id="school-search" type="search" placeholder="学校名で検索" autocomplete="off"></label>
+            <label><span>並び順</span><select id="school-sort"><option value="contacts">接触数</option><option value="entries">エントリー数</option><option value="offers">内定数</option><option value="entryRate">エントリー率</option><option value="offerRate">内定率</option><option value="needsAction">要確認数</option></select></label>
+          </header>
+          <div class="analysis-table-scroll">
+            <table class="analysis-table school-analysis-table">
+              <thead><tr><th>学校</th><th>接触</th><th>LINE</th><th>エントリー</th><th>内定</th><th>エントリー率</th><th>内定率</th><th>要確認</th></tr></thead>
+              <tbody id="school-analysis-body"></tbody>
+            </table>
+          </div>
+          <p id="school-analysis-empty" class="analysis-empty" hidden>条件に一致する学校がありません。</p>
+        </section>
       </section>
     </section>
 

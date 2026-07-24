@@ -131,9 +131,27 @@ try {
   ]) {
     const page = await browser.newPage({ viewport });
     await page.goto(`${localOrigin}/talent/index.html`);
+    await page.getByText("12件を集計").waitFor();
+    await page.screenshot({
+      path: join(outputRoot, `nov-talent-summary-${viewport.name}.png`),
+      fullPage: true,
+    });
     await page.getByRole("tab", { name: "学生フォロー" }).click();
     await page.getByRole("option", { name: /^表示用 学生1 隔離/u }).waitFor();
     await page.getByRole("option", { name: /^表示用 学生2 要確認/u }).click();
+    await page.getByRole("tab", { name: "学校分析" }).click();
+    await page.getByRole("heading", { name: "学校別 採用状況" }).waitFor();
+    await page.screenshot({
+      path: join(outputRoot, `nov-talent-school-analysis-${viewport.name}.png`),
+      fullPage: true,
+    });
+    await page.getByRole("tab", { name: "フェア分析" }).click();
+    await page.getByRole("heading", { name: "フェア・流入分析" }).waitFor();
+    await page.screenshot({
+      path: join(outputRoot, `nov-talent-fair-analysis-${viewport.name}.png`),
+      fullPage: true,
+    });
+    await page.getByRole("tab", { name: "学生フォロー" }).click();
 
     const geometry = await page.evaluate(() => {
       const body = document.body;

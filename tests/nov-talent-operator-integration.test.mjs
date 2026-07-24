@@ -239,13 +239,13 @@ test('write-enabled candidate is cache-bound, v2-only, explicit-confirmation, an
       .map((name) => readFile(new URL(`../portal/talent/${name}`, import.meta.url), 'utf8')),
   );
   assert.match(app, /initializeTalentOperatorPanel\(\)/);
-  assert.match(app, /operator\.mjs\?v=20260720-write-enable-candidate-1/);
+  assert.match(app, /operator\.mjs\?v=20260725-student-workspace-1/);
   assert.match(config, /nov-talent-readonly-api-v2/);
   assert.doesNotMatch(config, /nov-talent-readonly-api["']/);
   assert.match(config, /writeApiEnabled:\s*true/);
   assert.match(html, /talent-operator-panel/);
   assert.match(html, /本システム稼働開始以降の集計/);
-  assert.equal((html.match(/20260720-write-enable-candidate-1/g) || []).length, 3);
+  assert.equal((html.match(/20260725-student-workspace-1/g) || []).length, 3);
   assert.doesNotMatch(html, /20260720-readonly-v2-write-candidate-1/);
   assert.match(operator, /confirmImpl\(confirmationMessage\) !== true/);
   assert.match(operator, /confirmation_required/);

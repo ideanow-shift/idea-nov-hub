@@ -33,6 +33,34 @@ const ERROR_ENVELOPE_KEYS = Object.freeze(["message", "ok", "requestId", "safeCo
 const DATA_KEYS = Object.freeze(["config", "fiscalYear", "payloadMode", "summary"]);
 const CONFIG_KEYS = Object.freeze(["appName"]);
 const META_KEYS = Object.freeze(["generatedAt", "requestId", "source", "version"]);
+const WORKSPACE_DATA_KEYS = Object.freeze(["fiscalYear", "overview", "payloadMode", "students"]);
+const WORKSPACE_OVERVIEW_KEYS = Object.freeze([
+  "contacts",
+  "entries",
+  "mapped",
+  "offers",
+  "ownerReview",
+  "quarantined",
+  "total"
+]);
+const STUDENT_KEYS = Object.freeze([
+  "businessDate",
+  "classification",
+  "classificationLabel",
+  "displayName",
+  "email",
+  "kana",
+  "lineRegistrationDate",
+  "mappingStatus",
+  "phone",
+  "preferredStore",
+  "reasonLabels",
+  "recordId",
+  "school",
+  "sourceCode",
+  "sourceLabel",
+  "status"
+]);
 
 export function readTalentRuntime({
   globalObject = globalThis,
@@ -101,6 +129,57 @@ export function createDashboardSummaryExact1Executor({
   });
 }
 
+export function createTalentWorkspaceExact1Executor({
+  globalObject = globalThis,
+  hubSessionHelper = globalObject.NovHubSession,
+  hubContract = globalObject.NOV_HUB_SESSION_CONTRACT,
+  fetchImpl = globalObject.fetch,
+  fiscalYear = "2027"
+} = {}) {
+  const runtime = readTalentRuntime({ globalObject, hubSessionHelper, hubContract });
+  if (!runtime || typeof fetchImpl !== "function") return null;
+
+  let consumed = false;
+  return Object.freeze({
+    async run() {
+      if (consumed) return safeResult("duplicate_startup_prevented", { duplicatePrevented: true });
+      consumed = true;
+      let requestSent = false;
+      try {
+        const headers = await buildAuthHeaders(runtime.hubSessionHelper);
+        const url = new URL("./api/talent/v1/workspace", `${runtime.apiBaseUrl}/`);
+        url.searchParams.set("fiscalYear", fiscalYear);
+        requestSent = true;
+        const response = await fetchImpl(url.toString(), {
+          method: "GET",
+          headers: { Accept: "application/json", ...headers },
+          credentials: "omit"
+        });
+        const envelope = await readJsonEnvelope(response);
+        const data = unwrapWorkspaceEnvelope(envelope);
+        return Object.freeze({
+          ...safeResult("ready", {
+            executed: true,
+            httpRequestSent: true,
+            httpStatus: normalizeHttpStatus(response.status),
+            okBoolean: true,
+            requestCount: 1,
+            studentRowsReturned: true
+          }),
+          data
+        });
+      } catch (error) {
+        return safeResult(error?.safeCategory || "api_error", {
+          executed: requestSent,
+          httpRequestSent: requestSent,
+          requestCount: requestSent ? 1 : 0,
+          httpStatus: normalizeHttpStatus(error?.httpStatus)
+        });
+      }
+    }
+  });
+}
+
 export function buildDashboardSummaryViewModel(data) {
   const metrics = data?.summary || {};
   return SUMMARY_FIELDS.map((key) => {
@@ -134,6 +213,66 @@ function unwrapSummaryEnvelope(envelope) {
     }
   });
   return data;
+}
+
+function unwrapWorkspaceEnvelope(envelope) {
+  if (!isPlainObject(envelope)) throw safeError("invalid_response");
+  if (envelope.ok !== true) {
+    assertExactKeys(envelope, ERROR_ENVELOPE_KEYS);
+    throw safeError(envelope.safeCode === "AUTH_REQUIRED" ? "auth_required" : "api_error");
+  }
+  assertExactKeys(envelope, SUCCESS_ENVELOPE_KEYS);
+  validateMeta(envelope.meta);
+  const data = envelope.data;
+  if (!isPlainObject(data)) throw safeError("invalid_response");
+  assertExactKeys(data, WORKSPACE_DATA_KEYS);
+  if (data.payloadMode !== "workspace" || data.fiscalYear !== "2027") {
+    throw safeError("invalid_response");
+  }
+  if (!isPlainObject(data.overview)) throw safeError("invalid_response");
+  assertExactKeys(data.overview, WORKSPACE_OVERVIEW_KEYS);
+  WORKSPACE_OVERVIEW_KEYS.forEach((key) => {
+    if (!Number.isInteger(data.overview[key]) || data.overview[key] < 0) {
+      throw safeError("invalid_response");
+    }
+  });
+  if (!Array.isArray(data.students) || data.students.length > 1000) {
+    throw safeError("invalid_response");
+  }
+  data.students.forEach(validateStudent);
+  if (data.overview.total !== data.students.length) throw safeError("invalid_response");
+  return Object.freeze({
+    ...data,
+    overview: Object.freeze({ ...data.overview }),
+    students: Object.freeze(data.students.map((student) => Object.freeze({
+      ...student,
+      reasonLabels: Object.freeze([...student.reasonLabels])
+    })))
+  });
+}
+
+function validateStudent(student) {
+  if (!isPlainObject(student)) throw safeError("invalid_response");
+  assertExactKeys(student, STUDENT_KEYS);
+  const requiredStrings = [
+    "recordId", "displayName", "sourceCode", "sourceLabel", "classification",
+    "classificationLabel", "mappingStatus", "status"
+  ];
+  if (requiredStrings.some((key) => typeof student[key] !== "string" || !student[key])) {
+    throw safeError("invalid_response");
+  }
+  const optionalStrings = [
+    "businessDate", "email", "kana", "lineRegistrationDate", "phone",
+    "preferredStore", "school"
+  ];
+  if (optionalStrings.some((key) => student[key] !== null && typeof student[key] !== "string")) {
+    throw safeError("invalid_response");
+  }
+  if (!Array.isArray(student.reasonLabels)
+    || student.reasonLabels.length > 6
+    || student.reasonLabels.some((value) => typeof value !== "string")) {
+    throw safeError("invalid_response");
+  }
 }
 
 async function buildAuthHeaders(hubSessionHelper) {

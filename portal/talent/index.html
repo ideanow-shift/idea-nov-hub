@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260720-write-enable-candidate-1">
-  <script src="./runtime-config.candidate.js?v=20260720-write-enable-candidate-1"></script>
-  <script type="module" src="./app.mjs?v=20260720-write-enable-candidate-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260725-student-workspace-1">
+  <script src="./runtime-config.candidate.js?v=20260725-student-workspace-1"></script>
+  <script type="module" src="./app.mjs?v=20260725-student-workspace-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -69,7 +69,21 @@
           <article class="metric"><p class="metric-name">内定</p><p class="metric-value">-</p></article>
           <article class="metric"><p class="metric-name">入社予定</p><p class="metric-value">-</p></article>
         </section>
-        <p class="coverage-label">本システム稼働開始以降の集計</p>
+        <p class="coverage-label">本システム稼働開始以降の集計（確定済み）</p>
+
+        <section class="import-overview" aria-labelledby="import-overview-title">
+          <div>
+            <p class="section-kicker">2027 IMPORT STATUS</p>
+            <h3 id="import-overview-title">27卒 取込状況</h3>
+          </div>
+          <dl>
+            <div><dt>取込済み</dt><dd id="import-total">-</dd></div>
+            <div><dt>要確認</dt><dd id="import-review">-</dd></div>
+            <div><dt>隔離</dt><dd id="import-quarantine">-</dd></div>
+            <div><dt>紐付け済み</dt><dd id="import-mapped">-</dd></div>
+          </dl>
+          <p id="import-overview-status">学生フォローを開くと取込状況を確認します</p>
+        </section>
 
         <section id="talent-operator-panel" class="operator-panel" aria-labelledby="operator-title" hidden>
           <div class="operator-heading"><div><p class="section-kicker">FUNNEL EVENT ENTRY</p><h3 id="operator-title">採用イベント入力</h3></div><p id="operator-status" class="status" role="status" aria-live="polite">未送信</p></div>
@@ -96,11 +110,86 @@
       </section>
 
       <section id="recruitment-students" class="secondary-panel" role="tabpanel" hidden>
-        <div class="section-heading"><div><p class="section-kicker">STUDENT FOLLOW-UP</p><h2>学生フォロー</h2></div></div>
-        <div class="feature-grid">
-          <article class="feature-card"><span>日常業務</span><h3>次アクション管理</h3><p>見学案内、面接連絡、内定後フォローを期日順に確認します。</p></article>
-          <article class="feature-card"><span>学生カルテ</span><h3>進捗を一か所で更新</h3><p>基本情報、選考状況、店舗希望、対応履歴を学生単位で整理します。</p></article>
-          <article class="feature-card is-pending"><span>接続準備中</span><h3>学生一覧・詳細</h3><p>新Web APIの一覧・詳細接続は次の安全ゲートで有効化します。</p></article>
+        <div class="section-heading student-heading">
+          <div><p class="section-kicker">STUDENT FOLLOW-UP</p><h2>27卒 学生フォロー</h2></div>
+          <p id="student-status" class="status" data-state="idle" role="status" aria-live="polite">データを読み込んでいます</p>
+        </div>
+
+        <section class="student-toolbar" aria-label="学生一覧の検索と絞り込み">
+          <label class="student-search">
+            <span>検索</span>
+            <input id="student-search" type="search" autocomplete="off" placeholder="氏名・学校・進捗で検索">
+          </label>
+          <label>
+            <span>データ区分</span>
+            <select id="student-source-filter">
+              <option value="ALL">すべて</option>
+              <option value="CONTACTS_27">接触</option>
+              <option value="ENTRIES_27">エントリー</option>
+              <option value="OFFERS_27">内定</option>
+            </select>
+          </label>
+          <label>
+            <span>確認状態</span>
+            <select id="student-state-filter">
+              <option value="ALL">すべて</option>
+              <option value="OWNER_REVIEW">要確認</option>
+              <option value="QUARANTINE">隔離</option>
+              <option value="IMPORTABLE">確認済み</option>
+            </select>
+          </label>
+          <button id="student-reload" class="icon-command" type="button" title="学生データを再読み込み" aria-label="学生データを再読み込み">↻</button>
+        </section>
+
+        <section class="student-kpis" aria-label="27卒取込状況">
+          <article><span>全データ</span><strong id="student-total">-</strong></article>
+          <article><span>接触</span><strong id="student-contacts">-</strong></article>
+          <article><span>エントリー</span><strong id="student-entries">-</strong></article>
+          <article><span>内定</span><strong id="student-offers">-</strong></article>
+          <article class="needs-review"><span>要確認・隔離</span><strong id="student-needs-review">-</strong></article>
+        </section>
+
+        <div class="student-workspace">
+          <section class="student-list-panel" aria-labelledby="student-list-title">
+            <header>
+              <div><h3 id="student-list-title">学生一覧</h3><span id="student-result-count">0件</span></div>
+              <span class="data-badge">STAGING</span>
+            </header>
+            <div id="student-list" class="student-list" role="listbox" aria-label="学生一覧"></div>
+            <div id="student-empty" class="student-empty" hidden>
+              <strong>該当するデータがありません</strong>
+              <p>検索条件を変更してください。</p>
+            </div>
+          </section>
+
+          <aside class="student-detail-panel" aria-labelledby="student-detail-title">
+            <div id="student-detail-placeholder" class="detail-placeholder">
+              <strong>学生を選択してください</strong>
+              <p>一覧から選ぶと、取込元・進捗・連絡先・確認事項を表示します。</p>
+            </div>
+            <div id="student-detail" hidden>
+              <header class="detail-header">
+                <div>
+                  <span id="student-detail-source" class="data-badge"></span>
+                  <h3 id="student-detail-title"></h3>
+                  <p id="student-detail-kana"></p>
+                </div>
+                <span id="student-detail-state" class="state-badge"></span>
+              </header>
+              <dl class="detail-grid">
+                <div><dt>学校</dt><dd id="student-detail-school">-</dd></div>
+                <div><dt>現在の状態</dt><dd id="student-detail-status">-</dd></div>
+                <div><dt>電話番号</dt><dd id="student-detail-phone">-</dd></div>
+                <div><dt>メール</dt><dd id="student-detail-email">-</dd></div>
+                <div><dt>希望店舗</dt><dd id="student-detail-store">-</dd></div>
+                <div><dt>基準日</dt><dd id="student-detail-date">-</dd></div>
+              </dl>
+              <section class="review-notes" aria-labelledby="student-review-title">
+                <h4 id="student-review-title">確認事項</h4>
+                <ul id="student-detail-reasons"></ul>
+              </section>
+            </div>
+          </aside>
         </div>
       </section>
 

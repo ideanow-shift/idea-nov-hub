@@ -1,14 +1,19 @@
 import { NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
 import {
   buildDashboardSummaryViewModel,
-  createDashboardSummaryExact1Executor
+  createDashboardSummaryExact1Executor,
+  createTalentWorkspaceExact1Executor
 } from "./exact1.mjs";
-import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260720-write-enable-candidate-1";
+import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260725-student-workspace-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
 let activeSummaryController = null;
 let activeSummaryButton = null;
+let studentWorkspaceData = null;
+let studentWorkspaceGeneration = 0;
+let activeStudentWorkspaceController = null;
+let selectedStudentRecordId = null;
 
 const PRIMARY_TABS = Object.freeze(["recruitment", "workforce"]);
 const RECRUITMENT_TABS = Object.freeze(["summary", "students", "fairs", "schools"]);
@@ -187,7 +192,12 @@ export function initializeTalentNavigation({
   bindTabGroup({
     buttons: secondaryButtons,
     validKeys: RECRUITMENT_TABS,
-    panelFor: (key) => documentObject.getElementById(`recruitment-${key}`)
+    panelFor: (key) => documentObject.getElementById(`recruitment-${key}`),
+    onSelect: (key) => {
+      if (key === "students" && !studentWorkspaceData) {
+        loadTalentStudentWorkspace({ globalObject, documentObject });
+      }
+    }
   });
   bindTabGroup({
     buttons: workforceButtons,
@@ -202,6 +212,246 @@ export function initializeTalentNavigation({
     primaryTabCount: primaryButtons.length,
     workforceTabCount: workforceButtons.length
   });
+}
+
+export function initializeTalentStudentWorkspace({
+  globalObject = globalThis,
+  documentObject = globalObject.document
+} = {}) {
+  const list = documentObject?.getElementById?.("student-list");
+  if (!list || list.dataset?.workspaceBound === "true") {
+    return Object.freeze({ initialized: Boolean(list), duplicateBindingPrevented: Boolean(list) });
+  }
+  list.dataset.workspaceBound = "true";
+  const refresh = () => renderStudentWorkspace(documentObject);
+  documentObject.getElementById("student-search")?.addEventListener("input", refresh);
+  documentObject.getElementById("student-source-filter")?.addEventListener("change", refresh);
+  documentObject.getElementById("student-state-filter")?.addEventListener("change", refresh);
+  documentObject.getElementById("student-reload")?.addEventListener("click", () => {
+    loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
+  });
+  globalObject?.addEventListener?.("pagehide", () => activeStudentWorkspaceController?.abort?.(), { once: true });
+  globalObject?.addEventListener?.("novhub:logout", () => {
+    activeStudentWorkspaceController?.abort?.();
+    studentWorkspaceData = null;
+    selectedStudentRecordId = null;
+  });
+  return Object.freeze({ initialized: true });
+}
+
+export async function loadTalentStudentWorkspace({
+  globalObject = globalThis,
+  documentObject = globalObject.document,
+  fetchImpl = globalObject.fetch,
+  force = false
+} = {}) {
+  if (studentWorkspaceData && !force) {
+    renderStudentWorkspace(documentObject);
+    return Object.freeze({ executed: false, cached: true, studentRowsReturned: true });
+  }
+  const status = documentObject?.getElementById?.("student-status");
+  const reload = documentObject?.getElementById?.("student-reload");
+  if (status) {
+    status.dataset.state = "loading";
+    status.textContent = "27卒データを読み込んでいます";
+  }
+  if (reload) {
+    reload.disabled = true;
+    reload.setAttribute("aria-busy", "true");
+  }
+
+  const generation = ++studentWorkspaceGeneration;
+  const AbortControllerClass = globalObject.AbortController || globalThis.AbortController;
+  const controller = new AbortControllerClass();
+  activeStudentWorkspaceController?.abort?.();
+  activeStudentWorkspaceController = controller;
+  const guardedFetch = typeof fetchImpl === "function"
+    ? (url, options = {}) => fetchImpl(url, { ...options, signal: controller.signal })
+    : fetchImpl;
+  const executor = createTalentWorkspaceExact1Executor({
+    globalObject,
+    hubSessionHelper: globalObject.NovHubSession,
+    hubContract: globalObject.NOV_HUB_SESSION_CONTRACT || NOV_HUB_SESSION_CONTRACT,
+    fetchImpl: guardedFetch,
+    fiscalYear: "2027"
+  });
+  const result = executor ? await executor.run() : null;
+  if (generation !== studentWorkspaceGeneration || controller.signal.aborted) {
+    return Object.freeze({ executed: false, staleCompletionSuppressed: true });
+  }
+  activeStudentWorkspaceController = null;
+  if (reload) {
+    reload.disabled = false;
+    reload.setAttribute("aria-busy", "false");
+  }
+  if (result?.okBoolean !== true) {
+    if (status) {
+      status.dataset.state = "stopped";
+      status.textContent = result?.stopCategory === "auth_required"
+        ? "HUBへ再ログインしてください"
+        : "学生データを取得できません";
+    }
+    return Object.freeze({
+      executed: false,
+      studentRowsReturned: false,
+      stopCategory: result?.stopCategory || "runtime_config_unavailable"
+    });
+  }
+
+  studentWorkspaceData = result.data;
+  const first = result.data.students[0];
+  if (!result.data.students.some((student) => student.recordId === selectedStudentRecordId)) {
+    selectedStudentRecordId = first?.recordId || null;
+  }
+  renderStudentWorkspace(documentObject);
+  renderImportOverview(documentObject, result.data.overview);
+  if (status) {
+    status.dataset.state = "ready";
+    status.textContent = `${result.data.students.length}件を表示`;
+  }
+  return Object.freeze({
+    executed: true,
+    studentRowsReturned: true,
+    studentCount: result.data.students.length,
+    requestCount: result.requestCount,
+    retryCount: result.retryCount
+  });
+}
+
+export function resetTalentStudentWorkspaceForFixture() {
+  activeStudentWorkspaceController?.abort?.();
+  studentWorkspaceData = null;
+  studentWorkspaceGeneration = 0;
+  activeStudentWorkspaceController = null;
+  selectedStudentRecordId = null;
+}
+
+function renderImportOverview(documentObject, overview) {
+  const values = {
+    "import-total": overview.total,
+    "import-review": overview.ownerReview,
+    "import-quarantine": overview.quarantined,
+    "import-mapped": overview.mapped,
+    "student-total": overview.total,
+    "student-contacts": overview.contacts,
+    "student-entries": overview.entries,
+    "student-offers": overview.offers,
+    "student-needs-review": overview.ownerReview + overview.quarantined
+  };
+  Object.entries(values).forEach(([id, value]) => {
+    const element = documentObject?.getElementById?.(id);
+    if (element) element.textContent = String(value);
+  });
+  const status = documentObject?.getElementById?.("import-overview-status");
+  if (status) status.textContent = "本番stagingに取り込まれた27卒データ";
+}
+
+function renderStudentWorkspace(documentObject) {
+  if (!studentWorkspaceData) return;
+  const query = normalizeSearch(documentObject.getElementById("student-search")?.value);
+  const source = documentObject.getElementById("student-source-filter")?.value || "ALL";
+  const state = documentObject.getElementById("student-state-filter")?.value || "ALL";
+  const visible = studentWorkspaceData.students.filter((student) => {
+    if (source !== "ALL" && student.sourceCode !== source) return false;
+    if (state !== "ALL" && student.classification !== state) return false;
+    if (!query) return true;
+    return [
+      student.displayName, student.kana, student.school, student.status,
+      student.preferredStore, student.sourceLabel
+    ].some((value) => normalizeSearch(value).includes(query));
+  });
+  const list = documentObject.getElementById("student-list");
+  const empty = documentObject.getElementById("student-empty");
+  const count = documentObject.getElementById("student-result-count");
+  if (count) count.textContent = `${visible.length}件`;
+  if (empty) empty.hidden = visible.length !== 0;
+  if (list) {
+    list.replaceChildren(...visible.map((student) => createStudentListItem(documentObject, student)));
+  }
+  if (!visible.some((student) => student.recordId === selectedStudentRecordId)) {
+    selectedStudentRecordId = visible[0]?.recordId || null;
+  }
+  renderStudentDetail(
+    documentObject,
+    studentWorkspaceData.students.find((student) => student.recordId === selectedStudentRecordId) || null
+  );
+}
+
+function createStudentListItem(documentObject, student) {
+  const button = documentObject.createElement("button");
+  button.type = "button";
+  button.className = "student-list-item";
+  button.dataset.state = student.classification;
+  button.setAttribute("role", "option");
+  button.setAttribute("aria-selected", String(student.recordId === selectedStudentRecordId));
+
+  const top = documentObject.createElement("span");
+  top.className = "student-list-top";
+  const name = documentObject.createElement("strong");
+  name.textContent = student.displayName;
+  const badge = documentObject.createElement("span");
+  badge.className = "state-badge";
+  badge.textContent = student.classificationLabel;
+  top.append(name, badge);
+
+  const meta = documentObject.createElement("span");
+  meta.className = "student-list-meta";
+  meta.textContent = [student.school, student.sourceLabel, student.businessDate].filter(Boolean).join(" · ");
+  const status = documentObject.createElement("span");
+  status.className = "student-list-status";
+  status.textContent = student.status;
+  button.append(top, meta, status);
+  button.addEventListener("click", () => {
+    selectedStudentRecordId = student.recordId;
+    renderStudentWorkspace(documentObject);
+  });
+  return button;
+}
+
+function renderStudentDetail(documentObject, student) {
+  const placeholder = documentObject.getElementById("student-detail-placeholder");
+  const detail = documentObject.getElementById("student-detail");
+  if (!student) {
+    if (placeholder) placeholder.hidden = false;
+    if (detail) detail.hidden = true;
+    return;
+  }
+  if (placeholder) placeholder.hidden = true;
+  if (detail) detail.hidden = false;
+  setText(documentObject, "student-detail-source", student.sourceLabel);
+  setText(documentObject, "student-detail-title", student.displayName);
+  setText(documentObject, "student-detail-kana", student.kana || "");
+  setText(documentObject, "student-detail-state", student.classificationLabel);
+  const state = documentObject.getElementById("student-detail-state");
+  if (state) state.dataset.state = student.classification;
+  setText(documentObject, "student-detail-school", student.school || "未登録");
+  setText(documentObject, "student-detail-status", student.status || "未登録");
+  setText(documentObject, "student-detail-phone", student.phone || "未登録");
+  setText(documentObject, "student-detail-email", student.email || "未登録");
+  setText(documentObject, "student-detail-store", student.preferredStore || "未登録");
+  setText(
+    documentObject,
+    "student-detail-date",
+    student.businessDate || student.lineRegistrationDate || "未登録"
+  );
+  const reasons = documentObject.getElementById("student-detail-reasons");
+  if (reasons) {
+    const labels = student.reasonLabels.length ? student.reasonLabels : ["確認事項はありません"];
+    reasons.replaceChildren(...labels.map((label) => {
+      const item = documentObject.createElement("li");
+      item.textContent = label;
+      return item;
+    }));
+  }
+}
+
+function setText(documentObject, id, text) {
+  const element = documentObject?.getElementById?.(id);
+  if (element) element.textContent = text;
+}
+
+function normalizeSearch(value) {
+  return String(value || "").normalize("NFKC").trim().toLocaleLowerCase("ja-JP");
 }
 
 function renderMetrics(documentObject, viewModel) {
@@ -365,6 +615,7 @@ function safeMessage(category, requestCount = 0) {
 }
 
 function initializeTalentApp() {
+  initializeTalentStudentWorkspace();
   initializeTalentNavigation();
   initializeTalentSummaryControl();
   initializeTalentOperatorPanel();

@@ -23,6 +23,7 @@ function globalFixture() {
 
 function student(overrides = {}) {
   return {
+    applicationNo: null,
     recordId: "00000000-0000-4000-8000-000000000001",
     displayName: "表示用氏名",
     kana: "ヒョウジヨウシメイ",
@@ -38,7 +39,12 @@ function student(overrides = {}) {
     status: "要確認",
     businessDate: "2026-07-01",
     lineRegistrationDate: "2026-07-01",
+    legacyNoPresent: false,
     reasonLabels: ["担当者確認が必要"],
+    primaryEligible: true,
+    sourceKeyStatus: "UNPROVEN",
+    suggestedTargetRecordId: null,
+    suggestionCategory: "NONE",
     ...overrides
   };
 }
@@ -53,10 +59,13 @@ function envelope() {
         total: 1,
         contacts: 1,
         entries: 0,
+        exactLinkSuggestions: 0,
         offers: 0,
         ownerReview: 1,
         quarantined: 0,
-        mapped: 0
+        mapped: 0,
+        primaryCandidates: 1,
+        remainingManual: 0
       },
       students: [student()]
     },
@@ -128,9 +137,12 @@ test("public talent UI contains a real list/detail workspace and no pending plac
 
   assert.match(html, /id="student-list"/);
   assert.match(html, /id="student-detail"/);
+  assert.match(html, /id="student-review-dialog"/);
+  assert.match(html, /id="student-review-open"/);
   assert.match(html, /27卒 取込状況/);
   assert.doesNotMatch(html, /学生一覧・詳細接続は次の安全ゲート/);
   assert.match(app, /createTalentWorkspaceExact1Executor/);
+  assert.match(app, /createTalentHistoricalReviewController/);
   assert.match(app, /getElementById\("summary-load-button"\)\?\.addEventListener\("click"/);
   assert.match(css, /\.student-workspace/);
   assert.match(migration, /assert_nov_talent_accountable_owner_v1/);

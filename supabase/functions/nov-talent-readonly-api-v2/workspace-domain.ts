@@ -89,6 +89,26 @@ function mappingStatus(value: unknown): string {
     : "UNMAPPED";
 }
 
+function mappingMetadata(value: unknown) {
+  const row = Array.isArray(value) ? value[0] : value;
+  const record = isRecord(row) ? row : {};
+  const status = mappingStatus(record);
+  const applicationNo = /^NT-[0-9]{4}-[0-9]{6}$/u.test(String(record.application_no ?? ""))
+    ? String(record.application_no)
+    : null;
+  const sourceKeyStatus = ["UNPROVEN", "OWNER_CONFIRMED", "REJECTED"].includes(
+    String(record.source_key_status),
+  )
+    ? String(record.source_key_status)
+    : "UNPROVEN";
+  return Object.freeze({
+    mappingStatus: status,
+    applicationNo,
+    sourceKeyStatus,
+    legacyNoPresent: record.legacy_no_present === true,
+  });
+}
+
 function safeReasonLabels(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   const labels: string[] = [];
@@ -118,6 +138,13 @@ function sanitizeRow(value: unknown, ordinal: number) {
   const businessDate = /^\d{4}-\d{2}-\d{2}$/u.test(String(value.business_date ?? ""))
     ? String(value.business_date)
     : null;
+  const mapping = mappingMetadata(value.mapping);
+  const displayClassification = mapping.mappingStatus === "OWNER_CONFIRMED"
+    ? "IMPORTABLE"
+    : classification;
+  const reasonLabels = mapping.mappingStatus === "OWNER_CONFIRMED"
+    ? []
+    : safeReasonLabels(value.reason_codes);
 
   return Object.freeze({
     recordId,
@@ -129,10 +156,16 @@ function sanitizeRow(value: unknown, ordinal: number) {
     preferredStore: findField(columns, FIELD_ALIASES.preferredStore),
     sourceCode,
     sourceLabel: SOURCE_LABELS[sourceCode as keyof typeof SOURCE_LABELS],
-    classification,
+    classification: displayClassification,
     classificationLabel:
-      CLASSIFICATION_LABELS[classification as keyof typeof CLASSIFICATION_LABELS],
-    mappingStatus: mappingStatus(value.mapping),
+      CLASSIFICATION_LABELS[displayClassification as keyof typeof CLASSIFICATION_LABELS],
+    mappingStatus: mapping.mappingStatus,
+    applicationNo: mapping.applicationNo,
+    sourceKeyStatus: mapping.sourceKeyStatus,
+    legacyNoPresent: mapping.legacyNoPresent,
+    primaryEligible: sourceCode === "CONTACTS_27" && mapping.mappingStatus === "UNMAPPED",
+    suggestionCategory: "NONE" as string,
+    suggestedTargetRecordId: null as string | null,
     status: status || CLASSIFICATION_LABELS[classification as keyof typeof CLASSIFICATION_LABELS],
     businessDate,
     lineRegistrationDate: /^\d{4}-\d{2}-\d{2}$/u.test(
@@ -140,7 +173,7 @@ function sanitizeRow(value: unknown, ordinal: number) {
     )
       ? String(sourcePayload?.lineRegistrationDate)
       : null,
-    reasonLabels: Object.freeze(safeReasonLabels(value.reason_codes)),
+    reasonLabels: Object.freeze(reasonLabels),
   });
 }
 
@@ -148,12 +181,62 @@ function countBy<T>(rows: readonly T[], predicate: (row: T) => boolean): number 
   return rows.reduce((count, row) => count + (predicate(row) ? 1 : 0), 0);
 }
 
+function normalizedMatchValue(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{N}@.+]/gu, "")
+    .toLocaleLowerCase("ja-JP");
+}
+
+function exactLinkSuggestions<T extends {
+  recordId: string;
+  sourceCode: string;
+  mappingStatus: string;
+  displayName: string;
+  kana: string | null;
+  school: string | null;
+  phone: string | null;
+  email: string | null;
+}>(rows: readonly T[]) {
+  const contacts = rows.filter((row) => row.sourceCode === "CONTACTS_27");
+  return rows.map((row) => {
+    if (row.sourceCode === "CONTACTS_27" || row.mappingStatus !== "UNMAPPED") return row;
+    const name = normalizedMatchValue(row.displayName);
+    if (!name) return row;
+    const candidates = contacts.filter((contact) => {
+      if (normalizedMatchValue(contact.displayName) !== name) return false;
+      const comparable = [
+        [row.kana, contact.kana],
+        [row.school, contact.school],
+        [row.phone, contact.phone],
+        [row.email, contact.email],
+      ];
+      return comparable.some(([left, right]) => {
+        const normalizedLeft = normalizedMatchValue(left);
+        return normalizedLeft !== "" && normalizedLeft === normalizedMatchValue(right);
+      });
+    });
+    if (candidates.length !== 1) {
+      return Object.freeze({
+        ...row,
+        suggestionCategory: candidates.length === 0 ? "NONE" : "AMBIGUOUS",
+      });
+    }
+    return Object.freeze({
+      ...row,
+      suggestionCategory: "EXACT1",
+      suggestedTargetRecordId: candidates[0].recordId,
+    });
+  });
+}
+
 export function buildTalentWorkspaceData(input: unknown, fiscalYear: string) {
   if (!isRecord(input) || !Array.isArray(input.rows) || input.rows.length > MAX_ROWS) return null;
-  const rows = input.rows
+  const sanitizedRows = input.rows
     .map((row, index) => sanitizeRow(row, index + 1))
     .filter((row): row is NonNullable<typeof row> => Boolean(row));
-  if (rows.length !== input.rows.length) return null;
+  if (sanitizedRows.length !== input.rows.length) return null;
+  const rows = exactLinkSuggestions(sanitizedRows);
 
   const overview = Object.freeze({
     total: rows.length,
@@ -163,6 +246,13 @@ export function buildTalentWorkspaceData(input: unknown, fiscalYear: string) {
     ownerReview: countBy(rows, (row) => row.classification === "OWNER_REVIEW"),
     quarantined: countBy(rows, (row) => row.classification === "QUARANTINE"),
     mapped: countBy(rows, (row) => row.mappingStatus === "OWNER_CONFIRMED"),
+    primaryCandidates: countBy(rows, (row) => row.primaryEligible),
+    exactLinkSuggestions: countBy(rows, (row) => row.suggestionCategory === "EXACT1"),
+    remainingManual: countBy(rows, (row) => (
+      row.sourceCode !== "CONTACTS_27"
+      && row.mappingStatus === "UNMAPPED"
+      && row.suggestionCategory !== "EXACT1"
+    )),
   });
 
   return Object.freeze({
@@ -178,4 +268,6 @@ export const TALENT_WORKSPACE_DOMAIN_CONTRACT = Object.freeze({
   sourceCodes: Object.freeze(Object.keys(SOURCE_LABELS)),
   exposesRawPayload: false,
   requiresAccountableOwner: true,
+  automaticMapping: false,
+  suggestionMinimum: "EXACT_NAME_PLUS_ONE_CORROBORATING_FIELD",
 });

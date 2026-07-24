@@ -6,5 +6,8 @@ verify_jwt = false
 [functions.nov-talent-readonly-api-v2]
 verify_jwt = false
 
+[functions.nov-talent-write-api]
+verify_jwt = false
+
 [functions.send-line-works-notifications]
 verify_jwt = true

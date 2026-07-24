@@ -37,13 +37,17 @@ const WORKSPACE_DATA_KEYS = Object.freeze(["fiscalYear", "overview", "payloadMod
 const WORKSPACE_OVERVIEW_KEYS = Object.freeze([
   "contacts",
   "entries",
+  "exactLinkSuggestions",
   "mapped",
   "offers",
   "ownerReview",
+  "primaryCandidates",
   "quarantined",
+  "remainingManual",
   "total"
 ]);
 const STUDENT_KEYS = Object.freeze([
+  "applicationNo",
   "businessDate",
   "classification",
   "classificationLabel",
@@ -51,15 +55,20 @@ const STUDENT_KEYS = Object.freeze([
   "email",
   "kana",
   "lineRegistrationDate",
+  "legacyNoPresent",
   "mappingStatus",
   "phone",
   "preferredStore",
+  "primaryEligible",
   "reasonLabels",
   "recordId",
   "school",
   "sourceCode",
   "sourceLabel",
-  "status"
+  "sourceKeyStatus",
+  "status",
+  "suggestedTargetRecordId",
+  "suggestionCategory"
 ]);
 
 export function readTalentRuntime({
@@ -256,14 +265,14 @@ function validateStudent(student) {
   assertExactKeys(student, STUDENT_KEYS);
   const requiredStrings = [
     "recordId", "displayName", "sourceCode", "sourceLabel", "classification",
-    "classificationLabel", "mappingStatus", "status"
+    "classificationLabel", "mappingStatus", "sourceKeyStatus", "status", "suggestionCategory"
   ];
   if (requiredStrings.some((key) => typeof student[key] !== "string" || !student[key])) {
     throw safeError("invalid_response");
   }
   const optionalStrings = [
-    "businessDate", "email", "kana", "lineRegistrationDate", "phone",
-    "preferredStore", "school"
+    "applicationNo", "businessDate", "email", "kana", "lineRegistrationDate", "phone",
+    "preferredStore", "school", "suggestedTargetRecordId"
   ];
   if (optionalStrings.some((key) => student[key] !== null && typeof student[key] !== "string")) {
     throw safeError("invalid_response");
@@ -271,6 +280,11 @@ function validateStudent(student) {
   if (!Array.isArray(student.reasonLabels)
     || student.reasonLabels.length > 6
     || student.reasonLabels.some((value) => typeof value !== "string")) {
+    throw safeError("invalid_response");
+  }
+  if (typeof student.legacyNoPresent !== "boolean"
+    || typeof student.primaryEligible !== "boolean"
+    || !["NONE", "EXACT1", "AMBIGUOUS"].includes(student.suggestionCategory)) {
     throw safeError("invalid_response");
   }
 }

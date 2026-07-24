@@ -23,6 +23,7 @@ const students = Array.from({ length: 12 }, (_, index) => {
   const sourceCode = ["CONTACTS_27", "ENTRIES_27", "OFFERS_27"][index % 3];
   const classification = index % 4 === 0 ? "QUARANTINE" : "OWNER_REVIEW";
   return {
+    applicationNo: null,
     recordId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
     displayName: `表示用 学生${index + 1}`,
     kana: `ヒョウジヨウ ガクセイ${index + 1}`,
@@ -38,9 +39,14 @@ const students = Array.from({ length: 12 }, (_, index) => {
     status: index % 3 === 0 ? "連絡確認中" : index % 3 === 1 ? "選考確認中" : "内定情報確認中",
     businessDate: "2026-07-01",
     lineRegistrationDate: sourceCode === "CONTACTS_27" ? "2026-07-01" : null,
+    legacyNoPresent: false,
+    primaryEligible: sourceCode === "CONTACTS_27",
     reasonLabels: classification === "QUARANTINE"
       ? ["識別情報の確認が必要"]
       : ["担当者確認が必要"],
+    sourceKeyStatus: "UNPROVEN",
+    suggestedTargetRecordId: null,
+    suggestionCategory: "NONE",
   };
 });
 
@@ -63,10 +69,13 @@ window.fetch=async(input)=>{
         total: students.length,
         contacts: 4,
         entries: 4,
+        exactLinkSuggestions: 0,
         offers: 4,
         ownerReview: 9,
         quarantined: 3,
         mapped: 0,
+        primaryCandidates: 4,
+        remainingManual: 8,
       },
       students,
     },

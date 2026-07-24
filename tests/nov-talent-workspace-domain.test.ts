@@ -19,7 +19,12 @@ Deno.test("workspace domain projects approved fields and fixed overview", () => 
       classification: "OWNER_REVIEW",
       reason_codes: ["OWNER_REVIEW_REQUIRED"],
       business_date: "2026-07-01",
-      mapping: { mapping_status: "UNMAPPED" },
+      mapping: {
+        mapping_status: "UNMAPPED",
+        application_no: null,
+        source_key_status: "UNPROVEN",
+        legacy_no_present: false,
+      },
     }],
   }, "2027");
 
@@ -36,6 +41,60 @@ Deno.test("workspace domain projects approved fields and fixed overview", () => 
   }
   if (TALENT_WORKSPACE_DOMAIN_CONTRACT.exposesRawPayload !== false) {
     throw new Error("raw payload contract drifted");
+  }
+  if (!row.primaryEligible || data.overview.primaryCandidates !== 1) {
+    throw new Error("primary candidate missing");
+  }
+});
+
+Deno.test("workspace domain suggests only unique corroborated cross-sheet links", () => {
+  const base = {
+    classification: "QUARANTINE",
+    reason_codes: ["SOURCE_KEY_UNPROVEN"],
+    business_date: "2026-07-01",
+    mapping: {
+      mapping_status: "UNMAPPED",
+      application_no: null,
+      source_key_status: "UNPROVEN",
+      legacy_no_present: false,
+    },
+  };
+  const payload = (name: string, school: string) => ({
+    payload: {
+      column_001: { header: "氏名", value: name },
+      column_002: { header: "学校名", value: school },
+    },
+  });
+  const data = buildTalentWorkspaceData({
+    rows: [
+      {
+        ...base,
+        staging_record_id: "00000000-0000-4000-8000-000000000001",
+        source_sheet_code: "CONTACTS_27",
+        source_payload: payload("確認 太郎", "確認学校"),
+      },
+      {
+        ...base,
+        staging_record_id: "00000000-0000-4000-8000-000000000002",
+        source_sheet_code: "ENTRIES_27",
+        source_payload: payload("確認　太郎", "確認学校"),
+      },
+      {
+        ...base,
+        staging_record_id: "00000000-0000-4000-8000-000000000003",
+        source_sheet_code: "OFFERS_27",
+        source_payload: payload("別人 花子", "確認学校"),
+      },
+    ],
+  }, "2027");
+  if (!data) throw new Error("suggestion projection failed");
+  if (data.overview.exactLinkSuggestions !== 1 || data.overview.remainingManual !== 1) {
+    throw new Error("suggestion counts mismatch");
+  }
+  if (data.students[1].suggestionCategory !== "EXACT1"
+    || data.students[1].suggestedTargetRecordId !== data.students[0].recordId
+    || data.students[2].suggestionCategory !== "NONE") {
+    throw new Error("safe suggestion mismatch");
   }
 });
 

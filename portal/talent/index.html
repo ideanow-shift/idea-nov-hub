@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260725-student-workspace-1">
-  <script src="./runtime-config.candidate.js?v=20260725-student-workspace-1"></script>
-  <script type="module" src="./app.mjs?v=20260725-student-workspace-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260725-owner-review-workspace-1">
+  <script src="./runtime-config.candidate.js?v=20260725-owner-review-workspace-1"></script>
+  <script type="module" src="./app.mjs?v=20260725-owner-review-workspace-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -115,6 +115,20 @@
           <p id="student-status" class="status" data-state="idle" role="status" aria-live="polite">データを読み込んでいます</p>
         </div>
 
+        <section class="review-command-band" aria-labelledby="review-command-title">
+          <div>
+            <p class="section-kicker">DATA PREPARATION</p>
+            <h3 id="review-command-title">既存データを業務利用できる状態にする</h3>
+            <p>接触データから応募者を作成し、本人一致を確認できたエントリー・内定だけを同じ応募者へ紐付けます。</p>
+          </div>
+          <dl>
+            <div><dt>応募化候補</dt><dd id="review-primary-count">-</dd></div>
+            <div><dt>一致候補</dt><dd id="review-link-count">-</dd></div>
+            <div><dt>個別確認</dt><dd id="review-manual-count">-</dd></div>
+          </dl>
+          <button id="student-review-open" type="button" disabled>確認候補を反映</button>
+        </section>
+
         <section class="student-toolbar" aria-label="学生一覧の検索と絞り込み">
           <label class="student-search">
             <span>検索</span>
@@ -183,6 +197,8 @@
                 <div><dt>メール</dt><dd id="student-detail-email">-</dd></div>
                 <div><dt>希望店舗</dt><dd id="student-detail-store">-</dd></div>
                 <div><dt>基準日</dt><dd id="student-detail-date">-</dd></div>
+                <div><dt>応募番号</dt><dd id="student-detail-application">-</dd></div>
+                <div><dt>紐付け状態</dt><dd id="student-detail-mapping">-</dd></div>
               </dl>
               <section class="review-notes" aria-labelledby="student-review-title">
                 <h4 id="student-review-title">確認事項</h4>
@@ -192,6 +208,26 @@
           </aside>
         </div>
       </section>
+
+      <dialog id="student-review-dialog" class="review-dialog" aria-labelledby="review-dialog-title">
+        <form method="dialog">
+          <header>
+            <p class="section-kicker">OWNER CONFIRMATION</p>
+            <h2 id="review-dialog-title">確認候補を一括反映しますか</h2>
+          </header>
+          <p>この操作は、表示中の個人値を変更せず、応募者の作成と一致候補の紐付けだけを単一トランザクションで行います。</p>
+          <dl>
+            <div><dt>新規応募者</dt><dd><span id="review-confirm-primary">0</span>件</dd></div>
+            <div><dt>自動紐付け</dt><dd><span id="review-confirm-links">0</span>件</dd></div>
+            <div><dt>個別確認に残す</dt><dd><span id="review-confirm-remaining">0</span>件</dd></div>
+          </dl>
+          <p id="student-review-status" class="status" role="status" aria-live="polite">内容を確認して実行してください</p>
+          <footer>
+            <button id="student-review-cancel" class="secondary-command" type="button">戻る</button>
+            <button id="student-review-confirm" class="primary-command" type="button">一括反映する</button>
+          </footer>
+        </form>
+      </dialog>
 
       <section id="recruitment-fairs" class="secondary-panel" role="tabpanel" hidden>
         <div class="section-heading"><div><p class="section-kicker">FAIR ROI</p><h2>フェア分析</h2></div></div>

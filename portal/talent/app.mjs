@@ -3,8 +3,9 @@ import {
   buildDashboardSummaryViewModel,
   createDashboardSummaryExact1Executor,
   createTalentWorkspaceExact1Executor
-} from "./exact1.mjs";
-import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260725-student-workspace-1";
+} from "./exact1.mjs?v=20260725-owner-review-workspace-1";
+import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260725-owner-review-workspace-1";
+import { createTalentHistoricalReviewController } from "./review.mjs?v=20260725-owner-review-workspace-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -14,6 +15,7 @@ let studentWorkspaceData = null;
 let studentWorkspaceGeneration = 0;
 let activeStudentWorkspaceController = null;
 let selectedStudentRecordId = null;
+let historicalReviewController = null;
 
 const PRIMARY_TABS = Object.freeze(["recruitment", "workforce"]);
 const RECRUITMENT_TABS = Object.freeze(["summary", "students", "fairs", "schools"]);
@@ -230,6 +232,15 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-reload")?.addEventListener("click", () => {
     loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
   });
+  documentObject.getElementById("student-review-open")?.addEventListener("click", () => {
+    openHistoricalReviewDialog({ globalObject, documentObject });
+  });
+  documentObject.getElementById("student-review-cancel")?.addEventListener("click", () => {
+    documentObject.getElementById("student-review-dialog")?.close?.();
+  });
+  documentObject.getElementById("student-review-confirm")?.addEventListener("click", () => {
+    applyHistoricalReview({ globalObject, documentObject });
+  });
   documentObject.getElementById("summary-load-button")?.addEventListener("click", () => {
     loadTalentStudentWorkspace({ globalObject, documentObject });
   });
@@ -238,6 +249,7 @@ export function initializeTalentStudentWorkspace({
     activeStudentWorkspaceController?.abort?.();
     studentWorkspaceData = null;
     selectedStudentRecordId = null;
+    historicalReviewController = null;
   });
   return Object.freeze({ initialized: true });
 }
@@ -308,6 +320,7 @@ export async function loadTalentStudentWorkspace({
   }
   renderStudentWorkspace(documentObject);
   renderImportOverview(documentObject, result.data.overview);
+  renderHistoricalReviewSummary(documentObject, result.data.overview);
   if (status) {
     status.dataset.state = "ready";
     status.textContent = `${result.data.students.length}件を表示`;
@@ -327,6 +340,78 @@ export function resetTalentStudentWorkspaceForFixture() {
   studentWorkspaceGeneration = 0;
   activeStudentWorkspaceController = null;
   selectedStudentRecordId = null;
+  historicalReviewController = null;
+}
+
+function buildHistoricalReviewProposal(data) {
+  if (!data?.students) return Object.freeze({ primaryRecordIds: [], linkPairs: [] });
+  return Object.freeze({
+    primaryRecordIds: Object.freeze(data.students
+      .filter((student) => student.primaryEligible)
+      .map((student) => student.recordId)),
+    linkPairs: Object.freeze(data.students
+      .filter((student) => (
+        student.mappingStatus === "UNMAPPED"
+        && student.suggestionCategory === "EXACT1"
+        && student.suggestedTargetRecordId
+      ))
+      .map((student) => Object.freeze({
+        sourceRecordId: student.recordId,
+        targetRecordId: student.suggestedTargetRecordId
+      })))
+  });
+}
+
+function renderHistoricalReviewSummary(documentObject, overview) {
+  setText(documentObject, "review-primary-count", overview.primaryCandidates);
+  setText(documentObject, "review-link-count", overview.exactLinkSuggestions);
+  setText(documentObject, "review-manual-count", overview.remainingManual);
+  const button = documentObject.getElementById("student-review-open");
+  if (button) {
+    const pending = overview.primaryCandidates + overview.exactLinkSuggestions;
+    button.disabled = pending === 0;
+    button.textContent = pending === 0 ? "一括確認済み" : "確認候補を反映";
+  }
+}
+
+function openHistoricalReviewDialog({ globalObject, documentObject }) {
+  if (!studentWorkspaceData) return;
+  const proposal = buildHistoricalReviewProposal(studentWorkspaceData);
+  if (proposal.primaryRecordIds.length + proposal.linkPairs.length === 0) return;
+  setText(documentObject, "review-confirm-primary", proposal.primaryRecordIds.length);
+  setText(documentObject, "review-confirm-links", proposal.linkPairs.length);
+  setText(documentObject, "review-confirm-remaining", studentWorkspaceData.overview.remainingManual);
+  historicalReviewController = createTalentHistoricalReviewController({ globalObject });
+  documentObject.getElementById("student-review-dialog")?.showModal?.();
+}
+
+async function applyHistoricalReview({ globalObject, documentObject }) {
+  const confirmButton = documentObject.getElementById("student-review-confirm");
+  const status = documentObject.getElementById("student-review-status");
+  const proposal = buildHistoricalReviewProposal(studentWorkspaceData);
+  if (!historicalReviewController?.enabled || !confirmButton) {
+    if (status) status.textContent = "確定機能を利用できません";
+    return;
+  }
+  confirmButton.disabled = true;
+  confirmButton.setAttribute("aria-busy", "true");
+  if (status) status.textContent = "確認内容を反映しています";
+  const result = await historicalReviewController.apply(proposal);
+  confirmButton.setAttribute("aria-busy", "false");
+  if (!result.ok) {
+    if (status) status.textContent = result.category === "write_forbidden"
+      ? "この操作を実行する権限がありません"
+      : "反映できませんでした。画面を再読込して状態を確認してください";
+    return;
+  }
+  if (status) {
+    status.textContent =
+      `応募化 ${result.data.createdPrimary}件、紐付け ${result.data.confirmedLinks}件を反映しました`;
+  }
+  documentObject.getElementById("student-review-dialog")?.close?.();
+  studentWorkspaceData = null;
+  historicalReviewController = null;
+  await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
 }
 
 function renderImportOverview(documentObject, overview) {
@@ -432,6 +517,14 @@ function renderStudentDetail(documentObject, student) {
   setText(documentObject, "student-detail-phone", student.phone || "未登録");
   setText(documentObject, "student-detail-email", student.email || "未登録");
   setText(documentObject, "student-detail-store", student.preferredStore || "未登録");
+  setText(documentObject, "student-detail-application", student.applicationNo || "未確定");
+  setText(
+    documentObject,
+    "student-detail-mapping",
+    student.mappingStatus === "OWNER_CONFIRMED"
+      ? "確認済み"
+      : student.suggestionCategory === "EXACT1" ? "一致候補あり" : "要確認"
+  );
   setText(
     documentObject,
     "student-detail-date",

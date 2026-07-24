@@ -297,6 +297,80 @@ h3 { margin: 0; font-size: 1rem; }
 .feature-card.is-pending > span { color: var(--amber); }
 
 .student-heading { margin-bottom: 14px; }
+.review-command-band {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) auto auto;
+  gap: 22px;
+  align-items: center;
+  padding: 18px 20px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: #eef6f2;
+}
+.review-command-band h3 { margin-top: 4px; font-size: 1rem; }
+.review-command-band p:last-child {
+  max-width: 680px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+.review-command-band dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(76px, 1fr));
+  margin: 0;
+}
+.review-command-band dl div {
+  min-width: 76px;
+  padding: 0 14px;
+  border-left: 1px solid #bfd6c9;
+}
+.review-command-band dt { color: var(--muted); font-size: 0.7rem; font-weight: 700; }
+.review-command-band dd { margin: 3px 0 0; color: var(--green); font-size: 1.25rem; font-weight: 800; }
+.review-command-band > button,
+.primary-command,
+.secondary-command {
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0 16px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.review-command-band > button,
+.primary-command { color: #fff; background: var(--green); }
+.review-command-band > button:hover:not(:disabled),
+.primary-command:hover:not(:disabled) { background: #126746; }
+.review-command-band > button:disabled,
+.primary-command:disabled { color: #738093; background: #dce3e8; cursor: default; }
+.secondary-command { border-color: #c9d2dc; color: var(--navy); background: #fff; }
+.secondary-command:hover { border-color: var(--blue); background: var(--blue-soft); }
+
+.review-dialog {
+  width: min(560px, calc(100% - 28px));
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  color: var(--ink);
+  box-shadow: 0 24px 70px rgba(18, 32, 51, 0.24);
+}
+.review-dialog::backdrop { background: rgba(18, 32, 51, 0.52); }
+.review-dialog form { padding: 24px; }
+.review-dialog h2 { margin-top: 4px; font-size: 1.22rem; }
+.review-dialog form > p:not(.status) { color: var(--muted); line-height: 1.65; }
+.review-dialog dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 20px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.review-dialog dl div { padding: 14px; border-right: 1px solid var(--line); }
+.review-dialog dl div:last-child { border-right: 0; }
+.review-dialog dt { color: var(--muted); font-size: 0.72rem; font-weight: 700; }
+.review-dialog dd { margin: 5px 0 0; color: var(--navy); font-weight: 800; }
+.review-dialog footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .student-toolbar {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) 190px 190px 44px;
@@ -611,6 +685,8 @@ h3 { margin: 0; font-size: 1rem; }
   .import-overview > p { margin-top: -4px; }
   .student-toolbar { grid-template-columns: minmax(220px, 1fr) repeat(2, 160px) 44px; }
   .student-workspace { grid-template-columns: minmax(280px, 0.8fr) minmax(340px, 1.2fr); }
+  .review-command-band { grid-template-columns: 1fr auto; }
+  .review-command-band > div { grid-column: 1 / -1; }
 }
 
 @media (max-width: 520px) {
@@ -640,6 +716,14 @@ h3 { margin: 0; font-size: 1rem; }
   .import-overview { padding: 16px; }
   .import-overview dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .student-heading .status { margin-top: 8px; }
+  .review-command-band { display: block; padding: 16px; }
+  .review-command-band dl { margin: 16px -8px; }
+  .review-command-band dl div { padding: 0 8px; }
+  .review-command-band > button { width: 100%; }
+  .review-dialog form { padding: 20px; }
+  .review-dialog dl { grid-template-columns: 1fr; }
+  .review-dialog dl div { border-right: 0; border-bottom: 1px solid var(--line); }
+  .review-dialog dl div:last-child { border-bottom: 0; }
   .student-toolbar { grid-template-columns: 1fr 1fr 44px; padding: 12px; }
   .student-search { grid-column: 1 / -1; }
   .student-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }

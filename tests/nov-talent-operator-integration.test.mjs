@@ -245,7 +245,7 @@ test('write-enabled candidate is cache-bound, v2-only, explicit-confirmation, an
   assert.match(config, /writeApiEnabled:\s*true/);
   assert.match(html, /talent-operator-panel/);
   assert.match(html, /本システム稼働開始以降の集計/);
-  assert.equal((html.match(/20260725-talent-analytics-1/g) || []).length, 3);
+  assert.equal((html.match(/20260725-student-profiles-1/g) || []).length, 3);
   assert.doesNotMatch(html, /20260720-readonly-v2-write-candidate-1/);
   assert.match(operator, /confirmImpl\(confirmationMessage\) !== true/);
   assert.match(operator, /confirmation_required/);

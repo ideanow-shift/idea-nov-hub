@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260725-talent-analytics-1">
-  <script src="./runtime-config.candidate.js?v=20260725-talent-analytics-1"></script>
-  <script type="module" src="./app.mjs?v=20260725-talent-analytics-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260725-student-profiles-1">
+  <script src="./runtime-config.candidate.js?v=20260725-student-profiles-1"></script>
+  <script type="module" src="./app.mjs?v=20260725-student-profiles-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -77,7 +77,7 @@
               aria-atomic="true" tabindex="-1">ボタンを押すと最新の集計を表示します</p>
           </div>
         </div>
-        <section class="summary-grid" id="summary-metrics" aria-label="採用・人材投資の集計">
+        <section class="summary-grid" id="summary-metrics" aria-label="採用・人材投資 集計">
           <article class="metric"><p class="metric-name">接点数</p><p class="metric-value">-</p></article>
           <article class="metric"><p class="metric-name">LINE登録</p><p class="metric-value">-</p></article>
           <article class="metric"><p class="metric-name">サロン見学</p><p class="metric-value">-</p></article>
@@ -129,7 +129,10 @@
       <section id="recruitment-students" class="secondary-panel" role="tabpanel" hidden>
         <div class="section-heading student-heading">
           <div><p class="section-kicker">STUDENT FOLLOW-UP</p><h2>27卒 学生フォロー</h2></div>
-          <p id="student-status" class="status" data-state="idle" role="status" aria-live="polite">データを読み込んでいます</p>
+          <div class="student-heading-actions">
+            <p id="student-status" class="status" data-state="idle" role="status" aria-live="polite">データを読み込んでいます</p>
+            <button id="student-add-open" class="primary-command" type="button">学生を追加</button>
+          </div>
         </div>
 
         <section class="review-command-band" aria-labelledby="review-command-title">
@@ -158,6 +161,7 @@
               <option value="CONTACTS_27">接触</option>
               <option value="ENTRIES_27">エントリー</option>
               <option value="OFFERS_27">内定</option>
+              <option value="MANUAL">手入力</option>
             </select>
           </label>
           <label>
@@ -177,6 +181,7 @@
           <article><span>接触</span><strong id="student-contacts">-</strong></article>
           <article><span>エントリー</span><strong id="student-entries">-</strong></article>
           <article><span>内定</span><strong id="student-offers">-</strong></article>
+          <article><span>手入力</span><strong id="student-manual">-</strong></article>
           <article class="needs-review"><span>要確認・隔離</span><strong id="student-needs-review">-</strong></article>
         </section>
 
@@ -184,7 +189,7 @@
           <section class="student-list-panel" aria-labelledby="student-list-title">
             <header>
               <div><h3 id="student-list-title">学生一覧</h3><span id="student-result-count">0件</span></div>
-              <span class="data-badge">STAGING</span>
+              <span class="data-badge">STAGING + 正本</span>
             </header>
             <div id="student-list" class="student-list" role="listbox" aria-label="学生一覧"></div>
             <div id="student-empty" class="student-empty" hidden>
@@ -205,7 +210,10 @@
                   <h3 id="student-detail-title"></h3>
                   <p id="student-detail-kana"></p>
                 </div>
-                <span id="student-detail-state" class="state-badge"></span>
+                <div class="detail-actions">
+                  <span id="student-detail-state" class="state-badge"></span>
+                  <button id="student-edit-open" class="secondary-command compact-command" type="button">編集</button>
+                </div>
               </header>
               <dl class="detail-grid">
                 <div><dt>学校</dt><dd id="student-detail-school">-</dd></div>
@@ -242,6 +250,42 @@
           <footer>
             <button id="student-review-cancel" class="secondary-command" type="button">戻る</button>
             <button id="student-review-confirm" class="primary-command" type="button">一括反映する</button>
+          </footer>
+        </form>
+      </dialog>
+
+      <dialog id="student-profile-dialog" class="review-dialog profile-dialog" aria-labelledby="student-profile-dialog-title">
+        <form id="student-profile-form">
+          <header>
+            <p class="section-kicker">CANONICAL STUDENT PROFILE</p>
+            <h2 id="student-profile-dialog-title">学生情報を追加</h2>
+          </header>
+          <p>保存内容は正本プロフィールへ反映されます。取込元のstaging原本は変更しません。</p>
+          <div class="profile-form-grid">
+            <label><span>氏名 *</span><input id="profile-display-name" name="displayName" maxlength="120" required></label>
+            <label><span>フリガナ</span><input id="profile-kana" name="kana" maxlength="120"></label>
+            <label class="profile-wide"><span>学校</span><input id="profile-school" name="school" maxlength="180"></label>
+            <label><span>電話番号</span><input id="profile-phone" name="phone" maxlength="40" inputmode="tel"></label>
+            <label><span>メール</span><input id="profile-email" name="email" maxlength="254" type="email"></label>
+            <label><span>希望店舗</span><input id="profile-store" name="preferredStore" maxlength="120"></label>
+            <label><span>現在の状態 *</span>
+              <select id="profile-status" name="currentStatus" required>
+                <option value="CONTACT">接触</option>
+                <option value="LINE_REGISTERED">LINE登録</option>
+                <option value="SALON_TOUR">サロン見学</option>
+                <option value="INTERVIEW">面接</option>
+                <option value="PASSED">通過</option>
+                <option value="OFFER">内定</option>
+                <option value="EXPECTED_JOIN">入社予定</option>
+                <option value="WITHDRAWN">辞退</option>
+              </select>
+            </label>
+            <label><span>次回対応日</span><input id="profile-next-action" name="nextActionAt" type="date"></label>
+          </div>
+          <p id="student-profile-status" class="status" role="status" aria-live="polite">必要事項を入力してください</p>
+          <footer>
+            <button id="student-profile-cancel" class="secondary-command" type="button">戻る</button>
+            <button id="student-profile-save" class="primary-command" type="submit">保存する</button>
           </footer>
         </form>
       </dialog>

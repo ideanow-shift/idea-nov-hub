@@ -39,6 +39,7 @@ const WORKSPACE_OVERVIEW_KEYS = Object.freeze([
   "entries",
   "exactLinkSuggestions",
   "mapped",
+  "manual",
   "offers",
   "ownerReview",
   "primaryCandidates",
@@ -57,9 +58,11 @@ const STUDENT_KEYS = Object.freeze([
   "lineRegistrationDate",
   "legacyNoPresent",
   "mappingStatus",
+  "nextActionAt",
   "phone",
   "preferredStore",
   "primaryEligible",
+  "profileVersion",
   "reasonLabels",
   "recordId",
   "school",
@@ -67,6 +70,7 @@ const STUDENT_KEYS = Object.freeze([
   "sourceLabel",
   "sourceKeyStatus",
   "status",
+  "statusCode",
   "suggestedTargetRecordId",
   "suggestionCategory"
 ]);
@@ -271,8 +275,8 @@ function validateStudent(student) {
     throw safeError("invalid_response");
   }
   const optionalStrings = [
-    "applicationNo", "businessDate", "email", "kana", "lineRegistrationDate", "phone",
-    "preferredStore", "school", "suggestedTargetRecordId"
+    "applicationNo", "businessDate", "email", "kana", "lineRegistrationDate", "nextActionAt",
+    "phone", "preferredStore", "school", "statusCode", "suggestedTargetRecordId"
   ];
   if (optionalStrings.some((key) => student[key] !== null && typeof student[key] !== "string")) {
     throw safeError("invalid_response");
@@ -284,6 +288,7 @@ function validateStudent(student) {
   }
   if (typeof student.legacyNoPresent !== "boolean"
     || typeof student.primaryEligible !== "boolean"
+    || (student.profileVersion !== null && (!Number.isInteger(student.profileVersion) || student.profileVersion < 1))
     || !["NONE", "EXACT1", "AMBIGUOUS"].includes(student.suggestionCategory)) {
     throw safeError("invalid_response");
   }

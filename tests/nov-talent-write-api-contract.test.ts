@@ -1,5 +1,5 @@
 import{createWriteAuthorizer}from'../supabase/functions/nov-talent-write-api/auth.ts';
-import{INVALIDATION_ALLOWLIST,parseHistoricalReview,parseInvalidation,parseWrite,sanitizeCreateResult,sanitizeHistoricalReviewResult}from'../supabase/functions/nov-talent-write-api/domain.ts';
+import{INVALIDATION_ALLOWLIST,parseHistoricalReview,parseInvalidation,parseStudentProfile,parseWrite,sanitizeCreateResult,sanitizeHistoricalReviewResult,sanitizeStudentProfileResult}from'../supabase/functions/nov-talent-write-api/domain.ts';
 import{handleTalentWrite}from'../supabase/functions/nov-talent-write-api/http.ts';
 import{createWriteRuntime,WRITE_RUNTIME_CONTRACT}from'../supabase/functions/nov-talent-write-api/runtime-adapter.ts';
 import{TALENT_ADMIN_GOVERNANCE,validateTalentAdminGovernance}from'../supabase/functions/nov-talent-write-api/governance.ts';
@@ -32,6 +32,13 @@ Deno.test('historical review accepts bounded exact proposals and fixed safe resu
  const safe=[{requestedPrimary:1,createdPrimary:1,requestedLinks:1,confirmedLinks:1,remainingUnmapped:3,canonicalEventCreated:false,rawValuesIncluded:false}];
  check(sanitizeHistoricalReviewResult(safe)?.remainingUnmapped===3);
  check(sanitizeHistoricalReviewResult([{...safe[0],canonicalEventCreated:true}])===null);
+});
+Deno.test('student profile accepts exact bounded fields and safe version result',()=>{
+ const payload={applicationNo:null,expectedVersion:0,displayName:'表示 氏名',kana:'ヒョウジ シメイ',school:'表示学校',phone:null,email:'owner@example.test',preferredStore:null,currentStatus:'CONTACT',nextActionAt:'2026-08-01'};
+ check(parseStudentProfile(payload));check(parseStudentProfile({...payload,extra:true})===null);
+ check(parseStudentProfile({...payload,email:'invalid'})===null);
+ const result=sanitizeStudentProfileResult([{application_no:'NT-2027-000001',profile_version:1,operation:'CREATE'}]);
+ check(result?.applicationNo==='NT-2027-000001'&&result.profileVersion===1);
 });
 Deno.test('owner-attested invalidation matrix accepts exact pairs and rejects every unsupported pair',()=>{
  const metrics=Object.keys(INVALIDATION_ALLOWLIST),codes=['CANCELLED','NO_SHOW','DELETED','WITHDRAWN'];
@@ -97,6 +104,19 @@ Deno.test('runtime binds canonical env names and exact RPC allowlist only',async
  let rejected=false;try{await runtime.rpc({} as never,'activate_nov_talent_prospective_v1',{});}catch{rejected=true;}check(rejected&&calls===1);
  check(WRITE_RUNTIME_CONTRACT.secretName==='HUB_APP_SESSION_SIGNING_SECRET');check(WRITE_RUNTIME_CONTRACT.role==='talent_admin');check(WRITE_RUNTIME_CONTRACT.retry===0);
  check(WRITE_RUNTIME_CONTRACT.rpcAllowlist.includes('apply_nov_talent_historical_review_v1'));
+ check(WRITE_RUNTIME_CONTRACT.rpcAllowlist.includes('save_nov_talent_student_profile_v1'));
+});
+Deno.test('student profile route invokes only the canonical profile RPC',async()=>{
+ let rpcName='',rpcArgs:Record<string,unknown>|null=null;
+ const response=await handleTalentWrite(new Request('https://local/functions/v1/nov-talent-write-api/api/talent/v1/students/profile',{
+  method:'POST',headers:{origin:'https://ideanow-shift.github.io',authorization:'Bearer a.a.a','content-type':'application/json'},
+  body:JSON.stringify({applicationNo:null,expectedVersion:0,displayName:'表示氏名',kana:null,school:null,phone:null,email:null,preferredStore:null,currentStatus:'CONTACT',nextActionAt:null})
+ }),{authorizer:{authorize:async()=>({actorEmployeeId:'00000000-0000-4000-8000-000000000009'} as never)},rpc:async(_cap,name,args)=>{
+  rpcName=name;rpcArgs=args;return[{application_no:'NT-2027-000001',profile_version:1,operation:'CREATE'}];
+ }});
+ check(response.status===200);check(rpcName==='save_nov_talent_student_profile_v1');
+ check((rpcArgs as unknown as Record<string,unknown>).p_actor_employee_id==='00000000-0000-4000-8000-000000000009');
+ const body=await response.json();check(body.data.profileVersion===1&&body.data.operation==='CREATE');
 });
 Deno.test('runtime resolves exact server role and fails closed on ambiguous rows',async()=>{
  const secret='x'.repeat(32),jwt=await token(secret),values=new Map([['HUB_APP_SESSION_SIGNING_SECRET',secret],['SUPABASE_URL','https://local.invalid'],['SUPABASE_SERVICE_ROLE_KEY','local-only']]);

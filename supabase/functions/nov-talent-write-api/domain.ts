@@ -2,6 +2,7 @@ export const METRIC_EVENT=Object.freeze({contacts:'CONTACT_RECORDED',lineRegistr
  salonTours:'SALON_TOUR_COMPLETED',interviews:'INTERVIEW_COMPLETED',passed:'SELECTION_PASSED',offers:'OFFER_ISSUED',expectedJoiners:'EXPECTED_JOIN_CONFIRMED'});
 const no=/^NT-[0-9]{4}-[0-9]{6}$/;
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const profileStatuses=Object.freeze(['CONTACT','LINE_REGISTERED','SALON_TOUR','INTERVIEW','PASSED','OFFER','EXPECTED_JOIN','WITHDRAWN']);
 export const INVALIDATION_ALLOWLIST=Object.freeze({
  contacts:Object.freeze(['DELETED']),
  lineRegistrations:Object.freeze(['DELETED']),
@@ -68,3 +69,51 @@ export function sanitizeHistoricalReviewResult(value:unknown){
   rawValuesIncluded:false
  });
 }
+
+const profileKeys=['applicationNo','expectedVersion','displayName','kana','school','phone','email','preferredStore','currentStatus','nextActionAt'];
+const nullableText=(value:unknown,maximum:number)=>{
+ if(value===null||value==='')return null;
+ if(typeof value!=='string')return undefined;
+ const normalized=value.normalize('NFKC').trim();
+ return normalized.length<=maximum?normalized:undefined;
+};
+export function parseStudentProfile(value:unknown){
+ if(!value||typeof value!=='object'||Array.isArray(value))return null;
+ const v=value as Record<string,unknown>;
+ if(!exact(v,profileKeys)||!(v.applicationNo===null||no.test(String(v.applicationNo)))
+  ||!Number.isInteger(v.expectedVersion)||Number(v.expectedVersion)<0
+  ||(v.applicationNo===null&&v.expectedVersion!==0)
+  ||typeof v.displayName!=='string')return null;
+ const displayName=v.displayName.normalize('NFKC').trim();
+ const kana=nullableText(v.kana,120),school=nullableText(v.school,180),phone=nullableText(v.phone,40);
+ const email=nullableText(v.email,254),preferredStore=nullableText(v.preferredStore,120);
+ const nextActionAt=nullableText(v.nextActionAt,10);
+ if(!displayName||displayName.length>120||[kana,school,phone,email,preferredStore,nextActionAt].includes(undefined)
+  ||(typeof email==='string'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+  ||(typeof nextActionAt==='string'&&!/^\d{4}-\d{2}-\d{2}$/.test(nextActionAt))
+  ||!profileStatuses.includes(String(v.currentStatus)))return null;
+ return Object.freeze({
+  applicationNo:v.applicationNo===null?null:String(v.applicationNo),
+  expectedVersion:Number(v.expectedVersion),displayName,kana,school,phone,email,preferredStore,
+  currentStatus:String(v.currentStatus),nextActionAt
+ });
+}
+
+export function sanitizeStudentProfileResult(value:unknown){
+ const row=Array.isArray(value)&&value.length===1?value[0]:null;
+ if(!row||typeof row!=='object'||Array.isArray(row))return null;
+ const record=row as Record<string,unknown>;
+ if(!exact(record,['application_no','profile_version','operation'])
+  ||!no.test(String(record.application_no))
+  ||!Number.isInteger(record.profile_version)||Number(record.profile_version)<1
+  ||!['CREATE','UPDATE'].includes(String(record.operation)))return null;
+ return Object.freeze({
+  applicationNo:String(record.application_no),
+  profileVersion:Number(record.profile_version),
+  operation:String(record.operation)
+ });
+}
+
+export const STUDENT_PROFILE_CONTRACT=Object.freeze({
+ statuses:profileStatuses,optimisticConcurrency:true,maximumWriteRequests:1,rawValuesInResult:false
+});

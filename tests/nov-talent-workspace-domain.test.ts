@@ -5,6 +5,7 @@ import {
 
 Deno.test("workspace domain projects approved fields and fixed overview", () => {
   const data = buildTalentWorkspaceData({
+    manualRows: [],
     rows: [{
       staging_record_id: "00000000-0000-4000-8000-000000000001",
       source_sheet_code: "CONTACTS_27",
@@ -66,6 +67,7 @@ Deno.test("workspace domain suggests only unique corroborated cross-sheet links"
     },
   });
   const data = buildTalentWorkspaceData({
+    manualRows: [],
     rows: [
       {
         ...base,
@@ -99,10 +101,63 @@ Deno.test("workspace domain suggests only unique corroborated cross-sheet links"
 });
 
 Deno.test("workspace domain rejects malformed or oversized inputs", () => {
-  if (buildTalentWorkspaceData({ rows: [{}] }, "2027") !== null) {
+  if (buildTalentWorkspaceData({ rows: [{}], manualRows: [] }, "2027") !== null) {
     throw new Error("malformed row accepted");
   }
-  if (buildTalentWorkspaceData({ rows: Array.from({ length: 1001 }, () => ({})) }, "2027") !== null) {
+  if (buildTalentWorkspaceData({ rows: Array.from({ length: 1001 }, () => ({})), manualRows: [] }, "2027") !== null) {
     throw new Error("oversized input accepted");
+  }
+});
+
+Deno.test("workspace domain overlays canonical profiles and includes manual students", () => {
+  const data = buildTalentWorkspaceData({
+    rows: [{
+      staging_record_id: "00000000-0000-4000-8000-000000000001",
+      source_sheet_code: "CONTACTS_27",
+      source_payload: { payload: { column_001: { header: "氏名", value: "取込氏名" } } },
+      classification: "OWNER_REVIEW",
+      reason_codes: ["OWNER_REVIEW_REQUIRED"],
+      business_date: "2026-07-01",
+      mapping: {
+        mapping_status: "OWNER_CONFIRMED",
+        application_no: "NT-2027-000001",
+        source_key_status: "OWNER_CONFIRMED",
+        legacy_no_present: false,
+        profile: {
+          display_name: "正本氏名",
+          kana: null,
+          school: "正本学校",
+          phone: null,
+          email: null,
+          preferred_store: null,
+          current_status: "INTERVIEW",
+          next_action_at: "2026-07-30",
+          version: 2,
+        },
+      },
+    }],
+    manualRows: [{
+      application_id: "00000000-0000-4000-8000-000000000002",
+      application_no: "NT-2027-000002",
+      display_name: "手入力氏名",
+      kana: null,
+      school: "手入力学校",
+      phone: null,
+      email: null,
+      preferred_store: null,
+      current_status: "CONTACT",
+      next_action_at: null,
+      version: 1,
+      created_at: "2026-07-25T00:00:00Z",
+    }],
+  }, "2027");
+  if (!data || data.students.length !== 2 || data.overview.manual !== 1) {
+    throw new Error("canonical rows missing");
+  }
+  if (data.students[0].displayName !== "正本氏名"
+    || data.students[0].statusCode !== "INTERVIEW"
+    || data.students[0].profileVersion !== 2
+    || data.students[1].sourceCode !== "MANUAL") {
+    throw new Error("canonical profile projection mismatch");
   }
 });

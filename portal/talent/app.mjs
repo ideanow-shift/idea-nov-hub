@@ -3,10 +3,11 @@ import {
   buildDashboardSummaryViewModel,
   createDashboardSummaryExact1Executor,
   createTalentWorkspaceExact1Executor
-} from "./exact1.mjs?v=20260725-owner-review-workspace-1";
+} from "./exact1.mjs?v=20260725-student-profiles-1";
 import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260725-owner-review-workspace-1";
 import { createTalentHistoricalReviewController } from "./review.mjs?v=20260725-owner-review-workspace-1";
 import { buildTalentAnalytics } from "./analytics.mjs?v=20260725-talent-analytics-1";
+import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-student-profiles-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -17,6 +18,8 @@ let studentWorkspaceGeneration = 0;
 let activeStudentWorkspaceController = null;
 let selectedStudentRecordId = null;
 let historicalReviewController = null;
+let profileDialogStudent = null;
+let pendingSelectedApplicationNo = null;
 
 const PRIMARY_TABS = Object.freeze(["recruitment", "workforce"]);
 const RECRUITMENT_TABS = Object.freeze(["summary", "students", "fairs", "schools"]);
@@ -248,6 +251,20 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-review-confirm")?.addEventListener("click", () => {
     applyHistoricalReview({ globalObject, documentObject });
   });
+  documentObject.getElementById("student-add-open")?.addEventListener("click", () => {
+    openStudentProfileDialog({ documentObject, student: null });
+  });
+  documentObject.getElementById("student-edit-open")?.addEventListener("click", () => {
+    const student = studentWorkspaceData?.students.find((row) => row.recordId === selectedStudentRecordId);
+    if (student?.applicationNo) openStudentProfileDialog({ documentObject, student });
+  });
+  documentObject.getElementById("student-profile-cancel")?.addEventListener("click", () => {
+    documentObject.getElementById("student-profile-dialog")?.close?.();
+  });
+  documentObject.getElementById("student-profile-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    saveStudentProfile({ globalObject, documentObject });
+  });
   documentObject.getElementById("summary-load-button")?.addEventListener("click", () => {
     loadTalentStudentWorkspace({ globalObject, documentObject });
   });
@@ -325,6 +342,12 @@ export async function loadTalentStudentWorkspace({
   }
 
   studentWorkspaceData = result.data;
+  if (pendingSelectedApplicationNo) {
+    selectedStudentRecordId = result.data.students.find(
+      (student) => student.applicationNo === pendingSelectedApplicationNo
+    )?.recordId || selectedStudentRecordId;
+    pendingSelectedApplicationNo = null;
+  }
   const first = result.data.students[0];
   if (!result.data.students.some((student) => student.recordId === selectedStudentRecordId)) {
     selectedStudentRecordId = first?.recordId || null;
@@ -353,6 +376,8 @@ export function resetTalentStudentWorkspaceForFixture() {
   activeStudentWorkspaceController = null;
   selectedStudentRecordId = null;
   historicalReviewController = null;
+  profileDialogStudent = null;
+  pendingSelectedApplicationNo = null;
 }
 
 function buildHistoricalReviewProposal(data) {
@@ -436,6 +461,7 @@ function renderImportOverview(documentObject, overview) {
     "student-contacts": overview.contacts,
     "student-entries": overview.entries,
     "student-offers": overview.offers,
+    "student-manual": overview.manual,
     "student-needs-review": overview.ownerReview + overview.quarantined
   };
   Object.entries(values).forEach(([id, value]) => {
@@ -609,6 +635,13 @@ function renderStudentDetail(documentObject, student) {
   setText(documentObject, "student-detail-state", student.classificationLabel);
   const state = documentObject.getElementById("student-detail-state");
   if (state) state.dataset.state = student.classification;
+  const editButton = documentObject.getElementById("student-edit-open");
+  if (editButton) {
+    editButton.disabled = !student.applicationNo;
+    editButton.title = student.applicationNo
+      ? "正本プロフィールを編集"
+      : "先に確認候補を反映して応募番号を確定してください";
+  }
   setText(documentObject, "student-detail-school", student.school || "未登録");
   setText(documentObject, "student-detail-status", student.status || "未登録");
   setText(documentObject, "student-detail-phone", student.phone || "未登録");
@@ -636,6 +669,87 @@ function renderStudentDetail(documentObject, student) {
       return item;
     }));
   }
+}
+
+function openStudentProfileDialog({ documentObject, student }) {
+  profileDialogStudent = student;
+  setText(documentObject, "student-profile-dialog-title", student ? "学生情報を編集" : "学生を追加");
+  const fields = {
+    "profile-display-name": student?.displayName || "",
+    "profile-kana": student?.kana || "",
+    "profile-school": student?.school || "",
+    "profile-phone": student?.phone || "",
+    "profile-email": student?.email || "",
+    "profile-store": student?.preferredStore || "",
+    "profile-status": student?.statusCode || "CONTACT",
+    "profile-next-action": student?.nextActionAt || "",
+  };
+  Object.entries(fields).forEach(([id, value]) => {
+    const input = documentObject.getElementById(id);
+    if (input) input.value = value;
+  });
+  const status = documentObject.getElementById("student-profile-status");
+  if (status) {
+    status.dataset.state = "idle";
+    status.textContent = student
+      ? "変更内容を確認して保存してください"
+      : "必要事項を入力してください";
+  }
+  documentObject.getElementById("student-profile-dialog")?.showModal?.();
+  documentObject.getElementById("profile-display-name")?.focus?.();
+}
+
+async function saveStudentProfile({ globalObject, documentObject }) {
+  const form = documentObject.getElementById("student-profile-form");
+  if (!form?.reportValidity?.()) return;
+  const saveButton = documentObject.getElementById("student-profile-save");
+  const status = documentObject.getElementById("student-profile-status");
+  if (saveButton) {
+    saveButton.disabled = true;
+    saveButton.setAttribute("aria-busy", "true");
+  }
+  if (status) {
+    status.dataset.state = "loading";
+    status.textContent = "正本プロフィールへ保存しています";
+  }
+  const controller = createTalentStudentProfileController({ globalObject });
+  const payload = {
+    applicationNo: profileDialogStudent?.applicationNo || null,
+    expectedVersion: profileDialogStudent?.profileVersion || 0,
+    displayName: documentObject.getElementById("profile-display-name")?.value || "",
+    kana: documentObject.getElementById("profile-kana")?.value || "",
+    school: documentObject.getElementById("profile-school")?.value || "",
+    phone: documentObject.getElementById("profile-phone")?.value || "",
+    email: documentObject.getElementById("profile-email")?.value || "",
+    preferredStore: documentObject.getElementById("profile-store")?.value || "",
+    currentStatus: documentObject.getElementById("profile-status")?.value || "CONTACT",
+    nextActionAt: documentObject.getElementById("profile-next-action")?.value || "",
+  };
+  const result = await controller.save(payload);
+  if (saveButton) {
+    saveButton.disabled = false;
+    saveButton.setAttribute("aria-busy", "false");
+  }
+  if (!result.ok) {
+    if (status) {
+      status.dataset.state = "stopped";
+      status.textContent = result.category === "auth_required"
+        ? "HUBへ再ログインしてください"
+        : result.category === "invalid_request"
+          ? "入力内容を確認してください"
+          : "保存できませんでした。最新情報を再読み込みしてください";
+    }
+    return;
+  }
+  pendingSelectedApplicationNo = result.data.applicationNo;
+  if (status) {
+    status.dataset.state = "ready";
+    status.textContent = result.data.operation === "CREATE" ? "学生を追加しました" : "学生情報を更新しました";
+  }
+  documentObject.getElementById("student-profile-dialog")?.close?.();
+  profileDialogStudent = null;
+  studentWorkspaceData = null;
+  await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
 }
 
 function setText(documentObject, id, text) {

@@ -2,6 +2,7 @@ const SOURCE_LABELS = Object.freeze({
   CONTACTS_27: "接触",
   ENTRIES_27: "エントリー",
   OFFERS_27: "内定",
+  MANUAL: "手入力",
 });
 
 const CLASSIFICATION_LABELS = Object.freeze({
@@ -36,6 +37,16 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const MAX_ROWS = 1000;
 const MAX_TEXT = 180;
+const PROFILE_STATUS_LABELS = Object.freeze({
+  CONTACT: "接触",
+  LINE_REGISTERED: "LINE登録",
+  SALON_TOUR: "サロン見学",
+  INTERVIEW: "面接",
+  PASSED: "通過",
+  OFFER: "内定",
+  EXPECTED_JOIN: "入社予定",
+  WITHDRAWN: "辞退",
+});
 
 function normalizeToken(value: unknown): string {
   return String(value ?? "")
@@ -101,11 +112,30 @@ function mappingMetadata(value: unknown) {
   )
     ? String(record.source_key_status)
     : "UNPROVEN";
+  const profile = isRecord(record.profile)
+    && Number.isInteger(record.profile.version)
+    && Number(record.profile.version) >= 1
+    && Object.hasOwn(PROFILE_STATUS_LABELS, String(record.profile.current_status))
+    ? Object.freeze({
+      displayName: boundedText(record.profile.display_name, 120),
+      kana: boundedText(record.profile.kana, 120) || null,
+      school: boundedText(record.profile.school, 180) || null,
+      phone: boundedText(record.profile.phone, 40) || null,
+      email: boundedText(record.profile.email, 254) || null,
+      preferredStore: boundedText(record.profile.preferred_store, 120) || null,
+      currentStatus: String(record.profile.current_status),
+      nextActionAt: /^\d{4}-\d{2}-\d{2}$/u.test(String(record.profile.next_action_at ?? ""))
+        ? String(record.profile.next_action_at)
+        : null,
+      version: Number(record.profile.version),
+    })
+    : null;
   return Object.freeze({
     mappingStatus: status,
     applicationNo,
     sourceKeyStatus,
     legacyNoPresent: record.legacy_no_present === true,
+    profile,
   });
 }
 
@@ -148,12 +178,12 @@ function sanitizeRow(value: unknown, ordinal: number) {
 
   return Object.freeze({
     recordId,
-    displayName: name || `${SOURCE_LABELS[sourceCode as keyof typeof SOURCE_LABELS]}データ ${ordinal}`,
-    kana: findField(columns, FIELD_ALIASES.kana),
-    school,
-    phone: findField(columns, FIELD_ALIASES.phone),
-    email: findField(columns, FIELD_ALIASES.email),
-    preferredStore: findField(columns, FIELD_ALIASES.preferredStore),
+    displayName: mapping.profile?.displayName || name || `${SOURCE_LABELS[sourceCode as keyof typeof SOURCE_LABELS]}データ ${ordinal}`,
+    kana: mapping.profile?.kana || findField(columns, FIELD_ALIASES.kana),
+    school: mapping.profile?.school || school,
+    phone: mapping.profile?.phone || findField(columns, FIELD_ALIASES.phone),
+    email: mapping.profile?.email || findField(columns, FIELD_ALIASES.email),
+    preferredStore: mapping.profile?.preferredStore || findField(columns, FIELD_ALIASES.preferredStore),
     sourceCode,
     sourceLabel: SOURCE_LABELS[sourceCode as keyof typeof SOURCE_LABELS],
     classification: displayClassification,
@@ -166,7 +196,12 @@ function sanitizeRow(value: unknown, ordinal: number) {
     primaryEligible: sourceCode === "CONTACTS_27" && mapping.mappingStatus === "UNMAPPED",
     suggestionCategory: "NONE" as string,
     suggestedTargetRecordId: null as string | null,
-    status: status || CLASSIFICATION_LABELS[classification as keyof typeof CLASSIFICATION_LABELS],
+    status: mapping.profile
+      ? PROFILE_STATUS_LABELS[mapping.profile.currentStatus as keyof typeof PROFILE_STATUS_LABELS]
+      : status || CLASSIFICATION_LABELS[classification as keyof typeof CLASSIFICATION_LABELS],
+    statusCode: mapping.profile?.currentStatus || null,
+    profileVersion: mapping.profile?.version || null,
+    nextActionAt: mapping.profile?.nextActionAt || null,
     businessDate,
     lineRegistrationDate: /^\d{4}-\d{2}-\d{2}$/u.test(
       String(sourcePayload?.lineRegistrationDate ?? ""),
@@ -174,6 +209,46 @@ function sanitizeRow(value: unknown, ordinal: number) {
       ? String(sourcePayload?.lineRegistrationDate)
       : null,
     reasonLabels: Object.freeze(reasonLabels),
+  });
+}
+
+function sanitizeManualRow(value: unknown) {
+  if (!isRecord(value)
+    || !UUID_PATTERN.test(String(value.application_id ?? ""))
+    || !/^NT-[0-9]{4}-[0-9]{6}$/u.test(String(value.application_no ?? ""))
+    || !Object.hasOwn(PROFILE_STATUS_LABELS, String(value.current_status))
+    || !Number.isInteger(value.version)
+    || Number(value.version) < 1) return null;
+  const displayName = boundedText(value.display_name, 120);
+  if (!displayName) return null;
+  return Object.freeze({
+    recordId: String(value.application_id),
+    displayName,
+    kana: boundedText(value.kana, 120) || null,
+    school: boundedText(value.school, 180) || null,
+    phone: boundedText(value.phone, 40) || null,
+    email: boundedText(value.email, 254) || null,
+    preferredStore: boundedText(value.preferred_store, 120) || null,
+    sourceCode: "MANUAL",
+    sourceLabel: SOURCE_LABELS.MANUAL,
+    classification: "IMPORTABLE",
+    classificationLabel: CLASSIFICATION_LABELS.IMPORTABLE,
+    mappingStatus: "OWNER_CONFIRMED",
+    applicationNo: String(value.application_no),
+    sourceKeyStatus: "OWNER_CONFIRMED",
+    legacyNoPresent: false,
+    primaryEligible: false,
+    suggestionCategory: "NONE",
+    suggestedTargetRecordId: null,
+    status: PROFILE_STATUS_LABELS[String(value.current_status) as keyof typeof PROFILE_STATUS_LABELS],
+    statusCode: String(value.current_status),
+    businessDate: null,
+    lineRegistrationDate: null,
+    profileVersion: Number(value.version),
+    nextActionAt: /^\d{4}-\d{2}-\d{2}$/u.test(String(value.next_action_at ?? ""))
+      ? String(value.next_action_at)
+      : null,
+    reasonLabels: Object.freeze([] as string[]),
   });
 }
 
@@ -231,18 +306,26 @@ function exactLinkSuggestions<T extends {
 }
 
 export function buildTalentWorkspaceData(input: unknown, fiscalYear: string) {
-  if (!isRecord(input) || !Array.isArray(input.rows) || input.rows.length > MAX_ROWS) return null;
+  if (!isRecord(input)
+    || !Array.isArray(input.rows)
+    || !Array.isArray(input.manualRows)
+    || input.rows.length + input.manualRows.length > MAX_ROWS) return null;
   const sanitizedRows = input.rows
     .map((row, index) => sanitizeRow(row, index + 1))
     .filter((row): row is NonNullable<typeof row> => Boolean(row));
   if (sanitizedRows.length !== input.rows.length) return null;
-  const rows = exactLinkSuggestions(sanitizedRows);
+  const manualRows = input.manualRows
+    .map(sanitizeManualRow)
+    .filter((row): row is NonNullable<typeof row> => Boolean(row));
+  if (manualRows.length !== input.manualRows.length) return null;
+  const rows = [...exactLinkSuggestions(sanitizedRows), ...manualRows];
 
   const overview = Object.freeze({
     total: rows.length,
     contacts: countBy(rows, (row) => row.sourceCode === "CONTACTS_27"),
     entries: countBy(rows, (row) => row.sourceCode === "ENTRIES_27"),
     offers: countBy(rows, (row) => row.sourceCode === "OFFERS_27"),
+    manual: countBy(rows, (row) => row.sourceCode === "MANUAL"),
     ownerReview: countBy(rows, (row) => row.classification === "OWNER_REVIEW"),
     quarantined: countBy(rows, (row) => row.classification === "QUARANTINE"),
     mapped: countBy(rows, (row) => row.mappingStatus === "OWNER_CONFIRMED"),

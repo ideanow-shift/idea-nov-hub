@@ -36,7 +36,10 @@ function student(overrides = {}) {
     classification: "OWNER_REVIEW",
     classificationLabel: "要確認",
     mappingStatus: "UNMAPPED",
+    nextActionAt: null,
+    profileVersion: null,
     status: "要確認",
+    statusCode: null,
     businessDate: "2026-07-01",
     lineRegistrationDate: "2026-07-01",
     legacyNoPresent: false,
@@ -64,6 +67,7 @@ function envelope() {
         ownerReview: 1,
         quarantined: 0,
         mapped: 0,
+        manual: 0,
         primaryCandidates: 1,
         remainingManual: 0
       },

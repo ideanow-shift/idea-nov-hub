@@ -406,6 +406,12 @@ h3 { margin: 0; font-size: 1rem; }
 }
 
 .student-heading { margin-bottom: 14px; }
+.student-heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
 .review-command-band {
   display: grid;
   grid-template-columns: minmax(320px, 1fr) auto auto;
@@ -480,6 +486,38 @@ h3 { margin: 0; font-size: 1rem; }
 .review-dialog dt { color: var(--muted); font-size: 0.72rem; font-weight: 700; }
 .review-dialog dd { margin: 5px 0 0; color: var(--navy); font-weight: 800; }
 .review-dialog footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.profile-dialog { width: min(720px, calc(100% - 28px)); }
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 20px 0;
+}
+.profile-form-grid label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.profile-form-grid .profile-wide { grid-column: 1 / -1; }
+.profile-form-grid input,
+.profile-form-grid select {
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  border: 1px solid #cdd5df;
+  border-radius: 6px;
+  padding: 0 11px;
+  color: var(--ink);
+  background: #fff;
+  font: inherit;
+}
+.profile-form-grid input:focus,
+.profile-form-grid select:focus {
+  border-color: var(--blue);
+  outline: 3px solid rgba(36, 99, 166, 0.15);
+}
 .student-toolbar {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) 190px 190px 44px;
@@ -530,7 +568,7 @@ h3 { margin: 0; font-size: 1rem; }
 
 .student-kpis {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   border-bottom: 1px solid var(--line);
 }
 .student-kpis article {
@@ -656,6 +694,9 @@ h3 { margin: 0; font-size: 1rem; }
   background: #fbfcfd;
 }
 .detail-header { padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.detail-actions { display: flex; align-items: center; gap: 8px; }
+.compact-command { min-height: 32px; padding: 0 11px; font-size: 0.76rem; }
+.compact-command:disabled { color: var(--muted); background: #eef1f4; cursor: not-allowed; }
 .detail-header h3 { margin-top: 8px; font-size: 1.25rem; }
 .detail-header p { margin: 4px 0 0; color: var(--muted); font-size: 0.82rem; }
 .detail-grid {
@@ -835,11 +876,14 @@ h3 { margin: 0; font-size: 1rem; }
   .import-overview { padding: 16px; }
   .import-overview dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .student-heading .status { margin-top: 8px; }
+  .student-heading-actions { align-items: flex-end; flex-direction: column; }
   .review-command-band { display: block; padding: 16px; }
   .review-command-band dl { margin: 16px -8px; }
   .review-command-band dl div { padding: 0 8px; }
   .review-command-band > button { width: 100%; }
   .review-dialog form { padding: 20px; }
+  .profile-form-grid { grid-template-columns: 1fr; }
+  .profile-form-grid .profile-wide { grid-column: auto; }
   .review-dialog dl { grid-template-columns: 1fr; }
   .review-dialog dl div { border-right: 0; border-bottom: 1px solid var(--line); }
   .review-dialog dl div:last-child { border-bottom: 0; }

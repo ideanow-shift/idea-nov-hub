@@ -1,5 +1,5 @@
 import{createWriteAuthorizer}from'../supabase/functions/nov-talent-write-api/auth.ts';
-import{INVALIDATION_ALLOWLIST,parseHistoricalReview,parseInvalidation,parseStudentProfile,parseWorkforceProcedureCase,parseWorkforceProcedureCaseAuditQuery,parseWrite,sanitizeCreateResult,sanitizeHistoricalReviewResult,sanitizeStudentProfileResult,sanitizeWorkforceProcedureCaseAudit,sanitizeWorkforceProcedureCaseList,sanitizeWorkforceProcedureCaseResult}from'../supabase/functions/nov-talent-write-api/domain.ts';
+import{INVALIDATION_ALLOWLIST,parseHistoricalReview,parseInvalidation,parseStudentProfile,parseWorkforceProcedureCase,parseWorkforceProcedureCaseAuditQuery,parseWorkforceProcedureCaseStep,parseWrite,sanitizeCreateResult,sanitizeHistoricalReviewResult,sanitizeStudentProfileResult,sanitizeWorkforceProcedureCaseAudit,sanitizeWorkforceProcedureCaseList,sanitizeWorkforceProcedureCaseResult,sanitizeWorkforceProcedureCaseStepResult,sanitizeWorkforceProcedureCaseSteps}from'../supabase/functions/nov-talent-write-api/domain.ts';
 import{handleTalentWrite}from'../supabase/functions/nov-talent-write-api/http.ts';
 import{createWriteRuntime,WRITE_RUNTIME_CONTRACT}from'../supabase/functions/nov-talent-write-api/runtime-adapter.ts';
 import{TALENT_ADMIN_GOVERNANCE,validateTalentAdminGovernance}from'../supabase/functions/nov-talent-write-api/governance.ts';
@@ -51,6 +51,12 @@ Deno.test('workforce procedure cases accept only bounded audited drafts and safe
  check(cases?.cases.length===1);
  const audit=sanitizeWorkforceProcedureCaseAudit({entries:[{action:'UPDATE',changed_fields:['caseStatus'],case_version:2,occurred_at:'2026-07-26T00:00:00Z'}]});
  check(audit?.entries.length===1&&parseWorkforceProcedureCaseAuditQuery('00000000-0000-4000-8000-000000000001'));
+ const steps=sanitizeWorkforceProcedureCaseSteps({procedure_type:'ONBOARDING',steps:[
+  {step_key:'BASIC_INFO',is_completed:false,version:0,updated_at:null},{step_key:'DOCUMENTS',is_completed:false,version:0,updated_at:null},
+  {step_key:'APPROVAL',is_completed:false,version:0,updated_at:null},{step_key:'CORE_HANDOFF',is_completed:false,version:0,updated_at:null}
+ ]});
+ check(steps?.steps.length===4&&parseWorkforceProcedureCaseStep({caseId:'00000000-0000-4000-8000-000000000001',stepKey:'BASIC_INFO',completed:true,expectedVersion:0}));
+ check(sanitizeWorkforceProcedureCaseStepResult([{case_id:'00000000-0000-4000-8000-000000000001',step_key:'BASIC_INFO',step_version:1,operation:'COMPLETE'}])?.stepVersion===1);
 });
 Deno.test('owner-attested invalidation matrix accepts exact pairs and rejects every unsupported pair',()=>{
  const metrics=Object.keys(INVALIDATION_ALLOWLIST),codes=['CANCELLED','NO_SHOW','DELETED','WITHDRAWN'];
@@ -96,6 +102,12 @@ Deno.test('workforce procedure routes keep reads, history, and saves on the exac
  check(read.status===200&&rpcName==='get_nov_talent_workforce_procedure_cases_v1');check((rpcArgs as unknown as Record<string,unknown>).p_limit===200);
  const audit=await handleTalentWrite(new Request('https://local/functions/v1/nov-talent-write-api/api/talent/v1/workforce/procedure-cases/audit?caseId=00000000-0000-4000-8000-000000000001',{method:'GET',headers:{origin:'https://ideanow-shift.github.io',authorization:'Bearer a.a.a'}}),{...auth,rpc:async(_cap,name,args)=>{rpcName=name;rpcArgs=args;return {entries:[]};}});
  check(audit.status===200&&rpcName==='get_nov_talent_workforce_procedure_case_audit_v1');check((rpcArgs as unknown as Record<string,unknown>).p_case_id==='00000000-0000-4000-8000-000000000001');
+ const steps=await handleTalentWrite(new Request('https://local/functions/v1/nov-talent-write-api/api/talent/v1/workforce/procedure-cases/steps?caseId=00000000-0000-4000-8000-000000000001',{method:'GET',headers:{origin:'https://ideanow-shift.github.io',authorization:'Bearer a.a.a'}}),{...auth,rpc:async(_cap,name,args)=>{rpcName=name;rpcArgs=args;return {procedure_type:'ONBOARDING',steps:[
+  {step_key:'BASIC_INFO',is_completed:false,version:0,updated_at:null},{step_key:'DOCUMENTS',is_completed:false,version:0,updated_at:null},{step_key:'APPROVAL',is_completed:false,version:0,updated_at:null},{step_key:'CORE_HANDOFF',is_completed:false,version:0,updated_at:null}
+ ]};}});
+ check(steps.status===200&&rpcName==='get_nov_talent_workforce_procedure_case_steps_v1');
+ const stepWrite=await handleTalentWrite(new Request('https://local/functions/v1/nov-talent-write-api/api/talent/v1/workforce/procedure-cases/steps',{method:'POST',headers:{origin:'https://ideanow-shift.github.io',authorization:'Bearer a.a.a','content-type':'application/json'},body:JSON.stringify({caseId:'00000000-0000-4000-8000-000000000001',stepKey:'BASIC_INFO',completed:true,expectedVersion:0})}),{...auth,rpc:async(_cap,name,args)=>{rpcName=name;rpcArgs=args;return[{case_id:'00000000-0000-4000-8000-000000000001',step_key:'BASIC_INFO',step_version:1,operation:'COMPLETE'}];}});
+ check(stepWrite.status===200&&rpcName==='save_nov_talent_workforce_procedure_case_step_v1');
  const body={caseId:null,expectedVersion:0,procedureType:'LEAVE',caseStatus:'DRAFT',subjectLabel:'テスト 対象者',effectiveDate:'2026-08-01',detail:null};
  const write=await handleTalentWrite(new Request('https://local/functions/v1/nov-talent-write-api/api/talent/v1/workforce/procedure-cases',{method:'POST',headers:{origin:'https://ideanow-shift.github.io',authorization:'Bearer a.a.a','content-type':'application/json'},body:JSON.stringify(body)}),{...auth,rpc:async(_cap,name,args)=>{rpcName=name;rpcArgs=args;return[{case_id:'00000000-0000-4000-8000-000000000001',case_version:1,operation:'CREATE'}];}});
  check(write.status===200&&rpcName==='save_nov_talent_workforce_procedure_case_v1');check((rpcArgs as unknown as Record<string,unknown>).p_procedure_type==='LEAVE');

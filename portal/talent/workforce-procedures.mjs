@@ -1,13 +1,20 @@
 const API_PATH = "/api/talent/v1/workforce/procedure-cases";
 const AUDIT_PATH = `${API_PATH}/audit`;
+const STEPS_PATH = `${API_PATH}/steps`;
 const PROCEDURE_TYPES = Object.freeze(["ONBOARDING", "TRANSFER", "LEAVE", "RETIREMENT"]);
 const CASE_STATUSES = Object.freeze(["DRAFT", "READY_FOR_REVIEW", "CONFIRMED", "CANCELLED"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const STEP_LABELS = Object.freeze({
+  BASIC_INFO: "基本情報・配属予定を確認", DOCUMENTS: "必要書類を確認", APPROVAL: "関係者の承認を確認", CORE_HANDOFF: "Core反映の引き継ぎを確認",
+  CHANGE_DETAILS: "異動内容を確認", STAKEHOLDER_CONFIRMATION: "本人・関係者の確認を記録", APPLICATION: "申請内容を確認", REQUIRED_PROCEDURES: "必要な社内手続きを確認",
+  RETURN_PLAN: "復職予定・所属を確認", RETIREMENT_DATE: "退職日・最終出勤日を確認", ASSET_RETURN: "貸与物の返却を確認"
+});
 
 export const WORKFORCE_PROCEDURE_CASE_CONTRACT = Object.freeze({
   employeeMasterMutation: false,
   auditHistory: true,
   statusFilters: true,
+  checklistTracking: true,
   optimisticConcurrency: true,
   requestMaxPerAction: 1,
   retryCount: 0
@@ -79,6 +86,30 @@ function normalizeAudit(value) {
     entries.push(Object.freeze({ ...row, changedFields: Object.freeze([...row.changedFields]) }));
   }
   return Object.freeze(entries);
+}
+
+function normalizeSteps(value) {
+  if (!exactKeys(value, ["procedureType", "steps"]) || !PROCEDURE_TYPES.includes(value.procedureType)
+    || !Array.isArray(value.steps) || value.steps.length !== 4) return null;
+  const keys = Object.keys(STEP_LABELS);
+  const steps = [];
+  for (const row of value.steps) {
+    if (!exactKeys(row, ["stepKey", "isCompleted", "version", "updatedAt"])
+      || !keys.includes(row.stepKey) || typeof row.isCompleted !== "boolean"
+      || !Number.isInteger(row.version) || row.version < 0
+      || !(row.updatedAt === null || (typeof row.updatedAt === "string" && /^\d{4}-\d{2}-\d{2}T/.test(row.updatedAt)))) return null;
+    steps.push(Object.freeze({ ...row }));
+  }
+  if (new Set(steps.map((step) => step.stepKey)).size !== steps.length) return null;
+  return Object.freeze({ procedureType: value.procedureType, steps: Object.freeze(steps) });
+}
+
+function normalizeStepSaveResult(value) {
+  if (!exactKeys(value, ["caseId", "stepKey", "stepVersion", "operation"])
+    || !UUID.test(value.caseId) || !Object.hasOwn(STEP_LABELS, value.stepKey)
+    || !Number.isInteger(value.stepVersion) || value.stepVersion < 1
+    || !["COMPLETE", "REOPEN"].includes(value.operation)) return null;
+  return Object.freeze({ ...value });
 }
 
 function normalizeDraft(value) {
@@ -163,6 +194,20 @@ export function createWorkforceProcedureCaseController({
       const result = await request("GET", null, `${AUDIT_PATH}?caseId=${encodeURIComponent(caseId)}`);
       const entries = result.ok ? normalizeAudit(result.data) : null;
       return entries ? safeResult(true, "loaded", result.requestCount, entries) : safeResult(false, result.ok ? "invalid_response" : result.category, result.requestCount);
+    },
+    async loadSteps(caseId) {
+      if (!UUID.test(caseId)) return safeResult(false, "invalid_request");
+      const result = await request("GET", null, `${STEPS_PATH}?caseId=${encodeURIComponent(caseId)}`);
+      const steps = result.ok ? normalizeSteps(result.data) : null;
+      return steps ? safeResult(true, "loaded", result.requestCount, steps) : safeResult(false, result.ok ? "invalid_response" : result.category, result.requestCount);
+    },
+    async saveStep(draft) {
+      if (!isRecord(draft) || !exactKeys(draft, ["caseId", "stepKey", "completed", "expectedVersion"])
+        || !UUID.test(draft.caseId) || !Object.hasOwn(STEP_LABELS, draft.stepKey)
+        || typeof draft.completed !== "boolean" || !Number.isInteger(draft.expectedVersion) || draft.expectedVersion < 0) return safeResult(false, "invalid_request");
+      const result = await request("POST", draft, STEPS_PATH);
+      const saved = result.ok ? normalizeStepSaveResult(result.data) : null;
+      return saved ? safeResult(true, "saved", result.requestCount, saved) : safeResult(false, result.ok ? "invalid_response" : result.category, result.requestCount);
     }
   });
 }
@@ -179,8 +224,11 @@ export function initializeWorkforceProcedureDesk({
   const audit = documentObject?.getElementById?.("workforce-case-audit");
   const auditList = documentObject?.getElementById?.("workforce-case-audit-list");
   const auditStatus = documentObject?.getElementById?.("workforce-case-audit-status");
+  const steps = documentObject?.getElementById?.("workforce-case-steps");
+  const stepsList = documentObject?.getElementById?.("workforce-case-steps-list");
+  const stepsStatus = documentObject?.getElementById?.("workforce-case-steps-status");
   const filterStatus = documentObject?.getElementById?.("workforce-case-filter-status");
-  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !filterStatus) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
@@ -216,6 +264,11 @@ export function initializeWorkforceProcedureDesk({
     audit.hidden = true;
     auditList.replaceChildren();
     auditStatus.textContent = "";
+  };
+  const clearSteps = () => {
+    steps.hidden = true;
+    stepsList.replaceChildren();
+    stepsStatus.textContent = "";
   };
   const setFilter = (nextFilter) => {
     activeFilter = ["ALL", ...CASE_STATUSES].includes(nextFilter) ? nextFilter : "ALL";
@@ -258,6 +311,43 @@ export function initializeWorkforceProcedureDesk({
     }
     auditList.append(fragment);
     audit.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+  };
+  const showSteps = async (item) => {
+    steps.hidden = false;
+    stepsStatus.textContent = "確認項目を読み込んでいます。";
+    stepsList.replaceChildren();
+    const result = await controller.loadSteps(item.caseId);
+    if (!result.ok) {
+      stepsStatus.textContent = "確認項目を表示できませんでした。";
+      return;
+    }
+    const completed = result.data.steps.filter((step) => step.isCompleted).length;
+    stepsStatus.textContent = `${procedureLabel(result.data.procedureType)}の確認項目 ${completed} / ${result.data.steps.length} 件が完了しています。`;
+    const fragment = documentObject.createDocumentFragment();
+    for (const step of result.data.steps) {
+      const label = documentObject.createElement("label");
+      label.className = `procedure-case-step${step.isCompleted ? " is-completed" : ""}`;
+      const checkbox = documentObject.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = step.isCompleted;
+      const text = documentObject.createElement("span");
+      text.textContent = STEP_LABELS[step.stepKey];
+      checkbox.addEventListener("change", async () => {
+        checkbox.disabled = true;
+        const saved = await controller.saveStep({ caseId: item.caseId, stepKey: step.stepKey, completed: checkbox.checked, expectedVersion: step.version });
+        if (saved.ok) {
+          await showSteps(item);
+        } else {
+          checkbox.checked = step.isCompleted;
+          checkbox.disabled = false;
+          stepsStatus.textContent = "確認項目を更新できませんでした。画面を再読み込みして状態を確認してください。";
+        }
+      });
+      label.append(checkbox, text);
+      fragment.append(label);
+    }
+    stepsList.append(fragment);
+    steps.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
   };
   const render = () => {
     list.replaceChildren();
@@ -302,7 +392,12 @@ export function initializeWorkforceProcedureDesk({
       history.className = "case-edit-button";
       history.textContent = "変更履歴";
       history.addEventListener("click", () => showAudit(item));
-      actions.append(history, edit);
+      const checklist = documentObject.createElement("button");
+      checklist.type = "button";
+      checklist.className = "case-edit-button";
+      checklist.textContent = "確認項目";
+      checklist.addEventListener("click", () => showSteps(item));
+      actions.append(checklist, history, edit);
       row.append(copy, actions);
       fragment.append(row);
     }
@@ -326,6 +421,7 @@ export function initializeWorkforceProcedureDesk({
   });
   documentObject.getElementById("workforce-case-cancel")?.addEventListener("click", reset);
   documentObject.getElementById("workforce-case-audit-close")?.addEventListener("click", clearAudit);
+  documentObject.getElementById("workforce-case-steps-close")?.addEventListener("click", clearSteps);
   for (const button of desk.querySelectorAll("[data-case-status-filter]")) {
     button.addEventListener("click", () => setFilter(button.dataset.caseStatusFilter));
   }

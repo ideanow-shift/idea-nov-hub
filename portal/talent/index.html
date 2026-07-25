@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-workforce-case-board-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-workforce-checklist-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-workforce-case-board-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-workforce-checklist-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -434,6 +434,11 @@
           <div class="procedure-case-audit-heading"><h4>変更履歴</h4><button id="workforce-case-audit-close" type="button" class="case-edit-button">閉じる</button></div>
           <p id="workforce-case-audit-status" class="procedure-case-status"></p>
           <ol id="workforce-case-audit-list" class="procedure-case-audit-list"></ol>
+        </section>
+        <section id="workforce-case-steps" class="procedure-case-steps" aria-live="polite" hidden>
+          <div class="procedure-case-audit-heading"><h4>案件の確認項目</h4><button id="workforce-case-steps-close" type="button" class="case-edit-button">閉じる</button></div>
+          <p id="workforce-case-steps-status" class="procedure-case-status"></p>
+          <div id="workforce-case-steps-list" class="procedure-case-steps-list"></div>
         </section>
         <form id="workforce-case-form" class="procedure-case-form" hidden>
           <input name="caseId" type="hidden">

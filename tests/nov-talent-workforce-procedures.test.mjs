@@ -62,3 +62,28 @@ test("workforce procedure cases filter by progress without mutating rows", () =>
   assert.equal(filterWorkforceProcedureCases(cases, "INVALID").length, 0);
   assert.equal(WORKFORCE_PROCEDURE_CASE_CONTRACT.statusFilters, true);
 });
+
+test("workforce procedure checklists read and update one bounded step", async () => {
+  const calls = [];
+  const controller = createWorkforceProcedureCaseController({
+    config,
+    helper,
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      if (init.method === "GET") return new Response(JSON.stringify({ ok: true, data: { procedureType: "ONBOARDING", steps: [
+        { stepKey: "BASIC_INFO", isCompleted: false, version: 0, updatedAt: null },
+        { stepKey: "DOCUMENTS", isCompleted: false, version: 0, updatedAt: null },
+        { stepKey: "APPROVAL", isCompleted: false, version: 0, updatedAt: null },
+        { stepKey: "CORE_HANDOFF", isCompleted: false, version: 0, updatedAt: null }
+      ] } }), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ ok: true, data: { caseId: "00000000-0000-4000-8000-000000000001", stepKey: "BASIC_INFO", stepVersion: 1, operation: "COMPLETE" } }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+  });
+  const loaded = await controller.loadSteps("00000000-0000-4000-8000-000000000001");
+  const saved = await controller.saveStep({ caseId: "00000000-0000-4000-8000-000000000001", stepKey: "BASIC_INFO", completed: true, expectedVersion: 0 });
+  assert.equal(loaded.data.steps.length, 4);
+  assert.equal(saved.data.operation, "COMPLETE");
+  assert.match(calls[0].url, /procedure-cases\/steps\?caseId=/);
+  assert.equal(calls[1].init.method, "POST");
+  assert.equal(WORKFORCE_PROCEDURE_CASE_CONTRACT.checklistTracking, true);
+});

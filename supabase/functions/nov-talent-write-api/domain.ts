@@ -139,6 +139,7 @@ export const STAGING_SUPPLEMENT_CONTRACT=Object.freeze({optimisticConcurrency:tr
 
 const procedureTypes=Object.freeze(['ONBOARDING','TRANSFER','LEAVE','RETIREMENT']);
 const procedureStatuses=Object.freeze(['DRAFT','READY_FOR_REVIEW','CONFIRMED','CANCELLED']);
+const procedureStepKeys=Object.freeze(['BASIC_INFO','DOCUMENTS','APPROVAL','CORE_HANDOFF','CHANGE_DETAILS','STAKEHOLDER_CONFIRMATION','APPLICATION','REQUIRED_PROCEDURES','RETURN_PLAN','RETIREMENT_DATE','ASSET_RETURN']);
 const procedureCaseKeys=['caseId','expectedVersion','procedureType','caseStatus','subjectLabel','effectiveDate','detail'];
 export function parseWorkforceProcedureCase(value:unknown){
  if(!value||typeof value!=='object'||Array.isArray(value))return null;
@@ -206,6 +207,39 @@ export function sanitizeWorkforceProcedureCaseAudit(value:unknown){
  }
  return Object.freeze({entries:Object.freeze(entries)});
 }
+export function sanitizeWorkforceProcedureCaseSteps(value:unknown){
+ if(!value||typeof value!=='object'||Array.isArray(value))return null;
+ const source=value as Record<string,unknown>;
+ if(!exact(source,['procedure_type','steps'])||!procedureTypes.includes(String(source.procedure_type))||!Array.isArray(source.steps)||source.steps.length!==4)return null;
+ const steps=[] as Array<Record<string,unknown>>;
+ for(const row of source.steps){
+  if(!row||typeof row!=='object'||Array.isArray(row))return null;
+  const record=row as Record<string,unknown>;
+  if(!exact(record,['step_key','is_completed','version','updated_at'])||!procedureStepKeys.includes(String(record.step_key))
+   ||typeof record.is_completed!=='boolean'||!Number.isInteger(record.version)||Number(record.version)<0
+   ||!(record.updated_at===null||(typeof record.updated_at==='string'&&/^\d{4}-\d{2}-\d{2}T/.test(record.updated_at))))return null;
+  steps.push(Object.freeze({stepKey:String(record.step_key),isCompleted:record.is_completed,version:Number(record.version),updatedAt:record.updated_at}));
+ }
+ if(new Set(steps.map(step=>step.stepKey)).size!==steps.length)return null;
+ return Object.freeze({procedureType:String(source.procedure_type),steps:Object.freeze(steps)});
+}
+const procedureStepKeysPayload=['caseId','stepKey','completed','expectedVersion'];
+export function parseWorkforceProcedureCaseStep(value:unknown){
+ if(!value||typeof value!=='object'||Array.isArray(value))return null;
+ const source=value as Record<string,unknown>;
+ if(!exact(source,procedureStepKeysPayload)||!uuid.test(String(source.caseId))||!procedureStepKeys.includes(String(source.stepKey))
+  ||typeof source.completed!=='boolean'||!Number.isInteger(source.expectedVersion)||Number(source.expectedVersion)<0)return null;
+ return Object.freeze({caseId:String(source.caseId),stepKey:String(source.stepKey),completed:source.completed,expectedVersion:Number(source.expectedVersion)});
+}
+export function sanitizeWorkforceProcedureCaseStepResult(value:unknown){
+ const row=Array.isArray(value)&&value.length===1?value[0]:null;
+ if(!row||typeof row!=='object'||Array.isArray(row))return null;
+ const record=row as Record<string,unknown>;
+ if(!exact(record,['case_id','step_key','step_version','operation'])||!uuid.test(String(record.case_id))
+  ||!procedureStepKeys.includes(String(record.step_key))||!Number.isInteger(record.step_version)||Number(record.step_version)<1
+  ||!['COMPLETE','REOPEN'].includes(String(record.operation)))return null;
+ return Object.freeze({caseId:String(record.case_id),stepKey:String(record.step_key),stepVersion:Number(record.step_version),operation:String(record.operation)});
+}
 export const WORKFORCE_PROCEDURE_CASE_CONTRACT=Object.freeze({
- procedureTypes,procedureStatuses,optimisticConcurrency:true,maximumWriteRequests:1,employeeMasterMutation:false,auditReadOnly:true,rawValuesInResult:false
+ procedureTypes,procedureStatuses,procedureStepKeys,optimisticConcurrency:true,maximumWriteRequests:1,employeeMasterMutation:false,auditReadOnly:true,checklistTracking:true,rawValuesInResult:false
 });

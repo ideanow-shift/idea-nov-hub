@@ -859,6 +859,11 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-audit-list { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
 .procedure-case-audit-list li { display: grid; gap: 3px; padding: 10px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: .86rem; }
 .procedure-case-audit-list strong { color: var(--ink); }
+.procedure-case-steps { margin-top: 16px; padding: 16px; border: 1px solid #b8d5c7; border-radius: 6px; background: #f6fbf8; }
+.procedure-case-steps-list { display: grid; gap: 8px; margin-top: 12px; }
+.procedure-case-step { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); cursor: pointer; }
+.procedure-case-step input { width: 18px; height: 18px; accent-color: #238052; }
+.procedure-case-step.is-completed { color: #267650; background: #edf8f1; }
 .case-edit-button { min-width: 68px; }
 .procedure-case-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 .procedure-case-form label { display: grid; gap: 6px; color: var(--muted); font-size: 0.85rem; font-weight: 700; }
@@ -1005,6 +1010,7 @@ h3 { margin: 0; font-size: 1rem; }
   .procedure-case-desk > header, .procedure-case-row { display: grid; }
   .procedure-case-desk > header .primary-action, .case-edit-button { width: 100%; }
   .procedure-case-actions-inline { display: grid; }
+  .procedure-case-step { align-items: flex-start; }
   .procedure-intro p { margin-top: 6px; }
   .workflow-strip { grid-template-columns: 1fr; }
   .workflow-strip div { border-right: 0; border-bottom: 1px solid var(--line); }

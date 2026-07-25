@@ -480,6 +480,9 @@ export function combineFinancialWorkbookResults(results, statement = "PL") {
   const entityCandidateCount = accepted.reduce((sum, result) => sum + Number(result.entityCandidateCount || 0), 0);
   const normalizedRecordCount = accepted.reduce((sum, result) => sum + Number(result.normalizedRecordCount || 0), 0);
   const entityPreviewRows = accepted.flatMap((result) => result.entityPreviewRows || []);
+  const expectedMonthCount = accepted.reduce((maximum, result) => Math.max(maximum, Number(result.expectedMonthCount || 0)), 0);
+  const actualMonthCount = accepted.reduce((maximum, result) => Math.max(maximum, Number(result.actualMonthCount || 0)), 0);
+  const missingMonthLabels = [...new Set(accepted.flatMap((result) => Array.isArray(result.missingMonthLabels) ? result.missingMonthLabels : []))].sort();
   const duplicateFileCount = duplicateExtraCount(accepted.map((result) => result.contentIdentity));
   const duplicateEntityPeriodCount = duplicateExtraCount(entityPreviewRows.map((row) => {
     const period = String(row.periodKey || "PERIOD_UNRESOLVED");
@@ -500,6 +503,9 @@ export function combineFinancialWorkbookResults(results, statement = "PL") {
     aggregateSheetCount,
     entityCandidateCount,
     normalizedRecordCount,
+    expectedMonthCount,
+    actualMonthCount,
+    missingMonthLabels,
     duplicateFileCount,
     duplicateEntityPeriodCount,
     parseFailureCategories,
@@ -1516,6 +1522,15 @@ function normalizedMonthlyPlPeriod(months) {
   };
 }
 
+function expectedNormalizedMonthlyPlMonths(months) {
+  const yearSet = new Set((Array.isArray(months) ? months : [])
+    .map((month) => String(month).slice(0, 4))
+    .filter((year) => /^\d{4}$/.test(year)));
+  if (yearSet.size !== 1) return [];
+  const year = [...yearSet][0];
+  return Array.from({ length: 12 }, (_, index) => `${year}-${String(index + 1).padStart(2, "0")}`);
+}
+
 export function parseNormalizedMonthlyPlCsvText(text, fileMeta = {}) {
   const rows = parseStrictCsv(text);
   if (!rows || rows.length < 2 || !csvHeaderMatches(rows[0], NORMALIZED_MONTHLY_PL_CSV_HEADER)) {
@@ -1552,6 +1567,8 @@ export function parseNormalizedMonthlyPlCsvText(text, fileMeta = {}) {
     });
   }
   const months = [...new Set(records.map((record) => record.month))].sort();
+  const expectedMonthLabels = expectedNormalizedMonthlyPlMonths(months);
+  const missingMonthLabels = expectedMonthLabels.filter((month) => !months.includes(month));
   const period = normalizedMonthlyPlPeriod(months);
   const byEntity = new Map();
   for (const record of records) {
@@ -1591,6 +1608,8 @@ export function parseNormalizedMonthlyPlCsvText(text, fileMeta = {}) {
       periodLabel: period.label,
       periodSortKey: period.sortKey,
       monthLabels: months,
+      expectedMonthLabels,
+      missingMonthLabels,
       activeMonthCount: activeMonthIndex + 1,
       activeThroughMonthLabel: activeMonthIndex >= 0 ? months[activeMonthIndex] : "",
       salesByMonthYen,
@@ -1606,6 +1625,9 @@ export function parseNormalizedMonthlyPlCsvText(text, fileMeta = {}) {
     fileBytes: fileMeta.fileBytes || 0,
     contentIdentity: fileMeta.contentIdentity || "",
     metadata: { periodText: period.label },
+    expectedMonthCount: expectedMonthLabels.length || months.length,
+    actualMonthCount: months.length,
+    missingMonthLabels,
     sheetCount: entityPreviewRows.length,
     sheetsWithTwelveMonths: entityPreviewRows.filter((row) => Number(row.activeMonthCount || 0) >= 12).length,
     aggregateSheetCount,
@@ -1833,6 +1855,7 @@ export function buildFinancialLocalPreview(result) {
   const rows = periodRows.filter((row) => row.entityCategory === "STORE_CANDIDATE");
   const reviewRows = periodRows.filter((row) => row.entityCategory !== "STORE_CANDIDATE");
   const comparisonMonthCount = rows.reduce((maximum, row) => Math.max(maximum, Number(row.activeMonthCount || 0)), 0);
+  const missingMonthLabels = Array.isArray(result.missingMonthLabels) ? result.missingMonthLabels.slice(0, 12) : [];
   const localMappingEvidence = hasExactLocalMappingEvidence(result);
   const displayMappingStatus = (status) => localMappingEvidence && status === "LOCAL_CANDIDATE_APPLIED"
     ? "LOCAL_EVIDENCE_RECEIVED"
@@ -1862,6 +1885,8 @@ export function buildFinancialLocalPreview(result) {
       storeCandidateCount: storeRows.length,
       reviewCandidateCount: scopedReviewRows.length,
       dataMonthShortfallCount: storeRows.filter((row) => Number(row.activeMonthCount || 0) < comparisonMonthCount).length,
+      sourceMissingMonthCount: missingMonthLabels.length,
+      missingMonthLabels,
       salesManYen: comparisonMonthCount > 0 && storeRows.length ? Math.round(salesYen / 10000) : null,
       ordinaryProfitManYen: comparisonMonthCount > 0 && storeRows.length ? Math.round(ordinaryProfitYen / 10000) : null,
       mappingStatus: displayMappingStatus(mappingStatus),
@@ -1891,6 +1916,10 @@ export function buildFinancialLocalPreview(result) {
     completionPendingCount: completionItems.filter((item) => !["LOCAL_VALIDATED", "LOCAL_EVIDENCE_RECEIVED"].includes(item.status)).length,
     comparisonRangeLabel: selectedComparison?.comparisonRangeLabel || "データ月確認待ち",
     comparisonMonthCount,
+    expectedMonthCount: Number(result.expectedMonthCount || comparisonMonthCount || 0),
+    actualMonthCount: Number(result.actualMonthCount || comparisonMonthCount || 0),
+    sourceMissingMonthCount: missingMonthLabels.length,
+    missingMonthLabels,
     dataMonthShortfallCount: selectedComparison?.dataMonthShortfallCount || 0,
     salesManYen: selectedComparison?.salesManYen ?? null,
     ordinaryProfitManYen: selectedComparison?.ordinaryProfitManYen ?? null,

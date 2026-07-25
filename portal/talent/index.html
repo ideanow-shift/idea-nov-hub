@@ -4,17 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-student-action-guide-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-nova-tone-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-student-action-guide-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-nova-tone-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
     <header class="dashboard-header">
-      <div>
-        <p class="eyebrow">NOV HUB / HUMAN CAPITAL</p>
-        <h1 id="dashboard-title">人財投資管理システム</h1>
-        <p class="lead">採用から入社後の手続きまで、人に関する業務を一つの画面で管理します。</p>
+      <div class="dashboard-brand">
+        <img class="dashboard-brand-icon" src="./assets/icons/human-resources.svg" alt="" aria-hidden="true">
+        <div>
+          <p class="eyebrow">NOV HUB / HUMAN CAPITAL</p>
+          <h1 id="dashboard-title">人財投資管理システム</h1>
+          <p class="lead">採用から入社後の手続きまで、人に関する業務を一つの画面で管理します。</p>
+        </div>
       </div>
       <div class="connection-card" aria-live="polite">
         <span class="connection-dot" aria-hidden="true"></span>
@@ -25,11 +28,13 @@
     <nav class="primary-tabs" role="tablist" aria-label="人財投資管理の業務区分">
       <button class="primary-tab" id="tab-recruitment" type="button" role="tab"
         aria-selected="true" aria-controls="panel-recruitment" tabindex="0" data-primary-tab="recruitment">
+        <img class="primary-tab-icon" src="./assets/icons/growth.svg" alt="" aria-hidden="true">
         <span class="tab-number">01</span>
         <span><strong>求人管理</strong><small>学生接点・選考・採用投資</small></span>
       </button>
       <button class="primary-tab" id="tab-workforce" type="button" role="tab"
         aria-selected="false" aria-controls="panel-workforce" tabindex="-1" data-primary-tab="workforce">
+        <img class="primary-tab-icon" src="./assets/icons/assignment.svg" alt="" aria-hidden="true">
         <span class="tab-number">02</span>
         <span><strong>現職者管理</strong><small>入社・異動・休職・退職手続き</small></span>
       </button>
@@ -180,7 +185,7 @@
               <option value="NEW_CANDIDATE">新規候補</option>
             </select>
           </label>
-          <button id="student-reload" class="icon-command" type="button" title="学生データを再読み込み" aria-label="学生データを再読み込み">↻</button>
+          <button id="student-reload" class="icon-command" type="button" title="学生データを再読み込み" aria-label="学生データを再読み込み"><img src="./assets/icons/refresh.svg" alt="" aria-hidden="true"></button>
           <div class="student-quick-filters" aria-label="確認状態のクイック絞り込み">
             <span>クイック表示</span>
             <button id="student-filter-all" class="filter-command is-active" type="button" aria-pressed="true" data-label="すべて">すべて</button>

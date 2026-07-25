@@ -13,6 +13,10 @@ test("Talent exposes recruitment and workforce as accessible primary tabs", asyn
   assert.match(html, /data-primary-tab="workforce"[\s\S]*現職者管理/);
   assert.match(html, /id="panel-recruitment"[\s\S]*role="tabpanel"/);
   assert.match(html, /id="panel-workforce"[\s\S]*role="tabpanel"/);
+  assert.match(html, /assets\/icons\/human-resources\.svg/);
+  assert.match(html, /assets\/icons\/growth\.svg/);
+  assert.match(html, /assets\/icons\/assignment\.svg/);
+  assert.match(html, /assets\/icons\/refresh\.svg/);
 });
 
 test("recruitment subtabs stay visually and semantically below the primary tabs", async () => {

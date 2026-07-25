@@ -699,6 +699,15 @@ h3 { margin: 0; font-size: 1rem; }
   white-space: nowrap;
 }
 .student-list-status { color: #41536b; font-weight: 700; }
+.student-list-reason {
+  display: block;
+  overflow: hidden;
+  color: var(--amber);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .state-badge {
   display: inline-flex;
   flex: 0 0 auto;

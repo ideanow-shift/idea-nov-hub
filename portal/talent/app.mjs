@@ -846,7 +846,12 @@ function createStudentListItem(documentObject, student) {
   const status = documentObject.createElement("span");
   status.className = "student-list-status";
   status.textContent = student.status;
-  button.append(top, meta, status);
+  const reasons = Array.isArray(student.reasonLabels) ? student.reasonLabels.filter(Boolean).slice(0, 2) : [];
+  const reason = documentObject.createElement("span");
+  reason.className = "student-list-reason";
+  reason.textContent = reasons.length ? reasons.join("・") : "";
+  if (reasons.length) button.title = `確認事項: ${reasons.join("・")}`;
+  button.append(top, meta, status, reason);
   button.addEventListener("click", () => {
     selectedStudentRecordId = student.recordId;
     renderStudentWorkspace(documentObject);

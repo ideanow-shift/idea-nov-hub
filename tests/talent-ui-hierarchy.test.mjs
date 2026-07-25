@@ -147,6 +147,15 @@ test("student list filter keeps new candidates visible and narrows review queues
   assert.deepEqual(filterTalentStudents(rows, { source: "ENTRIES_27" }).map((row) => row.displayName), ["新規候補"]);
 });
 
+test("student list keeps safe review reasons visible before selection", async () => {
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+  const css = await readFile(new URL("style.css", root), "utf8");
+
+  assert.match(app, /student.reasonLabels\.filter\(Boolean\)\.slice\(0, 2\)/);
+  assert.match(app, /確認事項: \$\{reasons\.join\("・"\)\}/);
+  assert.match(css, /\.student-list-reason\s*\{/);
+});
+
 test("bulk confirmation proposal contains only exact roster links", () => {
   const proposal = buildMatchOnlyReviewProposal({ students: [
     { recordId: "00000000-0000-4000-8000-000000000001", mappingStatus: "UNMAPPED", primaryEligible: true, sourceCode: "CONTACTS_27" },

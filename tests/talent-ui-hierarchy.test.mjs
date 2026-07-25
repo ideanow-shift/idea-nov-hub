@@ -56,6 +56,18 @@ test("student detail exposes an individual confirmation action without replacing
   assert.match(app, /確認候補を一括反映しますか/);
 });
 
+test("student review KPIs separate owner review, quarantine, and confirmed states", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+
+  for (const id of ["student-owner-review", "student-quarantine", "student-importable"]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(app, /"student-owner-review": overview\.ownerReview/);
+  assert.match(app, /"student-quarantine": overview\.quarantined/);
+  assert.match(app, /"student-importable": overview\.mapped/);
+});
+
 test("navigation supports keyboard movement and responsive one-column layouts", async () => {
   const app = await readFile(new URL("app.mjs", root), "utf8");
   const css = await readFile(new URL("style.css", root), "utf8");

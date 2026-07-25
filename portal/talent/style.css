@@ -581,6 +581,8 @@ h3 { margin: 0; font-size: 1rem; }
 .student-kpis strong { display: block; margin-top: 4px; color: var(--navy); font-size: 1.35rem; }
 .student-kpis .needs-review { background: var(--amber-soft); }
 .student-kpis .needs-review strong { color: var(--amber); }
+.student-kpis .confirmed { background: #eef8f2; }
+.student-kpis .confirmed strong { color: var(--green); }
 
 .student-workspace {
   display: grid;

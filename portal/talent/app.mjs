@@ -3,11 +3,11 @@ import {
   buildDashboardSummaryViewModel,
   createDashboardSummaryExact1Executor,
   createTalentWorkspaceExact1Executor
-} from "./exact1.mjs?v=20260725-offer-fields-1";
+} from "./exact1.mjs?v=20260725-review-kpis-1";
 import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260725-owner-review-workspace-1";
 import { createTalentHistoricalReviewController } from "./review.mjs?v=20260725-owner-review-workspace-1";
 import { buildTalentAnalytics } from "./analytics.mjs?v=20260725-talent-analytics-1";
-import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-offer-fields-1";
+import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-review-kpis-1";
 import { buildWorkforceReadinessViewModel, renderWorkforceReadiness } from "./workforce-readiness.mjs?v=20260725-workforce-readiness-1";
 
 let summaryConsumed = false;
@@ -499,6 +499,9 @@ function renderImportOverview(documentObject, overview) {
     "student-entries": overview.entries,
     "student-offers": overview.offers,
     "student-manual": overview.manual,
+    "student-owner-review": overview.ownerReview,
+    "student-quarantine": overview.quarantined,
+    "student-importable": overview.mapped,
     "student-needs-review": overview.ownerReview + overview.quarantined
   };
   Object.entries(values).forEach(([id, value]) => {

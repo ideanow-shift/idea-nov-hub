@@ -57,9 +57,12 @@ test("workforce exposes an audited procedure case desk without employee-master c
   assert.match(html, /name="procedureType"/);
   assert.match(html, /name="caseStatus"/);
   assert.match(html, /id="workforce-case-new"/);
+  assert.match(html, /id="workforce-case-overview"/);
+  assert.match(html, /data-case-status-filter="READY_FOR_REVIEW"/);
   assert.match(html, /社員マスタは変更しません/);
   assert.match(source, /employeeMasterMutation: false/);
   assert.match(source, /optimisticConcurrency: true/);
+  assert.match(source, /filterWorkforceProcedureCases/);
 });
 
 test("student editing supports canonical profiles and unmapped staging rows", async () => {

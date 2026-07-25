@@ -841,6 +841,11 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-desk h3, .procedure-case-desk p { margin: 0; }
 .procedure-case-desk header p:last-child, .procedure-case-status { margin-top: 6px; color: var(--muted); }
 .procedure-case-status { min-height: 1.4em; font-size: 0.9rem; }
+.procedure-case-overview { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.procedure-case-metric { display: grid; gap: 5px; min-height: 82px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: #fff; text-align: left; color: var(--muted); font: inherit; cursor: pointer; }
+.procedure-case-metric strong { color: var(--navy); font-size: 1.45rem; line-height: 1; }
+.procedure-case-metric:hover, .procedure-case-metric:focus-visible, .procedure-case-metric.is-active { border-color: #1d6fbb; background: #edf6ff; color: var(--navy); outline: none; }
+.procedure-case-filter-status { margin: 10px 0 0; color: var(--muted); font-size: .86rem; }
 .procedure-case-list { display: grid; gap: 8px; margin-top: 14px; }
 .procedure-case-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px; border-radius: 6px; background: #f7fafc; }
 .procedure-case-row strong, .procedure-case-row span { display: block; }
@@ -950,7 +955,7 @@ h3 { margin: 0; font-size: 1rem; }
 @media (max-width: 860px) {
   .dashboard-header { align-items: flex-start; }
   .summary-command { flex-direction: column; align-items: flex-end; }
-  .summary-grid, .historical-summary-grid, .workforce-summary, .procedure-board, .procedure-checklist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .summary-grid, .historical-summary-grid, .workforce-summary, .procedure-board, .procedure-checklist, .procedure-case-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workforce-queue { grid-template-columns: 1fr; }
   .workforce-readiness { grid-template-columns: 1fr; }
   .procedure-case-form { grid-template-columns: 1fr; }
@@ -985,7 +990,7 @@ h3 { margin: 0; font-size: 1rem; }
   .summary-command { align-items: stretch; margin-top: 14px; }
   .summary-load-button { width: 100%; }
   .status { margin-top: 10px; }
-  .summary-grid, .historical-summary-grid, .workforce-summary, .procedure-board, .procedure-checklist, .feature-grid, .workforce-readiness { grid-template-columns: 1fr; }
+  .summary-grid, .historical-summary-grid, .workforce-summary, .procedure-board, .procedure-checklist, .feature-grid, .workforce-readiness, .procedure-case-overview { grid-template-columns: 1fr; }
   .workforce-queue li { display: grid; }
   .analysis-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .analysis-kpis .analysis-kpi-wide { grid-column: 1 / -1; }

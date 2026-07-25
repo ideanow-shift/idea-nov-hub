@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-workforce-case-history-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-workforce-case-board-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-workforce-case-history-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-workforce-case-board-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -421,6 +421,14 @@
           <button id="workforce-case-new" type="button" class="primary-action">案件を登録</button>
         </header>
         <p id="workforce-case-status" class="procedure-case-status" role="status"></p>
+        <section id="workforce-case-overview" class="procedure-case-overview" aria-label="手続き案件の進捗">
+          <button type="button" class="procedure-case-metric is-active" data-case-status-filter="ALL" aria-pressed="true"><span>すべて</span><strong id="workforce-case-count-all">0</strong></button>
+          <button type="button" class="procedure-case-metric" data-case-status-filter="DRAFT" aria-pressed="false"><span>下書き</span><strong id="workforce-case-count-draft">0</strong></button>
+          <button type="button" class="procedure-case-metric" data-case-status-filter="READY_FOR_REVIEW" aria-pressed="false"><span>確認待ち</span><strong id="workforce-case-count-review">0</strong></button>
+          <button type="button" class="procedure-case-metric" data-case-status-filter="CONFIRMED" aria-pressed="false"><span>確認済み</span><strong id="workforce-case-count-confirmed">0</strong></button>
+          <button type="button" class="procedure-case-metric" data-case-status-filter="CANCELLED" aria-pressed="false"><span>中止</span><strong id="workforce-case-count-cancelled">0</strong></button>
+        </section>
+        <p id="workforce-case-filter-status" class="procedure-case-filter-status" role="status"></p>
         <div id="workforce-case-list" class="procedure-case-list" aria-live="polite"></div>
         <section id="workforce-case-audit" class="procedure-case-audit" aria-live="polite" hidden>
           <div class="procedure-case-audit-heading"><h4>変更履歴</h4><button id="workforce-case-audit-close" type="button" class="case-edit-button">閉じる</button></div>

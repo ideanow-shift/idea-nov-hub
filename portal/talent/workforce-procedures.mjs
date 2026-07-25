@@ -7,10 +7,16 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 export const WORKFORCE_PROCEDURE_CASE_CONTRACT = Object.freeze({
   employeeMasterMutation: false,
   auditHistory: true,
+  statusFilters: true,
   optimisticConcurrency: true,
   requestMaxPerAction: 1,
   retryCount: 0
 });
+
+export function filterWorkforceProcedureCases(cases, filter = "ALL") {
+  if (!Array.isArray(cases) || !["ALL", ...CASE_STATUSES].includes(filter)) return Object.freeze([]);
+  return Object.freeze(cases.filter((item) => filter === "ALL" || item.caseStatus === filter));
+}
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -173,11 +179,13 @@ export function initializeWorkforceProcedureDesk({
   const audit = documentObject?.getElementById?.("workforce-case-audit");
   const auditList = documentObject?.getElementById?.("workforce-case-audit-list");
   const auditStatus = documentObject?.getElementById?.("workforce-case-audit-status");
-  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  const filterStatus = documentObject?.getElementById?.("workforce-case-filter-status");
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !filterStatus) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
   let cases = [];
+  let activeFilter = "ALL";
 
   const setStatus = (category) => {
     const messages = {
@@ -209,6 +217,25 @@ export function initializeWorkforceProcedureDesk({
     auditList.replaceChildren();
     auditStatus.textContent = "";
   };
+  const setFilter = (nextFilter) => {
+    activeFilter = ["ALL", ...CASE_STATUSES].includes(nextFilter) ? nextFilter : "ALL";
+    for (const button of desk.querySelectorAll("[data-case-status-filter]")) {
+      const selected = button.dataset.caseStatusFilter === activeFilter;
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    }
+    render();
+  };
+  const renderOverview = () => {
+    const counts = Object.fromEntries(["ALL", ...CASE_STATUSES].map((key) => [key, filterWorkforceProcedureCases(cases, key).length]));
+    const countIds = { ALL: "workforce-case-count-all", DRAFT: "workforce-case-count-draft", READY_FOR_REVIEW: "workforce-case-count-review", CONFIRMED: "workforce-case-count-confirmed", CANCELLED: "workforce-case-count-cancelled" };
+    for (const [key, id] of Object.entries(countIds)) {
+      const element = documentObject.getElementById(id);
+      if (element) element.textContent = String(counts[key]);
+    }
+    const visibleCount = counts[activeFilter];
+    filterStatus.textContent = activeFilter === "ALL" ? `${visibleCount}件の案件を表示しています。` : `${statusLabel(activeFilter)}の案件 ${visibleCount}件を表示しています。`;
+  };
   const showAudit = async (item) => {
     audit.hidden = false;
     auditStatus.textContent = "変更履歴を読み込んでいます。";
@@ -234,15 +261,17 @@ export function initializeWorkforceProcedureDesk({
   };
   const render = () => {
     list.replaceChildren();
-    if (cases.length === 0) {
+    renderOverview();
+    const visibleCases = filterWorkforceProcedureCases(cases, activeFilter);
+    if (visibleCases.length === 0) {
       const empty = documentObject.createElement("p");
       empty.className = "procedure-case-empty";
-      empty.textContent = "登録済みの手続き案件はありません。";
+      empty.textContent = cases.length === 0 ? "登録済みの手続き案件はありません。" : "この進捗の手続き案件はありません。";
       list.append(empty);
       return;
     }
     const fragment = documentObject.createDocumentFragment();
-    for (const item of cases) {
+    for (const item of visibleCases) {
       const row = documentObject.createElement("article");
       row.className = "procedure-case-row";
       const copy = documentObject.createElement("div");
@@ -297,6 +326,9 @@ export function initializeWorkforceProcedureDesk({
   });
   documentObject.getElementById("workforce-case-cancel")?.addEventListener("click", reset);
   documentObject.getElementById("workforce-case-audit-close")?.addEventListener("click", clearAudit);
+  for (const button of desk.querySelectorAll("[data-case-status-filter]")) {
+    button.addEventListener("click", () => setFilter(button.dataset.caseStatusFilter));
+  }
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const draft = Object.freeze({

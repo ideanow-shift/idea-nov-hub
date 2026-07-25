@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWorkforceProcedureCaseController, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { createWorkforceProcedureCaseController, filterWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -49,4 +49,16 @@ test("workforce procedure case history is bounded and read-only", async () => {
   assert.equal(calls[0].init.method, "GET");
   assert.match(calls[0].url, /procedure-cases\/audit\?caseId=/);
   assert.equal(WORKFORCE_PROCEDURE_CASE_CONTRACT.auditHistory, true);
+});
+
+test("workforce procedure cases filter by progress without mutating rows", () => {
+  const cases = Object.freeze([
+    Object.freeze({ caseStatus: "DRAFT" }),
+    Object.freeze({ caseStatus: "CONFIRMED" }),
+    Object.freeze({ caseStatus: "DRAFT" })
+  ]);
+  assert.equal(filterWorkforceProcedureCases(cases, "DRAFT").length, 2);
+  assert.equal(filterWorkforceProcedureCases(cases, "ALL").length, 3);
+  assert.equal(filterWorkforceProcedureCases(cases, "INVALID").length, 0);
+  assert.equal(WORKFORCE_PROCEDURE_CASE_CONTRACT.statusFilters, true);
 });

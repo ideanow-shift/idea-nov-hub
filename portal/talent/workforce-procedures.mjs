@@ -92,6 +92,24 @@ export function isWorkforceProcedureCaseReadyToConfirm(steps) {
   return Array.isArray(steps) && steps.length === 4 && steps.every((step) => step && step.isCompleted === true);
 }
 
+export function classifyWorkforceProcedureCasePriority(item, referenceDate = localDateIso()) {
+  if (!item || !CASE_STATUSES.includes(item.caseStatus) || !/^\d{4}-\d{2}-\d{2}$/.test(item.effectiveDate || "")) return "SCHEDULED";
+  if (["CONFIRMED", "CANCELLED"].includes(item.caseStatus)) return "CLOSED";
+  const distance = daysBetween(referenceDate, item.effectiveDate);
+  if (distance < 0) return "OVERDUE";
+  if (distance <= 7) return "NEXT_7_DAYS";
+  return "SCHEDULED";
+}
+
+export function sortWorkforceProcedureCases(cases, referenceDate = localDateIso()) {
+  const order = { OVERDUE: 0, NEXT_7_DAYS: 1, SCHEDULED: 2, CLOSED: 3 };
+  return Object.freeze([...cases].sort((left, right) => {
+    const priority = order[classifyWorkforceProcedureCasePriority(left, referenceDate)] - order[classifyWorkforceProcedureCasePriority(right, referenceDate)];
+    if (priority !== 0) return priority;
+    return String(left.effectiveDate).localeCompare(String(right.effectiveDate));
+  }));
+}
+
 function normalizeSteps(value) {
   if (!exactKeys(value, ["procedureType", "steps"]) || !PROCEDURE_TYPES.includes(value.procedureType)
     || !Array.isArray(value.steps) || value.steps.length !== 4) return null;
@@ -232,7 +250,8 @@ export function initializeWorkforceProcedureDesk({
   const stepsList = documentObject?.getElementById?.("workforce-case-steps-list");
   const stepsStatus = documentObject?.getElementById?.("workforce-case-steps-status");
   const filterStatus = documentObject?.getElementById?.("workforce-case-filter-status");
-  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  const priorityStatus = documentObject?.getElementById?.("workforce-case-priority-status");
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
@@ -293,6 +312,9 @@ export function initializeWorkforceProcedureDesk({
     }
     const visibleCount = counts[activeFilter];
     filterStatus.textContent = activeFilter === "ALL" ? `${visibleCount}件の案件を表示しています。` : `${statusLabel(activeFilter)}の案件 ${visibleCount}件を表示しています。`;
+    const overdue = cases.filter((item) => classifyWorkforceProcedureCasePriority(item) === "OVERDUE").length;
+    const soon = cases.filter((item) => classifyWorkforceProcedureCasePriority(item) === "NEXT_7_DAYS").length;
+    priorityStatus.textContent = overdue > 0 ? `期限を過ぎた案件 ${overdue}件、直近7日の案件 ${soon}件があります。` : soon > 0 ? `直近7日の案件が ${soon}件あります。` : "期限超過・直近7日の案件はありません。";
   };
   const showAudit = async (item) => {
     audit.hidden = false;
@@ -357,7 +379,7 @@ export function initializeWorkforceProcedureDesk({
   const render = () => {
     list.replaceChildren();
     renderOverview();
-    const visibleCases = filterWorkforceProcedureCases(cases, activeFilter);
+    const visibleCases = sortWorkforceProcedureCases(filterWorkforceProcedureCases(cases, activeFilter));
     if (visibleCases.length === 0) {
       const empty = documentObject.createElement("p");
       empty.className = "procedure-case-empty";
@@ -372,9 +394,13 @@ export function initializeWorkforceProcedureDesk({
       const copy = documentObject.createElement("div");
       const title = documentObject.createElement("strong");
       const meta = documentObject.createElement("span");
+      const priority = documentObject.createElement("span");
+      const priorityCategory = classifyWorkforceProcedureCasePriority(item);
       title.textContent = item.subjectLabel;
       meta.textContent = `${procedureLabel(item.procedureType)} / ${statusLabel(item.caseStatus)} / ${item.effectiveDate}`;
-      copy.append(title, meta);
+      priority.className = `procedure-case-priority${priorityCategory === "OVERDUE" ? " is-overdue" : priorityCategory === "NEXT_7_DAYS" ? " is-soon" : ""}`;
+      priority.textContent = priorityLabel(priorityCategory);
+      copy.append(title, meta, priority);
       const edit = documentObject.createElement("button");
       edit.type = "button";
       edit.className = "case-edit-button";
@@ -486,4 +512,18 @@ function formatAuditTime(value) {
   const timestamp = Date.parse(value);
   if (Number.isNaN(timestamp)) return "記録時刻を確認中";
   return new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium", timeStyle: "short" }).format(timestamp);
+}
+
+function priorityLabel(value) {
+  return ({ OVERDUE: "期限超過", NEXT_7_DAYS: "直近7日", SCHEDULED: "予定", CLOSED: "完了・中止" })[value] || "予定";
+}
+
+function localDateIso() {
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function daysBetween(from, to) {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000);
 }

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWorkforceProcedureCaseController, filterWorkforceProcedureCases, isWorkforceProcedureCaseReadyToConfirm, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, isWorkforceProcedureCaseReadyToConfirm, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -93,4 +93,15 @@ test("workforce procedure confirmation requires every checklist item", () => {
   assert.equal(isWorkforceProcedureCaseReadyToConfirm(ready), true);
   assert.equal(isWorkforceProcedureCaseReadyToConfirm([{ ...ready[0], isCompleted: false }, ...ready.slice(1)]), false);
   assert.equal(isWorkforceProcedureCaseReadyToConfirm(ready.slice(0, 3)), false);
+});
+
+test("workforce procedure cases prioritize overdue and near-term open work", () => {
+  const referenceDate = "2026-07-26";
+  const overdue = { caseStatus: "READY_FOR_REVIEW", effectiveDate: "2026-07-25" };
+  const nearTerm = { caseStatus: "DRAFT", effectiveDate: "2026-07-30" };
+  const closed = { caseStatus: "CONFIRMED", effectiveDate: "2026-07-01" };
+  assert.equal(classifyWorkforceProcedureCasePriority(overdue, referenceDate), "OVERDUE");
+  assert.equal(classifyWorkforceProcedureCasePriority(nearTerm, referenceDate), "NEXT_7_DAYS");
+  assert.equal(classifyWorkforceProcedureCasePriority(closed, referenceDate), "CLOSED");
+  assert.deepEqual(sortWorkforceProcedureCases([closed, nearTerm, overdue], referenceDate), [overdue, nearTerm, closed]);
 });

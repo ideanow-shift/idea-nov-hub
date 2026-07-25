@@ -846,11 +846,15 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-metric strong { color: var(--navy); font-size: 1.45rem; line-height: 1; }
 .procedure-case-metric:hover, .procedure-case-metric:focus-visible, .procedure-case-metric.is-active { border-color: #1d6fbb; background: #edf6ff; color: var(--navy); outline: none; }
 .procedure-case-filter-status { margin: 10px 0 0; color: var(--muted); font-size: .86rem; }
+.procedure-case-priority-status { margin: 6px 0 0; color: #9a5d00; font-size: .86rem; font-weight: 700; }
 .procedure-case-list { display: grid; gap: 8px; margin-top: 14px; }
 .procedure-case-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px; border-radius: 6px; background: #f7fafc; }
 .procedure-case-row strong, .procedure-case-row span { display: block; }
 .procedure-case-row strong { color: var(--navy); }
 .procedure-case-row span { margin-top: 4px; color: var(--muted); font-size: 0.85rem; }
+.procedure-case-priority { display: inline-flex; width: fit-content; margin-top: 7px; padding: 3px 7px; border-radius: 4px; background: #edf6ff; color: #1666a8; font-size: .76rem; font-weight: 800; }
+.procedure-case-priority.is-overdue { background: #fff0f0; color: #b33131; }
+.procedure-case-priority.is-soon { background: #fff6e4; color: #9a5d00; }
 .procedure-case-empty { padding: 12px; border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); }
 .procedure-case-actions-inline { display: flex; flex-wrap: wrap; gap: 8px; }
 .procedure-case-audit { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
   <link rel="stylesheet" href="./style.css?v=20260725-profile-audit-1">
-  <script src="./runtime-config.candidate.js?v=20260725-manual-contact-mapping-1"></script>
-  <script type="module" src="./app.mjs?v=20260725-manual-contact-mapping-1"></script>
+  <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
+  <script type="module" src="./app.mjs?v=20260725-bulk-triage-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -147,6 +147,12 @@
             <div><dt>個別確認</dt><dd id="review-manual-count">-</dd></div>
           </dl>
           <button id="student-review-open" type="button" disabled>確認候補を一括反映</button>
+          <div class="bulk-triage" aria-label="27卒データの一括分類">
+            <div><span>自動一致</span><strong id="triage-exact1">-</strong><small>一括反映可能</small></div>
+            <div><span>新規候補</span><strong id="triage-new">-</strong><small>接触データなし</small></div>
+            <div><span>曖昧・重複</span><strong id="triage-ambiguous">-</strong><small>自動処理不可</small></div>
+            <div><span>保留</span><strong id="triage-hold">-</strong><small>確認待ち</small></div>
+          </div>
         </section>
 
         <section class="student-toolbar" aria-label="学生一覧の検索と絞り込み">

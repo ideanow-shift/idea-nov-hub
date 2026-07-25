@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildSingleStudentReviewProposal } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildSingleStudentReviewProposal } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -111,6 +111,18 @@ test("student review KPIs separate owner review, quarantine, and confirmed state
   assert.match(app, /"student-owner-review": overview\.ownerReview/);
   assert.match(app, /"student-quarantine": overview\.quarantined/);
   assert.match(app, /"student-importable": overview\.mapped/);
+});
+
+test("bulk triage separates exact matches, new candidates, ambiguous rows, and holds", () => {
+  const counts = buildBulkTriageCounts([
+    { mappingStatus: "UNMAPPED", sourceCode: "ENTRIES_27", suggestionCategory: "EXACT1" },
+    { mappingStatus: "UNMAPPED", sourceCode: "OFFERS_27", suggestionCategory: "NONE" },
+    { mappingStatus: "UNMAPPED", sourceCode: "OFFERS_27", suggestionCategory: "AMBIGUOUS" },
+    { mappingStatus: "UNMAPPED", sourceCode: "CONTACTS_27", suggestionCategory: "NONE" },
+    { mappingStatus: "OWNER_CONFIRMED", sourceCode: "CONTACTS_27", suggestionCategory: "NONE" }
+  ]);
+
+  assert.deepEqual(counts, { exact1: 1, newApplicant: 1, ambiguous: 1, hold: 1 });
 });
 
 test("navigation supports keyboard movement and responsive one-column layouts", async () => {

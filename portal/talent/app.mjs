@@ -391,6 +391,7 @@ export async function loadTalentStudentWorkspace({
   renderStudentWorkspace(documentObject);
   renderImportOverview(documentObject, result.data.overview);
   renderHistoricalReviewSummary(documentObject, result.data.overview);
+  renderBulkTriageSummary(documentObject, result.data.students);
   renderTalentAnalytics(documentObject);
   if (status) {
     status.dataset.state = "ready";
@@ -446,6 +447,31 @@ function renderHistoricalReviewSummary(documentObject, overview) {
     button.disabled = pending === 0;
     button.textContent = pending === 0 ? "一括確認済み" : "確認候補を一括反映";
   }
+}
+
+export function buildBulkTriageCounts(students) {
+  const rows = Array.isArray(students) ? students : [];
+  const unmapped = rows.filter((student) => student.mappingStatus === "UNMAPPED");
+  const exact1 = unmapped.filter((student) => student.suggestionCategory === "EXACT1").length;
+  const ambiguous = unmapped.filter((student) => student.suggestionCategory === "AMBIGUOUS").length;
+  const newApplicant = unmapped.filter((student) => (
+    ["ENTRIES_27", "OFFERS_27"].includes(student.sourceCode)
+    && student.suggestionCategory === "NONE"
+  )).length;
+  return Object.freeze({
+    exact1,
+    newApplicant,
+    ambiguous,
+    hold: Math.max(0, unmapped.length - exact1 - ambiguous - newApplicant)
+  });
+}
+
+function renderBulkTriageSummary(documentObject, students) {
+  const counts = buildBulkTriageCounts(students);
+  setText(documentObject, "triage-exact1", counts.exact1);
+  setText(documentObject, "triage-new", counts.newApplicant);
+  setText(documentObject, "triage-ambiguous", counts.ambiguous);
+  setText(documentObject, "triage-hold", counts.hold);
 }
 
 function openHistoricalReviewDialog({ globalObject, documentObject }) {

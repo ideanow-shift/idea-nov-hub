@@ -459,6 +459,11 @@ h3 { margin: 0; font-size: 1rem; }
 .primary-command:hover:not(:disabled) { background: #126746; }
 .review-command-band > button:disabled,
 .primary-command:disabled { color: #738093; background: #dce3e8; cursor: default; }
+.bulk-triage { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.bulk-triage > div { display: grid; gap: 3px; padding: 10px 12px; border: 1px solid #cbded2; border-radius: 6px; background: rgba(255, 255, 255, 0.72); }
+.bulk-triage span { color: var(--muted); font-size: 0.72rem; font-weight: 800; }
+.bulk-triage strong { color: var(--navy); font-size: 1.15rem; }
+.bulk-triage small { color: var(--muted); font-size: 0.7rem; }
 .secondary-command { border-color: #c9d2dc; color: var(--navy); background: #fff; }
 .secondary-command:hover { border-color: var(--blue); background: var(--blue-soft); }
 
@@ -871,6 +876,7 @@ h3 { margin: 0; font-size: 1rem; }
   .student-workspace { grid-template-columns: minmax(280px, 0.8fr) minmax(340px, 1.2fr); }
   .review-command-band { grid-template-columns: 1fr auto; }
   .review-command-band > div { grid-column: 1 / -1; }
+  .bulk-triage { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 520px) {

@@ -156,6 +156,15 @@ test("student list keeps safe review reasons visible before selection", async ()
   assert.match(css, /\.student-list-reason\s*\{/);
 });
 
+test("student quick filters expose their queue counts", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+
+  assert.match(html, /id="student-filter-review"[^>]*data-label="要確認"/);
+  assert.match(app, /filterTalentStudents\(students, \{ state: value \}\)\.length/);
+  assert.match(app, /button\.setAttribute\("aria-label", `\$\{label\} \$\{count\}件`\)/);
+});
+
 test("bulk confirmation proposal contains only exact roster links", () => {
   const proposal = buildMatchOnlyReviewProposal({ students: [
     { recordId: "00000000-0000-4000-8000-000000000001", mappingStatus: "UNMAPPED", primaryEligible: true, sourceCode: "CONTACTS_27" },

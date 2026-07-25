@@ -788,7 +788,7 @@ function renderStudentWorkspace(documentObject) {
   const source = documentObject.getElementById("student-source-filter")?.value || "ALL";
   const state = documentObject.getElementById("student-state-filter")?.value || "ALL";
   const visible = filterTalentStudents(studentWorkspaceData.students, { query, source, state });
-  updateStudentQuickFilterState(documentObject, state);
+  updateStudentQuickFilterState(documentObject, state, studentWorkspaceData.students);
   const list = documentObject.getElementById("student-list");
   const empty = documentObject.getElementById("student-empty");
   const count = documentObject.getElementById("student-result-count");
@@ -806,7 +806,7 @@ function renderStudentWorkspace(documentObject) {
   );
 }
 
-function updateStudentQuickFilterState(documentObject, state) {
+function updateStudentQuickFilterState(documentObject, state, students) {
   const controls = [
     ["student-filter-all", "ALL"],
     ["student-filter-review", "OWNER_REVIEW"],
@@ -818,6 +818,12 @@ function updateStudentQuickFilterState(documentObject, state) {
     const button = documentObject.getElementById(id);
     if (!button) return;
     const active = value === state;
+    const count = value === "ALL"
+      ? students.length
+      : filterTalentStudents(students, { state: value }).length;
+    const label = button.dataset.label || button.textContent || "";
+    button.textContent = `${label} ${count}`;
+    button.setAttribute("aria-label", `${label} ${count}件`);
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-pressed", String(active));
   });

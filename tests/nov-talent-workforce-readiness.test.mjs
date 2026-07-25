@@ -34,3 +34,27 @@ test("workforce readiness rejects unapproved connection state and source values"
   assert.equal(viewModel.personalValuesReturned, false);
   assert.equal(viewModel.mutationsAllowed, false);
 });
+
+test("connected workforce readiness renders aggregate counts without personal rows", () => {
+  const viewModel = buildWorkforceReadinessViewModel({
+    source: "CORE_DB",
+    mode: "READ_ONLY",
+    status: "CONNECTED",
+    summary: {
+      activeEmployeeCount: 120,
+      onboardingCount: 4,
+      leaveCount: 3,
+      retirementCount: 2,
+      transferAvailable: false,
+      transferCount: null,
+      asOfDate: "2026-07-25"
+    }
+  });
+
+  assert.equal(viewModel.status, "CONNECTED");
+  assert.equal(viewModel.countsAvailable, true);
+  assert.equal(viewModel.summary.activeEmployeeCount, 120);
+  assert.equal(viewModel.summary.transferAvailable, false);
+  assert.equal(viewModel.personalValuesReturned, false);
+  assert.equal(viewModel.mutationsAllowed, false);
+});

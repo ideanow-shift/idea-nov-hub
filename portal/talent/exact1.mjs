@@ -204,6 +204,54 @@ export function createTalentWorkspaceExact1Executor({
   });
 }
 
+export function createTalentWorkforceSummaryExact1Executor({
+  globalObject = globalThis,
+  hubSessionHelper = globalObject.NovHubSession,
+  hubContract = globalObject.NOV_HUB_SESSION_CONTRACT,
+  fetchImpl = globalObject.fetch
+} = {}) {
+  const runtime = readTalentRuntime({ globalObject, hubSessionHelper, hubContract });
+  if (!runtime || typeof fetchImpl !== "function") return null;
+
+  let consumed = false;
+  return Object.freeze({
+    async run() {
+      if (consumed) return safeResult("duplicate_startup_prevented", { duplicatePrevented: true });
+      consumed = true;
+      let requestSent = false;
+      try {
+        const headers = await buildAuthHeaders(runtime.hubSessionHelper);
+        const url = new URL("./api/talent/v1/workforce/summary", `${runtime.apiBaseUrl}/`);
+        requestSent = true;
+        const response = await fetchImpl(url.toString(), {
+          method: "GET",
+          headers: { Accept: "application/json", ...headers },
+          credentials: "omit"
+        });
+        const envelope = await readJsonEnvelope(response);
+        const data = unwrapWorkforceSummaryEnvelope(envelope);
+        return Object.freeze({
+          ...safeResult("ready", {
+            executed: true,
+            httpRequestSent: true,
+            httpStatus: normalizeHttpStatus(response.status),
+            okBoolean: true,
+            requestCount: 1
+          }),
+          data
+        });
+      } catch (error) {
+        return safeResult(error?.safeCategory || "api_error", {
+          executed: requestSent,
+          httpRequestSent: requestSent,
+          requestCount: requestSent ? 1 : 0,
+          httpStatus: normalizeHttpStatus(error?.httpStatus)
+        });
+      }
+    }
+  });
+}
+
 export function createTalentStudentProfileAuditExact1Executor({
   applicationNo,
   globalObject = globalThis,
@@ -363,6 +411,28 @@ function unwrapStagingSupplementAuditEnvelope(envelope, stagingRecordId) {
       changedFields: Object.freeze([...entry.changedFields])
     })))
   });
+}
+
+function unwrapWorkforceSummaryEnvelope(envelope) {
+  if (!isPlainObject(envelope) || envelope.ok !== true) throw safeError("invalid_response");
+  assertExactKeys(envelope, SUCCESS_ENVELOPE_KEYS);
+  validateMeta(envelope.meta);
+  const data = envelope.data;
+  const keys = [
+    "activeEmployeeCount", "onboardingCount", "leaveCount", "retirementCount",
+    "transferAvailable", "transferCount", "asOfDate"
+  ];
+  if (!isPlainObject(data) || Object.keys(data).length !== keys.length
+    || !keys.every((key) => Object.hasOwn(data, key))
+    || ![data.activeEmployeeCount, data.onboardingCount, data.leaveCount, data.retirementCount]
+      .every((value) => Number.isInteger(value) && value >= 0)
+    || typeof data.transferAvailable !== "boolean"
+    || (data.transferCount !== null && (!Number.isInteger(data.transferCount) || data.transferCount < 0))
+    || (data.transferAvailable && data.transferCount === null)
+    || !/^\d{4}-\d{2}-\d{2}$/u.test(String(data.asOfDate))) {
+    throw safeError("invalid_response");
+  }
+  return Object.freeze({ ...data });
 }
 
 export function buildDashboardSummaryViewModel(data) {

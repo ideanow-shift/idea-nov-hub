@@ -5,6 +5,16 @@ const WORKFORCE_CATEGORIES = Object.freeze([
   Object.freeze({ key: "retirement", label: "退職手続き", description: "退職受付から完了確認まで" })
 ]);
 
+const WORKFORCE_SUMMARY_KEYS = Object.freeze([
+  "activeEmployeeCount",
+  "onboardingCount",
+  "leaveCount",
+  "retirementCount",
+  "transferAvailable",
+  "transferCount",
+  "asOfDate"
+]);
+
 export const WORKFORCE_READONLY_CONTRACT = Object.freeze({
   source: "CORE_DB",
   mode: "READ_ONLY",
@@ -16,11 +26,13 @@ export const WORKFORCE_READONLY_CONTRACT = Object.freeze({
 export function buildWorkforceReadinessViewModel({
   source = WORKFORCE_READONLY_CONTRACT.source,
   mode = WORKFORCE_READONLY_CONTRACT.mode,
-  status = WORKFORCE_READONLY_CONTRACT.status
+  status = WORKFORCE_READONLY_CONTRACT.status,
+  summary = null
 } = {}) {
   const safeSource = source === "CORE_DB" ? source : "UNKNOWN";
   const safeMode = mode === "READ_ONLY" ? mode : "UNAVAILABLE";
-  const safeStatus = safeSource === "CORE_DB" && safeMode === "READ_ONLY" && status === "CONNECTED"
+  const safeSummary = isWorkforceSummary(summary) ? Object.freeze({ ...summary }) : null;
+  const safeStatus = safeSource === "CORE_DB" && safeMode === "READ_ONLY" && status === "CONNECTED" && safeSummary
     ? "CONNECTED"
     : "NOT_CONNECTED";
   return Object.freeze({
@@ -28,6 +40,7 @@ export function buildWorkforceReadinessViewModel({
     mode: safeMode,
     status: safeStatus,
     countsAvailable: safeStatus === "CONNECTED",
+    summary: safeSummary,
     categories: WORKFORCE_CATEGORIES,
     personalValuesReturned: false,
     mutationsAllowed: false
@@ -42,17 +55,35 @@ export function renderWorkforceReadiness(documentObject = globalThis.document, v
   setText(documentObject, "workforce-status", statusText);
   setText(documentObject, "workforce-source", sourceText);
   setText(documentObject, "workforce-mode", modeText);
-  for (const category of viewModel.categories) {
-    setText(documentObject, `workforce-count-${category.key}`, viewModel.countsAvailable ? "-" : "未接続");
-  }
+  const summary = viewModel.summary;
+  setText(documentObject, "workforce-count-onboarding", viewModel.countsAvailable ? String(summary.onboardingCount) : "未接続");
+  setText(documentObject, "workforce-count-transfer", viewModel.countsAvailable
+    ? (summary.transferAvailable ? String(summary.transferCount) : "未連携")
+    : "未接続");
+  setText(documentObject, "workforce-count-leave", viewModel.countsAvailable ? String(summary.leaveCount) : "未接続");
+  setText(documentObject, "workforce-count-retirement", viewModel.countsAvailable ? String(summary.retirementCount) : "未接続");
+  setText(documentObject, "workforce-as-of", viewModel.countsAvailable ? `基準日 ${summary.asOfDate}` : "基準日 未確定");
   return Object.freeze({
     rendered: true,
     status: viewModel.status,
     source: viewModel.source,
     mode: viewModel.mode,
+    countsAvailable: viewModel.countsAvailable,
     categoryCount: viewModel.categories.length,
     rawValuesReturned: false
   });
+}
+
+function isWorkforceSummary(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || Object.keys(value).length !== WORKFORCE_SUMMARY_KEYS.length
+    || WORKFORCE_SUMMARY_KEYS.some((key) => !Object.hasOwn(value, key))) return false;
+  return ["activeEmployeeCount", "onboardingCount", "leaveCount", "retirementCount"]
+    .every((key) => Number.isInteger(value[key]) && value[key] >= 0)
+    && typeof value.transferAvailable === "boolean"
+    && (value.transferCount === null || (Number.isInteger(value.transferCount) && value.transferCount >= 0))
+    && (!value.transferAvailable || value.transferCount !== null)
+    && /^\d{4}-\d{2}-\d{2}$/u.test(String(value.asOfDate));
 }
 
 function setText(documentObject, id, value) {

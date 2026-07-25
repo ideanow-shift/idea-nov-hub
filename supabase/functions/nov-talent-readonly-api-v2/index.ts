@@ -55,6 +55,7 @@ var SUMMARY_ROUTE = "/api/talent/v1/dashboard/summary";
 var WORKSPACE_ROUTE = "/api/talent/v1/workspace";
 var PROFILE_AUDIT_ROUTE = "/api/talent/v1/students/profile-audit";
 var STAGING_SUPPLEMENT_AUDIT_ROUTE = "/api/talent/v1/staging/supplement-audit";
+var WORKFORCE_SUMMARY_ROUTE = "/api/talent/v1/workforce/summary";
 var MAX_BEARER_LENGTH = 4096;
 function corsHeaders(origin) {
   const headers = new Headers({
@@ -96,7 +97,7 @@ async function handleTalentReadonlyRequest(request, dependencies) {
     return safeFailure(403, "ORIGIN_NOT_ALLOWED", "Request origin is not allowed.", origin, requestId);
   }
   const url = new URL(request.url);
-  const matchedRoute = [SUMMARY_ROUTE, WORKSPACE_ROUTE, PROFILE_AUDIT_ROUTE, STAGING_SUPPLEMENT_AUDIT_ROUTE].find((route) => (
+  const matchedRoute = [SUMMARY_ROUTE, WORKSPACE_ROUTE, PROFILE_AUDIT_ROUTE, STAGING_SUPPLEMENT_AUDIT_ROUTE, WORKFORCE_SUMMARY_ROUTE].find((route) => (
     url.pathname === route
     || url.pathname === `${FUNCTION_NAME_PATH}${route}`
     || url.pathname === `${FUNCTION_PATH}${route}`
@@ -203,6 +204,27 @@ async function handleTalentReadonlyRequest(request, dependencies) {
       })
     }), origin);
   }
+  if (matchedRoute === WORKFORCE_SUMMARY_ROUTE) {
+    let workforce = null;
+    try {
+      workforce = await dependencies.readWorkforceSummary(capability);
+    } catch {
+      workforce = null;
+    }
+    if (!workforce) {
+      return safeFailure(503, "NOT_READY", "Workforce summary is not ready.", origin, requestId);
+    }
+    return jsonResponse(200, Object.freeze({
+      ok: true,
+      data: workforce,
+      meta: Object.freeze({
+        generatedAt: dependencies.nowIso(),
+        requestId,
+        source: "nov-talent-readonly-api",
+        version: "2"
+      })
+    }), origin);
+  }
   const fiscalYear = normalizeFiscalYear(url.searchParams.get("fiscalYear"));
   if (!fiscalYear) {
     return safeFailure(400, "INVALID_REQUEST", "Request parameters are invalid.", origin, requestId);
@@ -230,7 +252,7 @@ var TALENT_READONLY_HTTP_CONTRACT = Object.freeze({
     "GET",
     "OPTIONS"
   ]),
-  routes: Object.freeze([SUMMARY_ROUTE, WORKSPACE_ROUTE, PROFILE_AUDIT_ROUTE, STAGING_SUPPLEMENT_AUDIT_ROUTE])
+  routes: Object.freeze([SUMMARY_ROUTE, WORKSPACE_ROUTE, PROFILE_AUDIT_ROUTE, STAGING_SUPPLEMENT_AUDIT_ROUTE, WORKFORCE_SUMMARY_ROUTE])
 });
 
 // supabase/functions/nov-talent-readonly-api-v2/session-verifier.ts
@@ -387,6 +409,7 @@ var AGGREGATE_RPC_NAME = "get_nov_talent_dashboard_summary_v1";
 var WORKSPACE_RPC_NAME = "get_nov_talent_staging_workspace_v2";
 var PROFILE_AUDIT_RPC_NAME = "get_nov_talent_student_profile_audit_v1";
 var STAGING_SUPPLEMENT_AUDIT_RPC_NAME = "get_nov_talent_staging_supplement_audit_v1";
+var WORKFORCE_SUMMARY_RPC_NAME = "get_nov_talent_workforce_summary_v1";
 var PROFILE_CHANGE_FIELDS = new Set([
   "displayName", "kana", "school", "phone", "email", "preferredStore",
   "currentStatus", "nextActionAt", "offerDate", "expectedJoinDate", "plannedStore"
@@ -493,6 +516,34 @@ function createTalentRuntimeDependencies(input) {
       }
       return Object.freeze({ stagingRecordId, entries: Object.freeze(entries) });
     },
+    async readWorkforceSummary(capability) {
+      if (!isVerifiedTalentSessionCapability(capability)) return null;
+      const raw = await input.executeWorkforceSummaryRpc({
+        name: WORKFORCE_SUMMARY_RPC_NAME,
+        employeeId: capability.employeeId
+      });
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+      const activeEmployeeCount = Number(raw.active_employee_count);
+      const onboardingCount = Number(raw.onboarding_count);
+      const leaveCount = Number(raw.leave_count);
+      const retirementCount = Number(raw.retirement_count);
+      const transferAvailable = raw.transfer_available === true;
+      const transferCount = raw.transfer_count === null ? null : Number(raw.transfer_count);
+      const asOfDate = String(raw.as_of_date || "");
+      if (![activeEmployeeCount, onboardingCount, leaveCount, retirementCount].every((value) => Number.isInteger(value) && value >= 0)
+        || (transferCount !== null && (!Number.isInteger(transferCount) || transferCount < 0))
+        || !/^\d{4}-\d{2}-\d{2}$/.test(asOfDate)
+        || (transferAvailable && transferCount === null)) return null;
+      return Object.freeze({
+        activeEmployeeCount,
+        onboardingCount,
+        leaveCount,
+        retirementCount,
+        transferAvailable,
+        transferCount,
+        asOfDate
+      });
+    },
     createRequestId: input.createRequestId,
     nowIso: input.nowIso
   });
@@ -514,6 +565,7 @@ var AGGREGATE_RPC_NAME2 = "get_nov_talent_dashboard_summary_v1";
 var WORKSPACE_RPC_NAME2 = "get_nov_talent_staging_workspace_v2";
 var PROFILE_AUDIT_RPC_NAME2 = "get_nov_talent_student_profile_audit_v1";
 var STAGING_SUPPLEMENT_AUDIT_RPC_NAME2 = "get_nov_talent_staging_supplement_audit_v1";
+var WORKFORCE_SUMMARY_RPC_NAME2 = "get_nov_talent_workforce_summary_v1";
 function createTalentRuntimeAdapter(environment, fetchImpl, clock = {
   nowIso: () => (/* @__PURE__ */ new Date()).toISOString(),
   nowSeconds: () => Math.floor(Date.now() / 1e3)
@@ -623,6 +675,28 @@ function createTalentRuntimeAdapter(environment, fetchImpl, clock = {
         return null;
       }
     },
+    async executeWorkforceSummaryRpc(input) {
+      if (input.name !== WORKFORCE_SUMMARY_RPC_NAME2) return null;
+      const baseUrl = (environment.get(SUPABASE_URL_NAME) || "").replace(/\/+$/, "");
+      const serviceKey = environment.get(SUPABASE_SERVICE_ROLE_KEY_NAME) || "";
+      if (!baseUrl || !serviceKey) return null;
+      try {
+        const response = await fetchImpl(`${baseUrl}/rest/v1/rpc/${WORKFORCE_SUMMARY_RPC_NAME2}`, {
+          method: "POST",
+          headers: {
+            apikey: serviceKey,
+            authorization: `Bearer ${serviceKey}`,
+            "content-type": "application/json"
+          },
+          body: JSON.stringify({ p_employee_id: input.employeeId })
+        });
+        if (!response.ok) return null;
+        const value = await response.json();
+        return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+      } catch {
+        return null;
+      }
+    },
     createRequestId: () => crypto.randomUUID(),
     nowIso: clock.nowIso,
     nowSeconds: clock.nowSeconds
@@ -635,6 +709,7 @@ var TALENT_RUNTIME_ADAPTER_CONTRACT = Object.freeze({
   workspaceRpcName: WORKSPACE_RPC_NAME2,
   profileAuditRpcName: PROFILE_AUDIT_RPC_NAME2,
   stagingSupplementAuditRpcName: STAGING_SUPPLEMENT_AUDIT_RPC_NAME2,
+  workforceSummaryRpcName: WORKFORCE_SUMMARY_RPC_NAME2,
   aggregateRpcRequestMax: 1,
   retryCount: 0,
   rawSecretOutput: false,

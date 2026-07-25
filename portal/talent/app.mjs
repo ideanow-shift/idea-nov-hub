@@ -3,6 +3,7 @@ import {
   buildDashboardSummaryViewModel,
   createDashboardSummaryExact1Executor,
   createTalentWorkspaceExact1Executor,
+  createTalentWorkforceSummaryExact1Executor,
   createTalentStudentProfileAuditExact1Executor,
   createTalentStagingSupplementAuditExact1Executor
 } from "./exact1.mjs?v=20260725-profile-audit-2";
@@ -11,7 +12,7 @@ import { createTalentHistoricalReviewController } from "./review.mjs?v=20260725-
 import { buildTalentAnalytics } from "./analytics.mjs?v=20260725-talent-analytics-1";
 import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-review-kpis-1";
 import { createTalentStagingSupplementController } from "./staging-supplement.mjs?v=20260725-staging-edit-1";
-import { buildWorkforceReadinessViewModel, renderWorkforceReadiness } from "./workforce-readiness.mjs?v=20260725-workforce-readiness-1";
+import { buildWorkforceReadinessViewModel, renderWorkforceReadiness } from "./workforce-readiness.mjs?v=20260725-workforce-summary-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -27,6 +28,7 @@ let activeHistoricalReviewStudent = null;
 let profileDialogStudent = null;
 let auditDialogStudent = null;
 let pendingSelectedApplicationNo = null;
+let workforceSummaryConsumed = false;
 
 const PRIMARY_TABS = Object.freeze(["recruitment", "workforce"]);
 const RECRUITMENT_TABS = Object.freeze(["summary", "students", "fairs", "schools"]);
@@ -200,6 +202,9 @@ export function initializeTalentNavigation({
       if (key === "workforce" && activeSummaryController) {
         invalidateTalentDashboardSummaryRun({ documentObject });
       }
+      if (key === "workforce") {
+        loadTalentWorkforceSummary({ globalObject, documentObject });
+      }
     }
   });
   bindTabGroup({
@@ -220,11 +225,44 @@ export function initializeTalentNavigation({
 
   const initialPrimary = normalizeHash(globalObject?.location?.hash);
   if (initialPrimary) selectTab(primaryButtons, initialPrimary, (key) => documentObject.getElementById(`panel-${key}`), false);
+  if (initialPrimary === "workforce") {
+    loadTalentWorkforceSummary({ globalObject, documentObject });
+  }
   return Object.freeze({
     initialized: primaryButtons.length === 2,
     primaryTabCount: primaryButtons.length,
     workforceTabCount: workforceButtons.length
   });
+}
+
+export async function loadTalentWorkforceSummary({
+  globalObject = globalThis,
+  documentObject = globalObject.document,
+  fetchImpl = globalObject.fetch
+} = {}) {
+  if (workforceSummaryConsumed) {
+    return Object.freeze({ executed: false, duplicatePrevented: true });
+  }
+  workforceSummaryConsumed = true;
+  const executor = createTalentWorkforceSummaryExact1Executor({
+    globalObject,
+    hubSessionHelper: globalObject.NovHubSession,
+    hubContract: globalObject.NOV_HUB_SESSION_CONTRACT || NOV_HUB_SESSION_CONTRACT,
+    fetchImpl
+  });
+  const result = executor ? await executor.run() : null;
+  if (result?.okBoolean === true && result.data) {
+    renderWorkforceReadiness(documentObject, buildWorkforceReadinessViewModel({
+      source: "CORE_DB",
+      mode: "READ_ONLY",
+      status: "CONNECTED",
+      summary: result.data
+    }));
+    return Object.freeze({ executed: true, connected: true, requestCount: result.requestCount, rawValuesReturned: false });
+  }
+  renderWorkforceReadiness(documentObject, buildWorkforceReadinessViewModel());
+  documentObject?.getElementById?.("workforce-status")?.setAttribute?.("data-safe-category", String(result?.stopCategory || "api_error"));
+  return Object.freeze({ executed: Boolean(result?.executed), connected: false, requestCount: Number(result?.requestCount || 0), rawValuesReturned: false });
 }
 
 export function initializeTalentStudentWorkspace({

@@ -444,15 +444,32 @@ function buildHistoricalReviewProposal(data) {
   });
 }
 
+export function buildMatchOnlyReviewProposal(data) {
+  if (!data?.students) return Object.freeze({ primaryRecordIds: [], linkPairs: Object.freeze([]) });
+  return Object.freeze({
+    primaryRecordIds: Object.freeze([]),
+    linkPairs: Object.freeze(data.students
+      .filter((student) => (
+        student.mappingStatus === "UNMAPPED"
+        && student.suggestionCategory === "EXACT1"
+        && student.suggestedTargetRecordId
+      ))
+      .map((student) => Object.freeze({
+        sourceRecordId: student.recordId,
+        targetRecordId: student.suggestedTargetRecordId
+      })))
+  });
+}
+
 function renderHistoricalReviewSummary(documentObject, overview) {
   setText(documentObject, "review-primary-count", overview.primaryCandidates);
   setText(documentObject, "review-link-count", overview.exactLinkSuggestions);
   setText(documentObject, "review-manual-count", overview.remainingManual);
   const button = documentObject.getElementById("student-review-open");
   if (button) {
-    const pending = overview.primaryCandidates + overview.exactLinkSuggestions;
+    const pending = overview.exactLinkSuggestions;
     button.disabled = pending === 0;
-    button.textContent = pending === 0 ? "一括確認済み" : "確認候補を一括反映";
+    button.textContent = pending === 0 ? "一致反映済み" : "名簿一致だけを一括反映";
   }
 }
 
@@ -487,13 +504,13 @@ function renderBulkTriageSummary(documentObject, students) {
 
 function openHistoricalReviewDialog({ globalObject, documentObject }) {
   if (!studentWorkspaceData) return;
-  const proposal = buildHistoricalReviewProposal(studentWorkspaceData);
-  if (proposal.primaryRecordIds.length + proposal.linkPairs.length === 0) return;
+  const proposal = buildMatchOnlyReviewProposal(studentWorkspaceData);
+  if (proposal.linkPairs.length === 0) return;
   activeHistoricalReviewProposal = proposal;
   activeHistoricalReviewStudent = null;
   setManualReviewTargetOptions(documentObject, []);
-  setText(documentObject, "review-dialog-title", "確認候補を一括反映しますか");
-  setText(documentObject, "review-confirm-primary", proposal.primaryRecordIds.length);
+  setText(documentObject, "review-dialog-title", "既存名簿との一致だけを反映しますか");
+  setText(documentObject, "review-confirm-primary", 0);
   setText(documentObject, "review-confirm-links", proposal.linkPairs.length);
   setText(documentObject, "review-confirm-remaining", studentWorkspaceData.overview.remainingManual);
   historicalReviewController = createTalentHistoricalReviewController({ globalObject });

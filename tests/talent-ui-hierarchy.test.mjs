@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildSingleStudentReviewProposal, isNewApplicantCandidate } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildSingleStudentReviewProposal, isNewApplicantCandidate } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -55,7 +55,7 @@ test("student detail exposes an individual confirmation action without replacing
   assert.match(app, /student\.suggestionCategory === "EXACT1"/);
   assert.match(app, /confirmButton\.disabled = !historicalReviewController\.enabled/);
   assert.match(app, /この候補だけを確認/);
-  assert.match(app, /確認候補を一括反映しますか/);
+  assert.match(app, /既存名簿との一致だけを反映しますか/);
   assert.match(html, /id="student-review-target"/);
   assert.match(app, /ENTRIES_27/, "manual mapping is available for entry records");
   assert.match(app, /OFFERS_27/, "manual mapping is available for offer records");
@@ -130,6 +130,19 @@ test("new applicant candidate filtering stays limited to unmapped entry and offe
   assert.equal(isNewApplicantCandidate({ mappingStatus: "UNMAPPED", sourceCode: "OFFERS_27", suggestionCategory: "NONE" }), true);
   assert.equal(isNewApplicantCandidate({ mappingStatus: "OWNER_CONFIRMED", sourceCode: "ENTRIES_27", suggestionCategory: "NONE" }), false);
   assert.equal(isNewApplicantCandidate({ mappingStatus: "UNMAPPED", sourceCode: "CONTACTS_27", suggestionCategory: "NONE" }), false);
+});
+
+test("bulk confirmation proposal contains only exact roster links", () => {
+  const proposal = buildMatchOnlyReviewProposal({ students: [
+    { recordId: "00000000-0000-4000-8000-000000000001", mappingStatus: "UNMAPPED", primaryEligible: true, sourceCode: "CONTACTS_27" },
+    { recordId: "00000000-0000-4000-8000-000000000002", mappingStatus: "UNMAPPED", suggestionCategory: "EXACT1", suggestedTargetRecordId: "00000000-0000-4000-8000-000000000003", sourceCode: "ENTRIES_27" },
+    { recordId: "00000000-0000-4000-8000-000000000004", mappingStatus: "UNMAPPED", suggestionCategory: "NONE", sourceCode: "OFFERS_27" }
+  ] });
+  assert.deepEqual(proposal.primaryRecordIds, []);
+  assert.deepEqual(proposal.linkPairs, [{
+    sourceRecordId: "00000000-0000-4000-8000-000000000002",
+    targetRecordId: "00000000-0000-4000-8000-000000000003"
+  }]);
 });
 
 test("navigation supports keyboard movement and responsive one-column layouts", async () => {

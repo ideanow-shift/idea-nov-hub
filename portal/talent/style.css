@@ -917,6 +917,8 @@ h3 { margin: 0; font-size: 1rem; }
   .student-list-panel { border-right: 0; border-bottom: 1px solid var(--line); }
   .student-list { max-height: 360px; }
   .student-detail-panel { padding: 18px; }
+  .detail-header { display: block; }
+  .detail-actions { justify-content: flex-end; flex-wrap: wrap; margin-top: 12px; }
   .detail-grid { grid-template-columns: 1fr; }
   .detail-grid div:nth-child(even) { padding-left: 0; }
 }

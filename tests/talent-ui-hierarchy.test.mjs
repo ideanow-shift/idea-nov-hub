@@ -45,6 +45,17 @@ test("student editing stays disabled until a canonical application number exists
   assert.match(app, /先に確認候補を反映して応募番号を確定してください/);
 });
 
+test("student detail exposes an individual confirmation action without replacing the bulk flow", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+
+  assert.match(html, /id="student-confirm-open"[^>]*disabled[^>]*aria-disabled="true"/);
+  assert.match(app, /buildSingleStudentReviewProposal/);
+  assert.match(app, /student\.suggestionCategory === "EXACT1"/);
+  assert.match(app, /この候補だけを確認/);
+  assert.match(app, /確認候補を一括反映しますか/);
+});
+
 test("navigation supports keyboard movement and responsive one-column layouts", async () => {
   const app = await readFile(new URL("app.mjs", root), "utf8");
   const css = await readFile(new URL("style.css", root), "utf8");

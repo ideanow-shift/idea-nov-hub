@@ -146,7 +146,7 @@
             <div><dt>一致候補</dt><dd id="review-link-count">-</dd></div>
             <div><dt>個別確認</dt><dd id="review-manual-count">-</dd></div>
           </dl>
-          <button id="student-review-open" type="button" disabled>確認候補を反映</button>
+          <button id="student-review-open" type="button" disabled>確認候補を一括反映</button>
         </section>
 
         <section class="student-toolbar" aria-label="学生一覧の検索と絞り込み">
@@ -212,6 +212,7 @@
                 </div>
                 <div class="detail-actions">
                   <span id="student-detail-state" class="state-badge"></span>
+                  <button id="student-confirm-open" class="secondary-command compact-command" type="button" disabled aria-disabled="true" title="確認候補がありません">この候補を確認</button>
                   <button id="student-edit-open" class="secondary-command compact-command" type="button" disabled aria-disabled="true" title="先に確認候補を反映して応募番号を確定してください">編集</button>
                 </div>
               </header>
@@ -238,7 +239,7 @@
         <form method="dialog">
           <header>
             <p class="section-kicker">OWNER CONFIRMATION</p>
-            <h2 id="review-dialog-title">確認候補を一括反映しますか</h2>
+            <h2 id="review-dialog-title">確認候補を反映しますか</h2>
           </header>
           <p>この操作は、表示中の個人値を変更せず、応募者の作成と一致候補の紐付けだけを単一トランザクションで行います。</p>
           <dl>

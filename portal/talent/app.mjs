@@ -19,6 +19,7 @@ let studentWorkspaceGeneration = 0;
 let activeStudentWorkspaceController = null;
 let selectedStudentRecordId = null;
 let historicalReviewController = null;
+let activeHistoricalReviewProposal = null;
 let profileDialogStudent = null;
 let pendingSelectedApplicationNo = null;
 
@@ -246,6 +247,10 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-review-open")?.addEventListener("click", () => {
     openHistoricalReviewDialog({ globalObject, documentObject });
   });
+  documentObject.getElementById("student-confirm-open")?.addEventListener("click", () => {
+    const student = studentWorkspaceData?.students.find((row) => row.recordId === selectedStudentRecordId);
+    openSingleStudentReviewDialog({ globalObject, documentObject, student });
+  });
   documentObject.getElementById("student-review-cancel")?.addEventListener("click", () => {
     documentObject.getElementById("student-review-dialog")?.close?.();
   });
@@ -408,7 +413,7 @@ function renderHistoricalReviewSummary(documentObject, overview) {
   if (button) {
     const pending = overview.primaryCandidates + overview.exactLinkSuggestions;
     button.disabled = pending === 0;
-    button.textContent = pending === 0 ? "一括確認済み" : "確認候補を反映";
+    button.textContent = pending === 0 ? "一括確認済み" : "確認候補を一括反映";
   }
 }
 
@@ -416,6 +421,8 @@ function openHistoricalReviewDialog({ globalObject, documentObject }) {
   if (!studentWorkspaceData) return;
   const proposal = buildHistoricalReviewProposal(studentWorkspaceData);
   if (proposal.primaryRecordIds.length + proposal.linkPairs.length === 0) return;
+  activeHistoricalReviewProposal = proposal;
+  setText(documentObject, "review-dialog-title", "確認候補を一括反映しますか");
   setText(documentObject, "review-confirm-primary", proposal.primaryRecordIds.length);
   setText(documentObject, "review-confirm-links", proposal.linkPairs.length);
   setText(documentObject, "review-confirm-remaining", studentWorkspaceData.overview.remainingManual);
@@ -423,10 +430,38 @@ function openHistoricalReviewDialog({ globalObject, documentObject }) {
   documentObject.getElementById("student-review-dialog")?.showModal?.();
 }
 
+function openSingleStudentReviewDialog({ globalObject, documentObject, student }) {
+  const proposal = buildSingleStudentReviewProposal(student);
+  if (!proposal) return;
+  activeHistoricalReviewProposal = proposal;
+  setText(documentObject, "review-dialog-title", "この候補を確認しますか");
+  setText(documentObject, "review-confirm-primary", proposal.primaryRecordIds.length);
+  setText(documentObject, "review-confirm-links", proposal.linkPairs.length);
+  setText(documentObject, "review-confirm-remaining", 0);
+  setText(documentObject, "student-review-status", "対象者を確認してから実行してください");
+  historicalReviewController = createTalentHistoricalReviewController({ globalObject });
+  documentObject.getElementById("student-review-dialog")?.showModal?.();
+}
+
+function buildSingleStudentReviewProposal(student) {
+  if (!student || student.mappingStatus !== "UNMAPPED") return null;
+  if (student.primaryEligible) {
+    return Object.freeze({ primaryRecordIds: Object.freeze([student.recordId]), linkPairs: Object.freeze([]) });
+  }
+  if (student.suggestionCategory !== "EXACT1" || !student.suggestedTargetRecordId) return null;
+  return Object.freeze({
+    primaryRecordIds: Object.freeze([]),
+    linkPairs: Object.freeze([Object.freeze({
+      sourceRecordId: student.recordId,
+      targetRecordId: student.suggestedTargetRecordId
+    })])
+  });
+}
+
 async function applyHistoricalReview({ globalObject, documentObject }) {
   const confirmButton = documentObject.getElementById("student-review-confirm");
   const status = documentObject.getElementById("student-review-status");
-  const proposal = buildHistoricalReviewProposal(studentWorkspaceData);
+  const proposal = activeHistoricalReviewProposal || buildHistoricalReviewProposal(studentWorkspaceData);
   if (!historicalReviewController?.enabled || !confirmButton) {
     if (status) status.textContent = "確定機能を利用できません";
     return;
@@ -449,6 +484,7 @@ async function applyHistoricalReview({ globalObject, documentObject }) {
   documentObject.getElementById("student-review-dialog")?.close?.();
   studentWorkspaceData = null;
   historicalReviewController = null;
+  activeHistoricalReviewProposal = null;
   await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
 }
 
@@ -632,6 +668,12 @@ function renderStudentDetail(documentObject, student) {
       editButton.setAttribute("aria-disabled", "true");
       editButton.title = "学生を選択してください";
     }
+    const confirmButton = documentObject.getElementById("student-confirm-open");
+    if (confirmButton) {
+      confirmButton.disabled = true;
+      confirmButton.setAttribute("aria-disabled", "true");
+      confirmButton.title = "確認候補がありません";
+    }
     return;
   }
   if (placeholder) placeholder.hidden = true;
@@ -650,6 +692,15 @@ function renderStudentDetail(documentObject, student) {
     editButton.title = student.applicationNo
       ? "正本プロフィールを編集"
       : "先に確認候補を反映して応募番号を確定してください";
+  }
+  const confirmButton = documentObject.getElementById("student-confirm-open");
+  if (confirmButton) {
+    const confirmable = student.mappingStatus === "UNMAPPED"
+      && (student.primaryEligible
+        || (student.suggestionCategory === "EXACT1" && Boolean(student.suggestedTargetRecordId)));
+    confirmButton.disabled = !confirmable;
+    confirmButton.setAttribute("aria-disabled", String(!confirmable));
+    confirmButton.title = confirmable ? "この候補だけを確認" : "このデータは個別確認の対象外です";
   }
   setText(documentObject, "student-detail-school", student.school || "未登録");
   setText(documentObject, "student-detail-status", student.status || "未登録");

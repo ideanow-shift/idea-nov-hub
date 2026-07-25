@@ -34,7 +34,7 @@ Deno.test('historical review accepts bounded exact proposals and fixed safe resu
  check(sanitizeHistoricalReviewResult([{...safe[0],canonicalEventCreated:true}])===null);
 });
 Deno.test('student profile accepts exact bounded fields and safe version result',()=>{
- const payload={applicationNo:null,expectedVersion:0,displayName:'表示 氏名',kana:'ヒョウジ シメイ',school:'表示学校',phone:null,email:'owner@example.test',preferredStore:null,currentStatus:'CONTACT',nextActionAt:'2026-08-01'};
+ const payload={applicationNo:null,expectedVersion:0,displayName:'表示 氏名',kana:'ヒョウジ シメイ',school:'表示学校',phone:null,email:'owner@example.test',preferredStore:null,currentStatus:'CONTACT',nextActionAt:'2026-08-01',offerDate:null,expectedJoinDate:null,plannedStore:null};
  check(parseStudentProfile(payload));check(parseStudentProfile({...payload,extra:true})===null);
  check(parseStudentProfile({...payload,email:'invalid'})===null);
  const result=sanitizeStudentProfileResult([{application_no:'NT-2027-000001',profile_version:1,operation:'CREATE'}]);
@@ -104,17 +104,17 @@ Deno.test('runtime binds canonical env names and exact RPC allowlist only',async
  let rejected=false;try{await runtime.rpc({} as never,'activate_nov_talent_prospective_v1',{});}catch{rejected=true;}check(rejected&&calls===1);
  check(WRITE_RUNTIME_CONTRACT.secretName==='HUB_APP_SESSION_SIGNING_SECRET');check(WRITE_RUNTIME_CONTRACT.role==='talent_admin');check(WRITE_RUNTIME_CONTRACT.retry===0);
  check(WRITE_RUNTIME_CONTRACT.rpcAllowlist.includes('apply_nov_talent_historical_review_v1'));
- check(WRITE_RUNTIME_CONTRACT.rpcAllowlist.includes('save_nov_talent_student_profile_v1'));
+ check(WRITE_RUNTIME_CONTRACT.rpcAllowlist.includes('save_nov_talent_student_profile_v2'));
 });
 Deno.test('student profile route invokes only the canonical profile RPC',async()=>{
  let rpcName='',rpcArgs:Record<string,unknown>|null=null;
  const response=await handleTalentWrite(new Request('https://local/functions/v1/nov-talent-write-api/api/talent/v1/students/profile',{
   method:'POST',headers:{origin:'https://ideanow-shift.github.io',authorization:'Bearer a.a.a','content-type':'application/json'},
-  body:JSON.stringify({applicationNo:null,expectedVersion:0,displayName:'表示氏名',kana:null,school:null,phone:null,email:null,preferredStore:null,currentStatus:'CONTACT',nextActionAt:null})
+  body:JSON.stringify({applicationNo:null,expectedVersion:0,displayName:'表示氏名',kana:null,school:null,phone:null,email:null,preferredStore:null,currentStatus:'CONTACT',nextActionAt:null,offerDate:null,expectedJoinDate:null,plannedStore:null})
  }),{authorizer:{authorize:async()=>({actorEmployeeId:'00000000-0000-4000-8000-000000000009'} as never)},rpc:async(_cap,name,args)=>{
   rpcName=name;rpcArgs=args;return[{application_no:'NT-2027-000001',profile_version:1,operation:'CREATE'}];
  }});
- check(response.status===200);check(rpcName==='save_nov_talent_student_profile_v1');
+ check(response.status===200);check(rpcName==='save_nov_talent_student_profile_v2');
  check((rpcArgs as unknown as Record<string,unknown>).p_actor_employee_id==='00000000-0000-4000-8000-000000000009');
  const body=await response.json();check(body.data.profileVersion===1&&body.data.operation==='CREATE');
 });

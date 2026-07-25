@@ -7,6 +7,7 @@ const STATUS_VALUES = Object.freeze([
 const PROFILE_KEYS = Object.freeze([
   "applicationNo", "expectedVersion", "displayName", "kana", "school",
   "phone", "email", "preferredStore", "currentStatus", "nextActionAt",
+  "offerDate", "expectedJoinDate", "plannedStore",
 ]);
 
 function normalizeBaseUrl(value) {
@@ -34,6 +35,8 @@ export function normalizeStudentProfileForm(value) {
   const expectedVersion = Number(value.expectedVersion);
   const email = nullable(value.email, 254);
   const nextActionAt = nullable(value.nextActionAt, 10);
+  const offerDate = nullable(value.offerDate, 10);
+  const expectedJoinDate = nullable(value.expectedJoinDate, 10);
   if (!displayName
     || !(applicationNo === null || APPLICATION_NO.test(applicationNo))
     || !Number.isInteger(expectedVersion)
@@ -42,6 +45,8 @@ export function normalizeStudentProfileForm(value) {
     || !STATUS_VALUES.includes(String(value.currentStatus))
     || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(email))
     || (nextActionAt && !/^\d{4}-\d{2}-\d{2}$/u.test(nextActionAt))) return null;
+  if ((offerDate && !/^\d{4}-\d{2}-\d{2}$/u.test(offerDate))
+    || (expectedJoinDate && !/^\d{4}-\d{2}-\d{2}$/u.test(expectedJoinDate))) return null;
   return Object.freeze({
     applicationNo,
     expectedVersion,
@@ -53,6 +58,9 @@ export function normalizeStudentProfileForm(value) {
     preferredStore: nullable(value.preferredStore, 120),
     currentStatus: String(value.currentStatus),
     nextActionAt,
+    offerDate,
+    expectedJoinDate,
+    plannedStore: nullable(value.plannedStore, 120),
   });
 }
 

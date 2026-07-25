@@ -127,6 +127,13 @@ function mappingMetadata(value: unknown) {
       nextActionAt: /^\d{4}-\d{2}-\d{2}$/u.test(String(record.profile.next_action_at ?? ""))
         ? String(record.profile.next_action_at)
         : null,
+      offerDate: /^\d{4}-\d{2}-\d{2}$/u.test(String(record.profile.offer_date ?? ""))
+        ? String(record.profile.offer_date)
+        : null,
+      expectedJoinDate: /^\d{4}-\d{2}-\d{2}$/u.test(String(record.profile.expected_join_date ?? ""))
+        ? String(record.profile.expected_join_date)
+        : null,
+      plannedStore: boundedText(record.profile.planned_store, 120) || null,
       version: Number(record.profile.version),
     })
     : null;
@@ -248,6 +255,13 @@ function sanitizeManualRow(value: unknown) {
     nextActionAt: /^\d{4}-\d{2}-\d{2}$/u.test(String(value.next_action_at ?? ""))
       ? String(value.next_action_at)
       : null,
+    offerDate: /^\d{4}-\d{2}-\d{2}$/u.test(String(value.offer_date ?? ""))
+      ? String(value.offer_date)
+      : null,
+    expectedJoinDate: /^\d{4}-\d{2}-\d{2}$/u.test(String(value.expected_join_date ?? ""))
+      ? String(value.expected_join_date)
+      : null,
+    plannedStore: boundedText(value.planned_store, 120) || null,
     reasonLabels: Object.freeze([] as string[]),
   });
 }

@@ -39,6 +39,9 @@ const students = Array.from({ length: 12 }, (_, index) => {
     status: index % 3 === 0 ? "連絡確認中" : index % 3 === 1 ? "選考確認中" : "内定情報確認中",
     businessDate: "2026-07-01",
     lineRegistrationDate: sourceCode === "CONTACTS_27" ? "2026-07-01" : null,
+    offerDate: sourceCode === "OFFERS_27" ? "2026-07-15" : null,
+    expectedJoinDate: sourceCode === "OFFERS_27" ? "2028-04-01" : null,
+    plannedStore: sourceCode === "OFFERS_27" ? "北口店" : null,
     legacyNoPresent: false,
     primaryEligible: sourceCode === "CONTACTS_27",
     reasonLabels: classification === "QUARANTINE"

@@ -59,6 +59,9 @@ const STUDENT_KEYS = Object.freeze([
   "legacyNoPresent",
   "mappingStatus",
   "nextActionAt",
+  "offerDate",
+  "expectedJoinDate",
+  "plannedStore",
   "phone",
   "preferredStore",
   "primaryEligible",
@@ -276,9 +279,14 @@ function validateStudent(student) {
   }
   const optionalStrings = [
     "applicationNo", "businessDate", "email", "kana", "lineRegistrationDate", "nextActionAt",
+    "offerDate", "expectedJoinDate", "plannedStore",
     "phone", "preferredStore", "school", "statusCode", "suggestedTargetRecordId"
   ];
   if (optionalStrings.some((key) => student[key] !== null && typeof student[key] !== "string")) {
+    throw safeError("invalid_response");
+  }
+  if (["offerDate", "expectedJoinDate"].some((key) => student[key] !== null
+    && !/^\d{4}-\d{2}-\d{2}$/u.test(student[key]))) {
     throw safeError("invalid_response");
   }
   if (!Array.isArray(student.reasonLabels)

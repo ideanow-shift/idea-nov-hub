@@ -328,7 +328,7 @@ function createTalentSummaryProvider(gateway) {
 // supabase/functions/nov-talent-readonly-api-v2/runtime-bindings.ts
 var SIGNING_SECRET_NAME = "HUB_APP_SESSION_SIGNING_SECRET";
 var AGGREGATE_RPC_NAME = "get_nov_talent_dashboard_summary_v1";
-var WORKSPACE_RPC_NAME = "get_nov_talent_staging_workspace_v1";
+var WORKSPACE_RPC_NAME = "get_nov_talent_staging_workspace_v2";
 function createTalentRuntimeDependencies(input) {
   let signingSecret = "";
   try {
@@ -385,7 +385,7 @@ var SIGNING_SECRET_NAME2 = "HUB_APP_SESSION_SIGNING_SECRET";
 var SUPABASE_URL_NAME = "SUPABASE_URL";
 var SUPABASE_SERVICE_ROLE_KEY_NAME = "SUPABASE_SERVICE_ROLE_KEY";
 var AGGREGATE_RPC_NAME2 = "get_nov_talent_dashboard_summary_v1";
-var WORKSPACE_RPC_NAME2 = "get_nov_talent_staging_workspace_v1";
+var WORKSPACE_RPC_NAME2 = "get_nov_talent_staging_workspace_v2";
 function createTalentRuntimeAdapter(environment, fetchImpl, clock = {
   nowIso: () => (/* @__PURE__ */ new Date()).toISOString(),
   nowSeconds: () => Math.floor(Date.now() / 1e3)

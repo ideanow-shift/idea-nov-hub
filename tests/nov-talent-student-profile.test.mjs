@@ -16,6 +16,9 @@ const payload = {
   preferredStore: "",
   currentStatus: "CONTACT",
   nextActionAt: "2026-08-01",
+  offerDate: null,
+  expectedJoinDate: null,
+  plannedStore: null,
 };
 
 test("student profile form normalizes bounded nullable fields", () => {

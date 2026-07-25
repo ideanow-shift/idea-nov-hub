@@ -10,7 +10,7 @@ const ALLOWED_RPCS=new Set([
   'record_nov_talent_funnel_event_audited_v2',
   'invalidate_nov_talent_funnel_event_audited_v2',
   'apply_nov_talent_historical_review_v1',
-  'save_nov_talent_student_profile_v1'
+  'save_nov_talent_student_profile_v2'
 ]);
 const GOVERNANCE_RPC='resolve_nov_talent_admin_governance_v1';
 export interface RuntimeEnv{get(name:string):string|undefined}

@@ -70,7 +70,7 @@ export function sanitizeHistoricalReviewResult(value:unknown){
  });
 }
 
-const profileKeys=['applicationNo','expectedVersion','displayName','kana','school','phone','email','preferredStore','currentStatus','nextActionAt'];
+const profileKeys=['applicationNo','expectedVersion','displayName','kana','school','phone','email','preferredStore','currentStatus','nextActionAt','offerDate','expectedJoinDate','plannedStore'];
 const nullableText=(value:unknown,maximum:number)=>{
  if(value===null||value==='')return null;
  if(typeof value!=='string')return undefined;
@@ -87,15 +87,15 @@ export function parseStudentProfile(value:unknown){
  const displayName=v.displayName.normalize('NFKC').trim();
  const kana=nullableText(v.kana,120),school=nullableText(v.school,180),phone=nullableText(v.phone,40);
  const email=nullableText(v.email,254),preferredStore=nullableText(v.preferredStore,120);
- const nextActionAt=nullableText(v.nextActionAt,10);
+ const nextActionAt=nullableText(v.nextActionAt,10),offerDate=nullableText(v.offerDate,10),expectedJoinDate=nullableText(v.expectedJoinDate,10),plannedStore=nullableText(v.plannedStore,120);
  if(!displayName||displayName.length>120||[kana,school,phone,email,preferredStore,nextActionAt].includes(undefined)
   ||(typeof email==='string'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-  ||(typeof nextActionAt==='string'&&!/^\d{4}-\d{2}-\d{2}$/.test(nextActionAt))
+  ||[nextActionAt,offerDate,expectedJoinDate].some(value=>typeof value==='string'&&!/^\d{4}-\d{2}-\d{2}$/.test(value))
   ||!profileStatuses.includes(String(v.currentStatus)))return null;
  return Object.freeze({
   applicationNo:v.applicationNo===null?null:String(v.applicationNo),
   expectedVersion:Number(v.expectedVersion),displayName,kana,school,phone,email,preferredStore,
-  currentStatus:String(v.currentStatus),nextActionAt
+  currentStatus:String(v.currentStatus),nextActionAt,offerDate,expectedJoinDate,plannedStore
  });
 }
 

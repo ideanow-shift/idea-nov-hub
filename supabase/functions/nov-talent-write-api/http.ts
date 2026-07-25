@@ -30,10 +30,11 @@ export async function handleTalentWrite(req:Request,deps:Deps){const origin=req.
    p_primary_record_ids:v.primaryRecordIds,p_link_pairs:v.linkPairs,p_reviewer_employee_id:cap.actorEmployeeId
   }));return result?out(200,{ok:true,data:result},origin):fail(503,'not_ready',origin);}catch{return fail(503,'not_ready',origin);}}
  if(path===STUDENT_PROFILE){const v=parseStudentProfile(raw);if(!v)return fail(400,'invalid_request',origin);
-  try{const result=sanitizeStudentProfileResult(await deps.rpc(cap,'save_nov_talent_student_profile_v1',{
+  try{const result=sanitizeStudentProfileResult(await deps.rpc(cap,'save_nov_talent_student_profile_v2',{
    p_actor_employee_id:cap.actorEmployeeId,p_application_no:v.applicationNo,p_expected_version:v.expectedVersion,
    p_display_name:v.displayName,p_kana:v.kana,p_school:v.school,p_phone:v.phone,p_email:v.email,
-   p_preferred_store:v.preferredStore,p_current_status:v.currentStatus,p_next_action_at:v.nextActionAt
+   p_preferred_store:v.preferredStore,p_current_status:v.currentStatus,p_next_action_at:v.nextActionAt,
+   p_offer_date:v.offerDate,p_expected_join_date:v.expectedJoinDate,p_planned_store:v.plannedStore
   }));return result?out(200,{ok:true,data:result},origin):fail(503,'not_ready',origin);}catch{return fail(503,'not_ready',origin);}}
  if(path===EVENT){const v=parseWrite(raw);if(!v)return fail(400,'invalid_request',origin);
   try{if(v.mode==='create'){const r=sanitizeCreateResult(await deps.rpc(cap,'create_nov_talent_application_with_event_audited_v2',{p_actor_employee_id:cap.actorEmployeeId,p_metric_key:v.metricKey,p_event_code:v.eventCode,p_event_at:v.eventAt}));

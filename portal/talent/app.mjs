@@ -3,11 +3,11 @@ import {
   buildDashboardSummaryViewModel,
   createDashboardSummaryExact1Executor,
   createTalentWorkspaceExact1Executor
-} from "./exact1.mjs?v=20260725-student-profiles-1";
+} from "./exact1.mjs?v=20260725-offer-fields-1";
 import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260725-owner-review-workspace-1";
 import { createTalentHistoricalReviewController } from "./review.mjs?v=20260725-owner-review-workspace-1";
 import { buildTalentAnalytics } from "./analytics.mjs?v=20260725-talent-analytics-1";
-import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-student-profiles-1";
+import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-offer-fields-1";
 import { buildWorkforceReadinessViewModel, renderWorkforceReadiness } from "./workforce-readiness.mjs?v=20260725-workforce-readiness-1";
 
 let summaryConsumed = false;
@@ -707,6 +707,9 @@ function renderStudentDetail(documentObject, student) {
   setText(documentObject, "student-detail-phone", student.phone || "未登録");
   setText(documentObject, "student-detail-email", student.email || "未登録");
   setText(documentObject, "student-detail-store", student.preferredStore || "未登録");
+  setText(documentObject, "student-detail-offer-date", student.offerDate || "未登録");
+  setText(documentObject, "student-detail-expected-join-date", student.expectedJoinDate || "未登録");
+  setText(documentObject, "student-detail-planned-store", student.plannedStore || "未登録");
   setText(documentObject, "student-detail-application", student.applicationNo || "未確定");
   setText(
     documentObject,
@@ -741,6 +744,9 @@ function openStudentProfileDialog({ documentObject, student }) {
     "profile-phone": student?.phone || "",
     "profile-email": student?.email || "",
     "profile-store": student?.preferredStore || "",
+    "profile-offer-date": student?.offerDate || "",
+    "profile-expected-join-date": student?.expectedJoinDate || "",
+    "profile-planned-store": student?.plannedStore || "",
     "profile-status": student?.statusCode || "CONTACT",
     "profile-next-action": student?.nextActionAt || "",
   };
@@ -784,6 +790,9 @@ async function saveStudentProfile({ globalObject, documentObject }) {
     preferredStore: documentObject.getElementById("profile-store")?.value || "",
     currentStatus: documentObject.getElementById("profile-status")?.value || "CONTACT",
     nextActionAt: documentObject.getElementById("profile-next-action")?.value || "",
+    offerDate: documentObject.getElementById("profile-offer-date")?.value || "",
+    expectedJoinDate: documentObject.getElementById("profile-expected-join-date")?.value || "",
+    plannedStore: documentObject.getElementById("profile-planned-store")?.value || "",
   };
   const result = await controller.save(payload);
   if (saveButton) {

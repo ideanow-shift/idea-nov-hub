@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260725-workforce-readiness-1">
-  <script src="./runtime-config.candidate.js?v=20260725-workforce-readiness-1"></script>
-  <script type="module" src="./app.mjs?v=20260725-workforce-readiness-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260725-offer-fields-1">
+  <script src="./runtime-config.candidate.js?v=20260725-offer-fields-1"></script>
+  <script type="module" src="./app.mjs?v=20260725-offer-fields-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -222,6 +222,9 @@
                 <div><dt>電話番号</dt><dd id="student-detail-phone">-</dd></div>
                 <div><dt>メール</dt><dd id="student-detail-email">-</dd></div>
                 <div><dt>希望店舗</dt><dd id="student-detail-store">-</dd></div>
+                <div><dt>内定日</dt><dd id="student-detail-offer-date">-</dd></div>
+                <div><dt>入社予定日</dt><dd id="student-detail-expected-join-date">-</dd></div>
+                <div><dt>配属予定</dt><dd id="student-detail-planned-store">-</dd></div>
                 <div><dt>基準日</dt><dd id="student-detail-date">-</dd></div>
                 <div><dt>応募番号</dt><dd id="student-detail-application">-</dd></div>
                 <div><dt>紐付け状態</dt><dd id="student-detail-mapping">-</dd></div>
@@ -269,6 +272,9 @@
             <label><span>電話番号</span><input id="profile-phone" name="phone" maxlength="40" inputmode="tel"></label>
             <label><span>メール</span><input id="profile-email" name="email" maxlength="254" type="email"></label>
             <label><span>希望店舗</span><input id="profile-store" name="preferredStore" maxlength="120"></label>
+            <label><span>内定日</span><input id="profile-offer-date" name="offerDate" type="date"></label>
+            <label><span>入社予定日</span><input id="profile-expected-join-date" name="expectedJoinDate" type="date"></label>
+            <label><span>配属予定</span><input id="profile-planned-store" name="plannedStore" maxlength="120"></label>
             <label><span>現在の状態 *</span>
               <select id="profile-status" name="currentStatus" required>
                 <option value="CONTACT">接触</option>

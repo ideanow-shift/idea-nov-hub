@@ -513,16 +513,19 @@ function setManualReviewTargetOptions(documentObject, candidates) {
   const placeholder = documentObject.createElement("option");
   placeholder.value = "";
   placeholder.textContent = "接触データを選択してください";
-  placeholder.disabled = true;
   placeholder.selected = true;
   select.appendChild(placeholder);
   candidates.forEach((candidate) => {
     const option = documentObject.createElement("option");
     option.value = candidate.recordId;
-    option.textContent = [candidate.displayName, candidate.school, candidate.businessDate]
+    const label = [candidate.displayName, candidate.school, candidate.businessDate]
       .filter(Boolean).join("・");
+    option.textContent = label || "接触データ（内容未登録）";
+    option.label = option.textContent;
     select.appendChild(option);
   });
+  select.value = "";
+  select.selectedIndex = 0;
   field.hidden = false;
 }
 

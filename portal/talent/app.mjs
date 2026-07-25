@@ -6,13 +6,13 @@ import {
   createTalentWorkforceSummaryExact1Executor,
   createTalentStudentProfileAuditExact1Executor,
   createTalentStagingSupplementAuditExact1Executor
-} from "./exact1.mjs?v=20260725-profile-audit-2";
+} from "./exact1.mjs?v=20260725-workforce-queues-1";
 import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260725-owner-review-workspace-1";
 import { createTalentHistoricalReviewController } from "./review.mjs?v=20260725-owner-review-workspace-1";
 import { buildTalentAnalytics } from "./analytics.mjs?v=20260725-talent-analytics-1";
 import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-review-kpis-1";
 import { createTalentStagingSupplementController } from "./staging-supplement.mjs?v=20260725-staging-edit-1";
-import { buildWorkforceReadinessViewModel, renderWorkforceReadiness } from "./workforce-readiness.mjs?v=20260725-workforce-summary-1";
+import { buildWorkforceReadinessViewModel, renderWorkforceReadiness } from "./workforce-readiness.mjs?v=20260725-workforce-queues-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;

@@ -41,29 +41,45 @@ const WORKFORCE_ALLOCATION_TEMPLATE_ROWS = Object.freeze([
 const WORKFORCE_ALLOCATION_HEADER = WORKFORCE_ALLOCATION_TEMPLATE_ROWS[0];
 const WORKFORCE_ALLOCATION_STATUSES = Object.freeze([
   "WORKFORCE_ALLOCATION_LOCAL_EVIDENCE",
+  "WORKFORCE_STORE_MASTER_LOCAL_EVIDENCE",
   "WORKFORCE_ALLOCATION_FILE_INVALID",
   "WORKFORCE_ALLOCATION_FORMAT_INVALID",
   "WORKFORCE_ALLOCATION_SCOPE_INCOMPLETE",
 ]);
 const WORKFORCE_ALLOCATION_KINDS = new Set(["STORE", "HQ_OR_SHARED", "UNASSIGNED_REVIEW"]);
+const CURRENT_HUB_STORE_WORKFORCE_HEADER = Object.freeze([
+  "元_所属",
+  "元_主店舗名",
+  "元_部署",
+  "対象件数",
+  "経営管理_店舗",
+  "経営管理_配賦区分",
+  "経営管理_在籍人数区分",
+  "経営管理_稼働人数区分",
+  "経営管理_法人状態",
+  "経営管理_確認ステータス",
+  "備考",
+]);
+const CURRENT_HUB_RESIDENT_KINDS = new Set(["INCLUDE_RESIDENT"]);
+const CURRENT_HUB_WORKING_KINDS = new Set(["INCLUDE_WORKING", "EXCLUDE_NON_WORKING_LEAVE"]);
 
 export const SANITIZED_WORKFORCE_EVIDENCE = Object.freeze({
   category: "LOCAL_VALIDATED_PENDING_PRODUCTION",
   statusLabel: "社員マスタ確認済み・本番反映待ち",
-  summary: "社員マスタを正本として在職・退職・所属部門をローカル集計済みです。退職者月別推移表は退職側の補助証跡として照合対象にします。個人を特定できる項目やセンシティブ項目は表示しません。",
-  sourceLabel: "社員マスタ + 退職者月別推移表",
+  summary: "現行HUB社員マスタを正本候補として店舗スタッフ人数をローカル集計済みです。産休・育休等は在籍に含め、稼働には含めません。個人を特定できる項目やセンシティブ項目は表示しません。",
+  sourceLabel: "現行HUB社員マスタ",
   productionEvidence: "PENDING",
   aggregateValuesVisible: true,
   relatedActionsEnabled: false,
   facts: Object.freeze([
-    Object.freeze({ label: "社員マスタ行", value: "431件" }),
-    Object.freeze({ label: "在職", value: "190名" }),
-    Object.freeze({ label: "退職/退職日あり", value: "241名" }),
-    Object.freeze({ label: "所属部門", value: "22区分" }),
-    Object.freeze({ label: "所属なし在職", value: "29名" }),
-    Object.freeze({ label: "法人配賦", value: "未収録" }),
-    Object.freeze({ label: "店舗配賦", value: "未収録" }),
-    Object.freeze({ label: "退職補助証跡", value: "5シート" }),
+    Object.freeze({ label: "社員マスタ行", value: "190件" }),
+    Object.freeze({ label: "在籍候補", value: "190名" }),
+    Object.freeze({ label: "稼働候補", value: "189名" }),
+    Object.freeze({ label: "稼働除外在籍", value: "1名" }),
+    Object.freeze({ label: "現職所属未定", value: "0名" }),
+    Object.freeze({ label: "店舗集計候補", value: "32区分" }),
+    Object.freeze({ label: "法人配賦", value: "別マスタ待ち" }),
+    Object.freeze({ label: "本部共通", value: "分離表示" }),
     Object.freeze({ label: "本番反映", value: "disabled" }),
   ]),
 });
@@ -111,8 +127,8 @@ export function canDisplayWorkforceAggregates(model = SANITIZED_WORKFORCE_EVIDEN
 export function localWorkforceAggregateMetric(model = SANITIZED_WORKFORCE_EVIDENCE) {
   if (!validateWorkforceEvidenceModel(model) || model.category !== "LOCAL_VALIDATED_PENDING_PRODUCTION") return null;
   if (model.aggregateValuesVisible !== true) return null;
-  const activeFact = model.facts[1];
-  return activeFact?.value ? `社員マスタ ${activeFact.value}` : null;
+  const workingFact = model.facts[2];
+  return workingFact?.value ? `社員マスタ ${workingFact.value}` : null;
 }
 
 function csvCell(value) {
@@ -171,6 +187,9 @@ export function validateWorkforceAllocationCsv(text) {
     return { status: "WORKFORCE_ALLOCATION_FORMAT_INVALID", departmentCount: 0, storeMappedCount: 0, unassignedReviewCount: 0 };
   }
   const [header, ...body] = rows;
+  if (header.length === CURRENT_HUB_STORE_WORKFORCE_HEADER.length && header.every((value, index) => value === CURRENT_HUB_STORE_WORKFORCE_HEADER[index])) {
+    return validateCurrentHubStoreWorkforceRows(body);
+  }
   if (header.length !== WORKFORCE_ALLOCATION_HEADER.length || !header.every((value, index) => value === WORKFORCE_ALLOCATION_HEADER[index])) {
     return { status: "WORKFORCE_ALLOCATION_FORMAT_INVALID", departmentCount: 0, storeMappedCount: 0, unassignedReviewCount: 0 };
   }
@@ -198,6 +217,71 @@ export function validateWorkforceAllocationCsv(text) {
     departmentCount: seen.size,
     storeMappedCount,
     unassignedReviewCount,
+  };
+}
+
+function safeIntegerText(value) {
+  return /^(?:0|[1-9]\d{0,4})$/u.test(value);
+}
+
+function validateCurrentHubStoreWorkforceRows(body) {
+  const seen = new Set();
+  let storeMappedCount = 0;
+  let unassignedReviewCount = 0;
+  let residentCount = 0;
+  let workingCount = 0;
+  let nonWorkingResidentCount = 0;
+  for (const row of body) {
+    if (row.length !== CURRENT_HUB_STORE_WORKFORCE_HEADER.length) {
+      return { status: "WORKFORCE_ALLOCATION_FORMAT_INVALID", departmentCount: 0, storeMappedCount: 0, unassignedReviewCount: 0 };
+    }
+    const [
+      sourceAffiliation,
+      sourcePrimaryStore,
+      sourceDepartment,
+      rawCount,
+      managementStore,
+      kind,
+      residentKind,
+      workingKind,
+      corporationStatus,
+      reviewStatus,
+    ] = row.map((value) => String(value || "").trim());
+    const key = `${sourceAffiliation}\u001f${sourcePrimaryStore}\u001f${sourceDepartment}\u001f${residentKind}\u001f${workingKind}`;
+    if (
+      !sourceAffiliation
+      || !sourcePrimaryStore
+      || !sourceDepartment
+      || !safeIntegerText(rawCount)
+      || !managementStore
+      || seen.has(key)
+      || !WORKFORCE_ALLOCATION_KINDS.has(kind)
+      || !CURRENT_HUB_RESIDENT_KINDS.has(residentKind)
+      || !CURRENT_HUB_WORKING_KINDS.has(workingKind)
+      || corporationStatus !== "CORPORATION_MAPPING_SEPARATE"
+      || reviewStatus !== "DRAFT_FROM_CURRENT_HUB_EXPORT"
+    ) {
+      return { status: "WORKFORCE_ALLOCATION_FORMAT_INVALID", departmentCount: 0, storeMappedCount: 0, unassignedReviewCount: 0 };
+    }
+    seen.add(key);
+    const count = Number(rawCount);
+    residentCount += count;
+    if (workingKind === "INCLUDE_WORKING") workingCount += count;
+    if (workingKind === "EXCLUDE_NON_WORKING_LEAVE") nonWorkingResidentCount += count;
+    if (kind === "STORE") storeMappedCount += 1;
+    if (kind === "UNASSIGNED_REVIEW") unassignedReviewCount += 1;
+  }
+  if (!seen.size || residentCount !== workingCount + nonWorkingResidentCount) {
+    return { status: "WORKFORCE_ALLOCATION_FORMAT_INVALID", departmentCount: 0, storeMappedCount: 0, unassignedReviewCount: 0 };
+  }
+  return {
+    status: "WORKFORCE_STORE_MASTER_LOCAL_EVIDENCE",
+    departmentCount: seen.size,
+    storeMappedCount,
+    unassignedReviewCount,
+    residentCount,
+    workingCount,
+    nonWorkingResidentCount,
   };
 }
 
@@ -231,6 +315,17 @@ function renderFacts(facts) {
         <div><dt>${escapeHtml(fact.label)}</dt><dd>${escapeHtml(fact.value)}</dd></div>`).join("");
 }
 
+function workforceAllocationReceiptLabel(receipt) {
+  const labels = {
+    WORKFORCE_ALLOCATION_LOCAL_EVIDENCE: `ローカル確認済み: 部門 ${receipt.departmentCount} / 店舗配賦 ${receipt.storeMappedCount} / 要確認 ${receipt.unassignedReviewCount}`,
+    WORKFORCE_STORE_MASTER_LOCAL_EVIDENCE: `社員マスタ確認済み: 在籍 ${receipt.residentCount} / 稼働 ${receipt.workingCount} / 稼働除外 ${receipt.nonWorkingResidentCount}`,
+    WORKFORCE_ALLOCATION_FILE_INVALID: "UTF-8 CSV、64KB以下の配賦CSVを選択してください。",
+    WORKFORCE_ALLOCATION_FORMAT_INVALID: "配賦CSVの列・行・固定categoryが一致しません。",
+    WORKFORCE_ALLOCATION_SCOPE_INCOMPLETE: "法人または店舗の配賦欄が未確定です。",
+  };
+  return labels[receipt?.status] || "配賦CSVを検証できませんでした。";
+}
+
 export function renderWorkforceEvidenceStatus(model = SANITIZED_WORKFORCE_EVIDENCE) {
   const view = validateWorkforceEvidenceModel(model) && HARD_RUNTIME_GATE === false ? model : invalidEvidence();
   const template = view.category === "LOCAL_VALIDATED_PENDING_PRODUCTION" ? workforceAllocationTemplateFile() : null;
@@ -252,7 +347,7 @@ export function renderWorkforceEvidenceStatus(model = SANITIZED_WORKFORCE_EVIDEN
         ${template ? `<a class="workforce-evidence-template" href="${template.href}" download="${escapeHtml(template.fileName)}">部門配賦CSVを保存</a>` : ""}
         ${template ? `<label class="workforce-evidence-template">配賦CSVを確認<input data-workforce-allocation-input type="file" accept=".csv,text/csv" hidden></label>` : ""}
         ${template ? `<span data-workforce-allocation-status>配賦CSVは未確認です。</span>` : ""}
-        <span>社員マスタ正本のローカル集計は確認済みです。本番反映・承認・再計算はdisabledです。</span>
+        <span>現行HUB社員マスタのローカル集計は確認済みです。本番反映・承認・再計算はdisabledです。</span>
       </div>
     </section>`;
 }
@@ -262,9 +357,14 @@ export function mountWorkforceEvidenceStatus(container, model = SANITIZED_WORKFO
   container.innerHTML = renderWorkforceEvidenceStatus(model);
   const input = typeof container.querySelector === "function" ? container.querySelector("[data-workforce-allocation-input]") : null;
   const status = typeof container.querySelector === "function" ? container.querySelector("[data-workforce-allocation-status]") : null;
+  if (status && options.currentReceipt) {
+    container.dataset.workforceAllocationStatus = options.currentReceipt.status;
+    status.textContent = workforceAllocationReceiptLabel(options.currentReceipt);
+  }
   if (input && status) {
     input.addEventListener("change", async (event) => {
-      const file = event.currentTarget?.files?.[0];
+      const target = event.currentTarget;
+      const file = target?.files?.[0];
       let receipt = { status: "WORKFORCE_ALLOCATION_FILE_INVALID", departmentCount: 0, storeMappedCount: 0, unassignedReviewCount: 0 };
       try {
         if (!file || !/\.csv$/iu.test(String(file.name || "")) || Number(file.size) <= 0 || Number(file.size) > 64 * 1024) throw new Error("invalid");
@@ -274,15 +374,11 @@ export function mountWorkforceEvidenceStatus(container, model = SANITIZED_WORKFO
         receipt = { status: "WORKFORCE_ALLOCATION_FILE_INVALID", departmentCount: 0, storeMappedCount: 0, unassignedReviewCount: 0 };
       }
       container.dataset.workforceAllocationStatus = receipt.status;
-      const labels = {
-        WORKFORCE_ALLOCATION_LOCAL_EVIDENCE: `ローカル確認済み: 部門 ${receipt.departmentCount} / 店舗配賦 ${receipt.storeMappedCount} / 要確認 ${receipt.unassignedReviewCount}`,
-        WORKFORCE_ALLOCATION_FILE_INVALID: "UTF-8 CSV、64KB以下の配賦CSVを選択してください。",
-        WORKFORCE_ALLOCATION_FORMAT_INVALID: "配賦CSVの列・行・固定categoryが一致しません。",
-        WORKFORCE_ALLOCATION_SCOPE_INCOMPLETE: "法人または店舗の配賦欄が未確定です。",
-      };
-      status.textContent = labels[receipt.status] || "配賦CSVを検証できませんでした。";
-      if (typeof options.onReceipt === "function") options.onReceipt(receipt.status === "WORKFORCE_ALLOCATION_LOCAL_EVIDENCE" ? receipt : null);
-      event.currentTarget.value = "";
+      status.textContent = workforceAllocationReceiptLabel(receipt);
+      if (typeof options.onReceipt === "function") {
+        options.onReceipt(["WORKFORCE_ALLOCATION_LOCAL_EVIDENCE", "WORKFORCE_STORE_MASTER_LOCAL_EVIDENCE"].includes(receipt.status) ? receipt : null);
+      }
+      if (target) target.value = "";
     });
   }
   return true;

@@ -1,7 +1,7 @@
 import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
-import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=4DD7573F52BD7107";
+import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=78E8383FC83BDEF6";
 import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=326143584102463E";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 
@@ -207,6 +207,7 @@ function renderStores() {
   const localPlMatch = localPlStoreMatchSummary(stores, localPlRowsByStore);
   elements.storeScope.textContent = scopeLabel(data.phase0Scope);
   mountWorkforceEvidenceStatus(elements.workforceEvidence, undefined, {
+    currentReceipt: state.localEvidence.workforceAllocationReceipt,
     onReceipt: (receipt) => {
       state.localEvidence.workforceAllocationReceipt = receipt || null;
       renderStores();
@@ -1226,9 +1227,23 @@ function statusNode(status) { const node = document.createElement("span"); node.
 function statusText(value) { return ({ safe: "安定", warning: "確認", danger: "注意", missing: "データ待ち" })[value] || "確認"; }
 function metricText(value, unit) { return value === null || value === undefined ? "データ待ち" : `${number.format(value)}${unit}`; }
 function workforceMetric(value, unit = "") { return workforceAggregatesVisible && value !== null && value !== undefined && Number.isFinite(Number(value)) ? `${number.format(Number(value))}${unit}` : "算定待ち"; }
-function localWorkforceStaffMetric(value) { return state.localEvidence.workforceAllocationReceipt ? `配賦確認 ${number.format(state.localEvidence.workforceAllocationReceipt.storeMappedCount)}部門` : localWorkforceAggregateMetric() || workforceMetric(value, "人"); }
-function workforceAllocationMetric() { return state.localEvidence.workforceAllocationReceipt ? `ローカル確認 ${number.format(state.localEvidence.workforceAllocationReceipt.departmentCount)}部門` : "CSV待ち"; }
-function localWorkforceStoreStaffText(value) { return state.localEvidence.workforceAllocationReceipt ? "配賦確認済み（人数未投入）" : workforceMetric(value); }
+function localWorkforceStaffMetric(value) {
+  const receipt = state.localEvidence.workforceAllocationReceipt;
+  if (!receipt) return localWorkforceAggregateMetric() || workforceMetric(value, "人");
+  if (receipt.status === "WORKFORCE_STORE_MASTER_LOCAL_EVIDENCE") return `社員マスタ ${number.format(receipt.workingCount)}名`;
+  return `配賦確認 ${number.format(receipt.storeMappedCount)}部門`;
+}
+function workforceAllocationMetric() {
+  const receipt = state.localEvidence.workforceAllocationReceipt;
+  if (!receipt) return "CSV待ち";
+  if (receipt.status === "WORKFORCE_STORE_MASTER_LOCAL_EVIDENCE") return `在籍${number.format(receipt.residentCount)} / 稼働${number.format(receipt.workingCount)}`;
+  return `ローカル確認 ${number.format(receipt.departmentCount)}部門`;
+}
+function localWorkforceStoreStaffText(value) {
+  const receipt = state.localEvidence.workforceAllocationReceipt;
+  if (!receipt) return workforceMetric(value);
+  return receipt.status === "WORKFORCE_STORE_MASTER_LOCAL_EVIDENCE" ? "社員マスタ確認済み" : "配賦確認済み（人数未投入）";
+}
 function aggregateSurvival(rows) { const values = rows.map((row) => Number(row.survivalMonths)).filter(Number.isFinite); return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length * 10) / 10 : null; }
 function scopeLabel(value) { return ({ all_stores: "全店舗", assigned_stores: "担当店舗", own_store: "自店舗" })[value] || "権限確認済み"; }
 function comment(item) { const article = document.createElement("article"); article.className = "expert-comment"; const head = document.createElement("strong"); head.textContent = [item.author, item.organization].filter(Boolean).join(" / "); article.append(head, paragraph(item.body || item.title || "")); return article; }

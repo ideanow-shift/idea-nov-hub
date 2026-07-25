@@ -75,7 +75,10 @@ test("student editing supports canonical profiles and unmapped staging rows", as
   const app = await readFile(new URL("app.mjs", root), "utf8");
 
   assert.match(html, /id="student-edit-open"[^>]*disabled[^>]*aria-disabled="true"/);
+  assert.match(html, /id="student-action-guide"/);
   assert.match(app, /editButton\.disabled = !editable/);
+  assert.match(app, /renderStudentActionGuide/);
+  assert.match(app, /取込原本は保護された状態です/);
   assert.match(app, /student\.mappingStatus === "UNMAPPED"/);
   assert.match(app, /staging補足情報を保存しています/);
   assert.match(app, /createTalentStagingSupplementController/);

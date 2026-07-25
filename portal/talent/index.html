@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-workforce-priority-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-student-action-guide-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-workforce-priority-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-student-action-guide-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -235,6 +235,18 @@
                     <button id="student-edit-open" class="secondary-command compact-command" type="button" disabled aria-disabled="true" title="編集できるデータがありません">編集</button>
                 </div>
               </header>
+              <section id="student-action-guide" class="student-action-guide" aria-live="polite">
+                <div>
+                  <p class="section-kicker">NEXT ACTION</p>
+                  <h4 id="student-action-guide-title">操作できる内容を確認しています</h4>
+                  <p id="student-action-guide-copy"></p>
+                </div>
+                <div class="student-action-guide-states" aria-label="操作の利用可否">
+                  <span id="student-action-edit-state" class="student-action-state"></span>
+                  <span id="student-action-audit-state" class="student-action-state"></span>
+                  <span id="student-action-confirm-state" class="student-action-state"></span>
+                </div>
+              </section>
               <dl class="detail-grid">
                 <div><dt>学校</dt><dd id="student-detail-school">-</dd></div>
                 <div><dt>現在の状態</dt><dd id="student-detail-status">-</dd></div>

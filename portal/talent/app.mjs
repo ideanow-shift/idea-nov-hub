@@ -13,7 +13,7 @@ import { buildTalentAnalytics } from "./analytics.mjs?v=20260725-talent-analytic
 import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-review-kpis-1";
 import { createTalentStagingSupplementController } from "./staging-supplement.mjs?v=20260725-staging-edit-1";
 import { buildWorkforceReadinessViewModel, renderWorkforceReadiness } from "./workforce-readiness.mjs?v=20260725-workforce-queues-1";
-import { initializeWorkforceProcedureDesk } from "./workforce-procedures.mjs?v=20260726-workforce-priority-1";
+import { initializeWorkforceProcedureDesk } from "./workforce-procedures.mjs?v=20260726-student-action-guide-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -931,6 +931,7 @@ function renderStudentDetail(documentObject, student) {
       auditButton.setAttribute("aria-disabled", "true");
       auditButton.title = "学生を選択してください";
     }
+    renderStudentActionGuide(documentObject, null);
     return;
   }
   if (placeholder) placeholder.hidden = true;
@@ -959,11 +960,11 @@ function renderStudentDetail(documentObject, student) {
     auditButton.title = auditable ? "情報の変更履歴を表示" : "編集可能な情報がありません";
   }
   const confirmButton = documentObject.getElementById("student-confirm-open");
+  const confirmable = student.mappingStatus === "UNMAPPED"
+    && (student.primaryEligible
+      || (student.suggestionCategory === "EXACT1" && Boolean(student.suggestedTargetRecordId))
+      || ["ENTRIES_27", "OFFERS_27"].includes(student.sourceCode));
   if (confirmButton) {
-    const confirmable = student.mappingStatus === "UNMAPPED"
-      && (student.primaryEligible
-        || (student.suggestionCategory === "EXACT1" && Boolean(student.suggestedTargetRecordId))
-        || ["ENTRIES_27", "OFFERS_27"].includes(student.sourceCode));
     confirmButton.disabled = !confirmable;
     confirmButton.setAttribute("aria-disabled", String(!confirmable));
     confirmButton.title = confirmable ? "この候補だけを確認" : "このデータは個別確認の対象外です";
@@ -999,6 +1000,51 @@ function renderStudentDetail(documentObject, student) {
       return item;
     }));
   }
+  renderStudentActionGuide(documentObject, {
+    hasCanonicalProfile: Boolean(student.applicationNo),
+    hasSupplement: Boolean(student.supplementVersion),
+    editable: Boolean(student.applicationNo) || (student.mappingStatus === "UNMAPPED" && Boolean(student.recordId)),
+    confirmable,
+    mappingStatus: student.mappingStatus,
+  });
+}
+
+function renderStudentActionGuide(documentObject, capability) {
+  const title = documentObject.getElementById("student-action-guide-title");
+  const copy = documentObject.getElementById("student-action-guide-copy");
+  const edit = documentObject.getElementById("student-action-edit-state");
+  const audit = documentObject.getElementById("student-action-audit-state");
+  const confirm = documentObject.getElementById("student-action-confirm-state");
+  if (!title || !copy || !edit || !audit || !confirm) return;
+  if (!capability) {
+    title.textContent = "学生を選択すると操作を案内します";
+    copy.textContent = "一覧から対象を選ぶと、編集・履歴・確認の可否と理由をここに表示します。";
+    setStudentActionState(edit, "編集: 対象を選択", false);
+    setStudentActionState(audit, "履歴: 対象を選択", false);
+    setStudentActionState(confirm, "確認: 対象を選択", false);
+    return;
+  }
+  if (capability.hasCanonicalProfile) {
+    title.textContent = "正本プロフィールを更新できます";
+    copy.textContent = "編集で最新情報を保存し、変更履歴で更新項目と時刻を確認できます。取込元の原本は変更しません。";
+  } else if (capability.confirmable) {
+    title.textContent = "候補の確認または補足情報の記録ができます";
+    copy.textContent = "確認すると応募者の作成・紐付けだけを反映します。内容を直す場合は編集から補足情報を保存してください。";
+  } else if (capability.editable) {
+    title.textContent = "取込データに補足情報を記録できます";
+    copy.textContent = "編集は取込原本を変えず、総務人事部が入力した補足情報だけを保存します。紐付け確定後は正本側で編集できます。";
+  } else {
+    title.textContent = "取込原本は保護された状態です";
+    copy.textContent = "この行は取込データのため直接編集しません。紐付け後の正本プロフィール、または新規追加した学生情報を編集してください。";
+  }
+  setStudentActionState(edit, capability.editable ? "編集: 利用できます" : "編集: 正本化後に利用", capability.editable);
+  setStudentActionState(audit, capability.hasCanonicalProfile || capability.hasSupplement ? "履歴: 表示できます" : "履歴: 最初の保存後に表示", capability.hasCanonicalProfile || capability.hasSupplement);
+  setStudentActionState(confirm, capability.confirmable ? "候補確認: 利用できます" : capability.mappingStatus === "OWNER_CONFIRMED" ? "候補確認: 済み" : "候補確認: 対象外", capability.confirmable);
+}
+
+function setStudentActionState(element, label, enabled) {
+  element.textContent = label;
+  element.className = `student-action-state ${enabled ? "is-ready" : "is-blocked"}`;
 }
 
 const PROFILE_FIELD_LABELS = Object.freeze({

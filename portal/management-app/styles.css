@@ -368,6 +368,12 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-production-hold-summary p { margin: 0; padding: 8px 10px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); color: var(--text-primary); font-size: 12px; line-height: 1.55; }
 .financial-visible-scope { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px; }
 .financial-visible-scope p { margin: 0; padding: 8px 10px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); color: var(--text-primary); font-size: 12px; line-height: 1.55; }
+.financial-review-checklist { margin: 0 0 12px; padding: 10px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.financial-review-checklist h3 { margin: 0 0 8px; color: var(--text-primary); font-size: 14px; font-weight: 500; }
+.financial-review-checklist ul { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin: 0; padding: 0; list-style: none; }
+.financial-review-checklist li { min-width: 0; padding: 8px; background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.financial-review-checklist .metric-label, .financial-review-checklist span { display: block; overflow-wrap: anywhere; }
+.financial-review-checklist span { margin-top: 3px; color: var(--text-secondary); font-size: 11px; line-height: 1.5; }
 .financial-store-match-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; margin: 12px 0; padding: 10px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
 .financial-store-match-action p { margin: 0; }
 .financial-store-match-action button { grid-column: 2; grid-row: 1 / span 2; }
@@ -425,7 +431,7 @@ tbody tr:hover td { background: var(--card-soft); }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .metric-value { font-size: 24px; }
   .workflow, .method-grid, .production-readiness-grid, .workforce-submission-grid, .financial-intake-controls, .financial-intake-preview, .financial-completion-list, .financial-submission-package-grid, .financial-submission-roadmap-list, .financial-local-preview-metrics { grid-template-columns: 1fr; }
-  .financial-visible-scope, .financial-production-hold-summary { grid-template-columns: 1fr; }
+  .financial-visible-scope, .financial-production-hold-summary, .financial-review-checklist ul { grid-template-columns: 1fr; }
   .financial-store-match-action { grid-template-columns: 1fr; }
   .financial-store-match-action button { grid-column: 1; grid-row: auto; width: 100%; }
   .chart-canvas { min-height: 260px; }

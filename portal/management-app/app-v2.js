@@ -535,6 +535,36 @@ function buildFinancialVisibleScope(preview) {
   return box;
 }
 
+function buildFinancialReviewChecklist(scope, preview) {
+  const box = document.createElement("div");
+  box.className = "financial-review-checklist";
+  box.dataset.financialReviewChecklist = scope;
+  const title = scope === "stores" ? "この画面で確認すること" : "法人管理で確認すること";
+  const statement = preview?.statement === "BS" ? "B/S" : preview?.statement === "BUDGET" ? "予実" : "P/L";
+  const rows = scope === "stores"
+    ? [
+      ["店舗候補", "店舗として見る行だけが残っているか"],
+      ["売上・損益", `${statement}の確認用数値として違和感がないか`],
+      ["未照合", "店舗名対応表が必要な候補は本番対象にしない"],
+      ["本番投入", "disabledのまま。DB保存・承認・再計算はしない"],
+    ]
+    : [
+      ["対象範囲", "法人・部門・店舗候補が混ざっていないか"],
+      ["P/L・B/S", `${statement}の確認用数値として不足や重複がないか`],
+      ["mapping", "経理確認前の科目は本番対象にしない"],
+      ["本番投入", "disabledのまま。DB保存・承認・再計算はしない"],
+    ];
+  const listNode = document.createElement("ul");
+  rows.forEach(([name, detail]) => {
+    const item = document.createElement("li");
+    item.append(label(name), document.createElement("span"));
+    item.querySelector("span").textContent = detail;
+    listNode.append(item);
+  });
+  box.append(heading(title), listNode);
+  return box;
+}
+
 function renderFinancialPreviewOverview() {
   if (!elements.financialPreviewOverview) return;
   const previews = [];
@@ -594,6 +624,7 @@ function buildPlOverviewPreview(preview) {
   card.append(
     heading("ローカルP/Lプレビュー（本番未投入）"),
     buildFinancialLocalReflectionStatus(preview, "法人経営管理"),
+    buildFinancialReviewChecklist("corporate", preview),
     buildFinancialVisibleScope(preview),
     paragraph(duplicateMessage || `${preview.selectedPeriodLabel}を画面確認用に仮反映中。比較範囲 ${preview.comparisonRangeLabel}。店舗候補 ${number.format(preview.entityCandidateCount)}件 / 除外集計 ${number.format(preview.aggregateExcludedSheetCount || 0)}件 / ${mapping}。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
     buildFinancialProductionHoldSummary("PL", preview),
@@ -634,6 +665,7 @@ function buildBsOverviewPreview(preview) {
   card.append(
     heading("ローカルB/Sプレビュー（本番未投入）"),
     buildFinancialLocalReflectionStatus(preview, "法人経営管理"),
+    buildFinancialReviewChecklist("corporate", preview),
     paragraph(duplicateMessage || `${preview.selectedPeriodLabel}の最終月残高だけを表示しています。貸借一致 ${number.format(preview.balancedEntityCount)}/${number.format(preview.entityCandidateCount)}候補、確認待ち ${number.format(preview.balanceReviewRequiredCount || 0)}件。部門・共通などの確認用候補 ${number.format(preview.reviewCandidateCount || 0)}件は本番投入対象に含めません。過年度 ${number.format(preview.historicalPeriodExcludedSheetCount || 0)}シートは合算していません。`),
     buildFinancialProductionHoldSummary("BS", preview),
     previewMetricGrid([
@@ -709,6 +741,7 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
   section.append(
     heading("店舗営業管理へのローカルP/L反映（本番未投入）"),
     buildFinancialLocalReflectionStatus(preview, "店舗営業管理"),
+    buildFinancialReviewChecklist("stores", preview),
     buildFinancialVisibleScope(preview),
     paragraph(duplicateMessage || `${preview.selectedPeriodLabel}の店舗候補だけを仮表示しています。店舗候補 ${number.format(preview.entityCandidateCount || 0)}件 / 除外・要確認 ${number.format(preview.reviewCandidateCount || 0)}件。候補mappingは${preview.mappingConfirmationStatus === "LOCAL_EVIDENCE_RECEIVED" ? "ローカル回答確認済み（本番未承認）" : "経理確認前"}で、DB保存・本番投入・個人情報表示はありません。`),
     wrap

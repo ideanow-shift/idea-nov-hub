@@ -541,8 +541,8 @@ function renderFinancialPreviewOverview() {
   if (state.financialPreviews.PL) previews.push(buildPlOverviewPreview(state.financialPreviews.PL));
   if (state.financialPreviews.BS) previews.push(buildBsOverviewPreview(state.financialPreviews.BS));
   if (state.financialPreviews.BUDGET) previews.push(buildBudgetPreviewCard(state.financialPreviews.BUDGET, "法人経営管理のローカル予実プレビュー"));
-  if (!previews.length) { renderFinancialPreviewEmpty(elements.financialPreviewOverview, "法人経営管理", "P/L・B/S"); return; }
-  elements.financialPreviewOverview.replaceChildren(...previews);
+  if (!previews.length) { renderFinancialPreviewEmpty(elements.financialPreviewOverview, "法人経営管理", "P/L・B/S", "corporate"); return; }
+  elements.financialPreviewOverview.replaceChildren(...previews, buildLocalUseBoundaryPanel("corporate"));
 }
 
 function buildBudgetPreviewCard(preview, titleText = "店舗営業管理のローカル予実プレビュー") {
@@ -684,8 +684,8 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
   if (!elements.financialPreviewStores) return;
   const preview = state.financialPreviews.PL;
   const budgetPreview = state.financialPreviews.BUDGET;
-  if (!preview && budgetPreview) { elements.financialPreviewStores.replaceChildren(buildBudgetPreviewCard(budgetPreview)); return; }
-  if (!preview) { renderFinancialPreviewEmpty(elements.financialPreviewStores, "店舗営業管理"); return; }
+  if (!preview && budgetPreview) { elements.financialPreviewStores.replaceChildren(buildBudgetPreviewCard(budgetPreview), buildLocalUseBoundaryPanel("stores")); return; }
+  if (!preview) { renderFinancialPreviewEmpty(elements.financialPreviewStores, "店舗営業管理", "P/L", "stores"); return; }
   const section = document.createElement("section");
   section.className = "financial-local-preview-card";
   const duplicateMessage = financialDuplicateMessage(preview);
@@ -717,7 +717,7 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
   const comparison = buildPlPeriodComparison(preview, "年度別 店舗候補合計");
   if (comparison) section.append(comparison);
   section.append(buildFinancialMissingDataSummary("店舗営業管理"));
-  elements.financialPreviewStores.replaceChildren(...(budgetPreview ? [section, buildBudgetPreviewCard(budgetPreview)] : [section]));
+  elements.financialPreviewStores.replaceChildren(...(budgetPreview ? [section, buildBudgetPreviewCard(budgetPreview), buildLocalUseBoundaryPanel("stores")] : [section, buildLocalUseBoundaryPanel("stores")]));
 }
 
 function buildFinancialStoreMatchAction(localPlMatch) {
@@ -1178,7 +1178,65 @@ function financialMappingLabel(status) {
   return "mapping確認";
 }
 
-function renderFinancialPreviewEmpty(container, labelText, statementLabel = "P/L") {
+function buildLocalUseBoundaryPanel(scope) {
+  const isStoreScope = scope === "stores";
+  const hasPl = Boolean(state.financialPreviews.PL);
+  const hasBs = Boolean(state.financialPreviews.BS);
+  const hasBudget = Boolean(state.financialPreviews.BUDGET);
+  const hasAnyFinancialPreview = hasPl || hasBs || hasBudget;
+  const panel = document.createElement("section");
+  panel.className = "management-use-boundary";
+  panel.dataset.managementUseBoundary = hasAnyFinancialPreview ? "LOCAL_PREVIEW_AVAILABLE_PRODUCTION_DISABLED" : "LOCAL_SOURCE_PENDING_PRODUCTION_DISABLED";
+  const cards = [
+    {
+      category: hasAnyFinancialPreview ? "LOCAL_PREVIEW_AVAILABLE" : "LOCAL_SOURCE_PENDING",
+      label: isStoreScope ? "店舗営業管理" : "法人経営管理",
+      value: hasAnyFinancialPreview ? "画面確認できます" : "財務データ待ち",
+      detail: hasAnyFinancialPreview ? "選択したExcelはこの端末内で集計し、DB保存せず確認用に表示しています。" : "財務データ取込でP/L・B/S・予実を選択すると、この画面に確認用の数値が表示されます。",
+    },
+    {
+      category: "WORKFORCE_LOCAL_EVIDENCE",
+      label: "人数・組織",
+      value: workforceAggregatesVisible ? "社員マスタ確認済み" : "算定契約確認中",
+      detail: workforceAggregatesVisible ? "社員マスタ由来のaggregateだけを使い、個人情報は表示しません。" : "社員マスタ正本と本番証跡が揃うまで人数指標は無効です。",
+    },
+    {
+      category: "PRODUCTION_IMPORT_DISABLED",
+      label: "本番反映",
+      value: "disabled",
+      detail: "production catalog証跡、provider runtime identity、staging/import契約が揃うまで投入・承認・再計算は無効です。",
+    },
+  ];
+  const body = document.createElement("div");
+  body.className = "management-use-boundary-grid";
+  body.replaceChildren(...cards.map((entry) => {
+    const item = document.createElement("article");
+    item.dataset.managementUseBoundaryItem = entry.category;
+    item.append(label(entry.label), valueNode(entry.value), paragraph(entry.detail));
+    return item;
+  }));
+  const actions = document.createElement("div");
+  actions.className = "management-use-boundary-actions";
+  const dataops = document.createElement("button");
+  dataops.type = "button";
+  dataops.textContent = "データ状況で確認";
+  dataops.addEventListener("click", () => selectView("dataops"));
+  const disabled = document.createElement("button");
+  disabled.type = "button";
+  disabled.textContent = "本番投入 disabled";
+  disabled.disabled = true;
+  disabled.setAttribute("aria-disabled", "true");
+  actions.append(dataops, disabled);
+  panel.append(
+    heading("本番使用までの現在位置"),
+    paragraph("ローカル確認で見える数値と、本番反映で止めている条件を分けて表示しています。"),
+    body,
+    actions
+  );
+  return panel;
+}
+
+function renderFinancialPreviewEmpty(container, labelText, statementLabel = "P/L", scope = "") {
   const section = document.createElement("section");
   section.className = "financial-local-preview-card is-empty";
   const button = document.createElement("button");
@@ -1190,7 +1248,7 @@ function renderFinancialPreviewEmpty(container, labelText, statementLabel = "P/L
     paragraph("弥生Excelを選択すると、この画面に確認用の財務数値が表示されます。ファイル内容は送信されず、本番投入も無効です。"),
     button
   );
-  container.replaceChildren(section);
+  container.replaceChildren(section, buildLocalUseBoundaryPanel(scope));
 }
 
 function previewMetricGrid(entries) {

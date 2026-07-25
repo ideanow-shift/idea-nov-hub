@@ -132,6 +132,9 @@ Deno.test("workspace domain overlays canonical profiles and includes manual stud
           preferred_store: null,
           current_status: "INTERVIEW",
           next_action_at: "2026-07-30",
+          offer_date: "2026-07-15",
+          expected_join_date: "2028-04-01",
+          planned_store: "北口店",
           version: 2,
         },
       },
@@ -157,6 +160,9 @@ Deno.test("workspace domain overlays canonical profiles and includes manual stud
   if (data.students[0].displayName !== "正本氏名"
     || data.students[0].statusCode !== "INTERVIEW"
     || data.students[0].profileVersion !== 2
+    || data.students[0].offerDate !== "2026-07-15"
+    || data.students[0].expectedJoinDate !== "2028-04-01"
+    || data.students[0].plannedStore !== "北口店"
     || data.students[1].sourceCode !== "MANUAL") {
     throw new Error("canonical profile projection mismatch");
   }

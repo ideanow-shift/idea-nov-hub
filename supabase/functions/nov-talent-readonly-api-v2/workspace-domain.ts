@@ -209,6 +209,9 @@ function sanitizeRow(value: unknown, ordinal: number) {
     statusCode: mapping.profile?.currentStatus || null,
     profileVersion: mapping.profile?.version || null,
     nextActionAt: mapping.profile?.nextActionAt || null,
+    offerDate: mapping.profile?.offerDate || null,
+    expectedJoinDate: mapping.profile?.expectedJoinDate || null,
+    plannedStore: mapping.profile?.plannedStore || null,
     businessDate,
     lineRegistrationDate: /^\d{4}-\d{2}-\d{2}$/u.test(
       String(sourcePayload?.lineRegistrationDate ?? ""),

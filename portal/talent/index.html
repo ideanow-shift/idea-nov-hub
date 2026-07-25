@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260725-student-profiles-1">
-  <script src="./runtime-config.candidate.js?v=20260725-student-profiles-1"></script>
-  <script type="module" src="./app.mjs?v=20260725-student-profiles-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260725-workforce-readiness-1">
+  <script src="./runtime-config.candidate.js?v=20260725-workforce-readiness-1"></script>
+  <script type="module" src="./app.mjs?v=20260725-workforce-readiness-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -346,15 +346,21 @@
 
     <section id="panel-workforce" class="primary-panel" role="tabpanel" aria-labelledby="tab-workforce" hidden>
       <div class="section-heading workforce-heading">
-        <div><p class="section-kicker">EMPLOYEE PROCEDURES</p><h2>現職者管理</h2></div>
-        <span class="phase-badge">新Web移行準備中</span>
+        <div><p class="section-kicker">EMPLOYEE PROCEDURES</p><h2>現職者管理</h2><p class="section-lead">入社・異動・休職・退職の案件を、Core DBの正本と照合して確認します。</p></div>
+        <span id="workforce-status" class="phase-badge">Core DB 読み取り待ち</span>
       </div>
 
       <section class="workforce-summary" aria-label="現職者手続きの概要">
-        <article><span>入社手続き</span><strong>-</strong><small>準備中・確認中の案件</small></article>
-        <article><span>異動手続き</span><strong>-</strong><small>配属・所属変更の案件</small></article>
-        <article><span>休職・復職</span><strong>-</strong><small>産休・育休を含む手続き</small></article>
-        <article><span>退職手続き</span><strong>-</strong><small>完了までの確認事項</small></article>
+        <article><span>入社手続き</span><strong id="workforce-count-onboarding">未接続</strong><small>Core DB読取後に案件数を表示</small></article>
+        <article><span>異動手続き</span><strong id="workforce-count-transfer">未接続</strong><small>所属・役職変更の案件</small></article>
+        <article><span>休職・復職</span><strong id="workforce-count-leave">未接続</strong><small>休職開始・復職予定の案件</small></article>
+        <article><span>退職手続き</span><strong id="workforce-count-retirement">未接続</strong><small>完了までの確認事項</small></article>
+      </section>
+
+      <section class="workforce-readiness" aria-label="現職者管理の接続状態">
+        <article><span>正本</span><strong id="workforce-source">Core DB 正本</strong><small>社員・店舗・部署・役職</small></article>
+        <article><span>画面の権限</span><strong id="workforce-mode">読み取り専用</strong><small>この画面から直接変更しません</small></article>
+        <article><span>次の工程</span><strong>案件一覧の接続</strong><small>承認・監査の境界を確認してから実装</small></article>
       </section>
 
       <nav class="secondary-tabs workforce-tabs" role="tablist" aria-label="現職者管理メニュー">
@@ -407,7 +413,7 @@
 
       <aside class="boundary-note">
         <strong>Core DB連携方針</strong>
-        <p>社員・店舗・部署・役職はCore DBを正本とし、この画面から直接マスタを書き換えません。</p>
+        <p>社員・店舗・部署・役職はCore DBを正本とし、この画面から直接マスタを書き換えません。案件一覧は読み取り契約の実装後に表示します。</p>
       </aside>
     </section>
   </main>

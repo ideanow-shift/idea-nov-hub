@@ -8,6 +8,7 @@ import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260725-owner-r
 import { createTalentHistoricalReviewController } from "./review.mjs?v=20260725-owner-review-workspace-1";
 import { buildTalentAnalytics } from "./analytics.mjs?v=20260725-talent-analytics-1";
 import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-student-profiles-1";
+import { buildWorkforceReadinessViewModel, renderWorkforceReadiness } from "./workforce-readiness.mjs?v=20260725-workforce-readiness-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -924,6 +925,7 @@ function safeMessage(category, requestCount = 0) {
 function initializeTalentApp() {
   initializeTalentStudentWorkspace();
   initializeTalentNavigation();
+  renderWorkforceReadiness(globalThis.document, buildWorkforceReadinessViewModel());
   initializeTalentSummaryControl();
   initializeTalentOperatorPanel();
   loadTalentStudentWorkspace();

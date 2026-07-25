@@ -6,6 +6,7 @@ import {
   localWorkforceAggregateMetric,
   validateWorkforceAllocationCsv,
   validateWorkforceEvidenceModel,
+  workforceProductionSubmissionStatus,
 } from "../portal/js/management-workforce-evidence-status.js";
 
 const root = process.cwd();
@@ -52,6 +53,11 @@ assert(validateWorkforceAllocationCsv(wrongResidentKind).status === "WORKFORCE_A
 
 assert(validateWorkforceEvidenceModel(SANITIZED_WORKFORCE_EVIDENCE), "sanitized evidence model should remain exact");
 assert(localWorkforceAggregateMetric() === "社員マスタ 189名", "local aggregate label should use working count");
+const submissionStatus = workforceProductionSubmissionStatus();
+assert(submissionStatus.category === "LOCAL_READY_PRODUCTION_DISABLED", "production submission route should remain disabled");
+assert(submissionStatus.readyForProduction === false, "production submission must fail close");
+assert(submissionStatus.items.length === 4, "production submission checklist should be fixed");
+assert(submissionStatus.items.some((item) => item.category === "BACKEND_STAGING_CONTRACT_MISSING"), "backend staging contract should be explicit");
 
 console.log(JSON.stringify({
   passed: true,
@@ -62,6 +68,8 @@ console.log(JSON.stringify({
   working: sampleReceipt.workingCount,
   nonWorkingResident: sampleReceipt.nonWorkingResidentCount,
   unassignedReview: sampleReceipt.unassignedReviewCount,
+  submissionCategory: submissionStatus.category,
+  submissionItems: submissionStatus.items.length,
   productionMutation: 0,
   personalDataExposure: 0,
 }, null, 2));

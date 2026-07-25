@@ -92,10 +92,14 @@ try {
     const result = await page.evaluate(() => {
       const text = document.body.innerText;
       const enabledActionButtons = [...document.querySelectorAll(".workforce-evidence-status button")].filter((button) => !button.disabled).length;
+      const useBoundary = document.querySelector("[data-management-use-boundary]");
       return {
         statusCategory: document.querySelector("[data-workforce-evidence-category]")?.getAttribute("data-workforce-evidence-category"),
         submissionCategory: document.querySelector("[data-workforce-submission-status]")?.getAttribute("data-workforce-submission-status"),
         submissionCards: document.querySelectorAll("[data-workforce-submission-category]").length,
+        useBoundaryCategory: useBoundary?.getAttribute("data-management-use-boundary"),
+        useBoundaryItems: document.querySelectorAll("[data-management-use-boundary-item]").length,
+        useBoundaryDisabledButtons: [...document.querySelectorAll(".management-use-boundary button")].filter((button) => button.disabled).length,
         receiptCategory: document.querySelector("span[data-workforce-allocation-status]")?.textContent || "",
         storeStaffShown: text.includes("社員マスタ確認済み"),
         aggregateShown: text.includes("社員マスタ 189名"),
@@ -112,6 +116,9 @@ try {
   const failed = results.filter((result) => result.statusCategory !== "LOCAL_VALIDATED_PENDING_PRODUCTION"
     || result.submissionCategory !== "LOCAL_READY_PRODUCTION_DISABLED"
     || result.submissionCards !== 4
+    || result.useBoundaryCategory !== "LOCAL_SOURCE_PENDING_PRODUCTION_DISABLED"
+    || result.useBoundaryItems !== 3
+    || result.useBoundaryDisabledButtons !== 1
     || !result.receiptCategory.includes("在籍 190")
     || !result.storeStaffShown
     || !result.aggregateShown

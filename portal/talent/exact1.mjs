@@ -66,6 +66,7 @@ const STUDENT_KEYS = Object.freeze([
   "preferredStore",
   "primaryEligible",
   "profileVersion",
+  "supplementVersion",
   "reasonLabels",
   "recordId",
   "school",
@@ -382,6 +383,7 @@ function validateStudent(student) {
   if (typeof student.legacyNoPresent !== "boolean"
     || typeof student.primaryEligible !== "boolean"
     || (student.profileVersion !== null && (!Number.isInteger(student.profileVersion) || student.profileVersion < 1))
+    || (student.supplementVersion !== null && (!Number.isInteger(student.supplementVersion) || student.supplementVersion < 1))
     || !["NONE", "EXACT1", "AMBIGUOUS"].includes(student.suggestionCategory)) {
     throw safeError("invalid_response");
   }

@@ -37,13 +37,15 @@ test("workforce management exposes four accessible procedure tabs", async () => 
   assert.match(app, /data-workforce-tab/);
 });
 
-test("student editing stays disabled until a canonical application number exists", async () => {
+test("student editing supports canonical profiles and unmapped staging rows", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
   const app = await readFile(new URL("app.mjs", root), "utf8");
 
   assert.match(html, /id="student-edit-open"[^>]*disabled[^>]*aria-disabled="true"/);
   assert.match(app, /editButton\.disabled = !editable/);
-  assert.match(app, /先に確認候補を反映して応募番号を確定してください/);
+  assert.match(app, /student\.mappingStatus === "UNMAPPED"/);
+  assert.match(app, /staging補足情報を保存しています/);
+  assert.match(app, /createTalentStagingSupplementController/);
 });
 
 test("student detail exposes an individual confirmation action without replacing the bulk flow", async () => {

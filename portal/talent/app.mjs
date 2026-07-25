@@ -9,6 +9,7 @@ import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260725-owner-r
 import { createTalentHistoricalReviewController } from "./review.mjs?v=20260725-owner-review-workspace-1";
 import { buildTalentAnalytics } from "./analytics.mjs?v=20260725-talent-analytics-1";
 import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-review-kpis-1";
+import { createTalentStagingSupplementController } from "./staging-supplement.mjs?v=20260725-staging-edit-1";
 import { buildWorkforceReadinessViewModel, renderWorkforceReadiness } from "./workforce-readiness.mjs?v=20260725-workforce-readiness-1";
 
 let summaryConsumed = false;
@@ -291,7 +292,9 @@ export function initializeTalentStudentWorkspace({
   });
   documentObject.getElementById("student-edit-open")?.addEventListener("click", () => {
     const student = studentWorkspaceData?.students.find((row) => row.recordId === selectedStudentRecordId);
-    if (student?.applicationNo) openStudentProfileDialog({ documentObject, student });
+    if (student?.applicationNo || (student?.mappingStatus === "UNMAPPED" && student?.recordId)) {
+      openStudentProfileDialog({ documentObject, student });
+    }
   });
   documentObject.getElementById("student-audit-open")?.addEventListener("click", () => {
     const student = studentWorkspaceData?.students.find((row) => row.recordId === selectedStudentRecordId);
@@ -846,12 +849,13 @@ function renderStudentDetail(documentObject, student) {
   if (state) state.dataset.state = student.classification;
   const editButton = documentObject.getElementById("student-edit-open");
   if (editButton) {
-    const editable = Boolean(student.applicationNo);
+    const editable = Boolean(student.applicationNo)
+      || (student.mappingStatus === "UNMAPPED" && Boolean(student.recordId));
     editButton.disabled = !editable;
     editButton.setAttribute("aria-disabled", String(!editable));
     editButton.title = student.applicationNo
       ? "正本プロフィールを編集"
-      : "先に確認候補を反映して応募番号を確定してください";
+      : editable ? "staging補足情報を編集" : "編集できるデータがありません";
   }
   const auditButton = documentObject.getElementById("student-audit-open");
   if (auditButton) {
@@ -970,7 +974,8 @@ function formatAuditDate(value) {
 
 function openStudentProfileDialog({ documentObject, student }) {
   profileDialogStudent = student;
-  setText(documentObject, "student-profile-dialog-title", student ? "学生情報を編集" : "学生を追加");
+  const stagingEdit = Boolean(student && !student.applicationNo && student.recordId);
+  setText(documentObject, "student-profile-dialog-title", stagingEdit ? "staging補足情報を編集" : student ? "学生情報を編集" : "学生を追加");
   const fields = {
     "profile-display-name": student?.displayName || "",
     "profile-kana": student?.kana || "",
@@ -992,7 +997,7 @@ function openStudentProfileDialog({ documentObject, student }) {
   if (status) {
     status.dataset.state = "idle";
     status.textContent = student
-      ? "変更内容を確認して保存してください"
+      ? stagingEdit ? "staging補足情報を確認して保存してください" : "変更内容を確認して保存してください"
       : "必要事項を入力してください";
   }
   documentObject.getElementById("student-profile-dialog")?.showModal?.();
@@ -1008,11 +1013,6 @@ async function saveStudentProfile({ globalObject, documentObject }) {
     saveButton.disabled = true;
     saveButton.setAttribute("aria-busy", "true");
   }
-  if (status) {
-    status.dataset.state = "loading";
-    status.textContent = "正本プロフィールへ保存しています";
-  }
-  const controller = createTalentStudentProfileController({ globalObject });
   const payload = {
     applicationNo: profileDialogStudent?.applicationNo || null,
     expectedVersion: profileDialogStudent?.profileVersion || 0,
@@ -1028,6 +1028,20 @@ async function saveStudentProfile({ globalObject, documentObject }) {
     expectedJoinDate: documentObject.getElementById("profile-expected-join-date")?.value || "",
     plannedStore: documentObject.getElementById("profile-planned-store")?.value || "",
   };
+  const stagingEdit = Boolean(profileDialogStudent && !profileDialogStudent.applicationNo && profileDialogStudent.recordId);
+  if (status) {
+    status.dataset.state = "loading";
+    status.textContent = stagingEdit ? "staging補足情報を保存しています" : "正本プロフィールへ保存しています";
+  }
+  const controller = stagingEdit
+    ? createTalentStagingSupplementController({ globalObject })
+    : createTalentStudentProfileController({ globalObject });
+  if (stagingEdit) {
+    delete payload.applicationNo;
+    delete payload.profileVersion;
+    payload.stagingRecordId = profileDialogStudent.recordId;
+    payload.expectedVersion = profileDialogStudent.supplementVersion || 0;
+  }
   const result = await controller.save(payload);
   if (saveButton) {
     saveButton.disabled = false;
@@ -1044,10 +1058,12 @@ async function saveStudentProfile({ globalObject, documentObject }) {
     }
     return;
   }
-  pendingSelectedApplicationNo = result.data.applicationNo;
+  pendingSelectedApplicationNo = result.data.applicationNo || null;
   if (status) {
     status.dataset.state = "ready";
-    status.textContent = result.data.operation === "CREATE" ? "学生を追加しました" : "学生情報を更新しました";
+    status.textContent = stagingEdit
+      ? "staging補足情報を保存しました"
+      : result.data.operation === "CREATE" ? "学生を追加しました" : "学生情報を更新しました";
   }
   documentObject.getElementById("student-profile-dialog")?.close?.();
   profileDialogStudent = null;

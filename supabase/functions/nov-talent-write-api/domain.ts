@@ -117,3 +117,22 @@ export function sanitizeStudentProfileResult(value:unknown){
 export const STUDENT_PROFILE_CONTRACT=Object.freeze({
  statuses:profileStatuses,optimisticConcurrency:true,maximumWriteRequests:1,rawValuesInResult:false
 });
+
+const stagingSupplementKeys=['stagingRecordId','expectedVersion','displayName','kana','school','phone','email','preferredStore','currentStatus','nextActionAt','offerDate','expectedJoinDate','plannedStore'];
+export function parseStagingSupplement(value:unknown){
+ if(!value||typeof value!=='object'||Array.isArray(value))return null;const v=value as Record<string,unknown>;
+ if(!exact(v,stagingSupplementKeys)||!uuid.test(String(v.stagingRecordId))||!Number.isInteger(v.expectedVersion)||Number(v.expectedVersion)<0||typeof v.displayName!=='string')return null;
+ const displayName=v.displayName.normalize('NFKC').trim();
+ const kana=nullableText(v.kana,120),school=nullableText(v.school,180),phone=nullableText(v.phone,40);
+ const email=nullableText(v.email,254),preferredStore=nullableText(v.preferredStore,120),nextActionAt=nullableText(v.nextActionAt,10),offerDate=nullableText(v.offerDate,10),expectedJoinDate=nullableText(v.expectedJoinDate,10),plannedStore=nullableText(v.plannedStore,120);
+ if(!displayName||displayName.length>120||[kana,school,phone,email,preferredStore,nextActionAt,offerDate,expectedJoinDate,plannedStore].includes(undefined)||!profileStatuses.includes(String(v.currentStatus))
+  ||(typeof email==='string'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+  ||[nextActionAt,offerDate,expectedJoinDate].some(value=>typeof value==='string'&&!/^\d{4}-\d{2}-\d{2}$/.test(value)))return null;
+ return Object.freeze({stagingRecordId:String(v.stagingRecordId),expectedVersion:Number(v.expectedVersion),displayName,kana,school,phone,email,preferredStore,currentStatus:String(v.currentStatus),nextActionAt,offerDate,expectedJoinDate,plannedStore});
+}
+export function sanitizeStagingSupplementResult(value:unknown){
+ const row=Array.isArray(value)&&value.length===1?value[0]:null;if(!row||typeof row!=='object'||Array.isArray(row))return null;const record=row as Record<string,unknown>;
+ if(!exact(record,['staging_record_id','supplement_version','operation'])||!uuid.test(String(record.staging_record_id))||!Number.isInteger(record.supplement_version)||Number(record.supplement_version)<1||!['CREATE','UPDATE'].includes(String(record.operation)))return null;
+ return Object.freeze({stagingRecordId:String(record.staging_record_id),supplementVersion:Number(record.supplement_version),operation:String(record.operation)});
+}
+export const STAGING_SUPPLEMENT_CONTRACT=Object.freeze({optimisticConcurrency:true,maximumWriteRequests:1,createsCanonicalApplication:false,rawValuesInResult:false});

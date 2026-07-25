@@ -137,12 +137,38 @@ function mappingMetadata(value: unknown) {
       version: Number(record.profile.version),
     })
     : null;
+  const supplement = isRecord(record.supplement)
+    && Number.isInteger(record.supplement.version)
+    && Number(record.supplement.version) >= 1
+    && Object.hasOwn(PROFILE_STATUS_LABELS, String(record.supplement.current_status))
+    ? Object.freeze({
+      displayName: boundedText(record.supplement.display_name, 120),
+      kana: boundedText(record.supplement.kana, 120) || null,
+      school: boundedText(record.supplement.school, 180) || null,
+      phone: boundedText(record.supplement.phone, 40) || null,
+      email: boundedText(record.supplement.email, 254) || null,
+      preferredStore: boundedText(record.supplement.preferred_store, 120) || null,
+      currentStatus: String(record.supplement.current_status),
+      nextActionAt: /^\d{4}-\d{2}-\d{2}$/u.test(String(record.supplement.next_action_at ?? ""))
+        ? String(record.supplement.next_action_at)
+        : null,
+      offerDate: /^\d{4}-\d{2}-\d{2}$/u.test(String(record.supplement.offer_date ?? ""))
+        ? String(record.supplement.offer_date)
+        : null,
+      expectedJoinDate: /^\d{4}-\d{2}-\d{2}$/u.test(String(record.supplement.expected_join_date ?? ""))
+        ? String(record.supplement.expected_join_date)
+        : null,
+      plannedStore: boundedText(record.supplement.planned_store, 120) || null,
+      version: Number(record.supplement.version),
+    })
+    : null;
   return Object.freeze({
     mappingStatus: status,
     applicationNo,
     sourceKeyStatus,
     legacyNoPresent: record.legacy_no_present === true,
     profile,
+    supplement,
   });
 }
 
@@ -176,6 +202,7 @@ function sanitizeRow(value: unknown, ordinal: number) {
     ? String(value.business_date)
     : null;
   const mapping = mappingMetadata(value.mapping);
+  const editableProfile = mapping.supplement || mapping.profile;
   const displayClassification = mapping.mappingStatus === "OWNER_CONFIRMED"
     ? "IMPORTABLE"
     : classification;
@@ -185,12 +212,12 @@ function sanitizeRow(value: unknown, ordinal: number) {
 
   return Object.freeze({
     recordId,
-    displayName: mapping.profile?.displayName || name || `${SOURCE_LABELS[sourceCode as keyof typeof SOURCE_LABELS]}データ ${ordinal}`,
-    kana: mapping.profile?.kana || findField(columns, FIELD_ALIASES.kana),
-    school: mapping.profile?.school || school,
-    phone: mapping.profile?.phone || findField(columns, FIELD_ALIASES.phone),
-    email: mapping.profile?.email || findField(columns, FIELD_ALIASES.email),
-    preferredStore: mapping.profile?.preferredStore || findField(columns, FIELD_ALIASES.preferredStore),
+    displayName: editableProfile?.displayName || name || `${SOURCE_LABELS[sourceCode as keyof typeof SOURCE_LABELS]}データ ${ordinal}`,
+    kana: editableProfile?.kana || findField(columns, FIELD_ALIASES.kana),
+    school: editableProfile?.school || school,
+    phone: editableProfile?.phone || findField(columns, FIELD_ALIASES.phone),
+    email: editableProfile?.email || findField(columns, FIELD_ALIASES.email),
+    preferredStore: editableProfile?.preferredStore || findField(columns, FIELD_ALIASES.preferredStore),
     sourceCode,
     sourceLabel: SOURCE_LABELS[sourceCode as keyof typeof SOURCE_LABELS],
     classification: displayClassification,
@@ -203,15 +230,16 @@ function sanitizeRow(value: unknown, ordinal: number) {
     primaryEligible: sourceCode === "CONTACTS_27" && mapping.mappingStatus === "UNMAPPED",
     suggestionCategory: "NONE" as string,
     suggestedTargetRecordId: null as string | null,
-    status: mapping.profile
-      ? PROFILE_STATUS_LABELS[mapping.profile.currentStatus as keyof typeof PROFILE_STATUS_LABELS]
+    status: editableProfile
+      ? PROFILE_STATUS_LABELS[editableProfile.currentStatus as keyof typeof PROFILE_STATUS_LABELS]
       : status || CLASSIFICATION_LABELS[classification as keyof typeof CLASSIFICATION_LABELS],
-    statusCode: mapping.profile?.currentStatus || null,
+    statusCode: editableProfile?.currentStatus || null,
     profileVersion: mapping.profile?.version || null,
-    nextActionAt: mapping.profile?.nextActionAt || null,
-    offerDate: mapping.profile?.offerDate || null,
-    expectedJoinDate: mapping.profile?.expectedJoinDate || null,
-    plannedStore: mapping.profile?.plannedStore || null,
+    supplementVersion: mapping.supplement?.version || null,
+    nextActionAt: editableProfile?.nextActionAt || null,
+    offerDate: editableProfile?.offerDate || null,
+    expectedJoinDate: editableProfile?.expectedJoinDate || null,
+    plannedStore: editableProfile?.plannedStore || null,
     businessDate,
     lineRegistrationDate: /^\d{4}-\d{2}-\d{2}$/u.test(
       String(sourcePayload?.lineRegistrationDate ?? ""),
@@ -255,6 +283,7 @@ function sanitizeManualRow(value: unknown) {
     businessDate: null,
     lineRegistrationDate: null,
     profileVersion: Number(value.version),
+    supplementVersion: null,
     nextActionAt: /^\d{4}-\d{2}-\d{2}$/u.test(String(value.next_action_at ?? ""))
       ? String(value.next_action_at)
       : null,

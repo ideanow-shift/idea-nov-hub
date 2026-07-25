@@ -6,7 +6,7 @@
   <title>人財投資管理システム | NOV HUB</title>
   <link rel="stylesheet" href="./style.css?v=20260725-profile-audit-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260725-bulk-triage-1"></script>
+  <script type="module" src="./app.mjs?v=20260725-staging-edit-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -224,7 +224,7 @@
                   <span id="student-detail-state" class="state-badge"></span>
                   <button id="student-confirm-open" class="secondary-command compact-command" type="button" disabled aria-disabled="true" title="確認候補がありません">この候補を確認</button>
                   <button id="student-audit-open" class="secondary-command compact-command" type="button" disabled aria-disabled="true" title="応募番号が確定した学生のみ確認できます">変更履歴</button>
-                  <button id="student-edit-open" class="secondary-command compact-command" type="button" disabled aria-disabled="true" title="先に確認候補を反映して応募番号を確定してください">編集</button>
+                    <button id="student-edit-open" class="secondary-command compact-command" type="button" disabled aria-disabled="true" title="編集できるデータがありません">編集</button>
                 </div>
               </header>
               <dl class="detail-grid">
@@ -297,11 +297,11 @@
 
       <dialog id="student-profile-dialog" class="review-dialog profile-dialog" aria-labelledby="student-profile-dialog-title">
         <form id="student-profile-form">
-          <header>
-            <p class="section-kicker">CANONICAL STUDENT PROFILE</p>
-            <h2 id="student-profile-dialog-title">学生情報を追加</h2>
-          </header>
-          <p>保存内容は正本プロフィールへ反映されます。取込元のstaging原本は変更しません。</p>
+            <header>
+              <p class="section-kicker">STUDENT INFORMATION</p>
+              <h2 id="student-profile-dialog-title">学生情報を追加</h2>
+            </header>
+            <p>正本プロフィールまたはstaging補足情報を更新します。取込元のstaging原本や紐付け状態は変更しません。</p>
           <div class="profile-form-grid">
             <label><span>氏名 *</span><input id="profile-display-name" name="displayName" maxlength="120" required></label>
             <label><span>フリガナ</span><input id="profile-kana" name="kana" maxlength="120"></label>

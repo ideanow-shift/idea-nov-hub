@@ -2,8 +2,9 @@ import { NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
 import {
   buildDashboardSummaryViewModel,
   createDashboardSummaryExact1Executor,
-  createTalentWorkspaceExact1Executor
-} from "./exact1.mjs?v=20260725-review-kpis-1";
+  createTalentWorkspaceExact1Executor,
+  createTalentStudentProfileAuditExact1Executor
+} from "./exact1.mjs?v=20260725-profile-audit-1";
 import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260725-owner-review-workspace-1";
 import { createTalentHistoricalReviewController } from "./review.mjs?v=20260725-owner-review-workspace-1";
 import { buildTalentAnalytics } from "./analytics.mjs?v=20260725-talent-analytics-1";
@@ -21,6 +22,7 @@ let selectedStudentRecordId = null;
 let historicalReviewController = null;
 let activeHistoricalReviewProposal = null;
 let profileDialogStudent = null;
+let auditDialogStudent = null;
 let pendingSelectedApplicationNo = null;
 
 const PRIMARY_TABS = Object.freeze(["recruitment", "workforce"]);
@@ -263,6 +265,14 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-edit-open")?.addEventListener("click", () => {
     const student = studentWorkspaceData?.students.find((row) => row.recordId === selectedStudentRecordId);
     if (student?.applicationNo) openStudentProfileDialog({ documentObject, student });
+  });
+  documentObject.getElementById("student-audit-open")?.addEventListener("click", () => {
+    const student = studentWorkspaceData?.students.find((row) => row.recordId === selectedStudentRecordId);
+    openStudentAuditDialog({ globalObject, documentObject, student });
+  });
+  documentObject.getElementById("student-audit-close")?.addEventListener("click", () => {
+    documentObject.getElementById("student-audit-dialog")?.close?.();
+    auditDialogStudent = null;
   });
   documentObject.getElementById("student-profile-cancel")?.addEventListener("click", () => {
     documentObject.getElementById("student-profile-dialog")?.close?.();
@@ -666,6 +676,7 @@ function renderStudentDetail(documentObject, student) {
     if (placeholder) placeholder.hidden = false;
     if (detail) detail.hidden = true;
     const editButton = documentObject.getElementById("student-edit-open");
+    const auditButton = documentObject.getElementById("student-audit-open");
     if (editButton) {
       editButton.disabled = true;
       editButton.setAttribute("aria-disabled", "true");
@@ -676,6 +687,11 @@ function renderStudentDetail(documentObject, student) {
       confirmButton.disabled = true;
       confirmButton.setAttribute("aria-disabled", "true");
       confirmButton.title = "確認候補がありません";
+    }
+    if (auditButton) {
+      auditButton.disabled = true;
+      auditButton.setAttribute("aria-disabled", "true");
+      auditButton.title = "学生を選択してください";
     }
     return;
   }
@@ -696,6 +712,13 @@ function renderStudentDetail(documentObject, student) {
       ? "正本プロフィールを編集"
       : "先に確認候補を反映して応募番号を確定してください";
   }
+  const auditButton = documentObject.getElementById("student-audit-open");
+  if (auditButton) {
+    const auditable = Boolean(student.applicationNo);
+    auditButton.disabled = !auditable;
+    auditButton.setAttribute("aria-disabled", String(!auditable));
+    auditButton.title = auditable ? "プロフィールの変更履歴を表示" : "応募番号が確定した学生のみ確認できます";
+  }
   const confirmButton = documentObject.getElementById("student-confirm-open");
   if (confirmButton) {
     const confirmable = student.mappingStatus === "UNMAPPED"
@@ -714,6 +737,7 @@ function renderStudentDetail(documentObject, student) {
   setText(documentObject, "student-detail-expected-join-date", student.expectedJoinDate || "未登録");
   setText(documentObject, "student-detail-planned-store", student.plannedStore || "未登録");
   setText(documentObject, "student-detail-application", student.applicationNo || "未確定");
+  setText(documentObject, "student-detail-profile-version", student.profileVersion ? `v${student.profileVersion}` : "未登録");
   setText(
     documentObject,
     "student-detail-mapping",
@@ -735,6 +759,71 @@ function renderStudentDetail(documentObject, student) {
       return item;
     }));
   }
+}
+
+const PROFILE_FIELD_LABELS = Object.freeze({
+  displayName: "氏名", kana: "フリガナ", school: "学校", phone: "電話番号", email: "メール",
+  preferredStore: "希望店舗", currentStatus: "現在の状態", nextActionAt: "次回対応日",
+  offerDate: "内定日", expectedJoinDate: "入社予定日", plannedStore: "配属予定"
+});
+
+async function openStudentAuditDialog({ globalObject, documentObject, student }) {
+  if (!student?.applicationNo) return;
+  auditDialogStudent = student;
+  const status = documentObject.getElementById("student-audit-status");
+  const body = documentObject.getElementById("student-audit-body");
+  if (status) {
+    status.dataset.state = "loading";
+    status.textContent = "変更履歴を読み込んでいます";
+  }
+  if (body) body.replaceChildren();
+  documentObject.getElementById("student-audit-dialog")?.showModal?.();
+  const executor = createTalentStudentProfileAuditExact1Executor({
+    applicationNo: student.applicationNo,
+    globalObject,
+    hubSessionHelper: globalObject.NovHubSession,
+    hubContract: globalObject.NOV_HUB_SESSION_CONTRACT || NOV_HUB_SESSION_CONTRACT
+  });
+  const result = executor ? await executor.run() : null;
+  if (!auditDialogStudent || auditDialogStudent.applicationNo !== student.applicationNo) return;
+  if (result?.okBoolean !== true) {
+    if (status) {
+      status.dataset.state = "stopped";
+      status.textContent = result?.stopCategory === "auth_required"
+        ? "HUBへ再ログインしてください"
+        : "変更履歴を取得できません";
+    }
+    return;
+  }
+  if (status) {
+    status.dataset.state = "ready";
+    status.textContent = `${result.data.entries.length}件の変更履歴`;
+  }
+  if (body) {
+    body.replaceChildren(...result.data.entries.map((entry) => {
+      const row = documentObject.createElement("tr");
+      const action = documentObject.createElement("th");
+      action.scope = "row";
+      action.textContent = entry.action === "CREATE" ? "作成" : "更新";
+      const fields = documentObject.createElement("td");
+      fields.textContent = entry.changedFields.map((field) => PROFILE_FIELD_LABELS[field] || "変更項目").join("、");
+      const version = documentObject.createElement("td");
+      version.textContent = `v${entry.profileVersion}`;
+      const occurredAt = documentObject.createElement("td");
+      occurredAt.textContent = formatAuditDate(entry.occurredAt);
+      row.append(action, fields, version, occurredAt);
+      return row;
+    }));
+  }
+}
+
+function formatAuditDate(value) {
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) return "日時未登録";
+  return new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit"
+  }).format(parsed);
 }
 
 function openStudentProfileDialog({ documentObject, student }) {

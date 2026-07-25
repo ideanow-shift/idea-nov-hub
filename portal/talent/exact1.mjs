@@ -77,6 +77,11 @@ const STUDENT_KEYS = Object.freeze([
   "suggestedTargetRecordId",
   "suggestionCategory"
 ]);
+const AUDIT_ENTRY_KEYS = Object.freeze(["action", "changedFields", "profileVersion", "occurredAt"]);
+const AUDIT_FIELDS = Object.freeze([
+  "displayName", "kana", "school", "phone", "email", "preferredStore",
+  "currentStatus", "nextActionAt", "offerDate", "expectedJoinDate", "plannedStore"
+]);
 
 export function readTalentRuntime({
   globalObject = globalThis,
@@ -193,6 +198,86 @@ export function createTalentWorkspaceExact1Executor({
         });
       }
     }
+  });
+}
+
+export function createTalentStudentProfileAuditExact1Executor({
+  applicationNo,
+  globalObject = globalThis,
+  hubSessionHelper = globalObject.NovHubSession,
+  hubContract = globalObject.NOV_HUB_SESSION_CONTRACT,
+  fetchImpl = globalObject.fetch
+} = {}) {
+  const runtime = readTalentRuntime({ globalObject, hubSessionHelper, hubContract });
+  if (!runtime || typeof fetchImpl !== "function" || !/^NT-[0-9]{4}-[0-9]{6}$/u.test(String(applicationNo || ""))) return null;
+
+  let consumed = false;
+  return Object.freeze({
+    async run() {
+      if (consumed) return safeResult("duplicate_startup_prevented", { duplicatePrevented: true });
+      consumed = true;
+      let requestSent = false;
+      try {
+        const headers = await buildAuthHeaders(runtime.hubSessionHelper);
+        const url = new URL("./api/talent/v1/students/profile-audit", `${runtime.apiBaseUrl}/`);
+        url.searchParams.set("applicationNo", String(applicationNo));
+        requestSent = true;
+        const response = await fetchImpl(url.toString(), {
+          method: "GET",
+          headers: { Accept: "application/json", ...headers },
+          credentials: "omit"
+        });
+        const envelope = await readJsonEnvelope(response);
+        const data = unwrapProfileAuditEnvelope(envelope, String(applicationNo));
+        return Object.freeze({
+          ...safeResult("ready", {
+            executed: true,
+            httpRequestSent: true,
+            httpStatus: normalizeHttpStatus(response.status),
+            okBoolean: true,
+            requestCount: 1
+          }),
+          data
+        });
+      } catch (error) {
+        return safeResult(error?.safeCategory || "api_error", {
+          executed: requestSent,
+          httpRequestSent: requestSent,
+          requestCount: requestSent ? 1 : 0,
+          httpStatus: normalizeHttpStatus(error?.httpStatus)
+        });
+      }
+    }
+  });
+}
+
+function unwrapProfileAuditEnvelope(envelope, applicationNo) {
+  if (!isPlainObject(envelope) || envelope.ok !== true) throw safeError("invalid_response");
+  assertExactKeys(envelope, SUCCESS_ENVELOPE_KEYS);
+  validateMeta(envelope.meta);
+  const data = envelope.data;
+  if (!isPlainObject(data)
+    || Object.keys(data).length !== 2
+    || data.applicationNo !== applicationNo
+    || !Array.isArray(data.entries)
+    || data.entries.length > 20) throw safeError("invalid_response");
+  data.entries.forEach((entry) => {
+    assertExactKeys(entry, AUDIT_ENTRY_KEYS);
+    if (!["CREATE", "UPDATE"].includes(entry.action)
+      || !Number.isInteger(entry.profileVersion) || entry.profileVersion < 1
+      || !/^\d{4}-\d{2}-\d{2}T/u.test(String(entry.occurredAt))
+      || !Array.isArray(entry.changedFields)
+      || entry.changedFields.length < 1 || entry.changedFields.length > AUDIT_FIELDS.length
+      || entry.changedFields.some((field) => !AUDIT_FIELDS.includes(field))) {
+      throw safeError("invalid_response");
+    }
+  });
+  return Object.freeze({
+    applicationNo,
+    entries: Object.freeze(data.entries.map((entry) => Object.freeze({
+      ...entry,
+      changedFields: Object.freeze([...entry.changedFields])
+    })))
   });
 }
 

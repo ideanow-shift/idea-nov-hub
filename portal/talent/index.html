@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260725-review-kpis-1">
-  <script src="./runtime-config.candidate.js?v=20260725-review-kpis-1"></script>
-  <script type="module" src="./app.mjs?v=20260725-review-kpis-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260725-profile-audit-1">
+  <script src="./runtime-config.candidate.js?v=20260725-profile-audit-1"></script>
+  <script type="module" src="./app.mjs?v=20260725-profile-audit-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -216,6 +216,7 @@
                 <div class="detail-actions">
                   <span id="student-detail-state" class="state-badge"></span>
                   <button id="student-confirm-open" class="secondary-command compact-command" type="button" disabled aria-disabled="true" title="確認候補がありません">この候補を確認</button>
+                  <button id="student-audit-open" class="secondary-command compact-command" type="button" disabled aria-disabled="true" title="応募番号が確定した学生のみ確認できます">変更履歴</button>
                   <button id="student-edit-open" class="secondary-command compact-command" type="button" disabled aria-disabled="true" title="先に確認候補を反映して応募番号を確定してください">編集</button>
                 </div>
               </header>
@@ -230,6 +231,7 @@
                 <div><dt>配属予定</dt><dd id="student-detail-planned-store">-</dd></div>
                 <div><dt>基準日</dt><dd id="student-detail-date">-</dd></div>
                 <div><dt>応募番号</dt><dd id="student-detail-application">-</dd></div>
+                <div><dt>プロフィール版</dt><dd id="student-detail-profile-version">-</dd></div>
                 <div><dt>紐付け状態</dt><dd id="student-detail-mapping">-</dd></div>
               </dl>
               <section class="review-notes" aria-labelledby="student-review-title">
@@ -258,6 +260,24 @@
             <button id="student-review-cancel" class="secondary-command" type="button">戻る</button>
             <button id="student-review-confirm" class="primary-command" type="button">一括反映する</button>
           </footer>
+        </form>
+      </dialog>
+
+      <dialog id="student-audit-dialog" class="review-dialog audit-dialog" aria-labelledby="student-audit-dialog-title">
+        <form method="dialog">
+          <header>
+            <p class="section-kicker">PROFILE AUDIT</p>
+            <h2 id="student-audit-dialog-title">変更履歴</h2>
+          </header>
+          <p>個人値は表示せず、操作種別と変更項目だけを表示します。</p>
+          <p id="student-audit-status" class="status" role="status" aria-live="polite">変更履歴を読み込んでいます</p>
+          <div class="audit-table-scroll">
+            <table class="analysis-table audit-table">
+              <thead><tr><th>操作</th><th>変更項目</th><th>版</th><th>日時</th></tr></thead>
+              <tbody id="student-audit-body"></tbody>
+            </table>
+          </div>
+          <footer><button id="student-audit-close" class="secondary-command" type="button">閉じる</button></footer>
         </form>
       </dialog>
 

@@ -36,6 +36,15 @@ test("workforce management exposes four accessible procedure tabs", async () => 
   assert.match(app, /data-workforce-tab/);
 });
 
+test("student editing stays disabled until a canonical application number exists", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+
+  assert.match(html, /id="student-edit-open"[^>]*disabled[^>]*aria-disabled="true"/);
+  assert.match(app, /editButton\.disabled = !editable/);
+  assert.match(app, /先に確認候補を反映して応募番号を確定してください/);
+});
+
 test("navigation supports keyboard movement and responsive one-column layouts", async () => {
   const app = await readFile(new URL("app.mjs", root), "utf8");
   const css = await readFile(new URL("style.css", root), "utf8");

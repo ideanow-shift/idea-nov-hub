@@ -626,6 +626,12 @@ function renderStudentDetail(documentObject, student) {
   if (!student) {
     if (placeholder) placeholder.hidden = false;
     if (detail) detail.hidden = true;
+    const editButton = documentObject.getElementById("student-edit-open");
+    if (editButton) {
+      editButton.disabled = true;
+      editButton.setAttribute("aria-disabled", "true");
+      editButton.title = "学生を選択してください";
+    }
     return;
   }
   if (placeholder) placeholder.hidden = true;
@@ -638,7 +644,9 @@ function renderStudentDetail(documentObject, student) {
   if (state) state.dataset.state = student.classification;
   const editButton = documentObject.getElementById("student-edit-open");
   if (editButton) {
-    editButton.disabled = !student.applicationNo;
+    const editable = Boolean(student.applicationNo);
+    editButton.disabled = !editable;
+    editButton.setAttribute("aria-disabled", String(!editable));
     editButton.title = student.applicationNo
       ? "正本プロフィールを編集"
       : "先に確認候補を反映して応募番号を確定してください";

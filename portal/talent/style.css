@@ -847,6 +847,13 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-row strong { color: var(--navy); }
 .procedure-case-row span { margin-top: 4px; color: var(--muted); font-size: 0.85rem; }
 .procedure-case-empty { padding: 12px; border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); }
+.procedure-case-actions-inline { display: flex; flex-wrap: wrap; gap: 8px; }
+.procedure-case-audit { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.procedure-case-audit-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.procedure-case-audit h4 { margin: 0; color: var(--navy); font-size: 1rem; }
+.procedure-case-audit-list { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+.procedure-case-audit-list li { display: grid; gap: 3px; padding: 10px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: .86rem; }
+.procedure-case-audit-list strong { color: var(--ink); }
 .case-edit-button { min-width: 68px; }
 .procedure-case-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 .procedure-case-form label { display: grid; gap: 6px; color: var(--muted); font-size: 0.85rem; font-weight: 700; }
@@ -992,6 +999,7 @@ h3 { margin: 0; font-size: 1rem; }
   .procedure-intro { display: block; }
   .procedure-case-desk > header, .procedure-case-row { display: grid; }
   .procedure-case-desk > header .primary-action, .case-edit-button { width: 100%; }
+  .procedure-case-actions-inline { display: grid; }
   .procedure-intro p { margin-top: 6px; }
   .workflow-strip { grid-template-columns: 1fr; }
   .workflow-strip div { border-right: 0; border-bottom: 1px solid var(--line); }

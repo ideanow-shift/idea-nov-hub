@@ -5,12 +5,14 @@ import {
   parseStagingSupplement,
   parseStudentProfile,
   parseWorkforceProcedureCase,
+  parseWorkforceProcedureCaseAuditQuery,
   parseWrite,
   sanitizeCreateResult,
   sanitizeHistoricalReviewResult,
   sanitizeStagingSupplementResult,
   sanitizeStudentProfileResult,
   sanitizeWorkforceProcedureCaseList,
+  sanitizeWorkforceProcedureCaseAudit,
   sanitizeWorkforceProcedureCaseResult,
 } from "./domain.ts";
 const ORIGIN='https://ideanow-shift.github.io',NAME_BASE='/nov-talent-write-api',BASE='/functions/v1/nov-talent-write-api',EVENT='/api/talent/v1/events';
@@ -18,6 +20,7 @@ const HISTORICAL_REVIEW='/api/talent/v1/historical/review';
 const STUDENT_PROFILE='/api/talent/v1/students/profile';
 const STAGING_SUPPLEMENT='/api/talent/v1/staging/supplement';
 const WORKFORCE_PROCEDURE_CASES='/api/talent/v1/workforce/procedure-cases';
+const WORKFORCE_PROCEDURE_CASE_AUDIT='/api/talent/v1/workforce/procedure-cases/audit';
 export interface Deps{authorizer:WriteAuthorizer;rpc:(cap:TalentWriteCapability,name:string,args:Record<string,unknown>)=>Promise<unknown>}
 const headers=(origin:string)=>{const h=new Headers({'cache-control':'no-store','content-type':'application/json; charset=utf-8','vary':'Origin'});
  if(origin===ORIGIN){h.set('access-control-allow-origin',ORIGIN);h.set('access-control-allow-headers','authorization, content-type');h.set('access-control-allow-methods','GET, POST, OPTIONS');}return h;};
@@ -26,14 +29,21 @@ const fail=(status:number,code:string,origin:string)=>out(status,{ok:false,error
 export async function handleTalentWrite(req:Request,deps:Deps){const origin=req.headers.get('origin')||'';
  if(origin!==ORIGIN)return fail(403,'origin_not_allowed',origin);const pathname=new URL(req.url).pathname;
  const path=pathname.startsWith(`${BASE}/`)?pathname.slice(BASE.length):pathname.startsWith(`${NAME_BASE}/`)?pathname.slice(NAME_BASE.length):pathname;
- if(path!==EVENT&&path!==`${EVENT}/invalidate`&&path!==HISTORICAL_REVIEW&&path!==STUDENT_PROFILE&&path!==STAGING_SUPPLEMENT&&path!==WORKFORCE_PROCEDURE_CASES)return fail(404,'not_found',origin);
+ if(path!==EVENT&&path!==`${EVENT}/invalidate`&&path!==HISTORICAL_REVIEW&&path!==STUDENT_PROFILE&&path!==STAGING_SUPPLEMENT&&path!==WORKFORCE_PROCEDURE_CASES&&path!==WORKFORCE_PROCEDURE_CASE_AUDIT)return fail(404,'not_found',origin);
  if(req.method==='OPTIONS'){const h=headers(origin);h.delete('content-type');return new Response(null,{status:204,headers:h});}
- if(req.method!=='POST'&&!(req.method==='GET'&&path===WORKFORCE_PROCEDURE_CASES))return fail(405,'method_not_allowed',origin);
+ if(req.method!=='POST'&&!(req.method==='GET'&&(path===WORKFORCE_PROCEDURE_CASES||path===WORKFORCE_PROCEDURE_CASE_AUDIT)))return fail(405,'method_not_allowed',origin);
  const match=/^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/.exec(req.headers.get('authorization')||'');
  if(!match)return fail(401,'auth_required',origin);const cap=await deps.authorizer.authorize(match[1]);if(!cap)return fail(403,'write_forbidden',origin);
  if(path===WORKFORCE_PROCEDURE_CASES&&req.method==='GET'){
   try{const result=sanitizeWorkforceProcedureCaseList(await deps.rpc(cap,'get_nov_talent_workforce_procedure_cases_v1',{
    p_employee_id:cap.actorEmployeeId,p_limit:200
+  }));return result?out(200,{ok:true,data:result},origin):fail(503,'not_ready',origin);}catch{return fail(503,'not_ready',origin);}
+ }
+ if(path===WORKFORCE_PROCEDURE_CASE_AUDIT&&req.method==='GET'){
+  const caseId=parseWorkforceProcedureCaseAuditQuery(new URL(req.url).searchParams.get('caseId'));
+  if(!caseId)return fail(400,'invalid_request',origin);
+  try{const result=sanitizeWorkforceProcedureCaseAudit(await deps.rpc(cap,'get_nov_talent_workforce_procedure_case_audit_v1',{
+   p_employee_id:cap.actorEmployeeId,p_case_id:caseId
   }));return result?out(200,{ok:true,data:result},origin):fail(503,'not_ready',origin);}catch{return fail(503,'not_ready',origin);}
  }
  let raw:unknown;try{raw=await req.json();}catch{return fail(400,'invalid_request',origin);}

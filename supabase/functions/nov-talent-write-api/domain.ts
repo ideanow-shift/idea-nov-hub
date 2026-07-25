@@ -182,8 +182,30 @@ export function sanitizeWorkforceProcedureCaseList(value:unknown){
    subjectLabel:record.subject_label.trim(),effectiveDate:String(record.effective_date),detail:record.detail===null?null:record.detail,
    version:Number(record.version),updatedAt:record.updated_at}));
  }
- return Object.freeze({cases:Object.freeze(cases)});
+  return Object.freeze({cases:Object.freeze(cases)});
+}
+const procedureAuditFields=Object.freeze(['procedureType','caseStatus','subjectLabel','effectiveDate','detail']);
+export function parseWorkforceProcedureCaseAuditQuery(value:unknown){
+ return typeof value==='string'&&uuid.test(value)?value:null;
+}
+export function sanitizeWorkforceProcedureCaseAudit(value:unknown){
+ if(!value||typeof value!=='object'||Array.isArray(value))return null;
+ const source=value as Record<string,unknown>;
+ if(!exact(source,['entries'])||!Array.isArray(source.entries)||source.entries.length>20)return null;
+ const entries=[] as Array<Record<string,unknown>>;
+ for(const row of source.entries){
+  if(!row||typeof row!=='object'||Array.isArray(row))return null;
+  const record=row as Record<string,unknown>;
+  if(!exact(record,['action','changed_fields','case_version','occurred_at'])||!['CREATE','UPDATE'].includes(String(record.action))
+   ||!Array.isArray(record.changed_fields)||record.changed_fields.length<1||record.changed_fields.length>5
+   ||record.changed_fields.some(field=>!procedureAuditFields.includes(String(field)))
+   ||new Set(record.changed_fields.map(String)).size!==record.changed_fields.length
+   ||!Number.isInteger(record.case_version)||Number(record.case_version)<1
+   ||typeof record.occurred_at!=='string'||!/^\d{4}-\d{2}-\d{2}T/.test(record.occurred_at))return null;
+  entries.push(Object.freeze({action:String(record.action),changedFields:Object.freeze(record.changed_fields.map(String)),caseVersion:Number(record.case_version),occurredAt:record.occurred_at}));
+ }
+ return Object.freeze({entries:Object.freeze(entries)});
 }
 export const WORKFORCE_PROCEDURE_CASE_CONTRACT=Object.freeze({
- procedureTypes,procedureStatuses,optimisticConcurrency:true,maximumWriteRequests:1,employeeMasterMutation:false,rawValuesInResult:false
+ procedureTypes,procedureStatuses,optimisticConcurrency:true,maximumWriteRequests:1,employeeMasterMutation:false,auditReadOnly:true,rawValuesInResult:false
 });

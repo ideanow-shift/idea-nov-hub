@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260725-workforce-case-desk-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-workforce-case-history-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260725-workforce-case-desk-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-workforce-case-history-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -422,6 +422,11 @@
         </header>
         <p id="workforce-case-status" class="procedure-case-status" role="status"></p>
         <div id="workforce-case-list" class="procedure-case-list" aria-live="polite"></div>
+        <section id="workforce-case-audit" class="procedure-case-audit" aria-live="polite" hidden>
+          <div class="procedure-case-audit-heading"><h4>変更履歴</h4><button id="workforce-case-audit-close" type="button" class="case-edit-button">閉じる</button></div>
+          <p id="workforce-case-audit-status" class="procedure-case-status"></p>
+          <ol id="workforce-case-audit-list" class="procedure-case-audit-list"></ol>
+        </section>
         <form id="workforce-case-form" class="procedure-case-form" hidden>
           <input name="caseId" type="hidden">
           <input name="expectedVersion" type="hidden" value="0">

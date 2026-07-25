@@ -13,6 +13,7 @@ const ALLOWED_RPCS=new Set([
   'save_nov_talent_student_profile_v2',
   'save_nov_talent_staging_supplement_v1',
   'get_nov_talent_workforce_procedure_cases_v1',
+  'get_nov_talent_workforce_procedure_case_audit_v1',
   'save_nov_talent_workforce_procedure_case_v1'
 ]);
 const GOVERNANCE_RPC='resolve_nov_talent_admin_governance_v1';

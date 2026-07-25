@@ -32,3 +32,21 @@ test("workforce procedure cases fail closed on malformed drafts", async () => {
   assert.equal(result.category, "invalid_request");
   assert.equal(result.requestCount, 0);
 });
+
+test("workforce procedure case history is bounded and read-only", async () => {
+  const calls = [];
+  const controller = createWorkforceProcedureCaseController({
+    config,
+    helper,
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      return new Response(JSON.stringify({ ok: true, data: { entries: [{ action: "UPDATE", changedFields: ["caseStatus"], caseVersion: 2, occurredAt: "2026-07-26T00:00:00Z" }] } }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+  });
+  const result = await controller.loadAudit("00000000-0000-4000-8000-000000000001");
+  assert.equal(result.ok, true);
+  assert.equal(result.data[0].changedFields[0], "caseStatus");
+  assert.equal(calls[0].init.method, "GET");
+  assert.match(calls[0].url, /procedure-cases\/audit\?caseId=/);
+  assert.equal(WORKFORCE_PROCEDURE_CASE_CONTRACT.auditHistory, true);
+});

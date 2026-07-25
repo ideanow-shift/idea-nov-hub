@@ -1,4 +1,5 @@
 const API_PATH = "/api/talent/v1/workforce/procedure-cases";
+const AUDIT_PATH = `${API_PATH}/audit`;
 const PROCEDURE_TYPES = Object.freeze(["ONBOARDING", "TRANSFER", "LEAVE", "RETIREMENT"]);
 const CASE_STATUSES = Object.freeze(["DRAFT", "READY_FOR_REVIEW", "CONFIRMED", "CANCELLED"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -57,6 +58,23 @@ function normalizeSaveResult(value) {
   return Object.freeze({ ...value });
 }
 
+function normalizeAudit(value) {
+  if (!exactKeys(value, ["entries"]) || !Array.isArray(value.entries) || value.entries.length > 20) return null;
+  const allowedFields = ["procedureType", "caseStatus", "subjectLabel", "effectiveDate", "detail"];
+  const entries = [];
+  for (const row of value.entries) {
+    if (!exactKeys(row, ["action", "changedFields", "caseVersion", "occurredAt"])
+      || !["CREATE", "UPDATE"].includes(row.action) || !Array.isArray(row.changedFields)
+      || row.changedFields.length < 1 || row.changedFields.length > 5
+      || row.changedFields.some((field) => !allowedFields.includes(field))
+      || new Set(row.changedFields).size !== row.changedFields.length
+      || !Number.isInteger(row.caseVersion) || row.caseVersion < 1
+      || typeof row.occurredAt !== "string" || !/^\d{4}-\d{2}-\d{2}T/.test(row.occurredAt)) return null;
+    entries.push(Object.freeze({ ...row, changedFields: Object.freeze([...row.changedFields]) }));
+  }
+  return Object.freeze(entries);
+}
+
 function normalizeDraft(value) {
   if (!isRecord(value) || !exactKeys(value, ["caseId", "expectedVersion", "procedureType", "caseStatus", "subjectLabel", "effectiveDate", "detail"])
     || !(value.caseId === null || UUID.test(value.caseId)) || !Number.isInteger(value.expectedVersion) || value.expectedVersion < 0
@@ -88,7 +106,7 @@ export function createWorkforceProcedureCaseController({
     && typeof fetchImpl === "function" && typeof helper?.getSessionToken === "function";
   let busy = false;
 
-  const request = async (method, payload = null) => {
+  const request = async (method, payload = null, path = API_PATH) => {
     if (!enabled) return safeResult(false, "feature_disabled");
     if (busy) return safeResult(false, "busy");
     busy = true;
@@ -102,7 +120,7 @@ export function createWorkforceProcedureCaseController({
       if (typeof token !== "string" || !token) return safeResult(false, "auth_required");
       let response;
       try {
-        response = await fetchImpl(`${baseUrl}${API_PATH}`, {
+        response = await fetchImpl(`${baseUrl}${path}`, {
           method,
           headers: { authorization: `Bearer ${token}`, ...(payload ? { "content-type": "application/json" } : {}) },
           ...(payload ? { body: JSON.stringify(payload) } : {})
@@ -133,6 +151,12 @@ export function createWorkforceProcedureCaseController({
       const result = await request("POST", payload);
       const saved = result.ok ? normalizeSaveResult(result.data) : null;
       return saved ? safeResult(true, "saved", result.requestCount, saved) : safeResult(false, result.ok ? "invalid_response" : result.category, result.requestCount);
+    },
+    async loadAudit(caseId) {
+      if (!UUID.test(caseId)) return safeResult(false, "invalid_request");
+      const result = await request("GET", null, `${AUDIT_PATH}?caseId=${encodeURIComponent(caseId)}`);
+      const entries = result.ok ? normalizeAudit(result.data) : null;
+      return entries ? safeResult(true, "loaded", result.requestCount, entries) : safeResult(false, result.ok ? "invalid_response" : result.category, result.requestCount);
     }
   });
 }
@@ -146,7 +170,10 @@ export function initializeWorkforceProcedureDesk({
   const list = documentObject?.getElementById?.("workforce-case-list");
   const form = documentObject?.getElementById?.("workforce-case-form");
   const status = documentObject?.getElementById?.("workforce-case-status");
-  if (!desk || !list || !form || !status) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  const audit = documentObject?.getElementById?.("workforce-case-audit");
+  const auditList = documentObject?.getElementById?.("workforce-case-audit-list");
+  const auditStatus = documentObject?.getElementById?.("workforce-case-audit-status");
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
@@ -176,6 +203,34 @@ export function initializeWorkforceProcedureDesk({
     input("caseId").value = "";
     input("expectedVersion").value = "0";
     form.hidden = true;
+  };
+  const clearAudit = () => {
+    audit.hidden = true;
+    auditList.replaceChildren();
+    auditStatus.textContent = "";
+  };
+  const showAudit = async (item) => {
+    audit.hidden = false;
+    auditStatus.textContent = "変更履歴を読み込んでいます。";
+    auditList.replaceChildren();
+    const result = await controller.loadAudit(item.caseId);
+    if (!result.ok) {
+      auditStatus.textContent = "変更履歴を表示できませんでした。";
+      return;
+    }
+    auditStatus.textContent = result.data.length === 0 ? "表示できる変更履歴はありません。" : "この案件の変更履歴です。";
+    const fragment = documentObject.createDocumentFragment();
+    for (const entry of result.data) {
+      const row = documentObject.createElement("li");
+      const title = documentObject.createElement("strong");
+      const meta = documentObject.createElement("span");
+      title.textContent = `${entry.action === "CREATE" ? "案件を登録" : "案件を更新"}（第${entry.caseVersion}版）`;
+      meta.textContent = `${entry.changedFields.map(fieldLabel).join("、")}を更新 / ${formatAuditTime(entry.occurredAt)}`;
+      row.append(title, meta);
+      fragment.append(row);
+    }
+    auditList.append(fragment);
+    audit.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
   };
   const render = () => {
     list.replaceChildren();
@@ -211,7 +266,15 @@ export function initializeWorkforceProcedureDesk({
         form.hidden = false;
         form.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
       });
-      row.append(copy, edit);
+      const actions = documentObject.createElement("div");
+      actions.className = "procedure-case-actions-inline";
+      const history = documentObject.createElement("button");
+      history.type = "button";
+      history.className = "case-edit-button";
+      history.textContent = "変更履歴";
+      history.addEventListener("click", () => showAudit(item));
+      actions.append(history, edit);
+      row.append(copy, actions);
       fragment.append(row);
     }
     list.append(fragment);
@@ -233,6 +296,7 @@ export function initializeWorkforceProcedureDesk({
     input("subjectLabel")?.focus?.();
   });
   documentObject.getElementById("workforce-case-cancel")?.addEventListener("click", reset);
+  documentObject.getElementById("workforce-case-audit-close")?.addEventListener("click", clearAudit);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const draft = Object.freeze({
@@ -268,4 +332,14 @@ function procedureLabel(value) {
 
 function statusLabel(value) {
   return ({ DRAFT: "下書き", READY_FOR_REVIEW: "確認待ち", CONFIRMED: "確認済み", CANCELLED: "中止" })[value] || "未設定";
+}
+
+function fieldLabel(value) {
+  return ({ procedureType: "手続き", caseStatus: "進捗", subjectLabel: "対象者", effectiveDate: "基準日", detail: "手続きメモ" })[value] || "項目";
+}
+
+function formatAuditTime(value) {
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) return "記録時刻を確認中";
+  return new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium", timeStyle: "short" }).format(timestamp);
 }

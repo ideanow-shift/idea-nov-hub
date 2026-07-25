@@ -30,6 +30,27 @@ const PL_MAPPING_CANDIDATES = Object.freeze({
 const PL_ACCEPTED_LOCAL_MAPPING_EVIDENCE = Object.freeze({
   "地代家賃": "賃借料",
 });
+const NORMALIZED_MONTHLY_PL_CSV_HEADER = Object.freeze([
+  "対象月",
+  "法人",
+  "店舗",
+  "科目",
+  "前期金額",
+  "前期構成比",
+  "計画金額",
+  "計画構成比",
+  "当期金額",
+  "当期構成比",
+  "前期差異",
+  "計画差異",
+  "摘要",
+  "元ファイル",
+  "元ページ",
+]);
+const NORMALIZED_MONTHLY_PL_PRIMARY_ACCOUNTS = Object.freeze({
+  sales: Object.freeze(["売上高合計", "売上高"]),
+  ordinaryProfit: Object.freeze(["経常損益金額"]),
+});
 const FINANCIAL_COMPLETION_REQUIREMENTS = Object.freeze([
   Object.freeze({ key: "PL_ANNUAL_REPORT", label: "部門別年間P/L", detail: "弥生会計の部門別年間推移", format: "Excel (.xlsx)", grain: "会計年度×部門シート×月次", requiredFields: "帳票名・集計期間・勘定科目・12か月列", validation: "対象期一致・12月列・集計シート除外" }),
   Object.freeze({ key: "PL_ACCOUNT_MAPPING", label: "P/L勘定科目対応表", detail: "地代家賃・販売管理費合計を含む正規科目への対応", format: "CSV (UTF-8)", grain: "科目対応1行", requiredFields: "弥生会計科目・正規科目・対象シート数・確認状態", validation: "候補完全一致・重複なし・確認済み/否認" }),
@@ -525,6 +546,38 @@ export async function validateFinancialWorkbookFile(file, statement = "PL", opti
   }
 }
 
+export async function validateNormalizedMonthlyPlCsvFile(file, options = {}) {
+  if (!file || typeof file.name !== "string" || !file.name.toLowerCase().endsWith(".csv")) return { status: "FILE_TYPE_INVALID", statement: "PL", previewRows: [], entityPreviewRows: [] };
+  if (!Number.isFinite(file.size) || file.size <= 0 || file.size > MAX_FINANCIAL_FILE_BYTES) return { status: "FILE_SIZE_INVALID", statement: "PL", previewRows: [], entityPreviewRows: [] };
+  try {
+    const buffer = await file.arrayBuffer();
+    const contentIdentity = await sha256Identity(buffer, options);
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+    return parseNormalizedMonthlyPlCsvText(text, { fileName: file.name, fileBytes: file.size, contentIdentity });
+  } catch {
+    return {
+      status: "FILE_READ_OR_PARSE_FAILED",
+      statement: "PL",
+      parseFailureCategory: "NORMALIZED_PL_CSV_UNREADABLE",
+      previewRows: [],
+      entityPreviewRows: [],
+    };
+  }
+}
+
+export async function validateNormalizedMonthlyPlCsvFiles(files, options = {}) {
+  const list = Array.from(files || []);
+  if (!list.length) return { status: "FILE_READ_OR_PARSE_FAILED", statement: "PL", previewRows: [], entityPreviewRows: [] };
+  if (list.length > MAX_FINANCIAL_FILE_COUNT) return { status: "FILE_COUNT_INVALID", statement: "PL", previewRows: [], entityPreviewRows: [] };
+  const totalBytes = list.reduce((sum, file) => sum + Number(file?.size || 0), 0);
+  if (!Number.isSafeInteger(totalBytes) || totalBytes <= 0 || totalBytes > MAX_FINANCIAL_TOTAL_BYTES) {
+    return { status: "FILE_TOTAL_SIZE_INVALID", statement: "PL", previewRows: [], entityPreviewRows: [] };
+  }
+  const results = [];
+  for (const file of list) results.push(await validateNormalizedMonthlyPlCsvFile(file, options));
+  return combineFinancialWorkbookResults(results, "PL");
+}
+
 export async function validateFinancialWorkbookFiles(files, statement = "PL", options = {}) {
   const list = Array.from(files || []);
   if (!list.length) return { status: "FILE_READ_OR_PARSE_FAILED", statement, previewRows: [], entityPreviewRows: [] };
@@ -532,6 +585,9 @@ export async function validateFinancialWorkbookFiles(files, statement = "PL", op
   const totalBytes = list.reduce((sum, file) => sum + Number(file?.size || 0), 0);
   if (!Number.isSafeInteger(totalBytes) || totalBytes <= 0 || totalBytes > MAX_FINANCIAL_TOTAL_BYTES) {
     return { status: "FILE_TOTAL_SIZE_INVALID", statement, previewRows: [], entityPreviewRows: [] };
+  }
+  if (statement === "PL" && list.every((file) => String(file?.name || "").toLowerCase().endsWith(".csv"))) {
+    return validateNormalizedMonthlyPlCsvFiles(list, options);
   }
   const results = [];
   for (const file of list) results.push(await validateFinancialWorkbookFile(file, statement, options));
@@ -1406,6 +1462,166 @@ function parseStrictCsv(text) {
   return rows;
 }
 
+function csvHeaderMatches(header, expectedHeader) {
+  return Array.isArray(header)
+    && header.length === expectedHeader.length
+    && header.every((value, index) => value === expectedHeader[index]);
+}
+
+function csvIntYen(value) {
+  const text = String(value ?? "").trim();
+  if (!/^-?(?:0|[1-9]\d*)$/u.test(text)) return null;
+  const numberValue = Number(text);
+  return Number.isSafeInteger(numberValue) ? numberValue : null;
+}
+
+function csvOptionalIntYen(value) {
+  const text = String(value ?? "").trim();
+  return text === "" || text === "NOT_IN_SOURCE" ? null : csvIntYen(text);
+}
+
+function normalizedMonthlyPlMonthKey(value) {
+  const text = String(value ?? "").trim();
+  const match = text.match(/^(\d{4})-(\d{2})$/u);
+  if (!match) return null;
+  const month = Number(match[2]);
+  return month >= 1 && month <= 12 ? text : null;
+}
+
+function normalizedMonthlyPlEntityCategory(corporationName, storeName) {
+  const value = `${corporationName || ""} ${storeName || ""}`;
+  if (/(?:全社|全G|全体|合計|グループ|法人合計|共通|FC合計)/u.test(value)) {
+    return { category: "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS", label: "集計除外" };
+  }
+  return { category: "STORE_CANDIDATE", label: "店舗候補" };
+}
+
+function normalizedMonthlyPlAccountAmount(records, month, accountCandidates) {
+  const found = records.find((record) => record.month === month && accountCandidates.includes(record.account));
+  return found ? found.actualYen : null;
+}
+
+function normalizedMonthlyPlPeriod(months) {
+  if (!months.length) return { key: "PERIOD_UNRESOLVED", label: "対象期確認待ち", sortKey: 0 };
+  const first = months[0];
+  const last = months.at(-1);
+  const yearSet = new Set(months.map((month) => month.slice(0, 4)));
+  const label = yearSet.size === 1
+    ? `${first.slice(0, 4)}年 店舗別月次P/L CSV`
+    : `${first}〜${last} 店舗別月次P/L CSV`;
+  return {
+    key: `normalized-monthly-pl-csv-${first}_${last}`,
+    label,
+    sortKey: Number(last.replace("-", "")),
+  };
+}
+
+export function parseNormalizedMonthlyPlCsvText(text, fileMeta = {}) {
+  const rows = parseStrictCsv(text);
+  if (!rows || rows.length < 2 || !csvHeaderMatches(rows[0], NORMALIZED_MONTHLY_PL_CSV_HEADER)) {
+    return { status: "PL_FILE_PARSE_FAILED", statement: "PL", parseFailureCategory: "NORMALIZED_PL_CSV_HEADER_INVALID", previewRows: [], entityPreviewRows: [] };
+  }
+  const sourceRows = rows.slice(1);
+  if (sourceRows.some((row) => row.length !== NORMALIZED_MONTHLY_PL_CSV_HEADER.length)) {
+    return { status: "PL_FILE_PARSE_FAILED", statement: "PL", parseFailureCategory: "NORMALIZED_PL_CSV_ROW_INVALID", previewRows: [], entityPreviewRows: [] };
+  }
+  if (sourceRows.some((row) => row.includes("READ_ERROR"))) {
+    return { status: "PL_FILE_PARSE_FAILED", statement: "PL", parseFailureCategory: "NORMALIZED_PL_READ_ERROR_PRESENT", previewRows: [], entityPreviewRows: [] };
+  }
+  const records = [];
+  for (const row of sourceRows) {
+    const month = normalizedMonthlyPlMonthKey(row[0]);
+    const actualYen = csvOptionalIntYen(row[8]);
+    const previousYen = csvOptionalIntYen(row[4]);
+    const planYen = csvOptionalIntYen(row[6]);
+    if (!month
+      || (!["", "NOT_IN_SOURCE"].includes(row[8]) && actualYen === null)
+      || (!["", "NOT_IN_SOURCE"].includes(row[4]) && previousYen === null)
+      || (!["", "NOT_IN_SOURCE"].includes(row[6]) && planYen === null)
+      || !row[1] || !row[2] || !row[3]) {
+      return { status: "PL_FILE_PARSE_FAILED", statement: "PL", parseFailureCategory: "NORMALIZED_PL_CSV_VALUE_INVALID", previewRows: [], entityPreviewRows: [] };
+    }
+    records.push({
+      month,
+      corporationName: row[1],
+      storeName: row[2],
+      account: row[3],
+      previousYen,
+      planYen,
+      actualYen,
+    });
+  }
+  const months = [...new Set(records.map((record) => record.month))].sort();
+  const period = normalizedMonthlyPlPeriod(months);
+  const byEntity = new Map();
+  for (const record of records) {
+    const key = `${record.corporationName}\u0000${record.storeName}`;
+    const bucket = byEntity.get(key) || {
+      corporationName: record.corporationName,
+      storeName: record.storeName,
+      records: [],
+    };
+    bucket.records.push(record);
+    byEntity.set(key, bucket);
+  }
+  const entityPreviewRows = [...byEntity.values()].map((entity) => {
+    const entityCategory = normalizedMonthlyPlEntityCategory(entity.corporationName, entity.storeName);
+    const salesByMonthYen = months.map((month) => normalizedMonthlyPlAccountAmount(entity.records, month, NORMALIZED_MONTHLY_PL_PRIMARY_ACCOUNTS.sales) ?? 0);
+    const ordinaryProfitByMonthYen = months.map((month) => normalizedMonthlyPlAccountAmount(entity.records, month, NORMALIZED_MONTHLY_PL_PRIMARY_ACCOUNTS.ordinaryProfit) ?? 0);
+    const activeMonthIndex = months.findLastIndex((month, index) => salesByMonthYen[index] !== 0 || ordinaryProfitByMonthYen[index] !== 0);
+    const hasSales = months.some((month) => normalizedMonthlyPlAccountAmount(entity.records, month, NORMALIZED_MONTHLY_PL_PRIMARY_ACCOUNTS.sales) !== null);
+    const hasOrdinaryProfit = months.some((month) => normalizedMonthlyPlAccountAmount(entity.records, month, NORMALIZED_MONTHLY_PL_PRIMARY_ACCOUNTS.ordinaryProfit) !== null);
+    return {
+      entityName: entity.storeName,
+      corporationName: entity.corporationName,
+      entityCategory: entityCategory.category,
+      entityCategoryLabel: entityCategory.label,
+      mappingStatus: hasSales && hasOrdinaryProfit ? "READY" : "MAPPING_REQUIRED",
+      mappingCandidateCount: 0,
+      recordCount: entity.records.length,
+      salesManYen: Math.round(salesByMonthYen.reduce((sum, amount) => sum + amount, 0) / 10000),
+      ordinaryProfitManYen: Math.round(ordinaryProfitByMonthYen.reduce((sum, amount) => sum + amount, 0) / 10000),
+      assetsManYen: null,
+      liabilitiesManYen: null,
+      equityManYen: null,
+      balanceDeltaManYen: null,
+      balanceStatus: "NOT_APPLICABLE",
+      closingMonthLabel: "",
+      periodKey: period.key,
+      periodLabel: period.label,
+      periodSortKey: period.sortKey,
+      monthLabels: months,
+      activeMonthCount: activeMonthIndex + 1,
+      activeThroughMonthLabel: activeMonthIndex >= 0 ? months[activeMonthIndex] : "",
+      salesByMonthYen,
+      ordinaryProfitByMonthYen,
+    };
+  });
+  const mappingRequired = entityPreviewRows.filter((row) => row.mappingStatus !== "READY").length;
+  const aggregateSheetCount = entityPreviewRows.filter((row) => row.entityCategory === "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS").length;
+  return {
+    status: mappingRequired ? "PL_LOCAL_VALIDATED_PENDING_MAPPING" : "PL_LOCAL_READY",
+    statement: "PL",
+    fileName: fileMeta.fileName || "",
+    fileBytes: fileMeta.fileBytes || 0,
+    contentIdentity: fileMeta.contentIdentity || "",
+    metadata: { periodText: period.label },
+    sheetCount: entityPreviewRows.length,
+    sheetsWithTwelveMonths: entityPreviewRows.filter((row) => Number(row.activeMonthCount || 0) >= 12).length,
+    aggregateSheetCount,
+    entityCandidateCount: entityPreviewRows.length - aggregateSheetCount,
+    normalizedRecordCount: records.length,
+    duplicateFileCount: 0,
+    duplicateEntityPeriodCount: 0,
+    parseFailureCategories: [],
+    missingByAccount: mappingRequired ? { "売上高合計/経常損益金額": mappingRequired } : {},
+    mappingCandidatesByAccount: {},
+    balanceCheck: "NOT_APPLICABLE",
+    previewRows: entityPreviewRows.slice(0, 8),
+    entityPreviewRows,
+  };
+}
+
 export function validateFinancialMappingConfirmationCsv(text, result) {
   const expectedRows = buildFinancialMappingReviewRows(result);
   if (!expectedRows.length) return { status: "MAPPING_CONFIRMATION_NOT_APPLICABLE", confirmedCount: 0, rejectedCount: 0 };
@@ -1895,7 +2111,7 @@ const INTAKE_STATUS_LABELS = Object.freeze({
   BS_DUPLICATE_ENTITY_PERIOD_DETECTED: "B/S同一期・同一候補の重複を確認してください",
   FILE_COUNT_INVALID: "ファイル数は12件以内にしてください",
   FILE_TOTAL_SIZE_INVALID: "合計ファイル容量は100MB以内にしてください",
-  FILE_TYPE_INVALID: "Excel（.xlsx）ファイルを選択してください",
+  FILE_TYPE_INVALID: "Excel（.xlsx）または正規化CSVを選択してください",
   FILE_SIZE_INVALID: "1ファイルは25MB以内にしてください",
   SOURCE_SYSTEM_UNSUPPORTED: "選択した会計システムには未対応です",
   FILE_READ_OR_PARSE_FAILED: "ファイルを確認してください",
@@ -2200,12 +2416,12 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   controls.append(statement, fiscal, scope, source, mode);
 
   const drop = el(doc, "label", "financial-intake-drop");
-  drop.setAttribute("aria-label", "Excelファイルを選択またはドロップしてローカル検証");
+  drop.setAttribute("aria-label", "ExcelまたはCSVファイルを選択またはドロップしてローカル検証");
   const input = el(doc, "input");
   input.type = "file";
-  input.accept = ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  input.accept = ".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv";
   input.multiple = true;
-  const dropText = el(doc, "span", "", "Excelファイルを選択してローカル検証");
+  const dropText = el(doc, "span", "", "ExcelまたはCSVファイルを選択してローカル検証");
   drop.append(input, dropText);
 
   const result = el(doc, "div", "financial-intake-result");
@@ -2298,11 +2514,11 @@ export function renderFinancialDataIntake(container, hooks = {}) {
     if (checking) return;
     checking = true;
     const files = Array.from(selectedFiles || []);
-    dropText.textContent = files.length === 1 ? files[0].name : files.length ? `${files.length}ファイルを選択中` : "Excelファイルを選択してローカル検証";
+    dropText.textContent = files.length === 1 ? files[0].name : files.length ? `${files.length}ファイルを選択中` : "ExcelまたはCSVファイルを選択してローカル検証";
     input.disabled = true;
     drop.setAttribute("aria-busy", "true");
     result.dataset.financialIntakeResult = "CHECKING";
-    result.replaceChildren(el(doc, "strong", "", "検証中"), el(doc, "p", "", "ローカルでExcel構造を確認しています。"));
+    result.replaceChildren(el(doc, "strong", "", "検証中"), el(doc, "p", "", "ローカルでExcel/CSV構造を確認しています。"));
     try {
       const parsed = source.value === "YAYOI"
         ? await validateFinancialWorkbookFiles(files, statement.value, hooks)

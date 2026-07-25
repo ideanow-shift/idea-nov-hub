@@ -47,6 +47,17 @@ const NORMALIZED_MONTHLY_PL_CSV_HEADER = Object.freeze([
   "元ファイル",
   "元ページ",
 ]);
+const STORE_MONTHLY_SALES_ACCOUNTING_CSV_HEADER = Object.freeze([
+  "period",
+  "corporation",
+  "store",
+  "total_sales",
+  "technical_sales",
+  "product_sales",
+  "milbon_id_sales",
+  "ec_sales",
+  "profit",
+]);
 const NORMALIZED_MONTHLY_PL_PRIMARY_ACCOUNTS = Object.freeze({
   sales: Object.freeze(["売上高合計", "売上高"]),
   ordinaryProfit: Object.freeze(["経常損益金額"]),
@@ -559,6 +570,10 @@ export async function validateNormalizedMonthlyPlCsvFile(file, options = {}) {
     const buffer = await file.arrayBuffer();
     const contentIdentity = await sha256Identity(buffer, options);
     const text = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+    const header = parseStrictCsv(text)?.[0] || [];
+    if (csvHeaderMatches(header, STORE_MONTHLY_SALES_ACCOUNTING_CSV_HEADER)) {
+      return parseStoreMonthlySalesAccountingCsvText(text, { fileName: file.name, fileBytes: file.size, contentIdentity });
+    }
     return parseNormalizedMonthlyPlCsvText(text, { fileName: file.name, fileBytes: file.size, contentIdentity });
   } catch {
     return {
@@ -1529,6 +1544,148 @@ function expectedNormalizedMonthlyPlMonths(months) {
   if (yearSet.size !== 1) return [];
   const year = [...yearSet][0];
   return Array.from({ length: 12 }, (_, index) => `${year}-${String(index + 1).padStart(2, "0")}`);
+}
+
+function safeLocalLabel(value, maxLength = 100) {
+  const text = String(value ?? "").normalize("NFC").trim();
+  if (!text || text.length > maxLength || /[\u0000-\u001F\u007F]/u.test(text)) return "";
+  return text;
+}
+
+function optionalAccountingInt(value) {
+  const text = String(value ?? "").trim();
+  if (text === "" || text === "NOT_IN_SOURCE") return null;
+  return csvIntYen(text);
+}
+
+export function parseStoreMonthlySalesAccountingCsvText(text, fileMeta = {}) {
+  const rows = parseStrictCsv(text);
+  if (!rows || rows.length < 2 || !csvHeaderMatches(rows[0], STORE_MONTHLY_SALES_ACCOUNTING_CSV_HEADER)) {
+    return { status: "PL_FILE_PARSE_FAILED", statement: "PL", parseFailureCategory: "STORE_MONTHLY_SALES_HEADER_INVALID", previewRows: [], entityPreviewRows: [] };
+  }
+  const records = [];
+  const keys = new Set();
+  for (const row of rows.slice(1)) {
+    if (row.length !== STORE_MONTHLY_SALES_ACCOUNTING_CSV_HEADER.length) {
+      return { status: "PL_FILE_PARSE_FAILED", statement: "PL", parseFailureCategory: "STORE_MONTHLY_SALES_ROW_INVALID", previewRows: [], entityPreviewRows: [] };
+    }
+    const month = normalizedMonthlyPlMonthKey(row[0]);
+    const corporationName = safeLocalLabel(row[1]);
+    const storeName = safeLocalLabel(row[2]);
+    const totalSalesYen = optionalAccountingInt(row[3]);
+    const technicalSalesYen = optionalAccountingInt(row[4]);
+    const productSalesYen = optionalAccountingInt(row[5]);
+    const milbonIdSalesYen = optionalAccountingInt(row[6]);
+    const ecSalesYen = optionalAccountingInt(row[7]);
+    const profitYen = optionalAccountingInt(row[8]);
+    if (!month || !corporationName || !storeName
+      || (!["", "NOT_IN_SOURCE"].includes(row[3]) && totalSalesYen === null)
+      || (!["", "NOT_IN_SOURCE"].includes(row[4]) && technicalSalesYen === null)
+      || (!["", "NOT_IN_SOURCE"].includes(row[5]) && productSalesYen === null)
+      || (!["", "NOT_IN_SOURCE"].includes(row[6]) && milbonIdSalesYen === null)
+      || (!["", "NOT_IN_SOURCE"].includes(row[7]) && ecSalesYen === null)
+      || (!["", "NOT_IN_SOURCE"].includes(row[8]) && profitYen === null)) {
+      return { status: "PL_FILE_PARSE_FAILED", statement: "PL", parseFailureCategory: "STORE_MONTHLY_SALES_VALUE_INVALID", previewRows: [], entityPreviewRows: [] };
+    }
+    const key = `${month}\u0000${corporationName}\u0000${storeName}`;
+    if (keys.has(key)) {
+      return { status: "PL_DUPLICATE_ENTITY_PERIOD_DETECTED", statement: "PL", parseFailureCategory: "STORE_MONTHLY_SALES_DUPLICATE_KEY", previewRows: [], entityPreviewRows: [] };
+    }
+    keys.add(key);
+    records.push({
+      month,
+      corporationName,
+      storeName,
+      totalSalesYen,
+      technicalSalesYen,
+      productSalesYen,
+      milbonIdSalesYen,
+      ecSalesYen,
+      profitYen,
+    });
+  }
+  const months = [...new Set(records.map((record) => record.month))].sort();
+  const expectedMonthLabels = expectedNormalizedMonthlyPlMonths(months);
+  const missingMonthLabels = expectedMonthLabels.filter((month) => !months.includes(month));
+  const period = normalizedMonthlyPlPeriod(months);
+  const byEntity = new Map();
+  for (const record of records) {
+    const key = `${record.corporationName}\u0000${record.storeName}`;
+    const bucket = byEntity.get(key) || {
+      corporationName: record.corporationName,
+      storeName: record.storeName,
+      records: [],
+    };
+    bucket.records.push(record);
+    byEntity.set(key, bucket);
+  }
+  const entityPreviewRows = [...byEntity.values()].map((entity) => {
+    const entityCategory = normalizedMonthlyPlEntityCategory(entity.corporationName, entity.storeName);
+    const salesByMonthYen = months.map((month) => entity.records.find((record) => record.month === month)?.totalSalesYen ?? 0);
+    const ordinaryProfitByMonthYen = months.map((month) => entity.records.find((record) => record.month === month)?.profitYen ?? 0);
+    const activeMonthIndex = months.findLastIndex((month, index) => salesByMonthYen[index] !== 0 || ordinaryProfitByMonthYen[index] !== 0);
+    const hasSales = entity.records.some((record) => record.totalSalesYen !== null);
+    const hasProfit = entity.records.some((record) => record.profitYen !== null);
+    return {
+      entityName: entity.storeName,
+      corporationName: entity.corporationName,
+      entityCategory: entityCategory.category,
+      entityCategoryLabel: entityCategory.label,
+      mappingStatus: hasSales && hasProfit ? "READY" : "MAPPING_REQUIRED",
+      mappingCandidateCount: 0,
+      recordCount: entity.records.length,
+      salesManYen: Math.round(salesByMonthYen.reduce((sum, amount) => sum + amount, 0) / 10000),
+      ordinaryProfitManYen: Math.round(ordinaryProfitByMonthYen.reduce((sum, amount) => sum + amount, 0) / 10000),
+      assetsManYen: null,
+      liabilitiesManYen: null,
+      equityManYen: null,
+      balanceDeltaManYen: null,
+      balanceStatus: "NOT_APPLICABLE",
+      closingMonthLabel: "",
+      periodKey: period.key,
+      periodLabel: period.label,
+      periodSortKey: period.sortKey,
+      monthLabels: months,
+      expectedMonthLabels,
+      missingMonthLabels,
+      activeMonthCount: activeMonthIndex + 1,
+      activeThroughMonthLabel: activeMonthIndex >= 0 ? months[activeMonthIndex] : "",
+      salesByMonthYen,
+      ordinaryProfitByMonthYen,
+      localKpiMetrics: {
+        technicalSalesYen: entity.records.reduce((sum, record) => sum + Number(record.technicalSalesYen || 0), 0),
+        productSalesYen: entity.records.reduce((sum, record) => sum + Number(record.productSalesYen || 0), 0),
+        milbonIdSalesYen: entity.records.reduce((sum, record) => sum + Number(record.milbonIdSalesYen || 0), 0),
+        ecSalesYen: entity.records.reduce((sum, record) => sum + Number(record.ecSalesYen || 0), 0),
+      },
+    };
+  });
+  const mappingRequired = entityPreviewRows.filter((row) => row.mappingStatus !== "READY").length;
+  const aggregateSheetCount = entityPreviewRows.filter((row) => row.entityCategory === "AGGREGATE_EXCLUDED_FROM_ENTITY_TOTALS").length;
+  return {
+    status: mappingRequired ? "PL_LOCAL_VALIDATED_PENDING_MAPPING" : "PL_LOCAL_READY",
+    statement: "PL",
+    fileName: fileMeta.fileName || "",
+    fileBytes: fileMeta.fileBytes || 0,
+    contentIdentity: fileMeta.contentIdentity || "",
+    metadata: { periodText: period.label, sourceShape: "STORE_MONTHLY_SALES_ACCOUNTING_CSV" },
+    expectedMonthCount: expectedMonthLabels.length || months.length,
+    actualMonthCount: months.length,
+    missingMonthLabels,
+    sheetCount: entityPreviewRows.length,
+    sheetsWithTwelveMonths: entityPreviewRows.filter((row) => Number(row.activeMonthCount || 0) >= 12).length,
+    aggregateSheetCount,
+    entityCandidateCount: entityPreviewRows.length - aggregateSheetCount,
+    normalizedRecordCount: records.length,
+    duplicateFileCount: 0,
+    duplicateEntityPeriodCount: 0,
+    parseFailureCategories: [],
+    missingByAccount: mappingRequired ? { store_monthly_sales_required_values: mappingRequired } : {},
+    mappingCandidatesByAccount: {},
+    balanceCheck: "NOT_APPLICABLE",
+    previewRows: entityPreviewRows.slice(0, 8),
+    entityPreviewRows,
+  };
 }
 
 export function parseNormalizedMonthlyPlCsvText(text, fileMeta = {}) {

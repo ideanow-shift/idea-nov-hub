@@ -238,6 +238,13 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-search")?.addEventListener("input", refresh);
   documentObject.getElementById("student-source-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-state-filter")?.addEventListener("change", refresh);
+  documentObject.getElementById("triage-new-open")?.addEventListener("click", () => {
+    const filter = documentObject.getElementById("student-state-filter");
+    if (!filter) return;
+    filter.value = "NEW_CANDIDATE";
+    refresh();
+    documentObject.getElementById("student-list")?.scrollIntoView?.({ block: "nearest" });
+  });
   documentObject.getElementById("school-search")?.addEventListener("input", () => {
     renderTalentAnalytics(documentObject);
   });
@@ -454,16 +461,20 @@ export function buildBulkTriageCounts(students) {
   const unmapped = rows.filter((student) => student.mappingStatus === "UNMAPPED");
   const exact1 = unmapped.filter((student) => student.suggestionCategory === "EXACT1").length;
   const ambiguous = unmapped.filter((student) => student.suggestionCategory === "AMBIGUOUS").length;
-  const newApplicant = unmapped.filter((student) => (
-    ["ENTRIES_27", "OFFERS_27"].includes(student.sourceCode)
-    && student.suggestionCategory === "NONE"
-  )).length;
+  const newApplicant = unmapped.filter(isNewApplicantCandidate).length;
   return Object.freeze({
     exact1,
     newApplicant,
     ambiguous,
     hold: Math.max(0, unmapped.length - exact1 - ambiguous - newApplicant)
   });
+}
+
+export function isNewApplicantCandidate(student) {
+  return Boolean(student)
+    && student.mappingStatus === "UNMAPPED"
+    && ["ENTRIES_27", "OFFERS_27"].includes(student.sourceCode)
+    && student.suggestionCategory === "NONE";
 }
 
 function renderBulkTriageSummary(documentObject, students) {
@@ -727,6 +738,7 @@ function renderStudentWorkspace(documentObject) {
   const visible = studentWorkspaceData.students.filter((student) => {
     if (source !== "ALL" && student.sourceCode !== source) return false;
     if (state !== "ALL" && student.classification !== state) return false;
+    if (state === "NEW_CANDIDATE" && !isNewApplicantCandidate(student)) return false;
     if (!query) return true;
     return [
       student.displayName, student.kana, student.school, student.status,

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildSingleStudentReviewProposal } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildSingleStudentReviewProposal, isNewApplicantCandidate } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -123,6 +123,13 @@ test("bulk triage separates exact matches, new candidates, ambiguous rows, and h
   ]);
 
   assert.deepEqual(counts, { exact1: 1, newApplicant: 1, ambiguous: 1, hold: 1 });
+});
+
+test("new applicant candidate filtering stays limited to unmapped entry and offer rows", () => {
+  assert.equal(isNewApplicantCandidate({ mappingStatus: "UNMAPPED", sourceCode: "ENTRIES_27", suggestionCategory: "NONE" }), true);
+  assert.equal(isNewApplicantCandidate({ mappingStatus: "UNMAPPED", sourceCode: "OFFERS_27", suggestionCategory: "NONE" }), true);
+  assert.equal(isNewApplicantCandidate({ mappingStatus: "OWNER_CONFIRMED", sourceCode: "ENTRIES_27", suggestionCategory: "NONE" }), false);
+  assert.equal(isNewApplicantCandidate({ mappingStatus: "UNMAPPED", sourceCode: "CONTACTS_27", suggestionCategory: "NONE" }), false);
 });
 
 test("navigation supports keyboard movement and responsive one-column layouts", async () => {

@@ -141,6 +141,17 @@ tbody tr:hover td { background: var(--card-soft); }
 .workforce-evidence-facts div { min-width: 0; padding: 9px 10px; background: var(--card); border: 1px solid var(--border-light); }
 .workforce-evidence-facts dt { color: var(--text-secondary); font-size: 11px; }
 .workforce-evidence-facts dd { margin: 3px 0 0; color: var(--text-primary); font-size: 13px; overflow-wrap: anywhere; }
+.workforce-submission { margin-top: 12px; padding: 12px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.workforce-submission-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.workforce-submission-head p { margin: 0 0 3px; color: var(--text-secondary); font-size: 11px; font-weight: 500; text-transform: uppercase; }
+.workforce-submission-head h4 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 500; }
+.workforce-submission-head button:disabled { min-height: 36px; padding: 7px 12px; color: var(--text-muted); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); white-space: nowrap; cursor: not-allowed; }
+.workforce-submission-summary { margin: 8px 0 10px; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
+.workforce-submission-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.workforce-submission-item { min-width: 0; padding: 9px 10px; background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.workforce-submission-item span { display: inline-flex; min-height: 22px; margin-bottom: 6px; padding: 2px 7px; align-items: center; color: var(--text-primary); background: #fff; border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 10px; font-weight: 500; }
+.workforce-submission-item strong { display: block; color: var(--text-primary); font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
+.workforce-submission-item p { margin: 4px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 .workforce-evidence-action { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 10px; color: var(--text-secondary); font-size: 12px; }
 .workforce-evidence-action button:disabled { min-height: 36px; padding: 7px 12px; color: var(--text-muted); background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); cursor: not-allowed; }
 .workforce-evidence-template { min-height: 36px; padding: 7px 12px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-primary); background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); text-decoration: none; white-space: nowrap; }
@@ -400,13 +411,13 @@ tbody tr:hover td { background: var(--card-soft); }
   .corporation-tabs { padding: 10px 12px; }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .metric-value { font-size: 24px; }
-  .workflow, .method-grid, .production-readiness-grid, .financial-intake-controls, .financial-intake-preview, .financial-completion-list, .financial-submission-package-grid, .financial-submission-roadmap-list, .financial-local-preview-metrics { grid-template-columns: 1fr; }
+  .workflow, .method-grid, .production-readiness-grid, .workforce-submission-grid, .financial-intake-controls, .financial-intake-preview, .financial-completion-list, .financial-submission-package-grid, .financial-submission-roadmap-list, .financial-local-preview-metrics { grid-template-columns: 1fr; }
   .financial-visible-scope, .financial-production-hold-summary { grid-template-columns: 1fr; }
   .financial-store-match-action { grid-template-columns: 1fr; }
   .financial-store-match-action button { grid-column: 1; grid-row: auto; width: 100%; }
   .chart-canvas { min-height: 260px; }
   .section-heading { align-items: flex-start; }
-  .workforce-evidence-head, .workforce-evidence-action { align-items: stretch; flex-direction: column; }
+  .workforce-evidence-head, .workforce-evidence-action, .workforce-submission-head { align-items: stretch; flex-direction: column; }
   .production-readiness-head { align-items: stretch; flex-direction: column; }
   .financial-intake-heading { align-items: stretch; flex-direction: column; }
   .financial-mapping-review-heading { align-items: stretch; flex-direction: column; }

@@ -62,6 +62,32 @@ const CURRENT_HUB_STORE_WORKFORCE_HEADER = Object.freeze([
 ]);
 const CURRENT_HUB_RESIDENT_KINDS = new Set(["INCLUDE_RESIDENT"]);
 const CURRENT_HUB_WORKING_KINDS = new Set(["INCLUDE_WORKING", "EXCLUDE_NON_WORKING_LEAVE"]);
+const WORKFORCE_PRODUCTION_SUBMISSION_ITEMS = Object.freeze([
+  Object.freeze({
+    category: "LOCAL_EVIDENCE_READY",
+    label: "ローカル確認",
+    value: "PASS",
+    detail: "社員マスタ集計CSVは画面確認用に検証できます。",
+  }),
+  Object.freeze({
+    category: "PRODUCTION_CATALOG_PENDING",
+    label: "本番catalog証跡",
+    value: "PENDING",
+    detail: "保存先・権限・既存行の読み取り証跡が揃うまで本番投入しません。",
+  }),
+  Object.freeze({
+    category: "BACKEND_STAGING_CONTRACT_MISSING",
+    label: "staging取込契約",
+    value: "NOT_READY",
+    detail: "重複防止・idempotency・検証後反映のbackend契約が未実装です。",
+  }),
+  Object.freeze({
+    category: "AUDIT_ROLLBACK_PENDING",
+    label: "監査/取消",
+    value: "NOT_READY",
+    detail: "実行者・監査1件・rollback境界が揃うまで保存操作は無効です。",
+  }),
+]);
 
 export const SANITIZED_WORKFORCE_EVIDENCE = Object.freeze({
   category: "LOCAL_VALIDATED_PENDING_PRODUCTION",
@@ -146,6 +172,23 @@ export function workforceAllocationTemplateFile() {
     mimeType: "text/csv;charset=utf-8;header=present",
     rowCount: WORKFORCE_ALLOCATION_TEMPLATE_ROWS.length - 1,
     href: `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`,
+  });
+}
+
+export function workforceProductionSubmissionStatus(model = SANITIZED_WORKFORCE_EVIDENCE) {
+  if (!validateWorkforceEvidenceModel(model) || HARD_RUNTIME_GATE !== false) {
+    return Object.freeze({
+      category: "SUBMISSION_UNAVAILABLE",
+      readyForProduction: false,
+      disabledReason: "算定根拠状態を安全に確認できません。",
+      items: Object.freeze([]),
+    });
+  }
+  return Object.freeze({
+    category: "LOCAL_READY_PRODUCTION_DISABLED",
+    readyForProduction: false,
+    disabledReason: "本番catalog証跡、staging取込契約、監査/取消境界が揃うまで無効です。",
+    items: WORKFORCE_PRODUCTION_SUBMISSION_ITEMS,
   });
 }
 
@@ -315,6 +358,27 @@ function renderFacts(facts) {
         <div><dt>${escapeHtml(fact.label)}</dt><dd>${escapeHtml(fact.value)}</dd></div>`).join("");
 }
 
+function renderProductionSubmission(status) {
+  const items = status.items.map((item) => `
+        <article class="workforce-submission-item" data-workforce-submission-category="${escapeHtml(item.category)}">
+          <span>${escapeHtml(item.value)}</span>
+          <strong>${escapeHtml(item.label)}</strong>
+          <p>${escapeHtml(item.detail)}</p>
+        </article>`).join("");
+  return `
+      <div class="workforce-submission" data-workforce-submission-status="${escapeHtml(status.category)}">
+        <div class="workforce-submission-head">
+          <div>
+            <p>Production Route</p>
+            <h4>社員マスタ人数の本番投入準備</h4>
+          </div>
+          <button type="button" disabled aria-disabled="true" title="${escapeHtml(status.disabledReason)}">本番投入 disabled</button>
+        </div>
+        <p class="workforce-submission-summary">${escapeHtml(status.disabledReason)}</p>
+        <div class="workforce-submission-grid">${items}</div>
+      </div>`;
+}
+
 function workforceAllocationReceiptLabel(receipt) {
   const labels = {
     WORKFORCE_ALLOCATION_LOCAL_EVIDENCE: `ローカル確認済み: 部門 ${receipt.departmentCount} / 店舗配賦 ${receipt.storeMappedCount} / 要確認 ${receipt.unassignedReviewCount}`,
@@ -329,6 +393,7 @@ function workforceAllocationReceiptLabel(receipt) {
 export function renderWorkforceEvidenceStatus(model = SANITIZED_WORKFORCE_EVIDENCE) {
   const view = validateWorkforceEvidenceModel(model) && HARD_RUNTIME_GATE === false ? model : invalidEvidence();
   const template = view.category === "LOCAL_VALIDATED_PENDING_PRODUCTION" ? workforceAllocationTemplateFile() : null;
+  const submission = workforceProductionSubmissionStatus(view);
   return `
     <section class="workforce-evidence-status" data-workforce-evidence-category="${escapeHtml(view.category)}" aria-label="人数・組織集計の算定根拠状態">
       <div class="workforce-evidence-head">
@@ -342,6 +407,7 @@ export function renderWorkforceEvidenceStatus(model = SANITIZED_WORKFORCE_EVIDEN
       <dl class="workforce-evidence-facts">
         <div><dt>正本</dt><dd>${escapeHtml(view.sourceLabel)}</dd></div>
         <div><dt>本番証跡</dt><dd>${escapeHtml(view.productionEvidence)}</dd></div>${renderFacts(view.facts)}</dl>
+      ${renderProductionSubmission(submission)}
       <div class="workforce-evidence-action">
         <button type="button" disabled aria-disabled="true" title="本番反映契約の確定まで利用できません">関連AI・承認</button>
         ${template ? `<a class="workforce-evidence-template" href="${template.href}" download="${escapeHtml(template.fileName)}">部門配賦CSVを保存</a>` : ""}

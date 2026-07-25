@@ -94,9 +94,13 @@ try {
       const enabledActionButtons = [...document.querySelectorAll(".workforce-evidence-status button")].filter((button) => !button.disabled).length;
       return {
         statusCategory: document.querySelector("[data-workforce-evidence-category]")?.getAttribute("data-workforce-evidence-category"),
+        submissionCategory: document.querySelector("[data-workforce-submission-status]")?.getAttribute("data-workforce-submission-status"),
+        submissionCards: document.querySelectorAll("[data-workforce-submission-category]").length,
         receiptCategory: document.querySelector("span[data-workforce-allocation-status]")?.textContent || "",
         storeStaffShown: text.includes("社員マスタ確認済み"),
         aggregateShown: text.includes("社員マスタ 189名"),
+        productionDisabledShown: text.includes("本番投入 disabled"),
+        backendContractShown: text.includes("staging取込契約"),
         noUnassigned29: !text.includes("29名"),
         enabledActionButtons,
         horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1,
@@ -106,9 +110,13 @@ try {
     results.push({ viewport: viewport.name, ...result });
   }
   const failed = results.filter((result) => result.statusCategory !== "LOCAL_VALIDATED_PENDING_PRODUCTION"
+    || result.submissionCategory !== "LOCAL_READY_PRODUCTION_DISABLED"
+    || result.submissionCards !== 4
     || !result.receiptCategory.includes("在籍 190")
     || !result.storeStaffShown
     || !result.aggregateShown
+    || !result.productionDisabledShown
+    || !result.backendContractShown
     || !result.noUnassigned29
     || result.enabledActionButtons !== 0
     || result.horizontalOverflow);

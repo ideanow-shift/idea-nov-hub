@@ -52,6 +52,7 @@ test("student detail exposes an individual confirmation action without replacing
   assert.match(html, /id="student-confirm-open"[^>]*disabled[^>]*aria-disabled="true"/);
   assert.match(app, /buildSingleStudentReviewProposal/);
   assert.match(app, /student\.suggestionCategory === "EXACT1"/);
+  assert.match(app, /confirmButton\.disabled = !historicalReviewController\.enabled/);
   assert.match(app, /この候補だけを確認/);
   assert.match(app, /確認候補を一括反映しますか/);
 });

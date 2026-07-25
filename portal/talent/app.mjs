@@ -437,6 +437,12 @@ function openHistoricalReviewDialog({ globalObject, documentObject }) {
   setText(documentObject, "review-confirm-links", proposal.linkPairs.length);
   setText(documentObject, "review-confirm-remaining", studentWorkspaceData.overview.remainingManual);
   historicalReviewController = createTalentHistoricalReviewController({ globalObject });
+  const confirmButton = documentObject.getElementById("student-review-confirm");
+  if (confirmButton) {
+    confirmButton.disabled = !historicalReviewController.enabled;
+    confirmButton.setAttribute("aria-disabled", String(!historicalReviewController.enabled));
+    confirmButton.setAttribute("aria-busy", "false");
+  }
   documentObject.getElementById("student-review-dialog")?.showModal?.();
 }
 
@@ -450,6 +456,12 @@ function openSingleStudentReviewDialog({ globalObject, documentObject, student }
   setText(documentObject, "review-confirm-remaining", 0);
   setText(documentObject, "student-review-status", "対象者を確認してから実行してください");
   historicalReviewController = createTalentHistoricalReviewController({ globalObject });
+  const confirmButton = documentObject.getElementById("student-review-confirm");
+  if (confirmButton) {
+    confirmButton.disabled = !historicalReviewController.enabled;
+    confirmButton.setAttribute("aria-disabled", String(!historicalReviewController.enabled));
+    confirmButton.setAttribute("aria-busy", "false");
+  }
   documentObject.getElementById("student-review-dialog")?.showModal?.();
 }
 

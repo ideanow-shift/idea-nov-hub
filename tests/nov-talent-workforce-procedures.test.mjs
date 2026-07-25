@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWorkforceProcedureCaseController, filterWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { createWorkforceProcedureCaseController, filterWorkforceProcedureCases, isWorkforceProcedureCaseReadyToConfirm, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -86,4 +86,11 @@ test("workforce procedure checklists read and update one bounded step", async ()
   assert.match(calls[0].url, /procedure-cases\/steps\?caseId=/);
   assert.equal(calls[1].init.method, "POST");
   assert.equal(WORKFORCE_PROCEDURE_CASE_CONTRACT.checklistTracking, true);
+});
+
+test("workforce procedure confirmation requires every checklist item", () => {
+  const ready = [{ isCompleted: true }, { isCompleted: true }, { isCompleted: true }, { isCompleted: true }];
+  assert.equal(isWorkforceProcedureCaseReadyToConfirm(ready), true);
+  assert.equal(isWorkforceProcedureCaseReadyToConfirm([{ ...ready[0], isCompleted: false }, ...ready.slice(1)]), false);
+  assert.equal(isWorkforceProcedureCaseReadyToConfirm(ready.slice(0, 3)), false);
 });

@@ -65,6 +65,7 @@ test("workforce exposes an audited procedure case desk without employee-master c
   assert.match(source, /optimisticConcurrency: true/);
   assert.match(source, /filterWorkforceProcedureCases/);
   assert.match(source, /checklistTracking: true/);
+  assert.match(source, /isWorkforceProcedureCaseReadyToConfirm/);
 });
 
 test("student editing supports canonical profiles and unmapped staging rows", async () => {

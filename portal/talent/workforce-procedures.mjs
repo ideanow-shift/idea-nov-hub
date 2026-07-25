@@ -88,6 +88,10 @@ function normalizeAudit(value) {
   return Object.freeze(entries);
 }
 
+export function isWorkforceProcedureCaseReadyToConfirm(steps) {
+  return Array.isArray(steps) && steps.length === 4 && steps.every((step) => step && step.isCompleted === true);
+}
+
 function normalizeSteps(value) {
   if (!exactKeys(value, ["procedureType", "steps"]) || !PROCEDURE_TYPES.includes(value.procedureType)
     || !Array.isArray(value.steps) || value.steps.length !== 4) return null;
@@ -246,6 +250,7 @@ export function initializeWorkforceProcedureDesk({
       write_forbidden: "手続き案件を編集する権限を確認できません。",
       not_ready: "手続き案件を準備中です。",
       invalid_request: "入力内容を確認してください。",
+      checklist_incomplete: "確認済みにする前に、案件の確認項目をすべて完了してください。",
       invalid_response: "手続き案件の応答を確認できませんでした。",
       request_failed: "手続き案件を保存できませんでした。",
       busy: "処理中です。"
@@ -436,6 +441,17 @@ export function initializeWorkforceProcedureDesk({
       effectiveDate: input("effectiveDate").value,
       detail: input("detail").value
     });
+    if (draft.caseStatus === "CONFIRMED") {
+      if (draft.caseId === null) {
+        setStatus("checklist_incomplete");
+        return;
+      }
+      const checklist = await controller.loadSteps(draft.caseId);
+      if (!checklist.ok || !isWorkforceProcedureCaseReadyToConfirm(checklist.data.steps)) {
+        setStatus("checklist_incomplete");
+        return;
+      }
+    }
     const controls = [...form.querySelectorAll("button,input,select,textarea")];
     controls.forEach((control) => { control.disabled = true; });
     try {

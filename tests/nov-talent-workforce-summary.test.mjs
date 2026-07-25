@@ -34,7 +34,12 @@ test("workforce summary executor makes one read-only request and validates aggre
           retirementCount: 2,
           transferAvailable: false,
           transferCount: null,
-          asOfDate: "2026-07-25"
+          asOfDate: "2026-07-25",
+          procedureQueues: {
+            onboarding: [{ displayName: "山田 花子", effectiveDate: "2026-08-01", detail: "正社員" }],
+            leave: [],
+            retirement: []
+          }
         },
         meta: { generatedAt: "2026-07-25T00:00:00.000Z", requestId: "test", source: "test", version: "2" }
       });
@@ -45,6 +50,7 @@ test("workforce summary executor makes one read-only request and validates aggre
   assert.equal(result.okBoolean, true);
   assert.equal(result.data.onboardingCount, 4);
   assert.equal(result.data.transferAvailable, false);
+  assert.equal(result.data.procedureQueues.onboarding.length, 1);
   const duplicate = await executor.run();
   assert.equal(duplicate.stopCategory, "duplicate_startup_prevented");
   assert.equal(calls, 1);

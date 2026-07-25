@@ -12,13 +12,15 @@ const WORKFORCE_SUMMARY_KEYS = Object.freeze([
   "retirementCount",
   "transferAvailable",
   "transferCount",
-  "asOfDate"
+  "asOfDate",
+  "procedureQueues"
 ]);
 
 export const WORKFORCE_READONLY_CONTRACT = Object.freeze({
   source: "CORE_DB",
   mode: "READ_ONLY",
-  personalValuesReturned: false,
+  personalValuesReturned: true,
+  contactValuesReturned: false,
   mutationsAllowed: false,
   status: "NOT_CONNECTED"
 });
@@ -42,7 +44,8 @@ export function buildWorkforceReadinessViewModel({
     countsAvailable: safeStatus === "CONNECTED",
     summary: safeSummary,
     categories: WORKFORCE_CATEGORIES,
-    personalValuesReturned: false,
+    personalValuesReturned: safeStatus === "CONNECTED",
+    contactValuesReturned: false,
     mutationsAllowed: false
   });
 }
@@ -63,6 +66,9 @@ export function renderWorkforceReadiness(documentObject = globalThis.document, v
   setText(documentObject, "workforce-count-leave", viewModel.countsAvailable ? String(summary.leaveCount) : "未接続");
   setText(documentObject, "workforce-count-retirement", viewModel.countsAvailable ? String(summary.retirementCount) : "未接続");
   setText(documentObject, "workforce-as-of", viewModel.countsAvailable ? `基準日 ${summary.asOfDate}` : "基準日 未確定");
+  renderProcedureQueue(documentObject, "onboarding", viewModel.countsAvailable ? summary.procedureQueues.onboarding : null);
+  renderProcedureQueue(documentObject, "leave", viewModel.countsAvailable ? summary.procedureQueues.leave : null);
+  renderProcedureQueue(documentObject, "retirement", viewModel.countsAvailable ? summary.procedureQueues.retirement : null);
   return Object.freeze({
     rendered: true,
     status: viewModel.status,
@@ -70,7 +76,8 @@ export function renderWorkforceReadiness(documentObject = globalThis.document, v
     mode: viewModel.mode,
     countsAvailable: viewModel.countsAvailable,
     categoryCount: viewModel.categories.length,
-    rawValuesReturned: false
+    personalValuesReturned: viewModel.personalValuesReturned,
+    contactValuesReturned: false
   });
 }
 
@@ -83,7 +90,46 @@ function isWorkforceSummary(value) {
     && typeof value.transferAvailable === "boolean"
     && (value.transferCount === null || (Number.isInteger(value.transferCount) && value.transferCount >= 0))
     && (!value.transferAvailable || value.transferCount !== null)
-    && /^\d{4}-\d{2}-\d{2}$/u.test(String(value.asOfDate));
+    && /^\d{4}-\d{2}-\d{2}$/u.test(String(value.asOfDate))
+    && isProcedureQueues(value.procedureQueues);
+}
+
+function isProcedureQueues(value) {
+  const keys = ["onboarding", "leave", "retirement"];
+  return value && typeof value === "object" && !Array.isArray(value)
+    && Object.keys(value).length === keys.length
+    && keys.every((key) => Array.isArray(value[key]) && value[key].length <= 100 && value[key].every((row) => row
+      && typeof row === "object" && !Array.isArray(row)
+      && Object.keys(row).length === 3
+      && ["displayName", "effectiveDate", "detail"].every((field) => Object.hasOwn(row, field))
+      && typeof row.displayName === "string" && row.displayName.length > 0
+      && /^\d{4}-\d{2}-\d{2}$/u.test(row.effectiveDate)
+      && typeof row.detail === "string" && row.detail.length > 0));
+}
+
+function renderProcedureQueue(documentObject, key, rows) {
+  const container = documentObject.getElementById(`workforce-queue-${key}`);
+  if (!container) return;
+  container.replaceChildren();
+  if (!Array.isArray(rows)) {
+    container.textContent = "Core DB読取後に対象者を表示します";
+    return;
+  }
+  if (rows.length === 0) {
+    container.textContent = "現在の対象者はいません";
+    return;
+  }
+  const fragment = documentObject.createDocumentFragment();
+  for (const row of rows) {
+    const item = documentObject.createElement("li");
+    const name = documentObject.createElement("strong");
+    const detail = documentObject.createElement("span");
+    name.textContent = row.displayName;
+    detail.textContent = `${row.effectiveDate} / ${row.detail}`;
+    item.append(name, detail);
+    fragment.append(item);
+  }
+  container.append(fragment);
 }
 
 function setText(documentObject, id, value) {

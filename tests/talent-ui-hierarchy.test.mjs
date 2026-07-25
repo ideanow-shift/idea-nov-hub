@@ -37,6 +37,17 @@ test("workforce management exposes four accessible procedure tabs", async () => 
   assert.match(app, /data-workforce-tab/);
 });
 
+test("workforce procedure tabs expose bounded Core DB case queues", async () => {
+  const html = await readFile("portal/talent/index.html", "utf8");
+  const source = await readFile("portal/talent/workforce-readiness.mjs", "utf8");
+
+  for (const key of ["onboarding", "leave", "retirement"]) {
+    assert.match(html, new RegExp(`id="workforce-queue-${key}"`));
+  }
+  assert.match(source, /procedureQueues/);
+  assert.match(source, /contactValuesReturned: false/);
+});
+
 test("student editing supports canonical profiles and unmapped staging rows", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
   const app = await readFile(new URL("app.mjs", root), "utf8");

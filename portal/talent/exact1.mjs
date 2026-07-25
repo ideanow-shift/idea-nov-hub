@@ -420,7 +420,7 @@ function unwrapWorkforceSummaryEnvelope(envelope) {
   const data = envelope.data;
   const keys = [
     "activeEmployeeCount", "onboardingCount", "leaveCount", "retirementCount",
-    "transferAvailable", "transferCount", "asOfDate"
+    "transferAvailable", "transferCount", "asOfDate", "procedureQueues"
   ];
   if (!isPlainObject(data) || Object.keys(data).length !== keys.length
     || !keys.every((key) => Object.hasOwn(data, key))
@@ -429,10 +429,28 @@ function unwrapWorkforceSummaryEnvelope(envelope) {
     || typeof data.transferAvailable !== "boolean"
     || (data.transferCount !== null && (!Number.isInteger(data.transferCount) || data.transferCount < 0))
     || (data.transferAvailable && data.transferCount === null)
-    || !/^\d{4}-\d{2}-\d{2}$/u.test(String(data.asOfDate))) {
+    || !/^\d{4}-\d{2}-\d{2}$/u.test(String(data.asOfDate))
+    || !isWorkforceProcedureQueues(data.procedureQueues)) {
     throw safeError("invalid_response");
   }
-  return Object.freeze({ ...data });
+  return Object.freeze({
+    ...data,
+    procedureQueues: Object.freeze(Object.fromEntries(Object.entries(data.procedureQueues).map(([key, rows]) => [
+      key,
+      Object.freeze(rows.map((row) => Object.freeze({ ...row })))
+    ])))
+  });
+}
+
+function isWorkforceProcedureQueues(value) {
+  const keys = ["onboarding", "leave", "retirement"];
+  return isPlainObject(value) && Object.keys(value).length === keys.length && keys.every((key) => Array.isArray(value[key])
+    && value[key].length <= 100 && value[key].every((row) => isPlainObject(row)
+      && Object.keys(row).length === 3
+      && ["displayName", "effectiveDate", "detail"].every((field) => Object.hasOwn(row, field))
+      && typeof row.displayName === "string" && row.displayName.length > 0 && row.displayName.length <= 120
+      && /^\d{4}-\d{2}-\d{2}$/u.test(row.effectiveDate)
+      && typeof row.detail === "string" && row.detail.length > 0 && row.detail.length <= 120));
 }
 
 export function buildDashboardSummaryViewModel(data) {

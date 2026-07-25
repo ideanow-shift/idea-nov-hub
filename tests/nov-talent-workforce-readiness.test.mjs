@@ -18,7 +18,8 @@ test("workforce readiness stays read-only and fail-closed before Core DB connect
   assert.deepEqual(WORKFORCE_READONLY_CONTRACT, {
     source: "CORE_DB",
     mode: "READ_ONLY",
-    personalValuesReturned: false,
+    personalValuesReturned: true,
+    contactValuesReturned: false,
     mutationsAllowed: false,
     status: "NOT_CONNECTED"
   });
@@ -35,7 +36,7 @@ test("workforce readiness rejects unapproved connection state and source values"
   assert.equal(viewModel.mutationsAllowed, false);
 });
 
-test("connected workforce readiness renders aggregate counts without personal rows", () => {
+test("connected workforce readiness returns minimal procedure rows without contact values", () => {
   const viewModel = buildWorkforceReadinessViewModel({
     source: "CORE_DB",
     mode: "READ_ONLY",
@@ -47,7 +48,12 @@ test("connected workforce readiness renders aggregate counts without personal ro
       retirementCount: 2,
       transferAvailable: false,
       transferCount: null,
-      asOfDate: "2026-07-25"
+      asOfDate: "2026-07-25",
+      procedureQueues: {
+        onboarding: [{ displayName: "山田 花子", effectiveDate: "2026-08-01", detail: "正社員" }],
+        leave: [],
+        retirement: []
+      }
     }
   });
 
@@ -55,6 +61,7 @@ test("connected workforce readiness renders aggregate counts without personal ro
   assert.equal(viewModel.countsAvailable, true);
   assert.equal(viewModel.summary.activeEmployeeCount, 120);
   assert.equal(viewModel.summary.transferAvailable, false);
-  assert.equal(viewModel.personalValuesReturned, false);
+  assert.equal(viewModel.personalValuesReturned, true);
+  assert.equal(viewModel.contactValuesReturned, false);
   assert.equal(viewModel.mutationsAllowed, false);
 });

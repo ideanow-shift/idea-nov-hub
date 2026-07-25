@@ -851,6 +851,24 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-intro strong { color: var(--navy); }
 .procedure-intro p { margin: 0; color: var(--muted); }
 
+.workforce-queue {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.3fr);
+  gap: 18px;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.workforce-queue h3, .workforce-queue p { margin: 0; }
+.workforce-queue p { margin-top: 6px; color: var(--muted); font-size: 0.85rem; }
+.workforce-queue ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; color: var(--muted); }
+.workforce-queue li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 6px; background: #f7fafc; }
+.workforce-queue li strong { color: var(--navy); }
+.workforce-queue li span { color: var(--muted); white-space: nowrap; }
+
 .procedure-checklist {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -901,6 +919,7 @@ h3 { margin: 0; font-size: 1rem; }
   .dashboard-header { align-items: flex-start; }
   .summary-command { flex-direction: column; align-items: flex-end; }
   .summary-grid, .historical-summary-grid, .workforce-summary, .procedure-board, .procedure-checklist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .workforce-queue { grid-template-columns: 1fr; }
   .workforce-readiness { grid-template-columns: 1fr; }
   .analysis-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .analysis-kpis article:nth-child(2) { border-right: 0; }
@@ -934,6 +953,7 @@ h3 { margin: 0; font-size: 1rem; }
   .summary-load-button { width: 100%; }
   .status { margin-top: 10px; }
   .summary-grid, .historical-summary-grid, .workforce-summary, .procedure-board, .procedure-checklist, .feature-grid, .workforce-readiness { grid-template-columns: 1fr; }
+  .workforce-queue li { display: grid; }
   .analysis-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .analysis-kpis .analysis-kpi-wide { grid-column: 1 / -1; }
   .analysis-panel > header { display: block; }

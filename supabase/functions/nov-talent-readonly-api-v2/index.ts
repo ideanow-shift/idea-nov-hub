@@ -530,10 +530,12 @@ function createTalentRuntimeDependencies(input) {
       const transferAvailable = raw.transfer_available === true;
       const transferCount = raw.transfer_count === null ? null : Number(raw.transfer_count);
       const asOfDate = String(raw.as_of_date || "");
+      const procedureQueues = normalizeWorkforceProcedureQueues(raw.procedure_queues);
       if (![activeEmployeeCount, onboardingCount, leaveCount, retirementCount].every((value) => Number.isInteger(value) && value >= 0)
         || (transferCount !== null && (!Number.isInteger(transferCount) || transferCount < 0))
         || !/^\d{4}-\d{2}-\d{2}$/.test(asOfDate)
-        || (transferAvailable && transferCount === null)) return null;
+        || (transferAvailable && transferCount === null)
+        || !procedureQueues) return null;
       return Object.freeze({
         activeEmployeeCount,
         onboardingCount,
@@ -541,12 +543,39 @@ function createTalentRuntimeDependencies(input) {
         retirementCount,
         transferAvailable,
         transferCount,
-        asOfDate
+        asOfDate,
+        procedureQueues
       });
     },
     createRequestId: input.createRequestId,
     nowIso: input.nowIso
   });
+}
+
+function normalizeWorkforceProcedureQueues(value) {
+  const queueKeys = ["onboarding", "leave", "retirement"];
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || Object.keys(value).length !== queueKeys.length
+    || queueKeys.some((key) => !Object.hasOwn(value, key))) return null;
+  const normalized = {};
+  for (const key of queueKeys) {
+    const queue = value[key];
+    if (!Array.isArray(queue) || queue.length > 100) return null;
+    const rows = [];
+    for (const row of queue) {
+      if (!row || typeof row !== "object" || Array.isArray(row)
+        || Object.keys(row).length !== 3
+        || !["display_name", "effective_date", "detail"].every((field) => Object.hasOwn(row, field))) return null;
+      const displayName = String(row.display_name || "").trim();
+      const effectiveDate = String(row.effective_date || "");
+      const detail = String(row.detail || "").trim();
+      if (!displayName || displayName.length > 120 || !/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)
+        || !detail || detail.length > 120) return null;
+      rows.push(Object.freeze({ displayName, effectiveDate, detail }));
+    }
+    normalized[key] = Object.freeze(rows);
+  }
+  return Object.freeze(normalized);
 }
 var TALENT_RUNTIME_BINDING_CONTRACT = Object.freeze({
   signingSecretName: SIGNING_SECRET_NAME,

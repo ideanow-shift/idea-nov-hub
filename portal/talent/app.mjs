@@ -282,6 +282,7 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-search")?.addEventListener("input", refresh);
   documentObject.getElementById("student-source-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-state-filter")?.addEventListener("change", refresh);
+  documentObject.getElementById("student-progress-filter")?.addEventListener("change", refresh);
   [
     ["student-filter-all", "ALL"],
     ["student-filter-review", "OWNER_REVIEW"],
@@ -807,7 +808,7 @@ function createAnalysisRow(documentObject, values) {
   return row;
 }
 
-export function filterTalentStudents(students, { query = "", source = "ALL", state = "ALL" } = {}) {
+export function filterTalentStudents(students, { query = "", source = "ALL", state = "ALL", progress = "ALL" } = {}) {
   const normalizedQuery = normalizeSearch(query);
   return (Array.isArray(students) ? students : []).filter((student) => {
     if (source !== "ALL" && student.sourceCode !== source) return false;
@@ -816,6 +817,7 @@ export function filterTalentStudents(students, { query = "", source = "ALL", sta
     } else if (state !== "ALL" && student.classification !== state) {
       return false;
     }
+    if (progress !== "ALL" && student.statusCode !== progress) return false;
     if (!normalizedQuery) return true;
     return [
       student.displayName, student.kana, student.school, student.status,
@@ -829,7 +831,8 @@ function renderStudentWorkspace(documentObject) {
   const query = normalizeSearch(documentObject.getElementById("student-search")?.value);
   const source = documentObject.getElementById("student-source-filter")?.value || "ALL";
   const state = documentObject.getElementById("student-state-filter")?.value || "ALL";
-  const visible = filterTalentStudents(studentWorkspaceData.students, { query, source, state });
+  const progress = documentObject.getElementById("student-progress-filter")?.value || "ALL";
+  const visible = filterTalentStudents(studentWorkspaceData.students, { query, source, state, progress });
   updateStudentQuickFilterState(documentObject, state, studentWorkspaceData.students);
   const list = documentObject.getElementById("student-list");
   const empty = documentObject.getElementById("student-empty");

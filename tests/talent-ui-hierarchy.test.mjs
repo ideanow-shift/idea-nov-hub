@@ -176,15 +176,17 @@ test("new applicant candidate filtering stays limited to unmapped entry and offe
 
 test("student list filter keeps new candidates visible and narrows review queues", () => {
   const rows = [
-    { displayName: "接触候補", sourceCode: "CONTACTS_27", classification: "OWNER_REVIEW", mappingStatus: "UNMAPPED", suggestionCategory: "NONE" },
-    { displayName: "新規候補", sourceCode: "ENTRIES_27", classification: "OWNER_REVIEW", mappingStatus: "UNMAPPED", suggestionCategory: "NONE" },
-    { displayName: "確認済み", sourceCode: "OFFERS_27", classification: "IMPORTABLE", mappingStatus: "OWNER_CONFIRMED", suggestionCategory: "NONE" },
-    { displayName: "隔離", sourceCode: "OFFERS_27", classification: "QUARANTINE", mappingStatus: "UNMAPPED", suggestionCategory: "AMBIGUOUS" }
+    { displayName: "接触候補", sourceCode: "CONTACTS_27", classification: "OWNER_REVIEW", mappingStatus: "UNMAPPED", suggestionCategory: "NONE", statusCode: "CONTACT" },
+    { displayName: "新規候補", sourceCode: "ENTRIES_27", classification: "OWNER_REVIEW", mappingStatus: "UNMAPPED", suggestionCategory: "NONE", statusCode: "INTERVIEW" },
+    { displayName: "確認済み", sourceCode: "OFFERS_27", classification: "IMPORTABLE", mappingStatus: "OWNER_CONFIRMED", suggestionCategory: "NONE", statusCode: "OFFER" },
+    { displayName: "隔離", sourceCode: "OFFERS_27", classification: "QUARANTINE", mappingStatus: "UNMAPPED", suggestionCategory: "AMBIGUOUS", statusCode: "WITHDRAWN" }
   ];
 
   assert.deepEqual(filterTalentStudents(rows, { state: "NEW_CANDIDATE" }).map((row) => row.displayName), ["新規候補"]);
   assert.deepEqual(filterTalentStudents(rows, { state: "QUARANTINE" }).map((row) => row.displayName), ["隔離"]);
   assert.deepEqual(filterTalentStudents(rows, { source: "ENTRIES_27" }).map((row) => row.displayName), ["新規候補"]);
+  assert.deepEqual(filterTalentStudents(rows, { progress: "OFFER" }).map((row) => row.displayName), ["確認済み"]);
+  assert.deepEqual(filterTalentStudents(rows, { progress: "WITHDRAWN" }).map((row) => row.displayName), ["隔離"]);
 });
 
 test("student list keeps safe review reasons visible before selection", async () => {
@@ -201,6 +203,8 @@ test("student quick filters expose their queue counts", async () => {
   const app = await readFile(new URL("app.mjs", root), "utf8");
 
   assert.match(html, /id="student-filter-review"[^>]*data-label="要確認"/);
+  assert.match(html, /id="student-progress-filter"/);
+  assert.match(html, /option value="WITHDRAWN">辞退・保管<\/option>/);
   assert.match(app, /filterTalentStudents\(students, \{ state: value \}\)\.length/);
   assert.match(app, /button\.setAttribute\("aria-label", `\$\{label\} \$\{count\}件`\)/);
 });

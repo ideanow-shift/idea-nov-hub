@@ -548,7 +548,7 @@ h3 { margin: 0; font-size: 1rem; }
 }
 .student-toolbar {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) 190px 190px 44px;
+  grid-template-columns: minmax(260px, 1fr) repeat(3, 170px) 44px;
   gap: 10px;
   align-items: end;
   padding: 14px 16px;
@@ -1039,7 +1039,7 @@ h3 { margin: 0; font-size: 1rem; }
   .workflow-strip div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
   .import-overview { grid-template-columns: 1fr; }
   .import-overview > p { margin-top: -4px; }
-  .student-toolbar { grid-template-columns: minmax(220px, 1fr) repeat(2, 160px) 44px; }
+  .student-toolbar { grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(135px, 1fr)) 44px; }
   .student-workspace { grid-template-columns: minmax(280px, 0.8fr) minmax(340px, 1.2fr); }
   .review-command-band { grid-template-columns: 1fr auto; }
   .review-command-band > div { grid-column: 1 / -1; }

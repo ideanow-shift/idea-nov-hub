@@ -48,6 +48,20 @@ test("workforce procedure tabs expose bounded Core DB case queues", async () => 
   assert.match(source, /contactValuesReturned: false/);
 });
 
+test("workforce exposes an audited procedure case desk without employee-master controls", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const source = await readFile(new URL("workforce-procedures.mjs", root), "utf8");
+
+  assert.match(html, /id="workforce-procedure-desk"/);
+  assert.match(html, /id="workforce-case-form"/);
+  assert.match(html, /name="procedureType"/);
+  assert.match(html, /name="caseStatus"/);
+  assert.match(html, /id="workforce-case-new"/);
+  assert.match(html, /社員マスタは変更しません/);
+  assert.match(source, /employeeMasterMutation: false/);
+  assert.match(source, /optimisticConcurrency: true/);
+});
+
 test("student editing supports canonical profiles and unmapped staging rows", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
   const app = await readFile(new URL("app.mjs", root), "utf8");

@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260725-workforce-queues-1">
+  <link rel="stylesheet" href="./style.css?v=20260725-workforce-case-desk-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260725-workforce-queues-1"></script>
+  <script type="module" src="./app.mjs?v=20260725-workforce-case-desk-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -413,6 +413,25 @@
         <article><span>正本</span><strong id="workforce-source">Core DB 正本</strong><small>社員・店舗・部署・役職</small></article>
         <article><span>画面の権限</span><strong id="workforce-mode">読み取り専用</strong><small>この画面から直接変更しません</small></article>
         <article><span>集計基準日</span><strong id="workforce-as-of">基準日 未確定</strong><small>個人行は表示せず件数だけを読み取ります</small></article>
+      </section>
+
+      <section id="workforce-procedure-desk" class="procedure-case-desk" aria-labelledby="workforce-case-title">
+        <header>
+          <div><p class="section-kicker">PROCEDURE CASES</p><h3 id="workforce-case-title">手続き案件</h3><p>入社・異動・休職・退職の確認案件を記録します。ここから社員マスタは変更しません。</p></div>
+          <button id="workforce-case-new" type="button" class="primary-action">案件を登録</button>
+        </header>
+        <p id="workforce-case-status" class="procedure-case-status" role="status"></p>
+        <div id="workforce-case-list" class="procedure-case-list" aria-live="polite"></div>
+        <form id="workforce-case-form" class="procedure-case-form" hidden>
+          <input name="caseId" type="hidden">
+          <input name="expectedVersion" type="hidden" value="0">
+          <label><span>手続き</span><select name="procedureType" required><option value="ONBOARDING">入社</option><option value="TRANSFER">異動</option><option value="LEAVE">休職・復職</option><option value="RETIREMENT">退職</option></select></label>
+          <label><span>進捗</span><select name="caseStatus" required><option value="DRAFT">下書き</option><option value="READY_FOR_REVIEW">確認待ち</option><option value="CONFIRMED">確認済み</option><option value="CANCELLED">中止</option></select></label>
+          <label><span>対象者</span><input name="subjectLabel" maxlength="120" required autocomplete="off"></label>
+          <label><span>基準日</span><input name="effectiveDate" type="date" required></label>
+          <label class="procedure-case-detail"><span>手続きメモ</span><textarea name="detail" maxlength="500" rows="3"></textarea></label>
+          <div class="procedure-case-actions"><button id="workforce-case-cancel" type="button">閉じる</button><button type="submit" class="primary-action">保存</button></div>
+        </form>
       </section>
 
       <nav class="secondary-tabs workforce-tabs" role="tablist" aria-label="現職者管理メニュー">

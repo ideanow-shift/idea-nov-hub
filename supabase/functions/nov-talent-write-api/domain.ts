@@ -136,3 +136,54 @@ export function sanitizeStagingSupplementResult(value:unknown){
  return Object.freeze({stagingRecordId:String(record.staging_record_id),supplementVersion:Number(record.supplement_version),operation:String(record.operation)});
 }
 export const STAGING_SUPPLEMENT_CONTRACT=Object.freeze({optimisticConcurrency:true,maximumWriteRequests:1,createsCanonicalApplication:false,rawValuesInResult:false});
+
+const procedureTypes=Object.freeze(['ONBOARDING','TRANSFER','LEAVE','RETIREMENT']);
+const procedureStatuses=Object.freeze(['DRAFT','READY_FOR_REVIEW','CONFIRMED','CANCELLED']);
+const procedureCaseKeys=['caseId','expectedVersion','procedureType','caseStatus','subjectLabel','effectiveDate','detail'];
+export function parseWorkforceProcedureCase(value:unknown){
+ if(!value||typeof value!=='object'||Array.isArray(value))return null;
+ const v=value as Record<string,unknown>;
+ if(!exact(v,procedureCaseKeys)||!(v.caseId===null||uuid.test(String(v.caseId)))
+  ||!Number.isInteger(v.expectedVersion)||Number(v.expectedVersion)<0
+  ||!procedureTypes.includes(String(v.procedureType))||!procedureStatuses.includes(String(v.caseStatus))
+  ||typeof v.subjectLabel!=='string'||typeof v.effectiveDate!=='string')return null;
+ const subjectLabel=v.subjectLabel.normalize('NFKC').trim();
+ const detail=nullableText(v.detail,500);
+ if(!subjectLabel||subjectLabel.length>120||!/^\d{4}-\d{2}-\d{2}$/.test(v.effectiveDate)||detail===undefined
+  ||(v.caseId===null&&v.expectedVersion!==0))return null;
+ return Object.freeze({caseId:v.caseId===null?null:String(v.caseId),expectedVersion:Number(v.expectedVersion),
+  procedureType:String(v.procedureType),caseStatus:String(v.caseStatus),subjectLabel,effectiveDate:v.effectiveDate,detail});
+}
+export function sanitizeWorkforceProcedureCaseResult(value:unknown){
+ const row=Array.isArray(value)&&value.length===1?value[0]:null;
+ if(!row||typeof row!=='object'||Array.isArray(row))return null;
+ const record=row as Record<string,unknown>;
+ if(!exact(record,['case_id','case_version','operation'])||!uuid.test(String(record.case_id))
+  ||!Number.isInteger(record.case_version)||Number(record.case_version)<1||!['CREATE','UPDATE'].includes(String(record.operation)))return null;
+ return Object.freeze({caseId:String(record.case_id),caseVersion:Number(record.case_version),operation:String(record.operation)});
+}
+export function sanitizeWorkforceProcedureCaseList(value:unknown){
+ if(!value||typeof value!=='object'||Array.isArray(value))return null;
+ const source=value as Record<string,unknown>;
+ if(!exact(source,['cases'])||!Array.isArray(source.cases)||source.cases.length>200)return null;
+ const cases=[] as Array<Record<string,unknown>>;
+ for(const row of source.cases){
+  if(!row||typeof row!=='object'||Array.isArray(row))return null;
+  const record=row as Record<string,unknown>;
+  if(!exact(record,['case_id','procedure_type','case_status','subject_label','effective_date','detail','version','updated_at'])
+   ||!uuid.test(String(record.case_id))||!procedureTypes.includes(String(record.procedure_type))
+   ||!procedureStatuses.includes(String(record.case_status))||typeof record.subject_label!=='string'
+   ||!record.subject_label.trim()||record.subject_label.trim().length>120
+   ||!/^\d{4}-\d{2}-\d{2}$/.test(String(record.effective_date))
+   ||!(record.detail===null||typeof record.detail==='string')||(typeof record.detail==='string'&&record.detail.length>500)
+   ||!Number.isInteger(record.version)||Number(record.version)<1
+   ||typeof record.updated_at!=='string'||!/^\d{4}-\d{2}-\d{2}T/.test(record.updated_at))return null;
+  cases.push(Object.freeze({caseId:String(record.case_id),procedureType:String(record.procedure_type),caseStatus:String(record.case_status),
+   subjectLabel:record.subject_label.trim(),effectiveDate:String(record.effective_date),detail:record.detail===null?null:record.detail,
+   version:Number(record.version),updatedAt:record.updated_at}));
+ }
+ return Object.freeze({cases:Object.freeze(cases)});
+}
+export const WORKFORCE_PROCEDURE_CASE_CONTRACT=Object.freeze({
+ procedureTypes,procedureStatuses,optimisticConcurrency:true,maximumWriteRequests:1,employeeMasterMutation:false,rawValuesInResult:false
+});

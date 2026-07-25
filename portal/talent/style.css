@@ -830,6 +830,31 @@ h3 { margin: 0; font-size: 1rem; }
 .workforce-readiness strong { display: block; margin: 7px 0 4px; color: var(--navy); font-size: 1rem; }
 .workforce-readiness small { font-size: 0.8rem; }
 
+.procedure-case-desk {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+.procedure-case-desk > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
+.procedure-case-desk h3, .procedure-case-desk p { margin: 0; }
+.procedure-case-desk header p:last-child, .procedure-case-status { margin-top: 6px; color: var(--muted); }
+.procedure-case-status { min-height: 1.4em; font-size: 0.9rem; }
+.procedure-case-list { display: grid; gap: 8px; margin-top: 14px; }
+.procedure-case-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px; border-radius: 6px; background: #f7fafc; }
+.procedure-case-row strong, .procedure-case-row span { display: block; }
+.procedure-case-row strong { color: var(--navy); }
+.procedure-case-row span { margin-top: 4px; color: var(--muted); font-size: 0.85rem; }
+.procedure-case-empty { padding: 12px; border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); }
+.case-edit-button { min-width: 68px; }
+.procedure-case-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.procedure-case-form label { display: grid; gap: 6px; color: var(--muted); font-size: 0.85rem; font-weight: 700; }
+.procedure-case-form input, .procedure-case-form select, .procedure-case-form textarea { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); font: inherit; }
+.procedure-case-form textarea { resize: vertical; }
+.procedure-case-detail, .procedure-case-actions { grid-column: 1 / -1; }
+.procedure-case-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
 .workforce-tabs {
   margin: 22px -24px 0;
   border-top: 1px solid var(--line);
@@ -921,6 +946,7 @@ h3 { margin: 0; font-size: 1rem; }
   .summary-grid, .historical-summary-grid, .workforce-summary, .procedure-board, .procedure-checklist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workforce-queue { grid-template-columns: 1fr; }
   .workforce-readiness { grid-template-columns: 1fr; }
+  .procedure-case-form { grid-template-columns: 1fr; }
   .analysis-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .analysis-kpis article:nth-child(2) { border-right: 0; }
   .analysis-kpis article:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
@@ -964,6 +990,8 @@ h3 { margin: 0; font-size: 1rem; }
   .operator-grid { grid-template-columns: 1fr; }
   .workforce-tabs { margin: 20px -18px 0; padding: 0 18px; }
   .procedure-intro { display: block; }
+  .procedure-case-desk > header, .procedure-case-row { display: grid; }
+  .procedure-case-desk > header .primary-action, .case-edit-button { width: 100%; }
   .procedure-intro p { margin-top: 6px; }
   .workflow-strip { grid-template-columns: 1fr; }
   .workflow-strip div { border-right: 0; border-bottom: 1px solid var(--line); }

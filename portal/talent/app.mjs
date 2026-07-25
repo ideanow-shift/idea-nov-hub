@@ -13,6 +13,7 @@ import { buildTalentAnalytics } from "./analytics.mjs?v=20260725-talent-analytic
 import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-review-kpis-1";
 import { createTalentStagingSupplementController } from "./staging-supplement.mjs?v=20260725-staging-edit-1";
 import { buildWorkforceReadinessViewModel, renderWorkforceReadiness } from "./workforce-readiness.mjs?v=20260725-workforce-queues-1";
+import { initializeWorkforceProcedureDesk } from "./workforce-procedures.mjs?v=20260725-workforce-case-desk-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -29,6 +30,7 @@ let profileDialogStudent = null;
 let auditDialogStudent = null;
 let pendingSelectedApplicationNo = null;
 let workforceSummaryConsumed = false;
+let workforceProcedureDesk = null;
 
 const PRIMARY_TABS = Object.freeze(["recruitment", "workforce"]);
 const RECRUITMENT_TABS = Object.freeze(["summary", "students", "fairs", "schools"]);
@@ -204,6 +206,7 @@ export function initializeTalentNavigation({
       }
       if (key === "workforce") {
         loadTalentWorkforceSummary({ globalObject, documentObject });
+        workforceProcedureDesk?.load?.();
       }
     }
   });
@@ -227,6 +230,7 @@ export function initializeTalentNavigation({
   if (initialPrimary) selectTab(primaryButtons, initialPrimary, (key) => documentObject.getElementById(`panel-${key}`), false);
   if (initialPrimary === "workforce") {
     loadTalentWorkforceSummary({ globalObject, documentObject });
+    workforceProcedureDesk?.load?.();
   }
   return Object.freeze({
     initialized: primaryButtons.length === 2,
@@ -1338,6 +1342,7 @@ function safeMessage(category, requestCount = 0) {
 }
 
 function initializeTalentApp() {
+  workforceProcedureDesk = initializeWorkforceProcedureDesk();
   initializeTalentStudentWorkspace();
   initializeTalentNavigation();
   renderWorkforceReadiness(globalThis.document, buildWorkforceReadinessViewModel());

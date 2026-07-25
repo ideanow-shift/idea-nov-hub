@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createTalentStudentProfileAuditExact1Executor } from "../portal/talent/exact1.mjs";
+import {
+  createTalentStagingSupplementAuditExact1Executor,
+  createTalentStudentProfileAuditExact1Executor
+} from "../portal/talent/exact1.mjs";
 
 function globalFixture() {
   return {
@@ -83,4 +86,51 @@ test("profile audit executor rejects unknown changed fields", async () => {
   const result = await executor.run();
   assert.equal(result.okBoolean, false);
   assert.equal(result.stopCategory, "invalid_response");
+});
+
+test("staging supplement audit executor reads safe change metadata exactly once", async () => {
+  const calls = [];
+  const stagingRecordId = "11111111-1111-4111-8111-111111111111";
+  const executor = createTalentStagingSupplementAuditExact1Executor({
+    stagingRecordId,
+    globalObject: globalFixture(),
+    hubContract: { audience: "nov_hub" },
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return {
+        status: 200,
+        headers: { get: () => "application/json" },
+        async json() {
+          return {
+            ok: true,
+            data: {
+              stagingRecordId,
+              entries: [{
+                action: "UPDATE",
+                changedFields: ["preferredStore"],
+                supplementVersion: 2,
+                occurredAt: "2026-07-25T03:00:00.000Z"
+              }]
+            },
+            meta: {
+              generatedAt: "2026-07-25T03:00:00.000Z",
+              requestId: "fixture",
+              source: "fixture",
+              version: "2"
+            }
+          };
+        }
+      };
+    }
+  });
+
+  const result = await executor.run();
+  const duplicate = await executor.run();
+
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /\/staging\/supplement-audit\?stagingRecordId=11111111-1111-4111-8111-111111111111$/u);
+  assert.equal(calls[0].options.method, "GET");
+  assert.equal(result.okBoolean, true);
+  assert.equal(result.data.entries[0].supplementVersion, 2);
+  assert.equal(duplicate.duplicatePrevented, true);
 });

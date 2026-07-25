@@ -3,8 +3,9 @@ import {
   buildDashboardSummaryViewModel,
   createDashboardSummaryExact1Executor,
   createTalentWorkspaceExact1Executor,
-  createTalentStudentProfileAuditExact1Executor
-} from "./exact1.mjs?v=20260725-profile-audit-1";
+  createTalentStudentProfileAuditExact1Executor,
+  createTalentStagingSupplementAuditExact1Executor
+} from "./exact1.mjs?v=20260725-profile-audit-2";
 import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260725-owner-review-workspace-1";
 import { createTalentHistoricalReviewController } from "./review.mjs?v=20260725-owner-review-workspace-1";
 import { buildTalentAnalytics } from "./analytics.mjs?v=20260725-talent-analytics-1";
@@ -859,10 +860,10 @@ function renderStudentDetail(documentObject, student) {
   }
   const auditButton = documentObject.getElementById("student-audit-open");
   if (auditButton) {
-    const auditable = Boolean(student.applicationNo);
+    const auditable = Boolean(student.applicationNo || student.supplementVersion);
     auditButton.disabled = !auditable;
     auditButton.setAttribute("aria-disabled", String(!auditable));
-    auditButton.title = auditable ? "プロフィールの変更履歴を表示" : "応募番号が確定した学生のみ確認できます";
+    auditButton.title = auditable ? "情報の変更履歴を表示" : "編集可能な情報がありません";
   }
   const confirmButton = documentObject.getElementById("student-confirm-open");
   if (confirmButton) {
@@ -914,7 +915,7 @@ const PROFILE_FIELD_LABELS = Object.freeze({
 });
 
 async function openStudentAuditDialog({ globalObject, documentObject, student }) {
-  if (!student?.applicationNo) return;
+  if (!student?.applicationNo && !student?.supplementVersion) return;
   auditDialogStudent = student;
   const status = documentObject.getElementById("student-audit-status");
   const body = documentObject.getElementById("student-audit-body");
@@ -924,14 +925,21 @@ async function openStudentAuditDialog({ globalObject, documentObject, student })
   }
   if (body) body.replaceChildren();
   documentObject.getElementById("student-audit-dialog")?.showModal?.();
-  const executor = createTalentStudentProfileAuditExact1Executor({
-    applicationNo: student.applicationNo,
-    globalObject,
-    hubSessionHelper: globalObject.NovHubSession,
-    hubContract: globalObject.NOV_HUB_SESSION_CONTRACT || NOV_HUB_SESSION_CONTRACT
-  });
+  const executor = student.applicationNo
+    ? createTalentStudentProfileAuditExact1Executor({
+      applicationNo: student.applicationNo,
+      globalObject,
+      hubSessionHelper: globalObject.NovHubSession,
+      hubContract: globalObject.NOV_HUB_SESSION_CONTRACT || NOV_HUB_SESSION_CONTRACT
+    })
+    : createTalentStagingSupplementAuditExact1Executor({
+      stagingRecordId: student.recordId,
+      globalObject,
+      hubSessionHelper: globalObject.NovHubSession,
+      hubContract: globalObject.NOV_HUB_SESSION_CONTRACT || NOV_HUB_SESSION_CONTRACT
+    });
   const result = executor ? await executor.run() : null;
-  if (!auditDialogStudent || auditDialogStudent.applicationNo !== student.applicationNo) return;
+  if (!auditDialogStudent || auditDialogStudent.recordId !== student.recordId) return;
   if (result?.okBoolean !== true) {
     if (status) {
       status.dataset.state = "stopped";
@@ -954,7 +962,7 @@ async function openStudentAuditDialog({ globalObject, documentObject, student })
       const fields = documentObject.createElement("td");
       fields.textContent = entry.changedFields.map((field) => PROFILE_FIELD_LABELS[field] || "変更項目").join("、");
       const version = documentObject.createElement("td");
-      version.textContent = `v${entry.profileVersion}`;
+      version.textContent = `v${entry.profileVersion || entry.supplementVersion}`;
       const occurredAt = documentObject.createElement("td");
       occurredAt.textContent = formatAuditDate(entry.occurredAt);
       row.append(action, fields, version, occurredAt);

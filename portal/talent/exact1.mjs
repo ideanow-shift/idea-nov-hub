@@ -79,6 +79,8 @@ const STUDENT_KEYS = Object.freeze([
   "suggestionCategory"
 ]);
 const AUDIT_ENTRY_KEYS = Object.freeze(["action", "changedFields", "profileVersion", "occurredAt"]);
+const STAGING_AUDIT_ENTRY_KEYS = Object.freeze(["action", "changedFields", "supplementVersion", "occurredAt"]);
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const AUDIT_FIELDS = Object.freeze([
   "displayName", "kana", "school", "phone", "email", "preferredStore",
   "currentStatus", "nextActionAt", "offerDate", "expectedJoinDate", "plannedStore"
@@ -252,6 +254,57 @@ export function createTalentStudentProfileAuditExact1Executor({
   });
 }
 
+export function createTalentStagingSupplementAuditExact1Executor({
+  stagingRecordId,
+  globalObject = globalThis,
+  hubSessionHelper = globalObject.NovHubSession,
+  hubContract = globalObject.NOV_HUB_SESSION_CONTRACT,
+  fetchImpl = globalObject.fetch
+} = {}) {
+  const normalizedRecordId = String(stagingRecordId || "").trim();
+  const runtime = readTalentRuntime({ globalObject, hubSessionHelper, hubContract });
+  if (!runtime || typeof fetchImpl !== "function" || !UUID_PATTERN.test(normalizedRecordId)) return null;
+
+  let consumed = false;
+  return Object.freeze({
+    async run() {
+      if (consumed) return safeResult("duplicate_startup_prevented", { duplicatePrevented: true });
+      consumed = true;
+      let requestSent = false;
+      try {
+        const headers = await buildAuthHeaders(runtime.hubSessionHelper);
+        const url = new URL("./api/talent/v1/staging/supplement-audit", `${runtime.apiBaseUrl}/`);
+        url.searchParams.set("stagingRecordId", normalizedRecordId);
+        requestSent = true;
+        const response = await fetchImpl(url.toString(), {
+          method: "GET",
+          headers: { Accept: "application/json", ...headers },
+          credentials: "omit"
+        });
+        const envelope = await readJsonEnvelope(response);
+        const data = unwrapStagingSupplementAuditEnvelope(envelope, normalizedRecordId);
+        return Object.freeze({
+          ...safeResult("ready", {
+            executed: true,
+            httpRequestSent: true,
+            httpStatus: normalizeHttpStatus(response.status),
+            okBoolean: true,
+            requestCount: 1
+          }),
+          data
+        });
+      } catch (error) {
+        return safeResult(error?.safeCategory || "api_error", {
+          executed: requestSent,
+          httpRequestSent: requestSent,
+          requestCount: requestSent ? 1 : 0,
+          httpStatus: normalizeHttpStatus(error?.httpStatus)
+        });
+      }
+    }
+  });
+}
+
 function unwrapProfileAuditEnvelope(envelope, applicationNo) {
   if (!isPlainObject(envelope) || envelope.ok !== true) throw safeError("invalid_response");
   assertExactKeys(envelope, SUCCESS_ENVELOPE_KEYS);
@@ -275,6 +328,36 @@ function unwrapProfileAuditEnvelope(envelope, applicationNo) {
   });
   return Object.freeze({
     applicationNo,
+    entries: Object.freeze(data.entries.map((entry) => Object.freeze({
+      ...entry,
+      changedFields: Object.freeze([...entry.changedFields])
+    })))
+  });
+}
+
+function unwrapStagingSupplementAuditEnvelope(envelope, stagingRecordId) {
+  if (!isPlainObject(envelope) || envelope.ok !== true) throw safeError("invalid_response");
+  assertExactKeys(envelope, SUCCESS_ENVELOPE_KEYS);
+  validateMeta(envelope.meta);
+  const data = envelope.data;
+  if (!isPlainObject(data)
+    || Object.keys(data).length !== 2
+    || data.stagingRecordId !== stagingRecordId
+    || !Array.isArray(data.entries)
+    || data.entries.length > 20) throw safeError("invalid_response");
+  data.entries.forEach((entry) => {
+    assertExactKeys(entry, STAGING_AUDIT_ENTRY_KEYS);
+    if (!["CREATE", "UPDATE"].includes(entry.action)
+      || !Number.isInteger(entry.supplementVersion) || entry.supplementVersion < 1
+      || !/^\d{4}-\d{2}-\d{2}T/u.test(String(entry.occurredAt))
+      || !Array.isArray(entry.changedFields)
+      || entry.changedFields.length < 1 || entry.changedFields.length > AUDIT_FIELDS.length
+      || entry.changedFields.some((field) => !AUDIT_FIELDS.includes(field))) {
+      throw safeError("invalid_response");
+    }
+  });
+  return Object.freeze({
+    stagingRecordId,
     entries: Object.freeze(data.entries.map((entry) => Object.freeze({
       ...entry,
       changedFields: Object.freeze([...entry.changedFields])

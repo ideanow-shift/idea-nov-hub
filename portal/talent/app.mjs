@@ -447,7 +447,7 @@ function openHistoricalReviewDialog({ globalObject, documentObject }) {
 }
 
 function openSingleStudentReviewDialog({ globalObject, documentObject, student }) {
-  const proposal = buildSingleStudentReviewProposal(student);
+  const proposal = buildSingleStudentReviewProposal(student, studentWorkspaceData);
   if (!proposal) return;
   activeHistoricalReviewProposal = proposal;
   setText(documentObject, "review-dialog-title", "この候補を確認しますか");
@@ -465,14 +465,18 @@ function openSingleStudentReviewDialog({ globalObject, documentObject, student }
   documentObject.getElementById("student-review-dialog")?.showModal?.();
 }
 
-function buildSingleStudentReviewProposal(student) {
+export function buildSingleStudentReviewProposal(student, workspaceData) {
   if (!student || student.mappingStatus !== "UNMAPPED") return null;
   if (student.primaryEligible) {
     return Object.freeze({ primaryRecordIds: Object.freeze([student.recordId]), linkPairs: Object.freeze([]) });
   }
   if (student.suggestionCategory !== "EXACT1" || !student.suggestedTargetRecordId) return null;
+  const target = workspaceData?.students?.find((row) => row.recordId === student.suggestedTargetRecordId);
+  const primaryRecordIds = target?.sourceCode === "CONTACTS_27" && target.mappingStatus === "UNMAPPED"
+    ? Object.freeze([target.recordId])
+    : Object.freeze([]);
   return Object.freeze({
-    primaryRecordIds: Object.freeze([]),
+    primaryRecordIds,
     linkPairs: Object.freeze([Object.freeze({
       sourceRecordId: student.recordId,
       targetRecordId: student.suggestedTargetRecordId

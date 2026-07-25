@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { buildSingleStudentReviewProposal } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -55,6 +56,25 @@ test("student detail exposes an individual confirmation action without replacing
   assert.match(app, /confirmButton\.disabled = !historicalReviewController\.enabled/);
   assert.match(app, /この候補だけを確認/);
   assert.match(app, /確認候補を一括反映しますか/);
+});
+
+test("single link confirmation includes an unmapped contact target as the primary step", () => {
+  const proposal = buildSingleStudentReviewProposal({
+    recordId: "00000000-0000-4000-8000-000000000002",
+    mappingStatus: "UNMAPPED",
+    primaryEligible: false,
+    suggestionCategory: "EXACT1",
+    suggestedTargetRecordId: "00000000-0000-4000-8000-000000000001"
+  }, {
+    students: [{
+      recordId: "00000000-0000-4000-8000-000000000001",
+      sourceCode: "CONTACTS_27",
+      mappingStatus: "UNMAPPED"
+    }]
+  });
+
+  assert.deepEqual(proposal.primaryRecordIds, ["00000000-0000-4000-8000-000000000001"]);
+  assert.equal(proposal.linkPairs.length, 1);
 });
 
 test("student review KPIs separate owner review, quarantine, and confirmed states", async () => {

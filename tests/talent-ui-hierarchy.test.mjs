@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildSingleStudentReviewProposal, isNewApplicantCandidate } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildSingleStudentReviewProposal, filterTalentStudents, isNewApplicantCandidate } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -132,6 +132,19 @@ test("new applicant candidate filtering stays limited to unmapped entry and offe
   assert.equal(isNewApplicantCandidate({ mappingStatus: "UNMAPPED", sourceCode: "OFFERS_27", suggestionCategory: "NONE" }), true);
   assert.equal(isNewApplicantCandidate({ mappingStatus: "OWNER_CONFIRMED", sourceCode: "ENTRIES_27", suggestionCategory: "NONE" }), false);
   assert.equal(isNewApplicantCandidate({ mappingStatus: "UNMAPPED", sourceCode: "CONTACTS_27", suggestionCategory: "NONE" }), false);
+});
+
+test("student list filter keeps new candidates visible and narrows review queues", () => {
+  const rows = [
+    { displayName: "接触候補", sourceCode: "CONTACTS_27", classification: "OWNER_REVIEW", mappingStatus: "UNMAPPED", suggestionCategory: "NONE" },
+    { displayName: "新規候補", sourceCode: "ENTRIES_27", classification: "OWNER_REVIEW", mappingStatus: "UNMAPPED", suggestionCategory: "NONE" },
+    { displayName: "確認済み", sourceCode: "OFFERS_27", classification: "IMPORTABLE", mappingStatus: "OWNER_CONFIRMED", suggestionCategory: "NONE" },
+    { displayName: "隔離", sourceCode: "OFFERS_27", classification: "QUARANTINE", mappingStatus: "UNMAPPED", suggestionCategory: "AMBIGUOUS" }
+  ];
+
+  assert.deepEqual(filterTalentStudents(rows, { state: "NEW_CANDIDATE" }).map((row) => row.displayName), ["新規候補"]);
+  assert.deepEqual(filterTalentStudents(rows, { state: "QUARANTINE" }).map((row) => row.displayName), ["隔離"]);
+  assert.deepEqual(filterTalentStudents(rows, { source: "ENTRIES_27" }).map((row) => row.displayName), ["新規候補"]);
 });
 
 test("bulk confirmation proposal contains only exact roster links", () => {

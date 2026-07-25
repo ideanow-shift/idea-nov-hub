@@ -181,6 +181,14 @@
             </select>
           </label>
           <button id="student-reload" class="icon-command" type="button" title="学生データを再読み込み" aria-label="学生データを再読み込み">↻</button>
+          <div class="student-quick-filters" aria-label="確認状態のクイック絞り込み">
+            <span>クイック表示</span>
+            <button id="student-filter-all" class="filter-command is-active" type="button" aria-pressed="true">すべて</button>
+            <button id="student-filter-review" class="filter-command" type="button" aria-pressed="false">要確認</button>
+            <button id="student-filter-quarantine" class="filter-command" type="button" aria-pressed="false">隔離</button>
+            <button id="student-filter-confirmed" class="filter-command" type="button" aria-pressed="false">確認済み</button>
+            <button id="student-filter-new" class="filter-command" type="button" aria-pressed="false">新規候補</button>
+          </div>
         </section>
 
         <section class="student-kpis" aria-label="27卒取込状況">

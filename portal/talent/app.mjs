@@ -240,6 +240,20 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-search")?.addEventListener("input", refresh);
   documentObject.getElementById("student-source-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-state-filter")?.addEventListener("change", refresh);
+  [
+    ["student-filter-all", "ALL"],
+    ["student-filter-review", "OWNER_REVIEW"],
+    ["student-filter-quarantine", "QUARANTINE"],
+    ["student-filter-confirmed", "IMPORTABLE"],
+    ["student-filter-new", "NEW_CANDIDATE"]
+  ].forEach(([id, state]) => {
+    documentObject.getElementById(id)?.addEventListener("click", () => {
+      const filter = documentObject.getElementById("student-state-filter");
+      if (!filter) return;
+      filter.value = state;
+      refresh();
+    });
+  });
   documentObject.getElementById("triage-new-open")?.addEventListener("click", () => {
     const filter = documentObject.getElementById("student-state-filter");
     if (!filter) return;
@@ -751,21 +765,30 @@ function createAnalysisRow(documentObject, values) {
   return row;
 }
 
+export function filterTalentStudents(students, { query = "", source = "ALL", state = "ALL" } = {}) {
+  const normalizedQuery = normalizeSearch(query);
+  return (Array.isArray(students) ? students : []).filter((student) => {
+    if (source !== "ALL" && student.sourceCode !== source) return false;
+    if (state === "NEW_CANDIDATE") {
+      if (!isNewApplicantCandidate(student)) return false;
+    } else if (state !== "ALL" && student.classification !== state) {
+      return false;
+    }
+    if (!normalizedQuery) return true;
+    return [
+      student.displayName, student.kana, student.school, student.status,
+      student.preferredStore, student.sourceLabel
+    ].some((value) => normalizeSearch(value).includes(normalizedQuery));
+  });
+}
+
 function renderStudentWorkspace(documentObject) {
   if (!studentWorkspaceData) return;
   const query = normalizeSearch(documentObject.getElementById("student-search")?.value);
   const source = documentObject.getElementById("student-source-filter")?.value || "ALL";
   const state = documentObject.getElementById("student-state-filter")?.value || "ALL";
-  const visible = studentWorkspaceData.students.filter((student) => {
-    if (source !== "ALL" && student.sourceCode !== source) return false;
-    if (state !== "ALL" && student.classification !== state) return false;
-    if (state === "NEW_CANDIDATE" && !isNewApplicantCandidate(student)) return false;
-    if (!query) return true;
-    return [
-      student.displayName, student.kana, student.school, student.status,
-      student.preferredStore, student.sourceLabel
-    ].some((value) => normalizeSearch(value).includes(query));
-  });
+  const visible = filterTalentStudents(studentWorkspaceData.students, { query, source, state });
+  updateStudentQuickFilterState(documentObject, state);
   const list = documentObject.getElementById("student-list");
   const empty = documentObject.getElementById("student-empty");
   const count = documentObject.getElementById("student-result-count");
@@ -781,6 +804,23 @@ function renderStudentWorkspace(documentObject) {
     documentObject,
     studentWorkspaceData.students.find((student) => student.recordId === selectedStudentRecordId) || null
   );
+}
+
+function updateStudentQuickFilterState(documentObject, state) {
+  const controls = [
+    ["student-filter-all", "ALL"],
+    ["student-filter-review", "OWNER_REVIEW"],
+    ["student-filter-quarantine", "QUARANTINE"],
+    ["student-filter-confirmed", "IMPORTABLE"],
+    ["student-filter-new", "NEW_CANDIDATE"]
+  ];
+  controls.forEach(([id, value]) => {
+    const button = documentObject.getElementById(id);
+    if (!button) return;
+    const active = value === state;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
 }
 
 function createStudentListItem(documentObject, student) {

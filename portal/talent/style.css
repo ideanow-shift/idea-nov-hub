@@ -580,6 +580,36 @@ h3 { margin: 0; font-size: 1rem; }
 }
 .icon-command:hover:not(:disabled) { border-color: var(--blue); background: var(--blue-soft); }
 .icon-command:disabled { color: var(--muted); cursor: wait; }
+.student-quick-filters {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+}
+.student-quick-filters > span {
+  margin-right: 2px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.filter-command {
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid #cdd5df;
+  border-radius: 999px;
+  color: var(--navy);
+  background: var(--surface);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.filter-command:hover { border-color: var(--blue); background: var(--blue-soft); }
+.filter-command.is-active { border-color: var(--blue); color: #fff; background: var(--blue); }
+.filter-command.is-active:hover { background: var(--navy); }
+.filter-command:focus-visible { outline: 3px solid rgba(36, 99, 166, 0.18); outline-offset: 2px; }
 
 .student-kpis {
   display: grid;

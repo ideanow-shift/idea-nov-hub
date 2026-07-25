@@ -380,7 +380,7 @@ h3 { margin: 0; font-size: 1rem; }
 }
 .analysis-table thead th {
   color: var(--muted);
-  background: #f6f8fa;
+  background: #fffafa;
   font-size: 0.72rem;
 }
 .analysis-table tbody th { max-width: 310px; overflow: hidden; color: var(--ink); text-overflow: ellipsis; }
@@ -640,7 +640,7 @@ h3 { margin: 0; font-size: 1rem; }
 .student-kpis strong { display: block; margin-top: 4px; color: var(--navy); font-size: 1.35rem; }
 .student-kpis .needs-review { background: var(--amber-soft); }
 .student-kpis .needs-review strong { color: var(--amber); }
-.student-kpis .confirmed { background: #eef8f2; }
+.student-kpis .confirmed { background: var(--green-soft); }
 .student-kpis .confirmed strong { color: var(--green); }
 
 .student-workspace {
@@ -672,7 +672,7 @@ h3 { margin: 0; font-size: 1rem; }
   align-items: center;
   min-height: 24px;
   padding: 3px 7px;
-  border: 1px solid #bfd2e6;
+  border: 1px solid #e8c4c9;
   border-radius: 4px;
   color: var(--blue);
   background: var(--blue-soft);
@@ -712,7 +712,7 @@ h3 { margin: 0; font-size: 1rem; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.student-list-status { color: #41536b; font-weight: 700; }
+.student-list-status { color: var(--navy); font-weight: 700; }
 .student-list-reason {
   display: block;
   overflow: hidden;
@@ -856,6 +856,7 @@ h3 { margin: 0; font-size: 1rem; }
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
+  box-shadow: var(--shadow-card);
 }
 
 .workforce-readiness span,
@@ -869,6 +870,7 @@ h3 { margin: 0; font-size: 1rem; }
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
+  box-shadow: var(--shadow-card);
 }
 .procedure-case-desk > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
 .procedure-case-desk h3, .procedure-case-desk p { margin: 0; }
@@ -881,7 +883,7 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-filter-status { margin: 10px 0 0; color: var(--muted); font-size: .86rem; }
 .procedure-case-priority-status { margin: 6px 0 0; color: #9a5d00; font-size: .86rem; font-weight: 700; }
 .procedure-case-list { display: grid; gap: 8px; margin-top: 14px; }
-.procedure-case-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px; border-radius: 6px; background: #f7fafc; }
+.procedure-case-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: #fffafa; }
 .procedure-case-row strong, .procedure-case-row span { display: block; }
 .procedure-case-row strong { color: var(--navy); }
 .procedure-case-row span { margin-top: 4px; color: var(--muted); font-size: 0.85rem; }
@@ -962,12 +964,13 @@ h3 { margin: 0; font-size: 1rem; }
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
+  box-shadow: var(--shadow-card);
 }
 
 .workforce-queue h3, .workforce-queue p { margin: 0; }
 .workforce-queue p { margin-top: 6px; color: var(--muted); font-size: 0.85rem; }
 .workforce-queue ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; color: var(--muted); }
-.workforce-queue li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 6px; background: #f7fafc; }
+.workforce-queue li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 6px; background: #fffafa; }
 .workforce-queue li strong { color: var(--navy); }
 .workforce-queue li span { color: var(--muted); white-space: nowrap; }
 

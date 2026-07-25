@@ -486,6 +486,10 @@ h3 { margin: 0; font-size: 1rem; }
 .review-dialog dt { color: var(--muted); font-size: 0.72rem; font-weight: 700; }
 .review-dialog dd { margin: 5px 0 0; color: var(--navy); font-weight: 800; }
 .review-dialog footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.review-target-field { display: grid; gap: 6px; margin: 18px 0; }
+.review-target-field label { color: var(--muted); font-size: 0.76rem; font-weight: 800; }
+.review-target-field select { width: 100%; min-height: 42px; border: 1px solid #cdd5df; border-radius: 6px; padding: 0 11px; color: var(--ink); background: #fff; font: inherit; }
+.review-target-field small { color: var(--muted); line-height: 1.5; }
 .profile-dialog { width: min(720px, calc(100% - 28px)); }
 .audit-dialog { width: min(760px, calc(100% - 28px)); }
 .audit-table-scroll { overflow-x: auto; border: 1px solid var(--line); }

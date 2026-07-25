@@ -21,6 +21,7 @@ let activeStudentWorkspaceController = null;
 let selectedStudentRecordId = null;
 let historicalReviewController = null;
 let activeHistoricalReviewProposal = null;
+let activeHistoricalReviewStudent = null;
 let profileDialogStudent = null;
 let auditDialogStudent = null;
 let pendingSelectedApplicationNo = null;
@@ -255,9 +256,28 @@ export function initializeTalentStudentWorkspace({
   });
   documentObject.getElementById("student-review-cancel")?.addEventListener("click", () => {
     documentObject.getElementById("student-review-dialog")?.close?.();
+    activeHistoricalReviewProposal = null;
+    activeHistoricalReviewStudent = null;
+    setManualReviewTargetOptions(documentObject, []);
   });
   documentObject.getElementById("student-review-confirm")?.addEventListener("click", () => {
     applyHistoricalReview({ globalObject, documentObject });
+  });
+  documentObject.getElementById("student-review-target")?.addEventListener("change", (event) => {
+    const proposal = buildSingleStudentReviewProposal(
+      activeHistoricalReviewStudent,
+      studentWorkspaceData,
+      event.target?.value || ""
+    );
+    if (!proposal) return;
+    activeHistoricalReviewProposal = proposal;
+    setText(documentObject, "review-confirm-primary", proposal.primaryRecordIds.length);
+    setText(documentObject, "review-confirm-links", proposal.linkPairs.length);
+    const confirmButton = documentObject.getElementById("student-review-confirm");
+    if (confirmButton) {
+      confirmButton.disabled = !historicalReviewController?.enabled;
+      confirmButton.setAttribute("aria-disabled", String(!historicalReviewController?.enabled));
+    }
   });
   documentObject.getElementById("student-add-open")?.addEventListener("click", () => {
     openStudentProfileDialog({ documentObject, student: null });
@@ -392,6 +412,7 @@ export function resetTalentStudentWorkspaceForFixture() {
   activeStudentWorkspaceController = null;
   selectedStudentRecordId = null;
   historicalReviewController = null;
+  activeHistoricalReviewStudent = null;
   profileDialogStudent = null;
   pendingSelectedApplicationNo = null;
 }
@@ -432,6 +453,8 @@ function openHistoricalReviewDialog({ globalObject, documentObject }) {
   const proposal = buildHistoricalReviewProposal(studentWorkspaceData);
   if (proposal.primaryRecordIds.length + proposal.linkPairs.length === 0) return;
   activeHistoricalReviewProposal = proposal;
+  activeHistoricalReviewStudent = null;
+  setManualReviewTargetOptions(documentObject, []);
   setText(documentObject, "review-dialog-title", "確認候補を一括反映しますか");
   setText(documentObject, "review-confirm-primary", proposal.primaryRecordIds.length);
   setText(documentObject, "review-confirm-links", proposal.linkPairs.length);
@@ -447,31 +470,73 @@ function openHistoricalReviewDialog({ globalObject, documentObject }) {
 }
 
 function openSingleStudentReviewDialog({ globalObject, documentObject, student }) {
+  activeHistoricalReviewStudent = student;
   const proposal = buildSingleStudentReviewProposal(student, studentWorkspaceData);
-  if (!proposal) return;
+  const manualCandidates = proposal ? [] : listManualContactCandidates(studentWorkspaceData, student);
+  if (!proposal && manualCandidates.length === 0) return;
   activeHistoricalReviewProposal = proposal;
   setText(documentObject, "review-dialog-title", "この候補を確認しますか");
-  setText(documentObject, "review-confirm-primary", proposal.primaryRecordIds.length);
-  setText(documentObject, "review-confirm-links", proposal.linkPairs.length);
+  setText(documentObject, "review-confirm-primary", proposal?.primaryRecordIds.length || 0);
+  setText(documentObject, "review-confirm-links", proposal?.linkPairs.length || 0);
   setText(documentObject, "review-confirm-remaining", 0);
-  setText(documentObject, "student-review-status", "対象者を確認してから実行してください");
+  setManualReviewTargetOptions(documentObject, manualCandidates);
+  setText(documentObject, "student-review-status", proposal
+    ? "対象者を確認してから実行してください"
+    : "紐付け先の接触データを1件選択してください");
   historicalReviewController = createTalentHistoricalReviewController({ globalObject });
   const confirmButton = documentObject.getElementById("student-review-confirm");
   if (confirmButton) {
-    confirmButton.disabled = !historicalReviewController.enabled;
-    confirmButton.setAttribute("aria-disabled", String(!historicalReviewController.enabled));
+    confirmButton.disabled = !proposal || !historicalReviewController.enabled;
+    confirmButton.setAttribute("aria-disabled", String(!proposal || !historicalReviewController.enabled));
     confirmButton.setAttribute("aria-busy", "false");
   }
   documentObject.getElementById("student-review-dialog")?.showModal?.();
 }
 
-export function buildSingleStudentReviewProposal(student, workspaceData) {
+function listManualContactCandidates(workspaceData, sourceStudent) {
+  return (workspaceData?.students || [])
+    .filter((row) => row.sourceCode === "CONTACTS_27"
+      && row.recordId !== sourceStudent?.recordId
+      && row.mappingStatus !== "OWNER_CONFIRMED")
+    .sort((left, right) => String(left.displayName || "").localeCompare(String(right.displayName || ""), "ja"));
+}
+
+function setManualReviewTargetOptions(documentObject, candidates) {
+  const field = documentObject.getElementById("student-review-target-field");
+  const select = documentObject.getElementById("student-review-target");
+  if (!field || !select) return;
+  select.replaceChildren();
+  if (!candidates.length) {
+    field.hidden = true;
+    return;
+  }
+  const placeholder = documentObject.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "接触データを選択してください";
+  placeholder.disabled = true;
+  placeholder.selected = true;
+  select.appendChild(placeholder);
+  candidates.forEach((candidate) => {
+    const option = documentObject.createElement("option");
+    option.value = candidate.recordId;
+    option.textContent = [candidate.displayName, candidate.school, candidate.businessDate]
+      .filter(Boolean).join("・");
+    select.appendChild(option);
+  });
+  field.hidden = false;
+}
+
+export function buildSingleStudentReviewProposal(student, workspaceData, selectedTargetRecordId = "") {
   if (!student || student.mappingStatus !== "UNMAPPED") return null;
   if (student.primaryEligible) {
     return Object.freeze({ primaryRecordIds: Object.freeze([student.recordId]), linkPairs: Object.freeze([]) });
   }
-  if (student.suggestionCategory !== "EXACT1" || !student.suggestedTargetRecordId) return null;
-  const target = workspaceData?.students?.find((row) => row.recordId === student.suggestedTargetRecordId);
+  const targetRecordId = student.suggestionCategory === "EXACT1" && student.suggestedTargetRecordId
+    ? student.suggestedTargetRecordId
+    : selectedTargetRecordId;
+  if (!targetRecordId) return null;
+  const target = workspaceData?.students?.find((row) => row.recordId === targetRecordId);
+  if (!target || target.sourceCode !== "CONTACTS_27") return null;
   const primaryRecordIds = target?.sourceCode === "CONTACTS_27" && target.mappingStatus === "UNMAPPED"
     ? Object.freeze([target.recordId])
     : Object.freeze([]);
@@ -479,7 +544,7 @@ export function buildSingleStudentReviewProposal(student, workspaceData) {
     primaryRecordIds,
     linkPairs: Object.freeze([Object.freeze({
       sourceRecordId: student.recordId,
-      targetRecordId: student.suggestedTargetRecordId
+      targetRecordId
     })])
   });
 }
@@ -511,6 +576,8 @@ async function applyHistoricalReview({ globalObject, documentObject }) {
   studentWorkspaceData = null;
   historicalReviewController = null;
   activeHistoricalReviewProposal = null;
+  activeHistoricalReviewStudent = null;
+  setManualReviewTargetOptions(documentObject, []);
   await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
 }
 
@@ -739,7 +806,8 @@ function renderStudentDetail(documentObject, student) {
   if (confirmButton) {
     const confirmable = student.mappingStatus === "UNMAPPED"
       && (student.primaryEligible
-        || (student.suggestionCategory === "EXACT1" && Boolean(student.suggestedTargetRecordId)));
+        || (student.suggestionCategory === "EXACT1" && Boolean(student.suggestedTargetRecordId))
+        || ["ENTRIES_27", "OFFERS_27"].includes(student.sourceCode));
     confirmButton.disabled = !confirmable;
     confirmButton.setAttribute("aria-disabled", String(!confirmable));
     confirmButton.title = confirmable ? "この候補だけを確認" : "このデータは個別確認の対象外です";

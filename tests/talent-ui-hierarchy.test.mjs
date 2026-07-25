@@ -56,6 +56,9 @@ test("student detail exposes an individual confirmation action without replacing
   assert.match(app, /confirmButton\.disabled = !historicalReviewController\.enabled/);
   assert.match(app, /この候補だけを確認/);
   assert.match(app, /確認候補を一括反映しますか/);
+  assert.match(html, /id="student-review-target"/);
+  assert.match(app, /ENTRIES_27/, "manual mapping is available for entry records");
+  assert.match(app, /OFFERS_27/, "manual mapping is available for offer records");
 });
 
 test("single link confirmation includes an unmapped contact target as the primary step", () => {
@@ -75,6 +78,27 @@ test("single link confirmation includes an unmapped contact target as the primar
 
   assert.deepEqual(proposal.primaryRecordIds, ["00000000-0000-4000-8000-000000000001"]);
   assert.equal(proposal.linkPairs.length, 1);
+});
+
+test("single review can build a manually selected contact mapping", () => {
+  const proposal = buildSingleStudentReviewProposal({
+    recordId: "00000000-0000-4000-8000-000000000012",
+    mappingStatus: "UNMAPPED",
+    primaryEligible: false,
+    suggestionCategory: "NONE"
+  }, {
+    students: [{
+      recordId: "00000000-0000-4000-8000-000000000013",
+      sourceCode: "CONTACTS_27",
+      mappingStatus: "UNMAPPED"
+    }]
+  }, "00000000-0000-4000-8000-000000000013");
+
+  assert.deepEqual(proposal.primaryRecordIds, ["00000000-0000-4000-8000-000000000013"]);
+  assert.deepEqual(proposal.linkPairs, [{
+    sourceRecordId: "00000000-0000-4000-8000-000000000012",
+    targetRecordId: "00000000-0000-4000-8000-000000000013"
+  }]);
 });
 
 test("student review KPIs separate owner review, quarantine, and confirmed states", async () => {

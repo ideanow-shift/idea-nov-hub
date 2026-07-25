@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
   <link rel="stylesheet" href="./style.css?v=20260725-profile-audit-1">
-  <script src="./runtime-config.candidate.js?v=20260725-profile-audit-1"></script>
-  <script type="module" src="./app.mjs?v=20260725-profile-audit-1"></script>
+  <script src="./runtime-config.candidate.js?v=20260725-manual-contact-mapping-1"></script>
+  <script type="module" src="./app.mjs?v=20260725-manual-contact-mapping-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -255,6 +255,13 @@
             <div><dt>自動紐付け</dt><dd><span id="review-confirm-links">0</span>件</dd></div>
             <div><dt>個別確認に残す</dt><dd><span id="review-confirm-remaining">0</span>件</dd></div>
           </dl>
+          <div id="student-review-target-field" class="review-target-field" hidden>
+            <label for="student-review-target">紐付け先の接触データ</label>
+            <select id="student-review-target">
+              <option value="">接触データを選択してください</option>
+            </select>
+            <small>自動一致していないため、担当者が選んだ接触データだけを紐付けます。</small>
+          </div>
           <p id="student-review-status" class="status" role="status" aria-live="polite">内容を確認して実行してください</p>
           <footer>
             <button id="student-review-cancel" class="secondary-command" type="button">戻る</button>

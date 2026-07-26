@@ -261,14 +261,10 @@ function renderNaviNotices(notices, onOpenNotice) {
   list.replaceChildren(...visibleNotices.map((notice) => createNaviNoticeItem(notice, onOpenNotice)));
 }
 
-const TODAY_KEYS = ["schedule", "tasks", "approvals", "thanks", "inquiries", "growthPoints"];
+const TODAY_KEYS = NOV_NAVI_TODAY_FIELDS;
 
 export function getNaviTodaySnapshot(today) {
-  const source = today && typeof today === "object" && !Array.isArray(today) ? today : {};
-  return TODAY_KEYS.map((key) => {
-    const value = source[key];
-    return Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000 ? value : null;
-  });
+  return getNovNaviTodaySnapshot(today);
 }
 
 function renderNaviToday(root, today) {
@@ -373,3 +369,4 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
     sections.append(section);
   });
 }
+import { getNovNaviTodaySnapshot, NOV_NAVI_TODAY_FIELDS } from "./nov-navi-today-contract.js";

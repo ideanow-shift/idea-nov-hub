@@ -159,8 +159,9 @@ assert.match(dashboardSource, /button\.disabled = !launchState\.enabled/, "uncon
 assert.match(dashboardSource, /decision_hub: "\.\/assets\/icons\/approval\.svg"/, "approval cards must use their dedicated NOV NAVI SVG");
 assert.match(dashboardSource, /pos: "\.\/assets\/icons\/store-operations\.svg"/, "store operation cards must use their dedicated NOV NAVI SVG");
 assert.match(dashboardSource, /title: "キャリアシステム", status: "preview", icon: "\.\/assets\/icons\/career\.svg"/, "career cards must remain identifiable before a launch target is connected");
-assert.match(dashboardSource, /const TODAY_KEYS = \["schedule", "tasks", "approvals", "thanks", "inquiries", "growthPoints"\]/, "Today card keys must remain allowlisted");
-assert.match(dashboardSource, /Number\.isSafeInteger\(value\)/, "Today card values must remain bounded aggregates");
+assert.match(dashboardSource, /import \{ getNovNaviTodaySnapshot, NOV_NAVI_TODAY_FIELDS \} from "\.\/nov-navi-today-contract\.js"/, "Today must use the isolated aggregate-only contract");
+assert.match(dashboardSource, /const TODAY_KEYS = NOV_NAVI_TODAY_FIELDS/, "Today card keys must remain allowlisted");
+assert.match(dashboardSource, /return getNovNaviTodaySnapshot\(today\)/, "Today card values must remain bounded aggregates through the shared contract");
 assert.match(dashboardSource, /data-navi-today-key="schedule"/, "Today cards must bind their values by an explicit key");
 assert.match(dashboardSource, /\[data-navi-today-key="\$\{key\}"\]/, "Today card rendering must not rely on card position");
 assert.match(dashboardSource, /const readyCount = counts\.filter\(\(count\) => count !== null\)\.length/, "Today must distinguish a fully pending state from verified aggregate values");

@@ -247,17 +247,20 @@ export function initializeTalentNavigation({
       if (target === "students") {
         primaryButtons.find((item) => item.dataset.primaryTab === "recruitment")?.click?.();
         secondaryButtons.find((item) => item.dataset.secondaryTab === "students")?.click?.();
-        documentObject.getElementById("student-daily-queue-start-guide")?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+        announceDailyCommandRoute(documentObject, target, "学生フォローへ移動しました。START HERE の案内から、期限・要確認・隔離の順に開けます。");
+        focusDailyCommandTarget(documentObject, "student-daily-queue-start-guide");
       }
       if (target === "workforce") {
         primaryButtons.find((item) => item.dataset.primaryTab === "workforce")?.click?.();
         workforceButtons.find((item) => item.dataset.workforceTab === "onboarding")?.click?.();
-        documentObject.getElementById("workforce-case-operation-start-guide")?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+        announceDailyCommandRoute(documentObject, target, "現職者管理へ移動しました。START HERE から期限超過・確認待ち・下書きを分けて処理できます。");
+        focusDailyCommandTarget(documentObject, "workforce-case-operation-start-guide");
       }
       if (target === "csv28") {
         primaryButtons.find((item) => item.dataset.primaryTab === "recruitment")?.click?.();
         secondaryButtons.find((item) => item.dataset.secondaryTab === "summary")?.click?.();
-        documentObject.getElementById("talent-28-csv-title")?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+        announceDailyCommandRoute(documentObject, target, "28卒CSV確認へ移動しました。ローカルpreflightを通すまでstaging承認へ進みません。");
+        focusDailyCommandTarget(documentObject, "talent-28-csv-title");
       }
     });
   }
@@ -2604,6 +2607,27 @@ async function saveStudentProfile({ globalObject, documentObject }) {
 function setText(documentObject, id, text) {
   const element = documentObject?.getElementById?.(id);
   if (element) element.textContent = text;
+}
+
+function announceDailyCommandRoute(documentObject, target, message) {
+  const normalized = ["students", "workforce", "csv28"].includes(target) ? target : "";
+  for (const item of documentObject?.querySelectorAll?.("[data-talent-daily-open]") || []) {
+    item.setAttribute("aria-pressed", String(item.dataset.talentDailyOpen === normalized));
+  }
+  const status = documentObject?.getElementById?.("talent-daily-command-status");
+  if (!status) return;
+  status.dataset.category = normalized === "students"
+    ? "ROUTE_STUDENTS"
+    : normalized === "workforce" ? "ROUTE_WORKFORCE" : normalized === "csv28" ? "ROUTE_CSV28" : "NO_ROUTE_SELECTED";
+  status.textContent = message || "開始位置を選択しました。";
+}
+
+function focusDailyCommandTarget(documentObject, id) {
+  const target = documentObject?.getElementById?.(id);
+  if (!target) return;
+  target.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  if (!target.hasAttribute?.("tabindex")) target.setAttribute?.("tabindex", "-1");
+  target.focus?.({ preventScroll: true });
 }
 
 function normalizeSearch(value) {

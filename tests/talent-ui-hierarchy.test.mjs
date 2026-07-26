@@ -31,10 +31,15 @@ test("daily command center opens safe work areas without writes", async () => {
   assert.match(html, /data-talent-daily-open="students"/);
   assert.match(html, /data-talent-daily-open="workforce"/);
   assert.match(html, /data-talent-daily-open="csv28"/);
+  assert.match(html, /data-talent-daily-open="students" aria-pressed="false"/);
+  assert.match(html, /id="talent-daily-command-status"/);
+  assert.match(html, /NO_ROUTE_SELECTED/);
   assert.match(html, /id="talent-daily-completion-checklist"/);
   assert.match(html, /data-category="NO_AUTO_PROMOTION"/);
   assert.match(css, /\.talent-daily-command/);
   assert.match(css, /\.talent-daily-command-actions/);
+  assert.match(css, /\.talent-daily-command-actions button\[aria-pressed="true"\]/);
+  assert.match(css, /\.talent-daily-command-status/);
   assert.match(css, /\.talent-daily-completion-checklist/);
   assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-daily-command \{ grid-template-columns: 1fr; \}/);
   assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-daily-completion-checklist \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
@@ -44,6 +49,11 @@ test("daily command center opens safe work areas without writes", async () => {
   assert.match(app, /student-daily-queue-start-guide/);
   assert.match(app, /workforce-case-operation-start-guide/);
   assert.match(app, /talent-28-csv-title/);
+  assert.match(app, /announceDailyCommandRoute/);
+  assert.match(app, /focusDailyCommandTarget/);
+  assert.match(app, /ROUTE_STUDENTS/);
+  assert.match(app, /ROUTE_WORKFORCE/);
+  assert.match(app, /ROUTE_CSV28/);
   assert.doesNotMatch(html, /data-talent-daily-open[\s\S]{0,260}(commit|promotion|LINE履歴|社員マスタへ直接反映)/i);
 });
 
@@ -53,7 +63,7 @@ test("implementation progress board shows remaining work without enabling writes
 
   assert.match(html, /id="talent-implementation-progress"/);
   assert.match(html, /id="talent-next-build-targets"/);
-  assert.match(html, /data-complete-percent="98" data-remaining-percent="2"/);
+  assert.match(html, /data-complete-percent="99" data-remaining-percent="1"/);
   assert.match(html, /id="talent-final-readiness"/);
   assert.match(html, /READY_FOR_DAILY_USE_WITH_APPROVAL_GATES/);
   assert.match(html, /id="talent-launch-checklist"/);

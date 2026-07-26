@@ -299,6 +299,14 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-state-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-progress-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-month-filter")?.addEventListener("change", refresh);
+  documentObject.getElementById("student-filter-reset")?.addEventListener("click", () => {
+    const controls = ["student-search", "student-source-filter", "student-state-filter", "student-progress-filter", "student-month-filter"];
+    controls.forEach((id) => {
+      const control = documentObject.getElementById(id);
+      if (control) control.value = id === "student-search" ? "" : "ALL";
+    });
+    refresh();
+  });
   [
     ["student-filter-all", "ALL"],
     ["student-filter-review", "OWNER_REVIEW"],
@@ -990,6 +998,7 @@ function renderStudentWorkspace(documentObject) {
   const month = documentObject.getElementById("student-month-filter")?.value || "ALL";
   const visible = filterTalentStudents(studentWorkspaceData.students, { query, source, state, progress, month });
   updateStudentQuickFilterState(documentObject, state, studentWorkspaceData.students);
+  updateStudentFilterResetState(documentObject, { query, source, state, progress, month });
   const list = documentObject.getElementById("student-list");
   const empty = documentObject.getElementById("student-empty");
   const count = documentObject.getElementById("student-result-count");
@@ -1028,6 +1037,14 @@ function updateStudentQuickFilterState(documentObject, state, students) {
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-pressed", String(active));
   });
+}
+
+function updateStudentFilterResetState(documentObject, { query, source, state, progress, month }) {
+  const button = documentObject.getElementById("student-filter-reset");
+  if (!button) return;
+  const active = Boolean(query) || source !== "ALL" || state !== "ALL" || progress !== "ALL" || month !== "ALL";
+  button.disabled = !active;
+  button.setAttribute("aria-disabled", String(!active));
 }
 
 function createStudentListItem(documentObject, student) {

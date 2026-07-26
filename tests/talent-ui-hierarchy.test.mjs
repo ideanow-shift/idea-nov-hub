@@ -80,6 +80,8 @@ test("fair analysis opens a student queue scoped to its selected record month", 
   assert.deepEqual(filterTalentStudents(rows, buildMonthlyFollowUpFilter("2026-05")).map((row) => row.displayName), ["5月"]);
   assert.equal(getTalentStudentMonthKey(rows[0]), "2026-04");
   assert.match(html, /id="student-month-filter"/);
+  assert.match(html, /id="student-filter-reset"/);
+  assert.match(app, /updateStudentFilterResetState/);
   assert.match(html, /<th>記録月<\/th>[\s\S]*<th>フォロー<\/th>/);
   assert.match(app, /button\.textContent = "対象月を見る"/);
   assert.match(app, /renderStudentMonthFilterOptions/);

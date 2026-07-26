@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyzeTalent28CsvPreflight, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvSafeReceipt, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
+import { analyzeTalent28CsvPreflight, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvSafeReceipt, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
 
 const header = [
   "source_row_no", "graduation_year", "source_type", "source_label", "student_name", "student_name_kana",
@@ -54,6 +54,9 @@ test("28卒 CSV preflight accepts the sealed column contract without exposing ro
   assert.equal(receipt.statusCoverageCategory, "PRESENT");
   assert.equal(receipt.followUpCoverageCategory, "PRESENT");
   assert.equal(receipt.rawValuesIncluded, false);
+  const guide = buildTalent28CsvFixGuide(result);
+  assert.equal(guide.nextCategory, "REQUEST_STAGING_PREFLIGHT_APPROVAL");
+  assert.equal(guide.steps[0].countCategory, "ZERO");
   assert.equal(TALENT_28_CSV_PREFLIGHT_CONTRACT.databaseOperation, false);
 });
 
@@ -168,4 +171,18 @@ test("28卒 CSV safe receipt keeps owner decision categories value-free", () => 
   assert.equal(invalid.category, "NEEDS_SAFE_FIX");
   assert.equal(invalid.productionWriteReachable, false);
   assert.doesNotMatch(JSON.stringify(duplicate), /student|phone|mail|source_row_no/i);
+});
+
+test("28卒 CSV fix guide prioritizes safe correction categories only", () => {
+  const guide = buildTalent28CsvFixGuide({
+    fixedCategory: "CSV_REQUIRED_IDENTITY_INCOMPLETE",
+    readiness: { canRequestStagingPreflight: false },
+    counts: { missingIdentityRows: 2, invalidDateRows: 1, duplicateContactHintRows: 0 }
+  });
+  assert.equal(guide.nextCategory, "IDENTITY");
+  assert.deepEqual(guide.steps.map((step) => step.category), ["IDENTITY", "DATE"]);
+  assert.equal(guide.steps[0].countCategory, "MULTIPLE");
+  assert.equal(guide.rawValuesIncluded, false);
+  assert.equal(guide.productionWriteReachable, false);
+  assert.doesNotMatch(JSON.stringify(guide), /学生 太郎|090|example|source_row_no/i);
 });

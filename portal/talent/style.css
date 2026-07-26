@@ -354,6 +354,12 @@ h3 { margin: 0; font-size: 1rem; }
 .csv-preflight-receipt[data-category="READY_FOR_OWNER_DECISION"] { border-color: #d8eadf; background: #f8fffb; color: #267650; }
 .csv-preflight-receipt[data-category="READY_WITH_DUPLICATE_REVIEW"] { border-color: #f2d59d; background: #fffaf0; color: #9a5d00; }
 .csv-preflight-receipt[data-category="NEEDS_SAFE_FIX"] { border-color: #f1b8b8; background: #fff6f6; color: #b33131; }
+.csv-preflight-fix-guide { grid-column: 1 / -1; display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.csv-preflight-fix-guide li { padding: 9px 11px; border: 1px dashed var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .82rem; font-weight: 800; }
+.csv-preflight-fix-guide[data-category="REQUEST_STAGING_PREFLIGHT_APPROVAL"] li { border-style: solid; border-color: #cbe8d3; color: #2f7441; background: #f8fffb; }
+.csv-preflight-fix-guide li[data-category="DUPLICATE_HINT"],
+.csv-preflight-fix-guide li[data-category="DATE"],
+.csv-preflight-fix-guide li[data-category="QUARANTINE"] { border-color: #f2d59d; color: #9a5d00; background: #fffaf0; }
 .operator-panel { margin-top: 20px; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-card); }
 .operator-panel[hidden] { display: none; }
 .operator-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }

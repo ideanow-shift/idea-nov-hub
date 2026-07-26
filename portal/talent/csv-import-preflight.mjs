@@ -253,6 +253,48 @@ export function buildTalent28CsvSafeReceipt(result) {
   });
 }
 
+export function buildTalent28CsvFixGuide(result) {
+  const counts = result?.counts || {};
+  const checks = [
+    ["STRUCTURE", Number(counts.rowColumnMismatchRows || 0) + Number(counts.invalidSourceRowNoRows || 0) + Number(counts.duplicateSourceRowNoRows || 0)],
+    ["YEAR", Number(counts.invalidYearRows || 0)],
+    ["SOURCE", Number(counts.invalidSourceRows || 0) + Number(counts.missingSourceLabelRows || 0)],
+    ["IDENTITY", Number(counts.missingIdentityRows || 0)],
+    ["DATE", Number(counts.invalidDateRows || 0)],
+    ["QUARANTINE", Number(counts.inconsistentQuarantineRows || 0)],
+    ["DUPLICATE_HINT", Number(counts.duplicateStableKeyHintRows || 0) + Number(counts.duplicateContactHintRows || 0)]
+  ];
+  const categories = checks
+    .filter(([, count]) => count > 0)
+    .map(([category, count]) => Object.freeze({ category, countCategory: count === 1 ? "ONE" : "MULTIPLE" }));
+  const nextCategory = categories.length === 0
+    ? result?.readiness?.canRequestStagingPreflight ? "REQUEST_STAGING_PREFLIGHT_APPROVAL" : "NO_SAFE_FIX_REQUIRED"
+    : categories[0].category;
+  const stepText = {
+    STRUCTURE: "列数・行番号・重複行番号をテンプレートに合わせてください",
+    YEAR: "graduation_year を 2028 にそろえてください",
+    SOURCE: "source_type と source_label を由来ごとに埋めてください",
+    IDENTITY: "氏名・学校・連絡手段の最低条件を補ってください",
+    DATE: "日付は YYYY-MM-DD 形式にしてください",
+    QUARANTINE: "隔離フラグ TRUE には理由を入れてください",
+    DUPLICATE_HINT: "重複候補を確認し、必要なら隔離理由へ回してください",
+    REQUEST_STAGING_PREFLIGHT_APPROVAL: "件数カテゴリを確認し、staging preflight 承認へ進んでください",
+    NO_SAFE_FIX_REQUIRED: "CSVを選択すると修正対象を表示します"
+  };
+  return Object.freeze({
+    nextCategory,
+    steps: Object.freeze((categories.length > 0 ? categories : [{ category: nextCategory, countCategory: "ZERO" }])
+      .map((item, index) => Object.freeze({
+        order: index + 1,
+        category: item.category,
+        countCategory: item.countCategory,
+        label: stepText[item.category]
+      }))),
+    rawValuesIncluded: false,
+    productionWriteReachable: false
+  });
+}
+
 function renderTalent28CsvReceiptText(receipt) {
   const categoryText = {
     READY_FOR_OWNER_DECISION: "投入前確認へ進めます",
@@ -374,7 +416,8 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
   const summary = documentObject?.getElementById?.("talent-28-csv-summary");
   const planList = documentObject?.getElementById?.("talent-28-csv-plan");
   const receiptStatus = documentObject?.getElementById?.("talent-28-csv-receipt");
-  if (!input || !templateButton || !status || !summary || !planList || !receiptStatus) return Object.freeze({ initialized: false });
+  const fixGuideList = documentObject?.getElementById?.("talent-28-csv-fix-guide");
+  if (!input || !templateButton || !status || !summary || !planList || !receiptStatus || !fixGuideList) return Object.freeze({ initialized: false });
   if (input.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true });
   input.dataset.bound = "true";
   const render = (result) => {
@@ -412,6 +455,14 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
     const receipt = buildTalent28CsvSafeReceipt(result);
     receiptStatus.dataset.category = receipt.category;
     receiptStatus.textContent = renderTalent28CsvReceiptText(receipt);
+    const fixGuide = buildTalent28CsvFixGuide(result);
+    fixGuideList.dataset.category = fixGuide.nextCategory;
+    fixGuideList.replaceChildren(...fixGuide.steps.map((step) => {
+      const item = documentObject.createElement("li");
+      item.dataset.category = step.category;
+      item.textContent = `${step.order}. ${step.label} / ${step.countCategory}`;
+      return item;
+    }));
   };
   input.addEventListener("change", async () => {
     const file = input.files?.[0];

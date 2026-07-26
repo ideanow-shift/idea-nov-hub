@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyzeTalent28CsvPreflight, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
+import { analyzeTalent28CsvPreflight, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvSafeReceipt, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
 
 const header = [
   "source_row_no", "graduation_year", "source_type", "source_label", "student_name", "student_name_kana",
@@ -48,6 +48,12 @@ test("28卒 CSV preflight accepts the sealed column contract without exposing ro
   assert.equal(result.rawValuesIncluded, false);
   assert.equal(result.networkOperationCount, 0);
   assert.equal(result.productionDbOperationCount, 0);
+  const receipt = buildTalent28CsvSafeReceipt(result);
+  assert.equal(receipt.category, "READY_FOR_OWNER_DECISION");
+  assert.equal(receipt.sourceCoverageCategory, "PARTIAL");
+  assert.equal(receipt.statusCoverageCategory, "PRESENT");
+  assert.equal(receipt.followUpCoverageCategory, "PRESENT");
+  assert.equal(receipt.rawValuesIncluded, false);
   assert.equal(TALENT_28_CSV_PREFLIGHT_CONTRACT.databaseOperation, false);
 });
 
@@ -144,4 +150,22 @@ test("28卒 CSV operational plan separates local checks from approved staging wo
   const fixPlan = buildTalent28CsvOperationalPlan({ category: "NEEDS_FIX" });
   assert.match(fixPlan.steps[0].label, /CSV列/);
   assert.doesNotMatch(fixPlan.steps.map((step) => step.label).join(" "), /学生 太郎|example/);
+});
+
+test("28卒 CSV safe receipt keeps owner decision categories value-free", () => {
+  const duplicate = buildTalent28CsvSafeReceipt({
+    fixedCategory: "CSV_DUPLICATE_HINT_REVIEW_REQUIRED",
+    readiness: { category: "NEEDS_FIX", sourceCoverageCategory: "EXACT3" },
+    counts: { totalRows: 3, duplicateContactHintRows: 2, readyRows: 1 }
+  });
+  const invalid = buildTalent28CsvSafeReceipt({
+    fixedCategory: "CSV_REQUIRED_IDENTITY_INCOMPLETE",
+    readiness: { category: "NEEDS_FIX", sourceCoverageCategory: "PARTIAL" },
+    counts: { totalRows: 1, missingIdentityRows: 1 }
+  });
+  assert.equal(duplicate.category, "READY_WITH_DUPLICATE_REVIEW");
+  assert.equal(duplicate.issueCategory, "PRESENT");
+  assert.equal(invalid.category, "NEEDS_SAFE_FIX");
+  assert.equal(invalid.productionWriteReachable, false);
+  assert.doesNotMatch(JSON.stringify(duplicate), /student|phone|mail|source_row_no/i);
 });

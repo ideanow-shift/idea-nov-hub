@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildBulkTriageQueueFilter, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildReviewWorkloadSteps, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewLaneSteps, buildStudentReviewModeCopy, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildBulkTriageQueueFilter, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildReviewWorkloadSteps, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewDecisionGuide, buildStudentReviewLaneSteps, buildStudentReviewModeCopy, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -231,20 +231,33 @@ test("student detail marks safe review lanes for bulk, individual, and quarantin
     suggestionCategory: "EXACT1",
     suggestedTargetRecordId: "target-1"
   }));
+  const quarantineDecision = buildStudentReviewDecisionGuide(buildStudentReviewBoundary({
+    mappingStatus: "UNMAPPED",
+    classification: "QUARANTINE",
+    suggestionCategory: "AMBIGUOUS"
+  }));
   assert.deepEqual(bulkLaneSteps.steps.map((step) => step.order), [1, 2, 3]);
   assert.deepEqual(bulkLaneSteps.steps.map((step) => step.label), ["一括対象に含める", "新規・隔離を混ぜない", "反映後に確認済みへ進める"]);
   assert.equal(bulkLaneSteps.rawValuesIncluded, false);
   assert.equal(bulkLaneSteps.canonicalWriteReachable, false);
   assert.equal(bulkLaneSteps.lineHistoryWriteReachable, false);
+  assert.equal(quarantineDecision.label, "判断: 隔離を維持");
+  assert.equal(quarantineDecision.rawValuesIncluded, false);
+  assert.equal(quarantineDecision.automaticPromotionReachable, false);
   assert.match(buildStudentReviewBoundary({ mappingStatus: "OWNER_CONFIRMED" }).caution, /staging原本は変更しません/);
   assert.match(html, /id="student-review-boundary"/);
   assert.match(html, /id="student-review-boundary-allowed"/);
   assert.match(html, /id="student-review-boundary-steps"/);
+  assert.match(html, /id="student-review-decision"/);
+  assert.match(html, /id="student-review-decision-command"/);
   assert.match(app, /buildStudentReviewLaneSteps/);
+  assert.match(app, /buildStudentReviewDecisionGuide/);
   assert.match(app, /renderStudentReviewBoundary/);
+  assert.match(app, /student-review-decision-label/);
   assert.match(app, /自動昇格・一括混入/);
   assert.match(css, /\.student-review-boundary/);
   assert.match(css, /\.student-review-boundary-steps/);
+  assert.match(css, /\.student-review-decision/);
 });
 
 test("workforce management exposes four accessible procedure tabs", async () => {

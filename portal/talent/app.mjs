@@ -1389,6 +1389,55 @@ export function buildStudentReviewLaneSteps(boundary) {
   });
 }
 
+export function buildStudentReviewDecisionGuide(boundary) {
+  const category = boundary?.category || "NO_SELECTION";
+  const guides = Object.freeze({
+    NO_SELECTION: {
+      label: "判断: 対象選択後に表示",
+      record: "記録: 自動保存しません",
+      command: "操作: 一覧から学生を選択"
+    },
+    CONFIRMED_CANONICAL: {
+      label: "判断: 日常更新へ進める",
+      record: "記録: 正本プロフィールと変更履歴",
+      command: "操作: 編集または次回対応を設定"
+    },
+    BULK_SAFE_EXACT_LINK: {
+      label: "判断: 一括反映の対象",
+      record: "記録: 一致候補だけを確認済みにする",
+      command: "操作: 確認候補を一括反映"
+    },
+    INDIVIDUAL_REVIEW: {
+      label: "判断: 1件ずつ確認",
+      record: "記録: 紐付け・新規作成・隔離維持のどれか",
+      command: "操作: この候補を確認"
+    },
+    QUARANTINE_HOLD: {
+      label: "判断: 隔離を維持",
+      record: "記録: 補足と次回対応日だけ残す",
+      command: "操作: 編集または次回対応を設定"
+    },
+    STAGING_SUPPLEMENT: {
+      label: "判断: staging補足として整理",
+      record: "記録: 原本を変えず補足だけ保存",
+      command: "操作: 編集で補足を更新"
+    },
+    READ_ONLY: {
+      label: "判断: 閲覧のみ",
+      record: "記録: この画面からは保存しません",
+      command: "操作: 要確認・隔離キューで扱う"
+    }
+  });
+  const selected = guides[category] || guides.NO_SELECTION;
+  return Object.freeze({
+    category,
+    ...selected,
+    rawValuesIncluded: false,
+    automaticPromotionReachable: false,
+    lineHistoryWriteReachable: false
+  });
+}
+
 export function sortTalentStudentsByFollowUp(students, mode = "DEFAULT", referenceDate = localTalentDateIso()) {
   const rows = Array.isArray(students) ? students.slice() : [];
   if (mode !== "FOLLOW_UP") return rows;
@@ -1801,15 +1850,22 @@ function renderStudentReviewBoundary(documentObject, boundary) {
   const allowed = documentObject.getElementById("student-review-boundary-allowed");
   const caution = documentObject.getElementById("student-review-boundary-caution");
   const laneSteps = documentObject.getElementById("student-review-boundary-steps");
+  const decisionLabel = documentObject.getElementById("student-review-decision-label");
+  const decisionRecord = documentObject.getElementById("student-review-decision-record");
+  const decisionCommand = documentObject.getElementById("student-review-decision-command");
   if (!badge || !title || !copy || !allowed || !caution) return;
   const safeBoundary = boundary || buildStudentReviewBoundary(null);
   const safeLaneSteps = buildStudentReviewLaneSteps(safeBoundary);
+  const safeDecision = buildStudentReviewDecisionGuide(safeBoundary);
   badge.textContent = safeBoundary.badge;
   badge.dataset.category = safeBoundary.category;
   title.textContent = safeBoundary.title;
   copy.textContent = safeBoundary.copy;
   allowed.textContent = safeBoundary.allowed;
   caution.textContent = safeBoundary.caution;
+  if (decisionLabel) decisionLabel.textContent = safeDecision.label;
+  if (decisionRecord) decisionRecord.textContent = safeDecision.record;
+  if (decisionCommand) decisionCommand.textContent = safeDecision.command;
   if (laneSteps) {
     laneSteps.replaceChildren(...safeLaneSteps.steps.map((step) => {
       const item = documentObject.createElement("li");

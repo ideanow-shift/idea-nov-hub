@@ -128,6 +128,14 @@ function renderHeaderNotificationHint() {
   elements.naviNotificationHint.hidden = false;
 }
 
+function focusNaviNotices() {
+  const noticeTitle = document.querySelector("#navi-notices-title");
+  const notices = noticeTitle?.closest(".navi-notices");
+  if (!notices) return;
+  notices.scrollIntoView({ behavior: "smooth", block: "start" });
+  notices.querySelector("button.navi-notice")?.focus({ preventScroll: true });
+}
+
 function removeManagementDataopsDiagnostic() {
   managementDataopsDiagnostic?.remove();
   managementDataopsDiagnostic = null;
@@ -1210,6 +1218,7 @@ async function initialize() {
   elements.googleLogin.addEventListener("click", loginWithFirebase);
   elements.pinLoginForm.addEventListener("submit", loginWithPin);
   elements.pinChangeForm.addEventListener("submit", changeOwnPin);
+  elements.naviNotificationHint.addEventListener("click", focusNaviNotices);
   elements.appSearch.addEventListener("input", () => {
     state.appSearch = elements.appSearch.value;
     renderApps();

@@ -149,7 +149,9 @@ button.navi-notice:hover { border-color: var(--navi-accent); background: var(--n
 .navi-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; background: #fafafa; color: var(--text-secondary); font-size: 10px; box-shadow: none; }
 
 .navi-notification-hint[hidden] { display: none; }
-.navi-notification-hint { display: inline-flex; min-height: 30px; align-items: center; gap: 5px; border: 1px solid #f0d6d9; border-radius: 6px; background: var(--navi-accent-soft); padding: 4px 7px; color: var(--navi-ink); font-size: 11px; white-space: nowrap; }
+.navi-notification-hint { display: inline-flex; min-height: 40px; align-items: center; gap: 5px; border: 1px solid #f0d6d9; border-radius: 6px; background: var(--navi-accent-soft); padding: 4px 7px; color: var(--navi-ink); cursor: pointer; font: inherit; font-size: 11px; white-space: nowrap; }
+.navi-notification-hint:hover { border-color: var(--navi-accent); background: #f3dadd; }
+.navi-notification-hint:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 .navi-notification-hint strong { min-width: 18px; color: var(--navi-ink); font-size: 13px; text-align: center; }
 .brand-copy-navi { display: none; }
 
@@ -182,7 +184,7 @@ body:has(#nov-navi-dashboard:not([hidden])) .site-header .icon-button:hover { ba
   body:has(#nov-navi-dashboard:not([hidden])) .brand-logo { width: 36px; height: 30px; }
   body:has(#nov-navi-dashboard:not([hidden])) .header-user { min-width: 0; gap: 6px; }
   body:has(#nov-navi-dashboard:not([hidden])) .user-summary { max-width: 72px; }
-  body:has(#nov-navi-dashboard:not([hidden])) .navi-notification-hint { min-width: 30px; justify-content: center; padding: 4px 5px; }
+  body:has(#nov-navi-dashboard:not([hidden])) .navi-notification-hint { min-width: 40px; justify-content: center; padding: 4px 5px; }
   body:has(#nov-navi-dashboard:not([hidden])) .navi-notification-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
   .nov-navi-dashboard { gap: 9px; }
   .navi-role-summary { align-items: center; flex-wrap: wrap; padding: 8px 10px; }

@@ -18,7 +18,7 @@ Source-only contract candidate. It fixes the six provider boundaries required be
 | `tasks` | Task Manager | `nov_navi.open_task_count` | current employee only | one aggregate | open tasks assigned to the current employee | task provider unavailable or assignee scope cannot be resolved |
 | `approvals` | Decision Hub | `nov_navi.pending_approval_count` | current assigned approver only | one aggregate | actionable pending approvals assigned to the current employee | Decision actor or assignment scope unavailable |
 | `thanks` | IDEA LINK | `nov_navi.received_thanks_count` | current IDEA LINK employee only | one aggregate | received thanks in the current calendar month | IDEA LINK employee permission cannot be revalidated |
-| `inquiries` | NOV Support | `nov_navi.inquiry_response_count` | current employee or approved department scope | one aggregate | responses awaiting the actor's confirmation | support scope or route permission unavailable |
+| `inquiries` | NOV Support | `nov_navi.inquiry_response_count` | runtime candidate excluded pending department-scope decision | n/a | responses awaiting the actor's confirmation | always unavailable until the domain owner fixes the department-scope decision, allow condition, and aggregate bound |
 | `growthPoints` | Growth | `nov_navi.monthly_growth_points` | current employee only | one aggregate | current calendar month growth-point total | growth profile or period definition unavailable |
 
 ## HUB Aggregation Behavior
@@ -35,7 +35,7 @@ Source-only contract candidate. It fixes the six provider boundaries required be
 - Task Manager: exact definition of open status.
 - Decision Hub: actionable assignment status set.
 - IDEA LINK: calendar-month boundary and received-status definition.
-- NOV Support: employee versus department scope and response state.
+- NOV Support: department-scope decision source, allow condition, aggregate bound, and response state. Until confirmed, `inquiries` stays excluded from any runtime candidate.
 - Growth: point source and month boundary.
 
 ## Explicit Holds

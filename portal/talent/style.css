@@ -1342,6 +1342,9 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-audit-list li { display: grid; gap: 3px; padding: 10px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: .86rem; }
 .procedure-case-audit-list strong { color: var(--ink); }
 .procedure-case-steps { margin-top: 16px; padding: 16px; border: 1px solid #d8eadf; border-radius: 6px; background: #f7fcf8; }
+.procedure-case-steps .procedure-case-status[data-category="READY_TO_CONFIRM"] { color: #267650; font-weight: 800; }
+.procedure-case-steps .procedure-case-status[data-category="CHECKLIST_INCOMPLETE"] { color: #9a5d00; font-weight: 800; }
+.procedure-case-steps .procedure-case-status[data-category="CHECKLIST_SHAPE_INVALID"] { color: #b33131; font-weight: 800; }
 .procedure-case-steps-list { display: grid; gap: 8px; margin-top: 12px; }
 .procedure-case-step { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); cursor: pointer; }
 .procedure-case-step input { width: 18px; height: 18px; accent-color: var(--accent-strong); }

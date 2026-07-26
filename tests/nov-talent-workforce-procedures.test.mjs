@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { buildWorkforceProcedureActionMix, buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseActionRoute, buildWorkforceProcedureCaseBoundary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureCoreHandoffQueue, buildWorkforceProcedureCoreHandoffSteps, buildWorkforceProcedureEmptyState, buildWorkforceProcedureFormSavePreview, buildWorkforceProcedureFormSubmitReadiness, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureStepProgress, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureActionMix, buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseActionRoute, buildWorkforceProcedureCaseActionRouteSteps, buildWorkforceProcedureCaseBoundary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureCoreHandoffQueue, buildWorkforceProcedureCoreHandoffSteps, buildWorkforceProcedureEmptyState, buildWorkforceProcedureFormSavePreview, buildWorkforceProcedureFormSubmitReadiness, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureStepProgress, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -355,7 +355,23 @@ test("workforce procedure row action route highlights the safest next button", a
   assert.equal(overdue.employeeMasterMutation, false);
   assert.match(source, /caseRowAction/);
   assert.match(source, /dataset\.recommended/);
+  assert.match(source, /buildWorkforceProcedureCaseActionRouteSteps/);
   assert.match(css, /\.case-edit-button\[data-recommended="true"\]/);
+  assert.match(css, /procedure-case-row-action-steps/);
+});
+
+test("workforce procedure row action steps explain why the recommended button is safe", () => {
+  const edit = buildWorkforceProcedureCaseActionRouteSteps({ action: "EDIT", category: "OVERDUE_REVIEW" });
+  const checklist = buildWorkforceProcedureCaseActionRouteSteps({ action: "CHECKLIST", category: "CHECKLIST_REVIEW" });
+  const audit = buildWorkforceProcedureCaseActionRouteSteps({ action: "AUDIT", category: "CORE_HANDOFF_READY" });
+
+  assert.deepEqual(edit.steps.map((step) => step.category), ["EDIT_STEP_1", "EDIT_STEP_2", "EDIT_STEP_3"]);
+  assert.deepEqual(checklist.steps.map((step) => step.category), ["CHECKLIST_STEP_1", "CHECKLIST_STEP_2", "CHECKLIST_STEP_3"]);
+  assert.deepEqual(audit.steps.map((step) => step.category), ["AUDIT_STEP_1", "AUDIT_STEP_2", "AUDIT_STEP_3"]);
+  assert.equal(audit.employeeMasterMutation, false);
+  assert.equal(audit.canonicalWriteReachable, false);
+  assert.equal(audit.lineHistoryWriteReachable, false);
+  assert.equal(audit.rawValuesIncluded, false);
 });
 
 test("workforce procedure case boundary explains local-only and handoff limits", async () => {

@@ -1459,6 +1459,10 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-next-action[data-category="CORE_HANDOFF_READY"] { border-color: #ead3a6; background: #fffaf0; }
 .procedure-case-next-action-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .procedure-case-next-action-chips b { padding: 3px 6px; border: 1px solid var(--line); border-radius: 999px; background: #f9fcfb; color: #31515c; font-size: .7rem; font-weight: 900; }
+.procedure-case-row-action-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin: 4px 0 0; padding: 0; list-style: none; }
+.procedure-case-row-action-steps li { padding: 6px 7px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--muted); font-size: .72rem; font-weight: 800; line-height: 1.35; }
+.procedure-case-row-action-steps[data-action="CHECKLIST"] li { border-color: #c5dcf6; background: #f8fbff; }
+.procedure-case-row-action-steps[data-action="AUDIT"] li { border-color: #d8eadf; background: #f8fffb; }
 .procedure-case-boundary-note { display: grid; gap: 4px; margin-top: 8px; padding: 8px; border: 1px dashed #eadbc7; border-radius: 6px; background: #fffdf8; }
 .procedure-case-boundary-note > strong { color: var(--navy); font-size: .8rem; }
 .procedure-case-boundary-note > span { margin-top: 0; color: var(--muted); font-size: .76rem; line-height: 1.45; }

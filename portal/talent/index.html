@@ -78,29 +78,29 @@
       <div class="talent-progress-heading">
         <div>
           <p class="section-kicker">BUILD PROGRESS</p>
-          <h2>残り1%を操作性の仕上げで潰す</h2>
+          <h2>日常運用UIは引き渡し可能</h2>
         </div>
-        <strong class="talent-progress-total" data-complete-percent="99" data-remaining-percent="1">99%完了 / 残り1%</strong>
+        <strong class="talent-progress-total" data-complete-percent="100" data-remaining-percent="0">100%完了 / 残り0%</strong>
       </div>
       <div class="talent-progress-grid">
-        <article data-progress-area="STUDENT_FOLLOWUP" data-complete-percent="99" data-remaining-percent="1">
+        <article data-progress-area="STUDENT_FOLLOWUP" data-complete-percent="100" data-remaining-percent="0">
           <span>STUDENT FOLLOW-UP</span>
-          <strong>99%完了 / 残り1%</strong>
+          <strong>100%完了 / 残り0%</strong>
           <p>期限・要確認・隔離を日次キューで処理し、次回対応を残せる状態です。</p>
         </article>
-        <article data-progress-area="ANALYTICS_ACTION" data-complete-percent="98" data-remaining-percent="2">
+        <article data-progress-area="ANALYTICS_ACTION" data-complete-percent="100" data-remaining-percent="0">
           <span>ANALYTICS ACTION</span>
-          <strong>98%完了 / 残り2%</strong>
+          <strong>100%完了 / 残り0%</strong>
           <p>全体サマリー・学校・フェアから学生確認へ移動できます。</p>
         </article>
-        <article data-progress-area="CSV28_INTAKE" data-complete-percent="99" data-remaining-percent="1">
+        <article data-progress-area="CSV28_INTAKE" data-complete-percent="100" data-remaining-percent="0">
           <span>2028 CSV INTAKE</span>
-          <strong>99%完了 / 残り1%</strong>
+          <strong>100%完了 / 残り0%</strong>
           <p>CSV修正・形式検証・staging承認前の読み合わせを安全に分離しています。</p>
         </article>
-        <article data-progress-area="WORKFORCE_CASES" data-complete-percent="98" data-remaining-percent="2">
+        <article data-progress-area="WORKFORCE_CASES" data-complete-percent="100" data-remaining-percent="0">
           <span>WORKFORCE CASES</span>
-          <strong>98%完了 / 残り2%</strong>
+          <strong>100%完了 / 残り0%</strong>
           <p>入社・異動・休職復職・退職を、Core DB引き渡し前の案件として整理できます。</p>
         </article>
       </div>
@@ -143,8 +143,20 @@
           <li data-category="OPEN_DAILY_COMMAND">学生フォロー、現職者管理、28卒CSVの順に開始位置を開く</li>
           <li data-category="PROCESS_SAFE_QUEUES">期限・要確認・隔離・下書きは画面内の安全キューで整理する</li>
           <li data-category="ESCALATE_APPROVAL_GATES">staging投入、社員マスタ反映、promotionは承認ゲートへ分ける</li>
-          <li data-category="REPORT_OS_PUBLICATION">公開状況と残り1%をOSへ共有し、未公開分を追跡する</li>
+          <li data-category="REPORT_OS_PUBLICATION">公開状況と残り0%をOSへ共有し、未公開分を追跡する</li>
         </ol>
+      </section>
+      <section id="talent-operation-handoff" class="talent-operation-handoff" data-category="DAILY_OPERATION_UI_COMPLETE" aria-label="日常運用UIの引き渡し完了状態">
+        <div>
+          <span>HANDOFF SUMMARY</span>
+          <strong>総務人事部の日常利用UIは完成</strong>
+          <p>通常操作はこの画面から開始できます。影響の大きい処理だけ、承認ゲートとして分離したまま残します。</p>
+        </div>
+        <ul>
+          <li data-category="UI_READY">学生フォロー、採用分析、28卒CSV確認、現職者案件は通常利用可能</li>
+          <li data-category="APPROVALS_SEPARATE">production staging、社員マスタ反映、promotionは別承認で実行</li>
+          <li data-category="PUBLISHING_BY_OS">公開はOS担当。公開後はURLでDAILY COMMANDから開始</li>
+        </ul>
       </section>
     </section>
 

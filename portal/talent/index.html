@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-summary-followup-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-fair-month-followup-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-summary-followup-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-fair-month-followup-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -210,6 +210,10 @@
               <option value="WITHDRAWN">辞退・保管</option>
             </select>
           </label>
+          <label>
+            <span>記録月</span>
+            <select id="student-month-filter"><option value="ALL">すべて</option></select>
+          </label>
           <button id="student-reload" class="icon-command" type="button" title="学生データを再読み込み" aria-label="学生データを再読み込み"><img src="./assets/icons/refresh.svg" alt="" aria-hidden="true"></button>
           <div class="student-quick-filters" aria-label="確認状態のクイック絞り込み">
             <span>クイック表示</span>
@@ -403,7 +407,7 @@
           </header>
           <div class="analysis-table-scroll">
             <table class="analysis-table">
-              <thead><tr><th>記録月</th><th>接触</th><th>LINE登録</th><th>エントリー</th><th>内定</th><th>要確認</th></tr></thead>
+                <thead><tr><th>記録月</th><th>接触</th><th>LINE登録</th><th>エントリー</th><th>内定</th><th>要確認</th><th>フォロー</th></tr></thead>
               <tbody id="fair-flow-body"></tbody>
             </table>
           </div>

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildOnboardingHandoffDraft, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildSummaryFollowUpFilter, filterTalentStudents, getTalentStudentProgressKey, isNewApplicantCandidate } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildSummaryFollowUpFilter, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -65,6 +65,24 @@ test("summary shortcuts open the intended student queues without changing record
   assert.match(html, /option value="NEEDS_ACTION">要確認・隔離<\/option>/);
   assert.match(app, /buildSummaryFollowUpFilter/);
   assert.match(app, /openStudentWorkspace/);
+});
+
+test("fair analysis opens a student queue scoped to its selected record month", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+  const rows = [
+    { displayName: "4月", businessDate: "2026-04-01", sourceCode: "CONTACTS_27", classification: "IMPORTABLE" },
+    { displayName: "5月", lineRegistrationDate: "2026-05-12", sourceCode: "ENTRIES_27", classification: "IMPORTABLE" }
+  ];
+
+  assert.deepEqual(buildMonthlyFollowUpFilter("2026-05"), { query: "", source: "ALL", state: "ALL", progress: "ALL", month: "2026-05" });
+  assert.equal(buildMonthlyFollowUpFilter("2026-5"), null);
+  assert.deepEqual(filterTalentStudents(rows, buildMonthlyFollowUpFilter("2026-05")).map((row) => row.displayName), ["5月"]);
+  assert.equal(getTalentStudentMonthKey(rows[0]), "2026-04");
+  assert.match(html, /id="student-month-filter"/);
+  assert.match(html, /<th>記録月<\/th>[\s\S]*<th>フォロー<\/th>/);
+  assert.match(app, /button\.textContent = "対象月を見る"/);
+  assert.match(app, /renderStudentMonthFilterOptions/);
 });
 
 test("workforce management exposes four accessible procedure tabs", async () => {

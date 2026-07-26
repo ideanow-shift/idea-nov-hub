@@ -298,6 +298,7 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-source-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-state-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-progress-filter")?.addEventListener("change", refresh);
+  documentObject.getElementById("student-month-filter")?.addEventListener("change", refresh);
   [
     ["student-filter-all", "ALL"],
     ["student-filter-review", "OWNER_REVIEW"],
@@ -485,6 +486,7 @@ export async function loadTalentStudentWorkspace({
   if (!result.data.students.some((student) => student.recordId === selectedStudentRecordId)) {
     selectedStudentRecordId = first?.recordId || null;
   }
+  renderStudentMonthFilterOptions(documentObject, result.data.students);
   renderStudentWorkspace(documentObject);
   renderImportOverview(documentObject, result.data.overview);
   renderHistoricalReviewSummary(documentObject, result.data.overview);
@@ -786,15 +788,29 @@ function renderMonthlyFlow(documentObject, rows) {
   const empty = documentObject.getElementById("fair-flow-empty");
   if (!body) return;
   const visible = rows.slice(0, 18);
-  body.replaceChildren(...visible.map((row) => createAnalysisRow(documentObject, [
-    row.label,
-    row.contacts,
-    row.lineRegistrations,
-    row.entries,
-    row.offers,
-    row.needsAction
-  ])));
+  body.replaceChildren(...visible.map((row) => createMonthlyFlowRow(documentObject, row)));
   if (empty) empty.hidden = visible.length > 0;
+}
+
+function createMonthlyFlowRow(documentObject, flow) {
+  const row = createAnalysisRow(documentObject, [
+    flow.label,
+    flow.contacts,
+    flow.lineRegistrations,
+    flow.entries,
+    flow.offers,
+    flow.needsAction
+  ]);
+  const action = documentObject.createElement("td");
+  const button = documentObject.createElement("button");
+  button.type = "button";
+  button.className = "analysis-followup-button";
+  button.textContent = "対象月を見る";
+  button.setAttribute("aria-label", `${flow.label}の学生フォローを表示`);
+  button.addEventListener("click", () => openStudentWorkspace(documentObject, buildMonthlyFollowUpFilter(flow.key)));
+  action.append(button);
+  row.append(action);
+  return row;
 }
 
 function renderSchoolAnalysis(documentObject, rows) {
@@ -850,10 +866,12 @@ function openStudentWorkspace(documentObject, filter) {
   const source = documentObject.getElementById("student-source-filter");
   const state = documentObject.getElementById("student-state-filter");
   const progress = documentObject.getElementById("student-progress-filter");
+  const month = documentObject.getElementById("student-month-filter");
   if (search) search.value = filter.query;
   if (source) source.value = filter.source;
   if (state) state.value = filter.state;
   if (progress) progress.value = filter.progress;
+  if (month) month.value = filter.month || "ALL";
   documentObject.querySelector?.('[data-secondary-tab="students"]')?.click?.();
   renderStudentWorkspace(documentObject);
   documentObject.getElementById("recruitment-students")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
@@ -898,6 +916,12 @@ export function buildSummaryFollowUpFilter(key) {
   return Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "ALL", ...selected });
 }
 
+export function buildMonthlyFollowUpFilter(month) {
+  const value = String(month || "");
+  if (!/^\d{4}-\d{2}$/.test(value)) return null;
+  return Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "ALL", month: value });
+}
+
 export function buildOnboardingHandoffDraft(student) {
   if (!student || typeof student !== "object") return null;
   const displayName = typeof student.displayName === "string" ? student.displayName.trim() : "";
@@ -911,7 +935,7 @@ export function buildOnboardingHandoffDraft(student) {
   });
 }
 
-export function filterTalentStudents(students, { query = "", source = "ALL", state = "ALL", progress = "ALL" } = {}) {
+export function filterTalentStudents(students, { query = "", source = "ALL", state = "ALL", progress = "ALL", month = "ALL" } = {}) {
   const normalizedQuery = normalizeSearch(query);
   return (Array.isArray(students) ? students : []).filter((student) => {
     if (source !== "ALL" && student.sourceCode !== source) return false;
@@ -923,6 +947,7 @@ export function filterTalentStudents(students, { query = "", source = "ALL", sta
       return false;
     }
     if (progress !== "ALL" && getTalentStudentProgressKey(student) !== progress) return false;
+    if (month !== "ALL" && getTalentStudentMonthKey(student) !== month) return false;
     if (!normalizedQuery) return true;
     return [
       student.displayName, student.kana, student.school, student.status,
@@ -931,13 +956,39 @@ export function filterTalentStudents(students, { query = "", source = "ALL", sta
   });
 }
 
+export function getTalentStudentMonthKey(student) {
+  const value = String(student?.businessDate || student?.lineRegistrationDate || "");
+  return /^\d{4}-\d{2}(?:-\d{2})?$/.test(value) ? value.slice(0, 7) : "";
+}
+
+function renderStudentMonthFilterOptions(documentObject, students) {
+  const select = documentObject.getElementById("student-month-filter");
+  if (!select) return;
+  const selected = select.value || "ALL";
+  const months = [...new Set((Array.isArray(students) ? students : [])
+    .map(getTalentStudentMonthKey)
+    .filter(Boolean))]
+    .sort((left, right) => right.localeCompare(left));
+  const all = documentObject.createElement("option");
+  all.value = "ALL";
+  all.textContent = "すべて";
+  select.replaceChildren(all, ...months.map((month) => {
+    const option = documentObject.createElement("option");
+    option.value = month;
+    option.textContent = `${month.slice(0, 4)}年${Number(month.slice(5, 7))}月`;
+    return option;
+  }));
+  select.value = months.includes(selected) ? selected : "ALL";
+}
+
 function renderStudentWorkspace(documentObject) {
   if (!studentWorkspaceData) return;
   const query = normalizeSearch(documentObject.getElementById("student-search")?.value);
   const source = documentObject.getElementById("student-source-filter")?.value || "ALL";
   const state = documentObject.getElementById("student-state-filter")?.value || "ALL";
   const progress = documentObject.getElementById("student-progress-filter")?.value || "ALL";
-  const visible = filterTalentStudents(studentWorkspaceData.students, { query, source, state, progress });
+  const month = documentObject.getElementById("student-month-filter")?.value || "ALL";
+  const visible = filterTalentStudents(studentWorkspaceData.students, { query, source, state, progress, month });
   updateStudentQuickFilterState(documentObject, state, studentWorkspaceData.students);
   const list = documentObject.getElementById("student-list");
   const empty = documentObject.getElementById("student-empty");

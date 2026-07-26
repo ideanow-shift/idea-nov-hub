@@ -20,6 +20,21 @@ export function buildTalent28CsvTemplate() {
   return `${REQUIRED_HEADERS.join(",")}\n`;
 }
 
+export function buildTalent28CsvPreparationGuide() {
+  return Object.freeze({
+    title: "ChatGPT整形後に確認すること",
+    steps: Object.freeze([
+      Object.freeze({ order: 1, category: "SOURCE_EXACT3", label: "CONTACTS_28・ENTRIES_28・OFFERS_28の3由来を分ける" }),
+      Object.freeze({ order: 2, category: "IDENTITY_MINIMUM", label: "氏名・学校・電話/メール/LINEのいずれかを最低条件にする" }),
+      Object.freeze({ order: 3, category: "DATE_FORMAT", label: "日付はYYYY-MM-DDへ統一し、不明なものは空欄にする" }),
+      Object.freeze({ order: 4, category: "QUARANTINE_REASON", label: "判断できない行はquarantine_flag TRUEと理由で隔離する" })
+    ]),
+    rawValuesIncluded: false,
+    googleSheetsConnectorRead: false,
+    productionWriteReachable: false
+  });
+}
+
 export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes = 5_000_000 } = {}) {
   if (typeof csvText !== "string" || csvText.length === 0 || csvText.length > maxBytes) {
     return safeSummary("CSV_FILE_INVALID", "NOT_EVALUATED");
@@ -412,14 +427,22 @@ function parseCsv(text) {
 export function initializeTalent28CsvPreflight({ documentObject = globalThis.document } = {}) {
   const input = documentObject?.getElementById?.("talent-28-csv-file");
   const templateButton = documentObject?.getElementById?.("talent-28-csv-template");
+  const prepList = documentObject?.getElementById?.("talent-28-csv-preparation-guide");
   const status = documentObject?.getElementById?.("talent-28-csv-status");
   const summary = documentObject?.getElementById?.("talent-28-csv-summary");
   const planList = documentObject?.getElementById?.("talent-28-csv-plan");
   const receiptStatus = documentObject?.getElementById?.("talent-28-csv-receipt");
   const fixGuideList = documentObject?.getElementById?.("talent-28-csv-fix-guide");
-  if (!input || !templateButton || !status || !summary || !planList || !receiptStatus || !fixGuideList) return Object.freeze({ initialized: false });
+  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList) return Object.freeze({ initialized: false });
   if (input.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true });
   input.dataset.bound = "true";
+  const preparation = buildTalent28CsvPreparationGuide();
+  prepList.replaceChildren(...preparation.steps.map((step) => {
+    const item = documentObject.createElement("li");
+    item.dataset.category = step.category;
+    item.textContent = `${step.order}. ${step.label}`;
+    return item;
+  }));
   const render = (result) => {
     const readiness = result.readiness || buildTalent28CsvImportReadiness(result);
     status.dataset.category = readiness.category;

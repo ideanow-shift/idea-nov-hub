@@ -333,6 +333,10 @@ h3 { margin: 0; font-size: 1rem; }
 .csv-source-type-legend div { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fbfdff; }
 .csv-source-type-legend dt { color: var(--navy); font-size: .78rem; font-weight: 900; }
 .csv-source-type-legend dd { margin: 4px 0 0; color: var(--muted); font-size: .76rem; }
+.csv-preparation-guide { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.csv-preparation-guide li { padding: 10px; border: 1px solid #eadbc7; border-radius: 6px; background: #fffaf2; color: var(--muted); font-size: .78rem; font-weight: 850; line-height: 1.45; }
+.csv-preparation-guide li[data-category="SOURCE_EXACT3"] { border-color: #c5dcf6; background: #f7fbff; color: var(--navy); }
+.csv-preparation-guide li[data-category="QUARANTINE_REASON"] { border-color: #f2d59d; background: #fffaf0; color: #9a5d00; }
 .csv-preflight-summary {
   grid-column: 1 / -1;
   display: grid;
@@ -1576,7 +1580,7 @@ h3 { margin: 0; font-size: 1rem; }
   .workflow-strip div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
   .import-overview, .csv-preflight-panel { grid-template-columns: 1fr; }
   .import-overview > p { margin-top: -4px; }
-  .csv-preflight-summary, .csv-source-type-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .csv-preflight-summary, .csv-source-type-legend, .csv-preparation-guide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .student-toolbar { grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(135px, 1fr)) 44px; }
   .student-workspace { grid-template-columns: minmax(280px, 0.8fr) minmax(340px, 1.2fr); }
   .review-command-band { grid-template-columns: 1fr auto; }
@@ -1630,7 +1634,7 @@ h3 { margin: 0; font-size: 1rem; }
   .boundary-note p { margin-top: 7px; }
   .import-overview, .csv-preflight-panel { padding: 16px; }
   .import-overview dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .csv-preflight-summary, .csv-source-type-legend { grid-template-columns: 1fr; }
+  .csv-preflight-summary, .csv-source-type-legend, .csv-preparation-guide { grid-template-columns: 1fr; }
   .student-heading .status { margin-top: 8px; }
   .student-heading-actions { align-items: flex-end; flex-direction: column; }
   .review-command-band { display: block; padding: 16px; }

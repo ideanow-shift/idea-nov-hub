@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-summary-followup-deadlines-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-student-followup-sort-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-summary-followup-deadlines-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-student-followup-sort-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -224,6 +224,13 @@
               <option value="NEXT_7_DAYS">7日以内</option>
               <option value="SCHEDULED">予定あり</option>
               <option value="UNSCHEDULED">未設定</option>
+            </select>
+          </label>
+          <label>
+            <span>並び順</span>
+            <select id="student-sort-filter">
+              <option value="DEFAULT">データ順</option>
+              <option value="FOLLOW_UP">対応期限順</option>
             </select>
           </label>
           <button id="student-reload" class="icon-command" type="button" title="学生データを再読み込み" aria-label="学生データを再読み込み"><img src="./assets/icons/refresh.svg" alt="" aria-hidden="true"></button>

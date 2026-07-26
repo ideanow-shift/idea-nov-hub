@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -89,8 +89,15 @@ test("fair analysis opens a student queue scoped to its selected record month", 
   assert.equal(classifyTalentStudentFollowUp({ nextActionAt: "2026-07-30" }, "2026-07-26"), "NEXT_7_DAYS");
   assert.equal(classifyTalentStudentFollowUp({ nextActionAt: "2026-08-10" }, "2026-07-26"), "SCHEDULED");
   assert.equal(classifyTalentStudentFollowUp({}, "2026-07-26"), "UNSCHEDULED");
+  assert.deepEqual(sortTalentStudentsByFollowUp([
+    { displayName: "未設定" },
+    { displayName: "予定", nextActionAt: "2026-08-10" },
+    { displayName: "期限超過", nextActionAt: "2026-07-20" },
+    { displayName: "直近", nextActionAt: "2026-07-30" }
+  ], "FOLLOW_UP", "2026-07-26").map((row) => row.displayName), ["期限超過", "直近", "予定", "未設定"]);
   assert.match(html, /id="student-month-filter"/);
   assert.match(html, /id="student-follow-up-filter"/);
+  assert.match(html, /id="student-sort-filter"/);
   assert.match(app, /student-list-followup/);
   assert.match(html, /id="student-filter-reset"/);
   assert.match(app, /updateStudentFilterResetState/);

@@ -300,11 +300,12 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-progress-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-month-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-follow-up-filter")?.addEventListener("change", refresh);
+  documentObject.getElementById("student-sort-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-filter-reset")?.addEventListener("click", () => {
-    const controls = ["student-search", "student-source-filter", "student-state-filter", "student-progress-filter", "student-month-filter", "student-follow-up-filter"];
+    const controls = ["student-search", "student-source-filter", "student-state-filter", "student-progress-filter", "student-month-filter", "student-follow-up-filter", "student-sort-filter"];
     controls.forEach((id) => {
       const control = documentObject.getElementById(id);
-      if (control) control.value = id === "student-search" ? "" : "ALL";
+      if (control) control.value = id === "student-search" ? "" : id === "student-sort-filter" ? "DEFAULT" : "ALL";
     });
     refresh();
   });
@@ -883,12 +884,14 @@ function openStudentWorkspace(documentObject, filter) {
   const progress = documentObject.getElementById("student-progress-filter");
   const month = documentObject.getElementById("student-month-filter");
   const followUp = documentObject.getElementById("student-follow-up-filter");
+  const sort = documentObject.getElementById("student-sort-filter");
   if (search) search.value = filter.query;
   if (source) source.value = filter.source;
   if (state) state.value = filter.state;
   if (progress) progress.value = filter.progress;
   if (month) month.value = filter.month || "ALL";
   if (followUp) followUp.value = filter.followUp || "ALL";
+  if (sort) sort.value = filter.sort || "DEFAULT";
   documentObject.querySelector?.('[data-secondary-tab="students"]')?.click?.();
   renderStudentWorkspace(documentObject);
   documentObject.getElementById("recruitment-students")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
@@ -986,6 +989,20 @@ export function classifyTalentStudentFollowUp(student, referenceDate = localTale
   return "SCHEDULED";
 }
 
+export function sortTalentStudentsByFollowUp(students, mode = "DEFAULT", referenceDate = localTalentDateIso()) {
+  const rows = Array.isArray(students) ? students.slice() : [];
+  if (mode !== "FOLLOW_UP") return rows;
+  const priority = { OVERDUE: 0, NEXT_7_DAYS: 1, SCHEDULED: 2, UNSCHEDULED: 3 };
+  return rows
+    .map((student, index) => ({ student, index, category: classifyTalentStudentFollowUp(student, referenceDate) }))
+    .sort((left, right) => (
+      priority[left.category] - priority[right.category]
+      || String(left.student.nextActionAt || "").localeCompare(String(right.student.nextActionAt || ""))
+      || left.index - right.index
+    ))
+    .map(({ student }) => student);
+}
+
 function localTalentDateIso() {
   const now = new Date();
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
@@ -1025,9 +1042,13 @@ function renderStudentWorkspace(documentObject) {
   const progress = documentObject.getElementById("student-progress-filter")?.value || "ALL";
   const month = documentObject.getElementById("student-month-filter")?.value || "ALL";
   const followUp = documentObject.getElementById("student-follow-up-filter")?.value || "ALL";
-  const visible = filterTalentStudents(studentWorkspaceData.students, { query, source, state, progress, month, followUp });
+  const sort = documentObject.getElementById("student-sort-filter")?.value || "DEFAULT";
+  const visible = sortTalentStudentsByFollowUp(
+    filterTalentStudents(studentWorkspaceData.students, { query, source, state, progress, month, followUp }),
+    sort
+  );
   updateStudentQuickFilterState(documentObject, state, studentWorkspaceData.students);
-  updateStudentFilterResetState(documentObject, { query, source, state, progress, month, followUp });
+  updateStudentFilterResetState(documentObject, { query, source, state, progress, month, followUp, sort });
   const list = documentObject.getElementById("student-list");
   const empty = documentObject.getElementById("student-empty");
   const count = documentObject.getElementById("student-result-count");
@@ -1068,10 +1089,10 @@ function updateStudentQuickFilterState(documentObject, state, students) {
   });
 }
 
-function updateStudentFilterResetState(documentObject, { query, source, state, progress, month, followUp }) {
+function updateStudentFilterResetState(documentObject, { query, source, state, progress, month, followUp, sort }) {
   const button = documentObject.getElementById("student-filter-reset");
   if (!button) return;
-  const active = Boolean(query) || source !== "ALL" || state !== "ALL" || progress !== "ALL" || month !== "ALL" || followUp !== "ALL";
+  const active = Boolean(query) || source !== "ALL" || state !== "ALL" || progress !== "ALL" || month !== "ALL" || followUp !== "ALL" || sort !== "DEFAULT";
   button.disabled = !active;
   button.setAttribute("aria-disabled", String(!active));
 }

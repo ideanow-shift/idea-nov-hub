@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   buildFinancialLocalPreview,
+  buildFinancialLocalCorrectionTemplateCsv,
   parseStoreMonthlySalesAccountingCsvText,
   validateFinancialLocalCorrectionCsv,
 } from "../portal/management-app/financial-data-intake.js";
@@ -38,6 +39,18 @@ assert.equal(preview.localCorrectionStatus, "LOCAL_CORRECTION_READY");
 assert.equal(preview.localCorrectionCount, 2);
 assert.equal(preview.importActionEnabled, false);
 
+const contextualTemplate = buildFinancialLocalCorrectionTemplateCsv(parsed);
+assert.equal(contextualTemplate.schemaVersion, "management-financial-local-correction-template-v1");
+assert.equal(contextualTemplate.fileName, "management-financial-local-correction-template.csv");
+assert.equal(contextualTemplate.productionImportEnabled, false);
+assert.match(contextualTemplate.csv, /"period","corporation","store","field","corrected_value","reason"/u);
+assert.match(contextualTemplate.csv, /ALBERO/u);
+const templateReceipt = validateFinancialLocalCorrectionCsv(contextualTemplate.csv.replace(/^\uFEFF/u, ""), parsed);
+assert.equal(templateReceipt.status, "LOCAL_CORRECTION_READY");
+
+const genericTemplate = buildFinancialLocalCorrectionTemplateCsv(null);
+assert.match(genericTemplate.csv, /2026-06/u);
+
 const missingTarget = validateFinancialLocalCorrectionCsv([
   correctionHeader,
   "2025-03,ALBERO,新所沢店,total_sales,4930000,対象月なし",
@@ -70,6 +83,7 @@ console.log(JSON.stringify({
   passed: true,
   correctionStatus: receipt.status,
   adjustmentCount: receipt.adjustmentCount,
+  templateRowCount: contextualTemplate.rowCount,
   targetCount: receipt.targetCount,
   fieldCount: receipt.fieldCount,
   productionImportEnabled: receipt.productionImportEnabled,

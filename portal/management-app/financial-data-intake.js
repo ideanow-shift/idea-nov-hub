@@ -1951,6 +1951,36 @@ export async function validateFinancialLocalCorrectionFile(file, result) {
   }
 }
 
+export function buildFinancialLocalCorrectionTemplateCsv(result) {
+  const firstStore = (result?.entityPreviewRows || []).find((row) => row.entityCategory === "STORE_CANDIDATE" && row.monthLabels?.[0]);
+  const example = firstStore
+    ? [
+      firstStore.monthLabels[0],
+      safeLocalLabel(firstStore.corporationName) || "法人名",
+      safeLocalLabel(firstStore.entityName) || "店舗名",
+      "total_sales",
+      "0",
+      "経理確認後の少額補正理由",
+    ]
+    : [
+      "2026-06",
+      "法人名",
+      "店舗名",
+      "total_sales",
+      "0",
+      "経理確認後の少額補正理由",
+    ];
+  const csv = `\uFEFF${[FINANCIAL_LOCAL_CORRECTION_CSV_HEADER, example].map((row) => row.map(financialCsvCell).join(",")).join("\r\n")}\r\n`;
+  return {
+    schemaVersion: "management-financial-local-correction-template-v1",
+    fileName: "management-financial-local-correction-template.csv",
+    rowCount: 1,
+    csv,
+    href: `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`,
+    productionImportEnabled: false,
+  };
+}
+
 export function buildFinancialLocalPreview(result) {
   const receipt = buildFinancialIntakeReceipt(result);
   if (!receipt || !["PL", "BS", BUDGET_STATEMENT].includes(receipt.statement)) return null;
@@ -2489,6 +2519,15 @@ function setLocalCorrectionStatus(container, receipt) {
   if (input) input.disabled = false;
 }
 
+function setLocalCorrectionTemplate(container, result) {
+  const download = container.querySelector("[data-financial-local-correction-template]");
+  if (!download) return;
+  const template = buildFinancialLocalCorrectionTemplateCsv(result);
+  download.href = template.href;
+  download.download = template.fileName;
+  download.dataset.financialLocalCorrectionTemplateStatus = result?.statement === "PL" ? "PL_CONTEXT" : "GENERIC";
+}
+
 function setMappingReview(container, result) {
   const doc = container.ownerDocument;
   const section = container.querySelector("[data-financial-mapping-review]");
@@ -2751,13 +2790,17 @@ export function renderFinancialDataIntake(container, hooks = {}) {
     el(doc, "h4", "", "少量補正CSV"),
     el(doc, "p", "", "元データは上書きせず、月・法人・店舗・項目単位の補正候補だけをローカルで検証します。")
   );
+  const correctionActions = el(doc, "div", "financial-local-correction-actions");
+  const correctionTemplate = el(doc, "a", "financial-mapping-download", "ひな形CSVを保存");
+  correctionTemplate.dataset.financialLocalCorrectionTemplate = "true";
   const correctionLabel = el(doc, "label", "financial-mapping-download", "補正CSVを検証");
   const correctionInput = el(doc, "input");
   correctionInput.type = "file";
   correctionInput.accept = ".csv,text/csv";
   correctionInput.dataset.financialLocalCorrectionInput = "true";
   correctionLabel.append(correctionInput);
-  correctionTitle.append(correctionTitleWrap, correctionLabel);
+  correctionActions.append(correctionTemplate, correctionLabel);
+  correctionTitle.append(correctionTitleWrap, correctionActions);
   const correctionStatus = el(doc, "p", "financial-local-correction-status", "補正なし。先にP/Lデータを読み込んでください。");
   correctionStatus.dataset.financialLocalCorrectionStatus = "LOCAL_CORRECTION_NOT_APPLIED";
   correctionStatus.dataset.financialLocalCorrectionStatusNode = "true";
@@ -2831,6 +2874,7 @@ export function renderFinancialDataIntake(container, hooks = {}) {
     setCompletionChecklist(container, latestResult);
   };
   if (hooks.externalEvidence) container.managementApplyFinancialExternalEvidence(hooks.externalEvidence);
+  setLocalCorrectionTemplate(container, latestResult);
   renderFinancialSupplementalCsv(supplemental, {
     document: doc,
     onReceipt: (receipt) => {
@@ -2864,6 +2908,7 @@ export function renderFinancialDataIntake(container, hooks = {}) {
       delete latestResult.localCorrectionReceipt;
       setResult(container, latestResult);
       setLocalCorrectionStatus(container, null);
+      setLocalCorrectionTemplate(container, latestResult);
       publishPreview(container, latestResult);
       const localPreview = buildFinancialLocalPreview(latestResult);
       fiscal.value = localPreview && !["対象期確認待ち", "重複確認待ち"].includes(localPreview.selectedPeriodLabel)

@@ -207,6 +207,7 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-intake-result p { margin: 0 0 4px; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
 .financial-local-correction { margin-top: 12px; padding: 12px; background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
 .financial-local-correction-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.financial-local-correction-actions { display: flex; align-items: center; gap: 8px; }
 .financial-local-correction h4 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 500; }
 .financial-local-correction p { margin: 5px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
 .financial-local-correction input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
@@ -450,6 +451,7 @@ tbody tr:hover td { background: var(--card-soft); }
   .financial-mapping-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .financial-mapping-confirmation { align-items: stretch; flex-direction: column; }
   .financial-local-correction-heading { align-items: stretch; flex-direction: column; }
+  .financial-local-correction-actions { display: grid; grid-template-columns: 1fr; }
   .financial-completion-heading { align-items: stretch; flex-direction: column; }
   .financial-missing-data-next { grid-template-columns: 1fr; }
   .financial-missing-data-next button { grid-column: 1; grid-row: auto; width: 100%; white-space: normal; }

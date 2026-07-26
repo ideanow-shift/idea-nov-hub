@@ -321,6 +321,13 @@ test("workforce procedure form guide keeps the next edit action local and status
   assert.equal(buildWorkforceProcedureCaseFormGuide({ caseStatus: "READY_FOR_REVIEW", effectiveDate: "2026-08-20" }, "2026-07-26").category, "READY_FOR_REVIEW");
   assert.equal(buildWorkforceProcedureCaseFormGuide({ caseStatus: "CONFIRMED", effectiveDate: "2026-07-20" }, "2026-07-26").category, "CONFIRMED");
   assert.match(buildWorkforceProcedureCaseFormGuide({ caseStatus: "DRAFT", effectiveDate: "2026-08-20" }, "2026-07-26").copy, /下書き/);
+  const missing = buildWorkforceProcedureCaseFormGuide({ caseStatus: "DRAFT", subjectLabel: "", effectiveDate: "", detail: "" }, "2026-07-26");
+  const ready = buildWorkforceProcedureCaseFormGuide({ caseStatus: "DRAFT", subjectLabel: "対象", effectiveDate: "2026-08-20", detail: "補足" }, "2026-07-26");
+  assert.equal(missing.requiredReady, false);
+  assert.deepEqual(missing.requirements.map((item) => item.category), ["MISSING_REQUIRED", "MISSING_REQUIRED", "OPTIONAL"]);
+  assert.equal(ready.requiredReady, true);
+  assert.equal(ready.rawValuesIncluded, false);
+  assert.equal(ready.employeeMasterMutation, false);
 });
 
 test("workforce procedure status messages explain safe boundaries without raw errors", () => {

@@ -1400,6 +1400,10 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-form-guide { display: grid; gap: 5px; padding: 12px; border: 1px solid #d8eadf; border-radius: 6px; background: #f8fffb; }
 .procedure-case-form-guide strong { color: var(--navy); }
 .procedure-case-form-guide span { color: var(--muted); font-size: .86rem; }
+.procedure-case-form-guide ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 0; padding: 0; list-style: none; }
+.procedure-case-form-guide li { padding: 5px 8px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--muted); font-size: .76rem; font-weight: 850; }
+.procedure-case-form-guide li[data-category="READY"] { border-color: #b9ddce; color: #176f48; background: var(--green-soft); }
+.procedure-case-form-guide li[data-category="MISSING_REQUIRED"] { border-color: #f1b8b8; color: #b33131; background: #fff6f6; }
 .procedure-case-form-guide[data-category="OVERDUE"] { border-color: #f1b8b8; background: #fff6f6; }
 .procedure-case-form-guide[data-category="NEXT_7_DAYS"] { border-color: #f2d59d; background: #fffaf0; }
 .procedure-case-form-guide[data-category="READY_FOR_REVIEW"] { border-color: #c5dcf6; background: #f7fbff; }

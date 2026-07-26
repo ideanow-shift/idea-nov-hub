@@ -279,6 +279,25 @@ export function buildWorkforceProcedureOperationFilter(action) {
   });
 }
 
+export function buildWorkforceProcedureTypeQueueFilter(summaryRow) {
+  const row = isRecord(summaryRow) ? summaryRow : {};
+  const category = ["OVERDUE", "READY_FOR_REVIEW", "OPEN", "CLEAR"].includes(row.nextCategory)
+    ? row.nextCategory
+    : "CLEAR";
+  const plans = Object.freeze({
+    OVERDUE: Object.freeze({ status: "ALL", priority: "OVERDUE", label: "期限超過を先に表示" }),
+    READY_FOR_REVIEW: Object.freeze({ status: "READY_FOR_REVIEW", priority: "ALL", label: "確認待ちを表示" }),
+    OPEN: Object.freeze({ status: "OPEN", priority: "ALL", label: "対応中を表示" }),
+    CLEAR: Object.freeze({ status: "ALL", priority: "ALL", label: "全件を表示" })
+  });
+  return Object.freeze({
+    category,
+    ...plans[category],
+    rawValuesIncluded: false,
+    employeeMasterMutation: false
+  });
+}
+
 export function buildWorkforceProcedureOperationSteps(summary) {
   const nextAction = summary?.nextAction || "NO_OPEN_WORK";
   const labelsByAction = Object.freeze({
@@ -779,6 +798,19 @@ export function initializeWorkforceProcedureDesk({
     updateFilterResetButton();
     render();
   };
+  const openProcedureTypeQueue = (nextProcedureType) => {
+    const procedureType = PROCEDURE_TYPES.includes(nextProcedureType) ? nextProcedureType : "ALL";
+    const summary = buildWorkforceProcedureTypeSummary(cases)[procedureType];
+    const plan = buildWorkforceProcedureTypeQueueFilter(summary);
+    activeProcedureType = procedureType;
+    activeFilter = plan.status;
+    activePriority = plan.priority;
+    procedureFilter.value = activeProcedureType;
+    updateStatusFilterButtons();
+    updatePriorityFilterButtons();
+    updateFilterResetButton();
+    render();
+  };
   const setPriorityFilter = (nextPriority) => {
     activePriority = PRIORITY_FILTERS.includes(nextPriority) ? nextPriority : "ALL";
     updatePriorityFilterButtons();
@@ -1084,7 +1116,7 @@ export function initializeWorkforceProcedureDesk({
     });
   }
   for (const button of desk.querySelectorAll("[data-procedure-type-summary]")) {
-    button.addEventListener("click", () => setProcedureType(button.dataset.procedureTypeSummary));
+    button.addEventListener("click", () => openProcedureTypeQueue(button.dataset.procedureTypeSummary));
   }
   procedureFilter.addEventListener("change", () => setProcedureType(procedureFilter.value));
   searchInput.addEventListener("input", () => setSearch(searchInput.value));

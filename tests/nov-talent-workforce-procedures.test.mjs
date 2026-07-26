@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureEmptyState, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureEmptyState, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -286,6 +286,23 @@ test("workforce procedure type summary separates workload without raw values", (
   assert.equal(summary.LEAVE.nextCategory, "CLEAR");
   assert.equal(summary.RETIREMENT.open, 0);
   assert.equal(summary.RETIREMENT.rawValuesIncluded, false);
+  assert.deepEqual(buildWorkforceProcedureTypeQueueFilter(summary.ONBOARDING), {
+    category: "OVERDUE",
+    status: "ALL",
+    priority: "OVERDUE",
+    label: "期限超過を先に表示",
+    rawValuesIncluded: false,
+    employeeMasterMutation: false
+  });
+  assert.deepEqual(buildWorkforceProcedureTypeQueueFilter(summary.TRANSFER), {
+    category: "READY_FOR_REVIEW",
+    status: "READY_FOR_REVIEW",
+    priority: "ALL",
+    label: "確認待ちを表示",
+    rawValuesIncluded: false,
+    employeeMasterMutation: false
+  });
+  assert.equal(buildWorkforceProcedureTypeQueueFilter(summary.LEAVE).status, "ALL");
 });
 
 test("workforce procedure case next action guides daily work from each row", () => {

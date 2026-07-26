@@ -2,13 +2,13 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=98059284370E87B7";
-import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=0DB09B3EA0CE3C9D";
+import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=E45C5F28BE10AD2D";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
 const CORPORATE_VIEWS = new Set([...FINANCE_VIEWS, "dataops"]);
 const VIEWS = new Set([...CORPORATE_VIEWS, "stores"]);
-const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null, BUDGET: null }, localEvidence: { storeCsvReceipt: null, storeNameReceipt: null, workforceAllocationReceipt: null }, charts: {} };
+const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null, BUDGET: null }, storeRepeatPreview: null, localEvidence: { storeCsvReceipt: null, storeNameReceipt: null, workforceAllocationReceipt: null }, charts: {} };
 const number = new Intl.NumberFormat("ja-JP");
 const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 const colors = ["#b23a48", "#17324d", "#27795f", "#a36410", "#765487", "#337d8e", "#737b83"];
@@ -41,6 +41,12 @@ window.addEventListener("management-financial-local-preview", (event) => {
   renderFinancialPreviewFourAxis();
   renderFinancialPreviewDepartments();
   renderFinancialPreviewStores();
+});
+window.addEventListener("management-store-repeat-local-preview", (event) => {
+  const preview = sanitizeStoreRepeatPreview(event.detail);
+  if (!preview) return;
+  state.storeRepeatPreview = preview;
+  renderStores();
 });
 initialize();
 
@@ -350,12 +356,17 @@ function sanitizeFinancialPreview(value) {
   const rows = Array.isArray(value.rows) ? value.rows.slice(0, 80).map((row) => ({
     entityName: String(row.entityName || "未判定").slice(0, 80),
     salesManYen: amount(row.salesManYen),
+    technicalSalesManYen: amount(row.technicalSalesManYen),
+    productSalesManYen: amount(row.productSalesManYen),
+    milbonIdSalesManYen: amount(row.milbonIdSalesManYen),
+    ecSalesManYen: amount(row.ecSalesManYen),
     ordinaryProfitManYen: amount(row.ordinaryProfitManYen),
     dataThroughMonthLabel: String(row.dataThroughMonthLabel || "確認待ち").slice(0, 24),
     activeMonthCount: Number.isInteger(Number(row.activeMonthCount)) ? Math.max(0, Math.min(12, Number(row.activeMonthCount))) : 0,
     mappingStatus: mappingStatus(row.mappingStatus),
     mappingCandidateCount: Number.isInteger(Number(row.mappingCandidateCount)) ? Math.max(0, Number(row.mappingCandidateCount)) : 0,
     recordCount: Number.isFinite(Number(row.recordCount)) ? Number(row.recordCount) : 0,
+    storeAnalysisMetricStatus: row.storeAnalysisMetricStatus === "SALES_READY_CUSTOMER_REPEAT_MENU_PENDING" ? "SALES_READY_CUSTOMER_REPEAT_MENU_PENDING" : "SALES_PENDING",
     entityCategory: row.entityCategory === "STORE_CANDIDATE" ? "STORE_CANDIDATE" : "ENTITY_REVIEW_REQUIRED",
     entityCategoryLabel: String(row.entityCategoryLabel || "店舗候補").slice(0, 24),
   })) : [];
@@ -419,6 +430,27 @@ function sanitizeFinancialPreview(value) {
     ordinaryProfitManYen: amount(value.ordinaryProfitManYen),
     importActionEnabled: false,
   };
+}
+
+function sanitizeStoreRepeatPreview(value) {
+  if (!value || value.schemaVersion !== "management-store-repeat-summary-local-v1" || value.category !== "STORE_REPEAT_LOCAL_READY") return null;
+  const count = (input) => Number.isFinite(Number(input)) && Number(input) >= 0 ? Math.round(Number(input)) : null;
+  const percent = (input) => Number.isFinite(Number(input)) && Number(input) >= 0 && Number(input) <= 100 ? Number(input) : null;
+  const rows = Array.isArray(value.rows) ? value.rows.slice(0, 10000).map((row) => {
+    const storeName = String(row.storeName || "").trim();
+    const period = String(row.period || "").trim();
+    if (!storeName || !/^20\d{2}-(?:0[1-9]|1[0-2])$/u.test(period)) return null;
+    const returningCustomers = count(row.returningCustomers);
+    const fixedCustomers = count(row.fixedCustomers);
+    const newCustomers = count(row.newCustomers);
+    const semiFixedCustomers = count(row.semiFixedCustomers);
+    const totalCustomers = count(row.totalCustomers);
+    if ([returningCustomers, fixedCustomers, newCustomers, semiFixedCustomers, totalCustomers].some((item) => item == null)) return null;
+    if (totalCustomers !== returningCustomers + fixedCustomers + newCustomers + semiFixedCustomers) return null;
+    return Object.freeze({ storeName: storeName.slice(0, 100), period, returningCustomers, fixedCustomers, newCustomers, semiFixedCustomers, totalCustomers, repeatRatePercent: percent(row.repeatRatePercent) });
+  }).filter(Boolean) : [];
+  if (!rows.length) return null;
+  return Object.freeze({ schemaVersion: "management-store-repeat-summary-local-v1", category: "STORE_REPEAT_LOCAL_READY", rows: Object.freeze(rows), mutationCount: 0, uploadCount: 0, productionImportEnabled: false });
 }
 
 function sanitizeBudgetPreview(value) {
@@ -625,6 +657,7 @@ function buildPlOverviewPreview(preview) {
   const card = document.createElement("section");
   card.className = "financial-local-preview-card";
   const duplicateMessage = financialDuplicateMessage(preview);
+  const repeatPanel = buildStoreRepeatCustomerPanel();
   const mapping = preview.mappingConfirmationStatus === "LOCAL_EVIDENCE_RECEIVED"
     ? "候補mappingのローカル回答確認済み（本番未承認）"
     : preview.mappingCandidateAccountCount > 0
@@ -758,6 +791,7 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
     buildFinancialVisibleScope(preview),
     paragraph(duplicateMessage || `${preview.selectedPeriodLabel}の店舗候補だけを仮表示しています。店舗候補 ${number.format(preview.entityCandidateCount || 0)}件 / 除外・要確認 ${number.format(preview.reviewCandidateCount || 0)}件。候補mappingは${preview.mappingConfirmationStatus === "LOCAL_EVIDENCE_RECEIVED" ? "ローカル回答確認済み（本番未承認）" : "経理確認前"}で、DB保存・本番投入・個人情報表示はありません。`),
     buildStoreAnalysisFormulaPanel(),
+    ...(repeatPanel ? [repeatPanel] : []),
     wrap
   );
   if (localPlMatch.unmatched > 0) section.append(buildFinancialStoreMatchAction(localPlMatch));
@@ -790,6 +824,41 @@ function buildStoreAnalysisFormulaPanel() {
     return item;
   }));
   return panel;
+}
+
+function buildStoreRepeatCustomerPanel() {
+  const preview = state.storeRepeatPreview;
+  if (!preview?.rows?.length) return null;
+  const latestPeriod = preview.rows.reduce((latest, row) => row.period > latest ? row.period : latest, preview.rows[0].period);
+  const rows = preview.rows
+    .filter((row) => row.period === latestPeriod)
+    .sort((left, right) => left.storeName.localeCompare(right.storeName, "ja"));
+  const section = document.createElement("section");
+  section.className = "financial-store-repeat-preview";
+  const wrap = document.createElement("div");
+  wrap.className = "table-wrap embedded local-preview-table";
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.append(tableRow(["店舗", "総客数", "新規", "再来", "準固定", "固定", "再来比率候補"], true));
+  const tbody = document.createElement("tbody");
+  tbody.replaceChildren(...rows.map((row) => tableRow([
+    row.storeName,
+    `${number.format(row.totalCustomers)}名`,
+    `${number.format(row.newCustomers)}名`,
+    `${number.format(row.returningCustomers)}名`,
+    `${number.format(row.semiFixedCustomers)}名`,
+    `${number.format(row.fixedCustomers)}名`,
+    row.repeatRatePercent == null ? "算定不可" : `${number.format(row.repeatRatePercent)}%`,
+  ])));
+  table.append(thead, tbody);
+  wrap.append(table);
+  section.append(
+    heading(`来店区分・リピート率のローカル集計 (${latestPeriod})`),
+    paragraph("店舗・月次の集計CSVを確認用に表示しています。個人名・顧客番号・来店明細は保持・表示しません。本番投入は無効です。"),
+    wrap,
+    muted("再来比率候補 = （再来 + 準固定 + 固定）÷ 総客数。2回目・3回目を個別に出すには、来店回数別の集計CSVが別途必要です。")
+  );
+  return section;
 }
 
 function buildFinancialStoreMatchAction(localPlMatch) {

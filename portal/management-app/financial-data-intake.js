@@ -1,4 +1,5 @@
 import { renderFinancialSupplementalCsv } from "./financial-supplemental-csv.js?v=7cacd43781126450";
+import { renderStoreRepeatSummaryIntake } from "./store-repeat-summary-csv.js";
 import "./vendor/pako_inflate.min.js?v=2ca27e9a8dae569c";
 
 const MONTH_LABEL_RE = /^(?:[1-9]|1[0-2])月度$/u;
@@ -2827,6 +2828,8 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   submissionPackage.dataset.financialSubmissionPackage = "true";
   const supplemental = el(doc, "div", "financial-supplemental-host");
   supplemental.dataset.financialSupplementalHost = "true";
+  const storeRepeatSummary = el(doc, "div", "store-repeat-summary-host");
+  storeRepeatSummary.dataset.storeRepeatSummaryHost = "true";
   const mappingReview = el(doc, "section", "financial-mapping-review");
   mappingReview.dataset.financialMappingReview = "true";
   mappingReview.hidden = true;
@@ -2868,7 +2871,7 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const mappingEvidenceSummary = el(doc, "p", "financial-mapping-evidence-summary", "経理回答CSVのローカル証跡はまだありません。");
   mappingEvidenceSummary.dataset.financialMappingEvidenceSummary = "MAPPING_LOCAL_EVIDENCE_NOT_AVAILABLE";
   mappingReview.append(mappingHeading, mappingFacts, mappingHandoff, mappingEvidenceSummary, mappingTableWrap, mappingConfirmation);
-  section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, correction, mappingReview, completion, submissionPackage, supplemental, preview);
+  section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, correction, mappingReview, completion, submissionPackage, supplemental, storeRepeatSummary, preview);
   container.replaceChildren(section);
   let latestResult = hooks.initialResult || null;
   container.managementApplyFinancialExternalEvidence = (evidence) => {
@@ -2890,6 +2893,7 @@ export function renderFinancialDataIntake(container, hooks = {}) {
       setCompletionChecklist(container, latestResult);
     },
   });
+  renderStoreRepeatSummaryIntake(storeRepeatSummary, { document: doc });
   setCompletionChecklist(container, null);
   if (latestResult) setResult(container, latestResult);
 

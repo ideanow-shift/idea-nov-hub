@@ -43,6 +43,11 @@ export function filterWorkforceProcedureCases(cases, filter = "ALL") {
   return Object.freeze(cases.filter((item) => filter === "ALL" || item.caseStatus === filter));
 }
 
+export function filterWorkforceProcedureCasesByType(cases, procedureType = "ALL") {
+  if (!Array.isArray(cases) || !["ALL", ...PROCEDURE_TYPES].includes(procedureType)) return Object.freeze([]);
+  return Object.freeze(cases.filter((item) => procedureType === "ALL" || item.procedureType === procedureType));
+}
+
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -269,12 +274,15 @@ export function initializeWorkforceProcedureDesk({
   const stepsStatus = documentObject?.getElementById?.("workforce-case-steps-status");
   const filterStatus = documentObject?.getElementById?.("workforce-case-filter-status");
   const priorityStatus = documentObject?.getElementById?.("workforce-case-priority-status");
-  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  const procedureFilter = documentObject?.getElementById?.("workforce-case-procedure-filter");
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !procedureFilter) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
   let cases = [];
   let activeFilter = "ALL";
+  let activeProcedureType = getActiveWorkforceProcedureType(documentObject);
+  procedureFilter.value = activeProcedureType;
 
   const setStatus = (category) => {
     const messages = {
@@ -321,17 +329,24 @@ export function initializeWorkforceProcedureDesk({
     }
     render();
   };
+  const setProcedureType = (nextProcedureType) => {
+    activeProcedureType = ["ALL", ...PROCEDURE_TYPES].includes(nextProcedureType) ? nextProcedureType : "ALL";
+    procedureFilter.value = activeProcedureType;
+    render();
+  };
   const renderOverview = () => {
-    const counts = Object.fromEntries(["ALL", ...CASE_STATUSES].map((key) => [key, filterWorkforceProcedureCases(cases, key).length]));
+    const scopedCases = filterWorkforceProcedureCasesByType(cases, activeProcedureType);
+    const counts = Object.fromEntries(["ALL", ...CASE_STATUSES].map((key) => [key, filterWorkforceProcedureCases(scopedCases, key).length]));
     const countIds = { ALL: "workforce-case-count-all", DRAFT: "workforce-case-count-draft", READY_FOR_REVIEW: "workforce-case-count-review", CONFIRMED: "workforce-case-count-confirmed", CANCELLED: "workforce-case-count-cancelled" };
     for (const [key, id] of Object.entries(countIds)) {
       const element = documentObject.getElementById(id);
       if (element) element.textContent = String(counts[key]);
     }
     const visibleCount = counts[activeFilter];
-    filterStatus.textContent = activeFilter === "ALL" ? `${visibleCount}件の案件を表示しています。` : `${statusLabel(activeFilter)}の案件 ${visibleCount}件を表示しています。`;
-    const overdue = cases.filter((item) => classifyWorkforceProcedureCasePriority(item) === "OVERDUE").length;
-    const soon = cases.filter((item) => classifyWorkforceProcedureCasePriority(item) === "NEXT_7_DAYS").length;
+    const procedureScope = activeProcedureType === "ALL" ? "すべての手続き" : procedureLabel(activeProcedureType);
+    filterStatus.textContent = activeFilter === "ALL" ? `${procedureScope}の案件 ${visibleCount}件を表示しています。` : `${procedureScope} / ${statusLabel(activeFilter)} ${visibleCount}件を表示しています。`;
+    const overdue = scopedCases.filter((item) => classifyWorkforceProcedureCasePriority(item) === "OVERDUE").length;
+    const soon = scopedCases.filter((item) => classifyWorkforceProcedureCasePriority(item) === "NEXT_7_DAYS").length;
     priorityStatus.textContent = overdue > 0 ? `期限を過ぎた案件 ${overdue}件、直近7日の案件 ${soon}件があります。` : soon > 0 ? `直近7日の案件が ${soon}件あります。` : "期限超過・直近7日の案件はありません。";
   };
   const showAudit = async (item) => {
@@ -397,7 +412,10 @@ export function initializeWorkforceProcedureDesk({
   const render = () => {
     list.replaceChildren();
     renderOverview();
-    const visibleCases = sortWorkforceProcedureCases(filterWorkforceProcedureCases(cases, activeFilter));
+    const visibleCases = sortWorkforceProcedureCases(filterWorkforceProcedureCases(
+      filterWorkforceProcedureCasesByType(cases, activeProcedureType),
+      activeFilter
+    ));
     if (visibleCases.length === 0) {
       const empty = documentObject.createElement("p");
       empty.className = "procedure-case-empty";
@@ -486,6 +504,7 @@ export function initializeWorkforceProcedureDesk({
   for (const button of desk.querySelectorAll("[data-case-status-filter]")) {
     button.addEventListener("click", () => setFilter(button.dataset.caseStatusFilter));
   }
+  procedureFilter.addEventListener("change", () => setProcedureType(procedureFilter.value));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const draft = Object.freeze({
@@ -523,7 +542,7 @@ export function initializeWorkforceProcedureDesk({
     }
   });
   setStatus(controller.enabled ? "idle" : "feature_disabled");
-  return Object.freeze({ initialized: true, enabled: controller.enabled, load, controller });
+  return Object.freeze({ initialized: true, enabled: controller.enabled, load, setProcedureType, controller });
 }
 
 function procedureLabel(value) {

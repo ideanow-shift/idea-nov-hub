@@ -223,7 +223,13 @@ export function initializeTalentNavigation({
   bindTabGroup({
     buttons: workforceButtons,
     validKeys: WORKFORCE_TABS,
-    panelFor: (key) => documentObject.getElementById(`workforce-${key}`)
+    panelFor: (key) => documentObject.getElementById(`workforce-${key}`),
+    onSelect: (key) => workforceProcedureDesk?.setProcedureType?.({
+      onboarding: "ONBOARDING",
+      transfer: "TRANSFER",
+      leave: "LEAVE",
+      retirement: "RETIREMENT"
+    }[key])
   });
 
   const initialPrimary = normalizeHash(globalObject?.location?.hash);

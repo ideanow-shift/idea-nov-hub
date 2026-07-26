@@ -451,7 +451,10 @@
       <section id="workforce-procedure-desk" class="procedure-case-desk" aria-labelledby="workforce-case-title">
         <header>
           <div><p class="section-kicker">PROCEDURE CASES</p><h3 id="workforce-case-title">手続き案件</h3><p>入社・異動・休職・退職の確認案件を記録します。ここから社員マスタは変更しません。</p></div>
-          <button id="workforce-case-new" type="button" class="primary-action">案件を登録</button>
+          <div class="procedure-case-header-controls">
+            <label class="procedure-case-procedure-filter"><span>表示する手続き</span><select id="workforce-case-procedure-filter"><option value="ALL">すべての手続き</option><option value="ONBOARDING">入社</option><option value="TRANSFER">異動</option><option value="LEAVE">休職・復職</option><option value="RETIREMENT">退職</option></select></label>
+            <button id="workforce-case-new" type="button" class="primary-action">案件を登録</button>
+          </div>
         </header>
         <p id="workforce-case-status" class="procedure-case-status" role="status"></p>
         <section id="workforce-case-overview" class="procedure-case-overview" aria-label="手続き案件の進捗">

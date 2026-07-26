@@ -1046,9 +1046,20 @@ function localStoreProductivityRows() {
   }).filter(Boolean);
 }
 
+function localStoreProductivityCoverage() {
+  const candidateKeys = new Set((state.financialPreviews.PL?.monthlyStoreRows || []).map((row) => {
+    const storeName = normalizeStoreCandidateName(row?.storeName);
+    const period = String(row?.period || "").trim();
+    return storeName && /^20\d{2}-(?:0[1-9]|1[0-2])$/u.test(period) ? `${storeName}\u001f${period}` : null;
+  }).filter(Boolean));
+  const matchedKeys = new Set(localStoreProductivityRows().map((row) => `${normalizeStoreCandidateName(row.storeName)}\u001f${row.period}`));
+  return Object.freeze({ candidateCount: candidateKeys.size, matchedCount: matchedKeys.size, unmatchedCount: Math.max(0, candidateKeys.size - matchedKeys.size) });
+}
+
 function buildStoreProductivityPanel() {
   const requiredRows = uniqueWorkforceTemplateCandidates();
   const allRows = localStoreProductivityRows();
+  const coverage = localStoreProductivityCoverage();
   if (!requiredRows.length) return null;
   const latestPeriod = allRows.length
     ? allRows.reduce((latest, row) => row.period > latest ? row.period : latest, allRows[0].period)
@@ -1079,7 +1090,7 @@ function buildStoreProductivityPanel() {
   wrap.append(table);
   section.append(
     heading(allRows.length ? `\u5e97\u8217\u6708\u6b21\u751f\u7523\u6027\u306e\u30ed\u30fc\u30ab\u30eb\u78ba\u8a8d (${latestPeriod})` : "\u5e97\u8217\u6708\u6b21\u751f\u7523\u6027\u306e\u78ba\u8a8d\u6e96\u5099"),
-    paragraph("\u7d4c\u7406P/L\u3068\u6708\u6b21\u5e97\u8217\u5225\u4eba\u6570CSV\u304c\u540c\u3058\u5e97\u8217\u540d\u30fb\u540c\u3058\u6708\u3067\u4e00\u81f4\u3057\u305f\u884c\u306e\u307f\u8868\u793a\u3057\u3066\u3044\u307e\u3059\u3002\u6708\u4e0d\u660e\u306e\u4eba\u6570\u306f\u4f7f\u3044\u307e\u305b\u3093\u3002"),
+    paragraph(`\u7d4c\u7406P/L\u3068\u6708\u6b21\u5e97\u8217\u5225\u4eba\u6570CSV\u304c\u540c\u3058\u5e97\u8217\u540d\u30fb\u540c\u3058\u6708\u3067\u4e00\u81f4\u3057\u305f\u884c\u306e\u307f\u8868\u793a\u3057\u3066\u3044\u307e\u3059\u3002\u7167\u5408 ${number.format(coverage.matchedCount)}\u4ef6 / P/L\u5019\u88dc ${number.format(coverage.candidateCount)}\u4ef6\u3001\u672a\u7167\u5408 ${number.format(coverage.unmatchedCount)}\u4ef6\u3067\u3059\u3002\u6708\u4e0d\u660e\u306e\u4eba\u6570\u306f\u4f7f\u3044\u307e\u305b\u3093\u3002`),
     template,
     muted(`P/L候補 ${number.format(requiredRows.length)}件の店舗・対象月を事前入力しています。在籍人数と稼働人数だけを追記してください。個人情報は含めません。`),
     wrap,

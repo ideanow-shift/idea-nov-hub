@@ -908,6 +908,25 @@ h3 { margin: 0; font-size: 1rem; }
 .student-daily-queue-steps { display: grid; gap: 6px; align-self: start; margin: 0; padding: 0; list-style: none; }
 .student-daily-queue-steps li { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .8rem; font-weight: 850; line-height: 1.45; }
 
+.student-daily-queue-start-guide {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, .9fr);
+  gap: 12px;
+  margin: 14px 18px 0;
+  padding: 12px 14px;
+  border: 1px solid #d8e7f5;
+  border-radius: 10px;
+  background: #f7fbff;
+}
+.student-daily-queue-start-guide span { color: #2e6b9d; font-size: .72rem; font-weight: 900; letter-spacing: .08em; }
+.student-daily-queue-start-guide strong { display: block; margin-top: 4px; color: var(--navy); font-size: 1rem; }
+.student-daily-queue-start-guide p { margin: 4px 0 0; color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.student-daily-queue-start-guide ol { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.student-daily-queue-start-guide li { padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--navy); font-size: .78rem; font-weight: 850; }
+.student-daily-queue-start-guide[data-category="START_OVERDUE_FILTER"] { border-color: #f1b8b8; background: #fff8f8; }
+.student-daily-queue-start-guide[data-category="START_OWNER_REVIEW_FILTER"],
+.student-daily-queue-start-guide[data-category="START_QUARANTINE_FILTER"] { border-color: #f2d59d; background: #fffaf0; }
+
 .student-kpis {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));

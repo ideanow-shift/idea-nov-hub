@@ -840,6 +840,16 @@ h3 { margin: 0; font-size: 1rem; }
 .review-workload-approval-steps[data-category="BULK_APPROVAL_READY"] li { border-color: #cbe8d3; background: #f8fffb; color: #267650; }
 .review-workload-approval-steps[data-category="INDIVIDUAL_REVIEW_REQUIRED"] li,
 .review-workload-approval-steps[data-category="QUARANTINE_REVIEW_REQUIRED"] li { border-color: #f2d59d; background: #fffaf0; color: #9a5d00; }
+.review-workload-completion-summary { grid-column: 1 / -1; display: grid; gap: 8px; padding: 12px; border: 1px solid #d7e5ee; border-radius: 7px; background: #f8fbfd; }
+.review-workload-completion-summary[data-category="BULK_REVIEW_READY"] { border-color: #cbe8d3; background: #f8fffb; }
+.review-workload-completion-summary[data-category="INDIVIDUAL_REVIEW_REMAINS"],
+.review-workload-completion-summary[data-category="QUARANTINE_REVIEW_REMAINS"] { border-color: #f2d59d; background: #fffaf0; }
+.review-workload-completion-summary strong { color: var(--navy); font-size: .9rem; }
+.review-workload-completion-summary p { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.review-workload-completion-summary dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 0; }
+.review-workload-completion-summary dl div { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.review-workload-completion-summary dt { color: var(--muted); font-size: .72rem; font-weight: 850; }
+.review-workload-completion-summary dd { margin: 4px 0 0; color: var(--navy); font-size: .88rem; font-weight: 900; }
 .triage-command { justify-self: start; padding: 4px 8px; border: 1px solid #e7c1c7; border-radius: 4px; color: var(--accent-strong); background: #fff; font: inherit; font-size: 0.72rem; font-weight: 800; cursor: pointer; }
 .triage-command:hover { background: var(--accent-soft); }
 .secondary-command { border-color: var(--line); color: var(--ink); background: #fff; }
@@ -1955,6 +1965,7 @@ h3 { margin: 0; font-size: 1rem; }
   .student-review-workload { grid-template-columns: 1fr; }
   .student-review-workload-next { grid-template-columns: 1fr; }
   .review-workload-steps { grid-template-columns: 1fr; }
+  .review-workload-completion-summary dl { grid-template-columns: 1fr; }
   .student-daily-queue-start-guide { grid-template-columns: 1fr; }
   .student-daily-queue-start-guide button { justify-self: stretch; }
   .procedure-case-operation-start-guide { grid-template-columns: 1fr; }

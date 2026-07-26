@@ -781,6 +781,48 @@ export function buildReviewWorkloadApprovalSteps(approvalGuide) {
   });
 }
 
+export function buildReviewWorkloadCompletionSummary(guide) {
+  const normalized = guide && typeof guide === "object" ? guide : buildReviewWorkloadGuide([]);
+  const bulk = Number(normalized.bulk || 0);
+  const individual = Number(normalized.individual || 0);
+  const quarantine = Number(normalized.quarantine || 0);
+  const category = bulk > 0
+    ? "BULK_REVIEW_READY"
+    : individual > 0
+      ? "INDIVIDUAL_REVIEW_REMAINS"
+      : quarantine > 0
+        ? "QUARANTINE_REVIEW_REMAINS"
+        : "REVIEW_CLOSED";
+  const title = {
+    BULK_REVIEW_READY: "一括反映前の完了条件を確認します",
+    INDIVIDUAL_REVIEW_REMAINS: "個別確認の残りがあります",
+    QUARANTINE_REVIEW_REMAINS: "隔離維持の確認が残っています",
+    REVIEW_CLOSED: "レビュー完了待ちはありません"
+  }[category];
+  const copy = {
+    BULK_REVIEW_READY: "一括対象・個別対象・隔離対象を混ぜず、承認前に件数カテゴリだけを読み合わせます。",
+    INDIVIDUAL_REVIEW_REMAINS: "新規候補や手動紐付け候補を1件ずつ確認してから、次の承認へ進めます。",
+    QUARANTINE_REVIEW_REMAINS: "隔離維持は自動昇格せず、理由と次回確認だけを残す前提で扱います。",
+    REVIEW_CLOSED: "一括反映・個別確認・隔離維持の残りカテゴリがすべてZEROです。"
+  }[category];
+  const countCategory = (value) => value === 0 ? "ZERO" : value === 1 ? "ONE" : "MULTIPLE";
+  return Object.freeze({
+    category,
+    title,
+    copy,
+    metrics: Object.freeze([
+      Object.freeze({ category: "BULK_REVIEW", label: "一括反映候補", countCategory: countCategory(bulk) }),
+      Object.freeze({ category: "INDIVIDUAL_REVIEW", label: "個別確認", countCategory: countCategory(individual) }),
+      Object.freeze({ category: "QUARANTINE_REVIEW", label: "隔離維持", countCategory: countCategory(quarantine) })
+    ]),
+    approvalReachable: category === "BULK_REVIEW_READY",
+    rawValuesIncluded: false,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false,
+    automaticPromotionReachable: false
+  });
+}
+
 export function isNewApplicantCandidate(student) {
   return Boolean(student)
     && student.mappingStatus === "UNMAPPED"
@@ -825,6 +867,24 @@ function renderReviewWorkloadGuide(documentObject, guide) {
       const item = documentObject.createElement("li");
       item.dataset.category = step.category;
       item.textContent = `${step.order}. ${step.label}`;
+      return item;
+    }));
+  }
+  const completion = buildReviewWorkloadCompletionSummary(guide);
+  const completionPanel = documentObject.getElementById("review-workload-completion-summary");
+  if (completionPanel) completionPanel.dataset.category = completion.category;
+  setText(documentObject, "review-workload-completion-title", completion.title);
+  setText(documentObject, "review-workload-completion-copy", completion.copy);
+  const completionMetrics = documentObject.getElementById("review-workload-completion-metrics");
+  if (completionMetrics) {
+    completionMetrics.replaceChildren(...completion.metrics.map((metric) => {
+      const item = documentObject.createElement("div");
+      const term = documentObject.createElement("dt");
+      const description = documentObject.createElement("dd");
+      item.dataset.category = metric.category;
+      term.textContent = metric.label;
+      description.textContent = metric.countCategory;
+      item.append(term, description);
       return item;
     }));
   }

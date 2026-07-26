@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260727-progress-board-1">
+  <link rel="stylesheet" href="./style.css?v=20260727-review-completion-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-workforce-next-action-1"></script>
+  <script type="module" src="./app.mjs?v=20260727-review-completion-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -75,27 +75,27 @@
       <div class="talent-progress-heading">
         <div>
           <p class="section-kicker">BUILD PROGRESS</p>
-          <h2>残り20%を業務導線で潰す</h2>
+          <h2>残り16%を業務導線で潰す</h2>
         </div>
-        <strong class="talent-progress-total" data-complete-percent="80" data-remaining-percent="20">80%完了 / 残り20%</strong>
+        <strong class="talent-progress-total" data-complete-percent="84" data-remaining-percent="16">84%完了 / 残り16%</strong>
       </div>
       <div class="talent-progress-grid">
-        <article data-progress-area="STUDENT_FOLLOWUP" data-complete-percent="85" data-remaining-percent="15">
+        <article data-progress-area="STUDENT_FOLLOWUP" data-complete-percent="88" data-remaining-percent="12">
           <span>STUDENT FOLLOW-UP</span>
           <strong>85%完了 / 残り15%</strong>
           <p>期限・要確認・隔離を日次キューで処理し、次回対応を残せる状態です。</p>
         </article>
-        <article data-progress-area="ANALYTICS_ACTION" data-complete-percent="85" data-remaining-percent="15">
+        <article data-progress-area="ANALYTICS_ACTION" data-complete-percent="86" data-remaining-percent="14">
           <span>ANALYTICS ACTION</span>
           <strong>85%完了 / 残り15%</strong>
           <p>全体サマリー・学校・フェアから学生確認へ移動できます。</p>
         </article>
-        <article data-progress-area="CSV28_INTAKE" data-complete-percent="75" data-remaining-percent="25">
+        <article data-progress-area="CSV28_INTAKE" data-complete-percent="82" data-remaining-percent="18">
           <span>2028 CSV INTAKE</span>
           <strong>75%完了 / 残り25%</strong>
           <p>CSV修正・形式検証・staging承認前の読み合わせを安全に分離しています。</p>
         </article>
-        <article data-progress-area="WORKFORCE_CASES" data-complete-percent="70" data-remaining-percent="30">
+        <article data-progress-area="WORKFORCE_CASES" data-complete-percent="78" data-remaining-percent="22">
           <span>WORKFORCE CASES</span>
           <strong>70%完了 / 残り30%</strong>
           <p>入社・異動・休職復職・退職を、Core DB引き渡し前の案件として整理できます。</p>
@@ -317,6 +317,11 @@
             <ol id="review-workload-steps" class="review-workload-steps" aria-label="要確認データの処理順"></ol>
             <p id="review-workload-approval-guide" class="review-workload-approval-guide" data-category="NO_REVIEW_WORK">一括反映・個別確認・隔離維持の承認境界を表示します。</p>
             <ol id="review-workload-approval-steps" class="review-workload-approval-steps" data-category="NO_REVIEW_WORK" aria-label="確認承認前のチェック"></ol>
+            <section id="review-workload-completion-summary" class="review-workload-completion-summary" data-category="REVIEW_CLOSED" aria-label="27卒レビュー完了条件">
+              <strong id="review-workload-completion-title">レビュー完了待ちはありません</strong>
+              <p id="review-workload-completion-copy">一括反映・個別確認・隔離維持の残り件数カテゴリをここで確認します。</p>
+              <dl id="review-workload-completion-metrics"></dl>
+            </section>
           </div>
         </section>
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildBulkTriageQueueFilter, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildReviewWorkloadSteps, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewDecisionGuide, buildStudentReviewLaneSteps, buildStudentReviewModeCopy, buildStudentReviewQueuePriority, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildBulkTriageQueueFilter, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadApprovalGuide, buildReviewWorkloadGuide, buildReviewWorkloadSteps, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewDecisionGuide, buildStudentReviewLaneSteps, buildStudentReviewModeCopy, buildStudentReviewQueuePriority, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -544,9 +544,16 @@ test("review workload guide separates bulk-safe, individual, and quarantine work
   assert.equal(guide.individual, 1);
   assert.equal(guide.quarantine, 2);
   const steps = buildReviewWorkloadSteps(guide);
+  const approvalGuide = buildReviewWorkloadApprovalGuide(guide);
   assert.deepEqual(steps.map((step) => step.category), ["BULK_MATCH_ONLY", "INDIVIDUAL_REVIEW", "KEEP_QUARANTINED"]);
   assert.equal(steps[0].isCurrent, true);
   assert.equal(steps[2].countCategory, "MULTIPLE");
+  assert.equal(approvalGuide.category, "BULK_APPROVAL_READY");
+  assert.equal(approvalGuide.approvalReachable, true);
+  assert.equal(approvalGuide.canonicalWriteReachable, false);
+  assert.equal(approvalGuide.lineHistoryWriteReachable, false);
+  assert.equal(approvalGuide.rawValuesIncluded, false);
+  assert.equal(buildReviewWorkloadApprovalGuide(buildReviewWorkloadGuide([{ mappingStatus: "UNMAPPED", sourceCode: "OFFERS_27", suggestionCategory: "NONE" }])).category, "INDIVIDUAL_REVIEW_REQUIRED");
   assert.match(guide.nextTitle, /一致候補/);
   assert.match(guide.bulkCopy, /新規・曖昧行は混ぜません/);
   assert.match(html, /id="student-review-workload"/);
@@ -556,11 +563,13 @@ test("review workload guide separates bulk-safe, individual, and quarantine work
   assert.match(html, /id="review-workload-individual"/);
   assert.match(html, /id="review-workload-quarantine"/);
   assert.match(html, /id="review-workload-steps"/);
+  assert.match(html, /id="review-workload-approval-guide"/);
   assert.match(html, /id="triage-ambiguous-open"/);
   assert.match(html, /id="triage-hold-open"/);
   assert.match(html, /data-triage-queue="ambiguous"/);
   assert.match(app, /renderReviewWorkloadGuide/);
   assert.match(app, /buildReviewWorkloadSteps/);
+  assert.match(app, /buildReviewWorkloadApprovalGuide/);
   assert.match(app, /buildBulkTriageQueueFilter/);
   assert.match(app, /nextFilterState/);
   assert.match(app, /review-workload-open/);

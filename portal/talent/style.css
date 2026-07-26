@@ -652,6 +652,10 @@ h3 { margin: 0; font-size: 1rem; }
 .review-workload-steps li { padding: 9px 10px; border: 1px dashed #d8eadf; border-radius: 6px; background: #fff; color: var(--muted); font-size: .76rem; font-weight: 800; }
 .review-workload-steps li[data-current="true"] { border-style: solid; border-color: var(--rose); background: var(--accent-soft); color: var(--ink); }
 .review-workload-steps li[data-count-category="ZERO"] { opacity: .68; }
+.review-workload-approval-guide { grid-column: 1 / -1; margin: 0; padding: 11px 13px; border: 1px solid #eadbc7; border-radius: 7px; background: #fffaf2; color: var(--muted); font-size: .86rem; font-weight: 850; line-height: 1.5; }
+.review-workload-approval-guide[data-category="BULK_APPROVAL_READY"] { border-color: #cbe8d3; background: #f8fffb; color: #267650; }
+.review-workload-approval-guide[data-category="INDIVIDUAL_REVIEW_REQUIRED"],
+.review-workload-approval-guide[data-category="QUARANTINE_REVIEW_REQUIRED"] { border-color: #f2d59d; background: #fffaf0; color: #9a5d00; }
 .triage-command { justify-self: start; padding: 4px 8px; border: 1px solid #e7c1c7; border-radius: 4px; color: var(--accent-strong); background: #fff; font: inherit; font-size: 0.72rem; font-weight: 800; cursor: pointer; }
 .triage-command:hover { background: var(--accent-soft); }
 .secondary-command { border-color: var(--line); color: var(--ink); background: #fff; }

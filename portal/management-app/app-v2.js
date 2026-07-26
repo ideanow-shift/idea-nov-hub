@@ -1265,14 +1265,44 @@ function buildStoreOperatingSnapshotPanel() {
   ])));
   table.append(thead, tbody);
   wrap.append(table);
+  const scorecardCsv = buildStoreOperatingSnapshotCsv(rows, selectedPeriod);
+  const scorecardDownload = document.createElement("a");
+  scorecardDownload.className = "financial-mapping-download";
+  scorecardDownload.href = scorecardCsv.href;
+  scorecardDownload.download = scorecardCsv.fileName;
+  scorecardDownload.textContent = `月次スコアカードCSVを保存（${number.format(scorecardCsv.rowCount)}店舗）`;
   section.append(
     heading("店舗営業 月次スコアカード（12指標） (" + selectedPeriod + ")"),
     paragraph("経理P/Lを基準に、人員と来店区分は同じ店舗名・同じ月で照合できたものだけを追加しています。未照合の値は補完せず、必要なCSV待ちとして表示します。メニュー分析はこの下の専用表で確認できます。"),
     periodControl,
+    scorecardDownload,
     wrap,
     muted("技術生産性 = 技術売上 ÷ 稼働人数。総生産性 = (技術売上 + 商品売上) ÷ 稼働人数。技術単価 = 技術売上 ÷ 技術客数。総単価 = (技術売上 + 商品売上) ÷ 総来店数。リピート率 = (2回目 + 3回目 + 固定) ÷ 総来店数。EC売上は生産性・総単価に含めません。ミルボンIDは商品売上と重複の可能性があるため合計しません。本番保存・承認は無効です。")
   );
   return section;
+}
+
+function buildStoreOperatingSnapshotCsv(rows, period) {
+  const header = [
+    "store_name", "year_month", "total_sales_yen", "technical_sales_yen", "product_sales_yen",
+    "milbon_id_sales_yen", "ec_sales_yen", "profit_yen", "working_headcount",
+    "technical_productivity_yen", "total_productivity_yen", "technical_unit_price_yen",
+    "total_unit_price_excluding_ec_yen", "total_visit_count", "new_visit_count",
+    "second_visit_count", "third_visit_count", "fixed_visit_count", "repeat_rate_percent", "local_analysis_status",
+  ];
+  const values = rows.map((row) => [
+    row.storeName, period, row.salesYen, row.technicalSalesYen, row.productSalesYen, row.milbonIdSalesYen,
+    row.ecSalesYen, row.profitYen, row.workingHeadcount, row.technicalProductivityYen,
+    row.totalProductivityYen, row.technicalUnitYen, row.totalUnitYen, row.totalVisitCount,
+    row.newVisitCount, row.secondVisitCount, row.thirdVisitCount, row.fixedVisitCount, row.repeatRatePercent,
+    "LOCAL_VALIDATED_PENDING_PRODUCTION",
+  ]);
+  const csv = `\uFEFF${[header, ...values].map((row) => row.map(localCsvCell).join(",")).join("\\r\\n")}\\r\\n`;
+  return Object.freeze({
+    fileName: `store-operations-scorecard-${period}.csv`,
+    rowCount: values.length,
+    href: `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`,
+  });
 }
 
 function buildStoreComparisonPanel() {

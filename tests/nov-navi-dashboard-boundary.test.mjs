@@ -90,6 +90,9 @@ assert.match(mainSource, /if \(localDemoEnabled\) \{[\s\S]*?demoLogin\.addEventL
 assert.match(dashboardSource, /visibleNotices = Array\.isArray\(notices\) \? notices\.slice\(0, 3\)/, "NOVA notices must be capped at three");
 assert.match(dashboardSource, /onOpenNotice\(notice\)/, "NOVA notices must use the existing HUB handler");
 assert.doesNotMatch(dashboardSource, /localStorage|sessionStorage|handoff_code|sessionToken/, "NOVA dashboard must not store or transport auth material");
+assert.match(dashboardSource, /await onOpenApp\(app\)/, "NOVA cards must await the existing app launcher");
+assert.match(dashboardSource, /button\.disabled = true/, "NOVA cards must prevent duplicate launch clicks");
+assert.match(dashboardSource, /button\.disabled = false/, "NOVA cards must recover after the existing launcher returns");
 assert.match(designSystemSource, /--control-min-height:\s*44px/, "shared design system must preserve 44px controls");
 assert.match(designSystemSource, /--shadow-card:/, "shared design system must provide a card shadow token");
 assert.match(designSystemSource, /--focus-ring:/, "shared design system must provide a focus token");

@@ -139,9 +139,23 @@ function createSystemCard(system, apps, onOpenApp) {
   button.setAttribute("aria-label", `${system.title}：${actionLabel}`);
   const icon = card.querySelector(".navi-system-icon img");
   icon.addEventListener("error", () => { icon.src = fallbackIcon; }, { once: true });
-  button.addEventListener("click", () => {
-    if (app) onOpenApp(app);
-    else window.alert(`${system.title}は${STATUS_LABELS[actualStatus]}です。現在はデータを保存しません。`);
+  button.addEventListener("click", async () => {
+    if (!app) {
+      window.alert(`${system.title}は${STATUS_LABELS[actualStatus]}です。現在はデータを保存しません。`);
+      return;
+    }
+    if (button.disabled) return;
+    const defaultLabel = actionLabel;
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    button.textContent = "起動を確認中...";
+    try {
+      await onOpenApp(app);
+    } finally {
+      button.disabled = false;
+      button.removeAttribute("aria-busy");
+      button.textContent = defaultLabel;
+    }
   });
   return card;
 }

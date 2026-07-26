@@ -19,7 +19,7 @@ test("28卒 CSV template emits the exact header contract only", () => {
 });
 
 test("28卒 CSV preflight accepts the sealed column contract without exposing row values", () => {
-  const csv = `${header}\n${row(["1", "2028", "CONTACTS_28", "contacts", "学生 太郎", "", "学校", "学部", "090-0000-0000", "", "", "", "2026-08-01", "", "", "", "", "", "", "", "", "FALSE", ""])}`;
+  const csv = `${header}\n${row(["1", "2028", "CONTACTS_28", "contacts", "学生 太郎", "", "学校", "学部", "090-0000-0000", "", "", "", "2026-08-01", "接触", "選考前", "", "2026-08-10", "フォローあり", "", "", "", "FALSE", ""])}`;
   const result = analyzeTalent28CsvPreflight(csv);
   assert.equal(result.ok, true);
   assert.equal(result.fixedCategory, "PASS");
@@ -37,6 +37,12 @@ test("28卒 CSV preflight accepts the sealed column contract without exposing ro
   assert.equal(result.counts.phoneRows, 1);
   assert.equal(result.counts.emailRows, 0);
   assert.equal(result.counts.lineRows, 0);
+  assert.equal(result.counts.eventDateRows, 1);
+  assert.equal(result.counts.entryStatusRows, 1);
+  assert.equal(result.counts.selectionStatusRows, 1);
+  assert.equal(result.counts.offerStatusRows, 0);
+  assert.equal(result.counts.nextActionRows, 1);
+  assert.equal(result.counts.followUpNoteRows, 1);
   assert.equal(result.counts.duplicateStableKeyHintRows, 0);
   assert.equal(result.counts.duplicateContactHintRows, 0);
   assert.equal(result.rawValuesIncluded, false);

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -232,6 +232,23 @@ test("workforce procedure cases summarize today's operation queue without mutati
   assert.equal(summary.soon, 1);
   assert.equal(summary.review, 2);
   assert.equal(summary.draft, 1);
+});
+
+test("workforce procedure type summary separates workload without raw values", () => {
+  const summary = buildWorkforceProcedureTypeSummary([
+    { procedureType: "ONBOARDING", caseStatus: "DRAFT", effectiveDate: "2026-07-25" },
+    { procedureType: "ONBOARDING", caseStatus: "READY_FOR_REVIEW", effectiveDate: "2026-08-01" },
+    { procedureType: "TRANSFER", caseStatus: "READY_FOR_REVIEW", effectiveDate: "2026-08-10" },
+    { procedureType: "RETIREMENT", caseStatus: "CONFIRMED", effectiveDate: "2026-07-20" }
+  ], "2026-07-26");
+  assert.equal(summary.ONBOARDING.open, 2);
+  assert.equal(summary.ONBOARDING.overdue, 1);
+  assert.equal(summary.ONBOARDING.nextCategory, "OVERDUE");
+  assert.equal(summary.TRANSFER.review, 1);
+  assert.equal(summary.TRANSFER.nextCategory, "READY_FOR_REVIEW");
+  assert.equal(summary.LEAVE.nextCategory, "CLEAR");
+  assert.equal(summary.RETIREMENT.open, 0);
+  assert.equal(summary.RETIREMENT.rawValuesIncluded, false);
 });
 
 test("workforce procedure case next action guides daily work from each row", () => {

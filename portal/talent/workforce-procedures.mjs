@@ -559,6 +559,47 @@ export function buildWorkforceProcedureFormSubmitReadiness(draft) {
   });
 }
 
+export function buildWorkforceProcedureFormSavePreview(draft, currentStatus = "NEW") {
+  const readiness = buildWorkforceProcedureFormSubmitReadiness(draft);
+  const transition = buildWorkforceProcedureStatusTransitionPlan(currentStatus, draft?.caseStatus);
+  const hasExistingCase = UUID.test(String(draft?.caseId || ""));
+  const category = !readiness.canSubmit
+    ? "MISSING_REQUIRED_FIELDS"
+    : draft?.caseStatus === "CONFIRMED" && !hasExistingCase
+      ? "CONFIRM_REQUIRES_EXISTING_CASE"
+    : !transition.isAllowed
+      ? "STATUS_TRANSITION_BLOCKED"
+    : draft?.caseStatus === "CONFIRMED"
+        ? "CHECKLIST_REQUIRED_BEFORE_CONFIRM"
+        : "READY_TO_SAVE";
+  const title = {
+    MISSING_REQUIRED_FIELDS: "必須項目が不足しています",
+    STATUS_TRANSITION_BLOCKED: "この進捗変更は保存前に止めます",
+    CHECKLIST_REQUIRED_BEFORE_CONFIRM: "確認済みはチェックリスト確認後に保存します",
+    CONFIRM_REQUIRES_EXISTING_CASE: "新規作成と同時に確認済みにはしません",
+    READY_TO_SAVE: "この内容で案件履歴へ保存できます"
+  }[category];
+  const copy = {
+    MISSING_REQUIRED_FIELDS: "対象者と基準日を入力すると保存できます。",
+    STATUS_TRANSITION_BLOCKED: "許可された進捗だけを選び、飛び越しを防ぎます。",
+    CHECKLIST_REQUIRED_BEFORE_CONFIRM: "保存時に4項目の完了を読み取り、未完了なら保存せず止めます。",
+    CONFIRM_REQUIRES_EXISTING_CASE: "まず下書きまたは確認待ちで登録してから、確認項目を完了してください。",
+    READY_TO_SAVE: "社員マスタは変更せず、この案件の履歴だけを更新します。"
+  }[category];
+  return Object.freeze({
+    category,
+    title,
+    copy,
+    canSubmit: category === "READY_TO_SAVE" || category === "CHECKLIST_REQUIRED_BEFORE_CONFIRM",
+    requiresChecklistRead: category === "CHECKLIST_REQUIRED_BEFORE_CONFIRM",
+    missingRequiredCount: readiness.missingRequiredCount,
+    transitionCategory: transition.category,
+    rawValuesIncluded: false,
+    employeeMasterMutation: false,
+    canonicalWriteReachable: false
+  });
+}
+
 export function buildWorkforceProcedureChecklistPlan(procedureType) {
   const normalized = PROCEDURE_TYPES.includes(procedureType) ? procedureType : "ONBOARDING";
   const steps = PROCEDURE_STEP_KEYS[normalized].map((stepKey, index) => Object.freeze({
@@ -800,11 +841,14 @@ export function initializeWorkforceProcedureDesk({
   const checklistPlanTitle = documentObject?.getElementById?.("workforce-case-checklist-plan-title");
   const checklistPlanCopy = documentObject?.getElementById?.("workforce-case-checklist-plan-copy");
   const checklistPlanList = documentObject?.getElementById?.("workforce-case-checklist-plan-list");
+  const savePreview = documentObject?.getElementById?.("workforce-case-save-preview");
+  const savePreviewTitle = documentObject?.getElementById?.("workforce-case-save-preview-title");
+  const savePreviewCopy = documentObject?.getElementById?.("workforce-case-save-preview-copy");
   const transitionPlan = documentObject?.getElementById?.("workforce-case-transition-plan");
   const transitionPlanTitle = documentObject?.getElementById?.("workforce-case-transition-plan-title");
   const transitionPlanCopy = documentObject?.getElementById?.("workforce-case-transition-plan-copy");
   const transitionPlanList = documentObject?.getElementById?.("workforce-case-transition-plan-list");
-  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !operationActionMix || !operationActionMixTitle || !operationActionMixCopy || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy || !checklistPlan || !checklistPlanTitle || !checklistPlanCopy || !checklistPlanList || !transitionPlan || !transitionPlanTitle || !transitionPlanCopy || !transitionPlanList) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !operationActionMix || !operationActionMixTitle || !operationActionMixCopy || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy || !checklistPlan || !checklistPlanTitle || !checklistPlanCopy || !checklistPlanList || !savePreview || !savePreviewTitle || !savePreviewCopy || !transitionPlan || !transitionPlanTitle || !transitionPlanCopy || !transitionPlanList) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
@@ -863,6 +907,7 @@ export function initializeWorkforceProcedureDesk({
   };
   const markFormInvalid = () => {
     renderFormGuide();
+    renderSavePreview();
     setStatus("invalid_request");
   };
   const renderChecklistPlan = () => {
@@ -893,6 +938,17 @@ export function initializeWorkforceProcedureDesk({
         option.disabled = !plan.allowedStatuses.includes(option.value);
       }
     }
+  };
+  const renderSavePreview = () => {
+    const preview = buildWorkforceProcedureFormSavePreview({
+      ...currentDraftFromForm(),
+      caseId: input("caseId")?.value || null
+    }, form.dataset.currentStatus);
+    savePreview.dataset.category = preview.category;
+    savePreviewTitle.textContent = preview.title;
+    savePreviewCopy.textContent = preview.copy;
+    savePreview.dataset.canSubmit = String(preview.canSubmit);
+    savePreview.dataset.requiresChecklistRead = String(preview.requiresChecklistRead);
   };
   const reset = () => {
     form.reset();
@@ -1136,6 +1192,7 @@ export function initializeWorkforceProcedureDesk({
           renderFormGuide();
           renderChecklistPlan();
           renderTransitionPlan();
+          renderSavePreview();
           form.hidden = false;
           form.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
         });
@@ -1192,6 +1249,7 @@ export function initializeWorkforceProcedureDesk({
         renderFormGuide();
         renderChecklistPlan();
         renderTransitionPlan();
+        renderSavePreview();
         form.hidden = false;
         form.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
       });
@@ -1243,6 +1301,7 @@ export function initializeWorkforceProcedureDesk({
     renderFormGuide();
     renderChecklistPlan();
     renderTransitionPlan();
+    renderSavePreview();
     form.hidden = false;
     input("subjectLabel")?.focus?.();
   };
@@ -1283,11 +1342,12 @@ export function initializeWorkforceProcedureDesk({
   input("caseStatus").addEventListener("change", () => {
     renderFormGuide();
     renderTransitionPlan();
+    renderSavePreview();
   });
-  input("subjectLabel").addEventListener("input", renderFormGuide);
-  input("effectiveDate").addEventListener("change", renderFormGuide);
-  input("detail").addEventListener("input", renderFormGuide);
-  input("procedureType").addEventListener("change", renderChecklistPlan);
+  input("subjectLabel").addEventListener("input", () => { renderFormGuide(); renderSavePreview(); });
+  input("effectiveDate").addEventListener("change", () => { renderFormGuide(); renderSavePreview(); });
+  input("detail").addEventListener("input", () => { renderFormGuide(); renderSavePreview(); });
+  input("procedureType").addEventListener("change", () => { renderChecklistPlan(); renderSavePreview(); });
   form.addEventListener("invalid", markFormInvalid, true);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -1304,12 +1364,14 @@ export function initializeWorkforceProcedureDesk({
     if (!readiness.canSubmit) {
       setStatus(readiness.statusCategory);
       renderFormGuide();
+      renderSavePreview();
       return;
     }
     const transition = buildWorkforceProcedureStatusTransitionPlan(form.dataset.currentStatus, draft.caseStatus);
     if (!transition.isAllowed) {
       setStatus("invalid_status_transition");
       renderTransitionPlan();
+      renderSavePreview();
       return;
     }
     if (draft.caseStatus === "CONFIRMED") {

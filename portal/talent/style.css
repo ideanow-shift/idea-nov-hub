@@ -1442,7 +1442,7 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-form label { display: grid; gap: 6px; color: var(--muted); font-size: 0.85rem; font-weight: 700; }
 .procedure-case-form input, .procedure-case-form select, .procedure-case-form textarea { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); font: inherit; }
 .procedure-case-form textarea { resize: vertical; }
-.procedure-case-detail, .procedure-case-form-guide, .procedure-case-transition-plan, .procedure-case-checklist-plan, .procedure-case-actions { grid-column: 1 / -1; }
+.procedure-case-detail, .procedure-case-form-guide, .procedure-case-transition-plan, .procedure-case-checklist-plan, .procedure-case-save-preview, .procedure-case-actions { grid-column: 1 / -1; }
 .procedure-case-form-guide { display: grid; gap: 5px; padding: 12px; border: 1px solid #d8eadf; border-radius: 6px; background: #f8fffb; }
 .procedure-case-form-guide strong { color: var(--navy); }
 .procedure-case-form-guide span { color: var(--muted); font-size: .86rem; }
@@ -1467,6 +1467,13 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-checklist-plan span { margin-top: 4px; color: var(--muted); font-size: .84rem; }
 .procedure-case-checklist-plan ol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 0; padding: 0; list-style: none; }
 .procedure-case-checklist-plan li { padding: 8px 10px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--ink); font-size: .82rem; font-weight: 800; }
+.procedure-case-save-preview { display: grid; gap: 5px; padding: 12px; border: 1px solid #d8eadf; border-radius: 6px; background: #f8fffb; }
+.procedure-case-save-preview strong { color: var(--navy); }
+.procedure-case-save-preview span { color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.procedure-case-save-preview[data-category="MISSING_REQUIRED_FIELDS"],
+.procedure-case-save-preview[data-category="STATUS_TRANSITION_BLOCKED"],
+.procedure-case-save-preview[data-category="CONFIRM_REQUIRES_EXISTING_CASE"] { border-color: #f1b8b8; background: #fff6f6; }
+.procedure-case-save-preview[data-category="CHECKLIST_REQUIRED_BEFORE_CONFIRM"] { border-color: #c5dcf6; background: #f8fbff; }
 .procedure-case-actions { display: flex; justify-content: flex-end; gap: 10px; }
 
 .workforce-tabs {

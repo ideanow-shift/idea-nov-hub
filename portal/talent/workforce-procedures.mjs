@@ -777,6 +777,48 @@ export function buildWorkforceProcedureFormSavePreview(draft, currentStatus = "N
   });
 }
 
+export function buildWorkforceProcedureSaveFollowUpPlan(preview) {
+  const category = preview?.category || "MISSING_REQUIRED_FIELDS";
+  const plans = Object.freeze({
+    MISSING_REQUIRED_FIELDS: Object.freeze({
+      title: "Complete required fields before saving",
+      copy: "The case should stay local until subject and effective date are ready.",
+      steps: Object.freeze(["Fill the missing required fields.", "Keep the case out of Core handoff.", "Do not create an employee master update."])
+    }),
+    STATUS_TRANSITION_BLOCKED: Object.freeze({
+      title: "Choose an allowed status transition",
+      copy: "The form keeps workflow jumps blocked before any save request is sent.",
+      steps: Object.freeze(["Return to an allowed status.", "Save the case history only after the status is valid.", "Review the checklist before confirming."])
+    }),
+    CONFIRM_REQUIRES_EXISTING_CASE: Object.freeze({
+      title: "Save the draft before confirmation",
+      copy: "New cases cannot become confirmed in the same local form action.",
+      steps: Object.freeze(["Save as draft or ready for review first.", "Open checklist items.", "Confirm only after the case exists."])
+    }),
+    CHECKLIST_REQUIRED_BEFORE_CONFIRM: Object.freeze({
+      title: "Open checklist before Core handoff",
+      copy: "A confirmed case is only a handoff candidate; employee master updates still need separate approval.",
+      steps: Object.freeze(["Read checklist completion.", "Confirm the audit trail.", "Keep Core DB handoff separate."])
+    }),
+    READY_TO_SAVE: Object.freeze({
+      title: "Save and verify the case history",
+      copy: "The next safe step is to check the saved case row and its audit trail.",
+      steps: Object.freeze(["Save the case.", "Confirm it appears in the correct queue.", "Open history if the status or date changed."])
+    })
+  });
+  const selected = plans[category] || plans.MISSING_REQUIRED_FIELDS;
+  return Object.freeze({
+    category,
+    title: selected.title,
+    copy: selected.copy,
+    steps: selected.steps,
+    rawValuesIncluded: false,
+    employeeMasterMutation: false,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false
+  });
+}
+
 export function buildWorkforceProcedureChecklistPlan(procedureType) {
   const normalized = PROCEDURE_TYPES.includes(procedureType) ? procedureType : "ONBOARDING";
   const steps = PROCEDURE_STEP_KEYS[normalized].map((stepKey, index) => Object.freeze({
@@ -1025,11 +1067,15 @@ export function initializeWorkforceProcedureDesk({
   const savePreview = documentObject?.getElementById?.("workforce-case-save-preview");
   const savePreviewTitle = documentObject?.getElementById?.("workforce-case-save-preview-title");
   const savePreviewCopy = documentObject?.getElementById?.("workforce-case-save-preview-copy");
+  const saveFollowUp = documentObject?.getElementById?.("workforce-case-save-follow-up");
+  const saveFollowUpTitle = documentObject?.getElementById?.("workforce-case-save-follow-up-title");
+  const saveFollowUpCopy = documentObject?.getElementById?.("workforce-case-save-follow-up-copy");
+  const saveFollowUpSteps = documentObject?.getElementById?.("workforce-case-save-follow-up-steps");
   const transitionPlan = documentObject?.getElementById?.("workforce-case-transition-plan");
   const transitionPlanTitle = documentObject?.getElementById?.("workforce-case-transition-plan-title");
   const transitionPlanCopy = documentObject?.getElementById?.("workforce-case-transition-plan-copy");
   const transitionPlanList = documentObject?.getElementById?.("workforce-case-transition-plan-list");
-  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !operationActionMix || !operationActionMixTitle || !operationActionMixCopy || !coreHandoffQueue || !coreHandoffTitle || !coreHandoffCopy || !coreHandoffSteps || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy || !checklistPlan || !checklistPlanTitle || !checklistPlanCopy || !checklistPlanList || !savePreview || !savePreviewTitle || !savePreviewCopy || !transitionPlan || !transitionPlanTitle || !transitionPlanCopy || !transitionPlanList) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !operationActionMix || !operationActionMixTitle || !operationActionMixCopy || !coreHandoffQueue || !coreHandoffTitle || !coreHandoffCopy || !coreHandoffSteps || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy || !checklistPlan || !checklistPlanTitle || !checklistPlanCopy || !checklistPlanList || !savePreview || !savePreviewTitle || !savePreviewCopy || !saveFollowUp || !saveFollowUpTitle || !saveFollowUpCopy || !saveFollowUpSteps || !transitionPlan || !transitionPlanTitle || !transitionPlanCopy || !transitionPlanList) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
@@ -1130,6 +1176,15 @@ export function initializeWorkforceProcedureDesk({
     savePreviewCopy.textContent = preview.copy;
     savePreview.dataset.canSubmit = String(preview.canSubmit);
     savePreview.dataset.requiresChecklistRead = String(preview.requiresChecklistRead);
+    const followUp = buildWorkforceProcedureSaveFollowUpPlan(preview);
+    saveFollowUp.dataset.category = followUp.category;
+    saveFollowUpTitle.textContent = followUp.title;
+    saveFollowUpCopy.textContent = followUp.copy;
+    saveFollowUpSteps.replaceChildren(...followUp.steps.map((step) => {
+      const item = documentObject.createElement("li");
+      item.textContent = step;
+      return item;
+    }));
   };
   const reset = () => {
     form.reset();

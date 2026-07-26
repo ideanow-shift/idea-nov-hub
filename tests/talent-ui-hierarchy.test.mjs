@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildSummaryFollowUpFilter, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -79,7 +79,12 @@ test("fair analysis opens a student queue scoped to its selected record month", 
   assert.equal(buildMonthlyFollowUpFilter("2026-5"), null);
   assert.deepEqual(filterTalentStudents(rows, buildMonthlyFollowUpFilter("2026-05")).map((row) => row.displayName), ["5月"]);
   assert.equal(getTalentStudentMonthKey(rows[0]), "2026-04");
+  assert.equal(classifyTalentStudentFollowUp({ nextActionAt: "2026-07-20" }, "2026-07-26"), "OVERDUE");
+  assert.equal(classifyTalentStudentFollowUp({ nextActionAt: "2026-07-30" }, "2026-07-26"), "NEXT_7_DAYS");
+  assert.equal(classifyTalentStudentFollowUp({ nextActionAt: "2026-08-10" }, "2026-07-26"), "SCHEDULED");
+  assert.equal(classifyTalentStudentFollowUp({}, "2026-07-26"), "UNSCHEDULED");
   assert.match(html, /id="student-month-filter"/);
+  assert.match(html, /id="student-follow-up-filter"/);
   assert.match(html, /id="student-filter-reset"/);
   assert.match(app, /updateStudentFilterResetState/);
   assert.match(html, /id="student-detail-next-action"/);

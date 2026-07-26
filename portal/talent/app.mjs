@@ -299,8 +299,9 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-state-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-progress-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-month-filter")?.addEventListener("change", refresh);
+  documentObject.getElementById("student-follow-up-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-filter-reset")?.addEventListener("click", () => {
-    const controls = ["student-search", "student-source-filter", "student-state-filter", "student-progress-filter", "student-month-filter"];
+    const controls = ["student-search", "student-source-filter", "student-state-filter", "student-progress-filter", "student-month-filter", "student-follow-up-filter"];
     controls.forEach((id) => {
       const control = documentObject.getElementById(id);
       if (control) control.value = id === "student-search" ? "" : "ALL";
@@ -875,11 +876,13 @@ function openStudentWorkspace(documentObject, filter) {
   const state = documentObject.getElementById("student-state-filter");
   const progress = documentObject.getElementById("student-progress-filter");
   const month = documentObject.getElementById("student-month-filter");
+  const followUp = documentObject.getElementById("student-follow-up-filter");
   if (search) search.value = filter.query;
   if (source) source.value = filter.source;
   if (state) state.value = filter.state;
   if (progress) progress.value = filter.progress;
   if (month) month.value = filter.month || "ALL";
+  if (followUp) followUp.value = filter.followUp || "ALL";
   documentObject.querySelector?.('[data-secondary-tab="students"]')?.click?.();
   renderStudentWorkspace(documentObject);
   documentObject.getElementById("recruitment-students")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
@@ -943,7 +946,7 @@ export function buildOnboardingHandoffDraft(student) {
   });
 }
 
-export function filterTalentStudents(students, { query = "", source = "ALL", state = "ALL", progress = "ALL", month = "ALL" } = {}) {
+export function filterTalentStudents(students, { query = "", source = "ALL", state = "ALL", progress = "ALL", month = "ALL", followUp = "ALL" } = {}) {
   const normalizedQuery = normalizeSearch(query);
   return (Array.isArray(students) ? students : []).filter((student) => {
     if (source !== "ALL" && student.sourceCode !== source) return false;
@@ -956,12 +959,29 @@ export function filterTalentStudents(students, { query = "", source = "ALL", sta
     }
     if (progress !== "ALL" && getTalentStudentProgressKey(student) !== progress) return false;
     if (month !== "ALL" && getTalentStudentMonthKey(student) !== month) return false;
+    if (followUp !== "ALL" && classifyTalentStudentFollowUp(student) !== followUp) return false;
     if (!normalizedQuery) return true;
     return [
       student.displayName, student.kana, student.school, student.status,
       student.preferredStore, student.sourceLabel
     ].some((value) => normalizeSearch(value).includes(normalizedQuery));
   });
+}
+
+export function classifyTalentStudentFollowUp(student, referenceDate = localTalentDateIso()) {
+  const nextActionAt = String(student?.nextActionAt || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(nextActionAt)) return "UNSCHEDULED";
+  const reference = /^\d{4}-\d{2}-\d{2}$/.test(referenceDate) ? referenceDate : localTalentDateIso();
+  const days = (Date.parse(`${nextActionAt}T00:00:00Z`) - Date.parse(`${reference}T00:00:00Z`)) / 86400000;
+  if (days < 0) return "OVERDUE";
+  if (days <= 7) return "NEXT_7_DAYS";
+  return "SCHEDULED";
+}
+
+function localTalentDateIso() {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
 }
 
 export function getTalentStudentMonthKey(student) {
@@ -996,9 +1016,10 @@ function renderStudentWorkspace(documentObject) {
   const state = documentObject.getElementById("student-state-filter")?.value || "ALL";
   const progress = documentObject.getElementById("student-progress-filter")?.value || "ALL";
   const month = documentObject.getElementById("student-month-filter")?.value || "ALL";
-  const visible = filterTalentStudents(studentWorkspaceData.students, { query, source, state, progress, month });
+  const followUp = documentObject.getElementById("student-follow-up-filter")?.value || "ALL";
+  const visible = filterTalentStudents(studentWorkspaceData.students, { query, source, state, progress, month, followUp });
   updateStudentQuickFilterState(documentObject, state, studentWorkspaceData.students);
-  updateStudentFilterResetState(documentObject, { query, source, state, progress, month });
+  updateStudentFilterResetState(documentObject, { query, source, state, progress, month, followUp });
   const list = documentObject.getElementById("student-list");
   const empty = documentObject.getElementById("student-empty");
   const count = documentObject.getElementById("student-result-count");
@@ -1039,10 +1060,10 @@ function updateStudentQuickFilterState(documentObject, state, students) {
   });
 }
 
-function updateStudentFilterResetState(documentObject, { query, source, state, progress, month }) {
+function updateStudentFilterResetState(documentObject, { query, source, state, progress, month, followUp }) {
   const button = documentObject.getElementById("student-filter-reset");
   if (!button) return;
-  const active = Boolean(query) || source !== "ALL" || state !== "ALL" || progress !== "ALL" || month !== "ALL";
+  const active = Boolean(query) || source !== "ALL" || state !== "ALL" || progress !== "ALL" || month !== "ALL" || followUp !== "ALL";
   button.disabled = !active;
   button.setAttribute("aria-disabled", String(!active));
 }

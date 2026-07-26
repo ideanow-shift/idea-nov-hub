@@ -159,9 +159,33 @@ h3 { margin: 0; font-size: 1rem; }
 }
 .talent-daily-command-actions button:hover,
 .talent-daily-command-actions button:focus-visible { border-color: #b8d3ed; background: #f8fbff; outline: none; }
+.talent-daily-command-actions button[aria-pressed="true"] {
+  border-color: #6fa2d1;
+  background: #eef7ff;
+  box-shadow: inset 0 0 0 1px rgba(111, 162, 209, .32);
+}
 .talent-daily-command-actions span { color: #2e6b9d; font-size: .74rem; font-weight: 900; letter-spacing: .04em; }
 .talent-daily-command-actions strong { color: var(--navy); font-size: .95rem; }
 .talent-daily-command-actions small { color: var(--muted); line-height: 1.45; }
+.talent-daily-command-status {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px solid #d9e7f4;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .84);
+  color: #3f566a;
+  font-size: .82rem;
+  font-weight: 850;
+  line-height: 1.45;
+}
+.talent-daily-command-status[data-category="ROUTE_STUDENTS"],
+.talent-daily-command-status[data-category="ROUTE_WORKFORCE"],
+.talent-daily-command-status[data-category="ROUTE_CSV28"] {
+  border-color: #b8d3ed;
+  background: #eef7ff;
+  color: #245b87;
+}
 .talent-daily-completion-checklist {
   grid-column: 1 / -1;
   display: grid;

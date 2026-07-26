@@ -188,9 +188,10 @@ function createSystemCard(system, apps, onOpenApp) {
 }
 
 const LEGACY_HOME_HIDDEN_STATE = new WeakMap();
+const LEGACY_APPS_REVEALED = new WeakSet();
 
 function toggleLegacyHome(enabled) {
-  [".concierge-entry", "#notice-heading", "#featured-heading"].forEach((selector) => {
+  [".concierge-entry", "#notice-heading", "#featured-heading", ".legacy-apps-section"].forEach((selector) => {
     const element = document.querySelector(selector);
     const section = element?.closest("section");
     if (!section) return;
@@ -198,7 +199,7 @@ function toggleLegacyHome(enabled) {
       if (!LEGACY_HOME_HIDDEN_STATE.has(section)) {
         LEGACY_HOME_HIDDEN_STATE.set(section, section.hidden);
       }
-      section.hidden = true;
+      section.hidden = section.matches(".legacy-apps-section") && LEGACY_APPS_REVEALED.has(section) ? false : true;
       return;
     }
     if (LEGACY_HOME_HIDDEN_STATE.has(section)) {
@@ -206,6 +207,17 @@ function toggleLegacyHome(enabled) {
       LEGACY_HOME_HIDDEN_STATE.delete(section);
     }
   });
+}
+
+function revealLegacyApps() {
+  const disclosure = document.querySelector(".legacy-apps-disclosure");
+  const section = disclosure?.closest("section");
+  if (!disclosure || !section) return;
+  LEGACY_APPS_REVEALED.add(section);
+  section.hidden = false;
+  disclosure.open = true;
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+  disclosure.querySelector("#app-search")?.focus({ preventScroll: true });
 }
 
 function createNaviNoticeItem(notice, onOpenNotice) {
@@ -309,19 +321,13 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
       <div class="navi-notice-list" id="navi-notice-list"></div>
     </section>
     <div class="navi-system-sections"></div>
-    <div class="navi-legacy-apps"><p>その他の既存アプリは、このダッシュボード下部の「すべての業務（既存アプリ一覧）」から開けます。</p><button class="navi-legacy-launcher" type="button">すべての業務を開く</button></div>
+    <div class="navi-legacy-apps"><button class="navi-legacy-launcher" type="button">すべての業務を開く</button></div>
     <div class="navi-legend"><span>利用可能：本番システム</span><span>試験運用：利用範囲を限定</span><span>作成中：利用可能範囲のみ</span><span>サンプル：データは保存されません</span></div>`;
 
   root.querySelector(".navi-support-launcher").addEventListener("click", () => {
     onOpenSupport("");
   });
-  root.querySelector(".navi-legacy-launcher").addEventListener("click", () => {
-    const disclosure = document.querySelector(".legacy-apps-disclosure");
-    if (!disclosure) return;
-    disclosure.open = true;
-    disclosure.scrollIntoView({ behavior: "smooth", block: "start" });
-    disclosure.querySelector("#app-search")?.focus({ preventScroll: true });
-  });
+  root.querySelector(".navi-legacy-launcher").addEventListener("click", revealLegacyApps);
   root.querySelector(".navi-today-grid")?.setAttribute("aria-live", "polite");
   root.querySelectorAll("[data-navi-today-key]").forEach((card) => {
     card.dataset.naviTodayState = "pending";

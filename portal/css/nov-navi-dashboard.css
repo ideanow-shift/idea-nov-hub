@@ -149,8 +149,7 @@ button.navi-notice:hover { border-color: var(--navi-accent); background: var(--n
 .navi-open-button:hover, .navi-support-launcher:hover { background: #f3cfd2; }
 .navi-open-button:disabled { cursor: not-allowed; border-color: var(--border-light); background: #f7f7f7; color: var(--text-secondary); opacity: .72; }
 .navi-open-button:disabled[aria-busy="true"] { cursor: wait; }
-.navi-legacy-apps { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.navi-legacy-apps p { margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.45; }
+.navi-legacy-apps { display: flex; justify-content: center; }
 .navi-legacy-launcher { flex: 0 0 auto; min-height: 40px; border: 1px solid var(--navi-accent); border-radius: var(--radius-sm); background: var(--navi-accent-soft); padding: 7px 12px; color: var(--navi-ink); cursor: pointer; font: inherit; font-size: 11px; font-weight: 750; }
 .navi-legacy-launcher:hover { background: #f3cfd2; }
 .navi-legacy-launcher:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
@@ -208,7 +207,6 @@ body:has(#nov-navi-dashboard:not([hidden])) .site-header .icon-button:hover { ba
   .navi-today-grid .navi-pending-value { font-size: 14px; }
   .navi-support { grid-template-columns: 1fr; gap: 8px; border-left-width: 3px; }
   .navi-support-launcher { justify-self: stretch; width: 100%; min-width: 0; }
-  .navi-legacy-apps { align-items: stretch; flex-direction: column; }
   .navi-legacy-launcher { width: 100%; }
   .navi-notice { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
   .navi-notice-action { grid-column: 2; }

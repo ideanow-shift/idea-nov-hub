@@ -130,6 +130,10 @@ assert.doesNotMatch(
   /#all-apps-heading/,
   "existing all-apps section must remain reachable"
 );
+assert.match(dashboardSource, /class="navi-legacy-launcher"/, "NOVA must provide a deliberate path to the preserved legacy app list");
+assert.match(dashboardSource, /document\.querySelector\("\.legacy-apps-disclosure"\)/, "legacy app navigation must reuse the existing disclosure");
+assert.match(dashboardSource, /disclosure\.open = true/, "legacy app navigation must explicitly open the existing disclosure");
+assert.match(naviStylesSource, /\.navi-legacy-launcher \{[^}]*min-height: 40px/, "legacy app navigation must meet the mobile touch target");
 assert.match(
   mainSource.match(/function loginDemo[\s\S]*?\n}/)?.[0] || "",
   /shouldEnableLocalNovNaviDemo/,

@@ -309,11 +309,18 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
       <div class="navi-notice-list" id="navi-notice-list"></div>
     </section>
     <div class="navi-system-sections"></div>
-    <p class="navi-legacy-apps">その他の既存アプリは、このダッシュボード下部の「すべての業務（既存アプリ一覧）」から開けます。</p>
+    <div class="navi-legacy-apps"><p>その他の既存アプリは、このダッシュボード下部の「すべての業務（既存アプリ一覧）」から開けます。</p><button class="navi-legacy-launcher" type="button">すべての業務を開く</button></div>
     <div class="navi-legend"><span>利用可能：本番システム</span><span>試験運用：利用範囲を限定</span><span>作成中：利用可能範囲のみ</span><span>サンプル：データは保存されません</span></div>`;
 
   root.querySelector(".navi-support-launcher").addEventListener("click", () => {
     onOpenSupport("");
+  });
+  root.querySelector(".navi-legacy-launcher").addEventListener("click", () => {
+    const disclosure = document.querySelector(".legacy-apps-disclosure");
+    if (!disclosure) return;
+    disclosure.open = true;
+    disclosure.scrollIntoView({ behavior: "smooth", block: "start" });
+    disclosure.querySelector("#app-search")?.focus({ preventScroll: true });
   });
   root.querySelector(".navi-today-grid")?.setAttribute("aria-live", "polite");
   root.querySelectorAll("[data-navi-today-key]").forEach((card) => {

@@ -200,6 +200,47 @@ export function buildWorkforceProcedureOperationSummary(cases, referenceDate = l
   return Object.freeze({ overdue, soon, review, draft, nextAction, title, copy });
 }
 
+export function buildWorkforceProcedureCaseNextAction(item, referenceDate = localDateIso()) {
+  const status = CASE_STATUSES.includes(item?.caseStatus) ? item.caseStatus : "DRAFT";
+  const priority = classifyWorkforceProcedureCasePriority(item, referenceDate);
+  const category = status === "CONFIRMED"
+    ? "CORE_HANDOFF_READY"
+    : status === "CANCELLED"
+      ? "CANCELLED"
+      : priority === "OVERDUE"
+        ? "OVERDUE_REVIEW"
+        : status === "READY_FOR_REVIEW"
+          ? "CHECKLIST_REVIEW"
+          : priority === "NEXT_7_DAYS"
+            ? "COMPLETE_DRAFT"
+            : "DRAFT_UPDATE";
+  const title = {
+    CORE_HANDOFF_READY: "Core反映待ち",
+    CANCELLED: "中止済み",
+    OVERDUE_REVIEW: "期限超過を確認",
+    CHECKLIST_REVIEW: "確認項目を確認",
+    COMPLETE_DRAFT: "下書きを確認待ちへ",
+    DRAFT_UPDATE: "下書きを整備"
+  }[category];
+  const copy = {
+    CORE_HANDOFF_READY: "社員マスタ反映は別承認で実行します。",
+    CANCELLED: "再開する場合は下書きへ戻して理由を残します。",
+    OVERDUE_REVIEW: "基準日と不足情報を確認し、必要なら確認待ちへ進めます。",
+    CHECKLIST_REVIEW: "4つの確認項目を完了すると確認済みに進められます。",
+    COMPLETE_DRAFT: "直近の手続きです。対象者・基準日・メモを整えます。",
+    DRAFT_UPDATE: "期限順で拾えるよう、対象者・基準日・メモを保存します。"
+  }[category];
+  const primaryAction = {
+    CORE_HANDOFF_READY: "変更履歴",
+    CANCELLED: "編集",
+    OVERDUE_REVIEW: "編集",
+    CHECKLIST_REVIEW: "確認項目",
+    COMPLETE_DRAFT: "編集",
+    DRAFT_UPDATE: "編集"
+  }[category];
+  return Object.freeze({ category, title, copy, primaryAction });
+}
+
 export function buildWorkforceProcedureCaseFormGuide(draft, referenceDate = localDateIso()) {
   const priority = classifyWorkforceProcedureCasePriority(draft, referenceDate);
   const status = draft?.caseStatus;
@@ -721,12 +762,17 @@ export function initializeWorkforceProcedureDesk({
       const title = documentObject.createElement("strong");
       const meta = documentObject.createElement("span");
       const priority = documentObject.createElement("span");
+      const nextAction = documentObject.createElement("span");
       const priorityCategory = classifyWorkforceProcedureCasePriority(item);
+      const nextActionPlan = buildWorkforceProcedureCaseNextAction(item);
       title.textContent = item.subjectLabel;
       meta.textContent = `${procedureLabel(item.procedureType)} / ${statusLabel(item.caseStatus)} / ${item.effectiveDate}`;
       priority.className = `procedure-case-priority${priorityCategory === "OVERDUE" ? " is-overdue" : priorityCategory === "NEXT_7_DAYS" ? " is-soon" : ""}`;
       priority.textContent = priorityLabel(priorityCategory);
-      copy.append(title, meta, priority);
+      nextAction.className = "procedure-case-next-action";
+      nextAction.dataset.category = nextActionPlan.category;
+      nextAction.textContent = `${nextActionPlan.title}: ${nextActionPlan.copy}`;
+      copy.append(title, meta, priority, nextAction);
       const edit = documentObject.createElement("button");
       edit.type = "button";
       edit.className = "case-edit-button";

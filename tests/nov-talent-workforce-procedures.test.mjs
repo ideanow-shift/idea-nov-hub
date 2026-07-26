@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -49,6 +49,20 @@ test("workforce procedure case history is bounded and read-only", async () => {
   assert.equal(calls[0].init.method, "GET");
   assert.match(calls[0].url, /procedure-cases\/audit\?caseId=/);
   assert.equal(WORKFORCE_PROCEDURE_CASE_CONTRACT.auditHistory, true);
+});
+
+test("workforce procedure audit summary reports categories without raw field values", () => {
+  const empty = buildWorkforceProcedureAuditSummary([]);
+  const statusChanged = buildWorkforceProcedureAuditSummary([
+    { action: "UPDATE", changedFields: ["detail"], caseVersion: 1, occurredAt: "2026-07-26T00:00:00Z" },
+    { action: "UPDATE", changedFields: ["caseStatus", "effectiveDate"], caseVersion: 2, occurredAt: "2026-07-27T00:00:00Z" }
+  ]);
+  assert.equal(empty.category, "NO_HISTORY");
+  assert.equal(statusChanged.category, "STATUS_CHANGED");
+  assert.equal(statusChanged.updateCount, 2);
+  assert.equal(statusChanged.changedFieldCount, 3);
+  assert.equal(statusChanged.rawValuesIncluded, false);
+  assert.doesNotMatch(statusChanged.copy, /2026-07-27|detail|caseStatus/);
 });
 
 test("workforce procedure cases filter by progress without mutating rows", () => {

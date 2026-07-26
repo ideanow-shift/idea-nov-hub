@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { buildWorkforceProcedureActionMix, buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseActionRoute, buildWorkforceProcedureCaseBoundary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureEmptyState, buildWorkforceProcedureFormSavePreview, buildWorkforceProcedureFormSubmitReadiness, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureStepProgress, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureActionMix, buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseActionRoute, buildWorkforceProcedureCaseBoundary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureCoreHandoffQueue, buildWorkforceProcedureEmptyState, buildWorkforceProcedureFormSavePreview, buildWorkforceProcedureFormSubmitReadiness, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureStepProgress, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -396,6 +396,37 @@ test("workforce procedure action mix summarizes visible row actions without writ
   assert.match(source, /renderOperationActionMix/);
   assert.match(html, /workforce-case-operation-action-mix/);
   assert.match(css, /procedure-case-operation-action-mix/);
+});
+
+test("workforce procedure core handoff queue keeps employee master writes separate", async () => {
+  const source = await readFile(new URL("../portal/talent/workforce-procedures.mjs", import.meta.url), "utf8");
+  const html = await readFile(new URL("../portal/talent/index.html", import.meta.url), "utf8");
+  const css = await readFile(new URL("../portal/talent/style.css", import.meta.url), "utf8");
+  const queue = buildWorkforceProcedureCoreHandoffQueue([
+    { caseStatus: "CONFIRMED" },
+    { caseStatus: "DRAFT" },
+    { caseStatus: "READY_FOR_REVIEW" },
+    { caseStatus: "CANCELLED" }
+  ]);
+  const inProgress = buildWorkforceProcedureCoreHandoffQueue([{ caseStatus: "DRAFT" }]);
+
+  assert.equal(queue.category, "SEPARATE_CORE_APPROVAL_REQUIRED");
+  assert.equal(queue.handoffReady, 1);
+  assert.equal(queue.localInProgress, 2);
+  assert.equal(queue.cancelled, 1);
+  assert.equal(queue.handoffReadyCategory, "ONE");
+  assert.equal(queue.localInProgressCategory, "MULTIPLE");
+  assert.equal(queue.coreDbWriteRequiresSeparateApproval, true);
+  assert.equal(queue.employeeMasterMutation, false);
+  assert.equal(queue.canonicalWriteReachable, false);
+  assert.equal(queue.lineHistoryWriteReachable, false);
+  assert.equal(queue.rawValuesIncluded, false);
+  assert.equal(inProgress.category, "LOCAL_CASES_IN_PROGRESS");
+  assert.match(source, /buildWorkforceProcedureCoreHandoffQueue/);
+  assert.match(source, /renderCoreHandoffQueue/);
+  assert.match(html, /workforce-case-core-handoff-queue/);
+  assert.match(css, /procedure-case-core-handoff-queue/);
+  assert.equal(WORKFORCE_PROCEDURE_CASE_CONTRACT.coreHandoffQueue, true);
 });
 
 test("workforce procedure form guide keeps the next edit action local and status-based", () => {

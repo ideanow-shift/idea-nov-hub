@@ -407,6 +407,12 @@ h3 { margin: 0; font-size: 1rem; }
 .csv-owner-handoff-checklist { grid-column: 1 / -1; display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .csv-owner-handoff-checklist li { padding: 9px 11px; border: 1px solid #eadbc7; border-radius: 6px; background: #fffaf2; color: var(--muted); font-size: .82rem; font-weight: 850; }
 .csv-owner-handoff-checklist[data-category="READY_HANDOFF"] li { border-color: #cbe8d3; background: #f8fffb; color: #267650; }
+.csv-approval-readback { grid-column: 1 / -1; display: grid; gap: 7px; padding: 12px; border: 1px solid #f2d59d; border-radius: 7px; background: #fffaf0; }
+.csv-approval-readback strong { color: var(--navy); }
+.csv-approval-readback p { margin: 0; color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.csv-approval-readback ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 0; padding: 0; list-style: none; }
+.csv-approval-readback li { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .8rem; font-weight: 850; }
+.csv-approval-readback[data-category="READY_TO_READBACK_APPROVAL"] { border-color: #cbe8d3; background: #f8fffb; }
 .csv-preflight-fix-guide { grid-column: 1 / -1; display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .csv-preflight-fix-guide li { padding: 9px 11px; border: 1px dashed var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .82rem; font-weight: 800; }
 .csv-preflight-fix-guide[data-category="REQUEST_STAGING_PREFLIGHT_APPROVAL"] li { border-style: solid; border-color: #cbe8d3; color: #2f7441; background: #f8fffb; }

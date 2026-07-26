@@ -428,6 +428,43 @@ export function buildTalent28CsvOwnerHandoffChecklist(result) {
   });
 }
 
+export function buildTalent28CsvApprovalReadback(result) {
+  const approvalGuide = buildTalent28CsvStagingApprovalGuide(result);
+  const category = approvalGuide.approvalReachable
+    ? "READY_TO_READBACK_APPROVAL"
+    : "FIX_BEFORE_READBACK";
+  const steps = category === "READY_TO_READBACK_APPROVAL"
+    ? [
+        ["COUNT_ONLY", "件数カテゴリだけを読み合わせる"],
+        ["STAGING_ONLY", "承認対象はproduction staging preflightまで"],
+        ["NO_PROMOTION", "canonical・LINE履歴・promotionは含めない"]
+      ]
+    : [
+        ["FIX_CATEGORY_FIRST", "修正カテゴリを先に直す"],
+        ["RESELECT_CSV", "修正版CSVを再選択してpreflightする"],
+        ["NO_OWNER_APPROVAL_YET", "PASS前に投入承認へ進まない"]
+      ];
+  return Object.freeze({
+    category,
+    title: category === "READY_TO_READBACK_APPROVAL" ? "承認前の読み合わせ準備OK" : "承認前にCSV修正が必要",
+    copy: category === "READY_TO_READBACK_APPROVAL"
+      ? "値を出さず、件数カテゴリと境界だけを確認してからstaging preflight承認へ進みます。"
+      : "修正カテゴリを解消してから、同じ画面で再preflightしてください。",
+    approvalReachable: approvalGuide.approvalReachable,
+    steps: Object.freeze(steps.map(([stepCategory, label], index) => Object.freeze({
+      order: index + 1,
+      category: stepCategory,
+      label
+    }))),
+    rawValuesIncluded: false,
+    googleSheetsConnectorRead: false,
+    productionDbOperation: false,
+    stagingWriteRequiresSeparateApproval: true,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false
+  });
+}
+
 function renderTalent28CsvReceiptText(receipt) {
   const categoryText = {
     READY_FOR_OWNER_DECISION: "投入前確認へ進めます",
@@ -555,7 +592,11 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
   const correctionWorkbench = documentObject?.getElementById?.("talent-28-csv-correction-workbench");
   const stagingApprovalGuide = documentObject?.getElementById?.("talent-28-csv-staging-approval-guide");
   const ownerHandoffChecklist = documentObject?.getElementById?.("talent-28-csv-owner-handoff-checklist");
-  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute || !correctionWorkbench || !stagingApprovalGuide || !ownerHandoffChecklist) return Object.freeze({ initialized: false });
+  const approvalReadback = documentObject?.getElementById?.("talent-28-csv-approval-readback");
+  const approvalReadbackTitle = documentObject?.getElementById?.("talent-28-csv-approval-readback-title");
+  const approvalReadbackCopy = documentObject?.getElementById?.("talent-28-csv-approval-readback-copy");
+  const approvalReadbackSteps = documentObject?.getElementById?.("talent-28-csv-approval-readback-steps");
+  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute || !correctionWorkbench || !stagingApprovalGuide || !ownerHandoffChecklist || !approvalReadback || !approvalReadbackTitle || !approvalReadbackCopy || !approvalReadbackSteps) return Object.freeze({ initialized: false });
   if (input.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true });
   input.dataset.bound = "true";
   const preparation = buildTalent28CsvPreparationGuide();
@@ -626,6 +667,16 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
     const handoffChecklist = buildTalent28CsvOwnerHandoffChecklist(result);
     ownerHandoffChecklist.dataset.category = handoffChecklist.category;
     ownerHandoffChecklist.replaceChildren(...handoffChecklist.steps.map((step) => {
+      const item = documentObject.createElement("li");
+      item.dataset.category = step.category;
+      item.textContent = `${step.order}. ${step.label}`;
+      return item;
+    }));
+    const readback = buildTalent28CsvApprovalReadback(result);
+    approvalReadback.dataset.category = readback.category;
+    approvalReadbackTitle.textContent = readback.title;
+    approvalReadbackCopy.textContent = readback.copy;
+    approvalReadbackSteps.replaceChildren(...readback.steps.map((step) => {
       const item = documentObject.createElement("li");
       item.dataset.category = step.category;
       item.textContent = `${step.order}. ${step.label}`;

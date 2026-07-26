@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { analyzeTalent28CsvPreflight, buildTalent28CsvCorrectionRoute, buildTalent28CsvCorrectionWorkbench, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvOwnerHandoffChecklist, buildTalent28CsvPreparationGuide, buildTalent28CsvSafeReceipt, buildTalent28CsvStagingApprovalGuide, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
+import { analyzeTalent28CsvPreflight, buildTalent28CsvApprovalReadback, buildTalent28CsvCorrectionRoute, buildTalent28CsvCorrectionWorkbench, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvOwnerHandoffChecklist, buildTalent28CsvPreparationGuide, buildTalent28CsvSafeReceipt, buildTalent28CsvStagingApprovalGuide, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
 
 const header = [
   "source_row_no", "graduation_year", "source_type", "source_label", "student_name", "student_name_kana",
@@ -42,6 +42,34 @@ test("28卒 CSV staging approval guide stays separate from writes", async () => 
   assert.equal(ready.rawValuesIncluded, false);
   assert.match(html, /talent-28-csv-staging-approval-guide/);
   assert.match(css, /\.csv-staging-approval-guide/);
+});
+
+test("28卒 CSV approval readback prevents premature staging approval", async () => {
+  const html = await readFile(new URL("../portal/talent/index.html", import.meta.url), "utf8");
+  const css = await readFile(new URL("../portal/talent/style.css", import.meta.url), "utf8");
+  const blocked = buildTalent28CsvApprovalReadback({
+    fixedCategory: "CSV_REQUIRED_IDENTITY_INCOMPLETE",
+    readiness: { canRequestStagingPreflight: false },
+    counts: { missingIdentityRows: 1 }
+  });
+  const ready = buildTalent28CsvApprovalReadback({
+    fixedCategory: "PASS",
+    readiness: { canRequestStagingPreflight: true },
+    counts: { totalRows: 3, readyRows: 3, quarantineRows: 0 }
+  });
+
+  assert.equal(blocked.category, "FIX_BEFORE_READBACK");
+  assert.equal(blocked.approvalReachable, false);
+  assert.deepEqual(blocked.steps.map((step) => step.category), ["FIX_CATEGORY_FIRST", "RESELECT_CSV", "NO_OWNER_APPROVAL_YET"]);
+  assert.equal(ready.category, "READY_TO_READBACK_APPROVAL");
+  assert.equal(ready.approvalReachable, true);
+  assert.deepEqual(ready.steps.map((step) => step.category), ["COUNT_ONLY", "STAGING_ONLY", "NO_PROMOTION"]);
+  assert.equal(ready.rawValuesIncluded, false);
+  assert.equal(ready.productionDbOperation, false);
+  assert.equal(ready.canonicalWriteReachable, false);
+  assert.equal(ready.lineHistoryWriteReachable, false);
+  assert.match(html, /talent-28-csv-approval-readback/);
+  assert.match(css, /\.csv-approval-readback/);
 });
 
 test("28卒 CSV correction workbench shows safe field groups before staging approval", async () => {

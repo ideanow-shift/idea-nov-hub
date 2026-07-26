@@ -267,6 +267,41 @@ export function buildWorkforceProcedureOperationSteps(summary) {
   });
 }
 
+export function buildWorkforceProcedureEmptyState({ total = 0, hasActiveFilters = false, activeProcedureType = "ALL" } = {}) {
+  const procedureType = PROCEDURE_TYPES.includes(activeProcedureType) ? activeProcedureType : "ALL";
+  const category = total === 0
+    ? "NO_CASES"
+    : hasActiveFilters
+      ? "FILTERED_EMPTY"
+      : "NO_VISIBLE_CASES";
+  const title = {
+    NO_CASES: "手続き案件はまだありません",
+    FILTERED_EMPTY: "条件に合う案件はありません",
+    NO_VISIBLE_CASES: "表示できる案件はありません"
+  }[category];
+  const copy = {
+    NO_CASES: procedureType === "ALL"
+      ? "入社・異動・休職復職・退職の案件を登録すると、期限順に処理できます。"
+      : `${procedureLabel(procedureType)}の案件を登録すると、このキューで追跡できます。`,
+    FILTERED_EMPTY: "絞り込み条件を解除すると、ほかの案件を確認できます。",
+    NO_VISIBLE_CASES: "Core DB正本は読み取り専用です。案件登録または表示条件を確認してください。"
+  }[category];
+  const action = {
+    NO_CASES: "案件を登録",
+    FILTERED_EMPTY: "絞り込みを解除",
+    NO_VISIBLE_CASES: "表示条件を確認"
+  }[category];
+  return Object.freeze({
+    category,
+    title,
+    copy,
+    action,
+    canReset: category === "FILTERED_EMPTY",
+    rawValuesIncluded: false,
+    employeeMasterMutation: false
+  });
+}
+
 export function buildWorkforceProcedureTypeSummary(cases, referenceDate = localDateIso()) {
   const rows = Array.isArray(cases) ? cases : [];
   return Object.freeze(Object.fromEntries(PROCEDURE_TYPES.map((procedureType) => {
@@ -863,16 +898,44 @@ export function initializeWorkforceProcedureDesk({
     ), activeSearch));
     renderOverview(visibleCases.length);
     if (visibleCases.length === 0) {
-      const empty = documentObject.createElement("p");
+      const emptyState = buildWorkforceProcedureEmptyState({
+        total: cases.length,
+        hasActiveFilters: hasActiveFilters(),
+        activeProcedureType
+      });
+      const empty = documentObject.createElement("section");
       empty.className = "procedure-case-empty";
-      empty.textContent = cases.length === 0 ? "登録済みの手続き案件はありません。" : "この進捗の手続き案件はありません。";
-      if (hasActiveFilters()) {
+      empty.dataset.category = emptyState.category;
+      const body = documentObject.createElement("div");
+      const title = documentObject.createElement("strong");
+      const copy = documentObject.createElement("span");
+      title.textContent = emptyState.title;
+      copy.textContent = emptyState.copy;
+      body.append(title, copy);
+      empty.append(body);
+      if (emptyState.canReset) {
         const resetButton = documentObject.createElement("button");
         resetButton.type = "button";
         resetButton.className = "case-edit-button procedure-case-empty-reset";
-        resetButton.textContent = "絞り込みを解除";
+        resetButton.textContent = emptyState.action;
         resetButton.addEventListener("click", resetFilters);
         empty.append(resetButton);
+      } else if (emptyState.category === "NO_CASES") {
+        const newButton = documentObject.createElement("button");
+        newButton.type = "button";
+        newButton.className = "case-edit-button procedure-case-empty-new";
+        newButton.textContent = emptyState.action;
+        newButton.addEventListener("click", () => {
+          reset();
+          input("procedureType").value = PROCEDURE_TYPES.includes(activeProcedureType) ? activeProcedureType : getActiveWorkforceProcedureType(documentObject);
+          form.dataset.currentStatus = "NEW";
+          renderFormGuide();
+          renderChecklistPlan();
+          renderTransitionPlan();
+          form.hidden = false;
+          form.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+        });
+        empty.append(newButton);
       }
       list.append(empty);
       return;

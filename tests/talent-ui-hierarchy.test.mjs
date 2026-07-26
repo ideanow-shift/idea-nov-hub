@@ -324,6 +324,8 @@ test("workforce exposes an audited procedure case desk without employee-master c
   assert.match(source, /employeeMasterMutation: false/);
   assert.match(source, /const resetFilters/);
   assert.match(source, /procedure-case-empty-reset/);
+  assert.match(source, /buildWorkforceProcedureEmptyState/);
+  assert.match(source, /procedure-case-empty-new/);
   assert.match(source, /buildWorkforceProcedureTypeSummary/);
   assert.match(source, /data-procedure-type-summary/);
   assert.match(source, /optimisticConcurrency: true/);

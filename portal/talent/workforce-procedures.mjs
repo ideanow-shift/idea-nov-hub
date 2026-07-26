@@ -574,6 +574,54 @@ export function buildWorkforceProcedureCoreHandoffReadback(queue) {
   });
 }
 
+export function buildWorkforceProcedureCoreHandoffFinalCheck(queue) {
+  const normalized = queue && typeof queue === "object" ? queue : buildWorkforceProcedureCoreHandoffQueue([]);
+  const ready = Number(normalized.handoffReady || 0);
+  const inProgress = Number(normalized.localInProgress || 0);
+  const category = ready > 0
+    ? inProgress > 0 ? "HANDOFF_READY_WITH_LOCAL_WORK" : "HANDOFF_READY_FOR_SEPARATE_APPROVAL"
+    : inProgress > 0 ? "LOCAL_WORK_BEFORE_HANDOFF" : "NO_CORE_HANDOFF_WORK";
+  const labels = {
+    HANDOFF_READY_FOR_SEPARATE_APPROVAL: [
+      ["CONFIRMED_ONLY", "確認済み案件だけをCore DB引き渡し候補にする"],
+      ["READBACK_COUNTS", "件数カテゴリだけで読み合わせる"],
+      ["SEPARATE_MASTER_APPROVAL", "社員マスタ反映は別承認まで実行しない"]
+    ],
+    HANDOFF_READY_WITH_LOCAL_WORK: [
+      ["SPLIT_CONFIRMED", "確認済み案件と対応中案件を混ぜない"],
+      ["FINISH_LOCAL_WORK", "下書き・確認待ちは画面内で完了させる"],
+      ["SEPARATE_MASTER_APPROVAL", "社員マスタ反映は別承認まで実行しない"]
+    ],
+    LOCAL_WORK_BEFORE_HANDOFF: [
+      ["NO_CONFIRMED_CASES", "引き渡し候補はまだZERO"],
+      ["COMPLETE_CASES", "案件入力・確認項目・履歴を整える"],
+      ["KEEP_READ_ONLY_MASTER", "Core DB正本は読み取り専用のまま扱う"]
+    ],
+    NO_CORE_HANDOFF_WORK: [
+      ["KEEP_INTAKE_OPEN", "通常の案件受付を継続する"],
+      ["WATCH_CONFIRMED", "確認済み案件が出たら候補化する"],
+      ["NO_MASTER_MUTATION", "社員マスタ反映は行わない"]
+    ]
+  }[category];
+  return Object.freeze({
+    category,
+    steps: Object.freeze(labels.map(([stepCategory, label], index) => Object.freeze({
+      order: index + 1,
+      category: stepCategory,
+      label
+    }))),
+    handoffReadyCategory: String(normalized.handoffReadyCategory || "ZERO"),
+    localInProgressCategory: String(normalized.localInProgressCategory || "ZERO"),
+    cancelledCategory: String(normalized.cancelledCategory || "ZERO"),
+    rawValuesIncluded: false,
+    coreDbWriteRequiresSeparateApproval: true,
+    employeeMasterMutation: false,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false,
+    automaticPromotionReachable: false
+  });
+}
+
 export function buildWorkforceProcedureEmptyState({ total = 0, hasActiveFilters = false, activeProcedureType = "ALL" } = {}) {
   const procedureType = PROCEDURE_TYPES.includes(activeProcedureType) ? activeProcedureType : "ALL";
   const category = total === 0

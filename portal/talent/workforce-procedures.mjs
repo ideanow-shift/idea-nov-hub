@@ -1215,6 +1215,10 @@ export function initializeWorkforceProcedureDesk({
   const coreHandoffReadbackTitle = documentObject?.getElementById?.("workforce-case-core-handoff-readback-title");
   const coreHandoffReadbackCopy = documentObject?.getElementById?.("workforce-case-core-handoff-readback-copy");
   const coreHandoffReadbackSteps = documentObject?.getElementById?.("workforce-case-core-handoff-readback-steps");
+  const coreHandoffFinalCheck = documentObject?.getElementById?.("workforce-case-core-handoff-final-check");
+  const coreHandoffFinalCheckTitle = documentObject?.getElementById?.("workforce-case-core-handoff-final-check-title");
+  const coreHandoffFinalCheckCopy = documentObject?.getElementById?.("workforce-case-core-handoff-final-check-copy");
+  const coreHandoffFinalCheckSteps = documentObject?.getElementById?.("workforce-case-core-handoff-final-check-steps");
   const operationSteps = documentObject?.getElementById?.("workforce-case-operation-steps");
   const procedureFilter = documentObject?.getElementById?.("workforce-case-procedure-filter");
   const searchInput = documentObject?.getElementById?.("workforce-case-search");
@@ -1237,7 +1241,7 @@ export function initializeWorkforceProcedureDesk({
   const transitionPlanTitle = documentObject?.getElementById?.("workforce-case-transition-plan-title");
   const transitionPlanCopy = documentObject?.getElementById?.("workforce-case-transition-plan-copy");
   const transitionPlanList = documentObject?.getElementById?.("workforce-case-transition-plan-list");
-  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !operationActionMix || !operationActionMixTitle || !operationActionMixCopy || !operationStartGuide || !operationStartTitle || !operationStartCopy || !operationStartReason || !operationStartButton || !coreHandoffQueue || !coreHandoffTitle || !coreHandoffCopy || !coreHandoffSteps || !coreHandoffReadback || !coreHandoffReadbackTitle || !coreHandoffReadbackCopy || !coreHandoffReadbackSteps || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy || !checklistPlan || !checklistPlanTitle || !checklistPlanCopy || !checklistPlanList || !savePreview || !savePreviewTitle || !savePreviewCopy || !saveFollowUp || !saveFollowUpTitle || !saveFollowUpCopy || !saveFollowUpSteps || !transitionPlan || !transitionPlanTitle || !transitionPlanCopy || !transitionPlanList) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !operationActionMix || !operationActionMixTitle || !operationActionMixCopy || !operationStartGuide || !operationStartTitle || !operationStartCopy || !operationStartReason || !operationStartButton || !coreHandoffQueue || !coreHandoffTitle || !coreHandoffCopy || !coreHandoffSteps || !coreHandoffReadback || !coreHandoffReadbackTitle || !coreHandoffReadbackCopy || !coreHandoffReadbackSteps || !coreHandoffFinalCheck || !coreHandoffFinalCheckTitle || !coreHandoffFinalCheckCopy || !coreHandoffFinalCheckSteps || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy || !checklistPlan || !checklistPlanTitle || !checklistPlanCopy || !checklistPlanList || !savePreview || !savePreviewTitle || !savePreviewCopy || !saveFollowUp || !saveFollowUpTitle || !saveFollowUpCopy || !saveFollowUpSteps || !transitionPlan || !transitionPlanTitle || !transitionPlanCopy || !transitionPlanList) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
@@ -1484,6 +1488,18 @@ export function initializeWorkforceProcedureDesk({
     coreHandoffReadbackTitle.textContent = readback.title;
     coreHandoffReadbackCopy.textContent = readback.copy;
     coreHandoffReadbackSteps.replaceChildren(...readback.steps.map((step) => {
+      const item = documentObject.createElement("li");
+      item.dataset.category = step.category;
+      item.textContent = `${step.order}. ${step.label}`;
+      return item;
+    }));
+    const finalCheck = buildWorkforceProcedureCoreHandoffFinalCheck(queue);
+    coreHandoffFinalCheck.dataset.category = finalCheck.category;
+    coreHandoffFinalCheck.dataset.coreDbWriteRequiresSeparateApproval = String(finalCheck.coreDbWriteRequiresSeparateApproval);
+    coreHandoffFinalCheck.dataset.employeeMasterMutationReachable = String(finalCheck.employeeMasterMutationReachable);
+    coreHandoffFinalCheckTitle.textContent = finalCheck.title;
+    coreHandoffFinalCheckCopy.textContent = finalCheck.copy;
+    coreHandoffFinalCheckSteps.replaceChildren(...finalCheck.steps.map((step) => {
       const item = documentObject.createElement("li");
       item.dataset.category = step.category;
       item.textContent = `${step.order}. ${step.label}`;

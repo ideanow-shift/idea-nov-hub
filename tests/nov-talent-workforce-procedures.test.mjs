@@ -491,6 +491,9 @@ test("workforce procedure core handoff queue keeps employee master writes separa
   assert.match(html, /workforce-case-core-handoff-queue/);
   assert.match(html, /workforce-case-core-handoff-steps/);
   assert.match(html, /workforce-case-core-handoff-readback/);
+  assert.match(html, /workforce-case-core-handoff-final-check/);
+  assert.match(source, /dataset\.coreDbWriteRequiresSeparateApproval/);
+  assert.match(source, /dataset\.employeeMasterMutationReachable/);
   assert.match(css, /procedure-case-core-handoff-queue/);
   assert.match(css, /procedure-case-core-handoff-steps/);
   assert.match(css, /procedure-case-core-handoff-readback/);

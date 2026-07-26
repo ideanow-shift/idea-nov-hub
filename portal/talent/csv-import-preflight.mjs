@@ -34,6 +34,9 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
     quarantineRows: 0,
     invalidYearRows: 0,
     invalidSourceRows: 0,
+    contactsRows: 0,
+    entriesRows: 0,
+    offersRows: 0,
     missingIdentityRows: 0,
     invalidDateRows: 0,
     inconsistentQuarantineRows: 0
@@ -44,7 +47,8 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
     counts.totalRows += 1;
     const value = (name) => String(row[index[name]] ?? "").trim();
     const yearOk = value("graduation_year") === "2028";
-    const sourceOk = SOURCE_TYPES_28.includes(value("source_type"));
+    const sourceType = value("source_type");
+    const sourceOk = SOURCE_TYPES_28.includes(sourceType);
     const identityOk = value("student_name") !== "" && value("school_name") !== "" && [value("phone"), value("email"), value("line_name")].some(Boolean);
     const datesOk = [value("event_date"), value("next_action_date")].every((date) => date === "" || /^\d{4}-\d{2}-\d{2}$/.test(date));
     const quarantineFlag = value("quarantine_flag");
@@ -52,6 +56,9 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
     const quarantineOk = ["TRUE", "FALSE"].includes(quarantineFlag) && (quarantineFlag === "FALSE" || quarantineReason !== "");
     if (!yearOk) counts.invalidYearRows += 1;
     if (!sourceOk) counts.invalidSourceRows += 1;
+    if (sourceType === "CONTACTS_28") counts.contactsRows += 1;
+    if (sourceType === "ENTRIES_28") counts.entriesRows += 1;
+    if (sourceType === "OFFERS_28") counts.offersRows += 1;
     if (!identityOk) counts.missingIdentityRows += 1;
     if (!datesOk) counts.invalidDateRows += 1;
     if (!quarantineOk) counts.inconsistentQuarantineRows += 1;
@@ -96,6 +103,9 @@ function safeSummary(fixedCategory, headerCategory, partialCounts = {}) {
       quarantineRows: 0,
       invalidYearRows: 0,
       invalidSourceRows: 0,
+      contactsRows: 0,
+      entriesRows: 0,
+      offersRows: 0,
       missingIdentityRows: 0,
       invalidDateRows: 0,
       inconsistentQuarantineRows: 0,
@@ -175,8 +185,10 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
       ["行数", result.counts.totalRows],
       ["投入候補", result.counts.readyRows],
       ["隔離候補", result.counts.quarantineRows],
-      ["年度不一致", result.counts.invalidYearRows],
-      ["連絡先/氏名/学校不足", result.counts.missingIdentityRows]
+      ["接触", result.counts.contactsRows],
+      ["エントリー", result.counts.entriesRows],
+      ["内定", result.counts.offersRows],
+      ["要確認", result.counts.invalidYearRows + result.counts.invalidSourceRows + result.counts.missingIdentityRows + result.counts.invalidDateRows + result.counts.inconsistentQuarantineRows]
     ].map(([label, value]) => {
       const item = documentObject.createElement("div");
       const term = documentObject.createElement("dt");

@@ -47,6 +47,29 @@ test("daily command center opens safe work areas without writes", async () => {
   assert.doesNotMatch(html, /data-talent-daily-open[\s\S]{0,260}(commit|promotion|LINE履歴|社員マスタへ直接反映)/i);
 });
 
+test("implementation progress board shows remaining work without enabling writes", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const css = await readFile(new URL("style.css", root), "utf8");
+
+  assert.match(html, /id="talent-implementation-progress"/);
+  assert.match(html, /id="talent-next-build-targets"/);
+  assert.match(html, /data-complete-percent="80" data-remaining-percent="20"/);
+  for (const area of ["STUDENT_FOLLOWUP", "ANALYTICS_ACTION", "CSV28_INTAKE", "WORKFORCE_CASES"]) {
+    assert.match(html, new RegExp(`data-progress-area="${area}"`));
+  }
+  for (const target of ["WORKFORCE_HANDOFF", "CSV28_PREVIEW", "STUDENT_REVIEW"]) {
+    assert.match(html, new RegExp(`data-next-build-target="${target}"`));
+  }
+  assert.match(html, /DB書込み、canonical昇格、LINE履歴、promotion、社員マスタ反映は別承認まで停止/);
+  assert.match(css, /\.talent-implementation-progress/);
+  assert.match(css, /\.talent-progress-grid/);
+  assert.match(css, /\.talent-next-build-targets/);
+  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-progress-grid \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
+  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-next-build-targets \{ grid-template-columns: 1fr; \}/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.talent-progress-grid \{ grid-template-columns: 1fr; \}/);
+  assert.doesNotMatch(html, /talent-implementation-progress[\s\S]{0,1200}(data-.*write|commit|社員マスタへ直接反映)/i);
+});
+
 test("recruitment subtabs stay visually and semantically below the primary tabs", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
   const app = await readFile(new URL("app.mjs", root), "utf8");

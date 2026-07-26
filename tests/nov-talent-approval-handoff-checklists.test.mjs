@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import {
   buildReviewWorkloadApprovalGuide,
   buildReviewWorkloadApprovalSteps,
+  buildReviewWorkloadCompletionSummary,
   buildReviewWorkloadGuide
 } from "../portal/talent/app.mjs";
 import { buildTalent28CsvOwnerHandoffChecklist } from "../portal/talent/csv-import-preflight.mjs";
@@ -47,6 +48,7 @@ test("27卒 review workload approval steps separate bulk and individual decision
   ]);
   const approvalGuide = buildReviewWorkloadApprovalGuide(guide);
   const approvalSteps = buildReviewWorkloadApprovalSteps(approvalGuide);
+  const completion = buildReviewWorkloadCompletionSummary(guide);
   const individualSteps = buildReviewWorkloadApprovalSteps(
     buildReviewWorkloadApprovalGuide(buildReviewWorkloadGuide([
       { mappingStatus: "UNMAPPED", sourceCode: "OFFERS_27", suggestionCategory: "NONE" }
@@ -62,7 +64,17 @@ test("27卒 review workload approval steps separate bulk and individual decision
   assert.equal(approvalSteps.canonicalWriteReachable, false);
   assert.equal(approvalSteps.lineHistoryWriteReachable, false);
   assert.equal(approvalSteps.automaticPromotionReachable, false);
+  assert.equal(completion.category, "BULK_REVIEW_READY");
+  assert.deepEqual(completion.metrics.map((metric) => metric.category), ["BULK_REVIEW", "INDIVIDUAL_REVIEW", "QUARANTINE_REVIEW"]);
+  assert.deepEqual(completion.metrics.map((metric) => metric.countCategory), ["ONE", "ONE", "ONE"]);
+  assert.equal(completion.rawValuesIncluded, false);
+  assert.equal(completion.canonicalWriteReachable, false);
+  assert.equal(completion.lineHistoryWriteReachable, false);
+  assert.equal(completion.automaticPromotionReachable, false);
   assert.match(html, /review-workload-approval-steps/);
+  assert.match(html, /review-workload-completion-summary/);
   assert.match(css, /\.review-workload-approval-steps/);
+  assert.match(css, /\.review-workload-completion-summary/);
   assert.match(app, /buildReviewWorkloadApprovalSteps/);
+  assert.match(app, /buildReviewWorkloadCompletionSummary/);
 });

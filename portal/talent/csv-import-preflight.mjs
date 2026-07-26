@@ -465,6 +465,45 @@ export function buildTalent28CsvApprovalReadback(result) {
   });
 }
 
+export function buildTalent28CsvApprovalBoundary(result) {
+  const readback = buildTalent28CsvApprovalReadback(result);
+  const category = readback.approvalReachable
+    ? "READY_TO_PREPARE_OWNER_TEXT"
+    : "BLOCK_OWNER_TEXT";
+  const checks = category === "READY_TO_PREPARE_OWNER_TEXT"
+    ? [
+        ["LOCAL_PREFLIGHT_PASS", "Use only the local CSV preflight result categories."],
+        ["STAGING_EXACT1_ONLY", "The next approval can only cover production staging exact1."],
+        ["NO_CANONICAL_OR_LINE", "Canonical, promotion, and LINE history remain out of scope."],
+        ["NO_RAW_VALUES", "Do not paste row values, IDs, contacts, digest, or raw errors."]
+      ]
+    : [
+        ["FIX_FIRST", "Fix the current CSV category before preparing approval text."],
+        ["RERUN_LOCAL_PREFLIGHT", "Select the corrected CSV and rerun local preflight once."],
+        ["NO_PREMATURE_APPROVAL", "Do not ask for staging approval while the local result is blocked."]
+      ];
+  return Object.freeze({
+    category,
+    title: category === "READY_TO_PREPARE_OWNER_TEXT" ? "Owner approval boundary is ready" : "Owner approval boundary is blocked",
+    copy: category === "READY_TO_PREPARE_OWNER_TEXT"
+      ? "Prepare the next approval only after confirming these nonsecret boundaries."
+      : "Keep the workflow in CSV correction until the safe categories are ready.",
+    checks: Object.freeze(checks.map(([checkCategory, label], index) => Object.freeze({
+      order: index + 1,
+      category: checkCategory,
+      label
+    }))),
+    approvalReachable: readback.approvalReachable,
+    rawValuesIncluded: false,
+    googleSheetsConnectorRead: false,
+    productionDbOperation: false,
+    stagingWriteRequiresSeparateApproval: true,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false,
+    automaticPromotionReachable: false
+  });
+}
+
 function renderTalent28CsvReceiptText(receipt) {
   const categoryText = {
     READY_FOR_OWNER_DECISION: "投入前確認へ進めます",
@@ -596,7 +635,11 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
   const approvalReadbackTitle = documentObject?.getElementById?.("talent-28-csv-approval-readback-title");
   const approvalReadbackCopy = documentObject?.getElementById?.("talent-28-csv-approval-readback-copy");
   const approvalReadbackSteps = documentObject?.getElementById?.("talent-28-csv-approval-readback-steps");
-  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute || !correctionWorkbench || !stagingApprovalGuide || !ownerHandoffChecklist || !approvalReadback || !approvalReadbackTitle || !approvalReadbackCopy || !approvalReadbackSteps) return Object.freeze({ initialized: false });
+  const approvalBoundary = documentObject?.getElementById?.("talent-28-csv-approval-boundary");
+  const approvalBoundaryTitle = documentObject?.getElementById?.("talent-28-csv-approval-boundary-title");
+  const approvalBoundaryCopy = documentObject?.getElementById?.("talent-28-csv-approval-boundary-copy");
+  const approvalBoundaryChecks = documentObject?.getElementById?.("talent-28-csv-approval-boundary-checks");
+  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute || !correctionWorkbench || !stagingApprovalGuide || !ownerHandoffChecklist || !approvalReadback || !approvalReadbackTitle || !approvalReadbackCopy || !approvalReadbackSteps || !approvalBoundary || !approvalBoundaryTitle || !approvalBoundaryCopy || !approvalBoundaryChecks) return Object.freeze({ initialized: false });
   if (input.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true });
   input.dataset.bound = "true";
   const preparation = buildTalent28CsvPreparationGuide();
@@ -680,6 +723,16 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
       const item = documentObject.createElement("li");
       item.dataset.category = step.category;
       item.textContent = `${step.order}. ${step.label}`;
+      return item;
+    }));
+    const boundary = buildTalent28CsvApprovalBoundary(result);
+    approvalBoundary.dataset.category = boundary.category;
+    approvalBoundaryTitle.textContent = boundary.title;
+    approvalBoundaryCopy.textContent = boundary.copy;
+    approvalBoundaryChecks.replaceChildren(...boundary.checks.map((check) => {
+      const item = documentObject.createElement("li");
+      item.dataset.category = check.category;
+      item.textContent = `${check.order}. ${check.label}`;
       return item;
     }));
     fixGuideList.dataset.category = fixGuide.nextCategory;

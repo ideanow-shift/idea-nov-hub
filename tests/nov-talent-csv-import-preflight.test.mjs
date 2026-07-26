@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { analyzeTalent28CsvPreflight, buildTalent28CsvApprovalReadback, buildTalent28CsvCorrectionRoute, buildTalent28CsvCorrectionWorkbench, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvOwnerHandoffChecklist, buildTalent28CsvPreparationGuide, buildTalent28CsvSafeReceipt, buildTalent28CsvStagingApprovalGuide, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
+import { analyzeTalent28CsvPreflight, buildTalent28CsvApprovalBoundary, buildTalent28CsvApprovalReadback, buildTalent28CsvCorrectionRoute, buildTalent28CsvCorrectionWorkbench, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvOwnerHandoffChecklist, buildTalent28CsvPreparationGuide, buildTalent28CsvSafeReceipt, buildTalent28CsvStagingApprovalGuide, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
 
 const header = [
   "source_row_no", "graduation_year", "source_type", "source_label", "student_name", "student_name_kana",
@@ -68,8 +68,29 @@ test("28卒 CSV approval readback prevents premature staging approval", async ()
   assert.equal(ready.productionDbOperation, false);
   assert.equal(ready.canonicalWriteReachable, false);
   assert.equal(ready.lineHistoryWriteReachable, false);
+  const blockedBoundary = buildTalent28CsvApprovalBoundary({
+    fixedCategory: "CSV_REQUIRED_IDENTITY_INCOMPLETE",
+    readiness: { canRequestStagingPreflight: false },
+    counts: { missingIdentityRows: 1 }
+  });
+  const readyBoundary = buildTalent28CsvApprovalBoundary({
+    fixedCategory: "PASS",
+    readiness: { canRequestStagingPreflight: true },
+    counts: { totalRows: 3, readyRows: 3, quarantineRows: 0 }
+  });
+  assert.equal(blockedBoundary.category, "BLOCK_OWNER_TEXT");
+  assert.equal(blockedBoundary.approvalReachable, false);
+  assert.deepEqual(blockedBoundary.checks.map((check) => check.category), ["FIX_FIRST", "RERUN_LOCAL_PREFLIGHT", "NO_PREMATURE_APPROVAL"]);
+  assert.equal(readyBoundary.category, "READY_TO_PREPARE_OWNER_TEXT");
+  assert.equal(readyBoundary.approvalReachable, true);
+  assert.deepEqual(readyBoundary.checks.map((check) => check.category), ["LOCAL_PREFLIGHT_PASS", "STAGING_EXACT1_ONLY", "NO_CANONICAL_OR_LINE", "NO_RAW_VALUES"]);
+  assert.equal(readyBoundary.rawValuesIncluded, false);
+  assert.equal(readyBoundary.canonicalWriteReachable, false);
+  assert.equal(readyBoundary.lineHistoryWriteReachable, false);
   assert.match(html, /talent-28-csv-approval-readback/);
+  assert.match(html, /talent-28-csv-approval-boundary/);
   assert.match(css, /\.csv-approval-readback/);
+  assert.match(css, /\.csv-approval-boundary/);
 });
 
 test("28卒 CSV correction workbench shows safe field groups before staging approval", async () => {

@@ -387,6 +387,19 @@ h3 { margin: 0; font-size: 1rem; }
 .analysis-table tbody tr:last-child th,
 .analysis-table tbody tr:last-child td { border-bottom: 0; }
 .analysis-table tbody tr:hover { background: var(--accent-soft); }
+.analysis-followup-button {
+  min-height: 32px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 0 10px;
+  color: var(--accent);
+  background: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.analysis-followup-button:hover,
+.analysis-followup-button:focus-visible { background: var(--accent-soft); }
 .analysis-toolbar { align-items: end !important; }
 .analysis-toolbar > div { margin-right: auto; }
 .analysis-toolbar > div span { color: var(--muted); font-size: 0.78rem; }

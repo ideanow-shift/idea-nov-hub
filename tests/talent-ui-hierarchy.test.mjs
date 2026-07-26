@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildOnboardingHandoffDraft, buildSingleStudentReviewProposal, filterTalentStudents, getTalentStudentProgressKey, isNewApplicantCandidate } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildOnboardingHandoffDraft, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, filterTalentStudents, getTalentStudentProgressKey, isNewApplicantCandidate } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -29,6 +29,23 @@ test("recruitment subtabs stay visually and semantically below the primary tabs"
   assert.match(html, /data-secondary-tab="students"[\s\S]*学生フォロー/);
   assert.match(html, /data-secondary-tab="fairs"[\s\S]*フェア分析/);
   assert.match(html, /data-secondary-tab="schools"[\s\S]*学校分析/);
+});
+
+test("school analysis leads directly to a focused student follow-up list", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+
+  assert.deepEqual(buildSchoolFollowUpFilter(" NOV美容専門学校 "), {
+    query: "NOV美容専門学校",
+    source: "ALL",
+    state: "ALL",
+    progress: "ALL"
+  });
+  assert.equal(buildSchoolFollowUpFilter(""), null);
+  assert.match(html, /<th>フォロー<\/th>/);
+  assert.match(app, /button\.textContent = "学生を見る"/);
+  assert.match(app, /openSchoolStudentWorkspace/);
+  assert.match(app, /data-secondary-tab="students"/);
 });
 
 test("workforce management exposes four accessible procedure tabs", async () => {

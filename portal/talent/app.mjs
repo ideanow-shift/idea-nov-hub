@@ -807,18 +807,48 @@ function renderSchoolAnalysis(documentObject, rows) {
   const count = documentObject.getElementById("school-result-count");
   if (count) count.textContent = `${sorted.length}校`;
   if (body) {
-    body.replaceChildren(...sorted.slice(0, 100).map((row) => createAnalysisRow(documentObject, [
-      row.school,
-      row.contacts,
-      row.lineRegistrations,
-      row.entries,
-      row.offers,
-      `${row.entryRate}%`,
-      `${row.offerRate}%`,
-      row.needsAction
-    ])));
+    body.replaceChildren(...sorted.slice(0, 100).map((row) => createSchoolAnalysisRow(documentObject, row)));
   }
   if (empty) empty.hidden = sorted.length > 0;
+}
+
+function createSchoolAnalysisRow(documentObject, school) {
+  const row = createAnalysisRow(documentObject, [
+    school.school,
+    school.contacts,
+    school.lineRegistrations,
+    school.entries,
+    school.offers,
+    `${school.entryRate}%`,
+    `${school.offerRate}%`,
+    school.needsAction
+  ]);
+  const action = documentObject.createElement("td");
+  const button = documentObject.createElement("button");
+  button.type = "button";
+  button.className = "analysis-followup-button";
+  button.textContent = "学生を見る";
+  button.setAttribute("aria-label", `${school.school}の学生フォローを表示`);
+  button.addEventListener("click", () => openSchoolStudentWorkspace(documentObject, school.school));
+  action.append(button);
+  row.append(action);
+  return row;
+}
+
+function openSchoolStudentWorkspace(documentObject, school) {
+  const filter = buildSchoolFollowUpFilter(school);
+  if (!filter) return;
+  const search = documentObject.getElementById("student-search");
+  const source = documentObject.getElementById("student-source-filter");
+  const state = documentObject.getElementById("student-state-filter");
+  const progress = documentObject.getElementById("student-progress-filter");
+  if (search) search.value = filter.query;
+  if (source) source.value = filter.source;
+  if (state) state.value = filter.state;
+  if (progress) progress.value = filter.progress;
+  documentObject.querySelector?.('[data-secondary-tab="students"]')?.click?.();
+  renderStudentWorkspace(documentObject);
+  documentObject.getElementById("recruitment-students")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
 }
 
 function createAnalysisRow(documentObject, values) {
@@ -840,6 +870,12 @@ const TALENT_PROGRESS_CODES = Object.freeze([
 export function getTalentStudentProgressKey(student) {
   const progress = String(student?.statusCode || "");
   return TALENT_PROGRESS_CODES.includes(progress) ? progress : "UNSET";
+}
+
+export function buildSchoolFollowUpFilter(school) {
+  const query = typeof school === "string" ? school.trim() : "";
+  if (!query) return null;
+  return Object.freeze({ query, source: "ALL", state: "ALL", progress: "ALL" });
 }
 
 export function buildOnboardingHandoffDraft(student) {

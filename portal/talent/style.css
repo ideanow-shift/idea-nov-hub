@@ -1403,6 +1403,16 @@ h3 { margin: 0; font-size: 1rem; }
 .primary-action:hover:not(:disabled) { background: #df9fa6; }
 .case-edit-button:hover:not(:disabled),
 .procedure-case-actions button:hover:not(:disabled) { border-color: var(--rose); background: var(--accent-soft); }
+.case-edit-button[data-recommended="true"] {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  background: #fff7f5;
+  box-shadow: inset 0 0 0 1px rgba(198, 99, 84, 0.16);
+}
+.case-edit-button[data-recommended="true"]::before {
+  content: "次 ";
+  font-weight: 900;
+}
 .primary-action:disabled,
 .case-edit-button:disabled,
 .procedure-case-actions button:disabled { color: var(--muted); background: #eef1f4; cursor: not-allowed; }

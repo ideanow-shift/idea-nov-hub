@@ -28,6 +28,9 @@ test("28卒 CSV preflight accepts the sealed column contract without exposing ro
   assert.equal(result.readiness.canRequestStagingPreflight, true);
   assert.equal(result.counts.totalRows, 1);
   assert.equal(result.counts.readyRows, 1);
+  assert.equal(result.counts.rowColumnMismatchRows, 0);
+  assert.equal(result.counts.invalidSourceRowNoRows, 0);
+  assert.equal(result.counts.duplicateSourceRowNoRows, 0);
   assert.equal(result.counts.contactsRows, 1);
   assert.equal(result.counts.entriesRows, 0);
   assert.equal(result.counts.offersRows, 0);
@@ -61,6 +64,26 @@ test("28卒 CSV preflight fails closed on header drift and malformed quarantine 
   const badFlag = analyzeTalent28CsvPreflight(`${header}\n${row(["1", "2028", "OFFERS_28", "offers", "学生 太郎", "", "学校", "", "090", "", "", "", "", "", "", "", "", "", "", "", "", "TRUE", ""])}`);
   assert.equal(badFlag.fixedCategory, "CSV_QUARANTINE_CONTRACT_MISMATCH");
   assert.equal(badFlag.counts.inconsistentQuarantineRows, 1);
+});
+
+test("28卒 CSV preflight fails closed on row shape and source row number drift", () => {
+  const shortRow = analyzeTalent28CsvPreflight(`${header}\n1,2028,CONTACTS_28`);
+  assert.equal(shortRow.fixedCategory, "CSV_ROW_COLUMN_COUNT_MISMATCH");
+  assert.equal(shortRow.counts.rowColumnMismatchRows, 1);
+  assert.equal(shortRow.counts.readyRows, 0);
+
+  const invalidRowNo = analyzeTalent28CsvPreflight(`${header}\n${row(["0", "2028", "CONTACTS_28", "contacts", "学生 太郎", "", "学校", "", "090", "", "", "", "", "", "", "", "", "", "", "", "", "FALSE", ""])}`);
+  assert.equal(invalidRowNo.fixedCategory, "CSV_SOURCE_ROW_NO_INVALID");
+  assert.equal(invalidRowNo.counts.invalidSourceRowNoRows, 1);
+
+  const duplicateRowNo = analyzeTalent28CsvPreflight(`${header}\n${[
+    row(["7", "2028", "CONTACTS_28", "contacts", "学生 太郎", "", "学校", "", "090", "", "", "", "", "", "", "", "", "", "", "", "", "FALSE", ""]),
+    row(["7", "2028", "OFFERS_28", "offers", "学生 次郎", "", "学校", "", "080", "", "", "", "", "", "", "", "", "", "", "", "", "FALSE", ""])
+  ].join("\n")}`);
+  assert.equal(duplicateRowNo.fixedCategory, "CSV_SOURCE_ROW_NO_DUPLICATE");
+  assert.equal(duplicateRowNo.counts.duplicateSourceRowNoRows, 2);
+  assert.equal(duplicateRowNo.counts.readyRows, 0);
+  assert.equal(duplicateRowNo.rawValuesIncluded, false);
 });
 
 test("28卒 CSV readiness distinguishes quarantine-ready and source coverage categories", () => {

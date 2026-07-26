@@ -150,8 +150,10 @@ assert.match(mainSource, /state\.notifications = Array\.isArray\(data\.notificat
 assert.match(mainSource, /state\.announcements = Array\.isArray\(data\.announcements\)[\s\S]*?renderPortal\(\)/, "announcement refresh must also refresh the NOV NAVI view");
 assert.match(dashboardSource, /function getNaviCategoryAudienceHint\(category\)/, "NOVA category audience labels must be centralized");
 assert.match(dashboardSource, /data-navi-category-target/, "NOVA role categories must provide local navigation controls");
+assert.match(dashboardSource, /section\.dataset\.naviCardCount = String\(systems\.length\)/, "NOVA categories must expose only their local card count for responsive layout");
 assert.match(dashboardSource, /target\.scrollIntoView/, "NOVA category controls must use in-page navigation only");
 assert.match(naviStylesSource, /\.navi-role-categories button \{[^}]*min-height: 40px/, "NOVA category controls must meet the mobile touch target");
+assert.match(naviStylesSource, /\.navi-category\[data-navi-card-count="1"\] \.navi-system-grid/, "single-card categories must use the available mobile width");
 assert.match(dashboardSource, /function getNaviLaunchState\(system, app\)/, "NOVA launch labels must be centralized");
 assert.match(dashboardSource, /button\.disabled = !launchState\.enabled/, "unconnected systems must render as disabled controls");
 assert.match(dashboardSource, /const TODAY_KEYS = \["schedule", "tasks", "approvals", "thanks", "inquiries", "growthPoints"\]/, "Today card keys must remain allowlisted");

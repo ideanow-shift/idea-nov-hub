@@ -111,6 +111,7 @@ button.navi-notice:hover { border-color: var(--navi-accent); background: var(--n
 .navi-category { padding: 12px 13px 13px; }
 .navi-category .navi-section-heading { padding-bottom: 7px; border-bottom: 1px solid #f0eeee; }
 .navi-system-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+.navi-category[data-navi-card-count="1"] .navi-system-grid { grid-template-columns: minmax(0, 1fr); }
 .navi-system-card {
   display: grid;
   align-content: start;
@@ -211,6 +212,7 @@ body:has(#nov-navi-dashboard:not([hidden])) .site-header .icon-button:hover { ba
   .navi-notice { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
   .navi-notice-action { grid-column: 2; }
   .navi-system-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .navi-category[data-navi-card-count="1"] .navi-system-grid { grid-template-columns: minmax(0, 1fr); }
   .navi-system-card { gap: 6px; min-height: 124px; padding: 8px; }
   .navi-card-heading { display: grid; }
   .navi-card-heading > div:last-child { width: 100%; grid-template-columns: auto minmax(0, 1fr); grid-auto-flow: column; justify-content: start; justify-items: start; }

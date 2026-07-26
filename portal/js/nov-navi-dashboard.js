@@ -355,6 +355,7 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
     section.id = categoryId;
     section.className = "navi-category";
     section.setAttribute("aria-labelledby", headingId);
+    section.dataset.naviCardCount = String(systems.length);
     section.innerHTML = `<div class="navi-section-heading"><h2 id="${headingId}">${escapeHtml(category)}</h2>${audienceHint ? `<span>${escapeHtml(audienceHint)}</span>` : ""}</div><div class="navi-system-grid"></div>`;
     const grid = section.querySelector(".navi-system-grid");
     grid.append(...systems.map((system) => createSystemCard(system, apps, onOpenApp)));

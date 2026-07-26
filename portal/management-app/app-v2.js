@@ -1206,6 +1206,12 @@ function buildStoreOperatingSnapshotPanel() {
       totalProductivityYen: workingHeadcount ? Math.round((Number(row.technicalSalesYen) + Number(row.productSalesYen)) / workingHeadcount) : null,
       technicalUnitYen: unitPrice?.technicalUnitYen ?? null,
       totalUnitYen: unitPrice?.totalUnitExcludingEcYen ?? null,
+      totalVisitCount: cohort?.totalVisitCount ?? null,
+      newVisitCount: cohort?.newVisitCount ?? null,
+      secondVisitCount: cohort?.secondVisitCount ?? null,
+      thirdVisitCount: cohort?.thirdVisitCount ?? null,
+      fixedVisitCount: cohort?.fixedVisitCount ?? null,
+      repeatRatePercent: cohortRepeatRatePercent(cohort),
       visitCohortSummary: cohortVisitSummary(cohort),
       salesAchievementRatePercent: budget?.salesPlanYen > 0 ? (Number(row.totalSalesYen) / budget.salesPlanYen) * 100 : null,
     });
@@ -1233,7 +1239,7 @@ function buildStoreOperatingSnapshotPanel() {
   wrap.className = "table-wrap embedded local-preview-table";
   const table = document.createElement("table");
   const thead = document.createElement("thead");
-  thead.append(tableRow(["\u5e97\u8217", "\u7dcf\u58f2\u4e0a", "\u76ee\u6a19\u58f2\u4e0a", "\u9054\u6210\u7387", "\u6280\u8853\u58f2\u4e0a", "\u5546\u54c1\u58f2\u4e0a", "\u30df\u30eb\u30dc\u30f3ID\uff08\u88dc\u52a9\uff09", "EC\u58f2\u4e0a", "\u7d4c\u5e38\u640d\u76ca", "\u7a3c\u50cd\u4eba\u6570", "\u6280\u8853\u751f\u7523\u6027", "\u7dcf\u751f\u7523\u6027", "\u6280\u8853\u5358\u4fa1", "\u7dcf\u5358\u4fa1\uff08EC\u9664\u304f\uff09", "\u6765\u5e97\u533a\u5206"], true));
+  thead.append(tableRow(["\u5e97\u8217", "\u7dcf\u58f2\u4e0a", "\u76ee\u6a19\u58f2\u4e0a", "\u9054\u6210\u7387", "\u6280\u8853\u58f2\u4e0a", "\u5546\u54c1\u58f2\u4e0a", "\u30df\u30eb\u30dc\u30f3ID\uff08\u88dc\u52a9\uff09", "EC\u58f2\u4e0a", "\u7d4c\u5e38\u640d\u76ca", "\u7a3c\u50cd\u4eba\u6570", "\u6280\u8853\u751f\u7523\u6027", "\u7dcf\u751f\u7523\u6027", "\u6280\u8853\u5358\u4fa1", "\u7dcf\u5358\u4fa1\uff08EC\u9664\u304f\uff09", "\u7dcf\u6765\u5e97\u6570", "\u65b0\u898f", "2\u56de\u76ee", "3\u56de\u76ee", "\u56fa\u5b9a", "\u30ea\u30d4\u30fc\u30c8\u7387"], true));
   const tbody = document.createElement("tbody");
   tbody.replaceChildren(...rows.map((row) => tableRow([
     row.storeName,
@@ -1250,16 +1256,21 @@ function buildStoreOperatingSnapshotPanel() {
     row.totalProductivityYen != null ? yen.format(row.totalProductivityYen) : "\u6708\u6b21\u4eba\u6570\u5f85\u3061",
     row.technicalUnitYen != null ? yen.format(row.technicalUnitYen) : "\u6765\u5e97\u533a\u5206\u5f85\u3061",
     row.totalUnitYen != null ? yen.format(row.totalUnitYen) : "\u6765\u5e97\u533a\u5206\u5f85\u3061",
-    row.visitCohortSummary,
+    row.totalVisitCount != null ? `${number.format(row.totalVisitCount)}件` : "来店区分CSV待ち",
+    cohortCountAndRate(row.newVisitCount, row.totalVisitCount),
+    cohortCountAndRate(row.secondVisitCount, row.totalVisitCount),
+    cohortCountAndRate(row.thirdVisitCount, row.totalVisitCount),
+    cohortCountAndRate(row.fixedVisitCount, row.totalVisitCount),
+    row.repeatRatePercent != null ? `${percentage.format(row.repeatRatePercent)}%` : "来店区分CSV待ち",
   ])));
   table.append(thead, tbody);
   wrap.append(table);
   section.append(
-    heading("\u5e97\u8217\u55b6\u696d \u6708\u6b21\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8 (" + selectedPeriod + ")"),
-    paragraph("\u7d4c\u7406P/L\u3092\u57fa\u6e96\u306b\u3001\u4eba\u6570\u3068\u6765\u5e97\u533a\u5206\u306f\u540c\u3058\u5e97\u8217\u540d\u30fb\u540c\u3058\u6708\u3067\u7167\u5408\u3067\u304d\u305f\u3082\u306e\u3060\u3051\u3092\u8ffd\u52a0\u3057\u3066\u3044\u307e\u3059\u3002\u672a\u7167\u5408\u306e\u5024\u306f\u88dc\u5b8c\u3057\u307e\u305b\u3093\u3002"),
+    heading("店舗営業 月次スコアカード（12指標） (" + selectedPeriod + ")"),
+    paragraph("経理P/Lを基準に、人員と来店区分は同じ店舗名・同じ月で照合できたものだけを追加しています。未照合の値は補完せず、必要なCSV待ちとして表示します。メニュー分析はこの下の専用表で確認できます。"),
     periodControl,
     wrap,
-    muted("\u9054\u6210\u7387 = \u7dcf\u58f2\u4e0a \u00f7 \u76ee\u6a19\u58f2\u4e0a\u3002\u6280\u8853\u751f\u7523\u6027 = \u6280\u8853\u58f2\u4e0a \u00f7 \u7a3c\u50cd\u4eba\u6570\u3002\u7dcf\u751f\u7523\u6027 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u7a3c\u50cd\u4eba\u6570\u3002\u7dcf\u5358\u4fa1 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u6765\u5e97\u4ef6\u6570\u3002EC\u58f2\u4e0a\u306f\u542b\u3081\u307e\u305b\u3093\u3002\u30df\u30eb\u30dc\u30f3ID\u306f\u5546\u54c1\u58f2\u4e0a\u3068\u91cd\u8907\u306e\u53ef\u80fd\u6027\u304c\u3042\u308b\u305f\u3081\u5408\u8a08\u3057\u307e\u305b\u3093\u3002\u672c\u756a\u4fdd\u5b58\u30fb\u627f\u8a8d\u306f\u7121\u52b9\u3067\u3059\u3002")
+    muted("技術生産性 = 技術売上 ÷ 稼働人数。総生産性 = (技術売上 + 商品売上) ÷ 稼働人数。技術単価 = 技術売上 ÷ 技術客数。総単価 = (技術売上 + 商品売上) ÷ 総来店数。リピート率 = (2回目 + 3回目 + 固定) ÷ 総来店数。EC売上は生産性・総単価に含めません。ミルボンIDは商品売上と重複の可能性があるため合計しません。本番保存・承認は無効です。")
   );
   return section;
 }
@@ -1605,8 +1616,16 @@ function buildStoreVisitCohortPanel() {
 }
 
 function cohortCountAndRate(count, total) {
+  if (!Number.isFinite(Number(count)) || !Number.isFinite(Number(total)) || Number(total) <= 0) return "来店区分CSV待ち";
   const ratio = Number(total) > 0 ? (Number(count) / Number(total)) * 100 : null;
   return ratio == null || !Number.isFinite(ratio) ? `${number.format(Number(count) || 0)}件` : `${number.format(Number(count))}件 (${percentage.format(ratio)}%)`;
+}
+
+function cohortRepeatRatePercent(cohort) {
+  const total = Number(cohort?.totalVisitCount);
+  const repeat = Number(cohort?.secondVisitCount) + Number(cohort?.thirdVisitCount) + Number(cohort?.fixedVisitCount);
+  if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(repeat) || repeat < 0 || repeat > total) return null;
+  return (repeat / total) * 100;
 }
 
 function cohortVisitSummary(cohort) {

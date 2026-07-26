@@ -5307,6 +5307,29 @@ async function parseRequest(request: Request) {
   };
 }
 
+const HUB_HR_AUTHORIZED_DISPLAY_ACTION = "hrAuthorizedDisplayRead";
+const HUB_HR_DISABLED_DATA_CATEGORIES = new Set([
+  "organization_summary_aggregate",
+  "workforce_summary_aggregate",
+]);
+
+function handleHubHrAuthorizedDisplayReadDisabled(payload: JsonRecord) {
+  const keys = Object.keys(payload).sort();
+  if (keys.length !== 1 || keys[0] !== "data_category" ||
+    !HUB_HR_DISABLED_DATA_CATEGORIES.has(String(payload.data_category || ""))) {
+    return jsonResponse({
+      ok: false,
+      code: "INVALID_REQUEST",
+      message: publicMessage("INVALID_REQUEST"),
+    }, 400);
+  }
+  return jsonResponse({
+    ok: false,
+    code: "HR_ACTION_UNAVAILABLE",
+    message: "人事労務機能は現在利用できません。",
+  }, 503);
+}
+
 async function handleHealth() {
   const checks: JsonRecord = {
     supabaseUrlConfigured: Boolean(SUPABASE_URL),
@@ -5365,6 +5388,9 @@ Deno.serve(async (request) => {
     if (routedPathname !== EDGE_FUNCTION_PATH) return fixedNotFoundResponse();
     const { action, token, payload } = await parseRequest(request);
     if (!action) return fixedNotFoundResponse();
+    if (action === HUB_HR_AUTHORIZED_DISPLAY_ACTION) {
+      return handleHubHrAuthorizedDisplayReadDisabled(payload);
+    }
     if (action === "health") return await handleHealth();
     if (action === "exchangeIdeaLinkHandoff") {
       return jsonResponse({ ok: true, handoff: await exchangeIdeaLinkHandoff(payload) });

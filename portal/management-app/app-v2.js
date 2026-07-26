@@ -1161,6 +1161,7 @@ function buildStoreOperatingSnapshotPanel() {
       ecSalesYen: Number(row.ecSalesYen),
       profitYen: Number(row.profitYen),
       workingHeadcount,
+      technicalProductivityYen: workingHeadcount ? Math.round(Number(row.technicalSalesYen) / workingHeadcount) : null,
       totalProductivityYen: workingHeadcount ? Math.round((Number(row.technicalSalesYen) + Number(row.productSalesYen)) / workingHeadcount) : null,
       technicalUnitYen: unitPrice?.technicalUnitYen ?? null,
       totalUnitYen: unitPrice?.totalUnitExcludingEcYen ?? null,
@@ -1190,7 +1191,7 @@ function buildStoreOperatingSnapshotPanel() {
   wrap.className = "table-wrap embedded local-preview-table";
   const table = document.createElement("table");
   const thead = document.createElement("thead");
-  thead.append(tableRow(["\u5e97\u8217", "\u7dcf\u58f2\u4e0a", "\u6280\u8853\u58f2\u4e0a", "\u5546\u54c1\u58f2\u4e0a", "\u30df\u30eb\u30dc\u30f3ID\uff08\u88dc\u52a9\uff09", "EC\u58f2\u4e0a", "\u7d4c\u5e38\u640d\u76ca", "\u7a3c\u50cd\u4eba\u6570", "\u7dcf\u751f\u7523\u6027", "\u6280\u8853\u5358\u4fa1", "\u7dcf\u5358\u4fa1\uff08EC\u9664\u304f\uff09", "\u6765\u5e97\u533a\u5206"], true));
+  thead.append(tableRow(["\u5e97\u8217", "\u7dcf\u58f2\u4e0a", "\u6280\u8853\u58f2\u4e0a", "\u5546\u54c1\u58f2\u4e0a", "\u30df\u30eb\u30dc\u30f3ID\uff08\u88dc\u52a9\uff09", "EC\u58f2\u4e0a", "\u7d4c\u5e38\u640d\u76ca", "\u7a3c\u50cd\u4eba\u6570", "\u6280\u8853\u751f\u7523\u6027", "\u7dcf\u751f\u7523\u6027", "\u6280\u8853\u5358\u4fa1", "\u7dcf\u5358\u4fa1\uff08EC\u9664\u304f\uff09", "\u6765\u5e97\u533a\u5206"], true));
   const tbody = document.createElement("tbody");
   tbody.replaceChildren(...rows.map((row) => tableRow([
     row.storeName,
@@ -1201,6 +1202,7 @@ function buildStoreOperatingSnapshotPanel() {
     Number.isFinite(row.ecSalesYen) ? yen.format(row.ecSalesYen) : "\u672a\u78ba\u5b9a",
     Number.isFinite(row.profitYen) ? yen.format(row.profitYen) : "\u672a\u78ba\u5b9a",
     row.workingHeadcount ? number.format(row.workingHeadcount) + "\u540d" : "\u6708\u6b21\u4eba\u6570\u5f85\u3061",
+    row.technicalProductivityYen != null ? yen.format(row.technicalProductivityYen) : "\u6708\u6b21\u4eba\u6570\u5f85\u3061",
     row.totalProductivityYen != null ? yen.format(row.totalProductivityYen) : "\u6708\u6b21\u4eba\u6570\u5f85\u3061",
     row.technicalUnitYen != null ? yen.format(row.technicalUnitYen) : "\u6765\u5e97\u533a\u5206\u5f85\u3061",
     row.totalUnitYen != null ? yen.format(row.totalUnitYen) : "\u6765\u5e97\u533a\u5206\u5f85\u3061",
@@ -1213,7 +1215,7 @@ function buildStoreOperatingSnapshotPanel() {
     paragraph("\u7d4c\u7406P/L\u3092\u57fa\u6e96\u306b\u3001\u4eba\u6570\u3068\u6765\u5e97\u533a\u5206\u306f\u540c\u3058\u5e97\u8217\u540d\u30fb\u540c\u3058\u6708\u3067\u7167\u5408\u3067\u304d\u305f\u3082\u306e\u3060\u3051\u3092\u8ffd\u52a0\u3057\u3066\u3044\u307e\u3059\u3002\u672a\u7167\u5408\u306e\u5024\u306f\u88dc\u5b8c\u3057\u307e\u305b\u3093\u3002"),
     periodControl,
     wrap,
-    muted("\u7dcf\u751f\u7523\u6027 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u7a3c\u50cd\u4eba\u6570\u3002\u7dcf\u5358\u4fa1 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u6765\u5e97\u4ef6\u6570\u3002EC\u58f2\u4e0a\u306f\u542b\u3081\u307e\u305b\u3093\u3002\u30df\u30eb\u30dc\u30f3ID\u306f\u5546\u54c1\u58f2\u4e0a\u3068\u91cd\u8907\u306e\u53ef\u80fd\u6027\u304c\u3042\u308b\u305f\u3081\u5408\u8a08\u3057\u307e\u305b\u3093\u3002\u672c\u756a\u4fdd\u5b58\u30fb\u627f\u8a8d\u306f\u7121\u52b9\u3067\u3059\u3002")
+    muted("\u6280\u8853\u751f\u7523\u6027 = \u6280\u8853\u58f2\u4e0a \u00f7 \u7a3c\u50cd\u4eba\u6570\u3002\u7dcf\u751f\u7523\u6027 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u7a3c\u50cd\u4eba\u6570\u3002\u7dcf\u5358\u4fa1 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u6765\u5e97\u4ef6\u6570\u3002EC\u58f2\u4e0a\u306f\u542b\u3081\u307e\u305b\u3093\u3002\u30df\u30eb\u30dc\u30f3ID\u306f\u5546\u54c1\u58f2\u4e0a\u3068\u91cd\u8907\u306e\u53ef\u80fd\u6027\u304c\u3042\u308b\u305f\u3081\u5408\u8a08\u3057\u307e\u305b\u3093\u3002\u672c\u756a\u4fdd\u5b58\u30fb\u627f\u8a8d\u306f\u7121\u52b9\u3067\u3059\u3002")
   );
   return section;
 }

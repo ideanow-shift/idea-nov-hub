@@ -135,7 +135,7 @@ function createSystemCard(system, apps, onOpenApp) {
 const LEGACY_HOME_HIDDEN_STATE = new WeakMap();
 
 function toggleLegacyHome(enabled) {
-  [".concierge-entry"].forEach((selector) => {
+  [".concierge-entry", "#notice-heading", "#featured-heading"].forEach((selector) => {
     const element = document.querySelector(selector);
     const section = element?.closest("section");
     if (!section) return;

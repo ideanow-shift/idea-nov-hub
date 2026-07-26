@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-workforce-boundaries-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-workforce-checklist-plan-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-workforce-boundaries-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-workforce-checklist-plan-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -621,6 +621,13 @@
           <section id="workforce-case-form-guide" class="procedure-case-form-guide" aria-live="polite">
             <strong id="workforce-case-form-guide-title">案件の次の操作を確認します</strong>
             <span id="workforce-case-form-guide-copy">進捗と基準日に応じて、担当者が次に更新する内容を表示します。</span>
+          </section>
+          <section id="workforce-case-checklist-plan" class="procedure-case-checklist-plan" aria-live="polite">
+            <div>
+              <strong id="workforce-case-checklist-plan-title">手続き別の確認項目</strong>
+              <span id="workforce-case-checklist-plan-copy">手続きを選ぶと、完了前に確認する4項目を表示します。</span>
+            </div>
+            <ol id="workforce-case-checklist-plan-list"></ol>
           </section>
           <div class="procedure-case-actions"><button id="workforce-case-cancel" type="button">閉じる</button><button type="submit" class="primary-action">保存</button></div>
         </form>

@@ -838,6 +838,7 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
     buildFinancialVisibleScope(preview),
     paragraph(duplicateMessage || `${preview.selectedPeriodLabel}の店舗候補だけを仮表示しています。店舗候補 ${number.format(preview.entityCandidateCount || 0)}件 / 除外・要確認 ${number.format(preview.reviewCandidateCount || 0)}件。候補mappingは${preview.mappingConfirmationStatus === "LOCAL_EVIDENCE_RECEIVED" ? "ローカル回答確認済み（本番未承認）" : "経理確認前"}で、DB保存・本番投入・個人情報表示はありません。`),
     buildStoreAnalysisFormulaPanel(),
+    buildStoreAnalysisDataCoveragePanel(preview),
     ...(customerPanel ? [customerPanel] : []),
     ...(repeatPanel ? [repeatPanel] : []),
     ...(visitCohortPanel ? [visitCohortPanel] : []),
@@ -873,6 +874,37 @@ function buildStoreAnalysisFormulaPanel() {
     return item;
   }));
   return panel;
+}
+
+function buildStoreAnalysisDataCoveragePanel(preview) {
+  const hasSalesBreakdown = preview.rows.some((row) => row.technicalSalesManYen != null && row.productSalesManYen != null);
+  const hasVisitCohort = Boolean(state.storeVisitCohortPreview?.rows?.length);
+  const hasRepeat = Boolean(state.storeRepeatPreview?.rows?.length);
+  const hasWorkforce = workforceAggregatesVisible;
+  const items = [
+    ["売上・利益", hasSalesBreakdown, "経理P/Lの店舗候補"],
+    ["技術生産性・総生産性", hasSalesBreakdown && hasWorkforce, "経理P/Lと稼働人数の同月照合"],
+    ["技術単価・総単価", hasSalesBreakdown && hasVisitCohort, "技術客数・総来店数CSVの同月照合"],
+    ["新規・2回目・3回目・固定", hasVisitCohort, "来店区分CSV"],
+    ["既存の再来・固定率", hasRepeat, "再来区分サマリCSV"],
+    ["メニュー分析", false, "店舗月次メニュー集計CSVが未到着"],
+  ];
+  const section = document.createElement("section");
+  section.className = "financial-store-analysis-coverage";
+  const list = document.createElement("div");
+  list.className = "financial-store-analysis-coverage-grid";
+  list.replaceChildren(...items.map(([name, ready, source]) => {
+    const item = document.createElement("article");
+    item.dataset.readiness = ready ? "LOCAL_READY" : "DATA_PENDING";
+    item.append(label(name), valueNode(ready ? "ローカル確認可能" : "データ待ち"), muted(source));
+    return item;
+  }));
+  section.append(
+    heading("店舗営業分析のデータ充足状況"),
+    paragraph("ここはローカルで確認できる分析材料の一覧です。店舗名・対象月・稼働人数が一致するまで、確定KPIや本番データには反映しません。"),
+    list
+  );
+  return section;
 }
 
 function buildStoreRepeatCustomerPanel() {

@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-student-empty-state-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-review-mode-note-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-student-empty-state-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-review-mode-note-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -374,6 +374,10 @@
             <h2 id="review-dialog-title">確認候補を反映しますか</h2>
           </header>
           <p>この操作は、表示中の個人値を変更せず、応募者の作成と一致候補の紐付けだけを単一トランザクションで行います。</p>
+          <div id="student-review-mode-note" class="review-mode-note" data-mode="BULK_MATCH_ONLY">
+            <strong id="student-review-mode-title">一括反映は一致候補だけに限定します</strong>
+            <span id="student-review-mode-copy">新規候補・曖昧行・隔離行は含めず、個別確認に残します。</span>
+          </div>
           <dl>
             <div><dt>新規応募者</dt><dd><span id="review-confirm-primary">0</span>件</dd></div>
             <div><dt>自動紐付け</dt><dd><span id="review-confirm-links">0</span>件</dd></div>

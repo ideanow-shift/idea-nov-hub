@@ -1091,12 +1091,18 @@ function createStudentListItem(documentObject, student) {
   const status = documentObject.createElement("span");
   status.className = "student-list-status";
   status.textContent = student.status;
+  const followUpCategory = classifyTalentStudentFollowUp(student);
+  const followUp = documentObject.createElement("span");
+  followUp.className = `student-list-followup is-${followUpCategory.toLowerCase().replaceAll("_", "-")}`;
+  if (followUpCategory !== "UNSCHEDULED") {
+    followUp.textContent = `次回対応 ${student.nextActionAt}`;
+  }
   const reasons = Array.isArray(student.reasonLabels) ? student.reasonLabels.filter(Boolean).slice(0, 2) : [];
   const reason = documentObject.createElement("span");
   reason.className = "student-list-reason";
   reason.textContent = reasons.length ? reasons.join("・") : "";
   if (reasons.length) button.title = `確認事項: ${reasons.join("・")}`;
-  button.append(top, meta, status, reason);
+  button.append(top, meta, status, followUp, reason);
   button.addEventListener("click", () => {
     selectedStudentRecordId = student.recordId;
     renderStudentWorkspace(documentObject);

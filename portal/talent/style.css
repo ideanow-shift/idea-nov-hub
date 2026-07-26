@@ -754,6 +754,13 @@ h3 { margin: 0; font-size: 1rem; }
   white-space: nowrap;
 }
 .student-list-status { color: var(--navy); font-weight: 700; }
+.student-list-followup { display: none; width: fit-content; padding: 3px 7px; border-radius: 4px; color: var(--muted); background: #f2f5f7; font-size: 0.72rem; font-weight: 800; }
+.student-list-followup.is-overdue,
+.student-list-followup.is-next-7-days,
+.student-list-followup.is-scheduled { display: inline-flex; }
+.student-list-followup.is-overdue { color: #b33131; background: #fff0f0; }
+.student-list-followup.is-next-7-days { color: #9a5d00; background: #fff6e4; }
+.student-list-followup.is-scheduled { color: #176f48; background: var(--green-soft); }
 .student-list-reason {
   display: block;
   overflow: hidden;

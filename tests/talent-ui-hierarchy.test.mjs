@@ -85,6 +85,7 @@ test("fair analysis opens a student queue scoped to its selected record month", 
   assert.equal(classifyTalentStudentFollowUp({}, "2026-07-26"), "UNSCHEDULED");
   assert.match(html, /id="student-month-filter"/);
   assert.match(html, /id="student-follow-up-filter"/);
+  assert.match(app, /student-list-followup/);
   assert.match(html, /id="student-filter-reset"/);
   assert.match(app, /updateStudentFilterResetState/);
   assert.match(html, /id="student-detail-next-action"/);

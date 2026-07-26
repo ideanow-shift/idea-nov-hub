@@ -12,7 +12,7 @@ import { createTalentHistoricalReviewController } from "./review.mjs?v=20260725-
 import { buildTalentAnalytics } from "./analytics.mjs?v=20260725-talent-analytics-1";
 import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-review-kpis-1";
 import { createTalentStagingSupplementController } from "./staging-supplement.mjs?v=20260725-staging-edit-1";
-import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260726-talent-28-csv-approval-guide-1";
+import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260726-talent-28-csv-owner-handoff-1";
 import { buildWorkforceReadinessViewModel, renderWorkforceReadiness } from "./workforce-readiness.mjs?v=20260726-workforce-queue-case-prefill-1";
 import { initializeWorkforceProcedureDesk } from "./workforce-procedures.mjs?v=20260726-workforce-boundary-note-1";
 
@@ -718,6 +718,45 @@ export function buildReviewWorkloadApprovalGuide(guide) {
   });
 }
 
+export function buildReviewWorkloadApprovalSteps(approvalGuide) {
+  const category = String(approvalGuide?.category || "NO_REVIEW_WORK");
+  const stepsByCategory = {
+    BULK_APPROVAL_READY: [
+      ["EXACT_MATCH_ONLY", "一括対象は一致候補だけに限定"],
+      ["SEPARATE_UNMAPPED_WORK", "新規・曖昧・隔離は個別確認へ残す"],
+      ["NO_PROMOTION", "別承認までcanonical・LINE履歴へ進めない"]
+    ],
+    INDIVIDUAL_REVIEW_REQUIRED: [
+      ["OPEN_ONE_RECORD", "候補を1件ずつ開いて確認"],
+      ["RECORD_DECISION", "新規作成・紐付け・隔離維持を記録"],
+      ["KEEP_OUT_OF_BULK", "一括反映には混ぜない"]
+    ],
+    QUARANTINE_REVIEW_REQUIRED: [
+      ["KEEP_QUARANTINED", "判断不能行は隔離のまま保持"],
+      ["ADD_FOLLOWUP_REASON", "不足理由と次回確認だけを残す"],
+      ["NO_AUTOMATIC_MAPPING", "自動紐付けは行わない"]
+    ],
+    NO_REVIEW_WORK: [
+      ["CHECK_COUNTS", "件数カテゴリだけを確認"],
+      ["NO_ACTION_REQUIRED", "未処理がなければ操作しない"],
+      ["KEEP_BOUNDARY", "昇格は別承認まで到達不可"]
+    ]
+  };
+  const selected = stepsByCategory[category] || stepsByCategory.NO_REVIEW_WORK;
+  return Object.freeze({
+    category,
+    steps: Object.freeze(selected.map(([stepCategory, label], index) => Object.freeze({
+      order: index + 1,
+      category: stepCategory,
+      label
+    }))),
+    rawValuesIncluded: false,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false,
+    automaticPromotionReachable: false
+  });
+}
+
 export function isNewApplicantCandidate(student) {
   return Boolean(student)
     && student.mappingStatus === "UNMAPPED"
@@ -753,6 +792,17 @@ function renderReviewWorkloadGuide(documentObject, guide) {
   if (approval) {
     approval.dataset.category = approvalGuide.category;
     approval.textContent = `${approvalGuide.title}: ${approvalGuide.copy}`;
+  }
+  const approvalSteps = documentObject.getElementById("review-workload-approval-steps");
+  if (approvalSteps) {
+    const steps = buildReviewWorkloadApprovalSteps(approvalGuide);
+    approvalSteps.dataset.category = steps.category;
+    approvalSteps.replaceChildren(...steps.steps.map((step) => {
+      const item = documentObject.createElement("li");
+      item.dataset.category = step.category;
+      item.textContent = `${step.order}. ${step.label}`;
+      return item;
+    }));
   }
   const stepList = documentObject.getElementById("review-workload-steps");
   if (stepList) {

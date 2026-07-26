@@ -397,6 +397,37 @@ export function buildTalent28CsvStagingApprovalGuide(result) {
   });
 }
 
+export function buildTalent28CsvOwnerHandoffChecklist(result) {
+  const approvalGuide = buildTalent28CsvStagingApprovalGuide(result);
+  const category = approvalGuide.approvalReachable ? "READY_HANDOFF" : "FIX_BEFORE_HANDOFF";
+  const steps = category === "READY_HANDOFF"
+    ? [
+        ["COUNT_CATEGORY_REVIEW", "件数カテゴリだけ確認して、個人値は貼らない"],
+        ["SEPARATE_STAGING_APPROVAL", "production staging は別の明示承認で実行"],
+        ["NO_CANONICAL_LINE", "canonical・LINE履歴・promotion はまだ到達しない"]
+      ]
+    : [
+        ["SAFE_FIX_FIRST", "修正対象カテゴリを先に直す"],
+        ["LOCAL_RECHECK", "CSVを再選択してローカルpreflightを再確認"],
+        ["NO_CHAT_VALUES", "行の中身・ID・連絡先はチャットへ出さない"]
+      ];
+  return Object.freeze({
+    category,
+    steps: Object.freeze(steps.map(([stepCategory, label], index) => Object.freeze({
+      order: index + 1,
+      category: stepCategory,
+      label
+    }))),
+    approvalReachable: approvalGuide.approvalReachable,
+    rawValuesIncluded: false,
+    googleSheetsConnectorRead: false,
+    productionDbOperation: false,
+    stagingWriteRequiresSeparateApproval: true,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false
+  });
+}
+
 function renderTalent28CsvReceiptText(receipt) {
   const categoryText = {
     READY_FOR_OWNER_DECISION: "投入前確認へ進めます",
@@ -523,7 +554,8 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
   const correctionRoute = documentObject?.getElementById?.("talent-28-csv-correction-route");
   const correctionWorkbench = documentObject?.getElementById?.("talent-28-csv-correction-workbench");
   const stagingApprovalGuide = documentObject?.getElementById?.("talent-28-csv-staging-approval-guide");
-  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute || !correctionWorkbench || !stagingApprovalGuide) return Object.freeze({ initialized: false });
+  const ownerHandoffChecklist = documentObject?.getElementById?.("talent-28-csv-owner-handoff-checklist");
+  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute || !correctionWorkbench || !stagingApprovalGuide || !ownerHandoffChecklist) return Object.freeze({ initialized: false });
   if (input.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true });
   input.dataset.bound = "true";
   const preparation = buildTalent28CsvPreparationGuide();
@@ -591,6 +623,14 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
     const approvalGuide = buildTalent28CsvStagingApprovalGuide(result);
     stagingApprovalGuide.dataset.category = approvalGuide.category;
     stagingApprovalGuide.textContent = `${approvalGuide.title}: ${approvalGuide.copy}`;
+    const handoffChecklist = buildTalent28CsvOwnerHandoffChecklist(result);
+    ownerHandoffChecklist.dataset.category = handoffChecklist.category;
+    ownerHandoffChecklist.replaceChildren(...handoffChecklist.steps.map((step) => {
+      const item = documentObject.createElement("li");
+      item.dataset.category = step.category;
+      item.textContent = `${step.order}. ${step.label}`;
+      return item;
+    }));
     fixGuideList.dataset.category = fixGuide.nextCategory;
     fixGuideList.replaceChildren(...fixGuide.steps.map((step) => {
       const item = documentObject.createElement("li");

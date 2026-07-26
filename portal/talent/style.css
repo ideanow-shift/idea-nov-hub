@@ -386,6 +386,9 @@ h3 { margin: 0; font-size: 1rem; }
 .csv-staging-approval-guide { grid-column: 1 / -1; margin: 0; padding: 11px 13px; border: 1px solid #eadbc7; border-radius: 7px; background: #fffaf2; color: var(--muted); font-size: .86rem; font-weight: 850; line-height: 1.5; }
 .csv-staging-approval-guide[data-category="READY_TO_REQUEST_STAGING_PREFLIGHT"] { border-color: #cbe8d3; background: #f8fffb; color: #267650; }
 .csv-staging-approval-guide[data-category="SAFE_FIX_REQUIRED_BEFORE_APPROVAL"] { border-color: #f1b8b8; background: #fff6f6; color: #b33131; }
+.csv-owner-handoff-checklist { grid-column: 1 / -1; display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.csv-owner-handoff-checklist li { padding: 9px 11px; border: 1px solid #eadbc7; border-radius: 6px; background: #fffaf2; color: var(--muted); font-size: .82rem; font-weight: 850; }
+.csv-owner-handoff-checklist[data-category="READY_HANDOFF"] li { border-color: #cbe8d3; background: #f8fffb; color: #267650; }
 .csv-preflight-fix-guide { grid-column: 1 / -1; display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .csv-preflight-fix-guide li { padding: 9px 11px; border: 1px dashed var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .82rem; font-weight: 800; }
 .csv-preflight-fix-guide[data-category="REQUEST_STAGING_PREFLIGHT_APPROVAL"] li { border-style: solid; border-color: #cbe8d3; color: #2f7441; background: #f8fffb; }
@@ -656,6 +659,11 @@ h3 { margin: 0; font-size: 1rem; }
 .review-workload-approval-guide[data-category="BULK_APPROVAL_READY"] { border-color: #cbe8d3; background: #f8fffb; color: #267650; }
 .review-workload-approval-guide[data-category="INDIVIDUAL_REVIEW_REQUIRED"],
 .review-workload-approval-guide[data-category="QUARANTINE_REVIEW_REQUIRED"] { border-color: #f2d59d; background: #fffaf0; color: #9a5d00; }
+.review-workload-approval-steps { grid-column: 1 / -1; display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.review-workload-approval-steps li { padding: 9px 11px; border: 1px solid #eadbc7; border-radius: 6px; background: #fffaf2; color: var(--muted); font-size: .82rem; font-weight: 850; }
+.review-workload-approval-steps[data-category="BULK_APPROVAL_READY"] li { border-color: #cbe8d3; background: #f8fffb; color: #267650; }
+.review-workload-approval-steps[data-category="INDIVIDUAL_REVIEW_REQUIRED"] li,
+.review-workload-approval-steps[data-category="QUARANTINE_REVIEW_REQUIRED"] li { border-color: #f2d59d; background: #fffaf0; color: #9a5d00; }
 .triage-command { justify-self: start; padding: 4px 8px; border: 1px solid #e7c1c7; border-radius: 4px; color: var(--accent-strong); background: #fff; font: inherit; font-size: 0.72rem; font-weight: 800; cursor: pointer; }
 .triage-command:hover { background: var(--accent-soft); }
 .secondary-command { border-color: var(--line); color: var(--ink); background: #fff; }

@@ -115,6 +115,7 @@ function unreadNotificationCount(notifications) {
 function resetHeaderNotificationHint() {
   if (!elements.naviNotificationHint || !elements.naviNotificationCount) return;
   elements.naviNotificationCount.textContent = "";
+  elements.naviNotificationHint.setAttribute("aria-label", "通知を確認");
   elements.naviNotificationHint.hidden = true;
 }
 
@@ -125,6 +126,7 @@ function renderHeaderNotificationHint() {
   const count = unreadNotificationCount(state.notifications);
   if (count === 0) return;
   elements.naviNotificationCount.textContent = count > 99 ? "99+" : String(count);
+  elements.naviNotificationHint.setAttribute("aria-label", `未読通知 ${count}件を確認`);
   elements.naviNotificationHint.hidden = false;
 }
 

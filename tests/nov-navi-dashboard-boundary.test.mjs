@@ -164,6 +164,7 @@ assert.match(dashboardSource, /button\.disabled = false/, "NOVA cards must recov
 assert.match(portalIndexSource, /<button class="navi-notification-hint"[^>]*type="button"/, "header notification hint must be a button");
 assert.match(mainSource, /function focusNaviNotices\(\)/, "header notification hint must have a NOV NAVI notice handler");
 assert.match(mainSource, /naviNotificationHint\.addEventListener\("click", focusNaviNotices\)/, "header notification hint must use its safe local handler");
+assert.match(mainSource, /setAttribute\("aria-label", `未読通知 \$\{count\}件を確認`\)/, "notification hint must announce unread count without exposing notice data");
 assert.match(naviStylesSource, /\.navi-notification-hint \{[^}]*min-height: 40px/, "header notification button must meet the minimum touch target");
 assert.match(designSystemSource, /--control-min-height:\s*44px/, "shared design system must preserve 44px controls");
 assert.match(designSystemSource, /--shadow-card:/, "shared design system must provide a card shadow token");

@@ -102,8 +102,27 @@ const LABELS = Object.freeze({
 });
 
 function templateHref() {
-  const csv = `\uFEFF${HEADERS.join(",")}\r\nstore-example,2026-06,0,0\r\n`;
+  const csv = buildStoreWorkforceMonthlySummaryCsvTemplate();
   return `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
+}
+
+function csvCell(value) {
+  const text = String(value ?? "");
+  return /[",\r\n]/u.test(text) ? `"${text.replace(/"/gu, '""')}"` : text;
+}
+
+export function buildStoreWorkforceMonthlySummaryCsvTemplate(candidates = []) {
+  const seen = new Set();
+  const normalized = (Array.isArray(candidates) ? candidates : []).map((candidate) => {
+    const storeName = String(candidate?.storeName || "").trim();
+    const period = String(candidate?.period || "").trim();
+    const key = `${storeName.normalize("NFKC").replace(/\s+/gu, "").toLowerCase()}\u001f${period}`;
+    if (!SAFE_STORE_RE.test(storeName) || !MONTH_RE.test(period) || seen.has(key)) return null;
+    seen.add(key);
+    return { storeName, period };
+  }).filter(Boolean).sort((left, right) => left.period.localeCompare(right.period) || left.storeName.localeCompare(right.storeName, "ja"));
+  const dataRows = normalized.length ? normalized : [{ storeName: "store-example", period: "2026-06" }];
+  return `\uFEFF${HEADERS.join(",")}\r\n${dataRows.map((row) => [row.storeName, row.period, "", ""].map(csvCell).join(",")).join("\r\n")}\r\n`;
 }
 
 export function renderStoreWorkforceMonthlySummaryIntake(container, options = {}) {

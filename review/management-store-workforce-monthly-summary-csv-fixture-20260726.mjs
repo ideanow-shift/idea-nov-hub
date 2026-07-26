@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { parseStoreWorkforceMonthlySummaryCsvText } from "../portal/management-app/store-workforce-monthly-summary-csv.js";
+import { buildStoreWorkforceMonthlySummaryCsvTemplate, parseStoreWorkforceMonthlySummaryCsvText } from "../portal/management-app/store-workforce-monthly-summary-csv.js";
 
 const header = "store_name,year_month,resident_headcount,working_headcount";
 const validCsv = [
@@ -26,4 +26,12 @@ assert.equal(invalid.category, "STORE_WORKFORCE_MONTHLY_VALUE_INVALID");
 const wrongHeader = parseStoreWorkforceMonthlySummaryCsvText("store_name,year_month,working_headcount\nstore-a,2026-06,7");
 assert.equal(wrongHeader.category, "STORE_WORKFORCE_MONTHLY_HEADER_MISMATCH");
 
-console.log(JSON.stringify({ passed: true, fixtures: 5, category: parsed.category, productionImportEnabled: parsed.productionImportEnabled }, null, 2));
+const template = buildStoreWorkforceMonthlySummaryCsvTemplate([
+  { storeName: "store-b", period: "2026-06" },
+  { storeName: "store-a", period: "2026-05" },
+  { storeName: "store-b", period: "2026-06" },
+]);
+assert.equal(template, `\uFEFF${header}\r\nstore-a,2026-05,,\r\nstore-b,2026-06,,\r\n`);
+assert.equal(buildStoreWorkforceMonthlySummaryCsvTemplate([]).includes("store-example,2026-06,,"), true);
+
+console.log(JSON.stringify({ passed: true, fixtures: 7, category: parsed.category, productionImportEnabled: parsed.productionImportEnabled }, null, 2));

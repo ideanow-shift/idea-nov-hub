@@ -3,7 +3,7 @@ import { renderStoreRepeatSummaryIntake } from "./store-repeat-summary-csv.js";
 import { renderStoreCustomerSummaryIntake } from "./store-customer-summary-csv.js?v=1122E1F600FFA7B9";
 import { renderStoreVisitCohortSummaryIntake } from "./store-visit-cohort-summary-csv.js?v=A8D7DAD1F8F0843C";
 import { renderStoreMenuSummaryIntake } from "./store-menu-summary-csv.js";
-import { renderStoreWorkforceMonthlySummaryIntake } from "./store-workforce-monthly-summary-csv.js?v=0D33958C71C51F1A";
+import { renderStoreWorkforceMonthlySummaryIntake } from "./store-workforce-monthly-summary-csv.js?v=4BA67C2DE5F7851E";
 import "./vendor/pako_inflate.min.js?v=2ca27e9a8dae569c";
 
 const MONTH_LABEL_RE = /^(?:[1-9]|1[0-2])月度$/u;

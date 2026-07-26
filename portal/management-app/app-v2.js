@@ -2,8 +2,9 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=98059284370E87B7";
-import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=7FDC7BF20FB4B62C";
+import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=37A0D1A446ADD91E";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
+import { buildStoreWorkforceMonthlySummaryCsvTemplate } from "./store-workforce-monthly-summary-csv.js?v=4BA67C2DE5F7851E";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
 const CORPORATE_VIEWS = new Set([...FINANCE_VIEWS, "dataops"]);
@@ -1053,6 +1054,12 @@ function buildStoreProductivityPanel() {
     .sort((left, right) => left.storeName.localeCompare(right.storeName, "ja"));
   const section = document.createElement("section");
   section.className = "financial-store-productivity-preview";
+  const requiredRows = uniqueWorkforceTemplateCandidates();
+  const template = document.createElement("a");
+  template.className = "financial-mapping-download financial-store-workforce-template";
+  template.href = `data:text/csv;charset=utf-8,${encodeURIComponent(buildStoreWorkforceMonthlySummaryCsvTemplate(requiredRows))}`;
+  template.download = "store-workforce-monthly-required-from-pl.csv";
+  template.textContent = "P/L対象の人数CSVを作成";
   const wrap = document.createElement("div");
   wrap.className = "table-wrap embedded local-preview-table";
   const table = document.createElement("table");
@@ -1071,10 +1078,25 @@ function buildStoreProductivityPanel() {
   section.append(
     heading(`\u5e97\u8217\u6708\u6b21\u751f\u7523\u6027\u306e\u30ed\u30fc\u30ab\u30eb\u78ba\u8a8d (${latestPeriod})`),
     paragraph("\u7d4c\u7406P/L\u3068\u6708\u6b21\u5e97\u8217\u5225\u4eba\u6570CSV\u304c\u540c\u3058\u5e97\u8217\u540d\u30fb\u540c\u3058\u6708\u3067\u4e00\u81f4\u3057\u305f\u884c\u306e\u307f\u8868\u793a\u3057\u3066\u3044\u307e\u3059\u3002\u6708\u4e0d\u660e\u306e\u4eba\u6570\u306f\u4f7f\u3044\u307e\u305b\u3093\u3002"),
+    template,
+    muted(`P/L候補 ${number.format(requiredRows.length)}件の店舗・対象月を事前入力しています。在籍人数と稼働人数だけを追記してください。個人情報は含めません。`),
     wrap,
     muted("\u6280\u8853\u751f\u7523\u6027 = \u6280\u8853\u58f2\u4e0a \u00f7 \u7a3c\u50cd\u4eba\u6570\u3002\u7dcf\u751f\u7523\u6027 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u7a3c\u50cd\u4eba\u6570\u3002EC\u58f2\u4e0a\u306f\u542b\u3081\u307e\u305b\u3093\u3002\u672c\u756a\u4fdd\u5b58\u30fb\u627f\u8a8d\u306f\u7121\u52b9\u3067\u3059\u3002")
   );
   return section;
+}
+
+function uniqueWorkforceTemplateCandidates() {
+  const seen = new Set();
+  return (state.financialPreviews.PL?.monthlyStoreRows || []).map((row) => {
+    const storeName = String(row?.storeName || "").trim();
+    const period = String(row?.period || "").trim();
+    const normalizedStoreName = normalizeStoreCandidateName(storeName);
+    const key = `${normalizedStoreName}\u001f${period}`;
+    if (!normalizedStoreName || !/^20\d{2}-(?:0[1-9]|1[0-2])$/u.test(period) || seen.has(key)) return null;
+    seen.add(key);
+    return { storeName, period };
+  }).filter(Boolean);
 }
 
 function buildStoreAnalysisDataCoveragePanel(preview) {

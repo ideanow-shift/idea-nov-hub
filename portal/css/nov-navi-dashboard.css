@@ -69,6 +69,8 @@
 .navi-today-grid span { min-width: 0; color: var(--navi-ink); overflow-wrap: anywhere; font-size: 11px; font-weight: 650; }
 .navi-today-grid strong { color: var(--navi-ink); font-size: 21px; font-weight: 750; line-height: 1.05; }
 .navi-today-grid .navi-pending-value { color: #8c666a; font-size: 15px; }
+.navi-today-card[data-navi-today-state="ready"] { border-color: #bce4cc; background: #fff; }
+.navi-today-card[data-navi-today-state="ready"] strong { color: #176e43; }
 .navi-today-grid small { min-width: 0; color: var(--text-secondary); font-size: 10px; overflow-wrap: anywhere; }
 
 .navi-support { display: grid; grid-template-columns: minmax(220px, .48fr) minmax(360px, 1.52fr); align-items: center; gap: 18px; border-color: #f0d6d9; border-left: 4px solid var(--navi-accent); }

@@ -152,6 +152,10 @@ assert.match(dashboardSource, /const TODAY_KEYS = \["schedule", "tasks", "approv
 assert.match(dashboardSource, /Number\.isSafeInteger\(value\)/, "Today card values must remain bounded aggregates");
 assert.match(dashboardSource, /data-navi-today-key="schedule"/, "Today cards must bind their values by an explicit key");
 assert.match(dashboardSource, /\[data-navi-today-key="\$\{key\}"\]/, "Today card rendering must not rely on card position");
+assert.match(dashboardSource, /card\.dataset\.naviTodayState = "ready"/, "Today cards must distinguish verified data from pending state");
+assert.match(dashboardSource, /card\.setAttribute\("aria-busy", "false"\)/, "Today cards must clear busy state after a verified value arrives");
+assert.match(dashboardSource, /\.navi-today-grid"\)\?\.setAttribute\("aria-live", "polite"\)/, "Today updates must be announced without exposing raw data");
+assert.match(naviStylesSource, /\.navi-today-card\[data-navi-today-state="ready"\]/, "Today ready state must have a distinct visual treatment");
 assert.match(dashboardSource, /onOpenNotice\(notice\)/, "NOVA notices must use the existing HUB handler");
 assert.doesNotMatch(dashboardSource, /localStorage|sessionStorage|handoff_code|sessionToken/, "NOVA dashboard must not store or transport auth material");
 assert.match(dashboardSource, /await onOpenApp\(app\)/, "NOVA cards must await the existing app launcher");

@@ -271,6 +271,8 @@ function renderNaviToday(root, today) {
     if (!value || !detail) return;
     value.textContent = String(count);
     value.classList.remove("navi-pending-value");
+    card.dataset.naviTodayState = "ready";
+    card.setAttribute("aria-busy", "false");
     detail.textContent = "最新の連携値";
   });
 }
@@ -312,6 +314,11 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
 
   root.querySelector(".navi-support-launcher").addEventListener("click", () => {
     onOpenSupport("");
+  });
+  root.querySelector(".navi-today-grid")?.setAttribute("aria-live", "polite");
+  root.querySelectorAll("[data-navi-today-key]").forEach((card) => {
+    card.dataset.naviTodayState = "pending";
+    card.setAttribute("aria-busy", "true");
   });
   root.querySelectorAll("[data-navi-category-target]").forEach((button) => {
     button.addEventListener("click", () => {

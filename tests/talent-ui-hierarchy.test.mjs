@@ -243,6 +243,18 @@ test("workforce management exposes four accessible procedure tabs", async () => 
   assert.match(app, /data-workforce-open/);
 });
 
+test("workforce management explains read-only and approval boundaries above cases", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const css = await readFile(new URL("style.css", root), "utf8");
+
+  assert.match(html, /id="workforce-operation-boundaries"/);
+  assert.match(html, /社員マスタは正本参照だけ/);
+  assert.match(html, /日常作業は案件で管理/);
+  assert.match(html, /Core反映は別承認/);
+  assert.match(html, /大量更新・削除は別の承認導線/);
+  assert.match(css, /\.workforce-operation-boundaries/);
+});
+
 test("workforce procedure tabs expose bounded Core DB case queues", async () => {
   const html = await readFile("portal/talent/index.html", "utf8");
   const source = await readFile("portal/talent/workforce-readiness.mjs", "utf8");

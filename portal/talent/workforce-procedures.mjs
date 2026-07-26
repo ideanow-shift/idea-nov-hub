@@ -605,6 +605,40 @@ export function buildWorkforceProcedureCaseActionRoute(nextActionPlan) {
   });
 }
 
+export function buildWorkforceProcedureCaseActionRouteSteps(route) {
+  const action = ["EDIT", "CHECKLIST", "AUDIT"].includes(route?.action) ? route.action : "EDIT";
+  const labelsByAction = Object.freeze({
+    EDIT: [
+      "対象者・基準日・メモを先に整える",
+      "確認待ちへ進める前に不足をなくす",
+      "社員マスタへは反映しない"
+    ],
+    CHECKLIST: [
+      "4つの確認項目を開く",
+      "未完了だけを順に完了する",
+      "全完了後に確認済みへ進める"
+    ],
+    AUDIT: [
+      "変更履歴を確認する",
+      "Core DB引き渡し候補だけを分ける",
+      "社員マスタ更新は別承認まで止める"
+    ]
+  });
+  return Object.freeze({
+    action,
+    category: route?.category || "DRAFT_UPDATE",
+    steps: Object.freeze(labelsByAction[action].map((label, index) => Object.freeze({
+      order: index + 1,
+      category: `${action}_STEP_${index + 1}`,
+      label
+    }))),
+    rawValuesIncluded: false,
+    employeeMasterMutation: false,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false
+  });
+}
+
 export function buildWorkforceProcedureCaseBoundary(item) {
   const status = CASE_STATUSES.includes(item?.caseStatus) ? item.caseStatus : "DRAFT";
   const category = status === "CONFIRMED"
@@ -1400,13 +1434,23 @@ export function initializeWorkforceProcedureDesk({
       const nextChips = documentObject.createElement("span");
       const primaryChip = documentObject.createElement("b");
       const boundaryChip = documentObject.createElement("b");
+      const routeSteps = buildWorkforceProcedureCaseActionRouteSteps(actionRoute);
+      const routeStepList = documentObject.createElement("ol");
       nextTitle.textContent = nextActionPlan.title;
       nextCopy.textContent = nextActionPlan.copy;
       nextChips.className = "procedure-case-next-action-chips";
       primaryChip.textContent = `次: ${nextActionPlan.primaryAction}`;
       boundaryChip.textContent = nextActionPlan.safetyBoundary;
       nextChips.append(primaryChip, boundaryChip);
-      nextAction.append(nextTitle, nextCopy, nextChips);
+      routeStepList.className = "procedure-case-row-action-steps";
+      routeStepList.dataset.action = routeSteps.action;
+      routeStepList.replaceChildren(...routeSteps.steps.map((step) => {
+        const item = documentObject.createElement("li");
+        item.dataset.category = step.category;
+        item.textContent = `${step.order}. ${step.label}`;
+        return item;
+      }));
+      nextAction.append(nextTitle, nextCopy, nextChips, routeStepList);
       const boundaryNote = documentObject.createElement("div");
       boundaryNote.className = "procedure-case-boundary-note";
       boundaryNote.dataset.category = boundary.category;

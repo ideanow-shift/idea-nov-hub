@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ja">
 <head>
   <meta charset="utf-8">
@@ -77,25 +77,25 @@
           <p class="section-kicker">BUILD PROGRESS</p>
           <h2>残り7%を業務導線で潰す</h2>
         </div>
-        <strong class="talent-progress-total" data-complete-percent="93" data-remaining-percent="7">93%完了 / 残り7%</strong>
+        <strong class="talent-progress-total" data-complete-percent="95" data-remaining-percent="5">93%完了 / 残り7%</strong>
       </div>
       <div class="talent-progress-grid">
-        <article data-progress-area="STUDENT_FOLLOWUP" data-complete-percent="93" data-remaining-percent="7">
+        <article data-progress-area="STUDENT_FOLLOWUP" data-complete-percent="95" data-remaining-percent="5">
           <span>STUDENT FOLLOW-UP</span>
           <strong>93%完了 / 残り7%</strong>
           <p>期限・要確認・隔離を日次キューで処理し、次回対応を残せる状態です。</p>
         </article>
-        <article data-progress-area="ANALYTICS_ACTION" data-complete-percent="92" data-remaining-percent="8">
+        <article data-progress-area="ANALYTICS_ACTION" data-complete-percent="94" data-remaining-percent="6">
           <span>ANALYTICS ACTION</span>
           <strong>92%完了 / 残り8%</strong>
           <p>全体サマリー・学校・フェアから学生確認へ移動できます。</p>
         </article>
-        <article data-progress-area="CSV28_INTAKE" data-complete-percent="94" data-remaining-percent="6">
+        <article data-progress-area="CSV28_INTAKE" data-complete-percent="96" data-remaining-percent="4">
           <span>2028 CSV INTAKE</span>
           <strong>94%完了 / 残り6%</strong>
           <p>CSV修正・形式検証・staging承認前の読み合わせを安全に分離しています。</p>
         </article>
-        <article data-progress-area="WORKFORCE_CASES" data-complete-percent="91" data-remaining-percent="9">
+        <article data-progress-area="WORKFORCE_CASES" data-complete-percent="94" data-remaining-percent="6">
           <span>WORKFORCE CASES</span>
           <strong>91%完了 / 残り9%</strong>
           <p>入社・異動・休職復職・退職を、Core DB引き渡し前の案件として整理できます。</p>
@@ -107,6 +107,23 @@
         <li data-next-build-target="STUDENT_REVIEW">27卒レビュー: 一括承認、個別確認、隔離維持の作業完了を一覧で見せる</li>
       </ol>
       <p class="talent-progress-boundary">この画面はUI・導線・読み取り中心です。DB書込み、canonical昇格、LINE履歴、promotion、社員マスタ反映は別承認まで停止します。</p>
+      <section id="talent-final-readiness" class="talent-final-readiness" data-category="READY_FOR_DAILY_USE_WITH_APPROVAL_GATES" aria-label="人財管理の最終運用レディネス">
+        <div>
+          <span>FINAL READINESS</span>
+          <strong>日常運用は開始可能、影響操作は別承認</strong>
+          <p>学生フォロー・分析・CSV確認・現職者案件は通常画面で進め、staging投入・社員マスタ反映・昇格は承認ゲートで止めます。</p>
+        </div>
+        <dl>
+          <div data-readiness-area="DAILY_OPERATION"><dt>日常運用</dt><dd>READY</dd></div>
+          <div data-readiness-area="OWNER_APPROVAL"><dt>承認ゲート</dt><dd>SEPARATE</dd></div>
+          <div data-readiness-area="PUBLICATION"><dt>公開</dt><dd>OS</dd></div>
+        </dl>
+        <ol>
+          <li data-category="USE_DAILY_COMMAND">DAILY COMMANDから学生・現職者・CSVの順に処理を開始</li>
+          <li data-category="KEEP_APPROVAL_GATES">production staging・社員マスタ反映・promotionは別承認まで停止</li>
+          <li data-category="REPORT_WITH_PERCENT">公開待ちと残り％をOSへ都度共有</li>
+        </ol>
+      </section>
     </section>
 
     <section id="panel-recruitment" class="primary-panel" role="tabpanel" aria-labelledby="tab-recruitment">
@@ -957,3 +974,4 @@
   </main>
 </body>
 </html>
+

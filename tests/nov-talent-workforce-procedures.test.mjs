@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -218,6 +218,13 @@ test("workforce procedure cases summarize today's operation queue without mutati
   assert.equal(summary.soon, 1);
   assert.equal(summary.review, 2);
   assert.equal(summary.draft, 1);
+});
+
+test("workforce procedure case next action guides daily work from each row", () => {
+  assert.equal(buildWorkforceProcedureCaseNextAction({ caseStatus: "READY_FOR_REVIEW", effectiveDate: "2026-08-20" }, "2026-07-26").primaryAction, "確認項目");
+  assert.equal(buildWorkforceProcedureCaseNextAction({ caseStatus: "DRAFT", effectiveDate: "2026-07-20" }, "2026-07-26").category, "OVERDUE_REVIEW");
+  assert.equal(buildWorkforceProcedureCaseNextAction({ caseStatus: "CONFIRMED", effectiveDate: "2026-07-20" }, "2026-07-26").category, "CORE_HANDOFF_READY");
+  assert.match(buildWorkforceProcedureCaseNextAction({ caseStatus: "CONFIRMED", effectiveDate: "2026-07-20" }, "2026-07-26").copy, /別承認/);
 });
 
 test("workforce procedure form guide keeps the next edit action local and status-based", () => {

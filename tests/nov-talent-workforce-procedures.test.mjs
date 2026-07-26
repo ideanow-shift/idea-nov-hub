@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildWorkforceProcedureOperationSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureOperationSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -189,4 +189,11 @@ test("workforce procedure cases summarize today's operation queue without mutati
   assert.equal(summary.soon, 1);
   assert.equal(summary.review, 2);
   assert.equal(summary.draft, 1);
+});
+
+test("workforce procedure form guide keeps the next edit action local and status-based", () => {
+  assert.equal(buildWorkforceProcedureCaseFormGuide({ caseStatus: "DRAFT", effectiveDate: "2026-07-20" }, "2026-07-26").category, "OVERDUE");
+  assert.equal(buildWorkforceProcedureCaseFormGuide({ caseStatus: "READY_FOR_REVIEW", effectiveDate: "2026-08-20" }, "2026-07-26").category, "READY_FOR_REVIEW");
+  assert.equal(buildWorkforceProcedureCaseFormGuide({ caseStatus: "CONFIRMED", effectiveDate: "2026-07-20" }, "2026-07-26").category, "CONFIRMED");
+  assert.match(buildWorkforceProcedureCaseFormGuide({ caseStatus: "DRAFT", effectiveDate: "2026-08-20" }, "2026-07-26").copy, /下書き/);
 });

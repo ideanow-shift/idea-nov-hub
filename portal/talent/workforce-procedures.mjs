@@ -187,6 +187,39 @@ export function buildWorkforceProcedureOperationSummary(cases, referenceDate = l
   return Object.freeze({ overdue, soon, review, draft, nextAction, title, copy });
 }
 
+export function buildWorkforceProcedureCaseFormGuide(draft, referenceDate = localDateIso()) {
+  const priority = classifyWorkforceProcedureCasePriority(draft, referenceDate);
+  const status = draft?.caseStatus;
+  const category = status === "CONFIRMED"
+    ? "CONFIRMED"
+    : status === "CANCELLED"
+      ? "CANCELLED"
+      : priority === "OVERDUE"
+        ? "OVERDUE"
+        : priority === "NEXT_7_DAYS"
+          ? "NEXT_7_DAYS"
+          : status === "READY_FOR_REVIEW"
+            ? "READY_FOR_REVIEW"
+            : "DRAFT";
+  const title = {
+    OVERDUE: "期限超過です。確認項目と基準日を先に整えます",
+    NEXT_7_DAYS: "7日以内の手続きです。確認待ちへ進める準備をします",
+    READY_FOR_REVIEW: "確認待ちです。チェックリスト完了後に確認済みへ進めます",
+    DRAFT: "下書きです。対象者・基準日・メモを補います",
+    CONFIRMED: "確認済みです。変更時は履歴を確認してから更新します",
+    CANCELLED: "中止案件です。再開する場合はメモで理由を残します"
+  }[category];
+  const copy = {
+    OVERDUE: "社員マスタは変更せず、この案件だけを保存します。確認済みにする前に確認項目が必要です。",
+    NEXT_7_DAYS: "不足情報を補ってから確認待ちにすると、日常キューで追いやすくなります。",
+    READY_FOR_REVIEW: "保存前に確認項目を開き、すべて完了しているか確認してください。",
+    DRAFT: "迷ったら下書きのまま保存できます。担当者が後で検索・期限順で拾えます。",
+    CONFIRMED: "確認済みは監査履歴に残ります。取り消しや変更は理由をメモに残してください。",
+    CANCELLED: "中止は対応中キューから外れます。誤って選んだ場合は下書きへ戻してください。"
+  }[category];
+  return Object.freeze({ category, title, copy });
+}
+
 function normalizeSteps(value) {
   if (!exactKeys(value, ["procedureType", "steps"]) || !PROCEDURE_TYPES.includes(value.procedureType)
     || !Array.isArray(value.steps) || value.steps.length !== 4) return null;
@@ -332,7 +365,10 @@ export function initializeWorkforceProcedureDesk({
   const procedureFilter = documentObject?.getElementById?.("workforce-case-procedure-filter");
   const searchInput = documentObject?.getElementById?.("workforce-case-search");
   const filterResetButton = documentObject?.getElementById?.("workforce-case-filter-reset");
-  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !procedureFilter || !searchInput || !filterResetButton) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  const formGuide = documentObject?.getElementById?.("workforce-case-form-guide");
+  const formGuideTitle = documentObject?.getElementById?.("workforce-case-form-guide-title");
+  const formGuideCopy = documentObject?.getElementById?.("workforce-case-form-guide-copy");
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
@@ -384,6 +420,16 @@ export function initializeWorkforceProcedureDesk({
     status.textContent = messages[category] || messages.request_failed;
   };
   const input = (name) => form.elements.namedItem(name);
+  const currentDraftFromForm = () => Object.freeze({
+    caseStatus: input("caseStatus")?.value,
+    effectiveDate: input("effectiveDate")?.value
+  });
+  const renderFormGuide = () => {
+    const guide = buildWorkforceProcedureCaseFormGuide(currentDraftFromForm());
+    formGuide.dataset.category = guide.category;
+    formGuideTitle.textContent = guide.title;
+    formGuideCopy.textContent = guide.copy;
+  };
   const reset = () => {
     form.reset();
     input("caseId").value = "";
@@ -573,6 +619,7 @@ export function initializeWorkforceProcedureDesk({
         input("subjectLabel").value = item.subjectLabel;
         input("effectiveDate").value = item.effectiveDate;
         input("detail").value = item.detail || "";
+        renderFormGuide();
         form.hidden = false;
         form.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
       });
@@ -612,6 +659,7 @@ export function initializeWorkforceProcedureDesk({
     input("subjectLabel").value = normalized.subjectLabel;
     input("effectiveDate").value = normalized.effectiveDate;
     input("detail").value = normalized.detail;
+    renderFormGuide();
     form.hidden = false;
     input("subjectLabel")?.focus?.();
   };
@@ -635,6 +683,8 @@ export function initializeWorkforceProcedureDesk({
   procedureFilter.addEventListener("change", () => setProcedureType(procedureFilter.value));
   searchInput.addEventListener("input", () => setSearch(searchInput.value));
   filterResetButton.addEventListener("click", resetFilters);
+  input("caseStatus").addEventListener("change", renderFormGuide);
+  input("effectiveDate").addEventListener("change", renderFormGuide);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const draft = Object.freeze({

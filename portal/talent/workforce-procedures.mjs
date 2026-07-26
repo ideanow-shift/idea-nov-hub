@@ -721,6 +721,7 @@ export function initializeWorkforceProcedureDesk({
       const card = documentObject.getElementById(`workforce-case-type-${key}`);
       if (!card || !row) continue;
       card.dataset.nextCategory = row.nextCategory;
+      card.setAttribute("aria-pressed", String(activeProcedureType === procedureType));
       for (const [suffix, value] of Object.entries({ open: row.open, overdue: row.overdue, review: row.review })) {
         const element = documentObject.getElementById(`workforce-case-type-${key}-${suffix}`);
         if (element) element.textContent = String(value);
@@ -927,6 +928,9 @@ export function initializeWorkforceProcedureDesk({
   }
   for (const button of desk.querySelectorAll("[data-case-priority-filter]")) {
     button.addEventListener("click", () => setPriorityFilter(button.dataset.casePriorityFilter));
+  }
+  for (const button of desk.querySelectorAll("[data-procedure-type-summary]")) {
+    button.addEventListener("click", () => setProcedureType(button.dataset.procedureTypeSummary));
   }
   procedureFilter.addEventListener("change", () => setProcedureType(procedureFilter.value));
   searchInput.addEventListener("input", () => setSearch(searchInput.value));

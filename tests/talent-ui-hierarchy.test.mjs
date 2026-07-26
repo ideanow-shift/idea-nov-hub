@@ -296,6 +296,7 @@ test("workforce exposes an audited procedure case desk without employee-master c
     assert.match(html, /id="workforce-case-operation-summary"/);
     assert.match(html, /id="workforce-case-type-summary"/);
     assert.match(html, /id="workforce-case-type-onboarding-open"/);
+    assert.match(html, /data-procedure-type-summary="ONBOARDING"/);
     assert.match(html, /id="workforce-case-procedure-filter"/);
     assert.match(html, /id="workforce-case-search"/);
     assert.match(html, /id="workforce-case-filter-reset"/);
@@ -305,6 +306,7 @@ test("workforce exposes an audited procedure case desk without employee-master c
   assert.match(source, /const resetFilters/);
   assert.match(source, /procedure-case-empty-reset/);
   assert.match(source, /buildWorkforceProcedureTypeSummary/);
+  assert.match(source, /data-procedure-type-summary/);
   assert.match(source, /optimisticConcurrency: true/);
   assert.match(source, /filterWorkforceProcedureCases/);
   assert.match(source, /checklistTracking: true/);

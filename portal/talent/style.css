@@ -1241,15 +1241,16 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-operation-summary[data-next-action="OVERDUE"] dl div:first-child dd { color: #b33131; }
 .procedure-case-operation-summary[data-next-action="NEXT_7_DAYS"] { border-color: #f2d59d; background: linear-gradient(135deg, #fffaf0, #fffdf7); }
 .procedure-case-type-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
-.procedure-case-type-summary article { display: grid; gap: 5px; padding: 11px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
+.procedure-case-type-summary button { display: grid; gap: 5px; padding: 11px; border: 1px solid var(--line); border-radius: 7px; background: #fff; text-align: left; font: inherit; cursor: pointer; }
 .procedure-case-type-summary span { color: var(--muted); font-size: .78rem; font-weight: 800; }
 .procedure-case-type-summary strong { color: var(--navy); font-size: 1.45rem; line-height: 1; }
 .procedure-case-type-summary small { color: var(--muted); font-size: .76rem; font-weight: 700; }
 .procedure-case-type-summary b { color: var(--ink); }
-.procedure-case-type-summary article[data-next-category="OVERDUE"] { border-color: #f1b8b8; background: #fff6f6; }
-.procedure-case-type-summary article[data-next-category="OVERDUE"] strong,
-.procedure-case-type-summary article[data-next-category="OVERDUE"] b:first-of-type { color: #b33131; }
-.procedure-case-type-summary article[data-next-category="READY_FOR_REVIEW"] { border-color: #c5dcf6; background: #f7fbff; }
+.procedure-case-type-summary button:hover, .procedure-case-type-summary button:focus-visible, .procedure-case-type-summary button[aria-pressed="true"] { border-color: var(--rose); background: var(--accent-soft); outline: none; }
+.procedure-case-type-summary button[data-next-category="OVERDUE"] { border-color: #f1b8b8; background: #fff6f6; }
+.procedure-case-type-summary button[data-next-category="OVERDUE"] strong,
+.procedure-case-type-summary button[data-next-category="OVERDUE"] b:first-of-type { color: #b33131; }
+.procedure-case-type-summary button[data-next-category="READY_FOR_REVIEW"] { border-color: #c5dcf6; background: #f7fbff; }
 .procedure-case-priority-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 12px; }
 .procedure-case-priority-filters > span { color: var(--muted); font-size: .82rem; font-weight: 800; }
 .procedure-case-priority-filters button { min-height: 32px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--muted); font: inherit; font-size: .82rem; font-weight: 800; cursor: pointer; }

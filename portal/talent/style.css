@@ -885,6 +885,10 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-metric:hover, .procedure-case-metric:focus-visible, .procedure-case-metric.is-active { border-color: var(--rose); background: var(--accent-soft); color: var(--ink); outline: none; }
 .procedure-case-filter-status { margin: 10px 0 0; color: var(--muted); font-size: .86rem; }
 .procedure-case-priority-status { margin: 6px 0 0; color: #9a5d00; font-size: .86rem; font-weight: 700; }
+.procedure-case-priority-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 12px; }
+.procedure-case-priority-filters > span { color: var(--muted); font-size: .82rem; font-weight: 800; }
+.procedure-case-priority-filters button { min-height: 32px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--muted); font: inherit; font-size: .82rem; font-weight: 800; cursor: pointer; }
+.procedure-case-priority-filters button:hover, .procedure-case-priority-filters button:focus-visible, .procedure-case-priority-filters button.is-active { border-color: var(--rose); background: var(--accent-soft); color: var(--ink); outline: none; }
 .procedure-case-list { display: grid; gap: 8px; margin-top: 14px; }
 .procedure-case-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: #fffafa; }
 .procedure-case-row strong, .procedure-case-row span { display: block; }

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -72,6 +72,18 @@ test("workforce procedure cases can be scoped to the active procedure", () => {
   assert.equal(filterWorkforceProcedureCasesByType(cases, "ONBOARDING").length, 2);
   assert.equal(filterWorkforceProcedureCasesByType(cases, "ALL").length, 3);
   assert.equal(filterWorkforceProcedureCasesByType(cases, "INVALID").length, 0);
+});
+
+test("workforce procedure cases can be narrowed to urgent work without a new request", () => {
+  const cases = Object.freeze([
+    Object.freeze({ procedureType: "ONBOARDING", caseStatus: "DRAFT", effectiveDate: "2026-07-20" }),
+    Object.freeze({ procedureType: "ONBOARDING", caseStatus: "DRAFT", effectiveDate: "2026-07-29" }),
+    Object.freeze({ procedureType: "ONBOARDING", caseStatus: "CONFIRMED", effectiveDate: "2026-07-20" })
+  ]);
+  assert.equal(filterWorkforceProcedureCasesByPriority(cases, "OVERDUE", "2026-07-26").length, 1);
+  assert.equal(filterWorkforceProcedureCasesByPriority(cases, "NEXT_7_DAYS", "2026-07-26").length, 1);
+  assert.equal(filterWorkforceProcedureCasesByPriority(cases, "SCHEDULED", "2026-07-26").length, 0);
+  assert.equal(filterWorkforceProcedureCasesByPriority(cases, "INVALID", "2026-07-26").length, 0);
 });
 
 test("new workforce cases inherit the active procedure tab", () => {

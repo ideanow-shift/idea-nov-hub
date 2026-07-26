@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyzeTalent28CsvPreflight, buildTalent28CsvImportReadiness, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
+import { analyzeTalent28CsvPreflight, buildTalent28CsvImportReadiness, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
 
 const header = [
   "source_row_no", "graduation_year", "source_type", "source_label", "student_name", "student_name_kana",
@@ -10,6 +10,13 @@ const header = [
 ].join(",");
 
 const row = (values) => Array.from({ length: 23 }, (_, index) => values[index] ?? "").join(",");
+
+test("28卒 CSV template emits the exact header contract only", () => {
+  const template = buildTalent28CsvTemplate();
+  assert.equal(template, `${header}\n`);
+  assert.doesNotMatch(template, /学生|学校|電話|メール|example/i);
+  assert.equal(analyzeTalent28CsvPreflight(`${template}${row(["1", "2028", "CONTACTS_28", "contacts", "学生 太郎", "", "学校", "", "090", "", "", "", "", "", "", "", "", "", "", "", "", "FALSE", ""])}`).headerCategory, "PASS");
+});
 
 test("28卒 CSV preflight accepts the sealed column contract without exposing row values", () => {
   const csv = `${header}\n${row(["1", "2028", "CONTACTS_28", "contacts", "学生 太郎", "", "学校", "学部", "090-0000-0000", "", "", "", "2026-08-01", "", "", "", "", "", "", "", "", "FALSE", ""])}`;

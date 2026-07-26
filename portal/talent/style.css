@@ -324,8 +324,11 @@ h3 { margin: 0; font-size: 1rem; }
   background: #f8fffb;
 }
 .csv-preflight-panel p { margin: 6px 0 0; color: var(--muted); font-size: .86rem; }
+.csv-preflight-actions { display: grid; gap: 10px; }
 .csv-preflight-file { display: grid; gap: 7px; color: var(--navy); font-size: .86rem; font-weight: 800; }
 .csv-preflight-file input { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); }
+.csv-preflight-actions button { min-height: 38px; border: 1px solid var(--rose); border-radius: 6px; background: var(--accent-soft); color: var(--accent-strong); font: inherit; font-weight: 800; cursor: pointer; }
+.csv-preflight-actions button:hover, .csv-preflight-actions button:focus-visible { outline: none; background: #fff1f3; }
 .csv-preflight-summary {
   grid-column: 1 / -1;
   display: grid;

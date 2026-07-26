@@ -16,6 +16,10 @@ export const TALENT_28_CSV_PREFLIGHT_CONTRACT = Object.freeze({
   retryCount: 0
 });
 
+export function buildTalent28CsvTemplate() {
+  return `${REQUIRED_HEADERS.join(",")}\n`;
+}
+
 export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes = 5_000_000 } = {}) {
   if (typeof csvText !== "string" || csvText.length === 0 || csvText.length > maxBytes) {
     return safeSummary("CSV_FILE_INVALID", "NOT_EVALUATED");
@@ -236,9 +240,10 @@ function parseCsv(text) {
 
 export function initializeTalent28CsvPreflight({ documentObject = globalThis.document } = {}) {
   const input = documentObject?.getElementById?.("talent-28-csv-file");
+  const templateButton = documentObject?.getElementById?.("talent-28-csv-template");
   const status = documentObject?.getElementById?.("talent-28-csv-status");
   const summary = documentObject?.getElementById?.("talent-28-csv-summary");
-  if (!input || !status || !summary) return Object.freeze({ initialized: false });
+  if (!input || !templateButton || !status || !summary) return Object.freeze({ initialized: false });
   if (input.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true });
   input.dataset.bound = "true";
   const render = (result) => {
@@ -272,6 +277,15 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
     }
     const text = await file.text();
     render(analyzeTalent28CsvPreflight(text));
+  });
+  templateButton.addEventListener("click", () => {
+    const blob = new Blob([buildTalent28CsvTemplate()], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = documentObject.createElement("a");
+    link.href = url;
+    link.download = "nov-talent-2028-template.csv";
+    link.click();
+    URL.revokeObjectURL(url);
   });
   render(safeSummary("CSV_NOT_SELECTED", "NOT_EVALUATED"));
   return Object.freeze({ initialized: true });

@@ -226,6 +226,42 @@ export function buildTalent28CsvOperationalPlan(readiness) {
   });
 }
 
+export function buildTalent28CsvSafeReceipt(result) {
+  const counts = result?.counts || {};
+  const statusRows = Number(counts.entryStatusRows || 0) + Number(counts.selectionStatusRows || 0) + Number(counts.offerStatusRows || 0);
+  const followUpRows = Number(counts.nextActionRows || 0) + Number(counts.followUpNoteRows || 0);
+  const issueRows = Number(counts.quarantineRows || 0)
+    + Number(counts.duplicateStableKeyHintRows || 0)
+    + Number(counts.duplicateContactHintRows || 0)
+    + Number(counts.missingIdentityRows || 0)
+    + Number(counts.invalidDateRows || 0);
+  const category = result?.fixedCategory === "PASS"
+    ? "READY_FOR_OWNER_DECISION"
+    : result?.fixedCategory === "CSV_DUPLICATE_HINT_REVIEW_REQUIRED"
+      ? "READY_WITH_DUPLICATE_REVIEW"
+      : "NEEDS_SAFE_FIX";
+  return Object.freeze({
+    schemaVersion: "talent-28-csv-safe-receipt-v1",
+    category,
+    readinessCategory: String(result?.readiness?.category || "NEEDS_FIX"),
+    sourceCoverageCategory: String(result?.readiness?.sourceCoverageCategory || "NONE"),
+    statusCoverageCategory: statusRows > 0 ? "PRESENT" : "ZERO",
+    followUpCoverageCategory: followUpRows > 0 ? "PRESENT" : "ZERO",
+    issueCategory: issueRows > 0 ? "PRESENT" : "ZERO",
+    rawValuesIncluded: false,
+    productionWriteReachable: false
+  });
+}
+
+function renderTalent28CsvReceiptText(receipt) {
+  const categoryText = {
+    READY_FOR_OWNER_DECISION: "投入前確認へ進めます",
+    READY_WITH_DUPLICATE_REVIEW: "重複候補の確認が必要です",
+    NEEDS_SAFE_FIX: "CSVの安全修正が必要です"
+  }[receipt.category] || "CSVの状態を確認してください";
+  return `${categoryText} / source=${receipt.sourceCoverageCategory} / status=${receipt.statusCoverageCategory} / followUp=${receipt.followUpCoverageCategory} / issue=${receipt.issueCategory}`;
+}
+
 function safeSummary(fixedCategory, headerCategory, partialCounts = {}) {
   return Object.freeze({
     ok: false,
@@ -337,7 +373,8 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
   const status = documentObject?.getElementById?.("talent-28-csv-status");
   const summary = documentObject?.getElementById?.("talent-28-csv-summary");
   const planList = documentObject?.getElementById?.("talent-28-csv-plan");
-  if (!input || !templateButton || !status || !summary || !planList) return Object.freeze({ initialized: false });
+  const receiptStatus = documentObject?.getElementById?.("talent-28-csv-receipt");
+  if (!input || !templateButton || !status || !summary || !planList || !receiptStatus) return Object.freeze({ initialized: false });
   if (input.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true });
   input.dataset.bound = "true";
   const render = (result) => {
@@ -372,6 +409,9 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
       item.textContent = `${step.order}. ${step.label}`;
       return item;
     }));
+    const receipt = buildTalent28CsvSafeReceipt(result);
+    receiptStatus.dataset.category = receipt.category;
+    receiptStatus.textContent = renderTalent28CsvReceiptText(receipt);
   };
   input.addEventListener("change", async () => {
     const file = input.files?.[0];

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { buildWorkforceProcedureActionMix, buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseActionRoute, buildWorkforceProcedureCaseActionRouteSteps, buildWorkforceProcedureCaseBoundary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureCoreHandoffQueue, buildWorkforceProcedureCoreHandoffSteps, buildWorkforceProcedureEmptyState, buildWorkforceProcedureFormSavePreview, buildWorkforceProcedureFormSubmitReadiness, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureStepProgress, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureActionMix, buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseActionRoute, buildWorkforceProcedureCaseActionRouteSteps, buildWorkforceProcedureCaseBoundary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureCoreHandoffQueue, buildWorkforceProcedureCoreHandoffSteps, buildWorkforceProcedureEmptyState, buildWorkforceProcedureFormSavePreview, buildWorkforceProcedureFormSubmitReadiness, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureSaveFollowUpPlan, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureStepProgress, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -493,9 +493,23 @@ test("workforce procedure save preview explains blockers before submit", async (
   assert.equal(confirmExisting.rawValuesIncluded, false);
   assert.equal(confirmExisting.employeeMasterMutation, false);
   assert.equal(confirmExisting.canonicalWriteReachable, false);
+  const missingFollowUp = buildWorkforceProcedureSaveFollowUpPlan(missing);
+  const readyFollowUp = buildWorkforceProcedureSaveFollowUpPlan(ready);
+  const confirmFollowUp = buildWorkforceProcedureSaveFollowUpPlan(confirmExisting);
+  assert.equal(missingFollowUp.category, "MISSING_REQUIRED_FIELDS");
+  assert.match(missingFollowUp.title, /required fields/);
+  assert.equal(readyFollowUp.category, "READY_TO_SAVE");
+  assert.match(readyFollowUp.copy, /audit trail/);
+  assert.equal(confirmFollowUp.category, "CHECKLIST_REQUIRED_BEFORE_CONFIRM");
+  assert.equal(confirmFollowUp.employeeMasterMutation, false);
+  assert.equal(confirmFollowUp.canonicalWriteReachable, false);
+  assert.equal(confirmFollowUp.lineHistoryWriteReachable, false);
   assert.match(source, /renderSavePreview/);
+  assert.match(source, /buildWorkforceProcedureSaveFollowUpPlan/);
   assert.match(html, /workforce-case-save-preview/);
+  assert.match(html, /workforce-case-save-follow-up/);
   assert.match(css, /procedure-case-save-preview/);
+  assert.match(css, /procedure-case-save-follow-up/);
 });
 
 test("workforce procedure status messages explain safe boundaries without raw errors", () => {

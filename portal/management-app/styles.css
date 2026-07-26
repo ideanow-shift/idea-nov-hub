@@ -400,9 +400,9 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-local-preview-metrics { margin-bottom: 0; }
 .financial-local-preview-metrics .metric { background: var(--card); }
 .financial-store-analysis-formulas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px; }
-.financial-store-repeat-preview, .financial-store-customer-preview { margin: 0 0 12px; padding: 12px; border: 1px solid #dfe6ec; border-radius: 8px; background: #fbfcfd; }
-.financial-store-repeat-preview h3, .financial-store-customer-preview h3 { margin: 0 0 6px; font-size: 16px; }
-.financial-store-repeat-preview p, .financial-store-customer-preview p { margin: 0 0 10px; }
+.financial-store-repeat-preview, .financial-store-customer-preview, .financial-store-visit-cohort-preview { margin: 0 0 12px; padding: 12px; border: 1px solid #dfe6ec; border-radius: 8px; background: #fbfcfd; }
+.financial-store-repeat-preview h3, .financial-store-customer-preview h3, .financial-store-visit-cohort-preview h3 { margin: 0 0 6px; font-size: 16px; }
+.financial-store-repeat-preview p, .financial-store-customer-preview p, .financial-store-visit-cohort-preview p { margin: 0 0 10px; }
 .store-repeat-summary-intake, .store-customer-summary-intake { margin-top: 12px; padding: 14px; border: 1px solid #dfe6ec; border-radius: 8px; background: #fbfcfd; }
 .store-repeat-summary-intake > div, .store-customer-summary-intake > div { display: flex; gap: 12px; align-items: start; justify-content: space-between; }
 .store-repeat-summary-intake h4, .store-customer-summary-intake h4 { margin: 0 0 4px; }

@@ -2,13 +2,13 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=98059284370E87B7";
-import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=D777E53F38A72E1C";
+import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=7ADE7217A5BAF2F2";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
 const CORPORATE_VIEWS = new Set([...FINANCE_VIEWS, "dataops"]);
 const VIEWS = new Set([...CORPORATE_VIEWS, "stores"]);
-const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null, BUDGET: null }, storeRepeatPreview: null, storeCustomerPreview: null, localEvidence: { storeCsvReceipt: null, storeNameReceipt: null, workforceAllocationReceipt: null }, charts: {} };
+const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null, BUDGET: null }, storeRepeatPreview: null, storeCustomerPreview: null, storeVisitCohortPreview: null, localEvidence: { storeCsvReceipt: null, storeNameReceipt: null, workforceAllocationReceipt: null }, charts: {} };
 const number = new Intl.NumberFormat("ja-JP");
 const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 const colors = ["#b23a48", "#17324d", "#27795f", "#a36410", "#765487", "#337d8e", "#737b83"];
@@ -52,6 +52,12 @@ window.addEventListener("management-store-customer-local-preview", (event) => {
   const preview = sanitizeStoreCustomerPreview(event.detail);
   if (!preview) return;
   state.storeCustomerPreview = preview;
+  renderStores();
+});
+window.addEventListener("management-store-visit-cohort-local-preview", (event) => {
+  const preview = sanitizeStoreVisitCohortPreview(event.detail);
+  if (!preview) return;
+  state.storeVisitCohortPreview = preview;
   renderStores();
 });
 initialize();
@@ -472,6 +478,26 @@ function sanitizeStoreCustomerPreview(value) {
   return Object.freeze({ schemaVersion: "management-store-customer-summary-local-v1", category: "STORE_CUSTOMER_LOCAL_READY", rows: Object.freeze(rows), mutationCount: 0, uploadCount: 0, productionImportEnabled: false });
 }
 
+function sanitizeStoreVisitCohortPreview(value) {
+  if (!value || value.schemaVersion !== "management-store-visit-cohort-summary-local-v1" || value.category !== "STORE_VISIT_COHORT_LOCAL_READY") return null;
+  const count = (input) => Number.isSafeInteger(Number(input)) && Number(input) >= 0 ? Number(input) : null;
+  const rows = Array.isArray(value.rows) ? value.rows.slice(0, 10000).map((row) => {
+    const storeName = String(row.storeName || "").trim();
+    const period = String(row.period || "").trim();
+    const technicalCustomerCount = count(row.technicalCustomerCount);
+    const totalVisitCount = count(row.totalVisitCount);
+    const newVisitCount = count(row.newVisitCount);
+    const secondVisitCount = count(row.secondVisitCount);
+    const thirdVisitCount = count(row.thirdVisitCount);
+    const fixedVisitCount = count(row.fixedVisitCount);
+    if (!storeName || !/^20\d{2}-(?:0[1-9]|1[0-2])$/u.test(period) || [technicalCustomerCount, totalVisitCount, newVisitCount, secondVisitCount, thirdVisitCount, fixedVisitCount].some((item) => item == null)) return null;
+    if (technicalCustomerCount > totalVisitCount || totalVisitCount !== newVisitCount + secondVisitCount + thirdVisitCount + fixedVisitCount) return null;
+    return Object.freeze({ storeName: storeName.slice(0, 100), period, technicalCustomerCount, totalVisitCount, newVisitCount, secondVisitCount, thirdVisitCount, fixedVisitCount });
+  }).filter(Boolean) : [];
+  if (!rows.length) return null;
+  return Object.freeze({ schemaVersion: "management-store-visit-cohort-summary-local-v1", category: "STORE_VISIT_COHORT_LOCAL_READY", rows: Object.freeze(rows), mutationCount: 0, uploadCount: 0, productionImportEnabled: false });
+}
+
 function sanitizeBudgetPreview(value) {
   const amount = (input) => input !== null && input !== undefined && Number.isFinite(Number(input)) ? Number(input) : null;
   const rows = Array.isArray(value.rows) ? value.rows.slice(0, 80).map((row) => ({
@@ -783,6 +809,7 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
   const duplicateMessage = financialDuplicateMessage(preview);
   const customerPanel = buildStoreCustomerCountPanel();
   const repeatPanel = buildStoreRepeatCustomerPanel();
+  const visitCohortPanel = buildStoreVisitCohortPanel();
   const wrap = document.createElement("div");
   wrap.className = "table-wrap embedded local-preview-table";
   const table = document.createElement("table");
@@ -813,6 +840,7 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
     buildStoreAnalysisFormulaPanel(),
     ...(customerPanel ? [customerPanel] : []),
     ...(repeatPanel ? [repeatPanel] : []),
+    ...(visitCohortPanel ? [visitCohortPanel] : []),
     wrap
   );
   if (localPlMatch.unmatched > 0) section.append(buildFinancialStoreMatchAction(localPlMatch));
@@ -909,6 +937,41 @@ function buildStoreCustomerCountPanel() {
     paragraph("営業部集計から来店件数だけを確認用に表示しています。経理P/Lと同じ店舗・年月で一致を確認するまで、総単価は確定表示しません。"),
     wrap,
     muted("技術客数はこのCSVには含まれないため、技術単価は未算定です。個人データは表示・保存しません。")
+  );
+  return section;
+}
+
+function buildStoreVisitCohortPanel() {
+  const preview = state.storeVisitCohortPreview;
+  if (!preview?.rows?.length) return null;
+  const latestPeriod = preview.rows.reduce((latest, row) => row.period > latest ? row.period : latest, preview.rows[0].period);
+  const rows = preview.rows
+    .filter((row) => row.period === latestPeriod)
+    .sort((left, right) => left.storeName.localeCompare(right.storeName, "ja"));
+  const section = document.createElement("section");
+  section.className = "financial-store-visit-cohort-preview";
+  const wrap = document.createElement("div");
+  wrap.className = "table-wrap embedded local-preview-table";
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.append(tableRow(["店舗", "技術客数", "総来店数", "新規", "2回目", "3回目", "固定"], true));
+  const tbody = document.createElement("tbody");
+  tbody.replaceChildren(...rows.map((row) => tableRow([
+    row.storeName,
+    `${number.format(row.technicalCustomerCount)}件`,
+    `${number.format(row.totalVisitCount)}件`,
+    `${number.format(row.newVisitCount)}件`,
+    `${number.format(row.secondVisitCount)}件`,
+    `${number.format(row.thirdVisitCount)}件`,
+    `${number.format(row.fixedVisitCount)}件`,
+  ])));
+  table.append(thead, tbody);
+  wrap.append(table);
+  section.append(
+    heading(`店舗月次の技術客数・来店区分 (${latestPeriod})`),
+    paragraph("技術単価と総単価、来店区分別のリピート分析に使うローカル確認値です。店舗名と対象月が経理P/Lに一致するまで、ダッシュボードの確定値には反映しません。"),
+    wrap,
+    muted("総来店数は、新規・2回目・3回目・固定の合計と一致するCSVだけを受け付けます。個人を識別する情報は読み込みません。")
   );
   return section;
 }

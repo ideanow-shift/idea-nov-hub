@@ -156,6 +156,8 @@ assert.match(naviStylesSource, /\.navi-role-categories button \{[^}]*min-height:
 assert.match(naviStylesSource, /\.navi-category\[data-navi-card-count="1"\] \.navi-system-grid/, "single-card categories must use the available mobile width");
 assert.match(dashboardSource, /function getNaviLaunchState\(system, app\)/, "NOVA launch labels must be centralized");
 assert.match(dashboardSource, /button\.disabled = !launchState\.enabled/, "unconnected systems must render as disabled controls");
+assert.match(dashboardSource, /decision_hub: "\.\/assets\/icons\/approval\.svg"/, "approval cards must use their dedicated NOV NAVI SVG");
+assert.match(dashboardSource, /pos: "\.\/assets\/icons\/store-operations\.svg"/, "store operation cards must use their dedicated NOV NAVI SVG");
 assert.match(dashboardSource, /const TODAY_KEYS = \["schedule", "tasks", "approvals", "thanks", "inquiries", "growthPoints"\]/, "Today card keys must remain allowlisted");
 assert.match(dashboardSource, /Number\.isSafeInteger\(value\)/, "Today card values must remain bounded aggregates");
 assert.match(dashboardSource, /data-navi-today-key="schedule"/, "Today cards must bind their values by an explicit key");

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -232,6 +232,20 @@ test("workforce procedure cases summarize today's operation queue without mutati
   assert.equal(summary.soon, 1);
   assert.equal(summary.review, 2);
   assert.equal(summary.draft, 1);
+  assert.deepEqual(buildWorkforceProcedureOperationFilter("OVERDUE"), {
+    status: "ALL",
+    priority: "OVERDUE",
+    label: "期限超過の案件へ絞り込み",
+    rawValuesIncluded: false,
+    employeeMasterMutation: false
+  });
+  assert.deepEqual(buildWorkforceProcedureOperationFilter("READY_FOR_REVIEW"), {
+    status: "READY_FOR_REVIEW",
+    priority: "ALL",
+    label: "確認待ちへ絞り込み",
+    rawValuesIncluded: false,
+    employeeMasterMutation: false
+  });
 });
 
 test("workforce procedure type summary separates workload without raw values", () => {

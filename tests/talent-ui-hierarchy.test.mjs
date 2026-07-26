@@ -309,6 +309,9 @@ test("workforce exposes an audited procedure case desk without employee-master c
   assert.match(html, /id="workforce-case-steps"/);
     assert.match(html, /id="workforce-case-priority-status"/);
     assert.match(html, /id="workforce-case-operation-summary"/);
+    assert.match(html, /class="procedure-case-operation-actions"/);
+    assert.match(html, /data-workforce-operation-filter="OVERDUE"/);
+    assert.match(html, /data-workforce-operation-filter="READY_FOR_REVIEW"/);
     assert.match(html, /id="workforce-case-type-summary"/);
     assert.match(html, /id="workforce-case-type-onboarding-open"/);
     assert.match(html, /data-procedure-type-summary="ONBOARDING"/);
@@ -330,6 +333,8 @@ test("workforce exposes an audited procedure case desk without employee-master c
   assert.match(source, /buildWorkforceProcedureCaseNextAction/);
   assert.match(source, /procedure-case-next-action/);
   assert.match(source, /buildWorkforceProcedureOperationSummary/);
+  assert.match(source, /buildWorkforceProcedureOperationFilter/);
+  assert.match(source, /data-workforce-operation-filter/);
   assert.match(source, /buildWorkforceProcedureCaseFormGuide/);
   assert.match(source, /renderFormGuide/);
   assert.match(source, /buildWorkforceProcedureStatusTransitionPlan/);

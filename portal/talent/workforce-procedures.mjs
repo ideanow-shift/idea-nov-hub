@@ -234,6 +234,20 @@ export function buildWorkforceProcedureOperationSummary(cases, referenceDate = l
   return Object.freeze({ overdue, soon, review, draft, nextAction, title, copy });
 }
 
+export function buildWorkforceProcedureOperationFilter(action) {
+  const plans = Object.freeze({
+    OVERDUE: Object.freeze({ status: "ALL", priority: "OVERDUE", label: "期限超過の案件へ絞り込み" }),
+    NEXT_7_DAYS: Object.freeze({ status: "ALL", priority: "NEXT_7_DAYS", label: "7日以内の案件へ絞り込み" }),
+    READY_FOR_REVIEW: Object.freeze({ status: "READY_FOR_REVIEW", priority: "ALL", label: "確認待ちへ絞り込み" }),
+    DRAFT: Object.freeze({ status: "DRAFT", priority: "ALL", label: "下書きへ絞り込み" })
+  });
+  return Object.freeze({
+    ...(plans[action] || Object.freeze({ status: "ALL", priority: "ALL", label: "すべての案件を表示" })),
+    rawValuesIncluded: false,
+    employeeMasterMutation: false
+  });
+}
+
 export function buildWorkforceProcedureTypeSummary(cases, referenceDate = localDateIso()) {
   const rows = Array.isArray(cases) ? cases : [];
   return Object.freeze(Object.fromEntries(PROCEDURE_TYPES.map((procedureType) => {
@@ -559,6 +573,7 @@ export function initializeWorkforceProcedureDesk({
   const filterStatus = documentObject?.getElementById?.("workforce-case-filter-status");
   const priorityStatus = documentObject?.getElementById?.("workforce-case-priority-status");
   const operationSummary = documentObject?.getElementById?.("workforce-case-operation-summary");
+  const operationFilterButtons = Array.from(documentObject?.querySelectorAll?.("[data-workforce-operation-filter]") || []);
   const procedureFilter = documentObject?.getElementById?.("workforce-case-procedure-filter");
   const searchInput = documentObject?.getElementById?.("workforce-case-search");
   const filterResetButton = documentObject?.getElementById?.("workforce-case-filter-reset");
@@ -713,6 +728,13 @@ export function initializeWorkforceProcedureDesk({
     set("workforce-case-operation-soon", summary.soon);
     set("workforce-case-operation-review", summary.review);
     set("workforce-case-operation-draft", summary.draft);
+    for (const button of operationFilterButtons) {
+      const plan = buildWorkforceProcedureOperationFilter(button.dataset.workforceOperationFilter);
+      const selected = activeFilter === plan.status && activePriority === plan.priority;
+      button.setAttribute("aria-pressed", String(selected));
+      button.disabled = false;
+      button.setAttribute("aria-label", plan.label);
+    }
   };
   const renderTypeSummary = (summary) => {
     for (const procedureType of PROCEDURE_TYPES) {
@@ -928,6 +950,17 @@ export function initializeWorkforceProcedureDesk({
   }
   for (const button of desk.querySelectorAll("[data-case-priority-filter]")) {
     button.addEventListener("click", () => setPriorityFilter(button.dataset.casePriorityFilter));
+  }
+  for (const button of operationFilterButtons) {
+    button.addEventListener("click", () => {
+      const plan = buildWorkforceProcedureOperationFilter(button.dataset.workforceOperationFilter);
+      activeFilter = plan.status;
+      activePriority = plan.priority;
+      updateStatusFilterButtons();
+      updatePriorityFilterButtons();
+      updateFilterResetButton();
+      render();
+    });
   }
   for (const button of desk.querySelectorAll("[data-procedure-type-summary]")) {
     button.addEventListener("click", () => setProcedureType(button.dataset.procedureTypeSummary));

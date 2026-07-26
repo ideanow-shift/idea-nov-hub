@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentFilterSummary, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -71,6 +71,36 @@ test("summary shortcuts open the intended student queues without changing record
   assert.match(app, /buildSummaryFollowUpFilter/);
   assert.match(app, /renderSummaryFollowUpCounts/);
   assert.match(app, /openStudentWorkspace/);
+});
+
+test("student workspace summarizes active filters from analysis shortcuts", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+
+  assert.deepEqual(buildStudentFilterSummary().labels, []);
+  assert.deepEqual(buildStudentFilterSummary({
+    query: "NOV美容専門学校",
+    source: "ALL",
+    state: "NEEDS_ACTION",
+    progress: "ALL",
+    month: "2026-05",
+    followUp: "NEXT_7_DAYS",
+    sort: "FOLLOW_UP"
+  }), {
+    active: true,
+    title: "条件を絞って表示中",
+    labels: [
+      "検索: NOV美容専門学校",
+      "状態: 要確認・隔離",
+      "記録月: 2026-05",
+      "対応期限: 7日以内",
+      "並び順: 対応期限順"
+    ]
+  });
+  assert.match(html, /id="student-filter-summary"/);
+  assert.match(html, /id="student-filter-summary-chips"/);
+  assert.match(app, /renderStudentFilterSummary/);
+  assert.match(app, /buildStudentFilterSummary\(\{ query, source, state, progress, month, followUp, sort \}\)/);
 });
 
 test("fair analysis opens a student queue scoped to its selected record month", async () => {

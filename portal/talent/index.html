@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-review-workload-guide-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-student-filter-summary-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-review-workload-guide-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-student-filter-summary-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -260,6 +260,11 @@
             <button id="student-filter-new" class="filter-command" type="button" aria-pressed="false" data-label="新規候補">新規候補</button>
             <button id="student-filter-reset" class="filter-command student-filter-reset" type="button" disabled aria-disabled="true">条件をリセット</button>
           </div>
+        </section>
+
+        <section id="student-filter-summary" class="student-filter-summary" aria-live="polite" aria-label="現在の学生一覧条件">
+          <strong id="student-filter-summary-title">すべての学生を表示中</strong>
+          <div id="student-filter-summary-chips" class="student-filter-summary-chips"></div>
         </section>
 
         <section class="student-kpis" aria-label="27卒取込状況">

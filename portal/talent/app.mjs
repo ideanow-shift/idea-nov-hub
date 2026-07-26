@@ -989,6 +989,59 @@ export function buildMonthlyFollowUpFilter(month) {
   return Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "ALL", month: value });
 }
 
+const STUDENT_FILTER_LABELS = Object.freeze({
+  source: Object.freeze({
+    CONTACTS_27: "接触",
+    ENTRIES_27: "エントリー",
+    OFFERS_27: "内定",
+    MANUAL: "手入力"
+  }),
+  state: Object.freeze({
+    OWNER_REVIEW: "要確認",
+    QUARANTINE: "隔離",
+    IMPORTABLE: "確認済み",
+    NEW_CANDIDATE: "新規候補",
+    NEEDS_ACTION: "要確認・隔離"
+  }),
+  progress: Object.freeze({
+    UNSET: "進捗未登録",
+    CONTACT: "接触",
+    LINE_REGISTERED: "LINE登録",
+    SALON_TOUR: "サロン見学",
+    INTERVIEW: "面接",
+    PASSED: "通過",
+    OFFER: "内定",
+    EXPECTED_JOIN: "入社予定",
+    WITHDRAWN: "辞退・保留"
+  }),
+  followUp: Object.freeze({
+    OVERDUE: "期限超過",
+    NEXT_7_DAYS: "7日以内",
+    SCHEDULED: "予定あり",
+    UNSCHEDULED: "未設定"
+  }),
+  sort: Object.freeze({
+    FOLLOW_UP: "対応期限順"
+  })
+});
+
+export function buildStudentFilterSummary({ query = "", source = "ALL", state = "ALL", progress = "ALL", month = "ALL", followUp = "ALL", sort = "DEFAULT" } = {}) {
+  const labels = [];
+  const normalizedQuery = String(query || "").trim();
+  if (normalizedQuery) labels.push(`検索: ${normalizedQuery}`);
+  if (source !== "ALL") labels.push(`区分: ${STUDENT_FILTER_LABELS.source[source] || source}`);
+  if (state !== "ALL") labels.push(`状態: ${STUDENT_FILTER_LABELS.state[state] || state}`);
+  if (progress !== "ALL") labels.push(`進捗: ${STUDENT_FILTER_LABELS.progress[progress] || progress}`);
+  if (month !== "ALL") labels.push(`記録月: ${month}`);
+  if (followUp !== "ALL") labels.push(`対応期限: ${STUDENT_FILTER_LABELS.followUp[followUp] || followUp}`);
+  if (sort !== "DEFAULT") labels.push(`並び順: ${STUDENT_FILTER_LABELS.sort[sort] || sort}`);
+  return Object.freeze({
+    active: labels.length > 0,
+    title: labels.length > 0 ? "条件を絞って表示中" : "すべての学生を表示中",
+    labels: Object.freeze(labels)
+  });
+}
+
 export function buildOnboardingHandoffDraft(student) {
   if (!student || typeof student !== "object") return null;
   const displayName = typeof student.displayName === "string" ? student.displayName.trim() : "";
@@ -1177,6 +1230,7 @@ function renderStudentWorkspace(documentObject) {
   );
   updateStudentQuickFilterState(documentObject, state, studentWorkspaceData.students);
   updateStudentFilterResetState(documentObject, { query, source, state, progress, month, followUp, sort });
+  renderStudentFilterSummary(documentObject, buildStudentFilterSummary({ query, source, state, progress, month, followUp, sort }));
   const list = documentObject.getElementById("student-list");
   const empty = documentObject.getElementById("student-empty");
   const count = documentObject.getElementById("student-result-count");
@@ -1223,6 +1277,20 @@ function updateStudentFilterResetState(documentObject, { query, source, state, p
   const active = Boolean(query) || source !== "ALL" || state !== "ALL" || progress !== "ALL" || month !== "ALL" || followUp !== "ALL" || sort !== "DEFAULT";
   button.disabled = !active;
   button.setAttribute("aria-disabled", String(!active));
+}
+
+function renderStudentFilterSummary(documentObject, summary) {
+  const container = documentObject.getElementById("student-filter-summary");
+  const title = documentObject.getElementById("student-filter-summary-title");
+  const chips = documentObject.getElementById("student-filter-summary-chips");
+  if (!container || !title || !chips) return;
+  container.dataset.active = String(summary.active);
+  title.textContent = summary.title;
+  chips.replaceChildren(...summary.labels.map((label) => {
+    const chip = documentObject.createElement("span");
+    chip.textContent = label;
+    return chip;
+  }));
 }
 
 function createStudentListItem(documentObject, student) {

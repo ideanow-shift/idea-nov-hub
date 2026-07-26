@@ -33,6 +33,8 @@ test("daily command center opens safe work areas without writes", async () => {
   assert.match(html, /data-talent-daily-open="csv28"/);
   assert.match(css, /\.talent-daily-command/);
   assert.match(css, /\.talent-daily-command-actions/);
+  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-daily-command \{ grid-template-columns: 1fr; \}/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.talent-daily-command-actions \{ grid-template-columns: 1fr; \}/);
   assert.match(app, /data-talent-daily-open/);
   assert.match(app, /student-daily-queue-start-guide/);
   assert.match(app, /workforce-case-operation-start-guide/);

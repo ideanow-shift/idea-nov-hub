@@ -22,7 +22,7 @@ import {
   renderNovNaviDashboard,
   shouldEnableLocalNovNaviDemo,
   shouldEnableNovNaviDashboard
-} from "./nov-navi-dashboard.js?v=nov-navi-launch-state-20260726-10";
+} from "./nov-navi-dashboard.js?v=nov-navi-common-components-20260726-12";
 import {
   NOV_HUB_SESSION_CONTRACT,
   clearNovHubSession,
@@ -564,6 +564,7 @@ function loadNovHubNotificationsAfterPaint() {
       .then((data) => {
         state.notifications = Array.isArray(data.notifications) ? data.notifications : [];
         renderAnnouncements();
+        renderPortal();
         renderHeaderNotificationHint();
       })
       .catch((error) => console.warn("NOV HUB notifications load failed", error));
@@ -576,6 +577,7 @@ function loadAnnouncementsAfterPaint() {
       .then((data) => {
         state.announcements = Array.isArray(data.announcements) ? data.announcements : [];
         renderAnnouncements();
+        renderPortal();
       })
       .catch((error) => console.warn("Portal announcements load failed", error));
   });

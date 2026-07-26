@@ -114,6 +114,11 @@ export function getVisibleNaviCategories(employee) {
   ));
 }
 
+export function getNaviCategoryId(category) {
+  const index = CATEGORY_ORDER.indexOf(category);
+  return index === -1 ? "" : `navi-category-${index + 1}`;
+}
+
 export function getNaviCategoryAudienceHint(category) {
   const hints = {
     "運営管理": "毎日の業務",
@@ -280,7 +285,7 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
   const profile = roleProfile(employee);
   const visibleCategories = getVisibleNaviCategories(employee);
   root.innerHTML = `
-    <div class="navi-role-summary"><span>表示区分</span><strong>${escapeHtml(profile.label)}</strong><div class="navi-role-categories" aria-label="表示中の業務領域">${visibleCategories.map((category) => `<span>${escapeHtml(category)}</span>`).join("")}</div><small>起動時に各システム側で権限を再確認します</small></div>
+    <div class="navi-role-summary"><span>表示区分</span><strong>${escapeHtml(profile.label)}</strong><div class="navi-role-categories" aria-label="表示中の業務領域">${visibleCategories.map((category) => `<button type="button" data-navi-category-target="${getNaviCategoryId(category)}">${escapeHtml(category)}</button>`).join("")}</div><small>起動時に各システム側で権限を再確認します</small></div>
     <section class="navi-today" aria-labelledby="navi-today-title">
       <div class="navi-section-heading"><h2 id="navi-today-title">今日の仕事</h2><span>各システムの連携準備中</span></div>
       <p class="navi-today-greeting">${escapeHtml(getNaviGreeting())}</p>
@@ -308,6 +313,14 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
   root.querySelector(".navi-support-launcher").addEventListener("click", () => {
     onOpenSupport("");
   });
+  root.querySelectorAll("[data-navi-category-target]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const target = root.querySelector(`#${button.dataset.naviCategoryTarget}`);
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      target.querySelector(".navi-open-button:not(:disabled)")?.focus({ preventScroll: true });
+    });
+  });
   renderNaviToday(root, today);
   renderNaviNotices(notices, onOpenNotice);
 
@@ -315,9 +328,11 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
   CATEGORY_ORDER.forEach((category, categoryIndex) => {
     const systems = SYSTEMS.filter((system) => system.category === category && visibleSystem(system, employee));
     if (!systems.length) return;
+    const categoryId = getNaviCategoryId(category);
     const headingId = `navi-category-title-${categoryIndex + 1}`;
     const audienceHint = getNaviCategoryAudienceHint(category);
     const section = document.createElement("section");
+    section.id = categoryId;
     section.className = "navi-category";
     section.setAttribute("aria-labelledby", headingId);
     section.innerHTML = `<div class="navi-section-heading"><h2 id="${headingId}">${escapeHtml(category)}</h2>${audienceHint ? `<span>${escapeHtml(audienceHint)}</span>` : ""}</div><div class="navi-system-grid"></div>`;

@@ -4,6 +4,7 @@ import {
   getVisibleNaviCategories,
   getVisibleNaviNotices,
   getNaviTodaySnapshot,
+  getNaviCategoryId,
   getNaviCategoryAudienceHint,
   getNaviLaunchState,
   getNaviGreeting,
@@ -72,6 +73,8 @@ assert.deepEqual(
 assert.equal(getNaviCategoryAudienceHint("経営管理"), "店長以上・許可範囲", "management category must communicate its display boundary");
 assert.equal(getNaviCategoryAudienceHint("システム管理"), "システム管理者のみ", "system administration must remain explicitly restricted");
 assert.equal(getNaviCategoryAudienceHint("unknown"), "", "unknown categories must not invent an audience boundary");
+assert.equal(getNaviCategoryId("unknown"), "", "unknown categories must not receive a navigation target");
+assert.equal(getNaviCategoryId(getVisibleNaviCategories({ roleLevel: 1, roleKeys: [] })[0]), "navi-category-1", "visible category targets must use stable IDs");
 assert.deepEqual(
   getNaviLaunchState({ status: "available" }, null),
   { status: "coming_soon", actionLabel: "接続準備中", enabled: false },
@@ -140,6 +143,9 @@ assert.match(dashboardSource, /notice\.unread/, "NOVA notices must prioritize un
 assert.match(mainSource, /state\.notifications = Array\.isArray\(data\.notifications\)[\s\S]*?renderPortal\(\)/, "notification refresh must also refresh the NOV NAVI view");
 assert.match(mainSource, /state\.announcements = Array\.isArray\(data\.announcements\)[\s\S]*?renderPortal\(\)/, "announcement refresh must also refresh the NOV NAVI view");
 assert.match(dashboardSource, /function getNaviCategoryAudienceHint\(category\)/, "NOVA category audience labels must be centralized");
+assert.match(dashboardSource, /data-navi-category-target/, "NOVA role categories must provide local navigation controls");
+assert.match(dashboardSource, /target\.scrollIntoView/, "NOVA category controls must use in-page navigation only");
+assert.match(naviStylesSource, /\.navi-role-categories button \{[^}]*min-height: 40px/, "NOVA category controls must meet the mobile touch target");
 assert.match(dashboardSource, /function getNaviLaunchState\(system, app\)/, "NOVA launch labels must be centralized");
 assert.match(dashboardSource, /button\.disabled = !launchState\.enabled/, "unconnected systems must render as disabled controls");
 assert.match(dashboardSource, /const TODAY_KEYS = \["schedule", "tasks", "approvals", "thanks", "inquiries", "growthPoints"\]/, "Today card keys must remain allowlisted");

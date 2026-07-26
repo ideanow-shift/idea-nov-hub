@@ -30,7 +30,9 @@
 
 .navi-role-summary strong { border: 1px solid var(--navi-accent); border-radius: 5px; background: #fff; padding: 4px 8px; color: var(--navi-ink); font-size: 11px; }
 .navi-role-categories { display: flex; flex: 1 1 220px; flex-wrap: wrap; gap: 4px; min-width: 0; }
-.navi-role-categories span { border: 1px solid var(--border-soft); border-radius: 4px; background: #fff; padding: 3px 6px; color: var(--text-secondary); font-size: 10px; line-height: 1.25; }
+.navi-role-categories button { min-height: 40px; border: 1px solid var(--border-soft); border-radius: 4px; background: #fff; padding: 3px 8px; color: var(--text-secondary); cursor: pointer; font: inherit; font-size: 10px; line-height: 1.25; text-align: left; }
+.navi-role-categories button:hover { border-color: var(--navi-accent); color: var(--navi-ink); }
+.navi-role-categories button:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 .navi-role-summary small { min-width: 0; margin-left: auto; color: var(--text-secondary); overflow-wrap: anywhere; }
 .navi-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .navi-section-heading h2 { position: relative; padding-left: 12px; color: var(--navi-ink); font-size: 17px; font-weight: 750; letter-spacing: 0; }

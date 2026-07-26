@@ -218,6 +218,38 @@ export function buildWorkforceProcedureConfirmationReadiness(steps) {
   });
 }
 
+export function buildWorkforceProcedureStepProgress(steps) {
+  const rows = Array.isArray(steps) ? steps : [];
+  const completed = rows.filter((step) => step?.isCompleted === true).length;
+  const pending = Math.max(0, rows.length - completed);
+  const nextPending = rows.find((step) => step?.isCompleted !== true) || null;
+  const category = rows.length !== 4
+    ? "CHECKLIST_SHAPE_INVALID"
+    : pending === 0
+      ? "ALL_COMPLETE"
+      : completed === 0
+        ? "NOT_STARTED"
+        : "IN_PROGRESS";
+  const title = {
+    CHECKLIST_SHAPE_INVALID: "確認項目の形を確認してください",
+    ALL_COMPLETE: "4項目すべて完了しています",
+    NOT_STARTED: "確認項目は未着手です",
+    IN_PROGRESS: "未完了の確認項目が残っています"
+  }[category];
+  const nextStepLabel = nextPending ? STEP_LABELS[nextPending.stepKey] || "次の確認項目" : "確認済みに進められます";
+  return Object.freeze({
+    category,
+    title,
+    completed,
+    pending,
+    nextStepCategory: nextPending ? "PRESENT" : "NONE",
+    nextStepLabel,
+    canConfirm: category === "ALL_COMPLETE",
+    rawValuesIncluded: false,
+    employeeMasterMutation: false
+  });
+}
+
 export function classifyWorkforceProcedureCasePriority(item, referenceDate = localDateIso()) {
   if (!item || !CASE_STATUSES.includes(item.caseStatus) || !/^\d{4}-\d{2}-\d{2}$/.test(item.effectiveDate || "")) return "SCHEDULED";
   if (["CONFIRMED", "CANCELLED"].includes(item.caseStatus)) return "CLOSED";
@@ -1121,17 +1153,23 @@ export function initializeWorkforceProcedureDesk({
     }
     const completed = result.data.steps.filter((step) => step.isCompleted).length;
     const readiness = buildWorkforceProcedureConfirmationReadiness(result.data.steps);
+    const progress = buildWorkforceProcedureStepProgress(result.data.steps);
     stepsStatus.dataset.category = readiness.category;
-    stepsStatus.textContent = `${procedureLabel(result.data.procedureType)}の確認項目 ${completed} / ${result.data.steps.length} 件が完了しています。${readiness.title}。${readiness.copy}`;
+    stepsStatus.dataset.progressCategory = progress.category;
+    stepsStatus.textContent = `${procedureLabel(result.data.procedureType)}の確認項目 ${completed} / ${result.data.steps.length} 件が完了しています。${readiness.title}。次: ${progress.nextStepLabel}。${readiness.copy}`;
     const fragment = documentObject.createDocumentFragment();
-    for (const step of result.data.steps) {
+    for (const [index, step] of result.data.steps.entries()) {
       const label = documentObject.createElement("label");
       label.className = `procedure-case-step${step.isCompleted ? " is-completed" : ""}`;
       const checkbox = documentObject.createElement("input");
       checkbox.type = "checkbox";
       checkbox.checked = step.isCompleted;
+      const order = documentObject.createElement("b");
+      order.textContent = String(index + 1).padStart(2, "0");
       const text = documentObject.createElement("span");
       text.textContent = STEP_LABELS[step.stepKey];
+      const state = documentObject.createElement("em");
+      state.textContent = step.isCompleted ? "完了" : "未完了";
       checkbox.addEventListener("change", async () => {
         checkbox.disabled = true;
         const saved = await controller.saveStep({ caseId: item.caseId, stepKey: step.stepKey, completed: checkbox.checked, expectedVersion: step.version });
@@ -1143,7 +1181,7 @@ export function initializeWorkforceProcedureDesk({
           stepsStatus.textContent = "確認項目を更新できませんでした。画面を再読み込みして状態を確認してください。";
         }
       });
-      label.append(checkbox, text);
+      label.append(checkbox, order, text, state);
       fragment.append(label);
     }
     stepsList.append(fragment);

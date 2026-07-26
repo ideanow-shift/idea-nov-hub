@@ -828,6 +828,8 @@ h3 { margin: 0; font-size: 1rem; }
 .detail-actions { display: flex; align-items: center; gap: 8px; }
 .compact-command { min-height: 32px; padding: 0 11px; font-size: 0.76rem; }
 .compact-command:disabled { color: var(--muted); background: #eef1f4; cursor: not-allowed; }
+.next-action-command:not(:disabled) { border-color: #b9ddce; color: #176f48; background: var(--green-soft); }
+.next-action-command:not(:disabled):hover { border-color: #75ad91; background: #dff3e9; }
 .detail-header h3 { margin-top: 8px; font-size: 1.25rem; }
 .detail-header p { margin: 4px 0 0; color: var(--muted); font-size: 0.82rem; }
 .student-action-guide {

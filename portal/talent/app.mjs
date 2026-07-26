@@ -394,6 +394,12 @@ export function initializeTalentStudentWorkspace({
       openStudentProfileDialog({ documentObject, student });
     }
   });
+  documentObject.getElementById("student-next-action-open")?.addEventListener("click", () => {
+    const student = studentWorkspaceData?.students.find((row) => row.recordId === selectedStudentRecordId);
+    if (student?.applicationNo || (student?.mappingStatus === "UNMAPPED" && student?.recordId)) {
+      openStudentProfileDialog({ documentObject, student, focusField: "profile-next-action" });
+    }
+  });
   documentObject.getElementById("student-audit-open")?.addEventListener("click", () => {
     const student = studentWorkspaceData?.students.find((row) => row.recordId === selectedStudentRecordId);
     openStudentAuditDialog({ globalObject, documentObject, student });
@@ -1146,11 +1152,17 @@ function renderStudentDetail(documentObject, student) {
     if (placeholder) placeholder.hidden = false;
     if (detail) detail.hidden = true;
     const editButton = documentObject.getElementById("student-edit-open");
+    const nextActionButton = documentObject.getElementById("student-next-action-open");
     const auditButton = documentObject.getElementById("student-audit-open");
     if (editButton) {
       editButton.disabled = true;
       editButton.setAttribute("aria-disabled", "true");
       editButton.title = "学生を選択してください";
+    }
+    if (nextActionButton) {
+      nextActionButton.disabled = true;
+      nextActionButton.setAttribute("aria-disabled", "true");
+      nextActionButton.title = "学生を選択してください";
     }
     const confirmButton = documentObject.getElementById("student-confirm-open");
     if (confirmButton) {
@@ -1180,15 +1192,21 @@ function renderStudentDetail(documentObject, student) {
   setText(documentObject, "student-detail-state", student.classificationLabel);
   const state = documentObject.getElementById("student-detail-state");
   if (state) state.dataset.state = student.classification;
+  const editable = Boolean(student.applicationNo)
+    || (student.mappingStatus === "UNMAPPED" && Boolean(student.recordId));
   const editButton = documentObject.getElementById("student-edit-open");
   if (editButton) {
-    const editable = Boolean(student.applicationNo)
-      || (student.mappingStatus === "UNMAPPED" && Boolean(student.recordId));
     editButton.disabled = !editable;
     editButton.setAttribute("aria-disabled", String(!editable));
     editButton.title = student.applicationNo
       ? "正本プロフィールを編集"
       : editable ? "staging補足情報を編集" : "編集できるデータがありません";
+  }
+  const nextActionButton = documentObject.getElementById("student-next-action-open");
+  if (nextActionButton) {
+    nextActionButton.disabled = !editable;
+    nextActionButton.setAttribute("aria-disabled", String(!editable));
+    nextActionButton.title = editable ? "次回対応日を設定" : "このデータには補足情報を登録できません";
   }
   const auditButton = documentObject.getElementById("student-audit-open");
   if (auditButton) {
@@ -1371,7 +1389,7 @@ function formatAuditDate(value) {
   }).format(parsed);
 }
 
-function openStudentProfileDialog({ documentObject, student }) {
+function openStudentProfileDialog({ documentObject, student, focusField = "profile-display-name" }) {
   profileDialogStudent = student;
   const stagingEdit = Boolean(student && !student.applicationNo && student.recordId);
   setText(documentObject, "student-profile-dialog-title", stagingEdit ? "staging補足情報を編集" : student ? "学生情報を編集" : "学生を追加");
@@ -1400,7 +1418,7 @@ function openStudentProfileDialog({ documentObject, student }) {
       : "必要事項を入力してください";
   }
   documentObject.getElementById("student-profile-dialog")?.showModal?.();
-  documentObject.getElementById("profile-display-name")?.focus?.();
+  documentObject.getElementById(focusField)?.focus?.();
 }
 
 async function saveStudentProfile({ globalObject, documentObject }) {

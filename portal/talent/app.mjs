@@ -1169,6 +1169,7 @@ function renderStudentDetail(documentObject, student) {
   setText(documentObject, "student-detail-expected-join-date", student.expectedJoinDate || "未登録");
   setText(documentObject, "student-detail-planned-store", student.plannedStore || "未登録");
   setText(documentObject, "student-detail-application", student.applicationNo || "未確定");
+  setText(documentObject, "student-detail-next-action", student.nextActionAt || "未登録");
   setText(documentObject, "student-detail-profile-version", student.profileVersion ? `v${student.profileVersion}` : "未登録");
   setText(
     documentObject,

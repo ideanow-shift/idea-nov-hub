@@ -82,6 +82,8 @@ test("fair analysis opens a student queue scoped to its selected record month", 
   assert.match(html, /id="student-month-filter"/);
   assert.match(html, /id="student-filter-reset"/);
   assert.match(app, /updateStudentFilterResetState/);
+  assert.match(html, /id="student-detail-next-action"/);
+  assert.match(app, /student-detail-next-action/);
   assert.match(html, /<th>記録月<\/th>[\s\S]*<th>フォロー<\/th>/);
   assert.match(app, /button\.textContent = "対象月を見る"/);
   assert.match(app, /renderStudentMonthFilterOptions/);

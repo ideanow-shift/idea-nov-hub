@@ -933,6 +933,21 @@ h3 { margin: 0; font-size: 1rem; }
   color: #27556d;
   background: #eef7fb;
 }
+.student-list-review-priority {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 6px;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: #31515c;
+  background: #f9fcfb;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+.student-list-review-priority[data-category="BULK_FIRST"] { border-color: #f0d5d8; color: var(--accent-strong); background: var(--accent-soft); }
+.student-list-review-priority[data-category="INDIVIDUAL_SECOND"] { border-color: #c9d9ee; color: var(--navy); background: #f8fbff; }
+.student-list-review-priority[data-category="QUARANTINE_THIRD"] { border-color: #ead3a6; color: #926000; background: var(--amber-soft); }
 .student-list-followup { display: none; width: fit-content; padding: 3px 7px; border-radius: 4px; color: var(--muted); background: #f2f5f7; font-size: 0.72rem; font-weight: 800; }
 .student-list-followup.is-overdue,
 .student-list-followup.is-next-7-days,

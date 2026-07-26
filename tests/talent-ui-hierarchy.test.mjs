@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildBulkTriageQueueFilter, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildReviewWorkloadSteps, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewDecisionGuide, buildStudentReviewLaneSteps, buildStudentReviewModeCopy, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildBulkTriageQueueFilter, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildReviewWorkloadSteps, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewDecisionGuide, buildStudentReviewLaneSteps, buildStudentReviewModeCopy, buildStudentReviewQueuePriority, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -231,6 +231,11 @@ test("student detail marks safe review lanes for bulk, individual, and quarantin
     suggestionCategory: "EXACT1",
     suggestedTargetRecordId: "target-1"
   }));
+  const bulkPriority = buildStudentReviewQueuePriority(buildStudentReviewBoundary({
+    mappingStatus: "UNMAPPED",
+    suggestionCategory: "EXACT1",
+    suggestedTargetRecordId: "target-1"
+  }));
   const quarantineDecision = buildStudentReviewDecisionGuide(buildStudentReviewBoundary({
     mappingStatus: "UNMAPPED",
     classification: "QUARANTINE",
@@ -241,6 +246,9 @@ test("student detail marks safe review lanes for bulk, individual, and quarantin
   assert.equal(bulkLaneSteps.rawValuesIncluded, false);
   assert.equal(bulkLaneSteps.canonicalWriteReachable, false);
   assert.equal(bulkLaneSteps.lineHistoryWriteReachable, false);
+  assert.equal(bulkPriority.label, "整理順 1: 一括対象");
+  assert.equal(bulkPriority.rawValuesIncluded, false);
+  assert.equal(bulkPriority.automaticPromotionReachable, false);
   assert.equal(quarantineDecision.label, "判断: 隔離を維持");
   assert.equal(quarantineDecision.rawValuesIncluded, false);
   assert.equal(quarantineDecision.automaticPromotionReachable, false);
@@ -252,6 +260,7 @@ test("student detail marks safe review lanes for bulk, individual, and quarantin
   assert.match(html, /id="student-review-decision-command"/);
   assert.match(app, /buildStudentReviewLaneSteps/);
   assert.match(app, /buildStudentReviewDecisionGuide/);
+  assert.match(app, /buildStudentReviewQueuePriority/);
   assert.match(app, /renderStudentReviewBoundary/);
   assert.match(app, /student-review-decision-label/);
   assert.match(app, /自動昇格・一括混入/);
@@ -598,10 +607,13 @@ test("student list exposes review lane badges before opening details", async () 
   const css = await readFile(new URL("style.css", root), "utf8");
 
   assert.match(app, /student-list-review-lane/);
+  assert.match(app, /student-list-review-priority/);
   assert.match(app, /buildStudentReviewBoundary\(student/);
   assert.match(app, /isStudentIndividuallyConfirmable/);
   assert.match(css, /\.student-list-review-lane/);
+  assert.match(css, /\.student-list-review-priority/);
   assert.match(css, /\[data-category="BULK_SAFE_EXACT_LINK"\]/);
+  assert.match(css, /\[data-category="BULK_FIRST"\]/);
   assert.match(css, /\[data-category="QUARANTINE_HOLD"\]/);
 });
 

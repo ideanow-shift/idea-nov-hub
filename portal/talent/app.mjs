@@ -1438,6 +1438,26 @@ export function buildStudentReviewDecisionGuide(boundary) {
   });
 }
 
+export function buildStudentReviewQueuePriority(boundary) {
+  const category = boundary?.category || "NO_SELECTION";
+  const priorities = Object.freeze({
+    BULK_SAFE_EXACT_LINK: Object.freeze({ order: 1, label: "整理順 1: 一括対象", category: "BULK_FIRST" }),
+    INDIVIDUAL_REVIEW: Object.freeze({ order: 2, label: "整理順 2: 個別確認", category: "INDIVIDUAL_SECOND" }),
+    QUARANTINE_HOLD: Object.freeze({ order: 3, label: "整理順 3: 隔離維持", category: "QUARANTINE_THIRD" }),
+    STAGING_SUPPLEMENT: Object.freeze({ order: 4, label: "整理順 4: 補足記録", category: "SUPPLEMENT_FOURTH" }),
+    CONFIRMED_CANONICAL: Object.freeze({ order: 5, label: "整理済み", category: "DONE" }),
+    READ_ONLY: Object.freeze({ order: 6, label: "閲覧のみ", category: "READ_ONLY" }),
+    NO_SELECTION: Object.freeze({ order: 0, label: "未選択", category: "NO_SELECTION" })
+  });
+  const selected = priorities[category] || priorities.NO_SELECTION;
+  return Object.freeze({
+    ...selected,
+    rawValuesIncluded: false,
+    automaticPromotionReachable: false,
+    lineHistoryWriteReachable: false
+  });
+}
+
 export function sortTalentStudentsByFollowUp(students, mode = "DEFAULT", referenceDate = localTalentDateIso()) {
   const rows = Array.isArray(students) ? students.slice() : [];
   if (mode !== "FOLLOW_UP") return rows;
@@ -1631,6 +1651,11 @@ function createStudentListItem(documentObject, student) {
   reviewLane.className = "student-list-review-lane";
   reviewLane.dataset.category = reviewBoundary.category;
   reviewLane.textContent = reviewBoundary.badge;
+  const queuePriority = buildStudentReviewQueuePriority(reviewBoundary);
+  const queue = documentObject.createElement("span");
+  queue.className = "student-list-review-priority";
+  queue.dataset.category = queuePriority.category;
+  queue.textContent = queuePriority.label;
   const followUpCategory = classifyTalentStudentFollowUp(student);
   const followUp = documentObject.createElement("span");
   followUp.className = `student-list-followup is-${followUpCategory.toLowerCase().replaceAll("_", "-")}`;
@@ -1642,7 +1667,7 @@ function createStudentListItem(documentObject, student) {
   reason.className = "student-list-reason";
   reason.textContent = reasons.length ? reasons.join("・") : "";
   if (reasons.length) button.title = `確認事項: ${reasons.join("・")}`;
-  button.append(top, meta, status, reviewLane, followUp, reason);
+  button.append(top, meta, status, reviewLane, queue, followUp, reason);
   button.addEventListener("click", () => {
     selectedStudentRecordId = student.recordId;
     renderStudentWorkspace(documentObject);

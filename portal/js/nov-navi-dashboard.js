@@ -125,18 +125,31 @@ export function getNaviCategoryAudienceHint(category) {
   return hints[category] || "";
 }
 
-function createSystemCard(system, apps, onOpenApp) {
-  const app = findApp(apps, system.aliases);
+export function getNaviLaunchState(system, app) {
   const isSampleApp = Boolean(app && String(app.url || "").startsWith("#demo-"));
-  const fallbackIcon = resolveAppIcon({});
-  const establishedIcon = system.aliases.map((alias) => SYSTEM_ICON_BY_ALIAS[alias]).find(Boolean);
-  const iconSource = establishedIcon || (app ? resolveAppIcon(app) : fallbackIcon);
-  const actualStatus = isSampleApp
+  const status = isSampleApp
     ? "preview"
     : app
       ? system.status
       : (system.status === "available" ? "coming_soon" : system.status);
-  const actionLabel = actualStatus === "preview" ? "サンプルを見る" : app ? "システムを開く" : "予定機能を見る";
+  if (!app) {
+    return { status, actionLabel: "接続準備中", enabled: false };
+  }
+  return {
+    status,
+    actionLabel: isSampleApp ? "サンプルを見る" : "システムを開く",
+    enabled: true
+  };
+}
+
+function createSystemCard(system, apps, onOpenApp) {
+  const app = findApp(apps, system.aliases);
+  const fallbackIcon = resolveAppIcon({});
+  const establishedIcon = system.aliases.map((alias) => SYSTEM_ICON_BY_ALIAS[alias]).find(Boolean);
+  const iconSource = establishedIcon || (app ? resolveAppIcon(app) : fallbackIcon);
+  const launchState = getNaviLaunchState(system, app);
+  const actualStatus = launchState.status;
+  const actionLabel = launchState.actionLabel;
   const card = document.createElement("article");
   card.className = `navi-system-card status-${actualStatus}`;
   card.innerHTML = `
@@ -148,14 +161,12 @@ function createSystemCard(system, apps, onOpenApp) {
     <button type="button" class="navi-open-button">${actionLabel}</button>`;
   const button = card.querySelector(".navi-open-button");
   button.setAttribute("aria-label", `${system.title}：${actionLabel}`);
+  button.disabled = !launchState.enabled;
+  button.setAttribute("aria-disabled", String(!launchState.enabled));
   const icon = card.querySelector(".navi-system-icon img");
   icon.addEventListener("error", () => { icon.src = fallbackIcon; }, { once: true });
   button.addEventListener("click", async () => {
-    if (!app) {
-      window.alert(`${system.title}は${STATUS_LABELS[actualStatus]}です。現在はデータを保存しません。`);
-      return;
-    }
-    if (button.disabled) return;
+    if (!launchState.enabled || button.disabled) return;
     const defaultLabel = actionLabel;
     button.disabled = true;
     button.setAttribute("aria-busy", "true");

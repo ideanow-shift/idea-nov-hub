@@ -5,6 +5,7 @@ import {
   getVisibleNaviNotices,
   getNaviTodaySnapshot,
   getNaviCategoryAudienceHint,
+  getNaviLaunchState,
   getNaviGreeting,
   shouldEnableLocalNovNaviDemo,
   shouldEnableNovNaviDashboard
@@ -71,6 +72,21 @@ assert.deepEqual(
 assert.equal(getNaviCategoryAudienceHint("経営管理"), "店長以上・許可範囲", "management category must communicate its display boundary");
 assert.equal(getNaviCategoryAudienceHint("システム管理"), "システム管理者のみ", "system administration must remain explicitly restricted");
 assert.equal(getNaviCategoryAudienceHint("unknown"), "", "unknown categories must not invent an audience boundary");
+assert.deepEqual(
+  getNaviLaunchState({ status: "available" }, null),
+  { status: "coming_soon", actionLabel: "接続準備中", enabled: false },
+  "unmapped systems must remain visibly unavailable"
+);
+assert.deepEqual(
+  getNaviLaunchState({ status: "available" }, { url: "./task/" }),
+  { status: "available", actionLabel: "システムを開く", enabled: true },
+  "connected systems must keep the existing launcher path"
+);
+assert.deepEqual(
+  getNaviLaunchState({ status: "available" }, { url: "#demo-preview" }),
+  { status: "preview", actionLabel: "サンプルを見る", enabled: true },
+  "sample systems must remain explicitly labeled"
+);
 
 assert.equal(getNaviGreeting(8), "おはようございます。今日の仕事を確認しましょう。", "morning greeting");
 assert.equal(getNaviGreeting(13), "おつかれさまです。今日の進み具合を確認しましょう。", "afternoon greeting");
@@ -122,6 +138,8 @@ assert.match(dashboardSource, /function getVisibleNaviNotices\(notices\)/, "NOVA
 assert.match(dashboardSource, /\.slice\(0, 3\)/, "NOVA notices must be capped at three");
 assert.match(dashboardSource, /notice\.unread/, "NOVA notices must prioritize unread items");
 assert.match(dashboardSource, /function getNaviCategoryAudienceHint\(category\)/, "NOVA category audience labels must be centralized");
+assert.match(dashboardSource, /function getNaviLaunchState\(system, app\)/, "NOVA launch labels must be centralized");
+assert.match(dashboardSource, /button\.disabled = !launchState\.enabled/, "unconnected systems must render as disabled controls");
 assert.match(dashboardSource, /const TODAY_KEYS = \["schedule", "tasks", "approvals", "thanks", "inquiries", "growthPoints"\]/, "Today card keys must remain allowlisted");
 assert.match(dashboardSource, /Number\.isSafeInteger\(value\)/, "Today card values must remain bounded aggregates");
 assert.match(dashboardSource, /data-navi-today-key="schedule"/, "Today cards must bind their values by an explicit key");
@@ -138,5 +156,6 @@ assert.match(naviStylesSource, /\.navi-notification-hint \{[^}]*min-height: 40px
 assert.match(designSystemSource, /--control-min-height:\s*44px/, "shared design system must preserve 44px controls");
 assert.match(designSystemSource, /--shadow-card:/, "shared design system must provide a card shadow token");
 assert.match(designSystemSource, /--focus-ring:/, "shared design system must provide a focus token");
+assert.match(naviStylesSource, /\.navi-open-button:disabled \{[^}]*cursor: not-allowed/, "disabled NOVA launch controls must not imply a runnable app");
 
 console.log("NOV NAVI dashboard boundary fixtures: PASS");

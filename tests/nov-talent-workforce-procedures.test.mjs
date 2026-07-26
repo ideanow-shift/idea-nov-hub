@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureEmptyState, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureEmptyState, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -190,6 +190,11 @@ test("workforce procedure confirmation requires every checklist item", () => {
   assert.equal(isWorkforceProcedureCaseReadyToConfirm(ready), true);
   assert.equal(isWorkforceProcedureCaseReadyToConfirm([{ ...ready[0], isCompleted: false }, ...ready.slice(1)]), false);
   assert.equal(isWorkforceProcedureCaseReadyToConfirm(ready.slice(0, 3)), false);
+  assert.equal(buildWorkforceProcedureConfirmationReadiness(ready).category, "READY_TO_CONFIRM");
+  assert.equal(buildWorkforceProcedureConfirmationReadiness([{ ...ready[0], isCompleted: false }, ...ready.slice(1)]).category, "CHECKLIST_INCOMPLETE");
+  assert.equal(buildWorkforceProcedureConfirmationReadiness(ready.slice(0, 3)).category, "CHECKLIST_SHAPE_INVALID");
+  assert.equal(buildWorkforceProcedureConfirmationReadiness(ready).rawValuesIncluded, false);
+  assert.equal(buildWorkforceProcedureConfirmationReadiness(ready).employeeMasterMutation, false);
 });
 
 test("workforce procedure checklist plans stay scoped by procedure type", async () => {

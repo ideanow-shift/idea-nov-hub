@@ -187,6 +187,37 @@ export function isWorkforceProcedureCaseReadyToConfirm(steps) {
   return Array.isArray(steps) && steps.length === 4 && steps.every((step) => step && step.isCompleted === true);
 }
 
+export function buildWorkforceProcedureConfirmationReadiness(steps) {
+  const rows = Array.isArray(steps) ? steps : [];
+  const expected = 4;
+  const completed = rows.filter((step) => step?.isCompleted === true).length;
+  const category = rows.length !== expected
+    ? "CHECKLIST_SHAPE_INVALID"
+    : completed === expected
+      ? "READY_TO_CONFIRM"
+      : "CHECKLIST_INCOMPLETE";
+  const title = {
+    CHECKLIST_SHAPE_INVALID: "確認項目を安全に判定できません",
+    READY_TO_CONFIRM: "確認済みに進める準備ができています",
+    CHECKLIST_INCOMPLETE: "未完了の確認項目があります"
+  }[category];
+  const copy = {
+    CHECKLIST_SHAPE_INVALID: "手続き別の4項目が揃っていないため、進捗変更は止めて再読み込みしてください。",
+    READY_TO_CONFIRM: "4項目が完了しています。進捗変更は保存前に内容をもう一度確認してください。",
+    CHECKLIST_INCOMPLETE: "未完了の項目をチェックしてから、確認済みへ進めます。"
+  }[category];
+  return Object.freeze({
+    category,
+    title,
+    copy,
+    completed,
+    expected,
+    canConfirm: category === "READY_TO_CONFIRM",
+    rawValuesIncluded: false,
+    employeeMasterMutation: false
+  });
+}
+
 export function classifyWorkforceProcedureCasePriority(item, referenceDate = localDateIso()) {
   if (!item || !CASE_STATUSES.includes(item.caseStatus) || !/^\d{4}-\d{2}-\d{2}$/.test(item.effectiveDate || "")) return "SCHEDULED";
   if (["CONFIRMED", "CANCELLED"].includes(item.caseStatus)) return "CLOSED";
@@ -863,7 +894,9 @@ export function initializeWorkforceProcedureDesk({
       return;
     }
     const completed = result.data.steps.filter((step) => step.isCompleted).length;
-    stepsStatus.textContent = `${procedureLabel(result.data.procedureType)}の確認項目 ${completed} / ${result.data.steps.length} 件が完了しています。`;
+    const readiness = buildWorkforceProcedureConfirmationReadiness(result.data.steps);
+    stepsStatus.dataset.category = readiness.category;
+    stepsStatus.textContent = `${procedureLabel(result.data.procedureType)}の確認項目 ${completed} / ${result.data.steps.length} 件が完了しています。${readiness.title}。${readiness.copy}`;
     const fragment = documentObject.createDocumentFragment();
     for (const step of result.data.steps) {
       const label = documentObject.createElement("label");

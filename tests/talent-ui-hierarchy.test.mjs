@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -108,6 +108,43 @@ test("fair analysis opens a student queue scoped to its selected record month", 
   assert.match(html, /<th>記録月<\/th>[\s\S]*<th>フォロー<\/th>/);
   assert.match(app, /button\.textContent = "対象月を見る"/);
   assert.match(app, /renderStudentMonthFilterOptions/);
+});
+
+test("student detail guides the daily operation without exposing raw values", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+
+  assert.match(html, /id="student-daily-operation"/);
+  assert.match(html, /id="student-daily-operation-badge"/);
+  assert.match(html, /id="student-daily-operation-steps"/);
+  assert.match(app, /buildStudentDailyOperation/);
+  assert.match(app, /renderStudentDailyOperation/);
+  assert.match(app, /判断できないものは隔離維持/);
+  assert.match(app, /一括反映ではなく、この学生だけを確認できます/);
+
+  assert.equal(buildStudentDailyOperation(null).category, "NO_SELECTION");
+  assert.equal(buildStudentDailyOperation({
+    applicationNo: "NT-2027-000001",
+    statusCode: "OFFER",
+    expectedJoinDate: "2027-04-01",
+    nextActionAt: "2026-07-20"
+  }, { onboardingReady: true, editable: true }, "2026-07-26").category, "ONBOARDING_HANDOFF");
+  assert.equal(buildStudentDailyOperation({
+    nextActionAt: "2026-07-20",
+    classification: "IMPORTABLE"
+  }, { editable: true }, "2026-07-26").category, "OVERDUE_FOLLOW_UP");
+  assert.equal(buildStudentDailyOperation({
+    nextActionAt: "2026-07-30",
+    classification: "OWNER_REVIEW"
+  }, { confirmable: true }, "2026-07-26").category, "NEXT_WEEK_FOLLOW_UP");
+  assert.equal(buildStudentDailyOperation({
+    classification: "OWNER_REVIEW",
+    mappingStatus: "UNMAPPED"
+  }, { confirmable: true }, "2026-07-26").category, "OWNER_REVIEW");
+  assert.equal(buildStudentDailyOperation({
+    classification: "QUARANTINE",
+    mappingStatus: "UNMAPPED"
+  }, { editable: true }, "2026-07-26").category, "QUARANTINE_REVIEW");
 });
 
 test("workforce management exposes four accessible procedure tabs", async () => {

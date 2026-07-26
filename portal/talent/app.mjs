@@ -995,6 +995,89 @@ export function classifyTalentStudentFollowUp(student, referenceDate = localTale
   return "SCHEDULED";
 }
 
+export function buildStudentDailyOperation(student, capability = {}, referenceDate = localTalentDateIso()) {
+  if (!student) {
+    return {
+      category: "NO_SELECTION",
+      badge: "未選択",
+      title: "学生を選択してください",
+      copy: "一覧から対象を選ぶと、今日の更新・確認・引継ぎの順番を表示します。",
+      steps: ["学生一覧から対象を選択", "状態・確認事項・次回対応日を確認"]
+    };
+  }
+  const followUp = classifyTalentStudentFollowUp(student, referenceDate);
+  if (capability.onboardingReady) {
+    return {
+      category: "ONBOARDING_HANDOFF",
+      badge: "入社手続き",
+      title: "内定者は入社手続きへ引き継ぐ",
+      copy: "個人データをここで増やさず、下書き作成から入社手続き案件へ安全に渡します。",
+      steps: ["入社手続きへを開く", "入社予定日と配属予定の有無を確認", "保存前に下書き内容を確認"]
+    };
+  }
+  if (followUp === "OVERDUE") {
+    return {
+      category: "OVERDUE_FOLLOW_UP",
+      badge: "期限超過",
+      title: "まず次回対応を更新する",
+      copy: "期限超過の学生です。状態更新より先に、次の対応日と担当メモを整えると追跡が安定します。",
+      steps: ["次回対応を設定を開く", "対応日・状態・補足を保存", "変更履歴で記録されたことを確認"]
+    };
+  }
+  if (followUp === "NEXT_7_DAYS") {
+    return {
+      category: "NEXT_WEEK_FOLLOW_UP",
+      badge: "7日以内",
+      title: "予定対応を前倒しで確認する",
+      copy: "直近7日以内のフォロー対象です。今日触るべきか、担当者が迷わない状態にします。",
+      steps: ["次回対応日を確認", "必要なら対応日や状態を更新", "未対応なら一覧の期限順に残す"]
+    };
+  }
+  if (capability.confirmable) {
+    return {
+      category: "OWNER_REVIEW",
+      badge: "要確認",
+      title: "候補確認か補足記録を行う",
+      copy: "一括反映ではなく、この学生だけを確認できます。判断できない場合は隔離を維持します。",
+      steps: ["この候補を確認を開く", "一致候補または新規候補として判断", "迷う行は補足を残して隔離維持"]
+    };
+  }
+  if (student.classification === "QUARANTINE") {
+    return {
+      category: "QUARANTINE_REVIEW",
+      badge: "隔離",
+      title: "隔離理由を整理して安全に保留する",
+      copy: "不明な行を無理に正本へ寄せず、補足・履歴・確認導線で次の判断材料を残します。",
+      steps: ["確認事項を読む", "編集で補足情報を残す", "判断できないものは隔離維持"]
+    };
+  }
+  if (capability.hasCanonicalProfile) {
+    return {
+      category: "CANONICAL_PROFILE_UPDATE",
+      badge: "正本更新",
+      title: "正本プロフィールを日常更新する",
+      copy: "連絡状況や次回対応を正本側へ記録します。取込原本は変更しません。",
+      steps: ["編集を開く", "状態・次回対応・担当メモを更新", "変更履歴で差分を確認"]
+    };
+  }
+  if (capability.editable) {
+    return {
+      category: "STAGING_SUPPLEMENT",
+      badge: "補足記録",
+      title: "staging補足だけを記録する",
+      copy: "正本未確定の行です。個別確認や後続の一括処理に使う補足だけを残します。",
+      steps: ["編集を開く", "補足情報と次回対応を保存", "一括反映とは別の個別記録として扱う"]
+    };
+  }
+  return {
+    category: "READ_ONLY",
+    badge: "閲覧のみ",
+    title: "取込原本は保護されています",
+    copy: "この行は直接編集せず、正本化または確認対象になったあとに更新します。",
+    steps: ["確認事項を読む", "必要なら要確認・隔離キューで扱う", "自動削除や昇格は行わない"]
+  };
+}
+
 export function sortTalentStudentsByFollowUp(students, mode = "DEFAULT", referenceDate = localTalentDateIso()) {
   const rows = Array.isArray(students) ? students.slice() : [];
   if (mode !== "FOLLOW_UP") return rows;
@@ -1182,6 +1265,7 @@ function renderStudentDetail(documentObject, student) {
       auditButton.title = "学生を選択してください";
     }
     renderStudentActionGuide(documentObject, null);
+    renderStudentDailyOperation(documentObject, buildStudentDailyOperation(null));
     return;
   }
   if (placeholder) placeholder.hidden = true;
@@ -1278,14 +1362,16 @@ function renderStudentDetail(documentObject, student) {
       return item;
     }));
   }
-  renderStudentActionGuide(documentObject, {
+  const actionCapability = {
     hasCanonicalProfile: Boolean(student.applicationNo),
     hasSupplement: Boolean(student.supplementVersion),
     editable: Boolean(student.applicationNo) || (student.mappingStatus === "UNMAPPED" && Boolean(student.recordId)),
     confirmable,
     onboardingReady: Boolean(onboardingDraft),
     mappingStatus: student.mappingStatus,
-  });
+  };
+  renderStudentActionGuide(documentObject, actionCapability);
+  renderStudentDailyOperation(documentObject, buildStudentDailyOperation(student, actionCapability));
 }
 
 function renderStudentActionGuide(documentObject, capability) {
@@ -1327,6 +1413,24 @@ function renderStudentActionGuide(documentObject, capability) {
 function setStudentActionState(element, label, enabled) {
   element.textContent = label;
   element.className = `student-action-state ${enabled ? "is-ready" : "is-blocked"}`;
+}
+
+function renderStudentDailyOperation(documentObject, operation) {
+  const badge = documentObject.getElementById("student-daily-operation-badge");
+  const title = documentObject.getElementById("student-daily-operation-title");
+  const copy = documentObject.getElementById("student-daily-operation-copy");
+  const steps = documentObject.getElementById("student-daily-operation-steps");
+  if (!badge || !title || !copy || !steps) return;
+  const safeOperation = operation || buildStudentDailyOperation(null);
+  badge.textContent = safeOperation.badge;
+  badge.dataset.category = safeOperation.category;
+  title.textContent = safeOperation.title;
+  copy.textContent = safeOperation.copy;
+  steps.replaceChildren(...safeOperation.steps.map((step) => {
+    const item = documentObject.createElement("li");
+    item.textContent = step;
+    return item;
+  }));
 }
 
 const PROFILE_FIELD_LABELS = Object.freeze({

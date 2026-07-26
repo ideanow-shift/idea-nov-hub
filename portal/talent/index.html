@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-student-followup-urgency-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-student-daily-operation-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-student-followup-urgency-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-student-daily-operation-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -302,6 +302,17 @@
                   <span id="student-action-audit-state" class="student-action-state"></span>
                   <span id="student-action-confirm-state" class="student-action-state"></span>
                 </div>
+              </section>
+              <section id="student-daily-operation" class="student-daily-operation" aria-live="polite" aria-labelledby="student-daily-operation-title">
+                <div class="student-daily-operation-head">
+                  <span id="student-daily-operation-badge" class="student-daily-operation-badge">未選択</span>
+                  <div>
+                    <p class="section-kicker">TODAY'S OPERATION</p>
+                    <h4 id="student-daily-operation-title">学生を選択してください</h4>
+                  </div>
+                </div>
+                <p id="student-daily-operation-copy">一覧から対象を選ぶと、今日の更新・確認・引継ぎの順番を表示します。</p>
+                <ol id="student-daily-operation-steps" class="student-daily-operation-steps"></ol>
               </section>
               <dl class="detail-grid">
                 <div><dt>学校</dt><dd id="student-detail-school">-</dd></div>

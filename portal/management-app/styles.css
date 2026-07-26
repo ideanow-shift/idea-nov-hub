@@ -400,14 +400,14 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-local-preview-metrics { margin-bottom: 0; }
 .financial-local-preview-metrics .metric { background: var(--card); }
 .financial-store-analysis-formulas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px; }
-.financial-store-repeat-preview { margin: 0 0 12px; padding: 12px; border: 1px solid #dfe6ec; border-radius: 8px; background: #fbfcfd; }
-.financial-store-repeat-preview h3 { margin: 0 0 6px; font-size: 16px; }
-.financial-store-repeat-preview p { margin: 0 0 10px; }
-.store-repeat-summary-intake { margin-top: 12px; padding: 14px; border: 1px solid #dfe6ec; border-radius: 8px; background: #fbfcfd; }
-.store-repeat-summary-intake > div { display: flex; gap: 12px; align-items: start; justify-content: space-between; }
-.store-repeat-summary-intake h4 { margin: 0 0 4px; }
-.store-repeat-summary-intake p { margin: 0; }
-.store-repeat-summary-status { margin-top: 10px !important; color: #506273; }
+.financial-store-repeat-preview, .financial-store-customer-preview { margin: 0 0 12px; padding: 12px; border: 1px solid #dfe6ec; border-radius: 8px; background: #fbfcfd; }
+.financial-store-repeat-preview h3, .financial-store-customer-preview h3 { margin: 0 0 6px; font-size: 16px; }
+.financial-store-repeat-preview p, .financial-store-customer-preview p { margin: 0 0 10px; }
+.store-repeat-summary-intake, .store-customer-summary-intake { margin-top: 12px; padding: 14px; border: 1px solid #dfe6ec; border-radius: 8px; background: #fbfcfd; }
+.store-repeat-summary-intake > div, .store-customer-summary-intake > div { display: flex; gap: 12px; align-items: start; justify-content: space-between; }
+.store-repeat-summary-intake h4, .store-customer-summary-intake h4 { margin: 0 0 4px; }
+.store-repeat-summary-intake p, .store-customer-summary-intake p { margin: 0; }
+.store-repeat-summary-status, .store-customer-summary-status { margin-top: 10px !important; color: #506273; }
 .financial-store-analysis-formulas article { min-width: 0; padding: 10px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
 .financial-store-analysis-formulas .metric-label { display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 12px; }
 .financial-store-analysis-formulas .metric-value { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
@@ -462,7 +462,7 @@ tbody tr:hover td { background: var(--card-soft); }
   .financial-intake-heading { align-items: stretch; flex-direction: column; }
   .financial-mapping-review-heading { align-items: stretch; flex-direction: column; }
   .financial-mapping-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .store-repeat-summary-intake > div { display: block; }
+  .store-repeat-summary-intake > div, .store-customer-summary-intake > div { display: block; }
   .financial-mapping-confirmation { align-items: stretch; flex-direction: column; }
   .financial-local-correction-heading { align-items: stretch; flex-direction: column; }
   .financial-local-correction-actions { display: grid; grid-template-columns: 1fr; }

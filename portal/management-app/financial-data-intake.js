@@ -1674,6 +1674,16 @@ export function parseStoreMonthlySalesAccountingCsvText(text, fileMeta = {}) {
       activeThroughMonthLabel: activeMonthIndex >= 0 ? months[activeMonthIndex] : "",
       salesByMonthYen,
       ordinaryProfitByMonthYen,
+      monthlyKpiRows: entity.records.map((record) => ({
+        period: record.month,
+        corporationName: record.corporationName,
+        storeName: record.storeName,
+        totalSalesYen: record.totalSalesYen,
+        technicalSalesYen: record.technicalSalesYen,
+        productSalesYen: record.productSalesYen,
+        ecSalesYen: record.ecSalesYen,
+        profitYen: record.profitYen,
+      })),
       localKpiMetrics: {
         technicalSalesYen: entity.records.reduce((sum, record) => sum + Number(record.technicalSalesYen || 0), 0),
         productSalesYen: entity.records.reduce((sum, record) => sum + Number(record.productSalesYen || 0), 0),
@@ -2217,6 +2227,16 @@ export function buildFinancialLocalPreview(result) {
     ordinaryProfitManYen: selectedComparison?.ordinaryProfitManYen ?? null,
     importActionEnabled: false,
     periodComparisonRows,
+    monthlyStoreRows: rows.flatMap((row) => Array.isArray(row.monthlyKpiRows) ? row.monthlyKpiRows : []).slice(0, 10000).map((row) => ({
+      period: row.period,
+      corporationName: row.corporationName,
+      storeName: row.storeName,
+      totalSalesYen: row.totalSalesYen,
+      technicalSalesYen: row.technicalSalesYen,
+      productSalesYen: row.productSalesYen,
+      ecSalesYen: row.ecSalesYen,
+      profitYen: row.profitYen,
+    })),
     rows: rows.slice(0, 80).map((row) => ({
       entityName: row.entityName,
       salesManYen: comparisonMonthCount > 0 ? Math.round((row.salesByMonthYen || []).slice(0, comparisonMonthCount).reduce((sum, amount) => sum + Number(amount || 0), 0) / 10000) : null,

@@ -50,6 +50,10 @@ assert.equal(preview.rows[0].technicalSalesManYen, 909);
 assert.equal(preview.rows[0].productSalesManYen, 39);
 assert.equal(preview.rows[0].ecSalesManYen, 0);
 assert.equal(preview.rows[0].storeAnalysisMetricStatus, "SALES_READY_CUSTOMER_REPEAT_MENU_PENDING");
+assert.equal(preview.monthlyStoreRows.length, 4);
+assert.equal(preview.monthlyStoreRows[0].period, "2025-01");
+assert.equal(preview.monthlyStoreRows[0].technicalSalesYen, 4488634);
+assert.equal(preview.monthlyStoreRows[0].productSalesYen, 173913);
 
 const duplicateCsv = [
   header,

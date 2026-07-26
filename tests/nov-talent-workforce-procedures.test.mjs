@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureOperationSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -196,4 +196,12 @@ test("workforce procedure form guide keeps the next edit action local and status
   assert.equal(buildWorkforceProcedureCaseFormGuide({ caseStatus: "READY_FOR_REVIEW", effectiveDate: "2026-08-20" }, "2026-07-26").category, "READY_FOR_REVIEW");
   assert.equal(buildWorkforceProcedureCaseFormGuide({ caseStatus: "CONFIRMED", effectiveDate: "2026-07-20" }, "2026-07-26").category, "CONFIRMED");
   assert.match(buildWorkforceProcedureCaseFormGuide({ caseStatus: "DRAFT", effectiveDate: "2026-08-20" }, "2026-07-26").copy, /下書き/);
+});
+
+test("workforce procedure status messages explain safe boundaries without raw errors", () => {
+  assert.match(buildWorkforceProcedureStatusMessage("feature_disabled"), /保存はまだ行えません/);
+  assert.match(buildWorkforceProcedureStatusMessage("write_forbidden"), /権限/);
+  assert.match(buildWorkforceProcedureStatusMessage("saved"), /社員マスタへの反映は別/);
+  assert.match(buildWorkforceProcedureStatusMessage("invalid_response"), /値は表示せず/);
+  assert.doesNotMatch(buildWorkforceProcedureStatusMessage("request_failed"), /Error|Exception|http|SQL/i);
 });

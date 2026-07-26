@@ -9,7 +9,7 @@ import {
 } from "./exact1.mjs?v=20260725-workforce-queues-1";
 import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260725-owner-review-workspace-1";
 import { createTalentHistoricalReviewController } from "./review.mjs?v=20260725-owner-review-workspace-1";
-import { buildTalentAnalytics } from "./analytics.mjs?v=20260725-talent-analytics-1";
+import { buildTalentAnalytics, buildTalentAnalyticsActionGuide } from "./analytics.mjs?v=20260726-talent-analytics-action-guide-1";
 import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-review-kpis-1";
 import { createTalentStagingSupplementController } from "./staging-supplement.mjs?v=20260725-staging-edit-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260726-talent-28-csv-owner-handoff-1";
@@ -1008,11 +1008,33 @@ function renderTalentAnalytics(documentObject) {
   renderMetricCollection(documentObject, "historical-summary-metrics", analytics.summary);
   renderSummaryFollowUpCounts(documentObject, studentWorkspaceData.students);
   renderAnalyticsCoverage(documentObject, analytics);
+  renderTalentAnalyticsActionGuide(documentObject, buildTalentAnalyticsActionGuide(analytics));
   renderMonthlyFlow(documentObject, analytics.flow);
   renderSchoolAnalysis(documentObject, analytics.schools);
   setText(documentObject, "historical-summary-status", `${analytics.summary[0].value}件を集計`);
   setText(documentObject, "fair-analysis-status", `${analytics.flow.length}か月分を表示`);
   setText(documentObject, "school-analysis-status", `${analytics.schools.length}校を表示`);
+}
+
+function renderTalentAnalyticsActionGuide(documentObject, guide) {
+  const panel = documentObject.getElementById("talent-analytics-action-guide");
+  if (panel) {
+    panel.dataset.category = guide.category;
+    panel.dataset.needsActionCategory = guide.needsActionCategory;
+    panel.dataset.lineRegistrationRateCategory = guide.lineRegistrationRateCategory;
+    panel.dataset.schoolMissingCategory = guide.schoolMissingCategory;
+  }
+  setText(documentObject, "talent-analytics-action-title", guide.title);
+  setText(documentObject, "talent-analytics-action-copy", guide.copy);
+  const steps = documentObject.getElementById("talent-analytics-action-steps");
+  if (!steps) return;
+  steps.dataset.category = guide.category;
+  steps.replaceChildren(...guide.steps.map((step) => {
+    const item = documentObject.createElement("li");
+    item.dataset.category = step.category;
+    item.textContent = `${step.order}. ${step.label}`;
+    return item;
+  }));
 }
 
 function renderSummaryFollowUpCounts(documentObject, students) {

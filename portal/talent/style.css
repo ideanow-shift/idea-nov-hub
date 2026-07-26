@@ -278,6 +278,24 @@ h3 { margin: 0; font-size: 1rem; }
 }
 .summary-followup-count.is-overdue { color: #a43b4b; background: #fff0f2; }
 .summary-followup-count.is-next-week { color: #8a5a08; background: #fff6dc; }
+.talent-analytics-action-guide {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(260px, .9fr);
+  gap: 10px;
+  flex: 1 0 100%;
+  padding: 12px;
+  border: 1px solid #c5dcf6;
+  border-radius: 7px;
+  background: #f8fbff;
+}
+.talent-analytics-action-guide span { color: var(--blue); font-size: .72rem; font-weight: 900; letter-spacing: .08em; }
+.talent-analytics-action-guide strong { display: block; margin-top: 3px; color: var(--navy); font-size: .95rem; }
+.talent-analytics-action-guide p { margin: 5px 0 0; color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.talent-analytics-action-guide[data-category="OWNER_REVIEW_FIRST"] { border-color: #f2d59d; background: #fffaf0; }
+.talent-analytics-action-guide[data-category="NO_ANALYTICS_ACTION"] { border-color: var(--line); background: #fff; }
+.talent-analytics-action-steps { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.talent-analytics-action-steps li { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .8rem; font-weight: 850; line-height: 1.45; }
+.talent-analytics-action-steps[data-category="OWNER_REVIEW_FIRST"] li { border-color: #ead3a6; background: #fffdf8; color: #8a5b10; }
 .confirmed-summary-heading {
   margin-top: 24px;
   padding-top: 20px;

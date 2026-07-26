@@ -1,16 +1,16 @@
+import { NOV_NAVI_TODAY_RUNTIME_FIELDS, type NovNaviTodayRuntimeField } from "./nov-navi-today-provider-registry.ts";
+
 export const NOV_NAVI_TODAY_ACTION = "novNaviTodayRead";
 export const NOV_NAVI_TODAY_SCHEMA = "nov-navi-today-v1";
 
-const TODAY_FIELDS = ["schedule", "tasks", "approvals", "thanks", "inquiries", "growthPoints"] as const;
-type TodayField = typeof TODAY_FIELDS[number];
-type Aggregate = Partial<Record<TodayField, number>>;
+type Aggregate = Partial<Record<NovNaviTodayRuntimeField, number>>;
 
 export type TodayActor = {
   active: boolean;
   loginEnabled: boolean;
 };
 
-export type TodayProvider = (field: TodayField) => Promise<unknown>;
+export type TodayProvider = (field: NovNaviTodayRuntimeField) => Promise<unknown>;
 
 function isAggregate(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000;
@@ -24,11 +24,11 @@ export async function buildNovNaviTodayEnvelope(
     throw new Error("AUTH_REQUIRED");
   }
 
-  const settled = await Promise.allSettled(TODAY_FIELDS.map((field) => readAggregate(field)));
+  const settled = await Promise.allSettled(NOV_NAVI_TODAY_RUNTIME_FIELDS.map((field) => readAggregate(field)));
   const aggregates: Aggregate = {};
   settled.forEach((result, index) => {
     if (result.status === "fulfilled" && isAggregate(result.value)) {
-      aggregates[TODAY_FIELDS[index]] = result.value;
+      aggregates[NOV_NAVI_TODAY_RUNTIME_FIELDS[index]] = result.value;
     }
   });
 

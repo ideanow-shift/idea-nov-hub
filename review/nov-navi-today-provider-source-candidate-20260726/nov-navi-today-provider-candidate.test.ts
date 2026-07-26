@@ -21,7 +21,7 @@ Deno.test("uses the fixed HUB action name", () => {
 });
 
 Deno.test("returns only verified aggregate values", async () => {
-  const values: Partial<Record<"schedule" | "tasks" | "approvals" | "thanks" | "inquiries" | "growthPoints", number>> = {
+  const values: Partial<Record<"schedule" | "tasks" | "approvals" | "thanks" | "growthPoints", number>> = {
     tasks: 3,
     approvals: 0,
   };
@@ -55,4 +55,17 @@ Deno.test("fails closed before any provider read for inactive login", async () =
     "AUTH_REQUIRED",
   );
   assertEquals(calls, 0);
+});
+
+Deno.test("does not request the held inquiries provider", async () => {
+  const calls: string[] = [];
+  await buildNovNaviTodayEnvelope(
+    { active: true, loginEnabled: true },
+    async (field) => {
+      calls.push(field);
+      return 0;
+    },
+  );
+  assertEquals(calls.includes("inquiries"), false);
+  assertEquals(calls.length, 5);
 });

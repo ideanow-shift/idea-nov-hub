@@ -41,9 +41,13 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
     duplicateSourceRowNoRows: 0,
     invalidYearRows: 0,
     invalidSourceRows: 0,
+    missingSourceLabelRows: 0,
     contactsRows: 0,
     entriesRows: 0,
     offersRows: 0,
+    phoneRows: 0,
+    emailRows: 0,
+    lineRows: 0,
     duplicateStableKeyHintRows: 0,
     duplicateContactHintRows: 0,
     missingIdentityRows: 0,
@@ -64,7 +68,11 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
     const yearOk = value("graduation_year") === "2028";
     const sourceType = value("source_type");
     const sourceOk = SOURCE_TYPES_28.includes(sourceType);
-    const identityOk = value("student_name") !== "" && value("school_name") !== "" && [value("phone"), value("email"), value("line_name")].some(Boolean);
+    const sourceLabelOk = value("source_label") !== "";
+    const phone = value("phone");
+    const email = value("email");
+    const lineName = value("line_name");
+    const identityOk = value("student_name") !== "" && value("school_name") !== "" && [phone, email, lineName].some(Boolean);
     const datesOk = [value("event_date"), value("next_action_date")].every((date) => date === "" || /^\d{4}-\d{2}-\d{2}$/.test(date));
     const quarantineFlag = value("quarantine_flag");
     const quarantineReason = value("quarantine_reason");
@@ -76,15 +84,19 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
     const quarantineOk = ["TRUE", "FALSE"].includes(quarantineFlag) && (quarantineFlag === "FALSE" || quarantineReason !== "");
     if (!yearOk) counts.invalidYearRows += 1;
     if (!sourceOk) counts.invalidSourceRows += 1;
+    if (!sourceLabelOk) counts.missingSourceLabelRows += 1;
     if (sourceType === "CONTACTS_28") counts.contactsRows += 1;
     if (sourceType === "ENTRIES_28") counts.entriesRows += 1;
     if (sourceType === "OFFERS_28") counts.offersRows += 1;
+    if (phone) counts.phoneRows += 1;
+    if (email) counts.emailRows += 1;
+    if (lineName) counts.lineRows += 1;
     if (!identityOk) counts.missingIdentityRows += 1;
     if (!datesOk) counts.invalidDateRows += 1;
     if (!quarantineOk) counts.inconsistentQuarantineRows += 1;
     if (stableKeyHint) stableKeyHints.set(stableKeyHint, (stableKeyHints.get(stableKeyHint) || 0) + 1);
     if (contactHint) contactHints.set(contactHint, (contactHints.get(contactHint) || 0) + 1);
-    if (quarantineFlag === "TRUE" || !columnOk || !sourceRowNoOk || !yearOk || !sourceOk || !identityOk || !datesOk || !quarantineOk) counts.quarantineRows += 1;
+    if (quarantineFlag === "TRUE" || !columnOk || !sourceRowNoOk || !yearOk || !sourceOk || !sourceLabelOk || !identityOk || !datesOk || !quarantineOk) counts.quarantineRows += 1;
     else counts.readyRows += 1;
   }
   counts.duplicateSourceRowNoRows = countDuplicateOccurrences(sourceRowNos);
@@ -104,9 +116,11 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
         : counts.duplicateSourceRowNoRows > 0
           ? "CSV_SOURCE_ROW_NO_DUPLICATE"
           : counts.invalidYearRows > 0
-            ? "CSV_2028_YEAR_MISMATCH"
-            : counts.invalidSourceRows > 0
-              ? "CSV_SOURCE_TYPE_MISMATCH"
+          ? "CSV_2028_YEAR_MISMATCH"
+          : counts.invalidSourceRows > 0
+            ? "CSV_SOURCE_TYPE_MISMATCH"
+            : counts.missingSourceLabelRows > 0
+              ? "CSV_SOURCE_LABEL_MISSING"
               : counts.missingIdentityRows > 0
                 ? "CSV_REQUIRED_IDENTITY_INCOMPLETE"
                 : counts.invalidDateRows > 0
@@ -209,9 +223,13 @@ function safeSummary(fixedCategory, headerCategory, partialCounts = {}) {
       duplicateSourceRowNoRows: 0,
       invalidYearRows: 0,
       invalidSourceRows: 0,
+      missingSourceLabelRows: 0,
       contactsRows: 0,
       entriesRows: 0,
       offersRows: 0,
+      phoneRows: 0,
+      emailRows: 0,
+      lineRows: 0,
       duplicateStableKeyHintRows: 0,
       duplicateContactHintRows: 0,
       missingIdentityRows: 0,
@@ -309,8 +327,9 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
       ["接触", result.counts.contactsRows],
       ["エントリー", result.counts.entriesRows],
       ["内定", result.counts.offersRows],
+      ["連絡あり", result.counts.phoneRows + result.counts.emailRows + result.counts.lineRows],
       ["重複候補", result.counts.duplicateStableKeyHintRows + result.counts.duplicateContactHintRows],
-      ["要確認", result.counts.rowColumnMismatchRows + result.counts.invalidSourceRowNoRows + result.counts.duplicateSourceRowNoRows + result.counts.invalidYearRows + result.counts.invalidSourceRows + result.counts.missingIdentityRows + result.counts.invalidDateRows + result.counts.inconsistentQuarantineRows]
+      ["要確認", result.counts.rowColumnMismatchRows + result.counts.invalidSourceRowNoRows + result.counts.duplicateSourceRowNoRows + result.counts.invalidYearRows + result.counts.invalidSourceRows + result.counts.missingSourceLabelRows + result.counts.missingIdentityRows + result.counts.invalidDateRows + result.counts.inconsistentQuarantineRows]
     ].map(([label, value]) => {
       const item = documentObject.createElement("div");
       const term = documentObject.createElement("dt");

@@ -36,6 +36,9 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
     totalRows: 0,
     readyRows: 0,
     quarantineRows: 0,
+    rowColumnMismatchRows: 0,
+    invalidSourceRowNoRows: 0,
+    duplicateSourceRowNoRows: 0,
     invalidYearRows: 0,
     invalidSourceRows: 0,
     contactsRows: 0,
@@ -50,10 +53,14 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
 
   const stableKeyHints = new Map();
   const contactHints = new Map();
+  const sourceRowNos = new Map();
   for (const row of rows) {
     if (row.length === 1 && row[0].trim() === "") continue;
     counts.totalRows += 1;
     const value = (name) => String(row[index[name]] ?? "").trim();
+    const columnOk = row.length === headers.length;
+    const sourceRowNo = value("source_row_no");
+    const sourceRowNoOk = /^[1-9]\d{0,6}$/.test(sourceRowNo);
     const yearOk = value("graduation_year") === "2028";
     const sourceType = value("source_type");
     const sourceOk = SOURCE_TYPES_28.includes(sourceType);
@@ -63,6 +70,9 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
     const quarantineReason = value("quarantine_reason");
     const stableKeyHint = normalizeHint(value("stable_key_hint"));
     const contactHint = normalizeHint(value("email")) || normalizeHint(value("phone")) || normalizeHint(value("line_name"));
+    if (!columnOk) counts.rowColumnMismatchRows += 1;
+    if (!sourceRowNoOk) counts.invalidSourceRowNoRows += 1;
+    if (sourceRowNoOk) sourceRowNos.set(sourceRowNo, (sourceRowNos.get(sourceRowNo) || 0) + 1);
     const quarantineOk = ["TRUE", "FALSE"].includes(quarantineFlag) && (quarantineFlag === "FALSE" || quarantineReason !== "");
     if (!yearOk) counts.invalidYearRows += 1;
     if (!sourceOk) counts.invalidSourceRows += 1;
@@ -74,27 +84,38 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
     if (!quarantineOk) counts.inconsistentQuarantineRows += 1;
     if (stableKeyHint) stableKeyHints.set(stableKeyHint, (stableKeyHints.get(stableKeyHint) || 0) + 1);
     if (contactHint) contactHints.set(contactHint, (contactHints.get(contactHint) || 0) + 1);
-    if (quarantineFlag === "TRUE" || !yearOk || !sourceOk || !identityOk || !datesOk || !quarantineOk) counts.quarantineRows += 1;
+    if (quarantineFlag === "TRUE" || !columnOk || !sourceRowNoOk || !yearOk || !sourceOk || !identityOk || !datesOk || !quarantineOk) counts.quarantineRows += 1;
     else counts.readyRows += 1;
+  }
+  counts.duplicateSourceRowNoRows = countDuplicateOccurrences(sourceRowNos);
+  if (counts.duplicateSourceRowNoRows > 0) {
+    counts.readyRows = Math.max(0, counts.readyRows - counts.duplicateSourceRowNoRows);
+    counts.quarantineRows += counts.duplicateSourceRowNoRows;
   }
   counts.duplicateStableKeyHintRows = countDuplicateOccurrences(stableKeyHints);
   counts.duplicateContactHintRows = countDuplicateOccurrences(contactHints);
 
   const fixedCategory = counts.totalRows === 0
     ? "CSV_NO_DATA_ROWS"
-    : counts.invalidYearRows > 0
-      ? "CSV_2028_YEAR_MISMATCH"
-      : counts.invalidSourceRows > 0
-        ? "CSV_SOURCE_TYPE_MISMATCH"
-        : counts.missingIdentityRows > 0
-          ? "CSV_REQUIRED_IDENTITY_INCOMPLETE"
-          : counts.invalidDateRows > 0
-            ? "CSV_DATE_FORMAT_MISMATCH"
-            : counts.inconsistentQuarantineRows > 0
-              ? "CSV_QUARANTINE_CONTRACT_MISMATCH"
-              : counts.duplicateStableKeyHintRows > 0 || counts.duplicateContactHintRows > 0
-                ? "CSV_DUPLICATE_HINT_REVIEW_REQUIRED"
-                : "PASS";
+    : counts.rowColumnMismatchRows > 0
+      ? "CSV_ROW_COLUMN_COUNT_MISMATCH"
+      : counts.invalidSourceRowNoRows > 0
+        ? "CSV_SOURCE_ROW_NO_INVALID"
+        : counts.duplicateSourceRowNoRows > 0
+          ? "CSV_SOURCE_ROW_NO_DUPLICATE"
+          : counts.invalidYearRows > 0
+            ? "CSV_2028_YEAR_MISMATCH"
+            : counts.invalidSourceRows > 0
+              ? "CSV_SOURCE_TYPE_MISMATCH"
+              : counts.missingIdentityRows > 0
+                ? "CSV_REQUIRED_IDENTITY_INCOMPLETE"
+                : counts.invalidDateRows > 0
+                  ? "CSV_DATE_FORMAT_MISMATCH"
+                  : counts.inconsistentQuarantineRows > 0
+                    ? "CSV_QUARANTINE_CONTRACT_MISMATCH"
+                    : counts.duplicateStableKeyHintRows > 0 || counts.duplicateContactHintRows > 0
+                      ? "CSV_DUPLICATE_HINT_REVIEW_REQUIRED"
+                      : "PASS";
   return Object.freeze({
     ok: fixedCategory === "PASS",
     fixedCategory,
@@ -183,6 +204,9 @@ function safeSummary(fixedCategory, headerCategory, partialCounts = {}) {
       totalRows: 0,
       readyRows: 0,
       quarantineRows: 0,
+      rowColumnMismatchRows: 0,
+      invalidSourceRowNoRows: 0,
+      duplicateSourceRowNoRows: 0,
       invalidYearRows: 0,
       invalidSourceRows: 0,
       contactsRows: 0,
@@ -286,7 +310,7 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
       ["エントリー", result.counts.entriesRows],
       ["内定", result.counts.offersRows],
       ["重複候補", result.counts.duplicateStableKeyHintRows + result.counts.duplicateContactHintRows],
-      ["要確認", result.counts.invalidYearRows + result.counts.invalidSourceRows + result.counts.missingIdentityRows + result.counts.invalidDateRows + result.counts.inconsistentQuarantineRows]
+      ["要確認", result.counts.rowColumnMismatchRows + result.counts.invalidSourceRowNoRows + result.counts.duplicateSourceRowNoRows + result.counts.invalidYearRows + result.counts.invalidSourceRows + result.counts.missingIdentityRows + result.counts.invalidDateRows + result.counts.inconsistentQuarantineRows]
     ].map(([label, value]) => {
       const item = documentObject.createElement("div");
       const term = documentObject.createElement("dt");

@@ -149,6 +149,40 @@ function normalizeAudit(value) {
   return Object.freeze(entries);
 }
 
+export function buildWorkforceProcedureAuditSummary(entries) {
+  const rows = Array.isArray(entries) ? entries : [];
+  const changedFields = new Set(rows.flatMap((entry) => Array.isArray(entry?.changedFields) ? entry.changedFields : []));
+  const latest = rows.find((entry) => typeof entry?.occurredAt === "string") || null;
+  const category = rows.length === 0
+    ? "NO_HISTORY"
+    : changedFields.has("caseStatus")
+      ? "STATUS_CHANGED"
+      : changedFields.has("effectiveDate")
+        ? "DATE_CHANGED"
+        : "DETAIL_CHANGED";
+  const title = {
+    NO_HISTORY: "変更履歴はまだありません",
+    STATUS_CHANGED: "進捗変更を含む履歴があります",
+    DATE_CHANGED: "基準日の変更を含む履歴があります",
+    DETAIL_CHANGED: "案件情報の更新履歴があります"
+  }[category];
+  const copy = {
+    NO_HISTORY: "新規登録後の更新はまだ記録されていません。",
+    STATUS_CHANGED: "確認待ち・確認済み・中止などの進捗変更を確認してください。",
+    DATE_CHANGED: "手続き基準日が変わっています。期限順の見え方も確認してください。",
+    DETAIL_CHANGED: "対象者・手続きメモなどの変更内容を確認できます。"
+  }[category];
+  return Object.freeze({
+    category,
+    title,
+    copy,
+    updateCount: rows.length,
+    changedFieldCount: changedFields.size,
+    latestCategory: latest ? "PRESENT" : "NONE",
+    rawValuesIncluded: false
+  });
+}
+
 export function isWorkforceProcedureCaseReadyToConfirm(steps) {
   return Array.isArray(steps) && steps.length === 4 && steps.every((step) => step && step.isCompleted === true);
 }
@@ -681,7 +715,9 @@ export function initializeWorkforceProcedureDesk({
       auditStatus.textContent = "変更履歴を表示できませんでした。";
       return;
     }
-    auditStatus.textContent = result.data.length === 0 ? "表示できる変更履歴はありません。" : "この案件の変更履歴です。";
+    const summary = buildWorkforceProcedureAuditSummary(result.data);
+    auditStatus.dataset.category = summary.category;
+    auditStatus.textContent = `${summary.title}。${summary.copy}（更新 ${summary.updateCount}件 / 項目 ${summary.changedFieldCount}種類）`;
     const fragment = documentObject.createDocumentFragment();
     for (const entry of result.data) {
       const row = documentObject.createElement("li");

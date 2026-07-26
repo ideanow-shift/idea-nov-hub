@@ -315,6 +315,7 @@ test("workforce exposes an audited procedure case desk without employee-master c
   assert.match(source, /invalid_status_transition/);
   assert.match(source, /buildWorkforceProcedureChecklistPlan/);
   assert.match(source, /renderChecklistPlan/);
+  assert.match(source, /buildWorkforceProcedureAuditSummary/);
   assert.match(source, /dataset\.nextAction/);
   assert.match(source, /filterWorkforceProcedureCasesByType/);
     assert.match(source, /filterWorkforceProcedureCasesByPriority/);

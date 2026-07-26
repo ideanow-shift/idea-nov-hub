@@ -22,6 +22,24 @@ test("Talent exposes recruitment and workforce as accessible primary tabs", asyn
   assert.match(html, /assets\/icons\/refresh\.svg/);
 });
 
+test("daily command center opens safe work areas without writes", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const css = await readFile(new URL("style.css", root), "utf8");
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+
+  assert.match(html, /id="talent-daily-command"/);
+  assert.match(html, /data-talent-daily-open="students"/);
+  assert.match(html, /data-talent-daily-open="workforce"/);
+  assert.match(html, /data-talent-daily-open="csv28"/);
+  assert.match(css, /\.talent-daily-command/);
+  assert.match(css, /\.talent-daily-command-actions/);
+  assert.match(app, /data-talent-daily-open/);
+  assert.match(app, /student-daily-queue-start-guide/);
+  assert.match(app, /workforce-case-operation-start-guide/);
+  assert.match(app, /talent-28-csv-title/);
+  assert.doesNotMatch(html, /data-talent-daily-open[\s\S]{0,260}(commit|promotion|LINE履歴|社員マスタへ直接反映)/i);
+});
+
 test("recruitment subtabs stay visually and semantically below the primary tabs", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
   const app = await readFile(new URL("app.mjs", root), "utf8");

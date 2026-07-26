@@ -8,6 +8,22 @@ const STATUS_LABELS = {
   coming_soon: "準備中"
 };
 
+const SYSTEM_ICON_BY_ALIAS = Object.freeze({
+  "task-management": "./assets/icons/task.svg",
+  attendance_kiosk: "./assets/icons/attendance.svg",
+  attendance_admin: "./assets/icons/attendance.svg",
+  shift: "./assets/icons/shift.svg",
+  expense_hub: "./assets/icons/expense-hub.svg",
+  decision_hub: "./assets/icons/default.svg",
+  pos: "./assets/icons/default.svg",
+  "idea-link": "./assets/icons/philosophy.svg",
+  "management-platform": "./assets/icons/management-check.svg",
+  EDU: "./assets/icons/education.svg",
+  "management-system": "./assets/icons/management.svg",
+  "human-capital-investment": "./assets/icons/human-capital-investment.svg",
+  "core-master-admin": "./assets/icons/database.svg"
+});
+
 const SYSTEMS = [
   { category: "運営管理", title: "タスク管理", status: "available", aliases: ["TASK", "task-management"], shortcuts: ["自分", "本部", "共有", "管理"] },
   { category: "運営管理", title: "勤怠管理｜打刻画面", status: "trial", aliases: ["attendance_kiosk", "attendance"], shortcuts: ["出勤打刻", "退勤打刻", "勤務実績確認"], audience: "全社員" },
@@ -88,8 +104,8 @@ function createSystemCard(system, apps, onOpenApp) {
   const app = findApp(apps, system.aliases);
   const isSampleApp = Boolean(app && String(app.url || "").startsWith("#demo-"));
   const fallbackIcon = resolveAppIcon({});
-  // Preview status only controls the action label. Keep each app's established SVG icon.
-  const iconSource = app ? resolveAppIcon(app) : fallbackIcon;
+  const establishedIcon = system.aliases.map((alias) => SYSTEM_ICON_BY_ALIAS[alias]).find(Boolean);
+  const iconSource = establishedIcon || (app ? resolveAppIcon(app) : fallbackIcon);
   const actualStatus = isSampleApp
     ? "preview"
     : app

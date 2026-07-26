@@ -407,6 +407,30 @@ body { background: #FAFAFA; }
   font-size: 12px;
 }
 
+.legacy-apps-disclosure {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: #FFFFFF;
+}
+
+.legacy-apps-disclosure summary {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  cursor: pointer;
+  list-style: none;
+  padding: 12px var(--spacing-md);
+}
+
+.legacy-apps-disclosure summary::-webkit-details-marker { display: none; }
+.legacy-apps-disclosure summary > span:first-child { display: grid; gap: 2px; min-width: 0; }
+.legacy-apps-disclosure summary strong { color: var(--text-primary); font-size: 16px; font-weight: 500; }
+.legacy-apps-disclosure summary small { color: var(--text-secondary); font-size: 12px; line-height: 1.35; }
+.legacy-apps-disclosure summary:focus-visible { outline: 2px solid var(--color-bassa); outline-offset: -2px; }
+.legacy-apps-content { border-top: 1px solid var(--border-light); padding: var(--spacing-md); }
+
 .app-toolbar {
   display: grid;
   gap: var(--spacing-sm);

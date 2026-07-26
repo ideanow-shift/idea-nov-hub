@@ -148,22 +148,26 @@
         <div class="app-grid featured-grid" id="featured-apps"></div>
       </section>
 
-      <section class="section" aria-labelledby="all-apps-heading">
-        <div class="section-heading">
-          <h2 class="section-title" id="all-apps-heading">すべての業務（既存アプリ一覧）</h2>
-          <span class="section-count" id="visible-app-count"></span>
-        </div>
-        <div class="app-toolbar" aria-label="アプリ検索とカテゴリ絞り込み">
-          <label class="sr-only" for="app-search">アプリを検索</label>
-          <input class="app-search-input" id="app-search" type="search" placeholder="アプリ名・カテゴリで検索">
-          <div class="category-filter" id="category-filter" aria-label="カテゴリ"></div>
-        </div>
-        <div id="category-apps"></div>
+      <section class="section legacy-apps-section" aria-label="すべての業務（既存アプリ一覧）">
+        <details class="legacy-apps-disclosure">
+          <summary>
+            <span><strong>すべての業務</strong><small>既存アプリ一覧・検索・カテゴリ</small></span>
+            <span class="section-count" id="visible-app-count"></span>
+          </summary>
+          <div class="legacy-apps-content">
+            <div class="app-toolbar" aria-label="アプリ検索とカテゴリ絞り込み">
+              <label class="sr-only" for="app-search">アプリを検索</label>
+              <input class="app-search-input" id="app-search" type="search" placeholder="アプリ名・カテゴリで検索">
+              <div class="category-filter" id="category-filter" aria-label="カテゴリ"></div>
+            </div>
+            <div id="category-apps"></div>
+          </div>
+        </details>
       </section>
     </div>
   </main>
 
   <div class="toast" id="toast" role="status" hidden></div>
-  <script type="module" src="./js/main.js?v=nov-navi-icon-registry-20260726-1"></script>
+  <script type="module" src="./js/main.js?v=nov-navi-icon-registry-20260726-3"></script>
 </body>
 </html>

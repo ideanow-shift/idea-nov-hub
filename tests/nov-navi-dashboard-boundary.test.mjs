@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
   getVisibleNaviCategories,
+  getVisibleNaviNotices,
   getNaviGreeting,
   shouldEnableLocalNovNaviDemo,
   shouldEnableNovNaviDashboard
@@ -42,6 +43,18 @@ assert.equal(
   false,
   "demo=1 is required"
 );
+
+assert.deepEqual(
+  getVisibleNaviNotices([
+    { title: "normal", unread: false },
+    { title: "important", unread: false, type: "important" },
+    { title: "unread", unread: true },
+    { title: "second unread", unread: true }
+  ]).map((notice) => notice.title),
+  ["unread", "second unread", "important"],
+  "NOV NAVI notices must prioritize unread and important items without changing their data"
+);
+assert.deepEqual(getVisibleNaviNotices("not-an-array"), [], "invalid notice sources must fail closed to an empty list");
 
 assert.equal(getNaviGreeting(8), "おはようございます。今日の仕事を確認しましょう。", "morning greeting");
 assert.equal(getNaviGreeting(13), "おつかれさまです。今日の進み具合を確認しましょう。", "afternoon greeting");
@@ -89,7 +102,9 @@ assert.match(
 );
 assert.match(mainSource, /if \(localDemoEnabled\) \{[\s\S]*?DEMO_EMPLOYEES\.forEach/, "demo options are local-only");
 assert.match(mainSource, /if \(localDemoEnabled\) \{[\s\S]*?demoLogin\.addEventListener/, "demo handler is local-only");
-assert.match(dashboardSource, /visibleNotices = Array\.isArray\(notices\) \? notices\.slice\(0, 3\)/, "NOVA notices must be capped at three");
+assert.match(dashboardSource, /function getVisibleNaviNotices\(notices\)/, "NOVA notices must use the shared visibility helper");
+assert.match(dashboardSource, /\.slice\(0, 3\)/, "NOVA notices must be capped at three");
+assert.match(dashboardSource, /notice\.unread/, "NOVA notices must prioritize unread items");
 assert.match(dashboardSource, /onOpenNotice\(notice\)/, "NOVA notices must use the existing HUB handler");
 assert.doesNotMatch(dashboardSource, /localStorage|sessionStorage|handoff_code|sessionToken/, "NOVA dashboard must not store or transport auth material");
 assert.match(dashboardSource, /await onOpenApp\(app\)/, "NOVA cards must await the existing app launcher");

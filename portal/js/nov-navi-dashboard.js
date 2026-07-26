@@ -195,10 +195,26 @@ function createNaviNoticeItem(notice, onOpenNotice) {
   return item;
 }
 
+export function getVisibleNaviNotices(notices) {
+  if (!Array.isArray(notices)) return [];
+  return notices
+    .filter((notice) => notice && typeof notice === "object")
+    .map((notice, index) => ({ notice, index }))
+    .sort((left, right) => {
+      const unreadOrder = Number(Boolean(right.notice.unread)) - Number(Boolean(left.notice.unread));
+      if (unreadOrder !== 0) return unreadOrder;
+      const importantOrder = Number(right.notice.type === "important") - Number(left.notice.type === "important");
+      if (importantOrder !== 0) return importantOrder;
+      return left.index - right.index;
+    })
+    .slice(0, 3)
+    .map(({ notice }) => notice);
+}
+
 function renderNaviNotices(notices, onOpenNotice) {
   const list = document.querySelector("#navi-notice-list");
   if (!list) return;
-  const visibleNotices = Array.isArray(notices) ? notices.slice(0, 3) : [];
+  const visibleNotices = getVisibleNaviNotices(notices);
   if (!visibleNotices.length) {
     list.innerHTML = '<p class="navi-notice-empty">現在、新しいお知らせはありません。</p>';
     return;

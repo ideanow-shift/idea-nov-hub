@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { analyzeTalent28CsvPreflight, buildTalent28CsvApprovalBoundary, buildTalent28CsvApprovalReadback, buildTalent28CsvCorrectionRoute, buildTalent28CsvCorrectionWorkbench, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvOwnerHandoffChecklist, buildTalent28CsvPreparationGuide, buildTalent28CsvSafeReceipt, buildTalent28CsvStagingApprovalGuide, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
+import { analyzeTalent28CsvPreflight, buildTalent28CsvApprovalBoundary, buildTalent28CsvApprovalReadback, buildTalent28CsvCorrectionRoute, buildTalent28CsvCorrectionWorkbench, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvOwnerHandoffChecklist, buildTalent28CsvPreparationGuide, buildTalent28CsvSafePreview, buildTalent28CsvSafeReceipt, buildTalent28CsvStagingApprovalGuide, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
 
 const header = [
   "source_row_no", "graduation_year", "source_type", "source_label", "student_name", "student_name_kana",
@@ -87,10 +87,34 @@ test("28卒 CSV approval readback prevents premature staging approval", async ()
   assert.equal(readyBoundary.rawValuesIncluded, false);
   assert.equal(readyBoundary.canonicalWriteReachable, false);
   assert.equal(readyBoundary.lineHistoryWriteReachable, false);
+  const blockedPreview = buildTalent28CsvSafePreview({
+    fixedCategory: "CSV_REQUIRED_IDENTITY_INCOMPLETE",
+    readiness: { canRequestStagingPreflight: false, sourceCoverageCategory: "MULTIPLE" },
+    counts: { readyRows: 0, quarantineRows: 0, missingIdentityRows: 1 }
+  });
+  const readyPreview = buildTalent28CsvSafePreview({
+    fixedCategory: "PASS",
+    readiness: { canRequestStagingPreflight: true, sourceCoverageCategory: "MULTIPLE" },
+    counts: { readyRows: 3, quarantineRows: 0 }
+  });
+  const quarantinePreview = buildTalent28CsvSafePreview({
+    fixedCategory: "PASS",
+    readiness: { canRequestStagingPreflight: true, sourceCoverageCategory: "MULTIPLE" },
+    counts: { readyRows: 2, quarantineRows: 1 }
+  });
+  assert.equal(blockedPreview.category, "PREVIEW_BLOCKED");
+  assert.equal(readyPreview.category, "PREVIEW_READY");
+  assert.equal(quarantinePreview.category, "PREVIEW_READY_WITH_QUARANTINE");
+  assert.deepEqual(readyPreview.metrics.map((metric) => metric.category), ["READY_ROWS", "QUARANTINE_ROWS", "ISSUE_ROWS", "SOURCE_COVERAGE"]);
+  assert.equal(readyPreview.productionDbOperation, false);
+  assert.equal(readyPreview.stagingWriteReachable, false);
+  assert.equal(readyPreview.rawValuesIncluded, false);
   assert.match(html, /talent-28-csv-approval-readback/);
   assert.match(html, /talent-28-csv-approval-boundary/);
+  assert.match(html, /talent-28-csv-safe-preview/);
   assert.match(css, /\.csv-approval-readback/);
   assert.match(css, /\.csv-approval-boundary/);
+  assert.match(css, /\.csv-safe-preview/);
 });
 
 test("28卒 CSV correction workbench shows safe field groups before staging approval", async () => {

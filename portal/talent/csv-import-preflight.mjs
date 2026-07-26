@@ -391,6 +391,7 @@ export function buildTalent28CsvStagingApprovalGuide(result) {
     rawValuesIncluded: false,
     googleSheetsConnectorRead: false,
     productionDbOperation: false,
+    stagingWriteReachable: false,
     stagingWriteRequiresSeparateApproval: true,
     canonicalWriteReachable: false,
     lineHistoryWriteReachable: false
@@ -422,6 +423,7 @@ export function buildTalent28CsvOwnerHandoffChecklist(result) {
     rawValuesIncluded: false,
     googleSheetsConnectorRead: false,
     productionDbOperation: false,
+    stagingWriteReachable: false,
     stagingWriteRequiresSeparateApproval: true,
     canonicalWriteReachable: false,
     lineHistoryWriteReachable: false
@@ -459,6 +461,7 @@ export function buildTalent28CsvApprovalReadback(result) {
     rawValuesIncluded: false,
     googleSheetsConnectorRead: false,
     productionDbOperation: false,
+    stagingWriteReachable: false,
     stagingWriteRequiresSeparateApproval: true,
     canonicalWriteReachable: false,
     lineHistoryWriteReachable: false
@@ -497,6 +500,57 @@ export function buildTalent28CsvApprovalBoundary(result) {
     rawValuesIncluded: false,
     googleSheetsConnectorRead: false,
     productionDbOperation: false,
+    stagingWriteRequiresSeparateApproval: true,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false,
+    automaticPromotionReachable: false
+  });
+}
+
+export function buildTalent28CsvSafePreview(result) {
+  const counts = result?.counts || {};
+  const readiness = result?.readiness || buildTalent28CsvImportReadiness(result);
+  const readyRows = Number(counts.readyRows || 0);
+  const quarantineRows = Number(counts.quarantineRows || 0);
+  const issueRows = Number(counts.rowColumnMismatchRows || 0)
+    + Number(counts.invalidSourceRowNoRows || 0)
+    + Number(counts.duplicateSourceRowNoRows || 0)
+    + Number(counts.invalidYearRows || 0)
+    + Number(counts.invalidSourceRows || 0)
+    + Number(counts.missingSourceLabelRows || 0)
+    + Number(counts.missingIdentityRows || 0)
+    + Number(counts.invalidDateRows || 0)
+    + Number(counts.inconsistentQuarantineRows || 0)
+    + Number(counts.duplicateStableKeyHintRows || 0)
+    + Number(counts.duplicateContactHintRows || 0);
+  const category = readiness.canRequestStagingPreflight
+    ? quarantineRows > 0 ? "PREVIEW_READY_WITH_QUARANTINE" : "PREVIEW_READY"
+    : "PREVIEW_BLOCKED";
+  const title = {
+    PREVIEW_READY: "安全プレビューは承認前確認へ進めます",
+    PREVIEW_READY_WITH_QUARANTINE: "安全プレビューは隔離込みで承認前確認へ進めます",
+    PREVIEW_BLOCKED: "安全プレビューは修正待ちです"
+  }[category];
+  const copy = {
+    PREVIEW_READY: "件数カテゴリと境界だけを確認し、production staging exact1の承認は別で扱います。",
+    PREVIEW_READY_WITH_QUARANTINE: "投入候補と隔離候補を分けたまま、値を表示せず承認前確認へ進みます。",
+    PREVIEW_BLOCKED: "修正カテゴリが残っています。staging承認文はまだ準備しません。"
+  }[category];
+  return Object.freeze({
+    category,
+    title,
+    copy,
+    metrics: Object.freeze([
+      Object.freeze({ category: "READY_ROWS", label: "投入候補", countCategory: countCategory(readyRows) }),
+      Object.freeze({ category: "QUARANTINE_ROWS", label: "隔離候補", countCategory: countCategory(quarantineRows) }),
+      Object.freeze({ category: "ISSUE_ROWS", label: "修正確認", countCategory: countCategory(issueRows) }),
+      Object.freeze({ category: "SOURCE_COVERAGE", label: "由来3区分", countCategory: readiness.sourceCoverageCategory || "NONE" })
+    ]),
+    approvalReachable: readiness.canRequestStagingPreflight === true,
+    rawValuesIncluded: false,
+    googleSheetsConnectorRead: false,
+    productionDbOperation: false,
+    stagingWriteReachable: false,
     stagingWriteRequiresSeparateApproval: true,
     canonicalWriteReachable: false,
     lineHistoryWriteReachable: false,
@@ -566,6 +620,11 @@ function countDuplicateOccurrences(map) {
     if (count > 1) total += count;
   }
   return total;
+}
+
+function countCategory(value) {
+  const count = Number(value || 0);
+  return count <= 0 ? "ZERO" : count === 1 ? "ONE" : "MULTIPLE";
 }
 
 function freezeCounts(counts) {
@@ -639,7 +698,11 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
   const approvalBoundaryTitle = documentObject?.getElementById?.("talent-28-csv-approval-boundary-title");
   const approvalBoundaryCopy = documentObject?.getElementById?.("talent-28-csv-approval-boundary-copy");
   const approvalBoundaryChecks = documentObject?.getElementById?.("talent-28-csv-approval-boundary-checks");
-  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute || !correctionWorkbench || !stagingApprovalGuide || !ownerHandoffChecklist || !approvalReadback || !approvalReadbackTitle || !approvalReadbackCopy || !approvalReadbackSteps || !approvalBoundary || !approvalBoundaryTitle || !approvalBoundaryCopy || !approvalBoundaryChecks) return Object.freeze({ initialized: false });
+  const safePreview = documentObject?.getElementById?.("talent-28-csv-safe-preview");
+  const safePreviewTitle = documentObject?.getElementById?.("talent-28-csv-safe-preview-title");
+  const safePreviewCopy = documentObject?.getElementById?.("talent-28-csv-safe-preview-copy");
+  const safePreviewMetrics = documentObject?.getElementById?.("talent-28-csv-safe-preview-metrics");
+  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute || !correctionWorkbench || !stagingApprovalGuide || !ownerHandoffChecklist || !approvalReadback || !approvalReadbackTitle || !approvalReadbackCopy || !approvalReadbackSteps || !approvalBoundary || !approvalBoundaryTitle || !approvalBoundaryCopy || !approvalBoundaryChecks || !safePreview || !safePreviewTitle || !safePreviewCopy || !safePreviewMetrics) return Object.freeze({ initialized: false });
   if (input.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true });
   input.dataset.bound = "true";
   const preparation = buildTalent28CsvPreparationGuide();
@@ -733,6 +796,20 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
       const item = documentObject.createElement("li");
       item.dataset.category = check.category;
       item.textContent = `${check.order}. ${check.label}`;
+      return item;
+    }));
+    const preview = buildTalent28CsvSafePreview(result);
+    safePreview.dataset.category = preview.category;
+    safePreviewTitle.textContent = preview.title;
+    safePreviewCopy.textContent = preview.copy;
+    safePreviewMetrics.replaceChildren(...preview.metrics.map((metric) => {
+      const item = documentObject.createElement("div");
+      const term = documentObject.createElement("dt");
+      const description = documentObject.createElement("dd");
+      term.textContent = metric.label;
+      description.textContent = metric.countCategory;
+      item.dataset.category = metric.category;
+      item.append(term, description);
       return item;
     }));
     fixGuideList.dataset.category = fixGuide.nextCategory;

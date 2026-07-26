@@ -233,6 +233,11 @@
             <p id="talent-28-csv-approval-boundary-copy">Keep the workflow in CSV correction until the safe categories are ready.</p>
             <ol id="talent-28-csv-approval-boundary-checks"></ol>
           </section>
+          <section id="talent-28-csv-safe-preview" class="csv-safe-preview" data-category="PREVIEW_NOT_READY" aria-label="28卒CSV安全プレビュー">
+            <strong id="talent-28-csv-safe-preview-title">安全プレビューは未実行です</strong>
+            <p id="talent-28-csv-safe-preview-copy">CSV preflight後に、値ではなく件数カテゴリと承認境界だけを表示します。</p>
+            <dl id="talent-28-csv-safe-preview-metrics"></dl>
+          </section>
           <ol id="talent-28-csv-fix-guide" class="csv-preflight-fix-guide" aria-label="28卒CSVの安全修正ガイド"></ol>
         </section>
 
@@ -796,6 +801,11 @@
               <div><dt>中止</dt><dd id="workforce-case-core-handoff-cancelled">0</dd></div>
             </dl>
             <ol id="workforce-case-core-handoff-steps" class="procedure-case-core-handoff-steps" data-category="NO_CORE_HANDOFF_WORK" aria-label="Core DB引き渡し前の確認手順"></ol>
+            <section id="workforce-case-core-handoff-readback" class="procedure-case-core-handoff-readback" data-category="NO_CORE_HANDOFF_WORK" aria-label="Core DB引き渡し承認前の読み合わせ">
+              <strong id="workforce-case-core-handoff-readback-title">Core DB引き渡し承認は不要です</strong>
+              <p id="workforce-case-core-handoff-readback-copy">確認済み案件が出るまで、社員マスタ更新の承認文は準備しません。</p>
+              <ol id="workforce-case-core-handoff-readback-steps"></ol>
+            </section>
           </section>
           <div class="procedure-case-operation-actions" aria-label="今日の処理キューを開く">
             <button type="button" data-workforce-operation-filter="OVERDUE" aria-pressed="false">期限超過を見る</button>

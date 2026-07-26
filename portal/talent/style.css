@@ -555,6 +555,16 @@ h3 { margin: 0; font-size: 1rem; }
 .csv-approval-boundary p { margin: 0; color: var(--muted); font-size: .84rem; line-height: 1.5; }
 .csv-approval-boundary ol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 0; padding: 0; list-style: none; }
 .csv-approval-boundary li { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .8rem; font-weight: 850; line-height: 1.45; }
+.csv-safe-preview { grid-column: 1 / -1; display: grid; gap: 7px; padding: 12px; border: 1px solid #d7e5ee; border-radius: 7px; background: #f8fbfd; }
+.csv-safe-preview[data-category="PREVIEW_READY"],
+.csv-safe-preview[data-category="PREVIEW_READY_WITH_QUARANTINE"] { border-color: #cbe8d3; background: #f8fffb; }
+.csv-safe-preview[data-category="PREVIEW_BLOCKED"] { border-color: #f1b8b8; background: #fff6f6; }
+.csv-safe-preview strong { color: var(--navy); }
+.csv-safe-preview p { margin: 0; color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.csv-safe-preview dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin: 0; }
+.csv-safe-preview dl div { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.csv-safe-preview dt { color: var(--muted); font-size: .72rem; font-weight: 850; }
+.csv-safe-preview dd { margin: 4px 0 0; color: var(--navy); font-size: .88rem; font-weight: 900; }
 .csv-preflight-fix-guide { grid-column: 1 / -1; display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .csv-preflight-fix-guide li { padding: 9px 11px; border: 1px dashed var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .82rem; font-weight: 800; }
 .csv-preflight-fix-guide[data-category="REQUEST_STAGING_PREFLIGHT_APPROVAL"] li { border-style: solid; border-color: #cbe8d3; color: #2f7441; background: #f8fffb; }
@@ -1629,6 +1639,13 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-core-handoff-steps { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
 .procedure-case-core-handoff-steps li { padding: 9px 11px; border: 1px dashed var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .82rem; font-weight: 850; line-height: 1.45; }
 .procedure-case-core-handoff-steps[data-category="SEPARATE_CORE_APPROVAL_REQUIRED"] li { border-style: solid; border-color: #cbe8d3; color: #267650; background: #f8fffb; }
+.procedure-case-core-handoff-readback { grid-column: 1 / -1; display: grid; gap: 7px; padding: 12px; border: 1px solid #e9e0d5; border-radius: 7px; background: #fffdf8; }
+.procedure-case-core-handoff-readback[data-category="SEPARATE_CORE_APPROVAL_REQUIRED"] { border-color: #cbe8d3; background: #f8fffb; }
+.procedure-case-core-handoff-readback[data-category="LOCAL_CASES_IN_PROGRESS"] { border-color: #f2d59d; background: #fffaf0; }
+.procedure-case-core-handoff-readback strong { color: var(--navy); }
+.procedure-case-core-handoff-readback p { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.procedure-case-core-handoff-readback ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 0; padding: 0; list-style: none; }
+.procedure-case-core-handoff-readback li { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .8rem; font-weight: 850; line-height: 1.45; }
 .procedure-case-operation-steps {
   display: grid;
   flex: 1 0 100%;

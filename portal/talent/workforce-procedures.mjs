@@ -11,6 +11,12 @@ const STEP_LABELS = Object.freeze({
   CHANGE_DETAILS: "異動内容を確認", STAKEHOLDER_CONFIRMATION: "本人・関係者の確認を記録", APPLICATION: "申請内容を確認", REQUIRED_PROCEDURES: "必要な社内手続きを確認",
   RETURN_PLAN: "復職予定・所属を確認", RETIREMENT_DATE: "退職日・最終出勤日を確認", ASSET_RETURN: "貸与物の返却を確認"
 });
+const PROCEDURE_STEP_KEYS = Object.freeze({
+  ONBOARDING: Object.freeze(["BASIC_INFO", "DOCUMENTS", "APPROVAL", "CORE_HANDOFF"]),
+  TRANSFER: Object.freeze(["CHANGE_DETAILS", "STAKEHOLDER_CONFIRMATION", "APPROVAL", "CORE_HANDOFF"]),
+  LEAVE: Object.freeze(["APPLICATION", "REQUIRED_PROCEDURES", "RETURN_PLAN", "CORE_HANDOFF"]),
+  RETIREMENT: Object.freeze(["RETIREMENT_DATE", "DOCUMENTS", "ASSET_RETURN", "CORE_HANDOFF"])
+});
 
 export const WORKFORCE_PROCEDURE_CASE_CONTRACT = Object.freeze({
   employeeMasterMutation: false,
@@ -220,6 +226,28 @@ export function buildWorkforceProcedureCaseFormGuide(draft, referenceDate = loca
   return Object.freeze({ category, title, copy });
 }
 
+export function buildWorkforceProcedureChecklistPlan(procedureType) {
+  const normalized = PROCEDURE_TYPES.includes(procedureType) ? procedureType : "ONBOARDING";
+  const steps = PROCEDURE_STEP_KEYS[normalized].map((stepKey, index) => Object.freeze({
+    stepKey,
+    order: index + 1,
+    label: STEP_LABELS[stepKey]
+  }));
+  const title = {
+    ONBOARDING: "入社手続きの確認項目",
+    TRANSFER: "異動手続きの確認項目",
+    LEAVE: "休職・復職手続きの確認項目",
+    RETIREMENT: "退職手続きの確認項目"
+  }[normalized];
+  const copy = {
+    ONBOARDING: "受け入れ準備からCore反映引き継ぎまでを確認します。",
+    TRANSFER: "異動内容、関係者確認、承認、Core反映引き継ぎを順番に確認します。",
+    LEAVE: "申請内容、必要手続き、復職予定、Core反映引き継ぎを整理します。",
+    RETIREMENT: "退職日、書類、貸与物返却、Core反映引き継ぎを漏れなく確認します。"
+  }[normalized];
+  return Object.freeze({ procedureType: normalized, title, copy, steps: Object.freeze(steps) });
+}
+
 export function buildWorkforceProcedureStatusMessage(category) {
   const messages = {
     idle: "手続き案件を読み込むと、下書き・確認・中止の履歴を管理できます。社員マスタはここでは変更しません。",
@@ -242,7 +270,7 @@ export function buildWorkforceProcedureStatusMessage(category) {
 function normalizeSteps(value) {
   if (!exactKeys(value, ["procedureType", "steps"]) || !PROCEDURE_TYPES.includes(value.procedureType)
     || !Array.isArray(value.steps) || value.steps.length !== 4) return null;
-  const keys = Object.keys(STEP_LABELS);
+  const keys = PROCEDURE_STEP_KEYS[value.procedureType];
   const steps = [];
   for (const row of value.steps) {
     if (!exactKeys(row, ["stepKey", "isCompleted", "version", "updatedAt"])
@@ -252,6 +280,7 @@ function normalizeSteps(value) {
     steps.push(Object.freeze({ ...row }));
   }
   if (new Set(steps.map((step) => step.stepKey)).size !== steps.length) return null;
+  if (!keys.every((stepKey) => steps.some((step) => step.stepKey === stepKey))) return null;
   return Object.freeze({ procedureType: value.procedureType, steps: Object.freeze(steps) });
 }
 
@@ -387,7 +416,11 @@ export function initializeWorkforceProcedureDesk({
   const formGuide = documentObject?.getElementById?.("workforce-case-form-guide");
   const formGuideTitle = documentObject?.getElementById?.("workforce-case-form-guide-title");
   const formGuideCopy = documentObject?.getElementById?.("workforce-case-form-guide-copy");
-  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  const checklistPlan = documentObject?.getElementById?.("workforce-case-checklist-plan");
+  const checklistPlanTitle = documentObject?.getElementById?.("workforce-case-checklist-plan-title");
+  const checklistPlanCopy = documentObject?.getElementById?.("workforce-case-checklist-plan-copy");
+  const checklistPlanList = documentObject?.getElementById?.("workforce-case-checklist-plan-list");
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy || !checklistPlan || !checklistPlanTitle || !checklistPlanCopy || !checklistPlanList) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
@@ -433,6 +466,17 @@ export function initializeWorkforceProcedureDesk({
     formGuide.dataset.category = guide.category;
     formGuideTitle.textContent = guide.title;
     formGuideCopy.textContent = guide.copy;
+  };
+  const renderChecklistPlan = () => {
+    const plan = buildWorkforceProcedureChecklistPlan(input("procedureType")?.value);
+    checklistPlan.dataset.procedureType = plan.procedureType;
+    checklistPlanTitle.textContent = plan.title;
+    checklistPlanCopy.textContent = plan.copy;
+    checklistPlanList.replaceChildren(...plan.steps.map((step) => {
+      const item = documentObject.createElement("li");
+      item.textContent = `${step.order}. ${step.label}`;
+      return item;
+    }));
   };
   const reset = () => {
     form.reset();
@@ -624,6 +668,7 @@ export function initializeWorkforceProcedureDesk({
         input("effectiveDate").value = item.effectiveDate;
         input("detail").value = item.detail || "";
         renderFormGuide();
+        renderChecklistPlan();
         form.hidden = false;
         form.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
       });
@@ -664,6 +709,7 @@ export function initializeWorkforceProcedureDesk({
     input("effectiveDate").value = normalized.effectiveDate;
     input("detail").value = normalized.detail;
     renderFormGuide();
+    renderChecklistPlan();
     form.hidden = false;
     input("subjectLabel")?.focus?.();
   };
@@ -689,6 +735,7 @@ export function initializeWorkforceProcedureDesk({
   filterResetButton.addEventListener("click", resetFilters);
   input("caseStatus").addEventListener("change", renderFormGuide);
   input("effectiveDate").addEventListener("change", renderFormGuide);
+  input("procedureType").addEventListener("change", renderChecklistPlan);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const draft = Object.freeze({

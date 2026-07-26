@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -164,6 +164,20 @@ test("workforce procedure confirmation requires every checklist item", () => {
   assert.equal(isWorkforceProcedureCaseReadyToConfirm(ready), true);
   assert.equal(isWorkforceProcedureCaseReadyToConfirm([{ ...ready[0], isCompleted: false }, ...ready.slice(1)]), false);
   assert.equal(isWorkforceProcedureCaseReadyToConfirm(ready.slice(0, 3)), false);
+});
+
+test("workforce procedure checklist plans stay scoped by procedure type", async () => {
+  const onboarding = buildWorkforceProcedureChecklistPlan("ONBOARDING");
+  const transfer = buildWorkforceProcedureChecklistPlan("TRANSFER");
+  const leave = buildWorkforceProcedureChecklistPlan("LEAVE");
+  const retirement = buildWorkforceProcedureChecklistPlan("RETIREMENT");
+
+  assert.deepEqual(onboarding.steps.map((step) => step.stepKey), ["BASIC_INFO", "DOCUMENTS", "APPROVAL", "CORE_HANDOFF"]);
+  assert.deepEqual(transfer.steps.map((step) => step.stepKey), ["CHANGE_DETAILS", "STAKEHOLDER_CONFIRMATION", "APPROVAL", "CORE_HANDOFF"]);
+  assert.deepEqual(leave.steps.map((step) => step.stepKey), ["APPLICATION", "REQUIRED_PROCEDURES", "RETURN_PLAN", "CORE_HANDOFF"]);
+  assert.deepEqual(retirement.steps.map((step) => step.stepKey), ["RETIREMENT_DATE", "DOCUMENTS", "ASSET_RETURN", "CORE_HANDOFF"]);
+  assert.equal(buildWorkforceProcedureChecklistPlan("UNKNOWN").procedureType, "ONBOARDING");
+  assert.match(retirement.copy, /貸与物返却/);
 });
 
 test("workforce procedure cases prioritize overdue and near-term open work", () => {

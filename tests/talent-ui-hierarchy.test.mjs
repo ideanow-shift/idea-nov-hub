@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildBulkTriageQueueFilter, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadApprovalGuide, buildReviewWorkloadGuide, buildReviewWorkloadSteps, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewDecisionGuide, buildStudentReviewLaneSteps, buildStudentReviewModeCopy, buildStudentReviewQueuePriority, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildBulkTriageQueueFilter, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadApprovalGuide, buildReviewWorkloadGuide, buildReviewWorkloadSteps, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentDailyQueueSummary, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewDecisionGuide, buildStudentReviewLaneSteps, buildStudentReviewModeCopy, buildStudentReviewQueuePriority, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -204,6 +204,33 @@ test("student detail guides the daily operation without exposing raw values", as
     classification: "QUARANTINE",
     mappingStatus: "UNMAPPED"
   }, { editable: true }, "2026-07-26").category, "QUARANTINE_REVIEW");
+});
+
+test("student workspace summarizes today's follow-up queue before selecting a row", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+  const css = await readFile(new URL("style.css", root), "utf8");
+  const summary = buildStudentDailyQueueSummary([
+    { nextActionAt: "2026-07-20", classification: "IMPORTABLE" },
+    { nextActionAt: "2026-07-30", classification: "OWNER_REVIEW" },
+    { classification: "QUARANTINE" },
+    { statusCode: "OFFER", expectedJoinDate: "2027-04-01", classification: "IMPORTABLE" }
+  ], "2026-07-26");
+
+  assert.equal(summary.category, "OVERDUE_FIRST");
+  assert.equal(summary.counts.overdue, 1);
+  assert.equal(summary.counts.nextWeek, 1);
+  assert.equal(summary.counts.ownerReview, 1);
+  assert.equal(summary.counts.quarantine, 1);
+  assert.equal(summary.counts.onboardingReady, 1);
+  assert.deepEqual(summary.steps.map((step) => step.category), ["OPEN_OVERDUE", "UPDATE_NEXT_ACTION", "LEAVE_AUDIT"]);
+  assert.equal(summary.rawValuesIncluded, false);
+  assert.equal(summary.canonicalWriteReachable, false);
+  assert.equal(summary.lineHistoryWriteReachable, false);
+  assert.match(html, /id="student-daily-queue-summary"/);
+  assert.match(html, /id="student-daily-queue-steps"/);
+  assert.match(app, /renderStudentDailyQueueSummary/);
+  assert.match(css, /student-daily-queue-summary/);
 });
 
 test("student detail marks safe review lanes for bulk, individual, and quarantine work", async () => {

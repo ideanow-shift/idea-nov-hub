@@ -1630,6 +1630,7 @@ function renderStudentWorkspace(documentObject) {
   updateStudentQuickFilterState(documentObject, state, studentWorkspaceData.students);
   updateStudentFilterResetState(documentObject, { query, source, state, progress, month, followUp, sort });
   renderStudentFilterSummary(documentObject, buildStudentFilterSummary({ query, source, state, progress, month, followUp, sort }));
+  renderStudentDailyQueueSummary(documentObject, buildStudentDailyQueueSummary(studentWorkspaceData.students));
   renderStudentEmptyState(documentObject, {
     total: studentWorkspaceData.students.length,
     visible: visible.length,
@@ -1650,6 +1651,84 @@ function renderStudentWorkspace(documentObject) {
     documentObject,
     studentWorkspaceData.students.find((student) => student.recordId === selectedStudentRecordId) || null
   );
+}
+
+export function buildStudentDailyQueueSummary(students = [], referenceDate = localTalentDateIso()) {
+  const rows = Array.isArray(students) ? students : [];
+  const counts = rows.reduce((summary, student) => {
+    const followUp = classifyTalentStudentFollowUp(student, referenceDate);
+    if (followUp === "OVERDUE") summary.overdue += 1;
+    if (followUp === "NEXT_7_DAYS") summary.nextWeek += 1;
+    if (student?.classification === "OWNER_REVIEW") summary.ownerReview += 1;
+    if (student?.classification === "QUARANTINE") summary.quarantine += 1;
+    if (student?.statusCode === "OFFER" || student?.expectedJoinDate) summary.onboardingReady += 1;
+    return summary;
+  }, { overdue: 0, nextWeek: 0, ownerReview: 0, quarantine: 0, onboardingReady: 0 });
+
+  const category = counts.overdue > 0
+    ? "OVERDUE_FIRST"
+    : counts.nextWeek > 0
+      ? "NEXT_WEEK_FIRST"
+      : counts.ownerReview > 0
+        ? "OWNER_REVIEW_FIRST"
+        : counts.quarantine > 0
+          ? "QUARANTINE_REVIEW_FIRST"
+          : counts.onboardingReady > 0
+            ? "ONBOARDING_HANDOFF_READY"
+            : "STEADY_STATE";
+  const copyByCategory = {
+    OVERDUE_FIRST: ["期限超過から対応", "対応期限を過ぎた学生を先に開き、次回対応日と状態を更新します。"],
+    NEXT_WEEK_FIRST: ["直近7日の予定を確認", "直近対応の学生を一覧化して、今日処理する順番を決めます。"],
+    OWNER_REVIEW_FIRST: ["要確認を整理", "一括承認できるものと個別確認が必要なものを分けます。"],
+    QUARANTINE_REVIEW_FIRST: ["隔離理由を確認", "隔離維持・追加確認・再判定のどれかを記録します。"],
+    ONBOARDING_HANDOFF_READY: ["入社手続きへ引き継ぎ", "内定・入社予定の学生を、現職者管理の入社案件へ安全に渡します。"],
+    STEADY_STATE: ["通常フォローを継続", "検索・学校別・月別の導線から、次の対象を選びます。"]
+  };
+  const stepsByCategory = {
+    OVERDUE_FIRST: [["OPEN_OVERDUE", "期限超過で絞り込み"], ["UPDATE_NEXT_ACTION", "次回対応日を更新"], ["LEAVE_AUDIT", "対応履歴を残す"]],
+    NEXT_WEEK_FIRST: [["OPEN_NEXT_WEEK", "直近7日で絞り込み"], ["SORT_FOLLOW_UP", "対応期限順で確認"], ["SET_OWNER", "担当と状態を整える"]],
+    OWNER_REVIEW_FIRST: [["OPEN_OWNER_REVIEW", "要確認を開く"], ["SPLIT_DECISION", "一括・個別・隔離を分ける"], ["NO_PROMOTION", "昇格は別承認まで停止"]],
+    QUARANTINE_REVIEW_FIRST: [["OPEN_QUARANTINE", "隔離を開く"], ["CHECK_REASON", "理由と不足項目を確認"], ["KEEP_SAFE", "自動紐付けしない"]],
+    ONBOARDING_HANDOFF_READY: [["OPEN_OFFERS", "内定者を確認"], ["CHECK_JOIN_DATE", "入社予定と連絡状況を確認"], ["HANDOFF_WORKFORCE", "入社手続き案件へ引き継ぐ"]],
+    STEADY_STATE: [["OPEN_ALL", "学生一覧を開く"], ["USE_ANALYTICS", "学校・月別分析から対象を選ぶ"], ["KEEP_DAILY_UPDATES", "状態と次回対応を更新"]]
+  };
+
+  return Object.freeze({
+    category,
+    title: copyByCategory[category][0],
+    copy: copyByCategory[category][1],
+    counts: Object.freeze(counts),
+    rawValuesIncluded: false,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false,
+    automaticPromotionReachable: false,
+    steps: Object.freeze(stepsByCategory[category].map(([stepCategory, label], index) => Object.freeze({
+      order: index + 1,
+      category: stepCategory,
+      label
+    })))
+  });
+}
+
+function renderStudentDailyQueueSummary(documentObject, summary) {
+  const panel = documentObject.getElementById("student-daily-queue-summary");
+  if (panel) panel.dataset.category = summary.category;
+  setText(documentObject, "student-daily-queue-title", summary.title);
+  setText(documentObject, "student-daily-queue-copy", summary.copy);
+  setText(documentObject, "student-daily-queue-overdue", summary.counts.overdue);
+  setText(documentObject, "student-daily-queue-next-week", summary.counts.nextWeek);
+  setText(documentObject, "student-daily-queue-review", summary.counts.ownerReview);
+  setText(documentObject, "student-daily-queue-quarantine", summary.counts.quarantine);
+  setText(documentObject, "student-daily-queue-onboarding", summary.counts.onboardingReady);
+  const steps = documentObject.getElementById("student-daily-queue-steps");
+  if (!steps) return;
+  steps.dataset.category = summary.category;
+  steps.replaceChildren(...summary.steps.map((step) => {
+    const item = documentObject.createElement("li");
+    item.dataset.category = step.category;
+    item.textContent = `${step.order}. ${step.label}`;
+    return item;
+  }));
 }
 
 export function buildStudentEmptyState({ total = 0, visible = 0, hasActiveFilters = false } = {}) {

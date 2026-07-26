@@ -131,6 +131,38 @@ h3 { margin: 0; font-size: 1rem; }
 .primary-tab small { display: block; margin-top: 4px; color: inherit; opacity: 0.8; }
 .tab-number { font-weight: 800; opacity: 0.65; }
 
+.talent-daily-command {
+  display: grid;
+  grid-template-columns: minmax(240px, .7fr) minmax(0, 1.3fr);
+  gap: 18px;
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid #d8e7f5;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f7fbff, #fffaf7);
+  box-shadow: var(--shadow-card);
+}
+.talent-daily-command h2 { margin: 0; font-size: 1.12rem; }
+.talent-daily-command p:not(.section-kicker) { margin: 8px 0 0; color: var(--muted); font-size: .88rem; line-height: 1.6; }
+.talent-daily-command-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.talent-daily-command-actions button {
+  display: grid;
+  gap: 5px;
+  min-height: 94px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.talent-daily-command-actions button:hover,
+.talent-daily-command-actions button:focus-visible { border-color: #b8d3ed; background: #f8fbff; outline: none; }
+.talent-daily-command-actions span { color: #2e6b9d; font-size: .74rem; font-weight: 900; letter-spacing: .04em; }
+.talent-daily-command-actions strong { color: var(--navy); font-size: .95rem; }
+.talent-daily-command-actions small { color: var(--muted); line-height: 1.45; }
+
 .primary-panel {
   margin-top: 16px;
   border: 1px solid var(--line);

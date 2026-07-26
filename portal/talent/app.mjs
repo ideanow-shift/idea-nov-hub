@@ -241,6 +241,26 @@ export function initializeTalentNavigation({
       documentObject.getElementById("workforce-procedure-desk")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
     });
   }
+  for (const button of documentObject.querySelectorAll("[data-talent-daily-open]")) {
+    button.addEventListener("click", () => {
+      const target = String(button.dataset.talentDailyOpen || "");
+      if (target === "students") {
+        primaryButtons.find((item) => item.dataset.primaryTab === "recruitment")?.click?.();
+        secondaryButtons.find((item) => item.dataset.secondaryTab === "students")?.click?.();
+        documentObject.getElementById("student-daily-queue-start-guide")?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      }
+      if (target === "workforce") {
+        primaryButtons.find((item) => item.dataset.primaryTab === "workforce")?.click?.();
+        workforceButtons.find((item) => item.dataset.workforceTab === "onboarding")?.click?.();
+        documentObject.getElementById("workforce-case-operation-start-guide")?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      }
+      if (target === "csv28") {
+        primaryButtons.find((item) => item.dataset.primaryTab === "recruitment")?.click?.();
+        secondaryButtons.find((item) => item.dataset.secondaryTab === "summary")?.click?.();
+        documentObject.getElementById("talent-28-csv-title")?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      }
+    });
+  }
 
   const initialPrimary = normalizeHash(globalObject?.location?.hash);
   if (initialPrimary) selectTab(primaryButtons, initialPrimary, (key) => documentObject.getElementById(`panel-${key}`), false);

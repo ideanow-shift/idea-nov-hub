@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import {
   getVisibleNaviCategories,
   getVisibleNaviNotices,
+  getNaviTodaySnapshot,
   getNaviGreeting,
   shouldEnableLocalNovNaviDemo,
   shouldEnableNovNaviDashboard
@@ -56,6 +57,17 @@ assert.deepEqual(
 );
 assert.deepEqual(getVisibleNaviNotices("not-an-array"), [], "invalid notice sources must fail closed to an empty list");
 
+assert.deepEqual(
+  getNaviTodaySnapshot({ schedule: 1, tasks: 2, approvals: 0, thanks: 4, inquiries: 3, growthPoints: 8 }),
+  [1, 2, 0, 4, 3, 8],
+  "Today snapshot must accept only the six bounded aggregate values"
+);
+assert.deepEqual(
+  getNaviTodaySnapshot({ schedule: -1, tasks: "2", approvals: 1_000_001, unexpected: 9 }),
+  [null, null, null, null, null, null],
+  "Today snapshot must fail closed for invalid or unrecognized values"
+);
+
 assert.equal(getNaviGreeting(8), "おはようございます。今日の仕事を確認しましょう。", "morning greeting");
 assert.equal(getNaviGreeting(13), "おつかれさまです。今日の進み具合を確認しましょう。", "afternoon greeting");
 assert.equal(getNaviGreeting(20), "おつかれさまです。明日の準備を確認しましょう。", "evening greeting");
@@ -105,6 +117,8 @@ assert.match(mainSource, /if \(localDemoEnabled\) \{[\s\S]*?demoLogin\.addEventL
 assert.match(dashboardSource, /function getVisibleNaviNotices\(notices\)/, "NOVA notices must use the shared visibility helper");
 assert.match(dashboardSource, /\.slice\(0, 3\)/, "NOVA notices must be capped at three");
 assert.match(dashboardSource, /notice\.unread/, "NOVA notices must prioritize unread items");
+assert.match(dashboardSource, /const TODAY_KEYS = \["schedule", "tasks", "approvals", "thanks", "inquiries", "growthPoints"\]/, "Today card keys must remain allowlisted");
+assert.match(dashboardSource, /Number\.isSafeInteger\(value\)/, "Today card values must remain bounded aggregates");
 assert.match(dashboardSource, /onOpenNotice\(notice\)/, "NOVA notices must use the existing HUB handler");
 assert.doesNotMatch(dashboardSource, /localStorage|sessionStorage|handoff_code|sessionToken/, "NOVA dashboard must not store or transport auth material");
 assert.match(dashboardSource, /await onOpenApp\(app\)/, "NOVA cards must await the existing app launcher");

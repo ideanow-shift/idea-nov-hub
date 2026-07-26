@@ -222,7 +222,31 @@ function renderNaviNotices(notices, onOpenNotice) {
   list.replaceChildren(...visibleNotices.map((notice) => createNaviNoticeItem(notice, onOpenNotice)));
 }
 
-export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], onOpenApp, onOpenSupport, onOpenNotice = () => {} }) {
+const TODAY_KEYS = ["schedule", "tasks", "approvals", "thanks", "inquiries", "growthPoints"];
+
+export function getNaviTodaySnapshot(today) {
+  const source = today && typeof today === "object" && !Array.isArray(today) ? today : {};
+  return TODAY_KEYS.map((key) => {
+    const value = source[key];
+    return Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000 ? value : null;
+  });
+}
+
+function renderNaviToday(root, today) {
+  const counts = getNaviTodaySnapshot(today);
+  root.querySelectorAll(".navi-today-card").forEach((card, index) => {
+    const count = counts[index];
+    if (count === null) return;
+    const value = card.querySelector("strong");
+    const detail = card.querySelector("small");
+    if (!value || !detail) return;
+    value.textContent = String(count);
+    value.classList.remove("navi-pending-value");
+    detail.textContent = "最新の連携値";
+  });
+}
+
+export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], today = null, onOpenApp, onOpenSupport, onOpenNotice = () => {} }) {
   const root = document.querySelector("#nov-navi-dashboard");
   if (!root) return;
   root.hidden = !enabled;
@@ -260,6 +284,7 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
   root.querySelector(".navi-support-launcher").addEventListener("click", () => {
     onOpenSupport("");
   });
+  renderNaviToday(root, today);
   renderNaviNotices(notices, onOpenNotice);
 
   const sections = root.querySelector(".navi-system-sections");

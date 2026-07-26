@@ -58,6 +58,24 @@ const STORE_MONTHLY_SALES_ACCOUNTING_CSV_HEADER = Object.freeze([
   "ec_sales",
   "profit",
 ]);
+const FINANCIAL_LOCAL_CORRECTION_CSV_HEADER = Object.freeze([
+  "period",
+  "corporation",
+  "store",
+  "field",
+  "corrected_value",
+  "reason",
+]);
+const FINANCIAL_LOCAL_CORRECTION_FIELDS = Object.freeze(new Set([
+  "total_sales",
+  "technical_sales",
+  "product_sales",
+  "milbon_id_sales",
+  "ec_sales",
+  "profit",
+]));
+const MAX_FINANCIAL_LOCAL_CORRECTION_BYTES = 256 * 1024;
+const MAX_FINANCIAL_LOCAL_CORRECTION_ROWS = 200;
 const NORMALIZED_MONTHLY_PL_PRIMARY_ACCOUNTS = Object.freeze({
   sales: Object.freeze(["売上高合計", "売上高"]),
   ordinaryProfit: Object.freeze(["経常損益金額"]),
@@ -1852,6 +1870,87 @@ export async function validateFinancialMappingConfirmationFile(file, result) {
   }
 }
 
+function buildFinancialCorrectionTargets(result) {
+  const targets = new Set();
+  if (!result || result.statement !== "PL") return targets;
+  for (const row of result.entityPreviewRows || []) {
+    if (row.entityCategory !== "STORE_CANDIDATE") continue;
+    const corporation = safeLocalLabel(row.corporationName);
+    const store = safeLocalLabel(row.entityName);
+    if (!corporation || !store) continue;
+    for (const period of row.monthLabels || []) {
+      const month = normalizedMonthlyPlMonthKey(period);
+      if (month) targets.add(`${month}\u0000${corporation}\u0000${store}`);
+    }
+  }
+  return targets;
+}
+
+export function validateFinancialLocalCorrectionCsv(text, result) {
+  const rows = parseStrictCsv(text);
+  if (!rows || rows.length < 2 || !csvHeaderMatches(rows[0], FINANCIAL_LOCAL_CORRECTION_CSV_HEADER)) {
+    return { status: "LOCAL_CORRECTION_SCHEMA_INVALID", adjustmentCount: 0, targetCount: 0, fieldCount: 0, productionImportEnabled: false };
+  }
+  if (rows.length - 1 > MAX_FINANCIAL_LOCAL_CORRECTION_ROWS) {
+    return { status: "LOCAL_CORRECTION_ROW_LIMIT_EXCEEDED", adjustmentCount: 0, targetCount: 0, fieldCount: 0, productionImportEnabled: false };
+  }
+  const targets = buildFinancialCorrectionTargets(result);
+  if (!targets.size) {
+    return { status: "LOCAL_CORRECTION_BASE_DATA_REQUIRED", adjustmentCount: 0, targetCount: 0, fieldCount: 0, productionImportEnabled: false };
+  }
+  const seen = new Set();
+  const touchedTargets = new Set();
+  const touchedFields = new Set();
+  for (const row of rows.slice(1)) {
+    if (row.length !== FINANCIAL_LOCAL_CORRECTION_CSV_HEADER.length) {
+      return { status: "LOCAL_CORRECTION_SCHEMA_INVALID", adjustmentCount: 0, targetCount: 0, fieldCount: 0, productionImportEnabled: false };
+    }
+    const period = normalizedMonthlyPlMonthKey(row[0]);
+    const corporation = safeLocalLabel(row[1]);
+    const store = safeLocalLabel(row[2]);
+    const field = String(row[3] || "").trim();
+    const correctedValue = csvIntYen(row[4]);
+    const reason = safeLocalLabel(row[5], 120);
+    if (!period || !corporation || !store || !FINANCIAL_LOCAL_CORRECTION_FIELDS.has(field)
+      || correctedValue === null || !reason) {
+      return { status: "LOCAL_CORRECTION_VALUE_INVALID", adjustmentCount: 0, targetCount: 0, fieldCount: 0, productionImportEnabled: false };
+    }
+    const targetKey = `${period}\u0000${corporation}\u0000${store}`;
+    if (!targets.has(targetKey)) {
+      return { status: "LOCAL_CORRECTION_TARGET_NOT_FOUND", adjustmentCount: 0, targetCount: 0, fieldCount: 0, productionImportEnabled: false };
+    }
+    const correctionKey = `${targetKey}\u0000${field}`;
+    if (seen.has(correctionKey)) {
+      return { status: "LOCAL_CORRECTION_DUPLICATE_FIELD", adjustmentCount: 0, targetCount: 0, fieldCount: 0, productionImportEnabled: false };
+    }
+    seen.add(correctionKey);
+    touchedTargets.add(targetKey);
+    touchedFields.add(field);
+  }
+  return {
+    schemaVersion: "management-financial-local-correction-v1",
+    status: "LOCAL_CORRECTION_READY",
+    adjustmentCount: rows.length - 1,
+    targetCount: touchedTargets.size,
+    fieldCount: touchedFields.size,
+    productionImportEnabled: false,
+  };
+}
+
+export async function validateFinancialLocalCorrectionFile(file, result) {
+  if (!file || !/\.csv$/iu.test(String(file.name || "")) || !Number.isSafeInteger(Number(file.size))
+    || Number(file.size) <= 0 || Number(file.size) > MAX_FINANCIAL_LOCAL_CORRECTION_BYTES) {
+    return { status: "LOCAL_CORRECTION_FILE_INVALID", adjustmentCount: 0, targetCount: 0, fieldCount: 0, productionImportEnabled: false };
+  }
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return validateFinancialLocalCorrectionCsv(text, result);
+  } catch {
+    return { status: "LOCAL_CORRECTION_FILE_INVALID", adjustmentCount: 0, targetCount: 0, fieldCount: 0, productionImportEnabled: false };
+  }
+}
+
 export function buildFinancialLocalPreview(result) {
   const receipt = buildFinancialIntakeReceipt(result);
   if (!receipt || !["PL", "BS", BUDGET_STATEMENT].includes(receipt.statement)) return null;
@@ -2071,6 +2170,8 @@ export function buildFinancialLocalPreview(result) {
     mappingCandidateAccountCount: receipt.mappingCandidateAccountCount,
     mappingConfirmationStatus: localMappingEvidence ? "LOCAL_EVIDENCE_RECEIVED" : "PENDING",
     completionPendingCount: completionItems.filter((item) => !["LOCAL_VALIDATED", "LOCAL_EVIDENCE_RECEIVED"].includes(item.status)).length,
+    localCorrectionStatus: result.localCorrectionReceipt?.status || "LOCAL_CORRECTION_NOT_APPLIED",
+    localCorrectionCount: Number(result.localCorrectionReceipt?.adjustmentCount || 0),
     comparisonRangeLabel: selectedComparison?.comparisonRangeLabel || "データ月確認待ち",
     comparisonMonthCount,
     expectedMonthCount: Number(result.expectedMonthCount || comparisonMonthCount || 0),
@@ -2303,6 +2404,18 @@ const INTAKE_STATUS_LABELS = Object.freeze({
   FILE_READ_OR_PARSE_FAILED: "ファイルを確認してください",
 });
 
+const LOCAL_CORRECTION_STATUS_LABELS = Object.freeze({
+  LOCAL_CORRECTION_NOT_APPLIED: "補正なし",
+  LOCAL_CORRECTION_READY: "補正CSV確認済み",
+  LOCAL_CORRECTION_FILE_INVALID: "補正CSVファイルを確認してください",
+  LOCAL_CORRECTION_SCHEMA_INVALID: "補正CSV列を確認してください",
+  LOCAL_CORRECTION_ROW_LIMIT_EXCEEDED: "補正CSVは200行以内にしてください",
+  LOCAL_CORRECTION_BASE_DATA_REQUIRED: "先にP/Lデータを読み込んでください",
+  LOCAL_CORRECTION_VALUE_INVALID: "補正CSVの値を確認してください",
+  LOCAL_CORRECTION_TARGET_NOT_FOUND: "補正対象が元データにありません",
+  LOCAL_CORRECTION_DUPLICATE_FIELD: "同じ月・法人・店舗・項目の補正が重複しています",
+});
+
 const PARSE_FAILURE_LABELS = Object.freeze({
   XLS_LEGACY_OR_PROTECTED_UNSUPPORTED: "旧Excel/保護形式のため、Excelで開いて通常の.xlsxとして保存し直してください",
   XLSX_DEFLATE_UNSUPPORTED: "圧縮形式を読み取れません",
@@ -2343,6 +2456,7 @@ function setResult(container, result) {
       ? `読取理由: ${receipt.parseFailureCategories.map((category) => PARSE_FAILURE_LABELS[category] || category).join(" / ")}`
       : "読取理由: OK"),
     el(doc, "p", "", receipt.balanceCheck === "NOT_APPLICABLE" ? "貸借チェック: 対象外" : `貸借チェック: ${receipt.balanceCheck}`),
+    el(doc, "p", "", `ローカル補正: ${LOCAL_CORRECTION_STATUS_LABELS[result.localCorrectionReceipt?.status || "LOCAL_CORRECTION_NOT_APPLIED"] || "補正確認待ち"} / ${Number(result.localCorrectionReceipt?.adjustmentCount || 0)}件`),
     el(doc, "p", "", receipt.productionImportEnabled ? "本番投入可能" : "本番投入は無効です")
   );
   const preview = container.querySelector("[data-financial-intake-preview]");
@@ -2357,6 +2471,22 @@ function setResult(container, result) {
   }
   setMappingReview(container, result);
   setCompletionChecklist(container, result);
+}
+
+function setLocalCorrectionStatus(container, receipt) {
+  const status = container.querySelector("[data-financial-local-correction-status]");
+  const input = container.querySelector("[data-financial-local-correction-input]");
+  if (!status) return;
+  const category = receipt?.status || "LOCAL_CORRECTION_NOT_APPLIED";
+  status.dataset.financialLocalCorrectionStatus = category;
+  const label = LOCAL_CORRECTION_STATUS_LABELS[category] || "補正確認待ち";
+  const count = Number(receipt?.adjustmentCount || 0);
+  const targetCount = Number(receipt?.targetCount || 0);
+  const fieldCount = Number(receipt?.fieldCount || 0);
+  status.textContent = category === "LOCAL_CORRECTION_READY"
+    ? `${label}: ${count}件 / 対象 ${targetCount} / 項目 ${fieldCount}。本番投入は無効です。`
+    : `${label}。元CSVは上書きしません。`;
+  if (input) input.disabled = false;
 }
 
 function setMappingReview(container, result) {
@@ -2613,6 +2743,25 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const result = el(doc, "div", "financial-intake-result");
   result.dataset.financialIntakeResult = "NOT_READY";
   result.append(el(doc, "strong", "", "未検証"), el(doc, "p", "", "ファイル内容は送信されません。"));
+  const correction = el(doc, "section", "financial-local-correction");
+  correction.dataset.financialLocalCorrection = "true";
+  const correctionTitle = el(doc, "div", "financial-local-correction-heading");
+  const correctionTitleWrap = el(doc, "div");
+  correctionTitleWrap.append(
+    el(doc, "h4", "", "少量補正CSV"),
+    el(doc, "p", "", "元データは上書きせず、月・法人・店舗・項目単位の補正候補だけをローカルで検証します。")
+  );
+  const correctionLabel = el(doc, "label", "financial-mapping-download", "補正CSVを検証");
+  const correctionInput = el(doc, "input");
+  correctionInput.type = "file";
+  correctionInput.accept = ".csv,text/csv";
+  correctionInput.dataset.financialLocalCorrectionInput = "true";
+  correctionLabel.append(correctionInput);
+  correctionTitle.append(correctionTitleWrap, correctionLabel);
+  const correctionStatus = el(doc, "p", "financial-local-correction-status", "補正なし。先にP/Lデータを読み込んでください。");
+  correctionStatus.dataset.financialLocalCorrectionStatus = "LOCAL_CORRECTION_NOT_APPLIED";
+  correctionStatus.dataset.financialLocalCorrectionStatusNode = "true";
+  correction.append(correctionTitle, correctionStatus);
   const preview = el(doc, "ul", "financial-intake-preview");
   preview.dataset.financialIntakePreview = "EMPTY";
   const completion = el(doc, "section", "financial-completion");
@@ -2671,7 +2820,7 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const mappingEvidenceSummary = el(doc, "p", "financial-mapping-evidence-summary", "経理回答CSVのローカル証跡はまだありません。");
   mappingEvidenceSummary.dataset.financialMappingEvidenceSummary = "MAPPING_LOCAL_EVIDENCE_NOT_AVAILABLE";
   mappingReview.append(mappingHeading, mappingFacts, mappingHandoff, mappingEvidenceSummary, mappingTableWrap, mappingConfirmation);
-  section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, mappingReview, completion, submissionPackage, supplemental, preview);
+  section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, correction, mappingReview, completion, submissionPackage, supplemental, preview);
   container.replaceChildren(section);
   let latestResult = hooks.initialResult || null;
   container.managementApplyFinancialExternalEvidence = (evidence) => {
@@ -2712,7 +2861,9 @@ export function renderFinancialDataIntake(container, hooks = {}) {
       latestResult = latestResult?.localSupplementalReceipt || latestResult?.localStoreCsvReceipt
         ? { ...parsed, localSupplementalReceipt: latestResult.localSupplementalReceipt, localStoreCsvReceipt: latestResult.localStoreCsvReceipt }
         : parsed;
+      delete latestResult.localCorrectionReceipt;
       setResult(container, latestResult);
+      setLocalCorrectionStatus(container, null);
       publishPreview(container, latestResult);
       const localPreview = buildFinancialLocalPreview(latestResult);
       fiscal.value = localPreview && !["対象期確認待ち", "重複確認待ち"].includes(localPreview.selectedPeriodLabel)
@@ -2752,6 +2903,22 @@ export function renderFinancialDataIntake(container, hooks = {}) {
     } finally {
       mappingConfirmationInput.value = "";
       mappingConfirmationInput.disabled = !buildFinancialMappingReviewCsv(latestResult);
+    }
+  });
+  correctionInput.addEventListener("change", async () => {
+    const selected = correctionInput.files?.[0];
+    correctionInput.disabled = true;
+    try {
+      const receipt = await validateFinancialLocalCorrectionFile(selected, latestResult);
+      if (receipt.status === "LOCAL_CORRECTION_READY") {
+        latestResult = { ...latestResult, localCorrectionReceipt: { ...receipt } };
+        setResult(container, latestResult);
+        publishPreview(container, latestResult);
+      }
+      setLocalCorrectionStatus(container, receipt);
+    } finally {
+      correctionInput.value = "";
+      correctionInput.disabled = false;
     }
   });
   return true;

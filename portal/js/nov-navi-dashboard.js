@@ -234,7 +234,9 @@ export function getNaviTodaySnapshot(today) {
 
 function renderNaviToday(root, today) {
   const counts = getNaviTodaySnapshot(today);
-  root.querySelectorAll(".navi-today-card").forEach((card, index) => {
+  TODAY_KEYS.forEach((key, index) => {
+    const card = root.querySelector(`[data-navi-today-key="${key}"]`);
+    if (!card) return;
     const count = counts[index];
     if (count === null) return;
     const value = card.querySelector("strong");
@@ -261,12 +263,12 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
       <div class="navi-section-heading"><h2 id="navi-today-title">今日の仕事</h2><span>各システムの連携準備中</span></div>
       <p class="navi-today-greeting">${escapeHtml(getNaviGreeting())}</p>
       <div class="navi-today-grid">
-        <div class="navi-today-card"><span>今日の予定</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
-        <div class="navi-today-card"><span>未完了タスク</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
-        <div class="navi-today-card"><span>承認待ち</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
-        <div class="navi-today-card"><span>サンクス受信</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
-        <div class="navi-today-card"><span>問い合わせ回答</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
-        <div class="navi-today-card"><span>成長ポイント</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
+        <div class="navi-today-card" data-navi-today-key="schedule"><span>今日の予定</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
+        <div class="navi-today-card" data-navi-today-key="tasks"><span>未完了タスク</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
+        <div class="navi-today-card" data-navi-today-key="approvals"><span>承認待ち</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
+        <div class="navi-today-card" data-navi-today-key="thanks"><span>サンクス受信</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
+        <div class="navi-today-card" data-navi-today-key="inquiries"><span>問い合わせ回答</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
+        <div class="navi-today-card" data-navi-today-key="growthPoints"><span>成長ポイント</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
       </div>
     </section>
     <section class="navi-support" aria-labelledby="navi-support-title">

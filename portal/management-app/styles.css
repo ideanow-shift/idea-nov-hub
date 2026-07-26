@@ -399,7 +399,12 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-local-preview-card button:hover { background: var(--color-bassa-soft); }
 .financial-local-preview-metrics { margin-bottom: 0; }
 .financial-local-preview-metrics .metric { background: var(--card); }
-.local-preview-table table { min-width: 680px; }
+.financial-store-analysis-formulas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px; }
+.financial-store-analysis-formulas article { min-width: 0; padding: 10px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.financial-store-analysis-formulas .metric-label { display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 12px; }
+.financial-store-analysis-formulas .metric-value { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.financial-store-analysis-formulas .muted { margin: 6px 0 0; font-size: 11px; line-height: 1.5; }
+.local-preview-table table { min-width: 980px; }
 
 .embedded { margin: 0; padding: 0; border: 0; }
 .axis-section h3 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -438,7 +443,7 @@ tbody tr:hover td { background: var(--card-soft); }
   .corporation-tabs { padding: 10px 12px; }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .metric-value { font-size: 24px; }
-  .workflow, .method-grid, .production-readiness-grid, .workforce-submission-grid, .financial-intake-controls, .financial-intake-preview, .financial-completion-list, .financial-submission-package-grid, .financial-submission-roadmap-list, .financial-local-preview-metrics { grid-template-columns: 1fr; }
+  .workflow, .method-grid, .production-readiness-grid, .workforce-submission-grid, .financial-intake-controls, .financial-intake-preview, .financial-completion-list, .financial-submission-package-grid, .financial-submission-roadmap-list, .financial-local-preview-metrics, .financial-store-analysis-formulas { grid-template-columns: 1fr; }
   .financial-visible-scope, .financial-production-hold-summary, .financial-review-checklist ul { grid-template-columns: 1fr; }
   .financial-store-match-action { grid-template-columns: 1fr; }
   .financial-store-match-action button { grid-column: 1; grid-row: auto; width: 100%; }

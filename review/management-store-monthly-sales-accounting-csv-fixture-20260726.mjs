@@ -46,6 +46,10 @@ assert.equal(preview.status, "PL_LOCAL_READY");
 assert.equal(preview.importActionEnabled, false);
 assert.equal(preview.sourceMissingMonthCount, 10);
 assert.equal(preview.rows.length, 2);
+assert.equal(preview.rows[0].technicalSalesManYen, 909);
+assert.equal(preview.rows[0].productSalesManYen, 39);
+assert.equal(preview.rows[0].ecSalesManYen, 0);
+assert.equal(preview.rows[0].storeAnalysisMetricStatus, "SALES_READY_CUSTOMER_REPEAT_MENU_PENDING");
 
 const duplicateCsv = [
   header,

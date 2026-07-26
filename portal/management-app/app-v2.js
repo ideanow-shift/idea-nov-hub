@@ -2,7 +2,7 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=98059284370E87B7";
-import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=7A4B5CFECEACE3E0";
+import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=0DB09B3EA0CE3C9D";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
@@ -734,17 +734,21 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
   wrap.className = "table-wrap embedded local-preview-table";
   const table = document.createElement("table");
   const thead = document.createElement("thead");
-  thead.append(tableRow(["店舗候補", "分類", "データ月候補", "売上", "経常損益", "mapping", "レコード"], true));
+  thead.append(tableRow(["店舗候補", "分類", "データ月候補", "売上", "技術売上", "商品売上", "EC", "経常損益", "分析材料", "mapping", "レコード"], true));
   const tbody = document.createElement("tbody");
   tbody.replaceChildren(...(preview.rows.length ? preview.rows.map((row) => tableRow([
     row.entityName,
     row.entityCategoryLabel || "店舗候補",
     row.dataThroughMonthLabel,
     row.salesManYen == null ? "未算定" : `${number.format(row.salesManYen)}万円`,
+    row.technicalSalesManYen == null ? "未算定" : `${number.format(row.technicalSalesManYen)}万円`,
+    row.productSalesManYen == null ? "未算定" : `${number.format(row.productSalesManYen)}万円`,
+    row.ecSalesManYen == null ? "未算定" : `${number.format(row.ecSalesManYen)}万円`,
     row.ordinaryProfitManYen == null ? "未算定" : `${number.format(row.ordinaryProfitManYen)}万円`,
+    financialStoreAnalysisStatusLabel(row.storeAnalysisMetricStatus),
     financialMappingLabel(row.mappingStatus),
     `${number.format(row.recordCount)}件`,
-  ])) : [emptyRow(7, "店舗候補として表示できるP/Lシートはまだありません")]));
+  ])) : [emptyRow(11, "店舗候補として表示できるP/Lシートはまだありません")]));
   table.append(thead, tbody);
   wrap.append(table);
   section.append(
@@ -753,6 +757,7 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
     buildFinancialReviewChecklist("stores", preview),
     buildFinancialVisibleScope(preview),
     paragraph(duplicateMessage || `${preview.selectedPeriodLabel}の店舗候補だけを仮表示しています。店舗候補 ${number.format(preview.entityCandidateCount || 0)}件 / 除外・要確認 ${number.format(preview.reviewCandidateCount || 0)}件。候補mappingは${preview.mappingConfirmationStatus === "LOCAL_EVIDENCE_RECEIVED" ? "ローカル回答確認済み（本番未承認）" : "経理確認前"}で、DB保存・本番投入・個人情報表示はありません。`),
+    buildStoreAnalysisFormulaPanel(),
     wrap
   );
   if (localPlMatch.unmatched > 0) section.append(buildFinancialStoreMatchAction(localPlMatch));
@@ -760,6 +765,31 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
   if (comparison) section.append(comparison);
   section.append(buildFinancialMissingDataSummary("店舗営業管理"));
   elements.financialPreviewStores.replaceChildren(...(budgetPreview ? [section, buildBudgetPreviewCard(budgetPreview), buildLocalUseBoundaryPanel("stores")] : [section, buildLocalUseBoundaryPanel("stores")]));
+}
+
+function financialStoreAnalysisStatusLabel(status) {
+  return status === "SALES_READY_CUSTOMER_REPEAT_MENU_PENDING"
+    ? "売上OK / 客数・リピート・メニュー待ち"
+    : "売上分解待ち";
+}
+
+function buildStoreAnalysisFormulaPanel() {
+  const panel = document.createElement("div");
+  panel.className = "financial-store-analysis-formulas";
+  const items = [
+    ["技術生産性", "技術売上 ÷ 稼働スタッフ数", "社員マスタ人数と接続後に算定"],
+    ["総生産性", "（技術売上 + 商品売上）÷ 稼働スタッフ数", "EC売上とミルボンID補助値は二重計上防止"],
+    ["技術単価", "技術売上 ÷ 技術客数", "営業部の客数CSV待ち"],
+    ["総単価", "（技術売上 + 商品売上）÷ 総客数", "EC除外で算定"],
+    ["リピート率", "新規 / 2回目 / 3回目 / 固定", "リピート率分析表のaggregate取込待ち"],
+    ["メニュー分析", "商品区分・大分類・中分類・メニュー別集計", "顧客売上明細は個人項目を破棄して集計"],
+  ];
+  panel.replaceChildren(...items.map(([name, formula, status]) => {
+    const item = document.createElement("article");
+    item.append(label(name), valueNode(formula), muted(status));
+    return item;
+  }));
+  return panel;
 }
 
 function buildFinancialStoreMatchAction(localPlMatch) {

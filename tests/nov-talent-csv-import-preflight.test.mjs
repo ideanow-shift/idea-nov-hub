@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyzeTalent28CsvPreflight, buildTalent28CsvImportReadiness, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
+import { analyzeTalent28CsvPreflight, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
 
 const header = [
   "source_row_no", "graduation_year", "source_type", "source_label", "student_name", "student_name_kana",
@@ -92,4 +92,16 @@ test("28卒 CSV preflight reports duplicate hints by count without returning pri
   assert.equal(result.counts.duplicateContactHintRows, 2);
   assert.equal(result.rawValuesIncluded, false);
   assert.equal(Object.hasOwn(result, "duplicateValues"), false);
+});
+
+test("28卒 CSV operational plan separates local checks from approved staging work", () => {
+  const readyPlan = buildTalent28CsvOperationalPlan({ category: "READY_WITH_QUARANTINE" });
+  assert.equal(readyPlan.steps.length, 3);
+  assert.match(readyPlan.steps[1].label, /別承認/);
+  assert.equal(readyPlan.productionWriteReachable, false);
+  assert.equal(readyPlan.rawValuesIncluded, false);
+
+  const fixPlan = buildTalent28CsvOperationalPlan({ category: "NEEDS_FIX" });
+  assert.match(fixPlan.steps[0].label, /CSV列/);
+  assert.doesNotMatch(fixPlan.steps.map((step) => step.label).join(" "), /学生 太郎|example/);
 });

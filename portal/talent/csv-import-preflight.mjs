@@ -146,6 +146,33 @@ export function buildTalent28CsvImportReadiness(result) {
   });
 }
 
+export function buildTalent28CsvOperationalPlan(readiness) {
+  const category = String(readiness?.category || "NEEDS_FIX");
+  const steps = category === "READY_FOR_STAGING_PREFLIGHT" || category === "READY_WITH_QUARANTINE"
+    ? [
+        ["1", "CSV preflight結果を保存せず件数だけ確認"],
+        ["2", "別承認でstaging preflightを実行"],
+        ["3", "不一致があればrollback、canonical反映は別承認"]
+      ]
+    : category === "NO_READY_ROWS"
+      ? [
+          ["1", "CSV整形元を確認"],
+          ["2", "隔離理由が意図どおりか確認"],
+          ["3", "投入候補ができるまでstaging承認へ進まない"]
+        ]
+      : [
+          ["1", "CSV列・年度・由来・必須項目を修正"],
+          ["2", "個人値をチャットへ貼らず再度CSVを選択"],
+          ["3", "PASS後にstaging preflight承認へ進む"]
+        ];
+  return Object.freeze({
+    category,
+    steps: Object.freeze(steps.map(([order, label]) => Object.freeze({ order, label }))),
+    rawValuesIncluded: false,
+    productionWriteReachable: false
+  });
+}
+
 function safeSummary(fixedCategory, headerCategory, partialCounts = {}) {
   return Object.freeze({
     ok: false,
@@ -243,7 +270,8 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
   const templateButton = documentObject?.getElementById?.("talent-28-csv-template");
   const status = documentObject?.getElementById?.("talent-28-csv-status");
   const summary = documentObject?.getElementById?.("talent-28-csv-summary");
-  if (!input || !templateButton || !status || !summary) return Object.freeze({ initialized: false });
+  const planList = documentObject?.getElementById?.("talent-28-csv-plan");
+  if (!input || !templateButton || !status || !summary || !planList) return Object.freeze({ initialized: false });
   if (input.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true });
   input.dataset.bound = "true";
   const render = (result) => {
@@ -266,6 +294,13 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
       term.textContent = label;
       description.textContent = String(value);
       item.append(term, description);
+      return item;
+    }));
+    const plan = buildTalent28CsvOperationalPlan(readiness);
+    planList.dataset.category = plan.category;
+    planList.replaceChildren(...plan.steps.map((step) => {
+      const item = documentObject.createElement("li");
+      item.textContent = `${step.order}. ${step.label}`;
       return item;
     }));
   };

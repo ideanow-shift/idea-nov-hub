@@ -339,6 +339,17 @@ h3 { margin: 0; font-size: 1rem; }
 .csv-preflight-summary div { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
 .csv-preflight-summary dt { color: var(--muted); font-size: .76rem; font-weight: 800; }
 .csv-preflight-summary dd { margin: 3px 0 0; color: var(--navy); font-size: 1.25rem; font-weight: 900; }
+.csv-preflight-plan {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.csv-preflight-plan li { padding: 10px; border: 1px solid #d8eadf; border-radius: 6px; background: #fff; color: var(--muted); font-size: .82rem; font-weight: 800; }
+.csv-preflight-plan[data-category="READY_FOR_STAGING_PREFLIGHT"] li, .csv-preflight-plan[data-category="READY_WITH_QUARANTINE"] li { border-color: #cbe8d3; color: #2f7441; }
 .operator-panel { margin-top: 20px; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-card); }
 .operator-panel[hidden] { display: none; }
 .operator-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }

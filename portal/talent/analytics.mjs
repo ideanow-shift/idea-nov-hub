@@ -138,6 +138,58 @@ export function buildTalentAnalyticsActionGuide(analytics) {
   });
 }
 
+export function buildTalentAnalyticsQueueHandoff(guide) {
+  const category = typeof guide?.category === "string" ? guide.category : "NO_ANALYTICS_ACTION";
+  const routes = {
+    OWNER_REVIEW_FIRST: {
+      category: "OPEN_STUDENT_REVIEW_QUEUE",
+      queueFilterCategory: "OWNER_REVIEW_OR_QUARANTINE",
+      sortCategory: "REVIEW_PRIORITY",
+      steps: ["OPEN_REVIEW_QUEUE", "SEPARATE_DECISIONS", "KEEP_PROMOTION_BLOCKED"]
+    },
+    LATEST_MONTH_FOLLOW_UP: {
+      category: "OPEN_LATEST_MONTH_QUEUE",
+      queueFilterCategory: "LATEST_MONTH",
+      sortCategory: "FOLLOW_UP_DUE",
+      steps: ["OPEN_LATEST_MONTH", "SET_NEXT_ACTION", "RETURN_TO_ANALYTICS"]
+    },
+    SCHOOL_FOLLOW_UP: {
+      category: "OPEN_TOP_SCHOOL_QUEUE",
+      queueFilterCategory: "TOP_SCHOOL",
+      sortCategory: "CONTACT_VOLUME",
+      steps: ["OPEN_TOP_SCHOOL", "CHECK_UNMAPPED", "COMPARE_RATES"]
+    },
+    STUDENT_LIST_REVIEW: {
+      category: "OPEN_STUDENT_LIST_QUEUE",
+      queueFilterCategory: "ALL_STUDENTS",
+      sortCategory: "FOLLOW_UP_DUE",
+      steps: ["OPEN_STUDENT_LIST", "SORT_BY_FOLLOW_UP", "UPDATE_DAILY_FIELDS"]
+    },
+    NO_ANALYTICS_ACTION: {
+      category: "NO_QUEUE_HANDOFF",
+      queueFilterCategory: "NONE",
+      sortCategory: "NONE",
+      steps: ["WAIT_FOR_STAGING", "KEEP_EMPTY_STATE", "NO_RAW_VALUES"]
+    }
+  };
+  const route = routes[category] || routes.NO_ANALYTICS_ACTION;
+  return Object.freeze({
+    category: route.category,
+    sourceGuideCategory: category,
+    queueFilterCategory: route.queueFilterCategory,
+    sortCategory: route.sortCategory,
+    rawValuesIncluded: false,
+    productionWriteReachable: false,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false,
+    promotionReachable: false,
+    steps: Object.freeze(route.steps.map((stepCategory, index) => Object.freeze({
+      order: index + 1,
+      category: stepCategory
+    })))
+  });
+}
+
 function buildMonthlyFlow(students) {
   const groups = new Map();
   students.forEach((student) => {

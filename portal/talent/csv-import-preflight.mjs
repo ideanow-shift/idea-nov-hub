@@ -333,6 +333,45 @@ export function buildTalent28CsvCorrectionRoute(fixGuide) {
   });
 }
 
+export function buildTalent28CsvCorrectionWorkbench(result) {
+  const fixGuide = buildTalent28CsvFixGuide(result);
+  const route = buildTalent28CsvCorrectionRoute(fixGuide);
+  const category = route.category;
+  const fieldGroups = Object.freeze({
+    STRUCTURE: Object.freeze(["source_row_no", "列順", "列数"]),
+    YEAR: Object.freeze(["graduation_year"]),
+    SOURCE: Object.freeze(["source_type", "source_label"]),
+    IDENTITY: Object.freeze(["student_name", "school_name", "phone/email/line_name"]),
+    DATE: Object.freeze(["event_date", "next_action_date"]),
+    QUARANTINE: Object.freeze(["quarantine_flag", "quarantine_reason"]),
+    DUPLICATE_HINT: Object.freeze(["stable_key_hint", "mapping_hint", "連絡先hint"]),
+    REQUEST_STAGING_PREFLIGHT_APPROVAL: Object.freeze(["件数カテゴリ", "隔離カテゴリ", "重複カテゴリ"]),
+    NO_SAFE_FIX_REQUIRED: Object.freeze(["CSV選択", "形式検証"])
+  }[category] || ["CSV選択", "形式検証"]);
+  const ownerAction = {
+    STRUCTURE: "雛形へ戻してCSVを作り直す",
+    YEAR: "28卒以外を別ファイルへ分ける",
+    SOURCE: "由来列を3種類の契約へそろえる",
+    IDENTITY: "本人識別の最低項目を補う",
+    DATE: "日付をYYYY-MM-DDか空欄へそろえる",
+    QUARANTINE: "隔離TRUEには理由を入れる",
+    DUPLICATE_HINT: "重複候補を確認して隔離またはhintを修正する",
+    REQUEST_STAGING_PREFLIGHT_APPROVAL: "件数カテゴリを確認して投入前承認へ進む",
+    NO_SAFE_FIX_REQUIRED: "CSVを選択して検証する"
+  }[category] || "CSVを選択して検証する";
+  return Object.freeze({
+    category,
+    title: route.title,
+    ownerAction,
+    fieldGroups,
+    canRequestStagingPreflight: category === "REQUEST_STAGING_PREFLIGHT_APPROVAL",
+    rawValuesIncluded: false,
+    googleSheetsConnectorRead: false,
+    productionDbOperation: false,
+    stagingOrCanonicalWriteReachable: false
+  });
+}
+
 function renderTalent28CsvReceiptText(receipt) {
   const categoryText = {
     READY_FOR_OWNER_DECISION: "投入前確認へ進めます",
@@ -457,7 +496,8 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
   const receiptStatus = documentObject?.getElementById?.("talent-28-csv-receipt");
   const fixGuideList = documentObject?.getElementById?.("talent-28-csv-fix-guide");
   const correctionRoute = documentObject?.getElementById?.("talent-28-csv-correction-route");
-  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute) return Object.freeze({ initialized: false });
+  const correctionWorkbench = documentObject?.getElementById?.("talent-28-csv-correction-workbench");
+  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute || !correctionWorkbench) return Object.freeze({ initialized: false });
   if (input.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true });
   input.dataset.bound = "true";
   const preparation = buildTalent28CsvPreparationGuide();
@@ -506,6 +546,22 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
     const route = buildTalent28CsvCorrectionRoute(fixGuide);
     correctionRoute.dataset.category = route.category;
     correctionRoute.textContent = `${route.title}: ${route.copy}`;
+    const workbench = buildTalent28CsvCorrectionWorkbench(result);
+    correctionWorkbench.dataset.category = workbench.category;
+    correctionWorkbench.replaceChildren(...[
+      ["修正対象", workbench.fieldGroups.join(" / ")],
+      ["スタッフ作業", workbench.ownerAction],
+      ["投入前承認", workbench.canRequestStagingPreflight ? "可能" : "未到達"],
+      ["安全境界", "DB・staging・canonical書込みなし"]
+    ].map(([label, value]) => {
+      const item = documentObject.createElement("div");
+      const term = documentObject.createElement("dt");
+      const description = documentObject.createElement("dd");
+      term.textContent = label;
+      description.textContent = value;
+      item.append(term, description);
+      return item;
+    }));
     fixGuideList.dataset.category = fixGuide.nextCategory;
     fixGuideList.replaceChildren(...fixGuide.steps.map((step) => {
       const item = documentObject.createElement("li");

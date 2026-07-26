@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { analyzeTalent28CsvPreflight, buildTalent28CsvCorrectionRoute, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvPreparationGuide, buildTalent28CsvSafeReceipt, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
+import { analyzeTalent28CsvPreflight, buildTalent28CsvCorrectionRoute, buildTalent28CsvCorrectionWorkbench, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvPreparationGuide, buildTalent28CsvSafeReceipt, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
 
 const header = [
   "source_row_no", "graduation_year", "source_type", "source_label", "student_name", "student_name_kana",
@@ -17,6 +17,33 @@ test("28卒 CSV template emits the exact header contract only", () => {
   assert.equal(template, `${header}\n`);
   assert.doesNotMatch(template, /学生|学校|電話|メール|example/i);
   assert.equal(analyzeTalent28CsvPreflight(`${template}${row(["1", "2028", "CONTACTS_28", "contacts", "学生 太郎", "", "学校", "", "090", "", "", "", "", "", "", "", "", "", "", "", "", "FALSE", ""])}`).headerCategory, "PASS");
+});
+
+test("28卒 CSV correction workbench shows safe field groups before staging approval", async () => {
+  const source = await readFile(new URL("../portal/talent/csv-import-preflight.mjs", import.meta.url), "utf8");
+  const html = await readFile(new URL("../portal/talent/index.html", import.meta.url), "utf8");
+  const css = await readFile(new URL("../portal/talent/style.css", import.meta.url), "utf8");
+  const identity = buildTalent28CsvCorrectionWorkbench({
+    fixedCategory: "CSV_REQUIRED_IDENTITY_INCOMPLETE",
+    readiness: { canRequestStagingPreflight: false },
+    counts: { missingIdentityRows: 2 }
+  });
+  const ready = buildTalent28CsvCorrectionWorkbench({
+    fixedCategory: "PASS",
+    readiness: { canRequestStagingPreflight: true },
+    counts: { totalRows: 3, readyRows: 3, quarantineRows: 0 }
+  });
+  assert.equal(identity.category, "IDENTITY");
+  assert.deepEqual(identity.fieldGroups, Object.freeze(["student_name", "school_name", "phone/email/line_name"]));
+  assert.equal(identity.canRequestStagingPreflight, false);
+  assert.equal(identity.productionDbOperation, false);
+  assert.equal(identity.stagingOrCanonicalWriteReachable, false);
+  assert.equal(identity.rawValuesIncluded, false);
+  assert.equal(ready.category, "REQUEST_STAGING_PREFLIGHT_APPROVAL");
+  assert.equal(ready.canRequestStagingPreflight, true);
+  assert.match(source, /talent-28-csv-correction-workbench/);
+  assert.match(html, /talent-28-csv-correction-workbench/);
+  assert.match(css, /\.csv-correction-workbench/);
 });
 
 test("28卒 CSV preparation guide explains the safe owner handoff before file selection", async () => {

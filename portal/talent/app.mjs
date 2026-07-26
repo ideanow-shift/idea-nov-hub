@@ -685,6 +685,39 @@ export function buildReviewWorkloadSteps(guide) {
   })));
 }
 
+export function buildReviewWorkloadApprovalGuide(guide) {
+  const normalized = guide && typeof guide === "object" ? guide : buildReviewWorkloadGuide([]);
+  const category = normalized.nextAction === "BULK_MATCH_ONLY"
+    ? "BULK_APPROVAL_READY"
+    : normalized.nextAction === "INDIVIDUAL_REVIEW"
+      ? "INDIVIDUAL_REVIEW_REQUIRED"
+      : normalized.nextAction === "KEEP_QUARANTINED"
+        ? "QUARANTINE_REVIEW_REQUIRED"
+        : "NO_REVIEW_WORK";
+  const title = {
+    BULK_APPROVAL_READY: "一括反映の承認候補があります",
+    INDIVIDUAL_REVIEW_REQUIRED: "個別確認を先に進めます",
+    QUARANTINE_REVIEW_REQUIRED: "隔離維持の理由を整えます",
+    NO_REVIEW_WORK: "確認待ちはありません"
+  }[category];
+  const copy = {
+    BULK_APPROVAL_READY: "一致候補だけを対象にできます。新規候補・曖昧行・隔離は混ぜず、別承認までcanonical/LINE履歴へは書き込みません。",
+    INDIVIDUAL_REVIEW_REQUIRED: "新規候補は1件ずつ確認します。一括反映には含めず、判断を残してから次へ進みます。",
+    QUARANTINE_REVIEW_REQUIRED: "曖昧・保留は昇格せず隔離を維持します。補足と次回確認のカテゴリだけを整理します。",
+    NO_REVIEW_WORK: "未処理の確認対象はありません。必要に応じて確認済み・隔離の一覧を見直します。"
+  }[category];
+  return Object.freeze({
+    category,
+    title,
+    copy,
+    approvalReachable: category === "BULK_APPROVAL_READY",
+    rawValuesIncluded: false,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false,
+    automaticPromotionReachable: false
+  });
+}
+
 export function isNewApplicantCandidate(student) {
   return Boolean(student)
     && student.mappingStatus === "UNMAPPED"
@@ -714,6 +747,12 @@ function renderReviewWorkloadGuide(documentObject, guide) {
   if (panel) {
     panel.dataset.nextAction = guide.nextAction;
     panel.dataset.nextFilterState = guide.nextFilterState;
+  }
+  const approvalGuide = buildReviewWorkloadApprovalGuide(guide);
+  const approval = documentObject.getElementById("review-workload-approval-guide");
+  if (approval) {
+    approval.dataset.category = approvalGuide.category;
+    approval.textContent = `${approvalGuide.title}: ${approvalGuide.copy}`;
   }
   const stepList = documentObject.getElementById("review-workload-steps");
   if (stepList) {

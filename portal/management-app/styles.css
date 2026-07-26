@@ -17,6 +17,7 @@
   --radius-md: 8px;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { min-width: 320px; min-height: 100vh; margin: 0; padding: 16px; background: var(--bg-primary); color: var(--text-primary); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
 button, input { font: inherit; }
 .dashboard { max-width: 1200px; margin: 0 auto; }

@@ -187,6 +187,86 @@ h3 { margin: 0; font-size: 1rem; }
   font-weight: 800;
 }
 
+.talent-implementation-progress {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid #e6e1d8;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #fffdf8, #f8fbff);
+  box-shadow: var(--shadow-card);
+}
+.talent-progress-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+.talent-progress-heading h2 { margin: 0; font-size: 1.08rem; }
+.talent-progress-total {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #eef7ef;
+  color: #2f6b3c;
+  font-size: .86rem;
+}
+.talent-progress-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.talent-progress-grid article {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .82);
+}
+.talent-progress-grid span {
+  display: block;
+  color: #7b6770;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .05em;
+}
+.talent-progress-grid strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--navy);
+}
+.talent-progress-grid p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: .82rem;
+  line-height: 1.55;
+}
+.talent-next-build-targets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.talent-next-build-targets li {
+  padding: 10px 12px;
+  border: 1px dashed #cfdce8;
+  border-radius: 8px;
+  background: rgba(247, 251, 255, .82);
+  color: #435769;
+  font-size: .8rem;
+  line-height: 1.55;
+}
+.talent-progress-boundary {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff8f5;
+  color: #8e4a36;
+  font-size: .82rem;
+  line-height: 1.55;
+}
+
 .primary-panel {
   margin-top: 16px;
   border: 1px solid var(--line);
@@ -1823,6 +1903,10 @@ h3 { margin: 0; font-size: 1rem; }
   .talent-daily-command { grid-template-columns: 1fr; }
   .talent-daily-command-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .talent-daily-completion-checklist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .talent-progress-heading { display: block; }
+  .talent-progress-total { display: inline-block; margin-top: 8px; }
+  .talent-progress-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .talent-next-build-targets { grid-template-columns: 1fr; }
   .summary-command { flex-direction: column; align-items: flex-end; }
   .summary-grid, .historical-summary-grid, .workforce-summary, .workforce-operation-boundaries, .procedure-board, .procedure-checklist, .procedure-case-overview, .procedure-case-type-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .procedure-case-operation-summary { display: grid; }
@@ -1872,6 +1956,8 @@ h3 { margin: 0; font-size: 1rem; }
   .talent-daily-command-actions { grid-template-columns: 1fr; }
   .talent-daily-command-actions button { min-height: 0; }
   .talent-daily-completion-checklist { grid-template-columns: 1fr; }
+  .talent-implementation-progress { padding: 14px; }
+  .talent-progress-grid { grid-template-columns: 1fr; }
   .primary-tab { min-height: 68px; padding: 13px 16px; }
   .secondary-tabs { gap: 20px; padding: 0 18px; }
   .secondary-panel, #panel-workforce { padding: 18px; }

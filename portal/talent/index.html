@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-workforce-next-action-1">
+  <link rel="stylesheet" href="./style.css?v=20260727-progress-board-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
   <script type="module" src="./app.mjs?v=20260726-workforce-next-action-1"></script>
 </head>
@@ -69,6 +69,44 @@
         <li data-category="CSV28_QUEUE">28卒CSV: 修正が必要な場合はstaging承認へ進めない</li>
         <li data-category="NO_AUTO_PROMOTION">自動昇格・LINE履歴・社員マスタ反映は別承認まで停止</li>
       </ol>
+    </section>
+
+    <section id="talent-implementation-progress" class="talent-implementation-progress" aria-label="人財管理の構築進捗と残り">
+      <div class="talent-progress-heading">
+        <div>
+          <p class="section-kicker">BUILD PROGRESS</p>
+          <h2>残り20%を業務導線で潰す</h2>
+        </div>
+        <strong class="talent-progress-total" data-complete-percent="80" data-remaining-percent="20">80%完了 / 残り20%</strong>
+      </div>
+      <div class="talent-progress-grid">
+        <article data-progress-area="STUDENT_FOLLOWUP" data-complete-percent="85" data-remaining-percent="15">
+          <span>STUDENT FOLLOW-UP</span>
+          <strong>85%完了 / 残り15%</strong>
+          <p>期限・要確認・隔離を日次キューで処理し、次回対応を残せる状態です。</p>
+        </article>
+        <article data-progress-area="ANALYTICS_ACTION" data-complete-percent="85" data-remaining-percent="15">
+          <span>ANALYTICS ACTION</span>
+          <strong>85%完了 / 残り15%</strong>
+          <p>全体サマリー・学校・フェアから学生確認へ移動できます。</p>
+        </article>
+        <article data-progress-area="CSV28_INTAKE" data-complete-percent="75" data-remaining-percent="25">
+          <span>2028 CSV INTAKE</span>
+          <strong>75%完了 / 残り25%</strong>
+          <p>CSV修正・形式検証・staging承認前の読み合わせを安全に分離しています。</p>
+        </article>
+        <article data-progress-area="WORKFORCE_CASES" data-complete-percent="70" data-remaining-percent="30">
+          <span>WORKFORCE CASES</span>
+          <strong>70%完了 / 残り30%</strong>
+          <p>入社・異動・休職復職・退職を、Core DB引き渡し前の案件として整理できます。</p>
+        </article>
+      </div>
+      <ol id="talent-next-build-targets" class="talent-next-build-targets" aria-label="次に構築する残り作業">
+        <li data-next-build-target="WORKFORCE_HANDOFF">現職者管理: Core DB引き渡し候補の承認前読み合わせを厚くする</li>
+        <li data-next-build-target="CSV28_PREVIEW">28卒CSV: 修正済みCSVの安全なプレビューと承認文生成を分ける</li>
+        <li data-next-build-target="STUDENT_REVIEW">27卒レビュー: 一括承認、個別確認、隔離維持の作業完了を一覧で見せる</li>
+      </ol>
+      <p class="talent-progress-boundary">この画面はUI・導線・読み取り中心です。DB書込み、canonical昇格、LINE履歴、promotion、社員マスタ反映は別承認まで停止します。</p>
     </section>
 
     <section id="panel-recruitment" class="primary-panel" role="tabpanel" aria-labelledby="tab-recruitment">

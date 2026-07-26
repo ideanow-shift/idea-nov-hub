@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildReviewWorkloadSteps, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewLaneSteps, buildStudentReviewModeCopy, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildBulkTriageQueueFilter, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildReviewWorkloadSteps, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewLaneSteps, buildStudentReviewModeCopy, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -494,6 +494,10 @@ test("bulk triage separates exact matches, new candidates, ambiguous rows, and h
   ]);
 
   assert.deepEqual(counts, { exact1: 1, newApplicant: 1, ambiguous: 1, hold: 1 });
+  assert.deepEqual(buildBulkTriageQueueFilter("newApplicant"), { query: "", source: "ALL", state: "NEW_CANDIDATE", progress: "ALL" });
+  assert.deepEqual(buildBulkTriageQueueFilter("ambiguous"), { query: "", source: "ALL", state: "NEEDS_ACTION", progress: "ALL" });
+  assert.deepEqual(buildBulkTriageQueueFilter("hold"), { query: "", source: "ALL", state: "NEEDS_ACTION", progress: "ALL" });
+  assert.equal(buildBulkTriageQueueFilter("unknown"), null);
 });
 
 test("review workload guide separates bulk-safe, individual, and quarantine work", async () => {
@@ -525,10 +529,15 @@ test("review workload guide separates bulk-safe, individual, and quarantine work
   assert.match(html, /id="review-workload-individual"/);
   assert.match(html, /id="review-workload-quarantine"/);
   assert.match(html, /id="review-workload-steps"/);
+  assert.match(html, /id="triage-ambiguous-open"/);
+  assert.match(html, /id="triage-hold-open"/);
+  assert.match(html, /data-triage-queue="ambiguous"/);
   assert.match(app, /renderReviewWorkloadGuide/);
   assert.match(app, /buildReviewWorkloadSteps/);
+  assert.match(app, /buildBulkTriageQueueFilter/);
   assert.match(app, /nextFilterState/);
   assert.match(app, /review-workload-open/);
+  assert.match(app, /data-triage-queue/);
   assert.match(app, /dataset\.nextAction = guide\.nextAction/);
 });
 

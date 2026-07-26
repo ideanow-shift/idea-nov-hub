@@ -118,6 +118,17 @@
           <p id="import-overview-status">学生フォローを開くと取込状況を確認します</p>
         </section>
 
+        <section class="csv-preflight-panel" aria-labelledby="talent-28-csv-title">
+          <div>
+            <p class="section-kicker">2028 CSV PREFLIGHT</p>
+            <h3 id="talent-28-csv-title">28卒CSV 形式検証</h3>
+            <p>CSVをローカルで読み、年度・由来・必須項目・隔離候補だけを確認します。DB書込みや個人値の表示は行いません。</p>
+          </div>
+          <label class="csv-preflight-file"><span>28卒CSVを選択</span><input id="talent-28-csv-file" type="file" accept=".csv,text/csv"></label>
+          <p id="talent-28-csv-status" class="status" role="status" aria-live="polite">CSVは未選択です</p>
+          <dl id="talent-28-csv-summary" class="csv-preflight-summary" aria-label="28卒CSV検証結果"></dl>
+        </section>
+
         <section id="talent-operator-panel" class="operator-panel" aria-labelledby="operator-title" hidden>
           <div class="operator-heading"><div><p class="section-kicker">FUNNEL EVENT ENTRY</p><h3 id="operator-title">採用イベント入力</h3></div><p id="operator-status" class="status" role="status" aria-live="polite">未送信</p></div>
           <p class="operator-confirmation-note">記録・失効は内容確認後に1回だけ送信されます。</p>

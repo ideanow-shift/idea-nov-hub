@@ -273,10 +273,20 @@ export function getNaviTodaySnapshot(today) {
 
 function renderNaviToday(root, today) {
   const counts = getNaviTodaySnapshot(today);
+  const readyCount = counts.filter((count) => count !== null).length;
+  const grid = root.querySelector(".navi-today-grid");
+  const empty = root.querySelector(".navi-today-empty");
+  const status = root.querySelector(".navi-today-status");
+
+  if (grid) grid.hidden = readyCount === 0;
+  if (empty) empty.hidden = readyCount !== 0;
+  if (status) status.textContent = readyCount ? "連携済みの項目を表示中" : "連携を準備中";
+
   TODAY_KEYS.forEach((key, index) => {
     const card = root.querySelector(`[data-navi-today-key="${key}"]`);
     if (!card) return;
     const count = counts[index];
+    card.hidden = count === null;
     if (count === null) return;
     const value = card.querySelector("strong");
     const detail = card.querySelector("small");
@@ -301,9 +311,10 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
   root.innerHTML = `
     <div class="navi-role-summary"><span>表示区分</span><strong>${escapeHtml(profile.label)}</strong><div class="navi-role-categories" aria-label="表示中の業務領域">${visibleCategories.map((category) => `<button type="button" data-navi-category-target="${getNaviCategoryId(category)}">${escapeHtml(category)}</button>`).join("")}</div><small>起動時に各システム側で権限を再確認します</small></div>
     <section class="navi-today" aria-labelledby="navi-today-title">
-      <div class="navi-section-heading"><h2 id="navi-today-title">今日の仕事</h2><span>各システムの連携準備中</span></div>
+      <div class="navi-section-heading"><h2 id="navi-today-title">今日の仕事</h2><span class="navi-today-status">連携を準備中</span></div>
       <p class="navi-today-greeting">${escapeHtml(getNaviGreeting())}</p>
-      <div class="navi-today-grid">
+      <p class="navi-today-empty">今日の予定・タスク・承認などを、この場所にまとめて表示します。</p>
+      <div class="navi-today-grid" hidden>
         <div class="navi-today-card" data-navi-today-key="schedule"><span>今日の予定</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
         <div class="navi-today-card" data-navi-today-key="tasks"><span>未完了タスク</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
         <div class="navi-today-card" data-navi-today-key="approvals"><span>承認待ち</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>

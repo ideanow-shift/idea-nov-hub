@@ -50,6 +50,7 @@
 
 .navi-today { border-color: #f0d6d9; background: var(--navi-accent-soft); }
 .navi-today-greeting { margin: -2px 0 10px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+.navi-today-empty { margin: 0; border: 1px dashed #e6c7cb; border-radius: 7px; background: rgba(255, 255, 255, .72); padding: 11px 12px; color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
 .navi-today-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
 .navi-today-card {
   display: grid;

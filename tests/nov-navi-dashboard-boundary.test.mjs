@@ -163,6 +163,9 @@ assert.match(dashboardSource, /const TODAY_KEYS = \["schedule", "tasks", "approv
 assert.match(dashboardSource, /Number\.isSafeInteger\(value\)/, "Today card values must remain bounded aggregates");
 assert.match(dashboardSource, /data-navi-today-key="schedule"/, "Today cards must bind their values by an explicit key");
 assert.match(dashboardSource, /\[data-navi-today-key="\$\{key\}"\]/, "Today card rendering must not rely on card position");
+assert.match(dashboardSource, /const readyCount = counts\.filter\(\(count\) => count !== null\)\.length/, "Today must distinguish a fully pending state from verified aggregate values");
+assert.match(dashboardSource, /if \(grid\) grid\.hidden = readyCount === 0/, "Today must avoid repeating six pending placeholders before an aggregate source exists");
+assert.match(dashboardSource, /class="navi-today-empty"/, "Today must explain the pending state without inventing business data");
 assert.match(dashboardSource, /card\.dataset\.naviTodayState = "ready"/, "Today cards must distinguish verified data from pending state");
 assert.match(dashboardSource, /card\.setAttribute\("aria-busy", "false"\)/, "Today cards must clear busy state after a verified value arrives");
 assert.match(dashboardSource, /\.navi-today-grid"\)\?\.setAttribute\("aria-live", "polite"\)/, "Today updates must be announced without exposing raw data");

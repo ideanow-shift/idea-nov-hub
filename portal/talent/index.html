@@ -124,7 +124,10 @@
             <h3 id="talent-28-csv-title">28卒CSV 形式検証</h3>
             <p>CSVをローカルで読み、年度・由来・必須項目・隔離候補だけを確認します。DB書込みや個人値の表示は行いません。</p>
           </div>
-          <label class="csv-preflight-file"><span>28卒CSVを選択</span><input id="talent-28-csv-file" type="file" accept=".csv,text/csv"></label>
+          <div class="csv-preflight-actions">
+            <label class="csv-preflight-file"><span>28卒CSVを選択</span><input id="talent-28-csv-file" type="file" accept=".csv,text/csv"></label>
+            <button id="talent-28-csv-template" type="button">CSV雛形を作成</button>
+          </div>
           <p id="talent-28-csv-status" class="status" role="status" aria-live="polite">CSVは未選択です</p>
           <dl id="talent-28-csv-summary" class="csv-preflight-summary" aria-label="28卒CSV検証結果"></dl>
         </section>

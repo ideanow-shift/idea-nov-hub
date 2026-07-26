@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
+  getNaviGreeting,
   shouldEnableLocalNovNaviDemo,
   shouldEnableNovNaviDashboard
 } from "../portal/js/nov-navi-dashboard.js";
@@ -41,6 +42,10 @@ assert.equal(
   "demo=1 is required"
 );
 
+assert.equal(getNaviGreeting(8), "おはようございます。今日の仕事を確認しましょう。", "morning greeting");
+assert.equal(getNaviGreeting(13), "おつかれさまです。今日の進み具合を確認しましょう。", "afternoon greeting");
+assert.equal(getNaviGreeting(20), "おつかれさまです。明日の準備を確認しましょう。", "evening greeting");
+
 const dashboardSource = await readFile(new URL("../portal/js/nov-navi-dashboard.js", import.meta.url), "utf8");
 const mainSource = await readFile(new URL("../portal/js/main.js", import.meta.url), "utf8");
 const unmappedAppFixture = { appId: "fixture-unmapped-app", appName: "未配置アプリfixture" };
@@ -64,5 +69,8 @@ assert.match(
 );
 assert.match(mainSource, /if \(localDemoEnabled\) \{[\s\S]*?DEMO_EMPLOYEES\.forEach/, "demo options are local-only");
 assert.match(mainSource, /if \(localDemoEnabled\) \{[\s\S]*?demoLogin\.addEventListener/, "demo handler is local-only");
+assert.match(dashboardSource, /visibleNotices = Array\.isArray\(notices\) \? notices\.slice\(0, 3\)/, "NOVA notices must be capped at three");
+assert.match(dashboardSource, /onOpenNotice\(notice\)/, "NOVA notices must use the existing HUB handler");
+assert.doesNotMatch(dashboardSource, /localStorage|sessionStorage|handoff_code|sessionToken/, "NOVA dashboard must not store or transport auth material");
 
 console.log("NOV NAVI dashboard boundary fixtures: PASS");

@@ -61,6 +61,13 @@ export function shouldEnableNovNaviDashboard({ featureEnabled, hostname, search 
     || (isLoopbackHostName(hostname) && query.get("nov_navi_preview") === "1");
 }
 
+export function getNaviGreeting(hour = new Date().getHours()) {
+  const normalizedHour = Number(hour);
+  if (normalizedHour < 12) return "おはようございます。今日の仕事を確認しましょう。";
+  if (normalizedHour < 18) return "おつかれさまです。今日の進み具合を確認しましょう。";
+  return "おつかれさまです。明日の準備を確認しましょう。";
+}
+
 function escapeHtml(value) {
   const span = document.createElement("span");
   span.textContent = String(value ?? "");
@@ -190,6 +197,7 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
     <div class="navi-role-summary"><span>表示区分</span><strong>${escapeHtml(profile.label)}</strong><small>起動時に各システム側で権限を再確認します</small></div>
     <section class="navi-today" aria-labelledby="navi-today-title">
       <div class="navi-section-heading"><h2 id="navi-today-title">今日の仕事</h2><span>各システムの連携準備中</span></div>
+      <p class="navi-today-greeting">${escapeHtml(getNaviGreeting())}</p>
       <div class="navi-today-grid">
         <div class="navi-today-card"><span>今日の予定</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
         <div class="navi-today-card"><span>未完了タスク</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>

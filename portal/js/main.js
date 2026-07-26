@@ -22,7 +22,7 @@ import {
   renderNovNaviDashboard,
   shouldEnableLocalNovNaviDemo,
   shouldEnableNovNaviDashboard
-} from "./nov-navi-dashboard.js?v=nov-navi-common-components-20260726-6";
+} from "./nov-navi-dashboard.js?v=nov-navi-common-components-20260726-7";
 import {
   NOV_HUB_SESSION_CONTRACT,
   clearNovHubSession,

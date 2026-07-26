@@ -1182,19 +1182,32 @@ function buildStoreOperatingSnapshotPanel() {
 }
 
 function buildStoreAnalysisDataCoveragePanel(preview) {
-  const hasSalesBreakdown = preview.rows.some((row) => row.technicalSalesManYen != null && row.productSalesManYen != null);
-  const hasVisitCohort = Boolean(state.storeVisitCohortPreview?.rows?.length);
-  const hasUnitPriceMatch = localStoreUnitPriceRows().length > 0;
-  const hasRepeat = Boolean(state.storeRepeatPreview?.rows?.length);
-  const hasMenu = Boolean(state.storeMenuPreview?.rows?.length);
-  const hasWorkforce = localStoreProductivityRows().length > 0;
+  const financialRows = state.financialPreviews.PL?.monthlyStoreRows || [];
+  const financialKeys = new Set(financialRows.map((row) => {
+    const storeKey = normalizeStoreCandidateName(row?.storeName);
+    const period = String(row?.period || "").trim();
+    return storeKey && /^20\d{2}-(?:0[1-9]|1[0-2])$/u.test(period) ? storeKey + "\u001f" + period : null;
+  }).filter(Boolean));
+  const financialCandidateCount = financialKeys.size;
+  const financialBreakdownCount = financialRows.filter((row) => row.technicalSalesManYen != null && row.productSalesManYen != null).length;
+  const workforceCoverage = localStoreProductivityCoverage();
+  const unitPriceCoverage = localStoreUnitPriceCoverage();
+  const visitCohortCount = state.storeVisitCohortPreview?.rows?.length || 0;
+  const repeatCount = state.storeRepeatPreview?.rows?.length || 0;
+  const menuCount = state.storeMenuPreview?.rows?.length || 0;
+  const hasSalesBreakdown = financialBreakdownCount > 0;
+  const hasVisitCohort = visitCohortCount > 0;
+  const hasUnitPriceMatch = unitPriceCoverage.matchedCount > 0;
+  const hasRepeat = repeatCount > 0;
+  const hasMenu = menuCount > 0;
+  const hasWorkforce = workforceCoverage.matchedCount > 0;
   const items = [
-    ["売上・利益", hasSalesBreakdown, "経理P/Lの店舗候補"],
-    ["技術生産性・総生産性", hasSalesBreakdown && hasWorkforce, "経理P/Lと稼働人数の同月照合"],
-    ["技術単価・総単価", hasSalesBreakdown && hasUnitPriceMatch, "技術客数・総来店数CSVの同月照合"],
-    ["新規・2回目・3回目・固定", hasVisitCohort, "来店区分CSV"],
-    ["既存の再来・固定率", hasRepeat, "再来区分サマリCSV"],
-    ["メニュー分析", hasMenu, "店舗月次メニュー集計CSV"],
+    ["売上・利益", hasSalesBreakdown, "経理P/L: " + number.format(financialBreakdownCount) + " 行 / 店舗月候補 " + number.format(financialCandidateCount) + " 件"],
+    ["技術生産性・総生産性", hasSalesBreakdown && hasWorkforce, "人数照合: " + number.format(workforceCoverage.matchedCount) + " 件 / P/L候補 " + number.format(workforceCoverage.candidateCount) + " 件"],
+    ["技術単価・総単価", hasSalesBreakdown && hasUnitPriceMatch, "客数照合: " + number.format(unitPriceCoverage.matchedCount) + " 件 / P/L候補 " + number.format(unitPriceCoverage.candidateCount) + " 件"],
+    ["新規・2回目・3回目・固定", hasVisitCohort, "来店区分CSV: " + number.format(visitCohortCount) + " 行"],
+    ["既存の再来・固定率", hasRepeat, "再来区分サマリCSV: " + number.format(repeatCount) + " 行"],
+    ["メニュー分析", hasMenu, "店舗月次メニュー集計CSV: " + number.format(menuCount) + " 行"],
   ];
   const section = document.createElement("section");
   section.className = "financial-store-analysis-coverage";

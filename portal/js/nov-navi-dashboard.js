@@ -88,7 +88,8 @@ function createSystemCard(system, apps, onOpenApp) {
   const app = findApp(apps, system.aliases);
   const isSampleApp = Boolean(app && String(app.url || "").startsWith("#demo-"));
   const fallbackIcon = resolveAppIcon({});
-  const iconSource = app && !isSampleApp ? resolveAppIcon(app) : fallbackIcon;
+  // Preview status only controls the action label. Keep each app's established SVG icon.
+  const iconSource = app ? resolveAppIcon(app) : fallbackIcon;
   const actualStatus = isSampleApp
     ? "preview"
     : app

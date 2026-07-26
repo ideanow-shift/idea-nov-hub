@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyzeTalent28CsvPreflight, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
+import { analyzeTalent28CsvPreflight, buildTalent28CsvImportReadiness, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
 
 const header = [
   "source_row_no", "graduation_year", "source_type", "source_label", "student_name", "student_name_kana",
@@ -16,6 +16,9 @@ test("28卒 CSV preflight accepts the sealed column contract without exposing ro
   const result = analyzeTalent28CsvPreflight(csv);
   assert.equal(result.ok, true);
   assert.equal(result.fixedCategory, "PASS");
+  assert.equal(result.readiness.category, "READY_FOR_STAGING_PREFLIGHT");
+  assert.equal(result.readiness.sourceCoverageCategory, "PARTIAL");
+  assert.equal(result.readiness.canRequestStagingPreflight, true);
   assert.equal(result.counts.totalRows, 1);
   assert.equal(result.counts.readyRows, 1);
   assert.equal(result.counts.contactsRows, 1);
@@ -32,6 +35,8 @@ test("28卒 CSV preflight quarantines unsafe year and identity rows by category 
   const result = analyzeTalent28CsvPreflight(csv);
   assert.equal(result.ok, false);
   assert.equal(result.fixedCategory, "CSV_2028_YEAR_MISMATCH");
+  assert.equal(result.readiness.category, "NEEDS_FIX");
+  assert.equal(result.readiness.canRequestStagingPreflight, false);
   assert.equal(result.counts.invalidYearRows, 1);
   assert.equal(result.counts.contactsRows, 1);
   assert.equal(result.counts.missingIdentityRows, 1);
@@ -47,4 +52,22 @@ test("28卒 CSV preflight fails closed on header drift and malformed quarantine 
   const badFlag = analyzeTalent28CsvPreflight(`${header}\n${row(["1", "2028", "OFFERS_28", "offers", "学生 太郎", "", "学校", "", "090", "", "", "", "", "", "", "", "", "", "", "", "", "TRUE", ""])}`);
   assert.equal(badFlag.fixedCategory, "CSV_QUARANTINE_CONTRACT_MISMATCH");
   assert.equal(badFlag.counts.inconsistentQuarantineRows, 1);
+});
+
+test("28卒 CSV readiness distinguishes quarantine-ready and source coverage categories", () => {
+  const readyWithQuarantine = buildTalent28CsvImportReadiness({
+    fixedCategory: "PASS",
+    counts: { totalRows: 3, readyRows: 2, quarantineRows: 1, contactsRows: 1, entriesRows: 1, offersRows: 1 }
+  });
+  assert.equal(readyWithQuarantine.category, "READY_WITH_QUARANTINE");
+  assert.equal(readyWithQuarantine.sourceCoverageCategory, "EXACT3");
+  assert.equal(readyWithQuarantine.canRequestStagingPreflight, true);
+  assert.equal(readyWithQuarantine.rawValuesIncluded, false);
+
+  const noReady = buildTalent28CsvImportReadiness({
+    fixedCategory: "PASS",
+    counts: { totalRows: 1, readyRows: 0, quarantineRows: 1, contactsRows: 1, entriesRows: 0, offersRows: 0 }
+  });
+  assert.equal(noReady.category, "NO_READY_ROWS");
+  assert.equal(noReady.canRequestStagingPreflight, false);
 });

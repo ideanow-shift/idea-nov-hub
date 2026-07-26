@@ -434,6 +434,41 @@ export function buildWorkforceProcedureCoreHandoffQueue(cases) {
   });
 }
 
+export function buildWorkforceProcedureCoreHandoffSteps(queue) {
+  const category = String(queue?.category || "NO_CORE_HANDOFF_WORK");
+  const labelsByCategory = {
+    SEPARATE_CORE_APPROVAL_REQUIRED: [
+      "確認済み案件だけをCore引き渡し候補にする",
+      "社員マスタ更新は別承認まで実行しない",
+      "履歴と確認項目を見直して引き渡し依頼へ進む"
+    ],
+    LOCAL_CASES_IN_PROGRESS: [
+      "下書き・確認待ちを先に開く",
+      "不足メモと基準日を整える",
+      "4項目チェック後に確認済みへ進める"
+    ],
+    NO_CORE_HANDOFF_WORK: [
+      "新しい案件または絞り込み条件を確認する",
+      "確認済み案件が出るまでCore反映は行わない",
+      "社員マスタは読み取り専用の正本として扱う"
+    ]
+  };
+  const labels = labelsByCategory[category] || labelsByCategory.NO_CORE_HANDOFF_WORK;
+  return Object.freeze({
+    category,
+    steps: Object.freeze(labels.map((label, index) => Object.freeze({
+      order: index + 1,
+      category: ["QUEUE_SCOPE", "APPROVAL_BOUNDARY", "NEXT_LOCAL_ACTION"][index],
+      label
+    }))),
+    rawValuesIncluded: false,
+    employeeMasterMutation: false,
+    coreDbWriteRequiresSeparateApproval: true,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false
+  });
+}
+
 export function buildWorkforceProcedureEmptyState({ total = 0, hasActiveFilters = false, activeProcedureType = "ALL" } = {}) {
   const procedureType = PROCEDURE_TYPES.includes(activeProcedureType) ? activeProcedureType : "ALL";
   const category = total === 0
@@ -941,6 +976,7 @@ export function initializeWorkforceProcedureDesk({
   const coreHandoffQueue = documentObject?.getElementById?.("workforce-case-core-handoff-queue");
   const coreHandoffTitle = documentObject?.getElementById?.("workforce-case-core-handoff-title");
   const coreHandoffCopy = documentObject?.getElementById?.("workforce-case-core-handoff-copy");
+  const coreHandoffSteps = documentObject?.getElementById?.("workforce-case-core-handoff-steps");
   const operationSteps = documentObject?.getElementById?.("workforce-case-operation-steps");
   const procedureFilter = documentObject?.getElementById?.("workforce-case-procedure-filter");
   const searchInput = documentObject?.getElementById?.("workforce-case-search");
@@ -959,7 +995,7 @@ export function initializeWorkforceProcedureDesk({
   const transitionPlanTitle = documentObject?.getElementById?.("workforce-case-transition-plan-title");
   const transitionPlanCopy = documentObject?.getElementById?.("workforce-case-transition-plan-copy");
   const transitionPlanList = documentObject?.getElementById?.("workforce-case-transition-plan-list");
-  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !operationActionMix || !operationActionMixTitle || !operationActionMixCopy || !coreHandoffQueue || !coreHandoffTitle || !coreHandoffCopy || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy || !checklistPlan || !checklistPlanTitle || !checklistPlanCopy || !checklistPlanList || !savePreview || !savePreviewTitle || !savePreviewCopy || !transitionPlan || !transitionPlanTitle || !transitionPlanCopy || !transitionPlanList) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !operationActionMix || !operationActionMixTitle || !operationActionMixCopy || !coreHandoffQueue || !coreHandoffTitle || !coreHandoffCopy || !coreHandoffSteps || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy || !checklistPlan || !checklistPlanTitle || !checklistPlanCopy || !checklistPlanList || !savePreview || !savePreviewTitle || !savePreviewCopy || !transitionPlan || !transitionPlanTitle || !transitionPlanCopy || !transitionPlanList) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
@@ -1176,6 +1212,14 @@ export function initializeWorkforceProcedureDesk({
     set("workforce-case-core-handoff-ready", queue.handoffReady);
     set("workforce-case-core-handoff-progress", queue.localInProgress);
     set("workforce-case-core-handoff-cancelled", queue.cancelled);
+    const stepPlan = buildWorkforceProcedureCoreHandoffSteps(queue);
+    coreHandoffSteps.dataset.category = stepPlan.category;
+    coreHandoffSteps.replaceChildren(...stepPlan.steps.map((step) => {
+      const item = documentObject.createElement("li");
+      item.dataset.category = step.category;
+      item.textContent = `${step.order}. ${step.label}`;
+      return item;
+    }));
   };
   const renderTypeSummary = (summary) => {
     for (const procedureType of PROCEDURE_TYPES) {

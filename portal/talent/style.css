@@ -1366,6 +1366,9 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-core-handoff-queue dl { min-width: 0; width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .procedure-case-core-handoff-queue[data-category="SEPARATE_CORE_APPROVAL_REQUIRED"] { border-color: #d8eadf; background: #f8fffb; }
 .procedure-case-core-handoff-queue[data-category="LOCAL_CASES_IN_PROGRESS"] { border-color: #f2d59d; background: #fffaf0; }
+.procedure-case-core-handoff-steps { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.procedure-case-core-handoff-steps li { padding: 9px 11px; border: 1px dashed var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .82rem; font-weight: 850; line-height: 1.45; }
+.procedure-case-core-handoff-steps[data-category="SEPARATE_CORE_APPROVAL_REQUIRED"] li { border-style: solid; border-color: #cbe8d3; color: #267650; background: #f8fffb; }
 .procedure-case-operation-steps {
   display: grid;
   flex: 1 0 100%;

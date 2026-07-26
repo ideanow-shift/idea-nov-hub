@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -178,6 +178,21 @@ test("workforce procedure checklist plans stay scoped by procedure type", async 
   assert.deepEqual(retirement.steps.map((step) => step.stepKey), ["RETIREMENT_DATE", "DOCUMENTS", "ASSET_RETURN", "CORE_HANDOFF"]);
   assert.equal(buildWorkforceProcedureChecklistPlan("UNKNOWN").procedureType, "ONBOARDING");
   assert.match(retirement.copy, /貸与物返却/);
+});
+
+test("workforce procedure status transitions fail closed before unsafe workflow jumps", () => {
+  const draft = buildWorkforceProcedureStatusTransitionPlan("DRAFT", "READY_FOR_REVIEW");
+  const reviewToConfirm = buildWorkforceProcedureStatusTransitionPlan("READY_FOR_REVIEW", "CONFIRMED");
+  const confirmedToDraft = buildWorkforceProcedureStatusTransitionPlan("CONFIRMED", "DRAFT");
+  const cancelledToDraft = buildWorkforceProcedureStatusTransitionPlan("CANCELLED", "DRAFT");
+
+  assert.equal(draft.isAllowed, true);
+  assert.equal(reviewToConfirm.category, "CONFIRM_REQUIRES_CHECKLIST");
+  assert.equal(confirmedToDraft.isAllowed, false);
+  assert.equal(confirmedToDraft.category, "CONFIRMED_LOCKED");
+  assert.deepEqual(confirmedToDraft.allowedStatuses, ["CONFIRMED"]);
+  assert.equal(cancelledToDraft.isAllowed, true);
+  assert.equal(buildWorkforceProcedureStatusTransitionPlan("UNKNOWN", "CONFIRMED").isAllowed, false);
 });
 
 test("workforce procedure cases prioritize overdue and near-term open work", () => {

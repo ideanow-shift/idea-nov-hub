@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildSingleStudentReviewProposal, filterTalentStudents, getTalentStudentProgressKey, isNewApplicantCandidate } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildOnboardingHandoffDraft, buildSingleStudentReviewProposal, filterTalentStudents, getTalentStudentProgressKey, isNewApplicantCandidate } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -106,6 +106,28 @@ test("student detail exposes an individual confirmation action without replacing
   assert.match(html, /id="student-review-target"/);
   assert.match(app, /ENTRIES_27/, "manual mapping is available for entry records");
   assert.match(app, /OFFERS_27/, "manual mapping is available for offer records");
+});
+
+test("ready offers can hand off a bounded draft to onboarding without creating a case", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+  const ready = buildOnboardingHandoffDraft({
+    applicationNo: "NT-2027-000001",
+    displayName: "対象者",
+    statusCode: "OFFER",
+    expectedJoinDate: "2027-04-01"
+  });
+
+  assert.deepEqual(ready, {
+    procedureType: "ONBOARDING",
+    subjectLabel: "対象者",
+    effectiveDate: "2027-04-01"
+  });
+  assert.equal(buildOnboardingHandoffDraft({ ...ready, applicationNo: "", statusCode: "OFFER" }), null);
+  assert.equal(buildOnboardingHandoffDraft({ ...ready, applicationNo: "NT-2027-000001", statusCode: "CONTACT" }), null);
+  assert.match(html, /id="student-onboarding-open"[^>]*disabled[^>]*aria-disabled="true"/);
+  assert.match(app, /nov-talent:open-procedure-case/);
+  assert.match(app, /保存するまで案件は作成されません/);
 });
 
 test("single link confirmation includes an unmapped contact target as the primary step", () => {

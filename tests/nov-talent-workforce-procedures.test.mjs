@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -70,6 +70,28 @@ test("new workforce cases inherit the active procedure tab", () => {
   assert.equal(getActiveWorkforceProcedureType({
     querySelector: () => ({ dataset: { procedureType: "UNKNOWN" } })
   }), "ONBOARDING");
+});
+
+test("procedure case prefill only accepts a bounded onboarding draft", () => {
+  const documentObject = { querySelector: () => ({ dataset: { procedureType: "TRANSFER" } }) };
+  assert.deepEqual(normalizeWorkforceProcedureCasePrefill({
+    procedureType: "ONBOARDING",
+    subjectLabel: " 対象者 ",
+    effectiveDate: "2027-04-01"
+  }, documentObject), {
+    procedureType: "ONBOARDING",
+    subjectLabel: "対象者",
+    effectiveDate: "2027-04-01"
+  });
+  assert.deepEqual(normalizeWorkforceProcedureCasePrefill({
+    procedureType: "INVALID",
+    subjectLabel: 42,
+    effectiveDate: "invalid"
+  }, documentObject), {
+    procedureType: "TRANSFER",
+    subjectLabel: "",
+    effectiveDate: ""
+  });
 });
 
 test("workforce procedure checklists read and update one bounded step", async () => {

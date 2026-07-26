@@ -13,7 +13,7 @@ import { buildTalentAnalytics } from "./analytics.mjs?v=20260725-talent-analytic
 import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-review-kpis-1";
 import { createTalentStagingSupplementController } from "./staging-supplement.mjs?v=20260725-staging-edit-1";
 import { buildWorkforceReadinessViewModel, renderWorkforceReadiness } from "./workforce-readiness.mjs?v=20260725-workforce-queues-1";
-import { initializeWorkforceProcedureDesk } from "./workforce-procedures.mjs?v=20260726-workforce-context-actions-1";
+import { initializeWorkforceProcedureDesk } from "./workforce-procedures.mjs?v=20260726-candidate-onboarding-handoff-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -319,6 +319,15 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-confirm-open")?.addEventListener("click", () => {
     const student = studentWorkspaceData?.students.find((row) => row.recordId === selectedStudentRecordId);
     openSingleStudentReviewDialog({ globalObject, documentObject, student });
+  });
+  documentObject.getElementById("student-onboarding-open")?.addEventListener("click", () => {
+    const student = studentWorkspaceData?.students.find((row) => row.recordId === selectedStudentRecordId);
+    const draft = buildOnboardingHandoffDraft(student);
+    if (!draft) return;
+    documentObject.querySelector?.('[data-primary-tab="workforce"]')?.click?.();
+    documentObject.querySelector?.('[data-workforce-tab="onboarding"]')?.click?.();
+    if (typeof globalObject.CustomEvent !== "function") return;
+    documentObject.dispatchEvent(new globalObject.CustomEvent("nov-talent:open-procedure-case", { detail: draft }));
   });
   documentObject.getElementById("student-review-cancel")?.addEventListener("click", () => {
     documentObject.getElementById("student-review-dialog")?.close?.();
@@ -818,6 +827,19 @@ export function getTalentStudentProgressKey(student) {
   return TALENT_PROGRESS_CODES.includes(progress) ? progress : "UNSET";
 }
 
+export function buildOnboardingHandoffDraft(student) {
+  if (!student || typeof student !== "object") return null;
+  const displayName = typeof student.displayName === "string" ? student.displayName.trim() : "";
+  const expectedJoinDate = String(student.expectedJoinDate || "");
+  if (!displayName || !student.applicationNo || !["OFFER", "EXPECTED_JOIN"].includes(student.statusCode)
+    || !/^\d{4}-\d{2}-\d{2}$/.test(expectedJoinDate)) return null;
+  return Object.freeze({
+    procedureType: "ONBOARDING",
+    subjectLabel: displayName,
+    effectiveDate: expectedJoinDate
+  });
+}
+
 export function filterTalentStudents(students, { query = "", source = "ALL", state = "ALL", progress = "ALL" } = {}) {
   const normalizedQuery = normalizeSearch(query);
   return (Array.isArray(students) ? students : []).filter((student) => {
@@ -939,6 +961,12 @@ function renderStudentDetail(documentObject, student) {
       confirmButton.setAttribute("aria-disabled", "true");
       confirmButton.title = "確認候補がありません";
     }
+    const onboardingButton = documentObject.getElementById("student-onboarding-open");
+    if (onboardingButton) {
+      onboardingButton.disabled = true;
+      onboardingButton.setAttribute("aria-disabled", "true");
+      onboardingButton.title = "内定と入社予定日を登録すると利用できます";
+    }
     if (auditButton) {
       auditButton.disabled = true;
       auditButton.setAttribute("aria-disabled", "true");
@@ -982,6 +1010,15 @@ function renderStudentDetail(documentObject, student) {
     confirmButton.setAttribute("aria-disabled", String(!confirmable));
     confirmButton.title = confirmable ? "この候補だけを確認" : "このデータは個別確認の対象外です";
   }
+  const onboardingDraft = buildOnboardingHandoffDraft(student);
+  const onboardingButton = documentObject.getElementById("student-onboarding-open");
+  if (onboardingButton) {
+    onboardingButton.disabled = !onboardingDraft;
+    onboardingButton.setAttribute("aria-disabled", String(!onboardingDraft));
+    onboardingButton.title = onboardingDraft
+      ? "入社手続き案件の下書きを作成"
+      : "内定と入社予定日を登録すると利用できます";
+  }
   setText(documentObject, "student-detail-school", student.school || "未登録");
   setText(documentObject, "student-detail-status", student.status || "未登録");
   setText(documentObject, "student-detail-phone", student.phone || "未登録");
@@ -1018,6 +1055,7 @@ function renderStudentDetail(documentObject, student) {
     hasSupplement: Boolean(student.supplementVersion),
     editable: Boolean(student.applicationNo) || (student.mappingStatus === "UNMAPPED" && Boolean(student.recordId)),
     confirmable,
+    onboardingReady: Boolean(onboardingDraft),
     mappingStatus: student.mappingStatus,
   });
 }
@@ -1037,7 +1075,10 @@ function renderStudentActionGuide(documentObject, capability) {
     setStudentActionState(confirm, "確認: 対象を選択", false);
     return;
   }
-  if (capability.hasCanonicalProfile) {
+  if (capability.onboardingReady) {
+    title.textContent = "入社手続きの下書きを作成できます";
+    copy.textContent = "入社手続きへ引き継ぐと、対象者と入社予定日だけをフォームへ入力します。保存するまで案件は作成されません。";
+  } else if (capability.hasCanonicalProfile) {
     title.textContent = "正本プロフィールを更新できます";
     copy.textContent = "編集で最新情報を保存し、変更履歴で更新項目と時刻を確認できます。取込元の原本は変更しません。";
   } else if (capability.confirmable) {

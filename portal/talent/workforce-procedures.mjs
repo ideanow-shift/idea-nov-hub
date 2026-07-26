@@ -26,6 +26,18 @@ export function getActiveWorkforceProcedureType(documentObject) {
   return PROCEDURE_TYPES.includes(procedureType) ? procedureType : "ONBOARDING";
 }
 
+export function normalizeWorkforceProcedureCasePrefill(value, documentObject) {
+  const draft = isRecord(value) ? value : {};
+  const procedureType = PROCEDURE_TYPES.includes(draft.procedureType)
+    ? draft.procedureType
+    : getActiveWorkforceProcedureType(documentObject);
+  const subjectLabel = typeof draft.subjectLabel === "string" ? draft.subjectLabel.trim().slice(0, 120) : "";
+  const effectiveDate = /^\d{4}-\d{2}-\d{2}$/.test(String(draft.effectiveDate || ""))
+    ? String(draft.effectiveDate)
+    : "";
+  return Object.freeze({ procedureType, subjectLabel, effectiveDate });
+}
+
 export function filterWorkforceProcedureCases(cases, filter = "ALL") {
   if (!Array.isArray(cases) || !["ALL", ...CASE_STATUSES].includes(filter)) return Object.freeze([]);
   return Object.freeze(cases.filter((item) => filter === "ALL" || item.caseStatus === filter));
@@ -451,18 +463,23 @@ export function initializeWorkforceProcedureDesk({
     return result;
   };
 
-  const openNewCase = (procedureType = getActiveWorkforceProcedureType(documentObject)) => {
+  const openNewCase = (prefill = {}) => {
     reset();
-    input("procedureType").value = PROCEDURE_TYPES.includes(procedureType)
-      ? procedureType
-      : getActiveWorkforceProcedureType(documentObject);
+    const normalized = normalizeWorkforceProcedureCasePrefill(prefill, documentObject);
+    input("procedureType").value = normalized.procedureType;
+    input("subjectLabel").value = normalized.subjectLabel;
+    input("effectiveDate").value = normalized.effectiveDate;
     form.hidden = false;
     input("subjectLabel")?.focus?.();
   };
   documentObject.getElementById("workforce-case-new")?.addEventListener("click", () => openNewCase());
   for (const button of documentObject.querySelectorAll?.("[data-procedure-new]") || []) {
-    button.addEventListener("click", () => openNewCase(String(button.dataset.procedureNew || "")));
+    button.addEventListener("click", () => openNewCase({ procedureType: String(button.dataset.procedureNew || "") }));
   }
+  documentObject.addEventListener?.("nov-talent:open-procedure-case", (event) => {
+    openNewCase(event?.detail);
+    form.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  });
   documentObject.getElementById("workforce-case-cancel")?.addEventListener("click", reset);
   documentObject.getElementById("workforce-case-audit-close")?.addEventListener("click", clearAudit);
   documentObject.getElementById("workforce-case-steps-close")?.addEventListener("click", clearSteps);

@@ -659,6 +659,34 @@ export function buildReviewWorkloadGuide(students) {
   });
 }
 
+export function buildReviewWorkloadSteps(guide) {
+  const normalized = guide && typeof guide === "object" ? guide : buildReviewWorkloadGuide([]);
+  const steps = [
+    {
+      category: "BULK_MATCH_ONLY",
+      count: Number(normalized.bulk || 0),
+      label: "自動一致だけを一括反映"
+    },
+    {
+      category: "INDIVIDUAL_REVIEW",
+      count: Number(normalized.individual || 0),
+      label: "新規候補を1件ずつ確認"
+    },
+    {
+      category: "KEEP_QUARANTINED",
+      count: Number(normalized.quarantine || 0),
+      label: "曖昧・保留は隔離のまま補足"
+    }
+  ];
+  return Object.freeze(steps.map((step, index) => Object.freeze({
+    order: index + 1,
+    category: step.category,
+    countCategory: step.count === 0 ? "ZERO" : step.count === 1 ? "ONE" : "MULTIPLE",
+    isCurrent: normalized.nextAction === step.category,
+    label: step.label
+  })));
+}
+
 export function isNewApplicantCandidate(student) {
   return Boolean(student)
     && student.mappingStatus === "UNMAPPED"
@@ -688,6 +716,17 @@ function renderReviewWorkloadGuide(documentObject, guide) {
   if (panel) {
     panel.dataset.nextAction = guide.nextAction;
     panel.dataset.nextFilterState = guide.nextFilterState;
+  }
+  const stepList = documentObject.getElementById("review-workload-steps");
+  if (stepList) {
+    stepList.replaceChildren(...buildReviewWorkloadSteps(guide).map((step) => {
+      const item = documentObject.createElement("li");
+      item.dataset.category = step.category;
+      item.dataset.countCategory = step.countCategory;
+      if (step.isCurrent) item.dataset.current = "true";
+      item.textContent = `${step.order}. ${step.label} / ${step.countCategory}`;
+      return item;
+    }));
   }
 }
 

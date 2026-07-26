@@ -616,6 +616,10 @@ h3 { margin: 0; font-size: 1rem; }
 .student-review-workload span { color: #42606f; font-size: 0.72rem; font-weight: 900; }
 .student-review-workload strong { color: var(--navy); font-size: 1.1rem; }
 .student-review-workload p { margin: 0; color: var(--muted); font-size: 0.72rem; line-height: 1.5; }
+.review-workload-steps { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 0; padding: 0; list-style: none; }
+.review-workload-steps li { padding: 9px 10px; border: 1px dashed #d8eadf; border-radius: 6px; background: #fff; color: var(--muted); font-size: .76rem; font-weight: 800; }
+.review-workload-steps li[data-current="true"] { border-style: solid; border-color: var(--rose); background: var(--accent-soft); color: var(--ink); }
+.review-workload-steps li[data-count-category="ZERO"] { opacity: .68; }
 .triage-command { justify-self: start; padding: 4px 8px; border: 1px solid #e7c1c7; border-radius: 4px; color: var(--accent-strong); background: #fff; font: inherit; font-size: 0.72rem; font-weight: 800; cursor: pointer; }
 .triage-command:hover { background: var(--accent-soft); }
 .secondary-command { border-color: var(--line); color: var(--ink); background: #fff; }
@@ -1467,6 +1471,7 @@ h3 { margin: 0; font-size: 1rem; }
   .bulk-triage { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .student-review-workload { grid-template-columns: 1fr; }
   .student-review-workload-next { grid-template-columns: 1fr; }
+  .review-workload-steps { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 520px) {

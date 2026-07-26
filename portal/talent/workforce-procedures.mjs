@@ -483,6 +483,22 @@ export function buildWorkforceProcedureCaseFormGuide(draft, referenceDate = loca
   });
 }
 
+export function buildWorkforceProcedureFormSubmitReadiness(draft) {
+  const guide = buildWorkforceProcedureCaseFormGuide(draft);
+  const missingRequiredKeys = guide.requirements
+    .filter((requirement) => requirement.category === "MISSING_REQUIRED")
+    .map((requirement) => requirement.key);
+  return Object.freeze({
+    category: missingRequiredKeys.length === 0 ? "READY_TO_SUBMIT" : "MISSING_REQUIRED_FIELDS",
+    canSubmit: missingRequiredKeys.length === 0,
+    missingRequiredCount: missingRequiredKeys.length,
+    missingRequiredKeys: Object.freeze(missingRequiredKeys),
+    statusCategory: missingRequiredKeys.length === 0 ? "idle" : "invalid_request",
+    rawValuesIncluded: false,
+    employeeMasterMutation: false
+  });
+}
+
 export function buildWorkforceProcedureChecklistPlan(procedureType) {
   const normalized = PROCEDURE_TYPES.includes(procedureType) ? procedureType : "ONBOARDING";
   const steps = PROCEDURE_STEP_KEYS[normalized].map((stepKey, index) => Object.freeze({
@@ -781,6 +797,10 @@ export function initializeWorkforceProcedureDesk({
       item.textContent = requirement.label;
       return item;
     }));
+  };
+  const markFormInvalid = () => {
+    renderFormGuide();
+    setStatus("invalid_request");
   };
   const renderChecklistPlan = () => {
     const plan = buildWorkforceProcedureChecklistPlan(input("procedureType")?.value);
@@ -1182,6 +1202,7 @@ export function initializeWorkforceProcedureDesk({
   input("effectiveDate").addEventListener("change", renderFormGuide);
   input("detail").addEventListener("input", renderFormGuide);
   input("procedureType").addEventListener("change", renderChecklistPlan);
+  form.addEventListener("invalid", markFormInvalid, true);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const draft = Object.freeze({
@@ -1193,6 +1214,12 @@ export function initializeWorkforceProcedureDesk({
       effectiveDate: input("effectiveDate").value,
       detail: input("detail").value
     });
+    const readiness = buildWorkforceProcedureFormSubmitReadiness(draft);
+    if (!readiness.canSubmit) {
+      setStatus(readiness.statusCategory);
+      renderFormGuide();
+      return;
+    }
     const transition = buildWorkforceProcedureStatusTransitionPlan(form.dataset.currentStatus, draft.caseStatus);
     if (!transition.isAllowed) {
       setStatus("invalid_status_transition");

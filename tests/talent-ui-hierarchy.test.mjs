@@ -358,6 +358,7 @@ test("workforce exposes an audited procedure case desk without employee-master c
   assert.match(source, /buildWorkforceProcedureOperationSteps/);
   assert.match(source, /data-workforce-operation-filter/);
   assert.match(source, /buildWorkforceProcedureCaseFormGuide/);
+  assert.match(source, /buildWorkforceProcedureFormSubmitReadiness/);
   assert.match(source, /renderFormGuide/);
   assert.match(source, /requiredReady/);
   assert.match(source, /buildWorkforceProcedureStatusTransitionPlan/);

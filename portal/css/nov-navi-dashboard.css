@@ -107,6 +107,10 @@ button.navi-notice:hover { border-color: var(--navi-accent); background: var(--n
 .navi-notice-copy small { color: var(--text-secondary); font-size: 11px; line-height: 1.4; }
 .navi-notice-action { color: #8c545a; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .navi-notice-empty { color: var(--text-secondary); font-size: 12px; }
+.navi-notices[data-navi-empty="true"] { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 14px; padding-block: 10px; }
+.navi-notices[data-navi-empty="true"] .navi-section-heading { margin: 0; }
+.navi-notices[data-navi-empty="true"] .navi-notice-list { min-width: 0; }
+.navi-notices[data-navi-empty="true"] .navi-notice-empty { margin: 0; text-align: right; }
 
 .navi-system-sections { display: grid; gap: 11px; min-width: 0; }
 .navi-category { padding: 12px 13px 13px; }
@@ -204,6 +208,8 @@ body:has(#nov-navi-dashboard:not([hidden])) .site-header .icon-button:hover { ba
   .navi-section-heading { align-items: flex-start; flex-wrap: wrap; margin-bottom: 8px; }
   .navi-section-heading span { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .navi-section-heading h2 { font-size: 15px; }
+  .navi-notices[data-navi-empty="true"] { grid-template-columns: 1fr; gap: 2px; }
+  .navi-notices[data-navi-empty="true"] .navi-notice-empty { text-align: left; }
   .navi-today-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
   .navi-today-card { min-height: 74px; padding: 7px 8px; }
   .navi-today-grid strong { font-size: 18px; }

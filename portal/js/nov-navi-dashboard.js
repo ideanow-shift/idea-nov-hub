@@ -254,10 +254,13 @@ function renderNaviNotices(notices, onOpenNotice) {
   const list = document.querySelector("#navi-notice-list");
   if (!list) return;
   const visibleNotices = getVisibleNaviNotices(notices);
+  const section = list.closest(".navi-notices");
   if (!visibleNotices.length) {
+    if (section) section.dataset.naviEmpty = "true";
     list.innerHTML = '<p class="navi-notice-empty">現在、新しいお知らせはありません。</p>';
     return;
   }
+  if (section) delete section.dataset.naviEmpty;
   list.replaceChildren(...visibleNotices.map((notice) => createNaviNoticeItem(notice, onOpenNotice)));
 }
 

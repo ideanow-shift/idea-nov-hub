@@ -146,6 +146,8 @@ assert.match(mainSource, /if \(localDemoEnabled\) \{[\s\S]*?demoLogin\.addEventL
 assert.match(dashboardSource, /function getVisibleNaviNotices\(notices\)/, "NOVA notices must use the shared visibility helper");
 assert.match(dashboardSource, /\.slice\(0, 3\)/, "NOVA notices must be capped at three");
 assert.match(dashboardSource, /notice\.unread/, "NOVA notices must prioritize unread items");
+assert.match(dashboardSource, /section\.dataset\.naviEmpty = "true"/, "NOVA must expose an explicit empty notice state without removing the notices surface");
+assert.match(naviStylesSource, /\.navi-notices\[data-navi-empty="true"\]/, "empty NOVA notices must use a compact responsive layout");
 assert.match(mainSource, /state\.notifications = Array\.isArray\(data\.notifications\)[\s\S]*?renderPortal\(\)/, "notification refresh must also refresh the NOV NAVI view");
 assert.match(mainSource, /state\.announcements = Array\.isArray\(data\.announcements\)[\s\S]*?renderPortal\(\)/, "announcement refresh must also refresh the NOV NAVI view");
 assert.match(dashboardSource, /function getNaviCategoryAudienceHint\(category\)/, "NOVA category audience labels must be centralized");

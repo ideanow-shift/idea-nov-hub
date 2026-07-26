@@ -312,6 +312,10 @@ export function initializeTalentStudentWorkspace({
   };
   documentObject.getElementById("student-filter-reset")?.addEventListener("click", resetStudentFilters);
   documentObject.getElementById("student-empty-reset")?.addEventListener("click", resetStudentFilters);
+  documentObject.getElementById("student-daily-queue-start-button")?.addEventListener("click", () => {
+    const guidePanel = documentObject.getElementById("student-daily-queue-start-guide");
+    openStudentWorkspace(documentObject, buildStudentDailyQueueStartFilter(guidePanel?.dataset?.filterCategory));
+  });
   [
     ["student-filter-all", "ALL"],
     ["student-filter-review", "OWNER_REVIEW"],
@@ -1833,36 +1837,42 @@ export function buildStudentDailyQueueStartGuide(summary = {}) {
       title: "まず期限超過だけ開く",
       copy: "最初の一覧条件は「期限超過」です。対象を減らして、次回対応日・状態・対応履歴を順番に整えます。",
       filterCategory: "FOLLOW_UP_OVERDUE",
+      buttonLabel: "期限超過を開く",
       steps: ["対応期限フィルタを期限超過にする", "先頭行から詳細を開く", "次回対応日または状態を更新する"]
     },
     START_NEXT_WEEK_FILTER: {
       title: "直近7日を今日の処理対象にする",
       copy: "期限超過がなければ、直近7日の予定を対応期限順で確認します。",
       filterCategory: "FOLLOW_UP_NEXT_7_DAYS",
+      buttonLabel: "直近7日を開く",
       steps: ["対応期限フィルタを直近7日にする", "並び順を対応期限順にする", "今日処理する対象だけ更新する"]
     },
     START_OWNER_REVIEW_FILTER: {
       title: "要確認を安全に仕分ける",
       copy: "一括反映・個別確認・隔離維持を混ぜず、要確認だけを開いて判断します。",
       filterCategory: "STATE_OWNER_REVIEW",
+      buttonLabel: "要確認を開く",
       steps: ["クイック表示で要確認を開く", "一括対象と個別確認を分ける", "承認が必要な操作は別導線に残す"]
     },
     START_QUARANTINE_FILTER: {
       title: "隔離理由を先にそろえる",
       copy: "不明・重複・根拠不足のまま自動紐付けせず、補足と次回対応だけを整理します。",
       filterCategory: "STATE_QUARANTINE",
+      buttonLabel: "隔離を開く",
       steps: ["クイック表示で隔離を開く", "不足理由を確認する", "隔離維持または追加確認を記録する"]
     },
     START_ONBOARDING_HANDOFF: {
       title: "内定者の引き継ぎ準備を見る",
       copy: "入社手続きへ渡せる候補を確認します。現職者管理への反映は別承認まで止めます。",
       filterCategory: "ONBOARDING_HANDOFF",
+      buttonLabel: "入社引継ぎ候補を見る",
       steps: ["内定・入社予定の学生を確認する", "入社予定日と配属予定を見る", "現職者管理の入社案件へ引き継ぐ"]
     },
     START_STEADY_LIST: {
       title: "通常フォローから始める",
       copy: "急ぎの件数がなければ、学校別・月別分析から対象を選んで日常フォローを続けます。",
       filterCategory: "ALL_STUDENTS",
+      buttonLabel: "全学生を見る",
       steps: ["学生一覧を開く", "学校別または月別分析から対象を選ぶ", "状態と次回対応を更新する"]
     }
   };
@@ -1872,7 +1882,27 @@ export function buildStudentDailyQueueStartGuide(summary = {}) {
     title: guide.title,
     copy: guide.copy,
     filterCategory: guide.filterCategory,
+    buttonLabel: guide.buttonLabel,
     steps: Object.freeze(guide.steps.map((label, index) => Object.freeze({ order: index + 1, label }))),
+    rawValuesIncluded: false,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false,
+    automaticPromotionReachable: false
+  });
+}
+
+export function buildStudentDailyQueueStartFilter(filterCategory = "ALL_STUDENTS") {
+  const plans = Object.freeze({
+    FOLLOW_UP_OVERDUE: Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "ALL", month: "ALL", followUp: "OVERDUE", sort: "FOLLOW_UP" }),
+    FOLLOW_UP_NEXT_7_DAYS: Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "ALL", month: "ALL", followUp: "NEXT_7_DAYS", sort: "FOLLOW_UP" }),
+    STATE_OWNER_REVIEW: Object.freeze({ query: "", source: "ALL", state: "OWNER_REVIEW", progress: "ALL", month: "ALL", followUp: "ALL", sort: "DEFAULT" }),
+    STATE_QUARANTINE: Object.freeze({ query: "", source: "ALL", state: "QUARANTINE", progress: "ALL", month: "ALL", followUp: "ALL", sort: "DEFAULT" }),
+    ONBOARDING_HANDOFF: Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "OFFER", month: "ALL", followUp: "ALL", sort: "DEFAULT" }),
+    ALL_STUDENTS: Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "ALL", month: "ALL", followUp: "ALL", sort: "DEFAULT" })
+  });
+  const selected = plans[filterCategory] || plans.ALL_STUDENTS;
+  return Object.freeze({
+    ...selected,
     rawValuesIncluded: false,
     canonicalWriteReachable: false,
     lineHistoryWriteReachable: false,
@@ -1909,6 +1939,7 @@ function renderStudentDailyQueueStartGuide(documentObject, guide) {
   }
   setText(documentObject, "student-daily-queue-start-title", guide.title);
   setText(documentObject, "student-daily-queue-start-copy", guide.copy);
+  setText(documentObject, "student-daily-queue-start-button", guide.buttonLabel);
   const steps = documentObject.getElementById("student-daily-queue-start-steps");
   if (!steps) return;
   steps.replaceChildren(...guide.steps.map((step) => {

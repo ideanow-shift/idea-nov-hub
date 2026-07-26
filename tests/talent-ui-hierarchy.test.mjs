@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildBulkTriageQueueFilter, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadApprovalGuide, buildReviewWorkloadGuide, buildReviewWorkloadSteps, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyCompletionChecklist, buildStudentDailyOperation, buildStudentDailyQueueStartGuide, buildStudentDailyQueueSummary, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewDecisionGuide, buildStudentReviewLaneSteps, buildStudentReviewModeCopy, buildStudentReviewQueuePriority, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildBulkTriageQueueFilter, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadApprovalGuide, buildReviewWorkloadGuide, buildReviewWorkloadSteps, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyCompletionChecklist, buildStudentDailyOperation, buildStudentDailyQueueStartFilter, buildStudentDailyQueueStartGuide, buildStudentDailyQueueSummary, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewDecisionGuide, buildStudentReviewLaneSteps, buildStudentReviewModeCopy, buildStudentReviewQueuePriority, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -262,17 +262,33 @@ test("student workspace summarizes today's follow-up queue before selecting a ro
   assert.equal(startGuide.canonicalWriteReachable, false);
   assert.equal(startGuide.lineHistoryWriteReachable, false);
   assert.equal(startGuide.automaticPromotionReachable, false);
+  assert.deepEqual(buildStudentDailyQueueStartFilter(startGuide.filterCategory), {
+    query: "",
+    source: "ALL",
+    state: "ALL",
+    progress: "ALL",
+    month: "ALL",
+    followUp: "OVERDUE",
+    sort: "FOLLOW_UP",
+    rawValuesIncluded: false,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false,
+    automaticPromotionReachable: false
+  });
   const reviewGuide = buildStudentDailyQueueStartGuide(buildStudentDailyQueueSummary([
     { classification: "OWNER_REVIEW" }
   ], "2026-07-26"));
   assert.equal(reviewGuide.category, "START_OWNER_REVIEW_FILTER");
   assert.equal(reviewGuide.filterCategory, "STATE_OWNER_REVIEW");
+  assert.equal(buildStudentDailyQueueStartFilter(reviewGuide.filterCategory).state, "OWNER_REVIEW");
   assert.match(html, /id="student-daily-queue-summary"/);
   assert.match(html, /id="student-daily-queue-steps"/);
   assert.match(html, /id="student-daily-queue-start-guide"/);
   assert.match(html, /id="student-daily-queue-start-steps"/);
+  assert.match(html, /id="student-daily-queue-start-button"/);
   assert.match(app, /renderStudentDailyQueueSummary/);
   assert.match(app, /renderStudentDailyQueueStartGuide/);
+  assert.match(app, /buildStudentDailyQueueStartFilter/);
   assert.match(css, /student-daily-queue-summary/);
   assert.match(css, /student-daily-queue-start-guide/);
 });

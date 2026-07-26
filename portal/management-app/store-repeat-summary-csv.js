@@ -154,6 +154,11 @@ const LABELS = Object.freeze({
   STORE_REPEAT_DUPLICATE: "同一の店舗・年月が重複しています。",
 });
 
+function templateHref() {
+  const csv = `\uFEFF${HEADERS.join(",")}\r\n店舗名例,2026-06,0,0,0,0,0,0,0,0\r\n`;
+  return `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
+}
+
 export function renderStoreRepeatSummaryIntake(container, options = {}) {
   const doc = options.document || container?.ownerDocument || globalThis.document;
   if (!container || !doc?.createElement || container.dataset.storeRepeatSummaryMounted === "true") return false;
@@ -170,6 +175,13 @@ export function renderStoreRepeatSummaryIntake(container, options = {}) {
   const description = doc.createElement("p");
   description.textContent = "店舗・月次の集計CSVだけをローカルで検証します。個人名・顧客番号・明細は保持しません。";
   copy.append(kicker, title, description);
+  const actions = doc.createElement("div");
+  actions.className = "financial-intake-heading-actions";
+  const template = doc.createElement("a");
+  template.className = "financial-mapping-download";
+  template.href = templateHref();
+  template.download = "store-repeat-summary-template.csv";
+  template.textContent = "ひな形CSV";
   const label = doc.createElement("label");
   label.className = "financial-mapping-download";
   label.textContent = "CSVを選択";
@@ -178,7 +190,8 @@ export function renderStoreRepeatSummaryIntake(container, options = {}) {
   input.accept = ".csv,text/csv";
   input.hidden = true;
   label.append(input);
-  heading.append(copy, label);
+  actions.append(template, label);
+  heading.append(copy, actions);
   const status = doc.createElement("p");
   status.className = "store-repeat-summary-status";
   status.dataset.storeRepeatSummaryStatus = "NOT_READY";

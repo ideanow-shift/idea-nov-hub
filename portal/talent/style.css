@@ -584,6 +584,21 @@ h3 { margin: 0; font-size: 1rem; }
 .review-dialog form { padding: 24px; }
 .review-dialog h2 { margin-top: 4px; font-size: 1.22rem; }
 .review-dialog form > p:not(.status) { color: var(--muted); line-height: 1.65; }
+.review-mode-note {
+  display: grid;
+  gap: 5px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid #f0d5d8;
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+.review-mode-note[data-mode="SINGLE_STUDENT"] {
+  border-color: #d7e5ee;
+  background: #f4f8fb;
+}
+.review-mode-note strong { color: var(--navy); font-size: 0.86rem; }
+.review-mode-note span { color: var(--muted); font-size: 0.78rem; line-height: 1.55; }
 .review-dialog dl {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

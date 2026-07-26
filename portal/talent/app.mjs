@@ -690,6 +690,29 @@ function renderReviewWorkloadGuide(documentObject, guide) {
   }
 }
 
+export function buildStudentReviewModeCopy(mode) {
+  const normalized = mode === "SINGLE_STUDENT" ? "SINGLE_STUDENT" : "BULK_MATCH_ONLY";
+  return Object.freeze({
+    mode: normalized,
+    title: {
+      BULK_MATCH_ONLY: "一括反映は一致候補だけに限定します",
+      SINGLE_STUDENT: "この学生だけを個別確認します"
+    }[normalized],
+    copy: {
+      BULK_MATCH_ONLY: "新規候補・曖昧行・隔離行は含めず、個別確認に残します。",
+      SINGLE_STUDENT: "一括反映とは別に、選択中の候補と紐付け先だけを確認します。"
+    }[normalized]
+  });
+}
+
+function renderStudentReviewMode(documentObject, mode) {
+  const copy = buildStudentReviewModeCopy(mode);
+  const note = documentObject.getElementById("student-review-mode-note");
+  if (note) note.dataset.mode = copy.mode;
+  setText(documentObject, "student-review-mode-title", copy.title);
+  setText(documentObject, "student-review-mode-copy", copy.copy);
+}
+
 function openHistoricalReviewDialog({ globalObject, documentObject }) {
   if (!studentWorkspaceData) return;
   const proposal = buildMatchOnlyReviewProposal(studentWorkspaceData);
@@ -697,6 +720,7 @@ function openHistoricalReviewDialog({ globalObject, documentObject }) {
   activeHistoricalReviewProposal = proposal;
   activeHistoricalReviewStudent = null;
   setManualReviewTargetOptions(documentObject, []);
+  renderStudentReviewMode(documentObject, "BULK_MATCH_ONLY");
   setText(documentObject, "review-dialog-title", "既存名簿との一致だけを反映しますか");
   setText(documentObject, "review-confirm-primary", 0);
   setText(documentObject, "review-confirm-links", proposal.linkPairs.length);
@@ -717,6 +741,7 @@ function openSingleStudentReviewDialog({ globalObject, documentObject, student }
   const manualCandidates = proposal ? [] : listManualContactCandidates(studentWorkspaceData, student);
   if (!proposal && manualCandidates.length === 0) return;
   activeHistoricalReviewProposal = proposal;
+  renderStudentReviewMode(documentObject, "SINGLE_STUDENT");
   setText(documentObject, "review-dialog-title", "この候補を確認しますか");
   setText(documentObject, "review-confirm-primary", proposal?.primaryRecordIds.length || 0);
   setText(documentObject, "review-confirm-links", proposal?.linkPairs.length || 0);

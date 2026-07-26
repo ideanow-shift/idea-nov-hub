@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentEmptyState, buildStudentFilterSummary, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewModeCopy, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -292,9 +292,31 @@ test("student detail exposes an individual confirmation action without replacing
   assert.match(app, /confirmButton\.disabled = !historicalReviewController\.enabled/);
   assert.match(app, /この候補だけを確認/);
   assert.match(app, /既存名簿との一致だけを反映しますか/);
+  assert.match(html, /id="student-review-mode-note"/);
+  assert.match(app, /renderStudentReviewMode/);
   assert.match(html, /id="student-review-target"/);
   assert.match(app, /ENTRIES_27/, "manual mapping is available for entry records");
   assert.match(app, /OFFERS_27/, "manual mapping is available for offer records");
+});
+
+test("student review dialog explains bulk and individual confirmation modes", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const css = await readFile(new URL("style.css", root), "utf8");
+  const bulk = buildStudentReviewModeCopy("BULK_MATCH_ONLY");
+  const single = buildStudentReviewModeCopy("SINGLE_STUDENT");
+
+  assert.deepEqual(bulk, {
+    mode: "BULK_MATCH_ONLY",
+    title: "一括反映は一致候補だけに限定します",
+    copy: "新規候補・曖昧行・隔離行は含めず、個別確認に残します。"
+  });
+  assert.equal(single.mode, "SINGLE_STUDENT");
+  assert.match(single.title, /この学生だけ/);
+  assert.match(single.copy, /一括反映とは別/);
+  assert.match(html, /id="student-review-mode-title"/);
+  assert.match(html, /id="student-review-mode-copy"/);
+  assert.match(css, /\.review-mode-note/);
+  assert.match(css, /\[data-mode="SINGLE_STUDENT"\]/);
 });
 
 test("ready offers can hand off a bounded draft to onboarding without creating a case", async () => {

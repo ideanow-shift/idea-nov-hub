@@ -9,7 +9,7 @@ import { buildStoreWorkforceMonthlySummaryCsvTemplate } from "./store-workforce-
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
 const CORPORATE_VIEWS = new Set([...FINANCE_VIEWS, "dataops"]);
 const VIEWS = new Set([...CORPORATE_VIEWS, "stores"]);
-const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null, BUDGET: null }, storeRepeatPreview: null, storeCustomerPreview: null, storeVisitCohortPreview: null, storeWorkforceMonthlyPreview: null, storeMenuPreview: null, localEvidence: { storeCsvReceipt: null, storeNameReceipt: null, workforceAllocationReceipt: null }, charts: {} };
+const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null, BUDGET: null }, storeRepeatPreview: null, storeCustomerPreview: null, storeVisitCohortPreview: null, storeWorkforceMonthlyPreview: null, storeMenuPreview: null, storeAnalysisPeriod: "", localEvidence: { storeCsvReceipt: null, storeNameReceipt: null, workforceAllocationReceipt: null }, charts: {} };
 const number = new Intl.NumberFormat("ja-JP");
 const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 const percentage = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 1 });
@@ -76,6 +76,7 @@ window.addEventListener("management-store-menu-local-preview", (event) => {
 });
 window.addEventListener("management-financial-local-preview-clear", () => {
   state.financialPreviews = { PL: null, BS: null, BUDGET: null };
+  state.storeAnalysisPeriod = "";
   state.storeRepeatPreview = null;
   state.storeCustomerPreview = null;
   state.storeVisitCohortPreview = null;
@@ -1127,6 +1128,7 @@ function buildStoreOperatingSnapshotPanel() {
     .filter((period) => /^20\d{2}-(?:0[1-9]|1[0-2])$/u.test(period));
   if (!periods.length) return null;
   const latestPeriod = periods.reduce((latest, period) => period > latest ? period : latest, periods[0]);
+  const selectedPeriod = periods.includes(state.storeAnalysisPeriod) ? state.storeAnalysisPeriod : latestPeriod;
   const workforceByKey = new Map((state.storeWorkforceMonthlyPreview?.rows || []).map((row) => [
     normalizeStoreCandidateName(row.storeName) + "\u001f" + row.period,
     row,
@@ -1140,7 +1142,7 @@ function buildStoreOperatingSnapshotPanel() {
     row,
   ]));
   const seen = new Set();
-  const rows = financialRows.filter((row) => row.period === latestPeriod).map((row) => {
+  const rows = financialRows.filter((row) => row.period === selectedPeriod).map((row) => {
     const storeKey = normalizeStoreCandidateName(row.storeName);
     const matchKey = storeKey + "\u001f" + row.period;
     if (!storeKey || seen.has(matchKey)) return null;
@@ -1164,6 +1166,22 @@ function buildStoreOperatingSnapshotPanel() {
   if (!rows.length) return null;
   const section = document.createElement("section");
   section.className = "financial-store-operating-snapshot";
+  const periodControl = document.createElement("label");
+  periodControl.className = "financial-store-analysis-period";
+  periodControl.append(document.createTextNode("\u5bfe\u8c61\u6708"));
+  const periodSelect = document.createElement("select");
+  [...new Set(periods)].sort((left, right) => right.localeCompare(left)).forEach((period) => {
+    const option = document.createElement("option");
+    option.value = period;
+    option.textContent = period;
+    periodSelect.append(option);
+  });
+  periodSelect.value = selectedPeriod;
+  periodSelect.addEventListener("change", () => {
+    state.storeAnalysisPeriod = periodSelect.value;
+    renderFinancialPreviewStores();
+  });
+  periodControl.append(periodSelect);
   const wrap = document.createElement("div");
   wrap.className = "table-wrap embedded local-preview-table";
   const table = document.createElement("table");
@@ -1183,8 +1201,9 @@ function buildStoreOperatingSnapshotPanel() {
   table.append(thead, tbody);
   wrap.append(table);
   section.append(
-    heading("\u5e97\u8217\u55b6\u696d \u6708\u6b21\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8 (" + latestPeriod + ")"),
+    heading("\u5e97\u8217\u55b6\u696d \u6708\u6b21\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8 (" + selectedPeriod + ")"),
     paragraph("\u7d4c\u7406P/L\u3092\u57fa\u6e96\u306b\u3001\u4eba\u6570\u3068\u6765\u5e97\u533a\u5206\u306f\u540c\u3058\u5e97\u8217\u540d\u30fb\u540c\u3058\u6708\u3067\u7167\u5408\u3067\u304d\u305f\u3082\u306e\u3060\u3051\u3092\u8ffd\u52a0\u3057\u3066\u3044\u307e\u3059\u3002\u672a\u7167\u5408\u306e\u5024\u306f\u88dc\u5b8c\u3057\u307e\u305b\u3093\u3002"),
+    periodControl,
     wrap,
     muted("\u7dcf\u751f\u7523\u6027 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u7a3c\u50cd\u4eba\u6570\u3002\u7dcf\u5358\u4fa1 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u6765\u5e97\u4ef6\u6570\u3002EC\u58f2\u4e0a\u306f\u542b\u3081\u307e\u305b\u3093\u3002\u672c\u756a\u4fdd\u5b58\u30fb\u627f\u8a8d\u306f\u7121\u52b9\u3067\u3059\u3002")
   );

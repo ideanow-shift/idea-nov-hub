@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { buildWorkforceProcedureActionMix, buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseActionRoute, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureEmptyState, buildWorkforceProcedureFormSavePreview, buildWorkforceProcedureFormSubmitReadiness, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureStepProgress, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureActionMix, buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseActionRoute, buildWorkforceProcedureCaseBoundary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureEmptyState, buildWorkforceProcedureFormSavePreview, buildWorkforceProcedureFormSubmitReadiness, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureStepProgress, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -356,6 +356,24 @@ test("workforce procedure row action route highlights the safest next button", a
   assert.match(source, /caseRowAction/);
   assert.match(source, /dataset\.recommended/);
   assert.match(css, /\.case-edit-button\[data-recommended="true"\]/);
+});
+
+test("workforce procedure case boundary explains local-only and handoff limits", async () => {
+  const source = await readFile(new URL("../portal/talent/workforce-procedures.mjs", import.meta.url), "utf8");
+  const css = await readFile(new URL("../portal/talent/style.css", import.meta.url), "utf8");
+  const confirmed = buildWorkforceProcedureCaseBoundary({ caseStatus: "CONFIRMED" });
+  const cancelled = buildWorkforceProcedureCaseBoundary({ caseStatus: "CANCELLED" });
+  const review = buildWorkforceProcedureCaseBoundary({ caseStatus: "READY_FOR_REVIEW" });
+  assert.equal(confirmed.category, "CORE_HANDOFF_SEPARATE_APPROVAL");
+  assert.equal(cancelled.category, "CANCELLED_REOPEN_WITH_REASON");
+  assert.equal(review.category, "CHECKLIST_GATE");
+  assert.equal(confirmed.employeeMasterMutation, false);
+  assert.equal(confirmed.canonicalWriteReachable, false);
+  assert.equal(confirmed.lineHistoryWriteReachable, false);
+  assert.equal(cancelled.rawValuesIncluded, false);
+  assert.match(source, /procedure-case-boundary-note/);
+  assert.match(source, /buildWorkforceProcedureCaseBoundary/);
+  assert.match(css, /procedure-case-boundary-note/);
 });
 
 test("workforce procedure action mix summarizes visible row actions without writes", async () => {

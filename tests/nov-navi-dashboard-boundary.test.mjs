@@ -76,9 +76,9 @@ assert.equal(getNaviCategoryAudienceHint("unknown"), "", "unknown categories mus
 assert.equal(getNaviCategoryId("unknown"), "", "unknown categories must not receive a navigation target");
 assert.equal(getNaviCategoryId(getVisibleNaviCategories({ roleLevel: 1, roleKeys: [] })[0]), "navi-category-1", "visible category targets must use stable IDs");
 assert.deepEqual(
-  getNaviLaunchState({ status: "available" }, null),
+  getNaviLaunchState({ status: "trial" }, null),
   { status: "coming_soon", actionLabel: "接続準備中", enabled: false },
-  "unmapped systems must remain visibly unavailable"
+  "unmapped systems must remain visibly unavailable regardless of their planned release state"
 );
 assert.deepEqual(
   getNaviLaunchState({ status: "available" }, { url: "./task/" }),

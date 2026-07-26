@@ -136,7 +136,7 @@ export function getNaviLaunchState(system, app) {
     ? "preview"
     : app
       ? system.status
-      : (system.status === "available" ? "coming_soon" : system.status);
+      : "coming_soon";
   if (!app) {
     return { status, actionLabel: "接続準備中", enabled: false };
   }

@@ -1408,6 +1408,104 @@ export function buildStudentDailyOperation(student, capability = {}, referenceDa
   };
 }
 
+export function buildStudentDailyCompletionChecklist(operation) {
+  const category = operation?.category || "NO_SELECTION";
+  const plans = Object.freeze({
+    NO_SELECTION: Object.freeze({
+      title: "Select a student before recording completion",
+      copy: "The completion checklist stays inactive until one student row is selected.",
+      steps: Object.freeze([
+        "Pick exactly one student from the list.",
+        "Confirm the safe lane before editing.",
+        "Do not record a completion note from the empty state."
+      ])
+    }),
+    ONBOARDING_HANDOFF: Object.freeze({
+      title: "Record the onboarding handoff result",
+      copy: "Keep the student values local and record only the handoff status after the draft is checked.",
+      steps: Object.freeze([
+        "Confirm expected join date and planned store before handoff.",
+        "Open the onboarding draft and verify the checklist.",
+        "Record completion only after the separate case is ready."
+      ])
+    }),
+    OVERDUE_FOLLOW_UP: Object.freeze({
+      title: "Close the overdue follow-up loop",
+      copy: "The daily note should prove who handled the overdue item and what the next scheduled action is.",
+      steps: Object.freeze([
+        "Update the next action date.",
+        "Leave a bounded follow-up memo.",
+        "Check the history before leaving the row."
+      ])
+    }),
+    NEXT_WEEK_FOLLOW_UP: Object.freeze({
+      title: "Confirm the upcoming follow-up",
+      copy: "Use the completion note to keep near-term work visible without promoting or deleting source rows.",
+      steps: Object.freeze([
+        "Confirm the planned contact date.",
+        "Update status only if the student response changed.",
+        "Keep unresolved items in the follow-up queue."
+      ])
+    }),
+    OWNER_REVIEW: Object.freeze({
+      title: "Record the owner review decision",
+      copy: "Do not mix bulk confirmation, individual review, and quarantine decisions in one completion note.",
+      steps: Object.freeze([
+        "Choose one decision lane for this student.",
+        "Record whether it was confirmed, rejected, or kept for review.",
+        "Leave ambiguous rows quarantined."
+      ])
+    }),
+    QUARANTINE_REVIEW: Object.freeze({
+      title: "Keep quarantine evidence bounded",
+      copy: "A quarantine completion note should explain the next safe action without exposing source values.",
+      steps: Object.freeze([
+        "Record the missing or ambiguous reason category.",
+        "Set the next review date if follow-up is needed.",
+        "Do not promote from quarantine automatically."
+      ])
+    }),
+    CANONICAL_PROFILE_UPDATE: Object.freeze({
+      title: "Confirm the profile update trail",
+      copy: "After editing, the operator should be able to verify the change history before moving on.",
+      steps: Object.freeze([
+        "Save the bounded profile fields.",
+        "Open change history if the value affects operations.",
+        "Keep source import rows unchanged."
+      ])
+    }),
+    STAGING_SUPPLEMENT: Object.freeze({
+      title: "Record staging supplement completion",
+      copy: "Supplemental notes stay in the staging lane until a separate owner decision promotes the row.",
+      steps: Object.freeze([
+        "Save only follow-up, memo, or status supplement fields.",
+        "Confirm the row remains staging-scoped.",
+        "Return to the review queue if mapping is still unknown."
+      ])
+    }),
+    READ_ONLY: Object.freeze({
+      title: "Use read-only completion",
+      copy: "When direct edits are unavailable, the completion state is only a review marker.",
+      steps: Object.freeze([
+        "Confirm why the row is read-only.",
+        "Route needed changes to review or quarantine.",
+        "Do not attempt automatic deletion or promotion."
+      ])
+    })
+  });
+  const selected = plans[category] || plans.NO_SELECTION;
+  return Object.freeze({
+    category,
+    title: selected.title,
+    copy: selected.copy,
+    steps: selected.steps,
+    rawValuesIncluded: false,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false,
+    automaticPromotionReachable: false
+  });
+}
+
 export function buildStudentReviewBoundary(student, capability = {}) {
   if (!student) {
     return Object.freeze({
@@ -1911,6 +2009,7 @@ function renderStudentDetail(documentObject, student) {
     renderStudentActionGuide(documentObject, null);
     renderStudentReviewBoundary(documentObject, buildStudentReviewBoundary(null));
     renderStudentDailyOperation(documentObject, buildStudentDailyOperation(null));
+    renderStudentDailyCompletionChecklist(documentObject, buildStudentDailyCompletionChecklist(buildStudentDailyOperation(null)));
     return;
   }
   if (placeholder) placeholder.hidden = true;
@@ -2014,7 +2113,9 @@ function renderStudentDetail(documentObject, student) {
   };
   renderStudentActionGuide(documentObject, actionCapability);
   renderStudentReviewBoundary(documentObject, buildStudentReviewBoundary(student, actionCapability));
-  renderStudentDailyOperation(documentObject, buildStudentDailyOperation(student, actionCapability));
+  const dailyOperation = buildStudentDailyOperation(student, actionCapability);
+  renderStudentDailyOperation(documentObject, dailyOperation);
+  renderStudentDailyCompletionChecklist(documentObject, buildStudentDailyCompletionChecklist(dailyOperation));
 }
 
 function renderStudentActionGuide(documentObject, capability) {
@@ -2102,6 +2203,23 @@ function renderStudentDailyOperation(documentObject, operation) {
   title.textContent = safeOperation.title;
   copy.textContent = safeOperation.copy;
   steps.replaceChildren(...safeOperation.steps.map((step) => {
+    const item = documentObject.createElement("li");
+    item.textContent = step;
+    return item;
+  }));
+}
+
+function renderStudentDailyCompletionChecklist(documentObject, checklist) {
+  const panel = documentObject.getElementById("student-daily-completion");
+  const title = documentObject.getElementById("student-daily-completion-title");
+  const copy = documentObject.getElementById("student-daily-completion-copy");
+  const steps = documentObject.getElementById("student-daily-completion-steps");
+  if (!panel || !title || !copy || !steps) return;
+  const safeChecklist = checklist || buildStudentDailyCompletionChecklist(buildStudentDailyOperation(null));
+  panel.dataset.category = safeChecklist.category;
+  title.textContent = safeChecklist.title;
+  copy.textContent = safeChecklist.copy;
+  steps.replaceChildren(...safeChecklist.steps.map((step) => {
     const item = documentObject.createElement("li");
     item.textContent = step;
     return item;

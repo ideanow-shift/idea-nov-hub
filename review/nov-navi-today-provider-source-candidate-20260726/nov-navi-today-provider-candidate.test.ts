@@ -1,4 +1,10 @@
-import { buildNovNaviTodayEnvelope, NOV_NAVI_TODAY_ACTION, NOV_NAVI_TODAY_SCHEMA } from "./nov-navi-today-provider-candidate.ts";
+import {
+  buildNovNaviTodayEnvelope,
+  buildNovNaviTodayEnvelopeForReadyProviders,
+  NOV_NAVI_TODAY_ACTION,
+  NOV_NAVI_TODAY_SCHEMA,
+} from "./nov-navi-today-provider-candidate.ts";
+import { NOV_NAVI_TODAY_OWNER_CONFIRMATIONS_PENDING } from "./nov-navi-today-provider-readiness.ts";
 
 function assertEquals(actual: unknown, expected: unknown) {
   const left = JSON.stringify(actual);
@@ -68,4 +74,33 @@ Deno.test("does not request the held inquiries provider", async () => {
   );
   assertEquals(calls.includes("inquiries"), false);
   assertEquals(calls.length, 5);
+});
+
+Deno.test("does not call a provider until its owner confirmations are complete", async () => {
+  const calls: string[] = [];
+  const pending = await buildNovNaviTodayEnvelopeForReadyProviders(
+    { active: true, loginEnabled: true },
+    NOV_NAVI_TODAY_OWNER_CONFIRMATIONS_PENDING,
+    async (field) => {
+      calls.push(field);
+      return 1;
+    },
+  );
+  assertEquals(pending.aggregates, {});
+  assertEquals(calls, []);
+
+  const confirmations = {
+    ...NOV_NAVI_TODAY_OWNER_CONFIRMATIONS_PENDING,
+    thanks: { definitionConfirmed: true, authorizationConfirmed: true },
+  };
+  const confirmed = await buildNovNaviTodayEnvelopeForReadyProviders(
+    { active: true, loginEnabled: true },
+    confirmations,
+    async (field) => {
+      calls.push(field);
+      return 4;
+    },
+  );
+  assertEquals(calls, ["thanks"]);
+  assertEquals(confirmed.aggregates, { thanks: 4 });
 });

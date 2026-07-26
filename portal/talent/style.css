@@ -869,6 +869,11 @@ h3 { margin: 0; font-size: 1rem; }
   font-size: 0.9rem;
   font-weight: 700;
 }
+.detail-followup-state { display: inline-flex; margin-top: 6px; font-size: 0.72rem; font-weight: 800; }
+.detail-followup-state.is-overdue { color: #b33131; }
+.detail-followup-state.is-next-7-days { color: #9a5d00; }
+.detail-followup-state.is-scheduled { color: #176f48; }
+.detail-followup-state.is-unscheduled { color: var(--muted); }
 .review-notes { margin-top: 18px; }
 .review-notes h4 { margin: 0; font-size: 0.84rem; }
 .review-notes ul { display: grid; gap: 7px; margin: 10px 0 0; padding: 0; list-style: none; }

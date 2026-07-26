@@ -1244,6 +1244,18 @@ function renderStudentDetail(documentObject, student) {
   setText(documentObject, "student-detail-planned-store", student.plannedStore || "未登録");
   setText(documentObject, "student-detail-application", student.applicationNo || "未確定");
   setText(documentObject, "student-detail-next-action", student.nextActionAt || "未登録");
+  const followUpCategory = classifyTalentStudentFollowUp(student);
+  const followUpState = documentObject.getElementById("student-detail-followup-state");
+  if (followUpState) {
+    const labels = {
+      OVERDUE: "期限超過: 優先対応",
+      NEXT_7_DAYS: "7日以内: 対応予定",
+      SCHEDULED: "予定あり",
+      UNSCHEDULED: "未設定"
+    };
+    followUpState.textContent = labels[followUpCategory];
+    followUpState.className = `detail-followup-state is-${followUpCategory.toLowerCase().replaceAll("_", "-")}`;
+  }
   setText(documentObject, "student-detail-profile-version", student.profileVersion ? `v${student.profileVersion}` : "未登録");
   setText(
     documentObject,

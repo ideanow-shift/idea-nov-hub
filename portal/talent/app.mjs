@@ -301,14 +301,16 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-month-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-follow-up-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-sort-filter")?.addEventListener("change", refresh);
-  documentObject.getElementById("student-filter-reset")?.addEventListener("click", () => {
+  const resetStudentFilters = () => {
     const controls = ["student-search", "student-source-filter", "student-state-filter", "student-progress-filter", "student-month-filter", "student-follow-up-filter", "student-sort-filter"];
     controls.forEach((id) => {
       const control = documentObject.getElementById(id);
       if (control) control.value = id === "student-search" ? "" : id === "student-sort-filter" ? "DEFAULT" : "ALL";
     });
     refresh();
-  });
+  };
+  documentObject.getElementById("student-filter-reset")?.addEventListener("click", resetStudentFilters);
+  documentObject.getElementById("student-empty-reset")?.addEventListener("click", resetStudentFilters);
   [
     ["student-filter-all", "ALL"],
     ["student-filter-review", "OWNER_REVIEW"],
@@ -1282,6 +1284,11 @@ function renderStudentWorkspace(documentObject) {
   updateStudentQuickFilterState(documentObject, state, studentWorkspaceData.students);
   updateStudentFilterResetState(documentObject, { query, source, state, progress, month, followUp, sort });
   renderStudentFilterSummary(documentObject, buildStudentFilterSummary({ query, source, state, progress, month, followUp, sort }));
+  renderStudentEmptyState(documentObject, {
+    total: studentWorkspaceData.students.length,
+    visible: visible.length,
+    hasActiveFilters: hasActiveStudentFilters({ query, source, state, progress, month, followUp, sort })
+  });
   const list = documentObject.getElementById("student-list");
   const empty = documentObject.getElementById("student-empty");
   const count = documentObject.getElementById("student-result-count");
@@ -1297,6 +1304,40 @@ function renderStudentWorkspace(documentObject) {
     documentObject,
     studentWorkspaceData.students.find((student) => student.recordId === selectedStudentRecordId) || null
   );
+}
+
+export function buildStudentEmptyState({ total = 0, visible = 0, hasActiveFilters = false } = {}) {
+  if (visible > 0) return Object.freeze({ visible: false, title: "", copy: "", canReset: false });
+  if (total === 0) {
+    return Object.freeze({
+      visible: true,
+      title: "表示できる学生データがまだありません",
+      copy: "27卒データの取込または手入力追加が完了すると、ここに学生一覧が表示されます。",
+      canReset: false
+    });
+  }
+  return Object.freeze({
+    visible: true,
+    title: hasActiveFilters ? "条件に一致する学生がいません" : "表示できる学生がありません",
+    copy: hasActiveFilters
+      ? "検索・区分・確認状態・対応期限の条件をゆるめると、対象が見つかる可能性があります。"
+      : "取込済みデータはありますが、現在の表示条件では一覧化できません。",
+    canReset: hasActiveFilters
+  });
+}
+
+function hasActiveStudentFilters({ query = "", source = "ALL", state = "ALL", progress = "ALL", month = "ALL", followUp = "ALL", sort = "DEFAULT" } = {}) {
+  return Boolean(query) || source !== "ALL" || state !== "ALL" || progress !== "ALL" || month !== "ALL" || followUp !== "ALL" || sort !== "DEFAULT";
+}
+
+function renderStudentEmptyState(documentObject, state) {
+  const view = buildStudentEmptyState(state);
+  const title = documentObject.getElementById("student-empty-title");
+  const copy = documentObject.getElementById("student-empty-copy");
+  const reset = documentObject.getElementById("student-empty-reset");
+  if (title) title.textContent = view.title;
+  if (copy) copy.textContent = view.copy;
+  if (reset) reset.hidden = !view.canReset;
 }
 
 function updateStudentQuickFilterState(documentObject, state, students) {
@@ -1325,7 +1366,7 @@ function updateStudentQuickFilterState(documentObject, state, students) {
 function updateStudentFilterResetState(documentObject, { query, source, state, progress, month, followUp, sort }) {
   const button = documentObject.getElementById("student-filter-reset");
   if (!button) return;
-  const active = Boolean(query) || source !== "ALL" || state !== "ALL" || progress !== "ALL" || month !== "ALL" || followUp !== "ALL" || sort !== "DEFAULT";
+  const active = hasActiveStudentFilters({ query, source, state, progress, month, followUp, sort });
   button.disabled = !active;
   button.setAttribute("aria-disabled", String(!active));
 }

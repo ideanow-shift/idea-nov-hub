@@ -883,6 +883,7 @@ h3 { margin: 0; font-size: 1rem; }
 .detail-placeholder[hidden] { display: none; }
 .student-empty p,
 .detail-placeholder p { margin: 7px 0 0; }
+.student-empty-reset { justify-self: center; margin-top: 14px; }
 
 .student-detail-panel {
   min-width: 0;

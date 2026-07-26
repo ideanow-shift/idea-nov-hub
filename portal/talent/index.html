@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-analysis-kpi-shortcuts-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-student-empty-state-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-analysis-kpi-shortcuts-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-student-empty-state-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -293,8 +293,9 @@
             </header>
             <div id="student-list" class="student-list" role="listbox" aria-label="学生一覧"></div>
             <div id="student-empty" class="student-empty" hidden>
-              <strong>該当するデータがありません</strong>
-              <p>検索条件を変更してください。</p>
+              <strong id="student-empty-title">該当するデータがありません</strong>
+              <p id="student-empty-copy">検索条件を変更してください。</p>
+              <button id="student-empty-reset" class="filter-command student-empty-reset" type="button" hidden>条件をリセット</button>
             </div>
           </section>
 

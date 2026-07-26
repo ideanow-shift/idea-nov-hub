@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-review-workload-next-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-analysis-kpi-shortcuts-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-review-workload-next-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-analysis-kpi-shortcuts-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -458,7 +458,7 @@
         <section class="analysis-kpis" aria-label="接触データの概要">
           <article><span>接触データ</span><strong id="fair-contact-count">-</strong></article>
           <article><span>LINE登録率</span><strong id="fair-line-rate">-</strong></article>
-          <article><span>記録月数</span><strong id="fair-month-count">-</strong></article>
+          <article><span>記録月数</span><strong id="fair-month-count">-</strong><button id="fair-latest-month-open" class="analysis-kpi-action" type="button" disabled>最新月を見る</button></article>
           <article><span>学校数</span><strong id="school-count">-</strong></article>
         </section>
         <section class="analysis-panel" aria-labelledby="fair-flow-title">
@@ -485,7 +485,7 @@
         <section class="analysis-kpis" aria-label="学校情報の登録状況">
           <article><span>集計対象校</span><strong id="school-registered-count">-</strong></article>
           <article><span>学校未登録</span><strong id="school-missing-count">-</strong></article>
-          <article class="analysis-kpi-wide"><span>接触数トップ</span><strong id="school-top-name">-</strong></article>
+          <article class="analysis-kpi-wide"><span>接触数トップ</span><strong id="school-top-name">-</strong><button id="school-top-open" class="analysis-kpi-action" type="button" disabled>学生を見る</button></article>
         </section>
         <section class="analysis-panel" aria-labelledby="school-table-title">
           <header class="analysis-toolbar">

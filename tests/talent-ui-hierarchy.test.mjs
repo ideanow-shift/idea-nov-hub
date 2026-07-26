@@ -43,8 +43,10 @@ test("school analysis leads directly to a focused student follow-up list", async
   });
   assert.equal(buildSchoolFollowUpFilter(""), null);
   assert.match(html, /<th>フォロー<\/th>/);
+  assert.match(html, /id="school-top-open"/);
   assert.match(app, /button\.textContent = "学生を見る"/);
   assert.match(app, /openSchoolStudentWorkspace/);
+  assert.match(app, /dataset\.schoolName/);
   assert.match(app, /data-secondary-tab="students"/);
 });
 
@@ -136,7 +138,9 @@ test("fair analysis opens a student queue scoped to its selected record month", 
   assert.match(app, /student-detail-next-action/);
   assert.match(app, /期限超過: 優先対応/);
   assert.match(html, /<th>記録月<\/th>[\s\S]*<th>フォロー<\/th>/);
+  assert.match(html, /id="fair-latest-month-open"/);
   assert.match(app, /button\.textContent = "対象月を見る"/);
+  assert.match(app, /dataset\.monthKey/);
   assert.match(app, /renderStudentMonthFilterOptions/);
 });
 

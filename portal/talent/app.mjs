@@ -349,6 +349,14 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("school-sort")?.addEventListener("change", () => {
     renderTalentAnalytics(documentObject);
   });
+  documentObject.getElementById("fair-latest-month-open")?.addEventListener("click", () => {
+    const key = documentObject.getElementById("fair-latest-month-open")?.dataset.monthKey;
+    openStudentWorkspace(documentObject, buildMonthlyFollowUpFilter(key));
+  });
+  documentObject.getElementById("school-top-open")?.addEventListener("click", () => {
+    const school = documentObject.getElementById("school-top-open")?.dataset.schoolName;
+    openSchoolStudentWorkspace(documentObject, school);
+  });
   documentObject.getElementById("student-reload")?.addEventListener("click", () => {
     loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
   });
@@ -873,6 +881,18 @@ function renderAnalyticsCoverage(documentObject, analytics) {
   setText(documentObject, "school-missing-count", analytics.coverage.schoolMissing);
   const topSchool = analytics.schools[0];
   setText(documentObject, "school-top-name", topSchool?.school || "未集計");
+  const latestMonth = analytics.flow[0];
+  const latestButton = documentObject.getElementById("fair-latest-month-open");
+  if (latestButton) {
+    latestButton.disabled = !latestMonth?.key;
+    latestButton.dataset.monthKey = latestMonth?.key || "";
+    latestButton.textContent = latestMonth?.label ? `${latestMonth.label}を見る` : "最新月を見る";
+  }
+  const schoolButton = documentObject.getElementById("school-top-open");
+  if (schoolButton) {
+    schoolButton.disabled = !topSchool?.school;
+    schoolButton.dataset.schoolName = topSchool?.school || "";
+  }
 }
 
 function renderMonthlyFlow(documentObject, rows) {

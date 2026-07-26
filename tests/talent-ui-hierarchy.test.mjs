@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewModeCopy, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildReviewWorkloadSteps, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewModeCopy, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -486,6 +486,10 @@ test("review workload guide separates bulk-safe, individual, and quarantine work
   assert.equal(guide.bulk, 1);
   assert.equal(guide.individual, 1);
   assert.equal(guide.quarantine, 2);
+  const steps = buildReviewWorkloadSteps(guide);
+  assert.deepEqual(steps.map((step) => step.category), ["BULK_MATCH_ONLY", "INDIVIDUAL_REVIEW", "KEEP_QUARANTINED"]);
+  assert.equal(steps[0].isCurrent, true);
+  assert.equal(steps[2].countCategory, "MULTIPLE");
   assert.match(guide.nextTitle, /一致候補/);
   assert.match(guide.bulkCopy, /新規・曖昧行は混ぜません/);
   assert.match(html, /id="student-review-workload"/);
@@ -494,7 +498,9 @@ test("review workload guide separates bulk-safe, individual, and quarantine work
   assert.match(html, /id="review-workload-bulk"/);
   assert.match(html, /id="review-workload-individual"/);
   assert.match(html, /id="review-workload-quarantine"/);
+  assert.match(html, /id="review-workload-steps"/);
   assert.match(app, /renderReviewWorkloadGuide/);
+  assert.match(app, /buildReviewWorkloadSteps/);
   assert.match(app, /nextFilterState/);
   assert.match(app, /review-workload-open/);
   assert.match(app, /dataset\.nextAction = guide\.nextAction/);

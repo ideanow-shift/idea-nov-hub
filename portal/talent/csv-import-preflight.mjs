@@ -372,6 +372,31 @@ export function buildTalent28CsvCorrectionWorkbench(result) {
   });
 }
 
+export function buildTalent28CsvStagingApprovalGuide(result) {
+  const workbench = buildTalent28CsvCorrectionWorkbench(result);
+  const category = workbench.canRequestStagingPreflight ? "READY_TO_REQUEST_STAGING_PREFLIGHT" : "SAFE_FIX_REQUIRED_BEFORE_APPROVAL";
+  const title = {
+    READY_TO_REQUEST_STAGING_PREFLIGHT: "投入前承認へ進めます",
+    SAFE_FIX_REQUIRED_BEFORE_APPROVAL: "CSV修正後に再確認します"
+  }[category];
+  const copy = {
+    READY_TO_REQUEST_STAGING_PREFLIGHT: "件数カテゴリだけを確認し、別承認でstaging preflightへ進みます。canonical/LINE履歴への昇格はまだ行いません。",
+    SAFE_FIX_REQUIRED_BEFORE_APPROVAL: "修正対象を直してからCSVを再選択します。個人値はチャットへ貼らず、画面内のカテゴリだけで確認します。"
+  }[category];
+  return Object.freeze({
+    category,
+    title,
+    copy,
+    approvalReachable: category === "READY_TO_REQUEST_STAGING_PREFLIGHT",
+    rawValuesIncluded: false,
+    googleSheetsConnectorRead: false,
+    productionDbOperation: false,
+    stagingWriteRequiresSeparateApproval: true,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false
+  });
+}
+
 function renderTalent28CsvReceiptText(receipt) {
   const categoryText = {
     READY_FOR_OWNER_DECISION: "投入前確認へ進めます",
@@ -497,7 +522,8 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
   const fixGuideList = documentObject?.getElementById?.("talent-28-csv-fix-guide");
   const correctionRoute = documentObject?.getElementById?.("talent-28-csv-correction-route");
   const correctionWorkbench = documentObject?.getElementById?.("talent-28-csv-correction-workbench");
-  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute || !correctionWorkbench) return Object.freeze({ initialized: false });
+  const stagingApprovalGuide = documentObject?.getElementById?.("talent-28-csv-staging-approval-guide");
+  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute || !correctionWorkbench || !stagingApprovalGuide) return Object.freeze({ initialized: false });
   if (input.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true });
   input.dataset.bound = "true";
   const preparation = buildTalent28CsvPreparationGuide();
@@ -562,6 +588,9 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
       item.append(term, description);
       return item;
     }));
+    const approvalGuide = buildTalent28CsvStagingApprovalGuide(result);
+    stagingApprovalGuide.dataset.category = approvalGuide.category;
+    stagingApprovalGuide.textContent = `${approvalGuide.title}: ${approvalGuide.copy}`;
     fixGuideList.dataset.category = fixGuide.nextCategory;
     fixGuideList.replaceChildren(...fixGuide.steps.map((step) => {
       const item = documentObject.createElement("li");

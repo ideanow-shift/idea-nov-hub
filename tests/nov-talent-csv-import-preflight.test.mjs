@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { analyzeTalent28CsvPreflight, buildTalent28CsvCorrectionRoute, buildTalent28CsvCorrectionWorkbench, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvPreparationGuide, buildTalent28CsvSafeReceipt, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
+import { analyzeTalent28CsvPreflight, buildTalent28CsvCorrectionRoute, buildTalent28CsvCorrectionWorkbench, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvPreparationGuide, buildTalent28CsvSafeReceipt, buildTalent28CsvStagingApprovalGuide, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
 
 const header = [
   "source_row_no", "graduation_year", "source_type", "source_label", "student_name", "student_name_kana",
@@ -17,6 +17,31 @@ test("28卒 CSV template emits the exact header contract only", () => {
   assert.equal(template, `${header}\n`);
   assert.doesNotMatch(template, /学生|学校|電話|メール|example/i);
   assert.equal(analyzeTalent28CsvPreflight(`${template}${row(["1", "2028", "CONTACTS_28", "contacts", "学生 太郎", "", "学校", "", "090", "", "", "", "", "", "", "", "", "", "", "", "", "FALSE", ""])}`).headerCategory, "PASS");
+});
+
+test("28卒 CSV staging approval guide stays separate from writes", async () => {
+  const html = await readFile(new URL("../portal/talent/index.html", import.meta.url), "utf8");
+  const css = await readFile(new URL("../portal/talent/style.css", import.meta.url), "utf8");
+  const blocked = buildTalent28CsvStagingApprovalGuide({
+    fixedCategory: "CSV_REQUIRED_IDENTITY_INCOMPLETE",
+    readiness: { canRequestStagingPreflight: false },
+    counts: { missingIdentityRows: 1 }
+  });
+  const ready = buildTalent28CsvStagingApprovalGuide({
+    fixedCategory: "PASS",
+    readiness: { canRequestStagingPreflight: true },
+    counts: { totalRows: 3, readyRows: 3, quarantineRows: 0 }
+  });
+  assert.equal(blocked.category, "SAFE_FIX_REQUIRED_BEFORE_APPROVAL");
+  assert.equal(blocked.approvalReachable, false);
+  assert.equal(ready.category, "READY_TO_REQUEST_STAGING_PREFLIGHT");
+  assert.equal(ready.approvalReachable, true);
+  assert.equal(ready.stagingWriteRequiresSeparateApproval, true);
+  assert.equal(ready.canonicalWriteReachable, false);
+  assert.equal(ready.lineHistoryWriteReachable, false);
+  assert.equal(ready.rawValuesIncluded, false);
+  assert.match(html, /talent-28-csv-staging-approval-guide/);
+  assert.match(css, /\.csv-staging-approval-guide/);
 });
 
 test("28卒 CSV correction workbench shows safe field groups before staging approval", async () => {

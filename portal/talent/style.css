@@ -383,6 +383,9 @@ h3 { margin: 0; font-size: 1rem; }
 .csv-correction-workbench[data-category="YEAR"] div,
 .csv-correction-workbench[data-category="SOURCE"] div,
 .csv-correction-workbench[data-category="IDENTITY"] div { border-color: #f1b8b8; background: #fff6f6; }
+.csv-staging-approval-guide { grid-column: 1 / -1; margin: 0; padding: 11px 13px; border: 1px solid #eadbc7; border-radius: 7px; background: #fffaf2; color: var(--muted); font-size: .86rem; font-weight: 850; line-height: 1.5; }
+.csv-staging-approval-guide[data-category="READY_TO_REQUEST_STAGING_PREFLIGHT"] { border-color: #cbe8d3; background: #f8fffb; color: #267650; }
+.csv-staging-approval-guide[data-category="SAFE_FIX_REQUIRED_BEFORE_APPROVAL"] { border-color: #f1b8b8; background: #fff6f6; color: #b33131; }
 .csv-preflight-fix-guide { grid-column: 1 / -1; display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .csv-preflight-fix-guide li { padding: 9px 11px; border: 1px dashed var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .82rem; font-weight: 800; }
 .csv-preflight-fix-guide[data-category="REQUEST_STAGING_PREFLIGHT_APPROVAL"] li { border-style: solid; border-color: #cbe8d3; color: #2f7441; background: #f8fffb; }

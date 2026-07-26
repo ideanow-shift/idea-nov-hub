@@ -220,6 +220,25 @@ export function buildWorkforceProcedureCaseFormGuide(draft, referenceDate = loca
   return Object.freeze({ category, title, copy });
 }
 
+export function buildWorkforceProcedureStatusMessage(category) {
+  const messages = {
+    idle: "手続き案件を読み込むと、下書き・確認・中止の履歴を管理できます。社員マスタはここでは変更しません。",
+    loading: "手続き案件を読み込んでいます。",
+    loaded: "手続き案件を表示しました。編集は案件履歴に記録されます。",
+    saved: "手続き案件を保存しました。社員マスタへの反映は別の承認済み手続きで行います。",
+    feature_disabled: "手続き案件の編集機能は未接続です。画面確認と導線確認はできますが、保存はまだ行えません。",
+    auth_required: "認証を確認できません。ログイン状態を確認してから、保存や履歴表示をやり直してください。",
+    write_forbidden: "このアカウントでは手続き案件の編集権限を確認できません。閲覧できる範囲で確認し、権限付与後に保存してください。",
+    not_ready: "手続き案件APIは準備中です。入力内容は画面で確認できますが、保存は有効化後に行ってください。",
+    invalid_request: "入力内容を確認してください。対象者・基準日・進捗は必須です。",
+    checklist_incomplete: "確認済みにする前に、案件の確認項目をすべて完了してください。",
+    invalid_response: "手続き案件の応答を確認できませんでした。値は表示せず、安全に停止しました。",
+    request_failed: "手続き案件を保存できませんでした。再読み込み後、重複保存に注意して確認してください。",
+    busy: "処理中です。完了するまで次の操作を待ってください。"
+  };
+  return messages[category] || messages.request_failed;
+}
+
 function normalizeSteps(value) {
   if (!exactKeys(value, ["procedureType", "steps"]) || !PROCEDURE_TYPES.includes(value.procedureType)
     || !Array.isArray(value.steps) || value.steps.length !== 4) return null;
@@ -401,23 +420,8 @@ export function initializeWorkforceProcedureDesk({
   };
 
   const setStatus = (category) => {
-    const messages = {
-      idle: "手続き案件を読み込むと、下書き・確認・中止の履歴を管理できます。",
-      loading: "手続き案件を読み込んでいます。",
-      loaded: "手続き案件を表示しました。",
-      saved: "手続き案件を保存しました。",
-      feature_disabled: "手続き案件の編集機能はまだ接続されていません。",
-      auth_required: "認証を確認してから、もう一度お試しください。",
-      write_forbidden: "手続き案件を編集する権限を確認できません。",
-      not_ready: "手続き案件を準備中です。",
-      invalid_request: "入力内容を確認してください。",
-      checklist_incomplete: "確認済みにする前に、案件の確認項目をすべて完了してください。",
-      invalid_response: "手続き案件の応答を確認できませんでした。",
-      request_failed: "手続き案件を保存できませんでした。",
-      busy: "処理中です。"
-    };
     status.dataset.category = category;
-    status.textContent = messages[category] || messages.request_failed;
+    status.textContent = buildWorkforceProcedureStatusMessage(category);
   };
   const input = (name) => form.elements.namedItem(name);
   const currentDraftFromForm = () => Object.freeze({

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { analyzeTalent28CsvPreflight, buildTalent28CsvCorrectionRoute, buildTalent28CsvCorrectionWorkbench, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvPreparationGuide, buildTalent28CsvSafeReceipt, buildTalent28CsvStagingApprovalGuide, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
+import { analyzeTalent28CsvPreflight, buildTalent28CsvCorrectionRoute, buildTalent28CsvCorrectionWorkbench, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvOwnerHandoffChecklist, buildTalent28CsvPreparationGuide, buildTalent28CsvSafeReceipt, buildTalent28CsvStagingApprovalGuide, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
 
 const header = [
   "source_row_no", "graduation_year", "source_type", "source_label", "student_name", "student_name_kana",

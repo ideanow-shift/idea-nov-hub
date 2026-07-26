@@ -1728,7 +1728,9 @@ function renderStudentWorkspace(documentObject) {
   updateStudentQuickFilterState(documentObject, state, studentWorkspaceData.students);
   updateStudentFilterResetState(documentObject, { query, source, state, progress, month, followUp, sort });
   renderStudentFilterSummary(documentObject, buildStudentFilterSummary({ query, source, state, progress, month, followUp, sort }));
-  renderStudentDailyQueueSummary(documentObject, buildStudentDailyQueueSummary(studentWorkspaceData.students));
+  const dailyQueueSummary = buildStudentDailyQueueSummary(studentWorkspaceData.students);
+  renderStudentDailyQueueSummary(documentObject, dailyQueueSummary);
+  renderStudentDailyQueueStartGuide(documentObject, buildStudentDailyQueueStartGuide(dailyQueueSummary));
   renderStudentEmptyState(documentObject, {
     total: studentWorkspaceData.students.length,
     visible: visible.length,
@@ -1808,6 +1810,76 @@ export function buildStudentDailyQueueSummary(students = [], referenceDate = loc
   });
 }
 
+export function buildStudentDailyQueueStartGuide(summary = {}) {
+  const counts = summary?.counts || {};
+  const hasOverdue = Number(counts.overdue || 0) > 0;
+  const hasNextWeek = Number(counts.nextWeek || 0) > 0;
+  const hasOwnerReview = Number(counts.ownerReview || 0) > 0;
+  const hasQuarantine = Number(counts.quarantine || 0) > 0;
+  const hasOnboarding = Number(counts.onboardingReady || 0) > 0;
+  const category = hasOverdue
+    ? "START_OVERDUE_FILTER"
+    : hasNextWeek
+      ? "START_NEXT_WEEK_FILTER"
+      : hasOwnerReview
+        ? "START_OWNER_REVIEW_FILTER"
+        : hasQuarantine
+          ? "START_QUARANTINE_FILTER"
+          : hasOnboarding
+            ? "START_ONBOARDING_HANDOFF"
+            : "START_STEADY_LIST";
+  const guides = {
+    START_OVERDUE_FILTER: {
+      title: "まず期限超過だけ開く",
+      copy: "最初の一覧条件は「期限超過」です。対象を減らして、次回対応日・状態・対応履歴を順番に整えます。",
+      filterCategory: "FOLLOW_UP_OVERDUE",
+      steps: ["対応期限フィルタを期限超過にする", "先頭行から詳細を開く", "次回対応日または状態を更新する"]
+    },
+    START_NEXT_WEEK_FILTER: {
+      title: "直近7日を今日の処理対象にする",
+      copy: "期限超過がなければ、直近7日の予定を対応期限順で確認します。",
+      filterCategory: "FOLLOW_UP_NEXT_7_DAYS",
+      steps: ["対応期限フィルタを直近7日にする", "並び順を対応期限順にする", "今日処理する対象だけ更新する"]
+    },
+    START_OWNER_REVIEW_FILTER: {
+      title: "要確認を安全に仕分ける",
+      copy: "一括反映・個別確認・隔離維持を混ぜず、要確認だけを開いて判断します。",
+      filterCategory: "STATE_OWNER_REVIEW",
+      steps: ["クイック表示で要確認を開く", "一括対象と個別確認を分ける", "承認が必要な操作は別導線に残す"]
+    },
+    START_QUARANTINE_FILTER: {
+      title: "隔離理由を先にそろえる",
+      copy: "不明・重複・根拠不足のまま自動紐付けせず、補足と次回対応だけを整理します。",
+      filterCategory: "STATE_QUARANTINE",
+      steps: ["クイック表示で隔離を開く", "不足理由を確認する", "隔離維持または追加確認を記録する"]
+    },
+    START_ONBOARDING_HANDOFF: {
+      title: "内定者の引き継ぎ準備を見る",
+      copy: "入社手続きへ渡せる候補を確認します。現職者管理への反映は別承認まで止めます。",
+      filterCategory: "ONBOARDING_HANDOFF",
+      steps: ["内定・入社予定の学生を確認する", "入社予定日と配属予定を見る", "現職者管理の入社案件へ引き継ぐ"]
+    },
+    START_STEADY_LIST: {
+      title: "通常フォローから始める",
+      copy: "急ぎの件数がなければ、学校別・月別分析から対象を選んで日常フォローを続けます。",
+      filterCategory: "ALL_STUDENTS",
+      steps: ["学生一覧を開く", "学校別または月別分析から対象を選ぶ", "状態と次回対応を更新する"]
+    }
+  };
+  const guide = guides[category];
+  return Object.freeze({
+    category,
+    title: guide.title,
+    copy: guide.copy,
+    filterCategory: guide.filterCategory,
+    steps: Object.freeze(guide.steps.map((label, index) => Object.freeze({ order: index + 1, label }))),
+    rawValuesIncluded: false,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false,
+    automaticPromotionReachable: false
+  });
+}
+
 function renderStudentDailyQueueSummary(documentObject, summary) {
   const panel = documentObject.getElementById("student-daily-queue-summary");
   if (panel) panel.dataset.category = summary.category;
@@ -1824,6 +1896,23 @@ function renderStudentDailyQueueSummary(documentObject, summary) {
   steps.replaceChildren(...summary.steps.map((step) => {
     const item = documentObject.createElement("li");
     item.dataset.category = step.category;
+    item.textContent = `${step.order}. ${step.label}`;
+    return item;
+  }));
+}
+
+function renderStudentDailyQueueStartGuide(documentObject, guide) {
+  const panel = documentObject.getElementById("student-daily-queue-start-guide");
+  if (panel) {
+    panel.dataset.category = guide.category;
+    panel.dataset.filterCategory = guide.filterCategory;
+  }
+  setText(documentObject, "student-daily-queue-start-title", guide.title);
+  setText(documentObject, "student-daily-queue-start-copy", guide.copy);
+  const steps = documentObject.getElementById("student-daily-queue-start-steps");
+  if (!steps) return;
+  steps.replaceChildren(...guide.steps.map((step) => {
+    const item = documentObject.createElement("li");
     item.textContent = `${step.order}. ${step.label}`;
     return item;
   }));

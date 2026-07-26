@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyzeTalent28CsvPreflight, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvSafeReceipt, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
+import { readFile } from "node:fs/promises";
+import { analyzeTalent28CsvPreflight, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvPreparationGuide, buildTalent28CsvSafeReceipt, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
 
 const header = [
   "source_row_no", "graduation_year", "source_type", "source_label", "student_name", "student_name_kana",
@@ -16,6 +17,20 @@ test("28卒 CSV template emits the exact header contract only", () => {
   assert.equal(template, `${header}\n`);
   assert.doesNotMatch(template, /学生|学校|電話|メール|example/i);
   assert.equal(analyzeTalent28CsvPreflight(`${template}${row(["1", "2028", "CONTACTS_28", "contacts", "学生 太郎", "", "学校", "", "090", "", "", "", "", "", "", "", "", "", "", "", "", "FALSE", ""])}`).headerCategory, "PASS");
+});
+
+test("28卒 CSV preparation guide explains the safe owner handoff before file selection", async () => {
+  const html = await readFile(new URL("../portal/talent/index.html", import.meta.url), "utf8");
+  const css = await readFile(new URL("../portal/talent/style.css", import.meta.url), "utf8");
+  const guide = buildTalent28CsvPreparationGuide();
+  assert.equal(guide.steps.length, 4);
+  assert.deepEqual(guide.steps.map((step) => step.category), ["SOURCE_EXACT3", "IDENTITY_MINIMUM", "DATE_FORMAT", "QUARANTINE_REASON"]);
+  assert.equal(guide.rawValuesIncluded, false);
+  assert.equal(guide.googleSheetsConnectorRead, false);
+  assert.equal(guide.productionWriteReachable, false);
+  assert.match(html, /talent-28-csv-preparation-guide/);
+  assert.match(css, /\.csv-preparation-guide/);
+  assert.doesNotMatch(JSON.stringify(guide), /学生 太郎|090|example|source_row_no/i);
 });
 
 test("28卒 CSV preflight accepts the sealed column contract without exposing row values", () => {

@@ -521,6 +521,59 @@ export function buildWorkforceProcedureCoreHandoffSteps(queue) {
   });
 }
 
+export function buildWorkforceProcedureCoreHandoffReadback(queue) {
+  const category = String(queue?.category || "NO_CORE_HANDOFF_WORK");
+  const labelsByCategory = {
+    SEPARATE_CORE_APPROVAL_REQUIRED: {
+      title: "Core DB引き渡し承認前の読み合わせが必要です",
+      copy: "確認済み案件だけを対象にし、社員マスタ反映は別承認の実行経路へ渡します。",
+      steps: [
+        ["CONFIRMED_ONLY", "確認済みカテゴリだけを引き渡し候補にする"],
+        ["NO_IN_PROGRESS", "下書き・確認待ち・中止はCore DB反映対象に含めない"],
+        ["SEPARATE_APPROVAL", "社員マスタ更新は別承認まで実行しない"]
+      ]
+    },
+    LOCAL_CASES_IN_PROGRESS: {
+      title: "Core DB引き渡し前に案件整理が必要です",
+      copy: "下書き・確認待ちを完了させるまで、社員マスタ更新の承認文は準備しません。",
+      steps: [
+        ["COMPLETE_LOCAL_CASES", "下書きと確認待ちを案件内で完了する"],
+        ["CHECK_HISTORY", "変更履歴と確認項目を確認する"],
+        ["DO_NOT_HANDOFF_YET", "Core DB引き渡し依頼はまだ作らない"]
+      ]
+    },
+    NO_CORE_HANDOFF_WORK: {
+      title: "Core DB引き渡し承認は不要です",
+      copy: "確認済み案件が出るまで、社員マスタ更新の承認文は準備しません。",
+      steps: [
+        ["KEEP_INTAKE_OPEN", "通常受付と案件登録を続ける"],
+        ["WATCH_CONFIRMED", "確認済みになった案件だけを次回確認する"],
+        ["NO_MASTER_MUTATION", "社員マスタ更新は不可到達のままにする"]
+      ]
+    }
+  };
+  const plan = labelsByCategory[category] || labelsByCategory.NO_CORE_HANDOFF_WORK;
+  return Object.freeze({
+    category,
+    title: plan.title,
+    copy: plan.copy,
+    steps: Object.freeze(plan.steps.map(([stepCategory, label], index) => Object.freeze({
+      order: index + 1,
+      category: stepCategory,
+      label
+    }))),
+    handoffReadyCategory: String(queue?.handoffReadyCategory || "ZERO"),
+    localInProgressCategory: String(queue?.localInProgressCategory || "ZERO"),
+    cancelledCategory: String(queue?.cancelledCategory || "ZERO"),
+    rawValuesIncluded: false,
+    employeeMasterMutation: false,
+    coreDbWriteRequiresSeparateApproval: true,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false,
+    automaticPromotionReachable: false
+  });
+}
+
 export function buildWorkforceProcedureEmptyState({ total = 0, hasActiveFilters = false, activeProcedureType = "ALL" } = {}) {
   const procedureType = PROCEDURE_TYPES.includes(activeProcedureType) ? activeProcedureType : "ALL";
   const category = total === 0
@@ -1110,6 +1163,10 @@ export function initializeWorkforceProcedureDesk({
   const coreHandoffTitle = documentObject?.getElementById?.("workforce-case-core-handoff-title");
   const coreHandoffCopy = documentObject?.getElementById?.("workforce-case-core-handoff-copy");
   const coreHandoffSteps = documentObject?.getElementById?.("workforce-case-core-handoff-steps");
+  const coreHandoffReadback = documentObject?.getElementById?.("workforce-case-core-handoff-readback");
+  const coreHandoffReadbackTitle = documentObject?.getElementById?.("workforce-case-core-handoff-readback-title");
+  const coreHandoffReadbackCopy = documentObject?.getElementById?.("workforce-case-core-handoff-readback-copy");
+  const coreHandoffReadbackSteps = documentObject?.getElementById?.("workforce-case-core-handoff-readback-steps");
   const operationSteps = documentObject?.getElementById?.("workforce-case-operation-steps");
   const procedureFilter = documentObject?.getElementById?.("workforce-case-procedure-filter");
   const searchInput = documentObject?.getElementById?.("workforce-case-search");
@@ -1132,7 +1189,7 @@ export function initializeWorkforceProcedureDesk({
   const transitionPlanTitle = documentObject?.getElementById?.("workforce-case-transition-plan-title");
   const transitionPlanCopy = documentObject?.getElementById?.("workforce-case-transition-plan-copy");
   const transitionPlanList = documentObject?.getElementById?.("workforce-case-transition-plan-list");
-  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !operationActionMix || !operationActionMixTitle || !operationActionMixCopy || !operationStartGuide || !operationStartTitle || !operationStartCopy || !operationStartReason || !operationStartButton || !coreHandoffQueue || !coreHandoffTitle || !coreHandoffCopy || !coreHandoffSteps || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy || !checklistPlan || !checklistPlanTitle || !checklistPlanCopy || !checklistPlanList || !savePreview || !savePreviewTitle || !savePreviewCopy || !saveFollowUp || !saveFollowUpTitle || !saveFollowUpCopy || !saveFollowUpSteps || !transitionPlan || !transitionPlanTitle || !transitionPlanCopy || !transitionPlanList) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !operationActionMix || !operationActionMixTitle || !operationActionMixCopy || !operationStartGuide || !operationStartTitle || !operationStartCopy || !operationStartReason || !operationStartButton || !coreHandoffQueue || !coreHandoffTitle || !coreHandoffCopy || !coreHandoffSteps || !coreHandoffReadback || !coreHandoffReadbackTitle || !coreHandoffReadbackCopy || !coreHandoffReadbackSteps || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy || !checklistPlan || !checklistPlanTitle || !checklistPlanCopy || !checklistPlanList || !savePreview || !savePreviewTitle || !savePreviewCopy || !saveFollowUp || !saveFollowUpTitle || !saveFollowUpCopy || !saveFollowUpSteps || !transitionPlan || !transitionPlanTitle || !transitionPlanCopy || !transitionPlanList) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
@@ -1369,6 +1426,16 @@ export function initializeWorkforceProcedureDesk({
     const stepPlan = buildWorkforceProcedureCoreHandoffSteps(queue);
     coreHandoffSteps.dataset.category = stepPlan.category;
     coreHandoffSteps.replaceChildren(...stepPlan.steps.map((step) => {
+      const item = documentObject.createElement("li");
+      item.dataset.category = step.category;
+      item.textContent = `${step.order}. ${step.label}`;
+      return item;
+    }));
+    const readback = buildWorkforceProcedureCoreHandoffReadback(queue);
+    coreHandoffReadback.dataset.category = readback.category;
+    coreHandoffReadbackTitle.textContent = readback.title;
+    coreHandoffReadbackCopy.textContent = readback.copy;
+    coreHandoffReadbackSteps.replaceChildren(...readback.steps.map((step) => {
       const item = documentObject.createElement("li");
       item.dataset.category = step.category;
       item.textContent = `${step.order}. ${step.label}`;

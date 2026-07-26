@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-pipeline-filter-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-pipeline-filter-2">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-pipeline-filter-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-pipeline-filter-2"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -189,6 +189,7 @@
             <span>選考状況</span>
             <select id="student-progress-filter">
               <option value="ALL">すべて</option>
+              <option value="UNSET">選考状況 未登録</option>
               <option value="CONTACT">接触</option>
               <option value="LINE_REGISTERED">LINE登録</option>
               <option value="SALON_TOUR">サロン見学</option>
@@ -360,7 +361,7 @@
                 <option value="PASSED">通過</option>
                 <option value="OFFER">内定</option>
                 <option value="EXPECTED_JOIN">入社予定</option>
-                <option value="WITHDRAWN">辞退</option>
+                <option value="WITHDRAWN">辞退・保管</option>
               </select>
             </label>
             <label><span>次回対応日</span><input id="profile-next-action" name="nextActionAt" type="date"></label>

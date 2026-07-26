@@ -808,6 +808,16 @@ function createAnalysisRow(documentObject, values) {
   return row;
 }
 
+const TALENT_PROGRESS_CODES = Object.freeze([
+  "CONTACT", "LINE_REGISTERED", "SALON_TOUR", "INTERVIEW",
+  "PASSED", "OFFER", "EXPECTED_JOIN", "WITHDRAWN"
+]);
+
+export function getTalentStudentProgressKey(student) {
+  const progress = String(student?.statusCode || "");
+  return TALENT_PROGRESS_CODES.includes(progress) ? progress : "UNSET";
+}
+
 export function filterTalentStudents(students, { query = "", source = "ALL", state = "ALL", progress = "ALL" } = {}) {
   const normalizedQuery = normalizeSearch(query);
   return (Array.isArray(students) ? students : []).filter((student) => {
@@ -817,7 +827,7 @@ export function filterTalentStudents(students, { query = "", source = "ALL", sta
     } else if (state !== "ALL" && student.classification !== state) {
       return false;
     }
-    if (progress !== "ALL" && student.statusCode !== progress) return false;
+    if (progress !== "ALL" && getTalentStudentProgressKey(student) !== progress) return false;
     if (!normalizedQuery) return true;
     return [
       student.displayName, student.kana, student.school, student.status,
@@ -1035,7 +1045,7 @@ function renderStudentActionGuide(documentObject, capability) {
     copy.textContent = "確認すると応募者の作成・紐付けだけを反映します。内容を直す場合は編集から補足情報を保存してください。";
   } else if (capability.editable) {
     title.textContent = "取込データに補足情報を記録できます";
-    copy.textContent = "編集は取込原本を変えず、総務人事部が入力した補足情報だけを保存します。紐付け確定後は正本側で編集できます。";
+    copy.textContent = "編集は取込原本を変えず、選考状況を含む総務人事部の補足情報だけを保存します。紐付け確定後は正本側で編集できます。";
   } else {
     title.textContent = "取込原本は保護された状態です";
     copy.textContent = "この行は取込データのため直接編集しません。紐付け後の正本プロフィール、または新規追加した学生情報を編集してください。";

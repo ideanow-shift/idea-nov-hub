@@ -319,6 +319,11 @@ export function initializeTalentStudentWorkspace({
     refresh();
     documentObject.getElementById("student-list")?.scrollIntoView?.({ block: "nearest" });
   });
+  for (const button of documentObject.querySelectorAll("[data-summary-followup]")) {
+    button.addEventListener("click", () => {
+      openStudentWorkspace(documentObject, buildSummaryFollowUpFilter(button.dataset.summaryFollowup));
+    });
+  }
   documentObject.getElementById("school-search")?.addEventListener("input", () => {
     renderTalentAnalytics(documentObject);
   });
@@ -836,7 +841,10 @@ function createSchoolAnalysisRow(documentObject, school) {
 }
 
 function openSchoolStudentWorkspace(documentObject, school) {
-  const filter = buildSchoolFollowUpFilter(school);
+  openStudentWorkspace(documentObject, buildSchoolFollowUpFilter(school));
+}
+
+function openStudentWorkspace(documentObject, filter) {
   if (!filter) return;
   const search = documentObject.getElementById("student-search");
   const source = documentObject.getElementById("student-source-filter");
@@ -878,6 +886,18 @@ export function buildSchoolFollowUpFilter(school) {
   return Object.freeze({ query, source: "ALL", state: "ALL", progress: "ALL" });
 }
 
+export function buildSummaryFollowUpFilter(key) {
+  const filters = {
+    contacts: { source: "CONTACTS_27" },
+    entries: { source: "ENTRIES_27" },
+    offers: { source: "OFFERS_27" },
+    needsAction: { state: "NEEDS_ACTION" }
+  };
+  const selected = filters[String(key || "")];
+  if (!selected) return null;
+  return Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "ALL", ...selected });
+}
+
 export function buildOnboardingHandoffDraft(student) {
   if (!student || typeof student !== "object") return null;
   const displayName = typeof student.displayName === "string" ? student.displayName.trim() : "";
@@ -897,6 +917,8 @@ export function filterTalentStudents(students, { query = "", source = "ALL", sta
     if (source !== "ALL" && student.sourceCode !== source) return false;
     if (state === "NEW_CANDIDATE") {
       if (!isNewApplicantCandidate(student)) return false;
+    } else if (state === "NEEDS_ACTION") {
+      if (!["OWNER_REVIEW", "QUARANTINE"].includes(student.classification)) return false;
     } else if (state !== "ALL" && student.classification !== state) {
       return false;
     }

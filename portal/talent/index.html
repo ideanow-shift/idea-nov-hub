@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-school-analysis-followup-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-summary-followup-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-school-analysis-followup-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-summary-followup-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -68,6 +68,15 @@
           <article class="metric"><p class="metric-name">内定</p><p class="metric-value">-</p></article>
           <article class="metric"><p class="metric-name">紐付け済み</p><p class="metric-value">-</p></article>
           <article class="metric"><p class="metric-name">要確認・隔離</p><p class="metric-value">-</p></article>
+        </section>
+        <section class="summary-followup" aria-label="採用状況から学生フォローを開く">
+          <div><p class="section-kicker">FOLLOW-UP SHORTCUTS</p><h3>学生フォローを開く</h3></div>
+          <div class="summary-followup-actions">
+            <button type="button" data-summary-followup="contacts">接触を確認</button>
+            <button type="button" data-summary-followup="entries">エントリーを確認</button>
+            <button type="button" data-summary-followup="offers">内定を確認</button>
+            <button type="button" data-summary-followup="needsAction">要確認・隔離を確認</button>
+          </div>
         </section>
 
         <div class="section-heading confirmed-summary-heading">
@@ -183,6 +192,7 @@
               <option value="QUARANTINE">隔離</option>
               <option value="IMPORTABLE">確認済み</option>
               <option value="NEW_CANDIDATE">新規候補</option>
+              <option value="NEEDS_ACTION">要確認・隔離</option>
             </select>
           </label>
           <label>

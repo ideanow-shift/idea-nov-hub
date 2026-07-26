@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildOnboardingHandoffDraft, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, filterTalentStudents, getTalentStudentProgressKey, isNewApplicantCandidate } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildOnboardingHandoffDraft, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildSummaryFollowUpFilter, filterTalentStudents, getTalentStudentProgressKey, isNewApplicantCandidate } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -46,6 +46,25 @@ test("school analysis leads directly to a focused student follow-up list", async
   assert.match(app, /button\.textContent = "学生を見る"/);
   assert.match(app, /openSchoolStudentWorkspace/);
   assert.match(app, /data-secondary-tab="students"/);
+});
+
+test("summary shortcuts open the intended student queues without changing records", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+  const rows = [
+    { displayName: "確認対象", sourceCode: "CONTACTS_27", classification: "OWNER_REVIEW", statusCode: "CONTACT" },
+    { displayName: "隔離対象", sourceCode: "OFFERS_27", classification: "QUARANTINE", statusCode: "OFFER" },
+    { displayName: "確認済み", sourceCode: "ENTRIES_27", classification: "IMPORTABLE", statusCode: "INTERVIEW" }
+  ];
+
+  assert.deepEqual(buildSummaryFollowUpFilter("offers"), { query: "", source: "OFFERS_27", state: "ALL", progress: "ALL" });
+  assert.deepEqual(buildSummaryFollowUpFilter("needsAction"), { query: "", source: "ALL", state: "NEEDS_ACTION", progress: "ALL" });
+  assert.equal(buildSummaryFollowUpFilter("unknown"), null);
+  assert.deepEqual(filterTalentStudents(rows, buildSummaryFollowUpFilter("needsAction")).map((row) => row.displayName), ["確認対象", "隔離対象"]);
+  assert.match(html, /data-summary-followup="needsAction"/);
+  assert.match(html, /option value="NEEDS_ACTION">要確認・隔離<\/option>/);
+  assert.match(app, /buildSummaryFollowUpFilter/);
+  assert.match(app, /openStudentWorkspace/);
 });
 
 test("workforce management exposes four accessible procedure tabs", async () => {

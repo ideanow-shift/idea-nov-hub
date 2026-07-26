@@ -101,10 +101,17 @@ function roleProfile(employee) {
 }
 
 function visibleSystem(system, employee) {
+  if (isAdmin(employee)) return true;
   if (system.adminOnly) return isAdmin(employee);
   const capabilities = new Set((employee?.capabilities || []).map(appKey));
   if ((system.anyCapabilities || []).some((capability) => capabilities.has(appKey(capability)))) return true;
   return Number(employee?.roleLevel || 1) >= Number(system.minLevel || 1);
+}
+
+export function getVisibleNaviCategories(employee) {
+  return CATEGORY_ORDER.filter((category) => (
+    SYSTEMS.some((system) => system.category === category && visibleSystem(system, employee))
+  ));
 }
 
 function createSystemCard(system, apps, onOpenApp) {
@@ -193,8 +200,9 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
   if (!enabled) return;
 
   const profile = roleProfile(employee);
+  const visibleCategories = getVisibleNaviCategories(employee);
   root.innerHTML = `
-    <div class="navi-role-summary"><span>表示区分</span><strong>${escapeHtml(profile.label)}</strong><small>起動時に各システム側で権限を再確認します</small></div>
+    <div class="navi-role-summary"><span>表示区分</span><strong>${escapeHtml(profile.label)}</strong><div class="navi-role-categories" aria-label="表示中の業務領域">${visibleCategories.map((category) => `<span>${escapeHtml(category)}</span>`).join("")}</div><small>起動時に各システム側で権限を再確認します</small></div>
     <section class="navi-today" aria-labelledby="navi-today-title">
       <div class="navi-section-heading"><h2 id="navi-today-title">今日の仕事</h2><span>各システムの連携準備中</span></div>
       <p class="navi-today-greeting">${escapeHtml(getNaviGreeting())}</p>

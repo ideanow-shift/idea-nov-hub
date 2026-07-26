@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
+  getVisibleNaviCategories,
   getNaviGreeting,
   shouldEnableLocalNovNaviDemo,
   shouldEnableNovNaviDashboard
@@ -45,6 +46,22 @@ assert.equal(
 assert.equal(getNaviGreeting(8), "おはようございます。今日の仕事を確認しましょう。", "morning greeting");
 assert.equal(getNaviGreeting(13), "おつかれさまです。今日の進み具合を確認しましょう。", "afternoon greeting");
 assert.equal(getNaviGreeting(20), "おつかれさまです。明日の準備を確認しましょう。", "evening greeting");
+
+assert.deepEqual(
+  getVisibleNaviCategories({ roleLevel: 1, roleKeys: [] }),
+  ["運営管理", "成長", "キャリア"],
+  "employee sees the daily work areas only"
+);
+assert.deepEqual(
+  getVisibleNaviCategories({ roleLevel: 3, roleKeys: [] }),
+  ["運営管理", "成長", "キャリア", "経営管理"],
+  "store manager sees management operations without system administration"
+);
+assert.deepEqual(
+  getVisibleNaviCategories({ roleLevel: 1, roleKeys: ["super_admin"] }),
+  ["運営管理", "成長", "キャリア", "経営管理", "システム管理"],
+  "system administrator sees all NOV NAVI categories"
+);
 
 const dashboardSource = await readFile(new URL("../portal/js/nov-navi-dashboard.js", import.meta.url), "utf8");
 const mainSource = await readFile(new URL("../portal/js/main.js", import.meta.url), "utf8");

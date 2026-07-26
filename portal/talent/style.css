@@ -320,6 +320,34 @@ h3 { margin: 0; font-size: 1rem; }
 .talent-final-readiness ol {
   list-style: none;
 }
+.talent-launch-checklist {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 9px;
+  border: 1px solid #e8dccd;
+  background: #fffaf3;
+}
+.talent-launch-checklist strong {
+  display: block;
+  color: #6a4324;
+}
+.talent-launch-checklist ul {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.talent-launch-checklist li {
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .84);
+  border: 1px solid #efe0cb;
+  color: #6c5844;
+  font-size: .78rem;
+  line-height: 1.5;
+}
 
 .primary-panel {
   margin-top: 16px;
@@ -1990,6 +2018,7 @@ h3 { margin: 0; font-size: 1rem; }
   .talent-next-build-targets { grid-template-columns: 1fr; }
   .talent-final-readiness dl,
   .talent-final-readiness ol { grid-template-columns: 1fr; }
+  .talent-launch-checklist ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .summary-command { flex-direction: column; align-items: flex-end; }
   .summary-grid, .historical-summary-grid, .workforce-summary, .workforce-operation-boundaries, .procedure-board, .procedure-checklist, .procedure-case-overview, .procedure-case-type-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .procedure-case-operation-summary { display: grid; }
@@ -2043,6 +2072,7 @@ h3 { margin: 0; font-size: 1rem; }
   .talent-implementation-progress { padding: 14px; }
   .talent-progress-grid { grid-template-columns: 1fr; }
   .talent-final-readiness { padding: 10px; }
+  .talent-launch-checklist ul { grid-template-columns: 1fr; }
   .primary-tab { min-height: 68px; padding: 13px 16px; }
   .secondary-tabs { gap: 20px; padding: 0 18px; }
   .secondary-panel, #panel-workforce { padding: 18px; }

@@ -53,11 +53,16 @@ test("implementation progress board shows remaining work without enabling writes
 
   assert.match(html, /id="talent-implementation-progress"/);
   assert.match(html, /id="talent-next-build-targets"/);
-  assert.match(html, /data-complete-percent="95" data-remaining-percent="5"/);
+  assert.match(html, /data-complete-percent="97" data-remaining-percent="3"/);
   assert.match(html, /id="talent-final-readiness"/);
   assert.match(html, /READY_FOR_DAILY_USE_WITH_APPROVAL_GATES/);
+  assert.match(html, /id="talent-launch-checklist"/);
+  assert.match(html, /LAUNCH_READY_WITH_APPROVAL_BOUNDARIES/);
   for (const area of ["DAILY_OPERATION", "OWNER_APPROVAL", "PUBLICATION"]) {
     assert.match(html, new RegExp(`data-readiness-area="${area}"`));
+  }
+  for (const category of ["START_FROM_DAILY_COMMAND", "USE_LIST_FILTERS", "VERIFY_APPROVAL_TEXT", "NO_DIRECT_PROMOTION"]) {
+    assert.match(html, new RegExp(`data-category="${category}"`));
   }
   for (const area of ["STUDENT_FOLLOWUP", "ANALYTICS_ACTION", "CSV28_INTAKE", "WORKFORCE_CASES"]) {
     assert.match(html, new RegExp(`data-progress-area="${area}"`));
@@ -70,10 +75,13 @@ test("implementation progress board shows remaining work without enabling writes
   assert.match(css, /\.talent-progress-grid/);
   assert.match(css, /\.talent-next-build-targets/);
   assert.match(css, /\.talent-final-readiness/);
+  assert.match(css, /\.talent-launch-checklist/);
   assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-progress-grid \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
   assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-next-build-targets \{ grid-template-columns: 1fr; \}/);
   assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-final-readiness dl/);
+  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-launch-checklist ul \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.talent-progress-grid \{ grid-template-columns: 1fr; \}/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.talent-launch-checklist ul \{ grid-template-columns: 1fr; \}/);
   assert.doesNotMatch(html, /talent-implementation-progress[\s\S]{0,1200}(data-.*write|commit|社員マスタへ直接反映)/i);
 });
 

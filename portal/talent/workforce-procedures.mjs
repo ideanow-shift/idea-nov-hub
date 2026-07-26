@@ -355,6 +355,58 @@ export function buildWorkforceProcedureOperationSteps(summary) {
   });
 }
 
+export function buildWorkforceProcedureOperationStartGuide(summary) {
+  const nextAction = summary?.nextAction || "NO_OPEN_WORK";
+  const filter = buildWorkforceProcedureOperationFilter(nextAction);
+  const plans = Object.freeze({
+    OVERDUE: Object.freeze({
+      title: "最初に期限超過を見る",
+      copy: "遅れている案件だけに絞り、基準日・不足情報・進捗を先に整えます。",
+      buttonLabel: "期限超過を見る",
+      reason: "期限超過は現職者手続きの優先キューです。"
+    }),
+    NEXT_7_DAYS: Object.freeze({
+      title: "次に7日以内を見る",
+      copy: "期限超過がなければ、直近予定を先に確認して確認待ちへ回します。",
+      buttonLabel: "7日以内を見る",
+      reason: "近い予定を先に整えると、当日の抜け漏れを減らせます。"
+    }),
+    READY_FOR_REVIEW: Object.freeze({
+      title: "確認待ちをチェックリストで見る",
+      copy: "編集ではなく確認項目を開き、完了した案件だけ確認済みにします。",
+      buttonLabel: "確認待ちを見る",
+      reason: "確認済みはCore DB引き渡し候補ですが、社員マスタ反映は別承認です。"
+    }),
+    DRAFT: Object.freeze({
+      title: "下書きを補完する",
+      copy: "対象者・実施日・メモを揃えて、確認待ちへ進められる状態にします。",
+      buttonLabel: "下書きを見る",
+      reason: "下書きのまま残すと日常運用のキューに埋もれます。"
+    }),
+    NO_OPEN_WORK: Object.freeze({
+      title: "通常受付を継続する",
+      copy: "優先キューがなければ、新規案件受付と既存案件の履歴確認を続けます。",
+      buttonLabel: "全件を見る",
+      reason: "社員マスタへの反映は、この画面から自動実行しません。"
+    })
+  });
+  const plan = plans[nextAction] || plans.NO_OPEN_WORK;
+  return Object.freeze({
+    category: nextAction,
+    title: plan.title,
+    copy: plan.copy,
+    buttonLabel: plan.buttonLabel,
+    reason: plan.reason,
+    filterStatus: filter.status,
+    filterPriority: filter.priority,
+    rawValuesIncluded: false,
+    employeeMasterMutation: false,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false,
+    automaticPromotionReachable: false
+  });
+}
+
 export function buildWorkforceProcedureActionMix(cases, referenceDate = localDateIso()) {
   const rows = Array.isArray(cases) ? cases : [];
   const counts = { EDIT: 0, CHECKLIST: 0, AUDIT: 0 };
@@ -1049,6 +1101,11 @@ export function initializeWorkforceProcedureDesk({
   const operationActionMix = documentObject?.getElementById?.("workforce-case-operation-action-mix");
   const operationActionMixTitle = documentObject?.getElementById?.("workforce-case-operation-action-mix-title");
   const operationActionMixCopy = documentObject?.getElementById?.("workforce-case-operation-action-mix-copy");
+  const operationStartGuide = documentObject?.getElementById?.("workforce-case-operation-start-guide");
+  const operationStartTitle = documentObject?.getElementById?.("workforce-case-operation-start-title");
+  const operationStartCopy = documentObject?.getElementById?.("workforce-case-operation-start-copy");
+  const operationStartReason = documentObject?.getElementById?.("workforce-case-operation-start-reason");
+  const operationStartButton = documentObject?.getElementById?.("workforce-case-operation-start-button");
   const coreHandoffQueue = documentObject?.getElementById?.("workforce-case-core-handoff-queue");
   const coreHandoffTitle = documentObject?.getElementById?.("workforce-case-core-handoff-title");
   const coreHandoffCopy = documentObject?.getElementById?.("workforce-case-core-handoff-copy");
@@ -1075,7 +1132,7 @@ export function initializeWorkforceProcedureDesk({
   const transitionPlanTitle = documentObject?.getElementById?.("workforce-case-transition-plan-title");
   const transitionPlanCopy = documentObject?.getElementById?.("workforce-case-transition-plan-copy");
   const transitionPlanList = documentObject?.getElementById?.("workforce-case-transition-plan-list");
-  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !operationActionMix || !operationActionMixTitle || !operationActionMixCopy || !coreHandoffQueue || !coreHandoffTitle || !coreHandoffCopy || !coreHandoffSteps || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy || !checklistPlan || !checklistPlanTitle || !checklistPlanCopy || !checklistPlanList || !savePreview || !savePreviewTitle || !savePreviewCopy || !saveFollowUp || !saveFollowUpTitle || !saveFollowUpCopy || !saveFollowUpSteps || !transitionPlan || !transitionPlanTitle || !transitionPlanCopy || !transitionPlanList) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !operationActionMix || !operationActionMixTitle || !operationActionMixCopy || !operationStartGuide || !operationStartTitle || !operationStartCopy || !operationStartReason || !operationStartButton || !coreHandoffQueue || !coreHandoffTitle || !coreHandoffCopy || !coreHandoffSteps || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy || !checklistPlan || !checklistPlanTitle || !checklistPlanCopy || !checklistPlanList || !savePreview || !savePreviewTitle || !savePreviewCopy || !saveFollowUp || !saveFollowUpTitle || !saveFollowUpCopy || !saveFollowUpSteps || !transitionPlan || !transitionPlanTitle || !transitionPlanCopy || !transitionPlanList) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
@@ -1263,6 +1320,14 @@ export function initializeWorkforceProcedureDesk({
     set("workforce-case-operation-soon", summary.soon);
     set("workforce-case-operation-review", summary.review);
     set("workforce-case-operation-draft", summary.draft);
+    const startGuide = buildWorkforceProcedureOperationStartGuide(summary);
+    operationStartGuide.dataset.category = startGuide.category;
+    operationStartGuide.dataset.filterStatus = startGuide.filterStatus;
+    operationStartGuide.dataset.filterPriority = startGuide.filterPriority;
+    operationStartTitle.textContent = startGuide.title;
+    operationStartCopy.textContent = startGuide.copy;
+    operationStartReason.textContent = startGuide.reason;
+    operationStartButton.textContent = startGuide.buttonLabel;
     operationSteps?.replaceChildren(...buildWorkforceProcedureOperationSteps(summary).steps.map((step) => {
       const item = documentObject.createElement("li");
       item.textContent = `${step.order}. ${step.label}`;
@@ -1616,6 +1681,14 @@ export function initializeWorkforceProcedureDesk({
       render();
     });
   }
+  operationStartButton.addEventListener("click", () => {
+    activeFilter = operationStartGuide.dataset.filterStatus || "ALL";
+    activePriority = operationStartGuide.dataset.filterPriority || "ALL";
+    updateStatusFilterButtons();
+    updatePriorityFilterButtons();
+    updateFilterResetButton();
+    render();
+  });
   for (const button of desk.querySelectorAll("[data-procedure-type-summary]")) {
     button.addEventListener("click", () => openProcedureTypeQueue(button.dataset.procedureTypeSummary));
   }

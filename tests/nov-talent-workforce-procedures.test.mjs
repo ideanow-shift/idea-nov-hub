@@ -1,10 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { buildWorkforceProcedureActionMix, buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseActionRoute, buildWorkforceProcedureCaseActionRouteSteps, buildWorkforceProcedureCaseBoundary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureCoreHandoffQueue, buildWorkforceProcedureCoreHandoffSteps, buildWorkforceProcedureEmptyState, buildWorkforceProcedureFormSavePreview, buildWorkforceProcedureFormSubmitReadiness, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureSaveFollowUpPlan, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureStepProgress, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureActionMix, buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseActionRoute, buildWorkforceProcedureCaseActionRouteSteps, buildWorkforceProcedureCaseBoundary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureCoreHandoffQueue, buildWorkforceProcedureCoreHandoffSteps, buildWorkforceProcedureEmptyState, buildWorkforceProcedureFormSavePreview, buildWorkforceProcedureFormSubmitReadiness, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationStartGuide, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureSaveFollowUpPlan, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureStepProgress, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
+const root = new URL("../portal/talent/", import.meta.url);
 
 test("workforce procedure cases read and save through the audited API only", async () => {
   const calls = [];
@@ -265,7 +266,7 @@ test("workforce procedure cases prioritize overdue and near-term open work", () 
   assert.deepEqual(sortWorkforceProcedureCases([closed, nearTerm, overdue], referenceDate), [overdue, nearTerm, closed]);
 });
 
-test("workforce procedure cases summarize today's operation queue without mutating rows", () => {
+test("workforce procedure cases summarize today's operation queue without mutating rows", async () => {
   const summary = buildWorkforceProcedureOperationSummary([
     { caseStatus: "READY_FOR_REVIEW", effectiveDate: "2026-07-25" },
     { caseStatus: "DRAFT", effectiveDate: "2026-07-30" },
@@ -297,6 +298,27 @@ test("workforce procedure cases summarize today's operation queue without mutati
   assert.equal(steps.rawValuesIncluded, false);
   assert.equal(steps.employeeMasterMutation, false);
   assert.equal(steps.canonicalWriteReachable, false);
+  const start = buildWorkforceProcedureOperationStartGuide(summary);
+  assert.equal(start.category, "OVERDUE");
+  assert.equal(start.filterStatus, "ALL");
+  assert.equal(start.filterPriority, "OVERDUE");
+  assert.equal(start.rawValuesIncluded, false);
+  assert.equal(start.employeeMasterMutation, false);
+  assert.equal(start.canonicalWriteReachable, false);
+  assert.equal(start.lineHistoryWriteReachable, false);
+  const reviewStart = buildWorkforceProcedureOperationStartGuide(buildWorkforceProcedureOperationSummary([
+    { caseStatus: "READY_FOR_REVIEW", effectiveDate: "2026-08-20" }
+  ], "2026-07-26"));
+  assert.equal(reviewStart.category, "READY_FOR_REVIEW");
+  assert.equal(reviewStart.filterStatus, "READY_FOR_REVIEW");
+  assert.equal(reviewStart.filterPriority, "ALL");
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const source = await readFile(new URL("workforce-procedures.mjs", root), "utf8");
+  const css = await readFile(new URL("style.css", root), "utf8");
+  assert.match(html, /workforce-case-operation-start-guide/);
+  assert.match(html, /workforce-case-operation-start-button/);
+  assert.match(source, /buildWorkforceProcedureOperationStartGuide/);
+  assert.match(css, /procedure-case-operation-start-guide/);
 });
 
 test("workforce procedure type summary separates workload without raw values", () => {

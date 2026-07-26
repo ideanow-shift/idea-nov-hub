@@ -1469,6 +1469,17 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-operation-action-mix[data-next-action="EDIT"] { border-color: #f2d59d; background: #fffaf0; }
 .procedure-case-operation-action-mix[data-next-action="CHECKLIST"] { border-color: #c5dcf6; background: #f8fbff; }
 .procedure-case-operation-action-mix[data-next-action="AUDIT"] { border-color: #d8eadf; background: #f8fffb; }
+.procedure-case-operation-start-guide { display: grid; flex: 1 0 100%; grid-template-columns: minmax(0, 1.2fr) minmax(180px, .7fr) auto; align-items: center; gap: 10px; padding: 12px; border: 1px solid #d8e7f5; border-radius: 7px; background: #f7fbff; }
+.procedure-case-operation-start-guide > div:first-child { display: grid; gap: 4px; }
+.procedure-case-operation-start-guide span { color: #2e6b9d; font-size: .72rem; font-weight: 900; letter-spacing: .08em; }
+.procedure-case-operation-start-guide strong { color: var(--navy); font-size: .98rem; }
+.procedure-case-operation-start-guide p { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.procedure-case-operation-start-guide button { min-height: 36px; padding: 7px 12px; border: 1px solid #b8d3ed; border-radius: 999px; color: #245b87; background: #fff; font: inherit; font-size: .8rem; font-weight: 900; cursor: pointer; }
+.procedure-case-operation-start-guide button:hover,
+.procedure-case-operation-start-guide button:focus-visible { border-color: #6fa2d1; background: #eef7ff; outline: none; }
+.procedure-case-operation-start-guide[data-category="OVERDUE"] { border-color: #f1b8b8; background: #fff8f8; }
+.procedure-case-operation-start-guide[data-category="READY_FOR_REVIEW"] { border-color: #c5dcf6; background: #f8fbff; }
+.procedure-case-operation-start-guide[data-category="DRAFT"] { border-color: #f2d59d; background: #fffaf0; }
 .procedure-case-core-handoff-queue { display: grid; flex: 1 0 100%; grid-template-columns: minmax(0, 1.4fr) minmax(280px, .9fr); gap: 10px; padding: 12px; border: 1px solid #e9e0d5; border-radius: 7px; background: #fff; }
 .procedure-case-core-handoff-queue > div:first-child { display: grid; gap: 4px; }
 .procedure-case-core-handoff-queue strong { color: var(--navy); font-size: .98rem; }

@@ -164,6 +164,7 @@ button.navi-notice:hover { border-color: var(--navi-accent); background: var(--n
 .brand-copy-navi { display: none; }
 
 body:has(#nov-navi-dashboard:not([hidden])) .site-header { border-bottom-color: #f0d6d9; background: #fff; box-shadow: 0 2px 8px rgba(31, 31, 31, .06); }
+body:has(#nov-navi-dashboard:not([hidden])) .welcome { display: none; }
 body:has(#nov-navi-dashboard:not([hidden])) .site-header .brand-copy-default { display: none; }
 body:has(#nov-navi-dashboard:not([hidden])) .site-header .brand-copy-navi { display: block; min-width: 0; }
 body:has(#nov-navi-dashboard:not([hidden])) .site-header .brand-title,

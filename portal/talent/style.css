@@ -414,6 +414,51 @@ h3 { margin: 0; font-size: 1rem; }
   font-weight: 900;
   letter-spacing: .08em;
 }
+.talent-operation-handoff {
+  display: grid;
+  grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr);
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 9px;
+  border: 1px solid #cbe8d3;
+  background: #f8fffb;
+}
+.talent-operation-handoff span {
+  display: block;
+  color: #267650;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .06em;
+}
+.talent-operation-handoff strong {
+  display: block;
+  margin-top: 4px;
+  color: #244b32;
+}
+.talent-operation-handoff p {
+  margin: 6px 0 0;
+  color: #50625a;
+  font-size: .82rem;
+  line-height: 1.55;
+}
+.talent-operation-handoff ul {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.talent-operation-handoff li {
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid #d8eadf;
+  background: #fff;
+  color: #42554a;
+  font-size: .78rem;
+  line-height: 1.5;
+}
 
 .primary-panel {
   margin-top: 16px;
@@ -2086,6 +2131,7 @@ h3 { margin: 0; font-size: 1rem; }
   .talent-final-readiness ol { grid-template-columns: 1fr; }
   .talent-launch-checklist ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .talent-first-day-runbook ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .talent-operation-handoff { grid-template-columns: 1fr; }
   .summary-command { flex-direction: column; align-items: flex-end; }
   .summary-grid, .historical-summary-grid, .workforce-summary, .workforce-operation-boundaries, .procedure-board, .procedure-checklist, .procedure-case-overview, .procedure-case-type-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .procedure-case-operation-summary { display: grid; }
@@ -2141,6 +2187,7 @@ h3 { margin: 0; font-size: 1rem; }
   .talent-final-readiness { padding: 10px; }
   .talent-launch-checklist ul { grid-template-columns: 1fr; }
   .talent-first-day-runbook ol { grid-template-columns: 1fr; }
+  .talent-operation-handoff ul { grid-template-columns: 1fr; }
   .primary-tab { min-height: 68px; padding: 13px 16px; }
   .secondary-tabs { gap: 20px; padding: 0 18px; }
   .secondary-panel, #panel-workforce { padding: 18px; }

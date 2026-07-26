@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { buildWorkforceProcedureActionMix, buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseActionRoute, buildWorkforceProcedureCaseActionRouteSteps, buildWorkforceProcedureCaseBoundary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureCoreHandoffQueue, buildWorkforceProcedureCoreHandoffReadback, buildWorkforceProcedureCoreHandoffSteps, buildWorkforceProcedureEmptyState, buildWorkforceProcedureFormSavePreview, buildWorkforceProcedureFormSubmitReadiness, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationStartGuide, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureSaveFollowUpPlan, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureStepProgress, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureActionMix, buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseActionRoute, buildWorkforceProcedureCaseActionRouteSteps, buildWorkforceProcedureCaseBoundary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureCoreHandoffFinalCheck, buildWorkforceProcedureCoreHandoffQueue, buildWorkforceProcedureCoreHandoffReadback, buildWorkforceProcedureCoreHandoffSteps, buildWorkforceProcedureEmptyState, buildWorkforceProcedureFormSavePreview, buildWorkforceProcedureFormSubmitReadiness, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationStartGuide, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureSaveFollowUpPlan, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureStepProgress, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -473,9 +473,20 @@ test("workforce procedure core handoff queue keeps employee master writes separa
   assert.equal(readback.canonicalWriteReachable, false);
   assert.equal(readback.lineHistoryWriteReachable, false);
   assert.equal(readback.rawValuesIncluded, false);
+  const finalCheck = buildWorkforceProcedureCoreHandoffFinalCheck(queue);
+  const readyOnly = buildWorkforceProcedureCoreHandoffFinalCheck(buildWorkforceProcedureCoreHandoffQueue([{ caseStatus: "CONFIRMED" }]));
+  assert.equal(finalCheck.category, "HANDOFF_READY_WITH_LOCAL_WORK");
+  assert.equal(readyOnly.category, "HANDOFF_READY_FOR_SEPARATE_APPROVAL");
+  assert.deepEqual(readyOnly.steps.map((step) => step.category), ["CONFIRMED_ONLY", "READBACK_COUNTS", "SEPARATE_MASTER_APPROVAL"]);
+  assert.equal(finalCheck.employeeMasterMutation, false);
+  assert.equal(finalCheck.coreDbWriteRequiresSeparateApproval, true);
+  assert.equal(finalCheck.canonicalWriteReachable, false);
+  assert.equal(finalCheck.lineHistoryWriteReachable, false);
+  assert.equal(finalCheck.rawValuesIncluded, false);
   assert.match(source, /buildWorkforceProcedureCoreHandoffQueue/);
   assert.match(source, /buildWorkforceProcedureCoreHandoffSteps/);
   assert.match(source, /buildWorkforceProcedureCoreHandoffReadback/);
+  assert.match(source, /buildWorkforceProcedureCoreHandoffFinalCheck/);
   assert.match(source, /renderCoreHandoffQueue/);
   assert.match(html, /workforce-case-core-handoff-queue/);
   assert.match(html, /workforce-case-core-handoff-steps/);

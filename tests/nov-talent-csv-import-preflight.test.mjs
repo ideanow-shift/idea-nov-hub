@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { analyzeTalent28CsvPreflight, buildTalent28CsvApprovalBoundary, buildTalent28CsvApprovalReadback, buildTalent28CsvCorrectionRoute, buildTalent28CsvCorrectionWorkbench, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvOwnerHandoffChecklist, buildTalent28CsvPreparationGuide, buildTalent28CsvSafePreview, buildTalent28CsvSafeReceipt, buildTalent28CsvStagingApprovalGuide, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
+import { analyzeTalent28CsvPreflight, buildTalent28CsvApprovalBoundary, buildTalent28CsvApprovalReadback, buildTalent28CsvCorrectionRoute, buildTalent28CsvCorrectionWorkbench, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvOwnerApprovalDraft, buildTalent28CsvOwnerHandoffChecklist, buildTalent28CsvPreparationGuide, buildTalent28CsvSafePreview, buildTalent28CsvSafeReceipt, buildTalent28CsvStagingApprovalGuide, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
 
 const header = [
   "source_row_no", "graduation_year", "source_type", "source_label", "student_name", "student_name_kana",
@@ -109,6 +109,29 @@ test("28卒 CSV approval readback prevents premature staging approval", async ()
   assert.equal(readyPreview.productionDbOperation, false);
   assert.equal(readyPreview.stagingWriteReachable, false);
   assert.equal(readyPreview.rawValuesIncluded, false);
+  const blockedDraft = buildTalent28CsvOwnerApprovalDraft({
+    fixedCategory: "CSV_REQUIRED_IDENTITY_INCOMPLETE",
+    readiness: { canRequestStagingPreflight: false },
+    counts: { missingIdentityRows: 1 }
+  });
+  const readyDraft = buildTalent28CsvOwnerApprovalDraft({
+    fixedCategory: "PASS",
+    readiness: { canRequestStagingPreflight: true },
+    counts: { readyRows: 3, quarantineRows: 0 }
+  });
+  const quarantineDraft = buildTalent28CsvOwnerApprovalDraft({
+    fixedCategory: "PASS",
+    readiness: { canRequestStagingPreflight: true },
+    counts: { readyRows: 2, quarantineRows: 1 }
+  });
+  assert.equal(blockedDraft.category, "APPROVAL_DRAFT_BLOCKED");
+  assert.equal(readyDraft.category, "APPROVAL_DRAFT_READY");
+  assert.equal(quarantineDraft.category, "APPROVAL_DRAFT_READY_WITH_QUARANTINE");
+  assert.deepEqual(readyDraft.steps.map((step) => step.category), ["MANIFEST_AND_COUNTS_ONLY", "PRODUCTION_STAGING_EXACT1", "NO_PROMOTION_BOUNDARY"]);
+  assert.equal(readyDraft.productionDbOperation, false);
+  assert.equal(readyDraft.rawValuesIncluded, false);
+  assert.equal(readyDraft.canonicalWriteReachable, false);
+  assert.equal(readyDraft.lineHistoryWriteReachable, false);
   assert.match(html, /talent-28-csv-approval-readback/);
   assert.match(html, /talent-28-csv-approval-boundary/);
   assert.match(html, /talent-28-csv-safe-preview/);

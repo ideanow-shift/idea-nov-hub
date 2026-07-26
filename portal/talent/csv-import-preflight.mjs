@@ -507,6 +507,49 @@ export function buildTalent28CsvApprovalBoundary(result) {
   });
 }
 
+export function buildTalent28CsvOwnerApprovalDraft(result) {
+  const boundary = buildTalent28CsvApprovalBoundary(result);
+  const preview = buildTalent28CsvSafePreview(result);
+  const category = boundary.approvalReachable
+    ? preview.category === "PREVIEW_READY_WITH_QUARANTINE"
+      ? "APPROVAL_DRAFT_READY_WITH_QUARANTINE"
+      : "APPROVAL_DRAFT_READY"
+    : "APPROVAL_DRAFT_BLOCKED";
+  const steps = category === "APPROVAL_DRAFT_BLOCKED"
+    ? [
+        ["LOCAL_PREFLIGHT_REQUIRED", "ローカルpreflight PASSまでは承認文を準備しない"],
+        ["FIX_CSV_FIRST", "修正カテゴリを解消してから再確認する"],
+        ["NO_VALUES_IN_CHAT", "CSV行・個人値・ID・raw errorは貼らない"]
+      ]
+    : [
+        ["MANIFEST_AND_COUNTS_ONLY", "manifestと件数カテゴリだけを読み合わせる"],
+        ["PRODUCTION_STAGING_EXACT1", "承認対象はproduction staging exact1に限定する"],
+        ["NO_PROMOTION_BOUNDARY", "canonical/LINE/promotion/2028以外の昇格は別承認まで不可到達"]
+      ];
+  return Object.freeze({
+    category,
+    title: category === "APPROVAL_DRAFT_BLOCKED" ? "staging承認文はブロック中" : "staging承認文の読み合わせ準備OK",
+    copy: category === "APPROVAL_DRAFT_READY_WITH_QUARANTINE"
+      ? "隔離候補を含むため、投入候補と隔離候補を分けて承認前に確認します。"
+      : category === "APPROVAL_DRAFT_READY"
+        ? "値を出さずに、件数カテゴリと境界だけでstaging承認へ進めます。"
+        : "安全カテゴリがPASSになるまで、承認文の準備は止めます。",
+    steps: Object.freeze(steps.map(([stepCategory, label], index) => Object.freeze({
+      order: index + 1,
+      category: stepCategory,
+      label
+    }))),
+    approvalReachable: boundary.approvalReachable,
+    rawValuesIncluded: false,
+    googleSheetsConnectorRead: false,
+    productionDbOperation: false,
+    stagingWriteRequiresSeparateApproval: true,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false,
+    automaticPromotionReachable: false
+  });
+}
+
 export function buildTalent28CsvSafePreview(result) {
   const counts = result?.counts || {};
   const readiness = result?.readiness || buildTalent28CsvImportReadiness(result);

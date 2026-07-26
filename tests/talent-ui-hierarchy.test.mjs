@@ -53,7 +53,7 @@ test("implementation progress board shows remaining work without enabling writes
 
   assert.match(html, /id="talent-implementation-progress"/);
   assert.match(html, /id="talent-next-build-targets"/);
-  assert.match(html, /data-complete-percent="84" data-remaining-percent="16"/);
+  assert.match(html, /data-complete-percent="87" data-remaining-percent="13"/);
   for (const area of ["STUDENT_FOLLOWUP", "ANALYTICS_ACTION", "CSV28_INTAKE", "WORKFORCE_CASES"]) {
     assert.match(html, new RegExp(`data-progress-area="${area}"`));
   }

@@ -3,6 +3,7 @@ const AUDIT_PATH = `${API_PATH}/audit`;
 const STEPS_PATH = `${API_PATH}/steps`;
 const PROCEDURE_TYPES = Object.freeze(["ONBOARDING", "TRANSFER", "LEAVE", "RETIREMENT"]);
 const CASE_STATUSES = Object.freeze(["DRAFT", "READY_FOR_REVIEW", "CONFIRMED", "CANCELLED"]);
+const CASE_FILTERS = Object.freeze(["ALL", "OPEN", ...CASE_STATUSES]);
 const PRIORITY_FILTERS = Object.freeze(["ALL", "OVERDUE", "NEXT_7_DAYS", "SCHEDULED"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const STEP_LABELS = Object.freeze({
@@ -15,6 +16,7 @@ export const WORKFORCE_PROCEDURE_CASE_CONTRACT = Object.freeze({
   employeeMasterMutation: false,
   auditHistory: true,
   statusFilters: true,
+  openCaseFilter: true,
   caseSearch: true,
   checklistTracking: true,
   optimisticConcurrency: true,
@@ -42,8 +44,10 @@ export function normalizeWorkforceProcedureCasePrefill(value, documentObject) {
 }
 
 export function filterWorkforceProcedureCases(cases, filter = "ALL") {
-  if (!Array.isArray(cases) || !["ALL", ...CASE_STATUSES].includes(filter)) return Object.freeze([]);
-  return Object.freeze(cases.filter((item) => filter === "ALL" || item.caseStatus === filter));
+  if (!Array.isArray(cases) || !CASE_FILTERS.includes(filter)) return Object.freeze([]);
+  return Object.freeze(cases.filter((item) => filter === "ALL" || (filter === "OPEN"
+    ? ["DRAFT", "READY_FOR_REVIEW"].includes(item.caseStatus)
+    : item.caseStatus === filter)));
 }
 
 export function filterWorkforceProcedureCasesByType(cases, procedureType = "ALL") {
@@ -344,7 +348,7 @@ export function initializeWorkforceProcedureDesk({
     stepsStatus.textContent = "";
   };
   const setFilter = (nextFilter) => {
-    activeFilter = ["ALL", ...CASE_STATUSES].includes(nextFilter) ? nextFilter : "ALL";
+    activeFilter = CASE_FILTERS.includes(nextFilter) ? nextFilter : "ALL";
     for (const button of desk.querySelectorAll("[data-case-status-filter]")) {
       const selected = button.dataset.caseStatusFilter === activeFilter;
       button.classList.toggle("is-active", selected);
@@ -372,8 +376,8 @@ export function initializeWorkforceProcedureDesk({
   };
   const renderOverview = (filteredCount = null) => {
     const scopedCases = filterWorkforceProcedureCasesByType(cases, activeProcedureType);
-    const counts = Object.fromEntries(["ALL", ...CASE_STATUSES].map((key) => [key, filterWorkforceProcedureCases(scopedCases, key).length]));
-    const countIds = { ALL: "workforce-case-count-all", DRAFT: "workforce-case-count-draft", READY_FOR_REVIEW: "workforce-case-count-review", CONFIRMED: "workforce-case-count-confirmed", CANCELLED: "workforce-case-count-cancelled" };
+    const counts = Object.fromEntries(CASE_FILTERS.map((key) => [key, filterWorkforceProcedureCases(scopedCases, key).length]));
+    const countIds = { ALL: "workforce-case-count-all", OPEN: "workforce-case-count-open", DRAFT: "workforce-case-count-draft", READY_FOR_REVIEW: "workforce-case-count-review", CONFIRMED: "workforce-case-count-confirmed", CANCELLED: "workforce-case-count-cancelled" };
     for (const [key, id] of Object.entries(countIds)) {
       const element = documentObject.getElementById(id);
       if (element) element.textContent = String(counts[key]);
@@ -592,6 +596,7 @@ function procedureLabel(value) {
 }
 
 function statusLabel(value) {
+  if (value === "OPEN") return "対応中";
   return ({ DRAFT: "下書き", READY_FOR_REVIEW: "確認待ち", CONFIRMED: "確認済み", CANCELLED: "中止" })[value] || "未設定";
 }
 

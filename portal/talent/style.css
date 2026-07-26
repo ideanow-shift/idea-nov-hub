@@ -924,7 +924,7 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-desk h3, .procedure-case-desk p { margin: 0; }
 .procedure-case-desk header p:last-child, .procedure-case-status { margin-top: 6px; color: var(--muted); }
 .procedure-case-status { min-height: 1.4em; font-size: 0.9rem; }
-.procedure-case-overview { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+  .procedure-case-overview { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
 .procedure-case-metric { display: grid; gap: 5px; min-height: 82px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: #fff; text-align: left; color: var(--muted); font: inherit; cursor: pointer; }
 .procedure-case-metric strong { color: var(--navy); font-size: 1.45rem; line-height: 1; }
 .procedure-case-metric:hover, .procedure-case-metric:focus-visible, .procedure-case-metric.is-active { border-color: var(--rose); background: var(--accent-soft); color: var(--ink); outline: none; }

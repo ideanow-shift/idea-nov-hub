@@ -124,7 +124,8 @@ test("workforce exposes an audited procedure case desk without employee-master c
   assert.match(html, /name="procedureType"/);
   assert.match(html, /name="caseStatus"/);
   assert.match(html, /id="workforce-case-new"/);
-  assert.match(html, /id="workforce-case-overview"/);
+    assert.match(html, /id="workforce-case-overview"/);
+    assert.match(html, /data-case-status-filter="OPEN"/);
   assert.match(html, /data-case-status-filter="READY_FOR_REVIEW"/);
   assert.match(html, /id="workforce-case-steps"/);
     assert.match(html, /id="workforce-case-priority-status"/);

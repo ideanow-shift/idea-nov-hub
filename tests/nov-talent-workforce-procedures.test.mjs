@@ -58,9 +58,11 @@ test("workforce procedure cases filter by progress without mutating rows", () =>
     Object.freeze({ caseStatus: "DRAFT" })
   ]);
   assert.equal(filterWorkforceProcedureCases(cases, "DRAFT").length, 2);
+  assert.equal(filterWorkforceProcedureCases(cases, "OPEN").length, 2);
   assert.equal(filterWorkforceProcedureCases(cases, "ALL").length, 3);
   assert.equal(filterWorkforceProcedureCases(cases, "INVALID").length, 0);
   assert.equal(WORKFORCE_PROCEDURE_CASE_CONTRACT.statusFilters, true);
+  assert.equal(WORKFORCE_PROCEDURE_CASE_CONTRACT.openCaseFilter, true);
 });
 
 test("workforce procedure cases can be scoped to the active procedure", () => {

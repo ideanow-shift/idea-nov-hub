@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-workforce-queue-case-prefill-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-workforce-open-case-filter-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-workforce-queue-case-prefill-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-workforce-open-case-filter-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -474,6 +474,7 @@
         <p id="workforce-case-status" class="procedure-case-status" role="status"></p>
         <section id="workforce-case-overview" class="procedure-case-overview" aria-label="手続き案件の進捗">
           <button type="button" class="procedure-case-metric is-active" data-case-status-filter="ALL" aria-pressed="true"><span>すべて</span><strong id="workforce-case-count-all">0</strong></button>
+          <button type="button" class="procedure-case-metric" data-case-status-filter="OPEN" aria-pressed="false"><span>対応中</span><strong id="workforce-case-count-open">0</strong></button>
           <button type="button" class="procedure-case-metric" data-case-status-filter="DRAFT" aria-pressed="false"><span>下書き</span><strong id="workforce-case-count-draft">0</strong></button>
           <button type="button" class="procedure-case-metric" data-case-status-filter="READY_FOR_REVIEW" aria-pressed="false"><span>確認待ち</span><strong id="workforce-case-count-review">0</strong></button>
           <button type="button" class="procedure-case-metric" data-case-status-filter="CONFIRMED" aria-pressed="false"><span>確認済み</span><strong id="workforce-case-count-confirmed">0</strong></button>

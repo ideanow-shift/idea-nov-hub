@@ -11,6 +11,9 @@ test("Talent exposes recruitment and workforce as accessible primary tabs", asyn
   assert.match(html, /aria-label="人財投資管理の業務区分"/);
   assert.match(html, /data-primary-tab="recruitment"[\s\S]*求人管理/);
   assert.match(html, /data-primary-tab="workforce"[\s\S]*現職者管理/);
+  for (const key of ["onboarding", "transfer", "leave", "retirement"]) {
+    assert.match(html, new RegExp(`data-workforce-open="${key}"`));
+  }
   assert.match(html, /id="panel-recruitment"[\s\S]*role="tabpanel"/);
   assert.match(html, /id="panel-workforce"[\s\S]*role="tabpanel"/);
   assert.match(html, /assets\/icons\/human-resources\.svg/);
@@ -44,6 +47,7 @@ test("workforce management exposes four accessible procedure tabs", async () => 
   }
   assert.match(app, /WORKFORCE_TABS/);
   assert.match(app, /data-workforce-tab/);
+  assert.match(app, /data-workforce-open/);
 });
 
 test("workforce procedure tabs expose bounded Core DB case queues", async () => {

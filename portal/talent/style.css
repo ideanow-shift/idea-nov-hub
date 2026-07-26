@@ -833,13 +833,16 @@ h3 { margin: 0; font-size: 1rem; }
   gap: 12px;
 }
 
-.workforce-summary article {
+.workforce-summary article,
+.workforce-summary-card {
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--shadow-card);
 }
+.workforce-summary-card { color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.workforce-summary-card:hover, .workforce-summary-card:focus-visible { border-color: var(--rose); background: var(--accent-soft); outline: none; }
 
 .workforce-summary span, .workforce-summary small { display: block; color: var(--muted); }
 .workforce-summary strong { display: block; margin: 10px 0 6px; color: var(--navy); font-size: 1.8rem; }

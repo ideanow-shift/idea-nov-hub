@@ -231,6 +231,15 @@ export function initializeTalentNavigation({
       retirement: "RETIREMENT"
     }[key])
   });
+  for (const button of documentObject.querySelectorAll("[data-workforce-open]")) {
+    button.addEventListener("click", () => {
+      const key = String(button.dataset.workforceOpen || "");
+      if (!WORKFORCE_TABS.includes(key)) return;
+      primaryButtons.find((item) => item.dataset.primaryTab === "workforce")?.click?.();
+      workforceButtons.find((item) => item.dataset.workforceTab === key)?.click?.();
+      documentObject.getElementById("workforce-procedure-desk")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    });
+  }
 
   const initialPrimary = normalizeHash(globalObject?.location?.hash);
   if (initialPrimary) selectTab(primaryButtons, initialPrimary, (key) => documentObject.getElementById(`panel-${key}`), false);

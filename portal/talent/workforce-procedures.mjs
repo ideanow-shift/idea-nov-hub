@@ -18,6 +18,7 @@ export const WORKFORCE_PROCEDURE_CASE_CONTRACT = Object.freeze({
   statusFilters: true,
   openCaseFilter: true,
   caseSearch: true,
+  filterReset: true,
   checklistTracking: true,
   optimisticConcurrency: true,
   requestMaxPerAction: 1,
@@ -300,7 +301,8 @@ export function initializeWorkforceProcedureDesk({
   const priorityStatus = documentObject?.getElementById?.("workforce-case-priority-status");
   const procedureFilter = documentObject?.getElementById?.("workforce-case-procedure-filter");
   const searchInput = documentObject?.getElementById?.("workforce-case-search");
-  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !procedureFilter || !searchInput) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  const filterResetButton = documentObject?.getElementById?.("workforce-case-filter-reset");
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !procedureFilter || !searchInput || !filterResetButton) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
@@ -310,6 +312,26 @@ export function initializeWorkforceProcedureDesk({
   let activePriority = "ALL";
   let activeSearch = "";
   procedureFilter.value = activeProcedureType;
+
+  const updateStatusFilterButtons = () => {
+    for (const button of desk.querySelectorAll("[data-case-status-filter]")) {
+      const selected = button.dataset.caseStatusFilter === activeFilter;
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    }
+  };
+  const updatePriorityFilterButtons = () => {
+    for (const button of desk.querySelectorAll("[data-case-priority-filter]")) {
+      const selected = button.dataset.casePriorityFilter === activePriority;
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    }
+  };
+  const updateFilterResetButton = () => {
+    const hasActiveFilters = activeFilter !== "ALL" || activePriority !== "ALL" || activeSearch !== "" || activeProcedureType !== getActiveWorkforceProcedureType(documentObject);
+    filterResetButton.disabled = !hasActiveFilters;
+    filterResetButton.setAttribute("aria-disabled", String(!hasActiveFilters));
+  };
 
   const setStatus = (category) => {
     const messages = {
@@ -349,29 +371,37 @@ export function initializeWorkforceProcedureDesk({
   };
   const setFilter = (nextFilter) => {
     activeFilter = CASE_FILTERS.includes(nextFilter) ? nextFilter : "ALL";
-    for (const button of desk.querySelectorAll("[data-case-status-filter]")) {
-      const selected = button.dataset.caseStatusFilter === activeFilter;
-      button.classList.toggle("is-active", selected);
-      button.setAttribute("aria-pressed", String(selected));
-    }
+    updateStatusFilterButtons();
+    updateFilterResetButton();
     render();
   };
   const setProcedureType = (nextProcedureType) => {
     activeProcedureType = ["ALL", ...PROCEDURE_TYPES].includes(nextProcedureType) ? nextProcedureType : "ALL";
     procedureFilter.value = activeProcedureType;
+    updateFilterResetButton();
     render();
   };
   const setPriorityFilter = (nextPriority) => {
     activePriority = PRIORITY_FILTERS.includes(nextPriority) ? nextPriority : "ALL";
-    for (const button of desk.querySelectorAll("[data-case-priority-filter]")) {
-      const selected = button.dataset.casePriorityFilter === activePriority;
-      button.classList.toggle("is-active", selected);
-      button.setAttribute("aria-pressed", String(selected));
-    }
+    updatePriorityFilterButtons();
+    updateFilterResetButton();
     render();
   };
   const setSearch = (nextSearch) => {
     activeSearch = normalizeWorkforceProcedureCaseSearch(nextSearch);
+    updateFilterResetButton();
+    render();
+  };
+  const resetFilters = () => {
+    activeFilter = "ALL";
+    activePriority = "ALL";
+    activeSearch = "";
+    activeProcedureType = getActiveWorkforceProcedureType(documentObject);
+    procedureFilter.value = activeProcedureType;
+    searchInput.value = "";
+    updateStatusFilterButtons();
+    updatePriorityFilterButtons();
+    updateFilterResetButton();
     render();
   };
   const renderOverview = (filteredCount = null) => {
@@ -551,6 +581,7 @@ export function initializeWorkforceProcedureDesk({
   }
   procedureFilter.addEventListener("change", () => setProcedureType(procedureFilter.value));
   searchInput.addEventListener("input", () => setSearch(searchInput.value));
+  filterResetButton.addEventListener("click", resetFilters);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const draft = Object.freeze({
@@ -588,7 +619,10 @@ export function initializeWorkforceProcedureDesk({
     }
   });
   setStatus(controller.enabled ? "idle" : "feature_disabled");
-  return Object.freeze({ initialized: true, enabled: controller.enabled, load, setProcedureType, controller });
+  updateStatusFilterButtons();
+  updatePriorityFilterButtons();
+  updateFilterResetButton();
+  return Object.freeze({ initialized: true, enabled: controller.enabled, load, setProcedureType, resetFilters, controller });
 }
 
 function procedureLabel(value) {

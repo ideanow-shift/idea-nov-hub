@@ -131,9 +131,11 @@ test("workforce exposes an audited procedure case desk without employee-master c
     assert.match(html, /id="workforce-case-priority-status"/);
     assert.match(html, /id="workforce-case-procedure-filter"/);
     assert.match(html, /id="workforce-case-search"/);
+    assert.match(html, /id="workforce-case-filter-reset"/);
   assert.match(html, /data-case-priority-filter="OVERDUE"/);
   assert.match(html, /社員マスタは変更しません/);
   assert.match(source, /employeeMasterMutation: false/);
+  assert.match(source, /const resetFilters/);
   assert.match(source, /optimisticConcurrency: true/);
   assert.match(source, /filterWorkforceProcedureCases/);
   assert.match(source, /checklistTracking: true/);

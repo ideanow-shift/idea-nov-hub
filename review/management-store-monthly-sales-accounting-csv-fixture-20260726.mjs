@@ -54,6 +54,7 @@ assert.equal(preview.monthlyStoreRows.length, 4);
 assert.equal(preview.monthlyStoreRows[0].period, "2025-01");
 assert.equal(preview.monthlyStoreRows[0].technicalSalesYen, 4488634);
 assert.equal(preview.monthlyStoreRows[0].productSalesYen, 173913);
+assert.equal(preview.monthlyStoreRows[0].milbonIdSalesYen, 12000);
 
 const duplicateCsv = [
   header,

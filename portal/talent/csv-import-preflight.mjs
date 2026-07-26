@@ -540,6 +540,7 @@ export function buildTalent28CsvOwnerApprovalDraft(result) {
       label
     }))),
     approvalReachable: boundary.approvalReachable,
+    ownerApprovalRequired: boundary.approvalReachable,
     rawValuesIncluded: false,
     googleSheetsConnectorRead: false,
     productionDbOperation: false,
@@ -741,11 +742,15 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
   const approvalBoundaryTitle = documentObject?.getElementById?.("talent-28-csv-approval-boundary-title");
   const approvalBoundaryCopy = documentObject?.getElementById?.("talent-28-csv-approval-boundary-copy");
   const approvalBoundaryChecks = documentObject?.getElementById?.("talent-28-csv-approval-boundary-checks");
+  const ownerApprovalDraft = documentObject?.getElementById?.("talent-28-csv-owner-approval-draft");
+  const ownerApprovalDraftTitle = documentObject?.getElementById?.("talent-28-csv-owner-approval-draft-title");
+  const ownerApprovalDraftCopy = documentObject?.getElementById?.("talent-28-csv-owner-approval-draft-copy");
+  const ownerApprovalDraftSteps = documentObject?.getElementById?.("talent-28-csv-owner-approval-draft-steps");
   const safePreview = documentObject?.getElementById?.("talent-28-csv-safe-preview");
   const safePreviewTitle = documentObject?.getElementById?.("talent-28-csv-safe-preview-title");
   const safePreviewCopy = documentObject?.getElementById?.("talent-28-csv-safe-preview-copy");
   const safePreviewMetrics = documentObject?.getElementById?.("talent-28-csv-safe-preview-metrics");
-  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute || !correctionWorkbench || !stagingApprovalGuide || !ownerHandoffChecklist || !approvalReadback || !approvalReadbackTitle || !approvalReadbackCopy || !approvalReadbackSteps || !approvalBoundary || !approvalBoundaryTitle || !approvalBoundaryCopy || !approvalBoundaryChecks || !safePreview || !safePreviewTitle || !safePreviewCopy || !safePreviewMetrics) return Object.freeze({ initialized: false });
+  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute || !correctionWorkbench || !stagingApprovalGuide || !ownerHandoffChecklist || !approvalReadback || !approvalReadbackTitle || !approvalReadbackCopy || !approvalReadbackSteps || !approvalBoundary || !approvalBoundaryTitle || !approvalBoundaryCopy || !approvalBoundaryChecks || !ownerApprovalDraft || !ownerApprovalDraftTitle || !ownerApprovalDraftCopy || !ownerApprovalDraftSteps || !safePreview || !safePreviewTitle || !safePreviewCopy || !safePreviewMetrics) return Object.freeze({ initialized: false });
   if (input.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true });
   input.dataset.bound = "true";
   const preparation = buildTalent28CsvPreparationGuide();
@@ -839,6 +844,18 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
       const item = documentObject.createElement("li");
       item.dataset.category = check.category;
       item.textContent = `${check.order}. ${check.label}`;
+      return item;
+    }));
+    const draft = buildTalent28CsvOwnerApprovalDraft(result);
+    ownerApprovalDraft.dataset.category = draft.category;
+    ownerApprovalDraft.dataset.ownerApprovalRequired = String(draft.ownerApprovalRequired);
+    ownerApprovalDraft.dataset.stagingWriteRequiresSeparateApproval = String(draft.stagingWriteRequiresSeparateApproval);
+    ownerApprovalDraftTitle.textContent = draft.title;
+    ownerApprovalDraftCopy.textContent = draft.copy;
+    ownerApprovalDraftSteps.replaceChildren(...draft.steps.map((step) => {
+      const item = documentObject.createElement("li");
+      item.dataset.category = step.category;
+      item.textContent = `${step.order}. ${step.label}`;
       return item;
     }));
     const preview = buildTalent28CsvSafePreview(result);

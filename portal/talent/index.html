@@ -75,29 +75,29 @@
       <div class="talent-progress-heading">
         <div>
           <p class="section-kicker">BUILD PROGRESS</p>
-          <h2>残り10%を業務導線で潰す</h2>
+          <h2>残り7%を業務導線で潰す</h2>
         </div>
-        <strong class="talent-progress-total" data-complete-percent="90" data-remaining-percent="10">90%完了 / 残り10%</strong>
+        <strong class="talent-progress-total" data-complete-percent="93" data-remaining-percent="7">93%完了 / 残り7%</strong>
       </div>
       <div class="talent-progress-grid">
-        <article data-progress-area="STUDENT_FOLLOWUP" data-complete-percent="92" data-remaining-percent="8">
+        <article data-progress-area="STUDENT_FOLLOWUP" data-complete-percent="93" data-remaining-percent="7">
           <span>STUDENT FOLLOW-UP</span>
-          <strong>92%完了 / 残り8%</strong>
+          <strong>93%完了 / 残り7%</strong>
           <p>期限・要確認・隔離を日次キューで処理し、次回対応を残せる状態です。</p>
         </article>
-        <article data-progress-area="ANALYTICS_ACTION" data-complete-percent="90" data-remaining-percent="10">
+        <article data-progress-area="ANALYTICS_ACTION" data-complete-percent="92" data-remaining-percent="8">
           <span>ANALYTICS ACTION</span>
-          <strong>90%完了 / 残り10%</strong>
+          <strong>92%完了 / 残り8%</strong>
           <p>全体サマリー・学校・フェアから学生確認へ移動できます。</p>
         </article>
-        <article data-progress-area="CSV28_INTAKE" data-complete-percent="90" data-remaining-percent="10">
+        <article data-progress-area="CSV28_INTAKE" data-complete-percent="94" data-remaining-percent="6">
           <span>2028 CSV INTAKE</span>
-          <strong>90%完了 / 残り10%</strong>
+          <strong>94%完了 / 残り6%</strong>
           <p>CSV修正・形式検証・staging承認前の読み合わせを安全に分離しています。</p>
         </article>
-        <article data-progress-area="WORKFORCE_CASES" data-complete-percent="87" data-remaining-percent="13">
+        <article data-progress-area="WORKFORCE_CASES" data-complete-percent="91" data-remaining-percent="9">
           <span>WORKFORCE CASES</span>
-          <strong>87%完了 / 残り13%</strong>
+          <strong>91%完了 / 残り9%</strong>
           <p>入社・異動・休職復職・退職を、Core DB引き渡し前の案件として整理できます。</p>
         </article>
       </div>
@@ -232,6 +232,11 @@
             <strong id="talent-28-csv-approval-boundary-title">Owner approval boundary is blocked</strong>
             <p id="talent-28-csv-approval-boundary-copy">Keep the workflow in CSV correction until the safe categories are ready.</p>
             <ol id="talent-28-csv-approval-boundary-checks"></ol>
+          </section>
+          <section id="talent-28-csv-owner-approval-draft" class="csv-approval-boundary" data-category="APPROVAL_DRAFT_BLOCKED" aria-label="28卒CSV owner approval draft readiness">
+            <strong id="talent-28-csv-owner-approval-draft-title">Owner approval draft is blocked</strong>
+            <p id="talent-28-csv-owner-approval-draft-copy">The approval text is prepared only after local preflight is safe.</p>
+            <ol id="talent-28-csv-owner-approval-draft-steps"></ol>
           </section>
           <section id="talent-28-csv-safe-preview" class="csv-safe-preview" data-category="PREVIEW_NOT_READY" aria-label="28卒CSV安全プレビュー">
             <strong id="talent-28-csv-safe-preview-title">安全プレビューは未実行です</strong>
@@ -810,6 +815,11 @@
               <strong id="workforce-case-core-handoff-readback-title">Core DB引き渡し承認は不要です</strong>
               <p id="workforce-case-core-handoff-readback-copy">確認済み案件が出るまで、社員マスタ更新の承認文は準備しません。</p>
               <ol id="workforce-case-core-handoff-readback-steps"></ol>
+            </section>
+            <section id="workforce-case-core-handoff-final-check" class="procedure-case-core-handoff-readback" data-category="NO_CORE_HANDOFF_WORK" aria-label="Core DB handoff final check">
+              <strong id="workforce-case-core-handoff-final-check-title">Core DB handoff final check is idle</strong>
+              <p id="workforce-case-core-handoff-final-check-copy">Only confirmed cases can move to a separate owner approval.</p>
+              <ol id="workforce-case-core-handoff-final-check-steps"></ol>
             </section>
           </section>
           <div class="procedure-case-operation-actions" aria-label="今日の処理キューを開く">

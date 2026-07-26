@@ -269,8 +269,8 @@ function renderStores() {
     ["スタッフ", localWorkforceStaffMetric(data.staffCount)],
     ["配賦根拠", workforceAllocationMetric()],
     ["売上データ", localPl ? `P/L ${number.format(localPl.storeCandidateCount)}候補` : stores.some((row) => row.dataReadiness !== "salonanswer_csv_waiting") ? "接続済み" : "CSV待ち"],
-    ["P/L損益", localPl ? `${number.format(Math.round(localPl.ordinaryProfitManYen))}万円` : "未反映"],
-    ["P/L照合", localPl ? `一致${number.format(localPlMatch.matched)} / 未照合${number.format(localPlMatch.unmatched)}` : "未反映"],
+    ["P/L損益", localPl ? `${number.format(Math.round(localPl.ordinaryProfitManYen))}万円` : "ローカルP/L待ち"],
+    ["P/L照合", localPl ? `一致${number.format(localPlMatch.matched)} / 未照合${number.format(localPlMatch.unmatched)}` : "取込後に照合"],
     ["scope", scopeLabel(data.phase0Scope)],
   ]);
   renderFinancialPreviewStores(localPlMatch);
@@ -279,7 +279,7 @@ function renderStores() {
     const evidenceStatus = localPlStoreEvidenceStatus(row, localPlRowsByStore);
     const salesText = localRow ? `P/L ${number.format(Math.round(localRow.salesManYen || 0))}万円` : row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.salesManYen || 0)}万円`;
     const targetText = localRow ? `損益 ${number.format(Math.round(localRow.ordinaryProfitManYen || 0))}万円` : row.dataReadiness === "salonanswer_csv_waiting" ? "未接続" : `${number.format(row.targetAchievementPercent || 0)}%`;
-    const statusText = localRow ? localPlStoreEvidenceLabel(evidenceStatus) : storeNameExcluded(row) ? "店舗候補から除外（ローカル確認）" : localPl ? "P/L候補未照合" : row.dataReadiness === "salonanswer_csv_waiting" ? "SalonAnswer CSV待ち" : "接続済み";
+    const statusText = localRow ? localPlStoreEvidenceLabel(evidenceStatus) : storeNameExcluded(row) ? "店舗候補から除外（ローカル確認）" : localPl ? "P/L候補未照合" : "ローカルP/L取込待ち";
     return tableRow([row.name, row.corporationName, localWorkforceStoreStaffText(row.staffCount), salesText, targetText, statusText]);
   }) : [emptyRow(6, "表示できる店舗がありません")]));
   renderCsvRequirements(elements.csvRequirements, data.requiredCsvFiles, {
@@ -1152,7 +1152,6 @@ function buildStoreOperatingSnapshotPanel() {
     const cohort = cohortByKey.get(matchKey);
     const unitPrice = unitPriceByKey.get(matchKey);
     const workingHeadcount = workforce?.workingHeadcount > 0 ? workforce.workingHeadcount : null;
-    const totalVisitCount = cohort?.totalVisitCount > 0 ? cohort.totalVisitCount : null;
     return Object.freeze({
       storeName: row.storeName,
       salesYen: Number(row.totalSalesYen),
@@ -1165,7 +1164,7 @@ function buildStoreOperatingSnapshotPanel() {
       totalProductivityYen: workingHeadcount ? Math.round((Number(row.technicalSalesYen) + Number(row.productSalesYen)) / workingHeadcount) : null,
       technicalUnitYen: unitPrice?.technicalUnitYen ?? null,
       totalUnitYen: unitPrice?.totalUnitExcludingEcYen ?? null,
-      fixedSharePercent: totalVisitCount && cohort.fixedVisitCount != null ? (Number(cohort.fixedVisitCount) / totalVisitCount) * 100 : null,
+      visitCohortSummary: cohortVisitSummary(cohort),
     });
   }).filter(Boolean).sort((left, right) => left.storeName.localeCompare(right.storeName, "ja"));
   if (!rows.length) return null;
@@ -1191,7 +1190,7 @@ function buildStoreOperatingSnapshotPanel() {
   wrap.className = "table-wrap embedded local-preview-table";
   const table = document.createElement("table");
   const thead = document.createElement("thead");
-  thead.append(tableRow(["\u5e97\u8217", "\u7dcf\u58f2\u4e0a", "\u6280\u8853\u58f2\u4e0a", "\u5546\u54c1\u58f2\u4e0a", "\u30df\u30eb\u30dc\u30f3ID\uff08\u88dc\u52a9\uff09", "EC\u58f2\u4e0a", "\u7d4c\u5e38\u640d\u76ca", "\u7a3c\u50cd\u4eba\u6570", "\u7dcf\u751f\u7523\u6027", "\u6280\u8853\u5358\u4fa1", "\u7dcf\u5358\u4fa1\uff08EC\u9664\u304f\uff09", "\u56fa\u5b9a\u6bd4\u7387"], true));
+  thead.append(tableRow(["\u5e97\u8217", "\u7dcf\u58f2\u4e0a", "\u6280\u8853\u58f2\u4e0a", "\u5546\u54c1\u58f2\u4e0a", "\u30df\u30eb\u30dc\u30f3ID\uff08\u88dc\u52a9\uff09", "EC\u58f2\u4e0a", "\u7d4c\u5e38\u640d\u76ca", "\u7a3c\u50cd\u4eba\u6570", "\u7dcf\u751f\u7523\u6027", "\u6280\u8853\u5358\u4fa1", "\u7dcf\u5358\u4fa1\uff08EC\u9664\u304f\uff09", "\u6765\u5e97\u533a\u5206"], true));
   const tbody = document.createElement("tbody");
   tbody.replaceChildren(...rows.map((row) => tableRow([
     row.storeName,
@@ -1205,7 +1204,7 @@ function buildStoreOperatingSnapshotPanel() {
     row.totalProductivityYen != null ? yen.format(row.totalProductivityYen) : "\u6708\u6b21\u4eba\u6570\u5f85\u3061",
     row.technicalUnitYen != null ? yen.format(row.technicalUnitYen) : "\u6765\u5e97\u533a\u5206\u5f85\u3061",
     row.totalUnitYen != null ? yen.format(row.totalUnitYen) : "\u6765\u5e97\u533a\u5206\u5f85\u3061",
-    row.fixedSharePercent != null ? percentage.format(row.fixedSharePercent) + "%" : "\u6765\u5e97\u533a\u5206\u5f85\u3061",
+    row.visitCohortSummary,
   ])));
   table.append(thead, tbody);
   wrap.append(table);
@@ -1370,6 +1369,19 @@ function buildStoreVisitCohortPanel() {
 function cohortCountAndRate(count, total) {
   const ratio = Number(total) > 0 ? (Number(count) / Number(total)) * 100 : null;
   return ratio == null || !Number.isFinite(ratio) ? `${number.format(Number(count) || 0)}件` : `${number.format(Number(count))}件 (${percentage.format(ratio)}%)`;
+}
+
+function cohortVisitSummary(cohort) {
+  const total = Number(cohort?.totalVisitCount);
+  if (!Number.isFinite(total) || total <= 0) return "\u6765\u5e97\u533a\u5206\u5f85\u3061";
+  const categories = [
+    ["\u65b0\u898f", cohort.newVisitCount],
+    ["2\u56de\u76ee", cohort.secondVisitCount],
+    ["3\u56de\u76ee", cohort.thirdVisitCount],
+    ["\u56fa\u5b9a", cohort.fixedVisitCount],
+  ];
+  if (categories.some(([, count]) => !Number.isFinite(Number(count)) || Number(count) < 0)) return "\u6765\u5e97\u533a\u5206\u5f85\u3061";
+  return categories.map(([label, count]) => label + " " + percentage.format((Number(count) / total) * 100) + "%").join(" / ");
 }
 
 function buildStoreMenuSummaryPanel() {

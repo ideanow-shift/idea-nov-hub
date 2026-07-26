@@ -63,6 +63,30 @@ const STORE_MONTHLY_SALES_ACCOUNTING_CSV_HEADER = Object.freeze([
   "ec_sales",
   "profit",
 ]);
+
+export function buildStoreMonthlySalesAccountingTemplateCsv() {
+  const example = [
+    "2026-06",
+    "法人名",
+    "店舗名",
+    "0",
+    "0",
+    "0",
+    "NOT_IN_SOURCE",
+    "NOT_IN_SOURCE",
+    "0",
+  ];
+  const csv = `\uFEFF${[STORE_MONTHLY_SALES_ACCOUNTING_CSV_HEADER, example].map((row) => row.map(financialCsvCell).join(",")).join("\r\n")}\r\n`;
+  return Object.freeze({
+    schemaVersion: "management-store-monthly-sales-accounting-template-v1",
+    fileName: "management-store-monthly-sales-accounting-template.csv",
+    rowCount: 1,
+    csv,
+    href: `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`,
+    productionImportEnabled: false,
+  });
+}
+
 const FINANCIAL_LOCAL_CORRECTION_CSV_HEADER = Object.freeze([
   "period",
   "corporation",
@@ -2789,21 +2813,21 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   });
   const fiscal = el(doc, "input");
   fiscal.type = "text";
-  fiscal.placeholder = "Excelから対象期を自動判定";
+  fiscal.placeholder = "ファイルから対象期を自動判定";
   fiscal.readOnly = true;
-  fiscal.setAttribute("aria-label", "Excelから自動判定した対象期");
+  fiscal.setAttribute("aria-label", "ファイルから自動判定した対象期");
   const scope = el(doc, "select");
   scope.setAttribute("aria-label", "Excelシートから自動判定するscope");
   scope.disabled = true;
   scope.append(el(doc, "option", "", "scope自動判定（法人/店舗/部門）"));
   const source = el(doc, "select");
   source.setAttribute("aria-label", "source system");
-  [["YAYOI", "弥生会計"], ["UNSUPPORTED", "その他（未対応）"]].forEach(([value, label]) => {
+  [["NORMALIZED_CSV", "整形済みCSV（推奨）"], ["YAYOI", "弥生会計Excel/CSV"], ["UNSUPPORTED", "その他（未対応）"]].forEach(([value, label]) => {
     const option = el(doc, "option", "", label);
     option.value = value;
     source.append(option);
   });
-  source.value = "YAYOI";
+  source.value = "NORMALIZED_CSV";
   const mode = el(doc, "select");
   mode.setAttribute("aria-label", "import mode");
   ["検証のみ", "mapping review"].forEach((label) => mode.append(el(doc, "option", "", label)));
@@ -2815,8 +2839,18 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   input.type = "file";
   input.accept = ".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv";
   input.multiple = true;
-  const dropText = el(doc, "span", "", "ExcelまたはCSVファイルを選択してローカル検証");
+  const dropText = el(doc, "span", "", "整形済みCSVまたは弥生Excelを選択してローカル検証");
   drop.append(input, dropText);
+  const normalizedTemplate = buildStoreMonthlySalesAccountingTemplateCsv();
+  const normalizedGuide = el(doc, "section", "financial-normalized-csv-guide");
+  const normalizedGuideDownload = el(doc, "a", "financial-mapping-download", "店舗月次P/L CSVひな形を保存");
+  normalizedGuideDownload.href = normalizedTemplate.href;
+  normalizedGuideDownload.download = normalizedTemplate.fileName;
+  normalizedGuide.append(
+    el(doc, "h4", "", "ChatGPT整形済みCSVで取り込む場合"),
+    el(doc, "p", "", "元の帳票はChatGPTでこのひな形の9列へ整形してから選択します。金額は円・カンマなし、同じ対象月・法人・店舗は1行だけにします。ミルボンIDまたはECの独立値がない場合は NOT_IN_SOURCE を使います。"),
+    normalizedGuideDownload
+  );
 
   const result = el(doc, "div", "financial-intake-result");
   result.dataset.financialIntakeResult = "NOT_READY";
@@ -2912,7 +2946,7 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const mappingEvidenceSummary = el(doc, "p", "financial-mapping-evidence-summary", "経理回答CSVのローカル証跡はまだありません。");
   mappingEvidenceSummary.dataset.financialMappingEvidenceSummary = "MAPPING_LOCAL_EVIDENCE_NOT_AVAILABLE";
   mappingReview.append(mappingHeading, mappingFacts, mappingHandoff, mappingEvidenceSummary, mappingTableWrap, mappingConfirmation);
-  section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, correction, mappingReview, completion, submissionPackage, supplemental, storeCustomerSummary, storeRepeatSummary, storeVisitCohortSummary, storeWorkforceMonthlySummary, storeMenuSummary, preview);
+  section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), normalizedGuide, controls, drop, result, correction, mappingReview, completion, submissionPackage, supplemental, storeCustomerSummary, storeRepeatSummary, storeVisitCohortSummary, storeWorkforceMonthlySummary, storeMenuSummary, preview);
   container.replaceChildren(section);
   let latestResult = hooks.initialResult || null;
   container.managementApplyFinancialExternalEvidence = (evidence) => {
@@ -2947,13 +2981,13 @@ export function renderFinancialDataIntake(container, hooks = {}) {
     if (checking) return;
     checking = true;
     const files = Array.from(selectedFiles || []);
-    dropText.textContent = files.length === 1 ? files[0].name : files.length ? `${files.length}ファイルを選択中` : "ExcelまたはCSVファイルを選択してローカル検証";
+    dropText.textContent = files.length === 1 ? files[0].name : files.length ? `${files.length}ファイルを選択中` : "整形済みCSVまたは弥生Excelを選択してローカル検証";
     input.disabled = true;
     drop.setAttribute("aria-busy", "true");
     result.dataset.financialIntakeResult = "CHECKING";
     result.replaceChildren(el(doc, "strong", "", "検証中"), el(doc, "p", "", "ローカルでExcel/CSV構造を確認しています。"));
     try {
-      const parsed = source.value === "YAYOI"
+      const parsed = ["YAYOI", "NORMALIZED_CSV"].includes(source.value)
         ? await validateFinancialWorkbookFiles(files, statement.value, hooks)
         : { status: "SOURCE_SYSTEM_UNSUPPORTED", statement: statement.value, previewRows: [], entityPreviewRows: [] };
       latestResult = latestResult?.localSupplementalReceipt || latestResult?.localStoreCsvReceipt

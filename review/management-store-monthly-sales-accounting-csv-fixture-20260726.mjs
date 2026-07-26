@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
 import {
+  buildStoreMonthlySalesAccountingTemplateCsv,
   buildFinancialLocalPreview,
   parseStoreMonthlySalesAccountingCsvText,
 } from "../portal/management-app/financial-data-intake.js";
+
+const template = buildStoreMonthlySalesAccountingTemplateCsv();
+assert.equal(template.fileName, "management-store-monthly-sales-accounting-template.csv");
+assert.match(template.csv, /^\uFEFF"period","corporation","store","total_sales","technical_sales","product_sales","milbon_id_sales","ec_sales","profit"\r\n/u);
+assert.equal(template.productionImportEnabled, false);
 
 const header = "period,corporation,store,total_sales,technical_sales,product_sales,milbon_id_sales,ec_sales,profit";
 const validCsv = [

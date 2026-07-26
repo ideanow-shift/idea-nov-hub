@@ -37,11 +37,15 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
     contactsRows: 0,
     entriesRows: 0,
     offersRows: 0,
+    duplicateStableKeyHintRows: 0,
+    duplicateContactHintRows: 0,
     missingIdentityRows: 0,
     invalidDateRows: 0,
     inconsistentQuarantineRows: 0
   };
 
+  const stableKeyHints = new Map();
+  const contactHints = new Map();
   for (const row of rows) {
     if (row.length === 1 && row[0].trim() === "") continue;
     counts.totalRows += 1;
@@ -53,6 +57,8 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
     const datesOk = [value("event_date"), value("next_action_date")].every((date) => date === "" || /^\d{4}-\d{2}-\d{2}$/.test(date));
     const quarantineFlag = value("quarantine_flag");
     const quarantineReason = value("quarantine_reason");
+    const stableKeyHint = normalizeHint(value("stable_key_hint"));
+    const contactHint = normalizeHint(value("email")) || normalizeHint(value("phone")) || normalizeHint(value("line_name"));
     const quarantineOk = ["TRUE", "FALSE"].includes(quarantineFlag) && (quarantineFlag === "FALSE" || quarantineReason !== "");
     if (!yearOk) counts.invalidYearRows += 1;
     if (!sourceOk) counts.invalidSourceRows += 1;
@@ -62,9 +68,13 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
     if (!identityOk) counts.missingIdentityRows += 1;
     if (!datesOk) counts.invalidDateRows += 1;
     if (!quarantineOk) counts.inconsistentQuarantineRows += 1;
+    if (stableKeyHint) stableKeyHints.set(stableKeyHint, (stableKeyHints.get(stableKeyHint) || 0) + 1);
+    if (contactHint) contactHints.set(contactHint, (contactHints.get(contactHint) || 0) + 1);
     if (quarantineFlag === "TRUE" || !yearOk || !sourceOk || !identityOk || !datesOk || !quarantineOk) counts.quarantineRows += 1;
     else counts.readyRows += 1;
   }
+  counts.duplicateStableKeyHintRows = countDuplicateOccurrences(stableKeyHints);
+  counts.duplicateContactHintRows = countDuplicateOccurrences(contactHints);
 
   const fixedCategory = counts.totalRows === 0
     ? "CSV_NO_DATA_ROWS"
@@ -78,7 +88,9 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
             ? "CSV_DATE_FORMAT_MISMATCH"
             : counts.inconsistentQuarantineRows > 0
               ? "CSV_QUARANTINE_CONTRACT_MISMATCH"
-              : "PASS";
+              : counts.duplicateStableKeyHintRows > 0 || counts.duplicateContactHintRows > 0
+                ? "CSV_DUPLICATE_HINT_REVIEW_REQUIRED"
+                : "PASS";
   return Object.freeze({
     ok: fixedCategory === "PASS",
     fixedCategory,
@@ -145,6 +157,8 @@ function safeSummary(fixedCategory, headerCategory, partialCounts = {}) {
       contactsRows: 0,
       entriesRows: 0,
       offersRows: 0,
+      duplicateStableKeyHintRows: 0,
+      duplicateContactHintRows: 0,
       missingIdentityRows: 0,
       invalidDateRows: 0,
       inconsistentQuarantineRows: 0,
@@ -156,6 +170,18 @@ function safeSummary(fixedCategory, headerCategory, partialCounts = {}) {
     stagingOrCanonicalWriteCount: 0,
     retryCount: 0
   });
+}
+
+function normalizeHint(value) {
+  return typeof value === "string" ? value.normalize("NFKC").trim().toLocaleLowerCase("ja-JP") : "";
+}
+
+function countDuplicateOccurrences(map) {
+  let total = 0;
+  for (const count of map.values()) {
+    if (count > 1) total += count;
+  }
+  return total;
 }
 
 function freezeCounts(counts) {
@@ -226,6 +252,7 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
       ["接触", result.counts.contactsRows],
       ["エントリー", result.counts.entriesRows],
       ["内定", result.counts.offersRows],
+      ["重複候補", result.counts.duplicateStableKeyHintRows + result.counts.duplicateContactHintRows],
       ["要確認", result.counts.invalidYearRows + result.counts.invalidSourceRows + result.counts.missingIdentityRows + result.counts.invalidDateRows + result.counts.inconsistentQuarantineRows]
     ].map(([label, value]) => {
       const item = documentObject.createElement("div");

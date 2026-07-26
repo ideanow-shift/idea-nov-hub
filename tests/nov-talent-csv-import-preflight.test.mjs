@@ -24,6 +24,8 @@ test("28卒 CSV preflight accepts the sealed column contract without exposing ro
   assert.equal(result.counts.contactsRows, 1);
   assert.equal(result.counts.entriesRows, 0);
   assert.equal(result.counts.offersRows, 0);
+  assert.equal(result.counts.duplicateStableKeyHintRows, 0);
+  assert.equal(result.counts.duplicateContactHintRows, 0);
   assert.equal(result.rawValuesIncluded, false);
   assert.equal(result.networkOperationCount, 0);
   assert.equal(result.productionDbOperationCount, 0);
@@ -70,4 +72,17 @@ test("28卒 CSV readiness distinguishes quarantine-ready and source coverage cat
   });
   assert.equal(noReady.category, "NO_READY_ROWS");
   assert.equal(noReady.canRequestStagingPreflight, false);
+});
+
+test("28卒 CSV preflight reports duplicate hints by count without returning private values", () => {
+  const duplicateContact = [
+    row(["1", "2028", "CONTACTS_28", "contacts", "学生 太郎", "", "学校", "", "", "same@example.test", "", "", "", "", "", "", "", "", "", "stable-a", "", "FALSE", ""]),
+    row(["2", "2028", "ENTRIES_28", "entries", "学生 次郎", "", "学校", "", "", "same@example.test", "", "", "", "", "", "", "", "", "", "stable-a", "", "FALSE", ""])
+  ].join("\n");
+  const result = analyzeTalent28CsvPreflight(`${header}\n${duplicateContact}`);
+  assert.equal(result.fixedCategory, "CSV_DUPLICATE_HINT_REVIEW_REQUIRED");
+  assert.equal(result.counts.duplicateStableKeyHintRows, 2);
+  assert.equal(result.counts.duplicateContactHintRows, 2);
+  assert.equal(result.rawValuesIncluded, false);
+  assert.equal(Object.hasOwn(result, "duplicateValues"), false);
 });

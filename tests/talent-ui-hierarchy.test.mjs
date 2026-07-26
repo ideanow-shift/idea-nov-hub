@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewModeCopy, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewModeCopy, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -194,6 +194,34 @@ test("student detail guides the daily operation without exposing raw values", as
     classification: "QUARANTINE",
     mappingStatus: "UNMAPPED"
   }, { editable: true }, "2026-07-26").category, "QUARANTINE_REVIEW");
+});
+
+test("student detail marks safe review lanes for bulk, individual, and quarantine work", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+  const css = await readFile(new URL("style.css", root), "utf8");
+
+  assert.equal(buildStudentReviewBoundary({
+    mappingStatus: "UNMAPPED",
+    suggestionCategory: "EXACT1",
+    suggestedTargetRecordId: "target-1"
+  }).category, "BULK_SAFE_EXACT_LINK");
+  assert.equal(buildStudentReviewBoundary({
+    mappingStatus: "UNMAPPED",
+    sourceCode: "OFFERS_27",
+    suggestionCategory: "NONE"
+  }, { confirmable: true }).category, "INDIVIDUAL_REVIEW");
+  assert.equal(buildStudentReviewBoundary({
+    mappingStatus: "UNMAPPED",
+    classification: "QUARANTINE",
+    suggestionCategory: "AMBIGUOUS"
+  }).category, "QUARANTINE_HOLD");
+  assert.match(buildStudentReviewBoundary({ mappingStatus: "OWNER_CONFIRMED" }).caution, /staging原本は変更しません/);
+  assert.match(html, /id="student-review-boundary"/);
+  assert.match(html, /id="student-review-boundary-allowed"/);
+  assert.match(app, /renderStudentReviewBoundary/);
+  assert.match(app, /自動昇格・一括混入/);
+  assert.match(css, /\.student-review-boundary/);
 });
 
 test("workforce management exposes four accessible procedure tabs", async () => {

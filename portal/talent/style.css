@@ -931,6 +931,44 @@ h3 { margin: 0; font-size: 1rem; }
 .student-action-state { display: inline-flex; align-items: center; min-height: 25px; padding: 3px 7px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); background: #fff; font-size: .72rem; font-weight: 800; }
 .student-action-state.is-ready { border-color: #b9ddce; color: #176f48; background: var(--green-soft); }
 .student-action-state.is-blocked { border-color: #ead3a6; color: #926000; background: var(--amber-soft); }
+.student-review-boundary {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 10px 0 4px;
+  padding: 13px 14px;
+  border: 1px solid #ead3a6;
+  border-radius: 6px;
+  background: #fffdf7;
+}
+.student-review-boundary h4 { margin: 3px 0 0; color: var(--navy); font-size: .95rem; }
+.student-review-boundary p:not(.section-kicker) { margin: 6px 0 0; color: var(--muted); font-size: .83rem; line-height: 1.55; }
+.student-review-boundary-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 25px;
+  padding: 3px 8px;
+  border: 1px solid #ead3a6;
+  border-radius: 999px;
+  color: #926000;
+  background: var(--amber-soft);
+  font-size: .72rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.student-review-boundary-points { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.student-review-boundary-points span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+  background: #fff;
+  font-size: .72rem;
+  font-weight: 800;
+}
 .student-daily-operation {
   display: grid;
   gap: 10px;

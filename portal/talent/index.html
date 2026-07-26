@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-review-mode-note-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-review-boundary-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-review-mode-note-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-review-boundary-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -330,6 +330,18 @@
                   <span id="student-action-edit-state" class="student-action-state"></span>
                   <span id="student-action-audit-state" class="student-action-state"></span>
                   <span id="student-action-confirm-state" class="student-action-state"></span>
+                </div>
+              </section>
+              <section id="student-review-boundary" class="student-review-boundary" aria-live="polite" aria-labelledby="student-review-boundary-title">
+                <span id="student-review-boundary-badge" class="student-review-boundary-badge">未選択</span>
+                <div>
+                  <p class="section-kicker">REVIEW BOUNDARY</p>
+                  <h4 id="student-review-boundary-title">整理レーンを確認しています</h4>
+                  <p id="student-review-boundary-copy">学生を選択すると、一括・個別・隔離のどこで扱うかを表示します。</p>
+                  <div class="student-review-boundary-points">
+                    <span id="student-review-boundary-allowed">許可: 対象選択後に表示</span>
+                    <span id="student-review-boundary-caution">注意: 自動昇格は行いません</span>
+                  </div>
                 </div>
               </section>
               <section id="student-daily-operation" class="student-daily-operation" aria-live="polite" aria-labelledby="student-daily-operation-title">

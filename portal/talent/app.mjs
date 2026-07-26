@@ -1248,6 +1248,77 @@ export function buildStudentDailyOperation(student, capability = {}, referenceDa
   };
 }
 
+export function buildStudentReviewBoundary(student, capability = {}) {
+  if (!student) {
+    return Object.freeze({
+      category: "NO_SELECTION",
+      badge: "未選択",
+      title: "学生を選択すると整理レーンを表示します",
+      copy: "一括反映・個別確認・隔離維持のどこで扱うかを、個人値を出さずに案内します。",
+      allowed: "許可: 対象選択後に表示",
+      caution: "注意: 自動昇格は行いません"
+    });
+  }
+  if (student.mappingStatus === "OWNER_CONFIRMED") {
+    return Object.freeze({
+      category: "CONFIRMED_CANONICAL",
+      badge: "確認済み",
+      title: "確認済みとして日常更新に進めます",
+      copy: "候補整理は完了しています。必要な変更は正本プロフィール更新と変更履歴で扱います。",
+      allowed: "許可: 正本プロフィール更新",
+      caution: "注意: staging原本は変更しません"
+    });
+  }
+  if (student.mappingStatus === "UNMAPPED" && student.suggestionCategory === "EXACT1" && student.suggestedTargetRecordId) {
+    return Object.freeze({
+      category: "BULK_SAFE_EXACT_LINK",
+      badge: "一括対象",
+      title: "一致候補として一括反映できます",
+      copy: "自動一致が1件に絞られた行です。一括反映に含めても、新規候補や隔離行は混ぜません。",
+      allowed: "許可: 一致候補の紐付け確認",
+      caution: "除外: 新規・曖昧・隔離は別レーン"
+    });
+  }
+  if (capability.confirmable || isNewApplicantCandidate(student)) {
+    return Object.freeze({
+      category: "INDIVIDUAL_REVIEW",
+      badge: "個別確認",
+      title: "この候補だけを個別に判断します",
+      copy: "新規候補または個別確認が必要な行です。一括反映へ混ぜず、担当者が1件ずつ確認します。",
+      allowed: "許可: この候補だけ確認",
+      caution: "注意: 迷う場合は隔離維持"
+    });
+  }
+  if (student.classification === "QUARANTINE") {
+    return Object.freeze({
+      category: "QUARANTINE_HOLD",
+      badge: "隔離維持",
+      title: "隔離理由を整理して保留します",
+      copy: "正本へ寄せる根拠が足りない行です。補足と次回対応日を残し、勝手に昇格しません。",
+      allowed: "許可: 補足・次回対応の記録",
+      caution: "禁止: 自動昇格・一括混入"
+    });
+  }
+  if (capability.editable) {
+    return Object.freeze({
+      category: "STAGING_SUPPLEMENT",
+      badge: "補足記録",
+      title: "staging補足として整理します",
+      copy: "正本未確定のまま、後続確認に必要な補足だけを記録します。",
+      allowed: "許可: 補足・状態・次回対応",
+      caution: "注意: 正本化は別の確認操作"
+    });
+  }
+  return Object.freeze({
+    category: "READ_ONLY",
+    badge: "閲覧のみ",
+    title: "読み取り専用で確認します",
+    copy: "この行は今すぐ編集・確認できません。必要なら要確認・隔離キューで扱います。",
+    allowed: "許可: 内容確認",
+    caution: "禁止: 削除・自動昇格"
+  });
+}
+
 export function sortTalentStudentsByFollowUp(students, mode = "DEFAULT", referenceDate = localTalentDateIso()) {
   const rows = Array.isArray(students) ? students.slice() : [];
   if (mode !== "FOLLOW_UP") return rows;
@@ -1489,6 +1560,7 @@ function renderStudentDetail(documentObject, student) {
       auditButton.title = "学生を選択してください";
     }
     renderStudentActionGuide(documentObject, null);
+    renderStudentReviewBoundary(documentObject, buildStudentReviewBoundary(null));
     renderStudentDailyOperation(documentObject, buildStudentDailyOperation(null));
     return;
   }
@@ -1595,6 +1667,7 @@ function renderStudentDetail(documentObject, student) {
     mappingStatus: student.mappingStatus,
   };
   renderStudentActionGuide(documentObject, actionCapability);
+  renderStudentReviewBoundary(documentObject, buildStudentReviewBoundary(student, actionCapability));
   renderStudentDailyOperation(documentObject, buildStudentDailyOperation(student, actionCapability));
 }
 
@@ -1637,6 +1710,22 @@ function renderStudentActionGuide(documentObject, capability) {
 function setStudentActionState(element, label, enabled) {
   element.textContent = label;
   element.className = `student-action-state ${enabled ? "is-ready" : "is-blocked"}`;
+}
+
+function renderStudentReviewBoundary(documentObject, boundary) {
+  const badge = documentObject.getElementById("student-review-boundary-badge");
+  const title = documentObject.getElementById("student-review-boundary-title");
+  const copy = documentObject.getElementById("student-review-boundary-copy");
+  const allowed = documentObject.getElementById("student-review-boundary-allowed");
+  const caution = documentObject.getElementById("student-review-boundary-caution");
+  if (!badge || !title || !copy || !allowed || !caution) return;
+  const safeBoundary = boundary || buildStudentReviewBoundary(null);
+  badge.textContent = safeBoundary.badge;
+  badge.dataset.category = safeBoundary.category;
+  title.textContent = safeBoundary.title;
+  copy.textContent = safeBoundary.copy;
+  allowed.textContent = safeBoundary.allowed;
+  caution.textContent = safeBoundary.caution;
 }
 
 function renderStudentDailyOperation(documentObject, operation) {

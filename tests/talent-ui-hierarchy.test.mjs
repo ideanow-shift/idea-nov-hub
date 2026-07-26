@@ -141,6 +141,8 @@ test("workforce exposes an audited procedure case desk without employee-master c
   assert.match(source, /filterWorkforceProcedureCasesByType/);
     assert.match(source, /filterWorkforceProcedureCasesByPriority/);
     assert.match(source, /filterWorkforceProcedureCasesByQuery/);
+    assert.match(source, /nov-talent:open-procedure-case/);
+    assert.match(html, /id="workforce-queue-onboarding"/);
 });
 
 test("student editing supports canonical profiles and unmapped staging rows", async () => {

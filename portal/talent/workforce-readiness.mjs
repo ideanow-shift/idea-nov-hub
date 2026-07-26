@@ -16,6 +16,12 @@ const WORKFORCE_SUMMARY_KEYS = Object.freeze([
   "procedureQueues"
 ]);
 
+const QUEUE_PROCEDURE_TYPES = Object.freeze({
+  onboarding: "ONBOARDING",
+  leave: "LEAVE",
+  retirement: "RETIREMENT"
+});
+
 export const WORKFORCE_READONLY_CONTRACT = Object.freeze({
   source: "CORE_DB",
   mode: "READ_ONLY",
@@ -98,13 +104,26 @@ function isProcedureQueues(value) {
   const keys = ["onboarding", "leave", "retirement"];
   return value && typeof value === "object" && !Array.isArray(value)
     && Object.keys(value).length === keys.length
-    && keys.every((key) => Array.isArray(value[key]) && value[key].length <= 100 && value[key].every((row) => row
-      && typeof row === "object" && !Array.isArray(row)
-      && Object.keys(row).length === 3
-      && ["displayName", "effectiveDate", "detail"].every((field) => Object.hasOwn(row, field))
-      && typeof row.displayName === "string" && row.displayName.length > 0
-      && /^\d{4}-\d{2}-\d{2}$/u.test(row.effectiveDate)
-      && typeof row.detail === "string" && row.detail.length > 0));
+    && keys.every((key) => Array.isArray(value[key]) && value[key].length <= 100 && value[key].every(isProcedureQueueRow));
+}
+
+function isProcedureQueueRow(row) {
+  return row && typeof row === "object" && !Array.isArray(row)
+    && Object.keys(row).length === 3
+    && ["displayName", "effectiveDate", "detail"].every((field) => Object.hasOwn(row, field))
+    && typeof row.displayName === "string" && row.displayName.length > 0
+    && /^\d{4}-\d{2}-\d{2}$/u.test(row.effectiveDate)
+    && typeof row.detail === "string" && row.detail.length > 0;
+}
+
+export function buildWorkforceProcedureCasePrefill(queueKey, row) {
+  const procedureType = QUEUE_PROCEDURE_TYPES[queueKey];
+  if (!procedureType || !isProcedureQueueRow(row)) return null;
+  return Object.freeze({
+    procedureType,
+    subjectLabel: row.displayName,
+    effectiveDate: row.effectiveDate
+  });
 }
 
 function renderProcedureQueue(documentObject, key, rows) {
@@ -124,12 +143,25 @@ function renderProcedureQueue(documentObject, key, rows) {
     const item = documentObject.createElement("li");
     const name = documentObject.createElement("strong");
     const detail = documentObject.createElement("span");
+    const action = documentObject.createElement("button");
     name.textContent = row.displayName;
     detail.textContent = `${row.effectiveDate} / ${row.detail}`;
-    item.append(name, detail);
+    action.type = "button";
+    action.className = "workforce-queue-create";
+    action.textContent = "案件を登録";
+    action.addEventListener("click", () => openWorkforceProcedureCase(documentObject, buildWorkforceProcedureCasePrefill(key, row)));
+    item.append(name, detail, action);
     fragment.append(item);
   }
   container.append(fragment);
+}
+
+function openWorkforceProcedureCase(documentObject, draft) {
+  const EventConstructor = documentObject?.defaultView?.CustomEvent || globalThis.CustomEvent;
+  if (!draft || typeof EventConstructor !== "function" || typeof documentObject?.dispatchEvent !== "function") return false;
+  documentObject.dispatchEvent(new EventConstructor("nov-talent:open-procedure-case", { detail: draft }));
+  documentObject.getElementById("workforce-procedure-desk")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  return true;
 }
 
 function setText(documentObject, id, value) {

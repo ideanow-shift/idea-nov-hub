@@ -1038,8 +1038,10 @@ h3 { margin: 0; font-size: 1rem; }
 .workforce-queue p { margin-top: 6px; color: var(--muted); font-size: 0.85rem; }
 .workforce-queue ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; color: var(--muted); }
 .workforce-queue li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 6px; background: #fffafa; }
-.workforce-queue li strong { color: var(--navy); }
-.workforce-queue li span { color: var(--muted); white-space: nowrap; }
+  .workforce-queue li strong { color: var(--navy); }
+  .workforce-queue li span { color: var(--muted); white-space: nowrap; }
+  .workforce-queue-create { align-self: center; min-height: 34px; padding: 6px 10px; border: 1px solid var(--accent-strong); border-radius: 6px; background: #fff; color: var(--accent-strong); font: inherit; font-size: .82rem; font-weight: 800; cursor: pointer; }
+  .workforce-queue-create:hover, .workforce-queue-create:focus-visible { background: var(--accent-soft); outline: none; }
 
 .procedure-checklist {
   display: grid;
@@ -1132,6 +1134,7 @@ h3 { margin: 0; font-size: 1rem; }
   .status { margin-top: 10px; }
   .summary-grid, .historical-summary-grid, .workforce-summary, .procedure-board, .procedure-checklist, .feature-grid, .workforce-readiness, .procedure-case-overview { grid-template-columns: 1fr; }
   .workforce-queue li { display: grid; }
+  .workforce-queue-create { width: 100%; }
   .analysis-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .analysis-kpis .analysis-kpi-wide { grid-column: 1 / -1; }
   .analysis-panel > header { display: block; }

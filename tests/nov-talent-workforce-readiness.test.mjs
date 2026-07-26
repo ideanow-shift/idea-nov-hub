@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   WORKFORCE_READONLY_CONTRACT,
+  buildWorkforceProcedureCasePrefill,
   buildWorkforceReadinessViewModel
 } from "../portal/talent/workforce-readiness.mjs";
 
@@ -64,4 +65,18 @@ test("connected workforce readiness returns minimal procedure rows without conta
   assert.equal(viewModel.personalValuesReturned, true);
   assert.equal(viewModel.contactValuesReturned, false);
   assert.equal(viewModel.mutationsAllowed, false);
+});
+
+test("Core DB procedure queues can open an audited case draft without mutating the employee master", () => {
+  const draft = buildWorkforceProcedureCasePrefill("retirement", {
+    displayName: "山田 花子",
+    effectiveDate: "2026-08-31",
+    detail: "退職予定"
+  });
+  assert.deepEqual(draft, {
+    procedureType: "RETIREMENT",
+    subjectLabel: "山田 花子",
+    effectiveDate: "2026-08-31"
+  });
+  assert.equal(buildWorkforceProcedureCasePrefill("transfer", draft), null);
 });

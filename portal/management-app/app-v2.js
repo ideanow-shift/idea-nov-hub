@@ -1115,14 +1115,15 @@ function uniqueWorkforceTemplateCandidates() {
 
 function buildStoreAnalysisDataCoveragePanel(preview) {
   const hasSalesBreakdown = preview.rows.some((row) => row.technicalSalesManYen != null && row.productSalesManYen != null);
-  const hasVisitCohort = localStoreUnitPriceRows().length > 0;
+  const hasVisitCohort = Boolean(state.storeVisitCohortPreview?.rows?.length);
+  const hasUnitPriceMatch = localStoreUnitPriceRows().length > 0;
   const hasRepeat = Boolean(state.storeRepeatPreview?.rows?.length);
   const hasMenu = Boolean(state.storeMenuPreview?.rows?.length);
   const hasWorkforce = localStoreProductivityRows().length > 0;
   const items = [
     ["売上・利益", hasSalesBreakdown, "経理P/Lの店舗候補"],
     ["技術生産性・総生産性", hasSalesBreakdown && hasWorkforce, "経理P/Lと稼働人数の同月照合"],
-    ["技術単価・総単価", hasSalesBreakdown && hasVisitCohort, "技術客数・総来店数CSVの同月照合"],
+    ["技術単価・総単価", hasSalesBreakdown && hasUnitPriceMatch, "技術客数・総来店数CSVの同月照合"],
     ["新規・2回目・3回目・固定", hasVisitCohort, "来店区分CSV"],
     ["既存の再来・固定率", hasRepeat, "再来区分サマリCSV"],
     ["メニュー分析", hasMenu, "店舗月次メニュー集計CSV"],

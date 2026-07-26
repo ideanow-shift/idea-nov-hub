@@ -1277,6 +1277,12 @@ function buildStoreMonthlyTrendPanel() {
     normalizeStoreCandidateName(row.storeName) + "\u001f" + row.period,
     row,
   ]));
+  const salesByPeriod = new Map();
+  selectedStore.rows.forEach((row) => {
+    const period = String(row.period).trim();
+    const salesYen = Number(row.totalSalesYen);
+    if (!salesByPeriod.has(period) && Number.isFinite(salesYen)) salesByPeriod.set(period, salesYen);
+  });
   const seenPeriods = new Set();
   const rows = selectedStore.rows.map((row) => {
     const period = String(row.period).trim();
@@ -1286,9 +1292,12 @@ function buildStoreMonthlyTrendPanel() {
     const workforce = workforceByKey.get(matchKey);
     const budget = budgetByKey.get(matchKey);
     const workingHeadcount = workforce?.workingHeadcount > 0 ? workforce.workingHeadcount : null;
+    const previousYearPeriod = `${Number(period.slice(0, 4)) - 1}${period.slice(4)}`;
+    const previousYearSalesYen = salesByPeriod.get(previousYearPeriod);
     return Object.freeze({
       period,
       salesYen: Number(row.totalSalesYen),
+      yearOverYearRatePercent: Number.isFinite(previousYearSalesYen) && previousYearSalesYen > 0 ? (Number(row.totalSalesYen) / previousYearSalesYen) * 100 : null,
       salesPlanYen: budget?.salesPlanYen ?? null,
       technicalSalesYen: Number(row.technicalSalesYen),
       productSalesYen: Number(row.productSalesYen),
@@ -1322,11 +1331,12 @@ function buildStoreMonthlyTrendPanel() {
   wrap.className = "table-wrap embedded local-preview-table";
   const table = document.createElement("table");
   const thead = document.createElement("thead");
-  thead.append(tableRow(["対象月", "総売上", "目標売上", "達成率", "技術売上", "商品売上", "EC売上", "経常損益", "稼働人数", "総生産性"], true));
+  thead.append(tableRow(["対象月", "総売上", "前年同月比", "目標売上", "達成率", "技術売上", "商品売上", "EC売上", "経常損益", "稼働人数", "総生産性"], true));
   const tbody = document.createElement("tbody");
   tbody.replaceChildren(...rows.map((row) => tableRow([
     row.period,
     Number.isFinite(row.salesYen) ? yen.format(row.salesYen) : "未確定",
+    row.yearOverYearRatePercent != null ? `${percentage.format(row.yearOverYearRatePercent)}%` : "前年同月P/L待ち",
     row.salesPlanYen != null ? yen.format(row.salesPlanYen) : "目標CSV待ち",
     row.salesAchievementRatePercent != null ? `${percentage.format(row.salesAchievementRatePercent)}%` : "目標CSV待ち",
     Number.isFinite(row.technicalSalesYen) ? yen.format(row.technicalSalesYen) : "未確定",
@@ -1343,7 +1353,7 @@ function buildStoreMonthlyTrendPanel() {
     paragraph("同じ店舗名・同じ月で照合できた経理P/L、目標売上、稼働人数だけを表示します。未照合の目標・人数は補完しません。"),
     storeControl,
     wrap,
-    muted("総生産性 = (技術売上 + 商品売上) ÷ 稼働人数。EC売上は含めません。本番保存・承認・再計算は無効です。")
+    muted("前年同月比 = 当月総売上 ÷ 前年同月総売上。総生産性 = (技術売上 + 商品売上) ÷ 稼働人数。EC売上は含めません。本番保存・承認・再計算は無効です。")
   );
   return section;
 }

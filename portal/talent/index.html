@@ -315,6 +315,26 @@
           <div id="student-filter-summary-chips" class="student-filter-summary-chips"></div>
         </section>
 
+        <section id="student-daily-queue-summary" class="student-daily-queue-summary" data-category="STEADY_STATE" aria-label="今日の学生フォロー処理順">
+          <div>
+            <span>TODAY'S QUEUE</span>
+            <strong id="student-daily-queue-title">通常フォローを継続</strong>
+            <p id="student-daily-queue-copy">検索・学校別・月別の導線から、次の対象を選びます。</p>
+          </div>
+          <dl>
+            <div><dt>期限超過</dt><dd id="student-daily-queue-overdue">-</dd></div>
+            <div><dt>直近7日</dt><dd id="student-daily-queue-next-week">-</dd></div>
+            <div><dt>要確認</dt><dd id="student-daily-queue-review">-</dd></div>
+            <div><dt>隔離</dt><dd id="student-daily-queue-quarantine">-</dd></div>
+            <div><dt>入社引継ぎ</dt><dd id="student-daily-queue-onboarding">-</dd></div>
+          </dl>
+          <ol id="student-daily-queue-steps" class="student-daily-queue-steps" data-category="STEADY_STATE">
+            <li data-category="OPEN_ALL">1. 学生一覧を開く</li>
+            <li data-category="USE_ANALYTICS">2. 学校・月別分析から対象を選ぶ</li>
+            <li data-category="KEEP_DAILY_UPDATES">3. 状態と次回対応を更新</li>
+          </ol>
+        </section>
+
         <section class="student-kpis" aria-label="27卒取込状況">
           <article><span>全データ</span><strong id="student-total">-</strong></article>
           <article><span>接触</span><strong id="student-contacts">-</strong></article>

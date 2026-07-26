@@ -874,6 +874,28 @@ h3 { margin: 0; font-size: 1rem; }
   font-weight: 800;
 }
 
+.student-daily-queue-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 1fr);
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: #f8fffb;
+}
+.student-daily-queue-summary > div:first-child { display: grid; gap: 4px; }
+.student-daily-queue-summary span { color: #267650; font-size: .72rem; font-weight: 900; letter-spacing: .08em; }
+.student-daily-queue-summary strong { color: var(--navy); font-size: 1rem; }
+.student-daily-queue-summary p { margin: 0; color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.student-daily-queue-summary dl { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; grid-column: 1 / -1; margin: 0; }
+.student-daily-queue-summary dl div { padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.student-daily-queue-summary dt { color: var(--muted); font-size: .72rem; font-weight: 800; }
+.student-daily-queue-summary dd { margin: 4px 0 0; color: var(--navy); font-size: 1.1rem; font-weight: 900; }
+.student-daily-queue-summary[data-category="OVERDUE_FIRST"] { border-color: #f1b8b8; background: #fff8f8; }
+.student-daily-queue-summary[data-category="NEXT_WEEK_FIRST"] { border-color: #f2d59d; background: #fffaf0; }
+.student-daily-queue-steps { display: grid; gap: 6px; align-self: start; margin: 0; padding: 0; list-style: none; }
+.student-daily-queue-steps li { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .8rem; font-weight: 850; line-height: 1.45; }
+
 .student-kpis {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));

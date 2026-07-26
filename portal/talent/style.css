@@ -1401,9 +1401,13 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-steps .procedure-case-status[data-category="CHECKLIST_INCOMPLETE"] { color: #9a5d00; font-weight: 800; }
 .procedure-case-steps .procedure-case-status[data-category="CHECKLIST_SHAPE_INVALID"] { color: #b33131; font-weight: 800; }
 .procedure-case-steps-list { display: grid; gap: 8px; margin-top: 12px; }
-.procedure-case-step { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); cursor: pointer; }
+.procedure-case-step { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); cursor: pointer; }
 .procedure-case-step input { width: 18px; height: 18px; accent-color: var(--accent-strong); }
+.procedure-case-step b { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-strong); font-size: .72rem; font-weight: 900; }
+.procedure-case-step em { justify-self: end; padding: 4px 7px; border-radius: 999px; background: #fff6e4; color: #9a5d00; font-size: .72rem; font-style: normal; font-weight: 900; }
 .procedure-case-step.is-completed { color: #267650; background: #edf8f1; }
+.procedure-case-step.is-completed b,
+.procedure-case-step.is-completed em { background: #dff4e7; color: #176f48; }
 .primary-action,
 .case-edit-button,
 .procedure-case-actions button {

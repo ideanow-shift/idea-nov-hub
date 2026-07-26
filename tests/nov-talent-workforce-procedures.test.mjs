@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { buildWorkforceProcedureActionMix, buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseActionRoute, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureEmptyState, buildWorkforceProcedureFormSavePreview, buildWorkforceProcedureFormSubmitReadiness, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureActionMix, buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseActionRoute, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureEmptyState, buildWorkforceProcedureFormSavePreview, buildWorkforceProcedureFormSubmitReadiness, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureStepProgress, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -196,6 +196,33 @@ test("workforce procedure confirmation requires every checklist item", () => {
   assert.equal(buildWorkforceProcedureConfirmationReadiness(ready.slice(0, 3)).category, "CHECKLIST_SHAPE_INVALID");
   assert.equal(buildWorkforceProcedureConfirmationReadiness(ready).rawValuesIncluded, false);
   assert.equal(buildWorkforceProcedureConfirmationReadiness(ready).employeeMasterMutation, false);
+});
+
+test("workforce procedure step progress points to the next incomplete checklist item", async () => {
+  const source = await readFile(new URL("../portal/talent/workforce-procedures.mjs", import.meta.url), "utf8");
+  const css = await readFile(new URL("../portal/talent/style.css", import.meta.url), "utf8");
+  const progress = buildWorkforceProcedureStepProgress([
+    { stepKey: "BASIC_INFO", isCompleted: true },
+    { stepKey: "DOCUMENTS", isCompleted: false },
+    { stepKey: "APPROVAL", isCompleted: false },
+    { stepKey: "CORE_HANDOFF", isCompleted: false }
+  ]);
+  assert.equal(progress.category, "IN_PROGRESS");
+  assert.equal(progress.completed, 1);
+  assert.equal(progress.pending, 3);
+  assert.equal(progress.nextStepCategory, "PRESENT");
+  assert.equal(progress.canConfirm, false);
+  assert.equal(progress.rawValuesIncluded, false);
+  assert.equal(progress.employeeMasterMutation, false);
+  assert.equal(buildWorkforceProcedureStepProgress([
+    { isCompleted: true },
+    { isCompleted: true },
+    { isCompleted: true },
+    { isCompleted: true }
+  ]).category, "ALL_COMPLETE");
+  assert.match(source, /progressCategory/);
+  assert.match(source, /padStart/);
+  assert.match(css, /procedure-case-step em/);
 });
 
 test("workforce procedure checklist plans stay scoped by procedure type", async () => {

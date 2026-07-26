@@ -14,7 +14,7 @@ import { createTalentStudentProfileController } from "./student-profile.mjs?v=20
 import { createTalentStagingSupplementController } from "./staging-supplement.mjs?v=20260725-staging-edit-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260726-talent-28-csv-preflight-1";
 import { buildWorkforceReadinessViewModel, renderWorkforceReadiness } from "./workforce-readiness.mjs?v=20260726-workforce-queue-case-prefill-1";
-import { initializeWorkforceProcedureDesk } from "./workforce-procedures.mjs?v=20260726-workforce-save-preview-1";
+import { initializeWorkforceProcedureDesk } from "./workforce-procedures.mjs?v=20260726-workforce-step-progress-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;

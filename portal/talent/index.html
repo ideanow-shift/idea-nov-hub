@@ -6,7 +6,7 @@
   <title>人財投資管理システム | NOV HUB</title>
   <link rel="stylesheet" href="./style.css?v=20260726-pipeline-filter-2">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-pipeline-filter-2"></script>
+  <script type="module" src="./app.mjs?v=20260726-workforce-case-context-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -487,13 +487,13 @@
 
       <nav class="secondary-tabs workforce-tabs" role="tablist" aria-label="現職者管理メニュー">
         <button type="button" role="tab" aria-selected="true" aria-controls="workforce-onboarding"
-          tabindex="0" data-workforce-tab="onboarding">入社手続き</button>
+          tabindex="0" data-workforce-tab="onboarding" data-procedure-type="ONBOARDING">入社手続き</button>
         <button type="button" role="tab" aria-selected="false" aria-controls="workforce-transfer"
-          tabindex="-1" data-workforce-tab="transfer">異動手続き</button>
+          tabindex="-1" data-workforce-tab="transfer" data-procedure-type="TRANSFER">異動手続き</button>
         <button type="button" role="tab" aria-selected="false" aria-controls="workforce-leave"
-          tabindex="-1" data-workforce-tab="leave">休職・復職</button>
+          tabindex="-1" data-workforce-tab="leave" data-procedure-type="LEAVE">休職・復職</button>
         <button type="button" role="tab" aria-selected="false" aria-controls="workforce-retirement"
-          tabindex="-1" data-workforce-tab="retirement">退職手続き</button>
+          tabindex="-1" data-workforce-tab="retirement" data-procedure-type="RETIREMENT">退職手続き</button>
       </nav>
 
       <section id="workforce-onboarding" class="workforce-panel" role="tabpanel">

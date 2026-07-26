@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, isWorkforceProcedureCaseReadyToConfirm, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -61,6 +61,15 @@ test("workforce procedure cases filter by progress without mutating rows", () =>
   assert.equal(filterWorkforceProcedureCases(cases, "ALL").length, 3);
   assert.equal(filterWorkforceProcedureCases(cases, "INVALID").length, 0);
   assert.equal(WORKFORCE_PROCEDURE_CASE_CONTRACT.statusFilters, true);
+});
+
+test("new workforce cases inherit the active procedure tab", () => {
+  assert.equal(getActiveWorkforceProcedureType({
+    querySelector: () => ({ dataset: { procedureType: "RETIREMENT" } })
+  }), "RETIREMENT");
+  assert.equal(getActiveWorkforceProcedureType({
+    querySelector: () => ({ dataset: { procedureType: "UNKNOWN" } })
+  }), "ONBOARDING");
 });
 
 test("workforce procedure checklists read and update one bounded step", async () => {

@@ -37,6 +37,8 @@ test("workforce management exposes four accessible procedure tabs", async () => 
     assert.match(html, new RegExp(`data-workforce-tab="${key}"`));
     assert.match(html, new RegExp(`id="workforce-${key}"[\\s\\S]*role="tabpanel"`));
   }
+  assert.match(html, /data-workforce-tab="transfer" data-procedure-type="TRANSFER"/);
+  assert.match(html, /data-workforce-tab="retirement" data-procedure-type="RETIREMENT"/);
   assert.match(app, /WORKFORCE_TABS/);
   assert.match(app, /data-workforce-tab/);
 });

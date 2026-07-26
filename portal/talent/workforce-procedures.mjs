@@ -20,6 +20,12 @@ export const WORKFORCE_PROCEDURE_CASE_CONTRACT = Object.freeze({
   retryCount: 0
 });
 
+export function getActiveWorkforceProcedureType(documentObject) {
+  const selected = documentObject?.querySelector?.('[data-workforce-tab][aria-selected="true"]');
+  const procedureType = String(selected?.dataset?.procedureType || "");
+  return PROCEDURE_TYPES.includes(procedureType) ? procedureType : "ONBOARDING";
+}
+
 export function filterWorkforceProcedureCases(cases, filter = "ALL") {
   if (!Array.isArray(cases) || !["ALL", ...CASE_STATUSES].includes(filter)) return Object.freeze([]);
   return Object.freeze(cases.filter((item) => filter === "ALL" || item.caseStatus === filter));
@@ -447,6 +453,7 @@ export function initializeWorkforceProcedureDesk({
 
   documentObject.getElementById("workforce-case-new")?.addEventListener("click", () => {
     reset();
+    input("procedureType").value = getActiveWorkforceProcedureType(documentObject);
     form.hidden = false;
     input("subjectLabel")?.focus?.();
   });

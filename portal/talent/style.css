@@ -1281,6 +1281,25 @@ h3 { margin: 0; font-size: 1rem; }
   background: var(--accent-soft);
   outline: none;
 }
+.procedure-case-operation-steps {
+  display: grid;
+  flex: 1 0 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.procedure-case-operation-steps li {
+  padding: 9px 10px;
+  border: 1px solid #d8eadf;
+  border-radius: 6px;
+  color: var(--ink);
+  background: #fff;
+  font-size: .8rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
 .procedure-case-type-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
 .procedure-case-type-summary button { display: grid; gap: 5px; padding: 11px; border: 1px solid var(--line); border-radius: 7px; background: #fff; text-align: left; font: inherit; cursor: pointer; }
 .procedure-case-type-summary span { color: var(--muted); font-size: .78rem; font-weight: 800; }
@@ -1483,6 +1502,7 @@ h3 { margin: 0; font-size: 1rem; }
   .summary-grid, .historical-summary-grid, .workforce-summary, .workforce-operation-boundaries, .procedure-board, .procedure-checklist, .procedure-case-overview, .procedure-case-type-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .procedure-case-operation-summary { display: grid; }
   .procedure-case-operation-summary dl { min-width: 0; width: 100%; }
+  .procedure-case-operation-steps { grid-template-columns: 1fr; }
   .procedure-case-checklist-plan ol { grid-template-columns: 1fr; }
   .workforce-queue { grid-template-columns: 1fr; }
   .workforce-readiness { grid-template-columns: 1fr; }

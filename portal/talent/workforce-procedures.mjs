@@ -248,6 +248,25 @@ export function buildWorkforceProcedureOperationFilter(action) {
   });
 }
 
+export function buildWorkforceProcedureOperationSteps(summary) {
+  const nextAction = summary?.nextAction || "NO_OPEN_WORK";
+  const labelsByAction = Object.freeze({
+    OVERDUE: ["期限超過だけに絞り込む", "基準日と不足情報を確認する", "確認待ちまたは中止へ進捗を整える"],
+    NEXT_7_DAYS: ["7日以内の案件を開く", "対象者・基準日・メモを補う", "期限前に確認待ちへ回す"],
+    READY_FOR_REVIEW: ["確認待ちだけに絞り込む", "4つの確認項目を確認する", "完了した案件だけ確認済みにする"],
+    DRAFT: ["下書きだけに絞り込む", "対象者と基準日を揃える", "準備できたものを確認待ちへ進める"],
+    NO_OPEN_WORK: ["新規案件を受け付ける", "直近予定を確認する", "社員マスタ反映は別承認で扱う"]
+  });
+  const labels = labelsByAction[nextAction] || labelsByAction.NO_OPEN_WORK;
+  return Object.freeze({
+    nextAction,
+    steps: Object.freeze(labels.map((label, index) => Object.freeze({ order: index + 1, label }))),
+    rawValuesIncluded: false,
+    employeeMasterMutation: false,
+    canonicalWriteReachable: false
+  });
+}
+
 export function buildWorkforceProcedureTypeSummary(cases, referenceDate = localDateIso()) {
   const rows = Array.isArray(cases) ? cases : [];
   return Object.freeze(Object.fromEntries(PROCEDURE_TYPES.map((procedureType) => {
@@ -574,6 +593,7 @@ export function initializeWorkforceProcedureDesk({
   const priorityStatus = documentObject?.getElementById?.("workforce-case-priority-status");
   const operationSummary = documentObject?.getElementById?.("workforce-case-operation-summary");
   const operationFilterButtons = Array.from(documentObject?.querySelectorAll?.("[data-workforce-operation-filter]") || []);
+  const operationSteps = documentObject?.getElementById?.("workforce-case-operation-steps");
   const procedureFilter = documentObject?.getElementById?.("workforce-case-procedure-filter");
   const searchInput = documentObject?.getElementById?.("workforce-case-search");
   const filterResetButton = documentObject?.getElementById?.("workforce-case-filter-reset");
@@ -728,6 +748,11 @@ export function initializeWorkforceProcedureDesk({
     set("workforce-case-operation-soon", summary.soon);
     set("workforce-case-operation-review", summary.review);
     set("workforce-case-operation-draft", summary.draft);
+    operationSteps?.replaceChildren(...buildWorkforceProcedureOperationSteps(summary).steps.map((step) => {
+      const item = documentObject.createElement("li");
+      item.textContent = `${step.order}. ${step.label}`;
+      return item;
+    }));
     for (const button of operationFilterButtons) {
       const plan = buildWorkforceProcedureOperationFilter(button.dataset.workforceOperationFilter);
       const selected = activeFilter === plan.status && activePriority === plan.priority;

@@ -310,6 +310,29 @@ export function buildTalent28CsvFixGuide(result) {
   });
 }
 
+export function buildTalent28CsvCorrectionRoute(fixGuide) {
+  const category = String(fixGuide?.nextCategory || "NO_SAFE_FIX_REQUIRED");
+  const routes = Object.freeze({
+    STRUCTURE: Object.freeze({ target: "CSV_TEMPLATE", title: "雛形へ戻す", copy: "列順・列数・source_row_noをテンプレートに合わせます。" }),
+    YEAR: Object.freeze({ target: "GRADUATION_YEAR", title: "年度を確認", copy: "28卒だけを残し、別年度は別ファイルへ分けます。" }),
+    SOURCE: Object.freeze({ target: "SOURCE_FIELDS", title: "由来を補う", copy: "source_typeとsource_labelを由来別に埋めます。" }),
+    IDENTITY: Object.freeze({ target: "IDENTITY_FIELDS", title: "本人識別を補う", copy: "氏名・学校・連絡手段の最低条件を整えます。" }),
+    DATE: Object.freeze({ target: "DATE_FIELDS", title: "日付を直す", copy: "日付はYYYY-MM-DD、不明な日付は空欄にします。" }),
+    QUARANTINE: Object.freeze({ target: "QUARANTINE_FIELDS", title: "隔離理由を補う", copy: "TRUEの隔離行には理由を入れて投入候補と分けます。" }),
+    DUPLICATE_HINT: Object.freeze({ target: "DUPLICATE_REVIEW", title: "重複候補を確認", copy: "同一候補の可能性を確認し、迷う行は隔離へ回します。" }),
+    REQUEST_STAGING_PREFLIGHT_APPROVAL: Object.freeze({ target: "OWNER_APPROVAL", title: "投入前承認へ", copy: "件数カテゴリだけ確認し、staging preflight承認へ進みます。" }),
+    NO_SAFE_FIX_REQUIRED: Object.freeze({ target: "CSV_SELECT", title: "CSVを選択", copy: "CSVを選ぶと修正カテゴリを表示します。" })
+  });
+  const selected = routes[category] || routes.NO_SAFE_FIX_REQUIRED;
+  return Object.freeze({
+    category,
+    ...selected,
+    rawValuesIncluded: false,
+    productionWriteReachable: false,
+    googleSheetsConnectorRead: false
+  });
+}
+
 function renderTalent28CsvReceiptText(receipt) {
   const categoryText = {
     READY_FOR_OWNER_DECISION: "投入前確認へ進めます",
@@ -433,7 +456,8 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
   const planList = documentObject?.getElementById?.("talent-28-csv-plan");
   const receiptStatus = documentObject?.getElementById?.("talent-28-csv-receipt");
   const fixGuideList = documentObject?.getElementById?.("talent-28-csv-fix-guide");
-  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList) return Object.freeze({ initialized: false });
+  const correctionRoute = documentObject?.getElementById?.("talent-28-csv-correction-route");
+  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute) return Object.freeze({ initialized: false });
   if (input.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true });
   input.dataset.bound = "true";
   const preparation = buildTalent28CsvPreparationGuide();
@@ -479,6 +503,9 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
     receiptStatus.dataset.category = receipt.category;
     receiptStatus.textContent = renderTalent28CsvReceiptText(receipt);
     const fixGuide = buildTalent28CsvFixGuide(result);
+    const route = buildTalent28CsvCorrectionRoute(fixGuide);
+    correctionRoute.dataset.category = route.category;
+    correctionRoute.textContent = `${route.title}: ${route.copy}`;
     fixGuideList.dataset.category = fixGuide.nextCategory;
     fixGuideList.replaceChildren(...fixGuide.steps.map((step) => {
       const item = documentObject.createElement("li");

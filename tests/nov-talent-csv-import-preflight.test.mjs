@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { analyzeTalent28CsvPreflight, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvPreparationGuide, buildTalent28CsvSafeReceipt, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
+import { analyzeTalent28CsvPreflight, buildTalent28CsvCorrectionRoute, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvPreparationGuide, buildTalent28CsvSafeReceipt, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
 
 const header = [
   "source_row_no", "graduation_year", "source_type", "source_label", "student_name", "student_name_kana",
@@ -200,4 +200,20 @@ test("28卒 CSV fix guide prioritizes safe correction categories only", () => {
   assert.equal(guide.rawValuesIncluded, false);
   assert.equal(guide.productionWriteReachable, false);
   assert.doesNotMatch(JSON.stringify(guide), /学生 太郎|090|example|source_row_no/i);
+});
+
+test("28卒 CSV correction route points staff back to the safe repair area", async () => {
+  const html = await readFile(new URL("../portal/talent/index.html", import.meta.url), "utf8");
+  const css = await readFile(new URL("../portal/talent/style.css", import.meta.url), "utf8");
+  const identity = buildTalent28CsvCorrectionRoute({ nextCategory: "IDENTITY" });
+  const approval = buildTalent28CsvCorrectionRoute({ nextCategory: "REQUEST_STAGING_PREFLIGHT_APPROVAL" });
+  assert.equal(identity.target, "IDENTITY_FIELDS");
+  assert.equal(identity.rawValuesIncluded, false);
+  assert.equal(identity.googleSheetsConnectorRead, false);
+  assert.equal(identity.productionWriteReachable, false);
+  assert.equal(approval.target, "OWNER_APPROVAL");
+  assert.match(html, /talent-28-csv-correction-route/);
+  assert.match(css, /\.csv-correction-route/);
+  assert.match(css, /\[data-category="REQUEST_STAGING_PREFLIGHT_APPROVAL"\]/);
+  assert.doesNotMatch(JSON.stringify(identity), /学生 太郎|090|example|source_row_no/i);
 });

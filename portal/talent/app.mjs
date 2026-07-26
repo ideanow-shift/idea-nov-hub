@@ -1504,6 +1504,14 @@ function createStudentListItem(documentObject, student) {
   const status = documentObject.createElement("span");
   status.className = "student-list-status";
   status.textContent = student.status;
+  const reviewBoundary = buildStudentReviewBoundary(student, {
+    confirmable: isStudentIndividuallyConfirmable(student),
+    editable: Boolean(student.applicationNo) || (student.mappingStatus === "UNMAPPED" && Boolean(student.recordId))
+  });
+  const reviewLane = documentObject.createElement("span");
+  reviewLane.className = "student-list-review-lane";
+  reviewLane.dataset.category = reviewBoundary.category;
+  reviewLane.textContent = reviewBoundary.badge;
   const followUpCategory = classifyTalentStudentFollowUp(student);
   const followUp = documentObject.createElement("span");
   followUp.className = `student-list-followup is-${followUpCategory.toLowerCase().replaceAll("_", "-")}`;
@@ -1515,12 +1523,19 @@ function createStudentListItem(documentObject, student) {
   reason.className = "student-list-reason";
   reason.textContent = reasons.length ? reasons.join("・") : "";
   if (reasons.length) button.title = `確認事項: ${reasons.join("・")}`;
-  button.append(top, meta, status, followUp, reason);
+  button.append(top, meta, status, reviewLane, followUp, reason);
   button.addEventListener("click", () => {
     selectedStudentRecordId = student.recordId;
     renderStudentWorkspace(documentObject);
   });
   return button;
+}
+
+function isStudentIndividuallyConfirmable(student) {
+  return student?.mappingStatus === "UNMAPPED"
+    && (student.primaryEligible
+      || (student.suggestionCategory === "EXACT1" && Boolean(student.suggestedTargetRecordId))
+      || ["ENTRIES_27", "OFFERS_27"].includes(student.sourceCode));
 }
 
 function renderStudentDetail(documentObject, student) {
@@ -1596,10 +1611,7 @@ function renderStudentDetail(documentObject, student) {
     auditButton.title = auditable ? "情報の変更履歴を表示" : "編集可能な情報がありません";
   }
   const confirmButton = documentObject.getElementById("student-confirm-open");
-  const confirmable = student.mappingStatus === "UNMAPPED"
-    && (student.primaryEligible
-      || (student.suggestionCategory === "EXACT1" && Boolean(student.suggestedTargetRecordId))
-      || ["ENTRIES_27", "OFFERS_27"].includes(student.sourceCode));
+  const confirmable = isStudentIndividuallyConfirmable(student);
   if (confirmButton) {
     confirmButton.disabled = !confirmable;
     confirmButton.setAttribute("aria-disabled", String(!confirmable));

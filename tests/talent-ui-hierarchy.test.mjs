@@ -497,6 +497,18 @@ test("student list keeps safe review reasons visible before selection", async ()
   assert.match(css, /\.student-list-reason\s*\{/);
 });
 
+test("student list exposes review lane badges before opening details", async () => {
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+  const css = await readFile(new URL("style.css", root), "utf8");
+
+  assert.match(app, /student-list-review-lane/);
+  assert.match(app, /buildStudentReviewBoundary\(student/);
+  assert.match(app, /isStudentIndividuallyConfirmable/);
+  assert.match(css, /\.student-list-review-lane/);
+  assert.match(css, /\[data-category="BULK_SAFE_EXACT_LINK"\]/);
+  assert.match(css, /\[data-category="QUARANTINE_HOLD"\]/);
+});
+
 test("student quick filters expose their queue counts", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
   const app = await readFile(new URL("app.mjs", root), "utf8");

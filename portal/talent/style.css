@@ -847,6 +847,35 @@ h3 { margin: 0; font-size: 1rem; }
   white-space: nowrap;
 }
 .student-list-status { color: var(--navy); font-weight: 700; }
+.student-list-review-lane {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 22px;
+  padding: 2px 7px;
+  border: 1px solid #ead3a6;
+  border-radius: 999px;
+  color: #926000;
+  background: var(--amber-soft);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+.student-list-review-lane[data-category="BULK_SAFE_EXACT_LINK"] {
+  border-color: #b9ddce;
+  color: #176f48;
+  background: var(--green-soft);
+}
+.student-list-review-lane[data-category="INDIVIDUAL_REVIEW"],
+.student-list-review-lane[data-category="QUARANTINE_HOLD"] {
+  border-color: #efd3d7;
+  color: #a33a48;
+  background: var(--rose-soft);
+}
+.student-list-review-lane[data-category="CONFIRMED_CANONICAL"] {
+  border-color: #cfe3ef;
+  color: #27556d;
+  background: #eef7fb;
+}
 .student-list-followup { display: none; width: fit-content; padding: 3px 7px; border-radius: 4px; color: var(--muted); background: #f2f5f7; font-size: 0.72rem; font-weight: 800; }
 .student-list-followup.is-overdue,
 .student-list-followup.is-next-7-days,

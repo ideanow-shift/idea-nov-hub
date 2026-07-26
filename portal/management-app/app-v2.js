@@ -12,6 +12,7 @@ const VIEWS = new Set([...CORPORATE_VIEWS, "stores"]);
 const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null, BUDGET: null }, storeRepeatPreview: null, storeCustomerPreview: null, storeVisitCohortPreview: null, storeWorkforceMonthlyPreview: null, storeMenuPreview: null, localEvidence: { storeCsvReceipt: null, storeNameReceipt: null, workforceAllocationReceipt: null }, charts: {} };
 const number = new Intl.NumberFormat("ja-JP");
 const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
+const percentage = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 1 });
 const colors = ["#b23a48", "#17324d", "#27795f", "#a36410", "#765487", "#337d8e", "#737b83"];
 const WORKFORCE_DEPENDENT_METRICS = new Set(["salesPerStaffManYen", "profitPerStaffManYen", "staffCount", "laborCostRatePercent"]);
 const workforceAggregatesVisible = canDisplayWorkforceAggregates();
@@ -1229,10 +1230,10 @@ function buildStoreVisitCohortPanel() {
     row.storeName,
     `${number.format(row.technicalCustomerCount)}件`,
     `${number.format(row.totalVisitCount)}件`,
-    `${number.format(row.newVisitCount)}件`,
-    `${number.format(row.secondVisitCount)}件`,
-    `${number.format(row.thirdVisitCount)}件`,
-    `${number.format(row.fixedVisitCount)}件`,
+    cohortCountAndRate(row.newVisitCount, row.totalVisitCount),
+    cohortCountAndRate(row.secondVisitCount, row.totalVisitCount),
+    cohortCountAndRate(row.thirdVisitCount, row.totalVisitCount),
+    cohortCountAndRate(row.fixedVisitCount, row.totalVisitCount),
   ])));
   table.append(thead, tbody);
   wrap.append(table);
@@ -1243,6 +1244,11 @@ function buildStoreVisitCohortPanel() {
     muted("総来店数は、新規・2回目・3回目・固定の合計と一致するCSVだけを受け付けます。個人を識別する情報は読み込みません。")
   );
   return section;
+}
+
+function cohortCountAndRate(count, total) {
+  const ratio = Number(total) > 0 ? (Number(count) / Number(total)) * 100 : null;
+  return ratio == null || !Number.isFinite(ratio) ? `${number.format(Number(count) || 0)}件` : `${number.format(Number(count))}件 (${percentage.format(ratio)}%)`;
 }
 
 function buildStoreMenuSummaryPanel() {

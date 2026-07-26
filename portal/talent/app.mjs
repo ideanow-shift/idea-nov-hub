@@ -9,7 +9,7 @@ import {
 } from "./exact1.mjs?v=20260725-workforce-queues-1";
 import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260725-owner-review-workspace-1";
 import { createTalentHistoricalReviewController } from "./review.mjs?v=20260725-owner-review-workspace-1";
-import { buildTalentAnalytics, buildTalentAnalyticsActionGuide } from "./analytics.mjs?v=20260726-talent-analytics-action-guide-1";
+import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260726-talent-analytics-action-guide-1";
 import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-review-kpis-1";
 import { createTalentStagingSupplementController } from "./staging-supplement.mjs?v=20260725-staging-edit-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260726-talent-28-csv-owner-handoff-1";
@@ -1092,7 +1092,8 @@ function renderTalentAnalytics(documentObject) {
   renderMetricCollection(documentObject, "historical-summary-metrics", analytics.summary);
   renderSummaryFollowUpCounts(documentObject, studentWorkspaceData.students);
   renderAnalyticsCoverage(documentObject, analytics);
-  renderTalentAnalyticsActionGuide(documentObject, buildTalentAnalyticsActionGuide(analytics));
+  const actionGuide = buildTalentAnalyticsActionGuide(analytics);
+  renderTalentAnalyticsActionGuide(documentObject, actionGuide, buildTalentAnalyticsQueueHandoff(actionGuide));
   renderMonthlyFlow(documentObject, analytics.flow);
   renderSchoolAnalysis(documentObject, analytics.schools);
   setText(documentObject, "historical-summary-status", `${analytics.summary[0].value}件を集計`);
@@ -1100,13 +1101,16 @@ function renderTalentAnalytics(documentObject) {
   setText(documentObject, "school-analysis-status", `${analytics.schools.length}校を表示`);
 }
 
-function renderTalentAnalyticsActionGuide(documentObject, guide) {
+function renderTalentAnalyticsActionGuide(documentObject, guide, queueHandoff = buildTalentAnalyticsQueueHandoff(guide)) {
   const panel = documentObject.getElementById("talent-analytics-action-guide");
   if (panel) {
     panel.dataset.category = guide.category;
     panel.dataset.needsActionCategory = guide.needsActionCategory;
     panel.dataset.lineRegistrationRateCategory = guide.lineRegistrationRateCategory;
     panel.dataset.schoolMissingCategory = guide.schoolMissingCategory;
+    panel.dataset.queueHandoffCategory = queueHandoff.category;
+    panel.dataset.queueFilterCategory = queueHandoff.queueFilterCategory;
+    panel.dataset.queueSortCategory = queueHandoff.sortCategory;
   }
   setText(documentObject, "talent-analytics-action-title", guide.title);
   setText(documentObject, "talent-analytics-action-copy", guide.copy);

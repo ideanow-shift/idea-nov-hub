@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildTalentAnalytics, buildTalentAnalyticsActionGuide } from "../portal/talent/analytics.mjs";
+import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "../portal/talent/analytics.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -27,6 +27,14 @@ test("analytics action guide prioritizes owner review before broad analysis", ()
   assert.equal(guide.canonicalWriteReachable, false);
   assert.equal(guide.lineHistoryWriteReachable, false);
   assert.equal(guide.productionWriteReachable, false);
+  const handoff = buildTalentAnalyticsQueueHandoff(guide);
+  assert.equal(handoff.category, "OPEN_STUDENT_REVIEW_QUEUE");
+  assert.equal(handoff.queueFilterCategory, "OWNER_REVIEW_OR_QUARANTINE");
+  assert.equal(handoff.sortCategory, "REVIEW_PRIORITY");
+  assert.equal(handoff.rawValuesIncluded, false);
+  assert.equal(handoff.canonicalWriteReachable, false);
+  assert.equal(handoff.lineHistoryWriteReachable, false);
+  assert.equal(handoff.promotionReachable, false);
 });
 
 test("analytics action guide routes clean flow to latest-month follow-up", () => {
@@ -47,6 +55,10 @@ test("analytics action guide routes clean flow to latest-month follow-up", () =>
     "SET_NEXT_ACTION",
     "RETURN_TO_ANALYTICS"
   ]);
+  const handoff = buildTalentAnalyticsQueueHandoff(guide);
+  assert.equal(handoff.category, "OPEN_LATEST_MONTH_QUEUE");
+  assert.equal(handoff.queueFilterCategory, "LATEST_MONTH");
+  assert.equal(handoff.sortCategory, "FOLLOW_UP_DUE");
 });
 
 test("analytics action guide keeps empty analytics non-mutating", () => {
@@ -61,6 +73,10 @@ test("analytics action guide keeps empty analytics non-mutating", () => {
     "KEEP_EMPTY_STATE",
     "NO_RAW_VALUES"
   ]);
+  const handoff = buildTalentAnalyticsQueueHandoff(guide);
+  assert.equal(handoff.category, "NO_QUEUE_HANDOFF");
+  assert.equal(handoff.queueFilterCategory, "NONE");
+  assert.equal(handoff.productionWriteReachable, false);
 });
 
 test("analytics action guide is wired into the talent UI without raw output", async () => {
@@ -73,8 +89,11 @@ test("analytics action guide is wired into the talent UI without raw output", as
   assert.match(html, /id="talent-analytics-action-copy"/);
   assert.match(html, /id="talent-analytics-action-steps"/);
   assert.match(app, /buildTalentAnalyticsActionGuide/);
+  assert.match(app, /buildTalentAnalyticsQueueHandoff/);
   assert.match(app, /renderTalentAnalyticsActionGuide/);
   assert.match(app, /dataset\.needsActionCategory/);
+  assert.match(app, /dataset\.queueHandoffCategory/);
+  assert.match(app, /dataset\.queueFilterCategory/);
   assert.match(css, /talent-analytics-action-guide/);
   assert.doesNotMatch(html, /raw cells|credential|connection value/i);
 });

@@ -3,6 +3,7 @@ import { renderStoreRepeatSummaryIntake } from "./store-repeat-summary-csv.js";
 import { renderStoreCustomerSummaryIntake } from "./store-customer-summary-csv.js?v=1122E1F600FFA7B9";
 import { renderStoreVisitCohortSummaryIntake } from "./store-visit-cohort-summary-csv.js?v=A8D7DAD1F8F0843C";
 import { renderStoreMenuSummaryIntake } from "./store-menu-summary-csv.js";
+import { renderStoreWorkforceMonthlySummaryIntake } from "./store-workforce-monthly-summary-csv.js?v=0D33958C71C51F1A";
 import "./vendor/pako_inflate.min.js?v=2ca27e9a8dae569c";
 
 const MONTH_LABEL_RE = /^(?:[1-9]|1[0-2])月度$/u;
@@ -2864,6 +2865,8 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   storeCustomerSummary.dataset.storeCustomerSummaryHost = "true";
   const storeVisitCohortSummary = el(doc, "div", "store-visit-cohort-summary-host");
   storeVisitCohortSummary.dataset.storeVisitCohortSummaryHost = "true";
+  const storeWorkforceMonthlySummary = el(doc, "div", "store-workforce-monthly-summary-host");
+  storeWorkforceMonthlySummary.dataset.storeWorkforceMonthlySummaryHost = "true";
   const storeMenuSummary = el(doc, "div", "store-menu-summary-host");
   storeMenuSummary.dataset.storeMenuSummaryHost = "true";
   const mappingReview = el(doc, "section", "financial-mapping-review");
@@ -2907,7 +2910,7 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const mappingEvidenceSummary = el(doc, "p", "financial-mapping-evidence-summary", "経理回答CSVのローカル証跡はまだありません。");
   mappingEvidenceSummary.dataset.financialMappingEvidenceSummary = "MAPPING_LOCAL_EVIDENCE_NOT_AVAILABLE";
   mappingReview.append(mappingHeading, mappingFacts, mappingHandoff, mappingEvidenceSummary, mappingTableWrap, mappingConfirmation);
-  section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, correction, mappingReview, completion, submissionPackage, supplemental, storeCustomerSummary, storeRepeatSummary, storeVisitCohortSummary, storeMenuSummary, preview);
+  section.append(heading, el(doc, "p", "financial-intake-summary", "P/LとB/Sを本番投入前にローカルで検証します。個人情報と原文は保持しません。"), controls, drop, result, correction, mappingReview, completion, submissionPackage, supplemental, storeCustomerSummary, storeRepeatSummary, storeVisitCohortSummary, storeWorkforceMonthlySummary, storeMenuSummary, preview);
   container.replaceChildren(section);
   let latestResult = hooks.initialResult || null;
   container.managementApplyFinancialExternalEvidence = (evidence) => {
@@ -2932,6 +2935,7 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   renderStoreCustomerSummaryIntake(storeCustomerSummary, { document: doc });
   renderStoreRepeatSummaryIntake(storeRepeatSummary, { document: doc });
   renderStoreVisitCohortSummaryIntake(storeVisitCohortSummary, { document: doc });
+  renderStoreWorkforceMonthlySummaryIntake(storeWorkforceMonthlySummary, { document: doc });
   renderStoreMenuSummaryIntake(storeMenuSummary, { document: doc });
   setCompletionChecklist(container, null);
   if (latestResult) setResult(container, latestResult);

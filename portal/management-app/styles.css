@@ -409,9 +409,9 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-store-analysis-coverage-grid article { min-width: 0; padding: 10px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--card); }
 .financial-store-analysis-coverage-grid article[data-readiness="LOCAL_READY"] { border-left: 3px solid #27795f; }
 .financial-store-analysis-coverage-grid article[data-readiness="DATA_PENDING"] { border-left: 3px solid #a36410; }
-.financial-store-repeat-preview, .financial-store-customer-preview, .financial-store-visit-cohort-preview, .financial-store-unit-price-preview, .financial-store-menu-preview { margin: 0 0 12px; padding: 12px; border: 1px solid #dfe6ec; border-radius: 8px; background: #fbfcfd; }
-.financial-store-repeat-preview h3, .financial-store-customer-preview h3, .financial-store-visit-cohort-preview h3, .financial-store-unit-price-preview h3, .financial-store-menu-preview h3 { margin: 0 0 6px; font-size: 16px; }
-.financial-store-repeat-preview p, .financial-store-customer-preview p, .financial-store-visit-cohort-preview p, .financial-store-unit-price-preview p, .financial-store-menu-preview p { margin: 0 0 10px; }
+.financial-store-repeat-preview, .financial-store-customer-preview, .financial-store-visit-cohort-preview, .financial-store-unit-price-preview, .financial-store-productivity-preview, .financial-store-menu-preview { margin: 0 0 12px; padding: 12px; border: 1px solid #dfe6ec; border-radius: 8px; background: #fbfcfd; }
+.financial-store-repeat-preview h3, .financial-store-customer-preview h3, .financial-store-visit-cohort-preview h3, .financial-store-unit-price-preview h3, .financial-store-productivity-preview h3, .financial-store-menu-preview h3 { margin: 0 0 6px; font-size: 16px; }
+.financial-store-repeat-preview p, .financial-store-customer-preview p, .financial-store-visit-cohort-preview p, .financial-store-unit-price-preview p, .financial-store-productivity-preview p, .financial-store-menu-preview p { margin: 0 0 10px; }
 .financial-store-menu-category-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px; }
 .financial-store-menu-category-grid article { min-width: 0; padding: 10px; background: var(--card); border: 1px solid var(--border-light); border-left: 3px solid #337d8e; border-radius: var(--radius-md); }
 .financial-store-menu-category-grid .metric-label { display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }

@@ -2,13 +2,13 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=98059284370E87B7";
-import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=D8E0F9B506F07C0E";
+import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=7FDC7BF20FB4B62C";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
 const CORPORATE_VIEWS = new Set([...FINANCE_VIEWS, "dataops"]);
 const VIEWS = new Set([...CORPORATE_VIEWS, "stores"]);
-const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null, BUDGET: null }, storeRepeatPreview: null, storeCustomerPreview: null, storeVisitCohortPreview: null, storeMenuPreview: null, localEvidence: { storeCsvReceipt: null, storeNameReceipt: null, workforceAllocationReceipt: null }, charts: {} };
+const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null, BUDGET: null }, storeRepeatPreview: null, storeCustomerPreview: null, storeVisitCohortPreview: null, storeWorkforceMonthlyPreview: null, storeMenuPreview: null, localEvidence: { storeCsvReceipt: null, storeNameReceipt: null, workforceAllocationReceipt: null }, charts: {} };
 const number = new Intl.NumberFormat("ja-JP");
 const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 const colors = ["#b23a48", "#17324d", "#27795f", "#a36410", "#765487", "#337d8e", "#737b83"];
@@ -60,6 +60,12 @@ window.addEventListener("management-store-visit-cohort-local-preview", (event) =
   state.storeVisitCohortPreview = preview;
   renderStores();
 });
+window.addEventListener("management-store-workforce-monthly-local-preview", (event) => {
+  const preview = sanitizeStoreWorkforceMonthlyPreview(event.detail);
+  if (!preview) return;
+  state.storeWorkforceMonthlyPreview = preview;
+  renderStores();
+});
 window.addEventListener("management-store-menu-local-preview", (event) => {
   const preview = sanitizeStoreMenuPreview(event.detail);
   if (!preview) return;
@@ -71,6 +77,7 @@ window.addEventListener("management-financial-local-preview-clear", () => {
   state.storeRepeatPreview = null;
   state.storeCustomerPreview = null;
   state.storeVisitCohortPreview = null;
+  state.storeWorkforceMonthlyPreview = null;
   state.storeMenuPreview = null;
   updateSectionDataBadges();
   renderFinancialPreviewOverview();
@@ -535,6 +542,21 @@ function sanitizeStoreVisitCohortPreview(value) {
   return Object.freeze({ schemaVersion: "management-store-visit-cohort-summary-local-v1", category: "STORE_VISIT_COHORT_LOCAL_READY", rows: Object.freeze(rows), mutationCount: 0, uploadCount: 0, productionImportEnabled: false });
 }
 
+function sanitizeStoreWorkforceMonthlyPreview(value) {
+  if (!value || value.schemaVersion !== "management-store-workforce-monthly-local-v1" || value.category !== "STORE_WORKFORCE_MONTHLY_LOCAL_READY") return null;
+  const count = (input) => Number.isSafeInteger(Number(input)) && Number(input) >= 0 ? Number(input) : null;
+  const rows = Array.isArray(value.rows) ? value.rows.slice(0, 10000).map((row) => {
+    const storeName = String(row.storeName || "").trim();
+    const period = String(row.period || "").trim();
+    const residentHeadcount = count(row.residentHeadcount);
+    const workingHeadcount = count(row.workingHeadcount);
+    if (!storeName || !/^20\d{2}-(?:0[1-9]|1[0-2])$/u.test(period) || residentHeadcount == null || workingHeadcount == null || workingHeadcount > residentHeadcount) return null;
+    return Object.freeze({ storeName: storeName.slice(0, 100), period, residentHeadcount, workingHeadcount });
+  }).filter(Boolean) : [];
+  if (!rows.length) return null;
+  return Object.freeze({ schemaVersion: "management-store-workforce-monthly-local-v1", category: "STORE_WORKFORCE_MONTHLY_LOCAL_READY", rows: Object.freeze(rows), mutationCount: 0, uploadCount: 0, productionImportEnabled: false });
+}
+
 function sanitizeStoreMenuPreview(value) {
   if (!value || value.schemaVersion !== "management-store-menu-summary-local-v1" || value.category !== "STORE_MENU_LOCAL_READY") return null;
   const count = (input) => Number.isSafeInteger(Number(input)) && Number(input) >= 0 ? Number(input) : null;
@@ -865,6 +887,7 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
   const repeatPanel = buildStoreRepeatCustomerPanel();
   const visitCohortPanel = buildStoreVisitCohortPanel();
   const unitPricePanel = buildStoreUnitPricePanel();
+  const productivityPanel = buildStoreProductivityPanel();
   const menuPanel = buildStoreMenuSummaryPanel();
   const wrap = document.createElement("div");
   wrap.className = "table-wrap embedded local-preview-table";
@@ -899,6 +922,7 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
     ...(repeatPanel ? [repeatPanel] : []),
     ...(visitCohortPanel ? [visitCohortPanel] : []),
     ...(unitPricePanel ? [unitPricePanel] : []),
+    ...(productivityPanel ? [productivityPanel] : []),
     ...(menuPanel ? [menuPanel] : []),
     wrap
   );
@@ -999,12 +1023,66 @@ function buildStoreUnitPricePanel() {
   return section;
 }
 
+function localStoreProductivityRows() {
+  const financialRows = state.financialPreviews.PL?.monthlyStoreRows || [];
+  const workforceRows = state.storeWorkforceMonthlyPreview?.rows || [];
+  const workforceByKey = new Map(workforceRows.map((row) => [`${normalizeStoreCandidateName(row.storeName)}\u001f${row.period}`, row]));
+  const seen = new Set();
+  return financialRows.map((row) => {
+    const storeKey = normalizeStoreCandidateName(row.storeName);
+    const matchKey = `${storeKey}\u001f${row.period}`;
+    const workforce = workforceByKey.get(matchKey);
+    if (!storeKey || !workforce || workforce.workingHeadcount <= 0 || seen.has(matchKey)) return null;
+    seen.add(matchKey);
+    return Object.freeze({
+      storeName: row.storeName,
+      period: row.period,
+      residentHeadcount: workforce.residentHeadcount,
+      workingHeadcount: workforce.workingHeadcount,
+      technicalProductivityYen: Math.round(row.technicalSalesYen / workforce.workingHeadcount),
+      totalProductivityYen: Math.round((row.technicalSalesYen + row.productSalesYen) / workforce.workingHeadcount),
+    });
+  }).filter(Boolean);
+}
+
+function buildStoreProductivityPanel() {
+  const allRows = localStoreProductivityRows();
+  if (!allRows.length) return null;
+  const latestPeriod = allRows.reduce((latest, row) => row.period > latest ? row.period : latest, allRows[0].period);
+  const rows = allRows.filter((row) => row.period === latestPeriod)
+    .sort((left, right) => left.storeName.localeCompare(right.storeName, "ja"));
+  const section = document.createElement("section");
+  section.className = "financial-store-productivity-preview";
+  const wrap = document.createElement("div");
+  wrap.className = "table-wrap embedded local-preview-table";
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.append(tableRow(["\u5e97\u8217", "\u5728\u7c4d\u4eba\u6570", "\u7a3c\u50cd\u4eba\u6570", "\u6280\u8853\u751f\u7523\u6027", "\u7dcf\u751f\u7523\u6027\uff08EC\u9664\u304f\uff09"], true));
+  const tbody = document.createElement("tbody");
+  tbody.replaceChildren(...rows.map((row) => tableRow([
+    row.storeName,
+    `${number.format(row.residentHeadcount)}\u540d`,
+    `${number.format(row.workingHeadcount)}\u540d`,
+    yen.format(row.technicalProductivityYen),
+    yen.format(row.totalProductivityYen),
+  ])));
+  table.append(thead, tbody);
+  wrap.append(table);
+  section.append(
+    heading(`\u5e97\u8217\u6708\u6b21\u751f\u7523\u6027\u306e\u30ed\u30fc\u30ab\u30eb\u78ba\u8a8d (${latestPeriod})`),
+    paragraph("\u7d4c\u7406P/L\u3068\u6708\u6b21\u5e97\u8217\u5225\u4eba\u6570CSV\u304c\u540c\u3058\u5e97\u8217\u540d\u30fb\u540c\u3058\u6708\u3067\u4e00\u81f4\u3057\u305f\u884c\u306e\u307f\u8868\u793a\u3057\u3066\u3044\u307e\u3059\u3002\u6708\u4e0d\u660e\u306e\u4eba\u6570\u306f\u4f7f\u3044\u307e\u305b\u3093\u3002"),
+    wrap,
+    muted("\u6280\u8853\u751f\u7523\u6027 = \u6280\u8853\u58f2\u4e0a \u00f7 \u7a3c\u50cd\u4eba\u6570\u3002\u7dcf\u751f\u7523\u6027 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u7a3c\u50cd\u4eba\u6570\u3002EC\u58f2\u4e0a\u306f\u542b\u3081\u307e\u305b\u3093\u3002\u672c\u756a\u4fdd\u5b58\u30fb\u627f\u8a8d\u306f\u7121\u52b9\u3067\u3059\u3002")
+  );
+  return section;
+}
+
 function buildStoreAnalysisDataCoveragePanel(preview) {
   const hasSalesBreakdown = preview.rows.some((row) => row.technicalSalesManYen != null && row.productSalesManYen != null);
   const hasVisitCohort = localStoreUnitPriceRows().length > 0;
   const hasRepeat = Boolean(state.storeRepeatPreview?.rows?.length);
   const hasMenu = Boolean(state.storeMenuPreview?.rows?.length);
-  const hasWorkforce = workforceAggregatesVisible;
+  const hasWorkforce = workforceAggregatesVisible || localStoreProductivityRows().length > 0;
   const items = [
     ["売上・利益", hasSalesBreakdown, "経理P/Lの店舗候補"],
     ["技術生産性・総生産性", hasSalesBreakdown && hasWorkforce, "経理P/Lと稼働人数の同月照合"],

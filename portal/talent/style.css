@@ -1382,6 +1382,12 @@ h3 { margin: 0; font-size: 1rem; }
 .procedure-case-next-action[data-category="CORE_HANDOFF_READY"] { border-color: #ead3a6; background: #fffaf0; }
 .procedure-case-next-action-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .procedure-case-next-action-chips b { padding: 3px 6px; border: 1px solid var(--line); border-radius: 999px; background: #f9fcfb; color: #31515c; font-size: .7rem; font-weight: 900; }
+.procedure-case-boundary-note { display: grid; gap: 4px; margin-top: 8px; padding: 8px; border: 1px dashed #eadbc7; border-radius: 6px; background: #fffdf8; }
+.procedure-case-boundary-note > strong { color: var(--navy); font-size: .8rem; }
+.procedure-case-boundary-note > span { margin-top: 0; color: var(--muted); font-size: .76rem; line-height: 1.45; }
+.procedure-case-boundary-note[data-category="CORE_HANDOFF_SEPARATE_APPROVAL"] { border-color: #dfb15f; background: #fff8e8; }
+.procedure-case-boundary-note[data-category="CANCELLED_REOPEN_WITH_REASON"] { border-color: #d7cbd2; background: #fbf8fa; }
+.procedure-case-boundary-note[data-category="CHECKLIST_GATE"] { border-color: #b9d0ea; background: #f7fbff; }
 .procedure-case-empty { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); background: #fff; }
 .procedure-case-empty[data-category="NO_CASES"] { border-color: #d8eadf; background: #f8fffb; }
 .procedure-case-empty div { display: grid; gap: 4px; }

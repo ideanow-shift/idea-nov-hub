@@ -526,6 +526,38 @@ export function buildWorkforceProcedureCaseActionRoute(nextActionPlan) {
   });
 }
 
+export function buildWorkforceProcedureCaseBoundary(item) {
+  const status = CASE_STATUSES.includes(item?.caseStatus) ? item.caseStatus : "DRAFT";
+  const category = status === "CONFIRMED"
+    ? "CORE_HANDOFF_SEPARATE_APPROVAL"
+    : status === "CANCELLED"
+      ? "CANCELLED_REOPEN_WITH_REASON"
+      : status === "READY_FOR_REVIEW"
+        ? "CHECKLIST_GATE"
+        : "LOCAL_DRAFT_ONLY";
+  const title = {
+    CORE_HANDOFF_SEPARATE_APPROVAL: "Core反映は別承認",
+    CANCELLED_REOPEN_WITH_REASON: "中止は理由を残して再開",
+    CHECKLIST_GATE: "確認項目ゲート",
+    LOCAL_DRAFT_ONLY: "下書きは案件履歴のみ"
+  }[category];
+  const copy = {
+    CORE_HANDOFF_SEPARATE_APPROVAL: "確認済みでも社員マスタ・LINE履歴へはここから書き込みません。履歴を確認して別手続きへ渡します。",
+    CANCELLED_REOPEN_WITH_REASON: "対応中キューから外れます。再開する場合は下書きへ戻し、理由をメモに残します。",
+    CHECKLIST_GATE: "4項目がそろうまで確認済みにしません。Core反映は確認後も別承認です。",
+    LOCAL_DRAFT_ONLY: "社員マスタは変更しません。対象者・基準日・メモを整えて確認待ちへ進めます。"
+  }[category];
+  return Object.freeze({
+    category,
+    title,
+    copy,
+    rawValuesIncluded: false,
+    employeeMasterMutation: false,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false
+  });
+}
+
 export function buildWorkforceProcedureCaseFormGuide(draft, referenceDate = localDateIso()) {
   const priority = classifyWorkforceProcedureCasePriority(draft, referenceDate);
   const status = draft?.caseStatus;
@@ -1251,6 +1283,7 @@ export function initializeWorkforceProcedureDesk({
       const priorityCategory = classifyWorkforceProcedureCasePriority(item);
       const nextActionPlan = buildWorkforceProcedureCaseNextAction(item);
       const actionRoute = buildWorkforceProcedureCaseActionRoute(nextActionPlan);
+      const boundary = buildWorkforceProcedureCaseBoundary(item);
       title.textContent = item.subjectLabel;
       meta.textContent = `${procedureLabel(item.procedureType)} / ${statusLabel(item.caseStatus)} / ${item.effectiveDate}`;
       priority.className = `procedure-case-priority${priorityCategory === "OVERDUE" ? " is-overdue" : priorityCategory === "NEXT_7_DAYS" ? " is-soon" : ""}`;
@@ -1269,7 +1302,15 @@ export function initializeWorkforceProcedureDesk({
       boundaryChip.textContent = nextActionPlan.safetyBoundary;
       nextChips.append(primaryChip, boundaryChip);
       nextAction.append(nextTitle, nextCopy, nextChips);
-      copy.append(title, meta, priority, nextAction);
+      const boundaryNote = documentObject.createElement("div");
+      boundaryNote.className = "procedure-case-boundary-note";
+      boundaryNote.dataset.category = boundary.category;
+      const boundaryTitle = documentObject.createElement("strong");
+      const boundaryCopy = documentObject.createElement("span");
+      boundaryTitle.textContent = boundary.title;
+      boundaryCopy.textContent = boundary.copy;
+      boundaryNote.append(boundaryTitle, boundaryCopy);
+      copy.append(title, meta, priority, nextAction, boundaryNote);
       const edit = documentObject.createElement("button");
       edit.type = "button";
       edit.className = "case-edit-button";

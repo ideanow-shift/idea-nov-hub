@@ -34,6 +34,7 @@ test("recruitment subtabs stay visually and semantically below the primary tabs"
   assert.match(html, /id="talent-28-csv-template"/);
   assert.match(html, /id="talent-28-csv-plan"/);
   assert.match(html, /id="talent-28-csv-receipt"/);
+  assert.match(html, /id="talent-28-csv-fix-guide"/);
   assert.match(html, /28卒CSV 形式検証/);
   assert.match(app, /initializeTalent28CsvPreflight/);
 });

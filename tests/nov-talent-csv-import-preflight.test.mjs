@@ -18,6 +18,9 @@ test("28卒 CSV preflight accepts the sealed column contract without exposing ro
   assert.equal(result.fixedCategory, "PASS");
   assert.equal(result.counts.totalRows, 1);
   assert.equal(result.counts.readyRows, 1);
+  assert.equal(result.counts.contactsRows, 1);
+  assert.equal(result.counts.entriesRows, 0);
+  assert.equal(result.counts.offersRows, 0);
   assert.equal(result.rawValuesIncluded, false);
   assert.equal(result.networkOperationCount, 0);
   assert.equal(result.productionDbOperationCount, 0);
@@ -30,6 +33,7 @@ test("28卒 CSV preflight quarantines unsafe year and identity rows by category 
   assert.equal(result.ok, false);
   assert.equal(result.fixedCategory, "CSV_2028_YEAR_MISMATCH");
   assert.equal(result.counts.invalidYearRows, 1);
+  assert.equal(result.counts.contactsRows, 1);
   assert.equal(result.counts.missingIdentityRows, 1);
   assert.equal(result.counts.quarantineRows, 1);
   assert.deepEqual(Object.keys(result).includes("rows"), false);

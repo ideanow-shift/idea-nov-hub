@@ -43,7 +43,7 @@ const required = [
   [files.html, 'id="financial-data-intake"'],
   [files.html, './vendor/chart.umd.min.js?v=4.4.1'],
   [files.html, './styles.css?v=92DF2BF9851A9443'],
-  [files.html, './app-v2.js?v=5D12B2C2B4DEF730'],
+  [files.html, './app-v2.js?v=4533A77DDC80A2DC'],
   [files.chart, 'Chart.js v4.4.1'],
   [files.app, 'restoreNovHubSession'],
   [files.app, 'setHubSessionAuth'],

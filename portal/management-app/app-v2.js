@@ -1047,14 +1047,16 @@ function localStoreProductivityRows() {
 }
 
 function buildStoreProductivityPanel() {
+  const requiredRows = uniqueWorkforceTemplateCandidates();
   const allRows = localStoreProductivityRows();
-  if (!allRows.length) return null;
-  const latestPeriod = allRows.reduce((latest, row) => row.period > latest ? row.period : latest, allRows[0].period);
+  if (!requiredRows.length) return null;
+  const latestPeriod = allRows.length
+    ? allRows.reduce((latest, row) => row.period > latest ? row.period : latest, allRows[0].period)
+    : "";
   const rows = allRows.filter((row) => row.period === latestPeriod)
     .sort((left, right) => left.storeName.localeCompare(right.storeName, "ja"));
   const section = document.createElement("section");
   section.className = "financial-store-productivity-preview";
-  const requiredRows = uniqueWorkforceTemplateCandidates();
   const template = document.createElement("a");
   template.className = "financial-mapping-download financial-store-workforce-template";
   template.href = `data:text/csv;charset=utf-8,${encodeURIComponent(buildStoreWorkforceMonthlySummaryCsvTemplate(requiredRows))}`;
@@ -1066,17 +1068,17 @@ function buildStoreProductivityPanel() {
   const thead = document.createElement("thead");
   thead.append(tableRow(["\u5e97\u8217", "\u5728\u7c4d\u4eba\u6570", "\u7a3c\u50cd\u4eba\u6570", "\u6280\u8853\u751f\u7523\u6027", "\u7dcf\u751f\u7523\u6027\uff08EC\u9664\u304f\uff09"], true));
   const tbody = document.createElement("tbody");
-  tbody.replaceChildren(...rows.map((row) => tableRow([
+  tbody.replaceChildren(...(rows.length ? rows.map((row) => tableRow([
     row.storeName,
     `${number.format(row.residentHeadcount)}\u540d`,
     `${number.format(row.workingHeadcount)}\u540d`,
     yen.format(row.technicalProductivityYen),
     yen.format(row.totalProductivityYen),
-  ])));
+  ])) : [emptyRow(5, "P/L対象の人数CSVを作成し、在籍人数・稼働人数を入力すると生産性を表示します")]));
   table.append(thead, tbody);
   wrap.append(table);
   section.append(
-    heading(`\u5e97\u8217\u6708\u6b21\u751f\u7523\u6027\u306e\u30ed\u30fc\u30ab\u30eb\u78ba\u8a8d (${latestPeriod})`),
+    heading(allRows.length ? `\u5e97\u8217\u6708\u6b21\u751f\u7523\u6027\u306e\u30ed\u30fc\u30ab\u30eb\u78ba\u8a8d (${latestPeriod})` : "\u5e97\u8217\u6708\u6b21\u751f\u7523\u6027\u306e\u78ba\u8a8d\u6e96\u5099"),
     paragraph("\u7d4c\u7406P/L\u3068\u6708\u6b21\u5e97\u8217\u5225\u4eba\u6570CSV\u304c\u540c\u3058\u5e97\u8217\u540d\u30fb\u540c\u3058\u6708\u3067\u4e00\u81f4\u3057\u305f\u884c\u306e\u307f\u8868\u793a\u3057\u3066\u3044\u307e\u3059\u3002\u6708\u4e0d\u660e\u306e\u4eba\u6570\u306f\u4f7f\u3044\u307e\u305b\u3093\u3002"),
     template,
     muted(`P/L候補 ${number.format(requiredRows.length)}件の店舗・対象月を事前入力しています。在籍人数と稼働人数だけを追記してください。個人情報は含めません。`),
@@ -1104,7 +1106,7 @@ function buildStoreAnalysisDataCoveragePanel(preview) {
   const hasVisitCohort = localStoreUnitPriceRows().length > 0;
   const hasRepeat = Boolean(state.storeRepeatPreview?.rows?.length);
   const hasMenu = Boolean(state.storeMenuPreview?.rows?.length);
-  const hasWorkforce = workforceAggregatesVisible || localStoreProductivityRows().length > 0;
+  const hasWorkforce = localStoreProductivityRows().length > 0;
   const items = [
     ["売上・利益", hasSalesBreakdown, "経理P/Lの店舗候補"],
     ["技術生産性・総生産性", hasSalesBreakdown && hasWorkforce, "経理P/Lと稼働人数の同月照合"],

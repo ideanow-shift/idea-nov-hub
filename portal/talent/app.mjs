@@ -1359,6 +1359,27 @@ export function buildStudentReviewBoundary(student, capability = {}) {
   });
 }
 
+export function buildStudentReviewLaneSteps(boundary) {
+  const category = boundary?.category || "NO_SELECTION";
+  const labelsByCategory = Object.freeze({
+    NO_SELECTION: ["学生を選択", "整理レーンを確認", "必要な操作だけ実行"],
+    CONFIRMED_CANONICAL: ["正本プロフィールを更新", "変更履歴を確認", "必要なら入社手続きへ引継ぎ"],
+    BULK_SAFE_EXACT_LINK: ["一括対象に含める", "新規・隔離を混ぜない", "反映後に確認済みへ進める"],
+    INDIVIDUAL_REVIEW: ["候補を1件だけ開く", "紐付け先または新規作成を確認", "迷う場合は隔離維持"],
+    QUARANTINE_HOLD: ["隔離理由を確認", "補足と次回対応を記録", "根拠が揃うまで昇格しない"],
+    STAGING_SUPPLEMENT: ["補足情報を保存", "次回対応日を設定", "正本化は別承認で扱う"],
+    READ_ONLY: ["内容を確認", "要確認・隔離キューで扱う", "削除や自動昇格は行わない"]
+  });
+  const labels = labelsByCategory[category] || labelsByCategory.NO_SELECTION;
+  return Object.freeze({
+    category,
+    steps: Object.freeze(labels.map((label, index) => Object.freeze({ order: index + 1, label }))),
+    rawValuesIncluded: false,
+    canonicalWriteReachable: false,
+    lineHistoryWriteReachable: false
+  });
+}
+
 export function sortTalentStudentsByFollowUp(students, mode = "DEFAULT", referenceDate = localTalentDateIso()) {
   const rows = Array.isArray(students) ? students.slice() : [];
   if (mode !== "FOLLOW_UP") return rows;
@@ -1770,14 +1791,23 @@ function renderStudentReviewBoundary(documentObject, boundary) {
   const copy = documentObject.getElementById("student-review-boundary-copy");
   const allowed = documentObject.getElementById("student-review-boundary-allowed");
   const caution = documentObject.getElementById("student-review-boundary-caution");
+  const laneSteps = documentObject.getElementById("student-review-boundary-steps");
   if (!badge || !title || !copy || !allowed || !caution) return;
   const safeBoundary = boundary || buildStudentReviewBoundary(null);
+  const safeLaneSteps = buildStudentReviewLaneSteps(safeBoundary);
   badge.textContent = safeBoundary.badge;
   badge.dataset.category = safeBoundary.category;
   title.textContent = safeBoundary.title;
   copy.textContent = safeBoundary.copy;
   allowed.textContent = safeBoundary.allowed;
   caution.textContent = safeBoundary.caution;
+  if (laneSteps) {
+    laneSteps.replaceChildren(...safeLaneSteps.steps.map((step) => {
+      const item = documentObject.createElement("li");
+      item.textContent = `${step.order}. ${step.label}`;
+      return item;
+    }));
+  }
 }
 
 function renderStudentDailyOperation(documentObject, operation) {

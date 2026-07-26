@@ -1035,8 +1035,8 @@ function buildStoreUnitPricePanel() {
   const allRows = localStoreUnitPriceRows();
   if (!allRows.length) return null;
   const coverage = localStoreUnitPriceCoverage();
-  const latestPeriod = allRows.reduce((latest, row) => row.period > latest ? row.period : latest, allRows[0].period);
-  const rows = allRows.filter((row) => row.period === latestPeriod)
+  const selectedPeriod = selectedLocalAnalysisPeriod(allRows);
+  const rows = allRows.filter((row) => row.period === selectedPeriod)
     .sort((left, right) => left.storeName.localeCompare(right.storeName, "ja"));
   const section = document.createElement("section");
   section.className = "financial-store-unit-price-preview";
@@ -1056,7 +1056,7 @@ function buildStoreUnitPricePanel() {
   table.append(thead, tbody);
   wrap.append(table);
   section.append(
-    heading(`\u5e97\u8217\u6708\u6b21\u5358\u4fa1\u306e\u30ed\u30fc\u30ab\u30eb\u78ba\u8a8d (${latestPeriod})`),
+    heading(`\u5e97\u8217\u6708\u6b21\u5358\u4fa1\u306e\u30ed\u30fc\u30ab\u30eb\u78ba\u8a8d (${selectedPeriod})`),
     paragraph(`\u7dcf\u5358\u4fa1\u306f\u7d4c\u7406P/L\u3068\u6765\u5e97\u4ef6\u6570CSV\u306e\u540c\u3058\u5e97\u8217\u540d\u30fb\u540c\u3058\u6708\u4e00\u81f4\u3067\u8a08\u7b97\u3057\u307e\u3059\u3002\u7dcf\u5358\u4fa1\u7167\u5408 ${number.format(coverage.totalMatchedCount)}\u4ef6 / \u6280\u8853\u5358\u4fa1\u7167\u5408 ${number.format(coverage.technicalMatchedCount)}\u4ef6 / P/L\u5019\u88dc ${number.format(coverage.candidateCount)}\u4ef6\u3002\u6280\u8853\u5ba2\u6570\u304c\u306a\u3044\u884c\u306f\u6280\u8853\u5358\u4fa1\u3092\u8868\u793a\u3057\u307e\u305b\u3093\u3002`),
     wrap,
     muted("\u6280\u8853\u5358\u4fa1 = \u6280\u8853\u58f2\u4e0a \u00f7 \u6280\u8853\u5ba2\u6570\u3002\u7dcf\u5358\u4fa1 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u6765\u5e97\u4ef6\u6570\u3002EC\u58f2\u4e0a\u306f\u542b\u3081\u307e\u305b\u3093\u3002\u672c\u756a\u4fdd\u5b58\u30fb\u627f\u8a8d\u306f\u7121\u52b9\u3067\u3059\u3002")
@@ -1101,10 +1101,8 @@ function buildStoreProductivityPanel() {
   const allRows = localStoreProductivityRows();
   const coverage = localStoreProductivityCoverage();
   if (!requiredRows.length) return null;
-  const latestPeriod = allRows.length
-    ? allRows.reduce((latest, row) => row.period > latest ? row.period : latest, allRows[0].period)
-    : "";
-  const rows = allRows.filter((row) => row.period === latestPeriod)
+  const selectedPeriod = selectedLocalAnalysisPeriod(allRows);
+  const rows = allRows.filter((row) => row.period === selectedPeriod)
     .sort((left, right) => left.storeName.localeCompare(right.storeName, "ja"));
   const section = document.createElement("section");
   section.className = "financial-store-productivity-preview";
@@ -1129,7 +1127,7 @@ function buildStoreProductivityPanel() {
   table.append(thead, tbody);
   wrap.append(table);
   section.append(
-    heading(allRows.length ? `\u5e97\u8217\u6708\u6b21\u751f\u7523\u6027\u306e\u30ed\u30fc\u30ab\u30eb\u78ba\u8a8d (${latestPeriod})` : "\u5e97\u8217\u6708\u6b21\u751f\u7523\u6027\u306e\u78ba\u8a8d\u6e96\u5099"),
+    heading(allRows.length ? `\u5e97\u8217\u6708\u6b21\u751f\u7523\u6027\u306e\u30ed\u30fc\u30ab\u30eb\u78ba\u8a8d (${selectedPeriod})` : "\u5e97\u8217\u6708\u6b21\u751f\u7523\u6027\u306e\u78ba\u8a8d\u6e96\u5099"),
     paragraph(`\u7d4c\u7406P/L\u3068\u6708\u6b21\u5e97\u8217\u5225\u4eba\u6570CSV\u304c\u540c\u3058\u5e97\u8217\u540d\u30fb\u540c\u3058\u6708\u3067\u4e00\u81f4\u3057\u305f\u884c\u306e\u307f\u8868\u793a\u3057\u3066\u3044\u307e\u3059\u3002\u7167\u5408 ${number.format(coverage.matchedCount)}\u4ef6 / P/L\u5019\u88dc ${number.format(coverage.candidateCount)}\u4ef6\u3001\u672a\u7167\u5408 ${number.format(coverage.unmatchedCount)}\u4ef6\u3067\u3059\u3002\u6708\u4e0d\u660e\u306e\u4eba\u6570\u306f\u4f7f\u3044\u307e\u305b\u3093\u3002`),
     template,
     muted(`P/L候補 ${number.format(requiredRows.length)}件の店舗・対象月を事前入力しています。在籍人数と稼働人数だけを追記してください。個人情報は含めません。`),
@@ -1150,6 +1148,14 @@ function uniqueWorkforceTemplateCandidates() {
     seen.add(key);
     return { storeName, period };
   }).filter(Boolean);
+}
+
+function selectedLocalAnalysisPeriod(rows) {
+  const periods = [...new Set((rows || []).map((row) => String(row?.period || "").trim())
+    .filter((period) => /^20\d{2}-(?:0[1-9]|1[0-2])$/u.test(period)))];
+  if (!periods.length) return "";
+  const latestPeriod = periods.reduce((latest, period) => period > latest ? period : latest, periods[0]);
+  return periods.includes(state.storeAnalysisPeriod) ? state.storeAnalysisPeriod : latestPeriod;
 }
 
 function buildStoreOperatingSnapshotPanel() {
@@ -1500,9 +1506,9 @@ function buildStoreAnalysisDataCoveragePanel(preview) {
 function buildStoreRepeatCustomerPanel() {
   const preview = state.storeRepeatPreview;
   if (!preview?.rows?.length) return null;
-  const latestPeriod = preview.rows.reduce((latest, row) => row.period > latest ? row.period : latest, preview.rows[0].period);
+  const selectedPeriod = selectedLocalAnalysisPeriod(preview.rows);
   const rows = preview.rows
-    .filter((row) => row.period === latestPeriod)
+    .filter((row) => row.period === selectedPeriod)
     .sort((left, right) => left.storeName.localeCompare(right.storeName, "ja"));
   const section = document.createElement("section");
   section.className = "financial-store-repeat-preview";
@@ -1524,7 +1530,7 @@ function buildStoreRepeatCustomerPanel() {
   table.append(thead, tbody);
   wrap.append(table);
   section.append(
-    heading(`来店区分・リピート率のローカル集計 (${latestPeriod})`),
+    heading(`来店区分・リピート率のローカル集計 (${selectedPeriod})`),
     paragraph("店舗・月次の集計CSVを確認用に表示しています。個人名・顧客番号・来店明細は保持・表示しません。本番投入は無効です。"),
     wrap,
     muted("再来比率候補 = （再来 + 準固定 + 固定）÷ 総客数。2回目・3回目を個別に出すには、来店回数別の集計CSVが別途必要です。")
@@ -1535,9 +1541,9 @@ function buildStoreRepeatCustomerPanel() {
 function buildStoreCustomerCountPanel() {
   const preview = state.storeCustomerPreview;
   if (!preview?.rows?.length) return null;
-  const latestPeriod = preview.rows.reduce((latest, row) => row.period > latest ? row.period : latest, preview.rows[0].period);
+  const selectedPeriod = selectedLocalAnalysisPeriod(preview.rows);
   const rows = preview.rows
-    .filter((row) => row.period === latestPeriod)
+    .filter((row) => row.period === selectedPeriod)
     .sort((left, right) => left.storeName.localeCompare(right.storeName, "ja"));
   const section = document.createElement("section");
   section.className = "financial-store-customer-preview";
@@ -1555,7 +1561,7 @@ function buildStoreCustomerCountPanel() {
   table.append(thead, tbody);
   wrap.append(table);
   section.append(
-    heading(`店舗別・月別来店件数のローカル確認 (${latestPeriod})`),
+    heading(`店舗別・月別来店件数のローカル確認 (${selectedPeriod})`),
     paragraph("営業部集計から来店件数だけを確認用に表示しています。経理P/Lと同じ店舗・年月で一致を確認するまで、総単価は確定表示しません。"),
     wrap,
     muted("技術客数はこのCSVには含まれないため、技術単価は未算定です。個人データは表示・保存しません。")
@@ -1566,9 +1572,9 @@ function buildStoreCustomerCountPanel() {
 function buildStoreVisitCohortPanel() {
   const preview = state.storeVisitCohortPreview;
   if (!preview?.rows?.length) return null;
-  const latestPeriod = preview.rows.reduce((latest, row) => row.period > latest ? row.period : latest, preview.rows[0].period);
+  const selectedPeriod = selectedLocalAnalysisPeriod(preview.rows);
   const rows = preview.rows
-    .filter((row) => row.period === latestPeriod)
+    .filter((row) => row.period === selectedPeriod)
     .sort((left, right) => left.storeName.localeCompare(right.storeName, "ja"));
   const section = document.createElement("section");
   section.className = "financial-store-visit-cohort-preview";
@@ -1590,7 +1596,7 @@ function buildStoreVisitCohortPanel() {
   table.append(thead, tbody);
   wrap.append(table);
   section.append(
-    heading(`店舗月次の技術客数・来店区分 (${latestPeriod})`),
+    heading(`店舗月次の技術客数・来店区分 (${selectedPeriod})`),
     paragraph("技術単価と総単価、来店区分別のリピート分析に使うローカル確認値です。店舗名と対象月が経理P/Lに一致するまで、ダッシュボードの確定値には反映しません。"),
     wrap,
     muted("総来店数は、新規・2回目・3回目・固定の合計と一致するCSVだけを受け付けます。個人を識別する情報は読み込みません。")
@@ -1619,9 +1625,7 @@ function cohortVisitSummary(cohort) {
 function buildStoreMenuSummaryPanel() {
   const preview = state.storeMenuPreview;
   if (!preview?.rows?.length) return null;
-  const menuPeriods = [...new Set(preview.rows.map((row) => row.period))];
-  const latestPeriod = menuPeriods.reduce((latest, period) => period > latest ? period : latest, menuPeriods[0]);
-  const selectedPeriod = menuPeriods.includes(state.storeAnalysisPeriod) ? state.storeAnalysisPeriod : latestPeriod;
+  const selectedPeriod = selectedLocalAnalysisPeriod(preview.rows);
   const rows = preview.rows.filter((row) => row.period === selectedPeriod)
     .sort((left, right) => right.salesYen - left.salesYen || left.menuName.localeCompare(right.menuName, "ja"));
   const categoryTotals = new Map();

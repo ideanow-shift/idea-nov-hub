@@ -27,7 +27,7 @@ const SYSTEM_ICON_BY_ALIAS = Object.freeze({
 const SYSTEMS = [
   { category: "運営管理", title: "タスク管理", status: "available", aliases: ["TASK", "task-management"], shortcuts: ["自分", "本部", "共有", "管理"] },
   { category: "運営管理", title: "勤怠管理｜打刻画面", status: "trial", aliases: ["attendance_kiosk", "attendance"], shortcuts: ["出勤打刻", "退勤打刻", "勤務実績確認"], audience: "全社員" },
-  { category: "運営管理", title: "勤怠管理｜管理画面", status: "trial", aliases: ["attendance_admin"], shortcuts: ["勤務実績管理", "打刻修正", "承認"], minLevel: 3, anyCapabilities: ["attendance.manage"], audience: "店長以上・許可された本部スタッフ" },
+  { category: "運営管理", title: "勤怠管理（管理者）", subtitle: "勤怠の確認・修正・承認", status: "trial", aliases: ["attendance_admin"], shortcuts: ["勤務実績管理", "打刻修正", "承認"], minLevel: 3, anyCapabilities: ["attendance.manage"], audience: "店長以上・承認担当" },
   { category: "運営管理", title: "シフト管理", status: "trial", aliases: ["shift"], shortcuts: ["希望", "作成・調整", "公平性", "出力"] },
   { category: "運営管理", title: "経費精算", status: "trial", aliases: ["expense_hub", "expense-hub"], shortcuts: ["経費入力", "自分の申請", "月次精算"] },
   { category: "運営管理", title: "決裁・承認", status: "in_progress", aliases: ["decision_hub", "decision-hub"], shortcuts: ["自分の申請", "承認待ち", "申請一覧"] },

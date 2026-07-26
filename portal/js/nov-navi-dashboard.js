@@ -1,4 +1,4 @@
-import { resolveAppIcon } from "./apps.js";
+import { resolveAppIcon } from "./apps.js?v=thanks-coin-display-label-20260717-1";
 
 const STATUS_LABELS = {
   available: "利用可能",

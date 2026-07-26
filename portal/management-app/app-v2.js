@@ -9,7 +9,7 @@ import { buildStoreWorkforceMonthlySummaryCsvTemplate } from "./store-workforce-
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
 const CORPORATE_VIEWS = new Set([...FINANCE_VIEWS, "dataops"]);
 const VIEWS = new Set([...CORPORATE_VIEWS, "stores"]);
-const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null, BUDGET: null }, storeRepeatPreview: null, storeCustomerPreview: null, storeVisitCohortPreview: null, storeWorkforceMonthlyPreview: null, storeMonthlyBudgetPreview: null, storeMenuPreview: null, storeAnalysisPeriod: "", storeAnalysisStoreKey: "", localEvidence: { storeCsvReceipt: null, storeNameReceipt: null, workforceAllocationReceipt: null }, charts: {} };
+const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null, BUDGET: null }, storeRepeatPreview: null, storeCustomerPreview: null, storeVisitCohortPreview: null, storeWorkforceMonthlyPreview: null, storeMonthlyBudgetPreview: null, storeMenuPreview: null, storeAnalysisPeriod: "", storeAnalysisStoreKey: "", storeComparisonMetric: "salesAchievementRatePercent", localEvidence: { storeCsvReceipt: null, storeNameReceipt: null, workforceAllocationReceipt: null }, charts: {} };
 const number = new Intl.NumberFormat("ja-JP");
 const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 const percentage = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 1 });
@@ -84,6 +84,7 @@ window.addEventListener("management-financial-local-preview-clear", () => {
   state.financialPreviews = { PL: null, BS: null, BUDGET: null };
   state.storeAnalysisPeriod = "";
   state.storeAnalysisStoreKey = "";
+  state.storeComparisonMetric = "salesAchievementRatePercent";
   state.storeRepeatPreview = null;
   state.storeCustomerPreview = null;
   state.storeVisitCohortPreview = null;
@@ -917,6 +918,7 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
   const unitPricePanel = buildStoreUnitPricePanel();
   const productivityPanel = buildStoreProductivityPanel();
   const operatingSnapshotPanel = buildStoreOperatingSnapshotPanel();
+  const comparisonPanel = buildStoreComparisonPanel();
   const monthlyTrendPanel = buildStoreMonthlyTrendPanel();
   const menuPanel = buildStoreMenuSummaryPanel();
   const wrap = document.createElement("div");
@@ -954,6 +956,7 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
     ...(unitPricePanel ? [unitPricePanel] : []),
     ...(productivityPanel ? [productivityPanel] : []),
     ...(operatingSnapshotPanel ? [operatingSnapshotPanel] : []),
+    ...(comparisonPanel ? [comparisonPanel] : []),
     ...(monthlyTrendPanel ? [monthlyTrendPanel] : []),
     ...(menuPanel ? [menuPanel] : []),
     wrap
@@ -1251,6 +1254,91 @@ function buildStoreOperatingSnapshotPanel() {
     periodControl,
     wrap,
     muted("\u9054\u6210\u7387 = \u7dcf\u58f2\u4e0a \u00f7 \u76ee\u6a19\u58f2\u4e0a\u3002\u6280\u8853\u751f\u7523\u6027 = \u6280\u8853\u58f2\u4e0a \u00f7 \u7a3c\u50cd\u4eba\u6570\u3002\u7dcf\u751f\u7523\u6027 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u7a3c\u50cd\u4eba\u6570\u3002\u7dcf\u5358\u4fa1 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u6765\u5e97\u4ef6\u6570\u3002EC\u58f2\u4e0a\u306f\u542b\u3081\u307e\u305b\u3093\u3002\u30df\u30eb\u30dc\u30f3ID\u306f\u5546\u54c1\u58f2\u4e0a\u3068\u91cd\u8907\u306e\u53ef\u80fd\u6027\u304c\u3042\u308b\u305f\u3081\u5408\u8a08\u3057\u307e\u305b\u3093\u3002\u672c\u756a\u4fdd\u5b58\u30fb\u627f\u8a8d\u306f\u7121\u52b9\u3067\u3059\u3002")
+  );
+  return section;
+}
+
+function buildStoreComparisonPanel() {
+  const financialRows = state.financialPreviews.PL?.monthlyStoreRows || [];
+  const periods = financialRows.map((row) => String(row?.period || "").trim())
+    .filter((period) => /^20\d{2}-(?:0[1-9]|1[0-2])$/u.test(period));
+  if (!periods.length) return null;
+  const latestPeriod = periods.reduce((latest, period) => period > latest ? period : latest, periods[0]);
+  const selectedPeriod = periods.includes(state.storeAnalysisPeriod) ? state.storeAnalysisPeriod : latestPeriod;
+  const workforceByKey = new Map((state.storeWorkforceMonthlyPreview?.rows || []).map((row) => [
+    normalizeStoreCandidateName(row.storeName) + "\u001f" + row.period,
+    row,
+  ]));
+  const budgetByKey = new Map((state.storeMonthlyBudgetPreview?.rows || []).map((row) => [
+    normalizeStoreCandidateName(row.storeName) + "\u001f" + row.period,
+    row,
+  ]));
+  const metrics = Object.freeze({
+    salesAchievementRatePercent: Object.freeze({ label: "目標達成率", format: (value) => `${percentage.format(value)}%` }),
+    profitYen: Object.freeze({ label: "経常損益", format: (value) => yen.format(value) }),
+    technicalProductivityYen: Object.freeze({ label: "技術生産性", format: (value) => yen.format(value) }),
+    totalProductivityYen: Object.freeze({ label: "総生産性", format: (value) => yen.format(value) }),
+  });
+  const metricKey = Object.hasOwn(metrics, state.storeComparisonMetric) ? state.storeComparisonMetric : "salesAchievementRatePercent";
+  const seen = new Set();
+  const rows = financialRows.filter((row) => row.period === selectedPeriod).map((row) => {
+    const storeKey = normalizeStoreCandidateName(row.storeName);
+    const matchKey = storeKey + "\u001f" + selectedPeriod;
+    if (!storeKey || seen.has(matchKey)) return null;
+    seen.add(matchKey);
+    const workforce = workforceByKey.get(matchKey);
+    const budget = budgetByKey.get(matchKey);
+    const workingHeadcount = workforce?.workingHeadcount > 0 ? workforce.workingHeadcount : null;
+    const valueByMetric = Object.freeze({
+      salesAchievementRatePercent: budget?.salesPlanYen > 0 ? (Number(row.totalSalesYen) / budget.salesPlanYen) * 100 : null,
+      profitYen: Number(row.profitYen),
+      technicalProductivityYen: workingHeadcount ? Math.round(Number(row.technicalSalesYen) / workingHeadcount) : null,
+      totalProductivityYen: workingHeadcount ? Math.round((Number(row.technicalSalesYen) + Number(row.productSalesYen)) / workingHeadcount) : null,
+    });
+    const metricValue = valueByMetric[metricKey];
+    if (!Number.isFinite(metricValue)) return null;
+    return Object.freeze({ storeName: row.storeName, metricValue });
+  }).filter(Boolean).sort((left, right) => right.metricValue - left.metricValue || left.storeName.localeCompare(right.storeName, "ja"));
+  const section = document.createElement("section");
+  section.className = "financial-store-comparison";
+  const controls = document.createElement("div");
+  controls.className = "financial-store-comparison-controls";
+  const metricControl = document.createElement("label");
+  metricControl.className = "financial-store-analysis-period";
+  metricControl.append(document.createTextNode("比較指標"));
+  const metricSelect = document.createElement("select");
+  Object.entries(metrics).forEach(([key, metric]) => {
+    const option = document.createElement("option");
+    option.value = key;
+    option.textContent = metric.label;
+    metricSelect.append(option);
+  });
+  metricSelect.value = metricKey;
+  metricSelect.addEventListener("change", () => {
+    state.storeComparisonMetric = metricSelect.value;
+    renderFinancialPreviewStores();
+  });
+  metricControl.append(metricSelect);
+  controls.append(metricControl);
+  const wrap = document.createElement("div");
+  wrap.className = "table-wrap embedded local-preview-table";
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.append(tableRow(["順位", "店舗", metrics[metricKey].label], true));
+  const tbody = document.createElement("tbody");
+  tbody.replaceChildren(...(rows.length ? rows.map((row, index) => tableRow([
+    `${index + 1}位`,
+    row.storeName,
+    metrics[metricKey].format(row.metricValue),
+  ])) : [emptyRow(3, `${metrics[metricKey].label}を比較できる同月データがありません`)]));
+  table.append(thead, tbody);
+  wrap.append(table);
+  section.append(
+    heading(`店舗比較のローカル確認 (${selectedPeriod})`),
+    paragraph("選択指標を店舗・対象月が一致したローカルCSVだけで比較します。目標売上または稼働人数が未照合の店舗は、該当指標の順位から除外します。"),
+    controls,
+    wrap,
+    muted("これは確認用の順位表示です。本番評価、承認、通知、保存、再計算は行いません。")
   );
   return section;
 }

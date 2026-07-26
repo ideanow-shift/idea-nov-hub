@@ -310,6 +310,10 @@ test("workforce procedure case next action guides daily work from each row", () 
   assert.equal(buildWorkforceProcedureCaseNextAction({ caseStatus: "DRAFT", effectiveDate: "2026-07-20" }, "2026-07-26").category, "OVERDUE_REVIEW");
   assert.equal(buildWorkforceProcedureCaseNextAction({ caseStatus: "CONFIRMED", effectiveDate: "2026-07-20" }, "2026-07-26").category, "CORE_HANDOFF_READY");
   assert.match(buildWorkforceProcedureCaseNextAction({ caseStatus: "CONFIRMED", effectiveDate: "2026-07-20" }, "2026-07-26").copy, /別承認/);
+  const overdue = buildWorkforceProcedureCaseNextAction({ caseStatus: "DRAFT", effectiveDate: "2026-07-20" }, "2026-07-26");
+  assert.equal(overdue.safetyBoundary, "この案件だけ保存");
+  assert.equal(overdue.rawValuesIncluded, false);
+  assert.equal(overdue.employeeMasterMutation, false);
 });
 
 test("workforce procedure form guide keeps the next edit action local and status-based", () => {

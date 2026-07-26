@@ -415,7 +415,23 @@ export function buildWorkforceProcedureCaseNextAction(item, referenceDate = loca
     COMPLETE_DRAFT: "編集",
     DRAFT_UPDATE: "編集"
   }[category];
-  return Object.freeze({ category, title, copy, primaryAction });
+  const safetyBoundary = {
+    CORE_HANDOFF_READY: "社員マスタ反映は別承認",
+    CANCELLED: "再開時は理由を記録",
+    OVERDUE_REVIEW: "この案件だけ保存",
+    CHECKLIST_REVIEW: "4項目完了後に確認済み",
+    COMPLETE_DRAFT: "確認待ちへ進める準備",
+    DRAFT_UPDATE: "下書きの不足を補完"
+  }[category];
+  return Object.freeze({
+    category,
+    title,
+    copy,
+    primaryAction,
+    safetyBoundary,
+    rawValuesIncluded: false,
+    employeeMasterMutation: false
+  });
 }
 
 export function buildWorkforceProcedureCaseFormGuide(draft, referenceDate = localDateIso()) {
@@ -1013,7 +1029,7 @@ export function initializeWorkforceProcedureDesk({
       const title = documentObject.createElement("strong");
       const meta = documentObject.createElement("span");
       const priority = documentObject.createElement("span");
-      const nextAction = documentObject.createElement("span");
+      const nextAction = documentObject.createElement("div");
       const priorityCategory = classifyWorkforceProcedureCasePriority(item);
       const nextActionPlan = buildWorkforceProcedureCaseNextAction(item);
       title.textContent = item.subjectLabel;
@@ -1022,7 +1038,18 @@ export function initializeWorkforceProcedureDesk({
       priority.textContent = priorityLabel(priorityCategory);
       nextAction.className = "procedure-case-next-action";
       nextAction.dataset.category = nextActionPlan.category;
-      nextAction.textContent = `${nextActionPlan.title}: ${nextActionPlan.copy}`;
+      const nextTitle = documentObject.createElement("strong");
+      const nextCopy = documentObject.createElement("span");
+      const nextChips = documentObject.createElement("span");
+      const primaryChip = documentObject.createElement("b");
+      const boundaryChip = documentObject.createElement("b");
+      nextTitle.textContent = nextActionPlan.title;
+      nextCopy.textContent = nextActionPlan.copy;
+      nextChips.className = "procedure-case-next-action-chips";
+      primaryChip.textContent = `次: ${nextActionPlan.primaryAction}`;
+      boundaryChip.textContent = nextActionPlan.safetyBoundary;
+      nextChips.append(primaryChip, boundaryChip);
+      nextAction.append(nextTitle, nextCopy, nextChips);
       copy.append(title, meta, priority, nextAction);
       const edit = documentObject.createElement("button");
       edit.type = "button";

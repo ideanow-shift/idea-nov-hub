@@ -956,9 +956,20 @@ function localStoreUnitPriceRows() {
   }).filter(Boolean);
 }
 
+function localStoreUnitPriceCoverage() {
+  const financialRows = state.financialPreviews.PL?.monthlyStoreRows || [];
+  const financialKeys = new Set(financialRows.map((row) => {
+    const storeKey = normalizeStoreCandidateName(row.storeName);
+    return storeKey && /^20\d{2}-(?:0[1-9]|1[0-2])$/u.test(row.period) ? `${storeKey}\u001f${row.period}` : null;
+  }).filter(Boolean));
+  const matchedKeys = new Set(localStoreUnitPriceRows().map((row) => `${normalizeStoreCandidateName(row.storeName)}\u001f${row.period}`));
+  return Object.freeze({ candidateCount: financialKeys.size, matchedCount: matchedKeys.size, unmatchedCount: Math.max(0, financialKeys.size - matchedKeys.size) });
+}
+
 function buildStoreUnitPricePanel() {
   const allRows = localStoreUnitPriceRows();
   if (!allRows.length) return null;
+  const coverage = localStoreUnitPriceCoverage();
   const latestPeriod = allRows.reduce((latest, row) => row.period > latest ? row.period : latest, allRows[0].period);
   const rows = allRows.filter((row) => row.period === latestPeriod)
     .sort((left, right) => left.storeName.localeCompare(right.storeName, "ja"));
@@ -981,7 +992,7 @@ function buildStoreUnitPricePanel() {
   wrap.append(table);
   section.append(
     heading(`\u5e97\u8217\u6708\u6b21\u5358\u4fa1\u306e\u30ed\u30fc\u30ab\u30eb\u78ba\u8a8d (${latestPeriod})`),
-    paragraph("\u7d4c\u7406P/L\u3068\u6765\u5e97\u533a\u5206CSV\u304c\u540c\u3058\u5e97\u8217\u540d\u30fb\u540c\u3058\u6708\u3067\u4e00\u81f4\u3057\u305f\u884c\u3060\u3051\u3092\u8a08\u7b97\u3057\u3066\u3044\u307e\u3059\u3002\u4e0d\u4e00\u81f4\u306e\u884c\u306f\u8868\u793a\u3057\u307e\u305b\u3093\u3002"),
+    paragraph(`\u7d4c\u7406P/L\u3068\u6765\u5e97\u533a\u5206CSV\u304c\u540c\u3058\u5e97\u8217\u540d\u30fb\u540c\u3058\u6708\u3067\u4e00\u81f4\u3057\u305f\u884c\u3060\u3051\u3092\u8a08\u7b97\u3057\u3066\u3044\u307e\u3059\u3002\u7167\u5408 ${number.format(coverage.matchedCount)}\u4ef6 / P/L\u5019\u88dc ${number.format(coverage.candidateCount)}\u4ef6\u3001\u672a\u7167\u5408 ${number.format(coverage.unmatchedCount)}\u4ef6\u3067\u3059\u3002`),
     wrap,
     muted("\u6280\u8853\u5358\u4fa1 = \u6280\u8853\u58f2\u4e0a \u00f7 \u6280\u8853\u5ba2\u6570\u3002\u7dcf\u5358\u4fa1 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u6765\u5e97\u4ef6\u6570\u3002EC\u58f2\u4e0a\u306f\u542b\u3081\u307e\u305b\u3093\u3002\u672c\u756a\u4fdd\u5b58\u30fb\u627f\u8a8d\u306f\u7121\u52b9\u3067\u3059\u3002")
   );

@@ -76,7 +76,8 @@ test("Core DB procedure queues can open an audited case draft without mutating t
   assert.deepEqual(draft, {
     procedureType: "RETIREMENT",
     subjectLabel: "山田 花子",
-    effectiveDate: "2026-08-31"
+    effectiveDate: "2026-08-31",
+    detail: "退職予定"
   });
   assert.equal(buildWorkforceProcedureCasePrefill("transfer", draft), null);
 });

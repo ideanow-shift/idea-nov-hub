@@ -122,7 +122,8 @@ export function buildWorkforceProcedureCasePrefill(queueKey, row) {
   return Object.freeze({
     procedureType,
     subjectLabel: row.displayName,
-    effectiveDate: row.effectiveDate
+    effectiveDate: row.effectiveDate,
+    detail: row.detail
   });
 }
 

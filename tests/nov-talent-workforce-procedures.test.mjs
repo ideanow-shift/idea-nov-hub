@@ -111,11 +111,13 @@ test("procedure case prefill only accepts a bounded onboarding draft", () => {
   assert.deepEqual(normalizeWorkforceProcedureCasePrefill({
     procedureType: "ONBOARDING",
     subjectLabel: " 対象者 ",
-    effectiveDate: "2027-04-01"
+    effectiveDate: "2027-04-01",
+    detail: " 事前確認メモ "
   }, documentObject), {
     procedureType: "ONBOARDING",
     subjectLabel: "対象者",
-    effectiveDate: "2027-04-01"
+    effectiveDate: "2027-04-01",
+    detail: "事前確認メモ"
   });
   assert.deepEqual(normalizeWorkforceProcedureCasePrefill({
     procedureType: "INVALID",
@@ -124,7 +126,8 @@ test("procedure case prefill only accepts a bounded onboarding draft", () => {
   }, documentObject), {
     procedureType: "TRANSFER",
     subjectLabel: "",
-    effectiveDate: ""
+    effectiveDate: "",
+    detail: ""
   });
 });
 

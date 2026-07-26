@@ -37,7 +37,8 @@ export function normalizeWorkforceProcedureCasePrefill(value, documentObject) {
   const effectiveDate = /^\d{4}-\d{2}-\d{2}$/.test(String(draft.effectiveDate || ""))
     ? String(draft.effectiveDate)
     : "";
-  return Object.freeze({ procedureType, subjectLabel, effectiveDate });
+  const detail = typeof draft.detail === "string" ? draft.detail.trim().slice(0, 500) : "";
+  return Object.freeze({ procedureType, subjectLabel, effectiveDate, detail });
 }
 
 export function filterWorkforceProcedureCases(cases, filter = "ALL") {
@@ -523,6 +524,7 @@ export function initializeWorkforceProcedureDesk({
     input("procedureType").value = normalized.procedureType;
     input("subjectLabel").value = normalized.subjectLabel;
     input("effectiveDate").value = normalized.effectiveDate;
+    input("detail").value = normalized.detail;
     form.hidden = false;
     input("subjectLabel")?.focus?.();
   };

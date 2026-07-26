@@ -326,13 +326,11 @@ export function initializeTalentStudentWorkspace({
       refresh();
     });
   });
-  documentObject.getElementById("triage-new-open")?.addEventListener("click", () => {
-    const filter = documentObject.getElementById("student-state-filter");
-    if (!filter) return;
-    filter.value = "NEW_CANDIDATE";
-    refresh();
-    documentObject.getElementById("student-list")?.scrollIntoView?.({ block: "nearest" });
-  });
+  for (const button of documentObject.querySelectorAll("[data-triage-queue]")) {
+    button.addEventListener("click", () => {
+      openStudentWorkspace(documentObject, buildBulkTriageQueueFilter(button.dataset.triageQueue));
+    });
+  }
   documentObject.getElementById("review-workload-open")?.addEventListener("click", () => {
     const panel = documentObject.getElementById("student-review-workload");
     const filter = documentObject.getElementById("student-state-filter");
@@ -1095,6 +1093,17 @@ export function buildSummaryFollowUpFilter(key) {
     overdueFollowUp: { followUp: "OVERDUE" },
     nextWeekFollowUp: { followUp: "NEXT_7_DAYS" },
     needsAction: { state: "NEEDS_ACTION" }
+  };
+  const selected = filters[String(key || "")];
+  if (!selected) return null;
+  return Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "ALL", ...selected });
+}
+
+export function buildBulkTriageQueueFilter(key) {
+  const filters = {
+    newApplicant: { state: "NEW_CANDIDATE" },
+    ambiguous: { state: "NEEDS_ACTION" },
+    hold: { state: "NEEDS_ACTION" }
   };
   const selected = filters[String(key || "")];
   if (!selected) return null;

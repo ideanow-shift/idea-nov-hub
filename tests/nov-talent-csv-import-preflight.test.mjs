@@ -34,6 +34,9 @@ test("28卒 CSV preflight accepts the sealed column contract without exposing ro
   assert.equal(result.counts.contactsRows, 1);
   assert.equal(result.counts.entriesRows, 0);
   assert.equal(result.counts.offersRows, 0);
+  assert.equal(result.counts.phoneRows, 1);
+  assert.equal(result.counts.emailRows, 0);
+  assert.equal(result.counts.lineRows, 0);
   assert.equal(result.counts.duplicateStableKeyHintRows, 0);
   assert.equal(result.counts.duplicateContactHintRows, 0);
   assert.equal(result.rawValuesIncluded, false);
@@ -64,6 +67,14 @@ test("28卒 CSV preflight fails closed on header drift and malformed quarantine 
   const badFlag = analyzeTalent28CsvPreflight(`${header}\n${row(["1", "2028", "OFFERS_28", "offers", "学生 太郎", "", "学校", "", "090", "", "", "", "", "", "", "", "", "", "", "", "", "TRUE", ""])}`);
   assert.equal(badFlag.fixedCategory, "CSV_QUARANTINE_CONTRACT_MISMATCH");
   assert.equal(badFlag.counts.inconsistentQuarantineRows, 1);
+});
+
+test("28卒 CSV preflight requires a nonsecret source label for traceability", () => {
+  const missingLabel = analyzeTalent28CsvPreflight(`${header}\n${row(["1", "2028", "CONTACTS_28", "", "学生 太郎", "", "学校", "", "090", "", "", "", "", "", "", "", "", "", "", "", "", "FALSE", ""])}`);
+  assert.equal(missingLabel.fixedCategory, "CSV_SOURCE_LABEL_MISSING");
+  assert.equal(missingLabel.counts.missingSourceLabelRows, 1);
+  assert.equal(missingLabel.counts.quarantineRows, 1);
+  assert.equal(missingLabel.rawValuesIncluded, false);
 });
 
 test("28卒 CSV preflight fails closed on row shape and source row number drift", () => {

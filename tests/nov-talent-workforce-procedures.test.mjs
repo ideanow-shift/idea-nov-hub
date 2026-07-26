@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseActionRoute, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureEmptyState, buildWorkforceProcedureFormSubmitReadiness, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureActionMix, buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseActionRoute, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureConfirmationReadiness, buildWorkforceProcedureEmptyState, buildWorkforceProcedureFormSubmitReadiness, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureTypeQueueFilter, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -329,6 +329,28 @@ test("workforce procedure row action route highlights the safest next button", a
   assert.match(source, /caseRowAction/);
   assert.match(source, /dataset\.recommended/);
   assert.match(css, /\.case-edit-button\[data-recommended="true"\]/);
+});
+
+test("workforce procedure action mix summarizes visible row actions without writes", async () => {
+  const source = await readFile(new URL("../portal/talent/workforce-procedures.mjs", import.meta.url), "utf8");
+  const html = await readFile(new URL("../portal/talent/index.html", import.meta.url), "utf8");
+  const css = await readFile(new URL("../portal/talent/style.css", import.meta.url), "utf8");
+  const mix = buildWorkforceProcedureActionMix([
+    { caseStatus: "READY_FOR_REVIEW", effectiveDate: "2026-08-20" },
+    { caseStatus: "DRAFT", effectiveDate: "2026-07-20" },
+    { caseStatus: "CONFIRMED", effectiveDate: "2026-07-20" }
+  ], "2026-07-26");
+  assert.equal(mix.edit, 1);
+  assert.equal(mix.checklist, 1);
+  assert.equal(mix.audit, 1);
+  assert.equal(mix.nextAction, "EDIT");
+  assert.equal(mix.rawValuesIncluded, false);
+  assert.equal(mix.employeeMasterMutation, false);
+  assert.equal(mix.canonicalWriteReachable, false);
+  assert.equal(buildWorkforceProcedureActionMix([{ caseStatus: "READY_FOR_REVIEW", effectiveDate: "2026-08-20" }], "2026-07-26").nextAction, "CHECKLIST");
+  assert.match(source, /renderOperationActionMix/);
+  assert.match(html, /workforce-case-operation-action-mix/);
+  assert.match(css, /procedure-case-operation-action-mix/);
 });
 
 test("workforce procedure form guide keeps the next edit action local and status-based", () => {

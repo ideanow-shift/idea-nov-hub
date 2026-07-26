@@ -317,6 +317,47 @@ export function buildWorkforceProcedureOperationSteps(summary) {
   });
 }
 
+export function buildWorkforceProcedureActionMix(cases, referenceDate = localDateIso()) {
+  const rows = Array.isArray(cases) ? cases : [];
+  const counts = { EDIT: 0, CHECKLIST: 0, AUDIT: 0 };
+  for (const item of rows) {
+    if (!isRecord(item)) continue;
+    const plan = buildWorkforceProcedureCaseNextAction(item, referenceDate);
+    const route = buildWorkforceProcedureCaseActionRoute(plan);
+    if (Object.hasOwn(counts, route.action)) counts[route.action] += 1;
+  }
+  const nextAction = counts.EDIT > 0
+    ? "EDIT"
+    : counts.CHECKLIST > 0
+      ? "CHECKLIST"
+      : counts.AUDIT > 0
+        ? "AUDIT"
+        : "NONE";
+  const title = {
+    EDIT: "まず編集で不足情報を整えます",
+    CHECKLIST: "確認項目の完了確認に進めます",
+    AUDIT: "Core反映前の履歴確認だけです",
+    NONE: "処理対象はありません"
+  }[nextAction];
+  const copy = {
+    EDIT: "期限超過・下書き・中止再開は、確認済みに進める前に案件メモと基準日を整えます。",
+    CHECKLIST: "確認待ち案件は、4項目を確認してから確認済みに進めます。",
+    AUDIT: "確認済み案件は社員マスタへ自動反映せず、履歴確認で止めます。",
+    NONE: "表示中の案件に日常処理の候補はありません。"
+  }[nextAction];
+  return Object.freeze({
+    edit: counts.EDIT,
+    checklist: counts.CHECKLIST,
+    audit: counts.AUDIT,
+    nextAction,
+    title,
+    copy,
+    rawValuesIncluded: false,
+    employeeMasterMutation: false,
+    canonicalWriteReachable: false
+  });
+}
+
 export function buildWorkforceProcedureEmptyState({ total = 0, hasActiveFilters = false, activeProcedureType = "ALL" } = {}) {
   const procedureType = PROCEDURE_TYPES.includes(activeProcedureType) ? activeProcedureType : "ALL";
   const category = total === 0
@@ -745,6 +786,9 @@ export function initializeWorkforceProcedureDesk({
   const priorityStatus = documentObject?.getElementById?.("workforce-case-priority-status");
   const operationSummary = documentObject?.getElementById?.("workforce-case-operation-summary");
   const operationFilterButtons = Array.from(documentObject?.querySelectorAll?.("[data-workforce-operation-filter]") || []);
+  const operationActionMix = documentObject?.getElementById?.("workforce-case-operation-action-mix");
+  const operationActionMixTitle = documentObject?.getElementById?.("workforce-case-operation-action-mix-title");
+  const operationActionMixCopy = documentObject?.getElementById?.("workforce-case-operation-action-mix-copy");
   const operationSteps = documentObject?.getElementById?.("workforce-case-operation-steps");
   const procedureFilter = documentObject?.getElementById?.("workforce-case-procedure-filter");
   const searchInput = documentObject?.getElementById?.("workforce-case-search");
@@ -760,7 +804,7 @@ export function initializeWorkforceProcedureDesk({
   const transitionPlanTitle = documentObject?.getElementById?.("workforce-case-transition-plan-title");
   const transitionPlanCopy = documentObject?.getElementById?.("workforce-case-transition-plan-copy");
   const transitionPlanList = documentObject?.getElementById?.("workforce-case-transition-plan-list");
-  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy || !checklistPlan || !checklistPlanTitle || !checklistPlanCopy || !checklistPlanList || !transitionPlan || !transitionPlanTitle || !transitionPlanCopy || !transitionPlanList) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !operationActionMix || !operationActionMixTitle || !operationActionMixCopy || !procedureFilter || !searchInput || !filterResetButton || !formGuide || !formGuideTitle || !formGuideCopy || !checklistPlan || !checklistPlanTitle || !checklistPlanCopy || !checklistPlanList || !transitionPlan || !transitionPlanTitle || !transitionPlanCopy || !transitionPlanList) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
@@ -940,6 +984,19 @@ export function initializeWorkforceProcedureDesk({
       button.setAttribute("aria-label", plan.label);
     }
   };
+  const renderOperationActionMix = (visibleCases) => {
+    const mix = buildWorkforceProcedureActionMix(visibleCases);
+    operationActionMix.dataset.nextAction = mix.nextAction;
+    operationActionMixTitle.textContent = mix.title;
+    operationActionMixCopy.textContent = mix.copy;
+    const set = (id, value) => {
+      const element = documentObject.getElementById(id);
+      if (element) element.textContent = String(value);
+    };
+    set("workforce-case-operation-action-edit", mix.edit);
+    set("workforce-case-operation-action-checklist", mix.checklist);
+    set("workforce-case-operation-action-audit", mix.audit);
+  };
   const renderTypeSummary = (summary) => {
     for (const procedureType of PROCEDURE_TYPES) {
       const row = summary[procedureType];
@@ -1043,6 +1100,7 @@ export function initializeWorkforceProcedureDesk({
       activePriority
     ), activeSearch));
     renderOverview(visibleCases.length);
+    renderOperationActionMix(visibleCases);
     if (visibleCases.length === 0) {
       const emptyState = buildWorkforceProcedureEmptyState({
         total: cases.length,

@@ -1324,6 +1324,14 @@ h3 { margin: 0; font-size: 1rem; }
   background: var(--accent-soft);
   outline: none;
 }
+.procedure-case-operation-action-mix { display: grid; flex: 1 0 100%; grid-template-columns: minmax(0, 1.4fr) minmax(280px, .9fr); gap: 10px; padding: 12px; border: 1px solid #e9e0d5; border-radius: 7px; background: #fff; }
+.procedure-case-operation-action-mix > div:first-child { display: grid; gap: 4px; }
+.procedure-case-operation-action-mix strong { color: var(--navy); font-size: .98rem; }
+.procedure-case-operation-action-mix p { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.procedure-case-operation-action-mix dl { min-width: 0; width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.procedure-case-operation-action-mix[data-next-action="EDIT"] { border-color: #f2d59d; background: #fffaf0; }
+.procedure-case-operation-action-mix[data-next-action="CHECKLIST"] { border-color: #c5dcf6; background: #f8fbff; }
+.procedure-case-operation-action-mix[data-next-action="AUDIT"] { border-color: #d8eadf; background: #f8fffb; }
 .procedure-case-operation-steps {
   display: grid;
   flex: 1 0 100%;

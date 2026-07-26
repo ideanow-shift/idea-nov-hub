@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentFilterSummary, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildStudentEmptyState, buildStudentFilterSummary, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -103,6 +103,21 @@ test("student workspace summarizes active filters from analysis shortcuts", asyn
   assert.match(html, /id="student-filter-summary-chips"/);
   assert.match(app, /renderStudentFilterSummary/);
   assert.match(app, /buildStudentFilterSummary\(\{ query, source, state, progress, month, followUp, sort \}\)/);
+});
+
+test("student workspace empty state explains missing data versus active filters", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+
+  assert.equal(buildStudentEmptyState({ total: 0, visible: 0 }).canReset, false);
+  assert.match(buildStudentEmptyState({ total: 0, visible: 0 }).title, /まだありません/);
+  assert.equal(buildStudentEmptyState({ total: 4, visible: 0, hasActiveFilters: true }).canReset, true);
+  assert.match(buildStudentEmptyState({ total: 4, visible: 0, hasActiveFilters: true }).copy, /条件をゆるめる/);
+  assert.equal(buildStudentEmptyState({ total: 4, visible: 2, hasActiveFilters: true }).visible, false);
+  assert.match(html, /id="student-empty-title"/);
+  assert.match(html, /id="student-empty-reset"/);
+  assert.match(app, /renderStudentEmptyState/);
+  assert.match(app, /hasActiveStudentFilters/);
 });
 
 test("fair analysis opens a student queue scoped to its selected record month", async () => {

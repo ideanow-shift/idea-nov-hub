@@ -83,6 +83,7 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
     ok: fixedCategory === "PASS",
     fixedCategory,
     headerCategory,
+    readiness: buildTalent28CsvImportReadiness({ fixedCategory, counts }),
     counts: freezeCounts(counts),
     rawValuesIncluded: false,
     networkOperationCount: 0,
@@ -92,11 +93,49 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
   });
 }
 
+export function buildTalent28CsvImportReadiness(result) {
+  const fixedCategory = String(result?.fixedCategory || "CSV_NOT_SELECTED");
+  const counts = result?.counts || {};
+  const totalRows = Number(counts.totalRows || 0);
+  const readyRows = Number(counts.readyRows || 0);
+  const quarantineRows = Number(counts.quarantineRows || 0);
+  const sourceKinds = ["contactsRows", "entriesRows", "offersRows"].filter((key) => Number(counts[key] || 0) > 0).length;
+  const sourceCoverageCategory = totalRows === 0 ? "NONE" : sourceKinds === 3 ? "EXACT3" : "PARTIAL";
+  const category = fixedCategory !== "PASS"
+    ? "NEEDS_FIX"
+    : readyRows === 0
+      ? "NO_READY_ROWS"
+      : quarantineRows > 0
+        ? "READY_WITH_QUARANTINE"
+        : "READY_FOR_STAGING_PREFLIGHT";
+  const title = {
+    NEEDS_FIX: "CSVを修正してから再確認",
+    NO_READY_ROWS: "投入候補行がありません",
+    READY_WITH_QUARANTINE: "隔離候補を含めてpreflight可能",
+    READY_FOR_STAGING_PREFLIGHT: "staging preflightへ進めます"
+  }[category];
+  const copy = {
+    NEEDS_FIX: "年度・由来・必須項目・日付・隔離理由のいずれかで停止しています。",
+    NO_READY_ROWS: "全行が隔離候補です。投入前にCSVの整形方針を確認してください。",
+    READY_WITH_QUARANTINE: "投入候補と隔離候補を分けて扱えます。canonical反映は別承認です。",
+    READY_FOR_STAGING_PREFLIGHT: "件数だけを確認済みです。DB投入は別の明示承認で実行します。"
+  }[category];
+  return Object.freeze({
+    category,
+    title,
+    copy,
+    sourceCoverageCategory,
+    canRequestStagingPreflight: ["READY_WITH_QUARANTINE", "READY_FOR_STAGING_PREFLIGHT"].includes(category),
+    rawValuesIncluded: false
+  });
+}
+
 function safeSummary(fixedCategory, headerCategory, partialCounts = {}) {
   return Object.freeze({
     ok: false,
     fixedCategory,
     headerCategory,
+    readiness: buildTalent28CsvImportReadiness({ fixedCategory, counts: partialCounts }),
     counts: freezeCounts({
       totalRows: 0,
       readyRows: 0,
@@ -177,10 +216,9 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
   if (input.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true });
   input.dataset.bound = "true";
   const render = (result) => {
-    status.dataset.category = result.fixedCategory;
-    status.textContent = result.ok
-      ? "28卒CSVの形式検証はPASSです。DB投入は別承認で実行します。"
-      : `28卒CSVの形式検証で停止しました: ${result.fixedCategory}`;
+    const readiness = result.readiness || buildTalent28CsvImportReadiness(result);
+    status.dataset.category = readiness.category;
+    status.textContent = `${readiness.title}。${readiness.copy}`;
     summary.replaceChildren(...[
       ["行数", result.counts.totalRows],
       ["投入候補", result.counts.readyRows],

@@ -620,6 +620,12 @@
             <div><dt>確認待ち</dt><dd id="workforce-case-operation-review">0</dd></div>
             <div><dt>下書き</dt><dd id="workforce-case-operation-draft">0</dd></div>
           </dl>
+          <div class="procedure-case-operation-actions" aria-label="今日の処理キューを開く">
+            <button type="button" data-workforce-operation-filter="OVERDUE" aria-pressed="false">期限超過を見る</button>
+            <button type="button" data-workforce-operation-filter="NEXT_7_DAYS" aria-pressed="false">7日以内を見る</button>
+            <button type="button" data-workforce-operation-filter="READY_FOR_REVIEW" aria-pressed="false">確認待ちを見る</button>
+            <button type="button" data-workforce-operation-filter="DRAFT" aria-pressed="false">下書きを見る</button>
+          </div>
         </section>
         <section id="workforce-case-type-summary" class="procedure-case-type-summary" aria-label="手続き別の対応状況">
           <button type="button" id="workforce-case-type-onboarding" data-procedure-type-summary="ONBOARDING" data-next-category="CLEAR" aria-pressed="false"><span>入社</span><strong id="workforce-case-type-onboarding-open">0</strong><small>期限超過 <b id="workforce-case-type-onboarding-overdue">0</b> / 確認待ち <b id="workforce-case-type-onboarding-review">0</b></small></button>

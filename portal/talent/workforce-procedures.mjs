@@ -15,6 +15,7 @@ export const WORKFORCE_PROCEDURE_CASE_CONTRACT = Object.freeze({
   employeeMasterMutation: false,
   auditHistory: true,
   statusFilters: true,
+  caseSearch: true,
   checklistTracking: true,
   optimisticConcurrency: true,
   requestMaxPerAction: 1,
@@ -52,6 +53,18 @@ export function filterWorkforceProcedureCasesByType(cases, procedureType = "ALL"
 export function filterWorkforceProcedureCasesByPriority(cases, priority = "ALL", referenceDate = localDateIso()) {
   if (!Array.isArray(cases) || !PRIORITY_FILTERS.includes(priority)) return Object.freeze([]);
   return Object.freeze(cases.filter((item) => priority === "ALL" || classifyWorkforceProcedureCasePriority(item, referenceDate) === priority));
+}
+
+export function filterWorkforceProcedureCasesByQuery(cases, query = "") {
+  if (!Array.isArray(cases)) return Object.freeze([]);
+  const normalizedQuery = normalizeWorkforceProcedureCaseSearch(query);
+  if (!normalizedQuery) return Object.freeze([...cases]);
+  return Object.freeze(cases.filter((item) => [item.subjectLabel, item.detail]
+    .some((value) => normalizeWorkforceProcedureCaseSearch(value).includes(normalizedQuery))));
+}
+
+function normalizeWorkforceProcedureCaseSearch(value) {
+  return typeof value === "string" ? value.normalize("NFKC").trim().toLocaleLowerCase("ja-JP").slice(0, 120) : "";
 }
 
 function isRecord(value) {
@@ -281,7 +294,8 @@ export function initializeWorkforceProcedureDesk({
   const filterStatus = documentObject?.getElementById?.("workforce-case-filter-status");
   const priorityStatus = documentObject?.getElementById?.("workforce-case-priority-status");
   const procedureFilter = documentObject?.getElementById?.("workforce-case-procedure-filter");
-  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !procedureFilter) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  const searchInput = documentObject?.getElementById?.("workforce-case-search");
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !procedureFilter || !searchInput) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
@@ -289,6 +303,7 @@ export function initializeWorkforceProcedureDesk({
   let activeFilter = "ALL";
   let activeProcedureType = getActiveWorkforceProcedureType(documentObject);
   let activePriority = "ALL";
+  let activeSearch = "";
   procedureFilter.value = activeProcedureType;
 
   const setStatus = (category) => {
@@ -350,7 +365,11 @@ export function initializeWorkforceProcedureDesk({
     }
     render();
   };
-  const renderOverview = () => {
+  const setSearch = (nextSearch) => {
+    activeSearch = normalizeWorkforceProcedureCaseSearch(nextSearch);
+    render();
+  };
+  const renderOverview = (filteredCount = null) => {
     const scopedCases = filterWorkforceProcedureCasesByType(cases, activeProcedureType);
     const counts = Object.fromEntries(["ALL", ...CASE_STATUSES].map((key) => [key, filterWorkforceProcedureCases(scopedCases, key).length]));
     const countIds = { ALL: "workforce-case-count-all", DRAFT: "workforce-case-count-draft", READY_FOR_REVIEW: "workforce-case-count-review", CONFIRMED: "workforce-case-count-confirmed", CANCELLED: "workforce-case-count-cancelled" };
@@ -358,7 +377,7 @@ export function initializeWorkforceProcedureDesk({
       const element = documentObject.getElementById(id);
       if (element) element.textContent = String(counts[key]);
     }
-    const visibleCount = counts[activeFilter];
+    const visibleCount = Number.isInteger(filteredCount) ? filteredCount : counts[activeFilter];
     const procedureScope = activeProcedureType === "ALL" ? "すべての手続き" : procedureLabel(activeProcedureType);
     const priorityScope = activePriority === "ALL" ? "" : ` / ${priorityLabel(activePriority)}`;
     filterStatus.textContent = activeFilter === "ALL" ? `${procedureScope}${priorityScope}の案件 ${visibleCount}件を表示しています。` : `${procedureScope} / ${statusLabel(activeFilter)}${priorityScope} ${visibleCount}件を表示しています。`;
@@ -428,11 +447,11 @@ export function initializeWorkforceProcedureDesk({
   };
   const render = () => {
     list.replaceChildren();
-    renderOverview();
-    const visibleCases = sortWorkforceProcedureCases(filterWorkforceProcedureCasesByPriority(
+    const visibleCases = sortWorkforceProcedureCases(filterWorkforceProcedureCasesByQuery(filterWorkforceProcedureCasesByPriority(
       filterWorkforceProcedureCases(filterWorkforceProcedureCasesByType(cases, activeProcedureType), activeFilter),
       activePriority
-    ));
+    ), activeSearch));
+    renderOverview(visibleCases.length);
     if (visibleCases.length === 0) {
       const empty = documentObject.createElement("p");
       empty.className = "procedure-case-empty";
@@ -525,6 +544,7 @@ export function initializeWorkforceProcedureDesk({
     button.addEventListener("click", () => setPriorityFilter(button.dataset.casePriorityFilter));
   }
   procedureFilter.addEventListener("change", () => setProcedureType(procedureFilter.value));
+  searchInput.addEventListener("input", () => setSearch(searchInput.value));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const draft = Object.freeze({

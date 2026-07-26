@@ -918,8 +918,9 @@ h3 { margin: 0; font-size: 1rem; }
 }
 .procedure-case-desk > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
 .procedure-case-header-controls { display: flex; align-items: end; gap: 10px; }
-.procedure-case-procedure-filter { display: grid; gap: 5px; color: var(--muted); font-size: .76rem; font-weight: 800; }
-.procedure-case-procedure-filter select { min-height: 38px; padding: 7px 28px 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); font: inherit; }
+  .procedure-case-procedure-filter, .procedure-case-search { display: grid; gap: 5px; color: var(--muted); font-size: .76rem; font-weight: 800; }
+  .procedure-case-procedure-filter select, .procedure-case-search input { min-height: 38px; padding: 7px 28px 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); font: inherit; }
+  .procedure-case-search input { width: min(240px, 32vw); padding-right: 10px; }
 .procedure-case-desk h3, .procedure-case-desk p { margin: 0; }
 .procedure-case-desk header p:last-child, .procedure-case-status { margin-top: 6px; color: var(--muted); }
 .procedure-case-status { min-height: 1.4em; font-size: 0.9rem; }
@@ -1142,7 +1143,8 @@ h3 { margin: 0; font-size: 1rem; }
   .workforce-tabs { margin: 20px -18px 0; padding: 0 18px; }
   .procedure-intro { display: block; }
   .case-context-action { width: 100%; margin-top: 12px; }
-  .procedure-case-desk > header, .procedure-case-row, .procedure-case-header-controls { display: grid; }
+    .procedure-case-desk > header, .procedure-case-row, .procedure-case-header-controls { display: grid; }
+    .procedure-case-search input { width: 100%; }
   .procedure-case-desk > header .primary-action, .case-edit-button { width: 100%; }
   .procedure-case-actions-inline { display: grid; }
   .procedure-case-step { align-items: flex-start; }

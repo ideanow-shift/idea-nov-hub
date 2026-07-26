@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -84,6 +84,17 @@ test("workforce procedure cases can be narrowed to urgent work without a new req
   assert.equal(filterWorkforceProcedureCasesByPriority(cases, "NEXT_7_DAYS", "2026-07-26").length, 1);
   assert.equal(filterWorkforceProcedureCasesByPriority(cases, "SCHEDULED", "2026-07-26").length, 0);
   assert.equal(filterWorkforceProcedureCasesByPriority(cases, "INVALID", "2026-07-26").length, 0);
+});
+
+test("workforce procedure cases can be searched locally by subject or memo", () => {
+  const cases = Object.freeze([
+    Object.freeze({ subjectLabel: "総務 花子", detail: "社会保険の手続き" }),
+    Object.freeze({ subjectLabel: "営業 太郎", detail: "引継ぎメモ" })
+  ]);
+  assert.deepEqual(filterWorkforceProcedureCasesByQuery(cases, "総務"), [cases[0]]);
+  assert.deepEqual(filterWorkforceProcedureCasesByQuery(cases, "引継ぎ"), [cases[1]]);
+  assert.equal(filterWorkforceProcedureCasesByQuery(cases, "該当なし").length, 0);
+  assert.equal(WORKFORCE_PROCEDURE_CASE_CONTRACT.caseSearch, true);
 });
 
 test("new workforce cases inherit the active procedure tab", () => {

@@ -1270,16 +1270,17 @@ function buildStoreMenuSummaryPanel() {
   categoryGrid.className = "financial-store-menu-category-grid";
   categoryGrid.replaceChildren(...categories.map(([category, totals]) => {
     const item = document.createElement("article");
-    item.append(label(category), valueNode(yen.format(totals.salesYen)), muted(`${number.format(totals.serviceCount)}件`));
+    const averageYen = totals.serviceCount > 0 ? Math.round(totals.salesYen / totals.serviceCount) : null;
+    item.append(label(category), valueNode(yen.format(totals.salesYen)), muted(`${number.format(totals.serviceCount)}件 / 平均 ${averageYen == null ? "未算定" : yen.format(averageYen)}`));
     return item;
   }));
   const wrap = document.createElement("div");
   wrap.className = "table-wrap embedded local-preview-table";
   const table = document.createElement("table");
   const thead = document.createElement("thead");
-  thead.append(tableRow(["店舗", "メニュー分類", "メニュー", "件数", "売上"], true));
+  thead.append(tableRow(["店舗", "メニュー分類", "メニュー", "件数", "売上", "平均単価"], true));
   const tbody = document.createElement("tbody");
-  tbody.replaceChildren(...rows.map((row) => tableRow([row.storeName, row.menuCategory, row.menuName, `${number.format(row.serviceCount)}件`, yen.format(row.salesYen)])));
+  tbody.replaceChildren(...rows.map((row) => tableRow([row.storeName, row.menuCategory, row.menuName, `${number.format(row.serviceCount)}件`, yen.format(row.salesYen), row.serviceCount > 0 ? yen.format(Math.round(row.salesYen / row.serviceCount)) : "未算定"])));
   table.append(thead, tbody); wrap.append(table);
   section.append(
     heading(`店舗月次メニュー分析のローカル確認 (${latestPeriod})`),

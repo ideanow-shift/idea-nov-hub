@@ -376,15 +376,21 @@ test("review workload guide separates bulk-safe, individual, and quarantine work
   ]);
 
   assert.equal(guide.nextAction, "BULK_MATCH_ONLY");
+  assert.equal(guide.nextFilterState, "OWNER_REVIEW");
   assert.equal(guide.bulk, 1);
   assert.equal(guide.individual, 1);
   assert.equal(guide.quarantine, 2);
+  assert.match(guide.nextTitle, /一致候補/);
   assert.match(guide.bulkCopy, /新規・曖昧行は混ぜません/);
   assert.match(html, /id="student-review-workload"/);
+  assert.match(html, /id="review-workload-title"/);
+  assert.match(html, /id="review-workload-open"/);
   assert.match(html, /id="review-workload-bulk"/);
   assert.match(html, /id="review-workload-individual"/);
   assert.match(html, /id="review-workload-quarantine"/);
   assert.match(app, /renderReviewWorkloadGuide/);
+  assert.match(app, /nextFilterState/);
+  assert.match(app, /review-workload-open/);
   assert.match(app, /dataset\.nextAction = guide\.nextAction/);
 });
 

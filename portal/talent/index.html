@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-workforce-operation-summary-2">
+  <link rel="stylesheet" href="./style.css?v=20260726-review-workload-next-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-workforce-operation-summary-2"></script>
+  <script type="module" src="./app.mjs?v=20260726-review-workload-next-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -170,6 +170,12 @@
             <div><span>保留</span><strong id="triage-hold">-</strong><small>確認待ち</small></div>
           </div>
           <div id="student-review-workload" class="student-review-workload" aria-label="要確認と隔離の整理方針">
+            <div class="student-review-workload-next">
+              <span>次の整理</span>
+              <strong id="review-workload-title">確認対象を集計しています</strong>
+              <p id="review-workload-copy">一括反映・個別確認・隔離維持の順に、安全な作業だけを案内します。</p>
+              <button id="review-workload-open" class="triage-command" type="button">対象を一覧で見る</button>
+            </div>
             <article>
               <span>安全に一括</span>
               <strong id="review-workload-bulk">-</strong>

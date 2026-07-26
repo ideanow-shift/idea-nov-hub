@@ -330,6 +330,14 @@ export function initializeTalentStudentWorkspace({
     refresh();
     documentObject.getElementById("student-list")?.scrollIntoView?.({ block: "nearest" });
   });
+  documentObject.getElementById("review-workload-open")?.addEventListener("click", () => {
+    const panel = documentObject.getElementById("student-review-workload");
+    const filter = documentObject.getElementById("student-state-filter");
+    if (!panel || !filter) return;
+    filter.value = panel.dataset.nextFilterState || "ALL";
+    refresh();
+    documentObject.getElementById("student-list")?.scrollIntoView?.({ block: "nearest" });
+  });
   for (const button of documentObject.querySelectorAll("[data-summary-followup]")) {
     button.addEventListener("click", () => {
       openStudentWorkspace(documentObject, buildSummaryFollowUpFilter(button.dataset.summaryFollowup));
@@ -607,6 +615,24 @@ export function buildReviewWorkloadGuide(students) {
         : "NO_PENDING_REVIEW";
   return Object.freeze({
     nextAction,
+    nextTitle: {
+      BULK_MATCH_ONLY: "まず一致候補だけを安全に片付けます",
+      INDIVIDUAL_REVIEW: "新規候補を1件ずつ確認します",
+      KEEP_QUARANTINED: "曖昧・保留は隔離維持で整理します",
+      NO_PENDING_REVIEW: "要確認・隔離の整理は落ち着いています"
+    }[nextAction],
+    nextCopy: {
+      BULK_MATCH_ONLY: "一括反映は一致候補だけに限定します。新規候補や曖昧行は一覧で確認してから扱います。",
+      INDIVIDUAL_REVIEW: "接触データがない候補は、学生詳細から新規扱いか隔離維持かを判断します。",
+      KEEP_QUARANTINED: "自動判断できない行は昇格せず、補足・次回対応日を整えて追跡します。",
+      NO_PENDING_REVIEW: "未処理の候補はありません。必要に応じて確認済み・新規候補を一覧で見直せます。"
+    }[nextAction],
+    nextFilterState: {
+      BULK_MATCH_ONLY: "OWNER_REVIEW",
+      INDIVIDUAL_REVIEW: "NEW_CANDIDATE",
+      KEEP_QUARANTINED: "QUARANTINE",
+      NO_PENDING_REVIEW: "ALL"
+    }[nextAction],
     bulk,
     individual,
     quarantine,
@@ -642,11 +668,16 @@ function renderReviewWorkloadGuide(documentObject, guide) {
   setText(documentObject, "review-workload-bulk", guide.bulk);
   setText(documentObject, "review-workload-individual", guide.individual);
   setText(documentObject, "review-workload-quarantine", guide.quarantine);
+  setText(documentObject, "review-workload-title", guide.nextTitle);
+  setText(documentObject, "review-workload-copy", guide.nextCopy);
   setText(documentObject, "review-workload-bulk-copy", guide.bulkCopy);
   setText(documentObject, "review-workload-individual-copy", guide.individualCopy);
   setText(documentObject, "review-workload-quarantine-copy", guide.quarantineCopy);
   const panel = documentObject.getElementById("student-review-workload");
-  if (panel) panel.dataset.nextAction = guide.nextAction;
+  if (panel) {
+    panel.dataset.nextAction = guide.nextAction;
+    panel.dataset.nextFilterState = guide.nextFilterState;
+  }
 }
 
 function openHistoricalReviewDialog({ globalObject, documentObject }) {

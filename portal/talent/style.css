@@ -537,6 +537,22 @@ h3 { margin: 0; font-size: 1rem; }
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
+.student-review-workload-next {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 0.7fr 1.25fr auto;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 12px;
+  border: 1px solid #cfe7d8;
+  border-radius: 6px;
+  background: #f8fffb;
+}
+.student-review-workload-next span { color: #267650; font-size: 0.72rem; font-weight: 900; }
+.student-review-workload-next strong { color: var(--navy); }
+.student-review-workload-next p { margin: 0; color: var(--muted); font-size: 0.76rem; line-height: 1.55; }
+.student-review-workload[data-next-action="BULK_MATCH_ONLY"] .student-review-workload-next { border-color: #f0d5d8; background: #fffafa; }
+.student-review-workload[data-next-action="KEEP_QUARANTINED"] .student-review-workload-next { border-color: #f2d59d; background: #fffaf0; }
 .student-review-workload article {
   display: grid;
   gap: 5px;
@@ -1249,6 +1265,7 @@ h3 { margin: 0; font-size: 1rem; }
   .review-command-band > div { grid-column: 1 / -1; }
   .bulk-triage { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .student-review-workload { grid-template-columns: 1fr; }
+  .student-review-workload-next { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 520px) {

@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-pipeline-filter-2">
+  <link rel="stylesheet" href="./style.css?v=20260726-workforce-context-actions-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-workforce-case-context-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-workforce-context-actions-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -497,7 +497,7 @@
       </nav>
 
       <section id="workforce-onboarding" class="workforce-panel" role="tabpanel">
-        <div class="procedure-intro"><strong>入社手続き</strong><p>内定後の受け入れ準備からCore反映前の承認までを順番に確認します。</p></div>
+        <div class="procedure-intro"><div><strong>入社手続き</strong><p>内定後の受け入れ準備からCore反映前の承認までを順番に確認します。</p></div><button type="button" class="case-context-action" data-procedure-new="ONBOARDING">入社案件を登録</button></div>
         <div class="procedure-board">
           <div class="procedure-column"><header><span>01</span><h3>受付</h3></header><p>入社予定日、配属予定、担当者を確認します。</p></div>
           <div class="procedure-column"><header><span>02</span><h3>書類確認</h3></header><p>必要書類とチェック項目の未完了を確認します。</p></div>
@@ -511,7 +511,7 @@
       </section>
 
       <section id="workforce-transfer" class="workforce-panel" role="tabpanel" hidden>
-        <div class="procedure-intro"><strong>異動手続き</strong><p>異動日と新しい所属を確定し、承認後にCoreへ反映します。</p></div>
+        <div class="procedure-intro"><div><strong>異動手続き</strong><p>異動日と新しい所属を確定し、承認後にCoreへ反映します。</p></div><button type="button" class="case-context-action" data-procedure-new="TRANSFER">異動案件を登録</button></div>
         <div class="procedure-checklist">
           <article><span>01</span><h3>異動内容</h3><p>異動日、異動元・異動先、役職変更の有無を確認します。</p></article>
           <article><span>02</span><h3>関係者確認</h3><p>本人、所属責任者、総務人事部の確認状況を揃えます。</p></article>
@@ -520,7 +520,7 @@
       </section>
 
       <section id="workforce-leave" class="workforce-panel" role="tabpanel" hidden>
-        <div class="procedure-intro"><strong>休職・復職</strong><p>産休・育休を含む休職開始と復職予定を一つの流れで確認します。</p></div>
+        <div class="procedure-intro"><div><strong>休職・復職</strong><p>産休・育休を含む休職開始と復職予定を一つの流れで確認します。</p></div><button type="button" class="case-context-action" data-procedure-new="LEAVE">休職・復職案件を登録</button></div>
         <div class="procedure-checklist">
           <article><span>01</span><h3>申請受付</h3><p>休職種別、開始日、復職予定日を確認します。</p></article>
           <article><span>02</span><h3>手続き確認</h3><p>必要書類、社内連絡、給与・保険関連の進捗を確認します。</p></article>
@@ -533,7 +533,7 @@
       </section>
 
       <section id="workforce-retirement" class="workforce-panel" role="tabpanel" hidden>
-        <div class="procedure-intro"><strong>退職手続き</strong><p>退職日確定から返却物・書類・Core反映までの漏れを防ぎます。</p></div>
+        <div class="procedure-intro"><div><strong>退職手続き</strong><p>退職日確定から返却物・書類・Core反映までの漏れを防ぎます。</p></div><button type="button" class="case-context-action" data-procedure-new="RETIREMENT">退職案件を登録</button></div>
         <div class="procedure-checklist">
           <article><span>01</span><h3>退職受付</h3><p>退職日、理由区分、最終出勤日を確認します。</p></article>
           <article><span>02</span><h3>回収・発行</h3><p>貸与物の返却と必要書類の発行状況を確認します。</p></article>

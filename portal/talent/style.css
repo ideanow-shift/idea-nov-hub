@@ -945,7 +945,9 @@ h3 { margin: 0; font-size: 1rem; }
 
 .procedure-intro {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
   gap: 18px;
   padding: 14px 16px;
   border-left: 4px solid var(--blue);
@@ -954,6 +956,19 @@ h3 { margin: 0; font-size: 1rem; }
 
 .procedure-intro strong { color: var(--navy); }
 .procedure-intro p { margin: 0; color: var(--muted); }
+.case-context-action {
+  flex: 0 0 auto;
+  min-height: 38px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 0 14px;
+  color: var(--ink);
+  background: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.case-context-action:hover { border-color: var(--accent-strong); background: var(--accent-soft); }
 
 .workforce-queue {
   display: grid;
@@ -1073,6 +1088,7 @@ h3 { margin: 0; font-size: 1rem; }
   .operator-grid { grid-template-columns: 1fr; }
   .workforce-tabs { margin: 20px -18px 0; padding: 0 18px; }
   .procedure-intro { display: block; }
+  .case-context-action { width: 100%; margin-top: 12px; }
   .procedure-case-desk > header, .procedure-case-row { display: grid; }
   .procedure-case-desk > header .primary-action, .case-edit-button { width: 100%; }
   .procedure-case-actions-inline { display: grid; }

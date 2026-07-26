@@ -451,12 +451,18 @@ export function initializeWorkforceProcedureDesk({
     return result;
   };
 
-  documentObject.getElementById("workforce-case-new")?.addEventListener("click", () => {
+  const openNewCase = (procedureType = getActiveWorkforceProcedureType(documentObject)) => {
     reset();
-    input("procedureType").value = getActiveWorkforceProcedureType(documentObject);
+    input("procedureType").value = PROCEDURE_TYPES.includes(procedureType)
+      ? procedureType
+      : getActiveWorkforceProcedureType(documentObject);
     form.hidden = false;
     input("subjectLabel")?.focus?.();
-  });
+  };
+  documentObject.getElementById("workforce-case-new")?.addEventListener("click", () => openNewCase());
+  for (const button of documentObject.querySelectorAll?.("[data-procedure-new]") || []) {
+    button.addEventListener("click", () => openNewCase(String(button.dataset.procedureNew || "")));
+  }
   documentObject.getElementById("workforce-case-cancel")?.addEventListener("click", reset);
   documentObject.getElementById("workforce-case-audit-close")?.addEventListener("click", clearAudit);
   documentObject.getElementById("workforce-case-steps-close")?.addEventListener("click", clearSteps);

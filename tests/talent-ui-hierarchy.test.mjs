@@ -39,6 +39,9 @@ test("workforce management exposes four accessible procedure tabs", async () => 
   }
   assert.match(html, /data-workforce-tab="transfer" data-procedure-type="TRANSFER"/);
   assert.match(html, /data-workforce-tab="retirement" data-procedure-type="RETIREMENT"/);
+  for (const procedureType of ["ONBOARDING", "TRANSFER", "LEAVE", "RETIREMENT"]) {
+    assert.match(html, new RegExp(`data-procedure-new="${procedureType}"`));
+  }
   assert.match(app, /WORKFORCE_TABS/);
   assert.match(app, /data-workforce-tab/);
 });

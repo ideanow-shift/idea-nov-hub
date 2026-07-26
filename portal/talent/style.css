@@ -265,6 +265,19 @@ h3 { margin: 0; font-size: 1rem; }
 }
 .summary-followup-actions button:hover,
 .summary-followup-actions button:focus-visible { border-color: var(--accent); background: var(--accent-soft); }
+.summary-followup-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  margin-left: 4px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+.summary-followup-count.is-overdue { color: #a43b4b; background: #fff0f2; }
+.summary-followup-count.is-next-week { color: #8a5a08; background: #fff6dc; }
 .confirmed-summary-heading {
   margin-top: 24px;
   padding-top: 20px;

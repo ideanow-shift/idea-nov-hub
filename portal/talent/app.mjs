@@ -767,12 +767,18 @@ function renderTalentAnalytics(documentObject) {
   if (!studentWorkspaceData) return;
   const analytics = buildTalentAnalytics(studentWorkspaceData);
   renderMetricCollection(documentObject, "historical-summary-metrics", analytics.summary);
+  renderSummaryFollowUpCounts(documentObject, studentWorkspaceData.students);
   renderAnalyticsCoverage(documentObject, analytics);
   renderMonthlyFlow(documentObject, analytics.flow);
   renderSchoolAnalysis(documentObject, analytics.schools);
   setText(documentObject, "historical-summary-status", `${analytics.summary[0].value}件を集計`);
   setText(documentObject, "fair-analysis-status", `${analytics.flow.length}か月分を表示`);
   setText(documentObject, "school-analysis-status", `${analytics.schools.length}校を表示`);
+}
+
+function renderSummaryFollowUpCounts(documentObject, students) {
+  setText(documentObject, "summary-followup-overdue-count", filterTalentStudents(students, { followUp: "OVERDUE" }).length);
+  setText(documentObject, "summary-followup-next-week-count", filterTalentStudents(students, { followUp: "NEXT_7_DAYS" }).length);
 }
 
 function renderMetricCollection(documentObject, containerId, metrics) {
@@ -920,6 +926,8 @@ export function buildSummaryFollowUpFilter(key) {
     contacts: { source: "CONTACTS_27" },
     entries: { source: "ENTRIES_27" },
     offers: { source: "OFFERS_27" },
+    overdueFollowUp: { followUp: "OVERDUE" },
+    nextWeekFollowUp: { followUp: "NEXT_7_DAYS" },
     needsAction: { state: "NEEDS_ACTION" }
   };
   const selected = filters[String(key || "")];

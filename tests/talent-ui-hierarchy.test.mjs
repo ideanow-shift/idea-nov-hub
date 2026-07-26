@@ -59,11 +59,17 @@ test("summary shortcuts open the intended student queues without changing record
 
   assert.deepEqual(buildSummaryFollowUpFilter("offers"), { query: "", source: "OFFERS_27", state: "ALL", progress: "ALL" });
   assert.deepEqual(buildSummaryFollowUpFilter("needsAction"), { query: "", source: "ALL", state: "NEEDS_ACTION", progress: "ALL" });
+  assert.deepEqual(buildSummaryFollowUpFilter("overdueFollowUp"), { query: "", source: "ALL", state: "ALL", progress: "ALL", followUp: "OVERDUE" });
+  assert.deepEqual(buildSummaryFollowUpFilter("nextWeekFollowUp"), { query: "", source: "ALL", state: "ALL", progress: "ALL", followUp: "NEXT_7_DAYS" });
   assert.equal(buildSummaryFollowUpFilter("unknown"), null);
   assert.deepEqual(filterTalentStudents(rows, buildSummaryFollowUpFilter("needsAction")).map((row) => row.displayName), ["確認対象", "隔離対象"]);
   assert.match(html, /data-summary-followup="needsAction"/);
+  assert.match(html, /data-summary-followup="overdueFollowUp"/);
+  assert.match(html, /id="summary-followup-overdue-count"/);
+  assert.match(html, /id="summary-followup-next-week-count"/);
   assert.match(html, /option value="NEEDS_ACTION">要確認・隔離<\/option>/);
   assert.match(app, /buildSummaryFollowUpFilter/);
+  assert.match(app, /renderSummaryFollowUpCounts/);
   assert.match(app, /openStudentWorkspace/);
 });
 

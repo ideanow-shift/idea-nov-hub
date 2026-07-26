@@ -2,7 +2,7 @@ import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=98059284370E87B7";
-import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=B4EFF0230D6A3009";
+import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=8C2E901E5BB5D88B";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
@@ -65,6 +65,23 @@ window.addEventListener("management-store-menu-local-preview", (event) => {
   if (!preview) return;
   state.storeMenuPreview = preview;
   renderStores();
+});
+window.addEventListener("management-financial-local-preview-clear", () => {
+  state.financialPreviews = { PL: null, BS: null, BUDGET: null };
+  state.storeRepeatPreview = null;
+  state.storeCustomerPreview = null;
+  state.storeVisitCohortPreview = null;
+  state.storeMenuPreview = null;
+  updateSectionDataBadges();
+  renderFinancialPreviewOverview();
+  renderFinancialPreviewFourAxis();
+  renderFinancialPreviewDepartments();
+  renderFinancialPreviewStores();
+  if (elements.financialDataIntake) {
+    elements.financialDataIntake.replaceChildren();
+    delete elements.financialDataIntake.dataset.financialIntakeMounted;
+  }
+  renderDataops();
 });
 initialize();
 

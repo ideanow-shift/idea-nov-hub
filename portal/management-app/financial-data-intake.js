@@ -2747,7 +2747,14 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const disabled = el(doc, "button", "", "本番投入 disabled");
   disabled.type = "button";
   disabled.disabled = true;
-  heading.append(titleWrap, disabled);
+  const clearLocalPreview = el(doc, "button", "financial-local-preview-clear", "ローカル確認をクリア");
+  clearLocalPreview.type = "button";
+  clearLocalPreview.addEventListener("click", () => {
+    container.dispatchEvent(new CustomEvent("management-financial-local-preview-clear", { bubbles: true }));
+  });
+  const headingActions = el(doc, "div", "financial-intake-heading-actions");
+  headingActions.append(disabled, clearLocalPreview);
+  heading.append(titleWrap, headingActions);
 
   const controls = el(doc, "div", "financial-intake-controls");
   const statement = el(doc, "select");

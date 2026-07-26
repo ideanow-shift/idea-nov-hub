@@ -192,6 +192,9 @@ tbody tr:hover td { background: var(--card-soft); }
 .production-readiness-item p { margin: 6px 0 0; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
 .financial-intake-panel { margin: 0 0 16px; padding: 16px; background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
 .financial-intake-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.financial-intake-heading-actions { display: flex; align-items: center; gap: 8px; }
+.financial-local-preview-clear { min-height: 36px; padding: 7px 12px; color: var(--text-primary); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; }
+.financial-local-preview-clear:hover { background: var(--color-bassa-soft); }
 .financial-intake-kicker { margin: 0 0 3px; color: var(--text-secondary); font-size: 11px; font-weight: 500; text-transform: uppercase; }
 .financial-intake-heading h3 { margin: 0; color: var(--text-primary); font-size: 16px; font-weight: 500; }
 .financial-intake-heading button:disabled { min-height: 36px; padding: 7px 12px; color: var(--text-muted); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); white-space: nowrap; cursor: not-allowed; }
@@ -471,6 +474,7 @@ tbody tr:hover td { background: var(--card-soft); }
   .workforce-evidence-head, .workforce-evidence-action, .workforce-submission-head { align-items: stretch; flex-direction: column; }
   .production-readiness-head { align-items: stretch; flex-direction: column; }
   .financial-intake-heading { align-items: stretch; flex-direction: column; }
+  .financial-intake-heading-actions { align-items: stretch; flex-direction: column; }
   .financial-mapping-review-heading { align-items: stretch; flex-direction: column; }
   .financial-mapping-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .store-repeat-summary-intake > div, .store-customer-summary-intake > div, .store-visit-cohort-summary-intake > div, .store-menu-summary-intake > div { display: block; }

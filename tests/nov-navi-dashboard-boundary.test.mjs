@@ -48,6 +48,7 @@ assert.equal(getNaviGreeting(20), "おつかれさまです。明日の準備を
 
 const dashboardSource = await readFile(new URL("../portal/js/nov-navi-dashboard.js", import.meta.url), "utf8");
 const mainSource = await readFile(new URL("../portal/js/main.js", import.meta.url), "utf8");
+const designSystemSource = await readFile(new URL("../portal/css/design-system.css", import.meta.url), "utf8");
 const unmappedAppFixture = { appId: "fixture-unmapped-app", appName: "未配置アプリfixture" };
 const mappedAliasesFixture = ["idea-link", "attendance", "shift", "management-system"];
 
@@ -72,5 +73,8 @@ assert.match(mainSource, /if \(localDemoEnabled\) \{[\s\S]*?demoLogin\.addEventL
 assert.match(dashboardSource, /visibleNotices = Array\.isArray\(notices\) \? notices\.slice\(0, 3\)/, "NOVA notices must be capped at three");
 assert.match(dashboardSource, /onOpenNotice\(notice\)/, "NOVA notices must use the existing HUB handler");
 assert.doesNotMatch(dashboardSource, /localStorage|sessionStorage|handoff_code|sessionToken/, "NOVA dashboard must not store or transport auth material");
+assert.match(designSystemSource, /--control-min-height:\s*44px/, "shared design system must preserve 44px controls");
+assert.match(designSystemSource, /--shadow-card:/, "shared design system must provide a card shadow token");
+assert.match(designSystemSource, /--focus-ring:/, "shared design system must provide a focus token");
 
 console.log("NOV NAVI dashboard boundary fixtures: PASS");

@@ -1,17 +1,23 @@
 :root {
   --bg-primary: #FFFFFF;
+  --bg-secondary: #FAFAFA;
   --text-primary: #1F1F1F;
   --text-secondary: #767676;
   --color-bassa: #E8B4B8;
   --color-alert: #FF3B30;
   --color-success: #34C759;
   --border-light: #E5E5E5;
+  --border-soft: #F0DFE1;
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 12px;
   --spacing-lg: 16px;
   --spacing-xl: 24px;
+  --radius-sm: 6px;
   --radius-md: 8px;
+  --control-min-height: 44px;
+  --shadow-card: 0 8px 24px rgba(31, 31, 31, 0.04);
+  --focus-ring: 0 0 0 3px rgba(232, 180, 184, 0.45);
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans JP', sans-serif;
 }
 
@@ -38,7 +44,7 @@ button { cursor: pointer; }
 
 .button {
   display: inline-flex;
-  min-height: 44px;
+  min-height: var(--control-min-height);
   align-items: center;
   justify-content: center;
   gap: var(--spacing-sm);
@@ -54,8 +60,8 @@ button { cursor: pointer; }
 .button:focus-visible,
 .app-card:focus-visible,
 .icon-button:focus-visible {
-  outline: 3px solid rgba(232, 180, 184, 0.45);
-  outline-offset: 2px;
+  outline: 0;
+  box-shadow: var(--focus-ring);
 }
 
 .button-primary {

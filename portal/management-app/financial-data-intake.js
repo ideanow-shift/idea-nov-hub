@@ -87,6 +87,28 @@ export function buildStoreMonthlySalesAccountingTemplateCsv() {
   });
 }
 
+export function buildStoreMonthlySalesAccountingChatGptPrompt() {
+  const prompt = [
+    "次の会計帳票を、経営管理システムの店舗月次P/L取込用CSVへ整形してください。",
+    "出力は説明文・Markdown・表を含めず、UTF-8のCSV本文だけにしてください。",
+    "ヘッダーは次の9列を、この順番・英字のまま1回だけ出力してください。",
+    STORE_MONTHLY_SALES_ACCOUNTING_CSV_HEADER.join(","),
+    "1行は period × corporation × store の1件です。periodはYYYY-MM、金額は円の整数でカンマ・円記号・計算式を含めません。",
+    "total_sales、technical_sales、product_sales、profit は元帳票に根拠がある値だけを入れます。推測・補完・按分はしません。",
+    "milbon_id_sales と ec_sales は独立した根拠がない場合、空欄ではなく NOT_IN_SOURCE を入れます。product_salesへ加算しません。",
+    "全社・合計・共通・FC合計などの集計行は出力せず、店舗または部門として明示された行だけを出力します。",
+    "同じ period、corporation、store の重複は統合せず、根拠を確認できない行は除外してください。",
+    "個人名、社員番号、顧客名、連絡先、メモなどの個人情報は出力しません。",
+  ].join("\n");
+  return Object.freeze({
+    schemaVersion: "management-store-monthly-sales-accounting-chatgpt-prompt-v1",
+    fileName: "management-store-monthly-sales-accounting-chatgpt-prompt.txt",
+    prompt,
+    href: `data:text/plain;charset=utf-8,${encodeURIComponent(prompt)}`,
+    productionImportEnabled: false,
+  });
+}
+
 const FINANCIAL_LOCAL_CORRECTION_CSV_HEADER = Object.freeze([
   "period",
   "corporation",
@@ -2842,14 +2864,20 @@ export function renderFinancialDataIntake(container, hooks = {}) {
   const dropText = el(doc, "span", "", "整形済みCSVまたは弥生Excelを選択してローカル検証");
   drop.append(input, dropText);
   const normalizedTemplate = buildStoreMonthlySalesAccountingTemplateCsv();
+  const normalizedPrompt = buildStoreMonthlySalesAccountingChatGptPrompt();
   const normalizedGuide = el(doc, "section", "financial-normalized-csv-guide");
   const normalizedGuideDownload = el(doc, "a", "financial-mapping-download", "店舗月次P/L CSVひな形を保存");
   normalizedGuideDownload.href = normalizedTemplate.href;
   normalizedGuideDownload.download = normalizedTemplate.fileName;
+  const normalizedPromptDownload = el(doc, "a", "financial-mapping-download", "ChatGPT整形依頼を保存");
+  normalizedPromptDownload.href = normalizedPrompt.href;
+  normalizedPromptDownload.download = normalizedPrompt.fileName;
+  const normalizedGuideActions = el(doc, "div", "financial-normalized-csv-guide-actions");
+  normalizedGuideActions.append(normalizedGuideDownload, normalizedPromptDownload);
   normalizedGuide.append(
     el(doc, "h4", "", "ChatGPT整形済みCSVで取り込む場合"),
-    el(doc, "p", "", "元の帳票はChatGPTでこのひな形の9列へ整形してから選択します。金額は円・カンマなし、同じ対象月・法人・店舗は1行だけにします。ミルボンIDまたはECの独立値がない場合は NOT_IN_SOURCE を使います。"),
-    normalizedGuideDownload
+    el(doc, "p", "", "元の帳票はChatGPTでこのひな形の9列へ整形してから選択します。金額は円・カンマなし、同じ対象月・法人・店舗は1行だけにします。根拠のない値は補完せず、ミルボンIDまたはECの独立値がない場合は NOT_IN_SOURCE を使います。"),
+    normalizedGuideActions
   );
 
   const result = el(doc, "div", "financial-intake-result");

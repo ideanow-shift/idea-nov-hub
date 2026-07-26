@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   buildStoreMonthlySalesAccountingTemplateCsv,
+  buildStoreMonthlySalesAccountingChatGptPrompt,
   buildFinancialLocalPreview,
   parseStoreMonthlySalesAccountingCsvText,
 } from "../portal/management-app/financial-data-intake.js";
@@ -9,6 +10,13 @@ const template = buildStoreMonthlySalesAccountingTemplateCsv();
 assert.equal(template.fileName, "management-store-monthly-sales-accounting-template.csv");
 assert.match(template.csv, /^\uFEFF"period","corporation","store","total_sales","technical_sales","product_sales","milbon_id_sales","ec_sales","profit"\r\n/u);
 assert.equal(template.productionImportEnabled, false);
+
+const prompt = buildStoreMonthlySalesAccountingChatGptPrompt();
+assert.equal(prompt.fileName, "management-store-monthly-sales-accounting-chatgpt-prompt.txt");
+assert.match(prompt.prompt, /period,corporation,store,total_sales,technical_sales,product_sales,milbon_id_sales,ec_sales,profit/u);
+assert.match(prompt.prompt, /NOT_IN_SOURCE/u);
+assert.match(prompt.prompt, /推測・補完・按分はしません/u);
+assert.equal(prompt.productionImportEnabled, false);
 
 const header = "period,corporation,store,total_sales,technical_sales,product_sales,milbon_id_sales,ec_sales,profit";
 const validCsv = [

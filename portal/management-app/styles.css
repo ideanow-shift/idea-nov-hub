@@ -404,6 +404,7 @@ tbody tr:hover td { background: var(--card-soft); }
 .financial-normalized-csv-guide { margin: 0 0 12px; padding: 12px; background: var(--card-soft); border: 1px solid var(--border-light); border-left: 3px solid #337d8e; border-radius: var(--radius-md); }
 .financial-normalized-csv-guide h4, .financial-normalized-csv-guide p { margin: 0 0 8px; }
 .financial-normalized-csv-guide p { color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
+.financial-normalized-csv-guide-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .financial-local-preview-metrics { margin-bottom: 0; }
 .financial-local-preview-metrics .metric { background: var(--card); }
 .financial-store-analysis-readiness { margin-top: 14px; }

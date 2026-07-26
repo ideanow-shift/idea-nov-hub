@@ -75,29 +75,29 @@
       <div class="talent-progress-heading">
         <div>
           <p class="section-kicker">BUILD PROGRESS</p>
-          <h2>残り3%を運用開始チェックで潰す</h2>
+          <h2>残り2%を初日運用で潰す</h2>
         </div>
-        <strong class="talent-progress-total" data-complete-percent="97" data-remaining-percent="3">97%完了 / 残り3%</strong>
+        <strong class="talent-progress-total" data-complete-percent="98" data-remaining-percent="2">98%完了 / 残り2%</strong>
       </div>
       <div class="talent-progress-grid">
-        <article data-progress-area="STUDENT_FOLLOWUP" data-complete-percent="97" data-remaining-percent="3">
+        <article data-progress-area="STUDENT_FOLLOWUP" data-complete-percent="98" data-remaining-percent="2">
           <span>STUDENT FOLLOW-UP</span>
-          <strong>97%完了 / 残り3%</strong>
+          <strong>98%完了 / 残り2%</strong>
           <p>期限・要確認・隔離を日次キューで処理し、次回対応を残せる状態です。</p>
         </article>
-        <article data-progress-area="ANALYTICS_ACTION" data-complete-percent="96" data-remaining-percent="4">
+        <article data-progress-area="ANALYTICS_ACTION" data-complete-percent="97" data-remaining-percent="3">
           <span>ANALYTICS ACTION</span>
-          <strong>96%完了 / 残り4%</strong>
+          <strong>97%完了 / 残り3%</strong>
           <p>全体サマリー・学校・フェアから学生確認へ移動できます。</p>
         </article>
-        <article data-progress-area="CSV28_INTAKE" data-complete-percent="98" data-remaining-percent="2">
+        <article data-progress-area="CSV28_INTAKE" data-complete-percent="99" data-remaining-percent="1">
           <span>2028 CSV INTAKE</span>
-          <strong>98%完了 / 残り2%</strong>
+          <strong>99%完了 / 残り1%</strong>
           <p>CSV修正・形式検証・staging承認前の読み合わせを安全に分離しています。</p>
         </article>
-        <article data-progress-area="WORKFORCE_CASES" data-complete-percent="96" data-remaining-percent="4">
+        <article data-progress-area="WORKFORCE_CASES" data-complete-percent="97" data-remaining-percent="3">
           <span>WORKFORCE CASES</span>
-          <strong>96%完了 / 残り4%</strong>
+          <strong>97%完了 / 残り3%</strong>
           <p>入社・異動・休職復職・退職を、Core DB引き渡し前の案件として整理できます。</p>
         </article>
       </div>
@@ -132,6 +132,16 @@
           <li data-category="VERIFY_APPROVAL_TEXT">28卒CSVとCore DB引き渡しは、画面の承認境界を読み合わせてから別承認へ進む</li>
           <li data-category="NO_DIRECT_PROMOTION">canonical昇格・LINE履歴・社員マスタ反映は自動実行しない</li>
         </ul>
+      </section>
+      <section id="talent-first-day-runbook" class="talent-first-day-runbook" data-category="FIRST_DAY_READY_WITH_SEPARATE_APPROVALS" aria-label="初日運用ランブック">
+        <strong>初日に迷わないための運用ランブック</strong>
+        <ol>
+          <li data-category="CHECK_PUBLIC_PAGE">公開URLで DAILY COMMAND と BUILD PROGRESS を確認する</li>
+          <li data-category="OPEN_DAILY_COMMAND">学生フォロー、現職者管理、28卒CSVの順に開始位置を開く</li>
+          <li data-category="PROCESS_SAFE_QUEUES">期限・要確認・隔離・下書きは画面内の安全キューで整理する</li>
+          <li data-category="ESCALATE_APPROVAL_GATES">staging投入、社員マスタ反映、promotionは承認ゲートへ分ける</li>
+          <li data-category="REPORT_OS_PUBLICATION">公開状況と残り2%をOSへ共有し、未公開分を追跡する</li>
+        </ol>
       </section>
     </section>
 

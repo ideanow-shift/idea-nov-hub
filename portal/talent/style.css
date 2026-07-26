@@ -348,6 +348,48 @@ h3 { margin: 0; font-size: 1rem; }
   font-size: .78rem;
   line-height: 1.5;
 }
+.talent-first-day-runbook {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 9px;
+  border: 1px solid #dbe5ef;
+  background: #f8fbff;
+}
+.talent-first-day-runbook strong {
+  display: block;
+  color: #315a7e;
+}
+.talent-first-day-runbook ol {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: first-day-runbook;
+}
+.talent-first-day-runbook li {
+  counter-increment: first-day-runbook;
+  position: relative;
+  min-height: 92px;
+  padding: 28px 10px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .86);
+  border: 1px solid #d9e7f4;
+  color: #3f566a;
+  font-size: .78rem;
+  line-height: 1.5;
+}
+.talent-first-day-runbook li::before {
+  content: counter(first-day-runbook, decimal-leading-zero);
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  color: #2e6b9d;
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
 
 .primary-panel {
   margin-top: 16px;
@@ -2019,6 +2061,7 @@ h3 { margin: 0; font-size: 1rem; }
   .talent-final-readiness dl,
   .talent-final-readiness ol { grid-template-columns: 1fr; }
   .talent-launch-checklist ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .talent-first-day-runbook ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .summary-command { flex-direction: column; align-items: flex-end; }
   .summary-grid, .historical-summary-grid, .workforce-summary, .workforce-operation-boundaries, .procedure-board, .procedure-checklist, .procedure-case-overview, .procedure-case-type-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .procedure-case-operation-summary { display: grid; }
@@ -2073,6 +2116,7 @@ h3 { margin: 0; font-size: 1rem; }
   .talent-progress-grid { grid-template-columns: 1fr; }
   .talent-final-readiness { padding: 10px; }
   .talent-launch-checklist ul { grid-template-columns: 1fr; }
+  .talent-first-day-runbook ol { grid-template-columns: 1fr; }
   .primary-tab { min-height: 68px; padding: 13px 16px; }
   .secondary-tabs { gap: 20px; padding: 0 18px; }
   .secondary-panel, #panel-workforce { padding: 18px; }

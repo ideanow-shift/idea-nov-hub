@@ -118,7 +118,7 @@ function createSystemCard(system, apps, onOpenApp) {
 const LEGACY_HOME_HIDDEN_STATE = new WeakMap();
 
 function toggleLegacyHome(enabled) {
-  [".concierge-entry", "#notice-heading", "#featured-heading"].forEach((selector) => {
+  [".concierge-entry"].forEach((selector) => {
     const element = document.querySelector(selector);
     const section = element?.closest("section");
     if (!section) return;
@@ -147,14 +147,14 @@ export function renderNovNaviDashboard({ enabled, employee, apps, onOpenApp, onO
   root.innerHTML = `
     <div class="navi-role-summary"><span>表示区分</span><strong>${escapeHtml(profile.label)}</strong><small>起動時に各システム側で権限を再確認します</small></div>
     <section class="navi-today" aria-labelledby="navi-today-title">
-      <div class="navi-section-heading"><h2 id="navi-today-title">Today</h2><span>サンプル表示</span></div>
+      <div class="navi-section-heading"><h2 id="navi-today-title">今日の仕事</h2><span>各システムの連携準備中</span></div>
       <div class="navi-today-grid">
-        <div class="navi-today-card"><span>今日の予定</span><strong>3件</strong><small>10:00 朝礼</small></div>
-        <div class="navi-today-card"><span>未完了タスク</span><strong>4件</strong><small>サンプル</small></div>
-        <div class="navi-today-card"><span>承認待ち</span><strong>2件</strong></div>
-        <div class="navi-today-card"><span>サンクス受信</span><strong>2件</strong></div>
-        <div class="navi-today-card"><span>問い合わせ回答</span><strong>1件</strong></div>
-        <div class="navi-today-card"><span>成長ポイント</span><strong>48pt</strong></div>
+        <div class="navi-today-card"><span>今日の予定</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
+        <div class="navi-today-card"><span>未完了タスク</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
+        <div class="navi-today-card"><span>承認待ち</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
+        <div class="navi-today-card"><span>サンクス受信</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
+        <div class="navi-today-card"><span>問い合わせ回答</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
+        <div class="navi-today-card"><span>成長ポイント</span><strong class="navi-pending-value">準備中</strong><small>連携後に表示します</small></div>
       </div>
     </section>
     <section class="navi-support" aria-labelledby="navi-support-title">

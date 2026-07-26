@@ -103,6 +103,12 @@ body { background: #FAFAFA; }
   font-size: 18px;
 }
 
+.icon-button img {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
 .portal-main { padding: var(--spacing-xl) var(--spacing-lg) 48px; }
 .screen { min-height: calc(100vh - 109px); }
 

@@ -890,6 +890,7 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
   const visitCohortPanel = buildStoreVisitCohortPanel();
   const unitPricePanel = buildStoreUnitPricePanel();
   const productivityPanel = buildStoreProductivityPanel();
+  const operatingSnapshotPanel = buildStoreOperatingSnapshotPanel();
   const menuPanel = buildStoreMenuSummaryPanel();
   const wrap = document.createElement("div");
   wrap.className = "table-wrap embedded local-preview-table";
@@ -925,6 +926,7 @@ function renderFinancialPreviewStores(localPlMatch = { matched: 0, unmatched: 0 
     ...(visitCohortPanel ? [visitCohortPanel] : []),
     ...(unitPricePanel ? [unitPricePanel] : []),
     ...(productivityPanel ? [productivityPanel] : []),
+    ...(operatingSnapshotPanel ? [operatingSnapshotPanel] : []),
     ...(menuPanel ? [menuPanel] : []),
     wrap
   );
@@ -1111,6 +1113,72 @@ function uniqueWorkforceTemplateCandidates() {
     seen.add(key);
     return { storeName, period };
   }).filter(Boolean);
+}
+
+function buildStoreOperatingSnapshotPanel() {
+  const financialRows = state.financialPreviews.PL?.monthlyStoreRows || [];
+  const periods = financialRows.map((row) => String(row?.period || "").trim())
+    .filter((period) => /^20\d{2}-(?:0[1-9]|1[0-2])$/u.test(period));
+  if (!periods.length) return null;
+  const latestPeriod = periods.reduce((latest, period) => period > latest ? period : latest, periods[0]);
+  const workforceByKey = new Map((state.storeWorkforceMonthlyPreview?.rows || []).map((row) => [
+    normalizeStoreCandidateName(row.storeName) + "\u001f" + row.period,
+    row,
+  ]));
+  const cohortByKey = new Map((state.storeVisitCohortPreview?.rows || []).map((row) => [
+    normalizeStoreCandidateName(row.storeName) + "\u001f" + row.period,
+    row,
+  ]));
+  const seen = new Set();
+  const rows = financialRows.filter((row) => row.period === latestPeriod).map((row) => {
+    const storeKey = normalizeStoreCandidateName(row.storeName);
+    const matchKey = storeKey + "\u001f" + row.period;
+    if (!storeKey || seen.has(matchKey)) return null;
+    seen.add(matchKey);
+    const workforce = workforceByKey.get(matchKey);
+    const cohort = cohortByKey.get(matchKey);
+    const workingHeadcount = workforce?.workingHeadcount > 0 ? workforce.workingHeadcount : null;
+    const totalVisitCount = cohort?.totalVisitCount > 0 ? cohort.totalVisitCount : null;
+    const technicalCustomerCount = cohort?.technicalCustomerCount > 0 ? cohort.technicalCustomerCount : null;
+    return Object.freeze({
+      storeName: row.storeName,
+      salesYen: Number(row.totalSalesYen),
+      profitYen: Number(row.profitYen),
+      workingHeadcount,
+      totalProductivityYen: workingHeadcount ? Math.round((Number(row.technicalSalesYen) + Number(row.productSalesYen)) / workingHeadcount) : null,
+      technicalUnitYen: technicalCustomerCount ? Math.round(Number(row.technicalSalesYen) / technicalCustomerCount) : null,
+      totalUnitYen: totalVisitCount ? Math.round((Number(row.technicalSalesYen) + Number(row.productSalesYen)) / totalVisitCount) : null,
+      fixedSharePercent: totalVisitCount && cohort.fixedVisitCount != null ? (Number(cohort.fixedVisitCount) / totalVisitCount) * 100 : null,
+    });
+  }).filter(Boolean).sort((left, right) => left.storeName.localeCompare(right.storeName, "ja"));
+  if (!rows.length) return null;
+  const section = document.createElement("section");
+  section.className = "financial-store-operating-snapshot";
+  const wrap = document.createElement("div");
+  wrap.className = "table-wrap embedded local-preview-table";
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.append(tableRow(["\u5e97\u8217", "\u7d4c\u7406\u58f2\u4e0a", "\u7d4c\u5e38\u640d\u76ca", "\u7a3c\u50cd\u4eba\u6570", "\u7dcf\u751f\u7523\u6027", "\u6280\u8853\u5358\u4fa1", "\u7dcf\u5358\u4fa1\uff08EC\u9664\u304f\uff09", "\u56fa\u5b9a\u6bd4\u7387"], true));
+  const tbody = document.createElement("tbody");
+  tbody.replaceChildren(...rows.map((row) => tableRow([
+    row.storeName,
+    Number.isFinite(row.salesYen) ? yen.format(row.salesYen) : "\u672a\u78ba\u5b9a",
+    Number.isFinite(row.profitYen) ? yen.format(row.profitYen) : "\u672a\u78ba\u5b9a",
+    row.workingHeadcount ? number.format(row.workingHeadcount) + "\u540d" : "\u6708\u6b21\u4eba\u6570\u5f85\u3061",
+    row.totalProductivityYen != null ? yen.format(row.totalProductivityYen) : "\u6708\u6b21\u4eba\u6570\u5f85\u3061",
+    row.technicalUnitYen != null ? yen.format(row.technicalUnitYen) : "\u6765\u5e97\u533a\u5206\u5f85\u3061",
+    row.totalUnitYen != null ? yen.format(row.totalUnitYen) : "\u6765\u5e97\u533a\u5206\u5f85\u3061",
+    row.fixedSharePercent != null ? percentage.format(row.fixedSharePercent) + "%" : "\u6765\u5e97\u533a\u5206\u5f85\u3061",
+  ])));
+  table.append(thead, tbody);
+  wrap.append(table);
+  section.append(
+    heading("\u5e97\u8217\u55b6\u696d \u6708\u6b21\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8 (" + latestPeriod + ")"),
+    paragraph("\u7d4c\u7406P/L\u3092\u57fa\u6e96\u306b\u3001\u4eba\u6570\u3068\u6765\u5e97\u533a\u5206\u306f\u540c\u3058\u5e97\u8217\u540d\u30fb\u540c\u3058\u6708\u3067\u7167\u5408\u3067\u304d\u305f\u3082\u306e\u3060\u3051\u3092\u8ffd\u52a0\u3057\u3066\u3044\u307e\u3059\u3002\u672a\u7167\u5408\u306e\u5024\u306f\u88dc\u5b8c\u3057\u307e\u305b\u3093\u3002"),
+    wrap,
+    muted("\u7dcf\u751f\u7523\u6027 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u7a3c\u50cd\u4eba\u6570\u3002\u7dcf\u5358\u4fa1 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u6765\u5e97\u4ef6\u6570\u3002EC\u58f2\u4e0a\u306f\u542b\u3081\u307e\u305b\u3093\u3002\u672c\u756a\u4fdd\u5b58\u30fb\u627f\u8a8d\u306f\u7121\u52b9\u3067\u3059\u3002")
+  );
+  return section;
 }
 
 function buildStoreAnalysisDataCoveragePanel(preview) {

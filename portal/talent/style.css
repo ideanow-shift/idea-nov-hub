@@ -531,6 +531,23 @@ h3 { margin: 0; font-size: 1rem; }
 .bulk-triage span { color: var(--muted); font-size: 0.72rem; font-weight: 800; }
 .bulk-triage strong { color: var(--navy); font-size: 1.15rem; }
 .bulk-triage small { color: var(--muted); font-size: 0.7rem; }
+.student-review-workload {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.student-review-workload article {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid #d9e5ee;
+  border-radius: 6px;
+  background: #fbfdff;
+}
+.student-review-workload span { color: #42606f; font-size: 0.72rem; font-weight: 900; }
+.student-review-workload strong { color: var(--navy); font-size: 1.1rem; }
+.student-review-workload p { margin: 0; color: var(--muted); font-size: 0.72rem; line-height: 1.5; }
 .triage-command { justify-self: start; padding: 4px 8px; border: 1px solid #e7c1c7; border-radius: 4px; color: var(--accent-strong); background: #fff; font: inherit; font-size: 0.72rem; font-weight: 800; cursor: pointer; }
 .triage-command:hover { background: var(--accent-soft); }
 .secondary-command { border-color: var(--line); color: var(--ink); background: #fff; }
@@ -1183,6 +1200,7 @@ h3 { margin: 0; font-size: 1rem; }
   .review-command-band { grid-template-columns: 1fr auto; }
   .review-command-band > div { grid-column: 1 / -1; }
   .bulk-triage { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .student-review-workload { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 520px) {

@@ -595,6 +595,33 @@ export function buildBulkTriageCounts(students) {
   });
 }
 
+export function buildReviewWorkloadGuide(students) {
+  const counts = buildBulkTriageCounts(students);
+  const bulk = counts.exact1;
+  const individual = counts.newApplicant;
+  const quarantine = counts.ambiguous + counts.hold;
+  const nextAction = bulk > 0
+    ? "BULK_MATCH_ONLY"
+    : individual > 0 ? "INDIVIDUAL_REVIEW"
+      : quarantine > 0 ? "KEEP_QUARANTINED"
+        : "NO_PENDING_REVIEW";
+  return Object.freeze({
+    nextAction,
+    bulk,
+    individual,
+    quarantine,
+    bulkCopy: bulk > 0
+      ? "一致候補だけを一括反映できます。新規・曖昧行は混ぜません。"
+      : "一括反映できる一致候補はありません。",
+    individualCopy: individual > 0
+      ? "新規候補は個別確認で正本化の判断をします。"
+      : "個別確認で新規判断する候補はありません。",
+    quarantineCopy: quarantine > 0
+      ? "曖昧・保留は隔離維持し、補足と次回対応で追跡します。"
+      : "隔離維持が必要な未解決候補はありません。"
+  });
+}
+
 export function isNewApplicantCandidate(student) {
   return Boolean(student)
     && student.mappingStatus === "UNMAPPED"
@@ -608,6 +635,18 @@ function renderBulkTriageSummary(documentObject, students) {
   setText(documentObject, "triage-new", counts.newApplicant);
   setText(documentObject, "triage-ambiguous", counts.ambiguous);
   setText(documentObject, "triage-hold", counts.hold);
+  renderReviewWorkloadGuide(documentObject, buildReviewWorkloadGuide(students));
+}
+
+function renderReviewWorkloadGuide(documentObject, guide) {
+  setText(documentObject, "review-workload-bulk", guide.bulk);
+  setText(documentObject, "review-workload-individual", guide.individual);
+  setText(documentObject, "review-workload-quarantine", guide.quarantine);
+  setText(documentObject, "review-workload-bulk-copy", guide.bulkCopy);
+  setText(documentObject, "review-workload-individual-copy", guide.individualCopy);
+  setText(documentObject, "review-workload-quarantine-copy", guide.quarantineCopy);
+  const panel = documentObject.getElementById("student-review-workload");
+  if (panel) panel.dataset.nextAction = guide.nextAction;
 }
 
 function openHistoricalReviewDialog({ globalObject, documentObject }) {

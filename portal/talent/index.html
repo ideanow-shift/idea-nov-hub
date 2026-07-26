@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-student-daily-operation-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-review-workload-guide-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-student-daily-operation-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-review-workload-guide-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -168,6 +168,23 @@
             <div><span>新規候補</span><strong id="triage-new">-</strong><small>接触データなし</small><button id="triage-new-open" class="triage-command" type="button">候補を表示</button></div>
             <div><span>曖昧・重複</span><strong id="triage-ambiguous">-</strong><small>自動処理不可</small></div>
             <div><span>保留</span><strong id="triage-hold">-</strong><small>確認待ち</small></div>
+          </div>
+          <div id="student-review-workload" class="student-review-workload" aria-label="要確認と隔離の整理方針">
+            <article>
+              <span>安全に一括</span>
+              <strong id="review-workload-bulk">-</strong>
+              <p id="review-workload-bulk-copy">一致候補だけをまとめて反映します。</p>
+            </article>
+            <article>
+              <span>個別確認</span>
+              <strong id="review-workload-individual">-</strong>
+              <p id="review-workload-individual-copy">新規候補や手動紐付けは1件ずつ確認します。</p>
+            </article>
+            <article>
+              <span>隔離維持</span>
+              <strong id="review-workload-quarantine">-</strong>
+              <p id="review-workload-quarantine-copy">曖昧・保留は昇格せず補足を残します。</p>
+            </article>
           </div>
         </section>
 

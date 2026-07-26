@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadGuide, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyOperation, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -326,6 +326,30 @@ test("bulk triage separates exact matches, new candidates, ambiguous rows, and h
   ]);
 
   assert.deepEqual(counts, { exact1: 1, newApplicant: 1, ambiguous: 1, hold: 1 });
+});
+
+test("review workload guide separates bulk-safe, individual, and quarantine work", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const app = await readFile(new URL("app.mjs", root), "utf8");
+  const guide = buildReviewWorkloadGuide([
+    { mappingStatus: "UNMAPPED", sourceCode: "ENTRIES_27", suggestionCategory: "EXACT1" },
+    { mappingStatus: "UNMAPPED", sourceCode: "OFFERS_27", suggestionCategory: "NONE" },
+    { mappingStatus: "UNMAPPED", sourceCode: "OFFERS_27", suggestionCategory: "AMBIGUOUS" },
+    { mappingStatus: "UNMAPPED", sourceCode: "CONTACTS_27", suggestionCategory: "NONE" },
+    { mappingStatus: "OWNER_CONFIRMED", sourceCode: "CONTACTS_27", suggestionCategory: "NONE" }
+  ]);
+
+  assert.equal(guide.nextAction, "BULK_MATCH_ONLY");
+  assert.equal(guide.bulk, 1);
+  assert.equal(guide.individual, 1);
+  assert.equal(guide.quarantine, 2);
+  assert.match(guide.bulkCopy, /新規・曖昧行は混ぜません/);
+  assert.match(html, /id="student-review-workload"/);
+  assert.match(html, /id="review-workload-bulk"/);
+  assert.match(html, /id="review-workload-individual"/);
+  assert.match(html, /id="review-workload-quarantine"/);
+  assert.match(app, /renderReviewWorkloadGuide/);
+  assert.match(app, /dataset\.nextAction = guide\.nextAction/);
 });
 
 test("new applicant candidate filtering stays limited to unmapped entry and offer rows", () => {

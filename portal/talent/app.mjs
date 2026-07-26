@@ -13,7 +13,7 @@ import { buildTalentAnalytics } from "./analytics.mjs?v=20260725-talent-analytic
 import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-review-kpis-1";
 import { createTalentStagingSupplementController } from "./staging-supplement.mjs?v=20260725-staging-edit-1";
 import { buildWorkforceReadinessViewModel, renderWorkforceReadiness } from "./workforce-readiness.mjs?v=20260726-workforce-queue-case-prefill-1";
-import { initializeWorkforceProcedureDesk } from "./workforce-procedures.mjs?v=20260726-workforce-operation-summary-2";
+import { initializeWorkforceProcedureDesk } from "./workforce-procedures.mjs?v=20260726-workforce-transition-plan-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;

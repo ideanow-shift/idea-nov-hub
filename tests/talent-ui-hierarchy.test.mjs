@@ -273,6 +273,8 @@ test("workforce exposes an audited procedure case desk without employee-master c
   assert.match(html, /id="workforce-procedure-desk"/);
   assert.match(html, /id="workforce-case-form"/);
   assert.match(html, /id="workforce-case-form-guide"/);
+  assert.match(html, /id="workforce-case-transition-plan"/);
+  assert.match(html, /id="workforce-case-transition-plan-list"/);
   assert.match(html, /id="workforce-case-checklist-plan"/);
   assert.match(html, /id="workforce-case-checklist-plan-list"/);
   assert.match(html, /name="procedureType"/);
@@ -300,6 +302,9 @@ test("workforce exposes an audited procedure case desk without employee-master c
   assert.match(source, /buildWorkforceProcedureOperationSummary/);
   assert.match(source, /buildWorkforceProcedureCaseFormGuide/);
   assert.match(source, /renderFormGuide/);
+  assert.match(source, /buildWorkforceProcedureStatusTransitionPlan/);
+  assert.match(source, /renderTransitionPlan/);
+  assert.match(source, /invalid_status_transition/);
   assert.match(source, /buildWorkforceProcedureChecklistPlan/);
   assert.match(source, /renderChecklistPlan/);
   assert.match(source, /dataset\.nextAction/);

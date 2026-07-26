@@ -965,21 +965,25 @@ function buildStoreAnalysisFormulaPanel() {
 function localStoreUnitPriceRows() {
   const financialRows = state.financialPreviews.PL?.monthlyStoreRows || [];
   const cohortRows = state.storeVisitCohortPreview?.rows || [];
+  const customerRows = state.storeCustomerPreview?.rows || [];
   const cohortsByKey = new Map(cohortRows.map((row) => [`${normalizeStoreCandidateName(row.storeName)}\u001f${row.period}`, row]));
+  const customersByKey = new Map(customerRows.map((row) => [`${normalizeStoreCandidateName(row.storeName)}\u001f${row.period}`, row]));
   const seen = new Set();
   return financialRows.map((row) => {
     const storeKey = normalizeStoreCandidateName(row.storeName);
     const matchKey = `${storeKey}\u001f${row.period}`;
     const cohort = cohortsByKey.get(matchKey);
-    if (!storeKey || !cohort || cohort.technicalCustomerCount <= 0 || cohort.totalVisitCount <= 0 || seen.has(matchKey)) return null;
+    const customer = customersByKey.get(matchKey);
+    const totalVisitCount = cohort?.totalVisitCount > 0 ? cohort.totalVisitCount : customer?.visitCount > 0 ? customer.visitCount : null;
+    if (!storeKey || !totalVisitCount || seen.has(matchKey)) return null;
     seen.add(matchKey);
     return Object.freeze({
       storeName: row.storeName,
       period: row.period,
-      technicalCustomerCount: cohort.technicalCustomerCount,
-      totalVisitCount: cohort.totalVisitCount,
-      technicalUnitYen: Math.round(row.technicalSalesYen / cohort.technicalCustomerCount),
-      totalUnitExcludingEcYen: Math.round((row.technicalSalesYen + row.productSalesYen) / cohort.totalVisitCount),
+      technicalCustomerCount: cohort?.technicalCustomerCount > 0 ? cohort.technicalCustomerCount : null,
+      totalVisitCount,
+      technicalUnitYen: cohort?.technicalCustomerCount > 0 ? Math.round(row.technicalSalesYen / cohort.technicalCustomerCount) : null,
+      totalUnitExcludingEcYen: Math.round((row.technicalSalesYen + row.productSalesYen) / totalVisitCount),
     });
   }).filter(Boolean);
 }
@@ -990,8 +994,10 @@ function localStoreUnitPriceCoverage() {
     const storeKey = normalizeStoreCandidateName(row.storeName);
     return storeKey && /^20\d{2}-(?:0[1-9]|1[0-2])$/u.test(row.period) ? `${storeKey}\u001f${row.period}` : null;
   }).filter(Boolean));
-  const matchedKeys = new Set(localStoreUnitPriceRows().map((row) => `${normalizeStoreCandidateName(row.storeName)}\u001f${row.period}`));
-  return Object.freeze({ candidateCount: financialKeys.size, matchedCount: matchedKeys.size, unmatchedCount: Math.max(0, financialKeys.size - matchedKeys.size) });
+  const rows = localStoreUnitPriceRows();
+  const matchedKeys = new Set(rows.map((row) => `${normalizeStoreCandidateName(row.storeName)}\u001f${row.period}`));
+  const technicalMatchedCount = rows.filter((row) => row.technicalUnitYen != null).length;
+  return Object.freeze({ candidateCount: financialKeys.size, matchedCount: matchedKeys.size, technicalMatchedCount, totalMatchedCount: matchedKeys.size, unmatchedCount: Math.max(0, financialKeys.size - matchedKeys.size) });
 }
 
 function buildStoreUnitPricePanel() {
@@ -1011,16 +1017,16 @@ function buildStoreUnitPricePanel() {
   const tbody = document.createElement("tbody");
   tbody.replaceChildren(...rows.map((row) => tableRow([
     row.storeName,
-    `${number.format(row.technicalCustomerCount)}\u4ef6`,
+    row.technicalCustomerCount != null ? `${number.format(row.technicalCustomerCount)}\u4ef6` : "\u6280\u8853\u5ba2\u6570\u5f85\u3061",
     `${number.format(row.totalVisitCount)}\u4ef6`,
-    yen.format(row.technicalUnitYen),
+    row.technicalUnitYen != null ? yen.format(row.technicalUnitYen) : "\u6280\u8853\u5ba2\u6570\u5f85\u3061",
     yen.format(row.totalUnitExcludingEcYen),
   ])));
   table.append(thead, tbody);
   wrap.append(table);
   section.append(
     heading(`\u5e97\u8217\u6708\u6b21\u5358\u4fa1\u306e\u30ed\u30fc\u30ab\u30eb\u78ba\u8a8d (${latestPeriod})`),
-    paragraph(`\u7d4c\u7406P/L\u3068\u6765\u5e97\u533a\u5206CSV\u304c\u540c\u3058\u5e97\u8217\u540d\u30fb\u540c\u3058\u6708\u3067\u4e00\u81f4\u3057\u305f\u884c\u3060\u3051\u3092\u8a08\u7b97\u3057\u3066\u3044\u307e\u3059\u3002\u7167\u5408 ${number.format(coverage.matchedCount)}\u4ef6 / P/L\u5019\u88dc ${number.format(coverage.candidateCount)}\u4ef6\u3001\u672a\u7167\u5408 ${number.format(coverage.unmatchedCount)}\u4ef6\u3067\u3059\u3002`),
+    paragraph(`\u7dcf\u5358\u4fa1\u306f\u7d4c\u7406P/L\u3068\u6765\u5e97\u4ef6\u6570CSV\u306e\u540c\u3058\u5e97\u8217\u540d\u30fb\u540c\u3058\u6708\u4e00\u81f4\u3067\u8a08\u7b97\u3057\u307e\u3059\u3002\u7dcf\u5358\u4fa1\u7167\u5408 ${number.format(coverage.totalMatchedCount)}\u4ef6 / \u6280\u8853\u5358\u4fa1\u7167\u5408 ${number.format(coverage.technicalMatchedCount)}\u4ef6 / P/L\u5019\u88dc ${number.format(coverage.candidateCount)}\u4ef6\u3002\u6280\u8853\u5ba2\u6570\u304c\u306a\u3044\u884c\u306f\u6280\u8853\u5358\u4fa1\u3092\u8868\u793a\u3057\u307e\u305b\u3093\u3002`),
     wrap,
     muted("\u6280\u8853\u5358\u4fa1 = \u6280\u8853\u58f2\u4e0a \u00f7 \u6280\u8853\u5ba2\u6570\u3002\u7dcf\u5358\u4fa1 = (\u6280\u8853\u58f2\u4e0a + \u5546\u54c1\u58f2\u4e0a) \u00f7 \u6765\u5e97\u4ef6\u6570\u3002EC\u58f2\u4e0a\u306f\u542b\u3081\u307e\u305b\u3093\u3002\u672c\u756a\u4fdd\u5b58\u30fb\u627f\u8a8d\u306f\u7121\u52b9\u3067\u3059\u3002")
   );
@@ -1129,6 +1135,10 @@ function buildStoreOperatingSnapshotPanel() {
     normalizeStoreCandidateName(row.storeName) + "\u001f" + row.period,
     row,
   ]));
+  const unitPriceByKey = new Map(localStoreUnitPriceRows().map((row) => [
+    normalizeStoreCandidateName(row.storeName) + "\u001f" + row.period,
+    row,
+  ]));
   const seen = new Set();
   const rows = financialRows.filter((row) => row.period === latestPeriod).map((row) => {
     const storeKey = normalizeStoreCandidateName(row.storeName);
@@ -1137,17 +1147,17 @@ function buildStoreOperatingSnapshotPanel() {
     seen.add(matchKey);
     const workforce = workforceByKey.get(matchKey);
     const cohort = cohortByKey.get(matchKey);
+    const unitPrice = unitPriceByKey.get(matchKey);
     const workingHeadcount = workforce?.workingHeadcount > 0 ? workforce.workingHeadcount : null;
     const totalVisitCount = cohort?.totalVisitCount > 0 ? cohort.totalVisitCount : null;
-    const technicalCustomerCount = cohort?.technicalCustomerCount > 0 ? cohort.technicalCustomerCount : null;
     return Object.freeze({
       storeName: row.storeName,
       salesYen: Number(row.totalSalesYen),
       profitYen: Number(row.profitYen),
       workingHeadcount,
       totalProductivityYen: workingHeadcount ? Math.round((Number(row.technicalSalesYen) + Number(row.productSalesYen)) / workingHeadcount) : null,
-      technicalUnitYen: technicalCustomerCount ? Math.round(Number(row.technicalSalesYen) / technicalCustomerCount) : null,
-      totalUnitYen: totalVisitCount ? Math.round((Number(row.technicalSalesYen) + Number(row.productSalesYen)) / totalVisitCount) : null,
+      technicalUnitYen: unitPrice?.technicalUnitYen ?? null,
+      totalUnitYen: unitPrice?.totalUnitExcludingEcYen ?? null,
       fixedSharePercent: totalVisitCount && cohort.fixedVisitCount != null ? (Number(cohort.fixedVisitCount) / totalVisitCount) * 100 : null,
     });
   }).filter(Boolean).sort((left, right) => left.storeName.localeCompare(right.storeName, "ja"));
@@ -1204,7 +1214,8 @@ function buildStoreAnalysisDataCoveragePanel(preview) {
   const items = [
     ["売上・利益", hasSalesBreakdown, "経理P/L: " + number.format(financialBreakdownCount) + " 行 / 店舗月候補 " + number.format(financialCandidateCount) + " 件"],
     ["技術生産性・総生産性", hasSalesBreakdown && hasWorkforce, "人数照合: " + number.format(workforceCoverage.matchedCount) + " 件 / P/L候補 " + number.format(workforceCoverage.candidateCount) + " 件"],
-    ["技術単価・総単価", hasSalesBreakdown && hasUnitPriceMatch, "客数照合: " + number.format(unitPriceCoverage.matchedCount) + " 件 / P/L候補 " + number.format(unitPriceCoverage.candidateCount) + " 件"],
+    ["総単価（EC除く）", hasSalesBreakdown && hasUnitPriceMatch, "総客数照合: " + number.format(unitPriceCoverage.totalMatchedCount) + " 件 / P/L候補 " + number.format(unitPriceCoverage.candidateCount) + " 件"],
+    ["技術単価", hasSalesBreakdown && unitPriceCoverage.technicalMatchedCount > 0, "技術客数照合: " + number.format(unitPriceCoverage.technicalMatchedCount) + " 件 / P/L候補 " + number.format(unitPriceCoverage.candidateCount) + " 件"],
     ["新規・2回目・3回目・固定", hasVisitCohort, "来店区分CSV: " + number.format(visitCohortCount) + " 行"],
     ["既存の再来・固定率", hasRepeat, "再来区分サマリCSV: " + number.format(repeatCount) + " 行"],
     ["メニュー分析", hasMenu, "店舗月次メニュー集計CSV: " + number.format(menuCount) + " 行"],

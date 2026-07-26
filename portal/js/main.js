@@ -22,7 +22,7 @@ import {
   renderNovNaviDashboard,
   shouldEnableLocalNovNaviDemo,
   shouldEnableNovNaviDashboard
-} from "./nov-navi-dashboard.js?v=nov-navi-icon-registry-20260726-5";
+} from "./nov-navi-dashboard.js?v=nov-navi-common-components-20260726-6";
 import {
   NOV_HUB_SESSION_CONTRACT,
   clearNovHubSession,
@@ -514,8 +514,16 @@ function renderPortal() {
     }),
     employee: state.employee,
     apps: state.apps,
+    notices: [
+      ...state.notifications.map(toNotificationNotice),
+      ...state.announcements
+    ].map((notice) => ({
+      ...notice,
+      actionable: Boolean(notice.url || isExpenseHubNotice(notice))
+    })),
     onOpenApp: openApp,
-    onOpenSupport: openConcierge
+    onOpenSupport: openConcierge,
+    onOpenNotice: openNotification
   });
   showScreen("portal");
   renderHeaderNotificationHint();

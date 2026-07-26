@@ -153,7 +153,32 @@ function toggleLegacyHome(enabled) {
   });
 }
 
-export function renderNovNaviDashboard({ enabled, employee, apps, onOpenApp, onOpenSupport }) {
+function createNaviNoticeItem(notice, onOpenNotice) {
+  const item = document.createElement(notice.actionable ? "button" : "article");
+  item.className = `navi-notice${notice.unread ? " is-unread" : ""}`;
+  if (notice.actionable) item.type = "button";
+  item.innerHTML = `
+    <span class="navi-notice-state">${notice.type === "important" ? "重要" : "お知らせ"}</span>
+    <span class="navi-notice-copy"><strong>${escapeHtml(notice.title || "お知らせ")}</strong><small>${escapeHtml(notice.body || "詳細は各システムで確認できます。")}</small></span>
+    ${notice.actionable ? '<span class="navi-notice-action">確認</span>' : ""}`;
+  if (notice.actionable) {
+    item.addEventListener("click", () => onOpenNotice(notice));
+  }
+  return item;
+}
+
+function renderNaviNotices(notices, onOpenNotice) {
+  const list = document.querySelector("#navi-notice-list");
+  if (!list) return;
+  const visibleNotices = Array.isArray(notices) ? notices.slice(0, 3) : [];
+  if (!visibleNotices.length) {
+    list.innerHTML = '<p class="navi-notice-empty">現在、新しいお知らせはありません。</p>';
+    return;
+  }
+  list.replaceChildren(...visibleNotices.map((notice) => createNaviNoticeItem(notice, onOpenNotice)));
+}
+
+export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], onOpenApp, onOpenSupport, onOpenNotice = () => {} }) {
   const root = document.querySelector("#nov-navi-dashboard");
   if (!root) return;
   root.hidden = !enabled;
@@ -178,6 +203,10 @@ export function renderNovNaviDashboard({ enabled, employee, apps, onOpenApp, onO
       <div><h2 id="navi-support-title">NOV サポート</h2><p>就業規則や社内手続きは、サポート画面で確認できます</p></div>
       <button class="navi-support-launcher" type="button">NOVサポートを開く</button>
     </section>
+    <section class="navi-notices" aria-labelledby="navi-notices-title">
+      <div class="navi-section-heading"><h2 id="navi-notices-title">お知らせ</h2><span>最新3件</span></div>
+      <div class="navi-notice-list" id="navi-notice-list"></div>
+    </section>
     <div class="navi-system-sections"></div>
     <p class="navi-legacy-apps">その他の既存アプリは、このダッシュボード下部の「すべての業務（既存アプリ一覧）」から開けます。</p>
     <div class="navi-legend"><span>利用可能：本番システム</span><span>試験運用：利用範囲を限定</span><span>作成中：利用可能範囲のみ</span><span>サンプル：データは保存されません</span></div>`;
@@ -185,6 +214,7 @@ export function renderNovNaviDashboard({ enabled, employee, apps, onOpenApp, onO
   root.querySelector(".navi-support-launcher").addEventListener("click", () => {
     onOpenSupport("");
   });
+  renderNaviNotices(notices, onOpenNotice);
 
   const sections = root.querySelector(".navi-system-sections");
   CATEGORY_ORDER.forEach((category, categoryIndex) => {

@@ -136,6 +136,7 @@ test("workforce exposes an audited procedure case desk without employee-master c
   assert.match(html, /社員マスタは変更しません/);
   assert.match(source, /employeeMasterMutation: false/);
   assert.match(source, /const resetFilters/);
+  assert.match(source, /procedure-case-empty-reset/);
   assert.match(source, /optimisticConcurrency: true/);
   assert.match(source, /filterWorkforceProcedureCases/);
   assert.match(source, /checklistTracking: true/);

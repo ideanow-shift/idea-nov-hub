@@ -327,10 +327,11 @@ export function initializeWorkforceProcedureDesk({
       button.setAttribute("aria-pressed", String(selected));
     }
   };
+  const hasActiveFilters = () => activeFilter !== "ALL" || activePriority !== "ALL" || activeSearch !== "" || activeProcedureType !== getActiveWorkforceProcedureType(documentObject);
   const updateFilterResetButton = () => {
-    const hasActiveFilters = activeFilter !== "ALL" || activePriority !== "ALL" || activeSearch !== "" || activeProcedureType !== getActiveWorkforceProcedureType(documentObject);
-    filterResetButton.disabled = !hasActiveFilters;
-    filterResetButton.setAttribute("aria-disabled", String(!hasActiveFilters));
+    const active = hasActiveFilters();
+    filterResetButton.disabled = !active;
+    filterResetButton.setAttribute("aria-disabled", String(!active));
   };
 
   const setStatus = (category) => {
@@ -491,6 +492,14 @@ export function initializeWorkforceProcedureDesk({
       const empty = documentObject.createElement("p");
       empty.className = "procedure-case-empty";
       empty.textContent = cases.length === 0 ? "登録済みの手続き案件はありません。" : "この進捗の手続き案件はありません。";
+      if (hasActiveFilters()) {
+        const resetButton = documentObject.createElement("button");
+        resetButton.type = "button";
+        resetButton.className = "case-edit-button procedure-case-empty-reset";
+        resetButton.textContent = "絞り込みを解除";
+        resetButton.addEventListener("click", resetFilters);
+        empty.append(resetButton);
+      }
       list.append(empty);
       return;
     }

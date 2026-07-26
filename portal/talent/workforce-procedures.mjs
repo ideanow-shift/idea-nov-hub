@@ -158,6 +158,35 @@ export function sortWorkforceProcedureCases(cases, referenceDate = localDateIso(
   }));
 }
 
+export function buildWorkforceProcedureOperationSummary(cases, referenceDate = localDateIso()) {
+  const rows = Array.isArray(cases) ? cases : [];
+  const overdue = rows.filter((item) => classifyWorkforceProcedureCasePriority(item, referenceDate) === "OVERDUE").length;
+  const soon = rows.filter((item) => classifyWorkforceProcedureCasePriority(item, referenceDate) === "NEXT_7_DAYS").length;
+  const review = rows.filter((item) => item?.caseStatus === "READY_FOR_REVIEW").length;
+  const draft = rows.filter((item) => item?.caseStatus === "DRAFT").length;
+  const nextAction = overdue > 0
+    ? "OVERDUE"
+    : soon > 0 ? "NEXT_7_DAYS"
+      : review > 0 ? "READY_FOR_REVIEW"
+        : draft > 0 ? "DRAFT"
+          : "NO_OPEN_WORK";
+  const title = {
+    OVERDUE: "期限超過の手続きから処理してください",
+    NEXT_7_DAYS: "7日以内の手続きを前倒し確認します",
+    READY_FOR_REVIEW: "確認待ち案件をチェックリストで確認します",
+    DRAFT: "下書き案件を開いて不足情報を補います",
+    NO_OPEN_WORK: "今日の優先処理はありません"
+  }[nextAction];
+  const copy = {
+    OVERDUE: "社員マスタは変更せず、案件の状態・期限・確認項目を先に整えます。",
+    NEXT_7_DAYS: "直近の入社・異動・休復職・退職を先に見て、担当者が迷わない状態にします。",
+    READY_FOR_REVIEW: "確認待ちはチェックリスト完了後に確認済みへ進めます。",
+    DRAFT: "下書きは対象者・実施日・メモを整えて確認待ちへ回します。",
+    NO_OPEN_WORK: "対応中・確認待ちの期限キューは落ち着いています。"
+  }[nextAction];
+  return Object.freeze({ overdue, soon, review, draft, nextAction, title, copy });
+}
+
 function normalizeSteps(value) {
   if (!exactKeys(value, ["procedureType", "steps"]) || !PROCEDURE_TYPES.includes(value.procedureType)
     || !Array.isArray(value.steps) || value.steps.length !== 4) return null;
@@ -299,10 +328,11 @@ export function initializeWorkforceProcedureDesk({
   const stepsStatus = documentObject?.getElementById?.("workforce-case-steps-status");
   const filterStatus = documentObject?.getElementById?.("workforce-case-filter-status");
   const priorityStatus = documentObject?.getElementById?.("workforce-case-priority-status");
+  const operationSummary = documentObject?.getElementById?.("workforce-case-operation-summary");
   const procedureFilter = documentObject?.getElementById?.("workforce-case-procedure-filter");
   const searchInput = documentObject?.getElementById?.("workforce-case-search");
   const filterResetButton = documentObject?.getElementById?.("workforce-case-filter-reset");
-  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !procedureFilter || !searchInput || !filterResetButton) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
+  if (!desk || !list || !form || !status || !audit || !auditList || !auditStatus || !steps || !stepsList || !stepsStatus || !filterStatus || !priorityStatus || !operationSummary || !procedureFilter || !searchInput || !filterResetButton) return Object.freeze({ initialized: false, load: async () => safeResult(false, "not_ready") });
   if (desk.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true, load: async () => safeResult(false, "already_bound") });
   desk.dataset.bound = "true";
   const controller = createWorkforceProcedureCaseController({ globalObject, fetchImpl });
@@ -405,6 +435,19 @@ export function initializeWorkforceProcedureDesk({
     updateFilterResetButton();
     render();
   };
+  const renderOperationSummary = (summary) => {
+    const set = (id, value) => {
+      const element = documentObject.getElementById(id);
+      if (element) element.textContent = String(value);
+    };
+    operationSummary.dataset.nextAction = summary.nextAction;
+    set("workforce-case-operation-title", summary.title);
+    set("workforce-case-operation-copy", summary.copy);
+    set("workforce-case-operation-overdue", summary.overdue);
+    set("workforce-case-operation-soon", summary.soon);
+    set("workforce-case-operation-review", summary.review);
+    set("workforce-case-operation-draft", summary.draft);
+  };
   const renderOverview = (filteredCount = null) => {
     const scopedCases = filterWorkforceProcedureCasesByType(cases, activeProcedureType);
     const counts = Object.fromEntries(CASE_FILTERS.map((key) => [key, filterWorkforceProcedureCases(scopedCases, key).length]));
@@ -419,6 +462,7 @@ export function initializeWorkforceProcedureDesk({
     filterStatus.textContent = activeFilter === "ALL" ? `${procedureScope}${priorityScope}の案件 ${visibleCount}件を表示しています。` : `${procedureScope} / ${statusLabel(activeFilter)}${priorityScope} ${visibleCount}件を表示しています。`;
     const overdue = scopedCases.filter((item) => classifyWorkforceProcedureCasePriority(item) === "OVERDUE").length;
     const soon = scopedCases.filter((item) => classifyWorkforceProcedureCasePriority(item) === "NEXT_7_DAYS").length;
+    renderOperationSummary(buildWorkforceProcedureOperationSummary(scopedCases));
     priorityStatus.textContent = overdue > 0 ? `期限を過ぎた案件 ${overdue}件、直近7日の案件 ${soon}件があります。` : soon > 0 ? `直近7日の案件が ${soon}件あります。` : "期限超過・直近7日の案件はありません。";
   };
   const showAudit = async (item) => {

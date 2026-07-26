@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureOperationSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -175,4 +175,18 @@ test("workforce procedure cases prioritize overdue and near-term open work", () 
   assert.equal(classifyWorkforceProcedureCasePriority(nearTerm, referenceDate), "NEXT_7_DAYS");
   assert.equal(classifyWorkforceProcedureCasePriority(closed, referenceDate), "CLOSED");
   assert.deepEqual(sortWorkforceProcedureCases([closed, nearTerm, overdue], referenceDate), [overdue, nearTerm, closed]);
+});
+
+test("workforce procedure cases summarize today's operation queue without mutating rows", () => {
+  const summary = buildWorkforceProcedureOperationSummary([
+    { caseStatus: "READY_FOR_REVIEW", effectiveDate: "2026-07-25" },
+    { caseStatus: "DRAFT", effectiveDate: "2026-07-30" },
+    { caseStatus: "READY_FOR_REVIEW", effectiveDate: "2026-08-20" },
+    { caseStatus: "CONFIRMED", effectiveDate: "2026-07-20" }
+  ], "2026-07-26");
+  assert.equal(summary.nextAction, "OVERDUE");
+  assert.equal(summary.overdue, 1);
+  assert.equal(summary.soon, 1);
+  assert.equal(summary.review, 2);
+  assert.equal(summary.draft, 1);
 });

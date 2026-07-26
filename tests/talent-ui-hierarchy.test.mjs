@@ -221,6 +221,7 @@ test("workforce exposes an audited procedure case desk without employee-master c
   assert.match(html, /data-case-status-filter="READY_FOR_REVIEW"/);
   assert.match(html, /id="workforce-case-steps"/);
     assert.match(html, /id="workforce-case-priority-status"/);
+    assert.match(html, /id="workforce-case-operation-summary"/);
     assert.match(html, /id="workforce-case-procedure-filter"/);
     assert.match(html, /id="workforce-case-search"/);
     assert.match(html, /id="workforce-case-filter-reset"/);
@@ -234,6 +235,8 @@ test("workforce exposes an audited procedure case desk without employee-master c
   assert.match(source, /checklistTracking: true/);
   assert.match(source, /isWorkforceProcedureCaseReadyToConfirm/);
   assert.match(source, /sortWorkforceProcedureCases/);
+  assert.match(source, /buildWorkforceProcedureOperationSummary/);
+  assert.match(source, /dataset\.nextAction/);
   assert.match(source, /filterWorkforceProcedureCasesByType/);
     assert.match(source, /filterWorkforceProcedureCasesByPriority/);
     assert.match(source, /filterWorkforceProcedureCasesByQuery/);

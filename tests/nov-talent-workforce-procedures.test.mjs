@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
+import { buildWorkforceProcedureAuditSummary, buildWorkforceProcedureCaseFormGuide, buildWorkforceProcedureCaseNextAction, buildWorkforceProcedureChecklistPlan, buildWorkforceProcedureEmptyState, buildWorkforceProcedureOperationFilter, buildWorkforceProcedureOperationSteps, buildWorkforceProcedureOperationSummary, buildWorkforceProcedureStatusMessage, buildWorkforceProcedureStatusTransitionPlan, buildWorkforceProcedureTypeSummary, classifyWorkforceProcedureCasePriority, createWorkforceProcedureCaseController, filterWorkforceProcedureCases, filterWorkforceProcedureCasesByPriority, filterWorkforceProcedureCasesByQuery, filterWorkforceProcedureCasesByType, getActiveWorkforceProcedureType, isWorkforceProcedureCaseReadyToConfirm, normalizeWorkforceProcedureCasePrefill, sortWorkforceProcedureCases, WORKFORCE_PROCEDURE_CASE_CONTRACT } from "../portal/talent/workforce-procedures.mjs";
 
 const config = { writeApiEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-write-api" };
 const helper = { getSessionToken: async () => "fixture-token" };
@@ -112,6 +112,18 @@ test("workforce procedure cases can be searched locally by subject or memo", () 
   assert.deepEqual(filterWorkforceProcedureCasesByQuery(cases, "引継ぎ"), [cases[1]]);
   assert.equal(filterWorkforceProcedureCasesByQuery(cases, "該当なし").length, 0);
   assert.equal(WORKFORCE_PROCEDURE_CASE_CONTRACT.caseSearch, true);
+});
+
+test("workforce procedure empty state points to the next safe local action", () => {
+  const empty = buildWorkforceProcedureEmptyState({ total: 0, activeProcedureType: "RETIREMENT" });
+  const filtered = buildWorkforceProcedureEmptyState({ total: 3, hasActiveFilters: true });
+  assert.equal(empty.category, "NO_CASES");
+  assert.match(empty.copy, /退職/);
+  assert.equal(empty.action, "案件を登録");
+  assert.equal(filtered.category, "FILTERED_EMPTY");
+  assert.equal(filtered.canReset, true);
+  assert.equal(filtered.rawValuesIncluded, false);
+  assert.equal(filtered.employeeMasterMutation, false);
 });
 
 test("new workforce cases inherit the active procedure tab", () => {

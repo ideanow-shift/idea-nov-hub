@@ -437,6 +437,9 @@ export function buildWorkforceProcedureCaseNextAction(item, referenceDate = loca
 export function buildWorkforceProcedureCaseFormGuide(draft, referenceDate = localDateIso()) {
   const priority = classifyWorkforceProcedureCasePriority(draft, referenceDate);
   const status = draft?.caseStatus;
+  const hasSubject = typeof draft?.subjectLabel === "string" && draft.subjectLabel.trim().length > 0;
+  const hasDate = /^\d{4}-\d{2}-\d{2}$/.test(String(draft?.effectiveDate || ""));
+  const hasDetail = typeof draft?.detail === "string" && draft.detail.trim().length > 0;
   const category = status === "CONFIRMED"
     ? "CONFIRMED"
     : status === "CANCELLED"
@@ -464,7 +467,20 @@ export function buildWorkforceProcedureCaseFormGuide(draft, referenceDate = loca
     CONFIRMED: "確認済みは監査履歴に残ります。取り消しや変更は理由をメモに残してください。",
     CANCELLED: "中止は対応中キューから外れます。誤って選んだ場合は下書きへ戻してください。"
   }[category];
-  return Object.freeze({ category, title, copy });
+  const requirements = Object.freeze([
+    Object.freeze({ key: "SUBJECT", label: hasSubject ? "対象者: 入力済み" : "対象者: 必須", category: hasSubject ? "READY" : "MISSING_REQUIRED" }),
+    Object.freeze({ key: "EFFECTIVE_DATE", label: hasDate ? "基準日: 入力済み" : "基準日: 必須", category: hasDate ? "READY" : "MISSING_REQUIRED" }),
+    Object.freeze({ key: "DETAIL", label: hasDetail ? "メモ: 補足あり" : "メモ: 任意・理由があれば記録", category: hasDetail ? "READY" : "OPTIONAL" })
+  ]);
+  return Object.freeze({
+    category,
+    title,
+    copy,
+    requirements,
+    requiredReady: hasSubject && hasDate,
+    rawValuesIncluded: false,
+    employeeMasterMutation: false
+  });
 }
 
 export function buildWorkforceProcedureChecklistPlan(procedureType) {
@@ -748,13 +764,23 @@ export function initializeWorkforceProcedureDesk({
   const input = (name) => form.elements.namedItem(name);
   const currentDraftFromForm = () => Object.freeze({
     caseStatus: input("caseStatus")?.value,
-    effectiveDate: input("effectiveDate")?.value
+    subjectLabel: input("subjectLabel")?.value,
+    effectiveDate: input("effectiveDate")?.value,
+    detail: input("detail")?.value
   });
   const renderFormGuide = () => {
     const guide = buildWorkforceProcedureCaseFormGuide(currentDraftFromForm());
     formGuide.dataset.category = guide.category;
+    formGuide.dataset.requiredReady = String(guide.requiredReady);
     formGuideTitle.textContent = guide.title;
     formGuideCopy.textContent = guide.copy;
+    const list = documentObject.getElementById("workforce-case-form-guide-list");
+    list?.replaceChildren(...guide.requirements.map((requirement) => {
+      const item = documentObject.createElement("li");
+      item.dataset.category = requirement.category;
+      item.textContent = requirement.label;
+      return item;
+    }));
   };
   const renderChecklistPlan = () => {
     const plan = buildWorkforceProcedureChecklistPlan(input("procedureType")?.value);
@@ -1152,7 +1178,9 @@ export function initializeWorkforceProcedureDesk({
     renderFormGuide();
     renderTransitionPlan();
   });
+  input("subjectLabel").addEventListener("input", renderFormGuide);
   input("effectiveDate").addEventListener("change", renderFormGuide);
+  input("detail").addEventListener("input", renderFormGuide);
   input("procedureType").addEventListener("change", renderChecklistPlan);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();

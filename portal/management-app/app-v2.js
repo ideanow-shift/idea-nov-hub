@@ -1425,8 +1425,10 @@ function cohortVisitSummary(cohort) {
 function buildStoreMenuSummaryPanel() {
   const preview = state.storeMenuPreview;
   if (!preview?.rows?.length) return null;
-  const latestPeriod = preview.rows.reduce((latest, row) => row.period > latest ? row.period : latest, preview.rows[0].period);
-  const rows = preview.rows.filter((row) => row.period === latestPeriod)
+  const menuPeriods = [...new Set(preview.rows.map((row) => row.period))];
+  const latestPeriod = menuPeriods.reduce((latest, period) => period > latest ? period : latest, menuPeriods[0]);
+  const selectedPeriod = menuPeriods.includes(state.storeAnalysisPeriod) ? state.storeAnalysisPeriod : latestPeriod;
+  const rows = preview.rows.filter((row) => row.period === selectedPeriod)
     .sort((left, right) => right.salesYen - left.salesYen || left.menuName.localeCompare(right.menuName, "ja"));
   const categoryTotals = new Map();
   rows.forEach((row) => {
@@ -1454,7 +1456,7 @@ function buildStoreMenuSummaryPanel() {
   tbody.replaceChildren(...rows.map((row) => tableRow([row.storeName, row.menuCategory, row.menuName, `${number.format(row.serviceCount)}件`, yen.format(row.salesYen), row.serviceCount > 0 ? yen.format(Math.round(row.salesYen / row.serviceCount)) : "未算定"])));
   table.append(thead, tbody); wrap.append(table);
   section.append(
-    heading(`店舗月次メニュー分析のローカル確認 (${latestPeriod})`),
+    heading(`店舗月次メニュー分析のローカル確認 (${selectedPeriod})`),
     paragraph("店舗・月・メニュー単位に集計済みの件数と売上だけを表示します。顧客名、会員ID、個別明細は扱いません。"),
     categoryGrid,
     wrap,

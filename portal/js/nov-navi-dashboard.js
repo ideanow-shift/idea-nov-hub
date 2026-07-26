@@ -114,6 +114,17 @@ export function getVisibleNaviCategories(employee) {
   ));
 }
 
+export function getNaviCategoryAudienceHint(category) {
+  const hints = {
+    "運営管理": "毎日の業務",
+    "成長": "学び・改善",
+    "キャリア": "自分のキャリア",
+    "経営管理": "店長以上・許可範囲",
+    "システム管理": "システム管理者のみ"
+  };
+  return hints[category] || "";
+}
+
 function createSystemCard(system, apps, onOpenApp) {
   const app = findApp(apps, system.aliases);
   const isSampleApp = Boolean(app && String(app.url || "").startsWith("#demo-"));
@@ -294,10 +305,11 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
     const systems = SYSTEMS.filter((system) => system.category === category && visibleSystem(system, employee));
     if (!systems.length) return;
     const headingId = `navi-category-title-${categoryIndex + 1}`;
+    const audienceHint = getNaviCategoryAudienceHint(category);
     const section = document.createElement("section");
     section.className = "navi-category";
     section.setAttribute("aria-labelledby", headingId);
-    section.innerHTML = `<div class="navi-section-heading"><h2 id="${headingId}">${escapeHtml(category)}</h2>${category === "経営管理" ? "<span>店長以上</span>" : category === "システム管理" ? "<span>システム管理者のみ</span>" : ""}</div><div class="navi-system-grid"></div>`;
+    section.innerHTML = `<div class="navi-section-heading"><h2 id="${headingId}">${escapeHtml(category)}</h2>${audienceHint ? `<span>${escapeHtml(audienceHint)}</span>` : ""}</div><div class="navi-system-grid"></div>`;
     const grid = section.querySelector(".navi-system-grid");
     grid.append(...systems.map((system) => createSystemCard(system, apps, onOpenApp)));
     sections.append(section);

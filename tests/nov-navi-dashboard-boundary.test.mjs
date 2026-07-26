@@ -4,6 +4,7 @@ import {
   getVisibleNaviCategories,
   getVisibleNaviNotices,
   getNaviTodaySnapshot,
+  getNaviCategoryAudienceHint,
   getNaviGreeting,
   shouldEnableLocalNovNaviDemo,
   shouldEnableNovNaviDashboard
@@ -67,6 +68,9 @@ assert.deepEqual(
   [null, null, null, null, null, null],
   "Today snapshot must fail closed for invalid or unrecognized values"
 );
+assert.equal(getNaviCategoryAudienceHint("経営管理"), "店長以上・許可範囲", "management category must communicate its display boundary");
+assert.equal(getNaviCategoryAudienceHint("システム管理"), "システム管理者のみ", "system administration must remain explicitly restricted");
+assert.equal(getNaviCategoryAudienceHint("unknown"), "", "unknown categories must not invent an audience boundary");
 
 assert.equal(getNaviGreeting(8), "おはようございます。今日の仕事を確認しましょう。", "morning greeting");
 assert.equal(getNaviGreeting(13), "おつかれさまです。今日の進み具合を確認しましょう。", "afternoon greeting");
@@ -117,6 +121,7 @@ assert.match(mainSource, /if \(localDemoEnabled\) \{[\s\S]*?demoLogin\.addEventL
 assert.match(dashboardSource, /function getVisibleNaviNotices\(notices\)/, "NOVA notices must use the shared visibility helper");
 assert.match(dashboardSource, /\.slice\(0, 3\)/, "NOVA notices must be capped at three");
 assert.match(dashboardSource, /notice\.unread/, "NOVA notices must prioritize unread items");
+assert.match(dashboardSource, /function getNaviCategoryAudienceHint\(category\)/, "NOVA category audience labels must be centralized");
 assert.match(dashboardSource, /const TODAY_KEYS = \["schedule", "tasks", "approvals", "thanks", "inquiries", "growthPoints"\]/, "Today card keys must remain allowlisted");
 assert.match(dashboardSource, /Number\.isSafeInteger\(value\)/, "Today card values must remain bounded aggregates");
 assert.match(dashboardSource, /data-navi-today-key="schedule"/, "Today cards must bind their values by an explicit key");

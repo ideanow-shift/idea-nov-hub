@@ -28,6 +28,7 @@ test("daily command center opens safe work areas without writes", async () => {
   const app = await readFile(new URL("app.mjs", root), "utf8");
 
   assert.match(html, /id="talent-daily-command"/);
+  assert.match(html, /今日の作業/);
   assert.match(html, /data-talent-daily-open="students"/);
   assert.match(html, /data-talent-daily-open="workforce"/);
   assert.match(html, /data-talent-daily-open="csv28"/);
@@ -54,12 +55,26 @@ test("daily command center opens safe work areas without writes", async () => {
   assert.match(app, /ROUTE_STUDENTS/);
   assert.match(app, /ROUTE_WORKFORCE/);
   assert.match(app, /ROUTE_CSV28/);
+  assert.doesNotMatch(html, /DAILY COMMAND/);
   assert.doesNotMatch(html, /data-talent-daily-open[\s\S]{0,260}(commit|promotion|LINE履歴|社員マスタへ直接反映)/i);
 });
 
-test("implementation progress board shows remaining work without enabling writes", async () => {
+test("operator landing area hides implementation labels and stays mobile-safe", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
   const css = await readFile(new URL("style.css", root), "utf8");
+
+  for (const internalLabel of ["BUILD PROGRESS", "FINAL READINESS", "HANDOFF SUMMARY", "100%完了", "残り0%", "READY_FOR_DAILY_USE_WITH_APPROVAL_GATES", "DAILY_OPERATION_UI_COMPLETE"]) {
+    assert.doesNotMatch(html, new RegExp(internalLabel));
+  }
+  for (const removedId of ["talent-implementation-progress", "talent-final-readiness", "talent-launch-checklist", "talent-first-day-runbook", "talent-operation-handoff"]) {
+    assert.doesNotMatch(html, new RegExp(`id="${removedId}"`));
+  }
+  assert.match(css, /body \{[\s\S]*overflow-x: hidden;/);
+  assert.match(css, /\.dashboard-shell \{[\s\S]*overflow-x: hidden;/);
+  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-daily-command \{ grid-template-columns: 1fr; \}/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.talent-daily-command-actions \{ grid-template-columns: 1fr; \}/);
+  assert.doesNotMatch(css, /\.talent-implementation-progress|\.talent-final-readiness|\.talent-operation-handoff/);
+  return;
 
   assert.match(html, /id="talent-implementation-progress"/);
   assert.match(html, /id="talent-next-build-targets"/);

@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260726-list-review-lane-1">
+  <link rel="stylesheet" href="./style.css?v=20260726-workforce-boundaries-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260726-list-review-lane-1"></script>
+  <script type="module" src="./app.mjs?v=20260726-workforce-boundaries-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -538,6 +538,24 @@
         <article><span>正本</span><strong id="workforce-source">Core DB 正本</strong><small>社員・店舗・部署・役職</small></article>
         <article><span>画面の権限</span><strong id="workforce-mode">読み取り専用</strong><small>この画面から直接変更しません</small></article>
         <article><span>集計基準日</span><strong id="workforce-as-of">基準日 未確定</strong><small>個人行は表示せず件数だけを読み取ります</small></article>
+      </section>
+
+      <section id="workforce-operation-boundaries" class="workforce-operation-boundaries" aria-label="現職者管理でできることとできないこと">
+        <article>
+          <span>READ ONLY</span>
+          <strong>社員マスタは正本参照だけ</strong>
+          <p>Core DBの社員・店舗・部署・役職は、この画面から直接書き換えません。</p>
+        </article>
+        <article>
+          <span>CASE WORK</span>
+          <strong>日常作業は案件で管理</strong>
+          <p>入社・異動・休職・退職は、状態・期限・確認項目・履歴を案件として残します。</p>
+        </article>
+        <article>
+          <span>APPROVAL</span>
+          <strong>Core反映は別承認</strong>
+          <p>確認済み案件でも、社員マスタ反映・大量更新・削除は別の承認導線に分けます。</p>
+        </article>
       </section>
 
       <section id="workforce-procedure-desk" class="procedure-case-desk" aria-labelledby="workforce-case-title">

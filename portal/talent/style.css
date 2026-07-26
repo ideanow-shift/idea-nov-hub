@@ -1122,6 +1122,41 @@ h3 { margin: 0; font-size: 1rem; }
 .workforce-readiness strong { display: block; margin: 7px 0 4px; color: var(--navy); font-size: 1rem; }
 .workforce-readiness small { font-size: 0.8rem; }
 
+.workforce-operation-boundaries {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.workforce-operation-boundaries article {
+  padding: 14px;
+  border: 1px solid #d8eadf;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f8fffb, #fffaf7);
+}
+.workforce-operation-boundaries article:nth-child(3) {
+  border-color: #f0d5d8;
+  background: #fffafa;
+}
+.workforce-operation-boundaries span {
+  color: var(--blue);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+.workforce-operation-boundaries strong {
+  display: block;
+  margin-top: 7px;
+  color: var(--navy);
+  font-size: 1rem;
+}
+.workforce-operation-boundaries p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: .84rem;
+  line-height: 1.6;
+}
+
 .procedure-case-desk {
   margin-top: 18px;
   padding: 18px;
@@ -1326,7 +1361,7 @@ h3 { margin: 0; font-size: 1rem; }
 @media (max-width: 860px) {
   .dashboard-header { align-items: flex-start; }
   .summary-command { flex-direction: column; align-items: flex-end; }
-  .summary-grid, .historical-summary-grid, .workforce-summary, .procedure-board, .procedure-checklist, .procedure-case-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .summary-grid, .historical-summary-grid, .workforce-summary, .workforce-operation-boundaries, .procedure-board, .procedure-checklist, .procedure-case-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .procedure-case-operation-summary { display: grid; }
   .procedure-case-operation-summary dl { min-width: 0; width: 100%; }
   .workforce-queue { grid-template-columns: 1fr; }
@@ -1369,7 +1404,7 @@ h3 { margin: 0; font-size: 1rem; }
   .summary-command { align-items: stretch; margin-top: 14px; }
   .summary-load-button { width: 100%; }
   .status { margin-top: 10px; }
-  .summary-grid, .historical-summary-grid, .workforce-summary, .procedure-board, .procedure-checklist, .feature-grid, .workforce-readiness, .procedure-case-overview { grid-template-columns: 1fr; }
+  .summary-grid, .historical-summary-grid, .workforce-summary, .workforce-operation-boundaries, .procedure-board, .procedure-checklist, .feature-grid, .workforce-readiness, .procedure-case-overview { grid-template-columns: 1fr; }
   .procedure-case-operation-summary dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workforce-queue li { display: grid; }
   .workforce-queue-create { width: 100%; }

@@ -1954,7 +1954,33 @@ function renderFinancialPreviewEmpty(container, labelText, statementLabel = "P/L
     paragraph("弥生Excelを選択すると、この画面に確認用の財務数値が表示されます。ファイル内容は送信されず、本番投入も無効です。"),
     button
   );
+  if (scope === "stores") section.append(buildStoreAnalysisLocalReadiness());
   container.replaceChildren(section, buildLocalUseBoundaryPanel(scope));
+}
+
+function buildStoreAnalysisLocalReadiness() {
+  const panel = document.createElement("div");
+  panel.className = "financial-store-analysis-readiness";
+  const hasWorkforce = Boolean(state.localEvidence.workforceAllocationReceipt);
+  const items = [
+    ["売上・利益", "P/Lを選択すると表示", "経理P/Lを店舗・月で照合します。"],
+    ["生産性", hasWorkforce ? "社員マスタ集計済み" : "社員マスタ集計を確認", "P/Lと同じ店舗・月の稼働人数で計算します。"],
+    ["単価・リピート", "客数・来店区分CSV待ち", "技術客数、総来店数、新規・2回目・3回目・固定を照合します。"],
+    ["メニュー分析", "メニューCSV待ち", "店舗・月・メニュー分類の集計CSVを照合します。"],
+  ];
+  panel.append(
+    heading("店舗営業分析の準備状況"),
+    paragraph("この画面で選択したファイルだけを端末内で照合します。再読み込み後は安全のため再選択が必要で、本番保存・承認・再計算は無効です。")
+  );
+  const grid = document.createElement("div");
+  grid.className = "financial-store-analysis-readiness-grid";
+  grid.replaceChildren(...items.map(([name, status, detail]) => {
+    const item = document.createElement("article");
+    item.append(label(name), valueNode(status), muted(detail));
+    return item;
+  }));
+  panel.append(grid);
+  return panel;
 }
 
 function previewMetricGrid(entries) {

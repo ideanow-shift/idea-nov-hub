@@ -234,6 +234,31 @@ export function buildWorkforceProcedureOperationSummary(cases, referenceDate = l
   return Object.freeze({ overdue, soon, review, draft, nextAction, title, copy });
 }
 
+export function buildWorkforceProcedureTypeSummary(cases, referenceDate = localDateIso()) {
+  const rows = Array.isArray(cases) ? cases : [];
+  return Object.freeze(Object.fromEntries(PROCEDURE_TYPES.map((procedureType) => {
+    const scoped = rows.filter((item) => item?.procedureType === procedureType);
+    const open = scoped.filter((item) => ["DRAFT", "READY_FOR_REVIEW"].includes(item?.caseStatus)).length;
+    const overdue = scoped.filter((item) => classifyWorkforceProcedureCasePriority(item, referenceDate) === "OVERDUE").length;
+    const review = scoped.filter((item) => item?.caseStatus === "READY_FOR_REVIEW").length;
+    const nextCategory = overdue > 0
+      ? "OVERDUE"
+      : review > 0
+        ? "READY_FOR_REVIEW"
+        : open > 0
+          ? "OPEN"
+          : "CLEAR";
+    return [procedureType, Object.freeze({
+      procedureType,
+      open,
+      overdue,
+      review,
+      nextCategory,
+      rawValuesIncluded: false
+    })];
+  })));
+}
+
 export function buildWorkforceProcedureCaseNextAction(item, referenceDate = localDateIso()) {
   const status = CASE_STATUSES.includes(item?.caseStatus) ? item.caseStatus : "DRAFT";
   const priority = classifyWorkforceProcedureCasePriority(item, referenceDate);
@@ -689,6 +714,19 @@ export function initializeWorkforceProcedureDesk({
     set("workforce-case-operation-review", summary.review);
     set("workforce-case-operation-draft", summary.draft);
   };
+  const renderTypeSummary = (summary) => {
+    for (const procedureType of PROCEDURE_TYPES) {
+      const row = summary[procedureType];
+      const key = procedureType.toLowerCase();
+      const card = documentObject.getElementById(`workforce-case-type-${key}`);
+      if (!card || !row) continue;
+      card.dataset.nextCategory = row.nextCategory;
+      for (const [suffix, value] of Object.entries({ open: row.open, overdue: row.overdue, review: row.review })) {
+        const element = documentObject.getElementById(`workforce-case-type-${key}-${suffix}`);
+        if (element) element.textContent = String(value);
+      }
+    }
+  };
   const renderOverview = (filteredCount = null) => {
     const scopedCases = filterWorkforceProcedureCasesByType(cases, activeProcedureType);
     const counts = Object.fromEntries(CASE_FILTERS.map((key) => [key, filterWorkforceProcedureCases(scopedCases, key).length]));
@@ -704,6 +742,7 @@ export function initializeWorkforceProcedureDesk({
     const overdue = scopedCases.filter((item) => classifyWorkforceProcedureCasePriority(item) === "OVERDUE").length;
     const soon = scopedCases.filter((item) => classifyWorkforceProcedureCasePriority(item) === "NEXT_7_DAYS").length;
     renderOperationSummary(buildWorkforceProcedureOperationSummary(scopedCases));
+    renderTypeSummary(buildWorkforceProcedureTypeSummary(cases));
     priorityStatus.textContent = overdue > 0 ? `期限を過ぎた案件 ${overdue}件、直近7日の案件 ${soon}件があります。` : soon > 0 ? `直近7日の案件が ${soon}件あります。` : "期限超過・直近7日の案件はありません。";
   };
   const showAudit = async (item) => {

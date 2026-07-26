@@ -329,6 +329,10 @@ h3 { margin: 0; font-size: 1rem; }
 .csv-preflight-file input { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); }
 .csv-preflight-actions button { min-height: 38px; border: 1px solid var(--rose); border-radius: 6px; background: var(--accent-soft); color: var(--accent-strong); font: inherit; font-weight: 800; cursor: pointer; }
 .csv-preflight-actions button:hover, .csv-preflight-actions button:focus-visible { outline: none; background: #fff1f3; }
+.csv-source-type-legend { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.csv-source-type-legend div { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fbfdff; }
+.csv-source-type-legend dt { color: var(--navy); font-size: .78rem; font-weight: 900; }
+.csv-source-type-legend dd { margin: 4px 0 0; color: var(--muted); font-size: .76rem; }
 .csv-preflight-summary {
   grid-column: 1 / -1;
   display: grid;
@@ -1463,7 +1467,7 @@ h3 { margin: 0; font-size: 1rem; }
   .workflow-strip div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
   .import-overview, .csv-preflight-panel { grid-template-columns: 1fr; }
   .import-overview > p { margin-top: -4px; }
-  .csv-preflight-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .csv-preflight-summary, .csv-source-type-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .student-toolbar { grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(135px, 1fr)) 44px; }
   .student-workspace { grid-template-columns: minmax(280px, 0.8fr) minmax(340px, 1.2fr); }
   .review-command-band { grid-template-columns: 1fr auto; }
@@ -1517,7 +1521,7 @@ h3 { margin: 0; font-size: 1rem; }
   .boundary-note p { margin-top: 7px; }
   .import-overview, .csv-preflight-panel { padding: 16px; }
   .import-overview dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .csv-preflight-summary { grid-template-columns: 1fr; }
+  .csv-preflight-summary, .csv-source-type-legend { grid-template-columns: 1fr; }
   .student-heading .status { margin-top: 8px; }
   .student-heading-actions { align-items: flex-end; flex-direction: column; }
   .review-command-band { display: block; padding: 16px; }

@@ -32,6 +32,8 @@ test("recruitment subtabs stay visually and semantically below the primary tabs"
   assert.match(html, /data-secondary-tab="schools"[\s\S]*学校分析/);
   assert.match(html, /id="talent-28-csv-file"/);
   assert.match(html, /id="talent-28-csv-template"/);
+  assert.match(html, /csv-source-type-legend/);
+  assert.match(html, /CONTACTS_28/);
   assert.match(html, /id="talent-28-csv-plan"/);
   assert.match(html, /id="talent-28-csv-receipt"/);
   assert.match(html, /id="talent-28-csv-fix-guide"/);

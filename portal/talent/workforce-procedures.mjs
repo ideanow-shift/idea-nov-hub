@@ -434,6 +434,25 @@ export function buildWorkforceProcedureCaseNextAction(item, referenceDate = loca
   });
 }
 
+export function buildWorkforceProcedureCaseActionRoute(nextActionPlan) {
+  const category = nextActionPlan?.category || "DRAFT_UPDATE";
+  const routes = Object.freeze({
+    CORE_HANDOFF_READY: Object.freeze({ action: "AUDIT", label: "変更履歴", emphasis: "Core反映前に履歴確認" }),
+    CANCELLED: Object.freeze({ action: "EDIT", label: "編集", emphasis: "再開理由を記録" }),
+    OVERDUE_REVIEW: Object.freeze({ action: "EDIT", label: "編集", emphasis: "期限超過を先に整備" }),
+    CHECKLIST_REVIEW: Object.freeze({ action: "CHECKLIST", label: "確認項目", emphasis: "4項目を確認" }),
+    COMPLETE_DRAFT: Object.freeze({ action: "EDIT", label: "編集", emphasis: "確認待ちへ準備" }),
+    DRAFT_UPDATE: Object.freeze({ action: "EDIT", label: "編集", emphasis: "下書きを補完" })
+  });
+  const selected = routes[category] || routes.DRAFT_UPDATE;
+  return Object.freeze({
+    ...selected,
+    category,
+    rawValuesIncluded: false,
+    employeeMasterMutation: false
+  });
+}
+
 export function buildWorkforceProcedureCaseFormGuide(draft, referenceDate = localDateIso()) {
   const priority = classifyWorkforceProcedureCasePriority(draft, referenceDate);
   const status = draft?.caseStatus;
@@ -1078,6 +1097,7 @@ export function initializeWorkforceProcedureDesk({
       const nextAction = documentObject.createElement("div");
       const priorityCategory = classifyWorkforceProcedureCasePriority(item);
       const nextActionPlan = buildWorkforceProcedureCaseNextAction(item);
+      const actionRoute = buildWorkforceProcedureCaseActionRoute(nextActionPlan);
       title.textContent = item.subjectLabel;
       meta.textContent = `${procedureLabel(item.procedureType)} / ${statusLabel(item.caseStatus)} / ${item.effectiveDate}`;
       priority.className = `procedure-case-priority${priorityCategory === "OVERDUE" ? " is-overdue" : priorityCategory === "NEXT_7_DAYS" ? " is-soon" : ""}`;
@@ -1100,6 +1120,7 @@ export function initializeWorkforceProcedureDesk({
       const edit = documentObject.createElement("button");
       edit.type = "button";
       edit.className = "case-edit-button";
+      edit.dataset.caseRowAction = "EDIT";
       edit.textContent = "編集";
       edit.addEventListener("click", () => {
         input("caseId").value = item.caseId;
@@ -1121,13 +1142,20 @@ export function initializeWorkforceProcedureDesk({
       const history = documentObject.createElement("button");
       history.type = "button";
       history.className = "case-edit-button";
+      history.dataset.caseRowAction = "AUDIT";
       history.textContent = "変更履歴";
       history.addEventListener("click", () => showAudit(item));
       const checklist = documentObject.createElement("button");
       checklist.type = "button";
       checklist.className = "case-edit-button";
+      checklist.dataset.caseRowAction = "CHECKLIST";
       checklist.textContent = "確認項目";
       checklist.addEventListener("click", () => showSteps(item));
+      for (const button of [checklist, history, edit]) {
+        const recommended = button.dataset.caseRowAction === actionRoute.action;
+        button.dataset.recommended = recommended ? "true" : "false";
+        if (recommended) button.setAttribute("aria-label", `おすすめ: ${actionRoute.emphasis}`);
+      }
       actions.append(checklist, history, edit);
       row.append(copy, actions);
       fragment.append(row);

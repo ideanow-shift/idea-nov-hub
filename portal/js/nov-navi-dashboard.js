@@ -35,7 +35,7 @@ const SYSTEMS = [
   { category: "成長", title: "サンクスコイン", subtitle: "感謝・称賛をコインで届ける", status: "available", aliases: ["idea-link"], shortcuts: ["ホーム", "送る", "一覧", "マイページ"] },
   { category: "成長", title: "店舗改善・成長", status: "trial", aliases: ["management-platform", "management-check", "Check-in"], shortcuts: ["チェック", "改善", "記録", "業績"] },
   { category: "成長", title: "教育・育成", status: "available", aliases: ["EDU", "education-web"], shortcuts: ["学習", "進捗", "管理"] },
-  { category: "キャリア", title: "キャリアシステム", status: "preview", aliases: [], shortcuts: ["自己振り返り", "4ヶ月キャリア確認", "管理者確認", "昇格・等級", "次期目標設定"] },
+  { category: "キャリア", title: "キャリアシステム", status: "preview", icon: "./assets/icons/career.svg", aliases: [], shortcuts: ["自己振り返り", "4ヶ月キャリア確認", "管理者確認", "昇格・等級", "次期目標設定"] },
   { category: "経営管理", title: "経営管理システム", status: "in_progress", aliases: ["keiei", "management-system"], shortcuts: ["法人管理", "店舗営業管理", "データ状況"], minLevel: 3, audience: "店長以上／管轄範囲" },
   { category: "経営管理", title: "採用・人財", subtitle: "NOV Talent / リクルート管理", status: "trial", aliases: ["jinnjibu", "human-capital-investment"], shortcuts: ["採用", "学生", "面接・選考", "現職者管理", "入社手続き", "採用ROI"], minLevel: 4, anyCapabilities: ["human_capital.all"], audience: "総務人事・経理・部長／許可範囲" },
   { category: "システム管理", title: "システム管理", status: "available", aliases: ["core-master-admin", "master-admin"], shortcuts: ["社員情報", "店舗情報", "法人情報", "アプリ管理", "権限管理", "変更履歴", "データ入力"], adminOnly: true }
@@ -150,7 +150,7 @@ export function getNaviLaunchState(system, app) {
 function createSystemCard(system, apps, onOpenApp) {
   const app = findApp(apps, system.aliases);
   const fallbackIcon = resolveAppIcon({});
-  const establishedIcon = system.aliases.map((alias) => SYSTEM_ICON_BY_ALIAS[alias]).find(Boolean);
+  const establishedIcon = system.icon || system.aliases.map((alias) => SYSTEM_ICON_BY_ALIAS[alias]).find(Boolean);
   const iconSource = establishedIcon || (app ? resolveAppIcon(app) : fallbackIcon);
   const launchState = getNaviLaunchState(system, app);
   const actualStatus = launchState.status;

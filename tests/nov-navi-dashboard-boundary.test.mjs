@@ -158,6 +158,7 @@ assert.match(dashboardSource, /function getNaviLaunchState\(system, app\)/, "NOV
 assert.match(dashboardSource, /button\.disabled = !launchState\.enabled/, "unconnected systems must render as disabled controls");
 assert.match(dashboardSource, /decision_hub: "\.\/assets\/icons\/approval\.svg"/, "approval cards must use their dedicated NOV NAVI SVG");
 assert.match(dashboardSource, /pos: "\.\/assets\/icons\/store-operations\.svg"/, "store operation cards must use their dedicated NOV NAVI SVG");
+assert.match(dashboardSource, /title: "キャリアシステム", status: "preview", icon: "\.\/assets\/icons\/career\.svg"/, "career cards must remain identifiable before a launch target is connected");
 assert.match(dashboardSource, /const TODAY_KEYS = \["schedule", "tasks", "approvals", "thanks", "inquiries", "growthPoints"\]/, "Today card keys must remain allowlisted");
 assert.match(dashboardSource, /Number\.isSafeInteger\(value\)/, "Today card values must remain bounded aggregates");
 assert.match(dashboardSource, /data-navi-today-key="schedule"/, "Today cards must bind their values by an explicit key");

@@ -1040,8 +1040,22 @@ function buildStoreMenuSummaryPanel() {
   const latestPeriod = preview.rows.reduce((latest, row) => row.period > latest ? row.period : latest, preview.rows[0].period);
   const rows = preview.rows.filter((row) => row.period === latestPeriod)
     .sort((left, right) => right.salesYen - left.salesYen || left.menuName.localeCompare(right.menuName, "ja"));
+  const categoryTotals = new Map();
+  rows.forEach((row) => {
+    const current = categoryTotals.get(row.menuCategory) || { serviceCount: 0, salesYen: 0 };
+    categoryTotals.set(row.menuCategory, { serviceCount: current.serviceCount + row.serviceCount, salesYen: current.salesYen + row.salesYen });
+  });
+  const categories = [...categoryTotals.entries()]
+    .sort((left, right) => right[1].salesYen - left[1].salesYen || left[0].localeCompare(right[0], "ja"));
   const section = document.createElement("section");
   section.className = "financial-store-menu-preview";
+  const categoryGrid = document.createElement("div");
+  categoryGrid.className = "financial-store-menu-category-grid";
+  categoryGrid.replaceChildren(...categories.map(([category, totals]) => {
+    const item = document.createElement("article");
+    item.append(label(category), valueNode(yen.format(totals.salesYen)), muted(`${number.format(totals.serviceCount)}件`));
+    return item;
+  }));
   const wrap = document.createElement("div");
   wrap.className = "table-wrap embedded local-preview-table";
   const table = document.createElement("table");
@@ -1053,6 +1067,7 @@ function buildStoreMenuSummaryPanel() {
   section.append(
     heading(`店舗月次メニュー分析のローカル確認 (${latestPeriod})`),
     paragraph("店舗・月・メニュー単位に集計済みの件数と売上だけを表示します。顧客名、会員ID、個別明細は扱いません。"),
+    categoryGrid,
     wrap,
     muted("本番保存・本番投入・自動集計は無効です。店舗名と対象月を経理P/L・人員データに一致させるまでは、確定KPIとして扱いません。")
   );

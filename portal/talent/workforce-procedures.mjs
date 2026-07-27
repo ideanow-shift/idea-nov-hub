@@ -593,7 +593,7 @@ export function buildWorkforceProcedureCoreHandoffFinalCheck(queue) {
       ["SEPARATE_MASTER_APPROVAL", "社員マスタ反映は別承認まで実行しない"]
     ],
     LOCAL_WORK_BEFORE_HANDOFF: [
-      ["NO_CONFIRMED_CASES", "引き渡し候補はまだZERO"],
+      ["NO_CONFIRMED_CASES", "引き渡し候補はまだありません"],
       ["COMPLETE_CASES", "案件入力・確認項目・履歴を整える"],
       ["KEEP_READ_ONLY_MASTER", "Core DB正本は読み取り専用のまま扱う"]
     ],

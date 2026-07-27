@@ -74,13 +74,22 @@ test("operator landing area hides implementation labels and stays mobile-safe", 
   assert.match(css, /body \{[\s\S]*overflow-x: hidden;/);
   assert.match(css, /\.dashboard-shell \{[\s\S]*overflow-x: hidden;/);
   assert.match(css, /\.summary-followup \{[\s\S]*display: grid;/);
+  assert.match(html, /id="talent-analytics-action-guide"[\s\S]*hidden/);
+  assert.match(css, /\.talent-analytics-action-guide\[hidden\] \{ display: none; \}/);
   assert.match(css, /\.talent-analytics-action-steps \{[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
   assert.match(css, /\.procedure-case-operation-summary \{[\s\S]*display: grid;/);
   assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-daily-command \{ grid-template-columns: 1fr; \}/);
   assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.summary-followup \{ grid-template-columns: 1fr; \}/);
+  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.summary-followup-actions \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
   assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-analytics-action-steps \{ grid-template-columns: 1fr; \}/);
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.talent-daily-command-actions \{ grid-template-columns: 1fr; \}/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.summary-followup-actions \{ grid-template-columns: 1fr; \}/);
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.procedure-case-operation-action-mix dl/);
+  assert.match(html, /id="operator-invalidation-code"[\s\S]*value="CANCELLED">キャンセル/);
+  assert.match(html, /id="operator-invalidation-code"[\s\S]*value="NO_SHOW">無断欠席/);
+  assert.match(html, /id="operator-invalidation-code"[\s\S]*value="DELETED">誤登録・削除/);
+  assert.match(html, /id="operator-invalidation-code"[\s\S]*value="WITHDRAWN">辞退/);
+  assert.doesNotMatch(html, />CANCELLED<|>NO_SHOW<|>DELETED<|>WITHDRAWN</);
   assert.doesNotMatch(css, /\.talent-implementation-progress|\.talent-final-readiness|\.talent-operation-handoff/);
   return;
 

@@ -806,7 +806,7 @@ export function buildReviewWorkloadCompletionSummary(guide) {
     BULK_REVIEW_READY: "一括対象・個別対象・隔離対象を混ぜず、承認前に件数カテゴリだけを読み合わせます。",
     INDIVIDUAL_REVIEW_REMAINS: "新規候補や手動紐付け候補を1件ずつ確認してから、次の承認へ進めます。",
     QUARANTINE_REVIEW_REMAINS: "隔離維持は自動昇格せず、理由と次回確認だけを残す前提で扱います。",
-    REVIEW_CLOSED: "一括反映・個別確認・隔離維持の残りカテゴリがすべてZEROです。"
+    REVIEW_CLOSED: "一括反映・個別確認・隔離維持の残りはありません。"
   }[category];
   const countCategory = (value) => value === 0 ? "ZERO" : value === 1 ? "ONE" : "MULTIPLE";
   return Object.freeze({
@@ -886,7 +886,7 @@ function renderReviewWorkloadGuide(documentObject, guide) {
       const description = documentObject.createElement("dd");
       item.dataset.category = metric.category;
       term.textContent = metric.label;
-      description.textContent = metric.countCategory;
+      description.textContent = formatSafeCategoryLabel(metric.countCategory);
       item.append(term, description);
       return item;
     }));
@@ -898,7 +898,7 @@ function renderReviewWorkloadGuide(documentObject, guide) {
       item.dataset.category = step.category;
       item.dataset.countCategory = step.countCategory;
       if (step.isCurrent) item.dataset.current = "true";
-      item.textContent = `${step.order}. ${step.label} / ${step.countCategory}`;
+      item.textContent = `${step.order}. ${step.label} / ${formatSafeCategoryLabel(step.countCategory)}`;
       return item;
     }));
   }
@@ -2607,6 +2607,21 @@ async function saveStudentProfile({ globalObject, documentObject }) {
 function setText(documentObject, id, text) {
   const element = documentObject?.getElementById?.(id);
   if (element) element.textContent = text;
+}
+
+function formatSafeCategoryLabel(category) {
+  return ({
+    ZERO: "なし",
+    NONE: "なし",
+    ONE: "1件",
+    MULTIPLE: "複数あり",
+    PRESENT: "あり",
+    EXACT1: "1件",
+    EXACT3: "3区分あり",
+    PARTIAL: "一部あり",
+    PASS: "確認済み",
+    NOT_EVALUATED: "未確認"
+  })[String(category || "")] || "確認中";
 }
 
 function announceDailyCommandRoute(documentObject, target, message) {

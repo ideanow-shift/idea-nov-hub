@@ -142,6 +142,8 @@ test("28卒 CSV approval readback prevents premature staging approval", async ()
   const source = await readFile(new URL("../portal/talent/csv-import-preflight.mjs", import.meta.url), "utf8");
   assert.match(source, /buildTalent28CsvOwnerApprovalDraft/);
   assert.match(source, /dataset\.ownerApprovalRequired/);
+  assert.match(source, /formatSafeCategoryLabel/);
+  assert.doesNotMatch(source, /source=\$\{receipt\.sourceCoverageCategory\}/);
   assert.match(css, /\.csv-approval-readback/);
   assert.match(css, /\.csv-approval-boundary/);
   assert.match(css, /\.csv-safe-preview/);

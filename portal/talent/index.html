@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>人財投資管理システム | NOV HUB</title>
-  <link rel="stylesheet" href="./style.css?v=20260727-operator-cleanup-1">
+  <link rel="stylesheet" href="./style.css?v=20260727-operator-clarity-1">
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
-  <script type="module" src="./app.mjs?v=20260727-operator-cleanup-1"></script>
+  <script type="module" src="./app.mjs?v=20260727-operator-clarity-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -14,7 +14,7 @@
       <div class="dashboard-brand">
         <img class="dashboard-brand-icon" src="./assets/icons/human-resources.svg" alt="" aria-hidden="true">
         <div>
-          <p class="eyebrow">NOV HUB / HUMAN CAPITAL</p>
+          <p class="eyebrow">NOV HUB / 人財管理</p>
           <h1 id="dashboard-title">人財投資管理システム</h1>
           <p class="lead">採用から入社後の手続きまで、人に関する業務を一つの画面で管理します。</p>
         </div>
@@ -89,7 +89,7 @@
       <section id="recruitment-summary" class="secondary-panel" role="tabpanel">
         <div class="section-heading">
           <div>
-            <p class="section-kicker">RECRUITMENT OVERVIEW</p>
+            <p class="section-kicker">採用サマリー</p>
             <h2>27卒 採用状況</h2>
           </div>
           <p id="historical-summary-status" class="status" data-state="loading" role="status" aria-live="polite">27卒データを集計しています</p>
@@ -104,17 +104,17 @@
           <article class="metric"><p class="metric-name">要確認・隔離</p><p class="metric-value">-</p></article>
         </section>
         <section class="summary-followup" aria-label="採用状況から学生フォローを開く">
-          <div><p class="section-kicker">FOLLOW-UP SHORTCUTS</p><h3>学生フォローを開く</h3></div>
+          <div><p class="section-kicker">次に見る場所</p><h3>学生フォローを開く</h3></div>
           <div id="talent-analytics-action-guide" class="talent-analytics-action-guide" data-category="NO_ANALYTICS_ACTION" aria-label="Talent analytics next operation">
             <div>
-              <span>NEXT OPERATION</span>
-              <strong id="talent-analytics-action-title">Checking analytics target</strong>
-              <p id="talent-analytics-action-copy">After staging aggregation, this guide points staff to the next safe follow-up queue.</p>
+              <span>おすすめ順</span>
+              <strong id="talent-analytics-action-title">次に開く一覧を確認中</strong>
+              <p id="talent-analytics-action-copy">集計後に、先に確認する学生一覧をここへ表示します。</p>
             </div>
             <ol id="talent-analytics-action-steps" class="talent-analytics-action-steps" data-category="NO_ANALYTICS_ACTION">
-              <li data-category="WAIT_FOR_STAGING">1. Recalculate after staging or CSV preflight</li>
-              <li data-category="KEEP_EMPTY_STATE">2. Keep write actions hidden while empty</li>
-              <li data-category="NO_RAW_VALUES">3. Do not expose personal or raw data in analytics cards</li>
+              <li data-category="WAIT_FOR_STAGING">1. 集計が出てから学生一覧を開く</li>
+              <li data-category="KEEP_EMPTY_STATE">2. 空の状態では更新操作を出さない</li>
+              <li data-category="NO_RAW_VALUES">3. 個人情報は集計カードに表示しない</li>
             </ol>
           </div>
           <div class="summary-followup-actions">
@@ -129,7 +129,7 @@
 
         <div class="section-heading confirmed-summary-heading">
           <div>
-            <p class="section-kicker">CONFIRMED OPERATIONS</p>
+            <p class="section-kicker">確定イベント</p>
             <h3>運用開始後の確定イベント</h3>
           </div>
           <div class="summary-command">
@@ -152,7 +152,7 @@
 
         <section class="import-overview" aria-labelledby="import-overview-title">
           <div>
-            <p class="section-kicker">2027 IMPORT STATUS</p>
+            <p class="section-kicker">27卒取込状況</p>
             <h3 id="import-overview-title">27卒 取込状況</h3>
           </div>
           <dl>
@@ -166,7 +166,7 @@
 
         <section class="csv-preflight-panel" aria-labelledby="talent-28-csv-title">
           <div>
-            <p class="section-kicker">2028 CSV PREFLIGHT</p>
+            <p class="section-kicker">28卒CSV確認</p>
             <h3 id="talent-28-csv-title">28卒CSV 形式検証</h3>
             <p>CSVをローカルで読み、年度・由来・必須項目・隔離候補だけを確認します。DB書込みや個人値の表示は行いません。</p>
           </div>
@@ -175,9 +175,9 @@
             <button id="talent-28-csv-template" type="button">CSV雛形を作成</button>
           </div>
           <dl class="csv-source-type-legend" aria-label="28卒CSVのsource_type説明">
-            <div><dt>CONTACTS_28</dt><dd>接点・LINE登録前後の候補</dd></div>
-            <div><dt>ENTRIES_28</dt><dd>応募・選考中の候補</dd></div>
-            <div><dt>OFFERS_28</dt><dd>内定・入社予定の候補</dd></div>
+            <div><dt data-source-type="CONTACTS_28">接点候補</dt><dd>接点・LINE登録前後の候補</dd></div>
+            <div><dt data-source-type="ENTRIES_28">応募候補</dt><dd>応募・選考中の候補</dd></div>
+            <div><dt data-source-type="OFFERS_28">内定候補</dt><dd>内定・入社予定の候補</dd></div>
           </dl>
           <ol id="talent-28-csv-preparation-guide" class="csv-preparation-guide" aria-label="28卒CSV選択前の準備ガイド"></ol>
           <p id="talent-28-csv-status" class="status" role="status" aria-live="polite">CSVは未選択です</p>
@@ -212,7 +212,7 @@
         </section>
 
         <section id="talent-operator-panel" class="operator-panel" aria-labelledby="operator-title" hidden>
-          <div class="operator-heading"><div><p class="section-kicker">FUNNEL EVENT ENTRY</p><h3 id="operator-title">採用イベント入力</h3></div><p id="operator-status" class="status" role="status" aria-live="polite">未送信</p></div>
+          <div class="operator-heading"><div><p class="section-kicker">採用イベント入力</p><h3 id="operator-title">採用イベント入力</h3></div><p id="operator-status" class="status" role="status" aria-live="polite">未送信</p></div>
           <p class="operator-confirmation-note">記録・失効は内容確認後に1回だけ送信されます。</p>
           <div class="operator-grid">
             <label>応募番号<input id="operator-application-no" autocomplete="off" inputmode="text" placeholder="NT-YYYY-NNNNNN"></label>
@@ -237,7 +237,7 @@
 
       <section id="recruitment-students" class="secondary-panel" role="tabpanel" hidden>
         <div class="section-heading student-heading">
-          <div><p class="section-kicker">STUDENT FOLLOW-UP</p><h2>27卒 学生フォロー</h2></div>
+          <div><p class="section-kicker">学生フォロー</p><h2>27卒 学生フォロー</h2></div>
           <div class="student-heading-actions">
             <p id="student-status" class="status" data-state="idle" role="status" aria-live="polite">データを読み込んでいます</p>
             <button id="student-add-open" class="primary-command" type="button">学生を追加</button>
@@ -246,7 +246,7 @@
 
         <section class="review-command-band" aria-labelledby="review-command-title">
           <div>
-            <p class="section-kicker">DATA PREPARATION</p>
+            <p class="section-kicker">データ準備</p>
             <h3 id="review-command-title">既存データを業務利用できる状態にする</h3>
             <p>接触データから応募者を作成し、本人一致を確認できたエントリー・内定だけを同じ応募者へ紐付けます。</p>
           </div>
@@ -376,7 +376,7 @@
 
         <section id="student-daily-queue-summary" class="student-daily-queue-summary" data-category="STEADY_STATE" aria-label="今日の学生フォロー処理順">
           <div>
-            <span>TODAY'S QUEUE</span>
+            <span>今日の優先順</span>
             <strong id="student-daily-queue-title">通常フォローを継続</strong>
             <p id="student-daily-queue-copy">検索・学校別・月別の導線から、次の対象を選びます。</p>
           </div>
@@ -396,7 +396,7 @@
 
         <section id="student-daily-queue-start-guide" class="student-daily-queue-start-guide" data-category="START_STEADY_LIST" data-filter-category="ALL_STUDENTS" aria-label="今日最初に開く学生フォロー導線">
           <div>
-            <span>START HERE</span>
+            <span>最初に開く</span>
             <strong id="student-daily-queue-start-title">通常フォローから始める</strong>
             <p id="student-daily-queue-start-copy">急ぎの件数がなければ、学校別・月別分析から対象を選んで日常フォローを続けます。</p>
           </div>
@@ -424,7 +424,7 @@
           <section class="student-list-panel" aria-labelledby="student-list-title">
             <header>
               <div><h3 id="student-list-title">学生一覧</h3><span id="student-result-count">0件</span></div>
-              <span class="data-badge">STAGING + 正本</span>
+              <span class="data-badge">取込データ + 正本</span>
             </header>
             <div id="student-list" class="student-list" role="listbox" aria-label="学生一覧"></div>
             <div id="student-empty" class="student-empty" hidden>
@@ -457,7 +457,7 @@
               </header>
               <section id="student-action-guide" class="student-action-guide" aria-live="polite">
                 <div>
-                  <p class="section-kicker">NEXT ACTION</p>
+                  <p class="section-kicker">次回対応</p>
                   <h4 id="student-action-guide-title">操作できる内容を確認しています</h4>
                   <p id="student-action-guide-copy"></p>
                 </div>
@@ -470,7 +470,7 @@
               <section id="student-review-boundary" class="student-review-boundary" aria-live="polite" aria-labelledby="student-review-boundary-title">
                 <span id="student-review-boundary-badge" class="student-review-boundary-badge">未選択</span>
                 <div>
-                  <p class="section-kicker">REVIEW BOUNDARY</p>
+                  <p class="section-kicker">確認区分</p>
                   <h4 id="student-review-boundary-title">整理レーンを確認しています</h4>
                   <p id="student-review-boundary-copy">学生を選択すると、一括・個別・隔離のどこで扱うかを表示します。</p>
                   <div class="student-review-boundary-points">
@@ -489,7 +489,7 @@
                 <div class="student-daily-operation-head">
                   <span id="student-daily-operation-badge" class="student-daily-operation-badge">未選択</span>
                   <div>
-                    <p class="section-kicker">TODAY'S OPERATION</p>
+                    <p class="section-kicker">今日の対応</p>
                     <h4 id="student-daily-operation-title">学生を選択してください</h4>
                   </div>
                 </div>
@@ -497,7 +497,7 @@
                 <ol id="student-daily-operation-steps" class="student-daily-operation-steps"></ol>
               </section>
               <section id="student-daily-completion" class="student-daily-completion" data-category="NO_SELECTION" aria-live="polite" aria-labelledby="student-daily-completion-title">
-                <p class="section-kicker">COMPLETION CHECK</p>
+                <p class="section-kicker">完了チェック</p>
                 <strong id="student-daily-completion-title">Select a student before recording completion</strong>
                 <p id="student-daily-completion-copy">The completion checklist stays inactive until one student row is selected.</p>
                 <ol id="student-daily-completion-steps" class="student-daily-completion-steps"></ol>
@@ -529,7 +529,7 @@
       <dialog id="student-review-dialog" class="review-dialog" aria-labelledby="review-dialog-title">
         <form method="dialog">
           <header>
-            <p class="section-kicker">OWNER CONFIRMATION</p>
+            <p class="section-kicker">確認操作</p>
             <h2 id="review-dialog-title">確認候補を反映しますか</h2>
           </header>
           <p>この操作は、表示中の個人値を変更せず、応募者の作成と一致候補の紐付けだけを単一トランザクションで行います。</p>
@@ -560,7 +560,7 @@
       <dialog id="student-audit-dialog" class="review-dialog audit-dialog" aria-labelledby="student-audit-dialog-title">
         <form method="dialog">
           <header>
-            <p class="section-kicker">PROFILE AUDIT</p>
+            <p class="section-kicker">変更履歴</p>
             <h2 id="student-audit-dialog-title">変更履歴</h2>
           </header>
           <p>個人値は表示せず、操作種別と変更項目だけを表示します。</p>
@@ -578,7 +578,7 @@
       <dialog id="student-profile-dialog" class="review-dialog profile-dialog" aria-labelledby="student-profile-dialog-title">
         <form id="student-profile-form">
             <header>
-              <p class="section-kicker">STUDENT INFORMATION</p>
+              <p class="section-kicker">学生情報</p>
               <h2 id="student-profile-dialog-title">学生情報を追加</h2>
             </header>
             <p>正本プロフィールまたはstaging補足情報を更新します。取込元のstaging原本や紐付け状態は変更しません。</p>
@@ -616,7 +616,7 @@
 
       <section id="recruitment-fairs" class="secondary-panel" role="tabpanel" hidden>
         <div class="section-heading">
-          <div><p class="section-kicker">FAIR &amp; ACQUISITION FLOW</p><h2>フェア・流入分析</h2></div>
+          <div><p class="section-kicker">フェア・流入</p><h2>フェア・流入分析</h2></div>
           <p id="fair-analysis-status" class="status" data-state="loading" role="status">集計しています</p>
         </div>
         <section class="analysis-kpis" aria-label="接触データの概要">
@@ -628,7 +628,7 @@
         <section class="analysis-panel" aria-labelledby="fair-flow-title">
           <header>
             <div><h3 id="fair-flow-title">月別 接点・選考推移</h3><p>27卒の記録月を基準に、各データ区分の件数を比較します。</p></div>
-            <span class="data-badge">STAGING</span>
+            <span class="data-badge">取込データ</span>
           </header>
           <div class="analysis-table-scroll">
             <table class="analysis-table">
@@ -643,7 +643,7 @@
 
       <section id="recruitment-schools" class="secondary-panel" role="tabpanel" hidden>
         <div class="section-heading">
-          <div><p class="section-kicker">SCHOOL ANALYSIS</p><h2>学校別 採用状況</h2></div>
+          <div><p class="section-kicker">学校分析</p><h2>学校別 採用状況</h2></div>
           <p id="school-analysis-status" class="status" data-state="loading" role="status">集計しています</p>
         </div>
         <section class="analysis-kpis" aria-label="学校情報の登録状況">
@@ -670,7 +670,7 @@
 
     <section id="panel-workforce" class="primary-panel" role="tabpanel" aria-labelledby="tab-workforce" hidden>
       <div class="section-heading workforce-heading">
-        <div><p class="section-kicker">EMPLOYEE PROCEDURES</p><h2>現職者管理</h2><p class="section-lead">入社・異動・休職・退職の案件を、Core DBの正本と照合して確認します。</p></div>
+        <div><p class="section-kicker">現職者管理</p><h2>現職者管理</h2><p class="section-lead">入社・異動・休職・退職の案件を、Core DBの正本と照合して確認します。</p></div>
         <span id="workforce-status" class="phase-badge">Core DB 読み取り待ち</span>
       </div>
 
@@ -689,17 +689,17 @@
 
       <section id="workforce-operation-boundaries" class="workforce-operation-boundaries" aria-label="現職者管理でできることとできないこと">
         <article>
-          <span>READ ONLY</span>
+          <span>読み取り専用</span>
           <strong>社員マスタは正本参照だけ</strong>
           <p>Core DBの社員・店舗・部署・役職は、この画面から直接書き換えません。</p>
         </article>
         <article>
-          <span>CASE WORK</span>
+          <span>案件整理</span>
           <strong>日常作業は案件で管理</strong>
           <p>入社・異動・休職・退職は、状態・期限・確認項目・履歴を案件として残します。</p>
         </article>
         <article>
-          <span>APPROVAL</span>
+          <span>別承認</span>
           <strong>Core反映は別承認</strong>
           <p>確認済み案件でも、社員マスタ反映・大量更新・削除は別の承認導線に分けます。</p>
         </article>
@@ -707,7 +707,7 @@
 
       <section id="workforce-procedure-desk" class="procedure-case-desk" aria-labelledby="workforce-case-title">
         <header>
-          <div><p class="section-kicker">PROCEDURE CASES</p><h3 id="workforce-case-title">手続き案件</h3><p>入社・異動・休職・退職の確認案件を記録します。ここから社員マスタは変更しません。</p></div>
+          <div><p class="section-kicker">手続き案件</p><h3 id="workforce-case-title">手続き案件</h3><p>入社・異動・休職・退職の確認案件を記録します。ここから社員マスタは変更しません。</p></div>
           <div class="procedure-case-header-controls">
             <label class="procedure-case-search"><span>案件を検索</span><input id="workforce-case-search" type="search" autocomplete="off" placeholder="対象者・手続きメモで検索"></label>
             <label class="procedure-case-procedure-filter"><span>表示する手続き</span><select id="workforce-case-procedure-filter"><option value="ALL">すべての手続き</option><option value="ONBOARDING">入社</option><option value="TRANSFER">異動</option><option value="LEAVE">休職・復職</option><option value="RETIREMENT">退職</option></select></label>
@@ -733,7 +733,7 @@
         </div>
         <section id="workforce-case-operation-summary" class="procedure-case-operation-summary" aria-live="polite" aria-label="今日の手続き案件処理">
           <div>
-            <p class="section-kicker">TODAY'S WORK</p>
+            <p class="section-kicker">今日の処理</p>
             <strong id="workforce-case-operation-title">今日の処理対象を確認しています</strong>
             <span id="workforce-case-operation-copy">期限・確認待ち・下書きの件数から、先に見るべきキューを表示します。</span>
           </div>
@@ -757,7 +757,7 @@
           </section>
           <section id="workforce-case-operation-start-guide" class="procedure-case-operation-start-guide" data-category="NO_OPEN_WORK" data-filter-status="ALL" data-filter-priority="ALL" aria-label="現職者管理で最初に開く導線">
             <div>
-              <span>START HERE</span>
+              <span>最初に開く</span>
               <strong id="workforce-case-operation-start-title">通常受付を継続する</strong>
               <p id="workforce-case-operation-start-copy">優先キューがなければ、新規案件受付と既存案件の履歴確認を続けます。</p>
             </div>
@@ -781,9 +781,9 @@
               <p id="workforce-case-core-handoff-readback-copy">確認済み案件が出るまで、社員マスタ更新の承認文は準備しません。</p>
               <ol id="workforce-case-core-handoff-readback-steps"></ol>
             </section>
-            <section id="workforce-case-core-handoff-final-check" class="procedure-case-core-handoff-readback" data-category="NO_CORE_HANDOFF_WORK" aria-label="Core DB handoff final check">
-              <strong id="workforce-case-core-handoff-final-check-title">Core DB handoff final check is idle</strong>
-              <p id="workforce-case-core-handoff-final-check-copy">Only confirmed cases can move to a separate owner approval.</p>
+            <section id="workforce-case-core-handoff-final-check" class="procedure-case-core-handoff-readback" data-category="NO_CORE_HANDOFF_WORK" aria-label="Core DB引き渡し最終確認">
+              <strong id="workforce-case-core-handoff-final-check-title">Core DB引き渡し候補はありません</strong>
+              <p id="workforce-case-core-handoff-final-check-copy">確認済み案件が出た場合だけ、別承認へ進めます。</p>
               <ol id="workforce-case-core-handoff-final-check-steps"></ol>
             </section>
           </section>

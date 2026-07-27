@@ -56,6 +56,8 @@ test("daily command center opens safe work areas without writes", async () => {
   assert.match(app, /ROUTE_WORKFORCE/);
   assert.match(app, /ROUTE_CSV28/);
   assert.doesNotMatch(html, /DAILY COMMAND/);
+  assert.doesNotMatch(html, /START HERE|TODAY'S WORK|NEXT OPERATION|FOLLOW-UP SHORTCUTS/);
+  assert.doesNotMatch(app, /START HERE/);
   assert.doesNotMatch(html, /data-talent-daily-open[\s\S]{0,260}(commit|promotion|LINE履歴|社員マスタへ直接反映)/i);
 });
 
@@ -71,8 +73,14 @@ test("operator landing area hides implementation labels and stays mobile-safe", 
   }
   assert.match(css, /body \{[\s\S]*overflow-x: hidden;/);
   assert.match(css, /\.dashboard-shell \{[\s\S]*overflow-x: hidden;/);
+  assert.match(css, /\.summary-followup \{[\s\S]*display: grid;/);
+  assert.match(css, /\.talent-analytics-action-steps \{[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
+  assert.match(css, /\.procedure-case-operation-summary \{[\s\S]*display: grid;/);
   assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-daily-command \{ grid-template-columns: 1fr; \}/);
+  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.summary-followup \{ grid-template-columns: 1fr; \}/);
+  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-analytics-action-steps \{ grid-template-columns: 1fr; \}/);
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.talent-daily-command-actions \{ grid-template-columns: 1fr; \}/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.procedure-case-operation-action-mix dl/);
   assert.doesNotMatch(css, /\.talent-implementation-progress|\.talent-final-readiness|\.talent-operation-handoff/);
   return;
 

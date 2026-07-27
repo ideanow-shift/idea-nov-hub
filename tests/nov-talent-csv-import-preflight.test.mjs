@@ -43,9 +43,9 @@ test("28卒 CSV staging approval guide stays separate from writes", async () => 
   assert.match(html, /talent-28-csv-staging-approval-guide/);
   assert.match(html, /id="talent-28-csv-run"/);
   assert.match(html, />選択したCSVを検証</);
-  assert.match(html, /csv-import-preflight\.mjs\?v=20260727-talent-28-csv-standalone-1/);
-  assert.match(html, /csv-preflight-fallback\.js\?v=20260727-talent-28-csv-fallback-1/);
-  assert.match(html, /app\.mjs\?v=20260727-talent-28-csv-run-button-2/);
+  assert.match(html, /csv-import-preflight\.mjs\?v=20260727-talent-28-csv-compatible-1/);
+  assert.doesNotMatch(html, /csv-preflight-fallback\.js/);
+  assert.match(html, /app\.mjs\?v=20260727-talent-28-csv-compatible-1/);
   assert.doesNotMatch(html, /Keep the workflow|approval text is prepared/i);
   assert.match(css, /\.csv-staging-approval-guide/);
 });
@@ -236,6 +236,28 @@ test("28卒 CSV preflight accepts the sealed column contract without exposing ro
   assert.equal(guide.nextCategory, "REQUEST_STAGING_PREFLIGHT_APPROVAL");
   assert.equal(guide.steps[0].countCategory, "ZERO");
   assert.equal(TALENT_28_CSV_PREFLIGHT_CONTRACT.databaseOperation, false);
+});
+
+test("28卒 CSV preflight accepts the compatible ChatGPT export headers", () => {
+  const compatibleHeader = [
+    "source_row_no", "graduation_year", "source_type", "source_label", "student_name", "student_name_kana",
+    "school_name", "faculty_name", "phone", "email", "line_name", "event_name", "event_date", "event_status",
+    "entry_status", "selection_status", "next_action_date", "follow_up_note", "owner_note",
+    "stable_key_hint", "mapping_hint", "quarantine_flag", "quarantine_reason"
+  ].join(",");
+  const csv = `${compatibleHeader}\n${row(["1", "2028", "CONTACTS_28", "contacts", "学生 太郎", "", "学校", "学部", "", "", "", "説明会", "2026-08-01", "接触", "", "", "2026-08-10", "", "", "", "", "FALSE", ""])}`;
+  const result = analyzeTalent28CsvPreflight(csv);
+  assert.equal(result.ok, true);
+  assert.equal(result.headerCategory, "PASS_COMPATIBLE_CHATGPT_EXPORT");
+  assert.equal(result.counts.totalRows, 1);
+  assert.equal(result.counts.contactsRows, 1);
+  assert.equal(result.rawValuesIncluded, false);
+});
+
+test("28卒 CSV preflight shows an explicit completion state after reading a file", async () => {
+  const source = await readFile(new URL("../portal/talent/csv-import-preflight.mjs", import.meta.url), "utf8");
+  assert.match(source, /status\.dataset\.completed = "true"/);
+  assert.match(source, /検証完了。/);
 });
 
 test("28卒 CSV preflight accepts contactless student touchpoints with name and school", () => {

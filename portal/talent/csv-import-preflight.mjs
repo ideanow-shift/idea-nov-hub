@@ -716,11 +716,13 @@ function normalizeKnownHeaderContract(rows) {
     return Object.freeze({ ok: false, headerCategory: exactCategory, rows });
   }
   const sourceIndex = Object.fromEntries(headers.map((header, index) => [header, index]));
-  const normalizedRows = dataRows.map((row) => REQUIRED_HEADERS.map((header) => {
+  const normalizedRows = dataRows
+    .filter((row) => !(row.length === 1 && String(row[0] ?? "").trim() === ""))
+    .map((row) => REQUIRED_HEADERS.map((header) => {
     if (header === "faculty_or_department") return row[sourceIndex.faculty_name] ?? "";
     if (header === "offer_status") return "";
     return row[sourceIndex[header]] ?? "";
-  }));
+    }));
   return Object.freeze({
     ok: true,
     headerCategory: "PASS_COMPATIBLE_CHATGPT_EXPORT",

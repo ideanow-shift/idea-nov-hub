@@ -4,6 +4,12 @@ const REQUIRED_HEADERS = Object.freeze([
   "entry_status", "selection_status", "offer_status", "next_action_date", "follow_up_note", "owner_note",
   "stable_key_hint", "mapping_hint", "quarantine_flag", "quarantine_reason"
 ]);
+const CHATGPT_EXPORT_HEADERS = Object.freeze([
+  "source_row_no", "graduation_year", "source_type", "source_label", "student_name", "student_name_kana",
+  "school_name", "faculty_name", "phone", "email", "line_name", "event_name", "event_date", "event_status",
+  "entry_status", "selection_status", "next_action_date", "follow_up_note", "owner_note",
+  "stable_key_hint", "mapping_hint", "quarantine_flag", "quarantine_reason"
+]);
 const SOURCE_TYPES_28 = Object.freeze(["CONTACTS_28", "ENTRIES_28", "OFFERS_28"]);
 
 export const TALENT_28_CSV_PREFLIGHT_CONTRACT = Object.freeze({
@@ -41,9 +47,10 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
   }
   const parsed = parseCsv(csvText);
   if (!parsed.ok) return safeSummary(parsed.category, "NOT_EVALUATED");
-  const [headers, ...rows] = parsed.rows;
-  const headerCategory = classifyHeaders(headers);
-  if (headerCategory !== "PASS") return safeSummary("CSV_HEADER_CONTRACT_MISMATCH", headerCategory);
+  const normalized = normalizeKnownHeaderContract(parsed.rows);
+  const [headers, ...rows] = normalized.rows;
+  const headerCategory = normalized.headerCategory;
+  if (!normalized.ok) return safeSummary("CSV_HEADER_CONTRACT_MISMATCH", headerCategory);
   if (rows.length > maxRows) return safeSummary("CSV_ROW_LIMIT_EXCEEDED", "PASS", { totalRows: rows.length });
 
   const index = Object.fromEntries(headers.map((header, position) => [header, position]));
@@ -696,6 +703,31 @@ function classifyHeaders(headers) {
   return REQUIRED_HEADERS.every((header, index) => headers[index] === header) ? "PASS" : "HEADER_ORDER_OR_NAME_MISMATCH";
 }
 
+function normalizeKnownHeaderContract(rows) {
+  const [headers, ...dataRows] = rows;
+  const exactCategory = classifyHeaders(headers);
+  if (exactCategory === "PASS") {
+    return Object.freeze({ ok: true, headerCategory: "PASS", rows });
+  }
+  const isChatGptExport = Array.isArray(headers)
+    && headers.length === CHATGPT_EXPORT_HEADERS.length
+    && CHATGPT_EXPORT_HEADERS.every((header, index) => headers[index] === header);
+  if (!isChatGptExport) {
+    return Object.freeze({ ok: false, headerCategory: exactCategory, rows });
+  }
+  const sourceIndex = Object.fromEntries(headers.map((header, index) => [header, index]));
+  const normalizedRows = dataRows.map((row) => REQUIRED_HEADERS.map((header) => {
+    if (header === "faculty_or_department") return row[sourceIndex.faculty_name] ?? "";
+    if (header === "offer_status") return "";
+    return row[sourceIndex[header]] ?? "";
+  }));
+  return Object.freeze({
+    ok: true,
+    headerCategory: "PASS_COMPATIBLE_CHATGPT_EXPORT",
+    rows: Object.freeze([REQUIRED_HEADERS, ...normalizedRows])
+  });
+}
+
 function parseCsv(text) {
   const rows = [];
   let row = [];
@@ -905,7 +937,10 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
     status.dataset.category = "CHECKING";
     status.textContent = "CSVを検証しています。完了までこの画面でお待ちください。";
     const text = await file.text();
-    render(analyzeTalent28CsvPreflight(text));
+    const result = analyzeTalent28CsvPreflight(text);
+    render(result);
+    status.dataset.completed = "true";
+    status.textContent = `検証完了。${status.textContent}`;
   };
   input.addEventListener("change", runSelectedFilePreflight);
   input.addEventListener("input", runSelectedFilePreflight);

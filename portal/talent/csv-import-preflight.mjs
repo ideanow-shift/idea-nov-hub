@@ -25,7 +25,7 @@ export function buildTalent28CsvPreparationGuide() {
     title: "ChatGPT整形後に確認すること",
     steps: Object.freeze([
       Object.freeze({ order: 1, category: "SOURCE_EXACT3", label: "CONTACTS_28・ENTRIES_28・OFFERS_28の3由来を分ける" }),
-      Object.freeze({ order: 2, category: "IDENTITY_MINIMUM", label: "氏名・学校・電話/メール/LINEのいずれかを最低条件にする" }),
+      Object.freeze({ order: 2, category: "IDENTITY_MINIMUM", label: "氏名・学校を最低条件にする。電話・メール・LINE表示名は任意の照合ヒントとして扱う" }),
       Object.freeze({ order: 3, category: "DATE_FORMAT", label: "日付はYYYY-MM-DDへ統一し、不明なものは空欄にする" }),
       Object.freeze({ order: 4, category: "QUARANTINE_REASON", label: "判断できない行はquarantine_flag TRUEと理由で隔離する" })
     ]),
@@ -93,7 +93,7 @@ export function analyzeTalent28CsvPreflight(csvText, { maxRows = 5000, maxBytes 
     const phone = value("phone");
     const email = value("email");
     const lineName = value("line_name");
-    const identityOk = value("student_name") !== "" && value("school_name") !== "" && [phone, email, lineName].some(Boolean);
+    const identityOk = value("student_name") !== "" && value("school_name") !== "";
     const datesOk = [value("event_date"), value("next_action_date")].every((date) => date === "" || /^\d{4}-\d{2}-\d{2}$/.test(date));
     const eventDate = value("event_date");
     const entryStatus = value("entry_status");
@@ -289,7 +289,7 @@ export function buildTalent28CsvFixGuide(result) {
     STRUCTURE: "列数・行番号・重複行番号をテンプレートに合わせてください",
     YEAR: "graduation_year を 2028 にそろえてください",
     SOURCE: "source_type と source_label を由来ごとに埋めてください",
-    IDENTITY: "氏名・学校・連絡手段の最低条件を補ってください",
+    IDENTITY: "氏名・学校を補ってください。電話・メール・LINE表示名は任意です",
     DATE: "日付は YYYY-MM-DD 形式にしてください",
     QUARANTINE: "隔離フラグ TRUE には理由を入れてください",
     DUPLICATE_HINT: "重複候補を確認し、必要なら隔離理由へ回してください",
@@ -316,7 +316,7 @@ export function buildTalent28CsvCorrectionRoute(fixGuide) {
     STRUCTURE: Object.freeze({ target: "CSV_TEMPLATE", title: "雛形へ戻す", copy: "列順・列数・source_row_noをテンプレートに合わせます。" }),
     YEAR: Object.freeze({ target: "GRADUATION_YEAR", title: "年度を確認", copy: "28卒だけを残し、別年度は別ファイルへ分けます。" }),
     SOURCE: Object.freeze({ target: "SOURCE_FIELDS", title: "由来を補う", copy: "source_typeとsource_labelを由来別に埋めます。" }),
-    IDENTITY: Object.freeze({ target: "IDENTITY_FIELDS", title: "本人識別を補う", copy: "氏名・学校・連絡手段の最低条件を整えます。" }),
+    IDENTITY: Object.freeze({ target: "IDENTITY_FIELDS", title: "本人識別を補う", copy: "氏名・学校を整えます。電話・メール・LINE表示名は任意の照合ヒントです。" }),
     DATE: Object.freeze({ target: "DATE_FIELDS", title: "日付を直す", copy: "日付はYYYY-MM-DD、不明な日付は空欄にします。" }),
     QUARANTINE: Object.freeze({ target: "QUARANTINE_FIELDS", title: "隔離理由を補う", copy: "TRUEの隔離行には理由を入れて投入候補と分けます。" }),
     DUPLICATE_HINT: Object.freeze({ target: "DUPLICATE_REVIEW", title: "重複候補を確認", copy: "同一候補の可能性を確認し、迷う行は隔離へ回します。" }),
@@ -341,7 +341,7 @@ export function buildTalent28CsvCorrectionWorkbench(result) {
     STRUCTURE: Object.freeze(["source_row_no", "列順", "列数"]),
     YEAR: Object.freeze(["graduation_year"]),
     SOURCE: Object.freeze(["source_type", "source_label"]),
-    IDENTITY: Object.freeze(["student_name", "school_name", "phone/email/line_name"]),
+    IDENTITY: Object.freeze(["student_name", "school_name"]),
     DATE: Object.freeze(["event_date", "next_action_date"]),
     QUARANTINE: Object.freeze(["quarantine_flag", "quarantine_reason"]),
     DUPLICATE_HINT: Object.freeze(["stable_key_hint", "mapping_hint", "連絡先hint"]),

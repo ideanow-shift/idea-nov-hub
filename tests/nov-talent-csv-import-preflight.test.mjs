@@ -164,7 +164,7 @@ test("28卒 CSV correction workbench shows safe field groups before staging appr
     counts: { totalRows: 3, readyRows: 3, quarantineRows: 0 }
   });
   assert.equal(identity.category, "IDENTITY");
-  assert.deepEqual(identity.fieldGroups, Object.freeze(["student_name", "school_name", "phone/email/line_name"]));
+  assert.deepEqual(identity.fieldGroups, Object.freeze(["student_name", "school_name"]));
   assert.equal(identity.canRequestStagingPreflight, false);
   assert.equal(identity.productionDbOperation, false);
   assert.equal(identity.stagingOrCanonicalWriteReachable, false);
@@ -230,6 +230,17 @@ test("28卒 CSV preflight accepts the sealed column contract without exposing ro
   assert.equal(guide.nextCategory, "REQUEST_STAGING_PREFLIGHT_APPROVAL");
   assert.equal(guide.steps[0].countCategory, "ZERO");
   assert.equal(TALENT_28_CSV_PREFLIGHT_CONTRACT.databaseOperation, false);
+});
+
+test("28卒 CSV preflight accepts contactless student touchpoints with name and school", () => {
+  const csv = `${header}\n${row(["1", "2028", "CONTACTS_28", "fair", "学生名", "", "学校名", "", "", "", "", "イベント", "2026-08-01", "接触", "", "", "", "", "", "", "", "FALSE", ""])}`;
+  const result = analyzeTalent28CsvPreflight(csv);
+  assert.equal(result.fixedCategory, "PASS");
+  assert.equal(result.counts.readyRows, 1);
+  assert.equal(result.counts.quarantineRows, 0);
+  assert.equal(result.counts.phoneRows + result.counts.emailRows + result.counts.lineRows, 0);
+  assert.equal(result.counts.missingIdentityRows, 0);
+  assert.equal(result.rawValuesIncluded, false);
 });
 
 test("28卒 CSV preflight quarantines unsafe year and identity rows by category only", () => {

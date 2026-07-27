@@ -12,7 +12,7 @@ import { createTalentHistoricalReviewController } from "./review.mjs?v=20260725-
 import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260726-talent-analytics-action-guide-1";
 import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-review-kpis-1";
 import { createTalentStagingSupplementController } from "./staging-supplement.mjs?v=20260725-staging-edit-1";
-import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260726-talent-28-csv-owner-handoff-1";
+import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260727-talent-28-csv-run-button-1";
 import { buildWorkforceReadinessViewModel, renderWorkforceReadiness } from "./workforce-readiness.mjs?v=20260726-workforce-queue-case-prefill-1";
 import { initializeWorkforceProcedureDesk } from "./workforce-procedures.mjs?v=20260726-workforce-boundary-note-1";
 

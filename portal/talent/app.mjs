@@ -247,13 +247,13 @@ export function initializeTalentNavigation({
       if (target === "students") {
         primaryButtons.find((item) => item.dataset.primaryTab === "recruitment")?.click?.();
         secondaryButtons.find((item) => item.dataset.secondaryTab === "students")?.click?.();
-        announceDailyCommandRoute(documentObject, target, "学生フォローへ移動しました。START HERE の案内から、期限・要確認・隔離の順に開けます。");
+        announceDailyCommandRoute(documentObject, target, "学生フォローへ移動しました。最初に開く案内から、期限・要確認・隔離の順に確認できます。");
         focusDailyCommandTarget(documentObject, "student-daily-queue-start-guide");
       }
       if (target === "workforce") {
         primaryButtons.find((item) => item.dataset.primaryTab === "workforce")?.click?.();
         workforceButtons.find((item) => item.dataset.workforceTab === "onboarding")?.click?.();
-        announceDailyCommandRoute(documentObject, target, "現職者管理へ移動しました。START HERE から期限超過・確認待ち・下書きを分けて処理できます。");
+        announceDailyCommandRoute(documentObject, target, "現職者管理へ移動しました。最初に開く案内から、期限超過・確認待ち・下書きを分けて処理できます。");
         focusDailyCommandTarget(documentObject, "workforce-case-operation-start-guide");
       }
       if (target === "csv28") {

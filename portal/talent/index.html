@@ -8,6 +8,7 @@
   <script src="./runtime-config.candidate.js?v=20260725-bulk-triage-1"></script>
   <script type="module" src="./csv-import-preflight.mjs?v=20260727-talent-28-csv-standalone-1"></script>
   <script type="module" src="./app.mjs?v=20260727-talent-28-csv-run-button-2"></script>
+  <script defer src="./csv-preflight-fallback.js?v=20260727-talent-28-csv-fallback-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -200,12 +201,12 @@
           </section>
           <section id="talent-28-csv-approval-boundary" class="csv-approval-boundary" data-category="BLOCK_OWNER_TEXT" aria-label="28卒CSV staging approval boundary">
             <strong id="talent-28-csv-approval-boundary-title">Owner approval boundary is blocked</strong>
-            <p id="talent-28-csv-approval-boundary-copy">Keep the workflow in CSV correction until the safe categories are ready.</p>
+            <p id="talent-28-csv-approval-boundary-copy">CSV形式検証がPASSになるまで、この画面で修正確認を続けます。</p>
             <ol id="talent-28-csv-approval-boundary-checks"></ol>
           </section>
           <section id="talent-28-csv-owner-approval-draft" class="csv-approval-boundary" data-category="APPROVAL_DRAFT_BLOCKED" aria-label="28卒CSV owner approval draft readiness">
             <strong id="talent-28-csv-owner-approval-draft-title">Owner approval draft is blocked</strong>
-            <p id="talent-28-csv-owner-approval-draft-copy">The approval text is prepared only after local preflight is safe.</p>
+            <p id="talent-28-csv-owner-approval-draft-copy">投入承認文は、CSV形式検証が安全に完了した後だけ表示します。</p>
             <ol id="talent-28-csv-owner-approval-draft-steps"></ol>
           </section>
           <section id="talent-28-csv-safe-preview" class="csv-safe-preview" data-category="PREVIEW_NOT_READY" aria-label="28卒CSV安全プレビュー">

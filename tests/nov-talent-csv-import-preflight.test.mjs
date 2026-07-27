@@ -44,7 +44,9 @@ test("28卒 CSV staging approval guide stays separate from writes", async () => 
   assert.match(html, /id="talent-28-csv-run"/);
   assert.match(html, />選択したCSVを検証</);
   assert.match(html, /csv-import-preflight\.mjs\?v=20260727-talent-28-csv-standalone-1/);
+  assert.match(html, /csv-preflight-fallback\.js\?v=20260727-talent-28-csv-fallback-1/);
   assert.match(html, /app\.mjs\?v=20260727-talent-28-csv-run-button-2/);
+  assert.doesNotMatch(html, /Keep the workflow|approval text is prepared/i);
   assert.match(css, /\.csv-staging-approval-guide/);
 });
 

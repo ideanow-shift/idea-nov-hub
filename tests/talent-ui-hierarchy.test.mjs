@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildBulkTriageCounts, buildBulkTriageQueueFilter, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadApprovalGuide, buildReviewWorkloadGuide, buildReviewWorkloadSteps, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyCompletionChecklist, buildStudentDailyOperation, buildStudentDailyQueueStartFilter, buildStudentDailyQueueStartGuide, buildStudentDailyQueueSummary, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewDecisionGuide, buildStudentReviewLaneSteps, buildStudentReviewModeCopy, buildStudentReviewQueuePriority, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
+import { buildBulkTriageCounts, buildBulkTriageQueueFilter, buildMatchOnlyReviewProposal, buildMonthlyFollowUpFilter, buildOnboardingHandoffDraft, buildReviewWorkloadApprovalGuide, buildReviewWorkloadGuide, buildReviewWorkloadSteps, buildSchoolFollowUpFilter, buildSingleStudentReviewProposal, buildStudentDailyCompletionChecklist, buildStudentDailyOperation, buildStudentDailyQueueStartFilter, buildStudentDailyQueueStartGuide, buildStudentDailyQueueSummary, buildStudentEmptyState, buildStudentFilterSummary, buildStudentReviewBoundary, buildStudentReviewDecisionGuide, buildStudentReviewLaneSteps, buildStudentReviewModeCopy, buildStudentReviewQueuePriority, buildSummaryFollowUpFilter, classifyTalentStudentFollowUp, filterTalentStudents, getTalentStudentMonthKey, getTalentStudentProgressKey, isContactShortageQuarantineReleaseCandidate, isNewApplicantCandidate, sortTalentStudentsByFollowUp } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
@@ -724,11 +724,11 @@ test("bulk triage separates exact matches, new candidates, ambiguous rows, and h
     { mappingStatus: "UNMAPPED", sourceCode: "ENTRIES_27", suggestionCategory: "EXACT1" },
     { mappingStatus: "UNMAPPED", sourceCode: "OFFERS_27", suggestionCategory: "NONE" },
     { mappingStatus: "UNMAPPED", sourceCode: "OFFERS_27", suggestionCategory: "AMBIGUOUS" },
-    { mappingStatus: "UNMAPPED", sourceCode: "CONTACTS_27", suggestionCategory: "NONE" },
+    { mappingStatus: "UNMAPPED", sourceCode: "CONTACTS_27", suggestionCategory: "NONE", reasonCodes: ["SOURCE_KEY_UNPROVEN"] },
     { mappingStatus: "OWNER_CONFIRMED", sourceCode: "CONTACTS_27", suggestionCategory: "NONE" }
   ]);
 
-  assert.deepEqual(counts, { exact1: 1, newApplicant: 1, ambiguous: 1, hold: 1 });
+  assert.deepEqual(counts, { exact1: 1, newApplicant: 1, contactShortageRelease: 1, ambiguous: 1, hold: 0 });
   assert.deepEqual(buildBulkTriageQueueFilter("newApplicant"), { query: "", source: "ALL", state: "NEW_CANDIDATE", progress: "ALL" });
   assert.deepEqual(buildBulkTriageQueueFilter("ambiguous"), { query: "", source: "ALL", state: "NEEDS_ACTION", progress: "ALL" });
   assert.deepEqual(buildBulkTriageQueueFilter("hold"), { query: "", source: "ALL", state: "NEEDS_ACTION", progress: "ALL" });
@@ -742,20 +742,21 @@ test("review workload guide separates bulk-safe, individual, and quarantine work
     { mappingStatus: "UNMAPPED", sourceCode: "ENTRIES_27", suggestionCategory: "EXACT1" },
     { mappingStatus: "UNMAPPED", sourceCode: "OFFERS_27", suggestionCategory: "NONE" },
     { mappingStatus: "UNMAPPED", sourceCode: "OFFERS_27", suggestionCategory: "AMBIGUOUS" },
-    { mappingStatus: "UNMAPPED", sourceCode: "CONTACTS_27", suggestionCategory: "NONE" },
+    { mappingStatus: "UNMAPPED", sourceCode: "CONTACTS_27", suggestionCategory: "NONE", reasonCodes: ["SOURCE_KEY_UNPROVEN"] },
     { mappingStatus: "OWNER_CONFIRMED", sourceCode: "CONTACTS_27", suggestionCategory: "NONE" }
   ]);
 
   assert.equal(guide.nextAction, "BULK_MATCH_ONLY");
   assert.equal(guide.nextFilterState, "OWNER_REVIEW");
   assert.equal(guide.bulk, 1);
-  assert.equal(guide.individual, 1);
-  assert.equal(guide.quarantine, 2);
+  assert.equal(guide.individual, 2);
+  assert.equal(guide.contactShortageRelease, 1);
+  assert.equal(guide.quarantine, 1);
   const steps = buildReviewWorkloadSteps(guide);
   const approvalGuide = buildReviewWorkloadApprovalGuide(guide);
   assert.deepEqual(steps.map((step) => step.category), ["BULK_MATCH_ONLY", "INDIVIDUAL_REVIEW", "KEEP_QUARANTINED"]);
   assert.equal(steps[0].isCurrent, true);
-  assert.equal(steps[2].countCategory, "MULTIPLE");
+  assert.equal(steps[2].countCategory, "ONE");
   assert.equal(approvalGuide.category, "BULK_APPROVAL_READY");
   assert.equal(approvalGuide.approvalReachable, true);
   assert.equal(approvalGuide.canonicalWriteReachable, false);
@@ -783,6 +784,29 @@ test("review workload guide separates bulk-safe, individual, and quarantine work
   assert.match(app, /review-workload-open/);
   assert.match(app, /data-triage-queue/);
   assert.match(app, /dataset\.nextAction = guide\.nextAction/);
+});
+
+test("contactless 27卒 contact rows move from quarantine hold to individual review", () => {
+  const contactless = {
+    mappingStatus: "UNMAPPED",
+    sourceCode: "CONTACTS_27",
+    suggestionCategory: "NONE",
+    reason_codes: ["SOURCE_KEY_UNPROVEN"],
+    phone: "",
+    email: "",
+    lineName: ""
+  };
+
+  assert.equal(isContactShortageQuarantineReleaseCandidate(contactless), true);
+  assert.equal(isContactShortageQuarantineReleaseCandidate({ ...contactless, email: "masked@example.test" }), false);
+  assert.equal(isContactShortageQuarantineReleaseCandidate({ ...contactless, reason_codes: [] }), false);
+  assert.equal(isContactShortageQuarantineReleaseCandidate({ ...contactless, sourceCode: "OFFERS_27" }), false);
+
+  const guide = buildReviewWorkloadGuide([contactless]);
+  assert.equal(guide.nextAction, "INDIVIDUAL_REVIEW");
+  assert.equal(guide.individual, 1);
+  assert.equal(guide.quarantine, 0);
+  assert.deepEqual(filterTalentStudents([{ ...contactless, displayName: "候補", classification: "QUARANTINE" }], { state: "NEW_CANDIDATE" }).map((row) => row.displayName), ["候補"]);
 });
 
 test("new applicant candidate filtering stays limited to unmapped entry and offer rows", () => {

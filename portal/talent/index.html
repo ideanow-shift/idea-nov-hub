@@ -261,7 +261,7 @@
           <button id="student-review-open" type="button" disabled>確認候補を一括反映</button>
           <div class="bulk-triage" aria-label="27卒データの一括分類">
             <div><span>自動一致</span><strong id="triage-exact1">-</strong><small>一括反映可能</small></div>
-            <div><span>新規候補</span><strong id="triage-new">-</strong><small>接触データなし</small><button id="triage-new-open" class="triage-command" type="button" data-triage-queue="newApplicant">候補を表示</button></div>
+            <div><span>個別確認候補</span><strong id="triage-new">-</strong><small>新規・連絡先未取得</small><button id="triage-new-open" class="triage-command" type="button" data-triage-queue="newApplicant">候補を表示</button></div>
             <div><span>曖昧・重複</span><strong id="triage-ambiguous">-</strong><small>自動処理不可</small><button id="triage-ambiguous-open" class="triage-command" type="button" data-triage-queue="ambiguous">要確認を表示</button></div>
             <div><span>保留</span><strong id="triage-hold">-</strong><small>確認待ち</small><button id="triage-hold-open" class="triage-command" type="button" data-triage-queue="hold">保留を表示</button></div>
           </div>
@@ -280,7 +280,7 @@
             <article>
               <span>個別確認</span>
               <strong id="review-workload-individual">-</strong>
-              <p id="review-workload-individual-copy">新規候補や手動紐付けは1件ずつ確認します。</p>
+              <p id="review-workload-individual-copy">新規候補や連絡先未取得の接触行は1件ずつ確認します。</p>
             </article>
             <article>
               <span>隔離維持</span>
@@ -320,7 +320,7 @@
               <option value="OWNER_REVIEW">要確認</option>
               <option value="QUARANTINE">隔離</option>
               <option value="IMPORTABLE">確認済み</option>
-              <option value="NEW_CANDIDATE">新規候補</option>
+              <option value="NEW_CANDIDATE">個別確認候補</option>
               <option value="NEEDS_ACTION">要確認・隔離</option>
             </select>
           </label>
@@ -367,7 +367,7 @@
             <button id="student-filter-review" class="filter-command" type="button" aria-pressed="false" data-label="要確認">要確認</button>
             <button id="student-filter-quarantine" class="filter-command" type="button" aria-pressed="false" data-label="隔離">隔離</button>
             <button id="student-filter-confirmed" class="filter-command" type="button" aria-pressed="false" data-label="確認済み">確認済み</button>
-            <button id="student-filter-new" class="filter-command" type="button" aria-pressed="false" data-label="新規候補">新規候補</button>
+            <button id="student-filter-new" class="filter-command" type="button" aria-pressed="false" data-label="個別確認候補">個別確認候補</button>
             <button id="student-filter-reset" class="filter-command student-filter-reset" type="button" disabled aria-disabled="true">条件をリセット</button>
           </div>
         </section>

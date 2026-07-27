@@ -631,18 +631,20 @@ export function buildBulkTriageCounts(students) {
   const exact1 = unmapped.filter((student) => student.suggestionCategory === "EXACT1").length;
   const ambiguous = unmapped.filter((student) => student.suggestionCategory === "AMBIGUOUS").length;
   const newApplicant = unmapped.filter(isNewApplicantCandidate).length;
+  const contactShortageRelease = unmapped.filter(isContactShortageQuarantineReleaseCandidate).length;
   return Object.freeze({
     exact1,
     newApplicant,
+    contactShortageRelease,
     ambiguous,
-    hold: Math.max(0, unmapped.length - exact1 - ambiguous - newApplicant)
+    hold: Math.max(0, unmapped.length - exact1 - ambiguous - newApplicant - contactShortageRelease)
   });
 }
 
 export function buildReviewWorkloadGuide(students) {
   const counts = buildBulkTriageCounts(students);
   const bulk = counts.exact1;
-  const individual = counts.newApplicant;
+  const individual = counts.newApplicant + counts.contactShortageRelease;
   const quarantine = counts.ambiguous + counts.hold;
   const nextAction = bulk > 0
     ? "BULK_MATCH_ONLY"
@@ -672,11 +674,12 @@ export function buildReviewWorkloadGuide(students) {
     bulk,
     individual,
     quarantine,
+    contactShortageRelease: counts.contactShortageRelease,
     bulkCopy: bulk > 0
       ? "一致候補だけを一括反映できます。新規・曖昧行は混ぜません。"
       : "一括反映できる一致候補はありません。",
     individualCopy: individual > 0
-      ? "新規候補は個別確認で正本化の判断をします。"
+      ? "新規候補と、連絡先未取得だけで止まっていた接触行は個別確認で判断します。"
       : "個別確認で新規判断する候補はありません。",
     quarantineCopy: quarantine > 0
       ? "曖昧・保留は隔離維持し、補足と次回対応で追跡します。"
@@ -833,10 +836,45 @@ export function isNewApplicantCandidate(student) {
     && student.suggestionCategory === "NONE";
 }
 
+function normalizeReasonCodes(student) {
+  const raw = [
+    student?.reasonCodes,
+    student?.reason_codes,
+    student?.reasonCode,
+    student?.reason_code
+  ].flatMap((value) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === "string") return value.split(/[,\s]+/u);
+    return [];
+  });
+  return raw.map((value) => String(value || "").trim()).filter(Boolean);
+}
+
+function hasStudentContactHint(student) {
+  return [
+    student?.phone,
+    student?.email,
+    student?.lineName,
+    student?.lineDisplayName,
+    student?.line_display_name
+  ].some((value) => String(value || "").trim().length > 0);
+}
+
+export function isContactShortageQuarantineReleaseCandidate(student) {
+  if (!student || student.mappingStatus !== "UNMAPPED") return false;
+  if (student.sourceCode !== "CONTACTS_27" || student.suggestionCategory !== "NONE") return false;
+  if (hasStudentContactHint(student)) return false;
+  const reasons = normalizeReasonCodes(student);
+  return reasons.includes("SOURCE_KEY_UNPROVEN")
+    || reasons.includes("CONTACT_CHANNEL_MISSING")
+    || reasons.includes("MISSING_CONTACT_CHANNEL")
+    || reasons.includes("CONTACTLESS_TOUCHPOINT");
+}
+
 function renderBulkTriageSummary(documentObject, students) {
   const counts = buildBulkTriageCounts(students);
   setText(documentObject, "triage-exact1", counts.exact1);
-  setText(documentObject, "triage-new", counts.newApplicant);
+  setText(documentObject, "triage-new", counts.newApplicant + counts.contactShortageRelease);
   setText(documentObject, "triage-ambiguous", counts.ambiguous);
   setText(documentObject, "triage-hold", counts.hold);
   renderReviewWorkloadGuide(documentObject, buildReviewWorkloadGuide(students));
@@ -1329,7 +1367,7 @@ const STUDENT_FILTER_LABELS = Object.freeze({
     OWNER_REVIEW: "要確認",
     QUARANTINE: "隔離",
     IMPORTABLE: "確認済み",
-    NEW_CANDIDATE: "新規候補",
+    NEW_CANDIDATE: "個別確認候補",
     NEEDS_ACTION: "要確認・隔離"
   }),
   progress: Object.freeze({
@@ -1389,7 +1427,7 @@ export function filterTalentStudents(students, { query = "", source = "ALL", sta
   return (Array.isArray(students) ? students : []).filter((student) => {
     if (source !== "ALL" && student.sourceCode !== source) return false;
     if (state === "NEW_CANDIDATE") {
-      if (!isNewApplicantCandidate(student)) return false;
+      if (!isNewApplicantCandidate(student) && !isContactShortageQuarantineReleaseCandidate(student)) return false;
     } else if (state === "NEEDS_ACTION") {
       if (!["OWNER_REVIEW", "QUARANTINE"].includes(student.classification)) return false;
     } else if (state !== "ALL" && student.classification !== state) {

@@ -608,7 +608,7 @@ function renderTalent28CsvReceiptText(receipt) {
     READY_WITH_DUPLICATE_REVIEW: "重複候補の確認が必要です",
     NEEDS_SAFE_FIX: "CSVの安全修正が必要です"
   }[receipt.category] || "CSVの状態を確認してください";
-  return `${categoryText} / source=${receipt.sourceCoverageCategory} / status=${receipt.statusCoverageCategory} / followUp=${receipt.followUpCoverageCategory} / issue=${receipt.issueCategory}`;
+  return `${categoryText} / 由来=${formatSafeCategoryLabel(receipt.sourceCoverageCategory)} / 状態=${formatSafeCategoryLabel(receipt.statusCoverageCategory)} / 次回対応=${formatSafeCategoryLabel(receipt.followUpCoverageCategory)} / 修正確認=${formatSafeCategoryLabel(receipt.issueCategory)}`;
 }
 
 function safeSummary(fixedCategory, headerCategory, partialCounts = {}) {
@@ -669,6 +669,21 @@ function countDuplicateOccurrences(map) {
 function countCategory(value) {
   const count = Number(value || 0);
   return count <= 0 ? "ZERO" : count === 1 ? "ONE" : "MULTIPLE";
+}
+
+function formatSafeCategoryLabel(category) {
+  return ({
+    ZERO: "なし",
+    NONE: "なし",
+    ONE: "1件",
+    MULTIPLE: "複数あり",
+    PRESENT: "あり",
+    EXACT1: "1件",
+    EXACT3: "3区分あり",
+    PARTIAL: "一部あり",
+    PASS: "確認済み",
+    NOT_EVALUATED: "未確認"
+  })[String(category || "")] || "確認中";
 }
 
 function freezeCounts(counts) {
@@ -867,7 +882,7 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
       const term = documentObject.createElement("dt");
       const description = documentObject.createElement("dd");
       term.textContent = metric.label;
-      description.textContent = metric.countCategory;
+      description.textContent = formatSafeCategoryLabel(metric.countCategory);
       item.dataset.category = metric.category;
       item.append(term, description);
       return item;
@@ -876,7 +891,7 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
     fixGuideList.replaceChildren(...fixGuide.steps.map((step) => {
       const item = documentObject.createElement("li");
       item.dataset.category = step.category;
-      item.textContent = `${step.order}. ${step.label} / ${step.countCategory}`;
+      item.textContent = `${step.order}. ${step.label} / ${formatSafeCategoryLabel(step.countCategory)}`;
       return item;
     }));
   };

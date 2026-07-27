@@ -738,6 +738,7 @@ function parseCsv(text) {
 
 export function initializeTalent28CsvPreflight({ documentObject = globalThis.document } = {}) {
   const input = documentObject?.getElementById?.("talent-28-csv-file");
+  const runButton = documentObject?.getElementById?.("talent-28-csv-run");
   const templateButton = documentObject?.getElementById?.("talent-28-csv-template");
   const prepList = documentObject?.getElementById?.("talent-28-csv-preparation-guide");
   const status = documentObject?.getElementById?.("talent-28-csv-status");
@@ -765,7 +766,7 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
   const safePreviewTitle = documentObject?.getElementById?.("talent-28-csv-safe-preview-title");
   const safePreviewCopy = documentObject?.getElementById?.("talent-28-csv-safe-preview-copy");
   const safePreviewMetrics = documentObject?.getElementById?.("talent-28-csv-safe-preview-metrics");
-  if (!input || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute || !correctionWorkbench || !stagingApprovalGuide || !ownerHandoffChecklist || !approvalReadback || !approvalReadbackTitle || !approvalReadbackCopy || !approvalReadbackSteps || !approvalBoundary || !approvalBoundaryTitle || !approvalBoundaryCopy || !approvalBoundaryChecks || !ownerApprovalDraft || !ownerApprovalDraftTitle || !ownerApprovalDraftCopy || !ownerApprovalDraftSteps || !safePreview || !safePreviewTitle || !safePreviewCopy || !safePreviewMetrics) return Object.freeze({ initialized: false });
+  if (!input || !runButton || !templateButton || !prepList || !status || !summary || !planList || !receiptStatus || !fixGuideList || !correctionRoute || !correctionWorkbench || !stagingApprovalGuide || !ownerHandoffChecklist || !approvalReadback || !approvalReadbackTitle || !approvalReadbackCopy || !approvalReadbackSteps || !approvalBoundary || !approvalBoundaryTitle || !approvalBoundaryCopy || !approvalBoundaryChecks || !ownerApprovalDraft || !ownerApprovalDraftTitle || !ownerApprovalDraftCopy || !ownerApprovalDraftSteps || !safePreview || !safePreviewTitle || !safePreviewCopy || !safePreviewMetrics) return Object.freeze({ initialized: false });
   if (input.dataset.bound === "true") return Object.freeze({ initialized: true, duplicateBindingPrevented: true });
   input.dataset.bound = "true";
   const preparation = buildTalent28CsvPreparationGuide();
@@ -895,15 +896,20 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
       return item;
     }));
   };
-  input.addEventListener("change", async () => {
+  const runSelectedFilePreflight = async () => {
     const file = input.files?.[0];
     if (!file || !/\.csv$/i.test(file.name) || file.size > 5_000_000) {
       render(safeSummary("CSV_FILE_INVALID", "NOT_EVALUATED"));
       return;
     }
+    status.dataset.category = "CHECKING";
+    status.textContent = "CSVを検証しています。完了までこの画面でお待ちください。";
     const text = await file.text();
     render(analyzeTalent28CsvPreflight(text));
-  });
+  };
+  input.addEventListener("change", runSelectedFilePreflight);
+  input.addEventListener("input", runSelectedFilePreflight);
+  runButton.addEventListener("click", runSelectedFilePreflight);
   templateButton.addEventListener("click", () => {
     const blob = new Blob([buildTalent28CsvTemplate()], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);

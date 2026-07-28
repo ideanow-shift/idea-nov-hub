@@ -5,6 +5,7 @@ import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWork
 import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=06AD1D86CD8B66B5";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 import { buildStoreWorkforceMonthlySummaryCsvTemplate } from "./store-workforce-monthly-summary-csv.js?v=4BA67C2DE5F7851E";
+import { renderStorePlQuickIntake } from "./store-pl-quick-intake.js?v=1F58A2404F89BA55";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
 const CORPORATE_VIEWS = new Set([...FINANCE_VIEWS, "dataops"]);
@@ -27,7 +28,7 @@ const elements = {
   profitability: byId("profitability-rows"), productivity: byId("productivity-rows"), safety: byId("safety-rows"), efficiency: byId("efficiency-rows"),
   financialPreviewFourAxis: byId("financial-local-preview-four-axis"), financialPreviewDepartments: byId("financial-local-preview-departments"),
   departmentTabs: byId("department-tabs"), departmentKpis: byId("department-kpis"), departmentRows: byId("department-rows"), departmentInsight: byId("department-insight"),
-  storeScope: byId("store-scope"), workforceEvidence: byId("workforce-evidence-status"), storeKpis: byId("store-kpis"), financialPreviewStores: byId("financial-local-preview-stores"), storeRows: byId("store-rows"), csvRequirements: byId("csv-requirements"),
+  storeScope: byId("store-scope"), storePlQuickIntake: byId("store-pl-quick-intake"), workforceEvidence: byId("workforce-evidence-status"), storeKpis: byId("store-kpis"), financialPreviewStores: byId("financial-local-preview-stores"), storeRows: byId("store-rows"), csvRequirements: byId("csv-requirements"),
   dataGuide: byId("data-guide"), dataopsKpis: byId("dataops-kpis"), productionReadiness: byId("production-readiness-status"), financialDataIntake: byId("financial-data-intake"), workflow: byId("workflow"), stoppedItems: byId("stopped-items")
 };
 
@@ -262,6 +263,7 @@ async function loadStores() {
 }
 function renderStores() {
   const data = state.stores || {}; const stores = Array.isArray(data.stores) ? data.stores : [];
+  renderStorePlQuickIntake(elements.storePlQuickIntake, { hasLocalPl: Boolean(state.financialPreviews.PL) });
   const localPl = localPlStoreSummary();
   const localPlRowsByStore = localPlStoreRowsByNormalizedName();
   const localPlMatch = localPlStoreMatchSummary(stores, localPlRowsByStore);

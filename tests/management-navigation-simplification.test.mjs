@@ -14,10 +14,13 @@ test("store section hides corporate-only navigation and exposes a simple data gu
   assert.match(app, /elements\.corporateViewTabs\.hidden = !CORPORATE_VIEWS\.has\(state\.view\)/);
   assert.match(app, /elements\.corporationTabs\.hidden = !FINANCE_VIEWS\.has\(state\.view\)/);
   assert.match(app, /function renderDataGuide\(\)/);
+  assert.match(app, /renderStorePlQuickIntake\(elements\.storePlQuickIntake/);
   assert.match(app, /店舗別月次人数CSV（生産性）/);
   assert.match(app, /来店区分CSV（客数・単価・リピート）/);
   assert.match(app, /メニュー月次CSV（メニュー分析）/);
   assert.match(html, /id="data-guide"/);
+  assert.match(html, /id="store-pl-quick-intake"/);
+  assert.match(css, /\.store-pl-quick-intake/);
   assert.match(css, /\[hidden\] \{ display: none !important; \}/);
   assert.match(css, /\.data-guide-grid/);
 });

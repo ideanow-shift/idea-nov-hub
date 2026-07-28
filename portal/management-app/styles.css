@@ -204,6 +204,16 @@ tbody tr:hover td { background: var(--card-soft); }
 .data-guide-card ul { margin: 10px 0 0; padding-left: 20px; color: var(--text-primary); font-size: 13px; }
 .data-guide-card li + li { margin-top: 4px; }
 .data-guide-note { margin-top: 12px !important; padding: 10px 12px; background: #fffaf0; border-left: 3px solid var(--color-bassa); border-radius: var(--radius-md); }
+.store-pl-quick-intake { margin: 0 0 16px; padding: 16px; background: #fffaf0; border: 1px solid #efd8b7; border-left: 4px solid #a36410; border-radius: var(--radius-md); }
+.store-pl-quick-intake-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.store-pl-quick-intake h3 { margin: 0 0 5px; font-size: 18px; }
+.store-pl-quick-intake-heading p:not(.financial-intake-kicker) { margin: 0; color: var(--text-secondary); font-size: 13px; }
+.store-pl-quick-intake-boundary { flex: 0 0 auto; padding: 5px 9px; color: #77510b; background: #fff; border: 1px solid #efd8b7; border-radius: var(--radius-md); font-size: 12px; }
+.store-pl-quick-intake-select { display: inline-flex; min-height: 40px; margin-top: 14px; padding: 0 12px; align-items: center; color: #fff; background: #17324d; border-radius: var(--radius-md); cursor: pointer; font-size: 14px; font-weight: 600; }
+.store-pl-quick-intake-select input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.store-pl-quick-intake-list { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 12px 0 0; padding: 0; list-style: none; color: var(--text-secondary); font-size: 12px; }
+.store-pl-quick-intake-list li::before { content: "✓"; margin-right: 5px; color: #27795f; }
+.store-pl-quick-intake-status { margin: 10px 0 0; color: var(--text-primary); font-size: 13px; }
 .financial-intake-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .financial-intake-heading-actions { display: flex; align-items: center; gap: 8px; }
 .financial-local-preview-clear { min-height: 36px; padding: 7px 12px; color: var(--text-primary); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; }
@@ -494,6 +504,7 @@ tbody tr:hover td { background: var(--card-soft); }
   .metric-value { font-size: 24px; }
   .workflow, .method-grid, .production-readiness-grid, .workforce-submission-grid, .financial-intake-controls, .financial-intake-preview, .financial-completion-list, .financial-submission-package-grid, .financial-submission-roadmap-list, .financial-local-preview-metrics, .financial-store-analysis-readiness-grid, .financial-store-analysis-formulas, .financial-store-analysis-coverage-grid, .financial-store-menu-category-grid, .data-guide-grid { grid-template-columns: 1fr; }
   .financial-visible-scope, .financial-production-hold-summary, .financial-review-checklist ul { grid-template-columns: 1fr; }
+  .store-pl-quick-intake-heading { flex-direction: column; }
   .financial-store-match-action { grid-template-columns: 1fr; }
   .financial-store-match-action button { grid-column: 1; grid-row: auto; width: 100%; }
   .chart-canvas { min-height: 260px; }

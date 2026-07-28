@@ -47,7 +47,7 @@ const required = [
   [files.html, 'id="data-guide"'],
   [files.html, './vendor/chart.umd.min.js?v=4.4.1'],
   [files.html, './styles.css?v=F6F4E8B95945DFEF'],
-  [files.html, './app-v2.js?v=6D0DEE315622C238'],
+  [files.html, './app-v2.js?v=1D4245FF1D2FFB37'],
   [files.chart, 'Chart.js v4.4.1'],
   [files.app, 'restoreNovHubSession'],
   [files.app, 'setHubSessionAuth'],

@@ -1,4 +1,4 @@
-import { validateNormalizedMonthlyPlCsvFiles } from "./financial-data-intake.js?v=06AD1D86CD8B66B5";
+import { buildFinancialLocalPreview, validateNormalizedMonthlyPlCsvFiles } from "./financial-data-intake.js?v=06AD1D86CD8B66B5";
 
 function node(tagName, className = "", text = "") {
   const element = document.createElement(tagName);
@@ -57,9 +57,10 @@ export function renderStorePlQuickIntake(container, { hasLocalPl = false } = {})
     const files = Array.from(input.files || []);
     if (!files.length) return;
     status.textContent = "P/Lを端末内で確認しています。";
-    const preview = await validateNormalizedMonthlyPlCsvFiles(files);
-    status.textContent = statusMessage(preview, files.length);
-    if (preview?.status === "PL_LOCAL_READY") {
+    const result = await validateNormalizedMonthlyPlCsvFiles(files);
+    const preview = buildFinancialLocalPreview(result);
+    status.textContent = statusMessage(result, files.length);
+    if (result?.status === "PL_LOCAL_READY" && preview?.statement === "PL") {
       container.dispatchEvent(new CustomEvent("management-financial-local-preview", { bubbles: true, detail: preview }));
     }
   });

@@ -5,7 +5,7 @@ import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWork
 import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=06AD1D86CD8B66B5";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 import { buildStoreWorkforceMonthlySummaryCsvTemplate } from "./store-workforce-monthly-summary-csv.js?v=4BA67C2DE5F7851E";
-import { renderStorePlQuickIntake } from "./store-pl-quick-intake.js?v=1F58A2404F89BA55";
+import { renderStorePlQuickIntake } from "./store-pl-quick-intake.js?v=1B5686012CB9173B";
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
 const CORPORATE_VIEWS = new Set([...FINANCE_VIEWS, "dataops"]);

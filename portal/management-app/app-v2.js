@@ -28,7 +28,7 @@ const elements = {
   financialPreviewFourAxis: byId("financial-local-preview-four-axis"), financialPreviewDepartments: byId("financial-local-preview-departments"),
   departmentTabs: byId("department-tabs"), departmentKpis: byId("department-kpis"), departmentRows: byId("department-rows"), departmentInsight: byId("department-insight"),
   storeScope: byId("store-scope"), workforceEvidence: byId("workforce-evidence-status"), storeKpis: byId("store-kpis"), financialPreviewStores: byId("financial-local-preview-stores"), storeRows: byId("store-rows"), csvRequirements: byId("csv-requirements"),
-  dataopsKpis: byId("dataops-kpis"), productionReadiness: byId("production-readiness-status"), financialDataIntake: byId("financial-data-intake"), workflow: byId("workflow"), stoppedItems: byId("stopped-items")
+  dataGuide: byId("data-guide"), dataopsKpis: byId("dataops-kpis"), productionReadiness: byId("production-readiness-status"), financialDataIntake: byId("financial-data-intake"), workflow: byId("workflow"), stoppedItems: byId("stopped-items")
 };
 
 document.querySelectorAll(".tab, .section-tab").forEach((button) => button.addEventListener("click", () => selectView(button.dataset.view)));
@@ -384,11 +384,53 @@ async function loadDataops() {
 }
 function renderDataops() {
   const data = state.dataops || {}; const counts = data.statusCounts || {};
+  renderDataGuide();
   renderMetrics(elements.dataopsKpis, [["原本", `${counts.sourceDocuments || 0}件`], ["raw行", `${number.format(counts.accountingRawRows || 0)}行`], ["分類下書き", `${counts.classificationDraft || 0}件`], ["分類確認中", `${counts.classificationReview || 0}件`]]);
   mountManagementProductionReadiness(elements.productionReadiness);
   renderFinancialDataIntake(elements.financialDataIntake, { externalEvidence: financialExternalEvidence() });
   elements.workflow.replaceChildren(...(data.workflow || []).map((step) => { const item = document.createElement("article"); item.className = "workflow-step"; item.append(heading(`${step.step}. ${step.title}`), paragraph(`${step.owner} / ${step.status}`)); return item; }));
   elements.stoppedItems.replaceChildren(heading("この画面から実行しない処理"), list(data.stoppedItems || []));
+}
+
+function renderDataGuide() {
+  if (!elements.dataGuide) return;
+  const section = document.createElement("section");
+  section.className = "data-guide";
+  const corporateReady = Boolean(state.financialPreviews.PL && state.financialPreviews.BS);
+  const storeReady = Boolean(state.financialPreviews.PL && state.storeWorkforceMonthlyPreview && state.storeVisitCohortPreview && state.storeMenuPreview);
+  const cards = [
+    {
+      title: "法人経営管理",
+      status: corporateReady ? "ローカル確認可能" : "まずはここから",
+      description: "法人ごとの売上・利益・資産負債を確認します。",
+      items: ["P/L 月次CSV（売上・利益）", "B/S 月次CSV（資産・負債・純資産）", "予実CSV（任意：目標との差）"],
+    },
+    {
+      title: "店舗営業管理",
+      status: storeReady ? "ローカル分析可能" : "必要データを確認",
+      description: "店舗ごとの売上・利益・生産性・単価・リピート・メニューを確認します。",
+      items: ["店舗月次P/L CSV（売上・利益）", "店舗別月次人数CSV（生産性）", "来店区分CSV（客数・単価・リピート）", "メニュー月次CSV（メニュー分析）", "予実CSV（任意：達成率）"],
+    },
+  ];
+  const grid = document.createElement("div");
+  grid.className = "data-guide-grid";
+  grid.replaceChildren(...cards.map((card) => {
+    const article = document.createElement("article");
+    article.className = "data-guide-card";
+    const listNode = document.createElement("ul");
+    listNode.replaceChildren(...card.items.map((item) => {
+      const li = document.createElement("li");
+      li.textContent = item;
+      return li;
+    }));
+    article.append(label(card.status), heading(card.title), paragraph(card.description), listNode);
+    return article;
+  }));
+  const note = document.createElement("p");
+  note.className = "data-guide-note";
+  note.textContent = "ここでのファイル選択は端末内の確認用です。現在は本番保存・承認・再計算を実行しません。";
+  section.append(heading("最初に必要なデータ"), paragraph("法人と店舗で使うデータを分けています。先にP/Lを選ぶと、売上・利益の確認から始められます。"), grid, note);
+  elements.dataGuide.replaceChildren(section);
 }
 
 function financialExternalEvidence() {

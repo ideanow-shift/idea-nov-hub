@@ -6,9 +6,13 @@ const app = readFileSync(new URL("../portal/store-sales/app.js", import.meta.url
 const html = readFileSync(new URL("../portal/store-sales/index.html", import.meta.url), "utf8");
 const management = readFileSync(new URL("../portal/management-app/index.html", import.meta.url), "utf8");
 const fixtures = readFileSync(new URL("../portal/store-sales/review-fixtures.js", import.meta.url), "utf8");
+const mockAdapter = readFileSync(new URL("../portal/store-sales/adapters/mock.js", import.meta.url), "utf8");
+const projectionAdapter = readFileSync(new URL("../portal/store-sales/adapters/projection.js", import.meta.url), "utf8");
 
 test("UI consumes only the Store Sales Projection API", () => {
-  assert.match(app, /callApiAction\("storeSalesProjection"/);
+  assert.match(app, /createStoreSalesAdapter/);
+  assert.match(projectionAdapter, /validateProjectionResponse/);
+  assert.doesNotMatch(app, /callApiAction/);
   assert.doesNotMatch(app, /accounting-kpis|accounting\/stores|managementStoresSummary|DirectoryAdapter/);
 });
 
@@ -34,7 +38,7 @@ test("review fixtures cover all requested non-production states", () => {
   for (const fixture of ["manager", "pending", "validation", "empty", "all-preparing"]) {
     assert.match(fixtures, new RegExp(`name === "${fixture}"`));
   }
-  assert.match(app, /fixture === "timeout"/);
+  assert.match(mockAdapter, /config\.fixture === "timeout"/);
   assert.match(fixtures, /storeNames\.map/);
 });
 

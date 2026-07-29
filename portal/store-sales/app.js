@@ -1,12 +1,11 @@
-import { callApiAction, setHubSessionAuth } from "../js/api.js";
 import {
   clearNovHubSession,
   handleNovHubSessionAuthFailure,
   restoreNovHubSession
 } from "../js/nov-hub-session-candidate.js";
-import { getReviewFixture } from "./review-fixtures.js";
+import { createStoreSalesAdapter } from "./adapters/index.js";
 
-const state = { projection: null, filter: "All", selectedStore: null, tab: "summary", audience: "executive" };
+const state = { projection: null, filter: "All", selectedStore: null, tab: "summary", audience: "executive", adapter: null, adapterMode: null };
 const metricLabels = {
   summary: ["sales", "operatingProfit", "ordinaryProfit", "grossProfitMargin", "operatingProfitMargin", "ordinaryProfitMargin"],
   sales: ["sales", "technicalSales", "retailSales", "ecSales", "grossProfit", "operatingProfit", "ordinaryProfit", "cumulative"],
@@ -35,7 +34,7 @@ const elements = {
 
 initialize();
 
-function initialize() {
+async function initialize() {
   elements.period.value = new Date().toISOString().slice(0, 7);
   elements.period.addEventListener("change", loadProjection);
   $("back-to-list").addEventListener("click", showList);
@@ -44,43 +43,70 @@ function initialize() {
     button.addEventListener("click", () => setTab(button.dataset.tab));
     button.addEventListener("keydown", handleTabKeydown);
   });
-  const fixture = new URLSearchParams(location.search).get("fixture");
-  if (fixture) {
-    if (fixture === "timeout") {
-      elements.notice.classList.add("is-error");
-      setNotice("店舗状況を読み込めませんでした", "APIの応答がタイムアウトしました。時間をおいて再読み込みしてください。");
-      return;
-    }
-    state.projection = getReviewFixture(fixture);
-    renderAll();
-    setNotice("UIレビュー用fixtureを表示しています", "本番環境・外部APIには接続していません。");
-    return;
+  let session = null;
+  try {
+    const runtimeConfig = globalThis.STORE_SALES_ADAPTER_CONFIG || {};
+    if (runtimeConfig.mode === "integration") session = restoreNovHubSession();
+    const created = createStoreSalesAdapter({
+      location,
+      runtimeConfig,
+      dependencies: { getSessionToken: () => session?.sessionToken || "" }
+    });
+    state.adapter = created.adapter;
+    state.adapterMode = created.config.mode;
+    if (state.adapterMode === "integration" && !session?.sessionToken) return renderAuthRequired();
+    await loadProjection();
+  } catch (error) {
+    renderAdapterError(error);
   }
-  const session = restoreNovHubSession();
-  if (!session?.sessionToken) return renderAuthRequired();
-  setHubSessionAuth(session.sessionToken);
-  loadProjection();
 }
 
 async function loadProjection() {
-  setNotice("店舗営業Projectionを読み込んでいます", "Accounting・KPI・店舗scopeをサーバー側で確認しています。");
+  if (!state.adapter) return;
+  setNotice("店舗営業Projectionを読み込んでいます", "読み取り専用Projectionとactor scopeを確認しています。");
   try {
-    const response = await callApiAction("storeSalesProjection", { selectedMonth: elements.period.value });
-    state.projection = response.data;
+    state.projection = await state.adapter.loadDashboard({ period: elements.period.value });
     renderAll();
-    setNotice("最新の店舗状況を表示しています", "表示値と店舗状態はStore Sales Projection APIで確定しています。");
+    setModeBanner();
   } catch (error) {
-    if (Number(error?.status) === 401) {
+    if (Number(error?.status) === 401 || error?.code === "UNAUTHORIZED") {
+      state.adapter?.clear();
       handleNovHubSessionAuthFailure(401);
       clearNovHubSession();
       return renderAuthRequired();
     }
-    elements.notice.classList.add("is-error");
-    setNotice(
-      ["FORBIDDEN", "SCOPE_DENIED"].includes(String(error?.code)) ? "表示権限がありません" : "店舗状況を読み込めませんでした",
-      "NOV HUBへ戻るか、時間をおいて再読み込みしてください。"
-    );
+    renderAdapterError(error);
   }
+}
+
+function setModeBanner() {
+  elements.notice.classList.remove("is-error");
+  if (state.adapterMode === "mock") {
+    setNotice("Mock Projectionを表示しています", "synthetic fixtureのみを使用し、外部APIには接続していません。");
+    return;
+  }
+  setNotice("Read-only Integrationを表示しています", "隔離Projection endpointの検証用responseです。");
+}
+
+function renderAdapterError(error) {
+  const code = String(error?.code || "");
+  const mapping = {
+    FORBIDDEN: ["アクセス権限がありません", "NOV HUBへ戻って権限をご確認ください。"],
+    ACTOR_SCOPE_DENIED: ["アクセス権限がありません", "NOV HUBへ戻って権限をご確認ください。"],
+    ACTOR_SCOPE_MISMATCH: ["データ確認が必要です", "actor scopeと店舗データが一致しません。"],
+    NOT_FOUND: ["対象店舗または対象月が見つかりません", "営業対象月をご確認ください。"],
+    VERSION_CONFLICT: ["データ更新中です", "時間をおいて再読み込みしてください。"],
+    VALIDATION_ERROR: ["データ確認が必要です", "公開データの検証完了までお待ちください。"],
+    SCHEMA_MISMATCH: ["データ確認が必要です", "Projection契約を確認しています。"],
+    MALFORMED_JSON: ["データ確認が必要です", "Projection応答を確認しています。"],
+    TIMEOUT: ["通信に時間がかかっています", "時間をおいて再読み込みしてください。"],
+    SERVER_ERROR: ["一時的に取得できません", "時間をおいて再読み込みしてください。"],
+    PRODUCTION_NOT_APPROVED: ["本番接続は利用できません", "Phase 5-2はreview-onlyです。"],
+    MOCK_NOT_ALLOWED: ["Mockを起動できません", "Mockはローカル確認専用です。"]
+  };
+  const [title, body] = mapping[code] || ["店舗状況を読み込めませんでした", "時間をおいて再読み込みしてください。"];
+  elements.notice.classList.add("is-error");
+  setNotice(title, body);
 }
 
 function renderAll() {

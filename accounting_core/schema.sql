@@ -46,7 +46,7 @@ CREATE TABLE accounting_raw_values (
   source_sheet TEXT NOT NULL, source_sheet_type TEXT NOT NULL,
   source_row INTEGER NOT NULL, source_column INTEGER NOT NULL,
   source_cell_reference TEXT NOT NULL, source_column_label TEXT NOT NULL,
-  detected_period TEXT, source_value_state TEXT NOT NULL,
+  fiscal_year INTEGER NOT NULL, detected_period TEXT, source_value_state TEXT NOT NULL,
   statement_type TEXT NOT NULL, source_entity_name TEXT NOT NULL, scope_type TEXT NOT NULL,
   source_account_name TEXT NOT NULL, amount_net TEXT, formula TEXT,
   UNIQUE(import_file_id,source_sheet,source_row,source_column)

@@ -14,6 +14,7 @@ from openpyxl.cell.cell import TYPE_ERROR
 from .domain import RawValue, ScopeType, StatementType, ValueState
 
 MONTH_RE = re.compile(r"(?:(\d{4})年)?(\d{1,2})月")
+FISCAL_START_RE = re.compile(r"(?:令和(\d{1,2})年|((?:19|20)\d{2})年)(\d{1,2})月(\d{1,2})日")
 
 
 def _anchor(value: object) -> str:
@@ -58,7 +59,14 @@ def _state(cell, cached_value) -> tuple[ValueState, Decimal | None, str | None]:
     return ValueState.TEXT, None, None
 
 
-def _period(label: str, fiscal_start_year: int = 2025) -> date | None:
+def _fiscal_start_year(period_label: object) -> int:
+    match = FISCAL_START_RE.search(str(period_label or ""))
+    if not match:
+        raise ValueError("fiscal period start is not recognizable")
+    return 2018 + int(match.group(1)) if match.group(1) else int(match.group(2))
+
+
+def _period(label: str, fiscal_start_year: int) -> date | None:
     match = MONTH_RE.search(label)
     if not match:
         return None
@@ -93,6 +101,7 @@ class YayoiExcelAdapter:
             tax_anchor = _anchor(sheet["A6"].value)
             if "税抜" not in tax_anchor or tax_anchor.endswith("税込"):
                 raise ValueError(f"unsupported tax basis: {sheet_name}")
+            fiscal_start_year = _fiscal_start_year(sheet["A5"].value)
             prefix, _, entity = sheet_name.partition("･")
             statement = StatementType.BS if prefix == "貸" else StatementType.PL if prefix == "損" else None
             if statement is None or not entity:
@@ -122,7 +131,8 @@ class YayoiExcelAdapter:
                         source_row=row,
                         source_column=column,
                         source_column_label=headers[column],
-                        detected_period=_period(headers[column]),
+                        fiscal_year=fiscal_start_year,
+                        detected_period=_period(headers[column], fiscal_start_year),
                         statement_type=statement,
                         source_entity_name=entity,
                         scope_type=_scope(entity),

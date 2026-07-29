@@ -292,3 +292,13 @@ consumerは物理tableを直接参照せず、次のversion付きcontractを使�
 ## 10. 実装しない範囲
 
 production DB投入、migration、RLS変更、dashboard反映、PDF生成、弥生API連携、完全自動確定、認証変更は本設計に含めない。
+
+## 11. 第11〜13期の年度差異
+
+Phase 3-2追加検証で、第11〜13期を同一adapterにより読み取り可能であることを
+確認した。sheet/entity増加、P/L 86→87行、売上科目体系変更、和暦年度差を
+検出した。年度を固定値で解釈せずA5集計期間から決定し、account/entity
+mappingに年度有効期間を持たせる。
+
+詳細、3期validation結果、差分一覧、第14期以降の互換性評価は
+`docs/accounting/accounting-core-phase3-multiyear-comparison.md`を正本とする。

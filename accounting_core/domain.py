@@ -98,6 +98,7 @@ class RawValue:
     source_row: int
     source_column: int
     source_column_label: str
+    fiscal_year: int
     detected_period: date | None
     statement_type: StatementType
     source_entity_name: str

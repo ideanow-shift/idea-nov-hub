@@ -64,7 +64,7 @@ def provenance(connection: sqlite3.Connection, fact_id: str) -> dict[str, object
     row = connection.execute(
         """SELECT f.id fact_id,f.version_id,f.raw_value_id,f.source_file_id,
         i.file_hash,i.batch_id,r.source_sheet,r.source_sheet_type,r.source_cell_reference,
-        r.source_row,r.source_column_label,r.source_account_name
+        r.source_row,r.source_column_label,r.fiscal_year,r.source_account_name
         FROM accounting_facts f JOIN accounting_raw_values r ON r.id=f.raw_value_id
         JOIN accounting_import_files i ON i.id=f.source_file_id WHERE f.id=?""",
         (fact_id,),

@@ -18,11 +18,17 @@ def _status(value: str) -> MappingStatus:
 
 
 class CsvMappingReader:
-    def __init__(self, entity_csv: Path, account_csv: Path):
+    def __init__(self, entity_csv: Path, account_csv: Path, alias_csv: Path | None = None):
         with entity_csv.open(encoding="utf-8-sig", newline="") as source:
             self.entities = {row["弥生会計上の名称"]: row for row in csv.DictReader(source)}
         with account_csv.open(encoding="utf-8-sig", newline="") as source:
             self.accounts = list(csv.DictReader(source))
+        alias_path = alias_csv or account_csv.with_name("yayoi-account-aliases.csv")
+        if alias_path.exists():
+            with alias_path.open(encoding="utf-8-sig", newline="") as source:
+                self.aliases = list(csv.DictReader(source))
+        else:
+            self.aliases = []
 
     def resolve_entity(self, source_name: str) -> MappingResolution:
         row = self.entities.get(source_name)
@@ -35,9 +41,22 @@ class CsvMappingReader:
         )
 
     def resolve_account(self, raw: RawValue) -> MappingResolution:
+        fiscal_start = f"{raw.fiscal_year:04d}-09-01"
+        alias = next(
+            (
+                row for row in self.aliases
+                if row["statement_type"].lower() == raw.statement_type.value
+                and row["section"] == (raw.section or "")
+                and row["source_alias"] == raw.source_account_name
+                and (not row["effective_from"] or row["effective_from"] <= fiscal_start)
+                and (not row["effective_to"] or fiscal_start <= row["effective_to"])
+            ),
+            None,
+        )
+        source_name = alias["canonical_source_name"] if alias else raw.source_account_name
         candidates = [
             row for row in self.accounts
-            if row["元科目名"] == raw.source_account_name
+            if row["元科目名"] == source_name
             and row["B/S・P/L"].lower() == raw.statement_type.value
         ]
         if len(candidates) != 1:

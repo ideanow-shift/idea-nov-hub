@@ -42,7 +42,7 @@ def synthetic_workbook(path: Path) -> None:
         20: ("特別利益合計", 0),
         21: ("特別損失合計", 0),
         22: ("税引前当期純損益金額", 31),
-        23: ("法人税等", 5),
+        23: ("法人税及住民税", 5),
         24: ("当期純損益金額", 26),
     }
     for row, (label, amount) in labels.items():
@@ -93,6 +93,25 @@ class PrototypeTests(unittest.TestCase):
         self.assertIn("ENTITY_MAPPING_NOT_APPROVED", codes)
         self.assertNotIn("DUPLICATE_FACT", codes)
 
+    def test_historical_account_alias_remains_proposed(self):
+        root = Path(__file__).parents[2]
+        reader = CsvMappingReader(
+            root / "docs/accounting/yayoi-entity-mapping.csv",
+            root / "docs/accounting/yayoi-account-mapping.csv",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "synthetic.xlsx"
+            synthetic_workbook(path)
+            adapter = YayoiExcelAdapter(path)
+            raw = next(value for value in adapter.extract() if value.source_account_name == "売上高合計")
+            adapter.close()
+        historical = raw.__class__(**{**raw.__dict__, "source_account_name": "売上高", "fiscal_year": 2024})
+        resolution = reader.resolve_account(historical)
+        self.assertEqual("total_revenue", resolution.target)
+        self.assertEqual(MappingStatus.PROPOSED, resolution.status)
+        future = raw.__class__(**{**raw.__dict__, "source_account_name": "売上高", "fiscal_year": 2026})
+        self.assertIsNone(reader.resolve_account(future).target)
+
     def test_schema_has_required_tables_and_published_facts_are_immutable(self):
         connection = open_database()
         tables = {
@@ -109,9 +128,9 @@ class PrototypeTests(unittest.TestCase):
         ) VALUES('v',1,'2026-06-FINAL-01',2026,6,'final','store','e','f','published','actor')""")
         connection.execute("""INSERT INTO accounting_raw_values(
           id,import_file_id,source_sheet,source_sheet_type,source_row,source_column,
-          source_cell_reference,source_column_label,source_value_state,statement_type,
+          source_cell_reference,source_column_label,fiscal_year,source_value_state,statement_type,
           source_entity_name,scope_type,source_account_name
-        ) VALUES('r','f','sheet','pl',1,2,'B1','6月','amount','pl','entity','leaf_store','sales')""")
+        ) VALUES('r','f','sheet','pl',1,2,'B1','6月',2025,'amount','pl','entity','leaf_store','sales')""")
         connection.execute("""INSERT INTO accounting_facts(
           id,raw_value_id,version_id,source_file_id,normalized_account,entity_id,
           scope_type,scope_id,period,amount_net,tax_basis,status

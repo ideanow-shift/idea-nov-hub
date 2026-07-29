@@ -87,7 +87,7 @@ create table accounting.raw_values (
   source_sheet text not null, source_sheet_type text not null,
   source_row integer not null, source_column integer not null,
   source_cell_reference text not null, source_column_label text not null,
-  detected_period date, source_value_state text not null,
+  fiscal_year integer not null, detected_period date, source_value_state text not null,
   statement_type text not null, source_entity_name text not null,
   scope_type text not null, source_account_name text not null,
   amount_net numeric, formula text,

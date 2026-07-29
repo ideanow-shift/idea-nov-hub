@@ -35,8 +35,8 @@ class WorkflowTests(unittest.TestCase):
         self.db.execute("""INSERT INTO accounting_raw_values(
           id,import_file_id,source_sheet,source_sheet_type,source_row,source_column,
           source_cell_reference,source_column_label,detected_period,source_value_state,
-          statement_type,source_entity_name,scope_type,source_account_name,amount_net
-        ) VALUES('raw','file','損・STORE-A','pl',10,12,'L10','6月','2026-06-01','amount','pl','STORE-A','store','売上高合計','100')""")
+          fiscal_year,statement_type,source_entity_name,scope_type,source_account_name,amount_net
+        ) VALUES('raw','file','損・STORE-A','pl',10,12,'L10','6月','2026-06-01','amount',2025,'pl','STORE-A','store','売上高合計','100')""")
 
     def create(self, kind="draft", prior=None, supersedes=None):
         version = self.workflow.create_version("file", 2026, 6, "store", "store-a", kind, ADMIN, prior, supersedes)

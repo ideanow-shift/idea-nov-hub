@@ -127,7 +127,7 @@ test("integration sends no role scope store list or service role", async () => {
   });
   await adapter.loadDashboard({ period: "2026-07", role: "executive", actorScope: "all_group", storeId: "store-other" });
   assert.equal(request.options.method, "GET");
-  assert.deepEqual(Object.keys(request.options.headers).sort(), ["Accept", "Authorization"]);
+  assert.deepEqual(Object.keys(request.options.headers).sort(), ["Accept", "Authorization", "X-Contract-Version", "X-Request-ID"]);
   assert.doesNotMatch(request.url, /role|scope|store_id|service/i);
   assert.equal(request.options.body, undefined);
 });

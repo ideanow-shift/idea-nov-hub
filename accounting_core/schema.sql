@@ -13,16 +13,20 @@ CREATE TABLE accounting_import_files (
 );
 CREATE TABLE accounting_entity_mappings (
   id TEXT PRIMARY KEY, source_system TEXT NOT NULL, source_entity_name TEXT NOT NULL,
-  scope_type TEXT NOT NULL, core_entity_id TEXT, status TEXT NOT NULL
+  fiscal_year INTEGER, valid_from TEXT, valid_to TEXT,
+  scope_type TEXT NOT NULL, proposed_core_uuid TEXT, core_entity_id TEXT,
+  status TEXT NOT NULL
     CHECK(status IN ('unmapped','proposed','approved','rejected','inactive')),
-  UNIQUE(source_system, source_entity_name)
+  approval_actor TEXT, approval_timestamp TEXT,
+  UNIQUE(source_system,source_entity_name,fiscal_year,valid_from)
 );
 CREATE TABLE accounting_account_mappings (
   id TEXT PRIMARY KEY, source_system TEXT NOT NULL, statement_type TEXT NOT NULL,
   section TEXT, source_account_name TEXT NOT NULL, parent_context TEXT,
   source_sheet_type TEXT NOT NULL, occurrence_context TEXT NOT NULL,
-  normalized_account TEXT, status TEXT NOT NULL
+  effective_from TEXT, effective_to TEXT, normalized_account TEXT, status TEXT NOT NULL
     CHECK(status IN ('unmapped','proposed','approved','rejected','inactive')),
+  approval_actor TEXT, approval_timestamp TEXT,
   UNIQUE(source_system,statement_type,section,source_account_name,parent_context,source_sheet_type,occurrence_context)
 );
 CREATE TABLE accounting_versions (

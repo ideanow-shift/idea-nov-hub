@@ -24,6 +24,7 @@ class YearAudit:
     validation_counts: dict[str, int]
     blocking_codes: tuple[str, ...]
     accounting_check_count: int
+    duplicate_period_profile: dict[str, int]
 
 
 def audit_year(year_label: str, path: Path) -> YearAudit:
@@ -37,6 +38,22 @@ def audit_year(year_label: str, path: Path) -> YearAudit:
     raw = list(adapter.extract())
     adapter.close()
     validations = validate_raw(raw)
+    duplicate_period_profile: Counter[str] = Counter()
+    for sheet in {value.source_sheet for value in raw}:
+        june = {
+            value.source_account_name: value.amount_net
+            for value in raw
+            if value.source_sheet == sheet and value.detected_period and value.detected_period.month == 6
+        }
+        july = {
+            value.source_account_name: value.amount_net
+            for value in raw
+            if value.source_sheet == sheet and value.detected_period and value.detected_period.month == 7
+        }
+        if june and june == july:
+            statement = next(value.statement_type.value for value in raw if value.source_sheet == sheet)
+            value_profile = "all_zero" if all(value in (None, 0) for value in june.values()) else "has_nonzero"
+            duplicate_period_profile[f"{statement}_{value_profile}"] += 1
     by_cell = {(r.source_sheet, r.source_account_name, r.source_column_label): r for r in raw}
     accounting_check_count = 0
     for sheet in {r.source_sheet for r in raw}:
@@ -80,6 +97,7 @@ def audit_year(year_label: str, path: Path) -> YearAudit:
         validation_counts=dict(Counter(result.severity.value for result in validations)),
         blocking_codes=tuple(sorted({result.code for result in validations if result.severity is Severity.BLOCKING})),
         accounting_check_count=accounting_check_count,
+        duplicate_period_profile=dict(duplicate_period_profile),
     )
 
 
@@ -110,6 +128,7 @@ def compare_years(audits: list[YearAudit]) -> dict[str, object]:
                 "validation_counts": audit.validation_counts,
                 "blocking_codes": audit.blocking_codes,
                 "accounting_check_count": audit.accounting_check_count,
+                "duplicate_period_profile": audit.duplicate_period_profile,
             }
             for audit in audits
         ],

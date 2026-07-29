@@ -36,6 +36,9 @@ create table accounting.entity_mappings (
   id uuid primary key default gen_random_uuid(),
   source_system text not null,
   source_entity_name text not null,
+  fiscal_year integer,
+  valid_from date,
+  valid_to date,
   scope_type text not null,
   -- IDs reference existing Core masters; do not duplicate them here.
   legal_entity_id uuid references public.corporations(id),
@@ -43,9 +46,10 @@ create table accounting.entity_mappings (
   department_id uuid references public.departments(id),
   franchise_company_id uuid,
   status accounting.mapping_status not null,
+  proposed_core_uuid uuid,
   approved_by uuid,
   approved_at timestamptz,
-  unique(source_system,source_entity_name),
+  unique nulls not distinct(source_system,source_entity_name,fiscal_year,valid_from),
   check(num_nonnulls(legal_entity_id,store_id,department_id,franchise_company_id) <= 1),
   check(status <> 'approved' or approved_by is not null)
 );
@@ -55,6 +59,7 @@ create table accounting.account_mappings (
   statement_type text not null check(statement_type in ('bs','pl')),
   section text, source_account_name text not null, parent_context text,
   source_sheet_type text not null, occurrence_context text not null,
+  effective_from date, effective_to date,
   normalized_account text, status accounting.mapping_status not null,
   approved_by uuid, approved_at timestamptz,
   unique nulls not distinct (

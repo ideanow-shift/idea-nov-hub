@@ -1,10 +1,10 @@
-source_entity_name,first_seen_period,last_seen_period,successor_source_entity,status,core_uuid,notes
-本部･教育,2023-09-01,2024-08-31,本部･教育(合計),proposed,Unknown,第12期に合計・アカデミー・共通へ再編。単純名称変更か組織変更か要承認
-本部･教育(合計),2024-09-01,,本部･教育(合計),proposed,Unknown,rollup entity
-教育･アカデミー,2024-09-01,,教育･アカデミー,proposed,Unknown,第12期から出現
-本部･教育(共通),2024-09-01,,本部･教育(共通),proposed,Unknown,第12期から出現
-FC東久留米,2024-09-01,,FC東久留米,proposed,Unknown,第12期から出現
-FC立川,2024-09-01,,FC立川,proposed,Unknown,第12期から出現
-BASSA立川店,2025-09-01,,BASSA立川店,proposed,Unknown,第13期から出現
-EC事業部,2025-09-01,,EC事業部,proposed,Unknown,第13期から出現
-FCロアネ,2025-09-01,,FCロアネ,proposed,Unknown,第13期から出現
+source_name,fiscal_year,valid_from,valid_to,successor_source_entity,proposed_core_uuid,mapping_status,approval_actor,approval_timestamp,notes
+本部･教育,2023,2023-09-01,2024-08-31,本部･教育(合計),Unknown,proposed,,,第12期に合計・アカデミー・共通へ再編。単純名称変更か組織変更か要承認
+本部･教育(合計),2024,2024-09-01,,本部･教育(合計),Unknown,proposed,,,rollup entity
+教育･アカデミー,2024,2024-09-01,,教育･アカデミー,Unknown,proposed,,,第12期から出現
+本部･教育(共通),2024,2024-09-01,,本部･教育(共通),Unknown,proposed,,,第12期から出現
+FC東久留米,2024,2024-09-01,,FC東久留米,Unknown,proposed,,,第12期から出現
+FC立川,2024,2024-09-01,,FC立川,Unknown,proposed,,,第12期から出現
+BASSA立川店,2025,2025-09-01,,BASSA立川店,Unknown,proposed,,,第13期から出現
+EC事業部,2025,2025-09-01,,EC事業部,Unknown,proposed,,,第13期から出現
+FCロアネ,2025,2025-09-01,,FCロアネ,Unknown,proposed,,,第13期から出現

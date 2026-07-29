@@ -91,6 +91,23 @@ class WorkflowTests(unittest.TestCase):
         with self.assertRaises(WorkflowError):
             self.workflow.validate_version(version.id, ACCOUNTING)
 
+    def test_july_duplicate_period_block_prevents_publish(self):
+        self.db.execute(
+            "UPDATE accounting_import_files SET detected_period='2026-07-01',publish_block_reason='June and July duplicate requires confirmation' WHERE id='file'"
+        )
+        version = self.workflow.create_version("file", 2026, 7, "store", "store-a", "draft", ADMIN)
+        self.db.execute("""INSERT INTO accounting_facts(
+          id,raw_value_id,version_id,source_file_id,normalized_account,entity_id,
+          scope_type,scope_id,period,amount_net,tax_basis,status
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+        ("fact-july", "raw", version.id, "file", "total_revenue", "store-a",
+         "store", "store-a", "2026-07-01", "100", "tax_exclusive", "validated"))
+        self.workflow.validate_version(version.id, ACCOUNTING)
+        self.workflow.approve(version.id, "accounting", "approved", "checked", ACCOUNTING)
+        self.workflow.approve(version.id, "management", "approved", "release", MANAGEMENT)
+        with self.assertRaises(WorkflowError):
+            self.workflow.publish(version.id, ADMIN)
+
     def test_rejected_entity_mapping_prevents_publish(self):
         version = self.create()
         self.workflow.validate_version(version.id, ACCOUNTING)

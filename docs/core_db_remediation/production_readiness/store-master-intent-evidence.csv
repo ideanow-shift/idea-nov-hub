@@ -1,0 +1,15 @@
+evidence_no,evidence_level,evidence_type,date_or_commit,branch,file_path,evidence_summary,supports_public_current,supports_core_future,supports_public_canonical,supports_core_canonical,supports_abandon_core,supports_dual_master,contradiction_flag,notes
+S01,Strong,explicit_design_document,2026-06-23,history,docs/core-employee-ledger-v1-review.md,Defines public stores identity and operational fields,true,false,false,false,false,false,false,Current source design only
+S02,Strong,schema_contract,2026-06-23,history,supabase/core-assignment-histories.sql,Assignment history references public stores,true,false,false,false,false,false,false,No core alternative
+S03,Strong,schema_contract,2026-06-23,history,supabase/core-employee-store-assignments.sql,Multi-store assignment references public stores,true,false,false,false,false,false,false,No core alternative
+S04,Strong,schema_contract,2026-06-23,history,supabase/core-store-area-type.sql,Evolves public stores operational attributes,true,false,false,false,false,false,false,No core alternative
+S05,Strong,api_runtime_contract,2026-07-01,history,supabase/nov-hub-bootstrap-rpc.sql,Bootstrap RPC joins public stores,true,false,false,false,false,false,false,Source contract not live telemetry
+S06,Strong,explicit_design_document,2026-07-03,history,docs/HUB_Coreマスタ管理_現状確認_20260703.md,Core master administration lists public stores as store source and update target,true,false,false,false,false,false,false,Current operating intent
+S07,Strong,schema_contract,2026-07-10,history,supabase/store-business-profiles.sql,Store business profile key references public stores,true,false,false,false,false,false,false,No core alternative
+M01,Medium,readme_contract,2026-07-02,history,docs/NOVNavi_README.md,README calls public stores the Core DB store master,true,false,false,false,false,false,false,README is not an ADR
+M02,Medium,app_context_contract,2026-06-24,history,docs/nov-hub-app-context.md,HUB context identifies public stores as store master,true,false,false,false,false,false,false,Current contract documentation
+M03,Medium,git_history_scope,2026-07-30,all_refs,git_history,Reachable refs and unreachable commit trees have no core stores literal,false,false,false,false,false,false,false,Does not prove database absence
+M04,Medium,source_inventory,2026-07-30,origin_main,repository_source,Public stores appears in committed source while core stores does not,true,false,false,false,false,false,false,Reference counts are not an SSoT decision
+W01,Weak,fixture_name,2026-07-30,origin_main,review/management-store-monthly-sales-accounting-csv-fixture-20260726.mjs,Tokorozawa name appears without UUID,false,false,false,false,false,false,false,Name-only fixture evidence
+W02,Weak,sample_display,2026-07-30,origin_main,portal/js/employees.js,Tokorozawa name appears without UUID,false,false,false,false,false,false,false,Sample data only
+W03,Weak,naming_inference,2026-07-30,external_claim,core.stores,The core schema name alone does not prove future authority,false,false,false,false,false,false,false,No committed core artifact found

@@ -8,11 +8,13 @@ const management = readFileSync(new URL("../portal/management-app/index.html", i
 const fixtures = readFileSync(new URL("../portal/store-sales/review-fixtures.js", import.meta.url), "utf8");
 const mockAdapter = readFileSync(new URL("../portal/store-sales/adapters/mock.js", import.meta.url), "utf8");
 const projectionAdapter = readFileSync(new URL("../portal/store-sales/adapters/projection.js", import.meta.url), "utf8");
+const storeRuntime = readFileSync(new URL("../portal/store-sales/runtime/store-sales-runtime.js", import.meta.url), "utf8");
 
-test("UI consumes only the Store Sales Projection API", () => {
-  assert.match(app, /createStoreSalesAdapter/);
+test("UI consumes only the Store Sales Runtime", () => {
+  assert.match(app, /createStoreSalesRuntime/);
+  assert.match(storeRuntime, /createStoreSalesAdapter/);
   assert.match(projectionAdapter, /validateProjectionResponse/);
-  assert.doesNotMatch(app, /callApiAction/);
+  assert.doesNotMatch(app, /callApiAction|createStoreSalesAdapter|fetch\s*\(/);
   assert.doesNotMatch(app, /accounting-kpis|accounting\/stores|managementStoresSummary|DirectoryAdapter/);
 });
 

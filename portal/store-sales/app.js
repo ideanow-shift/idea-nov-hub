@@ -1,13 +1,6 @@
-import {
-  clearNovHubSession,
-  getNovHubSessionStatus,
-  handleNovHubSessionAuthFailure,
-  restoreNovHubSession
-} from "../js/nov-hub-session-candidate.js";
-import { createStoreSalesAdapter } from "./adapters/index.js";
-import { restoreStoreSalesPreviewContext } from "./preview-context.js";
+import { createStoreSalesRuntime } from "./runtime/index.js";
 
-const state = { projection: null, filter: "All", selectedStore: null, tab: "summary", audience: "executive", adapter: null, adapterMode: null };
+const state = { projection: null, filter: "All", selectedStore: null, tab: "summary", audience: "executive", runtime: null, runtimeStatus: "initializing" };
 const metricLabels = {
   summary: ["sales", "operatingProfit", "ordinaryProfit", "grossProfitMargin", "operatingProfitMargin", "ordinaryProfitMargin"],
   sales: ["sales", "technicalSales", "retailSales", "ecSales", "grossProfit", "operatingProfit", "ordinaryProfit", "cumulative"],
@@ -31,95 +24,58 @@ const elements = {
   period: $("period"), summary: $("summary-metrics"), actions: $("priority-actions"),
   drivers: $("business-drivers"), rows: $("store-rows"), cards: $("store-cards"), executive: $("executive-view"),
   detail: $("detail-view"), detailName: $("detail-name"), detailReason: $("detail-reason"),
-  detailStatus: $("detail-status"), monthlyActions: $("monthly-actions"), detailPanel: $("detail-panel")
+  detailStatus: $("detail-status"), monthlyActions: $("monthly-actions"), detailPanel: $("detail-panel"),
+  retry: $("retry-button")
 };
 
 initialize();
 
 async function initialize() {
   elements.period.value = new Date().toISOString().slice(0, 7);
-  elements.period.addEventListener("change", loadProjection);
+  elements.period.addEventListener("change", () => state.runtime?.load({ period: elements.period.value }));
+  elements.retry.addEventListener("click", () => state.runtime?.retry());
   $("back-to-list").addEventListener("click", showList);
   document.querySelectorAll("[data-filter]").forEach((button) => button.addEventListener("click", () => setFilter(button.dataset.filter)));
   document.querySelectorAll("[role=tab]").forEach((button) => {
     button.addEventListener("click", () => setTab(button.dataset.tab));
     button.addEventListener("keydown", handleTabKeydown);
   });
-  let session = null;
   try {
-    const runtimeConfig = globalThis.STORE_SALES_ADAPTER_CONFIG || {};
-    const sessionStatus = getNovHubSessionStatus();
-    if (runtimeConfig.mode === "integration" || runtimeConfig.requireHubSession) session = restoreNovHubSession();
-    if (runtimeConfig.requireHubSession && !session) {
-      return sessionStatus === "expired" ? renderSessionExpired() : renderAuthRequired();
-    }
-    const previewContext = runtimeConfig.preview ? restoreStoreSalesPreviewContext() : null;
-    if (runtimeConfig.preview && !previewContext) return renderAccessDenied();
-    const created = createStoreSalesAdapter({
+    const runtimeConfig = globalThis.STORE_SALES_RUNTIME_CONFIG || {};
+    state.runtime = createStoreSalesRuntime({
       location,
       runtimeConfig,
-      dependencies: {
-        getSessionToken: () => session?.sessionToken || "",
-        getPreviewFixtureName: () => previewContext?.fixture || ""
-      }
+      dependencies: { isOnline: () => navigator.onLine }
     });
-    state.adapter = created.adapter;
-    state.adapterMode = created.config.mode;
-    if (state.adapterMode === "integration" && !session?.sessionToken) return renderAuthRequired();
-    await loadProjection();
+    state.runtime.subscribe(renderRuntimeSnapshot);
+    await state.runtime.initialize({ period: elements.period.value });
   } catch (error) {
-    renderAdapterError(error);
+    renderRuntimeSnapshot({
+      status: "validation_error",
+      projection: null,
+      canRetry: false,
+      presentation: { title: "Runtimeを起動できません", body: "Store Sales Runtime設定をご確認ください。", blocking: false }
+    });
   }
 }
 
-async function loadProjection() {
-  if (!state.adapter) return;
-  setNotice("店舗営業Projectionを読み込んでいます", "読み取り専用Projectionとactor scopeを確認しています。");
-  try {
-    state.projection = await state.adapter.loadDashboard({ period: elements.period.value });
-    renderAll();
-    setModeBanner();
-  } catch (error) {
-    if (Number(error?.status) === 401 || error?.code === "UNAUTHORIZED") {
-      state.adapter?.clear();
-      handleNovHubSessionAuthFailure(401);
-      clearNovHubSession();
-      return renderAuthRequired();
-    }
-    renderAdapterError(error);
-  }
-}
-
-function setModeBanner() {
-  elements.notice.classList.remove("is-error");
-  if (state.adapterMode === "mock") {
-    $("preview-banner").hidden = false;
-    setNotice("Preview Mode", "mockのサンプルデータを表示しています。実会計データではありません。");
+function renderRuntimeSnapshot(snapshot) {
+  state.runtimeStatus = snapshot.status;
+  elements.retry.hidden = !snapshot.canRetry;
+  elements.notice.classList.toggle("is-error", !["initializing", "loading", "ready", "empty"].includes(snapshot.status));
+  elements.notice.classList.toggle("is-blocking", Boolean(snapshot.presentation?.blocking));
+  setNotice(snapshot.presentation?.title || "店舗営業情報を確認しています", snapshot.presentation?.body || "少々お待ちください。");
+  if (snapshot.presentation?.blocking) {
+    document.querySelector("main").hidden = true;
+    document.querySelector(".accounting-meta").hidden = true;
     return;
   }
-  setNotice("Read-only Integrationを表示しています", "隔離Projection endpointの検証用responseです。");
-}
-
-function renderAdapterError(error) {
-  const code = String(error?.code || "");
-  const mapping = {
-    FORBIDDEN: ["アクセス権限がありません", "NOV HUBへ戻って権限をご確認ください。"],
-    ACTOR_SCOPE_DENIED: ["アクセス権限がありません", "NOV HUBへ戻って権限をご確認ください。"],
-    ACTOR_SCOPE_MISMATCH: ["データ確認が必要です", "actor scopeと店舗データが一致しません。"],
-    NOT_FOUND: ["対象店舗または対象月が見つかりません", "営業対象月をご確認ください。"],
-    VERSION_CONFLICT: ["データ更新中です", "時間をおいて再読み込みしてください。"],
-    VALIDATION_ERROR: ["データ確認が必要です", "公開データの検証完了までお待ちください。"],
-    SCHEMA_MISMATCH: ["データ確認が必要です", "Projection契約を確認しています。"],
-    MALFORMED_JSON: ["データ確認が必要です", "Projection応答を確認しています。"],
-    TIMEOUT: ["通信に時間がかかっています", "時間をおいて再読み込みしてください。"],
-    SERVER_ERROR: ["一時的に取得できません", "時間をおいて再読み込みしてください。"],
-    PRODUCTION_NOT_APPROVED: ["本番接続は利用できません", "Phase 5-2はreview-onlyです。"],
-    MOCK_NOT_ALLOWED: ["Mockを起動できません", "Mockはローカル確認専用です。"]
-  };
-  const [title, body] = mapping[code] || ["店舗状況を読み込めませんでした", "時間をおいて再読み込みしてください。"];
-  if (code === "FORBIDDEN" || code === "ACTOR_SCOPE_DENIED") return renderBlockingState(title, body);
-  elements.notice.classList.add("is-error");
-  setNotice(title, body);
+  if (!["ready", "empty"].includes(snapshot.status)) return;
+  document.querySelector("main").hidden = false;
+  document.querySelector(".accounting-meta").hidden = false;
+  state.projection = snapshot.projection;
+  $("preview-banner").hidden = !["mock", "preview"].includes(snapshot.featureFlag);
+  renderAll();
 }
 
 function renderAll() {
@@ -298,15 +254,6 @@ function empty(text) { return node("div", "empty", text); }
 function emptyState() { const box = empty("表示できる店舗がありません"); box.append(node("p", "", "権限または対象月をご確認ください")); return box; }
 function orderedList(items) { const list = document.createElement("ol"); items.slice(0, 3).forEach((text) => { const item = document.createElement("li"); item.textContent = text; list.append(item); }); return list; }
 function setNotice(title, body) { elements.noticeTitle.textContent = title; elements.noticeBody.textContent = body; }
-function renderBlockingState(title, body) {
-  document.querySelector("main").hidden = true;
-  document.querySelector(".accounting-meta").hidden = true;
-  elements.notice.classList.add("is-error", "is-blocking");
-  setNotice(title, body);
-}
-function renderAuthRequired() { renderBlockingState("HUBログインが必要です", "NOV HUBへ戻り、店舗営業管理を開き直してください。"); }
-function renderSessionExpired() { renderBlockingState("セッションの有効期限が切れました", "NOV HUBへ戻り、再ログインしてください。"); }
-function renderAccessDenied() { renderBlockingState("アクセス権限がありません", "NOV HUBのアプリ一覧から店舗営業管理を開いてください。"); }
 
 function storeCard(store) {
   const article = node("article", "store-card");

@@ -13,9 +13,11 @@ const appJson = JSON.parse(readFileSync(new URL("../portal/apps.json", import.me
 const storeHtml = readFileSync(new URL("../portal/store-sales/index.html", import.meta.url), "utf8");
 const storeApp = readFileSync(new URL("../portal/store-sales/app.js", import.meta.url), "utf8");
 const storeCss = readFileSync(new URL("../portal/store-sales/styles.css", import.meta.url), "utf8");
-const runtime = readFileSync(new URL("../portal/store-sales/adapter-runtime-config.js", import.meta.url), "utf8");
+const runtime = readFileSync(new URL("../portal/store-sales/runtime-config.js", import.meta.url), "utf8");
 const mock = readFileSync(new URL("../portal/store-sales/adapters/mock.js", import.meta.url), "utf8");
 const session = readFileSync(new URL("../portal/js/nov-hub-session-candidate.js", import.meta.url), "utf8");
+const runtimeSource = readFileSync(new URL("../portal/store-sales/runtime/store-sales-runtime.js", import.meta.url), "utf8");
+const runtimeErrors = readFileSync(new URL("../portal/store-sales/runtime/error-mapping.js", import.meta.url), "utf8");
 const previewApp = DEMO_APPS.find((app) => app.appId === "store-sales-preview");
 const employee = (email) => DEMO_EMPLOYEES.find((item) => item.email === email);
 
@@ -33,27 +35,27 @@ test("existing sales icon is reused", () => {
 });
 test("Preview banner is semantic and initially hidden", () => {
   assert.match(storeHtml, /id="preview-banner"[\s\S]*role="status"[\s\S]*hidden/);
-  assert.match(storeApp, /\$\("preview-banner"\)\.hidden = false/);
+  assert.match(storeApp, /\["mock", "preview"\]\.includes\(snapshot\.featureFlag\)/);
 });
 test("Preview banner identifies synthetic non-production data", () => {
   assert.match(storeHtml, /サンプルデータ/);
   assert.match(storeHtml, /実会計データ・本番環境には接続していません/);
 });
 test("runtime is mock-only Preview", () => {
-  assert.match(runtime, /mode:\s*"mock"/);
+  assert.match(runtime, /featureFlag:\s*"preview"/);
   assert.match(runtime, /preview:\s*true/);
   assert.match(runtime, /requireHubSession:\s*true/);
 });
 test("production remains blocked", () => assert.match(readFileSync(new URL("../portal/store-sales/adapters/config.js", import.meta.url), "utf8"), /PRODUCTION_NOT_APPROVED/));
 test("Store Sales requires canonical HUB session", () => {
-  assert.match(storeApp, /getNovHubSessionStatus/);
-  assert.match(storeApp, /restoreNovHubSession/);
-  assert.match(storeApp, /runtimeConfig\.requireHubSession && !session/);
+  assert.match(runtimeSource, /getNovHubSessionStatus/);
+  assert.match(runtimeSource, /restoreNovHubSession/);
+  assert.match(runtimeSource, /runtimeConfig\.requireHubSession/);
 });
-test("missing session has a HUB return instruction", () => assert.match(storeApp, /HUBログインが必要です/));
+test("missing session has a HUB return instruction", () => assert.match(runtimeErrors, /HUBログインが必要です/));
 test("expired session has a distinct state", () => {
   assert.match(session, /return "expired"/);
-  assert.match(storeApp, /セッションの有効期限が切れました/);
+  assert.match(runtimeErrors, /セッションの有効期限が切れました/);
 });
 test("logout clears preview context", () => assert.match(main, /clearStoreSalesPreviewContext\(\)/));
 test("executive resolves to executive fixture", () => assert.equal(resolvePreviewFixture(["executive"]), "executive"));
@@ -71,7 +73,7 @@ test("franchise owner has only five FC stores", () => {
 test("employee fixture is access denied", async () => {
   const adapter = createMockAdapter({ mode: "mock", fixture: "executive" }, { getPreviewFixtureName: () => "employee-denied" });
   await assert.rejects(() => adapter.loadDashboard(), (error) => error.code === "ACTOR_SCOPE_DENIED" && error.status === 403);
-  assert.match(storeApp, /renderBlockingState\(title, body\)/);
+  assert.match(storeApp, /snapshot\.presentation\?\.blocking/);
   assert.match(storeApp, /document\.querySelector\("main"\)\.hidden = true/);
 });
 test("HUB return link is relative", () => assert.match(storeHtml, /href="\.\.\/">← NOV HUBへ戻る/));

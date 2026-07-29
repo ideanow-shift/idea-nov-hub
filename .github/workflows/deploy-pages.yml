@@ -1,9 +1,13 @@
 name: Deploy NOV HUB to GitHub Pages
 
 on:
-  push:
-    branches: ["main"]
   workflow_dispatch:
+    inputs:
+      production_approved:
+        description: "Explicit production deployment approval"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -16,6 +20,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: ${{ inputs.production_approved == true }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

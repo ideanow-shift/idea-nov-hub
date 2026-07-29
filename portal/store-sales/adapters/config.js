@@ -30,10 +30,10 @@ export function resolveAdapterConfig({ location, runtimeConfig = {} }) {
     mode: requestedMode,
     fixture,
     endpoint,
+    contractVersion: String(runtimeConfig.contractVersion || "store-sales-projection-v1"),
     timeoutMs: Math.max(1000, Math.min(Number(runtimeConfig.timeoutMs || 8000), 20000)),
     cacheEnabled: false
   });
 }
 
 export const STORE_SALES_ADAPTER_MODES = Object.freeze([...MODES]);
-

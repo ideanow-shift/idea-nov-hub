@@ -1,0 +1,46 @@
+openapi: 3.1.0
+info: {title: IDEA NOV OS Accounting KPI API, version: 1.0.0-prototype}
+paths:
+  /v1/stores/{storeId}/accounting-kpis:
+    get:
+      summary: Store manager KPI projection
+      description: Server-side actor context controls storeId; body role/scope claims are ignored.
+      parameters:
+        - {in: path, name: storeId, required: true, schema: {type: string}}
+        - {in: query, name: period, required: true, schema: {type: string, pattern: '^\d{4}-\d{2}$'}}
+      responses:
+        '200': {description: Own-store gross, operating, and ordinary profit margins only}
+        '403': {description: Actor or scope denied}
+        '404': {description: No released active result}
+  /v1/corporate/{scopeType}/{entityId}/accounting-kpis:
+    get:
+      summary: Corporate management KPI projection
+      parameters:
+        - {in: path, name: scopeType, required: true, schema: {type: string}}
+        - {in: path, name: entityId, required: true, schema: {type: string}}
+        - {in: query, name: period, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Released KPIs within trusted actor scope}
+        '403': {description: Actor or scope denied}
+  /v1/admin/accounting-kpi-results/{resultId}/provenance:
+    get:
+      summary: Restricted provenance view
+      responses:
+        '200': {description: Fact IDs and numerator/denominator inputs for authorized administrators}
+        '403': {description: General actor denied}
+components:
+  schemas:
+    KpiItem:
+      type: object
+      required: [kpi_code,kpi_name,value,display_value,unit,display_scale,data_state,definition_version,calculated_at]
+      properties:
+        kpi_code: {type: string}
+        kpi_name: {type: string}
+        value: {type: number, description: Internal ratio, never rounded for calculation}
+        display_value: {type: number, description: Percent converted with ROUND_HALF_UP}
+        unit: {const: percent}
+        display_scale: {const: 1}
+        data_state: {type: string}
+        reason_code: {type: [string, 'null']}
+        definition_version: {type: integer}
+        calculated_at: {type: string, format: date-time}

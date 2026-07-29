@@ -1,0 +1,43 @@
+{
+  "defaults": {
+    "description": "Accounting Core published factsから算出するratio KPI",
+    "category": "accounting_ratio",
+    "applicable_scope": ["store", "department", "franchise_company", "legal_entity", "consolidated_group"],
+    "statement_type": "mixed",
+    "period_mode": "monthly",
+    "amount_basis": "net",
+    "unit": "ratio",
+    "rounding_rule": {"mode": "half_up", "display_decimal_places": 2, "approval_status": "proposed"},
+    "zero_denominator_rule": "ZERO_DENOMINATOR",
+    "negative_denominator_rule": "NEGATIVE_DENOMINATOR",
+    "missing_component_rule": "MISSING_COMPONENT",
+    "valid_from": "2023-09-01",
+    "valid_to": null,
+    "definition_version": 1,
+    "approval_status": "proposed",
+    "supersedes_definition_id": null
+  },
+  "definitions": [
+    {"kpi_definition_id":"kdef-gpm-v1","kpi_code":"gross_profit_margin","kpi_name":"売上総利益率","numerator_expression":{"op":"account_group","code":"gross_profit"},"denominator_expression":{"op":"account_group","code":"total_revenue"},"required_account_groups":["gross_profit","total_revenue"],"statement_type":"pl"},
+    {"kpi_definition_id":"kdef-opm-v1","kpi_code":"operating_profit_margin","kpi_name":"営業利益率","numerator_expression":{"op":"account_group","code":"operating_profit"},"denominator_expression":{"op":"account_group","code":"total_revenue"},"required_account_groups":["operating_profit","total_revenue"],"statement_type":"pl"},
+    {"kpi_definition_id":"kdef-ord-v1","kpi_code":"ordinary_profit_margin","kpi_name":"経常利益率","numerator_expression":{"op":"account_group","code":"ordinary_profit"},"denominator_expression":{"op":"account_group","code":"total_revenue"},"required_account_groups":["ordinary_profit","total_revenue"],"statement_type":"pl"},
+    {"kpi_definition_id":"kdef-npm-v1","kpi_code":"net_profit_margin","kpi_name":"当期利益率","numerator_expression":{"op":"account_group","code":"net_profit"},"denominator_expression":{"op":"account_group","code":"total_revenue"},"required_account_groups":["net_profit","total_revenue"],"statement_type":"pl","applicable_scope":["legal_entity","consolidated_group"]},
+    {"kpi_definition_id":"kdef-equity-v1","kpi_code":"equity_ratio","kpi_name":"自己資本比率","numerator_expression":{"op":"account_group","code":"net_assets"},"denominator_expression":{"op":"account_group","code":"total_assets"},"required_account_groups":["net_assets","total_assets"],"statement_type":"bs","period_mode":"point_in_time","applicable_scope":["legal_entity","consolidated_group"]},
+    {"kpi_definition_id":"kdef-current-v1","kpi_code":"current_ratio","kpi_name":"流動比率","numerator_expression":{"op":"account_group","code":"current_assets"},"denominator_expression":{"op":"account_group","code":"current_liabilities"},"required_account_groups":["current_assets","current_liabilities"],"statement_type":"bs","period_mode":"point_in_time","applicable_scope":["legal_entity","consolidated_group"]},
+
+    {"kpi_definition_id":"kdef-techmix-v1","kpi_code":"technical_revenue_mix","kpi_name":"技術売上構成比","numerator_expression":{"op":"account_group","code":"technical_revenue"},"denominator_expression":{"op":"account_group","code":"total_revenue"},"required_account_groups":["technical_revenue","total_revenue"]},
+    {"kpi_definition_id":"kdef-productmix-v1","kpi_code":"product_revenue_mix","kpi_name":"商品売上構成比","numerator_expression":{"op":"account_group","code":"product_revenue"},"denominator_expression":{"op":"account_group","code":"total_revenue"},"required_account_groups":["product_revenue","total_revenue"]},
+    {"kpi_definition_id":"kdef-ecmix-v1","kpi_code":"ec_revenue_mix","kpi_name":"EC売上構成比","numerator_expression":{"op":"account_group","code":"ec_revenue"},"denominator_expression":{"op":"account_group","code":"total_revenue"},"required_account_groups":["ec_revenue","total_revenue"]},
+    {"kpi_definition_id":"kdef-labor-v1","kpi_code":"labor_cost_ratio","kpi_name":"人件費率","numerator_expression":{"op":"account_group","code":"labor_cost"},"denominator_expression":{"op":"account_group","code":"total_revenue"},"required_account_groups":["labor_cost","total_revenue"]},
+    {"kpi_definition_id":"kdef-material-v1","kpi_code":"material_cost_ratio","kpi_name":"材料費率","numerator_expression":{"op":"account_group","code":"material_cost"},"denominator_expression":{"op":"account_group","code":"total_revenue"},"required_account_groups":["material_cost","total_revenue"]},
+    {"kpi_definition_id":"kdef-rent-v1","kpi_code":"rent_ratio","kpi_name":"家賃比率","numerator_expression":{"op":"account_group","code":"rent_cost"},"denominator_expression":{"op":"account_group","code":"total_revenue"},"required_account_groups":["rent_cost","total_revenue"]},
+    {"kpi_definition_id":"kdef-distribution-v1","kpi_code":"labor_distribution_ratio","kpi_name":"労働分配率","numerator_expression":{"op":"account_group","code":"labor_cost"},"denominator_expression":{"op":"account_group","code":"gross_profit"},"required_account_groups":["labor_cost","gross_profit"]},
+    {"kpi_definition_id":"kdef-quick-v1","kpi_code":"quick_ratio","kpi_name":"当座比率","numerator_expression":{"op":"account_group","code":"quick_assets"},"denominator_expression":{"op":"account_group","code":"current_liabilities"},"required_account_groups":["quick_assets","current_liabilities"],"statement_type":"bs","period_mode":"point_in_time"},
+    {"kpi_definition_id":"kdef-fixed-v1","kpi_code":"fixed_ratio","kpi_name":"固定比率","numerator_expression":{"op":"account_group","code":"fixed_assets"},"denominator_expression":{"op":"account_group","code":"net_assets"},"required_account_groups":["fixed_assets","net_assets"],"statement_type":"bs","period_mode":"point_in_time"},
+    {"kpi_definition_id":"kdef-fixedlong-v1","kpi_code":"fixed_long_term_fit_ratio","kpi_name":"固定長期適合率","numerator_expression":{"op":"account_group","code":"fixed_assets"},"denominator_expression":{"op":"account_group","code":"long_term_capital"},"required_account_groups":["fixed_assets","long_term_capital"],"statement_type":"bs","period_mode":"point_in_time"},
+    {"kpi_definition_id":"kdef-roa-v1","kpi_code":"roa","kpi_name":"ROA","numerator_expression":{"op":"account_group","code":"roa_profit"},"denominator_expression":{"op":"account_group","code":"average_total_assets"},"required_account_groups":["roa_profit","average_total_assets"],"period_mode":"average_balance"},
+    {"kpi_definition_id":"kdef-roe-v1","kpi_code":"roe","kpi_name":"ROE","numerator_expression":{"op":"account_group","code":"net_profit"},"denominator_expression":{"op":"account_group","code":"average_equity"},"required_account_groups":["net_profit","average_equity"],"period_mode":"average_balance"},
+    {"kpi_definition_id":"kdef-debt-v1","kpi_code":"borrowing_dependency","kpi_name":"借入金依存度","numerator_expression":{"op":"account_group","code":"total_borrowings"},"denominator_expression":{"op":"account_group","code":"total_assets"},"required_account_groups":["total_borrowings","total_assets"],"statement_type":"bs","period_mode":"point_in_time"},
+    {"kpi_definition_id":"kdef-cashmonths-v1","kpi_code":"cash_months_sales","kpi_name":"現預金月商倍率","numerator_expression":{"op":"account_group","code":"cash_and_deposits"},"denominator_expression":{"op":"account_group","code":"monthly_revenue"},"required_account_groups":["cash_and_deposits","monthly_revenue"]}
+  ]
+}

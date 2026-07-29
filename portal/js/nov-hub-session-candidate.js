@@ -118,6 +118,21 @@ export function restoreNovHubSession() {
   return session;
 }
 
+export function getNovHubSessionStatus() {
+  const storage = getSessionStorage();
+  let raw = null;
+  try {
+    raw = storage?.getItem(NOV_HUB_SESSION_STORAGE_KEY) || null;
+  } catch {
+    return "missing";
+  }
+  if (!raw) return resolveCurrentSession() ? "available" : "missing";
+  const parsed = parseSession(raw);
+  const expiry = Date.parse(parsed?.expiresAt || "");
+  if (Number.isFinite(expiry) && expiry <= Date.now()) return "expired";
+  return normalizeSession(parsed) ? "available" : "invalid";
+}
+
 export function clearNovHubSession() {
   memorySession = null;
   memoryProvider = null;

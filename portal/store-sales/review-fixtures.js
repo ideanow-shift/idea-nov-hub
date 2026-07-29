@@ -99,6 +99,16 @@ function projection(stores, confirmationState = "confirmed", audience = "executi
 
 export function getReviewFixture(name) {
   if (name === "manager") return projection([makeStore(0)], "confirmed", "store_manager");
+  if (name === "department-manager") {
+    const result = projection(storeNames.slice(0, 6).map((_, index) => makeStore(index)), "confirmed", "department_manager");
+    result.scopeLabel = "担当6店舗";
+    return result;
+  }
+  if (name === "franchise-owner") {
+    const result = projection(storeNames.slice(15).map((_, index) => makeStore(index + 15)), "confirmed", "franchise_owner");
+    result.scopeLabel = "自法人5店舗";
+    return result;
+  }
   if (name === "pending") {
     const store = makeStore(0, "pending");
     store.metrics.sales = metrics(0, "tax-pending").sales;

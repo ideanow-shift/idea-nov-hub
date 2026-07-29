@@ -1,9 +1,11 @@
 import {
   clearNovHubSession,
+  getNovHubSessionStatus,
   handleNovHubSessionAuthFailure,
   restoreNovHubSession
 } from "../js/nov-hub-session-candidate.js";
 import { createStoreSalesAdapter } from "./adapters/index.js";
+import { restoreStoreSalesPreviewContext } from "./preview-context.js";
 
 const state = { projection: null, filter: "All", selectedStore: null, tab: "summary", audience: "executive", adapter: null, adapterMode: null };
 const metricLabels = {
@@ -46,11 +48,20 @@ async function initialize() {
   let session = null;
   try {
     const runtimeConfig = globalThis.STORE_SALES_ADAPTER_CONFIG || {};
-    if (runtimeConfig.mode === "integration") session = restoreNovHubSession();
+    const sessionStatus = getNovHubSessionStatus();
+    if (runtimeConfig.mode === "integration" || runtimeConfig.requireHubSession) session = restoreNovHubSession();
+    if (runtimeConfig.requireHubSession && !session) {
+      return sessionStatus === "expired" ? renderSessionExpired() : renderAuthRequired();
+    }
+    const previewContext = runtimeConfig.preview ? restoreStoreSalesPreviewContext() : null;
+    if (runtimeConfig.preview && !previewContext) return renderAccessDenied();
     const created = createStoreSalesAdapter({
       location,
       runtimeConfig,
-      dependencies: { getSessionToken: () => session?.sessionToken || "" }
+      dependencies: {
+        getSessionToken: () => session?.sessionToken || "",
+        getPreviewFixtureName: () => previewContext?.fixture || ""
+      }
     });
     state.adapter = created.adapter;
     state.adapterMode = created.config.mode;
@@ -82,7 +93,8 @@ async function loadProjection() {
 function setModeBanner() {
   elements.notice.classList.remove("is-error");
   if (state.adapterMode === "mock") {
-    setNotice("Mock Projectionを表示しています", "synthetic fixtureのみを使用し、外部APIには接続していません。");
+    $("preview-banner").hidden = false;
+    setNotice("Preview Mode", "mockのサンプルデータを表示しています。実会計データではありません。");
     return;
   }
   setNotice("Read-only Integrationを表示しています", "隔離Projection endpointの検証用responseです。");
@@ -105,6 +117,7 @@ function renderAdapterError(error) {
     MOCK_NOT_ALLOWED: ["Mockを起動できません", "Mockはローカル確認専用です。"]
   };
   const [title, body] = mapping[code] || ["店舗状況を読み込めませんでした", "時間をおいて再読み込みしてください。"];
+  if (code === "FORBIDDEN" || code === "ACTOR_SCOPE_DENIED") return renderBlockingState(title, body);
   elements.notice.classList.add("is-error");
   setNotice(title, body);
 }
@@ -113,6 +126,7 @@ function renderAll() {
   const projection = state.projection || {};
   const accounting = projection.accounting || {};
   state.audience = projection.audience === "store_manager" ? "store_manager" : "executive";
+  $("summary-heading").textContent = projection.scopeLabel ? `${projection.scopeLabel}の状況` : "全店舗の状況";
   $("meta-sales-period").textContent = formatMonth(elements.period.value);
   $("meta-accounting-period").textContent = formatMonth(accounting.confirmedThroughPeriod || accounting.period);
   $("meta-state").textContent = stateText(accounting.confirmationState);
@@ -284,7 +298,15 @@ function empty(text) { return node("div", "empty", text); }
 function emptyState() { const box = empty("表示できる店舗がありません"); box.append(node("p", "", "権限または対象月をご確認ください")); return box; }
 function orderedList(items) { const list = document.createElement("ol"); items.slice(0, 3).forEach((text) => { const item = document.createElement("li"); item.textContent = text; list.append(item); }); return list; }
 function setNotice(title, body) { elements.noticeTitle.textContent = title; elements.noticeBody.textContent = body; }
-function renderAuthRequired() { elements.notice.classList.add("is-error"); setNotice("HUBログインが必要です", "NOV HUBへ戻り、店舗営業管理を開き直してください。"); }
+function renderBlockingState(title, body) {
+  document.querySelector("main").hidden = true;
+  document.querySelector(".accounting-meta").hidden = true;
+  elements.notice.classList.add("is-error", "is-blocking");
+  setNotice(title, body);
+}
+function renderAuthRequired() { renderBlockingState("HUBログインが必要です", "NOV HUBへ戻り、店舗営業管理を開き直してください。"); }
+function renderSessionExpired() { renderBlockingState("セッションの有効期限が切れました", "NOV HUBへ戻り、再ログインしてください。"); }
+function renderAccessDenied() { renderBlockingState("アクセス権限がありません", "NOV HUBのアプリ一覧から店舗営業管理を開いてください。"); }
 
 function storeCard(store) {
   const article = node("article", "store-card");

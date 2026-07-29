@@ -38,7 +38,7 @@ test("review fixtures cover all requested non-production states", () => {
   for (const fixture of ["manager", "pending", "validation", "empty", "all-preparing"]) {
     assert.match(fixtures, new RegExp(`name === "${fixture}"`));
   }
-  assert.match(mockAdapter, /config\.fixture === "timeout"/);
+  assert.match(mockAdapter, /fixture === "timeout"/);
   assert.match(fixtures, /storeNames\.map/);
 });
 

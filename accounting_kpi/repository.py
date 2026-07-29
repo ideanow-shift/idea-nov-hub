@@ -10,6 +10,10 @@ from pathlib import Path
 from .domain import AccountGroup, ApprovalStatus, KpiDefinition, KpiResult
 
 
+class DuplicateCompletedRun(RuntimeError):
+    pass
+
+
 def open_database(path: Path | str = ":memory:") -> sqlite3.Connection:
     connection = sqlite3.connect(path)
     connection.row_factory = sqlite3.Row
@@ -22,6 +26,7 @@ class KpiRepository:
         self.db = connection
         self.definitions: dict[str, KpiDefinition] = {}
         self.groups: dict[str, AccountGroup] = {}
+        self.last_run_reused = False
 
     def seed(self, definitions: list[KpiDefinition], groups: list[AccountGroup]) -> None:
         with self.db:
@@ -81,16 +86,110 @@ class KpiRepository:
         self.groups[code] = approved
         return approved
 
-    def create_run(self, accounting_version_id: str, entity_id: str, scope_type: str, period: str, actor_id: str) -> str:
+    def supersede_definition(
+        self, code: str, replacement: KpiDefinition, actor_id: str, reason: str
+    ) -> KpiDefinition:
+        current = self.definitions[code]
+        if replacement.code != code or replacement.supersedes_definition_id != current.id:
+            raise ValueError("replacement must retain code and reference superseded definition")
+        if replacement.definition_version <= current.definition_version:
+            raise ValueError("replacement definition version must increase")
+        with self.db:
+            self.db.execute(
+                "UPDATE accounting_kpi_definitions SET approval_status='inactive',updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                (current.id,),
+            )
+            self.db.execute(
+                """INSERT INTO accounting_kpi_definitions(
+                id,kpi_code,kpi_name,definition_version,definition_json,valid_from,valid_to,
+                approval_status,supersedes_definition_id) VALUES(?,?,?,?,?,?,?,?,?)""",
+                (replacement.id, replacement.code, replacement.name, replacement.definition_version,
+                 json.dumps({"numerator": replacement.numerator_expression,
+                             "denominator": replacement.denominator_expression}),
+                 replacement.valid_from.isoformat(),
+                 replacement.valid_to.isoformat() if replacement.valid_to else None,
+                 replacement.approval_status.value, replacement.supersedes_definition_id),
+            )
+            self._audit(actor_id, "definition_superseded", "definition", current.id, reason)
+        self.definitions[code] = replacement
+        return replacement
+
+    def create_run(
+        self, accounting_version_id: str, entity_id: str, scope_type: str, period: str,
+        actor_id: str, definition_set_version: str = "phase4-v1", amount_basis: str = "net",
+        recalculate: bool = False, retry_of_run_id: str | None = None,
+    ) -> str:
+        self.last_run_reused = False
+        existing = self.db.execute(
+            """SELECT id FROM accounting_kpi_calculation_runs
+            WHERE accounting_version_id=? AND definition_set_version=? AND entity_id=?
+            AND scope_type=? AND target_period=? AND amount_basis=?
+            AND status IN ('completed','completed_with_warnings')""",
+            (accounting_version_id, definition_set_version, entity_id, scope_type, period, amount_basis),
+        ).fetchone()
+        if existing and not recalculate:
+            self.last_run_reused = True
+            return existing["id"]
+        if existing and recalculate:
+            self.supersede_run(existing["id"], actor_id, "explicit recalculation")
         run_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
-        self.db.execute(
-            """INSERT INTO accounting_kpi_calculation_runs(
-            id,accounting_version_id,entity_id,scope_type,target_period,definition_set_version,
-            status,started_at,triggered_by) VALUES(?,?,?,?,?,?,'running',?,?)""",
-            (run_id, accounting_version_id, entity_id, scope_type, period, "phase4-v1", now, actor_id),
-        )
+        attempt = 1
+        if retry_of_run_id:
+            prior = self.db.execute(
+                "SELECT status,attempt_number FROM accounting_kpi_calculation_runs WHERE id=?",
+                (retry_of_run_id,),
+            ).fetchone()
+            if not prior or prior["status"] != "failed":
+                raise ValueError("retry requires a failed run")
+            attempt = prior["attempt_number"] + 1
+        try:
+            with self.db:
+                self.db.execute(
+                    """INSERT INTO accounting_kpi_calculation_runs(
+                    id,accounting_version_id,entity_id,scope_type,target_period,definition_set_version,
+                    amount_basis,status,started_at,triggered_by,retry_of_run_id,attempt_number
+                    ) VALUES(?,?,?,?,?,?,?,'running',?,?,?,?)""",
+                    (run_id, accounting_version_id, entity_id, scope_type, period,
+                     definition_set_version, amount_basis, now, actor_id, retry_of_run_id, attempt),
+                )
+        except sqlite3.IntegrityError as error:
+            raise DuplicateCompletedRun("concurrent duplicate calculation run") from error
         return run_id
+
+    def supersede_run(self, run_id: str, actor_id: str, reason: str) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        with self.db:
+            self.db.execute(
+                "UPDATE accounting_kpi_calculation_runs SET status='superseded',superseded_at=? WHERE id=?",
+                (now, run_id),
+            )
+            self.db.execute(
+                """UPDATE accounting_kpi_results SET superseded_at=?
+                WHERE calculation_run_id=? AND superseded_at IS NULL""",
+                (now, run_id),
+            )
+            self._audit(actor_id, "run_superseded", "calculation_run", run_id, reason)
+
+    def observe_accounting_version(self, version_id: str, active_published: bool = True) -> None:
+        with self.db:
+            self.db.execute(
+                """INSERT INTO accounting_kpi_accounting_version_projection(
+                accounting_version_id,active_published) VALUES(?,?)
+                ON CONFLICT(accounting_version_id) DO UPDATE SET
+                active_published=excluded.active_published,observed_at=CURRENT_TIMESTAMP""",
+                (version_id, int(active_published)),
+            )
+
+    def deactivate_accounting_version(self, version_id: str, actor_id: str, reason: str) -> None:
+        self.observe_accounting_version(version_id, False)
+        runs = self.db.execute(
+            """SELECT id FROM accounting_kpi_calculation_runs
+            WHERE accounting_version_id=? AND status IN ('completed','completed_with_warnings')""",
+            (version_id,),
+        ).fetchall()
+        for run in runs:
+            self.supersede_run(run["id"], actor_id, reason)
 
     def save_result(self, result: KpiResult) -> None:
         with self.db:
@@ -131,10 +230,11 @@ class KpiRepository:
                     )
 
     def complete_run(self, run_id: str) -> None:
-        self.db.execute(
-            "UPDATE accounting_kpi_calculation_runs SET status='completed',completed_at=? WHERE id=?",
-            (datetime.now(timezone.utc).isoformat(), run_id),
-        )
+        with self.db:
+            self.db.execute(
+                "UPDATE accounting_kpi_calculation_runs SET status='completed',completed_at=? WHERE id=?",
+                (datetime.now(timezone.utc).isoformat(), run_id),
+            )
 
     def provenance(self, result_id: str) -> list[sqlite3.Row]:
         return self.db.execute(

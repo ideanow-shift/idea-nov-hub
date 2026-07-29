@@ -27,6 +27,8 @@ class KpiWorkflow:
         run_id = self.repository.create_run(
             accounting_version_id, entity_id, scope_type, period.isoformat(), triggered_by
         )
+        if self.repository.last_run_reused:
+            return run_id, []
         try:
             facts = self.projection.facts_for(accounting_version_id, entity_id, scope_type, period)
         except CoreProjectionError as error:
@@ -35,6 +37,7 @@ class KpiWorkflow:
                 (str(error), run_id),
             )
             raise
+        self.repository.observe_accounting_version(accounting_version_id, True)
         results = [
             self.calculator.calculate(
                 self.repository.definitions[code],

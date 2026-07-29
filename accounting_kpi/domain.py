@@ -23,6 +23,57 @@ class DataState(StrEnum):
     VALIDATION_ERROR = "validation_error"
 
 
+class DefinitionSetStatus(StrEnum):
+    DRAFT = "draft"
+    PROPOSED = "proposed"
+    ACCOUNTING_APPROVED = "accounting_approved"
+    MANAGEMENT_APPROVED = "management_approved"
+    RELEASED = "released"
+    SUPERSEDED = "superseded"
+    REJECTED = "rejected"
+    INACTIVE = "inactive"
+
+
+class RunStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    COMPLETED_WITH_WARNINGS = "completed_with_warnings"
+    FAILED = "failed"
+    SUPERSEDED = "superseded"
+    CANCELLED = "cancelled"
+
+
+class KpiActorRole(StrEnum):
+    KPI_ADMIN = "kpi_admin"
+    KPI_DEFINITION_EDITOR = "kpi_definition_editor"
+    ACCOUNTING_DEFINITION_REVIEWER = "accounting_definition_reviewer"
+    MANAGEMENT_DEFINITION_APPROVER = "management_definition_approver"
+    EXECUTIVE_VIEWER = "executive_viewer"
+    DEPARTMENT_MANAGER = "department_manager"
+    STORE_MANAGER = "store_manager"
+    FRANCHISE_OWNER = "franchise_owner"
+    EMPLOYEE = "employee"
+
+
+class KpiScopeType(StrEnum):
+    ALL_GROUP = "all_group"
+    LEGAL_ENTITY = "legal_entity"
+    DEPARTMENT = "department"
+    STORE = "store"
+    FRANCHISE_COMPANY = "franchise_company"
+    NONE = "none"
+
+
+@dataclass(frozen=True)
+class KpiActorContext:
+    actor_id: str
+    role: KpiActorRole
+    scope_type: KpiScopeType
+    scope_ids: frozenset[str]
+    trusted_server_context: bool = True
+
+
 @dataclass(frozen=True)
 class KpiDefinition:
     id: str

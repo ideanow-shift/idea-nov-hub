@@ -1,0 +1,22 @@
+{
+  "defaults": {
+    "definition_version": 1,
+    "valid_from": "2023-09-01",
+    "valid_to": null,
+    "approval_status": "proposed",
+    "member_effective_from": "2023-09-01",
+    "member_effective_to": null,
+    "supersedes_group_id": null
+  },
+  "groups": [
+    {"group_id":"kgrp-revenue-v1","group_code":"total_revenue","canonical_account_members":["total_revenue"]},
+    {"group_id":"kgrp-gross-v1","group_code":"gross_profit","canonical_account_members":["gross_profit"]},
+    {"group_id":"kgrp-operating-v1","group_code":"operating_profit","canonical_account_members":["operating_profit"]},
+    {"group_id":"kgrp-ordinary-v1","group_code":"ordinary_profit","canonical_account_members":["ordinary_profit"]},
+    {"group_id":"kgrp-net-v1","group_code":"net_profit","canonical_account_members":["net_profit"]},
+    {"group_id":"kgrp-assets-v1","group_code":"total_assets","canonical_account_members":["total_assets"]},
+    {"group_id":"kgrp-current-assets-v1","group_code":"current_assets","canonical_account_members":["current_assets"]},
+    {"group_id":"kgrp-current-liabilities-v1","group_code":"current_liabilities","canonical_account_members":["current_liabilities"]},
+    {"group_id":"kgrp-net-assets-v1","group_code":"net_assets","canonical_account_members":["net_assets"]}
+  ]
+}

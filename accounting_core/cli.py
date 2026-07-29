@@ -14,7 +14,7 @@ def _db(path: Path) -> sqlite3.Connection:
 
 def report(connection: sqlite3.Connection, version_id: str) -> dict[str, object]:
     version = connection.execute(
-        """SELECT v.*,i.batch_id FROM accounting_versions v
+        """SELECT v.*,i.batch_id,i.confirmed_through_period FROM accounting_versions v
            JOIN accounting_import_files i ON i.id=v.import_file_id WHERE v.id=?""",
         (version_id,),
     ).fetchone()
@@ -35,6 +35,7 @@ def report(connection: sqlite3.Connection, version_id: str) -> dict[str, object]
         "version_id": version_id,
         "version_label": version["version_label"],
         "target_period": f"{version['fiscal_year']:04d}-{version['fiscal_month']:02d}",
+        "confirmed_through_period": version["confirmed_through_period"],
         "entity_count": scalar("SELECT COUNT(DISTINCT entity_id) FROM accounting_facts WHERE version_id=?"),
         "raw_value_count": scalar("""SELECT COUNT(DISTINCT raw_value_id) FROM accounting_facts WHERE version_id=?"""),
         "canonical_fact_count": scalar("SELECT COUNT(*) FROM accounting_facts WHERE version_id=?"),
@@ -56,6 +57,12 @@ def report(connection: sqlite3.Connection, version_id: str) -> dict[str, object]
         "superseded_version": version["supersedes_version_id"],
         "rollback_possible_version": version["restore_source_version_id"] or version["prior_version_id"],
         "consumer_projection_count": scalar("SELECT COUNT(*) FROM accounting_consumer_facts WHERE version_id=?"),
+        "closing_status": (
+            "confirmed"
+            if version["confirmed_through_period"]
+            and f"{version['fiscal_year']:04d}-{version['fiscal_month']:02d}-01" <= version["confirmed_through_period"]
+            else "pending"
+        ),
         "data_state": "available" if published else "preparing",
     }
 

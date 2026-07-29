@@ -28,6 +28,7 @@ create table accounting.import_files (
   original_file_name text not null,
   storage_object_key text,
   detected_period date,
+  confirmed_through_period date,
   publish_block_reason text,
   created_at timestamptz not null default now(),
   unique(source_system,file_hash)
@@ -183,7 +184,10 @@ select f.*,p.created_at last_published_at
 from accounting.facts f
 join accounting.versions v on v.id=f.version_id and v.status='published'
 join accounting.publications p on p.version_id=v.id and p.status='published'
-where f.status='published';
+join accounting.import_files i on i.id=f.source_file_id
+where f.status='published'
+  and i.confirmed_through_period is not null
+  and f.period <= i.confirmed_through_period;
 
 alter table accounting.import_batches enable row level security;
 alter table accounting.import_files enable row level security;

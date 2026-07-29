@@ -26,7 +26,7 @@ class WorkflowTests(unittest.TestCase):
         self.db = open_database()
         self.workflow = AccountingWorkflow(self.db)
         self.db.execute("INSERT INTO accounting_import_batches(id,source_system,status,created_by) VALUES('batch','yayoi_excel','imported','admin')")
-        self.db.execute("INSERT INTO accounting_import_files(id,batch_id,source_system,file_hash,original_file_name,detected_period) VALUES('file','batch','yayoi_excel','hash-a','masked.xlsx','2026-06-01')")
+        self.db.execute("INSERT INTO accounting_import_files(id,batch_id,source_system,file_hash,original_file_name,detected_period,confirmed_through_period) VALUES('file','batch','yayoi_excel','hash-a','masked.xlsx','2026-06-01','2026-06-01')")
         self.db.execute("INSERT INTO accounting_entity_mappings(id,source_system,source_entity_name,scope_type,core_entity_id,status) VALUES('em','yayoi_excel','STORE-A','store','store-a','approved')")
         self.db.execute("""INSERT INTO accounting_account_mappings(
           id,source_system,statement_type,section,source_account_name,parent_context,
@@ -61,6 +61,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(1, len(rows))
         metadata = report(self.db, version.id)
         self.assertEqual(1, metadata["consumer_projection_count"])
+        self.assertEqual("2026-06-01", metadata["confirmed_through_period"])
+        self.assertEqual("confirmed", metadata["closing_status"])
         self.assertNotIn("amount_net", metadata)
 
     def test_rejections_are_terminal_and_audited(self):
@@ -93,7 +95,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_july_duplicate_period_block_prevents_publish(self):
         self.db.execute(
-            "UPDATE accounting_import_files SET detected_period='2026-07-01',publish_block_reason='June and July duplicate requires confirmation' WHERE id='file'"
+            "UPDATE accounting_import_files SET detected_period='2026-07-01',confirmed_through_period='2026-06-01',publish_block_reason='June and July duplicate requires confirmation' WHERE id='file'"
         )
         version = self.workflow.create_version("file", 2026, 7, "store", "store-a", "draft", ADMIN)
         self.db.execute("""INSERT INTO accounting_facts(
@@ -107,6 +109,7 @@ class WorkflowTests(unittest.TestCase):
         self.workflow.approve(version.id, "management", "approved", "release", MANAGEMENT)
         with self.assertRaises(WorkflowError):
             self.workflow.publish(version.id, ADMIN)
+        self.assertEqual([], self.workflow.consumer_facts(EXECUTIVE, "store", "store-a"))
 
     def test_rejected_entity_mapping_prevents_publish(self):
         version = self.create()

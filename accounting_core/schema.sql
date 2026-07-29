@@ -7,7 +7,8 @@ CREATE TABLE accounting_import_batches (
 CREATE TABLE accounting_import_files (
   id TEXT PRIMARY KEY, batch_id TEXT NOT NULL REFERENCES accounting_import_batches(id),
   source_system TEXT NOT NULL, file_hash TEXT NOT NULL, original_file_name TEXT NOT NULL,
-  detected_period TEXT, duplicate_period_warning INTEGER NOT NULL DEFAULT 0,
+  detected_period TEXT, confirmed_through_period TEXT,
+  duplicate_period_warning INTEGER NOT NULL DEFAULT 0,
   publish_block_reason TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(source_system, file_hash)
 );
@@ -102,7 +103,10 @@ SELECT f.*, p.created_at AS last_published_at
 FROM accounting_facts f
 JOIN accounting_versions v ON v.id=f.version_id AND v.status='published'
 JOIN accounting_publications p ON p.version_id=v.id AND p.status='published'
-WHERE f.status='published';
+JOIN accounting_import_files i ON i.id=f.source_file_id
+WHERE f.status='published'
+  AND i.confirmed_through_period IS NOT NULL
+  AND f.period <= i.confirmed_through_period;
 
 CREATE TRIGGER accounting_facts_no_published_update
 BEFORE UPDATE ON accounting_facts WHEN OLD.status='published'

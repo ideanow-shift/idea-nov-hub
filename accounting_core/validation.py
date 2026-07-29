@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import date
 from decimal import Decimal
 from typing import Iterable
 
@@ -16,7 +17,10 @@ PL_EQUATIONS = {
 }
 
 
-def validate_raw(values: Iterable[RawValue]) -> list[ValidationResult]:
+def validate_raw(
+    values: Iterable[RawValue],
+    confirmed_through_period: date | None = None,
+) -> list[ValidationResult]:
     rows = list(values)
     results: list[ValidationResult] = []
     by_cell = {(r.source_sheet, r.source_account_name, r.source_column_label): r for r in rows}
@@ -43,7 +47,33 @@ def validate_raw(values: Iterable[RawValue]) -> list[ValidationResult]:
         july = {r.source_account_name: r.amount_net for r in rows if r.source_sheet == sheet and r.detected_period and r.detected_period.month == 7}
         if june and june == july:
             results.append(ValidationResult("DUPLICATE_PERIOD_WARNING", Severity.WARNING, sheet, "June and July values are identical"))
-            results.append(ValidationResult("PERIOD_NOT_CONFIRMED", Severity.BLOCKING, sheet, "Detected period cannot be published without confirmation"))
+            july_periods = {
+                r.detected_period for r in rows
+                if r.source_sheet == sheet and r.detected_period and r.detected_period.month == 7
+            }
+            july_period = next(iter(july_periods), None)
+            if confirmed_through_period and july_period and july_period > confirmed_through_period:
+                results.append(ValidationResult(
+                    "UNCONFIRMED_PERIOD_CARRY_FORWARD",
+                    Severity.BLOCKING,
+                    sheet,
+                    "Unconfirmed period carry-forward must not be published",
+                    cause="UNCONFIRMED_PERIOD_CARRY_FORWARD",
+                    closing_status="pending",
+                    publish_allowed=False,
+                    data_state="preparing",
+                ))
+            else:
+                results.append(ValidationResult(
+                    "PERIOD_DUPLICATE_CAUSE_UNKNOWN",
+                    Severity.BLOCKING,
+                    sheet,
+                    "Equal values inside the confirmed period require business review",
+                    cause="UNKNOWN",
+                    closing_status="confirmed" if confirmed_through_period else "unknown",
+                    publish_allowed=False,
+                    data_state="validation_error",
+                ))
     return results
 
 

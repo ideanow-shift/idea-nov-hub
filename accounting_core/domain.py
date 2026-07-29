@@ -124,6 +124,8 @@ class CanonicalFact:
     amount_tax: Decimal | None = None
     amount_gross: Decimal | None = None
     data_state: str = "preparing"
+    closing_status: str = "pending"
+    publish_allowed: bool = False
 
     @property
     def publishable(self) -> bool:
@@ -132,6 +134,9 @@ class CanonicalFact:
             and self.raw.amount_net is not None
             and self.entity_mapping_status is MappingStatus.APPROVED
             and self.account_mapping_status is MappingStatus.APPROVED
+            and self.publish_allowed
+            and self.closing_status == "confirmed"
+            and self.data_state == "available"
         )
 
 
@@ -141,3 +146,7 @@ class ValidationResult:
     severity: Severity
     source_sheet: str | None
     message: str
+    cause: str | None = None
+    closing_status: str | None = None
+    publish_allowed: bool | None = None
+    data_state: str | None = None

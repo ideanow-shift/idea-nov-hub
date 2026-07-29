@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 from .domain import RawValue, Severity
@@ -25,9 +26,15 @@ class YearAudit:
     blocking_codes: tuple[str, ...]
     accounting_check_count: int
     duplicate_period_profile: dict[str, int]
+    confirmed_through_period: str | None
+    duplicate_cause_profile: dict[str, int]
 
 
-def audit_year(year_label: str, path: Path) -> YearAudit:
+def audit_year(
+    year_label: str,
+    path: Path,
+    confirmed_through_period: date | None = None,
+) -> YearAudit:
     adapter = YayoiExcelAdapter(path)
     row_shapes: dict[str, set[int]] = {"bs": set(), "pl": set()}
     statement_sheets: Counter[str] = Counter()
@@ -37,8 +44,9 @@ def audit_year(year_label: str, path: Path) -> YearAudit:
         row_shapes.setdefault(statement, set()).add(adapter.workbook[name].max_row)
     raw = list(adapter.extract())
     adapter.close()
-    validations = validate_raw(raw)
+    validations = validate_raw(raw, confirmed_through_period)
     duplicate_period_profile: Counter[str] = Counter()
+    duplicate_cause_profile: Counter[str] = Counter()
     for sheet in {value.source_sheet for value in raw}:
         june = {
             value.source_account_name: value.amount_net
@@ -54,6 +62,16 @@ def audit_year(year_label: str, path: Path) -> YearAudit:
             statement = next(value.statement_type.value for value in raw if value.source_sheet == sheet)
             value_profile = "all_zero" if all(value in (None, 0) for value in june.values()) else "has_nonzero"
             duplicate_period_profile[f"{statement}_{value_profile}"] += 1
+            july_period = next(
+                value.detected_period for value in raw
+                if value.source_sheet == sheet and value.detected_period and value.detected_period.month == 7
+            )
+            cause = (
+                "UNCONFIRMED_PERIOD_CARRY_FORWARD"
+                if confirmed_through_period and july_period > confirmed_through_period
+                else "UNKNOWN"
+            )
+            duplicate_cause_profile[cause] += 1
     by_cell = {(r.source_sheet, r.source_account_name, r.source_column_label): r for r in raw}
     accounting_check_count = 0
     for sheet in {r.source_sheet for r in raw}:
@@ -98,6 +116,8 @@ def audit_year(year_label: str, path: Path) -> YearAudit:
         blocking_codes=tuple(sorted({result.code for result in validations if result.severity is Severity.BLOCKING})),
         accounting_check_count=accounting_check_count,
         duplicate_period_profile=dict(duplicate_period_profile),
+        confirmed_through_period=confirmed_through_period.isoformat() if confirmed_through_period else None,
+        duplicate_cause_profile=dict(duplicate_cause_profile),
     )
 
 
@@ -129,6 +149,8 @@ def compare_years(audits: list[YearAudit]) -> dict[str, object]:
                 "blocking_codes": audit.blocking_codes,
                 "accounting_check_count": audit.accounting_check_count,
                 "duplicate_period_profile": audit.duplicate_period_profile,
+                "confirmed_through_period": audit.confirmed_through_period,
+                "duplicate_cause_profile": audit.duplicate_cause_profile,
             }
             for audit in audits
         ],

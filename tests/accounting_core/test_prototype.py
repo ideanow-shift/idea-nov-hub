@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -74,7 +75,51 @@ class PrototypeTests(unittest.TestCase):
             adapter.close()
         codes = {result.code for result in results}
         self.assertNotIn("PL_GROSS_PROFIT_MISMATCH", codes)
-        self.assertIn("PERIOD_NOT_CONFIRMED", codes)
+        self.assertIn("PERIOD_DUPLICATE_CAUSE_UNKNOWN", codes)
+
+    def test_confirmed_cutoff_classifies_only_later_duplicate_as_carry_forward(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "synthetic.xlsx"
+            synthetic_workbook(path)
+            adapter = YayoiExcelAdapter(path)
+            values = list(adapter.extract())
+            adapter.close()
+        results = validate_raw(values, date(2026, 6, 1))
+        carry = [result for result in results if result.code == "UNCONFIRMED_PERIOD_CARRY_FORWARD"]
+        self.assertEqual(1, len(carry))
+        self.assertEqual("pending", carry[0].closing_status)
+        self.assertFalse(carry[0].publish_allowed)
+        self.assertEqual("preparing", carry[0].data_state)
+
+    def test_cutoff_controls_canonical_period_state(self):
+        root = Path(__file__).parents[2]
+        reader = CsvMappingReader(
+            root / "docs/accounting/yayoi-entity-mapping.csv",
+            root / "docs/accounting/yayoi-account-mapping.csv",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "synthetic.xlsx"
+            synthetic_workbook(path)
+            adapter = YayoiExcelAdapter(path)
+            values = list(adapter.extract())
+            adapter.close()
+        june = next(value for value in values if value.detected_period == date(2026, 6, 1))
+        july = next(value for value in values if value.detected_period == date(2026, 7, 1))
+        june_fact = normalize(june, reader, date(2026, 6, 1))
+        july_fact = normalize(july, reader, date(2026, 6, 1))
+        self.assertEqual(("confirmed", "available", True), (june_fact.closing_status, june_fact.data_state, june_fact.publish_allowed))
+        self.assertEqual(("pending", "preparing", False), (july_fact.closing_status, july_fact.data_state, july_fact.publish_allowed))
+
+    def test_duplicate_inside_confirmed_period_is_not_auto_carry_forward(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "synthetic.xlsx"
+            synthetic_workbook(path)
+            adapter = YayoiExcelAdapter(path)
+            values = list(adapter.extract())
+            adapter.close()
+        codes = {result.code for result in validate_raw(values, date(2026, 7, 1))}
+        self.assertIn("PERIOD_DUPLICATE_CAUSE_UNKNOWN", codes)
+        self.assertNotIn("UNCONFIRMED_PERIOD_CARRY_FORWARD", codes)
 
     def test_unapproved_mappings_block_normalization(self):
         root = Path(__file__).parents[2]
@@ -121,7 +166,7 @@ class PrototypeTests(unittest.TestCase):
         }
         self.assertEqual(11, len(tables))
         connection.execute("INSERT INTO accounting_import_batches(id,source_system,status,created_by) VALUES('b','test','imported','actor')")
-        connection.execute("INSERT INTO accounting_import_files(id,batch_id,source_system,file_hash,original_file_name) VALUES('f','b','test','h','masked.xlsx')")
+        connection.execute("INSERT INTO accounting_import_files(id,batch_id,source_system,file_hash,original_file_name,confirmed_through_period) VALUES('f','b','test','h','masked.xlsx','2026-06-01')")
         connection.execute("""INSERT INTO accounting_versions(
           id,version_number,version_label,fiscal_year,fiscal_month,version_type,
           scope_type,scope_id,import_file_id,status,created_by

@@ -27,6 +27,11 @@ entity/account mappings, both approvals, explicit scope and active-publication
 conflicts inside publication handling. Accounting approval alone and management
 approval without accounting approval cannot publish.
 
+Each import file carries `confirmed_through_period`. Raw values after that cutoff
+remain available for audit only; normalization marks them `pending`,
+`publish_allowed=false`, and `data_state=preparing`. The consumer view excludes
+their facts even if another defect incorrectly marks a version published.
+
 ## Security boundary
 
 `ActorContext` represents trusted server-side session resolution. A client body

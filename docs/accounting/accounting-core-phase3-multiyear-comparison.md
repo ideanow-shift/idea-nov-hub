@@ -25,6 +25,7 @@ Go**。3期の構造は十分近いが、entity再編、売上科目体系変更
 | 会計式check | 3,162 | 3,570 | 3,876 |
 | 会計式不一致 | 0 | 0 | 0 |
 | 同一月値warning/blocking | 8 / 8 | 11 / 11 | 42 / 42 |
+| confirmed through | 2024-08 | 2025-08 | 2026-06 |
 
 hashは監査時に照合したが、本書には全文を保存しない。
 
@@ -123,8 +124,9 @@ nameへ結び、有効期間を保持する。aliasはproposedであり自動承
 - 6月・7月の異常な同一値
 
 会計式は10,608/10,608件で不一致なし。第11期8sheet、第12期11sheet、
-第13期42sheetで6月・7月同値を検出した。全額ゼロなど正当な同値の可能性も
-あるが、確定対象月へ影響する場合は`PERIOD_NOT_CONFIRMED` blockingとする。
+第13期42sheetで6月・7月同値を検出した。cutoff後は
+`UNCONFIRMED_PERIOD_CARRY_FORWARD`、確定期間内は
+`PERIOD_DUPLICATE_CAUSE_UNKNOWN`として、いずれもblockingとする。
 
 ### 期間重複の再分類
 
@@ -136,13 +138,15 @@ nameへ結び、有効期間を保持する。aliasはproposedであり自動承
 | 合計 | 11 | 19 | 31 | 61 |
 
 - 実際の月次重複: 6月・7月のsource月列が科目集合として完全一致した61sheet
-- 未入力月への前月値引継ぎ: 第13期P/L非ゼロ31sheetで有力候補だが未確認
+- 未入力月への前月値引継ぎ: 第13期42sheet。経理確認済みの弥生標準出力仕様
 - 累計列・決算列の帳票仕様: 検出対象に混入した件数0
 - adapter誤検出: 0
-- 原因未確認: 61（B/S据置、P/L全ゼロ、実績重複を経理が未判定）
+- 原因未確認: 19（第11期8、第12期11。確定期間内の同値）
 
-観測事実と原因推定を分離する。61件すべてをblockingとして維持し、特に
-第13期7月はpublish不可。経理確認なしにwarningへ格下げしない。
+第13期の42件は`cause=UNCONFIRMED_PERIOD_CARRY_FORWARD`、
+`closing_status=pending`、`publish_allowed=false`、`data_state=preparing`。
+第11・12期は確定期間内であるため、同値だけを根拠にcarry-forwardへ
+自動分類せず`UNKNOWN`のblockingを維持する。61件すべてblockingである。
 
 mapping validationを含めると、全entity/accountは承認状態の年度適用確認が
 必要であり、実データをそのままpublishしない。

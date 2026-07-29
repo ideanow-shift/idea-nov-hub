@@ -22,8 +22,13 @@
 から期間を決定し、原本、金額、private口座名はGitへ保存していない。
 
 期間重複61件の内訳はB/S非ゼロ同値11、P/L全ゼロ19、P/L非ゼロ同値31。
-累計・決算列の混入0、adapter誤検出0。原因は61件すべて業務未確認なので
-blockingを維持し、第13期7月はpublish不可。
+累計・決算列の混入0、adapter誤検出0。第11期8件・第12期11件は確定期間内
+の同値なので原因`UNKNOWN`。第13期42件は経理確認済みの弥生仕様により
+`UNCONFIRMED_PERIOD_CARRY_FORWARD`へ再分類した。全件blockingを維持する。
+
+confirmed throughは第11期2024-08、第12期2025-08、第13期2026-06。
+第13期7月は`closing_status=pending`、`publish_allowed=false`、
+`data_state=preparing`であり、canonical consumerへ公開しない。
 
 ## Version・二段階Approval・Publication
 
@@ -53,7 +58,7 @@ A/B/Cのfactはすべて保持され、published factのUPDATE/DELETEはSQLite t
 server-sideで解決した`ActorContext`のみを信用する。role、store、法人scopeを
 request bodyから採用しない。
 
-全自動テスト25件合格、うちsecurity/workflow negative test 15件合格:
+全自動テスト28件合格、うちsecurity/workflow negative test 15件合格:
 
 - employeeの会計閲覧拒否
 - store managerの他店閲覧・ID差替え拒否
@@ -62,6 +67,8 @@ request bodyから採用しない。
 - unpublished consumer取得拒否
 - 片側approval、blocking、mapping不備でのpublish拒否
 - 第13期7月相当の期間重複publish拒否
+- cutoff以前の通常検証、cutoff後のpreparing／consumer除外
+- 確定期間内同値をcarry-forwardへ自動分類しない
 - published factのUPDATE/DELETE拒否
 - 他scope rollback拒否
 - 重複file拒否
@@ -116,8 +123,8 @@ synthetic testは実装済み。PDFを正本にせず、結果を推測してい
 
 ## 残存Blocking・Unknown
 
-- 期間重複61sheetの業務原因
-- 第13期7月の確定可否
+- 第11・12期の確定期間内重複19sheetの業務原因
+- 第13期7月は未確定。確定処理が行われるまでpublish不可
 - 38 entityのCore UUIDと年度別mapping承認
 - account alias/dictionary承認
 - 人件費、家賃、材料費、EC売上の正式定義

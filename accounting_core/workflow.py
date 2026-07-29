@@ -232,9 +232,11 @@ class AccountingWorkflow:
         if version["fiscal_month"] < 1 or version["fiscal_month"] > 12:
             raise WorkflowError("target period is not confirmed")
         detected = self.db.execute(
-            "SELECT detected_period,publish_block_reason FROM accounting_import_files WHERE id=?",
+            "SELECT detected_period,confirmed_through_period,publish_block_reason FROM accounting_import_files WHERE id=?",
             (version["import_file_id"],),
         ).fetchone()
         expected = f"{version['fiscal_year']:04d}-{version['fiscal_month']:02d}-01"
         if not detected or detected["detected_period"] != expected or detected["publish_block_reason"]:
             raise WorkflowError("source target period is not confirmed")
+        if not detected["confirmed_through_period"] or expected > detected["confirmed_through_period"]:
+            raise WorkflowError("target period is after confirmed_through_period")

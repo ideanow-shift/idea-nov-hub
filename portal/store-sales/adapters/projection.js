@@ -39,7 +39,12 @@ export function createProjectionAdapter(config, dependencies = {}) {
         url.searchParams.set("period", period);
         response = await fetchImpl(url, {
           method: "GET",
-          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+            "X-Contract-Version": config.contractVersion,
+            "X-Request-ID": globalThis.crypto?.randomUUID?.() || `store-sales-${Date.now()}`
+          },
           signal: controller.signal,
           cache: "no-store",
           credentials: "omit"

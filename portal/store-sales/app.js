@@ -74,7 +74,7 @@ function renderRuntimeSnapshot(snapshot) {
   document.querySelector("main").hidden = false;
   document.querySelector(".accounting-meta").hidden = false;
   state.projection = snapshot.projection;
-  $("preview-banner").hidden = !["mock", "preview"].includes(snapshot.featureFlag);
+  $("preview-banner").hidden = !["mock", "preview", "staging"].includes(snapshot.featureFlag);
   renderAll();
 }
 

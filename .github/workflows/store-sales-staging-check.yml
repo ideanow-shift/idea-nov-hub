@@ -1,0 +1,51 @@
+name: Store Sales Staging Quality Gates
+
+on:
+  pull_request:
+    paths:
+      - "portal/store-sales/**"
+      - "supabase/functions/store-sales-projection/**"
+      - "supabase/migrations/review_only/store_sales_staging_foundation.sql"
+      - "tests/store-sales-staging*.test.mjs"
+      - ".github/workflows/store-sales-staging-*.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Unit, contract, security and regression
+        run: node --test tests/store-sales-staging*.test.mjs tests/store-sales-runtime.test.mjs tests/store-sales-adapters.test.mjs tests/store-sales-ui.test.mjs
+      - name: Type check Edge Function
+        run: deno check supabase/functions/store-sales-projection/index.ts
+      - name: Secret and fixture scan
+        run: |
+          ! grep -R -E "sb_secret_|SUPABASE_SERVICE_ROLE_KEY=.+|BEGIN (RSA|OPENSSH) PRIVATE KEY" portal/store-sales supabase/functions/store-sales-projection
+          ! grep -R -E "Synthetic Data|staging-session-bootstrap|synthetic-data" portal/store-sales/index.html portal/store-sales/runtime-config.js
+      - name: Production mode remains blocked
+        run: grep -R 'productionBlocked.*true\\|PRODUCTION_BLOCKED=true' portal/store-sales/staging-config.js supabase/functions/store-sales-projection/.env.staging.example
+      - name: Review-only migration and rollback marker
+        run: grep -q "ROLLBACK;" supabase/migrations/review_only/store_sales_staging_foundation.sql
+      - name: Build candidate
+        run: |
+          mkdir -p build/portal
+          cp -R portal/. build/portal/
+          rm -f build/portal/store-sales/staging.html build/portal/store-sales/staging-config.js build/portal/store-sales/staging-session-bootstrap.js
+          test ! -e build/portal/store-sales/staging.html
+
+  staging-e2e-approval:
+    needs: quality-gates
+    runs-on: ubuntu-latest
+    environment: store-sales-staging
+    steps:
+      - run: echo "Approval boundary only; no deployment is performed."

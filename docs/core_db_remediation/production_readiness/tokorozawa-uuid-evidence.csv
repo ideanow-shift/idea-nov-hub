@@ -1,0 +1,14 @@
+evidence_no,evidence_type,evidence_level,schema_name,object_name,referenced_uuid_side,reference_kind,evidence_summary,source_path,supports_canonical,blocking_flag
+M01,schema_definition,Medium,public,stores,public,table_contract,Committed schema defines public stores identity and store fields,docs/core-employee-ledger-v1-review.md,public_candidate,no
+M02,foreign_key_source,Medium,public,employee_assignment_histories,public,foreign_key,Committed SQL references public stores from assignment history,supabase/core-assignment-histories.sql,public_candidate,no
+M03,foreign_key_source,Medium,public,employee_store_assignments,public,foreign_key,Committed SQL references public stores from multi-store assignment,supabase/core-employee-store-assignments.sql,public_candidate,no
+M04,foreign_key_source,Medium,public,store_business_profiles,public,foreign_key,Committed SQL references public stores from store business profile,supabase/store-business-profiles.sql,public_candidate,no
+M05,foreign_key_source,Medium,public,department_inquiries,public,foreign_key,Committed SQL references public stores from department inquiry,supabase/concierge_20260701_department_inquiries.sql,public_candidate,no
+M06,foreign_key_source,Medium,public,idea_link_activity_followups,public,foreign_key,Committed SQL references public stores from activity followup,supabase/idea-link-activity-followups-20260724.sql,public_candidate,no
+M07,api_source,Medium,public,nov_hub_bootstrap,public,rpc_join,Committed bootstrap RPC joins public stores,supabase/nov-hub-bootstrap-rpc.sql,public_candidate,no
+M08,git_history,Medium,public,stores,public,history,Committed history contains public store schema and assignment evolution,git_log_public_store_history,public_candidate,no
+M09,source_scan,Medium,repository,store_references,both,source_inventory,Public literal references are present while core literal references are absent,git_grep_public_and_core_stores,inconclusive,no
+W01,documentation,Weak,public,stores,public,contract_statement,Documentation calls public stores the store master,docs/nov-hub-app-context.md,public_candidate,no
+W02,fixture_name,Weak,repository,management_fixtures,both,name_match,Management fixtures contain Tokorozawa names without UUIDs,review/management-store-monthly-sales-accounting-csv-fixture-20260726.mjs,inconclusive,no
+W03,sample_display,Weak,repository,employees_sample,both,name_match,Portal sample data contains a Tokorozawa name without UUIDs,portal/js/employees.js,inconclusive,no
+U01,missing_strong_evidence,Strong,unknown,unknown,both,db_and_runtime_fact,No approved read-only catalog data API or runtime evidence was available,not_performed,inconclusive,yes

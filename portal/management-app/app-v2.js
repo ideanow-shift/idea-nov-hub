@@ -32,7 +32,13 @@ const elements = {
   dataGuide: byId("data-guide"), dataopsKpis: byId("dataops-kpis"), productionReadiness: byId("production-readiness-status"), financialDataIntake: byId("financial-data-intake"), workflow: byId("workflow"), stoppedItems: byId("stopped-items")
 };
 
-document.querySelectorAll(".tab, .section-tab").forEach((button) => button.addEventListener("click", () => selectView(button.dataset.view)));
+document.querySelectorAll(".tab, .section-tab").forEach((button) => button.addEventListener("click", () => {
+  if (button.dataset.href) {
+    window.location.assign(button.dataset.href);
+    return;
+  }
+  selectView(button.dataset.view);
+}));
 byId("reload-button").addEventListener("click", () => loadCurrentView(true));
 elements.month.addEventListener("change", () => { state.finance = null; loadFinance(); });
 window.addEventListener("management-financial-local-preview", (event) => {

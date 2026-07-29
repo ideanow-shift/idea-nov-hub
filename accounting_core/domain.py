@@ -35,6 +35,54 @@ class Severity(StrEnum):
     BLOCKING = "blocking"
 
 
+class VersionStatus(StrEnum):
+    IMPORTED = "imported"
+    VALIDATED = "validated"
+    ACCOUNTING_APPROVED = "accounting_approved"
+    MANAGEMENT_APPROVED = "management_approved"
+    ACCOUNTING_REJECTED = "accounting_rejected"
+    MANAGEMENT_REJECTED = "management_rejected"
+    PUBLISHED = "published"
+    SUPERSEDED = "superseded"
+
+
+class VersionType(StrEnum):
+    DRAFT = "draft"
+    REVISION = "revision"
+    FINAL = "final"
+    ROLLBACK_RESTORE = "rollback_restore"
+
+
+class ActorRole(StrEnum):
+    ACCOUNTING_ADMIN = "accounting_admin"
+    ACCOUNTING_REVIEWER = "accounting_reviewer"
+    MANAGEMENT_APPROVER = "management_approver"
+    EXECUTIVE_VIEWER = "executive_viewer"
+    DEPARTMENT_MANAGER = "department_manager"
+    STORE_MANAGER = "store_manager"
+    FRANCHISE_OWNER = "franchise_owner"
+    EMPLOYEE = "employee"
+
+
+class ActorScopeType(StrEnum):
+    ALL_GROUP = "all_group"
+    LEGAL_ENTITY = "legal_entity"
+    DEPARTMENT = "department"
+    STORE = "store"
+    FRANCHISE_COMPANY = "franchise_company"
+    SELF_ONLY = "self_only"
+    NONE = "none"
+
+
+@dataclass(frozen=True)
+class ActorContext:
+    actor_id: str
+    role: ActorRole
+    scope_type: ActorScopeType
+    scope_ids: frozenset[str]
+    trusted_server_context: bool = True
+
+
 class ScopeType(StrEnum):
     LEAF_STORE = "leaf_store"
     DEPARTMENT_SUMMARY = "department_summary"

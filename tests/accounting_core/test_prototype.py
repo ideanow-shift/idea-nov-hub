@@ -101,11 +101,21 @@ class PrototypeTests(unittest.TestCase):
             )
         }
         self.assertEqual(11, len(tables))
-        connection.execute("INSERT INTO accounting_import_batches(id,source_system,status) VALUES('b','test','imported')")
+        connection.execute("INSERT INTO accounting_import_batches(id,source_system,status,created_by) VALUES('b','test','imported','actor')")
         connection.execute("INSERT INTO accounting_import_files(id,batch_id,source_system,file_hash,original_file_name) VALUES('f','b','test','h','masked.xlsx')")
-        connection.execute("INSERT INTO accounting_versions(id,entity_key,period,version_no,status) VALUES('v','e','2026-06-01',1,'published')")
-        connection.execute("INSERT INTO accounting_raw_values(id,import_file_id,source_sheet,source_row,source_column,source_column_label,source_value_state,statement_type,source_entity_name,scope_type,source_account_name) VALUES('r','f','sheet',1,2,'6月','amount','pl','entity','leaf_store','sales')")
-        connection.execute("INSERT INTO accounting_facts(id,raw_value_id,version_id,normalized_account,entity_id,period,amount_net,tax_basis,status) VALUES('x','r','v','sales','e','2026-06-01','1','tax_exclusive','published')")
+        connection.execute("""INSERT INTO accounting_versions(
+          id,version_number,version_label,fiscal_year,fiscal_month,version_type,
+          scope_type,scope_id,import_file_id,status,created_by
+        ) VALUES('v',1,'2026-06-FINAL-01',2026,6,'final','store','e','f','published','actor')""")
+        connection.execute("""INSERT INTO accounting_raw_values(
+          id,import_file_id,source_sheet,source_sheet_type,source_row,source_column,
+          source_cell_reference,source_column_label,source_value_state,statement_type,
+          source_entity_name,scope_type,source_account_name
+        ) VALUES('r','f','sheet','pl',1,2,'B1','6月','amount','pl','entity','leaf_store','sales')""")
+        connection.execute("""INSERT INTO accounting_facts(
+          id,raw_value_id,version_id,source_file_id,normalized_account,entity_id,
+          scope_type,scope_id,period,amount_net,tax_basis,status
+        ) VALUES('x','r','v','f','sales','e','store','e','2026-06-01','1','tax_exclusive','published')""")
         with self.assertRaises(sqlite3.IntegrityError):
             connection.execute("UPDATE accounting_facts SET amount_net='2' WHERE id='x'")
 

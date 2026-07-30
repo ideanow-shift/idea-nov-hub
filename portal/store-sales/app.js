@@ -1,4 +1,4 @@
-import { createStoreSalesRuntime } from "./runtime/index.js";
+import { createStoreSalesMockIdentity, createStoreSalesRuntime } from "./runtime/index.js";
 
 const state = {
   projection: null, runtime: null, runtimeStatus: "initializing", selectedStore: null, tab: "summary", audience: "executive",
@@ -33,7 +33,11 @@ async function initialize() {
   const runtimeConfig = globalThis.STORE_SALES_RUNTIME_CONFIG || {};
   state.runtime = createStoreSalesRuntime({
     location, runtimeConfig,
-    dependencies: { isOnline: () => navigator.onLine, getDevelopmentState: () => state.development }
+    dependencies: {
+      isOnline: () => navigator.onLine,
+      getDevelopmentState: () => state.development,
+      getMockIdentity: () => createStoreSalesMockIdentity(state.development.role)
+    }
   });
   state.runtime.subscribe(renderRuntimeSnapshot);
   await state.runtime.initialize({ period: elements.period.value });
@@ -46,7 +50,12 @@ function bindControls() {
   $("store-sort").addEventListener("change", (event) => { state.sort = event.target.value; renderStores(); });
   [["dev-role", "role"], ["dev-runtime", "runtimeState"], ["dev-profit", "profitMode"]].forEach(([id, key]) => {
     $(id).value = state.development[key];
-    $(id).addEventListener("change", (event) => { state.development[key] = event.target.value; applyRoleDefaults(); reload(); });
+    $(id).addEventListener("change", (event) => {
+      state.development[key] = event.target.value;
+      applyRoleDefaults();
+      if (key === "role") state.runtime?.initialize({ period: elements.period.value });
+      else reload();
+    });
   });
   $("dev-missing").addEventListener("change", (event) => { state.development.missingData = event.target.value === "true"; reload(); });
   document.querySelectorAll("[data-scope]").forEach((button) => button.addEventListener("click", () => {
@@ -176,7 +185,7 @@ function renderDrivers(drivers) {
   elements.drivers.replaceChildren(...groups.map(([name, entries], index) => {
     const group = node("section", "driver-group");
     const title = node("h3", "", name);
-    const toggle = node("button", "driver-toggle", `${name} ${index === 0 ? "−" : "＋"`);
+    const toggle = node("button", "driver-toggle", `${name} ${index === 0 ? "−" : "＋"}`);
     toggle.type = "button"; toggle.setAttribute("aria-expanded", String(index === 0));
     const content = node("div", "driver-content"); if (index !== 0) content.hidden = matchMedia("(max-width:1023px)").matches;
     (entries || []).forEach((entry) => {

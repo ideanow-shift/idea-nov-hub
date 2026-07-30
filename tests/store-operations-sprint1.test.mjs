@@ -85,3 +85,7 @@ test("profit state wording consistently uses 集計中", () => {
   assert.match(app, /pending: "集計中"/);
   assert.match(app, /collecting: "集計中"/);
 });
+
+test("business driver template expression is syntactically closed", () => {
+  assert.match(app, /`\$\{name\} \$\{index === 0 \? "−" : "＋"\}`/);
+});

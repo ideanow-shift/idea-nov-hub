@@ -5,6 +5,7 @@ import { clearNovHubSession } from "../portal/js/nov-hub-session-candidate.js";
 import { mapRuntimeError } from "../portal/store-sales/runtime/error-mapping.js";
 import { resolveStoreSalesFeatureFlag, STORE_SALES_FEATURE_FLAGS, toAdapterRuntimeConfig } from "../portal/store-sales/runtime/feature-flags.js";
 import { createStoreSalesRuntime, STORE_SALES_RUNTIME_STATES } from "../portal/store-sales/runtime/store-sales-runtime.js";
+import { createStoreSalesMockIdentity, isStoreSalesMockIdentity } from "../portal/store-sales/runtime/mock-identity.js";
 
 const appSource = readFileSync(new URL("../portal/store-sales/app.js", import.meta.url), "utf8");
 const projection = (stores = [{ storeKey: "synthetic-01" }]) => ({ stores, accounting: {}, executiveSummary: { metrics: [] }, priorityActions: [], businessDrivers: {} });
@@ -159,4 +160,93 @@ test("session refresh is attempted once before unauthorized", async () => {
   const state = await runtime.initialize({ period: "2026-07" });
   assert.equal(refreshes, 1);
   assert.equal(state.status, "unauthorized");
+});
+
+function authGuardRuntime({ featureFlag, identity, adapter }) {
+  clearNovHubSession();
+  return createStoreSalesRuntime({
+    location,
+    runtimeConfig: {
+      ...(featureFlag ? { featureFlag, mode: featureFlag } : {}),
+      preview: featureFlag === "preview",
+      requireHubSession: true
+    },
+    dependencies: {
+      isOnline: () => true,
+      getMockIdentity: () => identity,
+      createAdapter: () => ({
+        config: { mode: featureFlag === "preview" ? "mock" : featureFlag },
+        adapter: adapter || { loadDashboard: async () => projection(), clear() {} }
+      })
+    }
+  });
+}
+
+test("preview ready sales_manager uses explicit Mock Identity", async () => {
+  const identity = createStoreSalesMockIdentity("sales_manager");
+  assert.equal(isStoreSalesMockIdentity(identity), true);
+  assert.equal(identity.employee_id, "mock-employee-sales_manager");
+  assert.equal(identity.organization.organization_id, "mock-org-idea-nov");
+  assert.equal(identity.store_scope.type, "direct");
+  const runtime = authGuardRuntime({ featureFlag: "preview", identity });
+  assert.equal((await runtime.initialize({ period: "2026-07" })).status, "ready");
+});
+
+test("preview ready uses the real Mock Adapter without a HUB session", async () => {
+  clearNovHubSession();
+  const development = { role: "sales_manager", runtimeState: "ready", profitMode: "collecting", missingData: true };
+  const runtime = createStoreSalesRuntime({
+    location,
+    runtimeConfig: { featureFlag: "preview", mode: "preview", preview: true, requireHubSession: true },
+    dependencies: {
+      isOnline: () => true,
+      getDevelopmentState: () => development,
+      getMockIdentity: () => createStoreSalesMockIdentity(development.role)
+    }
+  });
+  const state = await runtime.initialize({ period: "2026-07" });
+  assert.equal(state.status, "ready");
+  assert.equal(state.projection.audience, "sales_manager");
+  assert.equal(state.projection.stores.length, 13);
+});
+
+test("preview ready store_manager can load its own detail projection", async () => {
+  const identity = createStoreSalesMockIdentity("store_manager");
+  const runtime = authGuardRuntime({
+    featureFlag: "preview",
+    identity,
+    adapter: { loadDashboard: async () => ({ ...projection(), audience: "store_manager" }), clear() {} }
+  });
+  const state = await runtime.initialize({ period: "2026-07" });
+  assert.equal(state.status, "ready");
+  assert.equal(state.projection.audience, "store_manager");
+});
+
+test("preview unauthorized remains unauthorized after Mock Identity authentication", async () => {
+  const runtime = authGuardRuntime({
+    featureFlag: "preview",
+    identity: createStoreSalesMockIdentity("sales_manager"),
+    adapter: {
+      async loadDashboard() { throw Object.assign(new Error("unauthorized"), { code: "UNAUTHORIZED", status: 401 }); },
+      clear() {}
+    }
+  });
+  assert.equal((await runtime.initialize({ period: "2026-07" })).status, "unauthorized");
+});
+
+test("production without HUB login keeps the authentication requirement", async () => {
+  const runtime = authGuardRuntime({ featureFlag: "production", identity: null });
+  const state = await runtime.initialize({ period: "2026-07" });
+  assert.equal(state.status, "unauthorized");
+  assert.equal(state.presentation.title, "HUBログインが必要です");
+});
+
+test("production rejects Mock Identity", async () => {
+  const runtime = authGuardRuntime({ featureFlag: "production", identity: createStoreSalesMockIdentity("sales_manager") });
+  assert.equal((await runtime.initialize({ period: "2026-07" })).status, "unauthorized");
+});
+
+test("unspecified feature flag never enables Mock Identity authentication", async () => {
+  const runtime = authGuardRuntime({ featureFlag: "", identity: createStoreSalesMockIdentity("sales_manager") });
+  assert.equal((await runtime.initialize({ period: "2026-07" })).status, "unauthorized");
 });

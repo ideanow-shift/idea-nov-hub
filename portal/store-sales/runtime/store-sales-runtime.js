@@ -8,6 +8,7 @@ import { createStoreSalesAdapter } from "../adapters/index.js";
 import { restoreStoreSalesPreviewContext } from "../preview-context.js";
 import { mapRuntimeError, runtimePresentation } from "./error-mapping.js";
 import { resolveStoreSalesFeatureFlag, toAdapterRuntimeConfig } from "./feature-flags.js";
+import { isStoreSalesMockIdentity, resolveMockIdentityFixture } from "./mock-identity.js";
 
 export const STORE_SALES_RUNTIME_STATES = Object.freeze([
   "initializing",
@@ -30,6 +31,7 @@ export function createStoreSalesRuntime(options = {}) {
   let adapter = null;
   let session = null;
   let previewContext = null;
+  let mockIdentity = null;
   let featureFlag = null;
   let lastPeriod = null;
   let retryCount = 0;
@@ -67,12 +69,17 @@ export function createStoreSalesRuntime(options = {}) {
 
   async function configureAdapter() {
     featureFlag = resolveStoreSalesFeatureFlag(runtimeConfig);
+    const mockIdentityAllowed = featureFlag === "preview" || featureFlag === "mock";
+    const candidateMockIdentity = mockIdentityAllowed ? dependencies.getMockIdentity?.() : null;
+    mockIdentity = isStoreSalesMockIdentity(candidateMockIdentity) ? candidateMockIdentity : null;
     const sessionResult = await refreshSessionIfNeeded();
-    if (runtimeConfig.requireHubSession && !sessionResult.session) {
+    if (runtimeConfig.requireHubSession && !sessionResult.session && !mockIdentity) {
       const error = Object.assign(new Error("HUB session is unavailable."), { code: "UNAUTHORIZED", status: 401 });
       throw Object.assign(error, { sessionStatus: sessionResult.sessionStatus });
     }
-    previewContext = runtimeConfig.preview ? restoreStoreSalesPreviewContext() : null;
+    previewContext = mockIdentity
+      ? Object.freeze({ fixture: resolveMockIdentityFixture(mockIdentity), source: "runtime-mock-identity" })
+      : runtimeConfig.preview ? restoreStoreSalesPreviewContext() : null;
     if (runtimeConfig.preview && !previewContext) {
       throw Object.assign(new Error("Preview actor context is unavailable."), { code: "ACTOR_SCOPE_DENIED", status: 403 });
     }
@@ -84,6 +91,7 @@ export function createStoreSalesRuntime(options = {}) {
       dependencies: {
         ...dependencies,
         getSessionToken: () => session?.sessionToken || "",
+        getMockIdentity: () => mockIdentity,
         getPreviewFixtureName: () => previewContext?.fixture || ""
       }
     });
@@ -132,6 +140,7 @@ export function createStoreSalesRuntime(options = {}) {
       adapter?.clear?.();
       adapter = null;
       session = null;
+      mockIdentity = null;
       clearNovHubSession();
     }
     return publish({ status: mapped.status, errorCode: mapped.code, presentation: mapped.presentation });

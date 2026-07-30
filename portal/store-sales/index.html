@@ -14,91 +14,93 @@
       <div>
         <a class="back-link" href="../">← NOV HUBへ戻る</a>
         <div id="preview-banner" class="preview-banner" role="status" aria-label="プレビューモード" hidden>
-          <strong>プレビュー</strong>
-          <span>サンプルデータによる操作確認用画面です。実会計データ・本番環境には接続していません。</span>
+          <strong>プレビュー</strong><span>サンプルデータによる操作確認用画面です。実会計データ・本番環境には接続していません。</span>
         </div>
-        <p class="eyebrow">IDEA NOV OS</p>
-        <h1>店舗営業管理</h1>
-        <p class="subtitle">店舗の現在地から、今月の行動を決める</p>
+        <p class="eyebrow">STORE OPERATIONS</p>
+        <h1 id="page-title">全店の状況</h1>
+        <p id="direction-message" class="subtitle"></p>
       </div>
       <section class="accounting-meta" aria-label="Accountingデータ情報">
-        <strong>Accounting</strong>
+        <strong>データ情報</strong>
         <dl>
-          <div><dt>営業対象月</dt><dd id="meta-sales-period">—</dd></div>
-          <div><dt>会計確定月</dt><dd id="meta-accounting-period">—</dd></div>
-          <div><dt>確定状態</dt><dd id="meta-state">確認中</dd></div>
-          <div><dt>最終更新日時</dt><dd id="meta-updated">—</dd></div>
+          <div><dt>対象月</dt><dd id="meta-sales-period">—</dd></div>
+          <div><dt>利益確定月</dt><dd id="meta-accounting-period">—</dd></div>
+          <div><dt>利益状態</dt><dd id="meta-state">確認中</dd></div>
+          <div><dt>最終更新</dt><dd id="meta-updated">—</dd></div>
         </dl>
       </section>
     </header>
 
+    <section id="dev-controls" class="dev-controls" aria-label="Mock Runtime開発用コントロール">
+      <div><strong>Mock controls</strong><small>Production UIには含まれません</small></div>
+      <label>Role<select id="dev-role"><option value="representative">代表取締役</option><option value="sales_manager">営業部長</option><option value="area_manager">エリアマネージャー</option><option value="store_manager">店長</option></select></label>
+      <label>Runtime<select id="dev-runtime"><option>ready</option><option>loading</option><option>empty</option><option>unauthorized</option><option>forbidden</option><option>validation_error</option><option>timeout</option><option>offline</option><option>maintenance</option></select></label>
+      <label>利益<select id="dev-profit"><option value="collecting">集計中</option><option value="confirmed">確定</option><option value="preparing">準備中</option></select></label>
+      <label>未反映<select id="dev-missing"><option value="true">あり</option><option value="false">なし</option></select></label>
+    </section>
+
     <section id="notice" class="notice" aria-live="polite">
-      <strong id="notice-title">HUB認証を確認しています</strong>
+      <span aria-hidden="true">●</span><strong id="notice-title">Mock Runtimeを確認しています</strong>
       <span id="notice-body">少々お待ちください。</span>
       <button id="retry-button" class="notice-retry" type="button" hidden>再試行</button>
     </section>
 
+    <div id="sticky-filters" class="sticky-filters">
+      <label>対象月<input id="period" type="month" value="2026-06"></label>
+      <fieldset><legend class="sr-only">店舗範囲</legend><div id="scope-filters" class="segmented">
+        <button type="button" data-scope="All" aria-pressed="true">全店</button><button type="button" data-scope="Direct" aria-pressed="false">直営</button><button type="button" data-scope="FC" aria-pressed="false">FC</button>
+      </div></fieldset>
+      <fieldset><legend class="sr-only">集計期間</legend><div class="segmented">
+        <button type="button" data-period-mode="monthly" aria-pressed="true">月次</button><button type="button" data-period-mode="cumulative" aria-pressed="false">累計</button>
+      </div></fieldset>
+      <span id="filter-updated" class="filter-updated">最終更新 —</span>
+    </div>
+
     <main>
       <section id="executive-view" class="view">
-        <div class="section-heading">
-          <div><p class="eyebrow">全社サマリー</p><h2 id="summary-heading">全店舗の状況</h2></div>
-          <label class="period-control">営業対象月 <input id="period" type="month"></label>
-        </div>
-        <div id="summary-metrics" class="summary-grid"></div>
+        <section class="hero" aria-labelledby="summary-heading">
+          <div class="section-heading"><div><p class="eyebrow">EXECUTIVE SUMMARY</p><h2 id="summary-heading">全店の状況</h2></div></div>
+          <p id="summary-narrative" class="hero-narrative"></p>
+          <div id="summary-metrics" class="summary-grid"></div>
+          <div id="status-counts" class="status-counts"></div>
+          <p id="coverage-note" class="coverage-note"></p>
+        </section>
 
         <section id="executive-actions-section" class="section-block" aria-labelledby="actions-heading">
-          <div class="section-heading compact">
-            <div><p class="eyebrow">優先アクション</p><h2 id="actions-heading">優先して確認すること</h2></div>
-            <span class="limit-note">最大3件</span>
-          </div>
+          <div class="section-heading"><div><p class="eyebrow">PRIORITY ACTIONS</p><h2 id="actions-heading">優先して確認すること</h2></div><span class="limit-note">最大3件</span></div>
           <div id="priority-actions" class="action-list"></div>
         </section>
 
         <section id="business-drivers-section" class="section-block" aria-labelledby="drivers-heading">
-          <div class="section-heading compact">
-            <div><p class="eyebrow">事業ドライバー</p><h2 id="drivers-heading">事業を動かす指標</h2></div>
-          </div>
+          <div class="section-heading"><div><p class="eyebrow">BUSINESS DRIVERS</p><h2 id="drivers-heading">業績を動かした要因</h2></div></div>
           <div id="business-drivers" class="driver-grid"></div>
         </section>
 
         <section id="store-list-section" class="section-block" aria-labelledby="stores-heading">
-          <div class="section-heading">
-            <div><p class="eyebrow">店舗比較</p><h2 id="stores-heading">店舗一覧</h2></div>
-            <div id="store-filters" class="segmented" aria-label="店舗区分フィルター">
-              <button type="button" data-filter="All" aria-pressed="true">All</button>
-              <button type="button" data-filter="Direct" aria-pressed="false">Direct</button>
-              <button type="button" data-filter="FC" aria-pressed="false">FC</button>
-            </div>
+          <div class="section-heading"><div><p class="eyebrow">STORE LIST</p><h2 id="stores-heading">店舗一覧</h2></div>
+            <label class="sort-control">並び替え<select id="store-sort"><option value="status">店舗状態</option><option value="sales-desc">売上</option><option value="profit-desc">利益</option><option value="repeat-desc">リピート率</option><option value="productivity-desc">生産性</option></select></label>
           </div>
-          <div class="table-scroll" tabindex="0" aria-label="店舗比較表。横にスクロールできます">
-            <table>
-              <caption class="sr-only">店舗状態順の店舗比較</caption>
-              <thead><tr><th scope="col">店舗</th><th scope="col">区分</th><th scope="col">売上</th><th scope="col">営業利益</th><th scope="col">営業利益率</th><th scope="col">経常利益率</th><th scope="col">Total Repeat</th><th scope="col">Productivity</th><th scope="col">データ状態</th><th scope="col">店舗状態</th><th scope="col">最終更新</th></tr></thead>
-              <tbody id="store-rows"></tbody>
-            </table>
+          <div id="status-filters" class="status-filters" aria-label="店舗状態フィルター"></div>
+          <div class="table-wrap">
+            <table><caption class="sr-only">店舗比較</caption><thead><tr><th>店舗名</th><th>店舗状態</th><th>総売上（税込）</th><th>利益</th><th class="optional-col">総客数</th><th>総リピート率</th><th>総生産性</th><th>今月の重点</th><th aria-label="詳細"></th></tr></thead><tbody id="store-rows"></tbody></table>
           </div>
-          <div id="store-cards" class="store-cards" aria-label="店舗一覧"></div>
+          <div id="store-cards" class="store-cards"></div>
         </section>
       </section>
 
       <section id="detail-view" class="view" hidden>
         <button id="back-to-list" class="text-button" type="button">← 店舗一覧へ戻る</button>
-        <header class="detail-header">
-          <div><p class="eyebrow">店舗詳細</p><h2 id="detail-name">店舗</h2><p id="detail-reason" class="subtitle"></p></div>
-          <span id="detail-status"></span>
-        </header>
-        <section class="monthly-actions" aria-labelledby="monthly-actions-heading">
-          <div><p class="eyebrow">今月の優先事項</p><h3 id="monthly-actions-heading">今月やること</h3></div>
-          <div id="monthly-actions"></div>
-        </section>
-        <p class="tabs-hint">横にスワイプして詳細を切り替えられます</p>
+        <header class="detail-header"><div><p class="eyebrow">STORE DETAIL</p><h2 id="detail-name">店舗詳細</h2></div><span id="detail-status"></span></header>
+        <p id="detail-conclusion" class="detail-conclusion"></p>
+        <section id="manager-focus" class="manager-focus" hidden><p class="eyebrow">今月の重点</p><h3 id="manager-focus-title"></h3><div id="manager-checks"></div></section>
+        <p class="sr-only">今月やること</p>
         <div class="tabs" role="tablist" aria-label="店舗詳細">
-          <button role="tab" type="button" aria-selected="true" data-tab="summary">Summary</button>
-          <button role="tab" type="button" aria-selected="false" data-tab="sales">Sales &amp; Profit</button>
-          <button role="tab" type="button" aria-selected="false" data-tab="customer">Customer &amp; Repeat</button>
-          <button role="tab" type="button" aria-selected="false" data-tab="value">Value &amp; Productivity</button>
+          <button role="tab" type="button" aria-selected="true" data-tab="summary">サマリー</button>
+          <button role="tab" type="button" aria-selected="false" data-tab="sales">売上・利益</button>
+          <button role="tab" type="button" aria-selected="false" data-tab="customer">顧客・リピート</button>
+          <button role="tab" type="button" aria-selected="false" data-tab="value">価値・生産性</button>
         </div>
-        <div id="detail-panel" class="detail-panel" role="tabpanel"></div>
+        <div id="detail-panel" class="detail-panel" role="tabpanel" tabindex="0"></div>
       </section>
     </main>
   </div>

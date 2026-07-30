@@ -71,3 +71,17 @@ test("keyboard, focus and 44px controls remain explicit", () => {
   assert.match(css, /min-height:44px/);
   assert.match(css, /:focus-visible/);
 });
+
+test("ready hides Loading before revealing the rendered projection", () => {
+  const readyBranch = app.slice(app.indexOf("function renderRuntimeSnapshot"), app.indexOf("function renderAll"));
+  assert.match(readyBranch, /elements\.notice\.hidden = hasProjection/);
+  assert.match(readyBranch, /if \(!hasProjection \|\| isBlocking\)[\s\S]*main"\)\.hidden = true/);
+  assert.ok(readyBranch.indexOf("renderAll();") < readyBranch.indexOf('document.querySelector("main").hidden = false'));
+});
+
+test("profit state wording consistently uses 集計中", () => {
+  assert.doesNotMatch(html, />確認中</);
+  assert.match(html, /id="meta-state">集計中</);
+  assert.match(app, /pending: "集計中"/);
+  assert.match(app, /collecting: "集計中"/);
+});

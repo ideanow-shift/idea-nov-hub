@@ -73,15 +73,20 @@ function reload() {
 
 function renderRuntimeSnapshot(snapshot) {
   state.runtimeStatus = snapshot.status;
+  const hasProjection = ["ready", "empty"].includes(snapshot.status);
+  const isBlocking = Boolean(snapshot.presentation?.blocking);
   elements.retry.hidden = !snapshot.canRetry;
+  elements.notice.hidden = hasProjection;
   elements.notice.classList.toggle("is-error", !["initializing", "loading", "ready", "empty"].includes(snapshot.status));
   setNotice(snapshot.presentation?.title || "店舗営業情報を確認しています", snapshot.presentation?.body || "少々お待ちください。");
-  if (snapshot.presentation?.blocking) document.querySelector("main").hidden = true;
-  else document.querySelector("main").hidden = false;
-  if (!["ready", "empty"].includes(snapshot.status)) return;
+  if (!hasProjection || isBlocking) {
+    document.querySelector("main").hidden = true;
+    return;
+  }
   state.projection = snapshot.projection;
   $("preview-banner").hidden = !["mock", "preview", "staging"].includes(snapshot.featureFlag);
   renderAll();
+  document.querySelector("main").hidden = false;
 }
 
 function renderAll() {
@@ -300,7 +305,7 @@ function detailMetric(label, metric) {
 function metricCard(metric) { const item = node("article", "metric"); item.append(node("div", "metric-label", metric.label), node("div", "metric-value", metricText(metric))); if (metric.reason) item.append(node("div", "metric-note", metric.reason)); return item; }
 function metricCell(store, key) { return cell(metricText(store.metrics[key])); }
 function metricText(metric) { return metric?.dataState === "available" && metric.displayValue !== null ? String(metric.displayValue) : stateText(metric?.dataState); }
-function stateText(value) { return ({ confirmed: "確定", available: "確定", collecting: "集計中", preparing: "準備中", unavailable: "取得できません", validation_error: "データ確認が必要です" })[value] || "準備中"; }
+function stateText(value) { return ({ confirmed: "確定", available: "確定", collecting: "集計中", pending: "集計中", preparing: "準備中", unavailable: "取得できません", validation_error: "データ確認が必要です" })[value] || "準備中"; }
 function metricAriaLabel(label, metric) { return `${label}、${metricText(metric)}`; }
 function statusBadge(status) { const badge = node("span", `status status-${String(status).toLowerCase().replaceAll(" ", "-")}`, statusNames[status] || "安定"); badge.setAttribute("aria-label", `店舗状態: ${badge.textContent}`); return badge; }
 function formatMonth(value) { const match = String(value || "").match(/^(\d{4})-(\d{2})$/); return match ? `${match[1]}年${Number(match[2])}月` : "—"; }

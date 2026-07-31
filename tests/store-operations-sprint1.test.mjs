@@ -89,3 +89,28 @@ test("profit state wording consistently uses 集計中", () => {
 test("business driver template expression is syntactically closed", () => {
   assert.match(app, /`\$\{name\} \$\{index === 0 \? "−" : "＋"\}`/);
 });
+
+test("internal review UI uses Japanese headings without duplicate English labels", () => {
+  for (const label of ["STORE OPERATIONS", "EXECUTIVE SUMMARY", "PRIORITY ACTIONS", "BUSINESS DRIVERS", "STORE LIST", "STORE DETAIL"]) {
+    assert.doesNotMatch(html, new RegExp(label));
+  }
+  for (const label of ["店舗営業管理", "全店の状況", "優先して確認すること", "業績を動かした要因", "店舗一覧"]) {
+    assert.match(html, new RegExp(label));
+  }
+});
+
+test("sales metric states its monthly or cumulative target period", () => {
+  assert.match(app, /salesPeriodNote/);
+  assert.match(app, /までの累計/);
+  assert.match(app, /reason: salesPeriodNote/);
+});
+
+test("Mock controls are hidden by default and only revealed by mock or preview flags", () => {
+  assert.match(html, /id="dev-controls"[^>]*hidden/);
+  assert.match(app, /isPreviewMode = \["mock", "preview"\]\.includes\(snapshot\.featureFlag\)/);
+  assert.match(app, /elements\.devControls\.hidden = !isPreviewMode/);
+});
+
+test("Preview visibly identifies sample values as non-actual data", () => {
+  assert.match(html, /現在は画面確認用のサンプルデータを表示しています。実績値ではありません。実会計データ・本番環境には接続していません。/);
+});

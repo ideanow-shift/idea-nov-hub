@@ -99,6 +99,33 @@ node scripts/hub-smoke-check.mjs
 - 公開版 `firebase-config.js`
 - NOV HUB Edge API health
 
+## Store Operations Management Sprint 1 Preview
+
+店舗営業管理Sprint 1の社内UXレビューでは、ProductionではなくローカルPreviewを使用します。
+
+起動:
+
+```powershell
+.\start-preview.bat
+```
+
+確認URL:
+
+```text
+http://127.0.0.1:4174/portal/store-sales/
+```
+
+画面上部の「確認用コントロール」で以下を切り替えられます。
+
+- Role: 代表取締役 / 営業部長 / エリアマネージャー / 店長
+- Runtime: ready / loading / empty / unauthorized / forbidden / validation_error / timeout / offline / maintenance
+- 利益状態: 集計中 / 確定 / 準備中
+- 未反映店舗: あり / なし
+
+この画面はPreview/Mock専用です。表示する金額・比率・客数・状態は画面確認用のサンプルデータで、実績値・Productionデータ・実会計データではありません。Supabase、Core DB、Production APIへ接続しません。
+
+レビュー手順は `docs/store_operations_management/sprint1/sprint1-internal-review-guide.md` を参照してください。
+
 ## HUB Context
 
 NOV HUBから各アプリへは `hub_context` を渡します。

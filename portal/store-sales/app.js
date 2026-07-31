@@ -10,7 +10,7 @@ const elements = {
   notice: $("notice"), noticeTitle: $("notice-title"), noticeBody: $("notice-body"), retry: $("retry-button"),
   period: $("period"), executive: $("executive-view"), detail: $("detail-view"), summary: $("summary-metrics"),
   actions: $("priority-actions"), drivers: $("business-drivers"), rows: $("store-rows"), cards: $("store-cards"),
-  detailPanel: $("detail-panel")
+  detailPanel: $("detail-panel"), devControls: $("dev-controls")
 };
 const metricLabels = {
   summary: ["sales", "operatingProfit", "customerCount", "totalTicket", "totalRepeat", "productivity"],
@@ -84,6 +84,8 @@ function renderRuntimeSnapshot(snapshot) {
   state.runtimeStatus = snapshot.status;
   const hasProjection = ["ready", "empty"].includes(snapshot.status);
   const isBlocking = Boolean(snapshot.presentation?.blocking);
+  const isPreviewMode = ["mock", "preview"].includes(snapshot.featureFlag);
+  elements.devControls.hidden = !isPreviewMode;
   elements.retry.hidden = !snapshot.canRetry;
   elements.notice.hidden = hasProjection;
   elements.notice.classList.toggle("is-error", !["initializing", "loading", "ready", "empty"].includes(snapshot.status));
@@ -149,10 +151,13 @@ function renderSummary(projection, stores, scopeLabel) {
   const total = stores.reduce((sum, store) => sum + (store.metrics.sales.rawValue || 0), 0);
   const profit = stores[0].metrics.operatingProfit;
   const attention = stores.filter((store) => store.status === "Needs Attention").length;
+  const salesPeriodNote = state.periodMode === "cumulative"
+    ? `${formatMonth(elements.period.value)}までの累計`
+    : formatMonth(elements.period.value);
   $("summary-narrative").textContent = state.scope === "All" ? (projection.executiveSummary?.narrative || "") :
     `${scopeLabel}の売上状況です。現在、${attention}店舗に対応が必要です。`;
   elements.summary.replaceChildren(
-    metricCard({ label: "総売上（税込）", displayValue: formatYen(total), dataState: "available" }),
+    metricCard({ label: "総売上（税込）", displayValue: formatYen(total), dataState: "available", reason: salesPeriodNote }),
     metricCard(profit), metricCard({ label: "要対応店舗", displayValue: `${attention}店舗`, dataState: "available" })
   );
   $("status-counts").replaceChildren(...Object.keys(statusOrder).reverse().map((status) => {

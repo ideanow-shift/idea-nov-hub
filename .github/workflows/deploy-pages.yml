@@ -1,8 +1,6 @@
 name: Deploy NOV HUB to GitHub Pages
 
 on:
-  push:
-    branches: ["main"]
   pull_request:
     paths:
       - ".github/workflows/deploy-pages.yml"
@@ -14,6 +12,12 @@ on:
       - "tests/nov-navi-dashboard-boundary.test.mjs"
       - "tests/management-store-csv-requirements.test.mjs"
   workflow_dispatch:
+    inputs:
+      production_approved:
+        description: "Explicit production deployment approval"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -79,7 +83,7 @@ jobs:
           fi
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.production_approved == true }}
     needs: talent-release-checks
     permissions:
       contents: read

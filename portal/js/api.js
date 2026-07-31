@@ -35,6 +35,7 @@ const EDGE_ACTIONS = new Set([
   "decisionSaveDraftApplication",
   "managementFinanceSummary",
   "managementStoresSummary",
+  "storeSalesProjection",
   "managementDataopsStatus",
   "markNovHubNotificationRead",
   "changeOwnPin",

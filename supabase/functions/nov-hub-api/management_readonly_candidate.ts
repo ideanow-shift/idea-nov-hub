@@ -1,13 +1,20 @@
+import {
+  buildStoreSalesProjection,
+  type StoreSalesProjectionInput,
+} from "./store_sales_projection.ts";
+
 export type JsonRecord = Record<string, unknown>;
 
 export type ManagementAction =
   | "managementFinanceSummary"
   | "managementStoresSummary"
+  | "storeSalesProjection"
   | "managementDataopsStatus";
 
 export type ManagementEndpoint =
   | "finance.summary"
   | "stores.summary"
+  | "store-sales.projection"
   | "dataops.status";
 
 export type ManagementPermission =
@@ -77,6 +84,7 @@ const CONTRACT_PHASE = "phase2-select-only-contract";
 const ACTION_PRODUCTION_ENABLED: Record<ManagementAction, boolean> = {
   managementFinanceSummary: true,
   managementStoresSummary: true,
+  storeSalesProjection: true,
   managementDataopsStatus: true,
 };
 const ASSIGNMENT_TYPE_ALLOWLIST = new Set(["primary", "secondary", "third"]);
@@ -107,6 +115,10 @@ const ACTION_DEFINITIONS: Record<ManagementAction, {
   },
   managementStoresSummary: {
     endpoint: "stores.summary",
+    permission: "stores.view",
+  },
+  storeSalesProjection: {
+    endpoint: "store-sales.projection",
     permission: "stores.view",
   },
   managementDataopsStatus: {
@@ -727,6 +739,30 @@ async function buildStoresSummary(
   };
 }
 
+async function buildStoreSalesProjectionResponse(
+  deps: ManagementDependencies,
+  access: AccessContext,
+  request: ManagementRequest,
+): Promise<JsonRecord> {
+  const directory = await buildStoresSummary(deps, access);
+  const selectedMonth = text(request.payload?.selectedMonth) || new Date().toISOString().slice(0, 7);
+  const inputs = (Array.isArray(directory.stores) ? directory.stores : []).map((value) => {
+    const row = value as JsonRecord;
+    return {
+      storeKey: text(row.id),
+      storeName: text(row.name) || "未設定店舗",
+      ownership: null,
+      corporation: text(row.corporationName) || null,
+      period: selectedMonth,
+      accountingState: "preparing",
+      lastUpdatedAt: null,
+      metrics: {},
+      signals: {},
+    } satisfies StoreSalesProjectionInput;
+  });
+  return buildStoreSalesProjection(inputs);
+}
+
 async function buildDataopsStatus(deps: ManagementDependencies): Promise<JsonRecord> {
   const [documents, rawCount, draftCount, reviewCount] = await Promise.all([
     deps.db.select("finance_source_documents", {
@@ -915,6 +951,9 @@ export async function handleManagementReadOnlyAction(
     }
     if (request.action === "managementStoresSummary") {
       return success(endpoint, await buildStoresSummary(deps, access), productionEnabled);
+    }
+    if (request.action === "storeSalesProjection") {
+      return success(endpoint, await buildStoreSalesProjectionResponse(deps, access, request), productionEnabled);
     }
     const data = responseProfile === DIAGNOSTIC_RESPONSE_PROFILE
       ? await buildDataopsDiagnosticStatus(deps)

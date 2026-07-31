@@ -1,0 +1,4 @@
+statement_type,section,source_alias,canonical_source_name,effective_from,effective_to,status,notes
+PL,[売上高],売上高,売上高合計,2023-09-01,2025-08-31,proposed,第11・12期の単一売上行。小計との意味確認が必要
+PL,[売上高],ロイヤリティ収入(非),ロイヤリティ収入,2023-09-01,2025-08-31,proposed,非課税表記をtax metadataへ分離
+PL,[売上高],業務受託収入　（非）,業務受託収入,2023-09-01,2025-08-31,proposed,全半角と税区分表記をaliasで吸収

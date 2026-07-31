@@ -1,0 +1,25 @@
+name: Store Sales Staging Deploy Candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Must remain true until a Staging project is approved"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  blocked-dry-run:
+    if: ${{ inputs.dry_run == true }}
+    runs-on: ubuntu-latest
+    environment: store-sales-staging
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          echo "Dry-run only."
+          echo "No Supabase, Pages, NOV HUB, Storage or Edge Function deployment."
+          test -f supabase/functions/store-sales-projection/.env.staging.example

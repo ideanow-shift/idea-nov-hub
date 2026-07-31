@@ -1,0 +1,1 @@
+"""Accounting KPI Engine tests."""

@@ -16,13 +16,13 @@ import {
   validateIdeaLinkLaunchResult
 } from "./idea-link-launch-contract.js?v=idea-link-handoff-result-20260722-1";
 import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
-import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js?v=thanks-coin-display-label-20260717-1";
+import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js?v=nov-talent-hub-launch-20260801-1";
 import { clearHubEmployeeContext, encodeHubContextForUrl, getHubEmployeeContextSummary, saveHubEmployeeContext } from "./hub-context.js";
 import {
   renderNovNaviDashboard,
   shouldEnableLocalNovNaviDemo,
   shouldEnableNovNaviDashboard
-} from "./nov-navi-dashboard.js?v=nov-navi-common-components-20260726-12";
+} from "./nov-navi-dashboard.js?v=nov-talent-hub-launch-20260801-1";
 import {
   NOV_HUB_SESSION_CONTRACT,
   clearNovHubSession,
@@ -31,6 +31,7 @@ import {
   setNovHubSessionMemoryProvider
 } from "./nov-hub-session-candidate.js?v=hub-helper-runtime-20260713-2";
 import { installManagementDataopsOneShotDiagnostic } from "./management-dataops-one-shot-diagnostic.js?v=5ebe57e4f757c72d";
+import { resolveNovTalentAccess } from "./nov-talent-access.js";
 
 const state = {
   employee: null,
@@ -922,11 +923,13 @@ function selectReleasedAppsForEmployee(employee, apps) {
     ...(Array.isArray(employee?.roles) ? employee.roles.map((role) => role?.roleKey || role?.role_key) : []),
     ...(Array.isArray(employee?.tags) ? employee.tags : [])
   ].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean));
-  if ([...DEVELOPMENT_APP_VIEWER_ROLE_KEYS].some((roleKey) => roleKeys.has(roleKey))) return apps;
+  const talentAccess = resolveNovTalentAccess(employee);
+  const allowedApps = apps.filter((app) => !isTalentApp(app) || talentAccess.allowed);
+  if ([...DEVELOPMENT_APP_VIEWER_ROLE_KEYS].some((roleKey) => roleKeys.has(roleKey))) return allowedApps;
   if ([...HR_RELEASED_APP_VIEWER_ROLE_KEYS].some((roleKey) => roleKeys.has(roleKey))) {
-    return apps.filter((app) => isIdeaLinkApp(app) || isBackofficeReleasedApp(app));
+    return allowedApps.filter((app) => isIdeaLinkApp(app) || isBackofficeReleasedApp(app) || isTalentApp(app));
   }
-  return apps.filter(isIdeaLinkApp);
+  return allowedApps.filter(isIdeaLinkApp);
 }
 
 async function openApp(app) {
@@ -998,6 +1001,10 @@ async function openApp(app) {
     }
 
     if (isTalentApp(app)) {
+      if (!resolveNovTalentAccess(employeeContext || state.employee).allowed) {
+        showToast("求人管理の利用権限がありません。");
+        return;
+      }
       try {
         await ensureTalentHubSessionFreshness();
         await writeAccessLog("openApp", { appId: app.appId, appName: app.appName, result: "success" });
@@ -1030,6 +1037,10 @@ async function openApp(app) {
     return;
   }
   console.info("[demo log]", { action: "openApp", appId: app.appId, appName: app.appName, result: "success" });
+  if (isTalentApp(app) && resolveNovTalentAccess(employeeContext || state.employee).allowed) {
+    window.location.assign(appUrl);
+    return;
+  }
   showToast(`デモ: 「${app.appName}」を開きます`);
 }
 
@@ -1167,8 +1178,13 @@ function loginDemo() {
   state.notifications = [];
   state.authType = "demo";
   removeManagementDataopsDiagnostic();
-  state.hubSession = null;
-  clearNovHubSession();
+  const localIntegrationParams = new URLSearchParams(window.location.search);
+  const expiresAt = new Date(
+    Date.now() + (localIntegrationParams.get("talent_session") === "expired" ? -60_000 : 60 * 60 * 1000)
+  ).toISOString();
+  state.hubSession = { sessionToken: "local-integration-session", audience: NOV_HUB_SESSION_CONTRACT.audience, expiresAt };
+  setNovHubSession(state.hubSession);
+  refreshHubEmployeeContext();
   resetAppFilters();
   console.info("[demo log]", { action: "login", email: employee.email, result: "success" });
   renderPortal();

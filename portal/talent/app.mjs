@@ -5,6 +5,7 @@ import {
 } from "./runtime.mjs?v=20260731-sprint1-mock-1";
 import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260726-talent-analytics-action-guide-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
+import { installNovTalentAuthGuard } from "./hub-auth.mjs";
 import {
   buildCandidateHistorySummary,
   buildEventRoiView,
@@ -2834,12 +2835,15 @@ function safeMessage(category, requestCount = 0) {
 }
 
 function initializeTalentApp() {
+  const authorization = installNovTalentAuthGuard();
+  if (!authorization.allowed) return authorization;
   initializeTalentStudentWorkspace();
   initializeTalentNavigation();
   const summaryControl = initializeTalentSummaryControl();
   initializeTalent28CsvPreflight();
   loadTalentStudentWorkspace();
   summaryControl.run?.();
+  return authorization;
 }
 
 function renderTodayTasks(documentObject, tasks) {

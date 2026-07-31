@@ -8,4 +8,4 @@ The existing `.github/workflows/deploy-pages.yml` is reused. Pull requests touch
 4. committed-secret pattern rejection for Talent assets.
 5. Production Mock Identity rejection tests.
 
-The Pages deploy job is restricted to a push on `main` and depends on the check job. Pull requests cannot deploy. GitHub Actions status is recorded in the final handoff after both draft PRs are created.
+The Pages deploy job is restricted to a push on `main` and depends on the check job. Pull requests cannot deploy. The workflow is locally validated by 219/219 fixed regressions and syntax/diff checks; the remote Actions result is recorded after both Draft PRs are created.

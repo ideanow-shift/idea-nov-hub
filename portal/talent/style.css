@@ -32,6 +32,21 @@ body {
   overflow-x: hidden;
 }
 
+.talent-auth-guard { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--bg); }
+.talent-auth-guard section { width: min(620px, 100%); padding: 36px; border: 1px solid var(--line); border-radius: 18px; background: #fff; box-shadow: var(--shadow); }
+.talent-auth-guard h1 { margin: 8px 0 14px; color: var(--navy); font-size: clamp(1.45rem, 4vw, 2rem); }
+.talent-auth-guard p { color: var(--muted); line-height: 1.8; }
+.talent-auth-guard a, .connection-card a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border: 1px solid var(--rose); border-radius: 10px; color: var(--navy); font-weight: 800; text-decoration: none; }
+.connection-card { gap: 8px; flex-wrap: wrap; }
+.connection-card strong { color: var(--navy); font-size: .82rem; }
+.connection-card a { min-height: 34px; padding-inline: 12px; font-size: .78rem; }
+#panel-workforce[aria-label="NOV Peopleへ分離済み"] { display: none !important; }
+body[data-talent-access="executive"] .talent-contact-private,
+body[data-talent-access="executive"] .talent-private-notes,
+body[data-talent-access="executive"] #student-profile-open,
+body[data-talent-access="executive"] #student-staging-supplement-open,
+body[data-talent-access="executive"] .sprint1-mock-write { display: none !important; }
+
 /* Sprint 1: NOV People and write-capable controls are frozen outside NOV Talent. */
 .sprint1-separated,
 .sprint1-mock-write { display: none !important; }

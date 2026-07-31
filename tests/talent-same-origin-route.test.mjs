@@ -375,8 +375,8 @@ test("source fixture keeps Japanese UI and desktop/mobile responsive rules", () 
   assert.match(css, /\.summary-load-button \{ width: 100%; \}/);
   assert.match(css, /@media \(max-width: 860px\)/);
   assert.match(css, /@media \(max-width: 520px\)/);
-  assert.match(apps, /appId: "human-capital-investment"[\s\S]*url: "\.\/talent\/"/);
-  assert.doesNotMatch(apps.match(/appId: "human-capital-investment"[\s\S]*?priority: 64/)?.[0] || "", /hr-investment-dashboard/);
+  assert.match(apps, /appId: "nov-talent"[\s\S]*appName: "求人管理"[\s\S]*url: "\.\/talent\/"/);
+  assert.doesNotMatch(apps.match(/appId: "nov-talent"[\s\S]*?priority: 64/)?.[0] || "", /hr-investment-dashboard/);
 });
 
 test("published runtime candidate enables only the approved local Mock Runtime", () => {

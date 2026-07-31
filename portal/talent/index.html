@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NOV Talent | 採用意思決定プラットフォーム</title>
-  <link rel="stylesheet" href="./style.css?v=20260801-sprint2-ux-1">
-  <script src="./runtime-config.candidate.js?v=20260801-nov-talent-v2-clean-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260801-hub-integration-clean-1">
+  <script src="./runtime-config.candidate.js?v=20260801-hub-integration-clean-1"></script>
   <script type="module" src="./csv-import-preflight.mjs?v=20260731-sprint1-mock-2"></script>
-  <script type="module" src="./app.mjs?v=20260801-nov-talent-v2-clean-1"></script>
+  <script type="module" src="./app.mjs?v=20260801-hub-integration-clean-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -23,6 +23,8 @@
       <div class="connection-card" aria-live="polite">
         <span class="connection-dot" aria-hidden="true"></span>
         <span id="connection-label">Mock Runtime</span>
+        <strong id="talent-role-label">権限確認中</strong>
+        <a href="../">NOV HUBへ戻る</a>
       </div>
     </header>
     <section id="mock-runtime-state" class="mock-runtime-state" data-state="loading" role="status" aria-live="polite">
@@ -517,8 +519,8 @@
                 <div><dt>担当者</dt><dd id="student-detail-assignee">-</dd></div>
                 <div><dt>優先度</dt><dd id="student-detail-priority">-</dd></div>
                 <div><dt>最終接触</dt><dd id="student-detail-last-contact">-</dd></div>
-                <div><dt>電話番号</dt><dd id="student-detail-phone">-</dd></div>
-                <div><dt>メール</dt><dd id="student-detail-email">-</dd></div>
+                <div class="talent-contact-private"><dt>電話番号</dt><dd id="student-detail-phone">-</dd></div>
+                <div class="talent-contact-private"><dt>メール</dt><dd id="student-detail-email">-</dd></div>
                 <div><dt>希望店舗</dt><dd id="student-detail-store">-</dd></div>
                 <div><dt>内定日</dt><dd id="student-detail-offer-date">-</dd></div>
                 <div><dt>入社予定日</dt><dd id="student-detail-expected-join-date">-</dd></div>
@@ -529,7 +531,7 @@
                 <div><dt>プロフィール版</dt><dd id="student-detail-profile-version">-</dd></div>
                 <div><dt>紐付け状態</dt><dd id="student-detail-mapping">-</dd></div>
               </dl>
-              <section class="review-notes" aria-labelledby="student-review-title">
+              <section class="review-notes talent-private-notes" aria-labelledby="student-review-title">
                 <h4 id="student-review-title">確認事項</h4>
                 <ul id="student-detail-reasons"></ul>
               </section>

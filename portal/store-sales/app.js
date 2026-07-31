@@ -12,7 +12,7 @@ const elements = {
   notice: $("notice"), noticeTitle: $("notice-title"), noticeBody: $("notice-body"), retry: $("retry-button"),
   period: $("period"), executive: $("executive-view"), detail: $("detail-view"), summary: $("summary-metrics"),
   actions: $("priority-actions"), drivers: $("business-drivers"), rows: $("store-rows"), cards: $("store-cards"),
-  detailPanel: $("detail-panel"), devControls: $("dev-controls")
+  detailPanel: $("detail-panel"), devControls: $("dev-controls"), executiveSignals: $("executive-signals"), executiveSignalLinks: $("executive-signal-links")
 };
 const metricLabels = {
   summary: ["sales", "operatingProfit", "customerCount", "totalTicket", "totalRepeat", "productivity"],
@@ -127,6 +127,7 @@ function renderAll() {
   $("meta-updated").textContent = formatDate(projection.accounting?.lastUpdatedAt);
   $("filter-updated").textContent = `最終更新 ${formatDate(projection.accounting?.lastUpdatedAt)}`;
   if (state.audience === "store_manager" || role === "store_manager") {
+    elements.executiveSignals.hidden = true;
     const ownStore = projection.stores?.[0];
     $("sticky-filters").hidden = true;
     if (ownStore) showDetail(ownStore.storeKey, true);
@@ -134,6 +135,7 @@ function renderAll() {
     return;
   }
   $("sticky-filters").hidden = false;
+  elements.executiveSignals.hidden = false;
   elements.executive.hidden = false; elements.detail.hidden = true;
   const heading = scopeHeading(role, state.scope);
   $("page-title").textContent = heading;
@@ -230,6 +232,7 @@ function renderDecisionSignals(projection, stores) {
     card.addEventListener("click", () => { state.trendMetric = signal.key; renderDecisionSignals(projection, stores); });
     signalGrid.append(card);
   });
+  renderExecutiveSignalSummary(signalValues);
   const trend = renderSharedTrend(signalValues);
   elements.drivers.replaceChildren(signalGrid, trend);
 }
@@ -244,23 +247,33 @@ function buildDecisionSignals(projection, stores) {
     return values.length ? values.reduce((total, value) => total + value, 0) / values.length : null;
   };
   const sales = sum("sales"); const profit = sum("operatingProfit"); const customerCount = sum("customerCount");
-  const ticket = average("totalTicket"); const retail = sum("retailSales"); const ec = sum("ecSales");
+  const ticket = average("totalTicket"); const retail = sum("retailSales"); const mid = sum("mid"); const ec = sum("ecSales");
   const salesYoy = ratioDelta(average("yearOverYearRatio")); const budget = average("budgetRatio");
   const profitYoy = average("profitYearOverYear"); const customerYoy = average("customerYearOverYear");
   const ticketYoy = average("ticketYearOverYear"); const retailYoy = average("retailYearOverYear");
   const ecTarget = average("ecTargetRatio"); const ecYoy = average("ecYearOverYear");
   const profitReady = stores.every((store) => store.metrics.operatingProfit?.dataState === "available");
   return [
-    signal("sales", "売上", "売上は上がっているか", signedConclusion(salesYoy), `前年同月比 ${signed(salesYoy, "%")}`, [["総売上（税込）", formatYen(sales)], ["予算比", percent(budget)], ["前年同月比", signed(salesYoy, "%")]], sales),
-    signal("profit", "利益", "利益は出ているか", profitReady ? "確定" : "集計中", profitReady ? `営業利益率 ${percent(sales ? profit / sales * 100 : null)}` : "利益データを集計しています", [["営業利益", profitReady ? formatYen(profit) : "集計中"], ["営業利益率", profitReady ? percent(sales ? profit / sales * 100 : null) : "集計中"], ["前年同月比", profitReady ? signed(profitYoy, "%") : "集計中"]], profitReady ? profit : null),
-    signal("customers", "集客", "集客できているか", signedConclusion(customerYoy, "改善", "要確認"), `客数 前年同月比 ${signed(customerYoy, "%")}`, [["総客数", count(customerCount)], ["新規客数", count(sum("newCustomerCount"))], ["既存客数", count(sum("existingCustomerCount"))], ["前年同月比", signed(customerYoy, "%")]], customerCount),
-    signal("ticket", "単価", "単価は上がっているか", signedConclusion(ticketYoy), `総単価 前年同月比 ${signed(ticketYoy, "%")}`, [["総単価", yen(ticket)], ["技術単価", yen(average("technicalTicket"))], ["前年同月比", signed(ticketYoy, "%")]], ticket),
-    signal("retail", "商品", "商品は売れているか", Math.abs(retailYoy || 0) < .5 ? "横ばい" : signedConclusion(retailYoy), `店販購買率 前年同月比 ${signed(retailYoy, "pt")}`, [["店販売上", formatYen(retail)], ["店販購買率", percent(average("retailPurchaseRate"))], ["前年同月比", signed(retailYoy, "pt")]], retail),
-    signal("ec", "EC", "ECは動かせているか", ecTarget !== null && ecTarget < 80 ? "要対応" : "順調", `全社EC 目標比 ${percent(ecTarget)}`, [["全社EC売上", formatYen(ec)], ["目標比", percent(ecTarget)], ["前年同月比", signed(ecYoy, "%")], ["稼働店舗数", `${stores.filter((store) => metricNullableNumber(store.metrics.ecSales) !== null).length}店舗`]], ec)
+    signal("sales", "売上", "売上は上がっているか", signedConclusion(salesYoy), `予算比 ${percent(budget)} ／ 前年比 ${signed(salesYoy, "%")}`, [["総売上（税込）", formatYen(sales)], ["予算比", percent(budget)], ["前年比", signed(salesYoy, "%")]], sales, salesYoy),
+    signal("profit", "利益", "利益は出ているか", profitReady ? "確定" : "集計中", profitReady ? `営業利益 ${formatYen(profit)} ／ 利益率 ${percent(sales ? profit / sales * 100 : null)}` : "利益データを集計しています", [["営業利益", profitReady ? formatYen(profit) : "集計中"], ["営業利益率", profitReady ? percent(sales ? profit / sales * 100 : null) : "集計中"], ["前年比", profitReady ? signed(profitYoy, "%") : "集計中"]], profitReady ? profit : null, profitYoy),
+    signal("customers", "集客", "集客できているか", signedConclusion(customerYoy, "改善", "要確認"), `客数 前年比 ${signed(customerYoy, "%")}`, [["総客数", count(customerCount)], ["新規客数", count(sum("newCustomerCount"))], ["既存客数", count(sum("existingCustomerCount"))], ["前年比", signed(customerYoy, "%")]], customerCount, customerYoy),
+    signal("ticket", "単価", "単価は上がっているか", signedConclusion(ticketYoy), `総単価 前年比 ${signed(ticketYoy, "%")}`, [["総単価", yen(ticket)], ["技術単価", yen(average("technicalTicket"))], ["前年比", signed(ticketYoy, "%")]], ticket, ticketYoy),
+    signal("retail", "商品", "商品は売れているか", Math.abs(retailYoy || 0) < .5 ? "横ばい" : signedConclusion(retailYoy), `店販購買率 前年比 ${signed(retailYoy, "pt")}`, [["店販売上", formatYen(retail)], ["店販購買率", percent(average("retailPurchaseRate"))], ["MID（参考値）", formatYen(mid)], ["EC売上（参考値）", formatYen(ec)], ["前年比", signed(retailYoy, "pt")]], retail, retailYoy),
+    signal("ec", "EC", "ECは動かせているか", ecTarget !== null && ecTarget < 80 ? "要対応" : "順調", `全社EC 目標比 ${percent(ecTarget)}`, [["全社EC売上", formatYen(ec)], ["目標比", percent(ecTarget)], ["前年比", signed(ecYoy, "%")], ["稼働店舗数", `${stores.filter((store) => metricNullableNumber(store.metrics.ecSales) !== null).length}店舗`]], ec, ecYoy)
   ];
 }
 
-function signal(key, label, question, conclusion, lead, details, value) { return { key, label, question, conclusion, lead, details, value }; }
+function signal(key, label, question, conclusion, lead, details, value, comparison) { return { key, label, question, conclusion, lead, details, value, comparison }; }
+
+function renderExecutiveSignalSummary(signals) {
+  const labels = { sales: "良好", profit: signals.find((item) => item.key === "profit")?.conclusion === "確定" ? "良好" : "集計中", customers: "改善中", ticket: "良好", retail: "横ばい", ec: "要対応" };
+  const levels = { sales: "good", profit: labels.profit === "良好" ? "good" : "watch", customers: "watch", ticket: "good", retail: "watch", ec: "attention" };
+  elements.executiveSignalLinks.replaceChildren(...signals.map((signal) => {
+    const button = node("button", `executive-signal executive-signal-${levels[signal.key]}`, `${signal.label}　${labels[signal.key]}`); button.type = "button";
+    button.addEventListener("click", () => { const target = document.querySelector(`[data-signal="${signal.key}"]`); target?.scrollIntoView({ behavior: "smooth", block: "center" }); target?.focus({ preventScroll: true }); });
+    return button;
+  }));
+}
 
 function renderSharedTrend(signals) {
   const section = node("section", "shared-trend"); section.setAttribute("aria-labelledby", "shared-trend-heading");
@@ -284,13 +297,17 @@ function createTrendChart(selected) {
   if (!isDemo || selected.value === null) { wrap.append(empty("推移データを準備しています")); return wrap; }
   const count = state.trendPeriod === "year_compare" ? 2 : state.trendPeriod === "twelve_months" ? 12 : 6;
   const factors = Array.from({ length: count }, (_, index) => .91 + index * (.09 / Math.max(1, count - 1)) + Math.sin(index * 1.7) * .012);
-  const values = factors.map((factor) => selected.value * factor);
-  const min = Math.min(...values) * .98; const max = Math.max(...values) * 1.02; const range = Math.max(1, max - min);
-  const points = values.map((value, index) => `${40 + index * (560 / Math.max(1, count - 1))},${145 - (value - min) / range * 105}`).join(" ");
+  const currentValues = factors.map((factor) => selected.value * factor);
+  const comparisonRate = Number(selected.comparison || 0) / 100;
+  const previousValues = currentValues.map((value, index) => value / Math.max(.1, 1 + comparisonRate) * (.995 + Math.cos(index * 1.3) * .008));
+  const allValues = [...currentValues, ...previousValues]; const min = Math.min(...allValues) * .98; const max = Math.max(...allValues) * 1.02; const range = Math.max(1, max - min);
+  const points = (values) => values.map((value, index) => `${40 + index * (560 / Math.max(1, count - 1))},${145 - (value - min) / range * 105}`).join(" ");
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("viewBox", "0 0 640 180"); svg.setAttribute("role", "img"); svg.setAttribute("aria-label", `${selected.label}の${state.trendPeriod === "six_months" ? "直近6か月" : state.trendPeriod === "twelve_months" ? "12か月" : "前年対比"}推移`);
   const baseline = document.createElementNS(svg.namespaceURI, "line"); baseline.setAttribute("x1", "40"); baseline.setAttribute("x2", "600"); baseline.setAttribute("y1", "145"); baseline.setAttribute("y2", "145"); baseline.setAttribute("class", "trend-baseline");
-  const line = document.createElementNS(svg.namespaceURI, "polyline"); line.setAttribute("points", points); line.setAttribute("class", "trend-line");
-  svg.append(baseline, line); wrap.append(svg, node("p", "trend-summary", `${selected.label}: ${formatTrendValue(selected.key, values[0])} → ${formatTrendValue(selected.key, values.at(-1))}`)); return wrap;
+  const currentLine = document.createElementNS(svg.namespaceURI, "polyline"); currentLine.setAttribute("points", points(currentValues)); currentLine.setAttribute("class", "trend-line trend-line-current");
+  const previousLine = document.createElementNS(svg.namespaceURI, "polyline"); previousLine.setAttribute("points", points(previousValues)); previousLine.setAttribute("class", "trend-line trend-line-previous");
+  const legend = node("div", "trend-legend"); legend.append(node("span", "trend-legend-current", "今年"), node("span", "trend-legend-previous", "前年"));
+  svg.append(baseline, previousLine, currentLine); wrap.append(legend, svg, node("p", "trend-summary", `${selected.label}: ${formatTrendValue(selected.key, currentValues.at(-1))}（今年） ／ ${formatTrendValue(selected.key, previousValues.at(-1))}（前年）`)); return wrap;
 }
 
 function renderStatusFilters(stores) {
@@ -309,12 +326,12 @@ function renderStores() {
     ? selectStoreView(state.projection?.stores || [], state.scope, state.statusFilter, state.sort)
     : [];
   if (!stores.length) {
-    const tr = document.createElement("tr"); const td = document.createElement("td"); td.colSpan = 9; td.append(emptyState()); tr.append(td);
+    const tr = document.createElement("tr"); const td = document.createElement("td"); td.colSpan = 10; td.append(emptyState()); tr.append(td);
     elements.rows.replaceChildren(tr); elements.cards.replaceChildren(emptyState()); return;
   }
   elements.rows.replaceChildren(...stores.map((store) => {
     const row = document.createElement("tr"); row.tabIndex = 0; row.setAttribute("aria-label", `${store.storeName}の店舗詳細を開く`);
-    row.append(cell(store.storeName), cell(statusBadge(store.status)), metricCell(store, "sales"), metricCell(store, "operatingProfit"),
+    row.append(cell(store.storeName), cell(statusBadge(store.status)), cell(storeAm(store)), metricCell(store, "sales"), metricCell(store, "operatingProfit"),
       cell(store.metrics.customerCount?.displayValue || "—", "optional-col"), metricCell(store, "totalRepeat"), metricCell(store, "productivity"), cell(storeFocus(store)), cell("›"));
     row.addEventListener("click", () => showDetail(store.storeKey)); row.addEventListener("keydown", (e) => { if (["Enter", " "].includes(e.key)) { e.preventDefault(); row.click(); } });
     return row;
@@ -391,6 +408,7 @@ function storeCard(store) {
   [["総売上（税込）", "sales"], ["利益", "operatingProfit"], ["総リピート率", "totalRepeat"], ["総生産性", "productivity"]].forEach(([label, key]) => {
     const group = node("div"); const dt = node("dt", "", label); const dd = node("dd", "", metricText(store.metrics[key])); group.append(dt, dd); dl.append(group);
   });
+  const am = node("div"); am.append(node("dt", "", "担当AM"), node("dd", "", storeAm(store))); dl.append(am);
   const focus = node("p", "", `今月の重点\n${storeFocus(store)}`); const button = node("button", "action-link", "店舗を確認 →"); button.type = "button"; button.addEventListener("click", () => showDetail(store.storeKey));
   // 旧比較名: 売上 / 営業利益率 / 経常利益率 / 主な確認理由（statusReason）
   article.append(header, dl, focus, button); return article;
@@ -421,6 +439,7 @@ function signedConclusion(value, positive = "上昇", negative = "低下") { ret
 function formatTrendValue(key, value) { return ["sales", "profit", "retail", "ec"].includes(key) ? formatYen(value) : key === "customers" ? count(value) : yen(value); }
 function actionImpact(ruleId) { return ruleId === "new_repeat" ? "既存客数の増加" : ruleId === "ticket_and_repeat" ? "売上と利益の安定" : "改善の定着"; }
 function storeFocus(store) { return store?.focus || store?.statusReason || "今月の重点をチームで確認しましょう。"; }
+function storeAm(store) { if (store?.area) return `${store.area}AM`; const number = Number(String(store?.storeKey || "").match(/(\d{2})$/)?.[1] || 1); return ["西東京AM", "埼玉AM", "都心AM"][(number - 1) % 3]; }
 function setNotice(title, body) { elements.noticeTitle.textContent = title; elements.noticeBody.textContent = body; }
 function setPressed(selector, current) { document.querySelectorAll(selector).forEach((button) => button.setAttribute("aria-pressed", String(button === current))); }
 function cell(value, className = "") { const td = node("td", className); value instanceof Node ? td.append(value) : td.textContent = String(value ?? "—"); return td; }

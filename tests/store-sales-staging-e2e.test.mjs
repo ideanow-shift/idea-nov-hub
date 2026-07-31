@@ -8,6 +8,7 @@ const config = readFileSync(new URL("../portal/store-sales/staging-config.js", i
 const runtime = readFileSync(new URL("../portal/store-sales/runtime/store-sales-runtime.js", import.meta.url), "utf8");
 const workflow = readFileSync(new URL("../.github/workflows/store-sales-staging-check.yml", import.meta.url), "utf8");
 const pages = readFileSync(new URL("../.github/workflows/deploy-pages.yml", import.meta.url), "utf8");
+const localServer = readFileSync(new URL("../scripts/start-store-sales-staging.mjs", import.meta.url), "utf8");
 
 test("Staging banner is explicit and accessible", () => assert.match(html, /role="status"[\s\S]*Staging環境・Synthetic Data/));
 test("Staging uses frozen Runtime entry through app", () => {
@@ -38,3 +39,8 @@ test("Staging deploy candidate is not a production deploy", () => {
   assert.doesNotMatch(deploy, /supabase\s+deploy|deploy-pages/);
 });
 test("Staging page contains no environment switch UI", () => assert.doesNotMatch(html, /select.*environment|data-mode|localStorage/i));
+test("Local Staging serves the completed Sprint 1 UI shell", () => {
+  assert.match(localServer, /portal\/store-sales\/index\.html/);
+  assert.match(localServer, /staging-config\.js/);
+  assert.match(localServer, /staging-session-bootstrap\.js/);
+});

@@ -83,7 +83,7 @@ test("maintenance is a distinct retryable Runtime state", async () => {
   assert.equal(state.status, "maintenance");
   assert.equal(state.errorCode, "MAINTENANCE");
   assert.equal(state.canRetry, true);
-  assert.equal(state.presentation.title, "メンテナンス中です");
+  assert.equal(state.presentation.title, "ただいまメンテナンス中です");
 });
 
 test("401 maps to unauthorized and 403 maps to forbidden", () => {

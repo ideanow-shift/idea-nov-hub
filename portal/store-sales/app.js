@@ -1,8 +1,9 @@
 import { createStoreSalesMockIdentity, createStoreSalesRuntime } from "./runtime/index.js";
 import { allowedScopes, canSelectScope, emptyScopeMessage, normalizeScope, scopeHeading } from "./permission-scope.js";
+import { createStoreViewSelector } from "./store-view-selector.js";
 
 const state = {
-  projection: null, runtime: null, runtimeStatus: "initializing", runtimeFeatureFlag: null, effectiveRole: "sales_manager", selectedStore: null, tab: "summary", audience: "executive",
+  projection: null, runtime: null, runtimeStatus: "initializing", runtimeFeatureFlag: null, effectiveRole: "sales_manager", initializedRole: null, selectedStore: null, tab: "summary", audience: "executive",
   statusFilter: "Needs Attention", sort: "status", scope: "All", periodMode: "monthly", listScroll: 0,
   development: { role: "sales_manager", runtimeState: "ready", profitMode: "collecting", missingData: true }
 };
@@ -26,6 +27,7 @@ const labels = {
 };
 const statusOrder = { "Needs Attention": 0, Improving: 1, Stable: 2, Good: 3 };
 const statusNames = { "Needs Attention": "要対応", Improving: "改善中", Stable: "安定", Good: "好調" };
+const selectStoreView = createStoreViewSelector();
 
 initialize();
 
@@ -111,6 +113,11 @@ function renderAll() {
   const role = ["mock", "preview"].includes(state.runtimeFeatureFlag)
     ? state.development.role
     : (projection.role || state.development.role);
+  if (state.initializedRole !== role) {
+    state.scope = allowedScopes(role)[0] || null;
+    state.statusFilter = role === "representative" ? "All" : "Needs Attention";
+    state.initializedRole = role;
+  }
   state.effectiveRole = role;
   configureScopeControls(role);
   $("direction-message").textContent = projection.directionMessage || "";
@@ -172,7 +179,7 @@ function renderSummary(projection, stores, scopeLabel) {
     $("summary-narrative").textContent = message;
     $("status-counts").replaceChildren(); return;
   }
-  const total = stores.reduce((sum, store) => sum + (store.metrics.sales.rawValue || 0), 0);
+  const total = stores.reduce((sum, store) => sum + metricNumber(store.metrics.sales), 0);
   const profit = stores[0].metrics.operatingProfit;
   const attention = stores.filter((store) => store.status === "Needs Attention").length;
   const salesPeriodNote = state.periodMode === "cumulative"
@@ -239,8 +246,9 @@ function renderStatusFilters(stores) {
 }
 
 function renderStores() {
-  let stores = scopedStores().filter((store) => state.statusFilter === "All" || store.status === state.statusFilter);
-  stores = [...stores].sort(storeComparator(state.sort));
+  const stores = canSelectScope(state.effectiveRole, state.scope)
+    ? selectStoreView(state.projection?.stores || [], state.scope, state.statusFilter, state.sort)
+    : [];
   if (!stores.length) {
     const tr = document.createElement("tr"); const td = document.createElement("td"); td.colSpan = 9; td.append(emptyState()); tr.append(td);
     elements.rows.replaceChildren(tr); elements.cards.replaceChildren(emptyState()); return;
@@ -248,20 +256,11 @@ function renderStores() {
   elements.rows.replaceChildren(...stores.map((store) => {
     const row = document.createElement("tr"); row.tabIndex = 0; row.setAttribute("aria-label", `${store.storeName}の店舗詳細を開く`);
     row.append(cell(store.storeName), cell(statusBadge(store.status)), metricCell(store, "sales"), metricCell(store, "operatingProfit"),
-      cell(store.metrics.customerCount.displayValue, "optional-col"), metricCell(store, "totalRepeat"), metricCell(store, "productivity"), cell(store.focus), cell("›"));
+      cell(store.metrics.customerCount?.displayValue || "—", "optional-col"), metricCell(store, "totalRepeat"), metricCell(store, "productivity"), cell(store.focus || "—"), cell("›"));
     row.addEventListener("click", () => showDetail(store.storeKey)); row.addEventListener("keydown", (e) => { if (["Enter", " "].includes(e.key)) { e.preventDefault(); row.click(); } });
     return row;
   }));
   elements.cards.replaceChildren(...stores.map(storeCard));
-}
-
-function storeComparator(sort) {
-  const value = (store, key) => store.metrics[key]?.rawValue ?? -Infinity;
-  if (sort === "sales-desc") return (a, b) => value(b, "sales") - value(a, "sales");
-  if (sort === "profit-desc") return (a, b) => value(b, "operatingProfit") - value(a, "operatingProfit");
-  if (sort === "repeat-desc") return (a, b) => value(b, "totalRepeat") - value(a, "totalRepeat");
-  if (sort === "productivity-desc") return (a, b) => value(b, "productivity") - value(a, "productivity");
-  return (a, b) => statusOrder[a.status] - statusOrder[b.status];
 }
 
 function showDetail(storeKey, managerHome = false, targetTab = null) {
@@ -278,8 +277,9 @@ function showDetail(storeKey, managerHome = false, targetTab = null) {
   $("detail-conclusion").textContent = state.selectedStore.conclusion;
   const managerFocus = $("manager-focus"); managerFocus.hidden = state.effectiveRole !== "store_manager";
   if (!managerFocus.hidden) {
-    $("manager-focus-title").textContent = state.selectedStore.focus;
-    $("manager-checks").replaceChildren(heading("その他の確認事項"), orderedList(state.selectedStore.otherChecks.slice(0, 2)), heading("次に確認すること"), paragraph(state.selectedStore.nextCheck));
+    const otherChecks = Array.isArray(state.selectedStore.otherChecks) ? state.selectedStore.otherChecks : [];
+    $("manager-focus-title").textContent = state.selectedStore.focus || "確認事項を準備しています";
+    $("manager-checks").replaceChildren(heading("その他の確認事項"), orderedList(otherChecks.slice(0, 2)), heading("次に確認すること"), paragraph(state.selectedStore.nextCheck || "最新データをご確認ください"));
   }
   setTab(targetTab || state.tab || "summary"); window.scrollTo({ top: 0 });
 }
@@ -351,6 +351,7 @@ function statusBadge(status) { const badge = node("span", `status status-${Strin
 function formatMonth(value) { const match = String(value || "").match(/^(\d{4})-(\d{2})$/); return match ? `${match[1]}年${Number(match[2])}月` : "—"; }
 function formatDate(value) { if (!value) return "—"; const date = new Date(value); return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(date); }
 function formatYen(value) { return value >= 100_000_000 ? `${(value / 100_000_000).toFixed(2)}億円` : `${Math.round(value / 10_000).toLocaleString()}万円`; }
+function metricNumber(metric) { return Number(metric?.rawValue ?? metric?.value ?? 0); }
 function setNotice(title, body) { elements.noticeTitle.textContent = title; elements.noticeBody.textContent = body; }
 function setPressed(selector, current) { document.querySelectorAll(selector).forEach((button) => button.setAttribute("aria-pressed", String(button === current))); }
 function cell(value, className = "") { const td = node("td", className); value instanceof Node ? td.append(value) : td.textContent = String(value ?? "—"); return td; }

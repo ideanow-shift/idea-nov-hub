@@ -9,6 +9,7 @@ import { restoreStoreSalesPreviewContext } from "../preview-context.js";
 import { mapRuntimeError, runtimePresentation } from "./error-mapping.js";
 import { resolveStoreSalesFeatureFlag, toAdapterRuntimeConfig } from "./feature-flags.js";
 import { isStoreSalesMockIdentity, resolveMockIdentityFixture } from "./mock-identity.js";
+import { createRuntimeDiagnostics } from "./diagnostics.js";
 
 export const STORE_SALES_RUNTIME_STATES = Object.freeze([
   "initializing",
@@ -26,6 +27,8 @@ export const STORE_SALES_RUNTIME_STATES = Object.freeze([
 export function createStoreSalesRuntime(options = {}) {
   const location = options.location || globalThis.location || {};
   const dependencies = options.dependencies || {};
+  const now = dependencies.now || (() => Date.now());
+  const diagnostics = createRuntimeDiagnostics({ logger: dependencies.logger, now });
   const listeners = new Set();
   let runtimeConfig = { ...(options.runtimeConfig || {}) };
   let adapter = null;
@@ -35,6 +38,9 @@ export function createStoreSalesRuntime(options = {}) {
   let featureFlag = null;
   let lastPeriod = null;
   let retryCount = 0;
+  let retryInFlight = null;
+  let loadStartedAt = null;
+  let loadSequence = 0;
   let snapshot = freezeSnapshot({ status: "initializing", presentation: runtimePresentation("initializing") });
 
   function freezeSnapshot(next) {
@@ -46,11 +52,20 @@ export function createStoreSalesRuntime(options = {}) {
       presentation: next.presentation || runtimePresentation(next.status),
       period: lastPeriod,
       retryCount,
-      canRetry: ["maintenance", "timeout", "offline"].includes(next.status)
+      canRetry: ["maintenance", "timeout", "offline"].includes(next.status),
+      diagnostics: diagnostics.snapshot()
     });
   }
 
   function publish(next) {
+    const previousStatus = snapshot?.status || "idle";
+    const durationMs = loadStartedAt && next.status !== "loading" ? Math.max(0, now() - loadStartedAt) : 0;
+    diagnostics.record("runtime_transition", {
+      from: previousStatus, to: next.status, status: next.status, featureFlag: featureFlag || "unresolved",
+      period: lastPeriod || "unset", errorCode: next.errorCode || "none", retryCount, durationMs
+    });
+    if (next.status === "loading") loadStartedAt = now();
+    else if (durationMs) loadStartedAt = null;
     snapshot = freezeSnapshot(next);
     listeners.forEach((listener) => listener(snapshot));
     return snapshot;
@@ -112,21 +127,24 @@ export function createStoreSalesRuntime(options = {}) {
   async function load({ period } = {}) {
     if (period) lastPeriod = period;
     if (!adapter) return initialize({ period: lastPeriod });
+    const sequence = ++loadSequence;
     publish({
       status: "loading",
-      presentation: Object.freeze({ title: "店舗営業情報を読み込んでいます", body: "RuntimeがProjectionを確認しています。", blocking: false, retryable: false })
+      presentation: runtimePresentation("loading")
     });
     try {
       const projection = await adapter.loadDashboard({ period: lastPeriod });
+      if (sequence !== loadSequence) return snapshot;
       const status = Array.isArray(projection?.stores) && projection.stores.length === 0 ? "empty" : "ready";
       return publish({
         status,
         projection,
         presentation: status === "empty"
           ? runtimePresentation("empty")
-          : Object.freeze({ title: ["mock", "preview"].includes(featureFlag) ? "Preview Mode" : "Store Sales Runtime", body: ["mock", "preview"].includes(featureFlag) ? "mockのサンプルデータを表示しています。実会計データではありません。" : "read-only Projectionを表示しています。", blocking: false, retryable: false })
+          : runtimePresentation("ready", { body: ["mock", "preview"].includes(featureFlag) ? "画面確認用のサンプルデータを表示しています。実績値ではありません。" : "取得済みのread-onlyデータを表示しています。" })
       });
     } catch (error) {
+      if (sequence !== loadSequence || error?.code === "REQUEST_ABORTED") return snapshot;
       return handleError(error);
     }
   }
@@ -147,11 +165,15 @@ export function createStoreSalesRuntime(options = {}) {
   }
 
   async function retry() {
+    if (retryInFlight) return retryInFlight;
+    if (!snapshot.canRetry) return snapshot;
     retryCount += 1;
-    return load({ period: lastPeriod });
+    retryInFlight = load({ period: lastPeriod }).finally(() => { retryInFlight = null; });
+    return retryInFlight;
   }
 
   async function updateSession(nextSession) {
+    loadSequence += 1;
     adapter?.clear?.();
     adapter = null;
     if (!setNovHubSession(nextSession)) clearNovHubSession();
@@ -159,6 +181,7 @@ export function createStoreSalesRuntime(options = {}) {
   }
 
   async function switchProjection(nextFeatureFlag, configOverride = {}) {
+    loadSequence += 1;
     adapter?.clear?.();
     adapter = null;
     runtimeConfig = { ...runtimeConfig, ...configOverride, featureFlag: nextFeatureFlag, mode: nextFeatureFlag };
@@ -171,6 +194,7 @@ export function createStoreSalesRuntime(options = {}) {
     retry,
     updateSession,
     switchProjection,
+    getDiagnostics: () => diagnostics.entries(),
     getSnapshot: () => snapshot,
     subscribe(listener) {
       if (typeof listener !== "function") return () => {};

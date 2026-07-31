@@ -29,6 +29,7 @@ const audit = createAuditSink((event) => process.stdout.write(`${JSON.stringify(
 const service = createStoreSalesStagingService({ config, tokenVerifier: verifier, audit });
 const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8", ".png": "image/png", ".svg": "image/svg+xml" };
 const actorRoutes = new Map([
+  ["/portal/store-sales/staging.html", "representative"],
   ["/portal/store-sales/staging-store-detail.html", "representative"],
   ["/portal/store-sales/staging-store-manager.html", "store_manager"],
   ["/portal/store-sales/staging-sales-manager.html", "sales_manager"],
@@ -48,14 +49,17 @@ createServer(async (request, response) => {
     return;
   }
   if (actorRoutes.has(url.pathname)) {
-    const content = await readFile(resolve(root, "portal/store-sales/staging.html"), "utf8");
+    const content = await readFile(resolve(root, "portal/store-sales/index.html"), "utf8");
     const actor = actorRoutes.get(url.pathname);
     const detailBootstrap = url.pathname.endsWith("staging-store-detail.html")
       ? '<script type="module" src="./staging-detail-bootstrap.js"></script>'
       : "";
     response.writeHead(200, { "content-type": mime[".html"], "cache-control": "no-store" });
     response.end(content
-      .replace('data-staging-actor="representative"', `data-staging-actor="${actor}"`)
+      .replace('<html lang="ja">', `<html lang="ja" data-staging-actor="${actor}">`)
+      .replace('<strong>プレビュー</strong>', '<strong>STAGING</strong>')
+      .replace('現在は画面確認用のサンプルデータを表示しています。実績値ではありません。実会計データ・本番環境には接続していません。', 'Local Integration環境のSynthetic Dataを表示しています。実績値ではありません。')
+      .replace('<script src="./runtime-config.js"></script>', '<script src="./staging-config.js"></script><script type="module" src="./staging-session-bootstrap.js"></script>')
       .replace("</body>", `${detailBootstrap}</body>`));
     return;
   }

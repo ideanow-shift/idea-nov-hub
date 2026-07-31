@@ -7,8 +7,13 @@ export const OFFICIAL_STORE_NAMES = Object.freeze([
   "新所沢店", "鷺ノ宮店", "Roane by Bassa", "久米川店", "国分寺店", "花小金井店", "東久留米店"
 ]);
 
+const numericValue = (display) => {
+  const normalized = String(display ?? "").replaceAll(",", "").replace(/[^\d.-]/g, "");
+  return normalized === "" ? null : Number(normalized);
+};
+
 const metric = (label, display, state = "available", unit = "yen", period = "2026-07") => ({
-  label, value: state === "available" ? 1 : null,
+  label, value: state === "available" ? numericValue(display) : null,
   display_value: state === "available" ? display : null, unit, data_state: state,
   reason_code: state === "available" ? null : `SYNTHETIC_${state.toUpperCase()}`,
   period, period_mode: "monthly", confirmed_period_label: "2026年6月確定値"

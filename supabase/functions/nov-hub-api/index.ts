@@ -383,6 +383,7 @@ async function readRows(path: string, options: Parameters<typeof supabaseRequest
 const MANAGEMENT_READ_ONLY_ACTIONS = new Set<string>([
   "managementFinanceSummary",
   "managementStoresSummary",
+  "storeSalesProjection",
   "managementDataopsStatus",
 ]);
 

@@ -59,6 +59,7 @@ export function wireProjection(overrides = {}) {
       last_updated_at: "2026-07-15T09:30:00+09:00",
       actor_scope: "all_group",
       actor_scope_key: "group-01",
+      actor_role: "representative",
       reflected_store_count: stores.length,
       accounting_version_id: "accounting-version-synthetic-1",
       kpi_definition_set_version: "kpi-definition-synthetic-1",
@@ -92,8 +93,8 @@ export function wireProjection(overrides = {}) {
 
 export const actorScopeFixtures = Object.freeze({
   executive: () => wireProjection(),
-  departmentManager: () => wireProjection({ meta: { actor_scope: "department", actor_scope_key: "department-01" }, stores: [wireStore({ scope_key: "department-01" })] }),
-  storeManager: () => wireProjection({ meta: { actor_scope: "own_store", actor_scope_key: "store-01" } }),
-  franchiseOwner: () => wireProjection({ meta: { actor_scope: "franchise", actor_scope_key: "franchise-01" }, stores: [wireStore({ ownership_type: "FC", scope_key: "franchise-01" })] }),
-  employeeDenied: () => wireProjection({ meta: { actor_scope: "denied", actor_scope_key: null }, stores: [] })
+  departmentManager: () => wireProjection({ meta: { actor_scope: "department", actor_scope_key: "department-01", actor_role: "area_manager" }, stores: [wireStore({ scope_key: "department-01" })] }),
+  storeManager: () => wireProjection({ meta: { actor_scope: "own_store", actor_scope_key: "store-01", actor_role: "store_manager" } }),
+  franchiseOwner: () => wireProjection({ meta: { actor_scope: "franchise", actor_scope_key: "franchise-01", actor_role: "representative" }, stores: [wireStore({ ownership_type: "FC", scope_key: "franchise-01" })] }),
+  employeeDenied: () => wireProjection({ meta: { actor_scope: "denied", actor_scope_key: null, actor_role: "employee" }, stores: [] })
 });

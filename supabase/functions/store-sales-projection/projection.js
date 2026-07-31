@@ -24,7 +24,7 @@ export function buildSyntheticProjection({ stores, scope, period, storeId = null
     if (!selected) throw new StagingApiError("NOT_FOUND", "Store was not found.", 404);
     assertStoreScope(scope, selected);
   }
-  const visible = storeId ? [selected] : scoped;
+  const visible = (storeId ? [selected] : scoped).map((store) => ({ ...store, scope_key: scope.key }));
   const available = visible.filter((store) => store.data_state === "available");
   const actions = visible.flatMap((store) => store.this_month_actions).slice(0, 3);
   const first = visible[0];
@@ -49,6 +49,7 @@ export function buildSyntheticProjection({ stores, scope, period, storeId = null
       last_updated_at: "2026-07-20T09:00:00+09:00",
       actor_scope: scope.type,
       actor_scope_key: scope.key,
+      actor_role: scope.role,
       reflected_store_count: available.length,
       accounting_version_id: "synthetic-accounting-published-v1",
       kpi_definition_set_version: "synthetic-kpi-active-v1",

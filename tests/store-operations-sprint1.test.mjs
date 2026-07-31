@@ -130,7 +130,7 @@ test("out-of-scope choices are rejected and normalized", () => {
   assert.equal(canSelectScope("area_manager", "All"), false);
   assert.equal(canSelectScope("store_manager", "Direct"), false);
   assert.equal(normalizeScope("sales_manager", "FC"), "Direct");
-  assert.match(app, /if \(!canSelectScope\(state\.development\.role, button\.dataset\.scope\)\) return/);
+  assert.match(app, /if \(!canSelectScope\(state\.effectiveRole, button\.dataset\.scope\)\) return/);
   assert.match(app, /state\.scope = allowedScopes\(state\.development\.role\)\[0\] \|\| null/);
 });
 

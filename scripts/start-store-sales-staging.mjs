@@ -29,13 +29,14 @@ const audit = createAuditSink((event) => process.stdout.write(`${JSON.stringify(
 const service = createStoreSalesStagingService({ config, tokenVerifier: verifier, audit });
 const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8", ".png": "image/png", ".svg": "image/svg+xml" };
 const actorRoutes = new Map([
-  ["/portal/store-sales/staging-store-detail.html", "representative_director"],
+  ["/portal/store-sales/staging-store-detail.html", "representative"],
   ["/portal/store-sales/staging-store-manager.html", "store_manager"],
-  ["/portal/store-sales/staging-fc-owner.html", "franchise_owner"],
+  ["/portal/store-sales/staging-sales-manager.html", "sales_manager"],
+  ["/portal/store-sales/staging-area-manager.html", "area_manager"],
   ["/portal/store-sales/staging-employee.html", "employee"],
-  ["/portal/store-sales/staging-timeout.html", "representative_director__timeout"],
-  ["/portal/store-sales/staging-maintenance.html", "representative_director__maintenance"],
-  ["/portal/store-sales/staging-validation-error.html", "representative_director__validation_error"]
+  ["/portal/store-sales/staging-timeout.html", "representative__timeout"],
+  ["/portal/store-sales/staging-maintenance.html", "representative__maintenance"],
+  ["/portal/store-sales/staging-validation-error.html", "representative__validation_error"]
 ]);
 
 createServer(async (request, response) => {
@@ -54,7 +55,7 @@ createServer(async (request, response) => {
       : "";
     response.writeHead(200, { "content-type": mime[".html"], "cache-control": "no-store" });
     response.end(content
-      .replace('data-staging-actor="representative_director"', `data-staging-actor="${actor}"`)
+      .replace('data-staging-actor="representative"', `data-staging-actor="${actor}"`)
       .replace("</body>", `${detailBootstrap}</body>`));
     return;
   }

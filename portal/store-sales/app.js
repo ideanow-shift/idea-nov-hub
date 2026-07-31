@@ -2,7 +2,7 @@ import { createStoreSalesMockIdentity, createStoreSalesRuntime } from "./runtime
 import { allowedScopes, canSelectScope, emptyScopeMessage, normalizeScope, scopeHeading } from "./permission-scope.js";
 
 const state = {
-  projection: null, runtime: null, runtimeStatus: "initializing", selectedStore: null, tab: "summary", audience: "executive",
+  projection: null, runtime: null, runtimeStatus: "initializing", runtimeFeatureFlag: null, effectiveRole: "sales_manager", selectedStore: null, tab: "summary", audience: "executive",
   statusFilter: "Needs Attention", sort: "status", scope: "All", periodMode: "monthly", listScroll: 0,
   development: { role: "sales_manager", runtimeState: "ready", profitMode: "collecting", missingData: true }
 };
@@ -60,7 +60,7 @@ function bindControls() {
   });
   $("dev-missing").addEventListener("change", (event) => { state.development.missingData = event.target.value === "true"; reload(); });
   document.querySelectorAll("[data-scope]").forEach((button) => button.addEventListener("click", () => {
-    if (!canSelectScope(state.development.role, button.dataset.scope)) return;
+    if (!canSelectScope(state.effectiveRole, button.dataset.scope)) return;
     state.scope = button.dataset.scope; setPressed("[data-scope]", button); renderAll();
   }));
   document.querySelectorAll("[data-period-mode]").forEach((button) => button.addEventListener("click", () => {
@@ -85,6 +85,7 @@ function reload() {
 
 function renderRuntimeSnapshot(snapshot) {
   state.runtimeStatus = snapshot.status;
+  state.runtimeFeatureFlag = snapshot.featureFlag;
   const hasProjection = ["ready", "empty"].includes(snapshot.status);
   const isBlocking = Boolean(snapshot.presentation?.blocking);
   const isPreviewMode = ["mock", "preview"].includes(snapshot.featureFlag);
@@ -107,7 +108,10 @@ function renderAll() {
   const projection = state.projection || { stores: [], accounting: {}, executiveSummary: {} };
   state.audience = projection.audience || state.development.role;
   if (projection.stores.length === 0) state.audience = projection.audience || "executive";
-  const role = state.development.role;
+  const role = ["mock", "preview"].includes(state.runtimeFeatureFlag)
+    ? state.development.role
+    : (projection.role || state.development.role);
+  state.effectiveRole = role;
   configureScopeControls(role);
   $("direction-message").textContent = projection.directionMessage || "";
   $("meta-sales-period").textContent = formatMonth(elements.period.value);
@@ -138,7 +142,7 @@ function renderAll() {
 
 function scopedStores() {
   const stores = state.projection?.stores || [];
-  if (!canSelectScope(state.development.role, state.scope)) return [];
+  if (!canSelectScope(state.effectiveRole, state.scope)) return [];
   return stores.filter((store) => ["All", "Assigned", "Self"].includes(state.scope) || store.ownership === state.scope);
 }
 
@@ -161,7 +165,7 @@ function scopeLabelText(stores) {
 function renderSummary(projection, stores, scopeLabel) {
   if (!stores.length) {
     const message = emptyScopeMessage({
-      permitted: canSelectScope(state.development.role, state.scope),
+      permitted: canSelectScope(state.effectiveRole, state.scope),
       collecting: projection.accounting?.confirmationState === "collecting"
     });
     elements.summary.replaceChildren(emptyState(message));
@@ -265,14 +269,14 @@ function showDetail(storeKey, managerHome = false, targetTab = null) {
   state.selectedStore = state.projection?.stores?.find((store) => store.storeKey === storeKey);
   if (!state.selectedStore) return;
   elements.executive.hidden = true; elements.detail.hidden = false;
-  $("back-to-list").hidden = managerHome || state.development.role === "store_manager";
-  $("page-title").textContent = state.development.role === "store_manager"
+  $("back-to-list").hidden = managerHome || state.effectiveRole === "store_manager";
+  $("page-title").textContent = state.effectiveRole === "store_manager"
     ? scopeHeading("store_manager", "Self", state.selectedStore.storeName)
     : "店舗詳細";
   $("detail-name").textContent = state.selectedStore.storeName;
   $("detail-status").replaceChildren(statusBadge(state.selectedStore.status));
   $("detail-conclusion").textContent = state.selectedStore.conclusion;
-  const managerFocus = $("manager-focus"); managerFocus.hidden = state.development.role !== "store_manager";
+  const managerFocus = $("manager-focus"); managerFocus.hidden = state.effectiveRole !== "store_manager";
   if (!managerFocus.hidden) {
     $("manager-focus-title").textContent = state.selectedStore.focus;
     $("manager-checks").replaceChildren(heading("その他の確認事項"), orderedList(state.selectedStore.otherChecks.slice(0, 2)), heading("次に確認すること"), paragraph(state.selectedStore.nextCheck));
@@ -281,9 +285,9 @@ function showDetail(storeKey, managerHome = false, targetTab = null) {
 }
 
 function showList() {
-  if (state.development.role === "store_manager") return;
+  if (state.effectiveRole === "store_manager") return;
   elements.detail.hidden = true; elements.executive.hidden = false; state.selectedStore = null;
-  $("page-title").textContent = scopeHeading(state.development.role, state.scope);
+  $("page-title").textContent = scopeHeading(state.effectiveRole, state.scope);
   requestAnimationFrame(() => window.scrollTo({ top: state.listScroll }));
 }
 

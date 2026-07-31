@@ -172,6 +172,7 @@ export function validateProjectionResponse(value) {
   const executiveMetrics = metricsObject(executiveSource.metrics ?? {}, "projection.executive_summary.metrics");
   return {
     audience: actorScope === "own_store" ? "store_manager" : "executive",
+    role: requiredText(meta.actor_role ?? (actorScope === "own_store" ? "store_manager" : "representative"), "projection.meta.actor_role"),
     meta: {
       salesPeriod,
       accountingConfirmedThroughPeriod: confirmedPeriod,

@@ -335,13 +335,13 @@ test("student detail explains completion evidence after the next action", async 
   }, { onboardingReady: true, editable: true }, "2026-07-26"));
 
   assert.equal(overdue.category, "OVERDUE_FOLLOW_UP");
-  assert.match(overdue.title, /overdue follow-up/);
+  assert.match(overdue.title, /期限超過/);
   assert.equal(overdue.rawValuesIncluded, false);
   assert.equal(overdue.canonicalWriteReachable, false);
   assert.equal(overdue.lineHistoryWriteReachable, false);
   assert.equal(overdue.automaticPromotionReachable, false);
   assert.equal(onboarding.category, "ONBOARDING_HANDOFF");
-  assert.match(onboarding.copy, /local/);
+  assert.match(onboarding.copy, /入社予定/);
   assert.match(html, /id="student-daily-completion"/);
   assert.match(html, /id="student-daily-completion-steps"/);
   assert.match(app, /renderStudentDailyCompletionChecklist/);

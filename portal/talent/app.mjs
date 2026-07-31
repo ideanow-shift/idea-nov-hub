@@ -5,6 +5,13 @@ import {
 } from "./runtime.mjs?v=20260731-sprint1-mock-1";
 import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260726-talent-analytics-action-guide-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
+import {
+  buildCandidateHistorySummary,
+  buildEventRoiView,
+  buildMockRuntimePresentation,
+  buildRecruitmentDashboardDecision,
+  buildRecruitmentTaskBoard
+} from "./recruitment-ux.mjs?v=20260801-sprint2-ux-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -448,6 +455,7 @@ export async function loadTalentStudentWorkspace({
     status.dataset.state = "loading";
     status.textContent = "匿名Mock候補者を読み込んでいます";
   }
+  renderMockRuntimeState(documentObject, "loading");
   if (reload) {
     reload.disabled = true;
     reload.setAttribute("aria-busy", "true");
@@ -469,9 +477,8 @@ export async function loadTalentStudentWorkspace({
     reload.setAttribute("aria-busy", "false");
   }
   if (result?.okBoolean !== true) {
-    const message = result?.stopCategory === "unauthorized"
-      ? "Mock Runtimeの利用権限を確認してください"
-      : "Mock候補者を表示できません";
+    const presentation = renderMockRuntimeState(documentObject, result?.stopCategory);
+    const message = presentation.title;
     if (status) {
       status.dataset.state = "stopped";
       status.textContent = message;
@@ -487,6 +494,7 @@ export async function loadTalentStudentWorkspace({
   }
 
   studentWorkspaceData = result.data;
+  renderMockRuntimeState(documentObject, result.data.students.length ? "ready" : "empty");
   if (pendingSelectedApplicationNo) {
     selectedStudentRecordId = result.data.students.find(
       (student) => student.applicationNo === pendingSelectedApplicationNo
@@ -1076,22 +1084,53 @@ function renderImportOverview(documentObject, overview) {
     if (element) element.textContent = String(value);
   });
   const status = documentObject?.getElementById?.("import-overview-status");
-  if (status) status.textContent = "27卒・28卒の匿名Mock seed（実データは未使用）";
+  if (status) status.textContent = "27卒・28卒の匿名サンプルデータ（実データは未使用）";
 }
 
 function renderTalentAnalytics(documentObject) {
   if (!studentWorkspaceData) return;
   const analytics = buildTalentAnalytics(studentWorkspaceData);
-  renderMetricCollection(documentObject, "historical-summary-metrics", analytics.summary);
+  const decision = buildRecruitmentDashboardDecision(studentWorkspaceData, studentWorkspaceData.todayTasks);
+  renderRecruitmentDecision(documentObject, decision);
+  renderMetricCollection(documentObject, "historical-summary-metrics", decision.metrics);
   renderSummaryFollowUpCounts(documentObject, studentWorkspaceData.students);
   renderAnalyticsCoverage(documentObject, analytics);
   const actionGuide = buildTalentAnalyticsActionGuide(analytics);
   renderTalentAnalyticsActionGuide(documentObject, actionGuide, buildTalentAnalyticsQueueHandoff(actionGuide));
   renderMonthlyFlow(documentObject, analytics.flow);
+  renderEventRoi(documentObject, buildEventRoiView(studentWorkspaceData));
   renderSchoolAnalysis(documentObject, analytics.schools);
-  setText(documentObject, "historical-summary-status", `${analytics.summary[0].value}件を集計`);
+  setText(documentObject, "historical-summary-status", `${studentWorkspaceData.students.length}件を集計`);
   setText(documentObject, "fair-analysis-status", `${analytics.flow.length}か月分を表示`);
   setText(documentObject, "school-analysis-status", `${analytics.schools.length}校を表示`);
+}
+
+function renderRecruitmentDecision(documentObject, decision) {
+  const panel = documentObject.getElementById("recruitment-decision-summary");
+  if (panel) panel.dataset.category = decision.category;
+  setText(documentObject, "recruitment-decision-title", decision.title);
+  setText(documentObject, "recruitment-decision-copy", decision.copy);
+}
+
+function renderEventRoi(documentObject, roi) {
+  const panel = documentObject.getElementById("event-roi-panel");
+  if (panel) panel.dataset.category = roi.category;
+  setText(documentObject, "event-roi-title", roi.title);
+  setText(documentObject, "event-roi-copy", roi.copy);
+  renderMetricCollection(documentObject, "event-roi-metrics", roi.metrics);
+}
+
+function renderMockRuntimeState(documentObject, state) {
+  const presentation = buildMockRuntimePresentation(state);
+  const panel = documentObject?.getElementById?.("mock-runtime-state");
+  if (panel) {
+    panel.hidden = presentation.state === "ready";
+    panel.dataset.state = presentation.state;
+    panel.dataset.category = presentation.category;
+  }
+  setText(documentObject, "mock-runtime-state-title", presentation.title);
+  setText(documentObject, "mock-runtime-state-copy", presentation.copy);
+  return presentation;
 }
 
 function renderTalentAnalyticsActionGuide(documentObject, guide, queueHandoff = buildTalentAnalyticsQueueHandoff(guide)) {
@@ -1496,85 +1535,53 @@ export function buildStudentDailyCompletionChecklist(operation) {
   const category = operation?.category || "NO_SELECTION";
   const plans = Object.freeze({
     NO_SELECTION: Object.freeze({
-      title: "Select a student before recording completion",
-      copy: "The completion checklist stays inactive until one student row is selected.",
+      title: "候補者を選択すると完了条件を表示します",
+      copy: "一覧から1名を選択するまで、完了チェックは待機します。",
       steps: Object.freeze([
-        "Pick exactly one student from the list.",
-        "Confirm the safe lane before editing.",
-        "Do not record a completion note from the empty state."
+        "一覧から候補者を1名選択する",
+        "編集前に確認区分を確かめる",
+        "未選択のまま完了記録を残さない"
       ])
     }),
     ONBOARDING_HANDOFF: Object.freeze({
-      title: "Record the onboarding handoff result",
-      copy: "Keep the student values local and record only the handoff status after the draft is checked.",
-      steps: Object.freeze([
-        "Confirm expected join date and planned store before handoff.",
-        "Open the onboarding draft and verify the checklist.",
-        "Record completion only after the separate case is ready."
-      ])
+      title: "入社引継ぎの結果を記録します",
+      copy: "入社予定日と配属予定を確認し、引継ぎ状態だけを記録します。",
+      steps: Object.freeze(["入社予定日と配属予定を確認する", "引継ぎ内容を確認する", "別案件の準備完了後に完了を記録する"])
     }),
     OVERDUE_FOLLOW_UP: Object.freeze({
-      title: "Close the overdue follow-up loop",
-      copy: "The daily note should prove who handled the overdue item and what the next scheduled action is.",
-      steps: Object.freeze([
-        "Update the next action date.",
-        "Leave a bounded follow-up memo.",
-        "Check the history before leaving the row."
-      ])
+      title: "期限超過の対応を完了します",
+      copy: "担当者と次の予定が分かるよう、次回対応日と記録を残します。",
+      steps: Object.freeze(["次回対応日を更新する", "対応メモを残す", "移動前に履歴を確認する"])
     }),
     NEXT_WEEK_FOLLOW_UP: Object.freeze({
-      title: "Confirm the upcoming follow-up",
-      copy: "Use the completion note to keep near-term work visible without promoting or deleting source rows.",
-      steps: Object.freeze([
-        "Confirm the planned contact date.",
-        "Update status only if the student response changed.",
-        "Keep unresolved items in the follow-up queue."
-      ])
+      title: "直近のフォロー予定を確認します",
+      copy: "元データを変更せず、予定日と現在の状態を最新に保ちます。",
+      steps: Object.freeze(["連絡予定日を確認する", "返答が変わった場合だけ状態を更新する", "未解決はフォロー一覧に残す"])
     }),
     OWNER_REVIEW: Object.freeze({
-      title: "Record the owner review decision",
-      copy: "Do not mix bulk confirmation, individual review, and quarantine decisions in one completion note.",
-      steps: Object.freeze([
-        "Choose one decision lane for this student.",
-        "Record whether it was confirmed, rejected, or kept for review.",
-        "Leave ambiguous rows quarantined."
-      ])
+      title: "個別確認の判断を記録します",
+      copy: "一括確認・個別確認・隔離維持を混ぜず、1名ずつ判断します。",
+      steps: Object.freeze(["この候補者の確認区分を選ぶ", "確認・差戻し・保留の結果を記録する", "判断できない場合は隔離を維持する"])
     }),
     QUARANTINE_REVIEW: Object.freeze({
-      title: "Keep quarantine evidence bounded",
-      copy: "A quarantine completion note should explain the next safe action without exposing source values.",
-      steps: Object.freeze([
-        "Record the missing or ambiguous reason category.",
-        "Set the next review date if follow-up is needed.",
-        "Do not promote from quarantine automatically."
-      ])
+      title: "隔離理由と次の確認を記録します",
+      copy: "個人値を広げず、隔離理由と次の安全な対応だけを残します。",
+      steps: Object.freeze(["不足・曖昧の理由区分を記録する", "必要なら次回確認日を設定する", "隔離から自動昇格しない"])
     }),
     CANONICAL_PROFILE_UPDATE: Object.freeze({
-      title: "Confirm the profile update trail",
-      copy: "After editing, the operator should be able to verify the change history before moving on.",
-      steps: Object.freeze([
-        "Save the bounded profile fields.",
-        "Open change history if the value affects operations.",
-        "Keep source import rows unchanged."
-      ])
+      title: "プロフィール更新履歴を確認します",
+      copy: "編集後に変更履歴を確認してから次の候補者へ進みます。",
+      steps: Object.freeze(["必要なプロフィール項目を保存する", "業務に影響する変更は履歴を開く", "取込元データは変更しない"])
     }),
     STAGING_SUPPLEMENT: Object.freeze({
-      title: "Record staging supplement completion",
-      copy: "Supplemental notes stay in the staging lane until a separate owner decision promotes the row.",
-      steps: Object.freeze([
-        "Save only follow-up, memo, or status supplement fields.",
-        "Confirm the row remains staging-scoped.",
-        "Return to the review queue if mapping is still unknown."
-      ])
+      title: "補足記録の完了を確認します",
+      copy: "別承認まではstaging内に保ち、フォローに必要な補足だけを残します。",
+      steps: Object.freeze(["次回対応・メモ・状態の補足だけを保存する", "stagingのままであることを確認する", "紐付け不明なら確認一覧へ戻す"])
     }),
     READ_ONLY: Object.freeze({
-      title: "Use read-only completion",
-      copy: "When direct edits are unavailable, the completion state is only a review marker.",
-      steps: Object.freeze([
-        "Confirm why the row is read-only.",
-        "Route needed changes to review or quarantine.",
-        "Do not attempt automatic deletion or promotion."
-      ])
+      title: "閲覧のみで確認を完了します",
+      copy: "直接編集できない行では、確認結果だけを業務上の目印にします。",
+      steps: Object.freeze(["閲覧のみの理由を確認する", "必要な変更は確認または隔離へ回す", "自動削除・自動昇格を行わない"])
     })
   });
   const selected = plans[category] || plans.NO_SELECTION;
@@ -2396,6 +2403,8 @@ function renderStudentReviewBoundary(documentObject, boundary) {
 }
 
 function renderCandidateHistories(documentObject, student) {
+  const summary = buildCandidateHistorySummary(student);
+  setText(documentObject, "candidate-history-summary", `接触 ${summary.contactCount}件・イベント ${summary.eventCount}件・選考 ${summary.selectionCount}件`);
   const groups = [
     ["candidate-contact-history", student?.contactHistory],
     ["candidate-event-history", student?.eventHistory],
@@ -2837,7 +2846,7 @@ function renderTodayTasks(documentObject, tasks) {
   const list = documentObject?.getElementById?.("today-task-list");
   const status = documentObject?.getElementById?.("today-task-status");
   if (!list) return;
-  const rows = (Array.isArray(tasks) ? tasks : []).slice(0, 5);
+  const rows = buildRecruitmentTaskBoard(tasks);
   if (status) status.textContent = rows.length ? `${rows.length}件を優先表示` : "今日の優先タスクはありません";
   list.replaceChildren(...rows.map((task) => {
     const item = documentObject.createElement("li");

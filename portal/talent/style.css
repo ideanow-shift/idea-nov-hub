@@ -35,7 +35,31 @@ body {
 /* Sprint 1: NOV People and write-capable controls are frozen outside NOV Talent. */
 .sprint1-separated,
 .sprint1-mock-write { display: none !important; }
+.sprint2-supporting-summary { display: none !important; }
 .primary-tabs { grid-template-columns: 1fr; }
+
+.mock-runtime-state,
+.recruitment-decision-summary,
+.event-roi-panel {
+  margin: 20px 0;
+  padding: 20px;
+  border: 1px solid #dce9e1;
+  border-radius: 16px;
+  background: var(--green-soft);
+}
+.mock-runtime-state { display: flex; gap: 10px 18px; align-items: center; flex-wrap: wrap; }
+.mock-runtime-state[hidden] { display: none !important; }
+.mock-runtime-state[data-state="stopped"] { border-color: #efc5ca; background: var(--rose-soft); }
+.recruitment-decision-summary { border-left: 6px solid var(--green); }
+.recruitment-decision-summary h3 { font-size: 1.25rem; line-height: 1.45; }
+.recruitment-decision-summary p:last-child { margin: 8px 0 0; color: var(--muted); line-height: 1.7; }
+.event-roi-panel { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr); gap: 20px; align-items: center; background: #fffdf8; border-color: #eadfc8; }
+.event-roi-panel p:last-child { margin: 8px 0 0; color: var(--muted); line-height: 1.7; }
+.event-roi-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.event-roi-metrics .metric { min-height: 92px; padding: 14px; border: 1px solid #eadfc8; border-radius: 12px; background: #fff; }
+.candidate-history-section { margin-top: 20px; }
+.candidate-history-heading { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.candidate-history-heading span { color: var(--muted); font-size: .88rem; }
 
 .today-task-panel {
   margin: 24px 0;
@@ -82,10 +106,13 @@ body {
 @media (max-width: 860px) {
   .today-task-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .candidate-history-grid { grid-template-columns: 1fr; }
+  .event-roi-panel { grid-template-columns: 1fr; }
 }
 @media (max-width: 520px) {
   .today-task-list { grid-template-columns: 1fr; }
   .today-task-list button { min-height: auto; }
+  .event-roi-metrics { grid-template-columns: 1fr; }
+  .candidate-history-heading { align-items: flex-start; flex-direction: column; }
 }
 
 button { font: inherit; }
@@ -372,7 +399,7 @@ h3 { margin: 0; font-size: 1rem; }
 .metric-value { margin: 15px 0 0; color: var(--navy); font-size: 2rem; font-weight: 800; }
 
 .coverage-label { margin: 12px 0 0; color: var(--muted); font-size: 0.82rem; font-weight: 700; }
-.historical-summary-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.historical-summary-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .historical-summary-grid .metric { min-height: 104px; padding: 15px; }
 .historical-summary-grid .metric-value { margin-top: 10px; font-size: 1.7rem; }
 .summary-followup {

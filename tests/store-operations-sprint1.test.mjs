@@ -89,8 +89,9 @@ test("profit state wording consistently uses 集計中", () => {
   assert.match(app, /collecting: "集計中"/);
 });
 
-test("business driver template expression is syntactically closed", () => {
-  assert.match(app, /`\$\{name\} \$\{index === 0 \? "−" : "＋"\}`/);
+test("business driver signal template expressions are syntactically closed", () => {
+  assert.match(app, /`\$\{signal\.label\}、\$\{signal\.conclusion\}/);
+  assert.match(app, /`\$\{selected\.label\}: \$\{formatTrendValue/);
 });
 
 test("internal review UI uses Japanese headings without duplicate English labels", () => {

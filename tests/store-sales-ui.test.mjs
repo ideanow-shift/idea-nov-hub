@@ -70,7 +70,8 @@ test("all data states have distinct Japanese labels", () => {
 
 test("empty projection and empty drivers have safe states", () => {
   assert.match(app, /projection\.stores\.length === 0/);
-  assert.match(app, /hasEntries/);
+  assert.match(app, /if \(!stores\.length\) return elements\.drivers\.replaceChildren\(emptyState\(\)\)/);
+  assert.match(app, /推移データを準備しています/);
   assert.match(app, /選択した条件に該当するデータは0件です/);
   assert.match(permissionScope, /この店舗範囲は権限対象外です/);
   assert.match(permissionScope, /選択した条件に該当する店舗データは0件です/);

@@ -73,8 +73,14 @@ export const SYNTHETIC_STORES = Object.freeze(OFFICIAL_STORE_NAMES.map((storeNam
       related_kpi: actionKpi, detail_link: "#summary", store_id: storeId, store_name: storeName
     }] : [],
     detail_metrics: {
-      budgetRatio: metric("予算比", `${(98 + number / 10).toFixed(1)}%`, "available", "percent"),
-      yearOverYearRatio: metric("前年同月比", `${(99 + number / 10).toFixed(1)}%`, "available", "percent"),
+      budgetRatio: metric("予算比", `${(105.2 - index * 0.18).toFixed(1)}%`, "available", "percent"),
+      yearOverYearRatio: metric("前年同月比", `${(108.1 - index * 0.14).toFixed(1)}%`, "available", "percent"),
+      profitYearOverYear: metric("利益前年同月比", `${(5.8 - index * 0.12).toFixed(1)}%`, "available", "percent"),
+      customerYearOverYear: metric("客数前年同月比", `${(4.2 - index * 0.11).toFixed(1)}%`, "available", "percent"),
+      ticketYearOverYear: metric("単価前年同月比", `${(3.1 - index * 0.07).toFixed(1)}%`, "available", "percent"),
+      retailYearOverYear: metric("店販購買率前年同月差", `${(-0.2 + index * 0.01).toFixed(1)}pt`, "available", "point"),
+      ecTargetRatio: metric("EC目標比", `${(76 - index * 0.4).toFixed(1)}%`, "available", "percent"),
+      ecYearOverYear: metric("EC前年同月比", `${(10.2 - index * 0.18).toFixed(1)}%`, "available", "percent"),
       technicalSales: metric("技術売上", yen(Math.round(sales * 0.82 / 10_000) * 10_000), "available"),
       retailSales: metric("商品売上", yen(Math.round(sales * 0.10 / 10_000) * 10_000), "available"),
       mid: metric("MID売上", yen(Math.round(sales * 0.04 / 10_000) * 10_000), "available"),

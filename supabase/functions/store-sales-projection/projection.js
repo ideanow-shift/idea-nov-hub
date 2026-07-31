@@ -15,6 +15,13 @@ export function validateStoreId(value) {
 }
 
 const driver = (label, metric) => ({ label, metric });
+const aggregateMetric = (label, stores, field, period) => {
+  const value = stores.reduce((sum, store) => sum + Number(store[field]?.value || 0), 0);
+  return {
+    label, value, display_value: `¥${value.toLocaleString("ja-JP")}`, unit: "yen", data_state: "available",
+    reason_code: null, period, period_mode: "monthly", confirmed_period_label: "2026年6月Synthetic確定値"
+  };
+};
 
 export function buildSyntheticProjection({ stores, scope, period, storeId = null, requestId }) {
   const scoped = scopeStores(scope, stores).filter((store) => store.operational_state !== "閉店");
@@ -25,9 +32,11 @@ export function buildSyntheticProjection({ stores, scope, period, storeId = null
     assertStoreScope(scope, selected);
   }
   const visible = (storeId ? [selected] : scoped).map((store) => ({ ...store, scope_key: scope.key }));
-  const available = visible.filter((store) => store.data_state === "available");
+  const available = visible.filter((store) => store.operating_profit?.data_state === "available");
   const actions = visible.flatMap((store) => store.this_month_actions).slice(0, 3);
   const first = visible[0];
+  const totalSales = aggregateMetric("総売上（税込）", visible, "sales_gross", period);
+  const totalOperatingProfit = aggregateMetric("営業利益", visible, "operating_profit", period);
   const fallbackMetric = {
     label: "準備中",
     value: null,
@@ -65,8 +74,8 @@ export function buildSyntheticProjection({ stores, scope, period, storeId = null
     },
     executive_summary: {
       metrics: {
-        totalSalesGross: first?.sales_gross || fallbackMetric,
-        operatingProfit: first?.operating_profit || fallbackMetric,
+        totalSalesGross: visible.length ? totalSales : fallbackMetric,
+        operatingProfit: visible.length ? totalOperatingProfit : fallbackMetric,
         operatingProfitMargin: first?.operating_profit_margin || fallbackMetric
       },
       needs_attention_store_count: visible.filter((store) => store.store_status === "Needs Attention").length,

@@ -180,12 +180,13 @@ function renderSummary(projection, stores, scopeLabel) {
     $("status-counts").replaceChildren(); return;
   }
   const total = stores.reduce((sum, store) => sum + metricNumber(store.metrics.sales), 0);
-  const profit = stores[0].metrics.operatingProfit;
+  const profit = projection.executiveSummary?.metrics?.find((metric) => metric.label === "営業利益") || stores[0].metrics.operatingProfit;
   const attention = stores.filter((store) => store.status === "Needs Attention").length;
   const salesPeriodNote = state.periodMode === "cumulative"
     ? `${formatMonth(elements.period.value)}までの累計`
     : formatMonth(elements.period.value);
-  $("summary-narrative").textContent = state.scope === "All" ? (projection.executiveSummary?.narrative || "") :
+  $("summary-narrative").textContent = state.runtimeFeatureFlag === "staging" ? "現在は営業部レビュー用のサンプルデータです。実績値ではありません。" :
+    state.scope === "All" ? (projection.executiveSummary?.narrative || "") :
     `${scopeLabel}の売上状況です。現在、${attention}店舗に対応が必要です。`;
   elements.summary.replaceChildren(
     metricCard({ label: "総売上（税込）", displayValue: formatYen(total), dataState: "available", reason: salesPeriodNote }),
@@ -197,7 +198,7 @@ function renderSummary(projection, stores, scopeLabel) {
     return box;
   }));
   const accounting = projection.accounting || {};
-  $("coverage-note").textContent = accounting.reflectedStoreCount < accounting.totalStoreCount
+  $("coverage-note").textContent = state.runtimeFeatureFlag === "staging" ? "すべて画面確認用のSynthetic確定値です。実績値ではありません。" : accounting.reflectedStoreCount < accounting.totalStoreCount
     ? `${accounting.reflectedStoreCount}店舗のデータで表示しています。${accounting.totalStoreCount - accounting.reflectedStoreCount}店舗は集計中です。` : `${stores.length}店舗のデータを表示しています。`;
 }
 
@@ -206,7 +207,7 @@ function renderActions(actions) {
   elements.actions.replaceChildren(...actions.slice(0, 3).map((action) => {
     const card = node("article", "action-card"); card.tabIndex = 0;
     card.append(node("h3", "action-theme", action.theme || action.recommendation), node("div", "action-store", action.storeName),
-      paragraph(action.reason), node("p", "impact", `期待効果: ${action.impact || "改善の定着"}`));
+      paragraph(action.reason), node("p", "impact", `期待効果: ${action.impact || actionImpact(action.ruleId)}`));
     const link = node("button", "action-link", "店舗詳細を確認 →"); link.type = "button";
     link.addEventListener("click", () => showDetail(action.storeKey, false, action.targetTab));
     card.addEventListener("keydown", (event) => { if (event.key === "Enter") link.click(); });
@@ -256,7 +257,7 @@ function renderStores() {
   elements.rows.replaceChildren(...stores.map((store) => {
     const row = document.createElement("tr"); row.tabIndex = 0; row.setAttribute("aria-label", `${store.storeName}の店舗詳細を開く`);
     row.append(cell(store.storeName), cell(statusBadge(store.status)), metricCell(store, "sales"), metricCell(store, "operatingProfit"),
-      cell(store.metrics.customerCount?.displayValue || "—", "optional-col"), metricCell(store, "totalRepeat"), metricCell(store, "productivity"), cell(store.focus || "—"), cell("›"));
+      cell(store.metrics.customerCount?.displayValue || "—", "optional-col"), metricCell(store, "totalRepeat"), metricCell(store, "productivity"), cell(storeFocus(store)), cell("›"));
     row.addEventListener("click", () => showDetail(store.storeKey)); row.addEventListener("keydown", (e) => { if (["Enter", " "].includes(e.key)) { e.preventDefault(); row.click(); } });
     return row;
   }));
@@ -274,12 +275,12 @@ function showDetail(storeKey, managerHome = false, targetTab = null) {
     : "店舗詳細";
   $("detail-name").textContent = state.selectedStore.storeName;
   $("detail-status").replaceChildren(statusBadge(state.selectedStore.status));
-  $("detail-conclusion").textContent = state.selectedStore.conclusion;
+  $("detail-conclusion").textContent = state.selectedStore.conclusion || state.selectedStore.statusReason || "";
   const managerFocus = $("manager-focus"); managerFocus.hidden = state.effectiveRole !== "store_manager";
   if (!managerFocus.hidden) {
-    const otherChecks = Array.isArray(state.selectedStore.otherChecks) ? state.selectedStore.otherChecks : [];
-    $("manager-focus-title").textContent = state.selectedStore.focus || "確認事項を準備しています";
-    $("manager-checks").replaceChildren(heading("その他の確認事項"), orderedList(otherChecks.slice(0, 2)), heading("次に確認すること"), paragraph(state.selectedStore.nextCheck || "最新データをご確認ください"));
+    const otherChecks = Array.isArray(state.selectedStore.otherChecks) ? state.selectedStore.otherChecks : (state.selectedStore.actions || []).map((action) => action.reason);
+    $("manager-focus-title").textContent = storeFocus(state.selectedStore);
+    $("manager-checks").replaceChildren(heading("その他の確認事項"), orderedList(otherChecks.slice(0, 2)), heading("次に確認すること"), paragraph(state.selectedStore.nextCheck || state.selectedStore.actions?.[0]?.recommendation || "最新データをご確認ください"));
   }
   setTab(targetTab || state.tab || "summary"); window.scrollTo({ top: 0 });
 }
@@ -332,7 +333,7 @@ function storeCard(store) {
   [["総売上（税込）", "sales"], ["利益", "operatingProfit"], ["総リピート率", "totalRepeat"], ["総生産性", "productivity"]].forEach(([label, key]) => {
     const group = node("div"); const dt = node("dt", "", label); const dd = node("dd", "", metricText(store.metrics[key])); group.append(dt, dd); dl.append(group);
   });
-  const focus = node("p", "", `今月の重点\n${store.focus}`); const button = node("button", "action-link", "店舗を確認 →"); button.type = "button"; button.addEventListener("click", () => showDetail(store.storeKey));
+  const focus = node("p", "", `今月の重点\n${storeFocus(store)}`); const button = node("button", "action-link", "店舗を確認 →"); button.type = "button"; button.addEventListener("click", () => showDetail(store.storeKey));
   // 旧比較名: 売上 / 営業利益率 / 経常利益率 / 主な確認理由（statusReason）
   article.append(header, dl, focus, button); return article;
 }
@@ -352,6 +353,8 @@ function formatMonth(value) { const match = String(value || "").match(/^(\d{4})-
 function formatDate(value) { if (!value) return "—"; const date = new Date(value); return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(date); }
 function formatYen(value) { return value >= 100_000_000 ? `${(value / 100_000_000).toFixed(2)}億円` : `${Math.round(value / 10_000).toLocaleString()}万円`; }
 function metricNumber(metric) { return Number(metric?.rawValue ?? metric?.value ?? 0); }
+function actionImpact(ruleId) { return ruleId === "new_repeat" ? "既存客数の増加" : ruleId === "ticket_and_repeat" ? "売上と利益の安定" : "改善の定着"; }
+function storeFocus(store) { return store?.focus || store?.statusReason || "今月の重点をチームで確認しましょう。"; }
 function setNotice(title, body) { elements.noticeTitle.textContent = title; elements.noticeBody.textContent = body; }
 function setPressed(selector, current) { document.querySelectorAll(selector).forEach((button) => button.setAttribute("aria-pressed", String(button === current))); }
 function cell(value, className = "") { const td = node("td", className); value instanceof Node ? td.append(value) : td.textContent = String(value ?? "—"); return td; }

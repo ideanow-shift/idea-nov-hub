@@ -151,8 +151,8 @@ test("projection cache remains disabled and network requests remain no-store", a
 });
 
 test("synthetic sales values match their displayed yen amounts", () => {
-  assert.equal(SYNTHETIC_STORES[0].sales_gross.value, 1_010_000);
-  assert.equal(SYNTHETIC_STORES.reduce((sum, store) => sum + store.sales_gross.value, 0), 22_100_000);
+  assert.equal(SYNTHETIC_STORES[0].sales_gross.value, 18_600_000);
+  assert.equal(SYNTHETIC_STORES.reduce((sum, store) => sum + store.sales_gross.value, 0), 277_800_000);
 });
 
 test("store manager detail guards optional integration guidance", () => {

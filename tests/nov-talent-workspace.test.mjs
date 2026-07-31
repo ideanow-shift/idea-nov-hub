@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { createTalentWorkspaceExact1Executor } from "../portal/talent/exact1.mjs";
+import { createTalentWorkspaceExecutor } from "../portal/talent/runtime.mjs";
 
 const root = new URL("../", import.meta.url);
 
@@ -85,34 +86,23 @@ function envelope() {
   };
 }
 
-test("workspace executor performs one authenticated request and validates students", async () => {
-  const calls = [];
-  const executor = createTalentWorkspaceExact1Executor({
-    globalObject: globalFixture(),
-    hubContract: { audience: "nov_hub" },
-    fetchImpl: async (url, options) => {
-      calls.push({ url, options });
-      return {
-        status: 200,
-        headers: { get: () => "application/json" },
-        async json() { return envelope(); }
-      };
+test("workspace executor reads the 147 anonymous candidates without network I/O", async () => {
+  const executor = createTalentWorkspaceExecutor({
+    globalObject: {
+      NOV_TALENT_CONFIG: { mockState: "ready" },
+      location: { search: "" }
     }
   });
   const result = await executor.run();
   const duplicate = await executor.run();
 
-  assert.equal(calls.length, 1);
-  assert.equal(
-    calls[0].url,
-    "https://example.test/functions/v1/nov-talent-readonly-api-v2/api/talent/v1/workspace?fiscalYear=2027"
-  );
-  assert.equal(calls[0].options.method, "GET");
-  assert.match(calls[0].options.headers.Authorization, /^Bearer /);
   assert.equal(result.okBoolean, true);
-  assert.equal(result.studentRowsReturned, true);
-  assert.equal(result.data.students.length, 1);
-  assert.equal(duplicate.duplicatePrevented, true);
+  assert.equal(result.runtimeMode, "mock");
+  assert.equal(result.networkOperationCount, 0);
+  assert.equal(result.requestCount, 0);
+  assert.equal(result.data.students.length, 147);
+  assert.ok(result.data.todayTasks.length <= 5);
+  assert.equal(duplicate.stopCategory, "duplicate_startup_prevented");
 });
 
 test("workspace executor fails closed on row count and schema drift", async () => {
@@ -137,23 +127,20 @@ test("public talent UI contains a real list/detail workspace and no pending plac
   const html = readFileSync(new URL("../portal/talent/index.html", import.meta.url), "utf8");
   const app = readFileSync(new URL("../portal/talent/app.mjs", import.meta.url), "utf8");
   const css = readFileSync(new URL("../portal/talent/style.css", import.meta.url), "utf8");
-  const migration = readFileSync(
-    new URL("../supabase/migrations/20260725070000_nov_talent_staging_workspace_read.sql", import.meta.url),
-    "utf8"
-  );
+  const runtime = readFileSync(new URL("../portal/talent/runtime.mjs", import.meta.url), "utf8");
+  const config = readFileSync(new URL("../portal/talent/runtime-config.candidate.js", import.meta.url), "utf8");
 
   assert.match(html, /id="student-list"/);
   assert.match(html, /id="student-detail"/);
   assert.match(html, /id="student-review-dialog"/);
   assert.match(html, /id="student-review-open"/);
-  assert.match(html, /27卒 取込状況/);
+  assert.match(html, /27卒・28卒 匿名データ/);
   assert.doesNotMatch(html, /学生一覧・詳細接続は次の安全ゲート/);
-  assert.match(app, /createTalentWorkspaceExact1Executor/);
-  assert.match(app, /createTalentHistoricalReviewController/);
+  assert.match(app, /createTalentWorkspaceExecutor/);
   assert.match(app, /getElementById\("summary-load-button"\)\?\.addEventListener\("click"/);
   assert.match(css, /\.student-workspace/);
-  assert.match(migration, /assert_nov_talent_accountable_owner_v1/);
-  assert.match(migration, /limit 1000/i);
-  assert.doesNotMatch(migration, /r\.fiscal_year\s*=\s*p_fiscal_year/);
-  assert.doesNotMatch(migration, /grant execute[\s\S]*to authenticated/i);
+  assert.match(runtime, /networkEnabled:\s*false/);
+  assert.match(runtime, /writeEnabled:\s*false/);
+  assert.match(config, /runtimeMode:\s*"mock"/);
+  assert.doesNotMatch(`${runtime}\n${config}`, /https?:\/\/|supabase/i);
 });

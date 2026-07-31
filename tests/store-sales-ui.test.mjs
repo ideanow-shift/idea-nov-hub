@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const app = readFileSync(new URL("../portal/store-sales/app.js", import.meta.url), "utf8");
+const permissionScope = readFileSync(new URL("../portal/store-sales/permission-scope.js", import.meta.url), "utf8");
 const html = readFileSync(new URL("../portal/store-sales/index.html", import.meta.url), "utf8");
 const management = readFileSync(new URL("../portal/management-app/index.html", import.meta.url), "utf8");
 const fixtures = readFileSync(new URL("../portal/store-sales/review-fixtures.js", import.meta.url), "utf8");
@@ -70,8 +71,10 @@ test("all data states have distinct Japanese labels", () => {
 test("empty projection and empty drivers have safe states", () => {
   assert.match(app, /projection\.stores\.length === 0/);
   assert.match(app, /hasEntries/);
-  assert.match(app, /表示できる店舗がありません/);
-  assert.match(app, /権限または対象月をご確認ください/);
+  assert.match(app, /選択した条件に該当するデータは0件です/);
+  assert.match(permissionScope, /この店舗範囲は権限対象外です/);
+  assert.match(permissionScope, /選択した条件に該当する店舗データは0件です/);
+  assert.match(permissionScope, /対象店舗のデータを集計中です/);
   assert.match(fixtures, /businessDrivers: stores\.length/);
 });
 

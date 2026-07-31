@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { getReviewFixture, STORE_NAMES } from "../portal/store-sales/review-fixtures.js";
+import {
+  allowedScopes, canSelectScope, emptyScopeMessage, normalizeScope, scopeHeading
+} from "../portal/store-sales/permission-scope.js";
 
 const app = readFileSync(new URL("../portal/store-sales/app.js", import.meta.url), "utf8");
 const html = readFileSync(new URL("../portal/store-sales/index.html", import.meta.url), "utf8");
@@ -113,4 +116,34 @@ test("Mock controls are hidden by default and only revealed by mock or preview f
 
 test("Preview visibly identifies sample values as non-actual data", () => {
   assert.match(html, /現在は画面確認用のサンプルデータを表示しています。実績値ではありません。実会計データ・本番環境には接続していません。/);
+});
+
+test("Preview scope choices follow the approved role permissions", () => {
+  assert.deepEqual(allowedScopes("representative"), ["All", "Direct", "FC"]);
+  assert.deepEqual(allowedScopes("sales_manager"), ["Direct"]);
+  assert.deepEqual(allowedScopes("area_manager"), ["Assigned"]);
+  assert.deepEqual(allowedScopes("store_manager"), ["Self"]);
+});
+
+test("out-of-scope choices are rejected and normalized", () => {
+  assert.equal(canSelectScope("sales_manager", "FC"), false);
+  assert.equal(canSelectScope("area_manager", "All"), false);
+  assert.equal(canSelectScope("store_manager", "Direct"), false);
+  assert.equal(normalizeScope("sales_manager", "FC"), "Direct");
+  assert.match(app, /if \(!canSelectScope\(state\.development\.role, button\.dataset\.scope\)\) return/);
+  assert.match(app, /state\.scope = allowedScopes\(state\.development\.role\)\[0\] \|\| null/);
+});
+
+test("scope headings reflect the permitted visible range", () => {
+  assert.equal(scopeHeading("representative", "All"), "全店の状況");
+  assert.equal(scopeHeading("representative", "Direct"), "直営店舗の状況");
+  assert.equal(scopeHeading("representative", "FC"), "FC店舗の状況");
+  assert.equal(scopeHeading("area_manager", "Assigned"), "担当店舗の状況");
+  assert.equal(scopeHeading("store_manager", "Self", "所沢店"), "所沢店の状況");
+});
+
+test("permission denial, zero results, and collecting are distinct states", () => {
+  assert.equal(emptyScopeMessage({ permitted: false }), "この店舗範囲は権限対象外です。");
+  assert.equal(emptyScopeMessage({ permitted: true }), "選択した条件に該当する店舗データは0件です。");
+  assert.equal(emptyScopeMessage({ permitted: true, collecting: true }), "対象店舗のデータを集計中です。");
 });

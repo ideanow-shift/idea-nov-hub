@@ -1,4 +1,5 @@
 import { createStoreSalesMockIdentity, createStoreSalesRuntime } from "./runtime/index.js";
+import { allowedScopes, canSelectScope, emptyScopeMessage, normalizeScope, scopeHeading } from "./permission-scope.js";
 
 const state = {
   projection: null, runtime: null, runtimeStatus: "initializing", selectedStore: null, tab: "summary", audience: "executive",
@@ -59,6 +60,7 @@ function bindControls() {
   });
   $("dev-missing").addEventListener("change", (event) => { state.development.missingData = event.target.value === "true"; reload(); });
   document.querySelectorAll("[data-scope]").forEach((button) => button.addEventListener("click", () => {
+    if (!canSelectScope(state.development.role, button.dataset.scope)) return;
     state.scope = button.dataset.scope; setPressed("[data-scope]", button); renderAll();
   }));
   document.querySelectorAll("[data-period-mode]").forEach((button) => button.addEventListener("click", () => {
@@ -71,6 +73,7 @@ function bindControls() {
 }
 
 function applyRoleDefaults() {
+  state.scope = allowedScopes(state.development.role)[0] || null;
   if (state.development.role === "sales_manager") state.statusFilter = "Needs Attention";
   if (state.development.role === "representative") state.statusFilter = "All";
 }
@@ -105,6 +108,7 @@ function renderAll() {
   state.audience = projection.audience || state.development.role;
   if (projection.stores.length === 0) state.audience = projection.audience || "executive";
   const role = state.development.role;
+  configureScopeControls(role);
   $("direction-message").textContent = projection.directionMessage || "";
   $("meta-sales-period").textContent = formatMonth(elements.period.value);
   $("meta-accounting-period").textContent = formatMonth(projection.accounting?.confirmedThroughPeriod); // 確定値の対象月
@@ -120,10 +124,11 @@ function renderAll() {
   }
   $("sticky-filters").hidden = false;
   elements.executive.hidden = false; elements.detail.hidden = true;
-  $("page-title").textContent = role === "area_manager" ? "担当店舗の状況" : "全店の状況";
+  const heading = scopeHeading(role, state.scope);
+  $("page-title").textContent = heading;
   const stores = scopedStores();
   const scopeLabel = scopeLabelText(stores);
-  $("summary-heading").textContent = role === "area_manager" ? `${projection.scopeLabel || "担当店舗"}の状況` : "全店の状況";
+  $("summary-heading").textContent = heading;
   renderSummary(projection, stores, scopeLabel);
   renderActions((projection.priorityActions || []).filter((action) => stores.some((store) => store.storeKey === action.storeKey)));
   renderDrivers(projection.businessDrivers || {});
@@ -133,7 +138,18 @@ function renderAll() {
 
 function scopedStores() {
   const stores = state.projection?.stores || [];
-  return stores.filter((store) => state.scope === "All" || store.ownership === state.scope);
+  if (!canSelectScope(state.development.role, state.scope)) return [];
+  return stores.filter((store) => ["All", "Assigned", "Self"].includes(state.scope) || store.ownership === state.scope);
+}
+
+function configureScopeControls(role) {
+  state.scope = normalizeScope(role, state.scope);
+  document.querySelectorAll("[data-scope]").forEach((button) => {
+    const permitted = canSelectScope(role, button.dataset.scope);
+    button.hidden = !permitted;
+    button.disabled = !permitted;
+    button.setAttribute("aria-pressed", String(permitted && button.dataset.scope === state.scope));
+  });
 }
 
 function scopeLabelText(stores) {
@@ -144,8 +160,12 @@ function scopeLabelText(stores) {
 
 function renderSummary(projection, stores, scopeLabel) {
   if (!stores.length) {
-    elements.summary.replaceChildren(emptyState());
-    $("summary-narrative").textContent = `${scopeLabel}に表示できるデータがありません。`;
+    const message = emptyScopeMessage({
+      permitted: canSelectScope(state.development.role, state.scope),
+      collecting: projection.accounting?.confirmationState === "collecting"
+    });
+    elements.summary.replaceChildren(emptyState(message));
+    $("summary-narrative").textContent = message;
     $("status-counts").replaceChildren(); return;
   }
   const total = stores.reduce((sum, store) => sum + (store.metrics.sales.rawValue || 0), 0);
@@ -246,7 +266,9 @@ function showDetail(storeKey, managerHome = false, targetTab = null) {
   if (!state.selectedStore) return;
   elements.executive.hidden = true; elements.detail.hidden = false;
   $("back-to-list").hidden = managerHome || state.development.role === "store_manager";
-  $("page-title").textContent = "店舗詳細";
+  $("page-title").textContent = state.development.role === "store_manager"
+    ? scopeHeading("store_manager", "Self", state.selectedStore.storeName)
+    : "店舗詳細";
   $("detail-name").textContent = state.selectedStore.storeName;
   $("detail-status").replaceChildren(statusBadge(state.selectedStore.status));
   $("detail-conclusion").textContent = state.selectedStore.conclusion;
@@ -261,7 +283,7 @@ function showDetail(storeKey, managerHome = false, targetTab = null) {
 function showList() {
   if (state.development.role === "store_manager") return;
   elements.detail.hidden = true; elements.executive.hidden = false; state.selectedStore = null;
-  $("page-title").textContent = state.development.role === "area_manager" ? "担当店舗の状況" : "全店の状況";
+  $("page-title").textContent = scopeHeading(state.development.role, state.scope);
   requestAnimationFrame(() => window.scrollTo({ top: state.listScroll }));
 }
 
@@ -332,7 +354,7 @@ function node(tag, className = "", text = "") { const item = document.createElem
 function heading(text) { return node("h3", "", text); }
 function paragraph(text) { return node("p", "", text); }
 function empty(text) { return node("div", "empty", text); }
-function emptyState() { const box = empty("表示できる店舗がありません"); box.append(paragraph("権限または対象月をご確認ください")); return box; }
+function emptyState(text = "選択した条件に該当するデータは0件です。") { return empty(text); }
 function orderedList(items) { const list = document.createElement("ol"); items.slice(0, 3).forEach((text) => { const li = node("li", "", text); list.append(li); }); return list; }
 function renderManagerEmpty() { elements.executive.hidden = false; elements.detail.hidden = true; elements.summary.replaceChildren(emptyState()); }
 function handleTabKeydown(event) {

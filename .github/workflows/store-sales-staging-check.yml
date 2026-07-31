@@ -33,7 +33,9 @@ jobs:
           ! grep -R -E "sb_secret_|SUPABASE_SERVICE_ROLE_KEY=.+|BEGIN (RSA|OPENSSH) PRIVATE KEY" portal/store-sales supabase/functions/store-sales-projection
           ! grep -R -E "Synthetic Data|staging-session-bootstrap|synthetic-data" portal/store-sales/index.html portal/store-sales/runtime-config.js
       - name: Production mode remains blocked
-        run: grep -R 'productionBlocked.*true\\|PRODUCTION_BLOCKED=true' portal/store-sales/staging-config.js supabase/functions/store-sales-projection/.env.staging.example
+        run: |
+          grep -Eq 'productionBlocked[[:space:]]*:[[:space:]]*true' portal/store-sales/staging-config.js
+          grep -qx 'PRODUCTION_BLOCKED=true' supabase/functions/store-sales-projection/.env.staging.example
       - name: Review-only migration and rollback marker
         run: grep -q "ROLLBACK;" supabase/migrations/review_only/store_sales_staging_foundation.sql
       - name: Build candidate

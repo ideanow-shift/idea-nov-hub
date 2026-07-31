@@ -32,6 +32,62 @@ body {
   overflow-x: hidden;
 }
 
+/* Sprint 1: NOV People and write-capable controls are frozen outside NOV Talent. */
+.sprint1-separated,
+.sprint1-mock-write { display: none !important; }
+.primary-tabs { grid-template-columns: 1fr; }
+
+.today-task-panel {
+  margin: 24px 0;
+  padding: 20px;
+  border: 1px solid var(--line, #e5dfe0);
+  border-radius: 18px;
+  background: #fffdfd;
+}
+.today-task-list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.today-task-list button {
+  width: 100%;
+  min-height: 96px;
+  padding: 14px;
+  border: 1px solid #ead8dc;
+  border-radius: 14px;
+  background: #fff;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.today-task-list strong,
+.today-task-list span { display: block; }
+.today-task-list span { margin-top: 8px; color: var(--muted, #746b6d); font-size: .9rem; }
+.candidate-history-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.candidate-history-grid article {
+  padding: 16px;
+  border: 1px solid #eadfe1;
+  border-radius: 14px;
+  background: #fff;
+}
+.candidate-history-grid ol { margin: 10px 0 0; padding-left: 1.25rem; }
+@media (max-width: 860px) {
+  .today-task-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .candidate-history-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .today-task-list { grid-template-columns: 1fr; }
+  .today-task-list button { min-height: auto; }
+}
+
 button { font: inherit; }
 
 .dashboard-shell {

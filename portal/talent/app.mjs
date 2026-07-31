@@ -1,20 +1,10 @@
-import { NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
 import {
   buildDashboardSummaryViewModel,
-  createDashboardSummaryExact1Executor,
-  createTalentWorkspaceExact1Executor,
-  createTalentWorkforceSummaryExact1Executor,
-  createTalentStudentProfileAuditExact1Executor,
-  createTalentStagingSupplementAuditExact1Executor
-} from "./exact1.mjs?v=20260725-workforce-queues-1";
-import { initializeTalentOperatorPanel } from "./operator.mjs?v=20260725-owner-review-workspace-1";
-import { createTalentHistoricalReviewController } from "./review.mjs?v=20260725-owner-review-workspace-1";
+  createDashboardSummaryExecutor,
+  createTalentWorkspaceExecutor
+} from "./runtime.mjs?v=20260731-sprint1-mock-1";
 import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260726-talent-analytics-action-guide-1";
-import { createTalentStudentProfileController } from "./student-profile.mjs?v=20260725-review-kpis-1";
-import { createTalentStagingSupplementController } from "./staging-supplement.mjs?v=20260725-staging-edit-1";
-import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260727-talent-28-csv-run-button-1";
-import { buildWorkforceReadinessViewModel, renderWorkforceReadiness } from "./workforce-readiness.mjs?v=20260726-workforce-queue-case-prefill-1";
-import { initializeWorkforceProcedureDesk } from "./workforce-procedures.mjs?v=20260726-workforce-boundary-note-1";
+import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -30,19 +20,14 @@ let activeHistoricalReviewStudent = null;
 let profileDialogStudent = null;
 let auditDialogStudent = null;
 let pendingSelectedApplicationNo = null;
-let workforceSummaryConsumed = false;
-let workforceProcedureDesk = null;
 
-const PRIMARY_TABS = Object.freeze(["recruitment", "workforce"]);
+const PRIMARY_TABS = Object.freeze(["recruitment"]);
 const RECRUITMENT_TABS = Object.freeze(["summary", "students", "fairs", "schools"]);
-const WORKFORCE_TABS = Object.freeze(["onboarding", "transfer", "leave", "retirement"]);
+const WORKFORCE_TABS = Object.freeze([]);
 
 export async function startTalentDashboardSummary({
   globalObject = globalThis,
   documentObject = globalObject.document,
-  fetchImpl = globalObject.fetch,
-  hubSessionHelper = globalObject.NovHubSession,
-  hubContract = globalObject.NOV_HUB_SESSION_CONTRACT || NOV_HUB_SESSION_CONTRACT,
   fiscalYear = "current",
   abortSignal = null,
   runGeneration = summaryGeneration,
@@ -52,16 +37,7 @@ export async function startTalentDashboardSummary({
   summaryConsumed = true;
 
   setStatus(documentObject, "loading", "集計を確認しています");
-  const guardedFetch = typeof fetchImpl === "function"
-    ? (url, options = {}) => fetchImpl(url, { ...options, signal: abortSignal || options.signal })
-    : fetchImpl;
-  const executor = createDashboardSummaryExact1Executor({
-    globalObject,
-    fetchImpl: guardedFetch,
-    hubSessionHelper,
-    hubContract,
-    fiscalYear
-  });
+  const executor = createDashboardSummaryExecutor({ globalObject, fiscalYear });
   if (!executor) return renderSafeStop(documentObject, "runtime_config_unavailable");
 
   const result = await executor.run();
@@ -112,24 +88,8 @@ export function initializeTalentSummaryControl({
 
   button.dataset.summaryControlBound = "true";
   activeSummaryButton = button;
-  const formalHelperAvailable = typeof globalObject?.NovHubSession?.getSessionToken === "function";
-  if (!formalHelperAvailable) {
-    button.disabled = true;
-    const safeStop = renderSafeStop(documentObject, {
-      stopCategory: "auth_required",
-      requestCount: 0,
-      retryCount: 0,
-      httpStatus: 0
-    });
-    return Object.freeze({
-      ...safeStop,
-      initialized: true,
-      helperAvailable: false
-    });
-  }
-
   button.disabled = false;
-  setStatus(documentObject, "idle", "ボタンを押すと最新の集計を表示します");
+  setStatus(documentObject, "idle", "匿名Mockデータの集計を表示します");
 
   const run = async (event) => {
     if (event?.repeat || button.disabled || summaryConsumed) {
@@ -170,7 +130,7 @@ export function initializeTalentSummaryControl({
   globalObject?.addEventListener?.("pagehide", invalidate, { once: true });
   globalObject?.addEventListener?.("beforeunload", invalidate, { once: true });
   globalObject?.addEventListener?.("novhub:logout", invalidate);
-  return Object.freeze({ initialized: true, helperAvailable: true, run, invalidate });
+  return Object.freeze({ initialized: true, helperAvailable: false, runtimeMode: "mock", run, invalidate });
 }
 
 export function invalidateTalentDashboardSummaryRun({
@@ -195,7 +155,7 @@ export function initializeTalentNavigation({
 
   const primaryButtons = [...documentObject.querySelectorAll("[data-primary-tab]")];
   const secondaryButtons = [...documentObject.querySelectorAll("[data-secondary-tab]")];
-  const workforceButtons = [...documentObject.querySelectorAll("[data-workforce-tab]")];
+  const workforceButtons = [];
   bindTabGroup({
     buttons: primaryButtons,
     validKeys: PRIMARY_TABS,
@@ -272,7 +232,7 @@ export function initializeTalentNavigation({
     workforceProcedureDesk?.load?.();
   }
   return Object.freeze({
-    initialized: primaryButtons.length === 2,
+    initialized: primaryButtons.length === 1,
     primaryTabCount: primaryButtons.length,
     workforceTabCount: workforceButtons.length
   });
@@ -486,7 +446,7 @@ export async function loadTalentStudentWorkspace({
   const reload = documentObject?.getElementById?.("student-reload");
   if (status) {
     status.dataset.state = "loading";
-    status.textContent = "27卒データを読み込んでいます";
+    status.textContent = "匿名Mock候補者を読み込んでいます";
   }
   if (reload) {
     reload.disabled = true;
@@ -498,16 +458,7 @@ export async function loadTalentStudentWorkspace({
   const controller = new AbortControllerClass();
   activeStudentWorkspaceController?.abort?.();
   activeStudentWorkspaceController = controller;
-  const guardedFetch = typeof fetchImpl === "function"
-    ? (url, options = {}) => fetchImpl(url, { ...options, signal: controller.signal })
-    : fetchImpl;
-  const executor = createTalentWorkspaceExact1Executor({
-    globalObject,
-    hubSessionHelper: globalObject.NovHubSession,
-    hubContract: globalObject.NOV_HUB_SESSION_CONTRACT || NOV_HUB_SESSION_CONTRACT,
-    fetchImpl: guardedFetch,
-    fiscalYear: "2027"
-  });
+  const executor = createTalentWorkspaceExecutor({ globalObject });
   const result = executor ? await executor.run() : null;
   if (generation !== studentWorkspaceGeneration || controller.signal.aborted) {
     return Object.freeze({ executed: false, staleCompletionSuppressed: true });
@@ -518,9 +469,9 @@ export async function loadTalentStudentWorkspace({
     reload.setAttribute("aria-busy", "false");
   }
   if (result?.okBoolean !== true) {
-    const message = result?.stopCategory === "auth_required"
-      ? "HUBへ再ログインしてください"
-      : "27卒データを取得できません";
+    const message = result?.stopCategory === "unauthorized"
+      ? "Mock Runtimeの利用権限を確認してください"
+      : "Mock候補者を表示できません";
     if (status) {
       status.dataset.state = "stopped";
       status.textContent = message;
@@ -552,9 +503,10 @@ export async function loadTalentStudentWorkspace({
   renderHistoricalReviewSummary(documentObject, result.data.overview);
   renderBulkTriageSummary(documentObject, result.data.students);
   renderTalentAnalytics(documentObject);
+  renderTodayTasks(documentObject, result.data.todayTasks || []);
   if (status) {
     status.dataset.state = "ready";
-    status.textContent = `${result.data.students.length}件を表示`;
+    status.textContent = `${result.data.students.length}件の匿名Mock候補者を表示`;
   }
   return Object.freeze({
     executed: true,
@@ -1124,7 +1076,7 @@ function renderImportOverview(documentObject, overview) {
     if (element) element.textContent = String(value);
   });
   const status = documentObject?.getElementById?.("import-overview-status");
-  if (status) status.textContent = "本番stagingに取り込まれた27卒データ";
+  if (status) status.textContent = "27卒・28卒の匿名Mock seed（実データは未使用）";
 }
 
 function renderTalentAnalytics(documentObject) {
@@ -1358,9 +1310,12 @@ export function buildMonthlyFollowUpFilter(month) {
 
 const STUDENT_FILTER_LABELS = Object.freeze({
   source: Object.freeze({
-    CONTACTS_27: "接触",
-    ENTRIES_27: "エントリー",
-    OFFERS_27: "内定",
+    CONTACTS_27: "27卒 接触",
+    ENTRIES_27: "27卒 エントリー",
+    OFFERS_27: "27卒 内定",
+    CONTACTS_28: "28卒 接触",
+    ENTRIES_28: "28卒 エントリー",
+    OFFERS_28: "28卒 内定",
     MANUAL: "手入力"
   }),
   state: Object.freeze({
@@ -2172,10 +2127,10 @@ function createStudentListItem(documentObject, student) {
 
   const meta = documentObject.createElement("span");
   meta.className = "student-list-meta";
-  meta.textContent = [student.school, student.sourceLabel, student.businessDate].filter(Boolean).join(" · ");
+  meta.textContent = [student.school, student.sourceLabel, `担当 ${student.assignee || "未設定"}`, `最終接触 ${student.businessDate || "未設定"}`].filter(Boolean).join(" · ");
   const status = documentObject.createElement("span");
   status.className = "student-list-status";
-  status.textContent = student.status;
+  status.textContent = `${student.status} · 優先度 ${student.priority || "通常"}`;
   const reviewBoundary = buildStudentReviewBoundary(student, {
     confirmable: isStudentIndividuallyConfirmable(student),
     editable: Boolean(student.applicationNo) || (student.mappingStatus === "UNMAPPED" && Boolean(student.recordId))
@@ -2306,6 +2261,9 @@ function renderStudentDetail(documentObject, student) {
   }
   setText(documentObject, "student-detail-school", student.school || "未登録");
   setText(documentObject, "student-detail-status", student.status || "未登録");
+  setText(documentObject, "student-detail-assignee", student.assignee || "未設定");
+  setText(documentObject, "student-detail-priority", student.priority || "通常");
+  setText(documentObject, "student-detail-last-contact", student.businessDate || "未登録");
   setText(documentObject, "student-detail-phone", student.phone || "未登録");
   setText(documentObject, "student-detail-email", student.email || "未登録");
   setText(documentObject, "student-detail-store", student.preferredStore || "未登録");
@@ -2361,6 +2319,7 @@ function renderStudentDetail(documentObject, student) {
   const dailyOperation = buildStudentDailyOperation(student, actionCapability);
   renderStudentDailyOperation(documentObject, dailyOperation);
   renderStudentDailyCompletionChecklist(documentObject, buildStudentDailyCompletionChecklist(dailyOperation));
+  renderCandidateHistories(documentObject, student);
 }
 
 function renderStudentActionGuide(documentObject, capability) {
@@ -2434,6 +2393,24 @@ function renderStudentReviewBoundary(documentObject, boundary) {
       return item;
     }));
   }
+}
+
+function renderCandidateHistories(documentObject, student) {
+  const groups = [
+    ["candidate-contact-history", student?.contactHistory],
+    ["candidate-event-history", student?.eventHistory],
+    ["candidate-selection-history", student?.selectionHistory]
+  ];
+  groups.forEach(([id, rows]) => {
+    const list = documentObject.getElementById(id);
+    if (!list) return;
+    const safeRows = Array.isArray(rows) ? rows.slice(0, 5) : [];
+    list.replaceChildren(...(safeRows.length ? safeRows.map((row) => {
+      const item = documentObject.createElement("li");
+      item.textContent = `${row.date || "日付未設定"} · ${row.label || "記録"}`;
+      return item;
+    }) : [Object.assign(documentObject.createElement("li"), { textContent: "履歴はありません" })]));
+  });
 }
 
 function renderStudentDailyOperation(documentObject, operation) {
@@ -2776,7 +2753,7 @@ function setStatus(documentObject, state, text) {
   const connectionLabel = documentObject?.getElementById?.("connection-label");
   if (connection) connection.dataset.state = state;
   if (connectionLabel) {
-    connectionLabel.textContent = state === "ready" ? "HUB接続済み" : state === "stopped" ? "HUB接続を確認できません" : "HUB接続待機中";
+    connectionLabel.textContent = state === "ready" ? "Mock Runtime" : state === "stopped" ? "Mock Runtime停止" : "Mock Runtime準備中";
   }
 }
 
@@ -2848,14 +2825,44 @@ function safeMessage(category, requestCount = 0) {
 }
 
 function initializeTalentApp() {
-  workforceProcedureDesk = initializeWorkforceProcedureDesk();
   initializeTalentStudentWorkspace();
   initializeTalentNavigation();
-  renderWorkforceReadiness(globalThis.document, buildWorkforceReadinessViewModel());
-  initializeTalentSummaryControl();
-  initializeTalentOperatorPanel();
+  const summaryControl = initializeTalentSummaryControl();
   initializeTalent28CsvPreflight();
   loadTalentStudentWorkspace();
+  summaryControl.run?.();
+}
+
+function renderTodayTasks(documentObject, tasks) {
+  const list = documentObject?.getElementById?.("today-task-list");
+  const status = documentObject?.getElementById?.("today-task-status");
+  if (!list) return;
+  const rows = (Array.isArray(tasks) ? tasks : []).slice(0, 5);
+  if (status) status.textContent = rows.length ? `${rows.length}件を優先表示` : "今日の優先タスクはありません";
+  list.replaceChildren(...rows.map((task) => {
+    const item = documentObject.createElement("li");
+    const button = documentObject.createElement("button");
+    button.type = "button";
+    button.dataset.candidateId = task.candidateId;
+    button.innerHTML = `<strong>${escapeHtml(task.label)}</strong><span>${escapeHtml(task.candidateName)}${task.dueDate ? ` · ${escapeHtml(task.dueDate)}` : ""}</span>`;
+    button.addEventListener("click", () => {
+      selectedStudentRecordId = task.candidateId;
+      documentObject.querySelector?.('[data-secondary-tab="students"]')?.click?.();
+      renderStudentWorkspace(documentObject);
+      documentObject.getElementById("student-detail")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    });
+    item.append(button);
+    return item;
+  }));
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function staleRunResult(result) {

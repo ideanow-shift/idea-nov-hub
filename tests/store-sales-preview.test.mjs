@@ -18,19 +18,19 @@ const mock = readFileSync(new URL("../portal/store-sales/adapters/mock.js", impo
 const session = readFileSync(new URL("../portal/js/nov-hub-session-candidate.js", import.meta.url), "utf8");
 const runtimeSource = readFileSync(new URL("../portal/store-sales/runtime/store-sales-runtime.js", import.meta.url), "utf8");
 const runtimeErrors = readFileSync(new URL("../portal/store-sales/runtime/error-mapping.js", import.meta.url), "utf8");
-const previewApp = DEMO_APPS.find((app) => app.appId === "store-sales-preview");
+const previewApp = DEMO_APPS.find((app) => app.appId === "store-sales-management");
 const employee = (email) => DEMO_EMPLOYEES.find((item) => item.email === email);
 
 test("NOV HUB has the Store Sales card", () => assert.equal(previewApp?.appName, "店舗営業管理"));
 test("employee cannot see the card", () => assert.equal(canAccessApp(employee("staff@example.com"), previewApp), false));
 test("store manager can see the card", () => assert.equal(canAccessApp(employee("manager@example.com"), previewApp), true));
 test("card uses the same-tab Store Sales route", () => {
-  assert.equal(previewApp.url, "./store-sales/");
+  assert.equal(previewApp.url, "./store-sales/index.html");
   assert.match(main, /window\.location\.assign\(launchUrl\)/);
 });
 test("relative URL has no fixed origin", () => assert.doesNotMatch(previewApp.url, /https?:|^[A-Za-z]:/));
 test("existing sales icon is reused", () => {
-  const icon = appJson.apps.find((app) => app.appId === "store-sales-preview")?.icon;
+  const icon = appJson.apps.find((app) => app.appId === "store-sales-management")?.icon;
   assert.equal(icon, "./assets/icons/sales.svg");
 });
 test("Preview banner is semantic and initially hidden", () => {
@@ -59,17 +59,13 @@ test("expired session has a distinct state", () => {
 });
 test("logout clears preview context", () => assert.match(main, /clearStoreSalesPreviewContext\(\)/));
 test("executive resolves to executive fixture", () => assert.equal(resolvePreviewFixture(["executive"]), "executive"));
-test("department manager has only assigned stores", () => assert.equal(getReviewFixture("department-manager").stores.length, 6));
+test("department manager maps to the approved direct-store scope", () => assert.equal(getReviewFixture("sales_manager").stores.length, 13));
 test("store manager has one store and manager audience", () => {
   const fixture = getReviewFixture("manager");
   assert.equal(fixture.stores.length, 1);
   assert.equal(fixture.audience, "store_manager");
 });
-test("franchise owner has only five FC stores", () => {
-  const fixture = getReviewFixture("franchise-owner");
-  assert.equal(fixture.stores.length, 5);
-  assert.ok(fixture.stores.every((store) => store.ownership === "FC"));
-});
+test("area manager has only assigned stores", () => assert.equal(getReviewFixture("area_manager").stores.length, 5));
 test("employee fixture is access denied", async () => {
   const adapter = createMockAdapter({ mode: "mock", fixture: "executive" }, { getPreviewFixtureName: () => "employee-denied" });
   await assert.rejects(() => adapter.loadDashboard(), (error) => error.code === "ACTOR_SCOPE_DENIED" && error.status === 403);

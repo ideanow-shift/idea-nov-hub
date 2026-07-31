@@ -3,9 +3,18 @@ export const STORE_SALES_PREVIEW_CONTEXT_KEY = "ideaNov.storeSales.previewActor.
 const FIXTURE_BY_ROLE = Object.freeze({
   super_admin: "executive",
   executive: "executive",
-  department_manager: "department-manager",
-  store_manager: "manager",
-  franchise_owner: "franchise-owner"
+  representative: "executive",
+  department_manager: "sales_manager",
+  sales_manager: "sales_manager",
+  area_manager: "area_manager",
+  store_manager: "store_manager"
+});
+
+const MOCK_ROLE_BY_FIXTURE = Object.freeze({
+  executive: "representative",
+  sales_manager: "sales_manager",
+  area_manager: "area_manager",
+  store_manager: "store_manager"
 });
 
 export function resolvePreviewFixture(roleKeys = []) {
@@ -17,10 +26,12 @@ export function resolvePreviewFixture(roleKeys = []) {
 }
 
 export function saveStoreSalesPreviewContext({ roleKeys = [], source = "nov-hub" } = {}) {
+  const fixture = resolvePreviewFixture(roleKeys);
   const context = {
     schema: "store-sales-preview-context",
     version: 1,
-    fixture: resolvePreviewFixture(roleKeys),
+    fixture,
+    mockRole: MOCK_ROLE_BY_FIXTURE[fixture] || null,
     source,
     issuedAt: new Date().toISOString()
   };
@@ -37,7 +48,12 @@ export function restoreStoreSalesPreviewContext() {
   }
   if (parsed?.schema !== "store-sales-preview-context" || parsed?.version !== 1) return null;
   if (!Object.values(FIXTURE_BY_ROLE).includes(parsed.fixture) && parsed.fixture !== "employee-denied") return null;
-  return Object.freeze({ fixture: parsed.fixture, source: String(parsed.source || ""), issuedAt: String(parsed.issuedAt || "") });
+  return Object.freeze({
+    fixture: parsed.fixture,
+    mockRole: MOCK_ROLE_BY_FIXTURE[parsed.fixture] || null,
+    source: String(parsed.source || ""),
+    issuedAt: String(parsed.issuedAt || "")
+  });
 }
 
 export function clearStoreSalesPreviewContext() {

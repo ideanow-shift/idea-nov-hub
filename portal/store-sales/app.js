@@ -1,6 +1,8 @@
 import { createStoreSalesMockIdentity, createStoreSalesRuntime } from "./runtime/index.js";
 import { allowedScopes, canSelectScope, emptyScopeMessage, normalizeScope, scopeHeading } from "./permission-scope.js";
 import { createStoreViewSelector } from "./store-view-selector.js";
+import { restoreStoreSalesPreviewContext } from "./preview-context.js";
+import { getNovHubSessionStatus } from "../js/nov-hub-session-candidate.js";
 
 const state = {
   projection: null, runtime: null, runtimeStatus: "initializing", runtimeFeatureFlag: null, effectiveRole: "sales_manager", initializedRole: null, selectedStore: null, tab: "summary", audience: "executive",
@@ -28,6 +30,9 @@ const labels = {
 const statusOrder = { "Needs Attention": 0, Improving: 1, Stable: 2, Good: 3 };
 const statusNames = { "Needs Attention": "要対応", Improving: "改善中", Stable: "安定", Good: "好調" };
 const selectStoreView = createStoreViewSelector();
+const hubLaunchContext = restoreStoreSalesPreviewContext();
+const hubLaunchSessionAvailable = getNovHubSessionStatus() === "available";
+if (hubLaunchContext?.mockRole) state.development.role = hubLaunchContext.mockRole;
 
 initialize();
 
@@ -39,7 +44,7 @@ async function initialize() {
     dependencies: {
       isOnline: () => navigator.onLine,
       getDevelopmentState: () => state.development,
-      getMockIdentity: () => createStoreSalesMockIdentity(state.development.role)
+      getMockIdentity: () => hubLaunchContext?.mockRole && hubLaunchSessionAvailable ? createStoreSalesMockIdentity(state.development.role) : null
     }
   });
   state.runtime.subscribe(renderRuntimeSnapshot);

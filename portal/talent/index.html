@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NOV Talent | 採用意思決定プラットフォーム</title>
-  <link rel="stylesheet" href="./style.css?v=20260731-sprint1-mock-1">
+  <link rel="stylesheet" href="./style.css?v=20260801-sprint2-ux-1">
   <script src="./runtime-config.candidate.js?v=20260731-sprint1-mock-1"></script>
   <script type="module" src="./csv-import-preflight.mjs?v=20260731-sprint1-mock-2"></script>
-  <script type="module" src="./app.mjs?v=20260731-sprint1-mock-2"></script>
+  <script type="module" src="./app.mjs?v=20260801-sprint2-ux-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -25,6 +25,10 @@
         <span id="connection-label">Mock Runtime</span>
       </div>
     </header>
+    <section id="mock-runtime-state" class="mock-runtime-state" data-state="loading" role="status" aria-live="polite">
+      <strong id="mock-runtime-state-title">候補者データを準備しています</strong>
+      <span id="mock-runtime-state-copy">そのままお待ちください。</span>
+    </section>
 
     <nav class="primary-tabs" role="tablist" aria-label="人財投資管理の業務区分">
       <button class="primary-tab" id="tab-recruitment" type="button" role="tab"
@@ -83,14 +87,23 @@
           </div>
           <p id="historical-summary-status" class="status" data-state="loading" role="status" aria-live="polite">匿名Mockデータを集計しています</p>
         </div>
+        <section id="recruitment-decision-summary" class="recruitment-decision-summary" data-category="LOADING" aria-live="polite">
+          <p class="section-kicker">今朝の結論</p>
+          <h3 id="recruitment-decision-title">採用状況を確認しています</h3>
+          <p id="recruitment-decision-copy">匿名Mockデータの集計後に、最初に行うことを表示します。</p>
+        </section>
         <section class="summary-grid historical-summary-grid" id="historical-summary-metrics" aria-label="27卒・28卒の採用状況">
-          <article class="metric"><p class="metric-name">取込データ</p><p class="metric-value">-</p></article>
-          <article class="metric"><p class="metric-name">接触</p><p class="metric-value">-</p></article>
-          <article class="metric"><p class="metric-name">LINE登録</p><p class="metric-value">-</p></article>
           <article class="metric"><p class="metric-name">エントリー</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">見学</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">面接</p><p class="metric-value">-</p></article>
           <article class="metric"><p class="metric-name">内定</p><p class="metric-value">-</p></article>
-          <article class="metric"><p class="metric-name">紐付け済み</p><p class="metric-value">-</p></article>
-          <article class="metric"><p class="metric-name">要確認・隔離</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">承諾</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">入社予定</p><p class="metric-value">-</p></article>
+        </section>
+        <section class="today-task-panel" aria-labelledby="today-task-title">
+          <div><p class="section-kicker">今日やること</p><h3 id="today-task-title">優先タスク（最大5件）</h3></div>
+          <p id="today-task-status" role="status">匿名Mock候補者から確認しています</p>
+          <ol id="today-task-list" class="today-task-list"></ol>
         </section>
         <section class="summary-followup" aria-label="採用状況から学生フォローを開く">
           <div class="summary-followup-head">
@@ -119,7 +132,7 @@
           </div>
         </section>
 
-        <div class="section-heading confirmed-summary-heading">
+        <div class="section-heading confirmed-summary-heading sprint2-supporting-summary" aria-hidden="true">
           <div>
             <p class="section-kicker">確定イベント</p>
             <h3>運用開始後の確定イベント</h3>
@@ -131,7 +144,7 @@
               aria-atomic="true" tabindex="-1">ボタンを押すと最新の集計を表示します</p>
           </div>
         </div>
-        <section class="summary-grid" id="summary-metrics" aria-label="採用・人材投資 集計">
+        <section class="summary-grid sprint2-supporting-summary" id="summary-metrics" aria-label="採用・人材投資 集計" aria-hidden="true">
           <article class="metric"><p class="metric-name">接点数</p><p class="metric-value">-</p></article>
           <article class="metric"><p class="metric-name">LINE登録</p><p class="metric-value">-</p></article>
           <article class="metric"><p class="metric-name">サロン見学</p><p class="metric-value">-</p></article>
@@ -140,16 +153,11 @@
           <article class="metric"><p class="metric-name">内定</p><p class="metric-value">-</p></article>
           <article class="metric"><p class="metric-name">入社予定</p><p class="metric-value">-</p></article>
         </section>
-        <section class="today-task-panel" aria-labelledby="today-task-title">
-          <div><p class="section-kicker">今日やること</p><h3 id="today-task-title">優先タスク</h3></div>
-          <p id="today-task-status" role="status">匿名Mock候補者から最大5件を表示します</p>
-          <ol id="today-task-list" class="today-task-list"></ol>
-        </section>
-        <p class="coverage-label">本システム稼働開始以降の集計（確定済み）です。</p>
+        <p class="coverage-label sprint2-supporting-summary">本システム稼働開始以降の集計（確定済み）です。</p>
 
         <section class="import-overview" aria-labelledby="import-overview-title">
           <div>
-            <p class="section-kicker">Mock seed</p>
+            <p class="section-kicker">データ内訳</p>
             <h3 id="import-overview-title">27卒・28卒 匿名データ</h3>
           </div>
           <dl>
@@ -192,12 +200,12 @@
             <ol id="talent-28-csv-approval-readback-steps"></ol>
           </section>
           <section id="talent-28-csv-approval-boundary" class="csv-approval-boundary" data-category="BLOCK_OWNER_TEXT" aria-label="28卒CSV staging approval boundary">
-            <strong id="talent-28-csv-approval-boundary-title">Owner approval boundary is blocked</strong>
+            <strong id="talent-28-csv-approval-boundary-title">投入前承認はまだ準備できません</strong>
             <p id="talent-28-csv-approval-boundary-copy">CSV形式検証がPASSになるまで、この画面で修正確認を続けます。</p>
             <ol id="talent-28-csv-approval-boundary-checks"></ol>
           </section>
           <section id="talent-28-csv-owner-approval-draft" class="csv-approval-boundary" data-category="APPROVAL_DRAFT_BLOCKED" aria-label="28卒CSV owner approval draft readiness">
-            <strong id="talent-28-csv-owner-approval-draft-title">Owner approval draft is blocked</strong>
+            <strong id="talent-28-csv-owner-approval-draft-title">staging承認文はブロック中です</strong>
             <p id="talent-28-csv-owner-approval-draft-copy">投入承認文は、CSV形式検証が安全に完了した後だけ表示します。</p>
             <ol id="talent-28-csv-owner-approval-draft-steps"></ol>
           </section>
@@ -499,8 +507,8 @@
               </section>
               <section id="student-daily-completion" class="student-daily-completion" data-category="NO_SELECTION" aria-live="polite" aria-labelledby="student-daily-completion-title">
                 <p class="section-kicker">完了チェック</p>
-                <strong id="student-daily-completion-title">Select a student before recording completion</strong>
-                <p id="student-daily-completion-copy">The completion checklist stays inactive until one student row is selected.</p>
+                <strong id="student-daily-completion-title">候補者を選択すると完了条件を表示します</strong>
+                <p id="student-daily-completion-copy">一覧から1名を選択するまで、完了チェックは待機します。</p>
                 <ol id="student-daily-completion-steps" class="student-daily-completion-steps"></ol>
               </section>
               <dl class="detail-grid">
@@ -525,10 +533,13 @@
                 <h4 id="student-review-title">確認事項</h4>
                 <ul id="student-detail-reasons"></ul>
               </section>
-              <section class="candidate-history-grid" aria-label="候補者履歴">
-                <article><h4>接触履歴</h4><ol id="candidate-contact-history"></ol></article>
-                <article><h4>イベント履歴</h4><ol id="candidate-event-history"></ol></article>
-                <article><h4>選考履歴</h4><ol id="candidate-selection-history"></ol></article>
+              <section class="candidate-history-section" aria-labelledby="candidate-history-title">
+                <div class="candidate-history-heading"><h4 id="candidate-history-title">これまでの履歴</h4><span id="candidate-history-summary">接触 0件・イベント 0件・選考 0件</span></div>
+                <div class="candidate-history-grid" aria-label="候補者履歴">
+                  <article><h4>接触履歴</h4><ol id="candidate-contact-history"></ol></article>
+                  <article><h4>イベント履歴</h4><ol id="candidate-event-history"></ol></article>
+                  <article><h4>選考履歴</h4><ol id="candidate-selection-history"></ol></article>
+                </div>
               </section>
             </div>
           </aside>
@@ -633,6 +644,10 @@
           <article><span>LINE登録率</span><strong id="fair-line-rate">-</strong></article>
           <article><span>記録月数</span><strong id="fair-month-count">-</strong><button id="fair-latest-month-open" class="analysis-kpi-action" type="button" disabled>最新月を見る</button></article>
           <article><span>学校数</span><strong id="school-count">-</strong></article>
+        </section>
+        <section id="event-roi-panel" class="event-roi-panel" data-category="ROI_UNAVAILABLE_COST_MISSING" aria-labelledby="event-roi-title">
+          <div><p class="section-kicker">イベント効果</p><h3 id="event-roi-title">費用未登録のため、金額ROIは算出していません</h3><p id="event-roi-copy">既存データから確認できる接点後の進捗率を表示します。費用や成果は推測しません。</p></div>
+          <div id="event-roi-metrics" class="event-roi-metrics" aria-label="イベント到達率"></div>
         </section>
         <section class="analysis-panel" aria-labelledby="fair-flow-title">
           <header>

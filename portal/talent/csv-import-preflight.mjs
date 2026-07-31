@@ -488,9 +488,9 @@ export function buildTalent28CsvApprovalBoundary(result) {
         ["NO_RAW_VALUES", "Do not paste row values, IDs, contacts, digest, or raw errors."]
       ]
     : [
-        ["FIX_FIRST", "Fix the current CSV category before preparing approval text."],
-        ["RERUN_LOCAL_PREFLIGHT", "Select the corrected CSV and rerun local preflight once."],
-        ["NO_PREMATURE_APPROVAL", "Do not ask for staging approval while the local result is blocked."]
+        ["FIX_FIRST", "承認文を準備する前に、現在のCSV修正項目を解消する"],
+        ["RERUN_LOCAL_PREFLIGHT", "修正版CSVを選択し、ローカル検証を1回実行する"],
+        ["NO_PREMATURE_APPROVAL", "ローカル検証が停止中のままstaging承認へ進まない"]
       ];
   return Object.freeze({
     category,

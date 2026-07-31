@@ -494,10 +494,10 @@ export function buildTalent28CsvApprovalBoundary(result) {
       ];
   return Object.freeze({
     category,
-    title: category === "READY_TO_PREPARE_OWNER_TEXT" ? "Owner approval boundary is ready" : "Owner approval boundary is blocked",
+    title: category === "READY_TO_PREPARE_OWNER_TEXT" ? "投入前承認の準備ができました" : "投入前承認はまだ準備できません",
     copy: category === "READY_TO_PREPARE_OWNER_TEXT"
-      ? "Prepare the next approval only after confirming these nonsecret boundaries."
-      : "Keep the workflow in CSV correction until the safe categories are ready.",
+      ? "個人値を含まない安全カテゴリを確認してから、次の承認へ進みます。"
+      : "安全カテゴリが整うまでCSV修正を続けます。",
     checks: Object.freeze(checks.map(([checkCategory, label], index) => Object.freeze({
       order: index + 1,
       category: checkCategory,

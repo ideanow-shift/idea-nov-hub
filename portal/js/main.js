@@ -60,8 +60,8 @@ const TALENT_APP_IDS = new Set([
   "nov-talent",
 ]);
 const STORE_SALES_APP_IDS = new Set(["store-sales-preview", "store-sales-management"]);
-const STORE_SALES_PREVIEW_URL = "./store-sales/";
-const STORE_SALES_ALLOWED_ROLE_KEYS = new Set(["super_admin", "executive", "department_manager", "store_manager", "franchise_owner"]);
+const STORE_SALES_PREVIEW_URL = "./store-sales/index.html";
+const STORE_SALES_ALLOWED_ROLE_KEYS = new Set(["super_admin", "executive", "representative", "department_manager", "sales_manager", "area_manager", "store_manager"]);
 const TALENT_APP_URL = "./talent/";
 const TALENT_LEGACY_ORIGIN = "https://ideanow-shift.github.io";
 const TALENT_LEGACY_PATH = "/hr-investment-dashboard";

@@ -15,9 +15,10 @@
     const state = query.get("state") || "available";
     const actorFixture = {
       executive: "executive",
-      department_manager: "department-manager",
-      store_manager: "manager",
-      franchise_owner: "franchise-owner",
+      department_manager: "sales_manager",
+      sales_manager: "sales_manager",
+      area_manager: "area_manager",
+      store_manager: "store_manager",
       employee: "employee-denied"
     }[actor] || "employee-denied";
     const frame = document.createElement("iframe");
@@ -35,7 +36,9 @@
           const button = document?.querySelector("#demo-login");
           if (!select || !button || !document.querySelector("#login-screen:not([hidden])")) return;
           clearInterval(timer);
-          select.value = actor === "store_manager" ? "manager@example.com" : "hq@example.com";
+          select.value = actor === "store_manager" ? "manager@example.com"
+            : actor === "area_manager" ? "area@example.com"
+              : actor === "department_manager" || actor === "sales_manager" ? "department@example.com" : "hq@example.com";
           button.click();
         }, 25);
       });

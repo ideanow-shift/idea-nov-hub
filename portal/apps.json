@@ -113,14 +113,15 @@
       ]
     },
     {
-      "appId": "store-sales-preview",
+      "appId": "store-sales-management",
       "appName": "店舗営業管理",
       "icon": "./assets/icons/sales.svg",
       "color": "#E8B48F",
       "aliases": [
         "店舗営業管理",
         "Store Sales Management",
-        "store-sales-preview"
+        "store-sales-preview",
+        "store-sales-management"
       ]
     },
     {

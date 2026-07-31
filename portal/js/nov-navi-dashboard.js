@@ -20,6 +20,7 @@ const SYSTEM_ICON_BY_ALIAS = Object.freeze({
   "management-platform": "./assets/icons/management-check.svg",
   EDU: "./assets/icons/education.svg",
   "management-system": "./assets/icons/management.svg",
+  "store-sales-management": "./assets/icons/sales.svg",
   "human-capital-investment": "./assets/icons/human-capital-investment.svg",
   "core-master-admin": "./assets/icons/database.svg"
 });
@@ -37,6 +38,7 @@ const SYSTEMS = [
   { category: "成長", title: "教育・育成", status: "available", aliases: ["EDU", "education-web"], shortcuts: ["学習", "進捗", "管理"] },
   { category: "キャリア", title: "キャリアシステム", status: "preview", icon: "./assets/icons/career.svg", aliases: [], shortcuts: ["自己振り返り", "4ヶ月キャリア確認", "管理者確認", "昇格・等級", "次期目標設定"] },
   { category: "経営管理", title: "経営管理システム", status: "in_progress", aliases: ["keiei", "management-system"], shortcuts: ["法人管理", "店舗営業管理", "データ状況"], minLevel: 3, audience: "店長以上／管轄範囲" },
+  { category: "経営管理", title: "店舗営業管理", subtitle: "売上・利益・KPI・店舗運営を確認", status: "preview", aliases: ["store-sales-management", "store-sales-preview"], shortcuts: ["全店の状況", "要対応店舗", "店舗詳細"], minLevel: 3, allowedTags: ["executive", "representative", "department_manager", "sales_manager", "area_manager", "store_manager"], audience: "営業管理の許可範囲" },
   { category: "経営管理", title: "採用・人財", subtitle: "NOV Talent / リクルート管理", status: "trial", aliases: ["jinnjibu", "human-capital-investment"], shortcuts: ["採用", "学生", "面接・選考", "現職者管理", "入社手続き", "採用ROI"], minLevel: 4, anyCapabilities: ["human_capital.all"], audience: "総務人事・経理・部長／許可範囲" },
   { category: "システム管理", title: "システム管理", status: "available", aliases: ["core-master-admin", "master-admin"], shortcuts: ["社員情報", "店舗情報", "法人情報", "アプリ管理", "権限管理", "変更履歴", "データ入力"], adminOnly: true }
 ];
@@ -105,6 +107,14 @@ function visibleSystem(system, employee) {
   if (system.adminOnly) return isAdmin(employee);
   const capabilities = new Set((employee?.capabilities || []).map(appKey));
   if ((system.anyCapabilities || []).some((capability) => capabilities.has(appKey(capability)))) return true;
+  if (system.allowedTags?.length) {
+    const tags = new Set([
+      ...(employee?.tags || []),
+      ...(employee?.roleKeys || []),
+      ...((employee?.roles || []).map((role) => role?.roleKey || role?.role_key))
+    ].map(appKey));
+    if (!system.allowedTags.some((tag) => tags.has(appKey(tag)))) return false;
+  }
   return Number(employee?.roleLevel || 1) >= Number(system.minLevel || 1);
 }
 

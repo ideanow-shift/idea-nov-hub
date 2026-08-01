@@ -46,6 +46,22 @@ const SYSTEMS = [
 
 const CATEGORY_ORDER = ["運営管理", "成長", "キャリア", "経営管理", "システム管理"];
 
+const TODAY_SUMMARY_BY_PROFILE = Object.freeze({
+  executive: ["売上", "利益", "集客", "単価", "商品", "EC"],
+  headquarters_staff: ["採用状況", "今日やること", "入社準備", "申請・承認"],
+  store_manager: ["担当店舗", "勤怠", "シフト", "改善アクション"],
+  system_admin: ["システム状況", "管理タスク", "通知", "連携状況"],
+  employee: ["今日の予定", "未完了タスク", "サンクス受信", "成長"],
+});
+
+const FAVORITE_ALIASES_BY_PROFILE = Object.freeze({
+  executive: [["management-system"], ["human-capital-investment"], ["expense_hub"]],
+  headquarters_staff: [["human-capital-investment"], ["core-master-admin"], ["task-management"]],
+  store_manager: [["pos"], ["idea-link"], ["task-management"]],
+  system_admin: [["core-master-admin"], ["management-system"], ["task-management"]],
+  employee: [["task-management"], ["idea-link"], ["EDU"]],
+});
+
 export function isLoopbackHostName(hostname) {
   return hostname === "127.0.0.1" || hostname === "localhost";
 }
@@ -221,6 +237,20 @@ function toggleLegacyHome(enabled) {
   });
 }
 
+export function getNaviTodaySummaryLabels(employee) {
+  const profile = roleProfile(employee);
+  return TODAY_SUMMARY_BY_PROFILE[profile.key] || TODAY_SUMMARY_BY_PROFILE.employee;
+}
+
+export function getNaviFavoriteSystems(employee, apps) {
+  const profile = roleProfile(employee);
+  const aliasGroups = FAVORITE_ALIASES_BY_PROFILE[profile.key] || FAVORITE_ALIASES_BY_PROFILE.employee;
+  return aliasGroups
+    .map((aliases) => SYSTEMS.find((system) => aliases.some((alias) => system.aliases.includes(alias))))
+    .filter((system) => system && findApp(apps, system.aliases))
+    .slice(0, 3);
+}
+
 function revealLegacyApps() {
   const disclosure = document.querySelector(".legacy-apps-disclosure");
   const section = disclosure?.closest("section");
@@ -319,10 +349,17 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
 
   const profile = roleProfile(employee);
   const visibleCategories = getVisibleNaviCategories(employee);
+  const summaryLabels = getNaviTodaySummaryLabels(employee);
+  const favorites = getNaviFavoriteSystems(employee, apps);
   root.innerHTML = `
     <div class="navi-role-summary"><span>表示区分</span><strong>${escapeHtml(profile.label)}</strong><div class="navi-role-categories" aria-label="表示中の業務領域">${visibleCategories.map((category) => `<button type="button" data-navi-category-target="${getNaviCategoryId(category)}">${escapeHtml(category)}</button>`).join("")}</div><small>起動時に各システム側で権限を再確認します</small></div>
+    <section class="navi-today-summary" aria-labelledby="navi-today-summary-title">
+      <div class="navi-section-heading"><h2 id="navi-today-summary-title">今日の状況</h2><span>${escapeHtml(profile.label)}向け</span></div>
+      <p class="navi-summary-copy">役割に必要な状況を、各システムとの連携後にここへ集約します。</p>
+      <div class="navi-summary-grid">${summaryLabels.map((label) => `<article class="navi-summary-card"><span>${escapeHtml(label)}</span><strong>連携準備中</strong><small>接続後に表示</small></article>`).join("")}</div>
+    </section>
     <section class="navi-today" aria-labelledby="navi-today-title">
-      <div class="navi-section-heading"><h2 id="navi-today-title">今日の仕事</h2><span class="navi-today-status">連携を準備中</span></div>
+      <div class="navi-section-heading"><h2 id="navi-today-title">今日やること</h2><span class="navi-today-status">連携を準備中</span></div>
       <p class="navi-today-greeting">${escapeHtml(getNaviGreeting())}</p>
       <p class="navi-today-empty">今日の予定・タスク・承認などを、この場所にまとめて表示します。</p>
       <div class="navi-today-grid" hidden>
@@ -342,8 +379,12 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
       <div class="navi-section-heading"><h2 id="navi-notices-title">お知らせ</h2><span>最新3件</span></div>
       <div class="navi-notice-list" id="navi-notice-list"></div>
     </section>
+    <section class="navi-favorites" aria-labelledby="navi-favorites-title">
+      <div class="navi-section-heading"><h2 id="navi-favorites-title">お気に入りアプリ</h2><span>${escapeHtml(profile.label)}向け</span></div>
+      ${favorites.length ? '<div class="navi-favorites-grid"></div>' : '<p class="navi-favorites-empty">利用可能なアプリを準備しています。</p>'}
+    </section>
     <div class="navi-system-sections"></div>
-    <div class="navi-legacy-apps"><button class="navi-legacy-launcher" type="button">すべての業務を開く</button></div>
+    <div class="navi-legacy-apps"><button class="navi-legacy-launcher" type="button">すべての業務を検索</button></div>
     <div class="navi-legend"><span>利用可能：本番システム</span><span>試験運用：利用範囲を限定</span><span>作成中：利用可能範囲のみ</span><span>サンプル：データは保存されません</span></div>`;
 
   root.querySelector(".navi-support-launcher").addEventListener("click", () => {
@@ -366,6 +407,9 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
   renderNaviToday(root, today);
   renderNaviNotices(notices, onOpenNotice);
 
+  const favoritesGrid = root.querySelector(".navi-favorites-grid");
+  if (favoritesGrid) favoritesGrid.append(...favorites.map((system) => createSystemCard(system, apps, onOpenApp)));
+
   const sections = root.querySelector(".navi-system-sections");
   CATEGORY_ORDER.forEach((category, categoryIndex) => {
     const systems = SYSTEMS.filter((system) => system.category === category && visibleSystem(system, employee));
@@ -383,5 +427,12 @@ export function renderNovNaviDashboard({ enabled, employee, apps, notices = [], 
     grid.append(...systems.map((system) => createSystemCard(system, apps, onOpenApp)));
     sections.append(section);
   });
+
+  const aiLauncher = document.createElement("button");
+  aiLauncher.className = "navi-ai-launcher";
+  aiLauncher.type = "button";
+  aiLauncher.textContent = "AIへ相談";
+  aiLauncher.addEventListener("click", () => onOpenSupport(""));
+  root.append(aiLauncher);
 }
 import { getNovNaviTodaySnapshot, NOV_NAVI_TODAY_FIELDS } from "./nov-navi-today-contract.js";

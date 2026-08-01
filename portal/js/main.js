@@ -96,7 +96,7 @@ const MANAGEMENT_WEB_ALLOWED_ROLE_KEYS = new Set([
   "store_manager"
 ]);
 const elements = Object.fromEntries([
-  "header-user", "user-name", "user-store", "navi-notification-hint", "navi-notification-count", "login-screen", "loading-screen",
+  "header-user", "user-name", "user-store", "navi-current-datetime", "navi-notification-hint", "navi-notification-count", "login-screen", "loading-screen",
   "denied-screen", "portal-screen", "google-login", "pin-login-form", "pin-email", "pin-code", "demo-controls", "demo-employee",
   "demo-login", "logout-button", "denied-message", "denied-back", "welcome-title", "user-context",
   "announcements", "featured-apps", "category-apps", "visible-app-count", "app-search", "category-filter", "pin-change-panel", "pin-change-form",
@@ -515,6 +515,13 @@ function renderPortal() {
   const employeeContext = refreshHubEmployeeContext();
   elements.userName.textContent = state.employee.name;
   elements.userStore.textContent = state.employee.store || state.employee.department || "";
+  if (elements.naviCurrentDatetime) {
+    const now = new Date();
+    elements.naviCurrentDatetime.dateTime = now.toISOString();
+    elements.naviCurrentDatetime.textContent = new Intl.DateTimeFormat("ja-JP", {
+      month: "numeric", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit"
+    }).format(now);
+  }
   elements.userContext.textContent = getHubEmployeeContextSummary(employeeContext);
   elements.welcomeTitle.textContent = `${state.employee.name.split(/[\s　]/)[0]}さん、お疲れさまです`;
   elements.pinChangePanel.hidden = !(state.authType === "pin" && state.employee?.mustChangePin);

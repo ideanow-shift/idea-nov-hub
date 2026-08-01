@@ -4,6 +4,8 @@ import {
   getVisibleNaviCategories,
   getVisibleNaviNotices,
   getNaviTodaySnapshot,
+  getNaviTodaySummaryLabels,
+  getNaviFavoriteSystems,
   getNaviCategoryId,
   getNaviCategoryAudienceHint,
   getNaviLaunchState,
@@ -111,6 +113,34 @@ assert.deepEqual(
   "system administrator sees all NOV NAVI categories"
 );
 
+assert.deepEqual(
+  getNaviTodaySummaryLabels({ roleLevel: 4, roleKeys: [] }),
+  ["売上", "利益", "集客", "単価", "商品", "EC"],
+  "executive home must receive an executive-oriented summary shell"
+);
+assert.deepEqual(
+  getNaviTodaySummaryLabels({ roleLevel: 1, roleKeys: [] }),
+  ["今日の予定", "未完了タスク", "サンクス受信", "成長"],
+  "employee home must receive a daily-work summary shell"
+);
+assert.deepEqual(
+  getNaviFavoriteSystems(
+    { roleLevel: 1, roleKeys: [] },
+    [
+      { appId: "task-management", url: "./task/" },
+      { appId: "idea-link", url: "./idea-link-app/" },
+      { appId: "EDU", url: "./education/" }
+    ]
+  ).map((system) => system.title),
+  ["タスク管理", "サンクスコイン", "教育・育成"],
+  "favorites must resolve only against the existing app registry"
+);
+assert.deepEqual(
+  getNaviFavoriteSystems({ roleLevel: 1, roleKeys: [] }, []),
+  [],
+  "favorites must not invent unavailable applications"
+);
+
 const dashboardSource = await readFile(new URL("../portal/js/nov-navi-dashboard.js", import.meta.url), "utf8");
 const mainSource = await readFile(new URL("../portal/js/main.js", import.meta.url), "utf8");
 const designSystemSource = await readFile(new URL("../portal/css/design-system.css", import.meta.url), "utf8");
@@ -131,6 +161,7 @@ assert.doesNotMatch(
   "existing all-apps section must remain reachable"
 );
 assert.match(dashboardSource, /class="navi-legacy-launcher"/, "NOVA must provide a deliberate path to the preserved legacy app list");
+assert.match(dashboardSource, /すべての業務を検索/, "legacy app access must be framed as a searchable, preserved app list");
 assert.match(dashboardSource, /document\.querySelector\("\.legacy-apps-disclosure"\)/, "legacy app navigation must reuse the existing disclosure");
 assert.match(dashboardSource, /"\.legacy-apps-section"/, "NOVA must hide the legacy app list until the user explicitly opens it");
 assert.match(dashboardSource, /function revealLegacyApps\(\)/, "legacy app navigation must reveal the preserved app list only on demand");
@@ -173,12 +204,22 @@ assert.match(dashboardSource, /card\.dataset\.naviTodayState = "ready"/, "Today 
 assert.match(dashboardSource, /card\.setAttribute\("aria-busy", "false"\)/, "Today cards must clear busy state after a verified value arrives");
 assert.match(dashboardSource, /\.navi-today-grid"\)\?\.setAttribute\("aria-live", "polite"\)/, "Today updates must be announced without exposing raw data");
 assert.match(naviStylesSource, /\.navi-today-card\[data-navi-today-state="ready"\]/, "Today ready state must have a distinct visual treatment");
+assert.match(dashboardSource, /今日の状況/, "Platform Home must provide a role-oriented Today summary surface");
+assert.match(dashboardSource, /今日やること/, "Platform Home must provide a clear daily task surface");
+assert.match(dashboardSource, /お気に入りアプリ/, "Platform Home must provide role-aware favorites");
+assert.match(dashboardSource, /className = "navi-ai-launcher"/, "AI launcher must remain a local NOV NAVI control");
+assert.match(dashboardSource, /onOpenSupport\(""\)/, "AI launcher must reuse the existing support path without creating a new runtime");
+assert.match(naviStylesSource, /\.navi-summary-grid \{[^}]*repeat\(6/, "desktop summary must support the role-oriented six-card executive view");
+assert.match(naviStylesSource, /\.navi-ai-launcher \{[^}]*min-height: 44px/, "AI launcher must preserve the shared minimum touch target");
+assert.match(naviStylesSource, /\.navi-summary-grid, \.navi-favorites-grid \{[^}]*repeat\(2/, "mobile summary and favorites must remain two-column layouts");
 assert.match(dashboardSource, /onOpenNotice\(notice\)/, "NOVA notices must use the existing HUB handler");
 assert.doesNotMatch(dashboardSource, /localStorage|sessionStorage|handoff_code|sessionToken/, "NOVA dashboard must not store or transport auth material");
 assert.match(dashboardSource, /await onOpenApp\(app\)/, "NOVA cards must await the existing app launcher");
 assert.match(dashboardSource, /button\.disabled = true/, "NOVA cards must prevent duplicate launch clicks");
 assert.match(dashboardSource, /button\.disabled = false/, "NOVA cards must recover after the existing launcher returns");
 assert.match(portalIndexSource, /<button class="navi-notification-hint"[^>]*type="button"/, "header notification hint must be a button");
+assert.match(portalIndexSource, /id="navi-current-datetime"/, "Platform Home header must reserve a current-date display");
+assert.match(mainSource, /new Intl\.DateTimeFormat\("ja-JP"/, "header date display must be localized without a new API dependency");
 assert.match(mainSource, /function focusNaviNotices\(\)/, "header notification hint must have a NOV NAVI notice handler");
 assert.match(mainSource, /naviNotificationHint\.addEventListener\("click", focusNaviNotices\)/, "header notification hint must use its safe local handler");
 assert.match(mainSource, /setAttribute\("aria-label", `未読通知 \$\{count\}件を確認`\)/, "notification hint must announce unread count without exposing notice data");

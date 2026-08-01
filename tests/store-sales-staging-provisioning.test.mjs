@@ -9,6 +9,9 @@ const comparison = await readFile(resolve(root, "staging-project-options-compari
 const secrets = await readFile(resolve(root, "secret-inventory.md"), "utf8");
 const board = await readFile(resolve(root, "human-action-board.md"), "utf8");
 const summary = await readFile(resolve(root, "final-summary.md"), "utf8");
+const sandbox = await readFile(resolve(root, "sandbox_inventory.md"), "utf8");
+const cleanup = await readFile(resolve(root, "cleanup_plan.md"), "utf8");
+const reuse = await readFile(resolve(root, "reuse_readiness.md"), "utf8");
 
 assert.match(inventory, /not selectable by inference/);
 assert.match(project, /Decision pending options comparison/);
@@ -20,5 +23,10 @@ assert.match(secrets, /Sensitive secrets: 3/);
 assert.match(secrets, /Protected configuration and approval entries: 4/);
 assert.match(board, /\| 7\. Approve and execute one deploy\/E2E window/);
 assert.match(summary, /CONDITIONAL PASS/);
-assert.doesNotMatch(`${inventory}\n${project}\n${comparison}\n${secrets}\n${board}\n${summary}`, /postgres(?:ql)?:\/\/[^\s]+|sb_secret_[^\s]+/i);
-process.stdout.write("RESULT staging provisioning package compares existing and new project options without selection PASS\n");
+assert.match(sandbox, /Deployed Functions \| `0`/);
+assert.match(sandbox, /Registered Secret names \| `0`/);
+assert.match(sandbox, /not verified/);
+assert.match(cleanup, /no Function deletion/);
+assert.match(reuse, /# Reuse possible/);
+assert.doesNotMatch(`${inventory}\n${project}\n${comparison}\n${secrets}\n${board}\n${summary}\n${sandbox}\n${cleanup}\n${reuse}`, /postgres(?:ql)?:\/\/[^\s]+|sb_secret_[^\s]+|zgkoofphhivesclehrom/i);
+process.stdout.write("RESULT staging provisioning and sandbox reuse inventory are safe and static PASS\n");

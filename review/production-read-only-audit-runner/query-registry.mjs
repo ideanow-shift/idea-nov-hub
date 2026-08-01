@@ -1,0 +1,58 @@
+export const AUDIT_PACK_ID = 'core-store-master-fact-verification-v1';
+
+const readOnly = (queryId, purpose, sql, expectedColumns, sensitiveFields = []) => Object.freeze({
+  queryId,
+  purpose,
+  sql,
+  allowedSchemas: ['information_schema', 'pg_catalog', 'public', 'core'],
+  expectedColumns,
+  maximumRows: 1000,
+  timeoutMs: 5000,
+  sensitiveFields,
+  sanitizationRule: 'fixed-metrics-only',
+  resultSchema: 'audit-metadata-v1',
+  failureCode: 'AUDIT_QUERY_FAILED',
+});
+
+// These statements are immutable review artifacts. The runner never accepts SQL text.
+export const FIXED_QUERY_REGISTRY = Object.freeze([
+  readOnly('Q01_SCHEMA_CATALOG', 'List approved schema presence only',
+    "SELECT schema_name FROM information_schema.schemata WHERE schema_name IN ('public', 'core') ORDER BY schema_name",
+    ['schema_name']),
+  readOnly('Q02_STORE_TABLE_CANDIDATES', 'Identify store relations and relation kinds',
+    "SELECT n.nspname AS schema_name, c.relname AS relation_name, c.relkind AS relation_kind FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname IN ('public', 'core') AND c.relname ILIKE '%store%' AND c.relkind IN ('r', 'v', 'm') ORDER BY n.nspname, c.relname",
+    ['schema_name', 'relation_name', 'relation_kind']),
+  readOnly('Q03_PUBLIC_STORES_COUNT', 'Count public stores only',
+    'SELECT COUNT(*)::bigint AS row_count FROM public.stores',
+    ['row_count']),
+  readOnly('Q04_CORE_STORES_COUNT', 'Count core stores only',
+    'SELECT COUNT(*)::bigint AS row_count FROM core.stores',
+    ['row_count']),
+  readOnly('Q05_CURRENT_STORE_IDENTITY', 'Return store identity column shape, not row data',
+    "SELECT table_schema AS schema_name, table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema IN ('public', 'core') AND table_name = 'stores' ORDER BY table_schema, ordinal_position",
+    ['schema_name', 'table_name', 'column_name', 'data_type', 'is_nullable']),
+  readOnly('Q06_TOKOROZAWA_CANDIDATES', 'Count fixed-name Tokorozawa candidates by schema only',
+    "SELECT 'public' AS schema_name, COUNT(*)::bigint AS candidate_count FROM public.stores WHERE official_name = '所沢店' UNION ALL SELECT 'core' AS schema_name, COUNT(*)::bigint AS candidate_count FROM core.stores WHERE official_name = '所沢店' ORDER BY schema_name",
+    ['schema_name', 'candidate_count']),
+  readOnly('Q07_STORE_FK_REFERENCE_COUNTS', 'Count foreign keys targeting store relations',
+    "SELECT ns.nspname AS schema_name, cl.relname AS relation_name, COUNT(*)::bigint AS foreign_key_count FROM pg_catalog.pg_constraint co JOIN pg_catalog.pg_class cl ON cl.oid = co.conrelid JOIN pg_catalog.pg_namespace ns ON ns.oid = cl.relnamespace JOIN pg_catalog.pg_class target ON target.oid = co.confrelid JOIN pg_catalog.pg_namespace target_ns ON target_ns.oid = target.relnamespace WHERE co.contype = 'f' AND ((target_ns.nspname = 'public' AND target.relname = 'stores') OR (target_ns.nspname = 'core' AND target.relname = 'stores')) GROUP BY ns.nspname, cl.relname ORDER BY ns.nspname, cl.relname",
+    ['schema_name', 'relation_name', 'foreign_key_count']),
+  readOnly('Q08_STORE_VIEW_REFERENCES', 'Count views with declared store dependency',
+    "SELECT view_ns.nspname AS schema_name, view_cl.relname AS view_name, COUNT(*)::bigint AS dependency_count FROM pg_catalog.pg_rewrite rw JOIN pg_catalog.pg_class view_cl ON view_cl.oid = rw.ev_class JOIN pg_catalog.pg_namespace view_ns ON view_ns.oid = view_cl.relnamespace JOIN pg_catalog.pg_depend dep ON dep.objid = rw.oid JOIN pg_catalog.pg_class ref_cl ON ref_cl.oid = dep.refobjid JOIN pg_catalog.pg_namespace ref_ns ON ref_ns.oid = ref_cl.relnamespace WHERE view_cl.relkind IN ('v', 'm') AND ((ref_ns.nspname = 'public' AND ref_cl.relname = 'stores') OR (ref_ns.nspname = 'core' AND ref_cl.relname = 'stores')) GROUP BY view_ns.nspname, view_cl.relname ORDER BY view_ns.nspname, view_cl.relname",
+    ['schema_name', 'view_name', 'dependency_count']),
+  readOnly('Q09_STORE_FUNCTION_REFERENCES', 'Count function dependency metadata without definitions',
+    "SELECT proc_ns.nspname AS schema_name, COUNT(*)::bigint AS function_count FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace proc_ns ON proc_ns.oid = p.pronamespace JOIN pg_catalog.pg_depend dep ON dep.objid = p.oid JOIN pg_catalog.pg_class ref_cl ON ref_cl.oid = dep.refobjid JOIN pg_catalog.pg_namespace ref_ns ON ref_ns.oid = ref_cl.relnamespace WHERE ((ref_ns.nspname = 'public' AND ref_cl.relname = 'stores') OR (ref_ns.nspname = 'core' AND ref_cl.relname = 'stores')) GROUP BY proc_ns.nspname ORDER BY proc_ns.nspname",
+    ['schema_name', 'function_count']),
+  readOnly('Q10_STORE_OPERATION_HISTORY', 'Identify store operation history relation shape',
+    "SELECT table_schema AS schema_name, table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'store_operation_history' AND table_schema IN ('public', 'core') ORDER BY table_schema, ordinal_position",
+    ['schema_name', 'table_name', 'column_name', 'data_type', 'is_nullable']),
+  readOnly('Q11_RLS_AND_POLICIES', 'Report RLS and policy presence for store relations',
+    "SELECT n.nspname AS schema_name, c.relname AS relation_name, c.relrowsecurity AS rls_enabled, COUNT(p.polname)::bigint AS policy_count FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace LEFT JOIN pg_catalog.pg_policy p ON p.polrelid = c.oid WHERE ((n.nspname = 'public' AND c.relname = 'stores') OR (n.nspname = 'core' AND c.relname = 'stores')) GROUP BY n.nspname, c.relname, c.relrowsecurity ORDER BY n.nspname",
+    ['schema_name', 'relation_name', 'rls_enabled', 'policy_count']),
+  readOnly('Q12_READONLY_GUARD_VERIFICATION', 'Verify transaction guard only',
+    "SELECT current_setting('transaction_read_only') AS transaction_read_only",
+    ['transaction_read_only']),
+]);
+
+export const QUERY_IDS = Object.freeze(FIXED_QUERY_REGISTRY.map(({ queryId }) => queryId));
+export const getFixedQuery = (queryId) => FIXED_QUERY_REGISTRY.find((query) => query.queryId === queryId) ?? null;

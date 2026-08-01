@@ -149,6 +149,24 @@ export function createStoreSalesRuntime(options = {}) {
     }
   }
 
+  async function loadStore({ period, storeId } = {}) {
+    if (period) lastPeriod = period;
+    if (!adapter) await configureAdapter();
+    if (typeof adapter?.loadStore !== "function") {
+      throw Object.assign(new Error("Store detail endpoint is unavailable."), { code: "NOT_FOUND", status: 404 });
+    }
+    const sequence = ++loadSequence;
+    publish({ status: "loading", presentation: runtimePresentation("loading") });
+    try {
+      const projection = await adapter.loadStore({ period: lastPeriod, storeId });
+      if (sequence !== loadSequence) return snapshot;
+      return publish({ status: "ready", projection, presentation: runtimePresentation("ready") });
+    } catch (error) {
+      if (sequence !== loadSequence || error?.code === "REQUEST_ABORTED") return snapshot;
+      return handleError(error);
+    }
+  }
+
   function handleError(error) {
     const mapped = mapRuntimeError(error, {
       sessionStatus: error?.sessionStatus,
@@ -191,6 +209,7 @@ export function createStoreSalesRuntime(options = {}) {
   return Object.freeze({
     initialize,
     load,
+    loadStore,
     retry,
     updateSession,
     switchProjection,

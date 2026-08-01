@@ -55,6 +55,11 @@ export function wireProjection(overrides = {}) {
     meta: {
       sales_period: "2026-07",
       accounting_confirmed_through_period: "2026-06",
+      profit_state: "confirmed",
+      confirmed_through_period: "2026-06",
+      profit_definition: "store_operating_profit",
+      operating_margin_definition: "operating_profit_over_sales_net",
+      head_office_allocation_included: false,
       confirmation_state: "available",
       last_updated_at: "2026-07-15T09:30:00+09:00",
       actor_scope: "all_group",

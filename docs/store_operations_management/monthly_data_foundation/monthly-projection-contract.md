@@ -30,8 +30,9 @@ confirmed_through_period
 ```
 
 FC profit is `unavailable` in V1. Headquarters allocation, customer counts, and
-unit prices are outside V1. EC department totals are not allocated to a store without
-an approved allocation contract. Every returned record is filtered by the resolved
+unit prices are outside V1. Headquarters and EC P/L are contextual sources only;
+their totals are not allocated to a store without an approved allocation contract.
+Every returned record is filtered by the resolved
 server-side role and Store Scope.
 
 ## User display mapping

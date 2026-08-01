@@ -14,14 +14,13 @@ database change, migration, UI change, deployment, or Production access.
 ## Evidence and scope
 
 The repository structure audit recorded one historical reference workbook with 76
-sheets: 38 P/L and 38 B/S. Its P/L sheets used the annual-trial-balance report
-anchor, a tax-excluded basis, and monthly columns. The reference audit is evidence
-for this profile, not proof of the next received workbook. Every new workbook must
-be profiled in dry-run before it is eligible for review.
+sheets: 38 P/L and 38 B/S. This is layout evidence only; V1 does not adopt all 76
+sheets as its source scope. Every new workbook must be profiled in dry-run before it
+is eligible for review.
 
-V1 reads P/L sheets only. B/S, aggregate, headquarters, common-department, and
-unmapped sheets are classified then excluded from Store Operations facts unless a
-separately approved mapping explicitly permits a non-store aggregate.
+V1 reads only selected P/L sheets: Direct 13, FC 7, and explicitly approved
+headquarters/EC sheets for required contextual items. B/S, unselected P/L,
+aggregate, common-department, comparison, and reference sheets are outside V1.
 
 ## Workbook acceptance profile
 
@@ -31,7 +30,7 @@ separately approved mapping explicitly permits a non-store aggregate.
 | Statement type | P/L classifier confirms each enabled sheet; sheet ordinal alone is never evidence | reject enabled sheet and block publication |
 | Tax basis | tax-excluded | reject whole workbook |
 | Periods | actual month labels map unambiguously to `YYYY-MM` using the stated fiscal period | reject whole workbook |
-| Mapping | each observed sheet has one effective mapping or an explicit excluded status | reject whole workbook |
+| Mapping | each selected P/L sheet has one effective mapping; excluded sheets have no mapping obligation | reject whole workbook |
 | Store composition | enabled store rows resolve to canonical `store_id` and validate 20 / Direct 13 / FC 7 | reject whole workbook |
 | Source integrity | immutable workbook SHA-256, profile version, sheet-map version, and account-map version | reject duplicate or drifted input |
 
@@ -62,8 +61,8 @@ only when confirmed `operating_profit` and `monthly_sales` are both present.
   monthly facts.
 - A future or unconfirmed period is `preparing` internally and shown as `集計中`;
   it is never published as zero.
-- Aggregate, headquarters, common, FC-total, and EC-department sheets must not be
-  summed with leaf stores. Their use requires an explicit aggregation contract.
+- Headquarters and EC P/L sheets are read only for explicitly approved contextual
+  metrics. They must not be summed with or allocated to leaf stores.
 - FC operating profit remains `unavailable` in V1 even if an accounting value is
   present. Headquarters allocation is outside V1.
 

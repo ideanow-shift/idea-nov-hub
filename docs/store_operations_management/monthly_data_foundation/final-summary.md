@@ -11,8 +11,9 @@ database change, or a runtime connection.
 - Supabase is the formal Corporation, Store, and Employee Master source.
 - One Yayoi Accounting `残高試算表（年間推移）` workbook is the physical source for
   monthly sales, profit, EC sales, and product sales. The values are four logical
-  metrics extracted from approved P/L sheet and account mappings; sheet labels are
-  never store identifiers.
+  metrics extracted from selected Store P/L (Direct 13 and FC 7) plus only required
+  headquarters/EC P/L mappings; sheet labels are never store identifiers. B/S and
+  unselected P/L sheets are outside V1.
 - Accounting uploads, reviews, and normally publishes. Rollback requires Accounting
   plus Representative approval; routine publication does not require Representative
   approval.

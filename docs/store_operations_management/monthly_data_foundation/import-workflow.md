@@ -2,8 +2,9 @@
 
 1. Select the approved Yayoi annual-trial-balance Workbook Profile.
 2. Read workbook metadata and calculate its file hash.
-3. Classify every sheet, accept P/L only, and validate report anchors, tax basis,
-   actual month headers, account contexts, and source identity.
+3. Select only fixed Direct-13, FC-7, and approved headquarters/EC P/L mappings;
+   validate their P/L anchors, tax basis, actual month headers, account contexts,
+   and source identity. Ignore excluded sheets.
 4. Run a dry-run against approved sheet-to-Master, Corporation, and Employee
    assignment mappings.
 5. Reject unmapped or ineffective sheets, duplicate canonical store IDs, ambiguous

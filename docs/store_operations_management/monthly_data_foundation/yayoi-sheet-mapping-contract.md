@@ -12,29 +12,28 @@ it is not a database table or seed.
 | Field | Rule |
 | --- | --- |
 | `yayoi_sheet_name` | exact workbook sheet label; unique within the profile version |
-| `entity_type` | `store`, `corporation`, `headquarters`, `common_department`, `ec_department`, `fc_group`, or `excluded` |
+| `entity_type` | `store`, `headquarters`, or `ec_department` for selected P/L rows |
 | `corporation_id` | canonical Corporation Master identifier when applicable; never inferred from the label |
 | `store_id` | canonical `public.stores` identifier for `entity_type=store`; otherwise `null` |
 | `direct_or_fc` | `direct`, `fc`, or `not_applicable` |
-| `import_enabled` | true only for an approved P/L leaf-store mapping |
+| `import_enabled` | true only for an approved selected P/L row; store rows require an allowed Store Operations metric purpose |
 | `effective_from` | inclusive mapping start in `YYYY-MM-DD` |
 | `effective_to` | approved mapping end or `null`; boundary semantics require Core Master approval before implementation |
 
-Recommended control fields are `statement_type`, `mapping_status`,
-`mapping_version`, `approved_by`, `approved_at`, and `reason`. They make excluded
-and historical rows auditable without retaining financial values.
+Recommended control fields are `statement_type`, `metric_purpose`,
+`mapping_version`, `approved_by`, `approved_at`, and `reason`.
 
 ## Mapping rules
 
-1. Create one classification row for every observed workbook sheet. The historical
-   reference structure requires 76 rows (38 P/L, 38 B/S); the actual incoming
-   workbook is re-counted during dry-run and must match its submitted map.
+1. Create mapping rows only for selected P/L sheets. The minimum enabled store set
+   is exactly 20 rows: Direct 13 plus FC 7. The historical 76-sheet structure does
+   not create a mapping obligation for excluded sheets.
 2. Only mapped P/L leaf-store rows with `import_enabled=true` may create a Store
    Operations metric. The target approved composition is 20 enabled stores: Direct
    13 and FC 7.
-3. B/S rows, whole-company totals, headquarters, common departments, FC groups,
-   EC departments, and historical or inactive sheets remain classified but disabled
-   unless another approved contract enables them.
+3. Headquarters and EC P/L mappings require a specific non-store `metric_purpose`.
+   B/S, whole-company totals, common departments, FC groups, historical, inactive,
+   and reference sheets are excluded with no mapping row.
 4. The mapping must use the canonical current Store Master `store_id`; it must not
    use a sheet name, a raw UUID, an alias guess, or a historical `core.stores` UUID.
 5. Tokorozawa's approved legacy UUID crosswalk is a Master-resolution control only.
@@ -53,8 +52,6 @@ require employee numbers in workbook rows.
 
 ## Current status
 
-The historical structure audit identifies 38 P/L sheets but includes whole-company,
-headquarters, common, EC, FC-group, and historical/store-candidate labels. It is
-therefore insufficient to state how many are current leaf-store P/L sheets. The
-current mapping has **zero approved enabled rows** until the actual workbook and
-the 20-store master are jointly reconciled.
+The current mapping has **zero approved enabled rows** until the actual workbook and
+the 20-store master are jointly reconciled. The historical 38 P/L count is not a
+V1 selected-sheet count.

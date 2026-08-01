@@ -47,19 +47,17 @@ export function createWorkQueueState(payload) {
     fixedCount: valid.metrics.fixedCount,
     migrationProgress: valid.metrics.migrationProgress,
     categoryCounts: valid.categoryCounts.map((entry) => ({ ...entry })),
-    items: valid.items.map((item) => ({ ...item, status: "PENDING" })),
-    currentIndex: 0,
+    items: valid.items.map((item) => ({ ...item, status: "PENDING", decision: null })),
     lastMessage: "今日の修正対象を確認してください。"
   };
 }
 
 export function getPendingItems(state) {
-  return state.items.filter((item) => item.status === "PENDING");
+  return state.items.filter((item) => ["PENDING", "CONFIRMED"].includes(item.status));
 }
 
 export function getCurrentItem(state) {
-  const pending = getPendingItems(state);
-  return pending[0] || null;
+  return state.items.find((item) => item.status !== "COMPLETED") || null;
 }
 
 export function getWorkQueueMetrics(state) {
@@ -74,21 +72,29 @@ export function getWorkQueueMetrics(state) {
 
 export function validateRepairDecision(item, decision) {
   if (!item || !decision || typeof decision !== "object") return false;
-  if (item.type === "DUPLICATE_CANDIDATE") return ["KEEP_A", "KEEP_B"].includes(decision.action);
+  if (item.type === "DUPLICATE_CANDIDATE") return ["KEEP_A", "KEEP_B", "HOLD"].includes(decision.action);
   if (item.type === "STATUS_MISSING") return ["REVIEW", "CONTACT", "SALON_TOUR", "INTERVIEW", "OFFER"].includes(decision.value);
   return typeof decision.value === "string" && decision.value.trim().length > 0 && decision.value.trim().length <= 120;
 }
 
-export function applyRepairDecision(state, itemId, decision) {
+export function confirmRepairDecision(state, itemId, decision) {
   const item = state.items.find((entry) => entry.id === itemId && entry.status === "PENDING");
   if (!item) return { state, category: "ITEM_NOT_PENDING" };
-  if (decision?.action === "HOLD") {
-    const nextItems = state.items.map((entry) => entry.id === itemId ? { ...entry, status: "HELD" } : entry);
-    return { state: { ...state, items: nextItems, lastMessage: "保留しました。次の件を表示します。" }, category: "HELD" };
-  }
   if (!validateRepairDecision(item, decision)) return { state, category: "DECISION_INVALID" };
+  const nextItems = state.items.map((entry) => entry.id === itemId
+    ? { ...entry, status: "CONFIRMED", decision: { ...decision } }
+    : entry);
+  return {
+    state: { ...state, items: nextItems, lastMessage: "修正内容を確認しました。正本Spreadsheetを修正してください。" },
+    category: "REPAIR_CONFIRMED"
+  };
+}
 
-  const nextItems = state.items.map((entry) => entry.id === itemId ? { ...entry, status: "FIXED" } : entry);
+export function markSpreadsheetFixed(state, itemId) {
+  const item = state.items.find((entry) => entry.id === itemId && entry.status === "CONFIRMED");
+  if (!item) return { state, category: "REPAIR_NOT_CONFIRMED" };
+
+  const nextItems = state.items.map((entry) => entry.id === itemId ? { ...entry, status: "SHEET_FIXED" } : entry);
   const categoryCounts = state.categoryCounts.map((entry) => entry.type === item.type && typeof entry.count === "number"
     ? { ...entry, count: Math.max(0, entry.count - 1) }
     : entry);
@@ -98,9 +104,19 @@ export function applyRepairDecision(state, itemId, decision) {
       items: nextItems,
       categoryCounts,
       fixedCount: state.fixedCount + 1,
-      lastMessage: "保存しました。次の件を表示します。"
+      lastMessage: "Spreadsheet修正済として確認しました。「次へ」で次の対象へ進みます。"
     },
-    category: "FIXED"
+    category: "SPREADSHEET_FIXED"
+  };
+}
+
+export function advanceWorkQueue(state, itemId) {
+  const item = state.items.find((entry) => entry.id === itemId && entry.status === "SHEET_FIXED");
+  if (!item) return { state, category: "SPREADSHEET_NOT_FIXED" };
+  const nextItems = state.items.map((entry) => entry.id === itemId ? { ...entry, status: "COMPLETED" } : entry);
+  return {
+    state: { ...state, items: nextItems, lastMessage: "次の修正対象を表示しました。" },
+    category: "ADVANCED"
   };
 }
 
@@ -120,7 +136,7 @@ function createDecisionControl(documentObject, item) {
   fieldset.append(legend);
 
   if (item.type === "DUPLICATE_CANDIDATE") {
-    for (const [value, label] of [["KEEP_A", "候補Aを正として採用"], ["KEEP_B", "候補Bを正として採用"]]) {
+    for (const [value, label] of [["KEEP_A", "候補Aを正として採用"], ["KEEP_B", "候補Bを正として採用"], ["HOLD", "Spreadsheet上で保留"]]) {
       const choice = documentObject.createElement("label");
       const input = documentObject.createElement("input");
       input.type = "radio";
@@ -164,7 +180,7 @@ export function renderWorkQueue(documentObject, state, onChange) {
   summary.className = "queue-summary";
   addText(documentObject, summary, "p", "DATA INTEGRITY WORK QUEUE", "eyebrow");
   addText(documentObject, summary, "h1", "今日修正するデータ");
-  addText(documentObject, summary, "p", current ? `残り${metrics.remainingCount}件。修正して保存すると次の件へ進みます。` : "本日の修正対象は完了しました。", "queue-lead");
+  addText(documentObject, summary, "p", current ? `残り${metrics.remainingCount}件。修正内容を確認し、正本Spreadsheetの修正後に次へ進みます。` : "本日の修正対象は完了しました。", "queue-lead");
   root.append(summary);
 
   const kpis = documentObject.createElement("section");
@@ -209,19 +225,29 @@ export function renderWorkQueue(documentObject, state, onChange) {
     addText(documentObject, facts, "dt", term);
     addText(documentObject, facts, "dd", value);
   }
-  repair.append(facts, createDecisionControl(documentObject, current));
+  repair.append(facts);
+  if (current.status === "PENDING") {
+    repair.append(createDecisionControl(documentObject, current));
+  } else {
+    addText(documentObject, repair, "p", current.status === "CONFIRMED"
+      ? "確認した内容で正本Spreadsheetを修正してください。"
+      : "Spreadsheet修正済です。次の対象へ進めます。", "spreadsheet-instruction");
+  }
   const actions = documentObject.createElement("div");
   actions.className = "repair-actions";
-  const save = documentObject.createElement("button");
-  save.type = "button";
-  save.textContent = "保存して次へ";
-  save.addEventListener("click", () => onChange(applyRepairDecision(state, current.id, readDecision(documentObject, current))));
-  const hold = documentObject.createElement("button");
-  hold.type = "button";
-  hold.className = "secondary";
-  hold.textContent = "保留して次へ";
-  hold.addEventListener("click", () => onChange(applyRepairDecision(state, current.id, { action: "HOLD" })));
-  actions.append(save, hold);
+  const primary = documentObject.createElement("button");
+  primary.type = "button";
+  if (current.status === "PENDING") {
+    primary.textContent = "修正内容を確認";
+    primary.addEventListener("click", () => onChange(confirmRepairDecision(state, current.id, readDecision(documentObject, current))));
+  } else if (current.status === "CONFIRMED") {
+    primary.textContent = "Spreadsheet修正済";
+    primary.addEventListener("click", () => onChange(markSpreadsheetFixed(state, current.id)));
+  } else {
+    primary.textContent = "次へ";
+    primary.addEventListener("click", () => onChange(advanceWorkQueue(state, current.id)));
+  }
+  actions.append(primary);
   repair.append(actions);
   addText(documentObject, repair, "p", state.lastMessage, "queue-message");
   workspace.append(repair);
@@ -237,7 +263,7 @@ export function renderWorkQueue(documentObject, state, onChange) {
 
   const boundary = documentObject.createElement("p");
   boundary.className = "mock-boundary";
-  boundary.textContent = "ローカルMock確認中です。保存内容は正式データへ反映されません。";
+  boundary.textContent = "正本は総務人事部管理のSpreadsheetです。Work Queueは修正対象の確認だけを行い、DB保存は行いません。";
   root.append(boundary);
 }
 

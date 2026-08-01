@@ -6,7 +6,10 @@
 総務人事部修正版Source
   → 不足・重複検出
   → 今日のWork Queue
-  → 1件修正 / 保留
+  → 修正内容を確認
+  → 正本Spreadsheetを1件修正
+  → Spreadsheet修正済を確認
+  → 次の1件
   → 再検証
   → 整合率更新
   → 100%でMigration可否判定
@@ -34,3 +37,5 @@
 ## 未達時の制約
 
 整合率100%までUI改善、分析、ROI、イベント分析、学校分析、CSV画面、Migration画面、新機能追加を行わない。
+
+Work Queueは修正対象を管理するだけで、NOV Talent・DB・Productionへの保存を行わない。

@@ -5,11 +5,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  applyRepairDecision,
+  advanceWorkQueue,
+  confirmRepairDecision,
   createWorkQueueState,
   getCurrentItem,
   getPendingItems,
   getWorkQueueMetrics,
+  markSpreadsheetFixed,
   validateRepairDecision,
   validateWorkQueuePayload
 } from "../portal/talent/data-integrity-work-queue.mjs";
@@ -18,6 +20,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const seed = JSON.parse(fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-work-queue.seed.json"), "utf8"));
 const html = fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-work-queue.html"), "utf8");
 const css = fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-work-queue.css"), "utf8");
+const source = fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-work-queue.mjs"), "utf8");
 
 test("work queue contains only the 17 confirmed daily corrections", () => {
   assert.equal(validateWorkQueuePayload(seed), seed);
@@ -39,34 +42,53 @@ test("fixed schema exposes only the four approved KPIs", () => {
   assert.equal(metrics.integrityRate, "未算出");
 });
 
-test("one valid repair advances exactly one item", () => {
+test("one repair requires confirmation, spreadsheet completion, then next", () => {
   const state = createWorkQueueState(seed);
   const current = getCurrentItem(state);
-  const result = applyRepairDecision(state, current.id, { value: "確認済み学校" });
-  assert.equal(result.category, "FIXED");
-  assert.equal(result.state.fixedCount, 1);
-  assert.equal(getPendingItems(result.state).length, 16);
-  assert.notEqual(getCurrentItem(result.state).id, current.id);
+  const confirmed = confirmRepairDecision(state, current.id, { value: "確認済み学校" });
+  assert.equal(confirmed.category, "REPAIR_CONFIRMED");
+  assert.equal(confirmed.state.fixedCount, 0);
+  assert.equal(getCurrentItem(confirmed.state).id, current.id);
+  const sheetFixed = markSpreadsheetFixed(confirmed.state, current.id);
+  assert.equal(sheetFixed.category, "SPREADSHEET_FIXED");
+  assert.equal(sheetFixed.state.fixedCount, 1);
+  assert.equal(getPendingItems(sheetFixed.state).length, 16);
+  assert.equal(getCurrentItem(sheetFixed.state).id, current.id);
+  const advanced = advanceWorkQueue(sheetFixed.state, current.id);
+  assert.equal(advanced.category, "ADVANCED");
+  assert.notEqual(getCurrentItem(advanced.state).id, current.id);
 });
 
 test("invalid repair does not advance the queue", () => {
   const state = createWorkQueueState(seed);
   const current = getCurrentItem(state);
   assert.equal(validateRepairDecision(current, { value: "" }), false);
-  const result = applyRepairDecision(state, current.id, { value: "" });
+  const result = confirmRepairDecision(state, current.id, { value: "" });
   assert.equal(result.category, "DECISION_INVALID");
   assert.equal(result.state, state);
 });
 
-test("duplicate decisions require one candidate or hold", () => {
+test("duplicate decisions require one candidate or spreadsheet hold", () => {
   const state = createWorkQueueState(seed);
   const duplicate = state.items.find((item) => item.type === "DUPLICATE_CANDIDATE");
   assert.equal(validateRepairDecision(duplicate, { action: "KEEP_A" }), true);
   assert.equal(validateRepairDecision(duplicate, { action: "KEEP_B" }), true);
   assert.equal(validateRepairDecision(duplicate, { action: "MERGE_AUTOMATIC" }), false);
-  const held = applyRepairDecision(state, duplicate.id, { action: "HOLD" });
-  assert.equal(held.category, "HELD");
-  assert.equal(held.state.fixedCount, 0);
+  assert.equal(validateRepairDecision(duplicate, { action: "HOLD" }), true);
+});
+
+test("spreadsheet completion cannot be skipped and no save action remains", () => {
+  const state = createWorkQueueState(seed);
+  const current = getCurrentItem(state);
+  assert.equal(markSpreadsheetFixed(state, current.id).category, "REPAIR_NOT_CONFIRMED");
+  assert.equal(advanceWorkQueue(state, current.id).category, "SPREADSHEET_NOT_FIXED");
+  assert.doesNotMatch(source, /保存して次へ|保留して次へ/);
+});
+
+test("work queue has no browser or network persistence path", () => {
+  assert.doesNotMatch(source, /localStorage|sessionStorage|indexedDB|navigator\.sendBeacon/);
+  assert.doesNotMatch(source, /method\s*:\s*["'](?:POST|PUT|PATCH|DELETE)["']/i);
+  assert.doesNotMatch(source, /supabase|rpc\s*\(|database/i);
 });
 
 test("queue stays standalone and excludes prohibited analysis screens", () => {

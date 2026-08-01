@@ -2,15 +2,22 @@
 
 ## Decision
 
-**CONDITIONAL PASS.** The monthly foundation is specified well enough to build after
-the remaining authoritative-source and governance approvals. It does not authorize
-an import implementation, a database change, or a runtime connection.
+**CONDITIONAL PASS.** The V1 source, publication, and AM-assignment specifications
+are now fixed. This documentation does not authorize an import implementation, a
+database change, or a runtime connection.
 
 ## Defined V1 boundary
 
-- Monthly approved CSV is the V1 transaction input; real-time, daily, and weekly
-  sources are out of scope.
-- Four CSV types are normalized through a controlled import workflow.
+- Supabase is the formal Corporation, Store, and Employee Master source.
+- Yayoi Accounting CSV is the formal source for monthly sales, profit, EC sales,
+  and product sales. Each type is one all-20-store CSV per month.
+- Accounting uploads, reviews, and normally publishes. Rollback requires Accounting
+  plus Representative approval; routine publication does not require Representative
+  approval.
+- Employee Master is the formal AM source, with multiple effective-dated assigned
+  stores. AMs without an effective assignment remain deny-by-default.
+- Daily and weekly analysis is V2 after POS bulk export is available, using one
+  store file at a time.
 - Canonical store, corporation, and employee identifiers are mandatory; names are
   never inferred.
 - Published records alone are visible to Store Operations, filtered server-side by
@@ -20,11 +27,10 @@ an import implementation, a database change, or a runtime connection.
 
 ## Remaining human decisions
 
-1. Approve the exact authoritative sources and owners for each CSV type.
-2. Confirm corporation and employee master sources and effective-period semantics.
-3. Approve the AM assignment source before AM scope can be granted.
-4. Approve publisher separation, retention, correction, and rollback authorities.
-5. Approve the physical schema, API contract, and staging implementation in a later
+1. Approve the physical Employee Master representation for effective-dated multiple
+   store assignments.
+2. Approve retention, correction, and audit-evidence duration.
+3. Approve the physical schema, API contract, and staging implementation in a later
    sprint.
 
 ## No operational change

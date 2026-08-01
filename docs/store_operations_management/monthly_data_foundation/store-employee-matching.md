@@ -14,11 +14,16 @@ to infer a match.
 3. A missing, duplicate, inactive, or cross-corporation match is a rejection.
 4. The approved Tokorozawa legacy UUID crosswalk is applied only by the controlled
    server-side matching boundary; UUIDs are not distributed in a CSV.
-5. AM scope is not inferred. Until an approved assignment source exists, an AM
-   receives an empty scope or `403`, depending on the requested route.
+5. The Supabase Employee Master is the formal AM-assignment source. It holds one or
+   more approved `assigned_store_ids` with `assignment_effective_from` and
+   `assignment_effective_to` for each assignment.
+6. A Store Scope includes only assignments effective for the requested period.
+   Expired, future, missing, duplicate, or invalid assignments are excluded.
+7. AM scope is never inferred. An AM with no effective assignment receives an empty
+   scope or `403`, depending on the requested route.
 
 ## Evidence needed before implementation
 
-The canonical employee and corporation master sources, their effective periods, and
-the AM assignment source remain approval gates. This document defines the contract,
-not a data update.
+Employee and corporation master implementation details, including the physical
+representation for multiple effective-dated store assignments, remain a separately
+approved change. This document defines the contract, not a data update.

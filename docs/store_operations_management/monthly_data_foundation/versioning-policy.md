@@ -16,7 +16,9 @@ compatible `published` version for each period and CSV type.
 
 - A version carries its source filename, source-file hash, row count, actor
   identifier, timestamps, validation result, and approval reference.
-- Publication requires an authorized accounting approver; upload does not publish.
+- Accounting performs upload, review, and normal publication; upload does not
+  publish by itself.
+- Representative approval is required only for exception handling or rollback.
 - A historical correction is visible as a newer version and must state its reason.
 - Replaying an identical hash for the same type and period is rejected unless an
   approved exception is recorded.

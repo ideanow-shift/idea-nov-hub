@@ -5,9 +5,12 @@
 1. `monthly_sales`
 2. `monthly_profit`
 3. `monthly_ec_sales`
-4. `monthly_workforce_sales`
+4. `monthly_product_sales`
 
 Every file must declare a single CSV type, target period in `YYYY-MM`, source file name, source version, file hash, and import version. A file that combines types, periods, or unapproved headers is rejected.
+
+Each monthly file covers all 20 approved stores. V1 does not accept per-store files.
+All four V1 types are sourced from Yayoi Accounting CSV exports.
 
 ## Common normalized input fields
 

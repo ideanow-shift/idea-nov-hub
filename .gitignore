@@ -3,3 +3,14 @@ Thumbs.db
 .firebase/
 firebase-debug.log
 supabase/.temp/
+
+# Accounting Core private inputs and local prototype state
+*.xlsx
+*.xls
+*.pdf
+*.sqlite
+*.sqlite3
+accounting-private/
+outputs/accounting/
+__pycache__/
+*.py[cod]

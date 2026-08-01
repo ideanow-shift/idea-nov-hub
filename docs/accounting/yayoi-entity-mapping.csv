@@ -1,0 +1,39 @@
+弥生会計上の名称,種別,Core DB候補,対応ID候補,一致状況,対応方針,要確認理由
+全体(合計),法人集計,public.corporations: IDEA NOV,Unknown,部分一致,手動確認,弥生は正式法人名・Core候補はブランド表記でありUUID未取得
+本部,集計ノード,該当なし,該当なし,不一致,Accounting集計node,Core department単体へ割り当てない
+本部･営業,部門,public.departments: 営業部,Unknown,部分一致,手動確認,会計部門とCore部門の有効期間確認
+本部･教育(合計),部門群集計,該当なし,該当なし,不一致,Accounting集計node,教育部内訳のrollup
+教育･アカデミー,部門,public.departments: 教育部,Unknown,部分一致,手動確認,Coreにsubdepartmentがあるか未確認
+本部･教育(共通),共通部門,public.departments: 教育部,Unknown,部分一致,手動確認,共通費を教育部へ含めるか確認
+本部･総務,部門,public.departments: 総務人事部,Unknown,部分一致,手動確認,総務と人事を会計上分離していない可能性
+本部･経理,部門,public.departments: 経理部,Unknown,部分一致,手動確認,UUID未取得
+KYARA HALF,店舗候補,public.stores: KYARA HALF,Unknown,名称候補一致,手動確認,法人帰属・直営FC区分・営業期間未確認
+BASSA新所沢店,店舗候補,public.stores: BASSA新所沢店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+BASSA所沢店,店舗候補,public.stores: BASSA所沢店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+BASSA久米川店,店舗候補,public.stores: BASSA久米川店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+BASSA国分寺店,店舗候補,public.stores: BASSA国分寺店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+BASSA高田馬場店,店舗候補,public.stores: BASSA高田馬場店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+BASSA上石神井店,店舗候補,public.stores: BASSA上石神井店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+BASSA保谷店,店舗候補,public.stores: BASSA保谷店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+BASSA東大和店,店舗候補,public.stores: BASSA東大和店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+BASSA下井草店,店舗候補,public.stores: BASSA下井草店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+BASSA石神井公園店,店舗候補,public.stores: BASSA石神井公園店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+BASSA東久留米店,店舗候補,public.stores: BASSA東久留米店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+BASSA江古田店,店舗候補,public.stores: BASSA江古田店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+BASSA花小金井店,店舗候補,public.stores: BASSA花小金井店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+BASSAアネックス店,店舗候補,public.stores: BASSAアネックス店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+BASSA池袋店,店舗候補,public.stores: BASSA池袋店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+BASSA野方店,店舗候補,public.stores: BASSA野方店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+BASSA立川店,店舗候補,public.stores: BASSA立川店,Unknown,名称候補一致,手動確認,Core実値と法人帰属を未取得
+EC事業部,部門,public.departments: EC事業部,Unknown,名称候補一致,手動確認,department UUIDと会計期間中の組織状態未確認
+FC(合計),FC群集計,該当なし,該当なし,不一致,Accounting集計node,法人ではなく会計部門rollupの可能性
+FC新所沢,FC店舗候補,public.stores: BASSA新所沢店,Unknown,部分一致,手動確認,FC法人・店舗・BASSA名sheetとの関係未確認
+FC国分寺,FC店舗候補,public.stores: BASSA国分寺店,Unknown,部分一致,手動確認,FC法人・店舗・BASSA名sheetとの関係未確認
+FC鷺ノ宮,FC店舗候補,public.stores: 鷺ノ宮名称候補,Unknown,部分一致,手動確認,Core正式店舗名と法人未確認
+FC久米川,FC店舗候補,public.stores: BASSA久米川店,Unknown,部分一致,手動確認,FC法人・店舗・BASSA名sheetとの関係未確認
+FC花小金井,FC店舗候補,public.stores: BASSA花小金井店,Unknown,部分一致,手動確認,FC法人・店舗・BASSA名sheetとの関係未確認
+FC東久留米,FC店舗候補,public.stores: BASSA東久留米店,Unknown,部分一致,手動確認,FC法人・店舗・BASSA名sheetとの関係未確認
+FC立川,FC店舗候補,public.stores: BASSA立川店,Unknown,部分一致,手動確認,FC法人・店舗・BASSA名sheetとの関係未確認
+FCロアネ,FC店舗候補,public.stores: ロアネ名称候補,Unknown,部分一致,手動確認,Core正式店舗名と法人未確認
+FC(共通),共通部門,該当なし,該当なし,不一致,Accounting共通費node,FC各店へ配賦するか別表示か未決定
+全体(共通),共通部門,該当なし,該当なし,不一致,Accounting共通費node,全社共通費の配賦rule未決定

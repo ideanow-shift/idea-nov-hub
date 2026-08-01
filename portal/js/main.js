@@ -32,6 +32,7 @@ import {
 } from "./nov-hub-session-candidate.js?v=hub-helper-runtime-20260713-2";
 import { installManagementDataopsOneShotDiagnostic } from "./management-dataops-one-shot-diagnostic.js?v=5ebe57e4f757c72d";
 import { resolveNovTalentAccess } from "./nov-talent-access.js";
+import { clearStoreSalesPreviewContext, saveStoreSalesPreviewContext } from "../store-sales/preview-context.js";
 
 const state = {
   employee: null,
@@ -59,6 +60,9 @@ const TALENT_APP_IDS = new Set([
   "hr-investment-dashboard",
   "nov-talent",
 ]);
+const STORE_SALES_APP_IDS = new Set(["store-sales-preview", "store-sales-management"]);
+const STORE_SALES_PREVIEW_URL = "./store-sales/index.html";
+const STORE_SALES_ALLOWED_ROLE_KEYS = new Set(["super_admin", "executive", "representative", "department_manager", "sales_manager", "area_manager", "store_manager"]);
 const TALENT_APP_URL = "./talent/";
 const TALENT_LEGACY_ORIGIN = "https://ideanow-shift.github.io";
 const TALENT_LEGACY_PATH = "/hr-investment-dashboard";
@@ -917,6 +921,23 @@ function isBackofficeReleasedApp(app) {
   return BACKOFFICE_RELEASED_APP_IDS.has(appId) || isCoreMasterAdminApp(app);
 }
 
+function isStoreSalesPreviewApp(app) {
+  return STORE_SALES_APP_IDS.has(String(app?.appId || "").trim().toLowerCase())
+    || String(app?.url || "").includes("/store-sales/");
+}
+
+function getEmployeeRoleKeys(employee) {
+  return [
+    ...(Array.isArray(employee?.roleKeys) ? employee.roleKeys : []),
+    ...(Array.isArray(employee?.roles) ? employee.roles.map((role) => role?.roleKey || role?.role_key) : []),
+    ...(Array.isArray(employee?.tags) ? employee.tags : [])
+  ].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean);
+}
+
+function canPreviewStoreSales(employee) {
+  return getEmployeeRoleKeys(employee).some((role) => STORE_SALES_ALLOWED_ROLE_KEYS.has(role));
+}
+
 function selectReleasedAppsForEmployee(employee, apps) {
   const roleKeys = new Set([
     ...(Array.isArray(employee?.roleKeys) ? employee.roleKeys : []),
@@ -927,9 +948,9 @@ function selectReleasedAppsForEmployee(employee, apps) {
   const allowedApps = apps.filter((app) => !isTalentApp(app) || talentAccess.allowed);
   if ([...DEVELOPMENT_APP_VIEWER_ROLE_KEYS].some((roleKey) => roleKeys.has(roleKey))) return allowedApps;
   if ([...HR_RELEASED_APP_VIEWER_ROLE_KEYS].some((roleKey) => roleKeys.has(roleKey))) {
-    return allowedApps.filter((app) => isIdeaLinkApp(app) || isBackofficeReleasedApp(app) || isTalentApp(app));
+    return allowedApps.filter((app) => isIdeaLinkApp(app) || isBackofficeReleasedApp(app) || isTalentApp(app) || (isStoreSalesPreviewApp(app) && canPreviewStoreSales(employee)));
   }
-  return allowedApps.filter(isIdeaLinkApp);
+  return allowedApps.filter((app) => isIdeaLinkApp(app) || (isStoreSalesPreviewApp(app) && canPreviewStoreSales(employee)));
 }
 
 async function openApp(app) {
@@ -951,12 +972,34 @@ async function openApp(app) {
       ? EDUCATION_APP_URL
       : isTalentApp(app)
         ? TALENT_APP_URL
+        : isStoreSalesPreviewApp(app)
+          ? STORE_SALES_PREVIEW_URL
         : app.url;
   const launchUrl = isIdeaLinkApp(app)
     ? ""
     : isTalentApp(app)
       ? appUrl
       : buildAppLaunchUrl(appUrl, employeeContext);
+  if (isStoreSalesPreviewApp(app)) {
+    if (!canPreviewStoreSales(state.employee)) {
+      showToast("店舗営業管理のPreview権限がありません。");
+      return;
+    }
+    try {
+      if (state.authType === "demo") {
+        const demoSession = { sessionToken: "fixture-preview-session-not-real", audience: "nov_hub", expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() };
+        if (!setNovHubSession(demoSession)) throw new Error("PREVIEW_SESSION_UNAVAILABLE");
+        state.hubSession = demoSession;
+      } else {
+        await ensureManagementWebHubSession();
+      }
+      saveStoreSalesPreviewContext({ roleKeys: getEmployeeRoleKeys(state.employee) });
+      window.location.assign(launchUrl);
+    } catch {
+      showToast("HUB接続を確認できません。再ログインしてお試しください。");
+    }
+    return;
+  }
   if (state.authType === "firebase" || state.authType === "pin") {
     if (isManagementWebApp(app)) {
       if (!canLaunchManagementWeb(employeeContext)) {
@@ -1178,6 +1221,7 @@ function loginDemo() {
   state.notifications = [];
   state.authType = "demo";
   removeManagementDataopsDiagnostic();
+  clearStoreSalesPreviewContext();
   const localIntegrationParams = new URLSearchParams(window.location.search);
   const expiresAt = new Date(
     Date.now() + (localIntegrationParams.get("talent_session") === "expired" ? -60_000 : 60 * 60 * 1000)
@@ -1201,6 +1245,7 @@ async function logout() {
   removeManagementDataopsDiagnostic();
   clearHubEmployeeContext();
   clearNovHubSession();
+  clearStoreSalesPreviewContext();
   sessionStorage.removeItem(MANAGEMENT_FIREBASE_TOKEN_KEY);
   sessionStorage.removeItem(MANAGEMENT_HUB_CONTEXT_KEY);
   sessionStorage.removeItem(MANAGEMENT_HUB_SESSION_KEY);

@@ -1,6 +1,9 @@
 export const DEMO_EMPLOYEES = [
   { email: "staff@example.com", name: "佐藤 スタッフ", store: "BASSA 新所沢店", department: "サロン事業部", position: "アシスタント", grade: "1", roleLevel: 1, roleKeys: ["staff"], tags: ["all"], status: "active" },
-  { email: "manager@example.com", name: "鈴木 店長", store: "BASSA 高田馬場店", department: "サロン事業部", position: "店長", grade: "3", roleLevel: 3, tags: ["all", "manager", "sales"], status: "active" },
+  { email: "manager@example.com", name: "鈴木 店長", store: "BASSA 高田馬場店", department: "サロン事業部", position: "店長", grade: "3", roleLevel: 3, tags: ["all", "manager", "sales", "store_manager"], status: "active" },
+  { email: "department@example.com", name: "山田 部長", store: "本部", department: "サロン事業部", position: "部長", grade: "4", roleLevel: 4, tags: ["all", "department_manager"], status: "active" },
+  { email: "area@example.com", name: "佐藤 エリアマネージャー", store: "担当エリア", department: "サロン事業部", position: "エリアマネージャー", grade: "4", roleLevel: 4, tags: ["all", "area_manager"], status: "active" },
+  { email: "franchise@example.com", name: "伊藤 FCオーナー", store: "FC法人", department: "FC事業部", position: "オーナー", grade: "4", roleLevel: 4, tags: ["all", "franchise_owner"], status: "active" },
   { email: "hqstaff@example.com", name: "高橋 採用担当", store: "本部", department: "総務人事部", position: "スタッフ", grade: "2", roleLevel: 2, roleKeys: ["hr.staff"], tags: ["all", "hq", "backoffice"], capabilities: ["attendance.manage", "human_capital.all"], status: "active" },
   { email: "hradmin@example.com", name: "総務人事部長", store: "本部", department: "総務人事部", position: "部長", grade: "5", roleLevel: 5, roleKeys: ["hr.admin"], tags: ["all", "hq", "backoffice"], capabilities: ["human_capital.all"], status: "active" },
   { email: "hq@example.com", name: "代表取締役", store: "本部", department: "経営企画部", position: "代表取締役", grade: "5", roleLevel: 5, roleKeys: ["executive"], tags: ["all", "executive", "hq", "fc"], status: "active" },

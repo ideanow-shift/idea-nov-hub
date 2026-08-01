@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>Store Sales Preview Screenshot Fixture</title>
+  <style>html,body{margin:0;background:#fff}iframe{display:block;border:0}</style>
+</head>
+<body>
+  <script>
+    const query = new URLSearchParams(location.search);
+    const width = Number(query.get("width") || 1440);
+    const height = Number(query.get("height") || 1000);
+    const target = query.get("target") || "store";
+    const actor = query.get("actor") || "executive";
+    const state = query.get("state") || "available";
+    const actorFixture = {
+      executive: "executive",
+      department_manager: "sales_manager",
+      sales_manager: "sales_manager",
+      area_manager: "area_manager",
+      store_manager: "store_manager",
+      employee: "employee-denied"
+    }[actor] || "employee-denied";
+    const frame = document.createElement("iframe");
+    frame.id = "shot-frame";
+    frame.width = String(width);
+    frame.height = String(height);
+    frame.title = "Preview screenshot target";
+
+    if (target === "hub") {
+      frame.src = "../../portal/?nov_navi_preview=1&demo=1&legacy=1";
+      frame.addEventListener("load", () => {
+        const timer = setInterval(() => {
+          const document = frame.contentDocument;
+          const select = document?.querySelector("#demo-employee");
+          const button = document?.querySelector("#demo-login");
+          if (!select || !button || !document.querySelector("#login-screen:not([hidden])")) return;
+          clearInterval(timer);
+          select.value = actor === "store_manager" ? "manager@example.com"
+            : actor === "area_manager" ? "area@example.com"
+              : actor === "department_manager" || actor === "sales_manager" ? "department@example.com" : "hq@example.com";
+          button.click();
+        }, 25);
+      });
+    } else {
+      const expiresAt = state === "expired"
+        ? new Date(Date.now() - 60_000).toISOString()
+        : new Date(Date.now() + 30 * 60_000).toISOString();
+      sessionStorage.setItem("ideaNov.hub.session.v1", JSON.stringify({
+        sessionToken: "fixture-preview-session-not-real",
+        audience: "nov_hub",
+        expiresAt
+      }));
+      sessionStorage.setItem("ideaNov.storeSales.previewActor.v1", JSON.stringify({
+        schema: "store-sales-preview-context",
+        version: 1,
+        fixture: state === "denied" ? "employee-denied" : actorFixture,
+        source: "screenshot-fixture",
+        issuedAt: new Date().toISOString()
+      }));
+      frame.src = `../../portal/store-sales/?preview_fixture_version=${encodeURIComponent(query.get("v") || "1")}`;
+    }
+    document.body.append(frame);
+  </script>
+</body>
+</html>

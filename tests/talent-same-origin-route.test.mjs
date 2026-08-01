@@ -412,7 +412,7 @@ test("HUB launcher canonicalizes Talent route even when backend URL is stale", (
   assert.match(mainSource, /function isLegacyTalentUrl\(value\)/);
   assert.match(mainSource, /function isTalentApp\(app\)/);
   assert.match(mainSource, /TALENT_APP_IDS\.has\(appId\) \|\| isLegacyTalentUrl\(app\?\.url\)/);
-  assert.match(mainSource, /:\s*isTalentApp\(app\)\s*\?\s*TALENT_APP_URL\s*:\s*app\.url/);
+  assert.match(mainSource, /isTalentApp\(app\)\s*\?\s*TALENT_APP_URL/);
   assert.match(mainSource, /isTalentApp\(app\)\s*\?\s*appUrl\s*:\s*buildAppLaunchUrl\(appUrl, employeeContext\)/);
   assert.match(mainSource, /if \(isTalentApp\(app\)\) \{[\s\S]*window\.location\.assign\(launchUrl\);[\s\S]*return;[\s\S]*const target = window\.open/);
   assert.doesNotMatch(

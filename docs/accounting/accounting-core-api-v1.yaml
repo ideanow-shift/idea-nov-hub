@@ -1,0 +1,90 @@
+openapi: 3.1.0
+info:
+  title: IDEA NOV OS Accounting Core Consumer API
+  version: 0.1.0-prototype
+paths:
+  /v1/accounting/stores/{storeId}/monthly:
+    get:
+      summary: Published store monthly accounting projection
+      description: Server resolves actor role and scope; request IDs never grant access.
+      parameters:
+        - {name: storeId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: period, in: query, required: true, schema: {type: string, pattern: '^\d{4}-\d{2}$'}}
+      responses:
+        '200':
+          description: Published and doubly approved data, or explicit data state
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/StoreMonthly'}
+        '403': {description: Actor scope denied}
+  /v1/accounting/legal-entities/{legalEntityId}/statements:
+    get:
+      summary: Published corporation statements
+      parameters:
+        - {name: legalEntityId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: period, in: query, required: true, schema: {type: string, pattern: '^\d{4}-\d{2}$'}}
+      responses:
+        '200':
+          description: Published and doubly approved statement projection
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CorporateStatements'}
+        '403': {description: Actor scope denied}
+components:
+  schemas:
+    DataState:
+      type: string
+      enum: [available, collecting, preparing, unavailable, validation_error]
+    Metric:
+      type: object
+      required: [data_state, value]
+      properties:
+        value: {type: [number, 'null']}
+        data_state: {$ref: '#/components/schemas/DataState'}
+    StoreMonthly:
+      type: object
+      required: [store_id, period, version_id, last_published_at, data_state, metrics]
+      properties:
+        store_id: {type: string, format: uuid}
+        period: {type: string}
+        version_id: {type: string, format: uuid}
+        last_published_at: {type: string, format: date-time}
+        data_state: {$ref: '#/components/schemas/DataState'}
+        confirmation_state: {type: string, const: published}
+        metrics:
+          type: object
+          properties:
+            total_revenue_gross: {$ref: '#/components/schemas/Metric'}
+            technical_revenue_gross: {$ref: '#/components/schemas/Metric'}
+            product_revenue_gross: {$ref: '#/components/schemas/Metric'}
+            ec_revenue_gross: {$ref: '#/components/schemas/Metric'}
+            gross_profit: {$ref: '#/components/schemas/Metric'}
+            operating_profit: {$ref: '#/components/schemas/Metric'}
+            ordinary_profit: {$ref: '#/components/schemas/Metric'}
+            cumulative: {$ref: '#/components/schemas/Metric'}
+    CorporateStatements:
+      type: object
+      required: [legal_entity_id, period, version_id, last_published_at, data_state, statements]
+      properties:
+        legal_entity_id: {type: string, format: uuid}
+        period: {type: string}
+        version_id: {type: string, format: uuid}
+        last_published_at: {type: string, format: date-time}
+        data_state: {$ref: '#/components/schemas/DataState'}
+        statements:
+          type: object
+          properties:
+            monthly_pl: {type: [object, 'null']}
+            cumulative_pl: {type: [object, 'null']}
+            balance_sheet: {type: [object, 'null']}
+            gross_profit: {$ref: '#/components/schemas/Metric'}
+            operating_profit: {$ref: '#/components/schemas/Metric'}
+            ordinary_profit: {$ref: '#/components/schemas/Metric'}
+            pretax_profit: {$ref: '#/components/schemas/Metric'}
+            net_profit: {$ref: '#/components/schemas/Metric'}
+            cash_and_deposits: {$ref: '#/components/schemas/Metric'}
+            borrowings: {$ref: '#/components/schemas/Metric'}
+            current_assets: {$ref: '#/components/schemas/Metric'}
+            current_liabilities: {$ref: '#/components/schemas/Metric'}
+            fixed_assets: {$ref: '#/components/schemas/Metric'}
+            net_assets: {$ref: '#/components/schemas/Metric'}

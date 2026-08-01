@@ -1,0 +1,181 @@
+元科目名,科目コード,B/S・P/L,正規化カテゴリ,ダッシュボード表示カテゴリ,自動判定可否,要確認事項
+[売上高],,PL,revenue_section,非表示,Yes,section header
+技術売上高,,PL,technical_revenue,技術売上,Yes,税抜source
+商品売上高,,PL,retail_revenue,商品売上,Yes,MID独立科目なし
+ECサイト商品売上高,,PL,ec_revenue,EC売上,Yes,店舗按分ruleは別管理
+売上高合計,,PL,total_revenue,売上,Yes,税抜source
+[売上原価],,PL,cost_of_sales_section,非表示,Yes,section header
+期首商品棚卸高,,PL,opening_inventory,売上原価,No,同名行が2件ありaccount codeなし
+材料仕入,,PL,material_purchases,材料費,Yes,材料費との正式定義確認
+商品仕入,,PL,retail_purchases,商品原価,Yes,棚卸調整を別途考慮
+当期商品仕入高,,PL,current_period_purchases,商品原価,Yes,summary候補
+合計,,PL,cost_of_sales_intermediate_total,非表示,No,名称が一般的でsection context必須
+期末商品棚卸高,,PL,closing_inventory,売上原価,No,同名行が2件ありaccount codeなし
+売上原価,,PL,cost_of_sales,売上原価,Yes,直接取得
+売上総損益金額,,PL,gross_profit,売上総利益,Yes,名称正規化
+[販売管理費],,PL,sga_section,非表示,Yes,section header
+役員報酬,,PL,executive_compensation,人件費候補,No,店舗人件費へ含めるか確認
+給与手当,,PL,salaries,人件費,Yes,人件費集合の構成要素
+賞与手当,,PL,bonuses,人件費,Yes,人件費集合の構成要素
+退職金,,PL,retirement_benefits,人件費候補,No,人件費へ含めるか確認
+法定福利費,,PL,statutory_benefits,人件費,Yes,人件費集合の構成要素
+福利厚生費,,PL,employee_welfare,人件費候補,No,広義人件費へ含めるか確認
+教育研修費,,PL,training_expense,主要販管費,Yes,表示粒度確認
+旅費交通費,,PL,travel_transportation,主要販管費,Yes,表示粒度確認
+通信費,,PL,communications,主要販管費,Yes,表示粒度確認
+交際接待費,,PL,entertainment,主要販管費,Yes,表示粒度確認
+減価償却費,,PL,depreciation,減価償却,Yes,店舗帰属確認
+賃借料,,PL,rent_and_lease,家賃候補,No,店舗家賃と設備leaseを区別できない
+保険料,,PL,insurance,主要販管費,Yes,表示粒度確認
+修繕費,,PL,repairs,主要販管費,Yes,表示粒度確認
+水道光熱費,,PL,utilities,水道光熱費,Yes,直接取得
+消耗品費,,PL,supplies,主要販管費,Yes,材料費と混同しない
+租税公課,,PL,taxes_and_dues,主要販管費,Yes,法人税等とは別
+広告宣伝費,,PL,advertising,広告宣伝費,Yes,直接取得
+販売促進費,,PL,sales_promotion,主要販管費,Yes,広告費へ含めるか確認
+支払手数料,,PL,fees,決済手数料候補,No,決済手数料以外を含む可能性
+諸会費,,PL,membership_fees,主要販管費,Yes,表示粒度確認
+加盟店手数料,,PL,franchise_fees,主要販管費,No,FC業務意味確認
+新聞図書費,,PL,publications,主要販管費,Yes,表示粒度確認
+会議費,,PL,meeting_expense,主要販管費,Yes,表示粒度確認
+リース料,,PL,lease_expense,主要販管費,Yes,賃借料との区分確認
+求人費,,PL,recruiting_expense,主要販管費,Yes,表示粒度確認
+外注費,,PL,outsourcing,主要販管費,Yes,業務委託費との区分確認
+雑費,,PL,miscellaneous_expense,主要販管費,No,内容不明
+寄付金,,PL,donations,主要販管費,Yes,表示粒度確認
+業務委託費,,PL,contract_services,主要販管費,Yes,外注費との区分確認
+販売管理費計,,PL,total_sga,販売費及び一般管理費,Yes,直接取得
+営業損益金額,,PL,operating_profit,営業利益,Yes,名称正規化
+[営業外収益],,PL,non_operating_income_section,非表示,Yes,section header
+管理収入,,PL,management_fee_income,営業外収益,Yes,その他売上へ振替しない
+ロイヤリティ収入,,PL,royalty_income,営業外収益,Yes,その他売上へ振替しない
+業務受託収入,,PL,service_income,営業外収益,Yes,その他売上へ振替しない
+受取利息,,PL,interest_income,営業外収益,Yes,直接取得
+雑収入,,PL,miscellaneous_income,営業外収益,No,内容不明
+受取配当金,,PL,dividend_income,営業外収益,Yes,直接取得
+営業外収益合計,,PL,total_non_operating_income,営業外収益,Yes,直接取得
+[営業外費用],,PL,non_operating_expense_section,非表示,Yes,section header
+本部管理費,,PL,head_office_management_fee,本部配賦候補,No,配賦・内部取引rule確認
+支払利息,,PL,interest_expense,営業外費用,Yes,直接取得
+保証金償却,,PL,deposit_amortization,営業外費用,Yes,直接取得
+権利金償却,,PL,key_money_amortization,営業外費用,Yes,直接取得
+更新料償却,,PL,renewal_fee_amortization,営業外費用,Yes,直接取得
+雑損失,,PL,miscellaneous_loss,営業外費用,No,内容不明
+営業外費用合計,,PL,total_non_operating_expense,営業外費用,Yes,直接取得
+経常損益金額,,PL,ordinary_profit,経常利益,Yes,名称正規化
+[特別利益],,PL,extraordinary_income_section,非表示,Yes,section header
+固定資産売却益,,PL,gain_on_asset_sale,特別利益,Yes,直接取得
+前期損益修正益,,PL,prior_period_adjustment_gain,特別利益,Yes,修正履歴と照合
+特別利益合計,,PL,total_extraordinary_income,特別利益,Yes,直接取得
+[特別損失],,PL,extraordinary_loss_section,非表示,Yes,section header
+固定資産売却損,,PL,loss_on_asset_sale,特別損失,Yes,直接取得
+特別損失,,PL,extraordinary_loss,特別損失,No,内容不明
+固定資産除却損,,PL,loss_on_asset_retirement,特別損失,Yes,直接取得
+特別損失合計,,PL,total_extraordinary_loss,特別損失,Yes,直接取得
+[当期純損益],,PL,net_profit_section,非表示,Yes,section header
+税引前当期純損益金額,,PL,profit_before_tax,税引前利益,Yes,名称正規化
+法人税及住民税,,PL,income_taxes,法人税等,Yes,直接取得
+当期純損益金額,,PL,net_profit,当期利益,Yes,名称正規化
+[現金･預金],,BS,cash_and_deposits_section,非表示,Yes,section header
+現金,,BS,cash,現金預金,Yes,直接取得
+補助科目群（現金預金・非公開）,,BS,cash_and_deposits_auxiliary,非表示,No,口座別labelは機密保護のため公開mappingへ未収録
+現金･預金合計,,BS,total_cash_and_deposits,現金預金,Yes,直接取得
+[売上債権],,BS,receivables_section,非表示,Yes,section header
+売掛金,,BS,accounts_receivable,売掛金,Yes,直接取得
+売上債権合計,,BS,total_receivables,売掛金,Yes,直接取得
+[有価証券],,BS,securities_section,非表示,Yes,section header
+有価証券合計,,BS,total_securities,有価証券,Yes,直接取得
+[棚卸資産],,BS,inventory_section,非表示,Yes,section header
+原材料,,BS,raw_material_inventory,棚卸資産,Yes,直接取得
+商品,,BS,merchandise_inventory,棚卸資産,Yes,直接取得
+貯蔵品,,BS,supplies_inventory,棚卸資産,Yes,直接取得
+棚卸資産合計,,BS,total_inventory,棚卸資産,Yes,直接取得
+[他流動資産],,BS,other_current_assets_section,非表示,Yes,section header
+立替金,,BS,advances_paid,流動資産,Yes,直接取得
+仮払金,,BS,suspense_payments,流動資産,Yes,直接取得
+仮払消費税等,,BS,input_consumption_tax,流動資産,Yes,直接取得
+短期貸付金,,BS,short_term_loans_receivable,流動資産,Yes,直接取得
+前払費用,,BS,prepaid_expenses,流動資産,Yes,直接取得
+未収入金,,BS,other_receivables,流動資産,Yes,直接取得
+他流動資産合計,,BS,total_other_current_assets,流動資産,Yes,直接取得
+流動資産合計,,BS,total_current_assets,流動資産,Yes,直接取得
+[有形固定資産],,BS,tangible_fixed_assets_section,非表示,Yes,section header
+建物,,BS,buildings,固定資産,Yes,直接取得
+建物附属設備,,BS,building_improvements,固定資産,Yes,直接取得
+車両運搬具,,BS,vehicles,固定資産,Yes,直接取得
+備品,,BS,equipment,固定資産,Yes,直接取得
+減価償却累計費,,BS,accumulated_depreciation,固定資産,Yes,source sign保持
+一括償却資産,,BS,pooled_depreciable_assets,固定資産,Yes,直接取得
+有形固定資産計,,BS,total_tangible_fixed_assets,固定資産,Yes,直接取得
+[無形固定資産],,BS,intangible_assets_section,非表示,Yes,section header
+電話加入権,,BS,telephone_rights,固定資産,Yes,直接取得
+ソフトウェア,,BS,software,固定資産,Yes,直接取得
+営業権,,BS,goodwill,固定資産,Yes,直接取得
+無形固定資産計,,BS,total_intangible_assets,固定資産,Yes,直接取得
+[投資その他の資産],,BS,investments_section,非表示,Yes,section header
+出資金,,BS,investments,固定資産,Yes,直接取得
+差入保証金,,BS,guarantee_deposits,固定資産,Yes,直接取得
+敷金,,BS,security_deposits,固定資産,Yes,直接取得
+長期前払費用,,BS,long_term_prepaid_expenses,固定資産,Yes,直接取得
+投資その他の資産合計,,BS,total_investments,固定資産,Yes,直接取得
+固定資産合計,,BS,total_fixed_assets,固定資産,Yes,直接取得
+[繰延資産],,BS,deferred_assets_section,非表示,Yes,section header
+繰延資産合計,,BS,total_deferred_assets,固定資産,Yes,直接取得
+[諸口],,BS,suspense_section,非表示,No,内容確認
+複合,,BS,compound_account,非表示,No,内容確認
+未確定勘定,,BS,unconfirmed_account,非表示,No,blocking issue候補
+資産合計,,BS,total_assets,資産合計,Yes,直接取得
+[仕入債務],,BS,payables_section,非表示,Yes,section header
+買掛金,,BS,accounts_payable,買掛金,Yes,直接取得
+仕入債務合計,,BS,total_payables,買掛金,Yes,直接取得
+[他流動負債],,BS,other_current_liabilities_section,非表示,Yes,section header
+研修預り金,,BS,training_deposits_received,流動負債,No,業務意味確認
+ﾛﾝﾄﾞﾝ積立,,BS,reserve_deposits_received,流動負債,No,業務意味と表記正規化確認
+源泉預り金,,BS,withholding_tax_payable,流動負債,Yes,直接取得
+厚生年金預り金,,BS,pension_contributions_payable,流動負債,Yes,直接取得
+互助会預り金,,BS,mutual_aid_deposits_received,流動負債,No,業務意味確認
+預り金,,BS,deposits_received,流動負債,Yes,直接取得
+住民税預り金,,BS,resident_tax_payable,流動負債,Yes,直接取得
+未払金,,BS,accrued_payables,流動負債,Yes,直接取得
+前受金,,BS,deferred_revenue,流動負債,Yes,直接取得
+仮受金,,BS,suspense_receipts,流動負債,Yes,直接取得
+短期借入金,,BS,short_term_borrowings,短期借入金,Yes,直接取得
+仮受消費税等,,BS,output_consumption_tax,流動負債,Yes,直接取得
+未払法人税等,,BS,income_taxes_payable,流動負債,Yes,直接取得
+未払消費税,,BS,consumption_tax_payable,流動負債,Yes,直接取得
+他流動負債合計,,BS,total_other_current_liabilities,流動負債,Yes,直接取得
+流動負債合計,,BS,total_current_liabilities,流動負債,Yes,直接取得
+[固定負債],,BS,fixed_liabilities_section,非表示,Yes,section header
+長期借入金,,BS,long_term_borrowings,長期借入金,Yes,直接取得
+長期預り金,,BS,long_term_deposits_received,固定負債,Yes,直接取得
+固定負債合計,,BS,total_fixed_liabilities,固定負債,Yes,直接取得
+負債合計,,BS,total_liabilities,負債合計,Yes,直接取得
+[資本金],,BS,capital_section,非表示,Yes,section header
+資本金,,BS,capital_stock,純資産,Yes,直接取得
+資本金合計,,BS,total_capital_stock,純資産,Yes,直接取得
+[新株式申込証拠金],,BS,share_subscription_deposits_section,非表示,Yes,section header
+新株式申込証拠金合計,,BS,total_share_subscription_deposits,純資産,Yes,直接取得
+[資本剰余金],,BS,capital_surplus_section,非表示,Yes,section header
+資本準備金合計,,BS,total_legal_capital_surplus,純資産,Yes,直接取得
+その他資本剰余金合計,,BS,total_other_capital_surplus,純資産,Yes,直接取得
+資本剰余金合計,,BS,total_capital_surplus,純資産,Yes,直接取得
+[利益剰余金],,BS,retained_earnings_section,非表示,Yes,section header
+利益準備金合計,,BS,total_legal_retained_earnings,純資産,Yes,直接取得
+任意積立金合計,,BS,total_voluntary_reserves,純資産,Yes,直接取得
+繰越利益,,BS,retained_earnings_carried_forward,純資産,Yes,直接取得
+その他利益剰余金,,BS,other_retained_earnings,純資産,Yes,直接取得
+当期純損益金額,,BS,current_period_net_profit,純資産,Yes,P/L当期純損益とも照合
+繰越利益剰余金合計,,BS,total_retained_earnings_carried_forward,純資産,Yes,直接取得
+その他利益剰余金合計,,BS,total_other_retained_earnings,純資産,Yes,直接取得
+利益剰余金合計,,BS,total_retained_earnings,純資産,Yes,直接取得
+[自己株式],,BS,treasury_stock_section,非表示,Yes,section header
+自己株式合計,,BS,total_treasury_stock,純資産,Yes,source sign保持
+[自己株式申込証拠金],,BS,treasury_stock_subscription_deposits_section,非表示,Yes,section header
+自己株式申込証拠金合計,,BS,total_treasury_stock_subscription_deposits,純資産,Yes,直接取得
+株主資本合計,,BS,total_shareholders_equity,純資産,Yes,直接取得
+[評価･換算差額等],,BS,valuation_translation_adjustments_section,非表示,Yes,section header
+評価･換算差額等合計,,BS,total_valuation_translation_adjustments,純資産,Yes,直接取得
+[新株予約権],,BS,stock_acquisition_rights_section,非表示,Yes,section header
+新株予約権合計,,BS,total_stock_acquisition_rights,純資産,Yes,直接取得
+純資産合計,,BS,total_net_assets,純資産,Yes,直接取得
+負債･純資産合計,,BS,total_liabilities_and_net_assets,負債純資産合計,Yes,資産合計と照合

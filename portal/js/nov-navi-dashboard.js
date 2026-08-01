@@ -1,4 +1,5 @@
-import { resolveAppIcon } from "./apps.js?v=thanks-coin-display-label-20260717-1";
+import { resolveAppIcon } from "./apps.js?v=nov-talent-hub-launch-20260801-1";
+import { resolveNovTalentAccess } from "./nov-talent-access.js";
 
 const STATUS_LABELS = {
   available: "利用可能",
@@ -39,7 +40,7 @@ const SYSTEMS = [
   { category: "キャリア", title: "キャリアシステム", status: "preview", icon: "./assets/icons/career.svg", aliases: [], shortcuts: ["自己振り返り", "4ヶ月キャリア確認", "管理者確認", "昇格・等級", "次期目標設定"] },
   { category: "経営管理", title: "経営管理システム", status: "in_progress", aliases: ["keiei", "management-system"], shortcuts: ["法人管理", "店舗営業管理", "データ状況"], minLevel: 3, audience: "店長以上／管轄範囲" },
   { category: "経営管理", title: "店舗営業管理", subtitle: "売上・利益・KPI・店舗運営を確認", status: "preview", aliases: ["store-sales-management", "store-sales-preview"], shortcuts: ["全店の状況", "要対応店舗", "店舗詳細"], minLevel: 3, allowedTags: ["executive", "representative", "department_manager", "sales_manager", "area_manager", "store_manager"], audience: "営業管理の許可範囲" },
-  { category: "経営管理", title: "採用・人財", subtitle: "NOV Talent / リクルート管理", status: "trial", aliases: ["jinnjibu", "human-capital-investment"], shortcuts: ["採用", "学生", "面接・選考", "現職者管理", "入社手続き", "採用ROI"], minLevel: 4, anyCapabilities: ["human_capital.all"], audience: "総務人事・経理・部長／許可範囲" },
+  { category: "経営管理", title: "求人管理", subtitle: "NOV Talent", description: "候補者・選考・イベント・次回対応を管理", status: "trial", aliases: ["nov-talent", "jinnjibu", "human-capital-investment"], shortcuts: ["候補者", "選考", "イベント", "次回対応"], talentOnly: true, audience: "代表取締役・総務人事部・採用担当" },
   { category: "システム管理", title: "システム管理", status: "available", aliases: ["core-master-admin", "master-admin"], shortcuts: ["社員情報", "店舗情報", "法人情報", "アプリ管理", "権限管理", "変更履歴", "データ入力"], adminOnly: true }
 ];
 
@@ -104,6 +105,7 @@ function roleProfile(employee) {
 
 function visibleSystem(system, employee) {
   if (isAdmin(employee)) return true;
+  if (system.talentOnly) return resolveNovTalentAccess(employee).allowed;
   if (system.adminOnly) return isAdmin(employee);
   const capabilities = new Set((employee?.capabilities || []).map(appKey));
   if ((system.anyCapabilities || []).some((capability) => capabilities.has(appKey(capability)))) return true;
@@ -169,7 +171,7 @@ function createSystemCard(system, apps, onOpenApp) {
   card.className = `navi-system-card status-${actualStatus}`;
   card.innerHTML = `
     <div class="navi-card-heading">
-      <div class="navi-card-title"><span class="navi-system-icon"><img src="${escapeHtml(iconSource)}" alt="" aria-hidden="true"></span><div><h4>${escapeHtml(system.title)}</h4>${system.subtitle ? `<p>${escapeHtml(system.subtitle)}</p>` : ""}</div></div>
+      <div class="navi-card-title"><span class="navi-system-icon"><img src="${escapeHtml(iconSource)}" alt="" aria-hidden="true"></span><div><h4>${escapeHtml(system.title)}</h4>${system.subtitle ? `<p>${escapeHtml(system.subtitle)}</p>` : ""}${system.description ? `<p class="navi-system-description">${escapeHtml(system.description)}</p>` : ""}</div></div>
       <div><span class="navi-status">${escapeHtml(STATUS_LABELS[actualStatus])}</span>${system.audience ? `<small class="navi-audience">${escapeHtml(system.audience)}</small>` : ""}</div>
     </div>
     <div class="navi-shortcuts">${system.shortcuts.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>

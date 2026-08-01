@@ -1,6 +1,16 @@
 name: Deploy NOV HUB to GitHub Pages
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/deploy-pages.yml"
+      - "docs/nov_talent/**"
+      - "portal/index.html"
+      - "portal/js/**"
+      - "portal/talent/**"
+      - "tests/**talent**"
+      - "tests/nov-navi-dashboard-boundary.test.mjs"
+      - "tests/management-store-csv-requirements.test.mjs"
   workflow_dispatch:
     inputs:
       production_approved:
@@ -11,16 +21,74 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
+  talent-release-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          find portal/talent -maxdepth 1 -type f \( -name '*.mjs' -o -name '*.js' \) -print0 \
+            | xargs -0 -n1 node --check
+          test ! -f portal/js/nov-talent-access.js || node --check portal/js/nov-talent-access.js
+
+      - name: Run NOV Talent and HUB fixed regressions
+        shell: bash
+        run: |
+          mapfile -t tests < <(
+            find tests -maxdepth 1 -type f \
+              \( -name '*talent*.test.mjs' \
+                 -o -name 'nov-navi-dashboard-boundary.test.mjs' \
+                 -o -name 'management-store-csv-requirements.test.mjs' \) \
+              ! -name '*.playwright.mjs' \
+              | sort
+          )
+          node --test "${tests[@]}"
+
+      - name: Check patch whitespace
+        shell: bash
+        run: git diff --check origin/main...HEAD
+
+      - name: Reject committed secrets
+        shell: bash
+        run: |
+          if git grep -nEI \
+            '(sb_secret_|postgres(ql)?://[^[:space:]]+:[^@[:space:]]+@|eyJ[A-Za-z0-9_-]{20,}\.)' \
+            -- portal/talent; then
+            echo "Potential secret material found in NOV Talent assets."
+            exit 1
+          fi
+
+      - name: Reject Production Mock Identity
+        shell: bash
+        run: |
+          node --test tests/nov-talent-sprint1-mock-runtime.test.mjs
+          if test -f tests/nov-talent-hub-launch-integration.test.mjs; then
+            node --test tests/nov-talent-hub-launch-integration.test.mjs
+          fi
+
   deploy:
-    if: ${{ inputs.production_approved == true }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.production_approved == true }}
+    needs: talent-release-checks
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

@@ -48,12 +48,17 @@ function defaultHelper(token) {
   };
 }
 
-function fakeGlobal({ enabled = true, helper = defaultHelper(), audience = "nov_hub" } = {}) {
+function fakeGlobal({ enabled = true, helper = defaultHelper(), audience = "nov_hub", mockState = "ready" } = {}) {
   return {
     NOV_TALENT_CONFIG: {
+      runtimeMode: "mock",
+      mockState,
+      networkEnabled: false,
+      writeEnabled: false,
       readonlyApiEnabled: enabled,
       readonlyApiBaseUrl: "https://example.test/functions/v1/nov-talent-readonly-api"
     },
+    location: { search: "" },
     NovHubSession: helper,
     NOV_HUB_SESSION_CONTRACT: { audience }
   };
@@ -109,7 +114,7 @@ function fakeDocument() {
   };
 }
 
-test("same-origin route uses HUB helper and performs exactly one summary request", async () => {
+test("Mock route renders the summary without a HUB token or network request", async () => {
   resetTalentDashboardSummaryStartupForFixture();
   const calls = [];
   const documentObject = fakeDocument();
@@ -129,19 +134,9 @@ test("same-origin route uses HUB helper and performs exactly one summary request
     }
   });
 
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].options.method, "GET");
-  assert.equal(Object.keys(calls[0].options.headers).includes("Authorization"), true);
-  assert.equal(
-    calls[0].url,
-    "https://example.test/functions/v1/nov-talent-readonly-api/api/talent/v1/dashboard/summary?fiscalYear=current"
-  );
-  assert.equal(
-    calls[0].url.startsWith("https://example.test/api/talent/v1/dashboard/summary"),
-    false
-  );
+  assert.equal(calls.length, 0);
   assert.equal(result.metricCount, 7);
-  assert.equal(result.requestCount, 1);
+  assert.equal(result.requestCount, 0);
   assert.equal(result.retryCount, 0);
   assert.equal(documentObject.metrics.children.length, 7);
   assert.equal(documentObject.status.textContent, "集計を表示しました");
@@ -150,7 +145,7 @@ test("same-origin route uses HUB helper and performs exactly one summary request
   assert.equal(result.studentRowsReturned, false);
 });
 
-test("startup duplicate prevention keeps request max1 and retry0", async () => {
+test("Mock startup duplicate prevention keeps request0 and retry0", async () => {
   resetTalentDashboardSummaryStartupForFixture();
   const calls = [];
   const fetchImpl = async () => {
@@ -168,7 +163,7 @@ test("startup duplicate prevention keeps request max1 and retry0", async () => {
   await startTalentDashboardSummary({ globalObject: fakeGlobal(), documentObject: fakeDocument(), fetchImpl });
   const second = await startTalentDashboardSummary({ globalObject: fakeGlobal(), documentObject: fakeDocument(), fetchImpl });
 
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 0);
   assert.equal(second.stopCategory, "duplicate_control_prevented");
   assert.equal(second.httpRequestSent, false);
 });
@@ -189,14 +184,15 @@ test("operator control initializes with request0 and token0", () => {
   });
 
   assert.equal(result.initialized, true);
-  assert.equal(result.helperAvailable, true);
+  assert.equal(result.helperAvailable, false);
+  assert.equal(result.runtimeMode, "mock");
   assert.equal(tokenReads, 0);
   assert.equal(fetches, 0);
   assert.equal(documentObject.button.disabled, false);
-  assert.equal(documentObject.status.textContent, "ボタンを押すと最新の集計を表示します");
+  assert.equal(documentObject.status.textContent, "匿名Mockデータの集計を表示します");
 });
 
-test("one trusted click disables first and performs exact1 while reentry stays request0", async () => {
+test("one trusted click disables first and remains local while reentry stays request0", async () => {
   resetTalentDashboardSummaryStartupForFixture();
   const observations = [];
   const documentObject = fakeDocument();
@@ -218,16 +214,15 @@ test("one trusted click disables first and performs exact1 while reentry stays r
   const second = await documentObject.button.click();
   const result = await first;
 
-  assert.equal(observations.length, 1);
-  assert.deepEqual(observations[0], { disabled: true, busy: "true" });
-  assert.equal(result.requestCount, 1);
+  assert.equal(observations.length, 0);
+  assert.equal(result.requestCount, 0);
   assert.equal(second.stopCategory, "duplicate_control_prevented");
   assert.equal(documentObject.button.disabled, true);
   assert.equal(documentObject.button.textContent, "集計を表示済み");
   assert.equal(documentObject.status.focusCount, 1);
 });
 
-test("missing helper disables control at startup with request0 and token0", () => {
+test("missing HUB helper does not block the explicitly Mock-only control", () => {
   resetTalentDashboardSummaryStartupForFixture();
   let tokenReads = 0;
   let fetches = 0;
@@ -245,46 +240,38 @@ test("missing helper disables control at startup with request0 and token0", () =
 
   assert.equal(result.initialized, true);
   assert.equal(result.helperAvailable, false);
-  assert.equal(result.stopCategory, "auth_required");
-  assert.equal(result.requestCount, 0);
-  assert.equal(result.retryCount, 0);
   assert.equal(fetches, 0);
   assert.equal(tokenReads, 0);
-  assert.equal(documentObject.button.disabled, true);
-  assert.equal(documentObject.status.dataset.state, "stopped");
-  assert.equal(documentObject.status.dataset.safeCategory, "auth_required");
-  assert.equal(documentObject.status.dataset.requestCount, "0");
-  assert.equal(documentObject.status.dataset.retryCount, "0");
-  assert.equal(documentObject.status.dataset.httpStatusCategory, "none");
-  assert.equal(documentObject.status.textContent, "認証確認が必要です（送信前に停止）");
+  assert.equal(documentObject.button.disabled, false);
+  assert.equal(documentObject.status.textContent, "匿名Mockデータの集計を表示します");
 });
 
-test("API failure after one click preserves request1 retry0 as safe DOM categories", async () => {
+test("offline Mock state fails closed without attempting an API request", async () => {
   resetTalentDashboardSummaryStartupForFixture();
   const documentObject = fakeDocument();
   const result = await startTalentDashboardSummary({
-    globalObject: fakeGlobal(),
+    globalObject: fakeGlobal({ mockState: "offline" }),
     documentObject,
     fetchImpl: async () => {
       throw new Error("fixture_network_failure");
     }
   });
 
-  assert.equal(result.stopCategory, "api_error");
-  assert.equal(result.requestCount, 1);
+  assert.equal(result.stopCategory, "offline");
+  assert.equal(result.requestCount, 0);
   assert.equal(result.retryCount, 0);
   assert.equal(result.httpStatusCategory, "none");
-  assert.equal(documentObject.status.dataset.safeCategory, "api_error");
-  assert.equal(documentObject.status.dataset.requestCount, "1");
+  assert.equal(documentObject.status.dataset.safeCategory, "offline");
+  assert.equal(documentObject.status.dataset.requestCount, "0");
   assert.equal(documentObject.status.dataset.retryCount, "0");
-  assert.equal(documentObject.status.textContent, "API接続で停止しました（1回送信・再試行なし）");
+  assert.equal(documentObject.status.textContent, "安全のため停止しました");
 });
 
-test("contract mismatch preserves request1 as a safe invalid-response category", async () => {
+test("validation-error Mock state remains local and fail closed", async () => {
   resetTalentDashboardSummaryStartupForFixture();
   const documentObject = fakeDocument();
   const result = await startTalentDashboardSummary({
-    globalObject: fakeGlobal(),
+    globalObject: fakeGlobal({ mockState: "validation_error" }),
     documentObject,
     fetchImpl: async () => ({
       status: 200,
@@ -298,44 +285,22 @@ test("contract mismatch preserves request1 as a safe invalid-response category",
     })
   });
 
-  assert.equal(result.stopCategory, "invalid_response");
-  assert.equal(result.requestCount, 1);
+  assert.equal(result.stopCategory, "validation_error");
+  assert.equal(result.requestCount, 0);
   assert.equal(result.retryCount, 0);
   assert.equal(result.httpStatusCategory, "none");
-  assert.equal(documentObject.status.dataset.safeCategory, "invalid_response");
-  assert.equal(documentObject.status.dataset.requestCount, "1");
+  assert.equal(documentObject.status.dataset.safeCategory, "validation_error");
+  assert.equal(documentObject.status.dataset.requestCount, "0");
   assert.equal(documentObject.status.dataset.retryCount, "0");
-  assert.equal(documentObject.status.textContent, "集計形式を確認できません（1回送信・再試行なし）");
+  assert.equal(documentObject.status.textContent, "安全のため停止しました");
 });
 
-test("invalidation aborts and suppresses stale completion rendering", async () => {
+test("invalidation leaves the Mock summary stopped without retry", async () => {
   resetTalentDashboardSummaryStartupForFixture();
-  let releaseResponse;
   const documentObject = fakeDocument();
-  initializeTalentSummaryControl({
-    globalObject: { ...fakeGlobal(), AbortController, addEventListener() {} },
-    documentObject,
-    fetchImpl: async () => new Promise((resolve) => {
-      releaseResponse = () => resolve({
-        status: 200,
-        ok: true,
-        headers: { get: () => "application/json" },
-        async json() { return validEnvelope(); }
-      });
-    })
-  });
-
-  const pending = documentObject.button.click();
-  for (let attempt = 0; attempt < 10 && typeof releaseResponse !== "function"; attempt += 1) {
-    await Promise.resolve();
-  }
-  assert.equal(typeof releaseResponse, "function");
-  invalidateTalentDashboardSummaryRun({ documentObject });
-  releaseResponse();
-  const result = await pending;
-
-  assert.equal(result.stopCategory, "run_invalidated");
-  assert.equal(result.staleCompletionSuppressed, true);
+  const result = invalidateTalentDashboardSummaryRun({ documentObject });
+  assert.equal(result.invalidated, true);
+  assert.equal(result.requestRetried, false);
   assert.equal(documentObject.metrics.children.length, 0);
   assert.equal(documentObject.status.textContent, "集計表示を中止しました");
 });
@@ -414,18 +379,16 @@ test("source fixture keeps Japanese UI and desktop/mobile responsive rules", () 
   assert.doesNotMatch(apps.match(/appId: "human-capital-investment"[\s\S]*?priority: 64/)?.[0] || "", /hr-investment-dashboard/);
 });
 
-test("published runtime candidate enables only the approved read-only API", () => {
+test("published runtime candidate enables only the approved local Mock Runtime", () => {
   const runtimeConfig = readFileSync(
     new URL("../portal/talent/runtime-config.candidate.js", import.meta.url),
     "utf8"
   );
 
-  assert.match(runtimeConfig, /readonlyApiEnabled:\s*true/);
-  assert.match(
-    runtimeConfig,
-    /https:\/\/nkmxevmioczcmnldreyo\.supabase\.co\/functions\/v1\/nov-talent-readonly-api/
-  );
-  assert.doesNotMatch(runtimeConfig, new RegExp(`${["service", "role"].join("_")}|sb_secret_|eyJ`, "i"));
+  assert.match(runtimeConfig, /runtimeMode:\s*"mock"/);
+  assert.match(runtimeConfig, /networkEnabled:\s*false/);
+  assert.match(runtimeConfig, /writeEnabled:\s*false/);
+  assert.doesNotMatch(runtimeConfig, /https?:\/\/|supabase|readonlyApi|writeApi/i);
 });
 
 test("talent entry point cache-busts runtime config and app with one release id", () => {
@@ -449,7 +412,7 @@ test("HUB launcher canonicalizes Talent route even when backend URL is stale", (
   assert.match(mainSource, /function isLegacyTalentUrl\(value\)/);
   assert.match(mainSource, /function isTalentApp\(app\)/);
   assert.match(mainSource, /TALENT_APP_IDS\.has\(appId\) \|\| isLegacyTalentUrl\(app\?\.url\)/);
-  assert.match(mainSource, /:\s*isTalentApp\(app\)\s*\?\s*TALENT_APP_URL\s*:\s*app\.url/);
+  assert.match(mainSource, /isTalentApp\(app\)\s*\?\s*TALENT_APP_URL/);
   assert.match(mainSource, /isTalentApp\(app\)\s*\?\s*appUrl\s*:\s*buildAppLaunchUrl\(appUrl, employeeContext\)/);
   assert.match(mainSource, /if \(isTalentApp\(app\)\) \{[\s\S]*window\.location\.assign\(launchUrl\);[\s\S]*return;[\s\S]*const target = window\.open/);
   assert.doesNotMatch(
@@ -504,11 +467,11 @@ test("Talent freshness repair preserves startup request0 and click exact1 contra
   const exact1Source = readFileSync(new URL("../portal/talent/exact1.mjs", import.meta.url), "utf8");
 
   assert.doesNotMatch(mainSource, /hub_context[^\n]*TALENT_APP_URL|TALENT_APP_URL[^\n]*hub_context/);
-  assert.match(appSource, /const formalHelperAvailable = typeof globalObject\?\.NovHubSession\?\.getSessionToken === "function"/);
+  assert.match(appSource, /createDashboardSummaryExecutor/);
+  assert.match(appSource, /runtimeMode:\s*"mock"/);
   assert.match(appSource, /button\.addEventListener\("click", run\)/);
+  assert.doesNotMatch(appSource, /fetch\(/);
   assert.match(exact1Source, /method: "GET"/);
-  assert.match(exact1Source, /requestCount: 1/);
-  assert.match(exact1Source, /retryCount: 0/);
 });
 
 function createTalentFreshnessFixture({ current = null, refreshed = null, refreshError = null } = {}) {
@@ -626,15 +589,12 @@ test("a later expiry is revalidated and refreshed exact1", async () => {
 test("pageshow or BFCache restoration cannot mark a stale session connected", () => {
   const appSource = readFileSync(new URL("../portal/talent/app.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(appSource, /addEventListener\?\.\("pageshow"[^\n]*setStatus/);
-  assert.match(appSource, /state === "ready" \? "HUB接続済み"/);
+  assert.match(appSource, /state === "ready" \? "Mock Runtime"/);
   assert.match(appSource, /setStatus\(documentObject, "ready", "集計を表示しました"\)/);
 });
 
-test("portal entry point uses the content-addressed Talent freshness main.js identity", () => {
+test("portal entry point keeps one cache-busted main.js module and no legacy Talent route id", () => {
   const portalIndex = readFileSync(new URL("../portal/index.html", import.meta.url), "utf8");
-  assert.match(
-    portalIndex,
-    /\.\/js\/main\.js\?v=0e672ef9c36c346349cfcba856eec3899b0fca1600b483f44d406a84df7f85e2/
-  );
+  assert.equal((portalIndex.match(/\.\/js\/main\.js\?v=[^"']+/g) || []).length, 1);
   assert.doesNotMatch(portalIndex, /hub-talent-route-20260719-1/);
 });

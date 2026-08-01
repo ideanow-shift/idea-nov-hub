@@ -488,16 +488,16 @@ export function buildTalent28CsvApprovalBoundary(result) {
         ["NO_RAW_VALUES", "Do not paste row values, IDs, contacts, digest, or raw errors."]
       ]
     : [
-        ["FIX_FIRST", "Fix the current CSV category before preparing approval text."],
-        ["RERUN_LOCAL_PREFLIGHT", "Select the corrected CSV and rerun local preflight once."],
-        ["NO_PREMATURE_APPROVAL", "Do not ask for staging approval while the local result is blocked."]
+        ["FIX_FIRST", "承認文を準備する前に、現在のCSV修正項目を解消する"],
+        ["RERUN_LOCAL_PREFLIGHT", "修正版CSVを選択し、ローカル検証を1回実行する"],
+        ["NO_PREMATURE_APPROVAL", "ローカル検証が停止中のままstaging承認へ進まない"]
       ];
   return Object.freeze({
     category,
-    title: category === "READY_TO_PREPARE_OWNER_TEXT" ? "Owner approval boundary is ready" : "Owner approval boundary is blocked",
+    title: category === "READY_TO_PREPARE_OWNER_TEXT" ? "投入前承認の準備ができました" : "投入前承認はまだ準備できません",
     copy: category === "READY_TO_PREPARE_OWNER_TEXT"
-      ? "Prepare the next approval only after confirming these nonsecret boundaries."
-      : "Keep the workflow in CSV correction until the safe categories are ready.",
+      ? "個人値を含まない安全カテゴリを確認してから、次の承認へ進みます。"
+      : "安全カテゴリが整うまでCSV修正を続けます。",
     checks: Object.freeze(checks.map(([checkCategory, label], index) => Object.freeze({
       order: index + 1,
       category: checkCategory,

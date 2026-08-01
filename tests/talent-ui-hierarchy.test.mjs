@@ -5,21 +5,16 @@ import { buildBulkTriageCounts, buildBulkTriageQueueFilter, buildMatchOnlyReview
 
 const root = new URL("../portal/talent/", import.meta.url);
 
-test("Talent exposes recruitment and workforce as accessible primary tabs", async () => {
+test("NOV Talent exposes candidate recruitment only and separates NOV People", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
 
   assert.match(html, /aria-label="人財投資管理の業務区分"/);
   assert.match(html, /data-primary-tab="recruitment"[\s\S]*求人管理/);
-  assert.match(html, /data-primary-tab="workforce"[\s\S]*現職者管理/);
-  for (const key of ["onboarding", "transfer", "leave", "retirement"]) {
-    assert.match(html, new RegExp(`data-workforce-open="${key}"`));
-  }
+  assert.doesNotMatch(html, /data-primary-tab="workforce"/);
   assert.match(html, /id="panel-recruitment"[\s\S]*role="tabpanel"/);
-  assert.match(html, /id="panel-workforce"[\s\S]*role="tabpanel"/);
+  assert.match(html, /id="panel-workforce" class="primary-panel sprint1-separated"[\s\S]*aria-hidden="true"/);
+  assert.match(html, /NOV Peopleへ分離/);
   assert.match(html, /assets\/icons\/human-resources\.svg/);
-  assert.match(html, /assets\/icons\/growth\.svg/);
-  assert.match(html, /assets\/icons\/assignment\.svg/);
-  assert.match(html, /assets\/icons\/refresh\.svg/);
 });
 
 test("daily command center opens safe work areas without writes", async () => {
@@ -30,8 +25,8 @@ test("daily command center opens safe work areas without writes", async () => {
   assert.match(html, /id="talent-daily-command"/);
   assert.match(html, /今日の作業/);
   assert.match(html, /data-talent-daily-open="students"/);
-  assert.match(html, /data-talent-daily-open="workforce"/);
   assert.match(html, /data-talent-daily-open="csv28"/);
+  assert.doesNotMatch(html, /data-talent-daily-open="workforce"/);
   assert.match(html, /data-talent-daily-open="students" aria-pressed="false"/);
   assert.match(html, /id="talent-daily-command-status"/);
   assert.match(html, /NO_ROUTE_SELECTED/);
@@ -48,12 +43,10 @@ test("daily command center opens safe work areas without writes", async () => {
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.talent-daily-completion-checklist \{ grid-template-columns: 1fr; \}/);
   assert.match(app, /data-talent-daily-open/);
   assert.match(app, /student-daily-queue-start-guide/);
-  assert.match(app, /workforce-case-operation-start-guide/);
   assert.match(app, /talent-28-csv-title/);
   assert.match(app, /announceDailyCommandRoute/);
   assert.match(app, /focusDailyCommandTarget/);
   assert.match(app, /ROUTE_STUDENTS/);
-  assert.match(app, /ROUTE_WORKFORCE/);
   assert.match(app, /ROUTE_CSV28/);
   assert.doesNotMatch(html, /DAILY COMMAND/);
   assert.doesNotMatch(html, /START HERE|TODAY'S WORK|NEXT OPERATION|FOLLOW-UP SHORTCUTS/);
@@ -342,13 +335,13 @@ test("student detail explains completion evidence after the next action", async 
   }, { onboardingReady: true, editable: true }, "2026-07-26"));
 
   assert.equal(overdue.category, "OVERDUE_FOLLOW_UP");
-  assert.match(overdue.title, /overdue follow-up/);
+  assert.match(overdue.title, /期限超過/);
   assert.equal(overdue.rawValuesIncluded, false);
   assert.equal(overdue.canonicalWriteReachable, false);
   assert.equal(overdue.lineHistoryWriteReachable, false);
   assert.equal(overdue.automaticPromotionReachable, false);
   assert.equal(onboarding.category, "ONBOARDING_HANDOFF");
-  assert.match(onboarding.copy, /local/);
+  assert.match(onboarding.copy, /入社予定/);
   assert.match(html, /id="student-daily-completion"/);
   assert.match(html, /id="student-daily-completion-steps"/);
   assert.match(app, /renderStudentDailyCompletionChecklist/);
@@ -508,13 +501,12 @@ test("workforce management explains read-only and approval boundaries above case
   assert.match(css, /\.workforce-operation-boundaries/);
 });
 
-test("workforce procedure tabs expose bounded Core DB case queues", async () => {
+test("NOV People procedure source is frozen and excluded from active navigation", async () => {
   const html = await readFile("portal/talent/index.html", "utf8");
   const source = await readFile("portal/talent/workforce-readiness.mjs", "utf8");
 
-  for (const key of ["onboarding", "leave", "retirement"]) {
-    assert.match(html, new RegExp(`id="workforce-queue-${key}"`));
-  }
+  assert.match(html, /id="panel-workforce" class="primary-panel sprint1-separated"/);
+  assert.doesNotMatch(html, /data-primary-tab="workforce"/);
   assert.match(source, /procedureQueues/);
   assert.match(source, /contactValuesReturned: false/);
 });
@@ -592,37 +584,23 @@ test("workforce exposes an audited procedure case desk without employee-master c
     assert.match(html, /id="workforce-queue-onboarding"/);
 });
 
-test("student editing supports canonical profiles and unmapped staging rows", async () => {
+test("Sprint 1 keeps candidate write controls unreachable in Mock Runtime", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
   const app = await readFile(new URL("app.mjs", root), "utf8");
 
-  assert.match(html, /id="student-edit-open"[^>]*disabled[^>]*aria-disabled="true"/);
-  assert.match(html, /id="student-next-action-open"[^>]*disabled[^>]*aria-disabled="true"/);
+  assert.match(html, /id="student-edit-open"[^>]*sprint1-mock-write[^>]*hidden/);
+  assert.match(html, /id="student-next-action-open"[^>]*sprint1-mock-write[^>]*hidden/);
   assert.match(html, /id="student-action-guide"/);
-  assert.match(app, /editButton\.disabled = !editable/);
-  assert.match(app, /openStudentProfileDialog\(\{ documentObject, student, focusField: "profile-next-action" \}\)/);
-  assert.match(app, /renderStudentActionGuide/);
-  assert.match(app, /取込原本は保護された状態です/);
-  assert.match(app, /student\.mappingStatus === "UNMAPPED"/);
-  assert.match(app, /staging補足情報を保存しています/);
-  assert.match(app, /createTalentStagingSupplementController/);
+  assert.match(app, /createTalentWorkspaceExecutor/);
+  assert.doesNotMatch(app, /^import .*student-profile/m);
+  assert.doesNotMatch(app, /^import .*staging-supplement/m);
 });
 
-test("student detail exposes an individual confirmation action without replacing the bulk flow", async () => {
+test("Sprint 1 separates historical confirmation actions from candidate detail", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
-  const app = await readFile(new URL("app.mjs", root), "utf8");
 
-  assert.match(html, /id="student-confirm-open"[^>]*disabled[^>]*aria-disabled="true"/);
-  assert.match(app, /buildSingleStudentReviewProposal/);
-  assert.match(app, /student\.suggestionCategory === "EXACT1"/);
-  assert.match(app, /confirmButton\.disabled = !historicalReviewController\.enabled/);
-  assert.match(app, /この候補だけを確認/);
-  assert.match(app, /既存名簿との一致だけを反映しますか/);
-  assert.match(html, /id="student-review-mode-note"/);
-  assert.match(app, /renderStudentReviewMode/);
-  assert.match(html, /id="student-review-target"/);
-  assert.match(app, /ENTRIES_27/, "manual mapping is available for entry records");
-  assert.match(app, /OFFERS_27/, "manual mapping is available for offer records");
+  assert.match(html, /id="student-confirm-open"[^>]*sprint1-mock-write[^>]*hidden/);
+  assert.match(html, /id="student-review-open"[^>]*sprint1-mock-write[^>]*hidden/);
 });
 
 test("student review dialog explains bulk and individual confirmation modes", async () => {
@@ -645,9 +623,8 @@ test("student review dialog explains bulk and individual confirmation modes", as
   assert.match(css, /\[data-mode="SINGLE_STUDENT"\]/);
 });
 
-test("ready offers can hand off a bounded draft to onboarding without creating a case", async () => {
+test("Candidate to Employee handoff stays separated from NOV Talent Sprint 1", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
-  const app = await readFile(new URL("app.mjs", root), "utf8");
   const ready = buildOnboardingHandoffDraft({
     applicationNo: "NT-2027-000001",
     displayName: "対象者",
@@ -662,9 +639,8 @@ test("ready offers can hand off a bounded draft to onboarding without creating a
   });
   assert.equal(buildOnboardingHandoffDraft({ ...ready, applicationNo: "", statusCode: "OFFER" }), null);
   assert.equal(buildOnboardingHandoffDraft({ ...ready, applicationNo: "NT-2027-000001", statusCode: "CONTACT" }), null);
-  assert.match(html, /id="student-onboarding-open"[^>]*disabled[^>]*aria-disabled="true"/);
-  assert.match(app, /nov-talent:open-procedure-case/);
-  assert.match(app, /保存するまで案件は作成されません/);
+  assert.match(html, /id="student-onboarding-open"[^>]*sprint1-separated[^>]*hidden/);
+  assert.match(html, /id="panel-workforce" class="primary-panel sprint1-separated"/);
 });
 
 test("single link confirmation includes an unmapped contact target as the primary step", () => {

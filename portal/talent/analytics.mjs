@@ -1,7 +1,10 @@
 const SOURCE_CODES = Object.freeze({
   CONTACTS_27: "contacts",
   ENTRIES_27: "entries",
-  OFFERS_27: "offers"
+  OFFERS_27: "offers",
+  CONTACTS_28: "contacts",
+  ENTRIES_28: "entries",
+  OFFERS_28: "offers"
 });
 
 const SUMMARY_METRICS = Object.freeze([

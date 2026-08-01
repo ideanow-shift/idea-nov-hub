@@ -233,23 +233,23 @@ test('browser payload never asserts role, scope, actor, or application UUID', as
   assert.equal(OPERATOR_CONTRACT.applicationNoPersistence, 'memory_only');
 });
 
-test('write-enabled candidate is cache-bound, v2-only, explicit-confirmation, and persistence-free', async () => {
+test('published candidate is cache-bound, Mock-only, and persistence-free', async () => {
   const [html, app, operator, config, style] = await Promise.all(
     ['index.html', 'app.mjs', 'operator.mjs', 'runtime-config.candidate.js', 'style.css']
       .map((name) => readFile(new URL(`../portal/talent/${name}`, import.meta.url), 'utf8')),
   );
-  assert.match(app, /initializeTalentOperatorPanel\(\)/);
-  assert.match(app, /operator\.mjs\?v=20260725-owner-review-workspace-1/);
-  assert.match(config, /nov-talent-readonly-api-v2/);
-  assert.doesNotMatch(config, /nov-talent-readonly-api["']/);
-  assert.match(config, /writeApiEnabled:\s*true/);
-  assert.match(html, /talent-operator-panel/);
-  assert.match(html, /本システム稼働開始以降の集計/);
-  assert.equal((html.match(/20260725-offer-fields-1/g) || []).length, 3);
-  assert.doesNotMatch(html, /20260720-readonly-v2-write-candidate-1/);
+  assert.match(app, /from "\.\/runtime\.mjs\?v=/);
+  assert.doesNotMatch(app, /initializeTalentOperatorPanel\(\)/);
+  assert.doesNotMatch(app, /operator\.mjs\?v=/);
+  assert.match(config, /runtimeMode:\s*"mock"/);
+  assert.match(config, /networkEnabled:\s*false/);
+  assert.match(config, /writeEnabled:\s*false/);
+  assert.doesNotMatch(config, /https?:\/\/|supabase|readonlyApi|writeApi/i);
+  assert.match(html, /id="talent-operator-panel"[^>]*hidden/);
+  assert.match(html, /Mock Runtime/);
   assert.match(operator, /confirmImpl\(confirmationMessage\) !== true/);
   assert.match(operator, /confirmation_required/);
-  assert.match(style, /operator-confirmation-note/);
+  assert.doesNotMatch(style, /\.talent-operator-panel\s*\{[^}]*display:\s*(?!none)/s);
   assert.doesNotMatch(operator, /localStorage|sessionStorage|postMessage|opener|console\.|location\.|URLSearchParams/);
   assert.doesNotMatch(operator, /applicationId|application_id/);
   assert.doesNotMatch(operator, /\brole\s*:|\bscope\s*:|\bactor\s*:/);

@@ -23,11 +23,15 @@ publication_status             # published | preparing | unavailable
 published_version
 published_at
 source_file_hash
+source_profile                  # yayoi_annual_trial_balance_workbook
+sheet_mapping_version
+account_mapping_version
 confirmed_through_period
 ```
 
 FC profit is `unavailable` in V1. Headquarters allocation, customer counts, and
-unit prices are outside V1. Every returned record is filtered by the resolved
+unit prices are outside V1. EC department totals are not allocated to a store without
+an approved allocation contract. Every returned record is filtered by the resolved
 server-side role and Store Scope.
 
 ## User display mapping

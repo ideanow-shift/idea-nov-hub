@@ -15,7 +15,7 @@ import was changed.
 
 | Evidence | Finding | Implementation consequence |
 | --- | --- | --- |
-| `docs/store_operations_management/monthly_data_foundation/` | V1 defines four all-20-store monthly CSV types, Accounting publication, immutable versions, fail-closed validation, and AM deny-by-default. | The implementation must preserve these contracts exactly. |
+| `docs/store_operations_management/monthly_data_foundation/` | V1 defines one all-20-store Yayoi annual-trial-balance workbook profile, four derived logical metrics, Accounting publication, immutable versions, fail-closed validation, and AM deny-by-default. | The implementation must preserve these contracts exactly. |
 | `accounting_core/schema.sql` | Contains import batches/files, versions, raw facts, validations, approvals, publications, audit log, immutable published facts, and `accounting_consumer_facts`. | Reuse the Accounting Core logical model; do not create a parallel Store Operations accounting ledger. |
 | `accounting_kpi/schema.sql` | Contains published-version projection state and KPI calculation/result controls. | Reuse only after metric definitions and target persistence are approved. |
 | `supabase/functions/store-sales-projection/` | Staging function validates synthetic tokens, synthetic store IDs, and produces synthetic projection data. | It cannot be promoted or reused as a real-data source without a separately approved replacement of its synthetic-only path. |
@@ -33,8 +33,8 @@ conditional on a future catalog verification.
 | Master resolution | `public.stores`, Corporation Master, Employee Master through a server-side Access Port | Core Master direction exists in ADRs; target catalog not verified here | Access Port implementation and contract tests |
 | Store identifiers | canonical `store_id`; controlled Tokorozawa legacy UUID crosswalk | Crosswalk policy exists; physical crosswalk object is not evidenced | Create/align a crosswalk persistence contract only after owner approval |
 | AM Store Scope | multiple effective-dated employee-to-store assignments | `public.employee_store_assignments` is a repository SQL candidate | Verify target object; migrate only if absent; resolve scope server-side |
-| Import batch and file history | batch ID, file hash, type, period, source metadata, actor, timestamps | `accounting_import_batches` and `accounting_import_files` exist in Accounting Core schema | Port/align to target persistence if not already present |
-| Version and publication | immutable version, supersession, latest published only | `accounting_versions`, `accounting_publications`, immutable published facts exist in Accounting Core schema | Add the four V1 CSV-type semantics and Accounting-only normal publication policy |
+| Import batch and file history | batch ID, workbook hash, profile and mapping versions, periods, source metadata, actor, timestamps | `accounting_import_batches` and `accounting_import_files` exist in Accounting Core schema | Port/align to target persistence if not already present |
+| Version and publication | immutable workbook version, supersession, latest published only | `accounting_versions`, `accounting_publications`, immutable published facts exist in Accounting Core schema | Add the Workbook Profile, mapping-version semantics, and Accounting-only normal publication policy |
 | Error isolation | blocking validation results, masked row reference, no partial publication | `accounting_validation_results` exists | Reuse; do not introduce an unbounded raw-CSV quarantine store |
 | Rollback | restore a prior compatible published version without overwrite | Accounting Core contains `rollback_restore` and publication supersession | Add Accounting-plus-Representative approval enforcement and audit evidence |
 | Monthly projection | published sales, profit, EC, product data; null/unavailable states | Accounting consumer view/API contract is a source model only | Build a target-backed server read projection with the monthly data contract |
@@ -77,20 +77,20 @@ already exist. This audit neither creates nor approves one.
 
 The future Import Center is an Accounting-only, server-mediated workflow:
 
-1. Accept one of four Yayoi Accounting CSV types for one target month, covering all
-   20 stores.
-2. Compute an immutable file hash and create a batch/file record.
-3. Validate the approved source-column mapping, `store_id`, `corporation_id`, and
-   optional employee number only where applicable.
+1. Accept one approved Yayoi annual-trial-balance workbook containing P/L sheets
+   mapped to the current 20 stores.
+2. Compute an immutable workbook hash and create a batch/file record.
+3. Validate the Workbook Profile, actual month columns, approved sheet/account
+   mappings, `store_id`, and `corporation_id`.
 4. Reject the entire file for missing required columns, invalid period, unknown
    store/corporation, duplicate store ID, or a 20/direct-13/FC-7 invariant failure.
 5. Store only masked validation evidence and make no partial publication.
 6. Let Accounting review and normally publish a validated version.
 7. Require Accounting plus Representative approval to create a rollback restore.
 
-The actual Yayoi export headers are not established by the merged design documents.
-They must be inventoried from an approved representative export and mapped in a
-separate, versioned import profile. No raw header names are fixed by this audit.
+The historical structure audit provides a reference profile, but the actual next
+workbook must be inventoried in a dry-run and mapped in an approved, versioned
+profile. No raw sheet label is a canonical identifier.
 
 ## Permission and RLS impact
 
@@ -126,7 +126,7 @@ only as a staging test surface and cannot satisfy the approved real-data contrac
 
 This is a **yes** for UI work, but only after server contracts are approved:
 
-- Accounting Import Center: select CSV type/period, upload, validation summary,
+- Accounting Import Center: select a Workbook Profile, upload, validation summary,
   publish control, immutable history, and rollback request state.
 - Store Operations read UI: render only the server-provided monthly projection,
   show `preparing` as `集計中`, never display unknown values as zero, and show no
@@ -137,7 +137,7 @@ This is a **yes** for UI work, but only after server contracts are approved:
 1. Target Supabase catalog evidence for Master, Accounting, assignment, and
    crosswalk objects.
 2. The approved Yayoi export samples and a versioned source-column mapping for all
-   four CSV types.
+   Workbook Profile and the four derived logical metrics.
 3. Accounting owner confirmation that the accounting logical schema is the target
    persistence model, including net/tax semantics and confirmed-period rule.
 4. Core Master owner approval that `employee_store_assignments` is the formal
@@ -153,7 +153,8 @@ This is a **yes** for UI work, but only after server contracts are approved:
 
 1. Perform target-catalog and canonical HUB-session verification; stop if either is
    unavailable.
-2. Freeze approved Yayoi import profiles from real, approved export samples.
+2. Freeze the approved Yayoi Workbook Profile, sheet map, and account map from a
+   real, approved workbook inventory.
 3. Produce one reviewed migration plan for missing/unaligned Accounting, assignment,
    and crosswalk objects, including RLS/grants and rollback.
 4. Implement server-side Master/Scope and Accounting published-projection Access

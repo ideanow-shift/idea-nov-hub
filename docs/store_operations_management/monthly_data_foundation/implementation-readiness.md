@@ -76,25 +76,25 @@ evidence, the minimum additions or alignments are:
 
 | Existing logical object | Gap against the approved monthly contract | Minimum candidate |
 | --- | --- | --- |
-| `accounting.import_files` | no distinct V1 CSV type/profile field in reviewed candidate | add a controlled `import_profile` or `csv_type` reference; do not infer from filename |
+| `accounting.import_files` | no distinct Workbook Profile / sheet-map identity field in reviewed candidate | add a controlled `import_profile`, workbook hash, and mapping-version reference; do not infer from filename |
 | `accounting.validation_results` | source row is indirect or absent for an early rejection | retain a bounded source row/column reference and masked error code; never retain a raw data dump |
 | `accounting.approvals` | reviewed stages are Accounting/Management and do not identify the rollback operation or Representative role | add operation/context and approver-role snapshot, or a constrained equivalent, before rollback enablement |
-| `accounting.versions` / `facts` | must model four Yayoi profiles for one all-20-store file per month | approve one profile-to-fact mapping and a group-level publication rule |
+| `accounting.versions` / `facts` | must model one Yayoi Workbook Profile and four derived logical metrics | approve one workbook-profile-to-fact mapping and group-level publication rule |
 
 ### Accounting import receivers
 
 All four V1 inputs belong to the same Accounting lifecycle, not separate tables:
 
-| CSV type | Source | Proposed receiver |
+| Logical metric | Source | Proposed receiver |
 | --- | --- | --- |
-| monthly sales | Yayoi Accounting CSV | approved profile -> import file -> version -> published facts |
-| monthly profit | Yayoi Accounting CSV | approved profile -> import file -> version -> published facts |
-| monthly EC sales | Yayoi Accounting CSV | approved profile -> import file -> version -> published facts |
-| monthly product sales | Yayoi Accounting CSV | approved profile -> import file -> version -> published facts |
+| monthly sales | Yayoi annual-trial-balance workbook P/L mapping | approved profile -> import file -> version -> published facts |
+| monthly profit | Yayoi annual-trial-balance workbook P/L mapping | approved profile -> import file -> version -> published facts |
+| monthly EC sales | Yayoi annual-trial-balance workbook P/L mapping | approved profile -> import file -> version -> published facts |
+| monthly product sales | Yayoi annual-trial-balance workbook P/L mapping | approved profile -> import file -> version -> published facts |
 
-The actual Yayoi headers and account mapping are unverified. No column name or
-account mapping may be fixed until an Accounting owner approves representative,
-sanitized source exports.
+The historical workbook audit supplies a candidate layout and account labels. The
+actual Workbook Profile, sheet map, month headers, and account mapping remain
+unapproved until Accounting approves a representative sanitized workbook inventory.
 
 ## 3. Employee Master and AM Store Scope
 
@@ -193,7 +193,8 @@ principal are approved.
 1. Approve a sealed, fixed-query Production catalog attestation for Accounting and
    Core Master objects.
 2. Accept/reject actual target compatibility for the seven monthly lifecycle objects.
-3. Approve the four Yayoi import profiles from sanitized representative exports.
+3. Approve the Yayoi Workbook Profile, sheet mapping, and account mapping from a
+   sanitized representative workbook inventory.
 4. Select inclusive or exclusive `effective_to` semantics.
 5. Approve Employee assignment relation ownership and data stewardship.
 6. Approve crosswalk placement, identity evidence, and immutability controls.

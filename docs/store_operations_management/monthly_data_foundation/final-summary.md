@@ -9,8 +9,10 @@ database change, or a runtime connection.
 ## Defined V1 boundary
 
 - Supabase is the formal Corporation, Store, and Employee Master source.
-- Yayoi Accounting CSV is the formal source for monthly sales, profit, EC sales,
-  and product sales. Each type is one all-20-store CSV per month.
+- One Yayoi Accounting `残高試算表（年間推移）` workbook is the physical source for
+  monthly sales, profit, EC sales, and product sales. The values are four logical
+  metrics extracted from approved P/L sheet and account mappings; sheet labels are
+  never store identifiers.
 - Accounting uploads, reviews, and normally publishes. Rollback requires Accounting
   plus Representative approval; routine publication does not require Representative
   approval.
@@ -32,6 +34,8 @@ database change, or a runtime connection.
 2. Approve retention, correction, and audit-evidence duration.
 3. Approve the physical schema, API contract, and staging implementation in a later
    sprint.
+4. Approve the first Workbook Profile inventory, fixed sheet mapping, and account
+   mapping before any dry-run or import.
 
 ## No operational change
 

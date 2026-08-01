@@ -40,6 +40,8 @@ h2 { font-size: 1.15rem; }
 .repair-card dl { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px 16px; margin: 18px 0; }
 .repair-card dt { color: var(--muted); }
 .repair-card dd { font-weight: 700; margin: 0; }
+.source-link { display: inline-flex; align-items: center; min-height: 46px; border: 1px solid var(--rose); border-radius: 10px; padding: 10px 14px; color: var(--rose-dark); font-weight: 800; text-decoration: none; }
+.source-link:hover, .source-link:focus-visible { background: var(--rose-soft); outline: 2px solid transparent; }
 .repair-control { border: 0; margin: 0; padding: 0; }
 .repair-control legend { font-weight: 800; margin-bottom: 8px; }
 .repair-control label { display: block; border: 1px solid var(--line); border-radius: 10px; padding: 12px; }

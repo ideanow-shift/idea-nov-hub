@@ -2,12 +2,12 @@
 
 ## Final decision
 
-**CONDITIONAL PASS — the provisioning package is ready for human setup; a new Staging project is required.**
+**CONDITIONAL PASS — the provisioning package is ready for human setup; project selection is pending an options comparison.**
 
 ## Summary
 
-- existing Staging project candidate: none approved;
-- new project required: yes;
+- existing Staging project candidate: ACTIVE Core and INACTIVE sandbox require evidence review; neither is approved;
+- new project required: undecided; sandbox reuse is evaluated before creating a new project;
 - human actions: 7;
 - sensitive secrets: 3; protected configuration/approval entries: 4;
 - Store Master access port: interface ready, not provisioned;

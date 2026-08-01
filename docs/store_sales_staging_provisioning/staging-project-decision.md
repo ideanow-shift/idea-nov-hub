@@ -2,13 +2,13 @@
 
 ## Decision
 
-**New Staging project required.**
+**Decision pending options comparison.**
 
-There is no ACTIVE Supabase project with owner-approved Staging identity evidence. Selecting the active Core project or the inactive sandbox project would be an assumption and violates the sprint boundary.
+There is no ACTIVE Supabase project with owner-approved Staging identity evidence. This blocks selection today, but does not prove a new project is the only viable option. The active Core project and inactive sandbox project must be compared under the evidence and isolation criteria in [staging-project-options-comparison.md](staging-project-options-comparison.md).
 
-## Required project characteristics
+## Required characteristics for any selected option
 
-1. a new project name and environment label containing `staging`;
+1. an approved Staging environment label and identity profile;
 2. a separate project reference, API URL, database, and Edge Function deployment target from Production;
 3. a private identity profile that records only fingerprints/masked reference, region, owner, and approval date;
 4. a deployment owner and rollback artifact owner;
@@ -16,7 +16,7 @@ There is no ACTIVE Supabase project with owner-approved Staging identity evidenc
 
 ## Decision owner
 
-Platform Owner and Security Owner jointly select or create the project. Core DB, Accounting, and Sales owners attest that their staging read-only sources are non-Production.
+Platform Owner and Security Owner jointly select the option. Core DB, Accounting, and Sales owners attest that their staging read-only sources are non-Production. Project creation or sandbox reactivation remains a separately approved human action.
 
 ## Stop condition
 

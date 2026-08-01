@@ -23,6 +23,8 @@ const verifier = await readFile(resolve(root, "hub-session-verifier-contract.md"
 const storeMasterPort = await readFile(resolve(root, "store-master-readonly-port-contract.md"), "utf8");
 const accountingPort = await readFile(resolve(root, "accounting-readonly-port-contract.md"), "utf8");
 const bindingSummary = await readFile(resolve(root, "binding-sprint-summary.md"), "utf8");
+const canonicalEvidence = await readFile(resolve(root, "canonical-hub-session-verification-evidence.md"), "utf8");
+const environmentProtection = await readFile(resolve(root, "github-environment-protection-spec.md"), "utf8");
 
 assert.match(inventory, /not selectable by inference/);
 assert.match(project, /Decision pending options comparison/);
@@ -51,6 +53,10 @@ assert.match(dataSource, /Human approval required/);
 assert.match(verifier, /AM_SCOPE_UNASSIGNED/);
 assert.match(storeMasterPort, /exactly 20 active current stores: Direct 13 and FC 7/);
 assert.match(accountingPort, /all profit-derived numeric fields are `null`/);
-assert.match(bindingSummary, /CONDITIONAL PASS/);
-assert.doesNotMatch(`${inventory}\n${project}\n${comparison}\n${secrets}\n${board}\n${summary}\n${sandbox}\n${cleanup}\n${reuse}\n${build}\n${checklist}\n${connection}\n${goNoGo}\n${secretRequirements}\n${secretGuide}\n${dataSource}\n${verifier}\n${storeMasterPort}\n${accountingPort}\n${bindingSummary}`, /postgres(?:ql)?:\/\/[^\s]+|sb_secret_[^\s]+|zgkoofphhivesclehrom/i);
-process.stdout.write("RESULT staging provisioning, sandbox build gate, exact secret inventory, and binding contracts are safe and static PASS\n");
+assert.match(bindingSummary, /BLOCKED/);
+assert.match(canonicalEvidence, /HMAC SHA-256/);
+assert.match(canonicalEvidence, /cannot be bound or deployed/);
+assert.match(environmentProtection, /Required reviewers/);
+assert.match(environmentProtection, /feature\/store-sales-api-staging/);
+assert.doesNotMatch(`${inventory}\n${project}\n${comparison}\n${secrets}\n${board}\n${summary}\n${sandbox}\n${cleanup}\n${reuse}\n${build}\n${checklist}\n${connection}\n${goNoGo}\n${secretRequirements}\n${secretGuide}\n${dataSource}\n${verifier}\n${storeMasterPort}\n${accountingPort}\n${bindingSummary}\n${canonicalEvidence}\n${environmentProtection}`, /postgres(?:ql)?:\/\/[^\s]+|sb_secret_[^\s]+|zgkoofphhivesclehrom/i);
+process.stdout.write("RESULT staging provisioning, sandbox build gate, exact secret inventory, binding contracts, and canonical HUB evidence are safe and static PASS\n");

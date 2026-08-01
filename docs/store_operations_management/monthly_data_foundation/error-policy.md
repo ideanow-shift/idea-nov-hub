@@ -18,3 +18,16 @@ corporation.
 Published projections expose `null`, `preparing`, or `unavailable` for absent or
 unconfirmed data. They never fabricate a sales, profit, customer, price, product,
 EC, or AM value.
+
+## Status presentation
+
+Internal statuses are stable contract values. Store Operations must present the
+following approved Japanese labels to users; this is a display mapping only and does
+not rename an internal status.
+
+| Internal status | User display |
+| --- | --- |
+| `preparing` | 集計中 |
+| `unavailable` | 利用不可 |
+| `not_published` | 未公開 |
+| `validation_failed` | 取込エラー |

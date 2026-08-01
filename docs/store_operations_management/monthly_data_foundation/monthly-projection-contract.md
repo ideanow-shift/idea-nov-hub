@@ -29,3 +29,15 @@ confirmed_through_period
 FC profit is `unavailable` in V1. Headquarters allocation, customer counts, and
 unit prices are outside V1. Every returned record is filtered by the resolved
 server-side role and Store Scope.
+
+## User display mapping
+
+`publication_status` remains an internal contract value. The approved user-facing
+labels are:
+
+| Internal status | User display |
+| --- | --- |
+| `preparing` | 集計中 |
+| `unavailable` | 利用不可 |
+| `not_published` | 未公開 |
+| `validation_failed` | 取込エラー |

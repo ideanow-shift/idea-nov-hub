@@ -1,18 +1,20 @@
-# Human Approval Board
+# Production Snapshot Human Approval Board
 
-All ten items must be approved before a real extraction window opens.
+**Purpose:** approve one safe Production read-only Snapshot extraction. This board does not authorize Sandbox upload, deployment, merge, database change, or any repeat execution.
 
-| ID | Approval required |
-| --- | --- |
-| A01 | verified Production project identity fingerprint and non-Production target identity |
-| A02 | temporary least-privilege read-only role, no inheritance or bypass-RLS capability |
-| A03 | exact approved source and query definition for Q01, Q02, and Q08 |
-| A04 | source approvals or explicit unavailable state for Q03-Q07 |
-| A05 | field allowlist and personal-data exclusion rules |
-| A06 | one execution window, executor, query cap, timeout, retry 0, and rollback proof |
-| A07 | credential creation, expiry, rotation, revocation, and no-log controls |
-| A08 | manifest/version/hash/expiry requirements and evidence retention |
-| A09 | Sandbox receipt authority and active-version approval |
-| A10 | rollback owner and disabled-state procedure |
+| Item | Recommended decision and reason | Risk if approved / not approved | Approval text | Rejection / revision text |
+| --- | --- | --- | --- | --- |
+| D01 Production identity | The DB owner selects the named Production project in a private identity profile and confirms its approved fingerprint/ref, environment label, and read-only route. Any mismatch stops before a query. This prevents a wrong-environment read. | A mistaken profile could target the wrong environment; no approval leaves Snapshot unavailable. | “I approve the privately verified Production identity profile. Any mismatch must stop with query count 0.” | “Reject: identity proof is incomplete.” / “Revise: provide the masked fingerprint evidence.” |
+| D02 Audit role | Create a temporary, non-inheriting, non-BYPASSRLS audit role limited to the three approved SELECT projections, one connection, expiry, and revocation procedure. No write, DDL, or RPC authority. | Excess privilege risks data exposure; no role prevents extraction. | “I approve the least-privilege, one-connection, expiring read-only audit role.” | “Reject: permissions exceed the approved projections.” / “Revise: narrow grants or expiry.” |
+| D03 Fixed queries | Execute exactly Q01 Store Master, Q02 Confirmed Accounting, and Q08 Legacy Crosswalk once each. Q03-Q07 remain unavailable and forbidden. | Wrong source/projection could disclose or misstate data; no approval retains unavailable status. | “I approve Q01, Q02, and Q08 only; all other query IDs are prohibited.” | “Reject: a query is not fixed or source-approved.” / “Revise: supply an approved query contract.” |
+| D04 Output columns | Approve the existing 49-column aggregate allowlist only. Customer/employee data, credentials, connection data, raw journals, raw UUID lists, and arbitrary SQL output are prohibited. | Overbroad output creates privacy/security exposure; no approval prevents artifact issuance. | “I approve only the fixed aggregate allowlist and all stated exclusions.” | “Reject: an unnecessary or sensitive field is present.” / “Revise: remove the field.” |
+| D05 Validation | Require 20 stores, Direct 13, FC 7, valid Tokorozawa crosswalk, confirmed profit only, unconfirmed `null`, FC profit unavailable, and AM unassigned deny-by-default. Any mismatch rejects the artifact. | Bad baseline makes the Snapshot unsafe; no approval blocks publication. | “I approve fail-closed validation. One mismatch prohibits Snapshot issuance.” | “Reject: a validation rule is omitted.” / “Revise: restore the required rule.” |
+| D06 Execution limits | Maximum 3 queries, one execution each, retry 0, statement timeout 5 seconds, lock timeout 1 second, one connection, mandatory `BEGIN READ ONLY`, `ROLLBACK`, and close. | Timeouts and bounded access protect Production; no approval defers extraction. | “I approve the one-session, three-query, no-retry execution limit.” | “Reject: limits are broader than stated.” / “Revise: reduce the limit.” |
+| D07 Executor | **Recommend C:** representative, OS owner, and DB owner approve; OS command owner executes once. Separation of approval, system governance, and DB responsibility is strongest for Production access. | Three-party coordination is slower; weaker options reduce independent oversight. | “All three required owners approve one execution by the OS command owner.” | “Reject: required approver unavailable.” / “Revise: formally assign a documented delegate.” |
+| D08 Time window | One pre-booked, low-impact window, recommended 04:00-05:00 JST. Automatic retry is forbidden; every later attempt requires fresh approval. | Operational impact remains possible; no window means no run. | “I approve one execution window at the recorded time with no automatic retry.” | “Reject: time conflicts with operations.” / “Revise: nominate a new one-time window.” |
+| D09 Evidence | Retain run ID, time, query IDs/count, result, rollback/close proof, artifact/manifest hashes. Never retain credentials, connection strings, raw UUIDs, financial values, or personal data. | Insufficient evidence prevents auditability; excessive evidence leaks sensitive data. | “I approve the minimal sanitized evidence record and retention owner.” | “Reject: evidence is insufficient or over-collects.” / “Revise: correct the evidence boundary.” |
+| D10 Sandbox intake | Extraction success does not activate data. A separate human review validates manifest/hash/expiry, 20/13/7, confirmed period, and zero personal-data exposure before Sandbox intake. | Automatic intake could promote a bad artifact; no approval keeps it unavailable. | “I approve separate post-extraction review before any Sandbox intake.” | “Reject: automatic intake is proposed.” / “Revise: separate approval stages.” |
 
-No approval record may contain a credential, raw endpoint, raw UUID, or production data value.
+## Final approval precondition
+
+All D01-D10 must be marked approved in one bounded record. The record must reference only opaque identities and hashes, never a secret, endpoint, raw UUID, or Production value. Any rejection, ambiguity, timeout, or failure consumes no artifact and requires a new approval decision before a later run.

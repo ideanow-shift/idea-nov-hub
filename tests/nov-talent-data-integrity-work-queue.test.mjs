@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   advanceWorkQueue,
+  attachSourceLineage,
   confirmRepairDecision,
   createWorkQueueState,
   getCurrentItem,
@@ -13,11 +14,13 @@ import {
   getWorkQueueMetrics,
   markSpreadsheetFixed,
   validateRepairDecision,
+  validateSourceLineage,
   validateWorkQueuePayload
 } from "../portal/talent/data-integrity-work-queue.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const seed = JSON.parse(fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-work-queue.seed.json"), "utf8"));
+const lineage = JSON.parse(fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-source-lineage.json"), "utf8"));
 const html = fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-work-queue.html"), "utf8");
 const css = fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-work-queue.css"), "utf8");
 const source = fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-work-queue.mjs"), "utf8");
@@ -108,4 +111,33 @@ test("seed contains no real personal or persistent write capability", () => {
   assert.equal(seed.safety.persistentWriteEnabled, false);
   assert.equal(seed.safety.databaseChanged, false);
   assert.equal(seed.safety.productionChanged, false);
+});
+
+test("source lineage covers all 17 issues without personal values", () => {
+  assert.equal(validateSourceLineage(lineage, seed), lineage);
+  assert.equal(lineage.items.length, 17);
+  assert.equal(lineage.readOnly, true);
+  assert.equal(lineage.containsPersonalValues, false);
+  assert.deepEqual(new Set(lineage.items.map((item) => item.issue_id)), new Set(seed.items.map((item) => item.id)));
+  assert.equal(lineage.items.every((item) => item.spreadsheet_name && item.sheet_name && item.source_row_no > 0), true);
+  assert.equal(lineage.items.every((item) => item.open_url.startsWith("https://docs.google.com/spreadsheets/d/")), true);
+});
+
+test("lineage identifies the confirmed missing and duplicate source rows", () => {
+  const byType = lineage.items.reduce((groups, item) => {
+    (groups[item.issue_type] ||= []).push(item);
+    return groups;
+  }, {});
+  assert.deepEqual(byType.SCHOOL_MISSING.map((item) => item.source_row_no), [549]);
+  assert.deepEqual(byType.NAME_MISSING.map((item) => item.source_row_no), [111, 112, 113, 114]);
+  assert.deepEqual(byType.STATUS_MISSING.map((item) => item.source_row_no), [3, 4]);
+  assert.deepEqual(byType.DUPLICATE_CANDIDATE.map((item) => item.source_row_no), [28, 29, 41, 85, 98, 115, 120, 346, 410, 451]);
+});
+
+test("work queue attaches lineage and renders no subject or current value", () => {
+  const attached = attachSourceLineage(seed, lineage);
+  assert.equal(attached.items.every((item) => item.lineage?.source_row_no > 0), true);
+  assert.doesNotMatch(source, /addText\(documentObject, repair, "h2", current\.subject\)/);
+  assert.doesNotMatch(source, /\["現在値", current\.currentValue\]/);
+  assert.match(source, /正本Spreadsheetの該当行を開く/);
 });

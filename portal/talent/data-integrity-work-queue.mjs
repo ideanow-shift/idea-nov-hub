@@ -40,6 +40,54 @@ export function validateWorkQueuePayload(payload) {
   return payload;
 }
 
+function validDuplicatePairRow(value) {
+  if (value === null) return true;
+  if (Number.isInteger(value) && value > 0) return true;
+  return Array.isArray(value) && value.length > 0 && value.every((row) => Number.isInteger(row) && row > 0);
+}
+
+export function validateSourceLineage(lineage, queuePayload) {
+  if (!lineage || lineage.schemaVersion !== "1.0") throw new TypeError("unsupported source lineage schema");
+  if (lineage.readOnly !== true || lineage.containsPersonalValues !== false) {
+    throw new TypeError("source lineage safety boundary is invalid");
+  }
+  if (!Array.isArray(lineage.sourceSpreadsheets) || !Array.isArray(lineage.items)) {
+    throw new TypeError("source lineage inventory and items are required");
+  }
+
+  const queueItems = new Map(validateWorkQueuePayload(queuePayload).items.map((item) => [item.id, item]));
+  const lineageIds = new Set();
+  for (const item of lineage.items) {
+    const queueItem = queueItems.get(item.issue_id);
+    if (!queueItem || lineageIds.has(item.issue_id)) throw new TypeError("source lineage issue id is invalid");
+    lineageIds.add(item.issue_id);
+    if (item.graduation_year !== queueItem.cohort || item.issue_type !== queueItem.type) {
+      throw new TypeError("source lineage does not match work queue item");
+    }
+    if (!item.spreadsheet_name || !item.sheet_name || !Number.isInteger(item.source_row_no) || item.source_row_no < 1) {
+      throw new TypeError("source lineage location is incomplete");
+    }
+    if (!item.stable_key_hint || !item.correction_target || !validDuplicatePairRow(item.duplicate_pair_row)) {
+      throw new TypeError("source lineage repair metadata is invalid");
+    }
+    if (!String(item.open_url).startsWith("https://docs.google.com/spreadsheets/d/")) {
+      throw new TypeError("source lineage open url is invalid");
+    }
+  }
+  if (lineageIds.size !== queueItems.size) throw new TypeError("source lineage must cover every work queue item");
+  return lineage;
+}
+
+export function attachSourceLineage(queuePayload, lineagePayload) {
+  const queue = validateWorkQueuePayload(queuePayload);
+  const lineage = validateSourceLineage(lineagePayload, queue);
+  const byIssueId = new Map(lineage.items.map((item) => [item.issue_id, item]));
+  return {
+    ...queue,
+    items: queue.items.map((item) => ({ ...item, lineage: { ...byIssueId.get(item.id) } }))
+  };
+}
+
 export function createWorkQueueState(payload) {
   const valid = validateWorkQueuePayload(payload);
   return {
@@ -219,13 +267,30 @@ export function renderWorkQueue(documentObject, state, onChange) {
   const repair = documentObject.createElement("article");
   repair.className = "repair-card";
   addText(documentObject, repair, "p", `${current.cohort} / ${TYPE_LABELS[current.type]}`, "repair-type");
-  addText(documentObject, repair, "h2", current.subject);
+  addText(documentObject, repair, "h2", current.lineage.correction_target);
   const facts = documentObject.createElement("dl");
-  for (const [term, value] of [["現在値", current.currentValue], ["修正候補", current.suggestion]]) {
+  const pairRows = current.lineage.duplicate_pair_row === null
+    ? ""
+    : Array.isArray(current.lineage.duplicate_pair_row)
+      ? ` / 相手行 ${current.lineage.duplicate_pair_row.join("・")}`
+      : ` / 相手行 ${current.lineage.duplicate_pair_row}`;
+  for (const [term, value] of [
+    ["正本ファイル", current.lineage.spreadsheet_name],
+    ["シート名", current.lineage.sheet_name],
+    ["行番号", `${current.lineage.source_row_no}${pairRows}`],
+    ["修正項目", current.lineage.correction_target]
+  ]) {
     addText(documentObject, facts, "dt", term);
     addText(documentObject, facts, "dd", value);
   }
   repair.append(facts);
+  const openSource = documentObject.createElement("a");
+  openSource.className = "source-link";
+  openSource.href = current.lineage.open_url;
+  openSource.target = "_blank";
+  openSource.rel = "noopener noreferrer";
+  openSource.textContent = "正本Spreadsheetの該当行を開く";
+  repair.append(openSource);
   if (current.status === "PENDING") {
     repair.append(createDecisionControl(documentObject, current));
   } else {
@@ -268,9 +333,13 @@ export function renderWorkQueue(documentObject, state, onChange) {
 }
 
 export async function loadWorkQueue(fetchImplementation = globalThis.fetch) {
-  const response = await fetchImplementation("./data-integrity-work-queue.seed.json", { cache: "no-store" });
-  if (!response.ok) throw new Error("work queue could not be loaded");
-  return createWorkQueueState(await response.json());
+  const [queueResponse, lineageResponse] = await Promise.all([
+    fetchImplementation("./data-integrity-work-queue.seed.json", { cache: "no-store" }),
+    fetchImplementation("./data-integrity-source-lineage.json", { cache: "no-store" })
+  ]);
+  if (!queueResponse.ok || !lineageResponse.ok) throw new Error("work queue could not be loaded");
+  const payload = attachSourceLineage(await queueResponse.json(), await lineageResponse.json());
+  return createWorkQueueState(payload);
 }
 
 async function initialize() {

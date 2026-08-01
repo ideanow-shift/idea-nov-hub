@@ -1,7 +1,7 @@
 # Rollback Policy
 
 Rollback never edits a published snapshot in place. Accounting selects the last
-approved, compatible version for the exact CSV type and period, records a reason,
+approved, compatible workbook version for the exact Workbook Profile and period, records a reason,
 validates the full store invariants again, and obtains Representative co-approval.
 
 If no compatible prior version exists, the projection becomes `unavailable`; it does

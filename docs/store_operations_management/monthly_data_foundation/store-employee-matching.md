@@ -13,7 +13,7 @@ to infer a match.
    snapshots before a record can be reviewed or published.
 3. A missing, duplicate, inactive, or cross-corporation match is a rejection.
 4. The approved Tokorozawa legacy UUID crosswalk is applied only by the controlled
-   server-side matching boundary; UUIDs are not distributed in a CSV.
+   server-side matching boundary; UUIDs are not distributed in a Workbook.
 5. The Supabase Employee Master is the formal AM-assignment source. It holds one or
    more approved `assigned_store_ids` with `assignment_effective_from` and
    `assignment_effective_to` for each assignment.

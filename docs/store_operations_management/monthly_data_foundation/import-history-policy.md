@@ -1,8 +1,9 @@
 # Import History Policy
 
 The future import history records only operational metadata necessary for
-traceability: batch ID, version, CSV type, target period, source file name and
-hash, accepted/rejected row counts, state transitions, actor employee number,
+traceability: batch ID, version, Workbook Profile, target periods, source file name
+and hash, sheet/account mapping versions, accepted/rejected row counts, state
+transitions, actor employee number,
 approval reference, and timestamps.
 
 It must not retain customer rows, employee personal attributes, credentials,

@@ -18,6 +18,11 @@ const connection = await readFile(resolve(root, "staging_connection_report.md"),
 const goNoGo = await readFile(resolve(root, "go_no_go.md"), "utf8");
 const secretRequirements = await readFile(resolve(root, "environment-secret-requirements.md"), "utf8");
 const secretGuide = await readFile(resolve(root, "environment-secret-registration-guide.md"), "utf8");
+const dataSource = await readFile(resolve(root, "data-source-decision.md"), "utf8");
+const verifier = await readFile(resolve(root, "hub-session-verifier-contract.md"), "utf8");
+const storeMasterPort = await readFile(resolve(root, "store-master-readonly-port-contract.md"), "utf8");
+const accountingPort = await readFile(resolve(root, "accounting-readonly-port-contract.md"), "utf8");
+const bindingSummary = await readFile(resolve(root, "binding-sprint-summary.md"), "utf8");
 
 assert.match(inventory, /not selectable by inference/);
 assert.match(project, /Decision pending options comparison/);
@@ -41,5 +46,11 @@ assert.match(goNoGo, /# NO-GO/);
 assert.match(secretRequirements, /Required GitHub Environment Secrets now: 0/);
 assert.match(secretRequirements, /not registerable yet/);
 assert.match(secretGuide, /Do not register a GitHub or Supabase secret now/);
-assert.doesNotMatch(`${inventory}\n${project}\n${comparison}\n${secrets}\n${board}\n${summary}\n${sandbox}\n${cleanup}\n${reuse}\n${build}\n${checklist}\n${connection}\n${goNoGo}\n${secretRequirements}\n${secretGuide}`, /postgres(?:ql)?:\/\/[^\s]+|sb_secret_[^\s]+|zgkoofphhivesclehrom/i);
-process.stdout.write("RESULT staging provisioning, sandbox build gate, and exact secret inventory are safe and static PASS\n");
+assert.match(dataSource, /Recommended option: B/);
+assert.match(dataSource, /Human approval required/);
+assert.match(verifier, /AM_SCOPE_UNASSIGNED/);
+assert.match(storeMasterPort, /exactly 20 active current stores: Direct 13 and FC 7/);
+assert.match(accountingPort, /all profit-derived numeric fields are `null`/);
+assert.match(bindingSummary, /CONDITIONAL PASS/);
+assert.doesNotMatch(`${inventory}\n${project}\n${comparison}\n${secrets}\n${board}\n${summary}\n${sandbox}\n${cleanup}\n${reuse}\n${build}\n${checklist}\n${connection}\n${goNoGo}\n${secretRequirements}\n${secretGuide}\n${dataSource}\n${verifier}\n${storeMasterPort}\n${accountingPort}\n${bindingSummary}`, /postgres(?:ql)?:\/\/[^\s]+|sb_secret_[^\s]+|zgkoofphhivesclehrom/i);
+process.stdout.write("RESULT staging provisioning, sandbox build gate, exact secret inventory, and binding contracts are safe and static PASS\n");

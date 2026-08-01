@@ -2,6 +2,16 @@
 
 **Purpose:** approve one safe Production read-only Snapshot extraction. This board does not authorize Sandbox upload, deployment, merge, database change, or any repeat execution.
 
+## Approval record status
+
+| Authority | Status | Recorded scope |
+| --- | --- | --- |
+| Representative | approved | D01-D10 policy decisions and one-time read-only extraction boundary |
+| OS responsibility | pending technical confirmation | runner manifest identity, fixed-query limit, timeout, cleanup, sanitized evidence |
+| DB responsibility | pending DB authority confirmation | private Production identity profile, exact approved Q01/Q02/Q08 objects, least-privilege grants, RLS behavior, expiry and revocation |
+
+When OS and DB responsibility are held by one person, the approval record must explicitly record that fact and retain the two pending checks as separate entries.
+
 | Item | Recommended decision and reason | Risk if approved / not approved | Approval text | Rejection / revision text |
 | --- | --- | --- | --- | --- |
 | D01 Production identity | The DB owner selects the named Production project in a private identity profile and confirms its approved fingerprint/ref, environment label, and read-only route. Any mismatch stops before a query. This prevents a wrong-environment read. | A mistaken profile could target the wrong environment; no approval leaves Snapshot unavailable. | “I approve the privately verified Production identity profile. Any mismatch must stop with query count 0.” | “Reject: identity proof is incomplete.” / “Revise: provide the masked fingerprint evidence.” |

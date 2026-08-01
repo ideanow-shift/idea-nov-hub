@@ -8,8 +8,8 @@ not sufficient to apply a migration or enable an import because the target Supab
 catalog, the approved Yayoi column mapping, and the canonical server-side HUB session
 verifier must be confirmed first.
 
-This audit is source-only. No database, migration, RLS, RPC, UI, deployment, or CSV
-import was changed.
+This audit is source-only. No database, migration, RLS, RPC, UI, deployment, or
+Yayoi Workbook import was changed.
 
 ## Evidence reviewed
 
@@ -35,7 +35,7 @@ conditional on a future catalog verification.
 | AM Store Scope | multiple effective-dated employee-to-store assignments | `public.employee_store_assignments` is a repository SQL candidate | Verify target object; migrate only if absent; resolve scope server-side |
 | Import batch and file history | batch ID, workbook hash, profile and mapping versions, periods, source metadata, actor, timestamps | `accounting_import_batches` and `accounting_import_files` exist in Accounting Core schema | Port/align to target persistence if not already present |
 | Version and publication | immutable workbook version, supersession, latest published only | `accounting_versions`, `accounting_publications`, immutable published facts exist in Accounting Core schema | Add the Workbook Profile, mapping-version semantics, and Accounting-only normal publication policy |
-| Error isolation | blocking validation results, masked row reference, no partial publication | `accounting_validation_results` exists | Reuse; do not introduce an unbounded raw-CSV quarantine store |
+| Error isolation | blocking validation results, masked row reference, no partial publication | `accounting_validation_results` exists | Reuse; do not introduce an unbounded raw Workbook, sheet, or row quarantine store |
 | Rollback | restore a prior compatible published version without overwrite | Accounting Core contains `rollback_restore` and publication supersession | Add Accounting-plus-Representative approval enforcement and audit evidence |
 | Monthly projection | published sales, profit, EC, product data; null/unavailable states | Accounting consumer view/API contract is a source model only | Build a target-backed server read projection with the monthly data contract |
 | Import Center | upload, dry-run validation, content review, publish, rollback request/history | No approved operator UI is present in scope | Implement only after server contracts and authorization are approved |
@@ -96,7 +96,7 @@ profile. No raw sheet label is a canonical identifier.
 
 | Boundary | Required behavior | Change needed later |
 | --- | --- | --- |
-| CSV upload/review/publish | Accounting only | server authorization and negative tests |
+| Yayoi Workbook upload / dry-run / normalized monthly version publish | Accounting only | server authorization and negative tests |
 | Rollback | Accounting plus Representative | dual-approval workflow and audit evidence |
 | Projection read | resolved role and effective Store Scope only | server-side scope resolver; browser claim is not authoritative |
 | AM | Employee Master assignments effective for the target period; no assignment means deny | server-side assignment query and deny test |
@@ -170,4 +170,5 @@ This is a **yes** for UI work, but only after server contracts are approved:
 ## Explicit non-actions
 
 No implementation, database mutation, migration, RLS change, RPC, UI change,
-deployment, Production operation, or CSV import was performed by this audit.
+deployment, Production operation, or Yayoi Workbook import was performed by this
+audit.

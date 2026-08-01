@@ -41,5 +41,5 @@ database change, or a runtime connection.
 ## No operational change
 
 This sprint made documentation only. No database, migration, RLS, RPC, deployment,
-GitHub Environment, production connection, current CSV, master data, or permission
+GitHub Environment, production connection, current Yayoi Workbook, master data, or permission
 model was changed.

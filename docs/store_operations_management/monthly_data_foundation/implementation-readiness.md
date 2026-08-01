@@ -12,8 +12,8 @@ implementation gates remain open:
    Store Operations.
 
 No Production connection or query was made for this readiness review. Database
-mutation, migration, RLS/grant changes, RPC, Edge deployment, UI change, and CSV
-import counts are all zero.
+mutation, migration, RLS/grant changes, RPC, Edge deployment, UI change, and Yayoi
+Workbook import counts are all zero.
 
 ## 1. Production catalog readiness
 

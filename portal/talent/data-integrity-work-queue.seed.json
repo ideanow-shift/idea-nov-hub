@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1.0",
+  "generatedAt": "2026-08-01T00:00:00+09:00",
+  "metrics": {
+    "integrityRate": null,
+    "fixedCount": 0,
+    "remainingCount": 17,
+    "migrationProgress": 0
+  },
+  "categoryCounts": [
+    { "type": "SCHOOL_MISSING", "label": "学校名不足", "count": 1 },
+    { "type": "NAME_MISSING", "label": "氏名不足", "count": 4 },
+    { "type": "STATUS_MISSING", "label": "状態不足", "count": 2 },
+    { "type": "ASSIGNEE_MISSING", "label": "担当者不足", "count": null },
+    { "type": "NEXT_ACTION_MISSING", "label": "次回対応不足", "count": null },
+    { "type": "DUPLICATE_CANDIDATE", "label": "重複候補", "count": 10 }
+  ],
+  "items": [
+    { "id": "DQ-SCHOOL-001", "type": "SCHOOL_MISSING", "cohort": "27卒", "subject": "候補者 001", "currentValue": "学校名未設定", "suggestion": "原票で学校名を確認" },
+    { "id": "DQ-NAME-001", "type": "NAME_MISSING", "cohort": "28卒", "subject": "接触記録 001", "currentValue": "氏名未設定", "suggestion": "原票で氏名を確認" },
+    { "id": "DQ-NAME-002", "type": "NAME_MISSING", "cohort": "28卒", "subject": "接触記録 002", "currentValue": "氏名未設定", "suggestion": "原票で氏名を確認" },
+    { "id": "DQ-NAME-003", "type": "NAME_MISSING", "cohort": "28卒", "subject": "接触記録 003", "currentValue": "氏名未設定", "suggestion": "原票で氏名を確認" },
+    { "id": "DQ-NAME-004", "type": "NAME_MISSING", "cohort": "28卒", "subject": "接触記録 004", "currentValue": "氏名未設定", "suggestion": "原票で氏名を確認" },
+    { "id": "DQ-STATUS-001", "type": "STATUS_MISSING", "cohort": "28卒", "subject": "候補者 006", "currentValue": "状態未設定", "suggestion": "要確認" },
+    { "id": "DQ-STATUS-002", "type": "STATUS_MISSING", "cohort": "28卒", "subject": "候補者 007", "currentValue": "状態未設定", "suggestion": "要確認" },
+    { "id": "DQ-DUP-001", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 001", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },
+    { "id": "DQ-DUP-002", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 002", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },
+    { "id": "DQ-DUP-003", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 003", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },
+    { "id": "DQ-DUP-004", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 004", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },
+    { "id": "DQ-DUP-005", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 005", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },
+    { "id": "DQ-DUP-006", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 006", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },
+    { "id": "DQ-DUP-007", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 007", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },
+    { "id": "DQ-DUP-008", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 008", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },
+    { "id": "DQ-DUP-009", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 009", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },
+    { "id": "DQ-DUP-010", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 010", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" }
+  ],
+  "safety": {
+    "mockOnly": true,
+    "containsPersonalValues": false,
+    "persistentWriteEnabled": false,
+    "databaseChanged": false,
+    "productionChanged": false
+  }
+}

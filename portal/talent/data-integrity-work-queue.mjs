@@ -66,15 +66,34 @@ export function validateSourceLineage(lineage, queuePayload) {
   if (lineage.readOnly !== true || lineage.containsPersonalValues !== false) {
     throw new TypeError("source lineage safety boundary is invalid");
   }
-  if (!Array.isArray(lineage.sourceSpreadsheets) || !Array.isArray(lineage.items)) {
+  if (!Array.isArray(lineage.sourceSpreadsheets) || !Array.isArray(lineage.closedIssues) || !Array.isArray(lineage.items)) {
     throw new TypeError("source lineage inventory and items are required");
+  }
+
+  const primaryByCohort = new Map();
+  for (const source of lineage.sourceSpreadsheets) {
+    if (source.lineage_role !== "PRIMARY" || !source.graduation_year || !source.spreadsheet_id || !source.sheet_id) {
+      throw new TypeError("source lineage primary inventory is invalid");
+    }
+    if (primaryByCohort.has(source.graduation_year)) throw new TypeError("source lineage cohort must have one primary source");
+    primaryByCohort.set(source.graduation_year, source);
+  }
+
+  const closedIds = new Set();
+  for (const issue of lineage.closedIssues) {
+    if (!issue.issue_id || closedIds.has(issue.issue_id)) throw new TypeError("closed issue id must be unique");
+    if (!["false_positive", "resolved"].includes(issue.final_status) || !issue.closure_reason || !issue.closed_at || !issue.source_type) {
+      throw new TypeError("closed issue metadata is incomplete");
+    }
+    if (issue.current_queue_included !== false) throw new TypeError("closed issue cannot remain in the current queue");
+    closedIds.add(issue.issue_id);
   }
 
   const queueItems = new Map(validateWorkQueuePayload(queuePayload).items.map((item) => [item.id, item]));
   const lineageIds = new Set();
   for (const item of lineage.items) {
     const queueItem = queueItems.get(item.issue_id);
-    if (!queueItem || lineageIds.has(item.issue_id)) throw new TypeError("source lineage issue id is invalid");
+    if (!queueItem || lineageIds.has(item.issue_id) || closedIds.has(item.issue_id)) throw new TypeError("source lineage issue id is invalid");
     lineageIds.add(item.issue_id);
     if (item.graduation_year !== queueItem.cohort || item.issue_type !== queueItem.type) {
       throw new TypeError("source lineage does not match work queue item");
@@ -141,7 +160,7 @@ export function getWorkQueueMetrics(state) {
 
 export function validateRepairDecision(item, decision) {
   if (!item || !decision || typeof decision !== "object") return false;
-  if (item.type === "DUPLICATE_CANDIDATE") return ["KEEP_A", "KEEP_B", "HOLD"].includes(decision.action);
+  if (item.type === "DUPLICATE_CANDIDATE") return ["SAME_PERSON", "DIFFERENT_PERSON", "HOLD"].includes(decision.action);
   if (item.type === "STATUS_MISSING") return ["REVIEW", "CONTACT", "SALON_TOUR", "INTERVIEW", "OFFER"].includes(decision.value);
   return typeof decision.value === "string" && decision.value.trim().length > 0 && decision.value.trim().length <= 120;
 }
@@ -205,7 +224,7 @@ function createDecisionControl(documentObject, item) {
   fieldset.append(legend);
 
   if (item.type === "DUPLICATE_CANDIDATE") {
-    for (const [value, label] of [["KEEP_A", "候補Aを正として採用"], ["KEEP_B", "候補Bを正として採用"], ["HOLD", "Spreadsheet上で保留"]]) {
+    for (const [value, label] of [["SAME_PERSON", "同一人物"], ["DIFFERENT_PERSON", "別人"], ["HOLD", "判断保留"]]) {
       const choice = documentObject.createElement("label");
       const input = documentObject.createElement("input");
       input.type = "radio";

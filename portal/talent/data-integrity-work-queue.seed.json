@@ -1,17 +1,15 @@
 {
   "schemaVersion": "2.0",
-  "generatedAt": "2026-08-02T16:34:17+09:00",
+  "generatedAt": "2026-08-02T18:00:00+09:00",
   "metrics": {
     "workQueueTotalCount": 17,
-    "workQueueIntegrityRate": 29.4,
+    "workQueueIntegrityRate": 64.7,
     "dataConsistencyIntegrityRate": null,
-    "fixedCount": 5,
-    "remainingCount": 12,
+    "fixedCount": 11,
+    "remainingCount": 6,
     "migrationStatus": "HOLD"
   },
   "categoryCounts": [
-    { "type": "NAME_MISSING", "label": "氏名不足", "count": 4 },
-    { "type": "STATUS_MISSING", "label": "状態不足", "count": 2 },
     { "type": "DUPLICATE_CANDIDATE", "label": "重複候補", "count": 6 }
   ],
   "dataConsistencyIssues": [
@@ -26,12 +24,6 @@
     }
   ],
   "items": [
-    { "id": "DQ-NAME-001", "type": "NAME_MISSING", "cohort": "28卒", "subject": "接触記録 001", "currentValue": "氏名未設定", "suggestion": "原票で氏名を確認" },
-    { "id": "DQ-NAME-002", "type": "NAME_MISSING", "cohort": "28卒", "subject": "接触記録 002", "currentValue": "氏名未設定", "suggestion": "原票で氏名を確認" },
-    { "id": "DQ-NAME-003", "type": "NAME_MISSING", "cohort": "28卒", "subject": "接触記録 003", "currentValue": "氏名未設定", "suggestion": "原票で氏名を確認" },
-    { "id": "DQ-NAME-004", "type": "NAME_MISSING", "cohort": "28卒", "subject": "接触記録 004", "currentValue": "氏名未設定", "suggestion": "原票で氏名を確認" },
-    { "id": "DQ-STATUS-001", "type": "STATUS_MISSING", "cohort": "28卒", "subject": "候補者 006", "currentValue": "状態未設定", "suggestion": "要確認" },
-    { "id": "DQ-STATUS-002", "type": "STATUS_MISSING", "cohort": "28卒", "subject": "候補者 007", "currentValue": "状態未設定", "suggestion": "要確認" },
     { "id": "DQ-DUP-001", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 001", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },
     { "id": "DQ-DUP-002", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 002", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },
     { "id": "DQ-DUP-003", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 003", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },

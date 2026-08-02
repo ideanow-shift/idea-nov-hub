@@ -1,23 +1,23 @@
 {
   "schemaVersion": "1.1",
-  "reportId": "2026-08-02-source-lineage-re-audit",
-  "generatedAt": "2026-08-02T16:34:17+09:00",
-  "basis": "PR #20 Source Lineageに記録された2つの正本Spreadsheetの現在値をread-onlyで再監査",
-  "status": "REMAINING_ISSUES_FOUND",
+  "reportId": "2026-08-02-28-source-correction-work-queue-cleanup",
+  "generatedAt": "2026-08-02T18:00:00+09:00",
+  "basis": "指定済みの28卒正式Source全行再監査結果と27卒Source Lineage",
+  "status": "WORK_QUEUE_DUPLICATES_ONLY",
   "sourceSpreadsheetCount": 2,
   "metrics": {
     "workQueueTotalCount": 17,
-    "fixedCount": 5,
-    "remainingCount": 12,
-    "workQueueResolutionRate": 29.4,
-    "workQueueIntegrityRate": 29.4,
+    "fixedCount": 11,
+    "remainingCount": 6,
+    "workQueueResolutionRate": 64.7,
+    "workQueueIntegrityRate": 64.7,
     "dataConsistencyIntegrityRate": null,
     "dataConsistencyIssueCount": 1,
     "dataConsistencyDifferenceCount": 12,
-    "missingCount": 6,
+    "missingCount": 0,
     "duplicateGroupCount": 6,
     "duplicateRowCount": 13,
-    "newIssueCount": 1,
+    "newIssueCount": 0,
     "overallIntegrityRate": null,
     "migrationEligible": false
   },
@@ -31,14 +31,14 @@
     {
       "type": "NAME_MISSING",
       "initialCount": 4,
-      "fixedCount": 0,
-      "remainingCount": 4
+      "fixedCount": 4,
+      "remainingCount": 0
     },
     {
       "type": "STATUS_MISSING",
       "initialCount": 2,
-      "fixedCount": 0,
-      "remainingCount": 2
+      "fixedCount": 2,
+      "remainingCount": 0
     },
     {
       "type": "DUPLICATE_CANDIDATE",
@@ -56,8 +56,8 @@
     },
     {
       "label": "28卒 接触",
-      "populatedRecordCount": 112,
-      "state": "RECOUNTED"
+      "populatedRecordCount": 108,
+      "state": "OFFICIAL_SOURCE_REAUDITED"
     },
     {
       "label": "27卒 エントリー",
@@ -75,6 +75,19 @@
       "state": "RECOUNTED"
     }
   ],
+  "sourceCorrections": {
+    "graduationYear": "28卒",
+    "officialSpreadsheetId": "1OwFCnRYfTOWGkUGhykURibUD5Ss06msHoaZwYdopkEA",
+    "officialSheetId": 1279221745,
+    "activeDataRowCount": 108,
+    "nameMissingCount": 0,
+    "statusMissingCount": 0,
+    "schoolMissingCount": 0,
+    "currentQueueCount": 0,
+    "falsePositiveClosedCount": 4,
+    "resolvedClosedCount": 2,
+    "legacyCopyCanonical": false
+  },
   "newIssues": [
     {
       "category": "SOURCE_COUNT_BASIS_MISMATCH",

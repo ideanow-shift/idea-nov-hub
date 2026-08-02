@@ -32,7 +32,7 @@
 
 - 正本Sourceが確定
 - 氏名、学校、状態、担当、次回対応の不足が解消または正式な未設定理由あり
-- 重複候補が採用/保留でOwner判断済み
+- 重複候補が同一人物/別人/判断保留で総務人事部判断済み
 - NOV Talentとの差分0
 - Migration receiptがSource件数と一致
 - Data Consistency Issueが解消し、27卒の正式件数定義が確定

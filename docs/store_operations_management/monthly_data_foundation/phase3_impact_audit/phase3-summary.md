@@ -2,7 +2,7 @@
 
 ## Decision
 
-**CONDITIONAL PASS.** The fixture-only parser and command boundary have a concrete target integration path, but target database catalog, canonical HUB session verifier ownership, and security approvals remain mandatory before implementation.
+**Phase 3 complete: WAITING_FOR_DB_CATALOG_APPROVAL.** The fixture-only parser and command boundary have a concrete target integration path, but target database catalog, canonical HUB session verifier ownership, and security approvals remain mandatory before Phase 4 implementation.
 
 ## Reuse Candidates
 
@@ -34,3 +34,7 @@ After Gates 1 through 5, implement a non-production database adapter for `workbo
 ## Excluded
 
 No database change, migration execution, RLS/grant change, deploy, UI, Production connection, real Workbook import, or PR #21 change is included.
+
+## Phase 4 Hold
+
+PR #28 remains Draft. Do not begin migration, RLS, grant, target database, or Production work until the catalog approval gate is recorded. The post-approval sequence is defined in `phase4-requirements.md`.

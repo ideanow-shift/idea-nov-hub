@@ -93,9 +93,17 @@ function monthColumns(header, targetPeriod, fiscalYear, sheetName, issues) {
   return matches[0] ?? null;
 }
 
-function fiscalYear(rows) {
+function fiscalYear(rows, targetPeriod) {
   const text = rows.slice(0, 8).flatMap(({ cells }) => cells).join(" ");
-  return Number(text.match(/(20\d{2})年\s*9月/u)?.[1] ?? 0);
+  const target = String(targetPeriod ?? "").match(/^(20\d{2})-(\d{2})$/u);
+  if (!target) return 0;
+  const targetYear = Number(target[1]);
+  const targetMonth = Number(target[2]);
+  if (targetMonth < 1 || targetMonth > 12) return 0;
+  const expectedFiscalYear = targetMonth < 9 ? targetYear - 1 : targetYear;
+  const candidates = [...text.matchAll(/(?:令和|R)([1-9]\d?)年\s*9月|((?:19|20)\d{2})年\s*9月/gu)]
+    .map((match) => match[1] ? 2018 + Number(match[1]) : Number(match[2]));
+  return candidates.length === 1 && candidates[0] === expectedFiscalYear ? candidates[0] : 0;
 }
 
 function selectedMapping(mapping, sheetName, targetPeriod, issues) {
@@ -131,7 +139,7 @@ export function dryRunWorkbook(buffer, { fileName = "fixture.xlsx", targetPeriod
     }
     const report = String(sheet.rows[0]?.cells[0] ?? "");
     const headerRow = sheet.rows.find(({ cells }) => String(cells[0] ?? "").trim() === "勘定科目");
-    const year = fiscalYear(sheet.rows);
+    const year = fiscalYear(sheet.rows, targetPeriod);
     if (!report.includes("残高試算表") || !report.includes("年間推移") || !headerRow || !year) {
       issues.push(issue("invalid_pl_sheet", sheet.name, null, null, null, "P/L anchors are incomplete", "use the approved annual-trial-balance P/L layout"));
       continue;

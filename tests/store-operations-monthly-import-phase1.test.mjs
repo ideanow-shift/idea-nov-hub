@@ -18,16 +18,16 @@ function zipStore(entries) {
 const cell = (ref, value) => value === null ? `<c r="${ref}"/>` : typeof value === "number" ? `<c r="${ref}"><v>${value}</v></c>` : `<c r="${ref}" t="inlineStr"><is><t>${value}</t></is></c>`;
 const row = (number, values) => `<row r="${number}">${values.map((value, index) => cell(`${String.fromCharCode(65 + index)}${number}`, value)).join("")}</row>`;
 
-function sheetXml({ accountNames = Object.keys(REQUIRED_ACCOUNT_MAP), month = "2026年4月", invalidValue = false, blankValue = false }) {
+function sheetXml({ accountNames = Object.keys(REQUIRED_ACCOUNT_MAP), month = "2026年4月", fiscalLabel = "2025年9月1日", invalidValue = false, blankValue = false }) {
   const values = [
-    row(1, ["帳票名：残高試算表（年間推移）"]), row(5, ["2025年9月1日"]), row(6, ["税抜"]),
+    row(1, ["帳票名：残高試算表（年間推移）"]), row(5, [fiscalLabel]), row(6, ["税抜"]),
     row(8, ["勘定科目", month, "上半期", "当期残高"]),
     ...accountNames.map((account, index) => row(9 + index, [account, blankValue && index === 0 ? null : invalidValue && index === 0 ? "bad" : 100 + index, 999, 999])),
   ];
   return `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${values.join("")}</sheetData></worksheet>`;
 }
 
-function fixture({ omitStore = false, month = "2026年4月", accounts, invalidValue = false, blankValue = false, unknownPl = false } = {}) {
+function fixture({ omitStore = false, month = "2026年4月", fiscalLabel = "2025年9月1日", accounts, invalidValue = false, blankValue = false, unknownPl = false } = {}) {
   const storeNames = [...Array(20)].map((_, index) => `損･${index < 13 ? "D" : "F"}${String(index + 1).padStart(2, "0")}`);
   const names = [...storeNames, "損･本部", "損･EC事業部", "貸･除外", "資料･比較"];
   const entries = []; const workbookSheets = []; const relationships = [];
@@ -35,10 +35,10 @@ function fixture({ omitStore = false, month = "2026年4月", accounts, invalidVa
     const id = index + 1; const path = `worksheets/sheet${id}.xml`;
     workbookSheets.push(`<sheet name="${name}" sheetId="${id}" r:id="rId${id}"/>`);
     relationships.push(`<Relationship Id="rId${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="${path}"/>`);
-    entries.push([`xl/${path}`, sheetXml({ month, accountNames: accounts, invalidValue, blankValue })]);
+    entries.push([`xl/${path}`, sheetXml({ month, fiscalLabel, accountNames: accounts, invalidValue, blankValue })]);
   });
   if (unknownPl) {
-    const id = names.length + 1; workbookSheets.push(`<sheet name="損･未知" sheetId="${id}" r:id="rId${id}"/>`); relationships.push(`<Relationship Id="rId${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${id}.xml"/>`); entries.push([`xl/worksheets/sheet${id}.xml`, sheetXml({ month, accountNames: accounts })]);
+    const id = names.length + 1; workbookSheets.push(`<sheet name="損･未知" sheetId="${id}" r:id="rId${id}"/>`); relationships.push(`<Relationship Id="rId${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${id}.xml"/>`); entries.push([`xl/worksheets/sheet${id}.xml`, sheetXml({ month, fiscalLabel, accountNames: accounts })]);
   }
   entries.unshift(
     ["xl/workbook.xml", `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${workbookSheets.join("")}</sheets></workbook>`],
@@ -69,6 +69,19 @@ test("fixture-only parser selects P/L, maps 20 stores, and normalizes four metri
 test("hash is deterministic and no input buffer mutation occurs", () => {
   const value = fixture(); const before = Buffer.from(value.buffer); const first = dryRunWorkbook(value.buffer, { targetPeriod: "2026-04", mapping: value.mapping }); const second = dryRunWorkbook(value.buffer, { targetPeriod: "2026-04", mapping: value.mapping });
   assert.equal(first.workbook_hash, second.workbook_hash); assert.deepEqual(value.buffer, before);
+});
+
+test("Reiwa and R fiscal labels normalize to the matching Gregorian fiscal year", () => {
+  assert.equal(run({ fiscalLabel: "令和7年9月1日" }).status, "DRY_RUN_READY");
+  assert.equal(run({ fiscalLabel: "R7年9月1日" }).status, "DRY_RUN_READY");
+});
+
+test("invalid era, missing month, and future fiscal labels fail closed", () => {
+  for (const fiscalLabel of ["令和元年9月1日", "令和7年", "令和8年9月1日", "平成30年9月1日"]) {
+    const result = run({ fiscalLabel });
+    assert.equal(result.status, "FAIL_CLOSED");
+    assert.ok(result.quarantine.some((item) => item.issue_type === "invalid_pl_sheet"));
+  }
 });
 
 test("twenty-store mismatch fails closed", () => { const result = run({ omitStore: true }); assert.equal(result.status, "FAIL_CLOSED"); assert.equal(result.normalized_record_count, 0); assert.ok(result.quarantine.some((item) => item.issue_type === "store_composition_invalid")); });

@@ -26,11 +26,12 @@ function publish(center, versionId) {
 }
 
 test("fixture-only command boundary implements all seven fixed commands", () => {
-  const center = createFixtureImportCenter(); const first = upload(center); const result = publish(center, first.version_id);
+  const center = createFixtureImportCenter(); const first = upload(center); publish(center, first.version_id);
+  const second = upload(center, "2026-04", "b"); const result = publish(center, second.version_id);
   assert.equal(result.status, VERSION_STATUS.published);
-  const rollbackOne = center.execute({ command: "rollback", actor: accounting, input: { versionId: first.version_id, reasonCategory: "fixture_review" } });
+  const rollbackOne = center.execute({ command: "rollback", actor: accounting, input: { versionId: second.version_id, reasonCategory: "fixture_review" } });
   assert.equal(rollbackOne.status, "ROLLBACK_PENDING");
-  const rollbackTwo = center.execute({ command: "rollback", actor: representative, input: { versionId: first.version_id, reasonCategory: "fixture_review" } });
+  const rollbackTwo = center.execute({ command: "rollback", actor: representative, input: { versionId: second.version_id, reasonCategory: "fixture_review" } });
   assert.equal(rollbackTwo.status, "ROLLBACK_COMPLETED");
   assert.equal(rollbackTwo.version.status, VERSION_STATUS.rolled_back);
   assert.deepEqual(center.counters(), { db_connection_count: 0, production_connection_count: 0, file_write_count: 0 });
@@ -85,4 +86,53 @@ test("rollback restores the last superseded version and audit remains append-onl
   assert.equal(center.readPublished({ actor: accounting, targetPeriod: "2026-04" }).version.version_id, first.version_id);
   assert.equal(center.listAuditEvents().length > before.length, true);
   assert.equal(center.listAuditEvents().slice(0, before.length).every((event, index) => event.event_id === before[index].event_id), true);
+});
+
+test("successful command audit events contain the required lifecycle fields", () => {
+  const center = createFixtureImportCenter(); const version = upload(center);
+  const event = center.listAuditEvents().at(-1);
+  assert.deepEqual(Object.keys(event).filter((key) => ["command", "actor_id", "role", "target_period", "version_id", "previous_state", "next_state", "timestamp", "reason", "result"].includes(key)).sort(),
+    ["actor_id", "command", "next_state", "previous_state", "reason", "result", "role", "target_period", "timestamp", "version_id"]);
+  assert.equal(event.command, "upload"); assert.equal(event.result, "success");
+  assert.equal(event.previous_state, null); assert.equal(event.next_state, VERSION_STATUS.uploaded);
+  assert.equal(version.version_number, 1); assert.ok(version.created_at);
+});
+
+test("failed command audit is append-only and preserves state", () => {
+  const center = createFixtureImportCenter(); const version = upload(center);
+  expectCode("STATE_TRANSITION_REJECTED", () => center.execute({ command: "import", actor: accounting, input: { versionId: version.version_id } }));
+  const event = center.listAuditEvents().at(-1);
+  assert.equal(event.command, "import"); assert.equal(event.result, "failure");
+  assert.equal(event.previous_state, VERSION_STATUS.uploaded); assert.equal(event.next_state, VERSION_STATUS.uploaded);
+  assert.equal(center.listVersions()[0].status, VERSION_STATUS.uploaded);
+});
+
+test("numeric version order restores version 10 and excludes a different target period", () => {
+  const center = createFixtureImportCenter();
+  const versions = [];
+  for (let index = 1; index <= 10; index += 1) {
+    const item = upload(center, "2026-04", index.toString(16).slice(-1)); publish(center, item.version_id); versions.push(item);
+  }
+  const other = upload(center, "2026-05", "c"); publish(center, other.version_id);
+  const current = versions.at(-1);
+  center.execute({ command: "rollback", actor: accounting, input: { versionId: current.version_id, reasonCategory: "fixture_order" } });
+  const result = center.execute({ command: "rollback", actor: representative, input: { versionId: current.version_id, reasonCategory: "fixture_order" } });
+  assert.equal(result.restored_version.version_number, 9);
+  assert.equal(center.readPublished({ actor: accounting, targetPeriod: "2026-05" }).version.version_id, other.version_id);
+});
+
+test("duplicate or missing version numbers reject rollback and record failure audit", () => {
+  const duplicate = createFixtureImportCenter({ fixtureVersionMutator: (version) => { if (version.version_number === 2) version.version_number = 1; } });
+  const first = upload(duplicate, "2026-04", "a"); publish(duplicate, first.version_id);
+  const second = upload(duplicate, "2026-04", "b"); publish(duplicate, second.version_id);
+  duplicate.execute({ command: "rollback", actor: accounting, input: { versionId: second.version_id, reasonCategory: "fixture_duplicate" } });
+  expectCode("ROLLBACK_CANDIDATE_INVALID", () => duplicate.execute({ command: "rollback", actor: representative, input: { versionId: second.version_id, reasonCategory: "fixture_duplicate" } }));
+  const duplicateFailure = duplicate.listAuditEvents().at(-1);
+  assert.equal(duplicateFailure.result, "failure"); assert.equal(duplicateFailure.previous_state, VERSION_STATUS.published); assert.equal(duplicateFailure.next_state, VERSION_STATUS.published);
+
+  const missing = createFixtureImportCenter({ fixtureVersionMutator: (version) => { if (version.version_number === 1) delete version.version_number; } });
+  const missingFirst = upload(missing, "2026-04", "a"); publish(missing, missingFirst.version_id);
+  const missingSecond = upload(missing, "2026-04", "b"); publish(missing, missingSecond.version_id);
+  missing.execute({ command: "rollback", actor: accounting, input: { versionId: missingSecond.version_id, reasonCategory: "fixture_missing" } });
+  expectCode("ROLLBACK_CANDIDATE_INVALID", () => missing.execute({ command: "rollback", actor: representative, input: { versionId: missingSecond.version_id, reasonCategory: "fixture_missing" } }));
 });

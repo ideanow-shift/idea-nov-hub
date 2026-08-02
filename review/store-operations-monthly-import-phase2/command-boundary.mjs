@@ -88,24 +88,29 @@ function resolvePublishedStoreScope(actor) {
   fail("FORBIDDEN");
 }
 
-function nowIso(clock) {
-  return new Date(clock()).toISOString();
+function nowIso(clock, offset = 0) {
+  return new Date(clock() + offset).toISOString();
 }
 
-export function createFixtureImportCenter({ clock = () => Date.UTC(2026, 7, 2, 4, 0, 0) } = {}) {
+export function createFixtureImportCenter({ clock = () => Date.UTC(2026, 7, 2, 4, 0, 0), fixtureVersionMutator = null } = {}) {
   const versions = new Map();
   const auditEvents = [];
   let versionSequence = 0;
   let eventSequence = 0;
 
-  function appendAudit(kind, actor, version, details = {}) {
+  function appendAudit({ command, actor, version, previousState, nextState, reason = null, result = "success", details = {} }) {
     const event = Object.freeze({
       event_id: `fixture-audit-${++eventSequence}`,
-      occurred_at: nowIso(clock),
-      event_type: kind,
-      actor_employee_id: actor.employeeId,
-      version_id: version.version_id,
-      target_period: version.target_period,
+      command,
+      actor_id: actor?.source === "server" ? actor.employeeId : null,
+      role: actor?.source === "server" ? [...actor.roles].sort().join(",") : "unresolved",
+      target_period: version?.target_period ?? null,
+      version_id: version?.version_id ?? null,
+      previous_state: previousState ?? null,
+      next_state: nextState ?? null,
+      timestamp: nowIso(clock, eventSequence),
+      reason,
+      result,
       details: copy(details),
     });
     auditEvents.push(event);
@@ -122,7 +127,40 @@ export function createFixtureImportCenter({ clock = () => Date.UTC(2026, 7, 2, 4
     return [...versions.values()].filter((version) => version.target_period === period);
   }
 
-  function execute({ command, actor, input }) {
+  function validateRollbackCandidate(current) {
+    if (!Number.isInteger(current.version_number) || !current.created_at || !current.published_at) fail("ROLLBACK_CANDIDATE_INVALID");
+    const currentPublishedAt = Date.parse(current.published_at);
+    if (!Number.isFinite(currentPublishedAt)) fail("ROLLBACK_CANDIDATE_INVALID");
+    const samePeriod = versionsForPeriod(current.target_period);
+    if (samePeriod.some((candidate) => !Number.isInteger(candidate.version_number) || !candidate.created_at)) fail("ROLLBACK_CANDIDATE_INVALID");
+    if (new Set(samePeriod.map((candidate) => candidate.version_number)).size !== samePeriod.length) fail("ROLLBACK_CANDIDATE_INVALID");
+    const candidates = samePeriod.filter((candidate) => {
+      if (candidate.target_period !== current.target_period || candidate.status !== VERSION_STATUS.superseded) return false;
+      const publishedAt = Date.parse(candidate.published_at ?? "");
+      return Number.isFinite(publishedAt) && candidate.version_number < current.version_number && publishedAt < currentPublishedAt;
+    });
+    if (candidates.length === 0) fail("ROLLBACK_CANDIDATE_INVALID");
+    const candidate = candidates.reduce((latest, value) => value.version_number > latest.version_number ? value : latest);
+    if (candidate.target_period !== current.target_period) fail("ROLLBACK_CANDIDATE_INVALID");
+    return candidate;
+  }
+
+  function execute(request) {
+    const command = request?.command;
+    const actor = request?.actor;
+    const input = request?.input;
+    let version = input?.versionId ? versions.get(input.versionId) ?? null : null;
+    const previousState = version?.status ?? null;
+    try {
+      return executeCommand({ command, actor, input }, (resolvedVersion) => { version = resolvedVersion; });
+    } catch (error) {
+      appendAudit({ command: COMMANDS.includes(command) ? command : "unknown", actor, version,
+        previousState, nextState: previousState, reason: error.code ?? "COMMAND_FAILED", result: "failure" });
+      throw error;
+    }
+  }
+
+  function executeCommand({ command, actor, input }, setVersion) {
     if (!COMMANDS.includes(command)) fail("COMMAND_NOT_ALLOWED");
     const serverActor = assertActor(actor);
     if (ACCOUNTING_COMMANDS.has(command)) requireAccounting(serverActor);
@@ -133,6 +171,9 @@ export function createFixtureImportCenter({ clock = () => Date.UTC(2026, 7, 2, 4
       if (!/^[a-f0-9]{64}$/u.test(String(input.workbookHash ?? "")) || !String(input.fileName ?? "").trim()) fail("COMMAND_INPUT_INVALID");
       const version = {
         version_id: `fixture-version-${++versionSequence}`,
+        version_number: versionSequence,
+        created_at: nowIso(clock, versionSequence),
+        published_at: null,
         target_period: input.targetPeriod,
         workbook_hash: input.workbookHash,
         source_file_name: input.fileName,
@@ -141,8 +182,11 @@ export function createFixtureImportCenter({ clock = () => Date.UTC(2026, 7, 2, 4
         validation_passed: false,
         rollback_approvals: new Map(),
       };
+      if (fixtureVersionMutator) fixtureVersionMutator(version);
       versions.set(version.version_id, version);
-      appendAudit("workbook_uploaded", serverActor, version, { source_file_name: input.fileName });
+      setVersion(version);
+      appendAudit({ command, actor: serverActor, version, previousState: null, nextState: version.status,
+        reason: "workbook_uploaded", details: { source_file_name: input.fileName } });
       return snapshot(version);
     }
 
@@ -156,6 +200,7 @@ export function createFixtureImportCenter({ clock = () => Date.UTC(2026, 7, 2, 4
             ? new Set(["versionId", "reasonCategory"])
             : new Set(["versionId"]));
     const version = getVersion(input.versionId);
+    setVersion(version);
 
     if (command === "dry-run") {
       if (version.status !== VERSION_STATUS.uploaded) fail("STATE_TRANSITION_REJECTED");
@@ -163,36 +208,38 @@ export function createFixtureImportCenter({ clock = () => Date.UTC(2026, 7, 2, 4
       const required = ["status", "mapping", "quarantine_count", "normalized_record_count"];
       if (input.report.status !== "DRY_RUN_READY" || required.some((key) => !(key in input.report))) fail("DRY_RUN_REJECTED");
       version.dry_run = copy(input.report);
-      appendAudit("dry_run_completed", serverActor, version, { quarantine_count: input.report.quarantine_count, normalized_record_count: input.report.normalized_record_count });
+      appendAudit({ command, actor: serverActor, version, previousState: version.status, nextState: version.status,
+        reason: "dry_run_completed", details: { quarantine_count: input.report.quarantine_count, normalized_record_count: input.report.normalized_record_count } });
       return snapshot(version);
     }
 
     if (command === "validate") {
       if (version.status !== VERSION_STATUS.uploaded || !version.dry_run) fail("STATE_TRANSITION_REJECTED");
       if (typeof input.valid !== "boolean") fail("COMMAND_INPUT_INVALID");
+      const previousState = version.status;
       version.status = VERSION_STATUS.validating;
-      appendAudit("validation_started", serverActor, version);
       version.validation_passed = input.valid;
       if (!input.valid) {
         version.status = VERSION_STATUS.validation_failed;
-        appendAudit("validation_failed", serverActor, version, { reason_category: input.reasonCategory ?? "validation_failed" });
-      } else {
-        appendAudit("validation_passed", serverActor, version);
       }
+      appendAudit({ command, actor: serverActor, version, previousState, nextState: version.status,
+        reason: input.valid ? "validation_passed" : input.reasonCategory ?? "validation_failed" });
       return snapshot(version);
     }
 
     if (command === "import") {
       if (version.status !== VERSION_STATUS.validating || !version.validation_passed) fail("STATE_TRANSITION_REJECTED");
+      const previousState = version.status;
       version.status = VERSION_STATUS.imported;
-      appendAudit("version_imported", serverActor, version);
+      appendAudit({ command, actor: serverActor, version, previousState, nextState: version.status, reason: "version_imported" });
       return snapshot(version);
     }
 
     if (command === "review") {
       if (version.status !== VERSION_STATUS.imported || input.accepted !== true) fail("STATE_TRANSITION_REJECTED");
+      const previousState = version.status;
       version.status = VERSION_STATUS.reviewing;
-      appendAudit("review_accepted", serverActor, version);
+      appendAudit({ command, actor: serverActor, version, previousState, nextState: version.status, reason: "review_accepted" });
       return snapshot(version);
     }
 
@@ -200,12 +247,16 @@ export function createFixtureImportCenter({ clock = () => Date.UTC(2026, 7, 2, 4
       if (version.status !== VERSION_STATUS.reviewing) fail("STATE_TRANSITION_REJECTED");
       for (const prior of versionsForPeriod(version.target_period)) {
         if (prior.version_id !== version.version_id && prior.status === VERSION_STATUS.published) {
+          const priorState = prior.status;
           prior.status = VERSION_STATUS.superseded;
-          appendAudit("version_superseded", serverActor, prior, { superseded_by: version.version_id });
+          appendAudit({ command, actor: serverActor, version: prior, previousState: priorState, nextState: prior.status,
+            reason: "version_superseded", details: { superseded_by: version.version_id } });
         }
       }
+      const previousState = version.status;
       version.status = VERSION_STATUS.published;
-      appendAudit("version_published", serverActor, version);
+      version.published_at = nowIso(clock, Number.isInteger(version.version_number) ? version.version_number : 0);
+      appendAudit({ command, actor: serverActor, version, previousState, nextState: version.status, reason: "version_published" });
       return snapshot(version);
     }
 
@@ -214,19 +265,19 @@ export function createFixtureImportCenter({ clock = () => Date.UTC(2026, 7, 2, 4
     if (!String(input.reasonCategory ?? "").trim()) fail("COMMAND_INPUT_INVALID");
     const approvalRole = hasRole(serverActor, ROLE.accounting) ? ROLE.accounting : ROLE.representative;
     version.rollback_approvals.set(approvalRole, serverActor.employeeId);
-    appendAudit("rollback_approval_recorded", serverActor, version, { approval_role: approvalRole, reason_category: input.reasonCategory });
+    appendAudit({ command, actor: serverActor, version, previousState: version.status, nextState: version.status,
+      reason: input.reasonCategory, details: { approval_role: approvalRole } });
     const accountingActor = version.rollback_approvals.get(ROLE.accounting);
     const representativeActor = version.rollback_approvals.get(ROLE.representative);
     if (!accountingActor || !representativeActor || accountingActor === representativeActor) return { status: "ROLLBACK_PENDING", version: snapshot(version) };
+    const restore = validateRollbackCandidate(version);
+    const previousState = version.status;
     version.status = VERSION_STATUS.rolled_back;
-    appendAudit("version_rolled_back", serverActor, version, { reason_category: input.reasonCategory });
-    const restore = versionsForPeriod(version.target_period)
-      .filter((candidate) => candidate.status === VERSION_STATUS.superseded)
-      .sort((left, right) => right.version_id.localeCompare(left.version_id))[0];
-    if (restore) {
-      restore.status = VERSION_STATUS.published;
-      appendAudit("prior_version_restored", serverActor, restore, { restored_after: version.version_id });
-    }
+    appendAudit({ command, actor: serverActor, version, previousState, nextState: version.status, reason: input.reasonCategory });
+    const restorePreviousState = restore.status;
+    restore.status = VERSION_STATUS.published;
+    appendAudit({ command, actor: serverActor, version: restore, previousState: restorePreviousState, nextState: restore.status,
+      reason: "prior_version_restored", details: { restored_after: version.version_id } });
     return { status: "ROLLBACK_COMPLETED", version: snapshot(version), restored_version: restore ? snapshot(restore) : null };
   }
 
@@ -253,6 +304,9 @@ export function createFixtureImportCenter({ clock = () => Date.UTC(2026, 7, 2, 4
 function snapshot(version) {
   return copy({
     version_id: version.version_id,
+    version_number: version.version_number,
+    created_at: version.created_at,
+    published_at: version.published_at,
     target_period: version.target_period,
     workbook_hash: version.workbook_hash,
     source_file_name: version.source_file_name,

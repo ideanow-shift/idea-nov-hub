@@ -14,20 +14,35 @@ function nonNegative(value, label, { nullable = false } = {}) {
 }
 
 export function validateWorkQueuePayload(payload) {
-  if (!payload || payload.schemaVersion !== "1.0") throw new TypeError("unsupported work queue schema");
-  if (!payload.metrics || !Array.isArray(payload.categoryCounts) || !Array.isArray(payload.items)) {
-    throw new TypeError("work queue metrics and items are required");
+  if (!payload || payload.schemaVersion !== "2.0") throw new TypeError("unsupported work queue schema");
+  if (!payload.metrics || !Array.isArray(payload.categoryCounts) || !Array.isArray(payload.dataConsistencyIssues) || !Array.isArray(payload.items)) {
+    throw new TypeError("work queue metrics, consistency issues, and items are required");
   }
   if (payload.safety?.mockOnly !== true || payload.safety?.containsPersonalValues !== false || payload.safety?.persistentWriteEnabled !== false) {
     throw new TypeError("work queue safety boundary is invalid");
   }
 
+  nonNegative(payload.metrics.workQueueTotalCount, "workQueueTotalCount");
   nonNegative(payload.metrics.fixedCount, "fixedCount");
   nonNegative(payload.metrics.remainingCount, "remainingCount");
-  nonNegative(payload.metrics.migrationProgress, "migrationProgress");
-  if (payload.metrics.migrationProgress > 100) throw new RangeError("migrationProgress must not exceed 100");
-  if (payload.metrics.integrityRate !== null && (typeof payload.metrics.integrityRate !== "number" || payload.metrics.integrityRate < 0 || payload.metrics.integrityRate > 100)) {
-    throw new RangeError("integrityRate must be null or 0..100");
+  if (payload.metrics.fixedCount + payload.metrics.remainingCount !== payload.metrics.workQueueTotalCount) {
+    throw new TypeError("work queue total must match fixed and remaining counts");
+  }
+  for (const key of ["workQueueIntegrityRate", "dataConsistencyIntegrityRate"]) {
+    const value = payload.metrics[key];
+    if (value !== null && (typeof value !== "number" || value < 0 || value > 100)) {
+      throw new RangeError(`${key} must be null or 0..100`);
+    }
+  }
+  if (payload.metrics.migrationStatus !== "HOLD") throw new TypeError("migration must remain on hold");
+
+  for (const issue of payload.dataConsistencyIssues) {
+    nonNegative(issue.numberedRowCount, "numberedRowCount");
+    nonNegative(issue.populatedRecordCount, "populatedRecordCount");
+    nonNegative(issue.differenceCount, "differenceCount");
+    if (Math.abs(issue.numberedRowCount - issue.populatedRecordCount) !== issue.differenceCount) {
+      throw new TypeError("data consistency difference is invalid");
+    }
   }
 
   const ids = new Set();
@@ -91,10 +106,12 @@ export function attachSourceLineage(queuePayload, lineagePayload) {
 export function createWorkQueueState(payload) {
   const valid = validateWorkQueuePayload(payload);
   return {
-    integrityRate: valid.metrics.integrityRate,
+    workQueueTotalCount: valid.metrics.workQueueTotalCount,
+    dataConsistencyIntegrityRate: valid.metrics.dataConsistencyIntegrityRate,
     fixedCount: valid.metrics.fixedCount,
-    migrationProgress: valid.metrics.migrationProgress,
+    migrationStatus: valid.metrics.migrationStatus,
     categoryCounts: valid.categoryCounts.map((entry) => ({ ...entry })),
+    dataConsistencyIssues: valid.dataConsistencyIssues.map((entry) => ({ ...entry })),
     items: valid.items.map((item) => ({ ...item, status: "PENDING", decision: null })),
     lastMessage: "今日の修正対象を確認してください。"
   };
@@ -110,11 +127,15 @@ export function getCurrentItem(state) {
 
 export function getWorkQueueMetrics(state) {
   const pending = getPendingItems(state).length;
+  const workQueueIntegrityRate = state.workQueueTotalCount === 0
+    ? 100
+    : Math.round((state.fixedCount / state.workQueueTotalCount) * 1000) / 10;
   return {
-    integrityRate: state.integrityRate === null ? "未算出" : `${state.integrityRate}%`,
+    workQueueIntegrityRate: `${workQueueIntegrityRate}%`,
+    dataConsistencyIntegrityRate: state.dataConsistencyIntegrityRate === null ? "未算出" : `${state.dataConsistencyIntegrityRate}%`,
     fixedCount: state.fixedCount,
     remainingCount: pending,
-    migrationProgress: `${state.migrationProgress}%`
+    migrationStatus: state.migrationStatus === "HOLD" ? "保留" : state.migrationStatus
   };
 }
 
@@ -234,7 +255,7 @@ export function renderWorkQueue(documentObject, state, onChange) {
   const kpis = documentObject.createElement("section");
   kpis.className = "queue-kpis";
   kpis.setAttribute("aria-label", "データ品質KPI");
-  for (const [label, value] of [["整合率", metrics.integrityRate], ["修正済件数", metrics.fixedCount], ["残件数", metrics.remainingCount], ["Migration進捗", metrics.migrationProgress]]) {
+  for (const [label, value] of [["Work Queue解消率", metrics.workQueueIntegrityRate], ["Data Consistency整合率", metrics.dataConsistencyIntegrityRate], ["修正済件数", metrics.fixedCount], ["残件数", metrics.remainingCount]]) {
     const card = documentObject.createElement("article");
     addText(documentObject, card, "p", label, "kpi-label");
     addText(documentObject, card, "p", String(value), "kpi-value");
@@ -252,6 +273,18 @@ export function renderWorkQueue(documentObject, state, onChange) {
     categories.append(card);
   }
   root.append(categories);
+
+  const consistency = documentObject.createElement("section");
+  consistency.className = "consistency-panel";
+  addText(documentObject, consistency, "h2", "Data Consistency Issue");
+  for (const issue of state.dataConsistencyIssues) {
+    const item = documentObject.createElement("article");
+    addText(documentObject, item, "p", `${issue.cohort} 接触データ`);
+    addText(documentObject, item, "strong", `採番済${issue.numberedRowCount}行 / 実データ入力済${issue.populatedRecordCount}行 / 差分${issue.differenceCount}件`);
+    consistency.append(item);
+  }
+  addText(documentObject, consistency, "p", `Data Consistency整合率: ${metrics.dataConsistencyIntegrityRate} / Migration判定: ${metrics.migrationStatus}`, "consistency-status");
+  root.append(consistency);
 
   if (!current) {
     const done = documentObject.createElement("section");

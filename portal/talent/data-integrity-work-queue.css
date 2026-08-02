@@ -17,7 +17,7 @@ body { background: var(--canvas); color: var(--ink); font-family: "Noto Sans JP"
 button, input, select { font: inherit; }
 
 .queue-shell { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 28px 0 64px; }
-.queue-summary, .repair-card, .pending-panel, .queue-empty { background: var(--paper); border: 1px solid var(--line); border-radius: 18px; }
+.queue-summary, .repair-card, .pending-panel, .queue-empty, .consistency-panel { background: var(--paper); border: 1px solid var(--line); border-radius: 18px; }
 .queue-summary { padding: 26px 28px; }
 .eyebrow { color: var(--rose); font-size: .78rem; font-weight: 800; letter-spacing: .12em; margin: 0 0 6px; }
 h1, h2, p { margin-top: 0; }
@@ -33,6 +33,11 @@ h2 { font-size: 1.15rem; }
 .queue-categories { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
 .queue-categories article { display: flex; justify-content: space-between; gap: 12px; background: var(--rose-soft); border: 1px solid #f0cbd2; border-radius: 12px; padding: 12px 14px; }
 .queue-categories p { margin: 0; }
+
+.consistency-panel { margin-bottom: 16px; padding: 20px 24px; }
+.consistency-panel article { display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.consistency-panel article p, .consistency-panel article strong { margin: 0; }
+.consistency-status { color: var(--muted); margin: 12px 0 0; }
 
 .repair-workspace { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(260px, .7fr); gap: 16px; align-items: start; }
 .repair-card, .pending-panel { padding: 24px; }
@@ -66,7 +71,8 @@ h2 { font-size: 1.15rem; }
 }
 
 @media (max-width: 480px) {
-  .queue-summary, .repair-card, .pending-panel, .queue-empty { border-radius: 13px; padding: 18px; }
+  .queue-summary, .repair-card, .pending-panel, .queue-empty, .consistency-panel { border-radius: 13px; padding: 18px; }
+  .consistency-panel article { display: grid; grid-template-columns: 1fr; }
   .queue-kpis { grid-template-columns: 1fr 1fr; }
   .repair-actions { grid-template-columns: 1fr; }
   .repair-card dl { grid-template-columns: 1fr; gap: 2px; }

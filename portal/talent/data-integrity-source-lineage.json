@@ -3,6 +3,13 @@
   "generatedAt": "2026-08-01T15:30:00+09:00",
   "readOnly": true,
   "containsPersonalValues": false,
+  "resolvedIssueIds": [
+    "DQ-SCHOOL-001",
+    "DQ-DUP-004",
+    "DQ-DUP-008",
+    "DQ-DUP-009",
+    "DQ-DUP-010"
+  ],
   "sourceSpreadsheets": [
     {
       "graduation_year": "27卒",
@@ -30,21 +37,6 @@
     }
   ],
   "items": [
-    {
-      "issue_id": "DQ-SCHOOL-001",
-      "graduation_year": "27卒",
-      "issue_type": "SCHOOL_MISSING",
-      "spreadsheet_name": "求人計画27卒_2025年9月～2026年8月",
-      "spreadsheet_id": "1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM",
-      "sheet_name": "接触学生一覧（27卒）",
-      "sheet_id": 1142586954,
-      "source_row_no": 549,
-      "stable_key_hint": "27-CONTACT-ROW-549",
-      "current_value": "未設定",
-      "correction_target": "美容学校",
-      "duplicate_pair_row": null,
-      "open_url": "https://docs.google.com/spreadsheets/d/1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM/edit#gid=1142586954&range=A549:AO549"
-    },
     {
       "issue_id": "DQ-NAME-001",
       "graduation_year": "28卒",
@@ -147,7 +139,7 @@
       "stable_key_hint": "27-CONTACT-DUP-GROUP-001",
       "current_value": "氏名・学校一致候補",
       "correction_target": "重複候補の採用／保留判断",
-      "duplicate_pair_row": 385,
+      "duplicate_pair_row": 384,
       "open_url": "https://docs.google.com/spreadsheets/d/1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM/edit#gid=1142586954&range=A28:AO28"
     },
     {
@@ -162,7 +154,7 @@
       "stable_key_hint": "27-CONTACT-DUP-GROUP-002",
       "current_value": "氏名・学校一致候補",
       "correction_target": "重複候補の採用／保留判断",
-      "duplicate_pair_row": 388,
+      "duplicate_pair_row": 387,
       "open_url": "https://docs.google.com/spreadsheets/d/1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM/edit#gid=1142586954&range=A29:AO29"
     },
     {
@@ -177,23 +169,8 @@
       "stable_key_hint": "27-CONTACT-DUP-GROUP-003",
       "current_value": "氏名・学校一致候補",
       "correction_target": "重複候補の採用／保留判断",
-      "duplicate_pair_row": 309,
+      "duplicate_pair_row": 308,
       "open_url": "https://docs.google.com/spreadsheets/d/1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM/edit#gid=1142586954&range=A41:AO41"
-    },
-    {
-      "issue_id": "DQ-DUP-004",
-      "graduation_year": "27卒",
-      "issue_type": "DUPLICATE_CANDIDATE",
-      "spreadsheet_name": "求人計画27卒_2025年9月～2026年8月",
-      "spreadsheet_id": "1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM",
-      "sheet_name": "接触学生一覧（27卒）",
-      "sheet_id": 1142586954,
-      "source_row_no": 85,
-      "stable_key_hint": "27-CONTACT-DUP-GROUP-004",
-      "current_value": "氏名・学校一致候補",
-      "correction_target": "重複候補の採用／保留判断",
-      "duplicate_pair_row": 301,
-      "open_url": "https://docs.google.com/spreadsheets/d/1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM/edit#gid=1142586954&range=A85:AO85"
     },
     {
       "issue_id": "DQ-DUP-005",
@@ -222,7 +199,7 @@
       "stable_key_hint": "27-CONTACT-DUP-GROUP-006",
       "current_value": "氏名・学校一致候補",
       "correction_target": "重複候補の採用／保留判断",
-      "duplicate_pair_row": [116, 453],
+      "duplicate_pair_row": [116, 451],
       "open_url": "https://docs.google.com/spreadsheets/d/1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM/edit#gid=1142586954&range=A115:AO115"
     },
     {
@@ -237,53 +214,8 @@
       "stable_key_hint": "27-CONTACT-DUP-GROUP-007",
       "current_value": "氏名・学校一致候補",
       "correction_target": "重複候補の採用／保留判断",
-      "duplicate_pair_row": 454,
+      "duplicate_pair_row": 452,
       "open_url": "https://docs.google.com/spreadsheets/d/1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM/edit#gid=1142586954&range=A120:AO120"
-    },
-    {
-      "issue_id": "DQ-DUP-008",
-      "graduation_year": "27卒",
-      "issue_type": "DUPLICATE_CANDIDATE",
-      "spreadsheet_name": "求人計画27卒_2025年9月～2026年8月",
-      "spreadsheet_id": "1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM",
-      "sheet_name": "接触学生一覧（27卒）",
-      "sheet_id": 1142586954,
-      "source_row_no": 346,
-      "stable_key_hint": "27-CONTACT-DUP-GROUP-008",
-      "current_value": "氏名・学校一致候補",
-      "correction_target": "重複候補の採用／保留判断",
-      "duplicate_pair_row": 540,
-      "open_url": "https://docs.google.com/spreadsheets/d/1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM/edit#gid=1142586954&range=A346:AO346"
-    },
-    {
-      "issue_id": "DQ-DUP-009",
-      "graduation_year": "27卒",
-      "issue_type": "DUPLICATE_CANDIDATE",
-      "spreadsheet_name": "求人計画27卒_2025年9月～2026年8月",
-      "spreadsheet_id": "1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM",
-      "sheet_name": "接触学生一覧（27卒）",
-      "sheet_id": 1142586954,
-      "source_row_no": 410,
-      "stable_key_hint": "27-CONTACT-DUP-GROUP-009",
-      "current_value": "氏名・学校一致候補",
-      "correction_target": "重複候補の採用／保留判断",
-      "duplicate_pair_row": 506,
-      "open_url": "https://docs.google.com/spreadsheets/d/1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM/edit#gid=1142586954&range=A410:AO410"
-    },
-    {
-      "issue_id": "DQ-DUP-010",
-      "graduation_year": "27卒",
-      "issue_type": "DUPLICATE_CANDIDATE",
-      "spreadsheet_name": "求人計画27卒_2025年9月～2026年8月",
-      "spreadsheet_id": "1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM",
-      "sheet_name": "接触学生一覧（27卒）",
-      "sheet_id": 1142586954,
-      "source_row_no": 451,
-      "stable_key_hint": "27-CONTACT-DUP-GROUP-010",
-      "current_value": "氏名・学校一致候補",
-      "correction_target": "重複候補の採用／保留判断",
-      "duplicate_pair_row": 484,
-      "open_url": "https://docs.google.com/spreadsheets/d/1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM/edit#gid=1142586954&range=A451:AO451"
     }
   ]
 }

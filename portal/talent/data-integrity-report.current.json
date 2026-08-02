@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "1.1",
+  "reportId": "2026-08-02-source-lineage-re-audit",
+  "generatedAt": "2026-08-02T16:34:17+09:00",
+  "basis": "PR #20 Source Lineageに記録された2つの正本Spreadsheetの現在値をread-onlyで再監査",
+  "status": "REMAINING_ISSUES_FOUND",
+  "sourceSpreadsheetCount": 2,
+  "metrics": {
+    "workQueueTotalCount": 17,
+    "fixedCount": 5,
+    "remainingCount": 12,
+    "workQueueResolutionRate": 29.4,
+    "missingCount": 6,
+    "duplicateGroupCount": 6,
+    "duplicateRowCount": 13,
+    "newIssueCount": 1,
+    "overallIntegrityRate": null,
+    "migrationEligible": false
+  },
+  "issueResolution": [
+    {
+      "type": "SCHOOL_MISSING",
+      "initialCount": 1,
+      "fixedCount": 1,
+      "remainingCount": 0
+    },
+    {
+      "type": "NAME_MISSING",
+      "initialCount": 4,
+      "fixedCount": 0,
+      "remainingCount": 4
+    },
+    {
+      "type": "STATUS_MISSING",
+      "initialCount": 2,
+      "fixedCount": 0,
+      "remainingCount": 2
+    },
+    {
+      "type": "DUPLICATE_CANDIDATE",
+      "initialCount": 10,
+      "fixedCount": 4,
+      "remainingCount": 6
+    }
+  ],
+  "sourceScope": [
+    {
+      "label": "27卒 接触",
+      "populatedRecordCount": 535,
+      "numberedRowCount": 547,
+      "state": "COUNT_BASIS_REVIEW_REQUIRED"
+    },
+    {
+      "label": "28卒 接触",
+      "populatedRecordCount": 112,
+      "state": "RECOUNTED"
+    },
+    {
+      "label": "27卒 エントリー",
+      "populatedRecordCount": 42,
+      "state": "RECOUNTED"
+    },
+    {
+      "label": "27卒 内定",
+      "populatedRecordCount": 35,
+      "state": "RECOUNTED"
+    },
+    {
+      "label": "27卒 イベント",
+      "populatedRecordCount": 42,
+      "state": "RECOUNTED"
+    }
+  ],
+  "newIssues": [
+    {
+      "category": "SOURCE_COUNT_BASIS_MISMATCH",
+      "scope": "27卒 接触",
+      "differenceCount": 12,
+      "detail": "採番済行数と実データ入力済行数の基準が一致していないため、正式件数の定義確認が必要"
+    }
+  ],
+  "overallIntegrity": {
+    "calculable": false,
+    "reasonCategories": [
+      "WORK_QUEUE_REMAINING",
+      "SOURCE_COUNT_BASIS_REVIEW_REQUIRED",
+      "NOV_TALENT_REAL_DATA_NOT_CONNECTED"
+    ]
+  },
+  "migration": {
+    "eligible": false,
+    "reasonCategories": [
+      "WORK_QUEUE_REMAINING",
+      "OVERALL_INTEGRITY_NOT_CALCULABLE"
+    ]
+  },
+  "safety": {
+    "readOnlyAudit": true,
+    "containsPersonalValues": false,
+    "spreadsheetWriteCount": 0,
+    "databaseWriteCount": 0,
+    "productionWriteCount": 0,
+    "workQueueTemporaryCompletionUsedAsEvidence": false
+  }
+}

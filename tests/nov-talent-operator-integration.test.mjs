@@ -243,9 +243,9 @@ test('published candidate uses the read-only Staging runtime and remains persist
   assert.doesNotMatch(app, /operator\.mjs\?v=/);
   assert.match(config, /runtimeMode:\s*"staging"/);
   assert.match(config, /networkEnabled:\s*true/);
-  assert.match(config, /writeEnabled:\s*false/);
+  assert.match(config, /writeEnabled:\s*true/);
   assert.match(config, /readonlyApiEnabled:\s*true/);
-  assert.doesNotMatch(config, /service_role|serviceRole|writeApi|secret/i);
+  assert.doesNotMatch(config, /service_role|serviceRole|secret/i);
   assert.match(html, /id="talent-operator-panel"[^>]*hidden/);
   assert.match(html, /Staging Runtime/);
   assert.match(operator, /confirmImpl\(confirmationMessage\) !== true/);

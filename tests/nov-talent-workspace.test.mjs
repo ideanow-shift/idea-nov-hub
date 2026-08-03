@@ -140,8 +140,8 @@ test("public talent UI contains a real list/detail workspace and no pending plac
   assert.match(app, /getElementById\("summary-load-button"\)\?\.addEventListener\("click"/);
   assert.match(css, /\.student-workspace/);
   assert.match(runtime, /mode:\s*"staging"/);
-  assert.match(runtime, /writeEnabled:\s*false/);
+  assert.match(runtime, /writeEnabled:\s*config\.writeEnabled === true/);
   assert.match(config, /runtimeMode:\s*"staging"/);
   assert.match(config, /readonlyApiEnabled:\s*true/);
-  assert.doesNotMatch(`${runtime}\n${config}`, /service_role|serviceRole|writeApi|secret/i);
+  assert.doesNotMatch(`${runtime}\n${config}`, /service_role|serviceRole|secret/i);
 });

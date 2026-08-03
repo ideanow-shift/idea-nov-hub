@@ -54,7 +54,10 @@ const STUDENT_KEYS = Object.freeze([
   "classificationLabel",
   "displayName",
   "email",
+  "faculty",
+  "graduationYear",
   "kana",
+  "lineIdentifier",
   "lineRegistrationDate",
   "legacyNoPresent",
   "mappingStatus",
@@ -63,6 +66,9 @@ const STUDENT_KEYS = Object.freeze([
   "expectedJoinDate",
   "plannedStore",
   "phone",
+  "acquisitionSource",
+  "assignee",
+  "notes",
   "preferredStore",
   "primaryEligible",
   "profileVersion",
@@ -537,9 +543,10 @@ function validateStudent(student) {
   const optionalStrings = [
     "applicationNo", "businessDate", "email", "kana", "lineRegistrationDate", "nextActionAt",
     "offerDate", "expectedJoinDate", "plannedStore",
-    "phone", "preferredStore", "school", "statusCode", "suggestedTargetRecordId"
+    "phone", "preferredStore", "school", "statusCode", "suggestedTargetRecordId",
+    "faculty", "lineIdentifier", "acquisitionSource", "assignee", "notes"
   ];
-  if (optionalStrings.some((key) => student[key] !== null && typeof student[key] !== "string")) {
+  if (optionalStrings.some((key) => student[key] !== undefined && student[key] !== null && typeof student[key] !== "string")) {
     throw safeError("invalid_response");
   }
   if (["offerDate", "expectedJoinDate"].some((key) => student[key] !== null
@@ -551,7 +558,8 @@ function validateStudent(student) {
     || student.reasonLabels.some((value) => typeof value !== "string")) {
     throw safeError("invalid_response");
   }
-  if (typeof student.legacyNoPresent !== "boolean"
+  if ((student.graduationYear !== undefined && (!Number.isInteger(student.graduationYear) || student.graduationYear < 2026 || student.graduationYear > 2035))
+    || typeof student.legacyNoPresent !== "boolean"
     || typeof student.primaryEligible !== "boolean"
     || (student.profileVersion !== null && (!Number.isInteger(student.profileVersion) || student.profileVersion < 1))
     || (student.supplementVersion !== null && (!Number.isInteger(student.supplementVersion) || student.supplementVersion < 1))

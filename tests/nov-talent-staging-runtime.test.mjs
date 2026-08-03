@@ -93,20 +93,21 @@ test("read-only API verifies HUB role before exact ACTIVE dataset reads", async 
 
 test("feature flag can switch between Staging and retained Mock runtime", () => {
   const staging = readNovTalentRuntime({ globalObject: { NOV_TALENT_CONFIG: {
-    runtimeMode: "staging", networkEnabled: true, writeEnabled: false, readonlyApiEnabled: true,
+    runtimeMode: "staging", networkEnabled: true, writeEnabled: true, readonlyApiEnabled: true,
     features: { stagingCandidateDataset: true }
   } } });
   const mock = readNovTalentRuntime({ globalObject: { NOV_TALENT_CONFIG: { runtimeMode: "mock", mockState: "ready" } } });
   assert.equal(staging.mode, "staging");
-  assert.equal(staging.writeEnabled, false);
+  assert.equal(staging.writeEnabled, true);
   assert.equal(mock.mode, "mock");
   assert.equal(mock.networkEnabled, false);
 });
 
-test("published config exposes no server credential or write endpoint", () => {
+test("published config exposes no server credential and only a server-side write endpoint", () => {
   const config = readFileSync(new URL("../portal/talent/runtime-config.candidate.js", import.meta.url), "utf8");
   assert.match(config, /runtimeMode:\s*"staging"/);
   assert.match(config, /stagingCandidateDataset:\s*true/);
-  assert.match(config, /writeEnabled:\s*false/);
-  assert.doesNotMatch(config, /service_role|serviceRole|password|secret|writeApi/i);
+  assert.match(config, /writeEnabled:\s*true/);
+  assert.match(config, /writeApiBaseUrl/);
+  assert.doesNotMatch(config, /service_role|serviceRole|password|secret/i);
 });

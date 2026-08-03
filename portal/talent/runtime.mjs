@@ -21,13 +21,13 @@ export function readNovTalentRuntime({ globalObject = globalThis } = {}) {
     && config?.features?.stagingCandidateDataset === true
     && config.readonlyApiEnabled === true
     && config.networkEnabled === true
-    && config.writeEnabled === false;
+    && [true, false].includes(config.writeEnabled);
   if (stagingEnabled) {
     return Object.freeze({
       mode: "staging",
       state: "ready",
       networkEnabled: true,
-      writeEnabled: false,
+      writeEnabled: config.writeEnabled === true,
       repository: null
     });
   }

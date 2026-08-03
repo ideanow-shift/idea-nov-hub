@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NOV Talent | 採用意思決定プラットフォーム</title>
   <link rel="stylesheet" href="./style.css?v=20260801-hub-integration-clean-1">
-  <script src="./runtime-config.candidate.js?v=20260803-staging-runtime-1"></script>
+  <script src="./runtime-config.candidate.js?v=20260804-staging-write-1"></script>
   <script type="module" src="./csv-import-preflight.mjs?v=20260731-sprint1-mock-2"></script>
-  <script type="module" src="./app.mjs?v=20260803-staging-runtime-1"></script>
+  <script type="module" src="./app.mjs?v=20260804-staging-write-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -603,35 +603,39 @@
               <p class="section-kicker">学生情報</p>
               <h2 id="student-profile-dialog-title">学生情報を追加</h2>
             </header>
-            <p>正本プロフィールまたはstaging補足情報を更新します。取込元のstaging原本や紐付け状態は変更しません。</p>
+            <p>Stagingの候補者情報を登録・更新します。保存前に内容を確認してください。</p>
           <div class="profile-form-grid">
+            <label><span>卒業年度 *</span><select id="profile-graduation-year" name="graduationYear" required><option value="2027">27卒</option><option value="2028">28卒</option><option value="2029">29卒</option></select></label>
             <label><span>氏名 *</span><input id="profile-display-name" name="displayName" maxlength="120" required></label>
             <label><span>フリガナ</span><input id="profile-kana" name="kana" maxlength="120"></label>
             <label class="profile-wide"><span>学校</span><input id="profile-school" name="school" maxlength="180"></label>
+            <label class="profile-wide"><span>学部・学科</span><input id="profile-faculty" name="faculty" maxlength="180"></label>
             <label><span>電話番号</span><input id="profile-phone" name="phone" maxlength="40" inputmode="tel"></label>
             <label><span>メール</span><input id="profile-email" name="email" maxlength="254" type="email"></label>
-            <label><span>希望店舗</span><input id="profile-store" name="preferredStore" maxlength="120"></label>
-            <label><span>内定日</span><input id="profile-offer-date" name="offerDate" type="date"></label>
-            <label><span>入社予定日</span><input id="profile-expected-join-date" name="expectedJoinDate" type="date"></label>
-            <label><span>配属予定</span><input id="profile-planned-store" name="plannedStore" maxlength="120"></label>
+            <label><span>LINE表示名・識別情報</span><input id="profile-line" name="lineIdentifier" maxlength="160"></label>
+            <label><span>きっかけ</span><input id="profile-source" name="acquisitionSource" maxlength="180"></label>
+            <label><span>担当者</span><input id="profile-assignee" name="assignedTo" maxlength="120"></label>
             <label><span>現在の状態 *</span>
               <select id="profile-status" name="currentStatus" required>
-                <option value="CONTACT">接触</option>
                 <option value="LINE_REGISTERED">LINE登録</option>
-                <option value="SALON_TOUR">サロン見学</option>
-                <option value="INTERVIEW">面接</option>
-                <option value="PASSED">通過</option>
-                <option value="OFFER">内定</option>
-                <option value="EXPECTED_JOIN">入社予定</option>
-                <option value="WITHDRAWN">辞退・保管</option>
+                <option value="SALON_TOUR_PLANNED">サロン見学［予定］</option>
+                <option value="SALON_TOUR_COMPLETED">サロン見学［済］</option>
+                <option value="AWAITING_INTERVIEW">面接待ち</option>
+                <option value="OFFERED">内定</option>
+                <option value="OFFERED_ELSEWHERE">他社内定</option>
+                <option value="DROPPED">離脱</option>
+                <option value="UNDER_REVIEW">合否検討中</option>
+                <option value="REJECTED">不採用</option>
               </select>
             </label>
-            <label><span>次回対応日</span><input id="profile-next-action" name="nextActionAt" type="date"></label>
+            <label class="profile-wide"><span>備考</span><textarea id="profile-notes" name="notes" maxlength="4000" rows="3"></textarea></label>
+            <label class="profile-wide"><span>更新理由 *</span><input id="profile-change-reason" name="changeReason" maxlength="500" required></label>
           </div>
           <p id="student-profile-status" class="status" role="status" aria-live="polite">必要事項を入力してください</p>
           <footer>
             <button id="student-profile-cancel" class="secondary-command" type="button">戻る</button>
-            <button id="student-profile-save" class="primary-command" type="submit">保存する</button>
+            <button id="student-profile-deactivate" class="secondary-command" type="button" hidden>無効化する</button>
+            <button id="student-profile-save" class="primary-command" type="submit">確認して保存</button>
           </footer>
         </form>
       </dialog>

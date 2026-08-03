@@ -24,13 +24,13 @@ AI、CSV、UI、DB、Platformは機械可読正本に存在する値だけを参
 - 27卒接触Sourceの最新read-only対象件数: 528行
 - No.だけの空テンプレート: 13行、Migration対象外
 - Staging Migration: `STAGING_DATASET_ACTIVE`
-- Staging UI Runtime: `STAGING_UI_RUNTIME_INTEGRATION_PENDING`
+- Staging UI Runtime: `STAGING_RUNTIME_READY_FOR_PUBLICATION`
 - Production Migration: `PRODUCTION_MIGRATION_HOLD`
 - Migration契約4件: 仕様確定
-- Staging schema: Candidate Versioned Dataset migration source実装済み、Remote Staging適用待ち
+- Staging schema/API: Candidate Versioned DatasetはACTIVE、read-only APIはRemote Stagingへ適用済み
 - Production保留理由: Staging運用検証とProduction昇格別承認が未完了
 
-Candidate同一性、Human Review証拠構造、移行先区分、Snapshot・受領・Rollbackの仕様は確定した。重複候補6グループはOwner確認により `different_person / keep_separate` として安定IDへ記録済みである。最新正式Sourceのread-only再受領は636対象行でPASSした。Candidate専用Versioned Dataset schemaのmigration sourceを実装し、Remote Stagingへの適用を次Gateとした。Candidate投入とProduction昇格は未実施である。
+Candidate同一性、Human Review証拠構造、移行先区分、Snapshot・受領・Rollbackの仕様は確定した。重複候補6グループはOwner確認により `different_person / keep_separate` として安定IDへ記録済みである。最新正式Sourceのread-only再受領は636対象行でPASSした。Candidate専用Versioned DatasetはRemote StagingでACTIVE、read-only APIとRole Guardは接続済みである。Production昇格は未実施である。
 
 - Dry-run report: `migration-dry-run-report.md`
 - Snapshot candidate: `migration-dry-run-snapshot.candidate.json`

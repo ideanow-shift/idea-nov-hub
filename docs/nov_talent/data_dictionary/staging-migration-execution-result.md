@@ -32,4 +32,6 @@ Migration中の不一致は単一transaction全体をrollbackする契約です�
 
 ## 運用開始判定
 
-Datasetは利用準備済みですが、公開NOV Talentは匿名Mock Runtimeのままで、Staging Datasetを読むAPI/runtimeと既存Role Guardが未接続です。総務人事部のStaging画面利用は `STAGING_UI_RUNTIME_NOT_CONNECTED` として保留し、次の最小単位を `STAGING_CANDIDATE_READ_RUNTIME_AND_ROLE_GUARD_IMPLEMENTATION` とします。
+Staging専用read-only API、HUB Auth Guard、既存正式RoleによるRole Guard、ACTIVE Dataset読取りを接続しました。Mock Runtimeは削除せずFeature Flagで保持し、公開候補設定はStaging Runtime・書込み無効です。
+
+Staging APIは適用済みですが、GitHub PagesのProduction公開は本Sprintの禁止事項に従って実行していません。総務人事部への公開URL引渡しは `STAGING_RUNTIME_READY_FOR_PUBLICATION` とし、PR統合後の明示承認付きPages公開と実ブラウザ確認を次Gateにします。

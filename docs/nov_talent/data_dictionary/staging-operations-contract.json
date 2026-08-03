@@ -98,12 +98,12 @@
     "resultArtifact": "staging-migration-execution-result.json",
     "result": "PASS_STAGING_CANDIDATE_DATASET_ACTIVE",
     "failedStage": null,
-    "fixedCategory": "STAGING_UI_RUNTIME_NOT_CONNECTED",
+    "fixedCategory": "STAGING_RUNTIME_READY_FOR_PUBLICATION",
     "stagingWriteCount": 636,
     "productionWriteCount": 0,
     "rollbackPerformed": false,
     "schemaContract": "staging-candidate-versioned-dataset-schema.json",
     "schemaSourceStatus": "REMOTE_APPLIED_ACTIVE_DATASET",
-    "nextGate": "STAGING_CANDIDATE_READ_RUNTIME_AND_ROLE_GUARD_IMPLEMENTATION"
+    "nextGate": "STAGING_RUNTIME_PR_MERGE_AND_EXPLICIT_PAGES_PUBLICATION"
   }
 }

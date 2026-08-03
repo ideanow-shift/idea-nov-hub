@@ -347,9 +347,9 @@
   },
   "migration": {
     "currentStatus": "STAGING_DATASET_ACTIVE",
-    "currentStatusName": "Staging Candidate schema適用待ち",
-    "reasonCode": "STAGING_CANDIDATE_DATASET_ACTIVE_UI_RUNTIME_PENDING",
-    "reasonName": "Candidate Versioned Dataset migration source実装済み、Remote Staging適用待ち",
+    "currentStatusName": "Staging Candidate Dataset有効",
+    "reasonCode": "STAGING_RUNTIME_READY_FOR_PUBLICATION",
+    "reasonName": "read-only APIとRole Guard接続済み、明示承認付きPages公開待ち",
     "productionStatus": "PRODUCTION_MIGRATION_HOLD",
     "productionReasonCode": "STAGING_OPERATION_VALIDATION_AND_PROMOTION_APPROVAL_PENDING",
     "dataIntegrityCompleted": true,

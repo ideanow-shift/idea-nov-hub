@@ -2,7 +2,7 @@ import {
   buildDashboardSummaryViewModel,
   createDashboardSummaryExecutor,
   createTalentWorkspaceExecutor
-} from "./runtime.mjs?v=20260731-sprint1-mock-1";
+} from "./runtime.mjs?v=20260803-staging-runtime-1";
 import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260726-talent-analytics-action-guide-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
@@ -97,7 +97,9 @@ export function initializeTalentSummaryControl({
   button.dataset.summaryControlBound = "true";
   activeSummaryButton = button;
   button.disabled = false;
-  setStatus(documentObject, "idle", "匿名Mockデータの集計を表示します");
+  setStatus(documentObject, "idle", runtimeMode(globalObject) === "staging"
+    ? "Staging候補者データの集計を表示します"
+    : "匿名Mockデータの集計を表示します");
 
   const run = async (event) => {
     if (event?.repeat || button.disabled || summaryConsumed) {
@@ -138,7 +140,7 @@ export function initializeTalentSummaryControl({
   globalObject?.addEventListener?.("pagehide", invalidate, { once: true });
   globalObject?.addEventListener?.("beforeunload", invalidate, { once: true });
   globalObject?.addEventListener?.("novhub:logout", invalidate);
-  return Object.freeze({ initialized: true, helperAvailable: false, runtimeMode: "mock", run, invalidate });
+  return Object.freeze({ initialized: true, helperAvailable: false, runtimeMode: runtimeMode(globalObject), run, invalidate });
 }
 
 export function invalidateTalentDashboardSummaryRun({
@@ -454,7 +456,7 @@ export async function loadTalentStudentWorkspace({
   const reload = documentObject?.getElementById?.("student-reload");
   if (status) {
     status.dataset.state = "loading";
-    status.textContent = "匿名Mock候補者を読み込んでいます";
+    status.textContent = runtimeMode(globalObject) === "staging" ? "Staging候補者を読み込んでいます" : "匿名Mock候補者を読み込んでいます";
   }
   renderMockRuntimeState(documentObject, "loading");
   if (reload) {
@@ -515,7 +517,7 @@ export async function loadTalentStudentWorkspace({
   renderTodayTasks(documentObject, result.data.todayTasks || []);
   if (status) {
     status.dataset.state = "ready";
-    status.textContent = `${result.data.students.length}件の匿名Mock候補者を表示`;
+    status.textContent = `${result.data.students.length}件の${runtimeMode(globalObject) === "staging" ? "Staging" : "匿名Mock"}候補者を表示`;
   }
   return Object.freeze({
     executed: true,
@@ -1085,7 +1087,7 @@ function renderImportOverview(documentObject, overview) {
     if (element) element.textContent = String(value);
   });
   const status = documentObject?.getElementById?.("import-overview-status");
-  if (status) status.textContent = "27卒・28卒の匿名サンプルデータ（実データは未使用）";
+  if (status) status.textContent = "27卒・28卒のStaging Candidate Dataset（read-only）";
 }
 
 function renderTalentAnalytics(documentObject) {
@@ -2763,8 +2765,13 @@ function setStatus(documentObject, state, text) {
   const connectionLabel = documentObject?.getElementById?.("connection-label");
   if (connection) connection.dataset.state = state;
   if (connectionLabel) {
-    connectionLabel.textContent = state === "ready" ? "Mock Runtime" : state === "stopped" ? "Mock Runtime停止" : "Mock Runtime準備中";
+    const label = runtimeMode(globalThis) === "staging" ? "Staging Runtime" : "Mock Runtime";
+    connectionLabel.textContent = state === "ready" ? label : state === "stopped" ? `${label}停止` : `${label}準備中`;
   }
+}
+
+function runtimeMode(globalObject = globalThis) {
+  return String(globalObject?.NOV_TALENT_CONFIG?.runtimeMode || "mock") === "staging" ? "staging" : "mock";
 }
 
 function bindTabGroup({ buttons, validKeys, panelFor, onSelect }) {

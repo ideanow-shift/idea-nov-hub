@@ -69,7 +69,7 @@ test("current report closes human review and keeps migration separate", () => {
   assert.equal(report.migration.status, "STAGING_DATASET_ACTIVE");
   assert.equal(report.migration.productionStatus, "PRODUCTION_MIGRATION_HOLD");
   assert.deepEqual(report.migration.reasonCategories, [
-    "STAGING_CANDIDATE_DATASET_ACTIVE_UI_RUNTIME_PENDING"
+    "STAGING_RUNTIME_READY_FOR_PUBLICATION"
   ]);
   assert.equal(report.migration.dryRun.status, "PASS_REVALIDATED");
   assert.equal(report.migration.dryRun.migrationTargetCount, 636);
@@ -77,7 +77,7 @@ test("current report closes human review and keeps migration separate", () => {
   assert.equal(report.migration.dryRun.ownerApproval, true);
   assert.equal(report.migration.dryRun.migrationApproval, true);
   assert.equal(report.release.platformStatus, report.platformStatus);
-  assert.equal(report.release.migrationHoldReason, "STAGING_UI_RUNTIME_INTEGRATION_PENDING");
+  assert.equal(report.release.migrationHoldReason, "STAGING_RUNTIME_PUBLICATION_PENDING");
   assert.equal(report.migration.stagingOperations.candidateCount, 636);
   assert.equal(report.migration.stagingOperations.directCandidateMutation, false);
   assert.equal(report.migration.stagingOperations.productionPromotionAllowed, false);

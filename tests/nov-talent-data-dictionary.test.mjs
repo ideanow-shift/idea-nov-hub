@@ -81,7 +81,7 @@ test("migration, platform, release and count definitions remain consistent", () 
   assert.equal(dictionary.currentPlatformStatus, "DATA_INTEGRITY_COMPLETED / STAGING_DATASET_ACTIVE / PRODUCTION_MIGRATION_HOLD");
   assert.equal(dictionary.migration.currentStatus, "STAGING_DATASET_ACTIVE");
   assert.equal(dictionary.migration.productionStatus, "PRODUCTION_MIGRATION_HOLD");
-  assert.equal(dictionary.migration.reasonCode, "STAGING_CANDIDATE_DATASET_ACTIVE_UI_RUNTIME_PENDING");
+  assert.equal(dictionary.migration.reasonCode, "STAGING_RUNTIME_READY_FOR_PUBLICATION");
   assert.equal(dictionary.migration.dataIntegrityCompleted, true);
   assert.equal(dictionary.migration.activeRowDefinition.status, "DEFINED");
   assert.deepEqual(dictionary.migration.activeRowDefinition.anyOfFields, [
@@ -95,7 +95,7 @@ test("migration, platform, release and count definitions remain consistent", () 
   assert.equal(dictionary.migration.holdReleaseCriteria[0].artifact, "migration-dry-run-snapshot.candidate.json");
   assert.match(migrationSpec, /No\.だけ採番された空テンプレート行はMigration対象外/);
   assert.match(readme, /Migration契約4件: 仕様確定/);
-  assert.match(readme, /Remote Staging適用待ち/);
+  assert.match(readme, /read-only APIはRemote Stagingへ適用済み/);
   assert.equal(dictionary.countDefinitions.dataIntegrity.currentValues.remainingCount, 0);
   assert.equal(dictionary.countDefinitions.dataIntegrity.currentValues.resolutionRate, 100);
   assert.equal(dictionary.currentRelease.status, "RELEASE_READY");
@@ -182,7 +182,10 @@ test("fresh staging snapshot is sealed and active with Candidate-only counts", (
   assert.equal(stagingSnapshot.payload.humanReview.keepSeparateCount, 6);
   assert.equal(createHash("sha256").update(JSON.stringify(stagingSnapshot.payload)).digest("hex"), stagingSnapshot.artifactHash);
   assert.equal(stagingExecutionResult.result, "PASS_STAGING_CANDIDATE_DATASET_ACTIVE");
-  assert.equal(stagingExecutionResult.operationReadiness.fixedCategory, "STAGING_UI_RUNTIME_NOT_CONNECTED");
+  assert.equal(stagingExecutionResult.operationReadiness.fixedCategory, "STAGING_RUNTIME_READY_FOR_PUBLICATION");
+  assert.equal(stagingExecutionResult.operationReadiness.stagingReadonlyApiDeployed, true);
+  assert.equal(stagingExecutionResult.operationReadiness.staffUiSourceReady, true);
+  assert.equal(stagingExecutionResult.operationReadiness.publicStaffUiConnected, false);
   assert.equal(stagingExecutionResult.executionAccounting.stagingCandidateWriteCount, 636);
   assert.equal(stagingExecutionResult.executionAccounting.productionWriteCount, 0);
   assert.equal(stagingExecutionResult.executionAccounting.rawPersonalValuesIncluded, false);

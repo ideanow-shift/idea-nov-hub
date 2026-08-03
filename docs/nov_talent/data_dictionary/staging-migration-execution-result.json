@@ -32,8 +32,10 @@
   },
   "operationReadiness": {
     "datasetReady": true,
-    "staffUiConnected": false,
-    "fixedCategory": "STAGING_UI_RUNTIME_NOT_CONNECTED",
+    "stagingReadonlyApiDeployed": true,
+    "staffUiSourceReady": true,
+    "publicStaffUiConnected": false,
+    "fixedCategory": "STAGING_RUNTIME_READY_FOR_PUBLICATION",
     "productionPromotion": false
   },
   "executionAccounting": {
@@ -50,5 +52,5 @@
     "retryCount": 0,
     "rawPersonalValuesIncluded": false
   },
-  "nextGate": "STAGING_CANDIDATE_READ_RUNTIME_AND_ROLE_GUARD_IMPLEMENTATION"
+  "nextGate": "STAGING_RUNTIME_PR_MERGE_AND_EXPLICIT_PAGES_PUBLICATION"
 }

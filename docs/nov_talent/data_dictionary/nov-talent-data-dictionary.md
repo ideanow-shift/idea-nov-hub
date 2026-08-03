@@ -139,7 +139,7 @@
 | 項目 | 正式値 |
 |---|---|
 | Staging Status | `STAGING_DATASET_ACTIVE` |
-| Staging理由コード | `STAGING_CANDIDATE_DATASET_ACTIVE_UI_RUNTIME_PENDING` |
+| Staging理由コード | `STAGING_RUNTIME_READY_FOR_PUBLICATION` |
 | Production Status | `PRODUCTION_MIGRATION_HOLD` |
 | Production理由コード | `STAGING_OPERATION_VALIDATION_AND_PROMOTION_APPROVAL_PENDING` |
 | Data Integrity | 完了済み |

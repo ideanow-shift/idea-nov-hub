@@ -116,7 +116,7 @@
     "status": "STAGING_DATASET_ACTIVE",
     "productionStatus": "PRODUCTION_MIGRATION_HOLD",
     "reasonCategories": [
-      "STAGING_CANDIDATE_DATASET_ACTIVE_UI_RUNTIME_PENDING"
+      "STAGING_RUNTIME_READY_FOR_PUBLICATION"
     ],
     "dryRun": {
       "status": "PASS_REVALIDATED",
@@ -145,16 +145,19 @@
       "stagingOperationsStarted": false,
       "productionPromotionAllowed": false,
       "executionResult": "PASS_STAGING_CANDIDATE_DATASET_ACTIVE",
-      "fixedCategory": "STAGING_UI_RUNTIME_NOT_CONNECTED",
+      "fixedCategory": "STAGING_RUNTIME_READY_FOR_PUBLICATION",
       "candidateVersionedDatasetSchemaSourceReady": true,
-      "candidateVersionedDatasetSchemaApplied": true
+      "candidateVersionedDatasetSchemaApplied": true,
+      "stagingReadonlyApiDeployed": true,
+      "staffUiSourceReady": true,
+      "publicStaffUiConnected": false
     }
   },
   "release": {
     "ready": true,
     "scope": "STAGING_OPERATIONS_DESIGN",
     "platformStatus": "DATA_INTEGRITY_COMPLETED / STAGING_DATASET_ACTIVE / PRODUCTION_MIGRATION_HOLD",
-    "migrationHoldReason": "STAGING_UI_RUNTIME_INTEGRATION_PENDING",
+    "migrationHoldReason": "STAGING_RUNTIME_PUBLICATION_PENDING",
     "stagingOperationsDesignReady": true,
     "stagingMigrationExecuted": true,
     "stagingOperationsStarted": false,

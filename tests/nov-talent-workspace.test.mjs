@@ -134,13 +134,14 @@ test("public talent UI contains a real list/detail workspace and no pending plac
   assert.match(html, /id="student-detail"/);
   assert.match(html, /id="student-review-dialog"/);
   assert.match(html, /id="student-review-open"/);
-  assert.match(html, /27卒・28卒 匿名データ/);
+  assert.match(html, /27卒・28卒 Stagingデータ/);
   assert.doesNotMatch(html, /学生一覧・詳細接続は次の安全ゲート/);
   assert.match(app, /createTalentWorkspaceExecutor/);
   assert.match(app, /getElementById\("summary-load-button"\)\?\.addEventListener\("click"/);
   assert.match(css, /\.student-workspace/);
-  assert.match(runtime, /networkEnabled:\s*false/);
+  assert.match(runtime, /mode:\s*"staging"/);
   assert.match(runtime, /writeEnabled:\s*false/);
-  assert.match(config, /runtimeMode:\s*"mock"/);
-  assert.doesNotMatch(`${runtime}\n${config}`, /https?:\/\/|supabase/i);
+  assert.match(config, /runtimeMode:\s*"staging"/);
+  assert.match(config, /readonlyApiEnabled:\s*true/);
+  assert.doesNotMatch(`${runtime}\n${config}`, /service_role|serviceRole|writeApi|secret/i);
 });

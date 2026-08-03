@@ -1,6 +1,6 @@
 {
   "dictionaryId": "NOV_TALENT_DATA_DICTIONARY",
-  "dictionaryVersion": "1.1.0",
+  "dictionaryVersion": "1.2.0",
   "status": "CANONICAL",
   "effectiveDate": "2026-08-03",
   "language": "ja-JP",
@@ -338,7 +338,7 @@
     }
   },
   "versions": {
-    "dictionary": "1.1.0",
+    "dictionary": "1.2.0",
     "dataIntegrityReportSchema": "1.2",
     "workQueueSeedSchema": "2.0",
     "sourceLineageSchema": "1.0",
@@ -348,8 +348,8 @@
   "migration": {
     "currentStatus": "MIGRATION_HOLD",
     "currentStatusName": "Migration保留",
-    "reasonCode": "MIGRATION_CONTRACT_INCOMPLETE",
-    "reasonName": "Migration契約未完了",
+    "reasonCode": "MIGRATION_PRECONDITIONS_PENDING",
+    "reasonName": "Migration実行前条件未完了",
     "dataIntegrityCompleted": true,
     "dataConsistencyReviewRequired": true,
     "automaticMigration": false,
@@ -371,34 +371,52 @@
         "resolution": "Data Dictionary Version 1.1.0のactiveRowDefinitionとして正式化"
       }
     ],
+    "contractFinalization": [
+      {
+        "code": "CANDIDATE_IDENTITY_CONTRACT",
+        "status": "DEFINED",
+        "artifact": "candidate-identity-contract.json"
+      },
+      {
+        "code": "HUMAN_REVIEW_EVIDENCE_CONTRACT",
+        "status": "DEFINED",
+        "artifact": "human-review-evidence.json",
+        "evidenceCount": 17,
+        "outcomeNotRecordedCount": 6
+      },
+      {
+        "code": "MIGRATION_TARGET_MAPPING",
+        "status": "DEFINED",
+        "artifact": "migration-target-mapping.json"
+      },
+      {
+        "code": "SNAPSHOT_ACCEPTANCE_ROLLBACK_CONTRACT",
+        "status": "DEFINED",
+        "artifacts": [
+          "migration-snapshot-contract.md",
+          "migration-acceptance-checklist.md",
+          "rollback-contract.md"
+        ]
+      }
+    ],
     "holdReleaseCriteria": [
       {
         "priority": 1,
-        "formerPriority": 2,
-        "code": "CROSS_SHEET_CANDIDATE_IDENTITY_RULE_APPROVAL",
+        "code": "HUMAN_REVIEW_OUTCOME_RECONSTRUCTION",
         "status": "OPEN",
-        "requiredDecision": "接触・エントリー・内定を1 Candidateへ紐付ける正式キーと、照合不能行の隔離ルールを承認する"
+        "requiredDecision": "結果値が保存されていない重複6グループをsame_person、different_personまたは判断保留として安定IDへ再記録する"
       },
       {
         "priority": 2,
-        "formerPriority": 3,
-        "code": "HUMAN_REVIEW_DECISION_MAPPING_EVIDENCE",
+        "code": "PRIVATE_READ_ONLY_DRY_RUN_AND_SNAPSHOT",
         "status": "OPEN",
-        "requiredDecision": "完了済み重複レビューの判断結果を個人値非公開の安定ID対応としてMigrationへ渡せる証拠を確定する"
+        "requiredDecision": "正式Sourceをread-onlyで照合し、同一性結果、Quarantine、期待件数、hashを含むsealed Snapshotを生成してdry-run PASSを得る"
       },
       {
         "priority": 3,
-        "formerPriority": 4,
-        "code": "MIGRATION_SOURCE_SCOPE_APPROVAL",
+        "code": "OWNER_AND_MIGRATION_APPROVAL",
         "status": "OPEN",
-        "requiredDecision": "接触・エントリー・内定・イベントのどの行をCandidate、Event、履歴として移行するか確定する"
-      },
-      {
-        "priority": 4,
-        "formerPriority": 5,
-        "code": "SOURCE_SNAPSHOT_AND_EXPECTED_RECEIPT",
-        "status": "OPEN",
-        "requiredDecision": "read-only再集計の基準日時、Source別期待件数、隔離件数、rollback条件を固定してOwner承認する"
+        "requiredDecision": "OwnerがSnapshotを受領し、Migration実行を別gateで明示承認する"
       }
     ]
   },
@@ -411,12 +429,12 @@
     {
       "code": "DATA_CONSISTENCY_REVIEW",
       "name": "Data Consistency確認中",
-      "definition": "Migration対象行の件数定義は確定済み。シート横断のCandidate同一性、移行範囲、受領条件を確認している。"
+      "definition": "Migration契約は定義済み。未記録の人間判断結果と実Source dry-run結果を確認している。"
     },
     {
       "code": "MIGRATION_HOLD",
       "name": "Migration保留",
-      "definition": "Migration契約の残る4条件が未完了のためMigrationを実行しない。"
+      "definition": "Human Review結果再記録、private dry-runとSnapshot、Owner・Migration承認が未完了のためMigrationを実行しない。"
     }
   ],
   "currentPlatformStatus": "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD",

@@ -48,7 +48,7 @@ test("human review queue is completed with no remaining work item", () => {
   assert.equal(seed.metrics.workQueueIntegrityRate, 100);
   assert.equal(seed.releaseReady, true);
   assert.equal(seed.platformStatus, "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD");
-  assert.equal(seed.migrationHoldReason, "COUNT_DEFINITION_UNCONFIRMED");
+  assert.equal(seed.migrationHoldReason, "MIGRATION_PRECONDITIONS_PENDING");
 });
 
 test("completed queue exposes no correction category", () => {
@@ -66,9 +66,13 @@ test("current report closes human review and keeps migration separate", () => {
   assert.equal(report.metrics.humanReviewedDuplicateGroupCount, 6);
   assert.equal(report.metrics.migrationEligible, false);
   assert.equal(report.migration.status, "MIGRATION_HOLD");
-  assert.deepEqual(report.migration.reasonCategories, ["COUNT_DEFINITION_UNCONFIRMED"]);
+  assert.deepEqual(report.migration.reasonCategories, [
+    "HUMAN_REVIEW_OUTCOME_RECONSTRUCTION",
+    "PRIVATE_READ_ONLY_DRY_RUN_AND_SNAPSHOT",
+    "OWNER_AND_MIGRATION_APPROVAL"
+  ]);
   assert.equal(report.release.platformStatus, report.platformStatus);
-  assert.equal(report.release.migrationHoldReason, "COUNT_DEFINITION_UNCONFIRMED");
+  assert.equal(report.release.migrationHoldReason, "MIGRATION_PRECONDITIONS_PENDING");
   assert.equal(report.sourceCorrections.activeDataRowCount, 108);
   assert.equal(report.sourceCorrections.currentQueueCount, 0);
 });
@@ -77,9 +81,10 @@ test("work queue and data consistency rates stay separate", () => {
   const metrics = getWorkQueueMetrics(createWorkQueueState(seed));
   assert.deepEqual(Object.keys(metrics), ["workQueueIntegrityRate", "dataConsistencyIntegrityRate", "fixedCount", "remainingCount", "migrationStatus"]);
   assert.equal(metrics.workQueueIntegrityRate, "100%");
-  assert.equal(metrics.dataConsistencyIntegrityRate, "未算出");
-  assert.equal(metrics.migrationStatus, "Migration保留（件数定義未確定）");
-  assert.equal(seed.dataConsistencyIssues[0].differenceCount, 12);
+  assert.equal(metrics.dataConsistencyIntegrityRate, "100%");
+  assert.equal(metrics.migrationStatus, "Migration保留（Migration実行前条件未完了）");
+  assert.equal(seed.metrics.dataConsistencyIntegrityRate, 100);
+  assert.deepEqual(seed.dataConsistencyIssues, []);
 });
 
 test("historical repair flow still requires confirmation, spreadsheet completion, then next", () => {

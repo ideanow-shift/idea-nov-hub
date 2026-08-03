@@ -2,7 +2,7 @@
 
 ## 1. 適用する辞書
 
-本仕様は `NOV_TALENT_DATA_DICTIONARY` Version `1.1.0` を参照する。辞書と本仕様が矛盾する場合はMigrationを安全停止し、推測で補完しない。
+本仕様は `NOV_TALENT_DATA_DICTIONARY` Version `1.2.0` を参照する。辞書と本仕様が矛盾する場合はMigrationを安全停止し、推測で補完しない。
 
 ## 2. Migration対象行
 
@@ -24,19 +24,16 @@ null、空文字、空白文字だけの値は未入力として扱う。No.だ�
 
 最新read-only観測では、27卒接触Sourceの採番済み541行のうち、Migration対象は528行、No.だけの対象外テンプレートは13行である。旧547／535／12は過去の監査値であり、現在のMigration receiptには使用しない。
 
-## 4. HOLD解除に残る条件
+## 4. Migration契約
 
-1. `CROSS_SHEET_CANDIDATE_IDENTITY_RULE_APPROVAL`
-   - 接触、エントリー、内定を1 Candidateへ紐付ける正式キーを承認する。
-   - 照合不能または曖昧な行の隔離規則を承認する。
-2. `HUMAN_REVIEW_DECISION_MAPPING_EVIDENCE`
-   - 完了済み重複レビュー結果を安定ID対応としてMigrationへ渡せる証拠を確定する。
-3. `MIGRATION_SOURCE_SCOPE_APPROVAL`
-   - Source行をCandidate、Event、履歴のどれへ移行するか確定する。
-4. `SOURCE_SNAPSHOT_AND_EXPECTED_RECEIPT`
-   - 基準日時、Source別期待件数、隔離件数、不一致時rollback条件を固定し、Owner承認する。
+次の4契約はVersion 1.2.0で仕様確定した。
 
-上記4条件の完了までは `MIGRATION_HOLD` を維持する。完了後もMigration実行には別の明示承認が必要である。
+- Candidate同一性契約
+- Human Review安定ID証拠構造
+- Migration先区分
+- Snapshot・受領・Rollback契約
+
+ただし、Human Review完了6グループの結果値が記録されておらず、実Snapshotとdry-runも未生成である。運用前提が満たされるまでは `MIGRATION_HOLD` を維持する。
 
 ## 5. 安全境界
 

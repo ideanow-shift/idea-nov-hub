@@ -40,7 +40,9 @@ export function validateWorkQueuePayload(payload) {
   if (
     payload.releaseReady !== true ||
     payload.platformStatus !== "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD" ||
-    payload.migrationHoldReason !== "COUNT_DEFINITION_UNCONFIRMED"
+    payload.migrationHoldReason !== "MIGRATION_PRECONDITIONS_PENDING" ||
+    payload.metrics.dataConsistencyIntegrityRate !== 100 ||
+    payload.dataConsistencyIssues.length !== 0
   ) {
     throw new TypeError("completed work queue release status is invalid");
   }
@@ -164,7 +166,7 @@ export function getWorkQueueMetrics(state) {
     fixedCount: state.fixedCount,
     remainingCount: pending,
     migrationStatus: state.migrationStatus === "MIGRATION_HOLD"
-      ? "Migration保留（件数定義未確定）"
+      ? "Migration保留（Migration実行前条件未完了）"
       : state.migrationStatus === "HOLD" ? "保留" : state.migrationStatus
   };
 }

@@ -13,9 +13,9 @@
     "remainingCount": 0,
     "workQueueResolutionRate": 100,
     "workQueueIntegrityRate": 100,
-    "dataConsistencyIntegrityRate": null,
-    "dataConsistencyIssueCount": 1,
-    "dataConsistencyDifferenceCount": 12,
+    "dataConsistencyIntegrityRate": 100,
+    "dataConsistencyIssueCount": 0,
+    "dataConsistencyDifferenceCount": 0,
     "missingCount": 0,
     "duplicateGroupCount": 0,
     "duplicateRowCount": 0,
@@ -54,9 +54,10 @@
   "sourceScope": [
     {
       "label": "27卒 接触",
-      "populatedRecordCount": 535,
-      "numberedRowCount": 547,
-      "state": "COUNT_BASIS_REVIEW_REQUIRED"
+      "populatedRecordCount": 528,
+      "numberedRowCount": 541,
+      "excludedTemplateCount": 13,
+      "state": "MIGRATION_ROW_DEFINITION_APPLIED"
     },
     {
       "label": "28卒 接触",
@@ -75,7 +76,7 @@
     },
     {
       "label": "27卒 イベント",
-      "populatedRecordCount": 42,
+      "populatedRecordCount": 36,
       "state": "RECOUNTED"
     }
   ],
@@ -99,34 +100,29 @@
     "decisionValuesStored": false,
     "personalValuesStored": false
   },
-  "newIssues": [
-    {
-      "category": "SOURCE_COUNT_BASIS_MISMATCH",
-      "scope": "27卒 接触",
-      "differenceCount": 12,
-      "detail": "採番済行数と実データ入力済行数の基準が一致していないため、正式件数の定義確認が必要"
-    }
-  ],
+  "newIssues": [],
   "overallIntegrity": {
     "calculable": false,
     "workQueueCompleted": true,
     "reasonCategories": [
-      "SOURCE_COUNT_BASIS_REVIEW_REQUIRED",
-      "NOV_TALENT_REAL_DATA_NOT_CONNECTED"
+      "HUMAN_REVIEW_OUTCOME_NOT_RECORDED",
+      "PRIVATE_DRY_RUN_NOT_EXECUTED"
     ]
   },
   "migration": {
     "eligible": false,
     "status": "MIGRATION_HOLD",
     "reasonCategories": [
-      "COUNT_DEFINITION_UNCONFIRMED"
+      "HUMAN_REVIEW_OUTCOME_RECONSTRUCTION",
+      "PRIVATE_READ_ONLY_DRY_RUN_AND_SNAPSHOT",
+      "OWNER_AND_MIGRATION_APPROVAL"
     ]
   },
   "release": {
     "ready": true,
     "scope": "DATA_INTEGRITY_WORK_QUEUE_CLOSURE",
     "platformStatus": "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD",
-    "migrationHoldReason": "COUNT_DEFINITION_UNCONFIRMED",
+    "migrationHoldReason": "MIGRATION_PRECONDITIONS_PENDING",
     "productionDeployExecuted": false
   },
   "safety": {

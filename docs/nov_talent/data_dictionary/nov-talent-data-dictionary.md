@@ -5,7 +5,7 @@
 | 項目 | 正式値 |
 |---|---|
 | 文書ID | `NOV_TALENT_DATA_DICTIONARY` |
-| Version | `1.1.0` |
+| Version | `1.2.0` |
 | Status | `CANONICAL` |
 | 適用日 | 2026-08-03 |
 | 機械可読正本 | `nov-talent-data-dictionary.json` |
@@ -128,7 +128,7 @@
 
 | 対象 | Version |
 |---|---|
-| Data Dictionary | `1.1.0` |
+| Data Dictionary | `1.2.0` |
 | Data Integrity Report schema | `1.2` |
 | Work Queue seed schema | `2.0` |
 | Source Lineage schema | `1.0` |
@@ -139,25 +139,27 @@
 | 項目 | 正式値 |
 |---|---|
 | Status | `MIGRATION_HOLD` |
-| 理由コード | `MIGRATION_CONTRACT_INCOMPLETE` |
-| 理由 | Migration契約未完了 |
+| 理由コード | `MIGRATION_PRECONDITIONS_PENDING` |
+| 理由 | Migration実行前条件未完了 |
 | Data Integrity | 完了済み |
 | Data Consistency | 確認中 |
 
-Migration対象行の件数定義は確定済みである。Migration保留はData Integrity未完了や件数定義未確定を意味しない。自動Migrationは禁止し、残る契約条件の完了後も実行には別承認を必須とする。
+Migration対象行の件数定義と4つのMigration契約は確定済みである。Migration保留はData Integrity未完了や契約未定義を意味しない。自動Migrationは禁止し、実行前条件の完了後も実行には別承認を必須とする。
 
-### 10.1 Migration HOLD解除の残件
+### 10.1 確定済みMigration契約
+
+- Candidate同一性契約: `candidate-identity-contract.json`
+- Human Review証拠構造: `human-review-evidence.json`
+- Migration先区分: `migration-target-mapping.json`
+- Snapshot・受領・Rollback: 各Migration契約文書
+
+### 10.2 Migration HOLD解除の実行前残件
 
 | 優先 | 正式コード | 残件 |
 |---:|---|---|
-残件① `ACTIVE_ROW_COUNT_BASIS_APPROVAL` はVersion 1.1.0で解消済みである。HOLD解除に残る項目は次の4件だけとする。
-
-| 現優先 | 旧優先 | 正式コード | 残件 |
-|---:|---:|---|---|
-| 1 | 2 | `CROSS_SHEET_CANDIDATE_IDENTITY_RULE_APPROVAL` | 接触・エントリー・内定を1 Candidateへ紐付ける正式キーと、照合不能行の隔離ルールを承認する。 |
-| 2 | 3 | `HUMAN_REVIEW_DECISION_MAPPING_EVIDENCE` | 完了済み重複レビューの判断結果を安定ID対応としてMigrationへ渡せる証拠を確定する。 |
-| 3 | 4 | `MIGRATION_SOURCE_SCOPE_APPROVAL` | 各Source行をCandidate、Event、履歴のどれとして移行するか確定する。 |
-| 4 | 5 | `SOURCE_SNAPSHOT_AND_EXPECTED_RECEIPT` | 基準日時、Source別期待件数、隔離件数、rollback条件を固定してOwner承認する。 |
+| 1 | `HUMAN_REVIEW_OUTCOME_RECONSTRUCTION` | 結果値未記録の重複6グループを、同一人物・別人・判断保留として安定IDへ再記録する。 |
+| 2 | `PRIVATE_READ_ONLY_DRY_RUN_AND_SNAPSHOT` | 正式Sourceのprivate read-only dry-runを行い、同一性結果、Quarantine、件数、hashを持つsealed Snapshotを生成する。 |
+| 3 | `OWNER_AND_MIGRATION_APPROVAL` | OwnerがSnapshotを受領し、Migration実行を別gateで明示承認する。 |
 
 ## 11. Platform Status・Release Status
 
@@ -168,8 +170,8 @@ Migration対象行の件数定義は確定済みである。Migration保留はDa
 | コード | 正式名称 | 定義 |
 |---|---|---|
 | `DATA_INTEGRITY_COMPLETED` | Data Integrity完了 | Human Review Queue 17/17終了、Work Queue残件0。 |
-| `DATA_CONSISTENCY_REVIEW` | Data Consistency確認中 | 件数定義は確定済み。シート横断同一性、移行範囲、受領条件を確認中。 |
-| `MIGRATION_HOLD` | Migration保留 | Migration契約の残る4条件が未完了のためMigrationを実行しない。 |
+| `DATA_CONSISTENCY_REVIEW` | Data Consistency確認中 | Migration契約は定義済み。未記録の人間判断結果と実Source dry-run結果を確認中。 |
+| `MIGRATION_HOLD` | Migration保留 | Human Review結果再記録、private dry-runとSnapshot、Owner・Migration承認が未完了のためMigrationを実行しない。 |
 | `RELEASE_READY` | Release Ready | Data Integrity Work Queue終了成果物を公開可能。Migration実行可を意味しない。 |
 
 ## 12. Role・Permission

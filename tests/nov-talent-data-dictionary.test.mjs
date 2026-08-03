@@ -19,6 +19,7 @@ const stagingOperationsContractPath = new URL("../docs/nov_talent/data_dictionar
 const stagingOperationsGuidePath = new URL("../docs/nov_talent/data_dictionary/staging-operations-contract.md", import.meta.url);
 const stagingSnapshotPath = new URL("../docs/nov_talent/data_dictionary/staging-migration-snapshot.candidate.json", import.meta.url);
 const stagingExecutionResultPath = new URL("../docs/nov_talent/data_dictionary/staging-migration-execution-result.json", import.meta.url);
+const stagingSchemaContractPath = new URL("../docs/nov_talent/data_dictionary/staging-candidate-versioned-dataset-schema.json", import.meta.url);
 const dictionaryRaw = readFileSync(dictionaryPath, "utf8");
 const dictionary = JSON.parse(dictionaryRaw);
 const guide = readFileSync(guidePath, "utf8");
@@ -36,6 +37,7 @@ const stagingOperationsContract = JSON.parse(readFileSync(stagingOperationsContr
 const stagingOperationsGuide = readFileSync(stagingOperationsGuidePath, "utf8");
 const stagingSnapshot = JSON.parse(readFileSync(stagingSnapshotPath, "utf8"));
 const stagingExecutionResult = JSON.parse(readFileSync(stagingExecutionResultPath, "utf8"));
+const stagingSchemaContract = JSON.parse(readFileSync(stagingSchemaContractPath, "utf8"));
 
 const uniqueCodes = (values) => new Set(values.map((value) => value.code)).size === values.length;
 
@@ -76,10 +78,10 @@ test("invalidation and duplicate decisions fail closed to the approved values", 
 });
 
 test("migration, platform, release and count definitions remain consistent", () => {
-  assert.equal(dictionary.currentPlatformStatus, "DATA_INTEGRITY_COMPLETED / STAGING_MIGRATION_BLOCKED_SCHEMA / PRODUCTION_MIGRATION_HOLD");
-  assert.equal(dictionary.migration.currentStatus, "STAGING_MIGRATION_BLOCKED");
+  assert.equal(dictionary.currentPlatformStatus, "DATA_INTEGRITY_COMPLETED / STAGING_SCHEMA_APPLY_PENDING / PRODUCTION_MIGRATION_HOLD");
+  assert.equal(dictionary.migration.currentStatus, "STAGING_SCHEMA_APPLY_PENDING");
   assert.equal(dictionary.migration.productionStatus, "PRODUCTION_MIGRATION_HOLD");
-  assert.equal(dictionary.migration.reasonCode, "STAGING_TARGET_SCHEMA_INCOMPATIBLE");
+  assert.equal(dictionary.migration.reasonCode, "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_SOURCE_READY");
   assert.equal(dictionary.migration.dataIntegrityCompleted, true);
   assert.equal(dictionary.migration.activeRowDefinition.status, "DEFINED");
   assert.deepEqual(dictionary.migration.activeRowDefinition.anyOfFields, [
@@ -89,11 +91,11 @@ test("migration, platform, release and count definitions remain consistent", () 
   assert.equal(dictionary.migration.resolvedCriteria[0].code, "ACTIVE_ROW_COUNT_BASIS_APPROVAL");
   assert.equal(dictionary.migration.contractFinalization.every(({ status }) => status === "DEFINED"), true);
   assert.deepEqual(dictionary.migration.holdReleaseCriteria.map(({ priority }) => priority), [1, 2, 3]);
-  assert.deepEqual(dictionary.migration.holdReleaseCriteria.map(({ status }) => status), ["RESOLVED", "RESOLVED", "OPEN"]);
+  assert.deepEqual(dictionary.migration.holdReleaseCriteria.map(({ status }) => status), ["RESOLVED", "RESOLVED", "SOURCE_IMPLEMENTED_APPLY_PENDING"]);
   assert.equal(dictionary.migration.holdReleaseCriteria[0].artifact, "migration-dry-run-snapshot.candidate.json");
   assert.match(migrationSpec, /No\.だけ採番された空テンプレート行はMigration対象外/);
   assert.match(readme, /Migration契約4件: 仕様確定/);
-  assert.match(readme, /Staging停止理由/);
+  assert.match(readme, /Remote Staging適用待ち/);
   assert.equal(dictionary.countDefinitions.dataIntegrity.currentValues.remainingCount, 0);
   assert.equal(dictionary.countDefinitions.dataIntegrity.currentValues.resolutionRate, 100);
   assert.equal(dictionary.currentRelease.status, "RELEASE_READY");
@@ -131,7 +133,7 @@ test("private read-only dry-run snapshot seals official-source counts and safety
 });
 
 test("staging operations contract fixes 636 candidates and keeps production prohibited", () => {
-  assert.equal(stagingOperationsContract.status, "APPROVED_EXECUTION_SAFE_STOPPED");
+  assert.equal(stagingOperationsContract.status, "APPROVED_SCHEMA_SOURCE_IMPLEMENTED_APPLY_PENDING");
   assert.equal(stagingOperationsContract.environmentPolicy.staging, "OPERATION_VALIDATION_ENVIRONMENT");
   assert.equal(stagingOperationsContract.environmentPolicy.production, "PROHIBITED_UNTIL_SEPARATE_PROMOTION_APPROVAL");
   assert.equal(stagingOperationsContract.initialScope.candidateCount, 636);
@@ -158,6 +160,19 @@ test("staging operations contract fixes 636 candidates and keeps production proh
   assert.equal(stagingOperationsContract.sourceSnapshot.revalidationStatus, "PASS_COUNTS_AND_SOURCE_HASH");
   assert.match(stagingOperationsGuide, /正式Spreadsheetを更新[\s\S]*read-only preflight/);
   assert.match(stagingOperationsGuide, /Production昇格承認はこれらに含まれない/);
+});
+
+test("Candidate Versioned Dataset schema contract is source-ready and not remotely applied", () => {
+  assert.equal(stagingSchemaContract.status, "SOURCE_IMPLEMENTED_NOT_APPLIED");
+  assert.deepEqual(stagingSchemaContract.scope.includedEntities, ["CANDIDATE"]);
+  assert.equal(stagingSchemaContract.scope.approvedCandidateCount, 636);
+  assert.deepEqual(stagingSchemaContract.lifecycle, ["BUILDING", "READY", "ACTIVE", "RETIRED"]);
+  assert.equal(stagingSchemaContract.invariants.maximumActiveDatasetCount, 1);
+  assert.equal(stagingSchemaContract.invariants.previousDatasetRestorable, true);
+  assert.equal(stagingSchemaContract.access.anonAccess, "NONE");
+  assert.equal(stagingSchemaContract.access.authenticatedAccess, "NONE");
+  assert.equal(stagingSchemaContract.application.remoteSchemaApplied, false);
+  assert.equal(stagingSchemaContract.application.stagingMigrationExecuted, false);
 });
 
 test("fresh staging snapshot is sealed and schema incompatibility stops before writes", () => {
@@ -262,7 +277,12 @@ test("official sources, 28 CSV contract and safety boundaries are fixed", () => 
 
 test("dictionary artifacts contain no personal-value fields or secrets", () => {
   const serialized = JSON.stringify(dictionary);
-  const contractArtifacts = JSON.stringify({ identityContract, reviewEvidence, targetMapping });
+  const contractArtifacts = JSON.stringify({
+    identityContract,
+    reviewEvidence,
+    targetMapping,
+  });
+  const stagingSchemaSerialized = JSON.stringify(stagingSchemaContract);
   assert.doesNotMatch(serialized, /"[^"\s]+@[^"\s]+"/u);
   assert.doesNotMatch(contractArtifacts, /"[^"\s]+@[^"\s]+"/u);
   assert.doesNotMatch(
@@ -272,6 +292,10 @@ test("dictionary artifacts contain no personal-value fields or secrets", () => {
   assert.doesNotMatch(
     contractArtifacts,
     /service_role|authorization:\s*bearer|postgres(?:ql)?:\/\/|(?:password|secret)["']?\s*[:=]\s*["'][^"']+/iu,
+  );
+  assert.doesNotMatch(
+    stagingSchemaSerialized,
+    /authorization:\s*bearer|postgres(?:ql)?:\/\/|(?:password|secret)["']?\s*[:=]\s*["'][^"']+/iu,
   );
   assert.equal(dictionary.governance.personalDataPolicy.includes("個人値"), true);
 });

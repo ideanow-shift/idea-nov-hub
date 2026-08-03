@@ -4,7 +4,7 @@
   "generatedAt": "2026-08-03T09:00:00+09:00",
   "basis": "28卒正式Source再監査、27卒Source Lineage、総務人事部による重複候補6グループの人間確認完了",
   "status": "DATA_INTEGRITY_COMPLETED",
-  "platformStatus": "DATA_INTEGRITY_COMPLETED / STAGING_MIGRATION_BLOCKED_SCHEMA / PRODUCTION_MIGRATION_HOLD",
+  "platformStatus": "DATA_INTEGRITY_COMPLETED / STAGING_SCHEMA_APPLY_PENDING / PRODUCTION_MIGRATION_HOLD",
   "releaseReady": true,
   "sourceSpreadsheetCount": 2,
   "metrics": {
@@ -113,10 +113,10 @@
   },
   "migration": {
     "eligible": false,
-    "status": "STAGING_MIGRATION_BLOCKED",
+    "status": "STAGING_SCHEMA_APPLY_PENDING",
     "productionStatus": "PRODUCTION_MIGRATION_HOLD",
     "reasonCategories": [
-      "STAGING_TARGET_SCHEMA_INCOMPATIBLE"
+      "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_SOURCE_READY"
     ],
     "dryRun": {
       "status": "PASS_REVALIDATED",
@@ -131,7 +131,7 @@
       "migrationApproval": true
     },
     "stagingOperations": {
-      "contractStatus": "APPROVED_EXECUTION_SAFE_STOPPED",
+      "contractStatus": "APPROVED_SCHEMA_SOURCE_IMPLEMENTED_APPLY_PENDING",
       "environmentClassification": "OPERATION_VALIDATION_ENVIRONMENT",
       "officialSourceCount": 2,
       "candidateCount": 636,
@@ -145,14 +145,16 @@
       "stagingOperationsStarted": false,
       "productionPromotionAllowed": false,
       "executionResult": "SAFE_STOP_FIXED_STAGE",
-      "fixedCategory": "STAGING_TARGET_SCHEMA_INCOMPATIBLE_WITH_APPROVED_CANDIDATE_SCOPE"
+      "fixedCategory": "STAGING_TARGET_SCHEMA_INCOMPATIBLE_WITH_APPROVED_CANDIDATE_SCOPE",
+      "candidateVersionedDatasetSchemaSourceReady": true,
+      "candidateVersionedDatasetSchemaApplied": false
     }
   },
   "release": {
     "ready": true,
     "scope": "STAGING_OPERATIONS_DESIGN",
-    "platformStatus": "DATA_INTEGRITY_COMPLETED / STAGING_MIGRATION_BLOCKED_SCHEMA / PRODUCTION_MIGRATION_HOLD",
-    "migrationHoldReason": "STAGING_TARGET_SCHEMA_INCOMPATIBLE",
+    "platformStatus": "DATA_INTEGRITY_COMPLETED / STAGING_SCHEMA_APPLY_PENDING / PRODUCTION_MIGRATION_HOLD",
+    "migrationHoldReason": "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_APPLY_PENDING",
     "stagingOperationsDesignReady": true,
     "stagingMigrationExecuted": false,
     "stagingOperationsStarted": false,

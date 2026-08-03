@@ -138,8 +138,8 @@
 
 | 項目 | 正式値 |
 |---|---|
-| Staging Status | `STAGING_MIGRATION_BLOCKED` |
-| Staging理由コード | `STAGING_TARGET_SCHEMA_INCOMPATIBLE` |
+| Staging Status | `STAGING_SCHEMA_APPLY_PENDING` |
+| Staging理由コード | `STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_SOURCE_READY` |
 | Production Status | `PRODUCTION_MIGRATION_HOLD` |
 | Production理由コード | `STAGING_OPERATION_VALIDATION_AND_PROMOTION_APPROVAL_PENDING` |
 | Data Integrity | 完了済み |
@@ -161,7 +161,7 @@ Migration対象行の件数定義と5つのMigration・Staging運用契約は確
 |---:|---|---|
 | 1 | `PRIVATE_READ_ONLY_DRY_RUN_AND_SNAPSHOT` | `RESOLVED`。正式Source 2件、636対象行、Quarantine 0件でdry-run PASSし、件数・HashだけのSnapshot候補を生成済み。 |
 | 2 | `STAGING_OWNER_MIGRATION_AND_OPERATION_APPROVAL` | `RESOLVED`。Ownerが最新Snapshot、636 CandidateのStaging Migration、Migration照合後の運用開始を明示承認済み。 |
-| 3 | `STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_CONTRACT` | 28卒、運用dataset版管理、旧版復帰を満たす受入schema変更を別Sprint・別承認で実施する。 |
+| 3 | `STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_CONTRACT` | Candidate Versioned Dataset migration source実装済み。Remote Staging適用待ち。 |
 
 ### 10.3 Staging先行運用
 
@@ -178,12 +178,12 @@ Migration対象行の件数定義と5つのMigration・Staging運用契約は確
 
 現在のPlatform Statusは次の完全一致文字列とする。
 
-`DATA_INTEGRITY_COMPLETED / STAGING_MIGRATION_BLOCKED_SCHEMA / PRODUCTION_MIGRATION_HOLD`
+`DATA_INTEGRITY_COMPLETED / STAGING_SCHEMA_APPLY_PENDING / PRODUCTION_MIGRATION_HOLD`
 
 | コード | 正式名称 | 定義 |
 |---|---|---|
 | `DATA_INTEGRITY_COMPLETED` | Data Integrity完了 | Human Review Queue 17/17終了、Work Queue残件0。 |
-| `STAGING_MIGRATION_BLOCKED_SCHEMA` | Staging Migration schema対応待ち | Owner承認と最新Snapshot再受領は完了したが、既存受入schemaが承認済みCandidate範囲と版管理・旧版復帰契約を満たさないため書込み前に安全停止している。 |
+| `STAGING_SCHEMA_APPLY_PENDING` | Staging Candidate schema適用待ち | Candidate 636件、28卒、Versioned Dataset、有効化、旧版復帰を満たすmigration sourceは実装済みで、Remote Stagingへの適用を待っている。 |
 | `PRODUCTION_MIGRATION_HOLD` | Production Migration保留 | Staging運用検証とProduction昇格の別承認が完了するまで、Production書込みと自動昇格を禁止する。 |
 | `RELEASE_READY` | Release Ready | Data Integrity Work Queue終了成果物を公開可能。Migration実行可を意味しない。 |
 

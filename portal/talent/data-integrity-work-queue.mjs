@@ -34,13 +34,13 @@ export function validateWorkQueuePayload(payload) {
       throw new RangeError(`${key} must be null or 0..100`);
     }
   }
-  if (!["HOLD", "MIGRATION_HOLD", "STAGING_MIGRATION_APPROVAL_PENDING", "STAGING_MIGRATION_BLOCKED"].includes(payload.metrics.migrationStatus)) {
+  if (!["HOLD", "MIGRATION_HOLD", "STAGING_MIGRATION_APPROVAL_PENDING", "STAGING_MIGRATION_BLOCKED", "STAGING_SCHEMA_APPLY_PENDING"].includes(payload.metrics.migrationStatus)) {
     throw new TypeError("migration status is invalid");
   }
   if (
     payload.releaseReady !== true ||
-    payload.platformStatus !== "DATA_INTEGRITY_COMPLETED / STAGING_MIGRATION_BLOCKED_SCHEMA / PRODUCTION_MIGRATION_HOLD" ||
-    payload.migrationHoldReason !== "STAGING_TARGET_SCHEMA_INCOMPATIBLE" ||
+    payload.platformStatus !== "DATA_INTEGRITY_COMPLETED / STAGING_SCHEMA_APPLY_PENDING / PRODUCTION_MIGRATION_HOLD" ||
+    payload.migrationHoldReason !== "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_APPLY_PENDING" ||
     payload.metrics.dataConsistencyIntegrityRate !== 100 ||
     payload.dataConsistencyIssues.length !== 0
   ) {
@@ -165,7 +165,9 @@ export function getWorkQueueMetrics(state) {
     dataConsistencyIntegrityRate: state.dataConsistencyIntegrityRate === null ? "未算出" : `${state.dataConsistencyIntegrityRate}%`,
     fixedCount: state.fixedCount,
     remainingCount: pending,
-    migrationStatus: state.migrationStatus === "STAGING_MIGRATION_BLOCKED"
+    migrationStatus: state.migrationStatus === "STAGING_SCHEMA_APPLY_PENDING"
+      ? "Staging Candidate schema適用待ち"
+      : state.migrationStatus === "STAGING_MIGRATION_BLOCKED"
       ? "Staging Migration停止（受入schema未対応）"
       : state.migrationStatus === "STAGING_MIGRATION_APPROVAL_PENDING"
       ? "Staging Migration承認待ち（Production保留）"

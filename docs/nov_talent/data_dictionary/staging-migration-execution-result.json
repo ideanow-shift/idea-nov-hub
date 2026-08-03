@@ -29,5 +29,5 @@
     "rollbackPerformed": false,
     "rawPersonalValuesIncluded": false
   },
-  "nextGate": "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_CONTRACT_OWNER_DECISION"
+  "nextGate": "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_APPLY_OWNER_DECISION"
 }

@@ -346,10 +346,10 @@
     "versioningRule": "意味変更・コード追加・廃止は辞書Versionを更新する。既存コードの意味を同じVersion内で変更しない。"
   },
   "migration": {
-    "currentStatus": "STAGING_MIGRATION_BLOCKED",
-    "currentStatusName": "Staging Migration安全停止",
-    "reasonCode": "STAGING_TARGET_SCHEMA_INCOMPATIBLE",
-    "reasonName": "既存受入schemaが28卒・運用dataset版管理・旧版復帰契約に未対応",
+    "currentStatus": "STAGING_SCHEMA_APPLY_PENDING",
+    "currentStatusName": "Staging Candidate schema適用待ち",
+    "reasonCode": "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_SOURCE_READY",
+    "reasonName": "Candidate Versioned Dataset migration source実装済み、Remote Staging適用待ち",
     "productionStatus": "PRODUCTION_MIGRATION_HOLD",
     "productionReasonCode": "STAGING_OPERATION_VALIDATION_AND_PROMOTION_APPROVAL_PENDING",
     "dataIntegrityCompleted": true,
@@ -430,8 +430,9 @@
       {
         "priority": 3,
         "code": "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_CONTRACT",
-        "status": "OPEN",
-        "requiredDecision": "28卒、運用dataset有効化、旧版復帰を満たす受入schema変更を別Sprint・別承認で実施する"
+        "status": "SOURCE_IMPLEMENTED_APPLY_PENDING",
+        "artifact": "staging-candidate-versioned-dataset-schema.json",
+        "requiredDecision": "Candidate Versioned Dataset migration sourceをRemote Stagingへ適用する"
       }
     ]
   },
@@ -460,9 +461,9 @@
       "definition": "Human Review Queue 17/17が終了し、Work Queue残件が0である。"
     },
     {
-      "code": "STAGING_MIGRATION_BLOCKED_SCHEMA",
-      "name": "Staging Migration schema対応待ち",
-      "definition": "Owner承認と最新Snapshot再受領は完了したが、既存受入schemaが承認済みCandidate範囲と版管理・旧版復帰契約を満たさないため書込み前に安全停止している。"
+      "code": "STAGING_SCHEMA_APPLY_PENDING",
+      "name": "Staging Candidate schema適用待ち",
+      "definition": "Candidate 636件、28卒、Versioned Dataset、有効化、旧版復帰を満たすmigration sourceは実装済みで、Remote Stagingへの適用を待っている。"
     },
     {
       "code": "PRODUCTION_MIGRATION_HOLD",
@@ -470,7 +471,7 @@
       "definition": "Staging運用検証とProduction昇格の別承認が完了するまで、ProductionへのMigration・書込み・自動昇格を禁止する。"
     }
   ],
-  "currentPlatformStatus": "DATA_INTEGRITY_COMPLETED / STAGING_MIGRATION_BLOCKED_SCHEMA / PRODUCTION_MIGRATION_HOLD",
+  "currentPlatformStatus": "DATA_INTEGRITY_COMPLETED / STAGING_SCHEMA_APPLY_PENDING / PRODUCTION_MIGRATION_HOLD",
   "releaseStatuses": [
     {
       "code": "RELEASE_READY",
@@ -483,6 +484,8 @@
     "status": "RELEASE_READY",
     "scope": "STAGING_OPERATIONS_DESIGN",
     "stagingOperationsDesignReady": true,
+    "stagingCandidateSchemaSourceReady": true,
+    "stagingCandidateSchemaApplied": false,
     "stagingMigrationExecuted": false,
     "stagingOperationsStarted": false,
     "productionDeployExecutedByThisDictionarySprint": false

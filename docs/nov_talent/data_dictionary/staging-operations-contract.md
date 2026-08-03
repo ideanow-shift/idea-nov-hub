@@ -70,4 +70,4 @@ Production昇格承認はこれらに含まれない。
 
 ## 現在地
 
-Ownerによる最新Snapshot受領、Staging Migration、Migration照合後の運用開始承認は受領済みである。正式Sourceのread-only再受領も636件でPASSした。ただし既存受入schemaが28卒Source区分、運用dataset版管理、旧版復帰契約を満たさないため、書込み前に安全停止した。Staging書込み0件、Production書込み0件であり、Productionは引き続き禁止する。
+Ownerによる最新Snapshot受領、Staging Migration、Migration照合後の運用開始承認は受領済みである。正式Sourceのread-only再受領も636件でPASSした。既存受入schema不整合に対して、Candidate専用Versioned Dataset schemaのmigration sourceを実装した。Remote Staging適用、Candidate投入、運用開始は未実施であり、Productionは引き続き禁止する。

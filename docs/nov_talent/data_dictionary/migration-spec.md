@@ -35,7 +35,9 @@ null、空文字、空白文字だけの値は未入力として扱う。No.だ�
 
 Human Review完了6グループは、Owner確認により `different_person / keep_separate` として安定IDへ記録した。pending reviewと当該グループ由来Quarantineは0件である。正式Source 2件のprivate read-only dry-runは636対象行、Quarantine 0件でPASSし、件数とHashだけを持つSnapshot候補を生成済みである。
 
-Migrationは環境ごとに分離する。StagingはOwner受領、Staging Migration承認、運用開始承認を経て先行利用する。これらの承認は受領済みだが、既存受入schema不整合により書込み前に安全停止している。ProductionはStaging運用検証完了後の別昇格承認まで `PRODUCTION_MIGRATION_HOLD` とする。
+Migrationは環境ごとに分離する。StagingはOwner受領、Staging Migration承認、運用開始承認を経て先行利用する。Candidate専用Versioned Dataset schemaのmigration sourceは実装済みで、Remote Staging適用は未実施である。ProductionはStaging運用検証完了後の別昇格承認まで `PRODUCTION_MIGRATION_HOLD` とする。
+
+Candidate schemaは `BUILDING / READY / ACTIVE / RETIRED` を固定状態とし、ACTIVEは最大1件、seal前に総数・卒年別件数を一致確認する。Dataset切替は単一transactionで行い、直前ACTIVEをRETIREDとして保持する。Event / ContactとSelection Historyは本schemaの対象外である。
 
 ## 5. Private read-only dry-run
 

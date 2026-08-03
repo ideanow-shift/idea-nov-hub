@@ -2,7 +2,7 @@
 
 ## Decision
 
-**CONDITIONAL PASS.** A two-project topology is appropriate: `idea-nov-core` remains Production, and `idea-nov-shift-status-sandbox` can be operated as shared **idea-nov-staging** for Store Operations, NOV Talent, Finance, and HUB. A third project is not justified by the present evidence.
+**CONDITIONAL PASS.** A two-project topology is appropriate: `idea-nov-core` remains Production, and `idea-nov-staging` serves as shared Staging for Store Operations, NOV Talent, Finance, and HUB. A third project is not justified by the present evidence.
 
 ## Conditions Before Use
 

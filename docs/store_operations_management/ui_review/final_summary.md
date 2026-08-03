@@ -63,7 +63,7 @@ POS、日次進捗、月末着地予測、リアルタイム、スタッフ個�
 ## Git作業結果
 
 - Branch: `docs/store-operations-ui-review-v1`
-- Commit: 作業完了時に更新
-- Push: 作業完了時に更新
-- Draft PR: 作業完了時に更新
+- Design deliverables commit: `4456602fdccdf96fc2ef97b4693d59ebfcaa19db`
+- Push: `origin/docs/store-operations-ui-review-v1`へ完了
+- Draft PR: [#33 docs(store-operations): review and redesign V1 decision UX](https://github.com/ideanow-shift/idea-nov-hub/pull/33)
 - 変更範囲: `docs/store_operations_management/ui_review/**`のみ

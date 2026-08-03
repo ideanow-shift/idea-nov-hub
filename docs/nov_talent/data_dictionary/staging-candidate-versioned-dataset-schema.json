@@ -47,6 +47,7 @@
   },
   "functions": {
     "schema": "nov_talent_internal",
+    "operatorGuard": "nov_talent_internal.assert_candidate_dataset_operator_v1",
     "seal": "nov_talent_internal.seal_candidate_dataset_v1",
     "activate": "nov_talent_internal.activate_candidate_dataset_v1",
     "restorePrevious": "nov_talent_internal.restore_previous_candidate_dataset_v1"

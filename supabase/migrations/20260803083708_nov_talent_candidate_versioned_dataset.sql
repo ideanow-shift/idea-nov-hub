@@ -122,6 +122,24 @@ grant select, insert on table public.nov_talent_candidate_datasets_v1
 grant select, insert on table public.nov_talent_candidate_dataset_records_v1
   to service_role;
 
+-- The common Staging project intentionally has no Employee Core copy.
+-- State transitions remain service-role-only, and the supplied operation id
+-- is required as non-personal audit attribution.
+create or replace function nov_talent_internal.assert_candidate_dataset_operator_v1(
+  p_actor_employee_id uuid
+)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $function$
+begin
+  if p_actor_employee_id is null then
+    raise exception using errcode = '22023', message = 'candidate_dataset_operator_required';
+  end if;
+end
+$function$;
+
 create or replace function nov_talent_internal.guard_candidate_dataset_insert_v1()
 returns trigger
 language plpgsql
@@ -202,7 +220,7 @@ declare
   v_2027 integer;
   v_2028 integer;
 begin
-  perform public.assert_nov_talent_accountable_owner_v1(p_actor_employee_id);
+  perform nov_talent_internal.assert_candidate_dataset_operator_v1(p_actor_employee_id);
 
   select d.*
   into strict v_dataset
@@ -265,7 +283,7 @@ declare
   v_dataset public.nov_talent_candidate_datasets_v1%rowtype;
   v_previous_dataset_id uuid;
 begin
-  perform public.assert_nov_talent_accountable_owner_v1(p_actor_employee_id);
+  perform nov_talent_internal.assert_candidate_dataset_operator_v1(p_actor_employee_id);
 
   -- Serialize activation and keep the exact-one ACTIVE invariant stable.
   lock table public.nov_talent_candidate_datasets_v1 in share row exclusive mode;
@@ -335,7 +353,7 @@ declare
   v_current public.nov_talent_candidate_datasets_v1%rowtype;
   v_previous public.nov_talent_candidate_datasets_v1%rowtype;
 begin
-  perform public.assert_nov_talent_accountable_owner_v1(p_actor_employee_id);
+  perform nov_talent_internal.assert_candidate_dataset_operator_v1(p_actor_employee_id);
 
   lock table public.nov_talent_candidate_datasets_v1 in share row exclusive mode;
 
@@ -380,6 +398,8 @@ $function$;
 revoke all on function nov_talent_internal.guard_candidate_dataset_record_insert_v1()
   from public, anon, authenticated;
 revoke all on function nov_talent_internal.guard_candidate_dataset_insert_v1()
+  from public, anon, authenticated;
+revoke all on function nov_talent_internal.assert_candidate_dataset_operator_v1(uuid)
   from public, anon, authenticated;
 revoke all on function nov_talent_internal.seal_candidate_dataset_v1(uuid, uuid)
   from public, anon, authenticated;

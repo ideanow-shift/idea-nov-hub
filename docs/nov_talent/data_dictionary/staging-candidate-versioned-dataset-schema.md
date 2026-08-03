@@ -34,6 +34,7 @@ Candidate行は `BUILDING` datasetへのINSERTだけを許可する。READY以�
 - `public`、`anon`、`authenticated` はアクセス不可。
 - `service_role` はSELECT・INSERTのみ。
 - seal・activate・restoreは `nov_talent_internal` の明示関数だけで行う。
+- 空の共通StagingへEmployee Coreを複製せず、非公開schema内のoperator必須検証を使用する。正式Permission Modelは変更しない。
 - ブラウザからの書込み経路は作らない。
 
 ## Source artifact

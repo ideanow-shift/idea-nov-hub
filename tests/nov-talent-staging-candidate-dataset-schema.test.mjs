@@ -26,6 +26,9 @@ test("dataset lifecycle supports exact-one activation and previous dataset resto
   assert.match(sql, /state in \('BUILDING', 'READY', 'ACTIVE', 'RETIRED'\)/i);
   assert.match(sql, /where state = 'ACTIVE'/i);
   assert.match(sql, /create or replace function nov_talent_internal\.seal_candidate_dataset_v1/i);
+  assert.match(sql, /create or replace function nov_talent_internal\.assert_candidate_dataset_operator_v1/i);
+  assert.match(sql, /candidate_dataset_operator_required/i);
+  assert.doesNotMatch(sql, /public\.assert_nov_talent_accountable_owner_v1/i);
   assert.match(sql, /candidate_dataset_count_mismatch/i);
   assert.match(sql, /create or replace function nov_talent_internal\.activate_candidate_dataset_v1/i);
   assert.match(sql, /lock table public\.nov_talent_candidate_datasets_v1 in share row exclusive mode/i);
@@ -62,6 +65,7 @@ test("sealed and active Candidate rows are immutable through the import grant", 
   assert.match(sql, /before insert on public\.nov_talent_candidate_dataset_records_v1/i);
   assert.doesNotMatch(sql, /grant[^;]*(?:update|delete)[^;]*nov_talent_candidate_dataset_records_v1/i);
   assert.match(sql, /revoke all on function nov_talent_internal\.activate_candidate_dataset_v1\(uuid, uuid\)/i);
+  assert.match(sql, /revoke all on function nov_talent_internal\.assert_candidate_dataset_operator_v1\(uuid\)/i);
   assert.match(sql, /grant execute on function nov_talent_internal\.activate_candidate_dataset_v1\(uuid, uuid\)\s+to service_role/i);
   assert.doesNotMatch(sql, /security definer[\s\S]{0,1200}create or replace function public\./i);
 });

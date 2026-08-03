@@ -34,7 +34,12 @@ export function validateWorkQueuePayload(payload) {
       throw new RangeError(`${key} must be null or 0..100`);
     }
   }
-  if (payload.metrics.migrationStatus !== "HOLD") throw new TypeError("migration must remain on hold");
+  if (!["HOLD", "HOLD_DATA_CONSISTENCY"].includes(payload.metrics.migrationStatus)) {
+    throw new TypeError("migration status is invalid");
+  }
+  if (payload.releaseReady !== true || payload.platformStatus !== "DATA_INTEGRITY_COMPLETED") {
+    throw new TypeError("completed work queue release status is invalid");
+  }
 
   for (const issue of payload.dataConsistencyIssues) {
     nonNegative(issue.numberedRowCount, "numberedRowCount");
@@ -82,7 +87,7 @@ export function validateSourceLineage(lineage, queuePayload) {
   const closedIds = new Set();
   for (const issue of lineage.closedIssues) {
     if (!issue.issue_id || closedIds.has(issue.issue_id)) throw new TypeError("closed issue id must be unique");
-    if (!["false_positive", "resolved"].includes(issue.final_status) || !issue.closure_reason || !issue.closed_at || !issue.source_type) {
+    if (!["false_positive", "resolved", "human_review_completed"].includes(issue.final_status) || !issue.closure_reason || !issue.closed_at || !issue.source_type) {
       throw new TypeError("closed issue metadata is incomplete");
     }
     if (issue.current_queue_included !== false) throw new TypeError("closed issue cannot remain in the current queue");
@@ -154,7 +159,9 @@ export function getWorkQueueMetrics(state) {
     dataConsistencyIntegrityRate: state.dataConsistencyIntegrityRate === null ? "未算出" : `${state.dataConsistencyIntegrityRate}%`,
     fixedCount: state.fixedCount,
     remainingCount: pending,
-    migrationStatus: state.migrationStatus === "HOLD" ? "保留" : state.migrationStatus
+    migrationStatus: state.migrationStatus === "HOLD_DATA_CONSISTENCY"
+      ? "Data Consistency確認待ち"
+      : state.migrationStatus === "HOLD" ? "保留" : state.migrationStatus
   };
 }
 

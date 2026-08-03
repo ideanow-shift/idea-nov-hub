@@ -1,22 +1,25 @@
 {
-  "schemaVersion": "1.1",
-  "reportId": "2026-08-02-28-source-correction-work-queue-cleanup",
-  "generatedAt": "2026-08-02T18:00:00+09:00",
-  "basis": "指定済みの28卒正式Source全行再監査結果と27卒Source Lineage",
-  "status": "WORK_QUEUE_DUPLICATES_ONLY",
+  "schemaVersion": "1.2",
+  "reportId": "2026-08-03-human-review-queue-completed",
+  "generatedAt": "2026-08-03T09:00:00+09:00",
+  "basis": "28卒正式Source再監査、27卒Source Lineage、総務人事部による重複候補6グループの人間確認完了",
+  "status": "DATA_INTEGRITY_COMPLETED",
+  "platformStatus": "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD",
+  "releaseReady": true,
   "sourceSpreadsheetCount": 2,
   "metrics": {
     "workQueueTotalCount": 17,
-    "fixedCount": 11,
-    "remainingCount": 6,
-    "workQueueResolutionRate": 64.7,
-    "workQueueIntegrityRate": 64.7,
+    "fixedCount": 17,
+    "remainingCount": 0,
+    "workQueueResolutionRate": 100,
+    "workQueueIntegrityRate": 100,
     "dataConsistencyIntegrityRate": null,
     "dataConsistencyIssueCount": 1,
     "dataConsistencyDifferenceCount": 12,
     "missingCount": 0,
-    "duplicateGroupCount": 6,
-    "duplicateRowCount": 13,
+    "duplicateGroupCount": 0,
+    "duplicateRowCount": 0,
+    "humanReviewedDuplicateGroupCount": 6,
     "newIssueCount": 0,
     "overallIntegrityRate": null,
     "migrationEligible": false
@@ -43,8 +46,9 @@
     {
       "type": "DUPLICATE_CANDIDATE",
       "initialCount": 10,
-      "fixedCount": 4,
-      "remainingCount": 6
+      "fixedCount": 10,
+      "remainingCount": 0,
+      "humanReviewedCount": 6
     }
   ],
   "sourceScope": [
@@ -88,6 +92,13 @@
     "resolvedClosedCount": 2,
     "legacyCopyCanonical": false
   },
+  "humanReview": {
+    "status": "COMPLETED",
+    "reviewedGroupCount": 6,
+    "remainingGroupCount": 0,
+    "decisionValuesStored": false,
+    "personalValuesStored": false
+  },
   "newIssues": [
     {
       "category": "SOURCE_COUNT_BASIS_MISMATCH",
@@ -98,18 +109,25 @@
   ],
   "overallIntegrity": {
     "calculable": false,
+    "workQueueCompleted": true,
     "reasonCategories": [
-      "WORK_QUEUE_REMAINING",
       "SOURCE_COUNT_BASIS_REVIEW_REQUIRED",
       "NOV_TALENT_REAL_DATA_NOT_CONNECTED"
     ]
   },
   "migration": {
     "eligible": false,
+    "status": "MIGRATION_HOLD",
     "reasonCategories": [
-      "WORK_QUEUE_REMAINING",
-      "OVERALL_INTEGRITY_NOT_CALCULABLE"
+      "COUNT_DEFINITION_UNCONFIRMED"
     ]
+  },
+  "release": {
+    "ready": true,
+    "scope": "DATA_INTEGRITY_WORK_QUEUE_CLOSURE",
+    "platformStatus": "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD",
+    "migrationHoldReason": "COUNT_DEFINITION_UNCONFIRMED",
+    "productionDeployExecuted": false
   },
   "safety": {
     "readOnlyAudit": true,
@@ -117,6 +135,7 @@
     "spreadsheetWriteCount": 0,
     "databaseWriteCount": 0,
     "productionWriteCount": 0,
-    "workQueueTemporaryCompletionUsedAsEvidence": false
+    "workQueueTemporaryCompletionUsedAsEvidence": false,
+    "ownerHumanReviewCompletionAttested": true
   }
 }

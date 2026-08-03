@@ -1,26 +1,7 @@
 # Daily Operation
 
-## 毎日の手順
+Human Review Queueは2026-08-03に終了した。現行Work Queueは残件0件であり、通常の修正操作は行わない。
 
-1. Data Integrity Work Queueを開く。
-2. 今日の修正件数と残件数を確認する。
-3. Work Queueで修正内容を確認する。
-4. 総務人事部管理の正本Spreadsheetを修正する。
-5. Work Queueで `Spreadsheet修正済` を選び、`次へ` 進む。
-6. 修正済件数と残件数を終業前に確認する。
+今後は新しいread-only再監査で問題が検出された場合に限り、承認済みのSource Lineageから新しいQueueを作成する。過去の一時完了状態やブラウザ操作を修正証拠として再利用しない。
 
-## 処理能力の想定
-
-- 不足項目: 1件1～2分
-- 重複候補: 1組3～5分
-- 1人30分: 8～15件
-- 1人60分: 15～30件
-
-現行Queueは27卒の重複候補6グループを対象とし、30分程度で一次判断を想定する。判断できない場合は「判断保留」を許容する。28卒は正式Source再監査で0件となった。27卒の件数差12件は修正Queueに含めず、Data Consistency Issueとして確認する。
-
-## 終了条件
-
-- 本日の残件数0、または未判断案件がすべて保留理由付き
-- Work QueueからDB・Productionへ保存していない
-- 正本Spreadsheetの修正完了を確認済み
-- 個人値をチャット・通常ログへ出していない
+Data Consistency Issueの差12件は別管理とする。Data Integrityは完了済みであり、Migrationは「件数定義未確定」のため保留する。

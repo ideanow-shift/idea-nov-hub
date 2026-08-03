@@ -2,7 +2,7 @@
 
 ## Decision
 
-IDEA NOV Platform uses two Supabase projects: `idea-nov-core` for Production and `idea-nov-shift-status-sandbox`, operated under the logical environment name **idea-nov-staging**, for shared Staging. This is a topology decision only; no project rename, configuration change, migration, deploy, or Production access is included.
+IDEA NOV Platform uses two Supabase projects: `idea-nov-core` for Production and `idea-nov-staging` for shared Staging. This is a topology decision only; no project rename, configuration change, migration, deploy, or Production access is included.
 
 ## Boundary
 

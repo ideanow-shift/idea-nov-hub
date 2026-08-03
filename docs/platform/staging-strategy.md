@@ -2,7 +2,7 @@
 
 ## Operating Model
 
-Operate `idea-nov-shift-status-sandbox` as **idea-nov-staging**, a single shared non-production environment. It is not a Production replica and must never fall back to `idea-nov-core` for data, secrets, session verification, or endpoint calls.
+Operate `idea-nov-staging` as a single shared non-production environment. It is not a Production replica and must never fall back to `idea-nov-core` for data, secrets, session verification, or endpoint calls.
 
 ## Domain Separation
 

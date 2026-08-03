@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "generatedAt": "2026-08-02T18:00:00+09:00",
+  "generatedAt": "2026-08-03T09:00:00+09:00",
   "readOnly": true,
   "containsPersonalValues": false,
   "resolvedIssueIds": [
@@ -14,7 +14,13 @@
     "DQ-DUP-004",
     "DQ-DUP-008",
     "DQ-DUP-009",
-    "DQ-DUP-010"
+    "DQ-DUP-010",
+    "DQ-DUP-001",
+    "DQ-DUP-002",
+    "DQ-DUP-003",
+    "DQ-DUP-005",
+    "DQ-DUP-006",
+    "DQ-DUP-007"
   ],
   "closedIssues": [
     {
@@ -64,6 +70,54 @@
       "closed_at": "2026-08-02T18:00:00+09:00",
       "source_type": "OFFICIAL_SOURCE_READ_ONLY_REAUDIT",
       "current_queue_included": false
+    },
+    {
+      "issue_id": "DQ-DUP-001",
+      "final_status": "human_review_completed",
+      "closure_reason": "OWNER_ATTESTED_HUMAN_REVIEW_COMPLETED",
+      "closed_at": "2026-08-03T09:00:00+09:00",
+      "source_type": "OFFICIAL_SOURCE_HUMAN_REVIEW",
+      "current_queue_included": false
+    },
+    {
+      "issue_id": "DQ-DUP-002",
+      "final_status": "human_review_completed",
+      "closure_reason": "OWNER_ATTESTED_HUMAN_REVIEW_COMPLETED",
+      "closed_at": "2026-08-03T09:00:00+09:00",
+      "source_type": "OFFICIAL_SOURCE_HUMAN_REVIEW",
+      "current_queue_included": false
+    },
+    {
+      "issue_id": "DQ-DUP-003",
+      "final_status": "human_review_completed",
+      "closure_reason": "OWNER_ATTESTED_HUMAN_REVIEW_COMPLETED",
+      "closed_at": "2026-08-03T09:00:00+09:00",
+      "source_type": "OFFICIAL_SOURCE_HUMAN_REVIEW",
+      "current_queue_included": false
+    },
+    {
+      "issue_id": "DQ-DUP-005",
+      "final_status": "human_review_completed",
+      "closure_reason": "OWNER_ATTESTED_HUMAN_REVIEW_COMPLETED",
+      "closed_at": "2026-08-03T09:00:00+09:00",
+      "source_type": "OFFICIAL_SOURCE_HUMAN_REVIEW",
+      "current_queue_included": false
+    },
+    {
+      "issue_id": "DQ-DUP-006",
+      "final_status": "human_review_completed",
+      "closure_reason": "OWNER_ATTESTED_HUMAN_REVIEW_COMPLETED",
+      "closed_at": "2026-08-03T09:00:00+09:00",
+      "source_type": "OFFICIAL_SOURCE_HUMAN_REVIEW",
+      "current_queue_included": false
+    },
+    {
+      "issue_id": "DQ-DUP-007",
+      "final_status": "human_review_completed",
+      "closure_reason": "OWNER_ATTESTED_HUMAN_REVIEW_COMPLETED",
+      "closed_at": "2026-08-03T09:00:00+09:00",
+      "source_type": "OFFICIAL_SOURCE_HUMAN_REVIEW",
+      "current_queue_included": false
     }
   ],
   "sourceSpreadsheets": [
@@ -84,96 +138,5 @@
       "lineage_role": "PRIMARY"
     }
   ],
-  "items": [
-    {
-      "issue_id": "DQ-DUP-001",
-      "graduation_year": "27卒",
-      "issue_type": "DUPLICATE_CANDIDATE",
-      "spreadsheet_name": "求人計画27卒_2025年9月～2026年8月",
-      "spreadsheet_id": "1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM",
-      "sheet_name": "接触学生一覧（27卒）",
-      "sheet_id": 1142586954,
-      "source_row_no": 28,
-      "stable_key_hint": "27-CONTACT-DUP-GROUP-001",
-      "current_value": "氏名・学校一致候補",
-      "correction_target": "重複候補の同一人物・別人・判断保留",
-      "duplicate_pair_row": 384,
-      "open_url": "https://docs.google.com/spreadsheets/d/1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM/edit#gid=1142586954&range=A28:AO28"
-    },
-    {
-      "issue_id": "DQ-DUP-002",
-      "graduation_year": "27卒",
-      "issue_type": "DUPLICATE_CANDIDATE",
-      "spreadsheet_name": "求人計画27卒_2025年9月～2026年8月",
-      "spreadsheet_id": "1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM",
-      "sheet_name": "接触学生一覧（27卒）",
-      "sheet_id": 1142586954,
-      "source_row_no": 29,
-      "stable_key_hint": "27-CONTACT-DUP-GROUP-002",
-      "current_value": "氏名・学校一致候補",
-      "correction_target": "重複候補の同一人物・別人・判断保留",
-      "duplicate_pair_row": 387,
-      "open_url": "https://docs.google.com/spreadsheets/d/1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM/edit#gid=1142586954&range=A29:AO29"
-    },
-    {
-      "issue_id": "DQ-DUP-003",
-      "graduation_year": "27卒",
-      "issue_type": "DUPLICATE_CANDIDATE",
-      "spreadsheet_name": "求人計画27卒_2025年9月～2026年8月",
-      "spreadsheet_id": "1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM",
-      "sheet_name": "接触学生一覧（27卒）",
-      "sheet_id": 1142586954,
-      "source_row_no": 41,
-      "stable_key_hint": "27-CONTACT-DUP-GROUP-003",
-      "current_value": "氏名・学校一致候補",
-      "correction_target": "重複候補の同一人物・別人・判断保留",
-      "duplicate_pair_row": 308,
-      "open_url": "https://docs.google.com/spreadsheets/d/1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM/edit#gid=1142586954&range=A41:AO41"
-    },
-    {
-      "issue_id": "DQ-DUP-005",
-      "graduation_year": "27卒",
-      "issue_type": "DUPLICATE_CANDIDATE",
-      "spreadsheet_name": "求人計画27卒_2025年9月～2026年8月",
-      "spreadsheet_id": "1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM",
-      "sheet_name": "接触学生一覧（27卒）",
-      "sheet_id": 1142586954,
-      "source_row_no": 98,
-      "stable_key_hint": "27-CONTACT-DUP-GROUP-005",
-      "current_value": "氏名・学校一致候補",
-      "correction_target": "重複候補の同一人物・別人・判断保留",
-      "duplicate_pair_row": 271,
-      "open_url": "https://docs.google.com/spreadsheets/d/1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM/edit#gid=1142586954&range=A98:AO98"
-    },
-    {
-      "issue_id": "DQ-DUP-006",
-      "graduation_year": "27卒",
-      "issue_type": "DUPLICATE_CANDIDATE",
-      "spreadsheet_name": "求人計画27卒_2025年9月～2026年8月",
-      "spreadsheet_id": "1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM",
-      "sheet_name": "接触学生一覧（27卒）",
-      "sheet_id": 1142586954,
-      "source_row_no": 115,
-      "stable_key_hint": "27-CONTACT-DUP-GROUP-006",
-      "current_value": "氏名・学校一致候補",
-      "correction_target": "重複候補の同一人物・別人・判断保留",
-      "duplicate_pair_row": [116, 451],
-      "open_url": "https://docs.google.com/spreadsheets/d/1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM/edit#gid=1142586954&range=A115:AO115"
-    },
-    {
-      "issue_id": "DQ-DUP-007",
-      "graduation_year": "27卒",
-      "issue_type": "DUPLICATE_CANDIDATE",
-      "spreadsheet_name": "求人計画27卒_2025年9月～2026年8月",
-      "spreadsheet_id": "1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM",
-      "sheet_name": "接触学生一覧（27卒）",
-      "sheet_id": 1142586954,
-      "source_row_no": 120,
-      "stable_key_hint": "27-CONTACT-DUP-GROUP-007",
-      "current_value": "氏名・学校一致候補",
-      "correction_target": "重複候補の同一人物・別人・判断保留",
-      "duplicate_pair_row": 452,
-      "open_url": "https://docs.google.com/spreadsheets/d/1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM/edit#gid=1142586954&range=A120:AO120"
-    }
-  ]
+  "items": []
 }

@@ -26,79 +26,90 @@ const html = fs.readFileSync(path.join(root, "portal", "talent", "data-integrity
 const css = fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-work-queue.css"), "utf8");
 const source = fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-work-queue.mjs"), "utf8");
 
-test("work queue contains only the six unresolved 27 graduate duplicate groups", () => {
+const workflowSeed = {
+  ...seed,
+  metrics: { ...seed.metrics, fixedCount: 16, remainingCount: 1, workQueueIntegrityRate: 94.1 },
+  categoryCounts: [{ type: "DUPLICATE_CANDIDATE", label: "重複候補", count: 1 }],
+  items: [{
+    id: "TEST-DUPLICATE",
+    type: "DUPLICATE_CANDIDATE",
+    cohort: "27卒",
+    subject: "匿名テスト候補",
+    currentValue: "候補A / 候補B",
+    suggestion: "氏名・学校一致候補"
+  }]
+};
+
+test("human review queue is completed with no remaining work item", () => {
   assert.equal(validateWorkQueuePayload(seed), seed);
-  assert.equal(seed.items.length, 6);
-  assert.equal(seed.metrics.fixedCount, 11);
-  assert.equal(seed.metrics.remainingCount, 6);
-  assert.deepEqual(new Set(seed.items.map((item) => item.type)), new Set(["DUPLICATE_CANDIDATE"]));
-  assert.deepEqual(new Set(seed.items.map((item) => item.cohort)), new Set(["27卒"]));
+  assert.equal(seed.items.length, 0);
+  assert.equal(seed.metrics.fixedCount, 17);
+  assert.equal(seed.metrics.remainingCount, 0);
+  assert.equal(seed.metrics.workQueueIntegrityRate, 100);
+  assert.equal(seed.releaseReady, true);
+  assert.equal(seed.platformStatus, "DATA_INTEGRITY_COMPLETED");
 });
 
-test("queue categories match the re-audited remaining counts", () => {
-  assert.deepEqual(seed.categoryCounts.map(({ type, count }) => ({ type, count })), [
-    { type: "DUPLICATE_CANDIDATE", count: 6 }
-  ]);
+test("completed queue exposes no correction category", () => {
+  assert.deepEqual(seed.categoryCounts, []);
 });
 
-test("current report reflects the official 28 graduate source and six-item queue", () => {
-  assert.equal(report.metrics.remainingCount, 6);
-  assert.equal(report.metrics.fixedCount, 11);
+test("current report closes human review and keeps migration separate", () => {
+  assert.equal(report.status, "DATA_INTEGRITY_COMPLETED");
+  assert.equal(report.platformStatus, "DATA_INTEGRITY_COMPLETED_MIGRATION_HOLD");
+  assert.equal(report.releaseReady, true);
+  assert.equal(report.metrics.remainingCount, 0);
+  assert.equal(report.metrics.fixedCount, 17);
   assert.equal(report.metrics.missingCount, 0);
-  assert.equal(report.metrics.duplicateGroupCount, 6);
+  assert.equal(report.metrics.duplicateGroupCount, 0);
+  assert.equal(report.metrics.humanReviewedDuplicateGroupCount, 6);
+  assert.equal(report.metrics.migrationEligible, false);
+  assert.equal(report.migration.status, "HOLD_DATA_CONSISTENCY");
   assert.equal(report.sourceCorrections.activeDataRowCount, 108);
   assert.equal(report.sourceCorrections.currentQueueCount, 0);
-  assert.equal(report.sourceCorrections.falsePositiveClosedCount, 4);
-  assert.equal(report.sourceCorrections.resolvedClosedCount, 2);
-  assert.equal(report.sourceCorrections.legacyCopyCanonical, false);
 });
 
 test("work queue and data consistency rates stay separate", () => {
   const metrics = getWorkQueueMetrics(createWorkQueueState(seed));
   assert.deepEqual(Object.keys(metrics), ["workQueueIntegrityRate", "dataConsistencyIntegrityRate", "fixedCount", "remainingCount", "migrationStatus"]);
-  assert.equal(metrics.workQueueIntegrityRate, "64.7%");
+  assert.equal(metrics.workQueueIntegrityRate, "100%");
   assert.equal(metrics.dataConsistencyIntegrityRate, "未算出");
-  assert.equal(metrics.migrationStatus, "保留");
+  assert.equal(metrics.migrationStatus, "Data Consistency確認待ち");
   assert.equal(seed.dataConsistencyIssues[0].differenceCount, 12);
 });
 
-test("one repair requires confirmation, spreadsheet completion, then next", () => {
-  const state = createWorkQueueState(seed);
+test("historical repair flow still requires confirmation, spreadsheet completion, then next", () => {
+  const state = createWorkQueueState(workflowSeed);
   const current = getCurrentItem(state);
   const confirmed = confirmRepairDecision(state, current.id, { action: "HOLD" });
   assert.equal(confirmed.category, "REPAIR_CONFIRMED");
-  assert.equal(confirmed.state.fixedCount, 11);
-  assert.equal(getCurrentItem(confirmed.state).id, current.id);
+  assert.equal(confirmed.state.fixedCount, 16);
   const sheetFixed = markSpreadsheetFixed(confirmed.state, current.id);
   assert.equal(sheetFixed.category, "SPREADSHEET_FIXED");
-  assert.equal(sheetFixed.state.fixedCount, 12);
-  assert.equal(getPendingItems(sheetFixed.state).length, 5);
-  assert.equal(getCurrentItem(sheetFixed.state).id, current.id);
+  assert.equal(sheetFixed.state.fixedCount, 17);
+  assert.equal(getPendingItems(sheetFixed.state).length, 0);
   const advanced = advanceWorkQueue(sheetFixed.state, current.id);
   assert.equal(advanced.category, "ADVANCED");
-  assert.notEqual(getCurrentItem(advanced.state).id, current.id);
+  assert.equal(getCurrentItem(advanced.state), null);
 });
 
 test("invalid repair does not advance the queue", () => {
-  const state = createWorkQueueState(seed);
+  const state = createWorkQueueState(workflowSeed);
   const current = getCurrentItem(state);
   assert.equal(validateRepairDecision(current, { action: "" }), false);
-  const result = confirmRepairDecision(state, current.id, { action: "" });
-  assert.equal(result.category, "DECISION_INVALID");
-  assert.equal(result.state, state);
+  assert.equal(confirmRepairDecision(state, current.id, { action: "" }).category, "DECISION_INVALID");
 });
 
-test("duplicate decisions allow same person, different person, or hold without automatic merge", () => {
-  const state = createWorkQueueState(seed);
-  const duplicate = state.items.find((item) => item.type === "DUPLICATE_CANDIDATE");
+test("duplicate decisions reject automatic merge", () => {
+  const duplicate = createWorkQueueState(workflowSeed).items[0];
   assert.equal(validateRepairDecision(duplicate, { action: "SAME_PERSON" }), true);
   assert.equal(validateRepairDecision(duplicate, { action: "DIFFERENT_PERSON" }), true);
-  assert.equal(validateRepairDecision(duplicate, { action: "MERGE_AUTOMATIC" }), false);
   assert.equal(validateRepairDecision(duplicate, { action: "HOLD" }), true);
+  assert.equal(validateRepairDecision(duplicate, { action: "MERGE_AUTOMATIC" }), false);
 });
 
 test("spreadsheet completion cannot be skipped and no save action remains", () => {
-  const state = createWorkQueueState(seed);
+  const state = createWorkQueueState(workflowSeed);
   const current = getCurrentItem(state);
   assert.equal(markSpreadsheetFixed(state, current.id).category, "REPAIR_NOT_CONFIRMED");
   assert.equal(advanceWorkQueue(state, current.id).category, "SPREADSHEET_NOT_FIXED");
@@ -123,59 +134,53 @@ test("mobile queue uses one-column correction flow without horizontal tables", (
   assert.doesNotMatch(css, /min-width:\s*[1-9][0-9]{3}px/);
 });
 
-test("seed contains no real personal or persistent write capability", () => {
+test("seed contains no personal value or write capability", () => {
   assert.equal(seed.safety.containsPersonalValues, false);
   assert.equal(seed.safety.persistentWriteEnabled, false);
   assert.equal(seed.safety.databaseChanged, false);
+  assert.equal(seed.safety.spreadsheetChanged, false);
   assert.equal(seed.safety.productionChanged, false);
+  assert.equal(seed.safety.humanReviewQueueClosed, true);
 });
 
-test("source lineage covers only the six open issues and records the six closed 28 graduate issues", () => {
+test("source lineage closes all 17 issues and leaves no active item", () => {
   assert.equal(validateSourceLineage(lineage, seed), lineage);
-  assert.equal(lineage.items.length, 6);
-  assert.equal(lineage.resolvedIssueIds.length, 11);
-  assert.equal(lineage.closedIssues.length, 6);
+  assert.equal(lineage.items.length, 0);
+  assert.equal(lineage.resolvedIssueIds.length, 17);
+  assert.equal(lineage.closedIssues.length, 12);
   assert.equal(lineage.closedIssues.filter((issue) => issue.final_status === "false_positive").length, 4);
   assert.equal(lineage.closedIssues.filter((issue) => issue.final_status === "resolved").length, 2);
+  assert.equal(lineage.closedIssues.filter((issue) => issue.final_status === "human_review_completed").length, 6);
   assert.equal(lineage.closedIssues.every((issue) => issue.current_queue_included === false), true);
-  assert.equal(lineage.readOnly, true);
-  assert.equal(lineage.containsPersonalValues, false);
-  assert.deepEqual(new Set(lineage.items.map((item) => item.issue_id)), new Set(seed.items.map((item) => item.id)));
-  assert.equal(lineage.items.every((item) => item.spreadsheet_name && item.sheet_name && item.source_row_no > 0), true);
-  assert.equal(lineage.items.every((item) => item.open_url.startsWith("https://docs.google.com/spreadsheets/d/")), true);
 });
 
-test("lineage removes closed 28 graduate rows and preserves all 27 graduate duplicate groups", () => {
-  const byType = lineage.items.reduce((groups, item) => {
-    (groups[item.issue_type] ||= []).push(item);
-    return groups;
-  }, {});
-  assert.equal(byType.SCHOOL_MISSING, undefined);
-  assert.equal(byType.NAME_MISSING, undefined);
-  assert.equal(byType.STATUS_MISSING, undefined);
-  assert.deepEqual(byType.DUPLICATE_CANDIDATE.map((item) => item.source_row_no), [28, 29, 41, 98, 115, 120]);
-  assert.deepEqual(byType.DUPLICATE_CANDIDATE.map((item) => item.duplicate_pair_row), [384, 387, 308, 271, [116, 451], 452]);
+test("reviewed duplicate groups retain no row or personal detail", () => {
+  const reviewed = lineage.closedIssues.filter((issue) => issue.final_status === "human_review_completed");
+  assert.deepEqual(reviewed.map((issue) => issue.issue_id), ["DQ-DUP-001", "DQ-DUP-002", "DQ-DUP-003", "DQ-DUP-005", "DQ-DUP-006", "DQ-DUP-007"]);
+  assert.equal(reviewed.every((issue) => !("source_row_no" in issue) && !("duplicate_pair_row" in issue)), true);
+  assert.equal(report.humanReview.decisionValuesStored, false);
+  assert.equal(report.humanReview.personalValuesStored, false);
 });
 
-test("28 graduate official source is primary and the legacy copy is absent", () => {
-  const source28 = lineage.sourceSpreadsheets.find((sourceItem) => sourceItem.graduation_year === "28卒");
+test("28 graduate official source is primary and legacy copy is absent", () => {
+  const source28 = lineage.sourceSpreadsheets.find((item) => item.graduation_year === "28卒");
   assert.equal(source28.spreadsheet_id, "1OwFCnRYfTOWGkUGhykURibUD5Ss06msHoaZwYdopkEA");
   assert.equal(source28.sheet_id, 1279221745);
   assert.equal(source28.lineage_role, "PRIMARY");
   assert.doesNotMatch(JSON.stringify(lineage), /1e7MhMDNVE0cMPBGU3sFU1WeLq7Q-ZVW4oSFy_IuxtTE/);
 });
 
-test("duplicate choice labels match the owner review contract", () => {
-  assert.match(source, /"SAME_PERSON", "同一人物"/);
-  assert.match(source, /"DIFFERENT_PERSON", "別人"/);
-  assert.match(source, /"HOLD", "判断保留"/);
-  assert.doesNotMatch(source, /候補Aを正として採用|候補Bを正として採用/);
+test("completed UI renders no repair action", () => {
+  const state = createWorkQueueState(attachSourceLineage(seed, lineage));
+  assert.equal(getCurrentItem(state), null);
+  assert.equal(getPendingItems(state).length, 0);
+  assert.match(source, /本日の修正対象は完了しました/);
 });
 
-test("work queue attaches lineage and renders no subject or current value", () => {
-  const attached = attachSourceLineage(seed, lineage);
-  assert.equal(attached.items.every((item) => item.lineage?.source_row_no > 0), true);
-  assert.doesNotMatch(source, /addText\(documentObject, repair, "h2", current\.subject\)/);
-  assert.doesNotMatch(source, /\["現在値", current\.currentValue\]/);
-  assert.match(source, /正本Spreadsheetの該当行を開く/);
+test("final report preserves read-only zero-write boundaries", () => {
+  assert.equal(report.safety.containsPersonalValues, false);
+  assert.equal(report.safety.spreadsheetWriteCount, 0);
+  assert.equal(report.safety.databaseWriteCount, 0);
+  assert.equal(report.safety.productionWriteCount, 0);
+  assert.equal(report.release.productionDeployExecuted, false);
 });

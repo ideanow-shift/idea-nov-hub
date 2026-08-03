@@ -1,17 +1,15 @@
 {
   "schemaVersion": "2.0",
-  "generatedAt": "2026-08-02T18:00:00+09:00",
+  "generatedAt": "2026-08-03T09:00:00+09:00",
   "metrics": {
     "workQueueTotalCount": 17,
-    "workQueueIntegrityRate": 64.7,
+    "workQueueIntegrityRate": 100,
     "dataConsistencyIntegrityRate": null,
-    "fixedCount": 11,
-    "remainingCount": 6,
-    "migrationStatus": "HOLD"
+    "fixedCount": 17,
+    "remainingCount": 0,
+    "migrationStatus": "HOLD_DATA_CONSISTENCY"
   },
-  "categoryCounts": [
-    { "type": "DUPLICATE_CANDIDATE", "label": "重複候補", "count": 6 }
-  ],
+  "categoryCounts": [],
   "dataConsistencyIssues": [
     {
       "id": "DC-27-CONTACT-COUNT-001",
@@ -23,19 +21,16 @@
       "status": "REVIEW_REQUIRED"
     }
   ],
-  "items": [
-    { "id": "DQ-DUP-001", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 001", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },
-    { "id": "DQ-DUP-002", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 002", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },
-    { "id": "DQ-DUP-003", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 003", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },
-    { "id": "DQ-DUP-005", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 005", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },
-    { "id": "DQ-DUP-006", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 006", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" },
-    { "id": "DQ-DUP-007", "type": "DUPLICATE_CANDIDATE", "cohort": "27卒", "subject": "重複候補 007", "currentValue": "候補A / 候補B", "suggestion": "氏名・学校一致候補" }
-  ],
+  "items": [],
+  "releaseReady": true,
+  "platformStatus": "DATA_INTEGRITY_COMPLETED",
   "safety": {
     "mockOnly": true,
     "containsPersonalValues": false,
     "persistentWriteEnabled": false,
     "databaseChanged": false,
-    "productionChanged": false
+    "spreadsheetChanged": false,
+    "productionChanged": false,
+    "humanReviewQueueClosed": true
   }
 }

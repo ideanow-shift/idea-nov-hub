@@ -1,0 +1,67 @@
+{
+  "artifactHash": "c62b913f0edc676509dc9aafe159e4b6b1e599317cb58622e7615d727e73b961",
+  "artifactHashScope": "SHA-256 of compact JSON.stringify(payload) with insertion order preserved",
+  "payload": {
+    "snapshotId": "NOV-TALENT-STAGING-20260803-91891F18AAC989B9",
+    "generatedAt": "2026-08-03T08:16:44.482Z",
+    "mode": "PRIVATE_READ_ONLY_REVALIDATION",
+    "validationResult": "PASS_COUNTS_AND_SOURCE_HASH",
+    "schemaVersion": "nov-talent-candidate-staging-snapshot-v2",
+    "dataDictionaryVersion": "1.3.0",
+    "sources": [
+      {
+        "sourceCode": "OFFICIAL_SOURCE_27_CONTACTS",
+        "spreadsheetId": "1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM",
+        "sheetId": 1142586954,
+        "sourceType": "CONTACTS_27",
+        "sourceRowCount": 541,
+        "migrationTargetCount": 528,
+        "excludedTemplateCount": 13,
+        "sourceHash": "e049bbf4be91e32d6eb844a991f38fab4eb2c9bb17882dd5293d9b50182f0f6e",
+        "targetHash": "31547f15690ab35ed436a0815a5fdda1fb691d2d55f419ea1e55afd21ec73aab"
+      },
+      {
+        "sourceCode": "OFFICIAL_SOURCE_28_CONTACTS",
+        "spreadsheetId": "1OwFCnRYfTOWGkUGhykURibUD5Ss06msHoaZwYdopkEA",
+        "sheetId": 1279221745,
+        "sourceType": "CONTACTS_28",
+        "sourceRowCount": 526,
+        "migrationTargetCount": 108,
+        "excludedTemplateCount": 418,
+        "sourceHash": "79522151e2c3ac646c67607f44cc84f221efeb17d355f55b7533a2a99c545481",
+        "targetHash": "24f7328f61267515917462aaf9db9f9ace232de26280be28f128cfcdb5276b20"
+      }
+    ],
+    "counts": {
+      "candidateCount": 636,
+      "candidateCount27": 528,
+      "candidateCount28": 108,
+      "excludedTemplateCount": 431,
+      "quarantineCount": 0
+    },
+    "humanReview": {
+      "evidenceCount": 17,
+      "duplicateGroupCount": 6,
+      "differentPersonCount": 6,
+      "keepSeparateCount": 6,
+      "pendingReviewCount": 0,
+      "applied": true
+    },
+    "approvals": {
+      "ownerSnapshotApproval": true,
+      "stagingMigrationApproval": true,
+      "stagingOperationStartApproval": true,
+      "productionPromotionApproval": false
+    },
+    "safety": {
+      "officialSourceOnly": true,
+      "legacyCopyReferenceCount": 0,
+      "spreadsheetWriteCount": 0,
+      "stagingWriteCount": 0,
+      "productionWriteCount": 0,
+      "automaticMergeCount": 0,
+      "automaticDeleteCount": 0,
+      "personalValuesPersistedCount": 0
+    }
+  }
+}

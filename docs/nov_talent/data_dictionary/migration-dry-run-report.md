@@ -52,4 +52,4 @@ Event / Contact件数は、正式Sourceの接触日、LINE接触、見学、動�
 
 ## Gate
 
-private read-only dry-runとSnapshot候補生成は完了した。`MIGRATION_HOLD`はOwnerによるSnapshot受領と、Migration実行の別承認が未完了のため維持する。Staging Migration、Production Migrationとも開始不可である。
+private read-only dry-runと歴史Snapshot候補生成は完了した。2026-08-03にVersion 1.3.0で正式Sourceをread-only再受領し、`staging-migration-snapshot.candidate.json` を生成した。Owner受領・Staging承認後の実行前確認で受入schema不整合を検出したため、書込み0件で安全停止した。Production Migrationは別昇格承認まで禁止である。

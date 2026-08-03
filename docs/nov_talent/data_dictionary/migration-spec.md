@@ -2,7 +2,7 @@
 
 ## 1. 適用する辞書
 
-本仕様は `NOV_TALENT_DATA_DICTIONARY` Version `1.2.0` を参照する。辞書と本仕様が矛盾する場合はMigrationを安全停止し、推測で補完しない。
+本仕様は `NOV_TALENT_DATA_DICTIONARY` Version `1.3.0` を参照する。辞書と本仕様が矛盾する場合はMigrationを安全停止し、推測で補完しない。
 
 ## 2. Migration対象行
 
@@ -26,14 +26,16 @@ null、空文字、空白文字だけの値は未入力として扱う。No.だ�
 
 ## 4. Migration契約
 
-次の4契約はVersion 1.2.0で仕様確定した。
+次の4データ契約はVersion 1.2.0で仕様確定し、Version 1.3.0でStaging先行運用契約を追加した。
 
 - Candidate同一性契約
 - Human Review安定ID証拠構造
 - Migration先区分
 - Snapshot・受領・Rollback契約
 
-Human Review完了6グループは、Owner確認により `different_person / keep_separate` として安定IDへ記録した。pending reviewと当該グループ由来Quarantineは0件である。正式Source 2件のprivate read-only dry-runは636対象行、Quarantine 0件でPASSし、件数とHashだけを持つSnapshot候補を生成済みである。OwnerによるSnapshot受領とMigration実行の別承認が未完了のため、`MIGRATION_HOLD`を維持する。
+Human Review完了6グループは、Owner確認により `different_person / keep_separate` として安定IDへ記録した。pending reviewと当該グループ由来Quarantineは0件である。正式Source 2件のprivate read-only dry-runは636対象行、Quarantine 0件でPASSし、件数とHashだけを持つSnapshot候補を生成済みである。
+
+Migrationは環境ごとに分離する。StagingはOwner受領、Staging Migration承認、運用開始承認を経て先行利用する。これらの承認は受領済みだが、既存受入schema不整合により書込み前に安全停止している。ProductionはStaging運用検証完了後の別昇格承認まで `PRODUCTION_MIGRATION_HOLD` とする。
 
 ## 5. Private read-only dry-run
 
@@ -51,7 +53,21 @@ Human Review完了6グループは、Owner確認により `different_person / ke
 ## 6. 安全境界
 
 - Spreadsheetを変更しない
-- DB・Productionへ書き込まない
+- 本設計更新でDB・Staging・Productionへ書き込まない
 - 自動統合・自動削除を行わない
 - 個人値を仕様書、ログ、GitHub成果物へ複製しない
 - 件数不一致時はMigrationを開始しない
+
+## 7. Staging先行運用
+
+- 環境区分: `OPERATION_VALIDATION_ENVIRONMENT`
+- 対象: 27卒528件＋28卒108件、合計636 Candidate
+- 初回書込みEntity: Candidateのみ
+- 利用機能: Candidate管理、検索、Dashboard
+- 正本: 正式Spreadsheet
+- 更新経路: `Spreadsheet → read-only preflight → 承認済みImport → Staging`
+- NOV Talent画面からのCandidate直接更新: 禁止
+- Import: versioned snapshot replacement、retry 0、件数・Hash不一致は安全停止
+- Production昇格: Staging受入完了後の別承認
+
+詳細は `staging-operations-contract.json` を機械可読正本とする。

@@ -21,5 +21,8 @@
 - 自動retryは行わない
 - rollbackを理由にSource Spreadsheetを書き換えない
 - canonical、LINE履歴、Employee Core等の別境界へ到達しない
+- Stagingの日常Importは新しいdataset versionを作成し、件数・Hash・Permission検証後にだけ有効化する
+- 有効化後の異常は直前のStaging dataset versionを再有効化する
+- StagingのrollbackはProductionやSpreadsheetを変更しない
 
 現Sprintではrollback契約の定義だけを行い、DB接続・transaction・書込み・rollback実行は行わない。

@@ -4,7 +4,7 @@
   "generatedAt": "2026-08-03T09:00:00+09:00",
   "basis": "28卒正式Source再監査、27卒Source Lineage、総務人事部による重複候補6グループの人間確認完了",
   "status": "DATA_INTEGRITY_COMPLETED",
-  "platformStatus": "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD",
+  "platformStatus": "DATA_INTEGRITY_COMPLETED / STAGING_MIGRATION_BLOCKED_SCHEMA / PRODUCTION_MIGRATION_HOLD",
   "releaseReady": true,
   "sourceSpreadsheetCount": 2,
   "metrics": {
@@ -113,28 +113,50 @@
   },
   "migration": {
     "eligible": false,
-    "status": "MIGRATION_HOLD",
+    "status": "STAGING_MIGRATION_BLOCKED",
+    "productionStatus": "PRODUCTION_MIGRATION_HOLD",
     "reasonCategories": [
-      "OWNER_AND_MIGRATION_APPROVAL"
+      "STAGING_TARGET_SCHEMA_INCOMPATIBLE"
     ],
     "dryRun": {
-      "status": "PASS",
-      "snapshotId": "NOV-TALENT-DRYRUN-20260803-361F5F48-63B26584",
+      "status": "PASS_REVALIDATED",
+      "snapshotId": "NOV-TALENT-STAGING-20260803-91891F18AAC989B9",
       "migrationTargetCount": 636,
       "candidateCandidateCount": 636,
       "eventCount": 1550,
       "selectionHistoryCount": 0,
       "quarantineCount": 0,
-      "artifactHash": "7ea70656b76aad4bebb01fbeae0afbf26fc4e47fe0fd37039a4af89f894e74ba",
-      "ownerApproval": false,
-      "migrationApproval": false
+      "artifactHash": "c62b913f0edc676509dc9aafe159e4b6b1e599317cb58622e7615d727e73b961",
+      "ownerApproval": true,
+      "migrationApproval": true
+    },
+    "stagingOperations": {
+      "contractStatus": "APPROVED_EXECUTION_SAFE_STOPPED",
+      "environmentClassification": "OPERATION_VALIDATION_ENVIRONMENT",
+      "officialSourceCount": 2,
+      "candidateCount": 636,
+      "candidateCount27": 528,
+      "candidateCount28": 108,
+      "initialMigrationEntityScope": ["CANDIDATE"],
+      "operatorCapabilities": ["CANDIDATE_MANAGEMENT", "CANDIDATE_SEARCH", "DASHBOARD"],
+      "systemOfRecord": "OFFICIAL_SPREADSHEET",
+      "directCandidateMutation": false,
+      "stagingMigrationExecuted": false,
+      "stagingOperationsStarted": false,
+      "productionPromotionAllowed": false,
+      "executionResult": "SAFE_STOP_FIXED_STAGE",
+      "fixedCategory": "STAGING_TARGET_SCHEMA_INCOMPATIBLE_WITH_APPROVED_CANDIDATE_SCOPE"
     }
   },
   "release": {
     "ready": true,
-    "scope": "DATA_INTEGRITY_WORK_QUEUE_CLOSURE",
-    "platformStatus": "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD",
-    "migrationHoldReason": "MIGRATION_PRECONDITIONS_PENDING",
+    "scope": "STAGING_OPERATIONS_DESIGN",
+    "platformStatus": "DATA_INTEGRITY_COMPLETED / STAGING_MIGRATION_BLOCKED_SCHEMA / PRODUCTION_MIGRATION_HOLD",
+    "migrationHoldReason": "STAGING_TARGET_SCHEMA_INCOMPATIBLE",
+    "stagingOperationsDesignReady": true,
+    "stagingMigrationExecuted": false,
+    "stagingOperationsStarted": false,
+    "productionMigrationAllowed": false,
     "productionDeployExecuted": false
   },
   "safety": {
@@ -149,6 +171,7 @@
     "normalizedPersonalValuePersistenceCount": 0,
     "serviceRoleUseCount": 0,
     "stagingWriteCount": 0,
+    "productionPromotionCount": 0,
     "automaticMergeCount": 0,
     "automaticDeleteCount": 0
   }

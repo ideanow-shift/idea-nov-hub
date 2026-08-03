@@ -47,8 +47,8 @@ test("human review queue is completed with no remaining work item", () => {
   assert.equal(seed.metrics.remainingCount, 0);
   assert.equal(seed.metrics.workQueueIntegrityRate, 100);
   assert.equal(seed.releaseReady, true);
-  assert.equal(seed.platformStatus, "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD");
-  assert.equal(seed.migrationHoldReason, "MIGRATION_PRECONDITIONS_PENDING");
+  assert.equal(seed.platformStatus, "DATA_INTEGRITY_COMPLETED / STAGING_MIGRATION_BLOCKED_SCHEMA / PRODUCTION_MIGRATION_HOLD");
+  assert.equal(seed.migrationHoldReason, "STAGING_TARGET_SCHEMA_INCOMPATIBLE");
 });
 
 test("completed queue exposes no correction category", () => {
@@ -57,7 +57,7 @@ test("completed queue exposes no correction category", () => {
 
 test("current report closes human review and keeps migration separate", () => {
   assert.equal(report.status, "DATA_INTEGRITY_COMPLETED");
-  assert.equal(report.platformStatus, "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD");
+  assert.equal(report.platformStatus, "DATA_INTEGRITY_COMPLETED / STAGING_MIGRATION_BLOCKED_SCHEMA / PRODUCTION_MIGRATION_HOLD");
   assert.equal(report.releaseReady, true);
   assert.equal(report.metrics.remainingCount, 0);
   assert.equal(report.metrics.fixedCount, 17);
@@ -66,17 +66,21 @@ test("current report closes human review and keeps migration separate", () => {
   assert.equal(report.metrics.humanReviewedDuplicateGroupCount, 6);
   assert.equal(report.metrics.overallIntegrityRate, 100);
   assert.equal(report.metrics.migrationEligible, false);
-  assert.equal(report.migration.status, "MIGRATION_HOLD");
+  assert.equal(report.migration.status, "STAGING_MIGRATION_BLOCKED");
+  assert.equal(report.migration.productionStatus, "PRODUCTION_MIGRATION_HOLD");
   assert.deepEqual(report.migration.reasonCategories, [
-    "OWNER_AND_MIGRATION_APPROVAL"
+    "STAGING_TARGET_SCHEMA_INCOMPATIBLE"
   ]);
-  assert.equal(report.migration.dryRun.status, "PASS");
+  assert.equal(report.migration.dryRun.status, "PASS_REVALIDATED");
   assert.equal(report.migration.dryRun.migrationTargetCount, 636);
   assert.equal(report.migration.dryRun.quarantineCount, 0);
-  assert.equal(report.migration.dryRun.ownerApproval, false);
-  assert.equal(report.migration.dryRun.migrationApproval, false);
+  assert.equal(report.migration.dryRun.ownerApproval, true);
+  assert.equal(report.migration.dryRun.migrationApproval, true);
   assert.equal(report.release.platformStatus, report.platformStatus);
-  assert.equal(report.release.migrationHoldReason, "MIGRATION_PRECONDITIONS_PENDING");
+  assert.equal(report.release.migrationHoldReason, "STAGING_TARGET_SCHEMA_INCOMPATIBLE");
+  assert.equal(report.migration.stagingOperations.candidateCount, 636);
+  assert.equal(report.migration.stagingOperations.directCandidateMutation, false);
+  assert.equal(report.migration.stagingOperations.productionPromotionAllowed, false);
   assert.equal(report.sourceCorrections.activeDataRowCount, 108);
   assert.equal(report.sourceCorrections.currentQueueCount, 0);
 });
@@ -86,7 +90,7 @@ test("work queue and data consistency rates stay separate", () => {
   assert.deepEqual(Object.keys(metrics), ["workQueueIntegrityRate", "dataConsistencyIntegrityRate", "fixedCount", "remainingCount", "migrationStatus"]);
   assert.equal(metrics.workQueueIntegrityRate, "100%");
   assert.equal(metrics.dataConsistencyIntegrityRate, "100%");
-  assert.equal(metrics.migrationStatus, "Migration保留（Migration実行前条件未完了）");
+  assert.equal(metrics.migrationStatus, "Staging Migration停止（受入schema未対応）");
   assert.equal(seed.metrics.dataConsistencyIntegrityRate, 100);
   assert.deepEqual(seed.dataConsistencyIssues, []);
 });

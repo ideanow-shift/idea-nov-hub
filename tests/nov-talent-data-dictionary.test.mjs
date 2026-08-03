@@ -15,6 +15,10 @@ const acceptanceChecklistPath = new URL("../docs/nov_talent/data_dictionary/migr
 const rollbackContractPath = new URL("../docs/nov_talent/data_dictionary/rollback-contract.md", import.meta.url);
 const dryRunSnapshotPath = new URL("../docs/nov_talent/data_dictionary/migration-dry-run-snapshot.candidate.json", import.meta.url);
 const dryRunReportPath = new URL("../docs/nov_talent/data_dictionary/migration-dry-run-report.md", import.meta.url);
+const stagingOperationsContractPath = new URL("../docs/nov_talent/data_dictionary/staging-operations-contract.json", import.meta.url);
+const stagingOperationsGuidePath = new URL("../docs/nov_talent/data_dictionary/staging-operations-contract.md", import.meta.url);
+const stagingSnapshotPath = new URL("../docs/nov_talent/data_dictionary/staging-migration-snapshot.candidate.json", import.meta.url);
+const stagingExecutionResultPath = new URL("../docs/nov_talent/data_dictionary/staging-migration-execution-result.json", import.meta.url);
 const dictionaryRaw = readFileSync(dictionaryPath, "utf8");
 const dictionary = JSON.parse(dictionaryRaw);
 const guide = readFileSync(guidePath, "utf8");
@@ -28,12 +32,16 @@ const acceptanceChecklist = readFileSync(acceptanceChecklistPath, "utf8");
 const rollbackContract = readFileSync(rollbackContractPath, "utf8");
 const dryRunSnapshot = JSON.parse(readFileSync(dryRunSnapshotPath, "utf8"));
 const dryRunReport = readFileSync(dryRunReportPath, "utf8");
+const stagingOperationsContract = JSON.parse(readFileSync(stagingOperationsContractPath, "utf8"));
+const stagingOperationsGuide = readFileSync(stagingOperationsGuidePath, "utf8");
+const stagingSnapshot = JSON.parse(readFileSync(stagingSnapshotPath, "utf8"));
+const stagingExecutionResult = JSON.parse(readFileSync(stagingExecutionResultPath, "utf8"));
 
 const uniqueCodes = (values) => new Set(values.map((value) => value.code)).size === values.length;
 
 test("NOV Talent Data Dictionary is the canonical versioned specification", () => {
   assert.equal(dictionary.dictionaryId, "NOV_TALENT_DATA_DICTIONARY");
-  assert.equal(dictionary.dictionaryVersion, "1.2.0");
+  assert.equal(dictionary.dictionaryVersion, "1.3.0");
   assert.equal(dictionary.status, "CANONICAL");
   assert.equal(dictionary.governance.unknownCodePolicy, "REJECT");
   assert.equal(dictionary.governance.undefinedDefinitionPolicy, "FAIL_CLOSED");
@@ -68,9 +76,10 @@ test("invalidation and duplicate decisions fail closed to the approved values", 
 });
 
 test("migration, platform, release and count definitions remain consistent", () => {
-  assert.equal(dictionary.currentPlatformStatus, "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD");
-  assert.equal(dictionary.migration.currentStatus, "MIGRATION_HOLD");
-  assert.equal(dictionary.migration.reasonCode, "MIGRATION_PRECONDITIONS_PENDING");
+  assert.equal(dictionary.currentPlatformStatus, "DATA_INTEGRITY_COMPLETED / STAGING_MIGRATION_BLOCKED_SCHEMA / PRODUCTION_MIGRATION_HOLD");
+  assert.equal(dictionary.migration.currentStatus, "STAGING_MIGRATION_BLOCKED");
+  assert.equal(dictionary.migration.productionStatus, "PRODUCTION_MIGRATION_HOLD");
+  assert.equal(dictionary.migration.reasonCode, "STAGING_TARGET_SCHEMA_INCOMPATIBLE");
   assert.equal(dictionary.migration.dataIntegrityCompleted, true);
   assert.equal(dictionary.migration.activeRowDefinition.status, "DEFINED");
   assert.deepEqual(dictionary.migration.activeRowDefinition.anyOfFields, [
@@ -79,12 +88,12 @@ test("migration, platform, release and count definitions remain consistent", () 
   assert.equal(dictionary.migration.activeRowDefinition.minimumPopulatedFieldCount, 1);
   assert.equal(dictionary.migration.resolvedCriteria[0].code, "ACTIVE_ROW_COUNT_BASIS_APPROVAL");
   assert.equal(dictionary.migration.contractFinalization.every(({ status }) => status === "DEFINED"), true);
-  assert.deepEqual(dictionary.migration.holdReleaseCriteria.map(({ priority }) => priority), [1, 2]);
-  assert.deepEqual(dictionary.migration.holdReleaseCriteria.map(({ status }) => status), ["RESOLVED", "OPEN"]);
+  assert.deepEqual(dictionary.migration.holdReleaseCriteria.map(({ priority }) => priority), [1, 2, 3]);
+  assert.deepEqual(dictionary.migration.holdReleaseCriteria.map(({ status }) => status), ["RESOLVED", "RESOLVED", "OPEN"]);
   assert.equal(dictionary.migration.holdReleaseCriteria[0].artifact, "migration-dry-run-snapshot.candidate.json");
   assert.match(migrationSpec, /No\.だけ採番された空テンプレート行はMigration対象外/);
   assert.match(readme, /Migration契約4件: 仕様確定/);
-  assert.match(readme, /Migration実行前条件が未完了/);
+  assert.match(readme, /Staging停止理由/);
   assert.equal(dictionary.countDefinitions.dataIntegrity.currentValues.remainingCount, 0);
   assert.equal(dictionary.countDefinitions.dataIntegrity.currentValues.resolutionRate, 100);
   assert.equal(dictionary.currentRelease.status, "RELEASE_READY");
@@ -118,9 +127,50 @@ test("private read-only dry-run snapshot seals official-source counts and safety
   assert.doesNotMatch(publishedReceipt, /"[^"\s]+@[^"\s]+"/u);
   const hash = createHash("sha256").update(JSON.stringify(dryRunSnapshot.payload)).digest("hex");
   assert.equal(hash, dryRunSnapshot.artifactHash);
-  const dictionaryHash = createHash("sha256").update(dictionaryRaw.replace(/\r\n/g, "\n")).digest("hex");
-  assert.equal(dictionaryHash, dryRunSnapshot.payload.contractHashes.dataDictionary);
   assert.match(dryRunReport, /PASS_PRIVATE_READ_ONLY_DRY_RUN/);
+});
+
+test("staging operations contract fixes 636 candidates and keeps production prohibited", () => {
+  assert.equal(stagingOperationsContract.status, "APPROVED_EXECUTION_SAFE_STOPPED");
+  assert.equal(stagingOperationsContract.environmentPolicy.staging, "OPERATION_VALIDATION_ENVIRONMENT");
+  assert.equal(stagingOperationsContract.environmentPolicy.production, "PROHIBITED_UNTIL_SEPARATE_PROMOTION_APPROVAL");
+  assert.equal(stagingOperationsContract.initialScope.candidateCount, 636);
+  assert.equal(stagingOperationsContract.versionCompatibility.operationsDictionaryVersion, "1.3.0");
+  assert.equal(stagingOperationsContract.versionCompatibility.sealedDryRunDataContractVersion, "1.2.0");
+  assert.equal(stagingOperationsContract.versionCompatibility.candidateMappingSemanticsChanged, false);
+  assert.equal(stagingOperationsContract.versionCompatibility.freshSnapshotRequiredBeforeImport, true);
+  assert.deepEqual(stagingOperationsContract.initialScope.sourceBreakdown.map(({ candidateCount }) => candidateCount), [528, 108]);
+  assert.deepEqual(stagingOperationsContract.initialScope.migrationEntityScope, ["CANDIDATE"]);
+  assert.equal(stagingOperationsContract.operatorCapabilities.candidateManagement, true);
+  assert.equal(stagingOperationsContract.operatorCapabilities.candidateSearch, true);
+  assert.equal(stagingOperationsContract.operatorCapabilities.dashboard, true);
+  assert.equal(stagingOperationsContract.operatorCapabilities.directCandidateMutationFromNovTalent, false);
+  assert.deepEqual(stagingOperationsContract.systemOfRecord.updateFlow, [
+    "SPREADSHEET_UPDATE", "READ_ONLY_PREFLIGHT", "OWNER_APPROVED_IMPORT", "STAGING_DATASET_ACTIVATION"
+  ]);
+  assert.equal(stagingOperationsContract.importPolicy.mode, "VERSIONED_SNAPSHOT_REPLACEMENT");
+  assert.equal(stagingOperationsContract.importPolicy.retryCount, 0);
+  assert.equal(stagingOperationsContract.importPolicy.sourceChangeRequiresFreshSnapshot, true);
+  assert.equal(stagingOperationsContract.safety.productionWrite, false);
+  assert.equal(stagingOperationsContract.safety.canonicalPromotion, false);
+  assert.equal(stagingOperationsContract.safety.spreadsheetWriteFromNovTalent, false);
+  assert.equal(stagingOperationsContract.sourceSnapshot.mustBeRevalidatedImmediatelyBeforeImport, false);
+  assert.equal(stagingOperationsContract.sourceSnapshot.revalidationStatus, "PASS_COUNTS_AND_SOURCE_HASH");
+  assert.match(stagingOperationsGuide, /正式Spreadsheetを更新[\s\S]*read-only preflight/);
+  assert.match(stagingOperationsGuide, /Production昇格承認はこれらに含まれない/);
+});
+
+test("fresh staging snapshot is sealed and schema incompatibility stops before writes", () => {
+  assert.equal(stagingSnapshot.payload.snapshotId, "NOV-TALENT-STAGING-20260803-91891F18AAC989B9");
+  assert.equal(stagingSnapshot.payload.counts.candidateCount, 636);
+  assert.deepEqual(stagingSnapshot.payload.sources.map(({ migrationTargetCount }) => migrationTargetCount), [528, 108]);
+  assert.equal(stagingSnapshot.payload.humanReview.keepSeparateCount, 6);
+  assert.equal(createHash("sha256").update(JSON.stringify(stagingSnapshot.payload)).digest("hex"), stagingSnapshot.artifactHash);
+  assert.equal(stagingExecutionResult.result, "SAFE_STOP_FIXED_STAGE");
+  assert.equal(stagingExecutionResult.fixedCategory, "STAGING_TARGET_SCHEMA_INCOMPATIBLE_WITH_APPROVED_CANDIDATE_SCOPE");
+  assert.equal(stagingExecutionResult.executionAccounting.stagingWriteCount, 0);
+  assert.equal(stagingExecutionResult.executionAccounting.productionWriteCount, 0);
+  assert.equal(stagingExecutionResult.executionAccounting.rawPersonalValuesIncluded, false);
 });
 
 test("candidate identity contract links automatically only on one conflict-free strong key", () => {
@@ -171,7 +221,7 @@ test("migration target mapping permits one source row to route to candidate and 
   assert.equal(targetMapping.prohibitions.automaticDelete, false);
 });
 
-test("snapshot acceptance and rollback contracts fail closed before production migration", () => {
+test("snapshot acceptance and rollback contracts fail closed before staging migration", () => {
   for (const field of [
     "snapshot_id", "generated_at", "source_spreadsheet_id", "sheet_id", "source_type",
     "source_row_count", "migration_target_count", "excluded_template_count", "quarantine_count",
@@ -182,7 +232,8 @@ test("snapshot acceptance and rollback contracts fail closed before production m
   }
   assert.match(acceptanceChecklist, /旧コピー参照0件/);
   assert.match(acceptanceChecklist, /read-only dry-run PASS/);
-  assert.match(acceptanceChecklist, /本番書込み前のMigration別承認/);
+  assert.match(acceptanceChecklist, /Staging限定Migration別承認/);
+  assert.match(acceptanceChecklist, /Production書込み・自動昇格/);
   assert.match(rollbackContract, /単一transaction全体をrollback/);
   assert.match(rollbackContract, /自動retryは行わない/);
 });

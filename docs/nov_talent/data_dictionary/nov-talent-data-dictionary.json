@@ -1,6 +1,6 @@
 {
   "dictionaryId": "NOV_TALENT_DATA_DICTIONARY",
-  "dictionaryVersion": "1.2.0",
+  "dictionaryVersion": "1.3.0",
   "status": "CANONICAL",
   "effectiveDate": "2026-08-03",
   "language": "ja-JP",
@@ -338,7 +338,7 @@
     }
   },
   "versions": {
-    "dictionary": "1.2.0",
+    "dictionary": "1.3.0",
     "dataIntegrityReportSchema": "1.2",
     "workQueueSeedSchema": "2.0",
     "sourceLineageSchema": "1.0",
@@ -346,15 +346,17 @@
     "versioningRule": "意味変更・コード追加・廃止は辞書Versionを更新する。既存コードの意味を同じVersion内で変更しない。"
   },
   "migration": {
-    "currentStatus": "MIGRATION_HOLD",
-    "currentStatusName": "Migration保留",
-    "reasonCode": "MIGRATION_PRECONDITIONS_PENDING",
-    "reasonName": "Migration実行前条件未完了",
+    "currentStatus": "STAGING_MIGRATION_BLOCKED",
+    "currentStatusName": "Staging Migration安全停止",
+    "reasonCode": "STAGING_TARGET_SCHEMA_INCOMPATIBLE",
+    "reasonName": "既存受入schemaが28卒・運用dataset版管理・旧版復帰契約に未対応",
+    "productionStatus": "PRODUCTION_MIGRATION_HOLD",
+    "productionReasonCode": "STAGING_OPERATION_VALIDATION_AND_PROMOTION_APPROVAL_PENDING",
     "dataIntegrityCompleted": true,
     "dataConsistencyReviewRequired": true,
     "automaticMigration": false,
     "approvalRequired": true,
-    "note": "Migration保留はData Integrity未完了を意味しない。",
+    "note": "Staging先行運用の設計は確定済み。Staging承認はProduction承認を含まない。",
     "activeRowDefinition": {
       "status": "DEFINED",
       "definitionVersion": "1.1.0",
@@ -401,6 +403,14 @@
           "migration-acceptance-checklist.md",
           "rollback-contract.md"
         ]
+      },
+      {
+        "code": "STAGING_OPERATIONS_CONTRACT",
+        "status": "DEFINED",
+        "artifacts": [
+          "staging-operations-contract.json",
+          "staging-operations-contract.md"
+        ]
       }
     ],
     "holdReleaseCriteria": [
@@ -413,11 +423,35 @@
       },
       {
         "priority": 2,
-        "code": "OWNER_AND_MIGRATION_APPROVAL",
+        "code": "STAGING_OWNER_MIGRATION_AND_OPERATION_APPROVAL",
+        "status": "RESOLVED",
+        "resolution": "Ownerが最新Snapshot、636 CandidateのStaging Migration、Migration照合後の運用開始を明示承認"
+      },
+      {
+        "priority": 3,
+        "code": "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_CONTRACT",
         "status": "OPEN",
-        "requiredDecision": "OwnerがSnapshotを受領し、Migration実行を別gateで明示承認する"
+        "requiredDecision": "28卒、運用dataset有効化、旧版復帰を満たす受入schema変更を別Sprint・別承認で実施する"
       }
     ]
+  },
+  "stagingOperations": {
+    "contract": "staging-operations-contract.json",
+    "environmentClassification": "OPERATION_VALIDATION_ENVIRONMENT",
+    "officialSourceCount": 2,
+    "candidateCount": 636,
+    "candidateCountByGraduationYear": {
+      "2027": 528,
+      "2028": 108
+    },
+    "initialMigrationEntityScope": ["CANDIDATE"],
+    "operatorCapabilities": ["CANDIDATE_MANAGEMENT", "CANDIDATE_SEARCH", "DASHBOARD"],
+    "systemOfRecord": "OFFICIAL_SPREADSHEET",
+    "updateFlow": ["SPREADSHEET_UPDATE", "READ_ONLY_PREFLIGHT", "OWNER_APPROVED_IMPORT", "STAGING_DATASET_ACTIVATION"],
+    "directCandidateMutation": false,
+    "importMode": "VERSIONED_SNAPSHOT_REPLACEMENT",
+    "retryCount": 0,
+    "productionPromotion": false
   },
   "platformStatuses": [
     {
@@ -426,17 +460,17 @@
       "definition": "Human Review Queue 17/17が終了し、Work Queue残件が0である。"
     },
     {
-      "code": "DATA_CONSISTENCY_REVIEW",
-      "name": "Data Consistency確認中",
-      "definition": "Migration契約、Human Review安定ID判断、正式Sourceのprivate read-only dry-runは確認済み。SnapshotのOwner受領とMigration別承認を待っている。"
+      "code": "STAGING_MIGRATION_BLOCKED_SCHEMA",
+      "name": "Staging Migration schema対応待ち",
+      "definition": "Owner承認と最新Snapshot再受領は完了したが、既存受入schemaが承認済みCandidate範囲と版管理・旧版復帰契約を満たさないため書込み前に安全停止している。"
     },
     {
-      "code": "MIGRATION_HOLD",
-      "name": "Migration保留",
-      "definition": "private dry-runとSnapshot候補はPASS済みだが、Owner受領とMigration別承認が未完了のためMigrationを実行しない。重複候補6グループはdifferent_personとして確定し、別Candidateで維持する。"
+      "code": "PRODUCTION_MIGRATION_HOLD",
+      "name": "Production Migration保留",
+      "definition": "Staging運用検証とProduction昇格の別承認が完了するまで、ProductionへのMigration・書込み・自動昇格を禁止する。"
     }
   ],
-  "currentPlatformStatus": "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD",
+  "currentPlatformStatus": "DATA_INTEGRITY_COMPLETED / STAGING_MIGRATION_BLOCKED_SCHEMA / PRODUCTION_MIGRATION_HOLD",
   "releaseStatuses": [
     {
       "code": "RELEASE_READY",
@@ -447,7 +481,10 @@
   ],
   "currentRelease": {
     "status": "RELEASE_READY",
-    "scope": "DATA_INTEGRITY_WORK_QUEUE_CLOSURE",
+    "scope": "STAGING_OPERATIONS_DESIGN",
+    "stagingOperationsDesignReady": true,
+    "stagingMigrationExecuted": false,
+    "stagingOperationsStarted": false,
     "productionDeployExecutedByThisDictionarySprint": false
   },
   "roles": [
@@ -588,7 +625,9 @@
     "学校名・氏名・理由の推測入力",
     "重複候補の自動統合・自動削除",
     "CandidateからEmployeeへのデータコピー",
-    "Migration HOLD中のMigration実行",
+    "未承認のStaging Migration実行",
+    "ProductionへのMigration・書込み・自動昇格",
+    "NOV Talentから正本Spreadsheetへの逆書込み",
     "旧コピーを正式Sourceとして利用",
     "辞書への個人情報・Secretの保存"
   ]

@@ -10,8 +10,9 @@ NOV Talentの正式名称、正式コード、正式定義の正本である。
 - Candidate同一性契約: `candidate-identity-contract.json`
 - Human Review証拠: `human-review-evidence.json`
 - Migration先区分: `migration-target-mapping.json`
+- Staging先行運用契約: `staging-operations-contract.json`
 - Snapshot・受領・Rollback契約: 各Migration契約文書
-- 現行Version: `1.2.0`
+- 現行Version: `1.3.0`
 
 AI、CSV、UI、DB、Platformは機械可読正本に存在する値だけを参照する。未定義値は推測せず、安全停止する。
 
@@ -21,13 +22,17 @@ AI、CSV、UI、DB、Platformは機械可読正本に存在する値だけを参
 - Migration対象行の件数定義: 確定
 - 27卒接触Sourceの最新read-only対象件数: 528行
 - No.だけの空テンプレート: 13行、Migration対象外
-- Migration: `MIGRATION_HOLD`
+- Staging Migration: `STAGING_MIGRATION_BLOCKED`
+- Production Migration: `PRODUCTION_MIGRATION_HOLD`
 - Migration契約4件: 仕様確定
-- HOLD理由: Migration実行前条件が未完了
+- Staging停止理由: 既存受入schemaが28卒・運用dataset版管理・旧版復帰契約に未対応
+- Production保留理由: Staging運用検証とProduction昇格別承認が未完了
 
-Candidate同一性、Human Review証拠構造、移行先区分、Snapshot・受領・Rollbackの仕様は確定した。重複候補6グループはOwner確認により `different_person / keep_separate` として安定IDへ記録済みである。正式Source 2件のprivate read-only dry-runは636対象行、Quarantine 0件でPASSし、Snapshot候補を生成済みである。HOLD解除には、OwnerによるSnapshot受領とMigration実行の別承認が必要である。
+Candidate同一性、Human Review証拠構造、移行先区分、Snapshot・受領・Rollbackの仕様は確定した。重複候補6グループはOwner確認により `different_person / keep_separate` として安定IDへ記録済みである。最新正式Sourceのread-only再受領は636対象行でPASSした。Owner承認も受領済みだが、既存受入schemaが承認済み範囲と版管理・旧版復帰契約を満たさないため、書込み0件で安全停止した。Productionは別承認まで保留する。
 
 - Dry-run report: `migration-dry-run-report.md`
 - Snapshot candidate: `migration-dry-run-snapshot.candidate.json`
+- Latest staging snapshot: `staging-migration-snapshot.candidate.json`
+- Staging execution result: `staging-migration-execution-result.json`
 
 本ディレクトリの作成・更新だけではSpreadsheet、DB、Productionを変更しない。

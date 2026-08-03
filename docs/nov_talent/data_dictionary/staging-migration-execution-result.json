@@ -1,0 +1,33 @@
+{
+  "result": "SAFE_STOP_FIXED_STAGE",
+  "snapshotId": "NOV-TALENT-STAGING-20260803-91891F18AAC989B9",
+  "failedStage": "STAGING_TARGET_SCHEMA_COMPATIBILITY",
+  "fixedCategory": "STAGING_TARGET_SCHEMA_INCOMPATIBLE_WITH_APPROVED_CANDIDATE_SCOPE",
+  "reasons": [
+    "TARGET_SOURCE_TYPE_CONTACTS_28_NOT_ACCEPTED",
+    "IMPORT_BATCH_DRY_RUN_ONLY_CONSTRAINT",
+    "ACTIVE_DATASET_VERSION_AND_REACTIVATION_CONTRACT_NOT_IMPLEMENTED"
+  ],
+  "approvedScope": {
+    "candidateCount": 636,
+    "candidateCount27": 528,
+    "candidateCount28": 108,
+    "excludedTemplateCount": 431,
+    "retryCount": 0,
+    "singleTransactionRequired": true
+  },
+  "executionAccounting": {
+    "spreadsheetReadCount": 2,
+    "spreadsheetWriteCount": 0,
+    "stagingWriteCount": 0,
+    "productionWriteCount": 0,
+    "canonicalWriteCount": 0,
+    "lineHistoryWriteCount": 0,
+    "promotionCount": 0,
+    "employeeCoreWriteCount": 0,
+    "retryCount": 0,
+    "rollbackPerformed": false,
+    "rawPersonalValuesIncluded": false
+  },
+  "nextGate": "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_CONTRACT_OWNER_DECISION"
+}

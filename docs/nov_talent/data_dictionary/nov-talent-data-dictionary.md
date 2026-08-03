@@ -5,7 +5,7 @@
 | 項目 | 正式値 |
 |---|---|
 | 文書ID | `NOV_TALENT_DATA_DICTIONARY` |
-| Version | `1.2.0` |
+| Version | `1.3.0` |
 | Status | `CANONICAL` |
 | 適用日 | 2026-08-03 |
 | 機械可読正本 | `nov-talent-data-dictionary.json` |
@@ -128,7 +128,7 @@
 
 | 対象 | Version |
 |---|---|
-| Data Dictionary | `1.2.0` |
+| Data Dictionary | `1.3.0` |
 | Data Integrity Report schema | `1.2` |
 | Work Queue seed schema | `2.0` |
 | Source Lineage schema | `1.0` |
@@ -138,13 +138,14 @@
 
 | 項目 | 正式値 |
 |---|---|
-| Status | `MIGRATION_HOLD` |
-| 理由コード | `MIGRATION_PRECONDITIONS_PENDING` |
-| 理由 | Migration実行前条件未完了 |
+| Staging Status | `STAGING_MIGRATION_BLOCKED` |
+| Staging理由コード | `STAGING_TARGET_SCHEMA_INCOMPATIBLE` |
+| Production Status | `PRODUCTION_MIGRATION_HOLD` |
+| Production理由コード | `STAGING_OPERATION_VALIDATION_AND_PROMOTION_APPROVAL_PENDING` |
 | Data Integrity | 完了済み |
 | Data Consistency | 確認中 |
 
-Migration対象行の件数定義と4つのMigration契約は確定済みである。Migration保留はData Integrity未完了や契約未定義を意味しない。自動Migrationは禁止し、実行前条件の完了後も実行には別承認を必須とする。
+Migration対象行の件数定義と5つのMigration・Staging運用契約は確定済みである。Stagingを運用検証環境として先行利用する。ProductionはStaging運用の受入確認と別昇格承認まで保留する。自動Migrationと自動昇格は禁止する。
 
 ### 10.1 確定済みMigration契約
 
@@ -152,25 +153,38 @@ Migration対象行の件数定義と4つのMigration契約は確定済みであ�
 - Human Review証拠構造: `human-review-evidence.json`
 - Migration先区分: `migration-target-mapping.json`
 - Snapshot・受領・Rollback: 各Migration契約文書
+- Staging先行運用: `staging-operations-contract.json`
 
-### 10.2 Migration HOLD解除の実行前残件
+### 10.2 Staging運用開始前の残件
 
 | 優先 | 正式コード | 残件 |
 |---:|---|---|
 | 1 | `PRIVATE_READ_ONLY_DRY_RUN_AND_SNAPSHOT` | `RESOLVED`。正式Source 2件、636対象行、Quarantine 0件でdry-run PASSし、件数・HashだけのSnapshot候補を生成済み。 |
-| 2 | `OWNER_AND_MIGRATION_APPROVAL` | OwnerがSnapshotを受領し、Migration実行を別gateで明示承認する。 |
+| 2 | `STAGING_OWNER_MIGRATION_AND_OPERATION_APPROVAL` | `RESOLVED`。Ownerが最新Snapshot、636 CandidateのStaging Migration、Migration照合後の運用開始を明示承認済み。 |
+| 3 | `STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_CONTRACT` | 28卒、運用dataset版管理、旧版復帰を満たす受入schema変更を別Sprint・別承認で実施する。 |
+
+### 10.3 Staging先行運用
+
+- 正式Source: 27卒528件、28卒108件、合計636 Candidate
+- 利用機能: Candidate管理、検索、Dashboard
+- 正本: 正式Spreadsheet
+- 更新経路: `Spreadsheet → read-only preflight → 承認済みImport → Staging`
+- 初回書込み範囲: Candidate 636件のみ
+- NOV Talent画面からのCandidate直接更新: 禁止
+- Import方式: versioned snapshot replacement
+- Production昇格: 別承認まで禁止
 
 ## 11. Platform Status・Release Status
 
 現在のPlatform Statusは次の完全一致文字列とする。
 
-`DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD`
+`DATA_INTEGRITY_COMPLETED / STAGING_MIGRATION_BLOCKED_SCHEMA / PRODUCTION_MIGRATION_HOLD`
 
 | コード | 正式名称 | 定義 |
 |---|---|---|
 | `DATA_INTEGRITY_COMPLETED` | Data Integrity完了 | Human Review Queue 17/17終了、Work Queue残件0。 |
-| `DATA_CONSISTENCY_REVIEW` | Data Consistency確認中 | Migration契約、Human Review安定ID判断、正式Sourceのprivate read-only dry-runは確認済み。SnapshotのOwner受領とMigration別承認を待っている。 |
-| `MIGRATION_HOLD` | Migration保留 | private dry-runとSnapshot候補はPASS済みだが、Owner受領とMigration別承認が未完了のためMigrationを実行しない。重複候補6グループは `different_person` として確定し、別Candidateで維持する。 |
+| `STAGING_MIGRATION_BLOCKED_SCHEMA` | Staging Migration schema対応待ち | Owner承認と最新Snapshot再受領は完了したが、既存受入schemaが承認済みCandidate範囲と版管理・旧版復帰契約を満たさないため書込み前に安全停止している。 |
+| `PRODUCTION_MIGRATION_HOLD` | Production Migration保留 | Staging運用検証とProduction昇格の別承認が完了するまで、Production書込みと自動昇格を禁止する。 |
 | `RELEASE_READY` | Release Ready | Data Integrity Work Queue終了成果物を公開可能。Migration実行可を意味しない。 |
 
 ## 12. Role・Permission
@@ -230,7 +244,9 @@ Spreadsheet ID・Sheet IDは機械可読正本に記録する。Source監査はr
 - 学校名、氏名、理由の推測入力
 - 重複候補の自動統合・自動削除
 - CandidateからEmployeeへのデータコピー
-- `MIGRATION_HOLD` 中のMigration
+- 未承認のStaging Migration
+- ProductionへのMigration・書込み・自動昇格
+- NOV Talentから正本Spreadsheetへの逆書込み
 - 旧コピーを正式Sourceとして利用
 - 辞書への個人情報またはSecretの保存
 

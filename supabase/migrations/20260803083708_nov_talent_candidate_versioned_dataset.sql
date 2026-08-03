@@ -111,9 +111,9 @@ alter table public.nov_talent_candidate_datasets_v1 enable row level security;
 alter table public.nov_talent_candidate_dataset_records_v1 enable row level security;
 
 revoke all on table public.nov_talent_candidate_datasets_v1
-  from public, anon, authenticated;
+  from public, anon, authenticated, service_role;
 revoke all on table public.nov_talent_candidate_dataset_records_v1
-  from public, anon, authenticated;
+  from public, anon, authenticated, service_role;
 
 -- The import runner may create BUILDING datasets and insert Candidate rows.
 -- State transitions stay function-only.

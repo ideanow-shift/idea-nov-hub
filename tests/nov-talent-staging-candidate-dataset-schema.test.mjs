@@ -50,8 +50,8 @@ test("636 Candidate acceptance counts are dataset contract values rather than ha
 
 test("Candidate staging tables are fail-closed to browser roles", () => {
   assert.match(sql, /enable row level security/gi);
-  assert.match(sql, /revoke all on table public\.nov_talent_candidate_datasets_v1\s+from public, anon, authenticated/i);
-  assert.match(sql, /revoke all on table public\.nov_talent_candidate_dataset_records_v1\s+from public, anon, authenticated/i);
+  assert.match(sql, /revoke all on table public\.nov_talent_candidate_datasets_v1\s+from public, anon, authenticated, service_role/i);
+  assert.match(sql, /revoke all on table public\.nov_talent_candidate_dataset_records_v1\s+from public, anon, authenticated, service_role/i);
   assert.match(sql, /grant select, insert on table public\.nov_talent_candidate_datasets_v1\s+to service_role/i);
   assert.match(sql, /grant select, insert on table public\.nov_talent_candidate_dataset_records_v1\s+to service_role/i);
   assert.doesNotMatch(sql, /grant (?:select|insert|update|delete)[^;]*to (?:anon|authenticated)/i);

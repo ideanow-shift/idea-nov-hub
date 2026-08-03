@@ -20,6 +20,7 @@ const stagingOperationsGuidePath = new URL("../docs/nov_talent/data_dictionary/s
 const stagingSnapshotPath = new URL("../docs/nov_talent/data_dictionary/staging-migration-snapshot.candidate.json", import.meta.url);
 const stagingExecutionResultPath = new URL("../docs/nov_talent/data_dictionary/staging-migration-execution-result.json", import.meta.url);
 const stagingSchemaContractPath = new URL("../docs/nov_talent/data_dictionary/staging-candidate-versioned-dataset-schema.json", import.meta.url);
+const platformEnvironmentPolicyPath = new URL("../docs/nov_talent/data_dictionary/platform-environment-policy.md", import.meta.url);
 const dictionaryRaw = readFileSync(dictionaryPath, "utf8");
 const dictionary = JSON.parse(dictionaryRaw);
 const guide = readFileSync(guidePath, "utf8");
@@ -38,6 +39,7 @@ const stagingOperationsGuide = readFileSync(stagingOperationsGuidePath, "utf8");
 const stagingSnapshot = JSON.parse(readFileSync(stagingSnapshotPath, "utf8"));
 const stagingExecutionResult = JSON.parse(readFileSync(stagingExecutionResultPath, "utf8"));
 const stagingSchemaContract = JSON.parse(readFileSync(stagingSchemaContractPath, "utf8"));
+const platformEnvironmentPolicy = readFileSync(platformEnvironmentPolicyPath, "utf8");
 
 const uniqueCodes = (values) => new Set(values.map((value) => value.code)).size === values.length;
 
@@ -160,6 +162,31 @@ test("staging operations contract fixes 636 candidates and keeps production proh
   assert.equal(stagingOperationsContract.sourceSnapshot.revalidationStatus, "PASS_COUNTS_AND_SOURCE_HASH");
   assert.match(stagingOperationsGuide, /正式Spreadsheetを更新[\s\S]*read-only preflight/);
   assert.match(stagingOperationsGuide, /Production昇格承認はこれらに含まれない/);
+});
+
+test("platform environment policy fixes one Production and one Staging project", () => {
+  const policy = dictionary.platformEnvironmentPolicy;
+  assert.equal(policy.productionProject, "idea-nov-core");
+  assert.equal(policy.stagingProject, "idea-nov-staging");
+  assert.equal(policy.productionProjectCount, 1);
+  assert.equal(policy.stagingProjectCount, 1);
+  assert.equal(policy.additionalProjectCreation, false);
+  assert.equal(policy.legacyStagingProjectNameAllowed, false);
+  assert.equal(policy.projectExpansionArchitectureAllowed, false);
+  assert.deepEqual(policy.sharedStagingSeparationBoundaries, [
+    "SCHEMA",
+    "FUNCTION_NAMESPACE",
+    "STORAGE_NAMESPACE",
+    "VERSIONED_DATASET",
+    "MIGRATION_OWNER",
+    "PERMISSION_BOUNDARY",
+  ]);
+  assert.equal(stagingOperationsContract.environmentPolicy.productionProject, "idea-nov-core");
+  assert.equal(stagingOperationsContract.environmentPolicy.stagingProject, "idea-nov-staging");
+  assert.equal(stagingOperationsContract.environmentPolicy.additionalProjectCreation, false);
+  assert.match(platformEnvironmentPolicy, /Production Project: `idea-nov-core`/);
+  assert.match(platformEnvironmentPolicy, /Staging Project: `idea-nov-staging`/);
+  assert.doesNotMatch(platformEnvironmentPolicy, /idea-nov-shift-status-sandbox/);
 });
 
 test("Candidate Versioned Dataset schema contract records the active remote dataset", () => {

@@ -12,6 +12,7 @@ NOV Talentの正式名称、正式コード、正式定義の正本である。
 - Migration先区分: `migration-target-mapping.json`
 - Staging先行運用契約: `staging-operations-contract.json`
 - Staging Candidate Versioned Dataset schema: `staging-candidate-versioned-dataset-schema.json`
+- Platform環境運用方針: `platform-environment-policy.md`
 - Snapshot・受領・Rollback契約: 各Migration契約文書
 - 現行Version: `1.3.0`
 
@@ -38,3 +39,10 @@ Candidate同一性、Human Review証拠構造、移行先区分、Snapshot・受
 - Staging execution result: `staging-migration-execution-result.json`
 
 本ディレクトリの作成・更新だけではSpreadsheet、DB、Productionを変更しない。
+
+## Platform環境
+
+- Production: `idea-nov-core`
+- Staging: `idea-nov-staging`
+- Supabase ProjectはProduction 1つ、Staging 1つとし、追加Projectを作成しない。
+- 新規システムは共通Staging内でschema、Function namespace、Storage、Dataset、Migration owner、Permission boundaryを分離する。

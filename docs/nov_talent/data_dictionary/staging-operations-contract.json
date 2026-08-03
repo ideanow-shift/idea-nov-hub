@@ -10,6 +10,17 @@
     "freshSnapshotRequiredBeforeImport": true
   },
   "environmentPolicy": {
+    "productionProject": "idea-nov-core",
+    "stagingProject": "idea-nov-staging",
+    "additionalProjectCreation": false,
+    "separationBoundaries": [
+      "SCHEMA",
+      "FUNCTION_NAMESPACE",
+      "STORAGE_NAMESPACE",
+      "VERSIONED_DATASET",
+      "MIGRATION_OWNER",
+      "PERMISSION_BOUNDARY"
+    ],
     "staging": "OPERATION_VALIDATION_ENVIRONMENT",
     "production": "PROHIBITED_UNTIL_SEPARATE_PROMOTION_APPROVAL",
     "developmentUseOnly": false

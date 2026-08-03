@@ -25,6 +25,8 @@ Staging Candidate Versioned DatasetのACTIVE 636件を、HUB Sessionと既存正
 ## Staging API
 
 - Project: `idea-nov-staging`
+- Production Project: `idea-nov-core`（本Runtimeの接続・書込み対象外）
+- NOV Talent専用Projectは作成せず、共通Staging内のFunction namespace、Dataset、RLS、Permission boundaryで分離する。
 - Function: `nov-talent-staging-readonly-api`
 - Method: GET / OPTIONSのみ
 - Dataset: ACTIVEがexactly oneで、合計・27卒・28卒件数がDataset metadataと一致する場合だけ返す。

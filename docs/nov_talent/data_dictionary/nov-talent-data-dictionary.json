@@ -454,6 +454,24 @@
     "retryCount": 0,
     "productionPromotion": false
   },
+  "platformEnvironmentPolicy": {
+    "productionProject": "idea-nov-core",
+    "stagingProject": "idea-nov-staging",
+    "productionProjectCount": 1,
+    "stagingProjectCount": 1,
+    "additionalProjectCreation": false,
+    "legacyStagingProjectNameAllowed": false,
+    "projectExpansionArchitectureAllowed": false,
+    "sharedStagingSeparationBoundaries": [
+      "SCHEMA",
+      "FUNCTION_NAMESPACE",
+      "STORAGE_NAMESPACE",
+      "VERSIONED_DATASET",
+      "MIGRATION_OWNER",
+      "PERMISSION_BOUNDARY"
+    ],
+    "artifact": "platform-environment-policy.md"
+  },
   "platformStatuses": [
     {
       "code": "DATA_INTEGRITY_COMPLETED",

@@ -30,6 +30,8 @@ Candidate行は `BUILDING` datasetへのINSERTだけを許可する。READY以�
 
 ## Access boundary
 
+- 正式ProjectはProduction `idea-nov-core`、Staging `idea-nov-staging`の2環境だけとし、追加Sandbox Projectを作成しない。
+- NOV Talentは共通Staging内のschema、Function namespace、Dataset、Migration owner、Permission boundaryで分離する。
 - 2テーブルともRLSを有効化する。
 - `public`、`anon`、`authenticated` はアクセス不可。
 - `service_role` はSELECT・INSERTのみ。

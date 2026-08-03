@@ -1,0 +1,39 @@
+{
+  "gate": "THANKS_COIN_LEGACY_PRIVATE_POST_COMPLETE_EXCLUSION_SPRINT",
+  "sealedAt": "2026-08-03",
+  "branch": "feat/idea-link-legacy-private-exclusion",
+  "files": {
+    "portal/idea-link-app/index.html": "ADE81A79B5BD6384C6B33BD013AF7610A30F1072766016718F5DE3AA465996A3",
+    "supabase/functions/nov-hub-api/index.ts": "7DD0AADE60D154AEA12A93CA0DD6B059DDC45FC50DB2721DC08CA00702311F30",
+    "supabase/functions/nov-hub-api/organization_health_monitoring_candidate.ts": "008B9B0518A5F3D3599A8603198C3513593910CC12EF7F12CC653A4E34A72A8F",
+    "supabase/functions/nov-hub-api/idea-link-privacy.ts": "1642223C7AAC637F1F0A734A2E49256B35359F074008C2483AF4636B1C0569DE",
+    "supabase/thanks-coin-analytics-public-only-20260803.sql": "EE4F1AE5C7AB7998ABDFC11C4DBA24837632E5764795E28D89368AFA7CC26746",
+    "review/idealink-activity-followups-20260724/test-static.mjs": "A2223A09633DF9CB38F55DB59E239B86228056693F0B8D6E274E73584F03C7BE",
+    "review/idealink-public-only-posts-20260803/privacy-contract.test.mjs": "2B9EEBB489EA5FE9B4199966C2FEEF5453B032194838E9934CF3FF8CBC98C1CA",
+    "review/idealink-public-only-posts-20260803/rpc-public-only-rehearsal.mjs": "53B1ACA7F5DB17C5DA07A3546C16E784C3DE5B8B71D142EC3316A11DAB57451B",
+    "review/idealink-public-only-posts-20260803/static-check.mjs": "954C0B742D9A6DFD197565E648FF18271F026CA7702DBD442A6A2F44F34D4B65"
+  },
+  "contracts": {
+    "newPostsPublicOnly": true,
+    "legacyPrivateSenderReadable": true,
+    "legacyPrivateRecipientReadable": true,
+    "legacyPrivateOtherEmployeeReadable": false,
+    "legacyPrivateNonPartyManagerReadable": false,
+    "legacyPrivateIncludedInAdminSummary": false,
+    "legacyPrivateIncludedInAnalytics": false,
+    "legacyPrivateIncludedInMvp": false,
+    "legacyPrivateIncludedInOrganizationMonitoring": false,
+    "existingPostMutationCount": 0,
+    "dataMigration": false,
+    "rawValuesIncluded": false
+  },
+  "validation": {
+    "privacyContract": "24/24_PASS",
+    "rpcPublicOnlyRehearsal": "9/9_PASS",
+    "frontendRegression": "6/6_PASS",
+    "serverContractRegression": "24/24_PASS",
+    "denoCheck": "PASS",
+    "persistence": false,
+    "productionOperations": 0
+  }
+}

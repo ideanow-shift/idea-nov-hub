@@ -1,3 +1,8 @@
+import {
+  IDEA_LINK_PUBLIC_VISIBILITY_QUERY,
+  isIdeaLinkPublicPost,
+} from "./idea-link-privacy.ts";
+
 type JsonRecord = Record<string, unknown>;
 type RowOptions = { method?: string; query?: JsonRecord; payload?: unknown; prefer?: string };
 type ReadRows = (table: string, options: RowOptions) => Promise<JsonRecord[]>;
@@ -166,7 +171,7 @@ export async function readOrganizationHealthMonitoringCandidate(actor: JsonRecor
   const storeIdSet = new Set(storeIds);
   const [employees, posts, followups] = await Promise.all([
     readRows("employees", { query: { select: "id,full_name,store_id,is_active,employment_status,joined_on", is_active: "eq.true", limit: String(MAX_EMPLOYEES + 1) } }),
-    readRows("idea_link_posts", { query: { select: "sender_id,receiver_id,receiver_store_id,category,status,visibility,created_at", status: "eq.active", visibility: "eq.public", created_at: `gte.${previousStart.toISOString()}`, order: "created_at.asc", limit: String(MAX_POSTS + 1) } }),
+    readRows("idea_link_posts", { query: { select: "sender_id,receiver_id,receiver_store_id,category,status,visibility,created_at", status: "eq.active", visibility: IDEA_LINK_PUBLIC_VISIBILITY_QUERY, created_at: `gte.${previousStart.toISOString()}`, order: "created_at.asc", limit: String(MAX_POSTS + 1) } }),
     readRows("idea_link_activity_followups", { query: { select: "target_employee_id,store_id,status,assigned_to_employee_id,next_review_on,updated_at", store_id: `in.(${storeIds.join(",")})`, order: "updated_at.desc", limit: String(MAX_EMPLOYEES + 1) } }),
   ]);
   if (employees.length > MAX_EMPLOYEES || posts.length > MAX_POSTS || followups.length > MAX_EMPLOYEES) throw new Error("RESULT_LIMIT_EXCEEDED");
@@ -176,6 +181,7 @@ export async function readOrganizationHealthMonitoringCandidate(actor: JsonRecor
     !/退職|休職|産休|育休/.test(String(row.employment_status || ""))
   );
   const boundedPosts = posts.filter((row) => {
+    if (!isIdeaLinkPublicPost(row)) return false;
     if (!storeIdSet.has(String(row.receiver_store_id || ""))) return false;
     const time = new Date(String(row.created_at || "")).getTime();
     return Number.isFinite(time) && time >= previousStart.getTime() && time < now.getTime();

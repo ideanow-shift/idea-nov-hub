@@ -7,6 +7,12 @@ import {
 } from "./management_readonly_candidate.ts";
 import { createThanksCoinAnalyticsApiAdapter } from "./analytics-api-adapter.ts";
 import {
+  buildIdeaLinkReadablePostOr,
+  filterIdeaLinkPublicPosts,
+  IDEA_LINK_PUBLIC_VISIBILITY,
+  IDEA_LINK_PUBLIC_VISIBILITY_QUERY,
+} from "./idea-link-privacy.ts";
+import {
   readOrganizationHealthMonitoringCandidate,
   saveIdeaLinkActivityFollowup,
 } from "./organization_health_monitoring_candidate.ts";
@@ -476,20 +482,7 @@ function assertIdeaLinkUser(employee: JsonRecord) {
 }
 
 function buildIdeaLinkVisibilityOr(employee: JsonRecord) {
-  if (isIdeaLinkManager(employee)) return "";
-  const employeeId = String(employee.id || employee.coreEmployeeId || employee.supabaseEmployeeId || "").trim();
-  const primaryStore = asRecord(employee.primaryStore);
-  const storeId = String(primaryStore.id || employee.primaryStoreId || employee.storeId || "").trim();
-  const departmentRef = asRecord(employee.departmentRef);
-  const departmentId = String(departmentRef.id || employee.departmentId || "").trim();
-  const parts = [
-    "visibility.eq.public",
-    employeeId ? `sender_id.eq.${employeeId}` : "",
-    employeeId ? `receiver_id.eq.${employeeId}` : "",
-    storeId ? `receiver_store_id.eq.${storeId}` : "",
-    departmentId ? `receiver_department_id.eq.${departmentId}` : "",
-  ].filter(Boolean);
-  return parts.length ? `(${parts.join(",")})` : "";
+  return buildIdeaLinkReadablePostOr(employee);
 }
 
 async function hydrateIdeaLinkPosts(rows: JsonRecord[]) {
@@ -716,6 +709,7 @@ async function readIdeaLinkAdminSummary(employee: JsonRecord, payload: JsonRecor
       query: {
         select: "id,sender_id,receiver_id,receiver_store_id,receiver_department_id,category,challenge_flag,status,visibility,created_at",
         status: "eq.active",
+        visibility: IDEA_LINK_PUBLIC_VISIBILITY_QUERY,
         order: "created_at.desc",
         limit: "1000",
       },
@@ -773,7 +767,8 @@ async function readIdeaLinkAdminSummary(employee: JsonRecord, payload: JsonRecor
     monthlyPraiseRuns: monthlyRunResult.available,
     profileImages: profileImageResult.available,
   };
-  const monthPosts = posts.filter((row) => getJstYearMonth(row.created_at) === month);
+  const monthPosts = filterIdeaLinkPublicPosts(posts)
+    .filter((row) => getJstYearMonth(row.created_at) === month);
   const activeStaffByStore = employees.reduce((accumulator: Record<string, number>, row) => {
     const storeId = String(row.store_id || "");
     if (!storeId) return accumulator;
@@ -961,13 +956,13 @@ async function readIdeaLinkMonthlyMvpPreview(employee: JsonRecord, payload: Json
     query: {
       select: "id,sender_id,receiver_id,receiver_store_id,category,challenge_flag,status,visibility,created_at",
       status: "eq.active",
+      visibility: IDEA_LINK_PUBLIC_VISIBILITY_QUERY,
       order: "created_at.desc",
       limit: "2000",
     },
   });
-  const targetPosts = posts.filter((row) => {
-    return String(row.visibility || "public") !== "private"
-      && String(row.receiver_id || "")
+  const targetPosts = filterIdeaLinkPublicPosts(posts).filter((row) => {
+    return String(row.receiver_id || "")
       && getJstYearMonth(row.created_at) === month;
   });
   const receiverIds = uniqueStrings(targetPosts.map((row) => row.receiver_id));
@@ -1063,7 +1058,10 @@ async function readIdeaLinkMonthlyMvpPreview(employee: JsonRecord, payload: Json
 }
 
 function normalizeIdeaLinkVisibility(value: unknown) {
-  return String(value || "").trim().toLowerCase() === "private" ? "private" : "public";
+  if (String(value || "").trim().toLowerCase() !== IDEA_LINK_PUBLIC_VISIBILITY) {
+    throw new PortalError("INVALID_REQUEST", "IDEA LINK posts must be public.", 400);
+  }
+  return IDEA_LINK_PUBLIC_VISIBILITY;
 }
 
 function normalizeIdeaLinkCategory(value: unknown) {
@@ -1108,7 +1106,7 @@ function validateIdeaLinkPostCreatePayload(payload: JsonRecord) {
     || typeof payload.receiverId !== "string" || !isUuid(payload.receiverId.trim())
     || typeof payload.category !== "string"
     || typeof payload.comment !== "string" || payload.comment.trim().length < 10 || payload.comment.trim().length > 200
-    || (payload.visibility !== "public" && payload.visibility !== "private")
+    || payload.visibility !== "public"
     || typeof payload.challengeFlag !== "boolean"
     || (Object.hasOwn(payload, "receiverOrgUnitType")
       && payload.receiverOrgUnitType !== "store" && payload.receiverOrgUnitType !== "department")

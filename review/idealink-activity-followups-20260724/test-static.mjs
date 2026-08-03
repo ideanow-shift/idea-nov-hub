@@ -37,5 +37,5 @@ test(() => assert.doesNotMatch(migration, /\b(textarea|note|comment|body)\b/i));
 test(() => assert.match(migration, /^begin;/i));
 test(() => assert.match(migration, /commit;\s*$/i));
 test(() => assert.doesNotMatch(module, /notification|line.?works|enqueue/i));
-test(() => assert.match(module, /visibility: "eq\.public"/));
+test(() => assert.match(module, /visibility: IDEA_LINK_PUBLIC_VISIBILITY_QUERY/));
 console.log(JSON.stringify({ scenarios: 24, passed }));

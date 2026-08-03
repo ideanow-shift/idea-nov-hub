@@ -1221,23 +1221,9 @@
               <small>新しいことや苦手なことに向き合った行動の場合にチェック</small>
             </span>
           </label>
-          <fieldset>
-            <legend>公開範囲</legend>
-            <label class="radio-row">
-              <input type="radio" name="visibility" value="public" checked>
-              <span>
-                <strong>みんなに公開</strong>
-                <small>IDEA LINKを利用するスタッフが閲覧できます</small>
-              </span>
-            </label>
-            <label class="radio-row">
-              <input type="radio" name="visibility" value="private">
-              <span>
-                <strong>非公開</strong>
-                <small>送信者・受信者と権限のある管理者のみ閲覧できます</small>
-              </span>
-            </label>
-          </fieldset>
+          <div class="privacy-note">
+            投稿したサンクスメッセージはIDEA LINKを利用するスタッフに公開されます。
+          </div>
           <div class="privacy-note">
             顧客名、連絡先、健康情報などの個人情報・要配慮情報は入力しないでください。
           </div>
@@ -1992,11 +1978,6 @@
       return UUID_PATTERN.test(explicitId) ? explicitId : "";
     }
 
-    function getVisibility() {
-      const selected = document.querySelector("input[name='visibility']:checked");
-      return selected?.value === "private" ? "private" : "public";
-    }
-
     function updateMessageCount() {
       messageCount.textContent = String(text(message.value).length);
     }
@@ -2221,7 +2202,6 @@
       receiver.value = "";
       message.value = "";
       challengeFlag.checked = false;
-      document.querySelector("input[name='visibility'][value='public']").checked = true;
       updateMessageCount();
       renderReceiverPreview();
     });
@@ -2245,9 +2225,6 @@
       updateMessageCount();
     });
     challengeFlag.addEventListener("change", resetPendingPostRequestId);
-    document.querySelectorAll("input[name='visibility']").forEach((input) => {
-      input.addEventListener("change", resetPendingPostRequestId);
-    });
 
     document.querySelectorAll("[data-category-value]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -2306,7 +2283,7 @@
           receiverId,
           category: category.value,
           comment,
-          visibility: getVisibility(),
+          visibility: "public",
           challengeFlag: challengeFlag.checked === true
         });
         const postId = text(response.result?.post?.id || response.result?.post?.post_id);

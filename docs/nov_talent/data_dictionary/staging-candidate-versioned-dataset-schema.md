@@ -41,4 +41,4 @@ Candidate行は `BUILDING` datasetへのINSERTだけを許可する。READY以�
 
 `supabase/migrations/20260803083708_nov_talent_candidate_versioned_dataset.sql`
 
-このmigrationはsourceとして実装済みだが、Remote Stagingには未適用である。次のGateは `STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_APPLY_OWNER_DECISION` とする。
+このmigrationはRemote Staging `idea-nov-staging` へ適用済みで、Snapshot `NOV-TALENT-STAGING-E30AE047735FC922` の636 CandidateがACTIVEである。公開NOV Talentは引き続き匿名Mock Runtimeであり、総務人事部の利用開始にはStaging専用のread runtimeと既存Role Guardの接続が必要である。

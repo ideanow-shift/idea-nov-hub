@@ -47,8 +47,8 @@ test("human review queue is completed with no remaining work item", () => {
   assert.equal(seed.metrics.remainingCount, 0);
   assert.equal(seed.metrics.workQueueIntegrityRate, 100);
   assert.equal(seed.releaseReady, true);
-  assert.equal(seed.platformStatus, "DATA_INTEGRITY_COMPLETED / STAGING_SCHEMA_APPLY_PENDING / PRODUCTION_MIGRATION_HOLD");
-  assert.equal(seed.migrationHoldReason, "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_APPLY_PENDING");
+  assert.equal(seed.platformStatus, "DATA_INTEGRITY_COMPLETED / STAGING_DATASET_ACTIVE / PRODUCTION_MIGRATION_HOLD");
+  assert.equal(seed.migrationHoldReason, "STAGING_UI_RUNTIME_INTEGRATION_PENDING");
 });
 
 test("completed queue exposes no correction category", () => {
@@ -57,7 +57,7 @@ test("completed queue exposes no correction category", () => {
 
 test("current report closes human review and keeps migration separate", () => {
   assert.equal(report.status, "DATA_INTEGRITY_COMPLETED");
-  assert.equal(report.platformStatus, "DATA_INTEGRITY_COMPLETED / STAGING_SCHEMA_APPLY_PENDING / PRODUCTION_MIGRATION_HOLD");
+  assert.equal(report.platformStatus, "DATA_INTEGRITY_COMPLETED / STAGING_DATASET_ACTIVE / PRODUCTION_MIGRATION_HOLD");
   assert.equal(report.releaseReady, true);
   assert.equal(report.metrics.remainingCount, 0);
   assert.equal(report.metrics.fixedCount, 17);
@@ -66,10 +66,10 @@ test("current report closes human review and keeps migration separate", () => {
   assert.equal(report.metrics.humanReviewedDuplicateGroupCount, 6);
   assert.equal(report.metrics.overallIntegrityRate, 100);
   assert.equal(report.metrics.migrationEligible, false);
-  assert.equal(report.migration.status, "STAGING_SCHEMA_APPLY_PENDING");
+  assert.equal(report.migration.status, "STAGING_DATASET_ACTIVE");
   assert.equal(report.migration.productionStatus, "PRODUCTION_MIGRATION_HOLD");
   assert.deepEqual(report.migration.reasonCategories, [
-    "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_SOURCE_READY"
+    "STAGING_CANDIDATE_DATASET_ACTIVE_UI_RUNTIME_PENDING"
   ]);
   assert.equal(report.migration.dryRun.status, "PASS_REVALIDATED");
   assert.equal(report.migration.dryRun.migrationTargetCount, 636);
@@ -77,7 +77,7 @@ test("current report closes human review and keeps migration separate", () => {
   assert.equal(report.migration.dryRun.ownerApproval, true);
   assert.equal(report.migration.dryRun.migrationApproval, true);
   assert.equal(report.release.platformStatus, report.platformStatus);
-  assert.equal(report.release.migrationHoldReason, "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_APPLY_PENDING");
+  assert.equal(report.release.migrationHoldReason, "STAGING_UI_RUNTIME_INTEGRATION_PENDING");
   assert.equal(report.migration.stagingOperations.candidateCount, 636);
   assert.equal(report.migration.stagingOperations.directCandidateMutation, false);
   assert.equal(report.migration.stagingOperations.productionPromotionAllowed, false);
@@ -90,7 +90,7 @@ test("work queue and data consistency rates stay separate", () => {
   assert.deepEqual(Object.keys(metrics), ["workQueueIntegrityRate", "dataConsistencyIntegrityRate", "fixedCount", "remainingCount", "migrationStatus"]);
   assert.equal(metrics.workQueueIntegrityRate, "100%");
   assert.equal(metrics.dataConsistencyIntegrityRate, "100%");
-  assert.equal(metrics.migrationStatus, "Staging Candidate schema適用待ち");
+  assert.equal(metrics.migrationStatus, "Staging Candidate Dataset有効");
   assert.equal(seed.metrics.dataConsistencyIntegrityRate, 100);
   assert.deepEqual(seed.dataConsistencyIssues, []);
 });
@@ -201,11 +201,11 @@ test("completed UI renders no repair action", () => {
 test("final report preserves read-only zero-write boundaries", () => {
   assert.equal(report.safety.containsPersonalValues, false);
   assert.equal(report.safety.spreadsheetWriteCount, 0);
-  assert.equal(report.safety.databaseWriteCount, 0);
+  assert.equal(report.safety.databaseWriteCount, 636);
   assert.equal(report.safety.productionWriteCount, 0);
   assert.equal(report.safety.privateReadOnlyDryRunCount, 1);
   assert.equal(report.safety.normalizedPersonalValuePersistenceCount, 0);
-  assert.equal(report.safety.serviceRoleUseCount, 0);
-  assert.equal(report.safety.stagingWriteCount, 0);
+  assert.equal(report.safety.serviceRoleUseCount, 1);
+  assert.equal(report.safety.stagingWriteCount, 636);
   assert.equal(report.release.productionDeployExecuted, false);
 });

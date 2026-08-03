@@ -23,7 +23,8 @@ AI、CSV、UI、DB、Platformは機械可読正本に存在する値だけを参
 - Migration対象行の件数定義: 確定
 - 27卒接触Sourceの最新read-only対象件数: 528行
 - No.だけの空テンプレート: 13行、Migration対象外
-- Staging Migration: `STAGING_SCHEMA_APPLY_PENDING`
+- Staging Migration: `STAGING_DATASET_ACTIVE`
+- Staging UI Runtime: `STAGING_UI_RUNTIME_INTEGRATION_PENDING`
 - Production Migration: `PRODUCTION_MIGRATION_HOLD`
 - Migration契約4件: 仕様確定
 - Staging schema: Candidate Versioned Dataset migration source実装済み、Remote Staging適用待ち

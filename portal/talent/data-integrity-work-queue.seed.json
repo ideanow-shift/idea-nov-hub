@@ -7,14 +7,14 @@
     "dataConsistencyIntegrityRate": 100,
     "fixedCount": 17,
     "remainingCount": 0,
-    "migrationStatus": "STAGING_SCHEMA_APPLY_PENDING"
+    "migrationStatus": "STAGING_DATASET_ACTIVE"
   },
   "categoryCounts": [],
   "dataConsistencyIssues": [],
   "items": [],
   "releaseReady": true,
-  "platformStatus": "DATA_INTEGRITY_COMPLETED / STAGING_SCHEMA_APPLY_PENDING / PRODUCTION_MIGRATION_HOLD",
-  "migrationHoldReason": "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_APPLY_PENDING",
+  "platformStatus": "DATA_INTEGRITY_COMPLETED / STAGING_DATASET_ACTIVE / PRODUCTION_MIGRATION_HOLD",
+  "migrationHoldReason": "STAGING_UI_RUNTIME_INTEGRATION_PENDING",
   "safety": {
     "mockOnly": true,
     "containsPersonalValues": false,

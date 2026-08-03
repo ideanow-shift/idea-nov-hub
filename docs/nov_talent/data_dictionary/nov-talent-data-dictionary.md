@@ -138,8 +138,8 @@
 
 | 項目 | 正式値 |
 |---|---|
-| Staging Status | `STAGING_SCHEMA_APPLY_PENDING` |
-| Staging理由コード | `STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_SOURCE_READY` |
+| Staging Status | `STAGING_DATASET_ACTIVE` |
+| Staging理由コード | `STAGING_CANDIDATE_DATASET_ACTIVE_UI_RUNTIME_PENDING` |
 | Production Status | `PRODUCTION_MIGRATION_HOLD` |
 | Production理由コード | `STAGING_OPERATION_VALIDATION_AND_PROMOTION_APPROVAL_PENDING` |
 | Data Integrity | 完了済み |
@@ -178,12 +178,12 @@ Migration対象行の件数定義と5つのMigration・Staging運用契約は確
 
 現在のPlatform Statusは次の完全一致文字列とする。
 
-`DATA_INTEGRITY_COMPLETED / STAGING_SCHEMA_APPLY_PENDING / PRODUCTION_MIGRATION_HOLD`
+`DATA_INTEGRITY_COMPLETED / STAGING_DATASET_ACTIVE / PRODUCTION_MIGRATION_HOLD`
 
 | コード | 正式名称 | 定義 |
 |---|---|---|
 | `DATA_INTEGRITY_COMPLETED` | Data Integrity完了 | Human Review Queue 17/17終了、Work Queue残件0。 |
-| `STAGING_SCHEMA_APPLY_PENDING` | Staging Candidate schema適用待ち | Candidate 636件、28卒、Versioned Dataset、有効化、旧版復帰を満たすmigration sourceは実装済みで、Remote Stagingへの適用を待っている。 |
+| `STAGING_DATASET_ACTIVE` | Staging Candidate Dataset有効 | Candidate 636件のVersioned DatasetはRemote StagingでACTIVE。総務人事部の画面利用にはread runtimeと既存Role Guardの接続が必要。 |
 | `PRODUCTION_MIGRATION_HOLD` | Production Migration保留 | Staging運用検証とProduction昇格の別承認が完了するまで、Production書込みと自動昇格を禁止する。 |
 | `RELEASE_READY` | Release Ready | Data Integrity Work Queue終了成果物を公開可能。Migration実行可を意味しない。 |
 

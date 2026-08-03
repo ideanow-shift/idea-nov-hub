@@ -78,10 +78,10 @@ test("invalidation and duplicate decisions fail closed to the approved values", 
 });
 
 test("migration, platform, release and count definitions remain consistent", () => {
-  assert.equal(dictionary.currentPlatformStatus, "DATA_INTEGRITY_COMPLETED / STAGING_SCHEMA_APPLY_PENDING / PRODUCTION_MIGRATION_HOLD");
-  assert.equal(dictionary.migration.currentStatus, "STAGING_SCHEMA_APPLY_PENDING");
+  assert.equal(dictionary.currentPlatformStatus, "DATA_INTEGRITY_COMPLETED / STAGING_DATASET_ACTIVE / PRODUCTION_MIGRATION_HOLD");
+  assert.equal(dictionary.migration.currentStatus, "STAGING_DATASET_ACTIVE");
   assert.equal(dictionary.migration.productionStatus, "PRODUCTION_MIGRATION_HOLD");
-  assert.equal(dictionary.migration.reasonCode, "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_SOURCE_READY");
+  assert.equal(dictionary.migration.reasonCode, "STAGING_CANDIDATE_DATASET_ACTIVE_UI_RUNTIME_PENDING");
   assert.equal(dictionary.migration.dataIntegrityCompleted, true);
   assert.equal(dictionary.migration.activeRowDefinition.status, "DEFINED");
   assert.deepEqual(dictionary.migration.activeRowDefinition.anyOfFields, [
@@ -91,7 +91,7 @@ test("migration, platform, release and count definitions remain consistent", () 
   assert.equal(dictionary.migration.resolvedCriteria[0].code, "ACTIVE_ROW_COUNT_BASIS_APPROVAL");
   assert.equal(dictionary.migration.contractFinalization.every(({ status }) => status === "DEFINED"), true);
   assert.deepEqual(dictionary.migration.holdReleaseCriteria.map(({ priority }) => priority), [1, 2, 3]);
-  assert.deepEqual(dictionary.migration.holdReleaseCriteria.map(({ status }) => status), ["RESOLVED", "RESOLVED", "SOURCE_IMPLEMENTED_APPLY_PENDING"]);
+  assert.deepEqual(dictionary.migration.holdReleaseCriteria.map(({ status }) => status), ["RESOLVED", "RESOLVED", "REMOTE_APPLIED_ACTIVE_DATASET"]);
   assert.equal(dictionary.migration.holdReleaseCriteria[0].artifact, "migration-dry-run-snapshot.candidate.json");
   assert.match(migrationSpec, /No\.だけ採番された空テンプレート行はMigration対象外/);
   assert.match(readme, /Migration契約4件: 仕様確定/);
@@ -133,7 +133,7 @@ test("private read-only dry-run snapshot seals official-source counts and safety
 });
 
 test("staging operations contract fixes 636 candidates and keeps production prohibited", () => {
-  assert.equal(stagingOperationsContract.status, "APPROVED_SCHEMA_SOURCE_IMPLEMENTED_APPLY_PENDING");
+  assert.equal(stagingOperationsContract.status, "DATASET_ACTIVE_UI_RUNTIME_PENDING");
   assert.equal(stagingOperationsContract.environmentPolicy.staging, "OPERATION_VALIDATION_ENVIRONMENT");
   assert.equal(stagingOperationsContract.environmentPolicy.production, "PROHIBITED_UNTIL_SEPARATE_PROMOTION_APPROVAL");
   assert.equal(stagingOperationsContract.initialScope.candidateCount, 636);
@@ -162,8 +162,8 @@ test("staging operations contract fixes 636 candidates and keeps production proh
   assert.match(stagingOperationsGuide, /Production昇格承認はこれらに含まれない/);
 });
 
-test("Candidate Versioned Dataset schema contract is source-ready and not remotely applied", () => {
-  assert.equal(stagingSchemaContract.status, "SOURCE_IMPLEMENTED_NOT_APPLIED");
+test("Candidate Versioned Dataset schema contract records the active remote dataset", () => {
+  assert.equal(stagingSchemaContract.status, "REMOTE_APPLIED_ACTIVE_DATASET");
   assert.deepEqual(stagingSchemaContract.scope.includedEntities, ["CANDIDATE"]);
   assert.equal(stagingSchemaContract.scope.approvedCandidateCount, 636);
   assert.deepEqual(stagingSchemaContract.lifecycle, ["BUILDING", "READY", "ACTIVE", "RETIRED"]);
@@ -171,19 +171,19 @@ test("Candidate Versioned Dataset schema contract is source-ready and not remote
   assert.equal(stagingSchemaContract.invariants.previousDatasetRestorable, true);
   assert.equal(stagingSchemaContract.access.anonAccess, "NONE");
   assert.equal(stagingSchemaContract.access.authenticatedAccess, "NONE");
-  assert.equal(stagingSchemaContract.application.remoteSchemaApplied, false);
-  assert.equal(stagingSchemaContract.application.stagingMigrationExecuted, false);
+  assert.equal(stagingSchemaContract.application.remoteSchemaApplied, true);
+  assert.equal(stagingSchemaContract.application.stagingMigrationExecuted, true);
 });
 
-test("fresh staging snapshot is sealed and schema incompatibility stops before writes", () => {
-  assert.equal(stagingSnapshot.payload.snapshotId, "NOV-TALENT-STAGING-20260803-91891F18AAC989B9");
+test("fresh staging snapshot is sealed and active with Candidate-only counts", () => {
+  assert.equal(stagingSnapshot.snapshotId, "NOV-TALENT-STAGING-E30AE047735FC922");
   assert.equal(stagingSnapshot.payload.counts.candidateCount, 636);
   assert.deepEqual(stagingSnapshot.payload.sources.map(({ migrationTargetCount }) => migrationTargetCount), [528, 108]);
   assert.equal(stagingSnapshot.payload.humanReview.keepSeparateCount, 6);
   assert.equal(createHash("sha256").update(JSON.stringify(stagingSnapshot.payload)).digest("hex"), stagingSnapshot.artifactHash);
-  assert.equal(stagingExecutionResult.result, "SAFE_STOP_FIXED_STAGE");
-  assert.equal(stagingExecutionResult.fixedCategory, "STAGING_TARGET_SCHEMA_INCOMPATIBLE_WITH_APPROVED_CANDIDATE_SCOPE");
-  assert.equal(stagingExecutionResult.executionAccounting.stagingWriteCount, 0);
+  assert.equal(stagingExecutionResult.result, "PASS_STAGING_CANDIDATE_DATASET_ACTIVE");
+  assert.equal(stagingExecutionResult.operationReadiness.fixedCategory, "STAGING_UI_RUNTIME_NOT_CONNECTED");
+  assert.equal(stagingExecutionResult.executionAccounting.stagingCandidateWriteCount, 636);
   assert.equal(stagingExecutionResult.executionAccounting.productionWriteCount, 0);
   assert.equal(stagingExecutionResult.executionAccounting.rawPersonalValuesIncluded, false);
 });

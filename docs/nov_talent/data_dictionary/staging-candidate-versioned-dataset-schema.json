@@ -1,7 +1,7 @@
 {
   "contractId": "NOV_TALENT_STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA",
   "contractVersion": "1.0.0",
-  "status": "SOURCE_IMPLEMENTED_NOT_APPLIED",
+  "status": "REMOTE_APPLIED_ACTIVE_DATASET",
   "implementedAt": "2026-08-03",
   "migrationArtifact": "supabase/migrations/20260803083708_nov_talent_candidate_versioned_dataset.sql",
   "scope": {
@@ -53,10 +53,11 @@
     "restorePrevious": "nov_talent_internal.restore_previous_candidate_dataset_v1"
   },
   "application": {
-    "remoteSchemaApplied": false,
-    "stagingMigrationExecuted": false,
+    "remoteSchemaApplied": true,
+    "stagingMigrationExecuted": true,
     "productionWriteCount": 0,
-    "nextGate": "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_APPLY_OWNER_DECISION"
+    "activeSnapshotId": "NOV-TALENT-STAGING-E30AE047735FC922",
+    "nextGate": "STAGING_CANDIDATE_READ_RUNTIME_AND_ROLE_GUARD_IMPLEMENTATION"
   },
   "containsPersonalValues": false
 }

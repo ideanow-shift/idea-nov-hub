@@ -1,7 +1,7 @@
 {
   "contractId": "NOV_TALENT_STAGING_OPERATIONS_CONTRACT",
   "contractVersion": "1.0.0",
-  "status": "APPROVED_SCHEMA_SOURCE_IMPLEMENTED_APPLY_PENDING",
+  "status": "DATASET_ACTIVE_UI_RUNTIME_PENDING",
   "effectiveDate": "2026-08-03",
   "versionCompatibility": {
     "operationsDictionaryVersion": "1.3.0",
@@ -89,21 +89,21 @@
   },
   "sourceSnapshot": {
     "artifact": "staging-migration-snapshot.candidate.json",
-    "snapshotId": "NOV-TALENT-STAGING-20260803-91891F18AAC989B9",
-    "artifactHash": "c62b913f0edc676509dc9aafe159e4b6b1e599317cb58622e7615d727e73b961",
+    "snapshotId": "NOV-TALENT-STAGING-E30AE047735FC922",
+    "artifactHash": "e30ae047735fc922032f0512cb76ecd751b24ad4f77e843a1e0e8a95b498dbff",
     "mustBeRevalidatedImmediatelyBeforeImport": false,
     "revalidationStatus": "PASS_COUNTS_AND_SOURCE_HASH"
   },
   "execution": {
     "resultArtifact": "staging-migration-execution-result.json",
-    "result": "SAFE_STOP_FIXED_STAGE",
-    "failedStage": "STAGING_TARGET_SCHEMA_COMPATIBILITY",
-    "fixedCategory": "STAGING_TARGET_SCHEMA_INCOMPATIBLE_WITH_APPROVED_CANDIDATE_SCOPE",
-    "stagingWriteCount": 0,
+    "result": "PASS_STAGING_CANDIDATE_DATASET_ACTIVE",
+    "failedStage": null,
+    "fixedCategory": "STAGING_UI_RUNTIME_NOT_CONNECTED",
+    "stagingWriteCount": 636,
     "productionWriteCount": 0,
     "rollbackPerformed": false,
     "schemaContract": "staging-candidate-versioned-dataset-schema.json",
-    "schemaSourceStatus": "IMPLEMENTED_NOT_APPLIED",
-    "nextGate": "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_APPLY_OWNER_DECISION"
+    "schemaSourceStatus": "REMOTE_APPLIED_ACTIVE_DATASET",
+    "nextGate": "STAGING_CANDIDATE_READ_RUNTIME_AND_ROLE_GUARD_IMPLEMENTATION"
   }
 }

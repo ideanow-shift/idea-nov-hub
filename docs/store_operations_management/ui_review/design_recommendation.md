@@ -13,6 +13,7 @@
 5. 店舗状態の説明責任を決め、関連KPIと理由へ到達可能にする
 6. 元の添付営業管理画像を入手し、認知上の強みの分析を再確認する
 7. Design Systemで未確定の状態色、icon、table density、chart paletteを共通仕様として承認する
+8. 正式Permission Key／Bundle名、営業部長のcanonical department relation、Production assignment制約をCore DB/Auth契約として確定する
 
 ## P1 — V1で完成
 
@@ -39,3 +40,5 @@ POS、日次進捗、月末予測、リアルタイム、スタッフ個人分�
 - 副社長Roleの正式Scope
 - Design Systemの暫定提案を共通仕様へ昇格するか
 - 5分UX testの参加者、fixture、合格基準
+- `employee_store_assignments`のProduction制約と期間判定証跡
+- アプリ利用、非利益KPI、確定利益・利益率の正式Permission Key／Bundle名

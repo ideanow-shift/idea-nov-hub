@@ -4,11 +4,15 @@
 
 **CONDITIONAL GO**
 
-既存の画面階層、Role別Scope、月次Projection、店舗詳細4区分はV1の基礎として採用できる。デザイン確定前に、Executive Summaryの結論優先、優先アクションの根拠、状態表現、Data Contract差分、元添付画像の再確認をP0として解消する必要がある。
+業務OwnerによるContract FreezeをUI仕様へ同期した。既存の画面階層、月次Projection、店舗詳細4区分はV1の基礎として採用できる。正式Permission Key／Bundle名、営業部長のcanonical department relation、Productionのassignment制約が未確定のため、実装開始判定は条件付きとする。
+
+Permission Modelの6層構造（Session／employee、canonical Role、Application Permission、Data Scope、Store Scope、Action Scope）は変更不要である。UIはServerが認可済みとして返した店舗とKPIだけを表示する。
 
 ## V1採用案
 
-Executive Summary→優先アクション最大3件→業績ドライバー4群→コンパクトな店舗ポートフォリオ→要対応初期表示の店舗一覧→店舗詳細4区分、という判断順を採用する。前年比と予算比はKPIの比較情報とし、健康score、日次進捗、単純rankingを表示しない。
+Executive Summary→優先アクション最大3件→業績ドライバー4群→コンパクトな店舗ポートフォリオ→要対応初期表示の店舗一覧→店舗詳細4区分、という判断順を採用する。全店／直営／FCは許可済み店舗集合を狭める表示Filterとする。全店時の利益は「直営店利益（対象○店舗）」とし、FC利益はV1対象外とする。
+
+`representative`と`sales_manager`はPreview／表示用aliasであり、backend認可Roleとして使用しない。一般社員はV1対象外、直接URL403とする。AM・店長のStore Scope正本は有効な`employee_store_assignments`だけとし、応援勤務で閲覧範囲を増やさない。
 
 ## 成果物対応表
 
@@ -60,10 +64,24 @@ POS、日次進捗、月末着地予測、リアルタイム、スタッフ個�
 - 客数、単価、EC按分、生産性を含む最終Published Projection Contract
 - 店舗状態と優先アクションの説明責任・更新頻度
 
+## Contract Freeze後も残るGap
+
+- Store Operations Application Permissionの正式Key名
+- 非利益KPI Data Scopeの正式Key名
+- 確定利益・利益率Data Scopeの正式Key名
+- Store Operations専用Permission Bundleの正式名称
+- 営業部長のcanonical department relation
+- Productionで有効なBundleのread-only証跡
+- `employee_store_assignments`のProduction制約確認
+
+正式Key名はCore DB/Auth契約確定後に置換する。UI上の表示・状態・閲覧範囲契約は本資料で確定する。次の作業はCore DB/Auth契約確定であり、Staging実装は未開始、Productionは**NO GO**である。
+
 ## Git作業結果
 
 - Branch: `docs/store-operations-ui-review-v1`
 - Design deliverables commit: `4456602fdccdf96fc2ef97b4693d59ebfcaa19db`
 - Push: `origin/docs/store-operations-ui-review-v1`へ完了
 - Draft PR: [#33 docs(store-operations): review and redesign V1 decision UX](https://github.com/ideanow-shift/idea-nov-hub/pull/33)
-- 変更範囲: `docs/store_operations_management/ui_review/**`のみ
+- PR状態: Draftを維持
+- 変更範囲: `docs/store_operations_management/ui_review/**`のUI文書のみ
+- Merge／Deploy: 未実施

@@ -166,7 +166,11 @@ test("reviewed duplicate groups retain no row or personal detail", () => {
   const reviewed = lineage.closedIssues.filter((issue) => issue.final_status === "human_review_completed");
   assert.deepEqual(reviewed.map((issue) => issue.issue_id), ["DQ-DUP-001", "DQ-DUP-002", "DQ-DUP-003", "DQ-DUP-005", "DQ-DUP-006", "DQ-DUP-007"]);
   assert.equal(reviewed.every((issue) => !("source_row_no" in issue) && !("duplicate_pair_row" in issue)), true);
-  assert.equal(report.humanReview.decisionValuesStored, false);
+  assert.equal(report.humanReview.decisionValuesStored, true);
+  assert.equal(report.humanReview.differentPersonCount, 6);
+  assert.equal(report.humanReview.pendingReviewCount, 0);
+  assert.equal(report.humanReview.quarantineCount, 0);
+  assert.equal(report.humanReview.migrationEffect, "keep_separate");
   assert.equal(report.humanReview.personalValuesStored, false);
 });
 

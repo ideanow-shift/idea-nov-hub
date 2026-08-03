@@ -96,20 +96,26 @@ test("candidate identity contract links automatically only on one conflict-free 
   assert.equal(identityContract.failClosedRules.automaticDelete, false);
 });
 
-test("human review evidence fail-closes unrecoverable duplicate outcomes to quarantine", () => {
+test("human review evidence keeps owner-confirmed duplicate groups separate by stable ID", () => {
   assert.equal(reviewEvidence.evidence.length, 17);
   assert.equal(new Set(reviewEvidence.evidence.map(({ issue_id }) => issue_id)).size, 17);
-  assert.equal(reviewEvidence.summary.completeCount, 11);
+  assert.equal(reviewEvidence.summary.completeCount, 17);
   assert.equal(reviewEvidence.summary.decisionRecordedCount, 17);
-  assert.equal(reviewEvidence.summary.pendingReviewCount, 6);
-  assert.equal(reviewEvidence.summary.recoveryNotPossibleCount, 6);
+  assert.equal(reviewEvidence.summary.pendingReviewCount, 0);
+  assert.equal(reviewEvidence.summary.reconfirmationRequiredCount, 0);
+  assert.equal(reviewEvidence.summary.ownerConfirmedCount, 6);
+  assert.equal(reviewEvidence.summary.differentPersonCount, 6);
+  assert.equal(reviewEvidence.summary.recoveryNotPossibleCount, 0);
   assert.equal(reviewEvidence.summary.outcomeNotRecordedCount, 0);
   assert.equal(reviewEvidence.summary.migrationMergeAuthorizedCount, 0);
-  assert.equal(reviewEvidence.summary.migrationQuarantineCount, 6);
-  const pending = reviewEvidence.evidence.filter(({ decision }) => decision === "pending_review");
-  assert.equal(pending.length, 6);
-  assert.equal(pending.every(({ migration_effect }) => migration_effect === "quarantine"), true);
-  assert.equal(pending.every(({ evidence_source }) => evidence_source === "OFFICIAL_SOURCE_READ_ONLY_CURRENT_AND_REVISION_EVIDENCE_NOT_CONCLUSIVE"), true);
+  assert.equal(reviewEvidence.summary.migrationKeepSeparateCount, 6);
+  assert.equal(reviewEvidence.summary.migrationQuarantineCount, 0);
+  const confirmed = reviewEvidence.evidence.filter(({ evidence_status }) => evidence_status === "COMPLETE_OWNER_CONFIRMED");
+  assert.equal(confirmed.length, 6);
+  assert.equal(confirmed.every(({ decision }) => decision === "different_person"), true);
+  assert.equal(confirmed.every(({ migration_effect }) => migration_effect === "keep_separate"), true);
+  assert.equal(confirmed.every(({ source_row_reference, stable_key_hint }) => source_row_reference === stable_key_hint.replace("27-CONTACT-", "OFFICIAL_27:")), true);
+  assert.equal(confirmed.every(({ evidence_source }) => evidence_source === "OWNER_CONFIRMED_DIFFERENT_PERSON_2026-08-03"), true);
   assert.equal(reviewEvidence.evidence.every(({ current_queue_included }) => !current_queue_included), true);
   assert.equal(reviewEvidence.evidence.every(({ decided_by_role }) => decided_by_role === "backoffice"), true);
 });

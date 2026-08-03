@@ -97,7 +97,11 @@
     "status": "COMPLETED",
     "reviewedGroupCount": 6,
     "remainingGroupCount": 0,
-    "decisionValuesStored": false,
+    "decisionValuesStored": true,
+    "differentPersonCount": 6,
+    "pendingReviewCount": 0,
+    "quarantineCount": 0,
+    "migrationEffect": "keep_separate",
     "personalValuesStored": false
   },
   "newIssues": [],

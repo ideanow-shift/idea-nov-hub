@@ -383,8 +383,10 @@
         "artifact": "human-review-evidence.json",
         "evidenceCount": 17,
         "outcomeNotRecordedCount": 0,
-        "pendingReviewCount": 6,
-        "migrationQuarantineCount": 6
+        "pendingReviewCount": 0,
+        "differentPersonCount": 6,
+        "migrationKeepSeparateCount": 6,
+        "migrationQuarantineCount": 0
       },
       {
         "code": "MIGRATION_TARGET_MAPPING",
@@ -430,7 +432,7 @@
     {
       "code": "MIGRATION_HOLD",
       "name": "Migration保留",
-      "definition": "private dry-runとSnapshot、Owner・Migration承認が未完了のためMigrationを実行しない。pending_review 6グループはQuarantine対象とする。"
+      "definition": "private dry-runとSnapshot、Owner・Migration承認が未完了のためMigrationを実行しない。重複候補6グループはdifferent_personとして確定し、別Candidateで維持する。"
     }
   ],
   "currentPlatformStatus": "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD",

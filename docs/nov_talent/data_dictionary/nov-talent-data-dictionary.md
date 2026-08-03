@@ -170,7 +170,7 @@ Migration対象行の件数定義と4つのMigration契約は確定済みであ�
 |---|---|---|
 | `DATA_INTEGRITY_COMPLETED` | Data Integrity完了 | Human Review Queue 17/17終了、Work Queue残件0。 |
 | `DATA_CONSISTENCY_REVIEW` | Data Consistency確認中 | Migration契約とHuman Review安定ID判断は記録済み。実Source dry-run結果を確認中。 |
-| `MIGRATION_HOLD` | Migration保留 | private dry-runとSnapshot、Owner・Migration承認が未完了のためMigrationを実行しない。`pending_review` 6グループはQuarantine対象とする。 |
+| `MIGRATION_HOLD` | Migration保留 | private dry-runとSnapshot、Owner・Migration承認が未完了のためMigrationを実行しない。重複候補6グループは `different_person` として確定し、別Candidateで維持する。 |
 | `RELEASE_READY` | Release Ready | Data Integrity Work Queue終了成果物を公開可能。Migration実行可を意味しない。 |
 
 ## 12. Role・Permission

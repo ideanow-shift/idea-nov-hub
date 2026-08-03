@@ -1,0 +1,101 @@
+{
+  "contractId": "NOV_TALENT_MIGRATION_TARGET_MAPPING",
+  "schemaVersion": "1.0",
+  "dataDictionaryVersion": "1.2.0",
+  "status": "CANONICAL",
+  "oneSourceRowMayProduceMultipleRecords": true,
+  "targets": [
+    {
+      "code": "CANDIDATE",
+      "definition": "入社前Candidate本人の正本属性",
+      "fields": [
+        "student_name",
+        "student_name_kana",
+        "school_name",
+        "faculty_or_department",
+        "graduation_year",
+        "phone",
+        "email",
+        "line_identifier"
+      ],
+      "writeRule": "同一性契約でexact_matchの場合は既存Candidateへ関連付け、no_matchの場合は最低識別条件を満たすときだけ新規候補とする"
+    },
+    {
+      "code": "EVENT_CONTACT",
+      "definition": "接触・説明会・見学・面接等の発生事実",
+      "fields": [
+        "event_name",
+        "event_date",
+        "event_status",
+        "source_type",
+        "source_label",
+        "follow_up",
+        "next_action_date"
+      ],
+      "writeRule": "対象Candidateがexact_matchまたは承認済み新規Candidateで、イベントコードと日付が辞書契約を満たす場合に履歴候補を生成"
+    },
+    {
+      "code": "SELECTION_HISTORY",
+      "definition": "応募・選考・内定・辞退・不採用の状態履歴",
+      "fields": [
+        "entry_status",
+        "selection_status",
+        "offer_status",
+        "withdrawal",
+        "rejection",
+        "status_changed_at"
+      ],
+      "writeRule": "対象Candidateが確定し、辞書に存在する状態・理由コードと業務日時を持つ場合に履歴候補を生成"
+    },
+    {
+      "code": "QUARANTINE",
+      "definition": "安全にCandidateまたは履歴へ確定できないSource行",
+      "fields": [
+        "source_type",
+        "source_row_reference",
+        "reason_code",
+        "identity_outcome"
+      ],
+      "writeRule": "Sourceの個人値をGitHub成果物へ複製せず、固定理由コードと非公開Source参照だけを保持"
+    }
+  ],
+  "quarantineReasons": [
+    {
+      "code": "CANDIDATE_NOT_IDENTIFIED",
+      "condition": "Candidateを特定できず、新規Candidate最低条件も満たさない"
+    },
+    {
+      "code": "REQUIRED_IDENTITY_KEY_MISSING",
+      "condition": "Candidate作成または関連付けに必要な識別情報が不足"
+    },
+    {
+      "code": "MULTIPLE_CANDIDATE_CANDIDATES",
+      "condition": "複数Candidate候補が存在"
+    },
+    {
+      "code": "SOURCE_CONFLICT",
+      "condition": "強いキーまたはSource間の値が矛盾"
+    },
+    {
+      "code": "INVALID_STATUS_CODE",
+      "condition": "状態または理由がData Dictionaryに存在しない"
+    },
+    {
+      "code": "UNRESOLVED_DUPLICATE",
+      "condition": "重複判断のMigration効果が確定していない"
+    }
+  ],
+  "routing": {
+    "exact_match": "CANDIDATE_AND_ELIGIBLE_HISTORIES",
+    "probable_match": "QUARANTINE",
+    "ambiguous": "QUARANTINE",
+    "no_match": "CREATE_CANDIDATE_IF_MINIMUM_FIELDS_VALID_OTHERWISE_QUARANTINE",
+    "conflict": "QUARANTINE"
+  },
+  "prohibitions": {
+    "automaticMerge": false,
+    "automaticDelete": false,
+    "unknownStatusCoercion": false,
+    "sourceWriteback": false
+  }
+}

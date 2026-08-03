@@ -47,8 +47,8 @@ test("human review queue is completed with no remaining work item", () => {
   assert.equal(seed.metrics.remainingCount, 0);
   assert.equal(seed.metrics.workQueueIntegrityRate, 100);
   assert.equal(seed.releaseReady, true);
-  assert.equal(seed.platformStatus, "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD");
-  assert.equal(seed.migrationHoldReason, "COUNT_DEFINITION_UNCONFIRMED");
+  assert.equal(seed.platformStatus, "DATA_INTEGRITY_COMPLETED / STAGING_DATASET_ACTIVE / PRODUCTION_MIGRATION_HOLD");
+  assert.equal(seed.migrationHoldReason, "STAGING_UI_RUNTIME_INTEGRATION_PENDING");
 });
 
 test("completed queue exposes no correction category", () => {
@@ -57,18 +57,30 @@ test("completed queue exposes no correction category", () => {
 
 test("current report closes human review and keeps migration separate", () => {
   assert.equal(report.status, "DATA_INTEGRITY_COMPLETED");
-  assert.equal(report.platformStatus, "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD");
+  assert.equal(report.platformStatus, "DATA_INTEGRITY_COMPLETED / STAGING_DATASET_ACTIVE / PRODUCTION_MIGRATION_HOLD");
   assert.equal(report.releaseReady, true);
   assert.equal(report.metrics.remainingCount, 0);
   assert.equal(report.metrics.fixedCount, 17);
   assert.equal(report.metrics.missingCount, 0);
   assert.equal(report.metrics.duplicateGroupCount, 0);
   assert.equal(report.metrics.humanReviewedDuplicateGroupCount, 6);
+  assert.equal(report.metrics.overallIntegrityRate, 100);
   assert.equal(report.metrics.migrationEligible, false);
-  assert.equal(report.migration.status, "MIGRATION_HOLD");
-  assert.deepEqual(report.migration.reasonCategories, ["COUNT_DEFINITION_UNCONFIRMED"]);
+  assert.equal(report.migration.status, "STAGING_DATASET_ACTIVE");
+  assert.equal(report.migration.productionStatus, "PRODUCTION_MIGRATION_HOLD");
+  assert.deepEqual(report.migration.reasonCategories, [
+    "STAGING_RUNTIME_READY_FOR_PUBLICATION"
+  ]);
+  assert.equal(report.migration.dryRun.status, "PASS_REVALIDATED");
+  assert.equal(report.migration.dryRun.migrationTargetCount, 636);
+  assert.equal(report.migration.dryRun.quarantineCount, 0);
+  assert.equal(report.migration.dryRun.ownerApproval, true);
+  assert.equal(report.migration.dryRun.migrationApproval, true);
   assert.equal(report.release.platformStatus, report.platformStatus);
-  assert.equal(report.release.migrationHoldReason, "COUNT_DEFINITION_UNCONFIRMED");
+  assert.equal(report.release.migrationHoldReason, "STAGING_RUNTIME_PUBLICATION_PENDING");
+  assert.equal(report.migration.stagingOperations.candidateCount, 636);
+  assert.equal(report.migration.stagingOperations.directCandidateMutation, false);
+  assert.equal(report.migration.stagingOperations.productionPromotionAllowed, false);
   assert.equal(report.sourceCorrections.activeDataRowCount, 108);
   assert.equal(report.sourceCorrections.currentQueueCount, 0);
 });
@@ -77,9 +89,10 @@ test("work queue and data consistency rates stay separate", () => {
   const metrics = getWorkQueueMetrics(createWorkQueueState(seed));
   assert.deepEqual(Object.keys(metrics), ["workQueueIntegrityRate", "dataConsistencyIntegrityRate", "fixedCount", "remainingCount", "migrationStatus"]);
   assert.equal(metrics.workQueueIntegrityRate, "100%");
-  assert.equal(metrics.dataConsistencyIntegrityRate, "未算出");
-  assert.equal(metrics.migrationStatus, "Migration保留（件数定義未確定）");
-  assert.equal(seed.dataConsistencyIssues[0].differenceCount, 12);
+  assert.equal(metrics.dataConsistencyIntegrityRate, "100%");
+  assert.equal(metrics.migrationStatus, "Staging Candidate Dataset有効");
+  assert.equal(seed.metrics.dataConsistencyIntegrityRate, 100);
+  assert.deepEqual(seed.dataConsistencyIssues, []);
 });
 
 test("historical repair flow still requires confirmation, spreadsheet completion, then next", () => {
@@ -162,7 +175,11 @@ test("reviewed duplicate groups retain no row or personal detail", () => {
   const reviewed = lineage.closedIssues.filter((issue) => issue.final_status === "human_review_completed");
   assert.deepEqual(reviewed.map((issue) => issue.issue_id), ["DQ-DUP-001", "DQ-DUP-002", "DQ-DUP-003", "DQ-DUP-005", "DQ-DUP-006", "DQ-DUP-007"]);
   assert.equal(reviewed.every((issue) => !("source_row_no" in issue) && !("duplicate_pair_row" in issue)), true);
-  assert.equal(report.humanReview.decisionValuesStored, false);
+  assert.equal(report.humanReview.decisionValuesStored, true);
+  assert.equal(report.humanReview.differentPersonCount, 6);
+  assert.equal(report.humanReview.pendingReviewCount, 0);
+  assert.equal(report.humanReview.quarantineCount, 0);
+  assert.equal(report.humanReview.migrationEffect, "keep_separate");
   assert.equal(report.humanReview.personalValuesStored, false);
 });
 
@@ -184,7 +201,11 @@ test("completed UI renders no repair action", () => {
 test("final report preserves read-only zero-write boundaries", () => {
   assert.equal(report.safety.containsPersonalValues, false);
   assert.equal(report.safety.spreadsheetWriteCount, 0);
-  assert.equal(report.safety.databaseWriteCount, 0);
+  assert.equal(report.safety.databaseWriteCount, 636);
   assert.equal(report.safety.productionWriteCount, 0);
+  assert.equal(report.safety.privateReadOnlyDryRunCount, 1);
+  assert.equal(report.safety.normalizedPersonalValuePersistenceCount, 0);
+  assert.equal(report.safety.serviceRoleUseCount, 1);
+  assert.equal(report.safety.stagingWriteCount, 636);
   assert.equal(report.release.productionDeployExecuted, false);
 });

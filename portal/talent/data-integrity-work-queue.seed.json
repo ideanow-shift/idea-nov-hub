@@ -4,27 +4,17 @@
   "metrics": {
     "workQueueTotalCount": 17,
     "workQueueIntegrityRate": 100,
-    "dataConsistencyIntegrityRate": null,
+    "dataConsistencyIntegrityRate": 100,
     "fixedCount": 17,
     "remainingCount": 0,
-    "migrationStatus": "MIGRATION_HOLD"
+    "migrationStatus": "STAGING_DATASET_ACTIVE"
   },
   "categoryCounts": [],
-  "dataConsistencyIssues": [
-    {
-      "id": "DC-27-CONTACT-COUNT-001",
-      "type": "SOURCE_COUNT_BASIS_MISMATCH",
-      "cohort": "27卒",
-      "numberedRowCount": 547,
-      "populatedRecordCount": 535,
-      "differenceCount": 12,
-      "status": "DATA_CONSISTENCY_REVIEW"
-    }
-  ],
+  "dataConsistencyIssues": [],
   "items": [],
   "releaseReady": true,
-  "platformStatus": "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD",
-  "migrationHoldReason": "COUNT_DEFINITION_UNCONFIRMED",
+  "platformStatus": "DATA_INTEGRITY_COMPLETED / STAGING_DATASET_ACTIVE / PRODUCTION_MIGRATION_HOLD",
+  "migrationHoldReason": "STAGING_UI_RUNTIME_INTEGRATION_PENDING",
   "safety": {
     "mockOnly": true,
     "containsPersonalValues": false,

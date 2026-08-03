@@ -379,16 +379,17 @@ test("source fixture keeps Japanese UI and desktop/mobile responsive rules", () 
   assert.doesNotMatch(apps.match(/appId: "nov-talent"[\s\S]*?priority: 64/)?.[0] || "", /hr-investment-dashboard/);
 });
 
-test("published runtime candidate enables only the approved local Mock Runtime", () => {
+test("published runtime candidate enables the approved read-only Staging Runtime", () => {
   const runtimeConfig = readFileSync(
     new URL("../portal/talent/runtime-config.candidate.js", import.meta.url),
     "utf8"
   );
 
-  assert.match(runtimeConfig, /runtimeMode:\s*"mock"/);
-  assert.match(runtimeConfig, /networkEnabled:\s*false/);
+  assert.match(runtimeConfig, /runtimeMode:\s*"staging"/);
+  assert.match(runtimeConfig, /networkEnabled:\s*true/);
   assert.match(runtimeConfig, /writeEnabled:\s*false/);
-  assert.doesNotMatch(runtimeConfig, /https?:\/\/|supabase|readonlyApi|writeApi/i);
+  assert.match(runtimeConfig, /readonlyApiEnabled:\s*true/);
+  assert.doesNotMatch(runtimeConfig, /service_role|serviceRole|writeApi|secret/i);
 });
 
 test("talent entry point cache-busts runtime config and app with one release id", () => {
@@ -468,7 +469,7 @@ test("Talent freshness repair preserves startup request0 and click exact1 contra
 
   assert.doesNotMatch(mainSource, /hub_context[^\n]*TALENT_APP_URL|TALENT_APP_URL[^\n]*hub_context/);
   assert.match(appSource, /createDashboardSummaryExecutor/);
-  assert.match(appSource, /runtimeMode:\s*"mock"/);
+  assert.match(appSource, /runtimeMode\(globalObject\)/);
   assert.match(appSource, /button\.addEventListener\("click", run\)/);
   assert.doesNotMatch(appSource, /fetch\(/);
   assert.match(exact1Source, /method: "GET"/);
@@ -589,7 +590,7 @@ test("a later expiry is revalidated and refreshed exact1", async () => {
 test("pageshow or BFCache restoration cannot mark a stale session connected", () => {
   const appSource = readFileSync(new URL("../portal/talent/app.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(appSource, /addEventListener\?\.\("pageshow"[^\n]*setStatus/);
-  assert.match(appSource, /state === "ready" \? "Mock Runtime"/);
+  assert.match(appSource, /runtimeMode\(globalThis\) === "staging" \? "Staging Runtime" : "Mock Runtime"/);
   assert.match(appSource, /setStatus\(documentObject, "ready", "集計を表示しました"\)/);
 });
 

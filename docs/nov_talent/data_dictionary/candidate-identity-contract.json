@@ -1,0 +1,94 @@
+{
+  "contractId": "NOV_TALENT_CANDIDATE_IDENTITY_CONTRACT",
+  "schemaVersion": "1.0",
+  "dataDictionaryVersion": "1.2.0",
+  "status": "CANONICAL",
+  "normalization": {
+    "common": ["Unicode NFKC", "前後空白除去", "空文字をnull化"],
+    "phone": ["数字以外を除去", "日本国内番号は先頭0を維持", "空値は照合しない"],
+    "email": ["小文字化", "前後および内部の空白除去", "構文不正値は照合しない"],
+    "lineIdentifier": ["前後空白除去", "Unicode NFKC", "表示名だけの場合は強いキーにしない"],
+    "name": ["Unicode NFKC", "全角・半角空白除去"],
+    "school": ["Unicode NFKC", "前後空白除去"],
+    "graduationYear": ["4桁西暦へ正規化"]
+  },
+  "priorityRules": [
+    {
+      "priority": 1,
+      "code": "STABLE_OR_EXTERNAL_ID",
+      "strength": "STRONG",
+      "autoLinkEligible": true,
+      "condition": "既存stable_key_hintまたは正式外部IDが完全一致し、候補が1件だけ"
+    },
+    {
+      "priority": 2,
+      "code": "NORMALIZED_PHONE",
+      "strength": "STRONG",
+      "autoLinkEligible": true,
+      "condition": "正規化済み電話番号が完全一致し、候補が1件だけ"
+    },
+    {
+      "priority": 3,
+      "code": "NORMALIZED_EMAIL",
+      "strength": "STRONG",
+      "autoLinkEligible": true,
+      "condition": "小文字化・空白除去済みemailが完全一致し、候補が1件だけ"
+    },
+    {
+      "priority": 4,
+      "code": "NORMALIZED_LINE_IDENTIFIER",
+      "strength": "STRONG",
+      "autoLinkEligible": true,
+      "condition": "正式LINE識別子が完全一致し、候補が1件だけ。LINE表示名だけは対象外"
+    },
+    {
+      "priority": 5,
+      "code": "NAME_SCHOOL_GRADUATION_YEAR",
+      "strength": "SUPPORTING",
+      "autoLinkEligible": false,
+      "condition": "氏名・学校・卒年が正規化一致"
+    },
+    {
+      "priority": 6,
+      "code": "NAME_EVENT_HISTORY_GRADUATION_YEAR",
+      "strength": "SUPPORTING",
+      "autoLinkEligible": false,
+      "condition": "氏名・イベント履歴・卒年が補助一致"
+    }
+  ],
+  "outcomes": [
+    {
+      "code": "exact_match",
+      "definition": "優先1～4の強いキーが1 Candidateだけに一致し、他の強いキーと矛盾しない",
+      "migrationAction": "LINK_EXISTING_CANDIDATE"
+    },
+    {
+      "code": "probable_match",
+      "definition": "強いキーはないが優先5または6が単一候補を示す",
+      "migrationAction": "HUMAN_REVIEW"
+    },
+    {
+      "code": "ambiguous",
+      "definition": "同じ優先度で複数Candidate候補が存在する",
+      "migrationAction": "QUARANTINE_AND_HUMAN_REVIEW"
+    },
+    {
+      "code": "no_match",
+      "definition": "既存Candidateへ結び付く証拠がない",
+      "migrationAction": "CREATE_CANDIDATE_IF_MINIMUM_FIELDS_VALID_OTHERWISE_QUARANTINE"
+    },
+    {
+      "code": "conflict",
+      "definition": "複数の強いキーが異なるCandidateを示す、またはSource間に矛盾がある",
+      "migrationAction": "QUARANTINE_AND_HUMAN_REVIEW"
+    }
+  ],
+  "failClosedRules": {
+    "nameOnlyAutoLink": false,
+    "multipleCandidateAutoLink": false,
+    "automaticMerge": false,
+    "automaticDelete": false,
+    "unmatchedInvalidRow": "QUARANTINE",
+    "ambiguousRow": "HUMAN_REVIEW"
+  }
+}

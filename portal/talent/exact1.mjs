@@ -499,7 +499,7 @@ function unwrapWorkspaceEnvelope(envelope) {
   const data = envelope.data;
   if (!isPlainObject(data)) throw safeError("invalid_response");
   assertExactKeys(data, WORKSPACE_DATA_KEYS);
-  if (data.payloadMode !== "workspace" || data.fiscalYear !== "2027") {
+  if (data.payloadMode !== "workspace" || !["2027", "2028", "all"].includes(data.fiscalYear)) {
     throw safeError("invalid_response");
   }
   if (!isPlainObject(data.overview)) throw safeError("invalid_response");

@@ -233,7 +233,7 @@ test('browser payload never asserts role, scope, actor, or application UUID', as
   assert.equal(OPERATOR_CONTRACT.applicationNoPersistence, 'memory_only');
 });
 
-test('published candidate is cache-bound, Mock-only, and persistence-free', async () => {
+test('published candidate uses the read-only Staging runtime and remains persistence-free', async () => {
   const [html, app, operator, config, style] = await Promise.all(
     ['index.html', 'app.mjs', 'operator.mjs', 'runtime-config.candidate.js', 'style.css']
       .map((name) => readFile(new URL(`../portal/talent/${name}`, import.meta.url), 'utf8')),
@@ -241,12 +241,13 @@ test('published candidate is cache-bound, Mock-only, and persistence-free', asyn
   assert.match(app, /from "\.\/runtime\.mjs\?v=/);
   assert.doesNotMatch(app, /initializeTalentOperatorPanel\(\)/);
   assert.doesNotMatch(app, /operator\.mjs\?v=/);
-  assert.match(config, /runtimeMode:\s*"mock"/);
-  assert.match(config, /networkEnabled:\s*false/);
+  assert.match(config, /runtimeMode:\s*"staging"/);
+  assert.match(config, /networkEnabled:\s*true/);
   assert.match(config, /writeEnabled:\s*false/);
-  assert.doesNotMatch(config, /https?:\/\/|supabase|readonlyApi|writeApi/i);
+  assert.match(config, /readonlyApiEnabled:\s*true/);
+  assert.doesNotMatch(config, /service_role|serviceRole|writeApi|secret/i);
   assert.match(html, /id="talent-operator-panel"[^>]*hidden/);
-  assert.match(html, /Mock Runtime/);
+  assert.match(html, /Staging Runtime/);
   assert.match(operator, /confirmImpl\(confirmationMessage\) !== true/);
   assert.match(operator, /confirmation_required/);
   assert.doesNotMatch(style, /\.talent-operator-panel\s*\{[^}]*display:\s*(?!none)/s);

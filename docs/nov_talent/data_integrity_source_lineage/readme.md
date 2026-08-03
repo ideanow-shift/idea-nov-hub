@@ -7,14 +7,14 @@
 - Data Integrity成果物: `RELEASE_READY`
 - Platform Status: `DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD`
 - Release Note: `DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD`
-- Migration保留理由: 件数定義未確定
+- Migration保留理由: Migration契約未完了（対象行の件数定義は確定済み）
 
 ## 正本Inventory
 
 | 卒年 | 正本ファイル | 対象シート | 状態 |
 |---|---|---|---|
 | 27卒 | 求人計画27卒_2025年9月～2026年8月 | 接触学生一覧（27卒） | Human Review完了 |
-| 28卒 | 求人計画28卒_2027年9月～2027年8月 | 接触学生一覧（28卒） | 正式Source全108実データ行を再監査済み |
+| 28卒 | 求人計画28卒_2026年9月～2027年8月 | 接触学生一覧（28卒） | 正式Source全108実データ行を再監査済み |
 
 28卒の旧コピーは非正本であり、Lineage・Work Queue・リンクには使用しない。
 
@@ -31,7 +31,9 @@
 
 ## Data ConsistencyとMigration
 
-27卒接触の採番済547行と実データ入力済535行の差12件は、Data IntegrityではなくData Consistencyの確認対象として扱う。Data Integrityは完了済みであり、Migrationを保留する理由は「件数定義未確定」である。
+Migration対象行は、氏名・学校・電話番号・メール・LINE・イベント・ステータスのいずれか1項目以上が入力された行とする。No.だけ採番された空テンプレート行は対象外である。最新read-only観測では対象528行、対象外13行であり、旧547／535／12は過去値として扱う。
+
+Data Integrityは完了済みであり、対象行の件数定義も確定済みである。Migrationは、シート横断のCandidate同一性、重複判断の安定ID証拠、移行先区分、Sourceスナップショットと受領条件が未完了のため保留する。
 
 ## 安全境界
 

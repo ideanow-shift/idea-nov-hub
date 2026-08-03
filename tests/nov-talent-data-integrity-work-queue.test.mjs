@@ -67,7 +67,6 @@ test("current report closes human review and keeps migration separate", () => {
   assert.equal(report.metrics.migrationEligible, false);
   assert.equal(report.migration.status, "MIGRATION_HOLD");
   assert.deepEqual(report.migration.reasonCategories, [
-    "HUMAN_REVIEW_OUTCOME_RECONSTRUCTION",
     "PRIVATE_READ_ONLY_DRY_RUN_AND_SNAPSHOT",
     "OWNER_AND_MIGRATION_APPROVAL"
   ]);

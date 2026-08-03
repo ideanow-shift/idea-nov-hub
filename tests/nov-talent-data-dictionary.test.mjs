@@ -73,7 +73,7 @@ test("migration, platform, release and count definitions remain consistent", () 
   assert.equal(dictionary.migration.activeRowDefinition.minimumPopulatedFieldCount, 1);
   assert.equal(dictionary.migration.resolvedCriteria[0].code, "ACTIVE_ROW_COUNT_BASIS_APPROVAL");
   assert.equal(dictionary.migration.contractFinalization.every(({ status }) => status === "DEFINED"), true);
-  assert.deepEqual(dictionary.migration.holdReleaseCriteria.map(({ priority }) => priority), [1, 2, 3]);
+  assert.deepEqual(dictionary.migration.holdReleaseCriteria.map(({ priority }) => priority), [1, 2]);
   assert.equal(dictionary.migration.holdReleaseCriteria.every(({ status }) => status === "OPEN"), true);
   assert.match(migrationSpec, /No\.だけ採番された空テンプレート行はMigration対象外/);
   assert.match(readme, /Migration契約4件: 仕様確定/);
@@ -96,12 +96,20 @@ test("candidate identity contract links automatically only on one conflict-free 
   assert.equal(identityContract.failClosedRules.automaticDelete, false);
 });
 
-test("human review evidence covers 17 issue ids without inventing missing duplicate outcomes", () => {
+test("human review evidence fail-closes unrecoverable duplicate outcomes to quarantine", () => {
   assert.equal(reviewEvidence.evidence.length, 17);
   assert.equal(new Set(reviewEvidence.evidence.map(({ issue_id }) => issue_id)).size, 17);
   assert.equal(reviewEvidence.summary.completeCount, 11);
-  assert.equal(reviewEvidence.summary.outcomeNotRecordedCount, 6);
+  assert.equal(reviewEvidence.summary.decisionRecordedCount, 17);
+  assert.equal(reviewEvidence.summary.pendingReviewCount, 6);
+  assert.equal(reviewEvidence.summary.recoveryNotPossibleCount, 6);
+  assert.equal(reviewEvidence.summary.outcomeNotRecordedCount, 0);
   assert.equal(reviewEvidence.summary.migrationMergeAuthorizedCount, 0);
+  assert.equal(reviewEvidence.summary.migrationQuarantineCount, 6);
+  const pending = reviewEvidence.evidence.filter(({ decision }) => decision === "pending_review");
+  assert.equal(pending.length, 6);
+  assert.equal(pending.every(({ migration_effect }) => migration_effect === "quarantine"), true);
+  assert.equal(pending.every(({ evidence_source }) => evidence_source === "OFFICIAL_SOURCE_READ_ONLY_CURRENT_AND_REVISION_EVIDENCE_NOT_CONCLUSIVE"), true);
   assert.equal(reviewEvidence.evidence.every(({ current_queue_included }) => !current_queue_included), true);
   assert.equal(reviewEvidence.evidence.every(({ decided_by_role }) => decided_by_role === "backoffice"), true);
 });

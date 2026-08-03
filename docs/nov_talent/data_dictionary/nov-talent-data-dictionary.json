@@ -382,7 +382,9 @@
         "status": "DEFINED",
         "artifact": "human-review-evidence.json",
         "evidenceCount": 17,
-        "outcomeNotRecordedCount": 6
+        "outcomeNotRecordedCount": 0,
+        "pendingReviewCount": 6,
+        "migrationQuarantineCount": 6
       },
       {
         "code": "MIGRATION_TARGET_MAPPING",
@@ -402,18 +404,12 @@
     "holdReleaseCriteria": [
       {
         "priority": 1,
-        "code": "HUMAN_REVIEW_OUTCOME_RECONSTRUCTION",
-        "status": "OPEN",
-        "requiredDecision": "結果値が保存されていない重複6グループをsame_person、different_personまたは判断保留として安定IDへ再記録する"
-      },
-      {
-        "priority": 2,
         "code": "PRIVATE_READ_ONLY_DRY_RUN_AND_SNAPSHOT",
         "status": "OPEN",
         "requiredDecision": "正式Sourceをread-onlyで照合し、同一性結果、Quarantine、期待件数、hashを含むsealed Snapshotを生成してdry-run PASSを得る"
       },
       {
-        "priority": 3,
+        "priority": 2,
         "code": "OWNER_AND_MIGRATION_APPROVAL",
         "status": "OPEN",
         "requiredDecision": "OwnerがSnapshotを受領し、Migration実行を別gateで明示承認する"
@@ -429,12 +425,12 @@
     {
       "code": "DATA_CONSISTENCY_REVIEW",
       "name": "Data Consistency確認中",
-      "definition": "Migration契約は定義済み。未記録の人間判断結果と実Source dry-run結果を確認している。"
+      "definition": "Migration契約とHuman Review安定ID判断は記録済み。実Source dry-run結果を確認している。"
     },
     {
       "code": "MIGRATION_HOLD",
       "name": "Migration保留",
-      "definition": "Human Review結果再記録、private dry-runとSnapshot、Owner・Migration承認が未完了のためMigrationを実行しない。"
+      "definition": "private dry-runとSnapshot、Owner・Migration承認が未完了のためMigrationを実行しない。pending_review 6グループはQuarantine対象とする。"
     }
   ],
   "currentPlatformStatus": "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD",

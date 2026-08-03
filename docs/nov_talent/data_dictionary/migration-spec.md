@@ -33,7 +33,7 @@ null、空文字、空白文字だけの値は未入力として扱う。No.だ�
 - Migration先区分
 - Snapshot・受領・Rollback契約
 
-ただし、Human Review完了6グループの結果値が記録されておらず、実Snapshotとdry-runも未生成である。運用前提が満たされるまでは `MIGRATION_HOLD` を維持する。
+Human Review完了6グループは、private read-only復元で結果値を確定できなかったため `pending_review / quarantine` として安定IDへ再記録した。実Snapshotとdry-runは未生成であるため、受領条件が満たされるまでは `MIGRATION_HOLD` を維持する。
 
 ## 5. 安全境界
 

@@ -105,7 +105,6 @@
     "calculable": false,
     "workQueueCompleted": true,
     "reasonCategories": [
-      "HUMAN_REVIEW_OUTCOME_NOT_RECORDED",
       "PRIVATE_DRY_RUN_NOT_EXECUTED"
     ]
   },
@@ -113,7 +112,6 @@
     "eligible": false,
     "status": "MIGRATION_HOLD",
     "reasonCategories": [
-      "HUMAN_REVIEW_OUTCOME_RECONSTRUCTION",
       "PRIVATE_READ_ONLY_DRY_RUN_AND_SNAPSHOT",
       "OWNER_AND_MIGRATION_APPROVAL"
     ]

@@ -13,7 +13,7 @@
 
 ## 継続する判定
 
-Data Consistency Issueの件数基準差12件と総合整合率は未確定。正式件数定義、NOV Talentとの差分、Migration receiptの一致を確認するまでMigrationは行わない。
+Platform Status / Release Noteは `DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD` とする。Data Integrityは完了済みであり、Migrationを保留する理由は「件数定義未確定」である。
 
 ## 安全境界
 

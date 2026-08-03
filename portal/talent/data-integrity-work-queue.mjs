@@ -34,10 +34,14 @@ export function validateWorkQueuePayload(payload) {
       throw new RangeError(`${key} must be null or 0..100`);
     }
   }
-  if (!["HOLD", "HOLD_DATA_CONSISTENCY"].includes(payload.metrics.migrationStatus)) {
+  if (!["HOLD", "MIGRATION_HOLD"].includes(payload.metrics.migrationStatus)) {
     throw new TypeError("migration status is invalid");
   }
-  if (payload.releaseReady !== true || payload.platformStatus !== "DATA_INTEGRITY_COMPLETED") {
+  if (
+    payload.releaseReady !== true ||
+    payload.platformStatus !== "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD" ||
+    payload.migrationHoldReason !== "COUNT_DEFINITION_UNCONFIRMED"
+  ) {
     throw new TypeError("completed work queue release status is invalid");
   }
 
@@ -159,8 +163,8 @@ export function getWorkQueueMetrics(state) {
     dataConsistencyIntegrityRate: state.dataConsistencyIntegrityRate === null ? "未算出" : `${state.dataConsistencyIntegrityRate}%`,
     fixedCount: state.fixedCount,
     remainingCount: pending,
-    migrationStatus: state.migrationStatus === "HOLD_DATA_CONSISTENCY"
-      ? "Data Consistency確認待ち"
+    migrationStatus: state.migrationStatus === "MIGRATION_HOLD"
+      ? "Migration保留（件数定義未確定）"
       : state.migrationStatus === "HOLD" ? "保留" : state.migrationStatus
   };
 }

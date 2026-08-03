@@ -47,7 +47,8 @@ test("human review queue is completed with no remaining work item", () => {
   assert.equal(seed.metrics.remainingCount, 0);
   assert.equal(seed.metrics.workQueueIntegrityRate, 100);
   assert.equal(seed.releaseReady, true);
-  assert.equal(seed.platformStatus, "DATA_INTEGRITY_COMPLETED");
+  assert.equal(seed.platformStatus, "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD");
+  assert.equal(seed.migrationHoldReason, "COUNT_DEFINITION_UNCONFIRMED");
 });
 
 test("completed queue exposes no correction category", () => {
@@ -56,7 +57,7 @@ test("completed queue exposes no correction category", () => {
 
 test("current report closes human review and keeps migration separate", () => {
   assert.equal(report.status, "DATA_INTEGRITY_COMPLETED");
-  assert.equal(report.platformStatus, "DATA_INTEGRITY_COMPLETED_MIGRATION_HOLD");
+  assert.equal(report.platformStatus, "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD");
   assert.equal(report.releaseReady, true);
   assert.equal(report.metrics.remainingCount, 0);
   assert.equal(report.metrics.fixedCount, 17);
@@ -64,7 +65,10 @@ test("current report closes human review and keeps migration separate", () => {
   assert.equal(report.metrics.duplicateGroupCount, 0);
   assert.equal(report.metrics.humanReviewedDuplicateGroupCount, 6);
   assert.equal(report.metrics.migrationEligible, false);
-  assert.equal(report.migration.status, "HOLD_DATA_CONSISTENCY");
+  assert.equal(report.migration.status, "MIGRATION_HOLD");
+  assert.deepEqual(report.migration.reasonCategories, ["COUNT_DEFINITION_UNCONFIRMED"]);
+  assert.equal(report.release.platformStatus, report.platformStatus);
+  assert.equal(report.release.migrationHoldReason, "COUNT_DEFINITION_UNCONFIRMED");
   assert.equal(report.sourceCorrections.activeDataRowCount, 108);
   assert.equal(report.sourceCorrections.currentQueueCount, 0);
 });
@@ -74,7 +78,7 @@ test("work queue and data consistency rates stay separate", () => {
   assert.deepEqual(Object.keys(metrics), ["workQueueIntegrityRate", "dataConsistencyIntegrityRate", "fixedCount", "remainingCount", "migrationStatus"]);
   assert.equal(metrics.workQueueIntegrityRate, "100%");
   assert.equal(metrics.dataConsistencyIntegrityRate, "未算出");
-  assert.equal(metrics.migrationStatus, "Data Consistency確認待ち");
+  assert.equal(metrics.migrationStatus, "Migration保留（件数定義未確定）");
   assert.equal(seed.dataConsistencyIssues[0].differenceCount, 12);
 });
 

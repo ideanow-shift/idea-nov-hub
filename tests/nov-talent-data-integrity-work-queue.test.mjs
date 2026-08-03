@@ -21,41 +21,58 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const seed = JSON.parse(fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-work-queue.seed.json"), "utf8"));
 const lineage = JSON.parse(fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-source-lineage.json"), "utf8"));
+const report = JSON.parse(fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-report.current.json"), "utf8"));
 const html = fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-work-queue.html"), "utf8");
 const css = fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-work-queue.css"), "utf8");
 const source = fs.readFileSync(path.join(root, "portal", "talent", "data-integrity-work-queue.mjs"), "utf8");
 
-test("work queue contains only the 17 confirmed daily corrections", () => {
+test("work queue contains only the six unresolved 27 graduate duplicate groups", () => {
   assert.equal(validateWorkQueuePayload(seed), seed);
-  assert.equal(seed.items.length, 17);
-  assert.equal(seed.metrics.remainingCount, 17);
-  assert.deepEqual(new Set(seed.items.map((item) => item.type)), new Set(["SCHOOL_MISSING", "NAME_MISSING", "STATUS_MISSING", "DUPLICATE_CANDIDATE"]));
+  assert.equal(seed.items.length, 6);
+  assert.equal(seed.metrics.fixedCount, 11);
+  assert.equal(seed.metrics.remainingCount, 6);
+  assert.deepEqual(new Set(seed.items.map((item) => item.type)), new Set(["DUPLICATE_CANDIDATE"]));
+  assert.deepEqual(new Set(seed.items.map((item) => item.cohort)), new Set(["27卒"]));
 });
 
-test("assignee and next action remain uncounted instead of being invented", () => {
-  const assignee = seed.categoryCounts.find((entry) => entry.type === "ASSIGNEE_MISSING");
-  const nextAction = seed.categoryCounts.find((entry) => entry.type === "NEXT_ACTION_MISSING");
-  assert.equal(assignee.count, null);
-  assert.equal(nextAction.count, null);
+test("queue categories match the re-audited remaining counts", () => {
+  assert.deepEqual(seed.categoryCounts.map(({ type, count }) => ({ type, count })), [
+    { type: "DUPLICATE_CANDIDATE", count: 6 }
+  ]);
 });
 
-test("fixed schema exposes only the four approved KPIs", () => {
+test("current report reflects the official 28 graduate source and six-item queue", () => {
+  assert.equal(report.metrics.remainingCount, 6);
+  assert.equal(report.metrics.fixedCount, 11);
+  assert.equal(report.metrics.missingCount, 0);
+  assert.equal(report.metrics.duplicateGroupCount, 6);
+  assert.equal(report.sourceCorrections.activeDataRowCount, 108);
+  assert.equal(report.sourceCorrections.currentQueueCount, 0);
+  assert.equal(report.sourceCorrections.falsePositiveClosedCount, 4);
+  assert.equal(report.sourceCorrections.resolvedClosedCount, 2);
+  assert.equal(report.sourceCorrections.legacyCopyCanonical, false);
+});
+
+test("work queue and data consistency rates stay separate", () => {
   const metrics = getWorkQueueMetrics(createWorkQueueState(seed));
-  assert.deepEqual(Object.keys(metrics), ["integrityRate", "fixedCount", "remainingCount", "migrationProgress"]);
-  assert.equal(metrics.integrityRate, "未算出");
+  assert.deepEqual(Object.keys(metrics), ["workQueueIntegrityRate", "dataConsistencyIntegrityRate", "fixedCount", "remainingCount", "migrationStatus"]);
+  assert.equal(metrics.workQueueIntegrityRate, "64.7%");
+  assert.equal(metrics.dataConsistencyIntegrityRate, "未算出");
+  assert.equal(metrics.migrationStatus, "保留");
+  assert.equal(seed.dataConsistencyIssues[0].differenceCount, 12);
 });
 
 test("one repair requires confirmation, spreadsheet completion, then next", () => {
   const state = createWorkQueueState(seed);
   const current = getCurrentItem(state);
-  const confirmed = confirmRepairDecision(state, current.id, { value: "確認済み学校" });
+  const confirmed = confirmRepairDecision(state, current.id, { action: "HOLD" });
   assert.equal(confirmed.category, "REPAIR_CONFIRMED");
-  assert.equal(confirmed.state.fixedCount, 0);
+  assert.equal(confirmed.state.fixedCount, 11);
   assert.equal(getCurrentItem(confirmed.state).id, current.id);
   const sheetFixed = markSpreadsheetFixed(confirmed.state, current.id);
   assert.equal(sheetFixed.category, "SPREADSHEET_FIXED");
-  assert.equal(sheetFixed.state.fixedCount, 1);
-  assert.equal(getPendingItems(sheetFixed.state).length, 16);
+  assert.equal(sheetFixed.state.fixedCount, 12);
+  assert.equal(getPendingItems(sheetFixed.state).length, 5);
   assert.equal(getCurrentItem(sheetFixed.state).id, current.id);
   const advanced = advanceWorkQueue(sheetFixed.state, current.id);
   assert.equal(advanced.category, "ADVANCED");
@@ -65,17 +82,17 @@ test("one repair requires confirmation, spreadsheet completion, then next", () =
 test("invalid repair does not advance the queue", () => {
   const state = createWorkQueueState(seed);
   const current = getCurrentItem(state);
-  assert.equal(validateRepairDecision(current, { value: "" }), false);
-  const result = confirmRepairDecision(state, current.id, { value: "" });
+  assert.equal(validateRepairDecision(current, { action: "" }), false);
+  const result = confirmRepairDecision(state, current.id, { action: "" });
   assert.equal(result.category, "DECISION_INVALID");
   assert.equal(result.state, state);
 });
 
-test("duplicate decisions require one candidate or spreadsheet hold", () => {
+test("duplicate decisions allow same person, different person, or hold without automatic merge", () => {
   const state = createWorkQueueState(seed);
   const duplicate = state.items.find((item) => item.type === "DUPLICATE_CANDIDATE");
-  assert.equal(validateRepairDecision(duplicate, { action: "KEEP_A" }), true);
-  assert.equal(validateRepairDecision(duplicate, { action: "KEEP_B" }), true);
+  assert.equal(validateRepairDecision(duplicate, { action: "SAME_PERSON" }), true);
+  assert.equal(validateRepairDecision(duplicate, { action: "DIFFERENT_PERSON" }), true);
   assert.equal(validateRepairDecision(duplicate, { action: "MERGE_AUTOMATIC" }), false);
   assert.equal(validateRepairDecision(duplicate, { action: "HOLD" }), true);
 });
@@ -113,9 +130,14 @@ test("seed contains no real personal or persistent write capability", () => {
   assert.equal(seed.safety.productionChanged, false);
 });
 
-test("source lineage covers all 17 issues without personal values", () => {
+test("source lineage covers only the six open issues and records the six closed 28 graduate issues", () => {
   assert.equal(validateSourceLineage(lineage, seed), lineage);
-  assert.equal(lineage.items.length, 17);
+  assert.equal(lineage.items.length, 6);
+  assert.equal(lineage.resolvedIssueIds.length, 11);
+  assert.equal(lineage.closedIssues.length, 6);
+  assert.equal(lineage.closedIssues.filter((issue) => issue.final_status === "false_positive").length, 4);
+  assert.equal(lineage.closedIssues.filter((issue) => issue.final_status === "resolved").length, 2);
+  assert.equal(lineage.closedIssues.every((issue) => issue.current_queue_included === false), true);
   assert.equal(lineage.readOnly, true);
   assert.equal(lineage.containsPersonalValues, false);
   assert.deepEqual(new Set(lineage.items.map((item) => item.issue_id)), new Set(seed.items.map((item) => item.id)));
@@ -123,15 +145,31 @@ test("source lineage covers all 17 issues without personal values", () => {
   assert.equal(lineage.items.every((item) => item.open_url.startsWith("https://docs.google.com/spreadsheets/d/")), true);
 });
 
-test("lineage identifies the confirmed missing and duplicate source rows", () => {
+test("lineage removes closed 28 graduate rows and preserves all 27 graduate duplicate groups", () => {
   const byType = lineage.items.reduce((groups, item) => {
     (groups[item.issue_type] ||= []).push(item);
     return groups;
   }, {});
-  assert.deepEqual(byType.SCHOOL_MISSING.map((item) => item.source_row_no), [549]);
-  assert.deepEqual(byType.NAME_MISSING.map((item) => item.source_row_no), [111, 112, 113, 114]);
-  assert.deepEqual(byType.STATUS_MISSING.map((item) => item.source_row_no), [3, 4]);
-  assert.deepEqual(byType.DUPLICATE_CANDIDATE.map((item) => item.source_row_no), [28, 29, 41, 85, 98, 115, 120, 346, 410, 451]);
+  assert.equal(byType.SCHOOL_MISSING, undefined);
+  assert.equal(byType.NAME_MISSING, undefined);
+  assert.equal(byType.STATUS_MISSING, undefined);
+  assert.deepEqual(byType.DUPLICATE_CANDIDATE.map((item) => item.source_row_no), [28, 29, 41, 98, 115, 120]);
+  assert.deepEqual(byType.DUPLICATE_CANDIDATE.map((item) => item.duplicate_pair_row), [384, 387, 308, 271, [116, 451], 452]);
+});
+
+test("28 graduate official source is primary and the legacy copy is absent", () => {
+  const source28 = lineage.sourceSpreadsheets.find((sourceItem) => sourceItem.graduation_year === "28卒");
+  assert.equal(source28.spreadsheet_id, "1OwFCnRYfTOWGkUGhykURibUD5Ss06msHoaZwYdopkEA");
+  assert.equal(source28.sheet_id, 1279221745);
+  assert.equal(source28.lineage_role, "PRIMARY");
+  assert.doesNotMatch(JSON.stringify(lineage), /1e7MhMDNVE0cMPBGU3sFU1WeLq7Q-ZVW4oSFy_IuxtTE/);
+});
+
+test("duplicate choice labels match the owner review contract", () => {
+  assert.match(source, /"SAME_PERSON", "同一人物"/);
+  assert.match(source, /"DIFFERENT_PERSON", "別人"/);
+  assert.match(source, /"HOLD", "判断保留"/);
+  assert.doesNotMatch(source, /候補Aを正として採用|候補Bを正として採用/);
 });
 
 test("work queue attaches lineage and renders no subject or current value", () => {

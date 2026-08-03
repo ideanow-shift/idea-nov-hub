@@ -7,7 +7,7 @@
 - 残件数 0件
 - 「本日の修正対象は完了しました」
 - Data Consistency整合率 未算出
-- Migration判定 Data Consistency確認待ち
+- Migration判定 保留（理由: 件数定義未確定）
 
 ## 完了時に表示しないもの
 

@@ -5,8 +5,9 @@
 - Human Review Queue: `COMPLETED`
 - Work Queue: 17 / 17件解消、残件0件
 - Data Integrity成果物: `RELEASE_READY`
-- Platform Status: `DATA_INTEGRITY_COMPLETED_MIGRATION_HOLD`
-- Migration: Data Consistency確認待ち
+- Platform Status: `DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD`
+- Release Note: `DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD`
+- Migration保留理由: 件数定義未確定
 
 ## 正本Inventory
 
@@ -30,7 +31,7 @@
 
 ## Data ConsistencyとMigration
 
-27卒接触は採番済547行と実データ入力済535行の件数基準差12件が残る。これはWork Queue残件ではないが、正式件数定義と総合整合率が確定していないため、Migrationは保留する。
+27卒接触の採番済547行と実データ入力済535行の差12件は、Data IntegrityではなくData Consistencyの確認対象として扱う。Data Integrityは完了済みであり、Migrationを保留する理由は「件数定義未確定」である。
 
 ## 安全境界
 

@@ -7,7 +7,7 @@
     "dataConsistencyIntegrityRate": null,
     "fixedCount": 17,
     "remainingCount": 0,
-    "migrationStatus": "HOLD_DATA_CONSISTENCY"
+    "migrationStatus": "MIGRATION_HOLD"
   },
   "categoryCounts": [],
   "dataConsistencyIssues": [
@@ -18,12 +18,13 @@
       "numberedRowCount": 547,
       "populatedRecordCount": 535,
       "differenceCount": 12,
-      "status": "REVIEW_REQUIRED"
+      "status": "DATA_CONSISTENCY_REVIEW"
     }
   ],
   "items": [],
   "releaseReady": true,
-  "platformStatus": "DATA_INTEGRITY_COMPLETED",
+  "platformStatus": "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD",
+  "migrationHoldReason": "COUNT_DEFINITION_UNCONFIRMED",
   "safety": {
     "mockOnly": true,
     "containsPersonalValues": false,

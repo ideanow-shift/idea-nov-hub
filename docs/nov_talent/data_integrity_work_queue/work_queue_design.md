@@ -14,7 +14,8 @@
 
 - 27卒接触: 採番済547行 / 実データ入力済535行 / 差分12件
 - 正式件数定義が確定するまで整合率は未算出
-- Migration判定は `HOLD_DATA_CONSISTENCY`
+- Platform Status / Release Note: `DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD`
+- Migration保留理由は「件数定義未確定」
 
 ## 境界
 

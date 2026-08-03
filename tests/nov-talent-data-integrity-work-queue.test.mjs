@@ -64,12 +64,17 @@ test("current report closes human review and keeps migration separate", () => {
   assert.equal(report.metrics.missingCount, 0);
   assert.equal(report.metrics.duplicateGroupCount, 0);
   assert.equal(report.metrics.humanReviewedDuplicateGroupCount, 6);
+  assert.equal(report.metrics.overallIntegrityRate, 100);
   assert.equal(report.metrics.migrationEligible, false);
   assert.equal(report.migration.status, "MIGRATION_HOLD");
   assert.deepEqual(report.migration.reasonCategories, [
-    "PRIVATE_READ_ONLY_DRY_RUN_AND_SNAPSHOT",
     "OWNER_AND_MIGRATION_APPROVAL"
   ]);
+  assert.equal(report.migration.dryRun.status, "PASS");
+  assert.equal(report.migration.dryRun.migrationTargetCount, 636);
+  assert.equal(report.migration.dryRun.quarantineCount, 0);
+  assert.equal(report.migration.dryRun.ownerApproval, false);
+  assert.equal(report.migration.dryRun.migrationApproval, false);
   assert.equal(report.release.platformStatus, report.platformStatus);
   assert.equal(report.release.migrationHoldReason, "MIGRATION_PRECONDITIONS_PENDING");
   assert.equal(report.sourceCorrections.activeDataRowCount, 108);
@@ -194,5 +199,9 @@ test("final report preserves read-only zero-write boundaries", () => {
   assert.equal(report.safety.spreadsheetWriteCount, 0);
   assert.equal(report.safety.databaseWriteCount, 0);
   assert.equal(report.safety.productionWriteCount, 0);
+  assert.equal(report.safety.privateReadOnlyDryRunCount, 1);
+  assert.equal(report.safety.normalizedPersonalValuePersistenceCount, 0);
+  assert.equal(report.safety.serviceRoleUseCount, 0);
+  assert.equal(report.safety.stagingWriteCount, 0);
   assert.equal(report.release.productionDeployExecuted, false);
 });

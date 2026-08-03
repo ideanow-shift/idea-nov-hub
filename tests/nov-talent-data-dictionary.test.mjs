@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 
 const dictionaryPath = new URL("../docs/nov_talent/data_dictionary/nov-talent-data-dictionary.json", import.meta.url);
 const guidePath = new URL("../docs/nov_talent/data_dictionary/nov-talent-data-dictionary.md", import.meta.url);
@@ -12,7 +13,10 @@ const targetMappingPath = new URL("../docs/nov_talent/data_dictionary/migration-
 const snapshotContractPath = new URL("../docs/nov_talent/data_dictionary/migration-snapshot-contract.md", import.meta.url);
 const acceptanceChecklistPath = new URL("../docs/nov_talent/data_dictionary/migration-acceptance-checklist.md", import.meta.url);
 const rollbackContractPath = new URL("../docs/nov_talent/data_dictionary/rollback-contract.md", import.meta.url);
-const dictionary = JSON.parse(readFileSync(dictionaryPath, "utf8"));
+const dryRunSnapshotPath = new URL("../docs/nov_talent/data_dictionary/migration-dry-run-snapshot.candidate.json", import.meta.url);
+const dryRunReportPath = new URL("../docs/nov_talent/data_dictionary/migration-dry-run-report.md", import.meta.url);
+const dictionaryRaw = readFileSync(dictionaryPath, "utf8");
+const dictionary = JSON.parse(dictionaryRaw);
 const guide = readFileSync(guidePath, "utf8");
 const migrationSpec = readFileSync(migrationSpecPath, "utf8");
 const readme = readFileSync(readmePath, "utf8");
@@ -22,6 +26,8 @@ const targetMapping = JSON.parse(readFileSync(targetMappingPath, "utf8"));
 const snapshotContract = readFileSync(snapshotContractPath, "utf8");
 const acceptanceChecklist = readFileSync(acceptanceChecklistPath, "utf8");
 const rollbackContract = readFileSync(rollbackContractPath, "utf8");
+const dryRunSnapshot = JSON.parse(readFileSync(dryRunSnapshotPath, "utf8"));
+const dryRunReport = readFileSync(dryRunReportPath, "utf8");
 
 const uniqueCodes = (values) => new Set(values.map((value) => value.code)).size === values.length;
 
@@ -74,7 +80,8 @@ test("migration, platform, release and count definitions remain consistent", () 
   assert.equal(dictionary.migration.resolvedCriteria[0].code, "ACTIVE_ROW_COUNT_BASIS_APPROVAL");
   assert.equal(dictionary.migration.contractFinalization.every(({ status }) => status === "DEFINED"), true);
   assert.deepEqual(dictionary.migration.holdReleaseCriteria.map(({ priority }) => priority), [1, 2]);
-  assert.equal(dictionary.migration.holdReleaseCriteria.every(({ status }) => status === "OPEN"), true);
+  assert.deepEqual(dictionary.migration.holdReleaseCriteria.map(({ status }) => status), ["RESOLVED", "OPEN"]);
+  assert.equal(dictionary.migration.holdReleaseCriteria[0].artifact, "migration-dry-run-snapshot.candidate.json");
   assert.match(migrationSpec, /No\.だけ採番された空テンプレート行はMigration対象外/);
   assert.match(readme, /Migration契約4件: 仕様確定/);
   assert.match(readme, /Migration実行前条件が未完了/);
@@ -82,6 +89,38 @@ test("migration, platform, release and count definitions remain consistent", () 
   assert.equal(dictionary.countDefinitions.dataIntegrity.currentValues.resolutionRate, 100);
   assert.equal(dictionary.currentRelease.status, "RELEASE_READY");
   assert.equal(dictionary.currentRelease.productionDeployExecutedByThisDictionarySprint, false);
+});
+
+test("private read-only dry-run snapshot seals official-source counts and safety boundaries", () => {
+  assert.equal(dryRunSnapshot.payload.validationResult, "PASS");
+  assert.equal(dryRunSnapshot.payload.dataDictionaryVersion, "1.2.0");
+  assert.deepEqual(dryRunSnapshot.payload.sources.map(({ migrationTargetCount }) => migrationTargetCount), [528, 108]);
+  assert.deepEqual(dryRunSnapshot.payload.sources.map(({ excludedTemplateCount }) => excludedTemplateCount), [13, 418]);
+  assert.equal(dryRunSnapshot.payload.counts.migrationTargetCount, 636);
+  assert.equal(dryRunSnapshot.payload.counts.candidateCandidateCount, 636);
+  assert.equal(dryRunSnapshot.payload.counts.newCandidateCount, 636);
+  assert.equal(dryRunSnapshot.payload.counts.aggregatedRowCount, 0);
+  assert.equal(dryRunSnapshot.payload.counts.eventCount, 1550);
+  assert.equal(dryRunSnapshot.payload.counts.selectionHistoryCount, 0);
+  assert.equal(dryRunSnapshot.payload.counts.quarantineCount, 0);
+  assert.equal(dryRunSnapshot.payload.counts.noMatchCount, 636);
+  assert.equal(dryRunSnapshot.payload.humanReview.keepSeparateCount, 6);
+  assert.equal(dryRunSnapshot.payload.humanReview.pendingReviewCount, 0);
+  assert.equal(dryRunSnapshot.payload.approvals.ownerApproval, false);
+  assert.equal(dryRunSnapshot.payload.approvals.migrationApproval, false);
+  assert.equal(dryRunSnapshot.payload.safety.spreadsheetWriteCount, 0);
+  assert.equal(dryRunSnapshot.payload.safety.databaseWriteCount, 0);
+  assert.equal(dryRunSnapshot.payload.safety.stagingWriteCount, 0);
+  assert.equal(dryRunSnapshot.payload.safety.productionWriteCount, 0);
+  assert.equal(dryRunSnapshot.payload.safety.personalValuesPersistedCount, 0);
+  const publishedReceipt = JSON.stringify(dryRunSnapshot) + dryRunReport;
+  assert.doesNotMatch(publishedReceipt, /student_name|studentName|student_name_kana|phone|"email"|line_identifier|source_row_reference/iu);
+  assert.doesNotMatch(publishedReceipt, /"[^"\s]+@[^"\s]+"/u);
+  const hash = createHash("sha256").update(JSON.stringify(dryRunSnapshot.payload)).digest("hex");
+  assert.equal(hash, dryRunSnapshot.artifactHash);
+  const dictionaryHash = createHash("sha256").update(dictionaryRaw.replace(/\r\n/g, "\n")).digest("hex");
+  assert.equal(dictionaryHash, dryRunSnapshot.payload.contractHashes.dataDictionary);
+  assert.match(dryRunReport, /PASS_PRIVATE_READ_ONLY_DRY_RUN/);
 });
 
 test("candidate identity contract links automatically only on one conflict-free strong key", () => {

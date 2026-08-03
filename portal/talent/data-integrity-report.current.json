@@ -21,7 +21,7 @@
     "duplicateRowCount": 0,
     "humanReviewedDuplicateGroupCount": 6,
     "newIssueCount": 0,
-    "overallIntegrityRate": null,
+    "overallIntegrityRate": 100,
     "migrationEligible": false
   },
   "issueResolution": [
@@ -106,19 +106,29 @@
   },
   "newIssues": [],
   "overallIntegrity": {
-    "calculable": false,
+    "calculable": true,
     "workQueueCompleted": true,
-    "reasonCategories": [
-      "PRIVATE_DRY_RUN_NOT_EXECUTED"
-    ]
+    "overallIntegrityRate": 100,
+    "reasonCategories": []
   },
   "migration": {
     "eligible": false,
     "status": "MIGRATION_HOLD",
     "reasonCategories": [
-      "PRIVATE_READ_ONLY_DRY_RUN_AND_SNAPSHOT",
       "OWNER_AND_MIGRATION_APPROVAL"
-    ]
+    ],
+    "dryRun": {
+      "status": "PASS",
+      "snapshotId": "NOV-TALENT-DRYRUN-20260803-361F5F48-63B26584",
+      "migrationTargetCount": 636,
+      "candidateCandidateCount": 636,
+      "eventCount": 1550,
+      "selectionHistoryCount": 0,
+      "quarantineCount": 0,
+      "artifactHash": "7ea70656b76aad4bebb01fbeae0afbf26fc4e47fe0fd37039a4af89f894e74ba",
+      "ownerApproval": false,
+      "migrationApproval": false
+    }
   },
   "release": {
     "ready": true,
@@ -134,6 +144,12 @@
     "databaseWriteCount": 0,
     "productionWriteCount": 0,
     "workQueueTemporaryCompletionUsedAsEvidence": false,
-    "ownerHumanReviewCompletionAttested": true
+    "ownerHumanReviewCompletionAttested": true,
+    "privateReadOnlyDryRunCount": 1,
+    "normalizedPersonalValuePersistenceCount": 0,
+    "serviceRoleUseCount": 0,
+    "stagingWriteCount": 0,
+    "automaticMergeCount": 0,
+    "automaticDeleteCount": 0
   }
 }

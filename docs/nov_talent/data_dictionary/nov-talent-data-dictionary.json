@@ -407,8 +407,9 @@
       {
         "priority": 1,
         "code": "PRIVATE_READ_ONLY_DRY_RUN_AND_SNAPSHOT",
-        "status": "OPEN",
-        "requiredDecision": "正式Sourceをread-onlyで照合し、同一性結果、Quarantine、期待件数、hashを含むsealed Snapshotを生成してdry-run PASSを得る"
+        "status": "RESOLVED",
+        "resolution": "正式Source 2件をread-onlyで照合し、636対象行、Quarantine 0件、件数・Source hash・artifact hashを持つSnapshot候補でdry-run PASSを確認",
+        "artifact": "migration-dry-run-snapshot.candidate.json"
       },
       {
         "priority": 2,
@@ -427,12 +428,12 @@
     {
       "code": "DATA_CONSISTENCY_REVIEW",
       "name": "Data Consistency確認中",
-      "definition": "Migration契約とHuman Review安定ID判断は記録済み。実Source dry-run結果を確認している。"
+      "definition": "Migration契約、Human Review安定ID判断、正式Sourceのprivate read-only dry-runは確認済み。SnapshotのOwner受領とMigration別承認を待っている。"
     },
     {
       "code": "MIGRATION_HOLD",
       "name": "Migration保留",
-      "definition": "private dry-runとSnapshot、Owner・Migration承認が未完了のためMigrationを実行しない。重複候補6グループはdifferent_personとして確定し、別Candidateで維持する。"
+      "definition": "private dry-runとSnapshot候補はPASS済みだが、Owner受領とMigration別承認が未完了のためMigrationを実行しない。重複候補6グループはdifferent_personとして確定し、別Candidateで維持する。"
     }
   ],
   "currentPlatformStatus": "DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD",

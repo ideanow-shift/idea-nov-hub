@@ -33,9 +33,22 @@ null、空文字、空白文字だけの値は未入力として扱う。No.だ�
 - Migration先区分
 - Snapshot・受領・Rollback契約
 
-Human Review完了6グループは、Owner確認により `different_person / keep_separate` として安定IDへ記録した。pending reviewとQuarantineは0件である。実Snapshotとdry-runは未生成であるため、受領条件が満たされるまでは `MIGRATION_HOLD` を維持する。
+Human Review完了6グループは、Owner確認により `different_person / keep_separate` として安定IDへ記録した。pending reviewと当該グループ由来Quarantineは0件である。正式Source 2件のprivate read-only dry-runは636対象行、Quarantine 0件でPASSし、件数とHashだけを持つSnapshot候補を生成済みである。OwnerによるSnapshot受領とMigration実行の別承認が未完了のため、`MIGRATION_HOLD`を維持する。
 
-## 5. 安全境界
+## 5. Private read-only dry-run
+
+- Source: 正式27卒・28卒接触Sourceの2件だけ
+- Migration対象: 27卒528行、28卒108行、合計636行
+- 対象外テンプレート: 27卒13行、28卒418行
+- Candidate候補: 636件（自動集約0件）
+- Event / Contact候補: 1,550件
+- Selection History候補: 0件
+- Quarantine: 0件
+- Snapshot候補: `migration-dry-run-snapshot.candidate.json`
+
+個人値はメモリ内だけで処理し永続化していない。Source更新時はHashが変わるため、同じSnapshot候補を再利用しない。
+
+## 6. 安全境界
 
 - Spreadsheetを変更しない
 - DB・Productionへ書き込まない

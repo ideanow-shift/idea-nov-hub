@@ -25,6 +25,9 @@ AI、CSV、UI、DB、Platformは機械可読正本に存在する値だけを参
 - Migration契約4件: 仕様確定
 - HOLD理由: Migration実行前条件が未完了
 
-Candidate同一性、Human Review証拠構造、移行先区分、Snapshot・受領・Rollbackの仕様は確定した。重複候補6グループはOwner確認により `different_person / keep_separate` として安定IDへ記録済みで、pending reviewとQuarantineは0件である。HOLD解除には、private read-only dry-runとSnapshot生成、OwnerおよびMigration実行の別承認が必要である。
+Candidate同一性、Human Review証拠構造、移行先区分、Snapshot・受領・Rollbackの仕様は確定した。重複候補6グループはOwner確認により `different_person / keep_separate` として安定IDへ記録済みである。正式Source 2件のprivate read-only dry-runは636対象行、Quarantine 0件でPASSし、Snapshot候補を生成済みである。HOLD解除には、OwnerによるSnapshot受領とMigration実行の別承認が必要である。
+
+- Dry-run report: `migration-dry-run-report.md`
+- Snapshot candidate: `migration-dry-run-snapshot.candidate.json`
 
 本ディレクトリの作成・更新だけではSpreadsheet、DB、Productionを変更しない。

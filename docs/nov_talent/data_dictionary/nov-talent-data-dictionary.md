@@ -157,7 +157,7 @@ Migration対象行の件数定義と4つのMigration契約は確定済みであ�
 
 | 優先 | 正式コード | 残件 |
 |---:|---|---|
-| 1 | `PRIVATE_READ_ONLY_DRY_RUN_AND_SNAPSHOT` | 正式Sourceのprivate read-only dry-runを行い、同一性結果、Quarantine、件数、hashを持つsealed Snapshotを生成する。 |
+| 1 | `PRIVATE_READ_ONLY_DRY_RUN_AND_SNAPSHOT` | `RESOLVED`。正式Source 2件、636対象行、Quarantine 0件でdry-run PASSし、件数・HashだけのSnapshot候補を生成済み。 |
 | 2 | `OWNER_AND_MIGRATION_APPROVAL` | OwnerがSnapshotを受領し、Migration実行を別gateで明示承認する。 |
 
 ## 11. Platform Status・Release Status
@@ -169,8 +169,8 @@ Migration対象行の件数定義と4つのMigration契約は確定済みであ�
 | コード | 正式名称 | 定義 |
 |---|---|---|
 | `DATA_INTEGRITY_COMPLETED` | Data Integrity完了 | Human Review Queue 17/17終了、Work Queue残件0。 |
-| `DATA_CONSISTENCY_REVIEW` | Data Consistency確認中 | Migration契約とHuman Review安定ID判断は記録済み。実Source dry-run結果を確認中。 |
-| `MIGRATION_HOLD` | Migration保留 | private dry-runとSnapshot、Owner・Migration承認が未完了のためMigrationを実行しない。重複候補6グループは `different_person` として確定し、別Candidateで維持する。 |
+| `DATA_CONSISTENCY_REVIEW` | Data Consistency確認中 | Migration契約、Human Review安定ID判断、正式Sourceのprivate read-only dry-runは確認済み。SnapshotのOwner受領とMigration別承認を待っている。 |
+| `MIGRATION_HOLD` | Migration保留 | private dry-runとSnapshot候補はPASS済みだが、Owner受領とMigration別承認が未完了のためMigrationを実行しない。重複候補6グループは `different_person` として確定し、別Candidateで維持する。 |
 | `RELEASE_READY` | Release Ready | Data Integrity Work Queue終了成果物を公開可能。Migration実行可を意味しない。 |
 
 ## 12. Role・Permission

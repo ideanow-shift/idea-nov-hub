@@ -1,0 +1,90 @@
+{
+  "artifactHash": "7ea70656b76aad4bebb01fbeae0afbf26fc4e47fe0fd37039a4af89f894e74ba",
+  "artifactHashScope": "SHA-256 of compact JSON.stringify(payload) with insertion order preserved",
+  "payload": {
+    "snapshotId": "NOV-TALENT-DRYRUN-20260803-361F5F48-63B26584",
+    "generatedAt": "2026-08-03T16:24:42.2391608+09:00",
+    "mode": "PRIVATE_READ_ONLY",
+    "validationResult": "PASS",
+    "schemaVersion": "nov-talent-migration-snapshot-v1",
+    "dataDictionaryVersion": "1.2.0",
+    "sources": [
+      {
+        "sourceCode": "OFFICIAL_SOURCE_27_CONTACTS",
+        "spreadsheetId": "1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM",
+        "sheetId": 1142586954,
+        "sourceType": "CONTACTS_27",
+        "sourceRowCount": 541,
+        "migrationTargetCount": 528,
+        "excludedTemplateCount": 13,
+        "sourceHash": "361f5f4822a0215e580347462ba37d5a7fed405053276cdd6f1a4cf78487fd88"
+      },
+      {
+        "sourceCode": "OFFICIAL_SOURCE_28_CONTACTS",
+        "spreadsheetId": "1OwFCnRYfTOWGkUGhykURibUD5Ss06msHoaZwYdopkEA",
+        "sheetId": 1279221745,
+        "sourceType": "CONTACTS_28",
+        "sourceRowCount": 526,
+        "migrationTargetCount": 108,
+        "excludedTemplateCount": 418,
+        "sourceHash": "63b265848527b28e53b5fe220eff4e127e13802a1eccd637a6c65cfa0a259430"
+      }
+    ],
+    "counts": {
+      "sourceRowCount": 1067,
+      "migrationTargetCount": 636,
+      "excludedTemplateCount": 431,
+      "candidateCandidateCount": 636,
+      "newCandidateCount": 636,
+      "aggregatedRowCount": 0,
+      "eventCount": 1550,
+      "selectionHistoryCount": 0,
+      "quarantineCount": 0,
+      "exactMatchCount": 0,
+      "probableMatchCount": 0,
+      "ambiguousCount": 0,
+      "conflictCount": 0,
+      "noMatchCount": 636
+    },
+    "humanReview": {
+      "evidenceCount": 17,
+      "duplicateGroupCount": 6,
+      "differentPersonCount": 6,
+      "keepSeparateCount": 6,
+      "pendingReviewCount": 0,
+      "quarantineCount": 0,
+      "applied": true
+    },
+    "contractHashes": {
+      "dataDictionary": "b306c358eb574260403ae5508a139f6fd52ce25ca13c402fa5ddaed6bc2f4a05",
+      "candidateIdentity": "3d0327a41ed3ff19951bc4c9efc9e343634041de4dafaa00409f89305979a3f9",
+      "humanReviewEvidence": "75b99334bb36b4f6cf89d370fd810f781f44cf5049ff881bba662d9805c7a2e7",
+      "migrationTargetMapping": "4cdc39481b9af68d086f1840113aafea2538f03f6200faaf79e8d5319eec86f3"
+    },
+    "safety": {
+      "officialSourceOnly": true,
+      "legacyCopyReferenceCount": 0,
+      "spreadsheetWriteCount": 0,
+      "databaseWriteCount": 0,
+      "stagingWriteCount": 0,
+      "productionWriteCount": 0,
+      "serviceRoleUseCount": 0,
+      "automaticMergeCount": 0,
+      "automaticDeleteCount": 0,
+      "personalValuesPersistedCount": 0
+    },
+    "approvals": {
+      "ownerApproval": false,
+      "migrationApproval": false
+    },
+    "rollbackConditions": [
+      "COUNT_MISMATCH",
+      "HASH_MISMATCH",
+      "CANDIDATE_DUPLICATE_INCREASE",
+      "REQUIRED_FIELD_MISSING",
+      "SOURCE_LINEAGE_MISMATCH",
+      "PERMISSION_RLS_MISMATCH",
+      "MIGRATION_PARTIAL_FAILURE"
+    ]
+  }
+}

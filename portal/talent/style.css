@@ -968,7 +968,8 @@ h3 { margin: 0; font-size: 1rem; }
 }
 .profile-form-grid .profile-wide { grid-column: 1 / -1; }
 .profile-form-grid input,
-.profile-form-grid select {
+.profile-form-grid select,
+.profile-form-grid textarea {
   width: 100%;
   min-width: 0;
   height: 42px;
@@ -980,7 +981,8 @@ h3 { margin: 0; font-size: 1rem; }
   font: inherit;
 }
 .profile-form-grid input:focus,
-.profile-form-grid select:focus {
+.profile-form-grid select:focus,
+.profile-form-grid textarea:focus {
   border-color: var(--accent-strong);
   outline: 3px solid rgba(232, 180, 184, 0.32);
 }

@@ -58,7 +58,7 @@ test("Mock Runtime exposes every required safe state", async () => {
   }
 });
 
-test("Published shell uses the approved read-only Staging runtime and retains Mock fallback", async () => {
+test("Published shell uses the approved server-side Staging runtime and retains Mock fallback", async () => {
   const [html, app, config, css] = await Promise.all([
     readFile(new URL("index.html", root), "utf8"),
     readFile(new URL("app.mjs", root), "utf8"),
@@ -76,7 +76,7 @@ test("Published shell uses the approved read-only Staging runtime and retains Mo
   assert.match(config, /networkEnabled: true/);
   assert.match(config, /readonlyApiEnabled: true/);
   assert.match(config, /stagingCandidateDataset: true/);
-  assert.match(config, /writeEnabled: false/);
+  assert.match(config, /writeEnabled: true/);
   assert.doesNotMatch(`${app}\n${config}`, /service[_-]?role|SUPABASE_SERVICE_ROLE_KEY|createClient/i);
   assert.match(css, /\.sprint1-separated/);
   assert.match(css, /@media \(max-width: 520px\)/);

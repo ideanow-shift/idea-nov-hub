@@ -6,6 +6,7 @@ import {
 import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260726-talent-analytics-action-guide-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
+import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260804-staging-write-1";
 import {
   buildCandidateHistorySummary,
   buildEventRoiView,
@@ -428,6 +429,16 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-profile-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     saveStudentProfile({ globalObject, documentObject });
+  });
+  documentObject.getElementById("student-profile-deactivate")?.addEventListener("click", async () => {
+    const reason = documentObject.getElementById("profile-change-reason")?.value?.trim();
+    if (!profileDialogStudent?.recordId || !reason || !globalObject.confirm?.("この候補者を無効化しますか？履歴から復元できます。")) return;
+    const client = createStagingCandidateClient({ globalObject });
+    const result = await client?.deactivate(profileDialogStudent.recordId, { expectedVersion: profileDialogStudent.profileVersion, reason });
+    if (!result?.ok) return setProfileStatus(documentObject, result?.category === "version_conflict" ? "他の更新があります。再読み込みしてください" : "無効化できませんでした", "stopped");
+    documentObject.getElementById("student-profile-dialog")?.close?.();
+    profileDialogStudent = null; studentWorkspaceData = null;
+    await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
   });
   documentObject.getElementById("summary-load-button")?.addEventListener("click", () => {
     loadTalentStudentWorkspace({ globalObject, documentObject });
@@ -2230,7 +2241,7 @@ function renderStudentDetail(documentObject, student) {
   setText(documentObject, "student-detail-state", student.classificationLabel);
   const state = documentObject.getElementById("student-detail-state");
   if (state) state.dataset.state = student.classification;
-  const editable = Boolean(student.applicationNo)
+  const editable = (stagingWriteEnabled(globalThis) && Boolean(student.recordId)) || Boolean(student.applicationNo)
     || (student.mappingStatus === "UNMAPPED" && Boolean(student.recordId));
   const editButton = documentObject.getElementById("student-edit-open");
   if (editButton) {
@@ -2248,7 +2259,7 @@ function renderStudentDetail(documentObject, student) {
   }
   const auditButton = documentObject.getElementById("student-audit-open");
   if (auditButton) {
-    const auditable = Boolean(student.applicationNo || student.supplementVersion);
+    const auditable = Boolean(student.recordId);
     auditButton.disabled = !auditable;
     auditButton.setAttribute("aria-disabled", String(!auditable));
     auditButton.title = auditable ? "情報の変更履歴を表示" : "編集可能な情報がありません";
@@ -2467,7 +2478,7 @@ const PROFILE_FIELD_LABELS = Object.freeze({
 });
 
 async function openStudentAuditDialog({ globalObject, documentObject, student }) {
-  if (!student?.applicationNo && !student?.supplementVersion) return;
+  if (!student?.recordId) return;
   auditDialogStudent = student;
   const status = documentObject.getElementById("student-audit-status");
   const body = documentObject.getElementById("student-audit-body");
@@ -2477,25 +2488,12 @@ async function openStudentAuditDialog({ globalObject, documentObject, student })
   }
   if (body) body.replaceChildren();
   documentObject.getElementById("student-audit-dialog")?.showModal?.();
-  const executor = student.applicationNo
-    ? createTalentStudentProfileAuditExact1Executor({
-      applicationNo: student.applicationNo,
-      globalObject,
-      hubSessionHelper: globalObject.NovHubSession,
-      hubContract: globalObject.NOV_HUB_SESSION_CONTRACT || NOV_HUB_SESSION_CONTRACT
-    })
-    : createTalentStagingSupplementAuditExact1Executor({
-      stagingRecordId: student.recordId,
-      globalObject,
-      hubSessionHelper: globalObject.NovHubSession,
-      hubContract: globalObject.NOV_HUB_SESSION_CONTRACT || NOV_HUB_SESSION_CONTRACT
-    });
-  const result = executor ? await executor.run() : null;
+  const result = await createStagingCandidateClient({ globalObject })?.audit(student.recordId);
   if (!auditDialogStudent || auditDialogStudent.recordId !== student.recordId) return;
-  if (result?.okBoolean !== true) {
+  if (result?.ok !== true) {
     if (status) {
       status.dataset.state = "stopped";
-      status.textContent = result?.stopCategory === "auth_required"
+      status.textContent = result?.category === "auth_required"
         ? "HUBへ再ログインしてください"
         : "変更履歴を取得できません";
     }
@@ -2512,11 +2510,11 @@ async function openStudentAuditDialog({ globalObject, documentObject, student })
       action.scope = "row";
       action.textContent = entry.action === "CREATE" ? "作成" : "更新";
       const fields = documentObject.createElement("td");
-      fields.textContent = entry.changedFields.map((field) => PROFILE_FIELD_LABELS[field] || "変更項目").join("、");
+      fields.textContent = (entry.changed_fields || []).map((field) => PROFILE_FIELD_LABELS[field] || "候補者情報").join("、");
       const version = documentObject.createElement("td");
-      version.textContent = `v${entry.profileVersion || entry.supplementVersion}`;
+      version.textContent = `v${entry.candidate_version}`;
       const occurredAt = documentObject.createElement("td");
-      occurredAt.textContent = formatAuditDate(entry.occurredAt);
+      occurredAt.textContent = formatAuditDate(entry.occurred_at);
       row.append(action, fields, version, occurredAt);
       return row;
     }));
@@ -2535,19 +2533,21 @@ function formatAuditDate(value) {
 function openStudentProfileDialog({ documentObject, student, focusField = "profile-display-name" }) {
   profileDialogStudent = student;
   const stagingEdit = Boolean(student && !student.applicationNo && student.recordId);
-  setText(documentObject, "student-profile-dialog-title", stagingEdit ? "staging補足情報を編集" : student ? "学生情報を編集" : "学生を追加");
+  setText(documentObject, "student-profile-dialog-title", student ? "候補者情報を編集" : "候補者を追加");
   const fields = {
+    "profile-graduation-year": student?.graduationYear || 2028,
     "profile-display-name": student?.displayName || "",
     "profile-kana": student?.kana || "",
     "profile-school": student?.school || "",
     "profile-phone": student?.phone || "",
     "profile-email": student?.email || "",
-    "profile-store": student?.preferredStore || "",
-    "profile-offer-date": student?.offerDate || "",
-    "profile-expected-join-date": student?.expectedJoinDate || "",
-    "profile-planned-store": student?.plannedStore || "",
-    "profile-status": student?.statusCode || "CONTACT",
-    "profile-next-action": student?.nextActionAt || "",
+    "profile-faculty": student?.faculty || "",
+    "profile-line": student?.lineIdentifier || "",
+    "profile-source": student?.acquisitionSource || "",
+    "profile-assignee": student?.assignee || "",
+    "profile-notes": student?.notes || "",
+    "profile-status": student?.statusCode || "LINE_REGISTERED",
+    "profile-change-reason": "",
   };
   Object.entries(fields).forEach(([id, value]) => {
     const input = documentObject.getElementById(id);
@@ -2557,57 +2557,79 @@ function openStudentProfileDialog({ documentObject, student, focusField = "profi
   if (status) {
     status.dataset.state = "idle";
     status.textContent = student
-      ? stagingEdit ? "staging補足情報を確認して保存してください" : "変更内容を確認して保存してください"
+      ? "変更内容と更新理由を確認して保存してください"
       : "必要事項を入力してください";
   }
   documentObject.getElementById("student-profile-dialog")?.showModal?.();
+  const deactivate = documentObject.getElementById("student-profile-deactivate");
+  if (deactivate) deactivate.hidden = !student;
   documentObject.getElementById(focusField)?.focus?.();
 }
 
 async function saveStudentProfile({ globalObject, documentObject }) {
   const form = documentObject.getElementById("student-profile-form");
   if (!form?.reportValidity?.()) return;
+  const payload = {
+    expectedVersion: profileDialogStudent?.profileVersion || undefined,
+    graduationYear: Number(documentObject.getElementById("profile-graduation-year")?.value),
+    displayName: documentObject.getElementById("profile-display-name")?.value || "",
+    kana: documentObject.getElementById("profile-kana")?.value || "",
+    school: documentObject.getElementById("profile-school")?.value || "",
+    faculty: documentObject.getElementById("profile-faculty")?.value || "",
+    phone: documentObject.getElementById("profile-phone")?.value || "",
+    email: documentObject.getElementById("profile-email")?.value || "",
+    lineIdentifier: documentObject.getElementById("profile-line")?.value || "",
+    currentStatus: documentObject.getElementById("profile-status")?.value || "",
+    acquisitionSource: documentObject.getElementById("profile-source")?.value || "",
+    assignedTo: documentObject.getElementById("profile-assignee")?.value || "",
+    notes: documentObject.getElementById("profile-notes")?.value || "",
+    changeReason: documentObject.getElementById("profile-change-reason")?.value || "",
+  };
+  const stagingEdit = Boolean(profileDialogStudent?.recordId);
+  if (!globalObject.confirm?.(stagingEdit
+    ? "入力内容で候補者情報を更新します。よろしいですか？"
+    : "入力内容で候補者を登録します。よろしいですか？")) return;
   const saveButton = documentObject.getElementById("student-profile-save");
   const status = documentObject.getElementById("student-profile-status");
   if (saveButton) {
     saveButton.disabled = true;
     saveButton.setAttribute("aria-busy", "true");
   }
-  const payload = {
-    applicationNo: profileDialogStudent?.applicationNo || null,
-    expectedVersion: profileDialogStudent?.profileVersion || 0,
-    displayName: documentObject.getElementById("profile-display-name")?.value || "",
-    kana: documentObject.getElementById("profile-kana")?.value || "",
-    school: documentObject.getElementById("profile-school")?.value || "",
-    phone: documentObject.getElementById("profile-phone")?.value || "",
-    email: documentObject.getElementById("profile-email")?.value || "",
-    preferredStore: documentObject.getElementById("profile-store")?.value || "",
-    currentStatus: documentObject.getElementById("profile-status")?.value || "CONTACT",
-    nextActionAt: documentObject.getElementById("profile-next-action")?.value || "",
-    offerDate: documentObject.getElementById("profile-offer-date")?.value || "",
-    expectedJoinDate: documentObject.getElementById("profile-expected-join-date")?.value || "",
-    plannedStore: documentObject.getElementById("profile-planned-store")?.value || "",
-  };
-  const stagingEdit = Boolean(profileDialogStudent && !profileDialogStudent.applicationNo && profileDialogStudent.recordId);
+  const client = createStagingCandidateClient({ globalObject });
+  const duplicateResult = await client?.checkDuplicates({ ...payload, candidateId: profileDialogStudent?.recordId || null });
+  if (!duplicateResult?.ok) {
+    if (saveButton) {
+      saveButton.disabled = false;
+      saveButton.setAttribute("aria-busy", "false");
+    }
+    if (status) {
+      status.dataset.state = "stopped";
+      status.textContent = "重複候補を確認できませんでした。保存は行っていません。";
+    }
+    return;
+  }
+  const duplicateCount = Number(duplicateResult.data?.matchCount || 0);
+  if (duplicateCount > 0 && !globalObject.confirm?.(`重複候補が${duplicateCount}件あります。自動統合せず、別候補者として保存しますか？`)) {
+    if (saveButton) {
+      saveButton.disabled = false;
+      saveButton.setAttribute("aria-busy", "false");
+    }
+    if (status) {
+      status.dataset.state = "idle";
+      status.textContent = "重複候補を確認するため保存を中止しました。";
+    }
+    return;
+  }
   if (status) {
     status.dataset.state = "loading";
-    status.textContent = stagingEdit ? "staging補足情報を保存しています" : "正本プロフィールへ保存しています";
+    status.textContent = stagingEdit ? "候補者情報を更新しています" : "候補者を登録しています";
   }
-  const controller = stagingEdit
-    ? createTalentStagingSupplementController({ globalObject })
-    : createTalentStudentProfileController({ globalObject });
-  if (stagingEdit) {
-    delete payload.applicationNo;
-    delete payload.profileVersion;
-    payload.stagingRecordId = profileDialogStudent.recordId;
-    payload.expectedVersion = profileDialogStudent.supplementVersion || 0;
-  }
-  const result = await controller.save(payload);
+  const result = stagingEdit ? await client?.update(profileDialogStudent.recordId, payload) : await client?.create(payload);
   if (saveButton) {
     saveButton.disabled = false;
     saveButton.setAttribute("aria-busy", "false");
   }
-  if (!result.ok) {
+  if (!result?.ok) {
     if (status) {
       status.dataset.state = "stopped";
       status.textContent = result.category === "auth_required"
@@ -2618,12 +2640,10 @@ async function saveStudentProfile({ globalObject, documentObject }) {
     }
     return;
   }
-  pendingSelectedApplicationNo = result.data.applicationNo || null;
+  pendingSelectedApplicationNo = null;
   if (status) {
     status.dataset.state = "ready";
-    status.textContent = stagingEdit
-      ? "staging補足情報を保存しました"
-      : result.data.operation === "CREATE" ? "学生を追加しました" : "学生情報を更新しました";
+    status.textContent = stagingEdit ? "候補者情報を更新しました" : "候補者を追加しました";
   }
   documentObject.getElementById("student-profile-dialog")?.close?.();
   profileDialogStudent = null;
@@ -2770,6 +2790,11 @@ function setStatus(documentObject, state, text) {
   }
 }
 
+function setProfileStatus(documentObject, text, state = "idle") {
+  const status = documentObject.getElementById("student-profile-status");
+  if (status) { status.textContent = text; status.dataset.state = state; }
+}
+
 function runtimeMode(globalObject = globalThis) {
   return String(globalObject?.NOV_TALENT_CONFIG?.runtimeMode || "mock") === "staging" ? "staging" : "mock";
 }
@@ -2844,6 +2869,7 @@ function safeMessage(category, requestCount = 0) {
 function initializeTalentApp() {
   const authorization = installNovTalentAuthGuard();
   if (!authorization.allowed) return authorization;
+  enableStagingWriteControls(globalThis.document, authorization.access?.profile);
   initializeTalentStudentWorkspace();
   initializeTalentNavigation();
   const summaryControl = initializeTalentSummaryControl();
@@ -2851,6 +2877,17 @@ function initializeTalentApp() {
   loadTalentStudentWorkspace();
   summaryControl.run?.();
   return authorization;
+}
+
+function enableStagingWriteControls(documentObject, accessProfile) {
+  if (!stagingWriteEnabled(globalThis)) return;
+  const canWrite = ["full", "recruiter"].includes(accessProfile);
+  for (const id of ["student-add-open", "student-edit-open"]) {
+    const button = documentObject.getElementById(id);
+    if (button && canWrite) { button.hidden = false; button.classList.remove("sprint1-mock-write"); }
+  }
+  const audit = documentObject.getElementById("student-audit-open");
+  if (audit) { audit.hidden = false; audit.classList.remove("sprint1-mock-write"); }
 }
 
 function renderTodayTasks(documentObject, tasks) {

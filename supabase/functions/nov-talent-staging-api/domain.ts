@@ -1,8 +1,10 @@
 export const STATUS_LABELS: Record<string, string> = Object.freeze({
-  LINE_REGISTERED: "LINE登録", SALON_TOUR_PLANNED: "サロン見学［予定］",
-  SALON_TOUR_COMPLETED: "サロン見学［済］", AWAITING_INTERVIEW: "面接待ち",
-  OFFERED: "内定", OFFERED_ELSEWHERE: "他社内定", DROPPED: "離脱",
-  UNDER_REVIEW: "合否検討中", REJECTED: "不採用"
+  LINE_REGISTERED: "LINE登録", APPLICATION_RECEIVED: "応募受付",
+  SALON_TOUR_PLANNED: "サロン見学［予定］", SALON_TOUR_COMPLETED: "サロン見学［済］",
+  INTERVIEW_PLANNED: "面接［予定］", INTERVIEW_COMPLETED: "面接［済］",
+  UNDER_REVIEW: "合否検討中", OFFERED: "内定", OFFER_ACCEPTED: "内定承諾",
+  EXPECTED_JOIN: "入社予定", OFFERED_ELSEWHERE: "他社内定",
+  WITHDRAWN: "辞退・離脱", REJECTED: "不採用"
 });
 
 const ROLE_GROUPS = Object.freeze({
@@ -38,6 +40,61 @@ export function cleanCandidate(input: unknown) {
     acquisitionSource: clean(value.acquisitionSource, 180), assignedTo: clean(value.assignedTo, 120),
     notes: clean(value.notes, 4000), expectedVersion, reason
   });
+}
+
+const EVENT_CODES = new Set([
+  "CONTACT_RECORDED", "LINE_REGISTERED", "SALON_TOUR_PLANNED",
+  "SALON_TOUR_COMPLETED", "INTERVIEW_PLANNED", "INTERVIEW_COMPLETED"
+]);
+const SELECTION_CODES = new Set([
+  "APPLICATION_RECEIVED", "SALON_TOUR_PLANNED", "SALON_TOUR_COMPLETED",
+  "INTERVIEW_PLANNED", "INTERVIEW_COMPLETED", "UNDER_REVIEW", "OFFERED",
+  "OFFER_ACCEPTED", "OFFERED_ELSEWHERE", "WITHDRAWN", "REJECTED"
+]);
+const ACTION_CODES = new Set(["FOLLOW_UP", "SALON_TOUR_FOLLOW_UP", "INTERVIEW_FOLLOW_UP", "OFFER_FOLLOW_UP"]);
+
+export function cleanActivity(input: unknown) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const value = input as Record<string, unknown>;
+  const entityType = String(value.entityType || "");
+  const operation = String(value.operation || "");
+  const candidateId = clean(value.candidateId, 40);
+  const entityId = clean(value.entityId, 40);
+  const expectedVersion = value.expectedVersion === undefined || value.expectedVersion === null
+    ? null : Number(value.expectedVersion);
+  const reason = clean(value.reason, 500);
+  if (!candidateId || !reason || !["EVENT", "SELECTION", "NEXT_ACTION"].includes(entityType)
+    || !["CREATE", "UPDATE", "COMPLETE", "DEACTIVATE", "RESTORE"].includes(operation)
+    || (operation !== "CREATE" && (!entityId || !Number.isInteger(expectedVersion) || Number(expectedVersion) < 1))) return null;
+  const code = String(value.code || "");
+  const allowedCodes = entityType === "EVENT" ? EVENT_CODES : entityType === "SELECTION" ? SELECTION_CODES : ACTION_CODES;
+  if (["CREATE", "UPDATE"].includes(operation) && !allowedCodes.has(code)) return null;
+  const date = clean(value.date, 10);
+  if (entityType !== "NEXT_ACTION" && ["CREATE", "UPDATE"].includes(operation) && !/^\d{4}-\d{2}-\d{2}$/u.test(date || "")) return null;
+  if (entityType === "NEXT_ACTION" && date && !/^\d{4}-\d{2}-\d{2}$/u.test(date)) return null;
+  const state = entityType === "EVENT" ? String(value.state || "COMPLETED")
+    : entityType === "NEXT_ACTION" ? String(value.state || "OPEN") : null;
+  if (entityType === "EVENT" && !["PLANNED", "COMPLETED"].includes(state || "")) return null;
+  if (entityType === "NEXT_ACTION" && !["OPEN", "COMPLETED", "CANCELLED"].includes(state || "")) return null;
+  return Object.freeze({
+    entityType, operation, candidateId, entityId, expectedVersion, reason, code, date,
+    name: clean(value.name, 180), state, content: clean(value.content, 1000),
+    assignedTo: clean(value.assignedTo, 120), notes: clean(value.notes, 2000)
+  });
+}
+
+export function cleanSourceFactLink(input: unknown) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const value = input as Record<string, unknown>;
+  const candidateId = clean(value.candidateId, 40);
+  const sourceType = String(value.sourceType || "");
+  const sourceRowNo = Number(value.sourceRowNo);
+  const factCode = String(value.factCode || "");
+  const expectedVersion = Number(value.expectedVersion);
+  const reason = clean(value.reason, 500);
+  if (!candidateId || sourceType !== "ENTRIES_27" || factCode !== "INTERVIEW_COMPLETED" || !reason
+    || !Number.isInteger(sourceRowNo) || sourceRowNo < 1 || !Number.isInteger(expectedVersion) || expectedVersion < 1) return null;
+  return Object.freeze({ candidateId, sourceType, sourceRowNo, factCode, expectedVersion, reason });
 }
 
 function clean(value: unknown, max: number) {

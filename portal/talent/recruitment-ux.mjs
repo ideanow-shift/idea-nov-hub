@@ -1,20 +1,33 @@
-const FUNNEL_METRICS = Object.freeze([
-  ["entries", "エントリー", "CONTACT"],
-  ["salonTours", "見学", "SALON_TOUR"],
-  ["interviews", "面接", "INTERVIEW"],
-  ["offers", "内定", "OFFER"],
-  ["accepted", "承諾", "PASSED"],
-  ["expectedJoiners", "入社予定", "EXPECTED_JOIN"]
+const DASHBOARD_METRICS = Object.freeze([
+  ["candidateCount", "候補者"],
+  ["graduation2027", "27卒"],
+  ["graduation2028", "28卒"],
+  ["lineRegistrations", "LINE登録"],
+  ["entries", "応募"],
+  ["salonTourPlanned", "見学予定"],
+  ["salonTourCompleted", "見学済み"],
+  ["interviewPlanned", "面接予定"],
+  ["interviewHistory", "面接履歴"],
+  ["offers", "内定"],
+  ["offeredElsewhere", "他社内定"],
+  ["withdrawals", "辞退"],
+  ["rejected", "不採用"],
+  ["schoolCount", "学校"],
+  ["fairCount", "フェア"],
+  ["eventCount", "Event / Contact"]
 ]);
 
 export function buildRecruitmentDashboardDecision(workspace, tasks = []) {
   const students = Array.isArray(workspace?.students) ? workspace.students : [];
-  const metrics = FUNNEL_METRICS.map(([key, label, statusCode]) => Object.freeze({
-    key, label, value: students.filter((student) => student?.statusCode === statusCode).length
+  const dashboard = workspace?.dashboard || {};
+  const availability = dashboard?.availability || {};
+  const metrics = DASHBOARD_METRICS.map(([key, label]) => Object.freeze({
+    key, label, value: availability[key] === true && Number.isInteger(dashboard[key])
+      ? dashboard[key] : "集計準備中"
   }));
   const overdueCount = (Array.isArray(tasks) ? tasks : []).filter((task) => task?.priority === "高").length;
   const reviewCount = students.filter((student) => ["OWNER_REVIEW", "QUARANTINE"].includes(student?.classification)).length;
-  const offerCount = metrics.find((metric) => metric.key === "offers")?.value || 0;
+  const offerCount = availability.offers === true ? Number(dashboard.offers || 0) : 0;
   let category = "STEADY_FOLLOW_UP";
   let title = "採用状況は安定しています。予定されたフォローから進めてください";
   let copy = "期限の近い候補者を確認し、次回アクションを更新します。";
@@ -26,6 +39,10 @@ export function buildRecruitmentDashboardDecision(workspace, tasks = []) {
     category = "REVIEW_FIRST";
     title = `要確認・隔離が${reviewCount}件あります`;
     copy = "候補者一覧で確認区分を絞り込み、判断できる行から整理してください。";
+  } else if (Object.values(availability).some((value) => value !== true)) {
+    category = "AGGREGATION_PREPARING";
+    title = "一部指標は入力準備中です";
+    copy = "接続済みの候補者・履歴は実数で表示しています。未入力の予定日は日常運用で補完してください。";
   } else if (offerCount > 0) {
     category = "OFFER_FOLLOW_UP";
     title = `内定中の候補者が${offerCount}件います`;
@@ -33,30 +50,32 @@ export function buildRecruitmentDashboardDecision(workspace, tasks = []) {
   } else if (students.length === 0) {
     category = "EMPTY";
     title = "候補者データはまだありません";
-    copy = "Mockデータの状態を確認してから採用活動を開始してください。";
+    copy = "Staging Candidate Datasetの状態を確認してから採用活動を開始してください。";
   }
   return Object.freeze({ category, title, copy, metrics: Object.freeze(metrics), rawValuesIncluded: false });
 }
 
 export function buildRecruitmentTaskBoard(tasks) {
   return Object.freeze((Array.isArray(tasks) ? tasks : []).slice(0, 5).map((task, index) => Object.freeze({
-    ...task, order: index + 1, source: "EXISTING_MOCK_DATA"
+    ...task, order: index + 1, source: task.source || "STAGING_NEXT_ACTION"
   })));
 }
 
 export function buildEventRoiView(workspace) {
-  const students = Array.isArray(workspace?.students) ? workspace.students : [];
-  const count = (code) => students.filter((student) => student?.statusCode === code).length;
-  const contacts = students.length;
+  const dashboard = workspace?.dashboard || {};
+  const availability = dashboard?.availability || {};
+  const contacts = Number(dashboard.candidateCount || 0);
   const rate = (value) => contacts ? Math.round((value / contacts) * 100) : 0;
+  const metric = (key, label, countKey) => Object.freeze({ key, label,
+    value: availability[countKey] === true ? `${rate(Number(dashboard[countKey] || 0))}%` : "集計準備中" });
   return Object.freeze({
     category: "ROI_UNAVAILABLE_COST_MISSING",
     title: "費用未登録のため、金額ROIは算出していません",
     copy: "既存データから確認できる接点後の進捗率を表示します。費用や成果は推測しません。",
     metrics: Object.freeze([
-      Object.freeze({ key: "entryRate", label: "エントリー到達率", value: `${rate(count("CONTACT"))}%` }),
-      Object.freeze({ key: "offerRate", label: "内定到達率", value: `${rate(count("OFFER"))}%` }),
-      Object.freeze({ key: "acceptedRate", label: "承諾到達率", value: `${rate(count("PASSED"))}%` })
+      metric("entryRate", "応募到達率", "entries"),
+      metric("offerRate", "内定到達率", "offers"),
+      Object.freeze({ key: "acceptedRate", label: "承諾到達率", value: "集計準備中" })
     ]),
     costAvailable: false, estimated: false
   });

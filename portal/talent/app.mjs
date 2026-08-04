@@ -7,14 +7,15 @@ import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnaly
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
 import { handleNovHubSessionAuthFailure, NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
-import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260804-staging-write-1";
+import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260804-recruiting-dashboard-final-1";
 import {
   buildCandidateHistorySummary,
   buildEventRoiView,
   buildMockRuntimePresentation,
   buildRecruitmentDashboardDecision,
   buildRecruitmentTaskBoard
-} from "./recruitment-ux.mjs?v=20260804-staging-auth-incident-1";
+} from "./recruitment-ux.mjs?v=20260804-recruiting-dashboard-final-1";
+import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs?v=20260804-recruiting-dashboard-completion-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -29,6 +30,7 @@ let activeHistoricalReviewProposal = null;
 let activeHistoricalReviewStudent = null;
 let profileDialogStudent = null;
 let auditDialogStudent = null;
+let activityDialogContext = null;
 let pendingSelectedApplicationNo = null;
 
 const PRIMARY_TABS = Object.freeze(["recruitment"]);
@@ -452,9 +454,7 @@ export function initializeTalentStudentWorkspace({
   });
   documentObject.getElementById("student-next-action-open")?.addEventListener("click", () => {
     const student = studentWorkspaceData?.students.find((row) => row.recordId === selectedStudentRecordId);
-    if (student?.applicationNo || (student?.mappingStatus === "UNMAPPED" && student?.recordId)) {
-      openStudentProfileDialog({ documentObject, student, focusField: "profile-next-action" });
-    }
+    if (student?.recordId && studentWorkspaceData?.canWrite) openCandidateActivityDialog({ documentObject, entityType: "NEXT_ACTION" });
   });
   documentObject.getElementById("student-audit-open")?.addEventListener("click", () => {
     const student = studentWorkspaceData?.students.find((row) => row.recordId === selectedStudentRecordId);
@@ -470,6 +470,21 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-profile-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     saveStudentProfile({ globalObject, documentObject });
+  });
+  documentObject.getElementById("candidate-contact-add")?.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType: "EVENT" }));
+  documentObject.getElementById("candidate-selection-add")?.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType: "SELECTION" }));
+  documentObject.getElementById("candidate-action-add")?.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType: "NEXT_ACTION" }));
+  documentObject.getElementById("activity-entity-type")?.addEventListener("change", () => refreshActivityForm(documentObject));
+  documentObject.getElementById("candidate-activity-cancel")?.addEventListener("click", () => {
+    documentObject.getElementById("candidate-activity-dialog")?.close?.();
+    activityDialogContext = null;
+  });
+  documentObject.getElementById("candidate-activity-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    saveCandidateActivity({ globalObject, documentObject });
+  });
+  documentObject.getElementById("candidate-activity-deactivate")?.addEventListener("click", () => {
+    deactivateCandidateActivity({ globalObject, documentObject });
   });
   documentObject.getElementById("student-profile-deactivate")?.addEventListener("click", async () => {
     const reason = documentObject.getElementById("profile-change-reason")?.value?.trim();
@@ -569,7 +584,8 @@ export async function loadTalentStudentWorkspace({
       { name: "renderHistoricalReviewSummary", render: () => renderHistoricalReviewSummary(documentObject, result.data.overview) },
       { name: "renderBulkTriageSummary", render: () => renderBulkTriageSummary(documentObject, result.data.students) },
       { name: "renderTalentAnalytics", render: () => renderTalentAnalytics(documentObject) },
-      { name: "renderTodayTasks", render: () => renderTodayTasks(documentObject, result.data.todayTasks || []) }
+      { name: "renderTodayTasks", render: () => renderTodayTasks(documentObject, result.data.todayTasks || []) },
+      { name: "renderUnlinkedInterviews", render: () => renderUnlinkedInterviews(documentObject, result.data.unlinkedSelectionHistory || [], globalObject) }
     ]
   });
   if (!renderResult.ok) {
@@ -1377,10 +1393,7 @@ function createAnalysisRow(documentObject, values) {
   return row;
 }
 
-const TALENT_PROGRESS_CODES = Object.freeze([
-  "CONTACT", "LINE_REGISTERED", "SALON_TOUR", "INTERVIEW",
-  "PASSED", "OFFER", "EXPECTED_JOIN", "WITHDRAWN"
-]);
+const TALENT_PROGRESS_CODES = Object.freeze(Object.keys(CANDIDATE_STATUS_LABELS));
 
 export function getTalentStudentProgressKey(student) {
   const progress = String(student?.statusCode || "");
@@ -1396,8 +1409,8 @@ export function buildSchoolFollowUpFilter(school) {
 export function buildSummaryFollowUpFilter(key) {
   const filters = {
     contacts: { source: "CONTACTS_27" },
-    entries: { source: "ENTRIES_27" },
-    offers: { source: "OFFERS_27" },
+    entries: { progress: "APPLICATION_RECEIVED" },
+    offers: { progress: "OFFERED" },
     overdueFollowUp: { followUp: "OVERDUE" },
     nextWeekFollowUp: { followUp: "NEXT_7_DAYS" },
     needsAction: { state: "NEEDS_ACTION" }
@@ -1441,17 +1454,7 @@ const STUDENT_FILTER_LABELS = Object.freeze({
     NEW_CANDIDATE: "個別確認候補",
     NEEDS_ACTION: "要確認・隔離"
   }),
-  progress: Object.freeze({
-    UNSET: "進捗未登録",
-    CONTACT: "接触",
-    LINE_REGISTERED: "LINE登録",
-    SALON_TOUR: "サロン見学",
-    INTERVIEW: "面接",
-    PASSED: "通過",
-    OFFER: "内定",
-    EXPECTED_JOIN: "入社予定",
-    WITHDRAWN: "辞退・保留"
-  }),
+  progress: Object.freeze({ UNSET: "進捗未登録", ...CANDIDATE_STATUS_LABELS }),
   followUp: Object.freeze({
     OVERDUE: "期限超過",
     NEXT_7_DAYS: "7日以内",
@@ -1484,7 +1487,7 @@ export function buildOnboardingHandoffDraft(student) {
   if (!student || typeof student !== "object") return null;
   const displayName = typeof student.displayName === "string" ? student.displayName.trim() : "";
   const expectedJoinDate = String(student.expectedJoinDate || "");
-  if (!displayName || !student.applicationNo || !["OFFER", "EXPECTED_JOIN"].includes(student.statusCode)
+  if (!displayName || !student.applicationNo || !["OFFERED", "OFFER_ACCEPTED", "EXPECTED_JOIN"].includes(student.statusCode)
     || !/^\d{4}-\d{2}-\d{2}$/.test(expectedJoinDate)) return null;
   return Object.freeze({
     procedureType: "ONBOARDING",
@@ -1929,7 +1932,7 @@ export function buildStudentDailyQueueSummary(students = [], referenceDate = loc
     if (followUp === "NEXT_7_DAYS") summary.nextWeek += 1;
     if (student?.classification === "OWNER_REVIEW") summary.ownerReview += 1;
     if (student?.classification === "QUARANTINE") summary.quarantine += 1;
-    if (student?.statusCode === "OFFER" || student?.expectedJoinDate) summary.onboardingReady += 1;
+    if (["OFFERED", "OFFER_ACCEPTED", "EXPECTED_JOIN"].includes(student?.statusCode) || student?.expectedJoinDate) summary.onboardingReady += 1;
     return summary;
   }, { overdue: 0, nextWeek: 0, ownerReview: 0, quarantine: 0, onboardingReady: 0 });
 
@@ -2061,7 +2064,7 @@ export function buildStudentDailyQueueStartFilter(filterCategory = "ALL_STUDENTS
     FOLLOW_UP_NEXT_7_DAYS: Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "ALL", month: "ALL", followUp: "NEXT_7_DAYS", sort: "FOLLOW_UP" }),
     STATE_OWNER_REVIEW: Object.freeze({ query: "", source: "ALL", state: "OWNER_REVIEW", progress: "ALL", month: "ALL", followUp: "ALL", sort: "DEFAULT" }),
     STATE_QUARANTINE: Object.freeze({ query: "", source: "ALL", state: "QUARANTINE", progress: "ALL", month: "ALL", followUp: "ALL", sort: "DEFAULT" }),
-    ONBOARDING_HANDOFF: Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "OFFER", month: "ALL", followUp: "ALL", sort: "DEFAULT" }),
+    ONBOARDING_HANDOFF: Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "OFFERED", month: "ALL", followUp: "ALL", sort: "DEFAULT" }),
     ALL_STUDENTS: Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "ALL", month: "ALL", followUp: "ALL", sort: "DEFAULT" })
   });
   const selected = plans[filterCategory] || plans.ALL_STUDENTS;
@@ -2483,20 +2486,139 @@ function renderCandidateHistories(documentObject, student) {
   const summary = buildCandidateHistorySummary(student);
   setText(documentObject, "candidate-history-summary", `接触 ${summary.contactCount}件・イベント ${summary.eventCount}件・選考 ${summary.selectionCount}件`);
   const groups = [
-    ["candidate-contact-history", student?.contactHistory],
-    ["candidate-event-history", student?.eventHistory],
-    ["candidate-selection-history", student?.selectionHistory]
+    ["candidate-contact-history", student?.contactHistory, "EVENT"],
+    ["candidate-event-history", student?.eventHistory, "EVENT"],
+    ["candidate-selection-history", student?.selectionHistory, "SELECTION"],
+    ["candidate-next-action-history", student?.nextActions, "NEXT_ACTION"]
   ];
-  groups.forEach(([id, rows]) => {
+  groups.forEach(([id, rows, entityType]) => {
     const list = documentObject.getElementById(id);
     if (!list) return;
     const safeRows = Array.isArray(rows) ? rows.slice(0, 5) : [];
     list.replaceChildren(...(safeRows.length ? safeRows.map((row) => {
       const item = documentObject.createElement("li");
-      item.textContent = `${row.date || "日付未設定"} · ${row.label || "記録"}`;
+      const label = documentObject.createElement("span");
+      label.textContent = `${row.date || "日付未設定"} · ${row.label || "記録"}${row.state === "COMPLETED" ? " · 完了" : ""}${row.active === false ? " · 無効" : ""}`;
+      item.append(label);
+      if (studentWorkspaceData?.canWrite && row.id) {
+        if (entityType === "NEXT_ACTION" && row.active !== false && row.state === "OPEN") {
+          const complete = documentObject.createElement("button");
+          complete.type = "button";
+          complete.className = "history-edit-command";
+          complete.textContent = "完了";
+          complete.addEventListener("click", () => completeCandidateNextAction({ globalObject: globalThis, documentObject, row, student }));
+          item.append(complete);
+        }
+        const edit = documentObject.createElement("button");
+        edit.type = "button";
+        edit.className = "history-edit-command";
+        edit.textContent = row.active === false ? "復元" : "編集";
+        edit.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType, row }));
+        item.append(edit);
+      }
       return item;
     }) : [Object.assign(documentObject.createElement("li"), { textContent: "履歴はありません" })]));
   });
+}
+
+const ACTIVITY_CODE_OPTIONS = Object.freeze({
+  EVENT: Object.freeze([
+    ["CONTACT_RECORDED", "接触記録"], ["LINE_REGISTERED", "LINE登録"],
+    ["SALON_TOUR_PLANNED", "サロン見学［予定］"], ["SALON_TOUR_COMPLETED", "サロン見学［済］"],
+    ["INTERVIEW_PLANNED", "面接［予定］"], ["INTERVIEW_COMPLETED", "面接［済］"]
+  ]),
+  SELECTION: Object.freeze([
+    ["APPLICATION_RECEIVED", "応募"], ["SALON_TOUR_PLANNED", "見学予定"], ["SALON_TOUR_COMPLETED", "見学済み"],
+    ["INTERVIEW_PLANNED", "面接予定"], ["INTERVIEW_COMPLETED", "面接済み"], ["OFFERED", "内定"], ["OFFER_ACCEPTED", "内定承諾"],
+    ["OFFERED_ELSEWHERE", "他社内定"], ["WITHDRAWN", "辞退・離脱"], ["REJECTED", "不採用"], ["UNDER_REVIEW", "合否検討中"]
+  ]),
+  NEXT_ACTION: Object.freeze([
+    ["FOLLOW_UP", "次回対応"], ["SALON_TOUR_FOLLOW_UP", "見学フォロー"],
+    ["INTERVIEW_FOLLOW_UP", "面接フォロー"], ["OFFER_FOLLOW_UP", "内定フォロー"]
+  ])
+});
+
+function openCandidateActivityDialog({ documentObject, entityType, row = null }) {
+  const student = studentWorkspaceData?.students.find((item) => item.recordId === selectedStudentRecordId);
+  if (!student?.recordId || !studentWorkspaceData?.canWrite) return;
+  activityDialogContext = { student, entityType, row };
+  const type = documentObject.getElementById("activity-entity-type");
+  if (type) { type.value = entityType; type.disabled = Boolean(row); }
+  refreshActivityForm(documentObject);
+  const fields = {
+    "activity-date": row?.date || "", "activity-name": row?.label || "", "activity-content": row?.content || "",
+    "activity-assignee": row?.assignedTo || student.assignee || "", "activity-notes": row?.notes || "", "activity-reason": ""
+  };
+  Object.entries(fields).forEach(([id, value]) => { const input = documentObject.getElementById(id); if (input) input.value = value; });
+  const code = documentObject.getElementById("activity-code"); if (code && row?.code) code.value = row.code;
+  const state = documentObject.getElementById("activity-state"); if (state && row?.state) state.value = row.state;
+  setText(documentObject, "candidate-activity-dialog-title", row ? "履歴を編集" : "履歴を追加");
+  setText(documentObject, "candidate-activity-status", "必要事項を入力してください");
+  const deactivate = documentObject.getElementById("candidate-activity-deactivate");
+  if (deactivate) {
+    deactivate.hidden = !row;
+    deactivate.textContent = row?.active === false ? "理由付きで復元" : "理由付きで無効化";
+  }
+  const save = documentObject.getElementById("candidate-activity-save");
+  if (save) save.hidden = row?.active === false;
+  documentObject.getElementById("candidate-activity-dialog")?.showModal?.();
+}
+
+function refreshActivityForm(documentObject) {
+  const type = documentObject.getElementById("activity-entity-type")?.value || activityDialogContext?.entityType || "EVENT";
+  if (activityDialogContext) activityDialogContext.entityType = type;
+  const select = documentObject.getElementById("activity-code");
+  if (select) select.replaceChildren(...ACTIVITY_CODE_OPTIONS[type].map(([value, label]) => Object.assign(documentObject.createElement("option"), { value, textContent: label })));
+  const eventState = documentObject.getElementById("activity-state-field"); if (eventState) eventState.hidden = type !== "EVENT";
+  setText(documentObject, "activity-date-label", type === "NEXT_ACTION" ? "次回対応日（未定は空欄）" : "実施日・予定日 *");
+  const date = documentObject.getElementById("activity-date"); if (date) date.required = type !== "NEXT_ACTION";
+}
+
+async function saveCandidateActivity({ globalObject, documentObject }) {
+  const form = documentObject.getElementById("candidate-activity-form");
+  if (!form?.reportValidity?.() || !activityDialogContext?.student?.recordId) return;
+  const { student, entityType, row } = activityDialogContext;
+  const payload = {
+    entityType, operation: row ? "UPDATE" : "CREATE", entityId: row?.id || null, expectedVersion: row?.version || null,
+    candidateId: student.recordId, code: documentObject.getElementById("activity-code")?.value,
+    date: documentObject.getElementById("activity-date")?.value || null, name: documentObject.getElementById("activity-name")?.value || null,
+    state: entityType === "EVENT" ? documentObject.getElementById("activity-state")?.value : entityType === "NEXT_ACTION" ? "OPEN" : null,
+    content: documentObject.getElementById("activity-content")?.value || null, assignedTo: documentObject.getElementById("activity-assignee")?.value || null,
+    notes: documentObject.getElementById("activity-notes")?.value || null, reason: documentObject.getElementById("activity-reason")?.value || ""
+  };
+  if (!globalObject.confirm?.(row ? "履歴を更新しますか？" : "履歴を追加しますか？")) return;
+  setText(documentObject, "candidate-activity-status", "保存しています");
+  const result = await createStagingCandidateClient({ globalObject })?.mutateActivity(payload);
+  if (!result?.ok) return setText(documentObject, "candidate-activity-status", result?.category === "version_conflict" ? "他の更新があります。再読み込みしてください" : "保存できませんでした");
+  documentObject.getElementById("candidate-activity-dialog")?.close?.();
+  activityDialogContext = null; studentWorkspaceData = null;
+  await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
+}
+
+async function deactivateCandidateActivity({ globalObject, documentObject }) {
+  const context = activityDialogContext;
+  const reason = documentObject.getElementById("activity-reason")?.value?.trim();
+  const restoring = context?.row?.active === false;
+  const confirmation = restoring ? "この履歴を復元しますか？" : "この履歴を無効化しますか？物理削除はしません。";
+  if (!context?.row?.id || !reason || !globalObject.confirm?.(confirmation)) return;
+  const result = await createStagingCandidateClient({ globalObject })?.mutateActivity({
+    entityType: context.entityType, operation: restoring ? "RESTORE" : "DEACTIVATE", entityId: context.row.id,
+    expectedVersion: context.row.version, candidateId: context.student.recordId, reason
+  });
+  if (!result?.ok) return setText(documentObject, "candidate-activity-status", restoring ? "復元できませんでした" : "無効化できませんでした");
+  documentObject.getElementById("candidate-activity-dialog")?.close?.(); activityDialogContext = null; studentWorkspaceData = null;
+  await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
+}
+
+async function completeCandidateNextAction({ globalObject, documentObject, row, student }) {
+  if (!row?.id || !student?.recordId || !globalObject.confirm?.("この次回対応を完了にしますか？")) return;
+  const result = await createStagingCandidateClient({ globalObject })?.mutateActivity({
+    entityType: "NEXT_ACTION", operation: "COMPLETE", entityId: row.id,
+    expectedVersion: row.version, candidateId: student.recordId, reason: "次回対応の完了確認"
+  });
+  if (!result?.ok) return;
+  studentWorkspaceData = null;
+  await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
 }
 
 function renderStudentDailyOperation(documentObject, operation) {
@@ -2562,20 +2684,22 @@ async function openStudentAuditDialog({ globalObject, documentObject, student })
     }
     return;
   }
+  const allEntries = [...(result.data.entries || []), ...(result.data.activityEntries || [])]
+    .sort((left, right) => String(right.occurred_at || "").localeCompare(String(left.occurred_at || "")));
   if (status) {
     status.dataset.state = "ready";
-    status.textContent = `${result.data.entries.length}件の変更履歴`;
+    status.textContent = `${allEntries.length}件の変更履歴`;
   }
   if (body) {
-    body.replaceChildren(...result.data.entries.map((entry) => {
+    body.replaceChildren(...allEntries.map((entry) => {
       const row = documentObject.createElement("tr");
       const action = documentObject.createElement("th");
       action.scope = "row";
-      action.textContent = entry.action === "CREATE" ? "作成" : "更新";
+      action.textContent = `${entry.entity_type ? `${activityTypeLabel(entry.entity_type)}・` : ""}${entry.action === "CREATE" ? "作成" : entry.action === "DEACTIVATE" ? "無効化" : entry.action === "RESTORE" ? "復元" : entry.action === "COMPLETE" ? "完了" : "更新"}`;
       const fields = documentObject.createElement("td");
       fields.textContent = (entry.changed_fields || []).map((field) => PROFILE_FIELD_LABELS[field] || "候補者情報").join("、");
       const version = documentObject.createElement("td");
-      version.textContent = `v${entry.candidate_version}`;
+      version.textContent = `v${entry.candidate_version || entry.entity_version}`;
       const occurredAt = documentObject.createElement("td");
       occurredAt.textContent = formatAuditDate(entry.occurred_at);
       row.append(action, fields, version, occurredAt);
@@ -2853,6 +2977,10 @@ function setStatus(documentObject, state, text) {
   }
 }
 
+function activityTypeLabel(value) {
+  return ({ EVENT: "接触・イベント", SELECTION: "選考", NEXT_ACTION: "次回対応", SOURCE_FACT: "未紐付け履歴" })[value] || "採用履歴";
+}
+
 function setProfileStatus(documentObject, text, state = "idle") {
   const status = documentObject.getElementById("student-profile-status");
   if (status) { status.textContent = text; status.dataset.state = state; }
@@ -2945,7 +3073,7 @@ function initializeTalentApp() {
 function enableStagingWriteControls(documentObject, accessProfile) {
   if (!stagingWriteEnabled(globalThis)) return;
   const canWrite = ["full", "recruiter"].includes(accessProfile);
-  for (const id of ["student-add-open", "student-edit-open"]) {
+  for (const id of ["student-add-open", "student-edit-open", "candidate-history-actions"]) {
     const button = documentObject.getElementById(id);
     if (button && canWrite) { button.hidden = false; button.classList.remove("sprint1-mock-write"); }
   }
@@ -2958,7 +3086,13 @@ function renderTodayTasks(documentObject, tasks) {
   const status = documentObject?.getElementById?.("today-task-status");
   if (!list) return;
   const rows = buildRecruitmentTaskBoard(tasks);
-  if (status) status.textContent = rows.length ? `${rows.length}件を優先表示` : "今日の優先タスクはありません";
+  if (status) {
+    const available = studentWorkspaceData?.dashboard?.availability?.todayActions === true;
+    const undated = Number(studentWorkspaceData?.dashboard?.undatedActions || 0);
+    status.textContent = rows.length ? `${rows.length}件を優先表示`
+      : !available ? "集計準備中"
+        : undated ? `対応日未登録 ${undated}件` : "今日の対応は0件です";
+  }
   list.replaceChildren(...rows.map((task) => {
     const item = documentObject.createElement("li");
     const button = documentObject.createElement("button");
@@ -2972,6 +3106,38 @@ function renderTodayTasks(documentObject, tasks) {
       documentObject.getElementById("student-detail")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
     });
     item.append(button);
+    return item;
+  }));
+}
+
+function renderUnlinkedInterviews(documentObject, rows, globalObject) {
+  const list = documentObject.getElementById("unlinked-interview-list");
+  const status = documentObject.getElementById("unlinked-interview-status");
+  if (!list) return;
+  const safeRows = Array.isArray(rows) ? rows : [];
+  if (status) status.textContent = safeRows.length ? `${safeRows.length}件の人間確認が必要です` : "未紐付け履歴はありません";
+  list.replaceChildren(...safeRows.map((row) => {
+    const item = documentObject.createElement("article");
+    const text = documentObject.createElement("div");
+    const title = documentObject.createElement("strong"); title.textContent = `27卒正本・行${row.sourceRowNo}`;
+    const detail = documentObject.createElement("span"); detail.textContent = `${row.date || "日付未登録"} · ${row.label || "面接履歴"}`;
+    text.append(title, detail); item.append(text);
+    if (studentWorkspaceData?.canWrite) {
+      const button = documentObject.createElement("button"); button.type = "button"; button.className = "secondary-command compact-command";
+      button.textContent = "選択中の候補者へ紐付け";
+      button.disabled = !selectedStudentRecordId;
+      button.addEventListener("click", async () => {
+        if (!selectedStudentRecordId || !globalObject.confirm?.("正本と候補者を確認し、この面接履歴を紐付けますか？")) return;
+        const result = await createStagingCandidateClient({ globalObject })?.linkUnlinkedSelection({
+          candidateId: selectedStudentRecordId, sourceType: row.sourceType, sourceRowNo: row.sourceRowNo,
+          factCode: row.code, expectedVersion: row.version, reason: "正本と候補者の人間確認による紐付け"
+        });
+        if (!result?.ok) { if (status) status.textContent = "紐付けできませんでした。再読み込みしてください"; return; }
+        studentWorkspaceData = null;
+        await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
+      });
+      item.append(button);
+    }
     return item;
   }));
 }

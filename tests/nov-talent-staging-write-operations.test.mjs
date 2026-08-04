@@ -62,7 +62,7 @@ test("formal status choices and reversible deactivation are fixed", async () => 
     readFile(new URL("supabase/functions/nov-talent-staging-api/domain.ts", root), "utf8"),
     readFile(new URL("supabase/migrations/20260803225229_nov_talent_staging_write_operations.sql", root), "utf8")
   ]);
-  for (const label of ["LINE登録", "サロン見学［予定］", "サロン見学［済］", "面接待ち", "内定", "他社内定", "離脱", "合否検討中", "不採用"]) assert.match(`${html}\n${domain}`, new RegExp(label.replace(/[［］]/gu, ".")));
+  for (const label of ["LINE登録", "応募受付", "サロン見学［予定］", "サロン見学［済］", "面接［予定］", "面接［済］", "合否検討中", "内定", "内定承諾", "入社予定", "他社内定", "辞退・離脱", "不採用"]) assert.match(`${html}\n${domain}`, new RegExp(label.replace(/[［］]/gu, ".")));
   assert.match(sql, /'DEACTIVATE','RESTORE'/);
   assert.doesNotMatch(sql, /delete from public\.nov_talent_candidates_v1/i);
 });

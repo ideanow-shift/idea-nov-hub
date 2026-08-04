@@ -1,8 +1,8 @@
 {
   "dictionaryId": "NOV_TALENT_DATA_DICTIONARY",
-  "dictionaryVersion": "1.3.0",
+  "dictionaryVersion": "1.4.0",
   "status": "CANONICAL",
-  "effectiveDate": "2026-08-03",
+  "effectiveDate": "2026-08-04",
   "language": "ja-JP",
   "scope": {
     "product": "NOV Talent",
@@ -39,34 +39,49 @@
   },
   "candidateStatuses": [
     {
-      "code": "CONTACT",
-      "name": "接点",
-      "definition": "候補者との接点を記録した状態。応募完了を意味しない。"
-    },
-    {
       "code": "LINE_REGISTERED",
       "name": "LINE登録",
       "definition": "候補者のLINE登録を確認した状態。連絡先未取得の接点を否定しない。"
     },
     {
-      "code": "SALON_TOUR",
-      "name": "見学",
-      "definition": "見学の実施を記録した状態。"
+      "code": "APPLICATION_RECEIVED",
+      "name": "応募受付",
+      "definition": "応募意思または応募書類の受領を正式Sourceで確認した状態。"
     },
     {
-      "code": "INTERVIEW",
-      "name": "面接",
-      "definition": "面接の実施または面接段階を記録した状態。"
+      "code": "SALON_TOUR_PLANNED",
+      "name": "サロン見学［予定］",
+      "definition": "サロン見学の予定日を確認した状態。"
     },
     {
-      "code": "PASSED",
-      "name": "承諾",
-      "definition": "現行Dashboardの承諾件数に使用する候補者状態。イベントコードSELECTION_PASSEDとは別概念として扱う。"
+      "code": "SALON_TOUR_COMPLETED",
+      "name": "サロン見学［済］",
+      "definition": "サロン見学の実施を確認した状態。"
     },
     {
-      "code": "OFFER",
+      "code": "INTERVIEW_PLANNED",
+      "name": "面接［予定］",
+      "definition": "面接予定日を確認した状態。"
+    },
+    {
+      "code": "INTERVIEW_COMPLETED",
+      "name": "面接［済］",
+      "definition": "面接の実施を確認した状態。"
+    },
+    {
+      "code": "UNDER_REVIEW",
+      "name": "合否検討中",
+      "definition": "選考結果を検討中の状態。"
+    },
+    {
+      "code": "OFFERED",
       "name": "内定",
       "definition": "内定を提示または記録した状態。"
+    },
+    {
+      "code": "OFFER_ACCEPTED",
+      "name": "内定承諾",
+      "definition": "候補者が内定を承諾した入社前状態。"
     },
     {
       "code": "EXPECTED_JOIN",
@@ -75,8 +90,18 @@
     },
     {
       "code": "WITHDRAWN",
-      "name": "辞退・保管",
+      "name": "辞退・離脱",
       "definition": "候補者が辞退し、採用活動の進行対象から外れた状態。削除を意味しない。"
+    },
+    {
+      "code": "OFFERED_ELSEWHERE",
+      "name": "他社内定",
+      "definition": "候補者の他社内定を確認した状態。"
+    },
+    {
+      "code": "REJECTED",
+      "name": "不採用",
+      "definition": "正式な選考結果として不採用を確認した状態。"
     }
   ],
   "statusRules": {
@@ -116,10 +141,22 @@
       "definition": "LINE登録確認を1件記録する。"
     },
     {
+      "metricKey": "salonTourPlanned",
+      "code": "SALON_TOUR_PLANNED",
+      "name": "見学予定",
+      "definition": "見学予定を1件記録する。"
+    },
+    {
       "metricKey": "salonTours",
       "code": "SALON_TOUR_COMPLETED",
       "name": "見学完了",
       "definition": "見学完了を1件記録する。"
+    },
+    {
+      "metricKey": "interviewPlanned",
+      "code": "INTERVIEW_PLANNED",
+      "name": "面接予定",
+      "definition": "面接予定を1件記録する。"
     },
     {
       "metricKey": "interviews",
@@ -131,7 +168,7 @@
       "metricKey": "passed",
       "code": "SELECTION_PASSED",
       "name": "選考通過",
-      "definition": "選考通過イベントを1件記録する。候補者状態PASSED（承諾）とは同一視しない。"
+      "definition": "選考通過イベントを1件記録する。候補者状態OFFER_ACCEPTED（内定承諾）とは同一視しない。"
     },
     {
       "metricKey": "offers",
@@ -225,40 +262,58 @@
   "countDefinitions": {
     "dashboard": [
       {
+        "code": "DASHBOARD_CANDIDATES",
+        "name": "候補者数",
+        "basis": "ACTIVE Candidateの件数",
+        "scope": "Staging Runtime"
+      },
+      {
         "code": "DASHBOARD_ENTRIES",
-        "name": "エントリー数",
-        "basis": "候補者statusCodeがCONTACTの件数",
-        "scope": "現行匿名Mock Runtime"
+        "name": "応募数",
+        "basis": "Selection HistoryのAPPLICATION_RECEIVEDを持つCandidate数",
+        "scope": "Staging Runtime"
       },
       {
-        "code": "DASHBOARD_SALON_TOURS",
-        "name": "見学数",
-        "basis": "候補者statusCodeがSALON_TOURの件数",
-        "scope": "現行匿名Mock Runtime"
+        "code": "DASHBOARD_SALON_TOUR_PLANNED",
+        "name": "見学予定数",
+        "basis": "EventのSALON_TOUR_PLANNEDを持つCandidate数",
+        "scope": "Staging Runtime"
       },
       {
-        "code": "DASHBOARD_INTERVIEWS",
-        "name": "面接数",
-        "basis": "候補者statusCodeがINTERVIEWの件数",
-        "scope": "現行匿名Mock Runtime"
+        "code": "DASHBOARD_INTERVIEW_PLANNED",
+        "name": "面接予定数",
+        "basis": "EventのINTERVIEW_PLANNEDを持つCandidate数",
+        "scope": "Staging Runtime"
       },
       {
         "code": "DASHBOARD_OFFERS",
         "name": "内定数",
-        "basis": "候補者statusCodeがOFFERの件数",
-        "scope": "現行匿名Mock Runtime"
+        "basis": "Selection HistoryのOFFEREDを持つCandidate数",
+        "scope": "Staging Runtime"
       },
       {
-        "code": "DASHBOARD_ACCEPTED",
-        "name": "承諾数",
-        "basis": "候補者statusCodeがPASSEDの件数",
-        "scope": "現行匿名Mock Runtime"
+        "code": "DASHBOARD_WITHDRAWALS",
+        "name": "辞退数",
+        "basis": "Selection HistoryのWITHDRAWNを持つCandidate数",
+        "scope": "Staging Runtime"
       },
       {
-        "code": "DASHBOARD_EXPECTED_JOINERS",
-        "name": "入社予定数",
-        "basis": "候補者statusCodeがEXPECTED_JOINの件数",
-        "scope": "現行匿名Mock Runtime"
+        "code": "DASHBOARD_SCHOOLS",
+        "name": "学校数",
+        "basis": "ACTIVE Candidateの空欄でない正規化学校名の異なり数",
+        "scope": "Staging Runtime"
+      },
+      {
+        "code": "DASHBOARD_FAIRS",
+        "name": "フェア数",
+        "basis": "正式Sourceの有効なフェア記録数",
+        "scope": "Staging Runtime"
+      },
+      {
+        "code": "DASHBOARD_TODAY_ACTIONS",
+        "name": "今日やること",
+        "basis": "OPENかつdue_dateが当日以前のNext Action件数（表示は最大5件）",
+        "scope": "Staging Runtime"
       }
     ],
     "dataIntegrity": {
@@ -338,7 +393,7 @@
     }
   },
   "versions": {
-    "dictionary": "1.3.0",
+    "dictionary": "1.4.0",
     "dataIntegrityReportSchema": "1.2",
     "workQueueSeedSchema": "2.0",
     "sourceLineageSchema": "1.0",

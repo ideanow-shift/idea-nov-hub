@@ -20,7 +20,7 @@ function payload(overrides = {}) {
     phone: "000-0000-0000",
     email: "test@example.invalid",
     preferredStore: "Test Store",
-    currentStatus: "CONTACT",
+    currentStatus: "LINE_REGISTERED",
     nextActionAt: "2026-07-25",
     offerDate: "",
     expectedJoinDate: "",

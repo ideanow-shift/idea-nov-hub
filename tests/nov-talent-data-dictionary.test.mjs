@@ -45,7 +45,7 @@ const uniqueCodes = (values) => new Set(values.map((value) => value.code)).size 
 
 test("NOV Talent Data Dictionary is the canonical versioned specification", () => {
   assert.equal(dictionary.dictionaryId, "NOV_TALENT_DATA_DICTIONARY");
-  assert.equal(dictionary.dictionaryVersion, "1.3.0");
+  assert.equal(dictionary.dictionaryVersion, "1.4.0");
   assert.equal(dictionary.status, "CANONICAL");
   assert.equal(dictionary.governance.unknownCodePolicy, "REJECT");
   assert.equal(dictionary.governance.undefinedDefinitionPolicy, "FAIL_CLOSED");
@@ -55,13 +55,14 @@ test("NOV Talent Data Dictionary is the canonical versioned specification", () =
 test("candidate statuses and event codes are unique and preserve current contracts", () => {
   assert.equal(uniqueCodes(dictionary.candidateStatuses), true);
   assert.deepEqual(dictionary.candidateStatuses.map(({ code }) => code), [
-    "CONTACT", "LINE_REGISTERED", "SALON_TOUR", "INTERVIEW",
-    "PASSED", "OFFER", "EXPECTED_JOIN", "WITHDRAWN"
+    "LINE_REGISTERED", "APPLICATION_RECEIVED", "SALON_TOUR_PLANNED", "SALON_TOUR_COMPLETED",
+    "INTERVIEW_PLANNED", "INTERVIEW_COMPLETED", "UNDER_REVIEW", "OFFERED",
+    "OFFER_ACCEPTED", "EXPECTED_JOIN", "WITHDRAWN", "OFFERED_ELSEWHERE", "REJECTED"
   ]);
   assert.equal(uniqueCodes(dictionary.events), true);
   assert.deepEqual(dictionary.events.map(({ code }) => code), [
-    "CONTACT_RECORDED", "LINE_REGISTERED", "SALON_TOUR_COMPLETED",
-    "INTERVIEW_COMPLETED", "SELECTION_PASSED", "OFFER_ISSUED",
+    "CONTACT_RECORDED", "LINE_REGISTERED", "SALON_TOUR_PLANNED", "SALON_TOUR_COMPLETED",
+    "INTERVIEW_PLANNED", "INTERVIEW_COMPLETED", "SELECTION_PASSED", "OFFER_ISSUED",
     "EXPECTED_JOIN_CONFIRMED"
   ]);
 });

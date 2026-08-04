@@ -3,12 +3,8 @@ const SCHOOL_NAMES = Object.freeze([
 ]);
 
 const STATUS_DEFINITIONS = Object.freeze([
-  ["CONTACT", "接点"],
-  ["SALON_TOUR", "見学"],
-  ["INTERVIEW", "面接"],
-  ["OFFER", "内定"],
-  ["PASSED", "承諾"],
-  ["EXPECTED_JOIN", "入社予定"]
+  "LINE_REGISTERED", "SALON_TOUR_COMPLETED", "INTERVIEW_COMPLETED",
+  "OFFERED", "OFFER_ACCEPTED", "EXPECTED_JOIN"
 ]);
 
 export const MOCK_SEED_INVENTORY = Object.freeze({
@@ -35,15 +31,16 @@ function buildCohort(cohort, rowCount, now) {
 
 function buildCandidate({ cohort, index, now }) {
   const serial = String(index + 1).padStart(3, "0");
-  const [statusCode, status] = STATUS_DEFINITIONS[index % STATUS_DEFINITIONS.length];
-  const sourceType = ["OFFER", "PASSED", "EXPECTED_JOIN"].includes(statusCode)
+  const statusCode = STATUS_DEFINITIONS[index % STATUS_DEFINITIONS.length];
+  const status = CANDIDATE_STATUS_LABELS[statusCode];
+  const sourceType = ["OFFERED", "OFFER_ACCEPTED", "EXPECTED_JOIN"].includes(statusCode)
     ? "OFFERS"
-    : statusCode === "CONTACT" ? "CONTACTS" : "ENTRIES";
+    : statusCode === "LINE_REGISTERED" ? "CONTACTS" : "ENTRIES";
   const classification = index % 19 === 0
     ? "QUARANTINE"
     : index % 13 === 0 ? "OWNER_REVIEW" : "IMPORTABLE";
   const nextActionAt = index % 4 === 3 ? "" : offsetDate(now, (index % 10) - 4);
-  const offerDate = ["OFFER", "PASSED", "EXPECTED_JOIN"].includes(statusCode)
+  const offerDate = ["OFFERED", "OFFER_ACCEPTED", "EXPECTED_JOIN"].includes(statusCode)
     ? offsetDate(now, -((index % 20) + 2))
     : "";
   const expectedJoinDate = statusCode === "EXPECTED_JOIN" ? offsetDate(now, 30 + (index % 45)) : "";
@@ -64,7 +61,7 @@ function buildCandidate({ cohort, index, now }) {
     legacyNoPresent: false,
     mappingStatus: classification === "IMPORTABLE" ? "OWNER_CONFIRMED" : "UNMAPPED",
     nextActionAt,
-    nextActionLabel: statusCode === "OFFER" ? "内定承諾を確認" : statusCode === "SALON_TOUR" ? "見学後フォロー" : "次回連絡",
+    nextActionLabel: statusCode === "OFFERED" ? "内定承諾を確認" : statusCode === "SALON_TOUR_COMPLETED" ? "見学後フォロー" : "次回連絡",
     offerDate,
     expectedJoinDate,
     plannedStore: statusCode === "EXPECTED_JOIN" ? "配属未定" : "",
@@ -85,8 +82,8 @@ function buildCandidate({ cohort, index, now }) {
     suggestedTargetRecordId: "",
     suggestionCategory: "NONE"
     ,contactHistory: Object.freeze([{ date: offsetDate(now, -((index % 90) + 1)), label: "接触記録", detail: "匿名Mock記録" }])
-    ,eventHistory: Object.freeze(statusCode === "CONTACT" ? [] : [{ date: offsetDate(now, -((index % 60) + 2)), label: status, detail: "匿名Mockイベント" }])
-    ,selectionHistory: Object.freeze(["INTERVIEW", "OFFER", "PASSED", "EXPECTED_JOIN"].includes(statusCode)
+    ,eventHistory: Object.freeze(statusCode === "LINE_REGISTERED" ? [] : [{ date: offsetDate(now, -((index % 60) + 2)), label: status, detail: "匿名Mockイベント" }])
+    ,selectionHistory: Object.freeze(["INTERVIEW_COMPLETED", "OFFERED", "OFFER_ACCEPTED", "EXPECTED_JOIN"].includes(statusCode)
       ? [{ date: offsetDate(now, -((index % 45) + 1)), label: status, detail: "匿名Mock選考記録" }]
       : [])
   });
@@ -101,3 +98,4 @@ function offsetDate(base, days) {
   const day = String(value.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
+import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs";

@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NOV Talent | 採用意思決定プラットフォーム</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=20260804-operation-ui-cleanup-1">
-  <script src="./runtime-config.candidate.js?v=20260804-operation-stabilization-1"></script>
-  <script type="module" src="./app.mjs?v=20260804-operation-stabilization-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260804-recruitment-master-dashboard-1">
+  <script src="./runtime-config.candidate.js?v=20260804-recruitment-master-dashboard-1"></script>
+  <script type="module" src="./app.mjs?v=20260804-recruitment-master-dashboard-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -655,6 +655,8 @@
             <label><span>氏名 *</span><input id="profile-display-name" name="displayName" maxlength="120" required></label>
             <label><span>フリガナ</span><input id="profile-kana" name="kana" maxlength="120"></label>
             <label class="profile-wide"><span>学校</span><input id="profile-school" name="school" maxlength="180"></label>
+            <label class="profile-wide"><span>学校マスタ</span><select id="profile-school-id"><option value="">未設定</option></select></label>
+            <label class="profile-wide"><span>きっかけのフェア</span><select id="profile-fair-id"><option value="">未設定</option></select></label>
             <label class="profile-wide"><span>学部・学科</span><input id="profile-faculty" name="faculty" maxlength="180"></label>
             <label><span>電話番号</span><input id="profile-phone" name="phone" maxlength="40" inputmode="tel"></label>
             <label><span>メール</span><input id="profile-email" name="email" maxlength="254" type="email"></label>
@@ -692,9 +694,31 @@
 
       <section id="recruitment-fairs" class="secondary-panel" role="tabpanel" hidden>
         <div class="section-heading">
-          <div><p class="section-kicker">フェア・流入</p><h2>フェア・流入分析</h2></div>
+          <div><p class="section-kicker">フェア</p><h2>フェア管理・実績</h2></div>
           <p id="fair-analysis-status" class="status" data-state="loading" role="status">集計しています</p>
         </div>
+        <section class="analysis-panel master-operation-panel" aria-labelledby="fair-master-title">
+          <header><div><h3 id="fair-master-title">フェアマスタ</h3><p>開催情報と採用実績を登録すると、採用率・採用単価へ即時反映されます。</p></div></header>
+          <form id="fair-master-form" class="master-form" hidden>
+            <input id="fair-master-id" type="hidden"><input id="fair-master-version" type="hidden">
+            <label><span>フェア名 *</span><input id="fair-master-name" maxlength="180" required></label>
+            <label><span>開催日 *</span><input id="fair-master-date" type="date" required></label>
+            <label><span>参加費</span><input id="fair-master-fee" type="number" min="0" value="0"></label>
+            <label><span>会場</span><input id="fair-master-venue" maxlength="180"></label>
+            <label><span>担当</span><input id="fair-master-owner" maxlength="120"></label>
+            <label><span>参加人数</span><input id="fair-master-participants" type="number" min="0" value="0"></label>
+            <label><span>接触人数</span><input id="fair-master-contacts" type="number" min="0" value="0"></label>
+            <label><span>LINE登録</span><input id="fair-master-line" type="number" min="0" value="0"></label>
+            <label><span>見学</span><input id="fair-master-tours" type="number" min="0" value="0"></label>
+            <label><span>面接</span><input id="fair-master-interviews" type="number" min="0" value="0"></label>
+            <label><span>内定</span><input id="fair-master-offers" type="number" min="0" value="0"></label>
+            <label><span>採用人数</span><input id="fair-master-hires" type="number" min="0" value="0"></label>
+            <label class="profile-wide"><span>更新理由 *</span><input id="fair-master-reason" maxlength="500" required></label>
+            <div class="master-form-actions"><button class="primary-command" type="submit">確認して保存</button><button id="fair-master-reset" class="secondary-command" type="button">新規入力へ戻す</button></div>
+          </form>
+          <p id="fair-master-status" class="status" data-state="idle" role="status">フェア情報を読み込んでいます</p>
+          <div class="analysis-table-scroll"><table class="analysis-table"><thead><tr><th>フェア</th><th>開催日</th><th>担当</th><th>接触</th><th>内定</th><th>採用</th><th>採用率</th><th>採用単価</th><th>操作</th></tr></thead><tbody id="fair-master-body"></tbody></table></div>
+        </section>
         <section class="analysis-kpis" aria-label="接触データの概要">
           <article><span>接触データ</span><strong id="fair-contact-count">-</strong></article>
           <article><span>LINE登録率</span><strong id="fair-line-rate">-</strong></article>
@@ -726,6 +750,19 @@
           <div><p class="section-kicker">学校分析</p><h2>学校別 採用状況</h2></div>
           <p id="school-analysis-status" class="status" data-state="loading" role="status">集計しています</p>
         </div>
+        <section class="analysis-panel master-operation-panel" aria-labelledby="school-master-title">
+          <header><div><h3 id="school-master-title">学校マスタ</h3><p>学校・学部・担当を一元管理し、候補者と採用実績を集計します。</p></div></header>
+          <form id="school-master-form" class="master-form" hidden>
+            <input id="school-master-id" type="hidden"><input id="school-master-version" type="hidden">
+            <label><span>学校 *</span><input id="school-master-name" maxlength="180" required></label>
+            <label><span>学部・学科</span><input id="school-master-faculty" maxlength="180"></label>
+            <label><span>担当</span><input id="school-master-owner" maxlength="120"></label>
+            <label><span>更新理由 *</span><input id="school-master-reason" maxlength="500" required></label>
+            <div class="master-form-actions"><button class="primary-command" type="submit">確認して保存</button><button id="school-master-reset" class="secondary-command" type="button">新規入力へ戻す</button></div>
+          </form>
+          <p id="school-master-status" class="status" data-state="idle" role="status">学校情報を読み込んでいます</p>
+          <div class="analysis-table-scroll"><table class="analysis-table"><thead><tr><th>学校</th><th>学部・学科</th><th>担当</th><th>候補者</th><th>見学</th><th>面接</th><th>内定</th><th>採用率</th><th>操作</th></tr></thead><tbody id="school-master-body"></tbody></table></div>
+        </section>
         <section class="analysis-kpis" aria-label="学校情報の登録状況">
           <article><span>集計対象校</span><strong id="school-registered-count">-</strong></article>
           <article><span>学校未登録</span><strong id="school-missing-count">-</strong></article>

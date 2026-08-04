@@ -20,7 +20,10 @@ const SUMMARY_METRICS = Object.freeze([
 export function buildTalentAnalytics(workspace) {
   const students = Array.isArray(workspace?.students) ? workspace.students : [];
   const overview = workspace?.overview || {};
-  const lineRegistrations = countBy(students, (student) => Boolean(student.lineRegistrationDate));
+  const lineRegistrations = Number.isFinite(Number(workspace?.dashboard?.lineRegistrations))
+    ? Number(workspace.dashboard.lineRegistrations) : countBy(students, (student) => Boolean(student.lineRegistrationDate));
+  const fairMasters = Array.isArray(workspace?.fairMasters) ? workspace.fairMasters.filter((row) => row.is_active !== false) : [];
+  const schoolMasters = Array.isArray(workspace?.schoolMasters) ? workspace.schoolMasters.filter((row) => row.is_active !== false) : [];
   const summaryValues = {
     total: safeCount(overview.total),
     contacts: safeCount(overview.contacts),
@@ -37,15 +40,42 @@ export function buildTalentAnalytics(workspace) {
       label,
       value: summaryValues[key]
     }))),
-    flow: Object.freeze(buildMonthlyFlow(students)),
-    schools: Object.freeze(buildSchoolRows(students)),
+    flow: Object.freeze(fairMasters.length ? buildFairMasterFlow(fairMasters) : buildMonthlyFlow(students)),
+    schools: Object.freeze(schoolMasters.length ? buildSchoolMasterRows(schoolMasters, students) : buildSchoolRows(students)),
     coverage: Object.freeze({
       lineRegistrationRate: percentage(lineRegistrations, summaryValues.contacts),
-      schoolRegistered: countBy(students, (student) => Boolean(cleanText(student.school))),
+      schoolRegistered: schoolMasters.length || countBy(students, (student) => Boolean(cleanText(student.school))),
       schoolMissing: countBy(students, (student) => !cleanText(student.school)),
-      monthCount: new Set(students.map(monthKey).filter(Boolean)).size
+      monthCount: fairMasters.length
+        ? new Set(fairMasters.map((fair) => cleanText(fair.event_date).slice(0, 7)).filter(Boolean)).size
+        : new Set(students.map(monthKey).filter(Boolean)).size
     })
   });
+}
+
+function buildFairMasterFlow(masters) {
+  return masters.map((fair) => Object.freeze({
+    key: String(fair.event_date || fair.fair_id), label: String(fair.fair_name || "フェア"),
+    contacts: safeCount(fair.contact_count), lineRegistrations: safeCount(fair.line_registration_count),
+    entries: safeCount(fair.participant_count), offers: safeCount(fair.offer_count), needsAction: 0,
+    hires: safeCount(fair.hire_count), participationFee: safeCount(fair.participation_fee),
+    hireRate: percentage(safeCount(fair.hire_count), safeCount(fair.contact_count)),
+    hireCost: safeCount(fair.hire_count) ? Math.round(safeCount(fair.participation_fee) / safeCount(fair.hire_count)) : null
+  })).sort((left, right) => right.key.localeCompare(left.key));
+}
+
+function buildSchoolMasterRows(masters, students) {
+  return masters.map((master) => {
+    const linked = students.filter((student) => student.schoolId === master.school_id || (!student.schoolId && normalizeGroupKey(student.school) === normalizeGroupKey(master.school_name)));
+    const has = (student, code) => student.statusCode === code || [...(student.selectionHistory || []), ...(student.eventHistory || [])].some((item) => item.active !== false && item.code === code);
+    const offers = linked.filter((student) => has(student, "OFFERED")).length;
+    const hires = linked.filter((student) => has(student, "OFFER_ACCEPTED") || has(student, "EXPECTED_JOIN")).length;
+    return Object.freeze({ key: master.school_id, school: master.school_name, contacts: linked.length,
+      lineRegistrations: linked.filter((student) => has(student, "LINE_REGISTERED")).length,
+      entries: linked.filter((student) => has(student, "APPLICATION_RECEIVED")).length, offers, needsAction: 0,
+      entryRate: percentage(linked.filter((student) => has(student, "APPLICATION_RECEIVED")).length, linked.length),
+      offerRate: percentage(offers, linked.length), hireRate: percentage(hires, linked.length) });
+  }).sort((left, right) => right.contacts - left.contacts || left.school.localeCompare(right.school, "ja"));
 }
 
 export function buildTalentAnalyticsActionGuide(analytics) {

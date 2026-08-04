@@ -3,11 +3,11 @@ import {
   createDashboardSummaryExecutor,
   createTalentWorkspaceExecutor
 } from "./runtime.mjs?v=20260804-staging-workspace-contract-1";
-import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260726-talent-analytics-action-guide-1";
+import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260804-recruitment-master-dashboard-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
 import { handleNovHubSessionAuthFailure, NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
-import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260804-operation-stabilization-1";
+import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260804-recruitment-master-dashboard-1";
 import {
   buildCandidateHistorySummary,
   buildEventRoiView,
@@ -472,6 +472,14 @@ export function initializeTalentStudentWorkspace({
     event.preventDefault();
     saveStudentProfile({ globalObject, documentObject });
   });
+  documentObject.getElementById("profile-school-id")?.addEventListener("change", (event) => {
+    const master = (studentWorkspaceData?.schoolMasters || []).find((row) => row.school_id === event.target?.value);
+    if (!master) return;
+    const school = documentObject.getElementById("profile-school");
+    const faculty = documentObject.getElementById("profile-faculty");
+    if (school) school.value = master.school_name || "";
+    if (faculty && !faculty.value.trim()) faculty.value = master.faculty_name || "";
+  });
   documentObject.getElementById("candidate-contact-add")?.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType: "EVENT" }));
   documentObject.getElementById("candidate-selection-add")?.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType: "SELECTION" }));
   documentObject.getElementById("candidate-action-add")?.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType: "NEXT_ACTION" }));
@@ -484,6 +492,16 @@ export function initializeTalentStudentWorkspace({
     event.preventDefault();
     saveCandidateActivity({ globalObject, documentObject });
   });
+  documentObject.getElementById("fair-master-form")?.addEventListener("submit", (event) => {
+    event.preventDefault(); saveRecruitmentMaster({ globalObject, documentObject, entityType: "FAIR" });
+  });
+  documentObject.getElementById("school-master-form")?.addEventListener("submit", (event) => {
+    event.preventDefault(); saveRecruitmentMaster({ globalObject, documentObject, entityType: "SCHOOL" });
+  });
+  documentObject.getElementById("fair-master-reset")?.addEventListener("click", () => resetRecruitmentMasterForm(documentObject, "FAIR"));
+  documentObject.getElementById("school-master-reset")?.addEventListener("click", () => resetRecruitmentMasterForm(documentObject, "SCHOOL"));
+  documentObject.getElementById("fair-master-body")?.addEventListener("click", (event) => handleMasterTableAction({ globalObject, documentObject, event, entityType: "FAIR" }));
+  documentObject.getElementById("school-master-body")?.addEventListener("click", (event) => handleMasterTableAction({ globalObject, documentObject, event, entityType: "SCHOOL" }));
   documentObject.getElementById("candidate-activity-deactivate")?.addEventListener("click", () => {
     deactivateCandidateActivity({ globalObject, documentObject });
   });
@@ -585,6 +603,7 @@ export async function loadTalentStudentWorkspace({
       { name: "renderHistoricalReviewSummary", render: () => renderHistoricalReviewSummary(documentObject, result.data.overview) },
       { name: "renderBulkTriageSummary", render: () => renderBulkTriageSummary(documentObject, result.data.students) },
       { name: "renderTalentAnalytics", render: () => renderTalentAnalytics(documentObject) },
+      { name: "renderRecruitmentMasters", render: () => renderRecruitmentMasters(documentObject) },
       { name: "renderTodayTasks", render: () => renderTodayTasks(documentObject, result.data.todayTasks || []) },
       { name: "renderUnlinkedInterviews", render: () => renderUnlinkedInterviews(documentObject, result.data.unlinkedSelectionHistory || [], globalObject) }
     ]
@@ -2702,6 +2721,7 @@ function openStudentProfileDialog({ documentObject, student, focusField = "profi
     const input = documentObject.getElementById(id);
     if (input) input.value = value;
   });
+  populateCandidateMasterOptions(documentObject, student);
   const status = documentObject.getElementById("student-profile-status");
   if (status) {
     status.dataset.state = "idle";
@@ -2788,6 +2808,16 @@ async function saveStudentProfile({ globalObject, documentObject }) {
           : "保存できませんでした。最新情報を再読み込みしてください";
     }
     return;
+  }
+  const savedCandidateId = profileDialogStudent?.recordId || result.data?.candidate_id || result.data?.candidateId;
+  const savedVersion = result.data?.candidate_version || result.data?.candidateVersion;
+  const masterResult = savedCandidateId && savedVersion ? await client?.linkMasters(savedCandidateId, {
+    expectedVersion: Number(savedVersion), schoolId: documentObject.getElementById("profile-school-id")?.value || null,
+    fairId: documentObject.getElementById("profile-fair-id")?.value || null, reason: payload.changeReason
+  }) : { ok: true };
+  if (!masterResult?.ok) {
+    if (status) { status.dataset.state = "stopped"; status.textContent = "候補者情報は保存しましたが、学校・フェアの紐付けに失敗しました。再読み込みして編集してください。"; }
+    studentWorkspaceData = null; await loadTalentStudentWorkspace({ globalObject, documentObject, force: true }); return;
   }
   pendingSelectedApplicationNo = null;
   if (status) {
@@ -3139,6 +3169,115 @@ function renderUnlinkedInterviews(documentObject, rows, globalObject) {
     }
     return item;
   }));
+}
+
+function populateCandidateMasterOptions(documentObject, student) {
+  const replace = (id, masters, valueKey, labelKey, selected) => {
+    const select = documentObject.getElementById(id); if (!select) return;
+    const empty = documentObject.createElement("option"); empty.value = ""; empty.textContent = "未設定";
+    select.replaceChildren(empty, ...masters.filter((row) => row.is_active !== false).map((row) => {
+      const option = documentObject.createElement("option"); option.value = row[valueKey]; option.textContent = row[labelKey]; return option;
+    })); select.value = selected || "";
+  };
+  replace("profile-school-id", studentWorkspaceData?.schoolMasters || [], "school_id", "school_name", student?.schoolId);
+  replace("profile-fair-id", studentWorkspaceData?.fairMasters || [], "fair_id", "fair_name", student?.fairId);
+}
+
+function renderRecruitmentMasters(documentObject) {
+  const workspace = studentWorkspaceData || {};
+  const canWrite = workspace.canWrite === true;
+  for (const id of ["fair-master-form", "school-master-form"]) {
+    const form = documentObject.getElementById(id); if (form) form.hidden = !canWrite;
+  }
+  renderFairMasters(documentObject, Array.isArray(workspace.fairMasters) ? workspace.fairMasters : []);
+  renderSchoolMasters(documentObject, Array.isArray(workspace.schoolMasters) ? workspace.schoolMasters : []);
+}
+
+function renderFairMasters(documentObject, masters) {
+  const body = documentObject.getElementById("fair-master-body"); if (!body) return;
+  body.replaceChildren(...masters.map((fair) => {
+    const row = documentObject.createElement("tr"); if (fair.is_active === false) row.className = "master-row-inactive";
+    const contacts = Number(fair.contact_count || 0), hires = Number(fair.hire_count || 0), fee = Number(fair.participation_fee || 0);
+    const rate = contacts ? `${((hires / contacts) * 100).toFixed(1)}%` : "-";
+    const cost = hires ? `${Math.round(fee / hires).toLocaleString("ja-JP")}円` : "-";
+    row.innerHTML = `<td>${escapeHtml(fair.fair_name)}</td><td>${escapeHtml(fair.event_date)}</td><td>${escapeHtml(fair.assigned_to || "未設定")}</td><td>${contacts}</td><td>${Number(fair.offer_count || 0)}</td><td>${hires}</td><td>${rate}</td><td>${cost}</td><td></td>`;
+    const cell = row.lastElementChild;
+    if (studentWorkspaceData?.canWrite) cell.append(masterActionButton(documentObject, "編集", "edit", fair.fair_id), masterActionButton(documentObject, fair.is_active === false ? "復元" : "無効化", fair.is_active === false ? "restore" : "deactivate", fair.fair_id));
+    return row;
+  }));
+  const status = documentObject.getElementById("fair-master-status"); if (status) status.textContent = `${masters.filter((row) => row.is_active !== false).length}件のフェアを表示`;
+}
+
+function renderSchoolMasters(documentObject, masters) {
+  const body = documentObject.getElementById("school-master-body"); if (!body) return;
+  const students = studentWorkspaceData?.students || [];
+  body.replaceChildren(...masters.map((school) => {
+    const candidates = students.filter((student) => student.schoolId === school.school_id || (!student.schoolId && student.school === school.school_name));
+    const codes = (code) => candidates.filter((student) => student.statusCode === code || [...(student.selectionHistory || []), ...(student.eventHistory || [])].some((item) => item.active !== false && item.code === code)).length;
+    const tours = codes("SALON_TOUR_COMPLETED"), interviews = codes("INTERVIEW_COMPLETED"), offers = codes("OFFERED");
+    const hires = candidates.filter((student) => ["OFFER_ACCEPTED", "EXPECTED_JOIN"].some((code) =>
+      student.statusCode === code || [...(student.selectionHistory || []), ...(student.eventHistory || [])]
+        .some((item) => item.active !== false && item.code === code))).length;
+    const row = documentObject.createElement("tr"); if (school.is_active === false) row.className = "master-row-inactive";
+    row.innerHTML = `<td>${escapeHtml(school.school_name)}</td><td>${escapeHtml(school.faculty_name || "-")}</td><td>${escapeHtml(school.assigned_to || "未設定")}</td><td>${candidates.length}</td><td>${tours}</td><td>${interviews}</td><td>${offers}</td><td>${candidates.length ? `${((hires / candidates.length) * 100).toFixed(1)}%` : "-"}</td><td></td>`;
+    const cell = row.lastElementChild;
+    if (studentWorkspaceData?.canWrite) cell.append(masterActionButton(documentObject, "編集", "edit", school.school_id), masterActionButton(documentObject, school.is_active === false ? "復元" : "無効化", school.is_active === false ? "restore" : "deactivate", school.school_id));
+    return row;
+  }));
+  const status = documentObject.getElementById("school-master-status"); if (status) status.textContent = `${masters.filter((row) => row.is_active !== false).length}校を表示`;
+}
+
+function masterActionButton(documentObject, label, action, id) {
+  const button = documentObject.createElement("button"); button.type = "button"; button.className = "secondary-command compact-command";
+  button.textContent = label; button.dataset.masterAction = action; button.dataset.masterId = id; return button;
+}
+
+function resetRecruitmentMasterForm(documentObject, entityType) {
+  const prefix = entityType === "FAIR" ? "fair-master" : "school-master";
+  documentObject.getElementById(`${prefix}-form`)?.reset?.();
+  const id = documentObject.getElementById(`${prefix}-id`); const version = documentObject.getElementById(`${prefix}-version`);
+  if (id) id.value = ""; if (version) version.value = "";
+}
+
+async function saveRecruitmentMaster({ globalObject, documentObject, entityType }) {
+  const prefix = entityType === "FAIR" ? "fair-master" : "school-master";
+  const value = (suffix) => documentObject.getElementById(`${prefix}-${suffix}`)?.value?.trim() || "";
+  const entityId = value("id"), expectedVersion = value("version") ? Number(value("version")) : null;
+  const payload = entityType === "SCHOOL" ? {
+    entityType, operation: entityId ? "UPDATE" : "CREATE", entityId: entityId || null, expectedVersion,
+    schoolName: value("name"), facultyName: value("faculty"), assignedTo: value("owner"), reason: value("reason")
+  } : {
+    entityType, operation: entityId ? "UPDATE" : "CREATE", entityId: entityId || null, expectedVersion,
+    fairName: value("name"), eventDate: value("date"), participationFee: Number(value("fee") || 0), venue: value("venue"), assignedTo: value("owner"),
+    participantCount: Number(value("participants") || 0), contactCount: Number(value("contacts") || 0), lineRegistrationCount: Number(value("line") || 0),
+    salonTourCount: Number(value("tours") || 0), interviewCount: Number(value("interviews") || 0), offerCount: Number(value("offers") || 0), hireCount: Number(value("hires") || 0), reason: value("reason")
+  };
+  const status = documentObject.getElementById(`${prefix}-status`); if (status) status.textContent = "保存しています";
+  const result = await createStagingCandidateClient({ globalObject })?.mutateMaster(payload);
+  if (!result?.ok) { if (status) status.textContent = result?.category === "version_conflict" ? "他の更新があります。再読み込みしてください" : "保存できませんでした"; return; }
+  resetRecruitmentMasterForm(documentObject, entityType); studentWorkspaceData = null;
+  await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
+}
+
+async function handleMasterTableAction({ globalObject, documentObject, event, entityType }) {
+  const button = event.target?.closest?.("[data-master-action]"); if (!button) return;
+  const list = entityType === "FAIR" ? studentWorkspaceData?.fairMasters : studentWorkspaceData?.schoolMasters;
+  const idKey = entityType === "FAIR" ? "fair_id" : "school_id";
+  const master = (list || []).find((row) => row[idKey] === button.dataset.masterId); if (!master) return;
+  const prefix = entityType === "FAIR" ? "fair-master" : "school-master";
+  if (button.dataset.masterAction === "edit") {
+    const set = (suffix, value) => { const element = documentObject.getElementById(`${prefix}-${suffix}`); if (element) element.value = value ?? ""; };
+    set("id", master[idKey]); set("version", master.version); set("name", master[entityType === "FAIR" ? "fair_name" : "school_name"]); set("owner", master.assigned_to);
+    if (entityType === "SCHOOL") set("faculty", master.faculty_name); else {
+      set("date", master.event_date); set("fee", master.participation_fee); set("venue", master.venue); set("participants", master.participant_count);
+      set("contacts", master.contact_count); set("line", master.line_registration_count); set("tours", master.salon_tour_count); set("interviews", master.interview_count); set("offers", master.offer_count); set("hires", master.hire_count);
+    }
+    documentObject.getElementById(`${prefix}-form`)?.scrollIntoView?.({ behavior: "smooth", block: "start" }); return;
+  }
+  const operation = button.dataset.masterAction === "restore" ? "RESTORE" : "DEACTIVATE";
+  if (!globalObject.confirm?.(operation === "RESTORE" ? "このマスタを復元しますか？" : "このマスタを無効化しますか？")) return;
+  const result = await createStagingCandidateClient({ globalObject })?.mutateMaster({ entityType, operation, entityId: master[idKey], expectedVersion: master.version, reason: operation === "RESTORE" ? "業務利用のため復元" : "業務上使用しないため無効化" });
+  if (!result?.ok) return; studentWorkspaceData = null; await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
 }
 
 function escapeHtml(value) {

@@ -97,6 +97,32 @@ export function cleanSourceFactLink(input: unknown) {
   return Object.freeze({ candidateId, sourceType, sourceRowNo, factCode, expectedVersion, reason });
 }
 
+export function cleanRecruitmentMaster(input: unknown) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const value = input as Record<string, unknown>;
+  const entityType = String(value.entityType || "");
+  const operation = String(value.operation || "");
+  const entityId = clean(value.entityId, 40);
+  const expectedVersion = value.expectedVersion === undefined || value.expectedVersion === null ? null : Number(value.expectedVersion);
+  const reason = clean(value.reason, 500);
+  if (!reason || !["SCHOOL", "FAIR"].includes(entityType) || !["CREATE", "UPDATE", "DEACTIVATE", "RESTORE"].includes(operation)
+    || (operation !== "CREATE" && (!entityId || !Number.isInteger(expectedVersion) || Number(expectedVersion) < 1))) return null;
+  if (entityType === "SCHOOL") {
+    const schoolName = clean(value.schoolName, 180);
+    if (["CREATE", "UPDATE"].includes(operation) && !schoolName) return null;
+    return Object.freeze({ entityType, operation, entityId, expectedVersion, reason,
+      payload: { schoolName, facultyName: clean(value.facultyName, 180), assignedTo: clean(value.assignedTo, 120) } });
+  }
+  const fairName = clean(value.fairName, 180);
+  const eventDate = clean(value.eventDate, 10);
+  if (["CREATE", "UPDATE"].includes(operation) && (!fairName || !/^\d{4}-\d{2}-\d{2}$/u.test(eventDate || ""))) return null;
+  const counts = ["participationFee", "participantCount", "contactCount", "lineRegistrationCount", "salonTourCount", "interviewCount", "offerCount", "hireCount"];
+  const numeric = Object.fromEntries(counts.map((key) => [key, Number(value[key] ?? 0)]));
+  if (Object.values(numeric).some((number) => !Number.isInteger(number) || number < 0)) return null;
+  return Object.freeze({ entityType, operation, entityId, expectedVersion, reason,
+    payload: { fairName, eventDate, venue: clean(value.venue, 180), assignedTo: clean(value.assignedTo, 120), ...numeric } });
+}
+
 function clean(value: unknown, max: number) {
   const result = String(value ?? "").normalize("NFKC").trim();
   return result ? result.slice(0, max) : null;

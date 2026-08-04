@@ -43,6 +43,8 @@ export function createStagingCandidateClient({
     deactivate: (candidateId, payload) => UUID.test(candidateId) ? request(`/api/talent/v1/candidates/${candidateId}/active`, { method: "POST", body: { ...payload, active: false } }) : Promise.resolve({ ok: false, category: "invalid_request" }),
     restore: (candidateId, payload) => UUID.test(candidateId) ? request(`/api/talent/v1/candidates/${candidateId}/active`, { method: "POST", body: { ...payload, active: true } }) : Promise.resolve({ ok: false, category: "invalid_request" }),
     mutateActivity: (payload) => request("/api/talent/v1/activities", { method: "POST", body: payload }),
+    mutateMaster: (payload) => request("/api/talent/v1/masters", { method: "POST", body: payload }),
+    linkMasters: (candidateId, payload) => UUID.test(candidateId) ? request(`/api/talent/v1/candidates/${candidateId}/master-links`, { method: "POST", body: payload }) : Promise.resolve({ ok: false, category: "invalid_request" }),
     linkUnlinkedSelection: (payload) => request("/api/talent/v1/unlinked-selection/link", { method: "POST", body: payload }),
     audit: (candidateId) => UUID.test(candidateId) ? request(`/api/talent/v1/candidates/${candidateId}/audit`) : Promise.resolve({ ok: false, category: "invalid_request" })
   });

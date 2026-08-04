@@ -2163,3 +2163,13 @@ h3 { margin: 0; font-size: 1rem; }
   .detail-grid { grid-template-columns: 1fr; }
   .detail-grid div:nth-child(even) { padding-left: 0; }
 }
+.master-operation-panel { margin-bottom: 24px; }
+.master-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 16px 0; padding: 16px; border: 1px solid var(--line, #e6dede); border-radius: 14px; background: #fff; }
+.master-form label { display: grid; gap: 6px; min-width: 0; }
+.master-form label span { font-weight: 700; color: #5c5254; }
+.master-form input { min-width: 0; padding: 10px 12px; border: 1px solid #d8cdcf; border-radius: 10px; font: inherit; }
+.master-form .profile-wide { grid-column: span 2; }
+.master-form-actions { grid-column: 1 / -1; display: flex; gap: 10px; flex-wrap: wrap; }
+.master-row-inactive { opacity: .58; }
+@media (max-width: 860px) { .master-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .master-form { grid-template-columns: 1fr; } .master-form .profile-wide { grid-column: auto; } .master-form-actions > * { width: 100%; } }

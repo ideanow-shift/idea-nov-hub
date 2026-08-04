@@ -1,0 +1,38 @@
+{
+  "snapshot_id": "nov-talent-fair-source-20260805-readonly-01",
+  "generated_at": "2026-08-05T07:43:45+09:00",
+  "source_hash_algorithm": "SHA-256",
+  "source_hash": "9e022eebeae45b8252c430c5c6b6e5b028a6261c6244ec8e166964f516592873",
+  "source_rows_observed": 48,
+  "business_rows": 44,
+  "empty_template_rows": 4,
+  "identity_ready_rows": 36,
+  "identity_key_missing_rows": 8,
+  "exact_duplicate_groups": 0,
+  "numeric_review_rows": 1,
+  "field_presence": {
+    "participation_fee": 32,
+    "contact_count": 39,
+    "line_registration_count": 32,
+    "salon_tour_count": 33
+  },
+  "staging_preflight": {
+    "status": "BLOCKED",
+    "write_count": 0,
+    "existing_update_count": 0,
+    "reason_codes": [
+      "FAIR_MASTER_UNKNOWN_NUMERIC_VALUES_COERCE_TO_ZERO",
+      "FAIR_MASTER_SOURCE_FIELDS_NOT_REPRESENTABLE",
+      "SOURCE_IDENTITY_KEY_MISSING",
+      "SOURCE_NUMERIC_VALUE_REVIEW_REQUIRED"
+    ]
+  },
+  "safety": {
+    "spreadsheet_write_count": 0,
+    "staging_write_count": 0,
+    "production_write_count": 0,
+    "automatic_merge_count": 0,
+    "automatic_delete_count": 0,
+    "personal_values_in_artifact": false
+  }
+}

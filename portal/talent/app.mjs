@@ -34,6 +34,46 @@ let pendingSelectedApplicationNo = null;
 const PRIMARY_TABS = Object.freeze(["recruitment"]);
 const RECRUITMENT_TABS = Object.freeze(["summary", "students", "fairs", "schools"]);
 const WORKFORCE_TABS = Object.freeze([]);
+const CANDIDATE_RENDER_FAILURE_MESSAGE = "候補者表示処理に失敗しました";
+
+export function runTalentWorkspaceRenderPipeline({
+  stages = [],
+  logger = globalThis.console
+} = {}) {
+  try {
+    for (const stage of stages) {
+      try {
+        stage.render();
+      } catch {
+        logger?.error?.(`[NOV Talent] Candidate rendering failed: ${stage.name}`);
+        const failure = new Error("candidate_render_failed");
+        failure.renderStage = stage.name;
+        throw failure;
+      }
+    }
+    return Object.freeze({ ok: true, failedStage: null, completedStageCount: stages.length });
+  } catch (error) {
+    return Object.freeze({
+      ok: false,
+      failedStage: String(error?.renderStage || "unknown_render_stage"),
+      completedStageCount: Math.max(0, stages.findIndex((stage) => stage.name === error?.renderStage))
+    });
+  }
+}
+
+function renderCandidateWorkspaceFailure(documentObject) {
+  const panel = documentObject?.getElementById?.("mock-runtime-state");
+  if (panel) {
+    panel.hidden = false;
+    panel.dataset.state = "stopped";
+    panel.dataset.category = "CANDIDATE_RENDER_FAILED";
+  }
+  setText(documentObject, "mock-runtime-state-title", CANDIDATE_RENDER_FAILURE_MESSAGE);
+  setText(documentObject, "mock-runtime-state-copy", "再読み込みしても解消しない場合は、管理者へ連絡してください。");
+  setText(documentObject, "historical-summary-status", CANDIDATE_RENDER_FAILURE_MESSAGE);
+  setText(documentObject, "fair-analysis-status", CANDIDATE_RENDER_FAILURE_MESSAGE);
+  setText(documentObject, "school-analysis-status", CANDIDATE_RENDER_FAILURE_MESSAGE);
+}
 
 export async function startTalentDashboardSummary({
   globalObject = globalThis,
@@ -510,7 +550,6 @@ export async function loadTalentStudentWorkspace({
   }
 
   studentWorkspaceData = result.data;
-  renderMockRuntimeState(documentObject, result.data.students.length ? "ready" : "empty");
   if (pendingSelectedApplicationNo) {
     selectedStudentRecordId = result.data.students.find(
       (student) => student.applicationNo === pendingSelectedApplicationNo
@@ -521,13 +560,35 @@ export async function loadTalentStudentWorkspace({
   if (!result.data.students.some((student) => student.recordId === selectedStudentRecordId)) {
     selectedStudentRecordId = first?.recordId || null;
   }
-  renderStudentMonthFilterOptions(documentObject, result.data.students);
-  renderStudentWorkspace(documentObject);
-  renderImportOverview(documentObject, result.data.overview);
-  renderHistoricalReviewSummary(documentObject, result.data.overview);
-  renderBulkTriageSummary(documentObject, result.data.students);
-  renderTalentAnalytics(documentObject);
-  renderTodayTasks(documentObject, result.data.todayTasks || []);
+  const renderResult = runTalentWorkspaceRenderPipeline({
+    logger: globalObject.console,
+    stages: [
+      { name: "renderStudentMonthFilterOptions", render: () => renderStudentMonthFilterOptions(documentObject, result.data.students) },
+      { name: "renderStudentWorkspace", render: () => renderStudentWorkspace(documentObject) },
+      { name: "renderImportOverview", render: () => renderImportOverview(documentObject, result.data.overview) },
+      { name: "renderHistoricalReviewSummary", render: () => renderHistoricalReviewSummary(documentObject, result.data.overview) },
+      { name: "renderBulkTriageSummary", render: () => renderBulkTriageSummary(documentObject, result.data.students) },
+      { name: "renderTalentAnalytics", render: () => renderTalentAnalytics(documentObject) },
+      { name: "renderTodayTasks", render: () => renderTodayTasks(documentObject, result.data.todayTasks || []) }
+    ]
+  });
+  if (!renderResult.ok) {
+    studentWorkspaceData = null;
+    renderCandidateWorkspaceFailure(documentObject);
+    if (status) {
+      status.dataset.state = "stopped";
+      status.textContent = CANDIDATE_RENDER_FAILURE_MESSAGE;
+    }
+    return Object.freeze({
+      executed: false,
+      studentRowsReturned: false,
+      stopCategory: "candidate_render_failed",
+      failedRenderStage: renderResult.failedStage,
+      requestCount: result.requestCount,
+      retryCount: result.retryCount
+    });
+  }
+  renderMockRuntimeState(documentObject, result.data.students.length ? "ready" : "empty");
   if (status) {
     status.dataset.state = "ready";
     status.textContent = `${result.data.students.length}件の${runtimeMode(globalObject) === "staging" ? "Staging" : "匿名Mock"}候補者を表示`;

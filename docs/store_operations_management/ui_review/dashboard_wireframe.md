@@ -38,6 +38,15 @@
 
 目的は上から「状態→優先→原因→店舗」の順に視線を動かすこと。主要クリック先はAction、Driverの推移、状態Filter、店舗行である。
 
+## PC最終寸法と初期表示
+
+- shell最大幅1480px、左右gutter 32px。第一階層section間40px、見出し下16px。
+- Header＋対象条件は72px以内、sticky filterは56px、Summaryは208〜232px、Priority cardは240px、card gap 12px。
+- 1440px以上はPriority 3列、1024〜1439pxは2列。Decision Signalは3列×2段、各236〜250px。その下に共通推移1つだけを置く。
+- 1366×768の初期表示では対象月・mode・scope、Summary、状態件数、Priority sectionの存在、次section「業績を動かした要因」の見出しが分かること。1440×900ではPriority最大3件とDecision Signal先頭行、1920×1080ではDecision Signal 6件と共通推移の開始が見えることを目標とする。
+- 店舗一覧のscroll開始は「業績を動かした要因」と共通推移の後。Executive Summaryを伸長して一覧を押し下げない。
+- 6つの結論は売上、利益、集客、単価、商品、EC。ECは全社ECを主表示とし、店舗別EC貢献は詳細だけで扱う。
+
 ## Tablet Executive Dashboard
 
 ```text
@@ -91,7 +100,7 @@ hoverなし。補足はtapで開く。店舗一覧は主要列を優先し、補
 └──────────────────────────┘
 ```
 
-横スクロールは使わない。Filterはbottom sheet暫定案。tap領域は44px以上。
+横スクロールは使わない。Filterはbottom sheetで確定する。tap領域は44px以上。
 
 ## 店舗一覧
 

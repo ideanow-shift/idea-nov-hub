@@ -1,5 +1,20 @@
 # 利用リスク分析
 
+## 最終Devil's Advocate監査
+
+| 厳しい問い | 結論 | 仕様上の防止策 |
+| --- | --- | --- |
+| 1366×768で判断材料がfold下へ消えないか | Summary肥大化が最大risk | Summary 232px以下、section gap 40px、Priority存在とDriver見出しを初期表示Acceptanceに固定 |
+| 「全店利益」と誤読しないか | FC利益非表示時に誤読し得る | 「直営店利益（対象○店舗）」を正本化し売上対象件数と分離 |
+| Emptyが権限不足を隠さないか | 業務判断を誤る | 403／Empty／collecting／503を別StatePanelに固定 |
+| FilterやURLでScopeを広げられないか | frontend制御だけでは危険 | Server許可集合のみ入力、許可外option非表示、直接URL再認可 |
+| Mobileで情報が詰まりすぎないか | 6 signal＋一覧で長大化 | signal 1列、1 accordionのみ初期展開、一覧card、bottom sheet filter |
+| 色覚やscreen readerで状態が伝わるか | dot色だけでは不足 | label、icon、text summary、chart legend／descriptionを必須化 |
+| 戻ると比較条件を失わないか | 営業判断の再現性を損なう | History state、URL、row focus、scrollを一貫して復元 |
+| 未接続時にDemo値を実績と誤るか | Production事故になり得る | Production fallback禁止、Preview banner、API未接続専用状態 |
+
+UI構造に関する重大な未解決riskはない。API key、Session transport等はIntegration依存であり、UI設計判断ではない。
+
 ## Devil's Advocate
 
 | リスク | 最大の兆候 | V1での抑制策 |

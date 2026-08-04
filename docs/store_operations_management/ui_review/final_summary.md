@@ -2,9 +2,9 @@
 
 ## 最終判定
 
-**CONDITIONAL GO**
+**UI DESIGN COMPLETE**
 
-業務OwnerによるContract FreezeをUI仕様へ同期した。既存の画面階層、月次Projection、店舗詳細4区分はV1の基礎として採用できる。正式Permission Key／Bundle名、営業部長のcanonical department relation、Productionのassignment制約が未確定のため、実装開始判定は条件付きとする。
+業務OwnerによるContract FreezeをUI仕様へ同期し、画面階層、寸法、密度、Responsive、Component、Interaction、状態、状態保持、Design Tokenまで確定した。Frontend実装者が追加のUI設計判断を行う必要はない。
 
 Permission Modelの6層構造（Session／employee、canonical Role、Application Permission、Data Scope、Store Scope、Action Scope）は変更不要である。UIはServerが認可済みとして返した店舗とKPIだけを表示する。
 
@@ -40,6 +40,15 @@ Executive Summary→優先アクション最大3件→業績ドライバー4群�
 | Devil's Advocate | [usage_risk_analysis.md](usage_risk_analysis.md) |
 | P0／P1／P2 | [design_recommendation.md](design_recommendation.md) |
 | PC／Tablet／Mobile／Detail／遷移 | [dashboard_wireframe.md](dashboard_wireframe.md) |
+| 現行完成度 | [current-design-status.md](current-design-status.md) |
+| 全状態の文言・操作 | [state-design.md](state-design.md) |
+| Navigation・状態保持 | [navigation-state-retention.md](navigation-state-retention.md) |
+| Component API | [component-specification.md](component-specification.md) |
+| Interaction | [interaction-specification.md](interaction-specification.md) |
+| Token | [design-tokens.md](design-tokens.md) |
+| Design System準拠 | [design-system-compliance.md](design-system-compliance.md) |
+| 実装引継ぎ | [implementation-handoff.md](implementation-handoff.md) |
+| 最終Visual基準 | [visual-design-guideline.md](visual-design-guideline.md) |
 
 ## V2候補
 
@@ -56,13 +65,12 @@ POS、日次進捗、月末着地予測、リアルタイム、スタッフ個�
 - 添付フォルダの既存営業管理画像: 画像ファイルなし。本文の現場評価のみ確認
 - AGENTS.md: 対象repository rootおよび親階層に存在せず
 
-## 未確認・再レビュー
+## UI実装を止めない外部依存
 
-- 元の添付営業管理画像の具体的な視線誘導、予算差、進捗表現
-- Design Systemのカード、テーブル、chart、状態に関する正式仕様書
-- 副社長Roleの正式Server-side Scope
-- 客数、単価、EC按分、生産性を含む最終Published Projection Contract
-- 店舗状態と優先アクションの説明責任・更新頻度
+- 正式API endpoint／Projection key
+- Session transportとProduction Permission Bundleのread-only証跡
+- HUB headerの実測sticky offset
+- 客数、単価、EC按分、生産性を含むPublished Projectionの値接続
 
 ## Contract Freeze後も残るGap
 
@@ -74,13 +82,13 @@ POS、日次進捗、月末着地予測、リアルタイム、スタッフ個�
 - Productionで有効なBundleのread-only証跡
 - `employee_store_assignments`のProduction制約確認
 
-正式Key名はCore DB/Auth契約確定後に置換する。UI上の表示・状態・閲覧範囲契約は本資料で確定する。次の作業はCore DB/Auth契約確定であり、Staging実装は未開始、Productionは**NO GO**である。
+正式Key名はCore DB/Auth契約確定後に置換する。UI上の表示・状態・閲覧範囲契約は本資料で確定した。次の担当は **Store Operations V1 Frontend Implementation Codex**、次のtaskは「[implementation-handoff.md](implementation-handoff.md)に従いPreview／FixtureでUI component、Responsive、全状態、Navigation保持を実装し、認可・Runtime・API Contractを変更しない」である。Production接続は引き続き**NO GO**である。
 
 ## Git作業結果
 
 - Branch: `docs/store-operations-ui-review-v1`
-- Design deliverables commit: `4456602fdccdf96fc2ef97b4693d59ebfcaa19db`
-- Push: `origin/docs/store-operations-ui-review-v1`へ完了
+- Design deliverables commit: 本Sprint commitを最終報告で記録
+- Push: 本Sprint完了後に`origin/docs/store-operations-ui-review-v1`へ更新
 - Draft PR: [#33 docs(store-operations): review and redesign V1 decision UX](https://github.com/ideanow-shift/idea-nov-hub/pull/33)
 - PR状態: Draftを維持
 - 変更範囲: `docs/store_operations_management/ui_review/**`のUI文書のみ

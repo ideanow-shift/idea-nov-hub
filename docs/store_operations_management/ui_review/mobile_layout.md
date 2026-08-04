@@ -11,7 +11,7 @@ Executive Summary→店舗状態→優先アクション→業績ドライバー
 - 業績ドライバーはAccordion。結果と関連群だけ初期展開
 - Portfolioは横スクロールにせず、折返し可能な状態Selector
 - 店舗一覧はカード。横スクロールtableは禁止
-- Filterは要約Buttonからbottom sheetを開く暫定案
+- Filterは適用件数付きButtonからbottom sheetを開く。Apply、条件クリア、閉じるを持ち、focusを起動Buttonへ戻す
 
 ## 店舗カード
 
@@ -19,8 +19,8 @@ Executive Summary→店舗状態→優先アクション→業績ドライバー
 
 ## 店舗詳細
 
-結論、今月の重点、次に確認、主KPIを先にする。4区分は44px以上のTabまたはselect型navigationとし、横swipeだけに依存しない。FTE補足はtapで開く。
+結論、今月の重点、次に確認、主KPIを先にする。4区分は44px以上の横scroll可能Tabとし、横swipeだけに依存しない。FTE補足はtapで開く。
 
 ## 状態
 
-Loadingは画面骨格、集計中／準備中は値領域、通信エラーは再試行、権限なしは専用説明として分ける。320px以上でdocument横overflowを発生させない。
+Loadingは画面骨格、集計中／準備中は値領域、通信エラーは再試行、権限なしは専用説明として分ける。対象幅は320〜620px、gutter 12px。Decision Signalは561〜620pxで2列、560px以下1列。320px以上でdocument横overflowを発生させない。

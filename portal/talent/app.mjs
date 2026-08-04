@@ -6,6 +6,7 @@ import {
 import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260726-talent-analytics-action-guide-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
+import { handleNovHubSessionAuthFailure } from "../js/nov-hub-session-candidate.js";
 import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260804-staging-write-1";
 import {
   buildCandidateHistorySummary,
@@ -13,7 +14,7 @@ import {
   buildMockRuntimePresentation,
   buildRecruitmentDashboardDecision,
   buildRecruitmentTaskBoard
-} from "./recruitment-ux.mjs?v=20260801-sprint2-ux-1";
+} from "./recruitment-ux.mjs?v=20260804-staging-auth-incident-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -491,6 +492,7 @@ export async function loadTalentStudentWorkspace({
     reload.setAttribute("aria-busy", "false");
   }
   if (result?.okBoolean !== true) {
+    handleNovHubSessionAuthFailure(result?.httpStatus);
     const presentation = renderMockRuntimeState(documentObject, result?.stopCategory);
     const message = presentation.title;
     if (status) {

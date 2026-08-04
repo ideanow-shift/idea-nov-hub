@@ -186,7 +186,7 @@ export function createTalentWorkspaceExact1Executor({
           credentials: "omit"
         });
         const envelope = await readJsonEnvelope(response);
-        const data = unwrapWorkspaceEnvelope(envelope);
+        const data = unwrapWorkspaceEnvelope(envelope, response.status);
         return Object.freeze({
           ...safeResult("ready", {
             executed: true,
@@ -494,11 +494,16 @@ function unwrapSummaryEnvelope(envelope) {
   return data;
 }
 
-function unwrapWorkspaceEnvelope(envelope) {
+function unwrapWorkspaceEnvelope(envelope, httpStatus = 0) {
   if (!isPlainObject(envelope)) throw safeError("invalid_response");
   if (envelope.ok !== true) {
     assertExactKeys(envelope, ERROR_ENVELOPE_KEYS);
-    throw safeError(envelope.safeCode === "AUTH_REQUIRED" ? "auth_required" : "api_error");
+    const category = envelope.safeCode === "AUTH_REQUIRED"
+      ? "auth_required"
+      : envelope.safeCode === "FORBIDDEN"
+        ? "forbidden"
+        : "api_error";
+    throw safeError(category, { httpStatus });
   }
   assertExactKeys(envelope, SUCCESS_ENVELOPE_KEYS);
   validateMeta(envelope.meta);

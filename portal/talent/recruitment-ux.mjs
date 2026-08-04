@@ -73,18 +73,21 @@ export function buildCandidateHistorySummary(student) {
 
 const RUNTIME_PRESENTATIONS = Object.freeze({
   loading: ["loading", "候補者データを準備しています", "そのままお待ちください。"],
-  ready: ["ready", "採用画面を利用できます", "匿名Mockデータのみを表示しています。"],
-  empty: ["empty", "候補者データはまだありません", "Mockデータの設定を確認してください。"],
-  unauthorized: ["stopped", "利用者を確認できません", "Mock Runtimeの利用設定を確認してください。"],
+  ready: ["ready", "採用画面を利用できます", "候補者データを読み込みました。"],
+  empty: ["empty", "候補者データはまだありません", "接続先と対象Datasetを確認してください。"],
+  auth_required: ["stopped", "ログイン状態を確認してください", "上部の「NOV HUBへ戻る」からログインし直してください。"],
+  unauthorized: ["stopped", "利用者を確認できません", "NOV HUBへ戻ってログイン状態を確認してください。"],
   forbidden: ["stopped", "この画面を利用できません", "管理者へ利用範囲を確認してください。"],
-  validation_error: ["stopped", "Mockデータの形式を確認してください", "入力形式を直してから再読み込みしてください。"],
+  api_error: ["stopped", "Staging候補者を取得できません", "接続状態を確認してから再読み込みしてください。"],
+  invalid_response: ["stopped", "候補者データを確認できません", "管理者へデータ取得状況を確認してください。"],
+  validation_error: ["stopped", "候補者データを確認できません", "データ形式を確認してから再読み込みしてください。"],
   timeout: ["stopped", "読み込みに時間がかかっています", "再読み込みを1回お試しください。"],
   offline: ["stopped", "オフライン状態です", "接続を確認してから再読み込みしてください。"],
   maintenance: ["stopped", "現在メンテナンス中です", "利用再開までお待ちください。"]
 });
 
 export function buildMockRuntimePresentation(state) {
-  const key = Object.hasOwn(RUNTIME_PRESENTATIONS, state) ? state : "validation_error";
+  const key = Object.hasOwn(RUNTIME_PRESENTATIONS, state) ? state : "api_error";
   const [viewState, title, copy] = RUNTIME_PRESENTATIONS[key];
   return Object.freeze({ category: key.toUpperCase(), state: viewState, title, copy });
 }

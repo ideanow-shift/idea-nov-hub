@@ -53,3 +53,12 @@ test("operation UI provides responsive School and Fair Master input", async () =
     assert.match(html, new RegExp(`id="${id}"`, "u"));
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.master-form/u);
 });
+
+test("workspace contract accepts candidate master links and master collections", async () => {
+  const exact1 = await readFile(new URL("portal/talent/exact1.mjs", root), "utf8");
+  assert.match(exact1, /"fairMasters", "schoolMasters", "students"/u);
+  assert.match(exact1, /"schoolId"/u);
+  assert.match(exact1, /"fairId"/u);
+  assert.match(exact1, /validateSchoolMasters\(data\.schoolMasters\)/u);
+  assert.match(exact1, /validateFairMasters\(data\.fairMasters\)/u);
+});

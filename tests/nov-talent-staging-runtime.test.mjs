@@ -154,6 +154,8 @@ test("636 Candidate API response renders through the real frontend pipeline", as
     ...candidateWorkspace,
     accessProfile: "recruiter",
     canWrite: true,
+    schoolMasters: [],
+    fairMasters: [],
     todayTasks: [],
     unlinkedSelectionHistory: [],
     dashboard: {

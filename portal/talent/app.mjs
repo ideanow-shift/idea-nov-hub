@@ -2,11 +2,11 @@ import {
   buildDashboardSummaryViewModel,
   createDashboardSummaryExecutor,
   createTalentWorkspaceExecutor
-} from "./runtime.mjs?v=20260803-staging-runtime-1";
+} from "./runtime.mjs?v=20260804-staging-session-contract-1";
 import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260726-talent-analytics-action-guide-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
-import { handleNovHubSessionAuthFailure } from "../js/nov-hub-session-candidate.js";
+import { handleNovHubSessionAuthFailure, NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
 import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260804-staging-write-1";
 import {
   buildCandidateHistorySummary,
@@ -262,7 +262,7 @@ export async function loadTalentWorkforceSummary({
   const executor = createTalentWorkforceSummaryExact1Executor({
     globalObject,
     hubSessionHelper: globalObject.NovHubSession,
-    hubContract: globalObject.NOV_HUB_SESSION_CONTRACT || NOV_HUB_SESSION_CONTRACT,
+    hubContract: NOV_HUB_SESSION_CONTRACT,
     fetchImpl
   });
   const result = executor ? await executor.run() : null;

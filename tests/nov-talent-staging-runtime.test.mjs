@@ -9,7 +9,7 @@ import {
   validateCandidateDatasetRows
 } from "../supabase/functions/nov-talent-staging-readonly-api/domain.ts";
 import { createHandler } from "../supabase/functions/nov-talent-staging-readonly-api/index.ts";
-import { readNovTalentRuntime } from "../portal/talent/runtime.mjs";
+import { createTalentWorkspaceExecutor, readNovTalentRuntime } from "../portal/talent/runtime.mjs";
 
 function uuid(index) {
   return `10000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
@@ -101,6 +101,43 @@ test("feature flag can switch between Staging and retained Mock runtime", () => 
   assert.equal(staging.writeEnabled, true);
   assert.equal(mock.mode, "mock");
   assert.equal(mock.networkEnabled, false);
+});
+
+test("Staging runtime injects the module session contract without a window global", async () => {
+  const requests = [];
+  const globalObject = {
+    NOV_TALENT_CONFIG: {
+      runtimeMode: "staging",
+      networkEnabled: true,
+      writeEnabled: false,
+      readonlyApiEnabled: true,
+      readonlyApiBaseUrl: "https://staging.example.invalid/functions/v1/nov-talent-staging-api",
+      features: { stagingCandidateDataset: true }
+    },
+    NovHubSession: {
+      async getSessionToken() {
+        return "fixture-session-token-value-not-real";
+      }
+    },
+    async fetch(url, init) {
+      requests.push({ url: String(url), authorization: init.headers.Authorization });
+      return Response.json(
+        { ok: false, safeCode: "AUTH_REQUIRED", message: "safe", requestId: "fixture" },
+        { status: 401 }
+      );
+    }
+  };
+
+  assert.equal(globalObject.NOV_HUB_SESSION_CONTRACT, undefined);
+  const executor = createTalentWorkspaceExecutor({ globalObject });
+  assert.ok(executor);
+  const result = await executor.run();
+
+  assert.equal(requests.length, 1);
+  assert.match(requests[0].url, /\/api\/talent\/v1\/workspace\?fiscalYear=current$/);
+  assert.equal(requests[0].authorization, "Bearer fixture-session-token-value-not-real");
+  assert.equal(result.httpStatus, 401);
+  assert.equal(result.stopCategory, "auth_required");
 });
 
 test("published config exposes no server credential and only a server-side write endpoint", () => {

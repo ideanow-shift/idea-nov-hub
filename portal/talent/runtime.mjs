@@ -1,4 +1,5 @@
 import { buildTodayTasks, createNovTalentMockRepository } from "./mock-repository.mjs";
+import { NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
 import {
   createDashboardSummaryExact1Executor,
   createTalentWorkspaceExact1Executor
@@ -45,7 +46,11 @@ export function readNovTalentRuntime({ globalObject = globalThis } = {}) {
 export function createDashboardSummaryExecutor({ globalObject = globalThis, fiscalYear = "current" } = {}) {
   const runtime = readNovTalentRuntime({ globalObject });
   if (runtime.mode === "staging") {
-    return createDashboardSummaryExact1Executor({ globalObject, fiscalYear });
+    return createDashboardSummaryExact1Executor({
+      globalObject,
+      hubContract: NOV_HUB_SESSION_CONTRACT,
+      fiscalYear
+    });
   }
   let consumed = false;
   return Object.freeze({
@@ -66,7 +71,11 @@ export function createDashboardSummaryExecutor({ globalObject = globalThis, fisc
 export function createTalentWorkspaceExecutor({ globalObject = globalThis } = {}) {
   const runtime = readNovTalentRuntime({ globalObject });
   if (runtime.mode === "staging") {
-    const executor = createTalentWorkspaceExact1Executor({ globalObject, fiscalYear: "current" });
+    const executor = createTalentWorkspaceExact1Executor({
+      globalObject,
+      hubContract: NOV_HUB_SESSION_CONTRACT,
+      fiscalYear: "current"
+    });
     if (!executor) return null;
     return Object.freeze({
       async run() {

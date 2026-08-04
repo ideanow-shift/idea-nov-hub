@@ -1,3 +1,5 @@
+import { NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
+
 const REQUIRED_AUDIENCE = "nov_hub";
 const SUMMARY_FIELDS = Object.freeze([
   "contacts",
@@ -95,7 +97,7 @@ const AUDIT_FIELDS = Object.freeze([
 export function readTalentRuntime({
   globalObject = globalThis,
   hubSessionHelper = globalObject.NovHubSession,
-  hubContract = globalObject.NOV_HUB_SESSION_CONTRACT
+  hubContract = NOV_HUB_SESSION_CONTRACT
 } = {}) {
   const config = globalObject.NOV_TALENT_CONFIG;
   if (config?.readonlyApiEnabled !== true) return null;
@@ -110,7 +112,7 @@ export function readTalentRuntime({
 export function createDashboardSummaryExact1Executor({
   globalObject = globalThis,
   hubSessionHelper = globalObject.NovHubSession,
-  hubContract = globalObject.NOV_HUB_SESSION_CONTRACT,
+  hubContract = NOV_HUB_SESSION_CONTRACT,
   fetchImpl = globalObject.fetch,
   fiscalYear = "current"
 } = {}) {
@@ -162,7 +164,7 @@ export function createDashboardSummaryExact1Executor({
 export function createTalentWorkspaceExact1Executor({
   globalObject = globalThis,
   hubSessionHelper = globalObject.NovHubSession,
-  hubContract = globalObject.NOV_HUB_SESSION_CONTRACT,
+  hubContract = NOV_HUB_SESSION_CONTRACT,
   fetchImpl = globalObject.fetch,
   fiscalYear = "2027"
 } = {}) {
@@ -213,7 +215,7 @@ export function createTalentWorkspaceExact1Executor({
 export function createTalentWorkforceSummaryExact1Executor({
   globalObject = globalThis,
   hubSessionHelper = globalObject.NovHubSession,
-  hubContract = globalObject.NOV_HUB_SESSION_CONTRACT,
+  hubContract = NOV_HUB_SESSION_CONTRACT,
   fetchImpl = globalObject.fetch
 } = {}) {
   const runtime = readTalentRuntime({ globalObject, hubSessionHelper, hubContract });
@@ -262,7 +264,7 @@ export function createTalentStudentProfileAuditExact1Executor({
   applicationNo,
   globalObject = globalThis,
   hubSessionHelper = globalObject.NovHubSession,
-  hubContract = globalObject.NOV_HUB_SESSION_CONTRACT,
+  hubContract = NOV_HUB_SESSION_CONTRACT,
   fetchImpl = globalObject.fetch
 } = {}) {
   const runtime = readTalentRuntime({ globalObject, hubSessionHelper, hubContract });
@@ -312,7 +314,7 @@ export function createTalentStagingSupplementAuditExact1Executor({
   stagingRecordId,
   globalObject = globalThis,
   hubSessionHelper = globalObject.NovHubSession,
-  hubContract = globalObject.NOV_HUB_SESSION_CONTRACT,
+  hubContract = NOV_HUB_SESSION_CONTRACT,
   fetchImpl = globalObject.fetch
 } = {}) {
   const normalizedRecordId = String(stagingRecordId || "").trim();

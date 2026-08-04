@@ -21,7 +21,7 @@ test("Sprint 1 seed is anonymous and preserves only cohort counts", () => {
   assert.equal(seed.candidates.length, 147);
   assert.ok(seed.candidates.every((candidate) => candidate.recordId.startsWith("mock-")));
   assert.ok(seed.candidates.every((candidate) => candidate.phone === "" && candidate.email === ""));
-  assert.ok(seed.candidates.every((candidate) => /^(候補者|架空|学校未設定|採用)/.test(`${candidate.displayName}${candidate.school}${candidate.assignee}`)));
+  assert.ok(seed.candidates.every((candidate) => /^(学生|架空|学校未設定|採用)/.test(`${candidate.displayName}${candidate.school}${candidate.assignee}`)));
 });
 
 test("Mock Runtime returns dashboard, candidates and at most five tasks without I/O", async () => {
@@ -66,7 +66,7 @@ test("Published shell uses the approved server-side Staging runtime and retains 
     readFile(new URL("style.css", root), "utf8")
   ]);
   assert.match(html, /運用データ/);
-  assert.match(html, /候補者一覧/);
+  assert.match(html, /学生一覧/);
   assert.doesNotMatch(html, /data-primary-tab="workforce"/);
   assert.match(html, /id="panel-workforce" class="primary-panel sprint1-separated"/);
   assert.match(app, /from "\.\/runtime\.mjs\?v=20260804-workspace-master-contract-2"/);

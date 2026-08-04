@@ -30,7 +30,7 @@ const workspace = {
 };
 
 for (const [key, label, value] of [
-  ["candidateCount", "候補者", 147], ["entries", "応募", 42],
+  ["candidateCount", "学生", 147], ["entries", "応募", 42],
   ["salonTourPlanned", "見学予定", 9], ["interviewPlanned", "面接予定", 7],
   ["offers", "内定", 35], ["withdrawals", "辞退", 2],
   ["schoolCount", "学校", 5], ["fairCount", "フェア", 45]

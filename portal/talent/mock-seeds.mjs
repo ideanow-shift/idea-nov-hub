@@ -54,7 +54,7 @@ function buildCandidate({ cohort, index, now }) {
     classificationLabel: classification === "QUARANTINE"
       ? "隔離"
       : classification === "OWNER_REVIEW" ? "要確認" : "確認済み",
-    displayName: `候補者 ${cohort}-${serial}`,
+    displayName: `学生 ${cohort}-${serial}`,
     email: "",
     kana: "",
     lineRegistrationDate: index % 3 === 0 ? offsetDate(now, -((index % 75) + 1)) : "",

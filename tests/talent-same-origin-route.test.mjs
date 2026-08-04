@@ -189,7 +189,7 @@ test("operator control initializes with request0 and token0", () => {
   assert.equal(tokenReads, 0);
   assert.equal(fetches, 0);
   assert.equal(documentObject.button.disabled, false);
-  assert.equal(documentObject.status.textContent, "確認用候補者データの集計を表示します");
+  assert.equal(documentObject.status.textContent, "確認用学生データの集計を表示します");
 });
 
 test("one trusted click disables first and remains local while reentry stays request0", async () => {
@@ -243,7 +243,7 @@ test("missing HUB helper does not block the explicitly Mock-only control", () =>
   assert.equal(fetches, 0);
   assert.equal(tokenReads, 0);
   assert.equal(documentObject.button.disabled, false);
-  assert.equal(documentObject.status.textContent, "確認用候補者データの集計を表示します");
+  assert.equal(documentObject.status.textContent, "確認用学生データの集計を表示します");
 });
 
 test("offline Mock state fails closed without attempting an API request", async () => {
@@ -399,7 +399,7 @@ test("talent entry point cache-busts runtime config and app with one release id"
 
   assert.ok(runtimeVersion, "runtime config must have a release id");
   assert.equal(appVersion, runtimeVersion);
-  assert.equal(appVersion, "20260804-workspace-master-contract-cache-1");
+  assert.equal(appVersion, "20260805-todays-dashboard-1");
 });
 
 test("HUB launcher canonicalizes Talent route even when backend URL is stale", () => {

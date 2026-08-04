@@ -149,7 +149,30 @@ test("frontend render boundary reports the exact failed stage without logging Ca
 
 test("636 Candidate API response renders through the real frontend pipeline", async () => {
   resetTalentStudentWorkspaceForFixture();
-  const workspace = buildCandidateWorkspace(validateCandidateDatasetRows(rows()), "recruiter");
+  const candidateWorkspace = buildCandidateWorkspace(validateCandidateDatasetRows(rows()), "recruiter");
+  const workspace = {
+    ...candidateWorkspace,
+    accessProfile: "recruiter",
+    canWrite: true,
+    todayTasks: [],
+    unlinkedSelectionHistory: [],
+    dashboard: {
+      availability: {
+        candidateCount: true, entries: true, eventCount: true, fairCount: true,
+        graduation2027: true, graduation2028: true, interviewHistory: true, interviewPlanned: true,
+        lineRegistrations: true, offeredElsewhere: true, offers: true, rejected: true,
+        salonTourCompleted: true, salonTourPlanned: false, schoolCount: true,
+        todayActions: false, withdrawals: true
+      },
+      candidateCount: 636, entries: 42, eventCount: 672, fairCount: 45,
+      graduation2027: 528, graduation2028: 108, interviewHistory: 42, interviewPlanned: 0,
+      lineRegistrations: 318, offeredElsewhere: 0, offers: 35, rejected: 5,
+      salonTourCompleted: 0, salonTourPlanned: 0, schoolCount: 1,
+      selectionHistoryCount: 126, todayActions: 0, undatedActions: 0,
+      unlinkedInterviewHistoryCount: 42, withdrawals: 2
+    },
+    students: candidateWorkspace.students.map((student) => ({ ...student, nextActions: [] }))
+  };
   const documentObject = fakeDocument();
   const consoleMessages = [];
   const globalObject = {
@@ -281,5 +304,5 @@ test("published config exposes no server credential and only a server-side write
   assert.match(config, /writeEnabled:\s*true/);
   assert.match(config, /writeApiBaseUrl/);
   assert.doesNotMatch(config, /service_role|serviceRole|password|secret/i);
-  assert.match(html, /app\.mjs\?v=20260804-recruiting-dashboard-final-2/);
+  assert.match(html, /app\.mjs\?v=20260804-staging-workspace-contract-1/);
 });

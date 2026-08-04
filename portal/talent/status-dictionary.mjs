@@ -37,4 +37,3 @@ export const SELECTION_STATUS_LABELS = Object.freeze({
 export function statusLabel(code, fallback = "状態未設定") {
   return CANDIDATE_STATUS_LABELS[String(code || "")] || fallback;
 }
-

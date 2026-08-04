@@ -256,31 +256,6 @@ export function initializeTalentNavigation({
       documentObject.getElementById("workforce-procedure-desk")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
     });
   }
-  for (const button of documentObject.querySelectorAll("[data-talent-daily-open]")) {
-    button.addEventListener("click", () => {
-      const target = String(button.dataset.talentDailyOpen || "");
-      if (target === "summary") {
-        primaryButtons.find((item) => item.dataset.primaryTab === "recruitment")?.click?.();
-        secondaryButtons.find((item) => item.dataset.secondaryTab === "summary")?.click?.();
-        announceDailyCommandRoute(documentObject, target, "今日やることを開きました。期限と優先対応を確認できます。");
-        focusDailyCommandTarget(documentObject, "today-task-title");
-      }
-      if (target === "students") {
-        primaryButtons.find((item) => item.dataset.primaryTab === "recruitment")?.click?.();
-        secondaryButtons.find((item) => item.dataset.secondaryTab === "students")?.click?.();
-        announceDailyCommandRoute(documentObject, target, "学生一覧を開きました。検索・絞り込みから対応する学生を選べます。");
-        focusDailyCommandTarget(documentObject, "student-toolbar");
-      }
-      if (target === "addCandidate") {
-        primaryButtons.find((item) => item.dataset.primaryTab === "recruitment")?.click?.();
-        secondaryButtons.find((item) => item.dataset.secondaryTab === "students")?.click?.();
-        documentObject.getElementById("student-add-open")?.click?.();
-        announceDailyCommandRoute(documentObject, target, "学生追加を開きました。必要項目を入力して登録できます。");
-        focusDailyCommandTarget(documentObject, "student-add-open");
-      }
-    });
-  }
-
   const initialPrimary = normalizeHash(globalObject?.location?.hash);
   if (initialPrimary) selectTab(primaryButtons, initialPrimary, (key) => documentObject.getElementById(`panel-${key}`), false);
   if (initialPrimary === "workforce") {
@@ -341,7 +316,9 @@ export function initializeTalentStudentWorkspace({
       if (!studentWorkspaceData) return;
       renderStudentWorkspace(documentObject);
       renderTalentAnalytics(documentObject);
-      renderTodayTasks(documentObject, graduationYearWorkspace(studentWorkspaceData).todayTasks || []);
+      const workspace = graduationYearWorkspace(studentWorkspaceData);
+      renderTalentTodayDashboard(documentObject, workspace);
+      renderTodayTasks(documentObject, workspace.todayTasks || []);
     });
   }
   updateGraduationYearSwitcher(documentObject);
@@ -616,6 +593,7 @@ export async function loadTalentStudentWorkspace({
       { name: "renderImportOverview", render: () => renderImportOverview(documentObject, result.data.overview) },
       { name: "renderHistoricalReviewSummary", render: () => renderHistoricalReviewSummary(documentObject, result.data.overview) },
       { name: "renderBulkTriageSummary", render: () => renderBulkTriageSummary(documentObject, result.data.students) },
+      { name: "renderTalentTodayDashboard", render: () => renderTalentTodayDashboard(documentObject, graduationYearWorkspace(result.data)) },
       { name: "renderTalentAnalytics", render: () => renderTalentAnalytics(documentObject) },
       { name: "renderRecruitmentMasters", render: () => renderRecruitmentMasters(documentObject) },
       { name: "renderTodayTasks", render: () => renderTodayTasks(documentObject, graduationYearWorkspace(result.data).todayTasks || []) },
@@ -2035,6 +2013,80 @@ export function graduationYearWorkspace(workspace, graduationYear = selectedGrad
   return Object.freeze({ ...workspace, students: Object.freeze(students), todayTasks: Object.freeze(todayTasks), schoolMasters: Object.freeze(schoolMasters), fairMasters: Object.freeze(fairMasters), dashboard, overview });
 }
 
+export function buildTalentTodayDashboard(workspace, referenceDate = localTalentDateIso()) {
+  const students = Array.isArray(workspace?.students) ? workspace.students : [];
+  const tasks = Array.isArray(workspace?.todayTasks) ? workspace.todayTasks : [];
+  const today = /^\d{4}-\d{2}-\d{2}$/u.test(referenceDate) ? referenceDate : localTalentDateIso();
+  const recentStart = new Date(`${today}T00:00:00Z`);
+  recentStart.setUTCDate(recentStart.getUTCDate() - 6);
+  const recentStartIso = recentStart.toISOString().slice(0, 10);
+  const activeRows = (student) => [
+    ...(student?.contactHistory || []),
+    ...(student?.eventHistory || []),
+    ...(student?.selectionHistory || []),
+    ...(student?.nextActions || [])
+  ].filter((row) => row?.active !== false);
+  const datedCode = (student, code, date = today) => activeRows(student)
+    .some((row) => row.code === code && row.date === date);
+  const incompleteAction = (row) => row?.active !== false
+    && !row?.completedAt
+    && !["COMPLETED", "DONE"].includes(String(row?.state || "").toUpperCase());
+  const taskRows = tasks.filter(incompleteAction);
+  const dueToday = taskRows.filter((row) => /^\d{4}-\d{2}-\d{2}$/u.test(String(row.date || "")) && row.date <= today);
+  const overdueIds = new Set(students.filter((student) => (
+    classifyTalentStudentFollowUp(student, today) === "OVERDUE"
+    || (student.nextActions || []).some((row) => incompleteAction(row) && /^\d{4}-\d{2}-\d{2}$/u.test(String(row.date || "")) && row.date < today)
+  )).map((student) => student.recordId));
+  const awaitingContactIds = new Set(students.filter((student) => (
+    (student.nextActions || []).some((row) => incompleteAction(row) && (
+      ["FOLLOW_UP", "CONTACT", "CONTACT_FOLLOW_UP"].includes(String(row.code || "").toUpperCase())
+      || /連絡|フォロー/u.test(String(row.label || ""))
+    ))
+    || (student.nextActionAt && /連絡|フォロー/u.test(String(student.nextActionLabel || "")))
+  )).map((student) => student.recordId));
+  const recentIds = new Set(students.filter((student) => {
+    const dates = [student.businessDate, student.lineRegistrationDate, ...activeRows(student).map((row) => row.date)]
+      .filter((date) => /^\d{4}-\d{2}-\d{2}$/u.test(String(date || "")));
+    return dates.some((date) => date >= recentStartIso && date <= today);
+  }).map((student) => student.recordId));
+  const newStudentIds = new Set(students.filter((student) => (
+    student.businessDate === today
+    || datedCode(student, "APPLICATION_RECEIVED")
+  )).map((student) => student.recordId));
+  const availability = workspace?.dashboard?.availability || {};
+  return Object.freeze({
+    actions: availability.todayActions === false ? null : dueToday.length,
+    overdue: overdueIds.size,
+    visits: availability.salonTourPlanned === false ? null : students.filter((student) => datedCode(student, "SALON_TOUR_PLANNED")).length,
+    interviews: availability.interviewPlanned === false ? null : students.filter((student) => datedCode(student, "INTERVIEW_PLANNED")).length,
+    awaitingContact: awaitingContactIds.size,
+    newStudents: newStudentIds.size,
+    recentStudents: recentIds.size,
+    referenceDate: today,
+    rawValuesIncluded: false
+  });
+}
+
+function renderTalentTodayDashboard(documentObject, workspace) {
+  const viewModel = buildTalentTodayDashboard(workspace);
+  const values = {
+    "today-dashboard-actions": viewModel.actions,
+    "today-dashboard-overdue": viewModel.overdue,
+    "today-dashboard-visits": viewModel.visits,
+    "today-dashboard-interviews": viewModel.interviews,
+    "today-dashboard-awaiting-contact": viewModel.awaitingContact,
+    "today-dashboard-new-students": viewModel.newStudents,
+    "today-dashboard-recent-students": viewModel.recentStudents
+  };
+  for (const [id, value] of Object.entries(values)) {
+    const element = documentObject?.getElementById?.(id);
+    if (!element) continue;
+    element.textContent = value === null ? "集計準備中" : `${value}件`;
+    element.closest?.("article")?.setAttribute?.("data-state", Number(value || 0) > 0 && ["today-dashboard-actions", "today-dashboard-overdue"].includes(id) ? "attention" : "ready");
+  }
+  setText(documentObject, "talent-today-dashboard-status", `${viewModel.referenceDate} 現在`);
+}
+
 export function buildStudentDailyQueueSummary(students = [], referenceDate = localTalentDateIso()) {
   const rows = Array.isArray(students) ? students : [];
   const counts = rows.reduce((summary, student) => {
@@ -2936,27 +2988,6 @@ function formatSafeCategoryLabel(category) {
     PASS: "確認済み",
     NOT_EVALUATED: "未確認"
   })[String(category || "")] || "確認中";
-}
-
-function announceDailyCommandRoute(documentObject, target, message) {
-  const normalized = ["summary", "students", "addCandidate"].includes(target) ? target : "";
-  for (const item of documentObject?.querySelectorAll?.("[data-talent-daily-open]") || []) {
-    item.setAttribute("aria-pressed", String(item.dataset.talentDailyOpen === normalized));
-  }
-  const status = documentObject?.getElementById?.("talent-daily-command-status");
-  if (!status) return;
-  status.dataset.category = normalized === "summary"
-    ? "ROUTE_SUMMARY"
-    : normalized === "students" ? "ROUTE_STUDENTS" : normalized === "addCandidate" ? "ROUTE_ADD_CANDIDATE" : "NO_ROUTE_SELECTED";
-  status.textContent = message || "開始位置を選択しました。";
-}
-
-function focusDailyCommandTarget(documentObject, id) {
-  const target = documentObject?.getElementById?.(id);
-  if (!target) return;
-  target.scrollIntoView?.({ behavior: "smooth", block: "center" });
-  if (!target.hasAttribute?.("tabindex")) target.setAttribute?.("tabindex", "-1");
-  target.focus?.({ preventScroll: true });
 }
 
 function normalizeSearch(value) {

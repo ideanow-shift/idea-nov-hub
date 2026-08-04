@@ -4,14 +4,19 @@ import test from "node:test";
 
 const root = new URL("../portal/talent/", import.meta.url);
 
-test("daily operation shell excludes setup terminology and keeps recruiting actions", async () => {
+test("daily operation shell starts with today's dashboard and no navigation cards", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
-  const daily = html.match(/<section id="talent-daily-command"[\s\S]*?<\/section>/)?.[0] || "";
+  const daily = html.match(/<section id="talent-today-dashboard"[\s\S]*?<\/section>/)?.[0] || "";
 
-  assert.match(daily, /今日の作業/);
+  assert.match(daily, /TODAY'S DASHBOARD/);
   assert.match(daily, /今日やること/);
-  assert.match(daily, /学生/);
-  assert.match(daily, /学生追加/);
+  assert.match(daily, /期限超過/);
+  assert.match(daily, /今日の見学/);
+  assert.match(daily, /今日の面接/);
+  assert.match(daily, /連絡待ち/);
+  assert.match(daily, /新規学生/);
+  assert.match(daily, /最近更新された学生/);
+  assert.doesNotMatch(daily, /今日の作業|今日の業務をここから始める|01 今日やること|02 学生|03 学生追加/);
   assert.doesNotMatch(daily, /Migration|CSV|Staging|Dataset|Quarantine|preflight|隔離|Employee Core/i);
   assert.doesNotMatch(html, />要確認・隔離を確認</);
   assert.match(html, />要対応を確認</);

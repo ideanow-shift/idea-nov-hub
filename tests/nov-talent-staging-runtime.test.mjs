@@ -306,5 +306,5 @@ test("published config exposes no server credential and only a server-side write
   assert.match(config, /writeEnabled:\s*true/);
   assert.match(config, /writeApiBaseUrl/);
   assert.doesNotMatch(config, /service_role|serviceRole|password|secret/i);
-  assert.match(html, /app\.mjs\?v=20260804-workspace-master-contract-cache-1/);
+  assert.match(html, /app\.mjs\?v=20260805-todays-dashboard-1/);
 });

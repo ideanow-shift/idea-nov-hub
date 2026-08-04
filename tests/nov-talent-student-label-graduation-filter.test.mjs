@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { graduationYearWorkspace, normalizeGraduationYearFilter } from "../portal/talent/app.mjs";
+import { buildTalentTodayDashboard, graduationYearWorkspace, normalizeGraduationYearFilter } from "../portal/talent/app.mjs";
 
 const root = new URL("../portal/", import.meta.url);
 
@@ -20,7 +20,35 @@ test("visible NOV Talent labels use 学生 and expose one shared graduation-year
   assert.match(html, /data-graduation-year="2027"[^>]*>27卒/);
   assert.match(html, /data-graduation-year="2028"[^>]*>28卒/);
   assert.match(html, /id="recruitment-summary-title">27卒・28卒 採用状況/);
-  assert.match(app, /renderStudentWorkspace\(documentObject\);[\s\S]*renderTalentAnalytics\(documentObject\);[\s\S]*renderTodayTasks/);
+  assert.match(app, /renderStudentWorkspace\(documentObject\);[\s\S]*renderTalentAnalytics\(documentObject\);[\s\S]*renderTalentTodayDashboard[\s\S]*renderTodayTasks/);
+});
+
+test("today dashboard counts current work from the selected graduation workspace", () => {
+  const action = (id, date, code = "FOLLOW_UP", state = "OPEN") => ({ id, active: true, completedAt: null, date, code, state, label: "連絡フォロー" });
+  const student = (recordId, graduationYear, nextActionAt, histories = {}, businessDate = "2026-07-20") => ({
+    recordId, graduationYear, nextActionAt, nextActionLabel: "次回連絡", businessDate,
+    contactHistory: histories.contactHistory || [], eventHistory: histories.eventHistory || [],
+    selectionHistory: histories.selectionHistory || [], nextActions: histories.nextActions || []
+  });
+  const workspace = {
+    students: [
+      student("27-a", 2027, "2026-08-04", { nextActions: [action("a", "2026-08-04")] }),
+      student("27-b", 2027, "2026-08-05", { eventHistory: [{ active: true, code: "SALON_TOUR_PLANNED", date: "2026-08-05" }] }, "2026-08-05"),
+      student("28-a", 2028, "2026-08-05", { selectionHistory: [{ active: true, code: "INTERVIEW_PLANNED", date: "2026-08-05" }] })
+    ],
+    todayTasks: [action("task-27", "2026-08-05"), action("task-28", "2026-08-05")],
+    dashboard: { availability: { todayActions: true, salonTourPlanned: true, interviewPlanned: true } },
+    schoolMasters: [], fairMasters: [], overview: {}
+  };
+  workspace.todayTasks[0].candidateId = "27-a";
+  workspace.todayTasks[1].candidateId = "28-a";
+
+  const view = buildTalentTodayDashboard(graduationYearWorkspace(workspace, "2027"), "2026-08-05");
+  assert.deepEqual({
+    actions: view.actions, overdue: view.overdue, visits: view.visits, interviews: view.interviews,
+    awaitingContact: view.awaitingContact, newStudents: view.newStudents, recentStudents: view.recentStudents
+  }, { actions: 1, overdue: 1, visits: 1, interviews: 0, awaitingContact: 2, newStudents: 1, recentStudents: 2 });
+  assert.equal(view.rawValuesIncluded, false);
 });
 
 test("graduation-year workspace filters students, dashboard, actions, fairs, and schools together", () => {

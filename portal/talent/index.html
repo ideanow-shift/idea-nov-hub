@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NOV Talent | 採用意思決定プラットフォーム</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=20260804-recruitment-master-dashboard-1">
-  <script src="./runtime-config.candidate.js?v=20260804-workspace-master-contract-cache-1"></script>
-  <script type="module" src="./app.mjs?v=20260804-workspace-master-contract-cache-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260805-todays-dashboard-1">
+  <script src="./runtime-config.candidate.js?v=20260805-todays-dashboard-1"></script>
+  <script type="module" src="./app.mjs?v=20260805-todays-dashboard-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -41,37 +41,23 @@
       </button>
     </nav>
 
-    <section id="talent-daily-command" class="talent-daily-command" aria-label="今日の人財管理開始ガイド">
-      <div>
-        <p class="section-kicker">今日の作業</p>
-        <h2>今日の業務をここから始める</h2>
-        <p>採用状況を確認し、今日の対応と学生フォローを進めます。</p>
+    <section id="talent-today-dashboard" class="talent-today-dashboard" aria-labelledby="talent-today-dashboard-title">
+      <header class="talent-today-dashboard-heading">
+        <div>
+          <p class="section-kicker">TODAY'S DASHBOARD</p>
+          <h2 id="talent-today-dashboard-title">今日の採用状況</h2>
+        </div>
+        <p id="talent-today-dashboard-status" role="status" aria-live="polite">学生データを集計しています</p>
+      </header>
+      <div class="talent-today-dashboard-grid">
+        <article data-today-metric="actions"><span>今日やること</span><strong id="today-dashboard-actions">－</strong><small>期限が今日以前の未完了対応</small></article>
+        <article data-today-metric="overdue"><span>期限超過</span><strong id="today-dashboard-overdue">－</strong><small>対応期限を過ぎた学生</small></article>
+        <article data-today-metric="visits"><span>今日の見学</span><strong id="today-dashboard-visits">－</strong><small>本日予定のサロン見学</small></article>
+        <article data-today-metric="interviews"><span>今日の面接</span><strong id="today-dashboard-interviews">－</strong><small>本日予定の面接</small></article>
+        <article data-today-metric="awaiting-contact"><span>連絡待ち</span><strong id="today-dashboard-awaiting-contact">－</strong><small>未完了の連絡対応</small></article>
+        <article data-today-metric="new-students"><span>新規学生</span><strong id="today-dashboard-new-students">－</strong><small>本日登録された学生</small></article>
+        <article data-today-metric="recent-students"><span>最近更新された学生</span><strong id="today-dashboard-recent-students">－</strong><small>直近7日以内に記録がある学生</small></article>
       </div>
-      <div class="talent-daily-command-actions">
-        <button type="button" data-talent-daily-open="summary" aria-pressed="false">
-          <span>01 今日やること</span>
-          <strong>優先対応を確認</strong>
-          <small>期限と次回対応を確認</small>
-        </button>
-        <button type="button" data-talent-daily-open="students" aria-pressed="false">
-          <span>02 学生</span>
-          <strong>学生を確認</strong>
-          <small>検索・絞り込み・詳細確認</small>
-        </button>
-        <button type="button" data-talent-daily-open="addCandidate" data-talent-write-only hidden aria-pressed="false">
-          <span>03 学生追加</span>
-          <strong>新しい学生を登録</strong>
-          <small>基本情報と現在の状態を入力</small>
-        </button>
-      </div>
-      <p id="talent-daily-command-status" class="talent-daily-command-status" data-category="NO_ROUTE_SELECTED" role="status" aria-live="polite">
-        開始ボタンを押すと、移動先と次に見る場所をここに表示します。
-      </p>
-      <ol id="talent-daily-completion-checklist" class="talent-daily-completion-checklist" aria-label="今日の人財管理完了条件">
-        <li data-category="TODAY_ACTIONS">今日やること: 期限と優先対応を確認する</li>
-        <li data-category="CANDIDATE_FOLLOWUP">学生: 状態と次回対応を更新する</li>
-        <li data-category="ACTIVITY_HISTORY">採用活動: 接触・イベント・選考履歴を記録する</li>
-      </ol>
     </section>
 
     <section id="panel-recruitment" class="primary-panel" role="tabpanel" aria-labelledby="tab-recruitment">

@@ -242,85 +242,50 @@ h3 { margin: 0; font-size: 1rem; }
 .primary-tab small { display: block; margin-top: 4px; color: inherit; opacity: 0.8; }
 .tab-number { font-weight: 800; opacity: 0.65; }
 
-.talent-daily-command {
-  display: grid;
-  grid-template-columns: minmax(240px, .7fr) minmax(0, 1.3fr);
-  gap: 18px;
+.talent-today-dashboard {
   margin-top: 16px;
   padding: 18px;
   border: 1px solid #d8e7f5;
   border-radius: 10px;
-  background: linear-gradient(135deg, #f7fbff, #fffaf7);
+  background: #f8fbff;
   box-shadow: var(--shadow-card);
 }
-.talent-daily-command h2 { margin: 0; font-size: 1.12rem; }
-.talent-daily-command p:not(.section-kicker) { margin: 8px 0 0; color: var(--muted); font-size: .88rem; line-height: 1.6; }
-.talent-daily-command-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.talent-daily-command-actions button {
+.talent-today-dashboard-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+.talent-today-dashboard-heading h2 { margin: 0; font-size: 1.2rem; }
+.talent-today-dashboard-heading > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 750;
+}
+.talent-today-dashboard-grid {
   display: grid;
-  gap: 5px;
-  min-height: 94px;
-  padding: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.talent-today-dashboard-grid article {
+  display: flex;
+  min-width: 0;
+  min-height: 112px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
 }
-.talent-daily-command-actions button:hover,
-.talent-daily-command-actions button:focus-visible { border-color: #b8d3ed; background: #f8fbff; outline: none; }
-.talent-daily-command-actions button[aria-pressed="true"] {
-  border-color: #6fa2d1;
-  background: #eef7ff;
-  box-shadow: inset 0 0 0 1px rgba(111, 162, 209, .32);
-}
-.talent-daily-command-actions span { color: #2e6b9d; font-size: .74rem; font-weight: 900; letter-spacing: .04em; }
-.talent-daily-command-actions strong { color: var(--navy); font-size: .95rem; }
-.talent-daily-command-actions small { color: var(--muted); line-height: 1.45; }
-.talent-daily-command-status {
-  grid-column: 1 / -1;
-  margin: 0;
-  padding: 9px 12px;
-  border: 1px solid #d9e7f4;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .84);
-  color: #3f566a;
-  font-size: .82rem;
-  font-weight: 850;
-  line-height: 1.45;
-}
-.talent-daily-command-status[data-category="ROUTE_STUDENTS"],
-.talent-daily-command-status[data-category="ROUTE_WORKFORCE"],
-.talent-daily-command-status[data-category="ROUTE_CSV28"] {
-  border-color: #b8d3ed;
-  background: #eef7ff;
-  color: #245b87;
-}
-.talent-daily-completion-checklist {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.talent-daily-completion-checklist li {
-  padding: 9px 10px;
-  border: 1px solid #e1ebf4;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .78);
-  color: #4d5b66;
-  font-size: .78rem;
-  line-height: 1.45;
-}
-.talent-daily-completion-checklist li[data-category="NO_AUTO_PROMOTION"] {
-  border-color: #f1d7cf;
-  background: #fff8f5;
-  color: #9a4a38;
-  font-weight: 800;
-}
+.talent-today-dashboard-grid span { color: var(--navy); font-size: .84rem; font-weight: 850; }
+.talent-today-dashboard-grid strong { color: var(--ink); font-size: 1.7rem; line-height: 1; }
+.talent-today-dashboard-grid small { color: var(--muted); font-size: .74rem; line-height: 1.45; }
+.talent-today-dashboard-grid article[data-state="attention"] { border-color: #efc8bd; background: #fff9f7; }
+.talent-today-dashboard-grid article[data-state="attention"] strong { color: #a44b39; }
 
 .primary-panel {
   margin-top: 16px;
@@ -2084,9 +2049,7 @@ h3 { margin: 0; font-size: 1rem; }
 
 @media (max-width: 860px) {
   .dashboard-header { align-items: flex-start; }
-  .talent-daily-command { grid-template-columns: 1fr; }
-  .talent-daily-command-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .talent-daily-completion-checklist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .talent-today-dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .summary-command { flex-direction: column; align-items: flex-end; }
   .summary-grid, .historical-summary-grid, .workforce-summary, .workforce-operation-boundaries, .procedure-board, .procedure-checklist, .procedure-case-overview, .procedure-case-type-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .procedure-case-operation-summary { grid-template-columns: 1fr; }
@@ -2137,10 +2100,11 @@ h3 { margin: 0; font-size: 1rem; }
   h1 { font-size: 1.35rem; }
   .connection-card { width: 100%; margin-top: 16px; }
   .primary-tabs { grid-template-columns: 1fr; gap: 8px; }
-  .talent-daily-command { padding: 14px; }
-  .talent-daily-command-actions { grid-template-columns: 1fr; }
-  .talent-daily-command-actions button { min-height: 0; }
-  .talent-daily-completion-checklist { grid-template-columns: 1fr; }
+  .talent-today-dashboard { padding: 14px; }
+  .talent-today-dashboard-heading { display: block; }
+  .talent-today-dashboard-heading > p { margin-top: 6px; }
+  .talent-today-dashboard-grid { grid-template-columns: 1fr; }
+  .talent-today-dashboard-grid article { min-height: 96px; }
   .primary-tab { min-height: 68px; padding: 13px 16px; }
   .secondary-tabs { gap: 20px; padding: 0 18px; }
   .graduation-year-switcher { align-items: stretch; flex-direction: column; gap: 8px; padding: 12px 18px; }

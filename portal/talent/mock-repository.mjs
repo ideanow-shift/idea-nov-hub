@@ -39,10 +39,10 @@ function buildSummary(candidates) {
     summary: Object.freeze({
       contacts: candidates.length,
       lineRegistrations: candidates.filter((candidate) => candidate.lineRegistrationDate).length,
-      salonTours: count("SALON_TOUR"),
-      interviews: count("INTERVIEW"),
-      passed: count("PASSED"),
-      offers: count("OFFER"),
+      salonTours: count("SALON_TOUR_COMPLETED"),
+      interviews: count("INTERVIEW_COMPLETED"),
+      passed: count("OFFER_ACCEPTED"),
+      offers: count("OFFERED"),
       expectedJoiners: count("EXPECTED_JOIN")
     })
   });
@@ -78,10 +78,10 @@ export function buildTodayTasks(candidates, now = new Date(), limit = 5) {
     .map((candidate) => {
       const overdue = candidate.nextActionAt && candidate.nextActionAt <= today;
       const reason = overdue
-        ? "対応期限を確認"
-        : candidate.statusCode === "OFFER" ? "内定承諾を確認"
-          : candidate.statusCode === "SALON_TOUR" ? "見学後フォロー"
-            : candidate.classification === "OWNER_REVIEW" ? "要確認を整理" : "";
+        ? candidate.nextActionLabel || "対応期限を確認"
+        : candidate.nextActionLabel || (candidate.statusCode === "OFFERED" ? "内定承諾を確認"
+          : candidate.statusCode === "SALON_TOUR_COMPLETED" ? "見学後フォロー"
+            : candidate.classification === "OWNER_REVIEW" ? "要確認を整理" : "");
       return reason ? Object.freeze({
         candidateId: candidate.recordId,
         candidateName: candidate.displayName,

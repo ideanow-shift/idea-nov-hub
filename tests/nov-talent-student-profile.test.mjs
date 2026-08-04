@@ -14,7 +14,7 @@ const payload = {
   phone: "",
   email: "owner@example.test",
   preferredStore: "",
-  currentStatus: "CONTACT",
+  currentStatus: "LINE_REGISTERED",
   nextActionAt: "2026-08-01",
   offerDate: null,
   expectedJoinDate: null,
@@ -25,7 +25,7 @@ test("student profile form normalizes bounded nullable fields", () => {
   const normalized = normalizeStudentProfileForm(payload);
   assert.equal(normalized.displayName, "表示 氏名");
   assert.equal(normalized.phone, null);
-  assert.equal(normalized.currentStatus, "CONTACT");
+  assert.equal(normalized.currentStatus, "LINE_REGISTERED");
   assert.equal(normalizeStudentProfileForm({ ...payload, email: "invalid" }), null);
   assert.equal(normalizeStudentProfileForm({ ...payload, extra: true }), null);
 });

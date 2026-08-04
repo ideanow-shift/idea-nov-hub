@@ -14,7 +14,8 @@ import {
   buildMockRuntimePresentation,
   buildRecruitmentDashboardDecision,
   buildRecruitmentTaskBoard
-} from "./recruitment-ux.mjs?v=20260804-staging-auth-incident-1";
+} from "./recruitment-ux.mjs?v=20260804-recruiting-dashboard-completion-1";
+import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs?v=20260804-recruiting-dashboard-completion-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -1377,10 +1378,7 @@ function createAnalysisRow(documentObject, values) {
   return row;
 }
 
-const TALENT_PROGRESS_CODES = Object.freeze([
-  "CONTACT", "LINE_REGISTERED", "SALON_TOUR", "INTERVIEW",
-  "PASSED", "OFFER", "EXPECTED_JOIN", "WITHDRAWN"
-]);
+const TALENT_PROGRESS_CODES = Object.freeze(Object.keys(CANDIDATE_STATUS_LABELS));
 
 export function getTalentStudentProgressKey(student) {
   const progress = String(student?.statusCode || "");
@@ -1396,8 +1394,8 @@ export function buildSchoolFollowUpFilter(school) {
 export function buildSummaryFollowUpFilter(key) {
   const filters = {
     contacts: { source: "CONTACTS_27" },
-    entries: { source: "ENTRIES_27" },
-    offers: { source: "OFFERS_27" },
+    entries: { progress: "APPLICATION_RECEIVED" },
+    offers: { progress: "OFFERED" },
     overdueFollowUp: { followUp: "OVERDUE" },
     nextWeekFollowUp: { followUp: "NEXT_7_DAYS" },
     needsAction: { state: "NEEDS_ACTION" }
@@ -1441,17 +1439,7 @@ const STUDENT_FILTER_LABELS = Object.freeze({
     NEW_CANDIDATE: "個別確認候補",
     NEEDS_ACTION: "要確認・隔離"
   }),
-  progress: Object.freeze({
-    UNSET: "進捗未登録",
-    CONTACT: "接触",
-    LINE_REGISTERED: "LINE登録",
-    SALON_TOUR: "サロン見学",
-    INTERVIEW: "面接",
-    PASSED: "通過",
-    OFFER: "内定",
-    EXPECTED_JOIN: "入社予定",
-    WITHDRAWN: "辞退・保留"
-  }),
+  progress: Object.freeze({ UNSET: "進捗未登録", ...CANDIDATE_STATUS_LABELS }),
   followUp: Object.freeze({
     OVERDUE: "期限超過",
     NEXT_7_DAYS: "7日以内",
@@ -1484,7 +1472,7 @@ export function buildOnboardingHandoffDraft(student) {
   if (!student || typeof student !== "object") return null;
   const displayName = typeof student.displayName === "string" ? student.displayName.trim() : "";
   const expectedJoinDate = String(student.expectedJoinDate || "");
-  if (!displayName || !student.applicationNo || !["OFFER", "EXPECTED_JOIN"].includes(student.statusCode)
+  if (!displayName || !student.applicationNo || !["OFFERED", "OFFER_ACCEPTED", "EXPECTED_JOIN"].includes(student.statusCode)
     || !/^\d{4}-\d{2}-\d{2}$/.test(expectedJoinDate)) return null;
   return Object.freeze({
     procedureType: "ONBOARDING",
@@ -1929,7 +1917,7 @@ export function buildStudentDailyQueueSummary(students = [], referenceDate = loc
     if (followUp === "NEXT_7_DAYS") summary.nextWeek += 1;
     if (student?.classification === "OWNER_REVIEW") summary.ownerReview += 1;
     if (student?.classification === "QUARANTINE") summary.quarantine += 1;
-    if (student?.statusCode === "OFFER" || student?.expectedJoinDate) summary.onboardingReady += 1;
+    if (["OFFERED", "OFFER_ACCEPTED", "EXPECTED_JOIN"].includes(student?.statusCode) || student?.expectedJoinDate) summary.onboardingReady += 1;
     return summary;
   }, { overdue: 0, nextWeek: 0, ownerReview: 0, quarantine: 0, onboardingReady: 0 });
 
@@ -2061,7 +2049,7 @@ export function buildStudentDailyQueueStartFilter(filterCategory = "ALL_STUDENTS
     FOLLOW_UP_NEXT_7_DAYS: Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "ALL", month: "ALL", followUp: "NEXT_7_DAYS", sort: "FOLLOW_UP" }),
     STATE_OWNER_REVIEW: Object.freeze({ query: "", source: "ALL", state: "OWNER_REVIEW", progress: "ALL", month: "ALL", followUp: "ALL", sort: "DEFAULT" }),
     STATE_QUARANTINE: Object.freeze({ query: "", source: "ALL", state: "QUARANTINE", progress: "ALL", month: "ALL", followUp: "ALL", sort: "DEFAULT" }),
-    ONBOARDING_HANDOFF: Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "OFFER", month: "ALL", followUp: "ALL", sort: "DEFAULT" }),
+    ONBOARDING_HANDOFF: Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "OFFERED", month: "ALL", followUp: "ALL", sort: "DEFAULT" }),
     ALL_STUDENTS: Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "ALL", month: "ALL", followUp: "ALL", sort: "DEFAULT" })
   });
   const selected = plans[filterCategory] || plans.ALL_STUDENTS;

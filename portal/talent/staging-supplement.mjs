@@ -1,8 +1,9 @@
 const STAGING_SUPPLEMENT_PATH = "/api/talent/v1/staging/supplement";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const STATUS_VALUES = Object.freeze([
-  "CONTACT", "LINE_REGISTERED", "SALON_TOUR", "INTERVIEW",
-  "PASSED", "OFFER", "EXPECTED_JOIN", "WITHDRAWN",
+  "LINE_REGISTERED", "APPLICATION_RECEIVED", "SALON_TOUR_PLANNED", "SALON_TOUR_COMPLETED",
+  "INTERVIEW_PLANNED", "INTERVIEW_COMPLETED", "UNDER_REVIEW", "OFFERED",
+  "OFFER_ACCEPTED", "EXPECTED_JOIN", "OFFERED_ELSEWHERE", "WITHDRAWN", "REJECTED",
 ]);
 const STAGING_KEYS = Object.freeze([
   "stagingRecordId", "expectedVersion", "displayName", "kana", "school",

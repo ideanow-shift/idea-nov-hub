@@ -35,7 +35,7 @@ const ERROR_ENVELOPE_KEYS = Object.freeze(["message", "ok", "requestId", "safeCo
 const DATA_KEYS = Object.freeze(["config", "fiscalYear", "payloadMode", "summary"]);
 const CONFIG_KEYS = Object.freeze(["appName"]);
 const META_KEYS = Object.freeze(["generatedAt", "requestId", "source", "version"]);
-const WORKSPACE_DATA_KEYS = Object.freeze(["fiscalYear", "overview", "payloadMode", "students"]);
+const WORKSPACE_DATA_KEYS = Object.freeze(["dashboard", "fiscalYear", "overview", "payloadMode", "students"]);
 const WORKSPACE_OVERVIEW_KEYS = Object.freeze([
   "contacts",
   "entries",
@@ -64,6 +64,7 @@ const STUDENT_KEYS = Object.freeze([
   "legacyNoPresent",
   "mappingStatus",
   "nextActionAt",
+  "nextActionLabel",
   "offerDate",
   "expectedJoinDate",
   "plannedStore",
@@ -85,6 +86,15 @@ const STUDENT_KEYS = Object.freeze([
   "statusCode",
   "suggestedTargetRecordId",
   "suggestionCategory"
+  ,"contactHistory", "eventHistory", "selectionHistory"
+]);
+const DASHBOARD_KEYS = Object.freeze([
+  "availability", "candidateCount", "entries", "eventCount", "fairCount", "interviewPlanned",
+  "offers", "salonTourPlanned", "schoolCount", "selectionHistoryCount", "todayActions", "withdrawals"
+]);
+const DASHBOARD_AVAILABILITY_KEYS = Object.freeze([
+  "candidateCount", "entries", "fairCount", "interviewPlanned", "offers",
+  "salonTourPlanned", "schoolCount", "todayActions", "withdrawals"
 ]);
 const AUDIT_ENTRY_KEYS = Object.freeze(["action", "changedFields", "profileVersion", "occurredAt"]);
 const STAGING_AUDIT_ENTRY_KEYS = Object.freeze(["action", "changedFields", "supplementVersion", "occurredAt"]);
@@ -525,6 +535,7 @@ function unwrapWorkspaceEnvelope(envelope, httpStatus = 0) {
   if (!Array.isArray(data.students) || data.students.length > 1000) {
     throw safeError("invalid_response");
   }
+  validateDashboard(data.dashboard);
   data.students.forEach(validateStudent);
   if (data.overview.total !== data.students.length) throw safeError("invalid_response");
   return Object.freeze({
@@ -532,9 +543,22 @@ function unwrapWorkspaceEnvelope(envelope, httpStatus = 0) {
     overview: Object.freeze({ ...data.overview }),
     students: Object.freeze(data.students.map((student) => Object.freeze({
       ...student,
-      reasonLabels: Object.freeze([...student.reasonLabels])
+      reasonLabels: Object.freeze([...student.reasonLabels]),
+      contactHistory: Object.freeze(student.contactHistory.map((item) => Object.freeze({ ...item }))),
+      eventHistory: Object.freeze(student.eventHistory.map((item) => Object.freeze({ ...item }))),
+      selectionHistory: Object.freeze(student.selectionHistory.map((item) => Object.freeze({ ...item })))
     })))
   });
+}
+
+function validateDashboard(dashboard) {
+  if (!isPlainObject(dashboard)) throw safeError("invalid_response");
+  assertExactKeys(dashboard, DASHBOARD_KEYS);
+  const numeric = DASHBOARD_KEYS.filter((key) => !["availability"].includes(key));
+  if (numeric.some((key) => !Number.isInteger(dashboard[key]) || dashboard[key] < 0)) throw safeError("invalid_response");
+  if (!isPlainObject(dashboard.availability)) throw safeError("invalid_response");
+  assertExactKeys(dashboard.availability, DASHBOARD_AVAILABILITY_KEYS);
+  if (DASHBOARD_AVAILABILITY_KEYS.some((key) => typeof dashboard.availability[key] !== "boolean")) throw safeError("invalid_response");
 }
 
 function validateStudent(student) {
@@ -550,7 +574,7 @@ function validateStudent(student) {
   const optionalStrings = [
     "applicationNo", "businessDate", "email", "kana", "lineRegistrationDate", "nextActionAt",
     "offerDate", "expectedJoinDate", "plannedStore",
-    "phone", "preferredStore", "school", "statusCode", "suggestedTargetRecordId",
+    "phone", "preferredStore", "school", "statusCode", "suggestedTargetRecordId", "nextActionLabel",
     "faculty", "lineIdentifier", "acquisitionSource", "assignee", "notes"
   ];
   if (optionalStrings.some((key) => student[key] !== undefined && student[key] !== null && typeof student[key] !== "string")) {
@@ -564,6 +588,14 @@ function validateStudent(student) {
     || student.reasonLabels.length > 6
     || student.reasonLabels.some((value) => typeof value !== "string")) {
     throw safeError("invalid_response");
+  }
+  for (const key of ["contactHistory", "eventHistory", "selectionHistory"]) {
+    if (!Array.isArray(student[key]) || student[key].length > 100
+      || student[key].some((item) => !isPlainObject(item)
+        || Object.keys(item).length !== 2
+        || typeof item.code !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(String(item.date)))) {
+      throw safeError("invalid_response");
+    }
   }
   if ((student.graduationYear !== undefined && (!Number.isInteger(student.graduationYear) || student.graduationYear < 2026 || student.graduationYear > 2035))
     || typeof student.legacyNoPresent !== "boolean"

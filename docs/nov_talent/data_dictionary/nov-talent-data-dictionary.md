@@ -5,9 +5,9 @@
 | 項目 | 正式値 |
 |---|---|
 | 文書ID | `NOV_TALENT_DATA_DICTIONARY` |
-| Version | `1.3.0` |
+| Version | `1.4.0` |
 | Status | `CANONICAL` |
-| 適用日 | 2026-08-03 |
+| 適用日 | 2026-08-04 |
 | 機械可読正本 | `nov-talent-data-dictionary.json` |
 
 本書はNOV Talentで使用する正式名称、正式コード、正式定義の正本である。AI、CSV、UI、DB、Platformは、機械可読正本に存在するコードと定義だけを参照する。辞書にない値は推測・自動補完せず、処理を安全側で停止する。
@@ -26,14 +26,19 @@
 
 | 正式コード | 正式名称 | 正式定義 |
 |---|---|---|
-| `CONTACT` | 接点 | 候補者との接点を記録した状態。応募完了を意味しない。 |
 | `LINE_REGISTERED` | LINE登録 | LINE登録を確認した状態。連絡先未取得の接点も許容する。 |
-| `SALON_TOUR` | 見学 | 見学の実施を記録した状態。 |
-| `INTERVIEW` | 面接 | 面接の実施または面接段階を記録した状態。 |
-| `PASSED` | 承諾 | 現行Dashboardの承諾件数に使う候補者状態。イベントの `SELECTION_PASSED` とは別概念。 |
-| `OFFER` | 内定 | 内定を提示または記録した状態。 |
+| `APPLICATION_RECEIVED` | 応募受付 | 応募意思または応募書類の受領を正式Sourceで確認した状態。 |
+| `SALON_TOUR_PLANNED` | サロン見学［予定］ | サロン見学の予定日を確認した状態。 |
+| `SALON_TOUR_COMPLETED` | サロン見学［済］ | サロン見学の実施を確認した状態。 |
+| `INTERVIEW_PLANNED` | 面接［予定］ | 面接予定日を確認した状態。 |
+| `INTERVIEW_COMPLETED` | 面接［済］ | 面接の実施を確認した状態。 |
+| `UNDER_REVIEW` | 合否検討中 | 選考結果を検討中の状態。 |
+| `OFFERED` | 内定 | 内定を提示または記録した状態。 |
+| `OFFER_ACCEPTED` | 内定承諾 | 候補者が内定を承諾した入社前状態。 |
 | `EXPECTED_JOIN` | 入社予定 | 入社予定を確認した入社前状態。入社時にEmployee Coreへ引き継ぐ。 |
-| `WITHDRAWN` | 辞退・保管 | 辞退し、採用活動の進行対象から外れた状態。物理削除ではない。 |
+| `OFFERED_ELSEWHERE` | 他社内定 | 候補者の他社内定を確認した状態。 |
+| `WITHDRAWN` | 辞退・離脱 | 辞退し、採用活動の進行対象から外れた状態。物理削除ではない。 |
+| `REJECTED` | 不採用 | 正式な選考結果として不採用を確認した状態。 |
 | `UNSET` | 未設定 | 候補者状態が確定していない表示用分類。保存用状態コードではない。 |
 
 ## 4. 学校
@@ -52,9 +57,11 @@
 |---|---|---|---|
 | `contacts` | `CONTACT_RECORDED` | 接点記録 | 候補者との接点を1件記録する。 |
 | `lineRegistrations` | `LINE_REGISTERED` | LINE登録 | LINE登録確認を1件記録する。 |
+| `salonTourPlanned` | `SALON_TOUR_PLANNED` | 見学予定 | 見学予定を1件記録する。 |
 | `salonTours` | `SALON_TOUR_COMPLETED` | 見学完了 | 見学完了を1件記録する。 |
+| `interviewPlanned` | `INTERVIEW_PLANNED` | 面接予定 | 面接予定を1件記録する。 |
 | `interviews` | `INTERVIEW_COMPLETED` | 面接完了 | 面接完了を1件記録する。 |
-| `passed` | `SELECTION_PASSED` | 選考通過 | 選考通過イベント。候補者状態 `PASSED`（承諾）とは同一視しない。 |
+| `passed` | `SELECTION_PASSED` | 選考通過 | 選考通過イベント。候補者状態 `OFFER_ACCEPTED`（内定承諾）とは同一視しない。 |
 | `offers` | `OFFER_ISSUED` | 内定提示 | 内定提示を1件記録する。 |
 | `expectedJoiners` | `EXPECTED_JOIN_CONFIRMED` | 入社予定確認 | 入社予定確認を1件記録する。 |
 
@@ -89,16 +96,19 @@
 
 ### 8.1 Dashboard
 
-| 正式コード | 表示名 | 現行Mock Runtimeの算出基準 |
+| 正式コード | 表示名 | Staging Runtimeの算出基準 |
 |---|---|---|
-| `DASHBOARD_ENTRIES` | エントリー数 | `statusCode=CONTACT` の候補者数 |
-| `DASHBOARD_SALON_TOURS` | 見学数 | `statusCode=SALON_TOUR` の候補者数 |
-| `DASHBOARD_INTERVIEWS` | 面接数 | `statusCode=INTERVIEW` の候補者数 |
-| `DASHBOARD_OFFERS` | 内定数 | `statusCode=OFFER` の候補者数 |
-| `DASHBOARD_ACCEPTED` | 承諾数 | `statusCode=PASSED` の候補者数 |
-| `DASHBOARD_EXPECTED_JOINERS` | 入社予定数 | `statusCode=EXPECTED_JOIN` の候補者数 |
+| `DASHBOARD_CANDIDATES` | 候補者数 | ACTIVE Candidateの件数 |
+| `DASHBOARD_ENTRIES` | 応募数 | Selection Historyの `APPLICATION_RECEIVED` を持つCandidate数 |
+| `DASHBOARD_SALON_TOUR_PLANNED` | 見学予定数 | Eventの `SALON_TOUR_PLANNED` を持つCandidate数 |
+| `DASHBOARD_INTERVIEW_PLANNED` | 面接予定数 | Eventの `INTERVIEW_PLANNED` を持つCandidate数 |
+| `DASHBOARD_OFFERS` | 内定数 | Selection Historyの `OFFERED` を持つCandidate数 |
+| `DASHBOARD_WITHDRAWALS` | 辞退数 | Selection Historyの `WITHDRAWN` を持つCandidate数 |
+| `DASHBOARD_SCHOOLS` | 学校数 | ACTIVE Candidateの空欄でない正規化学校名の異なり数 |
+| `DASHBOARD_FAIRS` | フェア数 | 正式Sourceの有効なフェア記録数 |
+| `DASHBOARD_TODAY_ACTIONS` | 今日やること | OPENかつ期限が当日以前のNext Action件数。画面表示は最大5件 |
 
-この定義は現行匿名Mock Runtimeの定義であり、実データMigration件数の定義ではない。
+Sourceまたは履歴接続が未完了の指標は、0件ではなく `集計準備中` と表示する。0は正式集計が完了した結果にだけ使用する。
 
 ### 8.2 Data Integrity
 
@@ -128,7 +138,7 @@
 
 | 対象 | Version |
 |---|---|
-| Data Dictionary | `1.3.0` |
+| Data Dictionary | `1.4.0` |
 | Data Integrity Report schema | `1.2` |
 | Work Queue seed schema | `2.0` |
 | Source Lineage schema | `1.0` |

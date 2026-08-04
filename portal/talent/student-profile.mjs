@@ -1,8 +1,9 @@
 const PROFILE_PATH = "/api/talent/v1/students/profile";
 const APPLICATION_NO = /^NT-[0-9]{4}-[0-9]{6}$/u;
 const STATUS_VALUES = Object.freeze([
-  "CONTACT", "LINE_REGISTERED", "SALON_TOUR", "INTERVIEW",
-  "PASSED", "OFFER", "EXPECTED_JOIN", "WITHDRAWN",
+  "LINE_REGISTERED", "APPLICATION_RECEIVED", "SALON_TOUR_PLANNED", "SALON_TOUR_COMPLETED",
+  "INTERVIEW_PLANNED", "INTERVIEW_COMPLETED", "UNDER_REVIEW", "OFFERED",
+  "OFFER_ACCEPTED", "EXPECTED_JOIN", "OFFERED_ELSEWHERE", "WITHDRAWN", "REJECTED",
 ]);
 const PROFILE_KEYS = Object.freeze([
   "applicationNo", "expectedVersion", "displayName", "kana", "school",

@@ -6,9 +6,9 @@
   <title>NOV Talent | 採用意思決定プラットフォーム</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./style.css?v=20260801-hub-integration-clean-1">
-  <script src="./runtime-config.candidate.js?v=20260804-staging-render-recovery-1"></script>
+  <script src="./runtime-config.candidate.js?v=20260804-recruiting-dashboard-completion-1"></script>
   <script type="module" src="./csv-import-preflight.mjs?v=20260731-sprint1-mock-2"></script>
-  <script type="module" src="./app.mjs?v=20260804-staging-render-recovery-1"></script>
+  <script type="module" src="./app.mjs?v=20260804-recruiting-dashboard-completion-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -96,12 +96,14 @@
           <p id="recruitment-decision-copy">Staging候補者データの集計後に、最初に行うことを表示します。</p>
         </section>
         <section class="summary-grid historical-summary-grid" id="historical-summary-metrics" aria-label="27卒・28卒の採用状況">
-          <article class="metric"><p class="metric-name">エントリー</p><p class="metric-value">-</p></article>
-          <article class="metric"><p class="metric-name">見学</p><p class="metric-value">-</p></article>
-          <article class="metric"><p class="metric-name">面接</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">候補者</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">応募</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">見学予定</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">面接予定</p><p class="metric-value">-</p></article>
           <article class="metric"><p class="metric-name">内定</p><p class="metric-value">-</p></article>
-          <article class="metric"><p class="metric-name">承諾</p><p class="metric-value">-</p></article>
-          <article class="metric"><p class="metric-name">入社予定</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">辞退</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">学校</p><p class="metric-value">-</p></article>
+          <article class="metric"><p class="metric-name">フェア</p><p class="metric-value">-</p></article>
         </section>
         <section class="today-task-panel" aria-labelledby="today-task-title">
           <div><p class="section-kicker">今日やること</p><h3 id="today-task-title">優先タスク（最大5件）</h3></div>
@@ -338,14 +340,19 @@
             <select id="student-progress-filter">
               <option value="ALL">すべて</option>
               <option value="UNSET">選考状況 未登録</option>
-              <option value="CONTACT">接触</option>
               <option value="LINE_REGISTERED">LINE登録</option>
-              <option value="SALON_TOUR">サロン見学</option>
-              <option value="INTERVIEW">面接</option>
-              <option value="PASSED">通過</option>
-              <option value="OFFER">内定</option>
+              <option value="APPLICATION_RECEIVED">応募受付</option>
+              <option value="SALON_TOUR_PLANNED">サロン見学［予定］</option>
+              <option value="SALON_TOUR_COMPLETED">サロン見学［済］</option>
+              <option value="INTERVIEW_PLANNED">面接［予定］</option>
+              <option value="INTERVIEW_COMPLETED">面接［済］</option>
+              <option value="UNDER_REVIEW">合否検討中</option>
+              <option value="OFFERED">内定</option>
+              <option value="OFFER_ACCEPTED">内定承諾</option>
               <option value="EXPECTED_JOIN">入社予定</option>
-              <option value="WITHDRAWN">辞退・保管</option>
+              <option value="OFFERED_ELSEWHERE">他社内定</option>
+              <option value="WITHDRAWN">辞退・離脱</option>
+              <option value="REJECTED">不採用</option>
             </select>
           </label>
           <label>
@@ -621,10 +628,14 @@
                 <option value="LINE_REGISTERED">LINE登録</option>
                 <option value="SALON_TOUR_PLANNED">サロン見学［予定］</option>
                 <option value="SALON_TOUR_COMPLETED">サロン見学［済］</option>
-                <option value="AWAITING_INTERVIEW">面接待ち</option>
+                <option value="APPLICATION_RECEIVED">応募受付</option>
+                <option value="INTERVIEW_PLANNED">面接［予定］</option>
+                <option value="INTERVIEW_COMPLETED">面接［済］</option>
                 <option value="OFFERED">内定</option>
+                <option value="OFFER_ACCEPTED">内定承諾</option>
+                <option value="EXPECTED_JOIN">入社予定</option>
                 <option value="OFFERED_ELSEWHERE">他社内定</option>
-                <option value="DROPPED">離脱</option>
+                <option value="WITHDRAWN">辞退・離脱</option>
                 <option value="UNDER_REVIEW">合否検討中</option>
                 <option value="REJECTED">不採用</option>
               </select>

@@ -1,8 +1,10 @@
 export const STATUS_LABELS: Record<string, string> = Object.freeze({
-  LINE_REGISTERED: "LINE登録", SALON_TOUR_PLANNED: "サロン見学［予定］",
-  SALON_TOUR_COMPLETED: "サロン見学［済］", AWAITING_INTERVIEW: "面接待ち",
-  OFFERED: "内定", OFFERED_ELSEWHERE: "他社内定", DROPPED: "離脱",
-  UNDER_REVIEW: "合否検討中", REJECTED: "不採用"
+  LINE_REGISTERED: "LINE登録", APPLICATION_RECEIVED: "応募受付",
+  SALON_TOUR_PLANNED: "サロン見学［予定］", SALON_TOUR_COMPLETED: "サロン見学［済］",
+  INTERVIEW_PLANNED: "面接［予定］", INTERVIEW_COMPLETED: "面接［済］",
+  UNDER_REVIEW: "合否検討中", OFFERED: "内定", OFFER_ACCEPTED: "内定承諾",
+  EXPECTED_JOIN: "入社予定", OFFERED_ELSEWHERE: "他社内定",
+  WITHDRAWN: "辞退・離脱", REJECTED: "不採用"
 });
 
 const ROLE_GROUPS = Object.freeze({

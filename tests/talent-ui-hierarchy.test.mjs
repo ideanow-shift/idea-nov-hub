@@ -178,12 +178,12 @@ test("summary shortcuts open the intended student queues without changing record
   const html = await readFile(new URL("index.html", root), "utf8");
   const app = await readFile(new URL("app.mjs", root), "utf8");
   const rows = [
-    { displayName: "確認対象", sourceCode: "CONTACTS_27", classification: "OWNER_REVIEW", statusCode: "CONTACT" },
-    { displayName: "隔離対象", sourceCode: "OFFERS_27", classification: "QUARANTINE", statusCode: "OFFER" },
-    { displayName: "確認済み", sourceCode: "ENTRIES_27", classification: "IMPORTABLE", statusCode: "INTERVIEW" }
+    { displayName: "確認対象", sourceCode: "CONTACTS_27", classification: "OWNER_REVIEW", statusCode: "LINE_REGISTERED" },
+    { displayName: "隔離対象", sourceCode: "OFFERS_27", classification: "QUARANTINE", statusCode: "OFFERED" },
+    { displayName: "確認済み", sourceCode: "ENTRIES_27", classification: "IMPORTABLE", statusCode: "INTERVIEW_COMPLETED" }
   ];
 
-  assert.deepEqual(buildSummaryFollowUpFilter("offers"), { query: "", source: "OFFERS_27", state: "ALL", progress: "ALL" });
+  assert.deepEqual(buildSummaryFollowUpFilter("offers"), { query: "", source: "ALL", state: "ALL", progress: "OFFERED" });
   assert.deepEqual(buildSummaryFollowUpFilter("needsAction"), { query: "", source: "ALL", state: "NEEDS_ACTION", progress: "ALL" });
   assert.deepEqual(buildSummaryFollowUpFilter("overdueFollowUp"), { query: "", source: "ALL", state: "ALL", progress: "ALL", followUp: "OVERDUE" });
   assert.deepEqual(buildSummaryFollowUpFilter("nextWeekFollowUp"), { query: "", source: "ALL", state: "ALL", progress: "ALL", followUp: "NEXT_7_DAYS" });
@@ -298,7 +298,7 @@ test("student detail guides the daily operation without exposing raw values", as
   assert.equal(buildStudentDailyOperation(null).category, "NO_SELECTION");
   assert.equal(buildStudentDailyOperation({
     applicationNo: "NT-2027-000001",
-    statusCode: "OFFER",
+    statusCode: "OFFERED",
     expectedJoinDate: "2027-04-01",
     nextActionAt: "2026-07-20"
   }, { onboardingReady: true, editable: true }, "2026-07-26").category, "ONBOARDING_HANDOFF");
@@ -329,7 +329,7 @@ test("student detail explains completion evidence after the next action", async 
     classification: "IMPORTABLE"
   }, { editable: true }, "2026-07-26"));
   const onboarding = buildStudentDailyCompletionChecklist(buildStudentDailyOperation({
-    statusCode: "OFFER",
+    statusCode: "OFFERED",
     expectedJoinDate: "2027-04-01",
     nextActionAt: "2026-07-20"
   }, { onboardingReady: true, editable: true }, "2026-07-26"));
@@ -356,7 +356,7 @@ test("student workspace summarizes today's follow-up queue before selecting a ro
     { nextActionAt: "2026-07-20", classification: "IMPORTABLE" },
     { nextActionAt: "2026-07-30", classification: "OWNER_REVIEW" },
     { classification: "QUARANTINE" },
-    { statusCode: "OFFER", expectedJoinDate: "2027-04-01", classification: "IMPORTABLE" }
+    { statusCode: "OFFERED", expectedJoinDate: "2027-04-01", classification: "IMPORTABLE" }
   ], "2026-07-26");
 
   assert.equal(summary.category, "OVERDUE_FIRST");
@@ -628,7 +628,7 @@ test("Candidate to Employee handoff stays separated from NOV Talent Sprint 1", a
   const ready = buildOnboardingHandoffDraft({
     applicationNo: "NT-2027-000001",
     displayName: "対象者",
-    statusCode: "OFFER",
+    statusCode: "OFFERED",
     expectedJoinDate: "2027-04-01"
   });
 
@@ -637,8 +637,8 @@ test("Candidate to Employee handoff stays separated from NOV Talent Sprint 1", a
     subjectLabel: "対象者",
     effectiveDate: "2027-04-01"
   });
-  assert.equal(buildOnboardingHandoffDraft({ ...ready, applicationNo: "", statusCode: "OFFER" }), null);
-  assert.equal(buildOnboardingHandoffDraft({ ...ready, applicationNo: "NT-2027-000001", statusCode: "CONTACT" }), null);
+  assert.equal(buildOnboardingHandoffDraft({ ...ready, applicationNo: "", statusCode: "OFFERED" }), null);
+  assert.equal(buildOnboardingHandoffDraft({ ...ready, applicationNo: "NT-2027-000001", statusCode: "LINE_REGISTERED" }), null);
   assert.match(html, /id="student-onboarding-open"[^>]*sprint1-separated[^>]*hidden/);
   assert.match(html, /id="panel-workforce" class="primary-panel sprint1-separated"/);
 });
@@ -794,9 +794,9 @@ test("new applicant candidate filtering stays limited to unmapped entry and offe
 
 test("student list filter keeps new candidates visible and narrows review queues", () => {
   const rows = [
-    { displayName: "接触候補", sourceCode: "CONTACTS_27", classification: "OWNER_REVIEW", mappingStatus: "UNMAPPED", suggestionCategory: "NONE", statusCode: "CONTACT" },
-    { displayName: "新規候補", sourceCode: "ENTRIES_27", classification: "OWNER_REVIEW", mappingStatus: "UNMAPPED", suggestionCategory: "NONE", statusCode: "INTERVIEW" },
-    { displayName: "確認済み", sourceCode: "OFFERS_27", classification: "IMPORTABLE", mappingStatus: "OWNER_CONFIRMED", suggestionCategory: "NONE", statusCode: "OFFER" },
+    { displayName: "接触候補", sourceCode: "CONTACTS_27", classification: "OWNER_REVIEW", mappingStatus: "UNMAPPED", suggestionCategory: "NONE", statusCode: "LINE_REGISTERED" },
+    { displayName: "新規候補", sourceCode: "ENTRIES_27", classification: "OWNER_REVIEW", mappingStatus: "UNMAPPED", suggestionCategory: "NONE", statusCode: "INTERVIEW_COMPLETED" },
+    { displayName: "確認済み", sourceCode: "OFFERS_27", classification: "IMPORTABLE", mappingStatus: "OWNER_CONFIRMED", suggestionCategory: "NONE", statusCode: "OFFERED" },
     { displayName: "隔離", sourceCode: "OFFERS_27", classification: "QUARANTINE", mappingStatus: "UNMAPPED", suggestionCategory: "AMBIGUOUS", statusCode: "WITHDRAWN" },
     { displayName: "未登録", sourceCode: "CONTACTS_27", classification: "IMPORTABLE", mappingStatus: "OWNER_CONFIRMED", suggestionCategory: "NONE", statusCode: null }
   ];
@@ -804,7 +804,7 @@ test("student list filter keeps new candidates visible and narrows review queues
   assert.deepEqual(filterTalentStudents(rows, { state: "NEW_CANDIDATE" }).map((row) => row.displayName), ["新規候補"]);
   assert.deepEqual(filterTalentStudents(rows, { state: "QUARANTINE" }).map((row) => row.displayName), ["隔離"]);
   assert.deepEqual(filterTalentStudents(rows, { source: "ENTRIES_27" }).map((row) => row.displayName), ["新規候補"]);
-  assert.deepEqual(filterTalentStudents(rows, { progress: "OFFER" }).map((row) => row.displayName), ["確認済み"]);
+  assert.deepEqual(filterTalentStudents(rows, { progress: "OFFERED" }).map((row) => row.displayName), ["確認済み"]);
   assert.deepEqual(filterTalentStudents(rows, { progress: "WITHDRAWN" }).map((row) => row.displayName), ["隔離"]);
   assert.deepEqual(filterTalentStudents(rows, { progress: "UNSET" }).map((row) => row.displayName), ["未登録"]);
   assert.equal(getTalentStudentProgressKey({ statusCode: null }), "UNSET");
@@ -841,7 +841,7 @@ test("student quick filters expose their queue counts", async () => {
   assert.match(html, /id="student-filter-review"[^>]*data-label="要確認"/);
   assert.match(html, /id="student-progress-filter"/);
   assert.match(html, /option value="UNSET">選考状況 未登録<\/option>/);
-  assert.match(html, /option value="WITHDRAWN">辞退・保管<\/option>/);
+  assert.match(html, /option value="WITHDRAWN">辞退・離脱<\/option>/);
   assert.match(app, /filterTalentStudents\(students, \{ state: value \}\)\.length/);
   assert.match(app, /button\.setAttribute\("aria-label", `\$\{label\} \$\{count\}件`\)/);
 });

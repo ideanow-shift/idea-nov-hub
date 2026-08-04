@@ -34,7 +34,7 @@ test("save flow confirms before mutation and checks duplicates without automatic
     readFile(new URL("portal/talent/app.mjs", root), "utf8"),
     readFile(new URL("supabase/functions/nov-talent-staging-api/index.ts", root), "utf8")
   ]);
-  assert.match(app, /入力内容で候補者(?:情報を更新|を登録)します/);
+  assert.match(app, /入力内容で学生(?:情報を更新|を登録)します/);
   assert.match(app, /checkDuplicates/);
   assert.match(api, /STRONG_KEY_MATCH/);
   assert.match(api, /NAME_SCHOOL_YEAR_MATCH/);

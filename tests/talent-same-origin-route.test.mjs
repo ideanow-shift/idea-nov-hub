@@ -189,7 +189,7 @@ test("operator control initializes with request0 and token0", () => {
   assert.equal(tokenReads, 0);
   assert.equal(fetches, 0);
   assert.equal(documentObject.button.disabled, false);
-  assert.equal(documentObject.status.textContent, "確認用候補者データの集計を表示します");
+  assert.equal(documentObject.status.textContent, "確認用学生データの集計を表示します");
 });
 
 test("one trusted click disables first and remains local while reentry stays request0", async () => {
@@ -243,7 +243,7 @@ test("missing HUB helper does not block the explicitly Mock-only control", () =>
   assert.equal(fetches, 0);
   assert.equal(tokenReads, 0);
   assert.equal(documentObject.button.disabled, false);
-  assert.equal(documentObject.status.textContent, "確認用候補者データの集計を表示します");
+  assert.equal(documentObject.status.textContent, "確認用学生データの集計を表示します");
 });
 
 test("offline Mock state fails closed without attempting an API request", async () => {

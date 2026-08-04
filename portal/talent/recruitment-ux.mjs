@@ -1,5 +1,5 @@
 const DASHBOARD_METRICS = Object.freeze([
-  ["candidateCount", "候補者"],
+  ["candidateCount", "学生"],
   ["graduation2027", "27卒"],
   ["graduation2028", "28卒"],
   ["lineRegistrations", "LINE登録"],
@@ -30,7 +30,7 @@ export function buildRecruitmentDashboardDecision(workspace, tasks = []) {
   const offerCount = availability.offers === true ? Number(dashboard.offers || 0) : 0;
   let category = "STEADY_FOLLOW_UP";
   let title = "採用状況は安定しています。予定されたフォローから進めてください";
-  let copy = "期限の近い候補者を確認し、次回アクションを更新します。";
+  let copy = "期限の近い学生を確認し、次回アクションを更新します。";
   if (overdueCount > 0) {
     category = "OVERDUE_FIRST";
     title = `期限超過の対応が${overdueCount}件あります`;
@@ -38,18 +38,18 @@ export function buildRecruitmentDashboardDecision(workspace, tasks = []) {
   } else if (reviewCount > 0) {
     category = "REVIEW_FIRST";
     title = `対応内容の確認が${reviewCount}件あります`;
-    copy = "候補者一覧から対象を開き、必要な情報を更新してください。";
+    copy = "学生一覧から対象を開き、必要な情報を更新してください。";
   } else if (Object.values(availability).some((value) => value !== true)) {
     category = "AGGREGATION_PREPARING";
     title = "一部指標は入力準備中です";
-    copy = "接続済みの候補者・履歴は実数で表示しています。未入力の予定日は日常運用で補完してください。";
+    copy = "接続済みの学生・履歴は実数で表示しています。未入力の予定日は日常運用で補完してください。";
   } else if (offerCount > 0) {
     category = "OFFER_FOLLOW_UP";
-    title = `内定中の候補者が${offerCount}件います`;
+    title = `内定中の学生が${offerCount}件います`;
     copy = "承諾確認と入社予定日の記録を優先してください。";
   } else if (students.length === 0) {
     category = "EMPTY";
-    title = "候補者データはまだありません";
+    title = "学生データはまだありません";
     copy = "管理者へデータの利用状況を確認してください。";
   }
   return Object.freeze({ category, title, copy, metrics: Object.freeze(metrics), rawValuesIncluded: false });
@@ -91,15 +91,15 @@ export function buildCandidateHistorySummary(student) {
 }
 
 const RUNTIME_PRESENTATIONS = Object.freeze({
-  loading: ["loading", "候補者データを準備しています", "そのままお待ちください。"],
-  ready: ["ready", "採用画面を利用できます", "候補者データを読み込みました。"],
-  empty: ["empty", "候補者データはまだありません", "管理者へデータの利用状況を確認してください。"],
+  loading: ["loading", "学生データを準備しています", "そのままお待ちください。"],
+  ready: ["ready", "採用画面を利用できます", "学生データを読み込みました。"],
+  empty: ["empty", "学生データはまだありません", "管理者へデータの利用状況を確認してください。"],
   auth_required: ["stopped", "ログイン状態を確認してください", "上部の「NOV HUBへ戻る」からログインし直してください。"],
   unauthorized: ["stopped", "利用者を確認できません", "NOV HUBへ戻ってログイン状態を確認してください。"],
   forbidden: ["stopped", "この画面を利用できません", "管理者へ利用範囲を確認してください。"],
-  api_error: ["stopped", "候補者データを取得できません", "接続状態を確認してから再読み込みしてください。"],
-  invalid_response: ["stopped", "候補者データを確認できません", "管理者へデータ取得状況を確認してください。"],
-  validation_error: ["stopped", "候補者データを確認できません", "データ形式を確認してから再読み込みしてください。"],
+  api_error: ["stopped", "学生データを取得できません", "接続状態を確認してから再読み込みしてください。"],
+  invalid_response: ["stopped", "学生データを確認できません", "管理者へデータ取得状況を確認してください。"],
+  validation_error: ["stopped", "学生データを確認できません", "データ形式を確認してから再読み込みしてください。"],
   timeout: ["stopped", "読み込みに時間がかかっています", "再読み込みを1回お試しください。"],
   offline: ["stopped", "オフライン状態です", "接続を確認してから再読み込みしてください。"],
   maintenance: ["stopped", "現在メンテナンス中です", "利用再開までお待ちください。"]

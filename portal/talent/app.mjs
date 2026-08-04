@@ -3173,15 +3173,20 @@ export function configureTalentOperationUi(documentObject, accessProfile) {
   const canWriteCandidates = ["full", "recruiter"].includes(accessProfile);
   const managementTab = documentObject?.querySelector?.("[data-talent-management-tab]");
   const managementPanel = documentObject?.getElementById?.("recruitment-management");
-  const managementContent = documentObject?.getElementById?.("talent-management-content");
   const managementSections = [...(documentObject?.querySelectorAll?.("[data-management-section]") || [])];
+  const managementTierContent = new Map(
+    [...(documentObject?.querySelectorAll?.("[data-management-tier-content]") || [])]
+      .map((container) => [container.dataset.managementTierContent, container])
+  );
 
   if (managementTab) managementTab.hidden = !isAdministrator;
   if (managementPanel) managementPanel.hidden = true;
   for (const section of managementSections) {
     section.hidden = !isAdministrator;
-    if (isAdministrator && managementContent && section.parentElement !== managementContent) {
-      managementContent.append(section);
+    const tier = section.dataset.managementTier || "maintenance";
+    const destination = managementTierContent.get(tier);
+    if (isAdministrator && destination && section.parentElement !== destination) {
+      destination.append(section);
     }
   }
   for (const item of documentObject?.querySelectorAll?.("[data-talent-write-only]") || []) {
@@ -3197,10 +3202,20 @@ export function configureTalentOperationUi(documentObject, accessProfile) {
     });
   }
 
+  for (const button of documentObject?.querySelectorAll?.("[data-management-open-tab]") || []) {
+    if (button.dataset.bound) continue;
+    button.dataset.bound = "true";
+    button.addEventListener("click", () => {
+      const tab = documentObject?.querySelector?.(`[data-secondary-tab="${button.dataset.managementOpenTab}"]`);
+      tab?.click?.();
+    });
+  }
+
   return Object.freeze({
     managementVisible: isAdministrator,
     candidateWriteVisible: canWriteCandidates,
-    managementSectionCount: managementSections.length
+    managementSectionCount: managementSections.length,
+    managementTierCount: managementTierContent.size
   });
 }
 

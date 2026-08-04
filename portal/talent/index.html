@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NOV Talent | 採用意思決定プラットフォーム</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=20260805-todays-dashboard-1">
-  <script src="./runtime-config.candidate.js?v=20260805-todays-dashboard-1"></script>
-  <script type="module" src="./app.mjs?v=20260805-todays-dashboard-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260805-management-simplification-1">
+  <script src="./runtime-config.candidate.js?v=20260805-management-simplification-1"></script>
+  <script type="module" src="./app.mjs?v=20260805-management-simplification-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -162,7 +162,7 @@
         </section>
         <p class="coverage-label sprint2-supporting-summary">本システム稼働開始以降の集計（確定済み）です。</p>
 
-        <section class="import-overview" data-management-section="dataset" aria-labelledby="import-overview-title">
+        <section class="import-overview" data-management-section="dataset" data-management-tier="archive" aria-labelledby="import-overview-title">
           <div>
             <p class="section-kicker">データ内訳</p>
             <h3 id="import-overview-title">学生データセット</h3>
@@ -176,7 +176,7 @@
           <p id="import-overview-status">学生フォローを開くと取込状況を確認します</p>
         </section>
 
-        <section class="csv-preflight-panel" data-management-section="csv-import" aria-labelledby="talent-28-csv-title">
+        <section class="csv-preflight-panel" data-management-section="csv-import" data-management-tier="archive" aria-labelledby="talent-28-csv-title">
           <div>
             <p class="section-kicker">28卒CSV確認</p>
             <h3 id="talent-28-csv-title">28卒CSV 形式検証</h3>
@@ -257,7 +257,7 @@
           </div>
         </div>
 
-        <section class="review-command-band" data-management-section="validation" aria-labelledby="review-command-title">
+        <section class="review-command-band" data-management-section="validation" data-management-tier="maintenance" aria-labelledby="review-command-title">
           <div>
             <p class="section-kicker">データ準備</p>
             <h3 id="review-command-title">既存データを業務利用できる状態にする</h3>
@@ -615,7 +615,7 @@
         </form>
       </dialog>
 
-      <section id="unlinked-interview-panel" class="analysis-panel" data-management-section="audit" aria-labelledby="unlinked-interview-title">
+      <section id="unlinked-interview-panel" class="analysis-panel" data-management-section="audit" data-management-tier="maintenance" aria-labelledby="unlinked-interview-title">
         <div class="section-heading"><div><p class="section-kicker">人間確認</p><h2 id="unlinked-interview-title">未紐付けの面接履歴</h2></div><p id="unlinked-interview-status" class="status">読み込み中</p></div>
         <p>強い識別キーがない過去履歴です。学生を選択し、内容を確認できた場合のみ紐付けてください。</p>
         <div id="unlinked-interview-list" class="unlinked-interview-list"></div>
@@ -785,17 +785,52 @@
           <div>
             <p class="section-kicker">管理者専用</p>
             <h2 id="talent-management-title">管理ツール</h2>
-            <p>CSV取込、検証、データセット、監査、隔離確認など、日常業務以外の管理作業をまとめています。</p>
+            <p>学生・学校・フェアの運用管理と、必要時のデータ確認をまとめています。</p>
           </div>
           <a class="management-back-link" href="#" data-management-back>日常画面へ戻る</a>
         </div>
-        <nav class="management-tool-index" aria-label="管理ツール一覧">
-          <a href="#talent-28-csv-title">CSV取込</a>
-          <a href="#review-command-title">データ確認・保留管理</a>
-          <a href="#import-overview-title">学生データ管理</a>
-          <a href="#unlinked-interview-title">監査</a>
-        </nav>
-        <div id="talent-management-content" class="talent-management-content"></div>
+        <section class="management-tier management-tier-daily" aria-labelledby="management-daily-title">
+          <header class="management-tier-heading">
+            <div><span>01</span><h3 id="management-daily-title">日常管理</h3></div>
+            <p>毎日・毎週の運用はここから始めます。</p>
+          </header>
+          <div class="management-daily-grid">
+            <button type="button" data-management-open-tab="students"><strong>学生管理</strong><span>学生の検索・登録・編集・履歴確認</span></button>
+            <button type="button" data-management-open-tab="schools"><strong>学校管理</strong><span>学校・学部・担当と実績の管理</span></button>
+            <button type="button" data-management-open-tab="fairs"><strong>フェア管理</strong><span>開催情報・費用・採用実績の管理</span></button>
+            <button type="button" data-management-open-tab="students"><strong>監査履歴</strong><span>学生を選び、変更履歴を確認</span></button>
+            <article aria-disabled="true"><strong>ユーザー管理</strong><span>将来対応</span></article>
+            <article aria-disabled="true"><strong>システム設定</strong><span>将来対応</span></article>
+          </div>
+        </section>
+
+        <section class="management-tier management-tier-maintenance" aria-labelledby="management-maintenance-title">
+          <header class="management-tier-heading">
+            <div><span>02</span><h3 id="management-maintenance-title">データメンテナンス</h3></div>
+            <p>未紐付け・重複・補正・保留・隔離の確認が必要なときだけ使用します。</p>
+          </header>
+          <nav class="management-tool-index" aria-label="データメンテナンス一覧">
+            <a href="#unlinked-interview-title">未紐付け履歴</a>
+            <a href="#review-command-title">重複確認・データ補正</a>
+            <a href="#review-command-title">保留・隔離管理</a>
+          </nav>
+          <div class="talent-management-content" data-management-tier-content="maintenance"></div>
+        </section>
+
+        <details class="management-tier management-tier-archive">
+          <summary>
+            <span><b>03</b><strong>Migration Archive</strong></span>
+            <small>初期導入・CSV取込・特殊対応のときだけ開く</small>
+          </summary>
+          <div class="management-archive-intro">
+            <p>通常運用では使用しません。CSV形式検証、データセット確認、投入前検証などの導入時機能を保管しています。</p>
+          </div>
+          <nav class="management-tool-index" aria-label="Migration Archive一覧">
+            <a href="#talent-28-csv-title">CSV取込・形式検証</a>
+            <a href="#import-overview-title">Dataset・取込状況</a>
+          </nav>
+          <div class="talent-management-content" data-management-tier-content="archive"></div>
+        </details>
       </section>
     </section>
 

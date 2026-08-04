@@ -34,14 +34,28 @@ test("setup tools live behind an administrator-only management tab", async () =>
 
   assert.match(html, /data-secondary-tab="management" data-talent-management-tab hidden>管理ツール/);
   assert.match(html, /id="recruitment-management"[^>]*hidden/);
-  for (const section of ["csv-import", "validation", "dataset", "audit"]) {
-    assert.match(html, new RegExp(`data-management-section="${section}"`));
+  assert.match(html, /id="management-daily-title">日常管理/);
+  assert.match(html, /id="management-maintenance-title">データメンテナンス/);
+  assert.match(html, /<strong>Migration Archive<\/strong>/);
+  assert.match(html, /data-management-open-tab="students"/);
+  assert.match(html, /data-management-open-tab="schools"/);
+  assert.match(html, /data-management-open-tab="fairs"/);
+  for (const section of ["validation", "audit"]) {
+    assert.match(html, new RegExp(`data-management-section="${section}" data-management-tier="maintenance"`));
   }
+  for (const section of ["csv-import", "dataset"]) {
+    assert.match(html, new RegExp(`data-management-section="${section}" data-management-tier="archive"`));
+  }
+  assert.doesNotMatch(html, /<nav class="management-tool-index" aria-label="管理ツール一覧">/);
   assert.match(app, /export function configureTalentOperationUi/);
   assert.match(app, /const isAdministrator = accessProfile === "full"/);
   assert.match(app, /authorization\.access\?\.profile === "full"/);
+  assert.match(app, /data-management-tier-content/);
+  assert.match(app, /data-management-open-tab/);
   assert.match(css, /\.talent-management-only \{ display: none !important; \}/);
-  assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.management-tool-index/);
+  assert.match(css, /\.management-daily-grid/);
+  assert.match(css, /\.management-tier-archive/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.management-tool-index,[\s\S]*\.management-daily-grid/);
   assert.doesNotMatch(csv, /DOMContentLoaded/);
 });
 

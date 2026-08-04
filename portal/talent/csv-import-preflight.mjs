@@ -959,14 +959,3 @@ export function initializeTalent28CsvPreflight({ documentObject = globalThis.doc
   render(safeSummary("CSV_NOT_SELECTED", "NOT_EVALUATED"));
   return Object.freeze({ initialized: true });
 }
-
-function initializeTalent28CsvPreflightFromPage() {
-  if (!globalThis.document) return;
-  initializeTalent28CsvPreflight();
-}
-
-if (globalThis.document?.readyState === "loading") {
-  globalThis.document.addEventListener("DOMContentLoaded", initializeTalent28CsvPreflightFromPage, { once: true });
-} else {
-  initializeTalent28CsvPreflightFromPage();
-}

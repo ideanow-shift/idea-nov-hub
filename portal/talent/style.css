@@ -51,6 +51,7 @@ body[data-talent-access="executive"] .sprint1-mock-write { display: none !import
 .sprint1-separated,
 .sprint1-mock-write { display: none !important; }
 .sprint2-supporting-summary { display: none !important; }
+.talent-management-only { display: none !important; }
 .primary-tabs { grid-template-columns: 1fr; }
 
 .mock-runtime-state,
@@ -363,6 +364,48 @@ h3 { margin: 0; font-size: 1rem; }
 .secondary-panel,
 #panel-workforce { padding: 24px; }
 .secondary-panel[hidden], .primary-panel[hidden] { display: none; }
+
+.management-panel {
+  background: #fcfcfc;
+}
+
+.management-heading p:last-child {
+  max-width: 720px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.management-back-link,
+.management-tool-index a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--rose);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--navy);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.management-tool-index {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.talent-management-content {
+  display: grid;
+  gap: 20px;
+}
+
+.talent-management-content > section {
+  margin: 0;
+}
 
 .section-heading {
   display: flex;
@@ -2049,6 +2092,8 @@ h3 { margin: 0; font-size: 1rem; }
   .primary-tab { min-height: 68px; padding: 13px 16px; }
   .secondary-tabs { gap: 20px; padding: 0 18px; }
   .secondary-panel, #panel-workforce { padding: 18px; }
+  .management-tool-index { grid-template-columns: 1fr; }
+  .management-back-link { width: 100%; margin-top: 14px; }
   .section-heading { display: block; }
   .summary-command { align-items: stretch; margin-top: 14px; }
   .summary-load-button { width: 100%; }

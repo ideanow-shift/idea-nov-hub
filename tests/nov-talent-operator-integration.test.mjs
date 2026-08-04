@@ -247,7 +247,7 @@ test('published candidate uses the read-only Staging runtime and remains persist
   assert.match(config, /readonlyApiEnabled:\s*true/);
   assert.doesNotMatch(config, /service_role|serviceRole|secret/i);
   assert.match(html, /id="talent-operator-panel"[^>]*hidden/);
-  assert.match(html, /Staging Runtime/);
+  assert.match(html, /運用データ/);
   assert.match(operator, /confirmImpl\(confirmationMessage\) !== true/);
   assert.match(operator, /confirmation_required/);
   assert.doesNotMatch(style, /\.talent-operator-panel\s*\{[^}]*display:\s*(?!none)/s);

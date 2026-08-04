@@ -24,14 +24,15 @@ test("daily command center opens safe work areas without writes", async () => {
 
   assert.match(html, /id="talent-daily-command"/);
   assert.match(html, /今日の作業/);
+  assert.match(html, /data-talent-daily-open="summary"/);
   assert.match(html, /data-talent-daily-open="students"/);
-  assert.match(html, /data-talent-daily-open="csv28"/);
+  assert.match(html, /data-talent-daily-open="addCandidate"/);
   assert.doesNotMatch(html, /data-talent-daily-open="workforce"/);
   assert.match(html, /data-talent-daily-open="students" aria-pressed="false"/);
   assert.match(html, /id="talent-daily-command-status"/);
   assert.match(html, /NO_ROUTE_SELECTED/);
   assert.match(html, /id="talent-daily-completion-checklist"/);
-  assert.match(html, /data-category="NO_AUTO_PROMOTION"/);
+  assert.match(html, /次回対応を更新/);
   assert.match(css, /\.talent-daily-command/);
   assert.match(css, /\.talent-daily-command-actions/);
   assert.match(css, /\.talent-daily-command-actions button\[aria-pressed="true"\]/);
@@ -42,12 +43,12 @@ test("daily command center opens safe work areas without writes", async () => {
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.talent-daily-command-actions \{ grid-template-columns: 1fr; \}/);
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.talent-daily-completion-checklist \{ grid-template-columns: 1fr; \}/);
   assert.match(app, /data-talent-daily-open/);
-  assert.match(app, /student-daily-queue-start-guide/);
-  assert.match(app, /talent-28-csv-title/);
+  assert.match(app, /today-task-title/);
+  assert.match(app, /student-add-open/);
   assert.match(app, /announceDailyCommandRoute/);
   assert.match(app, /focusDailyCommandTarget/);
   assert.match(app, /ROUTE_STUDENTS/);
-  assert.match(app, /ROUTE_CSV28/);
+  assert.match(app, /ROUTE_ADD_CANDIDATE/);
   assert.doesNotMatch(html, /DAILY COMMAND/);
   assert.doesNotMatch(html, /START HERE|TODAY'S WORK|NEXT OPERATION|FOLLOW-UP SHORTCUTS/);
   assert.doesNotMatch(app, /START HERE/);
@@ -140,8 +141,8 @@ test("recruitment subtabs stay visually and semantically below the primary tabs"
   const html = await readFile(new URL("index.html", root), "utf8");
   const app = await readFile(new URL("app.mjs", root), "utf8");
 
-  assert.match(html, /class="secondary-tabs"[\s\S]*全体サマリー/);
-  assert.match(html, /data-secondary-tab="students"[\s\S]*学生フォロー/);
+  assert.match(html, /class="secondary-tabs"[\s\S]*ダッシュボード/);
+  assert.match(html, /data-secondary-tab="students"[\s\S]*候補者一覧/);
   assert.match(html, /data-secondary-tab="fairs"[\s\S]*フェア分析/);
   assert.match(html, /data-secondary-tab="schools"[\s\S]*学校分析/);
   assert.match(html, /id="talent-28-csv-file"/);
@@ -168,7 +169,7 @@ test("school analysis leads directly to a focused student follow-up list", async
   assert.equal(buildSchoolFollowUpFilter(""), null);
   assert.match(html, /<th>フォロー<\/th>/);
   assert.match(html, /id="school-top-open"/);
-  assert.match(app, /button\.textContent = "学生を見る"/);
+  assert.match(app, /button\.textContent = "候補者を見る"/);
   assert.match(app, /openSchoolStudentWorkspace/);
   assert.match(app, /dataset\.schoolName/);
   assert.match(app, /data-secondary-tab="students"/);
@@ -392,9 +393,9 @@ test("student workspace summarizes today's follow-up queue before selecting a ro
   const reviewGuide = buildStudentDailyQueueStartGuide(buildStudentDailyQueueSummary([
     { classification: "OWNER_REVIEW" }
   ], "2026-07-26"));
-  assert.equal(reviewGuide.category, "START_OWNER_REVIEW_FILTER");
-  assert.equal(reviewGuide.filterCategory, "STATE_OWNER_REVIEW");
-  assert.equal(buildStudentDailyQueueStartFilter(reviewGuide.filterCategory).state, "OWNER_REVIEW");
+  assert.equal(reviewGuide.category, "START_STEADY_LIST");
+  assert.equal(reviewGuide.filterCategory, "ALL_STUDENTS");
+  assert.equal(buildStudentDailyQueueStartFilter(reviewGuide.filterCategory).state, "ALL");
   assert.match(html, /id="student-daily-queue-summary"/);
   assert.match(html, /id="student-daily-queue-steps"/);
   assert.match(html, /id="student-daily-queue-start-guide"/);

@@ -40,17 +40,25 @@ test("setup tools live behind an administrator-only management tab", async () =>
   assert.match(html, /data-management-open-tab="students"/);
   assert.match(html, /data-management-open-tab="schools"/);
   assert.match(html, /data-management-open-tab="fairs"/);
-  for (const section of ["validation", "audit"]) {
-    assert.match(html, new RegExp(`data-management-section="${section}" data-management-tier="maintenance"`));
-  }
-  for (const section of ["csv-import", "dataset"]) {
+  for (const section of ["csv-import", "dataset", "validation"]) {
     assert.match(html, new RegExp(`data-management-section="${section}" data-management-tier="archive"`));
   }
+  assert.match(html, /data-management-section="audit" data-management-tier="maintenance"/);
+  const archiveStart = html.indexOf('<details class="management-tier management-tier-archive">');
+  const archiveEnd = html.indexOf("</details>", archiveStart);
+  const archive = html.slice(archiveStart, archiveEnd);
+  const outsideArchive = `${html.slice(0, archiveStart)}${html.slice(archiveEnd + 10)}`;
+  assert.ok(archiveStart >= 0 && archiveEnd > archiveStart);
+  assert.doesNotMatch(html.slice(archiveStart, archiveStart + 90), /\sopen(?:\s|>)/);
+  assert.match(archive, /data-management-section="dataset"/);
+  assert.match(archive, /data-management-section="csv-import"/);
+  assert.match(archive, /data-management-section="validation"/);
+  assert.doesNotMatch(outsideArchive, /data-management-section="(?:dataset|csv-import|validation)"/);
   assert.doesNotMatch(html, /<nav class="management-tool-index" aria-label="管理ツール一覧">/);
   assert.match(app, /export function configureTalentOperationUi/);
   assert.match(app, /const isAdministrator = accessProfile === "full"/);
   assert.match(app, /authorization\.access\?\.profile === "full"/);
-  assert.match(app, /data-management-tier-content/);
+  assert.doesNotMatch(app, /destination\.append\(section\)/);
   assert.match(app, /data-management-open-tab/);
   assert.match(css, /\.talent-management-only \{ display: none !important; \}/);
   assert.match(css, /\.management-daily-grid/);

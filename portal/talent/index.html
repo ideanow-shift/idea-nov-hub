@@ -162,68 +162,6 @@
         </section>
         <p class="coverage-label sprint2-supporting-summary">本システム稼働開始以降の集計（確定済み）です。</p>
 
-        <section class="import-overview" data-management-section="dataset" data-management-tier="archive" aria-labelledby="import-overview-title">
-          <div>
-            <p class="section-kicker">データ内訳</p>
-            <h3 id="import-overview-title">学生データセット</h3>
-          </div>
-          <dl>
-            <div><dt>取込済み</dt><dd id="import-total">-</dd></div>
-            <div><dt>要確認</dt><dd id="import-review">-</dd></div>
-            <div><dt>隔離</dt><dd id="import-quarantine">-</dd></div>
-            <div><dt>紐付け済み</dt><dd id="import-mapped">-</dd></div>
-          </dl>
-          <p id="import-overview-status">学生フォローを開くと取込状況を確認します</p>
-        </section>
-
-        <section class="csv-preflight-panel" data-management-section="csv-import" data-management-tier="archive" aria-labelledby="talent-28-csv-title">
-          <div>
-            <p class="section-kicker">28卒CSV確認</p>
-            <h3 id="talent-28-csv-title">28卒CSV 形式検証</h3>
-            <p>CSVをローカルで読み、年度・由来・必須項目・隔離候補だけを確認します。DB書込みや個人値の表示は行いません。</p>
-          </div>
-          <div class="csv-preflight-actions">
-            <label class="csv-preflight-file"><span>28卒CSVを選択</span><input id="talent-28-csv-file" type="file" accept=".csv,text/csv"></label>
-            <button id="talent-28-csv-run" type="button">選択したCSVを検証</button>
-            <button id="talent-28-csv-template" class="secondary-command" type="button">CSV雛形を作成</button>
-          </div>
-          <dl class="csv-source-type-legend" aria-label="28卒CSVのsource_type説明">
-            <div><dt data-source-type="CONTACTS_28">接点候補</dt><dd>接点・LINE登録前後の候補</dd></div>
-            <div><dt data-source-type="ENTRIES_28">応募候補</dt><dd>応募・選考中の候補</dd></div>
-            <div><dt data-source-type="OFFERS_28">内定候補</dt><dd>内定・入社予定の候補</dd></div>
-          </dl>
-          <ol id="talent-28-csv-preparation-guide" class="csv-preparation-guide" aria-label="28卒CSV選択前の準備ガイド"></ol>
-          <p id="talent-28-csv-status" class="status" role="status" aria-live="polite">CSVは未選択です</p>
-          <dl id="talent-28-csv-summary" class="csv-preflight-summary" aria-label="28卒CSV検証結果"></dl>
-          <ol id="talent-28-csv-plan" class="csv-preflight-plan" aria-label="28卒CSV検証後の次アクション"></ol>
-          <p id="talent-28-csv-receipt" class="csv-preflight-receipt" data-category="NEEDS_SAFE_FIX">CSV受領カテゴリを安全に表示します。</p>
-          <p id="talent-28-csv-correction-route" class="csv-correction-route" data-category="NO_SAFE_FIX_REQUIRED">CSVを選択すると、次に直す場所を表示します。</p>
-          <dl id="talent-28-csv-correction-workbench" class="csv-correction-workbench" data-category="NO_SAFE_FIX_REQUIRED" aria-label="28卒CSV修正ワークベンチ"></dl>
-          <p id="talent-28-csv-staging-approval-guide" class="csv-staging-approval-guide" data-category="SAFE_FIX_REQUIRED_BEFORE_APPROVAL">CSV修正後に、投入前承認へ進めるかを表示します。</p>
-          <ol id="talent-28-csv-owner-handoff-checklist" class="csv-owner-handoff-checklist" data-category="FIX_BEFORE_HANDOFF" aria-label="28卒CSV投入前の引き渡しチェック"></ol>
-          <section id="talent-28-csv-approval-readback" class="csv-approval-readback" data-category="FIX_BEFORE_READBACK" aria-label="28卒CSV承認前の読み合わせ">
-            <strong id="talent-28-csv-approval-readback-title">承認前にCSV修正が必要</strong>
-            <p id="talent-28-csv-approval-readback-copy">修正カテゴリを解消してから、同じ画面で再preflightしてください。</p>
-            <ol id="talent-28-csv-approval-readback-steps"></ol>
-          </section>
-          <section id="talent-28-csv-approval-boundary" class="csv-approval-boundary" data-category="BLOCK_OWNER_TEXT" aria-label="28卒CSV staging approval boundary">
-            <strong id="talent-28-csv-approval-boundary-title">投入前承認はまだ準備できません</strong>
-            <p id="talent-28-csv-approval-boundary-copy">CSV形式検証がPASSになるまで、この画面で修正確認を続けます。</p>
-            <ol id="talent-28-csv-approval-boundary-checks"></ol>
-          </section>
-          <section id="talent-28-csv-owner-approval-draft" class="csv-approval-boundary" data-category="APPROVAL_DRAFT_BLOCKED" aria-label="28卒CSV owner approval draft readiness">
-            <strong id="talent-28-csv-owner-approval-draft-title">staging承認文はブロック中です</strong>
-            <p id="talent-28-csv-owner-approval-draft-copy">投入承認文は、CSV形式検証が安全に完了した後だけ表示します。</p>
-            <ol id="talent-28-csv-owner-approval-draft-steps"></ol>
-          </section>
-          <section id="talent-28-csv-safe-preview" class="csv-safe-preview" data-category="PREVIEW_NOT_READY" aria-label="28卒CSV安全プレビュー">
-            <strong id="talent-28-csv-safe-preview-title">安全プレビューは未実行です</strong>
-            <p id="talent-28-csv-safe-preview-copy">CSV preflight後に、値ではなく件数カテゴリと承認境界だけを表示します。</p>
-            <dl id="talent-28-csv-safe-preview-metrics"></dl>
-          </section>
-          <ol id="talent-28-csv-fix-guide" class="csv-preflight-fix-guide" aria-label="28卒CSVの安全修正ガイド"></ol>
-        </section>
-
         <section id="talent-operator-panel" class="operator-panel" aria-labelledby="operator-title" hidden>
           <div class="operator-heading"><div><p class="section-kicker">採用イベント入力</p><h3 id="operator-title">採用イベント入力</h3></div><p id="operator-status" class="status" role="status" aria-live="polite">未送信</p></div>
           <p class="operator-confirmation-note">記録・失効は内容確認後に1回だけ送信されます。</p>
@@ -256,57 +194,6 @@
             <button id="student-add-open" class="primary-command sprint1-mock-write" type="button" hidden>学生を追加</button>
           </div>
         </div>
-
-        <section class="review-command-band" data-management-section="validation" data-management-tier="maintenance" aria-labelledby="review-command-title">
-          <div>
-            <p class="section-kicker">データ準備</p>
-            <h3 id="review-command-title">既存データを業務利用できる状態にする</h3>
-            <p>接触データから応募者を作成し、本人一致を確認できたエントリー・内定だけを同じ応募者へ紐付けます。</p>
-          </div>
-          <dl>
-            <div><dt>応募化候補</dt><dd id="review-primary-count">-</dd></div>
-            <div><dt>一致候補</dt><dd id="review-link-count">-</dd></div>
-            <div><dt>個別確認</dt><dd id="review-manual-count">-</dd></div>
-          </dl>
-          <button id="student-review-open" class="sprint1-mock-write" type="button" hidden>確認候補を一括反映</button>
-          <div class="bulk-triage" aria-label="27卒データの一括分類">
-            <div><span>自動一致</span><strong id="triage-exact1">-</strong><small>一括反映可能</small></div>
-            <div><span>個別確認候補</span><strong id="triage-new">-</strong><small>新規・連絡先未取得</small><button id="triage-new-open" class="triage-command" type="button" data-triage-queue="newApplicant">候補を表示</button></div>
-            <div><span>曖昧・重複</span><strong id="triage-ambiguous">-</strong><small>自動処理不可</small><button id="triage-ambiguous-open" class="triage-command" type="button" data-triage-queue="ambiguous">要確認を表示</button></div>
-            <div><span>保留</span><strong id="triage-hold">-</strong><small>確認待ち</small><button id="triage-hold-open" class="triage-command" type="button" data-triage-queue="hold">保留を表示</button></div>
-          </div>
-          <div id="student-review-workload" class="student-review-workload" aria-label="要確認と隔離の整理方針">
-            <div class="student-review-workload-next">
-              <span>次の整理</span>
-              <strong id="review-workload-title">確認対象を集計しています</strong>
-              <p id="review-workload-copy">一括反映・個別確認・隔離維持の順に、安全な作業だけを案内します。</p>
-              <button id="review-workload-open" class="triage-command" type="button">対象を一覧で見る</button>
-            </div>
-            <article>
-              <span>安全に一括</span>
-              <strong id="review-workload-bulk">-</strong>
-              <p id="review-workload-bulk-copy">一致候補だけをまとめて反映します。</p>
-            </article>
-            <article>
-              <span>個別確認</span>
-              <strong id="review-workload-individual">-</strong>
-              <p id="review-workload-individual-copy">新規候補や連絡先未取得の接触行は1件ずつ確認します。</p>
-            </article>
-            <article>
-              <span>隔離維持</span>
-              <strong id="review-workload-quarantine">-</strong>
-              <p id="review-workload-quarantine-copy">曖昧・保留は昇格せず補足を残します。</p>
-            </article>
-            <ol id="review-workload-steps" class="review-workload-steps" aria-label="要確認データの処理順"></ol>
-            <p id="review-workload-approval-guide" class="review-workload-approval-guide" data-category="NO_REVIEW_WORK">一括反映・個別確認・隔離維持の承認境界を表示します。</p>
-            <ol id="review-workload-approval-steps" class="review-workload-approval-steps" data-category="NO_REVIEW_WORK" aria-label="確認承認前のチェック"></ol>
-            <section id="review-workload-completion-summary" class="review-workload-completion-summary" data-category="REVIEW_CLOSED" aria-label="27卒レビュー完了条件">
-              <strong id="review-workload-completion-title">レビュー完了待ちはありません</strong>
-              <p id="review-workload-completion-copy">一括反映・個別確認・隔離維持の残り件数カテゴリをここで確認します。</p>
-              <dl id="review-workload-completion-metrics"></dl>
-            </section>
-          </div>
-        </section>
 
         <section class="student-toolbar" aria-label="学生一覧の検索と絞り込み">
           <label class="student-search">
@@ -615,12 +502,6 @@
         </form>
       </dialog>
 
-      <section id="unlinked-interview-panel" class="analysis-panel" data-management-section="audit" data-management-tier="maintenance" aria-labelledby="unlinked-interview-title">
-        <div class="section-heading"><div><p class="section-kicker">人間確認</p><h2 id="unlinked-interview-title">未紐付けの面接履歴</h2></div><p id="unlinked-interview-status" class="status">読み込み中</p></div>
-        <p>強い識別キーがない過去履歴です。学生を選択し、内容を確認できた場合のみ紐付けてください。</p>
-        <div id="unlinked-interview-list" class="unlinked-interview-list"></div>
-      </section>
-
       <dialog id="student-audit-dialog" class="review-dialog audit-dialog" aria-labelledby="student-audit-dialog-title">
         <form method="dialog">
           <header>
@@ -814,13 +695,19 @@
             <a href="#review-command-title">重複確認・データ補正</a>
             <a href="#review-command-title">保留・隔離管理</a>
           </nav>
-          <div class="talent-management-content" data-management-tier-content="maintenance"></div>
+          <div class="talent-management-content" data-management-tier-content="maintenance">
+            <section id="unlinked-interview-panel" class="analysis-panel" data-management-section="audit" data-management-tier="maintenance" aria-labelledby="unlinked-interview-title">
+              <div class="section-heading"><div><p class="section-kicker">人間確認</p><h2 id="unlinked-interview-title">未紐付けの面接履歴</h2></div><p id="unlinked-interview-status" class="status">読み込み中</p></div>
+              <p>強い識別キーがない過去履歴です。学生を選択し、内容を確認できた場合のみ紐付けてください。</p>
+              <div id="unlinked-interview-list" class="unlinked-interview-list"></div>
+            </section>
+          </div>
         </section>
 
         <details class="management-tier management-tier-archive">
           <summary>
             <span><b>03</b><strong>Migration Archive</strong></span>
-            <small>初期導入・CSV取込・特殊対応のときだけ開く</small>
+            <small>初期導入・特殊対応のときだけ開く</small>
           </summary>
           <div class="management-archive-intro">
             <p>通常運用では使用しません。CSV形式検証、データセット確認、投入前検証などの導入時機能を保管しています。</p>
@@ -828,8 +715,70 @@
           <nav class="management-tool-index" aria-label="Migration Archive一覧">
             <a href="#talent-28-csv-title">CSV取込・形式検証</a>
             <a href="#import-overview-title">Dataset・取込状況</a>
+            <a href="#review-command-title">Validation・重複確認</a>
           </nav>
-          <div class="talent-management-content" data-management-tier-content="archive"></div>
+          <div class="talent-management-content" data-management-tier-content="archive">
+            <section class="import-overview" data-management-section="dataset" data-management-tier="archive" aria-labelledby="import-overview-title">
+              <div><p class="section-kicker">データ内訳</p><h3 id="import-overview-title">学生データセット</h3></div>
+              <dl>
+                <div><dt>取込済み</dt><dd id="import-total">-</dd></div>
+                <div><dt>要確認</dt><dd id="import-review">-</dd></div>
+                <div><dt>隔離</dt><dd id="import-quarantine">-</dd></div>
+                <div><dt>紐付け済み</dt><dd id="import-mapped">-</dd></div>
+              </dl>
+              <p id="import-overview-status">学生フォローを開くと取込状況を確認します</p>
+            </section>
+
+            <section class="csv-preflight-panel" data-management-section="csv-import" data-management-tier="archive" aria-labelledby="talent-28-csv-title">
+              <div><p class="section-kicker">28卒CSV確認</p><h3 id="talent-28-csv-title">28卒CSV 形式検証</h3><p>CSVをローカルで読み、年度・由来・必須項目・隔離候補だけを確認します。DB書込みや個人値の表示は行いません。</p></div>
+              <div class="csv-preflight-actions">
+                <label class="csv-preflight-file"><span>28卒CSVを選択</span><input id="talent-28-csv-file" type="file" accept=".csv,text/csv"></label>
+                <button id="talent-28-csv-run" type="button">選択したCSVを検証</button>
+                <button id="talent-28-csv-template" class="secondary-command" type="button">CSV雛形を作成</button>
+              </div>
+              <dl class="csv-source-type-legend" aria-label="28卒CSVのsource_type説明">
+                <div><dt data-source-type="CONTACTS_28">接点候補</dt><dd>接点・LINE登録前後の候補</dd></div>
+                <div><dt data-source-type="ENTRIES_28">応募候補</dt><dd>応募・選考中の候補</dd></div>
+                <div><dt data-source-type="OFFERS_28">内定候補</dt><dd>内定・入社予定の候補</dd></div>
+              </dl>
+              <ol id="talent-28-csv-preparation-guide" class="csv-preparation-guide" aria-label="28卒CSV選択前の準備ガイド"></ol>
+              <p id="talent-28-csv-status" class="status" role="status" aria-live="polite">CSVは未選択です</p>
+              <dl id="talent-28-csv-summary" class="csv-preflight-summary" aria-label="28卒CSV検証結果"></dl>
+              <ol id="talent-28-csv-plan" class="csv-preflight-plan" aria-label="28卒CSV検証後の次アクション"></ol>
+              <p id="talent-28-csv-receipt" class="csv-preflight-receipt" data-category="NEEDS_SAFE_FIX">CSV受領カテゴリを安全に表示します。</p>
+              <p id="talent-28-csv-correction-route" class="csv-correction-route" data-category="NO_SAFE_FIX_REQUIRED">CSVを選択すると、次に直す場所を表示します。</p>
+              <dl id="talent-28-csv-correction-workbench" class="csv-correction-workbench" data-category="NO_SAFE_FIX_REQUIRED" aria-label="28卒CSV修正ワークベンチ"></dl>
+              <p id="talent-28-csv-staging-approval-guide" class="csv-staging-approval-guide" data-category="SAFE_FIX_REQUIRED_BEFORE_APPROVAL">CSV修正後に、投入前承認へ進めるかを表示します。</p>
+              <ol id="talent-28-csv-owner-handoff-checklist" class="csv-owner-handoff-checklist" data-category="FIX_BEFORE_HANDOFF" aria-label="28卒CSV投入前の引き渡しチェック"></ol>
+              <section id="talent-28-csv-approval-readback" class="csv-approval-readback" data-category="FIX_BEFORE_READBACK" aria-label="28卒CSV承認前の読み合わせ"><strong id="talent-28-csv-approval-readback-title">承認前にCSV修正が必要</strong><p id="talent-28-csv-approval-readback-copy">修正カテゴリを解消してから、同じ画面で再preflightしてください。</p><ol id="talent-28-csv-approval-readback-steps"></ol></section>
+              <section id="talent-28-csv-approval-boundary" class="csv-approval-boundary" data-category="BLOCK_OWNER_TEXT" aria-label="28卒CSV staging approval boundary"><strong id="talent-28-csv-approval-boundary-title">投入前承認はまだ準備できません</strong><p id="talent-28-csv-approval-boundary-copy">CSV形式検証がPASSになるまで、この画面で修正確認を続けます。</p><ol id="talent-28-csv-approval-boundary-checks"></ol></section>
+              <section id="talent-28-csv-owner-approval-draft" class="csv-approval-boundary" data-category="APPROVAL_DRAFT_BLOCKED" aria-label="28卒CSV owner approval draft readiness"><strong id="talent-28-csv-owner-approval-draft-title">staging承認文はブロック中です</strong><p id="talent-28-csv-owner-approval-draft-copy">投入承認文は、CSV形式検証が安全に完了した後だけ表示します。</p><ol id="talent-28-csv-owner-approval-draft-steps"></ol></section>
+              <section id="talent-28-csv-safe-preview" class="csv-safe-preview" data-category="PREVIEW_NOT_READY" aria-label="28卒CSV安全プレビュー"><strong id="talent-28-csv-safe-preview-title">安全プレビューは未実行です</strong><p id="talent-28-csv-safe-preview-copy">CSV preflight後に、値ではなく件数カテゴリと承認境界だけを表示します。</p><dl id="talent-28-csv-safe-preview-metrics"></dl></section>
+              <ol id="talent-28-csv-fix-guide" class="csv-preflight-fix-guide" aria-label="28卒CSVの安全修正ガイド"></ol>
+            </section>
+
+            <section class="review-command-band" data-management-section="validation" data-management-tier="archive" aria-labelledby="review-command-title">
+              <div><p class="section-kicker">データ準備</p><h3 id="review-command-title">既存データを業務利用できる状態にする</h3><p>接触データから応募者を作成し、本人一致を確認できたエントリー・内定だけを同じ応募者へ紐付けます。</p></div>
+              <dl><div><dt>応募化候補</dt><dd id="review-primary-count">-</dd></div><div><dt>一致候補</dt><dd id="review-link-count">-</dd></div><div><dt>個別確認</dt><dd id="review-manual-count">-</dd></div></dl>
+              <button id="student-review-open" class="sprint1-mock-write" type="button" hidden>確認候補を一括反映</button>
+              <div class="bulk-triage" aria-label="27卒データの一括分類">
+                <div><span>自動一致</span><strong id="triage-exact1">-</strong><small>一括反映可能</small></div>
+                <div><span>個別確認候補</span><strong id="triage-new">-</strong><small>新規・連絡先未取得</small><button id="triage-new-open" class="triage-command" type="button" data-triage-queue="newApplicant">候補を表示</button></div>
+                <div><span>曖昧・重複</span><strong id="triage-ambiguous">-</strong><small>自動処理不可</small><button id="triage-ambiguous-open" class="triage-command" type="button" data-triage-queue="ambiguous">要確認を表示</button></div>
+                <div><span>保留</span><strong id="triage-hold">-</strong><small>確認待ち</small><button id="triage-hold-open" class="triage-command" type="button" data-triage-queue="hold">保留を表示</button></div>
+              </div>
+              <div id="student-review-workload" class="student-review-workload" aria-label="要確認と隔離の整理方針">
+                <div class="student-review-workload-next"><span>次の整理</span><strong id="review-workload-title">確認対象を集計しています</strong><p id="review-workload-copy">一括反映・個別確認・隔離維持の順に、安全な作業だけを案内します。</p><button id="review-workload-open" class="triage-command" type="button">対象を一覧で見る</button></div>
+                <article><span>安全に一括</span><strong id="review-workload-bulk">-</strong><p id="review-workload-bulk-copy">一致候補だけをまとめて反映します。</p></article>
+                <article><span>個別確認</span><strong id="review-workload-individual">-</strong><p id="review-workload-individual-copy">新規候補や連絡先未取得の接触行は1件ずつ確認します。</p></article>
+                <article><span>隔離維持</span><strong id="review-workload-quarantine">-</strong><p id="review-workload-quarantine-copy">曖昧・保留は昇格せず補足を残します。</p></article>
+                <ol id="review-workload-steps" class="review-workload-steps" aria-label="要確認データの処理順"></ol>
+                <p id="review-workload-approval-guide" class="review-workload-approval-guide" data-category="NO_REVIEW_WORK">一括反映・個別確認・隔離維持の承認境界を表示します。</p>
+                <ol id="review-workload-approval-steps" class="review-workload-approval-steps" data-category="NO_REVIEW_WORK" aria-label="確認承認前のチェック"></ol>
+                <section id="review-workload-completion-summary" class="review-workload-completion-summary" data-category="REVIEW_CLOSED" aria-label="27卒レビュー完了条件"><strong id="review-workload-completion-title">レビュー完了待ちはありません</strong><p id="review-workload-completion-copy">一括反映・個別確認・隔離維持の残り件数カテゴリをここで確認します。</p><dl id="review-workload-completion-metrics"></dl></section>
+              </div>
+            </section>
+          </div>
         </details>
       </section>
     </section>

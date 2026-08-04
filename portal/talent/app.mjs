@@ -3174,20 +3174,11 @@ export function configureTalentOperationUi(documentObject, accessProfile) {
   const managementTab = documentObject?.querySelector?.("[data-talent-management-tab]");
   const managementPanel = documentObject?.getElementById?.("recruitment-management");
   const managementSections = [...(documentObject?.querySelectorAll?.("[data-management-section]") || [])];
-  const managementTierContent = new Map(
-    [...(documentObject?.querySelectorAll?.("[data-management-tier-content]") || [])]
-      .map((container) => [container.dataset.managementTierContent, container])
-  );
 
   if (managementTab) managementTab.hidden = !isAdministrator;
   if (managementPanel) managementPanel.hidden = true;
   for (const section of managementSections) {
     section.hidden = !isAdministrator;
-    const tier = section.dataset.managementTier || "maintenance";
-    const destination = managementTierContent.get(tier);
-    if (isAdministrator && destination && section.parentElement !== destination) {
-      destination.append(section);
-    }
   }
   for (const item of documentObject?.querySelectorAll?.("[data-talent-write-only]") || []) {
     item.hidden = !canWriteCandidates;
@@ -3215,7 +3206,7 @@ export function configureTalentOperationUi(documentObject, accessProfile) {
     managementVisible: isAdministrator,
     candidateWriteVisible: canWriteCandidates,
     managementSectionCount: managementSections.length,
-    managementTierCount: managementTierContent.size
+    managementTierCount: documentObject?.querySelectorAll?.("[data-management-tier-content]")?.length || 0
   });
 }
 

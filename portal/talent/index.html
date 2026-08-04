@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NOV Talent | 採用意思決定プラットフォーム</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=20260801-hub-integration-clean-1">
-  <script src="./runtime-config.candidate.js?v=20260804-recruiting-dashboard-completion-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260804-recruiting-dashboard-final-2">
+  <script src="./runtime-config.candidate.js?v=20260804-recruiting-dashboard-final-2"></script>
   <script type="module" src="./csv-import-preflight.mjs?v=20260731-sprint1-mock-2"></script>
-  <script type="module" src="./app.mjs?v=20260804-recruiting-dashboard-completion-1"></script>
+  <script type="module" src="./app.mjs?v=20260804-recruiting-dashboard-final-2"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -545,10 +545,16 @@
               </section>
               <section class="candidate-history-section" aria-labelledby="candidate-history-title">
                 <div class="candidate-history-heading"><h4 id="candidate-history-title">これまでの履歴</h4><span id="candidate-history-summary">接触 0件・イベント 0件・選考 0件</span></div>
+                <div id="candidate-history-actions" class="candidate-history-actions" hidden>
+                  <button id="candidate-contact-add" class="secondary-command compact-command" type="button">接触・イベントを追加</button>
+                  <button id="candidate-selection-add" class="secondary-command compact-command" type="button">選考履歴を追加</button>
+                  <button id="candidate-action-add" class="secondary-command compact-command" type="button">次回対応を追加</button>
+                </div>
                 <div class="candidate-history-grid" aria-label="候補者履歴">
                   <article><h4>接触履歴</h4><ol id="candidate-contact-history"></ol></article>
                   <article><h4>イベント履歴</h4><ol id="candidate-event-history"></ol></article>
                   <article><h4>選考履歴</h4><ol id="candidate-selection-history"></ol></article>
+                  <article><h4>次回対応</h4><ol id="candidate-next-action-history"></ol></article>
                 </div>
               </section>
             </div>
@@ -586,6 +592,32 @@
           </footer>
         </form>
       </dialog>
+
+      <dialog id="candidate-activity-dialog" class="review-dialog profile-dialog" aria-labelledby="candidate-activity-dialog-title">
+        <form id="candidate-activity-form">
+          <header><p class="section-kicker">採用履歴</p><h2 id="candidate-activity-dialog-title">履歴を追加</h2></header>
+          <p>予定・実績・次回対応をStagingに記録します。物理削除は行いません。</p>
+          <div class="profile-form-grid">
+            <label><span>種類 *</span><select id="activity-entity-type" required><option value="EVENT">接触・イベント</option><option value="SELECTION">選考履歴</option><option value="NEXT_ACTION">次回対応</option></select></label>
+            <label><span>状態 *</span><select id="activity-code" required></select></label>
+            <label><span id="activity-date-label">実施日・予定日 *</span><input id="activity-date" type="date"></label>
+            <label id="activity-state-field"><span>予定／実施済み</span><select id="activity-state"><option value="PLANNED">予定</option><option value="COMPLETED">実施済み</option></select></label>
+            <label class="profile-wide"><span>名称・対応内容</span><input id="activity-name" maxlength="180"></label>
+            <label class="profile-wide"><span>接触内容</span><textarea id="activity-content" maxlength="1000" rows="2"></textarea></label>
+            <label><span>担当者</span><input id="activity-assignee" maxlength="120"></label>
+            <label class="profile-wide"><span>備考</span><textarea id="activity-notes" maxlength="2000" rows="2"></textarea></label>
+            <label class="profile-wide"><span>更新理由 *</span><input id="activity-reason" maxlength="500" required></label>
+          </div>
+          <p id="candidate-activity-status" class="status" role="status" aria-live="polite">必要事項を入力してください</p>
+          <footer><button id="candidate-activity-cancel" class="secondary-command" type="button">戻る</button><button id="candidate-activity-deactivate" class="secondary-command" type="button" hidden>理由付きで無効化</button><button id="candidate-activity-save" class="primary-command" type="submit">確認して保存</button></footer>
+        </form>
+      </dialog>
+
+      <section id="unlinked-interview-panel" class="analysis-panel" aria-labelledby="unlinked-interview-title">
+        <div class="section-heading"><div><p class="section-kicker">人間確認</p><h2 id="unlinked-interview-title">未紐付けの面接履歴</h2></div><p id="unlinked-interview-status" class="status">読み込み中</p></div>
+        <p>強い識別キーがない過去履歴です。候補者を選択し、内容を確認できた場合のみ紐付けてください。</p>
+        <div id="unlinked-interview-list" class="unlinked-interview-list"></div>
+      </section>
 
       <dialog id="student-audit-dialog" class="review-dialog audit-dialog" aria-labelledby="student-audit-dialog-title">
         <form method="dialog">

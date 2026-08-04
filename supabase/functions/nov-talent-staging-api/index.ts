@@ -1,4 +1,4 @@
-import { cleanCandidate, resolveAccess, STATUS_LABELS } from "./domain.ts";
+import { cleanActivity, cleanCandidate, cleanSourceFactLink, resolveAccess, STATUS_LABELS } from "./domain.ts";
 
 const ORIGIN = "https://ideanow-shift.github.io";
 const PREFIXES = ["", "/nov-talent-staging-api", "/functions/v1/nov-talent-staging-api"];
@@ -26,7 +26,11 @@ async function authorize(runtime: Runtime, request: Request) {
     const actor = String(env?.employee?.id || env?.employee?.employeeId || env?.employee?.coreEmployeeId || env?.employee?.supabaseEmployeeId || "");
     if (!profile) return { category: "FORBIDDEN" } as const;
     if (!UUID.test(actor)) return { category: "ACTOR_IDENTITY_UNAVAILABLE" } as const;
-    return { profile, actor, role: Array.isArray(env.employee.roleKeys) ? String(env.employee.roleKeys[0] || profile) : profile } as const;
+    const roles = (Array.isArray(env.employee.roleKeys) ? env.employee.roleKeys : [])
+      .map((value: unknown) => String(value || "").trim().toLowerCase());
+    const role = roles.find((value: string) => ["super_admin", "backoffice", "hr.admin", "hr.staff", "executive"].includes(value));
+    if (!role) return { category: "FORBIDDEN" } as const;
+    return { profile, actor, role } as const;
   } catch { return { category: "AUTH_REQUIRED" } as const; }
 }
 
@@ -45,11 +49,11 @@ async function readRows(runtime: Runtime) {
 }
 async function readDashboardFacts(runtime: Runtime) {
   const [eventsResult, selectionsResult, actionsResult, fairsResult, sourceFactsResult] = await Promise.all([
-    db(runtime, "/rest/v1/nov_talent_recruitment_events_v1?select=candidate_id,event_code,event_date&order=event_date.desc&limit=5000"),
-    db(runtime, "/rest/v1/nov_talent_selection_history_v1?select=candidate_id,selection_code,effective_date&order=effective_date.desc&limit=5000"),
-    db(runtime, "/rest/v1/nov_talent_next_actions_v1?select=candidate_id,action_code,due_date,state&state=eq.OPEN&order=due_date.asc&limit=1000"),
+    db(runtime, "/rest/v1/nov_talent_recruitment_events_v1?select=event_id,candidate_id,event_code,event_date,event_name,event_state,contact_content,assigned_to,notes,version,is_active&order=event_date.desc&limit=5000"),
+    db(runtime, "/rest/v1/nov_talent_selection_history_v1?select=selection_history_id,candidate_id,selection_code,effective_date,assigned_to,notes,version,is_active&order=effective_date.desc&limit=5000"),
+    db(runtime, "/rest/v1/nov_talent_next_actions_v1?select=next_action_id,candidate_id,action_code,due_date,action_text,assigned_to,notes,state,completed_at,version,is_active&order=due_date.asc.nullslast&limit=1000"),
     db(runtime, "/rest/v1/nov_talent_fair_metrics_v1?select=graduation_year,event_date,contact_count,line_registration_count,salon_tour_count&order=event_date.desc&limit=1000"),
-    db(runtime, "/rest/v1/nov_talent_recruitment_source_facts_v1?select=source_type,source_row_no,fact_code,fact_date&order=source_type.asc,source_row_no.asc&limit=5000")
+    db(runtime, "/rest/v1/nov_talent_recruitment_source_facts_v1?select=source_type,source_row_no,fact_code,fact_date,candidate_id,version&order=source_type.asc,source_row_no.asc&limit=5000")
   ]);
   if (![eventsResult, selectionsResult, actionsResult, fairsResult, sourceFactsResult].every((result) => result.ok)) return null;
   return {
@@ -73,33 +77,55 @@ function groupByCandidate(rows: any[]) {
 
 function dashboardMetrics(rows: any[], facts: any) {
   const today = new Date().toISOString().slice(0, 10);
+  const activeEvents = facts.events.filter((row: any) => row.is_active !== false);
+  const activeSelections = facts.selections.filter((row: any) => row.is_active !== false);
+  const activeActions = facts.actions.filter((row: any) => row.is_active !== false);
   const distinct = (source: any[], codeKey: string, code: string) => new Set(source
     .filter((row) => row[codeKey] === code).map((row) => row.candidate_id)).size;
   const sourceFactCount = (code: string) => facts.sourceFacts.filter((row: any) => row.fact_code === code).length;
   const hasSourceFact = (code: string) => facts.sourceFacts.some((row: any) => row.fact_code === code);
-  const hasEvent = (code: string) => facts.events.some((row: any) => row.event_code === code);
-  const linkedCount = (code: string) => distinct(facts.selections, "selection_code", code);
-  const plannedEventCount = (code: string) => distinct(facts.events, "event_code", code)
+  const hasEvent = (code: string) => activeEvents.some((row: any) => row.event_code === code);
+  const candidateStatusCount = (code: string) => rows.filter((row) => row.current_status_code === code).length;
+  const linkedCount = (code: string) => distinct(activeSelections, "selection_code", code);
+  const sourceOrLinked = (code: string) => Math.max(sourceFactCount(code), linkedCount(code), candidateStatusCount(code));
+  const plannedEventCount = (code: string) => distinct(activeEvents, "event_code", code)
     + sourceFactCount(code);
+  const interviewHistory = sourceFactCount("INTERVIEW_COMPLETED") + linkedCount("INTERVIEW_COMPLETED");
+  const openActions = activeActions.filter((row: any) => row.state === "OPEN");
+  const dueActions = openActions.filter((row: any) => row.due_date && String(row.due_date) <= today);
+  const undatedActions = openActions.filter((row: any) => !row.due_date);
   return {
     candidateCount: rows.length,
+    graduation2027: rows.filter((row) => Number(row.graduation_year) === 2027).length,
+    graduation2028: rows.filter((row) => Number(row.graduation_year) === 2028).length,
+    lineRegistrations: Math.max(distinct(activeEvents, "event_code", "LINE_REGISTERED"), candidateStatusCount("LINE_REGISTERED")),
+    salonTourCompleted: Math.max(distinct(activeEvents, "event_code", "SALON_TOUR_COMPLETED"), sourceOrLinked("SALON_TOUR_COMPLETED")),
+    interviewHistory,
     entries: sourceFactCount("APPLICATION_RECEIVED") || linkedCount("APPLICATION_RECEIVED"),
     salonTourPlanned: plannedEventCount("SALON_TOUR_PLANNED"),
-    interviewPlanned: sourceFactCount("INTERVIEW_PLANNED") || linkedCount("INTERVIEW_PLANNED"),
-    offers: sourceFactCount("OFFERED") || linkedCount("OFFERED"),
-    withdrawals: sourceFactCount("WITHDRAWN") || linkedCount("WITHDRAWN"),
+    interviewPlanned: activeEvents.filter((row:any) => row.event_code === "INTERVIEW_PLANNED" && row.event_date >= today).length
+      + activeSelections.filter((row:any) => row.selection_code === "INTERVIEW_PLANNED" && row.effective_date >= today).length
+      + facts.sourceFacts.filter((row:any) => row.fact_code === "INTERVIEW_PLANNED" && row.fact_date >= today).length,
+    offers: sourceOrLinked("OFFERED"),
+    offeredElsewhere: sourceOrLinked("OFFERED_ELSEWHERE"),
+    withdrawals: sourceOrLinked("WITHDRAWN"),
+    rejected: sourceOrLinked("REJECTED"),
     schoolCount: new Set(rows.map((row) => String(row.school_name || "").trim()).filter(Boolean)).size,
     fairCount: facts.fairs.length,
-    todayActions: facts.actions.filter((row: any) => row.state === "OPEN" && String(row.due_date || "") <= today).length,
-    eventCount: facts.events.length,
-    selectionHistoryCount: facts.selections.length + facts.sourceFacts.length,
+    todayActions: dueActions.length,
+    undatedActions: undatedActions.length,
+    eventCount: activeEvents.length,
+    selectionHistoryCount: activeSelections.length + facts.sourceFacts.length,
+    unlinkedInterviewHistoryCount: facts.sourceFacts.filter((row:any) => row.fact_code === "INTERVIEW_COMPLETED" && !row.candidate_id).length,
     availability: {
-      candidateCount: true, entries: hasSourceFact("APPLICATION_RECEIVED"),
+      candidateCount: true, graduation2027: true, graduation2028: true, lineRegistrations: true,
+      salonTourCompleted: true, interviewHistory: hasSourceFact("INTERVIEW_COMPLETED") || hasEvent("INTERVIEW_COMPLETED"),
+      entries: hasSourceFact("APPLICATION_RECEIVED"),
       salonTourPlanned: hasEvent("SALON_TOUR_PLANNED"),
-      interviewPlanned: hasSourceFact("INTERVIEW_PLANNED") || hasEvent("INTERVIEW_PLANNED"),
-      offers: hasSourceFact("OFFERED"), withdrawals: hasSourceFact("WITHDRAWN"),
-      schoolCount: true, fairCount: true,
-      todayActions: facts.actions.length > 0
+      interviewPlanned: hasSourceFact("INTERVIEW_COMPLETED") || hasEvent("INTERVIEW_COMPLETED") || hasEvent("INTERVIEW_PLANNED"),
+      offers: hasSourceFact("OFFERED"), offeredElsewhere: true, withdrawals: hasSourceFact("WITHDRAWN"), rejected: hasSourceFact("REJECTED"),
+      schoolCount: true, fairCount: true, eventCount: true,
+      todayActions: activeActions.length > 0
     }
   };
 }
@@ -113,7 +139,7 @@ function workspace(rows: any[], profile: string, facts: any) {
     const events = eventsByCandidate.get(r.candidate_id) || [];
     const selections = selectionsByCandidate.get(r.candidate_id) || [];
     const actions = actionsByCandidate.get(r.candidate_id) || [];
-    const nextAction = actions[0] || null;
+    const nextAction = actions.find((item) => item.is_active !== false && item.state === "OPEN") || null;
     return ({
     applicationNo: null, businessDate: null, classification: "IMPORTABLE", classificationLabel: r.is_active ? "有効" : "無効",
     displayName: r.student_name || "氏名未登録", email: privateFields ? r.email : null, kana: r.student_name_kana,
@@ -127,19 +153,39 @@ function workspace(rows: any[], profile: string, facts: any) {
     graduationYear: r.graduation_year, sourceCode: r.source_type || "NOV_TALENT_UI", sourceLabel: r.graduation_year === 2027 ? "27卒" : r.graduation_year === 2028 ? "28卒" : `${r.graduation_year}年卒`,
     sourceKeyStatus: "OWNER_CONFIRMED", status: STATUS_LABELS[r.current_status_code] || "状態未設定", statusCode: r.current_status_code,
     suggestedTargetRecordId: null, suggestionCategory: "NONE",
+    selectionHistory: selections.map((item) => ({ id: item.selection_history_id, version: item.version, date: item.effective_date, code: item.selection_code,
+      label: STATUS_LABELS[item.selection_code] || item.selection_code, assignedTo: item.assigned_to, notes: privateFields ? item.notes : null, active: item.is_active })),
     contactHistory: events.filter((item) => ["CONTACT_RECORDED", "LINE_REGISTERED"].includes(item.event_code))
-      .map((item) => ({ date: item.event_date, code: item.event_code })),
+      .map((item) => ({ id: item.event_id, version: item.version, date: item.event_date, code: item.event_code,
+        label: item.event_name || eventLabel(item.event_code), state: item.event_state,
+        content: privateFields ? item.contact_content : null, assignedTo: item.assigned_to, notes: privateFields ? item.notes : null, active: item.is_active })),
     eventHistory: events.filter((item) => !["CONTACT_RECORDED", "LINE_REGISTERED"].includes(item.event_code))
-      .map((item) => ({ date: item.event_date, code: item.event_code })),
-    selectionHistory: selections.map((item) => ({ date: item.effective_date, code: item.selection_code }))
+      .map((item) => ({ id: item.event_id, version: item.version, date: item.event_date, code: item.event_code,
+        label: item.event_name || STATUS_LABELS[item.event_code] || item.event_code, state: item.event_state,
+        content: privateFields ? item.contact_content : null, assignedTo: item.assigned_to, notes: privateFields ? item.notes : null, active: item.is_active })),
+    nextActions: actions.map((item) => ({ id: item.next_action_id, version: item.version, date: item.due_date, code: item.action_code,
+      label: item.action_text || actionLabel(item.action_code), state: item.state, assignedTo: item.assigned_to,
+      notes: privateFields ? item.notes : null, completedAt: item.completed_at, active: item.is_active }))
   });
   });
   const dashboard = dashboardMetrics(rows, facts);
-  return { fiscalYear: "all", payloadMode: "workspace", dashboard,
-    overview: { contacts: students.length, entries: dashboard.entries, exactLinkSuggestions: 0, mapped: students.length, manual: 0, offers: dashboard.offers, ownerReview: 0, primaryCandidates: students.length, quarantined: 0, remainingManual: 0, total: students.length }, students };
+  const unlinkedSelectionHistory = facts.sourceFacts.filter((item:any) => item.fact_code === "INTERVIEW_COMPLETED" && !item.candidate_id)
+    .map((item:any) => ({ sourceType: item.source_type, sourceRowNo: item.source_row_no, code: item.fact_code,
+      label: STATUS_LABELS[item.fact_code] || item.fact_code, date: item.fact_date, version: item.version }));
+  return { fiscalYear: "all", payloadMode: "workspace", accessProfile: profile, canWrite: profile !== "executive", dashboard,
+    todayTasks: facts.actions.filter((item:any) => item.is_active !== false && item.state === "OPEN" && item.due_date && item.due_date <= new Date().toISOString().slice(0,10))
+      .slice(0,5).map((item:any) => ({ candidateId: item.candidate_id, dueDate: item.due_date,
+        label: item.action_text || actionLabel(item.action_code), assignedTo: item.assigned_to })),
+    unlinkedSelectionHistory,
+    overview: { contacts: students.length, entries: dashboard.entries, exactLinkSuggestions: 0, mapped: students.length, manual: 0, offers: dashboard.offers, ownerReview: unlinkedSelectionHistory.length, primaryCandidates: students.length, quarantined: 0, remainingManual: unlinkedSelectionHistory.length, total: students.length }, students };
 }
 function actionLabel(code: string) {
   return ({ FOLLOW_UP: "次回対応を確認", SALON_TOUR_FOLLOW_UP: "見学対応を確認", INTERVIEW_FOLLOW_UP: "面接対応を確認", OFFER_FOLLOW_UP: "内定フォローを確認" } as Record<string, string>)[code] || "次回対応を確認";
+}
+function eventLabel(code: string) {
+  return ({ CONTACT_RECORDED: "接触記録", LINE_REGISTERED: "LINE登録",
+    SALON_TOUR_PLANNED: "サロン見学［予定］", SALON_TOUR_COMPLETED: "サロン見学［済］",
+    INTERVIEW_PLANNED: "面接［予定］", INTERVIEW_COMPLETED: "面接［済］" } as Record<string,string>)[code] || "採用イベント";
 }
 function rpcPayload(actor: any, c: any) { return { p_actor_employee_id: actor.actor, p_actor_role: actor.role, p_reason: c.reason, p_graduation_year: c.graduationYear, p_student_name: c.studentName, p_student_name_kana: c.studentNameKana, p_school_name: c.schoolName, p_faculty_name: c.facultyName, p_phone: c.phone, p_email: c.email, p_line_identifier: c.lineIdentifier, p_current_status_code: c.currentStatus, p_acquisition_source: c.acquisitionSource, p_assigned_to: c.assignedTo, p_notes: c.notes }; }
 
@@ -184,10 +230,10 @@ export function createHandler(runtime: Runtime) {
     if (request.method === "GET" && path.endsWith("/api/talent/v1/dashboard/summary")) {
       const dashboard = dashboardMetrics(rows, facts);
       const summary = { contacts: rows.length,
-        lineRegistrations: new Set(facts.events.filter((r:any) => r.event_code === "LINE_REGISTERED").map((r:any) => r.candidate_id)).size,
-        salonTours: new Set(facts.events.filter((r:any) => r.event_code === "SALON_TOUR_COMPLETED").map((r:any) => r.candidate_id)).size,
-        interviews: new Set(facts.events.filter((r:any) => r.event_code === "INTERVIEW_COMPLETED").map((r:any) => r.candidate_id)).size,
-        passed: new Set(facts.selections.filter((r:any) => r.selection_code === "OFFER_ACCEPTED").map((r:any) => r.candidate_id)).size,
+        lineRegistrations: new Set(facts.events.filter((r:any) => r.is_active !== false && r.event_code === "LINE_REGISTERED").map((r:any) => r.candidate_id)).size,
+        salonTours: new Set(facts.events.filter((r:any) => r.is_active !== false && r.event_code === "SALON_TOUR_COMPLETED").map((r:any) => r.candidate_id)).size,
+        interviews: new Set(facts.events.filter((r:any) => r.is_active !== false && r.event_code === "INTERVIEW_COMPLETED").map((r:any) => r.candidate_id)).size,
+        passed: new Set(facts.selections.filter((r:any) => r.is_active !== false && r.selection_code === "OFFER_ACCEPTED").map((r:any) => r.candidate_id)).size,
         offers: dashboard.offers,
         expectedJoiners: rows.filter((r:any) => r.current_status_code === "EXPECTED_JOIN").length };
       return out(200, { ok: true, data: { config: { appName: "NOV Talent" }, fiscalYear: "current", payloadMode: "summary", summary }, meta: { generatedAt: new Date().toISOString(), requestId: crypto.randomUUID(), source: "nov-talent-staging-api", version: "1" } }, origin);
@@ -195,8 +241,13 @@ export function createHandler(runtime: Runtime) {
     if (request.method === "GET" && path.endsWith("/api/talent/v1/workspace")) return out(200, { ok: true, data: workspace(rows, actor.profile, facts), meta: { generatedAt: new Date().toISOString(), requestId: crypto.randomUUID(), source: "nov-talent-staging-api", version: "2" } }, origin);
     const auditMatch = /^\/api\/talent\/v1\/candidates\/([0-9a-f-]+)\/audit$/iu.exec(path);
     if (request.method === "GET" && auditMatch && UUID.test(auditMatch[1])) {
-      const result = await db(runtime, `/rest/v1/nov_talent_candidate_audit_log_v1?select=action,changed_fields,candidate_version,occurred_at&candidate_id=eq.${auditMatch[1]}&order=occurred_at.desc&limit=100`);
-      return result.ok ? out(200, { ok: true, data: { entries: await result.json() } }, origin) : fail(503, "AUDIT_UNAVAILABLE", origin);
+      const [candidateAudit, activityAudit] = await Promise.all([
+        db(runtime, `/rest/v1/nov_talent_candidate_audit_log_v1?select=action,changed_fields,candidate_version,occurred_at&candidate_id=eq.${auditMatch[1]}&order=occurred_at.desc&limit=100`),
+        db(runtime, `/rest/v1/nov_talent_recruitment_activity_audit_v1?select=entity_type,action,changed_fields,entity_version,occurred_at&candidate_id=eq.${auditMatch[1]}&order=occurred_at.desc&limit=100`)
+      ]);
+      return candidateAudit.ok && activityAudit.ok ? out(200, { ok: true, data: {
+        entries: await candidateAudit.json(), activityEntries: await activityAudit.json()
+      } }, origin) : fail(503, "AUDIT_UNAVAILABLE", origin);
     }
     if (actor.profile === "executive") return fail(403, "WRITE_FORBIDDEN", origin);
     const body = await request.json().catch(() => null);
@@ -211,6 +262,31 @@ export function createHandler(runtime: Runtime) {
       const result = await rpc(runtime, "nov_talent_create_candidate_v1", rpcPayload(actor, c));
       return result.ok ? out(201, { ok: true, data: result.data }, origin) : fail(result.status || 400, "WRITE_FAILED", origin);
     }
+    if (request.method === "POST" && path.endsWith("/api/talent/v1/activities")) {
+      const activity = cleanActivity(body);
+      if (!activity || !UUID.test(activity.candidateId) || (activity.entityId && !UUID.test(activity.entityId))) return fail(400, "INVALID_REQUEST", origin);
+      const result = await rpc(runtime, "nov_talent_mutate_recruiting_activity_v1", {
+        p_actor_employee_id: actor.actor, p_actor_role: actor.role, p_reason: activity.reason,
+        p_operation: activity.operation, p_entity_type: activity.entityType,
+        p_entity_id: activity.entityId, p_candidate_id: activity.candidateId,
+        p_expected_version: activity.expectedVersion,
+        p_payload: { code: activity.code, date: activity.date, name: activity.name, state: activity.state,
+          content: activity.content, assignedTo: activity.assignedTo, notes: activity.notes }
+      });
+      return result.ok ? out(activity.operation === "CREATE" ? 201 : 200, { ok: true, data: result.data }, origin)
+        : fail(result.status || 400, result.status === 409 ? "VERSION_CONFLICT" : "WRITE_FAILED", origin);
+    }
+    if (request.method === "POST" && path.endsWith("/api/talent/v1/unlinked-selection/link")) {
+      const link = cleanSourceFactLink(body);
+      if (!link || !UUID.test(link.candidateId)) return fail(400, "INVALID_REQUEST", origin);
+      const result = await rpc(runtime, "nov_talent_link_source_fact_v1", {
+        p_actor_employee_id: actor.actor, p_actor_role: actor.role, p_reason: link.reason,
+        p_source_type: link.sourceType, p_source_row_no: link.sourceRowNo, p_fact_code: link.factCode,
+        p_candidate_id: link.candidateId, p_expected_version: link.expectedVersion
+      });
+      return result.ok ? out(200, { ok: true, data: result.data }, origin)
+        : fail(result.status || 400, result.status === 409 ? "VERSION_CONFLICT" : "WRITE_FAILED", origin);
+    }
     const edit = /^\/api\/talent\/v1\/candidates\/([0-9a-f-]+)$/iu.exec(path);
     if (request.method === "PATCH" && edit && UUID.test(edit[1])) {
       const c = cleanCandidate(body); if (!c || c.expectedVersion === null) return fail(400, "INVALID_REQUEST", origin);
@@ -218,8 +294,8 @@ export function createHandler(runtime: Runtime) {
       return result.ok ? out(200, { ok: true, data: result.data }, origin) : fail(result.status || 400, result.status === 409 ? "VERSION_CONFLICT" : "WRITE_FAILED", origin);
     }
     const active = /^\/api\/talent\/v1\/candidates\/([0-9a-f-]+)\/active$/iu.exec(path);
-    if (request.method === "POST" && active && UUID.test(active[1]) && body?.active === false && Number.isInteger(Number(body?.expectedVersion)) && String(body?.reason || "").trim()) {
-      const result = await rpc(runtime, "nov_talent_set_candidate_active_v1", { p_actor_employee_id: actor.actor, p_actor_role: actor.role, p_reason: String(body.reason).slice(0,500), p_candidate_id: active[1], p_expected_version: Number(body.expectedVersion), p_active: false });
+    if (request.method === "POST" && active && UUID.test(active[1]) && typeof body?.active === "boolean" && Number.isInteger(Number(body?.expectedVersion)) && String(body?.reason || "").trim()) {
+      const result = await rpc(runtime, "nov_talent_set_candidate_active_v1", { p_actor_employee_id: actor.actor, p_actor_role: actor.role, p_reason: String(body.reason).slice(0,500), p_candidate_id: active[1], p_expected_version: Number(body.expectedVersion), p_active: body.active });
       return result.ok ? out(200, { ok: true, data: result.data }, origin) : fail(result.status || 400, result.status === 409 ? "VERSION_CONFLICT" : "WRITE_FAILED", origin);
     }
     return fail(404, "NOT_FOUND", origin);

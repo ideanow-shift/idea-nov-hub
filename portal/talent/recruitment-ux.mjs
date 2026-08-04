@@ -1,12 +1,20 @@
 const DASHBOARD_METRICS = Object.freeze([
   ["candidateCount", "候補者"],
+  ["graduation2027", "27卒"],
+  ["graduation2028", "28卒"],
+  ["lineRegistrations", "LINE登録"],
   ["entries", "応募"],
   ["salonTourPlanned", "見学予定"],
+  ["salonTourCompleted", "見学済み"],
   ["interviewPlanned", "面接予定"],
+  ["interviewHistory", "面接履歴"],
   ["offers", "内定"],
+  ["offeredElsewhere", "他社内定"],
   ["withdrawals", "辞退"],
+  ["rejected", "不採用"],
   ["schoolCount", "学校"],
-  ["fairCount", "フェア"]
+  ["fairCount", "フェア"],
+  ["eventCount", "Event / Contact"]
 ]);
 
 export function buildRecruitmentDashboardDecision(workspace, tasks = []) {
@@ -31,6 +39,10 @@ export function buildRecruitmentDashboardDecision(workspace, tasks = []) {
     category = "REVIEW_FIRST";
     title = `要確認・隔離が${reviewCount}件あります`;
     copy = "候補者一覧で確認区分を絞り込み、判断できる行から整理してください。";
+  } else if (Object.values(availability).some((value) => value !== true)) {
+    category = "AGGREGATION_PREPARING";
+    title = "一部指標は入力準備中です";
+    copy = "接続済みの候補者・履歴は実数で表示しています。未入力の予定日は日常運用で補完してください。";
   } else if (offerCount > 0) {
     category = "OFFER_FOLLOW_UP";
     title = `内定中の候補者が${offerCount}件います`;
@@ -39,10 +51,6 @@ export function buildRecruitmentDashboardDecision(workspace, tasks = []) {
     category = "EMPTY";
     title = "候補者データはまだありません";
     copy = "Staging Candidate Datasetの状態を確認してから採用活動を開始してください。";
-  } else if (Object.values(availability).some((value) => value !== true)) {
-    category = "AGGREGATION_PREPARING";
-    title = "一部の採用指標は集計準備中です";
-    copy = "候補者一覧は利用できます。履歴接続が完了した指標から順に判断してください。";
   }
   return Object.freeze({ category, title, copy, metrics: Object.freeze(metrics), rawValuesIncluded: false });
 }

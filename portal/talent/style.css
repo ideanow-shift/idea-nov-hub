@@ -75,6 +75,14 @@ body[data-talent-access="executive"] .sprint1-mock-write { display: none !import
 .candidate-history-section { margin-top: 20px; }
 .candidate-history-heading { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
 .candidate-history-heading span { color: var(--muted); font-size: .88rem; }
+.candidate-history-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.candidate-history-actions[hidden] { display: none; }
+.candidate-history-grid li { margin-top: 8px; }
+.candidate-history-grid li:has(.history-edit-command) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.history-edit-command { border: 1px solid var(--line); border-radius: 999px; padding: 4px 9px; background: #fff; color: var(--accent-strong); cursor: pointer; }
+.unlinked-interview-list { display: grid; gap: 10px; margin-top: 16px; }
+.unlinked-interview-list article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.unlinked-interview-list article div, .unlinked-interview-list article span { display: grid; gap: 4px; }
 
 .today-task-panel {
   margin: 24px 0;
@@ -107,7 +115,7 @@ body[data-talent-access="executive"] .sprint1-mock-write { display: none !import
 .today-task-list span { margin-top: 8px; color: var(--muted, #746b6d); font-size: .9rem; }
 .candidate-history-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 16px;
 }
@@ -128,6 +136,8 @@ body[data-talent-access="executive"] .sprint1-mock-write { display: none !import
   .today-task-list button { min-height: auto; }
   .event-roi-metrics { grid-template-columns: 1fr; }
   .candidate-history-heading { align-items: flex-start; flex-direction: column; }
+  .candidate-history-actions { display: grid; grid-template-columns: 1fr; }
+  .unlinked-interview-list article { grid-template-columns: 1fr; }
 }
 
 button { font: inherit; }

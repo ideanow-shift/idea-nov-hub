@@ -9,6 +9,11 @@ import {
   validateCandidateDatasetRows
 } from "../supabase/functions/nov-talent-staging-readonly-api/domain.ts";
 import { createHandler } from "../supabase/functions/nov-talent-staging-readonly-api/index.ts";
+import {
+  loadTalentStudentWorkspace,
+  resetTalentStudentWorkspaceForFixture,
+  runTalentWorkspaceRenderPipeline
+} from "../portal/talent/app.mjs";
 import { createTalentWorkspaceExecutor, readNovTalentRuntime } from "../portal/talent/runtime.mjs";
 
 function uuid(index) {
@@ -29,6 +34,47 @@ function rows() {
     email: `candidate${index + 1}@example.invalid`,
     line_identifier: index % 2 ? null : `line-${index + 1}`
   }));
+}
+
+function fakeElement(tagName = "div") {
+  const attributes = new Map();
+  return {
+    tagName: String(tagName).toUpperCase(),
+    dataset: {},
+    children: [],
+    value: "",
+    textContent: "",
+    innerHTML: "",
+    hidden: false,
+    disabled: false,
+    className: "",
+    classList: {
+      add() {},
+      remove() {},
+      toggle() {}
+    },
+    addEventListener() {},
+    append(...children) { this.children.push(...children); },
+    appendChild(child) { this.children.push(child); return child; },
+    replaceChildren(...children) { this.children = children; },
+    setAttribute(name, value) { attributes.set(name, String(value)); },
+    getAttribute(name) { return attributes.get(name) ?? null; },
+    focus() {},
+    scrollIntoView() {}
+  };
+}
+
+function fakeDocument() {
+  const elements = new Map();
+  return {
+    createElement(tagName) { return fakeElement(tagName); },
+    getElementById(id) {
+      if (!elements.has(id)) elements.set(id, fakeElement());
+      return elements.get(id);
+    },
+    querySelector() { return null; },
+    querySelectorAll() { return []; }
+  };
 }
 
 test("formal HUB roles resolve without inventing a Staging role", () => {
@@ -56,6 +102,93 @@ test("636 ACTIVE Candidate rows build the candidate-only summary and workspace",
   assert.equal(workspace.overview.total, 636);
   assert.equal(workspace.students.filter((row) => row.sourceCode === "CONTACTS_27").length, 528);
   assert.equal(workspace.students.filter((row) => row.sourceCode === "CONTACTS_28").length, 108);
+});
+
+test("636 Candidate response completes every frontend render stage before loading is released", () => {
+  const workspace = buildCandidateWorkspace(validateCandidateDatasetRows(rows()), "recruiter");
+  const completed = [];
+  const result = runTalentWorkspaceRenderPipeline({
+    stages: [
+      "renderStudentMonthFilterOptions",
+      "renderStudentWorkspace",
+      "renderImportOverview",
+      "renderHistoricalReviewSummary",
+      "renderBulkTriageSummary",
+      "renderTalentAnalytics",
+      "renderTodayTasks"
+    ].map((name) => ({
+      name,
+      render() {
+        assert.equal(workspace.students.length, 636);
+        completed.push(name);
+      }
+    }))
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.failedStage, null);
+  assert.equal(result.completedStageCount, 7);
+  assert.equal(completed.length, 7);
+});
+
+test("frontend render boundary reports the exact failed stage without logging Candidate data", () => {
+  const messages = [];
+  const result = runTalentWorkspaceRenderPipeline({
+    logger: { error(message) { messages.push(message); } },
+    stages: [
+      { name: "renderStudentWorkspace", render() { throw new Error("fixture-private-value-must-not-be-logged"); } },
+      { name: "renderTalentAnalytics", render() { assert.fail("later stages must not run"); } }
+    ]
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.failedStage, "renderStudentWorkspace");
+  assert.deepEqual(messages, ["[NOV Talent] Candidate rendering failed: renderStudentWorkspace"]);
+  assert.doesNotMatch(messages.join(" "), /fixture-private-value/u);
+});
+
+test("636 Candidate API response renders through the real frontend pipeline", async () => {
+  resetTalentStudentWorkspaceForFixture();
+  const workspace = buildCandidateWorkspace(validateCandidateDatasetRows(rows()), "recruiter");
+  const documentObject = fakeDocument();
+  const consoleMessages = [];
+  const globalObject = {
+    AbortController,
+    console: { error(message) { consoleMessages.push(message); } },
+    NOV_TALENT_CONFIG: {
+      runtimeMode: "staging",
+      networkEnabled: true,
+      writeEnabled: false,
+      readonlyApiEnabled: true,
+      readonlyApiBaseUrl: "https://staging.example.invalid/functions/v1/nov-talent-staging-api",
+      features: { stagingCandidateDataset: true }
+    },
+    NovHubSession: {
+      async getSessionToken() { return "fixture-session-token-value-not-real"; }
+    },
+    async fetch() {
+      return Response.json({
+        ok: true,
+        data: workspace,
+        meta: {
+          generatedAt: "2026-08-04T00:00:00.000Z",
+          requestId: "fixture-render-636",
+          source: "fixture",
+          version: "2"
+        }
+      });
+    }
+  };
+
+  const result = await loadTalentStudentWorkspace({ globalObject, documentObject });
+
+  assert.equal(result.executed, true);
+  assert.equal(result.studentCount, 636);
+  assert.deepEqual(consoleMessages, []);
+  assert.equal(documentObject.getElementById("mock-runtime-state").hidden, true);
+  assert.equal(documentObject.getElementById("student-status").dataset.state, "ready");
+  assert.equal(documentObject.getElementById("student-list").children.length, 636);
+  resetTalentStudentWorkspaceForFixture();
 });
 
 test("executive payload removes private contact fields server-side", () => {
@@ -142,9 +275,11 @@ test("Staging runtime injects the module session contract without a window globa
 
 test("published config exposes no server credential and only a server-side write endpoint", () => {
   const config = readFileSync(new URL("../portal/talent/runtime-config.candidate.js", import.meta.url), "utf8");
+  const html = readFileSync(new URL("../portal/talent/index.html", import.meta.url), "utf8");
   assert.match(config, /runtimeMode:\s*"staging"/);
   assert.match(config, /stagingCandidateDataset:\s*true/);
   assert.match(config, /writeEnabled:\s*true/);
   assert.match(config, /writeApiBaseUrl/);
   assert.doesNotMatch(config, /service_role|serviceRole|password|secret/i);
+  assert.match(html, /app\.mjs\?v=20260804-staging-render-recovery-1/);
 });

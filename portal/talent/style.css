@@ -410,10 +410,100 @@ h3 { margin: 0; font-size: 1rem; }
 
 .management-tool-index {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 20px;
 }
+
+.management-tier {
+  padding: 20px;
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.management-tier-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.management-tier-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.management-tier-heading span,
+.management-tier-archive summary b {
+  color: #9f5662;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+}
+
+.management-tier-heading h3,
+.management-tier-heading p { margin: 0; }
+.management-tier-heading p { color: var(--muted); }
+
+.management-daily-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.management-daily-grid button,
+.management-daily-grid article {
+  display: grid;
+  gap: 7px;
+  min-height: 112px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+}
+
+.management-daily-grid button {
+  cursor: pointer;
+}
+
+.management-daily-grid button:hover,
+.management-daily-grid button:focus-visible {
+  border-color: var(--rose);
+  background: #fff8f9;
+}
+
+.management-daily-grid strong { font-size: 1rem; }
+.management-daily-grid span { color: var(--muted); line-height: 1.5; }
+.management-daily-grid article[aria-disabled="true"] { background: #f7f7f7; }
+
+.management-tier-archive {
+  padding: 0;
+  overflow: hidden;
+}
+
+.management-tier-archive summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.management-tier-archive summary::-webkit-details-marker { display: none; }
+.management-tier-archive summary > span { display: flex; align-items: center; gap: 10px; }
+.management-tier-archive summary small { color: var(--muted); }
+.management-tier-archive[open] summary { border-bottom: 1px solid var(--line); }
+.management-archive-intro,
+.management-tier-archive > nav,
+.management-tier-archive > .talent-management-content { margin: 18px 20px; }
+.management-archive-intro p { margin: 0; color: var(--muted); line-height: 1.7; }
 
 .talent-management-content {
   display: grid;
@@ -2071,6 +2161,8 @@ h3 { margin: 0; font-size: 1rem; }
   .summary-followup-actions { justify-content: flex-start; }
   .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .operator-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .management-daily-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .management-tool-index { grid-template-columns: 1fr; }
   .workflow-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workflow-strip div:nth-child(2) { border-right: 0; }
   .workflow-strip div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
@@ -2112,7 +2204,10 @@ h3 { margin: 0; font-size: 1rem; }
   .graduation-year-option { min-width: 0; padding-inline: 8px; }
   #graduation-year-filter-status { margin-left: 0; }
   .secondary-panel, #panel-workforce { padding: 18px; }
-  .management-tool-index { grid-template-columns: 1fr; }
+  .management-tool-index,
+  .management-daily-grid { grid-template-columns: 1fr; }
+  .management-tier-heading,
+  .management-tier-archive summary { align-items: stretch; flex-direction: column; }
   .management-back-link { width: 100%; margin-top: 14px; }
   .section-heading { display: block; }
   .summary-command { align-items: stretch; margin-top: 14px; }

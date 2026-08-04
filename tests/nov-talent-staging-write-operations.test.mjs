@@ -108,9 +108,15 @@ test("browser client resolves the imported HUB session without a window global",
 });
 
 test("candidate form is responsive and requires a change reason", async () => {
-  const [html, css] = await Promise.all([readFile(new URL("portal/talent/index.html", root), "utf8"), readFile(new URL("portal/talent/style.css", root), "utf8")]);
+  const [html, css, app] = await Promise.all([
+    readFile(new URL("portal/talent/index.html", root), "utf8"),
+    readFile(new URL("portal/talent/style.css", root), "utf8"),
+    readFile(new URL("portal/talent/app.mjs", root), "utf8")
+  ]);
   assert.match(html, /id="profile-change-reason"[^>]*required/);
   assert.match(html, /id="student-profile-deactivate"/);
   assert.match(css, /@media \(max-width: 520px\)/);
   assert.match(css, /\.profile-form-grid \{ grid-template-columns: 1fr; \}/);
+  assert.match(app, /stagingWriteEnabled\(globalObject\) && student\?\.recordId/);
+  assert.match(app, /const actionCapability = \{[\s\S]*?editable,/);
 });

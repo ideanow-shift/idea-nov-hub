@@ -449,7 +449,9 @@ export function initializeTalentStudentWorkspace({
   });
   documentObject.getElementById("student-edit-open")?.addEventListener("click", () => {
     const student = studentWorkspaceData?.students.find((row) => row.recordId === selectedStudentRecordId);
-    if (student?.applicationNo || (student?.mappingStatus === "UNMAPPED" && student?.recordId)) {
+    if ((stagingWriteEnabled(globalObject) && student?.recordId)
+      || student?.applicationNo
+      || (student?.mappingStatus === "UNMAPPED" && student?.recordId)) {
       openStudentProfileDialog({ documentObject, student });
     }
   });
@@ -2377,7 +2379,7 @@ function renderStudentDetail(documentObject, student) {
   const actionCapability = {
     hasCanonicalProfile: Boolean(student.applicationNo),
     hasSupplement: Boolean(student.supplementVersion),
-    editable: Boolean(student.applicationNo) || (student.mappingStatus === "UNMAPPED" && Boolean(student.recordId)),
+    editable,
     confirmable,
     onboardingReady: Boolean(onboardingDraft),
     mappingStatus: student.mappingStatus,

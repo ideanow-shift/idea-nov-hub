@@ -7,7 +7,7 @@ import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnaly
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
 import { handleNovHubSessionAuthFailure, NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
-import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260804-recruiting-dashboard-final-1";
+import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260804-operation-stabilization-1";
 import {
   buildCandidateHistorySummary,
   buildEventRoiView,
@@ -606,6 +606,9 @@ export async function loadTalentStudentWorkspace({
     });
   }
   renderMockRuntimeState(documentObject, result.data.students.length ? "ready" : "empty");
+  if (runtimeMode(globalObject) === "staging") {
+    setStatus(documentObject, "ready", "運用データを表示中");
+  }
   if (status) {
     status.dataset.state = "ready";
     status.textContent = `${result.data.students.length}件の${runtimeMode(globalObject) === "staging" ? "" : "確認用"}候補者を表示`;

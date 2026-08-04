@@ -1,3 +1,5 @@
+import { getNovHubSessionToken } from "../js/nov-hub-session-candidate.js";
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
 export function stagingWriteEnabled(globalObject = globalThis) {
@@ -6,11 +8,15 @@ export function stagingWriteEnabled(globalObject = globalThis) {
     && /^https:\/\//u.test(String(config.writeApiBaseUrl || ""));
 }
 
-export function createStagingCandidateClient({ globalObject = globalThis, fetchImpl = globalObject.fetch } = {}) {
+export function createStagingCandidateClient({
+  globalObject = globalThis,
+  fetchImpl = globalObject.fetch,
+  sessionTokenProvider = getNovHubSessionToken
+} = {}) {
   if (!stagingWriteEnabled(globalObject) || typeof fetchImpl !== "function") return null;
   const base = String(globalObject.NOV_TALENT_CONFIG.writeApiBaseUrl).replace(/\/+$/u, "");
   const token = async () => {
-    const value = await globalObject.NovHubSession?.getSessionToken?.();
+    const value = await sessionTokenProvider?.();
     if (!value || typeof value !== "string") throw safe("auth_required");
     return value;
   };

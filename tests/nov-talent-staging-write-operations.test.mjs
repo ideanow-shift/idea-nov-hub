@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { createStagingCandidateClient, stagingWriteEnabled } from "../portal/talent/staging-write.mjs";
+import { clearNovHubSession, setNovHubSessionMemoryProvider } from "../portal/js/nov-hub-session-candidate.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -14,14 +15,17 @@ test("browser client writes only through server API with HUB bearer", async () =
   const calls = [];
   const globalObject = {
     NOV_TALENT_CONFIG: { runtimeMode: "staging", networkEnabled: true, writeEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-staging-api" },
-    NovHubSession: { getSessionToken: async () => "signed-hub-session-token-value" },
     fetch: async (url, init) => { calls.push({ url, init }); return { ok: true, status: 201, json: async () => ({ ok: true, data: { candidate_id: "11111111-1111-4111-8111-111111111111", candidate_version: 1 } }) }; }
   };
-  const result = await createStagingCandidateClient({ globalObject }).create({ graduationYear: 2028 });
+  const result = await createStagingCandidateClient({
+    globalObject,
+    sessionTokenProvider: async () => "signed-hub-session-token-value"
+  }).create({ graduationYear: 2028 });
   assert.equal(result.ok, true);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].init.method, "POST");
   assert.match(calls[0].init.headers.Authorization, /^Bearer /);
+  assert.equal(globalObject.NovHubSession, undefined);
   assert.doesNotMatch(JSON.stringify(globalObject.NOV_TALENT_CONFIG), /service.role|secret|password/i);
 });
 
@@ -74,6 +78,33 @@ test("server API enforces origin, server role and hides service key", async () =
   assert.match(source, /SUPABASE_SERVICE_ROLE_KEY/);
   const browser = await readFile(new URL("portal/talent/staging-write.mjs", root), "utf8");
   assert.doesNotMatch(browser, /SUPABASE_SERVICE_ROLE_KEY|service_role/);
+  assert.doesNotMatch(browser, /globalObject\.NovHubSession/);
+  assert.match(browser, /getNovHubSessionToken/);
+});
+
+test("browser client resolves the imported HUB session without a window global", async () => {
+  const calls = [];
+  setNovHubSessionMemoryProvider(() => ({
+    sessionToken: "module-session-token-value",
+    audience: "nov_hub",
+    expiresAt: new Date(Date.now() + 60_000).toISOString()
+  }));
+  try {
+    const globalObject = {
+      NOV_TALENT_CONFIG: { runtimeMode: "staging", networkEnabled: true, writeEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-staging-api" },
+      fetch: async (url, init) => {
+        calls.push({ url, init });
+        return { ok: true, status: 200, json: async () => ({ ok: true, data: { matchCount: 0 } }) };
+      }
+    };
+    const result = await createStagingCandidateClient({ globalObject }).checkDuplicates({ graduationYear: 2028 });
+    assert.equal(result.ok, true);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].init.headers.Authorization, "Bearer module-session-token-value");
+    assert.equal(globalObject.NovHubSession, undefined);
+  } finally {
+    clearNovHubSession();
+  }
 });
 
 test("candidate form is responsive and requires a change reason", async () => {

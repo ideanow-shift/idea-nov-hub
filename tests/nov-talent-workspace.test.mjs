@@ -145,3 +145,26 @@ test("public talent UI contains a real list/detail workspace and no pending plac
   assert.match(config, /readonlyApiEnabled:\s*true/);
   assert.doesNotMatch(`${runtime}\n${config}`, /service_role|serviceRole|secret/i);
 });
+
+for (const [status, safeCode, category] of [
+  [401, "AUTH_REQUIRED", "auth_required"],
+  [403, "FORBIDDEN", "forbidden"]
+]) {
+  test(`workspace executor preserves HTTP ${status} and maps ${safeCode}`, async () => {
+    const executor = createTalentWorkspaceExact1Executor({
+      globalObject: globalFixture(),
+      hubContract: { audience: "nov_hub" },
+      fetchImpl: async () => ({
+        status,
+        headers: { get: () => "application/json" },
+        async json() {
+          return { ok: false, safeCode, message: "safe", requestId: "fixture" };
+        }
+      })
+    });
+    const result = await executor.run();
+    assert.equal(result.okBoolean, false);
+    assert.equal(result.stopCategory, category);
+    assert.equal(result.httpStatus, status);
+  });
+}

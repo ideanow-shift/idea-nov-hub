@@ -80,7 +80,7 @@ test("candidate history summary separates three history types", () => {
   assert.equal(summary.total, summary.contactCount + summary.eventCount + summary.selectionCount);
 });
 
-for (const state of ["loading", "ready", "empty", "unauthorized", "forbidden", "validation_error", "timeout", "offline", "maintenance"]) {
+for (const state of ["loading", "ready", "empty", "auth_required", "unauthorized", "forbidden", "api_error", "invalid_response", "validation_error", "timeout", "offline", "maintenance"]) {
   test(`Mock Runtime presents ${state} with an operator message`, () => {
     const view = buildMockRuntimePresentation(state);
     assert.ok(view.title.length > 0);
@@ -89,8 +89,15 @@ for (const state of ["loading", "ready", "empty", "unauthorized", "forbidden", "
   });
 }
 
-test("unknown Mock Runtime states fail closed as validation errors", () => {
-  assert.equal(buildMockRuntimePresentation("unknown").category, "VALIDATION_ERROR");
+test("unknown runtime states fail closed as API errors", () => {
+  assert.equal(buildMockRuntimePresentation("unknown").category, "API_ERROR");
+});
+
+test("Staging authentication and API failures are not mislabeled as Mock format errors", () => {
+  for (const state of ["auth_required", "forbidden", "api_error", "invalid_response"]) {
+    const view = buildMockRuntimePresentation(state);
+    assert.doesNotMatch(`${view.title} ${view.copy}`, /Mockデータの形式|入力形式を直して/);
+  }
 });
 
 test("Sprint 2 UI orders the morning conclusion before six metrics and tasks", async () => {

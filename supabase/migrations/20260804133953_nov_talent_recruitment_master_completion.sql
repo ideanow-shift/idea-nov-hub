@@ -79,6 +79,17 @@ from public.nov_talent_school_masters_v1 s
 where c.school_id is null
   and s.normalized_name = lower(regexp_replace(btrim(c.school_name), '[[:space:]　]+', '', 'g'));
 
+-- Preserve existing aggregate fair facts as editable Fair Master rows.
+-- The source has no formal fair name, so the temporary label uses cohort/date/lineage only.
+insert into public.nov_talent_fair_masters_v1
+  (fair_name,event_date,participant_count,contact_count,line_registration_count,salon_tour_count,
+   created_by,updated_by)
+select concat(graduation_year,'卒フェア ',event_date::text,'（正本行',source_row_no,'）'),event_date,0,
+  coalesce(contact_count,0),coalesce(line_registration_count,0),coalesce(salon_tour_count,0),
+  '00000000-0000-0000-0000-000000000000'::uuid,'00000000-0000-0000-0000-000000000000'::uuid
+from public.nov_talent_fair_metrics_v1
+on conflict (fair_name,event_date) do nothing;
+
 create or replace function public.nov_talent_mutate_recruitment_master_v1(
   p_actor_employee_id uuid, p_actor_role text, p_reason text, p_entity_type text,
   p_operation text, p_entity_id uuid, p_expected_version integer, p_payload jsonb

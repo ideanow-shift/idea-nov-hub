@@ -13,6 +13,7 @@ test("School and Fair Master schema is staging-only, audited, reversible, and li
   assert.match(sql, /enable row level security/iu);
   assert.match(sql, /revoke all[\s\S]*anon, authenticated/iu);
   assert.match(sql, /grant execute[\s\S]*service_role/iu);
+  assert.match(sql, /insert into public\.nov_talent_fair_masters_v1[\s\S]*from public\.nov_talent_fair_metrics_v1/iu);
   assert.doesNotMatch(sql, /delete from|idea-nov-core|employee_core/iu);
 });
 

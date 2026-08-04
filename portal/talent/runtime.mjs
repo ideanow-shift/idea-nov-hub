@@ -3,7 +3,7 @@ import { NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
 import {
   createDashboardSummaryExact1Executor,
   createTalentWorkspaceExact1Executor
-} from "./exact1.mjs";
+} from "./exact1.mjs?v=20260804-staging-workspace-contract-1";
 
 const METRIC_LABELS = Object.freeze({
   contacts: "接触数",

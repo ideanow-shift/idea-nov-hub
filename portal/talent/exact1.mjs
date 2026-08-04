@@ -35,7 +35,10 @@ const ERROR_ENVELOPE_KEYS = Object.freeze(["message", "ok", "requestId", "safeCo
 const DATA_KEYS = Object.freeze(["config", "fiscalYear", "payloadMode", "summary"]);
 const CONFIG_KEYS = Object.freeze(["appName"]);
 const META_KEYS = Object.freeze(["generatedAt", "requestId", "source", "version"]);
-const WORKSPACE_DATA_KEYS = Object.freeze(["dashboard", "fiscalYear", "overview", "payloadMode", "students"]);
+const WORKSPACE_DATA_KEYS = Object.freeze([
+  "accessProfile", "canWrite", "dashboard", "fiscalYear", "overview", "payloadMode",
+  "students", "todayTasks", "unlinkedSelectionHistory"
+]);
 const WORKSPACE_OVERVIEW_KEYS = Object.freeze([
   "contacts",
   "entries",
@@ -85,17 +88,31 @@ const STUDENT_KEYS = Object.freeze([
   "status",
   "statusCode",
   "suggestedTargetRecordId",
-  "suggestionCategory"
-  ,"contactHistory", "eventHistory", "selectionHistory"
+  "suggestionCategory",
+  "contactHistory", "eventHistory", "nextActions", "selectionHistory"
 ]);
 const DASHBOARD_KEYS = Object.freeze([
-  "availability", "candidateCount", "entries", "eventCount", "fairCount", "interviewPlanned",
-  "offers", "salonTourPlanned", "schoolCount", "selectionHistoryCount", "todayActions", "withdrawals"
+  "availability", "candidateCount", "entries", "eventCount", "fairCount", "graduation2027",
+  "graduation2028", "interviewHistory", "interviewPlanned", "lineRegistrations", "offeredElsewhere",
+  "offers", "rejected", "salonTourCompleted", "salonTourPlanned", "schoolCount",
+  "selectionHistoryCount", "todayActions", "undatedActions", "unlinkedInterviewHistoryCount", "withdrawals"
 ]);
 const DASHBOARD_AVAILABILITY_KEYS = Object.freeze([
-  "candidateCount", "entries", "fairCount", "interviewPlanned", "offers",
-  "salonTourPlanned", "schoolCount", "todayActions", "withdrawals"
+  "candidateCount", "entries", "eventCount", "fairCount", "graduation2027", "graduation2028",
+  "interviewHistory", "interviewPlanned", "lineRegistrations", "offeredElsewhere", "offers", "rejected",
+  "salonTourCompleted", "salonTourPlanned", "schoolCount", "todayActions", "withdrawals"
 ]);
+const SELECTION_HISTORY_KEYS = Object.freeze([
+  "active", "assignedTo", "code", "date", "id", "label", "notes", "version"
+]);
+const EVENT_HISTORY_KEYS = Object.freeze([
+  "active", "assignedTo", "code", "content", "date", "id", "label", "notes", "state", "version"
+]);
+const NEXT_ACTION_KEYS = Object.freeze([
+  "active", "assignedTo", "code", "completedAt", "date", "id", "label", "notes", "state", "version"
+]);
+const TODAY_TASK_KEYS = Object.freeze(["assignedTo", "candidateId", "dueDate", "label"]);
+const UNLINKED_SELECTION_KEYS = Object.freeze(["code", "date", "label", "sourceRowNo", "sourceType", "version"]);
 const AUDIT_ENTRY_KEYS = Object.freeze(["action", "changedFields", "profileVersion", "occurredAt"]);
 const STAGING_AUDIT_ENTRY_KEYS = Object.freeze(["action", "changedFields", "supplementVersion", "occurredAt"]);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
@@ -535,6 +552,13 @@ function unwrapWorkspaceEnvelope(envelope, httpStatus = 0) {
   if (!Array.isArray(data.students) || data.students.length > 1000) {
     throw safeError("invalid_response");
   }
+  if (!["executive", "full", "recruiter"].includes(data.accessProfile)
+    || typeof data.canWrite !== "boolean"
+    || data.canWrite !== (data.accessProfile !== "executive")) {
+    throw safeError("invalid_response");
+  }
+  validateTodayTasks(data.todayTasks);
+  validateUnlinkedSelectionHistory(data.unlinkedSelectionHistory);
   validateDashboard(data.dashboard);
   data.students.forEach(validateStudent);
   if (data.overview.total !== data.students.length) throw safeError("invalid_response");
@@ -589,14 +613,10 @@ function validateStudent(student) {
     || student.reasonLabels.some((value) => typeof value !== "string")) {
     throw safeError("invalid_response");
   }
-  for (const key of ["contactHistory", "eventHistory", "selectionHistory"]) {
-    if (!Array.isArray(student[key]) || student[key].length > 100
-      || student[key].some((item) => !isPlainObject(item)
-        || Object.keys(item).length !== 2
-        || typeof item.code !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(String(item.date)))) {
-      throw safeError("invalid_response");
-    }
-  }
+  validateActivityRows(student.contactHistory, EVENT_HISTORY_KEYS, { dateOptional: false });
+  validateActivityRows(student.eventHistory, EVENT_HISTORY_KEYS, { dateOptional: false });
+  validateActivityRows(student.selectionHistory, SELECTION_HISTORY_KEYS, { dateOptional: false });
+  validateActivityRows(student.nextActions, NEXT_ACTION_KEYS, { dateOptional: true });
   if ((student.graduationYear !== undefined && (!Number.isInteger(student.graduationYear) || student.graduationYear < 2026 || student.graduationYear > 2035))
     || typeof student.legacyNoPresent !== "boolean"
     || typeof student.primaryEligible !== "boolean"
@@ -604,6 +624,57 @@ function validateStudent(student) {
     || (student.supplementVersion !== null && (!Number.isInteger(student.supplementVersion) || student.supplementVersion < 1))
     || !["NONE", "EXACT1", "AMBIGUOUS"].includes(student.suggestionCategory)) {
     throw safeError("invalid_response");
+  }
+}
+
+function validateActivityRows(rows, keys, { dateOptional }) {
+  if (!Array.isArray(rows) || rows.length > 100) throw safeError("invalid_response");
+  for (const item of rows) {
+    if (!isPlainObject(item)) throw safeError("invalid_response");
+    assertExactKeys(item, keys);
+    if (!UUID_PATTERN.test(String(item.id || ""))
+      || !Number.isInteger(item.version) || item.version < 1
+      || typeof item.code !== "string" || !item.code
+      || typeof item.label !== "string" || !item.label
+      || typeof item.active !== "boolean") {
+      throw safeError("invalid_response");
+    }
+    if (item.date === null ? !dateOptional : !/^\d{4}-\d{2}-\d{2}$/u.test(String(item.date))) {
+      throw safeError("invalid_response");
+    }
+    for (const key of keys.filter((key) => ["assignedTo", "completedAt", "content", "notes", "state"].includes(key))) {
+      if (item[key] !== null && item[key] !== undefined && typeof item[key] !== "string") throw safeError("invalid_response");
+    }
+  }
+}
+
+function validateTodayTasks(rows) {
+  if (!Array.isArray(rows) || rows.length > 5) throw safeError("invalid_response");
+  for (const item of rows) {
+    if (!isPlainObject(item)) throw safeError("invalid_response");
+    assertExactKeys(item, TODAY_TASK_KEYS);
+    if (!UUID_PATTERN.test(String(item.candidateId || ""))
+      || !/^\d{4}-\d{2}-\d{2}$/u.test(String(item.dueDate || ""))
+      || typeof item.label !== "string" || !item.label
+      || (item.assignedTo !== null && item.assignedTo !== undefined && typeof item.assignedTo !== "string")) {
+      throw safeError("invalid_response");
+    }
+  }
+}
+
+function validateUnlinkedSelectionHistory(rows) {
+  if (!Array.isArray(rows) || rows.length > 100) throw safeError("invalid_response");
+  for (const item of rows) {
+    if (!isPlainObject(item)) throw safeError("invalid_response");
+    assertExactKeys(item, UNLINKED_SELECTION_KEYS);
+    if (typeof item.sourceType !== "string" || !item.sourceType
+      || !Number.isInteger(item.sourceRowNo) || item.sourceRowNo < 1
+      || typeof item.code !== "string" || !item.code
+      || typeof item.label !== "string" || !item.label
+      || !/^\d{4}-\d{2}-\d{2}$/u.test(String(item.date || ""))
+      || !Number.isInteger(item.version) || item.version < 1) {
+      throw safeError("invalid_response");
+    }
   }
 }
 

@@ -1,4 +1,4 @@
-import { cleanActivity, cleanCandidate, cleanSourceFactLink, resolveAccess, STATUS_LABELS } from "./domain.ts";
+import { cleanActivity, cleanCandidate, cleanRecruitmentMaster, cleanSourceFactLink, resolveAccess, STATUS_LABELS } from "./domain.ts";
 
 const ORIGIN = "https://ideanow-shift.github.io";
 const PREFIXES = ["", "/nov-talent-staging-api", "/functions/v1/nov-talent-staging-api"];
@@ -44,22 +44,24 @@ async function rpc(runtime: Runtime, name: string, body: unknown) {
 }
 
 async function readRows(runtime: Runtime) {
-  const result = await db(runtime, "/rest/v1/nov_talent_candidates_v1?select=candidate_id,graduation_year,student_name,student_name_kana,school_name,faculty_name,phone,email,line_identifier,current_status_code,acquisition_source,assigned_to,notes,source_type,source_row_no,version,is_active&is_active=eq.true&order=graduation_year.asc,updated_at.desc&limit=1000");
+  const result = await db(runtime, "/rest/v1/nov_talent_candidates_v1?select=candidate_id,graduation_year,student_name,student_name_kana,school_id,fair_id,school_name,faculty_name,phone,email,line_identifier,current_status_code,acquisition_source,assigned_to,notes,source_type,source_row_no,version,is_active&is_active=eq.true&order=graduation_year.asc,updated_at.desc&limit=1000");
   return result.ok ? await result.json() : null;
 }
 async function readDashboardFacts(runtime: Runtime) {
-  const [eventsResult, selectionsResult, actionsResult, fairsResult, sourceFactsResult] = await Promise.all([
+  const [eventsResult, selectionsResult, actionsResult, fairsResult, sourceFactsResult, schoolMastersResult, fairMastersResult] = await Promise.all([
     db(runtime, "/rest/v1/nov_talent_recruitment_events_v1?select=event_id,candidate_id,event_code,event_date,event_name,event_state,contact_content,assigned_to,notes,version,is_active&order=event_date.desc&limit=5000"),
     db(runtime, "/rest/v1/nov_talent_selection_history_v1?select=selection_history_id,candidate_id,selection_code,effective_date,assigned_to,notes,version,is_active&order=effective_date.desc&limit=5000"),
     db(runtime, "/rest/v1/nov_talent_next_actions_v1?select=next_action_id,candidate_id,action_code,due_date,action_text,assigned_to,notes,state,completed_at,version,is_active&order=due_date.asc.nullslast&limit=1000"),
     db(runtime, "/rest/v1/nov_talent_fair_metrics_v1?select=graduation_year,event_date,contact_count,line_registration_count,salon_tour_count&order=event_date.desc&limit=1000"),
-    db(runtime, "/rest/v1/nov_talent_recruitment_source_facts_v1?select=source_type,source_row_no,fact_code,fact_date,candidate_id,version&order=source_type.asc,source_row_no.asc&limit=5000")
+    db(runtime, "/rest/v1/nov_talent_recruitment_source_facts_v1?select=source_type,source_row_no,fact_code,fact_date,candidate_id,version&order=source_type.asc,source_row_no.asc&limit=5000"),
+    db(runtime, "/rest/v1/nov_talent_school_masters_v1?select=school_id,school_name,faculty_name,assigned_to,version,is_active&order=school_name.asc&limit=1000"),
+    db(runtime, "/rest/v1/nov_talent_fair_masters_v1?select=fair_id,fair_name,event_date,participation_fee,venue,assigned_to,participant_count,contact_count,line_registration_count,salon_tour_count,interview_count,offer_count,hire_count,version,is_active&order=event_date.desc&limit=1000")
   ]);
-  if (![eventsResult, selectionsResult, actionsResult, fairsResult, sourceFactsResult].every((result) => result.ok)) return null;
+  if (![eventsResult, selectionsResult, actionsResult, fairsResult, sourceFactsResult, schoolMastersResult, fairMastersResult].every((result) => result.ok)) return null;
   return {
     events: await eventsResult.json(), selections: await selectionsResult.json(),
     actions: await actionsResult.json(), fairs: await fairsResult.json(),
-    sourceFacts: await sourceFactsResult.json()
+    sourceFacts: await sourceFactsResult.json(), schoolMasters: await schoolMastersResult.json(), fairMasters: await fairMastersResult.json()
   };
 }
 
@@ -110,8 +112,8 @@ function dashboardMetrics(rows: any[], facts: any) {
     offeredElsewhere: sourceOrLinked("OFFERED_ELSEWHERE"),
     withdrawals: sourceOrLinked("WITHDRAWN"),
     rejected: sourceOrLinked("REJECTED"),
-    schoolCount: new Set(rows.map((row) => String(row.school_name || "").trim()).filter(Boolean)).size,
-    fairCount: facts.fairs.length,
+    schoolCount: facts.schoolMasters.filter((row:any) => row.is_active !== false).length,
+    fairCount: facts.fairMasters.filter((row:any) => row.is_active !== false).length,
     todayActions: dueActions.length,
     undatedActions: undatedActions.length,
     eventCount: activeEvents.length,
@@ -148,7 +150,7 @@ function workspace(rows: any[], profile: string, facts: any) {
     offerDate: selections.find((item) => item.selection_code === "OFFERED")?.effective_date || null,
     expectedJoinDate: null, plannedStore: null, phone: privateFields ? r.phone : null,
     preferredStore: null, primaryEligible: true, profileVersion: r.version, supplementVersion: null, reasonLabels: [],
-    recordId: r.candidate_id, school: r.school_name, faculty: r.faculty_name, lineIdentifier: privateFields ? r.line_identifier : null,
+    recordId: r.candidate_id, schoolId: r.school_id, fairId: r.fair_id, school: r.school_name, faculty: r.faculty_name, lineIdentifier: privateFields ? r.line_identifier : null,
     acquisitionSource: r.acquisition_source, assignee: r.assigned_to, notes: privateFields ? r.notes : null,
     graduationYear: r.graduation_year, sourceCode: r.source_type || "NOV_TALENT_UI", sourceLabel: r.graduation_year === 2027 ? "27卒" : r.graduation_year === 2028 ? "28卒" : `${r.graduation_year}年卒`,
     sourceKeyStatus: "OWNER_CONFIRMED", status: STATUS_LABELS[r.current_status_code] || "状態未設定", statusCode: r.current_status_code,
@@ -176,7 +178,7 @@ function workspace(rows: any[], profile: string, facts: any) {
     todayTasks: facts.actions.filter((item:any) => item.is_active !== false && item.state === "OPEN" && item.due_date && item.due_date <= new Date().toISOString().slice(0,10))
       .slice(0,5).map((item:any) => ({ candidateId: item.candidate_id, dueDate: item.due_date,
         label: item.action_text || actionLabel(item.action_code), assignedTo: item.assigned_to })),
-    unlinkedSelectionHistory,
+    unlinkedSelectionHistory, schoolMasters: facts.schoolMasters, fairMasters: facts.fairMasters,
     overview: { contacts: students.length, entries: dashboard.entries, exactLinkSuggestions: 0, mapped: students.length, manual: 0, offers: dashboard.offers, ownerReview: unlinkedSelectionHistory.length, primaryCandidates: students.length, quarantined: 0, remainingManual: unlinkedSelectionHistory.length, total: students.length }, students };
 }
 function actionLabel(code: string) {
@@ -275,6 +277,26 @@ export function createHandler(runtime: Runtime) {
       });
       return result.ok ? out(activity.operation === "CREATE" ? 201 : 200, { ok: true, data: result.data }, origin)
         : fail(result.status || 400, result.status === 409 ? "VERSION_CONFLICT" : "WRITE_FAILED", origin);
+    }
+    if (request.method === "POST" && path.endsWith("/api/talent/v1/masters")) {
+      const master = cleanRecruitmentMaster(body);
+      if (!master || (master.entityId && !UUID.test(master.entityId))) return fail(400, "INVALID_REQUEST", origin);
+      const result = await rpc(runtime, "nov_talent_mutate_recruitment_master_v1", {
+        p_actor_employee_id: actor.actor, p_actor_role: actor.role, p_reason: master.reason,
+        p_entity_type: master.entityType, p_operation: master.operation, p_entity_id: master.entityId,
+        p_expected_version: master.expectedVersion, p_payload: master.payload
+      });
+      return result.ok ? out(master.operation === "CREATE" ? 201 : 200, { ok: true, data: result.data }, origin)
+        : fail(result.status || 400, result.status === 409 ? "VERSION_CONFLICT" : "WRITE_FAILED", origin);
+    }
+    const masterLink = /^\/api\/talent\/v1\/candidates\/([0-9a-f-]+)\/master-links$/iu.exec(path);
+    if (request.method === "POST" && masterLink && UUID.test(masterLink[1])) {
+      const schoolId = body?.schoolId ? String(body.schoolId) : null;
+      const fairId = body?.fairId ? String(body.fairId) : null;
+      const expectedVersion = Number(body?.expectedVersion); const reason = String(body?.reason || "").trim();
+      if ((schoolId && !UUID.test(schoolId)) || (fairId && !UUID.test(fairId)) || !Number.isInteger(expectedVersion) || expectedVersion < 1 || !reason) return fail(400,"INVALID_REQUEST",origin);
+      const result = await rpc(runtime,"nov_talent_set_candidate_master_links_v1",{ p_actor_employee_id:actor.actor,p_actor_role:actor.role,p_reason:reason.slice(0,500),p_candidate_id:masterLink[1],p_expected_version:expectedVersion,p_school_id:schoolId,p_fair_id:fairId });
+      return result.ok ? out(200,{ok:true,data:result.data},origin) : fail(result.status||400,result.status===409?"VERSION_CONFLICT":"WRITE_FAILED",origin);
     }
     if (request.method === "POST" && path.endsWith("/api/talent/v1/unlinked-selection/link")) {
       const link = cleanSourceFactLink(body);

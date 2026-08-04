@@ -14,7 +14,7 @@ import {
   buildMockRuntimePresentation,
   buildRecruitmentDashboardDecision,
   buildRecruitmentTaskBoard
-} from "./recruitment-ux.mjs?v=20260804-recruiting-dashboard-final-1";
+} from "./recruitment-ux.mjs?v=20260804-operation-ui-cleanup-1";
 import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs?v=20260804-recruiting-dashboard-completion-1";
 
 let summaryConsumed = false;
@@ -1308,7 +1308,7 @@ function createMonthlyFlowRow(documentObject, flow) {
   button.type = "button";
   button.className = "analysis-followup-button";
   button.textContent = "対象月を見る";
-  button.setAttribute("aria-label", `${flow.label}の学生フォローを表示`);
+  button.setAttribute("aria-label", `${flow.label}の候補者フォローを表示`);
   button.addEventListener("click", () => openStudentWorkspace(documentObject, buildMonthlyFollowUpFilter(flow.key)));
   action.append(button);
   row.append(action);
@@ -1350,8 +1350,8 @@ function createSchoolAnalysisRow(documentObject, school) {
   const button = documentObject.createElement("button");
   button.type = "button";
   button.className = "analysis-followup-button";
-  button.textContent = "学生を見る";
-  button.setAttribute("aria-label", `${school.school}の学生フォローを表示`);
+  button.textContent = "候補者を見る";
+  button.setAttribute("aria-label", `${school.school}の候補者フォローを表示`);
   button.addEventListener("click", () => openSchoolStudentWorkspace(documentObject, school.school));
   action.append(button);
   row.append(action);
@@ -1479,7 +1479,7 @@ export function buildStudentFilterSummary({ query = "", source = "ALL", state = 
   if (sort !== "DEFAULT") labels.push(`並び順: ${STUDENT_FILTER_LABELS.sort[sort] || sort}`);
   return Object.freeze({
     active: labels.length > 0,
-    title: labels.length > 0 ? "条件を絞って表示中" : "すべての学生を表示中",
+    title: labels.length > 0 ? "条件を絞って表示中" : "すべての候補者を表示中",
     labels: Object.freeze(labels)
   });
 }
@@ -1534,9 +1534,9 @@ export function buildStudentDailyOperation(student, capability = {}, referenceDa
     return {
       category: "NO_SELECTION",
       badge: "未選択",
-      title: "学生を選択してください",
+      title: "候補者を選択してください",
       copy: "一覧から対象を選ぶと、今日の更新・確認・引継ぎの順番を表示します。",
-      steps: ["学生一覧から対象を選択", "状態・確認事項・次回対応日を確認"]
+      steps: ["候補者一覧から対象を選択", "状態・対応履歴・次回対応日を確認"]
     };
   }
   const followUp = classifyTalentStudentFollowUp(student, referenceDate);
@@ -1554,7 +1554,7 @@ export function buildStudentDailyOperation(student, capability = {}, referenceDa
       category: "OVERDUE_FOLLOW_UP",
       badge: "期限超過",
       title: "まず次回対応を更新する",
-      copy: "期限超過の学生です。状態更新より先に、次の対応日と担当メモを整えると追跡が安定します。",
+      copy: "期限超過の候補者です。状態更新より先に、次の対応日と担当メモを整えると追跡が安定します。",
       steps: ["次回対応を設定を開く", "対応日・状態・補足を保存", "変更履歴で記録されたことを確認"]
     };
   }
@@ -1652,7 +1652,7 @@ export function buildStudentDailyCompletionChecklist(operation) {
     CANONICAL_PROFILE_UPDATE: Object.freeze({
       title: "プロフィール更新履歴を確認します",
       copy: "編集後に変更履歴を確認してから次の候補者へ進みます。",
-      steps: Object.freeze(["必要なプロフィール項目を保存する", "業務に影響する変更は履歴を開く", "取込元データは変更しない"])
+      steps: Object.freeze(["必要なプロフィール項目を保存する", "業務に影響する変更は履歴を開く", "過去の参照データは変更しない"])
     }),
     STAGING_SUPPLEMENT: Object.freeze({
       title: "補足記録の完了を確認します",
@@ -1941,28 +1941,16 @@ export function buildStudentDailyQueueSummary(students = [], referenceDate = loc
     ? "OVERDUE_FIRST"
     : counts.nextWeek > 0
       ? "NEXT_WEEK_FIRST"
-      : counts.ownerReview > 0
-        ? "OWNER_REVIEW_FIRST"
-        : counts.quarantine > 0
-          ? "QUARANTINE_REVIEW_FIRST"
-          : counts.onboardingReady > 0
-            ? "ONBOARDING_HANDOFF_READY"
-            : "STEADY_STATE";
+      : "STEADY_STATE";
   const copyByCategory = {
-    OVERDUE_FIRST: ["期限超過から対応", "対応期限を過ぎた学生を先に開き、次回対応日と状態を更新します。"],
-    NEXT_WEEK_FIRST: ["直近7日の予定を確認", "直近対応の学生を一覧化して、今日処理する順番を決めます。"],
-    OWNER_REVIEW_FIRST: ["要確認を整理", "一括承認できるものと個別確認が必要なものを分けます。"],
-    QUARANTINE_REVIEW_FIRST: ["隔離理由を確認", "隔離維持・追加確認・再判定のどれかを記録します。"],
-    ONBOARDING_HANDOFF_READY: ["入社手続きへ引き継ぎ", "内定・入社予定の学生を、現職者管理の入社案件へ安全に渡します。"],
+    OVERDUE_FIRST: ["期限超過から対応", "対応期限を過ぎた候補者を先に開き、次回対応日と状態を更新します。"],
+    NEXT_WEEK_FIRST: ["直近7日の予定を確認", "直近対応の候補者を一覧化して、今日処理する順番を決めます。"],
     STEADY_STATE: ["通常フォローを継続", "検索・学校別・月別の導線から、次の対象を選びます。"]
   };
   const stepsByCategory = {
     OVERDUE_FIRST: [["OPEN_OVERDUE", "期限超過で絞り込み"], ["UPDATE_NEXT_ACTION", "次回対応日を更新"], ["LEAVE_AUDIT", "対応履歴を残す"]],
     NEXT_WEEK_FIRST: [["OPEN_NEXT_WEEK", "直近7日で絞り込み"], ["SORT_FOLLOW_UP", "対応期限順で確認"], ["SET_OWNER", "担当と状態を整える"]],
-    OWNER_REVIEW_FIRST: [["OPEN_OWNER_REVIEW", "要確認を開く"], ["SPLIT_DECISION", "一括・個別・隔離を分ける"], ["NO_PROMOTION", "昇格は別承認まで停止"]],
-    QUARANTINE_REVIEW_FIRST: [["OPEN_QUARANTINE", "隔離を開く"], ["CHECK_REASON", "理由と不足項目を確認"], ["KEEP_SAFE", "自動紐付けしない"]],
-    ONBOARDING_HANDOFF_READY: [["OPEN_OFFERS", "内定者を確認"], ["CHECK_JOIN_DATE", "入社予定と連絡状況を確認"], ["HANDOFF_WORKFORCE", "入社手続き案件へ引き継ぐ"]],
-    STEADY_STATE: [["OPEN_ALL", "学生一覧を開く"], ["USE_ANALYTICS", "学校・月別分析から対象を選ぶ"], ["KEEP_DAILY_UPDATES", "状態と次回対応を更新"]]
+    STEADY_STATE: [["OPEN_ALL", "候補者一覧を開く"], ["USE_ANALYTICS", "学校・月別分析から対象を選ぶ"], ["KEEP_DAILY_UPDATES", "状態と次回対応を更新"]]
   };
 
   return Object.freeze({
@@ -1986,20 +1974,11 @@ export function buildStudentDailyQueueStartGuide(summary = {}) {
   const counts = summary?.counts || {};
   const hasOverdue = Number(counts.overdue || 0) > 0;
   const hasNextWeek = Number(counts.nextWeek || 0) > 0;
-  const hasOwnerReview = Number(counts.ownerReview || 0) > 0;
-  const hasQuarantine = Number(counts.quarantine || 0) > 0;
-  const hasOnboarding = Number(counts.onboardingReady || 0) > 0;
   const category = hasOverdue
     ? "START_OVERDUE_FILTER"
     : hasNextWeek
       ? "START_NEXT_WEEK_FILTER"
-      : hasOwnerReview
-        ? "START_OWNER_REVIEW_FILTER"
-        : hasQuarantine
-          ? "START_QUARANTINE_FILTER"
-          : hasOnboarding
-            ? "START_ONBOARDING_HANDOFF"
-            : "START_STEADY_LIST";
+      : "START_STEADY_LIST";
   const guides = {
     START_OVERDUE_FILTER: {
       title: "まず期限超過だけ開く",
@@ -2015,33 +1994,12 @@ export function buildStudentDailyQueueStartGuide(summary = {}) {
       buttonLabel: "直近7日を開く",
       steps: ["対応期限フィルタを直近7日にする", "並び順を対応期限順にする", "今日処理する対象だけ更新する"]
     },
-    START_OWNER_REVIEW_FILTER: {
-      title: "要確認を安全に仕分ける",
-      copy: "一括反映・個別確認・隔離維持を混ぜず、要確認だけを開いて判断します。",
-      filterCategory: "STATE_OWNER_REVIEW",
-      buttonLabel: "要確認を開く",
-      steps: ["クイック表示で要確認を開く", "一括対象と個別確認を分ける", "承認が必要な操作は別導線に残す"]
-    },
-    START_QUARANTINE_FILTER: {
-      title: "隔離理由を先にそろえる",
-      copy: "不明・重複・根拠不足のまま自動紐付けせず、補足と次回対応だけを整理します。",
-      filterCategory: "STATE_QUARANTINE",
-      buttonLabel: "隔離を開く",
-      steps: ["クイック表示で隔離を開く", "不足理由を確認する", "隔離維持または追加確認を記録する"]
-    },
-    START_ONBOARDING_HANDOFF: {
-      title: "内定者の引き継ぎ準備を見る",
-      copy: "入社手続きへ渡せる候補を確認します。現職者管理への反映は別承認まで止めます。",
-      filterCategory: "ONBOARDING_HANDOFF",
-      buttonLabel: "入社引継ぎ候補を見る",
-      steps: ["内定・入社予定の学生を確認する", "入社予定日と配属予定を見る", "現職者管理の入社案件へ引き継ぐ"]
-    },
     START_STEADY_LIST: {
       title: "通常フォローから始める",
       copy: "急ぎの件数がなければ、学校別・月別分析から対象を選んで日常フォローを続けます。",
       filterCategory: "ALL_STUDENTS",
-      buttonLabel: "全学生を見る",
-      steps: ["学生一覧を開く", "学校別または月別分析から対象を選ぶ", "状態と次回対応を更新する"]
+      buttonLabel: "全候補者を見る",
+      steps: ["候補者一覧を開く", "学校別または月別分析から対象を選ぶ", "状態と次回対応を更新する"]
     }
   };
   const guide = guides[category];
@@ -2122,14 +2080,14 @@ export function buildStudentEmptyState({ total = 0, visible = 0, hasActiveFilter
   if (total === 0) {
     return Object.freeze({
       visible: true,
-      title: "表示できる学生データがまだありません",
-      copy: "27卒データの取込または手入力追加が完了すると、ここに学生一覧が表示されます。",
+      title: "表示できる候補者データがまだありません",
+      copy: "候補者を追加すると、ここに候補者一覧が表示されます。",
       canReset: false
     });
   }
   return Object.freeze({
     visible: true,
-    title: hasActiveFilters ? "条件に一致する学生がいません" : "表示できる学生がありません",
+    title: hasActiveFilters ? "条件に一致する候補者がいません" : "表示できる候補者がありません",
     copy: hasActiveFilters
       ? "検索・区分・確認状態・対応期限の条件をゆるめると、対象が見つかる可能性があります。"
       : "取込済みデータはありますが、現在の表示条件では一覧化できません。",
@@ -2270,12 +2228,12 @@ function renderStudentDetail(documentObject, student) {
     if (editButton) {
       editButton.disabled = true;
       editButton.setAttribute("aria-disabled", "true");
-      editButton.title = "学生を選択してください";
+      editButton.title = "候補者を選択してください";
     }
     if (nextActionButton) {
       nextActionButton.disabled = true;
       nextActionButton.setAttribute("aria-disabled", "true");
-      nextActionButton.title = "学生を選択してください";
+      nextActionButton.title = "候補者を選択してください";
     }
     const confirmButton = documentObject.getElementById("student-confirm-open");
     if (confirmButton) {
@@ -2292,7 +2250,7 @@ function renderStudentDetail(documentObject, student) {
     if (auditButton) {
       auditButton.disabled = true;
       auditButton.setAttribute("aria-disabled", "true");
-      auditButton.title = "学生を選択してください";
+      auditButton.title = "候補者を選択してください";
     }
     renderStudentActionGuide(documentObject, null);
     renderStudentReviewBoundary(documentObject, buildStudentReviewBoundary(null));
@@ -2418,7 +2376,7 @@ function renderStudentActionGuide(documentObject, capability) {
   const confirm = documentObject.getElementById("student-action-confirm-state");
   if (!title || !copy || !edit || !audit || !confirm) return;
   if (!capability) {
-    title.textContent = "学生を選択すると操作を案内します";
+    title.textContent = "候補者を選択すると操作を案内します";
     copy.textContent = "一覧から対象を選ぶと、編集・履歴・確認の可否と理由をここに表示します。";
     setStudentActionState(edit, "編集: 対象を選択", false);
     setStudentActionState(audit, "履歴: 対象を選択", false);
@@ -2439,7 +2397,7 @@ function renderStudentActionGuide(documentObject, capability) {
     copy.textContent = "編集は取込原本を変えず、選考状況を含む総務人事部の補足情報だけを保存します。紐付け確定後は正本側で編集できます。";
   } else {
     title.textContent = "取込原本は保護された状態です";
-    copy.textContent = "この行は取込データのため直接編集しません。紐付け後の正本プロフィール、または新規追加した学生情報を編集してください。";
+    copy.textContent = "この行は過去の参照データのため直接編集できません。利用中の候補者プロフィール、または新しく追加した候補者情報を編集してください。";
   }
   setStudentActionState(edit, capability.editable ? "編集: 利用できます" : "編集: 正本化後に利用", capability.editable);
   setStudentActionState(audit, capability.hasCanonicalProfile || capability.hasSupplement ? "履歴: 表示できます" : "履歴: 最初の保存後に表示", capability.hasCanonicalProfile || capability.hasSupplement);

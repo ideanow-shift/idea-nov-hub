@@ -142,7 +142,7 @@ test("recruitment subtabs stay visually and semantically below the primary tabs"
   const app = await readFile(new URL("app.mjs", root), "utf8");
 
   assert.match(html, /class="secondary-tabs"[\s\S]*ダッシュボード/);
-  assert.match(html, /data-secondary-tab="students"[\s\S]*学生フォロー/);
+  assert.match(html, /data-secondary-tab="students"[\s\S]*候補者一覧/);
   assert.match(html, /data-secondary-tab="fairs"[\s\S]*フェア分析/);
   assert.match(html, /data-secondary-tab="schools"[\s\S]*学校分析/);
   assert.match(html, /id="talent-28-csv-file"/);
@@ -169,7 +169,7 @@ test("school analysis leads directly to a focused student follow-up list", async
   assert.equal(buildSchoolFollowUpFilter(""), null);
   assert.match(html, /<th>フォロー<\/th>/);
   assert.match(html, /id="school-top-open"/);
-  assert.match(app, /button\.textContent = "学生を見る"/);
+  assert.match(app, /button\.textContent = "候補者を見る"/);
   assert.match(app, /openSchoolStudentWorkspace/);
   assert.match(app, /dataset\.schoolName/);
   assert.match(app, /data-secondary-tab="students"/);
@@ -393,9 +393,9 @@ test("student workspace summarizes today's follow-up queue before selecting a ro
   const reviewGuide = buildStudentDailyQueueStartGuide(buildStudentDailyQueueSummary([
     { classification: "OWNER_REVIEW" }
   ], "2026-07-26"));
-  assert.equal(reviewGuide.category, "START_OWNER_REVIEW_FILTER");
-  assert.equal(reviewGuide.filterCategory, "STATE_OWNER_REVIEW");
-  assert.equal(buildStudentDailyQueueStartFilter(reviewGuide.filterCategory).state, "OWNER_REVIEW");
+  assert.equal(reviewGuide.category, "START_STEADY_LIST");
+  assert.equal(reviewGuide.filterCategory, "ALL_STUDENTS");
+  assert.equal(buildStudentDailyQueueStartFilter(reviewGuide.filterCategory).state, "ALL");
   assert.match(html, /id="student-daily-queue-summary"/);
   assert.match(html, /id="student-daily-queue-steps"/);
   assert.match(html, /id="student-daily-queue-start-guide"/);

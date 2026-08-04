@@ -37,8 +37,8 @@ export function buildRecruitmentDashboardDecision(workspace, tasks = []) {
     copy = "今日やることの先頭から対応し、次回アクションを必ず残してください。";
   } else if (reviewCount > 0) {
     category = "REVIEW_FIRST";
-    title = `要確認・隔離が${reviewCount}件あります`;
-    copy = "候補者一覧で確認区分を絞り込み、判断できる行から整理してください。";
+    title = `対応内容の確認が${reviewCount}件あります`;
+    copy = "候補者一覧から対象を開き、必要な情報を更新してください。";
   } else if (Object.values(availability).some((value) => value !== true)) {
     category = "AGGREGATION_PREPARING";
     title = "一部指標は入力準備中です";
@@ -50,7 +50,7 @@ export function buildRecruitmentDashboardDecision(workspace, tasks = []) {
   } else if (students.length === 0) {
     category = "EMPTY";
     title = "候補者データはまだありません";
-    copy = "Staging Candidate Datasetの状態を確認してから採用活動を開始してください。";
+    copy = "管理者へデータの利用状況を確認してください。";
   }
   return Object.freeze({ category, title, copy, metrics: Object.freeze(metrics), rawValuesIncluded: false });
 }
@@ -93,11 +93,11 @@ export function buildCandidateHistorySummary(student) {
 const RUNTIME_PRESENTATIONS = Object.freeze({
   loading: ["loading", "候補者データを準備しています", "そのままお待ちください。"],
   ready: ["ready", "採用画面を利用できます", "候補者データを読み込みました。"],
-  empty: ["empty", "候補者データはまだありません", "接続先と対象Datasetを確認してください。"],
+  empty: ["empty", "候補者データはまだありません", "管理者へデータの利用状況を確認してください。"],
   auth_required: ["stopped", "ログイン状態を確認してください", "上部の「NOV HUBへ戻る」からログインし直してください。"],
   unauthorized: ["stopped", "利用者を確認できません", "NOV HUBへ戻ってログイン状態を確認してください。"],
   forbidden: ["stopped", "この画面を利用できません", "管理者へ利用範囲を確認してください。"],
-  api_error: ["stopped", "Staging候補者を取得できません", "接続状態を確認してから再読み込みしてください。"],
+  api_error: ["stopped", "候補者データを取得できません", "接続状態を確認してから再読み込みしてください。"],
   invalid_response: ["stopped", "候補者データを確認できません", "管理者へデータ取得状況を確認してください。"],
   validation_error: ["stopped", "候補者データを確認できません", "データ形式を確認してから再読み込みしてください。"],
   timeout: ["stopped", "読み込みに時間がかかっています", "再読み込みを1回お試しください。"],

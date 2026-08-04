@@ -15,6 +15,8 @@ test("daily operation shell excludes setup terminology and keeps recruiting acti
   assert.doesNotMatch(daily, /Migration|CSV|Staging|Dataset|Quarantine|preflight|隔離|Employee Core/i);
   assert.doesNotMatch(html, />要確認・隔離を確認</);
   assert.match(html, />要対応を確認</);
+  assert.doesNotMatch(html, /Staging候補者を取得できません|対象Dataset|取込元・進捗/);
+  assert.match(html, /候補者一覧の検索と絞り込み/);
 });
 
 test("setup tools live behind an administrator-only management tab", async () => {

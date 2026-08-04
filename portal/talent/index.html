@@ -7,7 +7,6 @@
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./style.css?v=20260804-staging-workspace-contract-1">
   <script src="./runtime-config.candidate.js?v=20260804-staging-workspace-contract-1"></script>
-  <script type="module" src="./csv-import-preflight.mjs?v=20260731-sprint1-mock-2"></script>
   <script type="module" src="./app.mjs?v=20260804-staging-workspace-contract-1"></script>
 </head>
 <body>
@@ -23,7 +22,7 @@
       </div>
       <div class="connection-card" aria-live="polite">
         <span class="connection-dot" aria-hidden="true"></span>
-        <span id="connection-label">Staging Runtime</span>
+        <span id="connection-label">運用データ</span>
         <strong id="talent-role-label">権限確認中</strong>
         <a href="../">NOV HUBへ戻る</a>
       </div>
@@ -46,40 +45,47 @@
       <div>
         <p class="section-kicker">今日の作業</p>
         <h2>今日の業務をここから始める</h2>
-        <p>候補者フォローと28卒CSV確認を分けて開きます。社員管理はNOV Peopleの担当です。</p>
+        <p>採用状況を確認し、今日の対応と候補者フォローを進めます。</p>
       </div>
       <div class="talent-daily-command-actions">
-        <button type="button" data-talent-daily-open="students" aria-pressed="false">
-          <span>01 学生フォロー</span>
-          <strong>期限・要確認を処理</strong>
-          <small>期限順・要確認・隔離を開く</small>
+        <button type="button" data-talent-daily-open="summary" aria-pressed="false">
+          <span>01 今日やること</span>
+          <strong>優先対応を確認</strong>
+          <small>期限と次回対応を確認</small>
         </button>
-        <button type="button" data-talent-daily-open="csv28" aria-pressed="false">
-          <span>02 28卒CSV</span>
-          <strong>取込前の形式確認</strong>
-          <small>staging承認前にローカル検証</small>
+        <button type="button" data-talent-daily-open="students" aria-pressed="false">
+          <span>02 候補者</span>
+          <strong>候補者を確認</strong>
+          <small>検索・絞り込み・詳細確認</small>
+        </button>
+        <button type="button" data-talent-daily-open="addCandidate" data-talent-write-only hidden aria-pressed="false">
+          <span>03 候補者追加</span>
+          <strong>新しい候補者を登録</strong>
+          <small>基本情報と現在の状態を入力</small>
         </button>
       </div>
       <p id="talent-daily-command-status" class="talent-daily-command-status" data-category="NO_ROUTE_SELECTED" role="status" aria-live="polite">
         開始ボタンを押すと、移動先と次に見る場所をここに表示します。
       </p>
       <ol id="talent-daily-completion-checklist" class="talent-daily-completion-checklist" aria-label="今日の人財管理完了条件">
-        <li data-category="STUDENT_QUEUE">学生フォロー: 期限・要確認・隔離の次回対応を残す</li>
-        <li data-category="CSV28_QUEUE">28卒CSV: 修正が必要な場合はstaging承認へ進めない</li>
-        <li data-category="NO_AUTO_PROMOTION">Employee Coreへの引継ぎは別ライフサイクルとして停止</li>
+        <li data-category="TODAY_ACTIONS">今日やること: 期限と優先対応を確認する</li>
+        <li data-category="CANDIDATE_FOLLOWUP">候補者: 状態と次回対応を更新する</li>
+        <li data-category="ACTIVITY_HISTORY">採用活動: 接触・イベント・選考履歴を記録する</li>
       </ol>
     </section>
 
     <section id="panel-recruitment" class="primary-panel" role="tabpanel" aria-labelledby="tab-recruitment">
       <nav class="secondary-tabs" role="tablist" aria-label="求人管理メニュー">
         <button type="button" role="tab" aria-selected="true" aria-controls="recruitment-summary"
-          tabindex="0" data-secondary-tab="summary">全体サマリー</button>
+          tabindex="0" data-secondary-tab="summary">ダッシュボード</button>
         <button type="button" role="tab" aria-selected="false" aria-controls="recruitment-students"
-          tabindex="-1" data-secondary-tab="students">候補者一覧</button>
+          tabindex="-1" data-secondary-tab="students">候補者</button>
         <button type="button" role="tab" aria-selected="false" aria-controls="recruitment-fairs"
           tabindex="-1" data-secondary-tab="fairs">フェア分析</button>
         <button type="button" role="tab" aria-selected="false" aria-controls="recruitment-schools"
           tabindex="-1" data-secondary-tab="schools">学校分析</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="recruitment-management"
+          tabindex="-1" data-secondary-tab="management" data-talent-management-tab hidden>管理ツール</button>
       </nav>
 
       <section id="recruitment-summary" class="secondary-panel" role="tabpanel">
@@ -88,12 +94,12 @@
             <p class="section-kicker">採用サマリー</p>
             <h2>27卒・28卒 採用状況</h2>
           </div>
-          <p id="historical-summary-status" class="status" data-state="loading" role="status" aria-live="polite">Staging候補者データを集計しています</p>
+          <p id="historical-summary-status" class="status" data-state="loading" role="status" aria-live="polite">候補者データを集計しています</p>
         </div>
         <section id="recruitment-decision-summary" class="recruitment-decision-summary" data-category="LOADING" aria-live="polite">
           <p class="section-kicker">今朝の結論</p>
           <h3 id="recruitment-decision-title">採用状況を確認しています</h3>
-          <p id="recruitment-decision-copy">Staging候補者データの集計後に、最初に行うことを表示します。</p>
+          <p id="recruitment-decision-copy">候補者データの集計後に、最初に行うことを表示します。</p>
         </section>
         <section class="summary-grid historical-summary-grid" id="historical-summary-metrics" aria-label="27卒・28卒の採用状況">
           <article class="metric"><p class="metric-name">候補者</p><p class="metric-value">-</p></article>
@@ -107,13 +113,13 @@
         </section>
         <section class="today-task-panel" aria-labelledby="today-task-title">
           <div><p class="section-kicker">今日やること</p><h3 id="today-task-title">優先タスク（最大5件）</h3></div>
-          <p id="today-task-status" role="status">Staging候補者から確認しています</p>
+          <p id="today-task-status" role="status">候補者の次回対応を確認しています</p>
           <ol id="today-task-list" class="today-task-list"></ol>
         </section>
-        <section class="summary-followup" aria-label="採用状況から学生フォローを開く">
+        <section class="summary-followup" aria-label="採用状況から候補者フォローを開く">
           <div class="summary-followup-head">
-            <h3>学生一覧へ進む</h3>
-            <p>確認したい区分を選ぶと、学生フォローの一覧へ移動します。</p>
+            <h3>候補者一覧へ進む</h3>
+            <p>確認したい区分を選ぶと、候補者フォローの一覧へ移動します。</p>
           </div>
           <div id="talent-analytics-action-guide" class="talent-analytics-action-guide" data-category="NO_ANALYTICS_ACTION" aria-label="採用分析から次に開く一覧" hidden>
             <div>
@@ -133,7 +139,7 @@
             <button type="button" data-summary-followup="offers">内定を確認</button>
             <button type="button" data-summary-followup="overdueFollowUp">期限超過 <span id="summary-followup-overdue-count" class="summary-followup-count is-overdue">-</span></button>
             <button type="button" data-summary-followup="nextWeekFollowUp">直近7日 <span id="summary-followup-next-week-count" class="summary-followup-count is-next-week">-</span></button>
-            <button type="button" data-summary-followup="needsAction">要確認・隔離を確認</button>
+            <button type="button" data-summary-followup="needsAction">要対応を確認</button>
           </div>
         </section>
 
@@ -160,10 +166,10 @@
         </section>
         <p class="coverage-label sprint2-supporting-summary">本システム稼働開始以降の集計（確定済み）です。</p>
 
-        <section class="import-overview" aria-labelledby="import-overview-title">
+        <section class="import-overview" data-management-section="dataset" aria-labelledby="import-overview-title">
           <div>
             <p class="section-kicker">データ内訳</p>
-            <h3 id="import-overview-title">27卒・28卒 Stagingデータ</h3>
+            <h3 id="import-overview-title">候補者データセット</h3>
           </div>
           <dl>
             <div><dt>取込済み</dt><dd id="import-total">-</dd></div>
@@ -174,7 +180,7 @@
           <p id="import-overview-status">学生フォローを開くと取込状況を確認します</p>
         </section>
 
-        <section class="csv-preflight-panel" aria-labelledby="talent-28-csv-title">
+        <section class="csv-preflight-panel" data-management-section="csv-import" aria-labelledby="talent-28-csv-title">
           <div>
             <p class="section-kicker">28卒CSV確認</p>
             <h3 id="talent-28-csv-title">28卒CSV 形式検証</h3>
@@ -255,7 +261,7 @@
           </div>
         </div>
 
-        <section class="review-command-band" aria-labelledby="review-command-title">
+        <section class="review-command-band" data-management-section="validation" aria-labelledby="review-command-title">
           <div>
             <p class="section-kicker">データ準備</p>
             <h3 id="review-command-title">既存データを業務利用できる状態にする</h3>
@@ -311,7 +317,7 @@
             <span>検索</span>
             <input id="student-search" type="search" autocomplete="off" placeholder="氏名・学校・進捗で検索">
           </label>
-          <label>
+          <label class="talent-management-only">
             <span>データ区分</span>
             <select id="student-source-filter">
               <option value="ALL">すべて</option>
@@ -324,7 +330,7 @@
               <option value="MANUAL">手入力</option>
             </select>
           </label>
-          <label>
+          <label class="talent-management-only">
             <span>確認状態</span>
             <select id="student-state-filter">
               <option value="ALL">すべて</option>
@@ -377,7 +383,7 @@
             </select>
           </label>
           <button id="student-reload" class="icon-command" type="button" title="学生データを再読み込み" aria-label="学生データを再読み込み"><img src="./assets/icons/refresh.svg" alt="" aria-hidden="true"></button>
-          <div class="student-quick-filters" aria-label="確認状態のクイック絞り込み">
+          <div class="student-quick-filters talent-management-only" aria-label="確認状態のクイック絞り込み">
             <span>クイック表示</span>
             <button id="student-filter-all" class="filter-command is-active" type="button" aria-pressed="true" data-label="すべて">すべて</button>
             <button id="student-filter-review" class="filter-command" type="button" aria-pressed="false" data-label="要確認">要確認</button>
@@ -402,9 +408,9 @@
           <dl>
             <div><dt>期限超過</dt><dd id="student-daily-queue-overdue">-</dd></div>
             <div><dt>直近7日</dt><dd id="student-daily-queue-next-week">-</dd></div>
-            <div><dt>要確認</dt><dd id="student-daily-queue-review">-</dd></div>
-            <div><dt>隔離</dt><dd id="student-daily-queue-quarantine">-</dd></div>
-            <div><dt>入社引継ぎ</dt><dd id="student-daily-queue-onboarding">-</dd></div>
+            <div class="talent-management-only"><dt>要確認</dt><dd id="student-daily-queue-review">-</dd></div>
+            <div class="talent-management-only"><dt>隔離</dt><dd id="student-daily-queue-quarantine">-</dd></div>
+            <div class="talent-management-only"><dt>入社引継ぎ</dt><dd id="student-daily-queue-onboarding">-</dd></div>
           </dl>
           <ol id="student-daily-queue-steps" class="student-daily-queue-steps" data-category="STEADY_STATE">
             <li data-category="OPEN_ALL">1. 学生一覧を開く</li>
@@ -427,23 +433,23 @@
           <button id="student-daily-queue-start-button" type="button" data-student-daily-queue-start="true">全学生を見る</button>
         </section>
 
-        <section class="student-kpis" aria-label="27卒・28卒Staging候補者の状況">
+        <section class="student-kpis" aria-label="候補者の状況">
           <article><span>全データ</span><strong id="student-total">-</strong></article>
           <article><span>接触</span><strong id="student-contacts">-</strong></article>
           <article><span>エントリー</span><strong id="student-entries">-</strong></article>
           <article><span>内定</span><strong id="student-offers">-</strong></article>
-          <article><span>手入力</span><strong id="student-manual">-</strong></article>
-          <article><span>要確認</span><strong id="student-owner-review">-</strong></article>
-          <article><span>隔離</span><strong id="student-quarantine">-</strong></article>
-          <article class="confirmed"><span>確認済み</span><strong id="student-importable">-</strong></article>
-          <article class="needs-review"><span>要確認・隔離</span><strong id="student-needs-review">-</strong></article>
+          <article class="talent-management-only"><span>手入力</span><strong id="student-manual">-</strong></article>
+          <article class="talent-management-only"><span>要確認</span><strong id="student-owner-review">-</strong></article>
+          <article class="talent-management-only"><span>隔離</span><strong id="student-quarantine">-</strong></article>
+          <article class="confirmed talent-management-only"><span>確認済み</span><strong id="student-importable">-</strong></article>
+          <article class="needs-review talent-management-only"><span>要確認・隔離</span><strong id="student-needs-review">-</strong></article>
         </section>
 
         <div class="student-workspace">
           <section class="student-list-panel" aria-labelledby="student-list-title">
             <header>
               <div><h3 id="student-list-title">学生一覧</h3><span id="student-result-count">0件</span></div>
-              <span class="data-badge">取込データ + 正本</span>
+              <span class="data-badge">候補者データ</span>
             </header>
             <div id="student-list" class="student-list" role="listbox" aria-label="学生一覧"></div>
             <div id="student-empty" class="student-empty" hidden>
@@ -461,7 +467,7 @@
             <div id="student-detail" hidden>
               <header class="detail-header">
                 <div>
-                  <span id="student-detail-source" class="data-badge"></span>
+                  <span id="student-detail-source" class="data-badge talent-management-only"></span>
                   <h3 id="student-detail-title"></h3>
                   <p id="student-detail-kana"></p>
                 </div>
@@ -486,7 +492,7 @@
                   <span id="student-action-confirm-state" class="student-action-state"></span>
                 </div>
               </section>
-              <section id="student-review-boundary" class="student-review-boundary" aria-live="polite" aria-labelledby="student-review-boundary-title">
+              <section id="student-review-boundary" class="student-review-boundary talent-management-only" aria-live="polite" aria-labelledby="student-review-boundary-title">
                 <span id="student-review-boundary-badge" class="student-review-boundary-badge">未選択</span>
                 <div>
                   <p class="section-kicker">確認区分</p>
@@ -537,9 +543,9 @@
                 <div><dt>応募番号</dt><dd id="student-detail-application">-</dd></div>
                 <div><dt>次回対応日</dt><dd id="student-detail-next-action">-</dd><small id="student-detail-followup-state" class="detail-followup-state">-</small></div>
                 <div><dt>プロフィール版</dt><dd id="student-detail-profile-version">-</dd></div>
-                <div><dt>紐付け状態</dt><dd id="student-detail-mapping">-</dd></div>
+                <div class="talent-management-only"><dt>紐付け状態</dt><dd id="student-detail-mapping">-</dd></div>
               </dl>
-              <section class="review-notes talent-private-notes" aria-labelledby="student-review-title">
+              <section class="review-notes talent-private-notes talent-management-only" aria-labelledby="student-review-title">
                 <h4 id="student-review-title">確認事項</h4>
                 <ul id="student-detail-reasons"></ul>
               </section>
@@ -596,7 +602,7 @@
       <dialog id="candidate-activity-dialog" class="review-dialog profile-dialog" aria-labelledby="candidate-activity-dialog-title">
         <form id="candidate-activity-form">
           <header><p class="section-kicker">採用履歴</p><h2 id="candidate-activity-dialog-title">履歴を追加</h2></header>
-          <p>予定・実績・次回対応をStagingに記録します。物理削除は行いません。</p>
+          <p>予定・実績・次回対応を運用データへ記録します。物理削除は行いません。</p>
           <div class="profile-form-grid">
             <label><span>種類 *</span><select id="activity-entity-type" required><option value="EVENT">接触・イベント</option><option value="SELECTION">選考履歴</option><option value="NEXT_ACTION">次回対応</option></select></label>
             <label><span>状態 *</span><select id="activity-code" required></select></label>
@@ -613,7 +619,7 @@
         </form>
       </dialog>
 
-      <section id="unlinked-interview-panel" class="analysis-panel" aria-labelledby="unlinked-interview-title">
+      <section id="unlinked-interview-panel" class="analysis-panel" data-management-section="audit" aria-labelledby="unlinked-interview-title">
         <div class="section-heading"><div><p class="section-kicker">人間確認</p><h2 id="unlinked-interview-title">未紐付けの面接履歴</h2></div><p id="unlinked-interview-status" class="status">読み込み中</p></div>
         <p>強い識別キーがない過去履歴です。候補者を選択し、内容を確認できた場合のみ紐付けてください。</p>
         <div id="unlinked-interview-list" class="unlinked-interview-list"></div>
@@ -643,7 +649,7 @@
               <p class="section-kicker">学生情報</p>
               <h2 id="student-profile-dialog-title">学生情報を追加</h2>
             </header>
-            <p>Stagingの候補者情報を登録・更新します。保存前に内容を確認してください。</p>
+            <p>候補者情報を登録・更新します。保存前に内容を確認してください。</p>
           <div class="profile-form-grid">
             <label><span>卒業年度 *</span><select id="profile-graduation-year" name="graduationYear" required><option value="2027">27卒</option><option value="2028">28卒</option><option value="2029">29卒</option></select></label>
             <label><span>氏名 *</span><input id="profile-display-name" name="displayName" maxlength="120" required></label>
@@ -739,6 +745,24 @@
           </div>
           <p id="school-analysis-empty" class="analysis-empty" hidden>条件に一致する学校がありません。</p>
         </section>
+      </section>
+
+      <section id="recruitment-management" class="secondary-panel management-panel" role="tabpanel" hidden aria-labelledby="talent-management-title">
+        <div class="section-heading management-heading">
+          <div>
+            <p class="section-kicker">管理者専用</p>
+            <h2 id="talent-management-title">管理ツール</h2>
+            <p>CSV取込、検証、データセット、監査、隔離確認など、日常業務以外の管理作業をまとめています。</p>
+          </div>
+          <a class="management-back-link" href="#" data-management-back>日常画面へ戻る</a>
+        </div>
+        <nav class="management-tool-index" aria-label="管理ツール一覧">
+          <a href="#talent-28-csv-title">CSV Import</a>
+          <a href="#review-command-title">Validation / Quarantine</a>
+          <a href="#import-overview-title">Dataset</a>
+          <a href="#unlinked-interview-title">Audit</a>
+        </nav>
+        <div id="talent-management-content" class="talent-management-content"></div>
       </section>
     </section>
 

@@ -65,7 +65,7 @@ test("Published shell uses the approved server-side Staging runtime and retains 
     readFile(new URL("runtime-config.candidate.js", root), "utf8"),
     readFile(new URL("style.css", root), "utf8")
   ]);
-  assert.match(html, /Staging Runtime/);
+  assert.match(html, /運用データ/);
   assert.match(html, /候補者一覧/);
   assert.doesNotMatch(html, /data-primary-tab="workforce"/);
   assert.match(html, /id="panel-workforce" class="primary-panel sprint1-separated"/);

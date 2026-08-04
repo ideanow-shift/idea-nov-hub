@@ -189,7 +189,7 @@ test("operator control initializes with request0 and token0", () => {
   assert.equal(tokenReads, 0);
   assert.equal(fetches, 0);
   assert.equal(documentObject.button.disabled, false);
-  assert.equal(documentObject.status.textContent, "匿名Mockデータの集計を表示します");
+  assert.equal(documentObject.status.textContent, "確認用候補者データの集計を表示します");
 });
 
 test("one trusted click disables first and remains local while reentry stays request0", async () => {
@@ -243,7 +243,7 @@ test("missing HUB helper does not block the explicitly Mock-only control", () =>
   assert.equal(fetches, 0);
   assert.equal(tokenReads, 0);
   assert.equal(documentObject.button.disabled, false);
-  assert.equal(documentObject.status.textContent, "匿名Mockデータの集計を表示します");
+  assert.equal(documentObject.status.textContent, "確認用候補者データの集計を表示します");
 });
 
 test("offline Mock state fails closed without attempting an API request", async () => {
@@ -591,7 +591,7 @@ test("a later expiry is revalidated and refreshed exact1", async () => {
 test("pageshow or BFCache restoration cannot mark a stale session connected", () => {
   const appSource = readFileSync(new URL("../portal/talent/app.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(appSource, /addEventListener\?\.\("pageshow"[^\n]*setStatus/);
-  assert.match(appSource, /runtimeMode\(globalThis\) === "staging" \? "Staging Runtime" : "Mock Runtime"/);
+  assert.match(appSource, /runtimeMode\(globalThis\) === "staging" \? "運用データ" : "確認用データ"/);
   assert.match(appSource, /setStatus\(documentObject, "ready", "集計を表示しました"\)/);
 });
 

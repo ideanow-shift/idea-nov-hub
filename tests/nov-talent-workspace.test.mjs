@@ -134,7 +134,7 @@ test("public talent UI contains a real list/detail workspace and no pending plac
   assert.match(html, /id="student-detail"/);
   assert.match(html, /id="student-review-dialog"/);
   assert.match(html, /id="student-review-open"/);
-  assert.match(html, /27卒・28卒 Stagingデータ/);
+  assert.match(html, /候補者データ/);
   assert.doesNotMatch(html, /学生一覧・詳細接続は次の安全ゲート/);
   assert.match(app, /createTalentWorkspaceExecutor/);
   assert.match(app, /getElementById\("summary-load-button"\)\?\.addEventListener\("click"/);

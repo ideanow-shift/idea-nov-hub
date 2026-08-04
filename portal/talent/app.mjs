@@ -34,7 +34,7 @@ let activityDialogContext = null;
 let pendingSelectedApplicationNo = null;
 
 const PRIMARY_TABS = Object.freeze(["recruitment"]);
-const RECRUITMENT_TABS = Object.freeze(["summary", "students", "fairs", "schools"]);
+const RECRUITMENT_TABS = Object.freeze(["summary", "students", "fairs", "schools", "management"]);
 const WORKFORCE_TABS = Object.freeze([]);
 const CANDIDATE_RENDER_FAILURE_MESSAGE = "候補者表示処理に失敗しました";
 
@@ -142,8 +142,8 @@ export function initializeTalentSummaryControl({
   activeSummaryButton = button;
   button.disabled = false;
   setStatus(documentObject, "idle", runtimeMode(globalObject) === "staging"
-    ? "Staging候補者データの集計を表示します"
-    : "匿名Mockデータの集計を表示します");
+    ? "候補者データの集計を表示します"
+    : "確認用候補者データの集計を表示します");
 
   const run = async (event) => {
     if (event?.repeat || button.disabled || summaryConsumed) {
@@ -258,23 +258,24 @@ export function initializeTalentNavigation({
   for (const button of documentObject.querySelectorAll("[data-talent-daily-open]")) {
     button.addEventListener("click", () => {
       const target = String(button.dataset.talentDailyOpen || "");
+      if (target === "summary") {
+        primaryButtons.find((item) => item.dataset.primaryTab === "recruitment")?.click?.();
+        secondaryButtons.find((item) => item.dataset.secondaryTab === "summary")?.click?.();
+        announceDailyCommandRoute(documentObject, target, "今日やることを開きました。期限と優先対応を確認できます。");
+        focusDailyCommandTarget(documentObject, "today-task-title");
+      }
       if (target === "students") {
         primaryButtons.find((item) => item.dataset.primaryTab === "recruitment")?.click?.();
         secondaryButtons.find((item) => item.dataset.secondaryTab === "students")?.click?.();
-        announceDailyCommandRoute(documentObject, target, "学生フォローへ移動しました。最初に開く案内から、期限・要確認・隔離の順に確認できます。");
-        focusDailyCommandTarget(documentObject, "student-daily-queue-start-guide");
+        announceDailyCommandRoute(documentObject, target, "候補者一覧を開きました。検索・絞り込みから対応する候補者を選べます。");
+        focusDailyCommandTarget(documentObject, "student-toolbar");
       }
-      if (target === "workforce") {
-        primaryButtons.find((item) => item.dataset.primaryTab === "workforce")?.click?.();
-        workforceButtons.find((item) => item.dataset.workforceTab === "onboarding")?.click?.();
-        announceDailyCommandRoute(documentObject, target, "現職者管理へ移動しました。最初に開く案内から、期限超過・確認待ち・下書きを分けて処理できます。");
-        focusDailyCommandTarget(documentObject, "workforce-case-operation-start-guide");
-      }
-      if (target === "csv28") {
+      if (target === "addCandidate") {
         primaryButtons.find((item) => item.dataset.primaryTab === "recruitment")?.click?.();
-        secondaryButtons.find((item) => item.dataset.secondaryTab === "summary")?.click?.();
-        announceDailyCommandRoute(documentObject, target, "28卒CSV確認へ移動しました。ローカルpreflightを通すまでstaging承認へ進みません。");
-        focusDailyCommandTarget(documentObject, "talent-28-csv-title");
+        secondaryButtons.find((item) => item.dataset.secondaryTab === "students")?.click?.();
+        documentObject.getElementById("student-add-open")?.click?.();
+        announceDailyCommandRoute(documentObject, target, "候補者追加を開きました。必要項目を入力して登録できます。");
+        focusDailyCommandTarget(documentObject, "student-add-open");
       }
     });
   }
@@ -523,7 +524,7 @@ export async function loadTalentStudentWorkspace({
   const reload = documentObject?.getElementById?.("student-reload");
   if (status) {
     status.dataset.state = "loading";
-    status.textContent = runtimeMode(globalObject) === "staging" ? "Staging候補者を読み込んでいます" : "匿名Mock候補者を読み込んでいます";
+    status.textContent = runtimeMode(globalObject) === "staging" ? "候補者を読み込んでいます" : "確認用候補者を読み込んでいます";
   }
   renderMockRuntimeState(documentObject, "loading");
   if (reload) {
@@ -607,7 +608,7 @@ export async function loadTalentStudentWorkspace({
   renderMockRuntimeState(documentObject, result.data.students.length ? "ready" : "empty");
   if (status) {
     status.dataset.state = "ready";
-    status.textContent = `${result.data.students.length}件の${runtimeMode(globalObject) === "staging" ? "Staging" : "匿名Mock"}候補者を表示`;
+    status.textContent = `${result.data.students.length}件の${runtimeMode(globalObject) === "staging" ? "" : "確認用"}候補者を表示`;
   }
   return Object.freeze({
     executed: true,
@@ -2859,15 +2860,15 @@ function formatSafeCategoryLabel(category) {
 }
 
 function announceDailyCommandRoute(documentObject, target, message) {
-  const normalized = ["students", "workforce", "csv28"].includes(target) ? target : "";
+  const normalized = ["summary", "students", "addCandidate"].includes(target) ? target : "";
   for (const item of documentObject?.querySelectorAll?.("[data-talent-daily-open]") || []) {
     item.setAttribute("aria-pressed", String(item.dataset.talentDailyOpen === normalized));
   }
   const status = documentObject?.getElementById?.("talent-daily-command-status");
   if (!status) return;
-  status.dataset.category = normalized === "students"
-    ? "ROUTE_STUDENTS"
-    : normalized === "workforce" ? "ROUTE_WORKFORCE" : normalized === "csv28" ? "ROUTE_CSV28" : "NO_ROUTE_SELECTED";
+  status.dataset.category = normalized === "summary"
+    ? "ROUTE_SUMMARY"
+    : normalized === "students" ? "ROUTE_STUDENTS" : normalized === "addCandidate" ? "ROUTE_ADD_CANDIDATE" : "NO_ROUTE_SELECTED";
   status.textContent = message || "開始位置を選択しました。";
 }
 
@@ -2972,7 +2973,7 @@ function setStatus(documentObject, state, text) {
   const connectionLabel = documentObject?.getElementById?.("connection-label");
   if (connection) connection.dataset.state = state;
   if (connectionLabel) {
-    const label = runtimeMode(globalThis) === "staging" ? "Staging Runtime" : "Mock Runtime";
+    const label = runtimeMode(globalThis) === "staging" ? "運用データ" : "確認用データ";
     connectionLabel.textContent = state === "ready" ? label : state === "stopped" ? `${label}停止` : `${label}準備中`;
   }
 }
@@ -3057,14 +3058,51 @@ function safeMessage(category, requestCount = 0) {
   return messages[category] || messages.safe_stop;
 }
 
+export function configureTalentOperationUi(documentObject, accessProfile) {
+  const isAdministrator = accessProfile === "full";
+  const canWriteCandidates = ["full", "recruiter"].includes(accessProfile);
+  const managementTab = documentObject?.querySelector?.("[data-talent-management-tab]");
+  const managementPanel = documentObject?.getElementById?.("recruitment-management");
+  const managementContent = documentObject?.getElementById?.("talent-management-content");
+  const managementSections = [...(documentObject?.querySelectorAll?.("[data-management-section]") || [])];
+
+  if (managementTab) managementTab.hidden = !isAdministrator;
+  if (managementPanel) managementPanel.hidden = true;
+  for (const section of managementSections) {
+    section.hidden = !isAdministrator;
+    if (isAdministrator && managementContent && section.parentElement !== managementContent) {
+      managementContent.append(section);
+    }
+  }
+  for (const item of documentObject?.querySelectorAll?.("[data-talent-write-only]") || []) {
+    item.hidden = !canWriteCandidates;
+  }
+
+  const backButton = documentObject?.querySelector?.("[data-management-back]");
+  if (backButton && !backButton.dataset.bound) {
+    backButton.dataset.bound = "true";
+    backButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      documentObject?.querySelector?.('[data-secondary-tab="summary"]')?.click?.();
+    });
+  }
+
+  return Object.freeze({
+    managementVisible: isAdministrator,
+    candidateWriteVisible: canWriteCandidates,
+    managementSectionCount: managementSections.length
+  });
+}
+
 function initializeTalentApp() {
   const authorization = installNovTalentAuthGuard();
   if (!authorization.allowed) return authorization;
+  configureTalentOperationUi(globalThis.document, authorization.access?.profile);
   enableStagingWriteControls(globalThis.document, authorization.access?.profile);
   initializeTalentStudentWorkspace();
   initializeTalentNavigation();
   const summaryControl = initializeTalentSummaryControl();
-  initializeTalent28CsvPreflight();
+  if (authorization.access?.profile === "full") initializeTalent28CsvPreflight();
   loadTalentStudentWorkspace();
   summaryControl.run?.();
   return authorization;

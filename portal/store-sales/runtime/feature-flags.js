@@ -26,9 +26,15 @@ export function toAdapterRuntimeConfig(featureFlag, runtimeConfig = {}) {
   if (featureFlag === "staging") {
     return {
       ...runtimeConfig,
-      mode: "integration",
-      integrationEndpoint: runtimeConfig.stagingEndpoint || runtimeConfig.integrationEndpoint || ""
+      mode: "staging",
+      apiEndpoint: runtimeConfig.stagingEndpoint || ""
     };
+  }
+  if (featureFlag === "integration") {
+    return { ...runtimeConfig, mode: "integration", apiEndpoint: runtimeConfig.integrationEndpoint || "" };
+  }
+  if (featureFlag === "production") {
+    return { ...runtimeConfig, mode: "production", apiEndpoint: runtimeConfig.productionEndpoint || "" };
   }
   return { ...runtimeConfig, mode: featureFlag };
 }

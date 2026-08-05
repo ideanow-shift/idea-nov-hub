@@ -100,12 +100,12 @@ test("404 maps to empty", () => {
   assert.equal(mapRuntimeError({ code: "NOT_FOUND", status: 404 }).status, "empty");
 });
 
-test("staging selects the integration adapter boundary", () => {
+test("staging selects the read-only Store Sales API boundary", () => {
   assert.equal(resolveStoreSalesFeatureFlag({ featureFlag: "staging" }), "staging");
   assert.deepEqual(toAdapterRuntimeConfig("staging", { stagingEndpoint: "https://staging.invalid/projection" }), {
     stagingEndpoint: "https://staging.invalid/projection",
-    mode: "integration",
-    integrationEndpoint: "https://staging.invalid/projection"
+    mode: "staging",
+    apiEndpoint: "https://staging.invalid/projection"
   });
 });
 
@@ -143,7 +143,7 @@ test("projection switching rebuilds the adapter without UI involvement", async (
   });
   await runtime.initialize({ period: "2026-07" });
   await runtime.switchProjection("staging", { stagingEndpoint: "https://staging.invalid/projection" });
-  assert.deepEqual(modes, ["mock", "integration"]);
+  assert.deepEqual(modes, ["mock", "staging"]);
 });
 
 test("session refresh is attempted once before unauthorized", async () => {

@@ -69,6 +69,6 @@ test("projection contract retains version, required fields and safe unknown hand
   assert.equal(normalized.role, "representative");
   assert.equal(normalized.stores.length, 20);
   assert.equal(Object.hasOwn(normalized, "future_optional_field"), false);
-  delete wire.meta.accounting_confirmed_through_period;
+  delete wire.meta.confirmed_through_period;
   assert.throws(() => validateProjectionResponse(wire), /required|YYYY-MM/i);
 });

@@ -2,6 +2,7 @@ const DATA_STATES = new Set(["available", "collecting", "preparing", "unavailabl
 const STORE_STATUSES = new Set(["Good", "Stable", "Improving", "Needs Attention"]);
 const ACTOR_SCOPES = new Set(["all_group", "department", "own_store", "franchise", "denied"]);
 const PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/;
+const PROFIT_STATES = new Set(["confirmed", "collecting", "preparing", "unavailable", "validation_error"]);
 const PERCENT_DISPLAY = /^-?\d+(?:\.\d)?%$/;
 const FORBIDDEN_KEYS = new Set([
   "source_workbook", "source_cell", "raw_fact_id", "numerator_amount", "denominator_amount",
@@ -48,6 +49,10 @@ function state(value, path) {
   const text = requiredText(value, path);
   if (!DATA_STATES.has(text)) fail("INVALID_DATA_STATE", `${path} has an invalid state.`);
   return text;
+}
+
+function nullablePeriod(value, path) {
+  return value === null || value === undefined || value === "" ? null : period(value, path);
 }
 
 function nullableNumber(value, path) {
@@ -128,6 +133,8 @@ function store(value, path) {
     storeName: requiredText(source.store_name, `${path}.store_name`),
     ownership: source.ownership_type === null ? null : requiredText(source.ownership_type, `${path}.ownership_type`),
     area: source.area ?? null,
+    areaManager: source.area_manager ?? null,
+    monthlyFocus: source.monthly_focus ?? null,
     corporation: source.corporation ?? null,
     scopeKey: source.scope_key ? String(source.scope_key) : null,
     period: period(source.sales_period, `${path}.sales_period`),
@@ -148,8 +155,14 @@ export function validateProjectionResponse(value) {
   const root = record(value, "projection");
   const meta = record(root.meta, "projection.meta");
   const salesPeriod = period(meta.sales_period, "projection.meta.sales_period");
-  const confirmedPeriod = period(meta.accounting_confirmed_through_period, "projection.meta.accounting_confirmed_through_period");
-  if (confirmedPeriod > salesPeriod) fail("PERIOD_CONFLICT", "Accounting confirmed period cannot be after sales period.");
+  const profitState = requiredText(meta.profit_state, "projection.meta.profit_state");
+  if (!PROFIT_STATES.has(profitState)) fail("INVALID_PROFIT_STATE", "projection.meta.profit_state is invalid.");
+  const confirmedPeriod = nullablePeriod(meta.confirmed_through_period, "projection.meta.confirmed_through_period");
+  if (profitState === "confirmed" && !confirmedPeriod) fail("CONFIRMED_PERIOD_REQUIRED", "confirmed_through_period is required for confirmed profit.");
+  if (confirmedPeriod && confirmedPeriod > salesPeriod) fail("PERIOD_CONFLICT", "Accounting confirmed period cannot be after sales period.");
+  if (meta.profit_definition !== "store_operating_profit") fail("INVALID_PROFIT_DEFINITION", "Store operating profit is required.");
+  if (meta.operating_margin_definition !== "operating_profit_over_sales_net") fail("INVALID_MARGIN_DEFINITION", "Operating margin must use tax-exclusive sales.");
+  if (meta.head_office_allocation_included !== false) fail("HEAD_OFFICE_ALLOCATION_FORBIDDEN", "V1 must not include head-office allocation.");
   const actorScope = requiredText(meta.actor_scope, "projection.meta.actor_scope");
   if (!ACTOR_SCOPES.has(actorScope)) fail("INVALID_ACTOR_SCOPE", "projection.meta.actor_scope is invalid.");
   if (actorScope === "denied") fail("ACTOR_SCOPE_DENIED", "Projection denied this actor.");
@@ -157,6 +170,8 @@ export function validateProjectionResponse(value) {
   if (actorScope === "own_store" && sourceStores.length > 1) {
     fail("ACTOR_SCOPE_MISMATCH", "Store manager projection contains multiple stores.");
   }
+  const actorRole = requiredText(meta.actor_role ?? (actorScope === "own_store" ? "store_manager" : "representative"), "projection.meta.actor_role");
+  validateProfitVisibility({ profitState, actorRole, executiveSummary: root.executive_summary, stores: sourceStores });
   const stores = sourceStores.map((item, index) => store(item, `projection.stores[${index}]`));
   const actorScopeKey = meta.actor_scope_key ? String(meta.actor_scope_key) : null;
   if (actorScope === "department" || actorScope === "franchise") {
@@ -172,9 +187,10 @@ export function validateProjectionResponse(value) {
   const executiveMetrics = metricsObject(executiveSource.metrics ?? {}, "projection.executive_summary.metrics");
   return {
     audience: actorScope === "own_store" ? "store_manager" : "executive",
-    role: requiredText(meta.actor_role ?? (actorScope === "own_store" ? "store_manager" : "representative"), "projection.meta.actor_role"),
+    role: actorRole,
     meta: {
       salesPeriod,
+      profitState,
       accountingConfirmedThroughPeriod: confirmedPeriod,
       confirmationState: state(meta.confirmation_state, "projection.meta.confirmation_state"),
       lastUpdatedAt: meta.last_updated_at ?? null,
@@ -189,6 +205,7 @@ export function validateProjectionResponse(value) {
     accounting: {
       period: confirmedPeriod,
       confirmedThroughPeriod: confirmedPeriod,
+      profitState,
       salesPeriod,
       confirmationState: state(meta.confirmation_state, "projection.meta.confirmation_state"),
       lastUpdatedAt: meta.last_updated_at ?? null,
@@ -204,9 +221,42 @@ export function validateProjectionResponse(value) {
     priorityActions: array(root.priority_actions ?? [], "projection.priority_actions")
       .slice(0, 3).map((item, index) => action(item, `projection.priority_actions[${index}]`)),
     businessDrivers: normalizeDrivers(root.business_drivers),
+    trends: normalizeTrends(root.trends),
     stores,
     selectedStore: root.selected_store ?? null
   };
+}
+
+function validateProfitVisibility({ profitState, actorRole, executiveSummary, stores }) {
+  const executiveMetrics = executiveSummary?.metrics || {};
+  if (profitState !== "confirmed") {
+    ["operatingProfit", "operatingProfitMargin", "ordinaryProfit"].forEach((key) => {
+      assertMetricHidden(executiveMetrics[key], "projection.executive_summary.metrics." + key);
+    });
+    stores.forEach((item, index) => {
+      assertMetricHidden(item.operating_profit, "projection.stores[" + index + "].operating_profit");
+      assertMetricHidden(item.operating_profit_margin, "projection.stores[" + index + "].operating_profit_margin");
+      assertMetricHidden(item.detail_metrics?.ordinaryProfit, "projection.stores[" + index + "].detail_metrics.ordinaryProfit");
+    });
+  }
+  if (actorRole === "sales_manager" && stores.some((item) => item.ownership_type !== "Direct")) {
+    fail("ACTOR_SCOPE_MISMATCH", "Sales manager projection must contain direct stores only.");
+  }
+  if (["sales_manager", "area_manager"].includes(actorRole)) {
+    stores.forEach((item, index) => {
+      if (item.ownership_type !== "FC") return;
+      assertMetricHidden(item.operating_profit, "projection.stores[" + index + "].operating_profit");
+      assertMetricHidden(item.operating_profit_margin, "projection.stores[" + index + "].operating_profit_margin");
+      assertMetricHidden(item.detail_metrics?.ordinaryProfit, "projection.stores[" + index + "].detail_metrics.ordinaryProfit");
+    });
+  }
+}
+
+function assertMetricHidden(value, path) {
+  if (!value) return;
+  if (value.value !== null || value.display_value !== null || value.data_state === "available") {
+    fail("UNCONFIRMED_PROFIT_EXPOSED", path + " must be null until formally confirmed.");
+  }
 }
 
 function normalizeDrivers(value) {
@@ -218,6 +268,24 @@ function normalizeDrivers(value) {
       return { label: requiredText(item.label, `projection.business_drivers.${group}[${index}].label`), items: [metric(item.metric, `projection.business_drivers.${group}[${index}].metric`)] };
     })
   ]));
+}
+
+function normalizeTrends(value) {
+  const source = value == null ? {} : record(value, "projection.trends");
+  return Object.fromEntries(Object.entries(source).map(([metricCode, series]) => {
+    const metricSeries = record(series, "projection.trends." + metricCode);
+    return [metricCode, Object.fromEntries(Object.entries(metricSeries).map(([range, points]) => [
+      range,
+      array(points, "projection.trends." + metricCode + "." + range).map((point, index) => {
+        const item = record(point, "projection.trends." + metricCode + "." + range + "[" + index + "]");
+        return {
+          period: period(item.period, "projection.trends." + metricCode + "." + range + "[" + index + "].period"),
+          value: nullableNumber(item.value ?? null, "projection.trends." + metricCode + "." + range + "[" + index + "].value"),
+          dataState: state(item.data_state, "projection.trends." + metricCode + "." + range + "[" + index + "].data_state")
+        };
+      })
+    ]))];
+  }));
 }
 
 export const PROJECTION_CONTRACT = Object.freeze({

@@ -8,13 +8,24 @@ const root = new URL("../portal/talent/", import.meta.url);
 test("NOV Talent exposes candidate recruitment only and separates NOV People", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
 
-  assert.match(html, /aria-label="人財投資管理の業務区分"/);
+  assert.match(html, /aria-label="求人管理の業務区分"/);
   assert.match(html, /data-primary-tab="recruitment"[\s\S]*求人管理/);
   assert.doesNotMatch(html, /data-primary-tab="workforce"/);
   assert.match(html, /id="panel-recruitment"[\s\S]*role="tabpanel"/);
   assert.match(html, /id="panel-workforce" class="primary-panel sprint1-separated"[\s\S]*aria-hidden="true"/);
   assert.match(html, /NOV Peopleへ分離/);
   assert.match(html, /assets\/icons\/human-resources\.svg/);
+});
+
+test("public branding describes the recruitment scope through planned entry", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const activeUi = html.split('<section id="panel-workforce"')[0];
+
+  assert.match(html, /<title>NOV Talent \| 求人管理プラットフォーム<\/title>/);
+  assert.match(activeUi, /<h1 id="dashboard-title">求人管理プラットフォーム<\/h1>/);
+  assert.match(activeUi, /学生・フェア・学校・採用活動を、入社予定まで一元管理します。/);
+  assert.match(activeUi, /学生・選考・入社予定/);
+  assert.doesNotMatch(activeUi, /採用意思決定プラットフォーム|現職者管理|Employee Coreへ引継ぎ|NOV People/);
 });
 
 test("today dashboard starts daily work without navigation cards", async () => {
@@ -626,7 +637,7 @@ test("Candidate to Employee handoff stays separated from NOV Talent Sprint 1", a
   });
   assert.equal(buildOnboardingHandoffDraft({ ...ready, applicationNo: "", statusCode: "OFFERED" }), null);
   assert.equal(buildOnboardingHandoffDraft({ ...ready, applicationNo: "NT-2027-000001", statusCode: "LINE_REGISTERED" }), null);
-  assert.match(html, /id="student-onboarding-open"[^>]*sprint1-separated[^>]*hidden/);
+  assert.doesNotMatch(html, /id="student-onboarding-open"/);
   assert.match(html, /id="panel-workforce" class="primary-panel sprint1-separated"/);
 });
 

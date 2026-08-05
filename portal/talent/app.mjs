@@ -2,17 +2,20 @@ import {
   buildDashboardSummaryViewModel,
   createDashboardSummaryExecutor,
   createTalentWorkspaceExecutor
-} from "./runtime.mjs?v=20260731-sprint1-mock-1";
-import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260726-talent-analytics-action-guide-1";
+} from "./runtime.mjs?v=20260804-workspace-master-contract-2";
+import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260804-recruitment-master-dashboard-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
+import { handleNovHubSessionAuthFailure, NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
+import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260804-recruitment-master-dashboard-1";
 import {
   buildCandidateHistorySummary,
   buildEventRoiView,
   buildMockRuntimePresentation,
   buildRecruitmentDashboardDecision,
   buildRecruitmentTaskBoard
-} from "./recruitment-ux.mjs?v=20260801-sprint2-ux-1";
+} from "./recruitment-ux.mjs?v=20260804-operation-ui-cleanup-1";
+import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs?v=20260804-recruiting-dashboard-completion-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -27,11 +30,53 @@ let activeHistoricalReviewProposal = null;
 let activeHistoricalReviewStudent = null;
 let profileDialogStudent = null;
 let auditDialogStudent = null;
+let activityDialogContext = null;
 let pendingSelectedApplicationNo = null;
+let selectedGraduationYear = "ALL";
 
 const PRIMARY_TABS = Object.freeze(["recruitment"]);
-const RECRUITMENT_TABS = Object.freeze(["summary", "students", "fairs", "schools"]);
+const RECRUITMENT_TABS = Object.freeze(["summary", "students", "fairs", "schools", "management"]);
 const WORKFORCE_TABS = Object.freeze([]);
+const CANDIDATE_RENDER_FAILURE_MESSAGE = "学生表示処理に失敗しました";
+
+export function runTalentWorkspaceRenderPipeline({
+  stages = [],
+  logger = globalThis.console
+} = {}) {
+  try {
+    for (const stage of stages) {
+      try {
+        stage.render();
+      } catch {
+        logger?.error?.(`[NOV Talent] Candidate rendering failed: ${stage.name}`);
+        const failure = new Error("candidate_render_failed");
+        failure.renderStage = stage.name;
+        throw failure;
+      }
+    }
+    return Object.freeze({ ok: true, failedStage: null, completedStageCount: stages.length });
+  } catch (error) {
+    return Object.freeze({
+      ok: false,
+      failedStage: String(error?.renderStage || "unknown_render_stage"),
+      completedStageCount: Math.max(0, stages.findIndex((stage) => stage.name === error?.renderStage))
+    });
+  }
+}
+
+function renderCandidateWorkspaceFailure(documentObject) {
+  const panel = documentObject?.getElementById?.("mock-runtime-state");
+  if (panel) {
+    panel.hidden = false;
+    panel.dataset.state = "stopped";
+    panel.dataset.category = "CANDIDATE_RENDER_FAILED";
+  }
+  setText(documentObject, "mock-runtime-state-title", CANDIDATE_RENDER_FAILURE_MESSAGE);
+  setText(documentObject, "mock-runtime-state-copy", "再読み込みしても解消しない場合は、管理者へ連絡してください。");
+  setText(documentObject, "historical-summary-status", CANDIDATE_RENDER_FAILURE_MESSAGE);
+  setText(documentObject, "fair-analysis-status", CANDIDATE_RENDER_FAILURE_MESSAGE);
+  setText(documentObject, "school-analysis-status", CANDIDATE_RENDER_FAILURE_MESSAGE);
+}
 
 export async function startTalentDashboardSummary({
   globalObject = globalThis,
@@ -97,7 +142,9 @@ export function initializeTalentSummaryControl({
   button.dataset.summaryControlBound = "true";
   activeSummaryButton = button;
   button.disabled = false;
-  setStatus(documentObject, "idle", "匿名Mockデータの集計を表示します");
+  setStatus(documentObject, "idle", runtimeMode(globalObject) === "staging"
+    ? "学生データの集計を表示します"
+    : "確認用学生データの集計を表示します");
 
   const run = async (event) => {
     if (event?.repeat || button.disabled || summaryConsumed) {
@@ -138,7 +185,7 @@ export function initializeTalentSummaryControl({
   globalObject?.addEventListener?.("pagehide", invalidate, { once: true });
   globalObject?.addEventListener?.("beforeunload", invalidate, { once: true });
   globalObject?.addEventListener?.("novhub:logout", invalidate);
-  return Object.freeze({ initialized: true, helperAvailable: false, runtimeMode: "mock", run, invalidate });
+  return Object.freeze({ initialized: true, helperAvailable: false, runtimeMode: runtimeMode(globalObject), run, invalidate });
 }
 
 export function invalidateTalentDashboardSummaryRun({
@@ -209,30 +256,6 @@ export function initializeTalentNavigation({
       documentObject.getElementById("workforce-procedure-desk")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
     });
   }
-  for (const button of documentObject.querySelectorAll("[data-talent-daily-open]")) {
-    button.addEventListener("click", () => {
-      const target = String(button.dataset.talentDailyOpen || "");
-      if (target === "students") {
-        primaryButtons.find((item) => item.dataset.primaryTab === "recruitment")?.click?.();
-        secondaryButtons.find((item) => item.dataset.secondaryTab === "students")?.click?.();
-        announceDailyCommandRoute(documentObject, target, "学生フォローへ移動しました。最初に開く案内から、期限・要確認・隔離の順に確認できます。");
-        focusDailyCommandTarget(documentObject, "student-daily-queue-start-guide");
-      }
-      if (target === "workforce") {
-        primaryButtons.find((item) => item.dataset.primaryTab === "workforce")?.click?.();
-        workforceButtons.find((item) => item.dataset.workforceTab === "onboarding")?.click?.();
-        announceDailyCommandRoute(documentObject, target, "現職者管理へ移動しました。最初に開く案内から、期限超過・確認待ち・下書きを分けて処理できます。");
-        focusDailyCommandTarget(documentObject, "workforce-case-operation-start-guide");
-      }
-      if (target === "csv28") {
-        primaryButtons.find((item) => item.dataset.primaryTab === "recruitment")?.click?.();
-        secondaryButtons.find((item) => item.dataset.secondaryTab === "summary")?.click?.();
-        announceDailyCommandRoute(documentObject, target, "28卒CSV確認へ移動しました。ローカルpreflightを通すまでstaging承認へ進みません。");
-        focusDailyCommandTarget(documentObject, "talent-28-csv-title");
-      }
-    });
-  }
-
   const initialPrimary = normalizeHash(globalObject?.location?.hash);
   if (initialPrimary) selectTab(primaryButtons, initialPrimary, (key) => documentObject.getElementById(`panel-${key}`), false);
   if (initialPrimary === "workforce") {
@@ -258,7 +281,7 @@ export async function loadTalentWorkforceSummary({
   const executor = createTalentWorkforceSummaryExact1Executor({
     globalObject,
     hubSessionHelper: globalObject.NovHubSession,
-    hubContract: globalObject.NOV_HUB_SESSION_CONTRACT || NOV_HUB_SESSION_CONTRACT,
+    hubContract: NOV_HUB_SESSION_CONTRACT,
     fetchImpl
   });
   const result = executor ? await executor.run() : null;
@@ -286,6 +309,19 @@ export function initializeTalentStudentWorkspace({
   }
   list.dataset.workspaceBound = "true";
   const refresh = () => renderStudentWorkspace(documentObject);
+  for (const button of documentObject.querySelectorAll("[data-graduation-year]")) {
+    button.addEventListener("click", () => {
+      selectedGraduationYear = normalizeGraduationYearFilter(button.dataset.graduationYear);
+      updateGraduationYearSwitcher(documentObject);
+      if (!studentWorkspaceData) return;
+      renderStudentWorkspace(documentObject);
+      renderTalentAnalytics(documentObject);
+      const workspace = graduationYearWorkspace(studentWorkspaceData);
+      renderTalentTodayDashboard(documentObject, workspace);
+      renderTodayTasks(documentObject, workspace.todayTasks || []);
+    });
+  }
+  updateGraduationYearSwitcher(documentObject);
   documentObject.getElementById("student-search")?.addEventListener("input", refresh);
   documentObject.getElementById("student-source-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-state-filter")?.addEventListener("change", refresh);
@@ -402,15 +438,15 @@ export function initializeTalentStudentWorkspace({
   });
   documentObject.getElementById("student-edit-open")?.addEventListener("click", () => {
     const student = studentWorkspaceData?.students.find((row) => row.recordId === selectedStudentRecordId);
-    if (student?.applicationNo || (student?.mappingStatus === "UNMAPPED" && student?.recordId)) {
+    if ((stagingWriteEnabled(globalObject) && student?.recordId)
+      || student?.applicationNo
+      || (student?.mappingStatus === "UNMAPPED" && student?.recordId)) {
       openStudentProfileDialog({ documentObject, student });
     }
   });
   documentObject.getElementById("student-next-action-open")?.addEventListener("click", () => {
     const student = studentWorkspaceData?.students.find((row) => row.recordId === selectedStudentRecordId);
-    if (student?.applicationNo || (student?.mappingStatus === "UNMAPPED" && student?.recordId)) {
-      openStudentProfileDialog({ documentObject, student, focusField: "profile-next-action" });
-    }
+    if (student?.recordId && studentWorkspaceData?.canWrite) openCandidateActivityDialog({ documentObject, entityType: "NEXT_ACTION" });
   });
   documentObject.getElementById("student-audit-open")?.addEventListener("click", () => {
     const student = studentWorkspaceData?.students.find((row) => row.recordId === selectedStudentRecordId);
@@ -426,6 +462,49 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-profile-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     saveStudentProfile({ globalObject, documentObject });
+  });
+  documentObject.getElementById("profile-school-id")?.addEventListener("change", (event) => {
+    const master = (studentWorkspaceData?.schoolMasters || []).find((row) => row.school_id === event.target?.value);
+    if (!master) return;
+    const school = documentObject.getElementById("profile-school");
+    const faculty = documentObject.getElementById("profile-faculty");
+    if (school) school.value = master.school_name || "";
+    if (faculty && !faculty.value.trim()) faculty.value = master.faculty_name || "";
+  });
+  documentObject.getElementById("candidate-contact-add")?.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType: "EVENT" }));
+  documentObject.getElementById("candidate-selection-add")?.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType: "SELECTION" }));
+  documentObject.getElementById("candidate-action-add")?.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType: "NEXT_ACTION" }));
+  documentObject.getElementById("activity-entity-type")?.addEventListener("change", () => refreshActivityForm(documentObject));
+  documentObject.getElementById("candidate-activity-cancel")?.addEventListener("click", () => {
+    documentObject.getElementById("candidate-activity-dialog")?.close?.();
+    activityDialogContext = null;
+  });
+  documentObject.getElementById("candidate-activity-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    saveCandidateActivity({ globalObject, documentObject });
+  });
+  documentObject.getElementById("fair-master-form")?.addEventListener("submit", (event) => {
+    event.preventDefault(); saveRecruitmentMaster({ globalObject, documentObject, entityType: "FAIR" });
+  });
+  documentObject.getElementById("school-master-form")?.addEventListener("submit", (event) => {
+    event.preventDefault(); saveRecruitmentMaster({ globalObject, documentObject, entityType: "SCHOOL" });
+  });
+  documentObject.getElementById("fair-master-reset")?.addEventListener("click", () => resetRecruitmentMasterForm(documentObject, "FAIR"));
+  documentObject.getElementById("school-master-reset")?.addEventListener("click", () => resetRecruitmentMasterForm(documentObject, "SCHOOL"));
+  documentObject.getElementById("fair-master-body")?.addEventListener("click", (event) => handleMasterTableAction({ globalObject, documentObject, event, entityType: "FAIR" }));
+  documentObject.getElementById("school-master-body")?.addEventListener("click", (event) => handleMasterTableAction({ globalObject, documentObject, event, entityType: "SCHOOL" }));
+  documentObject.getElementById("candidate-activity-deactivate")?.addEventListener("click", () => {
+    deactivateCandidateActivity({ globalObject, documentObject });
+  });
+  documentObject.getElementById("student-profile-deactivate")?.addEventListener("click", async () => {
+    const reason = documentObject.getElementById("profile-change-reason")?.value?.trim();
+    if (!profileDialogStudent?.recordId || !reason || !globalObject.confirm?.("この学生を無効化しますか？履歴から復元できます。")) return;
+    const client = createStagingCandidateClient({ globalObject });
+    const result = await client?.deactivate(profileDialogStudent.recordId, { expectedVersion: profileDialogStudent.profileVersion, reason });
+    if (!result?.ok) return setProfileStatus(documentObject, result?.category === "version_conflict" ? "他の更新があります。再読み込みしてください" : "無効化できませんでした", "stopped");
+    documentObject.getElementById("student-profile-dialog")?.close?.();
+    profileDialogStudent = null; studentWorkspaceData = null;
+    await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
   });
   documentObject.getElementById("summary-load-button")?.addEventListener("click", () => {
     loadTalentStudentWorkspace({ globalObject, documentObject });
@@ -454,7 +533,7 @@ export async function loadTalentStudentWorkspace({
   const reload = documentObject?.getElementById?.("student-reload");
   if (status) {
     status.dataset.state = "loading";
-    status.textContent = "匿名Mock候補者を読み込んでいます";
+    status.textContent = runtimeMode(globalObject) === "staging" ? "学生を読み込んでいます" : "確認用学生を読み込んでいます";
   }
   renderMockRuntimeState(documentObject, "loading");
   if (reload) {
@@ -478,6 +557,7 @@ export async function loadTalentStudentWorkspace({
     reload.setAttribute("aria-busy", "false");
   }
   if (result?.okBoolean !== true) {
+    handleNovHubSessionAuthFailure(result?.httpStatus);
     const presentation = renderMockRuntimeState(documentObject, result?.stopCategory);
     const message = presentation.title;
     if (status) {
@@ -495,7 +575,6 @@ export async function loadTalentStudentWorkspace({
   }
 
   studentWorkspaceData = result.data;
-  renderMockRuntimeState(documentObject, result.data.students.length ? "ready" : "empty");
   if (pendingSelectedApplicationNo) {
     selectedStudentRecordId = result.data.students.find(
       (student) => student.applicationNo === pendingSelectedApplicationNo
@@ -506,16 +585,44 @@ export async function loadTalentStudentWorkspace({
   if (!result.data.students.some((student) => student.recordId === selectedStudentRecordId)) {
     selectedStudentRecordId = first?.recordId || null;
   }
-  renderStudentMonthFilterOptions(documentObject, result.data.students);
-  renderStudentWorkspace(documentObject);
-  renderImportOverview(documentObject, result.data.overview);
-  renderHistoricalReviewSummary(documentObject, result.data.overview);
-  renderBulkTriageSummary(documentObject, result.data.students);
-  renderTalentAnalytics(documentObject);
-  renderTodayTasks(documentObject, result.data.todayTasks || []);
+  const renderResult = runTalentWorkspaceRenderPipeline({
+    logger: globalObject.console,
+    stages: [
+      { name: "renderStudentMonthFilterOptions", render: () => renderStudentMonthFilterOptions(documentObject, result.data.students) },
+      { name: "renderStudentWorkspace", render: () => renderStudentWorkspace(documentObject) },
+      { name: "renderImportOverview", render: () => renderImportOverview(documentObject, result.data.overview) },
+      { name: "renderHistoricalReviewSummary", render: () => renderHistoricalReviewSummary(documentObject, result.data.overview) },
+      { name: "renderBulkTriageSummary", render: () => renderBulkTriageSummary(documentObject, result.data.students) },
+      { name: "renderTalentTodayDashboard", render: () => renderTalentTodayDashboard(documentObject, graduationYearWorkspace(result.data)) },
+      { name: "renderTalentAnalytics", render: () => renderTalentAnalytics(documentObject) },
+      { name: "renderRecruitmentMasters", render: () => renderRecruitmentMasters(documentObject) },
+      { name: "renderTodayTasks", render: () => renderTodayTasks(documentObject, graduationYearWorkspace(result.data).todayTasks || []) },
+      { name: "renderUnlinkedInterviews", render: () => renderUnlinkedInterviews(documentObject, result.data.unlinkedSelectionHistory || [], globalObject) }
+    ]
+  });
+  if (!renderResult.ok) {
+    studentWorkspaceData = null;
+    renderCandidateWorkspaceFailure(documentObject);
+    if (status) {
+      status.dataset.state = "stopped";
+      status.textContent = CANDIDATE_RENDER_FAILURE_MESSAGE;
+    }
+    return Object.freeze({
+      executed: false,
+      studentRowsReturned: false,
+      stopCategory: "candidate_render_failed",
+      failedRenderStage: renderResult.failedStage,
+      requestCount: result.requestCount,
+      retryCount: result.retryCount
+    });
+  }
+  renderMockRuntimeState(documentObject, result.data.students.length ? "ready" : "empty");
+  if (runtimeMode(globalObject) === "staging") {
+    setStatus(documentObject, "ready", "運用データを表示中");
+  }
   if (status) {
     status.dataset.state = "ready";
-    status.textContent = `${result.data.students.length}件の匿名Mock候補者を表示`;
+    status.textContent = `${result.data.students.length}件の${runtimeMode(globalObject) === "staging" ? "" : "確認用"}学生を表示`;
   }
   return Object.freeze({
     executed: true,
@@ -536,6 +643,7 @@ export function resetTalentStudentWorkspaceForFixture() {
   activeHistoricalReviewStudent = null;
   profileDialogStudent = null;
   pendingSelectedApplicationNo = null;
+  selectedGraduationYear = "ALL";
 }
 
 function buildHistoricalReviewProposal(data) {
@@ -1085,23 +1193,24 @@ function renderImportOverview(documentObject, overview) {
     if (element) element.textContent = String(value);
   });
   const status = documentObject?.getElementById?.("import-overview-status");
-  if (status) status.textContent = "27卒・28卒の匿名サンプルデータ（実データは未使用）";
+  if (status) status.textContent = "27卒・28卒のStaging Candidate Dataset（read-only）";
 }
 
 function renderTalentAnalytics(documentObject) {
   if (!studentWorkspaceData) return;
-  const analytics = buildTalentAnalytics(studentWorkspaceData);
-  const decision = buildRecruitmentDashboardDecision(studentWorkspaceData, studentWorkspaceData.todayTasks);
+  const workspace = graduationYearWorkspace(studentWorkspaceData);
+  const analytics = buildTalentAnalytics(workspace);
+  const decision = buildRecruitmentDashboardDecision(workspace, workspace.todayTasks);
   renderRecruitmentDecision(documentObject, decision);
   renderMetricCollection(documentObject, "historical-summary-metrics", decision.metrics);
-  renderSummaryFollowUpCounts(documentObject, studentWorkspaceData.students);
+  renderSummaryFollowUpCounts(documentObject, workspace.students);
   renderAnalyticsCoverage(documentObject, analytics);
   const actionGuide = buildTalentAnalyticsActionGuide(analytics);
   renderTalentAnalyticsActionGuide(documentObject, actionGuide, buildTalentAnalyticsQueueHandoff(actionGuide));
   renderMonthlyFlow(documentObject, analytics.flow);
-  renderEventRoi(documentObject, buildEventRoiView(studentWorkspaceData));
+  renderEventRoi(documentObject, buildEventRoiView(workspace));
   renderSchoolAnalysis(documentObject, analytics.schools);
-  setText(documentObject, "historical-summary-status", `${studentWorkspaceData.students.length}件を集計`);
+  setText(documentObject, "historical-summary-status", `${workspace.students.length}件を集計`);
   setText(documentObject, "fair-analysis-status", `${analytics.flow.length}か月分を表示`);
   setText(documentObject, "school-analysis-status", `${analytics.schools.length}校を表示`);
 }
@@ -1301,10 +1410,7 @@ function createAnalysisRow(documentObject, values) {
   return row;
 }
 
-const TALENT_PROGRESS_CODES = Object.freeze([
-  "CONTACT", "LINE_REGISTERED", "SALON_TOUR", "INTERVIEW",
-  "PASSED", "OFFER", "EXPECTED_JOIN", "WITHDRAWN"
-]);
+const TALENT_PROGRESS_CODES = Object.freeze(Object.keys(CANDIDATE_STATUS_LABELS));
 
 export function getTalentStudentProgressKey(student) {
   const progress = String(student?.statusCode || "");
@@ -1320,8 +1426,8 @@ export function buildSchoolFollowUpFilter(school) {
 export function buildSummaryFollowUpFilter(key) {
   const filters = {
     contacts: { source: "CONTACTS_27" },
-    entries: { source: "ENTRIES_27" },
-    offers: { source: "OFFERS_27" },
+    entries: { progress: "APPLICATION_RECEIVED" },
+    offers: { progress: "OFFERED" },
     overdueFollowUp: { followUp: "OVERDUE" },
     nextWeekFollowUp: { followUp: "NEXT_7_DAYS" },
     needsAction: { state: "NEEDS_ACTION" }
@@ -1365,17 +1471,7 @@ const STUDENT_FILTER_LABELS = Object.freeze({
     NEW_CANDIDATE: "個別確認候補",
     NEEDS_ACTION: "要確認・隔離"
   }),
-  progress: Object.freeze({
-    UNSET: "進捗未登録",
-    CONTACT: "接触",
-    LINE_REGISTERED: "LINE登録",
-    SALON_TOUR: "サロン見学",
-    INTERVIEW: "面接",
-    PASSED: "通過",
-    OFFER: "内定",
-    EXPECTED_JOIN: "入社予定",
-    WITHDRAWN: "辞退・保留"
-  }),
+  progress: Object.freeze({ UNSET: "進捗未登録", ...CANDIDATE_STATUS_LABELS }),
   followUp: Object.freeze({
     OVERDUE: "期限超過",
     NEXT_7_DAYS: "7日以内",
@@ -1408,7 +1504,7 @@ export function buildOnboardingHandoffDraft(student) {
   if (!student || typeof student !== "object") return null;
   const displayName = typeof student.displayName === "string" ? student.displayName.trim() : "";
   const expectedJoinDate = String(student.expectedJoinDate || "");
-  if (!displayName || !student.applicationNo || !["OFFER", "EXPECTED_JOIN"].includes(student.statusCode)
+  if (!displayName || !student.applicationNo || !["OFFERED", "OFFER_ACCEPTED", "EXPECTED_JOIN"].includes(student.statusCode)
     || !/^\d{4}-\d{2}-\d{2}$/.test(expectedJoinDate)) return null;
   return Object.freeze({
     procedureType: "ONBOARDING",
@@ -1456,7 +1552,7 @@ export function buildStudentDailyOperation(student, capability = {}, referenceDa
       badge: "未選択",
       title: "学生を選択してください",
       copy: "一覧から対象を選ぶと、今日の更新・確認・引継ぎの順番を表示します。",
-      steps: ["学生一覧から対象を選択", "状態・確認事項・次回対応日を確認"]
+      steps: ["学生一覧から対象を選択", "状態・対応履歴・次回対応日を確認"]
     };
   }
   const followUp = classifyTalentStudentFollowUp(student, referenceDate);
@@ -1536,10 +1632,10 @@ export function buildStudentDailyCompletionChecklist(operation) {
   const category = operation?.category || "NO_SELECTION";
   const plans = Object.freeze({
     NO_SELECTION: Object.freeze({
-      title: "候補者を選択すると完了条件を表示します",
+      title: "学生を選択すると完了条件を表示します",
       copy: "一覧から1名を選択するまで、完了チェックは待機します。",
       steps: Object.freeze([
-        "一覧から候補者を1名選択する",
+        "一覧から学生を1名選択する",
         "編集前に確認区分を確かめる",
         "未選択のまま完了記録を残さない"
       ])
@@ -1562,7 +1658,7 @@ export function buildStudentDailyCompletionChecklist(operation) {
     OWNER_REVIEW: Object.freeze({
       title: "個別確認の判断を記録します",
       copy: "一括確認・個別確認・隔離維持を混ぜず、1名ずつ判断します。",
-      steps: Object.freeze(["この候補者の確認区分を選ぶ", "確認・差戻し・保留の結果を記録する", "判断できない場合は隔離を維持する"])
+      steps: Object.freeze(["この学生の確認区分を選ぶ", "確認・差戻し・保留の結果を記録する", "判断できない場合は隔離を維持する"])
     }),
     QUARANTINE_REVIEW: Object.freeze({
       title: "隔離理由と次の確認を記録します",
@@ -1571,8 +1667,8 @@ export function buildStudentDailyCompletionChecklist(operation) {
     }),
     CANONICAL_PROFILE_UPDATE: Object.freeze({
       title: "プロフィール更新履歴を確認します",
-      copy: "編集後に変更履歴を確認してから次の候補者へ進みます。",
-      steps: Object.freeze(["必要なプロフィール項目を保存する", "業務に影響する変更は履歴を開く", "取込元データは変更しない"])
+      copy: "編集後に変更履歴を確認してから次の学生へ進みます。",
+      steps: Object.freeze(["必要なプロフィール項目を保存する", "業務に影響する変更は履歴を開く", "過去の参照データは変更しない"])
     }),
     STAGING_SUPPLEMENT: Object.freeze({
       title: "補足記録の完了を確認します",
@@ -1806,6 +1902,7 @@ function renderStudentMonthFilterOptions(documentObject, students) {
 
 function renderStudentWorkspace(documentObject) {
   if (!studentWorkspaceData) return;
+  const cohortStudents = graduationYearWorkspace(studentWorkspaceData).students;
   const query = normalizeSearch(documentObject.getElementById("student-search")?.value);
   const source = documentObject.getElementById("student-source-filter")?.value || "ALL";
   const state = documentObject.getElementById("student-state-filter")?.value || "ALL";
@@ -1814,17 +1911,17 @@ function renderStudentWorkspace(documentObject) {
   const followUp = documentObject.getElementById("student-follow-up-filter")?.value || "ALL";
   const sort = documentObject.getElementById("student-sort-filter")?.value || "DEFAULT";
   const visible = sortTalentStudentsByFollowUp(
-    filterTalentStudents(studentWorkspaceData.students, { query, source, state, progress, month, followUp }),
+    filterTalentStudents(cohortStudents, { query, source, state, progress, month, followUp }),
     sort
   );
-  updateStudentQuickFilterState(documentObject, state, studentWorkspaceData.students);
+  updateStudentQuickFilterState(documentObject, state, cohortStudents);
   updateStudentFilterResetState(documentObject, { query, source, state, progress, month, followUp, sort });
   renderStudentFilterSummary(documentObject, buildStudentFilterSummary({ query, source, state, progress, month, followUp, sort }));
-  const dailyQueueSummary = buildStudentDailyQueueSummary(studentWorkspaceData.students);
+  const dailyQueueSummary = buildStudentDailyQueueSummary(cohortStudents);
   renderStudentDailyQueueSummary(documentObject, dailyQueueSummary);
   renderStudentDailyQueueStartGuide(documentObject, buildStudentDailyQueueStartGuide(dailyQueueSummary));
   renderStudentEmptyState(documentObject, {
-    total: studentWorkspaceData.students.length,
+    total: cohortStudents.length,
     visible: visible.length,
     hasActiveFilters: hasActiveStudentFilters({ query, source, state, progress, month, followUp, sort })
   });
@@ -1841,8 +1938,153 @@ function renderStudentWorkspace(documentObject) {
   }
   renderStudentDetail(
     documentObject,
-    studentWorkspaceData.students.find((student) => student.recordId === selectedStudentRecordId) || null
+    cohortStudents.find((student) => student.recordId === selectedStudentRecordId) || null
   );
+}
+
+export function normalizeGraduationYearFilter(value) {
+  const normalized = String(value || "ALL");
+  return ["2027", "2028"].includes(normalized) ? normalized : "ALL";
+}
+
+function updateGraduationYearSwitcher(documentObject) {
+  const selected = normalizeGraduationYearFilter(selectedGraduationYear);
+  for (const button of documentObject.querySelectorAll("[data-graduation-year]")) {
+    const active = button.dataset.graduationYear === selected;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  }
+  const label = selected === "ALL" ? "すべての卒業年度" : selected === "2027" ? "27卒" : "28卒";
+  setText(documentObject, "graduation-year-filter-status", `${label}を表示中`);
+  setText(documentObject, "recruitment-summary-title", selected === "ALL" ? "27卒・28卒 採用状況" : `${label} 採用状況`);
+}
+
+export function graduationYearWorkspace(workspace, graduationYear = selectedGraduationYear) {
+  const selected = normalizeGraduationYearFilter(graduationYear);
+  if (!workspace || selected === "ALL") return workspace;
+  const year = Number(selected);
+  const students = (Array.isArray(workspace.students) ? workspace.students : []).filter((student) => Number(student.graduationYear) === year);
+  const candidateIds = new Set(students.map((student) => student.recordId).filter(Boolean));
+  const fairIds = new Set(students.map((student) => student.fairId).filter(Boolean));
+  const schoolIds = new Set(students.map((student) => student.schoolId).filter(Boolean));
+  const schoolNames = new Set(students.map((student) => normalizeSearch(student.school)).filter(Boolean));
+  const hasCode = (student, code) => student.statusCode === code
+    || [...(student.selectionHistory || []), ...(student.eventHistory || []), ...(student.contactHistory || [])]
+      .some((item) => item.active !== false && item.code === code);
+  const count = (code) => students.filter((student) => hasCode(student, code)).length;
+  const today = new Date().toISOString().slice(0, 10);
+  const todayTasks = (Array.isArray(workspace.todayTasks) ? workspace.todayTasks : []).filter((task) => candidateIds.has(task.candidateId));
+  const schoolMasters = (Array.isArray(workspace.schoolMasters) ? workspace.schoolMasters : []).filter((master) => (
+    schoolIds.has(master.school_id) || schoolNames.has(normalizeSearch(master.school_name))
+  ));
+  const fairMasters = (Array.isArray(workspace.fairMasters) ? workspace.fairMasters : []).filter((master) => fairIds.has(master.fair_id));
+  const dashboard = Object.freeze({
+    ...(workspace.dashboard || {}),
+    candidateCount: students.length,
+    graduation2027: year === 2027 ? students.length : 0,
+    graduation2028: year === 2028 ? students.length : 0,
+    lineRegistrations: count("LINE_REGISTERED"),
+    salonTourPlanned: count("SALON_TOUR_PLANNED"),
+    salonTourCompleted: count("SALON_TOUR_COMPLETED"),
+    interviewPlanned: students.filter((student) => [...(student.eventHistory || []), ...(student.selectionHistory || [])]
+      .some((item) => item.active !== false && item.code === "INTERVIEW_PLANNED" && item.date >= today)).length,
+    interviewHistory: count("INTERVIEW_COMPLETED"),
+    entries: count("APPLICATION_RECEIVED"),
+    offers: count("OFFERED"),
+    offeredElsewhere: count("OFFERED_ELSEWHERE"),
+    withdrawals: count("WITHDRAWN"),
+    rejected: count("REJECTED"),
+    schoolCount: schoolMasters.length || new Set(students.map((student) => normalizeSearch(student.school)).filter(Boolean)).size,
+    fairCount: fairMasters.length,
+    todayActions: todayTasks.length,
+    eventCount: students.reduce((sum, student) => sum + (student.contactHistory || []).length + (student.eventHistory || []).length, 0)
+  });
+  const overview = Object.freeze({
+    ...(workspace.overview || {}),
+    total: students.length,
+    contacts: students.length,
+    entries: dashboard.entries,
+    offers: dashboard.offers,
+    mapped: students.length,
+    primaryCandidates: students.length,
+    ownerReview: students.filter((student) => student.classification === "OWNER_REVIEW").length,
+    quarantined: students.filter((student) => student.classification === "QUARANTINE").length
+  });
+  return Object.freeze({ ...workspace, students: Object.freeze(students), todayTasks: Object.freeze(todayTasks), schoolMasters: Object.freeze(schoolMasters), fairMasters: Object.freeze(fairMasters), dashboard, overview });
+}
+
+export function buildTalentTodayDashboard(workspace, referenceDate = localTalentDateIso()) {
+  const students = Array.isArray(workspace?.students) ? workspace.students : [];
+  const tasks = Array.isArray(workspace?.todayTasks) ? workspace.todayTasks : [];
+  const today = /^\d{4}-\d{2}-\d{2}$/u.test(referenceDate) ? referenceDate : localTalentDateIso();
+  const recentStart = new Date(`${today}T00:00:00Z`);
+  recentStart.setUTCDate(recentStart.getUTCDate() - 6);
+  const recentStartIso = recentStart.toISOString().slice(0, 10);
+  const activeRows = (student) => [
+    ...(student?.contactHistory || []),
+    ...(student?.eventHistory || []),
+    ...(student?.selectionHistory || []),
+    ...(student?.nextActions || [])
+  ].filter((row) => row?.active !== false);
+  const datedCode = (student, code, date = today) => activeRows(student)
+    .some((row) => row.code === code && row.date === date);
+  const incompleteAction = (row) => row?.active !== false
+    && !row?.completedAt
+    && !["COMPLETED", "DONE"].includes(String(row?.state || "").toUpperCase());
+  const taskRows = tasks.filter(incompleteAction);
+  const dueToday = taskRows.filter((row) => /^\d{4}-\d{2}-\d{2}$/u.test(String(row.date || "")) && row.date <= today);
+  const overdueIds = new Set(students.filter((student) => (
+    classifyTalentStudentFollowUp(student, today) === "OVERDUE"
+    || (student.nextActions || []).some((row) => incompleteAction(row) && /^\d{4}-\d{2}-\d{2}$/u.test(String(row.date || "")) && row.date < today)
+  )).map((student) => student.recordId));
+  const awaitingContactIds = new Set(students.filter((student) => (
+    (student.nextActions || []).some((row) => incompleteAction(row) && (
+      ["FOLLOW_UP", "CONTACT", "CONTACT_FOLLOW_UP"].includes(String(row.code || "").toUpperCase())
+      || /連絡|フォロー/u.test(String(row.label || ""))
+    ))
+    || (student.nextActionAt && /連絡|フォロー/u.test(String(student.nextActionLabel || "")))
+  )).map((student) => student.recordId));
+  const recentIds = new Set(students.filter((student) => {
+    const dates = [student.businessDate, student.lineRegistrationDate, ...activeRows(student).map((row) => row.date)]
+      .filter((date) => /^\d{4}-\d{2}-\d{2}$/u.test(String(date || "")));
+    return dates.some((date) => date >= recentStartIso && date <= today);
+  }).map((student) => student.recordId));
+  const newStudentIds = new Set(students.filter((student) => (
+    student.businessDate === today
+    || datedCode(student, "APPLICATION_RECEIVED")
+  )).map((student) => student.recordId));
+  const availability = workspace?.dashboard?.availability || {};
+  return Object.freeze({
+    actions: availability.todayActions === false ? null : dueToday.length,
+    overdue: overdueIds.size,
+    visits: availability.salonTourPlanned === false ? null : students.filter((student) => datedCode(student, "SALON_TOUR_PLANNED")).length,
+    interviews: availability.interviewPlanned === false ? null : students.filter((student) => datedCode(student, "INTERVIEW_PLANNED")).length,
+    awaitingContact: awaitingContactIds.size,
+    newStudents: newStudentIds.size,
+    recentStudents: recentIds.size,
+    referenceDate: today,
+    rawValuesIncluded: false
+  });
+}
+
+function renderTalentTodayDashboard(documentObject, workspace) {
+  const viewModel = buildTalentTodayDashboard(workspace);
+  const values = {
+    "today-dashboard-actions": viewModel.actions,
+    "today-dashboard-overdue": viewModel.overdue,
+    "today-dashboard-visits": viewModel.visits,
+    "today-dashboard-interviews": viewModel.interviews,
+    "today-dashboard-awaiting-contact": viewModel.awaitingContact,
+    "today-dashboard-new-students": viewModel.newStudents,
+    "today-dashboard-recent-students": viewModel.recentStudents
+  };
+  for (const [id, value] of Object.entries(values)) {
+    const element = documentObject?.getElementById?.(id);
+    if (!element) continue;
+    element.textContent = value === null ? "集計準備中" : `${value}件`;
+    element.closest?.("article")?.setAttribute?.("data-state", Number(value || 0) > 0 && ["today-dashboard-actions", "today-dashboard-overdue"].includes(id) ? "attention" : "ready");
+  }
+  setText(documentObject, "talent-today-dashboard-status", `${viewModel.referenceDate} 現在`);
 }
 
 export function buildStudentDailyQueueSummary(students = [], referenceDate = localTalentDateIso()) {
@@ -1853,7 +2095,7 @@ export function buildStudentDailyQueueSummary(students = [], referenceDate = loc
     if (followUp === "NEXT_7_DAYS") summary.nextWeek += 1;
     if (student?.classification === "OWNER_REVIEW") summary.ownerReview += 1;
     if (student?.classification === "QUARANTINE") summary.quarantine += 1;
-    if (student?.statusCode === "OFFER" || student?.expectedJoinDate) summary.onboardingReady += 1;
+    if (["OFFERED", "OFFER_ACCEPTED", "EXPECTED_JOIN"].includes(student?.statusCode) || student?.expectedJoinDate) summary.onboardingReady += 1;
     return summary;
   }, { overdue: 0, nextWeek: 0, ownerReview: 0, quarantine: 0, onboardingReady: 0 });
 
@@ -1861,27 +2103,15 @@ export function buildStudentDailyQueueSummary(students = [], referenceDate = loc
     ? "OVERDUE_FIRST"
     : counts.nextWeek > 0
       ? "NEXT_WEEK_FIRST"
-      : counts.ownerReview > 0
-        ? "OWNER_REVIEW_FIRST"
-        : counts.quarantine > 0
-          ? "QUARANTINE_REVIEW_FIRST"
-          : counts.onboardingReady > 0
-            ? "ONBOARDING_HANDOFF_READY"
-            : "STEADY_STATE";
+      : "STEADY_STATE";
   const copyByCategory = {
     OVERDUE_FIRST: ["期限超過から対応", "対応期限を過ぎた学生を先に開き、次回対応日と状態を更新します。"],
     NEXT_WEEK_FIRST: ["直近7日の予定を確認", "直近対応の学生を一覧化して、今日処理する順番を決めます。"],
-    OWNER_REVIEW_FIRST: ["要確認を整理", "一括承認できるものと個別確認が必要なものを分けます。"],
-    QUARANTINE_REVIEW_FIRST: ["隔離理由を確認", "隔離維持・追加確認・再判定のどれかを記録します。"],
-    ONBOARDING_HANDOFF_READY: ["入社手続きへ引き継ぎ", "内定・入社予定の学生を、現職者管理の入社案件へ安全に渡します。"],
     STEADY_STATE: ["通常フォローを継続", "検索・学校別・月別の導線から、次の対象を選びます。"]
   };
   const stepsByCategory = {
     OVERDUE_FIRST: [["OPEN_OVERDUE", "期限超過で絞り込み"], ["UPDATE_NEXT_ACTION", "次回対応日を更新"], ["LEAVE_AUDIT", "対応履歴を残す"]],
     NEXT_WEEK_FIRST: [["OPEN_NEXT_WEEK", "直近7日で絞り込み"], ["SORT_FOLLOW_UP", "対応期限順で確認"], ["SET_OWNER", "担当と状態を整える"]],
-    OWNER_REVIEW_FIRST: [["OPEN_OWNER_REVIEW", "要確認を開く"], ["SPLIT_DECISION", "一括・個別・隔離を分ける"], ["NO_PROMOTION", "昇格は別承認まで停止"]],
-    QUARANTINE_REVIEW_FIRST: [["OPEN_QUARANTINE", "隔離を開く"], ["CHECK_REASON", "理由と不足項目を確認"], ["KEEP_SAFE", "自動紐付けしない"]],
-    ONBOARDING_HANDOFF_READY: [["OPEN_OFFERS", "内定者を確認"], ["CHECK_JOIN_DATE", "入社予定と連絡状況を確認"], ["HANDOFF_WORKFORCE", "入社手続き案件へ引き継ぐ"]],
     STEADY_STATE: [["OPEN_ALL", "学生一覧を開く"], ["USE_ANALYTICS", "学校・月別分析から対象を選ぶ"], ["KEEP_DAILY_UPDATES", "状態と次回対応を更新"]]
   };
 
@@ -1906,20 +2136,11 @@ export function buildStudentDailyQueueStartGuide(summary = {}) {
   const counts = summary?.counts || {};
   const hasOverdue = Number(counts.overdue || 0) > 0;
   const hasNextWeek = Number(counts.nextWeek || 0) > 0;
-  const hasOwnerReview = Number(counts.ownerReview || 0) > 0;
-  const hasQuarantine = Number(counts.quarantine || 0) > 0;
-  const hasOnboarding = Number(counts.onboardingReady || 0) > 0;
   const category = hasOverdue
     ? "START_OVERDUE_FILTER"
     : hasNextWeek
       ? "START_NEXT_WEEK_FILTER"
-      : hasOwnerReview
-        ? "START_OWNER_REVIEW_FILTER"
-        : hasQuarantine
-          ? "START_QUARANTINE_FILTER"
-          : hasOnboarding
-            ? "START_ONBOARDING_HANDOFF"
-            : "START_STEADY_LIST";
+      : "START_STEADY_LIST";
   const guides = {
     START_OVERDUE_FILTER: {
       title: "まず期限超過だけ開く",
@@ -1934,27 +2155,6 @@ export function buildStudentDailyQueueStartGuide(summary = {}) {
       filterCategory: "FOLLOW_UP_NEXT_7_DAYS",
       buttonLabel: "直近7日を開く",
       steps: ["対応期限フィルタを直近7日にする", "並び順を対応期限順にする", "今日処理する対象だけ更新する"]
-    },
-    START_OWNER_REVIEW_FILTER: {
-      title: "要確認を安全に仕分ける",
-      copy: "一括反映・個別確認・隔離維持を混ぜず、要確認だけを開いて判断します。",
-      filterCategory: "STATE_OWNER_REVIEW",
-      buttonLabel: "要確認を開く",
-      steps: ["クイック表示で要確認を開く", "一括対象と個別確認を分ける", "承認が必要な操作は別導線に残す"]
-    },
-    START_QUARANTINE_FILTER: {
-      title: "隔離理由を先にそろえる",
-      copy: "不明・重複・根拠不足のまま自動紐付けせず、補足と次回対応だけを整理します。",
-      filterCategory: "STATE_QUARANTINE",
-      buttonLabel: "隔離を開く",
-      steps: ["クイック表示で隔離を開く", "不足理由を確認する", "隔離維持または追加確認を記録する"]
-    },
-    START_ONBOARDING_HANDOFF: {
-      title: "内定者の引き継ぎ準備を見る",
-      copy: "入社手続きへ渡せる候補を確認します。現職者管理への反映は別承認まで止めます。",
-      filterCategory: "ONBOARDING_HANDOFF",
-      buttonLabel: "入社引継ぎ候補を見る",
-      steps: ["内定・入社予定の学生を確認する", "入社予定日と配属予定を見る", "現職者管理の入社案件へ引き継ぐ"]
     },
     START_STEADY_LIST: {
       title: "通常フォローから始める",
@@ -1985,7 +2185,7 @@ export function buildStudentDailyQueueStartFilter(filterCategory = "ALL_STUDENTS
     FOLLOW_UP_NEXT_7_DAYS: Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "ALL", month: "ALL", followUp: "NEXT_7_DAYS", sort: "FOLLOW_UP" }),
     STATE_OWNER_REVIEW: Object.freeze({ query: "", source: "ALL", state: "OWNER_REVIEW", progress: "ALL", month: "ALL", followUp: "ALL", sort: "DEFAULT" }),
     STATE_QUARANTINE: Object.freeze({ query: "", source: "ALL", state: "QUARANTINE", progress: "ALL", month: "ALL", followUp: "ALL", sort: "DEFAULT" }),
-    ONBOARDING_HANDOFF: Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "OFFER", month: "ALL", followUp: "ALL", sort: "DEFAULT" }),
+    ONBOARDING_HANDOFF: Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "OFFERED", month: "ALL", followUp: "ALL", sort: "DEFAULT" }),
     ALL_STUDENTS: Object.freeze({ query: "", source: "ALL", state: "ALL", progress: "ALL", month: "ALL", followUp: "ALL", sort: "DEFAULT" })
   });
   const selected = plans[filterCategory] || plans.ALL_STUDENTS;
@@ -2043,7 +2243,7 @@ export function buildStudentEmptyState({ total = 0, visible = 0, hasActiveFilter
     return Object.freeze({
       visible: true,
       title: "表示できる学生データがまだありません",
-      copy: "27卒データの取込または手入力追加が完了すると、ここに学生一覧が表示されます。",
+      copy: "学生を追加すると、ここに学生一覧が表示されます。",
       canReset: false
     });
   }
@@ -2228,7 +2428,7 @@ function renderStudentDetail(documentObject, student) {
   setText(documentObject, "student-detail-state", student.classificationLabel);
   const state = documentObject.getElementById("student-detail-state");
   if (state) state.dataset.state = student.classification;
-  const editable = Boolean(student.applicationNo)
+  const editable = (stagingWriteEnabled(globalThis) && Boolean(student.recordId)) || Boolean(student.applicationNo)
     || (student.mappingStatus === "UNMAPPED" && Boolean(student.recordId));
   const editButton = documentObject.getElementById("student-edit-open");
   if (editButton) {
@@ -2246,7 +2446,7 @@ function renderStudentDetail(documentObject, student) {
   }
   const auditButton = documentObject.getElementById("student-audit-open");
   if (auditButton) {
-    const auditable = Boolean(student.applicationNo || student.supplementVersion);
+    const auditable = Boolean(student.recordId);
     auditButton.disabled = !auditable;
     auditButton.setAttribute("aria-disabled", String(!auditable));
     auditButton.title = auditable ? "情報の変更履歴を表示" : "編集可能な情報がありません";
@@ -2317,7 +2517,7 @@ function renderStudentDetail(documentObject, student) {
   const actionCapability = {
     hasCanonicalProfile: Boolean(student.applicationNo),
     hasSupplement: Boolean(student.supplementVersion),
-    editable: Boolean(student.applicationNo) || (student.mappingStatus === "UNMAPPED" && Boolean(student.recordId)),
+    editable,
     confirmable,
     onboardingReady: Boolean(onboardingDraft),
     mappingStatus: student.mappingStatus,
@@ -2359,7 +2559,7 @@ function renderStudentActionGuide(documentObject, capability) {
     copy.textContent = "編集は取込原本を変えず、選考状況を含む総務人事部の補足情報だけを保存します。紐付け確定後は正本側で編集できます。";
   } else {
     title.textContent = "取込原本は保護された状態です";
-    copy.textContent = "この行は取込データのため直接編集しません。紐付け後の正本プロフィール、または新規追加した学生情報を編集してください。";
+    copy.textContent = "この行は過去の参照データのため直接編集できません。利用中の学生プロフィール、または新しく追加した学生情報を編集してください。";
   }
   setStudentActionState(edit, capability.editable ? "編集: 利用できます" : "編集: 正本化後に利用", capability.editable);
   setStudentActionState(audit, capability.hasCanonicalProfile || capability.hasSupplement ? "履歴: 表示できます" : "履歴: 最初の保存後に表示", capability.hasCanonicalProfile || capability.hasSupplement);
@@ -2407,20 +2607,139 @@ function renderCandidateHistories(documentObject, student) {
   const summary = buildCandidateHistorySummary(student);
   setText(documentObject, "candidate-history-summary", `接触 ${summary.contactCount}件・イベント ${summary.eventCount}件・選考 ${summary.selectionCount}件`);
   const groups = [
-    ["candidate-contact-history", student?.contactHistory],
-    ["candidate-event-history", student?.eventHistory],
-    ["candidate-selection-history", student?.selectionHistory]
+    ["candidate-contact-history", student?.contactHistory, "EVENT"],
+    ["candidate-event-history", student?.eventHistory, "EVENT"],
+    ["candidate-selection-history", student?.selectionHistory, "SELECTION"],
+    ["candidate-next-action-history", student?.nextActions, "NEXT_ACTION"]
   ];
-  groups.forEach(([id, rows]) => {
+  groups.forEach(([id, rows, entityType]) => {
     const list = documentObject.getElementById(id);
     if (!list) return;
     const safeRows = Array.isArray(rows) ? rows.slice(0, 5) : [];
     list.replaceChildren(...(safeRows.length ? safeRows.map((row) => {
       const item = documentObject.createElement("li");
-      item.textContent = `${row.date || "日付未設定"} · ${row.label || "記録"}`;
+      const label = documentObject.createElement("span");
+      label.textContent = `${row.date || "日付未設定"} · ${row.label || "記録"}${row.state === "COMPLETED" ? " · 完了" : ""}${row.active === false ? " · 無効" : ""}`;
+      item.append(label);
+      if (studentWorkspaceData?.canWrite && row.id) {
+        if (entityType === "NEXT_ACTION" && row.active !== false && row.state === "OPEN") {
+          const complete = documentObject.createElement("button");
+          complete.type = "button";
+          complete.className = "history-edit-command";
+          complete.textContent = "完了";
+          complete.addEventListener("click", () => completeCandidateNextAction({ globalObject: globalThis, documentObject, row, student }));
+          item.append(complete);
+        }
+        const edit = documentObject.createElement("button");
+        edit.type = "button";
+        edit.className = "history-edit-command";
+        edit.textContent = row.active === false ? "復元" : "編集";
+        edit.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType, row }));
+        item.append(edit);
+      }
       return item;
     }) : [Object.assign(documentObject.createElement("li"), { textContent: "履歴はありません" })]));
   });
+}
+
+const ACTIVITY_CODE_OPTIONS = Object.freeze({
+  EVENT: Object.freeze([
+    ["CONTACT_RECORDED", "接触記録"], ["LINE_REGISTERED", "LINE登録"],
+    ["SALON_TOUR_PLANNED", "サロン見学［予定］"], ["SALON_TOUR_COMPLETED", "サロン見学［済］"],
+    ["INTERVIEW_PLANNED", "面接［予定］"], ["INTERVIEW_COMPLETED", "面接［済］"]
+  ]),
+  SELECTION: Object.freeze([
+    ["APPLICATION_RECEIVED", "応募"], ["SALON_TOUR_PLANNED", "見学予定"], ["SALON_TOUR_COMPLETED", "見学済み"],
+    ["INTERVIEW_PLANNED", "面接予定"], ["INTERVIEW_COMPLETED", "面接済み"], ["OFFERED", "内定"], ["OFFER_ACCEPTED", "内定承諾"],
+    ["OFFERED_ELSEWHERE", "他社内定"], ["WITHDRAWN", "辞退・離脱"], ["REJECTED", "不採用"], ["UNDER_REVIEW", "合否検討中"]
+  ]),
+  NEXT_ACTION: Object.freeze([
+    ["FOLLOW_UP", "次回対応"], ["SALON_TOUR_FOLLOW_UP", "見学フォロー"],
+    ["INTERVIEW_FOLLOW_UP", "面接フォロー"], ["OFFER_FOLLOW_UP", "内定フォロー"]
+  ])
+});
+
+function openCandidateActivityDialog({ documentObject, entityType, row = null }) {
+  const student = studentWorkspaceData?.students.find((item) => item.recordId === selectedStudentRecordId);
+  if (!student?.recordId || !studentWorkspaceData?.canWrite) return;
+  activityDialogContext = { student, entityType, row };
+  const type = documentObject.getElementById("activity-entity-type");
+  if (type) { type.value = entityType; type.disabled = Boolean(row); }
+  refreshActivityForm(documentObject);
+  const fields = {
+    "activity-date": row?.date || "", "activity-name": row?.label || "", "activity-content": row?.content || "",
+    "activity-assignee": row?.assignedTo || student.assignee || "", "activity-notes": row?.notes || "", "activity-reason": ""
+  };
+  Object.entries(fields).forEach(([id, value]) => { const input = documentObject.getElementById(id); if (input) input.value = value; });
+  const code = documentObject.getElementById("activity-code"); if (code && row?.code) code.value = row.code;
+  const state = documentObject.getElementById("activity-state"); if (state && row?.state) state.value = row.state;
+  setText(documentObject, "candidate-activity-dialog-title", row ? "履歴を編集" : "履歴を追加");
+  setText(documentObject, "candidate-activity-status", "必要事項を入力してください");
+  const deactivate = documentObject.getElementById("candidate-activity-deactivate");
+  if (deactivate) {
+    deactivate.hidden = !row;
+    deactivate.textContent = row?.active === false ? "理由付きで復元" : "理由付きで無効化";
+  }
+  const save = documentObject.getElementById("candidate-activity-save");
+  if (save) save.hidden = row?.active === false;
+  documentObject.getElementById("candidate-activity-dialog")?.showModal?.();
+}
+
+function refreshActivityForm(documentObject) {
+  const type = documentObject.getElementById("activity-entity-type")?.value || activityDialogContext?.entityType || "EVENT";
+  if (activityDialogContext) activityDialogContext.entityType = type;
+  const select = documentObject.getElementById("activity-code");
+  if (select) select.replaceChildren(...ACTIVITY_CODE_OPTIONS[type].map(([value, label]) => Object.assign(documentObject.createElement("option"), { value, textContent: label })));
+  const eventState = documentObject.getElementById("activity-state-field"); if (eventState) eventState.hidden = type !== "EVENT";
+  setText(documentObject, "activity-date-label", type === "NEXT_ACTION" ? "次回対応日（未定は空欄）" : "実施日・予定日 *");
+  const date = documentObject.getElementById("activity-date"); if (date) date.required = type !== "NEXT_ACTION";
+}
+
+async function saveCandidateActivity({ globalObject, documentObject }) {
+  const form = documentObject.getElementById("candidate-activity-form");
+  if (!form?.reportValidity?.() || !activityDialogContext?.student?.recordId) return;
+  const { student, entityType, row } = activityDialogContext;
+  const payload = {
+    entityType, operation: row ? "UPDATE" : "CREATE", entityId: row?.id || null, expectedVersion: row?.version || null,
+    candidateId: student.recordId, code: documentObject.getElementById("activity-code")?.value,
+    date: documentObject.getElementById("activity-date")?.value || null, name: documentObject.getElementById("activity-name")?.value || null,
+    state: entityType === "EVENT" ? documentObject.getElementById("activity-state")?.value : entityType === "NEXT_ACTION" ? "OPEN" : null,
+    content: documentObject.getElementById("activity-content")?.value || null, assignedTo: documentObject.getElementById("activity-assignee")?.value || null,
+    notes: documentObject.getElementById("activity-notes")?.value || null, reason: documentObject.getElementById("activity-reason")?.value || ""
+  };
+  if (!globalObject.confirm?.(row ? "履歴を更新しますか？" : "履歴を追加しますか？")) return;
+  setText(documentObject, "candidate-activity-status", "保存しています");
+  const result = await createStagingCandidateClient({ globalObject })?.mutateActivity(payload);
+  if (!result?.ok) return setText(documentObject, "candidate-activity-status", result?.category === "version_conflict" ? "他の更新があります。再読み込みしてください" : "保存できませんでした");
+  documentObject.getElementById("candidate-activity-dialog")?.close?.();
+  activityDialogContext = null; studentWorkspaceData = null;
+  await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
+}
+
+async function deactivateCandidateActivity({ globalObject, documentObject }) {
+  const context = activityDialogContext;
+  const reason = documentObject.getElementById("activity-reason")?.value?.trim();
+  const restoring = context?.row?.active === false;
+  const confirmation = restoring ? "この履歴を復元しますか？" : "この履歴を無効化しますか？物理削除はしません。";
+  if (!context?.row?.id || !reason || !globalObject.confirm?.(confirmation)) return;
+  const result = await createStagingCandidateClient({ globalObject })?.mutateActivity({
+    entityType: context.entityType, operation: restoring ? "RESTORE" : "DEACTIVATE", entityId: context.row.id,
+    expectedVersion: context.row.version, candidateId: context.student.recordId, reason
+  });
+  if (!result?.ok) return setText(documentObject, "candidate-activity-status", restoring ? "復元できませんでした" : "無効化できませんでした");
+  documentObject.getElementById("candidate-activity-dialog")?.close?.(); activityDialogContext = null; studentWorkspaceData = null;
+  await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
+}
+
+async function completeCandidateNextAction({ globalObject, documentObject, row, student }) {
+  if (!row?.id || !student?.recordId || !globalObject.confirm?.("この次回対応を完了にしますか？")) return;
+  const result = await createStagingCandidateClient({ globalObject })?.mutateActivity({
+    entityType: "NEXT_ACTION", operation: "COMPLETE", entityId: row.id,
+    expectedVersion: row.version, candidateId: student.recordId, reason: "次回対応の完了確認"
+  });
+  if (!result?.ok) return;
+  studentWorkspaceData = null;
+  await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
 }
 
 function renderStudentDailyOperation(documentObject, operation) {
@@ -2465,7 +2784,7 @@ const PROFILE_FIELD_LABELS = Object.freeze({
 });
 
 async function openStudentAuditDialog({ globalObject, documentObject, student }) {
-  if (!student?.applicationNo && !student?.supplementVersion) return;
+  if (!student?.recordId) return;
   auditDialogStudent = student;
   const status = documentObject.getElementById("student-audit-status");
   const body = documentObject.getElementById("student-audit-body");
@@ -2475,46 +2794,35 @@ async function openStudentAuditDialog({ globalObject, documentObject, student })
   }
   if (body) body.replaceChildren();
   documentObject.getElementById("student-audit-dialog")?.showModal?.();
-  const executor = student.applicationNo
-    ? createTalentStudentProfileAuditExact1Executor({
-      applicationNo: student.applicationNo,
-      globalObject,
-      hubSessionHelper: globalObject.NovHubSession,
-      hubContract: globalObject.NOV_HUB_SESSION_CONTRACT || NOV_HUB_SESSION_CONTRACT
-    })
-    : createTalentStagingSupplementAuditExact1Executor({
-      stagingRecordId: student.recordId,
-      globalObject,
-      hubSessionHelper: globalObject.NovHubSession,
-      hubContract: globalObject.NOV_HUB_SESSION_CONTRACT || NOV_HUB_SESSION_CONTRACT
-    });
-  const result = executor ? await executor.run() : null;
+  const result = await createStagingCandidateClient({ globalObject })?.audit(student.recordId);
   if (!auditDialogStudent || auditDialogStudent.recordId !== student.recordId) return;
-  if (result?.okBoolean !== true) {
+  if (result?.ok !== true) {
     if (status) {
       status.dataset.state = "stopped";
-      status.textContent = result?.stopCategory === "auth_required"
+      status.textContent = result?.category === "auth_required"
         ? "HUBへ再ログインしてください"
         : "変更履歴を取得できません";
     }
     return;
   }
+  const allEntries = [...(result.data.entries || []), ...(result.data.activityEntries || [])]
+    .sort((left, right) => String(right.occurred_at || "").localeCompare(String(left.occurred_at || "")));
   if (status) {
     status.dataset.state = "ready";
-    status.textContent = `${result.data.entries.length}件の変更履歴`;
+    status.textContent = `${allEntries.length}件の変更履歴`;
   }
   if (body) {
-    body.replaceChildren(...result.data.entries.map((entry) => {
+    body.replaceChildren(...allEntries.map((entry) => {
       const row = documentObject.createElement("tr");
       const action = documentObject.createElement("th");
       action.scope = "row";
-      action.textContent = entry.action === "CREATE" ? "作成" : "更新";
+      action.textContent = `${entry.entity_type ? `${activityTypeLabel(entry.entity_type)}・` : ""}${entry.action === "CREATE" ? "作成" : entry.action === "DEACTIVATE" ? "無効化" : entry.action === "RESTORE" ? "復元" : entry.action === "COMPLETE" ? "完了" : "更新"}`;
       const fields = documentObject.createElement("td");
-      fields.textContent = entry.changedFields.map((field) => PROFILE_FIELD_LABELS[field] || "変更項目").join("、");
+      fields.textContent = (entry.changed_fields || []).map((field) => PROFILE_FIELD_LABELS[field] || "学生情報").join("、");
       const version = documentObject.createElement("td");
-      version.textContent = `v${entry.profileVersion || entry.supplementVersion}`;
+      version.textContent = `v${entry.candidate_version || entry.entity_version}`;
       const occurredAt = documentObject.createElement("td");
-      occurredAt.textContent = formatAuditDate(entry.occurredAt);
+      occurredAt.textContent = formatAuditDate(entry.occurred_at);
       row.append(action, fields, version, occurredAt);
       return row;
     }));
@@ -2533,79 +2841,104 @@ function formatAuditDate(value) {
 function openStudentProfileDialog({ documentObject, student, focusField = "profile-display-name" }) {
   profileDialogStudent = student;
   const stagingEdit = Boolean(student && !student.applicationNo && student.recordId);
-  setText(documentObject, "student-profile-dialog-title", stagingEdit ? "staging補足情報を編集" : student ? "学生情報を編集" : "学生を追加");
+  setText(documentObject, "student-profile-dialog-title", student ? "学生情報を編集" : "学生を追加");
   const fields = {
+    "profile-graduation-year": student?.graduationYear || 2028,
     "profile-display-name": student?.displayName || "",
     "profile-kana": student?.kana || "",
     "profile-school": student?.school || "",
     "profile-phone": student?.phone || "",
     "profile-email": student?.email || "",
-    "profile-store": student?.preferredStore || "",
-    "profile-offer-date": student?.offerDate || "",
-    "profile-expected-join-date": student?.expectedJoinDate || "",
-    "profile-planned-store": student?.plannedStore || "",
-    "profile-status": student?.statusCode || "CONTACT",
-    "profile-next-action": student?.nextActionAt || "",
+    "profile-faculty": student?.faculty || "",
+    "profile-line": student?.lineIdentifier || "",
+    "profile-source": student?.acquisitionSource || "",
+    "profile-assignee": student?.assignee || "",
+    "profile-notes": student?.notes || "",
+    "profile-status": student?.statusCode || "LINE_REGISTERED",
+    "profile-change-reason": "",
   };
   Object.entries(fields).forEach(([id, value]) => {
     const input = documentObject.getElementById(id);
     if (input) input.value = value;
   });
+  populateCandidateMasterOptions(documentObject, student);
   const status = documentObject.getElementById("student-profile-status");
   if (status) {
     status.dataset.state = "idle";
     status.textContent = student
-      ? stagingEdit ? "staging補足情報を確認して保存してください" : "変更内容を確認して保存してください"
+      ? "変更内容と更新理由を確認して保存してください"
       : "必要事項を入力してください";
   }
   documentObject.getElementById("student-profile-dialog")?.showModal?.();
+  const deactivate = documentObject.getElementById("student-profile-deactivate");
+  if (deactivate) deactivate.hidden = !student;
   documentObject.getElementById(focusField)?.focus?.();
 }
 
 async function saveStudentProfile({ globalObject, documentObject }) {
   const form = documentObject.getElementById("student-profile-form");
   if (!form?.reportValidity?.()) return;
+  const payload = {
+    expectedVersion: profileDialogStudent?.profileVersion || undefined,
+    graduationYear: Number(documentObject.getElementById("profile-graduation-year")?.value),
+    displayName: documentObject.getElementById("profile-display-name")?.value || "",
+    kana: documentObject.getElementById("profile-kana")?.value || "",
+    school: documentObject.getElementById("profile-school")?.value || "",
+    faculty: documentObject.getElementById("profile-faculty")?.value || "",
+    phone: documentObject.getElementById("profile-phone")?.value || "",
+    email: documentObject.getElementById("profile-email")?.value || "",
+    lineIdentifier: documentObject.getElementById("profile-line")?.value || "",
+    currentStatus: documentObject.getElementById("profile-status")?.value || "",
+    acquisitionSource: documentObject.getElementById("profile-source")?.value || "",
+    assignedTo: documentObject.getElementById("profile-assignee")?.value || "",
+    notes: documentObject.getElementById("profile-notes")?.value || "",
+    changeReason: documentObject.getElementById("profile-change-reason")?.value || "",
+  };
+  const stagingEdit = Boolean(profileDialogStudent?.recordId);
+  if (!globalObject.confirm?.(stagingEdit
+    ? "入力内容で学生情報を更新します。よろしいですか？"
+    : "入力内容で学生を登録します。よろしいですか？")) return;
   const saveButton = documentObject.getElementById("student-profile-save");
   const status = documentObject.getElementById("student-profile-status");
   if (saveButton) {
     saveButton.disabled = true;
     saveButton.setAttribute("aria-busy", "true");
   }
-  const payload = {
-    applicationNo: profileDialogStudent?.applicationNo || null,
-    expectedVersion: profileDialogStudent?.profileVersion || 0,
-    displayName: documentObject.getElementById("profile-display-name")?.value || "",
-    kana: documentObject.getElementById("profile-kana")?.value || "",
-    school: documentObject.getElementById("profile-school")?.value || "",
-    phone: documentObject.getElementById("profile-phone")?.value || "",
-    email: documentObject.getElementById("profile-email")?.value || "",
-    preferredStore: documentObject.getElementById("profile-store")?.value || "",
-    currentStatus: documentObject.getElementById("profile-status")?.value || "CONTACT",
-    nextActionAt: documentObject.getElementById("profile-next-action")?.value || "",
-    offerDate: documentObject.getElementById("profile-offer-date")?.value || "",
-    expectedJoinDate: documentObject.getElementById("profile-expected-join-date")?.value || "",
-    plannedStore: documentObject.getElementById("profile-planned-store")?.value || "",
-  };
-  const stagingEdit = Boolean(profileDialogStudent && !profileDialogStudent.applicationNo && profileDialogStudent.recordId);
+  const client = createStagingCandidateClient({ globalObject });
+  const duplicateResult = await client?.checkDuplicates({ ...payload, candidateId: profileDialogStudent?.recordId || null });
+  if (!duplicateResult?.ok) {
+    if (saveButton) {
+      saveButton.disabled = false;
+      saveButton.setAttribute("aria-busy", "false");
+    }
+    if (status) {
+      status.dataset.state = "stopped";
+      status.textContent = "重複候補を確認できませんでした。保存は行っていません。";
+    }
+    return;
+  }
+  const duplicateCount = Number(duplicateResult.data?.matchCount || 0);
+  if (duplicateCount > 0 && !globalObject.confirm?.(`重複候補が${duplicateCount}件あります。自動統合せず、別の学生として保存しますか？`)) {
+    if (saveButton) {
+      saveButton.disabled = false;
+      saveButton.setAttribute("aria-busy", "false");
+    }
+    if (status) {
+      status.dataset.state = "idle";
+      status.textContent = "重複候補を確認するため保存を中止しました。";
+    }
+    return;
+  }
   if (status) {
     status.dataset.state = "loading";
-    status.textContent = stagingEdit ? "staging補足情報を保存しています" : "正本プロフィールへ保存しています";
+    status.textContent = stagingEdit ? "学生情報を更新しています" : "学生を登録しています";
   }
-  const controller = stagingEdit
-    ? createTalentStagingSupplementController({ globalObject })
-    : createTalentStudentProfileController({ globalObject });
-  if (stagingEdit) {
-    delete payload.applicationNo;
-    delete payload.profileVersion;
-    payload.stagingRecordId = profileDialogStudent.recordId;
-    payload.expectedVersion = profileDialogStudent.supplementVersion || 0;
-  }
-  const result = await controller.save(payload);
+  const result = stagingEdit ? await client?.update(profileDialogStudent.recordId, payload) : await client?.create(payload);
   if (saveButton) {
     saveButton.disabled = false;
     saveButton.setAttribute("aria-busy", "false");
   }
-  if (!result.ok) {
+  if (!result?.ok) {
     if (status) {
       status.dataset.state = "stopped";
       status.textContent = result.category === "auth_required"
@@ -2616,12 +2949,20 @@ async function saveStudentProfile({ globalObject, documentObject }) {
     }
     return;
   }
-  pendingSelectedApplicationNo = result.data.applicationNo || null;
+  const savedCandidateId = profileDialogStudent?.recordId || result.data?.candidate_id || result.data?.candidateId;
+  const savedVersion = result.data?.candidate_version || result.data?.candidateVersion;
+  const masterResult = savedCandidateId && savedVersion ? await client?.linkMasters(savedCandidateId, {
+    expectedVersion: Number(savedVersion), schoolId: documentObject.getElementById("profile-school-id")?.value || null,
+    fairId: documentObject.getElementById("profile-fair-id")?.value || null, reason: payload.changeReason
+  }) : { ok: true };
+  if (!masterResult?.ok) {
+    if (status) { status.dataset.state = "stopped"; status.textContent = "学生情報は保存しましたが、学校・フェアの紐付けに失敗しました。再読み込みして編集してください。"; }
+    studentWorkspaceData = null; await loadTalentStudentWorkspace({ globalObject, documentObject, force: true }); return;
+  }
+  pendingSelectedApplicationNo = null;
   if (status) {
     status.dataset.state = "ready";
-    status.textContent = stagingEdit
-      ? "staging補足情報を保存しました"
-      : result.data.operation === "CREATE" ? "学生を追加しました" : "学生情報を更新しました";
+    status.textContent = stagingEdit ? "学生情報を更新しました" : "学生を追加しました";
   }
   documentObject.getElementById("student-profile-dialog")?.close?.();
   profileDialogStudent = null;
@@ -2647,27 +2988,6 @@ function formatSafeCategoryLabel(category) {
     PASS: "確認済み",
     NOT_EVALUATED: "未確認"
   })[String(category || "")] || "確認中";
-}
-
-function announceDailyCommandRoute(documentObject, target, message) {
-  const normalized = ["students", "workforce", "csv28"].includes(target) ? target : "";
-  for (const item of documentObject?.querySelectorAll?.("[data-talent-daily-open]") || []) {
-    item.setAttribute("aria-pressed", String(item.dataset.talentDailyOpen === normalized));
-  }
-  const status = documentObject?.getElementById?.("talent-daily-command-status");
-  if (!status) return;
-  status.dataset.category = normalized === "students"
-    ? "ROUTE_STUDENTS"
-    : normalized === "workforce" ? "ROUTE_WORKFORCE" : normalized === "csv28" ? "ROUTE_CSV28" : "NO_ROUTE_SELECTED";
-  status.textContent = message || "開始位置を選択しました。";
-}
-
-function focusDailyCommandTarget(documentObject, id) {
-  const target = documentObject?.getElementById?.(id);
-  if (!target) return;
-  target.scrollIntoView?.({ behavior: "smooth", block: "center" });
-  if (!target.hasAttribute?.("tabindex")) target.setAttribute?.("tabindex", "-1");
-  target.focus?.({ preventScroll: true });
 }
 
 function normalizeSearch(value) {
@@ -2763,8 +3083,22 @@ function setStatus(documentObject, state, text) {
   const connectionLabel = documentObject?.getElementById?.("connection-label");
   if (connection) connection.dataset.state = state;
   if (connectionLabel) {
-    connectionLabel.textContent = state === "ready" ? "Mock Runtime" : state === "stopped" ? "Mock Runtime停止" : "Mock Runtime準備中";
+    const label = runtimeMode(globalThis) === "staging" ? "運用データ" : "確認用データ";
+    connectionLabel.textContent = state === "ready" ? label : state === "stopped" ? `${label}停止` : `${label}準備中`;
   }
+}
+
+function activityTypeLabel(value) {
+  return ({ EVENT: "接触・イベント", SELECTION: "選考", NEXT_ACTION: "次回対応", SOURCE_FACT: "未紐付け履歴" })[value] || "採用履歴";
+}
+
+function setProfileStatus(documentObject, text, state = "idle") {
+  const status = documentObject.getElementById("student-profile-status");
+  if (status) { status.textContent = text; status.dataset.state = state; }
+}
+
+function runtimeMode(globalObject = globalThis) {
+  return String(globalObject?.NOV_TALENT_CONFIG?.runtimeMode || "mock") === "staging" ? "staging" : "mock";
 }
 
 function bindTabGroup({ buttons, validKeys, panelFor, onSelect }) {
@@ -2834,16 +3168,71 @@ function safeMessage(category, requestCount = 0) {
   return messages[category] || messages.safe_stop;
 }
 
+export function configureTalentOperationUi(documentObject, accessProfile) {
+  const isAdministrator = accessProfile === "full";
+  const canWriteCandidates = ["full", "recruiter"].includes(accessProfile);
+  const managementTab = documentObject?.querySelector?.("[data-talent-management-tab]");
+  const managementPanel = documentObject?.getElementById?.("recruitment-management");
+  const managementSections = [...(documentObject?.querySelectorAll?.("[data-management-section]") || [])];
+
+  if (managementTab) managementTab.hidden = !isAdministrator;
+  if (managementPanel) managementPanel.hidden = true;
+  for (const section of managementSections) {
+    section.hidden = !isAdministrator;
+  }
+  for (const item of documentObject?.querySelectorAll?.("[data-talent-write-only]") || []) {
+    item.hidden = !canWriteCandidates;
+  }
+
+  const backButton = documentObject?.querySelector?.("[data-management-back]");
+  if (backButton && !backButton.dataset.bound) {
+    backButton.dataset.bound = "true";
+    backButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      documentObject?.querySelector?.('[data-secondary-tab="summary"]')?.click?.();
+    });
+  }
+
+  for (const button of documentObject?.querySelectorAll?.("[data-management-open-tab]") || []) {
+    if (button.dataset.bound) continue;
+    button.dataset.bound = "true";
+    button.addEventListener("click", () => {
+      const tab = documentObject?.querySelector?.(`[data-secondary-tab="${button.dataset.managementOpenTab}"]`);
+      tab?.click?.();
+    });
+  }
+
+  return Object.freeze({
+    managementVisible: isAdministrator,
+    candidateWriteVisible: canWriteCandidates,
+    managementSectionCount: managementSections.length,
+    managementTierCount: documentObject?.querySelectorAll?.("[data-management-tier-content]")?.length || 0
+  });
+}
+
 function initializeTalentApp() {
   const authorization = installNovTalentAuthGuard();
   if (!authorization.allowed) return authorization;
+  configureTalentOperationUi(globalThis.document, authorization.access?.profile);
+  enableStagingWriteControls(globalThis.document, authorization.access?.profile);
   initializeTalentStudentWorkspace();
   initializeTalentNavigation();
   const summaryControl = initializeTalentSummaryControl();
-  initializeTalent28CsvPreflight();
+  if (authorization.access?.profile === "full") initializeTalent28CsvPreflight();
   loadTalentStudentWorkspace();
   summaryControl.run?.();
   return authorization;
+}
+
+function enableStagingWriteControls(documentObject, accessProfile) {
+  if (!stagingWriteEnabled(globalThis)) return;
+  const canWrite = ["full", "recruiter"].includes(accessProfile);
+  for (const id of ["student-add-open", "student-edit-open", "candidate-history-actions"]) {
+    const button = documentObject.getElementById(id);
+    if (button && canWrite) { button.hidden = false; button.classList.remove("sprint1-mock-write"); }
+  }
+  const audit = documentObject.getElementById("student-audit-open");
+  if (audit) { audit.hidden = false; audit.classList.remove("sprint1-mock-write"); }
 }
 
 function renderTodayTasks(documentObject, tasks) {
@@ -2851,7 +3240,13 @@ function renderTodayTasks(documentObject, tasks) {
   const status = documentObject?.getElementById?.("today-task-status");
   if (!list) return;
   const rows = buildRecruitmentTaskBoard(tasks);
-  if (status) status.textContent = rows.length ? `${rows.length}件を優先表示` : "今日の優先タスクはありません";
+  if (status) {
+    const available = studentWorkspaceData?.dashboard?.availability?.todayActions === true;
+    const undated = Number(studentWorkspaceData?.dashboard?.undatedActions || 0);
+    status.textContent = rows.length ? `${rows.length}件を優先表示`
+      : !available ? "集計準備中"
+        : undated ? `対応日未登録 ${undated}件` : "今日の対応は0件です";
+  }
   list.replaceChildren(...rows.map((task) => {
     const item = documentObject.createElement("li");
     const button = documentObject.createElement("button");
@@ -2867,6 +3262,147 @@ function renderTodayTasks(documentObject, tasks) {
     item.append(button);
     return item;
   }));
+}
+
+function renderUnlinkedInterviews(documentObject, rows, globalObject) {
+  const list = documentObject.getElementById("unlinked-interview-list");
+  const status = documentObject.getElementById("unlinked-interview-status");
+  if (!list) return;
+  const safeRows = Array.isArray(rows) ? rows : [];
+  if (status) status.textContent = safeRows.length ? `${safeRows.length}件の人間確認が必要です` : "未紐付け履歴はありません";
+  list.replaceChildren(...safeRows.map((row) => {
+    const item = documentObject.createElement("article");
+    const text = documentObject.createElement("div");
+    const title = documentObject.createElement("strong"); title.textContent = `27卒正本・行${row.sourceRowNo}`;
+    const detail = documentObject.createElement("span"); detail.textContent = `${row.date || "日付未登録"} · ${row.label || "面接履歴"}`;
+    text.append(title, detail); item.append(text);
+    if (studentWorkspaceData?.canWrite) {
+      const button = documentObject.createElement("button"); button.type = "button"; button.className = "secondary-command compact-command";
+      button.textContent = "選択中の学生へ紐付け";
+      button.disabled = !selectedStudentRecordId;
+      button.addEventListener("click", async () => {
+        if (!selectedStudentRecordId || !globalObject.confirm?.("正本と学生を確認し、この面接履歴を紐付けますか？")) return;
+        const result = await createStagingCandidateClient({ globalObject })?.linkUnlinkedSelection({
+          candidateId: selectedStudentRecordId, sourceType: row.sourceType, sourceRowNo: row.sourceRowNo,
+          factCode: row.code, expectedVersion: row.version, reason: "正本と学生の人間確認による紐付け"
+        });
+        if (!result?.ok) { if (status) status.textContent = "紐付けできませんでした。再読み込みしてください"; return; }
+        studentWorkspaceData = null;
+        await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
+      });
+      item.append(button);
+    }
+    return item;
+  }));
+}
+
+function populateCandidateMasterOptions(documentObject, student) {
+  const replace = (id, masters, valueKey, labelKey, selected) => {
+    const select = documentObject.getElementById(id); if (!select) return;
+    const empty = documentObject.createElement("option"); empty.value = ""; empty.textContent = "未設定";
+    select.replaceChildren(empty, ...masters.filter((row) => row.is_active !== false).map((row) => {
+      const option = documentObject.createElement("option"); option.value = row[valueKey]; option.textContent = row[labelKey]; return option;
+    })); select.value = selected || "";
+  };
+  replace("profile-school-id", studentWorkspaceData?.schoolMasters || [], "school_id", "school_name", student?.schoolId);
+  replace("profile-fair-id", studentWorkspaceData?.fairMasters || [], "fair_id", "fair_name", student?.fairId);
+}
+
+function renderRecruitmentMasters(documentObject) {
+  const workspace = studentWorkspaceData || {};
+  const canWrite = workspace.canWrite === true;
+  for (const id of ["fair-master-form", "school-master-form"]) {
+    const form = documentObject.getElementById(id); if (form) form.hidden = !canWrite;
+  }
+  renderFairMasters(documentObject, Array.isArray(workspace.fairMasters) ? workspace.fairMasters : []);
+  renderSchoolMasters(documentObject, Array.isArray(workspace.schoolMasters) ? workspace.schoolMasters : []);
+}
+
+function renderFairMasters(documentObject, masters) {
+  const body = documentObject.getElementById("fair-master-body"); if (!body) return;
+  body.replaceChildren(...masters.map((fair) => {
+    const row = documentObject.createElement("tr"); if (fair.is_active === false) row.className = "master-row-inactive";
+    const contacts = Number(fair.contact_count || 0), hires = Number(fair.hire_count || 0), fee = Number(fair.participation_fee || 0);
+    const rate = contacts ? `${((hires / contacts) * 100).toFixed(1)}%` : "-";
+    const cost = hires ? `${Math.round(fee / hires).toLocaleString("ja-JP")}円` : "-";
+    row.innerHTML = `<td>${escapeHtml(fair.fair_name)}</td><td>${escapeHtml(fair.event_date)}</td><td>${escapeHtml(fair.assigned_to || "未設定")}</td><td>${contacts}</td><td>${Number(fair.offer_count || 0)}</td><td>${hires}</td><td>${rate}</td><td>${cost}</td><td></td>`;
+    const cell = row.lastElementChild;
+    if (studentWorkspaceData?.canWrite) cell.append(masterActionButton(documentObject, "編集", "edit", fair.fair_id), masterActionButton(documentObject, fair.is_active === false ? "復元" : "無効化", fair.is_active === false ? "restore" : "deactivate", fair.fair_id));
+    return row;
+  }));
+  const status = documentObject.getElementById("fair-master-status"); if (status) status.textContent = `${masters.filter((row) => row.is_active !== false).length}件のフェアを表示`;
+}
+
+function renderSchoolMasters(documentObject, masters) {
+  const body = documentObject.getElementById("school-master-body"); if (!body) return;
+  const students = studentWorkspaceData?.students || [];
+  body.replaceChildren(...masters.map((school) => {
+    const candidates = students.filter((student) => student.schoolId === school.school_id || (!student.schoolId && student.school === school.school_name));
+    const codes = (code) => candidates.filter((student) => student.statusCode === code || [...(student.selectionHistory || []), ...(student.eventHistory || [])].some((item) => item.active !== false && item.code === code)).length;
+    const tours = codes("SALON_TOUR_COMPLETED"), interviews = codes("INTERVIEW_COMPLETED"), offers = codes("OFFERED");
+    const hires = candidates.filter((student) => ["OFFER_ACCEPTED", "EXPECTED_JOIN"].some((code) =>
+      student.statusCode === code || [...(student.selectionHistory || []), ...(student.eventHistory || [])]
+        .some((item) => item.active !== false && item.code === code))).length;
+    const row = documentObject.createElement("tr"); if (school.is_active === false) row.className = "master-row-inactive";
+    row.innerHTML = `<td>${escapeHtml(school.school_name)}</td><td>${escapeHtml(school.faculty_name || "-")}</td><td>${escapeHtml(school.assigned_to || "未設定")}</td><td>${candidates.length}</td><td>${tours}</td><td>${interviews}</td><td>${offers}</td><td>${candidates.length ? `${((hires / candidates.length) * 100).toFixed(1)}%` : "-"}</td><td></td>`;
+    const cell = row.lastElementChild;
+    if (studentWorkspaceData?.canWrite) cell.append(masterActionButton(documentObject, "編集", "edit", school.school_id), masterActionButton(documentObject, school.is_active === false ? "復元" : "無効化", school.is_active === false ? "restore" : "deactivate", school.school_id));
+    return row;
+  }));
+  const status = documentObject.getElementById("school-master-status"); if (status) status.textContent = `${masters.filter((row) => row.is_active !== false).length}校を表示`;
+}
+
+function masterActionButton(documentObject, label, action, id) {
+  const button = documentObject.createElement("button"); button.type = "button"; button.className = "secondary-command compact-command";
+  button.textContent = label; button.dataset.masterAction = action; button.dataset.masterId = id; return button;
+}
+
+function resetRecruitmentMasterForm(documentObject, entityType) {
+  const prefix = entityType === "FAIR" ? "fair-master" : "school-master";
+  documentObject.getElementById(`${prefix}-form`)?.reset?.();
+  const id = documentObject.getElementById(`${prefix}-id`); const version = documentObject.getElementById(`${prefix}-version`);
+  if (id) id.value = ""; if (version) version.value = "";
+}
+
+async function saveRecruitmentMaster({ globalObject, documentObject, entityType }) {
+  const prefix = entityType === "FAIR" ? "fair-master" : "school-master";
+  const value = (suffix) => documentObject.getElementById(`${prefix}-${suffix}`)?.value?.trim() || "";
+  const entityId = value("id"), expectedVersion = value("version") ? Number(value("version")) : null;
+  const payload = entityType === "SCHOOL" ? {
+    entityType, operation: entityId ? "UPDATE" : "CREATE", entityId: entityId || null, expectedVersion,
+    schoolName: value("name"), facultyName: value("faculty"), assignedTo: value("owner"), reason: value("reason")
+  } : {
+    entityType, operation: entityId ? "UPDATE" : "CREATE", entityId: entityId || null, expectedVersion,
+    fairName: value("name"), eventDate: value("date"), participationFee: Number(value("fee") || 0), venue: value("venue"), assignedTo: value("owner"),
+    participantCount: Number(value("participants") || 0), contactCount: Number(value("contacts") || 0), lineRegistrationCount: Number(value("line") || 0),
+    salonTourCount: Number(value("tours") || 0), interviewCount: Number(value("interviews") || 0), offerCount: Number(value("offers") || 0), hireCount: Number(value("hires") || 0), reason: value("reason")
+  };
+  const status = documentObject.getElementById(`${prefix}-status`); if (status) status.textContent = "保存しています";
+  const result = await createStagingCandidateClient({ globalObject })?.mutateMaster(payload);
+  if (!result?.ok) { if (status) status.textContent = result?.category === "version_conflict" ? "他の更新があります。再読み込みしてください" : "保存できませんでした"; return; }
+  resetRecruitmentMasterForm(documentObject, entityType); studentWorkspaceData = null;
+  await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
+}
+
+async function handleMasterTableAction({ globalObject, documentObject, event, entityType }) {
+  const button = event.target?.closest?.("[data-master-action]"); if (!button) return;
+  const list = entityType === "FAIR" ? studentWorkspaceData?.fairMasters : studentWorkspaceData?.schoolMasters;
+  const idKey = entityType === "FAIR" ? "fair_id" : "school_id";
+  const master = (list || []).find((row) => row[idKey] === button.dataset.masterId); if (!master) return;
+  const prefix = entityType === "FAIR" ? "fair-master" : "school-master";
+  if (button.dataset.masterAction === "edit") {
+    const set = (suffix, value) => { const element = documentObject.getElementById(`${prefix}-${suffix}`); if (element) element.value = value ?? ""; };
+    set("id", master[idKey]); set("version", master.version); set("name", master[entityType === "FAIR" ? "fair_name" : "school_name"]); set("owner", master.assigned_to);
+    if (entityType === "SCHOOL") set("faculty", master.faculty_name); else {
+      set("date", master.event_date); set("fee", master.participation_fee); set("venue", master.venue); set("participants", master.participant_count);
+      set("contacts", master.contact_count); set("line", master.line_registration_count); set("tours", master.salon_tour_count); set("interviews", master.interview_count); set("offers", master.offer_count); set("hires", master.hire_count);
+    }
+    documentObject.getElementById(`${prefix}-form`)?.scrollIntoView?.({ behavior: "smooth", block: "start" }); return;
+  }
+  const operation = button.dataset.masterAction === "restore" ? "RESTORE" : "DEACTIVATE";
+  if (!globalObject.confirm?.(operation === "RESTORE" ? "このマスタを復元しますか？" : "このマスタを無効化しますか？")) return;
+  const result = await createStagingCandidateClient({ globalObject })?.mutateMaster({ entityType, operation, entityId: master[idKey], expectedVersion: master.version, reason: operation === "RESTORE" ? "業務利用のため復元" : "業務上使用しないため無効化" });
+  if (!result?.ok) return; studentWorkspaceData = null; await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
 }
 
 function escapeHtml(value) {

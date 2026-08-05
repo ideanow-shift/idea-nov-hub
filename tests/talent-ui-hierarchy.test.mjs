@@ -17,41 +17,28 @@ test("NOV Talent exposes candidate recruitment only and separates NOV People", a
   assert.match(html, /assets\/icons\/human-resources\.svg/);
 });
 
-test("daily command center opens safe work areas without writes", async () => {
+test("today dashboard starts daily work without navigation cards", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
   const css = await readFile(new URL("style.css", root), "utf8");
   const app = await readFile(new URL("app.mjs", root), "utf8");
 
-  assert.match(html, /id="talent-daily-command"/);
-  assert.match(html, /今日の作業/);
-  assert.match(html, /data-talent-daily-open="students"/);
-  assert.match(html, /data-talent-daily-open="csv28"/);
-  assert.doesNotMatch(html, /data-talent-daily-open="workforce"/);
-  assert.match(html, /data-talent-daily-open="students" aria-pressed="false"/);
-  assert.match(html, /id="talent-daily-command-status"/);
-  assert.match(html, /NO_ROUTE_SELECTED/);
-  assert.match(html, /id="talent-daily-completion-checklist"/);
-  assert.match(html, /data-category="NO_AUTO_PROMOTION"/);
-  assert.match(css, /\.talent-daily-command/);
-  assert.match(css, /\.talent-daily-command-actions/);
-  assert.match(css, /\.talent-daily-command-actions button\[aria-pressed="true"\]/);
-  assert.match(css, /\.talent-daily-command-status/);
-  assert.match(css, /\.talent-daily-completion-checklist/);
-  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-daily-command \{ grid-template-columns: 1fr; \}/);
-  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-daily-completion-checklist \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
-  assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.talent-daily-command-actions \{ grid-template-columns: 1fr; \}/);
-  assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.talent-daily-completion-checklist \{ grid-template-columns: 1fr; \}/);
-  assert.match(app, /data-talent-daily-open/);
-  assert.match(app, /student-daily-queue-start-guide/);
-  assert.match(app, /talent-28-csv-title/);
-  assert.match(app, /announceDailyCommandRoute/);
-  assert.match(app, /focusDailyCommandTarget/);
-  assert.match(app, /ROUTE_STUDENTS/);
-  assert.match(app, /ROUTE_CSV28/);
-  assert.doesNotMatch(html, /DAILY COMMAND/);
+  assert.match(html, /id="talent-today-dashboard"/);
+  assert.match(html, /TODAY'S DASHBOARD/);
+  for (const label of ["今日やること", "期限超過", "今日の見学", "今日の面接", "連絡待ち", "新規学生", "最近更新された学生"]) {
+    assert.match(html, new RegExp(label));
+  }
+  assert.doesNotMatch(html, /今日の作業|今日の業務をここから始める/);
+  assert.doesNotMatch(html, /data-talent-daily-open|talent-daily-command-status|talent-daily-completion-checklist/);
+  assert.doesNotMatch(html, /01 今日やること|02 学生|03 学生追加/);
+  assert.match(css, /\.talent-today-dashboard-grid \{[\s\S]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/);
+  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-today-dashboard-grid \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.talent-today-dashboard-grid \{ grid-template-columns: 1fr; \}/);
+  assert.match(app, /export function buildTalentTodayDashboard/);
+  assert.match(app, /renderTalentTodayDashboard/);
+  assert.doesNotMatch(app, /data-talent-daily-open|announceDailyCommandRoute|focusDailyCommandTarget/);
   assert.doesNotMatch(html, /START HERE|TODAY'S WORK|NEXT OPERATION|FOLLOW-UP SHORTCUTS/);
   assert.doesNotMatch(app, /START HERE/);
-  assert.doesNotMatch(html, /data-talent-daily-open[\s\S]{0,260}(commit|promotion|LINE履歴|社員マスタへ直接反映)/i);
+  assert.doesNotMatch(html, /talent-today-dashboard[\s\S]{0,1200}(commit|promotion|LINE履歴|社員マスタへ直接反映)/i);
 });
 
 test("operator landing area hides implementation labels and stays mobile-safe", async () => {
@@ -71,11 +58,11 @@ test("operator landing area hides implementation labels and stays mobile-safe", 
   assert.match(css, /\.talent-analytics-action-guide\[hidden\] \{ display: none; \}/);
   assert.match(css, /\.talent-analytics-action-steps \{[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
   assert.match(css, /\.procedure-case-operation-summary \{[\s\S]*display: grid;/);
-  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-daily-command \{ grid-template-columns: 1fr; \}/);
+  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-today-dashboard-grid \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
   assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.summary-followup \{ grid-template-columns: 1fr; \}/);
   assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.summary-followup-actions \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
   assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.talent-analytics-action-steps \{ grid-template-columns: 1fr; \}/);
-  assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.talent-daily-command-actions \{ grid-template-columns: 1fr; \}/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.talent-today-dashboard-grid \{ grid-template-columns: 1fr; \}/);
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.summary-followup-actions \{ grid-template-columns: 1fr; \}/);
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.procedure-case-operation-action-mix dl/);
   assert.match(html, /id="operator-invalidation-code"[\s\S]*value="CANCELLED">キャンセル/);
@@ -140,8 +127,8 @@ test("recruitment subtabs stay visually and semantically below the primary tabs"
   const html = await readFile(new URL("index.html", root), "utf8");
   const app = await readFile(new URL("app.mjs", root), "utf8");
 
-  assert.match(html, /class="secondary-tabs"[\s\S]*全体サマリー/);
-  assert.match(html, /data-secondary-tab="students"[\s\S]*学生フォロー/);
+  assert.match(html, /class="secondary-tabs"[\s\S]*ダッシュボード/);
+  assert.match(html, /data-secondary-tab="students"[\s\S]*学生一覧/);
   assert.match(html, /data-secondary-tab="fairs"[\s\S]*フェア分析/);
   assert.match(html, /data-secondary-tab="schools"[\s\S]*学校分析/);
   assert.match(html, /id="talent-28-csv-file"/);
@@ -178,12 +165,12 @@ test("summary shortcuts open the intended student queues without changing record
   const html = await readFile(new URL("index.html", root), "utf8");
   const app = await readFile(new URL("app.mjs", root), "utf8");
   const rows = [
-    { displayName: "確認対象", sourceCode: "CONTACTS_27", classification: "OWNER_REVIEW", statusCode: "CONTACT" },
-    { displayName: "隔離対象", sourceCode: "OFFERS_27", classification: "QUARANTINE", statusCode: "OFFER" },
-    { displayName: "確認済み", sourceCode: "ENTRIES_27", classification: "IMPORTABLE", statusCode: "INTERVIEW" }
+    { displayName: "確認対象", sourceCode: "CONTACTS_27", classification: "OWNER_REVIEW", statusCode: "LINE_REGISTERED" },
+    { displayName: "隔離対象", sourceCode: "OFFERS_27", classification: "QUARANTINE", statusCode: "OFFERED" },
+    { displayName: "確認済み", sourceCode: "ENTRIES_27", classification: "IMPORTABLE", statusCode: "INTERVIEW_COMPLETED" }
   ];
 
-  assert.deepEqual(buildSummaryFollowUpFilter("offers"), { query: "", source: "OFFERS_27", state: "ALL", progress: "ALL" });
+  assert.deepEqual(buildSummaryFollowUpFilter("offers"), { query: "", source: "ALL", state: "ALL", progress: "OFFERED" });
   assert.deepEqual(buildSummaryFollowUpFilter("needsAction"), { query: "", source: "ALL", state: "NEEDS_ACTION", progress: "ALL" });
   assert.deepEqual(buildSummaryFollowUpFilter("overdueFollowUp"), { query: "", source: "ALL", state: "ALL", progress: "ALL", followUp: "OVERDUE" });
   assert.deepEqual(buildSummaryFollowUpFilter("nextWeekFollowUp"), { query: "", source: "ALL", state: "ALL", progress: "ALL", followUp: "NEXT_7_DAYS" });
@@ -298,7 +285,7 @@ test("student detail guides the daily operation without exposing raw values", as
   assert.equal(buildStudentDailyOperation(null).category, "NO_SELECTION");
   assert.equal(buildStudentDailyOperation({
     applicationNo: "NT-2027-000001",
-    statusCode: "OFFER",
+    statusCode: "OFFERED",
     expectedJoinDate: "2027-04-01",
     nextActionAt: "2026-07-20"
   }, { onboardingReady: true, editable: true }, "2026-07-26").category, "ONBOARDING_HANDOFF");
@@ -329,7 +316,7 @@ test("student detail explains completion evidence after the next action", async 
     classification: "IMPORTABLE"
   }, { editable: true }, "2026-07-26"));
   const onboarding = buildStudentDailyCompletionChecklist(buildStudentDailyOperation({
-    statusCode: "OFFER",
+    statusCode: "OFFERED",
     expectedJoinDate: "2027-04-01",
     nextActionAt: "2026-07-20"
   }, { onboardingReady: true, editable: true }, "2026-07-26"));
@@ -356,7 +343,7 @@ test("student workspace summarizes today's follow-up queue before selecting a ro
     { nextActionAt: "2026-07-20", classification: "IMPORTABLE" },
     { nextActionAt: "2026-07-30", classification: "OWNER_REVIEW" },
     { classification: "QUARANTINE" },
-    { statusCode: "OFFER", expectedJoinDate: "2027-04-01", classification: "IMPORTABLE" }
+    { statusCode: "OFFERED", expectedJoinDate: "2027-04-01", classification: "IMPORTABLE" }
   ], "2026-07-26");
 
   assert.equal(summary.category, "OVERDUE_FIRST");
@@ -392,9 +379,9 @@ test("student workspace summarizes today's follow-up queue before selecting a ro
   const reviewGuide = buildStudentDailyQueueStartGuide(buildStudentDailyQueueSummary([
     { classification: "OWNER_REVIEW" }
   ], "2026-07-26"));
-  assert.equal(reviewGuide.category, "START_OWNER_REVIEW_FILTER");
-  assert.equal(reviewGuide.filterCategory, "STATE_OWNER_REVIEW");
-  assert.equal(buildStudentDailyQueueStartFilter(reviewGuide.filterCategory).state, "OWNER_REVIEW");
+  assert.equal(reviewGuide.category, "START_STEADY_LIST");
+  assert.equal(reviewGuide.filterCategory, "ALL_STUDENTS");
+  assert.equal(buildStudentDailyQueueStartFilter(reviewGuide.filterCategory).state, "ALL");
   assert.match(html, /id="student-daily-queue-summary"/);
   assert.match(html, /id="student-daily-queue-steps"/);
   assert.match(html, /id="student-daily-queue-start-guide"/);
@@ -628,7 +615,7 @@ test("Candidate to Employee handoff stays separated from NOV Talent Sprint 1", a
   const ready = buildOnboardingHandoffDraft({
     applicationNo: "NT-2027-000001",
     displayName: "対象者",
-    statusCode: "OFFER",
+    statusCode: "OFFERED",
     expectedJoinDate: "2027-04-01"
   });
 
@@ -637,8 +624,8 @@ test("Candidate to Employee handoff stays separated from NOV Talent Sprint 1", a
     subjectLabel: "対象者",
     effectiveDate: "2027-04-01"
   });
-  assert.equal(buildOnboardingHandoffDraft({ ...ready, applicationNo: "", statusCode: "OFFER" }), null);
-  assert.equal(buildOnboardingHandoffDraft({ ...ready, applicationNo: "NT-2027-000001", statusCode: "CONTACT" }), null);
+  assert.equal(buildOnboardingHandoffDraft({ ...ready, applicationNo: "", statusCode: "OFFERED" }), null);
+  assert.equal(buildOnboardingHandoffDraft({ ...ready, applicationNo: "NT-2027-000001", statusCode: "LINE_REGISTERED" }), null);
   assert.match(html, /id="student-onboarding-open"[^>]*sprint1-separated[^>]*hidden/);
   assert.match(html, /id="panel-workforce" class="primary-panel sprint1-separated"/);
 });
@@ -794,9 +781,9 @@ test("new applicant candidate filtering stays limited to unmapped entry and offe
 
 test("student list filter keeps new candidates visible and narrows review queues", () => {
   const rows = [
-    { displayName: "接触候補", sourceCode: "CONTACTS_27", classification: "OWNER_REVIEW", mappingStatus: "UNMAPPED", suggestionCategory: "NONE", statusCode: "CONTACT" },
-    { displayName: "新規候補", sourceCode: "ENTRIES_27", classification: "OWNER_REVIEW", mappingStatus: "UNMAPPED", suggestionCategory: "NONE", statusCode: "INTERVIEW" },
-    { displayName: "確認済み", sourceCode: "OFFERS_27", classification: "IMPORTABLE", mappingStatus: "OWNER_CONFIRMED", suggestionCategory: "NONE", statusCode: "OFFER" },
+    { displayName: "接触候補", sourceCode: "CONTACTS_27", classification: "OWNER_REVIEW", mappingStatus: "UNMAPPED", suggestionCategory: "NONE", statusCode: "LINE_REGISTERED" },
+    { displayName: "新規候補", sourceCode: "ENTRIES_27", classification: "OWNER_REVIEW", mappingStatus: "UNMAPPED", suggestionCategory: "NONE", statusCode: "INTERVIEW_COMPLETED" },
+    { displayName: "確認済み", sourceCode: "OFFERS_27", classification: "IMPORTABLE", mappingStatus: "OWNER_CONFIRMED", suggestionCategory: "NONE", statusCode: "OFFERED" },
     { displayName: "隔離", sourceCode: "OFFERS_27", classification: "QUARANTINE", mappingStatus: "UNMAPPED", suggestionCategory: "AMBIGUOUS", statusCode: "WITHDRAWN" },
     { displayName: "未登録", sourceCode: "CONTACTS_27", classification: "IMPORTABLE", mappingStatus: "OWNER_CONFIRMED", suggestionCategory: "NONE", statusCode: null }
   ];
@@ -804,7 +791,7 @@ test("student list filter keeps new candidates visible and narrows review queues
   assert.deepEqual(filterTalentStudents(rows, { state: "NEW_CANDIDATE" }).map((row) => row.displayName), ["新規候補"]);
   assert.deepEqual(filterTalentStudents(rows, { state: "QUARANTINE" }).map((row) => row.displayName), ["隔離"]);
   assert.deepEqual(filterTalentStudents(rows, { source: "ENTRIES_27" }).map((row) => row.displayName), ["新規候補"]);
-  assert.deepEqual(filterTalentStudents(rows, { progress: "OFFER" }).map((row) => row.displayName), ["確認済み"]);
+  assert.deepEqual(filterTalentStudents(rows, { progress: "OFFERED" }).map((row) => row.displayName), ["確認済み"]);
   assert.deepEqual(filterTalentStudents(rows, { progress: "WITHDRAWN" }).map((row) => row.displayName), ["隔離"]);
   assert.deepEqual(filterTalentStudents(rows, { progress: "UNSET" }).map((row) => row.displayName), ["未登録"]);
   assert.equal(getTalentStudentProgressKey({ statusCode: null }), "UNSET");
@@ -841,7 +828,7 @@ test("student quick filters expose their queue counts", async () => {
   assert.match(html, /id="student-filter-review"[^>]*data-label="要確認"/);
   assert.match(html, /id="student-progress-filter"/);
   assert.match(html, /option value="UNSET">選考状況 未登録<\/option>/);
-  assert.match(html, /option value="WITHDRAWN">辞退・保管<\/option>/);
+  assert.match(html, /option value="WITHDRAWN">辞退・離脱<\/option>/);
   assert.match(app, /filterTalentStudents\(students, \{ state: value \}\)\.length/);
   assert.match(app, /button\.setAttribute\("aria-label", `\$\{label\} \$\{count\}件`\)/);
 });

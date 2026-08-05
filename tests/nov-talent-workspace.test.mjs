@@ -134,13 +134,37 @@ test("public talent UI contains a real list/detail workspace and no pending plac
   assert.match(html, /id="student-detail"/);
   assert.match(html, /id="student-review-dialog"/);
   assert.match(html, /id="student-review-open"/);
-  assert.match(html, /27卒・28卒 匿名データ/);
+  assert.match(html, /学生データ/);
   assert.doesNotMatch(html, /学生一覧・詳細接続は次の安全ゲート/);
   assert.match(app, /createTalentWorkspaceExecutor/);
   assert.match(app, /getElementById\("summary-load-button"\)\?\.addEventListener\("click"/);
   assert.match(css, /\.student-workspace/);
-  assert.match(runtime, /networkEnabled:\s*false/);
-  assert.match(runtime, /writeEnabled:\s*false/);
-  assert.match(config, /runtimeMode:\s*"mock"/);
-  assert.doesNotMatch(`${runtime}\n${config}`, /https?:\/\/|supabase/i);
+  assert.match(runtime, /mode:\s*"staging"/);
+  assert.match(runtime, /writeEnabled:\s*config\.writeEnabled === true/);
+  assert.match(config, /runtimeMode:\s*"staging"/);
+  assert.match(config, /readonlyApiEnabled:\s*true/);
+  assert.doesNotMatch(`${runtime}\n${config}`, /service_role|serviceRole|secret/i);
 });
+
+for (const [status, safeCode, category] of [
+  [401, "AUTH_REQUIRED", "auth_required"],
+  [403, "FORBIDDEN", "forbidden"]
+]) {
+  test(`workspace executor preserves HTTP ${status} and maps ${safeCode}`, async () => {
+    const executor = createTalentWorkspaceExact1Executor({
+      globalObject: globalFixture(),
+      hubContract: { audience: "nov_hub" },
+      fetchImpl: async () => ({
+        status,
+        headers: { get: () => "application/json" },
+        async json() {
+          return { ok: false, safeCode, message: "safe", requestId: "fixture" };
+        }
+      })
+    });
+    const result = await executor.run();
+    assert.equal(result.okBoolean, false);
+    assert.equal(result.stopCategory, category);
+    assert.equal(result.httpStatus, status);
+  });
+}

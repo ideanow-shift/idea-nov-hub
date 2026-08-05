@@ -189,7 +189,7 @@ test("operator control initializes with request0 and token0", () => {
   assert.equal(tokenReads, 0);
   assert.equal(fetches, 0);
   assert.equal(documentObject.button.disabled, false);
-  assert.equal(documentObject.status.textContent, "匿名Mockデータの集計を表示します");
+  assert.equal(documentObject.status.textContent, "確認用学生データの集計を表示します");
 });
 
 test("one trusted click disables first and remains local while reentry stays request0", async () => {
@@ -243,7 +243,7 @@ test("missing HUB helper does not block the explicitly Mock-only control", () =>
   assert.equal(fetches, 0);
   assert.equal(tokenReads, 0);
   assert.equal(documentObject.button.disabled, false);
-  assert.equal(documentObject.status.textContent, "匿名Mockデータの集計を表示します");
+  assert.equal(documentObject.status.textContent, "確認用学生データの集計を表示します");
 });
 
 test("offline Mock state fails closed without attempting an API request", async () => {
@@ -379,16 +379,17 @@ test("source fixture keeps Japanese UI and desktop/mobile responsive rules", () 
   assert.doesNotMatch(apps.match(/appId: "nov-talent"[\s\S]*?priority: 64/)?.[0] || "", /hr-investment-dashboard/);
 });
 
-test("published runtime candidate enables only the approved local Mock Runtime", () => {
+test("published runtime candidate enables the approved read-only Staging Runtime", () => {
   const runtimeConfig = readFileSync(
     new URL("../portal/talent/runtime-config.candidate.js", import.meta.url),
     "utf8"
   );
 
-  assert.match(runtimeConfig, /runtimeMode:\s*"mock"/);
-  assert.match(runtimeConfig, /networkEnabled:\s*false/);
-  assert.match(runtimeConfig, /writeEnabled:\s*false/);
-  assert.doesNotMatch(runtimeConfig, /https?:\/\/|supabase|readonlyApi|writeApi/i);
+  assert.match(runtimeConfig, /runtimeMode:\s*"staging"/);
+  assert.match(runtimeConfig, /networkEnabled:\s*true/);
+  assert.match(runtimeConfig, /writeEnabled:\s*true/);
+  assert.match(runtimeConfig, /readonlyApiEnabled:\s*true/);
+  assert.doesNotMatch(runtimeConfig, /service_role|serviceRole|secret/i);
 });
 
 test("talent entry point cache-busts runtime config and app with one release id", () => {
@@ -398,6 +399,7 @@ test("talent entry point cache-busts runtime config and app with one release id"
 
   assert.ok(runtimeVersion, "runtime config must have a release id");
   assert.equal(appVersion, runtimeVersion);
+  assert.equal(appVersion, "20260805-management-simplification-1");
 });
 
 test("HUB launcher canonicalizes Talent route even when backend URL is stale", () => {
@@ -468,7 +470,7 @@ test("Talent freshness repair preserves startup request0 and click exact1 contra
 
   assert.doesNotMatch(mainSource, /hub_context[^\n]*TALENT_APP_URL|TALENT_APP_URL[^\n]*hub_context/);
   assert.match(appSource, /createDashboardSummaryExecutor/);
-  assert.match(appSource, /runtimeMode:\s*"mock"/);
+  assert.match(appSource, /runtimeMode\(globalObject\)/);
   assert.match(appSource, /button\.addEventListener\("click", run\)/);
   assert.doesNotMatch(appSource, /fetch\(/);
   assert.match(exact1Source, /method: "GET"/);
@@ -589,7 +591,7 @@ test("a later expiry is revalidated and refreshed exact1", async () => {
 test("pageshow or BFCache restoration cannot mark a stale session connected", () => {
   const appSource = readFileSync(new URL("../portal/talent/app.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(appSource, /addEventListener\?\.\("pageshow"[^\n]*setStatus/);
-  assert.match(appSource, /state === "ready" \? "Mock Runtime"/);
+  assert.match(appSource, /runtimeMode\(globalThis\) === "staging" \? "運用データ" : "確認用データ"/);
   assert.match(appSource, /setStatus\(documentObject, "ready", "集計を表示しました"\)/);
 });
 

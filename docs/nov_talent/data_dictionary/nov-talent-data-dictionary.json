@@ -1,0 +1,710 @@
+{
+  "dictionaryId": "NOV_TALENT_DATA_DICTIONARY",
+  "dictionaryVersion": "1.4.0",
+  "status": "CANONICAL",
+  "effectiveDate": "2026-08-04",
+  "language": "ja-JP",
+  "scope": {
+    "product": "NOV Talent",
+    "domain": "PRE_EMPLOYMENT_CANDIDATE_LIFECYCLE",
+    "included": [
+      "学生",
+      "中途応募者",
+      "インターン",
+      "見学者",
+      "面接者",
+      "内定者"
+    ],
+    "excluded": [
+      "社員管理",
+      "評価",
+      "給与",
+      "異動",
+      "休職・復職",
+      "退職",
+      "勤怠",
+      "社員プロフィール"
+    ],
+    "employeeLifecycleOwner": "Employee Core / NOV People"
+  },
+  "governance": {
+    "normativeArtifact": "docs/nov_talent/data_dictionary/nov-talent-data-dictionary.json",
+    "humanReadableArtifact": "docs/nov_talent/data_dictionary/nov-talent-data-dictionary.md",
+    "referenceRule": "AI、CSV、UI、DB、Platformは本辞書の正式コードと定義だけを参照する",
+    "unknownCodePolicy": "REJECT",
+    "undefinedDefinitionPolicy": "FAIL_CLOSED",
+    "changePolicy": "辞書の版更新、レビュー、テストを伴わない追加・別名・意味変更を禁止する",
+    "displayPolicy": "UIは正式表示名を使い、正式コードを利用者向け文言として露出しない",
+    "personalDataPolicy": "辞書へ実氏名、連絡先、個別メモその他の個人値を記録しない"
+  },
+  "candidateStatuses": [
+    {
+      "code": "LINE_REGISTERED",
+      "name": "LINE登録",
+      "definition": "候補者のLINE登録を確認した状態。連絡先未取得の接点を否定しない。"
+    },
+    {
+      "code": "APPLICATION_RECEIVED",
+      "name": "応募受付",
+      "definition": "応募意思または応募書類の受領を正式Sourceで確認した状態。"
+    },
+    {
+      "code": "SALON_TOUR_PLANNED",
+      "name": "サロン見学［予定］",
+      "definition": "サロン見学の予定日を確認した状態。"
+    },
+    {
+      "code": "SALON_TOUR_COMPLETED",
+      "name": "サロン見学［済］",
+      "definition": "サロン見学の実施を確認した状態。"
+    },
+    {
+      "code": "INTERVIEW_PLANNED",
+      "name": "面接［予定］",
+      "definition": "面接予定日を確認した状態。"
+    },
+    {
+      "code": "INTERVIEW_COMPLETED",
+      "name": "面接［済］",
+      "definition": "面接の実施を確認した状態。"
+    },
+    {
+      "code": "UNDER_REVIEW",
+      "name": "合否検討中",
+      "definition": "選考結果を検討中の状態。"
+    },
+    {
+      "code": "OFFERED",
+      "name": "内定",
+      "definition": "内定を提示または記録した状態。"
+    },
+    {
+      "code": "OFFER_ACCEPTED",
+      "name": "内定承諾",
+      "definition": "候補者が内定を承諾した入社前状態。"
+    },
+    {
+      "code": "EXPECTED_JOIN",
+      "name": "入社予定",
+      "definition": "入社予定日等を確認した入社前の状態。入社時点でEmployee Coreへライフサイクルを引き継ぐ。"
+    },
+    {
+      "code": "WITHDRAWN",
+      "name": "辞退・離脱",
+      "definition": "候補者が辞退し、採用活動の進行対象から外れた状態。削除を意味しない。"
+    },
+    {
+      "code": "OFFERED_ELSEWHERE",
+      "name": "他社内定",
+      "definition": "候補者の他社内定を確認した状態。"
+    },
+    {
+      "code": "REJECTED",
+      "name": "不採用",
+      "definition": "正式な選考結果として不採用を確認した状態。"
+    }
+  ],
+  "statusRules": {
+    "isOrdinal": false,
+    "transitionInference": "PROHIBITED",
+    "unsetCode": "UNSET",
+    "unsetName": "未設定",
+    "note": "状態コードの並びだけから選考順序や自動遷移を推測しない"
+  },
+  "school": {
+    "fieldCode": "SCHOOL_NAME",
+    "formalName": "学校名",
+    "dataType": "string_or_null",
+    "maximumLength": 180,
+    "normalization": [
+      "Unicode NFKC",
+      "前後空白除去",
+      "空文字はnull"
+    ],
+    "masterType": "OPEN_VALUE",
+    "automaticAbbreviationExpansion": false,
+    "automaticGuessing": false,
+    "placeholderAsFact": false,
+    "missingPolicy": "正本で確認できない場合は空欄のまま確認対象とし、仮名や推測値を入力しない"
+  },
+  "events": [
+    {
+      "metricKey": "contacts",
+      "code": "CONTACT_RECORDED",
+      "name": "接点記録",
+      "definition": "候補者との接点を1件記録する。"
+    },
+    {
+      "metricKey": "lineRegistrations",
+      "code": "LINE_REGISTERED",
+      "name": "LINE登録",
+      "definition": "LINE登録確認を1件記録する。"
+    },
+    {
+      "metricKey": "salonTourPlanned",
+      "code": "SALON_TOUR_PLANNED",
+      "name": "見学予定",
+      "definition": "見学予定を1件記録する。"
+    },
+    {
+      "metricKey": "salonTours",
+      "code": "SALON_TOUR_COMPLETED",
+      "name": "見学完了",
+      "definition": "見学完了を1件記録する。"
+    },
+    {
+      "metricKey": "interviewPlanned",
+      "code": "INTERVIEW_PLANNED",
+      "name": "面接予定",
+      "definition": "面接予定を1件記録する。"
+    },
+    {
+      "metricKey": "interviews",
+      "code": "INTERVIEW_COMPLETED",
+      "name": "面接完了",
+      "definition": "面接完了を1件記録する。"
+    },
+    {
+      "metricKey": "passed",
+      "code": "SELECTION_PASSED",
+      "name": "選考通過",
+      "definition": "選考通過イベントを1件記録する。候補者状態OFFER_ACCEPTED（内定承諾）とは同一視しない。"
+    },
+    {
+      "metricKey": "offers",
+      "code": "OFFER_ISSUED",
+      "name": "内定提示",
+      "definition": "内定提示を1件記録する。"
+    },
+    {
+      "metricKey": "expectedJoiners",
+      "code": "EXPECTED_JOIN_CONFIRMED",
+      "name": "入社予定確認",
+      "definition": "入社予定の確認を1件記録する。"
+    }
+  ],
+  "eventInvalidationReasons": [
+    {
+      "code": "CANCELLED",
+      "name": "キャンセル",
+      "definition": "予定された見学、面接または入社予定がキャンセルされた。"
+    },
+    {
+      "code": "NO_SHOW",
+      "name": "無断欠席",
+      "definition": "予定された見学、面接または入社予定に連絡なく現れなかった。"
+    },
+    {
+      "code": "DELETED",
+      "name": "誤登録・削除",
+      "definition": "誤って記録されたイベントを集計対象から失効させる。監査記録自体の物理削除を意味しない。"
+    },
+    {
+      "code": "WITHDRAWN",
+      "name": "辞退",
+      "definition": "候補者が入社予定を辞退した。現行契約ではexpectedJoinersにのみ使用できる。"
+    }
+  ],
+  "eventInvalidationAllowlist": {
+    "contacts": ["DELETED"],
+    "lineRegistrations": ["DELETED"],
+    "salonTours": ["CANCELLED", "NO_SHOW", "DELETED"],
+    "interviews": ["CANCELLED", "NO_SHOW", "DELETED"],
+    "passed": ["DELETED"],
+    "offers": ["DELETED"],
+    "expectedJoiners": ["CANCELLED", "NO_SHOW", "DELETED", "WITHDRAWN"]
+  },
+  "withdrawalReasons": {
+    "definitionStatus": "PARTIALLY_DEFINED",
+    "codes": [
+      {
+        "code": "WITHDRAWN",
+        "name": "辞退",
+        "definition": "候補者本人の意思で入社予定または採用活動を辞退したことを表す。自由記述理由の分類体系は未定義。"
+      }
+    ],
+    "freeTextCategoryPolicy": "NOT_DEFINED"
+  },
+  "rejectionReasons": {
+    "definitionStatus": "NOT_DEFINED",
+    "codes": [],
+    "inputPolicy": "REJECT_UNTIL_DICTIONARY_VERSION_DEFINES_CODES",
+    "note": "現行NOV Talentには不採用理由の正式コード体系が存在しない。AI、CSV、UI、DBは独自コードを追加しない。"
+  },
+  "duplicateJudgments": [
+    {
+      "code": "SAME_PERSON",
+      "name": "同一人物",
+      "definition": "総務人事部の人間確認により同一人物と判断した。自動統合や自動削除を許可しない。"
+    },
+    {
+      "code": "DIFFERENT_PERSON",
+      "name": "別人",
+      "definition": "総務人事部の人間確認により別人と判断した。"
+    },
+    {
+      "code": "HOLD",
+      "name": "判断保留",
+      "definition": "同一人物か判断できず、追加確認まで保留する。"
+    }
+  ],
+  "duplicateRules": {
+    "candidateGenerationBasis": [
+      "氏名・学校等の一致ヒント",
+      "stable_key_hintの一致",
+      "連絡先ヒントの一致"
+    ],
+    "automaticMerge": false,
+    "automaticDelete": false,
+    "humanDecisionRequired": true,
+    "unknownDecisionPolicy": "REJECT"
+  },
+  "countDefinitions": {
+    "dashboard": [
+      {
+        "code": "DASHBOARD_CANDIDATES",
+        "name": "候補者数",
+        "basis": "ACTIVE Candidateの件数",
+        "scope": "Staging Runtime"
+      },
+      {
+        "code": "DASHBOARD_ENTRIES",
+        "name": "応募数",
+        "basis": "Selection HistoryのAPPLICATION_RECEIVEDを持つCandidate数",
+        "scope": "Staging Runtime"
+      },
+      {
+        "code": "DASHBOARD_SALON_TOUR_PLANNED",
+        "name": "見学予定数",
+        "basis": "EventのSALON_TOUR_PLANNEDを持つCandidate数",
+        "scope": "Staging Runtime"
+      },
+      {
+        "code": "DASHBOARD_INTERVIEW_PLANNED",
+        "name": "面接予定数",
+        "basis": "EventのINTERVIEW_PLANNEDを持つCandidate数",
+        "scope": "Staging Runtime"
+      },
+      {
+        "code": "DASHBOARD_OFFERS",
+        "name": "内定数",
+        "basis": "Selection HistoryのOFFEREDを持つCandidate数",
+        "scope": "Staging Runtime"
+      },
+      {
+        "code": "DASHBOARD_WITHDRAWALS",
+        "name": "辞退数",
+        "basis": "Selection HistoryのWITHDRAWNを持つCandidate数",
+        "scope": "Staging Runtime"
+      },
+      {
+        "code": "DASHBOARD_SCHOOLS",
+        "name": "学校数",
+        "basis": "ACTIVE Candidateの空欄でない正規化学校名の異なり数",
+        "scope": "Staging Runtime"
+      },
+      {
+        "code": "DASHBOARD_FAIRS",
+        "name": "フェア数",
+        "basis": "正式Sourceの有効なフェア記録数",
+        "scope": "Staging Runtime"
+      },
+      {
+        "code": "DASHBOARD_TODAY_ACTIONS",
+        "name": "今日やること",
+        "basis": "OPENかつdue_dateが当日以前のNext Action件数（表示は最大5件）",
+        "scope": "Staging Runtime"
+      }
+    ],
+    "dataIntegrity": {
+      "workQueueTotalCount": "監査で起票されたIssueの総数",
+      "fixedCount": "正本再監査または人間確認で終了したIssue数",
+      "remainingCount": "current_queue_included=trueの未終了Issue数",
+      "resolutionRateFormula": "fixedCount / workQueueTotalCount * 100",
+      "currentValues": {
+        "workQueueTotalCount": 17,
+        "fixedCount": 17,
+        "remainingCount": 0,
+        "resolutionRate": 100
+      }
+    },
+    "sourceCounts": [
+      {
+        "code": "SOURCE_27_CONTACT_NUMBERED_ROWS",
+        "reportedBaselineValue": 547,
+        "latestReadOnlyObservedValue": 541,
+        "definition": "27卒接触シートで採番済みの行数",
+        "migrationAuthority": false
+      },
+      {
+        "code": "SOURCE_27_CONTACT_POPULATED_ROWS",
+        "reportedBaselineValue": 535,
+        "latestReadOnlyObservedValue": 528,
+        "definition": "氏名・学校・電話番号・メール・LINE・イベント・ステータスのいずれか1項目以上が入力されたMigration対象行数",
+        "migrationAuthority": true
+      },
+      {
+        "code": "SOURCE_27_CONTACT_COUNT_DIFFERENCE",
+        "reportedBaselineValue": 12,
+        "latestReadOnlyObservedValue": 13,
+        "definition": "採番済行と実データ入力済行の差。Data Consistency IssueでありData Integrity残件ではない。",
+        "migrationAuthority": false
+      },
+      {
+        "code": "SOURCE_28_CONTACT_ACTIVE_ROWS",
+        "value": 108,
+        "definition": "28卒正式Sourceの現在の実データ行数",
+        "migrationAuthority": true
+      },
+      {
+        "code": "MOCK_CANDIDATE_TOTAL",
+        "value": 147,
+        "definition": "Release 1.0匿名Mock Runtimeの候補者数（27卒27件、28卒120件）",
+        "migrationAuthority": false
+      }
+    ],
+    "confirmed": [
+      {
+        "code": "OFFICIAL_27_CONTACT_MIGRATION_COUNT",
+        "status": "DEFINED",
+        "definitionVersion": "1.1.0",
+        "rule": "氏名・学校・電話番号・メール・LINE・イベント・ステータスのいずれか1項目以上が入力された行をMigration対象とし、No.だけ採番された空テンプレート行を除外する",
+        "latestReadOnlyObservedValue": 528
+      }
+    ],
+    "latestReadOnlyObservation": {
+      "observedAt": "2026-08-03",
+      "source": "OFFICIAL_SOURCE_27_CONTACTS",
+      "numberedRows": 541,
+      "activeRowsWithName": 528,
+      "activeRowsByMigrationDefinition": 528,
+      "numberOnlyTemplateRows": 13,
+      "numberOnlyTemplateSheetRows": [531, 532, 533, 534, 535, 536, 537, 538, 539, 540, 541, 542, 543],
+      "entryRowsWithName": 42,
+      "offerRowsWithName": 35,
+      "eventRowsWithName": 36,
+      "contactDistinctNormalizedNameHints": 520,
+      "contactDuplicateNormalizedNameRowSurplus": 8,
+      "entryNameHintsNotMatchedToContactNameHints": 10,
+      "offerNameHintsNotMatchedToContactNameHints": 8,
+      "offerNameHintsNotMatchedToEntryNameHints": 1,
+      "personalValuesIncluded": false,
+      "warning": "氏名の正規化一致は照合ヒントであり、Candidate同一性の確定や自動統合には使用しない"
+    }
+  },
+  "versions": {
+    "dictionary": "1.4.0",
+    "dataIntegrityReportSchema": "1.2",
+    "workQueueSeedSchema": "2.0",
+    "sourceLineageSchema": "1.0",
+    "csvSafeReceiptSchema": "talent-28-csv-safe-receipt-v1",
+    "versioningRule": "意味変更・コード追加・廃止は辞書Versionを更新する。既存コードの意味を同じVersion内で変更しない。"
+  },
+  "migration": {
+    "currentStatus": "STAGING_DATASET_ACTIVE",
+    "currentStatusName": "Staging Candidate Dataset有効",
+    "reasonCode": "STAGING_RUNTIME_READY_FOR_PUBLICATION",
+    "reasonName": "read-only APIとRole Guard接続済み、明示承認付きPages公開待ち",
+    "productionStatus": "PRODUCTION_MIGRATION_HOLD",
+    "productionReasonCode": "STAGING_OPERATION_VALIDATION_AND_PROMOTION_APPROVAL_PENDING",
+    "dataIntegrityCompleted": true,
+    "dataConsistencyReviewRequired": true,
+    "automaticMigration": false,
+    "approvalRequired": true,
+    "note": "Staging先行運用の設計は確定済み。Staging承認はProduction承認を含まない。",
+    "activeRowDefinition": {
+      "status": "DEFINED",
+      "definitionVersion": "1.1.0",
+      "anyOfFields": ["氏名", "学校", "電話番号", "メール", "LINE", "イベント", "ステータス"],
+      "minimumPopulatedFieldCount": 1,
+      "excludedRows": "No.だけ採番され、上記7項目がすべて空のテンプレート行",
+      "blankRule": "null、空文字、空白文字だけの値は未入力として扱う"
+    },
+    "resolvedCriteria": [
+      {
+        "formerPriority": 1,
+        "code": "ACTIVE_ROW_COUNT_BASIS_APPROVAL",
+        "status": "RESOLVED",
+        "resolution": "Data Dictionary Version 1.1.0のactiveRowDefinitionとして正式化"
+      }
+    ],
+    "contractFinalization": [
+      {
+        "code": "CANDIDATE_IDENTITY_CONTRACT",
+        "status": "DEFINED",
+        "artifact": "candidate-identity-contract.json"
+      },
+      {
+        "code": "HUMAN_REVIEW_EVIDENCE_CONTRACT",
+        "status": "DEFINED",
+        "artifact": "human-review-evidence.json",
+        "evidenceCount": 17,
+        "outcomeNotRecordedCount": 0,
+        "pendingReviewCount": 0,
+        "differentPersonCount": 6,
+        "migrationKeepSeparateCount": 6,
+        "migrationQuarantineCount": 0
+      },
+      {
+        "code": "MIGRATION_TARGET_MAPPING",
+        "status": "DEFINED",
+        "artifact": "migration-target-mapping.json"
+      },
+      {
+        "code": "SNAPSHOT_ACCEPTANCE_ROLLBACK_CONTRACT",
+        "status": "DEFINED",
+        "artifacts": [
+          "migration-snapshot-contract.md",
+          "migration-acceptance-checklist.md",
+          "rollback-contract.md"
+        ]
+      },
+      {
+        "code": "STAGING_OPERATIONS_CONTRACT",
+        "status": "DEFINED",
+        "artifacts": [
+          "staging-operations-contract.json",
+          "staging-operations-contract.md"
+        ]
+      }
+    ],
+    "holdReleaseCriteria": [
+      {
+        "priority": 1,
+        "code": "PRIVATE_READ_ONLY_DRY_RUN_AND_SNAPSHOT",
+        "status": "RESOLVED",
+        "resolution": "正式Source 2件をread-onlyで照合し、636対象行、Quarantine 0件、件数・Source hash・artifact hashを持つSnapshot候補でdry-run PASSを確認",
+        "artifact": "migration-dry-run-snapshot.candidate.json"
+      },
+      {
+        "priority": 2,
+        "code": "STAGING_OWNER_MIGRATION_AND_OPERATION_APPROVAL",
+        "status": "RESOLVED",
+        "resolution": "Ownerが最新Snapshot、636 CandidateのStaging Migration、Migration照合後の運用開始を明示承認"
+      },
+      {
+        "priority": 3,
+        "code": "STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_CONTRACT",
+        "status": "REMOTE_APPLIED_ACTIVE_DATASET",
+        "artifact": "staging-candidate-versioned-dataset-schema.json",
+        "requiredDecision": "Candidate Versioned Dataset migration sourceをRemote Stagingへ適用する"
+      }
+    ]
+  },
+  "stagingOperations": {
+    "contract": "staging-operations-contract.json",
+    "environmentClassification": "OPERATION_VALIDATION_ENVIRONMENT",
+    "officialSourceCount": 2,
+    "candidateCount": 636,
+    "candidateCountByGraduationYear": {
+      "2027": 528,
+      "2028": 108
+    },
+    "initialMigrationEntityScope": ["CANDIDATE"],
+    "operatorCapabilities": ["CANDIDATE_MANAGEMENT", "CANDIDATE_SEARCH", "DASHBOARD"],
+    "systemOfRecord": "OFFICIAL_SPREADSHEET",
+    "updateFlow": ["SPREADSHEET_UPDATE", "READ_ONLY_PREFLIGHT", "OWNER_APPROVED_IMPORT", "STAGING_DATASET_ACTIVATION"],
+    "directCandidateMutation": false,
+    "importMode": "VERSIONED_SNAPSHOT_REPLACEMENT",
+    "retryCount": 0,
+    "productionPromotion": false
+  },
+  "platformEnvironmentPolicy": {
+    "productionProject": "idea-nov-core",
+    "stagingProject": "idea-nov-staging",
+    "productionProjectCount": 1,
+    "stagingProjectCount": 1,
+    "additionalProjectCreation": false,
+    "legacyStagingProjectNameAllowed": false,
+    "projectExpansionArchitectureAllowed": false,
+    "sharedStagingSeparationBoundaries": [
+      "SCHEMA",
+      "FUNCTION_NAMESPACE",
+      "STORAGE_NAMESPACE",
+      "VERSIONED_DATASET",
+      "MIGRATION_OWNER",
+      "PERMISSION_BOUNDARY"
+    ],
+    "artifact": "platform-environment-policy.md"
+  },
+  "platformStatuses": [
+    {
+      "code": "DATA_INTEGRITY_COMPLETED",
+      "name": "Data Integrity完了",
+      "definition": "Human Review Queue 17/17が終了し、Work Queue残件が0である。"
+    },
+    {
+      "code": "STAGING_DATASET_ACTIVE",
+      "name": "Staging Candidate schema適用待ち",
+      "definition": "Candidate 636件、28卒、Versioned Dataset、有効化、旧版復帰を満たすmigration sourceは実装済みで、Remote Stagingへの適用を待っている。"
+    },
+    {
+      "code": "PRODUCTION_MIGRATION_HOLD",
+      "name": "Production Migration保留",
+      "definition": "Staging運用検証とProduction昇格の別承認が完了するまで、ProductionへのMigration・書込み・自動昇格を禁止する。"
+    }
+  ],
+  "currentPlatformStatus": "DATA_INTEGRITY_COMPLETED / STAGING_DATASET_ACTIVE / PRODUCTION_MIGRATION_HOLD",
+  "releaseStatuses": [
+    {
+      "code": "RELEASE_READY",
+      "name": "Release Ready",
+      "scope": "DATA_INTEGRITY_WORK_QUEUE_CLOSURE",
+      "definition": "Data Integrity成果物を公開可能。Migration実行可を意味しない。"
+    }
+  ],
+  "currentRelease": {
+    "status": "RELEASE_READY",
+    "scope": "STAGING_OPERATIONS_DESIGN",
+    "stagingOperationsDesignReady": true,
+    "stagingCandidateSchemaSourceReady": true,
+    "stagingCandidateSchemaApplied": true,
+    "stagingMigrationExecuted": true,
+    "stagingOperationsStarted": false,
+    "productionDeployExecutedByThisDictionarySprint": false
+  },
+  "roles": [
+    {
+      "code": "super_admin",
+      "name": "システム管理者",
+      "accessProfile": "full"
+    },
+    {
+      "code": "backoffice",
+      "name": "総務人事部",
+      "accessProfile": "full"
+    },
+    {
+      "code": "hr.admin",
+      "name": "総務人事部管理者",
+      "accessProfile": "full"
+    },
+    {
+      "code": "hr.staff",
+      "name": "採用担当",
+      "accessProfile": "recruiter"
+    },
+    {
+      "code": "executive",
+      "name": "代表取締役",
+      "accessProfile": "executive"
+    }
+  ],
+  "permissions": {
+    "full": {
+      "canViewDashboard": true,
+      "canViewCandidateContact": true,
+      "canViewPrivateNotes": true,
+      "canManageRecruitment": true,
+      "canManageSettings": true
+    },
+    "recruiter": {
+      "canViewDashboard": true,
+      "canViewCandidateContact": true,
+      "canViewPrivateNotes": true,
+      "canManageRecruitment": true,
+      "canManageSettings": false
+    },
+    "executive": {
+      "canViewDashboard": true,
+      "canViewCandidateContact": false,
+      "canViewPrivateNotes": false,
+      "canManageRecruitment": false,
+      "canManageSettings": false
+    },
+    "denied": {
+      "canViewDashboard": false,
+      "canViewCandidateContact": false,
+      "canViewPrivateNotes": false,
+      "canManageRecruitment": false,
+      "canManageSettings": false
+    }
+  },
+  "sources": [
+    {
+      "code": "OFFICIAL_SOURCE_27_CONTACTS",
+      "graduationYear": 2027,
+      "name": "求人計画27卒_2025年9月～2026年8月",
+      "spreadsheetId": "1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM",
+      "sheetName": "接触学生一覧（27卒）",
+      "sheetId": 1142586954,
+      "role": "PRIMARY",
+      "access": "READ_ONLY_AUDIT"
+    },
+    {
+      "code": "OFFICIAL_SOURCE_28_CONTACTS",
+      "graduationYear": 2028,
+      "name": "求人計画28卒_2026年9月～2027年8月",
+      "spreadsheetId": "1OwFCnRYfTOWGkUGhykURibUD5Ss06msHoaZwYdopkEA",
+      "sheetName": "接触学生一覧（28卒）",
+      "sheetId": 1279221745,
+      "role": "PRIMARY",
+      "access": "READ_ONLY_AUDIT"
+    },
+    {
+      "code": "LEGACY_COPY_NON_CANONICAL",
+      "name": "旧コピー",
+      "role": "NON_CANONICAL",
+      "access": "DO_NOT_USE_AS_SOURCE"
+    },
+    {
+      "code": "ANONYMOUS_MOCK_RUNTIME",
+      "name": "匿名Mock Runtime",
+      "role": "PREVIEW_ONLY",
+      "access": "NOT_MIGRATION_SOURCE"
+    }
+  ],
+  "imports": {
+    "graduationYear": 2028,
+    "sourceTypes": ["CONTACTS_28", "ENTRIES_28", "OFFERS_28"],
+    "requiredHeaders": [
+      "source_row_no",
+      "graduation_year",
+      "source_type",
+      "source_label",
+      "student_name",
+      "student_name_kana",
+      "school_name",
+      "faculty_or_department",
+      "phone",
+      "email",
+      "line_name",
+      "event_name",
+      "event_date",
+      "entry_status",
+      "selection_status",
+      "offer_status",
+      "next_action_date",
+      "follow_up_note",
+      "owner_note",
+      "stable_key_hint",
+      "mapping_hint",
+      "quarantine_flag",
+      "quarantine_reason"
+    ],
+    "minimumIdentityFields": ["student_name", "school_name"],
+    "optionalMatchingHints": ["phone", "email", "line_name", "stable_key_hint", "mapping_hint"],
+    "dateFormat": "YYYY-MM-DD",
+    "quarantineFlagValues": ["TRUE", "FALSE"],
+    "quarantineRule": "quarantine_flagがTRUEの場合はquarantine_reasonを必須とする",
+    "preflightOnly": true,
+    "networkOperation": false,
+    "databaseOperation": false,
+    "rawValueDisplay": false,
+    "retryCount": 0,
+    "productionStagingRequiresSeparateApproval": true,
+    "canonicalPromotionRequiresSeparateApproval": true,
+    "unknownHeaderOrCodePolicy": "FAIL_CLOSED"
+  },
+  "prohibitions": [
+    "辞書未定義コードの自動生成",
+    "学校名・氏名・理由の推測入力",
+    "重複候補の自動統合・自動削除",
+    "CandidateからEmployeeへのデータコピー",
+    "未承認のStaging Migration実行",
+    "ProductionへのMigration・書込み・自動昇格",
+    "NOV Talentから正本Spreadsheetへの逆書込み",
+    "旧コピーを正式Sourceとして利用",
+    "辞書への個人情報・Secretの保存"
+  ]
+}

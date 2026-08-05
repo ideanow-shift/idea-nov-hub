@@ -1,0 +1,63 @@
+{
+  "contractId": "NOV_TALENT_STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA",
+  "contractVersion": "1.0.0",
+  "status": "REMOTE_APPLIED_ACTIVE_DATASET",
+  "implementedAt": "2026-08-03",
+  "migrationArtifact": "supabase/migrations/20260803083708_nov_talent_candidate_versioned_dataset.sql",
+  "scope": {
+    "includedEntities": ["CANDIDATE"],
+    "excludedEntities": [
+      "EVENT_CONTACT",
+      "SELECTION_HISTORY",
+      "PRODUCTION",
+      "CANONICAL",
+      "NOV_PEOPLE",
+      "EMPLOYEE_CORE",
+      "LINE_HISTORY"
+    ],
+    "approvedCandidateCount": 636,
+    "approvedCandidateCountByGraduationYear": {
+      "2027": 528,
+      "2028": 108
+    }
+  },
+  "tables": {
+    "datasets": "public.nov_talent_candidate_datasets_v1",
+    "candidateRecords": "public.nov_talent_candidate_dataset_records_v1"
+  },
+  "lifecycle": ["BUILDING", "READY", "ACTIVE", "RETIRED"],
+  "invariants": {
+    "maximumActiveDatasetCount": 1,
+    "candidateRowsInsertableOnlyWhileBuilding": true,
+    "expectedCountMustMatchBeforeReady": true,
+    "graduationYearCountsMustMatchBeforeReady": true,
+    "activationIsAtomic": true,
+    "previousDatasetRestorable": true,
+    "automaticMerge": false,
+    "automaticDelete": false,
+    "retryCount": 0
+  },
+  "access": {
+    "rowLevelSecurityEnabled": true,
+    "anonAccess": "NONE",
+    "authenticatedAccess": "NONE",
+    "serviceRoleTableAccess": ["SELECT", "INSERT"],
+    "stateTransitions": "SERVICE_ROLE_FUNCTIONS_ONLY",
+    "browserWritePath": false
+  },
+  "functions": {
+    "schema": "nov_talent_internal",
+    "operatorGuard": "nov_talent_internal.assert_candidate_dataset_operator_v1",
+    "seal": "nov_talent_internal.seal_candidate_dataset_v1",
+    "activate": "nov_talent_internal.activate_candidate_dataset_v1",
+    "restorePrevious": "nov_talent_internal.restore_previous_candidate_dataset_v1"
+  },
+  "application": {
+    "remoteSchemaApplied": true,
+    "stagingMigrationExecuted": true,
+    "productionWriteCount": 0,
+    "activeSnapshotId": "NOV-TALENT-STAGING-E30AE047735FC922",
+    "nextGate": "STAGING_CANDIDATE_READ_RUNTIME_AND_ROLE_GUARD_IMPLEMENTATION"
+  },
+  "containsPersonalValues": false
+}

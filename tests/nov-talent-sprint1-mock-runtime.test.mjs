@@ -21,7 +21,7 @@ test("Sprint 1 seed is anonymous and preserves only cohort counts", () => {
   assert.equal(seed.candidates.length, 147);
   assert.ok(seed.candidates.every((candidate) => candidate.recordId.startsWith("mock-")));
   assert.ok(seed.candidates.every((candidate) => candidate.phone === "" && candidate.email === ""));
-  assert.ok(seed.candidates.every((candidate) => /^(候補者|架空|学校未設定|採用)/.test(`${candidate.displayName}${candidate.school}${candidate.assignee}`)));
+  assert.ok(seed.candidates.every((candidate) => /^(学生|架空|学校未設定|採用)/.test(`${candidate.displayName}${candidate.school}${candidate.assignee}`)));
 });
 
 test("Mock Runtime returns dashboard, candidates and at most five tasks without I/O", async () => {
@@ -58,23 +58,26 @@ test("Mock Runtime exposes every required safe state", async () => {
   }
 });
 
-test("Published shell has no Supabase runtime or NOV People route", async () => {
+test("Published shell uses the approved server-side Staging runtime and retains Mock fallback", async () => {
   const [html, app, config, css] = await Promise.all([
     readFile(new URL("index.html", root), "utf8"),
     readFile(new URL("app.mjs", root), "utf8"),
     readFile(new URL("runtime-config.candidate.js", root), "utf8"),
     readFile(new URL("style.css", root), "utf8")
   ]);
-  assert.match(html, /Mock Runtime/);
-  assert.match(html, /候補者一覧/);
+  assert.match(html, /運用データ/);
+  assert.match(html, /学生一覧/);
   assert.doesNotMatch(html, /data-primary-tab="workforce"/);
   assert.match(html, /id="panel-workforce" class="primary-panel sprint1-separated"/);
-  assert.match(app, /from "\.\/runtime\.mjs\?v=20260731-sprint1-mock-1"/);
+  assert.match(app, /from "\.\/runtime\.mjs\?v=20260804-workspace-master-contract-2"/);
   assert.doesNotMatch(app, /^import .*exact1/m);
   assert.doesNotMatch(app, /^import .*current-api/m);
-  assert.doesNotMatch(config, /https?:\/\/|supabase/i);
-  assert.match(config, /networkEnabled: false/);
-  assert.match(config, /writeEnabled: false/);
+  assert.match(config, /runtimeMode: "staging"/);
+  assert.match(config, /networkEnabled: true/);
+  assert.match(config, /readonlyApiEnabled: true/);
+  assert.match(config, /stagingCandidateDataset: true/);
+  assert.match(config, /writeEnabled: true/);
+  assert.doesNotMatch(`${app}\n${config}`, /service[_-]?role|SUPABASE_SERVICE_ROLE_KEY|createClient/i);
   assert.match(css, /\.sprint1-separated/);
   assert.match(css, /@media \(max-width: 520px\)/);
 });

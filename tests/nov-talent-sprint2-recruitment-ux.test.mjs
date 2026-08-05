@@ -11,19 +11,45 @@ import {
 import { buildAnonymousTalentSeeds } from "../portal/talent/mock-seeds.mjs";
 
 const candidates = buildAnonymousTalentSeeds({ now: new Date("2026-08-01T12:00:00+09:00") }).candidates;
-const workspace = { students: candidates };
+const workspace = {
+  students: candidates,
+  dashboard: {
+    candidateCount: 147,
+    entries: 42,
+    salonTourPlanned: 9,
+    interviewPlanned: 7,
+    offers: 35,
+    withdrawals: 2,
+    schoolCount: 5,
+    fairCount: 45,
+    availability: {
+      candidateCount: true, entries: true, salonTourPlanned: true, interviewPlanned: true,
+      offers: true, withdrawals: true, schoolCount: true, fairCount: true, todayActions: false
+    }
+  }
+};
 
-for (const [key, label, code] of [
-  ["entries", "エントリー", "CONTACT"], ["salonTours", "見学", "SALON_TOUR"],
-  ["interviews", "面接", "INTERVIEW"], ["offers", "内定", "OFFER"],
-  ["accepted", "承諾", "PASSED"], ["expectedJoiners", "入社予定", "EXPECTED_JOIN"]
+for (const [key, label, value] of [
+  ["candidateCount", "学生", 147], ["entries", "応募", 42],
+  ["salonTourPlanned", "見学予定", 9], ["interviewPlanned", "面接予定", 7],
+  ["offers", "内定", 35], ["withdrawals", "辞退", 2],
+  ["schoolCount", "学校", 5], ["fairCount", "フェア", 45]
 ]) {
-  test(`Sprint 2 dashboard exposes ${label} from existing ${code} rows`, () => {
+  test(`Recruiting Dashboard exposes ${label} from the server aggregation`, () => {
     const metric = buildRecruitmentDashboardDecision(workspace).metrics.find((item) => item.key === key);
     assert.equal(metric.label, label);
-    assert.equal(metric.value, candidates.filter((candidate) => candidate.statusCode === code).length);
+    assert.equal(metric.value, value);
   });
 }
+
+test("unconnected dashboard metrics show 集計準備中 instead of a false zero", () => {
+  const preparing = {
+    ...workspace,
+    dashboard: { ...workspace.dashboard, availability: { ...workspace.dashboard.availability, salonTourPlanned: false } }
+  };
+  const metric = buildRecruitmentDashboardDecision(preparing).metrics.find((item) => item.key === "salonTourPlanned");
+  assert.equal(metric.value, "集計準備中");
+});
 
 test("dashboard puts overdue work in the morning conclusion", () => {
   const view = buildRecruitmentDashboardDecision(workspace, [{ priority: "高" }]);
@@ -57,7 +83,7 @@ test("today task board preserves source order", () => {
 });
 
 test("today task board identifies existing data as its only source", () => {
-  assert.equal(buildRecruitmentTaskBoard([{ candidateId: "a" }])[0].source, "EXISTING_MOCK_DATA");
+  assert.equal(buildRecruitmentTaskBoard([{ candidateId: "a" }])[0].source, "STAGING_NEXT_ACTION");
 });
 
 test("event ROI refuses to estimate missing cost", () => {
@@ -67,7 +93,7 @@ test("event ROI refuses to estimate missing cost", () => {
   assert.equal(roi.estimated, false);
 });
 
-for (const [key, label] of [["entryRate", "エントリー到達率"], ["offerRate", "内定到達率"], ["acceptedRate", "承諾到達率"]]) {
+for (const [key, label] of [["entryRate", "応募到達率"], ["offerRate", "内定到達率"]]) {
   test(`event ROI shows ${label} from existing counts`, () => {
     const metric = buildEventRoiView(workspace).metrics.find((item) => item.key === key);
     assert.equal(metric.label, label);
@@ -75,12 +101,16 @@ for (const [key, label] of [["entryRate", "エントリー到達率"], ["offerRa
   });
 }
 
+test("event ROI keeps the unconnected acceptance rate in preparing state", () => {
+  assert.equal(buildEventRoiView(workspace).metrics.find((item) => item.key === "acceptedRate").value, "集計準備中");
+});
+
 test("candidate history summary separates three history types", () => {
   const summary = buildCandidateHistorySummary(candidates[3]);
   assert.equal(summary.total, summary.contactCount + summary.eventCount + summary.selectionCount);
 });
 
-for (const state of ["loading", "ready", "empty", "unauthorized", "forbidden", "validation_error", "timeout", "offline", "maintenance"]) {
+for (const state of ["loading", "ready", "empty", "auth_required", "unauthorized", "forbidden", "api_error", "invalid_response", "validation_error", "timeout", "offline", "maintenance"]) {
   test(`Mock Runtime presents ${state} with an operator message`, () => {
     const view = buildMockRuntimePresentation(state);
     assert.ok(view.title.length > 0);
@@ -89,11 +119,18 @@ for (const state of ["loading", "ready", "empty", "unauthorized", "forbidden", "
   });
 }
 
-test("unknown Mock Runtime states fail closed as validation errors", () => {
-  assert.equal(buildMockRuntimePresentation("unknown").category, "VALIDATION_ERROR");
+test("unknown runtime states fail closed as API errors", () => {
+  assert.equal(buildMockRuntimePresentation("unknown").category, "API_ERROR");
 });
 
-test("Sprint 2 UI orders the morning conclusion before six metrics and tasks", async () => {
+test("Staging authentication and API failures are not mislabeled as Mock format errors", () => {
+  for (const state of ["auth_required", "forbidden", "api_error", "invalid_response"]) {
+    const view = buildMockRuntimePresentation(state);
+    assert.doesNotMatch(`${view.title} ${view.copy}`, /Mockデータの形式|入力形式を直して/);
+  }
+});
+
+test("Recruiting Dashboard orders the morning conclusion before eight metrics and tasks", async () => {
   const html = await readFile(new URL("../portal/talent/index.html", import.meta.url), "utf8");
   const decision = html.indexOf('id="recruitment-decision-summary"');
   const metrics = html.indexOf('id="historical-summary-metrics"');

@@ -1,0 +1,62 @@
+{
+  "contractVersion": "1.0.0",
+  "environment": "idea-nov-staging",
+  "productionEnvironment": "idea-nov-core",
+  "productionApplicationAllowed": false,
+  "table": "public.nov_talent_fair_masters_v1",
+  "nullSemantics": {
+    "null": "UNREGISTERED_OR_UNKNOWN",
+    "zero": "CONFIRMED_ZERO",
+    "blankToZeroAllowed": false,
+    "existingZeroRewriteAllowed": false
+  },
+  "requiredFields": ["fair_name", "event_date"],
+  "nullableRawMeasureFields": [
+    "participation_fee",
+    "participant_count",
+    "expected_contacts",
+    "total_attendance",
+    "participating_salons",
+    "contact_count",
+    "line_registration_count",
+    "salon_tour_count",
+    "interview_count",
+    "offer_count",
+    "hire_count"
+  ],
+  "addedFields": [
+    "organizer_name",
+    "event_format",
+    "expected_contacts",
+    "total_attendance",
+    "participating_salons",
+    "note"
+  ],
+  "derivedOnly": [
+    "line_registration_rate",
+    "salon_tour_rate",
+    "hire_rate",
+    "cost_per_contact",
+    "cost_per_hire"
+  ],
+  "derivedMissingBehavior": "NULL_READY_PENDING",
+  "security": {
+    "rlsRequired": true,
+    "browserTableGrantAllowed": false,
+    "writeRpcRole": "service_role",
+    "applicationRoles": ["super_admin", "backoffice", "hr.admin", "hr.staff"],
+    "appendOnlyAuditRequired": true
+  },
+  "existingRemoteBaseline": {
+    "totalFairCount": 46,
+    "activeFairCount": 45,
+    "inactiveFairCount": 1,
+    "existingRowsRewritten": 0,
+    "existingZeroMeaning": "UNDETERMINED_RETAINED_FOR_REVIEW"
+  },
+  "deployment": {
+    "stagingApplied": false,
+    "status": "AWAITING_EXPLICIT_APPROVAL",
+    "sourceBackfillExecuted": false
+  }
+}

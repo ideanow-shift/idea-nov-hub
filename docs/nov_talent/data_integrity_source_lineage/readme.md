@@ -7,7 +7,7 @@
 - Data Integrity成果物: `RELEASE_READY`
 - Platform Status: `DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD`
 - Release Note: `DATA_INTEGRITY_COMPLETED / DATA_CONSISTENCY_REVIEW / MIGRATION_HOLD`
-- Migration保留理由: 件数定義未確定
+- Migration保留理由: Migration実行前条件未完了（対象行定義とMigration契約は確定済み）
 
 ## 正本Inventory
 
@@ -31,7 +31,9 @@
 
 ## Data ConsistencyとMigration
 
-27卒接触の採番済547行と実データ入力済535行の差12件は、Data IntegrityではなくData Consistencyの確認対象として扱う。Data Integrityは完了済みであり、Migrationを保留する理由は「件数定義未確定」である。
+Migration対象行は、氏名・学校・電話番号・メール・LINE・イベント・ステータスのいずれか1項目以上が入力された行とする。No.だけ採番された空テンプレート行は対象外である。最新read-only観測では対象528行、対象外13行であり、旧547／535／12は過去値として扱う。
+
+Data Integrity、対象行定義、Candidate同一性、Migration先区分、Snapshot・受領・Rollbackの各契約は確定済みである。重複候補6グループはOwner確認により `different_person / keep_separate` として安定IDへ記録済みで、pending reviewとQuarantineは0件である。Migrationは、private read-only dry-runとSnapshot生成、OwnerおよびMigration実行承認が未完了のため保留する。
 
 ## 安全境界
 

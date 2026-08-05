@@ -69,13 +69,13 @@ test("local demo identity is allowed only on loopback", () => {
 
 test("HUB registry presents NOV Talent as 求人管理", () => {
   assert.match(sources.apps, /appId: "nov-talent", appName: "求人管理"/);
-  assert.match(sources.apps, /候補者・選考・イベント・次回対応を管理/);
+  assert.match(sources.apps, /学生・選考・イベント・次回対応を管理/);
   assert.doesNotMatch(sources.apps, /appId: "nov-talent"[^\n]*現職者管理/);
 });
 
 test("HUB card keeps NOV People responsibilities out of NOV Talent", () => {
   const card = sources.dashboard.match(/title: "求人管理"[^\n]+/)?.[0] || "";
-  assert.match(card, /候補者・選考・イベント・次回対応/);
+  assert.match(card, /学生・選考・イベント・次回対応/);
   assert.doesNotMatch(card, /現職者管理|入社手続き|異動|休職|退職/);
 });
 

@@ -1,0 +1,56 @@
+{
+  "result": "PASS_STAGING_CANDIDATE_DATASET_ACTIVE",
+  "stagingProject": {
+    "name": "idea-nov-staging",
+    "projectId": "zgkoofphhivesclehrom"
+  },
+  "snapshotId": "NOV-TALENT-STAGING-E30AE047735FC922",
+  "artifactHash": "e30ae047735fc922032f0512cb76ecd751b24ad4f77e843a1e0e8a95b498dbff",
+  "datasetState": "ACTIVE",
+  "counts": {
+    "candidateCount": 636,
+    "candidateCount27": 528,
+    "candidateCount28": 108,
+    "excludedTemplateCount": 431,
+    "quarantineCount": 0,
+    "humanReviewEvidenceCount": 17,
+    "keepSeparateGroupCount": 6
+  },
+  "access": {
+    "rlsEnabled": true,
+    "anonSelect": false,
+    "authenticatedSelect": false,
+    "serviceRoleAccess": ["SELECT", "INSERT"],
+    "serviceRoleUpdate": false,
+    "serviceRoleDelete": false
+  },
+  "rollback": {
+    "singleTransactionRollbackUsed": false,
+    "restoreFunctionAvailable": true,
+    "previousDatasetAvailable": false,
+    "note": "Initial dataset has no previous active version. Future activations retain the prior dataset for restore."
+  },
+  "operationReadiness": {
+    "datasetReady": true,
+    "stagingReadonlyApiDeployed": true,
+    "staffUiSourceReady": true,
+    "publicStaffUiConnected": false,
+    "fixedCategory": "STAGING_RUNTIME_READY_FOR_PUBLICATION",
+    "productionPromotion": false
+  },
+  "executionAccounting": {
+    "spreadsheetReadCount": 2,
+    "spreadsheetWriteCount": 0,
+    "stagingCandidateWriteCount": 636,
+    "productionWriteCount": 0,
+    "canonicalWriteCount": 0,
+    "lineHistoryWriteCount": 0,
+    "promotionCount": 0,
+    "employeeCoreWriteCount": 0,
+    "eventContactWriteCount": 0,
+    "selectionHistoryWriteCount": 0,
+    "retryCount": 0,
+    "rawPersonalValuesIncluded": false
+  },
+  "nextGate": "STAGING_RUNTIME_PR_MERGE_AND_EXPLICIT_PAGES_PUBLICATION"
+}

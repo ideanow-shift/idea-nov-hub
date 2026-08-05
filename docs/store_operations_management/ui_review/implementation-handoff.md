@@ -37,4 +37,3 @@ RoleやScopeの推測、利益nullの0変換、FC利益表示、許可外option�
 ## UI外のblocking input
 
 正式API endpoint、Projection key、Session transport、HUB header実測高は実装開始前にintegration ownerが提供する。未提供でもUI componentとfixture stateの実装は開始できるが、推測してProduction接続しない。
-

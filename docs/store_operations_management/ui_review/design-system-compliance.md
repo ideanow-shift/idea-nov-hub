@@ -22,4 +22,3 @@ StatePanel、StatusBadge、MetricTile、FilterBar、Responsive Data List、Share
 - keyboard focus、contrast、reduced motion、touch targetを確認
 - 色・余白・radiusの直書きがlocal token定義以外にないことを確認
 - ProductionでPreview固有部品がDOMに出ないことを確認
-

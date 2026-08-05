@@ -11,9 +11,9 @@ Permission Modelの構造は変更しない。UIが前提とするServer-side境
 5. `employee_store_assignments`から解決するStore Scope
 6. 必要なAction Scope
 
-正式Permission Key名とBundle名はCore DB/Auth契約確定待ちである。仮Keyや仮Bundleを創作しない。UI上の表示・状態・閲覧範囲契約は本資料で確定する。
+正式Permission Key名とProduction有効Bundle名はCore Business Data Foundation／Permission Modelへの外部依存であり、Production Authorization実装を保留する。仮Keyや仮Bundleを創作しない。UI上の表示・状態・閲覧範囲契約は本資料でFreezeし、正式Key、Bundle、営業部長canonical relation、Production assignment証跡をRelease前必須Gateとする。詳細は[Authorization Contract Status](authorization-contract.md)を参照する。
 
-`representative`と`sales_manager`はPreview／表示用aliasに限定し、backend Roleとして使用しない。一般社員はV1対象外で、カード非表示・直接URL403とする。営業部長のcanonical department relationは未確定である。
+`representative`と`sales_manager`はPreview／表示用aliasに限定し、backend Roleとして使用しない。一般社員はV1対象外で、カード非表示・直接URL403とする。営業部長のcanonical department relationは外部依存のRelease Gateであり、承認までProduction実装を保留する。
 
 ## Store Scope正本
 

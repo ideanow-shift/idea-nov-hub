@@ -8,6 +8,8 @@
 
 Permission Modelの6層構造（Session／employee、canonical Role、Application Permission、Data Scope、Store Scope、Action Scope）は変更不要である。UIはServerが認可済みとして返した店舗とKPIだけを表示する。
 
+Contract FreezeとUI Freezeは完了した。Business Definition v1.1／Tax Policy Freezeとして、売上・利益・単価を税抜正式値、`tax_basis=net`、売上を`sales_net`に固定し、`null`と確定値`0`を区別する。Production Authorization Freezeは未完了であり、正式Permission Key、Bundle、営業部長canonical relation、Production assignment証跡をRelease前必須Gateとして実装保留する。
+
 ## V1採用案
 
 Executive Summary→優先アクション最大3件→業績ドライバー4群→コンパクトな店舗ポートフォリオ→要対応初期表示の店舗一覧→店舗詳細4区分、という判断順を採用する。全店／直営／FCは許可済み店舗集合を狭める表示Filterとする。全店時の利益は「直営店利益（対象○店舗）」とし、FC利益はV1対象外とする。
@@ -49,6 +51,8 @@ Executive Summary→優先アクション最大3件→業績ドライバー4群�
 | Design System準拠 | [design-system-compliance.md](design-system-compliance.md) |
 | 実装引継ぎ | [implementation-handoff.md](implementation-handoff.md) |
 | 最終Visual基準 | [visual-design-guideline.md](visual-design-guideline.md) |
+| Business Definition v1.1／Tax Policy | [business-definition-v1.1.md](business-definition-v1.1.md) |
+| Authorization状態・Release Gate | [authorization-contract.md](authorization-contract.md) |
 
 ## V2候補
 
@@ -72,17 +76,14 @@ POS、日次進捗、月末着地予測、リアルタイム、スタッフ個�
 - HUB headerの実測sticky offset
 - 客数、単価、EC按分、生産性を含むPublished Projectionの値接続
 
-## Contract Freeze後も残るGap
+## Authorization外部依存とRelease Gate
 
-- Store Operations Application Permissionの正式Key名
-- 非利益KPI Data Scopeの正式Key名
-- 確定利益・利益率Data Scopeの正式Key名
-- Store Operations専用Permission Bundleの正式名称
-- 営業部長のcanonical department relation
-- Productionで有効なBundleのread-only証跡
-- `employee_store_assignments`のProduction制約確認
+- Application Permission Key: 外部依存、Production実装保留、正式Key・owner・監査証跡の承認がRelease Gate
+- Permission Bundle: 外部依存、仮Bundle禁止、正式名称・構成Key・対象actor・付与証跡の承認がRelease Gate
+- 営業部長canonical relation: 外部依存、UI契約上は直営13店舗、正式relationとresolver negative testの承認がRelease Gate
+- `employee_store_assignments`: AM・店長のStore Scope論理正本としてFreeze。Production relation ownership、期間制約、重複・失効・兼任testがRelease Gate
 
-正式Key名はCore DB/Auth契約確定後に置換する。UI上の表示・状態・閲覧範囲契約は本資料で確定した。次の担当は **Store Operations V1 Frontend Implementation Codex**、次のtaskは「[implementation-handoff.md](implementation-handoff.md)に従いPreview／FixtureでUI component、Responsive、全状態、Navigation保持を実装し、認可・Runtime・API Contractを変更しない」である。Production接続は引き続き**NO GO**である。
+UI上の表示・状態・閲覧範囲契約は本資料で確定したが、PR #33単体でProduction Authorization Freeze完了とはしない。詳細は[Authorization Contract Status](authorization-contract.md)を参照する。Production接続は引き続き**NO GO**である。
 
 ## Git作業結果
 
@@ -91,5 +92,6 @@ POS、日次進捗、月末着地予測、リアルタイム、スタッフ個�
 - Push: 本Sprint完了後に`origin/docs/store-operations-ui-review-v1`へ更新
 - Draft PR: [#33 docs(store-operations): review and redesign V1 decision UX](https://github.com/ideanow-shift/idea-nov-hub/pull/33)
 - PR状態: Draftを維持
-- 変更範囲: `docs/store_operations_management/ui_review/**`のUI文書のみ
+- 成果物: `docs/store_operations_management/ui_review/**`の34文書
+- 変更範囲: UI仕様・契約文書のみ（Frontend／Fixture実装なし）
 - Merge／Deploy: 未実施

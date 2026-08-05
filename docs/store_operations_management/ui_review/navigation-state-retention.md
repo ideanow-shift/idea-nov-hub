@@ -17,4 +17,3 @@ Browser Back／「一覧へ戻る」は同じ復元規則を使う。復元後�
 ## Loading中の操作
 
 同じrequestを発生させる操作だけをdisabledにする。page全体を無条件にlockしない。連続Filter変更は最後の選択を採用し、進行中requestをabortする。失敗時は選択条件を維持して再試行できる。
-

@@ -25,4 +25,3 @@
 | `MobileFilterSheet` | fields、apply、clear、count | modal bottom sheet | open/dirty/loading | focus trap、Esc、背景scroll lock、閉じてfocus復元 |
 
 Optional propsは補足説明、確定予定、source label、comparison period、secondary actionに限る。Optional不在で空の枠や`-`を出さない。
-

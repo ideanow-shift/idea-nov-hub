@@ -21,4 +21,3 @@ Mobileは1column、filterはbottom sheet、一覧はcard、Detail tabだけ横�
 ## Accessibility
 
 色だけで状態を伝えない。Focus ringを消さない。Text contrast 4.5:1。Chart、bar、statusは同等のtextを持つ。Touch target 44px。Heading levelを飛ばさない。Loading／更新完了は必要な範囲だけlive announceする。
-

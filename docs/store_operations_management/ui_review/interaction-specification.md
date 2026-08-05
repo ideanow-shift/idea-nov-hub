@@ -13,4 +13,3 @@
 | 再試行 | 同一条件で再request | button busy、重複送信不可 | 完了後section headingへannounce |
 
 hoverは補助であり、hoverだけで情報を出さない。Tooltipはdelay 300ms、focusでも開き、Escで閉じる。 destructive操作はV1に存在しない。Animationは150–200ms、reduced motionでは無効。
-

@@ -17,4 +17,3 @@
 ## 非UIの未接続事項
 
 正式API、Production Session、実データProjectionの接続可否はUI設計完成判定に含めない。UIは値を推測せず、Contractが返す状態を本仕様の表示へ写像する。未接続時にSyntheticへfallbackしない。
-

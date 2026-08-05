@@ -34,4 +34,3 @@ fontは既存system font、base 14px。Caption 12px/1.5、body 14px/1.55、secti
 ## 状態色
 
 好調、安定、改善中、要対応は既存status tokenを使用し、必ず文字labelとdot/iconを併用する。新しい意味色を追加しない。Chartの今年はBrand濃色、前年は`#777777`の破線。本文contrast 4.5:1、large text／graphic 3:1を下回らない。
-

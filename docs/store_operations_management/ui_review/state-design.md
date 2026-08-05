@@ -29,4 +29,3 @@
 ## 利益の特別規則
 
 confirmedは金額＋利益率＋確定対象期間、collectingは「集計中」＋予定、FCは「V1対象外」、Data Scopeなしは領域自体を非表示とする。0円は正式なconfirmed valueが0の場合だけ表示できる。
-

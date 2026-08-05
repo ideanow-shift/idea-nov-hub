@@ -19,7 +19,7 @@ test('unknown source values cannot be converted to zero', () => {
   assert.equal(contract.derived_metrics.zero_when_unknown, false);
   assert.equal(report.staging_preflight.status, 'BLOCKED');
   assert.equal(report.staging_preflight.write_count, 0);
-  assert.ok(report.staging_preflight.reason_codes.includes('FAIR_MASTER_UNKNOWN_NUMERIC_VALUES_COERCE_TO_ZERO'));
+  assert.ok(report.staging_preflight.reason_codes.includes('EXPECTED_FAIR_COUNT_MISMATCH'));
 });
 
 test('identity and selection rules fail closed', () => {
@@ -31,8 +31,14 @@ test('identity and selection rules fail closed', () => {
 });
 
 test('dry-run counts reconcile without personal values', () => {
-  assert.equal(report.business_rows, report.identity_ready_rows + report.identity_key_missing_rows);
-  assert.equal(report.source_rows_observed, report.business_rows + report.empty_template_rows);
+  assert.equal(
+    report.source_rows_observed,
+    report.identity_ready_rows + report.identity_key_missing_rows + report.number_only_template_rows + report.empty_template_rows,
+  );
+  assert.equal(report.rows_counted_as_business_by_previous_dry_run, 44);
+  assert.equal(report.staging_preflight.expected_write_count, 44);
+  assert.equal(report.staging_preflight.safe_identity_record_count, 37);
+  assert.equal(report.staging_preflight.insert_only_count, 37);
   assert.equal(report.safety.personal_values_in_artifact, false);
   assert.equal(report.safety.spreadsheet_write_count, 0);
   assert.equal(report.safety.staging_write_count, 0);

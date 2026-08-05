@@ -20,7 +20,7 @@ export function wireStore(overrides = {}) {
     scope_key: "group-01",
     store_status: "Needs Attention",
     store_status_reason: "営業利益率が基準を下回っています",
-    sales_gross: wireMetric("売上", "¥8,450,000", "available"),
+    sales_net: wireMetric("売上（税抜）", "¥8,450,000", "available"),
     operating_profit: wireMetric("営業利益", "¥1,240,000", "available"),
     operating_profit_margin: wireMetric("営業利益率", "14.9%", "available", "percent"),
     ordinary_profit_margin: wireMetric("経常利益率", "13.2%", "available", "percent"),
@@ -54,6 +54,7 @@ export function wireProjection(overrides = {}) {
   return {
     meta: {
       sales_period: "2026-07",
+      tax_basis: "net",
       accounting_confirmed_through_period: "2026-06",
       confirmation_state: "available",
       last_updated_at: "2026-07-15T09:30:00+09:00",
@@ -63,13 +64,13 @@ export function wireProjection(overrides = {}) {
       reflected_store_count: stores.length,
       accounting_version_id: "accounting-version-synthetic-1",
       kpi_definition_set_version: "kpi-definition-synthetic-1",
-      projection_version: "store-sales-projection-v1",
+      projection_version: "store-sales-projection-v1.1",
       adapter_mode: "integration",
       ...metaOverrides
     },
     executive_summary: {
       metrics: {
-        totalSalesGross: wireMetric("全社売上（税込）", "¥8,450,000", "available"),
+        totalSalesNet: wireMetric("全社売上（税抜）", "¥8,450,000", "available"),
         operatingProfit: wireMetric("営業利益", "¥1,240,000", "available"),
         ordinaryProfit: wireMetric("経常利益", "¥1,090,000", "available"),
         grossProfitMargin: wireMetric("売上総利益率", "61.8%", "available", "percent"),

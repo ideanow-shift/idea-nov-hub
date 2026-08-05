@@ -9,6 +9,15 @@ html{scroll-behavior:smooth}body{color:var(--ink);background:#fff;line-height:1.
 @media(max-width:620px){.shell{padding:14px 12px 40px}.accounting-meta dl{grid-template-columns:repeat(2,1fr)}.dev-controls{display:grid;grid-template-columns:1fr 1fr}.dev-controls>div{grid-column:1/-1}.sticky-filters label{width:100%}.sticky-filters input{width:100%}.hero-narrative,.detail-conclusion{font-size:16px}.metric{padding:16px}.status-counts{display:grid;grid-template-columns:1fr 1fr}.section-heading{align-items:flex-start;flex-direction:column}.sort-control{width:100%}.sort-control select{width:100%}.store-card dl{grid-template-columns:1fr}.tabs{margin-left:-12px;margin-right:-12px;padding-left:12px}.preview-banner{flex-direction:column}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 
+/* Store Operations V1.1 Preview implementation: Apple-like restraint and state clarity. */
+.accounting-meta dl{grid-template-columns:repeat(auto-fit,minmax(74px,1fr))}
+.notice.is-blocking{min-height:280px;margin:48px auto;max-width:720px;justify-content:center;align-items:flex-start;flex-direction:column;padding:32px;border:1px solid var(--line);border-left:4px solid var(--rose);border-radius:12px;background:#fff;box-shadow:var(--shadow-card)}
+.notice.is-blocking #notice-title{font-size:20px;line-height:1.35}
+.notice.is-blocking #notice-body{color:var(--muted);font-size:14px}
+.notice.is-blocking .notice-retry{margin-left:0;padding:8px 16px}
+.metric-value,.decision-signal-card dd,td{font-variant-numeric:tabular-nums}
+@media(max-width:620px){.notice.is-blocking{min-height:220px;margin:28px 0;padding:24px 18px}.accounting-meta dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 /* Legacy responsive contract selectors retained for Phase 5 regression checks.
 @media (max-width: 620px) {
   .table-scroll { display: none; }

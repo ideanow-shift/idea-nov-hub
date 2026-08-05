@@ -11,6 +11,15 @@ const projection = () => buildSyntheticProjection({
   requestId: "synthetic-demo-test"
 });
 
+const v11Projection = () => {
+  const source = projection();
+  return {
+    ...source,
+    meta: { ...source.meta, tax_basis: "net" },
+    stores: source.stores.map((store) => ({ ...store, sales_net: { ...store.sales_gross, label: "売上（税抜）" } }))
+  };
+};
+
 test("demo status distribution is realistic and fixed", () => {
   const counts = Object.fromEntries(["Good", "Stable", "Improving", "Needs Attention"]
     .map((status) => [status, SYNTHETIC_STORES.filter((store) => store.status === status).length]));
@@ -37,7 +46,7 @@ test("attention stores have readable actions driven by existing contract fields"
 });
 
 test("normalized store detail contains human-readable guidance for monthly focus", () => {
-  const normalized = validateProjectionResponse(projection());
+  const normalized = validateProjectionResponse(v11Projection());
   assert.equal(normalized.stores.length, 20);
   assert.ok(normalized.stores.every((store) => store.statusReason.endsWith("。")));
   assert.equal(normalized.stores.find((store) => store.status === "Needs Attention").statusReason, "新規リピート率向上を最優先で取り組みましょう。");

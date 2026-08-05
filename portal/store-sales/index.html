@@ -14,7 +14,7 @@
       <div>
         <a class="back-link" href="../">← NOV HUBへ戻る</a>
         <div id="preview-banner" class="preview-banner" role="status" aria-label="プレビューモード" hidden>
-          <strong>プレビュー</strong><span>現在は画面確認用のサンプルデータを表示しています。実績値ではありません。実会計データ・本番環境には接続していません。</span>
+          <strong>プレビュー</strong><span>現在は画面確認用の税抜サンプルデータを表示しています。実績値ではありません。Business Fact・Accounting Fact・本番環境には接続していません。</span>
         </div>
         <p class="eyebrow">店舗営業管理</p>
         <h1 id="page-title">全店の状況</h1>
@@ -30,6 +30,7 @@
           <div><dt>利益確定月</dt><dd id="meta-accounting-period">—</dd></div>
           <div><dt>利益状態</dt><dd id="meta-state">集計中</dd></div>
           <div><dt>最終更新</dt><dd id="meta-updated">—</dd></div>
+          <div><dt>税区分</dt><dd id="meta-tax-basis">税抜</dd></div>
         </dl>
       </section>
     </header>
@@ -85,7 +86,7 @@
           </div>
           <div id="status-filters" class="status-filters" aria-label="店舗状態フィルター"></div>
           <div class="table-wrap">
-            <table><caption class="sr-only">店舗比較</caption><thead><tr><th>店舗名</th><th>店舗状態</th><th>担当AM</th><th>総売上（税込）</th><th>利益</th><th class="optional-col">総客数</th><th>総リピート率</th><th>総生産性</th><th>今月の重点</th><th aria-label="詳細"></th></tr></thead><tbody id="store-rows"></tbody></table>
+            <table><caption class="sr-only">店舗比較</caption><thead><tr><th>店舗名</th><th>店舗状態</th><th>担当AM</th><th>総売上（税抜）</th><th>利益</th><th class="optional-col">総客数</th><th>総リピート率</th><th>総生産性</th><th>今月の重点</th><th aria-label="詳細"></th></tr></thead><tbody id="store-rows"></tbody></table>
           </div>
           <div id="store-cards" class="store-cards"></div>
         </section>

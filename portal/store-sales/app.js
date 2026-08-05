@@ -22,7 +22,7 @@ const metricLabels = {
   value: ["totalTicket", "productivity", "technicalTicket", "retailSales", "retailPurchaseRate", "staffCount"]
 };
 const labels = {
-  sales: "総売上（税込）", operatingProfit: "営業利益", customerCount: "総客数", totalTicket: "総単価",
+  sales: "総売上（税抜）", operatingProfit: "営業利益", customerCount: "総客数", totalTicket: "総単価（税抜）",
   totalRepeat: "総リピート率", productivity: "総生産性", new: "新規リピート率", returning: "再来リピート率",
   loyal: "固定リピート率", newCustomerCount: "新規客数", existingCustomerCount: "既存客数",
   technicalTicket: "技術単価", retailSales: "店販売上", retailPurchaseRate: "店販購買率", staffCount: "稼働スタッフ数"
@@ -99,6 +99,7 @@ function renderRuntimeSnapshot(snapshot) {
   elements.devControls.hidden = !isPreviewMode;
   elements.retry.hidden = !snapshot.canRetry;
   elements.notice.hidden = hasProjection;
+  elements.notice.classList.toggle("is-blocking", !hasProjection || isBlocking);
   elements.notice.classList.toggle("is-error", !["initializing", "loading", "ready", "empty"].includes(snapshot.status));
   setNotice(snapshot.presentation?.title || "店舗営業情報を確認しています", snapshot.presentation?.body || "少々お待ちください。");
   if (!hasProjection || isBlocking) {
@@ -130,6 +131,7 @@ function renderAll() {
   $("meta-accounting-period").textContent = formatMonth(projection.accounting?.confirmedThroughPeriod); // 確定値の対象月
   $("meta-state").textContent = stateText(projection.accounting?.confirmationState);
   $("meta-updated").textContent = formatDate(projection.accounting?.lastUpdatedAt);
+  $("meta-tax-basis").textContent = projection.taxBasis === "net" ? "税抜" : "確認不可";
   $("filter-updated").textContent = `最終更新 ${formatDate(projection.accounting?.lastUpdatedAt)}`;
   if (state.audience === "store_manager" || role === "store_manager") {
     elements.executiveSignals.hidden = true;
@@ -187,7 +189,7 @@ function renderSummary(projection, stores, scopeLabel) {
     $("status-counts").replaceChildren(); return;
   }
   const total = stores.reduce((sum, store) => sum + metricNumber(store.metrics.sales), 0);
-  const profit = projection.executiveSummary?.metrics?.find((metric) => metric.label === "営業利益") || stores[0].metrics.operatingProfit;
+  const profit = summaryProfitMetric(stores);
   const attention = stores.filter((store) => store.status === "Needs Attention").length;
   const salesPeriodNote = state.periodMode === "cumulative"
     ? `${formatMonth(elements.period.value)}までの累計`
@@ -196,7 +198,7 @@ function renderSummary(projection, stores, scopeLabel) {
     state.scope === "All" ? (projection.executiveSummary?.narrative || "") :
     `${scopeLabel}の売上状況です。現在、${attention}店舗に対応が必要です。`;
   elements.summary.replaceChildren(
-    metricCard({ label: "総売上（税込）", displayValue: formatYen(total), dataState: "available", reason: salesPeriodNote }),
+    metricCard({ label: "総売上（税抜）", displayValue: formatYen(total), dataState: "available", reason: salesPeriodNote }),
     metricCard(profit), metricCard({ label: "要対応店舗", displayValue: `${attention}店舗`, dataState: "available" })
   );
   $("status-counts").replaceChildren(...Object.keys(statusOrder).reverse().map((status) => {
@@ -251,16 +253,20 @@ function buildDecisionSignals(projection, stores) {
     const values = stores.map((store) => metricNullableNumber(store.metrics[key])).filter((value) => value !== null);
     return values.length ? values.reduce((total, value) => total + value, 0) / values.length : null;
   };
-  const sales = sum("sales"); const profit = sum("operatingProfit"); const customerCount = sum("customerCount");
+  const sales = sum("sales"); const profitStores = stores.filter((store) => store.ownership !== "FC");
+  const profitValues = profitStores.map((store) => metricNullableNumber(store.metrics.operatingProfit)).filter((value) => value !== null);
+  const profit = profitValues.length ? profitValues.reduce((total, value) => total + value, 0) : null;
+  const customerCount = sum("customerCount");
   const ticket = average("totalTicket"); const retail = sum("retailSales"); const mid = sum("mid"); const ec = sum("ecSales");
   const salesYoy = ratioDelta(average("yearOverYearRatio")); const budget = average("budgetRatio");
   const profitYoy = average("profitYearOverYear"); const customerYoy = average("customerYearOverYear");
   const ticketYoy = average("ticketYearOverYear"); const retailYoy = average("retailYearOverYear");
   const ecTarget = average("ecTargetRatio"); const ecYoy = average("ecYearOverYear");
-  const profitReady = stores.every((store) => store.metrics.operatingProfit?.dataState === "available");
+  const profitOutOfScope = profitStores.length === 0;
+  const profitReady = !profitOutOfScope && profitStores.every((store) => store.metrics.operatingProfit?.dataState === "available");
   return [
-    signal("sales", "売上", "売上は上がっているか", signedConclusion(salesYoy), `予算比 ${percent(budget)} ／ 前年比 ${signed(salesYoy, "%")}`, [["総売上（税込）", formatYen(sales)], ["予算比", percent(budget)], ["前年比", signed(salesYoy, "%")]], sales, salesYoy),
-    signal("profit", "利益", "利益は出ているか", profitReady ? "確定" : "集計中", profitReady ? `営業利益 ${formatYen(profit)} ／ 利益率 ${percent(sales ? profit / sales * 100 : null)}` : "利益データを集計しています", [["営業利益", profitReady ? formatYen(profit) : "集計中"], ["営業利益率", profitReady ? percent(sales ? profit / sales * 100 : null) : "集計中"], ["前年比", profitReady ? signed(profitYoy, "%") : "集計中"]], profitReady ? profit : null, profitYoy),
+    signal("sales", "売上", "売上は上がっているか", signedConclusion(salesYoy), `予算比 ${percent(budget)} ／ 前年比 ${signed(salesYoy, "%")}`, [["総売上（税抜）", formatYen(sales)], ["予算比", percent(budget)], ["前年比", signed(salesYoy, "%")]], sales, salesYoy),
+    signal("profit", "利益", "利益は出ているか", profitOutOfScope ? "V1対象外" : profitReady ? "確定" : "集計中", profitOutOfScope ? "FC利益はV1では表示しません" : profitReady ? `営業利益 ${formatYen(profit)} ／ 利益率 ${percent(sales ? profit / sales * 100 : null)}` : "利益データを集計しています", [["営業利益", profitOutOfScope ? "V1対象外" : profitReady ? formatYen(profit) : "集計中"], ["営業利益率", profitOutOfScope ? "V1対象外" : profitReady ? percent(sales ? profit / sales * 100 : null) : "集計中"], ["前年比", profitOutOfScope ? "V1対象外" : profitReady ? signed(profitYoy, "%") : "集計中"]], profitReady ? profit : null, profitYoy),
     signal("customers", "集客", "集客できているか", signedConclusion(customerYoy, "改善", "要確認"), `客数 前年比 ${signed(customerYoy, "%")}`, [["総客数", count(customerCount)], ["新規客数", count(sum("newCustomerCount"))], ["既存客数", count(sum("existingCustomerCount"))], ["前年比", signed(customerYoy, "%")]], customerCount, customerYoy),
     signal("ticket", "単価", "単価は上がっているか", signedConclusion(ticketYoy), `総単価 前年比 ${signed(ticketYoy, "%")}`, [["総単価", yen(ticket)], ["技術単価", yen(average("technicalTicket"))], ["前年比", signed(ticketYoy, "%")]], ticket, ticketYoy),
     signal("retail", "商品", "商品は売れているか", Math.abs(retailYoy || 0) < .5 ? "横ばい" : signedConclusion(retailYoy), `店販購買率 前年比 ${signed(retailYoy, "pt")}`, [["店販売上", formatYen(retail)], ["店販購買率", percent(average("retailPurchaseRate"))], ["MID（参考値）", formatYen(mid)], ["EC売上（参考値）", formatYen(ec)], ["前年比", signed(retailYoy, "pt")]], retail, retailYoy),
@@ -336,7 +342,7 @@ function renderStores() {
   }
   elements.rows.replaceChildren(...stores.map((store) => {
     const row = document.createElement("tr"); row.tabIndex = 0; row.setAttribute("aria-label", `${store.storeName}の店舗詳細を開く`);
-    row.append(cell(store.storeName), cell(statusBadge(store.status)), cell(storeAm(store)), metricCell(store, "sales"), metricCell(store, "operatingProfit"),
+    row.append(cell(store.storeName), cell(statusBadge(store.status)), cell(storeAm(store)), metricCell(store, "sales"), cell(profitText(store)),
       cell(store.metrics.customerCount?.displayValue || "—", "optional-col"), metricCell(store, "totalRepeat"), metricCell(store, "productivity"), cell(storeFocus(store)), cell("›"));
     row.addEventListener("click", () => showDetail(store.storeKey)); row.addEventListener("keydown", (e) => { if (["Enter", " "].includes(e.key)) { e.preventDefault(); row.click(); } });
     return row;
@@ -386,7 +392,7 @@ function setTab(tab) {
 }
 
 function renderSalesDetail(store) {
-  const sales = node("section", "detail-section"); sales.append(heading("売上構成"), detailMetric("総売上（税込）", store.metrics.sales));
+  const sales = node("section", "detail-section"); sales.append(heading("売上構成（税抜）"), detailMetric("総売上（税抜）", store.metrics.sales));
   const components = [["店舗売上", "storeSales", 96], ["　技術売上", "technicalSales", 82], ["　通常店販売上", "regularRetail", 10], ["　MID売上", "mid", 5], ["EC按分売上", "ecSales", 4]];
   const chart = node("div", "composition");
   components.forEach(([label, key, width]) => {
@@ -395,7 +401,9 @@ function renderSalesDetail(store) {
   });
   sales.append(chart, paragraph("店舗売上とEC按分売上を分け、総売上との階層関係を表示しています。"));
   const profit = node("section", "detail-section"); profit.append(heading(`${formatMonth(elements.period.value)} 利益`));
-  if (store.metrics.operatingProfit.dataState === "available") {
+  if (store.ownership === "FC") {
+    profit.append(node("div", "metric-value", "V1対象外"), paragraph("FC店舗の利益はStore Operations V1の表示対象外です。"));
+  } else if (store.metrics.operatingProfit.dataState === "available") {
     const grid = node("div", "detail-metrics");
     ["grossProfit", "operatingProfit", "operatingProfitMargin", "ordinaryProfit"].forEach((key) => grid.append(detailMetric(store.metrics[key].label, store.metrics[key])));
     profit.append(grid);
@@ -410,8 +418,8 @@ function renderSalesDetail(store) {
 function storeCard(store) {
   const article = node("article", "store-card"); const header = node("div", "store-card-header"); header.append(heading(store.storeName), statusBadge(store.status));
   const dl = document.createElement("dl");
-  [["総売上（税込）", "sales"], ["利益", "operatingProfit"], ["総リピート率", "totalRepeat"], ["総生産性", "productivity"]].forEach(([label, key]) => {
-    const group = node("div"); const dt = node("dt", "", label); const dd = node("dd", "", metricText(store.metrics[key])); group.append(dt, dd); dl.append(group);
+  [["総売上（税抜）", "sales"], ["利益", "operatingProfit"], ["総リピート率", "totalRepeat"], ["総生産性", "productivity"]].forEach(([label, key]) => {
+    const group = node("div"); const dt = node("dt", "", label); const dd = node("dd", "", key === "operatingProfit" ? profitText(store) : metricText(store.metrics[key])); group.append(dt, dd); dl.append(group);
   });
   const am = node("div"); am.append(node("dt", "", "担当AM"), node("dd", "", storeAm(store))); dl.append(am);
   const focus = node("p", "", `今月の重点\n${storeFocus(store)}`); const button = node("button", "action-link", "店舗を確認 →"); button.type = "button"; button.addEventListener("click", () => showDetail(store.storeKey));
@@ -426,8 +434,17 @@ function detailMetric(label, metric) {
 }
 function metricCard(metric) { const item = node("article", "metric"); item.append(node("div", "metric-label", metric.label), node("div", "metric-value", metricText(metric))); if (metric.reason) item.append(node("div", "metric-note", metric.reason)); return item; }
 function metricCell(store, key) { return cell(metricText(store.metrics[key])); }
+function profitText(store) { return store?.ownership === "FC" ? "V1対象外" : metricText(store?.metrics?.operatingProfit); }
+function summaryProfitMetric(stores) {
+  const directStores = stores.filter((store) => store.ownership !== "FC");
+  if (!directStores.length) return { label: "利益", displayValue: null, dataState: "out_of_scope_v1", reason: "FC利益はV1対象外" };
+  const confirmed = directStores.every((store) => store.metrics.operatingProfit?.dataState === "available");
+  const label = `直営店利益（対象${directStores.length}店舗）`;
+  if (!confirmed) return { label, displayValue: null, dataState: directStores.some((store) => store.metrics.operatingProfit?.dataState === "preparing") ? "preparing" : "collecting", reason: "未確定利益は表示しません" };
+  return { label, displayValue: formatYen(directStores.reduce((sum, store) => sum + metricNumber(store.metrics.operatingProfit), 0)), dataState: "available", reason: "税抜売上を基礎とした店舗営業利益" };
+}
 function metricText(metric) { return metric?.dataState === "available" && metric.displayValue !== null ? String(metric.displayValue) : stateText(metric?.dataState); }
-function stateText(value) { return ({ confirmed: "確定", available: "確定", collecting: "集計中", pending: "集計中", preparing: "準備中", unavailable: "取得できません", validation_error: "データ確認が必要です" })[value] || "準備中"; }
+function stateText(value) { return ({ confirmed: "確定", available: "確定", collecting: "集計中", pending: "集計中", preparing: "準備中", unavailable: "取得できません", validation_error: "データ確認が必要です", out_of_scope_v1: "V1対象外" })[value] || "準備中"; }
 function metricAriaLabel(label, metric) { return `${label}、${metricText(metric)}`; }
 function statusBadge(status) { const badge = node("span", `status status-${String(status).toLowerCase().replaceAll(" ", "-")}`, statusNames[status] || "安定"); badge.setAttribute("aria-label", `店舗状態: ${badge.textContent}`); return badge; }
 function formatMonth(value) { const match = String(value || "").match(/^(\d{4})-(\d{2})$/); return match ? `${match[1]}年${Number(match[2])}月` : "—"; }

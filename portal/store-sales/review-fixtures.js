@@ -30,7 +30,7 @@ function metrics(index, profitMode = "collecting") {
     ? available("営業利益率", `${(profitValue / sales * 100).toFixed(1)}%`, profitValue / sales * 100)
     : profitMode === "preparing" ? preparing("営業利益率") : collecting("営業利益率");
   return {
-    sales: available("総売上（税込）", yen(sales), sales),
+    sales: available("総売上（税抜）", yen(sales), sales),
     storeSales: available("店舗売上", yen(sales - 380_000), sales - 380_000),
     technicalSales: available("技術売上", yen(Math.round(sales * .82)), Math.round(sales * .82)),
     retailSales: available("店販売上合計", yen(Math.round(sales * .15)), Math.round(sales * .15)),
@@ -51,9 +51,9 @@ function metrics(index, profitMode = "collecting") {
     customerCount: available("総客数", `${customers.toLocaleString("ja-JP")}人`, customers),
     newCustomerCount: available("新規客数", `${Math.round(customers * .24)}人`, Math.round(customers * .24)),
     existingCustomerCount: available("既存客数", `${Math.round(customers * .76)}人`, Math.round(customers * .76)),
-    totalTicket: available("総単価", `${Math.round(sales / customers).toLocaleString("ja-JP")}円`, Math.round(sales / customers)),
-    technicalTicket: available("技術単価", `${Math.round(sales * .82 / customers).toLocaleString("ja-JP")}円`),
-    retailTicket: available("店販単価", `${Math.round(sales * .15 / customers).toLocaleString("ja-JP")}円`),
+    totalTicket: available("総単価（税抜）", `${Math.round(sales / customers).toLocaleString("ja-JP")}円`, Math.round(sales / customers)),
+    technicalTicket: available("技術単価（税抜）", `${Math.round(sales * .82 / customers).toLocaleString("ja-JP")}円`),
+    retailTicket: available("店販単価（税抜）", `${Math.round(sales * .15 / customers).toLocaleString("ja-JP")}円`),
     productivity: available("総生産性", `${(productivity / 10_000).toFixed(1)}万円`, productivity),
     staffCount: available("稼働スタッフ数", `${(12.4 + (index % 6) * .6).toFixed(1)}人相当`),
     retailPurchaseRate: available("店販購買率", `${(16.8 + index % 8).toFixed(1)}%`)
@@ -97,7 +97,7 @@ function projection(stores, { profitMode = "collecting", audience = "executive",
   const profit = profitMode === "confirmed" ? available("利益", yen(Math.round(totalSales * .126))) :
     profitMode === "preparing" ? preparing("利益", "Accounting Core連携を準備しています") : collecting("利益");
   return {
-    contractVersion: "store-operations-v1-sprint1-mock", audience, role: audience, scopeLabel,
+    contractVersion: "store-operations-v1.1-preview", taxBasis: "net", audience, role: audience, scopeLabel,
     generatedAt: "2026-07-10T09:30:00+09:00", directionMessage: "お客様満足を高める店舗づくり",
     accounting: { period: "2026-06", confirmedThroughPeriod: profitMode === "confirmed" ? "2026-06" : "2026-05",
       salesPeriod: "2026-06", confirmationState: profitMode, lastUpdatedAt: "2026-07-10T09:30:00+09:00",
@@ -105,12 +105,12 @@ function projection(stores, { profitMode = "collecting", audience = "executive",
     executiveSummary: {
       narrative: scopeLabel === "全20店舗" ? `全社売上は計画を上回っています。利益は${profitMode === "confirmed" ? "確定しています" : "集計中です"}。現在、${attention}店舗に対応が必要です。`
         : `${scopeLabel}の売上状況です。現在、${attention}店舗に対応が必要です。`,
-      metrics: [available("総売上（税込）", yen(totalSales), totalSales), profit],
+      metrics: [available("総売上（税抜）", yen(totalSales), totalSales), profit],
       needsAttentionStoreCount: attention
     },
     priorityActions: stores.filter((store) => store.status === "Needs Attention").flatMap((store) => store.actions).slice(0, 3),
     businessDrivers: stores.length ? {
-      results: [{ label: "総売上（税込）", primary: true, items: [available("総売上（税込）", yen(totalSales))] }, { label: "利益", primary: true, items: [profit] }, { label: "予算比", items: [available("予算比", "+3.8%")] }, { label: "前年同月比", items: [available("前年同月比", "+5.2%")] }],
+      results: [{ label: "総売上（税抜）", primary: true, items: [available("総売上（税抜）", yen(totalSales))] }, { label: "利益", primary: true, items: [profit] }, { label: "予算比", items: [available("予算比", "+3.8%")] }, { label: "前年同月比", items: [available("前年同月比", "+5.2%")] }],
       customer: [{ label: "総客数", primary: true, items: [available("総客数", `${stores.reduce((s, x) => s + x.metrics.customerCount.rawValue, 0).toLocaleString()}人`)] }, { label: "新規", items: [stores[0].metrics.newCustomerCount] }, { label: "既存", items: [stores[0].metrics.existingCustomerCount] }],
       value: [{ label: "総単価", primary: true, items: [stores[0].metrics.totalTicket] }, { label: "技術単価", items: [stores[0].metrics.technicalTicket] }, { label: "店販売上合計", items: [stores[0].metrics.retailSales] }, { label: "EC按分売上", items: [stores[0].metrics.ecSales] }],
       operations: [{ label: "総リピート率", primary: true, items: [stores[0].metrics.totalRepeat] }, { label: "総生産性", primary: true, items: [stores[0].metrics.productivity] }, { label: "店販購買率", items: [stores[0].metrics.retailPurchaseRate] }]

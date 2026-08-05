@@ -116,7 +116,7 @@ test("Mock controls are hidden by default and only revealed by mock or preview f
 });
 
 test("Preview visibly identifies sample values as non-actual data", () => {
-  assert.match(html, /現在は画面確認用のサンプルデータを表示しています。実績値ではありません。実会計データ・本番環境には接続していません。/);
+  assert.match(html, /現在は画面確認用の税抜サンプルデータを表示しています。実績値ではありません。Business Fact・Accounting Fact・本番環境には接続していません。/);
 });
 
 test("Preview scope choices follow the approved role permissions", () => {

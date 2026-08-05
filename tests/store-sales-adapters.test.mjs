@@ -27,6 +27,12 @@ test("integration adapter validates and normalizes a read-only response", async 
   const projection = await adapter.loadDashboard({ period: "2026-07" });
   assert.equal(projection.stores[0].storeName, "所沢店");
   assert.equal(projection.meta.actorScope, "all_group");
+  assert.equal(projection.taxBasis, "net");
+});
+
+test("projection rejects any tax basis other than the v1.1 net freeze", () => {
+  assert.throws(() => validateProjectionResponse(wireProjection({ meta: { tax_basis: "gross" } })), (error) => error.code === "INVALID_TAX_BASIS");
+  assert.throws(() => validateProjectionResponse(wireProjection({ meta: { tax_basis: null } })), ProjectionContractError);
 });
 
 test("adapter config supports mock and integration modes", () => {

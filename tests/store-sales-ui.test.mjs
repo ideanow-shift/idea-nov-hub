@@ -20,8 +20,14 @@ test("UI consumes only the Store Sales Runtime", () => {
 });
 
 test("required accounting metadata is present in the top-right header", () => {
-  for (const id of ["meta-sales-period", "meta-accounting-period", "meta-state", "meta-updated"]) assert.match(html, new RegExp(`id="${id}"`));
+  for (const id of ["meta-sales-period", "meta-accounting-period", "meta-state", "meta-updated", "meta-tax-basis"]) assert.match(html, new RegExp(`id="${id}"`));
   assert.match(html, /class="accounting-meta"/);
+});
+
+test("all formal Preview values use the frozen net-tax basis", () => {
+  assert.match(fixtures, /taxBasis: "net"/);
+  assert.match(fixtures, /総売上（税抜）/);
+  assert.doesNotMatch(app + html + fixtures, /総売上（税込）/);
 });
 
 test("store detail starts with this-month actions capped by the renderer", () => {

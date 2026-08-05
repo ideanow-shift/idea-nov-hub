@@ -1,6 +1,6 @@
 {
-  "snapshot_id": "nov-talent-fair-source-20260805-readonly-02",
-  "generated_at": "2026-08-05T12:17:39+09:00",
+  "snapshot_id": "nov-talent-fair-source-20260805-readonly-03",
+  "generated_at": "2026-08-05T13:35:00+09:00",
   "source_hash_algorithm": "SHA-256",
   "source_hash_scope": "ガイダンス/フェア結果!A2:R50 (UNFORMATTED_VALUE)",
   "source_hash": "045991d466c3f8f6c9e27a34526f7f697bca60bc8e259d72e097bb0c297975c0",
@@ -13,6 +13,9 @@
   "exact_duplicate_groups": 0,
   "numeric_review_rows": 1,
   "human_review_rows": 3,
+  "approved_target_count": 37,
+  "review_excluded_identity_ready_rows": 1,
+  "write_ready_rows_after_review_exclusion": 36,
   "field_presence": {
     "participation_fee": 32,
     "contact_count": 39,
@@ -21,16 +24,16 @@
   },
   "staging_preflight": {
     "status": "BLOCKED",
-    "expected_write_count": 44,
-    "safe_identity_record_count": 37,
+    "expected_write_count": 37,
+    "safe_identity_record_count": 36,
     "exact_existing_match_count": 0,
-    "insert_only_count": 37,
+    "insert_only_count": 36,
     "write_count": 0,
     "existing_update_count": 0,
     "reason_codes": [
-      "EXPECTED_FAIR_COUNT_MISMATCH",
+      "APPROVED_COUNT_CONTRADICTS_REVIEW_EXCLUSION",
       "SOURCE_IDENTITY_KEY_MISSING",
-      "SOURCE_NUMERIC_VALUE_REVIEW_REQUIRED"
+      "SOURCE_NUMERIC_VALUE_REVIEW_EXCLUDED"
     ]
   },
   "safety": {

@@ -21,4 +21,4 @@ Each migration belongs to exactly one domain owner: Core/HUB, Store Operations, 
 
 ## Production
 
-This policy does not authorize Production migration. Production uses a separately approved release and rollback process after Staging evidence is complete.
+Production-first migration or architecture design is prohibited. This policy does not authorize Production migration. A single final cutover process may be designed only after Staging acceptance is complete and a separate Owner gate has been opened.

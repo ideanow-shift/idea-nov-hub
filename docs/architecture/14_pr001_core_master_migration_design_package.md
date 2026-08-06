@@ -513,15 +513,16 @@ FinanceはPhase 1 tableへwriteせず、独自corporation/store masterを持た�
 | immutable version row | 「何がsourceから取り込まれ、承認されたか」を改変不能なrowとして保存する |
 | effective dating | そのversion rowがbusiness time上で有効な期間を表す |
 | master version | 同時にConsumerへ提供する複数entity versionの集合を固定する |
+| publication release | published master versionをimmutable appendでpinし、最大`release_sequence`だけをactive Consumer releaseとする |
 | source snapshot | Productionから取得・maskした入力集合とlineageを固定する |
 
-訂正は既存rowのUPDATEではなく、新version rowを追加する。誤ったrowはbusiness validityを新しい訂正versionで置換し、元rowと訂正理由をaudit ledgerに残す。
+訂正は案B（system-version軸）を採用する。`source_snapshot_id`を離散的なsystem-versionとして扱い、既存rowをUPDATEせず、新Snapshotに新version rowを追加する。誤ったrowは新しいpublished master versionから除外し、元rowと訂正理由をaudit ledgerに残す。Core history rowはcandidateを含め常時UPDATE/DELETE禁止とする。
 
 ### 13.2 Unique current-row resolution
 
 `current`は次の1方式だけで解決する。
 
-1. Consumer releaseが指す1つのpublished `master_version_id`を固定する。
+1. immutable publication releaseの最大`release_sequence`が指す1つのpublished `master_version_id`を固定する。
 2. requestの`as_of`について`effective_from <= as_of`かつ`effective_to IS NULL OR as_of < effective_to`を満たすrowを選ぶ。
 3. 同一stable IDで該当rowがexactly oneであることを要求する。
 4. 0件はnot-current、2件以上はintegrity failureとしてProjection publicationを停止する。
@@ -530,7 +531,7 @@ FinanceはPhase 1 tableへwriteせず、独自corporation/store masterを持た�
 
 ### 13.3 Period-overlap enforcement contract
 
-同一stable IDの有効期間をdate rangeとして扱い、exclusion constraintまたは同等のtransaction-safe constraintでoverlapを禁止する。単純な事前SELECTだけではrace conditionを防げないためAcceptance対象外とする。open-ended periodも同じconstraintへ含める。
+同一stable ID・同一`source_snapshot_id`の有効期間をdate rangeとして扱い、exclusion constraintまたは同等のtransaction-safe constraintでoverlapを禁止する。異なるSnapshot間の訂正versionは重複可能だが、published master versionはtype-safe Version Memberにより同一Canonical Entityをexact-oneに固定する。単純な事前SELECTだけではrace conditionを防げないためAcceptance対象外とする。open-ended periodも同じconstraintへ含める。
 
 employee assignmentでは追加で次を要求する。
 

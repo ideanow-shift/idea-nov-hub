@@ -8,10 +8,12 @@ const root = new URL("../portal/talent/", import.meta.url);
 test("NOV Talent exposes candidate recruitment only and separates NOV People", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
 
-  assert.match(html, /aria-label="人財投資管理の業務区分"/);
-  assert.match(html, /data-primary-tab="recruitment"[\s\S]*求人管理/);
+  assert.match(html, /<title>求人管理システム \| IDEA NOV<\/title>/);
+  assert.match(html, /<h1 id="dashboard-title">求人管理システム<\/h1>/);
+  assert.doesNotMatch(html, /採用意思決定プラットフォーム/);
+  assert.doesNotMatch(html, /class="primary-tabs"|data-primary-tab="recruitment"/);
   assert.doesNotMatch(html, /data-primary-tab="workforce"/);
-  assert.match(html, /id="panel-recruitment"[\s\S]*role="tabpanel"/);
+  assert.match(html, /id="panel-recruitment"[\s\S]*aria-label="求人管理"/);
   assert.match(html, /id="panel-workforce" class="primary-panel sprint1-separated"[\s\S]*aria-hidden="true"/);
   assert.match(html, /NOV Peopleへ分離/);
   assert.match(html, /assets\/icons\/human-resources\.svg/);

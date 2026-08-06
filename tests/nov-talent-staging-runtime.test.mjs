@@ -154,20 +154,31 @@ test("636 Candidate API response renders through the real frontend pipeline", as
     ...candidateWorkspace,
     accessProfile: "executive",
     canWrite: false,
+    summary: {
+      contacts: 636, lineRegistrations: 318, salonTours: 0, interviews: 0,
+      passed: 0, offers: 35, expectedJoiners: 0
+    },
+    partialStatus: { state: "complete", unavailableViews: [], retryCount: 0 },
     schoolMasters: [],
     fairMasters: [
       { fair_id: uuid(701), fair_name: "未登録値テスト", event_date: "2026-08-03", participation_fee: null,
         venue: null, assigned_to: null, participant_count: null, contact_count: null,
         line_registration_count: null, salon_tour_count: null, interview_count: null,
-        offer_count: null, hire_count: null, version: 1, is_active: true },
+        offer_count: null, hire_count: null, version: 1, is_active: true, organizer_name: null,
+        event_format: null, expected_contacts: null, total_attendance: null, participating_salons: null,
+        note: null, created_at: "2026-08-03T00:00:00.000Z" },
       { fair_id: uuid(702), fair_name: "確定ゼロテスト", event_date: "2026-08-02", participation_fee: 0,
         venue: null, assigned_to: null, participant_count: 0, contact_count: 0,
         line_registration_count: 0, salon_tour_count: 0, interview_count: 0,
-        offer_count: 0, hire_count: 0, version: 1, is_active: true },
+        offer_count: 0, hire_count: 0, version: 1, is_active: true, organizer_name: null,
+        event_format: null, expected_contacts: 0, total_attendance: 0, participating_salons: 0,
+        note: null, created_at: "2026-08-02T00:00:00.000Z" },
       { fair_id: uuid(703), fair_name: "確定値テスト", event_date: "2026-08-01", participation_fee: 50000,
         venue: null, assigned_to: null, participant_count: 12, contact_count: 10,
         line_registration_count: 8, salon_tour_count: 3, interview_count: 2,
-        offer_count: 1, hire_count: 1, version: 1, is_active: true }
+        offer_count: 1, hire_count: 1, version: 1, is_active: true, organizer_name: "運営会社",
+        event_format: "対面", expected_contacts: 10, total_attendance: 100, participating_salons: 12,
+        note: null, created_at: "2026-08-01T00:00:00.000Z" }
     ],
     todayTasks: [],
     unlinkedSelectionHistory: [],
@@ -229,6 +240,23 @@ test("636 Candidate API response renders through the real frontend pipeline", as
   assert.equal(documentObject.getElementById("fair-master-body").children.length, 3);
   assert.match(documentObject.getElementById("fair-master-body").children[0].innerHTML, /未登録/u);
   assert.match(documentObject.getElementById("fair-master-body").children[1].innerHTML, />0</u);
+  resetTalentStudentWorkspaceForFixture();
+});
+
+test("concurrent workspace initialization shares one in-flight Promise", async () => {
+  resetTalentStudentWorkspaceForFixture();
+  const documentObject = fakeDocument();
+  const globalObject = {
+    AbortController,
+    console,
+    location: { search: "" },
+    NOV_TALENT_CONFIG: { runtimeMode: "mock", mockState: "ready" }
+  };
+  const first = loadTalentStudentWorkspace({ globalObject, documentObject });
+  const second = loadTalentStudentWorkspace({ globalObject, documentObject });
+  assert.equal(first, second);
+  const result = await first;
+  assert.equal(result.studentRowsReturned, true);
   resetTalentStudentWorkspaceForFixture();
 });
 
@@ -322,5 +350,5 @@ test("published config exposes no server credential and only a server-side write
   assert.match(config, /writeEnabled:\s*true/);
   assert.match(config, /writeApiBaseUrl/);
   assert.doesNotMatch(config, /service_role|serviceRole|password|secret/i);
-  assert.match(html, /app\.mjs\?v=20260806-fair-detail-ui-1/);
+  assert.match(html, /app\.mjs\?v=20260806-dashboard-fanout-1/);
 });

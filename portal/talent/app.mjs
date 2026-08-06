@@ -2,7 +2,7 @@ import {
   buildDashboardSummaryViewModel,
   createDashboardSummaryExecutor,
   createTalentWorkspaceExecutor
-} from "./runtime.mjs?v=20260804-workspace-master-contract-2";
+} from "./runtime.mjs?v=20260806-dashboard-fanout-1";
 import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260804-recruitment-master-dashboard-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
@@ -24,6 +24,7 @@ let activeSummaryButton = null;
 let studentWorkspaceData = null;
 let studentWorkspaceGeneration = 0;
 let activeStudentWorkspaceController = null;
+let activeStudentWorkspacePromise = null;
 let selectedStudentRecordId = null;
 let historicalReviewController = null;
 let activeHistoricalReviewProposal = null;
@@ -147,12 +148,30 @@ export function initializeTalentSummaryControl({
     : "確認用学生データの集計を表示します");
 
   const run = async (event) => {
-    if (event?.repeat || button.disabled || summaryConsumed) {
+    const useWorkspaceSummary = shouldUseWorkspaceSummary(globalObject);
+    if (event?.repeat || button.disabled || (!useWorkspaceSummary && summaryConsumed)) {
       return renderSafeStop(documentObject, "duplicate_control_prevented");
     }
 
     button.disabled = true;
     button.setAttribute("aria-busy", "true");
+
+    if (useWorkspaceSummary) {
+      const result = await loadTalentStudentWorkspace({
+        globalObject,
+        documentObject,
+        fetchImpl,
+        force: true
+      });
+      button.disabled = false;
+      button.setAttribute("aria-busy", "false");
+      button.textContent = result?.studentRowsReturned
+        ? "集計を表示済み"
+        : "集計を再取得";
+      documentObject?.getElementById?.("summary-status")?.focus?.();
+      return result;
+    }
+
     const runGeneration = ++summaryGeneration;
     const AbortControllerClass = globalObject.AbortController || globalThis.AbortController;
     const controller = new AbortControllerClass();
@@ -186,6 +205,17 @@ export function initializeTalentSummaryControl({
   globalObject?.addEventListener?.("beforeunload", invalidate, { once: true });
   globalObject?.addEventListener?.("novhub:logout", invalidate);
   return Object.freeze({ initialized: true, helperAvailable: false, runtimeMode: runtimeMode(globalObject), run, invalidate });
+}
+
+export function shouldUseWorkspaceSummary(globalObject = globalThis) {
+  return runtimeMode(globalObject) === "staging";
+}
+
+export function buildTalentInitialLoadPlan(globalObject = globalThis) {
+  return Object.freeze({
+    workspace: true,
+    standaloneSummary: !shouldUseWorkspaceSummary(globalObject)
+  });
 }
 
 export function invalidateTalentDashboardSummaryRun({
@@ -510,9 +540,11 @@ export function initializeTalentStudentWorkspace({
     profileDialogStudent = null; studentWorkspaceData = null;
     await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
   });
-  documentObject.getElementById("summary-load-button")?.addEventListener("click", () => {
-    loadTalentStudentWorkspace({ globalObject, documentObject });
-  });
+  if (!shouldUseWorkspaceSummary(globalObject)) {
+    documentObject.getElementById("summary-load-button")?.addEventListener("click", () => {
+      loadTalentStudentWorkspace({ globalObject, documentObject });
+    });
+  }
   globalObject?.addEventListener?.("pagehide", () => activeStudentWorkspaceController?.abort?.(), { once: true });
   globalObject?.addEventListener?.("novhub:logout", () => {
     activeStudentWorkspaceController?.abort?.();
@@ -523,7 +555,17 @@ export function initializeTalentStudentWorkspace({
   return Object.freeze({ initialized: true });
 }
 
-export async function loadTalentStudentWorkspace({
+export function loadTalentStudentWorkspace(options = {}) {
+  if (activeStudentWorkspacePromise && options.force !== true) return activeStudentWorkspacePromise;
+  const promise = performTalentStudentWorkspaceLoad(options);
+  activeStudentWorkspacePromise = promise;
+  promise.finally(() => {
+    if (activeStudentWorkspacePromise === promise) activeStudentWorkspacePromise = null;
+  });
+  return promise;
+}
+
+async function performTalentStudentWorkspaceLoad({
   globalObject = globalThis,
   documentObject = globalObject.document,
   fetchImpl = globalObject.fetch,
@@ -579,6 +621,7 @@ export async function loadTalentStudentWorkspace({
   }
 
   studentWorkspaceData = result.data;
+  renderWorkspaceDashboardSummary(documentObject, result.data);
   if (pendingSelectedApplicationNo) {
     selectedStudentRecordId = result.data.students.find(
       (student) => student.applicationNo === pendingSelectedApplicationNo
@@ -642,6 +685,7 @@ export function resetTalentStudentWorkspaceForFixture() {
   studentWorkspaceData = null;
   studentWorkspaceGeneration = 0;
   activeStudentWorkspaceController = null;
+  activeStudentWorkspacePromise = null;
   selectedStudentRecordId = null;
   historicalReviewController = null;
   activeHistoricalReviewStudent = null;
@@ -3230,9 +3274,38 @@ function initializeTalentApp() {
   initializeTalentNavigation();
   const summaryControl = initializeTalentSummaryControl();
   if (authorization.access?.profile === "full") initializeTalent28CsvPreflight();
-  loadTalentStudentWorkspace();
-  summaryControl.run?.();
+  const loadPlan = buildTalentInitialLoadPlan(globalThis);
+  if (loadPlan.workspace) loadTalentStudentWorkspace();
+  if (loadPlan.standaloneSummary) summaryControl.run?.();
   return authorization;
+}
+
+const SUMMARY_VIEW_DEPENDENCIES = Object.freeze({
+  contacts: Object.freeze([]),
+  lineRegistrations: Object.freeze(["recruitment_events"]),
+  salonTours: Object.freeze(["recruitment_events"]),
+  interviews: Object.freeze(["recruitment_events"]),
+  passed: Object.freeze(["selection_history"]),
+  offers: Object.freeze(["selection_history", "source_facts"]),
+  expectedJoiners: Object.freeze([])
+});
+
+export function buildWorkspaceDashboardSummaryViewModel(data) {
+  const unavailable = new Set(data?.partialStatus?.unavailableViews || []);
+  return buildDashboardSummaryViewModel({ summary: data?.summary }).map((metric) => Object.freeze({
+    ...metric,
+    value: (SUMMARY_VIEW_DEPENDENCIES[metric.key] || []).some((view) => unavailable.has(view))
+      ? "集計準備中"
+      : metric.value
+  }));
+}
+
+function renderWorkspaceDashboardSummary(documentObject, data) {
+  renderMetrics(documentObject, buildWorkspaceDashboardSummaryViewModel(data));
+  const partial = data?.partialStatus?.state === "partial";
+  setStatus(documentObject, partial ? "partial" : "ready", partial
+    ? "一部指標は集計準備中です"
+    : "集計を表示しました");
 }
 
 function enableStagingWriteControls(documentObject, accessProfile) {

@@ -34,6 +34,9 @@ This package contains Staging-only Canonical Core Master SQL for M001–M010. It
 - Core/Governance objects are RLS-enabled and default-deny.
 - Rollback files exist in reverse order and contain no `CASCADE`.
 - M010 fixes the exact five-View contract and runs rollback-only synthetic negative fixtures.
+- M010's deterministic Population fixture creates one Corporation version, 20 Store versions, and 20 typed Corporation/Store relationships; Store rows reference the single Corporation through the relationship FK instead of duplicating it.
+- The overlap negative test uses distinct fixed `effective_from` values with intersecting periods, so it reaches the exclusion constraint without violating `corporations_identity_start_unique` first.
+- Fixed fixture UUIDs, date, timestamp, source version, Snapshot version, and source keys are safe to rerun because the enclosing exception subtransaction always rolls back all fixture rows.
 
 ### A2 — Review readiness
 
@@ -52,6 +55,7 @@ Separate authorization required. Not executed in this Sprint.
 - Apply M001–M010 to a fresh non-Production database; M010 must execute all synthetic fixtures without persisting them.
 - Run Supabase/Postgres advisors and catalog validation.
 - Run synthetic positive/negative fixtures inside rollback transactions.
+- Confirm the normalized fixture produces Corporation=1, Store=20, relationship=20, official/direct/franchise=20/13/7, pending=0, unresolved=0, and rejected-official=0 before Publication.
 - Verify invalid interval, overlap, orphan FK, PII, unauthorized grant, and unpublished population failures.
 - Execute reverse-order rollback rehearsal on an unpublished empty/candidate dataset.
 

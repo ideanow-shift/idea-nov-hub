@@ -25,6 +25,7 @@ declare
   unexpected_views text[];
   insecure_views text[];
   missing_triggers text[];
+  missing_fixture_constraints text[];
   actual_view_count integer;
   bad_rls integer;
   exposed_grants integer;
@@ -59,6 +60,12 @@ begin
     select 1 from pg_catalog.pg_trigger pt where pt.tgname = t and not pt.tgisinternal
   );
 
+  select coalesce(array_agg(c order by c), array[]::text[]) into missing_fixture_constraints
+  from unnest(array['corporations_identity_start_unique', 'corporations_period_excl']) c
+  where not exists (
+    select 1 from pg_catalog.pg_constraint pc where pc.conname = c
+  );
+
   select count(*) into bad_rls
   from pg_catalog.pg_class c
   join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -79,6 +86,9 @@ begin
     raise exception 'BDF_VALIDATION_VIEW_CONTRACT_FAILED';
   end if;
   if cardinality(missing_triggers) <> 0 then raise exception 'BDF_VALIDATION_TRIGGER_CONTRACT_FAILED'; end if;
+  if cardinality(missing_fixture_constraints) <> 0 then
+    raise exception 'BDF_VALIDATION_FIXTURE_CONSTRAINT_CONTRACT_FAILED';
+  end if;
   if bad_rls <> 0 then raise exception 'BDF_VALIDATION_RLS_CONTRACT_FAILED'; end if;
   if exposed_grants <> 0 then raise exception 'BDF_VALIDATION_GRANT_CONTRACT_FAILED'; end if;
 end
@@ -101,7 +111,9 @@ where trigger_schema = 'governance'
 order by event_object_schema, event_object_table, trigger_name, event_manipulation;
 
 -- M010 owns the rollback-only synthetic fixture suite for:
--- duplicate periods, primary overlap, orphan FK, Snapshot idempotency,
+-- duplicate periods with distinct effective_from values, primary overlap,
+-- orphan FK, Snapshot idempotency, deterministic normalized Corporation/Store
+-- fixtures, Store-to-Corporation FK coverage, rerun rollback safety,
 -- Human Review/20-13-7 publication, unpublished projections, immutable DML,
 -- Crosswalk type mismatch, and Version Member type mismatch.
 

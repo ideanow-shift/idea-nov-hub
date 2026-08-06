@@ -27,10 +27,14 @@ test("active Fair analytics excludes inactive rows and preserves null separately
   assert.deepEqual(summary, {
     activeCount: 3,
     contactCount: 20,
+    contactComplete: false,
     lineRegistrationCount: 10,
+    lineRegistrationComplete: false,
     salonTourCount: 5,
+    salonTourComplete: false,
     participationFee: 100000,
-    contactCost: 5000
+    participationFeeComplete: false,
+    contactCost: null
   });
   const nullOnly = summarizeActiveFairMasters([{ is_active: true, participation_fee: null, contact_count: null }]);
   assert.equal(nullOnly.participationFee, null);

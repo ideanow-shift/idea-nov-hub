@@ -1288,10 +1288,10 @@ function renderAnalyticsCoverage(documentObject, analytics) {
   setText(documentObject, "fair-contact-count", fairCountLabel(fairSummary.contactCount));
   setText(documentObject, "fair-line-count", fairCountLabel(fairSummary.lineRegistrationCount));
   setText(documentObject, "fair-tour-count", fairCountLabel(fairSummary.salonTourCount));
-  setText(documentObject, "fair-fee-total", fairCurrencyLabel(fairSummary.participationFee));
+  setText(documentObject, "fair-fee-total", fairSummary.participationFeeComplete ? fairCurrencyLabel(fairSummary.participationFee) : "集計準備中");
   setText(documentObject, "fair-contact-cost", fairCurrencyLabel(fairSummary.contactCost, "集計準備中"));
-  setText(documentObject, "fair-line-rate", fairRateLabel(fairSummary.lineRegistrationCount, fairSummary.contactCount));
-  setText(documentObject, "fair-tour-rate", fairRateLabel(fairSummary.salonTourCount, fairSummary.contactCount));
+  setText(documentObject, "fair-line-rate", fairSummary.lineRegistrationComplete && fairSummary.contactComplete ? fairRateLabel(fairSummary.lineRegistrationCount, fairSummary.contactCount) : "集計準備中");
+  setText(documentObject, "fair-tour-rate", fairSummary.salonTourComplete && fairSummary.contactComplete ? fairRateLabel(fairSummary.salonTourCount, fairSummary.contactCount) : "集計準備中");
   setText(documentObject, "fair-month-count", analytics.coverage.monthCount);
   setText(documentObject, "school-count", analytics.schools.length);
   setText(documentObject, "school-registered-count", analytics.schools.length);
@@ -3373,19 +3373,26 @@ function fairRateLabel(numerator, denominator) {
 
 export function summarizeActiveFairMasters(masters = []) {
   const active = masters.filter((fair) => fair?.is_active !== false);
+  const isComplete = (key) => active.every((fair) => fair?.[key] !== null && fair?.[key] !== undefined);
   const sumNullable = (key) => {
     const registered = active.map((fair) => fair?.[key]).filter((value) => value !== null && value !== undefined);
     return registered.length ? registered.reduce((sum, value) => sum + Number(value), 0) : null;
   };
   const contactCount = sumNullable("contact_count");
   const participationFee = sumNullable("participation_fee");
+  const contactComplete = isComplete("contact_count");
+  const participationFeeComplete = isComplete("participation_fee");
   return Object.freeze({
     activeCount: active.length,
     contactCount,
+    contactComplete,
     lineRegistrationCount: sumNullable("line_registration_count"),
+    lineRegistrationComplete: isComplete("line_registration_count"),
     salonTourCount: sumNullable("salon_tour_count"),
+    salonTourComplete: isComplete("salon_tour_count"),
     participationFee,
-    contactCost: participationFee === null || contactCount === null || contactCount === 0
+    participationFeeComplete,
+    contactCost: !participationFeeComplete || !contactComplete || participationFee === null || contactCount === null || contactCount === 0
       ? null : Math.round(participationFee / contactCount)
   });
 }

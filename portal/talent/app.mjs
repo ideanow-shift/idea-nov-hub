@@ -263,7 +263,7 @@ export function initializeTalentNavigation({
     workforceProcedureDesk?.load?.();
   }
   return Object.freeze({
-    initialized: primaryButtons.length === 1,
+    initialized: primaryButtons.length <= 1,
     primaryTabCount: primaryButtons.length,
     workforceTabCount: workforceButtons.length
   });

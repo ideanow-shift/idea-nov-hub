@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Local / fixture | unit tests, synthetic fixtures, parser rehearsals | Production identifiers, credentials, live data |
 | idea-nov-staging | integration tests, approved migrations, protected staging functions, masked/synthetic data | Production endpoint, credential, token, direct database path, unapproved data copy |
-| idea-nov-core | separately approved live operations | test fixtures, staging credentials, automatic promotion from a branch |
+| idea-nov-core | current live operations only | new development architecture, migration design, test fixtures, staging credentials, automatic promotion from a branch |
 
 ## Configuration Rules
 
@@ -17,4 +17,4 @@
 
 ## Approval Rules
 
-GitHub Environment `store-sales-staging` remains protected by an explicit human approval. Equivalent protected environments are required before NOV Talent, Finance, or HUB deploys to the shared Staging project. No automatic Staging-to-Production promotion is permitted.
+GitHub Environment `store-sales-staging` remains protected by an explicit human approval. Equivalent protected environments are required before Finance, Management Platform, or Digital Signage deploys to the shared Staging project. No automatic Staging-to-Production promotion is permitted. Production is not a development environment; its final cutover requires a separate Owner gate after Staging acceptance.

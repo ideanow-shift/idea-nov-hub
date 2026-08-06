@@ -17,7 +17,7 @@ IDEA NOV Platform uses two Supabase projects: `idea-nov-core` for Production and
 
 ## Shared Staging Domains
 
-Store Operations, NOV Talent, Finance, and HUB may share the Staging project when each domain has a declared schema ownership boundary, function namespace, storage prefix/bucket ownership, dataset classification, migration owner, and access review. Shared project does not mean shared authorization.
+Core Business Data Foundation, Store Operations, Finance, Management Platform, and Digital Signage may share the Staging project when each domain has a declared schema ownership boundary, function namespace, storage prefix/bucket ownership, dataset classification, migration owner, and access review. Existing Production NOV HUB and NOV Talent operations remain unchanged. Shared project does not mean shared authorization.
 
 ## When Another Project Is Required
 

@@ -4,6 +4,8 @@
 
 **CONDITIONAL PASS.** A two-project topology is appropriate: `idea-nov-core` remains Production, and `idea-nov-staging` serves as shared Staging for Store Operations, NOV Talent, Finance, and HUB. A third project is not justified by the present evidence.
 
+The [Staging First Development Policy](staging-first-development-policy.md) is the governing development rule: existing Production applications remain unchanged, while Core Business Data Foundation, Store Operations, Finance, Management Platform, and Digital Signage complete in Staging before one separately approved final Production cutover.
+
 ## Conditions Before Use
 
 1. Reconfirm the remote Sandbox inventory and identity without exposing values.

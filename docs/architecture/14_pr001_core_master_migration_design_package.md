@@ -18,7 +18,7 @@ Output:
 
 今回の名称「PR001」はPhase 1設計審査のumbrellaを指す。実装時のmerge単位はMigration Program v1の分割を維持し、PR001=M001–M002、PR002=M003–M004、PR003=M005–M006、PR004=M007–M008、PR005=M009–M010とする。10 Migrationを1 PRへ再統合しない。
 
-P0-Cが未完了であるため、`attested_id`は型aliasではなく**未解決設計パラメータ**である。Migration SQLでは使用できない。C01〜C10とS01〜S08の証跡後に、Productionの実型または承認済みStaging pseudonym型へ置換する。
+PR001はProduction物理schemaの複製ではない。idea-nov-stagingにCanonical Core Masterを新規構築し、Productionの内部ID・列名・型・PK/FKをStaging schemaへ固定しない。Production Attestationは通常のMigration authoring条件ではなく、承認済みSnapshot mappingまたは将来のProduction cutoverで必要になった場合だけ別Gateで行う。
 
 ## 1. Common table contract
 
@@ -36,8 +36,10 @@ P0-Cが未完了であるため、`attested_id`は型aliasではなく**未解�
 
 | Semantic | Design type | Rule |
 |---|---|---|
-| Version row ID | `uuid` | controlled importerが供給。生成方式は実装前に承認 |
-| Production stable ID | `attested_id` | P0-Cで実型確定。employeeはpseudonymous tokenを許可 |
+| Canonical entity ID | `uuid` | Stagingが発行するopaque ID。identity registryのPK。Production内部IDを使用しない |
+| Version row ID | `uuid` | immutable history rowのPK。canonical entity IDとは別 |
+| Source record key | `text` | source内stable keyをmask/pseudonymizeした値。Consumerへ非公開 |
+| Source/snapshot version | `text` / `uuid` | source lineageとStaging snapshot identityを分離 |
 | Text/code | `text` | 不要な長さ制限なし。codeはformat check候補 |
 | Effective date | `date` | business as-ofに使用 |
 | Audit time | `timestamptz` | UTC保存、表示時にtimezone変換 |
@@ -47,12 +49,12 @@ P0-Cが未完了であるため、`attested_id`は型aliasではなく**未解�
 
 ### 1.3 Referential-integrity decision
 
-versioned parentへstable IDだけで通常FKを張ることはできない。親に複数versionが存在するためである。本設計では次を分離する。
+versioned parentへhistory rowだけでstable relationを張ると、親versionの切替時に参照が不安定になる。本設計では次を分離する。
 
 1. `source_snapshot_id`などversion-independentな参照は物理FKにする。
-2. corporation/store/department/employeeのstable-ID関係はlogical FKとしてdesign contractへ記載する。
-3. P0-C後、既存Production stable-ID型とsnapshot semanticsを確認し、identity registry方式またはactivation-time validation方式をPhysical Canon ADRで選ぶ。
-4. 選択前に、存在しない親IDを許容するMigration SQLを作らない。
+2. corporation/store/department/employeeごとにCanonical Identity Registryを持ち、その`uuid` PKをversion rowから物理FK参照する。
+3. Productionとの対応はsource crosswalkだけに保持し、Canonical MasterやConsumer APIへsource keyを露出しない。
+4. version row間のas-of整合はactivation validationで確認し、存在しないcanonical parent IDを許可しない。
 
 全物理FK列に索引を付ける。logical FKも主要join/as-of用索引を持つ。
 
@@ -66,7 +68,7 @@ versioned parentへstable IDだけで通常FKを張ることはできない。�
 | Column | Type | NULL | Default | Key / rule |
 |---|---|---:|---|---|
 | `corporation_version_id` | `uuid` | No | none | PK。controlled importで供給 |
-| `corporation_id` | `attested_id` | No | none | stable Production IDまたはapproved mapping |
+| `corporation_id` | `uuid` | No | none | FK→Canonical corporation identity |
 | `corporation_code` | `text` | No | none | canonical business code |
 | `legal_name` | `text` | Yes | none | business-publicかowner承認時だけ複製 |
 | `display_name` | `text` | No | none | approved display label |
@@ -94,7 +96,7 @@ versioned parentへstable IDだけで通常FKを張ることはできない。�
 | Column | Type | NULL | Default | Key / rule |
 |---|---|---:|---|---|
 | `store_version_id` | `uuid` | No | none | PK |
-| `store_id` | `attested_id` | No | none | stable Production ID |
+| `store_id` | `uuid` | No | none | FK→Canonical store identity |
 | `store_code` | `text` | No | none | canonical business code |
 | `display_name` | `text` | No | none | business-publicまたはStaging substitute |
 | `status` | `text` | No | none | active/inactive/closed/future/unknown mapping |
@@ -124,11 +126,11 @@ versioned parentへstable IDだけで通常FKを張ることはできない。�
 | Column | Type | NULL | Default | Key / rule |
 |---|---|---:|---|---|
 | `department_version_id` | `uuid` | No | none | PK |
-| `department_id` | `attested_id` | No | none | stable ID |
+| `department_id` | `uuid` | No | none | FK→Canonical department identity |
 | `department_code` | `text` | No | none | canonical code |
 | `display_name` | `text` | No | none | approved label/substitute |
-| `corporation_id` | `attested_id` | No | none | logical FK→corporation identity |
-| `parent_department_id` | `attested_id` | Yes | none | logical self-FK |
+| `corporation_id` | `uuid` | No | none | physical FK→corporation identity |
+| `parent_department_id` | `uuid` | Yes | none | physical self-identity FK |
 | `status` | `text` | No | none | canonical allow-list |
 | `effective_from` | `date` | No | none | inclusive |
 | `effective_to` | `date` | Yes | none | exclusive |
@@ -137,7 +139,7 @@ versioned parentへstable IDだけで通常FKを張ることはできない。�
 | `recorded_at` | `timestamptz` | No | transaction time | audit time |
 
 **PK:** `department_version_id`。
-**FK:** snapshot physical。corporation/parentはP0-C後のPhysical Canon ADRで物理化方式確定。
+**FK:** snapshot、corporation identity、parent department identityを物理FKとする。
 **Unique:** `(department_id,effective_from)`、`(corporation_id,department_code,effective_from)`。
 **Index:** `(department_id,effective_from desc)`、`corporation_id`、`parent_department_id`、`(status,effective_from,effective_to)`。
 **Check:** interval order、`department_id <> parent_department_id`、blank code/name禁止。
@@ -153,10 +155,10 @@ versioned parentへstable IDだけで通常FKを張ることはできない。�
 | Column | Type | NULL | Default | Key / rule |
 |---|---|---:|---|---|
 | `employee_version_id` | `uuid` | No | none | PK |
-| `employee_id` | `attested_id` or approved token `text` | No | none | stable pseudonymous identity |
+| `employee_id` | `uuid` | No | none | FK→Canonical employee identity |
 | `display_alias` | `text` | No | none | deterministic Staging synthetic alias |
 | `status` | `text` | No | none | active/leave/inactive/retired/unknown mapping |
-| `primary_department_id` | `attested_id` | Yes | none | logical FK。Sourceで確認できる場合のみ |
+| `primary_department_id` | `uuid` | Yes | none | physical FK→department identity。mapped時のみ |
 | `effective_from` | `date` | No | none | inclusive |
 | `effective_to` | `date` | Yes | none | exclusive |
 | `source_snapshot_id` | `uuid` | No | none | physical FK |
@@ -165,7 +167,7 @@ versioned parentへstable IDだけで通常FKを張ることはできない。�
 
 **明示的に存在させない列:** 実名、実メール、Firebase UID、電話、住所、生年月日、口座、給与、税・保険、家族、通勤、文書、写真、free text。
 **PK:** `employee_version_id`。
-**FK:** snapshot physical。department relationはPhysical Canon ADRで確定。auth identity FKは持たない。
+**FK:** snapshotとdepartment identityを物理FKとする。auth identity FK、Production employee IDは持たない。
 **Unique:** `(employee_id,effective_from)`。aliasは表示用でidentity/Unique根拠にしない。
 **Index:** `(employee_id,effective_from desc)`、`primary_department_id`、`(status,effective_from,effective_to)`、`source_snapshot_id`。
 **Check:** interval order、alias blank禁止、status allow-list。PII deny-listはschema testで検査。
@@ -181,9 +183,9 @@ versioned parentへstable IDだけで通常FKを張ることはできない。�
 | Column | Type | NULL | Default | Key / rule |
 |---|---|---:|---|---|
 | `assignment_version_id` | `uuid` | No | none | PK |
-| `assignment_id` | `attested_id` or deterministic token | No | none | stable assignment identity |
-| `employee_id` | employee approved token type | No | none | logical FK→employee identity |
-| `store_id` | `attested_id` | No | none | logical FK→store identity |
+| `assignment_id` | `uuid` | No | none | FK→Canonical assignment identity |
+| `employee_id` | `uuid` | No | none | physical FK→employee identity |
+| `store_id` | `uuid` | No | none | physical FK→store identity |
 | `assignment_role_code` | `text` | No | none | approved role dictionary |
 | `assignment_kind` | `text` | No | none | primary/secondary/temporary/support |
 | `allocation_ratio` | `numeric(7,6)` | Yes | none | unknown=NULL、0禁止、0<value<=1 |
@@ -195,7 +197,7 @@ versioned parentへstable IDだけで通常FKを張ることはできない。�
 | `recorded_at` | `timestamptz` | No | transaction time | audit time |
 
 **PK:** `assignment_version_id`。
-**FK:** snapshot physical。employee/store stable-ID relationはPhysical Canon ADRで物理化方式を確定。
+**FK:** snapshot、employee identity、store identityを物理FKとする。
 **Unique:** `(assignment_id,effective_from)`。同一employeeのprimary assignmentは期間重複不可。
 **Index:** `(employee_id,effective_from,effective_to)`、`(store_id,effective_from,effective_to)`、`(store_id,assignment_role_code)`、`source_snapshot_id`。
 **Check:** interval order、allocation range、role/kind/status allow-list、employee/store自己矛盾なし。
@@ -208,6 +210,8 @@ versioned parentへstable IDだけで通常FKを張ることはできない。�
 | Object | Purpose | Migration |
 |---|---|---|
 | `governance.master_source_snapshots` | snapshot/run/masking/digest/status | M002 |
+| `core.*_identities` | Canonical entity IDのPK registry | M002–M005の各entity作成単位 |
+| `governance.source_entity_crosswalks` | source key/versionとCanonical IDの対応 | M002 |
 | `core.corporation_store_relationships` | direct/FCおよびowner/operator/sales/accounting relation | M006 |
 | `governance.store_population_versions` | official population version/approval | M006 |
 | `governance.store_population_items` | 20/13/7と21件目の明示分類 | M006 |
@@ -215,6 +219,68 @@ versioned parentへstable IDだけで通常FKを張ることはできない。�
 | `governance.master_audit_events` | append-only governance audit | M007 |
 
 supporting objectはProduction Masterを置換しない。Staging snapshotのmapping、validation、publicationだけを管理する。
+
+### 3.1 Canonical identity registry
+
+各entityは`core.corporation_identities`、`core.store_identities`、`core.department_identities`、`core.employee_identities`、`core.assignment_identities`を持つ。
+
+| Column | Type | NULL | Responsibility |
+|---|---|---:|---|
+| `canonical_entity_id` | `uuid` | No | PK。Stagingが発行するopaque ID |
+| `entity_status` | `text` | No | identity自体のactive/merged/retired状態 |
+| `created_at` | `timestamptz` | No | registry audit |
+| `retired_at` | `timestamptz` | Yes | identity再利用を禁止する論理失効 |
+| `merged_into_id` | `uuid` | Yes | duplicate解決時の同一entity registry内FK |
+
+Canonical IDは一度発行したら変更・再利用しない。history tableの`corporation_id`等は対応するregistryの`canonical_entity_id`を参照する。Consumer APIはCanonical IDだけを返し、source record key、Production内部ID、crosswalk IDを返さない。
+
+### 3.2 Source crosswalk contract
+
+`governance.source_entity_crosswalks`はCanonical IDと任意source recordの対応を保持する。
+
+| Column | Type | NULL | Responsibility |
+|---|---|---:|---|
+| `crosswalk_version_id` | `uuid` | No | immutable mapping row PK |
+| `canonical_entity_id` | `uuid` | No | entity registryへのtyped/validated reference |
+| `entity_type` | `text` | No | corporation/store/department/employee/assignment |
+| `source_system` | `text` | No | source namespace。初期値契約は`idea-nov-core` |
+| `source_record_key` | `text` | No | masked/pseudonymized stable source key |
+| `source_version` | `text` | No | source側のversion、export revision、またはapproved digest |
+| `snapshot_version_id` | `uuid` | No | FK→master source snapshot |
+| `valid_from` | `date` | No | mapping validity inclusive |
+| `valid_to` | `date` | Yes | mapping validity exclusive |
+| `mapping_contract_version` | `text` | No | transform/mapping rule version |
+| `masking_policy_version` | `text` | No | masking rule version |
+| `source_record_digest` | `text` | No | masked canonical source record digest |
+| `recorded_at` | `timestamptz` | No | ingestion audit |
+
+Uniqueは`(source_system,entity_type,source_record_key,source_version)`とし、同一source keyのmapping期間overlapを禁止する。crosswalkはprivateでConsumer Grantなし。Source keyが個人情報を含む場合はStaging到達前に不可逆pseudonymへ変換する。
+
+### 3.3 Snapshot intake boundary
+
+Migrationは空のCanonical schema、constraint、RLS/Grant、mapping受入口を作る責務だけを持つ。Snapshot data loadは別run/approvalで行い、次を要求する。
+
+1. explicit source column mapping contract。
+2. masking policyとtransform receipt。
+3. source version/snapshot version idempotency。
+4. Canonical ID crosswalk resolution。
+5. orphan、overlap、status、PII absence validation。
+6. Store Population Human Review Gate。
+
+Production Attestationはmappingに必要な情報が他の承認済みsource contractから得られない場合の例外的read-only手段であり、Migration authoringの前提ではない。
+
+### 3.4 Store Population Human Review Gate
+
+Stagingの`store_population_versions`へ、official=20、direct=13、franchise=7を承認済み業務定義として登録できる。Production物理列の監査だけを唯一の確定手段にしない。
+
+Snapshot取込時は全store candidateを自動でofficial activeにしない。mapping/validation結果が不明または矛盾するrowは、次の隔離状態のいずれかに置く。
+
+- `pending_review`: 判定材料またはowner承認待ち。
+- `excluded`: official population対象外として承認済み。
+- `non_operational`: HQ、virtual、legacy、test等の非営業entity。
+- `unresolved`: 矛盾がありactivation不可。
+
+21件目はHuman Review Gateで、source lineage、crosswalk、reason code、reviewer reference、reviewed_atを記録する。`pending_review`または`unresolved`が1件でも残るpopulation versionはpublish不可。業務定義20/13/7とSnapshot evidenceの差異は0に変換せずreview exceptionとして保持する。
 
 ## 4. Relationship design
 
@@ -234,6 +300,15 @@ erDiagram
   STORES ||--o{ CORPORATION_STORE_RELATIONSHIPS : subject
   STORE_POPULATION_VERSIONS ||--|{ STORE_POPULATION_ITEMS : contains
   STORES ||--o{ STORE_POPULATION_ITEMS : classified
+```
+
+```mermaid
+flowchart LR
+  SS["Approved source snapshot"] --> CW["Private source crosswalk"]
+  CW --> CI["Canonical Identity Registry UUID PK"]
+  CI --> VR["Immutable effective-dated version rows"]
+  VR --> MV["Published master version"]
+  MV --> API["Consumer API Canonical ID only"]
 ```
 
 ### 4.1 Cardinality
@@ -258,10 +333,10 @@ erDiagram
 | Migration | One-migration boundary | Included | Excluded / dependency |
 |---|---|---|---|
 | M001 | Namespace/security boundary | schemas、ownership contract、default-deny default privileges | table/role login作成は別承認 |
-| M002 | Source envelope | snapshot table、reference dictionaries/check domains | five masters |
-| M003 | Independent business roots | corporations、stores、their constraints/indexes | relationships/population |
-| M004 | Organization/person minimal history | departments、employees、constraints/indexes | assignments、auth identity |
-| M005 | Store-scope canon | employee_store_assignments、effective constraints/indexes | global/corporation role scope |
+| M002 | Source/identity envelope | snapshot、crosswalk、reference contracts | entity history rows |
+| M003 | Independent business roots | corporation/store identity registries、version rows、constraints/indexes | relationships/population |
+| M004 | Organization/person minimal history | department/employee identity registries、version rows、constraints/indexes | assignments、auth identity |
+| M005 | Store-scope canon | assignment identity registry、employee_store_assignments、effective constraints/indexes | global/corporation role scope |
 | M006 | Operating model/population | corporation-store relationships、population version/items | projections |
 | M007 | Governance ledger | master versions、audit events、immutability contract | consumer read model |
 | M008 | Projection contract objects | private/security-invoker master projections | API implementation/routingは禁止 |
@@ -307,15 +382,17 @@ Rollback rehearsalがM010で成功しない限りStaging apply Gateへ進めな�
 
 次をすべて要求する。
 
-1. P0-C PASS。
-2. C01〜C10 COMPLETE receipt。
-3. S01〜S08別run COMPLETE receipt。
-4. 5 Production Masterの実型、列、PK/FK/Unique/Index/RLS/Grant確定。
-5. assignmentのstable ID、role、status、有効期間semantics確定。
-6. official=20、direct=13、FC=7、unresolved=0、21件目分類の署名済み証明。
-7. actual-column mapping/masking addendum承認。
-8. Physical Canon ADRでstable-ID referential integrity方式を確定。
-9. Staging Data API exposure/role baselineをread-only確認。
+1. Canonical ID型=`uuid`と5 identity registryの責務確定。
+2. 5 Canonical Masterの責務、column、PK/FK、Unique、Index、Check確定。
+3. effective dating、immutable version、exact-one current契約確定。
+4. employee-store assignmentによるStore Scope契約確定。
+5. RLS/Grant matrix、negative test、security-invoker検証計画確定。
+6. source snapshot metadataとidempotency contract確定。
+7. source crosswalk、Mapping/Masking受入口、PII deny-list確定。
+8. rollback designとM001〜M010の前方向依存確定。
+9. Staging Data API exposure/role baselineの実装前確認手順確定。
+
+P0-C、C01〜C10、S01〜S08、Production実ID型・実列・PK/FK、20/13/7のProduction物理証明はPR001-Aの必須条件ではない。
 
 ### Gate PR001-S — Staging release
 
@@ -385,11 +462,11 @@ FinanceはPhase 1 tableへwriteせず、独自corporation/store masterを持た�
 | Concern | Production Master | Staging BDF |
 |---|---|---|
 | Authority | 唯一のCore Master正本 | authoritativeではないvalidated snapshot/read model |
-| Shape | C01〜C10でAttestする実構造 | canonical minimal schema |
+| Shape | 必要時だけread-only Attestする実構造 | Production非依存のcanonical minimal schema |
 | ID | 実ID型 |同型保持またはapproved pseudonymous/token mapping |
 | Employee data | 業務上必要な実属性を含み得る | minimal identity/status/synthetic aliasのみ |
 | History | 実構造をAttestして判断 | immutable effective-dated versions |
-| Direct/FC/population | S01〜S08で証明 | signed population versionとして保持 |
+| Direct/FC/population | 承認済み業務定義または例外監査で確認 | Human Review済みpopulation versionとして保持 |
 | Writes | existing Production ownership | Stagingからのwrite-back 0 |
 | Sync | source snapshotを発行 | allow-listed extract→pre-DB mask→validate→activate |
 
@@ -405,20 +482,25 @@ FinanceはPhase 1 tableへwriteせず、独自corporation/store masterを持た�
 8. consumer pointerをatomic switchする。
 9. 旧versionをsupersededにするが削除しない。
 
-同期方式の頻度は本Packageで固定しない。Phase 0の実構造・運用SLA後に承認する。CDC、Production trigger、Production schema changeは採用しない。
+同期方式の頻度は本Packageで固定しない。source owner、mapping owner、運用SLAの承認後に決定する。CDC、Production trigger、Production schema changeは採用しない。
 
 ## 12. Blockers
 
-| ID | Blocker | Blocks |
+| Item | Classification | Blocks |
 |---|---|---|
-| B1 | P0-A authorization receipt未完了 | C01〜C10実行 |
-| B2 | C01〜C10未実行 | 実列/型/key/security差分 |
-| B3 | S01〜S08未compile/未承認/未実行 | 21件目、20/13/7 population |
-| B4 | ID型とstable-ID FK方式未確定 | M003〜M006 authoring |
-| B5 | assignment実構造/有効期間semantics未確定 | M005 authoring |
-| B6 | actual-column masking/mapping addendum未署名 | Staging load design finalization |
-| B7 | Production RLS/Grant baseline未確定 | M009 compatibility review |
-| B8 | identity→employee→role→scope署名未完了 | assignment RLS predicate |
+| Canonical ID registry/crosswalk contract未承認 | MIGRATION AUTHORING BLOCKER | M002〜M005 authoring |
+| Staging PK/FK/effective/immutable contract未承認 | MIGRATION AUTHORING BLOCKER | M003〜M007 authoring |
+| Store Scope・RLS/Grant・Rollback未承認 | MIGRATION AUTHORING BLOCKER | M005/M009 authoring |
+| Production実ID型、PK/FK/Unique | SNAPSHOT MAPPING BLOCKER | source crosswalk mapping。Migration schemaはblockしない |
+| Production status/open/close実列 | SNAPSHOT MAPPING BLOCKER | store lifecycle mapping |
+| assignment実列 | SNAPSHOT MAPPING BLOCKER | employee/store/role/kind/date mapping |
+| direct/FC、corporation-store relation実列 | SNAPSHOT MAPPING BLOCKER | operating model mapping |
+| HQ/virtual/legacy/test、duplicate判定実列/key | SNAPSHOT MAPPING BLOCKER | population candidate classification |
+| mapping/masking contract未承認 | STAGING DATA LOAD BLOCKER | candidate snapshot intake |
+| 21件目Human Review未完了 | STAGING DATA LOAD BLOCKER | population activation/publication |
+| identity→employee→role→scope runtime検証未完了 | STAGING DATA LOAD BLOCKER | scope-bearing snapshot activation |
+| P0-C、C01〜C10、S01〜S08 | NON-BLOCKING | 通常Migration authoring。例外監査時だけ別Gate |
+| Production consumer切替/reconciliation承認 | PRODUCTION CUTOVER BLOCKER | Production cutover only |
 
 ## 13. Final design audit corrections
 
@@ -493,26 +575,26 @@ Staging canonical rowの手修正は禁止する。mapping訂正は承認済みm
 | 有効期間 | `effective_from/effective_to` |
 | store scope | as-ofで有効なemployee/store assignment集合 |
 
-不足する可能性があるのは、Productionにstable assignment ID、role、kind/status、有効期間が存在するかである。これらが存在しない場合はM005 authoringを停止し、approved deterministic ID、mapping、またはseparate effective role relationをPhysical Canon ADRで決定する。corporation/global scopeはassignmentから推測せず、PR001対象外の明示role-scope relationを要求する。
+Productionにstable assignment key、role、kind/status、有効期間が存在するかはSnapshot mapping parameterである。欠落してもM005 authoringは停止せず、Canonical assignment schemaは上記contractで作成できる。実Snapshot loadはapproved deterministic source key、mapping、またはseparate effective role relationが承認されるまで停止する。corporation/global scopeはassignmentから推測せず、PR001対象外の明示role-scope relationを要求する。
 
 ## 14. Store Operations G1 connection fields
 
 | Required field | Canonical source | Projection/API field | Current decision |
 |---|---|---|---|
-| `store_id` | `core.stores.store_id` | `store_id` | defined; physical type BLOCKING |
+| `store_id` | `core.stores.store_id` | `store_id` | Canonical `uuid`; source ID非露出 |
 | `store_code` | `core.stores.store_code` | `store_code` | defined; Production mapping required |
 | `store_name` | `core.stores.display_name` | `store_name` | explicit API alias; approved public/substitute only |
-| `corporation_id` | active corporation-store relationship | `corporation_id` | relationship type must be selected; BLOCKING |
-| `store_type` | population classification + operating model | `store_type` | direct/FC/HQ/virtual/etc mapping; BLOCKING |
-| active status | `core.stores.status` + as-of interval | `is_active`, `status` | mapping semantics BLOCKING |
-| employee assignment | assignment stable identity | `assignment_id` | defined; physical source BLOCKING |
-| role | `assignment_role_code` | `role` | dictionary mapping BLOCKING |
+| `corporation_id` | active corporation-store relationship | `corporation_id` | Canonical `uuid`; Snapshot mapping blocker |
+| `store_type` | population classification + operating model | `store_type` | Canonical enum確定; Snapshot mapping blocker |
+| active status | `core.stores.status` + as-of interval | `is_active`, `status` | Canonical semantics確定; Snapshot mapping blocker |
+| employee assignment | Canonical assignment identity | `assignment_id` | Canonical `uuid` |
+| role | `assignment_role_code` | `role` | Canonical dictionary確定; Snapshot mapping blocker |
 | `valid_from` | `effective_from` | `valid_from` | explicit alias |
 | `valid_to` | `effective_to` | `valid_to` | explicit alias; NULL=open-ended |
 | primary assignment | `assignment_kind='primary'` | `is_primary` | deterministic derived boolean |
 | store scope | current published assignments | `store_scope` | auth→employee resolution + as-of assignments |
 
-G1 Projectionはこれらを同じpublished master/population versionと`as_of`から返す。`store_name`や`store_type`を新しい正本列として重複保存しない。上表のBLOCKING項目がP0-C/Physical Canon ADRで解決されるまでStore Operations実接続は禁止する。
+G1 Projectionはこれらを同じpublished master/population versionと`as_of`から返す。`store_name`や`store_type`を新しい正本列として重複保存しない。Migration authoringはProduction mappingを待たないが、Store Operations実接続はapproved Snapshot load、Human Review済みpopulation、G1 security testsまで禁止する。
 
 ## 15. RLS, Grant, negative-test and View audit
 
@@ -530,46 +612,42 @@ G1 Projectionはこれらを同じpublished master/population versionと`as_of`�
 
 ## 16. Unresolved parameter audit
 
-| Unresolved parameter | Classification | Affected design / required resolution |
+| Unresolved parameter | Classification | Affected gate / required resolution |
 |---|---|---|
-| 5 Masterのstable ID実型 | BLOCKING | 全PK/logical FK/API型。C02/C03 + Physical Canon ADR |
-| Productionの実在column名・型・NULL | PRODUCTION MAPPING REQUIRED | canonical column mapping addendum。C02 |
-| Production PK/FK/Unique | BLOCKING | identity integrity、relation reuse判断。C03 |
-| Production Index | NON-BLOCKING | Production変更はしない。sync query/reconciliation設計の参考。C04 |
-| Production RLS/Policy/Grant | PRODUCTION MAPPING REQUIRED | compatibility/security baseline。C05/C06 |
-| corporation status列/semantics | PRODUCTION MAPPING REQUIRED | canonical status/effective mapping。C08 |
-| store status/open/close列 | BLOCKING | active status、21st、official population。C08/S pack |
-| department status/parent/corporation列 | PRODUCTION MAPPING REQUIRED | hierarchy/as-of mapping |
-| employee status/department列 | PRODUCTION MAPPING REQUIRED | active employeeとminimal scope mapping |
-| assignment stable ID | BLOCKING | idempotency/history。存在しなければapproved deterministic token |
-| assignment employee/store FK | BLOCKING | Store Scope正本成立条件 |
-| assignment role/kind/primary列 | BLOCKING | role、主所属、兼務、scope action |
-| assignment status/effective-from/to列 | BLOCKING | 異動・失効・as-of scope |
-| assignment allocation ratio | NON-BLOCKING | authorizationに使わない。存在する場合だけmapping |
-| direct/FC operating-model列 | BLOCKING | `store_type`と13/7証明。S02/S06 |
-| corporation-store relation列/期間 | BLOCKING | Finance/Store Operations corporation ID。S03 |
-| HQ/virtual/legacy/test判定列 | BLOCKING | 21件目とofficial 20除外理由。S01/S02/S05/S07 |
-| duplicate判定用non-PII key | BLOCKING | official distinct store count。S04 |
-| official population rule/version/as_of | STAGING-ONLY DESIGN PARAMETER | S01〜S08証跡をpopulation versionへ固定 |
-| snapshot UUID生成方式 | STAGING-ONLY DESIGN PARAMETER | implementation reviewでtime-ordered/deterministic choice |
-| mapping/masking policy version ID | STAGING-ONLY DESIGN PARAMETER | governance ownerが発行 |
-| store timezone default | STAGING-ONLY DESIGN PARAMETER | v1=`Asia/Tokyo`; source差異はvalidation |
-| Production実名/email/Firebase UID等PII | EXCLUDE FROM PR001 | Stagingに取得・保持しない |
-| corporation/global role scope | EXCLUDE FROM PR001 | separate explicit role-scope contract |
-| Accounting/Business Fact columns | EXCLUDE FROM PR001 | later phases only |
+| Canonical ID=`uuid`、identity registry/crosswalkの最終review | MIGRATION AUTHORING BLOCKER | PR001-A。Production ID非依存 |
+| 5 MasterのCanonical PK/FK/constraint review | MIGRATION AUTHORING BLOCKER | PR001-A |
+| Store Scope、RLS/Grant、Snapshot metadata、Rollback review | MIGRATION AUTHORING BLOCKER | PR001-A |
+| 5 MasterのProduction実ID型 | SNAPSHOT MAPPING BLOCKER | source_record_key/crosswalk transform |
+| Production PK/FK/Unique | SNAPSHOT MAPPING BLOCKER | source relation validation。Canonical PK/FKは変更しない |
+| Production status/open/close実列 | SNAPSHOT MAPPING BLOCKER | canonical status/date mapping |
+| assignment stable key、employee/store relation実列 | SNAPSHOT MAPPING BLOCKER | assignment crosswalk/scope mapping |
+| assignment role/kind/primary/status/effective実列 | SNAPSHOT MAPPING BLOCKER | Canonical assignment mapping |
+| direct/FC判定実列 | SNAPSHOT MAPPING BLOCKER | operating-model candidate mapping |
+| corporation-store relation実列 | SNAPSHOT MAPPING BLOCKER | Canonical relationship mapping |
+| HQ/virtual/legacy/test実列 | SNAPSHOT MAPPING BLOCKER | population candidate classification |
+| duplicate判定用Production key | SNAPSHOT MAPPING BLOCKER | crosswalk duplicate candidate detection |
+| mapping/masking contract、source extract approval | STAGING DATA LOAD BLOCKER | first candidate snapshot load |
+| 21件目Human Review、20/13/7 approval reconciliation | STAGING DATA LOAD BLOCKER | population activation/publication |
+| source-to-canonical relation/count/PII validation | STAGING DATA LOAD BLOCKER | master version activation |
+| Production consumer切替、version pin、reconciliation | PRODUCTION CUTOVER BLOCKER | Production cutover only |
+| Production write-path 0、rollback/cutover approval | PRODUCTION CUTOVER BLOCKER | Production cutover only |
+| P0-C | NON-BLOCKING | 通常Migration authoring。例外read-only監査を選ぶ場合だけ必要 |
+| C01〜C10 | NON-BLOCKING | 同上 |
+| S01〜S08 | NON-BLOCKING | 同上。Human Reviewの唯一の証明手段ではない |
+| Production Index/RLS/Grant baseline | NON-BLOCKING | Canonical schema authoring。必要時のcompatibility evidence |
 
-BLOCKINGはMigration SQL authoringまたはG1 publicationを停止する。NON-BLOCKINGはProduction変更を要求せず、実装前review noteとして残す。
+Migration authoring blockerはStaging Canonical schemaだけに限定する。Snapshot mapping/data load/cutover blockerはMigration SQL作成を停止しない。
 
 ## 17. Migration-boundary final audit
 
 | Migration | Creation responsibility | Dependency | Rollback | Validation / release gate | Failure stop |
 |---|---|---|---|---|---|
-| M001 | schema、ownership、default deny | P0-C、platform role baseline | usage/grant revoke; emptyならschema reverse | owner/default privilege inventory | public exposure、owner mismatch |
-| M002 | source snapshot、reference contract | M001 | candidate snapshot withdraw; empty object reverse | idempotency、digest、status checks | duplicate source version、invalid policy/run |
-| M003 | corporations、stores | M002 | unpublished versions withdraw; empty object reverse | interval、ID/code、PII、index checks | unresolved type、overlap、orphan snapshot |
-| M004 | departments、employees | M002、M003 corporation identity | same as M003 | hierarchy、cycle、PII deny-list、interval | unresolved FK方式、cycle、PII detection |
-| M005 | assignments | M003 stores、M004 employees | candidate withdraw; published history保持 | primary/duplicate overlap、role/status/as-of | missing stable ID/FK/effective semantics |
-| M006 | corporation-store relation、population | M003、M002、S01〜S08 proof | unpublished population withdraw/pointer restore | 20/13/7/0、21st reason、relation coverage | invariant false、unresolved classification |
+| M001 | schema、ownership、default deny | approved Staging role design | usage/grant revoke; emptyならschema reverse | owner/default privilege inventory | public exposure、owner mismatch |
+| M002 | source snapshot、crosswalk、reference contract | M001 | candidate snapshot/crosswalk withdraw; empty object reverse | idempotency、digest、Canonical ID、policy checks | duplicate source version、invalid crosswalk/policy |
+| M003 | corporation/store identitiesとversion rows | M002 | unpublished versions withdraw; empty object reverse | interval、Canonical ID/code、PII、index checks | overlap、orphan canonical ID/snapshot |
+| M004 | department/employee identitiesとversion rows | M002、M003 corporation identity | same as M003 | hierarchy、cycle、PII deny-list、interval | orphan canonical FK、cycle、PII detection |
+| M005 | assignment identities/version rows | M003 stores、M004 employees | candidate withdraw; published history保持 | primary/duplicate overlap、role/status/as-of | orphan canonical FK、invalid effective semantics |
+| M006 | corporation-store relation、population | M003、M002、approved business population definition | unpublished population withdraw/pointer restore | 20/13/7/0、Human Review state、relation coverage | unresolved/pending publication、invariant false |
 | M007 | master version、audit ledger | M003〜M006 | active pointer restore; ledger保持 | immutability、transition、audit coverage | partial version、audit gap |
 | M008 | private/API Projection definitions | M007 | prior View definition/pointer restore | exact-one current、schema contract、PII absence | multiple current、version mixing |
 | M009 | RLS、Grant | M001、M003〜M008、identity-scope contract | Grant revoke/API isolation。RLS disable禁止 | role matrix、security-invoker、negative tests | any cross-scope/unpublished access |
@@ -590,8 +668,11 @@ BLOCKINGはMigration SQL authoringまたはG1 publicationを停止する。NON-B
 | physical delete prohibition | PASS |
 | snapshot duplicate prevention | PASS |
 | Production canon/write-back prohibition | PASS |
-| Store Scope expression | CONDITIONAL PASS — Production assignment fields BLOCKING |
-| Store Operations required field mapping | CONDITIONAL PASS — P0-C mappings BLOCKING |
+| Canonical ID/crosswalk separation | PASS |
+| Migration vs Snapshot Mapping separation | PASS |
+| Store Scope expression | PASS — Canonical contract成立。source mappingはload前Gate |
+| Store Operations required field contract | PASS — data connectionはG1 Gate待ち |
+| 20/13/7 Human Review Gate | PASS |
 | rollback design | PASS |
 | M001–M010 cycle | PASS — none |
 
@@ -599,13 +680,15 @@ BLOCKINGはMigration SQL authoringまたはG1 publicationを停止する。NON-B
 
 | Decision | Status |
 |---|---|
-| Migration Design Package | **CONDITIONAL PASS** — standalone logical design成立、Production mapping blockersあり |
+| Migration Design Package | **PASS** — Staging Canonical設計として単体成立 |
 | Frozen architecture change | NONE |
-| Migration SQL authoring | **BLOCKED** — P0-C/Physical Canon ADR未完了 |
+| Migration SQL authoring | **CONDITIONAL PASS** — PR001-AのStaging-only design approval後。P0-C不要 |
 | PR001 implementation merge | **NOT AUTHORIZED** |
-| Staging apply | **PROHIBITED** |
+| Staging apply | **BLOCKED** — Migration作成・review・fresh replay・別承認が未完了 |
+| Snapshot data load | **BLOCKED** — source mapping/masking、Human Review Gate未完了 |
 | Production connection/change | **PROHIBITED** |
 | Store Operations Master connection | **BLOCKED** — Phase 1 G1未完了 |
 | Finance Master connection | **BLOCKED** — Phase 1 G1未完了 |
+| Production cutover | **BLOCKED** — reconciliation、version pin、cutover/rollback承認未完了 |
 
-推奨レビュー順は、Core DB Architect→Data Owner→Security Owner→Store Operations Owner→Finance Owner。全員がDesign Gate PR001-Dへ署名しても、P0-C未完了の間はMigration authoringを開始しない。
+推奨レビュー順は、Core DB Architect→Data Owner→Security Owner→Store Operations Owner→Finance Owner。Design Gate PR001-DとStaging-only PR001-Aの署名後、Production接続やP0-Cを待たずにMigration SQL authoringを別Sprintで開始できる。Staging apply、Snapshot load、Production cutoverはそれぞれ独立Gateを要求する。

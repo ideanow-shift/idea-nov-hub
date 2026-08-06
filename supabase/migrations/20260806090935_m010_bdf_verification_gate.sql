@@ -214,9 +214,9 @@ begin
       (version_id_2, entity_id, 'corporation', snapshot_id);
     insert into core.corporations (
       corporation_version_id, corporation_id, corporation_code, display_name, status,
-      effective_from, source_snapshot_id, source_record_digest
+      effective_from, effective_to, source_snapshot_id, source_record_digest
     ) values (version_id_1, entity_id, 'SYN-CORP', 'Synthetic', 'active',
-      current_date, snapshot_id, repeat('f', 64));
+      date '2026-01-01', date '2026-02-01', snapshot_id, repeat('f', 64));
 
     rejected := false;
     begin
@@ -224,7 +224,7 @@ begin
         corporation_version_id, corporation_id, corporation_code, display_name, status,
         effective_from, source_snapshot_id, source_record_digest
       ) values (version_id_2, entity_id, 'SYN-CORP-2', 'Synthetic 2', 'active',
-        current_date, snapshot_id, repeat('1', 64));
+        date '2026-01-15', snapshot_id, repeat('1', 64));
     exception when exclusion_violation then rejected := true;
     end;
     if not rejected then raise exception 'BDF_TEST_OVERLAPPING_PERIOD_ACCEPTED'; end if;
@@ -339,13 +339,29 @@ $assignment_negative$;
 -- approved 20/13/7 population must be the only successful transition.
 do $population_negative$
 declare
-  snapshot_id uuid := gen_random_uuid();
-  population_id uuid := gen_random_uuid();
-  zero_population_id uuid := gen_random_uuid();
-  store_version_id uuid := gen_random_uuid();
-  master_id uuid := gen_random_uuid();
+  fixture_date constant date := date '2026-08-06';
+  fixture_timestamp constant timestamptz := timestamptz '2026-08-06 09:00:00+09';
+  snapshot_id constant uuid := 'a1000000-0000-0000-0000-000000000001';
+  fixture_corporation_id constant uuid := 'a1000000-0000-0000-0000-000000000100';
+  corporation_version_id constant uuid := 'a1000000-0000-0000-0000-000000000101';
+  population_id constant uuid := 'a1000000-0000-0000-0000-000000000200';
+  pending_population_id constant uuid := 'a1000000-0000-0000-0000-000000000202';
+  pending_store_id constant uuid := 'a1000000-0000-0000-0007-000000000001';
+  zero_population_id constant uuid := 'a1000000-0000-0000-0000-000000000201';
+  master_id constant uuid := 'a1000000-0000-0000-0000-000000000300';
   store_ids uuid[] := array[]::uuid[];
+  store_version_ids uuid[] := array[]::uuid[];
   store_id_value uuid;
+  store_version_id uuid;
+  relationship_id uuid;
+  relationship_version_id uuid;
+  fixture_count integer;
+  official_count integer;
+  direct_count integer;
+  franchise_count integer;
+  pending_count integer;
+  unresolved_count integer;
+  rejected_official_count integer;
   rejected boolean;
   i integer;
 begin
@@ -353,21 +369,75 @@ begin
     insert into governance.master_source_snapshots (
       source_snapshot_id, source_system, source_environment, source_version,
       snapshot_version, source_as_of, content_digest, mapping_contract_version, masking_policy_version
-    ) values (snapshot_id, 'synthetic', 'staging', gen_random_uuid()::text,
-      gen_random_uuid()::text, statement_timestamp(), repeat('6', 64), 'm1', 'p1');
+    ) values (snapshot_id, 'synthetic', 'staging', 'm010-population-source-v1',
+      'm010-population-snapshot-v1', fixture_timestamp, repeat('6', 64), 'm1', 'p1');
+
+    -- One Canonical Corporation/version owns all 20 Store relationships. It is
+    -- never duplicated per Store.
+    insert into governance.canonical_entity_registry (canonical_entity_id, entity_type)
+    values (fixture_corporation_id, 'corporation');
+    insert into core.corporation_identities (corporation_id) values (fixture_corporation_id);
+    insert into governance.canonical_version_registry (
+      entity_version_id, canonical_entity_id, entity_type, source_snapshot_id
+    ) values (corporation_version_id, fixture_corporation_id, 'corporation', snapshot_id);
+    insert into core.corporations (
+      corporation_version_id, corporation_id, corporation_code, display_name, status,
+      effective_from, source_snapshot_id, source_record_digest
+    ) values (corporation_version_id, fixture_corporation_id, 'M010-CORP-01',
+      'M010 Fixture Corporation', 'active', fixture_date, snapshot_id, repeat('a', 64));
+    insert into governance.source_entity_crosswalks (
+      crosswalk_version_id, canonical_entity_id, entity_type, source_system,
+      source_record_key, source_version, source_snapshot_id, valid_from,
+      mapping_contract_version, masking_policy_version, source_record_digest
+    ) values ('a1000000-0000-0000-0000-000000000102', fixture_corporation_id, 'corporation',
+      'synthetic', 'm010-corporation-01', 'm010-population-source-v1', snapshot_id,
+      fixture_date, 'm1', 'p1', repeat('b', 64));
 
     insert into governance.store_population_versions (
       population_version_id, version_code, status, as_of, expected_item_count,
       source_snapshot_id, content_digest
-    ) values (population_id, gen_random_uuid()::text, 'draft', current_date, 20,
+    ) values (population_id, 'm010-population-v1', 'draft', fixture_date, 20,
       snapshot_id, repeat('7', 64));
 
     for i in 1..20 loop
-      store_id_value := gen_random_uuid();
+      store_id_value := ('a1000000-0000-0000-0001-' || lpad(i::text, 12, '0'))::uuid;
+      store_version_id := ('a1000000-0000-0000-0002-' || lpad(i::text, 12, '0'))::uuid;
+      relationship_id := ('a1000000-0000-0000-0003-' || lpad(i::text, 12, '0'))::uuid;
+      relationship_version_id := ('a1000000-0000-0000-0004-' || lpad(i::text, 12, '0'))::uuid;
       store_ids := array_append(store_ids, store_id_value);
+      store_version_ids := array_append(store_version_ids, store_version_id);
       insert into governance.canonical_entity_registry (canonical_entity_id, entity_type)
-      values (store_id_value, 'store');
+      values (store_id_value, 'store'), (relationship_id, 'corporation_store_relationship');
       insert into core.store_identities (store_id) values (store_id_value);
+      insert into core.corporation_store_relationship_identities (relationship_id)
+      values (relationship_id);
+      insert into governance.canonical_version_registry (
+        entity_version_id, canonical_entity_id, entity_type, source_snapshot_id
+      ) values
+        (store_version_id, store_id_value, 'store', snapshot_id),
+        (relationship_version_id, relationship_id, 'corporation_store_relationship', snapshot_id);
+      insert into core.stores (
+        store_version_id, store_id, store_code, display_name, status,
+        effective_from, source_snapshot_id, source_record_digest
+      ) values (store_version_id, store_id_value, 'M010-STORE-' || lpad(i::text, 2, '0'),
+        'M010 Fixture Store ' || lpad(i::text, 2, '0'), 'active', fixture_date,
+        snapshot_id, encode(sha256(('m010-store-' || i)::bytea), 'hex'));
+      insert into core.corporation_store_relationships (
+        relationship_version_id, relationship_id, store_id, corporation_id,
+        relationship_type, operating_model, effective_from, source_snapshot_id,
+        source_record_digest
+      ) values (relationship_version_id, relationship_id, store_id_value, fixture_corporation_id,
+        'operator', case when i <= 13 then 'direct' else 'franchise' end,
+        fixture_date, snapshot_id,
+        encode(sha256(('m010-relationship-' || i)::bytea), 'hex'));
+      insert into governance.source_entity_crosswalks (
+        crosswalk_version_id, canonical_entity_id, entity_type, source_system,
+        source_record_key, source_version, source_snapshot_id, valid_from,
+        mapping_contract_version, masking_policy_version, source_record_digest
+      ) values (('a1000000-0000-0000-0005-' || lpad(i::text, 12, '0'))::uuid,
+        store_id_value, 'store', 'synthetic', 'm010-store-' || lpad(i::text, 2, '0'),
+        'm010-population-source-v1', snapshot_id, fixture_date, 'm1', 'p1',
+        encode(sha256(('m010-crosswalk-' || i)::bytea), 'hex'));
       insert into governance.store_population_items (
         population_version_id, store_id, classification, operating_model,
         in_official_population, review_status, reason_code, reviewed_by_ref,
@@ -375,25 +445,86 @@ begin
       ) values (
         population_id, store_id_value, 'official_operating',
         case when i <= 12 then 'direct' else 'franchise' end,
-        true, case when i = 1 then 'pending_review' else 'approved' end,
-        'synthetic', case when i = 1 then null else 'reviewer' end,
-        case when i = 1 then null else statement_timestamp() end, current_date
+        true, 'approved', 'synthetic', 'reviewer', fixture_timestamp, fixture_date
       );
     end loop;
+
+    select count(*) into fixture_count from core.corporations c
+      where c.source_snapshot_id = snapshot_id and c.corporation_id = fixture_corporation_id;
+    if fixture_count <> 1 then raise exception 'BDF_TEST_CORPORATION_FIXTURE_COUNT_MISMATCH'; end if;
+    select count(*) into fixture_count from core.stores where source_snapshot_id = snapshot_id;
+    if fixture_count <> 20 then raise exception 'BDF_TEST_STORE_FIXTURE_COUNT_MISMATCH'; end if;
+    select count(*) into fixture_count from core.corporation_store_relationships r
+      where r.source_snapshot_id = snapshot_id and r.corporation_id = fixture_corporation_id;
+    if fixture_count <> 20 then raise exception 'BDF_TEST_STORE_CORPORATION_LINK_COUNT_MISMATCH'; end if;
+    if exists (
+      select 1 from core.stores s
+      left join core.corporation_store_relationships r
+        on r.store_id = s.store_id and r.source_snapshot_id = s.source_snapshot_id
+       and r.corporation_id = fixture_corporation_id and r.relationship_type = 'operator'
+      where s.source_snapshot_id = snapshot_id and r.relationship_version_id is null
+    ) then raise exception 'BDF_TEST_STORE_CORPORATION_LINK_MISSING'; end if;
+    -- Candidate-review Population: the 20 official items are already approved;
+    -- the 21st Store remains outside the official population in review state.
+    insert into governance.store_population_versions (
+      population_version_id, version_code, status, as_of, expected_item_count,
+      source_snapshot_id, content_digest
+    ) values (pending_population_id, 'm010-pending-population-v1', 'draft',
+      fixture_date, 21, snapshot_id, repeat('c', 64));
+    for i in 1..20 loop
+      insert into governance.store_population_items (
+        population_version_id, store_id, classification, operating_model,
+        in_official_population, review_status, reason_code, reviewed_by_ref,
+        reviewed_at, valid_from
+      ) values (
+        pending_population_id, store_ids[i], 'official_operating',
+        case when i <= 13 then 'direct' else 'franchise' end,
+        true, 'approved', 'synthetic-approved', 'reviewer', fixture_timestamp, fixture_date
+      );
+    end loop;
+    insert into governance.canonical_entity_registry (canonical_entity_id, entity_type)
+    values (pending_store_id, 'store');
+    insert into core.store_identities (store_id) values (pending_store_id);
+    insert into governance.store_population_items (
+      population_version_id, store_id, classification, operating_model,
+      in_official_population, review_status, reason_code, reviewed_by_ref,
+      reviewed_at, valid_from
+    ) values (pending_population_id, pending_store_id, 'pending_review', 'other',
+      false, 'pending_review', 'human-review-required', null, null, fixture_date);
     update governance.store_population_versions
-      set status = 'approved', approved_by_ref = 'approver', approved_at = statement_timestamp()
-      where population_version_id = population_id;
+      set status = 'approved', approved_by_ref = 'approver', approved_at = fixture_timestamp
+      where population_version_id = pending_population_id;
+
+    select count(*),
+           count(*) filter (where in_official_population),
+           count(*) filter (where in_official_population and operating_model = 'direct'),
+           count(*) filter (where in_official_population and operating_model = 'franchise'),
+           count(*) filter (where review_status = 'pending_review'),
+           count(*) filter (where classification = 'unresolved' or operating_model = 'unresolved'),
+           count(*) filter (where in_official_population and review_status = 'rejected')
+      into fixture_count, official_count, direct_count, franchise_count,
+           pending_count, unresolved_count, rejected_official_count
+    from governance.store_population_items
+    where population_version_id = pending_population_id;
+    if fixture_count <> 21 or official_count <> 20
+       or direct_count <> 13 or franchise_count <> 7 or pending_count <> 1
+       or unresolved_count <> 0 or rejected_official_count <> 0 then
+      raise exception 'BDF_TEST_PENDING_REVIEW_FIXTURE_CONTRACT_MISMATCH';
+    end if;
 
     rejected := false;
-    begin update governance.store_population_versions set status = 'published'
-      where population_version_id = population_id;
-    exception when raise_exception then rejected := true;
+    begin
+      update governance.store_population_versions set status = 'published'
+        where population_version_id = pending_population_id;
+    exception when raise_exception then
+      rejected := sqlerrm = 'BDF_POPULATION_PUBLICATION_GATE_FAILED';
     end;
     if not rejected then raise exception 'BDF_TEST_PENDING_REVIEW_PUBLICATION_ACCEPTED'; end if;
+    raise notice 'BDF_TEST_PENDING_REVIEW_REJECTED pending_review_count=1';
 
-    update governance.store_population_items
-      set review_status = 'approved', reviewed_by_ref = 'reviewer', reviewed_at = statement_timestamp()
-      where population_version_id = population_id and store_id = store_ids[1];
+    update governance.store_population_versions
+      set status = 'approved', approved_by_ref = 'approver', approved_at = fixture_timestamp
+      where population_version_id = population_id;
     rejected := false;
     begin update governance.store_population_versions set status = 'published'
       where population_version_id = population_id;
@@ -424,7 +555,22 @@ begin
       set in_official_population = true, classification = 'official_operating', operating_model = 'direct'
       where population_version_id = population_id and store_id = store_ids[1];
 
-    store_id_value := gen_random_uuid();
+    select count(*),
+           count(*) filter (where in_official_population and operating_model = 'direct'),
+           count(*) filter (where in_official_population and operating_model = 'franchise'),
+           count(*) filter (where review_status = 'pending_review'),
+           count(*) filter (where classification = 'unresolved' or operating_model = 'unresolved'),
+           count(*) filter (where in_official_population and review_status = 'rejected')
+      into fixture_count, direct_count, franchise_count, pending_count,
+           unresolved_count, rejected_official_count
+    from governance.store_population_items
+    where population_version_id = population_id;
+    if fixture_count <> 20 or direct_count <> 13 or franchise_count <> 7
+       or pending_count <> 0 or unresolved_count <> 0 or rejected_official_count <> 0 then
+      raise exception 'BDF_TEST_POPULATION_FIXTURE_CONTRACT_MISMATCH';
+    end if;
+
+    store_id_value := 'a1000000-0000-0000-0006-000000000001';
     insert into governance.canonical_entity_registry (canonical_entity_id, entity_type)
     values (store_id_value, 'store');
     insert into core.store_identities (store_id) values (store_id_value);
@@ -432,7 +578,7 @@ begin
       population_version_id, store_id, classification, operating_model,
       in_official_population, review_status, reason_code, reviewed_by_ref, reviewed_at, valid_from
     ) values (population_id, store_id_value, 'excluded', 'other', false, 'approved',
-      'synthetic-extra', 'reviewer', statement_timestamp(), current_date);
+      'synthetic-extra', 'reviewer', fixture_timestamp, fixture_date);
     rejected := false;
     begin update governance.store_population_versions set status = 'published'
       where population_version_id = population_id;
@@ -444,6 +590,7 @@ begin
 
     update governance.store_population_versions set status = 'published'
       where population_version_id = population_id;
+    raise notice 'BDF_TEST_NORMAL_PUBLICATION_SUCCEEDED official=20 direct=13 franchise=7 pending=0';
 
     rejected := false;
     begin update governance.store_population_items set reason_code = 'mutated'
@@ -490,21 +637,13 @@ begin
     end;
     if not rejected then raise exception 'BDF_TEST_CONFIRMED_SNAPSHOT_UPDATE_ACCEPTED'; end if;
 
-    insert into governance.canonical_version_registry (
-      entity_version_id, canonical_entity_id, entity_type, source_snapshot_id
-    ) values (store_version_id, store_ids[1], 'store', snapshot_id);
-    insert into core.stores (
-      store_version_id, store_id, store_code, display_name, status,
-      effective_from, source_snapshot_id, source_record_digest
-    ) values (store_version_id, store_ids[1], 'SYN-STORE', 'Synthetic Store', 'active',
-      current_date, snapshot_id, repeat('9', 64));
     insert into governance.master_versions (
       master_version_id, source_snapshot_id, population_version_id, status,
       effective_as_of, content_digest
-    ) values (master_id, snapshot_id, population_id, 'draft', current_date, repeat('0', 64));
+    ) values (master_id, snapshot_id, population_id, 'draft', fixture_date, repeat('0', 64));
     insert into governance.master_version_members (
       master_version_id, entity_type, entity_version_id, canonical_entity_id, source_snapshot_id
-    ) values (master_id, 'store', store_version_id, store_ids[1], snapshot_id);
+    ) values (master_id, 'store', store_version_ids[1], store_ids[1], snapshot_id);
     update governance.master_versions set status = 'approved', validated_at = statement_timestamp()
       where master_version_id = master_id;
     update governance.master_versions set status = 'published', activated_at = statement_timestamp()
@@ -518,7 +657,7 @@ begin
     end;
     if not rejected then raise exception 'BDF_TEST_PUBLICATION_RELEASE_DELETE_ACCEPTED'; end if;
     rejected := false;
-    begin update governance.master_versions set effective_as_of = current_date + 1
+    begin update governance.master_versions set effective_as_of = fixture_date + 1
       where master_version_id = master_id;
     exception when raise_exception then rejected := true;
     end;
@@ -539,7 +678,7 @@ begin
     insert into governance.store_population_versions (
       population_version_id, version_code, status, as_of, expected_item_count,
       source_snapshot_id, content_digest
-    ) values (zero_population_id, gen_random_uuid()::text, 'draft', current_date, 20,
+    ) values (zero_population_id, 'm010-zero-population-v1', 'draft', fixture_date, 20,
       snapshot_id, repeat('8', 64));
     update governance.store_population_versions
       set status = 'approved', approved_by_ref = 'approver', approved_at = statement_timestamp()
@@ -550,10 +689,17 @@ begin
     exception when raise_exception then rejected := true;
     end;
     if not rejected then raise exception 'BDF_TEST_ZERO_ITEM_PUBLICATION_ACCEPTED'; end if;
+    -- The fixed IDs deliberately prove rerun safety: this exception rolls back
+    -- every fixture row, so a second execution starts from the same empty state.
     raise exception 'BDF_TEST_ROLLBACK';
   exception when raise_exception then
     if sqlerrm <> 'BDF_TEST_ROLLBACK' then raise; end if;
   end;
+  select count(*) into fixture_count
+  from governance.master_source_snapshots
+  where source_snapshot_id = snapshot_id;
+  if fixture_count <> 0 then raise exception 'BDF_TEST_FIXTURE_RESIDUE_DETECTED'; end if;
+  raise notice 'BDF_TEST_FIXTURE_CLEANUP_SUCCEEDED residue=0';
 end
 $population_negative$;
 

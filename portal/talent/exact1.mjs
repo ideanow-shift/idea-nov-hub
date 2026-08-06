@@ -119,9 +119,10 @@ const SCHOOL_MASTER_KEYS = Object.freeze([
   "assigned_to", "faculty_name", "is_active", "school_id", "school_name", "version"
 ]);
 const FAIR_MASTER_KEYS = Object.freeze([
-  "assigned_to", "contact_count", "event_date", "fair_id", "fair_name", "hire_count",
-  "interview_count", "is_active", "line_registration_count", "offer_count", "participant_count",
-  "participation_fee", "salon_tour_count", "venue", "version"
+  "assigned_to", "contact_count", "created_at", "event_date", "event_format", "expected_contacts",
+  "fair_id", "fair_name", "hire_count", "interview_count", "is_active", "line_registration_count",
+  "note", "offer_count", "organizer_name", "participant_count", "participating_salons",
+  "participation_fee", "salon_tour_count", "total_attendance", "venue", "version"
 ]);
 const AUDIT_ENTRY_KEYS = Object.freeze(["action", "changedFields", "profileVersion", "occurredAt"]);
 const STAGING_AUDIT_ENTRY_KEYS = Object.freeze(["action", "changedFields", "supplementVersion", "occurredAt"]);
@@ -666,11 +667,14 @@ function validateFairMasters(rows) {
       || !/^\d{4}-\d{2}-\d{2}$/u.test(String(row.event_date || ""))
       || !Number.isInteger(row.version) || row.version < 1
       || typeof row.is_active !== "boolean") throw safeError("invalid_response");
-    for (const key of ["venue", "assigned_to"]) {
+    for (const key of ["venue", "assigned_to", "organizer_name", "event_format", "note"]) {
       if (row[key] !== null && row[key] !== undefined && typeof row[key] !== "string") throw safeError("invalid_response");
     }
-    for (const key of ["participant_count", "contact_count", "line_registration_count", "salon_tour_count", "interview_count", "offer_count", "hire_count"]) {
-      if (row[key] !== null && (!Number.isInteger(row[key]) || row[key] < 0)) throw safeError("invalid_response");
+    for (const key of ["participant_count", "contact_count", "line_registration_count", "salon_tour_count", "interview_count", "offer_count", "hire_count", "expected_contacts", "total_attendance", "participating_salons"]) {
+      if (row[key] !== null && row[key] !== undefined && (!Number.isInteger(row[key]) || row[key] < 0)) throw safeError("invalid_response");
+    }
+    if (row.created_at !== undefined && (typeof row.created_at !== "string" || Number.isNaN(Date.parse(row.created_at)))) {
+      throw safeError("invalid_response");
     }
     if (row.participation_fee !== null
       && (!Number.isFinite(Number(row.participation_fee)) || Number(row.participation_fee) < 0)) {

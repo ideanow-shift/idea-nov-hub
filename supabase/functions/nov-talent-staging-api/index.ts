@@ -55,7 +55,7 @@ async function readDashboardFacts(runtime: Runtime) {
     db(runtime, "/rest/v1/nov_talent_fair_metrics_v1?select=graduation_year,event_date,contact_count,line_registration_count,salon_tour_count&order=event_date.desc&limit=1000"),
     db(runtime, "/rest/v1/nov_talent_recruitment_source_facts_v1?select=source_type,source_row_no,fact_code,fact_date,candidate_id,version&order=source_type.asc,source_row_no.asc&limit=5000"),
     db(runtime, "/rest/v1/nov_talent_school_masters_v1?select=school_id,school_name,faculty_name,assigned_to,version,is_active&order=school_name.asc&limit=1000"),
-    db(runtime, "/rest/v1/nov_talent_fair_masters_v1?select=fair_id,fair_name,event_date,participation_fee,venue,assigned_to,participant_count,contact_count,line_registration_count,salon_tour_count,interview_count,offer_count,hire_count,version,is_active&order=event_date.desc&limit=1000")
+    db(runtime, "/rest/v1/nov_talent_fair_masters_v1?select=fair_id,fair_name,event_date,participation_fee,venue,assigned_to,participant_count,contact_count,line_registration_count,salon_tour_count,interview_count,offer_count,hire_count,organizer_name,event_format,expected_contacts,total_attendance,participating_salons,note,created_at,version,is_active&order=event_date.desc&limit=1000")
   ]);
   if (![eventsResult, selectionsResult, actionsResult, fairsResult, sourceFactsResult, schoolMastersResult, fairMastersResult].every((result) => result.ok)) return null;
   return {

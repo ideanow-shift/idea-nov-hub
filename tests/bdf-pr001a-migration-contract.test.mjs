@@ -186,6 +186,44 @@ test('M010 contains executable rollback-only negative fixtures for every blocker
   assert.match(m010, /BDF_TEST_ROLLBACK/g);
 });
 
+test('M010 population fixture is deterministic, normalized, and rerunnable', () => {
+  const populationFixture = m010.match(/do \$population_negative\$[\s\S]*?\$population_negative\$;/i)?.[0];
+  assert.ok(populationFixture, 'population fixture must exist');
+
+  assert.equal((populationFixture.match(/insert into core\.corporations\s*\(/gi) ?? []).length, 1);
+  assert.match(populationFixture, /fixture_corporation_id constant uuid := 'a1000000-0000-0000-0000-000000000100'/i);
+  assert.match(populationFixture, /corporation_version_id constant uuid := 'a1000000-0000-0000-0000-000000000101'/i);
+  assert.match(populationFixture, /fixture_date constant date := date '2026-08-06'/i);
+  assert.match(populationFixture, /m010-population-source-v1/);
+  assert.match(populationFixture, /m010-population-snapshot-v1/);
+
+  assert.match(populationFixture, /for i in 1\.\.20 loop/i);
+  assert.match(populationFixture, /insert into core\.stores\s*\(/i);
+  assert.match(populationFixture, /insert into core\.corporation_store_relationships\s*\(/i);
+  assert.match(populationFixture, /r\.corporation_id = fixture_corporation_id/i);
+  assert.match(populationFixture, /fixture_count <> 20/i);
+  assert.match(populationFixture, /direct_count <> 13 or franchise_count <> 7/i);
+  assert.match(populationFixture, /pending_count <> 0 or unresolved_count <> 0 or rejected_official_count <> 0/i);
+  assert.match(populationFixture, /BDF_TEST_POPULATION_FIXTURE_CONTRACT_MISMATCH/);
+
+  assert.match(populationFixture, /pending_population_id[\s\S]*?expected_item_count[\s\S]*?fixture_date, 21/i);
+  assert.match(populationFixture, /pending_store_id, 'pending_review', 'other',[\s\S]*?false, 'pending_review'/i);
+  assert.doesNotMatch(populationFixture, /pending_store_id, 'official_operating'[\s\S]*?'pending_review'/i);
+  assert.match(populationFixture, /pending_population_id, store_ids\[i\], 'official_operating'[\s\S]*?true, 'approved'/i);
+  assert.match(populationFixture, /pending_count <> 1/);
+  assert.match(populationFixture, /sqlerrm = 'BDF_POPULATION_PUBLICATION_GATE_FAILED'/i);
+  assert.match(populationFixture, /BDF_TEST_PENDING_REVIEW_REJECTED pending_review_count=1/);
+
+  assert.match(populationFixture, /raise exception 'BDF_TEST_ROLLBACK'/i);
+  assert.match(populationFixture, /if sqlerrm <> 'BDF_TEST_ROLLBACK' then raise; end if/i);
+
+  const overlapFixture = m010.match(/do \$version_negative\$[\s\S]*?\$version_negative\$;/i)?.[0];
+  assert.ok(overlapFixture, 'version fixture must exist');
+  assert.match(overlapFixture, /date '2026-01-01', date '2026-02-01'/i);
+  assert.match(overlapFixture, /date '2026-01-15'/i);
+  assert.doesNotMatch(overlapFixture, /version_id_2[\s\S]{0,500}?current_date, snapshot_id/i);
+});
+
 test('required FK and scope lookup indexes are declared', () => {
   for (const marker of [
     'source_entity_crosswalks_snapshot_idx',

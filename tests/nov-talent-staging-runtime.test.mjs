@@ -197,7 +197,7 @@ test("636 Candidate API response renders through the real frontend pipeline", as
       selectionHistoryCount: 126, todayActions: 0, undatedActions: 0,
       unlinkedInterviewHistoryCount: 42, withdrawals: 2
     },
-    students: candidateWorkspace.students.map((student) => ({ ...student, nextActions: [] }))
+    students: candidateWorkspace.students.map((student) => ({ ...student, schoolId: null, fairId: null, nextActions: [] }))
   };
   const documentObject = fakeDocument();
   const consoleMessages = [];
@@ -209,6 +209,8 @@ test("636 Candidate API response renders through the real frontend pipeline", as
       networkEnabled: true,
       writeEnabled: false,
       readonlyApiEnabled: true,
+      workspaceContractVersion: "1.0.0",
+      workspaceContractCompatibility: "legacy-v0-read",
       readonlyApiBaseUrl: "https://staging.example.invalid/functions/v1/nov-talent-staging-api",
       features: { stagingCandidateDataset: true }
     },
@@ -296,6 +298,7 @@ test("read-only API verifies HUB role before exact ACTIVE dataset reads", async 
 test("feature flag can switch between Staging and retained Mock runtime", () => {
   const staging = readNovTalentRuntime({ globalObject: { NOV_TALENT_CONFIG: {
     runtimeMode: "staging", networkEnabled: true, writeEnabled: true, readonlyApiEnabled: true,
+    workspaceContractVersion: "1.0.0", workspaceContractCompatibility: "legacy-v0-read",
     features: { stagingCandidateDataset: true }
   } } });
   const mock = readNovTalentRuntime({ globalObject: { NOV_TALENT_CONFIG: { runtimeMode: "mock", mockState: "ready" } } });
@@ -313,6 +316,8 @@ test("Staging runtime injects the module session contract without a window globa
       networkEnabled: true,
       writeEnabled: false,
       readonlyApiEnabled: true,
+      workspaceContractVersion: "1.0.0",
+      workspaceContractCompatibility: "legacy-v0-read",
       readonlyApiBaseUrl: "https://staging.example.invalid/functions/v1/nov-talent-staging-api",
       features: { stagingCandidateDataset: true }
     },
@@ -350,5 +355,5 @@ test("published config exposes no server credential and only a server-side write
   assert.match(config, /writeEnabled:\s*true/);
   assert.match(config, /writeApiBaseUrl/);
   assert.doesNotMatch(config, /service_role|serviceRole|password|secret/i);
-  assert.match(html, /app\.mjs\?v=20260806-workspace-summary-contract-1/);
+  assert.match(html, /app\.mjs\?v=20260806-workspace-contract-v1-1/);
 });

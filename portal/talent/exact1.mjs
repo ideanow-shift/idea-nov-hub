@@ -1,4 +1,8 @@
 import { NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
+import {
+  validateWorkspaceResponse,
+  WORKSPACE_CONTRACT_VERSION
+} from "./generated/workspace-contract-v1.mjs?v=20260806-workspace-contract-v1-1";
 
 const REQUIRED_AUDIENCE = "nov_hub";
 const SUMMARY_FIELDS = Object.freeze([
@@ -35,96 +39,7 @@ const ERROR_ENVELOPE_KEYS = Object.freeze(["message", "ok", "requestId", "safeCo
 const DATA_KEYS = Object.freeze(["config", "fiscalYear", "partialStatus", "payloadMode", "summary"]);
 const CONFIG_KEYS = Object.freeze(["appName"]);
 const META_KEYS = Object.freeze(["generatedAt", "requestId", "source", "version"]);
-const WORKSPACE_DATA_KEYS = Object.freeze([
-  "accessProfile", "canWrite", "dashboard", "fiscalYear", "overview", "payloadMode",
-  "fairMasters", "partialStatus", "schoolMasters", "students", "summary", "todayTasks", "unlinkedSelectionHistory"
-]);
 const PARTIAL_STATUS_KEYS = Object.freeze(["retryCount", "state", "unavailableViews"]);
-const WORKSPACE_OVERVIEW_KEYS = Object.freeze([
-  "contacts",
-  "entries",
-  "exactLinkSuggestions",
-  "mapped",
-  "manual",
-  "offers",
-  "ownerReview",
-  "primaryCandidates",
-  "quarantined",
-  "remainingManual",
-  "total"
-]);
-const STUDENT_KEYS = Object.freeze([
-  "applicationNo",
-  "businessDate",
-  "classification",
-  "classificationLabel",
-  "displayName",
-  "email",
-  "faculty",
-  "graduationYear",
-  "kana",
-  "lineIdentifier",
-  "lineRegistrationDate",
-  "legacyNoPresent",
-  "mappingStatus",
-  "nextActionAt",
-  "nextActionLabel",
-  "offerDate",
-  "expectedJoinDate",
-  "plannedStore",
-  "phone",
-  "acquisitionSource",
-  "assignee",
-  "notes",
-  "preferredStore",
-  "primaryEligible",
-  "profileVersion",
-  "supplementVersion",
-  "reasonLabels",
-  "recordId",
-  "schoolId",
-  "fairId",
-  "school",
-  "sourceCode",
-  "sourceLabel",
-  "sourceKeyStatus",
-  "status",
-  "statusCode",
-  "suggestedTargetRecordId",
-  "suggestionCategory",
-  "contactHistory", "eventHistory", "nextActions", "selectionHistory"
-]);
-const DASHBOARD_KEYS = Object.freeze([
-  "availability", "candidateCount", "entries", "eventCount", "fairCount", "graduation2027",
-  "graduation2028", "interviewHistory", "interviewPlanned", "lineRegistrations", "offeredElsewhere",
-  "offers", "rejected", "salonTourCompleted", "salonTourPlanned", "schoolCount",
-  "selectionHistoryCount", "todayActions", "undatedActions", "unlinkedInterviewHistoryCount", "withdrawals"
-]);
-const DASHBOARD_AVAILABILITY_KEYS = Object.freeze([
-  "candidateCount", "entries", "eventCount", "fairCount", "graduation2027", "graduation2028",
-  "interviewHistory", "interviewPlanned", "lineRegistrations", "offeredElsewhere", "offers", "rejected",
-  "salonTourCompleted", "salonTourPlanned", "schoolCount", "todayActions", "withdrawals"
-]);
-const SELECTION_HISTORY_KEYS = Object.freeze([
-  "active", "assignedTo", "code", "date", "id", "label", "notes", "version"
-]);
-const EVENT_HISTORY_KEYS = Object.freeze([
-  "active", "assignedTo", "code", "content", "date", "id", "label", "notes", "state", "version"
-]);
-const NEXT_ACTION_KEYS = Object.freeze([
-  "active", "assignedTo", "code", "completedAt", "date", "id", "label", "notes", "state", "version"
-]);
-const TODAY_TASK_KEYS = Object.freeze(["assignedTo", "candidateId", "dueDate", "label"]);
-const UNLINKED_SELECTION_KEYS = Object.freeze(["code", "date", "label", "sourceRowNo", "sourceType", "version"]);
-const SCHOOL_MASTER_KEYS = Object.freeze([
-  "assigned_to", "faculty_name", "is_active", "school_id", "school_name", "version"
-]);
-const FAIR_MASTER_KEYS = Object.freeze([
-  "assigned_to", "contact_count", "created_at", "event_date", "event_format", "expected_contacts",
-  "fair_id", "fair_name", "hire_count", "interview_count", "is_active", "line_registration_count",
-  "note", "offer_count", "organizer_name", "participant_count", "participating_salons",
-  "participation_fee", "salon_tour_count", "total_attendance", "venue", "version"
-]);
 const AUDIT_ENTRY_KEYS = Object.freeze(["action", "changedFields", "profileVersion", "occurredAt"]);
 const STAGING_AUDIT_ENTRY_KEYS = Object.freeze(["action", "changedFields", "supplementVersion", "occurredAt"]);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
@@ -140,12 +55,17 @@ export function readTalentRuntime({
 } = {}) {
   const config = globalObject.NOV_TALENT_CONFIG;
   if (config?.readonlyApiEnabled !== true) return null;
+  if (config?.workspaceContractVersion !== WORKSPACE_CONTRACT_VERSION) return null;
   if (hubContract?.audience !== REQUIRED_AUDIENCE) return null;
   if (!hubSessionHelper || typeof hubSessionHelper.getSessionToken !== "function") return null;
 
   const apiBaseUrl = String(config?.readonlyApiBaseUrl || "").trim();
   if (!isHttpsUrl(apiBaseUrl)) return null;
-  return Object.freeze({ apiBaseUrl: sanitizeBaseUrl(apiBaseUrl), hubSessionHelper });
+  return Object.freeze({
+    apiBaseUrl: sanitizeBaseUrl(apiBaseUrl),
+    hubSessionHelper,
+    allowLegacyWorkspaceV0: config?.workspaceContractCompatibility === "legacy-v0-read"
+  });
 }
 
 export function createDashboardSummaryExact1Executor({
@@ -227,7 +147,7 @@ export function createTalentWorkspaceExact1Executor({
           credentials: "omit"
         });
         const envelope = await readJsonEnvelope(response);
-        const data = unwrapWorkspaceEnvelope(envelope, response.status);
+        const data = unwrapWorkspaceEnvelope(envelope, response.status, runtime.allowLegacyWorkspaceV0);
         return Object.freeze({
           ...safeResult("ready", {
             executed: true,
@@ -541,7 +461,7 @@ function unwrapSummaryEnvelope(envelope) {
   return data;
 }
 
-function unwrapWorkspaceEnvelope(envelope, httpStatus = 0) {
+function unwrapWorkspaceEnvelope(envelope, httpStatus = 0, allowLegacyWorkspaceV0 = false) {
   if (!isPlainObject(envelope)) throw safeError("invalid_response");
   if (envelope.ok !== true) {
     assertExactKeys(envelope, ERROR_ENVELOPE_KEYS);
@@ -552,37 +472,10 @@ function unwrapWorkspaceEnvelope(envelope, httpStatus = 0) {
         : "api_error";
     throw safeError(category, { httpStatus });
   }
-  assertExactKeys(envelope, SUCCESS_ENVELOPE_KEYS);
-  validateMeta(envelope.meta);
-  const data = envelope.data;
-  if (!isPlainObject(data)) throw safeError("invalid_response");
-  assertExactKeys(data, WORKSPACE_DATA_KEYS);
-  if (data.payloadMode !== "workspace" || !["2027", "2028", "all"].includes(data.fiscalYear)) {
-    throw safeError("invalid_response");
-  }
-  if (!isPlainObject(data.overview)) throw safeError("invalid_response");
-  assertExactKeys(data.overview, WORKSPACE_OVERVIEW_KEYS);
-  WORKSPACE_OVERVIEW_KEYS.forEach((key) => {
-    if (!Number.isInteger(data.overview[key]) || data.overview[key] < 0) {
-      throw safeError("invalid_response");
-    }
-  });
-  if (!Array.isArray(data.students) || data.students.length > 1000) {
-    throw safeError("invalid_response");
-  }
-  if (!["executive", "full", "recruiter"].includes(data.accessProfile)
-    || typeof data.canWrite !== "boolean"
-    || data.canWrite !== (data.accessProfile !== "executive")) {
-    throw safeError("invalid_response");
-  }
-  validateTodayTasks(data.todayTasks);
-  validateUnlinkedSelectionHistory(data.unlinkedSelectionHistory);
-  validateSchoolMasters(data.schoolMasters);
-  validateFairMasters(data.fairMasters);
-  validateDashboard(data.dashboard);
-  validateDashboardSummaryContract(data.summary);
-  validatePartialStatus(data.partialStatus);
-  data.students.forEach(validateStudent);
+  const contract = validateWorkspaceResponse(envelope, { allowLegacyV0: allowLegacyWorkspaceV0 });
+  if (!contract.ok) throw safeError("invalid_response");
+  const data = contract.value.data;
+  if (data.canWrite !== (data.accessProfile !== "executive")) throw safeError("invalid_response");
   if (data.overview.total !== data.students.length) throw safeError("invalid_response");
   return Object.freeze({
     ...data,
@@ -594,6 +487,7 @@ function unwrapWorkspaceEnvelope(envelope, httpStatus = 0) {
       reasonLabels: Object.freeze([...student.reasonLabels]),
       contactHistory: Object.freeze(student.contactHistory.map((item) => Object.freeze({ ...item }))),
       eventHistory: Object.freeze(student.eventHistory.map((item) => Object.freeze({ ...item }))),
+      nextActions: Object.freeze(student.nextActions.map((item) => Object.freeze({ ...item }))),
       selectionHistory: Object.freeze(student.selectionHistory.map((item) => Object.freeze({ ...item })))
     })))
   });
@@ -607,150 +501,6 @@ function validatePartialStatus(partialStatus) {
     || !Array.isArray(partialStatus.unavailableViews)
     || partialStatus.unavailableViews.some((view) => typeof view !== "string" || !view)) {
     throw safeError("invalid_response");
-  }
-}
-
-function validateDashboard(dashboard) {
-  if (!isPlainObject(dashboard)) throw safeError("invalid_response");
-  assertExactKeys(dashboard, DASHBOARD_KEYS);
-  const numeric = DASHBOARD_KEYS.filter((key) => !["availability"].includes(key));
-  if (numeric.some((key) => !Number.isInteger(dashboard[key]) || dashboard[key] < 0)) throw safeError("invalid_response");
-  if (!isPlainObject(dashboard.availability)) throw safeError("invalid_response");
-  assertExactKeys(dashboard.availability, DASHBOARD_AVAILABILITY_KEYS);
-  if (DASHBOARD_AVAILABILITY_KEYS.some((key) => typeof dashboard.availability[key] !== "boolean")) throw safeError("invalid_response");
-}
-
-function validateStudent(student) {
-  if (!isPlainObject(student)) throw safeError("invalid_response");
-  assertExactKeys(student, STUDENT_KEYS);
-  const requiredStrings = [
-    "recordId", "displayName", "sourceCode", "sourceLabel", "classification",
-    "classificationLabel", "mappingStatus", "sourceKeyStatus", "status", "suggestionCategory"
-  ];
-  if (requiredStrings.some((key) => typeof student[key] !== "string" || !student[key])) {
-    throw safeError("invalid_response");
-  }
-  const optionalStrings = [
-    "applicationNo", "businessDate", "email", "kana", "lineRegistrationDate", "nextActionAt",
-    "offerDate", "expectedJoinDate", "plannedStore",
-    "phone", "preferredStore", "school", "schoolId", "fairId", "statusCode", "suggestedTargetRecordId", "nextActionLabel",
-    "faculty", "lineIdentifier", "acquisitionSource", "assignee", "notes"
-  ];
-  if (optionalStrings.some((key) => student[key] !== undefined && student[key] !== null && typeof student[key] !== "string")) {
-    throw safeError("invalid_response");
-  }
-  if (["offerDate", "expectedJoinDate"].some((key) => student[key] !== null
-    && !/^\d{4}-\d{2}-\d{2}$/u.test(student[key]))) {
-    throw safeError("invalid_response");
-  }
-  if (!Array.isArray(student.reasonLabels)
-    || student.reasonLabels.length > 6
-    || student.reasonLabels.some((value) => typeof value !== "string")) {
-    throw safeError("invalid_response");
-  }
-  validateActivityRows(student.contactHistory, EVENT_HISTORY_KEYS, { dateOptional: false });
-  validateActivityRows(student.eventHistory, EVENT_HISTORY_KEYS, { dateOptional: false });
-  validateActivityRows(student.selectionHistory, SELECTION_HISTORY_KEYS, { dateOptional: false });
-  validateActivityRows(student.nextActions, NEXT_ACTION_KEYS, { dateOptional: true });
-  if ((student.graduationYear !== undefined && (!Number.isInteger(student.graduationYear) || student.graduationYear < 2026 || student.graduationYear > 2035))
-    || typeof student.legacyNoPresent !== "boolean"
-    || typeof student.primaryEligible !== "boolean"
-    || (student.profileVersion !== null && (!Number.isInteger(student.profileVersion) || student.profileVersion < 1))
-    || (student.supplementVersion !== null && (!Number.isInteger(student.supplementVersion) || student.supplementVersion < 1))
-    || !["NONE", "EXACT1", "AMBIGUOUS"].includes(student.suggestionCategory)) {
-    throw safeError("invalid_response");
-  }
-}
-
-function validateSchoolMasters(rows) {
-  if (!Array.isArray(rows) || rows.length > 1000) throw safeError("invalid_response");
-  for (const row of rows) {
-    if (!isPlainObject(row)) throw safeError("invalid_response");
-    assertExactKeys(row, SCHOOL_MASTER_KEYS);
-    if (!UUID_PATTERN.test(String(row.school_id || ""))
-      || typeof row.school_name !== "string" || !row.school_name
-      || !Number.isInteger(row.version) || row.version < 1
-      || typeof row.is_active !== "boolean") throw safeError("invalid_response");
-    for (const key of ["faculty_name", "assigned_to"]) {
-      if (row[key] !== null && row[key] !== undefined && typeof row[key] !== "string") throw safeError("invalid_response");
-    }
-  }
-}
-
-function validateFairMasters(rows) {
-  if (!Array.isArray(rows) || rows.length > 1000) throw safeError("invalid_response");
-  for (const row of rows) {
-    if (!isPlainObject(row)) throw safeError("invalid_response");
-    assertExactKeys(row, FAIR_MASTER_KEYS);
-    if (!UUID_PATTERN.test(String(row.fair_id || ""))
-      || typeof row.fair_name !== "string" || !row.fair_name
-      || !/^\d{4}-\d{2}-\d{2}$/u.test(String(row.event_date || ""))
-      || !Number.isInteger(row.version) || row.version < 1
-      || typeof row.is_active !== "boolean") throw safeError("invalid_response");
-    for (const key of ["venue", "assigned_to", "organizer_name", "event_format", "note"]) {
-      if (row[key] !== null && row[key] !== undefined && typeof row[key] !== "string") throw safeError("invalid_response");
-    }
-    for (const key of ["participant_count", "contact_count", "line_registration_count", "salon_tour_count", "interview_count", "offer_count", "hire_count", "expected_contacts", "total_attendance", "participating_salons"]) {
-      if (row[key] !== null && row[key] !== undefined && (!Number.isInteger(row[key]) || row[key] < 0)) throw safeError("invalid_response");
-    }
-    if (row.created_at !== undefined && (typeof row.created_at !== "string" || Number.isNaN(Date.parse(row.created_at)))) {
-      throw safeError("invalid_response");
-    }
-    if (row.participation_fee !== null
-      && (!Number.isFinite(Number(row.participation_fee)) || Number(row.participation_fee) < 0)) {
-      throw safeError("invalid_response");
-    }
-  }
-}
-
-function validateActivityRows(rows, keys, { dateOptional }) {
-  if (!Array.isArray(rows) || rows.length > 100) throw safeError("invalid_response");
-  for (const item of rows) {
-    if (!isPlainObject(item)) throw safeError("invalid_response");
-    assertExactKeys(item, keys);
-    if (!UUID_PATTERN.test(String(item.id || ""))
-      || !Number.isInteger(item.version) || item.version < 1
-      || typeof item.code !== "string" || !item.code
-      || typeof item.label !== "string" || !item.label
-      || typeof item.active !== "boolean") {
-      throw safeError("invalid_response");
-    }
-    if (item.date === null ? !dateOptional : !/^\d{4}-\d{2}-\d{2}$/u.test(String(item.date))) {
-      throw safeError("invalid_response");
-    }
-    for (const key of keys.filter((key) => ["assignedTo", "completedAt", "content", "notes", "state"].includes(key))) {
-      if (item[key] !== null && item[key] !== undefined && typeof item[key] !== "string") throw safeError("invalid_response");
-    }
-  }
-}
-
-function validateTodayTasks(rows) {
-  if (!Array.isArray(rows) || rows.length > 5) throw safeError("invalid_response");
-  for (const item of rows) {
-    if (!isPlainObject(item)) throw safeError("invalid_response");
-    assertExactKeys(item, TODAY_TASK_KEYS);
-    if (!UUID_PATTERN.test(String(item.candidateId || ""))
-      || !/^\d{4}-\d{2}-\d{2}$/u.test(String(item.dueDate || ""))
-      || typeof item.label !== "string" || !item.label
-      || (item.assignedTo !== null && item.assignedTo !== undefined && typeof item.assignedTo !== "string")) {
-      throw safeError("invalid_response");
-    }
-  }
-}
-
-function validateUnlinkedSelectionHistory(rows) {
-  if (!Array.isArray(rows) || rows.length > 100) throw safeError("invalid_response");
-  for (const item of rows) {
-    if (!isPlainObject(item)) throw safeError("invalid_response");
-    assertExactKeys(item, UNLINKED_SELECTION_KEYS);
-    if (typeof item.sourceType !== "string" || !item.sourceType
-      || !Number.isInteger(item.sourceRowNo) || item.sourceRowNo < 1
-      || typeof item.code !== "string" || !item.code
-      || typeof item.label !== "string" || !item.label
-      || !/^\d{4}-\d{2}-\d{2}$/u.test(String(item.date || ""))
-      || !Number.isInteger(item.version) || item.version < 1) {
-      throw safeError("invalid_response");
-    }
   }
 }
 

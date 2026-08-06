@@ -54,14 +54,20 @@ export function buildTalentAnalytics(workspace) {
 }
 
 function buildFairMasterFlow(masters) {
-  return masters.map((fair) => Object.freeze({
-    key: String(fair.event_date || fair.fair_id), label: String(fair.fair_name || "フェア"),
-    contacts: safeCount(fair.contact_count), lineRegistrations: safeCount(fair.line_registration_count),
-    entries: safeCount(fair.participant_count), offers: safeCount(fair.offer_count), needsAction: 0,
-    hires: safeCount(fair.hire_count), participationFee: safeCount(fair.participation_fee),
-    hireRate: percentage(safeCount(fair.hire_count), safeCount(fair.contact_count)),
-    hireCost: safeCount(fair.hire_count) ? Math.round(safeCount(fair.participation_fee) / safeCount(fair.hire_count)) : null
-  })).sort((left, right) => right.key.localeCompare(left.key));
+  return masters.map((fair) => {
+    const contacts = nullableCount(fair.contact_count);
+    const lineRegistrations = nullableCount(fair.line_registration_count);
+    const entries = nullableCount(fair.participant_count);
+    const offers = nullableCount(fair.offer_count);
+    const hires = nullableCount(fair.hire_count);
+    const participationFee = nullableAmount(fair.participation_fee);
+    return Object.freeze({
+      key: String(fair.event_date || fair.fair_id), label: String(fair.fair_name || "フェア"),
+      contacts, lineRegistrations, entries, offers, needsAction: 0, hires, participationFee,
+      hireRate: contacts === null || hires === null || contacts === 0 ? null : percentage(hires, contacts),
+      hireCost: participationFee === null || hires === null || hires === 0 ? null : Math.round(participationFee / hires)
+    });
+  }).sort((left, right) => right.key.localeCompare(left.key));
 }
 
 function buildSchoolMasterRows(masters, students) {
@@ -317,4 +323,14 @@ function percentage(numerator, denominator) {
 
 function safeCount(value) {
   return Number.isInteger(value) && value >= 0 ? value : 0;
+}
+
+function nullableCount(value) {
+  return value === null ? null : safeCount(value);
+}
+
+function nullableAmount(value) {
+  if (value === null) return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : null;
 }

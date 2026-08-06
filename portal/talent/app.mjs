@@ -1313,10 +1313,10 @@ function renderMonthlyFlow(documentObject, rows) {
 function createMonthlyFlowRow(documentObject, flow) {
   const row = createAnalysisRow(documentObject, [
     flow.label,
-    flow.contacts,
-    flow.lineRegistrations,
-    flow.entries,
-    flow.offers,
+    fairCountLabel(flow.contacts),
+    fairCountLabel(flow.lineRegistrations),
+    fairCountLabel(flow.entries),
+    fairCountLabel(flow.offers),
     flow.needsAction
   ]);
   const action = documentObject.createElement("td");
@@ -3322,15 +3322,23 @@ function renderFairMasters(documentObject, masters) {
   const body = documentObject.getElementById("fair-master-body"); if (!body) return;
   body.replaceChildren(...masters.map((fair) => {
     const row = documentObject.createElement("tr"); if (fair.is_active === false) row.className = "master-row-inactive";
-    const contacts = Number(fair.contact_count || 0), hires = Number(fair.hire_count || 0), fee = Number(fair.participation_fee || 0);
-    const rate = contacts ? `${((hires / contacts) * 100).toFixed(1)}%` : "-";
-    const cost = hires ? `${Math.round(fee / hires).toLocaleString("ja-JP")}円` : "-";
-    row.innerHTML = `<td>${escapeHtml(fair.fair_name)}</td><td>${escapeHtml(fair.event_date)}</td><td>${escapeHtml(fair.assigned_to || "未設定")}</td><td>${contacts}</td><td>${Number(fair.offer_count || 0)}</td><td>${hires}</td><td>${rate}</td><td>${cost}</td><td></td>`;
+    const contacts = fair.contact_count;
+    const hires = fair.hire_count;
+    const fee = fair.participation_fee === null ? null : Number(fair.participation_fee);
+    const rate = contacts === null || hires === null || contacts === 0
+      ? "集計準備中" : `${((hires / contacts) * 100).toFixed(1)}%`;
+    const cost = fee === null || hires === null || hires === 0
+      ? "集計準備中" : `${Math.round(fee / hires).toLocaleString("ja-JP")}円`;
+    row.innerHTML = `<td>${escapeHtml(fair.fair_name)}</td><td>${escapeHtml(fair.event_date)}</td><td>${escapeHtml(fair.assigned_to || "未設定")}</td><td>${fairCountLabel(contacts)}</td><td>${fairCountLabel(fair.offer_count)}</td><td>${fairCountLabel(hires)}</td><td>${rate}</td><td>${cost}</td><td></td>`;
     const cell = row.lastElementChild;
     if (studentWorkspaceData?.canWrite) cell.append(masterActionButton(documentObject, "編集", "edit", fair.fair_id), masterActionButton(documentObject, fair.is_active === false ? "復元" : "無効化", fair.is_active === false ? "restore" : "deactivate", fair.fair_id));
     return row;
   }));
   const status = documentObject.getElementById("fair-master-status"); if (status) status.textContent = `${masters.filter((row) => row.is_active !== false).length}件のフェアを表示`;
+}
+
+function fairCountLabel(value) {
+  return value === null ? "未登録" : value;
 }
 
 function renderSchoolMasters(documentObject, masters) {

@@ -45,6 +45,27 @@ test("master-backed analytics calculates School and Fair rates without inventing
   assert.equal(analytics.flow[0].hireCost, 50000);
 });
 
+test("Fair Master analytics preserves null, confirmed zero, and positive integers", () => {
+  const fair = (fair_id, event_date, values) => ({
+    fair_id, fair_name: fair_id, event_date, is_active: true, ...values
+  });
+  const analytics = buildTalentAnalytics({ students: [], schoolMasters: [], fairMasters: [
+    fair("null", "2026-08-03", { contact_count: null, line_registration_count: null, participant_count: null,
+      offer_count: null, hire_count: null, participation_fee: null }),
+    fair("zero", "2026-08-02", { contact_count: 0, line_registration_count: 0, participant_count: 0,
+      offer_count: 0, hire_count: 0, participation_fee: 0 }),
+    fair("positive", "2026-08-01", { contact_count: 10, line_registration_count: 8, participant_count: 12,
+      offer_count: 2, hire_count: 1, participation_fee: 50000 })
+  ] });
+
+  assert.equal(analytics.flow[0].contacts, null);
+  assert.equal(analytics.flow[0].participationFee, null);
+  assert.equal(analytics.flow[1].contacts, 0);
+  assert.equal(analytics.flow[1].participationFee, 0);
+  assert.equal(analytics.flow[2].contacts, 10);
+  assert.equal(analytics.flow[2].hireCost, 50000);
+});
+
 test("operation UI provides responsive School and Fair Master input", async () => {
   const [html, css] = await Promise.all([
     readFile(new URL("portal/talent/index.html", root), "utf8"), readFile(new URL("portal/talent/style.css", root), "utf8")

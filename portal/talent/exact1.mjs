@@ -670,9 +670,12 @@ function validateFairMasters(rows) {
       if (row[key] !== null && row[key] !== undefined && typeof row[key] !== "string") throw safeError("invalid_response");
     }
     for (const key of ["participant_count", "contact_count", "line_registration_count", "salon_tour_count", "interview_count", "offer_count", "hire_count"]) {
-      if (!Number.isInteger(row[key]) || row[key] < 0) throw safeError("invalid_response");
+      if (row[key] !== null && (!Number.isInteger(row[key]) || row[key] < 0)) throw safeError("invalid_response");
     }
-    if (!Number.isFinite(Number(row.participation_fee)) || Number(row.participation_fee) < 0) throw safeError("invalid_response");
+    if (row.participation_fee !== null
+      && (!Number.isFinite(Number(row.participation_fee)) || Number(row.participation_fee) < 0)) {
+      throw safeError("invalid_response");
+    }
   }
 }
 

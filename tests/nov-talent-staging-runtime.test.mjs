@@ -152,10 +152,23 @@ test("636 Candidate API response renders through the real frontend pipeline", as
   const candidateWorkspace = buildCandidateWorkspace(validateCandidateDatasetRows(rows()), "recruiter");
   const workspace = {
     ...candidateWorkspace,
-    accessProfile: "recruiter",
-    canWrite: true,
+    accessProfile: "executive",
+    canWrite: false,
     schoolMasters: [],
-    fairMasters: [],
+    fairMasters: [
+      { fair_id: uuid(701), fair_name: "未登録値テスト", event_date: "2026-08-03", participation_fee: null,
+        venue: null, assigned_to: null, participant_count: null, contact_count: null,
+        line_registration_count: null, salon_tour_count: null, interview_count: null,
+        offer_count: null, hire_count: null, version: 1, is_active: true },
+      { fair_id: uuid(702), fair_name: "確定ゼロテスト", event_date: "2026-08-02", participation_fee: 0,
+        venue: null, assigned_to: null, participant_count: 0, contact_count: 0,
+        line_registration_count: 0, salon_tour_count: 0, interview_count: 0,
+        offer_count: 0, hire_count: 0, version: 1, is_active: true },
+      { fair_id: uuid(703), fair_name: "確定値テスト", event_date: "2026-08-01", participation_fee: 50000,
+        venue: null, assigned_to: null, participant_count: 12, contact_count: 10,
+        line_registration_count: 8, salon_tour_count: 3, interview_count: 2,
+        offer_count: 1, hire_count: 1, version: 1, is_active: true }
+    ],
     todayTasks: [],
     unlinkedSelectionHistory: [],
     dashboard: {
@@ -213,6 +226,9 @@ test("636 Candidate API response renders through the real frontend pipeline", as
   assert.equal(documentObject.getElementById("mock-runtime-state").hidden, true);
   assert.equal(documentObject.getElementById("student-status").dataset.state, "ready");
   assert.equal(documentObject.getElementById("student-list").children.length, 636);
+  assert.equal(documentObject.getElementById("fair-master-body").children.length, 3);
+  assert.match(documentObject.getElementById("fair-master-body").children[0].innerHTML, /未登録/u);
+  assert.match(documentObject.getElementById("fair-master-body").children[1].innerHTML, />0</u);
   resetTalentStudentWorkspaceForFixture();
 });
 

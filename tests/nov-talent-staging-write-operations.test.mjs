@@ -74,6 +74,8 @@ test("formal status choices and reversible deactivation are fixed", async () => 
 test("server API enforces origin, server role and hides service key", async () => {
   const source = await readFile(new URL("supabase/functions/nov-talent-staging-api/index.ts", root), "utf8");
   assert.match(source, /ORIGIN_NOT_ALLOWED/);
+  assert.match(source, /Access-Control-Allow-Headers", "accept, authorization, content-type"/);
+  assert.doesNotMatch(source, /Access-Control-Allow-Headers", "\*"/);
   assert.match(source, /actor\.profile === "executive"/);
   assert.match(source, /SUPABASE_SERVICE_ROLE_KEY/);
   const browser = await readFile(new URL("portal/talent/staging-write.mjs", root), "utf8");

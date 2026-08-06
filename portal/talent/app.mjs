@@ -493,6 +493,10 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("school-master-reset")?.addEventListener("click", () => resetRecruitmentMasterForm(documentObject, "SCHOOL"));
   documentObject.getElementById("fair-master-body")?.addEventListener("click", (event) => handleMasterTableAction({ globalObject, documentObject, event, entityType: "FAIR" }));
   documentObject.getElementById("school-master-body")?.addEventListener("click", (event) => handleMasterTableAction({ globalObject, documentObject, event, entityType: "SCHOOL" }));
+  documentObject.getElementById("fair-detail-close")?.addEventListener("click", () => {
+    const panel = documentObject.getElementById("fair-detail-panel");
+    if (panel) panel.hidden = true;
+  });
   documentObject.getElementById("candidate-activity-deactivate")?.addEventListener("click", () => {
     deactivateCandidateActivity({ globalObject, documentObject });
   });
@@ -1279,8 +1283,15 @@ function renderMetricCollection(documentObject, containerId, metrics) {
 }
 
 function renderAnalyticsCoverage(documentObject, analytics) {
-  setText(documentObject, "fair-contact-count", analytics.summary.find((item) => item.key === "contacts")?.value ?? 0);
-  setText(documentObject, "fair-line-rate", `${analytics.coverage.lineRegistrationRate}%`);
+  const fairSummary = summarizeActiveFairMasters(studentWorkspaceData?.fairMasters || []);
+  setText(documentObject, "fair-active-count", fairSummary.activeCount);
+  setText(documentObject, "fair-contact-count", fairCountLabel(fairSummary.contactCount));
+  setText(documentObject, "fair-line-count", fairCountLabel(fairSummary.lineRegistrationCount));
+  setText(documentObject, "fair-tour-count", fairCountLabel(fairSummary.salonTourCount));
+  setText(documentObject, "fair-fee-total", fairSummary.participationFeeComplete ? fairCurrencyLabel(fairSummary.participationFee) : "集計準備中");
+  setText(documentObject, "fair-contact-cost", fairCurrencyLabel(fairSummary.contactCost, "集計準備中"));
+  setText(documentObject, "fair-line-rate", fairSummary.lineRegistrationComplete && fairSummary.contactComplete ? fairRateLabel(fairSummary.lineRegistrationCount, fairSummary.contactCount) : "集計準備中");
+  setText(documentObject, "fair-tour-rate", fairSummary.salonTourComplete && fairSummary.contactComplete ? fairRateLabel(fairSummary.salonTourCount, fairSummary.contactCount) : "集計準備中");
   setText(documentObject, "fair-month-count", analytics.coverage.monthCount);
   setText(documentObject, "school-count", analytics.schools.length);
   setText(documentObject, "school-registered-count", analytics.schools.length);
@@ -3320,25 +3331,115 @@ function renderRecruitmentMasters(documentObject) {
 
 function renderFairMasters(documentObject, masters) {
   const body = documentObject.getElementById("fair-master-body"); if (!body) return;
-  body.replaceChildren(...masters.map((fair) => {
-    const row = documentObject.createElement("tr"); if (fair.is_active === false) row.className = "master-row-inactive";
-    const contacts = fair.contact_count;
-    const hires = fair.hire_count;
-    const fee = fair.participation_fee === null ? null : Number(fair.participation_fee);
-    const rate = contacts === null || hires === null || contacts === 0
-      ? "集計準備中" : `${((hires / contacts) * 100).toFixed(1)}%`;
-    const cost = fee === null || hires === null || hires === 0
-      ? "集計準備中" : `${Math.round(fee / hires).toLocaleString("ja-JP")}円`;
-    row.innerHTML = `<td>${escapeHtml(fair.fair_name)}</td><td>${escapeHtml(fair.event_date)}</td><td>${escapeHtml(fair.assigned_to || "未設定")}</td><td>${fairCountLabel(contacts)}</td><td>${fairCountLabel(fair.offer_count)}</td><td>${fairCountLabel(hires)}</td><td>${rate}</td><td>${cost}</td><td></td>`;
+  const activeMasters = masters.filter((fair) => fair.is_active !== false);
+  body.replaceChildren(...activeMasters.map((fair) => {
+    const row = documentObject.createElement("tr");
+    row.innerHTML = [
+      ["フェア", escapeHtml(fair.fair_name)],
+      ["開催日", escapeHtml(fair.event_date)],
+      ["参加費", fairCurrencyLabel(fair.participation_fee)],
+      ["接触", fairCountLabel(fair.contact_count)],
+      ["LINE登録", fairCountLabel(fair.line_registration_count)],
+      ["見学", fairCountLabel(fair.salon_tour_count)],
+      ["担当", escapeHtml(fair.assigned_to || "未設定")],
+      ["状態", "有効"],
+      ["作成元", "未登録"]
+    ].map(([label, value]) => `<td data-label="${label}">${value}</td>`).join("") + '<td data-label="操作"></td>';
     const cell = row.lastElementChild;
-    if (studentWorkspaceData?.canWrite) cell.append(masterActionButton(documentObject, "編集", "edit", fair.fair_id), masterActionButton(documentObject, fair.is_active === false ? "復元" : "無効化", fair.is_active === false ? "restore" : "deactivate", fair.fair_id));
+    if (cell) {
+      cell.append(masterActionButton(documentObject, "詳細", "detail", fair.fair_id));
+      if (studentWorkspaceData?.canWrite) cell.append(masterActionButton(documentObject, "編集", "edit", fair.fair_id), masterActionButton(documentObject, fair.is_active === false ? "復元" : "無効化", fair.is_active === false ? "restore" : "deactivate", fair.fair_id));
+    }
     return row;
   }));
-  const status = documentObject.getElementById("fair-master-status"); if (status) status.textContent = `${masters.filter((row) => row.is_active !== false).length}件のフェアを表示`;
+  const status = documentObject.getElementById("fair-master-status"); if (status) status.textContent = `${activeMasters.length}件の有効フェアを表示`;
 }
 
 function fairCountLabel(value) {
-  return value === null ? "未登録" : value;
+  return value === null || value === undefined ? "未登録" : value;
+}
+
+function fairCurrencyLabel(value, emptyLabel = "未登録") {
+  if (value === null || value === undefined) return emptyLabel;
+  const amount = Number(value);
+  return Number.isFinite(amount) ? `${Math.round(amount).toLocaleString("ja-JP")}円` : emptyLabel;
+}
+
+function fairRateLabel(numerator, denominator) {
+  if (numerator === null || numerator === undefined || denominator === null || denominator === undefined) return "集計準備中";
+  if (denominator === 0) return "算出不可";
+  return `${((Number(numerator) / Number(denominator)) * 100).toFixed(1)}%`;
+}
+
+export function summarizeActiveFairMasters(masters = []) {
+  const active = masters.filter((fair) => fair?.is_active !== false);
+  const isComplete = (key) => active.every((fair) => fair?.[key] !== null && fair?.[key] !== undefined);
+  const sumNullable = (key) => {
+    const registered = active.map((fair) => fair?.[key]).filter((value) => value !== null && value !== undefined);
+    return registered.length ? registered.reduce((sum, value) => sum + Number(value), 0) : null;
+  };
+  const contactCount = sumNullable("contact_count");
+  const participationFee = sumNullable("participation_fee");
+  const contactComplete = isComplete("contact_count");
+  const participationFeeComplete = isComplete("participation_fee");
+  return Object.freeze({
+    activeCount: active.length,
+    contactCount,
+    contactComplete,
+    lineRegistrationCount: sumNullable("line_registration_count"),
+    lineRegistrationComplete: isComplete("line_registration_count"),
+    salonTourCount: sumNullable("salon_tour_count"),
+    salonTourComplete: isComplete("salon_tour_count"),
+    participationFee,
+    participationFeeComplete,
+    contactCost: !participationFeeComplete || !contactComplete || participationFee === null || contactCount === null || contactCount === 0
+      ? null : Math.round(participationFee / contactCount)
+  });
+}
+
+export function buildFairDetailView(fair = {}) {
+  return Object.freeze({
+    title: String(fair.fair_name || "フェア詳細"),
+    sections: Object.freeze([
+      Object.freeze({ title: "基本情報", fields: Object.freeze([
+        ["フェア名", fair.fair_name || "未登録"], ["開催日", fair.event_date || "未登録"],
+        ["運営会社", fair.organizer_name || "未登録"], ["開催形式", fair.event_format || "未登録"],
+        ["担当", fair.assigned_to || "未設定"], ["状態", fair.is_active === false ? "無効" : "有効"]
+      ]) }),
+      Object.freeze({ title: "費用・規模", fields: Object.freeze([
+        ["参加費", fairCurrencyLabel(fair.participation_fee)], ["接触見込み数", fairCountLabel(fair.expected_contacts)],
+        ["全体入場数", fairCountLabel(fair.total_attendance)], ["参加サロン数", fairCountLabel(fair.participating_salons)]
+      ]) }),
+      Object.freeze({ title: "実績", fields: Object.freeze([
+        ["接触数", fairCountLabel(fair.contact_count)], ["LINE登録数", fairCountLabel(fair.line_registration_count)],
+        ["見学数", fairCountLabel(fair.salon_tour_count)], ["面接数", "集計準備中"],
+        ["内定数", "集計準備中"], ["採用数", "集計準備中"]
+      ]) }),
+      Object.freeze({ title: "分析", fields: Object.freeze([
+        ["LINE登録率", fairRateLabel(fair.line_registration_count, fair.contact_count)],
+        ["見学率", fairRateLabel(fair.salon_tour_count, fair.contact_count)],
+        ["接触単価", fair.participation_fee === null || fair.participation_fee === undefined || fair.contact_count === null || fair.contact_count === undefined || fair.contact_count === 0 ? "集計準備中" : fairCurrencyLabel(Number(fair.participation_fee) / fair.contact_count, "集計準備中")],
+        ["採用率", "集計準備中"],
+        ["採用単価", "集計準備中"]
+      ]) }),
+      Object.freeze({ title: "補足", fields: Object.freeze([
+        ["備考", fair.note || "未登録"], ["Source Lineage", "未登録"],
+        ["作成日時", fair.created_at ? new Date(fair.created_at).toLocaleString("ja-JP") : "未登録"],
+        ["Import Batch", "未登録"]
+      ]) })
+    ])
+  });
+}
+
+function renderFairDetail(documentObject, fair) {
+  const panel = documentObject.getElementById("fair-detail-panel");
+  const content = documentObject.getElementById("fair-detail-content");
+  if (!panel || !content) return;
+  const view = buildFairDetailView(fair);
+  setText(documentObject, "fair-detail-title", view.title);
+  content.innerHTML = view.sections.map((section) => `<section class="fair-detail-section"><h4>${escapeHtml(section.title)}</h4><dl>${section.fields.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl></section>`).join("");
+  panel.hidden = false;
+  panel.scrollIntoView?.({ behavior: "smooth", block: "start" });
 }
 
 function renderSchoolMasters(documentObject, masters) {
@@ -3398,6 +3499,10 @@ async function handleMasterTableAction({ globalObject, documentObject, event, en
   const idKey = entityType === "FAIR" ? "fair_id" : "school_id";
   const master = (list || []).find((row) => row[idKey] === button.dataset.masterId); if (!master) return;
   const prefix = entityType === "FAIR" ? "fair-master" : "school-master";
+  if (entityType === "FAIR" && button.dataset.masterAction === "detail") {
+    renderFairDetail(documentObject, master);
+    return;
+  }
   if (button.dataset.masterAction === "edit") {
     const set = (suffix, value) => { const element = documentObject.getElementById(`${prefix}-${suffix}`); if (element) element.value = value ?? ""; };
     set("id", master[idKey]); set("version", master.version); set("name", master[entityType === "FAIR" ? "fair_name" : "school_name"]); set("owner", master.assigned_to);
@@ -3414,7 +3519,7 @@ async function handleMasterTableAction({ globalObject, documentObject, event, en
 }
 
 function escapeHtml(value) {
-  return String(value || "")
+  return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")

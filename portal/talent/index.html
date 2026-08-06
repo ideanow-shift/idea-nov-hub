@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>求人管理システム | IDEA NOV</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=20260805-management-simplification-1">
-  <script src="./runtime-config.candidate.js?v=20260805-management-simplification-1"></script>
-  <script type="module" src="./app.mjs?v=20260805-management-simplification-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260806-fair-detail-ui-1">
+  <script src="./runtime-config.candidate.js?v=20260806-fair-detail-ui-1"></script>
+  <script type="module" src="./app.mjs?v=20260806-fair-detail-ui-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -585,11 +585,21 @@
             <div class="master-form-actions"><button class="primary-command" type="submit">確認して保存</button><button id="fair-master-reset" class="secondary-command" type="button">新規入力へ戻す</button></div>
           </form>
           <p id="fair-master-status" class="status" data-state="idle" role="status">フェア情報を読み込んでいます</p>
-          <div class="analysis-table-scroll"><table class="analysis-table"><thead><tr><th>フェア</th><th>開催日</th><th>担当</th><th>接触</th><th>内定</th><th>採用</th><th>採用率</th><th>採用単価</th><th>操作</th></tr></thead><tbody id="fair-master-body"></tbody></table></div>
+          <div class="analysis-table-scroll"><table class="analysis-table fair-master-table"><thead><tr><th>フェア</th><th>開催日</th><th>参加費</th><th>接触</th><th>LINE登録</th><th>見学</th><th>担当</th><th>状態</th><th>作成元</th><th>操作</th></tr></thead><tbody id="fair-master-body"></tbody></table></div>
+          <section id="fair-detail-panel" class="fair-detail-panel" aria-labelledby="fair-detail-title" hidden>
+            <header><div><p class="section-kicker">フェア詳細</p><h3 id="fair-detail-title">フェア詳細</h3></div><button id="fair-detail-close" class="secondary-command compact-command" type="button">閉じる</button></header>
+            <div id="fair-detail-content" class="fair-detail-content"></div>
+          </section>
         </section>
-        <section class="analysis-kpis" aria-label="接触データの概要">
-          <article><span>接触データ</span><strong id="fair-contact-count">-</strong></article>
+        <section class="analysis-kpis fair-master-kpis" aria-label="有効フェアの実績概要">
+          <article><span>有効フェア</span><strong id="fair-active-count">-</strong></article>
+          <article><span>接触数</span><strong id="fair-contact-count">-</strong></article>
+          <article><span>LINE登録数</span><strong id="fair-line-count">-</strong></article>
+          <article><span>見学数</span><strong id="fair-tour-count">-</strong></article>
+          <article><span>費用合計</span><strong id="fair-fee-total">-</strong></article>
+          <article><span>接触単価</span><strong id="fair-contact-cost">-</strong></article>
           <article><span>LINE登録率</span><strong id="fair-line-rate">-</strong></article>
+          <article><span>見学率</span><strong id="fair-tour-rate">-</strong></article>
           <article><span>記録月数</span><strong id="fair-month-count">-</strong><button id="fair-latest-month-open" class="analysis-kpi-action" type="button" disabled>最新月を見る</button></article>
           <article><span>学校数</span><strong id="school-count">-</strong></article>
         </section>

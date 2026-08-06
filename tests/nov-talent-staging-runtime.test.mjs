@@ -220,7 +220,7 @@ test("636 Candidate API response renders through the real frontend pipeline", as
 
   const result = await loadTalentStudentWorkspace({ globalObject, documentObject });
 
-  assert.equal(result.executed, true);
+  assert.equal(result.executed, true, JSON.stringify({ result, consoleMessages }));
   assert.equal(result.studentCount, 636);
   assert.deepEqual(consoleMessages, []);
   assert.equal(documentObject.getElementById("mock-runtime-state").hidden, true);
@@ -322,5 +322,5 @@ test("published config exposes no server credential and only a server-side write
   assert.match(config, /writeEnabled:\s*true/);
   assert.match(config, /writeApiBaseUrl/);
   assert.doesNotMatch(config, /service_role|serviceRole|password|secret/i);
-  assert.match(html, /app\.mjs\?v=20260805-management-simplification-1/);
+  assert.match(html, /app\.mjs\?v=20260806-fair-detail-ui-1/);
 });

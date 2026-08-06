@@ -509,6 +509,17 @@ export function buildDashboardSummaryViewModel(data) {
   });
 }
 
+export function validateDashboardSummaryContract(summary) {
+  if (!isPlainObject(summary)) throw safeError("invalid_response");
+  assertExactKeys(summary, SUMMARY_FIELDS);
+  SUMMARY_FIELDS.forEach((field) => {
+    if (!Number.isInteger(summary[field]) || summary[field] < 0) {
+      throw safeError("invalid_response");
+    }
+  });
+  return summary;
+}
+
 function unwrapSummaryEnvelope(envelope) {
   if (!isPlainObject(envelope)) throw safeError("invalid_response");
   if (envelope.ok !== true) {
@@ -525,13 +536,7 @@ function unwrapSummaryEnvelope(envelope) {
     assertExactKeys(data.config, CONFIG_KEYS);
   }
   if (data.payloadMode !== "summary") throw safeError("invalid_response");
-  if (!isPlainObject(data.summary)) throw safeError("invalid_response");
-  assertExactKeys(data.summary, SUMMARY_FIELDS);
-  SUMMARY_FIELDS.forEach((field) => {
-    if (!Number.isInteger(data.summary[field]) || data.summary[field] < 0) {
-      throw safeError("invalid_response");
-    }
-  });
+  validateDashboardSummaryContract(data.summary);
   validatePartialStatus(data.partialStatus);
   return data;
 }
@@ -575,11 +580,7 @@ function unwrapWorkspaceEnvelope(envelope, httpStatus = 0) {
   validateSchoolMasters(data.schoolMasters);
   validateFairMasters(data.fairMasters);
   validateDashboard(data.dashboard);
-  if (!isPlainObject(data.summary)) throw safeError("invalid_response");
-  assertExactKeys(data.summary, SUMMARY_FIELDS);
-  SUMMARY_FIELDS.forEach((field) => {
-    if (!Number.isInteger(data.summary[field]) || data.summary[field] < 0) throw safeError("invalid_response");
-  });
+  validateDashboardSummaryContract(data.summary);
   validatePartialStatus(data.partialStatus);
   data.students.forEach(validateStudent);
   if (data.overview.total !== data.students.length) throw safeError("invalid_response");

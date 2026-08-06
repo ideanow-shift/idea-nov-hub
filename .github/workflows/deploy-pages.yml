@@ -5,12 +5,15 @@ on:
     paths:
       - ".github/workflows/deploy-pages.yml"
       - "docs/nov_talent/**"
+      - "contracts/nov-talent/**"
       - "portal/index.html"
       - "portal/js/**"
       - "portal/talent/**"
       - "tests/**talent**"
       - "tests/nov-navi-dashboard-boundary.test.mjs"
       - "tests/management-store-csv-requirements.test.mjs"
+      - "scripts/generate-nov-talent-workspace-contract.mjs"
+      - "tools/nov-talent-e2e/**"
   workflow_dispatch:
     inputs:
       production_approved:
@@ -45,7 +48,13 @@ jobs:
         run: |
           find portal/talent -maxdepth 1 -type f \( -name '*.mjs' -o -name '*.js' \) -print0 \
             | xargs -0 -n1 node --check
+          find portal/talent/generated -type f -name '*.mjs' -print0 \
+            | xargs -0 -n1 node --check
           test ! -f portal/js/nov-talent-access.js || node --check portal/js/nov-talent-access.js
+
+      - name: Check generated Workspace Contract v1
+        shell: bash
+        run: node scripts/generate-nov-talent-workspace-contract.mjs --check
 
       - name: Run NOV Talent and HUB fixed regressions
         shell: bash
@@ -59,6 +68,14 @@ jobs:
               | sort
           )
           node --test "${tests[@]}"
+
+      - name: Run authenticated Workspace browser release gate
+        shell: bash
+        run: |
+          npm ci --prefix tools/nov-talent-e2e
+          ./tools/nov-talent-e2e/node_modules/.bin/playwright install --with-deps chromium
+          PLAYWRIGHT_PACKAGE_DIR="$PWD/tools/nov-talent-e2e/node_modules/playwright-core" \
+            node tests/nov-talent-workspace-release-gate.playwright.mjs
 
       - name: Check patch whitespace
         shell: bash

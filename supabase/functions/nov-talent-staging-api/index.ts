@@ -1,4 +1,5 @@
 import { cleanActivity, cleanCandidate, cleanRecruitmentMaster, cleanSourceFactLink, resolveAccess, STATUS_LABELS } from "./domain.ts";
+import { validateWorkspaceResponse, WORKSPACE_CONTRACT_VERSION } from "./workspace-contract-v1.generated.ts";
 
 const ORIGIN = "https://ideanow-shift.github.io";
 const PREFIXES = ["", "/nov-talent-staging-api", "/functions/v1/nov-talent-staging-api"];
@@ -301,7 +302,7 @@ function workspace(rows: any[], profile: string, facts: any, partialStatus: any)
   const unlinkedSelectionHistory = facts.sourceFacts.filter((item:any) => item.fact_code === "INTERVIEW_COMPLETED" && !item.candidate_id)
     .map((item:any) => ({ sourceType: item.source_type, sourceRowNo: item.source_row_no, code: item.fact_code,
       label: STATUS_LABELS[item.fact_code] || item.fact_code, date: item.fact_date, version: item.version }));
-  return { fiscalYear: "all", payloadMode: "workspace", accessProfile: profile, canWrite: profile !== "executive", dashboard,
+  return { workspace_contract_version: WORKSPACE_CONTRACT_VERSION, fiscalYear: "all", payloadMode: "workspace", accessProfile: profile, canWrite: profile !== "executive", dashboard,
     summary: dashboardSummary(rows, facts, dashboard), partialStatus,
     todayTasks: facts.actions.filter((item:any) => item.is_active !== false && item.state === "OPEN" && item.due_date && item.due_date <= new Date().toISOString().slice(0,10))
       .slice(0,5).map((item:any) => ({ candidateId: item.candidate_id, dueDate: item.due_date,
@@ -371,7 +372,21 @@ export function createHandler(runtime: Runtime) {
       const summary = dashboardSummary(rows, facts, dashboard);
       return out(200, { ok: true, data: { config: { appName: "NOV Talent" }, fiscalYear: "current", payloadMode: "summary", summary, partialStatus }, meta: { generatedAt: new Date().toISOString(), requestId, source: "nov-talent-staging-api", version: "2" } }, origin);
     }
-    if (request.method === "GET" && path.endsWith("/api/talent/v1/workspace")) return out(200, { ok: true, data: workspace(rows, actor.profile, facts, partialStatus), meta: { generatedAt: new Date().toISOString(), requestId, source: "nov-talent-staging-api", version: "3" } }, origin);
+    if (request.method === "GET" && path.endsWith("/api/talent/v1/workspace")) {
+      const responseBody = { ok: true as const, data: workspace(rows, actor.profile, facts, partialStatus), meta: { generatedAt: new Date().toISOString(), requestId, source: "nov-talent-staging-api", version: "3" } };
+      const contractResult = validateWorkspaceResponse(responseBody);
+      if (!contractResult.ok) {
+        (runtime.logger || console).error(JSON.stringify({
+          event: "NOV_TALENT_WORKSPACE_CONTRACT_REJECTED",
+          request_id: requestId,
+          field_path: contractResult.path,
+          rule: contractResult.rule,
+          timestamp: new Date().toISOString()
+        }));
+        return fail(503, "WORKSPACE_CONTRACT_INVALID", origin);
+      }
+      return out(200, contractResult.value, origin);
+    }
     const auditMatch = /^\/api\/talent\/v1\/candidates\/([0-9a-f-]+)\/audit$/iu.exec(path);
     if (request.method === "GET" && auditMatch && UUID.test(auditMatch[1])) {
       const [candidateAudit, activityAudit] = await Promise.all([

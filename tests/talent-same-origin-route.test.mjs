@@ -56,6 +56,8 @@ function fakeGlobal({ enabled = true, helper = defaultHelper(), audience = "nov_
       networkEnabled: false,
       writeEnabled: false,
       readonlyApiEnabled: enabled,
+      workspaceContractVersion: "1.0.0",
+      workspaceContractCompatibility: "legacy-v0-read",
       readonlyApiBaseUrl: "https://example.test/functions/v1/nov-talent-readonly-api"
     },
     location: { search: "" },
@@ -399,7 +401,7 @@ test("talent entry point cache-busts runtime config and app with one release id"
 
   assert.ok(runtimeVersion, "runtime config must have a release id");
   assert.equal(appVersion, runtimeVersion);
-  assert.equal(appVersion, "20260806-dashboard-fanout-1");
+  assert.equal(appVersion, "20260806-workspace-contract-v1-1");
 });
 
 test("HUB launcher canonicalizes Talent route even when backend URL is stale", () => {

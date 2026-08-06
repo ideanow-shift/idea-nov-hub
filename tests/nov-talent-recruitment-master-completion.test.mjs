@@ -76,10 +76,12 @@ test("operation UI provides responsive School and Fair Master input", async () =
 });
 
 test("workspace contract accepts candidate master links and master collections", async () => {
-  const exact1 = await readFile(new URL("portal/talent/exact1.mjs", root), "utf8");
-  assert.match(exact1, /"fairMasters", "partialStatus", "schoolMasters", "students", "summary"/u);
-  assert.match(exact1, /"schoolId"/u);
-  assert.match(exact1, /"fairId"/u);
-  assert.match(exact1, /validateSchoolMasters\(data\.schoolMasters\)/u);
-  assert.match(exact1, /validateFairMasters\(data\.fairMasters\)/u);
+  const schema = JSON.parse(await readFile(new URL("contracts/nov-talent/workspace/v1.schema.json", root), "utf8"));
+  const data = schema.$defs.WorkspaceDataV1;
+  const student = schema.$defs.Student;
+  assert.deepEqual(data.properties.fairMasters.items, { $ref: "#/$defs/FairMaster" });
+  assert.deepEqual(data.properties.schoolMasters.items, { $ref: "#/$defs/SchoolMaster" });
+  assert.deepEqual(data.properties.students.items, { $ref: "#/$defs/Student" });
+  assert.ok(student.required.includes("schoolId"));
+  assert.ok(student.required.includes("fairId"));
 });

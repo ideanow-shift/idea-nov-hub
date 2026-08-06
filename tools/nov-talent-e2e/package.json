@@ -1,0 +1,9 @@
+{
+  "name": "nov-talent-workspace-release-gate",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Pinned browser runtime for the NOV Talent Workspace release gate.",
+  "dependencies": {
+    "playwright": "1.62.1"
+  }
+}

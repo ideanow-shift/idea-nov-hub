@@ -9,6 +9,8 @@ function globalFixture() {
   return {
     NOV_TALENT_CONFIG: {
       readonlyApiEnabled: true,
+      workspaceContractVersion: "1.0.0",
+      workspaceContractCompatibility: "legacy-v0-read",
       readonlyApiBaseUrl: "https://example.test/functions/v1/nov-talent-readonly-api-v2"
     },
     NOV_HUB_SESSION_CONTRACT: { audience: "nov_hub" },

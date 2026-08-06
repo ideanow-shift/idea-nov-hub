@@ -77,7 +77,7 @@ test("operation UI provides responsive School and Fair Master input", async () =
 
 test("workspace contract accepts candidate master links and master collections", async () => {
   const exact1 = await readFile(new URL("portal/talent/exact1.mjs", root), "utf8");
-  assert.match(exact1, /"fairMasters", "schoolMasters", "students"/u);
+  assert.match(exact1, /"fairMasters", "partialStatus", "schoolMasters", "students", "summary"/u);
   assert.match(exact1, /"schoolId"/u);
   assert.match(exact1, /"fairId"/u);
   assert.match(exact1, /validateSchoolMasters\(data\.schoolMasters\)/u);

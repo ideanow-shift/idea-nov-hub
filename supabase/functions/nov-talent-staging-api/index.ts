@@ -3,7 +3,26 @@ import { cleanActivity, cleanCandidate, cleanRecruitmentMaster, cleanSourceFactL
 const ORIGIN = "https://ideanow-shift.github.io";
 const PREFIXES = ["", "/nov-talent-staging-api", "/functions/v1/nov-talent-staging-api"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
-type Runtime = { hubApiUrl: string; supabaseUrl: string; serviceRoleKey: string; fetchImpl: typeof fetch };
+type SafeLogger = { error: (message: string) => void };
+type Runtime = {
+  hubApiUrl: string;
+  supabaseUrl: string;
+  serviceRoleKey: string;
+  fetchImpl: typeof fetch;
+  logger?: SafeLogger;
+};
+type ViewResult = { rows: any[]; available: boolean; retryCount: number };
+
+const RETRYABLE_DOWNSTREAM_STATUS = new Set([429, 502, 503, 504]);
+const VIEW_REQUESTS = Object.freeze([
+  ["recruitment_events", "/rest/v1/nov_talent_recruitment_events_v1?select=event_id,candidate_id,event_code,event_date,event_name,event_state,contact_content,assigned_to,notes,version,is_active&order=event_date.desc&limit=5000"],
+  ["selection_history", "/rest/v1/nov_talent_selection_history_v1?select=selection_history_id,candidate_id,selection_code,effective_date,assigned_to,notes,version,is_active&order=effective_date.desc&limit=5000"],
+  ["next_actions", "/rest/v1/nov_talent_next_actions_v1?select=next_action_id,candidate_id,action_code,due_date,action_text,assigned_to,notes,state,completed_at,version,is_active&order=due_date.asc.nullslast&limit=1000"],
+  ["fair_metrics", "/rest/v1/nov_talent_fair_metrics_v1?select=graduation_year,event_date,contact_count,line_registration_count,salon_tour_count&order=event_date.desc&limit=1000"],
+  ["source_facts", "/rest/v1/nov_talent_recruitment_source_facts_v1?select=source_type,source_row_no,fact_code,fact_date,candidate_id,version&order=source_type.asc,source_row_no.asc&limit=5000"],
+  ["school_masters", "/rest/v1/nov_talent_school_masters_v1?select=school_id,school_name,faculty_name,assigned_to,version,is_active&order=school_name.asc&limit=1000"],
+  ["fair_masters", "/rest/v1/nov_talent_fair_masters_v1?select=fair_id,fair_name,event_date,participation_fee,venue,assigned_to,participant_count,contact_count,line_registration_count,salon_tour_count,interview_count,offer_count,hire_count,organizer_name,event_format,expected_contacts,total_attendance,participating_salons,note,created_at,version,is_active&order=event_date.desc&limit=1000"]
+] as const);
 
 function cors(origin: string) {
   const h = new Headers({ "Cache-Control": "no-store", "Content-Type": "application/json; charset=utf-8", Vary: "Origin" });
@@ -43,25 +62,108 @@ async function rpc(runtime: Runtime, name: string, body: unknown) {
   return { ok: true, data: Array.isArray(rows) ? rows[0] : rows };
 }
 
-async function readRows(runtime: Runtime) {
-  const result = await db(runtime, "/rest/v1/nov_talent_candidates_v1?select=candidate_id,graduation_year,student_name,student_name_kana,school_id,fair_id,school_name,faculty_name,phone,email,line_identifier,current_status_code,acquisition_source,assigned_to,notes,source_type,source_row_no,version,is_active&is_active=eq.true&order=graduation_year.asc,updated_at.desc&limit=1000");
-  return result.ok ? await result.json() : null;
+function safeLogDownstreamFailure(runtime: Runtime, fields: {
+  requestId: string;
+  endpoint: string;
+  failedView: string;
+  downstreamStatus: number;
+  errorClass: string;
+  elapsedMs: number;
+  retryCount: number;
+  partial: boolean;
+  fatal: boolean;
+}) {
+  (runtime.logger || console).error(JSON.stringify({
+    event: "NOV_TALENT_DOWNSTREAM_READ_FAILED",
+    request_id: fields.requestId,
+    endpoint: fields.endpoint,
+    failed_view: fields.failedView,
+    downstream_status: fields.downstreamStatus,
+    error_class: fields.errorClass,
+    elapsed_ms: fields.elapsedMs,
+    retry_count: fields.retryCount,
+    partial: fields.partial,
+    fatal: fields.fatal,
+    timestamp: new Date().toISOString()
+  }));
 }
-async function readDashboardFacts(runtime: Runtime) {
-  const [eventsResult, selectionsResult, actionsResult, fairsResult, sourceFactsResult, schoolMastersResult, fairMastersResult] = await Promise.all([
-    db(runtime, "/rest/v1/nov_talent_recruitment_events_v1?select=event_id,candidate_id,event_code,event_date,event_name,event_state,contact_content,assigned_to,notes,version,is_active&order=event_date.desc&limit=5000"),
-    db(runtime, "/rest/v1/nov_talent_selection_history_v1?select=selection_history_id,candidate_id,selection_code,effective_date,assigned_to,notes,version,is_active&order=effective_date.desc&limit=5000"),
-    db(runtime, "/rest/v1/nov_talent_next_actions_v1?select=next_action_id,candidate_id,action_code,due_date,action_text,assigned_to,notes,state,completed_at,version,is_active&order=due_date.asc.nullslast&limit=1000"),
-    db(runtime, "/rest/v1/nov_talent_fair_metrics_v1?select=graduation_year,event_date,contact_count,line_registration_count,salon_tour_count&order=event_date.desc&limit=1000"),
-    db(runtime, "/rest/v1/nov_talent_recruitment_source_facts_v1?select=source_type,source_row_no,fact_code,fact_date,candidate_id,version&order=source_type.asc,source_row_no.asc&limit=5000"),
-    db(runtime, "/rest/v1/nov_talent_school_masters_v1?select=school_id,school_name,faculty_name,assigned_to,version,is_active&order=school_name.asc&limit=1000"),
-    db(runtime, "/rest/v1/nov_talent_fair_masters_v1?select=fair_id,fair_name,event_date,participation_fee,venue,assigned_to,participant_count,contact_count,line_registration_count,salon_tour_count,interview_count,offer_count,hire_count,organizer_name,event_format,expected_contacts,total_attendance,participating_salons,note,created_at,version,is_active&order=event_date.desc&limit=1000")
-  ]);
-  if (![eventsResult, selectionsResult, actionsResult, fairsResult, sourceFactsResult, schoolMastersResult, fairMastersResult].every((result) => result.ok)) return null;
+
+async function readView(runtime: Runtime, context: {
+  requestId: string;
+  endpoint: string;
+  view: string;
+  path: string;
+  fatal: boolean;
+}): Promise<ViewResult> {
+  const startedAt = Date.now();
+  let retryCount = 0;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let response: Response;
+    try {
+      response = await db(runtime, context.path);
+    } catch {
+      safeLogDownstreamFailure(runtime, {
+        requestId: context.requestId, endpoint: context.endpoint, failedView: context.view,
+        downstreamStatus: 0, errorClass: "DOWNSTREAM_NETWORK_ERROR",
+        elapsedMs: Date.now() - startedAt, retryCount, partial: !context.fatal, fatal: context.fatal
+      });
+      return { rows: [], available: false, retryCount };
+    }
+    if (response.ok) {
+      try {
+        const rows = await response.json();
+        if (Array.isArray(rows)) return { rows, available: true, retryCount };
+      } catch {
+        // Safe fixed-category logging below; response bodies are never logged.
+      }
+      safeLogDownstreamFailure(runtime, {
+        requestId: context.requestId, endpoint: context.endpoint, failedView: context.view,
+        downstreamStatus: response.status, errorClass: "DOWNSTREAM_INVALID_JSON",
+        elapsedMs: Date.now() - startedAt, retryCount, partial: !context.fatal, fatal: context.fatal
+      });
+      return { rows: [], available: false, retryCount };
+    }
+    if (attempt === 0 && RETRYABLE_DOWNSTREAM_STATUS.has(response.status)) {
+      retryCount = 1;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      continue;
+    }
+    safeLogDownstreamFailure(runtime, {
+      requestId: context.requestId, endpoint: context.endpoint, failedView: context.view,
+      downstreamStatus: response.status, errorClass: "DOWNSTREAM_HTTP_ERROR",
+      elapsedMs: Date.now() - startedAt, retryCount, partial: !context.fatal, fatal: context.fatal
+    });
+    return { rows: [], available: false, retryCount };
+  }
+  return { rows: [], available: false, retryCount };
+}
+
+async function readRows(runtime: Runtime, requestId: string, endpoint: string) {
+  return readView(runtime, {
+    requestId, endpoint, view: "candidates", fatal: true,
+    path: "/rest/v1/nov_talent_candidates_v1?select=candidate_id,graduation_year,student_name,student_name_kana,school_id,fair_id,school_name,faculty_name,phone,email,line_identifier,current_status_code,acquisition_source,assigned_to,notes,source_type,source_row_no,version,is_active&is_active=eq.true&order=graduation_year.asc,updated_at.desc&limit=1000"
+  });
+}
+
+async function readDashboardFacts(runtime: Runtime, requestId: string, endpoint: string) {
+  const results = await Promise.all(VIEW_REQUESTS.map(([view, path]) => readView(runtime, {
+    requestId, endpoint, view, path, fatal: false
+  })));
+  const byView = Object.fromEntries(VIEW_REQUESTS.map(([view], index) => [view, results[index]]));
+  const unavailable = VIEW_REQUESTS.map(([view]) => view).filter((view) => !byView[view].available);
   return {
-    events: await eventsResult.json(), selections: await selectionsResult.json(),
-    actions: await actionsResult.json(), fairs: await fairsResult.json(),
-    sourceFacts: await sourceFactsResult.json(), schoolMasters: await schoolMastersResult.json(), fairMasters: await fairMastersResult.json()
+    facts: {
+      events: byView.recruitment_events.rows,
+      selections: byView.selection_history.rows,
+      actions: byView.next_actions.rows,
+      fairs: byView.fair_metrics.rows,
+      sourceFacts: byView.source_facts.rows,
+      schoolMasters: byView.school_masters.rows,
+      fairMasters: byView.fair_masters.rows,
+      viewAvailability: Object.fromEntries(VIEW_REQUESTS.map(([view]) => [view, byView[view].available]))
+    },
+    unavailable,
+    retryCount: results.reduce((sum, result) => sum + result.retryCount, 0)
   };
 }
 
@@ -79,6 +181,13 @@ function groupByCandidate(rows: any[]) {
 
 function dashboardMetrics(rows: any[], facts: any) {
   const today = new Date().toISOString().slice(0, 10);
+  const viewAvailable = (view: string) => facts.viewAvailability?.[view] !== false;
+  const eventsAvailable = viewAvailable("recruitment_events");
+  const selectionsAvailable = viewAvailable("selection_history");
+  const actionsAvailable = viewAvailable("next_actions");
+  const sourceFactsAvailable = viewAvailable("source_facts");
+  const schoolsAvailable = viewAvailable("school_masters");
+  const fairsAvailable = viewAvailable("fair_masters");
   const activeEvents = facts.events.filter((row: any) => row.is_active !== false);
   const activeSelections = facts.selections.filter((row: any) => row.is_active !== false);
   const activeActions = facts.actions.filter((row: any) => row.is_active !== false);
@@ -120,19 +229,37 @@ function dashboardMetrics(rows: any[], facts: any) {
     selectionHistoryCount: activeSelections.length + facts.sourceFacts.length,
     unlinkedInterviewHistoryCount: facts.sourceFacts.filter((row:any) => row.fact_code === "INTERVIEW_COMPLETED" && !row.candidate_id).length,
     availability: {
-      candidateCount: true, graduation2027: true, graduation2028: true, lineRegistrations: true,
-      salonTourCompleted: true, interviewHistory: hasSourceFact("INTERVIEW_COMPLETED") || hasEvent("INTERVIEW_COMPLETED"),
-      entries: hasSourceFact("APPLICATION_RECEIVED"),
-      salonTourPlanned: hasEvent("SALON_TOUR_PLANNED"),
-      interviewPlanned: hasSourceFact("INTERVIEW_COMPLETED") || hasEvent("INTERVIEW_COMPLETED") || hasEvent("INTERVIEW_PLANNED"),
-      offers: hasSourceFact("OFFERED"), offeredElsewhere: true, withdrawals: hasSourceFact("WITHDRAWN"), rejected: hasSourceFact("REJECTED"),
-      schoolCount: true, fairCount: true, eventCount: true,
-      todayActions: activeActions.length > 0
+      candidateCount: true, graduation2027: true, graduation2028: true, lineRegistrations: eventsAvailable,
+      salonTourCompleted: eventsAvailable && selectionsAvailable && sourceFactsAvailable,
+      interviewHistory: eventsAvailable && selectionsAvailable && sourceFactsAvailable
+        && (hasSourceFact("INTERVIEW_COMPLETED") || hasEvent("INTERVIEW_COMPLETED")),
+      entries: selectionsAvailable && sourceFactsAvailable && hasSourceFact("APPLICATION_RECEIVED"),
+      salonTourPlanned: eventsAvailable && sourceFactsAvailable && hasEvent("SALON_TOUR_PLANNED"),
+      interviewPlanned: eventsAvailable && selectionsAvailable && sourceFactsAvailable
+        && (hasSourceFact("INTERVIEW_COMPLETED") || hasEvent("INTERVIEW_COMPLETED") || hasEvent("INTERVIEW_PLANNED")),
+      offers: selectionsAvailable && sourceFactsAvailable && hasSourceFact("OFFERED"),
+      offeredElsewhere: selectionsAvailable && sourceFactsAvailable,
+      withdrawals: selectionsAvailable && sourceFactsAvailable && hasSourceFact("WITHDRAWN"),
+      rejected: selectionsAvailable && sourceFactsAvailable && hasSourceFact("REJECTED"),
+      schoolCount: schoolsAvailable, fairCount: fairsAvailable, eventCount: eventsAvailable,
+      todayActions: actionsAvailable && activeActions.length > 0
     }
   };
 }
 
-function workspace(rows: any[], profile: string, facts: any) {
+function dashboardSummary(rows: any[], facts: any, dashboard: any) {
+  return {
+    contacts: rows.length,
+    lineRegistrations: new Set(facts.events.filter((row: any) => row.is_active !== false && row.event_code === "LINE_REGISTERED").map((row: any) => row.candidate_id)).size,
+    salonTours: new Set(facts.events.filter((row: any) => row.is_active !== false && row.event_code === "SALON_TOUR_COMPLETED").map((row: any) => row.candidate_id)).size,
+    interviews: new Set(facts.events.filter((row: any) => row.is_active !== false && row.event_code === "INTERVIEW_COMPLETED").map((row: any) => row.candidate_id)).size,
+    passed: new Set(facts.selections.filter((row: any) => row.is_active !== false && row.selection_code === "OFFER_ACCEPTED").map((row: any) => row.candidate_id)).size,
+    offers: dashboard.offers,
+    expectedJoiners: rows.filter((row: any) => row.current_status_code === "EXPECTED_JOIN").length
+  };
+}
+
+function workspace(rows: any[], profile: string, facts: any, partialStatus: any) {
   const privateFields = profile !== "executive";
   const eventsByCandidate = groupByCandidate(facts.events);
   const selectionsByCandidate = groupByCandidate(facts.selections);
@@ -175,6 +302,7 @@ function workspace(rows: any[], profile: string, facts: any) {
     .map((item:any) => ({ sourceType: item.source_type, sourceRowNo: item.source_row_no, code: item.fact_code,
       label: STATUS_LABELS[item.fact_code] || item.fact_code, date: item.fact_date, version: item.version }));
   return { fiscalYear: "all", payloadMode: "workspace", accessProfile: profile, canWrite: profile !== "executive", dashboard,
+    summary: dashboardSummary(rows, facts, dashboard), partialStatus,
     todayTasks: facts.actions.filter((item:any) => item.is_active !== false && item.state === "OPEN" && item.due_date && item.due_date <= new Date().toISOString().slice(0,10))
       .slice(0,5).map((item:any) => ({ candidateId: item.candidate_id, dueDate: item.due_date,
         label: item.action_text || actionLabel(item.action_code), assignedTo: item.assigned_to })),
@@ -225,22 +353,25 @@ export function createHandler(runtime: Runtime) {
       const category = String(actor.category || "FORBIDDEN");
       return fail(category === "AUTH_REQUIRED" ? 401 : 403, category, origin);
     }
-    const rows = await readRows(runtime);
-    if (!rows) return fail(503, "CANDIDATE_STORE_NOT_READY", origin);
-    const facts = await readDashboardFacts(runtime);
-    if (!facts) return fail(503, "DASHBOARD_FACT_STORE_NOT_READY", origin);
+    const requestId = crypto.randomUUID();
+    const endpoint = path.endsWith("/api/talent/v1/dashboard/summary") ? "dashboard_summary"
+      : path.endsWith("/api/talent/v1/workspace") ? "workspace" : "talent_api";
+    const rowResult = await readRows(runtime, requestId, endpoint);
+    if (!rowResult.available) return fail(503, "CANDIDATE_STORE_NOT_READY", origin);
+    const rows = rowResult.rows;
+    const factResult = await readDashboardFacts(runtime, requestId, endpoint);
+    const facts = factResult.facts;
+    const partialStatus = {
+      state: factResult.unavailable.length ? "partial" : "complete",
+      unavailableViews: factResult.unavailable,
+      retryCount: rowResult.retryCount + factResult.retryCount
+    };
     if (request.method === "GET" && path.endsWith("/api/talent/v1/dashboard/summary")) {
       const dashboard = dashboardMetrics(rows, facts);
-      const summary = { contacts: rows.length,
-        lineRegistrations: new Set(facts.events.filter((r:any) => r.is_active !== false && r.event_code === "LINE_REGISTERED").map((r:any) => r.candidate_id)).size,
-        salonTours: new Set(facts.events.filter((r:any) => r.is_active !== false && r.event_code === "SALON_TOUR_COMPLETED").map((r:any) => r.candidate_id)).size,
-        interviews: new Set(facts.events.filter((r:any) => r.is_active !== false && r.event_code === "INTERVIEW_COMPLETED").map((r:any) => r.candidate_id)).size,
-        passed: new Set(facts.selections.filter((r:any) => r.is_active !== false && r.selection_code === "OFFER_ACCEPTED").map((r:any) => r.candidate_id)).size,
-        offers: dashboard.offers,
-        expectedJoiners: rows.filter((r:any) => r.current_status_code === "EXPECTED_JOIN").length };
-      return out(200, { ok: true, data: { config: { appName: "NOV Talent" }, fiscalYear: "current", payloadMode: "summary", summary }, meta: { generatedAt: new Date().toISOString(), requestId: crypto.randomUUID(), source: "nov-talent-staging-api", version: "1" } }, origin);
+      const summary = dashboardSummary(rows, facts, dashboard);
+      return out(200, { ok: true, data: { config: { appName: "NOV Talent" }, fiscalYear: "current", payloadMode: "summary", summary, partialStatus }, meta: { generatedAt: new Date().toISOString(), requestId, source: "nov-talent-staging-api", version: "2" } }, origin);
     }
-    if (request.method === "GET" && path.endsWith("/api/talent/v1/workspace")) return out(200, { ok: true, data: workspace(rows, actor.profile, facts), meta: { generatedAt: new Date().toISOString(), requestId: crypto.randomUUID(), source: "nov-talent-staging-api", version: "2" } }, origin);
+    if (request.method === "GET" && path.endsWith("/api/talent/v1/workspace")) return out(200, { ok: true, data: workspace(rows, actor.profile, facts, partialStatus), meta: { generatedAt: new Date().toISOString(), requestId, source: "nov-talent-staging-api", version: "3" } }, origin);
     const auditMatch = /^\/api\/talent\/v1\/candidates\/([0-9a-f-]+)\/audit$/iu.exec(path);
     if (request.method === "GET" && auditMatch && UUID.test(auditMatch[1])) {
       const [candidateAudit, activityAudit] = await Promise.all([
@@ -324,4 +455,4 @@ export function createHandler(runtime: Runtime) {
   };
 }
 
-if (typeof Deno !== "undefined" && import.meta.main) Deno.serve(createHandler({ hubApiUrl: Deno.env.get("NOV_HUB_READONLY_AUTH_URL") || "", supabaseUrl: Deno.env.get("SUPABASE_URL") || "", serviceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "", fetchImpl: fetch }));
+if (typeof Deno !== "undefined" && import.meta.main) Deno.serve(createHandler({ hubApiUrl: Deno.env.get("NOV_HUB_READONLY_AUTH_URL") || "", supabaseUrl: Deno.env.get("SUPABASE_URL") || "", serviceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "", fetchImpl: fetch, logger: console }));

@@ -32,13 +32,14 @@ const SAFE_MESSAGES = Object.freeze({
 
 const SUCCESS_ENVELOPE_KEYS = Object.freeze(["data", "meta", "ok"]);
 const ERROR_ENVELOPE_KEYS = Object.freeze(["message", "ok", "requestId", "safeCode"]);
-const DATA_KEYS = Object.freeze(["config", "fiscalYear", "payloadMode", "summary"]);
+const DATA_KEYS = Object.freeze(["config", "fiscalYear", "partialStatus", "payloadMode", "summary"]);
 const CONFIG_KEYS = Object.freeze(["appName"]);
 const META_KEYS = Object.freeze(["generatedAt", "requestId", "source", "version"]);
 const WORKSPACE_DATA_KEYS = Object.freeze([
   "accessProfile", "canWrite", "dashboard", "fiscalYear", "overview", "payloadMode",
-  "fairMasters", "schoolMasters", "students", "todayTasks", "unlinkedSelectionHistory"
+  "fairMasters", "partialStatus", "schoolMasters", "students", "summary", "todayTasks", "unlinkedSelectionHistory"
 ]);
+const PARTIAL_STATUS_KEYS = Object.freeze(["retryCount", "state", "unavailableViews"]);
 const WORKSPACE_OVERVIEW_KEYS = Object.freeze([
   "contacts",
   "entries",
@@ -531,6 +532,7 @@ function unwrapSummaryEnvelope(envelope) {
       throw safeError("invalid_response");
     }
   });
+  validatePartialStatus(data.partialStatus);
   return data;
 }
 
@@ -573,6 +575,12 @@ function unwrapWorkspaceEnvelope(envelope, httpStatus = 0) {
   validateSchoolMasters(data.schoolMasters);
   validateFairMasters(data.fairMasters);
   validateDashboard(data.dashboard);
+  if (!isPlainObject(data.summary)) throw safeError("invalid_response");
+  assertExactKeys(data.summary, SUMMARY_FIELDS);
+  SUMMARY_FIELDS.forEach((field) => {
+    if (!Number.isInteger(data.summary[field]) || data.summary[field] < 0) throw safeError("invalid_response");
+  });
+  validatePartialStatus(data.partialStatus);
   data.students.forEach(validateStudent);
   if (data.overview.total !== data.students.length) throw safeError("invalid_response");
   return Object.freeze({
@@ -588,6 +596,17 @@ function unwrapWorkspaceEnvelope(envelope, httpStatus = 0) {
       selectionHistory: Object.freeze(student.selectionHistory.map((item) => Object.freeze({ ...item })))
     })))
   });
+}
+
+function validatePartialStatus(partialStatus) {
+  if (!isPlainObject(partialStatus)) throw safeError("invalid_response");
+  assertExactKeys(partialStatus, PARTIAL_STATUS_KEYS);
+  if (!["complete", "partial"].includes(partialStatus.state)
+    || !Number.isInteger(partialStatus.retryCount) || partialStatus.retryCount < 0 || partialStatus.retryCount > 8
+    || !Array.isArray(partialStatus.unavailableViews)
+    || partialStatus.unavailableViews.some((view) => typeof view !== "string" || !view)) {
+    throw safeError("invalid_response");
+  }
 }
 
 function validateDashboard(dashboard) {

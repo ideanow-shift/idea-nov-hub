@@ -39,7 +39,8 @@ test("Preview banner is semantic and initially hidden", () => {
 });
 test("Preview banner identifies synthetic non-production data", () => {
   assert.match(storeHtml, /サンプルデータ/);
-  assert.match(storeHtml, /実会計データ・本番環境には接続していません/);
+  assert.match(storeHtml, /Business Fact・Accounting Fact・本番環境には接続していません/);
+  assert.match(storeHtml, /税抜サンプルデータ/);
 });
 test("runtime is mock-only Preview", () => {
   assert.match(runtime, /featureFlag:\s*"preview"/);
@@ -89,6 +90,12 @@ test("ARIA remains on Preview, notice, tabs, and state values", () => {
   assert.match(storeApp, /metricAriaLabel/);
 });
 test("mock adapter performs no external request", () => assert.doesNotMatch(mock, /fetch\s*\(|XMLHttpRequest/));
+test("Preview UI adopts Business Definition v1.1 tax policy", () => {
+  assert.match(storeHtml, /総売上（税抜）/);
+  assert.match(storeHtml, /id="meta-tax-basis">税抜/);
+  assert.match(storeApp, /projection\.taxBasis === "net"/);
+  assert.doesNotMatch(storeHtml + storeApp, /総売上（税込）/);
+});
 test("no service role or token is embedded in Preview runtime", () => assert.doesNotMatch(runtime + storeHtml + mock, /service_role|sb_secret_|eyJ[a-zA-Z0-9_-]{20,}/i));
 test("NOV HUB shell remains intact", () => {
   assert.match(hubHtml, /id="featured-apps"/);

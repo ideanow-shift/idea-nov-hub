@@ -1,5 +1,7 @@
 # Frontend実装引継ぎ
 
+> Business Definition v1.1 Tax Policy Freeze: 売上、利益、単価、金額KPIは税抜を正式値とする。UIは「総売上（税抜）」を表示し、Projectionは`tax_basis=net`以外を受け入れない。
+
 ## 実装順
 
 1. Design Token aliasと共通StatePanel

@@ -2,6 +2,7 @@ const DATA_STATES = new Set(["available", "collecting", "preparing", "unavailabl
 const STORE_STATUSES = new Set(["Good", "Stable", "Improving", "Needs Attention"]);
 const ACTOR_SCOPES = new Set(["all_group", "department", "own_store", "franchise", "denied"]);
 const PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/;
+const TAX_BASIS = "net";
 const PERCENT_DISPLAY = /^-?\d+(?:\.\d)?%$/;
 const FORBIDDEN_KEYS = new Set([
   "source_workbook", "source_cell", "raw_fact_id", "numerator_amount", "denominator_amount",
@@ -113,7 +114,7 @@ function store(value, path) {
   const storeStatus = requiredText(source.store_status, `${path}.store_status`);
   if (!STORE_STATUSES.has(storeStatus)) fail("INVALID_STORE_STATUS", `${path}.store_status is invalid.`);
   const metrics = {
-    sales: metric(source.sales_gross, `${path}.sales_gross`),
+    sales: metric(source.sales_net, `${path}.sales_net`),
     operatingProfit: metric(source.operating_profit, `${path}.operating_profit`),
     operatingProfitMargin: metric(source.operating_profit_margin, `${path}.operating_profit_margin`),
     ordinaryProfitMargin: metric(source.ordinary_profit_margin, `${path}.ordinary_profit_margin`),
@@ -147,6 +148,9 @@ export function validateProjectionResponse(value) {
   assertNoForbiddenKeys(value);
   const root = record(value, "projection");
   const meta = record(root.meta, "projection.meta");
+  if (requiredText(meta.tax_basis, "projection.meta.tax_basis") !== TAX_BASIS) {
+    fail("INVALID_TAX_BASIS", "projection.meta.tax_basis must be net.");
+  }
   const salesPeriod = period(meta.sales_period, "projection.meta.sales_period");
   const confirmedPeriod = period(meta.accounting_confirmed_through_period, "projection.meta.accounting_confirmed_through_period");
   if (confirmedPeriod > salesPeriod) fail("PERIOD_CONFLICT", "Accounting confirmed period cannot be after sales period.");
@@ -174,6 +178,7 @@ export function validateProjectionResponse(value) {
     audience: actorScope === "own_store" ? "store_manager" : "executive",
     role: requiredText(meta.actor_role ?? (actorScope === "own_store" ? "store_manager" : "representative"), "projection.meta.actor_role"),
     meta: {
+      taxBasis: TAX_BASIS,
       salesPeriod,
       accountingConfirmedThroughPeriod: confirmedPeriod,
       confirmationState: state(meta.confirmation_state, "projection.meta.confirmation_state"),
@@ -195,6 +200,7 @@ export function validateProjectionResponse(value) {
       reflectedStoreCount: Number(meta.reflected_store_count || 0),
       totalStoreCount: stores.length
     },
+    taxBasis: TAX_BASIS,
     executiveSummary: {
       metrics: Object.values(executiveMetrics),
       needsAttentionStoreCount: Number(executiveSource.needs_attention_store_count ?? 0),
@@ -221,7 +227,8 @@ function normalizeDrivers(value) {
 }
 
 export const PROJECTION_CONTRACT = Object.freeze({
-  version: "store-sales-projection-v1",
+  version: "store-sales-projection-v1.1",
+  taxBasis: TAX_BASIS,
   dataStates: [...DATA_STATES],
   storeStatuses: [...STORE_STATUSES],
   actorScopes: [...ACTOR_SCOPES],

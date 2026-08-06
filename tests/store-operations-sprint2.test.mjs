@@ -63,7 +63,12 @@ test("profit values are hidden for every non-available state", async () => {
 
 test("projection contract retains version, required fields and safe unknown handling", async () => {
   const source = (await request("representative")).body;
-  const wire = { ...source, meta: { ...source.meta }, future_optional_field: "ignored-by-v1-consumer" };
+  const wire = {
+    ...source,
+    meta: { ...source.meta, tax_basis: "net" },
+    stores: source.stores.map((store) => ({ ...store, sales_net: { ...store.sales_gross, label: "売上（税抜）" } })),
+    future_optional_field: "ignored-by-v1-consumer"
+  };
   const normalized = validateProjectionResponse(wire);
   assert.equal(normalized.meta.projectionVersion, "store-sales-projection-v1");
   assert.equal(normalized.role, "representative");

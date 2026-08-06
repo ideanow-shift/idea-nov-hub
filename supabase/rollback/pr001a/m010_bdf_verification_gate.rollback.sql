@@ -1,0 +1,2 @@
+-- PR001-A / M010 rollback
+-- Verification creates no persistent object. No action required.

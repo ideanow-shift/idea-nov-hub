@@ -27,12 +27,16 @@ test("active Fair analytics excludes inactive rows and preserves null separately
   assert.deepEqual(summary, {
     activeCount: 3,
     contactCount: 20,
+    contactRegisteredCount: 2,
     contactComplete: false,
     lineRegistrationCount: 10,
+    lineRegistrationRegisteredCount: 2,
     lineRegistrationComplete: false,
     salonTourCount: 5,
+    salonTourRegisteredCount: 2,
     salonTourComplete: false,
     participationFee: 100000,
+    participationFeeRegisteredCount: 2,
     participationFeeComplete: false,
     contactCost: null
   });
@@ -53,7 +57,8 @@ test("Fair detail distinguishes unregistered, confirmed zero, and calculated val
   const fields = Object.fromEntries(view.sections.flatMap((section) => section.fields));
   assert.equal(fields["参加費"], "0円");
   assert.equal(fields["接触見込み数"], "未登録");
-  assert.equal(fields["全体入場数"], 0);
+  assert.equal(fields["全体入場数"], "0件");
+  assert.equal(fields["会場"], "未登録");
   assert.equal(fields["LINE登録率"], "0.0%");
   assert.equal(fields["見学率"], "集計準備中");
   assert.equal(fields["面接数"], "集計準備中");
@@ -61,6 +66,28 @@ test("Fair detail distinguishes unregistered, confirmed zero, and calculated val
   assert.equal(fields["採用数"], "集計準備中");
   assert.equal(fields["採用率"], "集計準備中");
   assert.equal(fields["Source Lineage"], "未登録");
+});
+
+test("Fair KPI coverage reports registered rows without treating null as zero", () => {
+  const active = Array.from({ length: 46 }, (_, index) => ({
+    is_active: true,
+    contact_count: index === 0 ? 712 : 0,
+    line_registration_count: index < 40 ? (index === 0 ? 465 : 0) : null,
+    salon_tour_count: index < 41 ? (index === 0 ? 188 : 0) : null,
+    participation_fee: index < 40 ? 0 : null
+  }));
+  const inactive = Array.from({ length: 36 }, () => ({
+    is_active: false, contact_count: 999, line_registration_count: 999, salon_tour_count: 999, participation_fee: 999
+  }));
+  const summary = summarizeActiveFairMasters([...active, ...inactive]);
+  assert.equal(summary.activeCount, 46);
+  assert.equal(summary.contactCount, 712);
+  assert.equal(summary.contactRegisteredCount, 46);
+  assert.equal(summary.lineRegistrationCount, 465);
+  assert.equal(summary.lineRegistrationRegisteredCount, 40);
+  assert.equal(summary.salonTourCount, 188);
+  assert.equal(summary.salonTourRegisteredCount, 41);
+  assert.equal(summary.participationFeeRegisteredCount, 40);
 });
 
 test("Fair management offers PC table, mobile cards, detail panel, and active-only copy", async () => {
@@ -71,6 +98,8 @@ test("Fair management offers PC table, mobile cards, detail panel, and active-on
   ]);
   assert.match(html, /class="analysis-table fair-master-table"/u);
   assert.match(html, /id="fair-detail-panel"/u);
+  for (const id of ["fair-contact-coverage", "fair-line-coverage", "fair-tour-coverage", "fair-fee-coverage"])
+    assert.match(html, new RegExp(`id="${id}"`, "u"));
   assert.match(css, /@media \(max-width: 720px\)[\s\S]*\.fair-master-table thead \{ display: none;/u);
   assert.match(app, /masters\.filter\(\(fair\) => fair\.is_active !== false\)/u);
   assert.match(app, /"詳細", "detail"/u);

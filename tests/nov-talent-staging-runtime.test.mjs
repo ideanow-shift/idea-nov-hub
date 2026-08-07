@@ -241,7 +241,7 @@ test("636 Candidate API response renders through the real frontend pipeline", as
   assert.equal(documentObject.getElementById("student-list").children.length, 636);
   assert.equal(documentObject.getElementById("fair-master-body").children.length, 3);
   assert.match(documentObject.getElementById("fair-master-body").children[0].innerHTML, /未登録/u);
-  assert.match(documentObject.getElementById("fair-master-body").children[1].innerHTML, />0</u);
+  assert.match(documentObject.getElementById("fair-master-body").children[1].innerHTML, />0件</u);
   resetTalentStudentWorkspaceForFixture();
 });
 

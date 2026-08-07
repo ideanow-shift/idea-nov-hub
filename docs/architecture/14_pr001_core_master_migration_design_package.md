@@ -16,7 +16,7 @@ Output:
 
 本書はArchitecture v1.1、Business Definition Contract v1.1、Tax Policy Freeze、Implementation Roadmap、Migration Program v1、Staging First Development Policyを変更しない下位設計である。
 
-今回の名称「PR001」はPhase 1設計審査のumbrellaを指す。実装時のmerge単位はMigration Program v1の分割を維持し、PR001=M001–M002、PR002=M003–M004、PR003=M005–M006、PR004=M007–M008、PR005=M009–M010とする。10 Migrationを1 PRへ再統合しない。
+今回の名称「PR001」はPhase 1設計審査のumbrellaを指す。本段落にあったMigration Program v1の未実装PR割当は、実装履歴M001–M011と衝突したためMigration Program v1.1で廃止された。番号の正本はMigration Program v1.1とし、実装済みM001–M011の番号・意味・順序は変更しない。PR001-A／PR001-B1はPR001 umbrella配下の実装単位であり、24 Program PRの追加番号には数えない。
 
 PR001はProduction物理schemaの複製ではない。idea-nov-stagingにCanonical Core Masterを新規構築し、Productionの内部ID・列名・型・PK/FKをStaging schemaへ固定しない。Production Attestationは通常のMigration authoring条件ではなく、承認済みSnapshot mappingまたは将来のProduction cutoverで必要になった場合だけ別Gateで行う。
 

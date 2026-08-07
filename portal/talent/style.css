@@ -2324,11 +2324,18 @@ h3 { margin: 0; font-size: 1rem; }
 .fair-origin-review-toolbar label { display:grid; gap:6px; min-width:180px; }
 .fair-origin-review-list { display:grid; gap:12px; }
 .fair-origin-review-card { border:1px solid var(--line, #e4dfe0); border-radius:16px; padding:16px; background:#fff; display:grid; gap:12px; }
+.fair-origin-review-card-multiple { border-color:#d8a548; background:#fffdf8; }
 .fair-origin-review-card header { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px 16px; }
+.fair-origin-review-kind { align-self:start; border-radius:999px; padding:5px 10px; background:#f4eeee; color:#6d5559; font-size:.78rem; font-weight:800; }
+.fair-origin-review-card-multiple .fair-origin-review-kind { background:#fff0c9; color:#76530b; }
+.fair-origin-review-prompt { margin:0; font-weight:800; color:#493d3f; }
 .fair-origin-review-card dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:0; }
 .fair-origin-review-card dl div { display:grid; gap:3px; }
 .fair-origin-review-card dt { color:#766c6e; font-size:.82rem; }
 .fair-origin-review-card dd { margin:0; overflow-wrap:anywhere; }
+.fair-origin-review-candidates { display:grid; gap:10px; }
+.fair-origin-review-candidate { display:grid; gap:10px; padding:13px; border:1px solid var(--line, #e4dfe0); border-radius:12px; background:#fff; }
+.fair-origin-review-candidate h3 { margin:0; font-size:1rem; }
 .fair-origin-review-actions { display:flex; flex-wrap:wrap; gap:8px; }
 .fair-origin-review-actions button { min-height:40px; }
 .fair-origin-review-empty { padding:18px; border:1px dashed var(--line, #e4dfe0); border-radius:14px; color:#766c6e; }

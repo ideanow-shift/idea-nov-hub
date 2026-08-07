@@ -708,7 +708,8 @@
               <div class="section-heading"><div><p class="section-kicker">人間確認</p><h2 id="fair-origin-review-title">フェアきっかけ確認</h2></div><p id="fair-origin-review-status" class="status">未読込</p></div>
               <p>「この学生はこのフェアがきっかけで合っていますか？」を、正本の根拠を見て1件ずつ確認します。自動確定・自動統合は行いません。</p>
               <div class="fair-origin-review-toolbar">
-                <label><span>状態</span><select id="fair-origin-review-filter"><option value="PENDING">確認待ち</option><option value="CONFIRMED">確認済み</option><option value="REJECTED">否認済み</option><option value="ALL">すべて</option></select></label>
+                <label><span>候補数</span><select id="fair-origin-review-candidate-filter"><option value="ALL">すべて</option><option value="UNIQUE">1候補</option><option value="MULTIPLE">複数候補</option></select></label>
+                <label><span>状態</span><select id="fair-origin-review-filter"><option value="ALL">すべて</option><option value="PENDING">確認待ち</option><option value="CONFIRMED">確認済み</option><option value="HOLD">保留</option><option value="REJECTED">否認済み</option></select></label>
                 <button id="fair-origin-review-reload" class="secondary-command" type="button">確認候補を読み込む</button>
               </div>
               <div id="fair-origin-review-list" class="fair-origin-review-list"></div>

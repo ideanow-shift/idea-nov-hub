@@ -851,6 +851,13 @@ h3 { margin: 0; font-size: 1rem; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.analysis-kpis .kpi-coverage {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
 .analysis-kpis .analysis-kpi-wide { grid-column: span 2; }
 .analysis-kpis .analysis-kpi-wide strong { font-size: 1rem; }
 .analysis-kpi-action { margin-top: 10px; padding: 5px 9px; border: 1px solid #e7c1c7; border-radius: 4px; color: var(--accent-strong); background: #fff; font: inherit; font-size: 0.72rem; font-weight: 800; cursor: pointer; }

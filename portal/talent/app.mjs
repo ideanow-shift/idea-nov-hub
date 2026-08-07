@@ -1333,6 +1333,10 @@ function renderAnalyticsCoverage(documentObject, analytics) {
   setText(documentObject, "fair-line-count", fairCountLabel(fairSummary.lineRegistrationCount));
   setText(documentObject, "fair-tour-count", fairCountLabel(fairSummary.salonTourCount));
   setText(documentObject, "fair-fee-total", fairSummary.participationFeeComplete ? fairCurrencyLabel(fairSummary.participationFee) : "集計準備中");
+  setText(documentObject, "fair-contact-coverage", fairCoverageLabel(fairSummary.contactRegisteredCount, fairSummary.activeCount));
+  setText(documentObject, "fair-line-coverage", fairCoverageLabel(fairSummary.lineRegistrationRegisteredCount, fairSummary.activeCount));
+  setText(documentObject, "fair-tour-coverage", fairCoverageLabel(fairSummary.salonTourRegisteredCount, fairSummary.activeCount));
+  setText(documentObject, "fair-fee-coverage", fairCoverageLabel(fairSummary.participationFeeRegisteredCount, fairSummary.activeCount));
   setText(documentObject, "fair-contact-cost", fairCurrencyLabel(fairSummary.contactCost, "集計準備中"));
   setText(documentObject, "fair-line-rate", fairSummary.lineRegistrationComplete && fairSummary.contactComplete ? fairRateLabel(fairSummary.lineRegistrationCount, fairSummary.contactCount) : "集計準備中");
   setText(documentObject, "fair-tour-rate", fairSummary.salonTourComplete && fairSummary.contactComplete ? fairRateLabel(fairSummary.salonTourCount, fairSummary.contactCount) : "集計準備中");
@@ -3429,7 +3433,7 @@ function renderFairMasters(documentObject, masters) {
 }
 
 function fairCountLabel(value) {
-  return value === null || value === undefined ? "未登録" : value;
+  return value === null || value === undefined ? "未登録" : `${value}件`;
 }
 
 function fairCurrencyLabel(value, emptyLabel = "未登録") {
@@ -3444,9 +3448,14 @@ function fairRateLabel(numerator, denominator) {
   return `${((Number(numerator) / Number(denominator)) * 100).toFixed(1)}%`;
 }
 
+function fairCoverageLabel(registeredCount, totalCount) {
+  return `${registeredCount} / ${totalCount}件登録`;
+}
+
 export function summarizeActiveFairMasters(masters = []) {
   const active = masters.filter((fair) => fair?.is_active !== false);
   const isComplete = (key) => active.every((fair) => fair?.[key] !== null && fair?.[key] !== undefined);
+  const registeredCount = (key) => active.filter((fair) => fair?.[key] !== null && fair?.[key] !== undefined).length;
   const sumNullable = (key) => {
     const registered = active.map((fair) => fair?.[key]).filter((value) => value !== null && value !== undefined);
     return registered.length ? registered.reduce((sum, value) => sum + Number(value), 0) : null;
@@ -3458,12 +3467,16 @@ export function summarizeActiveFairMasters(masters = []) {
   return Object.freeze({
     activeCount: active.length,
     contactCount,
+    contactRegisteredCount: registeredCount("contact_count"),
     contactComplete,
     lineRegistrationCount: sumNullable("line_registration_count"),
+    lineRegistrationRegisteredCount: registeredCount("line_registration_count"),
     lineRegistrationComplete: isComplete("line_registration_count"),
     salonTourCount: sumNullable("salon_tour_count"),
+    salonTourRegisteredCount: registeredCount("salon_tour_count"),
     salonTourComplete: isComplete("salon_tour_count"),
     participationFee,
+    participationFeeRegisteredCount: registeredCount("participation_fee"),
     participationFeeComplete,
     contactCost: !participationFeeComplete || !contactComplete || participationFee === null || contactCount === null || contactCount === 0
       ? null : Math.round(participationFee / contactCount)
@@ -3477,7 +3490,8 @@ export function buildFairDetailView(fair = {}) {
       Object.freeze({ title: "基本情報", fields: Object.freeze([
         ["フェア名", fair.fair_name || "未登録"], ["開催日", fair.event_date || "未登録"],
         ["運営会社", fair.organizer_name || "未登録"], ["開催形式", fair.event_format || "未登録"],
-        ["担当", fair.assigned_to || "未設定"], ["状態", fair.is_active === false ? "無効" : "有効"]
+        ["会場", fair.venue || "未登録"], ["担当", fair.assigned_to || "未設定"],
+        ["状態", fair.is_active === false ? "無効" : "有効"]
       ]) }),
       Object.freeze({ title: "費用・規模", fields: Object.freeze([
         ["参加費", fairCurrencyLabel(fair.participation_fee)], ["接触見込み数", fairCountLabel(fair.expected_contacts)],

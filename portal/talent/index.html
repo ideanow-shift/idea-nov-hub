@@ -694,6 +694,7 @@
           </header>
           <nav class="management-tool-index" aria-label="データメンテナンス一覧">
             <a href="#unlinked-interview-title">未紐付け履歴</a>
+            <a href="#fair-origin-review-title">フェアきっかけ確認</a>
             <a href="#review-command-title">重複確認・データ補正</a>
             <a href="#review-command-title">保留・隔離管理</a>
           </nav>
@@ -702,6 +703,15 @@
               <div class="section-heading"><div><p class="section-kicker">人間確認</p><h2 id="unlinked-interview-title">未紐付けの面接履歴</h2></div><p id="unlinked-interview-status" class="status">読み込み中</p></div>
               <p>強い識別キーがない過去履歴です。学生を選択し、内容を確認できた場合のみ紐付けてください。</p>
               <div id="unlinked-interview-list" class="unlinked-interview-list"></div>
+            </section>
+            <section id="fair-origin-review-panel" class="analysis-panel" data-management-section="fair-origin-review" data-management-tier="maintenance" aria-labelledby="fair-origin-review-title">
+              <div class="section-heading"><div><p class="section-kicker">人間確認</p><h2 id="fair-origin-review-title">フェアきっかけ確認</h2></div><p id="fair-origin-review-status" class="status">未読込</p></div>
+              <p>「この学生はこのフェアがきっかけで合っていますか？」を、正本の根拠を見て1件ずつ確認します。自動確定・自動統合は行いません。</p>
+              <div class="fair-origin-review-toolbar">
+                <label><span>状態</span><select id="fair-origin-review-filter"><option value="PENDING">確認待ち</option><option value="CONFIRMED">確認済み</option><option value="REJECTED">否認済み</option><option value="ALL">すべて</option></select></label>
+                <button id="fair-origin-review-reload" class="secondary-command" type="button">確認候補を読み込む</button>
+              </div>
+              <div id="fair-origin-review-list" class="fair-origin-review-list"></div>
             </section>
           </div>
         </section>

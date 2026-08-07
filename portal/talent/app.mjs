@@ -34,6 +34,7 @@ let auditDialogStudent = null;
 let activityDialogContext = null;
 let pendingSelectedApplicationNo = null;
 let selectedGraduationYear = "ALL";
+let fairOriginReviewEntries = [];
 
 const PRIMARY_TABS = Object.freeze(["recruitment"]);
 const RECRUITMENT_TABS = Object.freeze(["summary", "students", "fairs", "schools", "management"]);
@@ -3274,6 +3275,7 @@ function initializeTalentApp() {
   if (!authorization.allowed) return authorization;
   configureTalentOperationUi(globalThis.document, authorization.access?.profile);
   enableStagingWriteControls(globalThis.document, authorization.access?.profile);
+  if (authorization.access?.profile === "full") initializeFairOriginReview(globalThis.document, globalThis);
   initializeTalentStudentWorkspace();
   initializeTalentNavigation();
   const summaryControl = initializeTalentSummaryControl();
@@ -3381,6 +3383,88 @@ function renderUnlinkedInterviews(documentObject, rows, globalObject) {
       item.append(button);
     }
     return item;
+  }));
+}
+
+export function initializeFairOriginReview(documentObject, globalObject = globalThis) {
+  const reload = documentObject?.getElementById?.("fair-origin-review-reload");
+  const filter = documentObject?.getElementById?.("fair-origin-review-filter");
+  if (reload && !reload.dataset.bound) {
+    reload.dataset.bound = "true";
+    reload.addEventListener("click", () => loadFairOriginReview(documentObject, globalObject));
+  }
+  if (filter && !filter.dataset.bound) {
+    filter.dataset.bound = "true";
+    filter.addEventListener("change", () => renderFairOriginReview(documentObject, globalObject));
+  }
+  return Object.freeze({ initialized: Boolean(reload && filter) });
+}
+
+async function loadFairOriginReview(documentObject, globalObject) {
+  const status = documentObject?.getElementById?.("fair-origin-review-status");
+  const reload = documentObject?.getElementById?.("fair-origin-review-reload");
+  if (status) status.textContent = "確認候補を読み込んでいます";
+  if (reload) reload.disabled = true;
+  const result = await createStagingCandidateClient({ globalObject })?.fairOriginReviewQueue();
+  if (reload) reload.disabled = false;
+  if (!result?.ok) {
+    if (status) status.textContent = result?.category === "forbidden" ? "この操作を行う権限がありません" : "確認候補を取得できませんでした";
+    return;
+  }
+  fairOriginReviewEntries = Array.isArray(result.data?.entries) ? result.data.entries : [];
+  renderFairOriginReview(documentObject, globalObject);
+}
+
+function renderFairOriginReview(documentObject, globalObject) {
+  const list = documentObject?.getElementById?.("fair-origin-review-list");
+  const status = documentObject?.getElementById?.("fair-origin-review-status");
+  const filter = documentObject?.getElementById?.("fair-origin-review-filter")?.value || "PENDING";
+  if (!list) return;
+  const rows = fairOriginReviewEntries.filter((row) => filter === "ALL" || row.attribution_status === filter);
+  if (status) status.textContent = `${rows.length}件表示（全${fairOriginReviewEntries.length}件）`;
+  if (!rows.length) {
+    const empty = documentObject.createElement("p"); empty.className = "fair-origin-review-empty";
+    empty.textContent = fairOriginReviewEntries.length ? "選択した状態の確認候補はありません" : "確認候補はまだ登録されていません";
+    list.replaceChildren(empty); return;
+  }
+  list.replaceChildren(...rows.map((row) => {
+    const card = documentObject.createElement("article"); card.className = "fair-origin-review-card";
+    const heading = documentObject.createElement("header");
+    const title = documentObject.createElement("strong"); title.textContent = `${row.candidate_name || "氏名未登録"} — ${row.fair_name || "フェア名未登録"}`;
+    const state = documentObject.createElement("span"); state.textContent = ({ PENDING: "確認待ち", CONFIRMED: "確認済み", REJECTED: "否認済み" })[row.attribution_status] || "状態不明";
+    heading.append(title, state);
+    const details = documentObject.createElement("dl");
+    const fields = [
+      ["学校", row.school_name], ["学生の状態", CANDIDATE_STATUS_LABELS[row.candidate_status] || row.candidate_status],
+      ["フェア開催日", row.fair_event_date], ["元のきっかけ", row.original_trigger],
+      ["正本", row.source_type], ["参照位置", row.source_reference],
+      ["確認根拠", row.evidence_reference], ["候補の確度", ({ HIGH: "高", MEDIUM: "中", LOW: "低" })[row.confidence_level]]
+    ];
+    for (const [label, value] of fields) {
+      const item = documentObject.createElement("div"); const dt = documentObject.createElement("dt"); const dd = documentObject.createElement("dd");
+      dt.textContent = label; dd.textContent = value || "未登録"; item.append(dt, dd); details.append(item);
+    }
+    card.append(heading, details);
+    if (row.attribution_status === "PENDING") {
+      const actions = documentObject.createElement("div"); actions.className = "fair-origin-review-actions";
+      for (const [decision, label] of [["CONFIRMED", "このフェアで確認"], ["REJECTED", "このフェアではない"], ["PENDING", "保留"]]) {
+        const button = documentObject.createElement("button"); button.type = "button"; button.textContent = label;
+        if (decision !== "CONFIRMED") button.className = "secondary-command";
+        button.addEventListener("click", async () => {
+          const reason = globalObject.prompt?.(`${label}の理由を入力してください`);
+          if (!reason?.trim()) return;
+          const result = await createStagingCandidateClient({ globalObject })?.decideFairOrigin(row.attribution_id, {
+            decision, expectedVersion: row.attribution_version, reason: reason.trim(),
+            evidenceReference: row.evidence_reference, reviewNote: reason.trim()
+          });
+          if (!result?.ok) { if (status) status.textContent = result?.category === "version_conflict" ? "別の更新がありました。再読み込みしてください" : "判断を保存できませんでした"; return; }
+          await loadFairOriginReview(documentObject, globalObject);
+        });
+        actions.append(button);
+      }
+      card.append(actions);
+    }
+    return card;
   }));
 }
 

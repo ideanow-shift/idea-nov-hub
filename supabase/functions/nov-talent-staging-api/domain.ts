@@ -97,6 +97,19 @@ export function cleanSourceFactLink(input: unknown) {
   return Object.freeze({ candidateId, sourceType, sourceRowNo, factCode, expectedVersion, reason });
 }
 
+export function cleanFairAttributionDecision(input: unknown) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const value = input as Record<string, unknown>;
+  const decision = String(value.decision || "");
+  const expectedVersion = Number(value.expectedVersion);
+  const reason = clean(value.reason, 500);
+  const evidenceReference = clean(value.evidenceReference, 300);
+  const reviewNote = clean(value.reviewNote, 1000);
+  if (!["PENDING", "CONFIRMED", "REJECTED"].includes(decision)
+    || !Number.isInteger(expectedVersion) || expectedVersion < 1 || !reason || !evidenceReference) return null;
+  return Object.freeze({ decision, expectedVersion, reason, evidenceReference, reviewNote });
+}
+
 export function cleanRecruitmentMaster(input: unknown) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
   const value = input as Record<string, unknown>;

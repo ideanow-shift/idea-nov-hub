@@ -1,0 +1,76 @@
+{
+  "contract_name": "NOV Talent Fair Attribution Contract",
+  "contract_version": "1.0.0-draft",
+  "status": "BUSINESS_DEFINITION_APPROVED_IMPLEMENTATION_PENDING",
+  "attribution": {
+    "fields": {
+      "attribution_id": "uuid",
+      "candidate_id": "uuid",
+      "fair_id": "uuid",
+      "attribution_type": "enum",
+      "attribution_status": "enum",
+      "source_type": "enum",
+      "source_reference": "opaque_string",
+      "source_date": "date|null",
+      "evidence_reference": "opaque_string",
+      "confirmed_by": "actor_id|null",
+      "confirmed_at": "timestamp|null",
+      "created_at": "timestamp"
+    },
+    "attribution_types": ["ORIGIN"],
+    "statuses": ["PENDING", "CONFIRMED", "REJECTED"],
+    "source_types": ["FORMAL_SOURCE", "HUMAN_REVIEW", "OPERATIONAL_ENTRY"],
+    "kpi_eligible_status": "CONFIRMED",
+    "max_confirmed_origin_per_candidate": 1,
+    "automatic_linking": false,
+    "automatic_merge": false,
+    "automatic_delete": false
+  },
+  "selection_history": {
+    "required_fields": [
+      "selection_history_id",
+      "candidate_id",
+      "selection_stage",
+      "occurred_at",
+      "status",
+      "source_type",
+      "source_reference",
+      "version",
+      "created_at",
+      "updated_at"
+    ],
+    "official_interview_stage": "INTERVIEW_COMPLETED",
+    "official_offer_stage": "OFFERED"
+  },
+  "derived_kpis": {
+    "interview_count": {
+      "distinct_by": "candidate_id",
+      "requires": ["CONFIRMED_ORIGIN", "OFFICIAL_INTERVIEW_FACT"]
+    },
+    "offer_count": {
+      "distinct_by": "candidate_id",
+      "requires": ["CONFIRMED_ORIGIN", "OFFICIAL_OFFER_FACT"]
+    },
+    "hire_count": {
+      "status": "ALIAS",
+      "alias_of": "offer_count",
+      "label_preference": "内定数",
+      "actual_join_included": false
+    }
+  },
+  "legacy_fair_kpi_columns": {
+    "authoritative": false,
+    "allowed_use": "COMPATIBILITY_PROJECTION_ONLY",
+    "unknown_or_default_zero_is_official": false
+  },
+  "employee_core": {
+    "boundary": "ACTUAL_JOIN_SEPARATE_FROM_FAIR_KPI",
+    "access": "READ_ONLY_RECONCILIATION_FOR_FUTURE_ACTUAL_JOIN_TRACKING",
+    "talent_write_allowed": false,
+    "candidate_copy_allowed": false
+  },
+  "privacy": {
+    "pii_in_repository": false,
+    "raw_evidence_in_logs": false
+  }
+}

@@ -1,4 +1,4 @@
-import { cleanActivity, cleanCandidate, cleanRecruitmentMaster, cleanSourceFactLink, resolveAccess, STATUS_LABELS } from "./domain.ts";
+import { cleanActivity, cleanCandidate, cleanFairAttributionDecision, cleanRecruitmentMaster, cleanSourceFactLink, resolveAccess, STATUS_LABELS } from "./domain.ts";
 import { validateWorkspaceResponse, WORKSPACE_CONTRACT_VERSION } from "./workspace-contract-v1.generated.ts";
 
 const ORIGIN = "https://ideanow-shift.github.io";
@@ -48,7 +48,7 @@ async function authorize(runtime: Runtime, request: Request) {
     if (!UUID.test(actor)) return { category: "ACTOR_IDENTITY_UNAVAILABLE" } as const;
     const roles = (Array.isArray(env.employee.roleKeys) ? env.employee.roleKeys : [])
       .map((value: unknown) => String(value || "").trim().toLowerCase());
-    const role = roles.find((value: string) => ["super_admin", "backoffice", "hr.admin", "hr.staff", "executive"].includes(value));
+    const role = ["super_admin", "backoffice", "hr.admin", "hr.staff", "executive"].find((value) => roles.includes(value));
     if (!role) return { category: "FORBIDDEN" } as const;
     return { profile, actor, role } as const;
   } catch { return { category: "AUTH_REQUIRED" } as const; }
@@ -58,7 +58,11 @@ function serviceHeaders(runtime: Runtime) { return { apikey: runtime.serviceRole
 async function db(runtime: Runtime, path: string, init: RequestInit = {}) { return runtime.fetchImpl(new URL(path, runtime.supabaseUrl), { ...init, headers: { ...serviceHeaders(runtime), ...(init.headers || {}) } }); }
 async function rpc(runtime: Runtime, name: string, body: unknown) {
   const result = await db(runtime, `/rest/v1/rpc/${name}`, { method: "POST", body: JSON.stringify(body) });
-  if (!result.ok) return { ok: false, status: result.status === 409 ? 409 : 400 };
+  if (!result.ok) {
+    const error = await result.json().catch(() => null);
+    const conflict = result.status === 409 || ["23505", "40001"].includes(String(error?.code || ""));
+    return { ok: false, status: conflict ? 409 : 400 };
+  }
   const rows = await result.json();
   return { ok: true, data: Array.isArray(rows) ? rows[0] : rows };
 }
@@ -355,6 +359,38 @@ export function createHandler(runtime: Runtime) {
       return fail(category === "AUTH_REQUIRED" ? 401 : 403, category, origin);
     }
     const requestId = crypto.randomUUID();
+    const fairReviewHistoryMatch = /^\/api\/talent\/v1\/fair-origin-review\/([0-9a-f-]+)\/history$/iu.exec(path);
+    const fairReviewDecisionMatch = /^\/api\/talent\/v1\/fair-origin-review\/([0-9a-f-]+)\/decision$/iu.exec(path);
+    if (path.startsWith("/api/talent/v1/fair-origin-review")) {
+      if (actor.profile !== "full") return fail(403, "REVIEW_FORBIDDEN", origin);
+      if (request.method === "GET" && path === "/api/talent/v1/fair-origin-review") {
+        const result = await db(runtime, "/rest/v1/rpc/nov_talent_list_fair_attribution_review_v1", {
+          method: "POST", body: JSON.stringify({ p_actor_role: actor.role })
+        });
+        return result.ok ? out(200, { ok: true, data: { entries: await result.json() } }, origin)
+          : fail(result.status || 503, "REVIEW_QUEUE_UNAVAILABLE", origin);
+      }
+      if (request.method === "GET" && fairReviewHistoryMatch && UUID.test(fairReviewHistoryMatch[1])) {
+        const result = await db(runtime, "/rest/v1/rpc/nov_talent_list_fair_attribution_history_v1", {
+          method: "POST", body: JSON.stringify({ p_actor_role: actor.role, p_attribution_id: fairReviewHistoryMatch[1] })
+        });
+        return result.ok ? out(200, { ok: true, data: { entries: await result.json() } }, origin)
+          : fail(result.status || 503, "REVIEW_HISTORY_UNAVAILABLE", origin);
+      }
+      if (request.method === "POST" && fairReviewDecisionMatch && UUID.test(fairReviewDecisionMatch[1])) {
+        const body = await request.json().catch(() => null);
+        const decision = cleanFairAttributionDecision(body);
+        if (!decision) return fail(400, "INVALID_REQUEST", origin);
+        const result = await rpc(runtime, "nov_talent_review_fair_attribution_v1", {
+          p_actor_employee_id: actor.actor, p_actor_role: actor.role, p_attribution_id: fairReviewDecisionMatch[1],
+          p_expected_version: decision.expectedVersion, p_decision: decision.decision,
+          p_reason: decision.reason, p_evidence_reference: decision.evidenceReference, p_review_note: decision.reviewNote
+        });
+        return result.ok ? out(200, { ok: true, data: result.data }, origin)
+          : fail(result.status || 400, result.status === 409 ? "VERSION_CONFLICT" : "REVIEW_WRITE_FAILED", origin);
+      }
+      return fail(404, "NOT_FOUND", origin);
+    }
     const endpoint = path.endsWith("/api/talent/v1/dashboard/summary") ? "dashboard_summary"
       : path.endsWith("/api/talent/v1/workspace") ? "workspace" : "talent_api";
     const rowResult = await readRows(runtime, requestId, endpoint);

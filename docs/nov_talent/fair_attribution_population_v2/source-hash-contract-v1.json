@@ -1,0 +1,25 @@
+{
+  "contract_version": "fair-attribution-source-hash-contract-v1",
+  "source": {
+    "spreadsheet_id": "1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM",
+    "sheet_id": 1142586954,
+    "range": "G3:G530",
+    "value_render_option": "UNFORMATTED_VALUE",
+    "access_mode": "read_only"
+  },
+  "canonicalization": {
+    "row_order": "ascending_physical_rows_3_through_530",
+    "missing_cell": "json_null",
+    "explicit_null": "json_null",
+    "string_transformation": "none",
+    "unicode_normalization": "none",
+    "fullwidth_halfwidth_conversion": "none",
+    "cell_newline": "preserve_json_string_value",
+    "container": "recursively_key_sorted_compact_json",
+    "encoding": "utf-8",
+    "bom": false,
+    "final_newline": false,
+    "hash_algorithm": "sha-256",
+    "digest_encoding": "hex_lowercase"
+  }
+}

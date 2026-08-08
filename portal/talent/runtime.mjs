@@ -1,9 +1,9 @@
-import { buildTodayTasks, createNovTalentMockRepository } from "./mock-repository.mjs";
+import { createNovTalentMockRepository } from "./mock-repository.mjs";
 import { NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
 import {
   createDashboardSummaryExact1Executor,
   createTalentWorkspaceExact1Executor
-} from "./exact1.mjs?v=20260806-workspace-contract-v1-1";
+} from "./exact1.mjs?v=20260808-v1-accuracy-1";
 
 const METRIC_LABELS = Object.freeze({
   contacts: "接触数",
@@ -83,11 +83,7 @@ export function createTalentWorkspaceExecutor({ globalObject = globalThis } = {}
         if (result?.okBoolean !== true) return result;
         return Object.freeze({
           ...result,
-          runtimeMode: "staging",
-          data: Object.freeze({
-            ...result.data,
-            todayTasks: buildTodayTasks(result.data.students, new Date(), 5)
-          })
+          runtimeMode: "staging"
         });
       }
     });

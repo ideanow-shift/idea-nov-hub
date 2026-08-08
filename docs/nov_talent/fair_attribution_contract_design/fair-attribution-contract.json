@@ -1,7 +1,7 @@
 {
   "contract_name": "NOV Talent Fair Attribution Contract",
-  "contract_version": "1.0.0-draft",
-  "status": "BUSINESS_DEFINITION_APPROVED_IMPLEMENTATION_PENDING",
+  "contract_version": "1.0.0",
+  "status": "WORKFLOW_STAGING_READY_POPULATION_NOT_EXECUTED_KPI_NOT_RELEASED",
   "attribution": {
     "fields": {
       "attribution_id": "uuid",

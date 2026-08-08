@@ -1,10 +1,10 @@
 {
   "contractId": "NOV_TALENT_STAGING_OPERATIONS_CONTRACT",
-  "contractVersion": "1.0.0",
-  "status": "DATASET_ACTIVE_UI_RUNTIME_PENDING",
-  "effectiveDate": "2026-08-03",
+  "contractVersion": "2.0.0",
+  "status": "STAGING_OPERATION_ACTIVE",
+  "effectiveDate": "2026-08-08",
   "versionCompatibility": {
-    "operationsDictionaryVersion": "1.3.0",
+    "operationsDictionaryVersion": "1.5.0",
     "sealedDryRunDataContractVersion": "1.2.0",
     "candidateMappingSemanticsChanged": false,
     "freshSnapshotRequiredBeforeImport": true
@@ -26,6 +26,7 @@
     "developmentUseOnly": false
   },
   "initialScope": {
+    "scopeType": "HISTORICAL_INITIAL_CANDIDATE_MIGRATION",
     "officialSourceOnly": true,
     "sourceCodes": [
       "OFFICIAL_SOURCE_27_CONTACTS",
@@ -52,18 +53,44 @@
     "candidateManagement": true,
     "candidateSearch": true,
     "dashboard": true,
-    "directCandidateMutationFromNovTalent": false,
+    "eventContactManagement": true,
+    "selectionHistoryManagement": true,
+    "nextActionManagement": true,
+    "directCandidateMutationFromNovTalent": true,
+    "spreadsheetRoutineUpdates": false,
     "productionPromotion": false
   },
   "systemOfRecord": {
-    "type": "OFFICIAL_SPREADSHEET",
+    "type": "NOV_TALENT_STAGING",
     "updateFlow": [
-      "SPREADSHEET_UPDATE",
-      "READ_ONLY_PREFLIGHT",
-      "OWNER_APPROVED_IMPORT",
-      "STAGING_DATASET_ACTIVATION"
+      "NOV_HUB_AUTHENTICATED_UI",
+      "SERVER_SIDE_API",
+      "RLS_PROTECTED_WRITE",
+      "APPEND_ONLY_AUDIT"
     ],
+    "spreadsheetStatus": "REFERENCE_ONLY_ARCHIVE",
+    "spreadsheetRoutineWrite": false,
+    "spreadsheetBidirectionalSync": false,
     "reverseWriteToSpreadsheet": false
+  },
+  "sourceOfTruth": {
+    "candidate": "IDENTITY_AND_CURRENT_STATE_PROJECTION",
+    "eventContact": [
+      "CONTACT",
+      "LINE_REGISTRATION",
+      "SALON_TOUR"
+    ],
+    "selectionHistory": [
+      "APPLICATION",
+      "INTERVIEW",
+      "OFFER",
+      "OFFER_ACCEPTANCE",
+      "WITHDRAWAL",
+      "REJECTION"
+    ],
+    "sourceFact": "UNLINKED_IMPORT_EVIDENCE_UNTIL_SAFELY_LINKED",
+    "fairOrigin": "CONFIRMED_ORIGIN_ONLY",
+    "legacyFairKpiOfficial": false
   },
   "importPolicy": {
     "mode": "VERSIONED_SNAPSHOT_REPLACEMENT",
@@ -115,6 +142,7 @@
     "rollbackPerformed": false,
     "schemaContract": "staging-candidate-versioned-dataset-schema.json",
     "schemaSourceStatus": "REMOTE_APPLIED_ACTIVE_DATASET",
-    "nextGate": "STAGING_RUNTIME_PR_MERGE_AND_EXPLICIT_PAGES_PUBLICATION"
-  }
+    "nextGate": "OUTCOME_0_ACCURACY_AND_CONTRACT_ALIGNMENT"
+  },
+  "workspaceContractVersion": "1.0.0"
 }

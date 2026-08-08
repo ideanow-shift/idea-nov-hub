@@ -35,7 +35,7 @@ null、空文字、空白文字だけの値は未入力として扱う。No.だ�
 
 Human Review完了6グループは、Owner確認により `different_person / keep_separate` として安定IDへ記録した。pending reviewと当該グループ由来Quarantineは0件である。正式Source 2件のprivate read-only dry-runは636対象行、Quarantine 0件でPASSし、件数とHashだけを持つSnapshot候補を生成済みである。
 
-Migrationは環境ごとに分離する。StagingはOwner受領、Staging Migration承認、運用開始承認を経て先行利用する。Candidate専用Versioned Dataset schemaのmigration sourceは実装済みで、Remote Staging適用は未実施である。ProductionはStaging運用検証完了後の別昇格承認まで `PRODUCTION_MIGRATION_HOLD` とする。
+Migrationは環境ごとに分離する。StagingはOwner受領、Staging Migration承認、運用開始承認を経て先行利用する。Candidate専用Versioned Dataset schemaはRemote Stagingへ適用済みで、636 CandidateがACTIVEである。ProductionはStaging運用検証完了後の別昇格承認まで `PRODUCTION_MIGRATION_HOLD` とする。
 
 Candidate schemaは `BUILDING / READY / ACTIVE / RETIRED` を固定状態とし、ACTIVEは最大1件、seal前に総数・卒年別件数を一致確認する。Dataset切替は単一transactionで行い、直前ACTIVEをRETIREDとして保持する。Event / ContactとSelection Historyは本schemaの対象外である。
 
@@ -60,16 +60,16 @@ Candidate schemaは `BUILDING / READY / ACTIVE / RETIRED` を固定状態とし�
 - 個人値を仕様書、ログ、GitHub成果物へ複製しない
 - 件数不一致時はMigrationを開始しない
 
-## 7. Staging先行運用
+## 7. 初回Staging Migrationの履歴契約
 
 - 環境区分: `OPERATION_VALIDATION_ENVIRONMENT`
 - 対象: 27卒528件＋28卒108件、合計636 Candidate
 - 初回書込みEntity: Candidateのみ
 - 利用機能: Candidate管理、検索、Dashboard
-- 正本: 正式Spreadsheet
-- 更新経路: `Spreadsheet → read-only preflight → 承認済みImport → Staging`
-- NOV Talent画面からのCandidate直接更新: 禁止
+- 初回Migration Source: 承認済み正式Spreadsheet Snapshot
+- 初回更新経路: `Spreadsheet Snapshot → read-only preflight → 承認済みImport → Staging`
+- 現在の日常更新: NOV Talentの認証済みserver-side API
 - Import: versioned snapshot replacement、retry 0、件数・Hash不一致は安全停止
 - Production昇格: Staging受入完了後の別承認
 
-詳細は `staging-operations-contract.json` を機械可読正本とする。
+初回Migration後のSpreadsheetは参照用アーカイブであり、日常の新規入力、通常更新、双方向同期を行わない。詳細は `staging-operations-contract.json` を機械可読正本とする。

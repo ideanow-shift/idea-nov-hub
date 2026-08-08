@@ -1,4 +1,8 @@
-# Fair Attribution Contract v1.0.0-draft
+# Fair Attribution Contract v1.0.0
+
+Status: `WORKFLOW_STAGING_READY / POPULATION_NOT_EXECUTED / KPI_NOT_RELEASED`
+
+Business DefinitionとHuman Review Workflowは承認・適用済みです。実データPopulationと正式KPI公開は別Gateであり、DB司令塔のData GateとOwner明示承認なしに実行しません。
 
 ## 1. Contract purpose
 

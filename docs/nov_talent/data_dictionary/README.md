@@ -14,7 +14,7 @@ NOV Talentの正式名称、正式コード、正式定義の正本である。
 - Staging Candidate Versioned Dataset schema: `staging-candidate-versioned-dataset-schema.json`
 - Platform環境運用方針: `platform-environment-policy.md`
 - Snapshot・受領・Rollback契約: 各Migration契約文書
-- 現行Version: `1.4.0`
+- 現行Version: `1.5.0`
 
 AI、CSV、UI、DB、Platformは機械可読正本に存在する値だけを参照する。未定義値は推測せず、安全停止する。
 
@@ -25,13 +25,13 @@ AI、CSV、UI、DB、Platformは機械可読正本に存在する値だけを参
 - 27卒接触Sourceの最新read-only対象件数: 528行
 - No.だけの空テンプレート: 13行、Migration対象外
 - Staging Migration: `STAGING_DATASET_ACTIVE`
-- Staging UI Runtime: `STAGING_RUNTIME_READY_FOR_PUBLICATION`
+- Staging UI Runtime: `STAGING_OPERATION_ACTIVE`
 - Production Migration: `PRODUCTION_MIGRATION_HOLD`
 - Migration契約4件: 仕様確定
-- Staging schema/API: Candidate Versioned DatasetはACTIVE、read-only APIはRemote Stagingへ適用済み
+- Staging schema/API: Candidate Versioned DatasetはACTIVE、公開Staging Runtimeと認証済みserver-side APIは運用中
 - Production保留理由: Staging運用検証とProduction昇格別承認が未完了
 
-Candidate同一性、Human Review証拠構造、移行先区分、Snapshot・受領・Rollbackの仕様は確定した。重複候補6グループはOwner確認により `different_person / keep_separate` として安定IDへ記録済みである。最新正式Sourceのread-only再受領は636対象行でPASSした。Candidate専用Versioned DatasetはRemote StagingでACTIVE、read-only APIとRole Guardは接続済みである。Production昇格は未実施である。
+Candidate同一性、Human Review証拠構造、移行先区分、Snapshot・受領・Rollbackの仕様は確定した。重複候補6グループはOwner確認により `different_person / keep_separate` として安定IDへ記録済みである。最新正式Sourceのread-only再受領は636対象行でPASSした。Candidate専用Versioned DatasetはRemote StagingでACTIVE、Staging Runtime、server-side API、Role Guardは接続済みである。既存Spreadsheetは参照用アーカイブとし、日常入力はNOV Talentで行う。Production昇格は未実施である。
 
 - Dry-run report: `migration-dry-run-report.md`
 - Snapshot candidate: `migration-dry-run-snapshot.candidate.json`

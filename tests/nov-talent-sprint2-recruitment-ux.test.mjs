@@ -13,6 +13,7 @@ import { buildAnonymousTalentSeeds } from "../portal/talent/mock-seeds.mjs";
 const candidates = buildAnonymousTalentSeeds({ now: new Date("2026-08-01T12:00:00+09:00") }).candidates;
 const workspace = {
   students: candidates,
+  summary: { contacts: 84 },
   dashboard: {
     candidateCount: 147,
     entries: 42,
@@ -23,7 +24,7 @@ const workspace = {
     schoolCount: 5,
     fairCount: 45,
     availability: {
-      candidateCount: true, entries: true, salonTourPlanned: true, interviewPlanned: true,
+      candidateCount: true, eventCount: true, entries: true, salonTourPlanned: true, interviewPlanned: true,
       offers: true, withdrawals: true, schoolCount: true, fairCount: true, todayActions: false
     }
   }
@@ -52,7 +53,7 @@ test("unconnected dashboard metrics show 集計準備中 instead of a false zero
 });
 
 test("dashboard puts overdue work in the morning conclusion", () => {
-  const view = buildRecruitmentDashboardDecision(workspace, [{ priority: "高" }]);
+  const view = buildRecruitmentDashboardDecision(workspace, [{ dueDate: "2026-07-31" }], "2026-08-01");
   assert.equal(view.category, "OVERDUE_FIRST");
   assert.match(view.title, /期限超過/);
 });
@@ -86,20 +87,40 @@ test("today task board identifies existing data as its only source", () => {
   assert.equal(buildRecruitmentTaskBoard([{ candidateId: "a" }])[0].source, "STAGING_NEXT_ACTION");
 });
 
-test("event ROI refuses to estimate missing cost", () => {
+test("Fair ROI waits for confirmed Fair origin attribution", () => {
   const roi = buildEventRoiView(workspace);
-  assert.equal(roi.category, "ROI_UNAVAILABLE_COST_MISSING");
+  assert.equal(roi.category, "FAIR_ATTRIBUTION_PREPARING");
+  assert.match(roi.title, /フェア起点確認後/u);
   assert.equal(roi.costAvailable, false);
   assert.equal(roi.estimated, false);
 });
 
 for (const [key, label] of [["entryRate", "応募到達率"], ["offerRate", "内定到達率"]]) {
-  test(`event ROI shows ${label} from existing counts`, () => {
+  test(`Fair ROI keeps ${label} preparing even when global Selection totals exist`, () => {
     const metric = buildEventRoiView(workspace).metrics.find((item) => item.key === key);
     assert.equal(metric.label, label);
-    assert.match(metric.value, /^\d+%$/);
+    assert.equal(metric.value, "集計準備中");
   });
 }
+
+test("Fair ROI never uses Candidate or global Event count as its denominator", () => {
+  const metric = buildEventRoiView({
+    ...workspace,
+    summary: { contacts: 2 },
+    dashboard: { ...workspace.dashboard, candidateCount: 10, entries: 1 }
+  }).metrics.find((item) => item.key === "entryRate");
+  assert.equal(metric.value, "集計準備中");
+});
+
+test("Fair ROI does not promote a global confirmed zero to a Fair-specific rate", () => {
+  const roi = buildEventRoiView({
+    ...workspace,
+    summary: { contacts: 0 },
+    dashboard: { ...workspace.dashboard, entries: 0, offers: 0 }
+  });
+  assert.equal(roi.category, "FAIR_ATTRIBUTION_PREPARING");
+  assert.equal(roi.metrics.find((item) => item.key === "entryRate").value, "集計準備中");
+});
 
 test("event ROI keeps the unconnected acceptance rate in preparing state", () => {
   assert.equal(buildEventRoiView(workspace).metrics.find((item) => item.key === "acceptedRate").value, "集計準備中");

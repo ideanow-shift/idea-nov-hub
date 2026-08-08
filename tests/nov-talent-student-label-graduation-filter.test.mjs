@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { buildTalentTodayDashboard, graduationYearWorkspace, normalizeGraduationYearFilter } from "../portal/talent/app.mjs";
+import { buildTalentAnalytics } from "../portal/talent/analytics.mjs";
 
 const root = new URL("../portal/", import.meta.url);
 
@@ -33,35 +34,47 @@ test("today dashboard counts current work from the selected graduation workspace
   const workspace = {
     students: [
       student("27-a", 2027, "2026-08-04", { nextActions: [action("a", "2026-08-04")] }),
-      student("27-b", 2027, "2026-08-05", { eventHistory: [{ active: true, code: "SALON_TOUR_PLANNED", date: "2026-08-05" }] }, "2026-08-05"),
+      student("27-b", 2027, "2026-08-05", {
+        eventHistory: [{ active: true, code: "SALON_TOUR_PLANNED", date: "2026-08-05" }],
+        selectionHistory: [{ active: true, code: "APPLICATION_RECEIVED", date: "2026-08-05" }]
+      }, "2026-08-05"),
       student("28-a", 2028, "2026-08-05", { selectionHistory: [{ active: true, code: "INTERVIEW_PLANNED", date: "2026-08-05" }] })
     ],
-    todayTasks: [action("task-27", "2026-08-05"), action("task-28", "2026-08-05")],
-    dashboard: { availability: { todayActions: true, salonTourPlanned: true, interviewPlanned: true } },
+    todayTasks: [{ candidateId: "27-a", dueDate: "2026-08-05", label: "27対応", assignedTo: null },
+      { candidateId: "28-a", dueDate: "2026-08-05", label: "28対応", assignedTo: null }],
+    dashboard: { availability: { todayActions: true, entries: true, eventCount: true, interviewHistory: true, salonTourPlanned: true, interviewPlanned: true } },
     schoolMasters: [], fairMasters: [], overview: {}
   };
-  workspace.todayTasks[0].candidateId = "27-a";
-  workspace.todayTasks[1].candidateId = "28-a";
-
   const view = buildTalentTodayDashboard(graduationYearWorkspace(workspace, "2027"), "2026-08-05");
   assert.deepEqual({
     actions: view.actions, overdue: view.overdue, visits: view.visits, interviews: view.interviews,
     awaitingContact: view.awaitingContact, newStudents: view.newStudents, recentStudents: view.recentStudents
-  }, { actions: 1, overdue: 1, visits: 1, interviews: 0, awaitingContact: 2, newStudents: 1, recentStudents: 2 });
+  }, { actions: null, overdue: null, visits: 1, interviews: 0, awaitingContact: null, newStudents: 1, recentStudents: null });
   assert.equal(view.rawValuesIncluded, false);
 });
 
-test("graduation-year workspace filters students, dashboard, actions, fairs, and schools together", () => {
-  const student = (recordId, graduationYear, schoolId, fairId, code) => ({
+test("graduation-year workspace filters students and uses Event and Selection facts without status fallback", () => {
+  const student = (recordId, graduationYear, schoolId, fairId, code, facts = {}) => ({
     recordId, graduationYear, schoolId, fairId, school: `学校${schoolId}`,
-    statusCode: code, classification: "IMPORTABLE", selectionHistory: [], eventHistory: [], contactHistory: []
+    statusCode: code, classification: "IMPORTABLE", mappingStatus: "OWNER_CONFIRMED",
+    selectionHistory: facts.selectionHistory || [], eventHistory: facts.eventHistory || [],
+    contactHistory: facts.contactHistory || [], nextActions: []
   });
   const workspace = {
-    students: [student("27-a", 2027, "school-27", "fair-27", "OFFERED"), student("28-a", 2028, "school-28", "fair-28", "LINE_REGISTERED")],
+    students: [
+      student("27-a", 2027, "school-27", "fair-27", "EXPECTED_JOIN", { contactHistory: [
+        { active: true, code: "CONTACT_RECORDED" }, { active: true, code: "CONTACT_RECORDED" }
+      ] }),
+      student("28-a", 2028, "school-28", "fair-28", "LINE_REGISTERED")
+    ],
     todayTasks: [{ candidateId: "27-a", label: "27対応" }, { candidateId: "28-a", label: "28対応" }],
-    schoolMasters: [{ school_id: "school-27", school_name: "学校school-27" }, { school_id: "school-28", school_name: "学校school-28" }],
-    fairMasters: [{ fair_id: "fair-27" }, { fair_id: "fair-28" }],
-    dashboard: { availability: { candidateCount: true, offers: true, lineRegistrations: true } },
+    schoolMasters: [{ school_id: "school-27", school_name: "学校school-27", is_active: true }, { school_id: "school-28", school_name: "学校school-28", is_active: true }, { school_id: "inactive", school_name: "学校school-27", is_active: false }],
+    fairMasters: [{ fair_id: "fair-27", is_active: true }, { fair_id: "fair-28", is_active: true }, { fair_id: "fair-27", is_active: false }],
+    dashboard: { availability: {
+      candidateCount: true, eventCount: true, entries: true, offers: true, interviewHistory: true,
+      interviewPlanned: true, lineRegistrations: true, salonTourPlanned: true, salonTourCompleted: true,
+      offeredElsewhere: true, withdrawals: true, rejected: true, todayActions: true
+    } },
     overview: {}
   };
 
@@ -73,7 +86,26 @@ test("graduation-year workspace filters students, dashboard, actions, fairs, and
   assert.equal(filtered.dashboard.candidateCount, 1);
   assert.equal(filtered.dashboard.graduation2027, 1);
   assert.equal(filtered.dashboard.graduation2028, 0);
-  assert.equal(filtered.dashboard.offers, 1);
+  assert.equal(filtered.dashboard.offers, 0);
+  assert.equal(filtered.dashboard.schoolCount, 1);
+  assert.equal(filtered.overview.contacts, 2);
+  assert.equal(filtered.summary.contacts, 2);
+  assert.equal(filtered.summary.expectedJoiners, 1);
+  assert.equal(filtered.dashboard.availability.fairCount, false);
+  assert.equal(buildTalentAnalytics(filtered).fairSourceAvailable, false);
+  assert.deepEqual(buildTalentAnalytics(filtered).flow, []);
   assert.equal(normalizeGraduationYearFilter("invalid"), "ALL");
   assert.equal(graduationYearWorkspace(workspace, "ALL"), workspace);
+});
+
+test("graduation-year school count uses active School Master only and preserves formal zero", () => {
+  const workspace = {
+    students: [{ recordId: "student", graduationYear: 2027, schoolId: null, school: "候補者だけの学校", contactHistory: [], eventHistory: [], selectionHistory: [], nextActions: [] }],
+    schoolMasters: [{ school_id: "inactive", school_name: "候補者だけの学校", is_active: false }],
+    fairMasters: [], todayTasks: [], overview: {},
+    dashboard: { availability: { schoolCount: true } }
+  };
+  const filtered = graduationYearWorkspace(workspace, "2027");
+  assert.equal(filtered.dashboard.schoolCount, 0);
+  assert.deepEqual(filtered.schoolMasters, []);
 });

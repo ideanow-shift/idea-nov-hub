@@ -32,36 +32,36 @@ function stateResult(state, factory) {
 }
 
 function buildSummary(candidates) {
-  const count = (code) => candidates.filter((candidate) => candidate.statusCode === code).length;
+  const countEvent = (code) => candidates.filter((candidate) => hasEvent(candidate, code)).length;
+  const countSelection = (code) => candidates.filter((candidate) => hasSelection(candidate, code)).length;
   return Object.freeze({
     payloadMode: "summary",
     fiscalYear: "all",
     summary: Object.freeze({
-      contacts: candidates.length,
-      lineRegistrations: candidates.filter((candidate) => candidate.lineRegistrationDate).length,
-      salonTours: count("SALON_TOUR_COMPLETED"),
-      interviews: count("INTERVIEW_COMPLETED"),
-      passed: count("OFFER_ACCEPTED"),
-      offers: count("OFFERED"),
-      expectedJoiners: count("EXPECTED_JOIN")
+      contacts: countEventRows(candidates, "CONTACT_RECORDED"),
+      lineRegistrations: countEvent("LINE_REGISTERED"),
+      salonTours: countEvent("SALON_TOUR_COMPLETED"),
+      interviews: countSelection("INTERVIEW_COMPLETED"),
+      passed: countSelection("OFFER_ACCEPTED"),
+      offers: countSelection("OFFERED"),
+      expectedJoiners: candidates.filter((candidate) => candidate.statusCode === "EXPECTED_JOIN").length
     })
   });
 }
 
 function buildWorkspace(candidates) {
-  const countSource = (prefix) => candidates.filter((candidate) => candidate.sourceCode.startsWith(prefix)).length;
   const ownerReview = candidates.filter((candidate) => candidate.classification === "OWNER_REVIEW").length;
   const quarantined = candidates.filter((candidate) => candidate.classification === "QUARANTINE").length;
   return Object.freeze({
     fiscalYear: "all",
     payloadMode: "workspace",
     overview: Object.freeze({
-      contacts: countSource("CONTACTS_"),
-      entries: countSource("ENTRIES_"),
+      contacts: countEventRows(candidates, "CONTACT_RECORDED"),
+      entries: candidates.filter((candidate) => hasSelection(candidate, "APPLICATION_RECEIVED")).length,
       exactLinkSuggestions: 0,
       mapped: candidates.length - ownerReview - quarantined,
       manual: 0,
-      offers: countSource("OFFERS_"),
+      offers: candidates.filter((candidate) => hasSelection(candidate, "OFFERED")).length,
       ownerReview,
       primaryCandidates: 0,
       quarantined,
@@ -75,24 +75,33 @@ function buildWorkspace(candidates) {
 export function buildTodayTasks(candidates, now = new Date(), limit = 5) {
   const today = dateText(now);
   return Object.freeze(candidates
+    .filter((candidate) => /^\d{4}-\d{2}-\d{2}$/u.test(String(candidate.nextActionAt || "")) && candidate.nextActionAt <= today)
     .map((candidate) => {
-      const overdue = candidate.nextActionAt && candidate.nextActionAt <= today;
-      const reason = overdue
-        ? candidate.nextActionLabel || "対応期限を確認"
-        : candidate.nextActionLabel || (candidate.statusCode === "OFFERED" ? "内定承諾を確認"
-          : candidate.statusCode === "SALON_TOUR_COMPLETED" ? "見学後フォロー"
-            : candidate.classification === "OWNER_REVIEW" ? "要確認を整理" : "");
-      return reason ? Object.freeze({
+      const reason = candidate.nextActionLabel || "対応期限を確認";
+      return Object.freeze({
+        assignedTo: candidate.assignee || null,
         candidateId: candidate.recordId,
-        candidateName: candidate.displayName,
         dueDate: candidate.nextActionAt,
-        label: reason,
-        priority: overdue ? "高" : "通常"
-      }) : null;
+        label: reason
+      });
     })
-    .filter(Boolean)
     .sort((left, right) => String(left.dueDate || "9999-12-31").localeCompare(String(right.dueDate || "9999-12-31")))
     .slice(0, Math.max(0, Math.min(5, Number(limit) || 0))));
+}
+
+function hasEvent(candidate, code) {
+  return [...(candidate?.contactHistory || []), ...(candidate?.eventHistory || [])]
+    .some((item) => item?.active !== false && item?.code === code);
+}
+
+function countEventRows(candidates, code) {
+  return candidates.reduce((count, candidate) => count + [...(candidate?.contactHistory || []), ...(candidate?.eventHistory || [])]
+    .filter((item) => item?.active !== false && item?.code === code).length, 0);
+}
+
+function hasSelection(candidate, code) {
+  return (candidate?.selectionHistory || [])
+    .some((item) => item?.active !== false && item?.code === code);
 }
 
 function dateText(value) {

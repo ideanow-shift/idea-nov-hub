@@ -2,7 +2,7 @@ import { NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
 import {
   validateWorkspaceResponse,
   WORKSPACE_CONTRACT_VERSION
-} from "./generated/workspace-contract-v1.mjs?v=20260806-workspace-contract-v1-1";
+} from "./generated/workspace-contract-v1.mjs?v=20260808-v1-accuracy-1";
 
 const REQUIRED_AUDIENCE = "nov_hub";
 const SUMMARY_FIELDS = Object.freeze([

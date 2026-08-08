@@ -2,7 +2,7 @@
 
 ## 判定
 
-Candidate 636件を受けるVersioned Dataset schemaのmigration sourceを実装した。Remote Stagingへの適用とCandidate投入は未実施である。
+Candidate 636件を受けるVersioned Dataset schemaをRemote Stagingへ適用し、27卒528件・28卒108件、合計636件がACTIVEである。
 
 ## 対象
 
@@ -43,4 +43,4 @@ Candidate行は `BUILDING` datasetへのINSERTだけを許可する。READY以�
 
 `supabase/migrations/20260803083708_nov_talent_candidate_versioned_dataset.sql`
 
-このmigrationはRemote Staging `idea-nov-staging` へ適用済みで、Snapshot `NOV-TALENT-STAGING-E30AE047735FC922` の636 CandidateがACTIVEである。公開NOV Talentは引き続き匿名Mock Runtimeであり、総務人事部の利用開始にはStaging専用のread runtimeと既存Role Guardの接続が必要である。
+このmigrationはRemote Staging `idea-nov-staging` へ適用済みで、Snapshot `NOV-TALENT-STAGING-E30AE047735FC922` の636 CandidateがACTIVEである。公開NOV TalentはStaging RuntimeとNOV HUB Session / Role Guardを使用する。Mock Runtimeは固定回帰とFeature Flag用に保持するが、公開業務データの正本ではない。

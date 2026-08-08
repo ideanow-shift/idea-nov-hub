@@ -97,7 +97,10 @@ const edge = banner + defs + "\n\n" + edgeTypes + "\n\n" + edgeValidator;
 async function emit(target, content) {
   if (CHECK) {
     const current = await readFile(target, "utf8").catch(() => "");
-    if (current !== content) throw new Error(`generated workspace contract is stale: ${path.relative(ROOT, target)}`);
+    const normalizeLineEndings = (value) => value.replace(/\r\n/gu, "\n");
+    if (normalizeLineEndings(current) !== normalizeLineEndings(content)) {
+      throw new Error(`generated workspace contract is stale: ${path.relative(ROOT, target)}`);
+    }
     return;
   }
   await writeFile(target, content, "utf8");

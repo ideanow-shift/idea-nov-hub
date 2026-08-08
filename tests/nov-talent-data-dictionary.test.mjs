@@ -45,7 +45,7 @@ const uniqueCodes = (values) => new Set(values.map((value) => value.code)).size 
 
 test("NOV Talent Data Dictionary is the canonical versioned specification", () => {
   assert.equal(dictionary.dictionaryId, "NOV_TALENT_DATA_DICTIONARY");
-  assert.equal(dictionary.dictionaryVersion, "1.4.0");
+  assert.equal(dictionary.dictionaryVersion, "1.5.0");
   assert.equal(dictionary.status, "CANONICAL");
   assert.equal(dictionary.governance.unknownCodePolicy, "REJECT");
   assert.equal(dictionary.governance.undefinedDefinitionPolicy, "FAIL_CLOSED");
@@ -65,6 +65,19 @@ test("candidate statuses and event codes are unique and preserve current contrac
     "INTERVIEW_PLANNED", "INTERVIEW_COMPLETED", "SELECTION_PASSED", "OFFER_ISSUED",
     "EXPECTED_JOIN_CONFIRMED"
   ]);
+  assert.deepEqual(dictionary.events.filter(({ officialKpiSource }) => officialKpiSource).map(({ code }) => code), [
+    "CONTACT_RECORDED", "LINE_REGISTERED", "SALON_TOUR_PLANNED", "SALON_TOUR_COMPLETED"
+  ]);
+  assert.equal(dictionary.events.slice(4).every(({ officialKpiSource }) => officialKpiSource === false), true);
+  assert.deepEqual(dictionary.sourceResponsibilities.selectionHistoryOfficialCodes, [
+    "APPLICATION_RECEIVED", "INTERVIEW_PLANNED", "INTERVIEW_COMPLETED", "OFFERED",
+    "OFFER_ACCEPTED", "OFFERED_ELSEWHERE", "WITHDRAWN", "REJECTED"
+  ]);
+  assert.equal(dictionary.sourceResponsibilities.legacyEventCodesAreOfficialKpiSource, false);
+  assert.equal(dictionary.sourceResponsibilities.legacyCrossDomainActivityMutationAllowed, false);
+  assert.equal(dictionary.sourceResponsibilities.legacyActivityReadDeactivateAllowed, true);
+  assert.equal(dictionary.sourceResponsibilities.crossGrainRatePolicy, "PREPARING_UNTIL_SAME_GRAIN_CONTRACT");
+  assert.equal(dictionary.sourceResponsibilities.legacyFairKpiColumnsAreOfficialSource, false);
 });
 
 test("invalidation and duplicate decisions fail closed to the approved values", () => {
@@ -84,7 +97,7 @@ test("migration, platform, release and count definitions remain consistent", () 
   assert.equal(dictionary.currentPlatformStatus, "DATA_INTEGRITY_COMPLETED / STAGING_DATASET_ACTIVE / PRODUCTION_MIGRATION_HOLD");
   assert.equal(dictionary.migration.currentStatus, "STAGING_DATASET_ACTIVE");
   assert.equal(dictionary.migration.productionStatus, "PRODUCTION_MIGRATION_HOLD");
-  assert.equal(dictionary.migration.reasonCode, "STAGING_RUNTIME_READY_FOR_PUBLICATION");
+  assert.equal(dictionary.migration.reasonCode, "STAGING_OPERATION_ACTIVE");
   assert.equal(dictionary.migration.dataIntegrityCompleted, true);
   assert.equal(dictionary.migration.activeRowDefinition.status, "DEFINED");
   assert.deepEqual(dictionary.migration.activeRowDefinition.anyOfFields, [
@@ -98,11 +111,23 @@ test("migration, platform, release and count definitions remain consistent", () 
   assert.equal(dictionary.migration.holdReleaseCriteria[0].artifact, "migration-dry-run-snapshot.candidate.json");
   assert.match(migrationSpec, /No\.だけ採番された空テンプレート行はMigration対象外/);
   assert.match(readme, /Migration契約4件: 仕様確定/);
-  assert.match(readme, /read-only APIはRemote Stagingへ適用済み/);
+  assert.match(readme, /Candidate専用Versioned DatasetはRemote StagingでACTIVE/);
+  assert.match(readme, /既存Spreadsheetは参照用アーカイブ/);
   assert.equal(dictionary.countDefinitions.dataIntegrity.currentValues.remainingCount, 0);
   assert.equal(dictionary.countDefinitions.dataIntegrity.currentValues.resolutionRate, 100);
-  assert.equal(dictionary.currentRelease.status, "RELEASE_READY");
+  assert.equal(dictionary.currentRelease.status, "OPERATIONAL_COMPLETION_PENDING");
+  assert.equal(dictionary.currentRelease.workspaceContractVersion, "1.0.0");
+  assert.equal(dictionary.currentRelease.currentOutcome, "OUTCOME_0_ACCURACY_AND_CONTRACT_ALIGNMENT");
   assert.equal(dictionary.currentRelease.productionDeployExecutedByThisDictionarySprint, false);
+  const schoolMetric = dictionary.countDefinitions.dashboard.find(({ code }) => code === "DASHBOARD_SCHOOLS");
+  assert.equal(schoolMetric?.basis, "ACTIVE School Master行数");
+  const fairMetric = dictionary.countDefinitions.dashboard.find(({ code }) => code === "DASHBOARD_FAIRS");
+  assert.equal(fairMetric?.basis, "ACTIVE Fair Master行数");
+  const todayMetric = dictionary.countDefinitions.dashboard.find(({ code }) => code === "DASHBOARD_TODAY_ACTIONS");
+  assert.match(todayMetric?.basis || "", /Asia\/Tokyo/);
+  assert.equal(dictionary.school.masterTable, "nov_talent_school_masters_v1");
+  assert.equal(dictionary.school.masterIdentityField, "school_id");
+  assert.equal(dictionary.school.candidateLinkField, "school_id");
 });
 
 test("private read-only dry-run snapshot seals official-source counts and safety boundaries", () => {
@@ -136,11 +161,12 @@ test("private read-only dry-run snapshot seals official-source counts and safety
 });
 
 test("staging operations contract fixes 636 candidates and keeps production prohibited", () => {
-  assert.equal(stagingOperationsContract.status, "DATASET_ACTIVE_UI_RUNTIME_PENDING");
+  assert.equal(stagingOperationsContract.contractVersion, "2.0.0");
+  assert.equal(stagingOperationsContract.status, "STAGING_OPERATION_ACTIVE");
   assert.equal(stagingOperationsContract.environmentPolicy.staging, "OPERATION_VALIDATION_ENVIRONMENT");
   assert.equal(stagingOperationsContract.environmentPolicy.production, "PROHIBITED_UNTIL_SEPARATE_PROMOTION_APPROVAL");
   assert.equal(stagingOperationsContract.initialScope.candidateCount, 636);
-  assert.equal(stagingOperationsContract.versionCompatibility.operationsDictionaryVersion, "1.3.0");
+  assert.equal(stagingOperationsContract.versionCompatibility.operationsDictionaryVersion, "1.5.0");
   assert.equal(stagingOperationsContract.versionCompatibility.sealedDryRunDataContractVersion, "1.2.0");
   assert.equal(stagingOperationsContract.versionCompatibility.candidateMappingSemanticsChanged, false);
   assert.equal(stagingOperationsContract.versionCompatibility.freshSnapshotRequiredBeforeImport, true);
@@ -149,10 +175,16 @@ test("staging operations contract fixes 636 candidates and keeps production proh
   assert.equal(stagingOperationsContract.operatorCapabilities.candidateManagement, true);
   assert.equal(stagingOperationsContract.operatorCapabilities.candidateSearch, true);
   assert.equal(stagingOperationsContract.operatorCapabilities.dashboard, true);
-  assert.equal(stagingOperationsContract.operatorCapabilities.directCandidateMutationFromNovTalent, false);
+  assert.equal(stagingOperationsContract.operatorCapabilities.directCandidateMutationFromNovTalent, true);
+  assert.equal(stagingOperationsContract.operatorCapabilities.eventContactManagement, true);
+  assert.equal(stagingOperationsContract.operatorCapabilities.selectionHistoryManagement, true);
+  assert.equal(stagingOperationsContract.operatorCapabilities.nextActionManagement, true);
   assert.deepEqual(stagingOperationsContract.systemOfRecord.updateFlow, [
-    "SPREADSHEET_UPDATE", "READ_ONLY_PREFLIGHT", "OWNER_APPROVED_IMPORT", "STAGING_DATASET_ACTIVATION"
+    "NOV_HUB_AUTHENTICATED_UI", "SERVER_SIDE_API", "RLS_PROTECTED_WRITE", "APPEND_ONLY_AUDIT"
   ]);
+  assert.equal(stagingOperationsContract.systemOfRecord.type, "NOV_TALENT_STAGING");
+  assert.equal(stagingOperationsContract.systemOfRecord.spreadsheetStatus, "REFERENCE_ONLY_ARCHIVE");
+  assert.equal(stagingOperationsContract.systemOfRecord.spreadsheetRoutineWrite, false);
   assert.equal(stagingOperationsContract.importPolicy.mode, "VERSIONED_SNAPSHOT_REPLACEMENT");
   assert.equal(stagingOperationsContract.importPolicy.retryCount, 0);
   assert.equal(stagingOperationsContract.importPolicy.sourceChangeRequiresFreshSnapshot, true);
@@ -161,8 +193,10 @@ test("staging operations contract fixes 636 candidates and keeps production proh
   assert.equal(stagingOperationsContract.safety.spreadsheetWriteFromNovTalent, false);
   assert.equal(stagingOperationsContract.sourceSnapshot.mustBeRevalidatedImmediatelyBeforeImport, false);
   assert.equal(stagingOperationsContract.sourceSnapshot.revalidationStatus, "PASS_COUNTS_AND_SOURCE_HASH");
-  assert.match(stagingOperationsGuide, /正式Spreadsheetを更新[\s\S]*read-only preflight/);
-  assert.match(stagingOperationsGuide, /Production昇格承認はこれらに含まれない/);
+  assert.match(stagingOperationsGuide, /総務人事部はNOV Talentで次を行います/);
+  assert.match(stagingOperationsGuide, /既存Spreadsheetは参照用アーカイブ/);
+  assert.match(stagingOperationsGuide, /Production `idea-nov-core`は別の昇格承認/);
+  assert.match(stagingOperationsGuide, /Production: 書込み・昇格未実施/);
 });
 
 test("platform environment policy fixes one Production and one Staging project", () => {

@@ -6,9 +6,9 @@
   <meta name="nov-talent-workspace-contract-version" content="1.0.0">
   <title>求人管理システム | IDEA NOV</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=20260806-workspace-contract-v1-1">
-  <script src="./runtime-config.candidate.js?v=20260806-workspace-contract-v1-1"></script>
-  <script type="module" src="./app.mjs?v=20260806-workspace-contract-v1-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260808-v1-accuracy-1">
+  <script src="./runtime-config.candidate.js?v=20260808-v1-accuracy-1"></script>
+  <script type="module" src="./app.mjs?v=20260808-v1-accuracy-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -567,21 +567,21 @@
           <p id="fair-analysis-status" class="status" data-state="loading" role="status">集計しています</p>
         </div>
         <section class="analysis-panel master-operation-panel" aria-labelledby="fair-master-title">
-          <header><div><h3 id="fair-master-title">フェアマスタ</h3><p>開催情報と採用実績を登録すると、採用率・採用単価へ即時反映されます。</p></div></header>
+          <header><div><h3 id="fair-master-title">フェアマスタ</h3><p>開催情報と接触・LINE登録・見学の正式実績を管理します。面接・内定は選考履歴の接続完了まで集計準備中です。</p></div></header>
           <form id="fair-master-form" class="master-form" hidden>
             <input id="fair-master-id" type="hidden"><input id="fair-master-version" type="hidden">
             <label><span>フェア名 *</span><input id="fair-master-name" maxlength="180" required></label>
             <label><span>開催日 *</span><input id="fair-master-date" type="date" required></label>
-            <label><span>参加費</span><input id="fair-master-fee" type="number" min="0" value="0"></label>
+            <label><span>参加費</span><input id="fair-master-fee" type="number" min="0"></label>
             <label><span>会場</span><input id="fair-master-venue" maxlength="180"></label>
             <label><span>担当</span><input id="fair-master-owner" maxlength="120"></label>
-            <label><span>参加人数</span><input id="fair-master-participants" type="number" min="0" value="0"></label>
-            <label><span>接触人数</span><input id="fair-master-contacts" type="number" min="0" value="0"></label>
-            <label><span>LINE登録</span><input id="fair-master-line" type="number" min="0" value="0"></label>
-            <label><span>見学</span><input id="fair-master-tours" type="number" min="0" value="0"></label>
-            <label><span>面接</span><input id="fair-master-interviews" type="number" min="0" value="0"></label>
-            <label><span>内定</span><input id="fair-master-offers" type="number" min="0" value="0"></label>
-            <label><span>採用人数</span><input id="fair-master-hires" type="number" min="0" value="0"></label>
+            <label><span>参加人数</span><input id="fair-master-participants" type="number" min="0"></label>
+            <label><span>接触人数</span><input id="fair-master-contacts" type="number" min="0"></label>
+            <label><span>LINE登録</span><input id="fair-master-line" type="number" min="0"></label>
+            <label><span>見学</span><input id="fair-master-tours" type="number" min="0"></label>
+            <label hidden><span>面接（集計準備中）</span><input id="fair-master-interviews" type="number" min="0" disabled aria-disabled="true"></label>
+            <label hidden><span>内定（集計準備中）</span><input id="fair-master-offers" type="number" min="0" disabled aria-disabled="true"></label>
+            <label hidden><span>旧採用人数（正式指標に使用しません）</span><input id="fair-master-hires" type="number" min="0" disabled aria-disabled="true"></label>
             <label class="profile-wide"><span>更新理由 *</span><input id="fair-master-reason" maxlength="500" required></label>
             <div class="master-form-actions"><button class="primary-command" type="submit">確認して保存</button><button id="fair-master-reset" class="secondary-command" type="button">新規入力へ戻す</button></div>
           </form>
@@ -601,7 +601,7 @@
           <article><span>接触単価</span><strong id="fair-contact-cost">-</strong></article>
           <article><span>LINE登録率</span><strong id="fair-line-rate">-</strong></article>
           <article><span>見学率</span><strong id="fair-tour-rate">-</strong></article>
-          <article><span>記録月数</span><strong id="fair-month-count">-</strong><button id="fair-latest-month-open" class="analysis-kpi-action" type="button" disabled>最新月を見る</button></article>
+          <article><span>開催月数</span><strong id="fair-month-count">-</strong><button id="fair-latest-month-open" class="analysis-kpi-action" type="button" disabled>最新月を見る</button></article>
           <article><span>学校数</span><strong id="school-count">-</strong></article>
         </section>
         <section id="event-roi-panel" class="event-roi-panel" data-category="ROI_UNAVAILABLE_COST_MISSING" aria-labelledby="event-roi-title">
@@ -610,18 +610,17 @@
         </section>
         <section class="analysis-panel" aria-labelledby="fair-flow-title">
           <header>
-            <div><h3 id="fair-flow-title">月別 接点・選考推移</h3><p>27卒の記録月を基準に、各データ区分の件数を比較します。</p></div>
-            <span class="data-badge">取込データ</span>
+            <div><h3 id="fair-flow-title">フェア別 接触実績</h3><p>有効なFair Masterごとに、保存済みの接触・LINE登録実績を表示します。</p></div>
+            <span class="data-badge">Fair Master</span>
           </header>
           <div class="analysis-table-scroll">
             <table class="analysis-table">
-                <thead><tr><th>記録月</th><th>接触</th><th>LINE登録</th><th>エントリー</th><th>内定</th><th>要確認</th><th>フォロー</th></tr></thead>
+                <thead><tr><th>フェア</th><th>接触</th><th>LINE登録</th><th>エントリー</th><th>内定</th><th>要確認</th><th>フォロー</th></tr></thead>
               <tbody id="fair-flow-body"></tbody>
             </table>
           </div>
-          <p id="fair-flow-empty" class="analysis-empty" hidden>集計できる日付情報がありません。</p>
+          <p id="fair-flow-empty" class="analysis-empty" hidden>表示できる有効フェアがありません。</p>
         </section>
-        <p class="analysis-note">フェア名・参加費用は現在のデータに確定項目がないため、推測せず月別の流入実績を表示しています。</p>
       </section>
 
       <section id="recruitment-schools" class="secondary-panel" role="tabpanel" hidden>
@@ -640,11 +639,11 @@
             <div class="master-form-actions"><button class="primary-command" type="submit">確認して保存</button><button id="school-master-reset" class="secondary-command" type="button">新規入力へ戻す</button></div>
           </form>
           <p id="school-master-status" class="status" data-state="idle" role="status">学校情報を読み込んでいます</p>
-          <div class="analysis-table-scroll"><table class="analysis-table"><thead><tr><th>学校</th><th>学部・学科</th><th>担当</th><th>学生</th><th>見学</th><th>面接</th><th>内定</th><th>採用率</th><th>操作</th></tr></thead><tbody id="school-master-body"></tbody></table></div>
+          <div class="analysis-table-scroll"><table class="analysis-table"><thead><tr><th>学校</th><th>学部・学科</th><th>担当</th><th>学生</th><th>見学</th><th>面接</th><th>内定</th><th>内定率</th><th>操作</th></tr></thead><tbody id="school-master-body"></tbody></table></div>
         </section>
         <section class="analysis-kpis" aria-label="学校情報の登録状況">
           <article><span>集計対象校</span><strong id="school-registered-count">-</strong></article>
-          <article><span>学校未登録</span><strong id="school-missing-count">-</strong></article>
+          <article><span>学校未紐付け</span><strong id="school-missing-count">-</strong></article>
           <article class="analysis-kpi-wide"><span>接触数トップ</span><strong id="school-top-name">-</strong><button id="school-top-open" class="analysis-kpi-action" type="button" disabled>学生を見る</button></article>
         </section>
         <section class="analysis-panel" aria-labelledby="school-table-title">
@@ -680,7 +679,7 @@
           <div class="management-daily-grid">
             <button type="button" data-management-open-tab="students"><strong>学生管理</strong><span>学生の検索・登録・編集・履歴確認</span></button>
             <button type="button" data-management-open-tab="schools"><strong>学校管理</strong><span>学校・学部・担当と実績の管理</span></button>
-            <button type="button" data-management-open-tab="fairs"><strong>フェア管理</strong><span>開催情報・費用・採用実績の管理</span></button>
+            <button type="button" data-management-open-tab="fairs"><strong>フェア管理</strong><span>開催情報・費用・接触実績の管理</span></button>
             <button type="button" data-management-open-tab="students"><strong>監査履歴</strong><span>学生を選び、変更履歴を確認</span></button>
             <article aria-disabled="true"><strong>ユーザー管理</strong><span>将来対応</span></article>
             <article aria-disabled="true"><strong>システム設定</strong><span>将来対応</span></article>

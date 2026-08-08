@@ -5,9 +5,9 @@
 | 項目 | 正式値 |
 |---|---|
 | 文書ID | `NOV_TALENT_DATA_DICTIONARY` |
-| Version | `1.4.0` |
+| Version | `1.5.0` |
 | Status | `CANONICAL` |
-| 適用日 | 2026-08-04 |
+| 適用日 | 2026-08-08 |
 | 機械可読正本 | `nov-talent-data-dictionary.json` |
 
 本書はNOV Talentで使用する正式名称、正式コード、正式定義の正本である。AI、CSV、UI、DB、Platformは、機械可読正本に存在するコードと定義だけを参照する。辞書にない値は推測・自動補完せず、処理を安全側で停止する。
@@ -43,27 +43,34 @@
 
 ## 4. 学校
 
-正式フィールドは `SCHOOL_NAME`（CSV列 `school_name`、アプリ項目 `school`）とする。学校名は閉じたEnumではなく文字列正本である。
+正式な学校同一性はVersioned School Masterの `school_id`、正式名称は `school_name` とする。Candidateの `school_id` はMasterへの参照、`school` はSource由来名称の表示・未紐付け確認用であり、学校数や正式ランキングの代替Sourceにしない。学校名は閉じたEnumではなく、管理画面から追加・修正できる文字列である。
 
 - 最大180文字
 - Unicode NFKC正規化、前後空白除去、空文字はnull
 - 略称の自動展開、学校名の推測、仮名による穴埋めは禁止
 - 正本で確認できない場合は空欄のまま確認対象にする
-- 学校マスタの正式コード体系は現時点で未定義
+- School Master tableは `nov_talent_school_masters_v1`
+- 学校数はACTIVE School Master行数。Master取得失敗や未紐付け名称をCandidate所属数で補完しない
 
-## 5. イベント
+## 5. Event / ContactとSelectionの責務
 
-| Metric Key | 正式イベントコード | 正式名称 | 定義 |
-|---|---|---|---|
-| `contacts` | `CONTACT_RECORDED` | 接点記録 | 候補者との接点を1件記録する。 |
-| `lineRegistrations` | `LINE_REGISTERED` | LINE登録 | LINE登録確認を1件記録する。 |
-| `salonTourPlanned` | `SALON_TOUR_PLANNED` | 見学予定 | 見学予定を1件記録する。 |
-| `salonTours` | `SALON_TOUR_COMPLETED` | 見学完了 | 見学完了を1件記録する。 |
-| `interviewPlanned` | `INTERVIEW_PLANNED` | 面接予定 | 面接予定を1件記録する。 |
-| `interviews` | `INTERVIEW_COMPLETED` | 面接完了 | 面接完了を1件記録する。 |
-| `passed` | `SELECTION_PASSED` | 選考通過 | 選考通過イベント。候補者状態 `OFFER_ACCEPTED`（内定承諾）とは同一視しない。 |
-| `offers` | `OFFER_ISSUED` | 内定提示 | 内定提示を1件記録する。 |
-| `expectedJoiners` | `EXPECTED_JOIN_CONFIRMED` | 入社予定確認 | 入社予定確認を1件記録する。 |
+正式なEvent / Contact KPIは接触、LINE登録、サロン見学に限定する。面接、内定、内定承諾、辞退、不採用はSelection Historyを正本とする。Candidateは人物同一性と現在状態のProjection、Source Factは安全にCandidateへ連結されるまでImport Evidenceとして扱う。
+
+Event行数とunique Candidate数は異なる粒度である。同一粒度の正式契約がない全体LINE登録率、School応募率、School内定率は計算せず「集計準備中」とする。
+
+以下の旧Eventコードは既存互換のため辞書に残すが、`officialKpiSource = false` のコードを正式KPIへ加算してはならない。旧Eventの面接コードと旧Selectionの見学コードは既存履歴の表示・理由付き無効化・復元だけを許可し、新規作成・内容更新を禁止する。面接はSelection History、見学はEvent / Contactへ入力する。
+
+| Metric Key | コード | 表示名 | 正式KPI Source | 定義 |
+|---|---|---|---|---|
+| `contacts` | `CONTACT_RECORDED` | 接点記録 | Event / Contact | 候補者との接点を1件記録する。 |
+| `lineRegistrations` | `LINE_REGISTERED` | LINE登録 | Event / Contact | LINE登録確認を1件記録する。 |
+| `salonTourPlanned` | `SALON_TOUR_PLANNED` | 見学予定 | Event / Contact | 見学予定を1件記録する。 |
+| `salonTours` | `SALON_TOUR_COMPLETED` | 見学完了 | Event / Contact | 見学完了を1件記録する。 |
+| `interviewPlanned` | `INTERVIEW_PLANNED` | 面接予定 | 使用禁止（legacy） | 正式KPIはSelection Historyの `INTERVIEW_PLANNED`。 |
+| `interviews` | `INTERVIEW_COMPLETED` | 面接完了 | 使用禁止（legacy） | 正式KPIはSelection Historyの `INTERVIEW_COMPLETED`。 |
+| `passed` | `SELECTION_PASSED` | 選考通過 | 使用禁止（legacy） | 正式な選考事実はSelection History。`OFFER_ACCEPTED`とは同一視しない。 |
+| `offers` | `OFFER_ISSUED` | 内定提示 | 使用禁止（legacy） | 正式KPIはSelection Historyの `OFFERED`。 |
+| `expectedJoiners` | `EXPECTED_JOIN_CONFIRMED` | 入社予定確認 | 使用禁止（legacy） | 現在の人数はCandidateの `EXPECTED_JOIN` Projection。 |
 
 ### 5.1 イベント失効理由
 
@@ -99,14 +106,15 @@
 | 正式コード | 表示名 | Staging Runtimeの算出基準 |
 |---|---|---|
 | `DASHBOARD_CANDIDATES` | 候補者数 | ACTIVE Candidateの件数 |
+| `DASHBOARD_CONTACTS` | 接触件数 | ACTIVE Candidateに紐づくACTIVE Eventの `CONTACT_RECORDED` 行数 |
 | `DASHBOARD_ENTRIES` | 応募数 | Selection Historyの `APPLICATION_RECEIVED` を持つCandidate数 |
 | `DASHBOARD_SALON_TOUR_PLANNED` | 見学予定数 | Eventの `SALON_TOUR_PLANNED` を持つCandidate数 |
-| `DASHBOARD_INTERVIEW_PLANNED` | 面接予定数 | Eventの `INTERVIEW_PLANNED` を持つCandidate数 |
+| `DASHBOARD_INTERVIEW_PLANNED` | 面接予定数 | Selection Historyの `INTERVIEW_PLANNED` を持つCandidate数 |
 | `DASHBOARD_OFFERS` | 内定数 | Selection Historyの `OFFERED` を持つCandidate数 |
 | `DASHBOARD_WITHDRAWALS` | 辞退数 | Selection Historyの `WITHDRAWN` を持つCandidate数 |
-| `DASHBOARD_SCHOOLS` | 学校数 | ACTIVE Candidateの空欄でない正規化学校名の異なり数 |
-| `DASHBOARD_FAIRS` | フェア数 | 正式Sourceの有効なフェア記録数 |
-| `DASHBOARD_TODAY_ACTIONS` | 今日やること | OPENかつ期限が当日以前のNext Action件数。画面表示は最大5件 |
+| `DASHBOARD_SCHOOLS` | 学校数 | ACTIVE School Master行数 |
+| `DASHBOARD_FAIRS` | フェア数 | ACTIVE Fair Master行数 |
+| `DASHBOARD_TODAY_ACTIONS` | 今日やること | OPENかつ期限がAsia/Tokyoの業務日当日以前のNext Action件数。表示リストは最大5件 |
 
 Sourceまたは履歴接続が未完了の指標は、0件ではなく `集計準備中` と表示する。0は正式集計が完了した結果にだけ使用する。
 
@@ -138,7 +146,7 @@ Sourceまたは履歴接続が未完了の指標は、0件ではなく `集計�
 
 | 対象 | Version |
 |---|---|
-| Data Dictionary | `1.4.0` |
+| Data Dictionary | `1.5.0` |
 | Data Integrity Report schema | `1.2` |
 | Work Queue seed schema | `2.0` |
 | Source Lineage schema | `1.0` |
@@ -149,7 +157,7 @@ Sourceまたは履歴接続が未完了の指標は、0件ではなく `集計�
 | 項目 | 正式値 |
 |---|---|
 | Staging Status | `STAGING_DATASET_ACTIVE` |
-| Staging理由コード | `STAGING_RUNTIME_READY_FOR_PUBLICATION` |
+| Staging理由コード | `STAGING_OPERATION_ACTIVE` |
 | Production Status | `PRODUCTION_MIGRATION_HOLD` |
 | Production理由コード | `STAGING_OPERATION_VALIDATION_AND_PROMOTION_APPROVAL_PENDING` |
 | Data Integrity | 完了済み |
@@ -165,23 +173,23 @@ Migration対象行の件数定義と5つのMigration・Staging運用契約は確
 - Snapshot・受領・Rollback: 各Migration契約文書
 - Staging先行運用: `staging-operations-contract.json`
 
-### 10.2 Staging運用開始前の残件
+### 10.2 Staging適用結果
 
 | 優先 | 正式コード | 残件 |
 |---:|---|---|
 | 1 | `PRIVATE_READ_ONLY_DRY_RUN_AND_SNAPSHOT` | `RESOLVED`。正式Source 2件、636対象行、Quarantine 0件でdry-run PASSし、件数・HashだけのSnapshot候補を生成済み。 |
 | 2 | `STAGING_OWNER_MIGRATION_AND_OPERATION_APPROVAL` | `RESOLVED`。Ownerが最新Snapshot、636 CandidateのStaging Migration、Migration照合後の運用開始を明示承認済み。 |
-| 3 | `STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_CONTRACT` | Candidate Versioned Dataset migration source実装済み。Remote Staging適用待ち。 |
+| 3 | `STAGING_CANDIDATE_VERSIONED_DATASET_SCHEMA_CONTRACT` | `REMOTE_APPLIED_ACTIVE_DATASET`。Candidate 636件がRemote StagingでACTIVE。 |
 
-### 10.3 Staging先行運用
+### 10.3 初回Migrationと現在の日常運用
 
 - 正式Source: 27卒528件、28卒108件、合計636 Candidate
-- 利用機能: Candidate管理、検索、Dashboard
-- 正本: 正式Spreadsheet
-- 更新経路: `Spreadsheet → read-only preflight → 承認済みImport → Staging`
+- 利用機能: Candidate、Event / Contact、Selection History、Next Action、検索、Dashboard
+- 現在の日常更新正本: NOV Talent Staging
+- 更新経路: `NOV HUB認証済みUI → server-side API → RLS保護書込み → append-only監査`
 - 初回書込み範囲: Candidate 636件のみ
-- NOV Talent画面からのCandidate直接更新: 禁止
-- Import方式: versioned snapshot replacement
+- 初回Import方式: versioned snapshot replacement
+- Spreadsheet: 初回Migration Sourceの履歴証拠および参照用アーカイブ。新規入力、通常更新、双方向同期なし
 - Production昇格: 別承認まで禁止
 
 ## 11. Platform Status・Release Status
@@ -193,9 +201,10 @@ Migration対象行の件数定義と5つのMigration・Staging運用契約は確
 | コード | 正式名称 | 定義 |
 |---|---|---|
 | `DATA_INTEGRITY_COMPLETED` | Data Integrity完了 | Human Review Queue 17/17終了、Work Queue残件0。 |
-| `STAGING_DATASET_ACTIVE` | Staging Candidate Dataset有効 | Candidate 636件のVersioned DatasetはRemote StagingでACTIVE。総務人事部の画面利用にはread runtimeと既存Role Guardの接続が必要。 |
+| `STAGING_DATASET_ACTIVE` | Staging Candidate Dataset有効 | Candidate 636件のVersioned DatasetはRemote StagingでACTIVEであり、公開Staging Runtimeから利用する。 |
 | `PRODUCTION_MIGRATION_HOLD` | Production Migration保留 | Staging運用検証とProduction昇格の別承認が完了するまで、Production書込みと自動昇格を禁止する。 |
 | `RELEASE_READY` | Release Ready | Data Integrity Work Queue終了成果物を公開可能。Migration実行可を意味しない。 |
+| `OPERATIONAL_COMPLETION_PENDING` | Operational Completion待ち | 5営業日連続のSpreadsheet非依存運用Gateは未完了。 |
 
 ## 12. Role・Permission
 

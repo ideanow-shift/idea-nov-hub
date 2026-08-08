@@ -45,6 +45,20 @@ function buildCandidate({ cohort, index, now }) {
     : "";
   const expectedJoinDate = statusCode === "EXPECTED_JOIN" ? offsetDate(now, 30 + (index % 45)) : "";
   const graduationYear = 2000 + cohort;
+  const recordId = mockCandidateId(cohort, index);
+  const lineRegistrationDate = index % 3 === 0 ? offsetDate(now, -((index % 75) + 1)) : "";
+  const eventCodes = [];
+  if (lineRegistrationDate) eventCodes.push("LINE_REGISTERED");
+  if (["SALON_TOUR_COMPLETED", "INTERVIEW_COMPLETED", "OFFERED", "OFFER_ACCEPTED", "EXPECTED_JOIN"].includes(statusCode)) {
+    eventCodes.push("SALON_TOUR_COMPLETED");
+  }
+  const selectionCodes = [];
+  if (sourceType !== "CONTACTS") selectionCodes.push("APPLICATION_RECEIVED");
+  if (["INTERVIEW_COMPLETED", "OFFERED", "OFFER_ACCEPTED", "EXPECTED_JOIN"].includes(statusCode)) {
+    selectionCodes.push("INTERVIEW_COMPLETED");
+  }
+  if (["OFFERED", "OFFER_ACCEPTED", "EXPECTED_JOIN"].includes(statusCode)) selectionCodes.push("OFFERED");
+  if (["OFFER_ACCEPTED", "EXPECTED_JOIN"].includes(statusCode)) selectionCodes.push("OFFER_ACCEPTED");
 
   return Object.freeze({
     applicationNo: `MOCK-${graduationYear}-${serial}`,
@@ -57,7 +71,7 @@ function buildCandidate({ cohort, index, now }) {
     displayName: `学生 ${cohort}-${serial}`,
     email: "",
     kana: "",
-    lineRegistrationDate: index % 3 === 0 ? offsetDate(now, -((index % 75) + 1)) : "",
+    lineRegistrationDate,
     legacyNoPresent: false,
     mappingStatus: classification === "IMPORTABLE" ? "OWNER_CONFIRMED" : "UNMAPPED",
     nextActionAt,
@@ -72,7 +86,7 @@ function buildCandidate({ cohort, index, now }) {
     profileVersion: 1,
     supplementVersion: 0,
     reasonLabels: Object.freeze(classification === "IMPORTABLE" ? [] : ["Mock確認対象"]),
-    recordId: `mock-${cohort}-${serial}`,
+    recordId,
     school: SCHOOL_NAMES[index % SCHOOL_NAMES.length],
     sourceCode: `${sourceType}_${cohort}`,
     sourceLabel: `${cohort}卒 匿名seed`,
@@ -81,12 +95,15 @@ function buildCandidate({ cohort, index, now }) {
     statusCode,
     suggestedTargetRecordId: "",
     suggestionCategory: "NONE"
-    ,contactHistory: Object.freeze([{ date: offsetDate(now, -((index % 90) + 1)), label: "接触記録", detail: "匿名Mock記録" }])
-    ,eventHistory: Object.freeze(statusCode === "LINE_REGISTERED" ? [] : [{ date: offsetDate(now, -((index % 60) + 2)), label: status, detail: "匿名Mockイベント" }])
-    ,selectionHistory: Object.freeze(["INTERVIEW_COMPLETED", "OFFERED", "OFFER_ACCEPTED", "EXPECTED_JOIN"].includes(statusCode)
-      ? [{ date: offsetDate(now, -((index % 45) + 1)), label: status, detail: "匿名Mock選考記録" }]
-      : [])
+    ,contactHistory: Object.freeze([{ active: true, code: "CONTACT_RECORDED", date: offsetDate(now, -((index % 90) + 1)), label: "接触記録", detail: "匿名Mock記録" }])
+    ,eventHistory: Object.freeze(eventCodes.map((code) => Object.freeze({ active: true, code, date: offsetDate(now, -((index % 60) + 2)), label: CANDIDATE_STATUS_LABELS[code] || code, detail: "匿名Mockイベント" })))
+    ,selectionHistory: Object.freeze(selectionCodes.map((code) => Object.freeze({ active: true, code, date: offsetDate(now, -((index % 45) + 1)), label: CANDIDATE_STATUS_LABELS[code] || code, detail: "匿名Mock選考記録" })))
   });
+}
+
+function mockCandidateId(cohort, index) {
+  const suffix = `${String(cohort).padStart(2, "0")}${String(index + 1).padStart(10, "0")}`;
+  return `00000000-0000-4000-8000-${suffix}`;
 }
 
 function offsetDate(base, days) {

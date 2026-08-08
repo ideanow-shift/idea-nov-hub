@@ -86,7 +86,7 @@ window.fetch = async (input, init = {}) => {
   }
   return originalFetch(input, init);
 };
-await import("/talent/app.mjs?v=20260808-v1-accuracy-1");
+await import("/talent/app.mjs?v=20260808-outcome1-official-facts-1");
 `;
 
 const server = createServer(async (request, response) => {

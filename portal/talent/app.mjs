@@ -2,8 +2,8 @@ import {
   buildDashboardSummaryViewModel,
   createDashboardSummaryExecutor,
   createTalentWorkspaceExecutor
-} from "./runtime.mjs?v=20260808-v1-accuracy-1";
-import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260808-v1-accuracy-1";
+} from "./runtime.mjs?v=20260808-outcome1-official-facts-1";
+import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260808-outcome1-official-facts-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
 import { handleNovHubSessionAuthFailure, NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
@@ -15,7 +15,7 @@ import {
   buildRecruitmentDashboardDecision,
   buildRecruitmentTaskBoard,
   japanBusinessDateIso
-} from "./recruitment-ux.mjs?v=20260808-v1-accuracy-1";
+} from "./recruitment-ux.mjs?v=20260808-outcome1-official-facts-1";
 import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs?v=20260804-recruiting-dashboard-completion-1";
 
 let summaryConsumed = false;
@@ -650,6 +650,7 @@ async function performTalentStudentWorkspaceLoad({
       { name: "renderHistoricalReviewSummary", render: () => renderHistoricalReviewSummary(documentObject, result.data.overview) },
       { name: "renderBulkTriageSummary", render: () => renderBulkTriageSummary(documentObject, result.data.students) },
       { name: "renderTalentTodayDashboard", render: () => renderTalentTodayDashboard(documentObject, graduationYearWorkspace(result.data)) },
+      { name: "renderSelectionFactCoverage", render: () => renderSelectionFactCoverage(documentObject, result.data) },
       { name: "renderTalentAnalytics", render: () => renderTalentAnalytics(documentObject) },
       { name: "renderRecruitmentMasters", render: () => renderRecruitmentMasters(documentObject) },
       { name: "renderTodayTasks", render: () => renderTodayTasks(documentObject, graduationYearWorkspace(result.data).todayTasks || []) },
@@ -2811,12 +2812,14 @@ function renderCandidateHistories(documentObject, student) {
           complete.addEventListener("click", () => completeCandidateNextAction({ globalObject: globalThis, documentObject, row, student }));
           item.append(complete);
         }
-        const edit = documentObject.createElement("button");
-        edit.type = "button";
-        edit.className = "history-edit-command";
-        edit.textContent = row.active === false ? "復元" : "編集";
-        edit.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType, row }));
-        item.append(edit);
+        if (entityType !== "SELECTION") {
+          const edit = documentObject.createElement("button");
+          edit.type = "button";
+          edit.className = "history-edit-command";
+          edit.textContent = row.active === false ? "復元" : "編集";
+          edit.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType, row }));
+          item.append(edit);
+        }
       }
       return item;
     }) : [Object.assign(documentObject.createElement("li"), { textContent: "履歴はありません" })]));
@@ -2826,12 +2829,13 @@ function renderCandidateHistories(documentObject, student) {
 const ACTIVITY_CODE_OPTIONS = Object.freeze({
   EVENT: Object.freeze([
     ["CONTACT_RECORDED", "接触記録"], ["LINE_REGISTERED", "LINE登録"],
-    ["SALON_TOUR_PLANNED", "サロン見学［予定］"], ["SALON_TOUR_COMPLETED", "サロン見学［済］"]
+    ["SALON_TOUR_PLANNED", "サロン見学［予定］"], ["SALON_TOUR_COMPLETED", "サロン見学［済］"],
+    ["COMMUNICATION_RECORDED", "連絡記録"]
   ]),
   SELECTION: Object.freeze([
     ["APPLICATION_RECEIVED", "応募"], ["INTERVIEW_PLANNED", "面接予定"],
     ["INTERVIEW_COMPLETED", "面接済み"], ["OFFERED", "内定"], ["OFFER_ACCEPTED", "内定承諾"],
-    ["OFFERED_ELSEWHERE", "他社内定"], ["WITHDRAWN", "辞退・離脱"], ["REJECTED", "不採用"], ["UNDER_REVIEW", "合否検討中"]
+    ["WITHDRAWN", "辞退・離脱"], ["REJECTED", "不採用"]
   ]),
   NEXT_ACTION: Object.freeze([
     ["FOLLOW_UP", "次回対応"], ["SALON_TOUR_FOLLOW_UP", "見学フォロー"],
@@ -2850,6 +2854,7 @@ function isLegacyCrossSourceActivity(entityType, row) {
 function openCandidateActivityDialog({ documentObject, entityType, row = null }) {
   const student = studentWorkspaceData?.students.find((item) => item.recordId === selectedStudentRecordId);
   if (!student?.recordId || !studentWorkspaceData?.canWrite) return;
+  if (entityType === "SELECTION" && row) return;
   activityDialogContext = { student, entityType, row };
   const type = documentObject.getElementById("activity-entity-type");
   if (type) { type.value = entityType; type.disabled = Boolean(row); }
@@ -2869,7 +2874,7 @@ function openCandidateActivityDialog({ documentObject, entityType, row = null })
     : "必要事項を入力してください");
   const deactivate = documentObject.getElementById("candidate-activity-deactivate");
   if (deactivate) {
-    deactivate.hidden = !row;
+    deactivate.hidden = !row || entityType === "SELECTION";
     deactivate.textContent = row?.active === false ? "理由付きで復元" : "理由付きで無効化";
   }
   const save = documentObject.getElementById("candidate-activity-save");
@@ -2909,6 +2914,7 @@ async function saveCandidateActivity({ globalObject, documentObject }) {
   }
   const payload = {
     entityType, operation: row ? "UPDATE" : "CREATE", entityId: row?.id || null, expectedVersion: row?.version || null,
+    expectedCandidateVersion: student.profileVersion,
     candidateId: student.recordId, code: documentObject.getElementById("activity-code")?.value,
     date: documentObject.getElementById("activity-date")?.value || null, name: documentObject.getElementById("activity-name")?.value || null,
     state: entityType === "EVENT" ? documentObject.getElementById("activity-state")?.value : entityType === "NEXT_ACTION" ? "OPEN" : null,
@@ -2926,6 +2932,7 @@ async function saveCandidateActivity({ globalObject, documentObject }) {
 
 async function deactivateCandidateActivity({ globalObject, documentObject }) {
   const context = activityDialogContext;
+  if (context?.entityType === "SELECTION") return;
   const reason = documentObject.getElementById("activity-reason")?.value?.trim();
   const restoring = context?.row?.active === false;
   const confirmation = restoring ? "この履歴を復元しますか？" : "この履歴を無効化しますか？物理削除はしません。";
@@ -3062,13 +3069,15 @@ function openStudentProfileDialog({ documentObject, student, focusField = "profi
     "profile-source": student?.acquisitionSource || "",
     "profile-assignee": student?.assignee || "",
     "profile-notes": student?.notes || "",
-    "profile-status": student?.statusCode || "LINE_REGISTERED",
+    "profile-status": student?.statusCode || "",
     "profile-change-reason": "",
   };
   Object.entries(fields).forEach(([id, value]) => {
     const input = documentObject.getElementById(id);
     if (input) input.value = value;
   });
+  const projectionStatus = documentObject.getElementById("profile-status");
+  if (projectionStatus) projectionStatus.disabled = true;
   populateCandidateMasterOptions(documentObject, student);
   const status = documentObject.getElementById("student-profile-status");
   if (status) {
@@ -3467,6 +3476,84 @@ export function buildWorkspaceDashboardSummaryViewModel(data) {
   }));
 }
 
+const SELECTION_COVERAGE_DEFINITIONS = Object.freeze([
+  Object.freeze({ key: "applications", code: "APPLICATION_RECEIVED", label: "応募" }),
+  Object.freeze({ key: "interviews", code: "INTERVIEW_COMPLETED", label: "面接" }),
+  Object.freeze({ key: "offers", code: "OFFERED", label: "内定" }),
+  Object.freeze({ key: "accepted", code: "OFFER_ACCEPTED", label: "内定承諾" }),
+  Object.freeze({ key: "withdrawn", code: "WITHDRAWN", label: "辞退" }),
+  Object.freeze({ key: "rejected", code: "REJECTED", label: "不採用" })
+]);
+
+export function buildSelectionFactCoverage(workspace) {
+  const unavailable = new Set(workspace?.partialStatus?.unavailableViews || []);
+  const selectionReady = !unavailable.has("selection_history");
+  const sourceFactsReady = !unavailable.has("source_facts");
+  const students = Array.isArray(workspace?.students) ? workspace.students : [];
+  const unlinked = Array.isArray(workspace?.unlinkedSelectionHistory)
+    ? workspace.unlinkedSelectionHistory : [];
+  const unlinkedEvidenceTotal = Number(workspace?.overview?.remainingManual || 0);
+  const evidenceListTruncated = unlinkedEvidenceTotal > unlinked.length;
+  const selectionRows = students.flatMap((student) => (student?.selectionHistory || [])
+    .filter((row) => row?.active !== false)
+    .map((row) => ({ ...row, candidateId: student.recordId })));
+  const officialSelectionTotal = Number(workspace?.dashboard?.selectionHistoryCount || 0);
+  const selectionListTruncated = officialSelectionTotal > selectionRows.length;
+
+  const metrics = SELECTION_COVERAGE_DEFINITIONS.map((definition) => {
+    const officialRows = selectionRows.filter((row) => row.code === definition.code);
+    const unlinkedRows = unlinked.filter((row) => row.code === definition.code);
+    const candidateCount = new Set(officialRows.map((row) => row.candidateId).filter(Boolean)).size;
+    const state = !selectionReady || !sourceFactsReady || evidenceListTruncated || selectionListTruncated
+      ? "PREPARING"
+      : unlinkedRows.length > 0
+        ? "PARTIAL"
+        : officialRows.length > 0 ? "RECORDED" : "NOT_REGISTERED";
+    return Object.freeze({
+      ...definition,
+      state,
+      candidateCount: state === "RECORDED" ? candidateCount : null,
+      officialRowCount: officialRows.length,
+      unlinkedEvidenceCount: unlinkedRows.length,
+      grain: "UNIQUE_CANDIDATE"
+    });
+  });
+  return Object.freeze({
+    state: !selectionReady || !sourceFactsReady || evidenceListTruncated || selectionListTruncated
+      ? "PREPARING"
+      : metrics.some((metric) => metric.state === "PARTIAL") ? "PARTIAL" : "READY",
+    selectionReady,
+    sourceFactsReady,
+    evidenceListTruncated,
+    selectionListTruncated,
+    unlinkedEvidenceShown: unlinked.length,
+    unlinkedEvidenceTotal,
+    metrics: Object.freeze(metrics)
+  });
+}
+
+function renderSelectionFactCoverage(documentObject, workspace) {
+  const grid = documentObject?.getElementById?.("selection-coverage-grid");
+  const status = documentObject?.getElementById?.("selection-coverage-status");
+  if (!grid) return;
+  const coverage = buildSelectionFactCoverage(workspace);
+  if (status) status.textContent = coverage.state === "READY" ? "正式履歴を表示"
+    : coverage.state === "PARTIAL" ? "未連結の根拠があります" : "集計準備中";
+  grid.replaceChildren(...coverage.metrics.map((metric) => {
+    const article = documentObject.createElement("article");
+    article.dataset.state = metric.state;
+    const label = documentObject.createElement("span"); label.textContent = metric.label;
+    const value = documentObject.createElement("strong");
+    value.textContent = metric.state === "RECORDED" ? `${metric.candidateCount}人`
+      : metric.state === "NOT_REGISTERED" ? "未登録" : "集計準備中";
+    const detail = documentObject.createElement("small");
+    detail.textContent = `正式履歴 ${metric.officialRowCount}件 / 未連結根拠 ${metric.unlinkedEvidenceCount}件`;
+    const grain = documentObject.createElement("small"); grain.textContent = "人数は学生単位（重複なし）";
+    article.append(label, value, detail, grain);
+    return article;
+  }));
+}
+
 function renderWorkspaceDashboardSummary(documentObject, data) {
   renderMetrics(documentObject, buildWorkspaceDashboardSummaryViewModel(data));
   const availability = data?.dashboard?.availability || {};
@@ -3542,18 +3629,25 @@ function renderUnlinkedInterviews(documentObject, rows, globalObject, sourceFact
   list.replaceChildren(...safeRows.map((row) => {
     const item = documentObject.createElement("article");
     const text = documentObject.createElement("div");
-    const title = documentObject.createElement("strong"); title.textContent = `27卒正本・行${row.sourceRowNo}`;
-    const detail = documentObject.createElement("span"); detail.textContent = `${row.date || "日付未登録"} · ${row.label || "面接履歴"}`;
+    const sourceLabel = row.sourceType === "OFFERS_27" ? "27卒 内定者情報" : "27卒 エントリー一覧";
+    const title = documentObject.createElement("strong"); title.textContent = `${sourceLabel}・行${row.sourceRowNo}`;
+    const detail = documentObject.createElement("span"); detail.textContent = `${row.date || "日付未登録"} · ${row.label || "選考根拠"}`;
     text.append(title, detail); item.append(text);
     if (studentWorkspaceData?.canWrite) {
       const button = documentObject.createElement("button"); button.type = "button"; button.className = "secondary-command compact-command";
       button.textContent = "選択中の学生へ紐付け";
       button.disabled = !selectedStudentRecordId;
       button.addEventListener("click", async () => {
-        if (!selectedStudentRecordId || !globalObject.confirm?.("正本と学生を確認し、この面接履歴を紐付けますか？")) return;
+        const selectedCandidate = (studentWorkspaceData?.students || [])
+          .find((student) => student.recordId === selectedStudentRecordId);
+        if (!selectedCandidate?.recordId || !Number.isInteger(selectedCandidate.profileVersion)
+          || !globalObject.confirm?.("正本と学生を確認し、この選考根拠を紐付けますか？")) return;
         const result = await createStagingCandidateClient({ globalObject })?.linkUnlinkedSelection({
-          candidateId: selectedStudentRecordId, sourceType: row.sourceType, sourceRowNo: row.sourceRowNo,
-          factCode: row.code, expectedVersion: row.version, reason: "正本と学生の人間確認による紐付け"
+          candidateId: selectedCandidate.recordId, expectedCandidateVersion: selectedCandidate.profileVersion,
+          sourceType: row.sourceType, sourceRowNo: row.sourceRowNo, factCode: row.code,
+          expectedVersion: row.version,
+          evidenceReference: `SOURCE:${row.sourceType}:ROW:${row.sourceRowNo}:${row.code}`,
+          reason: "正本と学生の人間確認による紐付け"
         });
         if (!result?.ok) { if (status) status.textContent = "紐付けできませんでした。再読み込みしてください"; return; }
         studentWorkspaceData = null;

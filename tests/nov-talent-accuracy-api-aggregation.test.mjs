@@ -133,7 +133,7 @@ test("official dashboard metrics never mix Candidate status, Source Fact, Event,
   assert.equal(envelope.data.dashboard.entries, 1);
   assert.equal(envelope.data.dashboard.interviewHistory, 1);
   assert.equal(envelope.data.dashboard.offers, 1);
-  assert.equal(envelope.data.dashboard.offeredElsewhere, 1);
+  assert.equal(envelope.data.dashboard.offeredElsewhere, 0);
   assert.equal(envelope.data.dashboard.withdrawals, 1);
   assert.equal(envelope.data.dashboard.rejected, 1);
   assert.equal(envelope.data.summary.interviews, 1);
@@ -142,7 +142,7 @@ test("official dashboard metrics never mix Candidate status, Source Fact, Event,
   // Evidence rows remain review-only and are not added to the official Selection count.
   assert.equal(envelope.data.dashboard.selectionHistoryCount, 9);
   assert.equal(envelope.data.dashboard.unlinkedInterviewHistoryCount, 2);
-  assert.equal(envelope.data.unlinkedSelectionHistory.length, 2);
+  assert.equal(envelope.data.unlinkedSelectionHistory.length, 6);
 
   // Historical Selection coverage is not complete, so lower-funnel cards fail closed.
   for (const key of ["entries", "interviewHistory", "interviewPlanned", "offers", "offeredElsewhere", "withdrawals", "rejected"]) {
@@ -238,7 +238,7 @@ test("Fair API rejects every legacy KPI input instead of silently ignoring it", 
 test("activity mutations keep Event and Selection responsibilities disjoint", () => {
   const base = {
     candidateId: uuid(1), operation: "CREATE", entityId: null, expectedVersion: null,
-    reason: "fixture", date: "2026-08-08"
+    expectedCandidateVersion: 1, reason: "fixture", date: "2026-08-08"
   };
   for (const code of ["CONTACT_RECORDED", "LINE_REGISTERED", "SALON_TOUR_PLANNED", "SALON_TOUR_COMPLETED"]) {
     assert.ok(cleanActivity({ ...base, entityType: "EVENT", code }), `EVENT ${code}`);
@@ -259,10 +259,10 @@ test("activity mutations keep Event and Selection responsibilities disjoint", ()
     ...base, entityType: "EVENT", operation: "DEACTIVATE", entityId: uuid(702), expectedVersion: 1,
     code: "INTERVIEW_COMPLETED"
   }), "legacy Event remains deactivatable");
-  assert.ok(cleanActivity({
+  assert.equal(cleanActivity({
     ...base, entityType: "SELECTION", operation: "DEACTIVATE", entityId: uuid(703), expectedVersion: 1,
     code: "SALON_TOUR_COMPLETED"
-  }), "legacy Selection remains deactivatable");
+  }), null, "Selection History remains append-only");
 });
 
 test("Fair UPDATE RPC payload omits legacy KPI fields instead of writing default zero", async () => {

@@ -5,7 +5,7 @@
 | 項目 | 正式値 |
 |---|---|
 | 文書ID | `NOV_TALENT_DATA_DICTIONARY` |
-| Version | `1.5.0` |
+| Version | `1.6.0` |
 | Status | `CANONICAL` |
 | 適用日 | 2026-08-08 |
 | 機械可読正本 | `nov-talent-data-dictionary.json` |
@@ -54,7 +54,7 @@
 
 ## 5. Event / ContactとSelectionの責務
 
-正式なEvent / Contact KPIは接触、LINE登録、サロン見学に限定する。面接、内定、内定承諾、辞退、不採用はSelection Historyを正本とする。Candidateは人物同一性と現在状態のProjection、Source Factは安全にCandidateへ連結されるまでImport Evidenceとして扱う。
+正式なEvent / Contactは接触、LINE登録、サロン見学、連絡履歴を所有する。面接、内定、内定承諾、辞退、不採用はSelection Historyを正本とする。Candidateは人物同一性と現在状態のProjection、Source Factは安全にCandidateへ連結されるまでImport Evidenceとして扱う。`OFFERED_ELSEWHERE`はCandidate表示状態としては維持するが、NOVの正式Selection成果Factではない。
 
 Event行数とunique Candidate数は異なる粒度である。同一粒度の正式契約がない全体LINE登録率、School応募率、School内定率は計算せず「集計準備中」とする。
 
@@ -66,6 +66,7 @@ Event行数とunique Candidate数は異なる粒度である。同一粒度の�
 | `lineRegistrations` | `LINE_REGISTERED` | LINE登録 | Event / Contact | LINE登録確認を1件記録する。 |
 | `salonTourPlanned` | `SALON_TOUR_PLANNED` | 見学予定 | Event / Contact | 見学予定を1件記録する。 |
 | `salonTours` | `SALON_TOUR_COMPLETED` | 見学完了 | Event / Contact | 見学完了を1件記録する。 |
+| `communications` | `COMMUNICATION_RECORDED` | 連絡記録 | Event / Contact | 連絡履歴を1件記録する。Selection成果KPIには加算しない。 |
 | `interviewPlanned` | `INTERVIEW_PLANNED` | 面接予定 | 使用禁止（legacy） | 正式KPIはSelection Historyの `INTERVIEW_PLANNED`。 |
 | `interviews` | `INTERVIEW_COMPLETED` | 面接完了 | 使用禁止（legacy） | 正式KPIはSelection Historyの `INTERVIEW_COMPLETED`。 |
 | `passed` | `SELECTION_PASSED` | 選考通過 | 使用禁止（legacy） | 正式な選考事実はSelection History。`OFFER_ACCEPTED`とは同一視しない。 |
@@ -146,7 +147,7 @@ Sourceまたは履歴接続が未完了の指標は、0件ではなく `集計�
 
 | 対象 | Version |
 |---|---|
-| Data Dictionary | `1.5.0` |
+| Data Dictionary | `1.6.0` |
 | Data Integrity Report schema | `1.2` |
 | Work Queue seed schema | `2.0` |
 | Source Lineage schema | `1.0` |

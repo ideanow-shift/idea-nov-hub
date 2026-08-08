@@ -25,11 +25,12 @@ export function cleanCandidate(input: unknown) {
   const value = input as Record<string, unknown>;
   const graduationYear = Number(value.graduationYear);
   const studentName = clean(value.displayName, 120);
-  const status = String(value.currentStatus || "");
+  const rawStatus = String(value.currentStatus || "").trim();
+  const status = rawStatus || null;
   const expectedVersion = value.expectedVersion === undefined ? null : Number(value.expectedVersion);
   const reason = clean(value.changeReason, 500);
   if (!Number.isInteger(graduationYear) || graduationYear < 2026 || graduationYear > 2035 || !studentName
-    || !STATUS_LABELS[status] || !reason
+    || (status !== null && !STATUS_LABELS[status]) || !reason
     || (expectedVersion !== null && (!Number.isInteger(expectedVersion) || expectedVersion < 1))) return null;
   const email = clean(value.email, 254)?.toLowerCase() || null;
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(email)) return null;
@@ -44,11 +45,11 @@ export function cleanCandidate(input: unknown) {
 
 const EVENT_CODES = new Set([
   "CONTACT_RECORDED", "LINE_REGISTERED", "SALON_TOUR_PLANNED",
-  "SALON_TOUR_COMPLETED"
+  "SALON_TOUR_COMPLETED", "COMMUNICATION_RECORDED"
 ]);
 const SELECTION_CODES = new Set([
-  "APPLICATION_RECEIVED", "INTERVIEW_PLANNED", "INTERVIEW_COMPLETED", "UNDER_REVIEW", "OFFERED",
-  "OFFER_ACCEPTED", "OFFERED_ELSEWHERE", "WITHDRAWN", "REJECTED"
+  "APPLICATION_RECEIVED", "INTERVIEW_PLANNED", "INTERVIEW_COMPLETED", "OFFERED",
+  "OFFER_ACCEPTED", "WITHDRAWN", "REJECTED"
 ]);
 const ACTION_CODES = new Set(["FOLLOW_UP", "SALON_TOUR_FOLLOW_UP", "INTERVIEW_FOLLOW_UP", "OFFER_FOLLOW_UP"]);
 
@@ -61,10 +62,14 @@ export function cleanActivity(input: unknown) {
   const entityId = clean(value.entityId, 40);
   const expectedVersion = value.expectedVersion === undefined || value.expectedVersion === null
     ? null : Number(value.expectedVersion);
+  const expectedCandidateVersion = value.expectedCandidateVersion === undefined || value.expectedCandidateVersion === null
+    ? null : Number(value.expectedCandidateVersion);
   const reason = clean(value.reason, 500);
   if (!candidateId || !reason || !["EVENT", "SELECTION", "NEXT_ACTION"].includes(entityType)
     || !["CREATE", "UPDATE", "COMPLETE", "DEACTIVATE", "RESTORE"].includes(operation)
     || (operation !== "CREATE" && (!entityId || !Number.isInteger(expectedVersion) || Number(expectedVersion) < 1))) return null;
+  if (entityType === "SELECTION" && (operation !== "CREATE"
+    || !Number.isInteger(expectedCandidateVersion) || Number(expectedCandidateVersion) < 1)) return null;
   const code = String(value.code || "");
   const allowedCodes = entityType === "EVENT" ? EVENT_CODES : entityType === "SELECTION" ? SELECTION_CODES : ACTION_CODES;
   if (["CREATE", "UPDATE"].includes(operation) && !allowedCodes.has(code)) return null;
@@ -76,7 +81,7 @@ export function cleanActivity(input: unknown) {
   if (entityType === "EVENT" && !["PLANNED", "COMPLETED"].includes(state || "")) return null;
   if (entityType === "NEXT_ACTION" && !["OPEN", "COMPLETED", "CANCELLED"].includes(state || "")) return null;
   return Object.freeze({
-    entityType, operation, candidateId, entityId, expectedVersion, reason, code, date,
+    entityType, operation, candidateId, entityId, expectedVersion, expectedCandidateVersion, reason, code, date,
     name: clean(value.name, 180), state, content: clean(value.content, 1000),
     assignedTo: clean(value.assignedTo, 120), notes: clean(value.notes, 2000)
   });
@@ -90,10 +95,20 @@ export function cleanSourceFactLink(input: unknown) {
   const sourceRowNo = Number(value.sourceRowNo);
   const factCode = String(value.factCode || "");
   const expectedVersion = Number(value.expectedVersion);
+  const expectedCandidateVersion = Number(value.expectedCandidateVersion);
   const reason = clean(value.reason, 500);
-  if (!candidateId || sourceType !== "ENTRIES_27" || factCode !== "INTERVIEW_COMPLETED" || !reason
-    || !Number.isInteger(sourceRowNo) || sourceRowNo < 1 || !Number.isInteger(expectedVersion) || expectedVersion < 1) return null;
-  return Object.freeze({ candidateId, sourceType, sourceRowNo, factCode, expectedVersion, reason });
+  const evidenceReference = clean(value.evidenceReference, 300);
+  const canonicalReference = `SOURCE:${sourceType}:ROW:${sourceRowNo}:${factCode}`;
+  if (!candidateId || !new Set(["ENTRIES_27", "OFFERS_27"]).has(sourceType)
+    || !SELECTION_CODES.has(factCode) || !reason
+    || !Number.isInteger(sourceRowNo) || sourceRowNo < 1
+    || !Number.isInteger(expectedVersion) || expectedVersion < 1
+    || !Number.isInteger(expectedCandidateVersion) || expectedCandidateVersion < 1
+    || evidenceReference !== canonicalReference) return null;
+  return Object.freeze({
+    candidateId, sourceType, sourceRowNo, factCode, expectedVersion,
+    expectedCandidateVersion, evidenceReference, reason
+  });
 }
 
 export function cleanFairAttributionDecision(input: unknown) {

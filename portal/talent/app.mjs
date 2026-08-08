@@ -2946,7 +2946,7 @@ function saveCandidateActivity({ documentObject }) {
   const eventLabel = codeSelect?.options?.[codeSelect.selectedIndex]?.textContent || payload.code;
   const saveButton = documentObject.getElementById("candidate-activity-save");
   const opened = activityConfirmationController?.open?.({
-    candidateName: student.name,
+    candidateName: student.displayName,
     eventLabel,
     date: payload.date,
     reason: payload.reason.trim(),

@@ -19,7 +19,7 @@ test("Sprint 1 seed is anonymous and preserves only cohort counts", () => {
   assert.equal(seed.source27.length, 27);
   assert.equal(seed.source28.length, 120);
   assert.equal(seed.candidates.length, 147);
-  assert.ok(seed.candidates.every((candidate) => candidate.recordId.startsWith("mock-")));
+  assert.ok(seed.candidates.every((candidate) => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/u.test(candidate.recordId)));
   assert.ok(seed.candidates.every((candidate) => candidate.phone === "" && candidate.email === ""));
   assert.ok(seed.candidates.every((candidate) => /^(学生|架空|学校未設定|採用)/.test(`${candidate.displayName}${candidate.school}${candidate.assignee}`)));
 });
@@ -41,7 +41,20 @@ test("Mock Runtime returns dashboard, candidates and at most five tasks without 
   assert.equal(summary.requestCount, 0);
   assert.equal(workspace.data.students.length, 147);
   assert.ok(workspace.data.todayTasks.length <= 5);
+  assert.ok(workspace.data.todayTasks.every((task) => (
+    Object.keys(task).sort().join(",") === "assignedTo,candidateId,dueDate,label"
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/u.test(task.candidateId)
+    && /^\d{4}-\d{2}-\d{2}$/u.test(task.dueDate)
+  )));
   assert.equal(workspace.networkOperationCount, 0);
+});
+
+test("Mock expected joiners use Candidate current-state projection, never an invented Selection code", async () => {
+  const now = new Date("2026-08-08T12:00:00+09:00");
+  const seed = buildAnonymousTalentSeeds({ now });
+  const result = await createNovTalentMockRepository({ state: "ready", now }).getSummary();
+  assert.equal(result.data.summary.expectedJoiners, seed.candidates.filter((candidate) => candidate.statusCode === "EXPECTED_JOIN").length);
+  assert.ok(seed.candidates.every((candidate) => !(candidate.selectionHistory || []).some((fact) => fact.code === "EXPECTED_JOIN")));
 });
 
 test("Mock Runtime exposes every required safe state", async () => {
@@ -69,7 +82,7 @@ test("Published shell uses the approved server-side Staging runtime and retains 
   assert.match(html, /学生一覧/);
   assert.doesNotMatch(html, /data-primary-tab="workforce"/);
   assert.match(html, /id="panel-workforce" class="primary-panel sprint1-separated"/);
-  assert.match(app, /from "\.\/runtime\.mjs\?v=20260806-workspace-contract-v1-1"/);
+  assert.match(app, /from "\.\/runtime\.mjs\?v=20260808-v1-accuracy-1"/);
   assert.doesNotMatch(app, /^import .*exact1/m);
   assert.doesNotMatch(app, /^import .*current-api/m);
   assert.match(config, /runtimeMode: "staging"/);

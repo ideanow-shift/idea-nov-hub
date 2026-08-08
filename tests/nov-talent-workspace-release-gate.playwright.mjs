@@ -30,6 +30,10 @@ const hubHtml = `<!doctype html><html lang="ja"><body>
 
 const talentBootstrap = String.raw`
 const uuid = (index) => "10000000-0000-4000-8000-" + String(index).padStart(12, "0");
+const eventFact = (index, offset, code) => ({
+  active: true, assignedTo: null, code, content: null, date: "2026-08-01",
+  id: uuid(5000 + (index * 3) + offset), label: code, notes: null, state: null, version: 1
+});
 const students = Array.from({ length: 636 }, (_, index) => ({
   applicationNo: null, businessDate: null, classification: "IMPORTABLE", classificationLabel: "有効",
   displayName: "表示用学生" + (index + 1), email: null, faculty: null,
@@ -41,7 +45,12 @@ const students = Array.from({ length: 636 }, (_, index) => ({
   school: "表示用学校" + ((index % 20) + 1), sourceCode: index < 528 ? "CONTACTS_27" : "CONTACTS_28",
   sourceLabel: index < 528 ? "27卒" : "28卒", sourceKeyStatus: "OWNER_CONFIRMED", status: "LINE登録",
   statusCode: "LINE_REGISTERED", suggestedTargetRecordId: null, suggestionCategory: "NONE",
-  contactHistory: [], eventHistory: [], nextActions: [], selectionHistory: []
+  contactHistory: [
+    ...(index < 34 ? [eventFact(index, 0, "CONTACT_RECORDED")] : []),
+    ...(index < 615 ? [eventFact(index, 1, "LINE_REGISTERED")] : [])
+  ],
+  eventHistory: index < 23 ? [eventFact(index, 2, "SALON_TOUR_COMPLETED")] : [],
+  nextActions: [], selectionHistory: []
 }));
 const fairMasters = Array.from({ length: 46 }, (_, index) => ({
   assigned_to: null, contact_count: index === 0 ? null : index, created_at: "2026-08-06T00:00:00.000Z",
@@ -56,9 +65,9 @@ const partial = new URL(location.href).searchParams.get("partial") === "1";
 if (partial) availability.schoolCount = false;
 const workspace = {
   workspace_contract_version: "1.0.0", accessProfile: "full", canWrite: true, fiscalYear: "all", payloadMode: "workspace",
-  overview: { contacts: 636, entries: 0, exactLinkSuggestions: 0, mapped: 636, manual: 0, offers: 0, ownerReview: 0, primaryCandidates: 636, quarantined: 0, remainingManual: 0, total: 636 },
-  dashboard: { availability, candidateCount: 636, entries: 0, eventCount: 712, fairCount: 46, graduation2027: 528, graduation2028: 108, interviewHistory: 0, interviewPlanned: 0, lineRegistrations: 465, offeredElsewhere: 0, offers: 0, rejected: 0, salonTourCompleted: 188, salonTourPlanned: 0, schoolCount: 20, selectionHistoryCount: 0, todayActions: 0, undatedActions: 0, unlinkedInterviewHistoryCount: 0, withdrawals: 0 },
-  summary: { contacts: 636, expectedJoiners: 0, interviews: 0, lineRegistrations: 465, offers: 0, passed: 0, salonTours: 188 },
+  overview: { contacts: 34, entries: 0, exactLinkSuggestions: 0, mapped: 636, manual: 0, offers: 0, ownerReview: 0, primaryCandidates: 636, quarantined: 0, remainingManual: 0, total: 636 },
+  dashboard: { availability, candidateCount: 636, entries: 0, eventCount: 672, fairCount: 46, graduation2027: 528, graduation2028: 108, interviewHistory: 0, interviewPlanned: 0, lineRegistrations: 615, offeredElsewhere: 0, offers: 0, rejected: 0, salonTourCompleted: 23, salonTourPlanned: 0, schoolCount: 20, selectionHistoryCount: 0, todayActions: 0, undatedActions: 0, unlinkedInterviewHistoryCount: 0, withdrawals: 0 },
+  summary: { contacts: 34, expectedJoiners: 0, interviews: 0, lineRegistrations: 615, offers: 0, passed: 0, salonTours: 23 },
   partialStatus: { retryCount: partial ? 1 : 0, state: partial ? "partial" : "complete", unavailableViews: partial ? ["school_masters"] : [] },
   fairMasters, schoolMasters: [], students, todayTasks: [], unlinkedSelectionHistory: []
 };
@@ -77,7 +86,7 @@ window.fetch = async (input, init = {}) => {
   }
   return originalFetch(input, init);
 };
-await import("/talent/app.mjs?v=20260806-workspace-contract-v1-1");
+await import("/talent/app.mjs?v=20260808-v1-accuracy-1");
 `;
 
 const server = createServer(async (request, response) => {
@@ -118,6 +127,8 @@ try {
     throw new Error(JSON.stringify({ consoleErrors, body: (await page.locator("body").innerText()).slice(0, 500) }));
   });
   assert.deepEqual(await page.evaluate(() => ({ workspace: window.__workspaceRequests, summary: window.__dashboardSummaryRequests })), { workspace: 1, summary: 0 });
+  assert.equal(await page.locator("#student-contacts").innerText(), "34");
+  assert.equal(await page.locator("#student-total").innerText(), "636");
   assert.equal(await page.locator(".student-list-item").count(), 636);
   await page.getByRole("button", { name: "27卒" }).click();
   assert.equal(await page.locator(".student-list-item").count(), 528);
@@ -141,6 +152,24 @@ try {
   assert.ok(await partialPage.getByText("集計準備中", { exact: true }).count() > 0);
   assert.equal(await partialPage.locator(".student-list-item").count(), 636);
   await partialPage.close();
+
+  const mobilePage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const mobileConsoleErrors = [];
+  const mobileConsoleWarnings = [];
+  mobilePage.on("console", (message) => {
+    if (message.type() === "error") mobileConsoleErrors.push(message.text());
+    if (message.type() === "warning") mobileConsoleWarnings.push(message.text());
+  });
+  mobilePage.on("pageerror", (error) => mobileConsoleErrors.push(error.message));
+  await mobilePage.goto(`${origin}/__fixture__/hub.html`);
+  await mobilePage.getByRole("button", { name: "ログイン" }).click();
+  await mobilePage.getByRole("link", { name: "求人管理" }).click();
+  await mobilePage.getByText("636件を集計").waitFor();
+  assert.equal(await mobilePage.locator(".student-list-item").count(), 636);
+  assert.equal(await mobilePage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true);
+  assert.deepEqual(mobileConsoleErrors, []);
+  assert.deepEqual(mobileConsoleWarnings, []);
+  await mobilePage.close();
 } finally {
   await browser.close();
   await new Promise((resolveClose) => server.close(resolveClose));

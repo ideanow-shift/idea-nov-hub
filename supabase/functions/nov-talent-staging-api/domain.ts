@@ -44,11 +44,10 @@ export function cleanCandidate(input: unknown) {
 
 const EVENT_CODES = new Set([
   "CONTACT_RECORDED", "LINE_REGISTERED", "SALON_TOUR_PLANNED",
-  "SALON_TOUR_COMPLETED", "INTERVIEW_PLANNED", "INTERVIEW_COMPLETED"
+  "SALON_TOUR_COMPLETED"
 ]);
 const SELECTION_CODES = new Set([
-  "APPLICATION_RECEIVED", "SALON_TOUR_PLANNED", "SALON_TOUR_COMPLETED",
-  "INTERVIEW_PLANNED", "INTERVIEW_COMPLETED", "UNDER_REVIEW", "OFFERED",
+  "APPLICATION_RECEIVED", "INTERVIEW_PLANNED", "INTERVIEW_COMPLETED", "UNDER_REVIEW", "OFFERED",
   "OFFER_ACCEPTED", "OFFERED_ELSEWHERE", "WITHDRAWN", "REJECTED"
 ]);
 const ACTION_CODES = new Set(["FOLLOW_UP", "SALON_TOUR_FOLLOW_UP", "INTERVIEW_FOLLOW_UP", "OFFER_FOLLOW_UP"]);
@@ -129,11 +128,39 @@ export function cleanRecruitmentMaster(input: unknown) {
   const fairName = clean(value.fairName, 180);
   const eventDate = clean(value.eventDate, 10);
   if (["CREATE", "UPDATE"].includes(operation) && (!fairName || !/^\d{4}-\d{2}-\d{2}$/u.test(eventDate || ""))) return null;
-  const counts = ["participationFee", "participantCount", "contactCount", "lineRegistrationCount", "salonTourCount", "interviewCount", "offerCount", "hireCount"];
-  const numeric = Object.fromEntries(counts.map((key) => [key, Number(value[key] ?? 0)]));
-  if (Object.values(numeric).some((number) => !Number.isInteger(number) || number < 0)) return null;
+  if (FAIR_LEGACY_KPI_FIELDS.some((key) => Object.prototype.hasOwnProperty.call(value, key))) return null;
+  const numeric = cleanFairNullableIntegers(value, operation);
+  if (!numeric) return null;
   return Object.freeze({ entityType, operation, entityId, expectedVersion, reason,
     payload: { fairName, eventDate, venue: clean(value.venue, 180), assignedTo: clean(value.assignedTo, 120), ...numeric } });
+}
+
+const FAIR_NULLABLE_INTEGER_FIELDS = Object.freeze([
+  "participationFee", "participantCount", "contactCount", "lineRegistrationCount", "salonTourCount",
+  "expectedContacts", "totalAttendance", "participatingSalons"
+]);
+const FAIR_LEGACY_KPI_FIELDS = Object.freeze(["interviewCount", "offerCount", "hireCount"]);
+
+function cleanFairNullableIntegers(value: Record<string, unknown>, operation: string) {
+  const payload: Record<string, number | null> = {};
+  if (!["CREATE", "UPDATE"].includes(operation)) return payload;
+  for (const key of FAIR_NULLABLE_INTEGER_FIELDS) {
+    const present = Object.prototype.hasOwnProperty.call(value, key);
+    if (!present) {
+      // CREATE stores an explicit unknown. UPDATE must omit the key so the RPC's
+      // `p_payload ? key` contract preserves the existing database value.
+      if (operation === "CREATE") payload[key] = null;
+      continue;
+    }
+    const raw = value[key];
+    if (raw === null) {
+      payload[key] = null;
+      continue;
+    }
+    if (typeof raw !== "number" || !Number.isInteger(raw) || raw < 0) return null;
+    payload[key] = raw;
+  }
+  return payload;
 }
 
 function clean(value: unknown, max: number) {

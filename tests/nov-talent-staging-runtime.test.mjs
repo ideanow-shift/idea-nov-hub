@@ -180,7 +180,7 @@ test("636 Candidate API response renders through the real frontend pipeline", as
         event_format: "対面", expected_contacts: 10, total_attendance: 100, participating_salons: 12,
         note: null, created_at: "2026-08-01T00:00:00.000Z" }
     ],
-    todayTasks: [],
+    todayTasks: [{ assignedTo: null, candidateId: uuid(1), dueDate: "2026-08-04", label: "契約済み対応" }],
     unlinkedSelectionHistory: [],
     dashboard: {
       availability: {
@@ -188,13 +188,13 @@ test("636 Candidate API response renders through the real frontend pipeline", as
         graduation2027: true, graduation2028: true, interviewHistory: true, interviewPlanned: true,
         lineRegistrations: true, offeredElsewhere: true, offers: true, rejected: true,
         salonTourCompleted: true, salonTourPlanned: false, schoolCount: true,
-        todayActions: false, withdrawals: true
+        todayActions: true, withdrawals: true
       },
       candidateCount: 636, entries: 42, eventCount: 672, fairCount: 45,
       graduation2027: 528, graduation2028: 108, interviewHistory: 42, interviewPlanned: 0,
       lineRegistrations: 318, offeredElsewhere: 0, offers: 35, rejected: 5,
       salonTourCompleted: 0, salonTourPlanned: 0, schoolCount: 1,
-      selectionHistoryCount: 126, todayActions: 0, undatedActions: 0,
+      selectionHistoryCount: 126, todayActions: 1, undatedActions: 0,
       unlinkedInterviewHistoryCount: 42, withdrawals: 2
     },
     students: candidateWorkspace.students.map((student) => ({ ...student, schoolId: null, fairId: null, nextActions: [] }))
@@ -242,6 +242,8 @@ test("636 Candidate API response renders through the real frontend pipeline", as
   assert.equal(documentObject.getElementById("fair-master-body").children.length, 3);
   assert.match(documentObject.getElementById("fair-master-body").children[0].innerHTML, /未登録/u);
   assert.match(documentObject.getElementById("fair-master-body").children[1].innerHTML, />0件</u);
+  assert.equal(documentObject.getElementById("today-task-list").children.length, 1);
+  assert.match(documentObject.getElementById("today-task-list").children[0].children[0].innerHTML, /契約済み対応[\s\S]*2026-08-04/u);
   resetTalentStudentWorkspaceForFixture();
 });
 
@@ -355,5 +357,5 @@ test("published config exposes no server credential and only a server-side write
   assert.match(config, /writeEnabled:\s*true/);
   assert.match(config, /writeApiBaseUrl/);
   assert.doesNotMatch(config, /service_role|serviceRole|password|secret/i);
-  assert.match(html, /app\.mjs\?v=20260806-workspace-contract-v1-1/);
+  assert.match(html, /app\.mjs\?v=20260808-v1-accuracy-1/);
 });

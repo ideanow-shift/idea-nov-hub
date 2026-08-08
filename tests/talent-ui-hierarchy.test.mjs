@@ -167,16 +167,20 @@ test("summary shortcuts open the intended student queues without changing record
   const html = await readFile(new URL("index.html", root), "utf8");
   const app = await readFile(new URL("app.mjs", root), "utf8");
   const rows = [
-    { displayName: "確認対象", sourceCode: "CONTACTS_27", classification: "OWNER_REVIEW", statusCode: "LINE_REGISTERED" },
-    { displayName: "隔離対象", sourceCode: "OFFERS_27", classification: "QUARANTINE", statusCode: "OFFERED" },
-    { displayName: "確認済み", sourceCode: "ENTRIES_27", classification: "IMPORTABLE", statusCode: "INTERVIEW_COMPLETED" }
+    { displayName: "確認対象", sourceCode: "CONTACTS_27", classification: "OWNER_REVIEW", statusCode: "LINE_REGISTERED", contactHistory: [{ active: true, code: "CONTACT_RECORDED" }] },
+    { displayName: "隔離対象", sourceCode: "OFFERS_27", classification: "QUARANTINE", statusCode: "OFFERED", selectionHistory: [{ active: true, code: "OFFERED" }] },
+    { displayName: "確認済み", sourceCode: "ENTRIES_27", classification: "IMPORTABLE", statusCode: "INTERVIEW_COMPLETED", selectionHistory: [{ active: true, code: "APPLICATION_RECEIVED" }] },
+    { displayName: "状態だけ内定", sourceCode: "OFFERS_27", classification: "IMPORTABLE", statusCode: "OFFERED", selectionHistory: [] }
   ];
 
-  assert.deepEqual(buildSummaryFollowUpFilter("offers"), { query: "", source: "ALL", state: "ALL", progress: "OFFERED" });
+  assert.deepEqual(buildSummaryFollowUpFilter("contacts"), { query: "", source: "ALL", state: "ALL", progress: "ALL", factSource: "EVENT", factCode: "CONTACT_RECORDED" });
+  assert.deepEqual(buildSummaryFollowUpFilter("entries"), { query: "", source: "ALL", state: "ALL", progress: "ALL", factSource: "SELECTION", factCode: "APPLICATION_RECEIVED" });
+  assert.deepEqual(buildSummaryFollowUpFilter("offers"), { query: "", source: "ALL", state: "ALL", progress: "ALL", factSource: "SELECTION", factCode: "OFFERED" });
   assert.deepEqual(buildSummaryFollowUpFilter("needsAction"), { query: "", source: "ALL", state: "NEEDS_ACTION", progress: "ALL" });
   assert.deepEqual(buildSummaryFollowUpFilter("overdueFollowUp"), { query: "", source: "ALL", state: "ALL", progress: "ALL", followUp: "OVERDUE" });
   assert.deepEqual(buildSummaryFollowUpFilter("nextWeekFollowUp"), { query: "", source: "ALL", state: "ALL", progress: "ALL", followUp: "NEXT_7_DAYS" });
   assert.equal(buildSummaryFollowUpFilter("unknown"), null);
+  assert.deepEqual(filterTalentStudents(rows, buildSummaryFollowUpFilter("offers")).map((row) => row.displayName), ["隔離対象"]);
   assert.deepEqual(filterTalentStudents(rows, buildSummaryFollowUpFilter("needsAction")).map((row) => row.displayName), ["確認対象", "隔離対象"]);
   assert.match(html, /data-summary-followup="needsAction"/);
   assert.match(html, /data-summary-followup="overdueFollowUp"/);
@@ -233,7 +237,7 @@ test("student workspace empty state explains missing data versus active filters"
   assert.match(app, /hasActiveStudentFilters/);
 });
 
-test("fair analysis opens a student queue scoped to its selected record month", async () => {
+test("Fair month reporting does not imply a Candidate queue before origin confirmation", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
   const app = await readFile(new URL("app.mjs", root), "utf8");
   const rows = [
@@ -265,9 +269,13 @@ test("fair analysis opens a student queue scoped to its selected record month", 
   assert.match(html, /id="student-detail-followup-state"/);
   assert.match(app, /student-detail-next-action/);
   assert.match(app, /期限超過: 優先対応/);
-  assert.match(html, /<th>記録月<\/th>[\s\S]*<th>フォロー<\/th>/);
+  assert.match(html, /フェア別 接触実績/);
+  assert.match(html, /<th>フェア<\/th>[\s\S]*<th>フォロー<\/th>/);
+  assert.doesNotMatch(html, /フェア名・参加費用は現在のデータに確定項目がない/);
   assert.match(html, /id="fair-latest-month-open"/);
-  assert.match(app, /button\.textContent = "対象月を見る"/);
+  assert.match(app, /candidateLinkReady/);
+  assert.match(app, /button\.disabled = !candidateLinkReady/);
+  assert.match(app, /button\.textContent = candidateLinkReady \? "対象月を見る" : "起点確認待ち"/);
   assert.match(app, /dataset\.monthKey/);
   assert.match(app, /renderStudentMonthFilterOptions/);
 });
@@ -679,7 +687,7 @@ test("student review KPIs separate owner review, quarantine, and confirmed state
   for (const id of ["student-owner-review", "student-quarantine", "student-importable"]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
-  assert.match(app, /"student-owner-review": overview\.ownerReview/);
+  assert.match(app, /"student-owner-review": sourceFactsReady \? overview\.ownerReview : preparing/);
   assert.match(app, /"student-quarantine": overview\.quarantined/);
   assert.match(app, /"student-importable": overview\.mapped/);
 });

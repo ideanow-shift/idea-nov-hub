@@ -1,8 +1,8 @@
 {
   "dictionaryId": "NOV_TALENT_DATA_DICTIONARY",
-  "dictionaryVersion": "1.4.0",
+  "dictionaryVersion": "1.5.0",
   "status": "CANONICAL",
-  "effectiveDate": "2026-08-04",
+  "effectiveDate": "2026-08-08",
   "language": "ja-JP",
   "scope": {
     "product": "NOV Talent",
@@ -111,6 +111,32 @@
     "unsetName": "未設定",
     "note": "状態コードの並びだけから選考順序や自動遷移を推測しない"
   },
+  "sourceResponsibilities": {
+    "candidate": "IDENTITY_AND_CURRENT_STATE_PROJECTION",
+    "eventContactOfficialCodes": [
+      "CONTACT_RECORDED",
+      "LINE_REGISTERED",
+      "SALON_TOUR_PLANNED",
+      "SALON_TOUR_COMPLETED"
+    ],
+    "selectionHistoryOfficialCodes": [
+      "APPLICATION_RECEIVED",
+      "INTERVIEW_PLANNED",
+      "INTERVIEW_COMPLETED",
+      "OFFERED",
+      "OFFER_ACCEPTED",
+      "OFFERED_ELSEWHERE",
+      "WITHDRAWN",
+      "REJECTED"
+    ],
+    "sourceFact": "UNLINKED_IMPORT_EVIDENCE_UNTIL_SAFELY_LINKED",
+    "fairOrigin": "CONFIRMED_ORIGIN_ONLY",
+    "legacyEventCodesAreOfficialKpiSource": false,
+    "legacyCrossDomainActivityMutationAllowed": false,
+    "legacyActivityReadDeactivateAllowed": true,
+    "crossGrainRatePolicy": "PREPARING_UNTIL_SAME_GRAIN_CONTRACT",
+    "legacyFairKpiColumnsAreOfficialSource": false
+  },
   "school": {
     "fieldCode": "SCHOOL_NAME",
     "formalName": "学校名",
@@ -121,7 +147,10 @@
       "前後空白除去",
       "空文字はnull"
     ],
-    "masterType": "OPEN_VALUE",
+    "masterType": "VERSIONED_MASTER_WITH_OPEN_NAME",
+    "masterTable": "nov_talent_school_masters_v1",
+    "masterIdentityField": "school_id",
+    "candidateLinkField": "school_id",
     "automaticAbbreviationExpansion": false,
     "automaticGuessing": false,
     "placeholderAsFact": false,
@@ -132,55 +161,64 @@
       "metricKey": "contacts",
       "code": "CONTACT_RECORDED",
       "name": "接点記録",
-      "definition": "候補者との接点を1件記録する。"
+      "definition": "候補者との接点を1件記録する。",
+      "officialKpiSource": true
     },
     {
       "metricKey": "lineRegistrations",
       "code": "LINE_REGISTERED",
       "name": "LINE登録",
-      "definition": "LINE登録確認を1件記録する。"
+      "definition": "LINE登録確認を1件記録する。",
+      "officialKpiSource": true
     },
     {
       "metricKey": "salonTourPlanned",
       "code": "SALON_TOUR_PLANNED",
       "name": "見学予定",
-      "definition": "見学予定を1件記録する。"
+      "definition": "見学予定を1件記録する。",
+      "officialKpiSource": true
     },
     {
       "metricKey": "salonTours",
       "code": "SALON_TOUR_COMPLETED",
       "name": "見学完了",
-      "definition": "見学完了を1件記録する。"
+      "definition": "見学完了を1件記録する。",
+      "officialKpiSource": true
     },
     {
       "metricKey": "interviewPlanned",
       "code": "INTERVIEW_PLANNED",
       "name": "面接予定",
-      "definition": "面接予定を1件記録する。"
+      "definition": "互換用の旧Eventコード。正式な面接予定KPIはSelection Historyから算出する。",
+      "officialKpiSource": false
     },
     {
       "metricKey": "interviews",
       "code": "INTERVIEW_COMPLETED",
       "name": "面接完了",
-      "definition": "面接完了を1件記録する。"
+      "definition": "互換用の旧Eventコード。正式な面接完了KPIはSelection Historyから算出する。",
+      "officialKpiSource": false
     },
     {
       "metricKey": "passed",
       "code": "SELECTION_PASSED",
       "name": "選考通過",
-      "definition": "選考通過イベントを1件記録する。候補者状態OFFER_ACCEPTED（内定承諾）とは同一視しない。"
+      "definition": "互換用の旧Eventコード。正式な選考事実はSelection Historyから算出し、OFFER_ACCEPTEDとは同一視しない。",
+      "officialKpiSource": false
     },
     {
       "metricKey": "offers",
       "code": "OFFER_ISSUED",
       "name": "内定提示",
-      "definition": "内定提示を1件記録する。"
+      "definition": "互換用の旧Eventコード。正式な内定KPIはSelection HistoryのOFFEREDから算出する。",
+      "officialKpiSource": false
     },
     {
       "metricKey": "expectedJoiners",
       "code": "EXPECTED_JOIN_CONFIRMED",
       "name": "入社予定確認",
-      "definition": "入社予定の確認を1件記録する。"
+      "definition": "互換用の旧Eventコード。現在の入社予定人数はCandidate current state Projectionから算出する。",
+      "officialKpiSource": false
     }
   ],
   "eventInvalidationReasons": [
@@ -268,6 +306,12 @@
         "scope": "Staging Runtime"
       },
       {
+        "code": "DASHBOARD_CONTACTS",
+        "name": "接触件数",
+        "basis": "ACTIVE Candidateに紐づくACTIVE EventのCONTACT_RECORDED行数",
+        "scope": "Staging Runtime"
+      },
+      {
         "code": "DASHBOARD_ENTRIES",
         "name": "応募数",
         "basis": "Selection HistoryのAPPLICATION_RECEIVEDを持つCandidate数",
@@ -282,7 +326,7 @@
       {
         "code": "DASHBOARD_INTERVIEW_PLANNED",
         "name": "面接予定数",
-        "basis": "EventのINTERVIEW_PLANNEDを持つCandidate数",
+        "basis": "Selection HistoryのINTERVIEW_PLANNEDを持つCandidate数",
         "scope": "Staging Runtime"
       },
       {
@@ -300,19 +344,19 @@
       {
         "code": "DASHBOARD_SCHOOLS",
         "name": "学校数",
-        "basis": "ACTIVE Candidateの空欄でない正規化学校名の異なり数",
+        "basis": "ACTIVE School Master行数",
         "scope": "Staging Runtime"
       },
       {
         "code": "DASHBOARD_FAIRS",
         "name": "フェア数",
-        "basis": "正式Sourceの有効なフェア記録数",
+        "basis": "ACTIVE Fair Master行数",
         "scope": "Staging Runtime"
       },
       {
         "code": "DASHBOARD_TODAY_ACTIONS",
         "name": "今日やること",
-        "basis": "OPENかつdue_dateが当日以前のNext Action件数（表示は最大5件）",
+        "basis": "OPENかつdue_dateがAsia/Tokyoの業務日当日以前のNext Action件数（表示リストは最大5件）",
         "scope": "Staging Runtime"
       }
     ],
@@ -393,7 +437,7 @@
     }
   },
   "versions": {
-    "dictionary": "1.4.0",
+    "dictionary": "1.5.0",
     "dataIntegrityReportSchema": "1.2",
     "workQueueSeedSchema": "2.0",
     "sourceLineageSchema": "1.0",
@@ -403,15 +447,15 @@
   "migration": {
     "currentStatus": "STAGING_DATASET_ACTIVE",
     "currentStatusName": "Staging Candidate Dataset有効",
-    "reasonCode": "STAGING_RUNTIME_READY_FOR_PUBLICATION",
-    "reasonName": "read-only APIとRole Guard接続済み、明示承認付きPages公開待ち",
+    "reasonCode": "STAGING_OPERATION_ACTIVE",
+    "reasonName": "Staging Runtime、Role Guard、server-side API、Pages公開が有効",
     "productionStatus": "PRODUCTION_MIGRATION_HOLD",
     "productionReasonCode": "STAGING_OPERATION_VALIDATION_AND_PROMOTION_APPROVAL_PENDING",
     "dataIntegrityCompleted": true,
     "dataConsistencyReviewRequired": true,
     "automaticMigration": false,
     "approvalRequired": true,
-    "note": "Staging先行運用の設計は確定済み。Staging承認はProduction承認を含まない。",
+    "note": "Staging先行運用中。初回Migration証拠と日常server-side write運用を分離し、Staging承認はProduction承認を含まない。",
     "activeRowDefinition": {
       "status": "DEFINED",
       "definitionVersion": "1.1.0",
@@ -501,10 +545,20 @@
       "2028": 108
     },
     "initialMigrationEntityScope": ["CANDIDATE"],
-    "operatorCapabilities": ["CANDIDATE_MANAGEMENT", "CANDIDATE_SEARCH", "DASHBOARD"],
-    "systemOfRecord": "OFFICIAL_SPREADSHEET",
-    "updateFlow": ["SPREADSHEET_UPDATE", "READ_ONLY_PREFLIGHT", "OWNER_APPROVED_IMPORT", "STAGING_DATASET_ACTIVATION"],
-    "directCandidateMutation": false,
+    "operatorCapabilities": [
+      "CANDIDATE_MANAGEMENT",
+      "EVENT_CONTACT_MANAGEMENT",
+      "SELECTION_HISTORY_MANAGEMENT",
+      "NEXT_ACTION_MANAGEMENT",
+      "CANDIDATE_SEARCH",
+      "DASHBOARD"
+    ],
+    "systemOfRecord": "NOV_TALENT_STAGING",
+    "updateFlow": ["NOV_HUB_AUTHENTICATED_UI", "SERVER_SIDE_API", "RLS_PROTECTED_WRITE", "APPEND_ONLY_AUDIT"],
+    "directCandidateMutation": true,
+    "spreadsheetStatus": "REFERENCE_ONLY_ARCHIVE",
+    "spreadsheetRoutineWrite": false,
+    "spreadsheetBidirectionalSync": false,
     "importMode": "VERSIONED_SNAPSHOT_REPLACEMENT",
     "retryCount": 0,
     "productionPromotion": false
@@ -535,8 +589,8 @@
     },
     {
       "code": "STAGING_DATASET_ACTIVE",
-      "name": "Staging Candidate schema適用待ち",
-      "definition": "Candidate 636件、28卒、Versioned Dataset、有効化、旧版復帰を満たすmigration sourceは実装済みで、Remote Stagingへの適用を待っている。"
+      "name": "Staging Candidate Dataset有効",
+      "definition": "Candidate 636件のVersioned DatasetはRemote StagingでACTIVEであり、公開Staging Runtimeから利用する。"
     },
     {
       "code": "PRODUCTION_MIGRATION_HOLD",
@@ -551,16 +605,24 @@
       "name": "Release Ready",
       "scope": "DATA_INTEGRITY_WORK_QUEUE_CLOSURE",
       "definition": "Data Integrity成果物を公開可能。Migration実行可を意味しない。"
+    },
+    {
+      "code": "OPERATIONAL_COMPLETION_PENDING",
+      "name": "Operational Completion待ち",
+      "scope": "NOV_TALENT_V1_OPERATIONAL_COMPLETION",
+      "definition": "5営業日連続のSpreadsheet非依存運用Gateを完了していない。"
     }
   ],
   "currentRelease": {
-    "status": "RELEASE_READY",
-    "scope": "STAGING_OPERATIONS_DESIGN",
+    "status": "OPERATIONAL_COMPLETION_PENDING",
+    "scope": "NOV_TALENT_V1_OPERATIONAL_COMPLETION",
     "stagingOperationsDesignReady": true,
     "stagingCandidateSchemaSourceReady": true,
     "stagingCandidateSchemaApplied": true,
     "stagingMigrationExecuted": true,
-    "stagingOperationsStarted": false,
+    "stagingOperationsStarted": true,
+    "workspaceContractVersion": "1.0.0",
+    "currentOutcome": "OUTCOME_0_ACCURACY_AND_CONTRACT_ALIGNMENT",
     "productionDeployExecutedByThisDictionarySprint": false
   },
   "roles": [

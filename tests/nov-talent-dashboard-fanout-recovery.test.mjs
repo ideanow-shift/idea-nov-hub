@@ -108,6 +108,8 @@ test("Workspace fetches Candidate and every auxiliary view once and returns oper
   assert.equal(envelope.data.dashboard.graduation2028, 108);
   assert.equal(envelope.data.dashboard.fairCount, 46);
   assert.equal(envelope.data.dashboard.eventCount, 712);
+  assert.equal(envelope.data.summary.contacts, 59);
+  assert.equal(envelope.data.overview.contacts, 59);
   assert.equal(envelope.data.summary.lineRegistrations, 465);
   assert.equal(envelope.data.summary.salonTours, 188);
   assert.equal(envelope.data.partialStatus.state, "complete");
@@ -166,7 +168,23 @@ test("partial summary renders affected cards as preparing without converting the
     summary: { contacts: 636, lineRegistrations: 0, salonTours: 0, interviews: 0, passed: 0, offers: 0, expectedJoiners: 0 },
     partialStatus: { state: "partial", unavailableViews: ["recruitment_events"], retryCount: 1 }
   });
-  assert.equal(viewModel.find((metric) => metric.key === "contacts").value, 636);
+  assert.equal(viewModel.find((metric) => metric.key === "contacts").value, "集計準備中");
   assert.equal(viewModel.find((metric) => metric.key === "lineRegistrations").value, "集計準備中");
   assert.equal(viewModel.find((metric) => metric.key === "salonTours").value, "集計準備中");
+});
+
+test("summary cards respect dashboard availability even when the transport is complete", () => {
+  const viewModel = buildWorkspaceDashboardSummaryViewModel({
+    summary: { contacts: 3, lineRegistrations: 2, salonTours: 1, interviews: 0, passed: 0, offers: 0, expectedJoiners: 0 },
+    dashboard: { availability: {
+      eventCount: true, lineRegistrations: true, salonTourCompleted: true,
+      interviewHistory: false, offers: false
+    } },
+    partialStatus: { state: "complete", unavailableViews: [], retryCount: 0 }
+  });
+  assert.equal(viewModel.find((metric) => metric.key === "contacts").value, 3);
+  for (const key of ["interviews", "passed", "offers"]) {
+    assert.equal(viewModel.find((metric) => metric.key === key).value, "集計準備中");
+  }
+  assert.equal(viewModel.find((metric) => metric.key === "expectedJoiners").value, 0);
 });

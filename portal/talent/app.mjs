@@ -2,8 +2,8 @@ import {
   buildDashboardSummaryViewModel,
   createDashboardSummaryExecutor,
   createTalentWorkspaceExecutor
-} from "./runtime.mjs?v=20260806-workspace-contract-v1-1";
-import { buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260804-recruitment-master-dashboard-1";
+} from "./runtime.mjs?v=20260808-v1-accuracy-1";
+import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260808-v1-accuracy-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
 import { handleNovHubSessionAuthFailure, NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
@@ -13,8 +13,9 @@ import {
   buildEventRoiView,
   buildMockRuntimePresentation,
   buildRecruitmentDashboardDecision,
-  buildRecruitmentTaskBoard
-} from "./recruitment-ux.mjs?v=20260804-operation-ui-cleanup-1";
+  buildRecruitmentTaskBoard,
+  japanBusinessDateIso
+} from "./recruitment-ux.mjs?v=20260808-v1-accuracy-1";
 import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs?v=20260804-recruiting-dashboard-completion-1";
 
 let summaryConsumed = false;
@@ -35,6 +36,7 @@ let activityDialogContext = null;
 let pendingSelectedApplicationNo = null;
 let selectedGraduationYear = "ALL";
 let fairOriginReviewEntries = [];
+let activeStudentFactFilter = null;
 
 const PRIMARY_TABS = Object.freeze(["recruitment"]);
 const RECRUITMENT_TABS = Object.freeze(["summary", "students", "fairs", "schools", "management"]);
@@ -339,7 +341,11 @@ export function initializeTalentStudentWorkspace({
     return Object.freeze({ initialized: Boolean(list), duplicateBindingPrevented: Boolean(list) });
   }
   list.dataset.workspaceBound = "true";
-  const refresh = () => renderStudentWorkspace(documentObject);
+  configureFairMasterAccuracyInputs(documentObject);
+  const refresh = () => {
+    activeStudentFactFilter = null;
+    renderStudentWorkspace(documentObject);
+  };
   for (const button of documentObject.querySelectorAll("[data-graduation-year]")) {
     button.addEventListener("click", () => {
       selectedGraduationYear = normalizeGraduationYearFilter(button.dataset.graduationYear);
@@ -413,7 +419,9 @@ export function initializeTalentStudentWorkspace({
     renderTalentAnalytics(documentObject);
   });
   documentObject.getElementById("fair-latest-month-open")?.addEventListener("click", () => {
-    const key = documentObject.getElementById("fair-latest-month-open")?.dataset.monthKey;
+    const control = documentObject.getElementById("fair-latest-month-open");
+    if (control?.disabled) return;
+    const key = control?.dataset.monthKey;
     openStudentWorkspace(documentObject, buildMonthlyFollowUpFilter(key));
   });
   documentObject.getElementById("school-top-open")?.addEventListener("click", () => {
@@ -638,14 +646,19 @@ async function performTalentStudentWorkspaceLoad({
     stages: [
       { name: "renderStudentMonthFilterOptions", render: () => renderStudentMonthFilterOptions(documentObject, result.data.students) },
       { name: "renderStudentWorkspace", render: () => renderStudentWorkspace(documentObject) },
-      { name: "renderImportOverview", render: () => renderImportOverview(documentObject, result.data.overview) },
+      { name: "renderImportOverview", render: () => renderImportOverview(documentObject, result.data) },
       { name: "renderHistoricalReviewSummary", render: () => renderHistoricalReviewSummary(documentObject, result.data.overview) },
       { name: "renderBulkTriageSummary", render: () => renderBulkTriageSummary(documentObject, result.data.students) },
       { name: "renderTalentTodayDashboard", render: () => renderTalentTodayDashboard(documentObject, graduationYearWorkspace(result.data)) },
       { name: "renderTalentAnalytics", render: () => renderTalentAnalytics(documentObject) },
       { name: "renderRecruitmentMasters", render: () => renderRecruitmentMasters(documentObject) },
       { name: "renderTodayTasks", render: () => renderTodayTasks(documentObject, graduationYearWorkspace(result.data).todayTasks || []) },
-      { name: "renderUnlinkedInterviews", render: () => renderUnlinkedInterviews(documentObject, result.data.unlinkedSelectionHistory || [], globalObject) }
+      { name: "renderUnlinkedInterviews", render: () => renderUnlinkedInterviews(
+        documentObject,
+        result.data.unlinkedSelectionHistory || [],
+        globalObject,
+        !new Set(result.data.partialStatus?.unavailableViews || []).has("source_facts")
+      ) }
     ]
   });
   if (!renderResult.ok) {
@@ -1221,28 +1234,50 @@ async function applyHistoricalReview({ globalObject, documentObject }) {
   await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
 }
 
-function renderImportOverview(documentObject, overview) {
-  const values = {
+export function buildImportOverviewViewModel(data) {
+  const overview = data?.overview || {};
+  const availability = data?.dashboard?.availability || {};
+  const unavailable = new Set(data?.partialStatus?.unavailableViews || []);
+  const preparing = "集計準備中";
+  const sourceFactsReady = !unavailable.has("source_facts");
+  const contactsReady = availability.eventCount === true && !unavailable.has("recruitment_events");
+  const entriesReady = availability.entries === true && !unavailable.has("selection_history");
+  const offersReady = availability.offers === true && !unavailable.has("selection_history");
+  const count = (value) => Number.isInteger(value) && value >= 0 ? value : 0;
+  return Object.freeze({ sourceFactsReady, values: Object.freeze({
     "import-total": overview.total,
-    "import-review": overview.ownerReview,
+    "import-review": sourceFactsReady ? overview.ownerReview : preparing,
     "import-quarantine": overview.quarantined,
     "import-mapped": overview.mapped,
     "student-total": overview.total,
-    "student-contacts": overview.contacts,
-    "student-entries": overview.entries,
-    "student-offers": overview.offers,
-    "student-manual": overview.manual,
-    "student-owner-review": overview.ownerReview,
+    "student-contacts": contactsReady ? overview.contacts : preparing,
+    "student-entries": entriesReady ? overview.entries : preparing,
+    "student-offers": offersReady ? overview.offers : preparing,
+    "student-manual": sourceFactsReady ? overview.manual : preparing,
+    "student-owner-review": sourceFactsReady ? overview.ownerReview : preparing,
     "student-quarantine": overview.quarantined,
     "student-importable": overview.mapped,
-    "student-needs-review": overview.ownerReview + overview.quarantined
-  };
-  Object.entries(values).forEach(([id, value]) => {
+    "student-needs-review": sourceFactsReady ? count(overview.ownerReview) + count(overview.quarantined) : preparing
+  }) });
+}
+
+function renderImportOverview(documentObject, data) {
+  const view = buildImportOverviewViewModel(data);
+  Object.entries(view.values).forEach(([id, value]) => {
     const element = documentObject?.getElementById?.(id);
     if (element) element.textContent = String(value);
   });
+  for (const id of ["student-review-open", "review-workload-open"]) {
+    const control = documentObject?.getElementById?.(id);
+    if (!control) continue;
+    control.disabled = !view.sourceFactsReady;
+    control.setAttribute("aria-disabled", String(!view.sourceFactsReady));
+    control.title = view.sourceFactsReady ? "" : "要確認データを集計準備中です";
+  }
   const status = documentObject?.getElementById?.("import-overview-status");
-  if (status) status.textContent = "27卒・28卒のStaging Candidate Dataset（read-only）";
+  if (status) status.textContent = view.sourceFactsReady
+    ? "27卒・28卒のStaging Candidate Dataset（read-only）"
+    : "一部の要確認指標は集計準備中です";
 }
 
 function renderTalentAnalytics(documentObject) {
@@ -1253,15 +1288,19 @@ function renderTalentAnalytics(documentObject) {
   renderRecruitmentDecision(documentObject, decision);
   renderMetricCollection(documentObject, "historical-summary-metrics", decision.metrics);
   renderSummaryFollowUpCounts(documentObject, workspace.students);
-  renderAnalyticsCoverage(documentObject, analytics);
+  renderAnalyticsCoverage(documentObject, analytics, workspace);
   const actionGuide = buildTalentAnalyticsActionGuide(analytics);
   renderTalentAnalyticsActionGuide(documentObject, actionGuide, buildTalentAnalyticsQueueHandoff(actionGuide));
-  renderMonthlyFlow(documentObject, analytics.flow);
+  renderMonthlyFlow(documentObject, analytics.flow, analytics.fairSourceAvailable);
   renderEventRoi(documentObject, buildEventRoiView(workspace));
-  renderSchoolAnalysis(documentObject, analytics.schools);
+  renderSchoolAnalysis(documentObject, analytics.schools, analytics.schoolSourceAvailable);
   setText(documentObject, "historical-summary-status", `${workspace.students.length}件を集計`);
-  setText(documentObject, "fair-analysis-status", `${analytics.flow.length}か月分を表示`);
-  setText(documentObject, "school-analysis-status", `${analytics.schools.length}校を表示`);
+  setText(documentObject, "fair-analysis-status", analytics.fairSourceAvailable
+    ? `有効Fair ${analytics.flow.length}件`
+    : "集計準備中");
+  setText(documentObject, "school-analysis-status", analytics.schoolSourceAvailable
+    ? `${analytics.schools.length}校を表示`
+    : "集計準備中");
 }
 
 function renderRecruitmentDecision(documentObject, decision) {
@@ -1327,32 +1366,46 @@ function renderMetricCollection(documentObject, containerId, metrics) {
   container.replaceChildren(...metrics.map((metric) => createMetricCard(documentObject, metric)));
 }
 
-function renderAnalyticsCoverage(documentObject, analytics) {
-  const fairSummary = summarizeActiveFairMasters(studentWorkspaceData?.fairMasters || []);
-  setText(documentObject, "fair-active-count", fairSummary.activeCount);
-  setText(documentObject, "fair-contact-count", fairCountLabel(fairSummary.contactCount));
-  setText(documentObject, "fair-line-count", fairCountLabel(fairSummary.lineRegistrationCount));
-  setText(documentObject, "fair-tour-count", fairCountLabel(fairSummary.salonTourCount));
-  setText(documentObject, "fair-fee-total", fairSummary.participationFeeComplete ? fairCurrencyLabel(fairSummary.participationFee) : "集計準備中");
-  setText(documentObject, "fair-contact-coverage", fairCoverageLabel(fairSummary.contactRegisteredCount, fairSummary.activeCount));
-  setText(documentObject, "fair-line-coverage", fairCoverageLabel(fairSummary.lineRegistrationRegisteredCount, fairSummary.activeCount));
-  setText(documentObject, "fair-tour-coverage", fairCoverageLabel(fairSummary.salonTourRegisteredCount, fairSummary.activeCount));
-  setText(documentObject, "fair-fee-coverage", fairCoverageLabel(fairSummary.participationFeeRegisteredCount, fairSummary.activeCount));
-  setText(documentObject, "fair-contact-cost", fairCurrencyLabel(fairSummary.contactCost, "集計準備中"));
-  setText(documentObject, "fair-line-rate", fairSummary.lineRegistrationComplete && fairSummary.contactComplete ? fairRateLabel(fairSummary.lineRegistrationCount, fairSummary.contactCount) : "集計準備中");
-  setText(documentObject, "fair-tour-rate", fairSummary.salonTourComplete && fairSummary.contactComplete ? fairRateLabel(fairSummary.salonTourCount, fairSummary.contactCount) : "集計準備中");
-  setText(documentObject, "fair-month-count", analytics.coverage.monthCount);
-  setText(documentObject, "school-count", analytics.schools.length);
-  setText(documentObject, "school-registered-count", analytics.schools.length);
-  setText(documentObject, "school-missing-count", analytics.coverage.schoolMissing);
-  const topSchool = analytics.schools[0];
-  setText(documentObject, "school-top-name", topSchool?.school || "未集計");
+function renderAnalyticsCoverage(documentObject, analytics, workspace) {
+  const fairSummary = analytics.fairSourceAvailable
+    ? summarizeActiveFairMasters(workspace?.fairMasters || [])
+    : null;
+  const preparing = "集計準備中";
+  setText(documentObject, "fair-active-count", fairSummary ? fairSummary.activeCount : preparing);
+  setText(documentObject, "fair-contact-count", fairSummary ? fairCountLabel(fairSummary.contactCount) : preparing);
+  setText(documentObject, "fair-line-count", fairSummary ? fairCountLabel(fairSummary.lineRegistrationCount) : preparing);
+  setText(documentObject, "fair-tour-count", fairSummary ? fairCountLabel(fairSummary.salonTourCount) : preparing);
+  setText(documentObject, "fair-fee-total", fairSummary?.participationFeeComplete ? fairCurrencyLabel(fairSummary.participationFee) : preparing);
+  setText(documentObject, "fair-contact-coverage", fairSummary ? fairCoverageLabel(fairSummary.contactRegisteredCount, fairSummary.activeCount) : preparing);
+  setText(documentObject, "fair-line-coverage", fairSummary ? fairCoverageLabel(fairSummary.lineRegistrationRegisteredCount, fairSummary.activeCount) : preparing);
+  setText(documentObject, "fair-tour-coverage", fairSummary ? fairCoverageLabel(fairSummary.salonTourRegisteredCount, fairSummary.activeCount) : preparing);
+  setText(documentObject, "fair-fee-coverage", fairSummary ? fairCoverageLabel(fairSummary.participationFeeRegisteredCount, fairSummary.activeCount) : preparing);
+  setText(documentObject, "fair-contact-cost", fairSummary
+    ? fairContactCostLabel(
+      fairSummary.participationFeeComplete ? fairSummary.participationFee : null,
+      fairSummary.contactComplete ? fairSummary.contactCount : null
+    )
+    : preparing);
+  setText(documentObject, "fair-line-rate", fairSummary?.lineRegistrationComplete && fairSummary.contactComplete ? fairRateLabel(fairSummary.lineRegistrationCount, fairSummary.contactCount) : preparing);
+  setText(documentObject, "fair-tour-rate", fairSummary?.salonTourComplete && fairSummary.contactComplete ? fairRateLabel(fairSummary.salonTourCount, fairSummary.contactCount) : preparing);
+  setText(documentObject, "fair-month-count", analytics.fairSourceAvailable ? analytics.coverage.monthCount : preparing);
+  setText(documentObject, "school-count", analytics.schoolSourceAvailable ? analytics.schools.length : preparing);
+  setText(documentObject, "school-registered-count", analytics.schoolSourceAvailable ? analytics.schools.length : preparing);
+  setText(documentObject, "school-missing-count", analytics.schoolSourceAvailable ? analytics.coverage.schoolMissing : preparing);
+  const topSchool = analytics.schools.find((row) => Number.isInteger(row?.contacts) && row.contacts > 0);
+  const schoolContactsPreparing = !analytics.schoolSourceAvailable
+    || analytics.schools.some((row) => row?.contacts === null);
+  setText(documentObject, "school-top-name", topSchool?.school
+    || (schoolContactsPreparing ? "集計準備中" : "接触実績なし"));
   const latestMonth = analytics.flow[0];
   const latestButton = documentObject.getElementById("fair-latest-month-open");
   if (latestButton) {
-    latestButton.disabled = !latestMonth?.key;
-    latestButton.dataset.monthKey = latestMonth?.key || "";
-    latestButton.textContent = latestMonth?.label ? `${latestMonth.label}を見る` : "最新月を見る";
+    const candidateLinkReady = Boolean(latestMonth?.key && latestMonth?.candidateLinkReady === true);
+    latestButton.disabled = !candidateLinkReady;
+    latestButton.dataset.monthKey = candidateLinkReady ? latestMonth.key : "";
+    latestButton.textContent = latestMonth?.label
+      ? candidateLinkReady ? `${latestMonth.label}を見る` : `${latestMonth.label}（起点確認待ち）`
+      : "最新月を見る";
   }
   const schoolButton = documentObject.getElementById("school-top-open");
   if (schoolButton) {
@@ -1361,13 +1414,27 @@ function renderAnalyticsCoverage(documentObject, analytics) {
   }
 }
 
-function renderMonthlyFlow(documentObject, rows) {
+export function buildAnalyticsListState({ sourceAvailable = true, count = 0, unit = "件", emptyText = "表示できるデータがありません。" } = {}) {
+  if (!sourceAvailable) return Object.freeze({
+    countLabel: "集計準備中", emptyText: "集計準備中", controlsDisabled: true, showEmpty: true
+  });
+  return Object.freeze({
+    countLabel: `${count}${unit}`, emptyText, controlsDisabled: false, showEmpty: count === 0
+  });
+}
+
+function renderMonthlyFlow(documentObject, rows, sourceAvailable = true) {
   const body = documentObject.getElementById("fair-flow-body");
   const empty = documentObject.getElementById("fair-flow-empty");
   if (!body) return;
-  const visible = rows.slice(0, 18);
+  const visible = sourceAvailable ? rows.slice(0, 18) : [];
+  const state = buildAnalyticsListState({
+    sourceAvailable,
+    count: visible.length,
+    emptyText: "表示できる有効フェアがありません。"
+  });
   body.replaceChildren(...visible.map((row) => createMonthlyFlowRow(documentObject, row)));
-  if (empty) empty.hidden = visible.length > 0;
+  if (empty) { empty.textContent = state.emptyText; empty.hidden = !state.showEmpty; }
 }
 
 function createMonthlyFlowRow(documentObject, flow) {
@@ -1375,26 +1442,32 @@ function createMonthlyFlowRow(documentObject, flow) {
     flow.label,
     fairCountLabel(flow.contacts),
     fairCountLabel(flow.lineRegistrations),
-    fairCountLabel(flow.entries),
-    fairCountLabel(flow.offers),
-    flow.needsAction
+    flow.entries === null ? "集計準備中" : fairCountLabel(flow.entries),
+    flow.offers === null ? "集計準備中" : fairCountLabel(flow.offers),
+    flow.needsAction === null ? "集計準備中" : flow.needsAction
   ]);
   const action = documentObject.createElement("td");
   const button = documentObject.createElement("button");
   button.type = "button";
   button.className = "analysis-followup-button";
-  button.textContent = "対象月を見る";
-  button.setAttribute("aria-label", `${flow.label}の学生フォローを表示`);
-  button.addEventListener("click", () => openStudentWorkspace(documentObject, buildMonthlyFollowUpFilter(flow.key)));
+  const candidateLinkReady = Boolean(flow.key && flow.candidateLinkReady === true);
+  button.disabled = !candidateLinkReady;
+  button.textContent = candidateLinkReady ? "対象月を見る" : "起点確認待ち";
+  button.setAttribute("aria-label", candidateLinkReady
+    ? `${flow.label}の学生フォローを表示`
+    : `${flow.label}は学生とのきっかけ確認待ち`);
+  if (candidateLinkReady) {
+    button.addEventListener("click", () => openStudentWorkspace(documentObject, buildMonthlyFollowUpFilter(flow.key)));
+  }
   action.append(button);
   row.append(action);
   return row;
 }
 
-function renderSchoolAnalysis(documentObject, rows) {
+function renderSchoolAnalysis(documentObject, rows, sourceAvailable = true) {
   const query = normalizeSearch(documentObject.getElementById("school-search")?.value);
   const sort = documentObject.getElementById("school-sort")?.value || "contacts";
-  const sorted = rows
+  const sorted = (sourceAvailable ? rows : [])
     .filter((row) => !query || normalizeSearch(row.school).includes(query))
     .sort((left, right) => (
       Number(right[sort] || 0) - Number(left[sort] || 0)
@@ -1404,22 +1477,32 @@ function renderSchoolAnalysis(documentObject, rows) {
   const body = documentObject.getElementById("school-analysis-body");
   const empty = documentObject.getElementById("school-analysis-empty");
   const count = documentObject.getElementById("school-result-count");
-  if (count) count.textContent = `${sorted.length}校`;
+  const state = buildAnalyticsListState({
+    sourceAvailable,
+    count: sorted.length,
+    unit: "校",
+    emptyText: "条件に一致する学校がありません。"
+  });
+  if (count) count.textContent = state.countLabel;
+  for (const id of ["school-search", "school-sort"]) {
+    const control = documentObject.getElementById(id);
+    if (control) { control.disabled = state.controlsDisabled; control.setAttribute?.("aria-disabled", String(state.controlsDisabled)); }
+  }
   if (body) {
     body.replaceChildren(...sorted.slice(0, 100).map((row) => createSchoolAnalysisRow(documentObject, row)));
   }
-  if (empty) empty.hidden = sorted.length > 0;
+  if (empty) { empty.textContent = state.emptyText; empty.hidden = !state.showEmpty; }
 }
 
 function createSchoolAnalysisRow(documentObject, school) {
   const row = createAnalysisRow(documentObject, [
     school.school,
-    school.contacts,
-    school.lineRegistrations,
-    school.entries,
-    school.offers,
-    `${school.entryRate}%`,
-    `${school.offerRate}%`,
+    school.contacts === null ? "集計準備中" : school.contacts,
+    school.lineRegistrations === null ? "集計準備中" : school.lineRegistrations,
+    school.entries === null ? "集計準備中" : school.entries,
+    school.offers === null ? "集計準備中" : school.offers,
+    school.entryRate === null ? "集計準備中" : `${school.entryRate}%`,
+    school.offerRate === null ? "集計準備中" : `${school.offerRate}%`,
     school.needsAction
   ]);
   const action = documentObject.createElement("td");
@@ -1440,6 +1523,9 @@ function openSchoolStudentWorkspace(documentObject, school) {
 
 function openStudentWorkspace(documentObject, filter) {
   if (!filter) return;
+  activeStudentFactFilter = filter.factSource && filter.factCode
+    ? Object.freeze({ factSource: filter.factSource, factCode: filter.factCode })
+    : null;
   const search = documentObject.getElementById("student-search");
   const source = documentObject.getElementById("student-source-filter");
   const state = documentObject.getElementById("student-state-filter");
@@ -1485,9 +1571,9 @@ export function buildSchoolFollowUpFilter(school) {
 
 export function buildSummaryFollowUpFilter(key) {
   const filters = {
-    contacts: { source: "CONTACTS_27" },
-    entries: { progress: "APPLICATION_RECEIVED" },
-    offers: { progress: "OFFERED" },
+    contacts: { factSource: "EVENT", factCode: "CONTACT_RECORDED" },
+    entries: { factSource: "SELECTION", factCode: "APPLICATION_RECEIVED" },
+    offers: { factSource: "SELECTION", factCode: "OFFERED" },
     overdueFollowUp: { followUp: "OVERDUE" },
     nextWeekFollowUp: { followUp: "NEXT_7_DAYS" },
     needsAction: { state: "NEEDS_ACTION" }
@@ -1573,7 +1659,7 @@ export function buildOnboardingHandoffDraft(student) {
   });
 }
 
-export function filterTalentStudents(students, { query = "", source = "ALL", state = "ALL", progress = "ALL", month = "ALL", followUp = "ALL" } = {}) {
+export function filterTalentStudents(students, { query = "", source = "ALL", state = "ALL", progress = "ALL", month = "ALL", followUp = "ALL", factSource = "", factCode = "" } = {}) {
   const normalizedQuery = normalizeSearch(query);
   return (Array.isArray(students) ? students : []).filter((student) => {
     if (source !== "ALL" && student.sourceCode !== source) return false;
@@ -1585,6 +1671,12 @@ export function filterTalentStudents(students, { query = "", source = "ALL", sta
       return false;
     }
     if (progress !== "ALL" && getTalentStudentProgressKey(student) !== progress) return false;
+    if (factSource && factCode) {
+      const facts = factSource === "EVENT"
+        ? [...(student.contactHistory || []), ...(student.eventHistory || [])]
+        : factSource === "SELECTION" ? (student.selectionHistory || []) : [];
+      if (!facts.some((fact) => fact?.active !== false && fact?.code === factCode)) return false;
+    }
     if (month !== "ALL" && getTalentStudentMonthKey(student) !== month) return false;
     if (followUp !== "ALL" && classifyTalentStudentFollowUp(student) !== followUp) return false;
     if (!normalizedQuery) return true;
@@ -1603,6 +1695,15 @@ export function classifyTalentStudentFollowUp(student, referenceDate = localTale
   if (days < 0) return "OVERDUE";
   if (days <= 7) return "NEXT_7_DAYS";
   return "SCHEDULED";
+}
+
+export function talentStudentPriorityLabel(student, referenceDate = localTalentDateIso()) {
+  return Object.freeze({
+    OVERDUE: "高（期限超過）",
+    NEXT_7_DAYS: "中（7日以内）",
+    SCHEDULED: "通常（予定あり）",
+    UNSCHEDULED: "未登録"
+  })[classifyTalentStudentFollowUp(student, referenceDate)];
 }
 
 export function buildStudentDailyOperation(student, capability = {}, referenceDate = localTalentDateIso()) {
@@ -1930,9 +2031,7 @@ export function sortTalentStudentsByFollowUp(students, mode = "DEFAULT", referen
 }
 
 function localTalentDateIso() {
-  const now = new Date();
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 10);
+  return japanBusinessDateIso();
 }
 
 export function getTalentStudentMonthKey(student) {
@@ -1971,7 +2070,7 @@ function renderStudentWorkspace(documentObject) {
   const followUp = documentObject.getElementById("student-follow-up-filter")?.value || "ALL";
   const sort = documentObject.getElementById("student-sort-filter")?.value || "DEFAULT";
   const visible = sortTalentStudentsByFollowUp(
-    filterTalentStudents(cohortStudents, { query, source, state, progress, month, followUp }),
+    filterTalentStudents(cohortStudents, { query, source, state, progress, month, followUp, ...(activeStudentFactFilter || {}) }),
     sort
   );
   updateStudentQuickFilterState(documentObject, state, cohortStudents);
@@ -2027,72 +2126,95 @@ export function graduationYearWorkspace(workspace, graduationYear = selectedGrad
   const candidateIds = new Set(students.map((student) => student.recordId).filter(Boolean));
   const fairIds = new Set(students.map((student) => student.fairId).filter(Boolean));
   const schoolIds = new Set(students.map((student) => student.schoolId).filter(Boolean));
-  const schoolNames = new Set(students.map((student) => normalizeSearch(student.school)).filter(Boolean));
-  const hasCode = (student, code) => student.statusCode === code
-    || [...(student.selectionHistory || []), ...(student.eventHistory || []), ...(student.contactHistory || [])]
-      .some((item) => item.active !== false && item.code === code);
-  const count = (code) => students.filter((student) => hasCode(student, code)).length;
-  const today = new Date().toISOString().slice(0, 10);
+  const eventFacts = (student) => [...(student.contactHistory || []), ...(student.eventHistory || [])]
+    .filter((item) => item?.active !== false);
+  const selectionFacts = (student) => (student.selectionHistory || []).filter((item) => item?.active !== false);
+  const hasEvent = (student, code) => eventFacts(student).some((item) => item.code === code);
+  const hasSelection = (student, code) => selectionFacts(student).some((item) => item.code === code);
+  const countEventCandidates = (code) => students.filter((student) => hasEvent(student, code)).length;
+  const countEventRows = (code) => students.reduce((count, student) => (
+    count + eventFacts(student).filter((item) => item.code === code).length
+  ), 0);
+  const countSelectionCandidates = (code) => students.filter((student) => hasSelection(student, code)).length;
+  const availability = workspace.dashboard?.availability || {};
+  const availableCount = (key, count) => availability[key] === true ? count : 0;
+  const today = localTalentDateIso();
   const todayTasks = (Array.isArray(workspace.todayTasks) ? workspace.todayTasks : []).filter((task) => candidateIds.has(task.candidateId));
   const schoolMasters = (Array.isArray(workspace.schoolMasters) ? workspace.schoolMasters : []).filter((master) => (
-    schoolIds.has(master.school_id) || schoolNames.has(normalizeSearch(master.school_name))
+    master?.is_active !== false && schoolIds.has(master.school_id)
   ));
-  const fairMasters = (Array.isArray(workspace.fairMasters) ? workspace.fairMasters : []).filter((master) => fairIds.has(master.fair_id));
+  const fairMasters = (Array.isArray(workspace.fairMasters) ? workspace.fairMasters : []).filter((master) => master?.is_active !== false && fairIds.has(master.fair_id));
+  const contacts = countEventRows("CONTACT_RECORDED");
+  const lineRegistrations = countEventCandidates("LINE_REGISTERED");
+  const salonTours = countEventCandidates("SALON_TOUR_COMPLETED");
+  const interviews = countSelectionCandidates("INTERVIEW_COMPLETED");
+  const entries = countSelectionCandidates("APPLICATION_RECEIVED");
+  const offers = countSelectionCandidates("OFFERED");
+  const selectionHistoryCount = students.reduce((sum, student) => sum + selectionFacts(student).length, 0);
+  const eventCount = students.reduce((sum, student) => sum + eventFacts(student).length, 0);
+  const undatedActions = students.reduce((sum, student) => sum + (student.nextActions || [])
+    .filter((item) => item?.active !== false && !item?.date).length, 0);
   const dashboard = Object.freeze({
     ...(workspace.dashboard || {}),
+    availability: Object.freeze({ ...availability, todayActions: false, fairCount: false }),
     candidateCount: students.length,
     graduation2027: year === 2027 ? students.length : 0,
     graduation2028: year === 2028 ? students.length : 0,
-    lineRegistrations: count("LINE_REGISTERED"),
-    salonTourPlanned: count("SALON_TOUR_PLANNED"),
-    salonTourCompleted: count("SALON_TOUR_COMPLETED"),
-    interviewPlanned: students.filter((student) => [...(student.eventHistory || []), ...(student.selectionHistory || [])]
-      .some((item) => item.active !== false && item.code === "INTERVIEW_PLANNED" && item.date >= today)).length,
-    interviewHistory: count("INTERVIEW_COMPLETED"),
-    entries: count("APPLICATION_RECEIVED"),
-    offers: count("OFFERED"),
-    offeredElsewhere: count("OFFERED_ELSEWHERE"),
-    withdrawals: count("WITHDRAWN"),
-    rejected: count("REJECTED"),
-    schoolCount: schoolMasters.length || new Set(students.map((student) => normalizeSearch(student.school)).filter(Boolean)).size,
+    lineRegistrations: availableCount("lineRegistrations", lineRegistrations),
+    salonTourPlanned: availableCount("salonTourPlanned", countEventCandidates("SALON_TOUR_PLANNED")),
+    salonTourCompleted: availableCount("salonTourCompleted", salonTours),
+    interviewPlanned: availableCount("interviewPlanned", students.filter((student) => selectionFacts(student)
+      .some((item) => item.code === "INTERVIEW_PLANNED" && item.date >= today)).length),
+    interviewHistory: availableCount("interviewHistory", interviews),
+    entries: availableCount("entries", entries),
+    offers: availableCount("offers", offers),
+    offeredElsewhere: availableCount("offeredElsewhere", countSelectionCandidates("OFFERED_ELSEWHERE")),
+    withdrawals: availableCount("withdrawals", countSelectionCandidates("WITHDRAWN")),
+    rejected: availableCount("rejected", countSelectionCandidates("REJECTED")),
+    schoolCount: schoolMasters.length,
     fairCount: fairMasters.length,
-    todayActions: todayTasks.length,
-    eventCount: students.reduce((sum, student) => sum + (student.contactHistory || []).length + (student.eventHistory || []).length, 0)
+    todayActions: 0,
+    eventCount: availableCount("eventCount", eventCount),
+    selectionHistoryCount,
+    undatedActions,
+    unlinkedInterviewHistoryCount: 0
+  });
+  const summary = Object.freeze({
+    contacts,
+    lineRegistrations,
+    salonTours,
+    interviews,
+    passed: countSelectionCandidates("OFFER_ACCEPTED"),
+    offers,
+    expectedJoiners: students.filter((student) => student.statusCode === "EXPECTED_JOIN").length
   });
   const overview = Object.freeze({
     ...(workspace.overview || {}),
     total: students.length,
-    contacts: students.length,
-    entries: dashboard.entries,
-    offers: dashboard.offers,
-    mapped: students.length,
-    primaryCandidates: students.length,
+    contacts,
+    entries,
+    offers,
+    mapped: students.filter((student) => ["MAPPED", "OWNER_CONFIRMED"].includes(student.mappingStatus)).length,
+    primaryCandidates: students.filter((student) => student.primaryEligible === true).length,
     ownerReview: students.filter((student) => student.classification === "OWNER_REVIEW").length,
     quarantined: students.filter((student) => student.classification === "QUARANTINE").length
   });
-  return Object.freeze({ ...workspace, students: Object.freeze(students), todayTasks: Object.freeze(todayTasks), schoolMasters: Object.freeze(schoolMasters), fairMasters: Object.freeze(fairMasters), dashboard, overview });
+  return Object.freeze({ ...workspace, students: Object.freeze(students), todayTasks: Object.freeze(todayTasks), schoolMasters: Object.freeze(schoolMasters), fairMasters: Object.freeze(fairMasters), dashboard, summary, overview });
 }
 
 export function buildTalentTodayDashboard(workspace, referenceDate = localTalentDateIso()) {
   const students = Array.isArray(workspace?.students) ? workspace.students : [];
-  const tasks = Array.isArray(workspace?.todayTasks) ? workspace.todayTasks : [];
   const today = /^\d{4}-\d{2}-\d{2}$/u.test(referenceDate) ? referenceDate : localTalentDateIso();
-  const recentStart = new Date(`${today}T00:00:00Z`);
-  recentStart.setUTCDate(recentStart.getUTCDate() - 6);
-  const recentStartIso = recentStart.toISOString().slice(0, 10);
-  const activeRows = (student) => [
-    ...(student?.contactHistory || []),
-    ...(student?.eventHistory || []),
-    ...(student?.selectionHistory || []),
-    ...(student?.nextActions || [])
-  ].filter((row) => row?.active !== false);
-  const datedCode = (student, code, date = today) => activeRows(student)
+  const activeEventRows = (student) => [...(student?.contactHistory || []), ...(student?.eventHistory || [])]
+    .filter((row) => row?.active !== false);
+  const activeSelectionRows = (student) => (student?.selectionHistory || []).filter((row) => row?.active !== false);
+  const eventDatedCode = (student, code, date = today) => activeEventRows(student)
+    .some((row) => row.code === code && row.date === date);
+  const selectionDatedCode = (student, code, date = today) => activeSelectionRows(student)
     .some((row) => row.code === code && row.date === date);
   const incompleteAction = (row) => row?.active !== false
     && !row?.completedAt
     && !["COMPLETED", "DONE"].includes(String(row?.state || "").toUpperCase());
-  const taskRows = tasks.filter(incompleteAction);
-  const dueToday = taskRows.filter((row) => /^\d{4}-\d{2}-\d{2}$/u.test(String(row.date || "")) && row.date <= today);
   const overdueIds = new Set(students.filter((student) => (
     classifyTalentStudentFollowUp(student, today) === "OVERDUE"
     || (student.nextActions || []).some((row) => incompleteAction(row) && /^\d{4}-\d{2}-\d{2}$/u.test(String(row.date || "")) && row.date < today)
@@ -2104,24 +2226,23 @@ export function buildTalentTodayDashboard(workspace, referenceDate = localTalent
     ))
     || (student.nextActionAt && /連絡|フォロー/u.test(String(student.nextActionLabel || "")))
   )).map((student) => student.recordId));
-  const recentIds = new Set(students.filter((student) => {
-    const dates = [student.businessDate, student.lineRegistrationDate, ...activeRows(student).map((row) => row.date)]
-      .filter((date) => /^\d{4}-\d{2}-\d{2}$/u.test(String(date || "")));
-    return dates.some((date) => date >= recentStartIso && date <= today);
-  }).map((student) => student.recordId));
   const newStudentIds = new Set(students.filter((student) => (
-    student.businessDate === today
-    || datedCode(student, "APPLICATION_RECEIVED")
+    selectionDatedCode(student, "APPLICATION_RECEIVED")
   )).map((student) => student.recordId));
   const availability = workspace?.dashboard?.availability || {};
+  const nextActionsReady = availability.todayActions === true;
   return Object.freeze({
-    actions: availability.todayActions === false ? null : dueToday.length,
-    overdue: overdueIds.size,
-    visits: availability.salonTourPlanned === false ? null : students.filter((student) => datedCode(student, "SALON_TOUR_PLANNED")).length,
-    interviews: availability.interviewPlanned === false ? null : students.filter((student) => datedCode(student, "INTERVIEW_PLANNED")).length,
-    awaitingContact: awaitingContactIds.size,
-    newStudents: newStudentIds.size,
-    recentStudents: recentIds.size,
+    actions: nextActionsReady && Number.isInteger(workspace?.dashboard?.todayActions)
+      ? workspace.dashboard.todayActions
+      : null,
+    overdue: nextActionsReady ? overdueIds.size : null,
+    visits: availability.salonTourPlanned === true ? students.filter((student) => eventDatedCode(student, "SALON_TOUR_PLANNED")).length : null,
+    interviews: availability.interviewPlanned === true ? students.filter((student) => selectionDatedCode(student, "INTERVIEW_PLANNED")).length : null,
+    awaitingContact: nextActionsReady ? awaitingContactIds.size : null,
+    newStudents: availability.entries === true ? newStudentIds.size : null,
+    // Workspace Contract v1.0.0 does not expose Candidate created_at/updated_at.
+    // Do not synthesize "recent" from unrelated business/event/action dates.
+    recentStudents: null,
     referenceDate: today,
     rawValuesIncluded: false
   });
@@ -2398,7 +2519,7 @@ function createStudentListItem(documentObject, student) {
   meta.textContent = [student.school, student.sourceLabel, `担当 ${student.assignee || "未設定"}`, `最終接触 ${student.businessDate || "未設定"}`].filter(Boolean).join(" · ");
   const status = documentObject.createElement("span");
   status.className = "student-list-status";
-  status.textContent = `${student.status} · 優先度 ${student.priority || "通常"}`;
+  status.textContent = `${student.status} · 優先度 ${talentStudentPriorityLabel(student)}`;
   const reviewBoundary = buildStudentReviewBoundary(student, {
     confirmable: isStudentIndividuallyConfirmable(student),
     editable: Boolean(student.applicationNo) || (student.mappingStatus === "UNMAPPED" && Boolean(student.recordId))
@@ -2530,7 +2651,7 @@ function renderStudentDetail(documentObject, student) {
   setText(documentObject, "student-detail-school", student.school || "未登録");
   setText(documentObject, "student-detail-status", student.status || "未登録");
   setText(documentObject, "student-detail-assignee", student.assignee || "未設定");
-  setText(documentObject, "student-detail-priority", student.priority || "通常");
+  setText(documentObject, "student-detail-priority", talentStudentPriorityLabel(student));
   setText(documentObject, "student-detail-last-contact", student.businessDate || "未登録");
   setText(documentObject, "student-detail-phone", student.phone || "未登録");
   setText(documentObject, "student-detail-email", student.email || "未登録");
@@ -2705,12 +2826,11 @@ function renderCandidateHistories(documentObject, student) {
 const ACTIVITY_CODE_OPTIONS = Object.freeze({
   EVENT: Object.freeze([
     ["CONTACT_RECORDED", "接触記録"], ["LINE_REGISTERED", "LINE登録"],
-    ["SALON_TOUR_PLANNED", "サロン見学［予定］"], ["SALON_TOUR_COMPLETED", "サロン見学［済］"],
-    ["INTERVIEW_PLANNED", "面接［予定］"], ["INTERVIEW_COMPLETED", "面接［済］"]
+    ["SALON_TOUR_PLANNED", "サロン見学［予定］"], ["SALON_TOUR_COMPLETED", "サロン見学［済］"]
   ]),
   SELECTION: Object.freeze([
-    ["APPLICATION_RECEIVED", "応募"], ["SALON_TOUR_PLANNED", "見学予定"], ["SALON_TOUR_COMPLETED", "見学済み"],
-    ["INTERVIEW_PLANNED", "面接予定"], ["INTERVIEW_COMPLETED", "面接済み"], ["OFFERED", "内定"], ["OFFER_ACCEPTED", "内定承諾"],
+    ["APPLICATION_RECEIVED", "応募"], ["INTERVIEW_PLANNED", "面接予定"],
+    ["INTERVIEW_COMPLETED", "面接済み"], ["OFFERED", "内定"], ["OFFER_ACCEPTED", "内定承諾"],
     ["OFFERED_ELSEWHERE", "他社内定"], ["WITHDRAWN", "辞退・離脱"], ["REJECTED", "不採用"], ["UNDER_REVIEW", "合否検討中"]
   ]),
   NEXT_ACTION: Object.freeze([
@@ -2718,6 +2838,14 @@ const ACTIVITY_CODE_OPTIONS = Object.freeze({
     ["INTERVIEW_FOLLOW_UP", "面接フォロー"], ["OFFER_FOLLOW_UP", "内定フォロー"]
   ])
 });
+
+export function isWritableActivityCode(entityType, code) {
+  return Boolean(ACTIVITY_CODE_OPTIONS[entityType]?.some(([value]) => value === code));
+}
+
+function isLegacyCrossSourceActivity(entityType, row) {
+  return Boolean(row?.code && !isWritableActivityCode(entityType, row.code));
+}
 
 function openCandidateActivityDialog({ documentObject, entityType, row = null }) {
   const student = studentWorkspaceData?.students.find((item) => item.recordId === selectedStudentRecordId);
@@ -2734,14 +2862,22 @@ function openCandidateActivityDialog({ documentObject, entityType, row = null })
   const code = documentObject.getElementById("activity-code"); if (code && row?.code) code.value = row.code;
   const state = documentObject.getElementById("activity-state"); if (state && row?.state) state.value = row.state;
   setText(documentObject, "candidate-activity-dialog-title", row ? "履歴を編集" : "履歴を追加");
-  setText(documentObject, "candidate-activity-status", "必要事項を入力してください");
+  const legacyReadOnly = isLegacyCrossSourceActivity(entityType, row);
+  if (activityDialogContext) activityDialogContext.legacyReadOnly = legacyReadOnly;
+  setText(documentObject, "candidate-activity-status", legacyReadOnly
+    ? "この旧記録は参照と無効化・復元のみ可能です。正式な記録先から新規登録してください。"
+    : "必要事項を入力してください");
   const deactivate = documentObject.getElementById("candidate-activity-deactivate");
   if (deactivate) {
     deactivate.hidden = !row;
     deactivate.textContent = row?.active === false ? "理由付きで復元" : "理由付きで無効化";
   }
   const save = documentObject.getElementById("candidate-activity-save");
-  if (save) save.hidden = row?.active === false;
+  if (save) save.hidden = row?.active === false || legacyReadOnly;
+  for (const id of ["activity-code", "activity-date", "activity-state", "activity-name", "activity-content", "activity-assignee", "activity-notes"]) {
+    const field = documentObject.getElementById(id);
+    if (field) field.disabled = legacyReadOnly;
+  }
   documentObject.getElementById("candidate-activity-dialog")?.showModal?.();
 }
 
@@ -2749,7 +2885,15 @@ function refreshActivityForm(documentObject) {
   const type = documentObject.getElementById("activity-entity-type")?.value || activityDialogContext?.entityType || "EVENT";
   if (activityDialogContext) activityDialogContext.entityType = type;
   const select = documentObject.getElementById("activity-code");
-  if (select) select.replaceChildren(...ACTIVITY_CODE_OPTIONS[type].map(([value, label]) => Object.assign(documentObject.createElement("option"), { value, textContent: label })));
+  if (select) {
+    const options = [...ACTIVITY_CODE_OPTIONS[type]];
+    const current = activityDialogContext?.row;
+    if (isLegacyCrossSourceActivity(type, current)) {
+      options.unshift([current.code, `${current.label || current.code}（旧記録・編集不可）`]);
+    }
+    select.replaceChildren(...options.map(([value, label]) => Object.assign(documentObject.createElement("option"), { value, textContent: label })));
+    select.disabled = false;
+  }
   const eventState = documentObject.getElementById("activity-state-field"); if (eventState) eventState.hidden = type !== "EVENT";
   setText(documentObject, "activity-date-label", type === "NEXT_ACTION" ? "次回対応日（未定は空欄）" : "実施日・予定日 *");
   const date = documentObject.getElementById("activity-date"); if (date) date.required = type !== "NEXT_ACTION";
@@ -2759,6 +2903,10 @@ async function saveCandidateActivity({ globalObject, documentObject }) {
   const form = documentObject.getElementById("candidate-activity-form");
   if (!form?.reportValidity?.() || !activityDialogContext?.student?.recordId) return;
   const { student, entityType, row } = activityDialogContext;
+  if (activityDialogContext.legacyReadOnly || (row && !isWritableActivityCode(entityType, row.code))) {
+    setText(documentObject, "candidate-activity-status", "旧記録は編集できません。無効化または復元のみ行えます。");
+    return;
+  }
   const payload = {
     entityType, operation: row ? "UPDATE" : "CREATE", entityId: row?.id || null, expectedVersion: row?.version || null,
     candidateId: student.recordId, code: documentObject.getElementById("activity-code")?.value,
@@ -3287,20 +3435,33 @@ function initializeTalentApp() {
 }
 
 const SUMMARY_VIEW_DEPENDENCIES = Object.freeze({
-  contacts: Object.freeze([]),
+  contacts: Object.freeze(["recruitment_events"]),
   lineRegistrations: Object.freeze(["recruitment_events"]),
   salonTours: Object.freeze(["recruitment_events"]),
-  interviews: Object.freeze(["recruitment_events"]),
+  interviews: Object.freeze(["selection_history"]),
   passed: Object.freeze(["selection_history"]),
-  offers: Object.freeze(["selection_history", "source_facts"]),
+  offers: Object.freeze(["selection_history"]),
   expectedJoiners: Object.freeze([])
+});
+
+const SUMMARY_AVAILABILITY_KEYS = Object.freeze({
+  contacts: "eventCount",
+  lineRegistrations: "lineRegistrations",
+  salonTours: "salonTourCompleted",
+  interviews: "interviewHistory",
+  passed: "offers",
+  offers: "offers",
+  expectedJoiners: "candidateCount"
 });
 
 export function buildWorkspaceDashboardSummaryViewModel(data) {
   const unavailable = new Set(data?.partialStatus?.unavailableViews || []);
+  const availability = data?.dashboard?.availability || {};
   return buildDashboardSummaryViewModel({ summary: data?.summary }).map((metric) => Object.freeze({
     ...metric,
     value: (SUMMARY_VIEW_DEPENDENCIES[metric.key] || []).some((view) => unavailable.has(view))
+      || (Object.hasOwn(availability, SUMMARY_AVAILABILITY_KEYS[metric.key])
+        && availability[SUMMARY_AVAILABILITY_KEYS[metric.key]] !== true)
       ? "集計準備中"
       : metric.value
   }));
@@ -3308,6 +3469,16 @@ export function buildWorkspaceDashboardSummaryViewModel(data) {
 
 function renderWorkspaceDashboardSummary(documentObject, data) {
   renderMetrics(documentObject, buildWorkspaceDashboardSummaryViewModel(data));
+  const availability = data?.dashboard?.availability || {};
+  const shortcutAvailability = Object.freeze({ contacts: "eventCount", entries: "entries", offers: "offers" });
+  for (const button of documentObject?.querySelectorAll?.("[data-summary-followup]") || []) {
+    const availabilityKey = shortcutAvailability[button.dataset.summaryFollowup];
+    if (!availabilityKey) continue;
+    const enabled = availability[availabilityKey] === true;
+    button.disabled = !enabled;
+    button.setAttribute("aria-disabled", String(!enabled));
+    button.title = enabled ? "" : "正式な履歴を集計準備中です";
+  }
   const partial = data?.partialStatus?.state === "partial";
   setStatus(documentObject, partial ? "partial" : "ready", partial
     ? "一部指標は集計準備中です"
@@ -3342,7 +3513,9 @@ function renderTodayTasks(documentObject, tasks) {
     const button = documentObject.createElement("button");
     button.type = "button";
     button.dataset.candidateId = task.candidateId;
-    button.innerHTML = `<strong>${escapeHtml(task.label)}</strong><span>${escapeHtml(task.candidateName)}${task.dueDate ? ` · ${escapeHtml(task.dueDate)}` : ""}</span>`;
+    const candidateName = (studentWorkspaceData?.students || [])
+      .find((student) => student.recordId === task.candidateId)?.displayName || "学生";
+    button.innerHTML = `<strong>${escapeHtml(task.label)}</strong><span>${escapeHtml(candidateName)}${task.dueDate ? ` · ${escapeHtml(task.dueDate)}` : ""}</span>`;
     button.addEventListener("click", () => {
       selectedStudentRecordId = task.candidateId;
       documentObject.querySelector?.('[data-secondary-tab="students"]')?.click?.();
@@ -3354,12 +3527,18 @@ function renderTodayTasks(documentObject, tasks) {
   }));
 }
 
-function renderUnlinkedInterviews(documentObject, rows, globalObject) {
+function renderUnlinkedInterviews(documentObject, rows, globalObject, sourceFactsAvailable = true) {
   const list = documentObject.getElementById("unlinked-interview-list");
   const status = documentObject.getElementById("unlinked-interview-status");
   if (!list) return;
   const safeRows = Array.isArray(rows) ? rows : [];
-  if (status) status.textContent = safeRows.length ? `${safeRows.length}件の人間確認が必要です` : "未紐付け履歴はありません";
+  if (status) status.textContent = !sourceFactsAvailable
+    ? "未紐付け履歴は集計準備中です"
+    : safeRows.length ? `${safeRows.length}件の人間確認が必要です` : "未紐付け履歴はありません";
+  if (!sourceFactsAvailable) {
+    list.replaceChildren();
+    return;
+  }
   list.replaceChildren(...safeRows.map((row) => {
     const item = documentObject.createElement("article");
     const text = documentObject.createElement("div");
@@ -3548,18 +3727,40 @@ function populateCandidateMasterOptions(documentObject, student) {
   replace("profile-fair-id", studentWorkspaceData?.fairMasters || [], "fair_id", "fair_name", student?.fairId);
 }
 
-function renderRecruitmentMasters(documentObject) {
-  const workspace = studentWorkspaceData || {};
-  const canWrite = workspace.canWrite === true;
-  for (const id of ["fair-master-form", "school-master-form"]) {
-    const form = documentObject.getElementById(id); if (form) form.hidden = !canWrite;
-  }
-  renderFairMasters(documentObject, Array.isArray(workspace.fairMasters) ? workspace.fairMasters : []);
-  renderSchoolMasters(documentObject, Array.isArray(workspace.schoolMasters) ? workspace.schoolMasters : []);
+export function buildRecruitmentMasterViewState(workspace = {}) {
+  const availability = workspace?.dashboard?.availability || {};
+  const fairReady = availability.fairCount !== false;
+  const schoolReady = availability.schoolCount !== false;
+  return Object.freeze({
+    fairReady,
+    schoolReady,
+    canManageFair: workspace?.canWrite === true && fairReady,
+    canManageSchool: workspace?.canWrite === true && schoolReady,
+    fairMasters: Object.freeze(fairReady && Array.isArray(workspace?.fairMasters) ? workspace.fairMasters.slice() : []),
+    schoolMasters: Object.freeze(schoolReady && Array.isArray(workspace?.schoolMasters) ? workspace.schoolMasters.slice() : [])
+  });
 }
 
-function renderFairMasters(documentObject, masters) {
+function renderRecruitmentMasters(documentObject) {
+  const view = buildRecruitmentMasterViewState(studentWorkspaceData || {});
+  const fairForm = documentObject.getElementById("fair-master-form");
+  const schoolForm = documentObject.getElementById("school-master-form");
+  if (fairForm) fairForm.hidden = !view.canManageFair;
+  if (schoolForm) schoolForm.hidden = !view.canManageSchool;
+  renderFairMasters(documentObject, view.fairMasters, view.fairReady);
+  renderSchoolMasters(documentObject, view.schoolMasters, view.schoolReady);
+}
+
+function renderFairMasters(documentObject, masters, sourceReady = true) {
   const body = documentObject.getElementById("fair-master-body"); if (!body) return;
+  if (!sourceReady) {
+    body.replaceChildren();
+    const status = documentObject.getElementById("fair-master-status");
+    if (status) { status.textContent = "集計準備中"; status.dataset.state = "loading"; }
+    const detail = documentObject.getElementById("fair-detail-panel");
+    if (detail) detail.hidden = true;
+    return;
+  }
   const activeMasters = masters.filter((fair) => fair.is_active !== false);
   body.replaceChildren(...activeMasters.map((fair) => {
     const row = documentObject.createElement("tr");
@@ -3581,7 +3782,8 @@ function renderFairMasters(documentObject, masters) {
     }
     return row;
   }));
-  const status = documentObject.getElementById("fair-master-status"); if (status) status.textContent = `${activeMasters.length}件の有効フェアを表示`;
+  const status = documentObject.getElementById("fair-master-status");
+  if (status) { status.textContent = `${activeMasters.length}件の有効フェアを表示`; status.dataset.state = "ready"; }
 }
 
 function fairCountLabel(value) {
@@ -3598,6 +3800,14 @@ function fairRateLabel(numerator, denominator) {
   if (numerator === null || numerator === undefined || denominator === null || denominator === undefined) return "集計準備中";
   if (denominator === 0) return "算出不可";
   return `${((Number(numerator) / Number(denominator)) * 100).toFixed(1)}%`;
+}
+
+export function fairContactCostLabel(participationFee, contactCount) {
+  if (participationFee === null || participationFee === undefined || contactCount === null || contactCount === undefined) {
+    return "集計準備中";
+  }
+  if (Number(contactCount) === 0) return "算出不可（接触0件）";
+  return fairCurrencyLabel(Number(participationFee) / Number(contactCount), "集計準備中");
 }
 
 function fairCoverageLabel(registeredCount, totalCount) {
@@ -3657,7 +3867,7 @@ export function buildFairDetailView(fair = {}) {
       Object.freeze({ title: "分析", fields: Object.freeze([
         ["LINE登録率", fairRateLabel(fair.line_registration_count, fair.contact_count)],
         ["見学率", fairRateLabel(fair.salon_tour_count, fair.contact_count)],
-        ["接触単価", fair.participation_fee === null || fair.participation_fee === undefined || fair.contact_count === null || fair.contact_count === undefined || fair.contact_count === 0 ? "集計準備中" : fairCurrencyLabel(Number(fair.participation_fee) / fair.contact_count, "集計準備中")],
+        ["接触単価", fairContactCostLabel(fair.participation_fee, fair.contact_count)],
         ["採用率", "集計準備中"],
         ["採用単価", "集計準備中"]
       ]) }),
@@ -3681,23 +3891,30 @@ function renderFairDetail(documentObject, fair) {
   panel.scrollIntoView?.({ behavior: "smooth", block: "start" });
 }
 
-function renderSchoolMasters(documentObject, masters) {
+function renderSchoolMasters(documentObject, masters, sourceReady = true) {
   const body = documentObject.getElementById("school-master-body"); if (!body) return;
+  if (!sourceReady) {
+    body.replaceChildren();
+    const status = documentObject.getElementById("school-master-status");
+    if (status) { status.textContent = "集計準備中"; status.dataset.state = "loading"; }
+    return;
+  }
   const students = studentWorkspaceData?.students || [];
   body.replaceChildren(...masters.map((school) => {
-    const candidates = students.filter((student) => student.schoolId === school.school_id || (!student.schoolId && student.school === school.school_name));
-    const codes = (code) => candidates.filter((student) => student.statusCode === code || [...(student.selectionHistory || []), ...(student.eventHistory || [])].some((item) => item.active !== false && item.code === code)).length;
-    const tours = codes("SALON_TOUR_COMPLETED"), interviews = codes("INTERVIEW_COMPLETED"), offers = codes("OFFERED");
-    const hires = candidates.filter((student) => ["OFFER_ACCEPTED", "EXPECTED_JOIN"].some((code) =>
-      student.statusCode === code || [...(student.selectionHistory || []), ...(student.eventHistory || [])]
-        .some((item) => item.active !== false && item.code === code))).length;
+    const candidates = students.filter((student) => studentMatchesSchoolMaster(student, school));
+    const facts = buildSchoolFactRow(school.school_id, school.school_name, candidates, studentWorkspaceData?.dashboard?.availability);
     const row = documentObject.createElement("tr"); if (school.is_active === false) row.className = "master-row-inactive";
-    row.innerHTML = `<td>${escapeHtml(school.school_name)}</td><td>${escapeHtml(school.faculty_name || "-")}</td><td>${escapeHtml(school.assigned_to || "未設定")}</td><td>${candidates.length}</td><td>${tours}</td><td>${interviews}</td><td>${offers}</td><td>${candidates.length ? `${((hires / candidates.length) * 100).toFixed(1)}%` : "-"}</td><td></td>`;
+    row.innerHTML = `<td>${escapeHtml(school.school_name)}</td><td>${escapeHtml(school.faculty_name || "-")}</td><td>${escapeHtml(school.assigned_to || "未設定")}</td><td>${candidates.length}</td><td>${facts.salonTours === null ? "集計準備中" : facts.salonTours}</td><td>${facts.interviews === null ? "集計準備中" : facts.interviews}</td><td>${facts.offers === null ? "集計準備中" : facts.offers}</td><td>${facts.hireRate === null ? "集計準備中" : `${facts.hireRate.toFixed(1)}%`}</td><td></td>`;
     const cell = row.lastElementChild;
     if (studentWorkspaceData?.canWrite) cell.append(masterActionButton(documentObject, "編集", "edit", school.school_id), masterActionButton(documentObject, school.is_active === false ? "復元" : "無効化", school.is_active === false ? "restore" : "deactivate", school.school_id));
     return row;
   }));
-  const status = documentObject.getElementById("school-master-status"); if (status) status.textContent = `${masters.filter((row) => row.is_active !== false).length}校を表示`;
+  const status = documentObject.getElementById("school-master-status");
+  if (status) { status.textContent = `${masters.filter((row) => row.is_active !== false).length}校を表示`; status.dataset.state = "ready"; }
+}
+
+export function studentMatchesSchoolMaster(student, school) {
+  return Boolean(student?.schoolId && student.schoolId === school?.school_id);
 }
 
 function masterActionButton(documentObject, label, action, id) {
@@ -3710,22 +3927,78 @@ function resetRecruitmentMasterForm(documentObject, entityType) {
   documentObject.getElementById(`${prefix}-form`)?.reset?.();
   const id = documentObject.getElementById(`${prefix}-id`); const version = documentObject.getElementById(`${prefix}-version`);
   if (id) id.value = ""; if (version) version.value = "";
+  if (entityType === "FAIR") configureFairMasterAccuracyInputs(documentObject);
+}
+
+const NULLABLE_FAIR_INPUTS = Object.freeze(["fee", "participants", "contacts", "line", "tours"]);
+const LEGACY_FAIR_KPI_INPUTS = Object.freeze(["interviews", "offers", "hires"]);
+
+function configureFairMasterAccuracyInputs(documentObject) {
+  for (const suffix of NULLABLE_FAIR_INPUTS) {
+    const input = documentObject?.getElementById?.(`fair-master-${suffix}`);
+    if (input) input.value = "";
+  }
+  for (const suffix of LEGACY_FAIR_KPI_INPUTS) {
+    const input = documentObject?.getElementById?.(`fair-master-${suffix}`);
+    if (!input) continue;
+    input.value = "";
+    input.disabled = true;
+    input.setAttribute?.("aria-disabled", "true");
+    const field = input.closest?.("label");
+    if (field) field.hidden = true;
+  }
+}
+
+export function parseNullableFairNumber(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  const number = Number(text);
+  if (!Number.isInteger(number) || number < 0) throw new TypeError("invalid_fair_number");
+  return number;
+}
+
+export function buildFairMasterMutationPayload({ entityId = "", expectedVersion = null, values = {} } = {}) {
+  const text = (key) => String(values[key] ?? "").trim();
+  return Object.freeze({
+    entityType: "FAIR",
+    operation: entityId ? "UPDATE" : "CREATE",
+    entityId: entityId || null,
+    expectedVersion,
+    fairName: text("name"),
+    eventDate: text("date"),
+    participationFee: parseNullableFairNumber(values.fee),
+    venue: text("venue"),
+    assignedTo: text("owner"),
+    participantCount: parseNullableFairNumber(values.participants),
+    contactCount: parseNullableFairNumber(values.contacts),
+    lineRegistrationCount: parseNullableFairNumber(values.line),
+    salonTourCount: parseNullableFairNumber(values.tours),
+    reason: text("reason")
+  });
 }
 
 async function saveRecruitmentMaster({ globalObject, documentObject, entityType }) {
   const prefix = entityType === "FAIR" ? "fair-master" : "school-master";
   const value = (suffix) => documentObject.getElementById(`${prefix}-${suffix}`)?.value?.trim() || "";
   const entityId = value("id"), expectedVersion = value("version") ? Number(value("version")) : null;
-  const payload = entityType === "SCHOOL" ? {
-    entityType, operation: entityId ? "UPDATE" : "CREATE", entityId: entityId || null, expectedVersion,
-    schoolName: value("name"), facultyName: value("faculty"), assignedTo: value("owner"), reason: value("reason")
-  } : {
-    entityType, operation: entityId ? "UPDATE" : "CREATE", entityId: entityId || null, expectedVersion,
-    fairName: value("name"), eventDate: value("date"), participationFee: Number(value("fee") || 0), venue: value("venue"), assignedTo: value("owner"),
-    participantCount: Number(value("participants") || 0), contactCount: Number(value("contacts") || 0), lineRegistrationCount: Number(value("line") || 0),
-    salonTourCount: Number(value("tours") || 0), interviewCount: Number(value("interviews") || 0), offerCount: Number(value("offers") || 0), hireCount: Number(value("hires") || 0), reason: value("reason")
-  };
   const status = documentObject.getElementById(`${prefix}-status`); if (status) status.textContent = "保存しています";
+  let payload;
+  try {
+    payload = entityType === "SCHOOL" ? {
+      entityType, operation: entityId ? "UPDATE" : "CREATE", entityId: entityId || null, expectedVersion,
+      schoolName: value("name"), facultyName: value("faculty"), assignedTo: value("owner"), reason: value("reason")
+    } : buildFairMasterMutationPayload({
+      entityId,
+      expectedVersion,
+      values: Object.freeze({
+        name: value("name"), date: value("date"), fee: value("fee"), venue: value("venue"), owner: value("owner"),
+        participants: value("participants"), contacts: value("contacts"), line: value("line"), tours: value("tours"), reason: value("reason")
+      })
+    });
+  } catch {
+    if (status) status.textContent = "件数・金額は0以上の整数で入力してください";
+    return;
+  }
   const result = await createStagingCandidateClient({ globalObject })?.mutateMaster(payload);
   if (!result?.ok) { if (status) status.textContent = result?.category === "version_conflict" ? "他の更新があります。再読み込みしてください" : "保存できませんでした"; return; }
   resetRecruitmentMasterForm(documentObject, entityType); studentWorkspaceData = null;
@@ -3747,7 +4020,7 @@ async function handleMasterTableAction({ globalObject, documentObject, event, en
     set("id", master[idKey]); set("version", master.version); set("name", master[entityType === "FAIR" ? "fair_name" : "school_name"]); set("owner", master.assigned_to);
     if (entityType === "SCHOOL") set("faculty", master.faculty_name); else {
       set("date", master.event_date); set("fee", master.participation_fee); set("venue", master.venue); set("participants", master.participant_count);
-      set("contacts", master.contact_count); set("line", master.line_registration_count); set("tours", master.salon_tour_count); set("interviews", master.interview_count); set("offers", master.offer_count); set("hires", master.hire_count);
+      set("contacts", master.contact_count); set("line", master.line_registration_count); set("tours", master.salon_tour_count);
     }
     documentObject.getElementById(`${prefix}-form`)?.scrollIntoView?.({ behavior: "smooth", block: "start" }); return;
   }

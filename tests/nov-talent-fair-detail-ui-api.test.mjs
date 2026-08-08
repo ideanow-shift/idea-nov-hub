@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { buildFairDetailView, summarizeActiveFairMasters } from "../portal/talent/app.mjs";
+import { buildFairDetailView, fairContactCostLabel, summarizeActiveFairMasters } from "../portal/talent/app.mjs";
 
 const root = new URL("../", import.meta.url);
 
@@ -66,6 +66,16 @@ test("Fair detail distinguishes unregistered, confirmed zero, and calculated val
   assert.equal(fields["採用数"], "集計準備中");
   assert.equal(fields["採用率"], "集計準備中");
   assert.equal(fields["Source Lineage"], "未登録");
+});
+
+test("Fair contact cost distinguishes missing values, confirmed zero contacts, and a calculated amount", () => {
+  assert.equal(fairContactCostLabel(null, 0), "集計準備中");
+  assert.equal(fairContactCostLabel(1000, null), "集計準備中");
+  assert.equal(fairContactCostLabel(0, 0), "算出不可（接触0件）");
+  assert.equal(fairContactCostLabel(1000, 10), "100円");
+  const zero = Object.fromEntries(buildFairDetailView({ participation_fee: 0, contact_count: 0 })
+    .sections.flatMap((section) => section.fields));
+  assert.equal(zero["接触単価"], "算出不可（接触0件）");
 });
 
 test("Fair KPI coverage reports registered rows without treating null as zero", () => {

@@ -17,7 +17,26 @@ const DASHBOARD_METRICS = Object.freeze([
   ["eventCount", "Event / Contact"]
 ]);
 
-export function buildRecruitmentDashboardDecision(workspace, tasks = []) {
+export function japanBusinessDateIso(instant = new Date()) {
+  const date = instant instanceof Date ? instant : new Date(instant);
+  if (Number.isNaN(date.getTime())) return japanBusinessDateIso(new Date());
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit"
+  }).formatToParts(date);
+  const part = (type) => parts.find((item) => item.type === type)?.value || "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+export function classifyRecruitmentTaskPriority(task, referenceDate = japanBusinessDateIso()) {
+  const dueDate = String(task?.dueDate || "");
+  const today = /^\d{4}-\d{2}-\d{2}$/u.test(String(referenceDate || "")) ? String(referenceDate) : japanBusinessDateIso();
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(dueDate)) return "UNSCHEDULED";
+  if (dueDate < today) return "OVERDUE";
+  if (dueDate === today) return "DUE_TODAY";
+  return "SCHEDULED";
+}
+
+export function buildRecruitmentDashboardDecision(workspace, tasks = [], referenceDate = japanBusinessDateIso()) {
   const students = Array.isArray(workspace?.students) ? workspace.students : [];
   const dashboard = workspace?.dashboard || {};
   const availability = dashboard?.availability || {};
@@ -25,7 +44,8 @@ export function buildRecruitmentDashboardDecision(workspace, tasks = []) {
     key, label, value: availability[key] === true && Number.isInteger(dashboard[key])
       ? dashboard[key] : "集計準備中"
   }));
-  const overdueCount = (Array.isArray(tasks) ? tasks : []).filter((task) => task?.priority === "高").length;
+  const overdueCount = (Array.isArray(tasks) ? tasks : [])
+    .filter((task) => classifyRecruitmentTaskPriority(task, referenceDate) === "OVERDUE").length;
   const reviewCount = students.filter((student) => ["OWNER_REVIEW", "QUARANTINE"].includes(student?.classification)).length;
   const offerCount = availability.offers === true ? Number(dashboard.offers || 0) : 0;
   let category = "STEADY_FOLLOW_UP";
@@ -33,7 +53,8 @@ export function buildRecruitmentDashboardDecision(workspace, tasks = []) {
   let copy = "期限の近い学生を確認し、次回アクションを更新します。";
   if (overdueCount > 0) {
     category = "OVERDUE_FIRST";
-    title = `期限超過の対応が${overdueCount}件あります`;
+    // todayTasks is a capped display list, not a complete count contract.
+    title = "期限超過の対応があります";
     copy = "今日やることの先頭から対応し、次回アクションを必ず残してください。";
   } else if (reviewCount > 0) {
     category = "REVIEW_FIRST";
@@ -55,26 +76,26 @@ export function buildRecruitmentDashboardDecision(workspace, tasks = []) {
   return Object.freeze({ category, title, copy, metrics: Object.freeze(metrics), rawValuesIncluded: false });
 }
 
-export function buildRecruitmentTaskBoard(tasks) {
+export function buildRecruitmentTaskBoard(tasks, referenceDate = japanBusinessDateIso()) {
   return Object.freeze((Array.isArray(tasks) ? tasks : []).slice(0, 5).map((task, index) => Object.freeze({
-    ...task, order: index + 1, source: task.source || "STAGING_NEXT_ACTION"
+    ...task,
+    order: index + 1,
+    priorityCategory: classifyRecruitmentTaskPriority(task, referenceDate),
+    source: task.source || "STAGING_NEXT_ACTION"
   })));
 }
 
 export function buildEventRoiView(workspace) {
-  const dashboard = workspace?.dashboard || {};
-  const availability = dashboard?.availability || {};
-  const contacts = Number(dashboard.candidateCount || 0);
-  const rate = (value) => contacts ? Math.round((value / contacts) * 100) : 0;
-  const metric = (key, label, countKey) => Object.freeze({ key, label,
-    value: availability[countKey] === true ? `${rate(Number(dashboard[countKey] || 0))}%` : "集計準備中" });
+  void workspace;
+  // Workspace v1 has no CONFIRMED ORIGIN Candidate-Fair relation. Global
+  // Event/Selection totals must never be divided and presented as Fair ROI.
   return Object.freeze({
-    category: "ROI_UNAVAILABLE_COST_MISSING",
-    title: "費用未登録のため、金額ROIは算出していません",
-    copy: "既存データから確認できる接点後の進捗率を表示します。費用や成果は推測しません。",
+    category: "FAIR_ATTRIBUTION_PREPARING",
+    title: "フェア起点確認後に集計します",
+    copy: "学生とフェアのきっかけが確認されるまで、応募・内定の到達率は表示しません。",
     metrics: Object.freeze([
-      metric("entryRate", "応募到達率", "entries"),
-      metric("offerRate", "内定到達率", "offers"),
+      Object.freeze({ key: "entryRate", label: "応募到達率", value: "集計準備中" }),
+      Object.freeze({ key: "offerRate", label: "内定到達率", value: "集計準備中" }),
       Object.freeze({ key: "acceptedRate", label: "承諾到達率", value: "集計準備中" })
     ]),
     costAvailable: false, estimated: false

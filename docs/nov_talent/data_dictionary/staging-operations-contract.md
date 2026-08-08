@@ -1,73 +1,89 @@
-# NOV Talent Staging先行運用契約
+# NOV Talent Staging運用契約
 
 ## 運用方針
 
-Stagingを開発環境ではなく、総務人事部が実業務を開始する「運用検証環境」として扱う。ProductionはStaging運用の受入確認と別の昇格承認が終わるまで使用しない。
+Staging `idea-nov-staging`を、総務人事部が実業務を行う運用検証環境として扱います。Production `idea-nov-core`は別の昇格承認が終わるまで接続・書込み対象にしません。
 
-運用方針はData Dictionary v1.3.0で定義する。既存のsealed dry-runはData Contract v1.2.0の履歴証拠として保持し、Candidate mappingの意味は変更しない。ただし、実投入直前に正式Sourceを再照合して新しいSnapshotを生成する。
+初回Candidate MigrationのSnapshot、Hash、件数、rollback契約は履歴証拠として保持します。日常運用はSnapshot Importではなく、NOV Talentの認証済みserver-side APIを通じて行います。
 
-## 初回Staging Migration範囲
+## 初回Migrationの履歴Baseline
 
-- 正式Source: 27卒と28卒の登録済み正式Source 2件のみ
+- 正式Source: 27卒と28卒の承認済みSource 2件
 - 27卒: 528 Candidate
 - 28卒: 108 Candidate
 - 合計: 636 Candidate
 - Human Review 6グループ: `different_person / keep_separate`
 - 自動集約: 0件
 - Quarantine: 0件
-- 初回の書込み対象Entity: Candidateのみ
+- 初回書込みEntity: Candidateのみ
 
-Event / Contact候補1,550件とSelection History候補0件はread-only dry-runの結果として保持するが、初回Staging Migrationの書込み範囲には含めない。履歴Entityは別の件数・映射・承認ゲートで開放する。
+Event / Contact候補1,550件とSelection History候補0件は、初回Candidate Migration範囲外だったことを示す履歴値です。現在の日常入力機能の利用可否を表す値ではありません。
 
-## 総務人事部がStagingで行うこと
+## 現在の日常運用
 
-- Candidate管理画面の利用
-- Candidate検索
-- Dashboardによる状況確認
+総務人事部はNOV Talentで次を行います。
 
-NOV Talent画面からCandidate正本を直接更新しない。正本の更新はSpreadsheetで行い、承認済みImportでStagingへ反映する。
+- Candidateの登録、編集、状態変更、無効化、検索
+- Event / Contactの登録、編集、無効化
+- Selection Historyの登録、編集、無効化
+- Next Actionの登録、編集、完了、無効化
+- Dashboard、Fair、School、監査履歴の確認
 
-## 固定運用フロー
+ブラウザからDBへ直接書き込みません。すべてNOV HUB Sessionを添えたStaging専用server-side APIを通し、server-side Role判定、RLS、楽観ロック、append-only監査を維持します。
 
-1. 総務人事部が正式Spreadsheetを更新
-2. 正式Sourceのread-only preflightで件数・Hash・Lineageを検証
-3. OwnerがImport対象Snapshotを承認
-4. Staging限定Importを別承認で実行
-5. 件数・Hash・権限の一致後に新しいStaging dataset versionを有効化
-6. 総務人事部がCandidate管理・検索・Dashboardを確認
+## Source of Truth
 
-Sourceが更新された場合は、以前のSnapshotを再利用せず、新しいpreflightとSnapshot承認を必須とする。
+| Domain | Current responsibility |
+|---|---|
+| Candidate | 入社前の学生同一性と現在状態のProjection |
+| Event / Contact | 接触、LINE登録、サロン見学の発生事実 |
+| Selection History | 応募、面接、内定、内定承諾、辞退、離脱、不採用の発生事実 |
+| Next Action | 担当、期限、対応内容、完了状態 |
+| Source Fact | 安全なCandidate連結前のImport Evidence。正式KPIへ直接利用しない |
+| Fair Attribution | `CONFIRMED ORIGIN`だけが正式なFair起点 |
+| Fair Master legacy KPI | `interview_count`、`offer_count`、`hire_count`は正式Sourceとして利用しない |
 
-## ImportとRollback
+Fairの下位Funnelは、`CONFIRMED ORIGIN`と正式Selection HistoryからCandidate単位で導出します。未接続・未登録を0へ変換しません。
 
-- Importは差分の弱い照合キーupsertではなく、versioned snapshot replacementとする
+## Spreadsheet運用
+
+Staging書込み運用開始後、既存Spreadsheetは参照用アーカイブです。
+
+- 新規入力: 停止
+- 通常更新: 停止
+- NOV Talentとの双方向同期: 実装しない
+- NOV TalentからSpreadsheetへのreverse write: 禁止
+- rollback確認期間中の原本削除: 禁止
+
+Migrationまたは監査でSpreadsheetを参照する場合もread-onlyとし、日常業務の更新正本へ戻しません。
+
+## 初回ImportとRollbackの履歴契約
+
+- 初回Importはversioned snapshot replacement
 - `snapshot_id + artifact_hash`を冪等性キーとする
-- retryは0回
-- 初回Migrationは単一接続・単一DB transactionとする
-- 件数またはHash不一致はCOMMITせず全体rollbackする
-- 日常Importは新dataset versionを作成し、検証後に有効化する
-- 有効化後の異常時は直前のStaging dataset versionへ戻す
+- retry 0
+- 単一接続・単一DB transaction
+- 件数またはHash不一致時は全体rollback
+- 直前Dataset versionをrollback用に保持
 
-## 承認ゲート
-
-Staging利用開始までに、次の3つを別々記録する。
-
-1. OwnerによるSnapshot受領
-2. Staging限定Migration実行承認
-3. Migration receipt確認後のStaging運用開始承認
-
-Production昇格承認はこれらに含まれない。
+この契約は初回Migration証拠を保護するために残します。日常操作の誤りは物理削除せず、理由付き無効化・訂正とappend-only監査で扱います。
 
 ## 禁止境界
 
-- ProductionへのMigrationまたは書込み
-- StagingからProductionへの自動昇格
-- canonical昇格、LINE履歴書込み、Employee Core書込み
-- NOV TalentからSpreadsheetへの逆書込み
+- ProductionへのMigration、接続、書込み、自動昇格
+- canonical自動昇格、LINE履歴書込み、Employee Core書込み
+- Spreadsheetへの書込み・双方向同期
 - 弱い照合キーによる自動統合
-- Candidateの自動削除
+- Candidate、Fair、履歴の物理削除
 - 個人値のGitHub、Markdown、Console、公開artifactへの複製
 
 ## 現在地
 
-Ownerによる最新Snapshot受領、Staging Migration、Migration照合後の運用開始承認は受領済みである。正式Sourceのread-only再受領も636件でPASSした。既存受入schema不整合に対して、Candidate専用Versioned Dataset schemaのmigration sourceを実装した。Remote Staging適用、Candidate投入、運用開始は未実施であり、Productionは引き続き禁止する。
+- Candidate Versioned Dataset: Remote Staging適用済み、ACTIVE 636件
+- Staging Runtime: 公開済み
+- Workspace Contract: `1.0.0`
+- Candidate、Event / Contact、Selection History、Next Action: server-side API運用境界あり
+- Spreadsheet: 参照用アーカイブ
+- Production: 書込み・昇格未実施
+
+初回MigrationのSource、Snapshot、Hash、実行receiptは再利用や改変をせず履歴証拠として保持します。

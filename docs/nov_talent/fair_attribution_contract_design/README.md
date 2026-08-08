@@ -1,8 +1,8 @@
 # NOV Talent Fair Attribution Contract Design
 
-Status: `BUSINESS_DEFINITION_APPROVED / IMPLEMENTATION_PENDING`
+Status: `WORKFLOW_STAGING_READY / POPULATION_NOT_EXECUTED / KPI_NOT_RELEASED`
 
-この設計は、Fairを起点とする面接・内定・採用KPIを、推測や既存の初期値ではなく、監査可能な正式事実から生成するための契約です。本PhaseではDB、Migration、Backfill、API、UI、Productionを変更しません。
+この設計は、Fairを起点とする面接・内定・採用KPIを、推測や既存の初期値ではなく、監査可能な正式事実から生成するための契約です。Candidate–Fair AttributionとHuman Review WorkflowはStagingへ適用済みですが、実データPopulationと正式KPI公開は未実施です。
 
 ## 判定
 
@@ -78,15 +78,15 @@ erDiagram
 
 ### Migration impact
 
-将来の実装にはCandidate–Fair Attributionとappend-only監査証跡の永続化が必要です。ただし、本PhaseではMigration SQLを作成せず、既存Candidate、Fair、Selection、Employee Coreを変更しません。
+Candidate–Fair Attributionとappend-only監査証跡のschemaはStagingへ適用済みです。Candidate、Fair、Selection、Employee Coreを変更せず、Attribution / Audit実データは0件を維持しています。PopulationはDB司令塔のData GateとOwner明示承認なしに実行しません。
 
 ### API impact
 
-将来はAttributionの参照、申請、確認、却下をserver-side APIで提供します。既存Workspace Contractへ項目追加する場合は、同一正本SchemaからAPI、Validator、Type、Testを生成し、契約Versionと後方互換公開手順を更新します。
+Attributionの参照、確認、却下、保留はserver-side APIで提供済みです。Review APIはWorkspace初期表示と分離され、Workspace Contract `1.0.0`を変更しません。将来Workspaceへ項目追加する場合は、同一正本SchemaからAPI、Validator、Type、Testを生成し、契約Versionと後方互換公開手順を更新します。
 
 ### UI impact
 
-将来は候補者詳細に起点Fairと証拠状態、管理画面にHuman Review Queue、Fair詳細にKPIカバレッジと正式性を表示します。未確定値を0へ変換せず「集計準備中」と表示します。
+管理画面のHuman Review QueueはStaging公開済みで、一意候補と複数候補をCandidate単位で表示します。実データPopulation前のためQueueは空です。Fair詳細の正式下位KPIは、Attribution確認とSelection History整備まで未確定値を0へ変換せず「集計準備中」と表示します。
 
 ## Blockers
 

@@ -37,28 +37,42 @@ test("analytics action guide prioritizes owner review before broad analysis", ()
   assert.equal(handoff.promotionReachable, false);
 });
 
-test("analytics action guide routes clean flow to latest-month follow-up", () => {
+test("Fair Master month stays visible but Candidate follow-up waits for confirmed origin", () => {
   const analytics = buildTalentAnalytics({
     overview: { total: 2, contacts: 2, entries: 0, offers: 0, mapped: 2, ownerReview: 0, quarantined: 0 },
     students: [
       { sourceCode: "CONTACTS_27", businessDate: "2026-04-01", classification: "IMPORTABLE", school: "A" },
       { sourceCode: "CONTACTS_27", businessDate: "2026-05-01", classification: "IMPORTABLE", school: "A" }
-    ]
+    ],
+    fairMasters: [{ fair_id: "fair", fair_name: "正式フェア", event_date: "2026-05-01", is_active: true }],
+    schoolMasters: [{ school_id: "a", school_name: "A", is_active: true }],
+    dashboard: { availability: { schoolCount: true } }
   });
   const guide = buildTalentAnalyticsActionGuide(analytics);
 
-  assert.equal(guide.category, "LATEST_MONTH_FOLLOW_UP");
-  assert.equal(guide.latestMonthAvailable, true);
-  assert.equal(guide.topSchoolAvailable, true);
+  assert.equal(analytics.flow[0].candidateLinkReady, false);
+  assert.equal(guide.category, "STUDENT_LIST_REVIEW");
+  assert.equal(guide.latestMonthAvailable, false);
+  assert.equal(guide.topSchoolAvailable, false);
   assert.deepEqual(guide.steps.map((step) => step.category), [
-    "OPEN_LATEST_MONTH",
-    "SET_NEXT_ACTION",
-    "RETURN_TO_ANALYTICS"
+    "OPEN_STUDENT_LIST",
+    "SORT_BY_FOLLOW_UP",
+    "UPDATE_DAILY_FIELDS"
   ]);
   const handoff = buildTalentAnalyticsQueueHandoff(guide);
-  assert.equal(handoff.category, "OPEN_LATEST_MONTH_QUEUE");
-  assert.equal(handoff.queueFilterCategory, "LATEST_MONTH");
+  assert.equal(handoff.category, "OPEN_STUDENT_LIST_QUEUE");
+  assert.equal(handoff.queueFilterCategory, "ALL_STUDENTS");
   assert.equal(handoff.sortCategory, "FOLLOW_UP_DUE");
+});
+
+test("a future Candidate-linked monthly flow can explicitly enable the month handoff", () => {
+  const guide = buildTalentAnalyticsActionGuide({
+    summary: [{ key: "total", value: 1 }, { key: "needsAction", value: 0 }],
+    flow: [{ key: "2026-05", candidateLinkReady: true }],
+    schools: [], coverage: {}
+  });
+  assert.equal(guide.category, "LATEST_MONTH_FOLLOW_UP");
+  assert.equal(guide.latestMonthAvailable, true);
 });
 
 test("analytics action guide keeps empty analytics non-mutating", () => {
@@ -77,6 +91,20 @@ test("analytics action guide keeps empty analytics non-mutating", () => {
   assert.equal(handoff.category, "NO_QUEUE_HANDOFF");
   assert.equal(handoff.queueFilterCategory, "NONE");
   assert.equal(handoff.productionWriteReachable, false);
+});
+
+test("source-fact partial state never turns a missing review workload into formal zero", () => {
+  const analytics = buildTalentAnalytics({
+    overview: { total: 2, contacts: 1, ownerReview: 0, quarantined: 0 },
+    students: [], fairMasters: [], schoolMasters: [],
+    dashboard: { lineRegistrations: 0, availability: { eventCount: true, lineRegistrations: true, schoolCount: true } },
+    partialStatus: { state: "partial", unavailableViews: ["source_facts"] }
+  });
+  assert.equal(analytics.summary.find((metric) => metric.key === "needsAction").value, "集計準備中");
+  const guide = buildTalentAnalyticsActionGuide(analytics);
+  assert.equal(guide.category, "ANALYTICS_PREPARING");
+  assert.equal(guide.needsActionCategory, "PREPARING");
+  assert.equal(buildTalentAnalyticsQueueHandoff(guide).category, "NO_QUEUE_HANDOFF");
 });
 
 test("analytics action guide is wired into the talent UI without raw output", async () => {

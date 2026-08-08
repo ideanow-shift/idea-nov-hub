@@ -1,5 +1,9 @@
 # Fairきっかけ Human Review Workflow
 
+Status: `STAGING_READY / POPULATION_NOT_EXECUTED`
+
+Workflowのschema、RLS、server-side API、UIはStagingへ適用済みです。AttributionとAuditの実データは0件であり、候補PopulationはDB司令塔のData GateとOwner明示承認まで実行しません。
+
 ## 目的
 
 学生とフェアの起点関係を、候補生成後の人間確認によって `PENDING` から `CONFIRMED` または `REJECTED` へ遷移させる。推測による自動確定、自動統合、自動削除は行わない。
@@ -46,15 +50,15 @@ Review APIはWorkspace初期表示とは独立し、Workspace Contract `1.0.0`�
 
 管理ツール > データメンテナンス > フェアきっかけ確認に配置する。UIでは「帰属」「Canonical」「Projection」を表示せず、「この学生はこのフェアがきっかけで合っていますか？」という業務質問として提示する。
 
-## 今回実施しないこと
+## 現在の禁止境界
 
 - 161件の候補登録
 - 121件の自動CONFIRMED化
 - 7件の内定Fair確定
 - Non-Fair Origin 367件の強制投入
-- Staging apply / Backfill / Deploy / Production変更
+- Data Gate未通過のPopulation / Backfill / Production変更
 - Fair KPI正式公開
 
 ## 次のGate
 
-Fresh/local DBでMigration、RLS、重複ORIGIN拒否、append-only監査を確認後にReady for Reviewとする。PR merge・Staging適用後、別PRで候補manifestを投入し、総務人事部が1件ずつ確認する。
+Population用ManifestとSource Hash canonicalizationはDB司令塔の判定を正本とする。DB司令塔が `PASS — READY FOR POPULATION` と判定した後にのみOwner承認候補とし、承認後も全候補を`PENDING`で投入して総務人事部が1件ずつ確認する。求人管理側だけでPopulation READYを確定しない。

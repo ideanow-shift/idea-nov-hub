@@ -50,8 +50,9 @@ test("publication gate preserves not-ready states", () => {
   assert.match(gate, /legacy Fair KPI列が正式計算へ混入しない/);
 });
 
-test("design package contains no implementation migration", () => {
+test("design package records the applied workflow schema without authorizing population", () => {
   const overview = read("README.md");
-  assert.match(overview, /Migration SQLを作成せず/);
-  assert.match(overview, /自動紐付け、自動統合、自動削除/);
+  assert.match(overview, /schemaはStagingへ適用済み/);
+  assert.match(overview, /Attribution \/ Audit実データは0件/);
+  assert.match(overview, /DB司令塔のData GateとOwner明示承認なしに実行しません/);
 });

@@ -11,10 +11,17 @@ type Runtime = {
   serviceRoleKey: string;
   fetchImpl: typeof fetch;
   logger?: SafeLogger;
+  now?: () => Date;
 };
 type ViewResult = { rows: any[]; available: boolean; retryCount: number };
 
 const RETRYABLE_DOWNSTREAM_STATUS = new Set([429, 502, 503, 504]);
+const TOKYO_BUSINESS_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit"
+});
+// Selection History is the sole official source for lower-funnel facts. Historical
+// coverage must be explicitly released by Outcome 1; Source Facts are review evidence.
+const SELECTION_METRICS_RELEASED = false;
 const VIEW_REQUESTS = Object.freeze([
   ["recruitment_events", "/rest/v1/nov_talent_recruitment_events_v1?select=event_id,candidate_id,event_code,event_date,event_name,event_state,contact_content,assigned_to,notes,version,is_active&order=event_date.desc&limit=5000"],
   ["selection_history", "/rest/v1/nov_talent_selection_history_v1?select=selection_history_id,candidate_id,selection_code,effective_date,assigned_to,notes,version,is_active&order=effective_date.desc&limit=5000"],
@@ -184,13 +191,29 @@ function groupByCandidate(rows: any[]) {
   return grouped;
 }
 
-function dashboardMetrics(rows: any[], facts: any) {
-  const today = new Date().toISOString().slice(0, 10);
+function scopeFactsToActiveCandidates(rows: any[], facts: any) {
+  const activeCandidateIds = new Set(rows.map((row) => String(row.candidate_id || "")).filter(Boolean));
+  const linkedToActiveCandidate = (row: any) => activeCandidateIds.has(String(row.candidate_id || ""));
+  return {
+    ...facts,
+    events: facts.events.filter(linkedToActiveCandidate),
+    selections: facts.selections.filter(linkedToActiveCandidate),
+    actions: facts.actions.filter(linkedToActiveCandidate)
+  };
+}
+
+function businessDateAsiaTokyo(now: Date) {
+  const parts = Object.fromEntries(TOKYO_BUSINESS_DATE_FORMATTER.formatToParts(now)
+    .filter((part) => ["year", "month", "day"].includes(part.type))
+    .map((part) => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function dashboardMetrics(rows: any[], facts: any, businessDate: string) {
   const viewAvailable = (view: string) => facts.viewAvailability?.[view] !== false;
   const eventsAvailable = viewAvailable("recruitment_events");
   const selectionsAvailable = viewAvailable("selection_history");
   const actionsAvailable = viewAvailable("next_actions");
-  const sourceFactsAvailable = viewAvailable("source_facts");
   const schoolsAvailable = viewAvailable("school_masters");
   const fairsAvailable = viewAvailable("fair_masters");
   const activeEvents = facts.events.filter((row: any) => row.is_active !== false);
@@ -198,73 +221,68 @@ function dashboardMetrics(rows: any[], facts: any) {
   const activeActions = facts.actions.filter((row: any) => row.is_active !== false);
   const distinct = (source: any[], codeKey: string, code: string) => new Set(source
     .filter((row) => row[codeKey] === code).map((row) => row.candidate_id)).size;
-  const sourceFactCount = (code: string) => facts.sourceFacts.filter((row: any) => row.fact_code === code).length;
-  const hasSourceFact = (code: string) => facts.sourceFacts.some((row: any) => row.fact_code === code);
-  const hasEvent = (code: string) => activeEvents.some((row: any) => row.event_code === code);
-  const candidateStatusCount = (code: string) => rows.filter((row) => row.current_status_code === code).length;
-  const linkedCount = (code: string) => distinct(activeSelections, "selection_code", code);
-  const sourceOrLinked = (code: string) => Math.max(sourceFactCount(code), linkedCount(code), candidateStatusCount(code));
-  const plannedEventCount = (code: string) => distinct(activeEvents, "event_code", code)
-    + sourceFactCount(code);
-  const interviewHistory = sourceFactCount("INTERVIEW_COMPLETED") + linkedCount("INTERVIEW_COMPLETED");
+  const eventCandidateCount = (code: string) => distinct(activeEvents, "event_code", code);
+  const selectionCandidateCount = (code: string) => distinct(activeSelections, "selection_code", code);
   const openActions = activeActions.filter((row: any) => row.state === "OPEN");
-  const dueActions = openActions.filter((row: any) => row.due_date && String(row.due_date) <= today);
+  const dueActions = openActions.filter((row: any) => row.due_date && String(row.due_date) <= businessDate);
   const undatedActions = openActions.filter((row: any) => !row.due_date);
   return {
     candidateCount: rows.length,
     graduation2027: rows.filter((row) => Number(row.graduation_year) === 2027).length,
     graduation2028: rows.filter((row) => Number(row.graduation_year) === 2028).length,
-    lineRegistrations: Math.max(distinct(activeEvents, "event_code", "LINE_REGISTERED"), candidateStatusCount("LINE_REGISTERED")),
-    salonTourCompleted: Math.max(distinct(activeEvents, "event_code", "SALON_TOUR_COMPLETED"), sourceOrLinked("SALON_TOUR_COMPLETED")),
-    interviewHistory,
-    entries: sourceFactCount("APPLICATION_RECEIVED") || linkedCount("APPLICATION_RECEIVED"),
-    salonTourPlanned: plannedEventCount("SALON_TOUR_PLANNED"),
-    interviewPlanned: activeEvents.filter((row:any) => row.event_code === "INTERVIEW_PLANNED" && row.event_date >= today).length
-      + activeSelections.filter((row:any) => row.selection_code === "INTERVIEW_PLANNED" && row.effective_date >= today).length
-      + facts.sourceFacts.filter((row:any) => row.fact_code === "INTERVIEW_PLANNED" && row.fact_date >= today).length,
-    offers: sourceOrLinked("OFFERED"),
-    offeredElsewhere: sourceOrLinked("OFFERED_ELSEWHERE"),
-    withdrawals: sourceOrLinked("WITHDRAWN"),
-    rejected: sourceOrLinked("REJECTED"),
+    lineRegistrations: eventCandidateCount("LINE_REGISTERED"),
+    salonTourCompleted: eventCandidateCount("SALON_TOUR_COMPLETED"),
+    interviewHistory: selectionCandidateCount("INTERVIEW_COMPLETED"),
+    entries: selectionCandidateCount("APPLICATION_RECEIVED"),
+    salonTourPlanned: eventCandidateCount("SALON_TOUR_PLANNED"),
+    interviewPlanned: new Set(activeSelections
+      .filter((row: any) => row.selection_code === "INTERVIEW_PLANNED" && row.effective_date >= businessDate)
+      .map((row: any) => row.candidate_id)).size,
+    offers: selectionCandidateCount("OFFERED"),
+    offeredElsewhere: selectionCandidateCount("OFFERED_ELSEWHERE"),
+    withdrawals: selectionCandidateCount("WITHDRAWN"),
+    rejected: selectionCandidateCount("REJECTED"),
     schoolCount: facts.schoolMasters.filter((row:any) => row.is_active !== false).length,
     fairCount: facts.fairMasters.filter((row:any) => row.is_active !== false).length,
     todayActions: dueActions.length,
     undatedActions: undatedActions.length,
     eventCount: activeEvents.length,
-    selectionHistoryCount: activeSelections.length + facts.sourceFacts.length,
+    selectionHistoryCount: activeSelections.length,
     unlinkedInterviewHistoryCount: facts.sourceFacts.filter((row:any) => row.fact_code === "INTERVIEW_COMPLETED" && !row.candidate_id).length,
     availability: {
       candidateCount: true, graduation2027: true, graduation2028: true, lineRegistrations: eventsAvailable,
-      salonTourCompleted: eventsAvailable && selectionsAvailable && sourceFactsAvailable,
-      interviewHistory: eventsAvailable && selectionsAvailable && sourceFactsAvailable
-        && (hasSourceFact("INTERVIEW_COMPLETED") || hasEvent("INTERVIEW_COMPLETED")),
-      entries: selectionsAvailable && sourceFactsAvailable && hasSourceFact("APPLICATION_RECEIVED"),
-      salonTourPlanned: eventsAvailable && sourceFactsAvailable && hasEvent("SALON_TOUR_PLANNED"),
-      interviewPlanned: eventsAvailable && selectionsAvailable && sourceFactsAvailable
-        && (hasSourceFact("INTERVIEW_COMPLETED") || hasEvent("INTERVIEW_COMPLETED") || hasEvent("INTERVIEW_PLANNED")),
-      offers: selectionsAvailable && sourceFactsAvailable && hasSourceFact("OFFERED"),
-      offeredElsewhere: selectionsAvailable && sourceFactsAvailable,
-      withdrawals: selectionsAvailable && sourceFactsAvailable && hasSourceFact("WITHDRAWN"),
-      rejected: selectionsAvailable && sourceFactsAvailable && hasSourceFact("REJECTED"),
+      salonTourCompleted: eventsAvailable,
+      interviewHistory: selectionsAvailable && SELECTION_METRICS_RELEASED,
+      entries: selectionsAvailable && SELECTION_METRICS_RELEASED,
+      salonTourPlanned: eventsAvailable,
+      interviewPlanned: selectionsAvailable && SELECTION_METRICS_RELEASED,
+      offers: selectionsAvailable && SELECTION_METRICS_RELEASED,
+      offeredElsewhere: selectionsAvailable && SELECTION_METRICS_RELEASED,
+      withdrawals: selectionsAvailable && SELECTION_METRICS_RELEASED,
+      rejected: selectionsAvailable && SELECTION_METRICS_RELEASED,
       schoolCount: schoolsAvailable, fairCount: fairsAvailable, eventCount: eventsAvailable,
-      todayActions: actionsAvailable && activeActions.length > 0
+      todayActions: actionsAvailable
     }
   };
 }
 
 function dashboardSummary(rows: any[], facts: any, dashboard: any) {
+  const activeEvents = facts.events.filter((row: any) => row.is_active !== false);
+  const activeSelections = facts.selections.filter((row: any) => row.is_active !== false);
+  const distinctCandidates = (source: any[], codeKey: string, code: string) => new Set(source
+    .filter((row: any) => row[codeKey] === code).map((row: any) => row.candidate_id)).size;
   return {
-    contacts: rows.length,
-    lineRegistrations: new Set(facts.events.filter((row: any) => row.is_active !== false && row.event_code === "LINE_REGISTERED").map((row: any) => row.candidate_id)).size,
-    salonTours: new Set(facts.events.filter((row: any) => row.is_active !== false && row.event_code === "SALON_TOUR_COMPLETED").map((row: any) => row.candidate_id)).size,
-    interviews: new Set(facts.events.filter((row: any) => row.is_active !== false && row.event_code === "INTERVIEW_COMPLETED").map((row: any) => row.candidate_id)).size,
-    passed: new Set(facts.selections.filter((row: any) => row.is_active !== false && row.selection_code === "OFFER_ACCEPTED").map((row: any) => row.candidate_id)).size,
+    contacts: activeEvents.filter((row: any) => row.event_code === "CONTACT_RECORDED").length,
+    lineRegistrations: distinctCandidates(activeEvents, "event_code", "LINE_REGISTERED"),
+    salonTours: distinctCandidates(activeEvents, "event_code", "SALON_TOUR_COMPLETED"),
+    interviews: distinctCandidates(activeSelections, "selection_code", "INTERVIEW_COMPLETED"),
+    passed: distinctCandidates(activeSelections, "selection_code", "OFFER_ACCEPTED"),
     offers: dashboard.offers,
     expectedJoiners: rows.filter((row: any) => row.current_status_code === "EXPECTED_JOIN").length
   };
 }
 
-function workspace(rows: any[], profile: string, facts: any, partialStatus: any) {
+function workspace(rows: any[], profile: string, facts: any, partialStatus: any, businessDate: string) {
   const privateFields = profile !== "executive";
   const eventsByCandidate = groupByCandidate(facts.events);
   const selectionsByCandidate = groupByCandidate(facts.selections);
@@ -302,17 +320,18 @@ function workspace(rows: any[], profile: string, facts: any, partialStatus: any)
       notes: privateFields ? item.notes : null, completedAt: item.completed_at, active: item.is_active }))
   });
   });
-  const dashboard = dashboardMetrics(rows, facts);
+  const dashboard = dashboardMetrics(rows, facts, businessDate);
+  const summary = dashboardSummary(rows, facts, dashboard);
   const unlinkedSelectionHistory = facts.sourceFacts.filter((item:any) => item.fact_code === "INTERVIEW_COMPLETED" && !item.candidate_id)
     .map((item:any) => ({ sourceType: item.source_type, sourceRowNo: item.source_row_no, code: item.fact_code,
       label: STATUS_LABELS[item.fact_code] || item.fact_code, date: item.fact_date, version: item.version }));
   return { workspace_contract_version: WORKSPACE_CONTRACT_VERSION, fiscalYear: "all", payloadMode: "workspace", accessProfile: profile, canWrite: profile !== "executive", dashboard,
-    summary: dashboardSummary(rows, facts, dashboard), partialStatus,
-    todayTasks: facts.actions.filter((item:any) => item.is_active !== false && item.state === "OPEN" && item.due_date && item.due_date <= new Date().toISOString().slice(0,10))
+    summary, partialStatus,
+    todayTasks: facts.actions.filter((item:any) => item.is_active !== false && item.state === "OPEN" && item.due_date && item.due_date <= businessDate)
       .slice(0,5).map((item:any) => ({ candidateId: item.candidate_id, dueDate: item.due_date,
         label: item.action_text || actionLabel(item.action_code), assignedTo: item.assigned_to })),
     unlinkedSelectionHistory, schoolMasters: facts.schoolMasters, fairMasters: facts.fairMasters,
-    overview: { contacts: students.length, entries: dashboard.entries, exactLinkSuggestions: 0, mapped: students.length, manual: 0, offers: dashboard.offers, ownerReview: unlinkedSelectionHistory.length, primaryCandidates: students.length, quarantined: 0, remainingManual: unlinkedSelectionHistory.length, total: students.length }, students };
+    overview: { contacts: summary.contacts, entries: dashboard.entries, exactLinkSuggestions: 0, mapped: students.length, manual: 0, offers: dashboard.offers, ownerReview: unlinkedSelectionHistory.length, primaryCandidates: students.length, quarantined: 0, remainingManual: unlinkedSelectionHistory.length, total: students.length }, students };
 }
 function actionLabel(code: string) {
   return ({ FOLLOW_UP: "次回対応を確認", SALON_TOUR_FOLLOW_UP: "見学対応を確認", INTERVIEW_FOLLOW_UP: "面接対応を確認", OFFER_FOLLOW_UP: "内定フォローを確認" } as Record<string, string>)[code] || "次回対応を確認";
@@ -397,19 +416,21 @@ export function createHandler(runtime: Runtime) {
     if (!rowResult.available) return fail(503, "CANDIDATE_STORE_NOT_READY", origin);
     const rows = rowResult.rows;
     const factResult = await readDashboardFacts(runtime, requestId, endpoint);
-    const facts = factResult.facts;
+    const facts = scopeFactsToActiveCandidates(rows, factResult.facts);
     const partialStatus = {
       state: factResult.unavailable.length ? "partial" : "complete",
       unavailableViews: factResult.unavailable,
       retryCount: rowResult.retryCount + factResult.retryCount
     };
+    const currentInstant = runtime.now?.() ?? new Date();
+    const businessDate = businessDateAsiaTokyo(currentInstant);
     if (request.method === "GET" && path.endsWith("/api/talent/v1/dashboard/summary")) {
-      const dashboard = dashboardMetrics(rows, facts);
+      const dashboard = dashboardMetrics(rows, facts, businessDate);
       const summary = dashboardSummary(rows, facts, dashboard);
-      return out(200, { ok: true, data: { config: { appName: "NOV Talent" }, fiscalYear: "current", payloadMode: "summary", summary, partialStatus }, meta: { generatedAt: new Date().toISOString(), requestId, source: "nov-talent-staging-api", version: "2" } }, origin);
+      return out(200, { ok: true, data: { config: { appName: "NOV Talent" }, fiscalYear: "current", payloadMode: "summary", summary, partialStatus }, meta: { generatedAt: currentInstant.toISOString(), requestId, source: "nov-talent-staging-api", version: "2" } }, origin);
     }
     if (request.method === "GET" && path.endsWith("/api/talent/v1/workspace")) {
-      const responseBody = { ok: true as const, data: workspace(rows, actor.profile, facts, partialStatus), meta: { generatedAt: new Date().toISOString(), requestId, source: "nov-talent-staging-api", version: "3" } };
+      const responseBody = { ok: true as const, data: workspace(rows, actor.profile, facts, partialStatus, businessDate), meta: { generatedAt: currentInstant.toISOString(), requestId, source: "nov-talent-staging-api", version: "3" } };
       const contractResult = validateWorkspaceResponse(responseBody);
       if (!contractResult.ok) {
         (runtime.logger || console).error(JSON.stringify({

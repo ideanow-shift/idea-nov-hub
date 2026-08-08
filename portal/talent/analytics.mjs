@@ -1,12 +1,3 @@
-const SOURCE_CODES = Object.freeze({
-  CONTACTS_27: "contacts",
-  ENTRIES_27: "entries",
-  OFFERS_27: "offers",
-  CONTACTS_28: "contacts",
-  ENTRIES_28: "entries",
-  OFFERS_28: "offers"
-});
-
 const SUMMARY_METRICS = Object.freeze([
   ["total", "取込データ"],
   ["contacts", "接触"],
@@ -20,68 +11,97 @@ const SUMMARY_METRICS = Object.freeze([
 export function buildTalentAnalytics(workspace) {
   const students = Array.isArray(workspace?.students) ? workspace.students : [];
   const overview = workspace?.overview || {};
-  const lineRegistrations = Number.isFinite(Number(workspace?.dashboard?.lineRegistrations))
-    ? Number(workspace.dashboard.lineRegistrations) : countBy(students, (student) => Boolean(student.lineRegistrationDate));
-  const fairMasters = Array.isArray(workspace?.fairMasters) ? workspace.fairMasters.filter((row) => row.is_active !== false) : [];
-  const schoolMasters = Array.isArray(workspace?.schoolMasters) ? workspace.schoolMasters.filter((row) => row.is_active !== false) : [];
+  const availability = workspace?.dashboard?.availability || {};
+  const unavailableViews = new Set(workspace?.partialStatus?.unavailableViews || []);
+  const lineRegistrations = Number.isInteger(workspace?.dashboard?.lineRegistrations)
+    && workspace.dashboard.lineRegistrations >= 0 ? workspace.dashboard.lineRegistrations : null;
+  const fairSourceAvailable = Array.isArray(workspace?.fairMasters)
+    && workspace?.dashboard?.availability?.fairCount !== false;
+  const fairMasters = fairSourceAvailable ? workspace.fairMasters.filter((row) => row.is_active !== false) : [];
+  const schoolSourceAvailable = Array.isArray(workspace?.schoolMasters)
+    && workspace?.dashboard?.availability?.schoolCount !== false;
+  const schoolMasters = schoolSourceAvailable ? workspace.schoolMasters.filter((row) => row.is_active !== false) : [];
+  const activeSchoolIds = new Set(schoolMasters.map((row) => row?.school_id).filter(Boolean));
+  const flow = fairSourceAvailable ? buildFairMasterFlow(fairMasters) : [];
+  const availableMetric = (availabilityKey, value) => availability[availabilityKey] === false || value == null
+    ? null : safeCount(value);
   const summaryValues = {
     total: safeCount(overview.total),
-    contacts: safeCount(overview.contacts),
-    lineRegistrations,
-    entries: safeCount(overview.entries),
-    offers: safeCount(overview.offers),
+    contacts: availableMetric("eventCount", overview.contacts),
+    lineRegistrations: availableMetric("lineRegistrations", lineRegistrations),
+    entries: availableMetric("entries", overview.entries),
+    offers: availableMetric("offers", overview.offers),
     mapped: safeCount(overview.mapped),
-    needsAction: safeCount(overview.ownerReview) + safeCount(overview.quarantined)
+    needsAction: unavailableViews.has("source_facts")
+      ? null : safeCount(overview.ownerReview) + safeCount(overview.quarantined)
   };
 
   return Object.freeze({
     summary: Object.freeze(SUMMARY_METRICS.map(([key, label]) => Object.freeze({
       key,
       label,
-      value: summaryValues[key]
+      value: summaryValues[key] === null ? "集計準備中" : summaryValues[key]
     }))),
-    flow: Object.freeze(fairMasters.length ? buildFairMasterFlow(fairMasters) : buildMonthlyFlow(students)),
-    schools: Object.freeze(schoolMasters.length ? buildSchoolMasterRows(schoolMasters, students) : buildSchoolRows(students)),
+    flow: Object.freeze(flow),
+    schools: Object.freeze(schoolSourceAvailable
+      ? buildSchoolMasterRows(schoolMasters, students, workspace?.dashboard?.availability)
+      : []),
+    fairSourceAvailable,
+    schoolSourceAvailable,
     coverage: Object.freeze({
-      lineRegistrationRate: percentage(lineRegistrations, summaryValues.contacts),
-      schoolRegistered: schoolMasters.length || countBy(students, (student) => Boolean(cleanText(student.school))),
-      schoolMissing: countBy(students, (student) => !cleanText(student.school)),
-      monthCount: fairMasters.length
-        ? new Set(fairMasters.map((fair) => cleanText(fair.event_date).slice(0, 7)).filter(Boolean)).size
-        : new Set(students.map(monthKey).filter(Boolean)).size
+      // contacts is an Event row count while lineRegistrations is a unique
+      // Candidate count. Their grains differ, so no overall rate is published.
+      lineRegistrationRate: null,
+      schoolRegistered: schoolSourceAvailable ? schoolMasters.length : null,
+      // Formal School coverage is the Candidate -> School Master relation. A display
+      // name without school_id remains unlinked and must not be promoted to a match.
+      schoolMissing: schoolSourceAvailable
+        ? countBy(students, (student) => !student?.schoolId || !activeSchoolIds.has(student.schoolId))
+        : null,
+      monthCount: new Set(flow.map((row) => row.key).filter(Boolean)).size
     })
   });
 }
 
 function buildFairMasterFlow(masters) {
-  return masters.map((fair) => {
+  return masters.slice().sort((left, right) => (
+    cleanText(right?.event_date).localeCompare(cleanText(left?.event_date))
+    || cleanText(left?.fair_name).localeCompare(cleanText(right?.fair_name), "ja")
+  )).map((fair) => {
+    const month = normalizeFairEventMonth(fair.event_date);
     const contacts = nullableCount(fair.contact_count);
     const lineRegistrations = nullableCount(fair.line_registration_count);
-    const entries = nullableCount(fair.participant_count);
-    const offers = nullableCount(fair.offer_count);
-    const hires = nullableCount(fair.hire_count);
     const participationFee = nullableAmount(fair.participation_fee);
     return Object.freeze({
-      key: String(fair.event_date || fair.fair_id), label: String(fair.fair_name || "フェア"),
-      contacts, lineRegistrations, entries, offers, needsAction: 0, hires, participationFee,
-      hireRate: contacts === null || hires === null || contacts === 0 ? null : percentage(hires, contacts),
-      hireCost: participationFee === null || hires === null || hires === 0 ? null : Math.round(participationFee / hires)
+      key: month,
+      label: String(fair.fair_name || "フェア"),
+      contacts,
+      lineRegistrations,
+      entries: null,
+      offers: null,
+      needsAction: null,
+      hires: null,
+      participationFee,
+      hireRate: null,
+      hireCost: null,
+      legacyKpiStatus: "PREPARING",
+      // Fair Master has no CONFIRMED ORIGIN Candidate attribution in Workspace v1.
+      // The month is valid for Fair reporting, but must not be used as a Candidate filter.
+      candidateLinkReady: false
     });
-  }).sort((left, right) => right.key.localeCompare(left.key));
+  });
 }
 
-function buildSchoolMasterRows(masters, students) {
+function buildSchoolMasterRows(masters, students, availability) {
   return masters.map((master) => {
-    const linked = students.filter((student) => student.schoolId === master.school_id || (!student.schoolId && normalizeGroupKey(student.school) === normalizeGroupKey(master.school_name)));
-    const has = (student, code) => student.statusCode === code || [...(student.selectionHistory || []), ...(student.eventHistory || [])].some((item) => item.active !== false && item.code === code);
-    const offers = linked.filter((student) => has(student, "OFFERED")).length;
-    const hires = linked.filter((student) => has(student, "OFFER_ACCEPTED") || has(student, "EXPECTED_JOIN")).length;
-    return Object.freeze({ key: master.school_id, school: master.school_name, contacts: linked.length,
-      lineRegistrations: linked.filter((student) => has(student, "LINE_REGISTERED")).length,
-      entries: linked.filter((student) => has(student, "APPLICATION_RECEIVED")).length, offers, needsAction: 0,
-      entryRate: percentage(linked.filter((student) => has(student, "APPLICATION_RECEIVED")).length, linked.length),
-      offerRate: percentage(offers, linked.length), hireRate: percentage(hires, linked.length) });
-  }).sort((left, right) => right.contacts - left.contacts || left.school.localeCompare(right.school, "ja"));
+    const linked = students.filter((student) => student.schoolId === master.school_id);
+    return buildSchoolFactRow(master.school_id, master.school_name, linked, availability);
+  }).sort((left, right) => sortMetric(right.contacts) - sortMetric(left.contacts) || left.school.localeCompare(right.school, "ja"));
+}
+
+export function normalizeFairEventMonth(value) {
+  const normalized = cleanText(value);
+  return /^\d{4}-\d{2}(?:-\d{2})?$/u.test(normalized) ? normalized.slice(0, 7) : "";
 }
 
 export function buildTalentAnalyticsActionGuide(analytics) {
@@ -89,16 +109,21 @@ export function buildTalentAnalyticsActionGuide(analytics) {
   const flow = Array.isArray(analytics?.flow) ? analytics.flow : [];
   const schools = Array.isArray(analytics?.schools) ? analytics.schools : [];
   const coverage = analytics?.coverage || {};
-  const needsAction = safeCount(summary.find((item) => item.key === "needsAction")?.value);
+  const needsActionValue = summary.find((item) => item.key === "needsAction")?.value;
+  const needsActionReady = Number.isInteger(needsActionValue) && needsActionValue >= 0;
+  const needsAction = needsActionReady ? needsActionValue : 0;
   const total = safeCount(summary.find((item) => item.key === "total")?.value);
-  const lineRate = Number.isFinite(coverage.lineRegistrationRate) ? coverage.lineRegistrationRate : 0;
+  const lineRate = Number.isFinite(coverage.lineRegistrationRate) ? coverage.lineRegistrationRate : null;
   const schoolMissing = safeCount(coverage.schoolMissing);
-  const topSchool = schools[0];
+  const topSchool = schools.find((row) => Number.isInteger(row?.contacts) && row.contacts > 0);
   const latestMonth = flow[0];
+  const latestMonthCandidateLinkReady = Boolean(latestMonth?.key && latestMonth?.candidateLinkReady === true);
 
-  const category = needsAction > 0
-    ? "OWNER_REVIEW_FIRST"
-    : latestMonth?.key
+  const category = !needsActionReady
+    ? "ANALYTICS_PREPARING"
+    : needsAction > 0
+      ? "OWNER_REVIEW_FIRST"
+      : latestMonthCandidateLinkReady
       ? "LATEST_MONTH_FOLLOW_UP"
       : topSchool?.school
         ? "SCHOOL_FOLLOW_UP"
@@ -107,6 +132,10 @@ export function buildTalentAnalyticsActionGuide(analytics) {
           : "NO_ANALYTICS_ACTION";
 
   const copyByCategory = {
+    ANALYTICS_PREPARING: [
+      "一部の確認指標は集計準備中です",
+      "要確認データの取得が完了するまで、この集計から対応対象を判断しません。"
+    ],
     OWNER_REVIEW_FIRST: [
       "要確認・隔離を先に整理",
       "分析を見る前に、確定・隔離維持・個別確認を分けると次の投入判断が楽になります。"
@@ -129,6 +158,11 @@ export function buildTalentAnalyticsActionGuide(analytics) {
     ]
   };
   const stepsByCategory = {
+    ANALYTICS_PREPARING: [
+      ["WAIT_FOR_FACTS", "要確認データの取得完了を待つ"],
+      ["KEEP_PARTIAL_VISIBLE", "接続済みの指標だけを確認する"],
+      ["NO_FALSE_ZERO", "未取得を0件として判断しない"]
+    ],
     OWNER_REVIEW_FIRST: [
       ["OPEN_REVIEW_QUEUE", "要確認・隔離の学生一覧を開く"],
       ["SEPARATE_DECISIONS", "一括承認・個別確認・隔離維持を混ぜずに判断"],
@@ -160,10 +194,10 @@ export function buildTalentAnalyticsActionGuide(analytics) {
     category,
     title: copyByCategory[category][0],
     copy: copyByCategory[category][1],
-    needsActionCategory: needsAction > 0 ? "MULTIPLE" : "ZERO",
-    latestMonthAvailable: Boolean(latestMonth?.key),
+    needsActionCategory: !needsActionReady ? "PREPARING" : needsAction > 0 ? "MULTIPLE" : "ZERO",
+    latestMonthAvailable: latestMonthCandidateLinkReady,
     topSchoolAvailable: Boolean(topSchool?.school),
-    lineRegistrationRateCategory: lineRate >= 70 ? "HIGH" : lineRate >= 40 ? "MEDIUM" : lineRate > 0 ? "LOW" : "ZERO",
+    lineRegistrationRateCategory: lineRate === null ? "PREPARING" : lineRate >= 70 ? "HIGH" : lineRate >= 40 ? "MEDIUM" : lineRate > 0 ? "LOW" : "ZERO",
     schoolMissingCategory: schoolMissing > 0 ? "MULTIPLE" : "ZERO",
     rawValuesIncluded: false,
     canonicalWriteReachable: false,
@@ -180,6 +214,12 @@ export function buildTalentAnalyticsActionGuide(analytics) {
 export function buildTalentAnalyticsQueueHandoff(guide) {
   const category = typeof guide?.category === "string" ? guide.category : "NO_ANALYTICS_ACTION";
   const routes = {
+    ANALYTICS_PREPARING: {
+      category: "NO_QUEUE_HANDOFF",
+      queueFilterCategory: "NONE",
+      sortCategory: "NONE",
+      steps: ["WAIT_FOR_FACTS", "KEEP_PARTIAL_VISIBLE", "NO_FALSE_ZERO"]
+    },
     OWNER_REVIEW_FIRST: {
       category: "OPEN_STUDENT_REVIEW_QUEUE",
       queueFilterCategory: "OWNER_REVIEW_OR_QUARANTINE",
@@ -229,77 +269,68 @@ export function buildTalentAnalyticsQueueHandoff(guide) {
   });
 }
 
-function buildMonthlyFlow(students) {
-  const groups = new Map();
-  students.forEach((student) => {
-    const key = monthKey(student);
-    if (!key) return;
-    const row = groups.get(key) || {
-      key,
-      label: formatMonth(key),
-      contacts: 0,
-      lineRegistrations: 0,
-      entries: 0,
-      offers: 0,
-      needsAction: 0
-    };
-    const metric = SOURCE_CODES[student.sourceCode];
-    if (metric) row[metric] += 1;
-    if (student.lineRegistrationDate) row.lineRegistrations += 1;
-    if (student.classification === "OWNER_REVIEW" || student.classification === "QUARANTINE") {
-      row.needsAction += 1;
-    }
-    groups.set(key, row);
-  });
-  return [...groups.values()]
-    .sort((left, right) => right.key.localeCompare(left.key))
-    .map((row) => Object.freeze({ ...row }));
-}
-
-function buildSchoolRows(students) {
+function buildSchoolRows(students, availability) {
   const groups = new Map();
   students.forEach((student) => {
     const school = cleanText(student.school);
     if (!school) return;
     const key = normalizeGroupKey(school);
-    const row = groups.get(key) || {
-      key,
-      school,
-      contacts: 0,
-      lineRegistrations: 0,
-      entries: 0,
-      offers: 0,
-      needsAction: 0
-    };
-    const metric = SOURCE_CODES[student.sourceCode];
-    if (metric) row[metric] += 1;
-    if (student.lineRegistrationDate) row.lineRegistrations += 1;
-    if (student.classification === "OWNER_REVIEW" || student.classification === "QUARANTINE") {
-      row.needsAction += 1;
-    }
-    groups.set(key, row);
+    const group = groups.get(key) || { key, school, students: [] };
+    group.students.push(student);
+    groups.set(key, group);
   });
   return [...groups.values()]
-    .map((row) => Object.freeze({
-      ...row,
-      entryRate: percentage(row.entries, row.contacts),
-      offerRate: percentage(row.offers, row.contacts)
-    }))
+    .map((group) => buildSchoolFactRow(group.key, group.school, group.students, availability))
     .sort((left, right) => (
-      right.contacts - left.contacts
-      || right.entries - left.entries
+      sortMetric(right.contacts) - sortMetric(left.contacts)
+      || sortMetric(right.entries) - sortMetric(left.entries)
       || left.school.localeCompare(right.school, "ja")
     ));
 }
 
-function monthKey(student) {
-  const value = String(student?.businessDate || student?.lineRegistrationDate || "");
-  return /^\d{4}-\d{2}(?:-\d{2})?$/u.test(value) ? value.slice(0, 7) : "";
+export function buildSchoolFactRow(key, school, students, availability = {}) {
+  const linked = Array.isArray(students) ? students : [];
+  const hasEvent = (student, code) => [...(student?.contactHistory || []), ...(student?.eventHistory || [])]
+    .some((item) => item?.active !== false && item?.code === code);
+  const hasSelection = (student, code) => (student?.selectionHistory || [])
+    .some((item) => item?.active !== false && item?.code === code);
+  const contacts = availability?.eventCount === true
+    ? linked.reduce((count, student) => count + [...(student?.contactHistory || []), ...(student?.eventHistory || [])]
+      .filter((item) => item?.active !== false && item?.code === "CONTACT_RECORDED").length, 0)
+    : null;
+  const lineRegistrations = availability?.lineRegistrations === true
+    ? linked.filter((student) => hasEvent(student, "LINE_REGISTERED")).length : null;
+  const salonTours = availability?.salonTourCompleted === true
+    ? linked.filter((student) => hasEvent(student, "SALON_TOUR_COMPLETED")).length : null;
+  const entries = availability?.entries === true
+    ? linked.filter((student) => hasSelection(student, "APPLICATION_RECEIVED")).length : null;
+  const interviews = availability?.interviewHistory === true
+    ? linked.filter((student) => hasSelection(student, "INTERVIEW_COMPLETED")).length : null;
+  const offers = availability?.offers === true
+    ? linked.filter((student) => hasSelection(student, "OFFERED")).length : null;
+  const hires = null;
+  const needsAction = linked.filter((student) => ["OWNER_REVIEW", "QUARANTINE"].includes(student?.classification)).length;
+  return Object.freeze({
+    key,
+    school,
+    contacts,
+    lineRegistrations,
+    salonTours,
+    entries,
+    interviews,
+    offers,
+    hires,
+    needsAction,
+    // contacts counts Event rows; Selection metrics count unique Candidates.
+    // Do not divide mixed grains until a same-grain contract is connected.
+    entryRate: null,
+    offerRate: null,
+    hireRate: null
+  });
 }
 
-function formatMonth(key) {
-  const [year, month] = key.split("-");
-  return `${year}年${Number(month)}月`;
+function sortMetric(value) {
+  return Number.isFinite(value) ? value : -1;
 }
 
 function cleanText(value) {
@@ -317,7 +348,7 @@ function countBy(values, predicate) {
 }
 
 function percentage(numerator, denominator) {
-  if (!denominator) return 0;
+  if (!Number.isFinite(denominator) || denominator <= 0) return null;
   return Math.round((numerator / denominator) * 1000) / 10;
 }
 
@@ -326,7 +357,7 @@ function safeCount(value) {
 }
 
 function nullableCount(value) {
-  return value === null ? null : safeCount(value);
+  return value == null ? null : safeCount(value);
 }
 
 function nullableAmount(value) {

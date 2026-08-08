@@ -1,56 +1,53 @@
 # NOV Talent Staging Runtime Connection
 
-## 判定
+## Current status
 
-`STAGING_RUNTIME_READY_FOR_PUBLICATION`
+`STAGING_RUNTIME_ACTIVE`
 
-Staging Candidate Versioned DatasetのACTIVE 636件を、HUB Sessionと既存正式Roleで認可して読むStaging専用read-only APIを接続した。候補者の直接書込み、Dataset更新、Production昇格、canonical、NOV People、Employee Core、LINE履歴には到達しない。
+公開求人管理はStaging `idea-nov-staging`へ接続しています。Candidate 636件（27卒528件、28卒108件）をWorkspace Contract `1.0.0`で取得し、NOV HUB Sessionと既存Roleでserver-side認可します。
 
 ## Runtime切替
 
-- `runtimeMode: staging`、`stagingCandidateDataset: true`、`readonlyApiEnabled: true`、`networkEnabled: true`、`writeEnabled: false` の全条件が揃った場合だけStaging Runtimeを使用する。
-- 条件が揃わない場合は保持済みのMock Runtimeへ安全に戻る。
-- Mock Runtimeを削除しない。
-- ブラウザへStaging service roleやDB credentialを渡さない。
+- 公開業務Runtime: Staging
+- Mock Runtime: 固定回帰と安全なFeature Flagとして保持
+- 公開業務データのMock fallback: 禁止
+- ブラウザへのservice role、DB credential、接続Secret露出: 禁止
+- Workspace初期表示: Workspace API 1系統
+
+Staging取得失敗をMock形式エラーへ変換しません。必須データ失敗は明示的なエラー、補助データ失敗は該当カードの「集計準備中」として扱います。
 
 ## Auth / Role
 
-- ブラウザは既存NOV HUB SessionだけをBearerとして送る。
-- Staging APIは既存NOV HUB `bootstrap`をread-onlyで照会し、正式`roleKeys`を検証する。
-- `super_admin`、`backoffice`、`hr.admin`: 全Candidate表示。
-- `hr.staff`: 採用担当表示。
-- `executive`: Dashboard中心。電話・emailはserver-sideで除外する。
-- その他Role、未ログイン、不正Origin、期限切れSessionはfail closedとする。
+- ブラウザは既存NOV HUB SessionをBearerとして送ります。
+- Staging APIはserver-sideでSession、Role、Permissionを検証します。
+- `super_admin`、`backoffice`、`hr.admin`: 許可された全管理操作
+- `hr.staff`: recruiter access profileとして、現行Permission Modelが許可する採用業務操作（担当者別scopeは未導入）
+- `executive`: Dashboard、監査等のread-only範囲
+- その他Role、未ログイン、不正Origin、期限切れSession: fail closed
 
 ## Staging API
 
-- Project: `idea-nov-staging`
-- Production Project: `idea-nov-core`（本Runtimeの接続・書込み対象外）
-- NOV Talent専用Projectは作成せず、共通Staging内のFunction namespace、Dataset、RLS、Permission boundaryで分離する。
-- Function: `nov-talent-staging-readonly-api`
-- Method: GET / OPTIONSのみ
-- Dataset: ACTIVEがexactly oneで、合計・27卒・28卒件数がDataset metadataと一致する場合だけ返す。
-- Browser roleの直接SELECTは引き続き不可。
+- Staging Project: `idea-nov-staging`
+- Production Project: `idea-nov-core`（接続・書込み対象外）
+- Function namespace: NOV Talent専用
+- Browser direct table access: 禁止
+- Candidate、Event / Contact、Selection History、Next Actionの書込み: 認証済みserver-side APIのみ
+- Workspace Contract: `1.0.0`
 
-## 引渡しURL
-
-PR統合と明示承認付きGitHub Pages公開後の利用URL:
+## Public URL
 
 `https://ideanow-shift.github.io/idea-nov-hub/talent/`
 
-本SprintではProduction Pagesを変更していないため、現時点の公開URL引渡しは未実施である。
-
 ## 初期操作
 
-1. `https://ideanow-shift.github.io/idea-nov-hub/` へ既存の社員アカウントでログインする。
-2. HUBの「求人管理」を同一タブで開く。
-3. 画面右上が「Staging Runtime」であることを確認する。
-4. 全体サマリーで636件、候補者一覧で27卒528件・28卒108件を確認する。
-5. 読取りのみで利用し、Source更新は正式SpreadsheetからのImport手順に分離する。
+1. `https://ideanow-shift.github.io/idea-nov-hub/`へ既存社員アカウントでログインします。
+2. HUBの「求人管理」を同一タブで開きます。
+3. 「運用データ」またはStaging Runtime表示を確認します。
+4. 学生636件、27卒528件、28卒108件を確認します。
+5. 日常の新規入力・更新はNOV Talentで行います。
 
-## 公開前の残Gate
+既存Spreadsheetは参照用アーカイブです。新規入力、通常更新、双方向同期は行いません。
 
-- PRのActions SUCCESS。
-- PRの人間レビューと統合。
-- `Deploy NOV HUB to GitHub Pages`の明示承認付き実行。
-- 公開HUB SessionでRole別・636件・Console Error/Warning 0の実ブラウザ確認。
+## Historical note
+
+旧版に記載したread-only Function、未deploy、Mock公開状態はStaging Runtime Connection Sprint当時の履歴です。現在の公開状態ではありません。初回Dataset SnapshotとMigration receiptは履歴証拠として保持します。

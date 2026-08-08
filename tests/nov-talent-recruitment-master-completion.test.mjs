@@ -33,16 +33,23 @@ test("server API exposes master data through HUB session and keeps executive rea
 });
 
 test("master-backed analytics calculates School and Fair rates without inventing denominators", () => {
-  const analytics = buildTalentAnalytics({ overview: { total: 1, contacts: 1, offers: 1, mapped: 1 }, dashboard: { lineRegistrations: 1 },
-    students: [{ schoolId: "school-1", school: "学校A", statusCode: "OFFERED", selectionHistory: [], eventHistory: [] }],
+  const analytics = buildTalentAnalytics({ overview: { total: 1, contacts: 1, offers: 1, mapped: 1 }, dashboard: {
+    lineRegistrations: 1, availability: { eventCount: true, lineRegistrations: true, salonTourCompleted: true, entries: true, interviewHistory: true, offers: true }
+  },
+    students: [{ schoolId: "school-1", school: "学校A", statusCode: "OFFERED",
+      contactHistory: [{ active: true, code: "CONTACT_RECORDED" }],
+      selectionHistory: [{ active: true, code: "OFFERED" }], eventHistory: [] }],
     schoolMasters: [{ school_id: "school-1", school_name: "学校A", is_active: true }],
     fairMasters: [{ fair_id: "fair-1", fair_name: "フェアA", event_date: "2026-08-01", contact_count: 10,
       line_registration_count: 8, participant_count: 12, offer_count: 2, hire_count: 1, participation_fee: 50000, is_active: true }]
   });
   assert.equal(analytics.schools[0].contacts, 1);
   assert.equal(analytics.schools[0].offers, 1);
-  assert.equal(analytics.flow[0].hireRate, 10);
-  assert.equal(analytics.flow[0].hireCost, 50000);
+  assert.equal(analytics.flow[0].offers, null);
+  assert.equal(analytics.flow[0].hires, null);
+  assert.equal(analytics.flow[0].hireRate, null);
+  assert.equal(analytics.flow[0].hireCost, null);
+  assert.equal(analytics.flow[0].legacyKpiStatus, "PREPARING");
 });
 
 test("Fair Master analytics preserves null, confirmed zero, and positive integers", () => {
@@ -63,7 +70,7 @@ test("Fair Master analytics preserves null, confirmed zero, and positive integer
   assert.equal(analytics.flow[1].contacts, 0);
   assert.equal(analytics.flow[1].participationFee, 0);
   assert.equal(analytics.flow[2].contacts, 10);
-  assert.equal(analytics.flow[2].hireCost, 50000);
+  assert.equal(analytics.flow[2].hireCost, null);
 });
 
 test("operation UI provides responsive School and Fair Master input", async () => {

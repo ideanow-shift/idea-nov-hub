@@ -1131,6 +1131,12 @@ h3 { margin: 0; font-size: 1rem; }
 .review-target-field select { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 6px; padding: 0 11px; color: var(--ink); background: #fff; font: inherit; }
 .review-target-field small { color: var(--muted); line-height: 1.5; }
 .profile-dialog { width: min(720px, calc(100% - 28px)); }
+.activity-confirmation-dialog { width: min(600px, calc(100% - 28px)); }
+.activity-confirmation-dialog dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.activity-confirmation-dialog dl div { min-width: 0; border-bottom: 1px solid var(--line); }
+.activity-confirmation-dialog dl div:nth-child(even) { border-right: 0; }
+.activity-confirmation-dialog .activity-confirmation-reason { grid-column: 1 / -1; border-right: 0; border-bottom: 0; }
+.activity-confirmation-dialog dd { overflow-wrap: anywhere; }
 .audit-dialog { width: min(760px, calc(100% - 28px)); }
 .audit-table-scroll { overflow-x: auto; border: 1px solid var(--line); }
 .audit-table { min-width: 620px; margin: 0; }
@@ -2281,6 +2287,10 @@ h3 { margin: 0; font-size: 1rem; }
   .review-dialog dl { grid-template-columns: 1fr; }
   .review-dialog dl div { border-right: 0; border-bottom: 1px solid var(--line); }
   .review-dialog dl div:last-child { border-bottom: 0; }
+  .activity-confirmation-dialog dl { grid-template-columns: 1fr; }
+  .activity-confirmation-dialog .activity-confirmation-reason { grid-column: auto; }
+  .activity-confirmation-dialog footer { flex-direction: column-reverse; }
+  .activity-confirmation-dialog footer button { width: 100%; min-height: 44px; }
   .student-toolbar { grid-template-columns: 1fr 1fr 44px; padding: 12px; }
   .student-search { grid-column: 1 / -1; }
   .student-filter-summary { display: grid; align-items: start; padding: 10px 12px; }

@@ -357,5 +357,5 @@ test("published config exposes no server credential and only a server-side write
   assert.match(config, /writeEnabled:\s*true/);
   assert.match(config, /writeApiBaseUrl/);
   assert.doesNotMatch(config, /service_role|serviceRole|password|secret/i);
-  assert.match(html, /app\.mjs\?v=20260808-fair-preparation-ui-1/);
+  assert.match(html, /app\.mjs\?v=20260809-selection-confirm-dialog-1/);
 });

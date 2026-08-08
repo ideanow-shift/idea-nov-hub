@@ -3,12 +3,13 @@ import {
   createDashboardSummaryExecutor,
   createSelectionCoverageExecutor,
   createTalentWorkspaceExecutor
-} from "./runtime.mjs?v=20260808-fair-preparation-ui-1";
-import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260808-fair-preparation-ui-1";
+} from "./runtime.mjs?v=20260809-selection-confirm-dialog-1";
+import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260809-selection-confirm-dialog-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
 import { handleNovHubSessionAuthFailure, NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
-import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260808-fair-preparation-ui-1";
+import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260809-selection-confirm-dialog-1";
+import { createCandidateActivityConfirmationController } from "./candidate-activity-confirmation.mjs?v=20260809-selection-confirm-dialog-1";
 import {
   buildCandidateHistorySummary,
   buildEventRoiView,
@@ -16,7 +17,7 @@ import {
   buildRecruitmentDashboardDecision,
   buildRecruitmentTaskBoard,
   japanBusinessDateIso
-} from "./recruitment-ux.mjs?v=20260808-fair-preparation-ui-1";
+} from "./recruitment-ux.mjs?v=20260809-selection-confirm-dialog-1";
 import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs?v=20260804-recruiting-dashboard-completion-1";
 
 let summaryConsumed = false;
@@ -34,6 +35,7 @@ let activeHistoricalReviewStudent = null;
 let profileDialogStudent = null;
 let auditDialogStudent = null;
 let activityDialogContext = null;
+let activityConfirmationController = null;
 let pendingSelectedApplicationNo = null;
 let selectedGraduationYear = "ALL";
 let fairOriginReviewEntries = [];
@@ -516,12 +518,21 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("candidate-action-add")?.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType: "NEXT_ACTION" }));
   documentObject.getElementById("activity-entity-type")?.addEventListener("change", () => refreshActivityForm(documentObject));
   documentObject.getElementById("candidate-activity-cancel")?.addEventListener("click", () => {
+    activityConfirmationController?.close?.({ restoreFocus: false });
     documentObject.getElementById("candidate-activity-dialog")?.close?.();
     activityDialogContext = null;
   });
+  documentObject.getElementById("candidate-activity-dialog")?.addEventListener("cancel", () => {
+    activityConfirmationController?.close?.({ restoreFocus: false });
+    activityDialogContext = null;
+  });
+  activityConfirmationController = createCandidateActivityConfirmationController({
+    documentObject,
+    onConfirm: (command) => executeCandidateActivitySave({ globalObject, documentObject, command })
+  });
   documentObject.getElementById("candidate-activity-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
-    saveCandidateActivity({ globalObject, documentObject });
+    saveCandidateActivity({ documentObject });
   });
   documentObject.getElementById("fair-master-form")?.addEventListener("submit", (event) => {
     event.preventDefault(); saveRecruitmentMaster({ globalObject, documentObject, entityType: "FAIR" });
@@ -2914,7 +2925,7 @@ function refreshActivityForm(documentObject) {
   const date = documentObject.getElementById("activity-date"); if (date) date.required = type !== "NEXT_ACTION";
 }
 
-async function saveCandidateActivity({ globalObject, documentObject }) {
+function saveCandidateActivity({ documentObject }) {
   const form = documentObject.getElementById("candidate-activity-form");
   if (!form?.reportValidity?.() || !activityDialogContext?.student?.recordId) return;
   const { student, entityType, row } = activityDialogContext;
@@ -2931,13 +2942,31 @@ async function saveCandidateActivity({ globalObject, documentObject }) {
     content: documentObject.getElementById("activity-content")?.value || null, assignedTo: documentObject.getElementById("activity-assignee")?.value || null,
     notes: documentObject.getElementById("activity-notes")?.value || null, reason: documentObject.getElementById("activity-reason")?.value || ""
   };
-  if (!globalObject.confirm?.(row ? "履歴を更新しますか？" : "履歴を追加しますか？")) return;
+  const codeSelect = documentObject.getElementById("activity-code");
+  const eventLabel = codeSelect?.options?.[codeSelect.selectedIndex]?.textContent || payload.code;
+  const saveButton = documentObject.getElementById("candidate-activity-save");
+  const opened = activityConfirmationController?.open?.({
+    candidateName: student.name,
+    eventLabel,
+    date: payload.date,
+    reason: payload.reason.trim(),
+    command: payload,
+    focusTarget: saveButton
+  });
+  if (!opened) setText(documentObject, "candidate-activity-status", "保存内容の確認画面を開けませんでした");
+}
+
+async function executeCandidateActivitySave({ globalObject, documentObject, command }) {
   setText(documentObject, "candidate-activity-status", "保存しています");
-  const result = await createStagingCandidateClient({ globalObject })?.mutateActivity(payload);
-  if (!result?.ok) return setText(documentObject, "candidate-activity-status", result?.category === "version_conflict" ? "他の更新があります。再読み込みしてください" : "保存できませんでした");
+  const result = await createStagingCandidateClient({ globalObject })?.mutateActivity(command);
+  if (!result?.ok) {
+    setText(documentObject, "candidate-activity-status", result?.category === "version_conflict" ? "他の更新があります。再読み込みしてください" : "保存できませんでした");
+    return false;
+  }
   documentObject.getElementById("candidate-activity-dialog")?.close?.();
   activityDialogContext = null; studentWorkspaceData = null;
   await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
+  return true;
 }
 
 async function deactivateCandidateActivity({ globalObject, documentObject }) {

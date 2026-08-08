@@ -111,7 +111,7 @@ window.fetch = async (input, init = {}) => {
   }
   return originalFetch(input, init);
 };
-await import("/talent/app.mjs?v=20260808-fair-preparation-ui-1");
+await import("/talent/app.mjs?v=20260809-selection-confirm-dialog-1");
 `;
 
 const server = createServer(async (request, response) => {

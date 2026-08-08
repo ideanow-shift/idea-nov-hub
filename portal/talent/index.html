@@ -6,9 +6,9 @@
   <meta name="nov-talent-workspace-contract-version" content="1.0.0">
   <title>求人管理システム | IDEA NOV</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=20260808-fair-preparation-ui-1">
-  <script src="./runtime-config.candidate.js?v=20260808-fair-preparation-ui-1"></script>
-  <script type="module" src="./app.mjs?v=20260808-fair-preparation-ui-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260809-selection-confirm-dialog-1">
+  <script src="./runtime-config.candidate.js?v=20260809-selection-confirm-dialog-1"></script>
+  <script type="module" src="./app.mjs?v=20260809-selection-confirm-dialog-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -499,6 +499,21 @@
           </div>
           <p id="candidate-activity-status" class="status" role="status" aria-live="polite">必要事項を入力してください</p>
           <footer><button id="candidate-activity-cancel" class="secondary-command" type="button">戻る</button><button id="candidate-activity-deactivate" class="secondary-command" type="button" hidden>理由付きで無効化</button><button id="candidate-activity-save" class="primary-command" type="submit">確認して保存</button></footer>
+        </form>
+      </dialog>
+
+      <dialog id="candidate-activity-confirm-dialog" class="review-dialog activity-confirmation-dialog" aria-labelledby="candidate-activity-confirm-title">
+        <form method="dialog">
+          <header><p class="section-kicker">保存前の確認</p><h2 id="candidate-activity-confirm-title">この履歴を保存しますか？</h2></header>
+          <p>内容を確認してください。保存後の履歴は削除・上書きせず、追記として管理します。</p>
+          <dl>
+            <div><dt>学生</dt><dd id="candidate-activity-confirm-candidate"></dd></div>
+            <div><dt>履歴内容</dt><dd id="candidate-activity-confirm-event"></dd></div>
+            <div><dt>発生日</dt><dd id="candidate-activity-confirm-date"></dd></div>
+            <div class="activity-confirmation-reason"><dt>更新理由</dt><dd id="candidate-activity-confirm-reason"></dd></div>
+          </dl>
+          <p id="candidate-activity-confirm-status" class="status" role="status" aria-live="polite">内容を確認して保存してください</p>
+          <footer><button id="candidate-activity-confirm-cancel" class="secondary-command" type="button">キャンセル</button><button id="candidate-activity-confirm-execute" class="primary-command" type="button">この内容で保存</button></footer>
         </form>
       </dialog>
 

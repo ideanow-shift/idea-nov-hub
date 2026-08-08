@@ -70,13 +70,16 @@ test('M001-M017 plus M061-M063 are deterministic with Publication regression',{
   const port=58900+(process.pid%300);
   const exe=name=>path.join(pgBin,`${name}.exe`);
   const db='bdf_m017';
+  const concurrencyDb='bdf_m017_concurrency';
   let started=false;
   const file=p=>readFile(path.join(root,p),'utf8');
-  const psqlArgs=['-X','-v','ON_ERROR_STOP=1','-At','-h','127.0.0.1','-p',String(port),'-U','postgres','-d',db];
-  const psql=(sql,allow=false)=>cmd(exe('psql'),psqlArgs,sql,allow);
-  const apply=async(start=0,end=migrations.length)=>{
-    for(const name of migrations.slice(start,end))await psql(await file(`supabase/migrations/${name}`));
+  const psqlArgs=database=>['-X','-v','ON_ERROR_STOP=1','-At','-h','127.0.0.1','-p',String(port),'-U','postgres','-d',database];
+  const psqlDb=(database,sql,allow=false)=>cmd(exe('psql'),psqlArgs(database),sql,allow);
+  const psql=(sql,allow=false)=>psqlDb(db,sql,allow);
+  const applyTo=async(database,start=0,end=migrations.length)=>{
+    for(const name of migrations.slice(start,end))await psqlDb(database,await file(`supabase/migrations/${name}`));
   };
+  const apply=(start=0,end=migrations.length)=>applyTo(db,start,end);
   const catalog=()=>psql(`
     with objects as (
       select 'r|'||n.nspname||'|'||c.relname||'|'||c.relkind::text||'|'||c.relrowsecurity::text||'|'||c.relforcerowsecurity::text x
@@ -120,14 +123,19 @@ test('M001-M017 plus M061-M063 are deterministic with Publication regression',{
       .replace('BDF_ACCOUNTING_PUBLICATION_NOT_AVAILABLE_BEFORE_M017','BDF_M017_PUBLICATION_EVIDENCE_REQUIRED');
     await psql(sql);
   };
-  const session=(sql)=>{
-    const child=spawn(exe('psql'),psqlArgs,{cwd:root,encoding:'utf8',env,windowsHide:true,stdio:['pipe','pipe','pipe']});
+  const session=(sql,database=db)=>{
+    const child=spawn(exe('psql'),psqlArgs(database),{cwd:root,encoding:'utf8',env,windowsHide:true,stdio:['pipe','pipe','pipe']});
     let stdout='',stderr='';
     child.stdout.on('data',d=>stdout+=d);
     child.stderr.on('data',d=>stderr+=d);
     child.stdin.end(sql);
     const done=new Promise((resolve,reject)=>child.on('close',code=>code===0?resolve({stdout,stderr}):reject(new Error(stderr))));
     return {child,done,get stdout(){return stdout;}};
+  };
+  const uuidFrom=output=>{
+    const values=output.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi)||[];
+    assert.ok(values.length>0,`missing UUID in output: ${output}`);
+    return values.at(-1);
   };
   const waitFor=async(predicate)=>{
     for(let i=0;i<100;i++){if(predicate())return;await pause(25);}
@@ -150,10 +158,80 @@ test('M001-M017 plus M061-M063 are deterministic with Publication regression',{
     const otherWait=Date.now()-otherStart;
     await c.done;
     assert.ok(otherWait<800,`different stream blocked: ${otherWait}ms`);
-    const after=Number(psql(`select deadlocks from pg_stat_database where datname='${db}';`).stdout.trim());
-    assert.equal(after-before,0);
+    const genericAfter=Number(psql(`select deadlocks from pg_stat_database where datname='${db}';`).stdout.trim());
+    assert.equal(genericAfter-before,0);
     assert.equal(psql(`select count(*) from pg_locks where locktype='advisory' and database=(select oid from pg_database where datname='${db}');`).stdout.trim(),'0');
-    return {sameWait,otherWait,deadlocks:after-before};
+
+    cmd(exe('createdb'),['-h','127.0.0.1','-p',String(port),'-U','postgres','-T','template0','-E','UTF8','--locale=C',concurrencyDb]);
+    psqlDb(concurrencyDb,'create schema extensions;');
+    await applyTo(concurrencyDb);
+    const fixture=await file('supabase/validation/pr002/test_m017_accounting_publication.sql');
+    const initialPublish="\nselect accounting.publish_accounting_version('17000000-0000-4000-8000-000000000300',";
+    const initialAt=fixture.indexOf(initialPublish);
+    assert.ok(initialAt>0,'initial publication fixture marker missing');
+    psqlDb(concurrencyDb,`${fixture.slice(0,initialAt)}\ncommit;`);
+
+    const initialCall=`select accounting.publish_accounting_version(
+      '17000000-0000-4000-8000-000000000300',
+      'canonical:17000000-0000-4000-8000-000000000702','accounting.publisher','monthly_publish',
+      'evidence:initial','request:concurrent-initial',repeat('5',64),null,
+      '17000000-0000-4000-8000-000000000607');`;
+    const actualBefore=Number(psqlDb(concurrencyDb,`select deadlocks from pg_stat_database where datname='${concurrencyDb}';`).stdout.trim());
+    const first=session(`begin;
+      select pg_advisory_xact_lock(hashtextextended(
+        '17000000-0000-4000-8000-000000000100|2026-05-01|budget',0));
+      select 'M017_ACTUAL_LOCKED';
+      ${initialCall}
+      select pg_sleep(1.2);
+      commit;`,concurrencyDb);
+    await waitFor(()=>first.stdout.includes('M017_ACTUAL_LOCKED'));
+    const retryStart=Date.now();
+    const retry=psqlDb(concurrencyDb,initialCall);
+    const retryWait=Date.now()-retryStart;
+    const firstResult=await first.done;
+    const firstId=uuidFrom(firstResult.stdout);
+    const retryId=uuidFrom(retry.stdout);
+    assert.equal(retryId,firstId,'concurrent identical retry returned a different Publication ID');
+    assert.ok(retryWait>=800,`concurrent identical retry did not wait for stream lock: ${retryWait}ms`);
+    assert.equal(psqlDb(concurrencyDb,"select count(*) from accounting.publication_releases where request_key='request:concurrent-initial';").stdout.trim(),'1');
+    assert.equal(psqlDb(concurrencyDb,"select count(*) from accounting.audit_events where publication_id is not null;").stdout.trim(),'2');
+    const sequentialId=uuidFrom(psqlDb(concurrencyDb,initialCall).stdout);
+    assert.equal(sequentialId,firstId,'sequential retry returned a different Publication ID');
+
+    const revisionStart=fixture.indexOf('\n-- A fully controlled higher Version supersedes the first Publication.');
+    const revisionNegative=fixture.indexOf("\nselect pg_temp.expect_failure('IDEMPOTENCY_VERSION_MISMATCH'",revisionStart);
+    assert.ok(revisionStart>0&&revisionNegative>revisionStart,'revision fixture markers missing');
+    psqlDb(concurrencyDb,`begin;${fixture.slice(revisionStart,revisionNegative)}\ncommit;`);
+    const prior=firstId;
+    const revisionCall=`select accounting.publish_accounting_version(
+      '17000000-0000-4000-8000-000000000310',
+      'canonical:17000000-0000-4000-8000-000000000702','accounting.publisher','revision_publish',
+      'evidence:revision','request:concurrent-revision',repeat('f',64),'${prior}',
+      '17000000-0000-4000-8000-000000000614');`;
+    const rolledBack=session(`begin;
+      select pg_advisory_xact_lock(hashtextextended(
+        '17000000-0000-4000-8000-000000000100|2026-05-01|budget',0));
+      ${revisionCall}
+      select 'M017_SUPERSEDE_UNCOMMITTED';
+      select pg_sleep(1.2);
+      rollback;`,concurrencyDb);
+    await waitFor(()=>rolledBack.stdout.includes('M017_SUPERSEDE_UNCOMMITTED'));
+    const supersedeRetryStart=Date.now();
+    const supersedeRetry=psqlDb(concurrencyDb,revisionCall);
+    const supersedeRetryWait=Date.now()-supersedeRetryStart;
+    await rolledBack.done;
+    assert.ok(supersedeRetryWait>=800,`supersede retry did not wait for rollback: ${supersedeRetryWait}ms`);
+    assert.equal(psqlDb(concurrencyDb,"select count(*) from accounting.publication_releases;").stdout.trim(),'2');
+    assert.equal(psqlDb(concurrencyDb,"select count(*) from accounting.accounting_versions where corporation_id='17000000-0000-4000-8000-000000000100' and period_start='2026-05-01' and scenario_type='budget' and status='published';").stdout.trim(),'1');
+    assert.equal(psqlDb(concurrencyDb,"select status from accounting.accounting_versions where accounting_version_id='17000000-0000-4000-8000-000000000300';").stdout.trim(),'superseded');
+    assert.equal(uuidFrom(psqlDb(concurrencyDb,revisionCall).stdout),uuidFrom(supersedeRetry.stdout));
+
+    const actualAfter=Number(psqlDb(concurrencyDb,`select deadlocks from pg_stat_database where datname='${concurrencyDb}';`).stdout.trim());
+    assert.equal(actualAfter-actualBefore,0);
+    assert.equal(psqlDb(concurrencyDb,`select count(*) from pg_locks where locktype='advisory' and database=(select oid from pg_database where datname='${concurrencyDb}');`).stdout.trim(),'0');
+    cmd(exe('dropdb'),['-h','127.0.0.1','-p',String(port),'-U','postgres',concurrencyDb]);
+    assert.equal(psql(`select count(*) from pg_database where datname='${concurrencyDb}';`).stdout.trim(),'0');
+    return {sameWait,otherWait,retryWait,supersedeRetryWait,deadlocks:(genericAfter-before)+(actualAfter-actualBefore)};
   };
 
   try{
@@ -213,7 +291,7 @@ test('M001-M017 plus M061-M063 are deterministic with Publication regression',{
       (select count(*) from accounting.allocation_rule_versions)+
       (select count(*) from accounting.allocation_sets)+
       (select count(*) from accounting.accounting_allocations);`).stdout.trim(),'0');
-    process.stdout.write(`BDF_M017_REHEARSAL_PASS forward=20 rollback=20 reapply=20 m016_m015_m063_regression=PASS same_wait_ms=${locks.sameWait} other_wait_ms=${locks.otherWait} deadlocks=${locks.deadlocks} fixture=0 catalog=${hash}\n`);
+    process.stdout.write(`BDF_M017_REHEARSAL_PASS forward=20 rollback=20 reapply=20 m016_m015_m063_regression=PASS same_wait_ms=${locks.sameWait} other_wait_ms=${locks.otherWait} concurrent_retry_wait_ms=${locks.retryWait} supersede_retry_wait_ms=${locks.supersedeRetryWait} deadlocks=${locks.deadlocks} retained_lock=0 fixture=0 catalog=${hash}\n`);
   }finally{
     if(started)cmd(exe('pg_ctl'),['-D',dir,'-m','immediate','-w','stop'],undefined,true);
     await rm(dir,{recursive:true,force:true});

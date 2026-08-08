@@ -164,16 +164,65 @@ select accounting.publish_accounting_version('17000000-0000-4000-8000-0000000003
 set constraints all immediate;
 set constraints all deferred;
 
+do $retry$
+declare p uuid; p2 uuid; releases_before integer; audits_before integer;
+begin
+  select publication_id into p from accounting.publication_releases where request_key='request:initial';
+  select count(*) into releases_before from accounting.publication_releases;
+  select count(*) into audits_before from accounting.audit_events where publication_id is not null;
+  select accounting.publish_accounting_version('17000000-0000-4000-8000-000000000300',
+    'canonical:17000000-0000-4000-8000-000000000702','accounting.publisher','monthly_publish',
+    'evidence:initial','request:initial',repeat('5',64),null,
+    '17000000-0000-4000-8000-000000000607') into p2;
+  if p is distinct from p2 then raise exception 'M017_SEQUENTIAL_RETRY_ID_MISMATCH'; end if;
+  if (select count(*) from accounting.publication_releases)<>releases_before
+    then raise exception 'M017_SEQUENTIAL_RETRY_RELEASE_GROWTH'; end if;
+  if (select count(*) from accounting.audit_events where publication_id is not null)<>audits_before
+    then raise exception 'M017_SEQUENTIAL_RETRY_AUDIT_GROWTH'; end if;
+end
+$retry$;
+
 select pg_temp.expect_failure('DUPLICATE_VERSION_PUBLISH',$q$
   select accounting.publish_accounting_version('17000000-0000-4000-8000-000000000300',
     'canonical:17000000-0000-4000-8000-000000000702','accounting.publisher','monthly_publish',
     'evidence:duplicate','request:duplicate',repeat('5',64),null,'17000000-0000-4000-8000-000000000608')
 $q$,'BDF_M017_APPROVED_VERSION_REQUIRED');
-select pg_temp.expect_failure('IDEMPOTENCY_KEY_CONFLICT',$q$
-  select accounting.publish_accounting_version('17000000-0000-4000-8000-000000000399',
+select pg_temp.expect_failure('IDEMPOTENCY_CONTENT_MISMATCH',$q$
+  select accounting.publish_accounting_version('17000000-0000-4000-8000-000000000300',
     'canonical:17000000-0000-4000-8000-000000000702','accounting.publisher','monthly_publish',
-    'evidence:conflict','request:initial',repeat('9',64),null,'17000000-0000-4000-8000-000000000609')
-$q$,'BDF_M017_IDEMPOTENCY_KEY_CONFLICT');
+    'evidence:initial','request:initial',repeat('9',64),null,'17000000-0000-4000-8000-000000000607')
+$q$,'BDF_M017_IDEMPOTENCY_KEY_REUSE_MISMATCH');
+select pg_temp.expect_failure('IDEMPOTENCY_ACTOR_MISMATCH',$q$
+  select accounting.publish_accounting_version('17000000-0000-4000-8000-000000000300',
+    'canonical:17000000-0000-4000-8000-000000000701','accounting.publisher','monthly_publish',
+    'evidence:initial','request:initial',repeat('5',64),null,'17000000-0000-4000-8000-000000000607')
+$q$,'BDF_M017_IDEMPOTENCY_KEY_REUSE_MISMATCH');
+select pg_temp.expect_failure('IDEMPOTENCY_ROLE_MISMATCH',$q$
+  select accounting.publish_accounting_version('17000000-0000-4000-8000-000000000300',
+    'canonical:17000000-0000-4000-8000-000000000702','accounting.publisher_alt','monthly_publish',
+    'evidence:initial','request:initial',repeat('5',64),null,'17000000-0000-4000-8000-000000000607')
+$q$,'BDF_M017_IDEMPOTENCY_KEY_REUSE_MISMATCH');
+select pg_temp.expect_failure('IDEMPOTENCY_REASON_MISMATCH',$q$
+  select accounting.publish_accounting_version('17000000-0000-4000-8000-000000000300',
+    'canonical:17000000-0000-4000-8000-000000000702','accounting.publisher','monthly_publish_changed',
+    'evidence:initial','request:initial',repeat('5',64),null,'17000000-0000-4000-8000-000000000607')
+$q$,'BDF_M017_IDEMPOTENCY_KEY_REUSE_MISMATCH');
+select pg_temp.expect_failure('IDEMPOTENCY_EVIDENCE_MISMATCH',$q$
+  select accounting.publish_accounting_version('17000000-0000-4000-8000-000000000300',
+    'canonical:17000000-0000-4000-8000-000000000702','accounting.publisher','monthly_publish',
+    'evidence:changed','request:initial',repeat('5',64),null,'17000000-0000-4000-8000-000000000607')
+$q$,'BDF_M017_IDEMPOTENCY_KEY_REUSE_MISMATCH');
+select pg_temp.expect_failure('IDEMPOTENCY_CORRELATION_MISMATCH',$q$
+  select accounting.publish_accounting_version('17000000-0000-4000-8000-000000000300',
+    'canonical:17000000-0000-4000-8000-000000000702','accounting.publisher','monthly_publish',
+    'evidence:initial','request:initial',repeat('5',64),null,'17000000-0000-4000-8000-000000000609')
+$q$,'BDF_M017_IDEMPOTENCY_KEY_REUSE_MISMATCH');
+select pg_temp.expect_failure('IDEMPOTENCY_PRIOR_MISMATCH',$q$
+  select accounting.publish_accounting_version('17000000-0000-4000-8000-000000000300',
+    'canonical:17000000-0000-4000-8000-000000000702','accounting.publisher','monthly_publish',
+    'evidence:initial','request:initial',repeat('5',64),'17000000-0000-4000-8000-000000000999',
+    '17000000-0000-4000-8000-000000000607')
+$q$,'BDF_M017_IDEMPOTENCY_KEY_REUSE_MISMATCH');
 select pg_temp.expect_failure('PUBLISHED_CONTENT_UPDATE',$q$
   update accounting.accounting_versions set content_hash=repeat('9',64)
   where accounting_version_id='17000000-0000-4000-8000-000000000300'
@@ -259,6 +308,13 @@ select accounting.record_accounting_approval('17000000-0000-4000-8000-0000000003
   '17000000-0000-4000-8000-000000000510','accounting_confirmed','approved',
   'canonical:17000000-0000-4000-8000-000000000701','accounting.checker','accounting_ready',
   'approval:m017-revision-accounting',repeat('f',64),'17000000-0000-4000-8000-000000000612');
+select pg_temp.expect_failure('IDEMPOTENCY_VERSION_MISMATCH',$q$
+  select accounting.publish_accounting_version('17000000-0000-4000-8000-000000000310',
+    'canonical:17000000-0000-4000-8000-000000000702','accounting.publisher','monthly_publish',
+    'evidence:initial','request:initial',repeat('f',64),
+    (select publication_id from accounting.publication_releases where request_key='request:initial'),
+    '17000000-0000-4000-8000-000000000607')
+$q$,'BDF_M017_IDEMPOTENCY_KEY_REUSE_MISMATCH');
 select pg_temp.expect_failure('INVALID_SUPERSEDE',$q$
   select accounting.publish_accounting_version('17000000-0000-4000-8000-000000000310',
     'canonical:17000000-0000-4000-8000-000000000702','accounting.publisher','revision_publish',

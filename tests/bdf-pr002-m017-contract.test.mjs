@@ -27,10 +27,30 @@ test('M017 publication command is fail closed',async()=>{
   const sql=await read(migrationPath);
   for(const code of ['BDF_M017_APPROVED_VERSION_REQUIRED','BDF_M017_STALE_VERSION',
     'BDF_M017_VALIDATION_INCOMPLETE','BDF_M017_APPROVAL_INCOMPLETE',
-    'BDF_M017_PRIOR_PUBLICATION_MISMATCH','BDF_M017_IDEMPOTENCY_KEY_CONFLICT'])
+    'BDF_M017_PRIOR_PUBLICATION_MISMATCH','BDF_M017_IDEMPOTENCY_KEY_REUSE_MISMATCH'])
     assert.match(sql,new RegExp(code));
   assert.match(sql,/m016_required_validation_codes/i);
   assert.match(sql,/actual_value=x\.expected_value/i);
+});
+
+test('M017 idempotency is post-lock and binds the complete semantic request',async()=>{
+  const sql=await read(migrationPath);
+  const publishStart=sql.indexOf('create function accounting.publish_accounting_version');
+  const fingerprintStart=sql.indexOf('create function accounting.m017_request_fingerprint');
+  const publish=sql.slice(publishStart);
+  const fingerprint=sql.slice(fingerprintStart,publishStart);
+  const streamLock=publish.indexOf("v.corporation_id::text||'|'||v.period_start::text||'|'||v.scenario_type");
+  const requestLock=publish.indexOf("'m017-request|'||p_request_key");
+  const requestRecheck=publish.indexOf('where r.request_key=p_request_key');
+  const versionRowLock=publish.indexOf('for update');
+  assert.ok(streamLock>=0&&streamLock<requestLock&&requestLock<requestRecheck&&requestRecheck<versionRowLock);
+  for(const token of ['p_accounting_version_id','p_expected_content_hash','p_actor','p_actor_role',
+    'p_reason_code','p_evidence_reference','p_correlation_id','p_expected_prior_publication_id',
+    'p_corporation_id','p_accounting_period','p_scenario_type'])
+    assert.match(fingerprint,new RegExp(token));
+  assert.match(sql,/request_fingerprint text not null/i);
+  assert.match(sql,/sha256/i);
+  assert.match(publish,/request_fingerprint=computed_fingerprint/i);
 });
 
 test('M017 approval matrix reuses M016 evidence',async()=>{
@@ -95,8 +115,12 @@ test('M017 validation and DB fixture cover release gates',async()=>{
   for(const label of ['DRAFT_PUBLISH','VALIDATED_UNAPPROVED_PUBLISH','REJECTED_PUBLISH',
     'PENDING_VALIDATION_PUBLISH','STALE_HASH','DUPLICATE_VERSION_PUBLISH',
     'UNAUTHORIZED_PUBLISHER','PUBLICATION_UPDATE','PUBLICATION_DELETE',
-    'INVALID_SUPERSEDE','PREVIOUS_YEAR_SCENARIO'])
+    'INVALID_SUPERSEDE','PREVIOUS_YEAR_SCENARIO','IDEMPOTENCY_VERSION_MISMATCH',
+    'IDEMPOTENCY_CONTENT_MISMATCH','IDEMPOTENCY_ACTOR_MISMATCH',
+    'IDEMPOTENCY_ROLE_MISMATCH','IDEMPOTENCY_REASON_MISMATCH',
+    'IDEMPOTENCY_EVIDENCE_MISMATCH','IDEMPOTENCY_CORRELATION_MISMATCH',
+    'IDEMPOTENCY_PRIOR_MISMATCH'])
     assert.match(fixture,new RegExp(`'${label}'`));
-  assert.match(fixture,/M017_IDEMPOTENT_RETRY_FAILED/);
+  assert.match(fixture,/M017_SEQUENTIAL_RETRY_ID_MISMATCH/);
   assert.match(fixture,/M017_PRIOR_VERSION_NOT_SUPERSEDED/);
 });

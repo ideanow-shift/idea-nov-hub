@@ -17,13 +17,16 @@
 - One release has exactly one pinned member.
 - One current published Version exists per Corporation/month/Scenario stream.
 - Prior releases/members remain append-only and the prior Version becomes `superseded`.
-- Stable request retry is idempotent; conflicting request reuse and duplicate Version publication fail.
+- Stable sequential and concurrent request retries return the same Publication ID without release/member/Audit growth.
+- The request fingerprint binds Version/hash, publisher/role, reason/evidence/correlation, expected prior Publication and stream identity; any mismatch fails closed.
+- Lock order is stream advisory lock -> request-key advisory lock -> post-lock request recheck -> Accounting Version row lock.
+- Conflicting request reuse and duplicate Version publication fail.
 - Publication Audit is append-only.
 - Previous Year is not a Scenario; comparison rules do not produce Consumer rows.
 
 ## Negative gate
 
-Reject draft, validating, validated-but-unapproved, rejected, stale, incomplete FAIL/PENDING validation, missing approval, duplicate publication, conflicting idempotency key, unauthorized publisher, invalid prior/supersede, current-stream duplication, direct published transition, published Version content mutation, Publication UPDATE/DELETE, Approval mutation and Consumer direct access.
+Reject draft, validating, validated-but-unapproved, rejected, stale, incomplete FAIL/PENDING validation, missing approval, duplicate publication, request-key reuse with different Version/hash/actor/role/reason/evidence/correlation/prior/stream, unauthorized publisher, invalid prior/supersede, current-stream duplication, direct published transition, published Version content mutation, Publication UPDATE/DELETE, Approval mutation and Consumer direct access.
 
 ## Security gate
 
@@ -38,7 +41,7 @@ Reject draft, validating, validated-but-unapproved, rejected, stale, incomplete 
 
 - PostgreSQL 17.
 - Forward 20/20, `validate_m017.sql`, M017 negative/positive contract, M016 regression and M015/M063 regression pass.
-- Because M017 introduces a stream-local advisory lock, a two-session test must prove same-stream serialization, different-stream independence, rollback lock release, deadlock increment 0 and fixture 0.
+- Because M017 introduces stream- and request-local advisory locks, two-session tests must prove identical concurrent retry returns one shared Publication ID, concurrent supersede after rollback remains single-current, same-stream serialization, different-stream independence, rollback lock release, deadlock increment 0 and fixture 0.
 - M017-only rollback restores the M016 catalog and leaves M015/M063 intact.
 - Full rollback 20/20 leaves BDF object count 0.
 - Reapply 20/20 and first/reapply catalog hashes match.

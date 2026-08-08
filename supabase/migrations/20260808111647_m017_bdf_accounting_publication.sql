@@ -6,6 +6,7 @@ create table accounting.publication_releases (
   publication_id uuid primary key default gen_random_uuid(),
   release_sequence bigint generated always as identity unique,
   request_key text not null unique,
+  request_fingerprint text not null,
   release_kind text not null default 'standard',
   release_status text not null default 'published',
   effective_as_of date not null,
@@ -24,6 +25,9 @@ create table accounting.publication_releases (
   recorded_at timestamptz not null default statement_timestamp(),
   constraint accounting_publication_releases_request_check check (
     request_key ~ '^[A-Za-z0-9][A-Za-z0-9._:/-]{0,191}$'
+  ),
+  constraint accounting_publication_releases_fingerprint_check check (
+    request_fingerprint ~ '^[0-9a-f]{64}$'
   ),
   constraint accounting_publication_releases_kind_check check (
     release_kind in ('standard','adjustment','reversal')
@@ -158,6 +162,39 @@ as $function$
 begin
   raise exception 'BDF_M017_PUBLICATION_IMMUTABLE';
 end
+$function$;
+
+create function accounting.m017_request_fingerprint(
+  p_accounting_version_id uuid,
+  p_expected_content_hash text,
+  p_actor text,
+  p_actor_role text,
+  p_reason_code text,
+  p_evidence_reference text,
+  p_correlation_id uuid,
+  p_expected_prior_publication_id uuid,
+  p_corporation_id uuid,
+  p_accounting_period date,
+  p_scenario_type text
+) returns text
+language sql immutable security invoker set search_path=''
+as $function$
+  select pg_catalog.encode(
+    pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.jsonb_build_array(
+      p_accounting_version_id,
+      p_expected_content_hash,
+      p_actor,
+      p_actor_role,
+      p_reason_code,
+      p_evidence_reference,
+      p_correlation_id,
+      p_expected_prior_publication_id,
+      p_corporation_id,
+      p_accounting_period,
+      p_scenario_type
+    )::text,'UTF8')),
+    'hex'
+  )
 $function$;
 
 create function accounting.m017_required_approval_types(p_accounting_version_id uuid)
@@ -306,22 +343,43 @@ as $function$
 declare v accounting.accounting_versions%rowtype; prior_m accounting.publication_members%rowtype;
   prior_publication uuid; publication_uuid uuid; member_uuid uuid; approval_uuid uuid;
   validation_cycle uuid; required_count integer; pass_count integer; approval_count integer;
-  published_time timestamptz:=statement_timestamp(); existing_version uuid; existing_hash text;
+  published_time timestamptz:=statement_timestamp(); computed_fingerprint text; request_matches boolean;
 begin
   perform accounting.m016_assert_actor(p_actor,p_actor_role,true);
-  select m.accounting_version_id,m.version_content_hash,r.publication_id into existing_version,existing_hash,publication_uuid
-  from accounting.publication_releases r join accounting.publication_members m on m.publication_id=r.publication_id
-  where r.request_key=p_request_key;
-  if found then
-    if existing_version=p_accounting_version_id and existing_hash=p_expected_content_hash then return publication_uuid; end if;
-    raise exception 'BDF_M017_IDEMPOTENCY_KEY_CONFLICT';
-  end if;
-
   select * into v from accounting.accounting_versions
   where accounting_version_id=p_accounting_version_id;
   if not found then raise exception 'BDF_M017_ORPHAN_ACCOUNTING_VERSION'; end if;
+  computed_fingerprint:=accounting.m017_request_fingerprint(
+    p_accounting_version_id,p_expected_content_hash,p_actor,p_actor_role,p_reason_code,
+    p_evidence_reference,p_correlation_id,p_expected_prior_publication_id,
+    v.corporation_id,v.period_start,v.scenario_type
+  );
   perform pg_advisory_xact_lock(hashtextextended(
     v.corporation_id::text||'|'||v.period_start::text||'|'||v.scenario_type,0));
+  perform pg_advisory_xact_lock(hashtextextended('m017-request|'||p_request_key,17017));
+
+  select r.publication_id,
+    r.request_fingerprint=computed_fingerprint
+      and m.accounting_version_id=p_accounting_version_id
+      and m.version_content_hash=p_expected_content_hash
+      and r.published_by=p_actor
+      and r.publisher_role=p_actor_role
+      and r.release_reason=p_reason_code
+      and r.evidence_reference=p_evidence_reference
+      and r.correlation_id=p_correlation_id
+      and r.prior_publication_id is not distinct from p_expected_prior_publication_id
+      and m.corporation_id=v.corporation_id
+      and m.accounting_period=v.period_start
+      and m.scenario_type=v.scenario_type
+  into publication_uuid,request_matches
+  from accounting.publication_releases r
+  join accounting.publication_members m on m.publication_id=r.publication_id
+  where r.request_key=p_request_key;
+  if found then
+    if request_matches then return publication_uuid; end if;
+    raise exception 'BDF_M017_IDEMPOTENCY_KEY_REUSE_MISMATCH';
+  end if;
+
   select * into v from accounting.accounting_versions
   where accounting_version_id=p_accounting_version_id for update;
   if v.status<>'approved' then raise exception 'BDF_M017_APPROVED_VERSION_REQUIRED'; end if;
@@ -367,10 +425,10 @@ begin
   end if;
 
   insert into accounting.publication_releases(
-    request_key,release_kind,effective_as_of,release_reason,published_at,published_by,publisher_role,
+    request_key,request_fingerprint,release_kind,effective_as_of,release_reason,published_at,published_by,publisher_role,
     publication_approval_id,prior_publication_id,reverses_publication_id,evidence_reference,correlation_id
   ) values (
-    p_request_key,case when v.version_type='reversal' then 'reversal'
+    p_request_key,computed_fingerprint,case when v.version_type='reversal' then 'reversal'
       when v.version_type='adjustment' then 'adjustment' else 'standard' end,
     v.period_end,p_reason_code,published_time,p_actor,p_actor_role,approval_uuid,prior_publication,
     case when v.version_type='reversal' then prior_publication else null end,p_evidence_reference,p_correlation_id
@@ -432,6 +490,8 @@ revoke all on accounting.publication_releases from public,anon,authenticated,ser
 revoke all on accounting.publication_members from public,anon,authenticated,service_role;
 revoke all on accounting.comparison_rules from public,anon,authenticated,service_role;
 revoke execute on function accounting.guard_m017_publication_mutation() from public,anon,authenticated,service_role;
+revoke execute on function accounting.m017_request_fingerprint(uuid,text,text,text,text,text,uuid,uuid,uuid,date,text)
+  from public,anon,authenticated,service_role;
 revoke execute on function accounting.m017_required_approval_types(uuid) from public,anon,authenticated,service_role;
 revoke execute on function accounting.m017_validate_publication_commit() from public,anon,authenticated,service_role;
 revoke execute on function accounting.publish_accounting_version(uuid,text,text,text,text,text,text,uuid,uuid)

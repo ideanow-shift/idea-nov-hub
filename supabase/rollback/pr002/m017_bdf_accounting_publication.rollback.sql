@@ -9,6 +9,7 @@ drop trigger guard_publication_release_mutation on accounting.publication_releas
 drop function accounting.publish_accounting_version(uuid,text,text,text,text,text,text,uuid,uuid);
 drop function accounting.m017_validate_publication_commit();
 drop function accounting.m017_required_approval_types(uuid);
+drop function accounting.m017_request_fingerprint(uuid,text,text,text,text,text,uuid,uuid,uuid,date,text);
 drop function accounting.guard_m017_publication_mutation();
 
 drop index accounting.accounting_audit_events_publication_idx;

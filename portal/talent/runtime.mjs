@@ -4,7 +4,7 @@ import {
   createDashboardSummaryExact1Executor,
   createSelectionCoverageExact1Executor,
   createTalentWorkspaceExact1Executor
-} from "./exact1.mjs?v=20260808-selection-coverage-hotfix-1";
+} from "./exact1.mjs?v=20260808-fair-preparation-ui-1";
 
 const METRIC_LABELS = Object.freeze({
   contacts: "接触数",

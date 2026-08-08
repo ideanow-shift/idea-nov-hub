@@ -2354,4 +2354,16 @@ h3 { margin: 0; font-size: 1rem; }
 .fair-origin-review-actions { display:flex; flex-wrap:wrap; gap:8px; }
 .fair-origin-review-actions button { min-height:40px; }
 .fair-origin-review-empty { padding:18px; border:1px dashed var(--line, #e4dfe0); border-radius:14px; color:#766c6e; }
+.fair-origin-preparation { margin:16px 0; padding:16px; border:1px solid var(--line, #e4dfe0); border-radius:14px; display:flex; align-items:center; justify-content:space-between; gap:16px; background:#f7fbff; }
+.fair-origin-preparation[hidden] { display:none; }
+.fair-origin-preparation p { margin:4px 0 0; }
+.fair-origin-preparation-dialog { max-width:544px; width:calc(100% - 32px); border:0; border-radius:16px; padding:0; box-shadow:0 24px 64px rgb(31 49 74 / 24%); }
+.fair-origin-preparation-dialog::backdrop { background:rgb(20 30 45 / 52%); }
+.fair-origin-preparation-dialog form { padding:24px; }
+.fair-origin-preparation-dialog dl { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.fair-origin-preparation-dialog dl div { padding:13px; border-radius:10px; background:#f4f7fb; }
+.fair-origin-preparation-dialog dt { color:#53657a; font-size:.85rem; }
+.fair-origin-preparation-dialog dd { margin:3px 0 0; font-size:1.25rem; font-weight:800; }
+.fair-origin-preparation-actions { display:flex; justify-content:flex-end; gap:12px; margin-top:16px; }
 @media (max-width: 720px) { .fair-origin-review-card dl { grid-template-columns:1fr; } .fair-origin-review-actions button { flex:1 1 100%; } }
+@media (max-width: 720px) { .fair-origin-preparation { align-items:stretch; flex-direction:column; } .fair-origin-preparation-dialog dl { grid-template-columns:1fr; } .fair-origin-preparation-actions { flex-direction:column-reverse; } .fair-origin-preparation-actions button { width:100%; min-height:44px; } }

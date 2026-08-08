@@ -3,12 +3,12 @@ import {
   createDashboardSummaryExecutor,
   createSelectionCoverageExecutor,
   createTalentWorkspaceExecutor
-} from "./runtime.mjs?v=20260808-selection-coverage-hotfix-1";
-import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260808-selection-coverage-hotfix-1";
+} from "./runtime.mjs?v=20260808-fair-preparation-ui-1";
+import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260808-fair-preparation-ui-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
 import { handleNovHubSessionAuthFailure, NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
-import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260804-recruitment-master-dashboard-1";
+import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260808-fair-preparation-ui-1";
 import {
   buildCandidateHistorySummary,
   buildEventRoiView,
@@ -16,7 +16,7 @@ import {
   buildRecruitmentDashboardDecision,
   buildRecruitmentTaskBoard,
   japanBusinessDateIso
-} from "./recruitment-ux.mjs?v=20260808-selection-coverage-hotfix-1";
+} from "./recruitment-ux.mjs?v=20260808-fair-preparation-ui-1";
 import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs?v=20260804-recruiting-dashboard-completion-1";
 
 let summaryConsumed = false;
@@ -3442,7 +3442,10 @@ function initializeTalentApp() {
   if (!authorization.allowed) return authorization;
   configureTalentOperationUi(globalThis.document, authorization.access?.profile);
   enableStagingWriteControls(globalThis.document, authorization.access?.profile);
-  if (authorization.access?.profile === "full") initializeFairOriginReview(globalThis.document, globalThis);
+  if (authorization.access?.profile === "full") {
+    initializeFairOriginReview(globalThis.document, globalThis);
+    initializeFairOriginPreparation(globalThis.document, globalThis);
+  }
   initializeTalentStudentWorkspace();
   initializeTalentNavigation();
   const summaryControl = initializeTalentSummaryControl();
@@ -3673,6 +3676,71 @@ export function initializeFairOriginReview(documentObject, globalObject = global
     filter.addEventListener("change", () => renderFairOriginReview(documentObject, globalObject));
   }
   return Object.freeze({ initialized: Boolean(reload && filters.length === 2) });
+}
+
+export function initializeFairOriginPreparation(documentObject, globalObject = globalThis, clientOverride = null) {
+  const panel = documentObject?.getElementById?.("fair-origin-preparation-panel");
+  const open = documentObject?.getElementById?.("fair-origin-preparation-open");
+  const dialog = documentObject?.getElementById?.("fair-origin-preparation-dialog");
+  const cancel = documentObject?.getElementById?.("fair-origin-preparation-cancel");
+  const execute = documentObject?.getElementById?.("fair-origin-preparation-execute");
+  const result = documentObject?.getElementById?.("fair-origin-preparation-result");
+  const canonicalHubOrigin = String(globalObject?.location?.origin || "") === "https://ideanow-shift.github.io";
+  if (!panel || !open || !dialog || !cancel || !execute || runtimeMode(globalObject) !== "staging" || !canonicalHubOrigin) {
+    if (panel) panel.hidden = true;
+    return Object.freeze({ initialized: false });
+  }
+  let attempted = false;
+  const setCount = (id, value, suffix) => {
+    const target = documentObject.getElementById(id);
+    if (target) target.textContent = `${Number(value)}${suffix}`;
+  };
+  const close = () => typeof dialog.close === "function" ? dialog.close() : (dialog.hidden = true);
+  const client = clientOverride || createStagingCandidateClient({ globalObject });
+  panel.hidden = true;
+  open.disabled = true;
+  client?.fairOriginPreparationReadiness().then((readiness) => {
+    if (!readiness?.ok) {
+      if (readiness?.category === "preparation_locked") {
+        const status = documentObject.getElementById("fair-origin-preparation-status");
+        if (status) status.textContent = "現在は実行できません。実行承認後に利用できます。";
+        panel.hidden = false;
+      }
+      return;
+    }
+    setCount("fair-origin-preparation-logical", readiness.data.logicalCandidateCount, "名");
+    setCount("fair-origin-preparation-single", readiness.data.singleCandidateCount, "名");
+    setCount("fair-origin-preparation-multiple", readiness.data.multipleCandidateCount, "名");
+    setCount("fair-origin-preparation-physical", readiness.data.physicalPendingRowCount, "件");
+    open.disabled = readiness.data?.ready !== true;
+    const status = documentObject.getElementById("fair-origin-preparation-status");
+    if (status) status.textContent = readiness.data?.ready === true
+      ? "実行前の確認が完了しました。"
+      : "現在は実行できません。実行承認後に利用できます。";
+    panel.hidden = false;
+  });
+  open.addEventListener("click", () => {
+    if (attempted) return;
+    if (typeof dialog.showModal === "function") dialog.showModal(); else dialog.hidden = false;
+  });
+  cancel.addEventListener("click", close);
+  execute.addEventListener("click", async () => {
+    if (attempted) return;
+    attempted = true;
+    execute.disabled = true;
+    cancel.disabled = true;
+    open.disabled = true;
+    if (result) result.textContent = "準備しています。画面を閉じずにお待ちください。";
+    const response = await client?.prepareFairOriginReview();
+    if (response?.ok && response.data?.completed === true) {
+      if (result) result.textContent = "確認データの準備が完了しました。161名の確認を開始できます。";
+      panel.hidden = true;
+      await loadFairOriginReview(documentObject, globalObject);
+      return;
+    }
+    if (result) result.textContent = "準備を完了できませんでした。データは変更されていません。";
+  });
+  return Object.freeze({ initialized: true });
 }
 
 async function loadFairOriginReview(documentObject, globalObject) {

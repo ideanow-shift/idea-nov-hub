@@ -8,6 +8,8 @@ M019 closes ACF-08 without adding Accounting calculations. M018 is the single Co
 
 Every decision pins an Auth subject to a Canonical Employee, an existing Canonical `employee_store_assignments` version, Corporation/Store/Department scope and exactly one formal Scenario. Role names and Employee UUIDs are data, never migration constants. `grant` and `revoke` are immutable sequenced decisions on one `access_key`; UPDATE/DELETE are rejected. Runtime evaluation rechecks active Employee, Assignment and Organization scope for the requested monthly period.
 
+Identity binding is serialized by a transaction-level advisory lock derived from `auth_subject_id`. The lock is acquired after Canonical Employee/Assignment/Organization checks and before the post-lock identity-conflict query and decision-chain append. Concurrent first grants for one subject therefore converge on one Canonical Employee: a different Employee is rejected with `BDF_M019_AUTH_SUBJECT_IDENTITY_CONFLICT`, while multiple valid access keys/scopes for that same Employee remain allowed. Different Auth subjects use different lock keys and do not share a global lock.
+
 The approved Scenario vocabulary is `actual`, `budget`, `forecast`. Previous Year remains an M017 Comparison Rule. Cash Flow calls the empty M018 fail-closed View.
 
 ## Access port
@@ -18,7 +20,7 @@ The port is the single justified `SECURITY DEFINER`: M018 Views are `security_in
 
 ## Least privilege and auditability
 
-All raw Accounting tables and all M018 Views retain zero Consumer grants. Consumer DML and lifecycle writes remain impossible. Ordinary reads create no high-volume audit rows. Access changes are traceable as append-only contract decisions plus migration/catalog history; no new Audit table is created.
+All raw Accounting tables and all M018 Views retain zero Consumer grants. Consumer DML and lifecycle writes remain impossible. Ordinary reads create no high-volume audit rows. Access changes are traceable as append-only contract decisions plus migration/catalog history; no new Audit table is created. Transaction-scoped subject locks are released automatically on commit, rollback or statement failure.
 
 ## Readiness boundaries
 

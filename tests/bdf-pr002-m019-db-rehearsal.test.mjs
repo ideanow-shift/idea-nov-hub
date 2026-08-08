@@ -53,6 +53,7 @@ function cmd(exe,args,input,allow=false){
   if(!allow&&r.status!==0)throw new Error(`${exe} ${args.join(' ')}\n${r.stdout}\n${r.stderr}`);
   return r;
 }
+const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
 test('M001-M019 plus M061-M063 are deterministic with Consumer release/security regression',{
   skip:!enabled&&'set BDF_RUN_M019_DB_REHEARSAL=1',timeout:900000
@@ -62,9 +63,13 @@ test('M001-M019 plus M061-M063 are deterministic with Consumer release/security 
   const port=59200+(process.pid%300);
   const exe=name=>path.join(pgBin,`${name}.exe`);
   const db='bdf_m019';
+  const concurrencyDb='bdf_m019_concurrency';
   let started=false;
+  let concurrencyCreated=false;
   const file=p=>readFile(path.join(root,p),'utf8');
-  const psql=sql=>cmd(exe('psql'),['-X','-v','ON_ERROR_STOP=1','-At','-h','127.0.0.1','-p',String(port),'-U','postgres','-d',db],sql);
+  const psqlArgs=database=>['-X','-v','ON_ERROR_STOP=1','-At','-h','127.0.0.1','-p',String(port),'-U','postgres','-d',database];
+  const psqlDb=(database,sql,allow=false)=>cmd(exe('psql'),psqlArgs(database),sql,allow);
+  const psql=(sql,allow=false)=>psqlDb(db,sql,allow);
   const apply=async(start=0,end=migrations.length)=>{
     for(const name of migrations.slice(start,end))await psql(await file(`supabase/migrations/${name}`));
   };
@@ -81,6 +86,104 @@ test('M001-M019 plus M061-M063 are deterministic with Consumer release/security 
     union all select 'i|'||schemaname||'|'||tablename||'|'||indexname||'|'||indexdef from pg_indexes where schemaname in('core','governance','projection','accounting')
     union all select 'g|'||table_schema||'|'||table_name||'|'||grantee||'|'||privilege_type from information_schema.role_table_grants where table_schema in('core','governance','projection','accounting')
   )select x from o order by x;`).stdout;
+  const session=(sql,database=concurrencyDb)=>{
+    const child=spawn(exe('psql'),psqlArgs(database),{cwd:root,encoding:'utf8',env,windowsHide:true,stdio:['pipe','pipe','pipe']});
+    let stdout='',stderr='';
+    child.stdout.on('data',d=>stdout+=d);
+    child.stderr.on('data',d=>stderr+=d);
+    child.stdin.end(sql);
+    const done=new Promise((resolve,reject)=>child.on('close',code=>code===0?resolve({stdout,stderr}):reject(new Error(`${stdout}\n${stderr}`))));
+    return {done,get stdout(){return stdout;}};
+  };
+  const waitFor=async(predicate)=>{
+    for(let i=0;i<160;i++){if(predicate())return;await pause(25);}
+    throw new Error('M019 concurrency marker timeout');
+  };
+  const grant=({key,subject,employee='19000000-0000-4000-8000-000000000130',assignment='19000000-0000-4000-8000-000000000240',scope='corporation'})=>`
+    insert into accounting.consumer_access_contracts(
+      access_key,decision_sequence,auth_subject_id,employee_id,assignment_version_id,
+      scope_type,corporation_id,store_id,scenario_type,decision,effective_at,evidence_reference,contract_version
+    ) values (
+      '${key}',1,'${subject}','${employee}','${assignment}',
+      '${scope}','19000000-0000-4000-8000-000000000100',${scope==='store'?"'19000000-0000-4000-8000-000000000110'":'null'},
+      'budget','grant','2026-05-01','approval:m019-concurrency','consumer-v1'
+    );`;
+  const concurrency=async()=>{
+    cmd(exe('createdb'),['-h','127.0.0.1','-p',String(port),'-U','postgres','-T',db,concurrencyDb]);
+    concurrencyCreated=true;
+    const fixture=await file('supabase/validation/pr002/test_m019_accounting_consumer_release_security.sql');
+    const accessAt=fixture.indexOf('\ninsert into accounting.consumer_access_contracts(');
+    assert.ok(accessAt>0,'M019 fixture seed boundary missing');
+    psqlDb(concurrencyDb,`${fixture.slice(0,accessAt)}\ncommit;`);
+    psqlDb(concurrencyDb,`
+      insert into governance.canonical_entity_registry(canonical_entity_id,entity_type) values
+        ('19000000-0000-4000-8000-000000000160','employee'),
+        ('19000000-0000-4000-8000-000000000170','assignment');
+      insert into core.employee_identities(employee_id) values ('19000000-0000-4000-8000-000000000160');
+      insert into core.assignment_identities(assignment_id) values ('19000000-0000-4000-8000-000000000170');
+      insert into governance.canonical_version_registry(entity_version_id,canonical_entity_id,entity_type,source_snapshot_id) values
+        ('19000000-0000-4000-8000-000000000260','19000000-0000-4000-8000-000000000160','employee','19000000-0000-4000-8000-000000000001'),
+        ('19000000-0000-4000-8000-000000000270','19000000-0000-4000-8000-000000000170','assignment','19000000-0000-4000-8000-000000000001');
+      insert into core.employees(employee_version_id,employee_id,display_alias,status,primary_department_id,effective_from,effective_to,source_snapshot_id,source_record_digest)
+      values ('19000000-0000-4000-8000-000000000260','19000000-0000-4000-8000-000000000160','consumer-two','active','19000000-0000-4000-8000-000000000120','2026-01-01','2027-01-01','19000000-0000-4000-8000-000000000001',repeat('c',64));
+      insert into core.employee_store_assignments(assignment_version_id,assignment_id,employee_id,store_id,assignment_role_code,assignment_kind,effective_from,effective_to,status,source_snapshot_id,source_record_digest)
+      values ('19000000-0000-4000-8000-000000000270','19000000-0000-4000-8000-000000000170','19000000-0000-4000-8000-000000000160','19000000-0000-4000-8000-000000000110','canonical.finance','primary','2026-01-01','2027-01-01','active','19000000-0000-4000-8000-000000000001',repeat('d',64));
+    `);
+    const before=Number(psqlDb(concurrencyDb,"select deadlocks from pg_stat_database where datname=current_database();").stdout.trim());
+
+    // Same subject / different Employee: one commits; the post-lock recheck rejects the other.
+    const differentEmployeeA=session(`set application_name='bdf-m019-subject-different-a';begin;
+      ${grant({key:'19000000-0000-4000-8000-000000000310',subject:'19000000-0000-4000-8000-000000000910'})}
+      select 'M019_DIFFERENT_EMPLOYEE_A_LOCKED';select pg_sleep(1.2);commit;`);
+    await waitFor(()=>differentEmployeeA.stdout.includes('M019_DIFFERENT_EMPLOYEE_A_LOCKED'));
+    const conflictStart=Date.now();
+    const conflict=psqlDb(concurrencyDb,`set application_name='bdf-m019-subject-different-b';begin;
+      ${grant({key:'19000000-0000-4000-8000-000000000311',subject:'19000000-0000-4000-8000-000000000910',employee:'19000000-0000-4000-8000-000000000160',assignment:'19000000-0000-4000-8000-000000000270'})}
+      commit;`,true);
+    const conflictWait=Date.now()-conflictStart;
+    await differentEmployeeA.done;
+    assert.notEqual(conflict.status,0,'different Employee binding unexpectedly committed');
+    assert.match(`${conflict.stdout}\n${conflict.stderr}`,/BDF_M019_AUTH_SUBJECT_IDENTITY_CONFLICT/);
+    assert.ok(conflictWait>=800,`different Employee binding did not serialize: ${conflictWait}ms`);
+    assert.equal(psqlDb(concurrencyDb,"select count(*)||'|'||count(distinct employee_id) from accounting.consumer_access_contracts where auth_subject_id='19000000-0000-4000-8000-000000000910';").stdout.trim(),'1|1');
+    assert.equal(psqlDb(concurrencyDb,"select count(*) from accounting.consumer_access_contracts where access_key='19000000-0000-4000-8000-000000000311';").stdout.trim(),'0');
+
+    // Same subject / same Employee: valid independent scopes serialize and both commit.
+    const sameEmployeeA=session(`set application_name='bdf-m019-subject-same-a';begin;
+      ${grant({key:'19000000-0000-4000-8000-000000000320',subject:'19000000-0000-4000-8000-000000000920'})}
+      select 'M019_SAME_EMPLOYEE_A_LOCKED';select pg_sleep(1.2);commit;`);
+    await waitFor(()=>sameEmployeeA.stdout.includes('M019_SAME_EMPLOYEE_A_LOCKED'));
+    const sameStart=Date.now();
+    psqlDb(concurrencyDb,`set application_name='bdf-m019-subject-same-b';begin;
+      ${grant({key:'19000000-0000-4000-8000-000000000321',subject:'19000000-0000-4000-8000-000000000920',scope:'store'})}
+      commit;`);
+    const sameWait=Date.now()-sameStart;
+    await sameEmployeeA.done;
+    assert.ok(sameWait>=800,`same subject did not serialize: ${sameWait}ms`);
+    assert.equal(psqlDb(concurrencyDb,"select count(*)||'|'||count(distinct employee_id) from accounting.consumer_access_contracts where auth_subject_id='19000000-0000-4000-8000-000000000920';").stdout.trim(),'2|1');
+
+    // Different subjects use different lock keys and progress concurrently.
+    const differentSubjectA=session(`set application_name='bdf-m019-different-subject-a';begin;
+      ${grant({key:'19000000-0000-4000-8000-000000000330',subject:'19000000-0000-4000-8000-000000000930'})}
+      select 'M019_DIFFERENT_SUBJECT_A_LOCKED';select pg_sleep(1.2);rollback;`);
+    await waitFor(()=>differentSubjectA.stdout.includes('M019_DIFFERENT_SUBJECT_A_LOCKED'));
+    const otherStart=Date.now();
+    psqlDb(concurrencyDb,`set application_name='bdf-m019-different-subject-b';begin;
+      ${grant({key:'19000000-0000-4000-8000-000000000331',subject:'19000000-0000-4000-8000-000000000931',scope:'store'})}
+      commit;`);
+    const otherWait=Date.now()-otherStart;
+    await differentSubjectA.done;
+    assert.ok(otherWait<800,`different subjects blocked unnecessarily: ${otherWait}ms`);
+    assert.equal(psqlDb(concurrencyDb,"select count(*) from accounting.consumer_access_contracts where auth_subject_id='19000000-0000-4000-8000-000000000930';").stdout.trim(),'0');
+    assert.equal(psqlDb(concurrencyDb,"select count(*) from accounting.consumer_access_contracts where auth_subject_id='19000000-0000-4000-8000-000000000931';").stdout.trim(),'1');
+
+    const after=Number(psqlDb(concurrencyDb,"select deadlocks from pg_stat_database where datname=current_database();").stdout.trim());
+    assert.equal(after-before,0,'M019 concurrency introduced a deadlock');
+    assert.equal(psqlDb(concurrencyDb,"select count(*) from pg_locks where locktype='advisory' and database=(select oid from pg_database where datname=current_database());").stdout.trim(),'0');
+    cmd(exe('dropdb'),['-h','127.0.0.1','-p',String(port),'-U','postgres',concurrencyDb]);
+    concurrencyCreated=false;
+    return {conflictWait,sameWait,otherWait,deadlocks:after-before};
+  };
   try{
     cmd(exe('initdb'),['-D',dir,'-U','postgres','--auth=trust','--encoding=UTF8','--locale=C']);
     const server=spawn(exe('postgres'),['-D',dir,'-p',String(port),'-h','127.0.0.1'],{cwd:root,env,windowsHide:true,stdio:['ignore','pipe','pipe']});
@@ -102,6 +205,7 @@ test('M001-M019 plus M061-M063 are deterministic with Consumer release/security 
     const m016=(await file('supabase/validation/pr002/test_m016_accounting_validation_approval_audit.sql'))
       .replace('BDF_ACCOUNTING_PUBLICATION_NOT_AVAILABLE_BEFORE_M017','BDF_M017_PUBLICATION_EVIDENCE_REQUIRED');
     await psql(m016);
+    const concurrencyEvidence=await concurrency();
     const first=catalog();
 
     await psql(await file(rollbacks[0]));
@@ -116,9 +220,12 @@ test('M001-M019 plus M061-M063 are deterministic with Consumer release/security 
     await apply();
     await psql(await file('supabase/validation/pr002/validate_m019.sql'));
     assert.equal(catalog(),first,'first and reapplied catalogs differ');
-    assert.deepEqual(psql("select count(*) from accounting.publication_releases;select count(*) from accounting.accounting_facts;select count(*) from accounting.audit_events;").stdout.trim().split(/\r?\n/),['0','0','0']);
+    assert.deepEqual(psql("select count(*) from accounting.consumer_access_contracts;select count(*) from accounting.publication_releases;select count(*) from accounting.accounting_facts;select count(*) from accounting.audit_events;").stdout.trim().split(/\r?\n/),['0','0','0','0']);
+    assert.equal(psql(`select count(*) from pg_database where datname='${concurrencyDb}';`).stdout.trim(),'0');
+    process.stdout.write(`BDF_M019_REHEARSAL_PASS forward=22 rollback=22 reapply=22 concurrency=3 conflict_wait_ms=${concurrencyEvidence.conflictWait} same_employee_wait_ms=${concurrencyEvidence.sameWait} different_subject_wait_ms=${concurrencyEvidence.otherWait} deadlocks=${concurrencyEvidence.deadlocks} retained_advisory_lock=0 fixture=0\n`);
     server.kill();
   }finally{
+    if(concurrencyCreated)cmd(exe('dropdb'),['-h','127.0.0.1','-p',String(port),'-U','postgres','--if-exists',concurrencyDb],undefined,true);
     if(started)cmd(exe('pg_ctl'),['-D',dir,'stop','-m','immediate'],undefined,true);
     await rm(dir,{recursive:true,force:true});
   }

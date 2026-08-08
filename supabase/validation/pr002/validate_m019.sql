@@ -61,6 +61,15 @@ begin
     raise exception 'BDF_M019_ACCESS_PORT_BODY_DRIFT';
   end if;
 
+  select lower(pg_get_functiondef('accounting.guard_consumer_access_contract()'::regprocedure)) into body;
+  if body not like '%pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(%'
+    or body not like '%bdf|m019|auth_subject|%new.auth_subject_id%'
+    or position('pg_advisory_xact_lock' in body)=0
+    or position('bdf_m019_auth_subject_identity_conflict' in body)=0
+    or position('pg_advisory_xact_lock' in body) >= position('bdf_m019_auth_subject_identity_conflict' in body) then
+    raise exception 'BDF_M019_SUBJECT_LOCK_OR_POST_LOCK_RECHECK_DRIFT';
+  end if;
+
   select count(*) into n from information_schema.routine_privileges
   where specific_schema='projection' and routine_name='read_accounting_consumer_v1'
     and grantee='authenticated' and privilege_type='EXECUTE';

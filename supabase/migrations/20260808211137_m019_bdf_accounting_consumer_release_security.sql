@@ -101,6 +101,12 @@ begin
       and d.effective_from<=as_of_date and (d.effective_to is null or as_of_date<d.effective_to)
   ) then raise exception 'BDF_M019_DEPARTMENT_SCOPE_MISMATCH'; end if;
 
+  -- Serialize identity-binding decisions for one Auth subject. Different
+  -- subjects use different keys and remain independently concurrent.
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    'bdf|m019|auth_subject|'||new.auth_subject_id::text,0
+  ));
+
   select * into prior from accounting.consumer_access_contracts
   where access_key=new.access_key order by decision_sequence desc limit 1;
   if not found then

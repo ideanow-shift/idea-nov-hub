@@ -7,6 +7,7 @@ const migration=read('supabase/migrations/20260808211137_m019_bdf_accounting_con
 const rollback=read('supabase/rollback/pr002/m019_bdf_accounting_consumer_release_security.rollback.sql');
 const validation=read('supabase/validation/pr002/validate_m019.sql');
 const fixture=read('supabase/validation/pr002/test_m019_accounting_consumer_release_security.sql');
+const runner=read('tests/bdf-pr002-m019-db-rehearsal.test.mjs');
 const design=read('docs/architecture/42_pr002_m019_accounting_consumer_release_security_design_package.md');
 const gate=read('docs/architecture/43_pr002_m019_accounting_consumer_release_security_release_gate.md');
 
@@ -21,6 +22,18 @@ test('Canonical identity, assignment and organization scope are pinned without r
 });
 test('Access decisions are append-only and grant/revoke chains fail closed',()=>{
   for(const x of ['ACCESS_CONTRACT_APPEND_ONLY','ACCESS_CHAIN_MUST_START_GRANT','ACCESS_CHAIN_INVALID','AUTH_SUBJECT_IDENTITY_CONFLICT'])assert.match(migration,new RegExp(x));
+});
+test('Auth-subject identity binding is post-lock and subject-local',()=>{
+  assert.match(migration,/pg_catalog\.pg_advisory_xact_lock\(pg_catalog\.hashtextextended\([\s\S]*?bdf\|m019\|auth_subject\|[\s\S]*?new\.auth_subject_id/i);
+  assert.ok(migration.indexOf('pg_advisory_xact_lock')<migration.indexOf('BDF_M019_AUTH_SUBJECT_IDENTITY_CONFLICT'));
+  assert.doesNotMatch(migration,/lock table|bdf\|m019\|auth_subject\|'\s*,\s*0/i);
+  assert.match(validation,/SUBJECT_LOCK_OR_POST_LOCK_RECHECK_DRIFT/);
+  for(const x of ['same subject \/ different Employee','same subject \/ same Employee','Different subjects'])assert.match(gate,new RegExp(x,'i'));
+});
+test('Two-session gate covers conflict, allowed scopes and independent subjects',()=>{
+  for(const x of ['M019_DIFFERENT_EMPLOYEE_A_LOCKED','M019_SAME_EMPLOYEE_A_LOCKED','M019_DIFFERENT_SUBJECT_A_LOCKED','BDF_M019_AUTH_SUBJECT_IDENTITY_CONFLICT','retained_advisory_lock=0'])assert.match(runner,new RegExp(x));
+  assert.match(runner,/after-before,0/);
+  assert.match(runner,/count\(distinct employee_id\)/);
 });
 test('The only Consumer port reads M018 projections with fixed inputs and no dynamic SQL',()=>{
   assert.match(migration,/read_accounting_consumer_v1\(\s*p_projection text,p_corporation_id uuid,p_accounting_period date,p_scenario_type text/i);
@@ -55,10 +68,11 @@ test('Rollback is exact, non-CASCADE and restores the M018 boundary',()=>{
 });
 test('Design and Release Gate keep UI, API business logic and Production out of scope',()=>{
   assert.match(design,/M018[^\n]*single Consumer projection source|M018 Projection/i);
-  assert.match(gate,/Production接続0|Production dependency 0/i);
+  assert.match(gate,/Production dependency 0/i);
   for(const x of ['Store Operations UI','Finance UI','Consumer-specific KPI'])assert.match(design,new RegExp(x,'i'));
 });
-test('M019 creates no writer or lock path',()=>{
-  assert.doesNotMatch(migration,/pg_advisory|for update|lock table/i);
-  assert.match(gate,/additional Concurrency Gate is不要/i);
+test('M019 adds only the subject-local transaction lock',()=>{
+  assert.equal((migration.match(/pg_advisory_xact_lock/gi)||[]).length,1);
+  assert.doesNotMatch(migration,/pg_advisory_lock\s*\(|for update|lock table/i);
+  assert.match(gate,/two-session identity-binding concurrency gate/i);
 });

@@ -64,10 +64,57 @@ begin
   where ns.nspname='accounting' and p.proname='validate_journal_line_insert';
   if body is null
     or position('BDF_JOURNAL_LINE_IMPORT_SOURCE_NOT_ELIGIBLE' in body)=0
-    or position('s.normalized_amount is null or s.normalized_amount not in' in body)=0
+    or position('s.validation_status = ''valid''' in body)=0
+    or position('s.normalization_status = ''passed''' in body)=0
+    or position('s.mapping_status = ''passed''' in body)=0
+    or position('s.tax_basis = ''exclusive''' in body)=0
     or position('account_version_matches_period' in body)=0
     or position('organization_scope_is_valid' in body)=0 then
     raise exception 'BDF_M015_JOURNAL_LINE_GUARD';
+  end if;
+  if position('s.source_tax_basis in (''exclusive'', ''inclusive'', ''exempt'', ''non_taxable'')' in body)=0
+    or position('s.source_tax_category <> ''unknown''' in body)=0
+    or position('lower(btrim(s.tax_rate_source_version)) <> ''unknown''' in body)=0
+    or position('s.source_tax_rate is not null' in body)=0
+    or position('s.source_tax_rate between 0 and 1' in body)=0
+    or position('s.source_amount is not null' in body)=0
+    or position('s.source_amount not in' in body)=0
+    or position('s.value_status = ''observed''' in body)=0
+    or position('s.value_status = ''zero''' in body)=0
+    or position('s.value_status = ''not_applicable''' in body)=0
+    or position('s.normalized_amount not in' in body)=0
+    or position('s.rounding_unit is null or' in body)=0
+    or position('s.rounding_unit > 0' in body)=0
+    or position('s.rounding_difference_amount is null' in body)=0
+    or position('s.rounding_difference_amount not in' in body)=0
+    or position('s.rounding_mode in (''floor'', ''ceiling'', ''half_up'', ''half_even'', ''truncate'')' in body)=0
+    or position('s.rounding_scope in (''line'', ''document'')' in body)=0
+    or position('s.rounding_unit is not null' in body)=0
+    or position('s.rounding_difference_amount is not null' in body)=0
+    or position('s.rounding_mode = ''not_applicable''' in body)=0
+    or position('s.rounding_scope = ''not_applicable''' in body)=0 then
+    raise exception 'BDF_M015_ACTUAL_TAX_ROUNDING_EVIDENCE_GUARD';
+  end if;
+
+  select pg_get_functiondef(p.oid) into body from pg_proc p
+  join pg_namespace ns on ns.oid=p.pronamespace
+  where ns.nspname='accounting' and p.proname='validate_accounting_fact_insert';
+  if body is null
+    or position('BDF_ACCOUNTING_FACT_TAX_NORMALIZATION_MISMATCH' in body)=0
+    or position('s.source_tax_basis in (''exclusive'', ''inclusive'', ''exempt'', ''non_taxable'')' in body)=0
+    or position('s.source_tax_category <> ''unknown''' in body)=0
+    or position('lower(btrim(s.tax_rate_source_version)) <> ''unknown''' in body)=0
+    or position('s.source_tax_rate between 0 and 1' in body)=0
+    or position('s.source_amount is not null' in body)=0
+    or position('s.source_amount not in' in body)=0
+    or position('s.normalized_amount not in' in body)=0
+    or position('s.rounding_unit > 0' in body)=0
+    or position('s.rounding_difference_amount not in' in body)=0
+    or position('s.rounding_unit is not null' in body)=0
+    or position('s.rounding_difference_amount is not null' in body)=0
+    or position('s.rounding_mode = ''not_applicable''' in body)=0
+    or position('s.rounding_scope = ''not_applicable''' in body)=0 then
+    raise exception 'BDF_M015_ACCOUNTING_FACT_EVIDENCE_GUARD';
   end if;
 
   select pg_get_functiondef(p.oid) into body from pg_proc p

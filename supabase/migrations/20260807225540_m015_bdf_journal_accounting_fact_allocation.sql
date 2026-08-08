@@ -718,9 +718,58 @@ begin
         and s.normalization_status = 'passed'
         and s.mapping_status = 'passed'
         and s.tax_basis = 'exclusive'
-        and (s.normalized_amount is null or s.normalized_amount not in (
+        and s.source_tax_basis in ('exclusive', 'inclusive', 'exempt', 'non_taxable')
+        and s.source_tax_category <> 'unknown'
+        and lower(btrim(s.tax_rate_source_version)) <> 'unknown'
+        and s.source_amount is not null
+        and s.source_amount not in (
           'NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric
+        )
+        and (
+          (s.source_tax_basis in ('exclusive', 'inclusive')
+            and s.source_tax_rate is not null
+            and s.source_tax_rate between 0 and 1
+            and s.source_tax_rate not in (
+              'NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric
+            ))
+          or (s.source_tax_basis in ('exempt', 'non_taxable')
+            and (s.source_tax_rate is null or (
+              s.source_tax_rate between 0 and 1
+              and s.source_tax_rate not in (
+                'NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric
+              )
+            )))
+        )
+        and (
+          (s.value_status = 'observed'
+            and s.normalized_amount is not null
+            and s.normalized_amount <> 0
+            and s.normalized_amount not in (
+              'NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric
+            ))
+          or (s.value_status = 'zero' and s.normalized_amount = 0)
+          or (s.value_status = 'not_applicable' and s.normalized_amount is null)
+        )
+        and (s.rounding_unit is null or (
+          s.rounding_unit > 0
+          and s.rounding_unit not in (
+            'NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric
+          )
         ))
+        and (s.rounding_difference_amount is null
+          or s.rounding_difference_amount not in (
+            'NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric
+          ))
+        and (
+          (s.rounding_mode in ('floor', 'ceiling', 'half_up', 'half_even', 'truncate')
+            and s.rounding_scope in ('line', 'document')
+            and s.rounding_unit is not null
+            and s.rounding_difference_amount is not null)
+          or (s.rounding_mode = 'not_applicable'
+            and s.rounding_scope = 'not_applicable'
+            and (s.rounding_difference_amount is null
+              or s.rounding_difference_amount = 0))
+        )
         and b.status = 'validated'
         and b.source_system = new.source_system
     ) then
@@ -774,6 +823,58 @@ begin
       and s.validation_status = 'valid'
       and s.normalization_status = 'passed'
       and s.mapping_status = 'passed'
+      and s.source_tax_basis in ('exclusive', 'inclusive', 'exempt', 'non_taxable')
+      and s.source_tax_category <> 'unknown'
+      and lower(btrim(s.tax_rate_source_version)) <> 'unknown'
+      and s.source_amount is not null
+      and s.source_amount not in (
+        'NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric
+      )
+      and (
+        (s.source_tax_basis in ('exclusive', 'inclusive')
+          and s.source_tax_rate is not null
+          and s.source_tax_rate between 0 and 1
+          and s.source_tax_rate not in (
+            'NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric
+          ))
+        or (s.source_tax_basis in ('exempt', 'non_taxable')
+          and (s.source_tax_rate is null or (
+            s.source_tax_rate between 0 and 1
+            and s.source_tax_rate not in (
+              'NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric
+            )
+          )))
+      )
+      and (
+        (s.value_status = 'observed'
+          and s.normalized_amount is not null
+          and s.normalized_amount <> 0
+          and s.normalized_amount not in (
+            'NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric
+          ))
+        or (s.value_status = 'zero' and s.normalized_amount = 0)
+        or (s.value_status = 'not_applicable' and s.normalized_amount is null)
+      )
+      and (s.rounding_unit is null or (
+        s.rounding_unit > 0
+        and s.rounding_unit not in (
+          'NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric
+        )
+      ))
+      and (s.rounding_difference_amount is null
+        or s.rounding_difference_amount not in (
+          'NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric
+        ))
+      and (
+        (s.rounding_mode in ('floor', 'ceiling', 'half_up', 'half_even', 'truncate')
+          and s.rounding_scope in ('line', 'document')
+          and s.rounding_unit is not null
+          and s.rounding_difference_amount is not null)
+        or (s.rounding_mode = 'not_applicable'
+          and s.rounding_scope = 'not_applicable'
+          and (s.rounding_difference_amount is null
+            or s.rounding_difference_amount = 0))
+      )
   ) then
     raise exception 'BDF_ACCOUNTING_FACT_TAX_NORMALIZATION_MISMATCH';
   end if;

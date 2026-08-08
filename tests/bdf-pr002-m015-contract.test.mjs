@@ -6,6 +6,7 @@ const m=read('supabase/migrations/20260807225540_m015_bdf_journal_accounting_fac
 const r=read('supabase/rollback/pr002/m015_bdf_journal_accounting_fact_allocation.rollback.sql');
 const v=read('supabase/validation/pr002/validate_m015.sql');
 const d=read('supabase/validation/pr002/test_m015_journal_accounting_fact_allocation.sql');
+const g=read('docs/architecture/32_pr002_m015_journal_accounting_fact_allocation_release_gate.md');
 
 test('M015 owns six Journal Fact and Allocation tables only',()=>{
   for(const t of ['journal_entries','journal_lines','accounting_facts','allocation_rule_versions','allocation_sets','accounting_allocations'])
@@ -26,9 +27,33 @@ test('Journal and line idempotency never use amount',()=>{
 test('Actual source route is validated M012 lineage',()=>{
   for(const x of ['validation_status = \'valid\'','normalization_status = \'passed\'','mapping_status = \'passed\'','tax_basis = \'exclusive\'','b.status = \'validated\'']) assert.match(m,new RegExp(x));
   assert.match(m,/BDF_JOURNAL_ACTUAL_IMPORT_REQUIRED/);
-  assert.match(m,/s\.normalized_amount is null or s\.normalized_amount not in/);
+  assert.match(m,/s\.normalized_amount not in/);
   assert.match(m,/guard_import_membership_seal_m015/);
   for(const x of ['a_m015_lock_import_batch_membership','a_m015_seal_import_files','a_m015_seal_import_staging_lines','BDF_ACCOUNTING_IMPORT_BATCH_MEMBERSHIP_SEALED']) assert.match(m,new RegExp(x));
+});
+test('Actual tax and rounding evidence is complete and finite at Line and Fact promotion',()=>{
+  const guards=[
+    m.match(/create function accounting\.validate_journal_line_insert\(\)[\s\S]*?\$function\$;/i)?.[0]??'',
+    m.match(/create function accounting\.validate_accounting_fact_insert\(\)[\s\S]*?\$function\$;/i)?.[0]??''
+  ];
+  for(const guard of guards){
+    assert.match(guard,/s\.source_tax_basis in \('exclusive', 'inclusive', 'exempt', 'non_taxable'\)/);
+    assert.match(guard,/s\.source_tax_category <> 'unknown'/);
+    assert.match(guard,/lower\(btrim\(s\.tax_rate_source_version\)\) <> 'unknown'/);
+    assert.match(guard,/s\.source_tax_rate between 0 and 1/);
+    assert.match(guard,/s\.source_amount is not null[\s\S]*s\.source_amount not in/);
+    assert.match(guard,/s\.value_status = 'observed'[\s\S]*s\.normalized_amount not in/);
+    assert.match(guard,/s\.rounding_unit is null or[\s\S]*s\.rounding_unit > 0[\s\S]*s\.rounding_unit not in/);
+    assert.match(guard,/s\.rounding_difference_amount is null[\s\S]*s\.rounding_difference_amount not in/);
+    assert.match(guard,/s\.rounding_mode in \('floor', 'ceiling', 'half_up', 'half_even', 'truncate'\)/);
+    assert.match(guard,/s\.rounding_scope in \('line', 'document'\)/);
+    assert.match(guard,/s\.rounding_unit is not null/);
+    assert.match(guard,/s\.rounding_difference_amount is not null/);
+    assert.match(guard,/s\.rounding_mode = 'not_applicable'[\s\S]*s\.rounding_scope = 'not_applicable'/);
+    assert.match(guard,/'NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric/);
+  }
+  assert.match(v,/BDF_M015_ACTUAL_TAX_ROUNDING_EVIDENCE_GUARD/);
+  assert.match(v,/BDF_M015_ACCOUNTING_FACT_EVIDENCE_GUARD/);
 });
 test('Fact is one-to-one tax-exclusive Canonical truth',()=>{
   assert.match(m,/journal_line_id uuid not null unique/);
@@ -79,6 +104,7 @@ test('all six tables use forced RLS and zero direct grants',()=>{
 test('validation is fail closed for catalog security and future scope',()=>{
   for(const x of ['BDF_M015_TABLE_COUNT','BDF_M015_DUPLICATE_CONTRACT','BDF_M015_FACT_CONTRACT','BDF_M015_VERSION_FK_INDEX_COUNT','BDF_M015_ALLOCATION_RECONCILIATION_GUARD','BDF_M015_TRIGGER_BINDING_COUNT','BDF_M015_IMPORT_MEMBERSHIP_SEAL_GUARD','BDF_M015_IMPORT_SEAL_TRIGGER_BINDING_COUNT','BDF_M015_SECURITY_INVOKER_FUNCTIONS','BDF_M015_RLS_FORCE_COUNT','BDF_M015_FORBIDDEN_GRANTS','BDF_M015_FORBIDDEN_FUNCTION_GRANT','BDF_M015_FUTURE_SCOPE_LEAK']) assert.match(v,new RegExp(x));
   for(const x of ['accounting_facts_amount_finite','accounting_allocation_sets_amount_finite','accounting_allocations_amount_finite','guard_import_membership_seal_m015']) assert.match(v,new RegExp(x));
+  for(const x of ['two-session concurrency Gate','NOT RUN','Tier 2 Staging Complete','SHARE','lock wait','deadlock','rollback','zero persistent rows']) assert.match(g,new RegExp(x,'i'));
 });
 test('DB negative suite fixes every Owner minimum failure contract',()=>{
   for(const x of [
@@ -86,6 +112,12 @@ test('DB negative suite fixes every Owner minimum failure contract',()=>{
     'INVALID_ORGANIZATION_SCOPE','DUPLICATE_JOURNAL','DUPLICATE_STABLE_LINE',
     'ACTUAL_VERSION_BATCH_NOT_VALIDATED','ACTUAL_BATCH_NOT_VALIDATED',
     'TAX_NORMALIZATION_INCOMPLETE','ACTUAL_NAN_NORMALIZED_AMOUNT','JOURNAL_FACT_MISMATCH','PLANNING_CONTRACT_MISSING',
+    'ACTUAL_SOURCE_AMOUNT_INFINITY_TYPE_REJECTION','ACTUAL_ROUNDING_UNIT_INFINITY_TYPE_REJECTION',
+    'ACTUAL_ROUNDING_DIFFERENCE_INFINITY_TYPE_REJECTION','ACTUAL_SOURCE_AMOUNT_NAN','ACTUAL_SOURCE_AMOUNT_NULL',
+    'ACTUAL_ROUNDING_UNIT_NULL','ACTUAL_ROUNDING_UNIT_NAN','ACTUAL_ROUNDING_DIFFERENCE_NAN',
+    'ACTUAL_ROUNDING_DIFFERENCE_NULL','ACTUAL_REQUIRED_ROUNDING_EVIDENCE_MISSING',
+    'ACTUAL_TAX_CATEGORY_UNKNOWN','ACTUAL_TAX_RATE_VERSION_UNKNOWN',
+    'ACTUAL_NORMALIZED_OK_SOURCE_INCOMPLETE','ACTUAL_TAX_BASIS_NORMALIZATION_STATUS_MISMATCH',
     'LATE_FILE_AFTER_BATCH_VALIDATION','LATE_LINE_AFTER_BATCH_VALIDATION',
     'MUTATE_LINE_AFTER_BATCH_VALIDATION','MOVE_LINE_FROM_VALIDATED_BATCH',
     'CALCULATED_SUBTOTAL_ACCOUNT','ACCOUNT_PERIOD_NOT_CONTAINED','INACTIVE_ORGANIZATION_SCOPE',

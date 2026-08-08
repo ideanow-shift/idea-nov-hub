@@ -151,7 +151,7 @@ insert into accounting.import_files(
   import_file_id,import_batch_id,file_name,file_type,file_hash,row_count
 ) values (
   '15000000-0000-4000-8000-000000000501','15000000-0000-4000-8000-000000000500',
-  'm015.csv','csv',repeat('9',64),3
+  'm015.csv','csv',repeat('9',64),12
 );
 insert into accounting.import_staging_lines(
   staging_line_id,import_batch_id,import_file_id,source_record_key_digest,source_line_no,row_digest,
@@ -165,6 +165,85 @@ insert into accounting.import_staging_lines(
   repeat('c',64),repeat('d',64),'actual','period_flow',110,'inclusive','standard',0.1,'tax-v1',
   'half_up','line',1,0,null,null,'pending','pending','pending','received'
 );
+-- M012 quarantine can retain these incomplete/non-finite evidence rows. M015 must not promote them.
+insert into accounting.import_staging_lines(
+  staging_line_id,import_batch_id,import_file_id,source_record_key_digest,source_line_no,row_digest,
+  accounting_period,corporation_source_key_digest,account_source_key_digest,scenario_type,measure_type,
+  source_amount,source_tax_basis,source_tax_category,source_tax_rate,tax_rate_source_version,
+  rounding_mode,rounding_scope,rounding_unit,rounding_difference_amount,normalized_amount,tax_basis,
+  value_status,normalization_status,mapping_status,validation_status
+) values
+  ('15000000-0000-4000-8000-000000000520','15000000-0000-4000-8000-000000000500',
+   '15000000-0000-4000-8000-000000000501',repeat('0',64),20,repeat('1',64),'2026-04-01',
+   repeat('c',64),repeat('d',64),'actual','period_flow','NaN'::numeric,'inclusive','standard',0.1,'tax-v1',
+   'half_up','line',1,0,null,null,'pending','pending','pending','received'),
+  ('15000000-0000-4000-8000-000000000521','15000000-0000-4000-8000-000000000500',
+   '15000000-0000-4000-8000-000000000501',repeat('2',64),21,repeat('3',64),'2026-04-01',
+   repeat('c',64),repeat('d',64),'actual','period_flow',null,'inclusive','standard',0.1,'tax-v1',
+   'half_up','line',1,0,null,null,'pending','pending','pending','received'),
+  ('15000000-0000-4000-8000-000000000522','15000000-0000-4000-8000-000000000500',
+   '15000000-0000-4000-8000-000000000501',repeat('4',64),22,repeat('5',64),'2026-04-01',
+   repeat('c',64),repeat('d',64),'actual','period_flow',110,'inclusive','standard',0.1,'tax-v1',
+   'half_up','line',null,0,null,null,'pending','pending','pending','received'),
+  ('15000000-0000-4000-8000-000000000523','15000000-0000-4000-8000-000000000500',
+   '15000000-0000-4000-8000-000000000501',repeat('6',64),23,repeat('7',64),'2026-04-01',
+   repeat('c',64),repeat('d',64),'actual','period_flow',110,'inclusive','standard',0.1,'tax-v1',
+   'half_up','line','NaN'::numeric,0,null,null,'pending','pending','pending','received'),
+  ('15000000-0000-4000-8000-000000000524','15000000-0000-4000-8000-000000000500',
+   '15000000-0000-4000-8000-000000000501',repeat('8',64),24,repeat('9',64),'2026-04-01',
+   repeat('c',64),repeat('d',64),'actual','period_flow',110,'inclusive','standard',0.1,'tax-v1',
+   'half_up','line',1,'NaN'::numeric,null,null,'pending','pending','pending','received'),
+  ('15000000-0000-4000-8000-000000000525','15000000-0000-4000-8000-000000000500',
+   '15000000-0000-4000-8000-000000000501',repeat('a',64),25,repeat('b',64),'2026-04-01',
+   repeat('c',64),repeat('d',64),'actual','period_flow',110,'inclusive','standard',0.1,'tax-v1',
+   'half_up','line',1,null,null,null,'pending','pending','pending','received'),
+  ('15000000-0000-4000-8000-000000000526','15000000-0000-4000-8000-000000000500',
+   '15000000-0000-4000-8000-000000000501',repeat('c',64),26,repeat('d',64),'2026-04-01',
+   repeat('c',64),repeat('d',64),'actual','period_flow',110,'inclusive','standard',0.1,'tax-v1',
+   'half_up','not_applicable',1,0,null,null,'pending','pending','pending','received'),
+  ('15000000-0000-4000-8000-000000000527','15000000-0000-4000-8000-000000000500',
+   '15000000-0000-4000-8000-000000000501',repeat('e',64),27,repeat('f',64),'2026-04-01',
+   repeat('c',64),repeat('d',64),'actual','period_flow',110,'inclusive','unknown',0.1,'tax-v1',
+   'half_up','line',1,0,null,null,'pending','pending','pending','received'),
+  ('15000000-0000-4000-8000-000000000528','15000000-0000-4000-8000-000000000500',
+   '15000000-0000-4000-8000-000000000501',repeat('0',64),28,repeat('1',64),'2026-04-01',
+   repeat('c',64),repeat('d',64),'actual','period_flow',110,'inclusive','standard',0.1,'UNKNOWN',
+   'half_up','line',1,0,null,null,'pending','pending','pending','received');
+
+-- Bounded numeric rejects Infinity before M015; the M015 guard still carries explicit defense-in-depth.
+select pg_temp.expect_failure('ACTUAL_SOURCE_AMOUNT_INFINITY_TYPE_REJECTION', $q$
+  insert into accounting.import_staging_lines(
+    staging_line_id,import_batch_id,import_file_id,source_record_key_digest,source_line_no,row_digest,
+    accounting_period,corporation_source_key_digest,account_source_key_digest,scenario_type,measure_type,
+    source_amount,source_tax_basis,source_tax_category,source_tax_rate,tax_rate_source_version,
+    rounding_mode,rounding_scope,rounding_unit,rounding_difference_amount,value_status
+  ) values ('15000000-0000-4000-8000-000000000529','15000000-0000-4000-8000-000000000500',
+    '15000000-0000-4000-8000-000000000501',repeat('2',64),29,repeat('3',64),'2026-04-01',
+    repeat('c',64),repeat('d',64),'actual','period_flow','Infinity'::numeric,'inclusive','standard',0.1,'tax-v1',
+    'half_up','line',1,0,'pending')
+$q$, 'numeric field overflow');
+select pg_temp.expect_failure('ACTUAL_ROUNDING_UNIT_INFINITY_TYPE_REJECTION', $q$
+  insert into accounting.import_staging_lines(
+    staging_line_id,import_batch_id,import_file_id,source_record_key_digest,source_line_no,row_digest,
+    accounting_period,corporation_source_key_digest,account_source_key_digest,scenario_type,measure_type,
+    source_amount,source_tax_basis,source_tax_category,source_tax_rate,tax_rate_source_version,
+    rounding_mode,rounding_scope,rounding_unit,rounding_difference_amount,value_status
+  ) values ('15000000-0000-4000-8000-000000000530','15000000-0000-4000-8000-000000000500',
+    '15000000-0000-4000-8000-000000000501',repeat('4',64),30,repeat('5',64),'2026-04-01',
+    repeat('c',64),repeat('d',64),'actual','period_flow',110,'inclusive','standard',0.1,'tax-v1',
+    'half_up','line','Infinity'::numeric,0,'pending')
+$q$, 'numeric field overflow');
+select pg_temp.expect_failure('ACTUAL_ROUNDING_DIFFERENCE_INFINITY_TYPE_REJECTION', $q$
+  insert into accounting.import_staging_lines(
+    staging_line_id,import_batch_id,import_file_id,source_record_key_digest,source_line_no,row_digest,
+    accounting_period,corporation_source_key_digest,account_source_key_digest,scenario_type,measure_type,
+    source_amount,source_tax_basis,source_tax_category,source_tax_rate,tax_rate_source_version,
+    rounding_mode,rounding_scope,rounding_unit,rounding_difference_amount,value_status
+  ) values ('15000000-0000-4000-8000-000000000531','15000000-0000-4000-8000-000000000500',
+    '15000000-0000-4000-8000-000000000501',repeat('6',64),31,repeat('7',64),'2026-04-01',
+    repeat('c',64),repeat('d',64),'actual','period_flow',110,'inclusive','standard',0.1,'tax-v1',
+    'half_up','line',1,'Infinity'::numeric,'pending')
+$q$, 'numeric field overflow');
 -- A second candidate remains excluded and cannot cross the M015 Actual boundary.
 insert into accounting.import_staging_lines(
   staging_line_id,import_batch_id,import_file_id,source_record_key_digest,source_line_no,row_digest,
@@ -205,6 +284,16 @@ update accounting.import_staging_lines set
   normalized_amount='NaN'::numeric,tax_basis='exclusive',value_status='observed',
   normalization_status='passed',mapping_status='passed',validation_status='valid'
 where staging_line_id='15000000-0000-4000-8000-000000000505';
+update accounting.import_staging_lines set
+  normalized_amount=100,tax_basis='exclusive',value_status='observed',
+  normalization_status='passed',mapping_status='passed',validation_status='valid'
+where staging_line_id in (
+  '15000000-0000-4000-8000-000000000520','15000000-0000-4000-8000-000000000521',
+  '15000000-0000-4000-8000-000000000522','15000000-0000-4000-8000-000000000523',
+  '15000000-0000-4000-8000-000000000524','15000000-0000-4000-8000-000000000525',
+  '15000000-0000-4000-8000-000000000526','15000000-0000-4000-8000-000000000527',
+  '15000000-0000-4000-8000-000000000528'
+);
 update accounting.import_batches set status='validating'
 where import_batch_id='15000000-0000-4000-8000-000000000500';
 update accounting.import_batches set status='validated'
@@ -356,6 +445,58 @@ select pg_temp.expect_failure('DUPLICATE_JOURNAL', $q$
   values('15000000-0000-4000-8000-000000000610','planning','m015_plan',repeat('a',64),repeat('8',64),
     '2026-04-12','2026-04-01',repeat('b',64),'planning','audit:m015')
 $q$, 'accounting_journal_entries_version_source_unique');
+
+create function pg_temp.expect_actual_evidence_rejection(
+  p_label text,
+  p_staging_line_id uuid,
+  p_source_record_key_digest text,
+  p_source_line_no bigint,
+  p_stable_line_key_digest text,
+  p_line_sequence integer
+) returns void language plpgsql as $f$
+begin
+  perform pg_temp.expect_failure(p_label, format($q$
+    insert into accounting.journal_lines(
+      journal_entry_id,accounting_version_id,source_system,source_batch_id,source_file_id,
+      staging_line_id,source_record_key_digest,source_line_no,stable_line_key_digest,line_sequence,
+      account_id,account_version_id,corporation_id,corporation_version_id,organization_scope_type,
+      measure_type,posting_side,normalization_evidence_digest,recorded_by
+    ) values (
+      '15000000-0000-4000-8000-000000000700','15000000-0000-4000-8000-000000000600',
+      'm015_source','15000000-0000-4000-8000-000000000500',
+      '15000000-0000-4000-8000-000000000501',%L,%L,%s,%L,%s,
+      '15000000-0000-4000-8000-000000000400','15000000-0000-4000-8000-000000000401',
+      '15000000-0000-4000-8000-000000000100','15000000-0000-4000-8000-000000000101',
+      'corporation','period_flow','debit',repeat('e',64),'audit:m015'
+    )
+  $q$, p_staging_line_id, p_source_record_key_digest, p_source_line_no,
+    p_stable_line_key_digest, p_line_sequence),
+    'BDF_JOURNAL_LINE_IMPORT_SOURCE_NOT_ELIGIBLE');
+end
+$f$;
+
+select pg_temp.expect_actual_evidence_rejection(
+  'ACTUAL_SOURCE_AMOUNT_NAN','15000000-0000-4000-8000-000000000520',repeat('0',64),20,repeat('0',64),20);
+select pg_temp.expect_actual_evidence_rejection(
+  'ACTUAL_SOURCE_AMOUNT_NULL','15000000-0000-4000-8000-000000000521',repeat('2',64),21,repeat('1',64),21);
+select pg_temp.expect_actual_evidence_rejection(
+  'ACTUAL_ROUNDING_UNIT_NULL','15000000-0000-4000-8000-000000000522',repeat('4',64),22,repeat('2',64),22);
+select pg_temp.expect_actual_evidence_rejection(
+  'ACTUAL_ROUNDING_UNIT_NAN','15000000-0000-4000-8000-000000000523',repeat('6',64),23,repeat('3',64),23);
+select pg_temp.expect_actual_evidence_rejection(
+  'ACTUAL_ROUNDING_DIFFERENCE_NAN','15000000-0000-4000-8000-000000000524',repeat('8',64),24,repeat('4',64),24);
+select pg_temp.expect_actual_evidence_rejection(
+  'ACTUAL_ROUNDING_DIFFERENCE_NULL','15000000-0000-4000-8000-000000000525',repeat('a',64),25,repeat('5',64),25);
+select pg_temp.expect_actual_evidence_rejection(
+  'ACTUAL_REQUIRED_ROUNDING_EVIDENCE_MISSING','15000000-0000-4000-8000-000000000526',repeat('c',64),26,repeat('6',64),26);
+select pg_temp.expect_actual_evidence_rejection(
+  'ACTUAL_TAX_CATEGORY_UNKNOWN','15000000-0000-4000-8000-000000000527',repeat('e',64),27,repeat('7',64),27);
+select pg_temp.expect_actual_evidence_rejection(
+  'ACTUAL_TAX_RATE_VERSION_UNKNOWN','15000000-0000-4000-8000-000000000528',repeat('0',64),28,repeat('8',64),28);
+select pg_temp.expect_actual_evidence_rejection(
+  'ACTUAL_NORMALIZED_OK_SOURCE_INCOMPLETE','15000000-0000-4000-8000-000000000525',repeat('a',64),25,repeat('9',64),29);
+select pg_temp.expect_actual_evidence_rejection(
+  'ACTUAL_TAX_BASIS_NORMALIZATION_STATUS_MISMATCH','15000000-0000-4000-8000-000000000503',repeat('e',64),2,repeat('a',64),30);
 
 insert into accounting.journal_lines(
   journal_line_id,journal_entry_id,accounting_version_id,source_system,source_batch_id,source_file_id,
@@ -613,6 +754,34 @@ insert into accounting.accounting_facts(
   '15000000-0000-4000-8000-000000000400','period_flow',100,'JPY','exclusive','observed',
   'unallocated','source_normalized',repeat('c',64),'audit:m015'
 );
+do $actual_evidence_pass$
+begin
+  if not exists (
+    select 1
+    from accounting.accounting_facts f
+    join accounting.journal_lines l on l.journal_line_id = f.journal_line_id
+    join accounting.import_staging_lines s on s.staging_line_id = l.staging_line_id
+    where f.accounting_fact_id = '15000000-0000-4000-8000-000000000900'
+      and s.source_amount = 110
+      and s.source_tax_basis = 'inclusive'
+      and s.source_tax_category = 'standard'
+      and s.source_tax_rate = 0.1
+      and s.tax_rate_source_version = 'tax-v1'
+      and s.rounding_mode = 'half_up'
+      and s.rounding_scope = 'line'
+      and s.rounding_unit = 1
+      and s.rounding_difference_amount = 0
+      and s.normalized_amount = 100
+      and s.tax_basis = 'exclusive'
+      and s.normalization_status = 'passed'
+      and s.mapping_status = 'passed'
+      and s.validation_status = 'valid'
+  ) then
+    raise exception 'M015_ACTUAL_TAX_ROUNDING_COMPLETE_PATH_MISSING';
+  end if;
+  raise notice 'M015_EXPECTED ACTUAL_TAX_ROUNDING_COMPLETE_PASS';
+end
+$actual_evidence_pass$;
 insert into accounting.accounting_facts(
   accounting_fact_id,journal_line_id,journal_entry_id,accounting_version_id,corporation_id,
   organization_scope_type,accounting_period,account_id,measure_type,amount,currency_code,tax_basis,

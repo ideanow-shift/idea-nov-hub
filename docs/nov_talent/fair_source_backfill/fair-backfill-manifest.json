@@ -1,0 +1,52 @@
+{
+  "manifest_id": "NOV_TALENT_FAIR_BACKFILL_20260805_37_LIMITED_V1",
+  "snapshot_id": "nov-talent-fair-source-20260805-readonly-03",
+  "source": {
+    "spreadsheet_id": "1nwlOIdQMmPq4ogXOTf-oinAQKnwSTlb3X7Dw8kWowCM",
+    "sheet_id": 938747439,
+    "sheet_name": "ガイダンス/フェア結果",
+    "range": "A2:R50",
+    "access_mode": "read_only",
+    "hash_algorithm": "SHA-256",
+    "source_hash": "045991d466c3f8f6c9e27a34526f7f697bca60bc8e259d72e097bb0c297975c0"
+  },
+  "schema": {
+    "environment": "idea-nov-staging",
+    "migration_version": "20260805021433",
+    "contract_version": "NOV_TALENT_FAIR_SOURCE_BACKFILL_V1/1.1.0"
+  },
+  "approval": {
+    "requested_write_count": 37,
+    "exclude_unused_templates": 5,
+    "exclude_human_review_rows": 3,
+    "human_review_breakdown": {
+      "identity_missing": 2,
+      "numeric_format": 1
+    }
+  },
+  "preflight": {
+    "identity_ready_count": 37,
+    "identity_ready_review_count": 1,
+    "write_ready_count": 36,
+    "count_match": false,
+    "status": "BLOCKED_BEFORE_WRITE",
+    "reason_code": "APPROVED_COUNT_CONTRADICTS_REVIEW_EXCLUSION"
+  },
+  "transaction": {
+    "single_connection": true,
+    "single_transaction": true,
+    "retry": 0,
+    "rollback_on_count_mismatch": true,
+    "executed": false
+  },
+  "safety": {
+    "existing_fair_expected_before": 46,
+    "existing_values_overwritten": false,
+    "automatic_merge": false,
+    "automatic_delete": false,
+    "spreadsheet_write_count": 0,
+    "staging_write_count": 0,
+    "production_write_count": 0,
+    "personal_values_in_manifest": false
+  }
+}

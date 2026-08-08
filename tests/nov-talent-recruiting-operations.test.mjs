@@ -55,7 +55,8 @@ test("Candidate detail supports Event, Selection, Next Action, and manual interv
   ]);
   for (const id of ["candidate-contact-add", "candidate-selection-add", "candidate-action-add", "candidate-activity-dialog", "unlinked-interview-list"])
     assert.match(html, new RegExp(`id="${id}"`, "u"));
-  assert.match(app, /mutateActivity\(payload\)/u);
+  assert.match(app, /activityConfirmationController\?\.open/u);
+  assert.match(app, /mutateActivity\(command\)/u);
   assert.match(app, /completeCandidateNextAction/u);
   assert.match(app, /operation: restoring \? "RESTORE" : "DEACTIVATE"/u);
   assert.match(app, /linkUnlinkedSelection/u);

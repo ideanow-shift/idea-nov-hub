@@ -2,10 +2,10 @@ import { NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
 import {
   validateWorkspaceResponse,
   WORKSPACE_CONTRACT_VERSION
-} from "./generated/workspace-contract-v1.mjs?v=20260808-fair-preparation-ui-1";
+} from "./generated/workspace-contract-v1.mjs?v=20260809-selection-confirm-dialog-1";
 import {
   validateSelectionCoverageResponse
-} from "./generated/selection-coverage-contract-v1.mjs?v=20260808-fair-preparation-ui-1";
+} from "./generated/selection-coverage-contract-v1.mjs?v=20260809-selection-confirm-dialog-1";
 
 const REQUIRED_AUDIENCE = "nov_hub";
 const SUMMARY_FIELDS = Object.freeze([

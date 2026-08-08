@@ -6,9 +6,9 @@
   <meta name="nov-talent-workspace-contract-version" content="1.0.0">
   <title>求人管理システム | IDEA NOV</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=20260808-selection-coverage-hotfix-1">
-  <script src="./runtime-config.candidate.js?v=20260808-selection-coverage-hotfix-1"></script>
-  <script type="module" src="./app.mjs?v=20260808-selection-coverage-hotfix-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260808-fair-preparation-ui-1">
+  <script src="./runtime-config.candidate.js?v=20260808-fair-preparation-ui-1"></script>
+  <script type="module" src="./app.mjs?v=20260808-fair-preparation-ui-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -716,6 +716,10 @@
             <section id="fair-origin-review-panel" class="analysis-panel" data-management-section="fair-origin-review" data-management-tier="maintenance" aria-labelledby="fair-origin-review-title">
               <div class="section-heading"><div><p class="section-kicker">人間確認</p><h2 id="fair-origin-review-title">フェアきっかけ確認</h2></div><p id="fair-origin-review-status" class="status">未読込</p></div>
               <p>「この学生はこのフェアがきっかけで合っていますか？」を、正本の根拠を見て1件ずつ確認します。自動確定・自動統合は行いません。</p>
+              <section id="fair-origin-preparation-panel" class="fair-origin-preparation" hidden aria-labelledby="fair-origin-preparation-title">
+                <div><strong id="fair-origin-preparation-title">フェア確認データを準備する</strong><p id="fair-origin-preparation-status">実行前の確認が完了しました。</p></div>
+                <button id="fair-origin-preparation-open" type="button">準備内容を確認</button>
+              </section>
               <div class="fair-origin-review-toolbar">
                 <label><span>候補数</span><select id="fair-origin-review-candidate-filter"><option value="ALL">すべて</option><option value="UNIQUE">1候補</option><option value="MULTIPLE">複数候補</option></select></label>
                 <label><span>状態</span><select id="fair-origin-review-filter"><option value="ALL">すべて</option><option value="PENDING">確認待ち</option><option value="CONFIRMED">確認済み</option><option value="HOLD">保留</option><option value="REJECTED">否認済み</option></select></label>
@@ -723,6 +727,23 @@
               </div>
               <div id="fair-origin-review-list" class="fair-origin-review-list"></div>
             </section>
+            <dialog id="fair-origin-preparation-dialog" class="fair-origin-preparation-dialog" aria-labelledby="fair-origin-preparation-dialog-title">
+              <form method="dialog">
+                <h2 id="fair-origin-preparation-dialog-title">フェア確認データを準備します</h2>
+                <dl>
+                  <div><dt>対象学生</dt><dd id="fair-origin-preparation-logical">161名</dd></div>
+                  <div><dt>1候補</dt><dd id="fair-origin-preparation-single">121名</dd></div>
+                  <div><dt>複数候補</dt><dd id="fair-origin-preparation-multiple">40名</dd></div>
+                  <div><dt>登録される確認候補</dt><dd id="fair-origin-preparation-physical">201件</dd></div>
+                </dl>
+                <p>この操作では学生情報・フェア情報・選考情報は変更しません。</p>
+                <p id="fair-origin-preparation-result" class="status" role="status" aria-live="polite"></p>
+                <div class="fair-origin-preparation-actions">
+                  <button id="fair-origin-preparation-cancel" class="secondary-command" type="button">キャンセル</button>
+                  <button id="fair-origin-preparation-execute" type="button">準備を実行</button>
+                </div>
+              </form>
+            </dialog>
           </div>
         </section>
 

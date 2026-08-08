@@ -47,6 +47,8 @@ export function createStagingCandidateClient({
     linkMasters: (candidateId, payload) => UUID.test(candidateId) ? request(`/api/talent/v1/candidates/${candidateId}/master-links`, { method: "POST", body: payload }) : Promise.resolve({ ok: false, category: "invalid_request" }),
     linkUnlinkedSelection: (payload) => request("/api/talent/v1/unlinked-selection/link", { method: "POST", body: payload }),
     fairOriginReviewQueue: () => request("/api/talent/v1/fair-origin-review"),
+    fairOriginPreparationReadiness: () => request("/api/talent/v1/fair-origin-review/preparation"),
+    prepareFairOriginReview: () => request("/api/talent/v1/fair-origin-review/preparation", { method: "POST", body: {} }),
     fairOriginReviewHistory: (attributionId) => UUID.test(attributionId) ? request(`/api/talent/v1/fair-origin-review/${attributionId}/history`) : Promise.resolve({ ok: false, category: "invalid_request" }),
     decideFairOrigin: (attributionId, payload) => UUID.test(attributionId) ? request(`/api/talent/v1/fair-origin-review/${attributionId}/decision`, { method: "POST", body: payload }) : Promise.resolve({ ok: false, category: "invalid_request" }),
     audit: (candidateId) => UUID.test(candidateId) ? request(`/api/talent/v1/candidates/${candidateId}/audit`) : Promise.resolve({ ok: false, category: "invalid_request" })

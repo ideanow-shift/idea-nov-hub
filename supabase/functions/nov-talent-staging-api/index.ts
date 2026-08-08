@@ -21,6 +21,10 @@ type Runtime = {
   populationV2Enabled?: boolean;
   populationV2ApprovalTokenSha256?: string;
   populationV2Validator?: typeof validatePopulationRequest;
+  populationV2BrowserApproved?: boolean;
+  populationV2BrowserPayloadGzipBase64?: string;
+  populationV2BrowserPayloadProvider?: () => Promise<unknown>;
+  populationV2BrowserPreflight?: typeof browserPopulationPreflight;
 };
 type ViewResult = { rows: any[]; available: boolean; retryCount: number };
 
@@ -91,6 +95,99 @@ async function rpc(runtime: Runtime, name: string, body: unknown) {
   }
   const rows = await result.json();
   return { ok: true, data: Array.isArray(rows) ? rows[0] : rows };
+}
+
+async function browserPopulationRequest(runtime: Runtime) {
+  const supplied = runtime.populationV2BrowserPayloadProvider
+    ? await runtime.populationV2BrowserPayloadProvider()
+    : await (async () => {
+      const encoded = String(runtime.populationV2BrowserPayloadGzipBase64 || "");
+      if (!encoded || encoded.length > 1_500_000 || !/^[A-Za-z0-9+/=]+$/u.test(encoded)) return null;
+      try {
+        const bytes = Uint8Array.from(atob(encoded), (value) => value.charCodeAt(0));
+        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+        const text = await new Response(stream).text();
+        if (new TextEncoder().encode(text).byteLength > 1_500_000) return null;
+        return JSON.parse(text);
+      } catch { return null; }
+    })();
+  const execution = cleanPopulationRequest(supplied);
+  if (!execution) throw new Error("BROWSER_PAYLOAD_INVALID");
+  await (runtime.populationV2Validator || validatePopulationRequest)(execution);
+  return execution;
+}
+
+async function exactRows(runtime: Runtime, path: string) {
+  const response = await db(runtime, path);
+  if (!response.ok) throw new Error("PREFLIGHT_READ_UNAVAILABLE");
+  const rows = await response.json().catch(() => null);
+  if (!Array.isArray(rows)) throw new Error("PREFLIGHT_READ_INVALID");
+  return rows;
+}
+
+async function browserPopulationPreflight(runtime: Runtime, execution: { manifest: Record<string, unknown> }) {
+  const pgConcatWs = (...values: unknown[]) => values.filter((value) => value !== null && value !== undefined).join("|");
+  const [attributions, audits, candidates, datasets, records, fairs] = await Promise.all([
+    exactRows(runtime, "/rest/v1/nov_talent_candidate_fair_attributions_v1?select=attribution_id,attribution_status,attribution_type&limit=1"),
+    exactRows(runtime, "/rest/v1/nov_talent_candidate_fair_attribution_audit_v1?select=audit_id&limit=1"),
+    exactRows(runtime, "/rest/v1/nov_talent_candidates_v1?select=candidate_id,graduation_year,version,is_active&is_active=eq.true&limit=1000"),
+    exactRows(runtime, "/rest/v1/nov_talent_candidate_datasets_v1?select=dataset_id,state&state=eq.ACTIVE&limit=1000"),
+    exactRows(runtime, "/rest/v1/nov_talent_candidate_dataset_records_v1?select=dataset_id,candidate_id,graduation_year,source_row_no,source_reference_hash,source_type&limit=1000"),
+    exactRows(runtime, "/rest/v1/nov_talent_fair_masters_v1?select=fair_id,event_date,is_active,version&limit=1000"),
+  ]);
+  if (attributions.length || audits.length) throw new Error("EXISTING_STATE_NOT_EMPTY");
+  const activeDatasetIds = new Set(datasets.map((row: any) => String(row.dataset_id || "")));
+  const candidateById = new Map(candidates.map((row: any) => [String(row.candidate_id || ""), row]));
+  const candidateLines = records
+    .filter((row: any) => activeDatasetIds.has(String(row.dataset_id || "")) && candidateById.has(String(row.candidate_id || "")))
+    .map((row: any) => {
+      const candidate: any = candidateById.get(String(row.candidate_id || ""));
+      return pgConcatWs(row.candidate_id, row.graduation_year, row.source_row_no, row.source_reference_hash, row.source_type, candidate.version);
+    }).sort();
+  if (candidates.length !== FAIR_ATTRIBUTION_POPULATION_V2.candidateTotal
+    || await sha256Utf8(candidateLines.join("\n")) !== FAIR_ATTRIBUTION_POPULATION_V2.candidateSnapshotSha256) {
+    throw new Error("LIVE_CANDIDATE_SNAPSHOT_MISMATCH");
+  }
+  const fairLines = fairs.map((row: any) => pgConcatWs(row.fair_id, row.event_date, row.is_active ? "t" : "f", row.version)).sort();
+  if (fairs.length !== FAIR_ATTRIBUTION_POPULATION_V2.fairTotal
+    || fairs.filter((row: any) => row.is_active === true).length !== FAIR_ATTRIBUTION_POPULATION_V2.fairActive
+    || await sha256Utf8(fairLines.join("\n")) !== FAIR_ATTRIBUTION_POPULATION_V2.fairSnapshotSha256) {
+    throw new Error("LIVE_FAIR_SNAPSHOT_MISMATCH");
+  }
+  const activeFairIds = new Set(fairs.filter((row: any) => row.is_active === true).map((row: any) => String(row.fair_id || "")));
+  const cases = Array.isArray(execution.manifest.cases) ? execution.manifest.cases : [];
+  for (const item of cases as any[]) {
+    if (!candidateById.has(String(item.candidate_id || ""))) throw new Error("LIVE_CANDIDATE_ORPHAN");
+    for (const fairId of item.fair_candidate_ids || []) if (!activeFairIds.has(String(fairId || ""))) throw new Error("LIVE_FAIR_ORPHAN_OR_INACTIVE");
+  }
+  return execution;
+}
+
+async function executePopulationV2(runtime: Runtime, actor: { actor: string; role: string }, execution: { manifest: Record<string, unknown> }) {
+  const population = FAIR_ATTRIBUTION_POPULATION_V2;
+  const result = await db(runtime, "/rest/v1/rpc/nov_talent_population_fair_attribution_queue_v2", {
+    method: "POST",
+    body: JSON.stringify({
+      p_actor_employee_id: actor.actor,
+      p_actor_role: actor.role,
+      p_environment: population.environment,
+      p_manifest_file_sha256: population.manifestFileSha256,
+      p_manifest: execution.manifest,
+    }),
+  });
+  if (!result.ok) {
+    const error = await result.json().catch(() => null);
+    const conflict = result.status === 409 || ["23505", "40001", "55000"].includes(String(error?.code || ""));
+    return { ok: false as const, status: conflict ? 409 : 503, safeCode: conflict ? "POPULATION_V2_CONFLICT" : "POPULATION_V2_EXECUTION_FAILED" };
+  }
+  const rows = await result.json().catch(() => null);
+  const data = Array.isArray(rows) ? rows[0] : null;
+  if (Number(data?.attribution_count) !== population.physicalPendingRowCount
+    || Number(data?.audit_count) !== population.physicalPendingRowCount
+    || data?.manifest_canonical_payload_sha256 !== population.manifestCanonicalPayloadSha256) {
+    return { ok: false as const, status: 503, safeCode: "POPULATION_V2_RESULT_CONTRACT_INVALID" };
+  }
+  return { ok: true as const, data };
 }
 
 function safeLogDownstreamFailure(runtime: Runtime, fields: {
@@ -461,6 +558,41 @@ export function createHandler(runtime: Runtime) {
     const requestId = crypto.randomUUID();
     const fairReviewHistoryMatch = /^\/api\/talent\/v1\/fair-origin-review\/([0-9a-f-]+)\/history$/iu.exec(path);
     const fairReviewDecisionMatch = /^\/api\/talent\/v1\/fair-origin-review\/([0-9a-f-]+)\/decision$/iu.exec(path);
+    if (["GET", "POST"].includes(request.method) && path === "/api/talent/v1/fair-origin-review/preparation") {
+      const population = FAIR_ATTRIBUTION_POPULATION_V2;
+      const runtimeHost = (() => { try { return new URL(runtime.supabaseUrl).hostname.toLowerCase(); } catch { return ""; } })();
+      if (runtimeHost !== `${population.projectRef}.supabase.co`) return fail(404, "NOT_FOUND", origin);
+      if (!["super_admin", "backoffice", "hr.admin"].includes(actor.role)) return fail(403, "PREPARATION_FORBIDDEN", origin);
+      const safeCounts = {
+        logicalCandidateCount: population.logicalCandidateCount,
+        singleCandidateCount: population.singleCandidateCount,
+        multipleCandidateCount: population.multipleCandidateCount,
+        physicalPendingRowCount: population.physicalPendingRowCount,
+      };
+      const locked = runtime.populationV2Enabled !== true || runtime.populationV2BrowserApproved !== true
+        || !/^[0-9a-f]{64}$/u.test(runtime.populationV2ApprovalTokenSha256 || "")
+        || (!runtime.populationV2BrowserPayloadProvider && !runtime.populationV2BrowserPayloadGzipBase64);
+      if (locked && request.method === "GET") return out(200, { ok: true, data: { ready: false, ...safeCounts } }, origin);
+      if (locked) return fail(503, "PREPARATION_LOCKED", origin);
+      if (request.method === "POST" && await request.text().catch(() => "") !== "{}") return fail(400, "INVALID_REQUEST", origin);
+      let execution;
+      try {
+        execution = await browserPopulationRequest(runtime);
+        await (runtime.populationV2BrowserPreflight || browserPopulationPreflight)(runtime, execution);
+      } catch (error) {
+        (runtime.logger || console).error(JSON.stringify({
+          event: "NOV_TALENT_FAIR_REVIEW_PREPARATION_REJECTED",
+          request_id: requestId,
+          error_class: error instanceof Error ? error.message : "PREPARATION_PRECONDITION_FAILED",
+          timestamp: new Date().toISOString(),
+        }));
+        return fail(409, "PREPARATION_PRECONDITION_FAILED", origin);
+      }
+      if (request.method === "GET") return out(200, { ok: true, data: { ready: true, ...safeCounts } }, origin);
+      const result = await executePopulationV2(runtime, actor, execution);
+      if (!result.ok) return fail(result.status, result.safeCode, origin);
+      return out(201, { ok: true, data: { completed: true, ...safeCounts } }, origin);
+    }
     if (request.method === "POST" && path === "/api/talent/v1/fair-origin-review/population-v2/execute") {
       const population = FAIR_ATTRIBUTION_POPULATION_V2;
       const runtimeHost = (() => { try { return new URL(runtime.supabaseUrl).hostname.toLowerCase(); } catch { return ""; } })();
@@ -490,28 +622,9 @@ export function createHandler(runtime: Runtime) {
         }));
         return fail(409, "POPULATION_V2_PRECONDITION_FAILED", origin);
       }
-      const result = await db(runtime, "/rest/v1/rpc/nov_talent_population_fair_attribution_queue_v2", {
-        method: "POST",
-        body: JSON.stringify({
-          p_actor_employee_id: actor.actor,
-          p_actor_role: actor.role,
-          p_environment: population.environment,
-          p_manifest_file_sha256: population.manifestFileSha256,
-          p_manifest: execution.manifest,
-        }),
-      });
-      if (!result.ok) {
-        const error = await result.json().catch(() => null);
-        const conflict = result.status === 409 || ["23505", "40001", "55000"].includes(String(error?.code || ""));
-        return fail(conflict ? 409 : 503, conflict ? "POPULATION_V2_CONFLICT" : "POPULATION_V2_EXECUTION_FAILED", origin);
-      }
-      const rows = await result.json().catch(() => null);
-      const data = Array.isArray(rows) ? rows[0] : null;
-      if (Number(data?.attribution_count) !== population.physicalPendingRowCount
-        || Number(data?.audit_count) !== population.physicalPendingRowCount
-        || data?.manifest_canonical_payload_sha256 !== population.manifestCanonicalPayloadSha256) {
-        return fail(503, "POPULATION_V2_RESULT_CONTRACT_INVALID", origin);
-      }
+      const result = await executePopulationV2(runtime, actor, execution);
+      if (!result.ok) return fail(result.status, result.safeCode, origin);
+      const data = result.data;
       return out(201, { ok: true, data: {
         attributionCount: data.attribution_count,
         auditCount: data.audit_count,
@@ -718,4 +831,6 @@ if (typeof Deno !== "undefined" && import.meta.main) Deno.serve(createHandler({
   logger: console,
   populationV2Enabled: Deno.env.get("NOV_TALENT_FAIR_ATTRIBUTION_POPULATION_V2_ENABLED") === "true",
   populationV2ApprovalTokenSha256: Deno.env.get("NOV_TALENT_FAIR_ATTRIBUTION_POPULATION_V2_APPROVAL_SHA256") || "",
+  populationV2BrowserApproved: Deno.env.get("NOV_TALENT_FAIR_ATTRIBUTION_POPULATION_V2_BROWSER_APPROVED") === "true",
+  populationV2BrowserPayloadGzipBase64: Deno.env.get("NOV_TALENT_FAIR_ATTRIBUTION_POPULATION_V2_PAYLOAD_GZIP_BASE64") || "",
 }));

@@ -1,6 +1,6 @@
 {
   "dictionaryId": "NOV_TALENT_DATA_DICTIONARY",
-  "dictionaryVersion": "1.5.0",
+  "dictionaryVersion": "1.6.0",
   "status": "CANONICAL",
   "effectiveDate": "2026-08-08",
   "language": "ja-JP",
@@ -117,7 +117,8 @@
       "CONTACT_RECORDED",
       "LINE_REGISTERED",
       "SALON_TOUR_PLANNED",
-      "SALON_TOUR_COMPLETED"
+      "SALON_TOUR_COMPLETED",
+      "COMMUNICATION_RECORDED"
     ],
     "selectionHistoryOfficialCodes": [
       "APPLICATION_RECEIVED",
@@ -125,7 +126,6 @@
       "INTERVIEW_COMPLETED",
       "OFFERED",
       "OFFER_ACCEPTED",
-      "OFFERED_ELSEWHERE",
       "WITHDRAWN",
       "REJECTED"
     ],
@@ -183,6 +183,13 @@
       "code": "SALON_TOUR_COMPLETED",
       "name": "見学完了",
       "definition": "見学完了を1件記録する。",
+      "officialKpiSource": true
+    },
+    {
+      "metricKey": "communications",
+      "code": "COMMUNICATION_RECORDED",
+      "name": "連絡記録",
+      "definition": "候補者との連絡履歴を1件記録する。Selection成果KPIには加算しない。",
       "officialKpiSource": true
     },
     {
@@ -437,7 +444,7 @@
     }
   },
   "versions": {
-    "dictionary": "1.5.0",
+    "dictionary": "1.6.0",
     "dataIntegrityReportSchema": "1.2",
     "workQueueSeedSchema": "2.0",
     "sourceLineageSchema": "1.0",

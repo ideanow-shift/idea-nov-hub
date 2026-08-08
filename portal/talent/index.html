@@ -6,9 +6,9 @@
   <meta name="nov-talent-workspace-contract-version" content="1.0.0">
   <title>求人管理システム | IDEA NOV</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=20260808-v1-accuracy-1">
-  <script src="./runtime-config.candidate.js?v=20260808-v1-accuracy-1"></script>
-  <script type="module" src="./app.mjs?v=20260808-v1-accuracy-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260808-outcome1-official-facts-1">
+  <script src="./runtime-config.candidate.js?v=20260808-outcome1-official-facts-1"></script>
+  <script type="module" src="./app.mjs?v=20260808-outcome1-official-facts-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -98,6 +98,14 @@
           <article class="metric"><p class="metric-name">辞退</p><p class="metric-value">-</p></article>
           <article class="metric"><p class="metric-name">学校</p><p class="metric-value">-</p></article>
           <article class="metric"><p class="metric-name">フェア</p><p class="metric-value">-</p></article>
+        </section>
+        <section id="selection-coverage-panel" class="selection-coverage-panel" aria-labelledby="selection-coverage-title">
+          <div class="selection-coverage-heading">
+            <div><p class="section-kicker">正式履歴の登録状況</p><h3 id="selection-coverage-title">選考実績 Coverage</h3></div>
+            <p id="selection-coverage-status" class="status">確認しています</p>
+          </div>
+          <p>正式KPIは選考履歴だけを使用します。正本の未連結根拠は件数に加えず、登録状況として分けて表示します。</p>
+          <div id="selection-coverage-grid" class="selection-coverage-grid"></div>
         </section>
         <section class="today-task-panel" aria-labelledby="today-task-title">
           <div><p class="section-kicker">今日やること</p><h3 id="today-task-title">優先タスク（最大5件）</h3></div>
@@ -532,8 +540,9 @@
             <label><span>LINE表示名・識別情報</span><input id="profile-line" name="lineIdentifier" maxlength="160"></label>
             <label><span>きっかけ</span><input id="profile-source" name="acquisitionSource" maxlength="180"></label>
             <label><span>担当者</span><input id="profile-assignee" name="assignedTo" maxlength="120"></label>
-            <label><span>現在の状態 *</span>
-              <select id="profile-status" name="currentStatus" required>
+            <label><span>現在の状態（参照用）</span>
+              <select id="profile-status" name="currentStatus">
+                <option value="">未登録（選考履歴から自動反映）</option>
                 <option value="LINE_REGISTERED">LINE登録</option>
                 <option value="SALON_TOUR_PLANNED">サロン見学［予定］</option>
                 <option value="SALON_TOUR_COMPLETED">サロン見学［済］</option>
@@ -548,6 +557,7 @@
                 <option value="UNDER_REVIEW">合否検討中</option>
                 <option value="REJECTED">不採用</option>
               </select>
+              <small>現在の状態は参照用です。選考の更新は「選考履歴を追加」から記録します。</small>
             </label>
             <label class="profile-wide"><span>備考</span><textarea id="profile-notes" name="notes" maxlength="4000" rows="3"></textarea></label>
             <label class="profile-wide"><span>更新理由 *</span><input id="profile-change-reason" name="changeReason" maxlength="500" required></label>
@@ -692,15 +702,15 @@
             <p>未紐付け・重複・補正・保留・隔離の確認が必要なときだけ使用します。</p>
           </header>
           <nav class="management-tool-index" aria-label="データメンテナンス一覧">
-            <a href="#unlinked-interview-title">未紐付け履歴</a>
+            <a href="#unlinked-interview-title">未紐付けの選考根拠</a>
             <a href="#fair-origin-review-title">フェアきっかけ確認</a>
             <a href="#review-command-title">重複確認・データ補正</a>
             <a href="#review-command-title">保留・隔離管理</a>
           </nav>
           <div class="talent-management-content" data-management-tier-content="maintenance">
             <section id="unlinked-interview-panel" class="analysis-panel" data-management-section="audit" data-management-tier="maintenance" aria-labelledby="unlinked-interview-title">
-              <div class="section-heading"><div><p class="section-kicker">人間確認</p><h2 id="unlinked-interview-title">未紐付けの面接履歴</h2></div><p id="unlinked-interview-status" class="status">読み込み中</p></div>
-              <p>強い識別キーがない過去履歴です。学生を選択し、内容を確認できた場合のみ紐付けてください。</p>
+              <div class="section-heading"><div><p class="section-kicker">人間確認</p><h2 id="unlinked-interview-title">未紐付けの選考根拠</h2></div><p id="unlinked-interview-status" class="status">読み込み中</p></div>
+              <p>正本に存在する未連結の根拠です。学生を選択し、内容を人間が確認できた場合のみ紐付けてください。紐付けだけでは正式KPIへ計上しません。</p>
               <div id="unlinked-interview-list" class="unlinked-interview-list"></div>
             </section>
             <section id="fair-origin-review-panel" class="analysis-panel" data-management-section="fair-origin-review" data-management-tier="maintenance" aria-labelledby="fair-origin-review-title">

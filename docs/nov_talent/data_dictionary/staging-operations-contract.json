@@ -4,7 +4,7 @@
   "status": "STAGING_OPERATION_ACTIVE",
   "effectiveDate": "2026-08-08",
   "versionCompatibility": {
-    "operationsDictionaryVersion": "1.5.0",
+    "operationsDictionaryVersion": "1.6.0",
     "sealedDryRunDataContractVersion": "1.2.0",
     "candidateMappingSemanticsChanged": false,
     "freshSnapshotRequiredBeforeImport": true
@@ -78,7 +78,8 @@
     "eventContact": [
       "CONTACT",
       "LINE_REGISTRATION",
-      "SALON_TOUR"
+      "SALON_TOUR",
+      "COMMUNICATION"
     ],
     "selectionHistory": [
       "APPLICATION",

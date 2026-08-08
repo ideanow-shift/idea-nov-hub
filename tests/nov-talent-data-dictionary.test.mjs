@@ -45,7 +45,7 @@ const uniqueCodes = (values) => new Set(values.map((value) => value.code)).size 
 
 test("NOV Talent Data Dictionary is the canonical versioned specification", () => {
   assert.equal(dictionary.dictionaryId, "NOV_TALENT_DATA_DICTIONARY");
-  assert.equal(dictionary.dictionaryVersion, "1.5.0");
+  assert.equal(dictionary.dictionaryVersion, "1.6.0");
   assert.equal(dictionary.status, "CANONICAL");
   assert.equal(dictionary.governance.unknownCodePolicy, "REJECT");
   assert.equal(dictionary.governance.undefinedDefinitionPolicy, "FAIL_CLOSED");
@@ -61,17 +61,20 @@ test("candidate statuses and event codes are unique and preserve current contrac
   ]);
   assert.equal(uniqueCodes(dictionary.events), true);
   assert.deepEqual(dictionary.events.map(({ code }) => code), [
-    "CONTACT_RECORDED", "LINE_REGISTERED", "SALON_TOUR_PLANNED", "SALON_TOUR_COMPLETED",
+    "CONTACT_RECORDED", "LINE_REGISTERED", "SALON_TOUR_PLANNED", "SALON_TOUR_COMPLETED", "COMMUNICATION_RECORDED",
     "INTERVIEW_PLANNED", "INTERVIEW_COMPLETED", "SELECTION_PASSED", "OFFER_ISSUED",
     "EXPECTED_JOIN_CONFIRMED"
   ]);
   assert.deepEqual(dictionary.events.filter(({ officialKpiSource }) => officialKpiSource).map(({ code }) => code), [
-    "CONTACT_RECORDED", "LINE_REGISTERED", "SALON_TOUR_PLANNED", "SALON_TOUR_COMPLETED"
+    "CONTACT_RECORDED", "LINE_REGISTERED", "SALON_TOUR_PLANNED", "SALON_TOUR_COMPLETED", "COMMUNICATION_RECORDED"
   ]);
-  assert.equal(dictionary.events.slice(4).every(({ officialKpiSource }) => officialKpiSource === false), true);
+  assert.equal(dictionary.events.slice(5).every(({ officialKpiSource }) => officialKpiSource === false), true);
+  assert.deepEqual(dictionary.sourceResponsibilities.eventContactOfficialCodes, [
+    "CONTACT_RECORDED", "LINE_REGISTERED", "SALON_TOUR_PLANNED", "SALON_TOUR_COMPLETED", "COMMUNICATION_RECORDED"
+  ]);
   assert.deepEqual(dictionary.sourceResponsibilities.selectionHistoryOfficialCodes, [
     "APPLICATION_RECEIVED", "INTERVIEW_PLANNED", "INTERVIEW_COMPLETED", "OFFERED",
-    "OFFER_ACCEPTED", "OFFERED_ELSEWHERE", "WITHDRAWN", "REJECTED"
+    "OFFER_ACCEPTED", "WITHDRAWN", "REJECTED"
   ]);
   assert.equal(dictionary.sourceResponsibilities.legacyEventCodesAreOfficialKpiSource, false);
   assert.equal(dictionary.sourceResponsibilities.legacyCrossDomainActivityMutationAllowed, false);
@@ -166,7 +169,7 @@ test("staging operations contract fixes 636 candidates and keeps production proh
   assert.equal(stagingOperationsContract.environmentPolicy.staging, "OPERATION_VALIDATION_ENVIRONMENT");
   assert.equal(stagingOperationsContract.environmentPolicy.production, "PROHIBITED_UNTIL_SEPARATE_PROMOTION_APPROVAL");
   assert.equal(stagingOperationsContract.initialScope.candidateCount, 636);
-  assert.equal(stagingOperationsContract.versionCompatibility.operationsDictionaryVersion, "1.5.0");
+  assert.equal(stagingOperationsContract.versionCompatibility.operationsDictionaryVersion, "1.6.0");
   assert.equal(stagingOperationsContract.versionCompatibility.sealedDryRunDataContractVersion, "1.2.0");
   assert.equal(stagingOperationsContract.versionCompatibility.candidateMappingSemanticsChanged, false);
   assert.equal(stagingOperationsContract.versionCompatibility.freshSnapshotRequiredBeforeImport, true);

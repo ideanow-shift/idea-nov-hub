@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { validateDashboardSummaryContract } from "../portal/talent/exact1.mjs";
+import { WORKSPACE_CONTRACT_VERSION } from "../portal/talent/generated/workspace-contract-v1.mjs";
 
 const validSummary = Object.freeze({
   contacts: 636,
@@ -41,13 +42,18 @@ test("workspace.summary does not convert null to zero", () => {
 });
 
 test("the public module chain uses the workspace summary contract cache identity", async () => {
-  const [html, app, runtime] = await Promise.all([
+  const [html, app, runtime, exact1] = await Promise.all([
     readFile(new URL("../portal/talent/index.html", import.meta.url), "utf8"),
     readFile(new URL("../portal/talent/app.mjs", import.meta.url), "utf8"),
-    readFile(new URL("../portal/talent/runtime.mjs", import.meta.url), "utf8")
+    readFile(new URL("../portal/talent/runtime.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../portal/talent/exact1.mjs", import.meta.url), "utf8")
   ]);
-  const identity = "20260808-v1-accuracy-1";
+  const identity = "20260808-outcome1-official-facts-1";
+  assert.match(html, new RegExp(`style\\.css\\?v=${identity}`, "u"));
+  assert.match(html, new RegExp(`runtime-config\\.candidate\\.js\\?v=${identity}`, "u"));
   assert.match(html, new RegExp(`app\\.mjs\\?v=${identity}`, "u"));
   assert.match(app, new RegExp(`runtime\\.mjs\\?v=${identity}`, "u"));
   assert.match(runtime, new RegExp(`exact1\\.mjs\\?v=${identity}`, "u"));
+  assert.match(exact1, new RegExp(`workspace-contract-v1\\.mjs\\?v=${identity}`, "u"));
+  assert.equal(WORKSPACE_CONTRACT_VERSION, "1.0.0");
 });

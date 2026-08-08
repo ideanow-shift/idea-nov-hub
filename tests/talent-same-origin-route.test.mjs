@@ -401,7 +401,7 @@ test("talent entry point cache-busts runtime config and app with one release id"
 
   assert.ok(runtimeVersion, "runtime config must have a release id");
   assert.equal(appVersion, runtimeVersion);
-  assert.equal(appVersion, "20260808-v1-accuracy-1");
+  assert.equal(appVersion, "20260808-outcome1-official-facts-1");
 });
 
 test("HUB launcher canonicalizes Talent route even when backend URL is stale", () => {

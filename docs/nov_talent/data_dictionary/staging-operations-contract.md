@@ -23,9 +23,9 @@ Event / Contact候補1,550件とSelection History候補0件は、初回Candidate
 
 総務人事部はNOV Talentで次を行います。
 
-- Candidateの登録、編集、状態変更、無効化、検索
+- Candidateの登録、説明情報の編集、無効化、検索（現在状態はSelection HistoryからのProjection）
 - Event / Contactの登録、編集、無効化
-- Selection Historyの登録、編集、無効化
+- Selection Historyのappend-only登録（過去行の編集・無効化は禁止）
 - Next Actionの登録、編集、完了、無効化
 - Dashboard、Fair、School、監査履歴の確認
 

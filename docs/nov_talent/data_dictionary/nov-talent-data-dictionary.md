@@ -56,6 +56,8 @@
 
 正式なEvent / Contactは接触、LINE登録、サロン見学、連絡履歴を所有する。面接、内定、内定承諾、辞退、不採用はSelection Historyを正本とする。Candidateは人物同一性と現在状態のProjection、Source Factは安全にCandidateへ連結されるまでImport Evidenceとして扱う。`OFFERED_ELSEWHERE`はCandidate表示状態としては維持するが、NOVの正式Selection成果Factではない。
 
+日付不明のSource Factは日付を推測補完しない。Workspace v1.0.0の未連結選考明細には正式日付を持つEvidenceだけを掲載し、日付あり・日付不明を含むSource全体のCoverageは独立したread-only Selection Coverage Contract v1.0.0で管理する。Coverageは正式Selection Factではなく、正式KPIへ加算しない。
+
 Event行数とunique Candidate数は異なる粒度である。同一粒度の正式契約がない全体LINE登録率、School応募率、School内定率は計算せず「集計準備中」とする。
 
 以下の旧Eventコードは既存互換のため辞書に残すが、`officialKpiSource = false` のコードを正式KPIへ加算してはならない。旧Eventの面接コードと旧Selectionの見学コードは既存履歴の表示・理由付き無効化・復元だけを許可し、新規作成・内容更新を禁止する。面接はSelection History、見学はEvent / Contactへ入力する。

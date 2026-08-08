@@ -31,7 +31,11 @@ OFFERED_ELSEWHEREはCandidate表示状態としては互換維持するが、NOV
 
 ## Coverage
 
-Coverageは、正式Selection行数、unique Candidate数、未連結Evidence数を別粒度で表示する。Candidate current statusをSelection KPIの代替Sourceにしない。Workspace v1.0.0のexact shapeは変更しない。v1表示配列が100件で打ち切られた場合は過少集計せず「集計準備中」とする。Selection KPIの公開Gateは引き続き閉じる。
+Coverageは、正式Selection行数、unique Candidate数、未連結Evidence数を別粒度で表示する。Candidate current statusをSelection KPIの代替Sourceにしない。
+
+Workspace Contract v1.0.0のexact shapeは変更しない。`unlinkedSelectionHistory` は正式な `fact_date` を持つEvidenceの詳細表示専用とし、日付不明のEvidenceを混在させない。`created_at`、Import日時、Candidate作成日、当日、sentinel等による日付補完は禁止する。
+
+Source全体の状態は独立したread-only Selection Coverage Contract v1.0.0で返す。最低限、未連結Evidence総数、日付あり、日付不明、正式Selection行数、正式Selectionのunique Candidate数を保持する。Candidateが安全に特定されていない未連結Evidenceのunique Candidate数は `null` とする。Source取得失敗時は全Coverage countを `null`、stateを `PREPARING` とし、WorkspaceとCandidate一覧はHTTP 200を維持する。Selection KPIの公開Gateは引き続き閉じる。
 
 ## Controlled rollout
 

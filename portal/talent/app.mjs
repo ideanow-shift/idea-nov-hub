@@ -1,9 +1,10 @@
 import {
   buildDashboardSummaryViewModel,
   createDashboardSummaryExecutor,
+  createSelectionCoverageExecutor,
   createTalentWorkspaceExecutor
-} from "./runtime.mjs?v=20260808-outcome1-official-facts-1";
-import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260808-outcome1-official-facts-1";
+} from "./runtime.mjs?v=20260808-selection-coverage-hotfix-1";
+import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260808-selection-coverage-hotfix-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
 import { handleNovHubSessionAuthFailure, NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
@@ -15,7 +16,7 @@ import {
   buildRecruitmentDashboardDecision,
   buildRecruitmentTaskBoard,
   japanBusinessDateIso
-} from "./recruitment-ux.mjs?v=20260808-outcome1-official-facts-1";
+} from "./recruitment-ux.mjs?v=20260808-selection-coverage-hotfix-1";
 import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs?v=20260804-recruiting-dashboard-completion-1";
 
 let summaryConsumed = false;
@@ -602,6 +603,8 @@ async function performTalentStudentWorkspaceLoad({
   activeStudentWorkspaceController?.abort?.();
   activeStudentWorkspaceController = controller;
   const executor = createTalentWorkspaceExecutor({ globalObject });
+  const coverageExecutor = createSelectionCoverageExecutor({ globalObject });
+  const coveragePromise = coverageExecutor ? coverageExecutor.run() : Promise.resolve(null);
   const result = executor ? await executor.run() : null;
   if (generation !== studentWorkspaceGeneration || controller.signal.aborted) {
     return Object.freeze({ executed: false, staleCompletionSuppressed: true });
@@ -650,7 +653,7 @@ async function performTalentStudentWorkspaceLoad({
       { name: "renderHistoricalReviewSummary", render: () => renderHistoricalReviewSummary(documentObject, result.data.overview) },
       { name: "renderBulkTriageSummary", render: () => renderBulkTriageSummary(documentObject, result.data.students) },
       { name: "renderTalentTodayDashboard", render: () => renderTalentTodayDashboard(documentObject, graduationYearWorkspace(result.data)) },
-      { name: "renderSelectionFactCoverage", render: () => renderSelectionFactCoverage(documentObject, result.data) },
+      { name: "renderSelectionFactCoverage", render: () => renderSelectionFactCoverage(documentObject, result.data, null) },
       { name: "renderTalentAnalytics", render: () => renderTalentAnalytics(documentObject) },
       { name: "renderRecruitmentMasters", render: () => renderRecruitmentMasters(documentObject) },
       { name: "renderTodayTasks", render: () => renderTodayTasks(documentObject, graduationYearWorkspace(result.data).todayTasks || []) },
@@ -678,6 +681,13 @@ async function performTalentStudentWorkspaceLoad({
       retryCount: result.retryCount
     });
   }
+  void coveragePromise.then((coverageResult) => {
+    if (generation !== studentWorkspaceGeneration || controller.signal.aborted) return;
+    renderSelectionFactCoverage(documentObject, result.data, coverageResult?.okBoolean === true ? coverageResult.data : null);
+  }).catch(() => {
+    if (generation !== studentWorkspaceGeneration || controller.signal.aborted) return;
+    renderSelectionFactCoverage(documentObject, result.data, null);
+  });
   renderMockRuntimeState(documentObject, result.data.students.length ? "ready" : "empty");
   if (runtimeMode(globalObject) === "staging") {
     setStatus(documentObject, "ready", "運用データを表示中");
@@ -3485,70 +3495,60 @@ const SELECTION_COVERAGE_DEFINITIONS = Object.freeze([
   Object.freeze({ key: "rejected", code: "REJECTED", label: "不採用" })
 ]);
 
-export function buildSelectionFactCoverage(workspace) {
-  const unavailable = new Set(workspace?.partialStatus?.unavailableViews || []);
-  const selectionReady = !unavailable.has("selection_history");
-  const sourceFactsReady = !unavailable.has("source_facts");
-  const students = Array.isArray(workspace?.students) ? workspace.students : [];
-  const unlinked = Array.isArray(workspace?.unlinkedSelectionHistory)
-    ? workspace.unlinkedSelectionHistory : [];
-  const unlinkedEvidenceTotal = Number(workspace?.overview?.remainingManual || 0);
-  const evidenceListTruncated = unlinkedEvidenceTotal > unlinked.length;
-  const selectionRows = students.flatMap((student) => (student?.selectionHistory || [])
-    .filter((row) => row?.active !== false)
-    .map((row) => ({ ...row, candidateId: student.recordId })));
-  const officialSelectionTotal = Number(workspace?.dashboard?.selectionHistoryCount || 0);
-  const selectionListTruncated = officialSelectionTotal > selectionRows.length;
-
+export function buildSelectionFactCoverage(workspace, coverageData = null) {
+  const ready = coverageData?.sourceCoverageState === "READY";
+  const metricByCode = new Map((Array.isArray(coverageData?.metrics) ? coverageData.metrics : [])
+    .map((row) => [row.code, row]));
   const metrics = SELECTION_COVERAGE_DEFINITIONS.map((definition) => {
-    const officialRows = selectionRows.filter((row) => row.code === definition.code);
-    const unlinkedRows = unlinked.filter((row) => row.code === definition.code);
-    const candidateCount = new Set(officialRows.map((row) => row.candidateId).filter(Boolean)).size;
-    const state = !selectionReady || !sourceFactsReady || evidenceListTruncated || selectionListTruncated
+    const source = metricByCode.get(definition.code);
+    const officialRows = ready ? source?.officialRows : null;
+    const unlinkedTotal = ready ? source?.unlinkedEvidenceTotal : null;
+    const state = !ready || !Number.isInteger(officialRows) || !Number.isInteger(unlinkedTotal)
       ? "PREPARING"
-      : unlinkedRows.length > 0
-        ? "PARTIAL"
-        : officialRows.length > 0 ? "RECORDED" : "NOT_REGISTERED";
+      : unlinkedTotal > 0 ? "PARTIAL" : officialRows > 0 ? "RECORDED" : "NOT_REGISTERED";
     return Object.freeze({
       ...definition,
       state,
-      candidateCount: state === "RECORDED" ? candidateCount : null,
-      officialRowCount: officialRows.length,
-      unlinkedEvidenceCount: unlinkedRows.length,
+      candidateCount: ready ? source?.officialUniqueCandidates ?? null : null,
+      officialRowCount: ready ? officialRows : null,
+      unlinkedEvidenceCount: ready ? unlinkedTotal : null,
+      datedUnlinkedEvidence: ready ? source?.datedUnlinkedEvidence ?? null : null,
+      undatedUnlinkedEvidence: ready ? source?.undatedUnlinkedEvidence ?? null : null,
       grain: "UNIQUE_CANDIDATE"
     });
   });
   return Object.freeze({
-    state: !selectionReady || !sourceFactsReady || evidenceListTruncated || selectionListTruncated
-      ? "PREPARING"
-      : metrics.some((metric) => metric.state === "PARTIAL") ? "PARTIAL" : "READY",
-    selectionReady,
-    sourceFactsReady,
-    evidenceListTruncated,
-    selectionListTruncated,
-    unlinkedEvidenceShown: unlinked.length,
-    unlinkedEvidenceTotal,
+    state: !ready ? "PREPARING" : Number(coverageData.unlinkedEvidenceTotal) > 0 ? "PARTIAL" : "READY",
+    selectionReady: ready,
+    sourceFactsReady: ready,
+    unlinkedEvidenceTotal: ready ? coverageData.unlinkedEvidenceTotal : null,
+    datedUnlinkedEvidence: ready ? coverageData.datedUnlinkedEvidence : null,
+    undatedUnlinkedEvidence: ready ? coverageData.undatedUnlinkedEvidence : null,
+    officialSelectionTotal: ready ? coverageData.officialSelectionRows : null,
+    officialUniqueCandidates: ready ? coverageData.officialUniqueCandidates : null,
     metrics: Object.freeze(metrics)
   });
 }
 
-function renderSelectionFactCoverage(documentObject, workspace) {
+function renderSelectionFactCoverage(documentObject, workspace, coverageData = null) {
   const grid = documentObject?.getElementById?.("selection-coverage-grid");
   const status = documentObject?.getElementById?.("selection-coverage-status");
   if (!grid) return;
-  const coverage = buildSelectionFactCoverage(workspace);
-  if (status) status.textContent = coverage.state === "READY" ? "正式履歴を表示"
-    : coverage.state === "PARTIAL" ? "未連結の根拠があります" : "集計準備中";
+  const coverage = buildSelectionFactCoverage(workspace, coverageData);
+  if (status) status.textContent = coverage.state === "PREPARING"
+    ? "集計準備中"
+    : `確認待ちの元データ ${coverage.unlinkedEvidenceTotal}件（日付確認可能 ${coverage.datedUnlinkedEvidence}件 / 日付未登録 ${coverage.undatedUnlinkedEvidence}件）`;
   grid.replaceChildren(...coverage.metrics.map((metric) => {
     const article = documentObject.createElement("article");
     article.dataset.state = metric.state;
     const label = documentObject.createElement("span"); label.textContent = metric.label;
     const value = documentObject.createElement("strong");
-    value.textContent = metric.state === "RECORDED" ? `${metric.candidateCount}人`
-      : metric.state === "NOT_REGISTERED" ? "未登録" : "集計準備中";
+    value.textContent = metric.state === "PREPARING" ? "集計準備中"
+      : `正式登録 ${metric.officialRowCount}件`;
     const detail = documentObject.createElement("small");
-    detail.textContent = `正式履歴 ${metric.officialRowCount}件 / 未連結根拠 ${metric.unlinkedEvidenceCount}件`;
-    const grain = documentObject.createElement("small"); grain.textContent = "人数は学生単位（重複なし）";
+    detail.textContent = metric.state === "PREPARING" ? "確認待ちの元データを取得できません"
+      : `確認待ち ${metric.unlinkedEvidenceCount}件（日付あり ${metric.datedUnlinkedEvidence}件 / 日付未登録 ${metric.undatedUnlinkedEvidence}件）`;
+    const grain = documentObject.createElement("small"); grain.textContent = "正式登録だけを実績へ集計します";
     article.append(label, value, detail, grain);
     return article;
   }));

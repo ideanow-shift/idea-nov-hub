@@ -1,0 +1,16 @@
+{
+  "contract_version": "fair-attribution-grouping-contract-v1",
+  "logical_review_case": "one_candidate",
+  "physical_pending_row": "one_candidate_times_one_fair_candidate",
+  "classification": {
+    "single_candidate_case": "fair_candidate_count == 1",
+    "multiple_candidate_case": "fair_candidate_count >= 2"
+  },
+  "required_invariants": [
+    "sum(fair_candidate_count) == physical_pending_row_count",
+    "single_candidate_count + multiple_candidate_count == logical_candidate_count",
+    "candidate_fair_pairs_are_unique",
+    "all_referenced_candidates_and_fairs_are_active"
+  ],
+  "legacy_boundary": "v1 explanatory counts are historical evidence only; current grouping is recomputed mechanically"
+}

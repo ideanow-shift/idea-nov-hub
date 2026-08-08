@@ -4,6 +4,7 @@ import {
   SELECTION_COVERAGE_CONTRACT_VERSION,
   validateSelectionCoverageResponse
 } from "./selection-coverage-contract-v1.generated.ts";
+import { cleanPopulationRequest, FAIR_ATTRIBUTION_POPULATION_V2, sha256Utf8, validatePopulationRequest } from "./fair-attribution-population-v2.ts";
 
 const ORIGIN = "https://ideanow-shift.github.io";
 const PREFIXES = ["", "/nov-talent-staging-api", "/functions/v1/nov-talent-staging-api"];
@@ -17,6 +18,9 @@ type Runtime = {
   logger?: SafeLogger;
   now?: () => Date;
   outcome1WritesEnabled?: boolean;
+  populationV2Enabled?: boolean;
+  populationV2ApprovalTokenSha256?: string;
+  populationV2Validator?: typeof validatePopulationRequest;
 };
 type ViewResult = { rows: any[]; available: boolean; retryCount: number };
 
@@ -457,6 +461,64 @@ export function createHandler(runtime: Runtime) {
     const requestId = crypto.randomUUID();
     const fairReviewHistoryMatch = /^\/api\/talent\/v1\/fair-origin-review\/([0-9a-f-]+)\/history$/iu.exec(path);
     const fairReviewDecisionMatch = /^\/api\/talent\/v1\/fair-origin-review\/([0-9a-f-]+)\/decision$/iu.exec(path);
+    if (request.method === "POST" && path === "/api/talent/v1/fair-origin-review/population-v2/execute") {
+      const population = FAIR_ATTRIBUTION_POPULATION_V2;
+      const runtimeHost = (() => { try { return new URL(runtime.supabaseUrl).hostname.toLowerCase(); } catch { return ""; } })();
+      if (runtimeHost !== `${population.projectRef}.supabase.co`) return fail(403, "POPULATION_V2_STAGING_ONLY", origin);
+      if (runtime.populationV2Enabled !== true || !/^[0-9a-f]{64}$/u.test(runtime.populationV2ApprovalTokenSha256 || "")) {
+        return fail(503, "POPULATION_V2_LOCKED", origin);
+      }
+      if (!["super_admin", "backoffice", "hr.admin"].includes(actor.role)) return fail(403, "POPULATION_V2_FORBIDDEN", origin);
+      const approvalToken = request.headers.get("x-nov-talent-owner-approval") || "";
+      if (approvalToken.length < 32 || approvalToken.length > 4096
+        || await sha256Utf8(approvalToken) !== runtime.populationV2ApprovalTokenSha256) {
+        return fail(403, "POPULATION_V2_APPROVAL_REQUIRED", origin);
+      }
+      const rawBody = await request.text().catch(() => "");
+      if (!rawBody || new TextEncoder().encode(rawBody).byteLength > 1_500_000) return fail(400, "POPULATION_V2_REQUEST_INVALID", origin);
+      const body = (() => { try { return JSON.parse(rawBody); } catch { return null; } })();
+      const execution = cleanPopulationRequest(body);
+      if (!execution) return fail(400, "POPULATION_V2_REQUEST_INVALID", origin);
+      try {
+        await (runtime.populationV2Validator || validatePopulationRequest)(execution);
+      } catch (error) {
+        (runtime.logger || console).error(JSON.stringify({
+          event: "NOV_TALENT_FAIR_ATTRIBUTION_POPULATION_V2_REJECTED",
+          request_id: requestId,
+          error_class: error instanceof Error ? error.message : "POPULATION_V2_VALIDATION_FAILED",
+          timestamp: new Date().toISOString(),
+        }));
+        return fail(409, "POPULATION_V2_PRECONDITION_FAILED", origin);
+      }
+      const result = await db(runtime, "/rest/v1/rpc/nov_talent_population_fair_attribution_queue_v2", {
+        method: "POST",
+        body: JSON.stringify({
+          p_actor_employee_id: actor.actor,
+          p_actor_role: actor.role,
+          p_environment: population.environment,
+          p_manifest_file_sha256: population.manifestFileSha256,
+          p_manifest: execution.manifest,
+        }),
+      });
+      if (!result.ok) {
+        const error = await result.json().catch(() => null);
+        const conflict = result.status === 409 || ["23505", "40001", "55000"].includes(String(error?.code || ""));
+        return fail(conflict ? 409 : 503, conflict ? "POPULATION_V2_CONFLICT" : "POPULATION_V2_EXECUTION_FAILED", origin);
+      }
+      const rows = await result.json().catch(() => null);
+      const data = Array.isArray(rows) ? rows[0] : null;
+      if (Number(data?.attribution_count) !== population.physicalPendingRowCount
+        || Number(data?.audit_count) !== population.physicalPendingRowCount
+        || data?.manifest_canonical_payload_sha256 !== population.manifestCanonicalPayloadSha256) {
+        return fail(503, "POPULATION_V2_RESULT_CONTRACT_INVALID", origin);
+      }
+      return out(201, { ok: true, data: {
+        attributionCount: data.attribution_count,
+        auditCount: data.audit_count,
+        status: "PENDING",
+        manifestCanonicalPayloadSha256: data.manifest_canonical_payload_sha256,
+      } }, origin);
+    }
     if (path.startsWith("/api/talent/v1/fair-origin-review")) {
       if (actor.profile !== "full") return fail(403, "REVIEW_FORBIDDEN", origin);
       if (request.method === "GET" && path === "/api/talent/v1/fair-origin-review") {
@@ -653,5 +715,7 @@ if (typeof Deno !== "undefined" && import.meta.main) Deno.serve(createHandler({
   serviceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
   outcome1WritesEnabled: Deno.env.get("NOV_TALENT_OUTCOME1_WRITES_ENABLED") === "true",
   fetchImpl: fetch,
-  logger: console
+  logger: console,
+  populationV2Enabled: Deno.env.get("NOV_TALENT_FAIR_ATTRIBUTION_POPULATION_V2_ENABLED") === "true",
+  populationV2ApprovalTokenSha256: Deno.env.get("NOV_TALENT_FAIR_ATTRIBUTION_POPULATION_V2_APPROVAL_SHA256") || "",
 }));

@@ -62,7 +62,27 @@ const fairMasters = Array.from({ length: 46 }, (_, index) => ({
 }));
 const availability = Object.fromEntries(["candidateCount","entries","eventCount","fairCount","graduation2027","graduation2028","interviewHistory","interviewPlanned","lineRegistrations","offeredElsewhere","offers","rejected","salonTourCompleted","salonTourPlanned","schoolCount","todayActions","withdrawals"].map((key) => [key, true]));
 const partial = new URL(location.href).searchParams.get("partial") === "1";
+const coveragePartial = new URL(location.href).searchParams.get("coveragePartial") === "1";
 if (partial) availability.schoolCount = false;
+const selectionCodes = ["APPLICATION_RECEIVED","INTERVIEW_PLANNED","INTERVIEW_COMPLETED","OFFERED","OFFER_ACCEPTED","WITHDRAWN","REJECTED"];
+const coverage = {
+  selection_coverage_contract_version: "1.0.0",
+  sourceCoverageState: coveragePartial ? "PREPARING" : "READY",
+  officialSelectionRows: coveragePartial ? null : 0,
+  officialUniqueCandidates: coveragePartial ? null : 0,
+  unlinkedEvidenceTotal: coveragePartial ? null : 126,
+  datedUnlinkedEvidence: coveragePartial ? null : 42,
+  undatedUnlinkedEvidence: coveragePartial ? null : 84,
+  unlinkedUniqueCandidates: null,
+  metrics: selectionCodes.map((code, index) => ({
+    code,
+    officialRows: coveragePartial ? null : 0,
+    officialUniqueCandidates: coveragePartial ? null : 0,
+    unlinkedEvidenceTotal: coveragePartial ? null : (index < 2 ? 63 : 0),
+    datedUnlinkedEvidence: coveragePartial ? null : (index === 0 ? 21 : index === 1 ? 21 : 0),
+    undatedUnlinkedEvidence: coveragePartial ? null : (index === 0 ? 42 : index === 1 ? 42 : 0)
+  }))
+};
 const workspace = {
   workspace_contract_version: "1.0.0", accessProfile: "full", canWrite: true, fiscalYear: "all", payloadMode: "workspace",
   overview: { contacts: 34, entries: 0, exactLinkSuggestions: 0, mapped: 636, manual: 0, offers: 0, ownerReview: 0, primaryCandidates: 636, quarantined: 0, remainingManual: 0, total: 636 },
@@ -72,6 +92,7 @@ const workspace = {
   fairMasters, schoolMasters: [], students, todayTasks: [], unlinkedSelectionHistory: []
 };
 window.__workspaceRequests = 0;
+window.__selectionCoverageRequests = 0;
 window.__dashboardSummaryRequests = 0;
 const originalFetch = window.fetch.bind(window);
 window.fetch = async (input, init = {}) => {
@@ -80,13 +101,17 @@ window.fetch = async (input, init = {}) => {
     window.__workspaceRequests += 1;
     return Response.json({ ok: true, data: workspace, meta: { generatedAt: "2026-08-06T00:00:00.000Z", requestId: "browser-gate", source: "fixture", version: "3" } });
   }
+  if (url.includes("/api/talent/v1/selection-coverage")) {
+    window.__selectionCoverageRequests += 1;
+    return Response.json({ ok: true, data: coverage, meta: { generatedAt: "2026-08-06T00:00:00.000Z", requestId: "coverage-gate", source: "fixture", version: "1" } });
+  }
   if (url.includes("/api/talent/v1/dashboard/summary")) {
     window.__dashboardSummaryRequests += 1;
     throw new Error("duplicate dashboard summary request");
   }
   return originalFetch(input, init);
 };
-await import("/talent/app.mjs?v=20260808-outcome1-official-facts-1");
+await import("/talent/app.mjs?v=20260808-selection-coverage-hotfix-1");
 `;
 
 const server = createServer(async (request, response) => {
@@ -126,7 +151,10 @@ try {
   await page.getByText("636件を集計").waitFor().catch(async () => {
     throw new Error(JSON.stringify({ consoleErrors, body: (await page.locator("body").innerText()).slice(0, 500) }));
   });
-  assert.deepEqual(await page.evaluate(() => ({ workspace: window.__workspaceRequests, summary: window.__dashboardSummaryRequests })), { workspace: 1, summary: 0 });
+  await page.locator("#selection-coverage-status").filter({ hasText: "確認待ちの元データ 126件" }).waitFor();
+  assert.deepEqual(await page.evaluate(() => ({ workspace: window.__workspaceRequests, coverage: window.__selectionCoverageRequests, summary: window.__dashboardSummaryRequests })), { workspace: 1, coverage: 1, summary: 0 });
+  assert.equal(await page.locator("#selection-coverage-status").innerText(), "確認待ちの元データ 126件（日付確認可能 42件 / 日付未登録 84件）");
+  assert.equal(await page.locator("#selection-coverage-grid").innerText().then((text) => text.includes("正式登録 0件")), true);
   assert.equal(await page.locator("#student-contacts").innerText(), "34");
   assert.equal(await page.locator("#student-total").innerText(), "636");
   assert.equal(await page.locator(".student-list-item").count(), 636);
@@ -146,10 +174,12 @@ try {
   const partialPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await partialPage.goto(`${origin}/__fixture__/hub.html`);
   await partialPage.getByRole("button", { name: "ログイン" }).click();
-  await partialPage.evaluate(() => { document.getElementById("talent").href = "/talent/index.html?partial=1"; });
+  await partialPage.evaluate(() => { document.getElementById("talent").href = "/talent/index.html?partial=1&coveragePartial=1"; });
   await partialPage.getByRole("link", { name: "求人管理" }).click();
   await partialPage.getByText("636件を集計").waitFor();
+  await partialPage.locator("#selection-coverage-status").filter({ hasText: "集計準備中" }).waitFor();
   assert.ok(await partialPage.getByText("集計準備中", { exact: true }).count() > 0);
+  assert.equal(await partialPage.locator("#selection-coverage-status").innerText(), "集計準備中");
   assert.equal(await partialPage.locator(".student-list-item").count(), 636);
   await partialPage.close();
 
@@ -165,7 +195,10 @@ try {
   await mobilePage.getByRole("button", { name: "ログイン" }).click();
   await mobilePage.getByRole("link", { name: "求人管理" }).click();
   await mobilePage.getByText("636件を集計").waitFor();
+  await mobilePage.locator("#selection-coverage-status").filter({ hasText: "確認待ちの元データ 126件" }).waitFor();
   assert.equal(await mobilePage.locator(".student-list-item").count(), 636);
+  assert.equal(await mobilePage.locator("#selection-coverage-status").innerText(), "確認待ちの元データ 126件（日付確認可能 42件 / 日付未登録 84件）");
+  assert.equal(await mobilePage.locator("#selection-coverage-grid article").count(), 6);
   assert.equal(await mobilePage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true);
   assert.deepEqual(mobileConsoleErrors, []);
   assert.deepEqual(mobileConsoleWarnings, []);

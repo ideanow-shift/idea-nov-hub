@@ -2,8 +2,9 @@ import { createNovTalentMockRepository } from "./mock-repository.mjs";
 import { NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
 import {
   createDashboardSummaryExact1Executor,
+  createSelectionCoverageExact1Executor,
   createTalentWorkspaceExact1Executor
-} from "./exact1.mjs?v=20260808-outcome1-official-facts-1";
+} from "./exact1.mjs?v=20260808-selection-coverage-hotfix-1";
 
 const METRIC_LABELS = Object.freeze({
   contacts: "接触数",
@@ -99,6 +100,34 @@ export function createTalentWorkspaceExecutor({ globalObject = globalThis } = {}
       return Object.freeze({
         ...safeResult("ready", true, "mock"),
         data: Object.freeze({ ...result.data, todayTasks: tasks.ok ? tasks.data : Object.freeze([]) })
+      });
+    }
+  });
+}
+
+export function createSelectionCoverageExecutor({ globalObject = globalThis } = {}) {
+  const runtime = readNovTalentRuntime({ globalObject });
+  if (runtime.mode === "staging") {
+    return createSelectionCoverageExact1Executor({ globalObject, hubContract: NOV_HUB_SESSION_CONTRACT });
+  }
+  let consumed = false;
+  return Object.freeze({
+    async run() {
+      if (consumed) return safeResult("duplicate_startup_prevented", false, "mock");
+      consumed = true;
+      return Object.freeze({
+        ...safeResult("ready", true, "mock"),
+        data: Object.freeze({
+          selection_coverage_contract_version: "1.0.0",
+          sourceCoverageState: "PREPARING",
+          officialSelectionRows: null,
+          officialUniqueCandidates: null,
+          unlinkedEvidenceTotal: null,
+          datedUnlinkedEvidence: null,
+          undatedUnlinkedEvidence: null,
+          unlinkedUniqueCandidates: null,
+          metrics: Object.freeze([])
+        })
       });
     }
   });

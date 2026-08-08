@@ -13,6 +13,7 @@ on:
       - "tests/nov-navi-dashboard-boundary.test.mjs"
       - "tests/management-store-csv-requirements.test.mjs"
       - "scripts/generate-nov-talent-workspace-contract.mjs"
+      - "scripts/generate-nov-talent-selection-coverage-contract.mjs"
       - "tools/nov-talent-e2e/**"
   workflow_dispatch:
     inputs:
@@ -54,7 +55,9 @@ jobs:
 
       - name: Check generated Workspace Contract v1
         shell: bash
-        run: node scripts/generate-nov-talent-workspace-contract.mjs --check
+        run: |
+          node scripts/generate-nov-talent-workspace-contract.mjs --check
+          node scripts/generate-nov-talent-selection-coverage-contract.mjs --check
 
       - name: Run NOV Talent and HUB fixed regressions
         shell: bash

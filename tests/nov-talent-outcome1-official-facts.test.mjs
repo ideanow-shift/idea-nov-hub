@@ -276,19 +276,13 @@ test("Source Fact API uses v2 evidence link without creating a Selection fact", 
 });
 
 test("Coverage separates official Selection rows, unique Candidates, and unlinked Evidence", () => {
-  const coverage = buildSelectionFactCoverage({
-    partialStatus: { state: "complete", unavailableViews: [] },
-    overview: { remainingManual: 2 },
-    students: [
-      { recordId: "a", statusCode: "OFFERED", selectionHistory: [
-        { active: true, code: "APPLICATION_RECEIVED" },
-        { active: true, code: "APPLICATION_RECEIVED" }
-      ] },
-      { recordId: "b", statusCode: "OFFERED", selectionHistory: [] }
-    ],
-    unlinkedSelectionHistory: [
-      { code: "INTERVIEW_COMPLETED" },
-      { code: "INTERVIEW_COMPLETED" }
+  const coverage = buildSelectionFactCoverage({}, {
+    sourceCoverageState: "READY", officialSelectionRows: 2, officialUniqueCandidates: 1,
+    unlinkedEvidenceTotal: 2, datedUnlinkedEvidence: 1, undatedUnlinkedEvidence: 1,
+    metrics: [
+      { code: "APPLICATION_RECEIVED", officialRows: 2, officialUniqueCandidates: 1, unlinkedEvidenceTotal: 0, datedUnlinkedEvidence: 0, undatedUnlinkedEvidence: 0 },
+      { code: "INTERVIEW_COMPLETED", officialRows: 0, officialUniqueCandidates: 0, unlinkedEvidenceTotal: 2, datedUnlinkedEvidence: 1, undatedUnlinkedEvidence: 1 },
+      { code: "OFFERED", officialRows: 0, officialUniqueCandidates: 0, unlinkedEvidenceTotal: 0, datedUnlinkedEvidence: 0, undatedUnlinkedEvidence: 0 }
     ]
   });
   const applications = coverage.metrics.find((metric) => metric.code === "APPLICATION_RECEIVED");
@@ -297,43 +291,18 @@ test("Coverage separates official Selection rows, unique Candidates, and unlinke
   assert.deepEqual({ state: applications.state, candidates: applications.candidateCount, rows: applications.officialRowCount },
     { state: "RECORDED", candidates: 1, rows: 2 });
   assert.deepEqual({ state: interviews.state, candidates: interviews.candidateCount, unlinked: interviews.unlinkedEvidenceCount },
-    { state: "PARTIAL", candidates: null, unlinked: 2 });
+    { state: "PARTIAL", candidates: 0, unlinked: 2 });
   assert.equal(offers.state, "NOT_REGISTERED");
-  assert.equal(offers.candidateCount, null);
+  assert.equal(offers.candidateCount, 0);
   assert.equal(coverage.state, "PARTIAL");
 });
 
 test("Coverage fails closed when a source is unavailable or the v1 display list is capped", () => {
-  const unavailable = buildSelectionFactCoverage({
-    partialStatus: { unavailableViews: ["source_facts"] },
-    overview: { remainingManual: 0 },
-    students: [],
-    unlinkedSelectionHistory: []
-  });
+  const unavailable = buildSelectionFactCoverage({}, { sourceCoverageState: "PREPARING", metrics: [] });
   assert.equal(unavailable.state, "PREPARING");
   assert.ok(unavailable.metrics.every((metric) => metric.state === "PREPARING"));
-
-  const capped = buildSelectionFactCoverage({
-    partialStatus: { unavailableViews: [] },
-    overview: { remainingManual: 101 },
-    students: [],
-    unlinkedSelectionHistory: Array.from({ length: 100 }, () => ({ code: "INTERVIEW_COMPLETED" }))
-  });
-  assert.equal(capped.evidenceListTruncated, true);
-  assert.equal(capped.state, "PREPARING");
-
-  const selectionCapped = buildSelectionFactCoverage({
-    partialStatus: { unavailableViews: [] },
-    dashboard: { selectionHistoryCount: 101 },
-    overview: { remainingManual: 0 },
-    students: [{ recordId: CANDIDATE_ID, selectionHistory: Array.from({ length: 100 }, () => ({
-      active: true,
-      code: "APPLICATION_RECEIVED"
-    })) }],
-    unlinkedSelectionHistory: []
-  });
-  assert.equal(selectionCapped.selectionListTruncated, true);
-  assert.equal(selectionCapped.state, "PREPARING");
+  const failed = buildSelectionFactCoverage({}, null);
+  assert.equal(failed.state, "PREPARING");
 });
 
 test("Migration makes Selection atomic, append-only, auditable, and RPC-only", async () => {

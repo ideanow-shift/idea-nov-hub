@@ -2,7 +2,10 @@ import { NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
 import {
   validateWorkspaceResponse,
   WORKSPACE_CONTRACT_VERSION
-} from "./generated/workspace-contract-v1.mjs?v=20260808-outcome1-official-facts-1";
+} from "./generated/workspace-contract-v1.mjs?v=20260808-selection-coverage-hotfix-1";
+import {
+  validateSelectionCoverageResponse
+} from "./generated/selection-coverage-contract-v1.mjs?v=20260808-selection-coverage-hotfix-1";
 
 const REQUIRED_AUDIENCE = "nov_hub";
 const SUMMARY_FIELDS = Object.freeze([
@@ -158,6 +161,49 @@ export function createTalentWorkspaceExact1Executor({
             studentRowsReturned: true
           }),
           data
+        });
+      } catch (error) {
+        return safeResult(error?.safeCategory || "api_error", {
+          executed: requestSent,
+          httpRequestSent: requestSent,
+          requestCount: requestSent ? 1 : 0,
+          httpStatus: normalizeHttpStatus(error?.httpStatus)
+        });
+      }
+    }
+  });
+}
+
+export function createSelectionCoverageExact1Executor({
+  globalObject = globalThis,
+  hubSessionHelper = globalObject.NovHubSession,
+  hubContract = NOV_HUB_SESSION_CONTRACT,
+  fetchImpl = globalObject.fetch
+} = {}) {
+  const runtime = readTalentRuntime({ globalObject, hubSessionHelper, hubContract });
+  if (!runtime || typeof fetchImpl !== "function") return null;
+  let consumed = false;
+  return Object.freeze({
+    async run() {
+      if (consumed) return safeResult("duplicate_startup_prevented", { duplicatePrevented: true });
+      consumed = true;
+      let requestSent = false;
+      try {
+        const headers = await buildAuthHeaders(runtime.hubSessionHelper);
+        const url = new URL("./api/talent/v1/selection-coverage", `${runtime.apiBaseUrl}/`);
+        requestSent = true;
+        const response = await fetchImpl(url.toString(), {
+          method: "GET",
+          headers: { Accept: "application/json", ...headers },
+          credentials: "omit"
+        });
+        const envelope = await readJsonEnvelope(response);
+        if (!response.ok || envelope?.ok !== true) throw safeError("api_error", { httpStatus: response.status });
+        const contract = validateSelectionCoverageResponse(envelope);
+        if (!contract.ok) throw safeError("invalid_response", { httpStatus: response.status });
+        return Object.freeze({
+          ...safeResult("ready", { executed: true, httpRequestSent: true, httpStatus: response.status, okBoolean: true, requestCount: 1 }),
+          data: Object.freeze({ ...contract.value.data, metrics: Object.freeze(contract.value.data.metrics.map((row) => Object.freeze({ ...row }))) })
         });
       } catch (error) {
         return safeResult(error?.safeCategory || "api_error", {

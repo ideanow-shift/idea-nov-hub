@@ -1,5 +1,9 @@
 import { cleanActivity, cleanCandidate, cleanFairAttributionDecision, cleanRecruitmentMaster, cleanSourceFactLink, resolveAccess, STATUS_LABELS } from "./domain.ts";
 import { validateWorkspaceResponse, WORKSPACE_CONTRACT_VERSION } from "./workspace-contract-v1.generated.ts";
+import {
+  SELECTION_COVERAGE_CONTRACT_VERSION,
+  validateSelectionCoverageResponse
+} from "./selection-coverage-contract-v1.generated.ts";
 
 const ORIGIN = "https://ideanow-shift.github.io";
 const PREFIXES = ["", "/nov-talent-staging-api", "/functions/v1/nov-talent-staging-api"];
@@ -28,6 +32,8 @@ const OFFICIAL_SELECTION_FACT_CODES = new Set([
   "APPLICATION_RECEIVED", "INTERVIEW_PLANNED", "INTERVIEW_COMPLETED",
   "OFFERED", "OFFER_ACCEPTED", "WITHDRAWN", "REJECTED"
 ]);
+const OFFICIAL_SELECTION_FACT_CODE_LIST = Object.freeze([...OFFICIAL_SELECTION_FACT_CODES]);
+const FORMAL_DATE = /^\d{4}-\d{2}-\d{2}$/u;
 const VIEW_REQUESTS = Object.freeze([
   ["recruitment_events", "/rest/v1/nov_talent_recruitment_events_v1?select=event_id,candidate_id,event_code,event_date,event_name,event_state,contact_content,assigned_to,notes,version,is_active&order=event_date.desc&limit=5000"],
   ["selection_history", "/rest/v1/nov_talent_selection_history_v1?select=selection_history_id,candidate_id,selection_code,effective_date,assigned_to,notes,version,is_active&order=effective_date.desc&limit=5000"],
@@ -337,10 +343,12 @@ function workspace(rows: any[], profile: string, facts: any, partialStatus: any,
   const allUnlinkedSelectionHistory = facts.sourceFacts.filter((item:any) =>
     !item.candidate_id
       && OFFICIAL_SELECTION_SOURCE_TYPES.has(item.source_type)
-      && OFFICIAL_SELECTION_FACT_CODES.has(item.fact_code))
+      && OFFICIAL_SELECTION_FACT_CODES.has(item.fact_code));
+  const datedUnlinkedSelectionHistory = allUnlinkedSelectionHistory
+    .filter((item:any) => typeof item.fact_date === "string" && FORMAL_DATE.test(item.fact_date))
     .map((item:any) => ({ sourceType: item.source_type, sourceRowNo: item.source_row_no, code: item.fact_code,
       label: STATUS_LABELS[item.fact_code] || item.fact_code, date: item.fact_date, version: item.version }));
-  const unlinkedSelectionHistory = allUnlinkedSelectionHistory.slice(0, 100);
+  const unlinkedSelectionHistory = datedUnlinkedSelectionHistory.slice(0, 100);
   return { workspace_contract_version: WORKSPACE_CONTRACT_VERSION, fiscalYear: "all", payloadMode: "workspace", accessProfile: profile, canWrite: profile !== "executive", dashboard,
     summary, partialStatus,
     todayTasks: facts.actions.filter((item:any) => item.is_active !== false && item.state === "OPEN" && item.due_date && item.due_date <= businessDate)
@@ -348,6 +356,58 @@ function workspace(rows: any[], profile: string, facts: any, partialStatus: any,
         label: item.action_text || actionLabel(item.action_code), assignedTo: item.assigned_to })),
     unlinkedSelectionHistory, schoolMasters: facts.schoolMasters, fairMasters: facts.fairMasters,
     overview: { contacts: summary.contacts, entries: dashboard.entries, exactLinkSuggestions: 0, mapped: students.length, manual: 0, offers: dashboard.offers, ownerReview: allUnlinkedSelectionHistory.length, primaryCandidates: students.length, quarantined: 0, remainingManual: allUnlinkedSelectionHistory.length, total: students.length }, students };
+}
+
+async function readSelectionCoverageFacts(runtime: Runtime, requestId: string) {
+  const requested = VIEW_REQUESTS.filter(([view]) => ["selection_history", "source_facts"].includes(view));
+  const results = await Promise.all(requested.map(([view, path]) => readView(runtime, {
+    requestId, endpoint: "selection_coverage", view, path, fatal: false
+  })));
+  const byView = Object.fromEntries(requested.map(([view], index) => [view, results[index]]));
+  return {
+    selections: byView.selection_history.rows,
+    sourceFacts: byView.source_facts.rows,
+    viewAvailability: {
+      selection_history: byView.selection_history.available,
+      source_facts: byView.source_facts.available
+    }
+  };
+}
+
+function selectionCoverage(facts: any) {
+  const ready = facts.viewAvailability?.selection_history === true
+    && facts.viewAvailability?.source_facts === true;
+  const official = facts.selections.filter((item:any) => item.is_active !== false
+    && OFFICIAL_SELECTION_FACT_CODES.has(item.selection_code));
+  const unlinked = facts.sourceFacts.filter((item:any) => !item.candidate_id
+    && OFFICIAL_SELECTION_SOURCE_TYPES.has(item.source_type)
+    && OFFICIAL_SELECTION_FACT_CODES.has(item.fact_code));
+  const nullableCount = (value: number) => ready ? value : null;
+  const metrics = OFFICIAL_SELECTION_FACT_CODE_LIST.map((code) => {
+    const officialRows = official.filter((item:any) => item.selection_code === code);
+    const evidenceRows = unlinked.filter((item:any) => item.fact_code === code);
+    const datedRows = evidenceRows.filter((item:any) => typeof item.fact_date === "string" && FORMAL_DATE.test(item.fact_date));
+    return {
+      code,
+      officialRows: nullableCount(officialRows.length),
+      officialUniqueCandidates: nullableCount(new Set(officialRows.map((item:any) => item.candidate_id).filter(Boolean)).size),
+      unlinkedEvidenceTotal: nullableCount(evidenceRows.length),
+      datedUnlinkedEvidence: nullableCount(datedRows.length),
+      undatedUnlinkedEvidence: nullableCount(evidenceRows.length - datedRows.length)
+    };
+  });
+  const dated = unlinked.filter((item:any) => typeof item.fact_date === "string" && FORMAL_DATE.test(item.fact_date)).length;
+  return {
+    selection_coverage_contract_version: SELECTION_COVERAGE_CONTRACT_VERSION,
+    sourceCoverageState: ready ? "READY" : "PREPARING",
+    officialSelectionRows: nullableCount(official.length),
+    officialUniqueCandidates: nullableCount(new Set(official.map((item:any) => item.candidate_id).filter(Boolean)).size),
+    unlinkedEvidenceTotal: nullableCount(unlinked.length),
+    datedUnlinkedEvidence: nullableCount(dated),
+    undatedUnlinkedEvidence: nullableCount(unlinked.length - dated),
+    unlinkedUniqueCandidates: null,
+    metrics
+  };
 }
 function actionLabel(code: string) {
   return ({ FOLLOW_UP: "次回対応を確認", SALON_TOUR_FOLLOW_UP: "見学対応を確認", INTERVIEW_FOLLOW_UP: "面接対応を確認", OFFER_FOLLOW_UP: "内定フォローを確認" } as Record<string, string>)[code] || "次回対応を確認";
@@ -428,10 +488,30 @@ export function createHandler(runtime: Runtime) {
       return fail(404, "NOT_FOUND", origin);
     }
     const endpoint = path.endsWith("/api/talent/v1/dashboard/summary") ? "dashboard_summary"
-      : path.endsWith("/api/talent/v1/workspace") ? "workspace" : "talent_api";
+      : path.endsWith("/api/talent/v1/workspace") ? "workspace"
+      : path.endsWith("/api/talent/v1/selection-coverage") ? "selection_coverage" : "talent_api";
     const rowResult = await readRows(runtime, requestId, endpoint);
     if (!rowResult.available) return fail(503, "CANDIDATE_STORE_NOT_READY", origin);
     const rows = rowResult.rows;
+    const currentInstant = runtime.now?.() ?? new Date();
+    if (request.method === "GET" && path.endsWith("/api/talent/v1/selection-coverage")) {
+      const coverageFacts = await readSelectionCoverageFacts(runtime, requestId);
+      const activeCandidateIds = new Set(rows.map((row:any) => String(row.candidate_id || "")).filter(Boolean));
+      coverageFacts.selections = coverageFacts.selections.filter((row:any) => activeCandidateIds.has(String(row.candidate_id || "")));
+      const responseBody = { ok: true as const, data: selectionCoverage(coverageFacts), meta: { generatedAt: currentInstant.toISOString(), requestId, source: "nov-talent-staging-api", version: "1" } };
+      const contractResult = validateSelectionCoverageResponse(responseBody);
+      if (!contractResult.ok) {
+        (runtime.logger || console).error(JSON.stringify({
+          event: "NOV_TALENT_SELECTION_COVERAGE_CONTRACT_REJECTED",
+          request_id: requestId,
+          field_path: contractResult.path,
+          rule: contractResult.rule,
+          timestamp: new Date().toISOString()
+        }));
+        return fail(503, "SELECTION_COVERAGE_CONTRACT_INVALID", origin);
+      }
+      return out(200, contractResult.value, origin);
+    }
     const factResult = await readDashboardFacts(runtime, requestId, endpoint);
     const facts = scopeFactsToActiveCandidates(rows, factResult.facts);
     const partialStatus = {
@@ -439,7 +519,6 @@ export function createHandler(runtime: Runtime) {
       unavailableViews: factResult.unavailable,
       retryCount: rowResult.retryCount + factResult.retryCount
     };
-    const currentInstant = runtime.now?.() ?? new Date();
     const businessDate = businessDateAsiaTokyo(currentInstant);
     if (request.method === "GET" && path.endsWith("/api/talent/v1/dashboard/summary")) {
       const dashboard = dashboardMetrics(rows, facts, businessDate);

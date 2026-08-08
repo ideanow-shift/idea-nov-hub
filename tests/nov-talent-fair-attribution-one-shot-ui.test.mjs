@@ -166,6 +166,20 @@ test("disabled executor keeps the Staging operator summary visible but execution
   assert.equal(fixture.elements["fair-origin-preparation-status"].textContent, "現在は実行できません。実行承認後に利用できます。");
 });
 
+test("deployed locked Edge response keeps the fixed summary visible during Pages rollout", async () => {
+  const fixture = documentFixture();
+  fixture.elements["fair-origin-preparation-logical"].textContent = "161名";
+  initializeFairOriginPreparation(fixture.document, { location: { origin: ORIGIN }, NOV_TALENT_CONFIG: { runtimeMode: "staging" } }, {
+    fairOriginPreparationReadiness: async () => ({ ok: false, category: "preparation_locked" }),
+    prepareFairOriginReview: async () => { throw new Error("disabled button must not execute"); },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(fixture.elements["fair-origin-preparation-panel"].hidden, false);
+  assert.equal(fixture.elements["fair-origin-preparation-open"].disabled, true);
+  assert.equal(fixture.elements["fair-origin-preparation-logical"].textContent, "161名");
+  assert.equal(fixture.elements["fair-origin-preparation-status"].textContent, "現在は実行できません。実行承認後に利用できます。");
+});
+
 test("public UI contains no token, actor, UUID or internal execution vocabulary", async () => {
   const [html, app, client] = await Promise.all([
     read("portal/talent/index.html"), read("portal/talent/app.mjs"), read("portal/talent/staging-write.mjs"),

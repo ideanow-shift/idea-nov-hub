@@ -3700,7 +3700,14 @@ export function initializeFairOriginPreparation(documentObject, globalObject = g
   panel.hidden = true;
   open.disabled = true;
   client?.fairOriginPreparationReadiness().then((readiness) => {
-    if (!readiness?.ok) return;
+    if (!readiness?.ok) {
+      if (readiness?.category === "preparation_locked") {
+        const status = documentObject.getElementById("fair-origin-preparation-status");
+        if (status) status.textContent = "現在は実行できません。実行承認後に利用できます。";
+        panel.hidden = false;
+      }
+      return;
+    }
     setCount("fair-origin-preparation-logical", readiness.data.logicalCandidateCount, "名");
     setCount("fair-origin-preparation-single", readiness.data.singleCandidateCount, "名");
     setCount("fair-origin-preparation-multiple", readiness.data.multipleCandidateCount, "名");

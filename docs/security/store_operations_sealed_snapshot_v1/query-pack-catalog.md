@@ -1,13 +1,20 @@
 # Fixed Query Pack Catalog
 
 All query text is a private reviewed artifact. The public registry fixes the
-pack ID, query ID, side, logical result schema, row cap, timeout, and hash
-binding. It deliberately contains no SQL and cannot dynamically choose a table
-or column.
+Pack ID, Query ID, Query Version, side, logical result schema, expected scalar
+types, output-schema version, row cap, and timeout. It deliberately contains
+no SQL and cannot dynamically choose a table or column.
+
+The private immutable `SOCE-PRIVATE-QUERY-REGISTRY-v1` contains all 16
+private definitions. Each definition has `queryId`, `queryVersion`, `packId`,
+private SQL, `sqlSha256`, `expectedColumns`, `expectedTypes`, and
+`expectedOutputSchemaVersion`. SQL never enters this repository, a log, or an
+artifact. Its SHA-256 is compared per Query by the broker before any query is
+executed; a Pack hash cannot substitute for a Query hash.
 
 | Pack | Stage | Fixed purpose | Required validation |
 |---|---|---|---|
-| `SOCE-QP01` | 0 | Source/Target project identity and read-only-role attestation | Source is Production, Target is Staging, profiles distinct, role is read-only. |
+| `SOCE-QP01` | 0 | Source/Target project identity, PostgreSQL version, and read-only-role attestation | Source is Production, Target is Staging, profiles distinct, PostgreSQL major is 17, role is read-only. |
 | `SOCE-QP02` | 0 | Schema/column/constraint/relation attestation | Exact match to private approved Schema/Column Contract. |
 | `SOCE-QP03` | 1 | Corporation/Store classification and Tokorozawa legacy relation | Six corporations, official 20, direct 13, franchise 7, no duplicate/orphan/unresolved official row. |
 | `SOCE-QP04` | 1 | Employee/role/position/department/assignment evidence | Source-backed AM and manager evidence only; sales head may remain `unresolved`. |
@@ -16,11 +23,11 @@ or column.
 
 ## Stage 0 / Stage 1 Rule
 
-Stage 0 executes `SOCE-QP01` and `SOCE-QP02`. It creates a digest from the
-private catalog output. Stage 1 is invoked only when that digest equals the
-pre-approved contract and every sealed private Pack hash equals the approved
-manifest. Stage 1 cannot generate SQL from a live schema, infer a missing
-column, fall back to `S01`--`S08`, or substitute an alternative object.
+Stage 0 executes `SOCE-QP01` and then `SOCE-QP02`. It creates a digest from
+the private catalog output. Stage 1 is invoked only when the PostgreSQL version
+policy, Stage 0 digest, and all 16 private Query hashes exactly match their
+approved contracts. Stage 1 cannot generate SQL from a live schema, infer a
+missing column, fall back to `S01`--`S08`, or substitute an alternative object.
 
 ## Domain Boundaries
 

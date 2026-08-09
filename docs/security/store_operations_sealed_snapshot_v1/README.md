@@ -1,6 +1,6 @@
 # Store Operations Sealed Snapshot Execution Package v1
 
-**Status:** AUTHORING COMPLETE PENDING FINAL REVIEW. This package contains no
+**Status:** BLOCKING REPAIR COMPLETE PENDING FINAL REVIEW. This package contains no
 database connection, live query, Snapshot extraction, Master Population, Auth
 onboarding, consumer-anchor write, M019 change, access binding, or application
 connection.
@@ -35,11 +35,11 @@ this package.
 
 | Component | Location | Responsibility |
 |---|---|---|
-| Fixed SOCE packs | `review/store-operations-sealed-snapshot-v1/query-pack-registry.mjs` | Six fixed identifiers and logical result schemas only. |
+| Fixed SOCE packs | `review/store-operations-sealed-snapshot-v1/query-pack-registry.mjs` | Six fixed Packs, 16 Query IDs, Query Version, type/schema contracts, and no SQL text. |
 | Deterministic hash | `canonicalization.mjs` | One canonical byte representation and SHA-256. |
 | Sanitizer | `sanitizer.mjs` | Public evidence is count/digest/status only. |
 | Schema gate | `schema-contract.mjs` | Stage 1 may run only after Stage 0 exactly matches a private approved contract. |
-| Sealed runner | `sealed-snapshot-runner.mjs` | Fixed order, no retry, rollback/close, no caller SQL. |
+| Sealed runner | `sealed-snapshot-runner.mjs` | Fixed order, per-Query private SQL-hash attestation, run-ID claim, profile expiry, rollback/close, atomic bundle commit, and no caller SQL. |
 | Fixture tests | `sealed-snapshot-package.test.mjs` | Synthetic in-memory proof; no database connection. |
 | Operational materials | This directory | Human approvals, security contract, and incident steps. |
 

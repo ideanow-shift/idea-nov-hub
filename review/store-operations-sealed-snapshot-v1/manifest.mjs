@@ -7,11 +7,13 @@ function digestFor(records, side) {
   })).sort((left, right) => left.queryId.localeCompare(right.queryId)));
 }
 
-export function buildPrivateSnapshotManifest({ request, schemaContract, privateQueryPackManifest, stage0Records, stage1Records, executionTimestamp }) {
+export function buildPrivateSnapshotManifest({ request, schemaContract, privateQueryPackManifest, stage0Records, stage1Records, executionTimestamp, executionAuthorizationBindingHash }) {
   const canonicalPayload = {
     manifestVersion: 'SOCE-MANIFEST-v1',
     packageId: request.executionPackageId,
+    runId: request.runId,
     authorizationReference: request.authorizationReference,
+    executionAuthorizationBindingHash,
     sourceProjectLabel: request.sourceProjectLabel,
     targetProjectLabel: request.targetProjectLabel,
     executionTimestamp,

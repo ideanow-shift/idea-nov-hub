@@ -10,6 +10,22 @@ function assertSafeScalar(value) {
   throw new Error('PRIVATE_OUTPUT_VALUE_REJECTED');
 }
 
+function typeOfScalar(value) {
+  if (value === null) return 'null';
+  if (typeof value === 'boolean') return 'boolean';
+  if (typeof value === 'string') return 'string';
+  if (typeof value === 'number' && Number.isSafeInteger(value)) return 'integer';
+  if (typeof value === 'number' && Number.isFinite(value)) return 'number';
+  return 'invalid';
+}
+
+function assertExpectedType(query, column, value) {
+  const expectedTypes = query.expectedTypes?.[column];
+  if (!Array.isArray(expectedTypes) || !expectedTypes.includes(typeOfScalar(value))) {
+    throw new Error('PRIVATE_OUTPUT_TYPE_REJECTED');
+  }
+}
+
 export function assertPrivateRows(query, rows) {
   if (!query || !Array.isArray(rows) || rows.length > query.maximumRows) {
     throw new Error('PRIVATE_OUTPUT_SHAPE_REJECTED');
@@ -24,6 +40,7 @@ export function assertPrivateRows(query, rows) {
     for (const column of query.expectedColumns) {
       if (!Object.hasOwn(row, column)) throw new Error('PRIVATE_OUTPUT_FIELD_REJECTED');
       assertSafeScalar(row[column]);
+      assertExpectedType(query, column, row[column]);
     }
   }
   return rows;
@@ -64,6 +81,9 @@ export function safeFailureCode(error) {
   const known = new Set([
     'REQUEST_REJECTED',
     'PROFILE_REJECTED',
+    'POSTGRES_VERSION_REJECTED',
+    'EXECUTION_AUTHORIZATION_REJECTED',
+    'RUN_ID_REJECTED',
     'PRIVATE_QUERY_PACK_REJECTED',
     'READ_ONLY_ROLE_REJECTED',
     'FIXED_QUERY_OUTPUT_SCHEMA_INVALID',

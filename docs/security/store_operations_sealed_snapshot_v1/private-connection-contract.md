@@ -18,6 +18,8 @@ different, and no browser or Store Operations runtime receives either profile.
 | Read-only role profile reference | Required | Required | Opaque reference only. |
 | Broker reference | Required | Required | Opaque reference only. |
 | Expiry | Required | Required | Safe expiry status only. |
+| Not-before | Required | Required | Safe UTC status only. |
+| PostgreSQL version policy | Required | Required | Major version and approved exact/min/max numeric range only. |
 | Operator/reviewer binding | Required | Required | Role and approval reference only. |
 
 The following must never enter Git, chat evidence, logs, a manifest, a local
@@ -26,11 +28,25 @@ certificate, token, raw project ref, or raw Auth credential.
 
 ## Identity Gate
 
-Before query 1, the private broker verifies each profile's project identity,
-region, environment, TLS/host trust signals, expiry, and profile fingerprint.
-Any mismatch, Source/Target profile reuse, or ambiguity stops with query count
-zero. The broker returns status booleans only; it does not return identity
-values to the runner or artifact.
+Before the broker opens a database connection, the runner and private broker
+verify each profile's project identity, region, environment, TLS/host trust
+signals, not-before, expiry, profile fingerprint, broker reference, and broker
+fingerprint. Time comes from the private broker's trusted UTC clock, never from
+a caller-controlled request value.
+Any mismatch, Source/Target profile reuse, unavailable broker, expired window,
+or ambiguity stops with query count zero. The broker returns status booleans
+only; it does not return identity values to the runner or artifact.
+The broker's trusted-clock and profile-preflight control-plane calls must not
+open a Source or Target database connection.
+
+## PostgreSQL Version Gate
+
+`SOCE-QP01` returns the safe metadata fields `server_version` and
+`server_version_num` for both sides. The baseline policy requires PostgreSQL
+major version `17`. A private profile can additionally set an exact,
+minimum, or maximum `server_version_num`; the runner enforces all configured
+limits before `SOCE-QP02` or any Stage 1 query. Patch versions are never
+hard-coded in Git or a public artifact.
 
 ## Lifecycle
 

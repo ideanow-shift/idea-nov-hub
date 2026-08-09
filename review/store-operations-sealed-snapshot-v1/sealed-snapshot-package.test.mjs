@@ -3,10 +3,10 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hashCanonical, hashRecordSet } from './canonicalization.mjs';
-import { FakePrivateArtifactSink, FakeSealedSnapshotBroker, FakeSealedSnapshotConnection } from './fake-broker.mjs';
-import { FIXED_QUERY_REGISTRY, FIXED_QUERY_PACKS, PUBLIC_QUERY_CATALOG_HASH, QUERY_PACK_IDS, publicQueryCatalogShape } from './query-pack-registry.mjs';
+import { FakePrivateArtifactSink, FakePrivateExecutionLedger, FakeSealedSnapshotBroker, FakeSealedSnapshotConnection } from './fake-broker.mjs';
+import { FIXED_QUERY_IDS, FIXED_QUERY_REGISTRY, FIXED_QUERY_PACKS, PUBLIC_QUERY_CATALOG_HASH, QUERY_PACK_IDS, publicQueryCatalogShape } from './query-pack-registry.mjs';
 import { assertPrivateRows, sanitizeQueryEvidence } from './sanitizer.mjs';
-import { hashPrivateQueryPackManifest, hashSchemaContract, hashStage0Evidence } from './schema-contract.mjs';
+import { hashPrivateQueryPackManifest, hashSchemaContract, hashStage0Evidence, privateQueryAttestations } from './schema-contract.mjs';
 import { runSealedSnapshot } from './sealed-snapshot-runner.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -35,6 +35,18 @@ function readOnlyRow(side) {
   };
 }
 
+function identityRow(side, environment) {
+  return {
+    attestation_side: side,
+    environment_state: environment,
+    project_identity_state: 'match',
+    region_state: 'match',
+    profile_state: 'match',
+    server_version: '17.2',
+    server_version_num: 170002,
+  };
+}
+
 function schemaRow(side) {
   return {
     attestation_side: side,
@@ -51,9 +63,7 @@ function schemaRow(side) {
 
 function buildRows() {
   const source = {
-    'SOCE-QP01-SOURCE-IDENTITY': [{
-      attestation_side: 'source', environment_state: 'production', project_identity_state: 'match', region_state: 'match', profile_state: 'match',
-    }],
+    'SOCE-QP01-SOURCE-IDENTITY': [identityRow('source', 'production')],
     'SOCE-QP01-SOURCE-READONLY': [readOnlyRow('source')],
     'SOCE-QP02-SOURCE-SCHEMA-COLUMN-MAP': [schemaRow('source')],
     'SOCE-QP03-CLASSIFICATION-SUMMARY': [{
@@ -128,9 +138,7 @@ function buildRows() {
     })),
   };
   const target = {
-    'SOCE-QP01-TARGET-IDENTITY': [{
-      attestation_side: 'target', environment_state: 'staging', project_identity_state: 'match', region_state: 'match', profile_state: 'match',
-    }],
+    'SOCE-QP01-TARGET-IDENTITY': [identityRow('target', 'staging')],
     'SOCE-QP01-TARGET-READONLY': [readOnlyRow('target')],
     'SOCE-QP02-TARGET-SCHEMA-COLUMN-MAP': [schemaRow('target')],
     'SOCE-QP06-TARGET-PRESTATE': [{
@@ -156,29 +164,37 @@ function buildRows() {
   return { source, target };
 }
 
-function makeFixture() {
-  const { source, target } = buildRows();
-  const stage0Records = [
-    'SOCE-QP01-SOURCE-IDENTITY',
-    'SOCE-QP01-TARGET-IDENTITY',
-    'SOCE-QP01-SOURCE-READONLY',
-    'SOCE-QP01-TARGET-READONLY',
-    'SOCE-QP02-SOURCE-SCHEMA-COLUMN-MAP',
-    'SOCE-QP02-TARGET-SCHEMA-COLUMN-MAP',
-  ].map((queryId) => ({ queryId, rows: source[queryId] ?? target[queryId] }));
-  const privateManifestBase = {
-    manifestId: 'SOCE-PRIVATE-QUERY-PACK-MANIFEST-v1',
+function queryBinding(query) {
+  return {
+    queryId: query.queryId,
+    queryVersion: query.queryVersion,
+    packId: query.packId,
+    sqlSha256: hashCanonical({ fixtureOnly: true, queryId: query.queryId, queryVersion: query.queryVersion }),
+    expectedColumns: [...query.expectedColumns],
+    expectedTypes: structuredClone(query.expectedTypes),
+    expectedOutputSchemaVersion: query.expectedOutputSchemaVersion,
+  };
+}
+
+function buildPrivateQueryRegistry() {
+  const queries = FIXED_QUERY_REGISTRY.map(queryBinding);
+  const base = {
+    manifestId: 'SOCE-PRIVATE-QUERY-REGISTRY-v1',
     executionState: 'sealed',
     publicQueryCatalogHash: PUBLIC_QUERY_CATALOG_HASH,
     packIds: QUERY_PACK_IDS,
     packs: QUERY_PACK_IDS.map((packId) => ({
       packId,
       queryIds: FIXED_QUERY_REGISTRY.filter((query) => query.packId === packId).map((query) => query.queryId),
-      sealedQueryPackHash: hashCanonical({ packId, fixture: 'sealed-private-query-pack-v1' }),
+      queryHashManifestHash: hashCanonical(queries.filter((query) => query.packId === packId)),
     })),
+    queries,
   };
-  const privateQueryPackManifest = { ...privateManifestBase, contentHash: hashPrivateQueryPackManifest(privateManifestBase) };
-  const contractBase = {
+  return { ...base, contentHash: hashPrivateQueryPackManifest(base) };
+}
+
+function rebuildSchemaContract(fixture, overrides = {}) {
+  const base = {
     contractId: 'SOCE-SCHEMA-COLUMN-CONTRACT-v1',
     executionState: 'approved',
     sourceProjectLabel: 'idea-nov-core',
@@ -186,53 +202,123 @@ function makeFixture() {
     approvalReference: 'approval:fixture',
     packIds: QUERY_PACK_IDS,
     publicQueryCatalogHash: PUBLIC_QUERY_CATALOG_HASH,
-    expectedStage0Digest: hashStage0Evidence(stage0Records),
-    privateQueryPackManifestHash: privateQueryPackManifest.contentHash,
+    expectedObjectSetHash: hashCanonical({ fixture: 'logical-object-set-only' }),
+    expectedStage0Digest: hashStage0Evidence(fixture.stage0Records()),
+    privateQueryPackManifestHash: fixture.privateQueryPackManifest.contentHash,
+    ...overrides,
   };
-  const approvedSchemaContract = { ...contractBase, schemaContractHash: hashSchemaContract(contractBase) };
+  fixture.approvedSchemaContract = { ...base, schemaContractHash: hashSchemaContract(base) };
+  fixture.request.schemaContractHash = fixture.approvedSchemaContract.schemaContractHash;
+  fixture.executionAuthorization.schemaContractHash = fixture.approvedSchemaContract.schemaContractHash;
+  fixture.privateExecutionLedger?.authorizeRun({ runId: fixture.request.runId, bindingHash: hashCanonical(fixture.executionAuthorization) });
+}
+
+function makeFixture({ runId = 'run:fixture' } = {}) {
+  const { source, target } = buildRows();
+  const privateQueryPackManifest = buildPrivateQueryRegistry();
   const request = {
     executionPackageId: 'store-operations-consumer-enablement-sealed-snapshot-v1',
     sourceProjectLabel: 'idea-nov-core',
     targetProjectLabel: 'idea-nov-staging',
+    publicQueryCatalogHash: PUBLIC_QUERY_CATALOG_HASH,
     noRetry: true,
+    runId,
     packIds: QUERY_PACK_IDS,
     authorizationReference: 'approval:fixture',
-    schemaContractHash: approvedSchemaContract.schemaContractHash,
-    executionTimestamp: '2026-08-09T04:00:00.000Z',
+    schemaContractHash: '0'.repeat(64),
   };
-  const sourceConnection = new FakeSealedSnapshotConnection({ rowsByQuery: source, sealedPackManifestHash: privateQueryPackManifest.contentHash });
-  const targetConnection = new FakeSealedSnapshotConnection({ rowsByQuery: target, sealedPackManifestHash: privateQueryPackManifest.contentHash });
-  return {
+  const executionAuthorization = {
+    authorizationReference: 'approval:fixture',
+    runId,
+    packageId: request.executionPackageId,
+    publicQueryCatalogHash: PUBLIC_QUERY_CATALOG_HASH,
+    privateQueryPackManifestHash: privateQueryPackManifest.contentHash,
+    schemaContractHash: '0'.repeat(64),
+    ownerReference: 'principal:owner',
+    operatorReference: 'principal:operator',
+    reviewerReference: 'principal:reviewer',
+    sourceRoleOwnerReference: 'principal:source-role-owner',
+    targetRoleOwnerReference: 'principal:target-role-owner',
+    brokerOwnerReference: 'principal:broker-owner',
+    profileCustodianReference: 'principal:profile-custodian',
+    authorizedAt: '2026-08-09T03:00:00.000Z',
+    executionWindowStart: '2026-08-09T03:30:00.000Z',
+    executionWindowEnd: '2026-08-09T04:30:00.000Z',
+  };
+  const profiles = {
+    sourceProfile: {
+      environment: 'production',
+      projectLabel: 'idea-nov-core',
+      profileRef: 'private:source-profile',
+      profileFingerprint: 'a'.repeat(64),
+      brokerRef: 'private:sealed-broker',
+      brokerFingerprint: 'c'.repeat(64),
+      notBefore: '2026-08-09T03:30:00.000Z',
+      expiresAt: '2026-08-09T04:30:00.000Z',
+      postgresVersionPolicy: { major: 17, minimumServerVersionNum: 170000, maximumServerVersionNum: 179999 },
+    },
+    targetProfile: {
+      environment: 'staging',
+      projectLabel: 'idea-nov-staging',
+      profileRef: 'private:target-profile',
+      profileFingerprint: 'b'.repeat(64),
+      brokerRef: 'private:sealed-broker',
+      brokerFingerprint: 'c'.repeat(64),
+      notBefore: '2026-08-09T03:30:00.000Z',
+      expiresAt: '2026-08-09T04:30:00.000Z',
+      postgresVersionPolicy: { major: 17, minimumServerVersionNum: 170000, maximumServerVersionNum: 179999 },
+    },
+  };
+  const queryAttestationHash = hashCanonical(privateQueryAttestations(privateQueryPackManifest));
+  const sourceConnection = new FakeSealedSnapshotConnection({ rowsByQuery: source, sealedPackManifestHash: privateQueryPackManifest.contentHash, queryAttestationHash });
+  const targetConnection = new FakeSealedSnapshotConnection({ rowsByQuery: target, sealedPackManifestHash: privateQueryPackManifest.contentHash, queryAttestationHash });
+  const fixture = {
     request,
-    sourceProfile: { environment: 'production', projectLabel: 'idea-nov-core', profileRef: 'private:source-profile', profileFingerprint: 'a'.repeat(64) },
-    targetProfile: { environment: 'staging', projectLabel: 'idea-nov-staging', profileRef: 'private:target-profile', profileFingerprint: 'b'.repeat(64) },
+    executionAuthorization,
+    ...profiles,
     privateQueryPackManifest,
-    approvedSchemaContract,
+    approvedSchemaContract: null,
     source,
     target,
     sourceConnection,
     targetConnection,
     broker: new FakeSealedSnapshotBroker({ source: sourceConnection, target: targetConnection }),
     privateArtifactSink: new FakePrivateArtifactSink(),
+    privateExecutionLedger: new FakePrivateExecutionLedger(),
+    stage0Records: () => [
+      'SOCE-QP01-SOURCE-IDENTITY',
+      'SOCE-QP01-TARGET-IDENTITY',
+      'SOCE-QP01-SOURCE-READONLY',
+      'SOCE-QP01-TARGET-READONLY',
+      'SOCE-QP02-SOURCE-SCHEMA-COLUMN-MAP',
+      'SOCE-QP02-TARGET-SCHEMA-COLUMN-MAP',
+    ].map((queryId) => ({ queryId, rows: source[queryId] ?? target[queryId] })),
   };
+  rebuildSchemaContract(fixture);
+  return fixture;
 }
 
-function rebuildSchemaContract(fixture, changes = {}) {
-  const base = { ...fixture.approvedSchemaContract, ...changes };
-  delete base.schemaContractHash;
-  fixture.approvedSchemaContract = { ...base, schemaContractHash: hashSchemaContract(base) };
-  fixture.request = { ...fixture.request, schemaContractHash: fixture.approvedSchemaContract.schemaContractHash };
+function openedEvents(broker) {
+  return broker.events.filter((event) => event.startsWith('open:'));
 }
 
-await test('registry is fixed, SQL-free, and contains the six approved packs only', () => {
-  assert.deepEqual(QUERY_PACK_IDS, ['SOCE-QP01', 'SOCE-QP02', 'SOCE-QP03', 'SOCE-QP04', 'SOCE-QP05', 'SOCE-QP06']);
+function authorizeFixture(fixture) {
+  fixture.privateExecutionLedger.authorizeRun({ runId: fixture.request.runId, bindingHash: hashCanonical(fixture.executionAuthorization) });
+}
+
+await test('registry fixes 16 SQL-free query identities, versions, output types, and schemas', () => {
   assert.equal(FIXED_QUERY_PACKS.length, 6);
-  assert.equal(FIXED_QUERY_REGISTRY.length, 16);
-  assert.equal(FIXED_QUERY_REGISTRY.every((query) => query.privateSqlOnly && !Object.hasOwn(query, 'sql')), true);
-  assert.equal(PUBLIC_QUERY_CATALOG_HASH, hashCanonical(publicQueryCatalogShape()));
+  assert.equal(FIXED_QUERY_IDS.length, 16);
+  assert.equal(Object.hasOwn(publicQueryCatalogShape()[0].outputSchemas[0], 'sqlSha256'), false);
+  for (const query of FIXED_QUERY_REGISTRY) {
+    assert.equal(query.queryVersion, '1.0.0');
+    assert.equal(query.expectedOutputSchemaVersion, '1.0.0');
+    assert.equal(Object.keys(query.expectedTypes).length, query.expectedColumns.length);
+    assert.equal(Object.hasOwn(query, 'sql'), false);
+  }
 });
 
-await test('fixture-only happy path creates a sealed private artifact and public sanitized evidence', async () => {
+await test('fixture-only happy path verifies all 16 per-query hashes and atomically commits one bundle', async () => {
   const fixture = makeFixture();
   const result = await runSealedSnapshot(fixture);
   assert.equal(result.runStatus, 'complete', `${result.failureCode}:${result.failureQueryId ?? 'none'}`);
@@ -240,14 +326,49 @@ await test('fixture-only happy path creates a sealed private artifact and public
   assert.equal(result.stage0, 'pass');
   assert.equal(result.stage1, 'pass');
   assert.equal(fixture.privateArtifactSink.records.length, 1);
-  assert.equal(fixture.privateArtifactSink.cleanupCount, 1);
+  assert.equal(fixture.privateArtifactSink.prepared.size, 0);
   assert.equal(result.sanitizedEvidence.length, 16);
+  assert.equal(result.executionLedgerState, 'COMPLETE');
   assert.equal(JSON.stringify(result).includes('employee-am-1'), false);
-  assert.equal(fixture.sourceConnection.events.at(-2), 'rollback');
-  assert.equal(fixture.targetConnection.events.at(-1), 'close');
+  assert.equal(fixture.sourceConnection.events.includes('rollback'), true);
+  assert.equal(fixture.targetConnection.events.includes('close'), true);
+  assert.equal(fixture.privateArtifactSink.events.includes('cleanup:pre_commit'), true);
+  assert.equal(fixture.privateArtifactSink.events.includes('cleanup:final'), true);
 });
 
-await test('schema digest mismatch stops after Stage 0 and before snapshot extraction', async () => {
+await test('missing PostgreSQL version field stops before any Stage 1 query or artifact', async () => {
+  const fixture = makeFixture();
+  delete fixture.source['SOCE-QP01-SOURCE-IDENTITY'][0].server_version;
+  rebuildSchemaContract(fixture);
+  const result = await runSealedSnapshot(fixture);
+  assert.equal(result.failureCode, 'FIXED_QUERY_OUTPUT_SCHEMA_INVALID');
+  assert.equal(result.stage1, 'not_started');
+  assert.equal(fixture.sourceConnection.events.some((event) => event.includes('SOCE-QP03')), false);
+  assert.equal(fixture.privateArtifactSink.records.length, 0);
+});
+
+await test('PostgreSQL major-version mismatch stops before Stage 1 and Snapshot creation', async () => {
+  const fixture = makeFixture();
+  fixture.source['SOCE-QP01-SOURCE-IDENTITY'][0].server_version = '16.4';
+  fixture.source['SOCE-QP01-SOURCE-IDENTITY'][0].server_version_num = 160004;
+  rebuildSchemaContract(fixture);
+  const result = await runSealedSnapshot(fixture);
+  assert.equal(result.failureCode, 'POSTGRES_VERSION_REJECTED');
+  assert.equal(result.stage1, 'not_started');
+  assert.equal(fixture.privateArtifactSink.records.length, 0);
+});
+
+await test('private exact/min/max PostgreSQL policy is enforced without a repository patch-version claim', async () => {
+  const exact = makeFixture();
+  exact.sourceProfile = { ...exact.sourceProfile, postgresVersionPolicy: { major: 17, exactServerVersionNum: 170003 } };
+  assert.equal((await runSealedSnapshot(exact)).failureCode, 'POSTGRES_VERSION_REJECTED');
+
+  const bounded = makeFixture();
+  bounded.targetProfile = { ...bounded.targetProfile, postgresVersionPolicy: { major: 17, minimumServerVersionNum: 170000, maximumServerVersionNum: 170001 } };
+  assert.equal((await runSealedSnapshot(bounded)).failureCode, 'POSTGRES_VERSION_REJECTED');
+});
+
+await test('schema digest mismatch stops after Stage 0 and before domain extraction', async () => {
   const fixture = makeFixture();
   rebuildSchemaContract(fixture, { expectedStage0Digest: '0'.repeat(64) });
   const result = await runSealedSnapshot(fixture);
@@ -257,13 +378,16 @@ await test('schema digest mismatch stops after Stage 0 and before snapshot extra
   assert.equal(fixture.privateArtifactSink.records.length, 0);
 });
 
-await test('missing fixed output column is rejected before Stage 1', async () => {
-  const fixture = makeFixture();
-  delete fixture.source['SOCE-QP02-SOURCE-SCHEMA-COLUMN-MAP'][0].column_label;
-  const result = await runSealedSnapshot(fixture);
-  assert.equal(result.failureCode, 'FIXED_QUERY_OUTPUT_SCHEMA_INVALID');
-  assert.equal(result.stage1, 'not_started');
-  assert.equal(fixture.privateArtifactSink.records.length, 0);
+await test('missing fixed output column or wrong scalar type is rejected before Stage 1', async () => {
+  const missing = makeFixture();
+  delete missing.source['SOCE-QP02-SOURCE-SCHEMA-COLUMN-MAP'][0].column_label;
+  rebuildSchemaContract(missing);
+  assert.equal((await runSealedSnapshot(missing)).failureCode, 'FIXED_QUERY_OUTPUT_SCHEMA_INVALID');
+
+  const invalidType = makeFixture();
+  invalidType.source['SOCE-QP01-SOURCE-IDENTITY'][0].server_version_num = '170002';
+  rebuildSchemaContract(invalidType);
+  assert.equal((await runSealedSnapshot(invalidType)).failureCode, 'FIXED_QUERY_OUTPUT_SCHEMA_INVALID');
 });
 
 await test('wrong source project profile opens no connection', async () => {
@@ -271,16 +395,29 @@ await test('wrong source project profile opens no connection', async () => {
   fixture.sourceProfile = { ...fixture.sourceProfile, projectLabel: 'idea-nov-staging' };
   const result = await runSealedSnapshot(fixture);
   assert.equal(result.failureCode, 'PROFILE_REJECTED');
-  assert.deepEqual(fixture.broker.events, []);
+  assert.deepEqual(openedEvents(fixture.broker), []);
   assert.equal(fixture.privateArtifactSink.records.length, 0);
 });
 
-await test('wrong environment profile opens no connection', async () => {
+await test('expired or not-yet-valid private profile opens no broker connection', async () => {
+  const expired = makeFixture();
+  expired.sourceProfile = { ...expired.sourceProfile, expiresAt: '2026-08-09T03:59:00.000Z' };
+  assert.equal((await runSealedSnapshot(expired)).failureCode, 'PROFILE_REJECTED');
+  assert.deepEqual(openedEvents(expired.broker), []);
+
+  const future = makeFixture();
+  future.targetProfile = { ...future.targetProfile, notBefore: '2026-08-09T04:01:00.000Z' };
+  assert.equal((await runSealedSnapshot(future)).failureCode, 'PROFILE_REJECTED');
+  assert.deepEqual(openedEvents(future.broker), []);
+});
+
+await test('private broker profile preflight failure opens no database connection', async () => {
   const fixture = makeFixture();
-  fixture.targetProfile = { ...fixture.targetProfile, environment: 'production' };
+  fixture.broker.profilePreflight.source = false;
   const result = await runSealedSnapshot(fixture);
   assert.equal(result.failureCode, 'PROFILE_REJECTED');
-  assert.deepEqual(fixture.broker.events, []);
+  assert.deepEqual(openedEvents(fixture.broker), []);
+  assert.equal(fixture.privateExecutionLedger.records.get(fixture.request.runId).state, 'FAILED');
 });
 
 await test('writable or inherited role attestation is rejected and both sessions are rolled back', async () => {
@@ -295,21 +432,19 @@ await test('writable or inherited role attestation is rejected and both sessions
   }
 });
 
-await test('private query-pack hash mismatch is rejected before opening either connection', async () => {
+await test('private per-query SQL hash mismatch is rejected before opening either connection', async () => {
   const fixture = makeFixture();
-  fixture.privateQueryPackManifest = {
-    ...fixture.privateQueryPackManifest,
-    packs: fixture.privateQueryPackManifest.packs.map((entry, index) => index === 0 ? { ...entry, sealedQueryPackHash: '0'.repeat(64) } : entry),
-  };
-  fixture.privateQueryPackManifest.contentHash = hashPrivateQueryPackManifest(fixture.privateQueryPackManifest);
+  fixture.privateQueryPackManifest.queries[0].sqlSha256 = '0'.repeat(64);
+  const { contentHash: _oldHash, ...base } = fixture.privateQueryPackManifest;
+  fixture.privateQueryPackManifest = { ...base, contentHash: hashPrivateQueryPackManifest(base) };
   const result = await runSealedSnapshot(fixture);
   assert.equal(result.failureCode, 'PRIVATE_QUERY_PACK_REJECTED');
-  assert.deepEqual(fixture.broker.events, []);
+  assert.deepEqual(openedEvents(fixture.broker), []);
 });
 
-await test('broker-side sealed Pack hash mismatch rolls back before Stage 0', async () => {
+await test('broker-side SQL hash attestation mismatch rolls back before QP01', async () => {
   const fixture = makeFixture();
-  fixture.targetConnection.sealedPackManifestHash = '0'.repeat(64);
+  fixture.targetConnection.queryAttestationHash = '0'.repeat(64);
   const result = await runSealedSnapshot(fixture);
   assert.equal(result.failureCode, 'PRIVATE_QUERY_PACK_REJECTED');
   assert.equal(result.stage0, 'not_started');
@@ -328,34 +463,146 @@ await test('canonical hashes are deterministic despite object and record order',
   const left = [{ a: 'A', b: null }, { a: 'B', b: 'x' }];
   const right = [{ b: 'x', a: 'B' }, { b: null, a: 'A' }];
   assert.equal(hashRecordSet(left, ['a']), hashRecordSet(right, ['a']));
-  assert.equal(hashCanonical({ alpha: 'e\u0301', beta: '\r\n' }), hashCanonical({ beta: '\n', alpha: 'é' }));
+  assert.equal(hashCanonical({ alpha: 'e\u0301', beta: '\r\n' }), hashCanonical({ beta: '\n', alpha: '\u00e9' }));
 });
 
-await test('duplicate or orphan source evidence fails closed before artifact storage', async () => {
+await test('duplicate or orphan source evidence fails closed before artifact preparation', async () => {
   const fixture = makeFixture();
   fixture.source['SOCE-QP03-CLASSIFICATION-SUMMARY'][0].duplicate_store_key_count = 1;
+  rebuildSchemaContract(fixture);
   const result = await runSealedSnapshot(fixture);
   assert.equal(result.failureCode, 'DOMAIN_VALIDATION_REJECTED');
   assert.equal(fixture.privateArtifactSink.records.length, 0);
+  assert.equal(fixture.privateArtifactSink.prepared.size, 0);
 });
 
-await test('target pre-state mismatch fails closed before artifact storage', async () => {
+await test('target pre-state mismatch fails closed before artifact preparation', async () => {
   const fixture = makeFixture();
   fixture.target['SOCE-QP06-TARGET-PRESTATE'][0].canonical_employee_count = 1;
+  rebuildSchemaContract(fixture);
   const result = await runSealedSnapshot(fixture);
   assert.equal(result.failureCode, 'DOMAIN_VALIDATION_REJECTED');
   assert.equal(fixture.privateArtifactSink.records.length, 0);
 });
 
-await test('query failure clears temporary state and persists no artifact', async () => {
+await test('query failure clears temporary state, creates no artifact, and marks run FAILED', async () => {
   const fixture = makeFixture();
   fixture.sourceConnection.failQuery = 'SOCE-QP03-CLASSIFICATION-SUMMARY';
   const result = await runSealedSnapshot(fixture);
   assert.equal(result.runStatus, 'safe_stop');
   assert.equal(fixture.privateArtifactSink.records.length, 0);
-  assert.equal(fixture.privateArtifactSink.cleanupCount, 1);
-  assert.equal(fixture.sourceConnection.events.at(-2), 'rollback');
-  assert.equal(fixture.targetConnection.events.at(-1), 'close');
+  assert.equal(fixture.privateArtifactSink.prepared.size, 0);
+  assert.equal(result.executionLedgerState, 'FAILED');
+  assert.equal(fixture.privateArtifactSink.events.includes('cleanup:failure'), true);
+});
+
+await test('unregistered Owner execution binding is rejected before a broker connection', async () => {
+  const fixture = makeFixture({ runId: 'run:unregistered' });
+  fixture.privateExecutionLedger.authorizedBindings.delete(fixture.request.runId);
+  const result = await runSealedSnapshot(fixture);
+  assert.equal(result.failureCode, 'RUN_ID_REJECTED');
+  assert.deepEqual(openedEvents(fixture.broker), []);
+});
+
+await test('duplicate COMPLETE run_id is rejected before a second connection attempt', async () => {
+  const fixture = makeFixture({ runId: 'run:duplicate-complete' });
+  assert.equal((await runSealedSnapshot(fixture)).runStatus, 'complete');
+  const opensBefore = openedEvents(fixture.broker).length;
+  const result = await runSealedSnapshot(fixture);
+  assert.equal(result.failureCode, 'RUN_ID_REJECTED');
+  assert.equal(openedEvents(fixture.broker).length, opensBefore);
+});
+
+await test('FAILED run_id cannot be retried under the same authorization', async () => {
+  const fixture = makeFixture({ runId: 'run:failed-no-retry' });
+  fixture.sourceConnection.failQuery = 'SOCE-QP03-CLASSIFICATION-SUMMARY';
+  assert.equal((await runSealedSnapshot(fixture)).executionLedgerState, 'FAILED');
+  fixture.sourceConnection.failQuery = null;
+  const opensBefore = openedEvents(fixture.broker).length;
+  const result = await runSealedSnapshot(fixture);
+  assert.equal(result.failureCode, 'RUN_ID_REJECTED');
+  assert.equal(openedEvents(fixture.broker).length, opensBefore);
+});
+
+await test('concurrent claims for the same run_id permit exactly one run', async () => {
+  const first = makeFixture({ runId: 'run:concurrent' });
+  const second = makeFixture({ runId: 'run:concurrent' });
+  second.privateExecutionLedger = first.privateExecutionLedger;
+  const [left, right] = await Promise.all([runSealedSnapshot(first), runSealedSnapshot(second)]);
+  assert.equal([left.runStatus, right.runStatus].filter((state) => state === 'complete').length, 1);
+  assert.equal([left.failureCode, right.failureCode].filter((code) => code === 'RUN_ID_REJECTED').length, 1, JSON.stringify({ left, right }));
+});
+
+await test('prepare or verification failure aborts the bundle with no final artifact', async () => {
+  const prepareFailure = makeFixture();
+  prepareFailure.privateArtifactSink = new FakePrivateArtifactSink({ failure: { prepare: true } });
+  assert.equal((await runSealedSnapshot(prepareFailure)).failureCode, 'SEALED_ARTIFACT_REJECTED');
+  assert.equal(prepareFailure.privateArtifactSink.records.length, 0);
+
+  const verifyFailure = makeFixture();
+  verifyFailure.privateArtifactSink = new FakePrivateArtifactSink({ failure: { verify: true } });
+  assert.equal((await runSealedSnapshot(verifyFailure)).failureCode, 'SEALED_ARTIFACT_REJECTED');
+  assert.equal(verifyFailure.privateArtifactSink.records.length, 0);
+  assert.equal(verifyFailure.privateArtifactSink.prepared.size, 0);
+  assert.equal(verifyFailure.privateArtifactSink.events.includes('abort'), true);
+});
+
+await test('commit failure or invalid committed reference leaves no final artifact', async () => {
+  const commitFailure = makeFixture();
+  commitFailure.privateArtifactSink = new FakePrivateArtifactSink({ failure: { commit: true } });
+  assert.equal((await runSealedSnapshot(commitFailure)).failureCode, 'SEALED_ARTIFACT_REJECTED');
+  assert.equal(commitFailure.privateArtifactSink.records.length, 0);
+
+  const invalidReference = makeFixture();
+  invalidReference.privateArtifactSink = new FakePrivateArtifactSink({ failure: { invalidCommitReference: true } });
+  assert.equal((await runSealedSnapshot(invalidReference)).failureCode, 'SEALED_ARTIFACT_REJECTED');
+  assert.equal(invalidReference.privateArtifactSink.records.length, 0);
+  assert.equal(invalidReference.privateArtifactSink.events.includes('revoke'), true);
+});
+
+await test('cleanup receipt covers every component and cleanup failure revokes a committed bundle', async () => {
+  const fixture = makeFixture();
+  const result = await runSealedSnapshot(fixture);
+  assert.equal(result.connectionCleanup, 'pass');
+
+  const cleanupFailure = makeFixture();
+  cleanupFailure.privateArtifactSink = new FakePrivateArtifactSink({ failure: { 'cleanup:final': true } });
+  const failed = await runSealedSnapshot(cleanupFailure);
+  assert.equal(failed.failureCode, 'RUNNER_CLEANUP_FAILED');
+  assert.equal(failed.executionLedgerState, 'FAILED');
+  assert.equal(cleanupFailure.privateArtifactSink.records.length, 0);
+  assert.equal(cleanupFailure.privateArtifactSink.events.includes('revoke'), true);
+
+  const failureCleanup = makeFixture();
+  failureCleanup.sourceConnection.failQuery = 'SOCE-QP03-CLASSIFICATION-SUMMARY';
+  failureCleanup.privateArtifactSink = new FakePrivateArtifactSink({ failure: { 'cleanup:failure': true } });
+  const stopped = await runSealedSnapshot(failureCleanup);
+  assert.equal(stopped.failureCode, 'RUNNER_CLEANUP_FAILED');
+  assert.equal(stopped.executionLedgerState, 'FAILED');
+});
+
+await test('operator cannot be reviewer or self-approve role, broker, or profile custody', async () => {
+  const sameReviewer = makeFixture();
+  sameReviewer.executionAuthorization.reviewerReference = sameReviewer.executionAuthorization.operatorReference;
+  authorizeFixture(sameReviewer);
+  assert.equal((await runSealedSnapshot(sameReviewer)).failureCode, 'EXECUTION_AUTHORIZATION_REJECTED');
+
+  const selfApprovedRole = makeFixture();
+  selfApprovedRole.executionAuthorization.sourceRoleOwnerReference = selfApprovedRole.executionAuthorization.operatorReference;
+  authorizeFixture(selfApprovedRole);
+  assert.equal((await runSealedSnapshot(selfApprovedRole)).failureCode, 'EXECUTION_AUTHORIZATION_REJECTED');
+});
+
+await test('missing Source/Target role-owner or Broker-owner attestation is rejected', async () => {
+  const missingRoleOwner = makeFixture();
+  delete missingRoleOwner.executionAuthorization.targetRoleOwnerReference;
+  authorizeFixture(missingRoleOwner);
+  assert.equal((await runSealedSnapshot(missingRoleOwner)).failureCode, 'EXECUTION_AUTHORIZATION_REJECTED');
+
+  const missingBrokerOwner = makeFixture();
+  delete missingBrokerOwner.executionAuthorization.brokerOwnerReference;
+  authorizeFixture(missingBrokerOwner);
+  assert.equal((await runSealedSnapshot(missingBrokerOwner)).failureCode, 'EXECUTION_AUTHORIZATION_REJECTED');
 });
 
 await test('package source and documentation contain no concrete secret, UUID, or PII literal', () => {
@@ -369,4 +616,5 @@ await test('package source and documentation contain no concrete secret, UUID, o
   assert.equal(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(source), false);
 });
 
-process.stdout.write(`RESULT ${passed}/15 PASS\n`);
+assert.equal(passed, 28);
+process.stdout.write(`RESULT ${passed}/28 PASS\n`);

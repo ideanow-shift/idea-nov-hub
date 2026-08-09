@@ -33,7 +33,12 @@ exception requires a separate Owner approval and is outside this v1 Runner.
 5. Confirm exact private Query-registry hash and Schema/Column Contract hash.
 6. Confirm sanitizer/masking/mapping policy versions and sealed-artifact
    retention location.
-7. Confirm no Source Snapshot, Master Population, Auth onboarding, anchor
+7. Confirm the parent-level `.gitattributes` resolves `text` and `eol=lf` for
+   the complete sealed-package subtree, including its nested `.gitattributes`.
+   Run the fresh Windows checkout test for `core.autocrlf=true`, `false`, and
+   `input`; all 29 Package Lock artifact hashes and 16 SQL artifact hashes
+   must match. A CRLF byte or Package Lock mismatch is a stop condition.
+8. Confirm no Source Snapshot, Master Population, Auth onboarding, anchor
    insert, M019-Corrective, binding, or Store Operations connection is included.
 
 ## During the Window

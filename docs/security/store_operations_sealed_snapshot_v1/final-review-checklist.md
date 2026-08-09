@@ -14,6 +14,11 @@
 - [ ] The Package Lock contains the ordered artifact path/hash list, Query Pack
   hash, Schema/Sanitizer/Manifest contract hashes, and a self-excluding
   Package SHA-256.
+- [ ] A version-controlled parent `.gitattributes` narrowly resolves `text`
+  and `eol=lf` for the sealed-package subtree, including the nested
+  `.gitattributes` file. Fresh Windows worktrees for `core.autocrlf=true`,
+  `false`, and `input` preserve all 29 Package Lock artifact bytes and all 16
+  SQL artifact bytes; a deliberate CRLF mutation is rejected.
 - [ ] All 16 Query IDs have a fixed Query Version, `sqlFile`, byte-level
   `sqlSha256`, and type/schema version. The runner rehashes SQL at startup and
   immediately before use; a Pack hash does not substitute.

@@ -45,7 +45,7 @@ const uniqueCodes = (values) => new Set(values.map((value) => value.code)).size 
 
 test("NOV Talent Data Dictionary is the canonical versioned specification", () => {
   assert.equal(dictionary.dictionaryId, "NOV_TALENT_DATA_DICTIONARY");
-  assert.equal(dictionary.dictionaryVersion, "1.6.0");
+  assert.equal(dictionary.dictionaryVersion, "1.7.1");
   assert.equal(dictionary.status, "CANONICAL");
   assert.equal(dictionary.governance.unknownCodePolicy, "REJECT");
   assert.equal(dictionary.governance.undefinedDefinitionPolicy, "FAIL_CLOSED");
@@ -78,6 +78,10 @@ test("candidate statuses and event codes are unique and preserve current contrac
   ]);
   assert.equal(dictionary.sourceResponsibilities.legacyEventCodesAreOfficialKpiSource, false);
   assert.equal(dictionary.sourceResponsibilities.legacyCrossDomainActivityMutationAllowed, false);
+  assert.deepEqual(dictionary.communicationHistory.methods, ["LINE", "PHONE", "EMAIL", "IN_PERSON", "SCHOOL_RELAY", "OTHER"]);
+  assert.equal(dictionary.communicationHistory.fullTranscriptStored, false);
+  assert.deepEqual(dictionary.nextActionContract.states, ["OPEN", "ON_HOLD", "COMPLETED", "CANCELLED"]);
+  assert.equal(dictionary.nextActionContract.editablePriority, false);
   assert.equal(dictionary.sourceResponsibilities.legacyActivityReadDeactivateAllowed, true);
   assert.equal(dictionary.sourceResponsibilities.crossGrainRatePolicy, "PREPARING_UNTIL_SAME_GRAIN_CONTRACT");
   assert.equal(dictionary.sourceResponsibilities.legacyFairKpiColumnsAreOfficialSource, false);
@@ -169,7 +173,7 @@ test("staging operations contract fixes 636 candidates and keeps production proh
   assert.equal(stagingOperationsContract.environmentPolicy.staging, "OPERATION_VALIDATION_ENVIRONMENT");
   assert.equal(stagingOperationsContract.environmentPolicy.production, "PROHIBITED_UNTIL_SEPARATE_PROMOTION_APPROVAL");
   assert.equal(stagingOperationsContract.initialScope.candidateCount, 636);
-  assert.equal(stagingOperationsContract.versionCompatibility.operationsDictionaryVersion, "1.6.0");
+  assert.equal(stagingOperationsContract.versionCompatibility.operationsDictionaryVersion, "1.7.1");
   assert.equal(stagingOperationsContract.versionCompatibility.sealedDryRunDataContractVersion, "1.2.0");
   assert.equal(stagingOperationsContract.versionCompatibility.candidateMappingSemanticsChanged, false);
   assert.equal(stagingOperationsContract.versionCompatibility.freshSnapshotRequiredBeforeImport, true);

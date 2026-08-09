@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { createCandidateActivityConfirmationController } from "../portal/talent/candidate-activity-confirmation.mjs";
@@ -123,5 +123,5 @@ test("selection save path uses the custom dialog and keeps the existing API cont
   assert.match(selectionSave, /candidateName:\s*student\.displayName/u);
   assert.doesNotMatch(selectionSave, /candidateName:\s*student\.name/u);
   assert.match(app, /mutateActivity\(command\)/u);
-  assert.match(app, /candidate-activity-confirmation\.mjs\?v=20260809-selection-confirm-dialog-1/u);
+  assert.match(app, /candidate-activity-confirmation\.mjs\?v=20260809-outcome2-daily-workflow-2/u);
 });

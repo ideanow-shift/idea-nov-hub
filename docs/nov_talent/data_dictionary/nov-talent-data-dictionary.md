@@ -5,7 +5,7 @@
 | 項目 | 正式値 |
 |---|---|
 | 文書ID | `NOV_TALENT_DATA_DICTIONARY` |
-| Version | `1.6.0` |
+| Version | `1.7.1` |
 | Status | `CANONICAL` |
 | 適用日 | 2026-08-08 |
 | 機械可読正本 | `nov-talent-data-dictionary.json` |
@@ -75,7 +75,17 @@ Event行数とunique Candidate数は異なる粒度である。同一粒度の�
 | `offers` | `OFFER_ISSUED` | 内定提示 | 使用禁止（legacy） | 正式KPIはSelection Historyの `OFFERED`。 |
 | `expectedJoiners` | `EXPECTED_JOIN_CONFIRMED` | 入社予定確認 | 使用禁止（legacy） | 現在の人数はCandidateの `EXPECTED_JOIN` Projection。 |
 
-### 5.1 イベント失効理由
+### 5.1 Communication History / Next Action
+
+Communication Historyは `COMMUNICATION_RECORDED` のappend-only Eventであり、Selection KPIには加算しない。方法コードは `LINE`、`PHONE`、`EMAIL`、`IN_PERSON`、`SCHOOL_RELAY`、`OTHER`。方向は `INBOUND` / `OUTBOUND`、結果は `REACHED`、`NO_RESPONSE`、`REPLY_RECEIVED`、`INFORMATION_SHARED`、`OTHER` を正本とする。会話全文や私的メモは保存せず、要約は最大1,000文字とする。
+
+連絡日時はtimezoneを明示した厳格なRFC3339だけを受け付ける。UIは日本時間（Asia/Tokyo）で入力し、`+09:00` を付けて送信する。timezoneなし文字列、存在しない日時、暗黙のローカル時刻は拒否する。訂正は元行をUPDATEせず、元Communicationを参照する新しいCommunicationをappendする。元履歴と訂正履歴は監査表示に残し、現在の返信待ち・運用件数は訂正されていない最新の有効行だけを使用する。
+
+Next Actionの状態は `OPEN`、`ON_HOLD`、`COMPLETED`、`CANCELLED`。正式遷移は `OPEN → COMPLETED`、`OPEN → ON_HOLD`、`ON_HOLD → OPEN`、`OPEN|ON_HOLD → CANCELLED` に限定する。priorityは保存せず、期限から期限超過・今日・今後・期限未設定を決定的に導出する。
+
+新規Next Actionは担当者を必須とし、HUBのACTIVE Employee正本から選択する。操作Actorと担当者は別の責務であり、ActorはHUB Sessionからserver-side解決、担当者はHUBが返した選択肢をserver-sideで再検証する。担当者変更は状態を変えない監査付きCommandとする。既存の担当者ID未登録行は推測Backfillせず「担当者未登録・確認必要」として残す。
+
+### 5.2 イベント失効理由
 
 | 正式コード | 正式名称 | 定義 |
 |---|---|---|
@@ -149,7 +159,7 @@ Sourceまたは履歴接続が未完了の指標は、0件ではなく `集計�
 
 | 対象 | Version |
 |---|---|
-| Data Dictionary | `1.6.0` |
+| Data Dictionary | `1.7.1` |
 | Data Integrity Report schema | `1.2` |
 | Work Queue seed schema | `2.0` |
 | Source Lineage schema | `1.0` |

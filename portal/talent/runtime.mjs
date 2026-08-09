@@ -1,10 +1,10 @@
-import { createNovTalentMockRepository } from "./mock-repository.mjs";
+﻿import { createNovTalentMockRepository } from "./mock-repository.mjs";
 import { NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
 import {
   createDashboardSummaryExact1Executor,
   createSelectionCoverageExact1Executor,
   createTalentWorkspaceExact1Executor
-} from "./exact1.mjs?v=20260809-selection-confirm-dialog-1";
+} from "./exact1.mjs?v=20260809-outcome2-daily-workflow-2";
 
 const METRIC_LABELS = Object.freeze({
   contacts: "接触数",

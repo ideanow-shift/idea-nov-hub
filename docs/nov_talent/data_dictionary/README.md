@@ -14,7 +14,7 @@ NOV Talentの正式名称、正式コード、正式定義の正本である。
 - Staging Candidate Versioned Dataset schema: `staging-candidate-versioned-dataset-schema.json`
 - Platform環境運用方針: `platform-environment-policy.md`
 - Snapshot・受領・Rollback契約: 各Migration契約文書
-- 現行Version: `1.6.0`
+- 現行Version: `1.7.1`
 
 AI、CSV、UI、DB、Platformは機械可読正本に存在する値だけを参照する。未定義値は推測せず、安全停止する。
 

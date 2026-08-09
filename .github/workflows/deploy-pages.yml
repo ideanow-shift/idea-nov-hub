@@ -14,6 +14,7 @@ on:
       - "tests/management-store-csv-requirements.test.mjs"
       - "scripts/generate-nov-talent-workspace-contract.mjs"
       - "scripts/generate-nov-talent-selection-coverage-contract.mjs"
+      - "scripts/generate-nov-talent-daily-workflow-contract.mjs"
       - "tools/nov-talent-e2e/**"
   workflow_dispatch:
     inputs:
@@ -58,6 +59,7 @@ jobs:
         run: |
           node scripts/generate-nov-talent-workspace-contract.mjs --check
           node scripts/generate-nov-talent-selection-coverage-contract.mjs --check
+          node scripts/generate-nov-talent-daily-workflow-contract.mjs --check
 
       - name: Run NOV Talent and HUB fixed regressions
         shell: bash

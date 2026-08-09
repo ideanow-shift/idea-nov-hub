@@ -203,7 +203,8 @@ test("Outcome 1 writes are disabled by default while existing Event writes remai
     date: "2026-08-08",
     reason: "fixture"
   }));
-  assert.equal(communicationResponse.status, 503);
+  assert.equal(communicationResponse.status, 400);
+  assert.equal((await communicationResponse.json()).safeCode, "OUTCOME2_COMMAND_REQUIRED");
   assert.deepEqual(disabled.rpcNames, []);
 
   const compatible = writeHandler({ outcome1WritesEnabled: false });

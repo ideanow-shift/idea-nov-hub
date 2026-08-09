@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, isAbsolute, join, relative, resolve } from "node:path";
@@ -93,6 +93,7 @@ const workspace = {
 };
 window.__workspaceRequests = 0;
 window.__selectionCoverageRequests = 0;
+window.__dailyWorkflowRequests = 0;
 window.__dashboardSummaryRequests = 0;
 const originalFetch = window.fetch.bind(window);
 window.fetch = async (input, init = {}) => {
@@ -105,13 +106,17 @@ window.fetch = async (input, init = {}) => {
     window.__selectionCoverageRequests += 1;
     return Response.json({ ok: true, data: coverage, meta: { generatedAt: "2026-08-06T00:00:00.000Z", requestId: "coverage-gate", source: "fixture", version: "1" } });
   }
+  if (url.includes("/api/talent/v1/daily-workflow")) {
+    window.__dailyWorkflowRequests += 1;
+    return Response.json({ ok: true, data: { daily_workflow_contract_version: "1.1.0", sourceCoverageState: "COMPLETE", generatedAt: "2026-08-06T00:00:00.000Z", communications: [], nextActions: [], assignees: [] } });
+  }
   if (url.includes("/api/talent/v1/dashboard/summary")) {
     window.__dashboardSummaryRequests += 1;
     throw new Error("duplicate dashboard summary request");
   }
   return originalFetch(input, init);
 };
-await import("/talent/app.mjs?v=20260809-selection-confirm-dialog-1");
+await import("/talent/app.mjs?v=20260809-outcome2-daily-workflow-2");
 `;
 
 const server = createServer(async (request, response) => {

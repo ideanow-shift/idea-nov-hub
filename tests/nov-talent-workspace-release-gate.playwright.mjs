@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, isAbsolute, join, relative, resolve } from "node:path";
@@ -108,7 +108,7 @@ window.fetch = async (input, init = {}) => {
   }
   if (url.includes("/api/talent/v1/daily-workflow")) {
     window.__dailyWorkflowRequests += 1;
-    return Response.json({ ok: true, data: { daily_workflow_contract_version: "1.0.0", sourceCoverageState: "COMPLETE", generatedAt: "2026-08-06T00:00:00.000Z", communications: [], nextActions: [] } });
+    return Response.json({ ok: true, data: { daily_workflow_contract_version: "1.1.0", sourceCoverageState: "COMPLETE", generatedAt: "2026-08-06T00:00:00.000Z", communications: [], nextActions: [], assignees: [] } });
   }
   if (url.includes("/api/talent/v1/dashboard/summary")) {
     window.__dashboardSummaryRequests += 1;
@@ -116,7 +116,7 @@ window.fetch = async (input, init = {}) => {
   }
   return originalFetch(input, init);
 };
-await import("/talent/app.mjs?v=20260809-outcome2-daily-workflow-1");
+await import("/talent/app.mjs?v=20260809-outcome2-daily-workflow-2");
 `;
 
 const server = createServer(async (request, response) => {

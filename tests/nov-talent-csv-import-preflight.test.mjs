@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { analyzeTalent28CsvPreflight, buildTalent28CsvApprovalBoundary, buildTalent28CsvApprovalReadback, buildTalent28CsvCorrectionRoute, buildTalent28CsvCorrectionWorkbench, buildTalent28CsvFixGuide, buildTalent28CsvImportReadiness, buildTalent28CsvOperationalPlan, buildTalent28CsvOwnerApprovalDraft, buildTalent28CsvOwnerHandoffChecklist, buildTalent28CsvPreparationGuide, buildTalent28CsvSafePreview, buildTalent28CsvSafeReceipt, buildTalent28CsvStagingApprovalGuide, buildTalent28CsvTemplate, TALENT_28_CSV_PREFLIGHT_CONTRACT } from "../portal/talent/csv-import-preflight.mjs";
@@ -45,7 +45,7 @@ test("28卒 CSV staging approval guide stays separate from writes", async () => 
   assert.match(html, />選択したCSVを検証</);
   assert.doesNotMatch(html, /csv-import-preflight\.mjs\?v=/);
   assert.doesNotMatch(html, /csv-preflight-fallback\.js/);
-  assert.match(html, /app\.mjs\?v=20260809-outcome2-daily-workflow-1/);
+  assert.match(html, /app\.mjs\?v=20260809-outcome2-daily-workflow-2/);
   assert.doesNotMatch(html, /Keep the workflow|approval text is prepared/i);
   assert.match(css, /\.csv-staging-approval-guide/);
 });

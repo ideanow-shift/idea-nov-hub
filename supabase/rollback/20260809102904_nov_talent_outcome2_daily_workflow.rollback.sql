@@ -4,22 +4,23 @@ begin;
 do $guard$
 begin
   if exists (select 1 from public.nov_talent_recruitment_events_v1 where event_code='COMMUNICATION_RECORDED')
-    or exists (select 1 from public.nov_talent_next_actions_v1 where workflow_contract_version='1.0.0')
-    or exists (select 1 from public.nov_talent_recruitment_activity_audit_v1 where action in ('HOLD','REOPEN','CANCEL')) then
+    or exists (select 1 from public.nov_talent_next_actions_v1 where workflow_contract_version='1.1.0')
+    or exists (select 1 from public.nov_talent_recruitment_activity_audit_v1 where action in ('ASSIGN','HOLD','REOPEN','CANCEL')) then
     raise exception using errcode='55000', message='outcome2_rollback_business_facts_present';
   end if;
 end
 $guard$;
 
 drop trigger if exists guard_next_action_command_v2 on public.nov_talent_next_actions_v1;
-drop function if exists public.nov_talent_record_communication_v1(uuid,text,text,uuid,integer,timestamptz,text,text,text,text,boolean,boolean,text,date,text,text);
-drop function if exists public.nov_talent_mutate_next_action_v2(uuid,text,text,text,uuid,uuid,integer,text,date,text,text,text);
+drop function if exists public.nov_talent_record_communication_v1(uuid,text,text,uuid,integer,text,text,text,text,text,boolean,boolean,text,date,text,text,uuid,uuid,text);
+drop function if exists public.nov_talent_mutate_next_action_v2(uuid,text,text,text,uuid,uuid,integer,text,date,text,text,uuid,text);
 drop function if exists nov_talent_internal.guard_next_action_command_v2();
 
 alter table public.nov_talent_next_actions_v1
   drop constraint if exists nov_talent_next_actions_v1_hold_reason_check,
   drop constraint if exists nov_talent_next_actions_v1_creation_basis_check,
   drop constraint if exists nov_talent_next_actions_v1_workflow_contract_check,
+  drop constraint if exists nov_talent_next_actions_v1_assignee_check,
   drop constraint if exists nov_talent_next_actions_v1_state_check,
   drop column if exists origin_event_id,
   drop column if exists assigned_employee_id,
@@ -31,6 +32,7 @@ alter table public.nov_talent_next_actions_v1
   add constraint nov_talent_next_actions_v1_state_check check (state in ('OPEN','COMPLETED','CANCELLED'));
 
 alter table public.nov_talent_recruitment_events_v1
+  drop constraint if exists nov_talent_communication_correction_shape_check,
   drop constraint if exists nov_talent_communication_shape_check,
   drop constraint if exists nov_talent_communication_result_check,
   drop constraint if exists nov_talent_communication_direction_check,
@@ -43,6 +45,8 @@ alter table public.nov_talent_recruitment_events_v1
   drop column if exists communication_direction,
   drop column if exists communication_method,
   drop column if exists communication_at;
+
+drop index if exists public.nov_talent_communication_single_correction_idx;
 
 create or replace function nov_talent_internal.guard_official_recruitment_event_v1()
 returns trigger language plpgsql set search_path = '' as $function$

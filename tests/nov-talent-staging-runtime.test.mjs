@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
@@ -357,5 +357,5 @@ test("published config exposes no server credential and only a server-side write
   assert.match(config, /writeEnabled:\s*true/);
   assert.match(config, /writeApiBaseUrl/);
   assert.doesNotMatch(config, /service_role|serviceRole|password|secret/i);
-  assert.match(html, /app\.mjs\?v=20260809-outcome2-daily-workflow-1/);
+  assert.match(html, /app\.mjs\?v=20260809-outcome2-daily-workflow-2/);
 });

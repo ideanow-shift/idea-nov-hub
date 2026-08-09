@@ -83,24 +83,40 @@ test("Outcome 2 migration applies, enforces atomic commands, rolls back, and rea
       union all select 'function|'||p.proname||'|'||pg_get_function_identity_arguments(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in('public','nov_talent_internal') and p.proname like '%outcome2%' or p.proname in('nov_talent_record_communication_v1','nov_talent_mutate_next_action_v2','guard_next_action_command_v2')
     )q;`).stdout.trim();
     const firstCatalog = catalog();
-    const actor="00000000-0000-4000-8000-000000000009", candidate="00000000-0000-4000-8000-000000000001";
+    const actor="00000000-0000-4000-8000-000000000009", assignee="00000000-0000-4000-8000-000000000008", candidate="00000000-0000-4000-8000-000000000001";
     const behavior = psql(`begin;
       insert into public.nov_talent_candidates_v1(candidate_id,graduation_year,student_name) values('${candidate}',2027,'fixture');
-      select * from public.nov_talent_record_communication_v1('${actor}','hr.admin','fixture','${candidate}',1,'2026-08-09T10:00:00+09','LINE','OUTBOUND','REACHED','summary',true,true,'FOLLOW_UP','2026-08-10','reply check','owner');
-      do $$declare a uuid; begin
+      select set_config('nov_talent.outcome2_next_action_write','allowed',true);
+      insert into public.nov_talent_next_actions_v1(candidate_id,action_code,due_date,state,source_type,source_field_code,action_text,assigned_to)
+        values('${candidate}','FOLLOW_UP','2026-08-11','OPEN','LEGACY','LEGACY:1','legacy action','legacy owner');
+      do $$begin if not exists(select 1 from public.nov_talent_next_actions_v1 where source_type='LEGACY' and assigned_employee_id is null and workflow_contract_version is null) then raise exception 'legacy_assignee_was_guessed'; end if; end$$;
+      select * from public.nov_talent_record_communication_v1('${actor}','hr.admin','fixture','${candidate}',1,'2026-08-09T10:00:00+09:00','LINE','OUTBOUND','REACHED','summary',true,true,'FOLLOW_UP','2026-08-10','reply check','owner','${assignee}',null,null);
+      do $$declare a uuid; original_event uuid; correction_event uuid; begin
         if (select count(*) from public.nov_talent_recruitment_events_v1 where event_code='COMMUNICATION_RECORDED')<>1
-          or (select count(*) from public.nov_talent_next_actions_v1)<>1 or (select count(*) from public.nov_talent_recruitment_activity_audit_v1)<>2 then raise exception 'atomic_create_failed'; end if;
+          or (select count(*) from public.nov_talent_next_actions_v1)<>2 or (select count(*) from public.nov_talent_recruitment_activity_audit_v1)<>2 then raise exception 'atomic_create_failed'; end if;
+        if (select communication_at at time zone 'UTC' from public.nov_talent_recruitment_events_v1 where event_code='COMMUNICATION_RECORDED')
+          <> timestamp '2026-08-09 01:00:00' then raise exception 'communication_timezone_drift'; end if;
         begin update public.nov_talent_recruitment_events_v1 set contact_content='changed' where event_code='COMMUNICATION_RECORDED'; raise exception 'communication_update_accepted'; exception when sqlstate '55000' then null; end;
-        select next_action_id into a from public.nov_talent_next_actions_v1;
-        perform * from public.nov_talent_mutate_next_action_v2('${actor}','hr.admin','hold','HOLD','${candidate}',a,1,null,null,null,null,'waiting');
-        begin perform * from public.nov_talent_mutate_next_action_v2('${actor}','hr.admin','bad','COMPLETE','${candidate}',a,1,null,null,null,null,null); raise exception 'stale_accepted'; exception when sqlstate '40001' then null; end;
-        perform * from public.nov_talent_mutate_next_action_v2('${actor}','hr.admin','resume','REOPEN','${candidate}',a,2,null,null,null,null,null);
-        perform * from public.nov_talent_mutate_next_action_v2('${actor}','hr.admin','done','COMPLETE','${candidate}',a,3,null,null,null,null,null);
-        begin perform * from public.nov_talent_mutate_next_action_v2('${actor}','hr.admin','bad','REOPEN','${candidate}',a,4,null,null,null,null,null); raise exception 'invalid_transition_accepted'; exception when sqlstate '22023' then null; end;
+        select next_action_id into a from public.nov_talent_next_actions_v1 where workflow_contract_version='1.1.0';
+        perform * from public.nov_talent_mutate_next_action_v2('${actor}','hr.admin','assign','ASSIGN','${candidate}',a,1,null,null,null,'new owner','${actor}',null);
+        if (select assigned_employee_id from public.nov_talent_next_actions_v1 where next_action_id=a)<>'${actor}' then raise exception 'assign_failed'; end if;
+        if not exists(select 1 from public.nov_talent_recruitment_activity_audit_v1 where entity_id=a::text and action='ASSIGN'
+          and before_values->>'assignedEmployeeId'='${assignee}' and after_values->>'assignedEmployeeId'='${actor}') then raise exception 'assign_audit_missing'; end if;
+        perform * from public.nov_talent_mutate_next_action_v2('${actor}','hr.admin','hold','HOLD','${candidate}',a,2,null,null,null,null,null,'waiting');
+        begin perform * from public.nov_talent_mutate_next_action_v2('${actor}','hr.admin','bad','COMPLETE','${candidate}',a,2,null,null,null,null,null,null); raise exception 'stale_accepted'; exception when sqlstate '40001' then null; end;
+        perform * from public.nov_talent_mutate_next_action_v2('${actor}','hr.admin','resume','REOPEN','${candidate}',a,3,null,null,null,null,null,null);
+        perform * from public.nov_talent_mutate_next_action_v2('${actor}','hr.admin','done','COMPLETE','${candidate}',a,4,null,null,null,null,null,null);
+        begin perform * from public.nov_talent_mutate_next_action_v2('${actor}','hr.admin','bad','REOPEN','${candidate}',a,5,null,null,null,null,null,null); raise exception 'invalid_transition_accepted'; exception when sqlstate '22023' then null; end;
+        select event_id into original_event from public.nov_talent_recruitment_events_v1 where event_code='COMMUNICATION_RECORDED';
+        select event_id into correction_event from public.nov_talent_record_communication_v1('${actor}','hr.admin','correct','${candidate}',1,'2026-08-09T10:05:00+09:00','LINE','OUTBOUND','REPLY_RECEIVED','corrected',false,false,null,null,null,null,null,original_event,'wrong result');
+        begin perform * from public.nov_talent_record_communication_v1('${actor}','hr.admin','double','${candidate}',1,'2026-08-09T10:06:00+09:00','LINE','OUTBOUND','REACHED','again',false,false,null,null,null,null,null,original_event,'again'); raise exception 'double_correction_accepted'; exception when unique_violation then null; end;
+        perform * from public.nov_talent_record_communication_v1('${actor}','hr.admin','chain','${candidate}',1,'2026-08-09T10:07:00+09:00','LINE','OUTBOUND','REACHED','final',false,false,null,null,null,null,null,correction_event,'final correction');
       end$$;
       do $$begin
-        begin perform * from public.nov_talent_record_communication_v1('${actor}','hr.admin','fixture','${candidate}',1,'2026-08-09T11:00:00+09','LINE','OUTBOUND','REACHED','summary',false,true,'FOLLOW_UP',null,'missing date',null); raise exception 'partial_payload_accepted'; exception when sqlstate '22023' then null; end;
-        if (select count(*) from public.nov_talent_recruitment_events_v1)<>1 then raise exception 'partial_write'; end if;
+        begin perform * from public.nov_talent_record_communication_v1('${actor}','hr.admin','fixture','${candidate}',1,'2026-08-09T11:00:00','LINE','OUTBOUND','REACHED','summary',false,false,null,null,null,null,null,null,null); raise exception 'timezone_less_accepted'; exception when sqlstate '22023' then null; end;
+        begin perform * from public.nov_talent_record_communication_v1('${actor}','hr.admin','fixture','${candidate}',1,'2026-02-30T11:00:00+09:00','LINE','OUTBOUND','REACHED','summary',false,false,null,null,null,null,null,null,null); raise exception 'invalid_date_accepted'; exception when sqlstate '22023' then null; end;
+        begin perform * from public.nov_talent_record_communication_v1('${actor}','hr.admin','fixture','${candidate}',1,'2026-08-09T11:00:00+09:00','LINE','OUTBOUND','REACHED','summary',false,true,'FOLLOW_UP',null,'missing date','owner','${assignee}',null,null); raise exception 'partial_payload_accepted'; exception when sqlstate '22023' then null; end;
+        if (select count(*) from public.nov_talent_recruitment_events_v1)<>3 then raise exception 'partial_write'; end if;
         begin update public.nov_talent_recruitment_activity_audit_v1 set reason='changed'; raise exception 'audit_update_accepted'; exception when sqlstate '55000' then null; end;
       end$$;
       select 'outcome2_behavior_pass'; rollback;`);
@@ -108,7 +124,7 @@ test("Outcome 2 migration applies, enforces atomic commands, rolls back, and rea
     const direct = psql(`set role service_role; insert into public.nov_talent_next_actions_v1(candidate_id,action_code,due_date,state,source_type,source_field_code) values('${candidate}','FOLLOW_UP','2026-08-10','OPEN','NOV_TALENT_UI','x');`, true);
     assert.notEqual(direct.status,0);
     psql(rollback);
-    assert.equal(psql("select to_regprocedure('public.nov_talent_record_communication_v1(uuid,text,text,uuid,integer,timestamp with time zone,text,text,text,text,boolean,boolean,text,date,text,text)') is null;").stdout.trim(),"t");
+    assert.equal(psql("select to_regprocedure('public.nov_talent_record_communication_v1(uuid,text,text,uuid,integer,text,text,text,text,text,boolean,boolean,text,date,text,text,uuid,uuid,text)') is null;").stdout.trim(),"t");
     psql(migration); assert.equal(catalog(),firstCatalog); assert.equal(psql("select current_setting('server_version_num')::integer>=170000;").stdout.trim(),"t");
   } finally { if(started) command(exe("pg_ctl"),["-D",dir,"-m","immediate","-w","stop"],undefined,true); await rm(dir,{recursive:true,force:true}); }
 });

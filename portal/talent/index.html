@@ -6,9 +6,9 @@
   <meta name="nov-talent-workspace-contract-version" content="1.0.0">
   <title>求人管理システム | IDEA NOV</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=20260809-outcome2-daily-workflow-1">
-  <script src="./runtime-config.candidate.js?v=20260809-outcome2-daily-workflow-1"></script>
-  <script type="module" src="./app.mjs?v=20260809-outcome2-daily-workflow-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260809-outcome2-daily-workflow-2">
+  <script src="./runtime-config.candidate.js?v=20260809-outcome2-daily-workflow-2"></script>
+  <script type="module" src="./app.mjs?v=20260809-outcome2-daily-workflow-2"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -507,7 +507,7 @@
             <fieldset id="activity-communication-fields" class="profile-wide" hidden>
               <legend>連絡内容</legend>
               <div class="profile-form-grid">
-                <label><span>連絡日時 *</span><input id="activity-communication-at" type="datetime-local"></label>
+                <label><span>連絡日時（日本時間） *</span><input id="activity-communication-at" type="datetime-local"></label>
                 <label><span>方法 *</span><select id="activity-communication-method"><option value="LINE">LINE</option><option value="PHONE">電話</option><option value="EMAIL">メール</option><option value="IN_PERSON">対面</option><option value="SCHOOL_RELAY">学校経由</option><option value="OTHER">その他</option></select></label>
                 <label><span>方向 *</span><select id="activity-communication-direction"><option value="OUTBOUND">こちらから</option><option value="INBOUND">学生から</option></select></label>
                 <label><span>結果 *</span><select id="activity-communication-result"><option value="REACHED">連絡済み</option><option value="NO_RESPONSE">応答なし</option><option value="REPLY_RECEIVED">返信あり</option><option value="INFORMATION_SHARED">案内済み</option><option value="OTHER">その他</option></select></label>
@@ -517,9 +517,14 @@
                 <label class="profile-wide"><span>次回対応内容</span><input id="activity-follow-up-text" maxlength="1000"></label>
               </div>
             </fieldset>
+            <fieldset id="activity-correction-fields" class="profile-wide" hidden>
+              <legend>連絡履歴の訂正</legend>
+              <p id="activity-correction-original"></p>
+              <label class="profile-wide"><span>訂正理由 *</span><input id="activity-correction-reason" maxlength="500"></label>
+            </fieldset>
             <label class="profile-wide"><span>名称・対応内容</span><input id="activity-name" maxlength="180"></label>
             <label class="profile-wide"><span>接触内容</span><textarea id="activity-content" maxlength="1000" rows="2"></textarea></label>
-            <label><span>担当者</span><input id="activity-assignee" maxlength="120"></label>
+            <label><span id="activity-assignee-label">担当者</span><select id="activity-assignee"><option value="">担当者を選択してください</option></select></label>
             <label class="profile-wide"><span>備考</span><textarea id="activity-notes" maxlength="2000" rows="2"></textarea></label>
             <label class="profile-wide"><span>更新理由 *</span><input id="activity-reason" maxlength="500" required></label>
           </div>

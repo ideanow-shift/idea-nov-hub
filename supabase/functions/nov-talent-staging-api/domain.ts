@@ -11,6 +11,7 @@ const ROLE_GROUPS = Object.freeze({
   full: new Set(["super_admin", "backoffice", "hr.admin"]),
   recruiter: new Set(["hr.staff"]), executive: new Set(["executive"])
 });
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
 export function resolveAccess(roleKeys: unknown) {
   const roles = new Set((Array.isArray(roleKeys) ? roleKeys : []).map((v) => String(v || "").trim().toLowerCase()));
@@ -90,13 +91,31 @@ export function cleanActivity(input: unknown) {
 const COMMUNICATION_METHODS = new Set(["LINE", "PHONE", "EMAIL", "IN_PERSON", "SCHOOL_RELAY", "OTHER"]);
 const COMMUNICATION_DIRECTIONS = new Set(["INBOUND", "OUTBOUND"]);
 const COMMUNICATION_RESULTS = new Set(["REACHED", "NO_RESPONSE", "REPLY_RECEIVED", "INFORMATION_SHARED", "OTHER"]);
+const STRICT_RFC3339 = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|([+-])(\d{2}):(\d{2}))$/u;
+
+export function canonicalizeStrictRfc3339(input: unknown) {
+  const value = clean(input, 35);
+  const match = STRICT_RFC3339.exec(value || "");
+  if (!match) return null;
+  const [, year, month, day, hour, minute, second, fraction = "", zone, sign, offsetHour = "00", offsetMinute = "00"] = match;
+  const offsetMinutes = zone === "Z" ? 0 : (Number(offsetHour) * 60 + Number(offsetMinute)) * (sign === "-" ? -1 : 1);
+  if (Number(offsetHour) > 14 || Number(offsetMinute) > 59 || (Number(offsetHour) === 14 && Number(offsetMinute) !== 0)) return null;
+  const millis = Number(fraction.padEnd(3, "0"));
+  const localMillis = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second), millis);
+  const local = new Date(localMillis);
+  if (local.getUTCFullYear() !== Number(year) || local.getUTCMonth() + 1 !== Number(month) || local.getUTCDate() !== Number(day)
+    || local.getUTCHours() !== Number(hour) || local.getUTCMinutes() !== Number(minute) || local.getUTCSeconds() !== Number(second)) return null;
+  const instant = new Date(localMillis - offsetMinutes * 60_000);
+  if (Number.isNaN(instant.getTime())) return null;
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}${fraction ? `.${fraction}` : ""}${zone}`;
+}
 
 export function cleanCommunicationCommand(input: unknown) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
   const value = input as Record<string, unknown>;
   const candidateId = clean(value.candidateId, 40);
   const expectedCandidateVersion = Number(value.expectedCandidateVersion);
-  const communicationAt = clean(value.communicationAt, 35);
+  const communicationAt = canonicalizeStrictRfc3339(value.communicationAt);
   const method = String(value.method || "");
   const direction = String(value.direction || "");
   const result = String(value.result || "");
@@ -108,15 +127,19 @@ export function cleanCommunicationCommand(input: unknown) {
   const nextActionDueDate = createNextAction ? clean(value.nextActionDueDate, 10) : null;
   const nextActionText = createNextAction ? clean(value.nextActionText, 1000) : null;
   const nextActionAssignedTo = createNextAction ? clean(value.nextActionAssignedTo, 120) : null;
+  const nextActionAssignedEmployeeId = createNextAction ? clean(value.nextActionAssignedEmployeeId, 40) : null;
+  const correctsCommunicationId = clean(value.correctsCommunicationId, 40);
+  const correctionReason = clean(value.correctionReason, 500);
   if (!candidateId || !Number.isInteger(expectedCandidateVersion) || expectedCandidateVersion < 1
-    || !communicationAt || Number.isNaN(Date.parse(communicationAt))
+    || !communicationAt
     || !COMMUNICATION_METHODS.has(method) || !COMMUNICATION_DIRECTIONS.has(direction)
     || !COMMUNICATION_RESULTS.has(result) || !summary || !reason || typeof awaitingReply !== "boolean") return null;
   if (createNextAction && (!ACTION_CODES.has(nextActionCode || "")
-    || !/^\d{4}-\d{2}-\d{2}$/u.test(nextActionDueDate || "") || !nextActionText)) return null;
+    || !/^\d{4}-\d{2}-\d{2}$/u.test(nextActionDueDate || "") || !nextActionText || !UUID.test(nextActionAssignedEmployeeId || ""))) return null;
+  if (Boolean(correctsCommunicationId) !== Boolean(correctionReason) || (correctsCommunicationId && !UUID.test(correctsCommunicationId))) return null;
   return Object.freeze({ candidateId, expectedCandidateVersion, communicationAt, method, direction, result,
     summary, reason, awaitingReply, createNextAction, nextActionCode, nextActionDueDate,
-    nextActionText, nextActionAssignedTo });
+    nextActionText, nextActionAssignedTo, nextActionAssignedEmployeeId, correctsCommunicationId, correctionReason });
 }
 
 export function cleanNextActionCommand(input: unknown) {
@@ -130,14 +153,16 @@ export function cleanNextActionCommand(input: unknown) {
   const dueDate = clean(value.dueDate, 10);
   const actionText = clean(value.actionText, 1000);
   const assignedTo = clean(value.assignedTo, 120);
+  const assignedEmployeeId = clean(value.assignedEmployeeId, 40);
   const holdReason = clean(value.holdReason, 500);
   const reason = clean(value.reason, 500);
-  if (!candidateId || !reason || !["CREATE","COMPLETE","HOLD","REOPEN","CANCEL"].includes(operation)) return null;
-  if (operation === "CREATE" && (!ACTION_CODES.has(actionCode || "") || !/^\d{4}-\d{2}-\d{2}$/u.test(dueDate || "") || !actionText)) return null;
+  if (!candidateId || !reason || !["CREATE","ASSIGN","COMPLETE","HOLD","REOPEN","CANCEL"].includes(operation)) return null;
+  if (operation === "CREATE" && (!ACTION_CODES.has(actionCode || "") || !/^\d{4}-\d{2}-\d{2}$/u.test(dueDate || "") || !actionText || !UUID.test(assignedEmployeeId || ""))) return null;
+  if (operation === "ASSIGN" && !UUID.test(assignedEmployeeId || "")) return null;
   if (operation !== "CREATE" && (!nextActionId || !Number.isInteger(expectedVersion) || Number(expectedVersion) < 1)) return null;
   if (operation === "HOLD" && !holdReason) return null;
   return Object.freeze({ operation, candidateId, nextActionId, expectedVersion, actionCode, dueDate,
-    actionText, assignedTo, holdReason, reason });
+    actionText, assignedTo, assignedEmployeeId, holdReason, reason });
 }
 
 export function cleanSourceFactLink(input: unknown) {

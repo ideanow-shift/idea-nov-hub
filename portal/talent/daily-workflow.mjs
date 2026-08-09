@@ -1,4 +1,14 @@
-export const DAILY_WORKFLOW_CONTRACT_VERSION = "1.0.0";
+export const DAILY_WORKFLOW_CONTRACT_VERSION = "1.1.0";
+
+export function jstDateTimeLocalToRfc3339(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/u.exec(String(value || ""));
+  if (!match) return null;
+  const [, year, month, day, hour, minute, second = "00"] = match;
+  const local = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second)));
+  if (local.getUTCFullYear() !== Number(year) || local.getUTCMonth() + 1 !== Number(month) || local.getUTCDate() !== Number(day)
+    || local.getUTCHours() !== Number(hour) || local.getUTCMinutes() !== Number(minute) || local.getUTCSeconds() !== Number(second)) return null;
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}+09:00`;
+}
 
 export function classifyNextActionPriority(dueDate, businessDate) {
   if (!/^\d{4}-\d{2}-\d{2}$/u.test(String(dueDate || ""))) return "UNSCHEDULED";
@@ -17,7 +27,7 @@ export function buildDailyWorkflowQueue(data, businessDate) {
     return Object.freeze({ ...row, category });
   });
   const replyRows = (Array.isArray(data?.communications) ? data.communications : [])
-    .filter((row) => row.awaitingReply === true)
+    .filter((row) => row.isEffective === true && row.awaitingReply === true)
     .map((row) => Object.freeze({ id: `communication:${row.id}`, candidateId: row.candidateId,
       text: `返信待ち：${row.summary}`, dueDate: row.nextFollowUpDate, assignedTo: null,
       state: "REMINDER", category: "AWAITING_REPLY", readOnly: true }));
@@ -41,10 +51,12 @@ export function validateDailyWorkflowResponse(value) {
   const data = value?.data;
   if (value?.ok !== true || data?.daily_workflow_contract_version !== DAILY_WORKFLOW_CONTRACT_VERSION) return false;
   if (!["COMPLETE", "PREPARING"].includes(data?.sourceCoverageState)) return false;
-  if (!Array.isArray(data?.communications) || !Array.isArray(data?.nextActions)) return false;
-  if (data.sourceCoverageState === "PREPARING" && (data.communications.length || data.nextActions.length)) return false;
+  if (!Array.isArray(data?.communications) || !Array.isArray(data?.nextActions) || !Array.isArray(data?.assignees)) return false;
+  if (data.sourceCoverageState === "PREPARING" && (data.communications.length || data.nextActions.length || data.assignees.length)) return false;
   return data.communications.every((row) => row && typeof row.id === "string" && typeof row.candidateId === "string"
-    && typeof row.occurredAt === "string" && typeof row.summary === "string")
+    && typeof row.occurredAt === "string" && typeof row.summary === "string" && typeof row.isEffective === "boolean")
     && data.nextActions.every((row) => row && typeof row.id === "string" && typeof row.candidateId === "string"
-      && typeof row.isMine === "boolean" && ["OPEN", "ON_HOLD", "COMPLETED", "CANCELLED"].includes(row.state));
+      && typeof row.isMine === "boolean" && ["REGISTERED", "UNREGISTERED"].includes(row.assigneeState)
+      && ["OPEN", "ON_HOLD", "COMPLETED", "CANCELLED"].includes(row.state))
+    && data.assignees.every((row) => row && typeof row.employeeId === "string" && typeof row.displayName === "string");
 }

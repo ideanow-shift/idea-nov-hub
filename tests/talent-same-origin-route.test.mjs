@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
@@ -401,7 +401,7 @@ test("talent entry point cache-busts runtime config and app with one release id"
 
   assert.ok(runtimeVersion, "runtime config must have a release id");
   assert.equal(appVersion, runtimeVersion);
-  assert.equal(appVersion, "20260809-outcome2-daily-workflow-1");
+  assert.equal(appVersion, "20260809-outcome2-daily-workflow-2");
 });
 
 test("HUB launcher canonicalizes Talent route even when backend URL is stale", () => {

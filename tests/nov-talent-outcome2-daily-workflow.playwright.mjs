@@ -13,8 +13,9 @@ const fixtureHtml = productionHtml.replace(/<script\s+type="module"\s+src="\.\/a
   '<script type="module" src="/__fixture__/outcome2.mjs"></script>');
 const fixture = `
 import {createCandidateActivityConfirmationController} from '/talent/candidate-activity-confirmation.mjs';
-import {buildDailyWorkflowQueue} from '/talent/daily-workflow.mjs';
+import {buildDailyWorkflowQueue,jstDateTimeLocalToRfc3339} from '/talent/daily-workflow.mjs';
 window.__confirmEvents=0; window.__postRequests=0;
+window.__jstTimestamp=jstDateTimeLocalToRfc3339('2026-08-09T10:30');
 const dialog=document.getElementById('candidate-activity-dialog');
 document.getElementById('student-detail').hidden=false;
 document.body.append(document.querySelector('[aria-labelledby="daily-workflow-queue-title"]'));
@@ -27,6 +28,12 @@ document.getElementById('activity-communication-direction').value='OUTBOUND';
 document.getElementById('activity-communication-result').value='REACHED';
 document.getElementById('activity-content').value='日程を案内';
 document.getElementById('activity-reason').value='確認済みの連絡事実を記録';
+const assignee=document.getElementById('activity-assignee');
+assignee.append(Object.assign(document.createElement('option'),{value:'10000000-0000-4000-8000-000000000003',textContent:'採用担当'}));
+assignee.value='10000000-0000-4000-8000-000000000003';
+document.getElementById('activity-correction-fields').hidden=false;
+document.getElementById('activity-correction-original').textContent='訂正元：2026-08-09 10:00・LINE・応答なし';
+document.getElementById('activity-correction-reason').value='結果を訂正';
 dialog.showModal();
 const save=document.getElementById('candidate-activity-save');
 const controller=createCandidateActivityConfirmationController({documentObject:document,onConfirm:async()=>{window.__confirmEvents+=1;return false;}});
@@ -48,6 +55,10 @@ try{for(const viewport of [{name:'pc',width:1280,height:900},{name:'mobile',widt
  const page=await browser.newPage({viewport});const errors=[],warnings=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text());if(m.type()==='warning')warnings.push(m.text());});
  await page.goto(origin+'/talent/index.html');
  assert.equal(await page.locator('#activity-communication-fields').isVisible(),true);
+ assert.equal(await page.locator('#activity-correction-fields').isVisible(),true);
+ assert.equal(await page.locator('#activity-assignee option:checked').textContent(),'採用担当');
+ assert.equal(await page.evaluate(()=>window.__jstTimestamp),'2026-08-09T10:30:00+09:00');
+ assert.equal(await page.locator('body').innerText().then(text=>text.includes('10000000-0000-4000-8000-000000000003')),false);
  await page.evaluate(()=>document.getElementById('candidate-activity-dialog').close());
  assert.equal(await page.locator('#daily-workflow-queue-list > li').count(),3);
  await page.selectOption('#daily-workflow-filter','OVERDUE'); assert.equal(await page.locator('#daily-workflow-queue-list > li').count(),1);

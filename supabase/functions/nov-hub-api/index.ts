@@ -2751,6 +2751,37 @@ function assertMasterEditor(employee: JsonRecord) {
   }
 }
 
+const TALENT_WORKFLOW_ROLE_KEYS = new Set(["super_admin", "backoffice", "hr.admin", "hr.staff"]);
+
+function assertTalentWorkflowViewer(employee: JsonRecord) {
+  const roleKeys = normalizeList(employee.roleKeys);
+  if (!roleKeys.some((role) => TALENT_WORKFLOW_ROLE_KEYS.has(String(role).trim().toLowerCase()))) {
+    throw new PortalError("TALENT_WORKFLOW_DENIED", "Talent workflow permission is required.", 403);
+  }
+}
+
+async function listTalentWorkflowAssignees() {
+  const [employees, rolesByEmployee] = await Promise.all([
+    readRows("employees", {
+      query: {
+        select: "id,full_name,employee_id,employment_status,is_active",
+        is_active: "eq.true",
+        order: "employee_id.asc",
+        limit: "1000",
+      },
+    }),
+    groupRolesByEmployeeForAdmin(),
+  ]);
+  return employees
+    .filter((row) => isEmployeeActive(row)
+      && (rolesByEmployee[String(row.id || "")]?.role_keys || []).some((role) => TALENT_WORKFLOW_ROLE_KEYS.has(String(role).trim().toLowerCase())))
+    .map((row) => ({
+      employeeId: String(row.id || ""),
+      displayName: String(row.full_name || row.employee_id || "").trim(),
+    }))
+    .filter((row) => row.employeeId && row.displayName);
+}
+
 function indexById(rows: JsonRecord[]): Record<string, JsonRecord> {
   return rows.reduce<Record<string, JsonRecord>>((index, row) => {
     const id = String(row.id || "");
@@ -5419,6 +5450,11 @@ Deno.serve(async (request) => {
       const apps = await readVisibleApps(employee);
       const hubSession = await issueHubSession(employee);
       return jsonResponse({ ok: true, employee, apps, hubSession, announcements: [], performance: { source: "supabase-edge" } });
+    }
+
+    if (action === "talentWorkflowAssigneesRead") {
+      assertTalentWorkflowViewer(employee);
+      return jsonResponse({ ok: true, assignees: await listTalentWorkflowAssignees() });
     }
 
     if (action === "createIdeaLinkHandoff") {

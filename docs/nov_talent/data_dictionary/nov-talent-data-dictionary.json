@@ -1,6 +1,6 @@
 {
   "dictionaryId": "NOV_TALENT_DATA_DICTIONARY",
-  "dictionaryVersion": "1.7.0",
+  "dictionaryVersion": "1.7.1",
   "status": "CANONICAL",
   "effectiveDate": "2026-08-08",
   "language": "ja-JP",
@@ -230,6 +230,11 @@
   ],
   "communicationHistory": {
     "appendOnly": true,
+    "timestampContract": "STRICT_RFC3339_TIMEZONE_REQUIRED",
+    "uiTimezone": "Asia/Tokyo",
+    "correctionMode": "APPEND_REPLACEMENT_REFERENCE",
+    "effectiveProjection": "LATEST_UNCORRECTED_TIP_ONLY",
+    "originalMutationAllowed": false,
     "methods": ["LINE", "PHONE", "EMAIL", "IN_PERSON", "SCHOOL_RELAY", "OTHER"],
     "directions": ["INBOUND", "OUTBOUND"],
     "results": ["REACHED", "NO_RESPONSE", "REPLY_RECEIVED", "INFORMATION_SHARED", "OTHER"],
@@ -240,6 +245,11 @@
   "nextActionContract": {
     "states": ["OPEN", "ON_HOLD", "COMPLETED", "CANCELLED"],
     "transitions": ["OPEN_TO_COMPLETED", "OPEN_TO_ON_HOLD", "ON_HOLD_TO_OPEN", "OPEN_TO_CANCELLED", "ON_HOLD_TO_CANCELLED"],
+    "assigneeRequiredForNewRows": true,
+    "assigneeSource": "ACTIVE_HUB_EMPLOYEE_DIRECTORY",
+    "actorAssigneeSeparation": true,
+    "ownerChangeAudited": true,
+    "legacyMissingAssigneePolicy": "UNREGISTERED_REVIEW_NO_GUESSED_BACKFILL",
     "physicalDeleteAllowed": false,
     "prioritySource": "DUE_DATE_DETERMINISTIC",
     "editablePriority": false
@@ -460,7 +470,7 @@
     }
   },
   "versions": {
-    "dictionary": "1.7.0",
+    "dictionary": "1.7.1",
     "dataIntegrityReportSchema": "1.2",
     "workQueueSeedSchema": "2.0",
     "sourceLineageSchema": "1.0",

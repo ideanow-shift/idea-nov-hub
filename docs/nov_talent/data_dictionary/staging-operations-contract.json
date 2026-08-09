@@ -4,7 +4,7 @@
   "status": "STAGING_OPERATION_ACTIVE",
   "effectiveDate": "2026-08-08",
   "versionCompatibility": {
-    "operationsDictionaryVersion": "1.7.0",
+    "operationsDictionaryVersion": "1.7.1",
     "sealedDryRunDataContractVersion": "1.2.0",
     "candidateMappingSemanticsChanged": false,
     "freshSnapshotRequiredBeforeImport": true

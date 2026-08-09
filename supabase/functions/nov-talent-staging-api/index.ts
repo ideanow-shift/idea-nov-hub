@@ -79,7 +79,7 @@ async function authorize(runtime: Runtime, request: Request) {
       .map((value: unknown) => String(value || "").trim().toLowerCase());
     const role = ["super_admin", "backoffice", "hr.admin", "hr.staff", "executive"].find((value) => roles.includes(value));
     if (!role) return { category: "FORBIDDEN" } as const;
-    return { profile, actor, role } as const;
+    return { profile, actor, role, hubToken: token } as const;
   } catch { return { category: "AUTH_REQUIRED" } as const; }
 }
 
@@ -546,25 +546,45 @@ function duplicateSummary(rows: any[], candidate: any, excludedCandidateId: stri
   return { matchCount, reasonCodes: [...reasons].sort(), automaticMerge: false };
 }
 
-async function dailyWorkflow(runtime: Runtime, activeCandidateIds: Set<string>, currentInstant: Date, actorEmployeeId: string) {
-  const [communicationResult, actionResult] = await Promise.all([
-    db(runtime, "/rest/v1/nov_talent_recruitment_events_v1?select=event_id,candidate_id,communication_at,communication_method,communication_direction,communication_result,contact_content,awaiting_reply,next_follow_up_date,version&event_code=eq.COMMUNICATION_RECORDED&is_active=eq.true&order=communication_at.desc&limit=5000"),
+async function canonicalAssignees(runtime: Runtime, hubToken: string): Promise<Array<{ employeeId: string; displayName: string }> | null> {
+  const response = await runtime.fetchImpl(runtime.hubApiUrl, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action: "talentWorkflowAssigneesRead", token: hubToken, payload: { authType: "hub_session" } })
+  });
+  if (!response.ok) return null;
+  const envelope = await response.json().catch(() => null);
+  if (envelope?.ok !== true || !Array.isArray(envelope.assignees)) return null;
+  const assignees = envelope.assignees
+    .map((row: any) => ({ employeeId: String(row?.employeeId || ""), displayName: String(row?.displayName || "").trim() }))
+    .filter((row: any) => UUID.test(row.employeeId) && row.displayName && row.displayName.length <= 120);
+  return assignees.length === envelope.assignees.length ? assignees : null;
+}
+
+async function dailyWorkflow(runtime: Runtime, activeCandidateIds: Set<string>, currentInstant: Date, actorEmployeeId: string, hubToken: string) {
+  const [communicationResult, actionResult, assignees] = await Promise.all([
+    db(runtime, "/rest/v1/nov_talent_recruitment_events_v1?select=event_id,candidate_id,communication_at,communication_method,communication_direction,communication_result,contact_content,awaiting_reply,next_follow_up_date,correction_of_event_id,correction_reason,created_at,version&event_code=eq.COMMUNICATION_RECORDED&is_active=eq.true&order=communication_at.desc&limit=5000"),
     db(runtime, "/rest/v1/nov_talent_next_actions_v1?select=next_action_id,candidate_id,action_code,due_date,action_text,assigned_to,assigned_employee_id,state,hold_reason,version,creation_basis,origin_event_id&is_active=eq.true&order=due_date.asc.nullslast&limit=5000")
+    ,canonicalAssignees(runtime, hubToken)
   ]);
-  const sourceCoverageState = communicationResult.ok && actionResult.ok ? "COMPLETE" : "PREPARING";
+  const sourceCoverageState = communicationResult.ok && actionResult.ok && assignees ? "COMPLETE" : "PREPARING";
   const communications = sourceCoverageState === "COMPLETE" ? (await communicationResult.json()).filter((row:any) => activeCandidateIds.has(String(row.candidate_id || ""))) : [];
   const nextActions = sourceCoverageState === "COMPLETE" ? (await actionResult.json()).filter((row:any) => activeCandidateIds.has(String(row.candidate_id || ""))) : [];
+  const correctedIds = new Set(communications.map((row:any) => String(row.correction_of_event_id || "")).filter(Boolean));
   return {
-    daily_workflow_contract_version: "1.0.0", sourceCoverageState, generatedAt: currentInstant.toISOString(),
+    daily_workflow_contract_version: "1.1.0", sourceCoverageState, generatedAt: currentInstant.toISOString(),
+    assignees: sourceCoverageState === "COMPLETE" ? assignees || [] : [],
     communications: communications.map((row:any) => ({
       id: row.event_id, candidateId: row.candidate_id, occurredAt: row.communication_at,
       method: row.communication_method, direction: row.communication_direction, result: row.communication_result,
       summary: row.contact_content, awaitingReply: row.awaiting_reply,
-      nextFollowUpDate: row.next_follow_up_date, version: row.version
+      nextFollowUpDate: row.next_follow_up_date, correctsCommunicationId: row.correction_of_event_id,
+      correctionReason: row.correction_reason, correctionCreatedAt: row.correction_of_event_id ? row.created_at : null,
+      isCorrection: Boolean(row.correction_of_event_id), isEffective: !correctedIds.has(String(row.event_id)), version: row.version
     })),
     nextActions: nextActions.map((row:any) => ({
       id: row.next_action_id, candidateId: row.candidate_id, code: row.action_code,
       dueDate: row.due_date, text: row.action_text, assignedTo: row.assigned_to,
+      assignedEmployeeId: row.assigned_employee_id, assigneeState: row.assigned_employee_id ? "REGISTERED" : "UNREGISTERED",
       state: row.state, holdReason: row.hold_reason, version: row.version, isMine: row.assigned_employee_id === actorEmployeeId,
       creationBasis: row.creation_basis, originCommunicationId: row.origin_event_id
     }))
@@ -698,7 +718,7 @@ export function createHandler(runtime: Runtime) {
     const currentInstant = runtime.now?.() ?? new Date();
     if (request.method === "GET" && path.endsWith("/api/talent/v1/daily-workflow")) {
       const activeCandidateIds = new Set(rows.map((row:any) => String(row.candidate_id || "")).filter(Boolean));
-      const responseBody = { ok: true as const, data: await dailyWorkflow(runtime, activeCandidateIds, currentInstant, actor.actor) };
+      const responseBody = { ok: true as const, data: await dailyWorkflow(runtime, activeCandidateIds, currentInstant, actor.actor, actor.hubToken) };
       const contractResult = validateDailyWorkflowResponse(responseBody);
       if (!contractResult.ok) {
         (runtime.logger || console).error(JSON.stringify({ event: "NOV_TALENT_DAILY_WORKFLOW_CONTRACT_REJECTED",
@@ -817,6 +837,10 @@ export function createHandler(runtime: Runtime) {
       if (runtime.outcome2WritesEnabled !== true) return fail(503, "OUTCOME2_WRITES_DISABLED", origin);
       const command = cleanCommunicationCommand(body);
       if (!command || !UUID.test(command.candidateId)) return fail(400, "INVALID_REQUEST", origin);
+      const assignees = await canonicalAssignees(runtime, actor.hubToken);
+      if (!assignees) return fail(503, "ASSIGNEE_DIRECTORY_UNAVAILABLE", origin);
+      const assignee = command.createNextAction ? assignees.find((row) => row.employeeId === command.nextActionAssignedEmployeeId) : null;
+      if (command.createNextAction && !assignee) return fail(400, "INVALID_ASSIGNEE", origin);
       const result = await rpc(runtime, "nov_talent_record_communication_v1", {
         p_actor_employee_id: actor.actor, p_actor_role: actor.role, p_reason: command.reason,
         p_candidate_id: command.candidateId, p_expected_candidate_version: command.expectedCandidateVersion,
@@ -824,7 +848,9 @@ export function createHandler(runtime: Runtime) {
         p_result: command.result, p_summary: command.summary, p_awaiting_reply: command.awaitingReply,
         p_create_next_action: command.createNextAction, p_next_action_code: command.nextActionCode,
         p_next_action_due_date: command.nextActionDueDate, p_next_action_text: command.nextActionText,
-        p_next_action_assigned_to: command.nextActionAssignedTo
+        p_next_action_assigned_to: assignee?.displayName || null,
+        p_next_action_assigned_employee_id: assignee?.employeeId || null,
+        p_corrects_communication_id: command.correctsCommunicationId, p_correction_reason: command.correctionReason
       });
       return result.ok ? out(201, { ok: true, data: result.data }, origin)
         : fail(result.status || 400, result.status === 409 ? "VERSION_CONFLICT" : "WRITE_FAILED", origin);
@@ -833,12 +859,18 @@ export function createHandler(runtime: Runtime) {
       if (runtime.outcome2WritesEnabled !== true) return fail(503, "OUTCOME2_WRITES_DISABLED", origin);
       const command = cleanNextActionCommand(body);
       if (!command || !UUID.test(command.candidateId) || (command.nextActionId && !UUID.test(command.nextActionId))) return fail(400, "INVALID_REQUEST", origin);
+      const assignees = await canonicalAssignees(runtime, actor.hubToken);
+      if (!assignees) return fail(503, "ASSIGNEE_DIRECTORY_UNAVAILABLE", origin);
+      const assignee = ["CREATE", "ASSIGN"].includes(command.operation)
+        ? assignees.find((row) => row.employeeId === command.assignedEmployeeId) : null;
+      if (["CREATE", "ASSIGN"].includes(command.operation) && !assignee) return fail(400, "INVALID_ASSIGNEE", origin);
       const result = await rpc(runtime, "nov_talent_mutate_next_action_v2", {
         p_actor_employee_id: actor.actor, p_actor_role: actor.role, p_reason: command.reason,
         p_operation: command.operation, p_candidate_id: command.candidateId,
         p_next_action_id: command.nextActionId, p_expected_version: command.expectedVersion,
         p_action_code: command.actionCode, p_due_date: command.dueDate,
-        p_action_text: command.actionText, p_assigned_to: command.assignedTo, p_hold_reason: command.holdReason
+        p_action_text: command.actionText, p_assigned_to: assignee?.displayName || null,
+        p_assigned_employee_id: assignee?.employeeId || null, p_hold_reason: command.holdReason
       });
       return result.ok ? out(command.operation === "CREATE" ? 201 : 200, { ok: true, data: result.data }, origin)
         : fail(result.status || 400, result.status === 409 ? "VERSION_CONFLICT" : "WRITE_FAILED", origin);

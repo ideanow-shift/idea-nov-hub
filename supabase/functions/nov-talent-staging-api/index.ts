@@ -5,7 +5,7 @@ import {
   validateSelectionCoverageResponse
 } from "./selection-coverage-contract-v1.generated.ts";
 import { cleanPopulationRequest, FAIR_ATTRIBUTION_POPULATION_V2, sha256Utf8, validatePopulationRequest } from "./fair-attribution-population-v2.ts";
-import { validateDailyWorkflowResponse } from "./daily-workflow-contract-v1.ts";
+import { validateDailyWorkflowResponse } from "./daily-workflow-contract-v1.generated.ts";
 
 const ORIGIN = "https://ideanow-shift.github.io";
 const PREFIXES = ["", "/nov-talent-staging-api", "/functions/v1/nov-talent-staging-api"];

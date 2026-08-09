@@ -69,6 +69,7 @@ test("Outcome 2 migration applies, enforces atomic commands, rolls back, and rea
   assert.ok(pgBin, "NOV_TALENT_PG_BIN is required");
   const migration = await readFile(path.join(root, "supabase/migrations/20260809102904_nov_talent_outcome2_daily_workflow.sql"), "utf8");
   const rollback = await readFile(path.join(root, "supabase/rollback/20260809102904_nov_talent_outcome2_daily_workflow.rollback.sql"), "utf8");
+  const dateTimeVectors = JSON.parse(await readFile(path.join(root, "tests/fixtures/nov-talent-outcome2-rfc3339-vectors.json"), "utf8"));
   const dir = await mkdtemp(path.join(os.tmpdir(), "nov-talent-outcome2-pg17-"));
   const port = 59400 + (process.pid % 400); const exe = (name) => path.join(pgBin, `${name}.exe`); let started = false;
   const psql = (sql, allowFailure = false) => command(exe("psql"), ["-X","-v","ON_ERROR_STOP=1","-At","-h","127.0.0.1","-p",String(port),"-U","postgres","-d","nov_talent_outcome2"], sql, allowFailure);
@@ -84,6 +85,10 @@ test("Outcome 2 migration applies, enforces atomic commands, rolls back, and rea
     )q;`).stdout.trim();
     const firstCatalog = catalog();
     const actor="00000000-0000-4000-8000-000000000009", assignee="00000000-0000-4000-8000-000000000008", candidate="00000000-0000-4000-8000-000000000001";
+    const acceptedBoundarySql = dateTimeVectors.accepted.map((value, index) =>
+      `perform * from public.nov_talent_record_communication_v1('${actor}','hr.admin','accepted offset ${index}','${candidate}',1,'${value}','LINE','OUTBOUND','REACHED','accepted offset',false,false,null,null,null,null,null,null,null);`).join("\n");
+    const rejectedBoundarySql = dateTimeVectors.rejected.map((value, index) =>
+      `begin perform * from public.nov_talent_record_communication_v1('${actor}','hr.admin','rejected offset ${index}','${candidate}',1,'${value}','LINE','OUTBOUND','REACHED','rejected offset',false,false,null,null,null,null,null,null,null); raise exception 'invalid_datetime_accepted_${index}'; exception when sqlstate '22023' then null; end;`).join("\n");
     const behavior = psql(`begin;
       insert into public.nov_talent_candidates_v1(candidate_id,graduation_year,student_name) values('${candidate}',2027,'fixture');
       select set_config('nov_talent.outcome2_next_action_write','allowed',true);
@@ -111,12 +116,14 @@ test("Outcome 2 migration applies, enforces atomic commands, rolls back, and rea
         select event_id into correction_event from public.nov_talent_record_communication_v1('${actor}','hr.admin','correct','${candidate}',1,'2026-08-09T10:05:00+09:00','LINE','OUTBOUND','REPLY_RECEIVED','corrected',false,false,null,null,null,null,null,original_event,'wrong result');
         begin perform * from public.nov_talent_record_communication_v1('${actor}','hr.admin','double','${candidate}',1,'2026-08-09T10:06:00+09:00','LINE','OUTBOUND','REACHED','again',false,false,null,null,null,null,null,original_event,'again'); raise exception 'double_correction_accepted'; exception when unique_violation then null; end;
         perform * from public.nov_talent_record_communication_v1('${actor}','hr.admin','chain','${candidate}',1,'2026-08-09T10:07:00+09:00','LINE','OUTBOUND','REACHED','final',false,false,null,null,null,null,null,correction_event,'final correction');
+        ${acceptedBoundarySql}
       end$$;
       do $$begin
+        ${rejectedBoundarySql}
         begin perform * from public.nov_talent_record_communication_v1('${actor}','hr.admin','fixture','${candidate}',1,'2026-08-09T11:00:00','LINE','OUTBOUND','REACHED','summary',false,false,null,null,null,null,null,null,null); raise exception 'timezone_less_accepted'; exception when sqlstate '22023' then null; end;
         begin perform * from public.nov_talent_record_communication_v1('${actor}','hr.admin','fixture','${candidate}',1,'2026-02-30T11:00:00+09:00','LINE','OUTBOUND','REACHED','summary',false,false,null,null,null,null,null,null,null); raise exception 'invalid_date_accepted'; exception when sqlstate '22023' then null; end;
         begin perform * from public.nov_talent_record_communication_v1('${actor}','hr.admin','fixture','${candidate}',1,'2026-08-09T11:00:00+09:00','LINE','OUTBOUND','REACHED','summary',false,true,'FOLLOW_UP',null,'missing date','owner','${assignee}',null,null); raise exception 'partial_payload_accepted'; exception when sqlstate '22023' then null; end;
-        if (select count(*) from public.nov_talent_recruitment_events_v1)<>3 then raise exception 'partial_write'; end if;
+        if (select count(*) from public.nov_talent_recruitment_events_v1)<>${3 + dateTimeVectors.accepted.length} then raise exception 'partial_write'; end if;
         begin update public.nov_talent_recruitment_activity_audit_v1 set reason='changed'; raise exception 'audit_update_accepted'; exception when sqlstate '55000' then null; end;
       end$$;
       select 'outcome2_behavior_pass'; rollback;`);

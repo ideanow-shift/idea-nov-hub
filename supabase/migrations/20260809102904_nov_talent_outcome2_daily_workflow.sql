@@ -154,7 +154,7 @@ begin
     raise exception using errcode='22023', message='reason_required';
   end if;
   if p_communication_at is null
-    or p_communication_at !~ '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-](0\d|1[0-4]):[0-5]\d)$'
+    or p_communication_at !~ '^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d{1,3})?(Z|[+-]((0\d|1[0-3]):[0-5]\d|14:00))$'
     or p_method not in ('LINE','PHONE','EMAIL','IN_PERSON','SCHOOL_RELAY','OTHER')
     or p_direction not in ('INBOUND','OUTBOUND')
     or p_result not in ('REACHED','NO_RESPONSE','REPLY_RECEIVED','INFORMATION_SHARED','OTHER')

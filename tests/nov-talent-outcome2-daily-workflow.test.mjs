@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { buildDailyWorkflowQueue, buildSuggestedActions, classifyNextActionPriority, jstDateTimeLocalToRfc3339, validateDailyWorkflowResponse } from "../portal/talent/daily-workflow.mjs";
+import {
+  buildDailyWorkflowQueue,
+  buildSuggestedActions,
+  classifyNextActionPriority,
+  DAILY_WORKFLOW_CONTRACT_SCHEMA,
+  DAILY_WORKFLOW_CONTRACT_VERSION,
+  jstDateTimeLocalToRfc3339,
+  validateDailyWorkflowResponse
+} from "../portal/talent/daily-workflow.mjs";
 import { canonicalizeStrictRfc3339, cleanCommunicationCommand, cleanNextActionCommand } from "../supabase/functions/nov-talent-staging-api/domain.ts";
 import { createHandler } from "../supabase/functions/nov-talent-staging-api/index.ts";
 
@@ -12,6 +20,7 @@ const ACTOR = "10000000-0000-4000-8000-000000009999";
 const CANDIDATE = "10000000-0000-4000-8000-000000000001";
 const ACTION = "10000000-0000-4000-8000-000000000002";
 const ASSIGNEE = "10000000-0000-4000-8000-000000000003";
+const dateTimeVectors = JSON.parse(await readFile(new URL("./fixtures/nov-talent-outcome2-rfc3339-vectors.json", import.meta.url), "utf8"));
 
 const communication = Object.freeze({ candidateId: CANDIDATE, expectedCandidateVersion: 2,
   communicationAt: "2026-08-09T01:30:00.000Z", method: "LINE", direction: "OUTBOUND", result: "REACHED",
@@ -72,6 +81,8 @@ test("Communication timestamp is strict RFC3339 and JST local input has explicit
   assert.equal(canonicalizeStrictRfc3339("2026-08-09T10:30:00+09:00"), "2026-08-09T10:30:00+09:00");
   assert.equal(Date.parse("2026-08-09T10:30:00+09:00"), Date.parse("2026-08-09T01:30:00Z"));
   assert.equal(jstDateTimeLocalToRfc3339("2026-02-30T10:30"), null);
+  for (const value of dateTimeVectors.accepted) assert.equal(canonicalizeStrictRfc3339(value), value, `accepted: ${value}`);
+  for (const value of dateTimeVectors.rejected) assert.equal(canonicalizeStrictRfc3339(value), null, `rejected: ${value}`);
 });
 
 test("Daily Workflow partial failure returns PREPARING without false-zero rows and leaves Workspace route independent", async () => {
@@ -151,8 +162,42 @@ test("Priority and Queue are deterministic and partial data never becomes zero",
 });
 
 test("Daily Workflow read contract is separate from Workspace 1.0.0", () => {
-  assert.equal(validateDailyWorkflowResponse({ ok: true, data: { daily_workflow_contract_version: "1.1.0", sourceCoverageState: "COMPLETE", generatedAt: "2026-08-09T00:00:00.000Z", communications: [], nextActions: [], assignees: [] } }), true);
-  assert.equal(validateDailyWorkflowResponse({ ok: true, data: { daily_workflow_contract_version: "1.1.0", sourceCoverageState: "PREPARING", generatedAt: "2026-08-09T00:00:00.000Z", communications: [{}], nextActions: [], assignees: [] } }), false);
+  const exact = { ok: true, data: {
+    daily_workflow_contract_version: "1.1.0", sourceCoverageState: "COMPLETE", generatedAt: "2026-08-09T00:00:00.000Z",
+    assignees: [{ employeeId: ASSIGNEE, displayName: "採用担当" }],
+    communications: [{ id: "10000000-0000-4000-8000-000000000010", candidateId: CANDIDATE,
+      occurredAt: "2026-08-09T10:30:00+09:00", method: "LINE", direction: "OUTBOUND", result: "REPLY_RECEIVED",
+      summary: "日程確認", awaitingReply: false, nextFollowUpDate: null,
+      correctsCommunicationId: "10000000-0000-4000-8000-000000000009", correctionReason: "結果訂正",
+      correctionCreatedAt: "2026-08-09T10:31:00+09:00", isCorrection: true, isEffective: true, version: 1 }],
+    nextActions: [{ id: ACTION, candidateId: CANDIDATE, code: "FOLLOW_UP", dueDate: "2026-08-10", text: "返信確認",
+      assignedTo: "採用担当", assignedEmployeeId: ASSIGNEE, assigneeState: "REGISTERED", isMine: false,
+      state: "OPEN", holdReason: null, version: 1, creationBasis: "MANUAL", originCommunicationId: null }]
+  } };
+  assert.equal(DAILY_WORKFLOW_CONTRACT_VERSION, "1.1.0");
+  assert.equal(DAILY_WORKFLOW_CONTRACT_SCHEMA["x-daily-workflow-contract-version"], "1.1.0");
+  assert.equal(validateDailyWorkflowResponse(exact).ok, true);
+  for (const mutate of [
+    (value) => { delete value.data.assignees; },
+    (value) => { value.data.nextActions[0].assignedEmployeeId = 123; },
+    (value) => { value.data.communications[0].correctionReason = 123; },
+    (value) => { value.data.communications[0].isEffective = "true"; },
+    (value) => { value.data.unexpected = true; },
+    (value) => { value.data.daily_workflow_contract_version = "1.0.0"; }
+  ]) {
+    const invalid = structuredClone(exact); mutate(invalid);
+    assert.equal(validateDailyWorkflowResponse(invalid).ok, false);
+  }
+  const preparing = { ok: true, data: { daily_workflow_contract_version: "1.1.0", sourceCoverageState: "PREPARING",
+    generatedAt: "2026-08-09T00:00:00.000Z", communications: [{}], nextActions: [], assignees: [] } };
+  assert.equal(validateDailyWorkflowResponse(preparing).ok, false);
+});
+
+test("Daily Workflow generated validator is byte-for-contract synchronized with the committed schema", async () => {
+  const schema = JSON.parse(await readFile(new URL("../contracts/nov-talent/daily-workflow-v1.schema.json", import.meta.url), "utf8"));
+  assert.deepEqual(DAILY_WORKFLOW_CONTRACT_SCHEMA, schema);
+  assert.equal(schema.additionalProperties, false);
+  assert.equal(schema.properties.data.additionalProperties, false);
 });
 
 test("Migration and UI pin append-only, transaction, custom dialog, and no priority column", async () => {

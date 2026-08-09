@@ -1,0 +1,124 @@
+import { readFile, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const SOURCE = path.join(ROOT, "contracts", "nov-talent", "daily-workflow-v1.schema.json");
+const FRONTEND_TARGET = path.join(ROOT, "portal", "talent", "generated", "daily-workflow-contract-v1.mjs");
+const EDGE_TARGET = path.join(ROOT, "supabase", "functions", "nov-talent-staging-api", "daily-workflow-contract-v1.generated.ts");
+const CHECK = process.argv.includes("--check");
+
+const schema = JSON.parse(await readFile(SOURCE, "utf8"));
+const version = String(schema["x-daily-workflow-contract-version"] || "");
+if (!/^\d+\.\d+\.\d+$/u.test(version)) throw new Error("daily workflow contract version is invalid");
+
+function typeOf(node) {
+  if (node.$ref) return node.$ref.split("/").at(-1);
+  if (Object.hasOwn(node, "const")) return JSON.stringify(node.const);
+  if (Array.isArray(node.enum)) return node.enum.map((value) => JSON.stringify(value)).join(" | ");
+  if (Array.isArray(node.type)) return node.type.map((value) => value === "integer" ? "number" : value).join(" | ");
+  if (node.type === "array") return `ReadonlyArray<${typeOf(node.items || {})}>`;
+  if (node.type === "object") {
+    const required = new Set(node.required || []);
+    return `{ ${Object.entries(node.properties || {}).map(([key, value]) => `${JSON.stringify(key)}${required.has(key) ? "" : "?"}: ${typeOf(value)};`).join(" ")} }`;
+  }
+  if (node.type === "integer" || node.type === "number") return "number";
+  if (node.type === "boolean") return "boolean";
+  if (node.type === "null") return "null";
+  if (node.type === "string") return "string";
+  return "unknown";
+}
+
+const defs = Object.entries(schema.$defs || {}).map(([name, node]) => `export type ${name} = ${typeOf(node)};`).join("\n");
+const responseType = `export type DailyWorkflowResponseV1 = ${typeOf(schema)};`;
+const schemaJson = JSON.stringify(schema);
+const validatorSource = `const SCHEMA = Object.freeze(${schemaJson});
+export const DAILY_WORKFLOW_CONTRACT_VERSION = ${JSON.stringify(version)};
+export const DAILY_WORKFLOW_CONTRACT_SCHEMA = SCHEMA;
+
+function resolveRef(root, ref) {
+  return String(ref).split("/").slice(1).reduce((value, segment) => value?.[segment.replace(/~1/gu, "/").replace(/~0/gu, "~")], root);
+}
+
+function formatValid(value, format) {
+  if (format === "uuid") return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value);
+  if (format === "date") {
+    const match = /^(\\d{4})-(\\d{2})-(\\d{2})$/u.exec(value);
+    if (!match) return false;
+    const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+    return date.getUTCFullYear() === Number(match[1]) && date.getUTCMonth() + 1 === Number(match[2]) && date.getUTCDate() === Number(match[3]);
+  }
+  if (format === "date-time") return /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,9})?(?:Z|[+-]\\d{2}:\\d{2})$/u.test(value) && !Number.isNaN(Date.parse(value));
+  return true;
+}
+
+function validateNode(value, node, root, pathName) {
+  if (node.$ref) return validateNode(value, resolveRef(root, node.$ref), root, pathName);
+  for (const child of node.allOf || []) { const result = validateNode(value, child, root, pathName); if (!result.ok) return result; }
+  if (node.if) {
+    const condition = validateNode(value, node.if, root, pathName);
+    const branch = condition.ok ? node.then : node.else;
+    if (branch) { const result = validateNode(value, branch, root, pathName); if (!result.ok) return result; }
+  }
+  if (Object.hasOwn(node, "const") && value !== node.const) return { ok: false, path: pathName, rule: "const", expected: node.const, actual: value === null ? "null" : typeof value };
+  if (Array.isArray(node.enum) && !node.enum.includes(value)) return { ok: false, path: pathName, rule: "enum", expected: node.enum, actual: value === null ? "null" : typeof value };
+  const allowedTypes = Array.isArray(node.type) ? node.type : node.type ? [node.type] : [];
+  if (allowedTypes.length) {
+    const actualType = value === null ? "null" : Array.isArray(value) ? "array" : Number.isInteger(value) ? "integer" : typeof value === "number" ? "number" : typeof value;
+    const typeOk = allowedTypes.includes(actualType) || (actualType === "integer" && allowedTypes.includes("number"));
+    if (!typeOk) return { ok: false, path: pathName, rule: "type", expected: allowedTypes, actual: actualType };
+  }
+  if (value === null) return { ok: true };
+  if (node.type === "object") {
+    const keys = Object.keys(value);
+    for (const required of node.required || []) if (!Object.hasOwn(value, required)) return { ok: false, path: pathName + "." + required, rule: "required", expected: "present", actual: "missing" };
+    if (node.additionalProperties === false) for (const key of keys) if (!Object.hasOwn(node.properties || {}, key)) return { ok: false, path: pathName + "." + key, rule: "additionalProperties", expected: "known key", actual: "unknown key" };
+    for (const [key, child] of Object.entries(node.properties || {})) if (Object.hasOwn(value, key)) { const result = validateNode(value[key], child, root, pathName + "." + key); if (!result.ok) return result; }
+  }
+  if (node.type === "array") {
+    if (Number.isInteger(node.maxItems) && value.length > node.maxItems) return { ok: false, path: pathName, rule: "maxItems", expected: node.maxItems, actual: value.length };
+    for (let index = 0; index < value.length; index += 1) { const result = validateNode(value[index], node.items || {}, root, pathName + "[" + index + "]"); if (!result.ok) return result; }
+  }
+  if (typeof value === "number" && Number.isFinite(node.minimum) && value < node.minimum) return { ok: false, path: pathName, rule: "minimum", expected: node.minimum, actual: value };
+  if (typeof value === "string" && Number.isInteger(node.minLength) && value.length < node.minLength) return { ok: false, path: pathName, rule: "minLength", expected: node.minLength, actual: value.length };
+  if (typeof value === "string" && Number.isInteger(node.maxLength) && value.length > node.maxLength) return { ok: false, path: pathName, rule: "maxLength", expected: node.maxLength, actual: value.length };
+  if (typeof value === "string" && node.pattern && !(new RegExp(node.pattern, "u")).test(value)) return { ok: false, path: pathName, rule: "pattern", expected: node.pattern, actual: "string" };
+  if (typeof value === "string" && node.format && !formatValid(value, node.format)) return { ok: false, path: pathName, rule: "format", expected: node.format, actual: "string" };
+  return { ok: true };
+}
+
+export function validateDailyWorkflowResponse(value) {
+  const result = validateNode(value, SCHEMA, SCHEMA, "dailyWorkflow");
+  return result.ok ? { ok: true, value } : result;
+}
+`;
+
+const banner = `// Generated from contracts/nov-talent/daily-workflow-v1.schema.json. Do not edit by hand.\n`;
+const frontend = banner + validatorSource;
+const edgeTypes = `type DailyWorkflowJsonSchema = Record<string, any>;
+type DailyWorkflowValidationFailure = { ok: false; path: string; rule: string; expected: unknown; actual: unknown };
+type DailyWorkflowValidationResult = { ok: true } | DailyWorkflowValidationFailure;
+type DailyWorkflowResponseValidationResult = ({ ok: true; value: DailyWorkflowResponseV1 }) | DailyWorkflowValidationFailure;`;
+const edgeValidator = validatorSource
+  .replace("function resolveRef(root, ref) {", "function resolveRef(root: DailyWorkflowJsonSchema, ref: string): DailyWorkflowJsonSchema {")
+  .replace("function formatValid(value, format) {", "function formatValid(value: string, format: string): boolean {")
+  .replace("function validateNode(value, node, root, pathName) {", "function validateNode(value: any, node: DailyWorkflowJsonSchema, root: DailyWorkflowJsonSchema, pathName: string): DailyWorkflowValidationResult {")
+  .replaceAll("validateNode(value, child, root", "validateNode(value, child as DailyWorkflowJsonSchema, root")
+  .replace("export function validateDailyWorkflowResponse(value) {", "export function validateDailyWorkflowResponse(value: any): DailyWorkflowResponseValidationResult {")
+  .replace("validateNode(value[key], child, root", "validateNode(value[key], child as DailyWorkflowJsonSchema, root")
+  .replace("return result.ok ? { ok: true, value } : result;", "return result.ok ? { ok: true, value: value as DailyWorkflowResponseV1 } : result;");
+const edge = banner + defs + "\n" + responseType + "\n\n" + edgeTypes + "\n\n" + edgeValidator;
+
+async function emit(target, content) {
+  if (CHECK) {
+    const current = await readFile(target, "utf8").catch(() => "");
+    const normalizeLineEndings = (value) => value.replace(/\r\n/gu, "\n");
+    if (normalizeLineEndings(current) !== normalizeLineEndings(content)) throw new Error(`generated daily workflow contract is stale: ${path.relative(ROOT, target)}`);
+    return;
+  }
+  await writeFile(target, content, "utf8");
+}
+
+await emit(FRONTEND_TARGET, frontend);
+await emit(EDGE_TARGET, edge);
+console.log(CHECK ? "Daily Workflow contract generated files are current." : `Generated Daily Workflow Contract ${version}.`);

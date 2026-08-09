@@ -1,4 +1,8 @@
-export const DAILY_WORKFLOW_CONTRACT_VERSION = "1.1.0";
+export {
+  DAILY_WORKFLOW_CONTRACT_SCHEMA,
+  DAILY_WORKFLOW_CONTRACT_VERSION,
+  validateDailyWorkflowResponse
+} from "./generated/daily-workflow-contract-v1.mjs";
 
 export function jstDateTimeLocalToRfc3339(value) {
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/u.exec(String(value || ""));
@@ -45,18 +49,4 @@ export function filterDailyWorkflowQueue(queue, filter = "ALL") {
 export function buildSuggestedActions(_context, { enabled = false } = {}) {
   if (!enabled) return Object.freeze({ state: "DISABLED", suggestions: Object.freeze([]) });
   return Object.freeze({ state: "PREPARING", suggestions: Object.freeze([]) });
-}
-
-export function validateDailyWorkflowResponse(value) {
-  const data = value?.data;
-  if (value?.ok !== true || data?.daily_workflow_contract_version !== DAILY_WORKFLOW_CONTRACT_VERSION) return false;
-  if (!["COMPLETE", "PREPARING"].includes(data?.sourceCoverageState)) return false;
-  if (!Array.isArray(data?.communications) || !Array.isArray(data?.nextActions) || !Array.isArray(data?.assignees)) return false;
-  if (data.sourceCoverageState === "PREPARING" && (data.communications.length || data.nextActions.length || data.assignees.length)) return false;
-  return data.communications.every((row) => row && typeof row.id === "string" && typeof row.candidateId === "string"
-    && typeof row.occurredAt === "string" && typeof row.summary === "string" && typeof row.isEffective === "boolean")
-    && data.nextActions.every((row) => row && typeof row.id === "string" && typeof row.candidateId === "string"
-      && typeof row.isMine === "boolean" && ["REGISTERED", "UNREGISTERED"].includes(row.assigneeState)
-      && ["OPEN", "ON_HOLD", "COMPLETED", "CANCELLED"].includes(row.state))
-    && data.assignees.every((row) => row && typeof row.employeeId === "string" && typeof row.displayName === "string");
 }

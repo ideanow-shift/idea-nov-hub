@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideanow-shift.github.io/contracts/nov-talent/daily-workflow-v1.schema.json",
+  "title": "NOV Talent Daily Workflow response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ok", "data"],
+  "properties": {
+    "ok": { "const": true },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["daily_workflow_contract_version", "sourceCoverageState", "generatedAt", "communications", "nextActions"],
+      "properties": {
+        "daily_workflow_contract_version": { "const": "1.0.0" },
+        "sourceCoverageState": { "enum": ["COMPLETE", "PREPARING"] },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "communications": { "type": "array", "items": { "$ref": "#/$defs/communication" } },
+        "nextActions": { "type": "array", "items": { "$ref": "#/$defs/nextAction" } }
+      }
+    }
+  },
+  "$defs": {
+    "nullableString": { "type": ["string", "null"] },
+    "communication": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "candidateId", "occurredAt", "method", "direction", "result", "summary", "awaitingReply", "nextFollowUpDate", "version"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" }, "candidateId": { "type": "string", "format": "uuid" },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "method": { "enum": ["LINE", "PHONE", "EMAIL", "IN_PERSON", "SCHOOL_RELAY", "OTHER"] },
+        "direction": { "enum": ["INBOUND", "OUTBOUND"] },
+        "result": { "enum": ["REACHED", "NO_RESPONSE", "REPLY_RECEIVED", "INFORMATION_SHARED", "OTHER"] },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 1000 }, "awaitingReply": { "type": "boolean" },
+        "nextFollowUpDate": { "type": ["string", "null"], "format": "date" }, "version": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "nextAction": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "candidateId", "code", "dueDate", "text", "assignedTo", "isMine", "state", "holdReason", "version", "creationBasis", "originCommunicationId"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" }, "candidateId": { "type": "string", "format": "uuid" },
+        "code": { "enum": ["FOLLOW_UP", "SALON_TOUR_FOLLOW_UP", "INTERVIEW_FOLLOW_UP", "OFFER_FOLLOW_UP"] },
+        "dueDate": { "type": ["string", "null"], "format": "date" }, "text": { "$ref": "#/$defs/nullableString" },
+        "assignedTo": { "$ref": "#/$defs/nullableString" }, "isMine": { "type": "boolean" }, "state": { "enum": ["OPEN", "ON_HOLD", "COMPLETED", "CANCELLED"] },
+        "holdReason": { "$ref": "#/$defs/nullableString" }, "version": { "type": "integer", "minimum": 1 },
+        "creationBasis": { "enum": ["MANUAL", "COMMUNICATION_FOLLOW_UP"] },
+        "originCommunicationId": { "type": ["string", "null"], "format": "uuid" }
+      }
+    }
+  }
+}

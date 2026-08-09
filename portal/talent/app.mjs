@@ -3,13 +3,14 @@ import {
   createDashboardSummaryExecutor,
   createSelectionCoverageExecutor,
   createTalentWorkspaceExecutor
-} from "./runtime.mjs?v=20260809-selection-confirm-dialog-1";
-import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260809-selection-confirm-dialog-1";
+} from "./runtime.mjs?v=20260809-outcome2-daily-workflow-1";
+import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260809-outcome2-daily-workflow-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
 import { handleNovHubSessionAuthFailure, NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
-import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260809-selection-confirm-dialog-1";
-import { createCandidateActivityConfirmationController } from "./candidate-activity-confirmation.mjs?v=20260809-selection-confirm-dialog-1";
+import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260809-outcome2-daily-workflow-1";
+import { createCandidateActivityConfirmationController } from "./candidate-activity-confirmation.mjs?v=20260809-outcome2-daily-workflow-1";
+import { buildDailyWorkflowQueue } from "./daily-workflow.mjs?v=20260809-outcome2-daily-workflow-1";
 import {
   buildCandidateHistorySummary,
   buildEventRoiView,
@@ -17,12 +18,13 @@ import {
   buildRecruitmentDashboardDecision,
   buildRecruitmentTaskBoard,
   japanBusinessDateIso
-} from "./recruitment-ux.mjs?v=20260809-selection-confirm-dialog-1";
+} from "./recruitment-ux.mjs?v=20260809-outcome2-daily-workflow-1";
 import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs?v=20260804-recruiting-dashboard-completion-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
 let activeSummaryController = null;
+let dailyWorkflowData = null;
 let activeSummaryButton = null;
 let studentWorkspaceData = null;
 let studentWorkspaceGeneration = 0;
@@ -369,6 +371,13 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-month-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-follow-up-filter")?.addEventListener("change", refresh);
   documentObject.getElementById("student-sort-filter")?.addEventListener("change", refresh);
+  documentObject.getElementById("today-task-all-open")?.addEventListener("click", () => {
+    documentObject.querySelector?.('[data-secondary-tab="students"]')?.click?.();
+    documentObject.getElementById("daily-workflow-queue-title")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  });
+  for (const id of ["daily-workflow-filter", "daily-workflow-candidate-filter", "daily-workflow-assignee-filter"]) {
+    documentObject.getElementById(id)?.addEventListener(id === "daily-workflow-filter" ? "change" : "input", () => renderDailyWorkflowQueue(documentObject, dailyWorkflowData));
+  }
   const resetStudentFilters = () => {
     const controls = ["student-search", "student-source-filter", "student-state-filter", "student-progress-filter", "student-month-filter", "student-follow-up-filter", "student-sort-filter"];
     controls.forEach((id) => {
@@ -514,9 +523,11 @@ export function initializeTalentStudentWorkspace({
     if (faculty && !faculty.value.trim()) faculty.value = master.faculty_name || "";
   });
   documentObject.getElementById("candidate-contact-add")?.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType: "EVENT" }));
+  documentObject.getElementById("candidate-communication-add")?.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType: "EVENT", initialCode: "COMMUNICATION_RECORDED" }));
   documentObject.getElementById("candidate-selection-add")?.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType: "SELECTION" }));
   documentObject.getElementById("candidate-action-add")?.addEventListener("click", () => openCandidateActivityDialog({ documentObject, entityType: "NEXT_ACTION" }));
   documentObject.getElementById("activity-entity-type")?.addEventListener("change", () => refreshActivityForm(documentObject));
+  documentObject.getElementById("activity-code")?.addEventListener("change", () => refreshActivityForm(documentObject));
   documentObject.getElementById("candidate-activity-cancel")?.addEventListener("click", () => {
     activityConfirmationController?.close?.({ restoreFocus: false });
     documentObject.getElementById("candidate-activity-dialog")?.close?.();
@@ -616,6 +627,7 @@ async function performTalentStudentWorkspaceLoad({
   const executor = createTalentWorkspaceExecutor({ globalObject });
   const coverageExecutor = createSelectionCoverageExecutor({ globalObject });
   const coveragePromise = coverageExecutor ? coverageExecutor.run() : Promise.resolve(null);
+  const dailyWorkflowPromise = createStagingCandidateClient({ globalObject })?.dailyWorkflow?.() || Promise.resolve(null);
   const result = executor ? await executor.run() : null;
   if (generation !== studentWorkspaceGeneration || controller.signal.aborted) {
     return Object.freeze({ executed: false, staleCompletionSuppressed: true });
@@ -698,6 +710,15 @@ async function performTalentStudentWorkspaceLoad({
   }).catch(() => {
     if (generation !== studentWorkspaceGeneration || controller.signal.aborted) return;
     renderSelectionFactCoverage(documentObject, result.data, null);
+  });
+  void dailyWorkflowPromise.then((dailyResult) => {
+    if (generation !== studentWorkspaceGeneration || controller.signal.aborted) return;
+    dailyWorkflowData = dailyResult?.ok === true ? dailyResult.data : { sourceCoverageState: "PREPARING", communications: [], nextActions: [] };
+    renderStudentWorkspace(documentObject);
+    renderDailyWorkflowQueue(documentObject, dailyWorkflowData);
+  }).catch(() => {
+    dailyWorkflowData = { sourceCoverageState: "PREPARING", communications: [], nextActions: [] };
+    renderDailyWorkflowQueue(documentObject, dailyWorkflowData);
   });
   renderMockRuntimeState(documentObject, result.data.students.length ? "ready" : "empty");
   if (runtimeMode(globalObject) === "staging") {
@@ -2808,23 +2829,33 @@ function renderStudentReviewBoundary(documentObject, boundary) {
 
 function renderCandidateHistories(documentObject, student) {
   const summary = buildCandidateHistorySummary(student);
-  setText(documentObject, "candidate-history-summary", `接触 ${summary.contactCount}件・イベント ${summary.eventCount}件・選考 ${summary.selectionCount}件`);
+  const communications = dailyWorkflowData?.sourceCoverageState === "COMPLETE"
+    ? (dailyWorkflowData.communications || []).filter((row) => row.candidateId === student?.recordId)
+      .map((row) => ({ id: row.id, date: row.occurredAt?.slice?.(0, 10), label: `${row.method}・${row.summary}`, state: "COMPLETED", version: row.version }))
+    : null;
+  const formalEvents = (student?.eventHistory || []).filter((row) => row.code !== "COMMUNICATION_RECORDED");
+  setText(documentObject, "candidate-history-summary", `接触 ${summary.contactCount}件・連絡 ${communications?.length ?? "集計準備中"}・イベント ${formalEvents.length}件・選考 ${summary.selectionCount}件`);
   const groups = [
     ["candidate-contact-history", student?.contactHistory, "EVENT"],
-    ["candidate-event-history", student?.eventHistory, "EVENT"],
+    ["candidate-communication-history", communications, "COMMUNICATION"],
+    ["candidate-event-history", formalEvents, "EVENT"],
     ["candidate-selection-history", student?.selectionHistory, "SELECTION"],
     ["candidate-next-action-history", student?.nextActions, "NEXT_ACTION"]
   ];
   groups.forEach(([id, rows, entityType]) => {
     const list = documentObject.getElementById(id);
     if (!list) return;
+    if (entityType === "COMMUNICATION" && dailyWorkflowData?.sourceCoverageState !== "COMPLETE") {
+      list.replaceChildren(Object.assign(documentObject.createElement("li"), { textContent: "集計準備中" }));
+      return;
+    }
     const safeRows = Array.isArray(rows) ? rows.slice(0, 5) : [];
     list.replaceChildren(...(safeRows.length ? safeRows.map((row) => {
       const item = documentObject.createElement("li");
       const label = documentObject.createElement("span");
       label.textContent = `${row.date || "日付未設定"} · ${row.label || "記録"}${row.state === "COMPLETED" ? " · 完了" : ""}${row.active === false ? " · 無効" : ""}`;
       item.append(label);
-      if (studentWorkspaceData?.canWrite && row.id) {
+      if (studentWorkspaceData?.canWrite && row.id && entityType !== "COMMUNICATION") {
         if (entityType === "NEXT_ACTION" && row.active !== false && row.state === "OPEN") {
           const complete = documentObject.createElement("button");
           complete.type = "button";
@@ -2833,7 +2864,7 @@ function renderCandidateHistories(documentObject, student) {
           complete.addEventListener("click", () => completeCandidateNextAction({ globalObject: globalThis, documentObject, row, student }));
           item.append(complete);
         }
-        if (entityType !== "SELECTION") {
+        if (entityType === "EVENT") {
           const edit = documentObject.createElement("button");
           edit.type = "button";
           edit.className = "history-edit-command";
@@ -2845,6 +2876,57 @@ function renderCandidateHistories(documentObject, student) {
       return item;
     }) : [Object.assign(documentObject.createElement("li"), { textContent: "履歴はありません" })]));
   });
+}
+
+function renderDailyWorkflowQueue(documentObject, data) {
+  const list = documentObject.getElementById("daily-workflow-queue-list");
+  const status = documentObject.getElementById("daily-workflow-queue-status");
+  if (!list || !status) return;
+  const queue = buildDailyWorkflowQueue(data, japanBusinessDateIso());
+  if (queue.state !== "READY") {
+    status.textContent = "集計準備中";
+    list.replaceChildren();
+    return;
+  }
+  const category = documentObject.getElementById("daily-workflow-filter")?.value || "ALL";
+  if (category === "MY") {
+    status.textContent = "自分の担当を表示";
+  }
+  const candidateQuery = documentObject.getElementById("daily-workflow-candidate-filter")?.value?.trim?.().toLowerCase() || "";
+  const assigneeQuery = documentObject.getElementById("daily-workflow-assignee-filter")?.value?.trim?.().toLowerCase() || "";
+  const rows = queue.rows.filter((row) => category === "ALL" ? row.category !== "CLOSED" : category === "MY" ? row.isMine === true : row.category === category)
+    .filter((row) => {
+      const candidateName = (studentWorkspaceData?.students || []).find((student) => student.recordId === row.candidateId)?.displayName || "";
+      return (!candidateQuery || candidateName.toLowerCase().includes(candidateQuery))
+        && (!assigneeQuery || String(row.assignedTo || "").toLowerCase().includes(assigneeQuery));
+    });
+  status.textContent = `${rows.length}件`;
+  list.replaceChildren(...rows.map((row) => {
+    const item = documentObject.createElement("li");
+    const candidateName = (studentWorkspaceData?.students || []).find((student) => student.recordId === row.candidateId)?.displayName || "学生";
+    const label = documentObject.createElement("span");
+    label.textContent = `${row.category === "OVERDUE" ? "期限超過" : row.category === "TODAY" ? "今日" : row.category === "AWAITING_REPLY" ? "返信待ち" : row.category === "ON_HOLD" ? "保留" : row.category === "CLOSED" ? "完了・取消" : "今後"}・${candidateName}・${row.text}${row.dueDate ? `・${row.dueDate}` : ""}`;
+    item.append(label);
+    if (studentWorkspaceData?.canWrite && ["OPEN", "ON_HOLD"].includes(row.state)) {
+      const operation = documentObject.createElement("select");
+      const allowed = row.state === "ON_HOLD" ? [["REOPEN", "再開"], ["CANCEL", "取消"]]
+        : [["COMPLETE", "完了"], ["HOLD", "保留"], ["CANCEL", "取消"]];
+      operation.replaceChildren(...allowed.map(([value, textContent]) => Object.assign(documentObject.createElement("option"), { value, textContent })));
+      const reason = documentObject.createElement("input"); reason.type = "text"; reason.maxLength = 500; reason.placeholder = "操作理由（必須）";
+      const execute = documentObject.createElement("button"); execute.type = "button"; execute.className = "secondary-command compact-command"; execute.textContent = "確認";
+      execute.addEventListener("click", () => {
+        if (!reason.value.trim()) return reason.focus();
+        const selectedLabel = operation.options[operation.selectedIndex]?.textContent || operation.value;
+        activityConfirmationController?.open?.({ candidateName, eventLabel: `次回対応：${selectedLabel}`,
+          date: row.dueDate, reason: reason.value.trim(), focusTarget: execute,
+          command: { commandType: "NEXT_ACTION", operation: operation.value, entityId: row.id,
+            expectedVersion: row.version, candidateId: row.candidateId, holdReason: operation.value === "HOLD" ? reason.value.trim() : null,
+            reason: reason.value.trim() } });
+      });
+      item.append(operation, reason, execute);
+    }
+    return item;
+  }));
 }
 
 const ACTIVITY_CODE_OPTIONS = Object.freeze({
@@ -2872,7 +2954,7 @@ function isLegacyCrossSourceActivity(entityType, row) {
   return Boolean(row?.code && !isWritableActivityCode(entityType, row.code));
 }
 
-function openCandidateActivityDialog({ documentObject, entityType, row = null }) {
+function openCandidateActivityDialog({ documentObject, entityType, row = null, initialCode = null }) {
   const student = studentWorkspaceData?.students.find((item) => item.recordId === selectedStudentRecordId);
   if (!student?.recordId || !studentWorkspaceData?.canWrite) return;
   if (entityType === "SELECTION" && row) return;
@@ -2885,7 +2967,8 @@ function openCandidateActivityDialog({ documentObject, entityType, row = null })
     "activity-assignee": row?.assignedTo || student.assignee || "", "activity-notes": row?.notes || "", "activity-reason": ""
   };
   Object.entries(fields).forEach(([id, value]) => { const input = documentObject.getElementById(id); if (input) input.value = value; });
-  const code = documentObject.getElementById("activity-code"); if (code && row?.code) code.value = row.code;
+  const code = documentObject.getElementById("activity-code"); if (code && (row?.code || initialCode)) code.value = row?.code || initialCode;
+  refreshActivityForm(documentObject);
   const state = documentObject.getElementById("activity-state"); if (state && row?.state) state.value = row.state;
   setText(documentObject, "candidate-activity-dialog-title", row ? "履歴を編集" : "履歴を追加");
   const legacyReadOnly = isLegacyCrossSourceActivity(entityType, row);
@@ -2912,17 +2995,28 @@ function refreshActivityForm(documentObject) {
   if (activityDialogContext) activityDialogContext.entityType = type;
   const select = documentObject.getElementById("activity-code");
   if (select) {
+    const desiredCode = select.value || activityDialogContext?.row?.code || "";
     const options = [...ACTIVITY_CODE_OPTIONS[type]];
     const current = activityDialogContext?.row;
     if (isLegacyCrossSourceActivity(type, current)) {
       options.unshift([current.code, `${current.label || current.code}（旧記録・編集不可）`]);
     }
     select.replaceChildren(...options.map(([value, label]) => Object.assign(documentObject.createElement("option"), { value, textContent: label })));
+    if (options.some(([value]) => value === desiredCode)) select.value = desiredCode;
     select.disabled = false;
   }
   const eventState = documentObject.getElementById("activity-state-field"); if (eventState) eventState.hidden = type !== "EVENT";
-  setText(documentObject, "activity-date-label", type === "NEXT_ACTION" ? "次回対応日（未定は空欄）" : "実施日・予定日 *");
-  const date = documentObject.getElementById("activity-date"); if (date) date.required = type !== "NEXT_ACTION";
+  setText(documentObject, "activity-date-label", type === "NEXT_ACTION" ? "次回対応日 *" : "実施日・予定日 *");
+  const date = documentObject.getElementById("activity-date"); if (date) date.required = true;
+  const communication = type === "EVENT" && documentObject.getElementById("activity-code")?.value === "COMMUNICATION_RECORDED";
+  const communicationFields = documentObject.getElementById("activity-communication-fields");
+  if (communicationFields) communicationFields.hidden = !communication;
+  const communicationAt = documentObject.getElementById("activity-communication-at");
+  if (communicationAt) communicationAt.required = communication;
+  if (date) {
+    date.required = !communication;
+    date.closest?.("label")?.toggleAttribute?.("hidden", communication);
+  }
 }
 
 function saveCandidateActivity({ documentObject }) {
@@ -2942,6 +3036,35 @@ function saveCandidateActivity({ documentObject }) {
     content: documentObject.getElementById("activity-content")?.value || null, assignedTo: documentObject.getElementById("activity-assignee")?.value || null,
     notes: documentObject.getElementById("activity-notes")?.value || null, reason: documentObject.getElementById("activity-reason")?.value || ""
   };
+  if (entityType === "EVENT" && payload.code === "COMMUNICATION_RECORDED") {
+    const localAt = documentObject.getElementById("activity-communication-at")?.value;
+    const createNextAction = documentObject.getElementById("activity-create-follow-up")?.checked === true;
+    const followUpDate = documentObject.getElementById("activity-follow-up-date")?.value;
+    const followUpText = documentObject.getElementById("activity-follow-up-text")?.value;
+    if (!localAt || !String(payload.content || "").trim() || (createNextAction && (!followUpDate || !String(followUpText || "").trim()))) {
+      setText(documentObject, "candidate-activity-status", "連絡日時・対応要約と、作成する場合は次回対応日・内容を入力してください");
+      return;
+    }
+    Object.assign(payload, {
+      commandType: "COMMUNICATION", expectedCandidateVersion: student.profileVersion,
+      communicationAt: localAt ? new Date(localAt).toISOString() : null,
+      method: documentObject.getElementById("activity-communication-method")?.value,
+      direction: documentObject.getElementById("activity-communication-direction")?.value,
+      result: documentObject.getElementById("activity-communication-result")?.value,
+      summary: payload.content, awaitingReply: documentObject.getElementById("activity-awaiting-reply")?.checked === true,
+      createNextAction, nextActionCode: createNextAction ? "FOLLOW_UP" : null,
+      nextActionDueDate: createNextAction ? followUpDate : null,
+      nextActionText: createNextAction ? followUpText : null,
+      nextActionAssignedTo: createNextAction ? payload.assignedTo : null
+    });
+  } else if (entityType === "NEXT_ACTION") {
+    if (!String(payload.content || payload.name || "").trim()) {
+      setText(documentObject, "candidate-activity-status", "次回対応日と対応内容を入力してください");
+      return;
+    }
+    Object.assign(payload, { commandType: "NEXT_ACTION", actionCode: payload.code, dueDate: payload.date,
+      actionText: payload.content || payload.name, assignedTo: payload.assignedTo, operation: row ? "UPDATE" : "CREATE" });
+  }
   const codeSelect = documentObject.getElementById("activity-code");
   const eventLabel = codeSelect?.options?.[codeSelect.selectedIndex]?.textContent || payload.code;
   const saveButton = documentObject.getElementById("candidate-activity-save");
@@ -2958,7 +3081,22 @@ function saveCandidateActivity({ documentObject }) {
 
 async function executeCandidateActivitySave({ globalObject, documentObject, command }) {
   setText(documentObject, "candidate-activity-status", "保存しています");
-  const result = await createStagingCandidateClient({ globalObject })?.mutateActivity(command);
+  const client = createStagingCandidateClient({ globalObject });
+  const result = command.commandType === "COMMUNICATION"
+    ? await client?.recordCommunication({
+      candidateId: command.candidateId, expectedCandidateVersion: command.expectedCandidateVersion,
+      communicationAt: command.communicationAt, method: command.method, direction: command.direction,
+      result: command.result, summary: command.summary, awaitingReply: command.awaitingReply,
+      createNextAction: command.createNextAction, nextActionCode: command.nextActionCode,
+      nextActionDueDate: command.nextActionDueDate, nextActionText: command.nextActionText,
+      nextActionAssignedTo: command.nextActionAssignedTo, reason: command.reason
+    })
+    : command.commandType === "NEXT_ACTION"
+      ? await client?.mutateNextAction({ operation: command.operation, candidateId: command.candidateId,
+        nextActionId: command.entityId, expectedVersion: command.expectedVersion,
+        actionCode: command.actionCode, dueDate: command.dueDate, actionText: command.actionText,
+        assignedTo: command.assignedTo, holdReason: command.holdReason, reason: command.reason })
+      : await client?.mutateActivity(command);
   if (!result?.ok) {
     setText(documentObject, "candidate-activity-status", result?.category === "version_conflict" ? "他の更新があります。再読み込みしてください" : "保存できませんでした");
     return false;
@@ -2986,14 +3124,13 @@ async function deactivateCandidateActivity({ globalObject, documentObject }) {
 }
 
 async function completeCandidateNextAction({ globalObject, documentObject, row, student }) {
-  if (!row?.id || !student?.recordId || !globalObject.confirm?.("この次回対応を完了にしますか？")) return;
-  const result = await createStagingCandidateClient({ globalObject })?.mutateActivity({
-    entityType: "NEXT_ACTION", operation: "COMPLETE", entityId: row.id,
-    expectedVersion: row.version, candidateId: student.recordId, reason: "次回対応の完了確認"
+  if (!row?.id || !student?.recordId) return;
+  activityConfirmationController?.open?.({
+    candidateName: student.displayName, eventLabel: `次回対応を完了：${row.label || "対応"}`,
+    date: row.date, reason: "次回対応の完了確認", focusTarget: documentObject.activeElement,
+    command: { commandType: "NEXT_ACTION", operation: "COMPLETE", entityId: row.id,
+      expectedVersion: row.version, candidateId: student.recordId, reason: "次回対応の完了確認" }
   });
-  if (!result?.ok) return;
-  studentWorkspaceData = null;
-  await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
 }
 
 function renderStudentDailyOperation(documentObject, operation) {

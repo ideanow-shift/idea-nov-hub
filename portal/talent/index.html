@@ -6,9 +6,9 @@
   <meta name="nov-talent-workspace-contract-version" content="1.0.0">
   <title>求人管理システム | IDEA NOV</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=20260809-selection-confirm-dialog-1">
-  <script src="./runtime-config.candidate.js?v=20260809-selection-confirm-dialog-1"></script>
-  <script type="module" src="./app.mjs?v=20260809-selection-confirm-dialog-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260809-outcome2-daily-workflow-1">
+  <script src="./runtime-config.candidate.js?v=20260809-outcome2-daily-workflow-1"></script>
+  <script type="module" src="./app.mjs?v=20260809-outcome2-daily-workflow-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -111,6 +111,7 @@
           <div><p class="section-kicker">今日やること</p><h3 id="today-task-title">優先タスク（最大5件）</h3></div>
           <p id="today-task-status" role="status">学生の次回対応を確認しています</p>
           <ol id="today-task-list" class="today-task-list"></ol>
+          <button id="today-task-all-open" class="secondary-command compact-command" type="button">対応キューを全件表示</button>
         </section>
         <section class="summary-followup" aria-label="採用状況から学生フォローを開く">
           <div class="summary-followup-head">
@@ -436,15 +437,27 @@
                 <div class="candidate-history-heading"><h4 id="candidate-history-title">これまでの履歴</h4><span id="candidate-history-summary">接触 0件・イベント 0件・選考 0件</span></div>
                 <div id="candidate-history-actions" class="candidate-history-actions" hidden>
                   <button id="candidate-contact-add" class="secondary-command compact-command" type="button">接触・イベントを追加</button>
+                  <button id="candidate-communication-add" class="secondary-command compact-command" type="button">連絡履歴を追加</button>
                   <button id="candidate-selection-add" class="secondary-command compact-command" type="button">選考履歴を追加</button>
-                  <button id="candidate-action-add" class="secondary-command compact-command" type="button">次回対応を追加</button>
+                  <button id="candidate-action-add" class="secondary-command compact-command" type="button">次の対応を追加</button>
                 </div>
                 <div class="candidate-history-grid" aria-label="学生履歴">
                   <article><h4>接触履歴</h4><ol id="candidate-contact-history"></ol></article>
+                  <article><h4>連絡履歴</h4><ol id="candidate-communication-history"></ol></article>
                   <article><h4>イベント履歴</h4><ol id="candidate-event-history"></ol></article>
                   <article><h4>選考履歴</h4><ol id="candidate-selection-history"></ol></article>
                   <article><h4>次回対応</h4><ol id="candidate-next-action-history"></ol></article>
                 </div>
+              </section>
+              <section class="candidate-history-section" aria-labelledby="daily-workflow-queue-title">
+                <div class="candidate-history-heading"><h4 id="daily-workflow-queue-title">対応キュー</h4><span id="daily-workflow-queue-status">集計準備中</span></div>
+                <p class="status" data-state="preparing">対応候補の自動提案はルール承認前のため無効です。対応は担当者が確認して追加します。</p>
+                <div class="filter-grid daily-workflow-filters">
+                  <label><span>表示</span><select id="daily-workflow-filter"><option value="ALL">すべて</option><option value="MY">自分の担当</option><option value="OVERDUE">期限超過</option><option value="TODAY">今日</option><option value="AWAITING_REPLY">返信待ち</option><option value="ON_HOLD">保留</option><option value="FUTURE">今後</option><option value="CLOSED">完了・取消</option></select></label>
+                  <label><span>学生</span><input id="daily-workflow-candidate-filter" type="search" maxlength="120"></label>
+                  <label><span>担当者</span><input id="daily-workflow-assignee-filter" type="search" maxlength="120"></label>
+                </div>
+                <ol id="daily-workflow-queue-list"></ol>
               </section>
             </div>
           </aside>
@@ -491,6 +504,19 @@
             <label><span>状態 *</span><select id="activity-code" required></select></label>
             <label><span id="activity-date-label">実施日・予定日 *</span><input id="activity-date" type="date"></label>
             <label id="activity-state-field"><span>予定／実施済み</span><select id="activity-state"><option value="PLANNED">予定</option><option value="COMPLETED">実施済み</option></select></label>
+            <fieldset id="activity-communication-fields" class="profile-wide" hidden>
+              <legend>連絡内容</legend>
+              <div class="profile-form-grid">
+                <label><span>連絡日時 *</span><input id="activity-communication-at" type="datetime-local"></label>
+                <label><span>方法 *</span><select id="activity-communication-method"><option value="LINE">LINE</option><option value="PHONE">電話</option><option value="EMAIL">メール</option><option value="IN_PERSON">対面</option><option value="SCHOOL_RELAY">学校経由</option><option value="OTHER">その他</option></select></label>
+                <label><span>方向 *</span><select id="activity-communication-direction"><option value="OUTBOUND">こちらから</option><option value="INBOUND">学生から</option></select></label>
+                <label><span>結果 *</span><select id="activity-communication-result"><option value="REACHED">連絡済み</option><option value="NO_RESPONSE">応答なし</option><option value="REPLY_RECEIVED">返信あり</option><option value="INFORMATION_SHARED">案内済み</option><option value="OTHER">その他</option></select></label>
+                <label><span><input id="activity-awaiting-reply" type="checkbox"> 返信待ち</span></label>
+                <label><span><input id="activity-create-follow-up" type="checkbox"> 次回対応も作成</span></label>
+                <label><span>次回対応日</span><input id="activity-follow-up-date" type="date"></label>
+                <label class="profile-wide"><span>次回対応内容</span><input id="activity-follow-up-text" maxlength="1000"></label>
+              </div>
+            </fieldset>
             <label class="profile-wide"><span>名称・対応内容</span><input id="activity-name" maxlength="180"></label>
             <label class="profile-wide"><span>接触内容</span><textarea id="activity-content" maxlength="1000" rows="2"></textarea></label>
             <label><span>担当者</span><input id="activity-assignee" maxlength="120"></label>

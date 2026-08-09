@@ -82,7 +82,7 @@ test("Published shell uses the approved server-side Staging runtime and retains 
   assert.match(html, /学生一覧/);
   assert.doesNotMatch(html, /data-primary-tab="workforce"/);
   assert.match(html, /id="panel-workforce" class="primary-panel sprint1-separated"/);
-  assert.match(app, /from "\.\/runtime\.mjs\?v=20260809-selection-confirm-dialog-1"/);
+  assert.match(app, /from "\.\/runtime\.mjs\?v=20260809-outcome2-daily-workflow-1"/);
   assert.doesNotMatch(app, /^import .*exact1/m);
   assert.doesNotMatch(app, /^import .*current-api/m);
   assert.match(config, /runtimeMode: "staging"/);

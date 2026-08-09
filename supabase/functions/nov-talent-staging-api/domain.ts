@@ -87,6 +87,59 @@ export function cleanActivity(input: unknown) {
   });
 }
 
+const COMMUNICATION_METHODS = new Set(["LINE", "PHONE", "EMAIL", "IN_PERSON", "SCHOOL_RELAY", "OTHER"]);
+const COMMUNICATION_DIRECTIONS = new Set(["INBOUND", "OUTBOUND"]);
+const COMMUNICATION_RESULTS = new Set(["REACHED", "NO_RESPONSE", "REPLY_RECEIVED", "INFORMATION_SHARED", "OTHER"]);
+
+export function cleanCommunicationCommand(input: unknown) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const value = input as Record<string, unknown>;
+  const candidateId = clean(value.candidateId, 40);
+  const expectedCandidateVersion = Number(value.expectedCandidateVersion);
+  const communicationAt = clean(value.communicationAt, 35);
+  const method = String(value.method || "");
+  const direction = String(value.direction || "");
+  const result = String(value.result || "");
+  const summary = clean(value.summary, 1000);
+  const reason = clean(value.reason, 500);
+  const awaitingReply = value.awaitingReply;
+  const createNextAction = value.createNextAction === true;
+  const nextActionCode = createNextAction ? String(value.nextActionCode || "") : null;
+  const nextActionDueDate = createNextAction ? clean(value.nextActionDueDate, 10) : null;
+  const nextActionText = createNextAction ? clean(value.nextActionText, 1000) : null;
+  const nextActionAssignedTo = createNextAction ? clean(value.nextActionAssignedTo, 120) : null;
+  if (!candidateId || !Number.isInteger(expectedCandidateVersion) || expectedCandidateVersion < 1
+    || !communicationAt || Number.isNaN(Date.parse(communicationAt))
+    || !COMMUNICATION_METHODS.has(method) || !COMMUNICATION_DIRECTIONS.has(direction)
+    || !COMMUNICATION_RESULTS.has(result) || !summary || !reason || typeof awaitingReply !== "boolean") return null;
+  if (createNextAction && (!ACTION_CODES.has(nextActionCode || "")
+    || !/^\d{4}-\d{2}-\d{2}$/u.test(nextActionDueDate || "") || !nextActionText)) return null;
+  return Object.freeze({ candidateId, expectedCandidateVersion, communicationAt, method, direction, result,
+    summary, reason, awaitingReply, createNextAction, nextActionCode, nextActionDueDate,
+    nextActionText, nextActionAssignedTo });
+}
+
+export function cleanNextActionCommand(input: unknown) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const value = input as Record<string, unknown>;
+  const operation = String(value.operation || "");
+  const candidateId = clean(value.candidateId, 40);
+  const nextActionId = clean(value.nextActionId, 40);
+  const expectedVersion = value.expectedVersion == null ? null : Number(value.expectedVersion);
+  const actionCode = clean(value.actionCode, 40);
+  const dueDate = clean(value.dueDate, 10);
+  const actionText = clean(value.actionText, 1000);
+  const assignedTo = clean(value.assignedTo, 120);
+  const holdReason = clean(value.holdReason, 500);
+  const reason = clean(value.reason, 500);
+  if (!candidateId || !reason || !["CREATE","COMPLETE","HOLD","REOPEN","CANCEL"].includes(operation)) return null;
+  if (operation === "CREATE" && (!ACTION_CODES.has(actionCode || "") || !/^\d{4}-\d{2}-\d{2}$/u.test(dueDate || "") || !actionText)) return null;
+  if (operation !== "CREATE" && (!nextActionId || !Number.isInteger(expectedVersion) || Number(expectedVersion) < 1)) return null;
+  if (operation === "HOLD" && !holdReason) return null;
+  return Object.freeze({ operation, candidateId, nextActionId, expectedVersion, actionCode, dueDate,
+    actionText, assignedTo, holdReason, reason });
+}
+
 export function cleanSourceFactLink(input: unknown) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
   const value = input as Record<string, unknown>;

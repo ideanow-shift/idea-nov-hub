@@ -123,5 +123,5 @@ test("selection save path uses the custom dialog and keeps the existing API cont
   assert.match(selectionSave, /candidateName:\s*student\.displayName/u);
   assert.doesNotMatch(selectionSave, /candidateName:\s*student\.name/u);
   assert.match(app, /mutateActivity\(command\)/u);
-  assert.match(app, /candidate-activity-confirmation\.mjs\?v=20260809-selection-confirm-dialog-1/u);
+  assert.match(app, /candidate-activity-confirmation\.mjs\?v=20260809-outcome2-daily-workflow-1/u);
 });

@@ -32,6 +32,29 @@ contain no dynamic assembly point, connection detail, secret, token, or real
 record value. The runner hashes the exact byte sequence at startup and again
 immediately before sending it to the broker.
 
+## Windows Checkout Byte Stability
+
+The Package Lock covers filesystem bytes, including the package's nested
+`.gitattributes`. That nested file cannot apply attributes to itself. The
+repository-root `.gitattributes` therefore narrowly fixes only
+`review/store-operations-sealed-snapshot-v1/**` and its nested attributes file
+to `text eol=lf`. This preserves the reviewed byte contract on Windows when
+`core.autocrlf=true`; it is not a local Git configuration workaround.
+
+Before Final Review, run the fresh-checkout fixture below. It creates only
+temporary local Git repositories and worktrees, checks the `true`, `false`,
+and `input` autocrlf cases, verifies all 29 locked package artifacts and all
+16 SQL artifacts against their existing hashes, and proves that a deliberate
+CRLF mutation is rejected.
+
+```powershell
+node tests/store-operations-sealed-snapshot-eol-integrity.test.mjs
+```
+
+Any filesystem-byte mismatch remains `PACKAGE_INTEGRITY_REJECTED`. The runner
+does not normalize bytes, update a hash at runtime, or downgrade a mismatch to
+a warning.
+
 The existing `C01` through `C10` catalog pack is unchanged. `S01` through
 `S08` remain a historical conditional template and are not made executable by
 this package.

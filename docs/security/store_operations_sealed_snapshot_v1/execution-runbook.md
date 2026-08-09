@@ -27,7 +27,9 @@ exception requires a separate Owner approval and is outside this v1 Runner.
 3. Confirm Source is `idea-nov-core`, Target is `idea-nov-staging`, their
    private profile fingerprints are distinct and current, and PostgreSQL major
    version 17 is permitted for both profiles.
-4. Confirm both dedicated roles have the Read-only Role Contract and expiry.
+4. Confirm both dedicated roles have the Read-only Role Contract, expiry, no
+   membership-admin path, and an approved per-side non-System Application
+   Schema count/digest in the private Schema/Column Contract.
 5. Confirm exact private Query-registry hash and Schema/Column Contract hash.
 6. Confirm sanitizer/masking/mapping policy versions and sealed-artifact
    retention location.
@@ -40,11 +42,13 @@ The Owner's approved binding is pre-registered in the private execution ledger
 before the window. The operator starts one run. The runner first rehashes the
 Package Lock and all fixed SQL files, then verifies the exact authorization
 binding. The ledger must claim that exact `run_id` and binding hash before a
-profile or database connection can be used. The runner's Stage 0 failure stops
-before Stage 1. Any other mismatch triggers rollback, close, local ephemeral
-bundle deletion or unreadable quarantine, committed-bundle revocation, and
-cleanup. There is no manual re-query, alternate SQL, retry, or partial artifact
-recovery.
+profile or database connection can be used. QP01 proves the full PostgreSQL 17
+Role closure, ownership, TEMP, DML/sequence, and Application Routine gates
+before QP02 or any Stage 1 Domain Query. A QP01 failure leaves Stage 1, the
+Snapshot, Manifest, and final artifact at zero. Any other mismatch triggers
+rollback, close, local ephemeral bundle deletion or unreadable quarantine,
+committed-bundle revocation, and cleanup. There is no manual re-query,
+alternate SQL, retry, or partial artifact recovery.
 
 ## After the Window
 

@@ -1,7 +1,7 @@
 import { hashCanonical } from './canonicalization.mjs';
-import { OUTPUT_SCHEMA_VERSION, PACKAGE_ID, PACKAGE_VERSION, QUERY_VERSION } from './package-metadata.mjs';
+import { OUTPUT_SCHEMA_VERSION, PACKAGE_ID, PACKAGE_VERSION, QUERY_VERSION, READ_ONLY_OUTPUT_SCHEMA_VERSION, READ_ONLY_QUERY_VERSION } from './package-metadata.mjs';
 
-export { OUTPUT_SCHEMA_VERSION, PACKAGE_ID, PACKAGE_VERSION, QUERY_VERSION };
+export { OUTPUT_SCHEMA_VERSION, PACKAGE_ID, PACKAGE_VERSION, QUERY_VERSION, READ_ONLY_OUTPUT_SCHEMA_VERSION, READ_ONLY_QUERY_VERSION };
 
 const STRING = Object.freeze(['string']);
 const INTEGER = Object.freeze(['integer']);
@@ -15,8 +15,8 @@ function freezeTypes(fields) {
 const SQL_ARTIFACTS = Object.freeze({
   'SOCE-QP01-SOURCE-IDENTITY': Object.freeze({ sqlFile: 'queries/SOCE-QP01-SOURCE-IDENTITY.sql', sqlSha256: '86e87c348d621f7f3925d4ece71b2a66cd39d2023b11a6994fba37bb2e925d04' }),
   'SOCE-QP01-TARGET-IDENTITY': Object.freeze({ sqlFile: 'queries/SOCE-QP01-TARGET-IDENTITY.sql', sqlSha256: '785279ebff2f5ee5d1415be500f35b9e293ea7b1161418a6b5552ac42631543b' }),
-  'SOCE-QP01-SOURCE-READONLY': Object.freeze({ sqlFile: 'queries/SOCE-QP01-SOURCE-READONLY.sql', sqlSha256: '1395bf2b5c4d00e4800868e4cc3104a5137695bf2409ae94f4e26d17fe4bc69f' }),
-  'SOCE-QP01-TARGET-READONLY': Object.freeze({ sqlFile: 'queries/SOCE-QP01-TARGET-READONLY.sql', sqlSha256: '5a1cf8a4d9446f078c958405d05e06e8bdb4dca3504ec50acda385eec9a3955c' }),
+  'SOCE-QP01-SOURCE-READONLY': Object.freeze({ sqlFile: 'queries/SOCE-QP01-SOURCE-READONLY.sql', sqlSha256: '63350ce9ff09dd76bb2899d410f604ed0fe99e97ee31b76bfa95441abd1dc330' }),
+  'SOCE-QP01-TARGET-READONLY': Object.freeze({ sqlFile: 'queries/SOCE-QP01-TARGET-READONLY.sql', sqlSha256: '53cf9e42380d2d8afeffdf8fe3bdaf5ba7bc50115d54d292e907720d45351090' }),
   'SOCE-QP02-SOURCE-SCHEMA-COLUMN-MAP': Object.freeze({ sqlFile: 'queries/SOCE-QP02-SOURCE-SCHEMA-COLUMN-MAP.sql', sqlSha256: '01277f49ed63632ee4e7f582a4d19a14ff7f272008d60dab61eac155bd3b384a' }),
   'SOCE-QP02-TARGET-SCHEMA-COLUMN-MAP': Object.freeze({ sqlFile: 'queries/SOCE-QP02-TARGET-SCHEMA-COLUMN-MAP.sql', sqlSha256: 'd2c1fbf8f4d5daeea7377bd64e93a351b5a65e9e32227054fca253697bf69f0f' }),
   'SOCE-QP03-CLASSIFICATION-SUMMARY': Object.freeze({ sqlFile: 'queries/SOCE-QP03-CLASSIFICATION-SUMMARY.sql', sqlSha256: 'b750ab432439ed34a934b1b77f4707ec37ced710440829f515d7df17919e23c2' }),
@@ -31,19 +31,65 @@ const SQL_ARTIFACTS = Object.freeze({
   'SOCE-QP06-M019-PRESENCE': Object.freeze({ sqlFile: 'queries/SOCE-QP06-M019-PRESENCE.sql', sqlSha256: 'ba48dceca9ba918627a01969c65324d8615c46d30b9a76d28f01158b832c426f' }),
 });
 
-const query = (queryId, side, purpose, expectedTypes, canonicalKeyFields) => Object.freeze({
+const query = (queryId, side, purpose, expectedTypes, canonicalKeyFields, { queryVersion = QUERY_VERSION, outputSchemaVersion = OUTPUT_SCHEMA_VERSION } = {}) => Object.freeze({
   queryId,
-  queryVersion: QUERY_VERSION,
+  queryVersion,
   ...SQL_ARTIFACTS[queryId],
   side,
   purpose,
   expectedColumns: Object.freeze(Object.keys(expectedTypes)),
   expectedTypes: freezeTypes(expectedTypes),
-  expectedOutputSchemaVersion: OUTPUT_SCHEMA_VERSION,
+  expectedOutputSchemaVersion: outputSchemaVersion,
   privateSqlOnly: true,
   maximumRows: 500,
   timeoutMs: 5000,
   canonicalKeyFields: Object.freeze(canonicalKeyFields),
+});
+
+const READ_ONLY_EVIDENCE_TYPES = Object.freeze({
+  attestation_side: STRING,
+  current_user_state: STRING,
+  current_role_reference: STRING,
+  transaction_read_only: STRING,
+  default_transaction_read_only: STRING,
+  application_schema_count: INTEGER,
+  application_schema_set_md5: STRING,
+  reachable_role_count: INTEGER,
+  settable_role_count: INTEGER,
+  inherited_role_count: INTEGER,
+  unsafe_reachable_role_count: INTEGER,
+  superuser_count: INTEGER,
+  createdb_role_count: INTEGER,
+  createrole_role_count: INTEGER,
+  replication_role_count: INTEGER,
+  bypassrls_role_count: INTEGER,
+  service_role_count: INTEGER,
+  owned_database_count: INTEGER,
+  owned_application_schema_count: INTEGER,
+  owned_relation_count: INTEGER,
+  owned_function_count: INTEGER,
+  owned_type_count: INTEGER,
+  owned_extension_count: INTEGER,
+  effective_temp_privilege_count: INTEGER,
+  effective_database_create_count: INTEGER,
+  effective_schema_create_count: INTEGER,
+  effective_insert_privilege_count: INTEGER,
+  effective_update_privilege_count: INTEGER,
+  effective_delete_privilege_count: INTEGER,
+  effective_truncate_privilege_count: INTEGER,
+  effective_references_privilege_count: INTEGER,
+  effective_trigger_privilege_count: INTEGER,
+  effective_sequence_usage_count: INTEGER,
+  effective_sequence_update_count: INTEGER,
+  effective_dml_privilege_count: INTEGER,
+  effective_sequence_write_count: INTEGER,
+  executable_application_routine_count: INTEGER,
+  membership_admin_option_count: INTEGER,
+  role_closure_checked: BOOLEAN,
+  ownership_gate_checked: BOOLEAN,
+  temp_gate_checked: BOOLEAN,
+  routine_execute_gate_checked: BOOLEAN,
+  read_only_role_contract_passed: BOOLEAN,
 });
 
 const pack = (packId, stage, purpose, entries) => Object.freeze({
@@ -77,34 +123,14 @@ export const FIXED_QUERY_PACKS = Object.freeze([
       server_version: STRING,
       server_version_num: INTEGER,
     }, ['attestation_side']),
-    query('SOCE-QP01-SOURCE-READONLY', 'source', 'Mechanically attest source read-only protections', {
-      attestation_side: STRING,
-      current_user_state: STRING,
-      transaction_read_only: STRING,
-      default_transaction_read_only: STRING,
-      insert_denied: BOOLEAN,
-      update_denied: BOOLEAN,
-      delete_denied: BOOLEAN,
-      truncate_denied: BOOLEAN,
-      ddl_denied: BOOLEAN,
-      function_write_denied: BOOLEAN,
-      bypassrls_denied: BOOLEAN,
-      role_inheritance_denied: BOOLEAN,
-    }, ['attestation_side']),
-    query('SOCE-QP01-TARGET-READONLY', 'target', 'Mechanically attest target read-only protections', {
-      attestation_side: STRING,
-      current_user_state: STRING,
-      transaction_read_only: STRING,
-      default_transaction_read_only: STRING,
-      insert_denied: BOOLEAN,
-      update_denied: BOOLEAN,
-      delete_denied: BOOLEAN,
-      truncate_denied: BOOLEAN,
-      ddl_denied: BOOLEAN,
-      function_write_denied: BOOLEAN,
-      bypassrls_denied: BOOLEAN,
-      role_inheritance_denied: BOOLEAN,
-    }, ['attestation_side']),
+    query('SOCE-QP01-SOURCE-READONLY', 'source', 'Mechanically attest source read-only protections across the effective role closure', READ_ONLY_EVIDENCE_TYPES, ['attestation_side'], {
+      queryVersion: READ_ONLY_QUERY_VERSION,
+      outputSchemaVersion: READ_ONLY_OUTPUT_SCHEMA_VERSION,
+    }),
+    query('SOCE-QP01-TARGET-READONLY', 'target', 'Mechanically attest target read-only protections across the effective role closure', READ_ONLY_EVIDENCE_TYPES, ['attestation_side'], {
+      queryVersion: READ_ONLY_QUERY_VERSION,
+      outputSchemaVersion: READ_ONLY_OUTPUT_SCHEMA_VERSION,
+    }),
   ]),
   pack('SOCE-QP02', 'stage0', 'Schema and column contract attestation', [
     query('SOCE-QP02-SOURCE-SCHEMA-COLUMN-MAP', 'source', 'Attest the fixed source object and logical-column map', {
@@ -247,7 +273,8 @@ export function assertFixedQueryRegistry(registry = FIXED_QUERY_REGISTRY) {
       && /^queries\/SOCE-QP\d{2}-[A-Z0-9-]+\.sql$/.test(entry.sqlFile)
       && /^[a-f0-9]{64}$/.test(entry.sqlSha256)
       && Array.isArray(entry.expectedColumns) && entry.expectedColumns.length > 0
-      && entry.expectedOutputSchemaVersion === OUTPUT_SCHEMA_VERSION);
+      && entry.queryVersion === (entry.queryId.endsWith('-READONLY') ? READ_ONLY_QUERY_VERSION : QUERY_VERSION)
+      && entry.expectedOutputSchemaVersion === (entry.queryId.endsWith('-READONLY') ? READ_ONLY_OUTPUT_SCHEMA_VERSION : OUTPUT_SCHEMA_VERSION));
   if (!valid) throw Object.assign(new Error('FIXED_QUERY_REGISTRY_REJECTED'), { code: 'FIXED_QUERY_REGISTRY_REJECTED' });
   return true;
 }

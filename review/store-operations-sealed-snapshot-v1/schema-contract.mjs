@@ -2,6 +2,7 @@ import { hashCanonical, stableRecordSet } from './canonicalization.mjs';
 import { FIXED_QUERY_REGISTRY, PUBLIC_QUERY_CATALOG_HASH, QUERY_PACK_IDS, getFixedQuery } from './query-pack-registry.mjs';
 
 const HASH = /^[a-f0-9]{64}$/;
+const MD5 = /^[a-f0-9]{32}$/;
 const QUERY_BINDING_FIELDS = Object.freeze([
   'queryId',
   'queryVersion',
@@ -95,6 +96,12 @@ export function assertApprovedSchemaContract(contract) {
     && HASH.test(contract.expectedStage0Digest ?? '')
     && HASH.test(contract.privateQueryPackManifestHash ?? '')
     && HASH.test(contract.schemaContractHash ?? '')
+    && Number.isSafeInteger(contract.sourceApplicationSchemaCount)
+    && contract.sourceApplicationSchemaCount > 0
+    && MD5.test(contract.sourceApplicationSchemaSetMd5 ?? '')
+    && Number.isSafeInteger(contract.targetApplicationSchemaCount)
+    && contract.targetApplicationSchemaCount > 0
+    && MD5.test(contract.targetApplicationSchemaSetMd5 ?? '')
     && contract.schemaContractHash === hashSchemaContract(contract);
   if (!valid) throw Object.assign(new Error('SCHEMA_CONTRACT_MISMATCH'), { code: 'SCHEMA_CONTRACT_MISMATCH' });
   return true;

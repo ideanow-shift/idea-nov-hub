@@ -27,16 +27,47 @@ function readOnlyRow(side) {
   return {
     attestation_side: side,
     current_user_state: 'verified',
+    current_role_reference: 'f'.repeat(32),
     transaction_read_only: 'on',
     default_transaction_read_only: 'on',
-    insert_denied: true,
-    update_denied: true,
-    delete_denied: true,
-    truncate_denied: true,
-    ddl_denied: true,
-    function_write_denied: true,
-    bypassrls_denied: true,
-    role_inheritance_denied: true,
+    application_schema_count: 2,
+    application_schema_set_md5: 'e'.repeat(32),
+    reachable_role_count: 1,
+    settable_role_count: 1,
+    inherited_role_count: 1,
+    unsafe_reachable_role_count: 0,
+    superuser_count: 0,
+    createdb_role_count: 0,
+    createrole_role_count: 0,
+    replication_role_count: 0,
+    bypassrls_role_count: 0,
+    service_role_count: 0,
+    owned_database_count: 0,
+    owned_application_schema_count: 0,
+    owned_relation_count: 0,
+    owned_function_count: 0,
+    owned_type_count: 0,
+    owned_extension_count: 0,
+    effective_temp_privilege_count: 0,
+    effective_database_create_count: 0,
+    effective_schema_create_count: 0,
+    effective_insert_privilege_count: 0,
+    effective_update_privilege_count: 0,
+    effective_delete_privilege_count: 0,
+    effective_truncate_privilege_count: 0,
+    effective_references_privilege_count: 0,
+    effective_trigger_privilege_count: 0,
+    effective_sequence_usage_count: 0,
+    effective_sequence_update_count: 0,
+    effective_dml_privilege_count: 0,
+    effective_sequence_write_count: 0,
+    executable_application_routine_count: 0,
+    membership_admin_option_count: 0,
+    role_closure_checked: true,
+    ownership_gate_checked: true,
+    temp_gate_checked: true,
+    routine_execute_gate_checked: true,
+    read_only_role_contract_passed: true,
   };
 }
 
@@ -151,6 +182,10 @@ function rebuildSchemaContract(fixture, overrides = {}) {
     contractId: 'SOCE-SCHEMA-COLUMN-CONTRACT-v1', executionState: 'approved', sourceProjectLabel: 'idea-nov-core', targetProjectLabel: 'idea-nov-staging',
     approvalReference: 'approval:fixture', packIds: QUERY_PACK_IDS, publicQueryCatalogHash: PUBLIC_QUERY_CATALOG_HASH,
     expectedObjectSetHash: hashCanonical({ fixture: 'logical-object-set-only' }), expectedStage0Digest: hashStage0Evidence(fixture.stage0Records()),
+    sourceApplicationSchemaCount: fixture.source['SOCE-QP01-SOURCE-READONLY'][0].application_schema_count,
+    sourceApplicationSchemaSetMd5: fixture.source['SOCE-QP01-SOURCE-READONLY'][0].application_schema_set_md5,
+    targetApplicationSchemaCount: fixture.target['SOCE-QP01-TARGET-READONLY'][0].application_schema_count,
+    targetApplicationSchemaSetMd5: fixture.target['SOCE-QP01-TARGET-READONLY'][0].application_schema_set_md5,
     privateQueryPackManifestHash: fixture.privateQueryPackManifest.contentHash, ...overrides,
   };
   fixture.approvedSchemaContract = { ...base, schemaContractHash: hashSchemaContract(base) };
@@ -234,19 +269,35 @@ await test('registry fixes 16 actual SQL artifacts, versions, schemas, and byte 
   assert.equal(Object.hasOwn(publicQueryCatalogShape()[0].outputSchemas[0], 'sqlSha256'), true);
   assert.doesNotThrow(() => assertFixedQueryRegistry());
   for (const query of FIXED_QUERY_REGISTRY) {
-    assert.equal(query.queryVersion, '1.0.0');
-    assert.equal(query.expectedOutputSchemaVersion, '1.0.0');
+    const isReadOnlyRoleAttestation = query.queryId.endsWith('-READONLY');
+    assert.equal(query.queryVersion, isReadOnlyRoleAttestation ? '1.1.0' : '1.0.0');
+    assert.equal(query.expectedOutputSchemaVersion, isReadOnlyRoleAttestation ? '1.1.0' : '1.0.0');
     assert.equal(Object.keys(query.expectedTypes).length, query.expectedColumns.length);
     assert.equal(typeof query.sqlFile, 'string');
     assert.equal(verifySqlArtifact(query).sqlSha256, query.sqlSha256);
   }
   for (const queryId of ['SOCE-QP01-SOURCE-READONLY', 'SOCE-QP01-TARGET-READONLY']) {
     const sqlText = verifySqlArtifact(getFixedQuery(queryId)).sqlText;
-    assert.match(sqlText, /has_table_privilege\(current_user, oid, 'INSERT'\)/);
-    assert.match(sqlText, /has_table_privilege\(current_user, oid, 'UPDATE'\)/);
-    assert.match(sqlText, /has_table_privilege\(current_user, oid, 'DELETE'\)/);
-    assert.match(sqlText, /has_table_privilege\(current_user, oid, 'TRUNCATE'\)/);
-    assert.match(sqlText, /has_function_privilege\(current_user, oid, 'EXECUTE'\)/);
+    for (const requiredToken of [
+      'WITH RECURSIVE',
+      'pg_auth_members',
+      'inherit_option',
+      'set_option',
+      'admin_option',
+      'pg_database',
+      'pg_namespace',
+      'pg_class',
+      'pg_proc',
+      'pg_type',
+      'pg_extension',
+      "'TEMPORARY'",
+      "'REFERENCES'",
+      "'TRIGGER'",
+      'has_sequence_privilege',
+      'has_function_privilege',
+      'application_schema_set_md5',
+      'read_only_role_contract_passed',
+    ]) assert.equal(sqlText.includes(requiredToken), true, `${queryId} missing ${requiredToken}`);
   }
 });
 
@@ -345,9 +396,89 @@ await test('writable role attestation is rejected and both opened sessions roll 
   fixture.sourceConnection.roleAttestation = { ...fixture.sourceConnection.roleAttestation, canUpdate: true };
   const result = await runSealedSnapshot(fixture);
   assert.equal(result.failureCode, 'READ_ONLY_ROLE_REJECTED');
+  assert.equal(result.stage1, 'not_started');
+  assert.deepEqual(connectionAttempts(fixture), { broker: 2, source: 1, target: 1, query: 0 });
   assert.equal(fixture.sourceConnection.events.includes('rollback'), true);
   assert.equal(fixture.targetConnection.events.includes('rollback'), true);
   assert.equal(fixture.privateArtifactSink.stateCounts().validCommitted, 0);
+});
+
+async function assertReadOnlyEvidenceRejects(field, value = 1) {
+  const fixture = makeFixture({ runId: `run:readonly-${field}` });
+  fixture.source['SOCE-QP01-SOURCE-READONLY'][0][field] = value;
+  const result = await runSealedSnapshot(fixture);
+  assert.equal(result.failureCode, 'READ_ONLY_ROLE_REJECTED');
+  assert.equal(result.stage1, 'not_started');
+  assert.equal(fixture.sourceConnection.events.some((event) => event.includes('SOCE-QP03')), false);
+  assert.equal(fixture.privateArtifactSink.stateCounts().validCommitted, 0);
+}
+
+for (const [name, field] of [
+  ['database owner', 'owned_database_count'],
+  ['application schema owner', 'owned_application_schema_count'],
+  ['relation owner', 'owned_relation_count'],
+  ['function owner', 'owned_function_count'],
+  ['type owner', 'owned_type_count'],
+  ['TEMP privilege', 'effective_temp_privilege_count'],
+  ['NOINHERIT SET ROLE writer', 'unsafe_reachable_role_count'],
+  ['INHERIT writer', 'effective_update_privilege_count'],
+  ['nested writer membership', 'effective_dml_privilege_count'],
+  ['third application schema routine EXECUTE', 'executable_application_routine_count'],
+  ['PUBLIC routine EXECUTE', 'executable_application_routine_count'],
+]) {
+  await test(`${name} read-only evidence rejects before Stage 1`, async () => {
+    await assertReadOnlyEvidenceRejects(field);
+  });
+}
+
+await test('safe inherited and SET ROLE membership evidence passes when all reached roles are safe', async () => {
+  const fixture = makeFixture({ runId: 'run:safe-membership' });
+  const row = fixture.source['SOCE-QP01-SOURCE-READONLY'][0];
+  row.reachable_role_count = 2;
+  row.settable_role_count = 2;
+  row.inherited_role_count = 2;
+  rebuildSchemaContract(fixture);
+  const result = await runSealedSnapshot(fixture);
+  assert.equal(result.runStatus, 'complete');
+  assert.equal(result.stage1, 'pass');
+});
+
+await test('cycle-safe role path guard is fixed in both QP01 SQL artifacts', () => {
+  for (const queryId of ['SOCE-QP01-SOURCE-READONLY', 'SOCE-QP01-TARGET-READONLY']) {
+    const sqlText = verifySqlArtifact(getFixedQuery(queryId)).sqlText;
+    assert.match(sqlText, /NOT membership\.roleid = ANY\(path\.role_path\)/);
+  }
+});
+
+await test('QP01 missing field rejects before Stage 1 and final artifact creation', async () => {
+  const fixture = makeFixture();
+  delete fixture.source['SOCE-QP01-SOURCE-READONLY'][0].owned_database_count;
+  const result = await runSealedSnapshot(fixture);
+  assert.equal(result.failureCode, 'FIXED_QUERY_OUTPUT_SCHEMA_INVALID');
+  assert.equal(result.stage1, 'not_started');
+  assert.equal(fixture.privateArtifactSink.stateCounts().validCommitted, 0);
+});
+
+await test('QP01 NULL field rejects before Stage 1 and final artifact creation', async () => {
+  const fixture = makeFixture();
+  fixture.source['SOCE-QP01-SOURCE-READONLY'][0].effective_temp_privilege_count = null;
+  const result = await runSealedSnapshot(fixture);
+  assert.equal(result.failureCode, 'FIXED_QUERY_OUTPUT_SCHEMA_INVALID');
+  assert.equal(result.stage1, 'not_started');
+  assert.equal(fixture.privateArtifactSink.stateCounts().validCommitted, 0);
+});
+
+await test('QP01 application schema contract mismatch rejects before Stage 1', async () => {
+  const fixture = makeFixture();
+  rebuildSchemaContract(fixture, { sourceApplicationSchemaCount: 3 });
+  const result = await runSealedSnapshot(fixture);
+  assert.equal(result.failureCode, 'READ_ONLY_ROLE_REJECTED');
+  assert.equal(result.stage1, 'not_started');
+  assert.equal(fixture.privateArtifactSink.stateCounts().validCommitted, 0);
+});
+
+await test('QP01 unsafe reachable role count rejects before Stage 1', async () => {
+  await assertReadOnlyEvidenceRejects('unsafe_reachable_role_count');
 });
 
 await test('missing fixed output column stops before Stage 1 and final artifact creation', async () => {
@@ -658,5 +789,5 @@ await test('package source, SQL artifacts, and execution documentation contain n
   assert.equal(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(source), false);
 });
 
-assert.equal(passed, 46);
-process.stdout.write(`RESULT ${passed}/46 PASS\n`);
+assert.equal(passed, 63);
+process.stdout.write(`RESULT ${passed}/63 PASS\n`);

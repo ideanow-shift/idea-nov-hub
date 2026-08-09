@@ -16,6 +16,10 @@ Approved query packs: SOCE-QP01, SOCE-QP02, SOCE-QP03, SOCE-QP04, SOCE-QP05, SOC
 Public query catalog hash: <approved value>
 Private Query-registry hash: <approved value>
 Private schema/column contract hash: <approved value>
+Source application-schema count: <approved private contract value>
+Source application-schema set digest: <approved private contract value>
+Target application-schema count: <approved private contract value>
+Target application-schema set digest: <approved private contract value>
 Run ID: <one new immutable run ID>
 Run ID binding: package ID/version/hash, Query Pack hash, Schema Contract hashes, private Query-registry hash, source/target profile reference/fingerprint, broker reference/fingerprint, operator, reviewer, authorized-at, execution window, and sealed-private output policy
 Source/Target profile verification: reference, fingerprint, environment, project identity, broker reference, not-before, and expiry all match required
@@ -26,6 +30,8 @@ Operator: <approved role/person>
 Reviewer: <approved role/person>
 Source Read-only Role Owner attestation: <reference>
 Target Read-only Role Owner attestation: <reference>
+Source/Target effective-role closure attestation: <reference>
+Source/Target ownership, TEMP, and application-routine EXECUTE gate attestation: <reference>
 Private Broker Owner attestation: <reference>
 Private Profile Custodian attestation: <reference>
 Artifact retention reference: <approved private policy reference>

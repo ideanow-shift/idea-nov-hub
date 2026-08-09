@@ -47,6 +47,7 @@ this package.
 | Schema gate | `schema-contract.mjs` | Stage 1 may run only after Stage 0 exactly matches a private approved contract. |
 | Sealed runner | `sealed-snapshot-runner.mjs` | Fixed order, package/query-byte rehash, run-ID package binding, profile verification, local ephemeral bundle, cleanup receipt, atomic final commit, and no caller SQL. |
 | Fixture tests | `sealed-snapshot-package.test.mjs` | Synthetic in-memory proof; no database connection. |
+| PostgreSQL 17 semantic test | `local-postgresql17-role-test.mjs` | Disposable local catalog/Role proof only; no Source or Target connection. |
 | Operational materials | This directory | Human approvals, security contract, and incident steps. |
 
 ## Execution State

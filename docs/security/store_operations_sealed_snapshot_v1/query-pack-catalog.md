@@ -16,7 +16,7 @@ Query hash; a hash mismatch stops before a run claim or connection.
 
 | Pack | Stage | Fixed purpose | Required validation |
 |---|---|---|---|
-| `SOCE-QP01` | 0 | Source/Target project identity, PostgreSQL version, and read-only-role attestation | Source is Production, Target is Staging, profiles distinct, PostgreSQL major is 17, role is read-only. |
+| `SOCE-QP01` | 0 | Source/Target project identity, PostgreSQL version, and effective read-only Role attestation | Source is Production, Target is Staging, profiles distinct, PostgreSQL major is 17, and the entire inherited/settable Role closure has no unsafe privilege, ownership, TEMP, DML, DDL, or Application Routine route. |
 | `SOCE-QP02` | 0 | Schema/column/constraint/relation attestation | Exact match to private approved Schema/Column Contract. |
 | `SOCE-QP03` | 1 | Corporation/Store classification and Tokorozawa legacy relation | Six corporations, official 20, direct 13, franchise 7, no duplicate/orphan/unresolved official row. |
 | `SOCE-QP04` | 1 | Employee/role/position/department/assignment evidence | Source-backed AM and manager evidence only; sales head may remain `unresolved`. |
@@ -25,11 +25,15 @@ Query hash; a hash mismatch stops before a run claim or connection.
 
 ## Stage 0 / Stage 1 Rule
 
-Stage 0 executes `SOCE-QP01` and then `SOCE-QP02`. It creates a digest from
-the private catalog output. Stage 1 is invoked only when the PostgreSQL version
-policy, Stage 0 digest, Package Lock, and all 16 Query hashes exactly match
-their approved contracts. Stage 1 cannot generate SQL from a live schema, infer a
-missing column, fall back to `S01`--`S08`, or substitute an alternative object.
+Stage 0 executes `SOCE-QP01` and then `SOCE-QP02`. `SOCE-QP01` first proves
+the effective Role closure, every non-System Application Schema set digest,
+all owner-bearing Application Object counters, effective TEMP, DML, sequence,
+and Routine `EXECUTE` counters. A role-gate failure ends Stage 0 before any
+Stage 1 Domain Query, Snapshot, Manifest, or final artifact. Stage 1 is invoked
+only when the PostgreSQL version policy, Application Schema set, Stage 0 digest,
+Package Lock, and all 16 Query hashes exactly match their approved contracts.
+Stage 1 cannot generate SQL from a live schema, infer a missing column, fall
+back to `S01`--`S08`, or substitute an alternative object.
 
 ## Domain Boundaries
 

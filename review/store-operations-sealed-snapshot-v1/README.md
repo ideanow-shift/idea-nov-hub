@@ -19,3 +19,16 @@ node review/store-operations-sealed-snapshot-v1/sealed-snapshot-package.test.mjs
 
 The test uses only synthetic records and an in-memory broker. It does not open
 source or target connections and does not create a Snapshot artifact.
+
+Run the separate disposable PostgreSQL 17 catalog-semantic test only with a
+locally provisioned PGlite 0.4.5 module root. It creates no network connection,
+uses a temporary local data directory, checks `server_version_num` is 17, and
+deletes that directory after the test:
+
+```powershell
+$env:SOCE_PGLITE_MODULE_ROOT = '<local-pglite-module-root>'
+node review/store-operations-sealed-snapshot-v1/local-postgresql17-role-test.mjs
+```
+
+This test is a local authoring check. It is not a Source or Target execution
+path and cannot create a Snapshot artifact.

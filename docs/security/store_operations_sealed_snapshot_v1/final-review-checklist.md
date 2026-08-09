@@ -31,7 +31,12 @@
 - [ ] No dynamic SQL, schema discovery fallback, arbitrary query, RPC, or
   caller-controlled retry exists.
 - [ ] Source/Target roles mechanically require read-only transaction/default,
-  no DML/DDL/function write, no `BYPASSRLS`, and no service role.
+  a cycle-safe PostgreSQL 17 inherited/settable Role closure, no unsafe Role
+  attributes, no ownership, no TEMP, no DML/sequence privilege, no Application
+  Routine `EXECUTE`, no `BYPASSRLS`, and no service role.
+- [ ] QP01's approved per-side non-System Application Schema count/digest
+  exactly matches the private Schema/Column Contract; a mismatch blocks Stage
+  1 with Snapshot, Manifest, and final artifact counts at zero.
 - [ ] Corporation/Store rules include 6 corporations, official 20, direct 13,
   franchise 7, non-store separation, and Tokorozawa legacy relation state.
 - [ ] Employee/assignment rules preserve AM deny-by-default, store-manager
@@ -40,6 +45,8 @@
   and existing M019 presence.
 - [ ] Sanitizer and deterministic canonicalization contracts are documented.
 - [ ] In-memory static/fixture/security tests pass.
+- [ ] The disposable local PostgreSQL 17 semantic Role test passes and deletes
+  its local data directory after completion.
 - [ ] `git diff --check` passes and worktree is clean before review.
 
 ## Review Outcome

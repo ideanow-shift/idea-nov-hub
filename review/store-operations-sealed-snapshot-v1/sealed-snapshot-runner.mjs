@@ -10,11 +10,68 @@ import { assertPrivateRows, assertSanitizedEvidence, safeFailureCode, sanitizeQu
 import { assertApprovedSchemaContract, assertPrivateQueryPackManifest, assertStage0Matches, privateQueryAttestations } from './schema-contract.mjs';
 import { verifyAllSqlArtifacts, verifySqlArtifact } from './sql-artifacts.mjs';
 
-const READ_ONLY_REQUIRED = Object.freeze(['currentUserVerified', 'transactionReadOnly', 'defaultTransactionReadOnly']);
-const READ_ONLY_DENIED = Object.freeze(['canInsert', 'canUpdate', 'canDelete', 'canTruncate', 'canDdl', 'canFunctionWrite', 'bypassRls', 'serviceRole', 'inheritsPrivileges']);
+const READ_ONLY_REQUIRED = Object.freeze(['currentUserVerified', 'transactionReadOnly', 'defaultTransactionReadOnly', 'roleClosureChecked', 'ownershipChecked', 'tempChecked', 'routineExecuteChecked']);
+const READ_ONLY_DENIED = Object.freeze([
+  'canInsert',
+  'canUpdate',
+  'canDelete',
+  'canTruncate',
+  'canReferences',
+  'canTrigger',
+  'canSequenceUsage',
+  'canSequenceUpdate',
+  'canDatabaseCreate',
+  'canApplicationSchemaCreate',
+  'canTemporaryCreate',
+  'canAlterDrop',
+  'canFunctionExecute',
+  'ownsDatabase',
+  'ownsApplicationSchema',
+  'ownsRelation',
+  'ownsFunction',
+  'ownsType',
+  'ownsExtension',
+  'canSetRole',
+  'hasMembershipAdminOption',
+  'hasUnsafeRoleClosure',
+  'bypassRls',
+  'serviceRole',
+]);
+const READ_ONLY_EVIDENCE_COUNTS = Object.freeze([
+  'unsafe_reachable_role_count',
+  'superuser_count',
+  'createdb_role_count',
+  'createrole_role_count',
+  'replication_role_count',
+  'bypassrls_role_count',
+  'service_role_count',
+  'owned_database_count',
+  'owned_application_schema_count',
+  'owned_relation_count',
+  'owned_function_count',
+  'owned_type_count',
+  'owned_extension_count',
+  'effective_temp_privilege_count',
+  'effective_database_create_count',
+  'effective_schema_create_count',
+  'effective_insert_privilege_count',
+  'effective_update_privilege_count',
+  'effective_delete_privilege_count',
+  'effective_truncate_privilege_count',
+  'effective_references_privilege_count',
+  'effective_trigger_privilege_count',
+  'effective_sequence_usage_count',
+  'effective_sequence_update_count',
+  'effective_dml_privilege_count',
+  'effective_sequence_write_count',
+  'executable_application_routine_count',
+  'membership_admin_option_count',
+]);
+const READ_ONLY_EVIDENCE_FLAGS = Object.freeze(['role_closure_checked', 'ownership_gate_checked', 'temp_gate_checked', 'routine_execute_gate_checked']);
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 const PRIVATE_REFERENCE = /^private:[A-Za-z0-9._:/-]{1,160}$/;
 const HASH = /^[a-f0-9]{64}$/;
+const MD5 = /^[a-f0-9]{32}$/;
 
 function failure(code, queryId = null) {
   throw Object.assign(new Error(code), { code, ...(queryId ? { queryId } : {}) });
@@ -123,14 +180,29 @@ function assertIdentityEvidence(row, side, environment) {
   for (const key of ['project_identity_state', 'region_state', 'profile_state']) requireValue(row, key, 'match', 'PROFILE_REJECTED');
 }
 
-function assertReadOnlyEvidence(row, side) {
+function assertExpectedApplicationSchemas(schemaContract, row, side) {
+  const prefix = side === 'source' ? 'source' : 'target';
+  const count = schemaContract?.[`${prefix}ApplicationSchemaCount`];
+  const digest = schemaContract?.[`${prefix}ApplicationSchemaSetMd5`];
+  if (!Number.isSafeInteger(count) || count < 1 || !MD5.test(digest ?? '')
+    || row.application_schema_count !== count || row.application_schema_set_md5 !== digest) {
+    failure('READ_ONLY_ROLE_REJECTED');
+  }
+}
+
+function assertReadOnlyEvidence(row, side, schemaContract) {
   requireValue(row, 'attestation_side', side, 'READ_ONLY_ROLE_REJECTED');
   requireValue(row, 'current_user_state', 'verified', 'READ_ONLY_ROLE_REJECTED');
+  if (!MD5.test(row.current_role_reference ?? '')) failure('READ_ONLY_ROLE_REJECTED');
   requireValue(row, 'transaction_read_only', 'on', 'READ_ONLY_ROLE_REJECTED');
   requireValue(row, 'default_transaction_read_only', 'on', 'READ_ONLY_ROLE_REJECTED');
-  for (const key of ['insert_denied', 'update_denied', 'delete_denied', 'truncate_denied', 'ddl_denied', 'function_write_denied', 'bypassrls_denied', 'role_inheritance_denied']) {
-    requireValue(row, key, true, 'READ_ONLY_ROLE_REJECTED');
+  assertExpectedApplicationSchemas(schemaContract, row, side);
+  for (const key of ['reachable_role_count', 'settable_role_count', 'inherited_role_count', 'application_schema_count', ...READ_ONLY_EVIDENCE_COUNTS]) {
+    if (!Number.isSafeInteger(row[key]) || row[key] < 0) failure('READ_ONLY_ROLE_REJECTED');
   }
+  for (const key of READ_ONLY_EVIDENCE_FLAGS) requireValue(row, key, true, 'READ_ONLY_ROLE_REJECTED');
+  for (const key of READ_ONLY_EVIDENCE_COUNTS) requireValue(row, key, 0, 'READ_ONLY_ROLE_REJECTED');
+  requireValue(row, 'read_only_role_contract_passed', true, 'READ_ONLY_ROLE_REJECTED');
 }
 
 function assertPostgresVersion(row, policy) {
@@ -146,15 +218,15 @@ function assertPostgresVersion(row, policy) {
   }
 }
 
-function assertStage0Attestations(records, sourceProfile, targetProfile) {
+function assertStage0Attestations(records, sourceProfile, targetProfile, schemaContract) {
   const sourceIdentity = oneRow(records, 'SOCE-QP01-SOURCE-IDENTITY');
   const targetIdentity = oneRow(records, 'SOCE-QP01-TARGET-IDENTITY');
   assertIdentityEvidence(sourceIdentity, 'source', 'production');
   assertIdentityEvidence(targetIdentity, 'target', 'staging');
   assertPostgresVersion(sourceIdentity, sourceProfile.postgresVersionPolicy);
   assertPostgresVersion(targetIdentity, targetProfile.postgresVersionPolicy);
-  assertReadOnlyEvidence(oneRow(records, 'SOCE-QP01-SOURCE-READONLY'), 'source');
-  assertReadOnlyEvidence(oneRow(records, 'SOCE-QP01-TARGET-READONLY'), 'target');
+  assertReadOnlyEvidence(oneRow(records, 'SOCE-QP01-SOURCE-READONLY'), 'source', schemaContract);
+  assertReadOnlyEvidence(oneRow(records, 'SOCE-QP01-TARGET-READONLY'), 'target', schemaContract);
 }
 
 function assertDomainGates(stage1Records) {
@@ -319,7 +391,7 @@ export async function runSealedSnapshot({ request, executionAuthorization, sourc
 
     const queryEvidence = [];
     const stage0IdentityRecords = await executePacks({ packIds: ['SOCE-QP01'], sourceConnection, targetConnection, result, evidence: queryEvidence, resources, packageRoot });
-    assertStage0Attestations(stage0IdentityRecords, sourceProfile, targetProfile);
+    assertStage0Attestations(stage0IdentityRecords, sourceProfile, targetProfile, approvedSchemaContract);
     const stage0SchemaRecords = await executePacks({ packIds: ['SOCE-QP02'], sourceConnection, targetConnection, result, evidence: queryEvidence, resources, packageRoot });
     const stage0Records = stage0IdentityRecords.concat(stage0SchemaRecords);
     assertStage0Matches(approvedSchemaContract, stage0Records);

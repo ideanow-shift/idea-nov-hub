@@ -22,10 +22,15 @@ explicit source/version/masking/mapping provenance.
 
 ## Public Package Boundary
 
-The repository stores only fixed query identifiers, logical result schemas,
-hash rules, fail-closed code, synthetic fixtures, and runbooks. It never stores
-SQL text, project refs, hosts, credentials, raw source rows, raw UUIDs, Auth
-subjects, employee PII, or a local plaintext identity export.
+The repository stores fixed query identifiers, reviewed fixed SQL artifacts,
+logical result schemas, hash rules, fail-closed code, synthetic fixtures, and
+runbooks. It never stores project refs, hosts, credentials, raw source rows,
+raw UUIDs, Auth subjects, employee PII, or a local plaintext identity export.
+
+The 16 SQL artifacts are static, UTF-8, BOM-free, LF-only reviewed files. They
+contain no dynamic assembly point, connection detail, secret, token, or real
+record value. The runner hashes the exact byte sequence at startup and again
+immediately before sending it to the broker.
 
 The existing `C01` through `C10` catalog pack is unchanged. `S01` through
 `S08` remain a historical conditional template and are not made executable by
@@ -35,11 +40,12 @@ this package.
 
 | Component | Location | Responsibility |
 |---|---|---|
-| Fixed SOCE packs | `review/store-operations-sealed-snapshot-v1/query-pack-registry.mjs` | Six fixed Packs, 16 Query IDs, Query Version, type/schema contracts, and no SQL text. |
+| Fixed SOCE packs | `review/store-operations-sealed-snapshot-v1/query-pack-registry.mjs` and `queries/` | Six fixed Packs, 16 Query IDs, Query Version, SQL path/hash, and type/schema contracts. |
+| Package lock | `execution-package-lock-v1.json` | Ordered hash lock over all execution-affecting modules and all 16 SQL artifacts. |
 | Deterministic hash | `canonicalization.mjs` | One canonical byte representation and SHA-256. |
 | Sanitizer | `sanitizer.mjs` | Public evidence is count/digest/status only. |
 | Schema gate | `schema-contract.mjs` | Stage 1 may run only after Stage 0 exactly matches a private approved contract. |
-| Sealed runner | `sealed-snapshot-runner.mjs` | Fixed order, per-Query private SQL-hash attestation, run-ID claim, profile expiry, rollback/close, atomic bundle commit, and no caller SQL. |
+| Sealed runner | `sealed-snapshot-runner.mjs` | Fixed order, package/query-byte rehash, run-ID package binding, profile verification, local ephemeral bundle, cleanup receipt, atomic final commit, and no caller SQL. |
 | Fixture tests | `sealed-snapshot-package.test.mjs` | Synthetic in-memory proof; no database connection. |
 | Operational materials | This directory | Human approvals, security contract, and incident steps. |
 

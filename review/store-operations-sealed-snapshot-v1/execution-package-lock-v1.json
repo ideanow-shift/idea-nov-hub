@@ -1,0 +1,128 @@
+{
+  "lockVersion": "SOCE-EXECUTION-PACKAGE-LOCK-v1",
+  "packageId": "store-operations-consumer-enablement-sealed-snapshot-v1",
+  "packageVersion": "1.1.0",
+  "artifacts": [
+    {
+      "path": ".gitattributes",
+      "sha256": "2b974f276b110d55896e2b639d801c2600842279f3cd649ead4f860b151ddb34"
+    },
+    {
+      "path": "package-metadata.mjs",
+      "sha256": "cbebc3a9ed5de69c35306cfbb819297ad2c202d065ac36f4deb981cee89ce1e9"
+    },
+    {
+      "path": "canonicalization.mjs",
+      "sha256": "85b01e04e3d65e80761014247f435c20a43400cd7390ffe23e773a406cc1fad6"
+    },
+    {
+      "path": "query-pack-registry.mjs",
+      "sha256": "7a8afeac2bb4afc50e536b6b4a5caaa0a23d7cf38e86720f612374277b12ce9c"
+    },
+    {
+      "path": "sql-artifacts.mjs",
+      "sha256": "e2e379a9f5a73693443a6c89b6df8b7c547ec98c018bb9d064eaeadcd7094ffe"
+    },
+    {
+      "path": "schema-contract.mjs",
+      "sha256": "0c3af07fd1fbf92b0d00d868db7b7eb46bd5825c3188f3757eb628f8d4afd6ec"
+    },
+    {
+      "path": "sanitizer.mjs",
+      "sha256": "0e7d585015ef54bd9981e2ded08edd6b82a8cd64473451029ce63f1d001d0118"
+    },
+    {
+      "path": "cleanup-receipt.mjs",
+      "sha256": "6c044dee4fc98f7e43c5117c6ece31c812ea9a5f5223cb4c0df7122ebab95fcf"
+    },
+    {
+      "path": "manifest.mjs",
+      "sha256": "e260f91dd5e4aa21fc59d8ca8eca9e257469995d1ae7c34b2fdffe147ca59f9d"
+    },
+    {
+      "path": "broker-interface.mjs",
+      "sha256": "6c9b079672330c41f5f12f9dc125fd250e0664e01eb575f4cf703b7885bc7afb"
+    },
+    {
+      "path": "run-contract.mjs",
+      "sha256": "c0a848c1acb58bf401e3d717b5be84e5247f6dc1f9690a0202641a8f411d1a19"
+    },
+    {
+      "path": "execution-package-lock.mjs",
+      "sha256": "5c5455982f83ec6e8c4058c4d2d59d52e41af95e26ade0f53f9ec8ef1640b33d"
+    },
+    {
+      "path": "sealed-snapshot-runner.mjs",
+      "sha256": "43c4a8f407dee005c5f8f6b8799a02be27dddfb8caa6202c3e2fd90412f471ca"
+    },
+    {
+      "path": "queries/SOCE-QP01-SOURCE-IDENTITY.sql",
+      "sha256": "86e87c348d621f7f3925d4ece71b2a66cd39d2023b11a6994fba37bb2e925d04"
+    },
+    {
+      "path": "queries/SOCE-QP01-TARGET-IDENTITY.sql",
+      "sha256": "785279ebff2f5ee5d1415be500f35b9e293ea7b1161418a6b5552ac42631543b"
+    },
+    {
+      "path": "queries/SOCE-QP01-SOURCE-READONLY.sql",
+      "sha256": "1395bf2b5c4d00e4800868e4cc3104a5137695bf2409ae94f4e26d17fe4bc69f"
+    },
+    {
+      "path": "queries/SOCE-QP01-TARGET-READONLY.sql",
+      "sha256": "5a1cf8a4d9446f078c958405d05e06e8bdb4dca3504ec50acda385eec9a3955c"
+    },
+    {
+      "path": "queries/SOCE-QP02-SOURCE-SCHEMA-COLUMN-MAP.sql",
+      "sha256": "01277f49ed63632ee4e7f582a4d19a14ff7f272008d60dab61eac155bd3b384a"
+    },
+    {
+      "path": "queries/SOCE-QP02-TARGET-SCHEMA-COLUMN-MAP.sql",
+      "sha256": "d2c1fbf8f4d5daeea7377bd64e93a351b5a65e9e32227054fca253697bf69f0f"
+    },
+    {
+      "path": "queries/SOCE-QP03-CLASSIFICATION-SUMMARY.sql",
+      "sha256": "b750ab432439ed34a934b1b77f4707ec37ced710440829f515d7df17919e23c2"
+    },
+    {
+      "path": "queries/SOCE-QP03-CANONICAL-STORE-ROWS.sql",
+      "sha256": "c5de6499639eef0441e75262179dc34f2310412e6a44c42a3daaf46d3441c95e"
+    },
+    {
+      "path": "queries/SOCE-QP03-TOKOROZAWA-LEGACY-RELATION.sql",
+      "sha256": "ab6f543bbf4486ea571f4a6c6351d7bd9e625e4a0478fc270061962d4d115d28"
+    },
+    {
+      "path": "queries/SOCE-QP04-EMPLOYEE-AUTHORIZATION-SUMMARY.sql",
+      "sha256": "bbd7bddd4a06d88a08916a3e6e6a3567bd8c87b85b4738d76a312bb26413ef04"
+    },
+    {
+      "path": "queries/SOCE-QP04-AM-ASSIGNMENT-EVIDENCE.sql",
+      "sha256": "c2b5a02dda76d00be35730980c32436ac551575eeada83370ab45ef20dc4f62a"
+    },
+    {
+      "path": "queries/SOCE-QP04-STORE-MANAGER-COVERAGE.sql",
+      "sha256": "68b044999254e0a0905ea5a07527babd48813de2afc0a2b902eecd7f9052a941"
+    },
+    {
+      "path": "queries/SOCE-QP05-IDENTITY-CROSSWALK-SUMMARY.sql",
+      "sha256": "6bb441d0b5d06335e7590f6b6d877a2c4c4f887b56b344aba3d8159fccb5a856"
+    },
+    {
+      "path": "queries/SOCE-QP05-CONSUMER-ANCHOR-SOURCE-EVIDENCE.sql",
+      "sha256": "15e19a8ad920d77a208bd939585fccfc84bdf7a34dc9badb2d4b70d72b5152c0"
+    },
+    {
+      "path": "queries/SOCE-QP06-TARGET-PRESTATE.sql",
+      "sha256": "fb222ae0d1ec955c8bf8ab50a37e929ee9770ecb03fc3233ca3d48e24556ca50"
+    },
+    {
+      "path": "queries/SOCE-QP06-M019-PRESENCE.sql",
+      "sha256": "ba48dceca9ba918627a01969c65324d8615c46d30b9a76d28f01158b832c426f"
+    }
+  ],
+  "queryPackSha256": "17b4d06ebab342e1fed4e5970a62099feebcdca018a40df31aee908f7f0bdb99",
+  "schemaContractSha256": "0c3af07fd1fbf92b0d00d868db7b7eb46bd5825c3188f3757eb628f8d4afd6ec",
+  "sanitizerContractSha256": "0e7d585015ef54bd9981e2ded08edd6b82a8cd64473451029ce63f1d001d0118",
+  "manifestContractSha256": "e260f91dd5e4aa21fc59d8ca8eca9e257469995d1ae7c34b2fdffe147ca59f9d",
+  "packageSha256": "18879b9539a3cc10374752130d4f98abb54d346605c72acb4a148356686ec621"
+}

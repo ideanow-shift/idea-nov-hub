@@ -2,12 +2,14 @@
 
 This fixture-only package is the public control plane for a future, separately
 approved, read-only Source Snapshot run. It has no database URL, credential,
-SQL text, network client, file-export path, or live execution entrypoint.
+network client, file-export path, or live execution entrypoint. It carries
+only the reviewed, fixed, non-secret SQL text required by its 16 Query IDs.
 
 The runner accepts only the six fixed `SOCE-QP01` through `SOCE-QP06` packs.
-The approved SQL and physical-schema mapping remain inside the already approved
-private broker. Stage 0 must hash-match a private approved Schema/Column
-Contract before Stage 1 can be invoked.
+Each query's exact UTF-8, BOM-free, LF-terminated SQL artifact is under
+`queries/`. The runner rehashes the actual bytes at startup and immediately
+before that query is sent to the broker. Stage 0 must hash-match an approved
+Schema/Column Contract before Stage 1 can be invoked.
 
 Run the local fixtures only:
 

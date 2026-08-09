@@ -20,8 +20,10 @@ exception requires a separate Owner approval and is outside this v1 Runner.
 ## Before the Window
 
 1. Confirm the Owner approval references this package version and one window.
-2. Confirm the exact `run_id`, package hash, private Query-registry hash,
-   Operator, Reviewer, authorization time, and one execution window.
+2. Confirm the exact `run_id`, package ID/version/SHA-256, Query Pack SHA-256,
+   Schema Contract artifact SHA-256, private Query-registry hash, Operator,
+   Reviewer, authorization time, one execution window, and sealed-private
+   output policy.
 3. Confirm Source is `idea-nov-core`, Target is `idea-nov-staging`, their
    private profile fingerprints are distinct and current, and PostgreSQL major
    version 17 is permitted for both profiles.
@@ -35,18 +37,21 @@ exception requires a separate Owner approval and is outside this v1 Runner.
 ## During the Window
 
 The Owner's approved binding is pre-registered in the private execution ledger
-before the window. The operator starts one run. The ledger must claim that exact
-`run_id` and binding hash before a profile or database connection can be used.
-The runner's Stage 0 failure stops before Stage 1. Any other mismatch triggers
-rollback, close, prepared-bundle abort or committed-bundle revocation, and
+before the window. The operator starts one run. The runner first rehashes the
+Package Lock and all fixed SQL files, then verifies the exact authorization
+binding. The ledger must claim that exact `run_id` and binding hash before a
+profile or database connection can be used. The runner's Stage 0 failure stops
+before Stage 1. Any other mismatch triggers rollback, close, local ephemeral
+bundle deletion or unreadable quarantine, committed-bundle revocation, and
 cleanup. There is no manual re-query, alternate SQL, retry, or partial artifact
 recovery.
 
 ## After the Window
 
-1. Reviewer confirms the claimed `run_id`, fixed Query IDs/versions/hashes,
-   PostgreSQL version gate, rollback/close, component cleanup receipt, hash
-   results, sanitizer result, and no mutation flag.
+1. Reviewer confirms the claimed `run_id`, Package Lock/version/hash, fixed
+   Query IDs/versions/byte hashes, PostgreSQL version gate, rollback/close,
+   13-field component Cleanup Receipt and hash, sanitizer result, final bundle
+   digest, and no mutation flag.
 2. Source/Target Role Owners and the Profile Custodian revoke both expiring
    credentials; the Broker Owner closes the broker execution context.
 3. Retain only approved safe evidence and the committed sealed artifact under

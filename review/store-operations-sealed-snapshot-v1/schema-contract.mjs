@@ -6,6 +6,7 @@ const QUERY_BINDING_FIELDS = Object.freeze([
   'queryId',
   'queryVersion',
   'packId',
+  'sqlFile',
   'sqlSha256',
   'expectedColumns',
   'expectedTypes',
@@ -39,6 +40,8 @@ function publicBindingShape(query) {
     queryId: query.queryId,
     queryVersion: query.queryVersion,
     packId: query.packId,
+    sqlFile: query.sqlFile,
+    sqlSha256: query.sqlSha256,
     expectedColumns: query.expectedColumns,
     expectedTypes: query.expectedTypes,
     expectedOutputSchemaVersion: query.expectedOutputSchemaVersion,
@@ -68,10 +71,11 @@ export function hashStage0Evidence(records) {
 }
 
 export function privateQueryAttestations(manifest) {
-  return manifest.queries.map(({ queryId, queryVersion, packId, sqlSha256, expectedOutputSchemaVersion }) => ({
+  return manifest.queries.map(({ queryId, queryVersion, packId, sqlFile, sqlSha256, expectedOutputSchemaVersion }) => ({
     queryId,
     queryVersion,
     packId,
+    sqlFile,
     sqlSha256,
     expectedOutputSchemaVersion,
   }));
@@ -117,7 +121,8 @@ export function assertPrivateQueryPackManifest(manifest, contract) {
         && entry.queryId === publicShape.queryId
         && entry.queryVersion === publicShape.queryVersion
         && entry.packId === publicShape.packId
-        && HASH.test(entry.sqlSha256 ?? '')
+        && entry.sqlFile === publicShape.sqlFile
+        && entry.sqlSha256 === publicShape.sqlSha256
         && sameArray(entry.expectedColumns, publicShape.expectedColumns)
         && sameValue(entry.expectedTypes, publicShape.expectedTypes)
         && entry.expectedOutputSchemaVersion === publicShape.expectedOutputSchemaVersion;

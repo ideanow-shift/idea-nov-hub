@@ -26,3 +26,18 @@ manifest or a partial Snapshot.
 hash, sealed Pack manifest hash, source Snapshot hash, Target pre-state hash,
 canonical payload hash, and manifest-file hash. Existing artifacts are
 immutable; a future corrected run creates a new version after a new approval.
+
+## Fixed SQL Byte Contract
+
+SQL hashing is deliberately separate from JSON canonicalization. Every fixed
+artifact under `queries/` is hashed as its literal byte sequence: UTF-8, no
+BOM, LF-only line endings, and exactly one final LF. The runner neither NFC
+normalizes, trims, rewrites, nor assembles SQL. It reads the bytes at startup
+and again immediately before use, passes those verified bytes with the decoded
+UTF-8 text to the broker, and the broker rejects any re-encoding mismatch
+before execution.
+
+`execution-package-lock-v1.json` hashes the ordered execution artifact list
+and derives `packageSha256` from the lock payload with the self hash excluded.
+The manifest's canonical payload also binds `cleanupReceiptSha256`, cleanup
+status, failed count, and not-created count.

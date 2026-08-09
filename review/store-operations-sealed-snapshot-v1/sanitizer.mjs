@@ -1,4 +1,5 @@
 import { hashCanonical, hashRecordSet } from './canonicalization.mjs';
+import { assertCleanupReceipt } from './cleanup-receipt.mjs';
 
 const FORBIDDEN_FIELD = /(^|_)(employee_name|full_name|email|phone|address|birth|salary|password|secret|token|credential|connection|dsn|certificate|raw_sql|raw_error)(_|$)/i;
 const HASH = /^[a-f0-9]{64}$/;
@@ -63,11 +64,25 @@ export function sanitizeQueryEvidence(query, rows) {
 export function assertSanitizedEvidence(evidenceRows) {
   if (!Array.isArray(evidenceRows)) throw new Error('SANITIZED_EVIDENCE_REJECTED');
   for (const evidence of evidenceRows) {
-    const allowed = new Set(['query_id', 'result_category', 'row_count', 'entity_digest', 'output_schema_digest', 'status']);
-    if (!evidence || typeof evidence !== 'object' || Object.keys(evidence).some((key) => !allowed.has(key))) {
-      throw new Error('SANITIZED_EVIDENCE_REJECTED');
+    if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence)) throw new Error('SANITIZED_EVIDENCE_REJECTED');
+    if (evidence.evidence_type === 'cleanup_receipt') {
+      const allowed = new Set(['evidence_type', 'cleanupReceipt', 'cleanupReceiptVersion', 'cleanupReceiptSha256', 'cleanupOverallStatus', 'failedCleanupCount', 'notCreatedCount', 'status']);
+      if (Object.keys(evidence).length !== allowed.size || Object.keys(evidence).some((key) => !allowed.has(key)) || evidence.status !== 'pass') {
+        throw new Error('SANITIZED_EVIDENCE_REJECTED');
+      }
+      try { assertCleanupReceipt(evidence.cleanupReceipt, { requirePassing: true }); } catch { throw new Error('SANITIZED_EVIDENCE_REJECTED'); }
+      if (evidence.cleanupReceiptVersion !== evidence.cleanupReceipt.cleanupReceiptVersion
+        || evidence.cleanupReceiptSha256 !== evidence.cleanupReceipt.cleanupReceiptSha256
+        || evidence.cleanupOverallStatus !== evidence.cleanupReceipt.cleanupOverallStatus
+        || evidence.failedCleanupCount !== evidence.cleanupReceipt.failedCleanupCount
+        || evidence.notCreatedCount !== evidence.cleanupReceipt.notCreatedCount) {
+        throw new Error('SANITIZED_EVIDENCE_REJECTED');
+      }
+      continue;
     }
-    if (typeof evidence.query_id !== 'string' || typeof evidence.result_category !== 'string'
+    const allowed = new Set(['query_id', 'result_category', 'row_count', 'entity_digest', 'output_schema_digest', 'status']);
+    if (Object.keys(evidence).length !== allowed.size || Object.keys(evidence).some((key) => !allowed.has(key))
+      || typeof evidence.query_id !== 'string' || typeof evidence.result_category !== 'string'
       || !Number.isSafeInteger(evidence.row_count) || evidence.row_count < 0
       || !HASH.test(evidence.entity_digest) || !HASH.test(evidence.output_schema_digest)
       || evidence.status !== 'pass') {
@@ -80,6 +95,10 @@ export function assertSanitizedEvidence(evidenceRows) {
 export function safeFailureCode(error) {
   const known = new Set([
     'REQUEST_REJECTED',
+    'FIXED_QUERY_REGISTRY_REJECTED',
+    'FIXED_SQL_ARTIFACT_REJECTED',
+    'FIXED_SQL_HASH_MISMATCH',
+    'PACKAGE_INTEGRITY_REJECTED',
     'PROFILE_REJECTED',
     'POSTGRES_VERSION_REJECTED',
     'EXECUTION_AUTHORIZATION_REJECTED',

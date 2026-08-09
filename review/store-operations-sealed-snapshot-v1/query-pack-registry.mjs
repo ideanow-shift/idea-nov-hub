@@ -1,8 +1,7 @@
 import { hashCanonical } from './canonicalization.mjs';
+import { OUTPUT_SCHEMA_VERSION, PACKAGE_ID, PACKAGE_VERSION, QUERY_VERSION } from './package-metadata.mjs';
 
-export const PACKAGE_ID = 'store-operations-consumer-enablement-sealed-snapshot-v1';
-export const QUERY_VERSION = '1.0.0';
-export const OUTPUT_SCHEMA_VERSION = '1.0.0';
+export { OUTPUT_SCHEMA_VERSION, PACKAGE_ID, PACKAGE_VERSION, QUERY_VERSION };
 
 const STRING = Object.freeze(['string']);
 const INTEGER = Object.freeze(['integer']);
@@ -13,9 +12,29 @@ function freezeTypes(fields) {
   return Object.freeze(Object.fromEntries(Object.entries(fields).map(([column, types]) => [column, Object.freeze([...types])])))
 }
 
+const SQL_ARTIFACTS = Object.freeze({
+  'SOCE-QP01-SOURCE-IDENTITY': Object.freeze({ sqlFile: 'queries/SOCE-QP01-SOURCE-IDENTITY.sql', sqlSha256: '86e87c348d621f7f3925d4ece71b2a66cd39d2023b11a6994fba37bb2e925d04' }),
+  'SOCE-QP01-TARGET-IDENTITY': Object.freeze({ sqlFile: 'queries/SOCE-QP01-TARGET-IDENTITY.sql', sqlSha256: '785279ebff2f5ee5d1415be500f35b9e293ea7b1161418a6b5552ac42631543b' }),
+  'SOCE-QP01-SOURCE-READONLY': Object.freeze({ sqlFile: 'queries/SOCE-QP01-SOURCE-READONLY.sql', sqlSha256: '1395bf2b5c4d00e4800868e4cc3104a5137695bf2409ae94f4e26d17fe4bc69f' }),
+  'SOCE-QP01-TARGET-READONLY': Object.freeze({ sqlFile: 'queries/SOCE-QP01-TARGET-READONLY.sql', sqlSha256: '5a1cf8a4d9446f078c958405d05e06e8bdb4dca3504ec50acda385eec9a3955c' }),
+  'SOCE-QP02-SOURCE-SCHEMA-COLUMN-MAP': Object.freeze({ sqlFile: 'queries/SOCE-QP02-SOURCE-SCHEMA-COLUMN-MAP.sql', sqlSha256: '01277f49ed63632ee4e7f582a4d19a14ff7f272008d60dab61eac155bd3b384a' }),
+  'SOCE-QP02-TARGET-SCHEMA-COLUMN-MAP': Object.freeze({ sqlFile: 'queries/SOCE-QP02-TARGET-SCHEMA-COLUMN-MAP.sql', sqlSha256: 'd2c1fbf8f4d5daeea7377bd64e93a351b5a65e9e32227054fca253697bf69f0f' }),
+  'SOCE-QP03-CLASSIFICATION-SUMMARY': Object.freeze({ sqlFile: 'queries/SOCE-QP03-CLASSIFICATION-SUMMARY.sql', sqlSha256: 'b750ab432439ed34a934b1b77f4707ec37ced710440829f515d7df17919e23c2' }),
+  'SOCE-QP03-CANONICAL-STORE-ROWS': Object.freeze({ sqlFile: 'queries/SOCE-QP03-CANONICAL-STORE-ROWS.sql', sqlSha256: 'c5de6499639eef0441e75262179dc34f2310412e6a44c42a3daaf46d3441c95e' }),
+  'SOCE-QP03-TOKOROZAWA-LEGACY-RELATION': Object.freeze({ sqlFile: 'queries/SOCE-QP03-TOKOROZAWA-LEGACY-RELATION.sql', sqlSha256: 'ab6f543bbf4486ea571f4a6c6351d7bd9e625e4a0478fc270061962d4d115d28' }),
+  'SOCE-QP04-EMPLOYEE-AUTHORIZATION-SUMMARY': Object.freeze({ sqlFile: 'queries/SOCE-QP04-EMPLOYEE-AUTHORIZATION-SUMMARY.sql', sqlSha256: 'bbd7bddd4a06d88a08916a3e6e6a3567bd8c87b85b4738d76a312bb26413ef04' }),
+  'SOCE-QP04-AM-ASSIGNMENT-EVIDENCE': Object.freeze({ sqlFile: 'queries/SOCE-QP04-AM-ASSIGNMENT-EVIDENCE.sql', sqlSha256: 'c2b5a02dda76d00be35730980c32436ac551575eeada83370ab45ef20dc4f62a' }),
+  'SOCE-QP04-STORE-MANAGER-COVERAGE': Object.freeze({ sqlFile: 'queries/SOCE-QP04-STORE-MANAGER-COVERAGE.sql', sqlSha256: '68b044999254e0a0905ea5a07527babd48813de2afc0a2b902eecd7f9052a941' }),
+  'SOCE-QP05-IDENTITY-CROSSWALK-SUMMARY': Object.freeze({ sqlFile: 'queries/SOCE-QP05-IDENTITY-CROSSWALK-SUMMARY.sql', sqlSha256: '6bb441d0b5d06335e7590f6b6d877a2c4c4f887b56b344aba3d8159fccb5a856' }),
+  'SOCE-QP05-CONSUMER-ANCHOR-SOURCE-EVIDENCE': Object.freeze({ sqlFile: 'queries/SOCE-QP05-CONSUMER-ANCHOR-SOURCE-EVIDENCE.sql', sqlSha256: '15e19a8ad920d77a208bd939585fccfc84bdf7a34dc9badb2d4b70d72b5152c0' }),
+  'SOCE-QP06-TARGET-PRESTATE': Object.freeze({ sqlFile: 'queries/SOCE-QP06-TARGET-PRESTATE.sql', sqlSha256: 'fb222ae0d1ec955c8bf8ab50a37e929ee9770ecb03fc3233ca3d48e24556ca50' }),
+  'SOCE-QP06-M019-PRESENCE': Object.freeze({ sqlFile: 'queries/SOCE-QP06-M019-PRESENCE.sql', sqlSha256: 'ba48dceca9ba918627a01969c65324d8615c46d30b9a76d28f01158b832c426f' }),
+});
+
 const query = (queryId, side, purpose, expectedTypes, canonicalKeyFields) => Object.freeze({
   queryId,
   queryVersion: QUERY_VERSION,
+  ...SQL_ARTIFACTS[queryId],
   side,
   purpose,
   expectedColumns: Object.freeze(Object.keys(expectedTypes)),
@@ -35,9 +54,9 @@ const pack = (packId, stage, purpose, entries) => Object.freeze({
   entries: Object.freeze(entries),
 });
 
-// The repository fixes Query ID, Query Version, result schema, and output
-// shape. Actual SQL and each SQL SHA-256 stay only in the approved private
-// query registry; the runner requires a per-query hash attestation before QP01.
+// The repository fixes Query ID, Query Version, exact SQL artifact path and
+// byte hash, result schema, and output shape. The runner rehashes each SQL
+// artifact before the claim and immediately before every database execution.
 export const FIXED_QUERY_PACKS = Object.freeze([
   pack('SOCE-QP01', 'stage0', 'Environment, PostgreSQL version, and read-only-role attestation', [
     query('SOCE-QP01-SOURCE-IDENTITY', 'source', 'Attest the source profile without exposing identity values', {
@@ -219,6 +238,20 @@ export const QUERY_PACK_IDS = Object.freeze(FIXED_QUERY_PACKS.map(({ packId }) =
 export const FIXED_QUERY_REGISTRY = Object.freeze(FIXED_QUERY_PACKS.flatMap(({ packId, stage, entries }) => entries.map((entry) => Object.freeze({ ...entry, packId, stage }))));
 export const FIXED_QUERY_IDS = Object.freeze(FIXED_QUERY_REGISTRY.map(({ queryId }) => queryId));
 
+export function assertFixedQueryRegistry(registry = FIXED_QUERY_REGISTRY) {
+  const required = ['queryId', 'queryVersion', 'packId', 'sqlFile', 'sqlSha256', 'expectedColumns', 'expectedTypes', 'expectedOutputSchemaVersion', 'side', 'purpose', 'privateSqlOnly', 'maximumRows', 'timeoutMs', 'canonicalKeyFields', 'stage'];
+  const valid = Array.isArray(registry) && registry.length === 16
+    && new Set(registry.map((entry) => entry.queryId)).size === 16
+    && registry.every((entry) => entry && required.every((field) => Object.hasOwn(entry, field))
+      && typeof entry.queryVersion === 'string' && entry.queryVersion.length > 0
+      && /^queries\/SOCE-QP\d{2}-[A-Z0-9-]+\.sql$/.test(entry.sqlFile)
+      && /^[a-f0-9]{64}$/.test(entry.sqlSha256)
+      && Array.isArray(entry.expectedColumns) && entry.expectedColumns.length > 0
+      && entry.expectedOutputSchemaVersion === OUTPUT_SCHEMA_VERSION);
+  if (!valid) throw Object.assign(new Error('FIXED_QUERY_REGISTRY_REJECTED'), { code: 'FIXED_QUERY_REGISTRY_REJECTED' });
+  return true;
+}
+
 export const getFixedQuery = (queryId) => FIXED_QUERY_REGISTRY.find((entry) => entry.queryId === queryId) ?? null;
 export const getPack = (packId) => FIXED_QUERY_PACKS.find((entry) => entry.packId === packId) ?? null;
 export const getQueriesForPack = (packId) => FIXED_QUERY_REGISTRY.filter((entry) => entry.packId === packId);
@@ -228,9 +261,11 @@ export function publicQueryCatalogShape() {
     packId: entry.packId,
     stage: entry.stage,
     queryIds: entry.entries.map(({ queryId }) => queryId),
-    outputSchemas: entry.entries.map(({ queryId, queryVersion, side, expectedColumns, expectedTypes, expectedOutputSchemaVersion, canonicalKeyFields, maximumRows, timeoutMs }) => ({
+    outputSchemas: entry.entries.map(({ queryId, queryVersion, sqlFile, sqlSha256, side, expectedColumns, expectedTypes, expectedOutputSchemaVersion, canonicalKeyFields, maximumRows, timeoutMs }) => ({
       queryId,
       queryVersion,
+      sqlFile,
+      sqlSha256,
       side,
       expectedColumns,
       expectedTypes,
@@ -247,9 +282,12 @@ export const PUBLIC_QUERY_CATALOG_HASH = hashCanonical(publicQueryCatalogShape()
 export function isExactPackRequest(request) {
   return Boolean(request
     && request.executionPackageId === PACKAGE_ID
+    && request.packageVersion === PACKAGE_VERSION
     && request.sourceProjectLabel === 'idea-nov-core'
     && request.targetProjectLabel === 'idea-nov-staging'
     && request.publicQueryCatalogHash === PUBLIC_QUERY_CATALOG_HASH
+    && typeof request.privateQueryPackManifestHash === 'string'
+    && /^[a-f0-9]{64}$/.test(request.privateQueryPackManifestHash)
     && request.noRetry === true
     && typeof request.runId === 'string'
     && /^run:[A-Za-z0-9._:/-]{1,160}$/.test(request.runId)

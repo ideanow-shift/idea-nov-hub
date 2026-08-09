@@ -1,16 +1,18 @@
 # Fixed Query Pack Catalog
 
-All query text is a private reviewed artifact. The public registry fixes the
-Pack ID, Query ID, Query Version, side, logical result schema, expected scalar
-types, output-schema version, row cap, and timeout. It deliberately contains
-no SQL and cannot dynamically choose a table or column.
+Each query text is a reviewed fixed artifact under
+`review/store-operations-sealed-snapshot-v1/queries/`. The registry fixes the
+Pack ID, Query ID, Query Version, side, `sqlFile`, `sqlSha256`, logical result
+schema, expected scalar types, output-schema version, row cap, and timeout.
+It cannot dynamically choose a table or column.
 
-The private immutable `SOCE-PRIVATE-QUERY-REGISTRY-v1` contains all 16
-private definitions. Each definition has `queryId`, `queryVersion`, `packId`,
-private SQL, `sqlSha256`, `expectedColumns`, `expectedTypes`, and
-`expectedOutputSchemaVersion`. SQL never enters this repository, a log, or an
-artifact. Its SHA-256 is compared per Query by the broker before any query is
-executed; a Pack hash cannot substitute for a Query hash.
+The immutable `SOCE-PRIVATE-QUERY-REGISTRY-v1` binds all 16 definitions to the
+same `queryId`, `queryVersion`, `packId`, `sqlFile`, `sqlSha256`,
+`expectedColumns`, `expectedTypes`, and `expectedOutputSchemaVersion` values.
+The SQL is UTF-8, has no BOM, uses LF only, and ends in exactly one LF. The
+runner rehashes the exact bytes at startup and immediately before sending the
+same UTF-8 byte stream to the broker. A Pack hash cannot substitute for a
+Query hash; a hash mismatch stops before a run claim or connection.
 
 | Pack | Stage | Fixed purpose | Required validation |
 |---|---|---|---|
@@ -25,8 +27,8 @@ executed; a Pack hash cannot substitute for a Query hash.
 
 Stage 0 executes `SOCE-QP01` and then `SOCE-QP02`. It creates a digest from
 the private catalog output. Stage 1 is invoked only when the PostgreSQL version
-policy, Stage 0 digest, and all 16 private Query hashes exactly match their
-approved contracts. Stage 1 cannot generate SQL from a live schema, infer a
+policy, Stage 0 digest, Package Lock, and all 16 Query hashes exactly match
+their approved contracts. Stage 1 cannot generate SQL from a live schema, infer a
 missing column, fall back to `S01`--`S08`, or substitute an alternative object.
 
 ## Domain Boundaries

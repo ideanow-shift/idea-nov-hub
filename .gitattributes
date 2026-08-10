@@ -2,3 +2,5 @@
 # covers the nested .gitattributes file, which cannot govern its own checkout.
 review/store-operations-sealed-snapshot-v1/** text eol=lf
 review/store-operations-sealed-snapshot-v1/.gitattributes text eol=lf
+review/store-operations-sealed-snapshot-v1-3/** text eol=lf
+review/store-operations-sealed-snapshot-v1-3/.gitattributes text eol=lf

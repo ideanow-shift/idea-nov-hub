@@ -1,0 +1,24 @@
+# Store Operations Sealed Snapshot v1.3.0 Security Release Gate
+
+- [x] v1.2.0 files changed: 0
+- [x] Package version is 1.3.0 with a new Package Lock and SHA-256
+- [x] Global PUBLIC hardening required: NO
+- [x] Production/Staging database changes: 0
+- [x] Broker generic/raw/interactive SQL surface: 0
+- [x] Query ID, order, count, SQL hash and AST hash are fixed
+- [x] Relation and qualified-column references are fixed per Query
+- [x] Function/operator allowlists use explicit signatures, not pg_catalog wildcard
+- [x] Multi-statement, DML/DDL and modifying CTE fail closed
+- [x] SELECT INTO and all four row-lock forms fail closed
+- [x] CALL/DO/COPY, SET/RESET, role/session change and PREPARE/EXECUTE fail closed
+- [x] TEMP, sequence, advisory-lock, application, extension and SECURITY DEFINER invocation fail closed
+- [x] Expected role and session/current identity match are mandatory
+- [x] REPEATABLE READ READ ONLY, default read-only and pg_catalog search path are mandatory
+- [x] Per-query and final runtime no-write evidence are mandatory
+- [x] ROLLBACK and connection close are mandatory; retry is zero
+- [x] PUBLIC TEMP/routine EXECUTE remain observed while direct dangerous grants remain blocking
+- [x] Dedicated adversarial fixture passes
+- [x] Disposable PostgreSQL 17 catalog/role fixture passes
+- [x] Package integrity and Windows LF byte contract pass
+- [ ] Source/Target roles, grants, RLS policies and credentials provisioned (separate authorization)
+- [ ] One-time Snapshot executed (separate authorization)

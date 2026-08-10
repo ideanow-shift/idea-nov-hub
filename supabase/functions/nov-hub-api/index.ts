@@ -2752,6 +2752,8 @@ function assertMasterEditor(employee: JsonRecord) {
 }
 
 const TALENT_WORKFLOW_ROLE_KEYS = new Set(["super_admin", "backoffice", "hr.admin", "hr.staff"]);
+const TALENT_WORKFLOW_MAX_ASSIGNEES = 1000;
+const TALENT_WORKFLOW_MAX_ROLE_ASSIGNMENTS = 2000;
 
 function assertTalentWorkflowViewer(employee: JsonRecord) {
   const roleKeys = normalizeList(employee.roleKeys);
@@ -2760,23 +2762,98 @@ function assertTalentWorkflowViewer(employee: JsonRecord) {
   }
 }
 
-async function listTalentWorkflowAssignees() {
-  const [employees, rolesByEmployee] = await Promise.all([
-    readRows("employees", {
-      query: {
-        select: "id,full_name,employee_id,employment_status,is_active",
-        is_active: "eq.true",
-        order: "employee_id.asc",
-        limit: "1000",
-      },
-    }),
-    groupRolesByEmployeeForAdmin(),
-  ]);
+async function resolveTalentWorkflowCorporationId(employee: JsonRecord) {
+  const employeeId = String(employee.id || "").trim();
+  if (!employeeId) {
+    throw new PortalError("TALENT_WORKFLOW_DIRECTORY_UNAVAILABLE", "Talent workflow directory is unavailable.", 503);
+  }
+  const rows = await readRows("employees", {
+    query: {
+      select: "id,corporation_id,employment_status,is_active",
+      id: `eq.${employeeId}`,
+      limit: "2",
+    },
+  });
+  if (rows.length !== 1 || !isEmployeeActive(rows[0])) {
+    throw new PortalError("TALENT_WORKFLOW_DIRECTORY_UNAVAILABLE", "Talent workflow directory is unavailable.", 503);
+  }
+  const corporationId = String(rows[0].corporation_id || "").trim();
+  if (!corporationId) {
+    throw new PortalError("TALENT_WORKFLOW_DIRECTORY_UNAVAILABLE", "Talent workflow directory is unavailable.", 503);
+  }
+  return corporationId;
+}
+
+async function listTalentWorkflowRoleKeysByEmployee(employeeIds: string[]) {
+  if (!employeeIds.length) return {} as Record<string, string[]>;
+  const employeeRoles = await readRows("employee_roles", {
+    query: {
+      select: "employee_id,role_id,is_active",
+      employee_id: `in.(${employeeIds.join(",")})`,
+      is_active: "eq.true",
+      limit: String(TALENT_WORKFLOW_MAX_ROLE_ASSIGNMENTS + 1),
+    },
+  });
+  if (employeeRoles.length > TALENT_WORKFLOW_MAX_ROLE_ASSIGNMENTS) {
+    throw new PortalError("TALENT_WORKFLOW_DIRECTORY_UNAVAILABLE", "Talent workflow directory is unavailable.", 503);
+  }
+  const roleIds = uniqueStrings(employeeRoles.map((row) => String(row.role_id || "")).filter(Boolean));
+  if (!roleIds.length) return {} as Record<string, string[]>;
+  const roles = await readRows("roles", {
+    query: {
+      select: "id,role_key,is_active",
+      id: `in.(${roleIds.join(",")})`,
+      is_active: "eq.true",
+      limit: String(roleIds.length + 1),
+    },
+  });
+  if (roles.length > roleIds.length) {
+    throw new PortalError("TALENT_WORKFLOW_DIRECTORY_UNAVAILABLE", "Talent workflow directory is unavailable.", 503);
+  }
+  const roleKeysById = roles.reduce<Record<string, string>>((index, role) => {
+    const id = String(role.id || "").trim();
+    const roleKey = String(role.role_key || "").trim().toLowerCase();
+    if (!id || !roleKey || index[id]) {
+      throw new PortalError("TALENT_WORKFLOW_DIRECTORY_UNAVAILABLE", "Talent workflow directory is unavailable.", 503);
+    }
+    index[id] = roleKey;
+    return index;
+  }, {});
+  return employeeRoles.reduce<Record<string, string[]>>((index, assignment) => {
+    const employeeId = String(assignment.employee_id || "").trim();
+    const roleKey = roleKeysById[String(assignment.role_id || "").trim()];
+    if (!employeeId || !roleKey) return index;
+    if (!index[employeeId]) index[employeeId] = [];
+    if (!index[employeeId].includes(roleKey)) index[employeeId].push(roleKey);
+    return index;
+  }, {});
+}
+
+async function listTalentWorkflowAssignees(employee: JsonRecord) {
+  const corporationId = await resolveTalentWorkflowCorporationId(employee);
+  const employees = await readRows("employees", {
+    query: {
+      select: "id,full_name,employee_id,employment_status,is_active,corporation_id",
+      corporation_id: `eq.${corporationId}`,
+      is_active: "eq.true",
+      order: "employee_id.asc",
+      limit: String(TALENT_WORKFLOW_MAX_ASSIGNEES + 1),
+    },
+  });
+  if (employees.length > TALENT_WORKFLOW_MAX_ASSIGNEES) {
+    throw new PortalError("TALENT_WORKFLOW_DIRECTORY_UNAVAILABLE", "Talent workflow directory is unavailable.", 503);
+  }
+  const employeeIds = employees.map((row) => String(row.id || "").trim()).filter(Boolean);
+  if (new Set(employeeIds).size !== employeeIds.length) {
+    throw new PortalError("TALENT_WORKFLOW_DIRECTORY_UNAVAILABLE", "Talent workflow directory is unavailable.", 503);
+  }
+  const roleKeysByEmployee = await listTalentWorkflowRoleKeysByEmployee(employeeIds);
   return employees
     .filter((row) => isEmployeeActive(row)
-      && (rolesByEmployee[String(row.id || "")]?.role_keys || []).some((role) => TALENT_WORKFLOW_ROLE_KEYS.has(String(role).trim().toLowerCase())))
+      && String(row.corporation_id || "").trim() === corporationId
+      && (roleKeysByEmployee[String(row.id || "").trim()] || []).some((role) => TALENT_WORKFLOW_ROLE_KEYS.has(role)))
     .map((row) => ({
-      employeeId: String(row.id || ""),
+      employeeId: String(row.id || "").trim(),
       displayName: String(row.full_name || row.employee_id || "").trim(),
     }))
     .filter((row) => row.employeeId && row.displayName);
@@ -5454,7 +5531,7 @@ Deno.serve(async (request) => {
 
     if (action === "talentWorkflowAssigneesRead") {
       assertTalentWorkflowViewer(employee);
-      return jsonResponse({ ok: true, assignees: await listTalentWorkflowAssignees() });
+      return jsonResponse({ ok: true, assignees: await listTalentWorkflowAssignees(employee) });
     }
 
     if (action === "createIdeaLinkHandoff") {

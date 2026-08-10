@@ -126,5 +126,5 @@ test("selection save path uses the custom dialog and keeps the existing API cont
   assert.match(app, /result\?\.category === "auth_required"[\s\S]*?HUB_SESSION_REAUTH_MESSAGE/u);
   assert.match(app, /getNovHubSessionStatus/u);
   assert.match(app, /mutateActivity\(command\)/u);
-  assert.match(app, /candidate-activity-confirmation\.mjs\?v=20260810-session-expiry-ux-1/u);
+  assert.match(app, /candidate-activity-confirmation\.mjs\?v=20260811-ui-simplification-v1/u);
 });

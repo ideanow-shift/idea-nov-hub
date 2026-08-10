@@ -142,13 +142,13 @@ try {
     await page.getByRole("tab", { name: "学生フォロー" }).click();
     await page.getByRole("option", { name: /^表示用 学生1 隔離/u }).waitFor();
     await page.getByRole("option", { name: /^表示用 学生2 要確認/u }).click();
-    await page.getByRole("tab", { name: "学校分析" }).click();
+    await page.getByRole("tab", { name: "分析", exact: true }).click();
     await page.getByRole("heading", { name: "学校別 採用状況" }).waitFor();
     await page.screenshot({
       path: join(outputRoot, `nov-talent-school-analysis-${viewport.name}.png`),
       fullPage: true,
     });
-    await page.getByRole("tab", { name: "フェア分析" }).click();
+    await page.getByRole("tab", { name: "就職フェア" }).click();
     await page.getByRole("heading", { name: "フェア・流入分析" }).waitFor();
     await page.screenshot({
       path: join(outputRoot, `nov-talent-fair-analysis-${viewport.name}.png`),

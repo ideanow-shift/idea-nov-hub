@@ -3,15 +3,15 @@
   createDashboardSummaryExecutor,
   createSelectionCoverageExecutor,
   createTalentWorkspaceExecutor
-} from "./runtime.mjs?v=20260810-session-expiry-ux-1";
-import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260810-session-expiry-ux-1";
+} from "./runtime.mjs?v=20260811-ui-simplification-v1";
+import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260811-ui-simplification-v1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
 import { getNovHubSessionStatus, handleNovHubSessionAuthFailure, NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
-import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260810-session-expiry-ux-1";
-import { createCandidateActivityConfirmationController } from "./candidate-activity-confirmation.mjs?v=20260810-session-expiry-ux-1";
-import { HUB_SESSION_REAUTH_MESSAGE, isCandidateWriteSessionAvailable } from "./session-expiry-ux.mjs?v=20260810-session-expiry-ux-1";
-import { buildDailyWorkflowQueue, jstDateTimeLocalToRfc3339 } from "./daily-workflow.mjs?v=20260810-session-expiry-ux-1";
+import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260811-ui-simplification-v1";
+import { createCandidateActivityConfirmationController } from "./candidate-activity-confirmation.mjs?v=20260811-ui-simplification-v1";
+import { HUB_SESSION_REAUTH_MESSAGE, isCandidateWriteSessionAvailable } from "./session-expiry-ux.mjs?v=20260811-ui-simplification-v1";
+import { buildDailyWorkflowQueue, jstDateTimeLocalToRfc3339 } from "./daily-workflow.mjs?v=20260811-ui-simplification-v1";
 import {
   buildCandidateHistorySummary,
   buildEventRoiView,
@@ -19,7 +19,7 @@ import {
   buildRecruitmentDashboardDecision,
   buildRecruitmentTaskBoard,
   japanBusinessDateIso
-} from "./recruitment-ux.mjs?v=20260810-session-expiry-ux-1";
+} from "./recruitment-ux.mjs?v=20260811-ui-simplification-v1";
 import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs?v=20260804-recruiting-dashboard-completion-1";
 
 let summaryConsumed = false;
@@ -270,11 +270,13 @@ export function initializeTalentNavigation({
     validKeys: RECRUITMENT_TABS,
     panelFor: (key) => documentObject.getElementById(`recruitment-${key}`),
     onSelect: (key) => {
+      if (documentObject.body) documentObject.body.dataset.talentView = key;
       if (["summary", "students", "fairs", "schools"].includes(key) && !studentWorkspaceData) {
         loadTalentStudentWorkspace({ globalObject, documentObject });
       }
     }
   });
+  if (documentObject.body && !documentObject.body.dataset.talentView) documentObject.body.dataset.talentView = "summary";
   bindTabGroup({
     buttons: workforceButtons,
     validKeys: WORKFORCE_TABS,
@@ -378,6 +380,16 @@ export function initializeTalentStudentWorkspace({
   });
   for (const id of ["daily-workflow-filter", "daily-workflow-candidate-filter", "daily-workflow-assignee-filter"]) {
     documentObject.getElementById(id)?.addEventListener(id === "daily-workflow-filter" ? "change" : "input", () => renderDailyWorkflowQueue(documentObject, dailyWorkflowData));
+  }
+  for (const button of documentObject.querySelectorAll("[data-workflow-home-filter]")) {
+    button.addEventListener("click", () => {
+      documentObject.querySelectorAll("[data-workflow-home-filter]").forEach((item) => {
+        const selected = item === button;
+        item.classList.toggle("is-active", selected);
+        item.setAttribute("aria-pressed", String(selected));
+      });
+      renderDailyWorkflowHome(documentObject, dailyWorkflowData);
+    });
   }
   const resetStudentFilters = () => {
     const controls = ["student-search", "student-source-filter", "student-state-filter", "student-progress-filter", "student-month-filter", "student-follow-up-filter", "student-sort-filter"];
@@ -2160,7 +2172,7 @@ function updateGraduationYearSwitcher(documentObject) {
   }
   const label = selected === "ALL" ? "すべての卒業年度" : selected === "2027" ? "27卒" : "28卒";
   setText(documentObject, "graduation-year-filter-status", `${label}を表示中`);
-  setText(documentObject, "recruitment-summary-title", selected === "ALL" ? "27卒・28卒 採用状況" : `${label} 採用状況`);
+  setText(documentObject, "recruitment-summary-title", selected === "ALL" ? "今日、誰に、何をするか" : `${label}の今日やること`);
 }
 
 export function graduationYearWorkspace(workspace, graduationYear = selectedGraduationYear) {
@@ -2556,26 +2568,30 @@ function createStudentListItem(documentObject, student) {
   name.textContent = student.displayName;
   const badge = documentObject.createElement("span");
   badge.className = "state-badge";
-  badge.textContent = student.classificationLabel;
+  badge.textContent = student.status || "選考状況 未登録";
   top.append(name, badge);
 
   const meta = documentObject.createElement("span");
   meta.className = "student-list-meta";
-  meta.textContent = [student.school, student.sourceLabel, `担当 ${student.assignee || "未設定"}`, `最終接触 ${student.businessDate || "未設定"}`].filter(Boolean).join(" · ");
+  meta.textContent = [student.school, student.graduationYear ? `${String(student.graduationYear).slice(-2)}卒` : "卒年未登録", `担当 ${student.assignee || "未設定"}`].filter(Boolean).join(" · ");
   const status = documentObject.createElement("span");
   status.className = "student-list-status";
-  status.textContent = `${student.status} · 優先度 ${talentStudentPriorityLabel(student)}`;
+  status.textContent = student.nextActionLabel
+    ? `次の予定 ${student.nextActionLabel}${student.nextActionAt ? `・${student.nextActionAt}` : ""}`
+    : student.nextActionAt ? `次回対応 ${student.nextActionAt}` : "次の予定 未設定";
   const reviewBoundary = buildStudentReviewBoundary(student, {
     confirmable: isStudentIndividuallyConfirmable(student),
     editable: Boolean(student.applicationNo) || (student.mappingStatus === "UNMAPPED" && Boolean(student.recordId))
   });
   const reviewLane = documentObject.createElement("span");
   reviewLane.className = "student-list-review-lane";
+  reviewLane.classList.add("ui-diagnostic");
   reviewLane.dataset.category = reviewBoundary.category;
   reviewLane.textContent = reviewBoundary.badge;
   const queuePriority = buildStudentReviewQueuePriority(reviewBoundary);
   const queue = documentObject.createElement("span");
   queue.className = "student-list-review-priority";
+  queue.classList.add("ui-diagnostic");
   queue.dataset.category = queuePriority.category;
   queue.textContent = queuePriority.label;
   const followUpCategory = classifyTalentStudentFollowUp(student);
@@ -2587,6 +2603,7 @@ function createStudentListItem(documentObject, student) {
   const reasons = Array.isArray(student.reasonLabels) ? student.reasonLabels.filter(Boolean).slice(0, 2) : [];
   const reason = documentObject.createElement("span");
   reason.className = "student-list-reason";
+  reason.classList.add("ui-diagnostic");
   reason.textContent = reasons.length ? reasons.join("・") : "";
   if (reasons.length) button.title = `確認事項: ${reasons.join("・")}`;
   button.append(top, meta, status, reviewLane, queue, followUp, reason);
@@ -2694,6 +2711,7 @@ function renderStudentDetail(documentObject, student) {
       : "内定と入社予定日を登録すると利用できます";
   }
   setText(documentObject, "student-detail-school", student.school || "未登録");
+  setText(documentObject, "student-detail-graduation-year", student.graduationYear ? `${String(student.graduationYear).slice(-2)}卒` : "未登録");
   setText(documentObject, "student-detail-status", student.status || "未登録");
   setText(documentObject, "student-detail-assignee", student.assignee || "未設定");
   setText(documentObject, "student-detail-priority", talentStudentPriorityLabel(student));
@@ -2890,7 +2908,52 @@ function renderCandidateHistories(documentObject, student) {
   });
 }
 
+function renderDailyWorkflowHome(documentObject, data) {
+  const list = documentObject.getElementById("daily-workflow-home-list");
+  const status = documentObject.getElementById("daily-workflow-home-status");
+  if (!list || !status) return;
+  const queue = buildDailyWorkflowQueue(data, japanBusinessDateIso());
+  if (queue.state !== "READY") {
+    status.textContent = "集計準備中";
+    list.replaceChildren();
+    documentObject.querySelectorAll("[data-workflow-home-count]").forEach((item) => { item.textContent = "-"; });
+    return;
+  }
+  const categories = ["OVERDUE", "TODAY", "AWAITING_REPLY", "FUTURE", "CLOSED"];
+  const rowsByCategory = new Map(categories.map((key) => [key, []]));
+  queue.rows.forEach((row) => {
+    const key = rowsByCategory.has(row.category) ? row.category : "FUTURE";
+    rowsByCategory.get(key).push(row);
+  });
+  documentObject.querySelectorAll("[data-workflow-home-count]").forEach((item) => {
+    item.textContent = String(rowsByCategory.get(item.dataset.workflowHomeCount)?.length || 0);
+  });
+  const active = documentObject.querySelector("[data-workflow-home-filter].is-active")?.dataset.workflowHomeFilter || "OVERDUE";
+  const rows = rowsByCategory.get(active) || [];
+  status.textContent = rows.length ? `${rows.length}件` : "該当する対応はありません";
+  list.replaceChildren(...rows.slice(0, 10).map((row) => {
+    const item = documentObject.createElement("li");
+    const button = documentObject.createElement("button");
+    button.type = "button";
+    const student = (studentWorkspaceData?.students || []).find((entry) => entry.recordId === row.candidateId);
+    const title = documentObject.createElement("strong");
+    title.textContent = student?.displayName || "学生";
+    const detail = documentObject.createElement("span");
+    detail.textContent = [row.text, row.dueDate, row.assignedTo ? `担当 ${row.assignedTo}` : "担当者未設定"].filter(Boolean).join(" · ");
+    button.append(title, detail);
+    button.addEventListener("click", () => {
+      selectedStudentRecordId = row.candidateId;
+      documentObject.querySelector('[data-secondary-tab="students"]')?.click?.();
+      renderStudentWorkspace(documentObject);
+      documentObject.getElementById("student-detail-title")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    });
+    item.append(button);
+    return item;
+  }));
+}
+
 function renderDailyWorkflowQueue(documentObject, data) {
+  renderDailyWorkflowHome(documentObject, data);
   const list = documentObject.getElementById("daily-workflow-queue-list");
   const status = documentObject.getElementById("daily-workflow-queue-status");
   if (!list || !status) return;

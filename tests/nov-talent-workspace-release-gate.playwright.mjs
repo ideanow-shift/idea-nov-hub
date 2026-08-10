@@ -156,10 +156,12 @@ try {
   await page.getByText("636件を集計").waitFor().catch(async () => {
     throw new Error(JSON.stringify({ consoleErrors, body: (await page.locator("body").innerText()).slice(0, 500) }));
   });
+  await page.getByRole("tab", { name: "管理・診断" }).click();
   await page.locator("#selection-coverage-status").filter({ hasText: "確認待ちの元データ 126件" }).waitFor();
   assert.deepEqual(await page.evaluate(() => ({ workspace: window.__workspaceRequests, coverage: window.__selectionCoverageRequests, summary: window.__dashboardSummaryRequests })), { workspace: 1, coverage: 1, summary: 0 });
   assert.equal(await page.locator("#selection-coverage-status").innerText(), "確認待ちの元データ 126件（日付確認可能 42件 / 日付未登録 84件）");
   assert.equal(await page.locator("#selection-coverage-grid").innerText().then((text) => text.includes("正式登録 0件")), true);
+  await page.getByRole("tab", { name: "学生" }).click();
   assert.equal(await page.locator("#student-contacts").innerText(), "34");
   assert.equal(await page.locator("#student-total").innerText(), "636");
   assert.equal(await page.locator(".student-list-item").count(), 636);
@@ -168,10 +170,9 @@ try {
   await page.getByRole("button", { name: "28卒" }).click();
   assert.equal(await page.locator(".student-list-item").count(), 108);
   await page.getByRole("button", { name: "すべて" }).click();
-  await page.getByRole("tab", { name: "フェア分析" }).click();
+  await page.getByRole("tab", { name: "就職フェア" }).click();
   assert.equal(await page.locator("#fair-master-body tr").count(), 46);
-  await page.locator('#fair-master-body [data-master-action="detail"]').first().click();
-  await page.getByRole("heading", { name: "表示用フェア1" }).waitFor();
+  assert.ok(await page.locator("#fair-flow-body tr").count() > 0);
   assert.deepEqual(consoleErrors, []);
   assert.deepEqual(consoleWarnings, []);
   await page.close();
@@ -182,6 +183,7 @@ try {
   await partialPage.evaluate(() => { document.getElementById("talent").href = "/talent/index.html?partial=1&coveragePartial=1"; });
   await partialPage.getByRole("link", { name: "求人管理" }).click();
   await partialPage.getByText("636件を集計").waitFor();
+  await partialPage.getByRole("tab", { name: "管理・診断" }).click();
   await partialPage.locator("#selection-coverage-status").filter({ hasText: "集計準備中" }).waitFor();
   assert.ok(await partialPage.getByText("集計準備中", { exact: true }).count() > 0);
   assert.equal(await partialPage.locator("#selection-coverage-status").innerText(), "集計準備中");
@@ -200,6 +202,7 @@ try {
   await mobilePage.getByRole("button", { name: "ログイン" }).click();
   await mobilePage.getByRole("link", { name: "求人管理" }).click();
   await mobilePage.getByText("636件を集計").waitFor();
+  await mobilePage.getByRole("tab", { name: "管理・診断" }).click();
   await mobilePage.locator("#selection-coverage-status").filter({ hasText: "確認待ちの元データ 126件" }).waitFor();
   assert.equal(await mobilePage.locator(".student-list-item").count(), 636);
   assert.equal(await mobilePage.locator("#selection-coverage-status").innerText(), "確認待ちの元データ 126件（日付確認可能 42件 / 日付未登録 84件）");

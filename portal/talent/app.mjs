@@ -3,14 +3,15 @@
   createDashboardSummaryExecutor,
   createSelectionCoverageExecutor,
   createTalentWorkspaceExecutor
-} from "./runtime.mjs?v=20260809-outcome2-daily-workflow-2";
-import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260809-outcome2-daily-workflow-2";
+} from "./runtime.mjs?v=20260810-session-expiry-ux-1";
+import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260810-session-expiry-ux-1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
-import { handleNovHubSessionAuthFailure, NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
-import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260809-outcome2-daily-workflow-2";
-import { createCandidateActivityConfirmationController } from "./candidate-activity-confirmation.mjs?v=20260809-outcome2-daily-workflow-2";
-import { buildDailyWorkflowQueue, jstDateTimeLocalToRfc3339 } from "./daily-workflow.mjs?v=20260809-outcome2-daily-workflow-2";
+import { getNovHubSessionStatus, handleNovHubSessionAuthFailure, NOV_HUB_SESSION_CONTRACT } from "../js/nov-hub-session-candidate.js";
+import { createStagingCandidateClient, stagingWriteEnabled } from "./staging-write.mjs?v=20260810-session-expiry-ux-1";
+import { createCandidateActivityConfirmationController } from "./candidate-activity-confirmation.mjs?v=20260810-session-expiry-ux-1";
+import { HUB_SESSION_REAUTH_MESSAGE, isCandidateWriteSessionAvailable } from "./session-expiry-ux.mjs?v=20260810-session-expiry-ux-1";
+import { buildDailyWorkflowQueue, jstDateTimeLocalToRfc3339 } from "./daily-workflow.mjs?v=20260810-session-expiry-ux-1";
 import {
   buildCandidateHistorySummary,
   buildEventRoiView,
@@ -18,7 +19,7 @@ import {
   buildRecruitmentDashboardDecision,
   buildRecruitmentTaskBoard,
   japanBusinessDateIso
-} from "./recruitment-ux.mjs?v=20260809-outcome2-daily-workflow-2";
+} from "./recruitment-ux.mjs?v=20260810-session-expiry-ux-1";
 import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs?v=20260804-recruiting-dashboard-completion-1";
 
 let summaryConsumed = false;
@@ -3078,6 +3079,7 @@ function refreshActivityForm(documentObject) {
 function saveCandidateActivity({ documentObject }) {
   const form = documentObject.getElementById("candidate-activity-form");
   if (!form?.reportValidity?.() || !activityDialogContext?.student?.recordId) return;
+  if (!guardCandidateActivitySession(documentObject)) return;
   const { student, entityType, row, correctionRow } = activityDialogContext;
   if (activityDialogContext.legacyReadOnly || (row && !isWritableActivityCode(entityType, row.code))) {
     setText(documentObject, "candidate-activity-status", "旧記録は編集できません。無効化または復元のみ行えます。");
@@ -3146,6 +3148,7 @@ function saveCandidateActivity({ documentObject }) {
 }
 
 async function executeCandidateActivitySave({ globalObject, documentObject, command }) {
+  if (!guardCandidateActivitySession(documentObject)) return false;
   setText(documentObject, "candidate-activity-status", "保存しています");
   const client = createStagingCandidateClient({ globalObject });
   const result = command.commandType === "COMMUNICATION"
@@ -3168,7 +3171,10 @@ async function executeCandidateActivitySave({ globalObject, documentObject, comm
         holdReason: command.holdReason, reason: command.reason })
       : await client?.mutateActivity(command);
   if (!result?.ok) {
-    setText(documentObject, "candidate-activity-status", result?.category === "version_conflict" ? "他の更新があります。再読み込みしてください" : "保存できませんでした");
+    if (result?.category === "auth_required") handleNovHubSessionAuthFailure(401);
+    setText(documentObject, "candidate-activity-status", result?.category === "auth_required"
+      ? HUB_SESSION_REAUTH_MESSAGE
+      : result?.category === "version_conflict" ? "他の更新があります。再読み込みしてください" : "保存できませんでした");
     return false;
   }
   documentObject.getElementById("candidate-activity-dialog")?.close?.();
@@ -3180,6 +3186,7 @@ async function executeCandidateActivitySave({ globalObject, documentObject, comm
 async function deactivateCandidateActivity({ globalObject, documentObject }) {
   const context = activityDialogContext;
   if (context?.entityType === "SELECTION") return;
+  if (!guardCandidateActivitySession(documentObject)) return;
   const reason = documentObject.getElementById("activity-reason")?.value?.trim();
   const restoring = context?.row?.active === false;
   const confirmation = restoring ? "この履歴を復元しますか？" : "この履歴を無効化しますか？物理削除はしません。";
@@ -3188,19 +3195,31 @@ async function deactivateCandidateActivity({ globalObject, documentObject }) {
     entityType: context.entityType, operation: restoring ? "RESTORE" : "DEACTIVATE", entityId: context.row.id,
     expectedVersion: context.row.version, candidateId: context.student.recordId, reason
   });
-  if (!result?.ok) return setText(documentObject, "candidate-activity-status", restoring ? "復元できませんでした" : "無効化できませんでした");
+  if (!result?.ok) {
+    if (result?.category === "auth_required") handleNovHubSessionAuthFailure(401);
+    return setText(documentObject, "candidate-activity-status", result?.category === "auth_required"
+      ? HUB_SESSION_REAUTH_MESSAGE
+      : restoring ? "復元できませんでした" : "無効化できませんでした");
+  }
   documentObject.getElementById("candidate-activity-dialog")?.close?.(); activityDialogContext = null; studentWorkspaceData = null;
   await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });
 }
 
 async function completeCandidateNextAction({ globalObject, documentObject, row, student }) {
   if (!row?.id || !student?.recordId) return;
+  if (!guardCandidateActivitySession(documentObject)) return;
   activityConfirmationController?.open?.({
     candidateName: student.displayName, eventLabel: `次回対応を完了：${row.label || "対応"}`,
     date: row.date, reason: "次回対応の完了確認", focusTarget: documentObject.activeElement,
     command: { commandType: "NEXT_ACTION", operation: "COMPLETE", entityId: row.id,
       expectedVersion: row.version, candidateId: student.recordId, reason: "次回対応の完了確認" }
   });
+}
+
+function guardCandidateActivitySession(documentObject) {
+  if (isCandidateWriteSessionAvailable(getNovHubSessionStatus())) return true;
+  setText(documentObject, "candidate-activity-status", HUB_SESSION_REAUTH_MESSAGE);
+  return false;
 }
 
 function renderStudentDailyOperation(documentObject, operation) {

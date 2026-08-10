@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { createStagingCandidateClient, stagingWriteEnabled } from "../portal/talent/staging-write.mjs";
 import { clearNovHubSession, setNovHubSessionMemoryProvider } from "../portal/js/nov-hub-session-candidate.js";
+import { HUB_SESSION_REAUTH_MESSAGE, isCandidateWriteSessionAvailable } from "../portal/talent/session-expiry-ux.mjs";
 
 const root = new URL("../", import.meta.url);
 
@@ -27,6 +28,22 @@ test("browser client writes only through server API with HUB bearer", async () =
   assert.match(calls[0].init.headers.Authorization, /^Bearer /);
   assert.equal(globalObject.NovHubSession, undefined);
   assert.doesNotMatch(JSON.stringify(globalObject.NOV_TALENT_CONFIG), /service.role|secret|password/i);
+});
+
+test("expired HUB session stops candidate writes before fetch and keeps a specific re-authentication message", async () => {
+  let fetchCount = 0;
+  const globalObject = {
+    NOV_TALENT_CONFIG: { runtimeMode: "staging", networkEnabled: true, writeEnabled: true, writeApiBaseUrl: "https://example.test/functions/v1/nov-talent-staging-api" },
+    fetch: async () => { fetchCount += 1; throw new Error("fetch must not run for an expired session"); }
+  };
+  assert.equal(isCandidateWriteSessionAvailable("expired"), false);
+  assert.equal(HUB_SESSION_REAUTH_MESSAGE, "セッションの有効期限が切れました。HUBへ戻り、求人管理を開き直してください。");
+  const result = await createStagingCandidateClient({
+    globalObject,
+    sessionTokenProvider: async () => null
+  }).recordCommunication({ candidateId: "11111111-1111-4111-8111-111111111111" });
+  assert.deepEqual(result, { ok: false, category: "auth_required" });
+  assert.equal(fetchCount, 0);
 });
 
 test("save flow confirms before mutation and checks duplicates without automatic merge", async () => {

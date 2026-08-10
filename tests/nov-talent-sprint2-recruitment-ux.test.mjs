@@ -151,12 +151,12 @@ test("Staging authentication and API failures are not mislabeled as Mock format 
   }
 });
 
-test("Recruiting Dashboard orders the morning conclusion before eight metrics and tasks", async () => {
+test("daily work appears before supporting analytics in the simplified navigation", async () => {
   const html = await readFile(new URL("../portal/talent/index.html", import.meta.url), "utf8");
-  const decision = html.indexOf('id="recruitment-decision-summary"');
+  const daily = html.indexOf('id="daily-workflow-home-list"');
   const metrics = html.indexOf('id="historical-summary-metrics"');
   const tasks = html.indexOf('id="today-task-list"');
-  assert.ok(decision > 0 && decision < metrics && metrics < tasks);
+  assert.ok(daily > 0 && daily < tasks && tasks < metrics);
 });
 
 test("Sprint 2 mobile CSS prevents horizontal page overflow", async () => {

@@ -20,7 +20,7 @@ test("visible NOV Talent labels use 学生 and expose one shared graduation-year
   assert.match(html, /data-graduation-year="ALL"[^>]*aria-pressed="true">すべて/);
   assert.match(html, /data-graduation-year="2027"[^>]*>27卒/);
   assert.match(html, /data-graduation-year="2028"[^>]*>28卒/);
-  assert.match(html, /id="recruitment-summary-title">27卒・28卒 採用状況/);
+  assert.match(html, /id="recruitment-summary-title">今日、誰に、何をするか/);
   assert.match(app, /renderStudentWorkspace\(documentObject\);[\s\S]*renderTalentAnalytics\(documentObject\);[\s\S]*renderTalentTodayDashboard[\s\S]*renderTodayTasks/);
 });
 

@@ -141,6 +141,158 @@ body[data-talent-access="executive"] .sprint1-mock-write { display: none !import
   .unlinked-interview-list article { grid-template-columns: 1fr; }
 }
 
+/* NOV Talent UI Simplification V1: daily work first, diagnostics stay out of the normal path. */
+.beta-note {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 700;
+}
+.ui-diagnostic,
+.ui-supporting,
+[data-ui-supporting] { display: none !important; }
+body:not([data-talent-view="summary"]) #talent-today-dashboard { display: none; }
+#talent-today-dashboard {
+  border-color: #eadfe1;
+  background: #fff;
+  box-shadow: none;
+}
+#talent-today-dashboard .section-kicker { display: none; }
+#talent-today-dashboard-title { font-size: 1rem; }
+.talent-today-dashboard-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.talent-today-dashboard-grid article { min-height: 92px; }
+.talent-today-dashboard-grid article[data-today-metric="visits"],
+.talent-today-dashboard-grid article[data-today-metric="interviews"],
+.talent-today-dashboard-grid article[data-today-metric="new-students"],
+.talent-today-dashboard-grid article[data-today-metric="recent-students"] { display: none; }
+.secondary-tabs { gap: 30px; }
+.secondary-tabs [data-talent-management-tab] {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 650;
+}
+.graduation-year-switcher { background: #fff; }
+.daily-workflow-home {
+  margin-top: 18px;
+  padding: 22px;
+  border: 1px solid #eadfe1;
+  border-radius: 16px;
+  background: #fff;
+}
+.daily-workflow-home-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.daily-workflow-home-heading p { margin: 5px 0 0; color: var(--muted); font-size: .84rem; }
+.daily-workflow-home-filters {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+}
+.daily-workflow-home-filters button {
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: #fff;
+  cursor: pointer;
+  font-weight: 750;
+}
+.daily-workflow-home-filters button.is-active {
+  border-color: var(--rose);
+  color: var(--navy);
+  background: var(--accent-soft);
+}
+.daily-workflow-home-filters strong { margin-left: 4px; }
+.daily-workflow-home-list { display: grid; gap: 8px; margin: 16px 0 0; padding: 0; list-style: none; }
+.daily-workflow-home-list button {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--ink);
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.daily-workflow-home-list button:hover,
+.daily-workflow-home-list button:focus-visible { border-color: var(--rose); background: var(--accent-soft); outline: none; }
+.daily-workflow-home-list span { color: var(--muted); font-size: .82rem; }
+.today-task-panel { margin-top: 16px; }
+.student-toolbar { grid-template-columns: minmax(260px, 1fr) repeat(2, minmax(160px, .55fr)) 44px; }
+.student-workspace { grid-template-columns: minmax(320px, .8fr) minmax(480px, 1.2fr); }
+.student-list-item { min-height: 82px; gap: 5px; }
+.student-list-top .state-badge { max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.student-detail-panel { padding: 26px; background: #fff; }
+.detail-header { align-items: center; }
+.detail-grid { margin-top: 14px; }
+.detail-grid .detail-next-action {
+  grid-column: 1 / -1;
+  margin: 10px 0 4px;
+  padding: 18px;
+  border: 1px solid #cbe8d3;
+  border-radius: 14px;
+  background: var(--green-soft);
+}
+.detail-grid .detail-next-action dd { color: #176f48; font-size: 1.08rem; }
+.candidate-history-section { margin-top: 24px; }
+.candidate-history-actions { gap: 10px; }
+.candidate-history-actions .primary-command { min-height: 40px; }
+.candidate-history-grid article:nth-child(1),
+.candidate-history-grid article:nth-child(3) { display: none; }
+.candidate-history-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#recruitment-fairs .master-operation-panel > header p,
+#recruitment-schools .master-operation-panel,
+#recruitment-fairs .event-roi-panel { display: none; }
+.fair-master-table th:nth-child(n+8),
+.fair-master-table td:nth-child(n+8) { display: none; }
+.simplified-analysis-overview {
+  margin: 18px 0 24px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+}
+.simplified-analysis-overview h3 { margin-bottom: 14px; }
+
+@media (max-width: 860px) {
+  .daily-workflow-home-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .student-workspace { grid-template-columns: minmax(270px, .8fr) minmax(390px, 1.2fr); }
+}
+
+@media (max-width: 520px) {
+  .beta-note { display: block; margin: 3px 0 0; }
+  .secondary-tabs { gap: 22px; padding-inline: 16px; }
+  .secondary-tabs [data-talent-management-tab] { margin-left: 0; }
+  .talent-today-dashboard-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .talent-today-dashboard-grid article { min-height: 82px; padding: 10px; }
+  .talent-today-dashboard-grid strong { font-size: 1.35rem; }
+  .talent-today-dashboard-grid small { display: none; }
+  .daily-workflow-home { padding: 16px; }
+  .daily-workflow-home-heading { display: block; }
+  .daily-workflow-home-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .daily-workflow-home-filters button:last-child { grid-column: 1 / -1; }
+  .student-toolbar { grid-template-columns: 1fr 44px; }
+  .student-toolbar label { grid-column: 1 / -1; }
+  .student-workspace { display: block; }
+  .student-list { max-height: 420px; }
+  .student-detail-panel { padding: 18px; }
+  .detail-header { align-items: flex-start; flex-direction: column; }
+  .detail-actions { width: 100%; justify-content: space-between; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .detail-grid div:nth-child(even) { padding-left: 0; }
+  .detail-grid .detail-next-action { grid-column: auto; }
+  .candidate-history-grid { grid-template-columns: 1fr; }
+  .candidate-history-actions { grid-template-columns: 1fr; }
+}
+
 button { font: inherit; }
 
 .dashboard-shell {
@@ -2405,4 +2557,25 @@ h3 { margin: 0; font-size: 1rem; }
   #daily-workflow-queue-list > li > button {
     width: 100%;
   }
+}
+
+/* Keep Simplification V1 overrides after the legacy responsive layer. */
+.talent-today-dashboard-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.secondary-tabs { gap: 30px; }
+.student-toolbar { grid-template-columns: minmax(260px, 1fr) repeat(2, minmax(160px, .55fr)) 44px; }
+.student-workspace { grid-template-columns: minmax(320px, .8fr) minmax(480px, 1.2fr); }
+.student-detail-panel { padding: 26px; background: #fff; }
+.detail-grid { margin-top: 14px; }
+
+@media (max-width: 860px) {
+  .student-workspace { grid-template-columns: minmax(270px, .8fr) minmax(390px, 1.2fr); }
+}
+
+@media (max-width: 520px) {
+  .secondary-tabs { gap: 22px; padding-inline: 16px; }
+  .talent-today-dashboard-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .student-toolbar { grid-template-columns: 1fr 44px; }
+  .student-workspace { display: block; }
+  .student-detail-panel { padding: 18px; }
+  .detail-grid { grid-template-columns: 1fr; }
 }

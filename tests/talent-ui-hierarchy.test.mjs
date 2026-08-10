@@ -129,10 +129,10 @@ test("recruitment subtabs stay visually and semantically below the primary tabs"
   const html = await readFile(new URL("index.html", root), "utf8");
   const app = await readFile(new URL("app.mjs", root), "utf8");
 
-  assert.match(html, /class="secondary-tabs"[\s\S]*ダッシュボード/);
+  assert.match(html, /class="secondary-tabs"[\s\S]*今日やること/);
   assert.match(html, /data-secondary-tab="students"[\s\S]*学生一覧/);
-  assert.match(html, /data-secondary-tab="fairs"[\s\S]*フェア分析/);
-  assert.match(html, /data-secondary-tab="schools"[\s\S]*学校分析/);
+  assert.match(html, /data-secondary-tab="fairs"[\s\S]*就職フェア/);
+  assert.match(html, /data-secondary-tab="schools"[\s\S]*分析/);
   assert.match(html, /id="talent-28-csv-file"/);
   assert.match(html, /id="talent-28-csv-template"/);
   assert.match(html, /csv-source-type-legend/);

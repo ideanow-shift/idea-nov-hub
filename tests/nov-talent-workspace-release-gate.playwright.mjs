@@ -168,7 +168,7 @@ try {
   await page.getByRole("button", { name: "28卒" }).click();
   assert.equal(await page.locator(".student-list-item").count(), 108);
   await page.getByRole("button", { name: "すべて" }).click();
-  await page.getByRole("tab", { name: "フェア分析" }).click();
+  await page.getByRole("tab", { name: "就職フェア" }).click();
   assert.equal(await page.locator("#fair-master-body tr").count(), 46);
   await page.locator('#fair-master-body [data-master-action="detail"]').first().click();
   await page.getByRole("heading", { name: "表示用フェア1" }).waitFor();

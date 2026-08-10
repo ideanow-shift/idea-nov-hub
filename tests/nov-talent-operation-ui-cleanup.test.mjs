@@ -32,7 +32,7 @@ test("setup tools live behind an administrator-only management tab", async () =>
     readFile(new URL("csv-import-preflight.mjs", root), "utf8")
   ]);
 
-  assert.match(html, /data-secondary-tab="management" data-talent-management-tab hidden>管理ツール/);
+  assert.match(html, /data-secondary-tab="management" data-talent-management-tab hidden>管理・診断/);
   assert.match(html, /id="recruitment-management"[^>]*hidden/);
   assert.match(html, /id="management-daily-title">日常管理/);
   assert.match(html, /id="management-maintenance-title">データメンテナンス/);

@@ -1,0 +1,758 @@
+{
+  "contractVersion": "SOCE-EXECUTION-PATH-SECURITY-v1.3.0",
+  "parserContract": "SOCE-POSTGRES-SELECT-SECURITY-AST-v1",
+  "globalPublicHardeningRequired": false,
+  "retryCount": 0,
+  "controlSequence": [
+    "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY",
+    "SET LOCAL search_path = 'pg_catalog'",
+    "SET LOCAL statement_timeout = '5000ms'",
+    "SET LOCAL lock_timeout = '1000ms'",
+    "SET LOCAL idle_in_transaction_session_timeout = '15000ms'",
+    "ROLLBACK",
+    "CONNECTION_CLOSE"
+  ],
+  "functionSignatures": {
+    "acldefault": [
+      "pg_catalog.acldefault(\"char\",oid)"
+    ],
+    "aclexplode": [
+      "pg_catalog.aclexplode(aclitem[])"
+    ],
+    "bool_or": [
+      "pg_catalog.bool_or(boolean)"
+    ],
+    "count": [
+      "pg_catalog.count()",
+      "pg_catalog.count(\"any\")"
+    ],
+    "current_database": [
+      "pg_catalog.current_database()"
+    ],
+    "current_setting": [
+      "pg_catalog.current_setting(text)"
+    ],
+    "format_type": [
+      "pg_catalog.format_type(oid,integer)"
+    ],
+    "has_database_privilege": [
+      "pg_catalog.has_database_privilege(oid,text,text)"
+    ],
+    "has_function_privilege": [
+      "pg_catalog.has_function_privilege(oid,oid,text)"
+    ],
+    "has_schema_privilege": [
+      "pg_catalog.has_schema_privilege(oid,oid,text)"
+    ],
+    "has_sequence_privilege": [
+      "pg_catalog.has_sequence_privilege(oid,oid,text)"
+    ],
+    "has_table_privilege": [
+      "pg_catalog.has_table_privilege(oid,oid,text)"
+    ],
+    "jsonb_agg": [
+      "pg_catalog.jsonb_agg(anyelement)"
+    ],
+    "lower": [
+      "pg_catalog.lower(text)"
+    ],
+    "md5": [
+      "pg_catalog.md5(text)"
+    ],
+    "to_regclass": [
+      "pg_catalog.to_regclass(text)"
+    ]
+  },
+  "operatorSignatures": [
+    "pg_catalog.!~(name,text)",
+    "pg_catalog.=(boolean,boolean)",
+    "pg_catalog.=(\"char\",\"char\")",
+    "pg_catalog.=(integer,integer)",
+    "pg_catalog.=(name,name)",
+    "pg_catalog.=(oid,oid)",
+    "pg_catalog.=(text,text)",
+    "pg_catalog.<>(\"char\",\"char\")",
+    "pg_catalog.<>(name,text)",
+    "pg_catalog.<>(text,text)",
+    "pg_catalog.>(smallint,integer)",
+    "pg_catalog.+(integer,integer)",
+    "pg_catalog.-(bigint,bigint)",
+    "pg_catalog.||(anycompatiblearray,anycompatible)"
+  ],
+  "queries": [
+    {
+      "queryId": "SOCE-QP01-SOURCE-IDENTITY",
+      "sqlSha256": "86e87c348d621f7f3925d4ece71b2a66cd39d2023b11a6994fba37bb2e925d04",
+      "astSha256": "1193f12fec9587b01d1b73291b9cff822cc464fdb73d737aa9d2f24facaccb37",
+      "statementType": "select",
+      "statementCount": 1,
+      "cteNames": [],
+      "relations": [],
+      "columnReferences": [],
+      "functions": [
+        "current_setting"
+      ],
+      "operators": [],
+      "identifiersSha256": "51df3dc6c3c71b4126bfa73b71cc377e7f62bf5b4d5991e7e9cd6f728fe4dc18"
+    },
+    {
+      "queryId": "SOCE-QP01-TARGET-IDENTITY",
+      "sqlSha256": "785279ebff2f5ee5d1415be500f35b9e293ea7b1161418a6b5552ac42631543b",
+      "astSha256": "1193f12fec9587b01d1b73291b9cff822cc464fdb73d737aa9d2f24facaccb37",
+      "statementType": "select",
+      "statementCount": 1,
+      "cteNames": [],
+      "relations": [],
+      "columnReferences": [],
+      "functions": [
+        "current_setting"
+      ],
+      "operators": [],
+      "identifiersSha256": "51df3dc6c3c71b4126bfa73b71cc377e7f62bf5b4d5991e7e9cd6f728fe4dc18"
+    },
+    {
+      "queryId": "SOCE-QP01-SOURCE-READONLY",
+      "sqlSha256": "fd150058a1420ae51c99c6380a28d53b35eabe032523db9f5898bd3d5e709ed6",
+      "astSha256": "9a64dfa94133bda738cbc2a5a7df1dc1e08452feec344ab61e26c17bf84d27bd",
+      "statementType": "with-select",
+      "statementCount": 1,
+      "cteNames": [
+        "application_relations",
+        "application_routines",
+        "application_schema_summary",
+        "application_schemas",
+        "application_types",
+        "privilege_counts",
+        "role_attributes",
+        "role_closure",
+        "role_paths",
+        "role_risk"
+      ],
+      "relations": [
+        "pg_auth_members",
+        "pg_class",
+        "pg_database",
+        "pg_extension",
+        "pg_namespace",
+        "pg_proc",
+        "pg_roles",
+        "pg_type"
+      ],
+      "columnReferences": [
+        "acl.grantee",
+        "acl.privilege_type",
+        "closure.admin_path",
+        "closure.inherited_path",
+        "closure.role_oid",
+        "closure.settable_path",
+        "counts.bypassrls_role_count",
+        "counts.connection_limit_violation_count",
+        "counts.createdb_role_count",
+        "counts.createrole_role_count",
+        "counts.direct_application_routine_execute_count",
+        "counts.effective_database_create_count",
+        "counts.effective_delete_privilege_count",
+        "counts.effective_dml_privilege_count",
+        "counts.effective_insert_privilege_count",
+        "counts.effective_references_privilege_count",
+        "counts.effective_schema_create_count",
+        "counts.effective_sequence_update_count",
+        "counts.effective_sequence_usage_count",
+        "counts.effective_sequence_write_count",
+        "counts.effective_temp_privilege_count",
+        "counts.effective_trigger_privilege_count",
+        "counts.effective_truncate_privilege_count",
+        "counts.effective_update_privilege_count",
+        "counts.executable_application_routine_count",
+        "counts.inherited_role_count",
+        "counts.login_role_count",
+        "counts.membership_admin_option_count",
+        "counts.membership_edge_count",
+        "counts.noinherit_violation_count",
+        "counts.owned_application_schema_count",
+        "counts.owned_database_count",
+        "counts.owned_extension_count",
+        "counts.owned_function_count",
+        "counts.owned_relation_count",
+        "counts.owned_type_count",
+        "counts.reachable_role_count",
+        "counts.replication_role_count",
+        "counts.service_role_count",
+        "counts.settable_role_count",
+        "counts.superuser_count",
+        "counts.unsafe_reachable_role_count",
+        "counts.valid_until_violation_count",
+        "data_type.oid",
+        "data_type.typnamespace",
+        "data_type.typowner",
+        "database.datdba",
+        "database.datname",
+        "extension.extowner",
+        "membership.admin_option",
+        "membership.inherit_option",
+        "membership.member",
+        "membership.roleid",
+        "membership.set_option",
+        "namespace.nspname",
+        "namespace.nspowner",
+        "namespace.oid",
+        "path.admin_path",
+        "path.depth",
+        "path.inherited_path",
+        "path.role_oid",
+        "path.role_path",
+        "path.settable_path",
+        "privilege.privilege_name",
+        "relation.oid",
+        "relation.relkind",
+        "relation.relnamespace",
+        "relation.relowner",
+        "role.admin_path",
+        "role.oid",
+        "role.rolbypassrls",
+        "role.rolcanlogin",
+        "role.rolconnlimit",
+        "role.rolcreatedb",
+        "role.rolcreaterole",
+        "role.role_oid",
+        "role.rolinherit",
+        "role.rolname",
+        "role.rolreplication",
+        "role.rolsuper",
+        "role.rolvaliduntil",
+        "routine.oid",
+        "routine.proacl",
+        "routine.prokind",
+        "routine.pronamespace",
+        "routine.proowner",
+        "schema.application_schema_count",
+        "schema.application_schema_set_md5"
+      ],
+      "functions": [
+        "acldefault",
+        "aclexplode",
+        "bool_or",
+        "count",
+        "current_database",
+        "current_setting",
+        "has_database_privilege",
+        "has_function_privilege",
+        "has_schema_privilege",
+        "has_sequence_privilege",
+        "has_table_privilege",
+        "jsonb_agg",
+        "md5"
+      ],
+      "operators": [
+        "!~",
+        "*",
+        "+",
+        "<=",
+        "<>",
+        "=",
+        "and",
+        "in",
+        "is",
+        "not",
+        "or",
+        "||"
+      ],
+      "identifiersSha256": "dffc953bf99f0910df936de7e4116e946c74bd37e91d47d1db13a0c851c3f053"
+    },
+    {
+      "queryId": "SOCE-QP01-TARGET-READONLY",
+      "sqlSha256": "b54e3eafbb07eb686203aa287aa47efd22cf77babf844f6462d2a2ecb0391fe2",
+      "astSha256": "9a64dfa94133bda738cbc2a5a7df1dc1e08452feec344ab61e26c17bf84d27bd",
+      "statementType": "with-select",
+      "statementCount": 1,
+      "cteNames": [
+        "application_relations",
+        "application_routines",
+        "application_schema_summary",
+        "application_schemas",
+        "application_types",
+        "privilege_counts",
+        "role_attributes",
+        "role_closure",
+        "role_paths",
+        "role_risk"
+      ],
+      "relations": [
+        "pg_auth_members",
+        "pg_class",
+        "pg_database",
+        "pg_extension",
+        "pg_namespace",
+        "pg_proc",
+        "pg_roles",
+        "pg_type"
+      ],
+      "columnReferences": [
+        "acl.grantee",
+        "acl.privilege_type",
+        "closure.admin_path",
+        "closure.inherited_path",
+        "closure.role_oid",
+        "closure.settable_path",
+        "counts.bypassrls_role_count",
+        "counts.connection_limit_violation_count",
+        "counts.createdb_role_count",
+        "counts.createrole_role_count",
+        "counts.direct_application_routine_execute_count",
+        "counts.effective_database_create_count",
+        "counts.effective_delete_privilege_count",
+        "counts.effective_dml_privilege_count",
+        "counts.effective_insert_privilege_count",
+        "counts.effective_references_privilege_count",
+        "counts.effective_schema_create_count",
+        "counts.effective_sequence_update_count",
+        "counts.effective_sequence_usage_count",
+        "counts.effective_sequence_write_count",
+        "counts.effective_temp_privilege_count",
+        "counts.effective_trigger_privilege_count",
+        "counts.effective_truncate_privilege_count",
+        "counts.effective_update_privilege_count",
+        "counts.executable_application_routine_count",
+        "counts.inherited_role_count",
+        "counts.login_role_count",
+        "counts.membership_admin_option_count",
+        "counts.membership_edge_count",
+        "counts.noinherit_violation_count",
+        "counts.owned_application_schema_count",
+        "counts.owned_database_count",
+        "counts.owned_extension_count",
+        "counts.owned_function_count",
+        "counts.owned_relation_count",
+        "counts.owned_type_count",
+        "counts.reachable_role_count",
+        "counts.replication_role_count",
+        "counts.service_role_count",
+        "counts.settable_role_count",
+        "counts.superuser_count",
+        "counts.unsafe_reachable_role_count",
+        "counts.valid_until_violation_count",
+        "data_type.oid",
+        "data_type.typnamespace",
+        "data_type.typowner",
+        "database.datdba",
+        "database.datname",
+        "extension.extowner",
+        "membership.admin_option",
+        "membership.inherit_option",
+        "membership.member",
+        "membership.roleid",
+        "membership.set_option",
+        "namespace.nspname",
+        "namespace.nspowner",
+        "namespace.oid",
+        "path.admin_path",
+        "path.depth",
+        "path.inherited_path",
+        "path.role_oid",
+        "path.role_path",
+        "path.settable_path",
+        "privilege.privilege_name",
+        "relation.oid",
+        "relation.relkind",
+        "relation.relnamespace",
+        "relation.relowner",
+        "role.admin_path",
+        "role.oid",
+        "role.rolbypassrls",
+        "role.rolcanlogin",
+        "role.rolconnlimit",
+        "role.rolcreatedb",
+        "role.rolcreaterole",
+        "role.role_oid",
+        "role.rolinherit",
+        "role.rolname",
+        "role.rolreplication",
+        "role.rolsuper",
+        "role.rolvaliduntil",
+        "routine.oid",
+        "routine.proacl",
+        "routine.prokind",
+        "routine.pronamespace",
+        "routine.proowner",
+        "schema.application_schema_count",
+        "schema.application_schema_set_md5"
+      ],
+      "functions": [
+        "acldefault",
+        "aclexplode",
+        "bool_or",
+        "count",
+        "current_database",
+        "current_setting",
+        "has_database_privilege",
+        "has_function_privilege",
+        "has_schema_privilege",
+        "has_sequence_privilege",
+        "has_table_privilege",
+        "jsonb_agg",
+        "md5"
+      ],
+      "operators": [
+        "!~",
+        "*",
+        "+",
+        "<=",
+        "<>",
+        "=",
+        "and",
+        "in",
+        "is",
+        "not",
+        "or",
+        "||"
+      ],
+      "identifiersSha256": "dffc953bf99f0910df936de7e4116e946c74bd37e91d47d1db13a0c851c3f053"
+    },
+    {
+      "queryId": "SOCE-QP02-SOURCE-SCHEMA-COLUMN-MAP",
+      "sqlSha256": "01277f49ed63632ee4e7f582a4d19a14ff7f272008d60dab61eac155bd3b384a",
+      "astSha256": "bbb209c7c480fe9dd26c36f87f2cf0e15bc7a43fafdb03defb341a68fe9661db",
+      "statementType": "select",
+      "statementCount": 1,
+      "cteNames": [],
+      "relations": [
+        "pg_attribute",
+        "pg_class",
+        "pg_constraint",
+        "pg_namespace"
+      ],
+      "columnReferences": [
+        "a.attisdropped",
+        "a.attname",
+        "a.attnotnull",
+        "a.attnum",
+        "a.attrelid",
+        "a.atttypid",
+        "a.atttypmod",
+        "c.oid",
+        "c.relkind",
+        "c.relname",
+        "c.relnamespace",
+        "con.conkey",
+        "con.conrelid",
+        "con.constraint_kind",
+        "con.contype",
+        "fk.confrelid",
+        "fk.conkey",
+        "fk.conrelid",
+        "fk.contype",
+        "n.nspname",
+        "n.oid",
+        "pc.oid",
+        "pc.relname",
+        "rel.relation_label"
+      ],
+      "functions": [
+        "format_type"
+      ],
+      "operators": [
+        "=",
+        ">",
+        "and",
+        "in",
+        "not"
+      ],
+      "identifiersSha256": "8c9986ee37905567bf62947d9f359cc714904b97df54bb468ad0402c566f6f05"
+    },
+    {
+      "queryId": "SOCE-QP02-TARGET-SCHEMA-COLUMN-MAP",
+      "sqlSha256": "d2c1fbf8f4d5daeea7377bd64e93a351b5a65e9e32227054fca253697bf69f0f",
+      "astSha256": "bbb209c7c480fe9dd26c36f87f2cf0e15bc7a43fafdb03defb341a68fe9661db",
+      "statementType": "select",
+      "statementCount": 1,
+      "cteNames": [],
+      "relations": [
+        "pg_attribute",
+        "pg_class",
+        "pg_constraint",
+        "pg_namespace"
+      ],
+      "columnReferences": [
+        "a.attisdropped",
+        "a.attname",
+        "a.attnotnull",
+        "a.attnum",
+        "a.attrelid",
+        "a.atttypid",
+        "a.atttypmod",
+        "c.oid",
+        "c.relkind",
+        "c.relname",
+        "c.relnamespace",
+        "con.conkey",
+        "con.conrelid",
+        "con.constraint_kind",
+        "con.contype",
+        "fk.confrelid",
+        "fk.conkey",
+        "fk.conrelid",
+        "fk.contype",
+        "n.nspname",
+        "n.oid",
+        "pc.oid",
+        "pc.relname",
+        "rel.relation_label"
+      ],
+      "functions": [
+        "format_type"
+      ],
+      "operators": [
+        "=",
+        ">",
+        "and",
+        "in",
+        "not"
+      ],
+      "identifiersSha256": "8c9986ee37905567bf62947d9f359cc714904b97df54bb468ad0402c566f6f05"
+    },
+    {
+      "queryId": "SOCE-QP03-CLASSIFICATION-SUMMARY",
+      "sqlSha256": "b750ab432439ed34a934b1b77f4707ec37ced710440829f515d7df17919e23c2",
+      "astSha256": "4f1d441aafd1938d5be6fdb8e084e6dec9794129d018632d7a9ae9775490d86d",
+      "statementType": "with-select",
+      "statementCount": 1,
+      "cteNames": [
+        "active_store",
+        "classified"
+      ],
+      "relations": [
+        "public.corporations",
+        "public.stores"
+      ],
+      "columnReferences": [],
+      "functions": [
+        "count",
+        "lower"
+      ],
+      "operators": [
+        "*",
+        "-",
+        "=",
+        "in",
+        "is",
+        "not"
+      ],
+      "identifiersSha256": "fdc6ea0a0126e70076659196a8ce6c4b8fa733afaf4b5ba51fa076945a81c80b"
+    },
+    {
+      "queryId": "SOCE-QP03-CANONICAL-STORE-ROWS",
+      "sqlSha256": "c5de6499639eef0441e75262179dc34f2310412e6a44c42a3daaf46d3441c95e",
+      "astSha256": "3bd2f15d05876b2593610578d48aae2396bf7b2fde42b0f21a5fc72ca5003485",
+      "statementType": "select",
+      "statementCount": 1,
+      "cteNames": [],
+      "relations": [
+        "public.corporations",
+        "public.stores"
+      ],
+      "columnReferences": [
+        "c.id",
+        "s.corporation_id",
+        "s.created_at",
+        "s.id",
+        "s.is_active",
+        "s.store_id",
+        "s.store_type"
+      ],
+      "functions": [
+        "lower",
+        "md5"
+      ],
+      "operators": [
+        "=",
+        "and",
+        "in",
+        "is"
+      ],
+      "identifiersSha256": "e5aac53f2e45e0bf49b8c2e974e076575ced02cd6238e8bf077d1ae7f5065113"
+    },
+    {
+      "queryId": "SOCE-QP03-TOKOROZAWA-LEGACY-RELATION",
+      "sqlSha256": "ab6f543bbf4486ea571f4a6c6351d7bd9e625e4a0478fc270061962d4d115d28",
+      "astSha256": "14fe578612e56d35c5409e9d9077132f3c4da24af9c9d1436ef5a2e57f8ff090",
+      "statementType": "select",
+      "statementCount": 1,
+      "cteNames": [],
+      "relations": [
+        "public.stores"
+      ],
+      "columnReferences": [],
+      "functions": [
+        "to_regclass"
+      ],
+      "operators": [
+        "=",
+        "and",
+        "is"
+      ],
+      "identifiersSha256": "321efd43b844263201adf372e4cc91d459d8049dfbd81f9da0d81a044655c47c"
+    },
+    {
+      "queryId": "SOCE-QP04-EMPLOYEE-AUTHORIZATION-SUMMARY",
+      "sqlSha256": "bbd7bddd4a06d88a08916a3e6e6a3567bd8c87b85b4738d76a312bb26413ef04",
+      "astSha256": "1c8c83dd88caba7c29e5a9e070eac83978a8fe0c5130450e5c15f07e5b42be2c",
+      "statementType": "select",
+      "statementCount": 1,
+      "cteNames": [],
+      "relations": [
+        "public.employee_store_assignments",
+        "public.employees",
+        "public.stores"
+      ],
+      "columnReferences": [
+        "a.employee_id",
+        "a.store_id",
+        "e.id",
+        "s.id"
+      ],
+      "functions": [
+        "count"
+      ],
+      "operators": [
+        "*",
+        "=",
+        "is",
+        "or"
+      ],
+      "identifiersSha256": "520ce2a5732ed5a80353fc167322c787902da2700420f428bebd19f1abb9745a"
+    },
+    {
+      "queryId": "SOCE-QP04-AM-ASSIGNMENT-EVIDENCE",
+      "sqlSha256": "c2b5a02dda76d00be35730980c32436ac551575eeada83370ab45ef20dc4f62a",
+      "astSha256": "6b20d63cccfc373b82d0844610e82f2f7fc62b0a1bc631f056750c47253cccbb",
+      "statementType": "select",
+      "statementCount": 1,
+      "cteNames": [],
+      "relations": [
+        "public.employee_store_assignments",
+        "public.employees"
+      ],
+      "columnReferences": [
+        "a.assignment_type",
+        "a.effective_from",
+        "a.effective_to",
+        "a.employee_id",
+        "a.is_active",
+        "a.store_id",
+        "e.id",
+        "e.is_active"
+      ],
+      "functions": [
+        "md5"
+      ],
+      "operators": [
+        "=",
+        "and",
+        "in"
+      ],
+      "identifiersSha256": "254a8ef8797d127e806659b049ef87f8bab8587595aaca707be9229c720a12bc"
+    },
+    {
+      "queryId": "SOCE-QP04-STORE-MANAGER-COVERAGE",
+      "sqlSha256": "68b044999254e0a0905ea5a07527babd48813de2afc0a2b902eecd7f9052a941",
+      "astSha256": "e9680a69d9c9130fd77187878edbb73b4e9e150895c826c6bab35262b670a409",
+      "statementType": "select",
+      "statementCount": 1,
+      "cteNames": [],
+      "relations": [
+        "public.employee_store_assignments",
+        "public.employees",
+        "public.stores"
+      ],
+      "columnReferences": [
+        "a.assignment_type",
+        "a.effective_from",
+        "a.effective_to",
+        "a.employee_id",
+        "a.is_active",
+        "a.store_id",
+        "e.id",
+        "e.is_active",
+        "s.id",
+        "s.is_active"
+      ],
+      "functions": [
+        "md5"
+      ],
+      "operators": [
+        "=",
+        "and",
+        "in"
+      ],
+      "identifiersSha256": "2241809d036b6cbdd1b251e5d90c595a3737056c760f2720559da92edff4cb52"
+    },
+    {
+      "queryId": "SOCE-QP05-IDENTITY-CROSSWALK-SUMMARY",
+      "sqlSha256": "6bb441d0b5d06335e7590f6b6d877a2c4c4f887b56b344aba3d8159fccb5a856",
+      "astSha256": "822664723c52eef82170cfbdae8dda63f14757bd764519c583efb7419eca526d",
+      "statementType": "select",
+      "statementCount": 1,
+      "cteNames": [],
+      "relations": [],
+      "columnReferences": [],
+      "functions": [],
+      "operators": [],
+      "identifiersSha256": "40c1e82bc32280d35596a95d41b9293fbda0e2157cef77289ae4bd8b4f7fadc6"
+    },
+    {
+      "queryId": "SOCE-QP05-CONSUMER-ANCHOR-SOURCE-EVIDENCE",
+      "sqlSha256": "15e19a8ad920d77a208bd939585fccfc84bdf7a34dc9badb2d4b70d72b5152c0",
+      "astSha256": "8a5e61eabb98cd1a5f4ccc1ae8122240e0e67a5d1f51a4b0934c963d5bfaaa66",
+      "statementType": "select",
+      "statementCount": 1,
+      "cteNames": [],
+      "relations": [],
+      "columnReferences": [],
+      "functions": [],
+      "operators": [],
+      "identifiersSha256": "6a14eae2f073ffb219e35af8f5ca7de40e18723c4180043d0f399ed16a0a7edc"
+    },
+    {
+      "queryId": "SOCE-QP06-TARGET-PRESTATE",
+      "sqlSha256": "fb222ae0d1ec955c8bf8ab50a37e929ee9770ecb03fc3233ca3d48e24556ca50",
+      "astSha256": "c891f5ac5cf6d056138d0009cce4298e1c757cc57b26c11798157f065e59f7b3",
+      "statementType": "select",
+      "statementCount": 1,
+      "cteNames": [],
+      "relations": [
+        "auth.users",
+        "core.corporations",
+        "core.employee_store_assignments",
+        "core.employees",
+        "core.stores"
+      ],
+      "columnReferences": [],
+      "functions": [
+        "count"
+      ],
+      "operators": [
+        "*"
+      ],
+      "identifiersSha256": "0df225d1ecdfa184b243ce1553086200a7f96176b888e6b990dfffa17a615276"
+    },
+    {
+      "queryId": "SOCE-QP06-M019-PRESENCE",
+      "sqlSha256": "ba48dceca9ba918627a01969c65324d8615c46d30b9a76d28f01158b832c426f",
+      "astSha256": "b609c635f2eb89e58c9f6e62d9d3ed0dac46b05b68c8d0d94188db1ad7d6b03f",
+      "statementType": "select",
+      "statementCount": 1,
+      "cteNames": [],
+      "relations": [],
+      "columnReferences": [],
+      "functions": [
+        "to_regclass"
+      ],
+      "operators": [
+        "is",
+        "not"
+      ],
+      "identifiersSha256": "f6c9919eec4d77fdc96be4e6dfec1d74a5fb096ea11675b9094053a4a48d1e65"
+    }
+  ],
+  "contentSha256": "b9e1459c0ec5dcbc03edd9c6491ef66e8cab2311c806d15e756f1d12be1ca457"
+}

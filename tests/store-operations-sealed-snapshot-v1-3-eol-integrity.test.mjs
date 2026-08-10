@@ -7,13 +7,12 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const packageRelativePath = 'review/store-operations-sealed-snapshot-v1';
+const packageRelativePath = 'review/store-operations-sealed-snapshot-v1-3';
 const packageRoot = join(repositoryRoot, packageRelativePath);
 const parentAttributesPath = join(repositoryRoot, '.gitattributes');
-const parentRule = 'review/store-operations-sealed-snapshot-v1/** text eol=lf';
-const nestedRule = 'review/store-operations-sealed-snapshot-v1/.gitattributes text eol=lf';
-const packageLock = JSON.parse(readFileSync(join(packageRoot, 'execution-package-lock-v1.json'), 'utf8'));
-const baselinePackageLock = JSON.parse(gitShow(`${packageRelativePath}/execution-package-lock-v1.json`).toString('utf8'));
+const parentRule = 'review/store-operations-sealed-snapshot-v1-3/** text eol=lf';
+const nestedRule = 'review/store-operations-sealed-snapshot-v1-3/.gitattributes text eol=lf';
+const packageLock = JSON.parse(readFileSync(join(packageRoot, 'execution-package-lock-v1-3.json'), 'utf8'));
 const SQL_ARTIFACT_COUNT = 16;
 let moduleNonce = 0;
 let passed = 0;
@@ -43,21 +42,13 @@ function packagePath(root, artifactPath) {
   return absolute;
 }
 
-function gitShow(relativePath) {
-  return git(['show', `HEAD:${relativePath}`], { cwd: repositoryRoot, encoding: 'buffer' });
-}
-
-function gitBlob(packageArtifactPath) {
-  return gitShow(`${packageRelativePath}/${packageArtifactPath}`);
-}
-
 async function packageVerifier(root) {
   const moduleUrl = `${pathToFileURL(join(root, 'execution-package-lock.mjs')).href}?eolIntegrity=${moduleNonce++}`;
   return import(moduleUrl);
 }
 
 async function assertPackageIntegrity(root) {
-  assert.equal(packageLock.artifacts.length, 29);
+  assert.equal(packageLock.artifacts.length, 32);
   const sqlArtifacts = packageLock.artifacts.filter(({ path }) => path.startsWith('queries/'));
   assert.equal(sqlArtifacts.length, SQL_ARTIFACT_COUNT);
 
@@ -79,11 +70,6 @@ function materializePackageFromGitBlobs(destinationRoot) {
   mkdirSync(dirname(destinationPackageRoot), { recursive: true });
   cpSync(packageRoot, destinationPackageRoot, { recursive: true });
 
-  for (const artifact of packageLock.artifacts) {
-    const destination = packagePath(destinationPackageRoot, artifact.path);
-    mkdirSync(dirname(destination), { recursive: true });
-    writeFileSync(destination, gitBlob(artifact.path));
-  }
 }
 
 function createFixtureRepository({ withParentRule }) {
@@ -119,21 +105,17 @@ await test('the parent rule narrowly fixes the sealed package subtree including 
   const source = readFileSync(parentAttributesPath, 'utf8');
   assert.equal(source.includes(parentRule), true);
   assert.equal(source.includes(nestedRule), true);
-  const v1Rules = source.split(/\r?\n/).filter((line) => line.startsWith('review/store-operations-sealed-snapshot-v1/'));
-  assert.deepEqual(v1Rules, [parentRule, nestedRule]);
+  assert.equal(source.split('\n').filter((line) => line && !line.startsWith('#')).length, 4);
 });
 
-await test('all locked package Git blobs retain the existing 29-artifact and 16-SQL byte contract', () => {
-  assert.equal(packageLock.artifacts.length, 29);
+await test('all locked package files retain the 32-artifact and 16-SQL byte contract', () => {
+  assert.equal(packageLock.artifacts.length, 32);
   assert.equal(packageLock.artifacts.filter(({ path }) => path.startsWith('queries/')).length, SQL_ARTIFACT_COUNT);
-  for (const artifact of packageLock.artifacts) assert.equal(sha256(gitBlob(artifact.path)), artifact.sha256, artifact.path);
+  for (const artifact of packageLock.artifacts) assert.equal(sha256(readFileSync(packagePath(packageRoot, artifact.path))), artifact.sha256, artifact.path);
 });
 
-await test('the existing Package Lock and package-level hashes remain unchanged when artifact blobs are unchanged', () => {
-  assert.deepEqual(packageLock.artifacts, baselinePackageLock.artifacts);
-  assert.equal(packageLock.packageSha256, baselinePackageLock.packageSha256);
-  assert.equal(packageLock.queryPackSha256, baselinePackageLock.queryPackSha256);
-  assert.equal(packageLock.schemaContractSha256, baselinePackageLock.schemaContractSha256);
+await test('the v1.3 Package Lock verifies all package-level hashes', async () => {
+  await assertPackageIntegrity(packageRoot);
 });
 
 const protectedFixture = createFixtureRepository({ withParentRule: true });

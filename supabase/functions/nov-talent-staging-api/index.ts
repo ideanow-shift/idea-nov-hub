@@ -6,6 +6,7 @@ import {
 } from "./selection-coverage-contract-v1.generated.ts";
 import { cleanPopulationRequest, FAIR_ATTRIBUTION_POPULATION_V2, sha256Utf8, validatePopulationRequest } from "./fair-attribution-population-v2.ts";
 import { validateDailyWorkflowResponse } from "./daily-workflow-contract-v1.generated.ts";
+import { buildRecruitingIntelligenceV1, validateRecruitingIntelligenceResponseV1 } from "./recruiting-intelligence-v1.ts";
 
 const ORIGIN = "https://ideanow-shift.github.io";
 const PREFIXES = ["", "/nov-talent-staging-api", "/functions/v1/nov-talent-staging-api"];
@@ -591,6 +592,24 @@ async function dailyWorkflow(runtime: Runtime, activeCandidateIds: Set<string>, 
   };
 }
 
+async function recruitingIntelligence(runtime: Runtime, candidates: any[], currentInstant: Date, requestId: string) {
+  const requests = [
+    ["selectionHistory", "/rest/v1/nov_talent_selection_history_v1?select=selection_history_id,candidate_id,selection_code,effective_date,created_at,is_active&is_active=eq.true&order=effective_date.desc&limit=5000"],
+    ["communications", "/rest/v1/nov_talent_recruitment_events_v1?select=event_id,candidate_id,communication_at,awaiting_reply,correction_of_event_id,created_at,is_active&event_code=eq.COMMUNICATION_RECORDED&is_active=eq.true&order=communication_at.desc&limit=5000"],
+    ["nextActions", "/rest/v1/nov_talent_next_actions_v1?select=next_action_id,candidate_id,due_date,state,assigned_employee_id,created_at,updated_at,completed_at,is_active&is_active=eq.true&order=due_date.asc.nullslast&limit=5000"],
+    ["fairAttributions", "/rest/v1/nov_talent_candidate_fair_attributions_v1?select=attribution_id,candidate_id,fair_id,attribution_type,attribution_status,is_active&is_active=eq.true&limit=5000"],
+    ["schoolMasters", "/rest/v1/nov_talent_school_masters_v1?select=school_id,is_active&is_active=eq.true&limit=1000"]
+  ] as const;
+  const results = await Promise.all(requests.map(([view, path]) => readView(runtime, { requestId, endpoint: "recruiting_intelligence", view, path, fatal: false })));
+  const byName = Object.fromEntries(requests.map(([name], index) => [name, results[index]]));
+  return buildRecruitingIntelligenceV1({
+    now: currentInstant, candidates,
+    selections: byName.selectionHistory.rows, communications: byName.communications.rows,
+    actions: byName.nextActions.rows, attributions: byName.fairAttributions.rows, schoolMasters: byName.schoolMasters.rows,
+    availability: { candidates: true, selectionHistory: byName.selectionHistory.available, communications: byName.communications.available, nextActions: byName.nextActions.available, fairAttributions: byName.fairAttributions.available, schoolMasters: byName.schoolMasters.available }
+  });
+}
+
 export function createHandler(runtime: Runtime) {
   return async (request: Request) => {
     const origin = request.headers.get("origin") || "";
@@ -716,6 +735,15 @@ export function createHandler(runtime: Runtime) {
     if (!rowResult.available) return fail(503, "CANDIDATE_STORE_NOT_READY", origin);
     const rows = rowResult.rows;
     const currentInstant = runtime.now?.() ?? new Date();
+    if (request.method === "GET" && path.endsWith("/api/talent/v1/recruiting-intelligence")) {
+      const data = await recruitingIntelligence(runtime, rows, currentInstant, requestId);
+      const contractResult = validateRecruitingIntelligenceResponseV1({ ok: true, data });
+      if (!contractResult.ok) {
+        (runtime.logger || console).error(JSON.stringify({ event: "NOV_TALENT_RECRUITING_INTELLIGENCE_CONTRACT_REJECTED", request_id: requestId, field_path: contractResult.path, rule: contractResult.rule, timestamp: currentInstant.toISOString() }));
+        return fail(503, "RECRUITING_INTELLIGENCE_CONTRACT_INVALID", origin);
+      }
+      return out(200, contractResult.value, origin);
+    }
     if (request.method === "GET" && path.endsWith("/api/talent/v1/daily-workflow")) {
       const activeCandidateIds = new Set(rows.map((row:any) => String(row.candidate_id || "")).filter(Boolean));
       const responseBody = { ok: true as const, data: await dailyWorkflow(runtime, activeCandidateIds, currentInstant, actor.actor, actor.hubToken) };

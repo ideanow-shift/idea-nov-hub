@@ -151,6 +151,7 @@ body[data-talent-access="executive"] .sprint1-mock-write { display: none !import
 .ui-diagnostic,
 .ui-supporting,
 [data-ui-supporting] { display: none !important; }
+.management-panel .ui-diagnostic { display: block !important; }
 body:not([data-talent-view="summary"]) #talent-today-dashboard { display: none; }
 #talent-today-dashboard {
   border-color: #eadfe1;

@@ -7,12 +7,12 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const packageRelativePath = 'review/store-operations-sealed-snapshot-v1-3-1';
+const packageRelativePath = 'review/store-operations-sealed-snapshot-v1-3-2';
 const packageRoot = join(repositoryRoot, packageRelativePath);
 const parentAttributesPath = join(repositoryRoot, '.gitattributes');
-const parentRule = 'review/store-operations-sealed-snapshot-v1-3-1/** text eol=lf';
-const nestedRule = 'review/store-operations-sealed-snapshot-v1-3-1/.gitattributes text eol=lf';
-const packageLock = JSON.parse(readFileSync(join(packageRoot, 'execution-package-lock-v1-3-1.json'), 'utf8'));
+const parentRule = 'review/store-operations-sealed-snapshot-v1-3-2/** text eol=lf';
+const nestedRule = 'review/store-operations-sealed-snapshot-v1-3-2/.gitattributes text eol=lf';
+const packageLock = JSON.parse(readFileSync(join(packageRoot, 'execution-package-lock-v1-3-2.json'), 'utf8'));
 const SQL_ARTIFACT_COUNT = 16;
 let moduleNonce = 0;
 let passed = 0;
@@ -48,7 +48,7 @@ async function packageVerifier(root) {
 }
 
 async function assertPackageIntegrity(root) {
-  assert.equal(packageLock.artifacts.length, 32);
+  assert.equal(packageLock.artifacts.length, 33);
   const sqlArtifacts = packageLock.artifacts.filter(({ path }) => path.startsWith('queries/'));
   assert.equal(sqlArtifacts.length, SQL_ARTIFACT_COUNT);
 
@@ -108,13 +108,13 @@ await test('the parent rule narrowly fixes the sealed package subtree including 
   assert.equal(source.split('\n').filter((line) => line && !line.startsWith('#')).length, 8);
 });
 
-await test('all locked package files retain the 32-artifact and 16-SQL byte contract', () => {
-  assert.equal(packageLock.artifacts.length, 32);
+await test('all locked package files retain the 33-artifact and 16-SQL byte contract', () => {
+  assert.equal(packageLock.artifacts.length, 33);
   assert.equal(packageLock.artifacts.filter(({ path }) => path.startsWith('queries/')).length, SQL_ARTIFACT_COUNT);
   for (const artifact of packageLock.artifacts) assert.equal(sha256(readFileSync(packagePath(packageRoot, artifact.path))), artifact.sha256, artifact.path);
 });
 
-await test('the v1.3.1 Package Lock verifies all package-level hashes', async () => {
+await test('the v1.3.2 Package Lock verifies all package-level hashes', async () => {
   await assertPackageIntegrity(packageRoot);
 });
 

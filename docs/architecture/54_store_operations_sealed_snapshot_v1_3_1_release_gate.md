@@ -1,0 +1,21 @@
+# Store Operations Sealed Snapshot v1.3.1 Release Gate
+
+- [x] v1.2.0 files changed: 0
+- [x] v1.3.0 files changed: 0
+- [x] Package version is 1.3.1 with a new Package Lock and SHA-256
+- [x] QP06 direct `auth.users` reference: 0
+- [x] QP06 `auth_subject_count` output: 0
+- [x] Target Snapshot Role requires `auth` schema `USAGE`: NO
+- [x] Target Snapshot Role requires Auth-object grants: NO
+- [x] Auth subject/binding/onboarding evidence is assigned to AUTH-01
+- [x] Global PUBLIC hardening required: NO
+- [x] Production/Staging database changes: 0
+- [x] v1.3.0 Security Contract regression: 0
+- [x] Query-ID-only Broker and fixed Query order/count/hash remain mandatory
+- [x] AST relation/column/function/operator allowlists remain exact
+- [x] Generic, dynamic, interactive and multi-statement SQL remain forbidden
+- [x] `REPEATABLE READ READ ONLY`, runtime evidence and no-write gates remain mandatory
+- [x] ROLLBACK and connection close remain mandatory; retry is zero
+- [x] Package, Contract, Byte Integrity and Adversarial Security fixtures pass
+- [ ] Source/Target roles, grants, RLS policies and credentials provisioned (separate authorization)
+- [ ] One-time Snapshot executed (separate authorization)

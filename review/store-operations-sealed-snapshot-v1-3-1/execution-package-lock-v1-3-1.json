@@ -1,0 +1,142 @@
+{
+  "lockVersion": "SOCE-EXECUTION-PACKAGE-LOCK-v1",
+  "packageId": "store-operations-consumer-enablement-sealed-snapshot-v1",
+  "packageVersion": "1.3.1",
+  "artifacts": [
+    {
+      "path": ".gitattributes",
+      "sha256": "2b974f276b110d55896e2b639d801c2600842279f3cd649ead4f860b151ddb34"
+    },
+    {
+      "path": "package-metadata.mjs",
+      "sha256": "1cef4e532595a81188621c44f5b6ffbed02c22deefa06f3b1fe82899011ccbe7"
+    },
+    {
+      "path": "canonicalization.mjs",
+      "sha256": "85b01e04e3d65e80761014247f435c20a43400cd7390ffe23e773a406cc1fad6"
+    },
+    {
+      "path": "query-pack-registry.mjs",
+      "sha256": "f7710d28d03cfc9a8035e1fe6835127fbd5685ef29c123c7d63b525d16fbb6c2"
+    },
+    {
+      "path": "sql-artifacts.mjs",
+      "sha256": "e2e379a9f5a73693443a6c89b6df8b7c547ec98c018bb9d064eaeadcd7094ffe"
+    },
+    {
+      "path": "sql-security-ast.mjs",
+      "sha256": "af6fd44aa11066e6c5760a6e558933e73a5caa40efaef2108b89d9b0982f709d"
+    },
+    {
+      "path": "security-allowlist-v1.json",
+      "sha256": "960a092597c94596684e17393e676a7cb9ae6847b4b81dc85498b6f5958bd1f2"
+    },
+    {
+      "path": "execution-path-security.mjs",
+      "sha256": "62e1c67383f7150a6f5df5f1c9634e85c3f87e1db66a39b6c8f8dbcf36a91b96"
+    },
+    {
+      "path": "schema-contract.mjs",
+      "sha256": "0725aa74dc9f5eadaeb96b0f98670063ce3a0467d6e89ea3dcf4bd7bd2e4fac0"
+    },
+    {
+      "path": "sanitizer.mjs",
+      "sha256": "0e7d585015ef54bd9981e2ded08edd6b82a8cd64473451029ce63f1d001d0118"
+    },
+    {
+      "path": "cleanup-receipt.mjs",
+      "sha256": "6c044dee4fc98f7e43c5117c6ece31c812ea9a5f5223cb4c0df7122ebab95fcf"
+    },
+    {
+      "path": "manifest.mjs",
+      "sha256": "e1e7d865fdb70583ea213dcb91add22388bb1f8380d4197a4782f9363902b24f"
+    },
+    {
+      "path": "broker-interface.mjs",
+      "sha256": "a24a38b8684c4240c7de082ed8eb80c9543a80e1cfc3c5e2bbca5fa304581416"
+    },
+    {
+      "path": "run-contract.mjs",
+      "sha256": "2ee7a574dfd9100e1f8d208256dc5cf767e8dc5d20adb48394a1b40a1c742b7d"
+    },
+    {
+      "path": "execution-package-lock.mjs",
+      "sha256": "f9770b235503c2bccedf9d2b048315bb056d75674c2497160bbd84311aa0822f"
+    },
+    {
+      "path": "sealed-snapshot-runner.mjs",
+      "sha256": "0e9936bfb59784c4139d0093e0e2f919c982e50622a51d11e9f26bb4d8034e20"
+    },
+    {
+      "path": "queries/SOCE-QP01-SOURCE-IDENTITY.sql",
+      "sha256": "86e87c348d621f7f3925d4ece71b2a66cd39d2023b11a6994fba37bb2e925d04"
+    },
+    {
+      "path": "queries/SOCE-QP01-TARGET-IDENTITY.sql",
+      "sha256": "785279ebff2f5ee5d1415be500f35b9e293ea7b1161418a6b5552ac42631543b"
+    },
+    {
+      "path": "queries/SOCE-QP01-SOURCE-READONLY.sql",
+      "sha256": "fd150058a1420ae51c99c6380a28d53b35eabe032523db9f5898bd3d5e709ed6"
+    },
+    {
+      "path": "queries/SOCE-QP01-TARGET-READONLY.sql",
+      "sha256": "b54e3eafbb07eb686203aa287aa47efd22cf77babf844f6462d2a2ecb0391fe2"
+    },
+    {
+      "path": "queries/SOCE-QP02-SOURCE-SCHEMA-COLUMN-MAP.sql",
+      "sha256": "01277f49ed63632ee4e7f582a4d19a14ff7f272008d60dab61eac155bd3b384a"
+    },
+    {
+      "path": "queries/SOCE-QP02-TARGET-SCHEMA-COLUMN-MAP.sql",
+      "sha256": "d2c1fbf8f4d5daeea7377bd64e93a351b5a65e9e32227054fca253697bf69f0f"
+    },
+    {
+      "path": "queries/SOCE-QP03-CLASSIFICATION-SUMMARY.sql",
+      "sha256": "b750ab432439ed34a934b1b77f4707ec37ced710440829f515d7df17919e23c2"
+    },
+    {
+      "path": "queries/SOCE-QP03-CANONICAL-STORE-ROWS.sql",
+      "sha256": "c5de6499639eef0441e75262179dc34f2310412e6a44c42a3daaf46d3441c95e"
+    },
+    {
+      "path": "queries/SOCE-QP03-TOKOROZAWA-LEGACY-RELATION.sql",
+      "sha256": "ab6f543bbf4486ea571f4a6c6351d7bd9e625e4a0478fc270061962d4d115d28"
+    },
+    {
+      "path": "queries/SOCE-QP04-EMPLOYEE-AUTHORIZATION-SUMMARY.sql",
+      "sha256": "bbd7bddd4a06d88a08916a3e6e6a3567bd8c87b85b4738d76a312bb26413ef04"
+    },
+    {
+      "path": "queries/SOCE-QP04-AM-ASSIGNMENT-EVIDENCE.sql",
+      "sha256": "c2b5a02dda76d00be35730980c32436ac551575eeada83370ab45ef20dc4f62a"
+    },
+    {
+      "path": "queries/SOCE-QP04-STORE-MANAGER-COVERAGE.sql",
+      "sha256": "68b044999254e0a0905ea5a07527babd48813de2afc0a2b902eecd7f9052a941"
+    },
+    {
+      "path": "queries/SOCE-QP05-IDENTITY-CROSSWALK-SUMMARY.sql",
+      "sha256": "6bb441d0b5d06335e7590f6b6d877a2c4c4f887b56b344aba3d8159fccb5a856"
+    },
+    {
+      "path": "queries/SOCE-QP05-CONSUMER-ANCHOR-SOURCE-EVIDENCE.sql",
+      "sha256": "15e19a8ad920d77a208bd939585fccfc84bdf7a34dc9badb2d4b70d72b5152c0"
+    },
+    {
+      "path": "queries/SOCE-QP06-TARGET-PRESTATE.sql",
+      "sha256": "c45f8d680a3a8650f60774eaac8f84ca3e6c3fb3538cf29ebbc606563b0c7cd5"
+    },
+    {
+      "path": "queries/SOCE-QP06-M019-PRESENCE.sql",
+      "sha256": "ba48dceca9ba918627a01969c65324d8615c46d30b9a76d28f01158b832c426f"
+    }
+  ],
+  "queryPackSha256": "1986869e51b738630b8292d98d410ac75aeccdf0c88aedc1d1eb7513d957eb19",
+  "securityAllowlistSha256": "960a092597c94596684e17393e676a7cb9ae6847b4b81dc85498b6f5958bd1f2",
+  "executionPathSecuritySha256": "62e1c67383f7150a6f5df5f1c9634e85c3f87e1db66a39b6c8f8dbcf36a91b96",
+  "schemaContractSha256": "0725aa74dc9f5eadaeb96b0f98670063ce3a0467d6e89ea3dcf4bd7bd2e4fac0",
+  "sanitizerContractSha256": "0e7d585015ef54bd9981e2ded08edd6b82a8cd64473451029ce63f1d001d0118",
+  "manifestContractSha256": "e1e7d865fdb70583ea213dcb91add22388bb1f8380d4197a4782f9363902b24f",
+  "packageSha256": "b44da3fd6600bbe48e21781b4643f030d1eb325a1581f4ce3d44b5821e45ea87"
+}

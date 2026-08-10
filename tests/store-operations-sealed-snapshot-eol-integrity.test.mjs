@@ -119,7 +119,7 @@ await test('the parent rule narrowly fixes the sealed package subtree including 
   const source = readFileSync(parentAttributesPath, 'utf8');
   assert.equal(source.includes(parentRule), true);
   assert.equal(source.includes(nestedRule), true);
-  const v1Rules = source.split('\n').filter((line) => line.startsWith('review/store-operations-sealed-snapshot-v1/'));
+  const v1Rules = source.split(/\r?\n/).filter((line) => line.startsWith('review/store-operations-sealed-snapshot-v1/'));
   assert.deepEqual(v1Rules, [parentRule, nestedRule]);
 });
 

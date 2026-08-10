@@ -14,7 +14,8 @@ const fixtureHtml = productionHtml.replace(/<script\s+type="module"\s+src="\.\/a
 const fixture = `
 import {createCandidateActivityConfirmationController} from '/talent/candidate-activity-confirmation.mjs';
 import {buildDailyWorkflowQueue,jstDateTimeLocalToRfc3339} from '/talent/daily-workflow.mjs';
-window.__confirmEvents=0; window.__postRequests=0;
+import {HUB_SESSION_REAUTH_MESSAGE,isCandidateWriteSessionAvailable} from '/talent/session-expiry-ux.mjs';
+window.__confirmEvents=0; window.__postRequests=0; window.__sessionStatus='available';
 window.__jstTimestamp=jstDateTimeLocalToRfc3339('2026-08-09T10:30');
 const dialog=document.getElementById('candidate-activity-dialog');
 document.getElementById('student-detail').hidden=false;
@@ -37,7 +38,7 @@ document.getElementById('activity-correction-reason').value='結果を訂正';
 dialog.showModal();
 const save=document.getElementById('candidate-activity-save');
 const controller=createCandidateActivityConfirmationController({documentObject:document,onConfirm:async()=>{window.__confirmEvents+=1;return false;}});
-document.getElementById('candidate-activity-form').addEventListener('submit',event=>{event.preventDefault();controller.open({candidateName:'検証学生',eventLabel:'連絡記録（LINE・こちらから・連絡済み）',date:'2026-08-09 10:30',reason:document.getElementById('activity-reason').value,command:{fixture:true},focusTarget:save});});
+document.getElementById('candidate-activity-form').addEventListener('submit',event=>{event.preventDefault();if(!isCandidateWriteSessionAvailable(window.__sessionStatus)){document.getElementById('candidate-activity-status').textContent=HUB_SESSION_REAUTH_MESSAGE;return;}controller.open({candidateName:'検証学生',eventLabel:'連絡記録（LINE・こちらから・連絡済み）',date:'2026-08-09 10:30',reason:document.getElementById('activity-reason').value,command:{fixture:true},focusTarget:save});});
 const data={sourceCoverageState:'COMPLETE',nextActions:[
  {id:'1',candidateId:'c1',state:'OPEN',dueDate:'2026-08-08',text:'期限超過対応',assignedTo:'採用担当'},
  {id:'2',candidateId:'c2',state:'OPEN',dueDate:'2026-08-09',text:'今日の対応',assignedTo:'採用担当'},
@@ -70,6 +71,10 @@ try{for(const viewport of [{name:'pc',width:1280,height:900},{name:'mobile',widt
  assert.equal(first.candidate,'検証学生');assert.match(first.event,/LINE/u);assert.equal(first.focus,'candidate-activity-confirm-execute');assert.equal(first.noOverflow,true);
  await page.click('#candidate-activity-confirm-cancel');assert.equal(await page.locator('#candidate-activity-confirm-dialog').getAttribute('open'),null);
  await page.click('#candidate-activity-save');await page.waitForSelector('#candidate-activity-confirm-dialog[open]');await page.dblclick('#candidate-activity-confirm-execute');await page.waitForTimeout(30);
- assert.equal(await page.evaluate(()=>window.__confirmEvents),1);assert.equal(await page.evaluate(()=>window.__postRequests),0);assert.deepEqual(errors,[]);assert.deepEqual(warnings,[]);await page.close();
+ assert.equal(await page.evaluate(()=>window.__confirmEvents),1);assert.equal(await page.evaluate(()=>window.__postRequests),0);
+ await page.evaluate(()=>{window.__sessionStatus='expired';});await page.click('#candidate-activity-save');
+ assert.equal(await page.locator('#candidate-activity-status').textContent(),'セッションの有効期限が切れました。HUBへ戻り、求人管理を開き直してください。');
+ assert.equal(await page.locator('#candidate-activity-confirm-dialog').getAttribute('open'),null);assert.equal(await page.evaluate(()=>window.__postRequests),0);
+ assert.deepEqual(errors,[]);assert.deepEqual(warnings,[]);await page.close();
 }}finally{await browser.close();await new Promise(resolveServer=>server.close(resolveServer));}
 console.log('outcome2_daily_workflow: 2/2_PASS');

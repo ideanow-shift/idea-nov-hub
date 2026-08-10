@@ -122,6 +122,9 @@ test("selection save path uses the custom dialog and keeps the existing API cont
   assert.doesNotMatch(selectionSave, /globalObject\.confirm|window\.confirm/u);
   assert.match(selectionSave, /candidateName:\s*student\.displayName/u);
   assert.doesNotMatch(selectionSave, /candidateName:\s*student\.name/u);
+  assert.match(selectionSave, /guardCandidateActivitySession\(documentObject\)/u);
+  assert.match(app, /result\?\.category === "auth_required"[\s\S]*?HUB_SESSION_REAUTH_MESSAGE/u);
+  assert.match(app, /getNovHubSessionStatus/u);
   assert.match(app, /mutateActivity\(command\)/u);
-  assert.match(app, /candidate-activity-confirmation\.mjs\?v=20260809-outcome2-daily-workflow-2/u);
+  assert.match(app, /candidate-activity-confirmation\.mjs\?v=20260810-session-expiry-ux-1/u);
 });

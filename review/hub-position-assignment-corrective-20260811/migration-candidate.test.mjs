@@ -16,6 +16,7 @@ assert.match(sql, /create table public\.employee_organization_assignments/);
 assert.match(sql, /target_type in \('corporation', 'business_unit', 'department', 'store'\)/);
 assert.match(sql, /num_nonnulls\(corporation_id, business_unit_id, department_id, store_id\) = 1/);
 assert.match(sql, /employee_organization_assignments_semantic_period_excl/);
+assert.match(sql, /assignment_type_id with =,[\s\S]*target_type with =,[\s\S]*coalesce\(corporation_id, business_unit_id, department_id, store_id\)/);
 assert.match(sql, /employee_organization_assignments_primary_period_excl/);
 assert.match(sql, /where \(is_active and is_primary\)/);
 assert.match(sql, /public\.employee_store_assignments/);

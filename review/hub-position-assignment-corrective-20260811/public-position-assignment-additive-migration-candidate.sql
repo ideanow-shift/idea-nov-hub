@@ -65,6 +65,7 @@ alter table public.employee_organization_assignments
   exclude using gist (
     employee_id with =,
     assignment_type_id with =,
+    target_type with =,
     (coalesce(corporation_id, business_unit_id, department_id, store_id)) with =,
     daterange(effective_from, effective_to, '[)') with &&
   ) where (is_active);
@@ -81,6 +82,14 @@ create index employee_organization_assignments_employee_asof_idx
 
 create index employee_organization_assignments_assignment_type_idx
   on public.employee_organization_assignments (assignment_type_id);
+
+create index employee_organization_assignments_corporation_asof_idx
+  on public.employee_organization_assignments (corporation_id, effective_from desc, effective_to)
+  where corporation_id is not null;
+
+create index employee_organization_assignments_business_unit_asof_idx
+  on public.employee_organization_assignments (business_unit_id, effective_from desc, effective_to)
+  where business_unit_id is not null;
 
 create index employee_organization_assignments_department_asof_idx
   on public.employee_organization_assignments (department_id, effective_from desc, effective_to)

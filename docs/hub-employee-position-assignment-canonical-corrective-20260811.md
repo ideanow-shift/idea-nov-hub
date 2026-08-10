@@ -48,6 +48,29 @@ Add an effective-dated organization responsibility model:
 
 Multiple active assignments are allowed. Updating an assignment ends the old interval and appends a new state; it does not overwrite history. Store membership remains in `employee_store_assignments` and is not overloaded with title responsibility.
 
+### Store membership versus store responsibility
+
+These are different facts and have one owner each:
+
+| Fact | Canonical owner | Must not contain |
+| --- | --- | --- |
+| Employee belongs to Store, including primary/secondary/support/temporary and its effective period | `public.employee_store_assignments` | manager/owner title or authorization permission |
+| Employee carries a responsibility against Store, such as store manager or deputy manager, and its effective period | `public.employee_organization_assignments` | membership order/type or an independent copy of Store membership |
+
+A store responsibility references the same canonical `stores.id`, but that foreign key is the responsibility target, not a second membership record. An approved backend writer must prove that a responsibility type marked `requires_store_membership` is fully covered by an active `employee_store_assignments` interval. Reads fail closed if coverage is absent or ambiguous. Direct browser writes remain prohibited.
+
+`employee_store_assignments` remains the only Store Scope source for authorization. A store-manager label in the new table does not independently expand Store access.
+
+### Responsibility rules
+
+- Store manager, deputy manager and store-manager trainee are Store-target responsibilities. Membership stays in `employee_store_assignments`.
+- Area manager targets a canonical business unit/area identity. It does not copy a list of stores. Store visibility is still the intersection with effective Store Scope. If a business unit is not the authoritative area model, this assignment type remains disabled until an area SSoT is approved.
+- FC owner is valid as an operational responsibility only. Legal/economic franchise ownership belongs to corporation/franchise-contract data and must not be inferred from this title. Ambiguous legacy FC labels require Human Review.
+- General staff creates no corporate Position and no elevated responsibility Assignment by default. `job_type`, employment attributes and store membership already describe the employee. A `staff` Assignment is created only if a separate business process requires an explicit target responsibility.
+- The same employee, assignment type and target cannot have overlapping active effective intervals.
+- Different responsibilities may overlap.
+- At most one `is_primary=true` responsibility may cover an employee at any date. Store membership primary remains independently owned by `employee_store_assignments` and is not this flag.
+
 ### Display projection
 
 The backend derives a display-only title at an `as_of` date:
@@ -70,15 +93,15 @@ Authorization continues to resolve employee, role/permission, organization/store
 | 部長 | Assignment | Department responsibility. Target department is required. |
 | エリアマネージャー | Assignment | Store group/business-unit responsibility. Exact target model requires owner confirmation. |
 | 副店長 | Assignment | Store responsibility. |
-| FCオーナー | Assignment | Store/corporation operating responsibility, not corporate office. |
+| FCオーナー | Assignment with Human Review | Store operational responsibility only; legal ownership is out of scope. |
 | 取締役 | Position | Corporate position candidate. |
 | 係長 | Assignment | Department/team responsibility. Exact target type requires owner confirmation. |
 | 課長 | Assignment | Department responsibility. |
 | 相談役 | Position | Corporate position candidate. |
 | 店長 | Assignment | Store responsibility. |
 | 店長見習い | Assignment | Store responsibility/training state. Owner must confirm whether this is a responsibility or development status. |
-| FCオーナー見習い | Assignment | Store/corporation responsibility/training state; human review required. |
-| 一般スタッフ | Human review | Not a corporate Position. Prefer absence of elevated responsibility plus `job_type`; use a `staff` assignment only when a target organization is explicitly known. |
+| FCオーナー見習い | Assignment with Human Review | Operational responsibility/training state only; legal ownership is out of scope. |
+| 一般スタッフ | Employee classification, not Position/Assignment by default | Represent with job/employment attributes and Store membership; no elevated responsibility row. |
 
 No assignment is generated from a label alone when its target cannot be proven.
 
@@ -118,6 +141,7 @@ The local helper in `review/hub-position-assignment-corrective-20260811` demonst
 
 - Add a nullable classification discriminator to the existing Position master; do not classify rows in the schema gate.
 - Create assignment type and employee organization assignment relations.
+- Add target-type consistency, semantic effective-period overlap and one-primary-period constraints.
 - Enable RLS and keep browser roles at zero direct access.
 - Add backend-only read/write boundaries in a separate grant/RPC/API gate.
 - Do not seed, backfill or modify employees/positions in this gate.
@@ -140,6 +164,17 @@ The local helper in `review/hub-position-assignment-corrective-20260811` demonst
 - Add atomic assignment actions and change history.
 - Enable Master Admin editor after backend and authorization review.
 - Move consumers incrementally.
+
+## Consumer migration order
+
+1. Core DB schema and audited backend read projection, with all writes disabled.
+2. Master Admin read-only Position/Assignment display beside legacy fields.
+3. Master Admin atomic Assignment create/end writer after authorization review.
+4. Store Operations read-only department/store responsibility resolution; Store Scope remains unchanged.
+5. NOV HUB/HUB Context display projection, still as a non-authoritative hint.
+6. NOV Talent and Management display consumers.
+7. CSV/export/import versioned contracts.
+8. Repository-wide zero-consumer proof before any legacy retirement proposal.
 
 Rollback of an additive deployment disables new reads/writes and returns consumers to legacy projection. It does not delete canonical records automatically.
 

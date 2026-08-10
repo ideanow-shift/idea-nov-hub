@@ -7,12 +7,12 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const packageRelativePath = 'review/store-operations-sealed-snapshot-v1-3';
+const packageRelativePath = 'review/store-operations-sealed-snapshot-v1-3-1';
 const packageRoot = join(repositoryRoot, packageRelativePath);
 const parentAttributesPath = join(repositoryRoot, '.gitattributes');
-const parentRule = 'review/store-operations-sealed-snapshot-v1-3/** text eol=lf';
-const nestedRule = 'review/store-operations-sealed-snapshot-v1-3/.gitattributes text eol=lf';
-const packageLock = JSON.parse(readFileSync(join(packageRoot, 'execution-package-lock-v1-3.json'), 'utf8'));
+const parentRule = 'review/store-operations-sealed-snapshot-v1-3-1/** text eol=lf';
+const nestedRule = 'review/store-operations-sealed-snapshot-v1-3-1/.gitattributes text eol=lf';
+const packageLock = JSON.parse(readFileSync(join(packageRoot, 'execution-package-lock-v1-3-1.json'), 'utf8'));
 const SQL_ARTIFACT_COUNT = 16;
 let moduleNonce = 0;
 let passed = 0;
@@ -114,7 +114,7 @@ await test('all locked package files retain the 32-artifact and 16-SQL byte cont
   for (const artifact of packageLock.artifacts) assert.equal(sha256(readFileSync(packagePath(packageRoot, artifact.path))), artifact.sha256, artifact.path);
 });
 
-await test('the v1.3 Package Lock verifies all package-level hashes', async () => {
+await test('the v1.3.1 Package Lock verifies all package-level hashes', async () => {
   await assertPackageIntegrity(packageRoot);
 });
 

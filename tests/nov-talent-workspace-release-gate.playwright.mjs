@@ -162,8 +162,8 @@ try {
   assert.equal(await page.getByRole("heading", { name: "採用計画" }).isVisible(), true);
   assert.equal(await page.getByRole("button", { name: "新卒" }).isVisible(), true);
   assert.equal(await page.getByRole("button", { name: "中途" }).isVisible(), true);
-  assert.equal(await page.getByRole("button", { name: "目標を下書き保存" }).isDisabled(), true);
-  assert.equal(await page.getByRole("button", { name: "予算を下書き保存" }).isDisabled(), true);
+  assert.equal(await page.getByRole("button", { name: "目標を下書き保存" }).isDisabled(), false);
+  assert.equal(await page.getByRole("button", { name: "予算を下書き保存" }).isDisabled(), false);
   assert.deepEqual(await page.evaluate(() => ({ workspace: window.__workspaceRequests, coverage: window.__selectionCoverageRequests, summary: window.__dashboardSummaryRequests })), { workspace: 1, coverage: 1, summary: 0 });
   assert.equal(await page.locator("#selection-coverage-status").innerText(), "確認待ちの元データ 126件（日付確認可能 42件 / 日付未登録 84件）");
   assert.equal(await page.locator("#selection-coverage-grid").innerText().then((text) => text.includes("正式登録 0件")), true);
@@ -212,8 +212,8 @@ try {
   await mobilePage.locator("#selection-coverage-status").filter({ hasText: "確認待ちの元データ 126件" }).waitFor();
   await mobilePage.locator("#planning-admin-panel").waitFor();
   assert.equal(await mobilePage.getByRole("heading", { name: "採用計画" }).isVisible(), true);
-  assert.equal(await mobilePage.getByRole("button", { name: "目標を下書き保存" }).isDisabled(), true);
-  assert.equal(await mobilePage.getByRole("button", { name: "予算を下書き保存" }).isDisabled(), true);
+  assert.equal(await mobilePage.getByRole("button", { name: "目標を下書き保存" }).isDisabled(), false);
+  assert.equal(await mobilePage.getByRole("button", { name: "予算を下書き保存" }).isDisabled(), false);
   assert.equal(await mobilePage.locator(".student-list-item").count(), 636);
   assert.equal(await mobilePage.locator("#selection-coverage-status").innerText(), "確認待ちの元データ 126件（日付確認可能 42件 / 日付未登録 84件）");
   assert.equal(await mobilePage.locator("#selection-coverage-grid article").count(), 6);

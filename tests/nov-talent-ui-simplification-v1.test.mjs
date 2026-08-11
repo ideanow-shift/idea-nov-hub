@@ -49,6 +49,6 @@ test("student daily view prioritizes basics, next action, and three clear action
 test("UI Simplification remains frontend-only", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
   assert.match(html, /nov-talent-workspace-contract-version" content="1\.0\.0"/);
-  assert.match(html, /20260811-outcome3-diagnostic-1/);
+  assert.match(html, /20260811-planning-diagnostic-1/);
   assert.match(html, /id="recruitment-management"[\s\S]*id="selection-coverage-panel"/);
 });

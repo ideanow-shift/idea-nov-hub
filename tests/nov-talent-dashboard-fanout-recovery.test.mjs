@@ -127,6 +127,25 @@ test("one temporary auxiliary failure retries once and still returns complete HT
   assert.deepEqual(fixture.logs, []);
 });
 
+test("one transient internal PostgREST 401 retries once and recovers", async () => {
+  const fixture = createFixture({ failView: "nov_talent_candidates_v1", failStatus: 401, failCount: 1 });
+  const response = await fixture.handler(request());
+  const envelope = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(envelope.data.partialStatus.state, "complete");
+  assert.equal(envelope.data.partialStatus.retryCount, 1);
+  assert.equal(fixture.counts.get("nov_talent_candidates_v1"), 2);
+  assert.deepEqual(fixture.logs, []);
+});
+
+test("persistent internal PostgREST 401 fails closed after exactly one retry", async () => {
+  const fixture = createFixture({ failView: "nov_talent_candidates_v1", failStatus: 401, failCount: 2 });
+  const response = await fixture.handler(request());
+  assert.equal(response.status, 503);
+  assert.equal(fixture.counts.get("nov_talent_candidates_v1"), 2);
+  assert.equal(fixture.counts.has("nov_talent_recruitment_events_v1"), false);
+});
+
 test("persistent auxiliary failure returns HTTP 200 partial and safe fixed-category log", async () => {
   const fixture = createFixture({ failView: "nov_talent_fair_metrics_v1", failCount: 2 });
   const response = await fixture.handler(request());
@@ -154,7 +173,7 @@ test("mandatory Candidate failure alone returns 503 and retry remains max one", 
   assert.equal(safeLog.fatal, true);
 });
 
-test("non-retryable downstream 4xx is attempted once", async () => {
+test("malformed downstream 400 remains non-retryable", async () => {
   const fixture = createFixture({ failView: "nov_talent_school_masters_v1", failStatus: 400, failCount: 1 });
   const response = await fixture.handler(request());
   const envelope = await response.json();

@@ -539,6 +539,13 @@ h3 { margin: 0; font-size: 1rem; }
   background: #fcfcfc;
 }
 
+.outcome3-diagnostic-output { margin-top: 16px; }
+.outcome3-diagnostic-grid { display: grid; gap: 10px; margin: 0; }
+.outcome3-diagnostic-grid > div { display: grid; grid-template-columns: minmax(150px, .35fr) minmax(0, 1fr); gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.outcome3-diagnostic-grid dt { font-weight: 700; }
+.outcome3-diagnostic-grid dd { margin: 0; overflow-wrap: anywhere; color: var(--muted); }
+@media (max-width: 560px) { .outcome3-diagnostic-grid > div { grid-template-columns: 1fr; gap: 4px; } }
+
 .management-heading p:last-child {
   max-width: 720px;
   margin: 8px 0 0;

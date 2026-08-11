@@ -6,9 +6,9 @@
   <meta name="nov-talent-workspace-contract-version" content="1.0.0">
   <title>求人管理システム | IDEA NOV</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=20260811-ui-simplification-v1">
-  <script src="./runtime-config.candidate.js?v=20260811-ui-simplification-v1"></script>
-  <script type="module" src="./app.mjs?v=20260811-ui-simplification-v1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260811-outcome3-diagnostic-1">
+  <script src="./runtime-config.candidate.js?v=20260811-outcome3-diagnostic-1"></script>
+  <script type="module" src="./app.mjs?v=20260811-outcome3-diagnostic-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -744,6 +744,15 @@
           </div>
           <p>正式KPIは選考履歴だけを使用します。正本の未連結根拠は件数に加えず、登録状況として分けて表示します。</p>
           <div id="selection-coverage-grid" class="selection-coverage-grid"></div>
+        </section>
+        <section id="outcome3-diagnostic-panel" class="selection-coverage-panel ui-diagnostic" data-management-section="outcome3-diagnostic" aria-labelledby="outcome3-diagnostic-title">
+          <div class="selection-coverage-heading">
+            <div><p class="section-kicker">管理者専用・読み取りのみ</p><h3 id="outcome3-diagnostic-title">Outcome 3 Hosted Diagnostic</h3></div>
+            <p id="outcome3-diagnostic-status" class="status" role="status" aria-live="polite">未確認</p>
+          </div>
+          <p>採用状況分析のSource・Coverage・集計Contractを確認します。学生情報や業務データは変更しません。</p>
+          <button id="outcome3-diagnostic-run" type="button">Hosted集計を確認</button>
+          <div id="outcome3-diagnostic-output" class="outcome3-diagnostic-output" aria-live="polite"></div>
         </section>
         <section class="management-tier management-tier-daily" aria-labelledby="management-daily-title">
           <header class="management-tier-heading">

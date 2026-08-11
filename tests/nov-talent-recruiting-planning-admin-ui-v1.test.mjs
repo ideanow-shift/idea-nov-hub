@@ -8,8 +8,8 @@ const API = "https://staging.example.invalid/functions/v1/nov-talent-staging-api
 const TOKEN = "s".repeat(40);
 const ID = "10000000-0000-4000-8000-000000000001";
 function config() { return { NOV_TALENT_CONFIG: { runtimeMode: "staging", networkEnabled: true, writeEnabled: true, readonlyApiBaseUrl: API, writeApiBaseUrl: API, features: {} } }; }
-function capability(canWritePlanning) { return { ok: true, data: { recruiting_planning_capability_contract_version: "1.0.0", canWritePlanning } }; }
-function envelope(kind, targets = [], budgets = [], budgetLines = []) { return { ok: true, data: { recruiting_planning_contract_version: "1.0.0", kind, targets, budgets, budgetLines, sourceAvailability: true, actualSources: { CONTACT_COUNT: "ACTUAL_SOURCE_UNAVAILABLE", SALON_VISIT_COUNT: "ACTUAL_SOURCE_UNAVAILABLE", APPLICATION_COUNT: "SELECTION_HISTORY:APPLICATION_RECEIVED", OFFERED_COUNT: "SELECTION_HISTORY:OFFERED", OFFER_ACCEPTED_COUNT: "SELECTION_HISTORY:OFFER_ACCEPTED", EXPECTED_JOIN_COUNT: "NOT_OPERATIONAL" } } }; }
+function capability(canWritePlanning) { return { ok: true, data: { recruiting_planning_capability_contract_version: "1.1.0", canWritePlanning } }; }
+function envelope(kind, targets = [], budgets = [], budgetLines = []) { return { ok: true, data: { recruiting_planning_contract_version: "1.1.0", kind, targets, budgets, budgetLines, sourceAvailability: true, actualSources: { CONTACT_COUNT: "ACTUAL_SOURCE_UNAVAILABLE", SALON_VISIT_COUNT: "ACTUAL_SOURCE_UNAVAILABLE", APPLICATION_COUNT: "SELECTION_HISTORY:APPLICATION_RECEIVED", OFFERED_COUNT: "SELECTION_HISTORY:OFFERED", OFFER_ACCEPTED_COUNT: "SELECTION_HISTORY:OFFER_ACCEPTED", EXPECTED_JOIN_COUNT: "NOT_OPERATIONAL" } } }; }
 function targetRow() { return { targetId: ID, recruitingTrack: "NEW_GRAD", graduationYear: 2028, targetMetric: "APPLICATION_COUNT", period: { code: "GRAD_2028", start: "2027-04-01", end: "2028-03-31" }, scope: "COMPANY", targetCount: 45, version: 1, rowVersion: 1, state: "DRAFT", effectivePeriod: { from: "2026-08-11", to: "2028-03-31" }, reason: "Owner review", approvedAt: null }; }
 
 test("admin reads approved, drafts, and history through the existing HUB session only", async () => {
@@ -24,6 +24,26 @@ test("admin reads approved, drafts, and history through the existing HUB session
   assert.equal((await client.history()).ok, true);
   assert.deepEqual(calls.map((call) => [call.method, call.url.slice(API.length)]), [["GET","/api/talent/v1/recruiting-planning/current"],["GET","/api/talent/v1/recruiting-planning/drafts"],["GET","/api/talent/v1/recruiting-planning/history"]]);
   assert.equal(JSON.stringify(calls).includes(TOKEN), true);
+});
+
+test("Planning validators accept only the exact 1.1.0 contract", async () => {
+  const responseFor = (body) => async () => Response.json(body);
+  const clientFor = (body) => createRecruitingPlanningAdminClient({
+    globalObject: config(),
+    hubSessionHelper: { async getSessionToken() { return TOKEN; } },
+    fetchImpl: responseFor(body)
+  });
+  assert.equal((await clientFor(envelope("APPROVED")).current()).ok, true);
+  for (const body of [
+    { ok: true, data: { ...envelope("APPROVED").data, recruiting_planning_contract_version: "1.0.0" } },
+    { ok: true, data: { ...envelope("APPROVED").data, recruiting_planning_contract_version: "2.0.0" } },
+    { ok: true, data: { ...envelope("APPROVED").data, recruiting_planning_contract_version: undefined } },
+    { ok: true, data: { recruiting_planning_contract_version: "1.1.0" } }
+  ]) {
+    const result = await clientFor(body).current();
+    assert.equal(result.ok, false);
+    assert.equal(result.category, "invalid_response");
+  }
 });
 
 test("Planning writes default OFF and stop every mutation before fetch", async () => {

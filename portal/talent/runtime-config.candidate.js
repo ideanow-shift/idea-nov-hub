@@ -10,6 +10,6 @@ window.NOV_TALENT_CONFIG = Object.freeze({
   writeApiBaseUrl: "https://zgkoofphhivesclehrom.supabase.co/functions/v1/nov-talent-staging-api",
   features: Object.freeze({
     stagingCandidateDataset: true,
-    recruitingPlanningWrites: false
+    recruitingPlanningWrites: true
   })
 });

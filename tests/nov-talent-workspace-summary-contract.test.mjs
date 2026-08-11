@@ -48,7 +48,7 @@ test("the public module chain uses the workspace summary contract cache identity
     readFile(new URL("../portal/talent/runtime.mjs", import.meta.url), "utf8"),
     readFile(new URL("../portal/talent/exact1.mjs", import.meta.url), "utf8")
   ]);
-  const identity = "20260811-ui-simplification-v1";
+  const identity = "20260811-outcome3-diagnostic-1";
   assert.match(html, new RegExp(`style\\.css\\?v=${identity}`, "u"));
   assert.match(html, new RegExp(`runtime-config\\.candidate\\.js\\?v=${identity}`, "u"));
   assert.match(html, new RegExp(`app\\.mjs\\?v=${identity}`, "u"));

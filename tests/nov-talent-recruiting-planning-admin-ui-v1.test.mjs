@@ -7,7 +7,8 @@ import { buildBudgetDraft, buildTargetDraft, createRecruitingPlanningAdminClient
 const API = "https://staging.example.invalid/functions/v1/nov-talent-staging-api";
 const TOKEN = "s".repeat(40);
 const ID = "10000000-0000-4000-8000-000000000001";
-function config(write = false) { return { NOV_TALENT_CONFIG: { runtimeMode: "staging", networkEnabled: true, writeEnabled: true, readonlyApiBaseUrl: API, writeApiBaseUrl: API, features: { recruitingPlanningWrites: write } } }; }
+function config() { return { NOV_TALENT_CONFIG: { runtimeMode: "staging", networkEnabled: true, writeEnabled: true, readonlyApiBaseUrl: API, writeApiBaseUrl: API, features: {} } }; }
+function capability(canWritePlanning) { return { ok: true, data: { recruiting_planning_capability_contract_version: "1.0.0", canWritePlanning } }; }
 function envelope(kind, targets = [], budgets = [], budgetLines = []) { return { ok: true, data: { recruiting_planning_contract_version: "1.0.0", kind, targets, budgets, budgetLines, sourceAvailability: true, actualSources: { CONTACT_COUNT: "ACTUAL_SOURCE_UNAVAILABLE", SALON_VISIT_COUNT: "ACTUAL_SOURCE_UNAVAILABLE", APPLICATION_COUNT: "SELECTION_HISTORY:APPLICATION_RECEIVED", OFFERED_COUNT: "SELECTION_HISTORY:OFFERED", OFFER_ACCEPTED_COUNT: "SELECTION_HISTORY:OFFER_ACCEPTED", EXPECTED_JOIN_COUNT: "NOT_OPERATIONAL" } } }; }
 function targetRow() { return { targetId: ID, recruitingTrack: "NEW_GRAD", graduationYear: 2028, targetMetric: "APPLICATION_COUNT", period: { code: "GRAD_2028", start: "2027-04-01", end: "2028-03-31" }, scope: "COMPANY", targetCount: 45, version: 1, rowVersion: 1, state: "DRAFT", effectivePeriod: { from: "2026-08-11", to: "2028-03-31" }, reason: "Owner review", approvedAt: null }; }
 
@@ -25,11 +26,11 @@ test("admin reads approved, drafts, and history through the existing HUB session
   assert.equal(JSON.stringify(calls).includes(TOKEN), true);
 });
 
-test("Planning write flag defaults OFF and stops every mutation before fetch", async () => {
+test("Planning writes default OFF and stop every mutation before fetch", async () => {
   let fetchCount = 0;
-  const globalObject = config(false);
+  const globalObject = config();
   const client = createRecruitingPlanningAdminClient({ globalObject, hubSessionHelper: { async getSessionToken() { return TOKEN; } }, fetchImpl: async () => { fetchCount += 1; throw new Error("must not fetch"); } });
-  assert.equal(planningAdminWriteEnabled(globalObject), false);
+  assert.equal(planningAdminWriteEnabled(false, globalObject), false);
   for (const result of [await client.createTargetDraft({}), await client.createBudgetDraft({}), await client.approveTarget(ID, 1), await client.approveBudget(ID, 1)]) {
     assert.equal(result.category, "writes_disabled"); assert.equal(result.requestCount, 0);
   }
@@ -39,10 +40,27 @@ test("Planning write flag defaults OFF and stops every mutation before fetch", a
 test("enabled frontend sends exact Target command without actor, role, UUID, or token fields", async () => {
   const calls = [];
   const payload = buildTargetDraft({ graduationYear: "2028", targetMetric: "APPLICATION_COUNT", targetCount: "45", periodStart: "2027-04-01", periodEnd: "2028-03-31", effectiveFrom: "2026-08-11", effectiveTo: "2028-03-31", reason: "Owner確認済み計画" }, "NEW_GRAD");
-  const client = createRecruitingPlanningAdminClient({ globalObject: config(true), hubSessionHelper: { async getSessionToken() { return TOKEN; } }, fetchImpl: async (url, init) => { calls.push({ url: String(url), body: JSON.parse(init.body) }); return Response.json(envelope("DRAFT", [targetRow()])); } });
+  const client = createRecruitingPlanningAdminClient({ globalObject: config(), hubSessionHelper: { async getSessionToken() { return TOKEN; } }, fetchImpl: async (url, init) => { calls.push({ url: String(url), body: init.body ? JSON.parse(init.body) : undefined }); return String(url).endsWith("/capability") ? Response.json(capability(true)) : Response.json(envelope("DRAFT", [targetRow()])); } });
+  assert.equal((await client.capability()).data.canWritePlanning, true);
   assert.equal((await client.createTargetDraft(payload)).ok, true);
-  assert.deepEqual(Object.keys(calls[0].body).sort(), ["effectiveFrom","effectiveTo","graduationYear","periodCode","periodEnd","periodStart","reason","recruitingTrack","targetCount","targetMetric"].sort());
-  assert.equal(JSON.stringify(calls[0].body).match(/actor|role|token|employeeId/iu), null);
+  assert.deepEqual(Object.keys(calls[1].body).sort(), ["effectiveFrom","effectiveTo","graduationYear","periodCode","periodEnd","periodStart","reason","recruitingTrack","targetCount","targetMetric"].sort());
+  assert.equal(JSON.stringify(calls[1].body).match(/actor|role|token|employeeId/iu), null);
+});
+
+test("server capability, never a frontend role string, controls Planning mutations", async () => {
+  let writes = 0;
+  const globalObject = config();
+  globalObject.NOV_TALENT_CONFIG.role = "super_admin";
+  const client = createRecruitingPlanningAdminClient({ globalObject, hubSessionHelper: { async getSessionToken() { return TOKEN; } }, fetchImpl: async (url, init) => {
+    if (String(url).endsWith("/capability")) return Response.json(capability(false));
+    if (init.method === "POST") writes += 1;
+    return Response.json(envelope("DRAFT", [targetRow()]));
+  } });
+  assert.equal((await client.capability()).data.canWritePlanning, false);
+  assert.equal((await client.createTargetDraft({})).category, "writes_disabled");
+  assert.equal(writes, 0);
+  assert.equal(planningAdminWriteEnabled(true, globalObject), true);
+  assert.equal(planningAdminWriteEnabled(false, globalObject), false);
 });
 
 test("new-grad and mid-career builders preserve track/date semantics and never map ambiguous hiring counts", () => {

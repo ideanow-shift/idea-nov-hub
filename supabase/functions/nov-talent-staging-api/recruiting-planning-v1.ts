@@ -11,6 +11,16 @@ export const ACTUAL_SOURCE = Object.freeze({
   OFFER_ACCEPTED_COUNT: "SELECTION_HISTORY:OFFER_ACCEPTED", EXPECTED_JOIN_COUNT: "NOT_OPERATIONAL",
 });
 
+export function planningCapabilityEnvelope(canWritePlanning: boolean) {
+  return Object.freeze({
+    ok: true,
+    data: Object.freeze({
+      recruiting_planning_capability_contract_version: RECRUITING_PLANNING_CONTRACT_VERSION,
+      canWritePlanning: canWritePlanning === true,
+    }),
+  });
+}
+
 export function cleanPlanningTargetDraft(value: unknown) {
   if (!exact(value,["recruitingTrack","graduationYear","targetMetric","periodCode","periodStart","periodEnd","targetCount","effectiveFrom","effectiveTo","reason"])) return null;
   const x=value as Record<string,unknown>; const track=String(x.recruitingTrack); const year=x.graduationYear; const reason=String(x.reason||"").trim();

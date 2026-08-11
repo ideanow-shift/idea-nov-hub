@@ -11,17 +11,18 @@ const CHANNELS = Object.freeze([
   ["REHIRE", "再雇用"], ["DEALER_REFERRAL", "ディーラー紹介"], ["OTHER", "その他"]
 ]);
 
-export function planningAdminWriteEnabled(globalObject = globalThis) {
+export function planningAdminWriteEnabled(canWritePlanning, globalObject = globalThis) {
   const config = globalObject?.NOV_TALENT_CONFIG;
   return config?.runtimeMode === "staging" && config?.networkEnabled === true && config?.writeEnabled === true &&
-    config?.features?.recruitingPlanningWrites === true && /^https:\/\//u.test(String(config?.writeApiBaseUrl || ""));
+    canWritePlanning === true && /^https:\/\//u.test(String(config?.writeApiBaseUrl || ""));
 }
 
 export function createRecruitingPlanningAdminClient({ globalObject = globalThis, fetchImpl = globalObject.fetch, hubSessionHelper = globalObject.NovHubSession } = {}) {
   const base = String(globalObject?.NOV_TALENT_CONFIG?.readonlyApiBaseUrl || "").replace(/\/+$/u, "");
   if (!/^https:\/\//u.test(base) || typeof fetchImpl !== "function" || typeof hubSessionHelper?.getSessionToken !== "function") return null;
-  const request = async (path, { method = "GET", body, write = false } = {}) => {
-    if (write && !planningAdminWriteEnabled(globalObject)) return Object.freeze({ ok: false, category: "writes_disabled", requestCount: 0 });
+  let canWritePlanning = false;
+  const request = async (path, { method = "GET", body, write = false, capability = false } = {}) => {
+    if (write && !planningAdminWriteEnabled(canWritePlanning, globalObject)) return Object.freeze({ ok: false, category: "writes_disabled", requestCount: 0 });
     let token;
     try { token = await hubSessionHelper.getSessionToken(); } catch { return Object.freeze({ ok: false, category: "auth_required", requestCount: 0 }); }
     if (typeof token !== "string" || token.trim().length < 20) return Object.freeze({ ok: false, category: "auth_required", requestCount: 0 });
@@ -34,11 +35,18 @@ export function createRecruitingPlanningAdminClient({ globalObject = globalThis,
       const envelope = await response.json().catch(() => null);
       if (response.status === 401) return Object.freeze({ ok: false, category: "auth_required", requestCount: 1 });
       if (!response.ok || envelope?.ok !== true) return Object.freeze({ ok: false, category: safeCategory(envelope?.safeCode, response.status), requestCount: 1 });
+      if (capability) {
+        const data = cleanCapability(envelope.data);
+        if (!data) return Object.freeze({ ok: false, category: "invalid_response", requestCount: 1 });
+        canWritePlanning = data.canWritePlanning;
+        return Object.freeze({ ok: true, data, requestCount: 1 });
+      }
       const data = cleanEnvelope(envelope.data);
       return data ? Object.freeze({ ok: true, data, requestCount: 1 }) : Object.freeze({ ok: false, category: "invalid_response", requestCount: 1 });
     } catch { return Object.freeze({ ok: false, category: "api_error", requestCount: 1 }); }
   };
   return Object.freeze({
+    capability: () => request("/api/talent/v1/recruiting-planning/capability", { capability: true }),
     current: () => request("/api/talent/v1/recruiting-planning/current"),
     drafts: () => request("/api/talent/v1/recruiting-planning/drafts"),
     history: () => request("/api/talent/v1/recruiting-planning/history"),
@@ -79,25 +87,31 @@ export function initializeRecruitingPlanningAdmin(documentObject = globalThis.do
   panel.dataset.bound = "true";
   let track = "NEW_GRAD";
   let state = { current: emptyData("APPROVED"), drafts: emptyData("DRAFT"), history: emptyData("HISTORY") };
-  const writeEnabled = planningAdminWriteEnabled(globalObject);
+  let writeEnabled = false;
   const status = documentObject.getElementById("planning-admin-status");
   const message = documentObject.getElementById("planning-admin-message");
   const targetForm = documentObject.getElementById("planning-target-form");
   const budgetForm = documentObject.getElementById("planning-budget-form");
   const targetSave = documentObject.getElementById("planning-target-save");
   const budgetSave = documentObject.getElementById("planning-budget-save");
-  targetSave.disabled = !writeEnabled; budgetSave.disabled = !writeEnabled;
-  panel.querySelectorAll("[data-planning-write-note]").forEach((node) => { node.hidden = writeEnabled; });
+  const applyWriteCapability = (enabled) => {
+    writeEnabled = planningAdminWriteEnabled(enabled, globalObject);
+    targetSave.disabled = !writeEnabled; budgetSave.disabled = !writeEnabled;
+    panel.querySelectorAll("[data-planning-write-note]").forEach((node) => { node.hidden = writeEnabled; });
+  };
+  applyWriteCapability(false);
   renderBudgetLines(documentObject);
 
   const load = async () => {
     status.textContent = "確認しています";
-    const [current, drafts, history] = await Promise.all([client.current(), client.drafts(), client.history()]);
-    if (![current, drafts, history].every((result) => result.ok)) {
-      const auth = [current, drafts, history].some((result) => result.category === "auth_required");
+    const [capability, current, drafts, history] = await Promise.all([client.capability(), client.current(), client.drafts(), client.history()]);
+    if (![capability, current, drafts, history].every((result) => result.ok)) {
+      applyWriteCapability(false);
+      const auth = [capability, current, drafts, history].some((result) => result.category === "auth_required");
       status.textContent = auth ? "セッションの有効期限が切れました。HUBへ戻り、求人管理を開き直してください。" : "集計準備中";
       return false;
     }
+    applyWriteCapability(capability.data.canWritePlanning);
     state = { current: current.data, drafts: drafts.data, history: history.data };
     status.textContent = writeEnabled ? "登録・承認できます" : "読み取りのみ（登録はOwner承認待ち）";
     renderAll(); return true;
@@ -145,7 +159,7 @@ export function initializeRecruitingPlanningAdmin(documentObject = globalThis.do
   const updateBalance = () => updateBudgetBalance(documentObject);
   documentObject.getElementById("planning-total-budget")?.addEventListener("input", updateBalance);
   documentObject.getElementById("planning-budget-line-list")?.addEventListener("input", updateBalance);
-  return Object.freeze({ initialized: true, writeEnabled, reload: load });
+  return Object.freeze({ initialized: true, get writeEnabled() { return writeEnabled; }, reload: load });
 }
 
 function renderSummary(doc, data, track, context) {
@@ -208,6 +222,10 @@ function cleanEnvelope(data) {
   const targets = data.targets.map(cleanTarget); const budgets = data.budgets.map(cleanBudget);
   if (targets.some((row) => !row) || budgets.some((row) => !row)) return null;
   return Object.freeze({ kind: data.kind, sourceAvailability: true, targets: Object.freeze(targets), budgets: Object.freeze(budgets), budgetLines: Object.freeze(data.budgetLines), actualSources: Object.freeze({ ...data.actualSources }) });
+}
+function cleanCapability(data) {
+  return data?.recruiting_planning_capability_contract_version === CONTRACT_VERSION && typeof data.canWritePlanning === "boolean"
+    ? Object.freeze({ canWritePlanning: data.canWritePlanning }) : null;
 }
 function cleanTarget(row) { return row && UUID.test(String(row.targetId)) && Number.isInteger(row.targetCount) && Number.isInteger(row.version) && Number.isInteger(row.rowVersion) && row.period ? Object.freeze({ ...row }) : null; }
 function cleanBudget(row) { return row && UUID.test(String(row.budgetId)) && Number.isInteger(row.totalBudget) && Number.isInteger(row.version) && Number.isInteger(row.rowVersion) && row.period ? Object.freeze({ ...row }) : null; }

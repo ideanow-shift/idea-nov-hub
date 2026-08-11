@@ -8,7 +8,7 @@ import { cleanPopulationRequest, FAIR_ATTRIBUTION_POPULATION_V2, sha256Utf8, val
 import { validateDailyWorkflowResponse } from "./daily-workflow-contract-v1.generated.ts";
 import { buildRecruitingIntelligenceV1, validateRecruitingIntelligenceResponseV1 } from "./recruiting-intelligence-v1.ts";
 import { cleanRecruitingTargetDraft, cleanRecruitingTargetStateCommand, recruitingTargetEnvelope } from "./recruiting-target-v1.ts";
-import { cleanPlanningBudgetDraft, cleanPlanningState, cleanPlanningTargetDraft, planningEnvelope } from "./recruiting-planning-v1.ts";
+import { cleanPlanningBudgetDraft, cleanPlanningState, cleanPlanningTargetDraft, planningCapabilityEnvelope, planningEnvelope } from "./recruiting-planning-v1.ts";
 
 const ORIGIN = "https://ideanow-shift.github.io";
 const PREFIXES = ["", "/nov-talent-staging-api", "/functions/v1/nov-talent-staging-api"];
@@ -736,6 +736,9 @@ export function createHandler(runtime: Runtime) {
       return fail(404, "NOT_FOUND", origin);
     }
     if (path.startsWith("/api/talent/v1/recruiting-planning")) {
+      if (request.method === "GET" && path === "/api/talent/v1/recruiting-planning/capability") {
+        return out(200, planningCapabilityEnvelope(runtime.recruitingPlanningWritesEnabled === true && actor.profile === "full"), origin);
+      }
       if (actor.profile !== "full") return fail(403, "RECRUITING_PLANNING_FORBIDDEN", origin);
       const targetSelect="target_id,recruiting_track,graduation_year,target_metric,recruiting_period_code,recruiting_period_start,recruiting_period_end,target_count,version,row_version,record_state,effective_from,effective_to,reason,approved_at";
       const budgetSelect="budget_id,recruiting_track,graduation_year,recruiting_period_code,recruiting_period_start,recruiting_period_end,total_budget,currency,version,row_version,record_state,effective_from,effective_to,reason,approved_at";

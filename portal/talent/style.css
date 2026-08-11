@@ -141,6 +141,56 @@ body[data-talent-access="executive"] .sprint1-mock-write { display: none !import
   .unlinked-interview-list article { grid-template-columns: 1fr; }
 }
 
+/* Recruiting Planning Admin V1 stays inside administrator-only management. */
+.planning-admin-panel { margin: 20px 0; padding: 24px; border: 1px solid var(--line, #e4dfe0); border-radius: 18px; background: #fffdfd; }
+.planning-admin-heading, .planning-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.planning-admin-heading h3, .planning-section-heading h4, .planning-editor h4 { margin: 2px 0 6px; }
+.planning-admin-heading p, .planning-section-heading p { margin: 0; }
+.planning-admin-track { display: inline-flex; gap: 6px; margin: 20px 0; padding: 4px; border-radius: 12px; background: #f2eeee; }
+.planning-admin-track button { min-width: 112px; border: 0; background: transparent; color: #63585a; }
+.planning-admin-track button[aria-pressed="true"] { background: #fff; color: #352d2f; box-shadow: 0 2px 8px rgb(44 34 36 / 10%); }
+.planning-context { display: grid; grid-template-columns: minmax(180px, .45fr) minmax(440px, 1.55fr); gap: 14px; margin-bottom: 18px; padding: 16px; border: 1px solid var(--line, #e4dfe0); border-radius: 14px; background: #fff; }
+.planning-context label { display: grid; gap: 6px; }
+.planning-context label > span { color: #5c5254; font-size: .84rem; font-weight: 750; }
+.planning-context input { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #d8cdcf; border-radius: 10px; font: inherit; }
+.planning-overview, .planning-versions { margin-top: 18px; }
+.planning-metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.planning-metric-grid article { display: grid; gap: 6px; min-height: 112px; padding: 16px; border: 1px solid var(--line, #e4dfe0); border-radius: 14px; background: #fff; }
+.planning-metric-grid strong { font-size: 1.35rem; }
+.planning-metric-grid small { color: var(--muted, #766c6e); }
+.planning-budget-summary { background: #f7fbff !important; }
+.planning-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
+.planning-editor { display: grid; align-content: start; gap: 13px; padding: 20px; border: 1px solid var(--line, #e4dfe0); border-radius: 16px; background: #fff; }
+.planning-editor label { display: grid; gap: 6px; min-width: 0; }
+.planning-editor label > span { color: #5c5254; font-size: .84rem; font-weight: 750; }
+.planning-editor input, .planning-editor select, .planning-editor textarea { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #d8cdcf; border-radius: 10px; background: #fff; color: inherit; font: inherit; }
+.planning-editor textarea { resize: vertical; }
+.planning-period-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.planning-source-note, .planning-write-note, .planning-currency { margin: 0; color: var(--muted, #766c6e); font-size: .85rem; }
+.planning-budget-lines { padding: 12px; border: 1px solid var(--line, #e4dfe0); border-radius: 12px; }
+.planning-budget-line-heading { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+#planning-budget-balance[data-state="over"] { color: #a03131; font-weight: 800; }
+#planning-budget-balance[data-state="under"] { color: #8a6500; }
+#planning-budget-balance[data-state="match"] { color: #17603c; font-weight: 800; }
+.planning-budget-line { display: grid; grid-template-columns: minmax(110px, .8fr) minmax(110px, .7fr) minmax(150px, 1fr); gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid #eee8e9; }
+.planning-budget-line:first-child { border-top: 0; }
+.planning-version-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.planning-version-card { display: grid; gap: 7px; padding: 16px; border: 1px solid var(--line, #e4dfe0); border-radius: 14px; background: #fff; }
+.planning-version-card p { margin: 0; color: #685e60; }
+.planning-version-card button { justify-self: start; margin-top: 4px; }
+.planning-empty { padding: 18px; border: 1px dashed var(--line, #e4dfe0); border-radius: 14px; color: var(--muted, #766c6e); }
+@media (max-width: 900px) { .planning-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .planning-editor-grid { grid-template-columns: 1fr; } }
+@media (max-width: 520px) {
+  .planning-admin-panel { padding: 16px; }
+  .planning-admin-heading, .planning-section-heading { display: grid; }
+  .planning-admin-track { display: grid; grid-template-columns: repeat(2, 1fr); width: 100%; }
+  .planning-context { grid-template-columns: 1fr; }
+  .planning-metric-grid, .planning-period-grid, .planning-version-list { grid-template-columns: 1fr; }
+  .planning-budget-line { grid-template-columns: 1fr; }
+  .planning-budget-line-heading { display: grid; }
+  .planning-editor button { width: 100%; min-height: 44px; }
+}
+
 /* NOV Talent UI Simplification V1: daily work first, diagnostics stay out of the normal path. */
 .beta-note {
   margin-left: 8px;

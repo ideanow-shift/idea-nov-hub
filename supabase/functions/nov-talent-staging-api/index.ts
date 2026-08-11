@@ -597,7 +597,7 @@ async function recruitingIntelligence(runtime: Runtime, candidates: any[], curre
     ["selectionHistory", "/rest/v1/nov_talent_selection_history_v1?select=selection_history_id,candidate_id,selection_code,effective_date,created_at,is_active&is_active=eq.true&order=effective_date.desc&limit=5000"],
     ["communications", "/rest/v1/nov_talent_recruitment_events_v1?select=event_id,candidate_id,communication_at,awaiting_reply,correction_of_event_id,created_at,is_active&event_code=eq.COMMUNICATION_RECORDED&is_active=eq.true&order=communication_at.desc&limit=5000"],
     ["nextActions", "/rest/v1/nov_talent_next_actions_v1?select=next_action_id,candidate_id,due_date,state,assigned_employee_id,created_at,updated_at,completed_at,is_active&is_active=eq.true&order=due_date.asc.nullslast&limit=5000"],
-    ["fairAttributions", "/rest/v1/nov_talent_candidate_fair_attributions_v1?select=attribution_id,candidate_id,fair_id,attribution_type,attribution_status,is_active&is_active=eq.true&limit=5000"],
+    ["fairAttributions", "/rest/v1/nov_talent_candidate_fair_attributions_v1?select=attribution_id,candidate_id,fair_id,attribution_type,attribution_status&limit=5000"],
     ["schoolMasters", "/rest/v1/nov_talent_school_masters_v1?select=school_id,is_active&is_active=eq.true&limit=1000"]
   ] as const;
   const results = await Promise.all(requests.map(([view, path]) => readView(runtime, { requestId, endpoint: "recruiting_intelligence", view, path, fatal: false })));

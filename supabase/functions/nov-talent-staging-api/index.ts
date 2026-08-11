@@ -7,6 +7,7 @@ import {
 import { cleanPopulationRequest, FAIR_ATTRIBUTION_POPULATION_V2, sha256Utf8, validatePopulationRequest } from "./fair-attribution-population-v2.ts";
 import { validateDailyWorkflowResponse } from "./daily-workflow-contract-v1.generated.ts";
 import { buildRecruitingIntelligenceV1, validateRecruitingIntelligenceResponseV1 } from "./recruiting-intelligence-v1.ts";
+import { cleanRecruitingTargetDraft, cleanRecruitingTargetStateCommand, recruitingTargetEnvelope } from "./recruiting-target-v1.ts";
 
 const ORIGIN = "https://ideanow-shift.github.io";
 const PREFIXES = ["", "/nov-talent-staging-api", "/functions/v1/nov-talent-staging-api"];
@@ -21,6 +22,7 @@ type Runtime = {
   now?: () => Date;
   outcome1WritesEnabled?: boolean;
   outcome2WritesEnabled?: boolean;
+  recruitingTargetWritesEnabled?: boolean;
   populationV2Enabled?: boolean;
   populationV2ApprovalTokenSha256?: string;
   populationV2Validator?: typeof validatePopulationRequest;
@@ -728,6 +730,54 @@ export function createHandler(runtime: Runtime) {
       }
       return fail(404, "NOT_FOUND", origin);
     }
+    if (path.startsWith("/api/talent/v1/recruiting-targets")) {
+      if (actor.profile !== "full") return fail(403, "RECRUITING_TARGET_FORBIDDEN", origin);
+      const targetSelect = "target_id,graduation_year,target_type,target_period_code,target_period_start,target_period_end,scope_type,scope_id,target_count,version,row_version,record_state,effective_from,effective_to,reason,approved_by,approved_at,superseded_by_target_id,superseded_at,created_at,updated_at";
+      if (request.method === "GET" && path === "/api/talent/v1/recruiting-targets/current") {
+        const result = await db(runtime, `/rest/v1/nov_talent_recruiting_targets_v1?select=${targetSelect}&record_state=eq.APPROVED&order=graduation_year.asc,target_type.asc,target_period_start.asc&limit=1000`);
+        const envelope = result.ok ? recruitingTargetEnvelope(await result.json().catch(() => null), "CURRENT") : null;
+        return envelope ? out(200, envelope, origin) : fail(503, "RECRUITING_TARGET_SOURCE_UNAVAILABLE", origin);
+      }
+      if (request.method === "GET" && path === "/api/talent/v1/recruiting-targets/drafts") {
+        const result = await db(runtime, `/rest/v1/nov_talent_recruiting_targets_v1?select=${targetSelect}&record_state=eq.DRAFT&order=created_at.desc&limit=1000`);
+        const envelope = result.ok ? recruitingTargetEnvelope(await result.json().catch(() => null), "DRAFTS") : null;
+        return envelope ? out(200, envelope, origin) : fail(503, "RECRUITING_TARGET_SOURCE_UNAVAILABLE", origin);
+      }
+      if (request.method === "GET" && path === "/api/talent/v1/recruiting-targets/history") {
+        const result = await db(runtime, `/rest/v1/nov_talent_recruiting_targets_v1?select=${targetSelect}&order=graduation_year.asc,target_type.asc,target_period_code.asc,version.desc&limit=1000`);
+        const envelope = result.ok ? recruitingTargetEnvelope(await result.json().catch(() => null), "HISTORY") : null;
+        return envelope ? out(200, envelope, origin) : fail(503, "RECRUITING_TARGET_SOURCE_UNAVAILABLE", origin);
+      }
+      if (request.method === "POST" && ["/api/talent/v1/recruiting-targets/drafts", "/api/talent/v1/recruiting-targets/versions"].includes(path)) {
+        if (runtime.recruitingTargetWritesEnabled !== true) return fail(503, "RECRUITING_TARGET_WRITES_DISABLED", origin);
+        const command = cleanRecruitingTargetDraft(await request.json().catch(() => null));
+        if (!command) return fail(400, "INVALID_REQUEST", origin);
+        const result = await rpc(runtime, "nov_talent_create_recruiting_target_draft_v1", {
+          p_actor_employee_id: actor.actor, p_actor_role: actor.role, p_graduation_year: command.graduationYear,
+          p_target_type: command.targetType, p_target_period_code: command.targetPeriodCode,
+          p_target_period_start: command.targetPeriodStart, p_target_period_end: command.targetPeriodEnd,
+          p_scope_type: command.scopeType, p_target_count: command.targetCount, p_effective_from: command.effectiveFrom,
+          p_effective_to: command.effectiveTo, p_reason: command.reason
+        });
+        const envelope = result.ok ? recruitingTargetEnvelope([result.data], "DRAFTS") : null;
+        return envelope ? out(201, envelope, origin) : fail(result.status || 400, result.status === 409 ? "VERSION_CONFLICT" : "RECRUITING_TARGET_WRITE_FAILED", origin);
+      }
+      const approveMatch = /^\/api\/talent\/v1\/recruiting-targets\/([0-9a-f-]+)\/approve$/iu.exec(path);
+      const supersedeMatch = /^\/api\/talent\/v1\/recruiting-targets\/([0-9a-f-]+)\/supersede$/iu.exec(path);
+      if (request.method === "POST" && ((approveMatch && UUID.test(approveMatch[1])) || (supersedeMatch && UUID.test(supersedeMatch[1])))) {
+        if (runtime.recruitingTargetWritesEnabled !== true) return fail(503, "RECRUITING_TARGET_WRITES_DISABLED", origin);
+        const command = cleanRecruitingTargetStateCommand(await request.json().catch(() => null));
+        if (!command) return fail(400, "INVALID_REQUEST", origin);
+        const approving = Boolean(approveMatch);
+        const targetId = (approveMatch || supersedeMatch)![1];
+        const result = await rpc(runtime, approving ? "nov_talent_approve_recruiting_target_v1" : "nov_talent_supersede_recruiting_target_v1", {
+          p_actor_employee_id: actor.actor, p_actor_role: actor.role, p_target_id: targetId, p_expected_row_version: command.expectedRowVersion
+        });
+        const envelope = result.ok ? recruitingTargetEnvelope([result.data], "HISTORY") : null;
+        return envelope ? out(200, envelope, origin) : fail(result.status || 400, result.status === 409 ? "VERSION_CONFLICT" : "RECRUITING_TARGET_WRITE_FAILED", origin);
+      }
+      return fail(404, "NOT_FOUND", origin);
+    }
     const endpoint = path.endsWith("/api/talent/v1/dashboard/summary") ? "dashboard_summary"
       : path.endsWith("/api/talent/v1/workspace") ? "workspace"
       : path.endsWith("/api/talent/v1/selection-coverage") ? "selection_coverage" : "talent_api";
@@ -959,6 +1009,7 @@ if (typeof Deno !== "undefined" && import.meta.main) Deno.serve(createHandler({
   serviceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
   outcome1WritesEnabled: Deno.env.get("NOV_TALENT_OUTCOME1_WRITES_ENABLED") === "true",
   outcome2WritesEnabled: Deno.env.get("NOV_TALENT_OUTCOME2_WRITES_ENABLED") === "true",
+  recruitingTargetWritesEnabled: Deno.env.get("NOV_TALENT_RECRUITING_TARGET_WRITES_ENABLED") === "true",
   fetchImpl: fetch,
   logger: console,
   populationV2Enabled: Deno.env.get("NOV_TALENT_FAIR_ATTRIBUTION_POPULATION_V2_ENABLED") === "true",

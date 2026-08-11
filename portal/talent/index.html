@@ -836,8 +836,22 @@
           </div>
           <section class="planning-versions" aria-labelledby="planning-drafts-title"><div class="planning-section-heading"><div><p class="section-kicker">内容確認</p><h4 id="planning-drafts-title">承認前の計画（Draft）</h4></div></div><div id="planning-draft-list" class="planning-version-list"></div></section>
           <section class="planning-versions" aria-labelledby="planning-history-title"><div class="planning-section-heading"><div><p class="section-kicker">改定履歴</p><h4 id="planning-history-title">過去Version</h4></div></div><div id="planning-history-list" class="planning-version-list"></div></section>
+          <section id="planning-correction-operator" class="planning-correction-operator" hidden aria-labelledby="planning-correction-title">
+            <div><p class="section-kicker">2027卒・一回限り</p><h4 id="planning-correction-title">採用計画の対象期間を訂正</h4><p>旧期間 2025-09-01〜2026-08-31 を、正式期間 2026-04-01〜2027-03-31 へ訂正します。</p></div>
+            <dl><div><dt>目標</dt><dd>接触 563・サロン見学 112・応募 45・内定 37・内定承諾 37</dd></div><div><dt>予算</dt><dd>7,385,350円</dd></div></dl>
+            <p id="planning-correction-status" class="status" role="status">事前確認中</p>
+            <button id="planning-correction-open" type="button" disabled>訂正内容を確認</button>
+          </section>
           <p id="planning-admin-message" class="status" role="status" aria-live="polite"></p>
         </section>
+        <dialog id="planning-correction-dialog" class="planning-correction-dialog" aria-labelledby="planning-correction-dialog-title">
+          <form method="dialog"><p class="section-kicker">最終確認</p><h3 id="planning-correction-dialog-title">2027卒の対象期間を訂正します</h3>
+            <p><strong>旧期間</strong> 2025-09-01 ～ 2026-08-31<br><strong>新期間</strong> 2026-04-01 ～ 2027-03-31</p>
+            <p><strong>目標</strong><br>接触 563 / サロン見学 112 / 応募 45 / 内定 37 / 内定承諾 37</p><p><strong>予算</strong> 7,385,350円</p>
+            <ul><li>新Versionを作成</li><li>旧Approvedを終了</li><li>誤期間Draftを取消</li><li>変更履歴を記録</li><li>分析の現行計画を切替</li></ul>
+            <div class="planning-correction-actions"><button id="planning-correction-cancel" type="button" class="secondary-command">キャンセル</button><button id="planning-correction-confirm" type="button">訂正を実行</button></div>
+          </form>
+        </dialog>
         <section id="planning-diagnostic-panel" class="selection-coverage-panel ui-diagnostic" data-management-section="planning-diagnostic" aria-labelledby="planning-diagnostic-title">
           <div class="selection-coverage-heading">
             <div><p class="section-kicker">管理者専用・読み取り確認</p><h3 id="planning-diagnostic-title">Recruiting Planning Hosted Diagnostic</h3></div>

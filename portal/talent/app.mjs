@@ -24,7 +24,7 @@ import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs?v=20260804-recr
 import { initializeRecruitingIntelligenceDiagnostic } from "./recruiting-intelligence-diagnostic.mjs?v=20260811-outcome3-planning-comparison-1";
 import { initializeRecruitingIntelligenceView } from "./recruiting-intelligence-view.mjs?v=20260811-outcome3-normal-ui-v1";
 import { initializeRecruitingPlanningDiagnostic } from "./recruiting-planning-diagnostic.mjs?v=20260811-planning-diagnostic-1";
-import { initializeRecruitingPlanningAdmin } from "./recruiting-planning-admin.mjs?v=20260811-planning-runtime-capability-1";
+import { initializeRecruitingPlanningAdmin } from "./recruiting-planning-admin.mjs?v=20260812-new-grad-correction-operator-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;

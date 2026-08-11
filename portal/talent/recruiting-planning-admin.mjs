@@ -21,7 +21,7 @@ export function createRecruitingPlanningAdminClient({ globalObject = globalThis,
   const base = String(globalObject?.NOV_TALENT_CONFIG?.readonlyApiBaseUrl || "").replace(/\/+$/u, "");
   if (!/^https:\/\//u.test(base) || typeof fetchImpl !== "function" || typeof hubSessionHelper?.getSessionToken !== "function") return null;
   let canWritePlanning = false;
-  const request = async (path, { method = "GET", body, write = false, capability = false } = {}) => {
+  const request = async (path, { method = "GET", body, write = false, capability = false, correction = false } = {}) => {
     if (write && !planningAdminWriteEnabled(canWritePlanning, globalObject)) return Object.freeze({ ok: false, category: "writes_disabled", requestCount: 0 });
     let token;
     try { token = await hubSessionHelper.getSessionToken(); } catch { return Object.freeze({ ok: false, category: "auth_required", requestCount: 0 }); }
@@ -41,6 +41,10 @@ export function createRecruitingPlanningAdminClient({ globalObject = globalThis,
         canWritePlanning = data.canWritePlanning;
         return Object.freeze({ ok: true, data, requestCount: 1 });
       }
+      if (correction) {
+        const data = method === "GET" ? cleanCorrectionPreflight(envelope.data) : envelope.data?.state === "COMPLETED" ? Object.freeze({ state: "COMPLETED" }) : null;
+        return data ? Object.freeze({ ok: true, data, requestCount: 1 }) : Object.freeze({ ok: false, category: "invalid_response", requestCount: 1 });
+      }
       const data = cleanEnvelope(envelope.data);
       return data ? Object.freeze({ ok: true, data, requestCount: 1 }) : Object.freeze({ ok: false, category: "invalid_response", requestCount: 1 });
     } catch { return Object.freeze({ ok: false, category: "api_error", requestCount: 1 }); }
@@ -50,6 +54,8 @@ export function createRecruitingPlanningAdminClient({ globalObject = globalThis,
     current: () => request("/api/talent/v1/recruiting-planning/current"),
     drafts: () => request("/api/talent/v1/recruiting-planning/drafts"),
     history: () => request("/api/talent/v1/recruiting-planning/history"),
+    correctionPreflight: () => request("/api/talent/v1/recruiting-planning/corrections/new-grad-2027/preflight", { correction: true }),
+    executeCorrection: () => request("/api/talent/v1/recruiting-planning/corrections/new-grad-2027", { method: "POST", body: {}, write: true, correction: true }),
     createTargetDraft: (body) => request("/api/talent/v1/recruiting-planning/targets/drafts", { method: "POST", body, write: true }),
     createBudgetDraft: (body) => request("/api/talent/v1/recruiting-planning/budgets/drafts", { method: "POST", body, write: true }),
     approveTarget: (id, rowVersion) => UUID.test(id) ? request(`/api/talent/v1/recruiting-planning/targets/${id}/approve`, { method: "POST", body: { expectedRowVersion: rowVersion }, write: true }) : Promise.resolve({ ok: false, category: "invalid_request", requestCount: 0 }),
@@ -88,15 +94,18 @@ export function initializeRecruitingPlanningAdmin(documentObject = globalThis.do
   let track = "NEW_GRAD";
   let state = { current: emptyData("APPROVED"), drafts: emptyData("DRAFT"), history: emptyData("HISTORY") };
   let writeEnabled = false;
+  let correctionReady = false, correctionSubmitting = false;
   const status = documentObject.getElementById("planning-admin-status");
   const message = documentObject.getElementById("planning-admin-message");
   const targetForm = documentObject.getElementById("planning-target-form");
   const budgetForm = documentObject.getElementById("planning-budget-form");
   const targetSave = documentObject.getElementById("planning-target-save");
   const budgetSave = documentObject.getElementById("planning-budget-save");
+  const correctionPanel=documentObject.getElementById("planning-correction-operator"),correctionStatus=documentObject.getElementById("planning-correction-status"),correctionOpen=documentObject.getElementById("planning-correction-open"),correctionDialog=documentObject.getElementById("planning-correction-dialog"),correctionConfirm=documentObject.getElementById("planning-correction-confirm");
   const applyWriteCapability = (enabled) => {
     writeEnabled = planningAdminWriteEnabled(enabled, globalObject);
     targetSave.disabled = !writeEnabled; budgetSave.disabled = !writeEnabled;
+    if(correctionOpen)correctionOpen.disabled=!(writeEnabled&&correctionReady)||correctionSubmitting;
     panel.querySelectorAll("[data-planning-write-note]").forEach((node) => { node.hidden = writeEnabled; });
   };
   applyWriteCapability(false);
@@ -104,7 +113,7 @@ export function initializeRecruitingPlanningAdmin(documentObject = globalThis.do
 
   const load = async () => {
     status.textContent = "確認しています";
-    const [capability, current, drafts, history] = await Promise.all([client.capability(), client.current(), client.drafts(), client.history()]);
+    const [capability, current, drafts, history, correction] = await Promise.all([client.capability(), client.current(), client.drafts(), client.history(), client.correctionPreflight()]);
     if (![capability, current, drafts, history].every((result) => result.ok)) {
       applyWriteCapability(false);
       const auth = [capability, current, drafts, history].some((result) => result.category === "auth_required");
@@ -112,10 +121,18 @@ export function initializeRecruitingPlanningAdmin(documentObject = globalThis.do
       return false;
     }
     applyWriteCapability(capability.data.canWritePlanning);
+    correctionReady=correction.ok&&correction.data.state==="PASS"&&correction.data.exactPreflightPassed===true;
+    if(correctionPanel)correctionPanel.hidden=!(track==="NEW_GRAD"&&correction.ok);
+    if(correctionStatus)correctionStatus.textContent=correction.ok?(correction.data.state==="PASS"?(correction.data.canExecute?"実行準備完了":"事前確認済み・実行停止中"):correction.data.state==="COMPLETED"?"訂正済み":"実行条件が一致しません"):"事前確認を完了できませんでした";
+    if(correctionOpen){correctionOpen.hidden=correction.ok&&correction.data.state==="COMPLETED";correctionOpen.disabled=!(writeEnabled&&correctionReady);}
     state = { current: current.data, drafts: drafts.data, history: history.data };
     status.textContent = writeEnabled ? "登録・承認できます" : "読み取りのみ（登録はOwner承認待ち）";
     renderAll(); return true;
   };
+  correctionOpen?.addEventListener("click",()=>{if(!correctionOpen.disabled&&correctionDialog?.showModal)correctionDialog.showModal();});
+  documentObject.getElementById("planning-correction-cancel")?.addEventListener("click",()=>correctionDialog?.close());
+  correctionDialog?.addEventListener("cancel",()=>correctionDialog.close());
+  correctionConfirm?.addEventListener("click",async()=>{if(correctionSubmitting||!writeEnabled||!correctionReady)return;correctionSubmitting=true;correctionConfirm.disabled=true;correctionOpen.disabled=true;const result=await client.executeCorrection();correctionDialog.close();if(correctionStatus)correctionStatus.textContent=result.ok?"訂正が完了しました":operationMessage(result.category);correctionSubmitting=false;correctionConfirm.disabled=false;if(result.ok){correctionReady=false;await load();}else correctionOpen.disabled=!(writeEnabled&&correctionReady);});
   const renderAll = () => {
     const context = readContext(documentObject, track);
     renderSummary(documentObject, state.current, track, context);
@@ -227,6 +244,7 @@ function cleanCapability(data) {
   return data?.recruiting_planning_capability_contract_version === CONTRACT_VERSION && typeof data.canWritePlanning === "boolean"
     ? Object.freeze({ canWritePlanning: data.canWritePlanning }) : null;
 }
+function cleanCorrectionPreflight(data){const p=data?.preview;if(data?.recruiting_planning_correction_preflight_contract_version!=="1.0.0"||!["PASS","BLOCKED","COMPLETED","UNAVAILABLE"].includes(data.state)||typeof data.exactPreflightPassed!=="boolean"||typeof data.canExecute!=="boolean"||!p)return null;if(p.recruitingTrack!=="NEW_GRAD"||p.graduationYear!==2027||p.scope!=="COMPANY"||p.oldPeriod?.start!=="2025-09-01"||p.oldPeriod?.end!=="2026-08-31"||p.newPeriod?.start!=="2026-04-01"||p.newPeriod?.end!=="2027-03-31")return null;if(p.targets?.CONTACT_COUNT!==563||p.targets?.SALON_VISIT_COUNT!==112||p.targets?.APPLICATION_COUNT!==45||p.targets?.OFFERED_COUNT!==37||p.targets?.OFFER_ACCEPTED_COUNT!==37||p.budget?.amount!==7385350||p.budget?.currency!=="JPY")return null;return Object.freeze({state:data.state,exactPreflightPassed:data.exactPreflightPassed,canExecute:data.canExecute,preview:Object.freeze(p)});}
 function cleanTarget(row) { return row && UUID.test(String(row.targetId)) && Number.isInteger(row.targetCount) && Number.isInteger(row.version) && Number.isInteger(row.rowVersion) && row.period ? Object.freeze({ ...row }) : null; }
 function cleanBudget(row) { return row && UUID.test(String(row.budgetId)) && Number.isInteger(row.totalBudget) && Number.isInteger(row.version) && Number.isInteger(row.rowVersion) && row.period ? Object.freeze({ ...row }) : null; }
 function emptyData(kind) { return Object.freeze({ kind, sourceAvailability: true, targets: Object.freeze([]), budgets: Object.freeze([]), budgetLines: Object.freeze([]), actualSources: Object.fromEntries(METRICS.map(([code]) => [code, "ACTUAL_SOURCE_UNAVAILABLE"])) }); }

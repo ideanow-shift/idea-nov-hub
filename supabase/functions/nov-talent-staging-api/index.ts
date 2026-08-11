@@ -8,7 +8,8 @@ import { cleanPopulationRequest, FAIR_ATTRIBUTION_POPULATION_V2, sha256Utf8, val
 import { validateDailyWorkflowResponse } from "./daily-workflow-contract-v1.generated.ts";
 import { buildRecruitingIntelligenceV1, validateRecruitingIntelligenceResponseV1 } from "./recruiting-intelligence-v1.ts";
 import { cleanRecruitingTargetDraft, cleanRecruitingTargetStateCommand, recruitingTargetEnvelope } from "./recruiting-target-v1.ts";
-import { cleanPlanningBudgetDraft, cleanPlanningState, cleanPlanningTargetDraft, planningCapabilityEnvelope, planningEnvelope } from "./recruiting-planning-v1.ts";
+import { cleanPlanningBudgetDraft, cleanPlanningCorrection, cleanPlanningState, cleanPlanningTargetDraft, planningCapabilityEnvelope, planningEnvelope } from "./recruiting-planning-v1.ts";
+import { newGrad2027CorrectionPreflight } from "./new-grad-2027-correction.ts";
 
 const ORIGIN = "https://ideanow-shift.github.io";
 const PREFIXES = ["", "/nov-talent-staging-api", "/functions/v1/nov-talent-staging-api"];
@@ -743,6 +744,16 @@ export function createHandler(runtime: Runtime) {
         return out(200, planningCapabilityEnvelope(runtime.recruitingPlanningWritesEnabled === true && actor.profile === "full"), origin);
       }
       if (actor.profile !== "full") return fail(403, "RECRUITING_PLANNING_FORBIDDEN", origin);
+      const correctionPath="/api/talent/v1/recruiting-planning/corrections/new-grad-2027",preflightPath=`${correctionPath}/preflight`;
+      const correctionPreflight=()=>newGrad2027CorrectionPreflight(async(query)=>{const response=await db(runtime,query);return{ok:response.ok,rows:response.ok?await response.json().catch(()=>null):undefined};},runtime.recruitingPlanningWritesEnabled===true);
+      if(request.method==="GET"&&path===preflightPath)return out(200,await correctionPreflight(),origin);
+      if(request.method==="POST"&&path===correctionPath){
+        if(runtime.recruitingPlanningWritesEnabled!==true)return fail(503,"RECRUITING_PLANNING_WRITES_DISABLED",origin);
+        if(!cleanPlanningCorrection(await request.json().catch(()=>null)))return fail(400,"INVALID_REQUEST",origin);
+        const preflight=await correctionPreflight();if(preflight.data.state!=="PASS")return fail(409,"RECRUITING_PLANNING_CORRECTION_PREFLIGHT_FAILED",origin);
+        const result=await rpc(runtime,"nov_talent_correct_new_grad_2027_period_v1",{p_actor_employee_id:actor.actor,p_actor_role:actor.role});
+        return result.ok?out(200,{ok:true,data:{state:"COMPLETED"}},origin):fail(result.status||400,result.status===409?"VERSION_CONFLICT":"RECRUITING_PLANNING_CORRECTION_FAILED",origin);
+      }
       const targetSelect="target_id,recruiting_track,graduation_year,target_metric,recruiting_period_code,recruiting_period_start,recruiting_period_end,target_count,version,row_version,record_state,effective_from,effective_to,reason,approved_at";
       const budgetSelect="budget_id,recruiting_track,graduation_year,recruiting_period_code,recruiting_period_start,recruiting_period_end,total_budget,currency,version,row_version,record_state,effective_from,effective_to,reason,approved_at";
       const state=path.endsWith("/current")?"APPROVED":path.endsWith("/drafts")?"DRAFT":null;

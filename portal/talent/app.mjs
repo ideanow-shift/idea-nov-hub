@@ -3,7 +3,7 @@
   createDashboardSummaryExecutor,
   createSelectionCoverageExecutor,
   createTalentWorkspaceExecutor
-} from "./runtime.mjs?v=20260811-outcome3-diagnostic-1";
+} from "./runtime.mjs?v=20260811-planning-diagnostic-1";
 import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260811-ui-simplification-v1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";
@@ -22,6 +22,7 @@ import {
 } from "./recruitment-ux.mjs?v=20260811-ui-simplification-v1";
 import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs?v=20260804-recruiting-dashboard-completion-1";
 import { initializeRecruitingIntelligenceDiagnostic } from "./recruiting-intelligence-diagnostic.mjs?v=20260811-outcome3-diagnostic-1";
+import { initializeRecruitingPlanningDiagnostic } from "./recruiting-planning-diagnostic.mjs?v=20260811-planning-diagnostic-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -3765,6 +3766,7 @@ function initializeTalentApp() {
     initializeFairOriginReview(globalThis.document, globalThis);
     initializeFairOriginPreparation(globalThis.document, globalThis);
     initializeRecruitingIntelligenceDiagnostic(globalThis.document, globalThis);
+    initializeRecruitingPlanningDiagnostic(globalThis.document, globalThis);
   }
   initializeTalentStudentWorkspace();
   initializeTalentNavigation();

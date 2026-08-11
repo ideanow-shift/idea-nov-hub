@@ -35,7 +35,10 @@ type Runtime = {
 };
 type ViewResult = { rows: any[]; available: boolean; retryCount: number };
 
-const RETRYABLE_DOWNSTREAM_STATUS = new Set([429, 502, 503, 504]);
+// A hosted service-role PostgREST read can transiently return 401 while a
+// concurrent identical read succeeds. Keep the existing bounded one-retry
+// contract; a persistent 401 still fails closed.
+const RETRYABLE_DOWNSTREAM_STATUS = new Set([401, 429, 502, 503, 504]);
 const TOKYO_BUSINESS_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit"
 });

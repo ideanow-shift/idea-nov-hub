@@ -6,9 +6,9 @@
   <meta name="nov-talent-workspace-contract-version" content="1.0.0">
   <title>求人管理システム | IDEA NOV</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=20260811-outcome3-diagnostic-1">
-  <script src="./runtime-config.candidate.js?v=20260811-outcome3-diagnostic-1"></script>
-  <script type="module" src="./app.mjs?v=20260811-outcome3-diagnostic-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260811-planning-diagnostic-1">
+  <script src="./runtime-config.candidate.js?v=20260811-planning-diagnostic-1"></script>
+  <script type="module" src="./app.mjs?v=20260811-planning-diagnostic-1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -753,6 +753,15 @@
           <p>採用状況分析のSource・Coverage・集計Contractを確認します。学生情報や業務データは変更しません。</p>
           <button id="outcome3-diagnostic-run" type="button">Hosted集計を確認</button>
           <div id="outcome3-diagnostic-output" class="outcome3-diagnostic-output" aria-live="polite"></div>
+        </section>
+        <section id="planning-diagnostic-panel" class="selection-coverage-panel ui-diagnostic" data-management-section="planning-diagnostic" aria-labelledby="planning-diagnostic-title">
+          <div class="selection-coverage-heading">
+            <div><p class="section-kicker">管理者専用・読み取り確認</p><h3 id="planning-diagnostic-title">Recruiting Planning Hosted Diagnostic</h3></div>
+            <p id="planning-diagnostic-status" class="status" role="status" aria-live="polite">未確認</p>
+          </div>
+          <p>採用計画のContract・正本件数・書き込み停止状態を確認します。目標や予算は作成しません。</p>
+          <button id="planning-diagnostic-run" type="button">Planning状態を確認</button>
+          <div id="planning-diagnostic-output" class="outcome3-diagnostic-output" aria-live="polite"></div>
         </section>
         <section class="management-tier management-tier-daily" aria-labelledby="management-daily-title">
           <header class="management-tier-heading">

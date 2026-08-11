@@ -105,7 +105,7 @@ await test('the parent rule narrowly fixes the sealed package subtree including 
   const source = readFileSync(parentAttributesPath, 'utf8');
   assert.equal(source.includes(parentRule), true);
   assert.equal(source.includes(nestedRule), true);
-  assert.equal(source.split('\n').filter((line) => line && !line.startsWith('#')).length, 8);
+  assert.equal(source.split('\n').filter((line) => line && !line.startsWith('#')).length, 10);
 });
 
 await test('all locked package files retain the 33-artifact and 16-SQL byte contract', () => {

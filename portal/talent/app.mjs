@@ -22,6 +22,7 @@ import {
 } from "./recruitment-ux.mjs?v=20260811-ui-simplification-v1";
 import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs?v=20260804-recruiting-dashboard-completion-1";
 import { initializeRecruitingIntelligenceDiagnostic } from "./recruiting-intelligence-diagnostic.mjs?v=20260811-outcome3-planning-comparison-1";
+import { initializeRecruitingIntelligenceView } from "./recruiting-intelligence-view.mjs?v=20260811-outcome3-normal-ui-v1";
 import { initializeRecruitingPlanningDiagnostic } from "./recruiting-planning-diagnostic.mjs?v=20260811-planning-diagnostic-1";
 import { initializeRecruitingPlanningAdmin } from "./recruiting-planning-admin.mjs?v=20260811-planning-runtime-capability-1";
 
@@ -46,6 +47,7 @@ let pendingSelectedApplicationNo = null;
 let selectedGraduationYear = "ALL";
 let fairOriginReviewEntries = [];
 let activeStudentFactFilter = null;
+let recruitingIntelligenceView = null;
 
 const PRIMARY_TABS = Object.freeze(["recruitment"]);
 const RECRUITMENT_TABS = Object.freeze(["summary", "students", "fairs", "schools", "management"]);
@@ -274,9 +276,11 @@ export function initializeTalentNavigation({
     panelFor: (key) => documentObject.getElementById(`recruitment-${key}`),
     onSelect: (key) => {
       if (documentObject.body) documentObject.body.dataset.talentView = key;
+      let workspaceLoad = null;
       if (["summary", "students", "fairs", "schools"].includes(key) && !studentWorkspaceData) {
-        loadTalentStudentWorkspace({ globalObject, documentObject });
+        workspaceLoad = loadTalentStudentWorkspace({ globalObject, documentObject });
       }
+      if (key === "schools") Promise.resolve(workspaceLoad).finally(() => recruitingIntelligenceView?.load?.());
     }
   });
   if (documentObject.body && !documentObject.body.dataset.talentView) documentObject.body.dataset.talentView = "summary";
@@ -3763,6 +3767,19 @@ function initializeTalentApp() {
   if (!authorization.allowed) return authorization;
   configureTalentOperationUi(globalThis.document, authorization.access?.profile);
   enableStagingWriteControls(globalThis.document, authorization.access?.profile);
+  recruitingIntelligenceView = initializeRecruitingIntelligenceView(globalThis.document, globalThis, {
+    resolveCandidateName: (id) => (studentWorkspaceData?.students || []).find((row) => row.recordId === id)?.displayName || null,
+    resolveSchoolName: (id) => (studentWorkspaceData?.schoolMasters || []).find((row) => row.school_id === id)?.school_name || null,
+    resolveFairName: (id) => (studentWorkspaceData?.fairMasters || []).find((row) => row.fair_id === id)?.fair_name || null,
+    resolveAssigneeName: (id) => (dailyWorkflowData?.assignees || []).find((row) => row.employeeId === id)?.displayName || null,
+    onOpenCandidate: (id) => {
+      if (!(studentWorkspaceData?.students || []).some((row) => row.recordId === id)) return;
+      selectedStudentRecordId = id;
+      globalThis.document.querySelector('[data-secondary-tab="students"]')?.click?.();
+      renderStudentWorkspace(globalThis.document);
+      globalThis.document.getElementById("student-detail-title")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    }
+  });
   if (authorization.access?.profile === "full") {
     initializeFairOriginReview(globalThis.document, globalThis);
     initializeFairOriginPreparation(globalThis.document, globalThis);

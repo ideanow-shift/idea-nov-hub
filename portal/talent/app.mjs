@@ -21,7 +21,7 @@ import {
   japanBusinessDateIso
 } from "./recruitment-ux.mjs?v=20260811-ui-simplification-v1";
 import { CANDIDATE_STATUS_LABELS } from "./status-dictionary.mjs?v=20260804-recruiting-dashboard-completion-1";
-import { initializeRecruitingIntelligenceDiagnostic } from "./recruiting-intelligence-diagnostic.mjs?v=20260811-outcome3-diagnostic-1";
+import { initializeRecruitingIntelligenceDiagnostic } from "./recruiting-intelligence-diagnostic.mjs?v=20260811-outcome3-planning-comparison-1";
 import { initializeRecruitingPlanningDiagnostic } from "./recruiting-planning-diagnostic.mjs?v=20260811-planning-diagnostic-1";
 import { initializeRecruitingPlanningAdmin } from "./recruiting-planning-admin.mjs?v=20260811-planning-runtime-capability-1";
 

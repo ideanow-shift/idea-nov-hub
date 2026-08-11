@@ -1,4 +1,4 @@
-const CONTRACT_VERSION = "1.0.0";
+const CONTRACT_VERSION = "1.1.0";
 const BUCKETS = Object.freeze([
   "OVERDUE", "DUE_TODAY", "AWAITING_REPLY", "SELECTION_WITHOUT_NEXT_ACTION", "UNASSIGNED_ACTION", "STALLED"
 ]);
@@ -57,6 +57,8 @@ export function summarizeResponse(envelope) {
   if (forbiddenKeys.length) return null;
   const assigneeCounts = data.assigneeWorkload?.openActionCounts;
   const assigneeValues = assigneeCounts && typeof assigneeCounts === "object" ? Object.values(assigneeCounts) : [];
+  const planningRows = Array.isArray(data.planningComparison?.rows) ? data.planningComparison.rows : [];
+  if (!["READY", "PREPARING"].includes(data.planningComparison?.state) || (data.planningComparison.state === "PREPARING" && planningRows.length)) return null;
   return Object.freeze({
     contractVersion: CONTRACT_VERSION,
     sourceCoverageState: data.sourceCoverageState,
@@ -70,6 +72,10 @@ export function summarizeResponse(envelope) {
     priorities: Object.freeze({ state: data.priorities?.state, stallThresholdDays: data.priorities?.stallThresholdDays,
       duplicateCandidateCount: 0, buckets: priorityRows.map((row) => Object.freeze({ bucket: row.bucket, count: row.count, truncated: row.truncated === true })) }),
     fairPending: Object.freeze({ state: data.managementDiagnostics?.state, candidateCount: data.managementDiagnostics?.pendingFairAttributionCandidateCount, rowCount: data.managementDiagnostics?.pendingFairAttributionRowCount }),
+    planning: Object.freeze({ state: data.planningComparison.state, rows: planningRows.map((row) => Object.freeze({
+      recruitingTrack: row.recruitingTrack, graduationYear: row.graduationYear, period: row.period, scope: row.scope,
+      approvedPlanningVersion: row.approvedPlanningVersion, metrics: row.metrics, budget: row.budget
+    })) }),
     target: Object.freeze({ state: data.targets?.state, candidateTarget: data.targets?.candidateTarget, achievementRate: data.targets?.achievementRate }),
     piiForbiddenKeysPresent: Object.freeze([])
   });
@@ -109,6 +115,7 @@ function renderDiagnostic(output, data, documentObject) {
     ["担当者", sectionText(data.assignee, data.assignee.groupCount, { openActionCount: data.assignee.openActionCount })],
     ["優先Bucket", `${data.priorities.state}・重複 ${data.priorities.duplicateCandidateCount}件・${data.priorities.buckets.map((row) => `${row.bucket}:${row.count}`).join(" / ")}`],
     ["Fair確認待ち（管理診断）", sectionText(data.fairPending, data.fairPending.candidateCount, { physicalRows: data.fairPending.rowCount })],
+    ["Recruiting Intelligence 1.1 / 承認済み計画", data.planning.state === "READY" ? JSON.stringify(data.planning.rows) : "集計準備中"],
     ["採用目標", data.target.state === "UNSET" ? "目標未設定" : String(data.target.state)]
   ];
   const list = documentObject.createElement("dl");

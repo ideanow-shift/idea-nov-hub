@@ -6,9 +6,9 @@
   <meta name="nov-talent-workspace-contract-version" content="1.0.0">
   <title>求人管理システム | IDEA NOV</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=20260811-planning-diagnostic-1">
-  <script src="./runtime-config.candidate.js?v=20260811-planning-diagnostic-1"></script>
-  <script type="module" src="./app.mjs?v=20260811-planning-diagnostic-1"></script>
+  <link rel="stylesheet" href="./style.css?v=20260811-planning-admin-v1">
+  <script src="./runtime-config.candidate.js?v=20260811-planning-admin-v1"></script>
+  <script type="module" src="./app.mjs?v=20260811-planning-admin-v1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -753,6 +753,52 @@
           <p>採用状況分析のSource・Coverage・集計Contractを確認します。学生情報や業務データは変更しません。</p>
           <button id="outcome3-diagnostic-run" type="button">Hosted集計を確認</button>
           <div id="outcome3-diagnostic-output" class="outcome3-diagnostic-output" aria-live="polite"></div>
+        </section>
+        <section id="planning-admin-panel" class="planning-admin-panel" data-management-section="planning-admin" aria-labelledby="planning-admin-title">
+          <header class="planning-admin-heading">
+            <div><p class="section-kicker">管理者専用</p><h3 id="planning-admin-title">採用計画</h3><p>今年の採用人数・必要な接点・予算を、Draftから承認する正式な計画として管理します。</p></div>
+            <p id="planning-admin-status" class="status" role="status" aria-live="polite">読み込み前</p>
+          </header>
+          <div class="planning-admin-track" role="group" aria-label="採用区分">
+            <button type="button" data-planning-track="NEW_GRAD" aria-pressed="true">新卒</button>
+            <button type="button" data-planning-track="MID_CAREER" aria-pressed="false">中途</button>
+          </div>
+          <div class="planning-context" aria-label="計画対象">
+            <label data-planning-new-grad><span>対象卒業年度</span><input id="planning-graduation-year" type="number" min="2026" max="2100" inputmode="numeric" placeholder="2028"></label>
+            <div class="planning-period-grid">
+              <label><span>対象期間 開始</span><input id="planning-period-start" type="date"></label>
+              <label><span>対象期間 終了</span><input id="planning-period-end" type="date"></label>
+              <label><span>適用開始</span><input id="planning-effective-from" type="date"></label>
+              <label><span>適用終了</span><input id="planning-effective-to" type="date"></label>
+            </div>
+          </div>
+          <section class="planning-overview" aria-labelledby="planning-overview-title">
+            <div class="planning-section-heading"><div><p class="section-kicker">現在の承認済み計画</p><h4 id="planning-overview-title">今年、何人採りたいか</h4></div><button id="planning-admin-reload" type="button" class="secondary-command">計画を表示</button></div>
+            <div id="planning-current-summary" class="planning-metric-grid"></div>
+          </section>
+          <div class="planning-editor-grid">
+            <form id="planning-target-form" class="planning-editor" novalidate>
+              <div><p class="section-kicker">ファネル目標</p><h4>必要な接点・見学・応募を計画する</h4></div>
+              <label><span>目標</span><select id="planning-target-metric"><option value="CONTACT_COUNT">接触目標</option><option value="SALON_VISIT_COUNT">サロン見学目標</option><option value="APPLICATION_COUNT">応募目標</option><option value="OFFERED_COUNT">内定目標</option><option value="OFFER_ACCEPTED_COUNT">内定承諾目標</option></select></label>
+              <label><span>目標人数</span><input id="planning-target-count" type="number" min="0" step="1" inputmode="numeric" required></label>
+              <label><span>改定理由</span><textarea id="planning-target-reason" rows="3" maxlength="500" required placeholder="計画の根拠・変更理由を入力"></textarea></label>
+              <p id="planning-target-source-note" class="planning-source-note">接触・サロン見学は計画値のみ保存します。正式な実績Source確立までは達成率を表示しません。</p>
+              <button id="planning-target-save" type="submit">目標を下書き保存</button>
+              <p class="planning-write-note" data-planning-write-note>Owner承認後に登録操作を有効化します。現在は読み取りのみです。</p>
+            </form>
+            <form id="planning-budget-form" class="planning-editor" novalidate>
+              <div><p class="section-kicker">年間予算</p><h4>いくら使う計画か</h4></div>
+              <label><span>総予算（JPY）</span><input id="planning-total-budget" type="number" min="0" step="1" inputmode="numeric" required></label>
+              <p class="planning-currency">通貨：JPY</p>
+              <div class="planning-budget-lines"><div class="planning-budget-line-heading"><strong>予算内訳</strong><span id="planning-budget-balance">内訳 0円 / 総予算 0円</span></div><div id="planning-budget-line-list"></div></div>
+              <label><span>改定理由</span><textarea id="planning-budget-reason" rows="3" maxlength="500" required placeholder="予算の根拠・変更理由を入力"></textarea></label>
+              <button id="planning-budget-save" type="submit">予算を下書き保存</button>
+              <p class="planning-write-note" data-planning-write-note>Owner承認後に登録操作を有効化します。現在は読み取りのみです。</p>
+            </form>
+          </div>
+          <section class="planning-versions" aria-labelledby="planning-drafts-title"><div class="planning-section-heading"><div><p class="section-kicker">内容確認</p><h4 id="planning-drafts-title">承認前の計画（Draft）</h4></div></div><div id="planning-draft-list" class="planning-version-list"></div></section>
+          <section class="planning-versions" aria-labelledby="planning-history-title"><div class="planning-section-heading"><div><p class="section-kicker">改定履歴</p><h4 id="planning-history-title">過去Version</h4></div></div><div id="planning-history-list" class="planning-version-list"></div></section>
+          <p id="planning-admin-message" class="status" role="status" aria-live="polite"></p>
         </section>
         <section id="planning-diagnostic-panel" class="selection-coverage-panel ui-diagnostic" data-management-section="planning-diagnostic" aria-labelledby="planning-diagnostic-title">
           <div class="selection-coverage-heading">

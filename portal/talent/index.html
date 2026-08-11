@@ -678,9 +678,47 @@
 
       <section id="recruitment-schools" class="secondary-panel" role="tabpanel" hidden>
         <div class="section-heading">
-          <div><p class="section-kicker">学校分析</p><h2>学校別 採用状況</h2></div>
+          <div><p class="section-kicker">採用分析</p><h2>採用計画に対する現在地</h2></div>
           <p id="school-analysis-status" class="status" data-state="loading" role="status">集計しています</p>
         </div>
+        <section id="recruiting-intelligence-view" class="recruiting-intelligence-view" aria-labelledby="recruiting-intelligence-title">
+          <header class="intelligence-context">
+            <div><p class="section-kicker">新卒・2027卒</p><h3 id="recruiting-intelligence-title">採用状況</h3></div>
+            <p id="recruiting-intelligence-status" class="status" role="status" aria-live="polite">採用状況を確認しています</p>
+          </header>
+          <article class="intelligence-summary" aria-labelledby="recruiting-intelligence-summary-title">
+            <p class="section-kicker">現在地</p><h3 id="recruiting-intelligence-summary-title">計画と実績</h3>
+            <p id="recruiting-intelligence-summary">集計準備中です。</p>
+          </article>
+          <section aria-labelledby="recruiting-intelligence-kpi-title">
+            <div class="intelligence-section-heading"><div><p class="section-kicker">PLAN / ACTUAL</p><h3 id="recruiting-intelligence-kpi-title">計画と実績</h3></div></div>
+            <div id="recruiting-intelligence-kpis" class="intelligence-kpis"></div>
+          </section>
+          <section class="intelligence-priority" aria-labelledby="recruiting-intelligence-priority-title">
+            <div class="intelligence-section-heading"><div><p class="section-kicker">今週の優先確認</p><h3 id="recruiting-intelligence-priority-title">先に確認する学生</h3></div><span>最大10名</span></div>
+            <ol id="recruiting-intelligence-priority-list"></ol>
+            <p id="recruiting-intelligence-priority-empty" class="analysis-empty"></p>
+          </section>
+          <section aria-labelledby="recruiting-intelligence-funnel-title">
+            <div class="intelligence-section-heading"><div><p class="section-kicker">SELECTION FUNNEL</p><h3 id="recruiting-intelligence-funnel-title">採用ファネル</h3></div><span>正式Fact・unique Candidate</span></div>
+            <ol id="recruiting-intelligence-funnel" class="intelligence-funnel"></ol>
+          </section>
+          <section class="intelligence-breakdown" aria-labelledby="recruiting-intelligence-breakdown-title">
+            <div class="intelligence-section-heading"><div><p class="section-kicker">内訳</p><h3 id="recruiting-intelligence-breakdown-title">採用状況の内訳</h3></div></div>
+            <div class="intelligence-breakdown-switch" role="group" aria-label="分析内訳">
+              <button type="button" data-intelligence-breakdown="FAIR" aria-pressed="true">就職フェア別</button>
+              <button type="button" data-intelligence-breakdown="SCHOOL" aria-pressed="false">学校別</button>
+              <button type="button" data-intelligence-breakdown="ASSIGNEE" aria-pressed="false">担当者別</button>
+            </div>
+            <ul id="recruiting-intelligence-breakdown-list"></ul>
+            <p class="intelligence-boundary-note">就職フェアの成果は、確認済みの起点だけを集計しています。</p>
+          </section>
+          <section class="intelligence-budget" aria-labelledby="recruiting-intelligence-budget-title">
+            <div><p class="section-kicker">求人予算</p><h3 id="recruiting-intelligence-budget-title">承認済み予算</h3></div>
+            <dl><div><dt>計画</dt><dd id="recruiting-intelligence-budget-plan">集計準備中</dd></div><div><dt>実績費用</dt><dd id="recruiting-intelligence-budget-actual">集計準備中</dd></div></dl>
+            <p id="recruiting-intelligence-budget-copy">実績費用：集計準備中。残額は算出していません。</p>
+          </section>
+        </section>
         <section class="simplified-analysis-overview" aria-labelledby="simplified-analysis-title">
           <h3 id="simplified-analysis-title">採用状況</h3>
           <section class="summary-grid historical-summary-grid" id="historical-summary-metrics" aria-label="27卒・28卒の採用状況">

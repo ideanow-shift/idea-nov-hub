@@ -33,6 +33,9 @@ export function zeroConnectionFormalRunnerPreflight({
   assertAuthorizationGeneratorParity();
   const packageLock = verifyExecutionPackage({ packageRoot });
   assertApprovedSchemaContract(approvedSchemaContract);
+  if (approvedSchemaContract.packageSha256 !== packageLock.packageSha256
+    || approvedSchemaContract.queryPackSha256 !== packageLock.queryPackSha256
+    || approvedSchemaContract.publicQueryCatalogHash !== PUBLIC_QUERY_CATALOG_HASH) reject();
   assertPrivateQueryPackManifest(privateQueryPackManifest, approvedSchemaContract);
   const generated = generateExecutionAuthorization({ source: authorizationSource, request, packageLock, approvedSchemaContract });
   if (generated.requiredFieldCount !== 31 || generated.missingFieldCount !== 0 || generated.unknownFieldCount !== 0) reject();

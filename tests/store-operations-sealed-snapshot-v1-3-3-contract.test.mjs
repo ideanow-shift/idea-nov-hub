@@ -10,6 +10,7 @@ import { PACKAGE_ID, PACKAGE_VERSION } from '../review/store-operations-sealed-s
 import { PUBLIC_QUERY_CATALOG_HASH, QUERY_PACK_IDS, getFixedQuery } from '../review/store-operations-sealed-snapshot-v1-3-3/query-pack-registry.mjs';
 import { EXECUTION_AUTHORIZATION_FIELDS } from '../review/store-operations-sealed-snapshot-v1-3-3/run-contract.mjs';
 import { generateApprovedSchemaContract } from '../review/store-operations-sealed-snapshot-v1-3-3/schema-contract-generator.mjs';
+import { hashSchemaContract } from '../review/store-operations-sealed-snapshot-v1-3-3/schema-contract.mjs';
 import { verifyExecutionPackage as verifyV132 } from '../review/store-operations-sealed-snapshot-v1-3-2/execution-package-lock.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -112,5 +113,18 @@ test('zero-connection formal runner reaches execution-ready with exact bindings'
   assert.equal(result.queryExecutionCount, 0);
 });
 
-assert.equal(passed, 5);
-process.stdout.write('RESULT 5/5 PASS\n');
+test('zero-connection preflight rejects a rehashed stale Package binding', () => {
+  const f = fixture();
+  const stale = { ...f.contract, packageSha256: '0'.repeat(64) };
+  const { schemaContractHash: _old, ...base } = stale;
+  stale.schemaContractHash = hashSchemaContract(base);
+  assert.throws(() => zeroConnectionFormalRunnerPreflight({
+    request: { ...f.request, schemaContractHash: stale.schemaContractHash }, authorizationSource: { ...f.authorization, approvedSchemaContractHash: stale.schemaContractHash },
+    approvedSchemaContract: stale, privateQueryPackManifest: f.manifest, sourceProfile: f.sourceProfile, targetProfile: f.targetProfile,
+    operatorSummary: {}, operatorEmployeeUuid: '740fe84f-2bdb-4071-9a03-c790fc391d53', operatorEmployeeNumber: '69',
+    reviewerPrincipal: 'principal:idea-nov-os-owner', trustedNow: new Date('2026-08-11T00:45:00.000Z'), executionLedgerBinding: {},
+  }), /FORMAL_RUNNER_PREFLIGHT_REJECTED/);
+});
+
+assert.equal(passed, 6);
+process.stdout.write('RESULT 6/6 PASS\n');

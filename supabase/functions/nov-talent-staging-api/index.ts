@@ -8,6 +8,7 @@ import { cleanPopulationRequest, FAIR_ATTRIBUTION_POPULATION_V2, sha256Utf8, val
 import { validateDailyWorkflowResponse } from "./daily-workflow-contract-v1.generated.ts";
 import { buildRecruitingIntelligenceV1, validateRecruitingIntelligenceResponseV1 } from "./recruiting-intelligence-v1.ts";
 import { cleanRecruitingTargetDraft, cleanRecruitingTargetStateCommand, recruitingTargetEnvelope } from "./recruiting-target-v1.ts";
+import { cleanPlanningBudgetDraft, cleanPlanningState, cleanPlanningTargetDraft, planningEnvelope } from "./recruiting-planning-v1.ts";
 
 const ORIGIN = "https://ideanow-shift.github.io";
 const PREFIXES = ["", "/nov-talent-staging-api", "/functions/v1/nov-talent-staging-api"];
@@ -23,6 +24,7 @@ type Runtime = {
   outcome1WritesEnabled?: boolean;
   outcome2WritesEnabled?: boolean;
   recruitingTargetWritesEnabled?: boolean;
+  recruitingPlanningWritesEnabled?: boolean;
   populationV2Enabled?: boolean;
   populationV2ApprovalTokenSha256?: string;
   populationV2Validator?: typeof validatePopulationRequest;
@@ -730,6 +732,38 @@ export function createHandler(runtime: Runtime) {
       }
       return fail(404, "NOT_FOUND", origin);
     }
+    if (path.startsWith("/api/talent/v1/recruiting-planning")) {
+      if (actor.profile !== "full") return fail(403, "RECRUITING_PLANNING_FORBIDDEN", origin);
+      const targetSelect="target_id,recruiting_track,graduation_year,target_metric,recruiting_period_code,recruiting_period_start,recruiting_period_end,target_count,version,row_version,record_state,effective_from,effective_to,reason,approved_at";
+      const budgetSelect="budget_id,recruiting_track,graduation_year,recruiting_period_code,recruiting_period_start,recruiting_period_end,total_budget,currency,version,row_version,record_state,effective_from,effective_to,reason,approved_at";
+      const state=path.endsWith("/current")?"APPROVED":path.endsWith("/drafts")?"DRAFT":null;
+      if(request.method==="GET"&&state!==null){
+        const [tr,br,lr]=await Promise.all([
+          db(runtime,`/rest/v1/nov_talent_recruiting_funnel_targets_v1?select=${targetSelect}&record_state=eq.${state}&order=recruiting_track.asc,recruiting_period_start.asc,target_metric.asc&limit=1000`),
+          db(runtime,`/rest/v1/nov_talent_recruiting_budgets_v1?select=${budgetSelect}&record_state=eq.${state}&order=recruiting_track.asc,recruiting_period_start.asc&limit=1000`),
+          db(runtime,"/rest/v1/nov_talent_recruiting_budget_lines_v1?select=budget_id,channel_code,amount,reason&limit=1000")]);
+        const targets=tr.ok?await tr.json().catch(()=>null):null,budgets=br.ok?await br.json().catch(()=>null):null,allLines=lr.ok?await lr.json().catch(()=>null):null;
+        const budgetIds=Array.isArray(budgets)?new Set(budgets.map((row:any)=>String(row.budget_id))):new Set<string>();
+        const lines=Array.isArray(allLines)?allLines.filter((row:any)=>budgetIds.has(String(row.budget_id))):null;
+        const e=tr.ok&&br.ok&&lr.ok&&Array.isArray(targets)&&Array.isArray(budgets)&&Array.isArray(lines)?planningEnvelope(state,targets,budgets,lines):null;
+        return e?out(200,e,origin):fail(503,"RECRUITING_PLANNING_SOURCE_UNAVAILABLE",origin);
+      }
+      if(request.method==="GET"&&path.endsWith("/history")){
+        const [tr,br,lr]=await Promise.all([db(runtime,`/rest/v1/nov_talent_recruiting_funnel_targets_v1?select=${targetSelect}&order=created_at.desc&limit=1000`),db(runtime,`/rest/v1/nov_talent_recruiting_budgets_v1?select=${budgetSelect}&order=created_at.desc&limit=1000`),db(runtime,"/rest/v1/nov_talent_recruiting_budget_lines_v1?select=budget_id,channel_code,amount,reason&limit=1000")]);
+        const e=tr.ok&&br.ok&&lr.ok?planningEnvelope("HISTORY",await tr.json().catch(()=>null),await br.json().catch(()=>null),await lr.json().catch(()=>null)):null;return e?out(200,e,origin):fail(503,"RECRUITING_PLANNING_SOURCE_UNAVAILABLE",origin);
+      }
+      if(request.method==="POST"&&path==="/api/talent/v1/recruiting-planning/targets/drafts"){
+        if(runtime.recruitingPlanningWritesEnabled!==true)return fail(503,"RECRUITING_PLANNING_WRITES_DISABLED",origin);const c=cleanPlanningTargetDraft(await request.json().catch(()=>null));if(!c)return fail(400,"INVALID_REQUEST",origin);
+        const r=await rpc(runtime,"nov_talent_create_planning_target_draft_v1",{p_actor_employee_id:actor.actor,p_actor_role:actor.role,p_recruiting_track:c.recruitingTrack,p_graduation_year:c.graduationYear,p_target_metric:c.targetMetric,p_period_code:c.periodCode,p_period_start:c.periodStart,p_period_end:c.periodEnd,p_target_count:c.targetCount,p_effective_from:c.effectiveFrom,p_effective_to:c.effectiveTo,p_reason:c.reason});const e=r.ok?planningEnvelope("DRAFT",[r.data],[],[]):null;return e?out(201,e,origin):fail(r.status||400,"RECRUITING_PLANNING_WRITE_FAILED",origin);
+      }
+      if(request.method==="POST"&&path==="/api/talent/v1/recruiting-planning/budgets/drafts"){
+        if(runtime.recruitingPlanningWritesEnabled!==true)return fail(503,"RECRUITING_PLANNING_WRITES_DISABLED",origin);const c=cleanPlanningBudgetDraft(await request.json().catch(()=>null));if(!c)return fail(400,"INVALID_REQUEST",origin);
+        const r=await rpc(runtime,"nov_talent_create_planning_budget_draft_v1",{p_actor_employee_id:actor.actor,p_actor_role:actor.role,p_recruiting_track:c.recruitingTrack,p_graduation_year:c.graduationYear,p_period_code:c.periodCode,p_period_start:c.periodStart,p_period_end:c.periodEnd,p_total_budget:c.totalBudget,p_currency:c.currency,p_effective_from:c.effectiveFrom,p_effective_to:c.effectiveTo,p_reason:c.reason,p_lines:c.lines});const e=r.ok?planningEnvelope("DRAFT",[],[r.data],[]):null;return e?out(201,e,origin):fail(r.status||400,"RECRUITING_PLANNING_WRITE_FAILED",origin);
+      }
+      const approval=/^\/api\/talent\/v1\/recruiting-planning\/(targets|budgets)\/([0-9a-f-]+)\/approve$/iu.exec(path);
+      if(request.method==="POST"&&approval&&UUID.test(approval[2])){if(runtime.recruitingPlanningWritesEnabled!==true)return fail(503,"RECRUITING_PLANNING_WRITES_DISABLED",origin);const c=cleanPlanningState(await request.json().catch(()=>null));if(!c)return fail(400,"INVALID_REQUEST",origin);const isTarget=approval[1]==="targets";const r=await rpc(runtime,isTarget?"nov_talent_approve_planning_target_v1":"nov_talent_approve_planning_budget_v1",{p_actor_employee_id:actor.actor,p_actor_role:actor.role,[isTarget?"p_target_id":"p_budget_id"]:approval[2],p_expected_row_version:c.expectedRowVersion});const e=r.ok?planningEnvelope("APPROVED",isTarget?[r.data]:[],isTarget?[]:[r.data],[]):null;return e?out(200,e,origin):fail(r.status||400,r.status===409?"VERSION_CONFLICT":"RECRUITING_PLANNING_WRITE_FAILED",origin);}
+      return fail(404,"NOT_FOUND",origin);
+    }
     if (path.startsWith("/api/talent/v1/recruiting-targets")) {
       if (actor.profile !== "full") return fail(403, "RECRUITING_TARGET_FORBIDDEN", origin);
       const targetSelect = "target_id,graduation_year,target_type,target_period_code,target_period_start,target_period_end,scope_type,scope_id,target_count,version,row_version,record_state,effective_from,effective_to,reason,approved_by,approved_at,superseded_by_target_id,superseded_at,created_at,updated_at";
@@ -1010,6 +1044,7 @@ if (typeof Deno !== "undefined" && import.meta.main) Deno.serve(createHandler({
   outcome1WritesEnabled: Deno.env.get("NOV_TALENT_OUTCOME1_WRITES_ENABLED") === "true",
   outcome2WritesEnabled: Deno.env.get("NOV_TALENT_OUTCOME2_WRITES_ENABLED") === "true",
   recruitingTargetWritesEnabled: Deno.env.get("NOV_TALENT_RECRUITING_TARGET_WRITES_ENABLED") === "true",
+  recruitingPlanningWritesEnabled: Deno.env.get("NOV_TALENT_RECRUITING_PLANNING_WRITES_ENABLED") === "true",
   fetchImpl: fetch,
   logger: console,
   populationV2Enabled: Deno.env.get("NOV_TALENT_FAIR_ATTRIBUTION_POPULATION_V2_ENABLED") === "true",

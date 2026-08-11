@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideanow-shift.github.io/contracts/nov-talent/recruiting-planning-v1.schema.json",
+  "title": "NOV Talent Recruiting Planning Contract v1",
+  "x-recruiting-planning-contract-version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["recruiting_planning_contract_version", "tracks", "operationalMetrics", "channels", "actualSources", "journeyReservation", "initiativeReservation"],
+  "properties": {
+    "recruiting_planning_contract_version": { "const": "1.0.0" },
+    "tracks": { "const": ["NEW_GRAD", "MID_CAREER"] },
+    "operationalMetrics": { "const": ["CONTACT_COUNT", "SALON_VISIT_COUNT", "APPLICATION_COUNT", "OFFERED_COUNT", "OFFER_ACCEPTED_COUNT"] },
+    "channels": { "const": ["JOB_FAIR", "SCHOOL_GUIDANCE", "SCHOOL_VISIT", "PAID_JOB_MEDIA", "FREE_JOB_MEDIA", "SNS", "OWNED_WEB", "REFERRAL", "HELLO_WORK", "REHIRE", "DEALER_REFERRAL", "OTHER"] },
+    "actualSources": { "type": "object" },
+    "journeyReservation": { "const": ["SALON_VISIT_PLANNED", "SALON_VISIT_COMPLETED"] },
+    "initiativeReservation": { "const": "CONTRACT_ONLY" }
+  }
+}

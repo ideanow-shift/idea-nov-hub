@@ -1,0 +1,16 @@
+{
+  "fixtureOnly": true,
+  "newGrad": {
+    "track": "NEW_GRAD",
+    "targets": { "CONTACT_COUNT": 563, "SALON_VISIT_COUNT": 112, "APPLICATION_COUNT": 45 },
+    "budget": { "total": 7385350, "currency": "JPY" },
+    "unresolvedLabels": [{ "label": "採用数", "value": 36, "resolution": "HUMAN_REVIEW_REQUIRED" }]
+  },
+  "midCareer": {
+    "track": "MID_CAREER",
+    "graduationYear": null,
+    "period": { "start": "2026-04-01", "end": "2027-03-31" },
+    "budget": { "total": 2400000, "currency": "JPY", "lines": { "OWNED_WEB": 500000, "PAID_JOB_MEDIA": 1400000, "SNS": 500000 } },
+    "unresolvedLabels": [{ "label": "採用目標", "value": 3, "resolution": "HUMAN_REVIEW_REQUIRED" }]
+  }
+}

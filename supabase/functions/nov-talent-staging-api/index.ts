@@ -605,7 +605,9 @@ async function recruitingIntelligence(runtime: Runtime, candidates: any[], curre
     ["communications", "/rest/v1/nov_talent_recruitment_events_v1?select=event_id,candidate_id,communication_at,awaiting_reply,correction_of_event_id,created_at,is_active&event_code=eq.COMMUNICATION_RECORDED&is_active=eq.true&order=communication_at.desc&limit=5000"],
     ["nextActions", "/rest/v1/nov_talent_next_actions_v1?select=next_action_id,candidate_id,due_date,state,assigned_employee_id,created_at,updated_at,completed_at,is_active&is_active=eq.true&order=due_date.asc.nullslast&limit=5000"],
     ["fairAttributions", "/rest/v1/nov_talent_candidate_fair_attributions_v1?select=attribution_id,candidate_id,fair_id,attribution_type,attribution_status&limit=5000"],
-    ["schoolMasters", "/rest/v1/nov_talent_school_masters_v1?select=school_id,is_active&is_active=eq.true&limit=1000"]
+    ["schoolMasters", "/rest/v1/nov_talent_school_masters_v1?select=school_id,is_active&is_active=eq.true&limit=1000"],
+    ["planningTargets", "/rest/v1/nov_talent_recruiting_funnel_targets_v1?select=recruiting_track,graduation_year,target_metric,recruiting_period_code,recruiting_period_start,recruiting_period_end,scope_type,target_count,version,record_state&record_state=eq.APPROVED&order=recruiting_track.asc,recruiting_period_start.asc,target_metric.asc&limit=1000"],
+    ["planningBudgets", "/rest/v1/nov_talent_recruiting_budgets_v1?select=recruiting_track,graduation_year,recruiting_period_code,recruiting_period_start,recruiting_period_end,scope_type,total_budget,currency,version,record_state&record_state=eq.APPROVED&order=recruiting_track.asc,recruiting_period_start.asc&limit=1000"]
   ] as const;
   const results = await Promise.all(requests.map(([view, path]) => readView(runtime, { requestId, endpoint: "recruiting_intelligence", view, path, fatal: false })));
   const byName = Object.fromEntries(requests.map(([name], index) => [name, results[index]]));
@@ -613,7 +615,8 @@ async function recruitingIntelligence(runtime: Runtime, candidates: any[], curre
     now: currentInstant, candidates,
     selections: byName.selectionHistory.rows, communications: byName.communications.rows,
     actions: byName.nextActions.rows, attributions: byName.fairAttributions.rows, schoolMasters: byName.schoolMasters.rows,
-    availability: { candidates: true, selectionHistory: byName.selectionHistory.available, communications: byName.communications.available, nextActions: byName.nextActions.available, fairAttributions: byName.fairAttributions.available, schoolMasters: byName.schoolMasters.available }
+    planningTargets: byName.planningTargets.rows, planningBudgets: byName.planningBudgets.rows,
+    availability: { candidates: true, selectionHistory: byName.selectionHistory.available, communications: byName.communications.available, nextActions: byName.nextActions.available, fairAttributions: byName.fairAttributions.available, schoolMasters: byName.schoolMasters.available, planningTargets: byName.planningTargets.available, planningBudgets: byName.planningBudgets.available }
   });
 }
 

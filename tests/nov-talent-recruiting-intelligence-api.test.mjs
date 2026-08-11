@@ -5,7 +5,7 @@ import { createHandler } from "../supabase/functions/nov-talent-staging-api/inde
 const ORIGIN = "https://ideanow-shift.github.io";
 const ID = "10000000-0000-4000-8000-000000000001";
 function request(method = "GET", authorized = true) { return new Request("https://staging.example.invalid/functions/v1/nov-talent-staging-api/api/talent/v1/recruiting-intelligence", { method, headers: { origin: ORIGIN, ...(authorized ? { authorization: `Bearer ${"a".repeat(32)}` } : {}) } }); }
-function fixture({ failSelection = false, failFair = false, fairCount = 0, role = "hr.admin" } = {}) {
+function fixture({ failSelection = false, failFair = false, failPlanning = false, fairCount = 0, role = "hr.admin" } = {}) {
   const calls = [];
   return { calls, handler: createHandler({ hubApiUrl: "https://hub.example.invalid", supabaseUrl: "https://staging.example.invalid", serviceRoleKey: "fixture", now: () => new Date("2026-08-11T03:00:00Z"),
     async fetchImpl(url, init = {}) {
@@ -13,6 +13,11 @@ function fixture({ failSelection = false, failFair = false, fairCount = 0, role 
       if (target.includes("hub.example.invalid")) return Response.json({ ok: true, employee: { id: ID, roleKeys: [role] } });
       if (target.includes("nov_talent_candidates_v1")) return Response.json([{ candidate_id: ID, graduation_year: 2027, current_status_code: "INITIAL", school_id: null, is_active: true }]);
       if (failSelection && target.includes("nov_talent_selection_history_v1")) return Response.json({ code: "down" }, { status: 400 });
+      if (target.includes("nov_talent_recruiting_funnel_targets_v1")) {
+        if (failPlanning) return Response.json({ code: "down" }, { status: 400 });
+        return Response.json([{ recruiting_track: "NEW_GRAD", graduation_year: 2027, target_metric: "APPLICATION_COUNT", recruiting_period_code: "NEW_GRAD_2027", recruiting_period_start: "2025-09-01", recruiting_period_end: "2026-08-31", scope_type: "COMPANY", target_count: 45, version: 1, record_state: "APPROVED" }]);
+      }
+      if (target.includes("nov_talent_recruiting_budgets_v1")) return Response.json([{ recruiting_track: "NEW_GRAD", graduation_year: 2027, recruiting_period_code: "NEW_GRAD_2027", recruiting_period_start: "2025-09-01", recruiting_period_end: "2026-08-31", scope_type: "COMPANY", total_budget: 7385350, currency: "JPY", version: 1, record_state: "APPROVED" }]);
       if (target.includes("nov_talent_candidate_fair_attributions_v1")) {
         if (failFair) return Response.json({ code: "down" }, { status: 400 });
         const selected = new URL(target).searchParams.get("select")?.split(",") || [];
@@ -31,11 +36,28 @@ test("read-only route requires HUB session and never invokes RPC/write", async (
   const response = await run.handler(request());
   assert.equal(response.status, 200);
   const body = await response.json();
-  assert.equal(body.data.recruiting_intelligence_contract_version, "1.0.0");
+  assert.equal(body.data.recruiting_intelligence_contract_version, "1.1.0");
   assert.equal(body.data.currentPosition.candidateCount, 1);
+  assert.equal(body.data.planningComparison.rows[0].metrics.APPLICATION_COUNT.plan, 45);
+  assert.equal(body.data.planningComparison.rows[0].budget.plan, 7385350);
   assert.equal(run.calls.some((call) => call.method !== "GET" && !call.target.includes("hub.example.invalid")), false);
   assert.equal(run.calls.some((call) => call.target.includes("/rpc/")), false);
   assert.equal((await fixture().handler(request("POST"))).status, 404);
+});
+
+test("Planning queries are approved-only read paths and HTTP failure stays PREPARING", async () => {
+  const run = fixture();
+  const response = await run.handler(request());
+  assert.equal(response.status, 200);
+  for (const call of run.calls.filter((item) => item.target.includes("nov_talent_recruiting_") && !item.target.includes("hub.example.invalid"))) {
+    assert.equal(call.method, "GET");
+    assert.equal(new URL(call.target).searchParams.get("record_state"), "eq.APPROVED");
+  }
+  const failed = await fixture({ failPlanning: true }).handler(request());
+  const body = await failed.json();
+  assert.equal(body.data.sourceAvailability.planningTargets, false);
+  assert.equal(body.data.planningComparison.state, "PREPARING");
+  assert.deepEqual(body.data.planningComparison.rows, []);
 });
 
 test("source failure returns HTTP 200 PREPARING and null metrics", async () => {

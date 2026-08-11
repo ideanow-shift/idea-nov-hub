@@ -5,8 +5,8 @@ import { createRecruitingIntelligenceDiagnosticExecutor, summarizeResponse } fro
 
 const ID = "10000000-0000-4000-8000-000000000001";
 const response = ({ coverage = "COMPLETE", sourceReady = true } = {}) => ({ ok: true, data: {
-  recruiting_intelligence_contract_version: "1.0.0", generatedAt: "2026-08-11T00:00:00.000Z", sourceCoverageState: coverage,
-  sourceAvailability: { candidates: true, selectionHistory: sourceReady, communications: true, nextActions: true, fairAttributions: true, schoolMasters: true },
+  recruiting_intelligence_contract_version: "1.1.0", generatedAt: "2026-08-11T00:00:00.000Z", sourceCoverageState: coverage,
+  sourceAvailability: { candidates: true, selectionHistory: sourceReady, communications: true, nextActions: true, fairAttributions: true, schoolMasters: true, planningTargets: true, planningBudgets: true },
   currentPosition: { state: "READY", candidateCount: 636, projectionCounts: { INITIAL: 635, INTERVIEW_COMPLETED: 1 } },
   funnel: { state: sourceReady ? "READY" : "PREPARING", uniqueCandidateReachedCounts: sourceReady ? { INTERVIEW_COMPLETED: 1 } : null, rates: null },
   graduationYears: { state: "READY", rows: { 2027: { candidateCount: 528 }, 2028: { candidateCount: 108 } } },
@@ -22,6 +22,7 @@ const response = ({ coverage = "COMPLETE", sourceReady = true } = {}) => ({ ok: 
   ] },
   fairResults: { state: "READY", confirmedOriginCandidateCount: 1, rows: [{ fairId: ID, confirmedOriginCandidateCount: 1, officialSelectionCandidateCount: 1 }] },
   managementDiagnostics: { state: "READY", pendingFairAttributionCandidateCount: 160, pendingFairAttributionRowCount: 200 },
+  planningComparison: { state: sourceReady ? "READY" : "PREPARING", rows: sourceReady ? [{ recruitingTrack: "NEW_GRAD", graduationYear: 2027, period: { code: "NEW_GRAD_2027", start: "2025-09-01", end: "2026-08-31" }, scope: "COMPANY", approvedPlanningVersion: 1, metrics: { CONTACT_COUNT: { targetStatus: "APPROVED", plan: 563, actualSourceStatus: "ACTUAL_SOURCE_UNAVAILABLE", actual: null, achievementRate: null, remaining: null }, SALON_VISIT_COUNT: { targetStatus: "APPROVED", plan: 112, actualSourceStatus: "ACTUAL_SOURCE_UNAVAILABLE", actual: null, achievementRate: null, remaining: null }, APPLICATION_COUNT: { targetStatus: "APPROVED", plan: 45, actualSourceStatus: "READY", actual: 0, achievementRate: 0, remaining: 45 }, OFFERED_COUNT: { targetStatus: "NO_APPROVED_TARGET", plan: null, actualSourceStatus: "READY", actual: 0, achievementRate: null, remaining: null }, OFFER_ACCEPTED_COUNT: { targetStatus: "NO_APPROVED_TARGET", plan: null, actualSourceStatus: "READY", actual: 0, achievementRate: null, remaining: null } }, budget: { targetStatus: "APPROVED", plan: 7385350, currency: "JPY", approvedVersion: 1, actualSourceStatus: "ACTUAL_SOURCE_UNAVAILABLE", actualSpend: null, remaining: null } }] : [] },
   targets: { state: "UNSET", candidateTarget: null, achievementRate: null }
 } });
 
@@ -43,6 +44,9 @@ test("administrator diagnostic uses existing HUB session for one GET and returns
   assert.deepEqual(result.data.priorities.buckets.map((row) => row.bucket), ["OVERDUE", "DUE_TODAY", "AWAITING_REPLY", "SELECTION_WITHOUT_NEXT_ACTION", "UNASSIGNED_ACTION", "STALLED"]);
   assert.deepEqual(result.data.fairPending, { state: "READY", candidateCount: 160, rowCount: 200 });
   assert.deepEqual(result.data.target, { state: "UNSET", candidateTarget: null, achievementRate: null });
+  assert.equal(result.data.planning.rows[0].metrics.APPLICATION_COUNT.plan, 45);
+  assert.equal(result.data.planning.rows[0].budget.plan, 7385350);
+  assert.equal(result.data.planning.rows[0].metrics.SALON_VISIT_COUNT.actualSourceStatus, "ACTUAL_SOURCE_UNAVAILABLE");
   assert.equal(JSON.stringify(result.data).includes(ID), false);
   assert.equal(result.rawResponseReturned, false);
   assert.equal(result.tokenValueReturned, false);

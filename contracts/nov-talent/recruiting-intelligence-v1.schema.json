@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ideanow-shift.github.io/contracts/nov-talent/recruiting-intelligence-v1.schema.json",
-  "x-recruiting-intelligence-contract-version": "1.0.0",
+  "x-recruiting-intelligence-contract-version": "1.1.0",
   "title": "NOV Talent Recruiting Intelligence read-only response",
   "description": "Server-aggregated official-fact intelligence. Nullable metrics are PREPARING, never false zero. Priority candidates contain no contact details, notes, or evidence text.",
   "type": "object",
@@ -11,10 +11,10 @@
     "ok": { "const": true },
     "data": {
       "type": "object",
-      "required": ["recruiting_intelligence_contract_version", "generatedAt", "sourceCoverageState", "sourceAvailability", "currentPosition", "funnel", "graduationYears", "schoolProgress", "assigneeWorkload", "priorities", "fairResults", "managementDiagnostics", "targets"],
+      "required": ["recruiting_intelligence_contract_version", "generatedAt", "sourceCoverageState", "sourceAvailability", "currentPosition", "funnel", "graduationYears", "schoolProgress", "assigneeWorkload", "priorities", "fairResults", "managementDiagnostics", "planningComparison", "targets"],
       "additionalProperties": false,
       "properties": {
-        "recruiting_intelligence_contract_version": { "const": "1.0.0" },
+        "recruiting_intelligence_contract_version": { "const": "1.1.0" },
         "generatedAt": { "type": "string", "format": "date-time" },
         "sourceCoverageState": { "enum": ["COMPLETE", "PREPARING"] },
         "sourceAvailability": { "type": "object", "additionalProperties": { "type": "boolean" } },
@@ -26,6 +26,15 @@
         "priorities": { "$ref": "#/$defs/section" },
         "fairResults": { "$ref": "#/$defs/section" },
         "managementDiagnostics": { "$ref": "#/$defs/section" },
+        "planningComparison": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "rows"],
+          "properties": {
+            "state": { "enum": ["READY", "PREPARING"] },
+            "rows": { "type": "array" }
+          }
+        },
         "targets": { "type": "object", "required": ["state", "candidateTarget", "achievementRate"], "additionalProperties": false, "properties": { "state": { "const": "UNSET" }, "candidateTarget": { "type": "null" }, "achievementRate": { "type": "null" } } }
       }
     }

@@ -17,6 +17,7 @@
       <p>経営管理ダッシュボード <span id="target-month" class="month-badge"></span></p>
     </div>
     <div class="header-actions">
+      <span id="environment-indicator" class="environment-indicator" hidden></span>
       <span id="connection-state" class="connection-state">確認中</span>
       <button id="reload-button" class="icon-button" type="button" title="再読み込み" aria-label="再読み込み">↻</button>
     </div>
@@ -25,6 +26,7 @@
   <nav class="section-tabs" aria-label="経営管理メニュー">
     <button type="button" class="section-tab is-active" data-section="corporate" data-view="overview" aria-selected="true"><span>① 法人経営管理</span><span class="section-tab-status" data-section-status="corporate">未反映</span></button>
     <button type="button" class="section-tab" data-section="stores" data-view="stores" aria-selected="false"><span>② 店舗営業管理</span><span class="section-tab-status" data-section-status="stores">未反映</span></button>
+    <button id="business-data-navigation" type="button" class="section-tab" data-section="businessdata" data-view="businessdata" aria-selected="false" hidden><span>③ 経営データ管理</span><span class="section-tab-status">管理者専用</span></button>
   </nav>
 
   <nav id="corporate-view-tabs" class="view-tabs" aria-label="法人経営管理画面">
@@ -118,6 +120,9 @@
       <div id="financial-data-intake"></div>
       <div id="workflow" class="workflow"></div>
       <div id="stopped-items" class="status-band"></div>
+    </section>
+    <section id="businessdata-view" class="view-panel" hidden>
+      <div id="business-data-management-preview"></div>
     </section>
   </main>
   </div>

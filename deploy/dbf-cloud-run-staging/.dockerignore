@@ -1,0 +1,12 @@
+.git
+build
+tmp
+review
+tests
+docs
+supabase
+node_modules
+*.xlsx
+*.xls
+*.csv
+*.zip

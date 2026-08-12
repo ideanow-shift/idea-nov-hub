@@ -3,6 +3,7 @@ import { mountManagementProductionReadiness } from "../js/management-production-
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=98059284370E87B7";
 import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=06AD1D86CD8B66B5";
+import { BUSINESS_DATA_EMPTY_FIXTURE, renderBusinessDataManagementPreview } from "./business-data-management-preview.js";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 import { buildStoreWorkforceMonthlySummaryCsvTemplate } from "./store-workforce-monthly-summary-csv.js?v=4BA67C2DE5F7851E";
 import { renderStorePlQuickIntake } from "./store-pl-quick-intake.js?v=1B5686012CB9173B";
@@ -29,8 +30,18 @@ const elements = {
   financialPreviewFourAxis: byId("financial-local-preview-four-axis"), financialPreviewDepartments: byId("financial-local-preview-departments"),
   departmentTabs: byId("department-tabs"), departmentKpis: byId("department-kpis"), departmentRows: byId("department-rows"), departmentInsight: byId("department-insight"),
   storeScope: byId("store-scope"), storePlQuickIntake: byId("store-pl-quick-intake"), workforceEvidence: byId("workforce-evidence-status"), storeKpis: byId("store-kpis"), financialPreviewStores: byId("financial-local-preview-stores"), storeRows: byId("store-rows"), csvRequirements: byId("csv-requirements"),
-  dataGuide: byId("data-guide"), dataopsKpis: byId("dataops-kpis"), productionReadiness: byId("production-readiness-status"), financialDataIntake: byId("financial-data-intake"), workflow: byId("workflow"), stoppedItems: byId("stopped-items")
+  dataGuide: byId("data-guide"), dataopsKpis: byId("dataops-kpis"), productionReadiness: byId("production-readiness-status"), financialDataIntake: byId("financial-data-intake"), workflow: byId("workflow"), stoppedItems: byId("stopped-items"),
+  businessDataPreview: byId("business-data-management-preview")
 };
+elements.businessDataNavigation = byId("business-data-navigation");
+const runtimeEnvironment = window.__DBF_RUNTIME__;
+if (runtimeEnvironment?.environment === "staging"
+  && runtimeEnvironment?.projectRef === "zgkoofphhivesclehrom"
+  && runtimeEnvironment?.projectFingerprint === "fea6c6315484f1f8fd993c68bcdb12c00ea8b6b79b970b3ea363a531133d24ce") {
+  const indicator = byId("environment-indicator");
+  indicator.textContent = "STAGING";
+  indicator.hidden = false;
+}
 
 document.querySelectorAll(".tab, .section-tab").forEach((button) => button.addEventListener("click", () => {
   if (button.dataset.href) {
@@ -116,6 +127,7 @@ function initialize() {
   const session = restoreNovHubSession();
   if (!session?.sessionToken) return renderAuthRequired();
   setHubSessionAuth(session.sessionToken);
+  void loadBusinessDataCapability();
   elements.connection.textContent = "接続済み";
   selectView(readHashView());
   window.addEventListener("hashchange", () => selectView(readHashView(), false));
@@ -129,7 +141,7 @@ function removeLegacyHubContextFromUrl() {
 }
 
 function readHashView() { const value = location.hash.replace(/^#\/?/, ""); return VIEWS.has(value) ? value : "overview"; }
-function viewSection(view) { return view === "stores" ? "stores" : "corporate"; }
+function viewSection(view) { return view === "stores" ? "stores" : view === "businessdata" ? "businessdata" : "corporate"; }
 function selectView(view, updateHash = true) {
   state.view = VIEWS.has(view) ? view : "overview";
   document.querySelectorAll(".tab").forEach((button) => button.classList.toggle("is-active", button.dataset.view === state.view));
@@ -144,6 +156,23 @@ function selectView(view, updateHash = true) {
   if (updateHash && location.hash !== `#${state.view}`) history.replaceState(null, "", `#${state.view}`);
   updateSectionDataBadges();
   loadCurrentView(false);
+}
+
+async function loadBusinessDataCapability() {
+  elements.businessDataNavigation.hidden = true;
+  try {
+    const response = await callApiAction("managementBusinessDataCapability", {});
+    if (response?.data?.capability?.businessDataAdmin !== true) return;
+    VIEWS.add("businessdata");
+    elements.businessDataNavigation.hidden = false;
+    renderBusinessDataManagementPreview(
+      elements.businessDataPreview,
+      runtimeEnvironment?.environment === "staging" ? { fixture: BUSINESS_DATA_EMPTY_FIXTURE } : {},
+    );
+  } catch (_error) {
+    VIEWS.delete("businessdata");
+    elements.businessDataNavigation.hidden = true;
+  }
 }
 
 function updateSectionDataBadges() {
@@ -170,6 +199,7 @@ function financialPendingCount() {
 }
 
 function loadCurrentView(force) {
+  if (state.view === "businessdata") return;
   if (FINANCE_VIEWS.has(state.view)) { if (force) state.finance = null; loadFinance(); return; }
   if (state.view === "stores") { if (force) state.stores = null; loadStores(); return; }
   if (force) state.dataops = null; loadDataops();

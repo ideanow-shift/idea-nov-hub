@@ -5,6 +5,12 @@ import {
   type ReadQuery,
   type ScopeMode,
 } from "./management_readonly_candidate.ts";
+// @ts-ignore Source-only DBF handoff candidates are JavaScript modules pending the separately gated deploy.
+import { handleDbfHandoffAction } from "./dbf_handoff_actions_candidate.mjs";
+// @ts-ignore See source-only note above.
+import { createDbfHandoffRpcStore } from "./dbf_handoff_store_rpc_candidate.mjs";
+// @ts-ignore See source-only note above.
+import { validateDbfIapAssertion } from "./dbf_iap_assertion_validator_candidate.mjs";
 import { createThanksCoinAnalyticsApiAdapter } from "./analytics-api-adapter.ts";
 import {
   buildIdeaLinkReadablePostOr,
@@ -31,6 +37,7 @@ const PIN_HASH_PEPPER = Deno.env.get("PIN_HASH_PEPPER") || "";
 const FIREBASE_API_KEY = Deno.env.get("FIREBASE_API_KEY") || FIREBASE_API_KEY_FALLBACK;
 const HUB_APP_SESSION_SIGNING_SECRET = Deno.env.get("HUB_APP_SESSION_SIGNING_SECRET") || "";
 const HUB_SESSION_AUDIENCE = "nov_hub";
+const DBF_STAGING_SESSION_AUDIENCE = "dbf_staging_session_v1";
 const IDEA_LINK_HANDOFF_AUDIENCE = "idea_link";
 const IDEA_LINK_HANDOFF_TTL_SECONDS = 60;
 const IDEA_LINK_SESSION_TTL_SECONDS = 15 * 60;
@@ -391,6 +398,7 @@ const MANAGEMENT_READ_ONLY_ACTIONS = new Set<string>([
   "managementStoresSummary",
   "storeSalesProjection",
   "managementDataopsStatus",
+  "managementBusinessDataCapability",
 ]);
 
 function isManagementReadOnlyAction(action: string): action is ManagementAction {
@@ -457,6 +465,69 @@ async function handleManagementFromDeployedBaseline(
       responseProfile: payload.responseProfile as string | undefined,
     },
   }, deps);
+}
+
+async function resolveDbfHandoffBusinessDataAdmin(employeeId: string) {
+  const deps: ManagementDependencies = {
+    async verifyHubSession() {
+      return employeeId ? { subject: employeeId } : null;
+    },
+    async resolveEmployee() {
+      return employeeId ? { id: employeeId } : null;
+    },
+    db: {
+      select: async (table, query) => await readRows(table, { query }),
+      count: readManagementExactCount,
+    },
+    assignedScopeEnabled: false,
+  };
+  const result = await handleManagementReadOnlyAction({
+    action: "managementBusinessDataCapability",
+    token: "server-validated-dbf-handoff",
+    payload: { contractPhase: "phase2-select-only-contract" },
+  }, deps);
+  const data = result.body?.data as JsonRecord | undefined;
+  const capability = data?.capability as JsonRecord | undefined;
+  return {
+    businessDataAdmin: result.status === 200 && capability?.businessDataAdmin === true,
+    scope: data?.scope || "none",
+  };
+}
+
+function createDbfHandoffDependencies() {
+  return {
+    now: () => Date.now(),
+    randomUuid: () => crypto.randomUUID(),
+    store: createDbfHandoffRpcStore(async (name: string, payload: JsonRecord) => await callSupabaseRpc(name, payload)),
+    async verifyHubRequest(input: { token?: string; payload?: JsonRecord }) {
+      const authUser = await authenticate(String(input.token || ""), { ...(input.payload || {}), authType: "hub_session" }, "dbfStagingHandoffIssueV1");
+      const employee = await findEmployeeForAuth(authUser);
+      if (String(authUser.authType || "") !== "hub_session" || !employee?.id) {
+        throw new PortalError("ACCESS_DENIED", "A valid HUB employee is required.", 403);
+      }
+      const verifiedHubSession = authUser as { sessionId?: string; expiresAt?: string };
+      return {
+        employeeId: String(employee.id),
+        sessionId: String(verifiedHubSession.sessionId || ""),
+        expiresAt: String(verifiedHubSession.expiresAt || ""),
+        authSource: "hub_session",
+      };
+    },
+    async verifyStagingBffRequest(input: { iapAssertion?: string }) {
+      return await validateDbfIapAssertion(String(input.iapAssertion || ""));
+    },
+    async verifyHubSessionContinuity(input: { employeeId?: string; expiresAt?: number }) {
+      return {
+        valid: Boolean(input.employeeId) && Number(input.expiresAt || 0) > Date.now(),
+      };
+    },
+    async resolveBusinessDataAdmin(input: { employeeId?: string }) {
+      return await resolveDbfHandoffBusinessDataAdmin(String(input.employeeId || ""));
+    },
+    async signSession(claims: JsonRecord) {
+      return await signHubAppSession({ ...claims, v: 1, auth_source: "nov_hub_handoff" });
+    },
+  };
 }
 
 function clampNumber(value: unknown, fallback: number, min: number, max: number) {
@@ -1951,7 +2022,7 @@ async function signHubAppSession(payload: JsonRecord) {
 async function verifyHubAppSession(
   token: string,
   expectedAudience: string,
-  verifiedAuthType: "hub_session" | "idea_link_session",
+  verifiedAuthType: "hub_session" | "idea_link_session" | "dbf_staging_session",
 ) {
   const parts = String(token || "").split(".");
   if (parts.length !== 3) throw new PortalError("TOKEN_VERIFICATION_FAILED", "IDEA LINK session is invalid.", 401);
@@ -1978,6 +2049,7 @@ async function verifyHubAppSession(
     employeeId: String(payload.sub || ""),
     sessionId: String(payload.sid || ""),
     audience: String(payload.aud || ""),
+    expiresAt: new Date(Number(payload.exp || 0) * 1000).toISOString(),
   };
 }
 
@@ -2231,6 +2303,16 @@ async function authenticate(token: string, payload: JsonRecord, action: string) 
       "hub_session",
     );
   }
+  if (authType === "dbf_staging_session") {
+    if (!isManagementReadOnlyAction(action)) {
+      throw new PortalError("ACCESS_DENIED", "DBF Staging session cannot access this action.", 403);
+    }
+    return await verifyHubAppSession(
+      token || String(payload.sessionToken || ""),
+      DBF_STAGING_SESSION_AUDIENCE,
+      "dbf_staging_session",
+    );
+  }
   if (authType === "pin") {
     const email = normalizeEmail(payload.email);
     const pin = String(payload.pin || "").trim();
@@ -2263,7 +2345,7 @@ async function getEmployeeById(id: string) {
 
 async function findEmployeeForAuth(authUser: JsonRecord) {
   const email = normalizeEmail(authUser.email);
-  if (authUser.authType === "idea_link_session" || authUser.authType === "hub_session") {
+  if (authUser.authType === "idea_link_session" || authUser.authType === "hub_session" || authUser.authType === "dbf_staging_session") {
     const employee = await getEmployeeById(String(authUser.employeeId || ""));
     if (!isEmployeeActive(employee)) return null;
     return normalizeEmployee(employee, await getCredentialByEmployeeId(String(employee?.id || "")));
@@ -5499,6 +5581,25 @@ Deno.serve(async (request) => {
       return handleHubHrAuthorizedDisplayReadDisabled(payload);
     }
     if (action === "health") return await handleHealth();
+    if (action === "dbfStagingHandoffIssueV1" || action === "dbfStagingHandoffExchangeV1") {
+      try {
+        const result = await handleDbfHandoffAction({
+          action,
+          token,
+          payload,
+          iapAssertion: request.headers.get("x-dbf-iap-assertion") || "",
+        }, createDbfHandoffDependencies());
+        if (!result) throw new PortalError("DBF_HANDOFF_REJECTED", "Unsupported DBF Staging handoff action.", 400);
+        return jsonResponse({ ok: true, ...result.body }, result.status);
+      } catch (error) {
+        const candidateError = error as { code?: string; message?: string; status?: number };
+        throw new PortalError(
+          String(candidateError.code || "DBF_HANDOFF_REJECTED"),
+          String(candidateError.message || "DBF Staging handoff was rejected."),
+          Number(candidateError.status || 500),
+        );
+      }
+    }
     if (action === "exchangeIdeaLinkHandoff") {
       return jsonResponse({ ok: true, handoff: await exchangeIdeaLinkHandoff(payload) });
     }

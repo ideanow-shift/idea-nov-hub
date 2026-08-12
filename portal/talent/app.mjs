@@ -25,6 +25,7 @@ import { initializeRecruitingIntelligenceDiagnostic } from "./recruiting-intelli
 import { initializeRecruitingIntelligenceView } from "./recruiting-intelligence-view.mjs?v=20260812-actual-fact-v1";
 import { initializeRecruitingPlanningDiagnostic } from "./recruiting-planning-diagnostic.mjs?v=20260811-planning-diagnostic-1";
 import { initializeRecruitingPlanningAdmin } from "./recruiting-planning-admin.mjs?v=20260812-new-grad-correction-operator-1";
+import { initializeRecruitingContactBackfillOperator } from "./recruiting-contact-backfill-admin.mjs?v=20260812-contact-backfill-preparation-1";
 
 let summaryConsumed = false;
 let summaryGeneration = 0;
@@ -3786,6 +3787,7 @@ function initializeTalentApp() {
     initializeRecruitingIntelligenceDiagnostic(globalThis.document, globalThis);
     initializeRecruitingPlanningDiagnostic(globalThis.document, globalThis);
     initializeRecruitingPlanningAdmin(globalThis.document, globalThis);
+    initializeRecruitingContactBackfillOperator(globalThis.document, globalThis);
   }
   initializeTalentStudentWorkspace();
   initializeTalentNavigation();

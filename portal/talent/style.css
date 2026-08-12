@@ -188,6 +188,8 @@ body[data-talent-access="executive"] .sprint1-mock-write { display: none !import
 .planning-admin-heading, .planning-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
 .planning-admin-heading h3, .planning-section-heading h4, .planning-editor h4 { margin: 2px 0 6px; }
 .planning-correction-operator { margin-top: 24px; padding: 20px; border: 1px solid #d7c9cc; border-radius: 16px; background: #fff8f8; }
+.contact-backfill-operator { border-color: #cdded6; background: #f7fcf9; }
+.contact-backfill-operator code { overflow-wrap: anywhere; }
 .planning-correction-operator dl { display: grid; gap: 8px; margin: 16px 0; }
 .planning-correction-operator dl div { display: grid; grid-template-columns: 80px 1fr; gap: 12px; }
 .planning-correction-operator dt { color: #756a6c; }

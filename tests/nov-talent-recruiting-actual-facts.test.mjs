@@ -77,12 +77,12 @@ test("Actual Fact response contract distinguishes confirmed zero, provisional an
 
 test("1.2 runtime binds approved 2027 Planning and does not turn empty foundations into zero", () => {
   const data = buildRecruitingActualFactsV1({
-    candidates: [{ candidate_id: "c1", graduation_year: 2027 }], selections: [], engagementFacts: [], coverageReleases: [], spendFacts: [],
+    candidates: [{ candidate_id: "c1", graduation_year: 2027 }], selections: [], engagementFacts: [], backfillReceipts: [], coverageReleases: [], spendFacts: [],
     planningTargets: [
       ["CONTACT_COUNT",563],["SALON_VISIT_COUNT",112],["APPLICATION_COUNT",45],["OFFERED_COUNT",37],["OFFER_ACCEPTED_COUNT",37]
     ].map(([target_metric,target_count]) => ({ recruiting_track:"NEW_GRAD", graduation_year:2027, scope_type:"COMPANY", record_state:"APPROVED", recruiting_period_start:"2026-04-01", recruiting_period_end:"2027-03-31", target_metric, target_count })),
     planningBudgets: [{ recruiting_track:"NEW_GRAD", graduation_year:2027, scope_type:"COMPANY", record_state:"APPROVED", recruiting_period_start:"2026-04-01", recruiting_period_end:"2027-03-31", total_budget:7385350 }],
-    availability: { selections:true, engagementFacts:true, coverageReleases:true, spendFacts:true, planningTargets:true, planningBudgets:true }
+    availability: { selections:true, engagementFacts:true, backfillReceipts:true, coverageReleases:true, spendFacts:true, planningTargets:true, planningBudgets:true }
   });
   assert.equal(data.recruiting_intelligence_contract_version, "1.2.0");
   assert.deepEqual(data.planningBinding, { recruitingTrack:"NEW_GRAD", graduationYear:2027, periodStart:"2026-04-01", periodEnd:"2027-03-31", scope:"COMPANY" });
@@ -91,6 +91,43 @@ test("1.2 runtime binds approved 2027 Planning and does not turn empty foundatio
   assert.equal(data.metrics.APPLICATION_COUNT.actual, null);
   assert.equal(data.budget.plan, 7385350);
   assert.equal(data.budget.actual, null);
+});
+
+test("approved CONTACT receipt releases exactly 11 Facts as 10 unique Candidate Actual", () => {
+  const candidates = Array.from({ length: 10 }, (_, index) => ({ candidate_id: `c${index + 1}`, graduation_year: 2027 }));
+  const engagementFacts = Array.from({ length: 11 }, (_, index) => ({
+    engagement_fact_id: `e${index + 1}`, candidate_id: index === 10 ? "c1" : `c${index + 1}`,
+    engagement_type: "CONTACT", engagement_status: "COMPLETED", occurred_at: `2026-05-${String(index + 1).padStart(2, "0")}T00:00:00Z`,
+    source_type: "CONTACTS_27_HUMAN_REVIEW", original_actor_status: "UNAVAILABLE", correction_of_fact_id: null,
+  }));
+  const data = buildRecruitingActualFactsV1({
+    candidates, selections: [], engagementFacts, coverageReleases: [], spendFacts: [],
+    backfillReceipts: [{ backfill_code: "CONTACT_2027_HUMAN_REVIEW", receipt_state: "COMPLETED", review_status: "APPROVED_FOR_BACKFILL",
+      review_package_sha256: "139d6b1b222cd7a7d820375c08e1b4ace811fc285ed89e27dd924d2bfb8c9125",
+      canonical_source_sha256: "725cc4b8ae933081dc30fd7ce37179741661d795a20edaed542023b4d3621a77",
+      source_event_count: 11, unique_candidate_count: 10, fact_count: 11 }],
+    planningTargets: [{ recruiting_track:"NEW_GRAD", graduation_year:2027, scope_type:"COMPANY", record_state:"APPROVED", recruiting_period_start:"2026-04-01", recruiting_period_end:"2027-03-31", target_metric:"CONTACT_COUNT", target_count:563 }],
+    planningBudgets: [], availability: { selections:true, engagementFacts:true, backfillReceipts:true, coverageReleases:true, spendFacts:true, planningTargets:true, planningBudgets:true },
+  });
+  assert.equal(data.metrics.CONTACT_COUNT.actualSourceStatus, "READY");
+  assert.equal(data.metrics.CONTACT_COUNT.actual, 10);
+  assert.equal(data.metrics.CONTACT_COUNT.eventCount, 11);
+  assert.equal(data.metrics.CONTACT_COUNT.remaining, 553);
+  assert.equal(data.metrics.SALON_VISIT_COUNT.actualSourceStatus, "ACTUAL_SOURCE_UNAVAILABLE");
+});
+
+test("missing, mismatched or voided CONTACT receipt never releases zero or partial Facts", () => {
+  const common = {
+    candidates: [{ candidate_id:"c1", graduation_year:2027 }], selections: [], coverageReleases: [], spendFacts: [], planningBudgets: [],
+    planningTargets: [{ recruiting_track:"NEW_GRAD", graduation_year:2027, scope_type:"COMPANY", record_state:"APPROVED", recruiting_period_start:"2026-04-01", recruiting_period_end:"2027-03-31", target_metric:"CONTACT_COUNT", target_count:563 }],
+    availability: { selections:true, engagementFacts:true, backfillReceipts:true, coverageReleases:true, spendFacts:true, planningTargets:true, planningBudgets:true },
+  };
+  const fact = { engagement_fact_id:"e1", candidate_id:"c1", engagement_type:"CONTACT", engagement_status:"COMPLETED", occurred_at:"2026-05-01T00:00:00Z", source_type:"CONTACTS_27_HUMAN_REVIEW", original_actor_status:"UNAVAILABLE" };
+  for (const [engagementFacts, backfillReceipts] of [[[fact], []], [[], []], [[fact], [{ backfill_code:"CONTACT_2027_HUMAN_REVIEW", receipt_state:"VOIDED" }]]]) {
+    const data = buildRecruitingActualFactsV1({ ...common, engagementFacts, backfillReceipts });
+    assert.equal(data.metrics.CONTACT_COUNT.actualSourceStatus, "ACTUAL_SOURCE_UNAVAILABLE");
+    assert.equal(data.metrics.CONTACT_COUNT.actual, null);
+  }
 });
 
 test("FK index corrective is forward-only and contains exactly the six required indexes", async () => {

@@ -64,8 +64,23 @@ const coverageState = (rows: any[], metric: string, start: string, end: string) 
   return current ? "COMPLETE" as const : "UNAVAILABLE" as const;
 };
 
+const contactBackfillReady = (receipts: any[], engagementFacts: any[]) => {
+  const completed = receipts.filter((row: any) => row.backfill_code === "CONTACT_2027_HUMAN_REVIEW" && row.receipt_state === "COMPLETED");
+  const voided = receipts.filter((row: any) => row.backfill_code === "CONTACT_2027_HUMAN_REVIEW" && row.receipt_state === "VOIDED");
+  const receipt = completed[0];
+  const facts = effective(engagementFacts).filter((row: any) => row.source_type === "CONTACTS_27_HUMAN_REVIEW"
+    && row.engagement_type === "CONTACT" && row.engagement_status === "COMPLETED" && row.original_actor_status === "UNAVAILABLE");
+  return completed.length === 1 && voided.length === 0
+    && receipt?.review_status === "APPROVED_FOR_BACKFILL"
+    && receipt?.review_package_sha256 === "139d6b1b222cd7a7d820375c08e1b4ace811fc285ed89e27dd924d2bfb8c9125"
+    && receipt?.canonical_source_sha256 === "725cc4b8ae933081dc30fd7ce37179741661d795a20edaed542023b4d3621a77"
+    && Number(receipt?.source_event_count) === 11 && Number(receipt?.unique_candidate_count) === 10
+    && Number(receipt?.fact_count) === 11 && facts.length === 11
+    && new Set(facts.map((row: any) => row.candidate_id)).size === 10;
+};
+
 export function buildRecruitingActualFactsV1(input: {
-  candidates: any[]; selections: any[]; engagementFacts: any[]; coverageReleases: any[]; spendFacts: any[];
+  candidates: any[]; selections: any[]; engagementFacts: any[]; coverageReleases: any[]; spendFacts: any[]; backfillReceipts: any[];
   planningTargets: any[]; planningBudgets: any[]; availability: Record<string, boolean>;
 }) {
   const targets = input.planningTargets.filter((row: any) => row.recruiting_track === "NEW_GRAD" && row.graduation_year === 2027
@@ -77,7 +92,10 @@ export function buildRecruitingActualFactsV1(input: {
   const start = first?.recruiting_period_start || "2026-04-01";
   const end = first?.recruiting_period_end || "2027-03-31";
   const candidateIds = new Set(input.candidates.filter((row: any) => Number(row.graduation_year) === 2027).map((row: any) => String(row.candidate_id)));
-  const engagementStatus: ActualSourceStatus = !input.availability.engagementFacts ? "PREPARING" : "ACTUAL_SOURCE_UNAVAILABLE";
+  const engagementSourcesAvailable = input.availability.engagementFacts && input.availability.backfillReceipts;
+  const contactStatus: ActualSourceStatus = !engagementSourcesAvailable ? "PREPARING"
+    : contactBackfillReady(input.backfillReceipts, input.engagementFacts) ? "READY" : "ACTUAL_SOURCE_UNAVAILABLE";
+  const salonVisitStatus: ActualSourceStatus = !engagementSourcesAvailable ? "PREPARING" : "ACTUAL_SOURCE_UNAVAILABLE";
   const spendStatus: ActualSourceStatus = !input.availability.spendFacts ? "PREPARING" : input.spendFacts.length ? "PARTIAL_SOURCE" : "ACTUAL_SOURCE_UNAVAILABLE";
   const selectionCoverage = (metric: string) => !input.availability.coverageReleases || !input.availability.selections ? "PREPARING" as const
     : coverageState(input.coverageReleases, metric, start, end);
@@ -89,8 +107,8 @@ export function buildRecruitingActualFactsV1(input: {
     recruiting_intelligence_contract_version: RECRUITING_INTELLIGENCE_ACTUAL_CONTRACT_VERSION,
     planningBinding: { recruitingTrack: "NEW_GRAD", graduationYear: 2027, periodStart: start, periodEnd: end, scope: "COMPANY" },
     metrics: {
-      CONTACT_COUNT: decorate(target.get("CONTACT_COUNT") ?? null, engagementActual({ plan: target.get("CONTACT_COUNT") ?? null, type: "CONTACT", sourceStatus: engagementStatus, rows: input.engagementFacts, candidateIds, start, end }), engagementStatus === "PREPARING" ? "PREPARING" : "UNAVAILABLE"),
-      SALON_VISIT_COUNT: decorate(target.get("SALON_VISIT_COUNT") ?? null, engagementActual({ plan: target.get("SALON_VISIT_COUNT") ?? null, type: "SALON_VISIT", sourceStatus: engagementStatus, rows: input.engagementFacts, candidateIds, start, end }), engagementStatus === "PREPARING" ? "PREPARING" : "UNAVAILABLE"),
+      CONTACT_COUNT: decorate(target.get("CONTACT_COUNT") ?? null, engagementActual({ plan: target.get("CONTACT_COUNT") ?? null, type: "CONTACT", sourceStatus: contactStatus, rows: input.engagementFacts, candidateIds, start, end }), contactStatus === "READY" ? "COMPLETE" : contactStatus === "PREPARING" ? "PREPARING" : "UNAVAILABLE"),
+      SALON_VISIT_COUNT: decorate(target.get("SALON_VISIT_COUNT") ?? null, engagementActual({ plan: target.get("SALON_VISIT_COUNT") ?? null, type: "SALON_VISIT", sourceStatus: salonVisitStatus, rows: input.engagementFacts, candidateIds, start, end }), salonVisitStatus === "PREPARING" ? "PREPARING" : "UNAVAILABLE"),
       APPLICATION_COUNT: decorate(target.get("APPLICATION_COUNT") ?? null, selectionActual({ plan: target.get("APPLICATION_COUNT") ?? null, selectionCode: "APPLICATION_RECEIVED", coverageState: selectionCoverage("APPLICATION_RECEIVED"), rows: input.selections, candidateIds, start, end }), selectionCoverage("APPLICATION_RECEIVED")),
       OFFERED_COUNT: decorate(target.get("OFFERED_COUNT") ?? null, selectionActual({ plan: target.get("OFFERED_COUNT") ?? null, selectionCode: "OFFERED", coverageState: selectionCoverage("OFFERED"), rows: input.selections, candidateIds, start, end }), selectionCoverage("OFFERED")),
       OFFER_ACCEPTED_COUNT: decorate(target.get("OFFER_ACCEPTED_COUNT") ?? null, selectionActual({ plan: target.get("OFFER_ACCEPTED_COUNT") ?? null, selectionCode: "OFFER_ACCEPTED", coverageState: selectionCoverage("OFFER_ACCEPTED"), rows: input.selections, candidateIds, start, end }), selectionCoverage("OFFER_ACCEPTED"))

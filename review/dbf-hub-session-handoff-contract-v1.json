@@ -1,0 +1,70 @@
+{
+  "contract": "dbfHubSessionHandoffV1",
+  "status": "SOURCE_ONLY_NOT_DEPLOYED",
+  "target": "DBF_STAGING",
+  "targetOrigin": "https://idea-nov-dbf-staging-ui-om6tepo36q-an.a.run.app",
+  "audience": "dbf_staging_handoff_exchange_v1",
+  "sessionAudience": "dbf_staging_session_v1",
+  "handoffTtlSeconds": 60,
+  "sessionTtlSeconds": 900,
+  "actions": {
+    "issue": "dbfStagingHandoffIssueV1",
+    "exchange": "dbfStagingHandoffExchangeV1"
+  },
+  "transport": {
+    "location": "url_fragment",
+    "fields": ["handoff_code", "state"],
+    "removeBeforeExchange": true,
+    "hubOrFirebaseTokenInUrl": false
+  },
+  "binding": [
+    "employeeId",
+    "hubSessionId",
+    "target",
+    "targetOrigin",
+    "audience",
+    "issuedAt",
+    "expiresAt",
+    "nonceHash",
+    "stateHash",
+    "authSource"
+  ],
+  "exchange": {
+    "method": "POST",
+    "path": "/session/handoff/exchange",
+    "requiresIapAssertionAtCloudRunBff": true,
+    "requiresIapAssertionReverificationAtHubBackend": true,
+    "browserSuppliedIapVerifiedFlagAccepted": false,
+    "atomicSingleUse": true,
+    "storedSecret": "sha256(handoff_code)",
+    "successStatus": 200,
+    "missingOrExpiredStatus": 401,
+    "unauthorizedCapabilityStatus": 403
+  },
+  "authorization": {
+    "authority": "NOV_HUB_BACKEND",
+    "iapIsBusinessAuthorization": false,
+    "backendReevaluationRequired": true,
+    "stagingCanonicalPopulationRequired": false,
+    "capability": "businessDataAdmin",
+    "canonicalInputs": [
+      "Employee",
+      "Position",
+      "Assignment",
+      "Organization",
+      "Role",
+      "Permission",
+      "Scope",
+      "effectivePeriod"
+    ]
+  },
+  "runtime": {
+    "runtimeImport": "DISABLED",
+    "productionWrite": "DISABLED",
+    "businessDataSupabaseRef": "zgkoofphhivesclehrom",
+    "handoffStoreSupabaseRef": "nkmxevmioczcmnldreyo",
+    "handoffStoreRefBrowserVisible": false,
+    "hubExchangeUrlSource": "server-only Cloud Run environment variable",
+    "directUrlWithoutHandoff": "HUB_LOGIN_REQUIRED"
+  }
+}

@@ -17,7 +17,7 @@
     .app-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .hub-link { color: var(--muted); font-size: 11px; text-decoration: none; }
     h1 { margin: 0; font-size: 16px; line-height: 1.35; }
-    .section-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+    .section-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
     .view-tabs, .corporation-tabs { display: flex; gap: 6px; overflow-x: auto; }
     .section-tab, .tab, .corp-tab, .dept-tab, .icon-button { min-height: 36px; padding: 8px 12px; background: var(--soft); border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; }
     .section-tab.is-active, .corp-tab.is-active, .dept-tab.is-active { background: var(--bassa); color: #fff; }
@@ -40,6 +40,7 @@
       <p>経営管理ダッシュボード <span id="target-month" class="month-badge"></span></p>
     </div>
     <div class="header-actions">
+      <span id="environment-indicator" class="environment-indicator" hidden></span>
       <span id="connection-state" class="connection-state">確認中</span>
       <button id="reload-button" class="icon-button" type="button" title="再読み込み" aria-label="再読み込み">↻</button>
     </div>
@@ -48,6 +49,7 @@
   <nav class="section-tabs" aria-label="経営管理メニュー">
     <button type="button" class="section-tab is-active" data-section="corporate" data-view="overview" aria-selected="true"><span>① 法人経営管理</span><span class="section-tab-status" data-section-status="corporate">未反映</span></button>
     <button type="button" class="section-tab" data-section="stores" data-view="stores" data-href="../store-sales/" aria-selected="false"><span>② 店舗営業管理</span><span class="section-tab-status" data-section-status="stores">Phase 5</span></button>
+    <button id="business-data-navigation" type="button" class="section-tab" data-section="businessdata" data-view="businessdata" aria-selected="false" hidden><span>③ 経営データ管理</span><span class="section-tab-status">管理者専用</span></button>
   </nav>
 
   <nav id="corporate-view-tabs" class="view-tabs" aria-label="法人経営管理画面">
@@ -145,6 +147,9 @@
       <div id="financial-data-intake"></div>
       <div id="workflow" class="workflow"></div>
       <div id="stopped-items" class="status-band"></div>
+    </section>
+    <section id="businessdata-view" class="view-panel" hidden>
+      <div id="business-data-management-preview"></div>
     </section>
   </main>
   </div>

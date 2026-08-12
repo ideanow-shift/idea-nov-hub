@@ -1,8 +1,10 @@
-import { callApiAction, setHubSessionAuth } from "../js/api.js";
+import { callApiAction, setDbfStagingSessionAuth, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
+import { clearDbfStagingSession, exchangeDbfStagingHandoffViaBff, initializeDbfStagingSession } from "../js/dbf-staging-session-handoff-candidate.js";
 import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=98059284370E87B7";
 import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=06AD1D86CD8B66B5";
+import { BUSINESS_DATA_EMPTY_FIXTURE, renderBusinessDataManagementPreview } from "./business-data-management-preview.js";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 import { buildStoreWorkforceMonthlySummaryCsvTemplate } from "./store-workforce-monthly-summary-csv.js?v=4BA67C2DE5F7851E";
 import { renderStorePlQuickIntake } from "./store-pl-quick-intake.js?v=1B5686012CB9173B";
@@ -29,8 +31,18 @@ const elements = {
   financialPreviewFourAxis: byId("financial-local-preview-four-axis"), financialPreviewDepartments: byId("financial-local-preview-departments"),
   departmentTabs: byId("department-tabs"), departmentKpis: byId("department-kpis"), departmentRows: byId("department-rows"), departmentInsight: byId("department-insight"),
   storeScope: byId("store-scope"), storePlQuickIntake: byId("store-pl-quick-intake"), workforceEvidence: byId("workforce-evidence-status"), storeKpis: byId("store-kpis"), financialPreviewStores: byId("financial-local-preview-stores"), storeRows: byId("store-rows"), csvRequirements: byId("csv-requirements"),
-  dataGuide: byId("data-guide"), dataopsKpis: byId("dataops-kpis"), productionReadiness: byId("production-readiness-status"), financialDataIntake: byId("financial-data-intake"), workflow: byId("workflow"), stoppedItems: byId("stopped-items")
+  dataGuide: byId("data-guide"), dataopsKpis: byId("dataops-kpis"), productionReadiness: byId("production-readiness-status"), financialDataIntake: byId("financial-data-intake"), workflow: byId("workflow"), stoppedItems: byId("stopped-items"),
+  businessDataPreview: byId("business-data-management-preview")
 };
+elements.businessDataNavigation = byId("business-data-navigation");
+const runtimeEnvironment = window.__DBF_RUNTIME__;
+if (runtimeEnvironment?.environment === "staging"
+  && runtimeEnvironment?.projectRef === "zgkoofphhivesclehrom"
+  && runtimeEnvironment?.projectFingerprint === "fea6c6315484f1f8fd993c68bcdb12c00ea8b6b79b970b3ea363a531133d24ce") {
+  const indicator = byId("environment-indicator");
+  indicator.textContent = "STAGING";
+  indicator.hidden = false;
+}
 
 document.querySelectorAll(".tab, .section-tab").forEach((button) => button.addEventListener("click", () => {
   if (button.dataset.href) {
@@ -109,13 +121,24 @@ window.addEventListener("management-financial-local-preview-clear", () => {
   }
   renderDataops();
 });
-initialize();
+void initialize();
 
-function initialize() {
+async function initialize() {
   removeLegacyHubContextFromUrl();
-  const session = restoreNovHubSession();
+  let session = null;
+  if (runtimeEnvironment?.environment === "staging") {
+    try {
+      session = await initializeDbfStagingSession({ exchange: exchangeDbfStagingHandoffViaBff });
+    } catch (_error) {
+      return renderAuthRequired();
+    }
+  } else {
+    session = restoreNovHubSession();
+  }
   if (!session?.sessionToken) return renderAuthRequired();
-  setHubSessionAuth(session.sessionToken);
+  if (runtimeEnvironment?.environment === "staging") setDbfStagingSessionAuth(session.sessionToken);
+  else setHubSessionAuth(session.sessionToken);
+  void loadBusinessDataCapability();
   elements.connection.textContent = "接続済み";
   selectView(readHashView());
   window.addEventListener("hashchange", () => selectView(readHashView(), false));
@@ -129,7 +152,7 @@ function removeLegacyHubContextFromUrl() {
 }
 
 function readHashView() { const value = location.hash.replace(/^#\/?/, ""); return VIEWS.has(value) ? value : "overview"; }
-function viewSection(view) { return view === "stores" ? "stores" : "corporate"; }
+function viewSection(view) { return view === "stores" ? "stores" : view === "businessdata" ? "businessdata" : "corporate"; }
 function selectView(view, updateHash = true) {
   state.view = VIEWS.has(view) ? view : "overview";
   document.querySelectorAll(".tab").forEach((button) => button.classList.toggle("is-active", button.dataset.view === state.view));
@@ -144,6 +167,23 @@ function selectView(view, updateHash = true) {
   if (updateHash && location.hash !== `#${state.view}`) history.replaceState(null, "", `#${state.view}`);
   updateSectionDataBadges();
   loadCurrentView(false);
+}
+
+async function loadBusinessDataCapability() {
+  elements.businessDataNavigation.hidden = true;
+  try {
+    const response = await callApiAction("managementBusinessDataCapability", {});
+    if (response?.data?.capability?.businessDataAdmin !== true) return;
+    VIEWS.add("businessdata");
+    elements.businessDataNavigation.hidden = false;
+    renderBusinessDataManagementPreview(
+      elements.businessDataPreview,
+      runtimeEnvironment?.environment === "staging" ? { fixture: BUSINESS_DATA_EMPTY_FIXTURE } : {},
+    );
+  } catch (_error) {
+    VIEWS.delete("businessdata");
+    elements.businessDataNavigation.hidden = true;
+  }
 }
 
 function updateSectionDataBadges() {
@@ -170,6 +210,7 @@ function financialPendingCount() {
 }
 
 function loadCurrentView(force) {
+  if (state.view === "businessdata") return;
   if (FINANCE_VIEWS.has(state.view)) { if (force) state.finance = null; loadFinance(); return; }
   if (state.view === "stores") { if (force) state.stores = null; loadStores(); return; }
   if (force) state.dataops = null; loadDataops();
@@ -2382,6 +2423,11 @@ function renderAuthRequired() { elements.notice.hidden = false; elements.connect
 function renderError(error) {
   elements.notice.hidden = false;
   const code = String(error?.code || "");
-  if (["UNAUTHORIZED", "TOKEN_MISSING", "TOKEN_VERIFICATION_FAILED"].includes(code) || Number(error?.status) === 401) { handleNovHubSessionAuthFailure(401); clearNovHubSession(); renderAuthRequired(); return; }
+  if (["UNAUTHORIZED", "TOKEN_MISSING", "TOKEN_VERIFICATION_FAILED"].includes(code) || Number(error?.status) === 401) {
+    if (runtimeEnvironment?.environment === "staging") clearDbfStagingSession();
+    else { handleNovHubSessionAuthFailure(401); clearNovHubSession(); }
+    renderAuthRequired();
+    return;
+  }
   elements.connection.textContent = "確認が必要"; elements.notice.classList.add("is-error"); elements.noticeTitle.textContent = ["FORBIDDEN", "SCOPE_DENIED"].includes(code) ? "表示権限がありません" : code === "DATA_NOT_READY" ? "集計データが準備中です" : "データを読み込めませんでした"; elements.noticeBody.textContent = "HUBへ戻るか、時間をおいて再読み込みしてください。";
 }

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideanow-shift.github.io/contracts/nov-talent/selection-actual-coverage-v1.schema.json",
+  "title": "NOV Talent Selection Actual Coverage Release",
+  "x-selection-actual-coverage-contract-version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["recruitingTrack", "graduationYear", "periodStart", "periodEnd", "selectionCode", "coverageState", "version", "sourceBoundary", "sourceRowCount", "sourceDigest", "reason"],
+  "properties": {
+    "recruitingTrack": { "enum": ["NEW_GRAD", "MID_CAREER"] },
+    "graduationYear": { "type": ["integer", "null"], "minimum": 2020, "maximum": 2100 },
+    "periodStart": { "type": "string", "format": "date" },
+    "periodEnd": { "type": "string", "format": "date" },
+    "selectionCode": { "enum": ["APPLICATION_RECEIVED", "OFFERED", "OFFER_ACCEPTED"] },
+    "coverageState": { "enum": ["DRAFT", "REVIEWED", "COMPLETE", "SUPERSEDED"] },
+    "version": { "type": "integer", "minimum": 1 },
+    "sourceBoundary": { "type": "string", "minLength": 1, "maxLength": 1000 },
+    "sourceRowCount": { "type": "integer", "minimum": 0 },
+    "sourceDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "reason": { "type": "string", "minLength": 1, "maxLength": 500 }
+  }
+}

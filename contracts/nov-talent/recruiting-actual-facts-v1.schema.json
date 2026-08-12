@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideanow-shift.github.io/contracts/nov-talent/recruiting-actual-facts-v1.schema.json",
+  "title": "NOV Talent Recruiting Actual Facts Contract",
+  "x-recruiting-actual-fact-contract-version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["recruiting_actual_fact_contract_version", "planningBinding", "metrics", "budget"],
+  "properties": {
+    "recruiting_actual_fact_contract_version": { "const": "1.0.0" },
+    "planningBinding": { "$ref": "#/$defs/planningBinding" },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["CONTACT_COUNT", "SALON_VISIT_COUNT", "APPLICATION_COUNT", "OFFERED_COUNT", "OFFER_ACCEPTED_COUNT"],
+      "properties": {
+        "CONTACT_COUNT": { "$ref": "#/$defs/candidateMetric" },
+        "SALON_VISIT_COUNT": { "$ref": "#/$defs/candidateMetric" },
+        "APPLICATION_COUNT": { "$ref": "#/$defs/candidateMetric" },
+        "OFFERED_COUNT": { "$ref": "#/$defs/candidateMetric" },
+        "OFFER_ACCEPTED_COUNT": { "$ref": "#/$defs/candidateMetric" }
+      }
+    },
+    "budget": { "$ref": "#/$defs/budgetMetric" }
+  },
+  "$defs": {
+    "sourceStatus": { "enum": ["READY", "PARTIAL_SOURCE", "ACTUAL_SOURCE_UNAVAILABLE", "PREPARING"] },
+    "actualState": { "enum": ["ACTUAL_CONFIRMED", "ACTUAL_CONFIRMED_ZERO", "ACTUAL_PROVISIONAL", "UNAVAILABLE"] },
+    "planningBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["recruitingTrack", "graduationYear", "periodStart", "periodEnd", "scope"],
+      "properties": {
+        "recruitingTrack": { "enum": ["NEW_GRAD", "MID_CAREER"] },
+        "graduationYear": { "type": ["integer", "null"], "minimum": 2020, "maximum": 2100 },
+        "periodStart": { "type": "string", "format": "date" },
+        "periodEnd": { "type": "string", "format": "date" },
+        "scope": { "const": "COMPANY" }
+      }
+    },
+    "metricBase": {
+      "type": "object", "additionalProperties": false,
+      "required": ["targetStatus", "plan", "actualSourceStatus", "actualState", "actual", "referenceValue", "eventCount", "actualGrain", "remaining", "achievementRate", "coverageState", "sourceAsOf"],
+      "properties": {
+        "targetStatus": { "enum": ["APPROVED", "NO_APPROVED_TARGET"] },
+        "plan": { "type": ["integer", "null"], "minimum": 0 },
+        "actualSourceStatus": { "$ref": "#/$defs/sourceStatus" },
+        "actualState": { "$ref": "#/$defs/actualState" },
+        "actual": { "type": ["integer", "null"], "minimum": 0 },
+        "referenceValue": { "type": ["integer", "null"], "minimum": 0 },
+        "eventCount": { "type": ["integer", "null"], "minimum": 0 },
+        "actualGrain": { "enum": ["UNIQUE_CANDIDATE", "JPY"] },
+        "remaining": { "type": ["integer", "null"], "minimum": 0 },
+        "achievementRate": { "type": ["number", "null"], "minimum": 0 },
+        "coverageState": { "enum": ["COMPLETE", "PARTIAL", "UNAVAILABLE", "PREPARING"] },
+        "sourceAsOf": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "candidateMetric": {
+      "allOf": [
+        { "$ref": "#/$defs/metricBase" },
+        { "type": "object", "properties": { "actualGrain": { "const": "UNIQUE_CANDIDATE" } } }
+      ]
+    },
+    "budgetMetric": {
+      "allOf": [
+        { "$ref": "#/$defs/metricBase" },
+        { "type": "object", "properties": { "actualGrain": { "const": "JPY" } } }
+      ]
+    }
+  }
+}

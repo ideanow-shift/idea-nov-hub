@@ -2443,6 +2443,7 @@ function getPortalAppStatusCounts() {
 }
 
 function setButtonCount(button, count) {
+  if (!(button instanceof HTMLButtonElement)) return;
   if (!button.dataset.baseLabel) {
     button.dataset.baseLabel = button.textContent.trim();
   }
@@ -2469,7 +2470,7 @@ function updateNavigationCounts() {
     logs: state.logsLoaded ? state.logs.length : "",
     readiness: getHubReadinessItems().filter((item) => item.status !== "OK").length
   };
-  document.querySelectorAll("[data-view]").forEach((button) => {
+  document.querySelectorAll("button[data-view]").forEach((button) => {
     setButtonCount(button, viewCounts[button.dataset.view]);
   });
   document.querySelectorAll("[data-employee-status]").forEach((button) => {
@@ -2511,7 +2512,7 @@ function getStaffRoleBlockedReason(employee) {
 function render() {
   state.safeFallbackActive = false;
   elements.adminApp.dataset.view = state.view;
-  document.querySelectorAll("[data-view]").forEach((button) => {
+  document.querySelectorAll("button[data-view]").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === state.view);
   });
   elements.employeeStatusFilter.hidden = state.view !== "employees";
@@ -5846,7 +5847,7 @@ document.querySelectorAll("[data-app-status]").forEach((button) => {
     render();
   });
 });
-document.querySelectorAll("[data-view]").forEach((button) => {
+document.querySelectorAll("button[data-view]").forEach((button) => {
   button.addEventListener("click", () => {
     state.view = button.dataset.view;
     state.employeeIssueFilter = "";

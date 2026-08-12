@@ -1,0 +1,35 @@
+{
+  "contractVersion": "dbf_edge_root_routing_v1",
+  "baselineBundle": {
+    "version": 120,
+    "activeRollbackVersion": 122,
+    "sha256": "026a4d6f8e18237aea5d3b76508e5436a9dce6c93d08fc28f6c723d3d0c6d6cf"
+  },
+  "regressionBundle": {
+    "version": 121,
+    "sha256": "0beb1ac7a86472fe3dc61dea30db85ef74bb7b776b99f27a67ef9d7cd7413466"
+  },
+  "observedProbe": {
+    "intendedBodyClass": "json_action_payload",
+    "transmittedBodyClass": "malformed_json_after_native_shell_quoting",
+    "status": 404,
+    "routingBranch": "fixed_not_found_after_empty_action"
+  },
+  "cases": [
+    { "id": "get_liveness", "method": "GET", "path": "/nov-hub-api/healthz", "bodyClass": "none", "authClass": "none", "v120Status": 200, "v121Status": 200, "correctiveStatus": 200, "routingBranch": "liveness", "dataAccessed": false, "dbWrite": 0 },
+    { "id": "options_root", "method": "OPTIONS", "path": "/nov-hub-api", "bodyClass": "none", "authClass": "none", "v120Status": 204, "v121Status": 204, "correctiveStatus": 204, "routingBranch": "cors_preflight", "dataAccessed": false, "dbWrite": 0 },
+    { "id": "post_root_empty", "method": "POST", "path": "/nov-hub-api", "bodyClass": "empty_form", "authClass": "none", "v120Status": 404, "v121Status": 404, "correctiveStatus": 404, "routingBranch": "fixed_not_found_after_empty_action", "dataAccessed": false, "dbWrite": 0 },
+    { "id": "post_root_malformed_json", "method": "POST", "path": "/nov-hub-api", "bodyClass": "malformed_json", "authClass": "none", "v120Status": 404, "v121Status": 404, "correctiveStatus": 404, "routingBranch": "fixed_not_found_after_empty_action", "dataAccessed": false, "dbWrite": 0 },
+    { "id": "post_root_form_missing_auth", "method": "POST", "path": "/nov-hub-api", "bodyClass": "form_existing_action", "authClass": "none", "v120Status": 401, "v121Status": 401, "correctiveStatus": 401, "routingBranch": "existing_auth_fail_closed", "dataAccessed": false, "dbWrite": 0 },
+    { "id": "post_root_invalid_hub_session", "method": "POST", "path": "/nov-hub-api", "bodyClass": "form_existing_action", "authClass": "invalid_hub_session", "v120Status": 401, "v121Status": 401, "correctiveStatus": 401, "routingBranch": "existing_auth_fail_closed", "dataAccessed": false, "dbWrite": 0 },
+    { "id": "post_root_action_missing", "method": "POST", "path": "/functions/v1/nov-hub-api", "bodyClass": "json_action_missing", "authClass": "none", "v120Status": 404, "v121Status": 404, "correctiveStatus": 404, "routingBranch": "fixed_not_found_after_empty_action", "dataAccessed": false, "dbWrite": 0 },
+    { "id": "post_root_unknown_action", "method": "POST", "path": "/functions/v1/nov-hub-api", "bodyClass": "json_unknown_action", "authClass": "none", "v120Status": 401, "v121Status": 401, "correctiveStatus": 401, "routingBranch": "existing_auth_fail_closed", "dataAccessed": false, "dbWrite": 0 },
+    { "id": "post_root_existing_action_missing_auth", "method": "POST", "path": "/functions/v1/nov-hub-api", "bodyClass": "json_existing_action", "authClass": "none", "v120Status": 401, "v121Status": 401, "correctiveStatus": 401, "routingBranch": "existing_auth_fail_closed", "dataAccessed": false, "dbWrite": 0 },
+    { "id": "handoff_issue_missing_auth", "method": "POST", "path": "/functions/v1/nov-hub-api", "bodyClass": "json_handoff_issue", "authClass": "none", "v120Status": 401, "v121Status": 400, "correctiveStatus": 401, "routingBranch": "handoff_issue_auth_fail_closed", "dataAccessed": false, "dbWrite": 0 },
+    { "id": "handoff_issue_invalid_auth", "method": "POST", "path": "/functions/v1/nov-hub-api", "bodyClass": "json_handoff_issue", "authClass": "invalid_hub_session", "v120Status": 401, "v121Status": 400, "correctiveStatus": 401, "routingBranch": "handoff_issue_auth_fail_closed", "dataAccessed": false, "dbWrite": 0 },
+    { "id": "handoff_exchange_missing_iap", "method": "POST", "path": "/functions/v1/nov-hub-api", "bodyClass": "json_handoff_exchange", "authClass": "none", "v120Status": 401, "v121Status": 401, "correctiveStatus": 401, "routingBranch": "handoff_exchange_iap_fail_closed", "dataAccessed": false, "dbWrite": 0 },
+    { "id": "handoff_exchange_invalid_iap", "method": "POST", "path": "/functions/v1/nov-hub-api", "bodyClass": "json_handoff_exchange", "authClass": "invalid_iap", "v120Status": 401, "v121Status": 401, "correctiveStatus": 401, "routingBranch": "handoff_exchange_iap_fail_closed", "dataAccessed": false, "dbWrite": 0 },
+    { "id": "handoff_exchange_malformed", "method": "POST", "path": "/functions/v1/nov-hub-api", "bodyClass": "json_handoff_exchange_malformed", "authClass": "none", "v120Status": 401, "v121Status": 400, "correctiveStatus": 400, "routingBranch": "handoff_payload_rejected", "dataAccessed": false, "dbWrite": 0 },
+    { "id": "handoff_issue_actor_spoof", "method": "POST", "path": "/functions/v1/nov-hub-api", "bodyClass": "json_handoff_issue_actor_spoof", "authClass": "none", "v120Status": 401, "v121Status": 400, "correctiveStatus": 400, "routingBranch": "handoff_payload_rejected", "dataAccessed": false, "dbWrite": 0 }
+  ]
+}

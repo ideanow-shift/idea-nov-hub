@@ -2636,8 +2636,6 @@ function renderTable() {
     }
     if (rows.length && !elements.tableBody.children.length) {
       forceRecoveryEmployeeTable(rows);
-    } else if (rows.length) {
-      forceRecoveryEmployeeTable(rows);
     }
     applyStableLayoutStyles();
     return;

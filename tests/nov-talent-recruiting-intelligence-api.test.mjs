@@ -4,7 +4,7 @@ import { createHandler } from "../supabase/functions/nov-talent-staging-api/inde
 
 const ORIGIN = "https://ideanow-shift.github.io";
 const ID = "10000000-0000-4000-8000-000000000001";
-function request(method = "GET", authorized = true) { return new Request("https://staging.example.invalid/functions/v1/nov-talent-staging-api/api/talent/v1/recruiting-intelligence", { method, headers: { origin: ORIGIN, ...(authorized ? { authorization: `Bearer ${"a".repeat(32)}` } : {}) } }); }
+function request(method = "GET", authorized = true, suffix = "") { return new Request(`https://staging.example.invalid/functions/v1/nov-talent-staging-api/api/talent/v1/recruiting-intelligence${suffix}`, { method, headers: { origin: ORIGIN, ...(authorized ? { authorization: `Bearer ${"a".repeat(32)}` } : {}) } }); }
 function fixture({ failSelection = false, failFair = false, failPlanning = false, fairCount = 0, role = "hr.admin" } = {}) {
   const calls = [];
   return { calls, handler: createHandler({ hubApiUrl: "https://hub.example.invalid", supabaseUrl: "https://staging.example.invalid", serviceRoleKey: "fixture", now: () => new Date("2026-08-11T03:00:00Z"),
@@ -94,4 +94,19 @@ test("Fair Attribution HTTP 400 remains PREPARING instead of formal zero", async
   assert.equal(body.data.fairResults.state, "PREPARING");
   assert.equal(body.data.fairResults.confirmedOriginCandidateCount, null);
   assert.equal(body.data.managementDiagnostics.pendingFairAttributionRowCount, null);
+});
+
+test("Actual Fact 1.2 additive route is read-only and keeps empty foundations unavailable", async () => {
+  const run = fixture();
+  const response = await run.handler(request("GET", true, "/actual-facts"));
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.data.recruiting_intelligence_contract_version, "1.2.0");
+  assert.equal(body.data.planningBinding.graduationYear, 2027);
+  assert.equal(body.data.metrics.APPLICATION_COUNT.actual, null);
+  assert.equal(body.data.metrics.APPLICATION_COUNT.actualSourceStatus, "ACTUAL_SOURCE_UNAVAILABLE");
+  assert.equal(body.data.budget.actual, null);
+  assert.equal(run.calls.some((call) => call.method !== "GET" && !call.target.includes("hub.example.invalid")), false);
+  assert.equal(run.calls.some((call) => call.target.includes("/rpc/")), false);
+  assert.equal((await fixture().handler(request("GET", false, "/actual-facts"))).status, 401);
 });

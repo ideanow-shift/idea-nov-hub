@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { engagementActual, selectionActual, spendActual } from "../supabase/functions/nov-talent-staging-api/recruiting-actual-facts-v1.ts";
+import { buildRecruitingActualFactsV1, engagementActual, selectionActual, spendActual } from "../supabase/functions/nov-talent-staging-api/recruiting-actual-facts-v1.ts";
 
 const ids = new Set(["c1", "c2"]), period = { start: "2026-04-01", end: "2027-03-31" };
 
@@ -73,4 +73,29 @@ test("Actual Fact response contract distinguishes confirmed zero, provisional an
   assert.deepEqual(schema.$defs.sourceStatus.enum, ["READY", "PARTIAL_SOURCE", "ACTUAL_SOURCE_UNAVAILABLE", "PREPARING"]);
   assert.ok(schema.$defs.actualState.enum.includes("ACTUAL_CONFIRMED_ZERO"));
   assert.ok(schema.$defs.actualState.enum.includes("ACTUAL_PROVISIONAL"));
+});
+
+test("1.2 runtime binds approved 2027 Planning and does not turn empty foundations into zero", () => {
+  const data = buildRecruitingActualFactsV1({
+    candidates: [{ candidate_id: "c1", graduation_year: 2027 }], selections: [], engagementFacts: [], coverageReleases: [], spendFacts: [],
+    planningTargets: [
+      ["CONTACT_COUNT",563],["SALON_VISIT_COUNT",112],["APPLICATION_COUNT",45],["OFFERED_COUNT",37],["OFFER_ACCEPTED_COUNT",37]
+    ].map(([target_metric,target_count]) => ({ recruiting_track:"NEW_GRAD", graduation_year:2027, scope_type:"COMPANY", record_state:"APPROVED", recruiting_period_start:"2026-04-01", recruiting_period_end:"2027-03-31", target_metric, target_count })),
+    planningBudgets: [{ recruiting_track:"NEW_GRAD", graduation_year:2027, scope_type:"COMPANY", record_state:"APPROVED", recruiting_period_start:"2026-04-01", recruiting_period_end:"2027-03-31", total_budget:7385350 }],
+    availability: { selections:true, engagementFacts:true, coverageReleases:true, spendFacts:true, planningTargets:true, planningBudgets:true }
+  });
+  assert.equal(data.recruiting_intelligence_contract_version, "1.2.0");
+  assert.deepEqual(data.planningBinding, { recruitingTrack:"NEW_GRAD", graduationYear:2027, periodStart:"2026-04-01", periodEnd:"2027-03-31", scope:"COMPANY" });
+  assert.equal(data.metrics.CONTACT_COUNT.actualSourceStatus, "ACTUAL_SOURCE_UNAVAILABLE");
+  assert.equal(data.metrics.APPLICATION_COUNT.actualState, "UNAVAILABLE");
+  assert.equal(data.metrics.APPLICATION_COUNT.actual, null);
+  assert.equal(data.budget.plan, 7385350);
+  assert.equal(data.budget.actual, null);
+});
+
+test("FK index corrective is forward-only and contains exactly the six required indexes", async () => {
+  const sql = await readFile(new URL("../supabase/migrations/20260812035051_nov_talent_recruiting_actual_fact_fk_indexes.sql", import.meta.url), "utf8");
+  assert.equal((sql.match(/create index /g) || []).length, 6);
+  assert.doesNotMatch(sql, /\b(drop|delete|update|insert|truncate|alter\s+table)\b/i);
+  for (const column of ["candidate_id", "engagement_fact_id", "supersedes_release_id", "superseded_by_release_id", "coverage_release_id", "spend_fact_id"]) assert.match(sql, new RegExp(`\\(${column}\\)`));
 });

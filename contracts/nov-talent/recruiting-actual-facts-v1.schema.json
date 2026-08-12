@@ -5,9 +5,10 @@
   "x-recruiting-actual-fact-contract-version": "1.0.0",
   "type": "object",
   "additionalProperties": false,
-  "required": ["recruiting_actual_fact_contract_version", "planningBinding", "metrics", "budget"],
+  "required": ["recruiting_actual_fact_contract_version", "recruiting_intelligence_contract_version", "planningBinding", "metrics", "budget"],
   "properties": {
     "recruiting_actual_fact_contract_version": { "const": "1.0.0" },
+    "recruiting_intelligence_contract_version": { "const": "1.2.0" },
     "planningBinding": { "$ref": "#/$defs/planningBinding" },
     "metrics": {
       "type": "object",

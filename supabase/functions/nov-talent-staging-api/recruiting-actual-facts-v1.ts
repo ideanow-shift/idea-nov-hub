@@ -57,3 +57,44 @@ export function spendActual(input: { plan: number | null; sourceStatus: ActualSo
   const provisional = rows.filter((row: any) => row.spend_status === "PROVISIONAL").reduce((sum: number, row: any) => sum + Number(row.amount), 0);
   return result(input.plan, input.sourceStatus, confirmed, provisional, rows.length, "JPY");
 }
+
+const coverageState = (rows: any[], metric: string, start: string, end: string) => {
+  const current = rows.find((row: any) => row.selection_code === metric && row.coverage_state === "COMPLETE"
+    && row.recruiting_period_start === start && row.recruiting_period_end === end && !row.superseded_by_release_id);
+  return current ? "COMPLETE" as const : "UNAVAILABLE" as const;
+};
+
+export function buildRecruitingActualFactsV1(input: {
+  candidates: any[]; selections: any[]; engagementFacts: any[]; coverageReleases: any[]; spendFacts: any[];
+  planningTargets: any[]; planningBudgets: any[]; availability: Record<string, boolean>;
+}) {
+  const targets = input.planningTargets.filter((row: any) => row.recruiting_track === "NEW_GRAD" && row.graduation_year === 2027
+    && row.scope_type === "COMPANY" && row.record_state === "APPROVED");
+  const target = new Map(targets.map((row: any) => [row.target_metric, Number(row.target_count)]));
+  const first = targets[0];
+  const budgetRow = input.planningBudgets.find((row: any) => row.recruiting_track === "NEW_GRAD" && row.graduation_year === 2027
+    && row.scope_type === "COMPANY" && row.record_state === "APPROVED");
+  const start = first?.recruiting_period_start || "2026-04-01";
+  const end = first?.recruiting_period_end || "2027-03-31";
+  const candidateIds = new Set(input.candidates.filter((row: any) => Number(row.graduation_year) === 2027).map((row: any) => String(row.candidate_id)));
+  const engagementStatus: ActualSourceStatus = !input.availability.engagementFacts ? "PREPARING" : "ACTUAL_SOURCE_UNAVAILABLE";
+  const spendStatus: ActualSourceStatus = !input.availability.spendFacts ? "PREPARING" : input.spendFacts.length ? "PARTIAL_SOURCE" : "ACTUAL_SOURCE_UNAVAILABLE";
+  const selectionCoverage = (metric: string) => !input.availability.coverageReleases || !input.availability.selections ? "PREPARING" as const
+    : coverageState(input.coverageReleases, metric, start, end);
+  const decorate = (plan: number | null, value: MetricResult, coverage: "COMPLETE" | "PARTIAL" | "UNAVAILABLE" | "PREPARING") => ({
+    targetStatus: plan === null ? "NO_APPROVED_TARGET" : "APPROVED", plan, ...value, coverageState: coverage, sourceAsOf: null
+  });
+  return {
+    recruiting_actual_fact_contract_version: RECRUITING_ACTUAL_FACT_CONTRACT_VERSION,
+    recruiting_intelligence_contract_version: RECRUITING_INTELLIGENCE_ACTUAL_CONTRACT_VERSION,
+    planningBinding: { recruitingTrack: "NEW_GRAD", graduationYear: 2027, periodStart: start, periodEnd: end, scope: "COMPANY" },
+    metrics: {
+      CONTACT_COUNT: decorate(target.get("CONTACT_COUNT") ?? null, engagementActual({ plan: target.get("CONTACT_COUNT") ?? null, type: "CONTACT", sourceStatus: engagementStatus, rows: input.engagementFacts, candidateIds, start, end }), engagementStatus === "PREPARING" ? "PREPARING" : "UNAVAILABLE"),
+      SALON_VISIT_COUNT: decorate(target.get("SALON_VISIT_COUNT") ?? null, engagementActual({ plan: target.get("SALON_VISIT_COUNT") ?? null, type: "SALON_VISIT", sourceStatus: engagementStatus, rows: input.engagementFacts, candidateIds, start, end }), engagementStatus === "PREPARING" ? "PREPARING" : "UNAVAILABLE"),
+      APPLICATION_COUNT: decorate(target.get("APPLICATION_COUNT") ?? null, selectionActual({ plan: target.get("APPLICATION_COUNT") ?? null, selectionCode: "APPLICATION_RECEIVED", coverageState: selectionCoverage("APPLICATION_RECEIVED"), rows: input.selections, candidateIds, start, end }), selectionCoverage("APPLICATION_RECEIVED")),
+      OFFERED_COUNT: decorate(target.get("OFFERED_COUNT") ?? null, selectionActual({ plan: target.get("OFFERED_COUNT") ?? null, selectionCode: "OFFERED", coverageState: selectionCoverage("OFFERED"), rows: input.selections, candidateIds, start, end }), selectionCoverage("OFFERED")),
+      OFFER_ACCEPTED_COUNT: decorate(target.get("OFFER_ACCEPTED_COUNT") ?? null, selectionActual({ plan: target.get("OFFER_ACCEPTED_COUNT") ?? null, selectionCode: "OFFER_ACCEPTED", coverageState: selectionCoverage("OFFER_ACCEPTED"), rows: input.selections, candidateIds, start, end }), selectionCoverage("OFFER_ACCEPTED"))
+    },
+    budget: decorate(budgetRow ? Number(budgetRow.total_budget) : null, spendActual({ plan: budgetRow ? Number(budgetRow.total_budget) : null, sourceStatus: spendStatus, rows: input.spendFacts, track: "NEW_GRAD", graduationYear: 2027, start, end }), spendStatus === "PREPARING" ? "PREPARING" : spendStatus === "PARTIAL_SOURCE" ? "PARTIAL" : "UNAVAILABLE")
+  };
+}

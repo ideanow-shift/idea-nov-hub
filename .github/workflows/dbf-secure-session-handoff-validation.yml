@@ -1,0 +1,51 @@
+name: DBF Secure Session Handoff Validation
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dbf-secure-session-handoff-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type check Edge runtime
+        run: deno check supabase/functions/nov-hub-api/index.ts
+      - name: Install isolated fresh-Postgres fixture
+        run: npm install --prefix tmp/dbf-pglite-fixture --no-save @electric-sql/pglite@0.5.4
+      - name: Build isolated Staging browser artifact
+        run: node tools/build-dbf-staging-pages.mjs
+      - name: Run handoff contract regression
+        run: |
+          node tests/dbf-edge-iap-assertion-validator.test.mjs
+          node tests/dbf-hub-session-handoff.test.mjs
+          node tests/dbf-handoff-actions-launcher.test.mjs
+          node tests/dbf-handoff-bff-frontend.test.mjs
+          node tests/dbf-secure-session-handoff-fresh-postgres.test.mjs
+          node tests/dbf-secure-session-handoff-deployment-package.test.mjs
+      - name: Run DBF and NOV HUB read-only regression
+        run: |
+          deno test tests/dbf-business-data-capability.test.ts
+          node tests/dbf-business-data-ui-preview.test.mjs
+          node tests/management-navigation-simplification.test.mjs
+      - name: Reject Production refs and secrets in browser and container sources
+        shell: bash
+        run: |
+          if grep -R -E 'service_role|DB_PASSWORD|PRIVATE KEY|nkmxevmioczcmnldreyo|P/L実データ|B/S実データ' build/dbf-staging-pages deploy/dbf-cloud-run-staging-bff-candidate; then
+            echo "Forbidden Production reference or secret-like value detected."
+            exit 1
+          fi

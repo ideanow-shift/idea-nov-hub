@@ -1,0 +1,76 @@
+name: DBF Secure Session Handoff Validation
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/dbf-secure-session-handoff-validation.yml"
+      - ".github/workflows/dbf-cloud-run-iap-staging-candidate.yml"
+      - "deploy/dbf-cloud-run-staging-bff-candidate/**"
+      - "docs/dbf-hub-session-handoff-design-20260812.md"
+      - "docs/dbf-secure-session-handoff-deployment-package-20260812.md"
+      - "portal/index.html"
+      - "portal/js/api.js"
+      - "portal/js/auth.js"
+      - "portal/js/dbf-staging-launcher-candidate.js"
+      - "portal/js/dbf-staging-session-handoff-candidate.js"
+      - "portal/js/main.js"
+      - "portal/js/management-business-data.js"
+      - "portal/system-master.html"
+      - "review/dbf-hub-session-handoff-contract-v1.json"
+      - "review/dbf-secure-session-handoff-deployment-package-v1.json"
+      - "review/dbf-secure-session-handoff-fresh-postgres-result-20260812.json"
+      - "supabase/functions/nov-hub-api/dbf_handoff_actions_candidate.mjs"
+      - "supabase/functions/nov-hub-api/dbf_iap_assertion_validator_candidate.mjs"
+      - "supabase/functions/nov-hub-api/dbf_session_handoff_candidate.mjs"
+      - "supabase/functions/nov-hub-api/dbf_staging_session_candidate.mjs"
+      - "supabase/functions/nov-hub-api/index.ts"
+      - "supabase/functions/nov-hub-api/management_readonly_candidate.ts"
+      - "supabase/migrations/20260812105304_dbf_secure_session_handoff_store.sql"
+      - "tests/dbf-edge-iap-assertion-validator.test.mjs"
+      - "tests/dbf-handoff-actions-launcher.test.mjs"
+      - "tests/dbf-handoff-bff-frontend.test.mjs"
+      - "tests/dbf-hub-session-handoff.test.mjs"
+      - "tests/dbf-secure-session-handoff-deployment-package.test.mjs"
+      - "tests/dbf-secure-session-handoff-fresh-postgres.test.mjs"
+      - "tools/build-dbf-staging-pages.mjs"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dbf-secure-session-handoff-validation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type check Edge runtime
+        run: deno check supabase/functions/nov-hub-api/index.ts
+      - name: Install isolated fresh-Postgres fixture
+        run: npm install --prefix tmp/dbf-pglite-fixture --no-save @electric-sql/pglite@0.5.4
+      - name: Run handoff contract regression
+        run: |
+          node tests/dbf-edge-iap-assertion-validator.test.mjs
+          node tests/dbf-hub-session-handoff.test.mjs
+          node tests/dbf-handoff-actions-launcher.test.mjs
+          node tests/dbf-handoff-bff-frontend.test.mjs
+          node tests/dbf-secure-session-handoff-fresh-postgres.test.mjs
+          node tests/dbf-secure-session-handoff-deployment-package.test.mjs
+      - name: Build isolated Staging browser artifact
+        run: node tools/build-dbf-staging-pages.mjs
+      - name: Reject Production refs and secrets in browser artifact
+        shell: bash
+        run: |
+          if grep -R -E 'service_role|DB_PASSWORD|PRIVATE KEY|nkmxevmioczcmnldreyo|P/L実データ|B/S実データ' build/dbf-staging-pages; then
+            echo "Forbidden Production reference or secret-like value detected."
+            exit 1
+          fi

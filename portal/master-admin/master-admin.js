@@ -9,7 +9,7 @@ const MANAGEMENT_FIREBASE_TOKEN_KEY = "ideaNov.management.firebaseIdToken";
 const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
-const MASTER_ADMIN_RECOVERY_LABEL = "マスタ管理 v32";
+const MASTER_ADMIN_RECOVERY_LABEL = "マスタ管理 v33";
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -102,6 +102,7 @@ const state = {
   employeeIssueFilter: "",
   safeSearch: "",
   safeRecoveryMode: "edit",
+  safeFallbackActive: false,
   corporationStatus: "active",
   storeStatus: "active",
   appStatus: "active",
@@ -263,8 +264,8 @@ function installRuntimeLayoutStyles() {
   }
   style.textContent = `
     [hidden] { display: none !important; }
-    body { margin: 0 !important; background: #fafafa !important; color: #111827 !important; font-family: system-ui, -apple-system, "Segoe UI", sans-serif !important; }
-    body.master-admin-safe-mode { overflow: hidden !important; }
+    body { margin: 0 !important; background: #fafafa !important; color: #111827 !important; font-family: var(--font-family) !important; }
+    body.master-admin-safe-mode { overflow-x: hidden !important; }
     body.master-admin-safe-mode .admin-shell { display: none !important; visibility: hidden !important; height: 0 !important; overflow: hidden !important; pointer-events: none !important; }
     .admin-app:not([hidden]) { display: block !important; width: 100% !important; }
     .auth-panel:not([hidden]), .loading-panel:not([hidden]) { display: grid !important; }
@@ -282,7 +283,7 @@ function installRuntimeLayoutStyles() {
     tbody { display: table-row-group !important; }
     tr { display: table-row !important; }
     th, td { display: table-cell !important; border-bottom: 1px solid #e5e7eb !important; padding: 11px 10px !important; text-align: left !important; white-space: nowrap !important; vertical-align: middle !important; }
-    #master-admin-safe-view { position: fixed !important; inset: 88px 0 0 0 !important; z-index: 5000 !important; display: block !important; overflow: auto !important; background: #fafafa !important; padding: 22px !important; box-sizing: border-box !important; }
+    #master-admin-safe-view { position: relative !important; inset: auto !important; z-index: 1 !important; display: block !important; overflow: visible !important; background: #fafafa !important; padding: 22px !important; box-sizing: border-box !important; }
     .safe-master-shell { width: min(100%, 1280px) !important; margin: 0 auto !important; display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(420px, 500px) !important; gap: 16px !important; align-items: start !important; }
     .safe-master-card { border: 1px solid #e5e7eb !important; border-radius: 14px !important; background: #fff !important; padding: 16px !important; box-sizing: border-box !important; }
     .safe-master-header { display: flex !important; flex-wrap: wrap !important; align-items: center !important; justify-content: space-between !important; gap: 12px !important; margin-bottom: 14px !important; }
@@ -299,7 +300,7 @@ function installRuntimeLayoutStyles() {
     .safe-master-table th, .safe-master-table td { display: table-cell !important; border-bottom: 1px solid #edf0f4 !important; padding: 10px 11px !important; white-space: nowrap !important; text-align: left !important; vertical-align: middle !important; }
     .safe-master-table tr.selected, .safe-master-table tr:hover { background: #fff7f7 !important; }
     .safe-master-pill { display: inline-flex !important; align-items: center !important; justify-content: center !important; min-width: 52px !important; border-radius: 999px !important; background: #f3f4f6 !important; color: #374151 !important; font-size: 12px !important; font-weight: 700 !important; padding: 3px 8px !important; }
-    .safe-master-detail { position: sticky !important; top: 106px !important; max-height: calc(100vh - 130px) !important; overflow: auto !important; }
+    .safe-master-detail { position: sticky !important; top: 16px !important; max-height: calc(100vh - 32px) !important; overflow: auto !important; }
     .safe-master-profile { display: grid !important; grid-template-columns: 64px minmax(0, 1fr) !important; gap: 12px !important; align-items: center !important; margin: 12px 0 !important; padding: 12px !important; border: 1px solid #f1f5f9 !important; border-radius: 14px !important; background: #fffafa !important; }
     .safe-master-profile-visual { width: 64px !important; height: 64px !important; border-radius: 18px !important; overflow: hidden !important; background: #f3f4f6 !important; display: grid !important; place-items: center !important; color: #6b7280 !important; font-size: 24px !important; font-weight: 800 !important; }
     .safe-master-profile-visual img { display: block !important; width: 100% !important; height: 100% !important; object-fit: cover !important; }
@@ -335,7 +336,7 @@ function installRuntimeLayoutStyles() {
     .data-intake-result.warning { border-color: #f0d9a8 !important; background: #fff9ec !important; }
     .data-intake-error-list, .data-intake-preview-list { display: grid !important; gap: 6px !important; font-size: 12px !important; line-height: 1.6 !important; overflow-wrap: anywhere !important; }
     @media (max-width: 900px) {
-      #master-admin-safe-view { top: 78px !important; padding: 14px !important; }
+      #master-admin-safe-view { padding: 14px !important; }
       .safe-master-shell { grid-template-columns: 1fr !important; }
       .safe-master-detail { position: static !important; max-height: none !important; }
       .data-intake-hero { grid-template-columns: 1fr !important; }
@@ -344,6 +345,12 @@ function installRuntimeLayoutStyles() {
 }
 
 function applyStableLayoutStyles() {
+  // The external stylesheet is the canonical layout. Runtime CSS is reserved
+  // for the explicit degraded-mode renderer only.
+  if (!state.safeFallbackActive) {
+    showRecoveryVersionMarker();
+    return;
+  }
   installRuntimeLayoutStyles();
   setStyles(document.body, {
     margin: "0",
@@ -1628,6 +1635,10 @@ function appendSafeCorporationEditForm(detailCard, corporation) {
 }
 
 function renderSafeMasterAdminView() {
+  if (!state.safeFallbackActive) {
+    removeSafeMasterAdminView();
+    return;
+  }
   if (!["employees", "firebase", "stores", "corporations", "data-intake"].includes(state.view)) {
     removeSafeMasterAdminView();
     return;
@@ -2498,6 +2509,7 @@ function getStaffRoleBlockedReason(employee) {
 }
 
 function render() {
+  state.safeFallbackActive = false;
   elements.adminApp.dataset.view = state.view;
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === state.view);
@@ -2548,9 +2560,28 @@ function render() {
   } catch (error) {
     console.warn("master admin detail fallback", { code: error?.name || "detail_render_error" });
     elements.detailPanel.innerHTML = `<div class="empty-detail">左の一覧から編集対象を選んでください。</div>`;
+    state.safeFallbackActive = true;
   }
+  syncResponsiveDetailMode();
   applyStableLayoutStyles();
   renderSafeMasterAdminView();
+}
+
+function syncResponsiveDetailMode() {
+  const detailViews = new Set(["employees", "firebase", "stores", "corporations", "apps", "permissions", "logs", "readiness"]);
+  const detailOpen = detailViews.has(state.view) && Boolean(state.selectedId);
+  elements.adminApp.classList.toggle("detail-open", detailOpen);
+  elements.detailPanel.querySelector(".mobile-detail-back")?.remove();
+  if (!detailOpen) return;
+  const backButton = document.createElement("button");
+  backButton.type = "button";
+  backButton.className = "button button-secondary mobile-detail-back";
+  backButton.textContent = "一覧へ戻る";
+  backButton.addEventListener("click", () => {
+    state.selectedId = "";
+    render();
+  });
+  elements.detailPanel.prepend(backButton);
 }
 
 function renderTable() {

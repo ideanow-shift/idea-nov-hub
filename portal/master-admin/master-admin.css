@@ -1997,3 +1997,275 @@ tr.selected {
   color: var(--text-primary);
   font-weight: 600;
 }
+
+/* 2026-08 layout corrective: the stylesheet is the canonical layout surface. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family);
+  overflow-x: hidden;
+}
+
+.admin-header {
+  position: relative;
+}
+
+.admin-shell {
+  max-width: 1280px;
+  padding: 20px 24px 28px;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: start;
+}
+
+.toolbar-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, max-content));
+  justify-content: end;
+}
+
+.workspace,
+.admin-app[data-view="stores"] .workspace,
+.admin-app[data-view="corporations"] .workspace {
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 500px);
+}
+
+.detail-panel {
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.table-wrap {
+  max-width: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.mobile-detail-back {
+  display: none;
+}
+
+@media (max-width: 1180px) {
+  .toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar-actions {
+    grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+    justify-content: stretch;
+  }
+
+  .toolbar-actions > * {
+    width: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 12px 16px;
+  }
+
+  .admin-shell {
+    width: 100%;
+    padding: 14px;
+  }
+
+  .toolbar-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .segmented,
+  .toolbar-actions .button,
+  .filter-chip,
+  .csv-tools .button,
+  .csv-tools .csv-import-label {
+    min-width: 0;
+    min-height: 44px;
+    width: 100%;
+    padding-inline: 10px;
+    white-space: normal;
+  }
+
+  .status-filter,
+  .csv-tools {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .csv-tools-note {
+    grid-column: 1 / -1;
+  }
+
+  .workspace,
+  .admin-app[data-view="stores"] .workspace,
+  .admin-app[data-view="corporations"] .workspace {
+    display: block;
+  }
+
+  .detail-panel {
+    display: none;
+    position: static;
+    max-height: none;
+    overflow: visible;
+    padding: 14px;
+  }
+
+  .admin-app.detail-open .list-panel {
+    display: none;
+  }
+
+  .admin-app.detail-open .toolbar {
+    display: none;
+  }
+
+  .admin-app.detail-open .detail-panel {
+    display: block;
+  }
+
+  .mobile-detail-back {
+    display: inline-flex;
+    width: 100%;
+    margin-bottom: 12px;
+  }
+
+  .table-wrap {
+    overflow-x: hidden;
+    max-height: none;
+  }
+
+  .table-wrap thead {
+    display: none;
+  }
+
+  .table-wrap table,
+  .table-wrap tbody,
+  .table-wrap tr,
+  .table-wrap td {
+    display: block;
+    width: 100%;
+  }
+
+  .table-wrap tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .table-wrap tr {
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: #FFFFFF;
+    padding: 8px 12px;
+  }
+
+  .table-wrap td {
+    display: grid;
+    grid-template-columns: minmax(92px, 0.38fr) minmax(0, 1fr);
+    gap: 10px;
+    border-bottom: 1px solid var(--border-light);
+    padding: 9px 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .table-wrap td:last-child {
+    border-bottom: 0;
+  }
+
+  .admin-app[data-view="employees"] td:nth-child(1)::before,
+  .admin-app[data-view="firebase"] td:nth-child(1)::before { content: "社員番号"; }
+  .admin-app[data-view="employees"] td:nth-child(2)::before,
+  .admin-app[data-view="firebase"] td:nth-child(2)::before { content: "氏名"; }
+  .admin-app[data-view="employees"] td:nth-child(3)::before,
+  .admin-app[data-view="firebase"] td:nth-child(3)::before { content: "所属"; }
+  .admin-app[data-view="employees"] td:nth-child(4)::before,
+  .admin-app[data-view="firebase"] td:nth-child(4)::before { content: "役職"; }
+  .admin-app[data-view="employees"] td:nth-child(5)::before,
+  .admin-app[data-view="firebase"] td:nth-child(5)::before { content: "メール"; }
+  .admin-app[data-view="employees"] td:nth-child(6)::before,
+  .admin-app[data-view="firebase"] td:nth-child(6)::before { content: "ログイン"; }
+  .admin-app[data-view="employees"] td:nth-child(7)::before,
+  .admin-app[data-view="firebase"] td:nth-child(7)::before { content: "通知先"; }
+  .admin-app[data-view="employees"] td:nth-child(8)::before,
+  .admin-app[data-view="firebase"] td:nth-child(8)::before { content: "未設定"; }
+  .admin-app[data-view="employees"] td:nth-child(9)::before,
+  .admin-app[data-view="firebase"] td:nth-child(9)::before { content: "状態"; }
+
+  .admin-app[data-view="stores"] td:nth-child(1)::before { content: "店舗No"; }
+  .admin-app[data-view="stores"] td:nth-child(2)::before { content: "店舗ID"; }
+  .admin-app[data-view="stores"] td:nth-child(3)::before { content: "店舗名"; }
+  .admin-app[data-view="stores"] td:nth-child(4)::before { content: "事業"; }
+  .admin-app[data-view="stores"] td:nth-child(5)::before { content: "未設定"; }
+  .admin-app[data-view="stores"] td:nth-child(6)::before { content: "状態"; }
+
+  .admin-app[data-view="corporations"] td:nth-child(1)::before { content: "法人No"; }
+  .admin-app[data-view="corporations"] td:nth-child(2)::before { content: "法人名"; }
+  .admin-app[data-view="corporations"] td:nth-child(3)::before { content: "正式名"; }
+  .admin-app[data-view="corporations"] td:nth-child(4)::before { content: "決算月"; }
+  .admin-app[data-view="corporations"] td:nth-child(5)::before { content: "状況"; }
+  .admin-app[data-view="corporations"] td:nth-child(6)::before { content: "有効"; }
+
+  .admin-app[data-view="apps"] td:nth-child(1)::before { content: "アプリID"; }
+  .admin-app[data-view="apps"] td:nth-child(2)::before { content: "アプリ名"; }
+  .admin-app[data-view="apps"] td:nth-child(3)::before { content: "カテゴリ"; }
+  .admin-app[data-view="apps"] td:nth-child(4)::before { content: "必要権限"; }
+  .admin-app[data-view="apps"] td:nth-child(5)::before { content: "表示"; }
+  .admin-app[data-view="apps"] td:nth-child(6)::before { content: "優先度"; }
+
+  .admin-app[data-view="permissions"] td:nth-child(1)::before { content: "アプリ"; }
+  .admin-app[data-view="permissions"] td:nth-child(2)::before { content: "権限"; }
+  .admin-app[data-view="permissions"] td:nth-child(3)::before { content: "role_key"; }
+  .admin-app[data-view="permissions"] td:nth-child(4)::before { content: "現職"; }
+  .admin-app[data-view="permissions"] td:nth-child(5)::before { content: "全員"; }
+
+  .admin-app[data-view="logs"] td:nth-child(1)::before { content: "日時"; }
+  .admin-app[data-view="logs"] td:nth-child(2)::before { content: "対象"; }
+  .admin-app[data-view="logs"] td:nth-child(3)::before { content: "変更者"; }
+  .admin-app[data-view="logs"] td:nth-child(4)::before { content: "変更内容"; }
+
+  .admin-app[data-view="readiness"] td:nth-child(1)::before { content: "判定"; }
+  .admin-app[data-view="readiness"] td:nth-child(2)::before { content: "項目"; }
+  .admin-app[data-view="readiness"] td:nth-child(3)::before { content: "件数"; }
+  .admin-app[data-view="readiness"] td:nth-child(4)::before { content: "次の対応"; }
+
+  .table-wrap td::before {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .employee-detail-header,
+  .employee-detail-nav,
+  .save-row {
+    position: static;
+  }
+
+  .employee-detail-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .employee-detail-nav button:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .save-row {
+    margin-inline: 0;
+    margin-bottom: 0;
+    padding-inline: 0;
+  }
+
+  .admin-app[data-view="data-intake"] .detail-panel {
+    display: block;
+    margin-top: 12px;
+  }
+}

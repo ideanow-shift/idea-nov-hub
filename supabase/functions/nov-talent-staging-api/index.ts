@@ -10,6 +10,7 @@ import { buildRecruitingIntelligenceV1, validateRecruitingIntelligenceResponseV1
 import { cleanRecruitingTargetDraft, cleanRecruitingTargetStateCommand, recruitingTargetEnvelope } from "./recruiting-target-v1.ts";
 import { cleanPlanningBudgetDraft, cleanPlanningCorrection, cleanPlanningState, cleanPlanningTargetDraft, planningCapabilityEnvelope, planningEnvelope } from "./recruiting-planning-v1.ts";
 import { newGrad2027CorrectionPreflight } from "./new-grad-2027-correction.ts";
+import { buildRecruitingActualFactsV1 } from "./recruiting-actual-facts-v1.ts";
 
 const ORIGIN = "https://ideanow-shift.github.io";
 const PREFIXES = ["", "/nov-talent-staging-api", "/functions/v1/nov-talent-staging-api"];
@@ -621,6 +622,22 @@ async function recruitingIntelligence(runtime: Runtime, candidates: any[], curre
   });
 }
 
+async function recruitingActualFacts(runtime: Runtime, candidates: any[], requestId: string) {
+  const requests = [
+    ["selections", "/rest/v1/nov_talent_selection_history_v1?select=candidate_id,selection_code,effective_date,is_active&is_active=eq.true&limit=5000"],
+    ["engagementFacts", "/rest/v1/nov_talent_recruiting_engagement_facts_v1?select=engagement_fact_id,candidate_id,engagement_type,occurred_at,engagement_status,correction_of_fact_id&limit=5000"],
+    ["coverageReleases", "/rest/v1/nov_talent_selection_coverage_releases_v1?select=selection_code,recruiting_period_start,recruiting_period_end,coverage_state,superseded_by_release_id&limit=1000"],
+    ["spendFacts", "/rest/v1/nov_talent_recruiting_spend_facts_v1?select=spend_fact_id,recruiting_track,graduation_year,occurred_at,amount,spend_status,correction_of_fact_id&limit=5000"],
+    ["planningTargets", "/rest/v1/nov_talent_recruiting_funnel_targets_v1?select=recruiting_track,graduation_year,target_metric,recruiting_period_start,recruiting_period_end,scope_type,target_count,record_state&record_state=eq.APPROVED&limit=1000"],
+    ["planningBudgets", "/rest/v1/nov_talent_recruiting_budgets_v1?select=recruiting_track,graduation_year,recruiting_period_start,recruiting_period_end,scope_type,total_budget,record_state&record_state=eq.APPROVED&limit=1000"]
+  ] as const;
+  const results = await Promise.all(requests.map(([view, path]) => readView(runtime, { requestId, endpoint: "recruiting_actual_facts", view, path, fatal: false })));
+  const byName = Object.fromEntries(requests.map(([name], index) => [name, results[index]]));
+  return buildRecruitingActualFactsV1({ candidates, selections: byName.selections.rows, engagementFacts: byName.engagementFacts.rows,
+    coverageReleases: byName.coverageReleases.rows, spendFacts: byName.spendFacts.rows, planningTargets: byName.planningTargets.rows,
+    planningBudgets: byName.planningBudgets.rows, availability: Object.fromEntries(requests.map(([name], index) => [name, results[index].available])) });
+}
+
 export function createHandler(runtime: Runtime) {
   return async (request: Request) => {
     const origin = request.headers.get("origin") || "";
@@ -847,6 +864,9 @@ export function createHandler(runtime: Runtime) {
         return fail(503, "RECRUITING_INTELLIGENCE_CONTRACT_INVALID", origin);
       }
       return out(200, contractResult.value, origin);
+    }
+    if (request.method === "GET" && path.endsWith("/api/talent/v1/recruiting-intelligence/actual-facts")) {
+      return out(200, { ok: true, data: await recruitingActualFacts(runtime, rows, requestId) }, origin);
     }
     if (request.method === "GET" && path.endsWith("/api/talent/v1/daily-workflow")) {
       const activeCandidateIds = new Set(rows.map((row:any) => String(row.candidate_id || "")).filter(Boolean));

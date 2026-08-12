@@ -40,8 +40,9 @@
     },
     "metricBase": {
       "type": "object", "additionalProperties": false,
-      "required": ["targetStatus", "plan", "actualSourceStatus", "actualState", "actual", "referenceValue", "eventCount", "actualGrain", "remaining", "achievementRate", "coverageState", "sourceAsOf"],
+      "required": ["state", "targetStatus", "plan", "actualSourceStatus", "actualState", "actual", "referenceValue", "eventCount", "actualGrain", "remaining", "achievementRate", "coverageState", "sourceAsOf"],
       "properties": {
+        "state": { "enum": ["PLAN_AVAILABLE_ACTUAL_AVAILABLE", "PLAN_AVAILABLE_ACTUAL_SOURCE_UNAVAILABLE", "NO_APPROVED_TARGET"] },
         "targetStatus": { "enum": ["APPROVED", "NO_APPROVED_TARGET"] },
         "plan": { "type": ["integer", "null"], "minimum": 0 },
         "actualSourceStatus": { "$ref": "#/$defs/sourceStatus" },

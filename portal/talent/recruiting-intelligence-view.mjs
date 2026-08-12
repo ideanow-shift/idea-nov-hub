@@ -1,4 +1,5 @@
-const CONTRACT_VERSION = "1.1.0";
+const CONTRACT_VERSION = "1.2.0";
+const SUPPORT_CONTRACT_VERSION = "1.1.0";
 const BUCKET_ORDER = Object.freeze([
   "OVERDUE", "DUE_TODAY", "AWAITING_REPLY", "SELECTION_WITHOUT_NEXT_ACTION", "UNASSIGNED_ACTION", "STALLED"
 ]);
@@ -21,16 +22,17 @@ export function createRecruitingIntelligenceViewExecutor({ globalObject = global
       try { token = await hubSessionHelper.getSessionToken(); } catch { return stop("auth_required", 0); }
       if (typeof token !== "string" || token.trim().length < 20) return stop("auth_required", 0);
       try {
-        const response = await fetchImpl(`${base}/api/talent/v1/recruiting-intelligence`, {
-          method: "GET", credentials: "omit", cache: "no-store",
-          headers: { Accept: "application/json", Authorization: `Bearer ${token.trim()}` }
-        });
-        const envelope = await response.json().catch(() => null);
-        if (response.status === 401) return stop("auth_required", 1, response.status);
-        if (!response.ok) return stop("api_error", 1, response.status);
-        const data = validateResponse(envelope);
-        return data ? Object.freeze({ ok: true, requestCount: 1, httpStatus: response.status, data }) : stop("invalid_response", 1, response.status);
-      } catch { return stop("api_error", 1); }
+        const headers = { Accept: "application/json", Authorization: `Bearer ${token.trim()}` };
+        const [actualResponse, supportResponse] = await Promise.all([
+          fetchImpl(`${base}/api/talent/v1/recruiting-intelligence/actual-facts`, { method: "GET", credentials: "omit", cache: "no-store", headers }),
+          fetchImpl(`${base}/api/talent/v1/recruiting-intelligence`, { method: "GET", credentials: "omit", cache: "no-store", headers })
+        ]);
+        if (actualResponse.status === 401 || supportResponse.status === 401) return stop("auth_required", 2, 401);
+        if (!actualResponse.ok || !supportResponse.ok) return stop("api_error", 2, actualResponse.ok ? supportResponse.status : actualResponse.status);
+        const actual = validateResponse(await actualResponse.json().catch(() => null));
+        const support = validateSupportResponse(await supportResponse.json().catch(() => null));
+        return actual && support ? Object.freeze({ ok: true, requestCount: 2, httpStatus: actualResponse.status, data: { actual, support } }) : stop("invalid_response", 2, 200);
+      } catch { return stop("api_error", 2); }
     }
   });
 }
@@ -38,7 +40,17 @@ export function createRecruitingIntelligenceViewExecutor({ globalObject = global
 export function validateResponse(envelope) {
   const data = envelope?.ok === true ? envelope.data : null;
   if (!data || data.recruiting_intelligence_contract_version !== CONTRACT_VERSION) return null;
-  const planningRows = Array.isArray(data.planningComparison?.rows) ? data.planningComparison.rows : [];
+  if (data.recruiting_actual_fact_contract_version !== "1.0.0" || !data.planningBinding || !data.metrics || !data.budget) return null;
+  if (!exactKeys(data, ["recruiting_actual_fact_contract_version", "recruiting_intelligence_contract_version", "planningBinding", "metrics", "budget"])) return null;
+  if (!exactKeys(data.metrics, METRICS.map(([key]) => key))) return null;
+  if (!exactKeys(data.planningBinding, ["recruitingTrack", "graduationYear", "periodStart", "periodEnd", "scope"])) return null;
+  if (!METRICS.every(([key]) => validActualMetric(data.metrics[key], "UNIQUE_CANDIDATE")) || !validActualMetric(data.budget, "JPY")) return null;
+  return data;
+}
+
+function validateSupportResponse(envelope) {
+  const data = envelope?.ok === true ? envelope.data : null;
+  if (!data || data.recruiting_intelligence_contract_version !== SUPPORT_CONTRACT_VERSION) return null;
   const buckets = Array.isArray(data.priorities?.buckets) ? data.priorities.buckets : [];
   if (!["READY", "PREPARING"].includes(data.planningComparison?.state)) return null;
   if (data.priorities?.state === "READY" && (buckets.length !== BUCKET_ORDER.length || buckets.some((row, index) => row?.bucket !== BUCKET_ORDER[index]))) return null;
@@ -51,38 +63,37 @@ export function buildRecruitingIntelligenceViewModel(data, {
   recruitingTrack = "NEW_GRAD", graduationYear = 2027, resolveCandidateName = () => null,
   resolveSchoolName = () => null, resolveFairName = () => null, resolveAssigneeName = () => null
 } = {}) {
-  const planning = (data?.planningComparison?.rows || []).find((row) => row.recruitingTrack === recruitingTrack
+  const actual = data?.actual;
+  const support = data?.support;
+  const planning = (support?.planningComparison?.rows || []).find((row) => row.recruitingTrack === recruitingTrack
     && Number(row.graduationYear) === Number(graduationYear));
-  if (!planning || data?.planningComparison?.state !== "READY") return Object.freeze({ state: "PREPARING" });
-  const cards = METRICS.map(([key, label]) => metricCard(key, label, planning.metrics?.[key]));
+  if (!actual || !support || !planning || support?.planningComparison?.state !== "READY"
+    || actual.planningBinding?.recruitingTrack !== recruitingTrack || Number(actual.planningBinding?.graduationYear) !== Number(graduationYear)) return Object.freeze({ state: "PREPARING" });
+  const cards = METRICS.map(([key, label]) => metricCard(key, label, actual.metrics?.[key]));
   const application = cards.find((card) => card.key === "APPLICATION_COUNT");
-  const contact = cards.find((card) => card.key === "CONTACT_COUNT");
-  const salon = cards.find((card) => card.key === "SALON_VISIT_COUNT");
-  const unavailable = [contact, salon].filter((card) => card.sourceState !== "READY").map((card) => card.label);
-  const summary = `${graduationYear}卒は応募${application.planText}目標に対して正式応募${application.actualText}。${unavailable.length ? `${unavailable.join("・")}実績は現在集計準備中です。` : "実績を集計済みです。"}`;
-  const priorities = (data?.priorities?.state === "READY" ? data.priorities.buckets : [])
+  const unavailable = cards.filter((card) => card.sourceState !== "READY").map((card) => card.label);
+  const summary = application.sourceState === "READY"
+    ? `${graduationYear}卒は応募${application.planText}目標に対して正式応募${application.actualText}。${unavailable.length ? `${unavailable.join("・")}実績は現在集計準備中です。` : "実績を集計済みです。"}`
+    : `${graduationYear}卒は応募${application.planText}目標。正式実績は集計準備中です。`;
+  const priorities = (support?.priorities?.state === "READY" ? support.priorities.buckets : [])
     .flatMap((bucket) => (bucket.candidates || []).map((candidate) => ({
       bucket: bucket.bucket, label: BUCKET_LABELS[bucket.bucket], candidateId: candidate.candidateId,
       candidateName: resolveCandidateName(candidate.candidateId) || "学生", deadline: candidate.deadline || null
     }))).slice(0, 10);
-  const funnelCounts = data?.funnel?.state === "READY" ? data.funnel.uniqueCandidateReachedCounts || {} : null;
-  const funnel = cards.map((card) => {
-    const selectionCode = { APPLICATION_COUNT: "APPLICATION_RECEIVED", OFFERED_COUNT: "OFFERED", OFFER_ACCEPTED_COUNT: "OFFER_ACCEPTED" }[card.key];
-    if (!selectionCode) return { label: card.label, value: card.sourceState === "READY" ? formatCount(card.actual) : "集計準備中" };
-    return { label: card.label, value: funnelCounts ? formatCount(Number(funnelCounts[selectionCode] || 0)) : "集計準備中" };
-  });
-  const schoolRows = data?.schoolProgress?.state === "READY" ? (data.schoolProgress.rows || []).map((row) => ({
+  const funnel = cards.map((card) => ({ label: card.label, value: card.sourceState === "READY" ? formatCount(card.actual) : card.actualText }));
+  const schoolRows = support?.schoolProgress?.state === "READY" ? (support.schoolProgress.rows || []).map((row) => ({
     label: resolveSchoolName(row.schoolId) || "学校名を確認中", primary: `${Number(row.candidateCount || 0)}名`, secondary: `正式選考 ${Number(row.officialSelectionCandidateCount || 0)}名`
   })) : null;
-  const fairRows = data?.fairResults?.state === "READY" ? (data.fairResults.rows || []).map((row) => ({
+  const fairRows = support?.fairResults?.state === "READY" ? (support.fairResults.rows || []).map((row) => ({
     label: resolveFairName(row.fairId) || "フェア名を確認中", primary: `${Number(row.confirmedOriginCandidateCount || 0)}名`, secondary: `正式選考 ${Number(row.officialSelectionCandidateCount || 0)}名`
   })) : null;
-  const assigneeRows = data?.assigneeWorkload?.state === "READY" ? Object.entries(data.assigneeWorkload.openActionCounts || {}).map(([id, count]) => ({
+  const assigneeRows = support?.assigneeWorkload?.state === "READY" ? Object.entries(support.assigneeWorkload.openActionCounts || {}).map(([id, count]) => ({
     label: id === "UNASSIGNED" ? "担当者未登録" : resolveAssigneeName(id) || "担当者名を確認中", primary: `${Number(count || 0)}件`, secondary: "未完了の対応"
   })) : null;
-  return Object.freeze({ state: "READY", recruitingTrack, graduationYear, period: planning.period, approvedVersion: planning.approvedPlanningVersion,
-    summary, cards, priorities, priorityReady: data?.priorities?.state === "READY", funnel,
-    breakdown: Object.freeze({ FAIR: fairRows, SCHOOL: schoolRows, ASSIGNEE: assigneeRows }), budget: budgetCard(planning.budget) });
+  return Object.freeze({ state: "READY", recruitingTrack, graduationYear,
+    period: { start: actual.planningBinding.periodStart, end: actual.planningBinding.periodEnd }, approvedVersion: planning.approvedPlanningVersion,
+    summary, cards, priorities, priorityReady: support?.priorities?.state === "READY", funnel,
+    breakdown: Object.freeze({ FAIR: fairRows, SCHOOL: schoolRows, ASSIGNEE: assigneeRows }), budget: budgetCard(actual.budget) });
 }
 
 export function initializeRecruitingIntelligenceView(documentObject = globalThis.document, globalObject = globalThis, options = {}) {
@@ -158,16 +169,21 @@ function renderBreakdown(documentObject, model, key) {
 function metricCard(key, label, metric = {}) {
   const noTarget = metric.targetStatus === "NO_APPROVED_TARGET";
   const ready = metric.actualSourceStatus === "READY";
+  const partial = metric.actualSourceStatus === "PARTIAL_SOURCE";
+  const confirmedZero = ready && metric.actualState === "ACTUAL_CONFIRMED_ZERO";
   return Object.freeze({ key, label, planText: noTarget ? "目標未設定" : formatCount(metric.plan), actualText: ready ? formatCount(metric.actual) : "集計準備中",
-    achievementText: noTarget ? "目標未設定" : ready && metric.achievementRate !== null ? `${Math.round(metric.achievementRate * 100)}%` : "集計準備中",
-    remainingText: noTarget ? "目標未設定" : ready && metric.remaining !== null ? formatCount(metric.remaining) : "集計準備中",
-    sourceText: ready ? "集計済み" : "集計準備中", sourceState: ready ? "READY" : "PREPARING" });
+    achievementText: noTarget ? "目標未設定" : ready && metric.achievementRate !== null ? `${Math.round(metric.achievementRate * 100)}%` : "—",
+    remainingText: noTarget ? "目標未設定" : ready && metric.remaining !== null ? formatCount(metric.remaining) : "—",
+    sourceText: confirmedZero ? "正式0件" : ready ? "集計済み" : partial ? "一部集計中" : "実績データ未整備", sourceState: ready ? "READY" : partial ? "PARTIAL" : "UNAVAILABLE" });
 }
 function budgetCard(budget = {}) {
   const ready = budget.actualSourceStatus === "READY";
+  const partial = budget.actualSourceStatus === "PARTIAL_SOURCE";
+  const confirmedZero = ready && budget.actualState === "ACTUAL_CONFIRMED_ZERO";
   const noTarget = budget.targetStatus === "NO_APPROVED_TARGET";
-  return Object.freeze({ key: "BUDGET", label: "求人予算", planText: noTarget ? "目標未設定" : formatYen(budget.plan), actualText: ready ? formatYen(budget.actualSpend) : "集計準備中",
-    achievementText: "—", remainingText: ready && budget.remaining !== null ? formatYen(budget.remaining) : "集計準備中", sourceText: ready ? "集計済み" : "集計準備中" });
+  return Object.freeze({ key: "BUDGET", label: "求人予算", planText: noTarget ? "目標未設定" : formatYen(budget.plan), actualText: ready ? formatYen(budget.actual) : "集計準備中",
+    achievementText: "—", remainingText: ready && budget.remaining !== null ? formatYen(budget.remaining) : "—",
+    sourceText: confirmedZero ? "正式0件" : ready ? "集計済み" : partial ? "一部集計中" : "実績データ未整備", sourceState: ready ? "READY" : partial ? "PARTIAL" : "UNAVAILABLE" });
 }
 function createCard(documentObject, card) {
   const article = documentObject.createElement("article"); article.dataset.metric = card.key;
@@ -182,5 +198,16 @@ function createCard(documentObject, card) {
 function message(documentObject, text) { const item = documentObject.createElement("li"); item.textContent = text; return item; }
 function formatCount(value) { return Number.isInteger(Number(value)) ? `${Number(value).toLocaleString("ja-JP")}名` : "集計準備中"; }
 function formatYen(value) { return Number.isInteger(Number(value)) ? `${Number(value).toLocaleString("ja-JP")}円` : "集計準備中"; }
+function validActualMetric(metric, grain) {
+  if (!metric || metric.actualGrain !== grain) return false;
+  if (!exactKeys(metric, ["state", "targetStatus", "plan", "actualSourceStatus", "actualState", "actual", "referenceValue", "eventCount", "actualGrain", "remaining", "achievementRate", "coverageState", "sourceAsOf"])) return false;
+  if (!["APPROVED", "NO_APPROVED_TARGET"].includes(metric.targetStatus)) return false;
+  if (!["READY", "PARTIAL_SOURCE", "ACTUAL_SOURCE_UNAVAILABLE", "PREPARING"].includes(metric.actualSourceStatus)) return false;
+  if (!["ACTUAL_CONFIRMED", "ACTUAL_CONFIRMED_ZERO", "ACTUAL_PROVISIONAL", "UNAVAILABLE"].includes(metric.actualState)) return false;
+  if (metric.actualSourceStatus !== "READY" && (metric.actual !== null || metric.remaining !== null || metric.achievementRate !== null)) return false;
+  if (metric.actualState === "ACTUAL_CONFIRMED_ZERO" && metric.actual !== 0) return false;
+  return true;
+}
+function exactKeys(value, expected) { return value && typeof value === "object" && Object.keys(value).sort().join("|") === [...expected].sort().join("|"); }
 function setText(documentObject, id, text) { const node = documentObject?.getElementById?.(id); if (node) node.textContent = text; }
 function stop(category, requestCount, httpStatus = null) { return Object.freeze({ ok: false, category, requestCount, httpStatus }); }

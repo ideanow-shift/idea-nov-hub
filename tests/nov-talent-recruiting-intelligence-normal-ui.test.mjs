@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { buildRecruitingIntelligenceViewModel, createRecruitingIntelligenceViewExecutor, validateResponse } from "../portal/talent/recruiting-intelligence-view.mjs";
 
 const ID = "10000000-0000-4000-8000-000000000001";
-const response = () => ({ ok: true, data: {
+const supportResponse = () => ({ ok: true, data: {
   recruiting_intelligence_contract_version: "1.1.0", sourceCoverageState: "COMPLETE",
   sourceAvailability: { candidates: true, selectionHistory: true, communications: true, nextActions: true, fairAttributions: true, schoolMasters: true, planningTargets: true, planningBudgets: true },
   currentPosition: { state: "READY", candidateCount: 636, projectionCounts: {} },
@@ -28,15 +28,23 @@ const response = () => ({ ok: true, data: {
     }, budget: { targetStatus: "APPROVED", plan: 7385350, currency: "JPY", approvedVersion: 1, actualSourceStatus: "ACTUAL_SOURCE_UNAVAILABLE", actualSpend: null, remaining: null }
   }] }, targets: { state: "UNSET" }
 } });
+const unavailableMetric = (plan) => ({ state: "PLAN_AVAILABLE_ACTUAL_SOURCE_UNAVAILABLE", targetStatus: "APPROVED", plan, actualSourceStatus: "ACTUAL_SOURCE_UNAVAILABLE", actualState: "UNAVAILABLE", actual: null, referenceValue: null, eventCount: 0, actualGrain: "UNIQUE_CANDIDATE", remaining: null, achievementRate: null, coverageState: "UNAVAILABLE", sourceAsOf: null });
+const actualResponse = () => ({ ok: true, data: {
+  recruiting_actual_fact_contract_version: "1.0.0", recruiting_intelligence_contract_version: "1.2.0",
+  planningBinding: { recruitingTrack: "NEW_GRAD", graduationYear: 2027, periodStart: "2026-04-01", periodEnd: "2027-03-31", scope: "COMPANY" },
+  metrics: { CONTACT_COUNT: unavailableMetric(563), SALON_VISIT_COUNT: unavailableMetric(112), APPLICATION_COUNT: unavailableMetric(45), OFFERED_COUNT: unavailableMetric(37), OFFER_ACCEPTED_COUNT: unavailableMetric(37) },
+  budget: { ...unavailableMetric(7385350), actualGrain: "JPY" }
+} });
+const composite = () => ({ actual: validateResponse(actualResponse()), support: supportResponse().data });
 
-test("normal analysis performs one authenticated read-only GET", async () => {
+test("normal analysis performs authenticated read-only 1.2 and support GETs", async () => {
   const calls = [];
   const result = await createRecruitingIntelligenceViewExecutor({
     globalObject: { NOV_TALENT_CONFIG: { readonlyApiBaseUrl: "https://staging.example.invalid" } }, hubSessionHelper: { async getSessionToken() { return "x".repeat(32); } },
-    async fetchImpl(url, init) { calls.push({ url, init }); return Response.json(response()); }
+    async fetchImpl(url, init) { calls.push({ url, init }); return Response.json(url.endsWith("/actual-facts") ? actualResponse() : supportResponse()); }
   }).run();
-  assert.equal(result.ok, true); assert.equal(calls.length, 1); assert.equal(calls[0].init.method, "GET"); assert.equal("body" in calls[0].init, false);
-  assert.match(calls[0].url, /recruiting-intelligence$/);
+  assert.equal(result.ok, true); assert.equal(calls.length, 2); assert.ok(calls.every((call) => call.init.method === "GET" && !("body" in call.init)));
+  assert.ok(calls.some((call) => /recruiting-intelligence\/actual-facts$/.test(call.url)));
 });
 
 test("missing or invalid auth fails closed and does not retry", async () => {
@@ -46,20 +54,39 @@ test("missing or invalid auth fails closed and does not retry", async () => {
   assert.equal(result.category, "auth_required"); assert.equal(calls, 0); assert.equal(result.requestCount, 0);
 });
 
-test("view distinguishes formal zero, unavailable actual, and missing target", () => {
-  const model = buildRecruitingIntelligenceViewModel(validateResponse(response()), { resolveCandidateName: () => "対象学生" });
-  assert.equal(model.state, "READY"); assert.match(model.summary, /応募45名目標.*正式応募0名/); assert.match(model.summary, /接触・サロン見学実績は現在集計準備中/);
+test("view keeps all uncovered Actual stages unavailable instead of zero", () => {
+  const model = buildRecruitingIntelligenceViewModel(composite(), { resolveCandidateName: () => "対象学生" });
+  assert.equal(model.state, "READY"); assert.match(model.summary, /応募45名目標。正式実績は集計準備中/);
   assert.equal(model.cards.find((row) => row.key === "CONTACT_COUNT").actualText, "集計準備中");
-  assert.equal(model.cards.find((row) => row.key === "APPLICATION_COUNT").actualText, "0名");
-  assert.equal(model.cards.find((row) => row.key === "OFFERED_COUNT").planText, "目標未設定");
-  assert.equal(model.budget.planText, "7,385,350円"); assert.equal(model.budget.remainingText, "集計準備中");
-  assert.equal(model.priorities[0].candidateName, "対象学生"); assert.deepEqual(model.funnel.map((row) => row.value), ["集計準備中", "集計準備中", "0名", "0名", "0名"]);
+  assert.equal(model.cards.find((row) => row.key === "APPLICATION_COUNT").actualText, "集計準備中");
+  assert.equal(model.cards.find((row) => row.key === "OFFERED_COUNT").planText, "37名");
+  assert.ok(model.cards.every((row) => row.remainingText === "—" && row.achievementText === "—" && row.sourceText === "実績データ未整備"));
+  assert.equal(model.budget.planText, "7,385,350円"); assert.equal(model.budget.remainingText, "—");
+  assert.equal(model.priorities[0].candidateName, "対象学生"); assert.deepEqual(model.funnel.map((row) => row.value), ["集計準備中", "集計準備中", "集計準備中", "集計準備中", "集計準備中"]);
+  assert.deepEqual(model.period, { start: "2026-04-01", end: "2027-03-31" });
 });
 
-test("priority order is contractual, duplicate Candidate fails closed, and Fair PENDING stays outside results", () => {
-  const duplicate = response(); duplicate.data.priorities.buckets[1].candidates.push({ candidateId: ID });
-  assert.equal(validateResponse(duplicate), null);
-  const model = buildRecruitingIntelligenceViewModel(validateResponse(response()));
+test("formal COMPLETE zero is visibly distinct from unavailable", () => {
+  const actual = actualResponse();
+  actual.data.metrics.APPLICATION_COUNT = { ...actual.data.metrics.APPLICATION_COUNT, state:"PLAN_AVAILABLE_ACTUAL_AVAILABLE", actualSourceStatus:"READY", actualState:"ACTUAL_CONFIRMED_ZERO", actual:0, remaining:45, achievementRate:0, coverageState:"COMPLETE" };
+  const model = buildRecruitingIntelligenceViewModel({ actual:validateResponse(actual), support:supportResponse().data });
+  const application = model.cards.find((row) => row.key === "APPLICATION_COUNT");
+  assert.equal(application.actualText, "0名"); assert.equal(application.sourceText, "正式0件"); assert.equal(application.remainingText, "45名"); assert.equal(application.achievementText, "0%");
+});
+
+test("1.2 validator rejects malformed, missing, and future versions", () => {
+  assert.ok(validateResponse(actualResponse()));
+  const missing = actualResponse(); delete missing.data.recruiting_intelligence_contract_version; assert.equal(validateResponse(missing), null);
+  const future = actualResponse(); future.data.recruiting_intelligence_contract_version = "1.3.0"; assert.equal(validateResponse(future), null);
+  const malformed = actualResponse(); malformed.data.metrics.APPLICATION_COUNT.actual = 0; assert.equal(validateResponse(malformed), null);
+});
+
+test("priority order is contractual, duplicate Candidate fails closed, and Fair PENDING stays outside results", async () => {
+  const duplicate = supportResponse(); duplicate.data.priorities.buckets[1].candidates.push({ candidateId: ID });
+  const run = await createRecruitingIntelligenceViewExecutor({ globalObject: { NOV_TALENT_CONFIG: { readonlyApiBaseUrl: "https://staging.example.invalid" } }, hubSessionHelper:{ async getSessionToken(){return "x".repeat(32);} },
+    async fetchImpl(url){return Response.json(url.endsWith("/actual-facts") ? actualResponse() : duplicate);} }).run();
+  assert.equal(run.ok, false);
+  const model = buildRecruitingIntelligenceViewModel(composite());
   assert.equal(model.breakdown.FAIR.length, 0); assert.equal(model.priorities.length, 1);
   assert.equal(JSON.stringify(model).includes("pendingFairAttribution"), false);
 });

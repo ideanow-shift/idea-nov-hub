@@ -1,6 +1,6 @@
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, realpathSync, statSync } from "node:fs";
 import { createServer } from "node:http";
-import { extname, join, normalize } from "node:path";
+import { extname, resolve, sep } from "node:path";
 import { validateIapAssertion } from "./iap-jwt-validator.mjs";
 
 const defaultRoot = process.env.STATIC_ROOT || "/app/static";
@@ -11,13 +11,62 @@ function json(response, status, body) {
   response.end(JSON.stringify(body));
 }
 
-function safeStaticPath(pathname, root) {
-  const path = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, "");
-  const candidate = join(root, path === "/" ? "index.html" : path);
-  return candidate.startsWith(root) ? candidate : null;
+function staticPathError() {
+  const error = new Error("INVALID_STATIC_PATH");
+  error.status = 400;
+  error.code = "INVALID_STATIC_PATH";
+  return error;
 }
 
-const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml" };
+function safeStaticPath(rawPathname, root) {
+  let pathname;
+  try { pathname = decodeURIComponent(rawPathname); } catch (_) { throw staticPathError(); }
+  if (!pathname.startsWith("/") || pathname.includes("\0") || pathname.includes("\\")) throw staticPathError();
+  const segments = pathname.split("/");
+  if (segments.some((segment) => segment === "..")) throw staticPathError();
+
+  const relativePath = pathname.slice(1) || "index.html";
+  const canonicalRoot = resolve(root);
+  const candidate = resolve(canonicalRoot, relativePath);
+  if (candidate !== canonicalRoot && !candidate.startsWith(`${canonicalRoot}${sep}`)) throw staticPathError();
+  return candidate;
+}
+
+const mime = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".ico": "image/x-icon"
+};
+
+function redirect(response, location) {
+  response.writeHead(308, {
+    location,
+    "cache-control": "no-store",
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "no-referrer"
+  });
+  response.end();
+}
+
+function notFound(response) {
+  json(response, 404, { code: "NOT_FOUND" });
+}
+
+function verifiedStaticFile(file, root) {
+  if (!existsSync(file) || !statSync(file).isFile()) return null;
+  const canonicalRoot = realpathSync(root);
+  const canonicalFile = realpathSync(file);
+  if (canonicalFile !== canonicalRoot && !canonicalFile.startsWith(`${canonicalRoot}${sep}`)) throw staticPathError();
+  return canonicalFile;
+}
 
 async function readJson(request) {
   let value = "";
@@ -42,6 +91,7 @@ export function createDbfStagingServer(deps) {
   const root = deps.staticRoot || defaultRoot;
   return createServer(async (request, response) => {
     try {
+      const rawPathname = String(request.url || "").split("?", 1)[0];
       const pathname = new URL(request.url, "http://localhost").pathname;
       if (pathname === "/healthz") return json(response, 200, { status: "ready" });
       if (pathname === "/session/handoff/exchange") {
@@ -65,8 +115,14 @@ export function createDbfStagingServer(deps) {
         });
         return json(response, Number(result.status || 200), result.body || result);
       }
-      let file = safeStaticPath(pathname, root);
-      if (!file || !existsSync(file) || !statSync(file).isFile()) file = join(root, "index.html");
+      if (request.method !== "GET" && request.method !== "HEAD") return json(response, 405, { code: "METHOD_NOT_ALLOWED" });
+      if (pathname === "/management-app") return redirect(response, "/management-app/");
+
+      const candidate = pathname === "/management-app/"
+        ? safeStaticPath("/management-app/index.html", root)
+        : safeStaticPath(rawPathname, root);
+      const file = verifiedStaticFile(candidate, root);
+      if (!file) return notFound(response);
       response.writeHead(200, {
         "content-type": mime[extname(file)] || "application/octet-stream",
         "cache-control": "no-store",
@@ -74,6 +130,7 @@ export function createDbfStagingServer(deps) {
         "referrer-policy": "no-referrer",
         "x-frame-options": "DENY"
       });
+      if (request.method === "HEAD") return response.end();
       createReadStream(file).pipe(response);
     } catch (error) {
       json(response, Number(error.status || 500), { code: error.code || "INTERNAL_ERROR" });

@@ -15,7 +15,12 @@ function invalid(message) {
 export async function handleDbfHandoffAction(request, deps) {
   const payload = request?.payload || {};
   if (request.action === DBF_HANDOFF_ACTIONS.issue) {
-    if (Object.keys(payload).some((key) => key !== "state")) invalid("Issue payload contains unsupported fields.");
+    if (Object.keys(payload).some((key) => !new Set(["state", "authType"]).has(key))) {
+      invalid("Issue payload contains unsupported fields.");
+    }
+    if (Object.hasOwn(payload, "authType") && payload.authType !== "hub_session") {
+      invalid("Issue auth envelope is invalid.");
+    }
     const hubIdentity = await deps.verifyHubRequest(request);
     return {
       status: 200,

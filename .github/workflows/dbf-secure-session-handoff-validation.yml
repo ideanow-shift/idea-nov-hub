@@ -31,6 +31,7 @@ jobs:
         run: node tools/build-dbf-staging-pages.mjs
       - name: Run handoff contract regression
         run: |
+          deno test --allow-env --allow-read tests/dbf-edge-root-routing-contract.test.ts
           node tests/dbf-edge-iap-assertion-validator.test.mjs
           node tests/dbf-hub-session-handoff.test.mjs
           node tests/dbf-handoff-actions-launcher.test.mjs

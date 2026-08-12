@@ -11,6 +11,7 @@ import { cleanRecruitingTargetDraft, cleanRecruitingTargetStateCommand, recruiti
 import { cleanPlanningBudgetDraft, cleanPlanningCorrection, cleanPlanningState, cleanPlanningTargetDraft, planningCapabilityEnvelope, planningEnvelope } from "./recruiting-planning-v1.ts";
 import { newGrad2027CorrectionPreflight } from "./new-grad-2027-correction.ts";
 import { buildRecruitingActualFactsV1 } from "./recruiting-actual-facts-v1.ts";
+import { CONTACT_2027_BACKFILL, contact2027BackfillEnvelope } from "./contact-2027-backfill.ts";
 
 const ORIGIN = "https://ideanow-shift.github.io";
 const PREFIXES = ["", "/nov-talent-staging-api", "/functions/v1/nov-talent-staging-api"];
@@ -27,6 +28,7 @@ type Runtime = {
   outcome2WritesEnabled?: boolean;
   recruitingTargetWritesEnabled?: boolean;
   recruitingPlanningWritesEnabled?: boolean;
+  recruitingActualContactBackfillEnabled?: boolean;
   populationV2Enabled?: boolean;
   populationV2ApprovalTokenSha256?: string;
   populationV2Validator?: typeof validatePopulationRequest;
@@ -625,7 +627,8 @@ async function recruitingIntelligence(runtime: Runtime, candidates: any[], curre
 async function recruitingActualFacts(runtime: Runtime, candidates: any[], requestId: string) {
   const requests = [
     ["selections", "/rest/v1/nov_talent_selection_history_v1?select=candidate_id,selection_code,effective_date,is_active&is_active=eq.true&limit=5000"],
-    ["engagementFacts", "/rest/v1/nov_talent_recruiting_engagement_facts_v1?select=engagement_fact_id,candidate_id,engagement_type,occurred_at,engagement_status,correction_of_fact_id&limit=5000"],
+    ["engagementFacts", "/rest/v1/nov_talent_recruiting_engagement_facts_v1?select=engagement_fact_id,candidate_id,engagement_type,occurred_at,engagement_status,source_type,original_actor_status,correction_of_fact_id&limit=5000"],
+    ["backfillReceipts", "/rest/v1/nov_talent_recruiting_actual_backfill_receipts_v1?select=backfill_code,receipt_state,review_status,review_package_sha256,canonical_source_sha256,source_event_count,unique_candidate_count,fact_count,supersedes_receipt_id&limit=20"],
     ["coverageReleases", "/rest/v1/nov_talent_selection_coverage_releases_v1?select=selection_code,recruiting_period_start,recruiting_period_end,coverage_state,superseded_by_release_id&limit=1000"],
     ["spendFacts", "/rest/v1/nov_talent_recruiting_spend_facts_v1?select=spend_fact_id,recruiting_track,graduation_year,occurred_at,amount,spend_status,correction_of_fact_id&limit=5000"],
     ["planningTargets", "/rest/v1/nov_talent_recruiting_funnel_targets_v1?select=recruiting_track,graduation_year,target_metric,recruiting_period_start,recruiting_period_end,scope_type,target_count,record_state&record_state=eq.APPROVED&limit=1000"],
@@ -634,6 +637,7 @@ async function recruitingActualFacts(runtime: Runtime, candidates: any[], reques
   const results = await Promise.all(requests.map(([view, path]) => readView(runtime, { requestId, endpoint: "recruiting_actual_facts", view, path, fatal: false })));
   const byName = Object.fromEntries(requests.map(([name], index) => [name, results[index]]));
   return buildRecruitingActualFactsV1({ candidates, selections: byName.selections.rows, engagementFacts: byName.engagementFacts.rows,
+    backfillReceipts: byName.backfillReceipts.rows,
     coverageReleases: byName.coverageReleases.rows, spendFacts: byName.spendFacts.rows, planningTargets: byName.planningTargets.rows,
     planningBudgets: byName.planningBudgets.rows, availability: Object.fromEntries(requests.map(([name], index) => [name, results[index].available])) });
 }
@@ -652,6 +656,43 @@ export function createHandler(runtime: Runtime) {
     const requestId = crypto.randomUUID();
     const fairReviewHistoryMatch = /^\/api\/talent\/v1\/fair-origin-review\/([0-9a-f-]+)\/history$/iu.exec(path);
     const fairReviewDecisionMatch = /^\/api\/talent\/v1\/fair-origin-review\/([0-9a-f-]+)\/decision$/iu.exec(path);
+    const contactBackfillPath = "/api/talent/v1/recruiting-actual-facts/backfills/contact-2027";
+    if (["GET", "POST"].includes(request.method) &&
+      (path === contactBackfillPath || path === `${contactBackfillPath}/preflight`)) {
+      const runtimeHost = (() => { try { return new URL(runtime.supabaseUrl).hostname.toLowerCase(); } catch { return ""; } })();
+      if (runtimeHost !== `${CONTACT_2027_BACKFILL.projectRef}.supabase.co`) return fail(404, "NOT_FOUND", origin);
+      if (actor.profile !== "full" || !["super_admin", "backoffice", "hr.admin"].includes(actor.role)) {
+        return fail(403, "RECRUITING_CONTACT_BACKFILL_FORBIDDEN", origin);
+      }
+      const preflightResult = await rpc(runtime, "nov_talent_preflight_contact_2027_backfill_v1", {});
+      if (!preflightResult.ok) return fail(preflightResult.status || 503, "RECRUITING_CONTACT_BACKFILL_PREFLIGHT_UNAVAILABLE", origin);
+      const preflight = contact2027BackfillEnvelope(
+        preflightResult.data && typeof preflightResult.data === "object" ? preflightResult.data : null,
+        runtime.recruitingActualContactBackfillEnabled === true,
+      );
+      if (request.method === "GET" && path === `${contactBackfillPath}/preflight`) return out(200, preflight, origin);
+      if (request.method !== "POST" || path !== contactBackfillPath) return fail(404, "NOT_FOUND", origin);
+      if (runtime.recruitingActualContactBackfillEnabled !== true) return fail(503, "RECRUITING_CONTACT_BACKFILL_DISABLED", origin);
+      const command = await request.json().catch(() => null);
+      if (!command || typeof command !== "object" || Array.isArray(command) || Object.keys(command).length !== 0) {
+        return fail(400, "INVALID_REQUEST", origin);
+      }
+      if (preflight.data.state !== "PASS" || preflight.data.exactPreflightPassed !== true || preflight.data.canExecute !== true) {
+        return fail(409, "RECRUITING_CONTACT_BACKFILL_PREFLIGHT_FAILED", origin);
+      }
+      const result = await rpc(runtime, "nov_talent_execute_contact_2027_backfill_v1", {
+        p_actor_employee_id: actor.actor,
+        p_actor_role: actor.role,
+        p_review_package_sha256: CONTACT_2027_BACKFILL.reviewPackageSha256,
+        p_canonical_source_sha256: CONTACT_2027_BACKFILL.canonicalSourceSha256,
+      });
+      const completed = result.ok && Number(result.data?.fact_count) === 11
+        && Number(result.data?.unique_candidate_count) === 10 && UUID.test(String(result.data?.backfill_receipt_id || ""));
+      return completed
+        ? out(201, { ok: true, data: { state: "COMPLETED", factEventCount: 11, planningUniqueCandidateCount: 10 } }, origin)
+        : fail(result.status || (result.ok ? 503 : 400), result.status === 409
+          ? "RECRUITING_CONTACT_BACKFILL_CONFLICT" : "RECRUITING_CONTACT_BACKFILL_FAILED", origin);
+    }
     if (["GET", "POST"].includes(request.method) && path === "/api/talent/v1/fair-origin-review/preparation") {
       const population = FAIR_ATTRIBUTION_POPULATION_V2;
       const runtimeHost = (() => { try { return new URL(runtime.supabaseUrl).hostname.toLowerCase(); } catch { return ""; } })();
@@ -1085,6 +1126,7 @@ if (typeof Deno !== "undefined" && import.meta.main) Deno.serve(createHandler({
   outcome2WritesEnabled: Deno.env.get("NOV_TALENT_OUTCOME2_WRITES_ENABLED") === "true",
   recruitingTargetWritesEnabled: Deno.env.get("NOV_TALENT_RECRUITING_TARGET_WRITES_ENABLED") === "true",
   recruitingPlanningWritesEnabled: Deno.env.get("NOV_TALENT_RECRUITING_PLANNING_WRITES_ENABLED") === "true",
+  recruitingActualContactBackfillEnabled: Deno.env.get("NOV_TALENT_RECRUITING_ACTUAL_CONTACT_BACKFILL_ENABLED") === "true",
   fetchImpl: fetch,
   logger: console,
   populationV2Enabled: Deno.env.get("NOV_TALENT_FAIR_ATTRIBUTION_POPULATION_V2_ENABLED") === "true",

@@ -842,6 +842,20 @@
             <p id="planning-correction-status" class="status" role="status">事前確認中</p>
             <button id="planning-correction-open" type="button" disabled>訂正内容を確認</button>
           </section>
+          <section id="contact-backfill-operator" class="planning-correction-operator contact-backfill-operator" hidden aria-labelledby="contact-backfill-title">
+            <div><p class="section-kicker">CONTACT・一回限り</p><h4 id="contact-backfill-title">承認済み接触FactのBackfill</h4><p>Human Reviewで承認されたCONTACTだけを、正式Factとして記録する専用経路です。</p></div>
+            <dl>
+              <div><dt>Fact</dt><dd>11イベント（Planning Actualはunique Candidate 10名）</dd></div>
+              <div><dt>対象</dt><dd>2027卒・2026-04-01 ～ 2027-03-31</dd></div>
+              <div><dt>Human Review</dt><dd id="contact-backfill-review-sha-state">SHA照合中</dd></div>
+              <div><dt>Canonical Source</dt><dd id="contact-backfill-source-sha-state">SHA照合中</dd></div>
+              <div><dt>既存状態</dt><dd id="contact-backfill-existing-state">確認中</dd></div>
+              <div><dt>実行後の見込み</dt><dd>Actual 10名 / Plan 563名 / Remaining 553名 / Achievement 約1.8%</dd></div>
+              <div><dt>元Actor</dt><dd>不明のまま記録（UNAVAILABLE）</dd></div>
+            </dl>
+            <p id="contact-backfill-status" class="status" role="status" aria-live="polite">事前確認前</p>
+            <button id="contact-backfill-open" type="button" disabled>Backfill内容を確認</button>
+          </section>
           <p id="planning-admin-message" class="status" role="status" aria-live="polite"></p>
         </section>
         <dialog id="planning-correction-dialog" class="planning-correction-dialog" aria-labelledby="planning-correction-dialog-title">
@@ -850,6 +864,16 @@
             <p><strong>目標</strong><br>接触 563 / サロン見学 112 / 応募 45 / 内定 37 / 内定承諾 37</p><p><strong>予算</strong> 7,385,350円</p>
             <ul><li>新Versionを作成</li><li>旧Approvedを終了</li><li>誤期間Draftを取消</li><li>変更履歴を記録</li><li>分析の現行計画を切替</li></ul>
             <div class="planning-correction-actions"><button id="planning-correction-cancel" type="button" class="secondary-command">キャンセル</button><button id="planning-correction-confirm" type="button">訂正を実行</button></div>
+          </form>
+        </dialog>
+        <dialog id="contact-backfill-dialog" class="planning-correction-dialog" aria-labelledby="contact-backfill-dialog-title">
+          <form method="dialog"><p class="section-kicker">最終確認</p><h3 id="contact-backfill-dialog-title">CONTACT 11イベントを正式Factへ記録します</h3>
+            <p><strong>Planning集計</strong> unique Candidate 10名<br><strong>対象期間</strong> 2026-04-01 ～ 2027-03-31</p>
+            <p><strong>Review Package SHA-256</strong><br><code>139D6B1B222CD7A7D820375C08E1B4ACE811FC285ED89E27DD924D2BFB8C9125</code></p>
+            <p><strong>Canonical Source SHA-256</strong><br><code>725cc4b8ae933081dc30fd7ce37179741661d795a20edaed542023b4d3621a77</code></p>
+            <p><strong>実行後の見込み</strong><br>Actual 10名 / Plan 563名 / Remaining 553名 / Achievement 約1.8%</p>
+            <ul><li>元Actorは推測せずUNAVAILABLE</li><li>同一Candidateの複数接触は11イベントすべて保持</li><li>SALON_VISIT・Selection・Spendは対象外</li><li>処理中断時は全件rollback</li><li>成立後の取消は別Owner承認のappend-only void</li></ul>
+            <div class="planning-correction-actions"><button id="contact-backfill-cancel" type="button" class="secondary-command">キャンセル</button><button id="contact-backfill-confirm" type="button">11件を記録</button></div>
           </form>
         </dialog>
         <section id="planning-diagnostic-panel" class="selection-coverage-panel ui-diagnostic" data-management-section="planning-diagnostic" aria-labelledby="planning-diagnostic-title">

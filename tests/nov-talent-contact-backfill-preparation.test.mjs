@@ -31,7 +31,7 @@ test("CONTACT preflight fails closed for a changed digest or unknown state", () 
 
 test("Operator uses HUB Session, sends an empty body and never accepts Actor input", async () => {
   const calls = [];
-  const globalObject = { NOV_TALENT_CONFIG: { runtimeMode:"staging", networkEnabled:true, readonlyApiBaseUrl:"https://staging.example" } };
+  const globalObject = { location:{ origin:"https://ideanow-shift.github.io" }, NOV_TALENT_CONFIG: { runtimeMode:"staging", networkEnabled:true, readonlyApiBaseUrl:"https://staging.example" } };
   const preview = { graduationYear:2027, period:{ start:"2026-04-01", end:"2027-03-31" }, factEventCount:11,
     planningUniqueCandidateCount:10, excludedScopes:["SALON_VISIT","APPLICATION","OFFERED","OFFER_ACCEPTED","RECRUITING_SPEND","OTHER_B_OR_C"] };
   const client = createRecruitingContactBackfillClient({ globalObject,
@@ -53,11 +53,19 @@ test("Operator uses HUB Session, sends an empty body and never accepts Actor inp
 test("Operator blocks expired Session before fetch", async () => {
   let fetchCount = 0;
   const client = createRecruitingContactBackfillClient({
-    globalObject:{ NOV_TALENT_CONFIG:{ runtimeMode:"staging", networkEnabled:true, readonlyApiBaseUrl:"https://staging.example" } },
+    globalObject:{ location:{ origin:"https://ideanow-shift.github.io" }, NOV_TALENT_CONFIG:{ runtimeMode:"staging", networkEnabled:true, readonlyApiBaseUrl:"https://staging.example" } },
     hubSessionHelper:{ getSessionToken:async()=>{ throw new Error("expired"); } }, fetchImpl:async()=>{ fetchCount++; },
   });
   assert.equal((await client.preflight()).category, "auth_required");
   assert.equal(fetchCount, 0);
+});
+
+test("Operator does not call the Hosted Edge from a loopback preview origin", () => {
+  const client = createRecruitingContactBackfillClient({
+    globalObject:{ location:{ origin:"http://127.0.0.1:4173" }, NOV_TALENT_CONFIG:{ runtimeMode:"staging", networkEnabled:true, readonlyApiBaseUrl:"https://staging.example" } },
+    hubSessionHelper:{ getSessionToken:async()=>"x".repeat(30) }, fetchImpl:async()=>{ throw new Error("request must stay at zero"); },
+  });
+  assert.equal(client, null);
 });
 
 test("Migration candidate is package-bound, atomic, append-only and has no automatic execution", () => {

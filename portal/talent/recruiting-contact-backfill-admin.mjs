@@ -10,7 +10,8 @@ export function createRecruitingContactBackfillClient({
   const base = String(globalObject?.NOV_TALENT_CONFIG?.readonlyApiBaseUrl || "").replace(/\/+$/u, "");
   const staging = globalObject?.NOV_TALENT_CONFIG?.runtimeMode === "staging"
     && globalObject?.NOV_TALENT_CONFIG?.networkEnabled === true;
-  if (!staging || !/^https:\/\//u.test(base) || typeof fetchImpl !== "function"
+  const hostedOrigin = globalObject?.location?.origin === "https://ideanow-shift.github.io";
+  if (!staging || !hostedOrigin || !/^https:\/\//u.test(base) || typeof fetchImpl !== "function"
     || typeof hubSessionHelper?.getSessionToken !== "function") return null;
   let canExecute = false;
   const request = async (path, method = "GET") => {

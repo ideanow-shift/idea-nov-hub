@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "dbf-secure-session-handoff-deployment-package-v1",
+  "status": "SOURCE_ONLY_REMOTE_NOT_AUTHORIZED",
+  "production": {
+    "supabaseProjectName": "idea-nov-core",
+    "supabaseProjectRef": "nkmxevmioczcmnldreyo",
+    "migration": "20260812105304_dbf_secure_session_handoff_store.sql",
+    "migrationSha256": "deadd8bcf032061ea3a0b86b43f4599b2c50fb3c4649f272af933d476b652885",
+    "candidateParity": "business behavior preserved; formal filename, COMMIT ending, security-invoker and service-role private grants hardened",
+    "edgeFunction": "nov-hub-api",
+    "edgeCurrentVersion": 120,
+    "edgePlannedVersion": 121,
+    "edgeRollbackVersion": 120,
+    "pagesRepository": "ideanow-shift/idea-nov-hub",
+    "pagesWorkflow": "Deploy NOV HUB to GitHub Pages",
+    "pagesBranch": "main",
+    "pagesPath": "/"
+  },
+  "staging": {
+    "supabaseProjectRef": "zgkoofphhivesclehrom",
+    "gcpProjectId": "idea-nov-dbf-staging",
+    "gcpProjectNumber": "787968950888",
+    "cloudRunService": "idea-nov-dbf-staging-ui",
+    "cloudRunRegion": "asia-northeast1",
+    "cloudRunCurrentRevision": "idea-nov-dbf-staging-ui-00001-h74",
+    "cloudRunRollbackRevision": "idea-nov-dbf-staging-ui-00001-h74",
+    "cloudRunServiceUrl": "https://idea-nov-dbf-staging-ui-om6tepo36q-an.a.run.app",
+    "artifactRepository": "idea-nov-dbf-staging-ui",
+    "imageName": "dbf-staging-ui",
+    "imageTagSource": "GITHUB_SHA"
+  },
+  "security": {
+    "hubOrFirebaseTokenInUrl": false,
+    "serviceRoleInBrowser": false,
+    "productionSupabaseRefInBrowser": false,
+    "plaintextHandoffStored": false,
+    "runtimeImport": "DISABLED",
+    "productionWrite": "DISABLED"
+  },
+  "remoteOperations": {
+    "migrationApply": 0,
+    "edgeDeploy": 0,
+    "pagesDeploy": 0,
+    "imagePush": 0,
+    "cloudRunDeploy": 0,
+    "dbWrite": 0,
+    "prMerge": 0
+  }
+}

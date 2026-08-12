@@ -20,12 +20,14 @@ const EDGE_ACTIONS = new Set([
   "ideaLinkStoreOptions",
   "createIdeaLinkHandoff",
   "exchangeIdeaLinkHandoff",
+  "dbfStagingHandoffIssueV1",
   "decisionListApplications",
   "decisionGetApplicationDetail",
   "decisionListComments",
   "managementFinanceSummary",
   "managementStoresSummary",
   "managementDataopsStatus",
+  "managementBusinessDataCapability",
   "markNovHubNotificationRead",
   "changeOwnPin",
   "log",
@@ -75,6 +77,12 @@ export function setHubSessionAuth(sessionToken) {
   currentAuth = { authType: "hub_session", sessionToken: token };
 }
 
+export function setDbfStagingSessionAuth(sessionToken) {
+  const token = String(sessionToken || "").trim();
+  if (!token) throw new Error("DBF Staging session is missing.");
+  currentAuth = { authType: "dbf_staging_session", sessionToken: token };
+}
+
 export function setIdeaLinkSessionAuth(sessionToken) {
   const token = String(sessionToken || "").trim();
   if (!token) throw new Error("IDEA LINK session is missing.");
@@ -97,8 +105,8 @@ async function postToApi(action, payload = {}) {
     ? { ...payload }
     : currentAuth.authType === "idea_link_session"
     ? { authType: "idea_link_session", ...payload }
-    : currentAuth.authType === "hub_session"
-      ? { authType: "hub_session", ...payload }
+    : currentAuth.authType === "hub_session" || currentAuth.authType === "dbf_staging_session"
+      ? { authType: currentAuth.authType, ...payload }
       : currentAuth.authType === "firebase_token"
         ? { authType: "firebase", ...payload }
         : { ...currentAuth, ...payload };
@@ -108,7 +116,7 @@ async function postToApi(action, payload = {}) {
     ? ""
     : currentAuth.authType === "idea_link_session"
       ? currentAuth.sessionToken
-      : currentAuth.authType === "hub_session"
+      : currentAuth.authType === "hub_session" || currentAuth.authType === "dbf_staging_session"
         ? currentAuth.sessionToken
         : currentAuth.authType === "firebase_token"
           ? currentAuth.token

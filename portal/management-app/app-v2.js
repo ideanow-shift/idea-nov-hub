@@ -1,6 +1,7 @@
-import { callApiAction, setHubSessionAuth } from "../js/api.js";
+import { callApiAction, setDbfStagingSessionAuth, setHubSessionAuth } from "../js/api.js";
 import { mountManagementProductionReadiness } from "../js/management-production-readiness-status.js?v=2770deca730444a2";
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
+import { clearDbfStagingSession, exchangeDbfStagingHandoffViaBff, initializeDbfStagingSession } from "../js/dbf-staging-session-handoff-candidate.js";
 import { canDisplayWorkforceAggregates, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=8f1a70d88732633e";
 import { renderFinancialDataIntake } from "./financial-data-intake.js?v=56b2465cb0463da0";
 import { BUSINESS_DATA_EMPTY_FIXTURE, renderBusinessDataManagementPreview } from "./business-data-management-preview.js";
@@ -50,13 +51,23 @@ window.addEventListener("management-financial-local-preview", (event) => {
   renderFinancialPreviewOverview();
   renderFinancialPreviewStores();
 });
-initialize();
+void initialize();
 
-function initialize() {
+async function initialize() {
   removeLegacyHubContextFromUrl();
-  const session = restoreNovHubSession();
+  let session = null;
+  if (runtimeEnvironment?.environment === "staging") {
+    try {
+      session = await initializeDbfStagingSession({ exchange: exchangeDbfStagingHandoffViaBff });
+    } catch (_error) {
+      return renderAuthRequired();
+    }
+  } else {
+    session = restoreNovHubSession();
+  }
   if (!session?.sessionToken) return renderAuthRequired();
-  setHubSessionAuth(session.sessionToken);
+  if (runtimeEnvironment?.environment === "staging") setDbfStagingSessionAuth(session.sessionToken);
+  else setHubSessionAuth(session.sessionToken);
   void loadBusinessDataCapability();
   elements.connection.textContent = "接続済み";
   selectView(readHashView());
@@ -611,6 +622,11 @@ function renderAuthRequired() { elements.notice.hidden = false; elements.connect
 function renderError(error) {
   elements.notice.hidden = false;
   const code = String(error?.code || "");
-  if (["UNAUTHORIZED", "TOKEN_MISSING", "TOKEN_VERIFICATION_FAILED"].includes(code) || Number(error?.status) === 401) { handleNovHubSessionAuthFailure(401); clearNovHubSession(); renderAuthRequired(); return; }
+  if (["UNAUTHORIZED", "TOKEN_MISSING", "TOKEN_VERIFICATION_FAILED"].includes(code) || Number(error?.status) === 401) {
+    if (runtimeEnvironment?.environment === "staging") clearDbfStagingSession();
+    else { handleNovHubSessionAuthFailure(401); clearNovHubSession(); }
+    renderAuthRequired();
+    return;
+  }
   elements.connection.textContent = "確認が必要"; elements.notice.classList.add("is-error"); elements.noticeTitle.textContent = ["FORBIDDEN", "SCOPE_DENIED"].includes(code) ? "表示権限がありません" : code === "DATA_NOT_READY" ? "集計データが準備中です" : "データを読み込めませんでした"; elements.noticeBody.textContent = "HUBへ戻るか、時間をおいて再読み込みしてください。";
 }

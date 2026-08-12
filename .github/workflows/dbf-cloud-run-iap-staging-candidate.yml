@@ -1,0 +1,96 @@
+name: DBF Secure Session Handoff - Cloud Run Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      owner_approval:
+        description: "Exact approval text: DBF_CLOUD_RUN_STAGING_DEPLOY_APPROVED"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: dbf-cloud-run-iap-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment: dbf-business-data-staging
+    runs-on: ubuntu-latest
+    env:
+      DBF_ENVIRONMENT: staging
+      DBF_GCP_PROJECT_ID: idea-nov-dbf-staging
+      DBF_GCP_PROJECT_NUMBER: "787968950888"
+      DBF_CLOUD_RUN_SERVICE: idea-nov-dbf-staging-ui
+      DBF_CLOUD_RUN_REGION: asia-northeast1
+      DBF_CLOUD_RUN_URL: https://idea-nov-dbf-staging-ui-om6tepo36q-an.a.run.app
+      DBF_IAP_ENABLED: "true"
+      DBF_ARTIFACT_REPOSITORY: idea-nov-dbf-staging-ui
+      DBF_DEPLOY_SERVICE_ACCOUNT: dbf-staging-deployer@idea-nov-dbf-staging.iam.gserviceaccount.com
+      DBF_RUNTIME_SERVICE_ACCOUNT: dbf-staging-ui-runtime@idea-nov-dbf-staging.iam.gserviceaccount.com
+      DBF_SUPABASE_PROJECT_REF: zgkoofphhivesclehrom
+      DBF_NOV_HUB_HANDOFF_EXCHANGE_URL: https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Owner and target fail-close gate
+        shell: bash
+        run: |
+          test "${{ inputs.owner_approval }}" = "DBF_CLOUD_RUN_STAGING_DEPLOY_APPROVED"
+          test "$DBF_ENVIRONMENT" = "staging"
+          test "$DBF_GCP_PROJECT_ID" = "idea-nov-dbf-staging"
+          test "$DBF_GCP_PROJECT_NUMBER" = "787968950888"
+          test "$DBF_CLOUD_RUN_SERVICE" = "idea-nov-dbf-staging-ui"
+          test "$DBF_CLOUD_RUN_REGION" = "asia-northeast1"
+          test "$DBF_ARTIFACT_REPOSITORY" = "idea-nov-dbf-staging-ui"
+          test "$DBF_SUPABASE_PROJECT_REF" = "zgkoofphhivesclehrom"
+          test "$DBF_NOV_HUB_HANDOFF_EXCHANGE_URL" = "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub-api"
+      - name: Local regression and isolated artifact build
+        shell: bash
+        run: |
+          node tests/dbf-edge-iap-assertion-validator.test.mjs
+          node tests/dbf-hub-session-handoff.test.mjs
+          node tests/dbf-handoff-actions-launcher.test.mjs
+          node tests/dbf-handoff-bff-frontend.test.mjs
+          npm install --prefix tmp/dbf-pglite-fixture --no-save @electric-sql/pglite@0.5.4
+          node tests/dbf-secure-session-handoff-fresh-postgres.test.mjs
+          node tests/dbf-secure-session-handoff-deployment-package.test.mjs
+          node tools/build-dbf-staging-pages.mjs
+          ! grep -R -E 'service_role|DB_PASSWORD|PRIVATE KEY|nkmxevmioczcmnldreyo|P/L実データ|B/S実データ' build/dbf-staging-pages
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.DBF_GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.DBF_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Read back exact GCP identity before write
+        shell: bash
+        run: |
+          test "$(gcloud config get-value project)" = "$DBF_GCP_PROJECT_ID"
+          test "$(gcloud projects describe "$DBF_GCP_PROJECT_ID" --format='value(projectNumber)')" = "$DBF_GCP_PROJECT_NUMBER"
+          gcloud services list --enabled --project "$DBF_GCP_PROJECT_ID" --format='value(config.name)' | grep -qx 'run.googleapis.com'
+          gcloud services list --enabled --project "$DBF_GCP_PROJECT_ID" --format='value(config.name)' | grep -qx 'iap.googleapis.com'
+          gcloud artifacts repositories describe "$DBF_ARTIFACT_REPOSITORY" --location "$DBF_CLOUD_RUN_REGION" --project "$DBF_GCP_PROJECT_ID" >/dev/null
+      - name: Build and push immutable container
+        shell: bash
+        run: |
+          gcloud auth configure-docker "${DBF_CLOUD_RUN_REGION}-docker.pkg.dev" --quiet
+          IMAGE="${DBF_CLOUD_RUN_REGION}-docker.pkg.dev/${DBF_GCP_PROJECT_ID}/${DBF_ARTIFACT_REPOSITORY}/dbf-staging-ui:${GITHUB_SHA}"
+          docker build -f deploy/dbf-cloud-run-staging-bff-candidate/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+      - name: Deploy authenticated IAP revision
+        shell: bash
+        run: |
+          gcloud run deploy "$DBF_CLOUD_RUN_SERVICE" --project "$DBF_GCP_PROJECT_ID" --region "$DBF_CLOUD_RUN_REGION" --image "$IMAGE" --service-account "$DBF_RUNTIME_SERVICE_ACCOUNT" --no-allow-unauthenticated --iap --ingress all --min 0 --max 1 --port 8080 --set-env-vars "NOV_HUB_HANDOFF_EXCHANGE_URL=$DBF_NOV_HUB_HANDOFF_EXCHANGE_URL" --quiet
+      - name: IAP and hosted smoke verification
+        shell: bash
+        run: |
+          gcloud run services describe "$DBF_CLOUD_RUN_SERVICE" --project "$DBF_GCP_PROJECT_ID" --region "$DBF_CLOUD_RUN_REGION" | grep -q 'Iap Enabled: true'
+          test "$(gcloud run services describe "$DBF_CLOUD_RUN_SERVICE" --project "$DBF_GCP_PROJECT_ID" --region "$DBF_CLOUD_RUN_REGION" --format='value(status.url)')" = "$DBF_CLOUD_RUN_URL"
+          test "$(curl -sS -o /dev/null -w '%{http_code}' "$DBF_CLOUD_RUN_URL/healthz")" != "200"

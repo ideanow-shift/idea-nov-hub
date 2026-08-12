@@ -1,6 +1,7 @@
 ﻿import { signInWithGoogle, signOutUser } from "../js/auth.js";
 import { getIdToken, signInWithGoogleRedirect } from "../js/auth.js";
 import { callApiAction, clearApiAuth, setFirebaseAuth, setFirebaseTokenAuth, setHubSessionAuth } from "../js/api.js?v=master-admin-mobile-form-safety-20260712-31";
+import { openDbfStagingFromAuthorizedAdmin } from "../js/dbf-staging-launcher-candidate.js";
 
 const NEW_EMPLOYEE_ID = "__new_employee__";
 const NEW_CORPORATION_ID = "__new_corporation__";
@@ -139,7 +140,7 @@ const state = {
 let safeSearchRenderTimer = 0;
 
 const elements = Object.fromEntries([
-  "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "add-employee", "add-corporation", "add-portal-app", "refresh",
+  "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "open-dbf-staging", "add-employee", "add-corporation", "add-portal-app", "refresh",
   "view-title", "search", "employee-csv-tools", "export-employees-csv", "import-employees-csv", "quality-summary", "result-count", "table-head", "table-body",
   "detail-panel", "employee-status-filter", "corporation-status-filter", "store-status-filter", "app-status-filter", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
@@ -5750,6 +5751,19 @@ async function handleSignOut() {
   showMode("auth");
 }
 
+async function handleOpenDbfStaging() {
+  try {
+    await openDbfStagingFromAuthorizedAdmin({
+      issue: ({ action, payload }) => callApiAction(action, payload)
+    });
+  } catch (error) {
+    console.warn("DBF Staging launch rejected", { code: error?.code || "" });
+    showToast(error?.status === 403
+      ? "経営データ管理権限がありません。"
+      : "DBF Stagingを開けませんでした。もう一度お試しください。");
+  }
+}
+
 async function initializeMasterAdmin() {
   if (!restoreLaunchAuth()) {
     if (await restoreFirebaseBrowserSession()) {
@@ -5775,6 +5789,7 @@ async function initializeMasterAdmin() {
 
 elements.signIn.addEventListener("click", handleSignIn);
 elements.signOut.addEventListener("click", handleSignOut);
+elements.openDbfStaging?.addEventListener("click", handleOpenDbfStaging);
 elements.refresh.addEventListener("click", loadData);
 elements.addEmployee.addEventListener("click", startCreateEmployee);
 elements.addCorporation.addEventListener("click", startCreateCorporation);

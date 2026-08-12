@@ -3,17 +3,20 @@ export type JsonRecord = Record<string, unknown>;
 export type ManagementAction =
   | "managementFinanceSummary"
   | "managementStoresSummary"
-  | "managementDataopsStatus";
+  | "managementDataopsStatus"
+  | "managementBusinessDataCapability";
 
 export type ManagementEndpoint =
   | "finance.summary"
   | "stores.summary"
-  | "dataops.status";
+  | "dataops.status"
+  | "business-data.capability";
 
 export type ManagementPermission =
   | "finance.view"
   | "stores.view"
-  | "dataops.view";
+  | "dataops.view"
+  | "business_data.admin";
 
 export type ScopeMode = "all" | "own" | "assigned" | "none";
 
@@ -59,6 +62,9 @@ export interface ManagementResult {
 type InternalEmployee = {
   id: string;
   storeId: string | null;
+  corporationId: string | null;
+  departmentId: string | null;
+  positionId: string | null;
 };
 
 type InternalScope = {
@@ -78,6 +84,7 @@ const ACTION_PRODUCTION_ENABLED: Record<ManagementAction, boolean> = {
   managementFinanceSummary: true,
   managementStoresSummary: true,
   managementDataopsStatus: true,
+  managementBusinessDataCapability: true,
 };
 const ASSIGNMENT_TYPE_ALLOWLIST = new Set(["primary", "secondary", "third"]);
 const ALL_SCOPE_ROLE_CANDIDATES = new Set([
@@ -85,16 +92,18 @@ const ALL_SCOPE_ROLE_CANDIDATES = new Set([
   "executive",
   "backoffice",
   "accounting",
+  "business_data_admin",
 ]);
 
 const ROLE_PERMISSION_CANDIDATES: Record<string, ManagementPermission[]> = {
-  super_admin: ["finance.view", "stores.view", "dataops.view"],
+  super_admin: ["finance.view", "stores.view", "dataops.view", "business_data.admin"],
   executive: ["finance.view", "stores.view", "dataops.view"],
   backoffice: ["finance.view", "stores.view", "dataops.view"],
   accounting: ["finance.view", "stores.view", "dataops.view"],
   area_manager: ["stores.view"],
   store_manager: ["stores.view"],
   department_manager: [],
+  business_data_admin: ["business_data.admin", "finance.view", "stores.view", "dataops.view"],
 };
 
 const ACTION_DEFINITIONS: Record<ManagementAction, {
@@ -112,6 +121,10 @@ const ACTION_DEFINITIONS: Record<ManagementAction, {
   managementDataopsStatus: {
     endpoint: "dataops.status",
     permission: "dataops.view",
+  },
+  managementBusinessDataCapability: {
+    endpoint: "business-data.capability",
+    permission: "business_data.admin",
   },
 };
 
@@ -236,7 +249,7 @@ async function getCurrentEmployee(
   reference: EmployeeReference,
 ): Promise<InternalEmployee> {
   const rows = await deps.db.select("employees", {
-    select: "id,store_id,employment_status,is_active",
+    select: "id,corporation_id,department_id,position_id,store_id,employment_status,is_active",
     id: `eq.${reference.id}`,
     limit: 2,
   });
@@ -246,6 +259,9 @@ async function getCurrentEmployee(
   return {
     id: text(row.id),
     storeId: text(row.store_id) || null,
+    corporationId: text(row.corporation_id) || null,
+    departmentId: text(row.department_id) || null,
+    positionId: text(row.position_id) || null,
   };
 }
 
@@ -407,6 +423,63 @@ function endpointForAction(action: ManagementAction): ManagementEndpoint {
 function validMonth(value: unknown): string {
   const month = text(value);
   return /^\d{4}-\d{2}$/.test(month) ? `${month}-01` : "";
+}
+
+async function assertBusinessDataAdminCanonicalContext(
+  deps: ManagementDependencies,
+  employee: InternalEmployee,
+  today: string,
+): Promise<void> {
+  if (!employee.positionId || !employee.departmentId) safe403("FORBIDDEN");
+  const [positions, organizations, assignments] = await Promise.all([
+    deps.db.select("positions", {
+      select: "id,is_active",
+      id: `eq.${employee.positionId}`,
+      is_active: "eq.true",
+      limit: 2,
+    }),
+    deps.db.select("departments", {
+      select: "id,is_active",
+      id: `eq.${employee.departmentId}`,
+      is_active: "eq.true",
+      limit: 2,
+    }),
+    deps.db.select("employee_assignment_histories", {
+      select: "employee_id,corporation_id,department_id,store_id,position_id,effective_from,effective_to,is_active",
+      employee_id: `eq.${employee.id}`,
+      is_active: "eq.true",
+      effective_from: `lte.${today}`,
+      or: `(effective_to.is.null,effective_to.gte.${today})`,
+      limit: 2,
+    }),
+  ]);
+  if (positions.length !== 1 || positions[0].is_active !== true || text(positions[0].id) !== employee.positionId) safe403("FORBIDDEN");
+  if (organizations.length !== 1 || organizations[0].is_active !== true || text(organizations[0].id) !== employee.departmentId) safe403("FORBIDDEN");
+  if (assignments.length !== 1) safe403("FORBIDDEN");
+  const assignment = assignments[0];
+  if (assignment.is_active !== true
+    || text(assignment.employee_id) !== employee.id
+    || text(assignment.position_id) !== employee.positionId
+    || text(assignment.department_id) !== employee.departmentId
+    || text(assignment.corporation_id) !== text(employee.corporationId)
+    || text(assignment.store_id) !== text(employee.storeId)
+    || text(assignment.effective_from) > today
+    || (text(assignment.effective_to) && text(assignment.effective_to) < today)) safe403("FORBIDDEN");
+}
+
+async function buildBusinessDataCapability(
+  deps: ManagementDependencies,
+  access: AccessContext,
+): Promise<JsonRecord> {
+  const today = deps.today?.() || todayJstFallback();
+  await assertBusinessDataAdminCanonicalContext(deps, access.employee, today);
+  return {
+    capability: { businessDataAdmin: true },
+    scope: access.scope.mode,
+    effectiveOn: today,
+    runtimeImport: "DISABLED",
+    productionWrite: "DISABLED",
+  };
 }
 
 function statusFromFinance(pl: JsonRecord, bs: JsonRecord, cash: JsonRecord): "safe" | "warning" | "danger" {
@@ -916,6 +989,9 @@ export async function handleManagementReadOnlyAction(
     if (request.action === "managementStoresSummary") {
       return success(endpoint, await buildStoresSummary(deps, access), productionEnabled);
     }
+    if (request.action === "managementBusinessDataCapability") {
+      return success(endpoint, await buildBusinessDataCapability(deps, access), productionEnabled);
+    }
     const data = responseProfile === DIAGNOSTIC_RESPONSE_PROFILE
       ? await buildDataopsDiagnosticStatus(deps)
       : await buildDataopsStatus(deps);
@@ -928,7 +1004,7 @@ export async function handleManagementReadOnlyAction(
 export const MANAGEMENT_GATE_C4_CANDIDATE = Object.freeze({
   productionEnabledByAction: { ...ACTION_PRODUCTION_ENABLED },
   actions: Object.keys(ACTION_DEFINITIONS),
-  permissions: ["finance.view", "stores.view", "dataops.view"],
+  permissions: ["finance.view", "stores.view", "dataops.view", "business_data.admin"],
   allScopeRoleCandidates: [...ALL_SCOPE_ROLE_CANDIDATES],
   departmentManagerPermissions: [],
   assignmentTypeAllowlist: [...ASSIGNMENT_TYPE_ALLOWLIST],

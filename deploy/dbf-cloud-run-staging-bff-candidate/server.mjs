@@ -11,6 +11,15 @@ function json(response, status, body) {
   response.end(JSON.stringify(body));
 }
 
+function readiness(response) {
+  response.writeHead(200, {
+    "content-type": "text/plain; charset=utf-8",
+    "cache-control": "no-store",
+    "x-content-type-options": "nosniff"
+  });
+  response.end("ready\n");
+}
+
 function staticPathError() {
   const error = new Error("INVALID_STATIC_PATH");
   error.status = 400;
@@ -93,7 +102,7 @@ export function createDbfStagingServer(deps) {
     try {
       const rawPathname = String(request.url || "").split("?", 1)[0];
       const pathname = new URL(request.url, "http://localhost").pathname;
-      if (pathname === "/healthz") return json(response, 200, { status: "ready" });
+      if (pathname === "/ready" && request.method === "GET") return readiness(response);
       if (pathname === "/session/handoff/exchange") {
         if (request.method !== "POST") return json(response, 405, { code: "METHOD_NOT_ALLOWED" });
         const iapAssertion = request.headers["x-goog-iap-jwt-assertion"];

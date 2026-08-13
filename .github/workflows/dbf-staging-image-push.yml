@@ -3,8 +3,12 @@ name: DBF Staging Image Push
 on:
   workflow_dispatch:
     inputs:
+      source_sha:
+        description: "Full 40-character commit SHA at the current main HEAD"
+        required: true
+        type: string
       confirmation:
-        description: "Type the exact approved DBF Staging image push confirmation"
+        description: "Type PUSH_DBF_STAGING_IMAGE_<full source SHA>"
         required: true
         type: string
 
@@ -22,16 +26,15 @@ jobs:
     timeout-minutes: 35
     environment: dbf-business-data-staging
     env:
-      APPROVED_SOURCE_SHA: 8a24b4bd12b00266e3717c650c2d93f48ba9df70
-      CONFIRMATION: PUSH_DBF_STAGING_IMAGE_8A24B4BD
+      APPROVED_SOURCE_SHA: ${{ github.event.inputs.source_sha }}
       GCP_PROJECT_ID: idea-nov-dbf-staging
       GCP_PROJECT_NUMBER: "787968950888"
       GCP_REGION: asia-northeast1
       ARTIFACT_REPOSITORY: idea-nov-dbf-staging-ui
       IMAGE_NAME: dbf-staging-ui
-      IMAGE_URI: asia-northeast1-docker.pkg.dev/idea-nov-dbf-staging/idea-nov-dbf-staging-ui/dbf-staging-ui:8a24b4bd12b00266e3717c650c2d93f48ba9df70
-      EXPECTED_DOCKERFILE_SHA256: a2b74a306ae8b5c11e6a5a174aafea8a2186c2a55cd189146a1e3a29d9af410a
-      EXPECTED_REVISION: idea-nov-dbf-staging-ui-00001-h74
+      IMAGE_URI: asia-northeast1-docker.pkg.dev/idea-nov-dbf-staging/idea-nov-dbf-staging-ui/dbf-staging-ui:${{ github.event.inputs.source_sha }}
+      EXPECTED_SERVING_REVISION: idea-nov-dbf-staging-ui-00001-h74
+      EXPECTED_FAILED_REVISION: idea-nov-dbf-staging-ui-00002-dz7
       EXPECTED_RUNTIME_SA: dbf-staging-ui-runtime@idea-nov-dbf-staging.iam.gserviceaccount.com
       CLOUD_RUN_SERVICE: idea-nov-dbf-staging-ui
 
@@ -42,6 +45,7 @@ jobs:
           EVENT_REPOSITORY: ${{ github.repository }}
           EVENT_REPOSITORY_ID: ${{ github.repository_id }}
           EVENT_REF: ${{ github.ref }}
+          EVENT_SHA: ${{ github.sha }}
           EVENT_NAME: ${{ github.event_name }}
           EVENT_CONFIRMATION: ${{ github.event.inputs.confirmation }}
         run: |
@@ -49,13 +53,15 @@ jobs:
           test "$EVENT_REPOSITORY" = "ideanow-shift/idea-nov-hub"
           test "$EVENT_REPOSITORY_ID" = "1270075168"
           test "$EVENT_REF" = "refs/heads/main"
+          test "$EVENT_SHA" = "$APPROVED_SOURCE_SHA"
           test "$EVENT_NAME" = "workflow_dispatch"
-          test "$EVENT_CONFIRMATION" = "$CONFIRMATION"
+          printf '%s' "$APPROVED_SOURCE_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test "$EVENT_CONFIRMATION" = "PUSH_DBF_STAGING_IMAGE_$APPROVED_SOURCE_SHA"
 
       - name: Checkout approved source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: 8a24b4bd12b00266e3717c650c2d93f48ba9df70
+          ref: ${{ github.event.inputs.source_sha }}
           fetch-depth: 1
           persist-credentials: false
 
@@ -64,7 +70,6 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$APPROVED_SOURCE_SHA"
-          test "$(sha256sum deploy/dbf-cloud-run-staging-bff-candidate/Dockerfile | cut -d' ' -f1)" = "$EXPECTED_DOCKERFILE_SHA256"
           git ls-files --error-unmatch deploy/dbf-cloud-run-staging-bff-candidate/canonical-navigation.js
           node tests/dbf-cloud-run-docker-build-dependency.test.mjs
           test -z "$(git status --porcelain)"
@@ -117,16 +122,20 @@ jobs:
 
           gcloud run services describe "$CLOUD_RUN_SERVICE" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/cloud-run-before.json"
-          test "$(jq -r '.status.latestReadyRevisionName' "$RUNNER_TEMP/cloud-run-before.json")" = "$EXPECTED_REVISION"
-          test "$(jq -r '.status.latestCreatedRevisionName' "$RUNNER_TEMP/cloud-run-before.json")" = "$EXPECTED_REVISION"
           test "$(jq -r '.status.traffic | length' "$RUNNER_TEMP/cloud-run-before.json")" = "1"
-          test "$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/cloud-run-before.json")" = "$EXPECTED_REVISION"
+          test "$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/cloud-run-before.json")" = "$EXPECTED_SERVING_REVISION"
           test "$(jq -r '.status.traffic[0].percent' "$RUNNER_TEMP/cloud-run-before.json")" = "100"
           test "$(jq -r '.metadata.annotations["run.googleapis.com/iap-enabled"]' "$RUNNER_TEMP/cloud-run-before.json")" = "true"
           test "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/cloud-run-before.json")" = "all"
           test "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/cloud-run-before.json")" = "$EXPECTED_RUNTIME_SA"
-          before_revisions="$(gcloud run revisions list --service="$CLOUD_RUN_SERVICE" --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json | jq 'length')"
+          gcloud run revisions describe "$EXPECTED_FAILED_REVISION" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/failed-revision-before.json"
+          gcloud run revisions list --service="$CLOUD_RUN_SERVICE" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/revisions-before.json"
+          before_revisions="$(jq 'length' "$RUNNER_TEMP/revisions-before.json")"
           echo "before_revisions=$before_revisions" >> "$GITHUB_OUTPUT"
+          jq -S '{metadata: {name: .metadata.name, generation: .metadata.generation, annotations: .metadata.annotations}, spec: .spec, status: {latestReadyRevisionName: .status.latestReadyRevisionName, latestCreatedRevisionName: .status.latestCreatedRevisionName, traffic: .status.traffic}}' \
+            "$RUNNER_TEMP/cloud-run-before.json" > "$RUNNER_TEMP/cloud-run-critical-before.json"
 
           gcloud run services get-iam-policy "$CLOUD_RUN_SERVICE" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/cloud-run-iam-before.json"
@@ -175,7 +184,7 @@ jobs:
             --env NOV_HUB_HANDOFF_EXCHANGE_URL=https://example.invalid/functions/v1/nov-hub-api \
             "$IMAGE_URI"
           for attempt in {1..20}; do
-            if test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:18080/healthz)" = "200"; then
+            if test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:18080/ready)" = "200"; then
               break
             fi
             if test "$attempt" = "20"; then
@@ -186,7 +195,9 @@ jobs:
           done
 
           status() { curl --path-as-is --silent --output /dev/null --write-out '%{http_code}' "$1"; }
-          test "$(status http://127.0.0.1:18080/healthz)" = "200"
+          test "$(status http://127.0.0.1:18080/ready)" = "200"
+          test "$(status http://127.0.0.1:18080/ready/)" = "404"
+          test "$(status http://127.0.0.1:18080/healthz)" = "404"
           test "$(status http://127.0.0.1:18080/)" = "200"
           test "$(status http://127.0.0.1:18080/management-app)" = "308"
           test "$(status http://127.0.0.1:18080/management-app/)" = "200"
@@ -266,13 +277,14 @@ jobs:
 
           gcloud run services describe "$CLOUD_RUN_SERVICE" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/cloud-run-after.json"
-          test "$(jq -r '.status.latestReadyRevisionName' "$RUNNER_TEMP/cloud-run-after.json")" = "$EXPECTED_REVISION"
-          test "$(jq -r '.status.latestCreatedRevisionName' "$RUNNER_TEMP/cloud-run-after.json")" = "$EXPECTED_REVISION"
-          test "$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/cloud-run-after.json")" = "$EXPECTED_REVISION"
+          test "$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/cloud-run-after.json")" = "$EXPECTED_SERVING_REVISION"
           test "$(jq -r '.status.traffic[0].percent' "$RUNNER_TEMP/cloud-run-after.json")" = "100"
           test "$(jq -r '.metadata.annotations["run.googleapis.com/iap-enabled"]' "$RUNNER_TEMP/cloud-run-after.json")" = "true"
           test "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/cloud-run-after.json")" = "all"
           test "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/cloud-run-after.json")" = "$EXPECTED_RUNTIME_SA"
+          jq -S '{metadata: {name: .metadata.name, generation: .metadata.generation, annotations: .metadata.annotations}, spec: .spec, status: {latestReadyRevisionName: .status.latestReadyRevisionName, latestCreatedRevisionName: .status.latestCreatedRevisionName, traffic: .status.traffic}}' \
+            "$RUNNER_TEMP/cloud-run-after.json" > "$RUNNER_TEMP/cloud-run-critical-after.json"
+          cmp --silent "$RUNNER_TEMP/cloud-run-critical-before.json" "$RUNNER_TEMP/cloud-run-critical-after.json"
           after_revisions="$(gcloud run revisions list --service="$CLOUD_RUN_SERVICE" --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json | jq 'length')"
           test "$after_revisions" = "${{ steps.preflight.outputs.before_revisions }}"
           gcloud run services get-iam-policy "$CLOUD_RUN_SERVICE" \
@@ -293,7 +305,8 @@ jobs:
             echo "- Updated: $updated"
             echo "- Exact tag count: $exact_tag_count"
             echo "- Additional tags: 0"
-            echo "- Cloud Run revision: $EXPECTED_REVISION (unchanged)"
+            echo "- Cloud Run serving revision: $EXPECTED_SERVING_REVISION (unchanged)"
+            echo "- Cloud Run failed revision: $EXPECTED_FAILED_REVISION (unchanged)"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove local candidate container and image

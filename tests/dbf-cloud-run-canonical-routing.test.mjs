@@ -66,9 +66,14 @@ try {
   assert.equal((await rawRequest(port, "/management-app/%00secret")).status, 400);
   assert.equal((await rawRequest(port, "/management-app/%5c..%5csecret")).status, 400);
 
-  const health = await rawRequest(port, "/healthz");
-  assert.equal(health.status, 200);
-  assert.deepEqual(JSON.parse(health.body), { status: "ready" });
+  const readiness = await rawRequest(port, "/ready");
+  assert.equal(readiness.status, 200);
+  assert.equal(readiness.headers["content-type"], "text/plain; charset=utf-8");
+  assert.equal(readiness.headers["cache-control"], "no-store");
+  assert.equal(readiness.body, "ready\n");
+  assert.equal((await rawRequest(port, "/ready/")).status, 404);
+  assert.equal((await rawRequest(port, "/healthz")).status, 404);
+  assert.equal((await rawRequest(port, "/ready", { method: "POST" })).status, 405);
   const malformed = await rawRequest(port, "/session/handoff/exchange", {
     method: "POST",
     headers: { "content-type": "application/json", "content-length": "1" },

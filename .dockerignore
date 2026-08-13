@@ -1,0 +1,16 @@
+**
+!portal/
+!portal/management-app/
+!portal/management-app/**
+!portal/js/
+!portal/js/**
+portal/js/firebase-config.js
+!deploy/
+!deploy/dbf-staging/
+!deploy/dbf-staging/**
+!deploy/dbf-cloud-run-staging-bff-candidate/
+!deploy/dbf-cloud-run-staging-bff-candidate/Dockerfile
+!deploy/dbf-cloud-run-staging-bff-candidate/*.mjs
+!deploy/dbf-cloud-run-staging-bff-candidate/canonical-navigation.js
+!tools/
+!tools/build-dbf-staging-pages.mjs

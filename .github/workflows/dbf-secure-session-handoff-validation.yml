@@ -29,9 +29,38 @@ jobs:
         run: npm install --prefix tmp/dbf-pglite-fixture --no-save @electric-sql/pglite@0.5.4
       - name: Build isolated Staging browser artifact
         run: node tools/build-dbf-staging-pages.mjs
+      - name: Validate Cloud Run Docker build dependencies
+        run: node tests/dbf-cloud-run-docker-build-dependency.test.mjs
+      - name: Build local Cloud Run image
+        run: docker build --file deploy/dbf-cloud-run-staging-bff-candidate/Dockerfile --tag dbf-staging-bff-ci:${{ github.sha }} .
+      - name: Smoke local Cloud Run image
+        shell: bash
+        run: |
+          docker run --detach --name dbf-staging-bff-ci --publish 127.0.0.1:18080:8080 dbf-staging-bff-ci:${{ github.sha }}
+          for attempt in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:18080/healthz | grep --quiet '"status":"ready"'; then
+              break
+            fi
+            if [ "$attempt" = 20 ]; then
+              docker logs dbf-staging-bff-ci
+              exit 1
+            fi
+            sleep 1
+          done
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:18080/)" = "200"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:18080/management-app/)" = "200"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:18080/unknown-path)" = "404"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' --request POST --header 'content-type: application/json' --data '{"handoffCode":"invalid","state":"invalid"}' http://127.0.0.1:18080/session/handoff/exchange)" = "401"
+      - name: Remove local Cloud Run image
+        if: always()
+        shell: bash
+        run: |
+          docker rm --force dbf-staging-bff-ci 2>/dev/null || true
+          docker image rm dbf-staging-bff-ci:${{ github.sha }} 2>/dev/null || true
       - name: Run handoff contract regression
         run: |
           deno test --allow-env --allow-read tests/dbf-edge-root-routing-contract.test.ts
+          node tests/dbf-cloud-run-canonical-routing.test.mjs
           node tests/dbf-edge-iap-assertion-validator.test.mjs
           node tests/dbf-hub-session-handoff.test.mjs
           node tests/dbf-handoff-actions-launcher.test.mjs

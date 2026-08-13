@@ -12,6 +12,7 @@ assert.match(workflow, /EVENT_REPOSITORY_ID: \$\{\{ github\.repository_id \}\}/u
 assert.match(workflow, /EVENT_CONFIRMATION: \$\{\{ github\.event\.inputs\.confirmation \}\}/u);
 assert.match(workflow, /PUSH_DBF_STAGING_IMAGE_8A24B4BD/u);
 assert.match(workflow, /ref: 8a24b4bd12b00266e3717c650c2d93f48ba9df70/u);
+assert.match(workflow, /EXPECTED_DOCKERFILE_SHA256: a2b74a306ae8b5c11e6a5a174aafea8a2186c2a55cd189146a1e3a29d9af410a/u);
 assert.match(workflow, /persist-credentials: false/u);
 assert.match(workflow, /workload_identity_provider: projects\/787968950888\/locations\/global\/workloadIdentityPools\/github-dbf-staging\/providers\/github-idea-nov-hub/u);
 assert.match(workflow, /service_account: dbf-staging-deployer@idea-nov-dbf-staging\.iam\.gserviceaccount\.com/u);

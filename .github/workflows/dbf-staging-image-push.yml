@@ -1,0 +1,282 @@
+name: DBF Staging Image Push
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type the exact approved DBF Staging image push confirmation"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: dbf-staging-image-push
+  cancel-in-progress: false
+
+jobs:
+  push-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: dbf-business-data-staging
+    env:
+      APPROVED_SOURCE_SHA: 8a24b4bd12b00266e3717c650c2d93f48ba9df70
+      CONFIRMATION: PUSH_DBF_STAGING_IMAGE_8A24B4BD
+      GCP_PROJECT_ID: idea-nov-dbf-staging
+      GCP_PROJECT_NUMBER: "787968950888"
+      GCP_REGION: asia-northeast1
+      ARTIFACT_REPOSITORY: idea-nov-dbf-staging-ui
+      IMAGE_NAME: dbf-staging-ui
+      IMAGE_URI: asia-northeast1-docker.pkg.dev/idea-nov-dbf-staging/idea-nov-dbf-staging-ui/dbf-staging-ui:8a24b4bd12b00266e3717c650c2d93f48ba9df70
+      EXPECTED_DOCKERFILE_SHA256: 8e79ddc3918f428569e0931182b1ec13595305f4d43ee3dd43d988e1bc859cd1
+      EXPECTED_REVISION: idea-nov-dbf-staging-ui-00001-h74
+      EXPECTED_RUNTIME_SA: dbf-staging-ui-runtime@idea-nov-dbf-staging.iam.gserviceaccount.com
+      CLOUD_RUN_SERVICE: idea-nov-dbf-staging-ui
+
+    steps:
+      - name: Exact request gate
+        shell: bash
+        env:
+          EVENT_REPOSITORY: ${{ github.repository }}
+          EVENT_REPOSITORY_ID: ${{ github.repository_id }}
+          EVENT_REF: ${{ github.ref }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_CONFIRMATION: ${{ github.event.inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test "$EVENT_REPOSITORY" = "ideanow-shift/idea-nov-hub"
+          test "$EVENT_REPOSITORY_ID" = "1270075168"
+          test "$EVENT_REF" = "refs/heads/main"
+          test "$EVENT_NAME" = "workflow_dispatch"
+          test "$EVENT_CONFIRMATION" = "$CONFIRMATION"
+
+      - name: Checkout approved source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: 8a24b4bd12b00266e3717c650c2d93f48ba9df70
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify source identity and build dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$APPROVED_SOURCE_SHA"
+          test "$(sha256sum deploy/dbf-cloud-run-staging-bff-candidate/Dockerfile | cut -d' ' -f1)" = "$EXPECTED_DOCKERFILE_SHA256"
+          git ls-files --error-unmatch deploy/dbf-cloud-run-staging-bff-candidate/canonical-navigation.js
+          node tests/dbf-cloud-run-docker-build-dependency.test.mjs
+          test -z "$(git status --porcelain)"
+
+      - name: Authenticate to Google Cloud with existing WIF
+        id: auth
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
+        with:
+          workload_identity_provider: projects/787968950888/locations/global/workloadIdentityPools/github-dbf-staging/providers/github-idea-nov-hub
+          service_account: dbf-staging-deployer@idea-nov-dbf-staging.iam.gserviceaccount.com
+          project_id: idea-nov-dbf-staging
+          create_credentials_file: true
+          cleanup_credentials: true
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+        with:
+          project_id: idea-nov-dbf-staging
+
+      - name: Artifact Registry and Cloud Run read-only preflight
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gcloud config get-value project 2>/dev/null)" = "$GCP_PROJECT_ID"
+          test "$(gcloud projects describe "$GCP_PROJECT_ID" --format='value(projectNumber)')" = "$GCP_PROJECT_NUMBER"
+          test "$(gcloud auth list --filter=status:ACTIVE --format='value(account)')" = "dbf-staging-deployer@idea-nov-dbf-staging.iam.gserviceaccount.com"
+
+          # The exact repository read-back is the least-privilege API-enabled
+          # probe. It fails closed when Artifact Registry is disabled without
+          # requiring serviceusage.services.list on the deployer identity.
+          gcloud artifacts repositories describe "$ARTIFACT_REPOSITORY" \
+            --project="$GCP_PROJECT_ID" --location="$GCP_REGION" --format=json > "$RUNNER_TEMP/repository.json"
+          test "$(jq -r '.format' "$RUNNER_TEMP/repository.json")" = "DOCKER"
+          test "$(jq -r '.mode' "$RUNNER_TEMP/repository.json")" = "STANDARD_REPOSITORY"
+          test "$(jq -r '.dockerConfig.immutableTags' "$RUNNER_TEMP/repository.json")" = "true"
+          test "$(jq -r '.name' "$RUNNER_TEMP/repository.json")" = "projects/$GCP_PROJECT_ID/locations/$GCP_REGION/repositories/$ARTIFACT_REPOSITORY"
+
+          gcloud artifacts docker images list \
+            "$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$ARTIFACT_REPOSITORY/$IMAGE_NAME" \
+            --project="$GCP_PROJECT_ID" --include-tags --format=json > "$RUNNER_TEMP/images-before.json"
+          test "$(jq --arg tag "$APPROVED_SOURCE_SHA" '[.[] | select(((.tags // []) | index($tag)) != null)] | length' "$RUNNER_TEMP/images-before.json")" = "0"
+
+          set +e
+          gcloud artifacts docker images describe "$IMAGE_URI" --project="$GCP_PROJECT_ID" --format=json > "$RUNNER_TEMP/existing-tag.json" 2> "$RUNNER_TEMP/existing-tag.err"
+          describe_rc=$?
+          set -e
+          test "$describe_rc" -ne 0
+          grep -Eqi 'NOT_FOUND|not found|does not exist' "$RUNNER_TEMP/existing-tag.err"
+
+          gcloud run services describe "$CLOUD_RUN_SERVICE" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/cloud-run-before.json"
+          test "$(jq -r '.status.latestReadyRevisionName' "$RUNNER_TEMP/cloud-run-before.json")" = "$EXPECTED_REVISION"
+          test "$(jq -r '.status.latestCreatedRevisionName' "$RUNNER_TEMP/cloud-run-before.json")" = "$EXPECTED_REVISION"
+          test "$(jq -r '.status.traffic | length' "$RUNNER_TEMP/cloud-run-before.json")" = "1"
+          test "$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/cloud-run-before.json")" = "$EXPECTED_REVISION"
+          test "$(jq -r '.status.traffic[0].percent' "$RUNNER_TEMP/cloud-run-before.json")" = "100"
+          test "$(jq -r '.metadata.annotations["run.googleapis.com/iap-enabled"]' "$RUNNER_TEMP/cloud-run-before.json")" = "true"
+          test "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/cloud-run-before.json")" = "all"
+          test "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/cloud-run-before.json")" = "$EXPECTED_RUNTIME_SA"
+          before_revisions="$(gcloud run revisions list --service="$CLOUD_RUN_SERVICE" --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json | jq 'length')"
+          echo "before_revisions=$before_revisions" >> "$GITHUB_OUTPUT"
+
+          gcloud run services get-iam-policy "$CLOUD_RUN_SERVICE" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/cloud-run-iam-before.json"
+          test "$(jq '[.bindings[]? | select(any(.members[]?; . == "allUsers" or . == "allAuthenticatedUsers"))] | length' "$RUNNER_TEMP/cloud-run-iam-before.json")" = "0"
+          gcloud auth configure-docker "$GCP_REGION-docker.pkg.dev" --quiet
+
+      - name: Build approved image exactly once
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/dbf-cloud-run-docker-build-dependency.test.mjs
+          docker build \
+            --file deploy/dbf-cloud-run-staging-bff-candidate/Dockerfile \
+            --tag "$IMAGE_URI" \
+            .
+          test "$(docker image inspect "$IMAGE_URI" --format '{{len .RepoTags}}')" = "1"
+
+      - name: Inspect browser and server image contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint sh "$IMAGE_URI" -c '
+            set -eu
+            test "$(id -u)" != "0"
+            test -d /app/static
+            test -f /app/main.mjs
+            test -f /app/static/management-app/index.html
+            test -f /app/static/dbf-staging-runtime.js
+            test ! -e /app/.git
+            test ! -e /app/private-local
+            test ! -e /app/build
+            test -z "$(find /app -type f \( -name ".env" -o -name "gha-creds-*.json" -o -name "*.pem" -o -name "*.p12" -o -name "*.pfx" -o -name "*.csv" -o -name "*.xls" -o -name "*.xlsx" \) -print)"
+            ! grep -R -E "nkmxevmioczcmnldreyo|idea-nov-group-portal[A-Za-z0-9._-]*(pkg\\.dev|run\\.app)|gcloud.{0,80}idea-nov-group-portal|service_role|DB_PASSWORD|BEGIN (RSA|EC|OPENSSH) PRIVATE KEY|github_pat_|gh[pousr]_[A-Za-z0-9]|oauth.{0,20}secret|m\\.wakita@idea-nov\\.com" /app/static /app/*.mjs
+            ! grep -R -E "access[_-]?token.{0,20}(console|log)|request[_ -]?body.{0,20}(console|log)|handoffCode.{0,20}(console|log)" /app/static /app/*.mjs
+            grep -R -q "zgkoofphhivesclehrom" /app/static
+            grep -R -q "runtimeImport.*DISABLED" /app/static
+            grep -R -q "productionWrite.*DISABLED" /app/static
+          '
+
+      - name: Run the exact image and verify runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach --name dbf-staging-image-candidate \
+            --publish 127.0.0.1:18080:8080 \
+            --env NOV_HUB_HANDOFF_EXCHANGE_URL=https://example.invalid/functions/v1/nov-hub-api \
+            "$IMAGE_URI"
+          for attempt in {1..20}; do
+            if test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:18080/healthz)" = "200"; then
+              break
+            fi
+            if test "$attempt" = "20"; then
+              docker logs dbf-staging-image-candidate
+              exit 1
+            fi
+            sleep 1
+          done
+
+          status() { curl --path-as-is --silent --output /dev/null --write-out '%{http_code}' "$1"; }
+          test "$(status http://127.0.0.1:18080/healthz)" = "200"
+          test "$(status http://127.0.0.1:18080/)" = "200"
+          test "$(status http://127.0.0.1:18080/management-app)" = "308"
+          test "$(status http://127.0.0.1:18080/management-app/)" = "200"
+          test "$(status http://127.0.0.1:18080/management-app/index.html)" = "200"
+          test "$(status http://127.0.0.1:18080/management-app/management-app/)" = "404"
+          test "$(status http://127.0.0.1:18080/unknown-path)" = "404"
+          test "$(status http://127.0.0.1:18080/%2e%2e/secret)" = "400"
+          test "$(status http://127.0.0.1:18080/management-app/%00secret)" = "400"
+          test "$(status http://127.0.0.1:18080/management-app/%5c..%5csecret)" = "400"
+          curl --silent --dump-header "$RUNNER_TEMP/css.headers" --output /dev/null http://127.0.0.1:18080/management-app/styles.css
+          grep -Eqi '^content-type: text/css' "$RUNNER_TEMP/css.headers"
+          curl --silent --dump-header "$RUNNER_TEMP/js.headers" --output /dev/null http://127.0.0.1:18080/management-app/app-v2.js
+          grep -Eqi '^content-type: text/javascript' "$RUNNER_TEMP/js.headers"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' --request POST --header 'content-type: application/json' --data '{' http://127.0.0.1:18080/session/handoff/exchange)" = "401"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' --request POST --header 'content-type: application/json' --header 'x-goog-iap-jwt-assertion: invalid' --data '{}' http://127.0.0.1:18080/session/handoff/exchange)" = "401"
+          curl --fail --silent http://127.0.0.1:18080/management-app/ | grep -q 'BASSA GROUP 経営管理ダッシュボード'
+          curl --fail --silent http://127.0.0.1:18080/management-app/app-v2.js | grep -q 'STAGING'
+          curl --fail --silent http://127.0.0.1:18080/management-app/app-v2.js | grep -q 'HUBログインが必要です'
+
+          google-chrome --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --enable-logging=stderr --v=0 --dump-dom \
+            http://127.0.0.1:18080/management-app/ \
+            > "$RUNNER_TEMP/management-app.dom" 2> "$RUNNER_TEMP/chrome.stderr"
+          ! grep -E 'CONSOLE.*(ERROR|WARNING)|SEVERE.*CONSOLE' "$RUNNER_TEMP/chrome.stderr"
+          ! grep -Eqi '(^|[^a-z])(5[0-9]{2})([^0-9]|$)|uncaught|unhandled|internal_error' <(docker logs dbf-staging-image-candidate 2>&1)
+
+      - name: Push the verified image exactly once
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker push "$IMAGE_URI"
+
+      - name: Read back immutable digest and verify Cloud Run is unchanged
+        id: readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud artifacts docker images describe "$IMAGE_URI" \
+            --project="$GCP_PROJECT_ID" --format=json > "$RUNNER_TEMP/image-readback.json"
+          digest="$(jq -r '.image_summary.digest // .imageSummary.digest // .digest // empty' "$RUNNER_TEMP/image-readback.json")"
+          fq_digest="$(jq -r '.image_summary.fully_qualified_digest // .imageSummary.fullyQualifiedDigest // .fullyQualifiedDigest // empty' "$RUNNER_TEMP/image-readback.json")"
+          test "$digest" != ""
+          test "$fq_digest" = "$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$ARTIFACT_REPOSITORY/$IMAGE_NAME@$digest"
+
+          gcloud artifacts docker images list \
+            "$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$ARTIFACT_REPOSITORY/$IMAGE_NAME" \
+            --project="$GCP_PROJECT_ID" --include-tags --format=json > "$RUNNER_TEMP/images-after.json"
+          exact_tag_count="$(jq --arg tag "$APPROVED_SOURCE_SHA" '[.[] | select(((.tags // []) | index($tag)) != null)] | length' "$RUNNER_TEMP/images-after.json")"
+          test "$exact_tag_count" = "1"
+          test "$(jq --arg tag "$APPROVED_SOURCE_SHA" '[.[] | select(((.tags // []) | index($tag)) != null) | (.tags // []) | length] | add' "$RUNNER_TEMP/images-after.json")" = "1"
+
+          gcloud artifacts repositories describe "$ARTIFACT_REPOSITORY" \
+            --project="$GCP_PROJECT_ID" --location="$GCP_REGION" --format=json > "$RUNNER_TEMP/repository-after.json"
+          test "$(jq -r '.dockerConfig.immutableTags' "$RUNNER_TEMP/repository-after.json")" = "true"
+
+          gcloud run services describe "$CLOUD_RUN_SERVICE" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/cloud-run-after.json"
+          test "$(jq -r '.status.latestReadyRevisionName' "$RUNNER_TEMP/cloud-run-after.json")" = "$EXPECTED_REVISION"
+          test "$(jq -r '.status.latestCreatedRevisionName' "$RUNNER_TEMP/cloud-run-after.json")" = "$EXPECTED_REVISION"
+          test "$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/cloud-run-after.json")" = "$EXPECTED_REVISION"
+          test "$(jq -r '.status.traffic[0].percent' "$RUNNER_TEMP/cloud-run-after.json")" = "100"
+          test "$(jq -r '.metadata.annotations["run.googleapis.com/iap-enabled"]' "$RUNNER_TEMP/cloud-run-after.json")" = "true"
+          test "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/cloud-run-after.json")" = "all"
+          test "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/cloud-run-after.json")" = "$EXPECTED_RUNTIME_SA"
+          after_revisions="$(gcloud run revisions list --service="$CLOUD_RUN_SERVICE" --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json | jq 'length')"
+          test "$after_revisions" = "${{ steps.preflight.outputs.before_revisions }}"
+          gcloud run services get-iam-policy "$CLOUD_RUN_SERVICE" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/cloud-run-iam-after.json"
+          test "$(jq '[.bindings[]? | select(any(.members[]?; . == "allUsers" or . == "allAuthenticatedUsers"))] | length' "$RUNNER_TEMP/cloud-run-iam-after.json")" = "0"
+
+          image_size="$(jq -r '.image_summary.image_size_bytes // .image_summary.size_bytes // .imageSummary.imageSizeBytes // .imageSizeBytes // "UNKNOWN"' "$RUNNER_TEMP/image-readback.json")"
+          created="$(jq -r --arg tag "$APPROVED_SOURCE_SHA" '[.[] | select(((.tags // []) | index($tag)) != null)][0].createTime // "UNKNOWN"' "$RUNNER_TEMP/images-after.json")"
+          updated="$(jq -r --arg tag "$APPROVED_SOURCE_SHA" '[.[] | select(((.tags // []) | index($tag)) != null)][0].updateTime // "UNKNOWN"' "$RUNNER_TEMP/images-after.json")"
+          {
+            echo "## DBF Staging immutable image"
+            echo "- Source: $APPROVED_SOURCE_SHA"
+            echo "- Image: $IMAGE_URI"
+            echo "- Digest: $digest"
+            echo "- Fully-qualified digest: $fq_digest"
+            echo "- Image size: $image_size"
+            echo "- Created: $created"
+            echo "- Updated: $updated"
+            echo "- Exact tag count: $exact_tag_count"
+            echo "- Additional tags: 0"
+            echo "- Cloud Run revision: $EXPECTED_REVISION (unchanged)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove local candidate container and image
+        if: always()
+        shell: bash
+        run: |
+          docker rm --force dbf-staging-image-candidate 2>/dev/null || true
+          docker image rm "$IMAGE_URI" 2>/dev/null || true

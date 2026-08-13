@@ -31,6 +31,8 @@ jobs:
         run: node tools/build-dbf-staging-pages.mjs
       - name: Validate Cloud Run Docker build dependencies
         run: node tests/dbf-cloud-run-docker-build-dependency.test.mjs
+      - name: Validate DBF Staging push-only workflow contract
+        run: node tests/dbf-staging-image-push-workflow-contract.test.mjs
       - name: Build local Cloud Run image
         run: docker build --file deploy/dbf-cloud-run-staging-bff-candidate/Dockerfile --tag dbf-staging-bff-ci:${{ github.sha }} .
       - name: Smoke local Cloud Run image

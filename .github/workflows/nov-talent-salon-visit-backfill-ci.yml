@@ -1,0 +1,84 @@
+name: NOV Talent SALON_VISIT Backfill CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/nov-talent-salon-visit-backfill-ci.yml"
+      - "scripts/verify-nov-talent-salon-visit-backfill-migration.mjs"
+      - "supabase/functions/nov-talent-staging-api/**"
+      - "supabase/migrations/20260811224534_nov_talent_recruiting_actual_fact_foundation.sql"
+      - "supabase/migrations/20260812035051_nov_talent_recruiting_actual_fact_fk_indexes.sql"
+      - "supabase/migrations/20260812120633_nov_talent_recruiting_contact_backfill_preparation.sql"
+      - "supabase/migrations/20260813063843_nov_talent_salon_visit_backfill_preparation.sql"
+      - "tests/nov-talent-salon-visit-backfill-*.test.mjs"
+      - "tests/sql/nov-talent-salon-visit-backfill-fresh-db.psql"
+
+permissions:
+  contents: read
+
+jobs:
+  staging-edge-deno-check:
+    name: Staging Edge Deno check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout pull request
+        uses: actions/checkout@v4
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.2
+
+      - name: Report Deno version
+        run: deno --version
+
+      - name: Check formal Staging Edge entrypoint
+        run: deno check supabase/functions/nov-talent-staging-api/index.ts
+
+  salon-visit-fresh-postgresql:
+    name: SALON_VISIT Fresh PostgreSQL test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGDATABASE: postgres
+    steps:
+      - name: Checkout pull request
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify formal migration byte integrity
+        run: node scripts/verify-nov-talent-salon-visit-backfill-migration.mjs
+
+      - name: Verify PostgreSQL 17 server
+        shell: bash
+        run: |
+          psql --version
+          server_version="$(psql -X -Atqc 'show server_version')"
+          echo "PostgreSQL server ${server_version}"
+          case "${server_version}" in
+            17.*) ;;
+            *) echo "Expected PostgreSQL 17.x" >&2; exit 1 ;;
+          esac
+
+      - name: Run SALON_VISIT Fresh PostgreSQL contract
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/nov-talent-salon-visit-backfill-fresh-db.psql

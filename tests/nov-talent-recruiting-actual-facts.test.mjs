@@ -77,7 +77,7 @@ test("Actual Fact response contract distinguishes confirmed zero, provisional an
 
 test("1.2 runtime binds approved 2027 Planning and does not turn empty foundations into zero", () => {
   const data = buildRecruitingActualFactsV1({
-    candidates: [{ candidate_id: "c1", graduation_year: 2027 }], selections: [], engagementFacts: [], backfillReceipts: [], coverageReleases: [], spendFacts: [],
+    candidates: [{ candidate_id: "c1", graduation_year: 2027 }], selections: [], engagementFacts: [], engagementAudits: [], backfillReceipts: [], salonVisitBackfillReceipts: [], coverageReleases: [], spendFacts: [],
     planningTargets: [
       ["CONTACT_COUNT",563],["SALON_VISIT_COUNT",112],["APPLICATION_COUNT",45],["OFFERED_COUNT",37],["OFFER_ACCEPTED_COUNT",37]
     ].map(([target_metric,target_count]) => ({ recruiting_track:"NEW_GRAD", graduation_year:2027, scope_type:"COMPANY", record_state:"APPROVED", recruiting_period_start:"2026-04-01", recruiting_period_end:"2027-03-31", target_metric, target_count })),
@@ -101,13 +101,13 @@ test("approved CONTACT receipt releases exactly 11 Facts as 10 unique Candidate 
     source_type: "CONTACTS_27_HUMAN_REVIEW", original_actor_status: "UNAVAILABLE", correction_of_fact_id: null,
   }));
   const data = buildRecruitingActualFactsV1({
-    candidates, selections: [], engagementFacts, coverageReleases: [], spendFacts: [],
+    candidates, selections: [], engagementFacts, engagementAudits: [], coverageReleases: [], spendFacts: [], salonVisitBackfillReceipts: [],
     backfillReceipts: [{ backfill_code: "CONTACT_2027_HUMAN_REVIEW", receipt_state: "COMPLETED", review_status: "APPROVED_FOR_BACKFILL",
       review_package_sha256: "139d6b1b222cd7a7d820375c08e1b4ace811fc285ed89e27dd924d2bfb8c9125",
       canonical_source_sha256: "725cc4b8ae933081dc30fd7ce37179741661d795a20edaed542023b4d3621a77",
       source_event_count: 11, unique_candidate_count: 10, fact_count: 11 }],
     planningTargets: [{ recruiting_track:"NEW_GRAD", graduation_year:2027, scope_type:"COMPANY", record_state:"APPROVED", recruiting_period_start:"2026-04-01", recruiting_period_end:"2027-03-31", target_metric:"CONTACT_COUNT", target_count:563 }],
-    planningBudgets: [], availability: { selections:true, engagementFacts:true, backfillReceipts:true, coverageReleases:true, spendFacts:true, planningTargets:true, planningBudgets:true },
+    planningBudgets: [], availability: { selections:true, engagementFacts:true, engagementAudits:true, backfillReceipts:true, salonVisitBackfillReceipts:true, coverageReleases:true, spendFacts:true, planningTargets:true, planningBudgets:true },
   });
   assert.equal(data.metrics.CONTACT_COUNT.actualSourceStatus, "READY");
   assert.equal(data.metrics.CONTACT_COUNT.actual, 10);
@@ -118,7 +118,7 @@ test("approved CONTACT receipt releases exactly 11 Facts as 10 unique Candidate 
 
 test("missing, mismatched or voided CONTACT receipt never releases zero or partial Facts", () => {
   const common = {
-    candidates: [{ candidate_id:"c1", graduation_year:2027 }], selections: [], coverageReleases: [], spendFacts: [], planningBudgets: [],
+    candidates: [{ candidate_id:"c1", graduation_year:2027 }], selections: [], engagementAudits: [], salonVisitBackfillReceipts: [], coverageReleases: [], spendFacts: [], planningBudgets: [],
     planningTargets: [{ recruiting_track:"NEW_GRAD", graduation_year:2027, scope_type:"COMPANY", record_state:"APPROVED", recruiting_period_start:"2026-04-01", recruiting_period_end:"2027-03-31", target_metric:"CONTACT_COUNT", target_count:563 }],
     availability: { selections:true, engagementFacts:true, backfillReceipts:true, coverageReleases:true, spendFacts:true, planningTargets:true, planningBudgets:true },
   };
@@ -127,6 +127,48 @@ test("missing, mismatched or voided CONTACT receipt never releases zero or parti
     const data = buildRecruitingActualFactsV1({ ...common, engagementFacts, backfillReceipts });
     assert.equal(data.metrics.CONTACT_COUNT.actualSourceStatus, "ACTUAL_SOURCE_UNAVAILABLE");
     assert.equal(data.metrics.CONTACT_COUNT.actual, null);
+  }
+});
+
+test("approved SALON_VISIT receipt releases exactly 15 Facts as 4 unique Candidate Actual", () => {
+  const candidates = Array.from({ length: 4 }, (_, index) => ({ candidate_id: `c${index + 1}`, graduation_year: 2027 }));
+  const stores = Array.from({ length: 8 }, (_, index) => `s${index + 1}`);
+  const engagementFacts = Array.from({ length: 15 }, (_, index) => ({
+    engagement_fact_id: `v${index + 1}`, candidate_id: `c${(index % 4) + 1}`,
+    engagement_type: "SALON_VISIT", engagement_status: "COMPLETED", occurred_at: `2026-06-${String((index % 4) + 1).padStart(2, "0")}T00:00:00Z`,
+    store_id: stores[index % 8], source_event_id: `source-${(index % 4) + 1}`,
+    source_type: "CONTACTS_27_SALON_VISIT_HUMAN_REVIEW", source_fingerprint: String(index).padStart(64, "0"),
+    original_actor_status: "UNAVAILABLE", correction_of_fact_id: null,
+  }));
+  const engagementAudits = engagementFacts.map((row) => ({ engagement_fact_id: row.engagement_fact_id, event_type: "FACT_APPENDED" }));
+  const salonVisitBackfillReceipts = [{
+    backfill_code: "SALON_VISIT_2027_HUMAN_REVIEW", receipt_state: "COMPLETED", review_status: "APPROVED_FOR_BACKFILL",
+    review_package_sha256: "10c87773b376dddaf044dc1c3e2dd88e68b759e2a237df0e406a8a563a192540",
+    canonical_source_sha256: "ed954ba2a5553ab645d5050cd8ed036aad6e749435d09a9fcfe256255426c023",
+    source_event_count: 4, unique_candidate_count: 4, fact_count: 15, original_actor_status: "UNAVAILABLE",
+  }];
+  const common = {
+    candidates, selections: [], engagementFacts, engagementAudits, backfillReceipts: [], salonVisitBackfillReceipts,
+    coverageReleases: [], spendFacts: [], planningBudgets: [],
+    planningTargets: [{ recruiting_track:"NEW_GRAD", graduation_year:2027, scope_type:"COMPANY", record_state:"APPROVED", recruiting_period_start:"2026-04-01", recruiting_period_end:"2027-03-31", target_metric:"SALON_VISIT_COUNT", target_count:112 }],
+    availability: { selections:true, engagementFacts:true, engagementAudits:true, backfillReceipts:true, salonVisitBackfillReceipts:true, coverageReleases:true, spendFacts:true, planningTargets:true, planningBudgets:true },
+  };
+  const data = buildRecruitingActualFactsV1(common);
+  assert.equal(data.metrics.SALON_VISIT_COUNT.actualSourceStatus, "READY");
+  assert.equal(data.metrics.SALON_VISIT_COUNT.actual, 4);
+  assert.equal(data.metrics.SALON_VISIT_COUNT.eventCount, 15);
+  assert.equal(data.metrics.SALON_VISIT_COUNT.remaining, 108);
+  assert.equal(data.metrics.SALON_VISIT_COUNT.achievementRate, 4 / 112);
+  assert.equal(data.metrics.SALON_VISIT_COUNT.coverageState, "COMPLETE");
+
+  for (const input of [
+    { ...common, engagementAudits: engagementAudits.slice(1) },
+    { ...common, salonVisitBackfillReceipts: [{ ...salonVisitBackfillReceipts[0], canonical_source_sha256: "0".repeat(64) }] },
+    { ...common, salonVisitBackfillReceipts: [...salonVisitBackfillReceipts, { ...salonVisitBackfillReceipts[0], receipt_state: "VOIDED" }] },
+  ]) {
+    const unavailable = buildRecruitingActualFactsV1(input);
+    assert.equal(unavailable.metrics.SALON_VISIT_COUNT.actualSourceStatus, "ACTUAL_SOURCE_UNAVAILABLE");
+    assert.equal(unavailable.metrics.SALON_VISIT_COUNT.actual, null);
   }
 });
 

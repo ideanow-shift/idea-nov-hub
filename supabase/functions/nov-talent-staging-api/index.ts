@@ -640,8 +640,10 @@ async function recruitingIntelligence(runtime: Runtime, candidates: any[], curre
 async function recruitingActualFacts(runtime: Runtime, candidates: any[], requestId: string) {
   const requests = [
     ["selections", "/rest/v1/nov_talent_selection_history_v1?select=candidate_id,selection_code,effective_date,is_active&is_active=eq.true&limit=5000"],
-    ["engagementFacts", "/rest/v1/nov_talent_recruiting_engagement_facts_v1?select=engagement_fact_id,candidate_id,engagement_type,occurred_at,engagement_status,source_type,original_actor_status,correction_of_fact_id&limit=5000"],
+    ["engagementFacts", "/rest/v1/nov_talent_recruiting_engagement_facts_v1?select=engagement_fact_id,candidate_id,engagement_type,occurred_at,store_id,engagement_status,source_type,source_fingerprint,original_actor_status,source_event_id,correction_of_fact_id&limit=5000"],
+    ["engagementAudits", "/rest/v1/nov_talent_recruiting_engagement_audit_v1?select=engagement_fact_id,event_type&limit=5000"],
     ["backfillReceipts", "/rest/v1/nov_talent_recruiting_actual_backfill_receipts_v1?select=backfill_code,receipt_state,review_status,review_package_sha256,canonical_source_sha256,source_event_count,unique_candidate_count,fact_count,supersedes_receipt_id&limit=20"],
+    ["salonVisitBackfillReceipts", "/rest/v1/nov_talent_recruiting_salon_visit_backfill_receipts_v1?select=backfill_code,receipt_state,review_status,review_package_sha256,canonical_source_sha256,source_event_count,unique_candidate_count,fact_count,original_actor_status,supersedes_receipt_id&limit=20"],
     ["coverageReleases", "/rest/v1/nov_talent_selection_coverage_releases_v1?select=selection_code,recruiting_period_start,recruiting_period_end,coverage_state,superseded_by_release_id&limit=1000"],
     ["spendFacts", "/rest/v1/nov_talent_recruiting_spend_facts_v1?select=spend_fact_id,recruiting_track,graduation_year,occurred_at,amount,spend_status,correction_of_fact_id&limit=5000"],
     ["planningTargets", "/rest/v1/nov_talent_recruiting_funnel_targets_v1?select=recruiting_track,graduation_year,target_metric,recruiting_period_start,recruiting_period_end,scope_type,target_count,record_state&record_state=eq.APPROVED&limit=1000"],
@@ -650,7 +652,8 @@ async function recruitingActualFacts(runtime: Runtime, candidates: any[], reques
   const results = await Promise.all(requests.map(([view, path]) => readView(runtime, { requestId, endpoint: "recruiting_actual_facts", view, path, fatal: false })));
   const byName = Object.fromEntries(requests.map(([name], index) => [name, results[index]]));
   return buildRecruitingActualFactsV1({ candidates, selections: byName.selections.rows, engagementFacts: byName.engagementFacts.rows,
-    backfillReceipts: byName.backfillReceipts.rows,
+    engagementAudits: byName.engagementAudits.rows, backfillReceipts: byName.backfillReceipts.rows,
+    salonVisitBackfillReceipts: byName.salonVisitBackfillReceipts.rows,
     coverageReleases: byName.coverageReleases.rows, spendFacts: byName.spendFacts.rows, planningTargets: byName.planningTargets.rows,
     planningBudgets: byName.planningBudgets.rows, availability: Object.fromEntries(requests.map(([name], index) => [name, results[index].available])) });
 }

@@ -30,7 +30,7 @@ jobs:
       ARTIFACT_REPOSITORY: idea-nov-dbf-staging-ui
       IMAGE_NAME: dbf-staging-ui
       IMAGE_URI: asia-northeast1-docker.pkg.dev/idea-nov-dbf-staging/idea-nov-dbf-staging-ui/dbf-staging-ui:8a24b4bd12b00266e3717c650c2d93f48ba9df70
-      EXPECTED_DOCKERFILE_SHA256: 8e79ddc3918f428569e0931182b1ec13595305f4d43ee3dd43d988e1bc859cd1
+      EXPECTED_DOCKERFILE_SHA256: a2b74a306ae8b5c11e6a5a174aafea8a2186c2a55cd189146a1e3a29d9af410a
       EXPECTED_REVISION: idea-nov-dbf-staging-ui-00001-h74
       EXPECTED_RUNTIME_SA: dbf-staging-ui-runtime@idea-nov-dbf-staging.iam.gserviceaccount.com
       CLOUD_RUN_SERVICE: idea-nov-dbf-staging-ui

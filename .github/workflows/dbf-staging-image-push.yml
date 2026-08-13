@@ -202,9 +202,31 @@ jobs:
           grep -Eqi '^content-type: text/javascript' "$RUNNER_TEMP/js.headers"
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' --request POST --header 'content-type: application/json' --data '{' http://127.0.0.1:18080/session/handoff/exchange)" = "401"
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' --request POST --header 'content-type: application/json' --header 'x-goog-iap-jwt-assertion: invalid' --data '{}' http://127.0.0.1:18080/session/handoff/exchange)" = "401"
-          curl --fail --silent http://127.0.0.1:18080/management-app/ | grep -q 'BASSA GROUP 経営管理ダッシュボード'
-          curl --fail --silent http://127.0.0.1:18080/management-app/app-v2.js | grep -q 'STAGING'
-          curl --fail --silent http://127.0.0.1:18080/management-app/app-v2.js | grep -q 'HUBログインが必要です'
+          MANAGEMENT_BODY="$RUNNER_TEMP/dbf-runtime-management.html"
+          APP_V2_BODY="$RUNNER_TEMP/dbf-runtime-app-v2.js"
+          runtime_response_files=("$MANAGEMENT_BODY" "$APP_V2_BODY")
+          trap 'rm -f "${runtime_response_files[@]}"' EXIT
+
+          management_http_code="$(
+            curl --silent --show-error --location \
+              --output "$MANAGEMENT_BODY" \
+              --write-out '%{http_code}' \
+              http://127.0.0.1:18080/management-app/
+          )"
+          test "$management_http_code" = "200"
+          test -s "$MANAGEMENT_BODY"
+          grep --fixed-strings --quiet 'BASSA GROUP 経営管理ダッシュボード' "$MANAGEMENT_BODY"
+
+          app_v2_http_code="$(
+            curl --silent --show-error --location \
+              --output "$APP_V2_BODY" \
+              --write-out '%{http_code}' \
+              http://127.0.0.1:18080/management-app/app-v2.js
+          )"
+          test "$app_v2_http_code" = "200"
+          test -s "$APP_V2_BODY"
+          grep --fixed-strings --quiet 'STAGING' "$APP_V2_BODY"
+          grep --fixed-strings --quiet 'HUBログインが必要です' "$APP_V2_BODY"
 
           google-chrome --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
             --enable-logging=stderr --v=0 --dump-dom \

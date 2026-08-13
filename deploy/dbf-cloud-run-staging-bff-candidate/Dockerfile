@@ -3,6 +3,7 @@ WORKDIR /src
 COPY portal ./portal
 COPY deploy/dbf-staging ./deploy/dbf-staging
 COPY tools/build-dbf-staging-pages.mjs ./tools/build-dbf-staging-pages.mjs
+COPY deploy/dbf-cloud-run-staging-bff-candidate/canonical-navigation.js ./deploy/dbf-cloud-run-staging-bff-candidate/canonical-navigation.js
 RUN node tools/build-dbf-staging-pages.mjs
 
 FROM node:24.15.0-alpine

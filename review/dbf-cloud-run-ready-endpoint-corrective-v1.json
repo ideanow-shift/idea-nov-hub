@@ -1,0 +1,53 @@
+{
+  "contractVersion": "dbf_cloud_run_ready_endpoint_v1",
+  "environment": "staging",
+  "target": {
+    "projectId": "idea-nov-dbf-staging",
+    "projectNumber": "787968950888",
+    "region": "asia-northeast1",
+    "service": "idea-nov-dbf-staging-ui"
+  },
+  "readiness": {
+    "method": "GET",
+    "path": "/ready",
+    "port": 8080,
+    "status": 200,
+    "contentType": "text/plain",
+    "cacheControl": "no-store",
+    "body": "ready\n",
+    "requiresDb": false,
+    "requiresEdge": false,
+    "requiresSession": false
+  },
+  "image": {
+    "source": "current_main_full_sha_at_dispatch",
+    "tag": "full_source_sha",
+    "additionalTags": 0,
+    "deployByDigest": true
+  },
+  "deployment": {
+    "startupProbePath": "/ready",
+    "startupProbePort": 8080,
+    "targetTrafficPercent": 100,
+    "rollbackRevision": "idea-nov-dbf-staging-ui-00001-h74"
+  },
+  "preserve": [
+    "runtime_service_account",
+    "direct_iap",
+    "ingress",
+    "public_iam_zero",
+    "min_max_instances",
+    "cpu_memory_timeout_concurrency",
+    "request_based_billing"
+  ],
+  "outOfScope": [
+    "phase_b_migration",
+    "production_edge",
+    "iap_iam",
+    "business_fact_write",
+    "import_promotion",
+    "soce",
+    "nov_talent",
+    "store_operations"
+  ]
+}

@@ -6,17 +6,20 @@ const workflow = fs.readFileSync(path, "utf8").replaceAll("\r\n", "\n");
 
 assert.match(workflow, /^on:\n  workflow_dispatch:\n/mu);
 assert.doesNotMatch(workflow, /^  (push|pull_request|pull_request_target|workflow_run|schedule|repository_dispatch):/mu);
+assert.match(workflow, /^      source_sha:\n[\s\S]*?required: true\n[\s\S]*?type: string$/mu);
 assert.match(workflow, /^permissions:\n  contents: read\n  id-token: write\n/mu);
 assert.match(workflow, /^    environment: dbf-business-data-staging$/mu);
 assert.match(workflow, /EVENT_REPOSITORY_ID: \$\{\{ github\.repository_id \}\}/u);
+assert.match(workflow, /EVENT_SHA: \$\{\{ github\.sha \}\}/u);
 assert.match(workflow, /EVENT_CONFIRMATION: \$\{\{ github\.event\.inputs\.confirmation \}\}/u);
-assert.match(workflow, /PUSH_DBF_STAGING_IMAGE_8A24B4BD/u);
-assert.match(workflow, /ref: 8a24b4bd12b00266e3717c650c2d93f48ba9df70/u);
-assert.match(workflow, /EXPECTED_DOCKERFILE_SHA256: a2b74a306ae8b5c11e6a5a174aafea8a2186c2a55cd189146a1e3a29d9af410a/u);
+assert.match(workflow, /test "\$EVENT_SHA" = "\$APPROVED_SOURCE_SHA"/u);
+assert.match(workflow, /grep -Eq '\^\[0-9a-f\]\{40\}\$'/u);
+assert.match(workflow, /PUSH_DBF_STAGING_IMAGE_\$APPROVED_SOURCE_SHA/u);
+assert.match(workflow, /ref: \$\{\{ github\.event\.inputs\.source_sha \}\}/u);
 assert.match(workflow, /persist-credentials: false/u);
 assert.match(workflow, /workload_identity_provider: projects\/787968950888\/locations\/global\/workloadIdentityPools\/github-dbf-staging\/providers\/github-idea-nov-hub/u);
 assert.match(workflow, /service_account: dbf-staging-deployer@idea-nov-dbf-staging\.iam\.gserviceaccount\.com/u);
-assert.match(workflow, /IMAGE_URI: asia-northeast1-docker\.pkg\.dev\/idea-nov-dbf-staging\/idea-nov-dbf-staging-ui\/dbf-staging-ui:8a24b4bd12b00266e3717c650c2d93f48ba9df70/u);
+assert.match(workflow, /IMAGE_URI: asia-northeast1-docker\.pkg\.dev\/idea-nov-dbf-staging\/idea-nov-dbf-staging-ui\/dbf-staging-ui:\$\{\{ github\.event\.inputs\.source_sha \}\}/u);
 assert.match(workflow, /docker build[\s\S]+--file deploy\/dbf-cloud-run-staging-bff-candidate\/Dockerfile[\s\S]+--tag "\$IMAGE_URI"/u);
 assert.equal((workflow.match(/docker push "\$IMAGE_URI"/gu) || []).length, 1);
 assert.match(workflow, /docker run --detach --name dbf-staging-image-candidate[\s\S]+"\$IMAGE_URI"/u);
@@ -25,6 +28,9 @@ assert.match(workflow, /gcloud artifacts docker images describe "\$IMAGE_URI"/u)
 assert.match(workflow, /exact_tag_count.*"1"/u);
 assert.match(workflow, /runtimeImport\.\*DISABLED/u);
 assert.match(workflow, /productionWrite\.\*DISABLED/u);
+assert.match(workflow, /http:\/\/127\.0\.0\.1:18080\/ready/u);
+assert.match(workflow, /http:\/\/127\.0\.0\.1:18080\/ready\//u);
+assert.match(workflow, /http:\/\/127\.0\.0\.1:18080\/healthz\)" = "404"/u);
 
 const runtimeSmokeStart = workflow.indexOf("      - name: Run the exact image and verify runtime");
 const runtimeSmokeEnd = workflow.indexOf("      - name: Push the verified image exactly once");

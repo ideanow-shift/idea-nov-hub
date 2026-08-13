@@ -34,9 +34,11 @@ await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 try {
   const address = server.address();
   const endpoint = `http://127.0.0.1:${address.port}/session/handoff/exchange`;
-  const health = await fetch(`http://127.0.0.1:${address.port}/healthz`);
-  assert.equal(health.status, 200);
-  assert.deepEqual(await health.json(), { status: "ready" });
+  const readiness = await fetch(`http://127.0.0.1:${address.port}/ready`);
+  assert.equal(readiness.status, 200);
+  assert.match(readiness.headers.get("content-type"), /^text\/plain/u);
+  assert.equal(readiness.headers.get("cache-control"), "no-store");
+  assert.equal(await readiness.text(), "ready\n");
   const staticResponse = await fetch(`http://127.0.0.1:${address.port}/`);
   assert.equal(staticResponse.status, 200);
   assert.match(await staticResponse.text(), /DBF STAGING/u);

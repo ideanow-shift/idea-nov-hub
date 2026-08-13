@@ -26,6 +26,30 @@ assert.match(workflow, /exact_tag_count.*"1"/u);
 assert.match(workflow, /runtimeImport\.\*DISABLED/u);
 assert.match(workflow, /productionWrite\.\*DISABLED/u);
 
+const runtimeSmokeStart = workflow.indexOf("      - name: Run the exact image and verify runtime");
+const runtimeSmokeEnd = workflow.indexOf("      - name: Push the verified image exactly once");
+assert.ok(runtimeSmokeStart >= 0 && runtimeSmokeEnd > runtimeSmokeStart);
+const runtimeSmoke = workflow.slice(runtimeSmokeStart, runtimeSmokeEnd);
+const forbiddenCurlPipelines = runtimeSmoke
+  .split("\n")
+  .filter((line) => /\bcurl\b.*\|.*\b(?:grep|head|sed)\b/u.test(line));
+
+assert.deepEqual(forbiddenCurlPipelines, []);
+assert.match(runtimeSmoke, /MANAGEMENT_BODY="\$RUNNER_TEMP\/dbf-runtime-management\.html"/u);
+assert.match(runtimeSmoke, /APP_V2_BODY="\$RUNNER_TEMP\/dbf-runtime-app-v2\.js"/u);
+assert.match(runtimeSmoke, /trap 'rm -f "\$\{runtime_response_files\[@\]\}"' EXIT/u);
+assert.match(runtimeSmoke, /--output "\$MANAGEMENT_BODY"[\s\S]+--write-out '%\{http_code\}'/u);
+assert.match(runtimeSmoke, /test "\$management_http_code" = "200"/u);
+assert.match(runtimeSmoke, /test -s "\$MANAGEMENT_BODY"/u);
+assert.match(runtimeSmoke, /grep --fixed-strings --quiet 'BASSA GROUP 経営管理ダッシュボード' "\$MANAGEMENT_BODY"/u);
+assert.match(runtimeSmoke, /--output "\$APP_V2_BODY"[\s\S]+--write-out '%\{http_code\}'/u);
+assert.match(runtimeSmoke, /test "\$app_v2_http_code" = "200"/u);
+assert.match(runtimeSmoke, /test -s "\$APP_V2_BODY"/u);
+assert.match(runtimeSmoke, /grep --fixed-strings --quiet 'STAGING' "\$APP_V2_BODY"/u);
+assert.match(runtimeSmoke, /grep --fixed-strings --quiet 'HUBログインが必要です' "\$APP_V2_BODY"/u);
+assert.doesNotMatch(runtimeSmoke, /\|\| true/u);
+assert.doesNotMatch(runtimeSmoke, /\b(?:cat|tee)\b[^\n]*\$(?:MANAGEMENT_BODY|APP_V2_BODY)/u);
+
 for (const pin of [
   "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
   "google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed",

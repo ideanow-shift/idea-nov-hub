@@ -856,6 +856,21 @@
             <p id="contact-backfill-status" class="status" role="status" aria-live="polite">事前確認前</p>
             <button id="contact-backfill-open" type="button" disabled>Backfill内容を確認</button>
           </section>
+          <section id="salon-visit-backfill-operator" class="planning-correction-operator salon-visit-backfill-operator" hidden aria-labelledby="salon-visit-backfill-title">
+            <div><p class="section-kicker">SALON VISIT・一回限り</p><h4 id="salon-visit-backfill-title">確認済みサロン見学FactのBackfill</h4><p>Human Review候補の4見学日を、店舗別の正式Factとして記録する専用経路です。</p></div>
+            <dl>
+              <div><dt>Source</dt><dd>見学日4件・unique Candidate 4名</dd></div>
+              <div><dt>正式Fact</dt><dd>8店舗・店舗別15件（Planning Actualは4名）</dd></div>
+              <div><dt>対象</dt><dd>2027卒・2026-04-01 ～ 2027-03-31</dd></div>
+              <div><dt>Human Review</dt><dd id="salon-visit-backfill-review-sha-state">SHA照合中</dd></div>
+              <div><dt>Canonical Source</dt><dd id="salon-visit-backfill-source-sha-state">SHA照合中</dd></div>
+              <div><dt>既存状態</dt><dd id="salon-visit-backfill-existing-state">確認中</dd></div>
+              <div><dt>実行後の見込み</dt><dd>Actual 4名 / Plan 112名 / Remaining 108名 / Achievement 約3.6%</dd></div>
+              <div><dt>元Actor</dt><dd>不明のまま記録（UNAVAILABLE）</dd></div>
+            </dl>
+            <p id="salon-visit-backfill-status" class="status" role="status" aria-live="polite">事前確認前</p>
+            <button id="salon-visit-backfill-open" type="button" disabled>Backfill内容を確認</button>
+          </section>
           <p id="planning-admin-message" class="status" role="status" aria-live="polite"></p>
         </section>
         <dialog id="planning-correction-dialog" class="planning-correction-dialog" aria-labelledby="planning-correction-dialog-title">
@@ -874,6 +889,16 @@
             <p><strong>実行後の見込み</strong><br>Actual 10名 / Plan 563名 / Remaining 553名 / Achievement 約1.8%</p>
             <ul><li>元Actorは推測せずUNAVAILABLE</li><li>同一Candidateの複数接触は11イベントすべて保持</li><li>SALON_VISIT・Selection・Spendは対象外</li><li>処理中断時は全件rollback</li><li>成立後の取消は別Owner承認のappend-only void</li></ul>
             <div class="planning-correction-actions"><button id="contact-backfill-cancel" type="button" class="secondary-command">キャンセル</button><button id="contact-backfill-confirm" type="button">11件を記録</button></div>
+          </form>
+        </dialog>
+        <dialog id="salon-visit-backfill-dialog" class="planning-correction-dialog" aria-labelledby="salon-visit-backfill-dialog-title">
+          <form method="dialog"><p class="section-kicker">最終確認</p><h3 id="salon-visit-backfill-dialog-title">サロン見学15件を正式Factへ記録します</h3>
+            <p><strong>Source</strong> 見学日4件 / unique Candidate 4名<br><strong>Fact</strong> 8店舗 / 店舗別15件<br><strong>対象期間</strong> 2026-04-01 ～ 2027-03-31</p>
+            <p><strong>Review Package SHA-256</strong><br><code>10C87773B376DDDAF044DC1C3E2DD88E68B759E2A237DF0E406A8A563A192540</code></p>
+            <p><strong>Canonical Source SHA-256</strong><br><code>ed954ba2a5553ab645d5050cd8ed036aad6e749435d09a9fcfe256255426c023</code></p>
+            <p><strong>実行後の見込み</strong><br>Actual 4名 / Plan 112名 / Remaining 108名 / Achievement 約3.6%</p>
+            <ul><li>4つの元イベントと15件の店舗別Factを分離して保持</li><li>Planning ActualはCandidate単位で4名</li><li>元Actorは推測せずUNAVAILABLE</li><li>配属希望・Selection・Communicationは対象外</li><li>処理中断時は全件rollback</li><li>成立後の取消は別Owner承認のappend-only void</li></ul>
+            <div class="planning-correction-actions"><button id="salon-visit-backfill-cancel" type="button" class="secondary-command">キャンセル</button><button id="salon-visit-backfill-confirm" type="button">15件を記録</button></div>
           </form>
         </dialog>
         <section id="planning-diagnostic-panel" class="selection-coverage-panel ui-diagnostic" data-management-section="planning-diagnostic" aria-labelledby="planning-diagnostic-title">

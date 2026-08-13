@@ -12,6 +12,7 @@ import { cleanPlanningBudgetDraft, cleanPlanningCorrection, cleanPlanningState, 
 import { newGrad2027CorrectionPreflight } from "./new-grad-2027-correction.ts";
 import { buildRecruitingActualFactsV1 } from "./recruiting-actual-facts-v1.ts";
 import { CONTACT_2027_BACKFILL, contact2027BackfillEnvelope } from "./contact-2027-backfill.ts";
+import { SALON_VISIT_2027_BACKFILL, salonVisit2027BackfillEnvelope, validateSalonVisitCanonicalStores } from "./salon-visit-2027-backfill.ts";
 
 const ORIGIN = "https://ideanow-shift.github.io";
 const PREFIXES = ["", "/nov-talent-staging-api", "/functions/v1/nov-talent-staging-api"];
@@ -29,6 +30,7 @@ type Runtime = {
   recruitingTargetWritesEnabled?: boolean;
   recruitingPlanningWritesEnabled?: boolean;
   recruitingActualContactBackfillEnabled?: boolean;
+  recruitingActualSalonVisitBackfillEnabled?: boolean;
   populationV2Enabled?: boolean;
   populationV2ApprovalTokenSha256?: string;
   populationV2Validator?: typeof validatePopulationRequest;
@@ -109,6 +111,17 @@ async function rpc(runtime: Runtime, name: string, body: unknown) {
   }
   const rows = await result.json();
   return { ok: true, data: Array.isArray(rows) ? rows[0] : rows };
+}
+async function canonicalSalonVisitStores(runtime: Runtime, hubToken: string) {
+  try {
+    const response = await runtime.fetchImpl(runtime.hubApiUrl, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "masterListStores", token: hubToken, payload: { authType: "hub_session" } }),
+    });
+    if (!response.ok) return false;
+    const envelope = await response.json();
+    return envelope?.ok === true && validateSalonVisitCanonicalStores(envelope.stores);
+  } catch { return false; }
 }
 
 async function browserPopulationRequest(runtime: Runtime) {
@@ -693,6 +706,47 @@ export function createHandler(runtime: Runtime) {
         : fail(result.status || (result.ok ? 503 : 400), result.status === 409
           ? "RECRUITING_CONTACT_BACKFILL_CONFLICT" : "RECRUITING_CONTACT_BACKFILL_FAILED", origin);
     }
+    const salonVisitBackfillPath = "/api/talent/v1/recruiting-actual-facts/backfills/salon-visit-2027";
+    if (["GET", "POST"].includes(request.method) &&
+      (path === salonVisitBackfillPath || path === `${salonVisitBackfillPath}/preflight`)) {
+      const runtimeHost = (() => { try { return new URL(runtime.supabaseUrl).hostname.toLowerCase(); } catch { return ""; } })();
+      if (runtimeHost !== `${SALON_VISIT_2027_BACKFILL.projectRef}.supabase.co`) return fail(404, "NOT_FOUND", origin);
+      if (actor.profile !== "full" || !["super_admin", "backoffice", "hr.admin"].includes(actor.role)) {
+        return fail(403, "RECRUITING_SALON_VISIT_BACKFILL_FORBIDDEN", origin);
+      }
+      const canonicalStoresExact = await canonicalSalonVisitStores(runtime, actor.hubToken);
+      if (!canonicalStoresExact) return fail(503, "RECRUITING_SALON_VISIT_CANONICAL_STORES_UNAVAILABLE", origin);
+      const preflightResult = await rpc(runtime, "nov_talent_preflight_salon_visit_2027_backfill_v1", {});
+      if (!preflightResult.ok) return fail(preflightResult.status || 503, "RECRUITING_SALON_VISIT_BACKFILL_PREFLIGHT_UNAVAILABLE", origin);
+      const preflight = salonVisit2027BackfillEnvelope(
+        preflightResult.data && typeof preflightResult.data === "object" ? preflightResult.data : null,
+        runtime.recruitingActualSalonVisitBackfillEnabled === true,
+        canonicalStoresExact,
+      );
+      if (request.method === "GET" && path === `${salonVisitBackfillPath}/preflight`) return out(200, preflight, origin);
+      if (request.method !== "POST" || path !== salonVisitBackfillPath) return fail(404, "NOT_FOUND", origin);
+      if (runtime.recruitingActualSalonVisitBackfillEnabled !== true) return fail(503, "RECRUITING_SALON_VISIT_BACKFILL_DISABLED", origin);
+      const command = await request.json().catch(() => null);
+      if (!command || typeof command !== "object" || Array.isArray(command) || Object.keys(command).length !== 0) {
+        return fail(400, "INVALID_REQUEST", origin);
+      }
+      if (preflight.data.state !== "PASS" || preflight.data.exactPreflightPassed !== true || preflight.data.canExecute !== true) {
+        return fail(409, "RECRUITING_SALON_VISIT_BACKFILL_PREFLIGHT_FAILED", origin);
+      }
+      const result = await rpc(runtime, "nov_talent_execute_salon_visit_2027_backfill_v1", {
+        p_actor_employee_id: actor.actor,
+        p_actor_role: actor.role,
+        p_review_package_sha256: SALON_VISIT_2027_BACKFILL.reviewPackageSha256,
+        p_canonical_source_sha256: SALON_VISIT_2027_BACKFILL.canonicalSourceSha256,
+      });
+      const completed = result.ok && Number(result.data?.fact_count) === 15
+        && Number(result.data?.source_event_count) === 4
+        && Number(result.data?.unique_candidate_count) === 4
+        && UUID.test(String(result.data?.backfill_receipt_id || ""));
+      return completed
+        ? out(201, { ok: true, data: { state: "COMPLETED", sourceEventCount: 4, storeVisitFactCount: 15, planningUniqueCandidateCount: 4 } }, origin)
+        : fail(result.status === 409 ? 409 : 503, result.status === 409 ? "RECRUITING_SALON_VISIT_BACKFILL_CONFLICT" : "RECRUITING_SALON_VISIT_BACKFILL_FAILED", origin);
+    }
     if (["GET", "POST"].includes(request.method) && path === "/api/talent/v1/fair-origin-review/preparation") {
       const population = FAIR_ATTRIBUTION_POPULATION_V2;
       const runtimeHost = (() => { try { return new URL(runtime.supabaseUrl).hostname.toLowerCase(); } catch { return ""; } })();
@@ -1127,6 +1181,7 @@ if (typeof Deno !== "undefined" && import.meta.main) Deno.serve(createHandler({
   recruitingTargetWritesEnabled: Deno.env.get("NOV_TALENT_RECRUITING_TARGET_WRITES_ENABLED") === "true",
   recruitingPlanningWritesEnabled: Deno.env.get("NOV_TALENT_RECRUITING_PLANNING_WRITES_ENABLED") === "true",
   recruitingActualContactBackfillEnabled: Deno.env.get("NOV_TALENT_RECRUITING_ACTUAL_CONTACT_BACKFILL_ENABLED") === "true",
+  recruitingActualSalonVisitBackfillEnabled: Deno.env.get("NOV_TALENT_RECRUITING_ACTUAL_SALON_VISIT_BACKFILL_ENABLED") === "true",
   fetchImpl: fetch,
   logger: console,
   populationV2Enabled: Deno.env.get("NOV_TALENT_FAIR_ATTRIBUTION_POPULATION_V2_ENABLED") === "true",

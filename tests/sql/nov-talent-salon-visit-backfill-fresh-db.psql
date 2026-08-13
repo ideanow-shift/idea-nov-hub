@@ -1,0 +1,214 @@
+\set ON_ERROR_STOP on
+
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
+create schema if not exists nov_talent_internal;
+
+do $setup_roles$
+begin
+  if not exists(select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;
+  if not exists(select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
+  if not exists(select 1 from pg_roles where rolname='service_role') then create role service_role nologin bypassrls; end if;
+end
+$setup_roles$;
+
+create table public.nov_talent_candidates_v1 (
+  candidate_id uuid primary key,
+  graduation_year smallint not null,
+  is_active boolean not null default true
+);
+create table public.nov_talent_recruitment_events_v1 (
+  event_id uuid primary key,
+  candidate_id uuid not null references public.nov_talent_candidates_v1(candidate_id) on delete restrict,
+  event_code text not null,
+  event_date date not null,
+  source_type text not null,
+  source_row_no integer not null,
+  source_field_code text not null,
+  source_fingerprint text not null,
+  event_state text not null,
+  is_active boolean not null default true,
+  invalidated_at timestamptz,
+  correction_of_event_id uuid references public.nov_talent_recruitment_events_v1(event_id) on delete restrict
+);
+
+\ir ../../supabase/migrations/20260811224534_nov_talent_recruiting_actual_fact_foundation.sql
+\ir ../../supabase/migrations/20260812035051_nov_talent_recruiting_actual_fact_fk_indexes.sql
+\ir ../../supabase/migrations/20260812120633_nov_talent_recruiting_contact_backfill_preparation.sql
+\ir ../../supabase/migrations/20260813063843_nov_talent_salon_visit_backfill_preparation.sql
+
+create function pg_temp.assert_true(value boolean, message text) returns void
+language plpgsql as $assert$
+begin
+  if value is not true then raise exception 'ASSERTION_FAILED: %',message; end if;
+end
+$assert$;
+
+insert into public.nov_talent_candidates_v1(candidate_id,graduation_year,is_active) values
+('2531e573-3eaf-4200-bddb-9f1de75650f3',2027,true),
+('40172fba-a7cf-4984-aac6-98a57e514ef9',2027,true),
+('f9401c32-b79f-4860-abc0-90389fe5539b',2027,true),
+('760098c0-4ec7-45e2-bc9e-c6b4bf3ac6a9',2027,true);
+
+insert into public.nov_talent_recruitment_events_v1(
+  event_id,candidate_id,event_code,event_date,source_type,source_row_no,source_field_code,
+  source_fingerprint,event_state,is_active,invalidated_at,correction_of_event_id
+) values
+('8f49acef-d972-4184-99d5-1dbdeda07c2f','2531e573-3eaf-4200-bddb-9f1de75650f3','SALON_TOUR_COMPLETED','2026-05-20','CONTACTS_27',513,'SALON_TOUR_DATE_1','4beb7cf154532ed4d0f718afb264d38241677107e8c1adf0e79bf14a28eb6930','COMPLETED',true,null,null),
+('46d30134-1e53-460d-9aa0-6ab05f411cb7','40172fba-a7cf-4984-aac6-98a57e514ef9','SALON_TOUR_COMPLETED','2026-05-21','CONTACTS_27',516,'SALON_TOUR_DATE_1','9b4e205a7c5916ec5e475caa2899ee4b96b227f97a64e4930c97938b5b931363','COMPLETED',true,null,null),
+('edb2e971-3667-430a-92ad-423a26231dc3','f9401c32-b79f-4860-abc0-90389fe5539b','SALON_TOUR_COMPLETED','2026-06-04','CONTACTS_27',514,'SALON_TOUR_DATE_1','9944cd0fe732566a053fc3e2db77a044b680a2818d4856564f90a240edda3486','COMPLETED',true,null,null),
+('5b5fa241-ecab-46c2-b1cd-c31a9a3af6d2','760098c0-4ec7-45e2-bc9e-c6b4bf3ac6a9','SALON_TOUR_COMPLETED','2026-06-14','CONTACTS_27',529,'SALON_TOUR_DATE_1','28b6e454c2b89da303de8f09398cd94d83091332ce487d006e4551e76f5230b7','COMPLETED',true,null,null);
+
+select pg_temp.assert_true((select v->>'state'='PASS' and (v->>'exactPreflightPassed')::boolean
+  and v->>'canonicalSourceSha256'='ed954ba2a5553ab645d5050cd8ed036aad6e749435d09a9fcfe256255426c023'
+  and (v->>'sourceEventCount')::integer=4 and (v->>'storeVisitFactCount')::integer=15
+  and (v->>'uniqueCandidateCount')::integer=4 and (v->>'distinctStoreCount')::integer=8
+  from (select nov_talent_internal.salon_visit_2027_backfill_state_v1() v) s),'exact preflight');
+select pg_temp.assert_true(not has_table_privilege('authenticated','public.nov_talent_recruiting_engagement_facts_v1','INSERT'),'authenticated Fact INSERT revoked');
+select pg_temp.assert_true(not has_table_privilege('authenticated','public.nov_talent_recruiting_salon_visit_backfill_receipts_v1','INSERT'),'authenticated receipt INSERT revoked');
+select pg_temp.assert_true(not has_function_privilege('authenticated','public.nov_talent_execute_salon_visit_2027_backfill_v1(uuid,text,text,text)','EXECUTE'),'authenticated execute revoked');
+select pg_temp.assert_true((select relrowsecurity and relforcerowsecurity from pg_class where oid='public.nov_talent_recruiting_salon_visit_backfill_receipts_v1'::regclass),'receipt forced RLS');
+
+set role authenticated;
+do $deny$
+begin
+  begin
+    insert into public.nov_talent_recruiting_engagement_facts_v1(
+      candidate_id,engagement_type,occurred_at,store_id,engagement_status,source_type,
+      source_reference,source_fingerprint,actor_employee_id,original_actor_status
+    ) values('2531e573-3eaf-4200-bddb-9f1de75650f3','SALON_VISIT',now(),'36c222de-0554-4265-b177-3b68285cc4a4','COMPLETED','UNAUTHORIZED','UNAUTHORIZED','0000000000000000000000000000000000000000000000000000000000000000','00000000-0000-4000-8000-000000000009','UNAVAILABLE');
+    raise exception 'authenticated direct INSERT unexpectedly succeeded';
+  exception when insufficient_privilege then null;
+  end;
+end
+$deny$;
+reset role;
+
+-- Missing/changed source must fail before any Fact, Audit or receipt can persist.
+begin;
+update public.nov_talent_recruitment_events_v1 set source_fingerprint=repeat('0',64)
+where event_id='8f49acef-d972-4184-99d5-1dbdeda07c2f';
+do $changed_source$
+begin
+  begin
+    perform * from public.nov_talent_execute_salon_visit_2027_backfill_v1(
+      '00000000-0000-4000-8000-000000000009','super_admin',
+      '10c87773b376dddaf044dc1c3e2dd88e68b759e2a237df0e406a8a563a192540',
+      'ed954ba2a5553ab645d5050cd8ed036aad6e749435d09a9fcfe256255426c023');
+    raise exception 'changed source unexpectedly executed';
+  exception when serialization_failure then null;
+  end;
+end
+$changed_source$;
+select pg_temp.assert_true((select count(*)=0 from public.nov_talent_recruiting_engagement_facts_v1),'changed source Fact rollback');
+select pg_temp.assert_true((select count(*)=0 from public.nov_talent_recruiting_engagement_audit_v1),'changed source Audit rollback');
+select pg_temp.assert_true((select count(*)=0 from public.nov_talent_recruiting_salon_visit_backfill_receipts_v1),'changed source receipt rollback');
+rollback;
+
+-- An unexpected fifth eligible event blocks the exact package.
+begin;
+insert into public.nov_talent_candidates_v1 values('00000000-0000-4000-8000-000000000099',2027,true);
+insert into public.nov_talent_recruitment_events_v1 values(
+  '00000000-0000-4000-8000-000000000098','00000000-0000-4000-8000-000000000099',
+  'SALON_TOUR_COMPLETED','2026-07-01','CONTACTS_27',999,'SALON_TOUR_DATE_1',repeat('9',64),'COMPLETED',true,null,null);
+select pg_temp.assert_true((select v->>'state'='BLOCKED' and (v->>'unexpectedSourceEventCount')::integer=1
+  from (select nov_talent_internal.salon_visit_2027_backfill_state_v1() v) s),'unexpected source blocks');
+rollback;
+
+-- Simulated Audit failure proves the One-Shot function is atomic.
+create function pg_temp.reject_salon_audit() returns trigger language plpgsql as $reject$
+begin raise exception using errcode='55000',message='TEST_AUDIT_FAILURE'; end
+$reject$;
+create trigger test_reject_salon_audit before insert on public.nov_talent_recruiting_engagement_audit_v1
+for each row execute function pg_temp.reject_salon_audit();
+do $atomic$
+begin
+  begin
+    perform * from public.nov_talent_execute_salon_visit_2027_backfill_v1(
+      '00000000-0000-4000-8000-000000000009','super_admin',
+      '10c87773b376dddaf044dc1c3e2dd88e68b759e2a237df0e406a8a563a192540',
+      'ed954ba2a5553ab645d5050cd8ed036aad6e749435d09a9fcfe256255426c023');
+    raise exception 'audit failure unexpectedly committed';
+  exception when object_not_in_prerequisite_state then null;
+  end;
+end
+$atomic$;
+select pg_temp.assert_true((select count(*)=0 from public.nov_talent_recruiting_engagement_facts_v1),'atomic Fact rollback');
+select pg_temp.assert_true((select count(*)=0 from public.nov_talent_recruiting_engagement_audit_v1),'atomic Audit rollback');
+select pg_temp.assert_true((select count(*)=0 from public.nov_talent_recruiting_salon_visit_backfill_receipts_v1),'atomic receipt rollback');
+drop trigger test_reject_salon_audit on public.nov_talent_recruiting_engagement_audit_v1;
+
+create temporary table completed_receipt as
+select * from public.nov_talent_execute_salon_visit_2027_backfill_v1(
+  '00000000-0000-4000-8000-000000000009','super_admin',
+  '10c87773b376dddaf044dc1c3e2dd88e68b759e2a237df0e406a8a563a192540',
+  'ed954ba2a5553ab645d5050cd8ed036aad6e749435d09a9fcfe256255426c023');
+select pg_temp.assert_true((select fact_count=15 and source_event_count=4 and unique_candidate_count=4 from completed_receipt),'execute receipt counts');
+select pg_temp.assert_true((select count(*)=15 and count(distinct candidate_id)=4 and count(distinct store_id)=8
+  and count(distinct source_event_id)=4 and count(distinct source_fingerprint)=15
+  from public.nov_talent_recruiting_engagement_facts_v1 where source_type='CONTACTS_27_SALON_VISIT_HUMAN_REVIEW'),'15 Fact grain');
+select pg_temp.assert_true((select count(*)=15 from public.nov_talent_recruiting_engagement_audit_v1 where event_type='FACT_APPENDED'),'15 audit rows');
+select pg_temp.assert_true((select count(*)=1 from public.nov_talent_recruiting_salon_visit_backfill_receipts_v1 where receipt_state='COMPLETED'),'one completed receipt');
+select pg_temp.assert_true((select count(*)=0 from public.nov_talent_recruiting_actual_backfill_receipts_v1),'CONTACT receipt unchanged');
+select pg_temp.assert_true((select count(*)=0 from public.nov_talent_recruiting_engagement_facts_v1 where source_type='CONTACTS_27_HUMAN_REVIEW'),'CONTACT Fact unchanged');
+
+do $duplicate_execute$
+begin
+  begin
+    perform * from public.nov_talent_execute_salon_visit_2027_backfill_v1(
+      '00000000-0000-4000-8000-000000000009','super_admin',
+      '10c87773b376dddaf044dc1c3e2dd88e68b759e2a237df0e406a8a563a192540',
+      'ed954ba2a5553ab645d5050cd8ed036aad6e749435d09a9fcfe256255426c023');
+    raise exception 'duplicate execution unexpectedly succeeded';
+  exception when serialization_failure then null;
+  end;
+end
+$duplicate_execute$;
+
+do $append_only$
+declare original_id uuid;
+begin
+  select engagement_fact_id into original_id from public.nov_talent_recruiting_engagement_facts_v1
+  where source_type='CONTACTS_27_SALON_VISIT_HUMAN_REVIEW' limit 1;
+  begin
+    update public.nov_talent_recruiting_engagement_facts_v1 set correction_reason='forbidden' where engagement_fact_id=original_id;
+    raise exception 'Fact UPDATE unexpectedly succeeded';
+  exception when object_not_in_prerequisite_state then null;
+  end;
+  begin
+    delete from public.nov_talent_recruiting_engagement_facts_v1 where engagement_fact_id=original_id;
+    raise exception 'Fact DELETE unexpectedly succeeded';
+  exception when object_not_in_prerequisite_state then null;
+  end;
+  begin
+    update public.nov_talent_recruiting_salon_visit_backfill_receipts_v1 set reason='forbidden';
+    raise exception 'receipt UPDATE unexpectedly succeeded';
+  exception when object_not_in_prerequisite_state then null;
+  end;
+end
+$append_only$;
+
+create temporary table void_receipt as
+select * from public.nov_talent_void_salon_visit_2027_backfill_v1(
+  '00000000-0000-4000-8000-000000000009','super_admin',
+  (select backfill_receipt_id from completed_receipt),'Fresh DB append-only void verification');
+select pg_temp.assert_true((select cancellation_fact_count=15 from void_receipt),'void count');
+select pg_temp.assert_true((select count(*)=15 from public.nov_talent_recruiting_engagement_facts_v1
+  where source_type='CONTACTS_27_SALON_VISIT_HUMAN_REVIEW_VOID' and engagement_status='CANCELLED'),'15 cancellation Facts');
+select pg_temp.assert_true((select count(*)=15 from public.nov_talent_recruiting_engagement_audit_v1
+  where event_type='CANCELLATION_APPENDED'),'15 cancellation audits');
+select pg_temp.assert_true((select v->>'state'='VOIDED' from (select nov_talent_internal.salon_visit_2027_backfill_state_v1() v) s),'strict VOIDED state');
+
+do $duplicate_void$
+begin
+  begin
+    perform * from public.nov_talent_void_salon_visit_2027_backfill_v1(
+      '00000000-0000-4000-8000-000000000009','super_admin',
+      (select backfill_receipt_id from completed_receipt),'duplicate void');
+    raise exception 'duplicate void unexpectedly succeeded';
+  exception when unique_violation then null;
+  end;
+end
+$duplicate_void$;
+
+select 'FRESH_DB_SALON_VISIT_BACKFILL_PASS' as result;

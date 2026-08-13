@@ -62,9 +62,12 @@ globalThis.document = { title: "DBF" };
 globalThis.window = { location: { href: "https://staging.example/#handoff_code=" + "a".repeat(43) + "&state=state_1234567890123456789012" }, history: { replaceState: (_a, _b, value) => { replaced = value; } } };
 const frontend = await import("../portal/js/dbf-staging-session-handoff-candidate.js");
 assert.equal(await frontend.initializeDbfStagingSession({ url: "https://staging.example/", exchange: async () => { throw new Error("must not exchange"); } }), null);
-const session = await frontend.initializeDbfStagingSession({ url: window.location.href, exchange: async () => {
+const session = await frontend.initializeDbfStagingSession({ url: window.location.href, exchange: async ({ handoffCode, state }) => {
   assert.equal(replaced, "https://staging.example/");
+  assert.equal(handoffCode, "a".repeat(43));
+  assert.equal(state, "state_1234567890123456789012");
   return { sessionToken: "staging-session", expiresAt: new Date(Date.now() + 900_000).toISOString(), audience: "dbf_staging_session_v1", capability: { businessDataAdmin: true }, runtimeImport: "DISABLED", productionWrite: "DISABLED" };
 } });
 assert.equal(session.sessionToken, "staging-session");
+await import("./dbf-cloud-run-canonical-routing.test.mjs");
 console.log("dbf handoff bff and frontend: PASS");

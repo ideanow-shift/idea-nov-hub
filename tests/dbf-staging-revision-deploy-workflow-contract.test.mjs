@@ -46,6 +46,7 @@ test("DBF revision deploy preserves IAP, runtime identity, port, and private IAM
   assert.match(workflow, /containerPort/u);
   assert.match(workflow, /scaling\.minInstanceCount/u);
   assert.match(workflow, /scaling\.maxInstanceCount/u);
+  assert.match(workflow, /\.spec\.template\.scaling\.maxInstanceCount \/\/ \.spec\.template\.metadata\.annotations\["autoscaling\.knative\.dev\/maxScale"\]/u);
   assert.match(workflow, /run\.googleapis\.com\/minScale/u);
   assert.match(workflow, /run\.googleapis\.com\/maxScale/u);
   assert.match(workflow, /assert_eq min_instances "0" "\$min_instances"/u);

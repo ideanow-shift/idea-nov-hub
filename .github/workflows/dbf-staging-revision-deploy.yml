@@ -203,8 +203,8 @@ jobs:
           assert_eq ingress "all" "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/service-after.json")"
           assert_eq runtime_service_account "$EXPECTED_RUNTIME_SA" "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/service-after.json")"
           assert_eq container_port "8080" "$(jq -r '.spec.template.spec.containers[0].ports[0].containerPort' "$RUNNER_TEMP/service-after.json")"
-          min_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // .spec.template.scaling.minInstanceCount // .metadata.annotations["run.googleapis.com/minScale"] // "0"' "$RUNNER_TEMP/service-after.json")"
-          max_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/maxScale"] // .spec.template.scaling.maxInstanceCount // .metadata.annotations["run.googleapis.com/maxScale"] // empty' "$RUNNER_TEMP/service-after.json")"
+          min_instances="$(jq -r '.spec.template.scaling.minInstanceCount // .spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // .metadata.annotations["run.googleapis.com/minScale"] // "0"' "$RUNNER_TEMP/service-after.json")"
+          max_instances="$(jq -r '.spec.template.scaling.maxInstanceCount // .spec.template.metadata.annotations["autoscaling.knative.dev/maxScale"] // .metadata.annotations["run.googleapis.com/maxScale"] // empty' "$RUNNER_TEMP/service-after.json")"
           assert_eq min_instances "0" "$min_instances"
           assert_eq max_instances "1" "$max_instances"
           gcloud run services get-iam-policy "$CLOUD_RUN_SERVICE" \

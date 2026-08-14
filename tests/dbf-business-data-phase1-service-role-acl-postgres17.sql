@@ -195,22 +195,29 @@ begin
     from pg_index i
     join pg_class table_relation on table_relation.oid = i.indrelid
     join pg_namespace n on n.oid = table_relation.relnamespace
-   where (
-     n.nspname = 'dbf_ingest'
-     and table_relation.relname in (
-       'source_files','import_batches','raw_rows','entity_mappings','staging_rows',
-       'validation_issues','import_events','metric_definitions'
-     )
-   ) or (
-     n.nspname = 'public'
-     and table_relation.relname in (
-       'dbf_pl_detail_facts','dbf_pl_aggregate_facts','dbf_bs_facts',
-       'dbf_store_monthly_metric_facts','dbf_budget_facts'
-     )
-   );
+   where not exists (
+     select 1
+       from pg_constraint constraint_index
+      where constraint_index.conindid = i.indexrelid
+   )
+     and (
+       (
+         n.nspname = 'dbf_ingest'
+         and table_relation.relname in (
+           'source_files','import_batches','raw_rows','entity_mappings','staging_rows',
+           'validation_issues','import_events','metric_definitions'
+         )
+       ) or (
+         n.nspname = 'public'
+         and table_relation.relname in (
+           'dbf_pl_detail_facts','dbf_pl_aggregate_facts','dbf_bs_facts',
+           'dbf_store_monthly_metric_facts','dbf_budget_facts'
+         )
+       )
+     );
 
   if total_index_count <> 30 then
-    raise exception 'Phase B index count is %, expected 30', total_index_count;
+    raise exception 'Phase B non-constraint index count is %, expected 30', total_index_count;
   end if;
 end
 $$;

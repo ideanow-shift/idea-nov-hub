@@ -96,6 +96,14 @@ jobs:
             fi
             echo "DBF_PREFLIGHT $label=$actual"
           }
+          assert_positive_integer() {
+            local label="$1" actual="$2"
+            if ! printf '%s' "$actual" | grep -Eq '^[1-9][0-9]*$'; then
+              echo "::error title=DBF preflight mismatch::$label must be a positive integer; actual=$actual"
+              exit 1
+            fi
+            echo "DBF_PREFLIGHT $label=$actual"
+          }
           assert_eq project "$GCP_PROJECT_ID" "$(gcloud config get-value project 2>/dev/null)"
           assert_eq project_number "$GCP_PROJECT_NUMBER" "$(gcloud projects describe "$GCP_PROJECT_ID" --format='value(projectNumber)')"
           assert_eq active_account "dbf-staging-deployer@idea-nov-dbf-staging.iam.gserviceaccount.com" "$(gcloud auth list --filter=status:ACTIVE --format='value(account)')"
@@ -120,7 +128,7 @@ jobs:
           min_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // .spec.template.scaling.minInstanceCount // .metadata.annotations["run.googleapis.com/minScale"] // "0"' "$RUNNER_TEMP/service-before.json")"
           max_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/maxScale"] // .spec.template.scaling.maxInstanceCount // .metadata.annotations["run.googleapis.com/maxScale"] // empty' "$RUNNER_TEMP/service-before.json")"
           assert_eq min_instances "0" "$min_instances"
-          assert_eq max_instances "1" "$max_instances"
+          assert_positive_integer rollback_max_instances "$max_instances"
           gcloud run revisions describe "$rollback_revision" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/rollback-revision.json"
           assert_eq rollback_ready "True" "$(jq -r '[.status.conditions[]? | select(.type == "Ready")][0].status' "$RUNNER_TEMP/rollback-revision.json")"
@@ -128,6 +136,7 @@ jobs:
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/iam-before.json"
           assert_eq public_iam_bindings "0" "$(jq '[.bindings[]? | select(any(.members[]?; . == "allUsers" or . == "allAuthenticatedUsers"))] | length' "$RUNNER_TEMP/iam-before.json")"
           echo "rollback_revision=$rollback_revision" >> "$GITHUB_OUTPUT"
+          echo "rollback_max_instances=$max_instances" >> "$GITHUB_OUTPUT"
           echo "image_ref=$image_ref" >> "$GITHUB_OUTPUT"
 
       - name: Create candidate revision with zero traffic
@@ -138,6 +147,8 @@ jobs:
             --project="$GCP_PROJECT_ID" \
             --region="$GCP_REGION" \
             --image="${{ steps.preflight.outputs.image_ref }}" \
+            --min=0 \
+            --max=1 \
             --no-traffic \
             --quiet
 
@@ -192,7 +203,9 @@ jobs:
             echo "- Source: $APPROVED_SOURCE_SHA"
             echo "- Digest: $APPROVED_IMAGE_DIGEST"
             echo "- Rollback revision: ${{ steps.preflight.outputs.rollback_revision }}"
+            echo "- Previous max instances: ${{ steps.preflight.outputs.rollback_max_instances }}"
             echo "- Serving revision: ${{ steps.rollout.outputs.new_revision }}"
+            echo "- Serving min/max instances: 0/1"
             echo "- IAP: enabled"
             echo "- Ingress: all"
             echo "- Public IAM: 0"

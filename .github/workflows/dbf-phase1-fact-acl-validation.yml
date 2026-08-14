@@ -62,7 +62,7 @@ jobs:
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814140109_dbf_business_data_phase1_foundation.sql
           psql --tuples-only --no-align --command "select md5(string_agg(n.nspname || '.' || c.relname || ':' || coalesce(c.relacl::text, ''), ',' order by c.relname)) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'dbf_ingest' and c.relkind = 'r';" > /tmp/dbf-ingest-acl-before.txt
       - name: Apply forward-only ACL corrective
-        run: psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814195712_dbf_business_data_phase1_service_role_acl_corrective.sql
+        run: psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814204346_dbf_business_data_phase1_service_role_acl_corrective.sql
       - name: Run PostgreSQL 17 ACL and correction smoke
         run: psql --set=ON_ERROR_STOP=1 --file tests/dbf-business-data-phase1-service-role-acl-postgres17.sql
       - name: Prove forbidden operations are rejected
@@ -94,7 +94,7 @@ jobs:
         shell: bash
         run: |
           if grep -E -i 'nkmxevmioczcmnldreyo|idea-nov-core|DB_PASSWORD|PRIVATE KEY|oauth_client_secret|github_token' \
-            supabase/migrations/20260814195712_dbf_business_data_phase1_service_role_acl_corrective.sql; then
+            supabase/migrations/20260814204346_dbf_business_data_phase1_service_role_acl_corrective.sql; then
             echo "Forbidden Production reference or secret-like value detected."
             exit 1
           fi

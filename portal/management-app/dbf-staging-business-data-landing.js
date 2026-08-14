@@ -5,11 +5,11 @@ export function resolveDbfStagingBusinessDataLanding(runtime, session) {
   if (runtime?.environment !== "staging") return null;
   const authorized = runtime.projectRef === DBF_STAGING_PROJECT_REF
     && runtime.projectFingerprint === DBF_STAGING_PROJECT_FINGERPRINT
-    && runtime.runtimeImport === "DISABLED"
+    && runtime.runtimeImport === "ENABLED"
     && runtime.productionWrite === "DISABLED"
     && session?.audience === "dbf_staging_session_v1"
     && session?.capability?.businessDataAdmin === true
-    && session?.runtimeImport === "DISABLED"
+    && session?.runtimeImport === "ENABLED"
     && session?.productionWrite === "DISABLED";
   return Object.freeze({
     authorized,

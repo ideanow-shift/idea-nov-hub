@@ -1,0 +1,89 @@
+name: DBF Phase C Import Runtime Validation
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/dbf-business-data-api/**"
+      - "supabase/functions/nov-hub-api/**"
+      - "supabase/migrations/**dbf_business_data_phase_c_runtime.sql"
+      - "portal/management-app/**"
+      - "deploy/dbf-cloud-run-staging-bff-candidate/**"
+      - "deploy/dbf-staging/runtime.js"
+      - "tests/dbf-business-data-phase-c*"
+      - ".github/workflows/dbf-phase-c-import-runtime-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dbf-phase-c-import-runtime-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgres-17-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17.6-bookworm
+        env:
+          POSTGRES_DB: dbf_phase_c
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dbf_phase_c"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGDATABASE: dbf_phase_c
+      PGHOST: 127.0.0.1
+      PGPASSWORD: postgres
+      PGPORT: 5432
+      PGUSER: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Validate source contracts
+        run: >-
+          node --test
+          tests/dbf-business-data-normalized-csv.test.mjs
+          tests/dbf-business-data-phase-c-bff.test.mjs
+          tests/dbf-business-data-phase-c-migration.test.mjs
+          tests/dbf-business-data-ui-preview.test.mjs
+      - name: Validate Edge domain and authorization boundary
+        run: >-
+          deno test --allow-env
+          tests/dbf-business-data-phase-c-domain.test.ts
+          tests/dbf-business-data-phase-c-edge.test.ts
+      - name: Type-check Edge adapters
+        run: |
+          deno check supabase/functions/dbf-business-data-api/index.ts
+          deno check supabase/functions/nov-hub-api/index.ts
+      - name: Seed Supabase roles
+        run: >-
+          psql --set=ON_ERROR_STOP=1 --command
+          "create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;"
+      - name: Apply Foundation, ACL Corrective, and Phase C Runtime
+        run: |
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814140109_dbf_business_data_phase1_foundation.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814204346_dbf_business_data_phase1_service_role_acl_corrective.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814213224_dbf_business_data_phase_c_runtime.sql
+      - name: Run PostgreSQL 17 runtime and rollback smoke
+        run: psql --set=ON_ERROR_STOP=1 --file tests/dbf-business-data-phase-c-postgres17.sql
+      - name: Reject Production refs and secrets in hosted artifact
+        shell: bash
+        run: |
+          node tools/build-dbf-staging-pages.mjs
+          if grep -R -E -i 'nkmxevmioczcmnldreyo|idea-nov-core|service_role|DB_PASSWORD|PRIVATE KEY|oauth_client_secret|github_token' build/dbf-staging-pages; then
+            echo "Forbidden Production reference or secret-like value detected."
+            exit 1
+          fi

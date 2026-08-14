@@ -32,7 +32,7 @@ assert.match(workflow, /serving_revision=.*traffic\[0\]\.revisionName/u);
 assert.match(workflow, /steps\.preflight\.outputs\.serving_revision/u);
 assert.doesNotMatch(workflow, /EXPECTED_SERVING_REVISION|EXPECTED_FAILED_REVISION/u);
 assert.match(workflow, /exact_tag_count.*"1"/u);
-assert.match(workflow, /runtimeImport\.\*DISABLED/u);
+assert.match(workflow, /runtimeImport\.\*ENABLED/u);
 assert.match(workflow, /productionWrite\.\*DISABLED/u);
 assert.match(workflow, /http:\/\/127\.0\.0\.1:18080\/ready/u);
 assert.match(workflow, /http:\/\/127\.0\.0\.1:18080\/ready\//u);

@@ -77,11 +77,11 @@ function verifiedStaticFile(file, root) {
   return canonicalFile;
 }
 
-async function readJson(request) {
+async function readJson(request, maxBytes = 4096) {
   let value = "";
   for await (const chunk of request) {
     value += chunk;
-    if (value.length > 4096) {
+    if (Buffer.byteLength(value, "utf8") > maxBytes) {
       const error = new Error("REQUEST_TOO_LARGE");
       error.status = 413;
       error.code = "REQUEST_TOO_LARGE";
@@ -123,6 +123,21 @@ export function createDbfStagingServer(deps) {
           iapAssertion
         });
         return json(response, Number(result.status || 200), result.body || result);
+      }
+      if (pathname === "/api/dbf/import") {
+        if (request.method !== "POST") return json(response, 405, { code: "METHOD_NOT_ALLOWED" });
+        const iapAssertion = request.headers["x-goog-iap-jwt-assertion"];
+        await validateIapAssertion(iapAssertion, deps);
+        const authorization = String(request.headers.authorization || "");
+        if (!/^Bearer [A-Za-z0-9._~-]{20,4096}$/u.test(authorization)) {
+          return json(response, 401, { code: "AUTH_REQUIRED" });
+        }
+        const payload = await readJson(request, 8_000_000);
+        if (Object.keys(payload).some((key) => !new Set(["action", "payload"]).has(key))) {
+          return json(response, 400, { code: "INVALID_REQUEST" });
+        }
+        const result = await deps.forwardDbfRuntime({ authorization, payload });
+        return json(response, Number(result.status || 502), result.body || { code: "DBF_RUNTIME_INVALID_RESPONSE" });
       }
       if (request.method !== "GET" && request.method !== "HEAD") return json(response, 405, { code: "METHOD_NOT_ALLOWED" });
       if (pathname === "/management-app") return redirect(response, "/management-app/");

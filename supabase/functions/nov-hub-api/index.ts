@@ -436,10 +436,13 @@ async function handleManagementFromDeployedBaseline(
   payload: JsonRecord,
 ) {
   let verifiedHubAuth: JsonRecord | null = null;
+  const requestedAuthType = String(payload.authType || "hub_session") === "dbf_staging_session"
+    ? "dbf_staging_session"
+    : "hub_session";
   const deps: ManagementDependencies = {
     async verifyHubSession(inputToken) {
-      const authUser = await authenticate(inputToken, { ...payload, authType: "hub_session" }, action);
-      if (!authUser || String(authUser.authType || "") !== "hub_session") return null;
+      const authUser = await authenticate(inputToken, { ...payload, authType: requestedAuthType }, action);
+      if (!authUser || String(authUser.authType || "") !== requestedAuthType) return null;
       const authRecord = authUser as JsonRecord;
       verifiedHubAuth = authRecord;
       return { subject: String(authRecord.employeeId || "verified-hub-session") };
@@ -2304,7 +2307,12 @@ async function authenticate(token: string, payload: JsonRecord, action: string) 
     );
   }
   if (authType === "dbf_staging_session") {
-    if (!isManagementReadOnlyAction(action)) {
+    if (!isManagementReadOnlyAction(action) && !new Set([
+      "dbfBusinessDataAdminAuthorizeV1",
+      "dbfCanonicalMasterOptionsV1",
+      "dbfCanonicalMasterVerifyV1",
+      "dbfCanonicalMasterValidateBindingsV1",
+    ]).has(action)) {
       throw new PortalError("ACCESS_DENIED", "DBF Staging session cannot access this action.", 403);
     }
     return await verifyHubAppSession(
@@ -3541,6 +3549,184 @@ async function listCoreStoresForAdmin() {
       line_works_channel: sanitizeLineWorksDestination((destinations[String(store.id || "")] || null) as JsonRecord | null),
     };
   });
+}
+
+function normalizeDbfCanonicalSourceKey(value: unknown) {
+  const normalized = String(value || "").normalize("NFKC").trim();
+  if (!normalized || normalized.length > 200 || /[\u0000-\u001f\u007f]/u.test(normalized)) {
+    throw new PortalError("DBF_CANONICAL_SOURCE_KEY_INVALID", "Canonical master source key is invalid.", 400);
+  }
+  return normalized;
+}
+
+async function sha256Hex(value: string) {
+  const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function requireDbfStagingBusinessDataAdmin(token: string, payload: JsonRecord, action: string) {
+  const authUser = await authenticate(token, payload, action);
+  const employee = await findEmployeeForAuth(authUser);
+  if (!employee?.id || String(authUser.authType || "") !== "dbf_staging_session") {
+    throw new PortalError("ACCESS_DENIED", "A valid DBF Staging employee session is required.", 403);
+  }
+  const authorization = await resolveDbfHandoffBusinessDataAdmin(String(employee.id));
+  if (!authorization.businessDataAdmin) {
+    throw new PortalError("ACCESS_DENIED", "Business data administration is not permitted.", 403);
+  }
+  return { employee, authorization };
+}
+
+async function verifyDbfCanonicalMasterMapping(payload: JsonRecord) {
+  if (Object.keys(payload).some((key) => !new Set([
+    "authType", "entityType", "sourceKey", "canonicalId", "companyCanonicalId",
+  ]).has(key))) {
+    throw new PortalError("DBF_CANONICAL_MAPPING_INVALID", "Canonical mapping request contains an unexpected field.", 400);
+  }
+  const entityType = String(payload.entityType || "");
+  const canonicalId = String(payload.canonicalId || "").toLowerCase();
+  const sourceKey = normalizeDbfCanonicalSourceKey(payload.sourceKey);
+  if (!isUuid(canonicalId) || !new Set(["company", "store"]).has(entityType)) {
+    throw new PortalError("DBF_CANONICAL_MAPPING_INVALID", "Canonical mapping request is invalid.", 400);
+  }
+
+  const isStore = entityType === "store";
+  const rows = await readRows(isStore ? "stores" : "corporations", {
+    query: {
+      select: isStore ? "id,store_id,store_name,corporation_id,is_active" : "id,corporation_no,corporation_name,is_active",
+      id: `eq.${canonicalId}`,
+      is_active: "eq.true",
+      limit: "2",
+    },
+  });
+  if (rows.length !== 1) {
+    throw new PortalError("DBF_CANONICAL_MAPPING_NOT_FOUND", "Canonical master target was not found.", 400);
+  }
+  const row = rows[0] as JsonRecord;
+  const canonicalCode = normalizeDbfCanonicalSourceKey(isStore ? row.store_id : row.corporation_no);
+  const canonicalName = normalizeDbfCanonicalSourceKey(isStore ? row.store_name : row.corporation_name);
+  if (sourceKey !== canonicalCode && sourceKey !== canonicalName) {
+    throw new PortalError("DBF_CANONICAL_SOURCE_KEY_MISMATCH", "Source key does not exactly match the selected canonical master.", 400);
+  }
+
+  let companyCanonicalId: string | null = null;
+  if (isStore) {
+    companyCanonicalId = String(payload.companyCanonicalId || "").toLowerCase();
+    if (!isUuid(companyCanonicalId) || String(row.corporation_id || "").toLowerCase() !== companyCanonicalId) {
+      throw new PortalError("DBF_CANONICAL_STORE_COMPANY_MISMATCH", "Store does not belong to the selected canonical company.", 400);
+    }
+  } else if (payload.companyCanonicalId) {
+    throw new PortalError("DBF_CANONICAL_MAPPING_INVALID", "Company mapping must not include a parent company.", 400);
+  }
+
+  const evidence = JSON.stringify({
+    schema: "dbf-canonical-master-evidence-v1",
+    entityType,
+    canonicalId,
+    companyCanonicalId,
+    canonicalCode,
+    canonicalName,
+    sourceKey,
+  });
+  return { canonicalId, canonicalEvidenceSha256: await sha256Hex(evidence) };
+}
+
+async function readActiveDbfCanonicalRows(tableName: "corporations" | "stores", ids: string[]) {
+  const result: JsonRecord[] = [];
+  for (let offset = 0; offset < ids.length; offset += 100) {
+    const batch = ids.slice(offset, offset + 100);
+    if (!batch.length) continue;
+    result.push(...await readRows(tableName, {
+      query: {
+        select: tableName === "stores" ? "id,corporation_id,is_active" : "id,is_active",
+        id: `in.(${batch.join(",")})`,
+        is_active: "eq.true",
+        limit: String(batch.length),
+      },
+    }));
+  }
+  return result;
+}
+
+async function validateDbfCanonicalMasterBindings(payload: JsonRecord) {
+  if (Object.keys(payload).some((key) => !new Set(["authType", "bindings"]).has(key))) {
+    throw new PortalError("DBF_CANONICAL_BINDINGS_INVALID", "Canonical bindings contain an unexpected field.", 400);
+  }
+  if (!Array.isArray(payload.bindings) || payload.bindings.length < 1 || payload.bindings.length > 2000) {
+    throw new PortalError("DBF_CANONICAL_BINDINGS_INVALID", "Canonical bindings are invalid.", 400);
+  }
+  const unique = new Map<string, { companyId: string; storeId: string | null }>();
+  for (const candidate of payload.bindings) {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+      throw new PortalError("DBF_CANONICAL_BINDINGS_INVALID", "Canonical bindings are invalid.", 400);
+    }
+    const binding = candidate as JsonRecord;
+    if (Object.keys(binding).some((key) => !new Set(["companyId", "storeId"]).has(key))) {
+      throw new PortalError("DBF_CANONICAL_BINDINGS_INVALID", "Canonical bindings contain an unexpected field.", 400);
+    }
+    const companyId = String(binding.companyId || "").toLowerCase();
+    const storeId = binding.storeId ? String(binding.storeId).toLowerCase() : null;
+    if (!isUuid(companyId) || (storeId !== null && !isUuid(storeId))) {
+      throw new PortalError("DBF_CANONICAL_BINDINGS_INVALID", "Canonical binding UUID is invalid.", 400);
+    }
+    unique.set(`${companyId}:${storeId || ""}`, { companyId, storeId });
+  }
+
+  const bindings = [...unique.values()];
+  const companyIds = [...new Set(bindings.map((item) => item.companyId))];
+  const storeIds = [...new Set(bindings.map((item) => item.storeId).filter(Boolean) as string[])];
+  const [companies, stores] = await Promise.all([
+    readActiveDbfCanonicalRows("corporations", companyIds),
+    readActiveDbfCanonicalRows("stores", storeIds),
+  ]);
+  const companySet = new Set(companies.map((row) => String(row.id || "").toLowerCase()));
+  const storeMap = new Map(stores.map((row) => [String(row.id || "").toLowerCase(), String(row.corporation_id || "").toLowerCase()]));
+  for (const binding of bindings) {
+    if (!companySet.has(binding.companyId)) {
+      throw new PortalError("DBF_CANONICAL_COMPANY_NOT_FOUND", "Canonical company was not found.", 400);
+    }
+    if (binding.storeId && storeMap.get(binding.storeId) !== binding.companyId) {
+      throw new PortalError("DBF_CANONICAL_STORE_COMPANY_MISMATCH", "Canonical store/company binding is invalid.", 400);
+    }
+  }
+  return { valid: true, bindingCount: bindings.length };
+}
+
+async function listDbfCanonicalMasterOptions(payload: JsonRecord) {
+  if (Object.keys(payload).some((key) => key !== "authType")) {
+    throw new PortalError("DBF_CANONICAL_OPTIONS_INVALID", "Canonical master options request contains an unexpected field.", 400);
+  }
+  const [companies, stores] = await Promise.all([
+    readRows("corporations", {
+      query: {
+        select: "id,corporation_no,corporation_name",
+        is_active: "eq.true",
+        order: "corporation_no.asc",
+        limit: "500",
+      },
+    }),
+    readRows("stores", {
+      query: {
+        select: "id,store_id,store_name,corporation_id",
+        is_active: "eq.true",
+        order: "store_no.asc",
+        limit: "1000",
+      },
+    }),
+  ]);
+  return {
+    companies: companies.map((row) => ({
+      id: String(row.id || ""),
+      code: String(row.corporation_no || ""),
+      name: String(row.corporation_name || ""),
+    })),
+    stores: stores.map((row) => ({
+      id: String(row.id || ""),
+      code: String(row.store_id || ""),
+      name: String(row.store_name || ""),
+      companyId: String(row.corporation_id || ""),
+    })),
+  };
 }
 
 async function listPortalAppsForAdmin() {
@@ -5709,6 +5895,30 @@ Deno.serve(async (request) => {
           Number(candidateError.status || 500),
         );
       }
+    }
+    if (action === "dbfBusinessDataAdminAuthorizeV1") {
+      const { employee, authorization } = await requireDbfStagingBusinessDataAdmin(token, payload, action);
+      return jsonResponse({
+        ok: true,
+        data: {
+          actorEmployeeId: String(employee.id),
+          capability: { businessDataAdmin: true },
+          scope: authorization.scope,
+          effectiveOn: new Date().toISOString().slice(0, 10),
+        },
+      });
+    }
+    if (action === "dbfCanonicalMasterVerifyV1") {
+      await requireDbfStagingBusinessDataAdmin(token, payload, action);
+      return jsonResponse({ ok: true, data: await verifyDbfCanonicalMasterMapping(payload) });
+    }
+    if (action === "dbfCanonicalMasterOptionsV1") {
+      await requireDbfStagingBusinessDataAdmin(token, payload, action);
+      return jsonResponse({ ok: true, data: await listDbfCanonicalMasterOptions(payload) });
+    }
+    if (action === "dbfCanonicalMasterValidateBindingsV1") {
+      await requireDbfStagingBusinessDataAdmin(token, payload, action);
+      return jsonResponse({ ok: true, data: await validateDbfCanonicalMasterBindings(payload) });
     }
     if (action === "exchangeIdeaLinkHandoff") {
       return jsonResponse({ ok: true, handoff: await exchangeIdeaLinkHandoff(payload) });

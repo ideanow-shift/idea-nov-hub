@@ -47,7 +47,7 @@ const exchanged = await exchangeDbfStagingHandoff({
   state
 }, deps());
 assert.equal(exchanged.capability.businessDataAdmin, true);
-assert.equal(exchanged.runtimeImport, "DISABLED");
+assert.equal(exchanged.runtimeImport, "ENABLED");
 assert.equal(exchanged.productionWrite, "DISABLED");
 const sessionClaims = JSON.parse(Buffer.from(exchanged.sessionToken.split(".")[1], "base64url").toString("utf8"));
 assert.equal(sessionClaims.aud, "dbf_staging_session_v1");

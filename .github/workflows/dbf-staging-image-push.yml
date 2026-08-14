@@ -166,7 +166,7 @@ jobs:
             ! grep -R -E "nkmxevmioczcmnldreyo|idea-nov-group-portal[A-Za-z0-9._-]*(pkg\\.dev|run\\.app)|gcloud.{0,80}idea-nov-group-portal|service_role|DB_PASSWORD|BEGIN (RSA|EC|OPENSSH) PRIVATE KEY|github_pat_|gh[pousr]_[A-Za-z0-9]|oauth.{0,20}secret|m\\.wakita@idea-nov\\.com" /app/static /app/*.mjs
             ! grep -R -E "access[_-]?token.{0,20}(console|log)|request[_ -]?body.{0,20}(console|log)|handoffCode.{0,20}(console|log)" /app/static /app/*.mjs
             grep -R -q "zgkoofphhivesclehrom" /app/static
-            grep -R -q "runtimeImport.*DISABLED" /app/static
+            grep -R -q "runtimeImport.*ENABLED" /app/static
             grep -R -q "productionWrite.*DISABLED" /app/static
           '
 
@@ -177,6 +177,7 @@ jobs:
           docker run --detach --name dbf-staging-image-candidate \
             --publish 127.0.0.1:18080:8080 \
             --env NOV_HUB_HANDOFF_EXCHANGE_URL=https://example.invalid/functions/v1/nov-hub-api \
+            --env DBF_IMPORT_API_URL=https://zgkoofphhivesclehrom.supabase.co/functions/v1/dbf-business-data-api \
             "$IMAGE_URI"
           for attempt in {1..20}; do
             if test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:18080/ready)" = "200"; then

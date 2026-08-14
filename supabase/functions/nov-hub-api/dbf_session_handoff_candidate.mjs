@@ -137,7 +137,7 @@ export async function exchangeDbfStagingHandoff(input, deps) {
     audience: SESSION_AUDIENCE,
     expiresAt: new Date(expiresAt).toISOString(),
     capability: { businessDataAdmin: true, scope: capability.scope },
-    runtimeImport: "DISABLED",
+    runtimeImport: "ENABLED",
     productionWrite: "DISABLED"
   };
 }

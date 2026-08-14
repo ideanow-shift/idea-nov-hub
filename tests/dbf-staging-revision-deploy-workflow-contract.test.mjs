@@ -30,7 +30,10 @@ test("DBF revision deploy uses immutable digest, zero-traffic validation, and ro
   assert.match(workflow, /--max=1/u);
   assert.match(workflow, /status\.latestCreatedRevisionName/u);
   assert.match(workflow, /serving_traffic_count=.*select\(\(\.percent \/\/ 0\) > 0\)/u);
-  assert.equal((workflow.match(/test "\$serving_traffic_count" = "1"/gu) || []).length, 2);
+  assert.match(workflow, /\.revisionName \/\/ \(if \.latestRevision == true then \$latest else empty end\)/u);
+  assert.match(workflow, /assert_eq serving_traffic_count "1" "\$serving_traffic_count"/u);
+  assert.match(workflow, /DBF_READBACK \$label=\$actual/u);
+  assert.match(workflow, /DBF hosted read-back mismatch/u);
   assert.match(workflow, /update-traffic/u);
   assert.match(workflow, /rollback_revision/u);
   assert.match(workflow, /if: failure\(\)/u);
@@ -46,7 +49,7 @@ test("DBF revision deploy preserves IAP, runtime identity, port, and private IAM
   assert.match(workflow, /run\.googleapis\.com\/minScale/u);
   assert.match(workflow, /run\.googleapis\.com\/maxScale/u);
   assert.match(workflow, /assert_eq min_instances "0" "\$min_instances"/u);
-  assert.match(workflow, /test "\$max_instances" = "1"/u);
+  assert.match(workflow, /assert_eq max_instances "1" "\$max_instances"/u);
   assert.match(workflow, /allUsers/u);
   assert.match(workflow, /allAuthenticatedUsers/u);
   assert.doesNotMatch(workflow, /--allow-unauthenticated/u);

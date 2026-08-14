@@ -29,6 +29,8 @@ test("DBF revision deploy uses immutable digest, zero-traffic validation, and ro
   assert.match(workflow, /--min=0/u);
   assert.match(workflow, /--max=1/u);
   assert.match(workflow, /status\.latestCreatedRevisionName/u);
+  assert.match(workflow, /serving_traffic_count=.*select\(\(\.percent \/\/ 0\) > 0\)/u);
+  assert.equal((workflow.match(/test "\$serving_traffic_count" = "1"/gu) || []).length, 2);
   assert.match(workflow, /update-traffic/u);
   assert.match(workflow, /rollback_revision/u);
   assert.match(workflow, /if: failure\(\)/u);

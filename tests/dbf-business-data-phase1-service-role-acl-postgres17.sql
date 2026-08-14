@@ -216,8 +216,8 @@ begin
        )
      );
 
-  if total_index_count <> 30 then
-    raise exception 'Phase B non-constraint index count is %, expected 30', total_index_count;
+  if total_index_count <> 31 then
+    raise exception 'Phase B non-constraint index count is %, expected 31', total_index_count;
   end if;
 end
 $$;

@@ -1239,6 +1239,50 @@ tr.selected {
   white-space: normal;
 }
 
+.employee-emergency-contact-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #E5D8C4;
+  border-radius: var(--radius-md);
+  background: #FFFCF6;
+  padding: 14px;
+}
+
+.employee-emergency-contact-panel > div:first-child strong {
+  display: block;
+  font-size: 14px;
+}
+
+.employee-emergency-contact-panel > div:first-child p,
+.employee-emergency-contact-panel .field-help {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.employee-emergency-contact-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, auto);
+  gap: 10px;
+  align-items: center;
+}
+
+.employee-emergency-contact-actions .button,
+.employee-emergency-contact-actions .readonly-label {
+  min-height: 42px;
+}
+
+@media (max-width: 640px) {
+  .employee-emergency-contact-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .employee-emergency-contact-actions .button {
+    width: 100%;
+  }
+}
+
 .form-grid {
   display: grid;
   gap: 12px;

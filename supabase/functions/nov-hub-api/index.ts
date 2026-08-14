@@ -2833,6 +2833,116 @@ function assertMasterEditor(employee: JsonRecord) {
   }
 }
 
+const EMPLOYEE_EMERGENCY_PHONE_PATTERN = /^\+?[0-9]{10,15}$/;
+
+function normalizeEmployeeEmergencyPhone(value: unknown) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const digits = raw.replace(/\D/g, "");
+  return raw.startsWith("+") ? `+${digits}` : digits;
+}
+
+function sanitizeEmployeeEmergencyContact(row: JsonRecord | null) {
+  const phoneNumber = String(row?.employee_phone_number || "");
+  return {
+    configured: Boolean(phoneNumber),
+    phoneNumber,
+    updatedAt: String(row?.updated_at || ""),
+  };
+}
+
+async function readEmployeeEmergencyContactRows(options: Parameters<typeof readRows>[1]) {
+  try {
+    return await readRows("employee_emergency_contacts", options);
+  } catch (_error) {
+    throw new PortalError(
+      "EMPLOYEE_EMERGENCY_CONTACT_UNAVAILABLE",
+      "Employee personal phone operation failed.",
+      503,
+    );
+  }
+}
+
+async function readEmployeeEmergencyContact(payload: JsonRecord) {
+  const employeeId = String(payload.employeeId || "").trim();
+  if (!isUuid(employeeId)) throw new PortalError("INVALID_REQUEST", "Employee id is invalid.", 400);
+  const employee = await getCoreEmployeeById(employeeId);
+  if (!employee?.id) throw new PortalError("NOT_FOUND", "Employee was not found.", 404);
+  const rows = await readEmployeeEmergencyContactRows({
+    query: {
+      select: "employee_id,employee_phone_number,updated_at",
+      employee_id: `eq.${employeeId}`,
+      limit: "2",
+    },
+  });
+  if (rows.length > 1) throw new PortalError("EMPLOYEE_EMERGENCY_CONTACT_UNAVAILABLE", "Emergency contact is unavailable.", 503);
+  return sanitizeEmployeeEmergencyContact(rows[0] || null);
+}
+
+async function updateEmployeeEmergencyContact(payload: JsonRecord, actor: JsonRecord) {
+  assertNoClientActorOverride(payload);
+  const employeeId = String(payload.employeeId || "").trim();
+  const actorEmployeeId = getActorEmployeeId(actor);
+  const phoneNumber = normalizeEmployeeEmergencyPhone(payload.phoneNumber);
+  if (!isUuid(employeeId)) throw new PortalError("INVALID_REQUEST", "Employee id is invalid.", 400);
+  if (!isUuid(actorEmployeeId)) throw new PortalError("INVALID_REQUEST", "Actor employee id is invalid.", 400);
+  if (phoneNumber && !EMPLOYEE_EMERGENCY_PHONE_PATTERN.test(phoneNumber)) {
+    throw new PortalError("INVALID_REQUEST", "Emergency phone format is invalid.", 400);
+  }
+  const employee = await getCoreEmployeeById(employeeId);
+  if (!employee?.id) throw new PortalError("NOT_FOUND", "Employee was not found.", 404);
+  const beforeRows = await readRows("employee_emergency_contacts", {
+    query: {
+      select: "employee_id,employee_phone_number,updated_at",
+      employee_id: `eq.${employeeId}`,
+      limit: "2",
+    },
+  });
+  if (beforeRows.length > 1) throw new PortalError("EMPLOYEE_EMERGENCY_CONTACT_UNAVAILABLE", "Emergency contact is unavailable.", 503);
+  const before = beforeRows[0] || null;
+  const beforePhone = String(before?.employee_phone_number || "");
+  if (beforePhone === phoneNumber || (!before && !phoneNumber)) {
+    return sanitizeEmployeeEmergencyContact(before);
+  }
+
+  const now = new Date().toISOString();
+  let rows: JsonRecord[];
+  if (before) {
+    rows = await readEmployeeEmergencyContactRows({
+      method: "PATCH",
+      query: { employee_id: `eq.${employeeId}`, select: "employee_id,employee_phone_number,updated_at" },
+      payload: {
+        employee_phone_number: phoneNumber || null,
+        updated_by_employee_id: actorEmployeeId,
+        updated_at: now,
+      },
+      prefer: "return=representation",
+    });
+  } else {
+    rows = await readEmployeeEmergencyContactRows({
+      method: "POST",
+      query: { select: "employee_id,employee_phone_number,updated_at" },
+      payload: {
+        employee_id: employeeId,
+        employee_phone_number: phoneNumber,
+        updated_by_employee_id: actorEmployeeId,
+        created_at: now,
+        updated_at: now,
+      },
+      prefer: "return=representation",
+    });
+  }
+  if (rows.length !== 1) throw new PortalError("EMPLOYEE_EMERGENCY_CONTACT_UPDATE_FAILED", "Emergency contact update failed.", 503);
+  await appendMasterChangeLog("employee_emergency_contacts", employeeId, {
+    emergency_contact_configured_before: Boolean(beforePhone),
+    emergency_contact_configured_after: Boolean(phoneNumber),
+  }, actor, {
+    actionType: "update_employee_emergency_contact",
+    targetName: String(employee.full_name || employee.employee_id || employeeId),
+  });
+  return sanitizeEmployeeEmergencyContact(rows[0]);
+}
+
 const TALENT_WORKFLOW_ROLE_KEYS = new Set(["super_admin", "backoffice", "hr.admin", "hr.staff"]);
 const TALENT_WORKFLOW_MAX_ASSIGNEES = 1000;
 const TALENT_WORKFLOW_MAX_ROLE_ASSIGNMENTS = 2000;
@@ -5764,6 +5874,16 @@ Deno.serve(async (request) => {
     if (action === "masterUpdateEmployeeLoginCredential") {
       assertMasterEditor(employee);
       return jsonResponse({ ok: true, credential: await updateEmployeeLoginCredential(employee, payload) });
+    }
+
+    if (action === "masterReadEmployeeEmergencyContact") {
+      assertMasterViewer(employee);
+      return jsonResponse({ ok: true, emergencyContact: await readEmployeeEmergencyContact(payload) });
+    }
+
+    if (action === "masterUpdateEmployeeEmergencyContact") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, emergencyContact: await updateEmployeeEmergencyContact(payload, employee) });
     }
 
     if (action === "masterUploadEmployeeProfileImage") {

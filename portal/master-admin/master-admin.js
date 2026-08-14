@@ -123,6 +123,7 @@ const state = {
   portalApps: [],
   logs: [],
   logsLoaded: false,
+  employeeEmergencyContacts: {},
   permissions: {
     canView: false,
     canEdit: false,
@@ -3789,6 +3790,7 @@ function renderEmployeeDetail(employee) {
     <nav class="employee-detail-nav" aria-label="社員詳細メニュー">
       <button type="button" data-detail-section="employee-section-basic">基本</button>
       <button type="button" data-detail-section="employee-section-status">状態</button>
+      <button type="button" data-detail-section="employee-section-emergency">緊急連絡</button>
       <button type="button" data-detail-section="employee-section-auth">ログイン</button>
       <button type="button" data-detail-section="employee-section-permissions">権限</button>
       <button type="button" data-detail-section="employee-section-media">画像</button>
@@ -3858,6 +3860,18 @@ function renderEmployeeDetail(employee) {
       ${readonly ? `<span class="readonly-label">閲覧専用</span>` : `<button class="button button-primary save-button" type="submit">基本情報を保存</button>`}
     </div>
     </form>
+    <details class="employee-detail-section" id="employee-section-emergency">
+      <summary>
+        <span>
+          <strong>本人電話番号（緊急時連絡用）</strong>
+          <small>災害・事故時に会社から本人へ連絡するための番号</small>
+        </span>
+        <span class="section-status-badge neutral" id="employee-emergency-contact-badge">確認中</span>
+      </summary>
+      <div class="employee-detail-section-body">
+        ${renderEmployeeEmergencyContactPanel(employee, readonly)}
+      </div>
+    </details>
     <details class="employee-detail-section" id="employee-section-auth" open>
       <summary>
         <span>
@@ -3916,6 +3930,7 @@ function renderEmployeeDetail(employee) {
   setupEmployeeDetailSectionNav();
   setupLoginCredentialDirtyState();
   setupLineWorksDestinationSaveState(employee, readonly);
+  setupEmployeeEmergencyContactPanel(employee, readonly);
 }
 
 function getEmployeeBasicIssueCount(issues) {
@@ -4038,6 +4053,151 @@ function renderEmployeeLineWorksDestinationPanel(employee, readonly) {
         <button class="button button-primary notification-destination-save-button" id="save-line-works-destination" type="button" disabled>設計レビュー待ち</button>
       </div>
     </section>`;
+}
+
+function renderEmployeeEmergencyContactPanel(employee, readonly) {
+  const cached = state.employeeEmergencyContacts[employee.id];
+  const loaded = cached !== undefined;
+  const phoneNumber = loaded ? String(cached.phoneNumber || "") : "";
+  return `
+    <section class="employee-emergency-contact-panel" id="employee-emergency-contact-panel" data-employee-id="${escapeHtml(employee.id)}">
+      <div>
+        <strong>本人電話番号（緊急時連絡用）</strong>
+        <p>災害・事故など、会社から本人へ緊急連絡する場合に使用します。</p>
+      </div>
+      <label class="form-field" for="employee_emergency_phone">
+        <span>電話番号</span>
+        <input class="form-input" id="employee_emergency_phone" type="tel" inputmode="tel" autocomplete="off" maxlength="24" value="${escapeHtml(phoneNumber)}" placeholder="例: 090-1234-5678"${readonly || !loaded ? " disabled" : ""}>
+      </label>
+      <p class="field-help">社員一覧・CSVには表示しません。家族・配偶者・親族など第三者の連絡先は登録しないでください。</p>
+      <div class="employee-emergency-contact-actions">
+        <span class="save-status${loaded ? "" : " pending"}" id="employee-emergency-contact-save-status" aria-live="polite">${loaded ? "" : "読み込み中です..."}</span>
+        ${readonly
+          ? `<span class="readonly-label">閲覧専用</span>`
+          : `<button class="button button-primary" id="save-employee-emergency-contact" type="button" disabled>${phoneNumber ? "更新" : "保存"}</button>`}
+      </div>
+    </section>`;
+}
+
+function normalizeEmployeeEmergencyPhone(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const digits = raw.replace(/\D/g, "");
+  return raw.startsWith("+") ? `+${digits}` : digits;
+}
+
+function getEmployeeEmergencyPhoneValidationError(value) {
+  const normalized = normalizeEmployeeEmergencyPhone(value);
+  if (!normalized) return "";
+  return /^\+?[0-9]{10,15}$/.test(normalized)
+    ? ""
+    : "電話番号は10〜15桁の数字で入力してください。";
+}
+
+function updateEmployeeEmergencyContactBadge(configured) {
+  const badge = getActiveDetailElement("#employee-emergency-contact-badge");
+  if (!badge) return;
+  badge.textContent = configured ? "登録済み" : "未登録";
+  badge.className = `section-status-badge ${configured ? "success" : "neutral"}`;
+}
+
+function bindEmployeeEmergencyContactControls(employee, readonly) {
+  const panel = getActiveDetailElement("#employee-emergency-contact-panel");
+  const input = panel?.querySelector("#employee_emergency_phone");
+  const button = panel?.querySelector("#save-employee-emergency-contact");
+  const status = panel?.querySelector("#employee-emergency-contact-save-status");
+  const cached = state.employeeEmergencyContacts[employee.id];
+  if (!panel || !input || cached === undefined) return;
+
+  const savedValue = normalizeEmployeeEmergencyPhone(cached.phoneNumber);
+  input.value = String(cached.phoneNumber || "");
+  input.dataset.savedValue = savedValue;
+  input.disabled = readonly;
+  updateEmployeeEmergencyContactBadge(Boolean(cached.configured));
+  setSaveStatus(status, "");
+  if (readonly || !button) return;
+
+  input.addEventListener("input", () => {
+    const validationError = getEmployeeEmergencyPhoneValidationError(input.value);
+    const changed = normalizeEmployeeEmergencyPhone(input.value) !== String(input.dataset.savedValue || "");
+    button.disabled = Boolean(validationError) || !changed;
+    setSaveStatus(
+      status,
+      validationError || (changed ? "未保存の変更があります。" : ""),
+      validationError ? "error" : "pending"
+    );
+  });
+  button.addEventListener("click", () => saveEmployeeEmergencyContact(employee));
+}
+
+async function setupEmployeeEmergencyContactPanel(employee, readonly) {
+  if (state.employeeEmergencyContacts[employee.id] !== undefined) {
+    bindEmployeeEmergencyContactControls(employee, readonly);
+    return;
+  }
+  try {
+    const response = await callApiAction("masterReadEmployeeEmergencyContact", {
+      employeeId: employee.id
+    });
+    if (state.selectedId !== employee.id) return;
+    state.employeeEmergencyContacts[employee.id] = response.emergencyContact || {
+      configured: false,
+      phoneNumber: "",
+      updatedAt: ""
+    };
+    bindEmployeeEmergencyContactControls(employee, readonly);
+  } catch (error) {
+    if (state.selectedId !== employee.id) return;
+    const status = getActiveDetailElement("#employee-emergency-contact-save-status");
+    setSaveStatus(status, "本人電話番号を読み込めませんでした。", "error");
+    const badge = getActiveDetailElement("#employee-emergency-contact-badge");
+    if (badge) {
+      badge.textContent = "確認不可";
+      badge.className = "section-status-badge warning";
+    }
+  }
+}
+
+async function saveEmployeeEmergencyContact(employee) {
+  const panel = getActiveDetailElement("#employee-emergency-contact-panel");
+  const input = panel?.querySelector("#employee_emergency_phone");
+  const button = panel?.querySelector("#save-employee-emergency-contact");
+  const status = panel?.querySelector("#employee-emergency-contact-save-status");
+  const phoneNumber = normalizeEmployeeEmergencyPhone(input?.value);
+  const validationError = getEmployeeEmergencyPhoneValidationError(phoneNumber);
+  if (!employee?.id || !input || !button || validationError) {
+    setSaveStatus(status, validationError || "社員を選択してください。", "error");
+    return;
+  }
+  try {
+    button.disabled = true;
+    button.textContent = "保存中...";
+    setSaveStatus(status, "本人電話番号を保存中です...", "pending");
+    const response = await callApiAction("masterUpdateEmployeeEmergencyContact", {
+      employeeId: employee.id,
+      phoneNumber
+    });
+    const emergencyContact = response.emergencyContact || {
+      configured: Boolean(phoneNumber),
+      phoneNumber,
+      updatedAt: ""
+    };
+    state.employeeEmergencyContacts[employee.id] = {
+      ...emergencyContact,
+      phoneNumber
+    };
+    input.value = phoneNumber;
+    input.dataset.savedValue = phoneNumber;
+    updateEmployeeEmergencyContactBadge(Boolean(phoneNumber));
+    setSaveStatus(status, phoneNumber ? "本人電話番号を保存しました。" : "本人電話番号を未登録に戻しました。", "success");
+    button.textContent = phoneNumber ? "更新" : "保存";
+    button.disabled = true;
+    showToast(phoneNumber ? "本人電話番号を保存しました。" : "本人電話番号を未登録に戻しました。");
+  } catch (error) {
+    setSaveStatus(status, getErrorMessage(error), "error");
+    button.disabled = false;
+    button.textContent = state.employeeEmergencyContacts[employee.id]?.configured ? "更新" : "保存";
+  }
 }
 
 function setupLineWorksDestinationSaveState(employee, readonly) {

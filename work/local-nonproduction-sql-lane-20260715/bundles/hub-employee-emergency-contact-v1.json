@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "caseId": "hub-employee-emergency-contact-v1",
+  "files": [
+    {
+      "phase": "bootstrap",
+      "path": "work/local-nonproduction-sql-lane-20260715/employee-emergency-contact-v1/bootstrap.sql",
+      "sha256": "46E4D93A36701C8431C526612E70E8DC1650DDB693D7B80122E5D076FFAC4029",
+      "expectExact": []
+    },
+    {
+      "phase": "precheck",
+      "path": "work/local-nonproduction-sql-lane-20260715/employee-emergency-contact-v1/precheck.sql",
+      "sha256": "72655884537AA873B611E5DB9CD65D56C9F0D1BBD2AF5B0F4F8D2B4F166658CA",
+      "expectExact": ["t|t|t|t|t"]
+    },
+    {
+      "phase": "forward",
+      "path": "supabase/migrations/20260814090000_employee_emergency_contact_foundation.sql",
+      "sha256": "A898F5968B0F7D111DCF4DE5DD18D860EB9966F1E534E6A669EFBA9389942C5F",
+      "expectExact": []
+    },
+    {
+      "phase": "verify",
+      "path": "work/local-nonproduction-sql-lane-20260715/employee-emergency-contact-v1/verify.sql",
+      "sha256": "1931EF1AA1DCFD87CBF08ADEE97B69429F75167C937E741FDFA2AE034C225783",
+      "expectExact": ["t|t|t|t|t|t|t|t|t|t|t|t|t|t|t|t|t|t|t"]
+    },
+    {
+      "phase": "rollback",
+      "path": "work/local-nonproduction-sql-lane-20260715/employee-emergency-contact-v1/rollback.sql",
+      "sha256": "133FFCB8664627497F39D4D918E3F72594CC49BA509FA61B737F56A163B7FA7D",
+      "expectExact": []
+    },
+    {
+      "phase": "clean",
+      "path": "work/local-nonproduction-sql-lane-20260715/employee-emergency-contact-v1/clean.sql",
+      "sha256": "2DDA92B3EE81F5158613AE5928A257129D320293BBC752794E3E2E5A387250DE",
+      "expectExact": ["t|t|t|t|t"]
+    }
+  ]
+}

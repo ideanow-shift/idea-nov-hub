@@ -10,6 +10,18 @@ function requiredExchangeUrl() {
   return url.toString();
 }
 
+function requiredDbfImportUrl() {
+  const raw = String(process.env.DBF_IMPORT_API_URL || "").trim();
+  let url;
+  try { url = new URL(raw); } catch (_) { throw new Error("DBF_IMPORT_API_URL is required."); }
+  if (url.protocol !== "https:" || url.username || url.password || url.hash
+    || url.hostname !== "zgkoofphhivesclehrom.supabase.co"
+    || url.pathname !== "/functions/v1/dbf-business-data-api") {
+    throw new Error("DBF_IMPORT_API_URL must be the exact DBF Staging Edge URL.");
+  }
+  return url.toString();
+}
+
 async function exchangeWithHubBackend(request) {
   const response = await fetch(requiredExchangeUrl(), {
     method: "POST",
@@ -26,13 +38,28 @@ async function exchangeWithHubBackend(request) {
   return { status: response.status, body };
 }
 
+async function forwardDbfRuntime(request) {
+  const response = await fetch(requiredDbfImportUrl(), {
+    method: "POST",
+    redirect: "error",
+    headers: {
+      "content-type": "application/json",
+      authorization: request.authorization,
+    },
+    body: JSON.stringify(request.payload),
+  });
+  const body = await response.json().catch(() => ({ code: "DBF_RUNTIME_INVALID_RESPONSE" }));
+  return { status: response.status, body };
+}
+
 const server = createDbfStagingServer({
   fetchJwks: async () => {
     const response = await fetch("https://www.gstatic.com/iap/verify/public_key-jwk", { redirect: "error" });
     if (!response.ok) throw new Error("IAP_JWKS_UNAVAILABLE");
     return response.json();
   },
-  exchangeWithHubBackend
+  exchangeWithHubBackend,
+  forwardDbfRuntime
 });
 
 server.listen(port, "0.0.0.0");

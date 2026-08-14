@@ -39,6 +39,7 @@ jobs:
       IMAGE_NAME: dbf-staging-ui
       CLOUD_RUN_SERVICE: idea-nov-dbf-staging-ui
       EXPECTED_RUNTIME_SA: dbf-staging-ui-runtime@idea-nov-dbf-staging.iam.gserviceaccount.com
+      DBF_IMPORT_API_URL: https://zgkoofphhivesclehrom.supabase.co/functions/v1/dbf-business-data-api
 
     steps:
       - name: Exact request gate
@@ -150,6 +151,7 @@ jobs:
             --min=0 \
             --max=1 \
             --max-instances=1 \
+            --update-env-vars="DBF_IMPORT_API_URL=$DBF_IMPORT_API_URL" \
             --no-traffic \
             --quiet
 
@@ -171,6 +173,7 @@ jobs:
           test "$(jq -r '.spec.serviceAccountName' "$RUNNER_TEMP/new-revision.json")" = "$EXPECTED_RUNTIME_SA"
           test "$(jq -r '.spec.containers[0].image' "$RUNNER_TEMP/new-revision.json")" = "${{ steps.preflight.outputs.image_ref }}"
           test "$(jq -r '.spec.containers[0].ports[0].containerPort' "$RUNNER_TEMP/new-revision.json")" = "8080"
+          test "$(jq -r '.spec.containers[0].env[]? | select(.name == "DBF_IMPORT_API_URL") | .value' "$RUNNER_TEMP/new-revision.json")" = "$DBF_IMPORT_API_URL"
           test "$(jq -r '.spec.scaling.maxInstanceCount // .metadata.annotations["autoscaling.knative.dev/maxScale"] // empty' "$RUNNER_TEMP/new-revision.json")" = "1"
           gcloud run services update-traffic "$CLOUD_RUN_SERVICE" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" \

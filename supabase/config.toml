@@ -3,6 +3,9 @@ project_id = "nkmxevmioczcmnldreyo"
 [functions.nov-hub-api]
 verify_jwt = false
 
+[functions.dbf-business-data-api]
+verify_jwt = false
+
 [functions.nov-talent-readonly-api-v2]
 verify_jwt = false
 

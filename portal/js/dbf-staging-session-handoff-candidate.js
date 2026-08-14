@@ -22,7 +22,7 @@ function validSession(session) {
     && Boolean(session.sessionToken)
     && Date.parse(session.expiresAt) > Date.now()
     && session.capability?.businessDataAdmin === true
-    && session.runtimeImport === "DISABLED"
+    && session.runtimeImport === "ENABLED"
     && session.productionWrite === "DISABLED";
 }
 

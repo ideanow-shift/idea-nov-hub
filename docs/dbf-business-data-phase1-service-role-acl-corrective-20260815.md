@@ -21,5 +21,5 @@ RLS/FORCE RLS, index integrity, browser denial, rejected destructive operations,
 and a rolled-back correction flow using only SELECT/INSERT/UPDATE. No fixture
 row survives the test.
 
-Reviewed migration: `20260814195712_dbf_business_data_phase1_service_role_acl_corrective.sql`  
+Reviewed migration: `20260814204346_dbf_business_data_phase1_service_role_acl_corrective.sql`
 Canonical LF SHA-256: `108e10bd5998f825874783bae8ddb2253d5042b1f6d9049a72d52f67ff4cc5d4`

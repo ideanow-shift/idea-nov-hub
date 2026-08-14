@@ -7,7 +7,7 @@ import test from "node:test";
 const root = path.resolve(import.meta.dirname, "..");
 const migrationsDirectory = path.join(root, "supabase", "migrations");
 const foundationName = "20260814140109_dbf_business_data_phase1_foundation.sql";
-const correctiveName = "20260814195712_dbf_business_data_phase1_service_role_acl_corrective.sql";
+const correctiveName = "20260814204346_dbf_business_data_phase1_service_role_acl_corrective.sql";
 const foundation = fs.readFileSync(path.join(migrationsDirectory, foundationName), "utf8");
 const corrective = fs.readFileSync(path.join(migrationsDirectory, correctiveName), "utf8");
 

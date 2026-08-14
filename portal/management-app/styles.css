@@ -58,6 +58,18 @@ h1 { grid-column: 2; margin: 0; color: var(--text-primary); font-size: 16px; fon
 .business-data-coverage-card p { margin: 4px 0; }
 .business-data-flow { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 6px; padding: 0; list-style: none; }
 .business-data-flow li { padding: 8px 4px; border-radius: 6px; background: #eef3f7; text-align: center; font-size: 11px; }
+.business-data-import-controls, .business-data-import-actions, .business-data-mapping-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+.business-data-month, .business-data-file, .business-data-mapping-select, .business-data-correction-batch, .business-data-correction-reason { min-height: 40px; padding: 8px 10px; border: 1px solid var(--color-border, #d8dee5); border-radius: 8px; background: #fff; }
+.business-data-correction-toggle { display: inline-flex; gap: 6px; align-items: center; }
+.business-data-mapping-select { min-width: 280px; }
+.business-data-action, .business-data-secondary-action, .business-data-danger-action { min-height: 40px; padding: 8px 14px; border: 1px solid #c7d0d9; border-radius: 8px; background: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.business-data-action { background: #17324d; border-color: #17324d; color: #fff; }
+.business-data-danger-action { background: #8e2732; border-color: #8e2732; color: #fff; }
+.business-data-action:disabled, .business-data-secondary-action:disabled, .business-data-danger-action:disabled { opacity: .45; cursor: not-allowed; }
+.business-data-runtime-status, .business-data-runtime-guard { margin: 12px 0; padding: 10px 12px; border-left: 3px solid #a36410; background: #fffaf0; }
+.business-data-ok { color: #1d6b50; font-weight: 700; }
+.business-data-preview-json { min-height: 80px; max-height: 320px; overflow: auto; padding: 12px; border-radius: 8px; background: #f7f9fb; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 900px) { .business-data-flow { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .business-data-disabled-action { margin-top: 12px; }
 .section-tab { min-width: 0; min-height: 44px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--text-secondary); background: var(--card-soft); border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 14px; font-weight: 500; cursor: pointer; }
 .section-tab > span:first-child { min-width: 0; overflow-wrap: anywhere; text-align: left; }

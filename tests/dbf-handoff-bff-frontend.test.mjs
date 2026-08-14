@@ -27,7 +27,7 @@ const server = createDbfStagingServer({
     exchangeCalls += 1;
     assert.equal(request.iapAssertion, validAssertion);
     assert.equal(request.payload.origin, "https://idea-nov-dbf-staging-ui-om6tepo36q-an.a.run.app");
-    return { status: 200, body: { sessionToken: "staging-session", expiresAt: new Date(now + 900_000).toISOString(), audience: "dbf_staging_session_v1", capability: { businessDataAdmin: true }, runtimeImport: "DISABLED", productionWrite: "DISABLED" } };
+    return { status: 200, body: { sessionToken: "staging-session", expiresAt: new Date(now + 900_000).toISOString(), audience: "dbf_staging_session_v1", capability: { businessDataAdmin: true }, runtimeImport: "ENABLED", productionWrite: "DISABLED" } };
   }
 });
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -68,7 +68,7 @@ const session = await frontend.initializeDbfStagingSession({ url: window.locatio
   assert.equal(replaced, "https://staging.example/");
   assert.equal(handoffCode, "a".repeat(43));
   assert.equal(state, "state_1234567890123456789012");
-  return { sessionToken: "staging-session", expiresAt: new Date(Date.now() + 900_000).toISOString(), audience: "dbf_staging_session_v1", capability: { businessDataAdmin: true }, runtimeImport: "DISABLED", productionWrite: "DISABLED" };
+  return { sessionToken: "staging-session", expiresAt: new Date(Date.now() + 900_000).toISOString(), audience: "dbf_staging_session_v1", capability: { businessDataAdmin: true }, runtimeImport: "ENABLED", productionWrite: "DISABLED" };
 } });
 assert.equal(session.sessionToken, "staging-session");
 await import("./dbf-cloud-run-canonical-routing.test.mjs");

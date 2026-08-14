@@ -20,11 +20,14 @@ test("DBF revision deploy is manual-only and bound to the staging target", () =>
   assert.match(workflow, /DEPLOY_DBF_STAGING_REVISION_/u);
   assert.match(workflow, /DBF_PREFLIGHT \$label=\$actual/u);
   assert.match(workflow, /DBF preflight mismatch/u);
+  assert.match(workflow, /assert_positive_integer rollback_max_instances/u);
 });
 
 test("DBF revision deploy uses immutable digest, zero-traffic validation, and rollback", () => {
   assert.match(workflow, /sha256:\[0-9a-f\]\{64\}/u);
   assert.match(workflow, /--no-traffic/u);
+  assert.match(workflow, /--min=0/u);
+  assert.match(workflow, /--max=1/u);
   assert.match(workflow, /status\.latestCreatedRevisionName/u);
   assert.match(workflow, /update-traffic/u);
   assert.match(workflow, /rollback_revision/u);
@@ -41,7 +44,7 @@ test("DBF revision deploy preserves IAP, runtime identity, port, and private IAM
   assert.match(workflow, /run\.googleapis\.com\/minScale/u);
   assert.match(workflow, /run\.googleapis\.com\/maxScale/u);
   assert.match(workflow, /assert_eq min_instances "0" "\$min_instances"/u);
-  assert.match(workflow, /assert_eq max_instances "1" "\$max_instances"/u);
+  assert.match(workflow, /test "\$max_instances" = "1"/u);
   assert.match(workflow, /allUsers/u);
   assert.match(workflow, /allAuthenticatedUsers/u);
   assert.doesNotMatch(workflow, /--allow-unauthenticated/u);

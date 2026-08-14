@@ -179,28 +179,47 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          assert_eq() {
+            local label="$1" expected="$2" actual="$3"
+            if [ "$actual" != "$expected" ]; then
+              echo "::error title=DBF hosted read-back mismatch::$label expected=$expected actual=$actual"
+              exit 1
+            fi
+            echo "DBF_READBACK $label=$actual"
+          }
           gcloud run services describe "$CLOUD_RUN_SERVICE" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/service-after.json"
           serving_traffic_count="$(jq '[.status.traffic[]? | select((.percent // 0) > 0)] | length' "$RUNNER_TEMP/service-after.json")"
-          serving_revision="$(jq -r '[.status.traffic[]? | select((.percent // 0) > 0)][0].revisionName // empty' "$RUNNER_TEMP/service-after.json")"
+          serving_revision="$(jq -r '
+            .status.latestReadyRevisionName as $latest |
+            [.status.traffic[]? | select((.percent // 0) > 0)][0] |
+            .revisionName // (if .latestRevision == true then $latest else empty end)
+          ' "$RUNNER_TEMP/service-after.json")"
           serving_percent="$(jq -r '[.status.traffic[]? | select((.percent // 0) > 0)][0].percent // empty' "$RUNNER_TEMP/service-after.json")"
-          test "$serving_traffic_count" = "1"
-          test "$serving_revision" = "${{ steps.rollout.outputs.new_revision }}"
-          test "$serving_percent" = "100"
-          test "$(jq -r '.metadata.annotations["run.googleapis.com/iap-enabled"]' "$RUNNER_TEMP/service-after.json")" = "true"
-          test "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/service-after.json")" = "all"
-          test "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/service-after.json")" = "$EXPECTED_RUNTIME_SA"
-          test "$(jq -r '.spec.template.spec.containers[0].ports[0].containerPort' "$RUNNER_TEMP/service-after.json")" = "8080"
+          assert_eq serving_traffic_count "1" "$serving_traffic_count"
+          assert_eq serving_revision "${{ steps.rollout.outputs.new_revision }}" "$serving_revision"
+          assert_eq serving_percent "100" "$serving_percent"
+          assert_eq iap_enabled "true" "$(jq -r '.metadata.annotations["run.googleapis.com/iap-enabled"]' "$RUNNER_TEMP/service-after.json")"
+          assert_eq ingress "all" "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/service-after.json")"
+          assert_eq runtime_service_account "$EXPECTED_RUNTIME_SA" "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/service-after.json")"
+          assert_eq container_port "8080" "$(jq -r '.spec.template.spec.containers[0].ports[0].containerPort' "$RUNNER_TEMP/service-after.json")"
           min_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // .spec.template.scaling.minInstanceCount // .metadata.annotations["run.googleapis.com/minScale"] // "0"' "$RUNNER_TEMP/service-after.json")"
           max_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/maxScale"] // .spec.template.scaling.maxInstanceCount // .metadata.annotations["run.googleapis.com/maxScale"] // empty' "$RUNNER_TEMP/service-after.json")"
-          test "$min_instances" = "0"
-          test "$max_instances" = "1"
+          assert_eq min_instances "0" "$min_instances"
+          assert_eq max_instances "1" "$max_instances"
           gcloud run services get-iam-policy "$CLOUD_RUN_SERVICE" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/iam-after.json"
-          test "$(jq '[.bindings[]? | select(any(.members[]?; . == "allUsers" or . == "allAuthenticatedUsers"))] | length' "$RUNNER_TEMP/iam-after.json")" = "0"
+          assert_eq public_iam_bindings "0" "$(jq '[.bindings[]? | select(any(.members[]?; . == "allUsers" or . == "allAuthenticatedUsers"))] | length' "$RUNNER_TEMP/iam-after.json")"
           service_url="$(jq -r '.status.url' "$RUNNER_TEMP/service-after.json")"
-          unauthenticated_status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$service_url/management-app/")"
-          test "$unauthenticated_status" != "200"
+          if ! unauthenticated_status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$service_url/management-app/")"; then
+            echo "::error title=DBF hosted read-back mismatch::unauthenticated smoke could not reach the IAP endpoint; status=$unauthenticated_status"
+            exit 1
+          fi
+          if [ "$unauthenticated_status" = "200" ]; then
+            echo "::error title=DBF hosted read-back mismatch::unauthenticated request unexpectedly returned HTTP 200"
+            exit 1
+          fi
+          echo "DBF_READBACK unauthenticated_http=$unauthenticated_status"
           {
             echo "## DBF Hosted Staging revision"
             echo "- Source: $APPROVED_SOURCE_SHA"

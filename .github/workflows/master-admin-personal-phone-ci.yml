@@ -1,0 +1,110 @@
+name: Master Admin Personal Phone CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/master-admin-personal-phone-ci.yml"
+      - "portal/master-admin/**"
+      - "supabase/functions/nov-hub-api/**"
+      - "supabase/migrations/20260814090000_employee_emergency_contact_foundation.sql"
+      - "scripts/verify-master-admin-personal-phone-migration.mjs"
+      - "tests/master-admin-emergency-contact-contract.test.mjs"
+      - "tests/fixtures/master-admin-emergency-contact-visual.html"
+      - "tests/sql/master-admin-personal-phone-fresh-db.psql"
+      - "work/local-nonproduction-sql-lane-20260715/employee-emergency-contact-v1/**"
+      - "work/local-nonproduction-sql-lane-20260715/bundles/hub-employee-emergency-contact-v1.json"
+
+permissions:
+  contents: read
+
+jobs:
+  source-and-privacy-contract:
+    name: Source and privacy contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout pull request
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.2
+
+      - name: Verify formal migration byte integrity
+        run: node scripts/verify-master-admin-personal-phone-migration.mjs
+
+      - name: Verify Master Admin source and privacy contract
+        run: |
+          node --check portal/master-admin/master-admin.js
+          node tests/master-admin-emergency-contact-contract.test.mjs
+          node tests/core-master-audit.test.mjs
+          deno check supabase/functions/nov-hub-api/index.ts
+
+      - name: Check patch whitespace
+        run: git diff --check origin/main...HEAD
+
+      - name: Reject secrets and plaintext phone values in runtime source
+        shell: bash
+        run: |
+          if git grep -nEI \
+            '(sb_secret_|postgres(ql)?://[^[:space:]]+:[^@[:space:]]+@|eyJ[A-Za-z0-9_-]{20,}\.)' \
+            -- portal/master-admin supabase/functions/nov-hub-api supabase/migrations/20260814090000_employee_emergency_contact_foundation.sql; then
+            echo "Potential secret material found in personal phone runtime files."
+            exit 1
+          fi
+          if git grep -nE '(09012345678|09000000000)' \
+            -- portal/master-admin supabase/functions/nov-hub-api supabase/migrations/20260814090000_employee_emergency_contact_foundation.sql; then
+            echo "Synthetic phone value escaped into runtime source."
+            exit 1
+          fi
+
+  fresh-postgresql:
+    name: Fresh PostgreSQL privacy and RLS contract
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGDATABASE: postgres
+    steps:
+      - name: Checkout pull request
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify migration identity
+        run: node scripts/verify-master-admin-personal-phone-migration.mjs
+
+      - name: Verify PostgreSQL 17 server
+        shell: bash
+        run: |
+          server_version="$(psql -X -Atqc 'show server_version')"
+          case "${server_version}" in
+            17.*) ;;
+            *) echo "Expected PostgreSQL 17.x" >&2; exit 1 ;;
+          esac
+
+      - name: Run Fresh PostgreSQL contract and clean rollback
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/master-admin-personal-phone-fresh-db.psql

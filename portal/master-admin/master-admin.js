@@ -3863,8 +3863,8 @@ function renderEmployeeDetail(employee) {
     <details class="employee-detail-section" id="employee-section-emergency">
       <summary>
         <span>
-          <strong>緊急連絡先</strong>
-          <small>災害・緊急時の本人連絡先</small>
+          <strong>本人電話番号（緊急時連絡用）</strong>
+          <small>災害・事故時に会社から本人へ連絡するための番号</small>
         </span>
         <span class="section-status-badge neutral" id="employee-emergency-contact-badge">確認中</span>
       </summary>
@@ -4062,14 +4062,14 @@ function renderEmployeeEmergencyContactPanel(employee, readonly) {
   return `
     <section class="employee-emergency-contact-panel" id="employee-emergency-contact-panel" data-employee-id="${escapeHtml(employee.id)}">
       <div>
-        <strong>緊急連絡先</strong>
-        <p>災害・緊急時の安否確認に使用する本人の電話番号です。</p>
+        <strong>本人電話番号（緊急時連絡用）</strong>
+        <p>災害・事故など、会社から本人へ緊急連絡する場合に使用します。</p>
       </div>
       <label class="form-field" for="employee_emergency_phone">
         <span>電話番号</span>
         <input class="form-input" id="employee_emergency_phone" type="tel" inputmode="tel" autocomplete="off" maxlength="24" value="${escapeHtml(phoneNumber)}" placeholder="例: 090-1234-5678"${readonly || !loaded ? " disabled" : ""}>
       </label>
-      <p class="field-help">社員一覧・CSVには表示しません。家族等の緊急連絡先とは別の、本人への連絡先です。</p>
+      <p class="field-help">社員一覧・CSVには表示しません。家族・配偶者・親族など第三者の連絡先は登録しないでください。</p>
       <div class="employee-emergency-contact-actions">
         <span class="save-status${loaded ? "" : " pending"}" id="employee-emergency-contact-save-status" aria-live="polite">${loaded ? "" : "読み込み中です..."}</span>
         ${readonly
@@ -4149,7 +4149,7 @@ async function setupEmployeeEmergencyContactPanel(employee, readonly) {
   } catch (error) {
     if (state.selectedId !== employee.id) return;
     const status = getActiveDetailElement("#employee-emergency-contact-save-status");
-    setSaveStatus(status, "緊急連絡先を読み込めませんでした。", "error");
+    setSaveStatus(status, "本人電話番号を読み込めませんでした。", "error");
     const badge = getActiveDetailElement("#employee-emergency-contact-badge");
     if (badge) {
       badge.textContent = "確認不可";
@@ -4172,7 +4172,7 @@ async function saveEmployeeEmergencyContact(employee) {
   try {
     button.disabled = true;
     button.textContent = "保存中...";
-    setSaveStatus(status, "緊急連絡先を保存中です...", "pending");
+    setSaveStatus(status, "本人電話番号を保存中です...", "pending");
     const response = await callApiAction("masterUpdateEmployeeEmergencyContact", {
       employeeId: employee.id,
       phoneNumber
@@ -4189,10 +4189,10 @@ async function saveEmployeeEmergencyContact(employee) {
     input.value = phoneNumber;
     input.dataset.savedValue = phoneNumber;
     updateEmployeeEmergencyContactBadge(Boolean(phoneNumber));
-    setSaveStatus(status, phoneNumber ? "緊急連絡先を保存しました。" : "緊急連絡先を未登録に戻しました。", "success");
+    setSaveStatus(status, phoneNumber ? "本人電話番号を保存しました。" : "本人電話番号を未登録に戻しました。", "success");
     button.textContent = phoneNumber ? "更新" : "保存";
     button.disabled = true;
-    showToast(phoneNumber ? "緊急連絡先を保存しました。" : "緊急連絡先を未登録に戻しました。");
+    showToast(phoneNumber ? "本人電話番号を保存しました。" : "本人電話番号を未登録に戻しました。");
   } catch (error) {
     setSaveStatus(status, getErrorMessage(error), "error");
     button.disabled = false;

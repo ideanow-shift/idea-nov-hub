@@ -1,0 +1,179 @@
+\set ON_ERROR_STOP on
+\ir ../../work/local-nonproduction-sql-lane-20260715/employee-emergency-contact-v1/bootstrap.sql
+\ir ../../supabase/migrations/20260814090000_employee_emergency_contact_foundation.sql
+
+set role service_role;
+
+insert into public.employee_emergency_contacts (
+  employee_id,
+  employee_phone_number,
+  updated_by_employee_id
+) values (
+  '00000000-0000-4000-8000-000000000001',
+  '09012345678',
+  '00000000-0000-4000-8000-000000000002'
+);
+
+do $invalid_phone$
+begin
+  begin
+    insert into public.employee_emergency_contacts (
+      employee_id,
+      employee_phone_number,
+      updated_by_employee_id
+    ) values (
+      '00000000-0000-4000-8000-000000000002',
+      'invalid-phone',
+      '00000000-0000-4000-8000-000000000002'
+    );
+    raise exception 'INVALID_PHONE_WAS_ACCEPTED';
+  exception
+    when check_violation then null;
+  end;
+end
+$invalid_phone$;
+
+update public.employee_emergency_contacts
+set employee_phone_number = null,
+    updated_at = now()
+where employee_id = '00000000-0000-4000-8000-000000000001';
+
+do $service_delete_denied$
+begin
+  begin
+    delete from public.employee_emergency_contacts
+    where employee_id = '00000000-0000-4000-8000-000000000001';
+    raise exception 'SERVICE_DELETE_WAS_ACCEPTED';
+  exception
+    when insufficient_privilege then null;
+  end;
+end
+$service_delete_denied$;
+
+reset role;
+set role anon;
+
+do $anon_denied$
+begin
+  begin
+    perform employee_phone_number from public.employee_emergency_contacts;
+    raise exception 'ANON_SELECT_WAS_ACCEPTED';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    insert into public.employee_emergency_contacts (
+      employee_id,
+      employee_phone_number,
+      updated_by_employee_id
+    ) values (
+      '00000000-0000-4000-8000-000000000002',
+      '09000000000',
+      '00000000-0000-4000-8000-000000000002'
+    );
+    raise exception 'ANON_INSERT_WAS_ACCEPTED';
+  exception
+    when insufficient_privilege then null;
+  end;
+end
+$anon_denied$;
+
+reset role;
+set role authenticated;
+
+do $authenticated_denied$
+begin
+  begin
+    perform employee_phone_number from public.employee_emergency_contacts;
+    raise exception 'AUTHENTICATED_SELECT_WAS_ACCEPTED';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    update public.employee_emergency_contacts
+    set employee_phone_number = null;
+    raise exception 'AUTHENTICATED_UPDATE_WAS_ACCEPTED';
+  exception
+    when insufficient_privilege then null;
+  end;
+end
+$authenticated_denied$;
+
+reset role;
+
+do $verify$
+begin
+  if not exists (
+    select 1 from pg_catalog.pg_class
+    where oid = 'public.employee_emergency_contacts'::regclass
+      and relrowsecurity and relforcerowsecurity
+  ) then raise exception 'CONTACT_RLS_NOT_FORCED'; end if;
+
+  if not exists (
+    select 1 from pg_catalog.pg_class
+    where oid = 'public.employee_emergency_contact_audit_logs'::regclass
+      and relrowsecurity and relforcerowsecurity
+  ) then raise exception 'AUDIT_RLS_NOT_FORCED'; end if;
+
+  if has_table_privilege('anon', 'public.employee_emergency_contacts', 'SELECT')
+    or has_table_privilege('authenticated', 'public.employee_emergency_contacts', 'SELECT')
+    or has_table_privilege('service_role', 'public.employee_emergency_contacts', 'DELETE')
+  then raise exception 'TABLE_PRIVILEGES_NOT_MINIMAL'; end if;
+
+  if not has_table_privilege('service_role', 'public.employee_emergency_contacts', 'SELECT')
+    or not has_table_privilege('service_role', 'public.employee_emergency_contacts', 'INSERT')
+    or not has_table_privilege('service_role', 'public.employee_emergency_contacts', 'UPDATE')
+  then raise exception 'BACKEND_CONTACT_PRIVILEGES_MISSING'; end if;
+
+  if not has_table_privilege('service_role', 'public.employee_emergency_contact_audit_logs', 'SELECT')
+    or not has_table_privilege('service_role', 'public.employee_emergency_contact_audit_logs', 'INSERT')
+    or has_table_privilege('service_role', 'public.employee_emergency_contact_audit_logs', 'UPDATE')
+    or has_table_privilege('service_role', 'public.employee_emergency_contact_audit_logs', 'DELETE')
+  then raise exception 'AUDIT_NOT_APPEND_ONLY'; end if;
+
+  if (select count(*) from public.employee_emergency_contacts) <> 1
+    or (select count(*) from public.employee_emergency_contacts where employee_phone_number is null) <> 1
+  then raise exception 'AUTHORIZED_BACKEND_SAVE_FAILED'; end if;
+
+  if (select count(*) from public.employee_emergency_contact_audit_logs) <> 2
+    or (select count(*) from public.employee_emergency_contact_audit_logs where event_type = 'created' and not configured_before and configured_after) <> 1
+    or (select count(*) from public.employee_emergency_contact_audit_logs where event_type = 'cleared' and configured_before and not configured_after) <> 1
+  then raise exception 'AUDIT_ROWS_INVALID'; end if;
+
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'employee_emergency_contact_audit_logs'
+      and column_name ilike '%phone%'
+  ) then raise exception 'AUDIT_PHONE_COLUMN_PRESENT'; end if;
+
+  if position('09012345678' in coalesce((select json_agg(a)::text from public.employee_emergency_contact_audit_logs a), '')) > 0
+  then raise exception 'AUDIT_PHONE_VALUE_PRESENT'; end if;
+
+  if (select count(*) from public.employees) <> 2
+  then raise exception 'EMPLOYEE_ROWS_CHANGED'; end if;
+end
+$verify$;
+
+select 'EMPLOYEE_PERSONAL_PHONE_FRESH_POSTGRES_PASS';
+
+\ir ../../work/local-nonproduction-sql-lane-20260715/employee-emergency-contact-v1/rollback.sql
+
+do $clean$
+begin
+  if to_regclass('public.employee_emergency_contacts') is not null
+    or to_regclass('public.employee_emergency_contact_audit_logs') is not null
+    or to_regprocedure('public.audit_employee_emergency_contact_change()') is not null
+    or (select count(*) from public.employees) <> 2
+  then raise exception 'FEATURE_ROLLBACK_NOT_CLEAN'; end if;
+end
+$clean$;
+
+drop table public.employees;
+drop role service_role;
+drop role authenticated;
+drop role anon;
+
+select 'EMPLOYEE_PERSONAL_PHONE_FRESH_POSTGRES_CLEAN';

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>緊急連絡先 UI fixture</title>
+  <title>本人電話番号 UI fixture</title>
   <link rel="stylesheet" href="../../portal/master-admin/master-admin.css">
   <style>
     body { margin: 0; background: #FAFAFA; }
@@ -15,22 +15,22 @@
     <details class="employee-detail-section" id="employee-section-emergency" open>
       <summary>
         <span>
-          <strong>緊急連絡先</strong>
-          <small>災害・緊急時の本人連絡先</small>
+          <strong>本人電話番号（緊急時連絡用）</strong>
+          <small>災害・事故時に会社から本人へ連絡するための番号</small>
         </span>
         <span class="section-status-badge neutral">未登録</span>
       </summary>
       <div class="employee-detail-section-body">
         <section class="employee-emergency-contact-panel" id="employee-emergency-contact-panel">
           <div>
-            <strong>緊急連絡先</strong>
-            <p>災害・緊急時の安否確認に使用する本人の電話番号です。</p>
+            <strong>本人電話番号（緊急時連絡用）</strong>
+            <p>災害・事故など、会社から本人へ緊急連絡する場合に使用します。</p>
           </div>
           <label class="form-field" for="employee_emergency_phone">
             <span>電話番号</span>
-            <input class="form-input" id="employee_emergency_phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="24" placeholder="例: 090-1234-5678">
+            <input class="form-input" id="employee_emergency_phone" type="tel" inputmode="tel" autocomplete="off" maxlength="24" placeholder="例: 090-1234-5678">
           </label>
-          <p class="field-help">社員一覧・CSVには表示しません。家族等の緊急連絡先とは別の、本人への連絡先です。</p>
+          <p class="field-help">社員一覧・CSVには表示しません。家族・配偶者・親族など第三者の連絡先は登録しないでください。</p>
           <div class="employee-emergency-contact-actions">
             <span class="save-status" aria-live="polite"></span>
             <button class="button button-primary" type="button">保存</button>

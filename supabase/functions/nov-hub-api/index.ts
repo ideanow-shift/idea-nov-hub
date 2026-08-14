@@ -2851,12 +2851,24 @@ function sanitizeEmployeeEmergencyContact(row: JsonRecord | null) {
   };
 }
 
+async function readEmployeeEmergencyContactRows(options: Parameters<typeof readRows>[1]) {
+  try {
+    return await readRows("employee_emergency_contacts", options);
+  } catch (_error) {
+    throw new PortalError(
+      "EMPLOYEE_EMERGENCY_CONTACT_UNAVAILABLE",
+      "Employee personal phone operation failed.",
+      503,
+    );
+  }
+}
+
 async function readEmployeeEmergencyContact(payload: JsonRecord) {
   const employeeId = String(payload.employeeId || "").trim();
   if (!isUuid(employeeId)) throw new PortalError("INVALID_REQUEST", "Employee id is invalid.", 400);
   const employee = await getCoreEmployeeById(employeeId);
   if (!employee?.id) throw new PortalError("NOT_FOUND", "Employee was not found.", 404);
-  const rows = await readRows("employee_emergency_contacts", {
+  const rows = await readEmployeeEmergencyContactRows({
     query: {
       select: "employee_id,employee_phone_number,updated_at",
       employee_id: `eq.${employeeId}`,
@@ -2896,7 +2908,7 @@ async function updateEmployeeEmergencyContact(payload: JsonRecord, actor: JsonRe
   const now = new Date().toISOString();
   let rows: JsonRecord[];
   if (before) {
-    rows = await readRows("employee_emergency_contacts", {
+    rows = await readEmployeeEmergencyContactRows({
       method: "PATCH",
       query: { employee_id: `eq.${employeeId}`, select: "employee_id,employee_phone_number,updated_at" },
       payload: {
@@ -2907,7 +2919,7 @@ async function updateEmployeeEmergencyContact(payload: JsonRecord, actor: JsonRe
       prefer: "return=representation",
     });
   } else {
-    rows = await readRows("employee_emergency_contacts", {
+    rows = await readEmployeeEmergencyContactRows({
       method: "POST",
       query: { select: "employee_id,employee_phone_number,updated_at" },
       payload: {

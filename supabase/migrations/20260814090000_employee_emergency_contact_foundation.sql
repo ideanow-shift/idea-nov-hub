@@ -38,11 +38,12 @@ create table public.employee_emergency_contacts (
 );
 
 comment on table public.employee_emergency_contacts is
-  '災害・緊急時に社員本人へ連絡するための限定連絡先。家族等の緊急連絡先とは分離する。';
+  '本人電話番号（緊急時連絡用）。家族・配偶者・親族等の第三者連絡先とは分離する。';
 comment on column public.employee_emergency_contacts.employee_phone_number is
   '社員本人の緊急連絡用電話番号。社員一覧、CSV、一般プロフィールへ公開しない。';
 
 alter table public.employee_emergency_contacts enable row level security;
+alter table public.employee_emergency_contacts force row level security;
 
 revoke all on table public.employee_emergency_contacts from public;
 revoke all on table public.employee_emergency_contacts from anon;
@@ -61,9 +62,10 @@ create table public.employee_emergency_contact_audit_logs (
 );
 
 comment on table public.employee_emergency_contact_audit_logs is
-  '緊急連絡先の設定状態だけを記録する追記専用監査。電話番号実値は保持しない。';
+  '本人電話番号の設定状態だけを記録する追記専用監査。電話番号実値は保持しない。';
 
 alter table public.employee_emergency_contact_audit_logs enable row level security;
+alter table public.employee_emergency_contact_audit_logs force row level security;
 
 revoke all on table public.employee_emergency_contact_audit_logs from public;
 revoke all on table public.employee_emergency_contact_audit_logs from anon;

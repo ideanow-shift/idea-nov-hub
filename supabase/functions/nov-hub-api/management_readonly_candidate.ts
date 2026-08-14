@@ -440,43 +440,47 @@ function validMonth(value: unknown): string {
 async function assertBusinessDataAdminCanonicalContext(
   deps: ManagementDependencies,
   employee: InternalEmployee,
-  today: string,
 ): Promise<void> {
-  if (!employee.positionId || !employee.departmentId) safe403("FORBIDDEN");
-  const [positions, organizations, assignments] = await Promise.all([
+  if (!employee.corporationId || !employee.positionId) safe403("FORBIDDEN");
+  const referenceChecks: Promise<JsonRecord[]>[] = [
+    deps.db.select("corporations", {
+      select: "id,is_active",
+      id: `eq.${employee.corporationId}`,
+      is_active: "eq.true",
+      limit: 2,
+    }),
     deps.db.select("positions", {
       select: "id,is_active",
       id: `eq.${employee.positionId}`,
       is_active: "eq.true",
       limit: 2,
     }),
-    deps.db.select("departments", {
+  ];
+  const referenceIds = [employee.corporationId, employee.positionId];
+  if (employee.departmentId) {
+    referenceChecks.push(deps.db.select("departments", {
       select: "id,is_active",
       id: `eq.${employee.departmentId}`,
       is_active: "eq.true",
       limit: 2,
-    }),
-    deps.db.select("employee_assignment_histories", {
-      select: "employee_id,corporation_id,department_id,store_id,position_id,effective_from,effective_to,is_active",
-      employee_id: `eq.${employee.id}`,
+    }));
+    referenceIds.push(employee.departmentId);
+  }
+  if (employee.storeId) {
+    referenceChecks.push(deps.db.select("stores", {
+      select: "id,is_active",
+      id: `eq.${employee.storeId}`,
       is_active: "eq.true",
-      effective_from: `lte.${today}`,
-      or: `(effective_to.is.null,effective_to.gte.${today})`,
       limit: 2,
-    }),
-  ]);
-  if (positions.length !== 1 || positions[0].is_active !== true || text(positions[0].id) !== employee.positionId) safe403("FORBIDDEN");
-  if (organizations.length !== 1 || organizations[0].is_active !== true || text(organizations[0].id) !== employee.departmentId) safe403("FORBIDDEN");
-  if (assignments.length !== 1) safe403("FORBIDDEN");
-  const assignment = assignments[0];
-  if (assignment.is_active !== true
-    || text(assignment.employee_id) !== employee.id
-    || text(assignment.position_id) !== employee.positionId
-    || text(assignment.department_id) !== employee.departmentId
-    || text(assignment.corporation_id) !== text(employee.corporationId)
-    || text(assignment.store_id) !== text(employee.storeId)
-    || text(assignment.effective_from) > today
-    || (text(assignment.effective_to) && text(assignment.effective_to) < today)) safe403("FORBIDDEN");
+    }));
+    referenceIds.push(employee.storeId);
+  }
+  const references = await Promise.all(referenceChecks);
+  for (const [index, rows] of references.entries()) {
+    if (rows.length !== 1 || rows[0].is_active !== true || text(rows[0].id) !== referenceIds[index]) {
+      safe403("FORBIDDEN");
+    }
+  }
 }
 
 async function buildBusinessDataCapability(
@@ -484,7 +488,7 @@ async function buildBusinessDataCapability(
   access: AccessContext,
 ): Promise<JsonRecord> {
   const today = deps.today?.() || todayJstFallback();
-  await assertBusinessDataAdminCanonicalContext(deps, access.employee, today);
+  await assertBusinessDataAdminCanonicalContext(deps, access.employee);
   return {
     capability: { businessDataAdmin: true },
     scope: access.scope.mode,

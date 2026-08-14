@@ -1,0 +1,4 @@
+drop trigger employee_emergency_contact_audit_trigger on public.employee_emergency_contacts;
+drop function public.audit_employee_emergency_contact_change();
+drop table public.employee_emergency_contact_audit_logs;
+drop table public.employee_emergency_contacts;

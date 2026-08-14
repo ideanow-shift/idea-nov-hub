@@ -1,0 +1,99 @@
+name: DBF Phase B Fact ACL Validation
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**dbf_business_data_phase1**.sql"
+      - "tests/dbf-business-data-phase1-service-role-acl*"
+      - ".github/workflows/dbf-phase1-fact-acl-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dbf-phase1-fact-acl-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgres-17-acl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17.6-bookworm
+        env:
+          POSTGRES_DB: dbf_phase1_acl
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dbf_phase1_acl"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGDATABASE: dbf_phase1_acl
+      PGHOST: 127.0.0.1
+      PGPASSWORD: postgres
+      PGPORT: 5432
+      PGUSER: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Validate migration source contract and byte integrity
+        run: node --test tests/dbf-business-data-phase1-foundation.test.mjs tests/dbf-business-data-phase1-service-role-acl.test.mjs
+      - name: Seed Supabase role and default-ACL fixture
+        shell: bash
+        run: |
+          psql --set=ON_ERROR_STOP=1 <<'SQL'
+          create role anon nologin;
+          create role authenticated nologin;
+          create role service_role nologin bypassrls;
+          alter default privileges for role postgres in schema public
+            grant all privileges on tables to service_role;
+          SQL
+      - name: Apply Phase B foundation and capture ingest ACL
+        shell: bash
+        run: |
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814140109_dbf_business_data_phase1_foundation.sql
+          psql --tuples-only --no-align --command "select md5(string_agg(n.nspname || '.' || c.relname || ':' || coalesce(c.relacl::text, ''), ',' order by c.relname)) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'dbf_ingest' and c.relkind = 'r';" > /tmp/dbf-ingest-acl-before.txt
+      - name: Apply forward-only ACL corrective
+        run: psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814195712_dbf_business_data_phase1_service_role_acl_corrective.sql
+      - name: Run PostgreSQL 17 ACL and correction smoke
+        run: psql --set=ON_ERROR_STOP=1 --file tests/dbf-business-data-phase1-service-role-acl-postgres17.sql
+      - name: Prove forbidden operations are rejected
+        shell: bash
+        run: |
+          expect_denied() {
+            local sql="$1"
+            if psql --set=ON_ERROR_STOP=1 --command "set role service_role; ${sql}" >/tmp/dbf-denied.out 2>&1; then
+              echo "Unexpectedly allowed: ${sql}"
+              cat /tmp/dbf-denied.out
+              exit 1
+            fi
+          }
+          expect_denied "delete from public.dbf_pl_detail_facts"
+          expect_denied "truncate table public.dbf_pl_detail_facts"
+          psql --set=ON_ERROR_STOP=1 --command "create schema dbf_acl_probe authorization service_role"
+          expect_denied "create table dbf_acl_probe.reference_probe (fact_id uuid references public.dbf_pl_detail_facts(id))"
+          psql --set=ON_ERROR_STOP=1 --command "create function public.dbf_acl_trigger_probe() returns trigger language plpgsql as 'begin return new; end'"
+          expect_denied "create trigger dbf_acl_trigger_probe before insert on public.dbf_pl_detail_facts for each row execute function public.dbf_acl_trigger_probe()"
+          expect_denied "analyze public.dbf_pl_detail_facts"
+      - name: Verify ingest ACL unchanged and all rows remain zero
+        shell: bash
+        run: |
+          psql --tuples-only --no-align --command "select md5(string_agg(n.nspname || '.' || c.relname || ':' || coalesce(c.relacl::text, ''), ',' order by c.relname)) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'dbf_ingest' and c.relkind = 'r';" > /tmp/dbf-ingest-acl-after.txt
+          diff --strip-trailing-cr /tmp/dbf-ingest-acl-before.txt /tmp/dbf-ingest-acl-after.txt
+          test "$(psql --tuples-only --no-align --command "select (select count(*) from public.dbf_pl_detail_facts) + (select count(*) from public.dbf_pl_aggregate_facts) + (select count(*) from public.dbf_bs_facts) + (select count(*) from public.dbf_store_monthly_metric_facts) + (select count(*) from public.dbf_budget_facts);")" = "0"
+      - name: Reject Production refs and secrets in corrective scope
+        shell: bash
+        run: |
+          if grep -E -i 'nkmxevmioczcmnldreyo|idea-nov-core|DB_PASSWORD|PRIVATE KEY|oauth_client_secret|github_token' \
+            supabase/migrations/20260814195712_dbf_business_data_phase1_service_role_acl_corrective.sql; then
+            echo "Forbidden Production reference or secret-like value detected."
+            exit 1
+          fi

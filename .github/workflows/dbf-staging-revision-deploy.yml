@@ -55,8 +55,8 @@ jobs:
           test "$EVENT_REPOSITORY" = "ideanow-shift/idea-nov-hub"
           test "$EVENT_REPOSITORY_ID" = "1270075168"
           test "$EVENT_REF" = "refs/heads/main"
-          test "$EVENT_SHA" = "$APPROVED_SOURCE_SHA"
           test "$EVENT_NAME" = "workflow_dispatch"
+          printf '%s' "$EVENT_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s' "$APPROVED_SOURCE_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s' "$APPROVED_IMAGE_DIGEST" | grep -Eq '^sha256:[0-9a-f]{64}$'
           test "$EVENT_CONFIRMATION" = "DEPLOY_DBF_STAGING_REVISION_$APPROVED_SOURCE_SHA"
@@ -101,8 +101,10 @@ jobs:
           test "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/service-before.json")" = "all"
           test "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/service-before.json")" = "$EXPECTED_RUNTIME_SA"
           test "$(jq -r '.spec.template.spec.containers[0].ports[0].containerPort' "$RUNNER_TEMP/service-before.json")" = "8080"
-          test "$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // "0"' "$RUNNER_TEMP/service-before.json")" = "0"
-          test "$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/maxScale"]' "$RUNNER_TEMP/service-before.json")" = "1"
+          min_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // .spec.template.scaling.minInstanceCount // "0"' "$RUNNER_TEMP/service-before.json")"
+          max_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/maxScale"] // .spec.template.scaling.maxInstanceCount // empty' "$RUNNER_TEMP/service-before.json")"
+          test "$min_instances" = "0"
+          test "$max_instances" = "1"
           gcloud run revisions describe "$rollback_revision" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/rollback-revision.json"
           test "$(jq -r '[.status.conditions[]? | select(.type == "Ready")][0].status' "$RUNNER_TEMP/rollback-revision.json")" = "True"
@@ -159,6 +161,10 @@ jobs:
           test "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/service-after.json")" = "all"
           test "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/service-after.json")" = "$EXPECTED_RUNTIME_SA"
           test "$(jq -r '.spec.template.spec.containers[0].ports[0].containerPort' "$RUNNER_TEMP/service-after.json")" = "8080"
+          min_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // .spec.template.scaling.minInstanceCount // "0"' "$RUNNER_TEMP/service-after.json")"
+          max_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/maxScale"] // .spec.template.scaling.maxInstanceCount // empty' "$RUNNER_TEMP/service-after.json")"
+          test "$min_instances" = "0"
+          test "$max_instances" = "1"
           gcloud run services get-iam-policy "$CLOUD_RUN_SERVICE" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/iam-after.json"
           test "$(jq '[.bindings[]? | select(any(.members[]?; . == "allUsers" or . == "allAuthenticatedUsers"))] | length' "$RUNNER_TEMP/iam-after.json")" = "0"

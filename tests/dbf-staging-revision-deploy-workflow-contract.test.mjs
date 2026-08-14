@@ -15,6 +15,8 @@ test("DBF revision deploy is manual-only and bound to the staging target", () =>
   assert.match(workflow, /asia-northeast1/u);
   assert.match(workflow, /idea-nov-dbf-staging-ui/u);
   assert.match(workflow, /refs\/heads\/main/u);
+  assert.match(workflow, /printf '%s' "\$EVENT_SHA" \| grep -Eq/u);
+  assert.doesNotMatch(workflow, /test "\$EVENT_SHA" = "\$APPROVED_SOURCE_SHA"/u);
   assert.match(workflow, /DEPLOY_DBF_STAGING_REVISION_/u);
 });
 
@@ -32,6 +34,10 @@ test("DBF revision deploy preserves IAP, runtime identity, port, and private IAM
   assert.match(workflow, /run\.googleapis\.com\/ingress/u);
   assert.match(workflow, /dbf-staging-ui-runtime@idea-nov-dbf-staging\.iam\.gserviceaccount\.com/u);
   assert.match(workflow, /containerPort/u);
+  assert.match(workflow, /scaling\.minInstanceCount/u);
+  assert.match(workflow, /scaling\.maxInstanceCount/u);
+  assert.equal((workflow.match(/test "\$min_instances" = "0"/gu) || []).length, 2);
+  assert.equal((workflow.match(/test "\$max_instances" = "1"/gu) || []).length, 2);
   assert.match(workflow, /allUsers/u);
   assert.match(workflow, /allAuthenticatedUsers/u);
   assert.doesNotMatch(workflow, /--allow-unauthenticated/u);

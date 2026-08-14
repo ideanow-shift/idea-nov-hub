@@ -1,0 +1,193 @@
+name: DBF Staging Revision Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "Full 40-character commit SHA at the current main HEAD"
+        required: true
+        type: string
+      image_digest:
+        description: "Immutable sha256 digest produced by DBF Staging Image Push"
+        required: true
+        type: string
+      confirmation:
+        description: "Type DEPLOY_DBF_STAGING_REVISION_<full source SHA>"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: dbf-staging-revision-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-revision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: dbf-business-data-staging
+    env:
+      APPROVED_SOURCE_SHA: ${{ github.event.inputs.source_sha }}
+      APPROVED_IMAGE_DIGEST: ${{ github.event.inputs.image_digest }}
+      GCP_PROJECT_ID: idea-nov-dbf-staging
+      GCP_PROJECT_NUMBER: "787968950888"
+      GCP_REGION: asia-northeast1
+      ARTIFACT_REPOSITORY: idea-nov-dbf-staging-ui
+      IMAGE_NAME: dbf-staging-ui
+      CLOUD_RUN_SERVICE: idea-nov-dbf-staging-ui
+      EXPECTED_RUNTIME_SA: dbf-staging-ui-runtime@idea-nov-dbf-staging.iam.gserviceaccount.com
+
+    steps:
+      - name: Exact request gate
+        shell: bash
+        env:
+          EVENT_REPOSITORY: ${{ github.repository }}
+          EVENT_REPOSITORY_ID: ${{ github.repository_id }}
+          EVENT_REF: ${{ github.ref }}
+          EVENT_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_CONFIRMATION: ${{ github.event.inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test "$EVENT_REPOSITORY" = "ideanow-shift/idea-nov-hub"
+          test "$EVENT_REPOSITORY_ID" = "1270075168"
+          test "$EVENT_REF" = "refs/heads/main"
+          test "$EVENT_SHA" = "$APPROVED_SOURCE_SHA"
+          test "$EVENT_NAME" = "workflow_dispatch"
+          printf '%s' "$APPROVED_SOURCE_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$APPROVED_IMAGE_DIGEST" | grep -Eq '^sha256:[0-9a-f]{64}$'
+          test "$EVENT_CONFIRMATION" = "DEPLOY_DBF_STAGING_REVISION_$APPROVED_SOURCE_SHA"
+
+      - name: Authenticate to Google Cloud with existing WIF
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
+        with:
+          workload_identity_provider: projects/787968950888/locations/global/workloadIdentityPools/github-dbf-staging/providers/github-idea-nov-hub
+          service_account: dbf-staging-deployer@idea-nov-dbf-staging.iam.gserviceaccount.com
+          project_id: idea-nov-dbf-staging
+          create_credentials_file: true
+          cleanup_credentials: true
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+        with:
+          project_id: idea-nov-dbf-staging
+
+      - name: Fail-close target and rollback preflight
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gcloud config get-value project 2>/dev/null)" = "$GCP_PROJECT_ID"
+          test "$(gcloud projects describe "$GCP_PROJECT_ID" --format='value(projectNumber)')" = "$GCP_PROJECT_NUMBER"
+          test "$(gcloud auth list --filter=status:ACTIVE --format='value(account)')" = "dbf-staging-deployer@idea-nov-dbf-staging.iam.gserviceaccount.com"
+
+          image_ref="$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$ARTIFACT_REPOSITORY/$IMAGE_NAME@$APPROVED_IMAGE_DIGEST"
+          gcloud artifacts docker images describe "$image_ref" --project="$GCP_PROJECT_ID" --format=json > "$RUNNER_TEMP/image.json"
+          test "$(jq -r '.image_summary.digest // .imageSummary.digest // .digest // empty' "$RUNNER_TEMP/image.json")" = "$APPROVED_IMAGE_DIGEST"
+          tag_ref="$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$ARTIFACT_REPOSITORY/$IMAGE_NAME:$APPROVED_SOURCE_SHA"
+          gcloud artifacts docker images describe "$tag_ref" --project="$GCP_PROJECT_ID" --format=json > "$RUNNER_TEMP/tag.json"
+          test "$(jq -r '.image_summary.digest // .imageSummary.digest // .digest // empty' "$RUNNER_TEMP/tag.json")" = "$APPROVED_IMAGE_DIGEST"
+
+          gcloud run services describe "$CLOUD_RUN_SERVICE" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/service-before.json"
+          rollback_revision="$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/service-before.json")"
+          test "$rollback_revision" != ""
+          test "$(jq -r '.status.traffic | length' "$RUNNER_TEMP/service-before.json")" = "1"
+          test "$(jq -r '.status.traffic[0].percent' "$RUNNER_TEMP/service-before.json")" = "100"
+          test "$(jq -r '.metadata.annotations["run.googleapis.com/iap-enabled"]' "$RUNNER_TEMP/service-before.json")" = "true"
+          test "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/service-before.json")" = "all"
+          test "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/service-before.json")" = "$EXPECTED_RUNTIME_SA"
+          test "$(jq -r '.spec.template.spec.containers[0].ports[0].containerPort' "$RUNNER_TEMP/service-before.json")" = "8080"
+          test "$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // "0"' "$RUNNER_TEMP/service-before.json")" = "0"
+          test "$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/maxScale"]' "$RUNNER_TEMP/service-before.json")" = "1"
+          gcloud run revisions describe "$rollback_revision" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/rollback-revision.json"
+          test "$(jq -r '[.status.conditions[]? | select(.type == "Ready")][0].status' "$RUNNER_TEMP/rollback-revision.json")" = "True"
+          gcloud run services get-iam-policy "$CLOUD_RUN_SERVICE" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/iam-before.json"
+          test "$(jq '[.bindings[]? | select(any(.members[]?; . == "allUsers" or . == "allAuthenticatedUsers"))] | length' "$RUNNER_TEMP/iam-before.json")" = "0"
+          echo "rollback_revision=$rollback_revision" >> "$GITHUB_OUTPUT"
+          echo "image_ref=$image_ref" >> "$GITHUB_OUTPUT"
+
+      - name: Create candidate revision with zero traffic
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud run services update "$CLOUD_RUN_SERVICE" \
+            --project="$GCP_PROJECT_ID" \
+            --region="$GCP_REGION" \
+            --image="${{ steps.preflight.outputs.image_ref }}" \
+            --no-traffic \
+            --quiet
+
+      - name: Verify candidate and switch traffic
+        id: rollout
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud run services describe "$CLOUD_RUN_SERVICE" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/service-candidate.json"
+          new_revision="$(jq -r '.status.latestCreatedRevisionName' "$RUNNER_TEMP/service-candidate.json")"
+          test "$new_revision" != ""
+          test "$new_revision" != "${{ steps.preflight.outputs.rollback_revision }}"
+          test "$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/service-candidate.json")" = "${{ steps.preflight.outputs.rollback_revision }}"
+          test "$(jq -r '.status.traffic[0].percent' "$RUNNER_TEMP/service-candidate.json")" = "100"
+          gcloud run revisions describe "$new_revision" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/new-revision.json"
+          test "$(jq -r '[.status.conditions[]? | select(.type == "Ready")][0].status' "$RUNNER_TEMP/new-revision.json")" = "True"
+          test "$(jq -r '.spec.serviceAccountName' "$RUNNER_TEMP/new-revision.json")" = "$EXPECTED_RUNTIME_SA"
+          test "$(jq -r '.spec.containers[0].image' "$RUNNER_TEMP/new-revision.json")" = "${{ steps.preflight.outputs.image_ref }}"
+          test "$(jq -r '.spec.containers[0].ports[0].containerPort' "$RUNNER_TEMP/new-revision.json")" = "8080"
+          gcloud run services update-traffic "$CLOUD_RUN_SERVICE" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" \
+            --to-revisions="$new_revision=100" --quiet
+          echo "new_revision=$new_revision" >> "$GITHUB_OUTPUT"
+
+      - name: Read back hosted security invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud run services describe "$CLOUD_RUN_SERVICE" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/service-after.json"
+          test "$(jq -r '.status.traffic | length' "$RUNNER_TEMP/service-after.json")" = "1"
+          test "$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/service-after.json")" = "${{ steps.rollout.outputs.new_revision }}"
+          test "$(jq -r '.status.traffic[0].percent' "$RUNNER_TEMP/service-after.json")" = "100"
+          test "$(jq -r '.metadata.annotations["run.googleapis.com/iap-enabled"]' "$RUNNER_TEMP/service-after.json")" = "true"
+          test "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/service-after.json")" = "all"
+          test "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/service-after.json")" = "$EXPECTED_RUNTIME_SA"
+          test "$(jq -r '.spec.template.spec.containers[0].ports[0].containerPort' "$RUNNER_TEMP/service-after.json")" = "8080"
+          gcloud run services get-iam-policy "$CLOUD_RUN_SERVICE" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/iam-after.json"
+          test "$(jq '[.bindings[]? | select(any(.members[]?; . == "allUsers" or . == "allAuthenticatedUsers"))] | length' "$RUNNER_TEMP/iam-after.json")" = "0"
+          service_url="$(jq -r '.status.url' "$RUNNER_TEMP/service-after.json")"
+          unauthenticated_status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$service_url/management-app/")"
+          test "$unauthenticated_status" != "200"
+          {
+            echo "## DBF Hosted Staging revision"
+            echo "- Source: $APPROVED_SOURCE_SHA"
+            echo "- Digest: $APPROVED_IMAGE_DIGEST"
+            echo "- Rollback revision: ${{ steps.preflight.outputs.rollback_revision }}"
+            echo "- Serving revision: ${{ steps.rollout.outputs.new_revision }}"
+            echo "- IAP: enabled"
+            echo "- Ingress: all"
+            echo "- Public IAM: 0"
+            echo "- Unauthenticated HTTP: $unauthenticated_status"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Roll back traffic after a failed rollout
+        if: failure() && steps.preflight.outputs.rollback_revision != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud run services update-traffic "$CLOUD_RUN_SERVICE" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" \
+            --to-revisions="${{ steps.preflight.outputs.rollback_revision }}=100" --quiet
+          gcloud run services describe "$CLOUD_RUN_SERVICE" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/service-rollback.json"
+          test "$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/service-rollback.json")" = "${{ steps.preflight.outputs.rollback_revision }}"
+          test "$(jq -r '.status.traffic[0].percent' "$RUNNER_TEMP/service-rollback.json")" = "100"
+          test "$(jq -r '.metadata.annotations["run.googleapis.com/iap-enabled"]' "$RUNNER_TEMP/service-rollback.json")" = "true"
+          test "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/service-rollback.json")" = "all"

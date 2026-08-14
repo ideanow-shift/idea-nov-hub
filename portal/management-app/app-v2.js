@@ -5,6 +5,7 @@ import { clearDbfStagingSession, exchangeDbfStagingHandoffViaBff, initializeDbfS
 import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=98059284370E87B7";
 import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=06AD1D86CD8B66B5";
 import { BUSINESS_DATA_EMPTY_FIXTURE, renderBusinessDataManagementPreview } from "./business-data-management-preview.js";
+import { resolveDbfStagingBusinessDataLanding } from "./dbf-staging-business-data-landing.js";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
 import { buildStoreWorkforceMonthlySummaryCsvTemplate } from "./store-workforce-monthly-summary-csv.js?v=4BA67C2DE5F7851E";
 import { renderStorePlQuickIntake } from "./store-pl-quick-intake.js?v=1B5686012CB9173B";
@@ -136,11 +137,21 @@ async function initialize() {
     session = restoreNovHubSession();
   }
   if (!session?.sessionToken) return renderAuthRequired();
-  if (runtimeEnvironment?.environment === "staging") setDbfStagingSessionAuth(session.sessionToken);
-  else setHubSessionAuth(session.sessionToken);
-  void loadBusinessDataCapability();
-  elements.connection.textContent = "接続済み";
-  selectView(readHashView());
+  if (runtimeEnvironment?.environment === "staging") {
+    const landing = resolveDbfStagingBusinessDataLanding(runtimeEnvironment, session);
+    if (!landing?.authorized) return renderAuthRequired();
+    setDbfStagingSessionAuth(session.sessionToken);
+    VIEWS.add("businessdata");
+    elements.businessDataNavigation.hidden = false;
+    renderBusinessDataManagementPreview(elements.businessDataPreview, { fixture: BUSINESS_DATA_EMPTY_FIXTURE });
+    elements.connection.textContent = "接続済み";
+    selectView(landing.initialView);
+  } else {
+    setHubSessionAuth(session.sessionToken);
+    void loadBusinessDataCapability();
+    elements.connection.textContent = "接続済み";
+    selectView(readHashView());
+  }
   window.addEventListener("hashchange", () => selectView(readHashView(), false));
 }
 

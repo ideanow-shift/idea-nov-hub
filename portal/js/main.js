@@ -772,7 +772,7 @@ function canLaunchManagementWeb(context) {
 
 async function ensureManagementWebHubSession() {
   const current = state.hubSession || restoreNovHubSession();
-  if (current?.sessionToken) {
+  if (setNovHubSession(current, { persist: false })) {
     state.hubSession = current;
     return current;
   }
@@ -865,6 +865,11 @@ function saveManagementHubSessionAuthContext(context) {
 
 async function prepareManagementPlatformLaunch(app, context) {
   if (!isManagementPlatformApp(app) && !isCoreMasterAdminApp(app)) return;
+  if (isCoreMasterAdminApp(app)) {
+    await ensureManagementWebHubSession();
+    saveManagementHubSessionAuthContext(context);
+    return;
+  }
   if (state.authType === "pin") {
     saveManagementHubSessionAuthContext(context);
     return;

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 
 const frontend = readFileSync(new URL("../portal/master-admin/master-admin.js", import.meta.url), "utf8");
+const apiClient = readFileSync(new URL("../portal/js/api.js", import.meta.url), "utf8");
 const stylesheet = readFileSync(new URL("../portal/master-admin/master-admin.css", import.meta.url), "utf8");
 const visualFixture = readFileSync(new URL("./fixtures/master-admin-emergency-contact-visual.html", import.meta.url), "utf8");
 const api = readFileSync(new URL("../supabase/functions/nov-hub-api/index.ts", import.meta.url), "utf8");
@@ -14,6 +15,8 @@ assert.match(frontend, /社員一覧・CSVには表示しません/);
 assert.doesNotMatch(frontend, /<strong>緊急連絡先<\/strong>/);
 assert.match(frontend, /masterReadEmployeeEmergencyContact/);
 assert.match(frontend, /masterUpdateEmployeeEmergencyContact/);
+assert.match(apiClient, /"masterReadEmployeeEmergencyContact"/);
+assert.match(apiClient, /"masterUpdateEmployeeEmergencyContact"/);
 assert.match(frontend, /id="employee_emergency_phone"[^>]*autocomplete="off"/);
 assert.doesNotMatch(frontend, /DATA_INTAKE_TARGETS[\s\S]{0,1200}緊急連絡先/);
 assert.doesNotMatch(frontend, /社員CSV出力[\s\S]{0,1600}employee_emergency_phone/);

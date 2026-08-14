@@ -28,6 +28,7 @@ test("DBF revision deploy uses immutable digest, zero-traffic validation, and ro
   assert.match(workflow, /--no-traffic/u);
   assert.match(workflow, /--min=0/u);
   assert.match(workflow, /--max=1/u);
+  assert.match(workflow, /--max-instances=1/u);
   assert.match(workflow, /status\.latestCreatedRevisionName/u);
   assert.match(workflow, /serving_traffic_count=.*select\(\(\.percent \/\/ 0\) > 0\)/u);
   assert.match(workflow, /\.revisionName \/\/ \(if \.latestRevision == true then \$latest else empty end\)/u);
@@ -46,7 +47,8 @@ test("DBF revision deploy preserves IAP, runtime identity, port, and private IAM
   assert.match(workflow, /containerPort/u);
   assert.match(workflow, /scaling\.minInstanceCount/u);
   assert.match(workflow, /scaling\.maxInstanceCount/u);
-  assert.match(workflow, /\.spec\.template\.scaling\.maxInstanceCount \/\/ \.spec\.template\.metadata\.annotations\["autoscaling\.knative\.dev\/maxScale"\]/u);
+  assert.match(workflow, /\.spec\.scaling\.maxInstanceCount \/\/ \.metadata\.annotations\["run\.googleapis\.com\/maxScale"\]/u);
+  assert.match(workflow, /\.spec\.scaling\.maxInstanceCount \/\/ \.metadata\.annotations\["autoscaling\.knative\.dev\/maxScale"\]/u);
   assert.match(workflow, /run\.googleapis\.com\/minScale/u);
   assert.match(workflow, /run\.googleapis\.com\/maxScale/u);
   assert.match(workflow, /assert_eq min_instances "0" "\$min_instances"/u);

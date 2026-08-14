@@ -27,6 +27,7 @@ test("management navigation remains backend/session gated", () => {
   assert.match(html, /id="business-data-management-preview"/u);
   assert.match(app, /managementBusinessDataCapability/u);
   assert.match(app, /response\?\.data\?\.capability\?\.businessDataAdmin !== true/u);
+  assert.match(app, /renderBusinessDataManagementPreview\([\s\S]*?setReady\(\);[\s\S]*?selectView\(landing\.initialView\)/u);
 });
 
 test("Staging requires exact target, enabled import, disabled production write, and backend capability", () => {

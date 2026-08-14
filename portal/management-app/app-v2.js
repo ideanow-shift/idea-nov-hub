@@ -144,7 +144,7 @@ async function initialize() {
     VIEWS.add("businessdata");
     elements.businessDataNavigation.hidden = false;
     renderBusinessDataManagementPreview(elements.businessDataPreview, { fixture: BUSINESS_DATA_EMPTY_FIXTURE });
-    elements.connection.textContent = "接続済み";
+    setReady();
     selectView(landing.initialView);
   } else {
     setHubSessionAuth(session.sessionToken);

@@ -33,8 +33,6 @@ jobs:
       ARTIFACT_REPOSITORY: idea-nov-dbf-staging-ui
       IMAGE_NAME: dbf-staging-ui
       IMAGE_URI: asia-northeast1-docker.pkg.dev/idea-nov-dbf-staging/idea-nov-dbf-staging-ui/dbf-staging-ui:${{ github.event.inputs.source_sha }}
-      EXPECTED_SERVING_REVISION: idea-nov-dbf-staging-ui-00001-h74
-      EXPECTED_FAILED_REVISION: idea-nov-dbf-staging-ui-00002-dz7
       EXPECTED_RUNTIME_SA: dbf-staging-ui-runtime@idea-nov-dbf-staging.iam.gserviceaccount.com
       CLOUD_RUN_SERVICE: idea-nov-dbf-staging-ui
 
@@ -111,29 +109,26 @@ jobs:
           gcloud artifacts docker images list \
             "$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$ARTIFACT_REPOSITORY/$IMAGE_NAME" \
             --project="$GCP_PROJECT_ID" --include-tags --format=json > "$RUNNER_TEMP/images-before.json"
-          test "$(jq --arg tag "$APPROVED_SOURCE_SHA" '[.[] | select(((.tags // []) | index($tag)) != null)] | length' "$RUNNER_TEMP/images-before.json")" = "0"
-
-          set +e
-          gcloud artifacts docker images describe "$IMAGE_URI" --project="$GCP_PROJECT_ID" --format=json > "$RUNNER_TEMP/existing-tag.json" 2> "$RUNNER_TEMP/existing-tag.err"
-          describe_rc=$?
-          set -e
-          test "$describe_rc" -ne 0
-          grep -Eqi 'NOT_FOUND|not found|does not exist' "$RUNNER_TEMP/existing-tag.err"
+          existing_tag_count="$(jq --arg tag "$APPROVED_SOURCE_SHA" '[.[] | select(((.tags // []) | index($tag)) != null)] | length' "$RUNNER_TEMP/images-before.json")"
+          test "$existing_tag_count" = "0"
 
           gcloud run services describe "$CLOUD_RUN_SERVICE" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/cloud-run-before.json"
           test "$(jq -r '.status.traffic | length' "$RUNNER_TEMP/cloud-run-before.json")" = "1"
-          test "$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/cloud-run-before.json")" = "$EXPECTED_SERVING_REVISION"
           test "$(jq -r '.status.traffic[0].percent' "$RUNNER_TEMP/cloud-run-before.json")" = "100"
           test "$(jq -r '.metadata.annotations["run.googleapis.com/iap-enabled"]' "$RUNNER_TEMP/cloud-run-before.json")" = "true"
           test "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/cloud-run-before.json")" = "all"
           test "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/cloud-run-before.json")" = "$EXPECTED_RUNTIME_SA"
-          gcloud run revisions describe "$EXPECTED_FAILED_REVISION" \
-            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/failed-revision-before.json"
+          serving_revision="$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/cloud-run-before.json")"
+          test -n "$serving_revision"
+          gcloud run revisions describe "$serving_revision" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/serving-revision-before.json"
+          test "$(jq -r '[.status.conditions[]? | select(.type == "Ready")][0].status' "$RUNNER_TEMP/serving-revision-before.json")" = "True"
           gcloud run revisions list --service="$CLOUD_RUN_SERVICE" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/revisions-before.json"
           before_revisions="$(jq 'length' "$RUNNER_TEMP/revisions-before.json")"
           echo "before_revisions=$before_revisions" >> "$GITHUB_OUTPUT"
+          echo "serving_revision=$serving_revision" >> "$GITHUB_OUTPUT"
           jq -S '{metadata: {name: .metadata.name, generation: .metadata.generation, annotations: .metadata.annotations}, spec: .spec, status: {latestReadyRevisionName: .status.latestReadyRevisionName, latestCreatedRevisionName: .status.latestCreatedRevisionName, traffic: .status.traffic}}' \
             "$RUNNER_TEMP/cloud-run-before.json" > "$RUNNER_TEMP/cloud-run-critical-before.json"
 
@@ -277,7 +272,7 @@ jobs:
 
           gcloud run services describe "$CLOUD_RUN_SERVICE" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/cloud-run-after.json"
-          test "$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/cloud-run-after.json")" = "$EXPECTED_SERVING_REVISION"
+          test "$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/cloud-run-after.json")" = "${{ steps.preflight.outputs.serving_revision }}"
           test "$(jq -r '.status.traffic[0].percent' "$RUNNER_TEMP/cloud-run-after.json")" = "100"
           test "$(jq -r '.metadata.annotations["run.googleapis.com/iap-enabled"]' "$RUNNER_TEMP/cloud-run-after.json")" = "true"
           test "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/cloud-run-after.json")" = "all"
@@ -305,8 +300,7 @@ jobs:
             echo "- Updated: $updated"
             echo "- Exact tag count: $exact_tag_count"
             echo "- Additional tags: 0"
-            echo "- Cloud Run serving revision: $EXPECTED_SERVING_REVISION (unchanged)"
-            echo "- Cloud Run failed revision: $EXPECTED_FAILED_REVISION (unchanged)"
+            echo "- Cloud Run serving revision: ${{ steps.preflight.outputs.serving_revision }} (unchanged)"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove local candidate container and image

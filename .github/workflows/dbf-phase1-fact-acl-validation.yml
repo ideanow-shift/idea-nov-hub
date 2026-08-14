@@ -82,7 +82,8 @@ jobs:
           expect_denied "create table dbf_acl_probe.reference_probe (fact_id uuid references public.dbf_pl_detail_facts(id))"
           psql --set=ON_ERROR_STOP=1 --command "create function public.dbf_acl_trigger_probe() returns trigger language plpgsql as 'begin return new; end'"
           expect_denied "create trigger dbf_acl_trigger_probe before insert on public.dbf_pl_detail_facts for each row execute function public.dbf_acl_trigger_probe()"
-          expect_denied "analyze public.dbf_pl_detail_facts"
+          psql --set=ON_ERROR_STOP=1 --command "set role service_role; analyze public.dbf_pl_detail_facts" >/tmp/dbf-analyze-denied.out 2>&1
+          grep -Fq 'permission denied to analyze "dbf_pl_detail_facts"' /tmp/dbf-analyze-denied.out
       - name: Verify ingest ACL unchanged and all rows remain zero
         shell: bash
         run: |

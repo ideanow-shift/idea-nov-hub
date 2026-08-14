@@ -149,6 +149,7 @@ jobs:
             --image="${{ steps.preflight.outputs.image_ref }}" \
             --min=0 \
             --max=1 \
+            --max-instances=1 \
             --no-traffic \
             --quiet
 
@@ -170,6 +171,7 @@ jobs:
           test "$(jq -r '.spec.serviceAccountName' "$RUNNER_TEMP/new-revision.json")" = "$EXPECTED_RUNTIME_SA"
           test "$(jq -r '.spec.containers[0].image' "$RUNNER_TEMP/new-revision.json")" = "${{ steps.preflight.outputs.image_ref }}"
           test "$(jq -r '.spec.containers[0].ports[0].containerPort' "$RUNNER_TEMP/new-revision.json")" = "8080"
+          test "$(jq -r '.spec.scaling.maxInstanceCount // .metadata.annotations["autoscaling.knative.dev/maxScale"] // empty' "$RUNNER_TEMP/new-revision.json")" = "1"
           gcloud run services update-traffic "$CLOUD_RUN_SERVICE" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" \
             --to-revisions="$new_revision=100" --quiet
@@ -203,8 +205,8 @@ jobs:
           assert_eq ingress "all" "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/service-after.json")"
           assert_eq runtime_service_account "$EXPECTED_RUNTIME_SA" "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/service-after.json")"
           assert_eq container_port "8080" "$(jq -r '.spec.template.spec.containers[0].ports[0].containerPort' "$RUNNER_TEMP/service-after.json")"
-          min_instances="$(jq -r '.spec.template.scaling.minInstanceCount // .spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // .metadata.annotations["run.googleapis.com/minScale"] // "0"' "$RUNNER_TEMP/service-after.json")"
-          max_instances="$(jq -r '.spec.template.scaling.maxInstanceCount // .spec.template.metadata.annotations["autoscaling.knative.dev/maxScale"] // .metadata.annotations["run.googleapis.com/maxScale"] // empty' "$RUNNER_TEMP/service-after.json")"
+          min_instances="$(jq -r '.spec.scaling.minInstanceCount // .metadata.annotations["run.googleapis.com/minScale"] // "0"' "$RUNNER_TEMP/service-after.json")"
+          max_instances="$(jq -r '.spec.scaling.maxInstanceCount // .metadata.annotations["run.googleapis.com/maxScale"] // empty' "$RUNNER_TEMP/service-after.json")"
           assert_eq min_instances "0" "$min_instances"
           assert_eq max_instances "1" "$max_instances"
           gcloud run services get-iam-policy "$CLOUD_RUN_SERVICE" \
@@ -227,7 +229,8 @@ jobs:
             echo "- Rollback revision: ${{ steps.preflight.outputs.rollback_revision }}"
             echo "- Previous max instances: ${{ steps.preflight.outputs.rollback_max_instances }}"
             echo "- Serving revision: ${{ steps.rollout.outputs.new_revision }}"
-            echo "- Serving min/max instances: 0/1"
+            echo "- Service min/max instances: 0/1"
+            echo "- Revision max instances: 1"
             echo "- IAP: enabled"
             echo "- Ingress: all"
             echo "- Public IAM: 0"

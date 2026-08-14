@@ -181,9 +181,12 @@ jobs:
           set -euo pipefail
           gcloud run services describe "$CLOUD_RUN_SERVICE" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/service-after.json"
-          test "$(jq -r '.status.traffic | length' "$RUNNER_TEMP/service-after.json")" = "1"
-          test "$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/service-after.json")" = "${{ steps.rollout.outputs.new_revision }}"
-          test "$(jq -r '.status.traffic[0].percent' "$RUNNER_TEMP/service-after.json")" = "100"
+          serving_traffic_count="$(jq '[.status.traffic[]? | select((.percent // 0) > 0)] | length' "$RUNNER_TEMP/service-after.json")"
+          serving_revision="$(jq -r '[.status.traffic[]? | select((.percent // 0) > 0)][0].revisionName // empty' "$RUNNER_TEMP/service-after.json")"
+          serving_percent="$(jq -r '[.status.traffic[]? | select((.percent // 0) > 0)][0].percent // empty' "$RUNNER_TEMP/service-after.json")"
+          test "$serving_traffic_count" = "1"
+          test "$serving_revision" = "${{ steps.rollout.outputs.new_revision }}"
+          test "$serving_percent" = "100"
           test "$(jq -r '.metadata.annotations["run.googleapis.com/iap-enabled"]' "$RUNNER_TEMP/service-after.json")" = "true"
           test "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/service-after.json")" = "all"
           test "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/service-after.json")" = "$EXPECTED_RUNTIME_SA"
@@ -222,7 +225,11 @@ jobs:
             --to-revisions="${{ steps.preflight.outputs.rollback_revision }}=100" --quiet
           gcloud run services describe "$CLOUD_RUN_SERVICE" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/service-rollback.json"
-          test "$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/service-rollback.json")" = "${{ steps.preflight.outputs.rollback_revision }}"
-          test "$(jq -r '.status.traffic[0].percent' "$RUNNER_TEMP/service-rollback.json")" = "100"
+          serving_traffic_count="$(jq '[.status.traffic[]? | select((.percent // 0) > 0)] | length' "$RUNNER_TEMP/service-rollback.json")"
+          serving_revision="$(jq -r '[.status.traffic[]? | select((.percent // 0) > 0)][0].revisionName // empty' "$RUNNER_TEMP/service-rollback.json")"
+          serving_percent="$(jq -r '[.status.traffic[]? | select((.percent // 0) > 0)][0].percent // empty' "$RUNNER_TEMP/service-rollback.json")"
+          test "$serving_traffic_count" = "1"
+          test "$serving_revision" = "${{ steps.preflight.outputs.rollback_revision }}"
+          test "$serving_percent" = "100"
           test "$(jq -r '.metadata.annotations["run.googleapis.com/iap-enabled"]' "$RUNNER_TEMP/service-rollback.json")" = "true"
           test "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/service-rollback.json")" = "all"

@@ -80,37 +80,53 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(gcloud config get-value project 2>/dev/null)" = "$GCP_PROJECT_ID"
-          test "$(gcloud projects describe "$GCP_PROJECT_ID" --format='value(projectNumber)')" = "$GCP_PROJECT_NUMBER"
-          test "$(gcloud auth list --filter=status:ACTIVE --format='value(account)')" = "dbf-staging-deployer@idea-nov-dbf-staging.iam.gserviceaccount.com"
+          assert_eq() {
+            local label="$1" expected="$2" actual="$3"
+            if [ "$actual" != "$expected" ]; then
+              echo "::error title=DBF preflight mismatch::$label expected=$expected actual=$actual"
+              exit 1
+            fi
+            echo "DBF_PREFLIGHT $label=$actual"
+          }
+          assert_nonempty() {
+            local label="$1" actual="$2"
+            if [ -z "$actual" ]; then
+              echo "::error title=DBF preflight mismatch::$label is empty"
+              exit 1
+            fi
+            echo "DBF_PREFLIGHT $label=$actual"
+          }
+          assert_eq project "$GCP_PROJECT_ID" "$(gcloud config get-value project 2>/dev/null)"
+          assert_eq project_number "$GCP_PROJECT_NUMBER" "$(gcloud projects describe "$GCP_PROJECT_ID" --format='value(projectNumber)')"
+          assert_eq active_account "dbf-staging-deployer@idea-nov-dbf-staging.iam.gserviceaccount.com" "$(gcloud auth list --filter=status:ACTIVE --format='value(account)')"
 
           image_ref="$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$ARTIFACT_REPOSITORY/$IMAGE_NAME@$APPROVED_IMAGE_DIGEST"
           gcloud artifacts docker images describe "$image_ref" --project="$GCP_PROJECT_ID" --format=json > "$RUNNER_TEMP/image.json"
-          test "$(jq -r '.image_summary.digest // .imageSummary.digest // .digest // empty' "$RUNNER_TEMP/image.json")" = "$APPROVED_IMAGE_DIGEST"
+          assert_eq image_digest "$APPROVED_IMAGE_DIGEST" "$(jq -r '.image_summary.digest // .imageSummary.digest // .digest // empty' "$RUNNER_TEMP/image.json")"
           tag_ref="$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$ARTIFACT_REPOSITORY/$IMAGE_NAME:$APPROVED_SOURCE_SHA"
           gcloud artifacts docker images describe "$tag_ref" --project="$GCP_PROJECT_ID" --format=json > "$RUNNER_TEMP/tag.json"
-          test "$(jq -r '.image_summary.digest // .imageSummary.digest // .digest // empty' "$RUNNER_TEMP/tag.json")" = "$APPROVED_IMAGE_DIGEST"
+          assert_eq tag_digest "$APPROVED_IMAGE_DIGEST" "$(jq -r '.image_summary.digest // .imageSummary.digest // .digest // empty' "$RUNNER_TEMP/tag.json")"
 
           gcloud run services describe "$CLOUD_RUN_SERVICE" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/service-before.json"
           rollback_revision="$(jq -r '.status.traffic[0].revisionName' "$RUNNER_TEMP/service-before.json")"
-          test "$rollback_revision" != ""
-          test "$(jq -r '.status.traffic | length' "$RUNNER_TEMP/service-before.json")" = "1"
-          test "$(jq -r '.status.traffic[0].percent' "$RUNNER_TEMP/service-before.json")" = "100"
-          test "$(jq -r '.metadata.annotations["run.googleapis.com/iap-enabled"]' "$RUNNER_TEMP/service-before.json")" = "true"
-          test "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/service-before.json")" = "all"
-          test "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/service-before.json")" = "$EXPECTED_RUNTIME_SA"
-          test "$(jq -r '.spec.template.spec.containers[0].ports[0].containerPort' "$RUNNER_TEMP/service-before.json")" = "8080"
-          min_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // .spec.template.scaling.minInstanceCount // "0"' "$RUNNER_TEMP/service-before.json")"
-          max_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/maxScale"] // .spec.template.scaling.maxInstanceCount // empty' "$RUNNER_TEMP/service-before.json")"
-          test "$min_instances" = "0"
-          test "$max_instances" = "1"
+          assert_nonempty rollback_revision "$rollback_revision"
+          assert_eq traffic_count "1" "$(jq -r '.status.traffic | length' "$RUNNER_TEMP/service-before.json")"
+          assert_eq traffic_percent "100" "$(jq -r '.status.traffic[0].percent' "$RUNNER_TEMP/service-before.json")"
+          assert_eq iap_enabled "true" "$(jq -r '.metadata.annotations["run.googleapis.com/iap-enabled"]' "$RUNNER_TEMP/service-before.json")"
+          assert_eq ingress "all" "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/service-before.json")"
+          assert_eq runtime_service_account "$EXPECTED_RUNTIME_SA" "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/service-before.json")"
+          assert_eq container_port "8080" "$(jq -r '.spec.template.spec.containers[0].ports[0].containerPort' "$RUNNER_TEMP/service-before.json")"
+          min_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // .spec.template.scaling.minInstanceCount // .metadata.annotations["run.googleapis.com/minScale"] // "0"' "$RUNNER_TEMP/service-before.json")"
+          max_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/maxScale"] // .spec.template.scaling.maxInstanceCount // .metadata.annotations["run.googleapis.com/maxScale"] // empty' "$RUNNER_TEMP/service-before.json")"
+          assert_eq min_instances "0" "$min_instances"
+          assert_eq max_instances "1" "$max_instances"
           gcloud run revisions describe "$rollback_revision" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/rollback-revision.json"
-          test "$(jq -r '[.status.conditions[]? | select(.type == "Ready")][0].status' "$RUNNER_TEMP/rollback-revision.json")" = "True"
+          assert_eq rollback_ready "True" "$(jq -r '[.status.conditions[]? | select(.type == "Ready")][0].status' "$RUNNER_TEMP/rollback-revision.json")"
           gcloud run services get-iam-policy "$CLOUD_RUN_SERVICE" \
             --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > "$RUNNER_TEMP/iam-before.json"
-          test "$(jq '[.bindings[]? | select(any(.members[]?; . == "allUsers" or . == "allAuthenticatedUsers"))] | length' "$RUNNER_TEMP/iam-before.json")" = "0"
+          assert_eq public_iam_bindings "0" "$(jq '[.bindings[]? | select(any(.members[]?; . == "allUsers" or . == "allAuthenticatedUsers"))] | length' "$RUNNER_TEMP/iam-before.json")"
           echo "rollback_revision=$rollback_revision" >> "$GITHUB_OUTPUT"
           echo "image_ref=$image_ref" >> "$GITHUB_OUTPUT"
 
@@ -161,8 +177,8 @@ jobs:
           test "$(jq -r '.metadata.annotations["run.googleapis.com/ingress"]' "$RUNNER_TEMP/service-after.json")" = "all"
           test "$(jq -r '.spec.template.spec.serviceAccountName' "$RUNNER_TEMP/service-after.json")" = "$EXPECTED_RUNTIME_SA"
           test "$(jq -r '.spec.template.spec.containers[0].ports[0].containerPort' "$RUNNER_TEMP/service-after.json")" = "8080"
-          min_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // .spec.template.scaling.minInstanceCount // "0"' "$RUNNER_TEMP/service-after.json")"
-          max_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/maxScale"] // .spec.template.scaling.maxInstanceCount // empty' "$RUNNER_TEMP/service-after.json")"
+          min_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // .spec.template.scaling.minInstanceCount // .metadata.annotations["run.googleapis.com/minScale"] // "0"' "$RUNNER_TEMP/service-after.json")"
+          max_instances="$(jq -r '.spec.template.metadata.annotations["autoscaling.knative.dev/maxScale"] // .spec.template.scaling.maxInstanceCount // .metadata.annotations["run.googleapis.com/maxScale"] // empty' "$RUNNER_TEMP/service-after.json")"
           test "$min_instances" = "0"
           test "$max_instances" = "1"
           gcloud run services get-iam-policy "$CLOUD_RUN_SERVICE" \

@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Checkout pull request
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -48,7 +50,7 @@ jobs:
           deno check supabase/functions/nov-hub-api/index.ts
 
       - name: Check patch whitespace
-        run: git diff --check origin/main...HEAD
+        run: git diff --check "${{ github.event.pull_request.base.sha }}...HEAD"
 
       - name: Reject secrets and plaintext phone values in runtime source
         shell: bash

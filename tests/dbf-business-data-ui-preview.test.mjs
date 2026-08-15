@@ -27,6 +27,11 @@ test("management UI contains only the four Phase 1 facts and the real import flo
   assert.match(source, /data\.sourcePrecedence\?\.duplicatePromotionCount/u);
   assert.match(source, /data\.taxBasis\?\.status/u);
   assert.match(source, /promotion\.disabled = true/u);
+  assert.doesNotMatch(source, /const \[result, pilot\] = await Promise\.all/u);
+  assert.match(
+    source,
+    /const result = await DBF_IMPORT_RUNTIME\.history[\s\S]*?const pilot = dashboardMonth\.value === "2026-06"[\s\S]*?await DBF_IMPORT_RUNTIME\.pilotPreview/u,
+  );
 });
 
 test("management navigation remains backend/session gated", () => {

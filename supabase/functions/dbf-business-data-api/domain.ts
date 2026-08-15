@@ -331,7 +331,7 @@ export function normalizeActionPayload(action: DbfImportAction, value: unknown) 
   if (action === "dbfAccountReviewListV1") {
     exactKeys(payload, ["companyId", "fiscalMonth"]);
     const companyId = uuid(payload.companyId, "COMPANY_ID_INVALID");
-    if (companyId !== PILOT_COMPANY_ID || fiscalMonth(payload.fiscalMonth) !== "2026-06") throw new DbfRuntimeError("COMPANY_SCOPE_REJECTED", 403);
+    if (companyId !== PILOT_COMPANY_ID || fiscalMonth(payload.fiscalMonth) !== "2026-06-01") throw new DbfRuntimeError("COMPANY_SCOPE_REJECTED", 403);
     return { companyId, fiscalMonth: "2026-06" };
   }
   if (action === "dbfAccountReviewDecideV1") {

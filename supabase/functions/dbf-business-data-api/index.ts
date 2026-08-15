@@ -138,6 +138,11 @@ async function rpc(runtime: Runtime, name: string, payload: Json) {
   const body = await result.json().catch(() => null);
   if (!result.ok) {
     const dbCode = String(body?.code || "");
+    console.warn("DBF_RUNTIME_RPC_REJECTED", {
+      rpc: name,
+      status: result.status,
+      dbCode: dbCode || "UNKNOWN",
+    });
     if (result.status === 409 || dbCode === "23505" || dbCode === "40001") throw new DbfRuntimeError("VERSION_CONFLICT", 409);
     if (["PGRST202", "42883"].includes(dbCode)) throw new DbfRuntimeError("RUNTIME_RPC_UNAVAILABLE", 503);
     throw new DbfRuntimeError("RUNTIME_RPC_REJECTED", 400);
@@ -156,9 +161,13 @@ async function readPilotMonthPreview(runtime: Runtime, payload: any) {
     p_limit: 200,
   });
   const items = Array.isArray(history?.items) ? history.items : [];
-  const previews = await Promise.all(items.map((item: any) =>
-    rpc(runtime, "dbf_import_preview_v1", { p_batch_id: item.batchId })
-  ));
+  const previews = [];
+  // Keep the five bounded read-only preview calls deterministic. The Staging
+  // PostgREST gateway may reject a burst of concurrent RPC calls even though
+  // each individual batch preview is valid and independently authorized.
+  for (const item of items) {
+    previews.push(await rpc(runtime, "dbf_import_preview_v1", { p_batch_id: item.batchId }));
+  }
   return buildDbfPilotMonthPreview(history, previews, payload.section);
 }
 

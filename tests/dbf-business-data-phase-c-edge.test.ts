@@ -171,6 +171,8 @@ Deno.test("Pilot 2026-06 read route composes validated RPC previews without a bu
       rules: ["ACCOUNT_CODE_ABSENT_SOURCE_ROW_CANDIDATE", "BS_BALANCE_PASS"] },
   ];
   const calls: Array<{ url: string; body: any }> = [];
+  let previewInFlight = 0;
+  let maxPreviewInFlight = 0;
   const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const body = init?.body ? JSON.parse(String(init.body)) : null;
@@ -182,12 +184,17 @@ Deno.test("Pilot 2026-06 read route composes validated RPC previews without a bu
       batchId: item.id, factKind: item.factKind, fiscalMonth: "2026-06", sourceType: item.sourceType,
       status: item.status, revision: 1, rowCount: item.raw, errorCount: 0, warningCount: item.rules.length,
     })) });
+    previewInFlight += 1;
+    maxPreviewInFlight = Math.max(maxPreviewInFlight, previewInFlight);
+    await new Promise((resolve) => setTimeout(resolve, 1));
     const item = definitions.find((candidate) => candidate.id === body?.p_batch_id)!;
-    return Response.json({
+    const response = Response.json({
       batchId: item.id, rowCount: item.staged, validCount: item.staged, quarantinedCount: 0,
       errorCount: 0, warningCount: item.rules.length, promotionAllowed: false,
       issues: item.rules.map((ruleCode) => ({ severity: "warning", ruleCode, fieldName: null, message: "Owner review required." })),
     });
+    previewInFlight -= 1;
+    return response;
   };
   const result = await handleDbfBusinessDataRequest(request("dbfPilotMonthPreviewV1", {
     fiscalMonth: "2026-06", section: "all",
@@ -206,5 +213,6 @@ Deno.test("Pilot 2026-06 read route composes validated RPC previews without a bu
   assertEquals(body.data.gates.canonicalPromotion, "DISABLED");
   assertEquals(calls.length, 7);
   assertEquals(calls.filter((call) => call.url.includes("/rpc/dbf_import_preview_v1")).length, 5);
+  assertEquals(maxPreviewInFlight, 1);
   assertEquals(calls.some((call) => /approve|promote/u.test(call.url)), false);
 });

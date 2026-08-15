@@ -1,4 +1,5 @@
 import { DbfRuntimeError, normalizeActionPayload, parseAction, toStagingRows } from "./domain.ts";
+import { buildDbfPilotMonthPreview, DBF_PILOT_202606_CONTRACT } from "./pilot-preview.ts";
 
 type Json = Record<string, unknown>;
 type Runtime = {
@@ -144,6 +145,23 @@ async function rpc(runtime: Runtime, name: string, payload: Json) {
   return body;
 }
 
+async function readPilotMonthPreview(runtime: Runtime, payload: any) {
+  const fiscalMonth = String(payload.fiscalMonth || "").slice(0, 7);
+  if (fiscalMonth !== DBF_PILOT_202606_CONTRACT.fiscalMonth) {
+    throw new DbfRuntimeError("PILOT_MONTH_NOT_SUPPORTED", 404);
+  }
+  const history = await rpc(runtime, "dbf_import_history_v1", {
+    p_fiscal_month: payload.fiscalMonth,
+    p_fact_kind: null,
+    p_limit: 200,
+  });
+  const items = Array.isArray(history?.items) ? history.items : [];
+  const previews = await Promise.all(items.map((item: any) =>
+    rpc(runtime, "dbf_import_preview_v1", { p_batch_id: item.batchId })
+  ));
+  return buildDbfPilotMonthPreview(history, previews, payload.section);
+}
+
 function rpcRequest(action: string, payload: any, actorEmployeeId: string) {
   if (action === "dbfImportStartV1") return ["dbf_import_start_v1", {
     p_actor_employee_id: actorEmployeeId,
@@ -202,6 +220,17 @@ export async function handleDbfBusinessDataRequest(request: Request, runtime: Ru
       return response(200, {
         ok: true,
         schemaVersion: "dbf-business-data-import-runtime-v1",
+        action,
+        runtimeImport: "ENABLED",
+        productionWrite: "DISABLED",
+        data,
+      });
+    }
+    if (action === "dbfPilotMonthPreviewV1") {
+      const data = await readPilotMonthPreview(runtime, payload);
+      return response(200, {
+        ok: true,
+        schemaVersion: "dbf-pilot-month-preview-v1",
         action,
         runtimeImport: "ENABLED",
         productionWrite: "DISABLED",

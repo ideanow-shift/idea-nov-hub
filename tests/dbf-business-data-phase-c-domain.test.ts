@@ -111,3 +111,20 @@ Deno.test("mapping confirmation accepts only Phase 1 master UUIDs and no browser
     canonicalEvidenceSha256: "a".repeat(64),
   }), DbfRuntimeError, "UNEXPECTED_FIELD");
 });
+
+Deno.test("Pilot 2026-06 Preview accepts only bounded read-only sections", async () => {
+  const result: any = normalizeActionPayload("dbfPilotMonthPreviewV1", {
+    fiscalMonth: "2026-06",
+    section: "reconciliation",
+  });
+  assertEquals(result, { fiscalMonth: "2026-06-01", section: "reconciliation" });
+  await assertRejects(async () => normalizeActionPayload("dbfPilotMonthPreviewV1", {
+    fiscalMonth: "2026-06",
+    section: "raw_rows",
+  }), DbfRuntimeError, "PILOT_PREVIEW_SECTION_INVALID");
+  await assertRejects(async () => normalizeActionPayload("dbfPilotMonthPreviewV1", {
+    fiscalMonth: "2026-06",
+    section: "all",
+    promote: true,
+  }), DbfRuntimeError, "UNEXPECTED_FIELD");
+});

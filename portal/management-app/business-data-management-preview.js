@@ -11,7 +11,7 @@ const FACTS = Object.freeze([
 
 export const BUSINESS_DATA_PREVIEW_FIXTURE = Object.freeze({
   schemaVersion: "dbf-business-data-management-preview-v1",
-  fiscalMonth: "2026-07",
+  fiscalMonth: "2026-06",
   sections: Object.freeze(FACTS.map((fact) => Object.freeze({ key: fact.key, label: fact.label, status: "未登録", rowCount: 0, errors: 0 }))),
   history: Object.freeze([]),
 });
@@ -78,6 +78,149 @@ function updateDashboardCards(cards, items) {
     card.querySelector("[data-dbf-count]").textContent = active ? `${active.rowCount}行` : "0件";
     card.querySelector("[data-dbf-errors]").textContent = `Error ${active?.errorCount || 0}`;
   }
+}
+
+function formatCount(value) {
+  return new Intl.NumberFormat("ja-JP").format(Number(value || 0));
+}
+
+function formatYen(value) {
+  return `${new Intl.NumberFormat("ja-JP").format(Number(value || 0))}円`;
+}
+
+function appendDefinition(doc, container, label, value, status = "") {
+  const row = node(doc, "div", `business-data-pilot-definition${status ? ` is-${status}` : ""}`);
+  row.append(node(doc, "dt", "", label), node(doc, "dd", "", String(value)));
+  container.append(row);
+}
+
+function renderPilotMonthPreview(container, data) {
+  container.replaceChildren();
+  if (!data || data.pilotMonth !== "2026-06") {
+    container.hidden = true;
+    return;
+  }
+  container.hidden = false;
+  container.dataset.pilotPreviewReady = String(data.sourceStatus === "READY_FOR_OWNER_PREVIEW");
+
+  const doc = container.ownerDocument;
+  const header = node(doc, "div", "business-data-pilot-header");
+  const heading = node(doc, "div");
+  heading.append(node(doc, "p", "eyebrow", "PILOT MONTH / READ-ONLY DATABASE PREVIEW"), node(doc, "h3", "", `Pilot Month ${data.pilotMonth}`));
+  const status = node(doc, "strong", `business-data-pilot-status ${data.sourceStatus === "READY_FOR_OWNER_PREVIEW" ? "is-ready" : "is-mismatch"}`,
+    data.sourceStatus === "READY_FOR_OWNER_PREVIEW" ? "Preview接続済み" : "Baseline不一致");
+  header.append(heading, status);
+  container.append(header);
+
+  const identity = node(doc, "dl", "business-data-pilot-definitions");
+  appendDefinition(doc, identity, "Source owner", data.sourceOwner);
+  appendDefinition(doc, identity, "Accounting Status", data.accountingStatus);
+  appendDefinition(doc, identity, "Parser Contract", data.parserContract);
+  appendDefinition(doc, identity, "管理境界", "経営データ管理 管理者専用");
+  container.append(identity);
+
+  const summary = node(doc, "div", "business-data-pilot-summary");
+  [
+    ["Source file", `${formatCount(data.summary?.sourceFiles)}件`],
+    ["Import batch", `${formatCount(data.summary?.importBatches)}件`],
+    ["Raw rows", `${formatCount(data.summary?.rawRows)}件`],
+    ["Staging rows", `${formatCount(data.summary?.stagingRows)}件`],
+    ["Validation errors", `${formatCount(data.summary?.errors)}件`],
+    ["Warnings", `${formatCount(data.summary?.warnings)}件`],
+    ["Promotion candidates", `${formatCount(data.summary?.promotionCandidates)}件`],
+    ["Canonical Fact writes", `${formatCount(data.summary?.canonicalFactWrites)}件`],
+  ].forEach(([label, value]) => {
+    const card = node(doc, "article", "business-data-pilot-summary-card");
+    card.append(node(doc, "span", "", label), node(doc, "strong", "", value));
+    summary.append(card);
+  });
+  container.append(summary);
+
+  const details = node(doc, "div", "business-data-pilot-detail-grid");
+  const pl = node(doc, "section", "business-data-pilot-detail-card");
+  pl.append(node(doc, "h4", "", "P/L Preview"));
+  const plList = node(doc, "dl", "business-data-pilot-definitions");
+  appendDefinition(doc, plList, "PDF P/L", `${formatCount(data.pl?.pdfRows)}件`);
+  appendDefinition(doc, plList, "Excel P/L", `${formatCount(data.pl?.excelRows)}件`);
+  appendDefinition(doc, plList, "Reconciliation", data.pl?.reconciliation, data.pl?.reconciliation === "PASS" ? "pass" : "warning");
+  appendDefinition(doc, plList, "総売上", formatYen(data.pl?.controlTotals?.totalSales));
+  appendDefinition(doc, plList, "技術売上", formatYen(data.pl?.controlTotals?.technicalSales));
+  appendDefinition(doc, plList, "商品売上", formatYen(data.pl?.controlTotals?.retailSales));
+  appendDefinition(doc, plList, "EC売上", formatYen(data.pl?.controlTotals?.ecSales));
+  appendDefinition(doc, plList, "経常損益", formatYen(data.pl?.controlTotals?.ordinaryProfit));
+  pl.append(plList);
+
+  const bs = node(doc, "section", "business-data-pilot-detail-card");
+  bs.append(node(doc, "h4", "", "B/S Preview"));
+  const bsList = node(doc, "dl", "business-data-pilot-definitions");
+  appendDefinition(doc, bsList, "Rows", `${formatCount(data.bs?.rows)}件`);
+  appendDefinition(doc, bsList, "Balance", data.bs?.balance, data.bs?.balance === "PASS" ? "pass" : "warning");
+  appendDefinition(doc, bsList, "Assets", formatYen(data.bs?.assets));
+  appendDefinition(doc, bsList, "Liabilities", formatYen(data.bs?.liabilities));
+  appendDefinition(doc, bsList, "Equity", formatYen(data.bs?.equity));
+  appendDefinition(doc, bsList, "Difference", formatYen(data.bs?.difference), Number(data.bs?.difference) === 0 ? "pass" : "warning");
+  bs.append(bsList);
+
+  const budget = node(doc, "section", "business-data-pilot-detail-card");
+  budget.append(node(doc, "h4", "", "Budget Preview"));
+  const budgetList = node(doc, "dl", "business-data-pilot-definitions");
+  appendDefinition(doc, budgetList, "Rows", `${formatCount(data.budget?.rows)}件`);
+  appendDefinition(doc, budgetList, "Corporation", `${formatCount(data.budget?.corporationRows)}件`);
+  appendDefinition(doc, budgetList, "Store", `${formatCount(data.budget?.storeRows)}件`);
+  appendDefinition(doc, budgetList, "Source confirmation", data.budget?.sourceConfirmation, "pass");
+  appendDefinition(doc, budgetList, "Budget confirmation", data.budget?.confirmation, "warning");
+  appendDefinition(doc, budgetList, "Budget approval", data.budget?.approval, "warning");
+  budget.append(budgetList);
+
+  const mapping = node(doc, "section", "business-data-pilot-detail-card");
+  mapping.append(node(doc, "h4", "", "Mapping / Audit"));
+  const mappingList = node(doc, "dl", "business-data-pilot-definitions");
+  appendDefinition(doc, mappingList, "Exact mappings", formatCount(data.mapping?.exact));
+  appendDefinition(doc, mappingList, "company binding", formatCount(data.mapping?.companyBindings));
+  appendDefinition(doc, mappingList, "store binding", formatCount(data.mapping?.storeBindings));
+  appendDefinition(doc, mappingList, "Audit exact", formatCount(data.mapping?.auditPages?.exact));
+  appendDefinition(doc, mappingList, "Audit unresolved", formatCount(data.mapping?.auditPages?.unresolved), "warning");
+  appendDefinition(doc, mappingList, "Audit quarantined", formatCount(data.mapping?.auditPages?.quarantined), "warning");
+  mapping.append(mappingList);
+  details.append(pl, bs, budget, mapping);
+  container.append(details);
+
+  const warnings = node(doc, "section", "business-data-pilot-section");
+  warnings.append(node(doc, "h4", "", `Warnings ${formatCount(data.validation?.warnings)}件`));
+  const warningList = node(doc, "ul", "business-data-pilot-warning-list");
+  (data.validation?.categories || []).forEach((item) => {
+    const entry = node(doc, "li");
+    entry.append(node(doc, "strong", "", item.category), node(doc, "span", "", `${item.status} / ${item.detail}`));
+    warningList.append(entry);
+  });
+  warnings.append(warningList);
+  container.append(warnings);
+
+  const gates = node(doc, "div", "business-data-pilot-detail-grid");
+  const precedence = node(doc, "section", "business-data-pilot-detail-card");
+  precedence.append(node(doc, "h4", "", "Source Precedence Gate"));
+  const precedenceList = node(doc, "dl", "business-data-pilot-definitions");
+  appendDefinition(doc, precedenceList, "Overlapping candidates", formatCount(data.sourcePrecedence?.overlappingCandidateCount));
+  appendDefinition(doc, precedenceList, "Selected source", data.sourcePrecedence?.selectedSource);
+  appendDefinition(doc, precedenceList, "Excluded source", data.sourcePrecedence?.excludedSource);
+  appendDefinition(doc, precedenceList, "Reason", data.sourcePrecedence?.precedenceReason);
+  appendDefinition(doc, precedenceList, "Canonical grain", (data.sourcePrecedence?.canonicalGrain || []).join(" + "));
+  appendDefinition(doc, precedenceList, "Duplicate promotion", formatCount(data.sourcePrecedence?.duplicatePromotionCount), "pass");
+  precedence.append(precedenceList);
+
+  const tax = node(doc, "section", "business-data-pilot-detail-card");
+  tax.append(node(doc, "h4", "", "Tax Basis Gate"), node(doc, "p", "business-data-pilot-gate-status", data.taxBasis?.status));
+  const taxList = node(doc, "dl", "business-data-pilot-definitions");
+  (data.taxBasis?.groups || []).forEach((item) => appendDefinition(doc, taxList, item.basis, `${formatCount(item.rows)}件 / ${item.source}`));
+  tax.append(taxList);
+  gates.append(precedence, tax);
+  container.append(gates);
+
+  const promotion = node(doc, "button", "business-data-danger-action business-data-disabled-action", "Promotion disabled（Owner承認待ち）");
+  promotion.type = "button";
+  promotion.disabled = true;
+  promotion.dataset.pilotPromotion = "disabled";
+  container.append(promotion);
 }
 
 function renderMappingRows(doc, state, container, refresh) {
@@ -337,6 +480,9 @@ export function renderBusinessDataManagementPreview(container, options = {}) {
     grid.append(card);
   });
   dashboard.append(dashboardTitle, dashboardMonth, grid);
+  const pilotPreview = node(doc, "section", "business-data-pilot-preview");
+  pilotPreview.hidden = true;
+  dashboard.append(pilotPreview);
 
   const history = node(doc, "section", "business-data-preview-panel");
   history.dataset.businessDataPanel = "history";
@@ -351,16 +497,25 @@ export function renderBusinessDataManagementPreview(container, options = {}) {
     dashboardTitle.textContent = `${dashboardMonth.value} データ状況`;
     if (!enabled) {
       updateDashboardCards(cards, []);
+      renderPilotMonthPreview(pilotPreview, null);
       return;
     }
     try {
-      const result = await DBF_IMPORT_RUNTIME.history({ fiscalMonth: dashboardMonth.value, limit: 100 });
+      const [result, pilot] = await Promise.all([
+        DBF_IMPORT_RUNTIME.history({ fiscalMonth: dashboardMonth.value, limit: 100 }),
+        dashboardMonth.value === "2026-06"
+          ? DBF_IMPORT_RUNTIME.pilotPreview({ fiscalMonth: dashboardMonth.value, section: "all" })
+          : Promise.resolve(null),
+      ]);
       const items = result?.items || [];
       renderHistoryItems(historyList, items);
       updateDashboardCards(cards, items);
+      renderPilotMonthPreview(pilotPreview, pilot);
     } catch (_error) {
       renderHistoryItems(historyList, []);
       updateDashboardCards(cards, []);
+      pilotPreview.hidden = false;
+      pilotPreview.replaceChildren(node(doc, "p", "business-data-runtime-status", "Pilot Previewを読み込めませんでした。再取込はせず、接続状態を確認してください。"));
     }
   };
   dashboardMonth.addEventListener("change", () => void refreshHistory());

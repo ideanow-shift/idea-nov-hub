@@ -156,3 +156,55 @@ Deno.test("validation re-verifies company and store UUID bindings before service
   assertEquals(calls[1].body.action, "dbfCanonicalMasterValidateBindingsV1");
   assertEquals(calls[2].url, "https://zgkoofphhivesclehrom.supabase.co/rest/v1/rpc/dbf_import_stage_v1");
 });
+
+Deno.test("Pilot 2026-06 read route composes validated RPC previews without a business write", async () => {
+  const definitions = [
+    { id: "10000000-0000-4000-8000-000000000001", factKind: "pl", sourceType: "monthly_pl_comparison_source_audit", status: "mapping_required", raw: 34, staged: 0,
+      rules: ["DERIVED_VARIANCE_NOT_FACT", "PRIOR_COMPARISON_SOURCE_ONLY", "UNSUPPORTED_SCOPE_ROWS_QUARANTINED"] },
+    { id: "10000000-0000-4000-8000-000000000002", factKind: "pl", sourceType: "monthly_pl_actual", status: "owner_review", raw: 164, staged: 164,
+      rules: ["ACCOUNT_CODE_ABSENT_SOURCE_ROW_CANDIDATE", "PDF_TAX_BASIS_REVIEW"] },
+    { id: "10000000-0000-4000-8000-000000000003", factKind: "budget", sourceType: "monthly_pl_plan", status: "owner_review", raw: 777, staged: 777,
+      rules: ["ACCOUNT_CODE_ABSENT_SOURCE_ROW_CANDIDATE", "BUDGET_APPROVAL_UNVERIFIED", "PDF_TAX_BASIS_REVIEW"] },
+    { id: "10000000-0000-4000-8000-000000000004", factKind: "pl", sourceType: "yayoi_monthly_pl_actual", status: "owner_review", raw: 852, staged: 852,
+      rules: ["ACCOUNT_CODE_ABSENT_SOURCE_ROW_CANDIDATE", "PDF_EXCEL_RECONCILIATION_PASS"] },
+    { id: "10000000-0000-4000-8000-000000000005", factKind: "bs", sourceType: "yayoi_monthly_bs", status: "owner_review", raw: 67, staged: 67,
+      rules: ["ACCOUNT_CODE_ABSENT_SOURCE_ROW_CANDIDATE", "BS_BALANCE_PASS"] },
+  ];
+  const calls: Array<{ url: string; body: any }> = [];
+  const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const body = init?.body ? JSON.parse(String(init.body)) : null;
+    calls.push({ url, body });
+    if (url.startsWith("https://hub.example")) return Response.json({ ok: true, data: {
+      actorEmployeeId: ACTOR, capability: { businessDataAdmin: true }, scope: "all",
+    }});
+    if (url.endsWith("/rpc/dbf_import_history_v1")) return Response.json({ items: definitions.map((item) => ({
+      batchId: item.id, factKind: item.factKind, fiscalMonth: "2026-06", sourceType: item.sourceType,
+      status: item.status, revision: 1, rowCount: item.raw, errorCount: 0, warningCount: item.rules.length,
+    })) });
+    const item = definitions.find((candidate) => candidate.id === body?.p_batch_id)!;
+    return Response.json({
+      batchId: item.id, rowCount: item.staged, validCount: item.staged, quarantinedCount: 0,
+      errorCount: 0, warningCount: item.rules.length, promotionAllowed: false,
+      issues: item.rules.map((ruleCode) => ({ severity: "warning", ruleCode, fieldName: null, message: "Owner review required." })),
+    });
+  };
+  const result = await handleDbfBusinessDataRequest(request("dbfPilotMonthPreviewV1", {
+    fiscalMonth: "2026-06", section: "all",
+  }), runtime(fetchImpl));
+  const body = await result.json();
+  assertEquals(result.status, 200);
+  assertEquals(body.data.sourceStatus, "READY_FOR_OWNER_PREVIEW");
+  assertEquals(body.data.summary, {
+    sourceFiles: 2, importBatches: 5, rawRows: 1894, stagingRows: 1860,
+    errors: 0, warnings: 12, promotionCandidates: 1860, canonicalFactWrites: 0,
+    approvals: 0, promotions: 0,
+  });
+  assertEquals(body.data.pl.reconciliation, "PASS");
+  assertEquals(body.data.bs.difference, 0);
+  assertEquals(body.data.sourcePrecedence.duplicatePromotionCount, 0);
+  assertEquals(body.data.gates.canonicalPromotion, "DISABLED");
+  assertEquals(calls.length, 7);
+  assertEquals(calls.filter((call) => call.url.includes("/rpc/dbf_import_preview_v1")).length, 5);
+  assertEquals(calls.some((call) => /approve|promote/u.test(call.url)), false);
+});

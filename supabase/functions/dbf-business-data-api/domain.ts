@@ -10,6 +10,9 @@ export const DBF_IMPORT_ACTIONS = Object.freeze([
   "dbfImportHistoryV1",
   "dbfImportMasterOptionsV1",
   "dbfPilotMonthPreviewV1",
+  "dbfAccountReviewInitializeV1",
+  "dbfAccountReviewListV1",
+  "dbfAccountReviewDecideV1",
 ] as const);
 
 export type DbfImportAction = typeof DBF_IMPORT_ACTIONS[number];
@@ -30,6 +33,7 @@ const MONTH = /^20\d{2}-(0[1-9]|1[0-2])$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const SHA256 = /^[0-9a-f]{64}$/u;
 const SAFE_TEXT = /^[^\u0000-\u001f\u007f]{1,160}$/u;
+const PILOT_COMPANY_ID = "e4059116-bdb3-4e13-9763-bbc77bdfe062";
 
 export class DbfRuntimeError extends Error {
   constructor(public code: string, public status = 400) {
@@ -315,6 +319,39 @@ export function normalizeActionPayload(action: DbfImportAction, value: unknown) 
       throw new DbfRuntimeError("PILOT_PREVIEW_SECTION_INVALID");
     }
     return { fiscalMonth: fiscalMonth(payload.fiscalMonth), section };
+  }
+  if (action === "dbfAccountReviewInitializeV1") {
+    exactKeys(payload, ["companyId", "mappingVersion", "mappingDigest"]);
+    const mappingDigest = String(payload.mappingDigest || "").toLowerCase();
+    if (!SHA256.test(mappingDigest)) throw new DbfRuntimeError("MAPPING_DIGEST_INVALID");
+    const companyId = uuid(payload.companyId, "COMPANY_ID_INVALID");
+    if (companyId !== PILOT_COMPANY_ID) throw new DbfRuntimeError("COMPANY_SCOPE_REJECTED", 403);
+    return { companyId, mappingVersion: safeText(payload.mappingVersion, "MAPPING_VERSION_INVALID", 128), mappingDigest };
+  }
+  if (action === "dbfAccountReviewListV1") {
+    exactKeys(payload, ["companyId", "fiscalMonth"]);
+    const companyId = uuid(payload.companyId, "COMPANY_ID_INVALID");
+    if (companyId !== PILOT_COMPANY_ID || fiscalMonth(payload.fiscalMonth) !== "2026-06") throw new DbfRuntimeError("COMPANY_SCOPE_REJECTED", 403);
+    return { companyId, fiscalMonth: "2026-06" };
+  }
+  if (action === "dbfAccountReviewDecideV1") {
+    exactKeys(payload, ["candidateId", "requestId", "decision", "proposedAccountCode", "proposedAccountName", "accountCategory", "normalBalance", "parentCandidateId", "hierarchyLevel", "rowSemantics", "isPostable", "isControlTotal"]);
+    const decision = String(payload.decision || "");
+    if (!new Set(["APPROVE", "EDIT_AND_APPROVE", "EXCLUDE", "NEEDS_REVIEW"]).has(decision)) throw new DbfRuntimeError("DECISION_INVALID");
+    const rowSemantics = payload.rowSemantics === null ? null : String(payload.rowSemantics || "");
+    if (rowSemantics !== null && !new Set(["POSTABLE_DETAIL", "DERIVED_SUBTOTAL", "CONTROL_TOTAL", "DISPLAY_ONLY", "NEEDS_OWNER_REVIEW"]).has(rowSemantics)) throw new DbfRuntimeError("ROW_SEMANTICS_INVALID");
+    const hierarchyLevel = payload.hierarchyLevel === null ? null : Number(payload.hierarchyLevel);
+    if (hierarchyLevel !== null && (!Number.isInteger(hierarchyLevel) || hierarchyLevel < 0 || hierarchyLevel > 32)) throw new DbfRuntimeError("HIERARCHY_LEVEL_INVALID");
+    return {
+      candidateId: uuid(payload.candidateId, "CANDIDATE_ID_INVALID"), requestId: uuid(payload.requestId, "REQUEST_ID_INVALID"), decision,
+      proposedAccountCode: optionalSafeText(payload.proposedAccountCode, "ACCOUNT_CODE_INVALID", 64),
+      proposedAccountName: optionalSafeText(payload.proposedAccountName, "ACCOUNT_NAME_INVALID", 256),
+      accountCategory: optionalSafeText(payload.accountCategory, "ACCOUNT_CATEGORY_INVALID", 64),
+      normalBalance: optionalSafeText(payload.normalBalance, "NORMAL_BALANCE_INVALID", 16),
+      parentCandidateId: optionalUuid(payload.parentCandidateId, "PARENT_CANDIDATE_ID_INVALID"), hierarchyLevel, rowSemantics,
+      isPostable: typeof payload.isPostable === "boolean" ? payload.isPostable : null,
+      isControlTotal: typeof payload.isControlTotal === "boolean" ? payload.isControlTotal : null,
+    };
   }
   exactKeys(payload, ["fiscalMonth", "factKind", "limit"]);
   const factKind = payload.factKind ? String(payload.factKind) as FactKind : null;

@@ -1,6 +1,7 @@
 import { DBF_IMPORT_FLOW, STORE_MONTHLY_METRICS } from "./dbf-business-data-contract.js";
 import { DBF_IMPORT_RUNTIME, buildDbfRawRows, buildDbfSourceFile } from "./dbf-business-data-runtime.js";
 import { bindDbfCanonicalMappings, dbfNormalizedCsvTemplate, parseDbfNormalizedCsv } from "./dbf-business-data-normalized-csv.js";
+import { createDbfAccountMappingReview } from "./dbf-account-mapping-review.js";
 
 const FACTS = Object.freeze([
   Object.freeze({ key: "PL", runtimeKey: "pl", view: "pl", label: "月次P/L", statement: "PL" }),
@@ -521,8 +522,9 @@ export function renderBusinessDataManagementPreview(container, options = {}) {
   };
   dashboardMonth.addEventListener("change", () => void refreshHistory());
 
-  const panels = [dashboard, ...FACTS.map((fact) => renderImportPanel(doc, fact, enabled, refreshHistory)), history];
-  const definitions = [["dashboard", "Dashboard"], ...FACTS.map((fact) => [fact.view, fact.label]), ["history", "取込履歴"]];
+  const accountReview = createDbfAccountMappingReview(doc);
+  const panels = [dashboard, accountReview, ...FACTS.map((fact) => renderImportPanel(doc, fact, enabled, refreshHistory)), history];
+  const definitions = [["dashboard", "Dashboard"], ["account-review", "Account Mapping Review"], ...FACTS.map((fact) => [fact.view, fact.label]), ["history", "取込履歴"]];
   definitions.forEach(([key, label], index) => {
     const button = node(doc, "button", `business-data-tab${index === 0 ? " is-active" : ""}`, label);
     button.type = "button";
@@ -530,6 +532,10 @@ export function renderBusinessDataManagementPreview(container, options = {}) {
     button.addEventListener("click", () => {
       [...tabs.children].forEach((item) => item.classList.toggle("is-active", item === button));
       panels.forEach((panel) => { panel.hidden = panel.dataset.businessDataPanel !== key; });
+      if (key === "account-review") void accountReview.loadAccountReview().catch((error) => {
+        const status = accountReview.querySelector(".business-data-runtime-status");
+        if (status) status.textContent = `Reviewを読み込めません: ${error.message}`;
+      });
     });
     tabs.append(button);
   });

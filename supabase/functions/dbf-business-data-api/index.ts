@@ -172,6 +172,21 @@ async function readPilotMonthPreview(runtime: Runtime, payload: any) {
 }
 
 function rpcRequest(action: string, payload: any, actorEmployeeId: string) {
+  if (action === "dbfAccountReviewInitializeV1") return ["dbf_account_review_initialize_v1", {
+    p_actor_employee_id: actorEmployeeId, p_request_id: crypto.randomUUID(), p_company_id: payload.companyId,
+    p_mapping_version: payload.mappingVersion, p_mapping_digest: payload.mappingDigest,
+  }] as const;
+  if (action === "dbfAccountReviewListV1") return ["dbf_account_review_list_v1", {
+    p_company_id: payload.companyId, p_fiscal_month: `${payload.fiscalMonth}-01`,
+  }] as const;
+  if (action === "dbfAccountReviewDecideV1") return ["dbf_account_review_decide_v1", {
+    p_actor_employee_id: actorEmployeeId, p_request_id: payload.requestId, p_candidate_id: payload.candidateId,
+    p_decision: payload.decision, p_proposed_account_code: payload.proposedAccountCode,
+    p_proposed_account_name: payload.proposedAccountName, p_account_category: payload.accountCategory,
+    p_normal_balance: payload.normalBalance, p_parent_candidate_id: payload.parentCandidateId,
+    p_hierarchy_level: payload.hierarchyLevel, p_row_semantics: payload.rowSemantics,
+    p_is_postable: payload.isPostable, p_is_control_total: payload.isControlTotal,
+  }] as const;
   if (action === "dbfImportStartV1") return ["dbf_import_start_v1", {
     p_actor_employee_id: actorEmployeeId,
     p_file: payload.file,

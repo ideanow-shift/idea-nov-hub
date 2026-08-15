@@ -598,3 +598,4 @@ tbody tr:hover td { background: var(--card-soft); }
   .card-heading { align-items: flex-start; flex-direction: column; }
   .workforce-evidence-facts { grid-template-columns: 1fr; }
 }
+.dbf-account-review-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}.dbf-account-review-metric{padding:10px;border:1px solid #e5e5e5;border-radius:8px;background:#fafafa}.dbf-account-review-metric strong{display:block;font-size:20px}.dbf-account-review-master{padding:10px;background:#f5f8ff;border-radius:8px}.dbf-account-review-filters{display:flex;gap:8px;margin:12px 0}.dbf-account-review-table-wrap{max-width:100%;overflow:auto}.dbf-account-review-table{min-width:1500px}.dbf-account-review-input{width:100%;min-width:120px;padding:7px;border:1px solid #d8d8d8;border-radius:6px}@media(max-width:600px){.dbf-account-review-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}

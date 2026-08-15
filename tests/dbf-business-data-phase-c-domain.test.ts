@@ -128,3 +128,25 @@ Deno.test("Pilot 2026-06 Preview accepts only bounded read-only sections", async
     promote: true,
   }), DbfRuntimeError, "UNEXPECTED_FIELD");
 });
+
+Deno.test("Account review list accepts the exact Pilot company and normalized 2026-06 month", () => {
+  const result: any = normalizeActionPayload("dbfAccountReviewListV1", {
+    companyId: "e4059116-bdb3-4e13-9763-bbc77bdfe062",
+    fiscalMonth: "2026-06",
+  });
+  assertEquals(result, {
+    companyId: "e4059116-bdb3-4e13-9763-bbc77bdfe062",
+    fiscalMonth: "2026-06",
+  });
+});
+
+Deno.test("Account review list rejects a non-Pilot company or month", async () => {
+  await assertRejects(async () => normalizeActionPayload("dbfAccountReviewListV1", {
+    companyId: COMPANY,
+    fiscalMonth: "2026-06",
+  }), DbfRuntimeError, "COMPANY_SCOPE_REJECTED");
+  await assertRejects(async () => normalizeActionPayload("dbfAccountReviewListV1", {
+    companyId: "e4059116-bdb3-4e13-9763-bbc77bdfe062",
+    fiscalMonth: "2026-07",
+  }), DbfRuntimeError, "COMPANY_SCOPE_REJECTED");
+});

@@ -66,3 +66,11 @@ test("Staging requires exact target, enabled import, disabled production write, 
   assert.equal(resolveDbfStagingBusinessDataLanding({ ...runtime, runtimeImport: "DISABLED" }, session).authorized, false);
   assert.equal(resolveDbfStagingBusinessDataLanding({ environment: "production" }, session), null);
 });
+
+test("Pilot coverage cards stay within the 390px Hosted Staging viewport", () => {
+  const styles = fs.readFileSync(path.join(root, "portal/management-app/styles.css"), "utf8");
+  assert.match(
+    styles,
+    /@media \(max-width: 480px\) \{[\s\S]*?\.business-data-coverage-grid \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/u,
+  );
+});

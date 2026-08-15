@@ -501,12 +501,13 @@ export function renderBusinessDataManagementPreview(container, options = {}) {
       return;
     }
     try {
-      const [result, pilot] = await Promise.all([
-        DBF_IMPORT_RUNTIME.history({ fiscalMonth: dashboardMonth.value, limit: 100 }),
-        dashboardMonth.value === "2026-06"
-          ? DBF_IMPORT_RUNTIME.pilotPreview({ fiscalMonth: dashboardMonth.value, section: "all" })
-          : Promise.resolve(null),
-      ]);
+      // Keep the two authenticated read-only requests deterministic. Both
+      // paths begin with the same bounded history RPC and the Staging gateway
+      // can reject one of two simultaneous calls even though each is valid.
+      const result = await DBF_IMPORT_RUNTIME.history({ fiscalMonth: dashboardMonth.value, limit: 100 });
+      const pilot = dashboardMonth.value === "2026-06"
+        ? await DBF_IMPORT_RUNTIME.pilotPreview({ fiscalMonth: dashboardMonth.value, section: "all" })
+        : null;
       const items = result?.items || [];
       renderHistoryItems(historyList, items);
       updateDashboardCards(cards, items);

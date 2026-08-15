@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Master Admin Navigation Visual Fixture</title>
+  <link rel="stylesheet" href="../../portal/master-admin/master-admin.css">
+  <style>
+    body { margin: 0; background: #f7f8fa; }
+    .visual-fixture-header { min-height: 72px; display: flex; align-items: center; justify-content: space-between; padding: 0 28px; background: #fff; border-bottom: 1px solid #e5e7eb; }
+    .visual-fixture-header strong { font-size: 20px; }
+    .visual-fixture-shell { max-width: 1180px; margin: 24px auto; padding: 0 20px; }
+    .visual-fixture-panel { min-height: 360px; padding: 24px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; }
+    .visual-fixture-panel h2 { margin: 0 0 8px; }
+    .visual-fixture-list { display: grid; gap: 10px; margin-top: 20px; }
+    .visual-fixture-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) 160px; gap: 16px; padding: 14px 16px; border: 1px solid #e5e7eb; border-radius: 8px; }
+    @media (max-width: 640px) {
+      .visual-fixture-header { min-height: 64px; padding: 0 16px; }
+      .visual-fixture-shell { margin: 16px auto; padding: 0 12px; }
+      .visual-fixture-panel { padding: 16px; }
+      .visual-fixture-row { grid-template-columns: 1fr; gap: 4px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="visual-fixture-header">
+    <div><strong>NOV HUB</strong><br><span>マスタ管理</span></div>
+    <button class="button button-secondary" type="button">HUBへ戻る</button>
+  </header>
+  <main class="visual-fixture-shell">
+    <div class="master-command-bar">
+      <div class="master-page-heading">
+        <h1 id="view-title">社員マスタ</h1>
+        <p id="view-description">社員情報の確認・編集</p>
+      </div>
+      <div class="context-actions" aria-label="社員マスタの操作">
+        <button class="button button-primary" type="button">社員を追加</button>
+        <button class="button button-secondary" type="button" aria-label="表示内容を更新">更新</button>
+      </div>
+    </div>
+
+    <div class="master-navigation-row">
+      <nav class="primary-navigation" aria-label="主要マスタ">
+        <button class="primary-tab active" type="button" aria-current="page">社員 <span class="tab-count">189</span></button>
+        <button class="primary-tab" type="button">店舗 <span class="tab-count">22</span></button>
+        <button class="primary-tab" type="button">法人 <span class="tab-count">6</span></button>
+        <button class="primary-tab" type="button">アプリ <span class="tab-count">14</span></button>
+        <button class="primary-tab" type="button">権限</button>
+      </nav>
+      <div class="secondary-navigation">
+        <div class="management-tools">
+          <button class="button button-secondary management-tools-trigger" id="management-tools-trigger" type="button" aria-expanded="false" aria-controls="management-tools-menu">
+            管理ツール <span class="management-warning-dot" aria-label="確認が必要な項目があります"></span>
+          </button>
+          <div class="management-tools-menu" id="management-tools-menu" role="menu" aria-label="管理ツール" hidden>
+            <button type="button" role="menuitem">UID未連携 <span class="tab-count">3</span></button>
+            <button type="button" role="menuitem">HUB連携準備</button>
+            <button type="button" role="menuitem">変更履歴</button>
+            <button type="button" role="menuitem">データ入力</button>
+          </div>
+        </div>
+        <button class="button dbf-staging-launcher" type="button"><span>DBF経営データ管理</span><span class="environment-badge">STAGING</span><span aria-hidden="true">↗</span></button>
+      </div>
+    </div>
+
+    <section class="visual-fixture-panel" aria-label="合成社員一覧">
+      <h2>社員一覧</h2>
+      <p>表示内容はレイアウト確認用の合成データです。</p>
+      <div class="visual-fixture-list">
+        <div class="visual-fixture-row"><strong>社員番号</strong><span>TEST-001</span><span>本部</span></div>
+        <div class="visual-fixture-row"><strong>氏名</strong><span>サンプル社員</span><span>現職</span></div>
+        <div class="visual-fixture-row"><strong>連絡設定</strong><span>設定済み</span><span>閲覧制限あり</span></div>
+      </div>
+    </section>
+  </main>
+  <script>
+    const trigger = document.querySelector('#management-tools-trigger');
+    const menu = document.querySelector('#management-tools-menu');
+    const closeMenu = () => { menu.hidden = true; trigger.setAttribute('aria-expanded', 'false'); };
+    trigger.addEventListener('click', () => {
+      const open = trigger.getAttribute('aria-expanded') !== 'true';
+      menu.hidden = !open;
+      trigger.setAttribute('aria-expanded', String(open));
+    });
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.management-tools')) closeMenu();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') { closeMenu(); trigger.focus(); }
+    });
+  </script>
+</body>
+</html>

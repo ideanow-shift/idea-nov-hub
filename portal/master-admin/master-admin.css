@@ -4,6 +4,265 @@ body {
   color: var(--text-primary);
 }
 
+/* Master navigation hierarchy: page actions, primary masters, then supporting tools. */
+.master-command-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 14px;
+}
+
+.master-page-heading {
+  min-width: 0;
+}
+
+.master-page-heading h1,
+.master-page-heading h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.view-description {
+  margin: 5px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.context-actions,
+.primary-navigation,
+.secondary-navigation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.context-actions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+.context-actions .button,
+.primary-tab,
+.secondary-navigation > .button,
+.management-tools-trigger {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.refresh-button {
+  min-width: 72px;
+}
+
+.master-navigation-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  border-top: 1px solid var(--border-light);
+  padding-top: 14px;
+}
+
+.primary-navigation {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+
+.primary-navigation::-webkit-scrollbar {
+  display: none;
+}
+
+.primary-tab {
+  flex: 0 0 auto;
+  min-width: 86px;
+  padding-inline: 14px;
+}
+
+.primary-tab.active {
+  box-shadow: inset 0 -2px 0 var(--color-bassa);
+  font-weight: 700;
+}
+
+.secondary-navigation {
+  flex: 0 0 auto;
+}
+
+.management-tools {
+  position: relative;
+}
+
+.management-tools-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.management-tools-trigger.active {
+  border-color: var(--color-bassa);
+  background: rgba(232, 180, 184, 0.12);
+  font-weight: 700;
+}
+
+.management-warning-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--color-bassa-dark);
+}
+
+.management-tools-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  min-width: 240px;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: #FFFFFF;
+  box-shadow: var(--shadow-card);
+  padding: 6px;
+}
+
+.management-tools-menu[hidden] {
+  display: none;
+}
+
+.management-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  padding: 8px 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.management-menu-item:hover,
+.management-menu-item:focus-visible,
+.management-menu-item.active {
+  background: rgba(232, 180, 184, 0.16);
+}
+
+.management-menu-item.active {
+  font-weight: 700;
+}
+
+.dbf-staging-launcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #C9C9C9;
+  background: #FFFFFF;
+  color: var(--text-primary);
+  padding-inline: 12px;
+}
+
+.staging-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  border: 1px solid #D8D8D8;
+  border-radius: 999px;
+  background: #F3F3F3;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 7px;
+}
+
+.master-command-bar button:focus-visible,
+.master-navigation-row button:focus-visible {
+  outline: 2px solid rgba(232, 180, 184, 0.8);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .master-command-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .context-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .context-actions .button {
+    width: 100%;
+  }
+
+  .master-navigation-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .primary-navigation {
+    width: 100%;
+    padding-bottom: 2px;
+  }
+
+  .primary-tab {
+    min-width: 82px;
+  }
+
+  .secondary-navigation {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .secondary-navigation > .button,
+  .management-tools,
+  .management-tools-trigger {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .management-tools-menu {
+    right: auto;
+    left: 0;
+    width: min(320px, calc(100vw - 28px));
+  }
+
+  .dbf-staging-launcher {
+    justify-content: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dbf-staging-launcher > span:nth-child(2) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .admin-app.detail-open .master-command-bar,
+  .admin-app.detail-open .master-navigation-row {
+    display: none;
+  }
+}
+
 .admin-header {
   position: sticky;
   top: 0;
@@ -2311,5 +2570,25 @@ body {
   .admin-app[data-view="data-intake"] .detail-panel {
     display: block;
     margin-top: 12px;
+  }
+}
+
+/* Keep the navigation dimensions authoritative over earlier shared control rules. */
+.primary-navigation .primary-tab {
+  min-height: 44px;
+  width: auto;
+  white-space: nowrap;
+}
+
+.management-tools .management-tools-trigger {
+  min-height: 44px;
+}
+
+@media (max-width: 900px) {
+  .primary-navigation .primary-tab {
+    min-width: 82px;
+    width: auto;
+    padding-inline: 12px;
+    white-space: nowrap;
   }
 }

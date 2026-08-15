@@ -85,4 +85,7 @@ assert.doesNotMatch(migration, /grant [^;]*delete[^;]*service_role/i);
 assert.doesNotMatch(migration, /grant [^;]*(anon|authenticated)/i);
 assert.doesNotMatch(migration, /emergency_contact_name/);
 
+// Keep the navigation corrective inside the existing Master Admin CI entrypoint.
+await import("./master-admin-navigation-contract.test.mjs");
+
 console.log("master admin emergency contact contract: PASS");

@@ -11,6 +11,7 @@ const MANAGEMENT_HUB_SESSION_KEY = "ideaNov.management.hubSession.v1";
 const MASTER_ADMIN_BOOTSTRAP_TIMEOUT_MS = 12000;
 const MASTER_ADMIN_FALLBACK_TIMEOUT_MS = 9000;
 const MASTER_ADMIN_RECOVERY_LABEL = "マスタ管理 v33";
+const MANAGEMENT_TOOL_VIEWS = new Set(["firebase", "readiness", "logs", "data-intake"]);
 const EMPLOYEE_LINE_WORKS_DESTINATION_WRITE_ENABLED = false;
 const IDEA_LINK_ROLE_KEYS = ["idea_link.staff", "idea_link.manager", "idea_link.admin"];
 const APP_ROLE_KEY_PREFIXES = ["idea_link."];
@@ -143,7 +144,7 @@ let safeSearchRenderTimer = 0;
 
 const elements = Object.fromEntries([
   "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "open-dbf-staging", "add-employee", "add-corporation", "add-portal-app", "refresh",
-  "view-title", "search", "employee-csv-tools", "export-employees-csv", "import-employees-csv", "quality-summary", "result-count", "table-head", "table-body",
+  "view-title", "view-description", "management-tools-trigger", "management-tools-menu", "management-warning-dot", "search", "employee-csv-tools", "export-employees-csv", "import-employees-csv", "quality-summary", "result-count", "table-head", "table-body",
   "detail-panel", "employee-status-filter", "corporation-status-filter", "store-status-filter", "app-status-filter", "toast"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
 
@@ -168,6 +169,21 @@ function showToast(message) {
   elements.toast.hidden = false;
   window.clearTimeout(showToast.timer);
   showToast.timer = window.setTimeout(() => { elements.toast.hidden = true; }, 3600);
+}
+
+function setManagementToolsOpen(open, { focusFirst = false } = {}) {
+  if (!elements.managementToolsTrigger || !elements.managementToolsMenu) return;
+  elements.managementToolsTrigger.setAttribute("aria-expanded", String(open));
+  elements.managementToolsMenu.hidden = !open;
+  if (open && focusFirst) {
+    elements.managementToolsMenu.querySelector("button")?.focus();
+  }
+}
+
+function closeManagementTools({ restoreFocus = false } = {}) {
+  const wasOpen = elements.managementToolsTrigger?.getAttribute("aria-expanded") === "true";
+  setManagementToolsOpen(false);
+  if (wasOpen && restoreFocus) elements.managementToolsTrigger?.focus();
 }
 
 function parseStoredJson(value) {
@@ -2475,6 +2491,9 @@ function updateNavigationCounts() {
   document.querySelectorAll("button[data-view]").forEach((button) => {
     setButtonCount(button, viewCounts[button.dataset.view]);
   });
+  if (elements.managementWarningDot) {
+    elements.managementWarningDot.hidden = !(viewCounts.firebase > 0 || viewCounts.readiness > 0);
+  }
   document.querySelectorAll("[data-employee-status]").forEach((button) => {
     setButtonCount(button, employeeCounts[button.dataset.employeeStatus]);
   });
@@ -2515,8 +2534,12 @@ function render() {
   state.safeFallbackActive = false;
   elements.adminApp.dataset.view = state.view;
   document.querySelectorAll("button[data-view]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.view === state.view);
+    const active = button.dataset.view === state.view;
+    button.classList.toggle("active", active);
+    if (active) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
   });
+  elements.managementToolsTrigger?.classList.toggle("active", MANAGEMENT_TOOL_VIEWS.has(state.view));
   elements.employeeStatusFilter.hidden = state.view !== "employees";
   elements.corporationStatusFilter.hidden = state.view !== "corporations";
   elements.storeStatusFilter.hidden = state.view !== "stores";
@@ -2544,6 +2567,19 @@ function render() {
     readiness: "HUB連携準備",
     "data-intake": "データ入力"
   }[state.view];
+  if (elements.viewDescription) {
+    elements.viewDescription.textContent = {
+      employees: "社員情報・所属・ログイン状態を管理",
+      stores: "店舗情報・所属法人・運用状態を管理",
+      corporations: "法人情報・事業情報・運用状態を管理",
+      apps: "HUBに表示するアプリと公開状態を管理",
+      permissions: "アプリ別の権限割当を確認・管理",
+      firebase: "Firebase UID未連携社員を確認",
+      logs: "マスタ情報の変更履歴を確認",
+      readiness: "HUB連携に必要な準備状況を確認",
+      "data-intake": "画面入力・CSV取込前の検証を実施"
+    }[state.view] || "マスタ情報を管理";
+  }
   renderTable();
   try {
     updateNavigationCounts();
@@ -5978,6 +6014,10 @@ async function initializeMasterAdmin() {
 elements.signIn.addEventListener("click", handleSignIn);
 elements.signOut.addEventListener("click", handleSignOut);
 elements.openDbfStaging?.addEventListener("click", handleOpenDbfStaging);
+elements.managementToolsTrigger?.addEventListener("click", () => {
+  const open = elements.managementToolsTrigger.getAttribute("aria-expanded") !== "true";
+  setManagementToolsOpen(open, { focusFirst: open });
+});
 elements.refresh.addEventListener("click", loadData);
 elements.addEmployee.addEventListener("click", startCreateEmployee);
 elements.addCorporation.addEventListener("click", startCreateCorporation);
@@ -6022,6 +6062,7 @@ document.querySelectorAll("[data-app-status]").forEach((button) => {
 });
 document.querySelectorAll("button[data-view]").forEach((button) => {
   button.addEventListener("click", () => {
+    closeManagementTools();
     state.view = button.dataset.view;
     state.employeeIssueFilter = "";
     state.selectedId = "";
@@ -6033,6 +6074,18 @@ document.querySelectorAll("button[data-view]").forEach((button) => {
     }
     render();
   });
+});
+
+document.addEventListener("click", (event) => {
+  if (!elements.managementToolsMenu || elements.managementToolsMenu.hidden) return;
+  if (event.target instanceof Node && event.target.closest?.(".management-tools")) return;
+  closeManagementTools();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || elements.managementToolsMenu?.hidden) return;
+  event.preventDefault();
+  closeManagementTools({ restoreFocus: true });
 });
 
 initializeMasterAdmin();

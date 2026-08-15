@@ -41,7 +41,7 @@
     .toast { position: fixed; right: 24px; bottom: 24px; z-index: 30; max-width: min(420px, calc(100vw - 48px)); border-radius: 12px; background: #111827; color: #fff; padding: 12px 16px; box-shadow: 0 10px 24px rgba(0,0,0,.16); }
     @media (max-width: 900px) { .toolbar, .admin-header { grid-template-columns: 1fr; display: grid; } .toolbar-actions { justify-content: flex-start; } .workspace, .admin-app[data-view="stores"] .workspace, .admin-app[data-view="corporations"] .workspace { grid-template-columns: 1fr; } .detail-panel { position: static; max-height: none; } }
   </style>
-  <link rel="stylesheet" href="./master-admin.css?v=master-admin-layout-corrective-20260812-1">
+  <link rel="stylesheet" href="./master-admin.css?v=master-admin-navigation-corrective-20260815-1">
 </head>
 <body>
   <header class="admin-header">
@@ -66,25 +66,42 @@
     </section>
 
     <section class="admin-app" id="admin-app" hidden>
-      <div class="toolbar">
-        <div>
+      <div class="master-command-bar">
+        <div class="master-page-heading">
           <p class="kicker">Core DB v1</p>
           <h2 id="view-title">社員マスタ</h2>
+          <p class="view-description" id="view-description">社員情報・所属・ログイン状態を管理</p>
         </div>
-        <div class="toolbar-actions">
-          <button class="segmented active" data-view="employees" type="button">社員</button>
-          <button class="segmented" data-view="stores" type="button">店舗</button>
-          <button class="segmented" data-view="corporations" type="button">法人</button>
-          <button class="segmented" data-view="apps" type="button">アプリ</button>
-          <button class="segmented" data-view="permissions" type="button">権限</button>
-          <button class="segmented" data-view="firebase" type="button">Firebase UID未連携</button>
-          <button class="segmented" data-view="logs" type="button">変更履歴</button>
-          <button class="segmented" data-view="readiness" type="button">HUB連携準備</button>
-          <button class="segmented" data-view="data-intake" type="button">データ入力</button>
+        <div class="context-actions" aria-label="現在の画面の操作">
           <button class="button button-primary" id="add-employee" type="button" hidden>社員追加</button>
           <button class="button button-primary" id="add-corporation" type="button" hidden>法人追加</button>
           <button class="button button-primary" id="add-portal-app" type="button" hidden>アプリ追加</button>
-          <button class="button button-secondary" id="refresh" type="button">再読み込み</button>
+          <button class="button button-secondary refresh-button" id="refresh" type="button" aria-label="現在のマスタ情報を更新">更新</button>
+        </div>
+      </div>
+
+      <div class="master-navigation-row">
+        <nav class="primary-navigation" aria-label="主要マスタ">
+          <button class="segmented primary-tab active" data-view="employees" type="button" aria-current="page">社員</button>
+          <button class="segmented primary-tab" data-view="stores" type="button">店舗</button>
+          <button class="segmented primary-tab" data-view="corporations" type="button">法人</button>
+          <button class="segmented primary-tab" data-view="apps" type="button">アプリ</button>
+          <button class="segmented primary-tab" data-view="permissions" type="button">権限</button>
+        </nav>
+        <div class="secondary-navigation">
+          <div class="management-tools">
+            <button class="button button-secondary management-tools-trigger" id="management-tools-trigger" type="button" aria-expanded="false" aria-controls="management-tools-menu">
+              管理ツール
+              <span class="management-warning-dot" id="management-warning-dot" aria-label="確認が必要な項目あり" hidden></span>
+              <span aria-hidden="true">▼</span>
+            </button>
+            <div class="management-tools-menu" id="management-tools-menu" role="menu" aria-label="管理ツール" hidden>
+              <button class="management-menu-item" data-view="firebase" type="button" role="menuitem" aria-label="Firebase UID未連携社員を確認">UID未連携</button>
+              <button class="management-menu-item" data-view="readiness" type="button" role="menuitem" aria-label="HUB連携準備を確認">HUB連携準備</button>
+              <button class="management-menu-item" data-view="logs" type="button" role="menuitem" aria-label="変更履歴を確認">変更履歴</button>
+              <button class="management-menu-item" data-view="data-intake" type="button" role="menuitem" aria-label="データ入力を開く">データ入力</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -140,6 +157,6 @@
   </main>
 
   <div class="toast" id="toast" role="status" hidden></div>
-  <script type="module" src="./master-admin.js?v=master-admin-mobile-recovery-boundary-20260812-1"></script>
+  <script type="module" src="./master-admin.js?v=master-admin-navigation-corrective-20260815-1"></script>
 </body>
 </html>

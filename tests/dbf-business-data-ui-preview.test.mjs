@@ -18,6 +18,15 @@ test("management UI contains only the four Phase 1 facts and the real import flo
   assert.doesNotMatch(source, /採用|教育/u);
   assert.match(source, /runtimeImport = enabled \? "ENABLED" : "DISABLED"/u);
   assert.match(source, /productionWrite = "DISABLED"/u);
+  assert.match(source, /DBF_IMPORT_RUNTIME\.pilotPreview/u);
+  for (const label of [
+    "Pilot Month", "Source owner", "Accounting Status", "Promotion candidates", "Canonical Fact writes",
+    "P\/L Preview", "B\/S Preview", "Budget Preview", "Mapping \/ Audit", "Warnings",
+    "Source Precedence Gate", "Tax Basis Gate", "Promotion disabled",
+  ]) assert.match(source, new RegExp(label, "u"));
+  assert.match(source, /data\.sourcePrecedence\?\.duplicatePromotionCount/u);
+  assert.match(source, /data\.taxBasis\?\.status/u);
+  assert.match(source, /promotion\.disabled = true/u);
 });
 
 test("management navigation remains backend/session gated", () => {

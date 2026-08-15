@@ -9,6 +9,7 @@ export const DBF_IMPORT_ACTIONS = Object.freeze([
   "dbfImportPromoteV1",
   "dbfImportHistoryV1",
   "dbfImportMasterOptionsV1",
+  "dbfPilotMonthPreviewV1",
 ] as const);
 
 export type DbfImportAction = typeof DBF_IMPORT_ACTIONS[number];
@@ -306,6 +307,14 @@ export function normalizeActionPayload(action: DbfImportAction, value: unknown) 
   if (action === "dbfImportMasterOptionsV1") {
     exactKeys(payload, []);
     return {};
+  }
+  if (action === "dbfPilotMonthPreviewV1") {
+    exactKeys(payload, ["fiscalMonth", "section"]);
+    const section = String(payload.section || "all");
+    if (!new Set(["all", "source", "batches", "validation", "reconciliation", "summary", "detail"]).has(section)) {
+      throw new DbfRuntimeError("PILOT_PREVIEW_SECTION_INVALID");
+    }
+    return { fiscalMonth: fiscalMonth(payload.fiscalMonth), section };
   }
   exactKeys(payload, ["fiscalMonth", "factKind", "limit"]);
   const factKind = payload.factKind ? String(payload.factKind) as FactKind : null;

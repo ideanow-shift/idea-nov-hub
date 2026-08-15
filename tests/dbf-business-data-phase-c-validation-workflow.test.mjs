@@ -20,7 +20,10 @@ test("Phase C validation applies the exact local migration chain and exercises a
   assert.match(workflow, /20260814140109_dbf_business_data_phase1_foundation\.sql/u);
   assert.match(workflow, /20260814204346_dbf_business_data_phase1_service_role_acl_corrective\.sql/u);
   assert.match(workflow, /20260814213224_dbf_business_data_phase_c_runtime\.sql/u);
+  assert.match(workflow, /20260815090000_dbf_canonical_account_catalog_owner_review\.sql/u);
+  assert.match(workflow, /20260815123655_dbf_account_review_contract_corrective\.sql/u);
   assert.match(workflow, /dbf-business-data-phase-c-postgres17\.sql/u);
+  assert.match(workflow, /dbf-canonical-account-catalog-postgres17\.sql/u);
   assert.match(workflow, /dbf-business-data-phase-c-edge\.test\.ts/u);
   assert.match(workflow, /deno check supabase\/functions\/dbf-business-data-api\/index\.ts/u);
 });

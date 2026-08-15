@@ -3,6 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 
 const migration = fs.readFileSync(new URL("../supabase/migrations/20260815090000_dbf_canonical_account_catalog_owner_review.sql", import.meta.url), "utf8");
+const corrective = fs.readFileSync(new URL("../supabase/migrations/20260815123655_dbf_account_review_contract_corrective.sql", import.meta.url), "utf8");
 const domain = fs.readFileSync(new URL("../supabase/functions/dbf-business-data-api/domain.ts", import.meta.url), "utf8");
 const api = fs.readFileSync(new URL("../supabase/functions/dbf-business-data-api/index.ts", import.meta.url), "utf8");
 const ui = fs.readFileSync(new URL("../portal/management-app/dbf-account-mapping-review.js", import.meta.url), "utf8");
@@ -40,8 +41,17 @@ test("backend resolves actor and rejects arbitrary company scope", () => {
   assert.match(api, /p_actor_employee_id: actorEmployeeId/);
   assert.doesNotMatch(domain, /actorEmployeeId/);
 });
+test("backend and database reject inconsistent semantics and repeated final approval", () => {
+  assert.match(domain, /ROW_SEMANTICS_FLAGS_MISMATCH/);
+  assert.match(domain, /APPROVAL_FIELDS_REQUIRED/);
+  assert.match(corrective, /DBF_ROW_SEMANTICS_FLAGS_MISMATCH/);
+  assert.match(corrective, /DBF_ACCOUNT_REVIEW_ALREADY_FINAL/);
+  assert.match(corrective, /DERIVED_SUBTOTAL' and p_is_postable is false and p_is_control_total is false/);
+  assert.match(corrective, /set search_path = pg_catalog, accounting, dbf_ingest/);
+  assert.doesNotMatch(corrective, /set search_path = [^\n]*public/);
+});
 test("no production project or production Supabase reference is introduced", () => {
-  const joined=[migration,domain,api,ui].join("\n");
+  const joined=[migration,corrective,domain,api,ui].join("\n");
   assert.doesNotMatch(joined,/nkmxevmioczcmnldreyo|idea-nov-core/);
   assert.doesNotMatch(joined,/service_role[^\n]*(browser|localStorage|sessionStorage)/i);
 });

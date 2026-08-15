@@ -6,10 +6,13 @@ on:
       - "supabase/functions/dbf-business-data-api/**"
       - "supabase/functions/nov-hub-api/**"
       - "supabase/migrations/**dbf_business_data_phase_c_runtime.sql"
+      - "supabase/migrations/**dbf_canonical_account_catalog_owner_review.sql"
+      - "supabase/migrations/**dbf_account_review_contract_corrective.sql"
       - "portal/management-app/**"
       - "deploy/dbf-cloud-run-staging-bff-candidate/**"
       - "deploy/dbf-staging/runtime.js"
       - "tests/dbf-business-data-phase-c*"
+      - "tests/dbf-canonical-account-catalog-*"
       - ".github/workflows/dbf-phase-c-import-runtime-validation.yml"
   workflow_dispatch:
 
@@ -59,6 +62,8 @@ jobs:
           tests/dbf-business-data-phase-c-bff.test.mjs
           tests/dbf-business-data-phase-c-migration.test.mjs
           tests/dbf-business-data-ui-preview.test.mjs
+          tests/dbf-canonical-account-catalog-owner-review.test.mjs
+          tests/dbf-canonical-account-catalog-fresh-postgres.test.mjs
       - name: Validate Edge domain and authorization boundary
         run: >-
           deno test --allow-env
@@ -69,16 +74,24 @@ jobs:
           deno check supabase/functions/dbf-business-data-api/index.ts
           deno check supabase/functions/nov-hub-api/index.ts
       - name: Seed Supabase roles
-        run: >-
-          psql --set=ON_ERROR_STOP=1 --command
-          "create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;"
-      - name: Apply Foundation, ACL Corrective, and Phase C Runtime
         run: |
+          psql --set=ON_ERROR_STOP=1 --command "create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;"
+          psql --set=ON_ERROR_STOP=1 --command "create schema extensions; create extension pgcrypto with schema extensions;"
+      - name: Apply Canonical Accounting and DBF runtime migration chain
+        run: |
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260806090905_m001_bdf_schemas_default_deny.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260806090908_m002_bdf_source_identity_envelope.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260806223721_m012_bdf_accounting_import_boundary.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260807122604_m013_bdf_account_master_statement_mapping.sql
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814140109_dbf_business_data_phase1_foundation.sql
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814204346_dbf_business_data_phase1_service_role_acl_corrective.sql
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814213224_dbf_business_data_phase_c_runtime.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260815090000_dbf_canonical_account_catalog_owner_review.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260815123655_dbf_account_review_contract_corrective.sql
       - name: Run PostgreSQL 17 runtime and rollback smoke
-        run: psql --set=ON_ERROR_STOP=1 --file tests/dbf-business-data-phase-c-postgres17.sql
+        run: |
+          psql --set=ON_ERROR_STOP=1 --file tests/dbf-business-data-phase-c-postgres17.sql
+          psql --set=ON_ERROR_STOP=1 --file tests/dbf-canonical-account-catalog-postgres17.sql
       - name: Reject Production refs and secrets in hosted artifact
         shell: bash
         run: |

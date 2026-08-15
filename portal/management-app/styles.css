@@ -590,6 +590,7 @@ tbody tr:hover td { background: var(--card-soft); }
   .csv-validation-status { grid-column: 1; }
 }
 @media (max-width: 480px) {
+  .business-data-coverage-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .metric-grid { grid-template-columns: 1fr; }
   .section-tab { min-height: 42px; padding: 8px 4px; }
   .tab { min-width: 0; padding: 10px 4px; text-align: center; }

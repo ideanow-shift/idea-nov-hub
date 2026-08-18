@@ -93,12 +93,16 @@ for each row execute function dbf_ingest.guard_corporate_accounting_fact_insert_
 
 create function public.dbf_corporate_accounting_promotion_preflight_v1()
 returns jsonb language plpgsql stable security definer
-set search_path = pg_catalog, public, dbf_ingest, accounting, extensions as $fn$
+set search_path = pg_catalog, dbf_ingest, accounting as $fn$
 declare
   v_total integer; v_unreviewed integer; v_needs integer; v_approved integer; v_excluded integer;
-  v_audit integer; v_semantics_missing integer; v_mapping_unapproved integer; v_duplicate integer;
+  v_audit integer; v_audit_mismatch integer; v_semantics_missing integer; v_mapping_unapproved integer; v_duplicate integer;
   v_pl_source integer; v_bs_source integer; v_pl_detail integer; v_pl_control integer; v_bs_candidate integer;
+  v_pl_aggregate_source integer; v_pl_store_detail_source integer; v_pl_scope_invalid integer;
+  v_bs_null_store_source integer; v_bs_scope_invalid integer;
   v_derived integer; v_display integer; v_existing_approval integer; v_existing_promotion integer;
+  v_baseline_pl_detail integer; v_baseline_pl_aggregate integer; v_baseline_bs integer;
+  v_baseline_budget integer; v_baseline_store_metrics integer; v_canonical_baseline jsonb;
   v_mapping_version text; v_mapping_digest text; v_semantics_digest text; v_selected_digest text;
   v_total_sales numeric; v_technical_sales numeric; v_product_sales numeric; v_ec_sales numeric; v_ordinary_profit numeric;
   v_assets numeric; v_liabilities numeric; v_equity numeric;
@@ -111,13 +115,43 @@ begin
   from dbf_ingest.account_mapping_review_candidates
   where fiscal_month=date '2026-06-01' and company_id='e4059116-bdb3-4e13-9763-bbc77bdfe062'::uuid;
 
-  select count(*) into v_audit from (
-    select distinct on (a.candidate_id) a.candidate_id,a.decision
-    from dbf_ingest.account_mapping_review_audit a join dbf_ingest.account_mapping_review_candidates c using(candidate_id)
-    where a.decision <> 'INITIALIZE' and c.fiscal_month=date '2026-06-01'
-      and c.company_id='e4059116-bdb3-4e13-9763-bbc77bdfe062'::uuid
-    order by a.candidate_id,a.occurred_at desc,a.audit_id desc
-  ) q;
+  select count(latest.decision),count(*) filter(where latest.decision is distinct from c.decision)
+  into v_audit,v_audit_mismatch
+  from dbf_ingest.account_mapping_review_candidates c
+  left join lateral (
+    select a.decision
+    from dbf_ingest.account_mapping_review_audit a
+    where a.candidate_id=c.candidate_id and a.decision<>'INITIALIZE'
+    order by a.occurred_at desc,a.audit_id desc
+    limit 1
+  ) latest on true
+  where c.fiscal_month=date '2026-06-01'
+    and c.company_id='e4059116-bdb3-4e13-9763-bbc77bdfe062'::uuid;
+
+  select
+    count(*) filter(where source_row_category='aggregate' and store_id is null),
+    count(*) filter(where source_row_category='detail' and store_id is not null),
+    count(*) filter(where source_row_category not in('aggregate','detail')
+      or (source_row_category='aggregate' and store_id is not null)
+      or (source_row_category='detail' and store_id is null)
+      or company_id is distinct from 'e4059116-bdb3-4e13-9763-bbc77bdfe062'::uuid
+      or mapping_status<>'resolved' or validation_status not in('valid','warning')
+      or coalesce(normalized_payload->>'confirmationStatus','')<>'confirmed'
+      or coalesce(normalized_payload->>'taxBasis','')<>'TAX_EXCLUSIVE')
+  into v_pl_aggregate_source,v_pl_store_detail_source,v_pl_scope_invalid
+  from dbf_ingest.staging_rows
+  where batch_id='13cb25de-0b76-475a-b718-5f588be447fd'::uuid;
+
+  select
+    count(*) filter(where store_id is null),
+    count(*) filter(where store_id is not null
+      or company_id is distinct from 'e4059116-bdb3-4e13-9763-bbc77bdfe062'::uuid
+      or mapping_status<>'resolved' or validation_status not in('valid','warning')
+      or coalesce(normalized_payload->>'confirmationStatus','')<>'confirmed'
+      or coalesce(normalized_payload->>'taxBasis','')<>'TAX_EXCLUSIVE')
+  into v_bs_null_store_source,v_bs_scope_invalid
+  from dbf_ingest.staging_rows
+  where batch_id='0ffccfd2-1a39-404a-a41d-b16127ea9008'::uuid;
 
   select count(*) into v_mapping_unapproved
   from dbf_ingest.account_mapping_review_candidates c
@@ -154,6 +188,17 @@ begin
   select count(*) into v_existing_approval from dbf_ingest.corporate_accounting_approval_receipts;
   select count(*) into v_existing_promotion from dbf_ingest.corporate_accounting_promotion_receipts;
   select
+    (select count(*) from public.dbf_pl_detail_facts where fiscal_month=date '2026-06-01' and company_id='e4059116-bdb3-4e13-9763-bbc77bdfe062'::uuid),
+    (select count(*) from public.dbf_pl_aggregate_facts where fiscal_month=date '2026-06-01' and company_id='e4059116-bdb3-4e13-9763-bbc77bdfe062'::uuid),
+    (select count(*) from public.dbf_bs_facts where fiscal_month=date '2026-06-01' and company_id='e4059116-bdb3-4e13-9763-bbc77bdfe062'::uuid),
+    (select count(*) from public.dbf_budget_facts where fiscal_month=date '2026-06-01' and company_id='e4059116-bdb3-4e13-9763-bbc77bdfe062'::uuid),
+    (select count(*) from public.dbf_store_monthly_metric_facts where fiscal_month=date '2026-06-01' and company_id='e4059116-bdb3-4e13-9763-bbc77bdfe062'::uuid)
+  into v_baseline_pl_detail,v_baseline_pl_aggregate,v_baseline_bs,v_baseline_budget,v_baseline_store_metrics;
+  v_canonical_baseline:=jsonb_build_object(
+    'plDetail',v_baseline_pl_detail,'plAggregate',v_baseline_pl_aggregate,'bs',v_baseline_bs,
+    'budget',v_baseline_budget,'storeMetrics',v_baseline_store_metrics
+  );
+  select
     max(s.amount) filter(where c.proposed_account_code='TOTAL_SALES'),
     max(s.amount) filter(where c.proposed_account_code='TECHNICAL_SALES'),
     max(s.amount) filter(where c.proposed_account_code='PRODUCT_SALES'),
@@ -168,27 +213,32 @@ begin
   where c.fiscal_month=date '2026-06-01' and c.company_id='e4059116-bdb3-4e13-9763-bbc77bdfe062'::uuid
     and c.decision in('APPROVE','EDIT_AND_APPROVE') and c.row_semantics='CONTROL_TOTAL' and s.store_id is null;
   if v_total<>138 or v_unreviewed<>0 or v_needs<>0 or v_approved+v_excluded<>138 or v_audit<138 then v_blockers:=v_blockers||'"OWNER_REVIEW_INCOMPLETE"'::jsonb; end if;
+  if v_audit_mismatch<>0 then v_blockers:=v_blockers||'"REVIEW_AUDIT_STATE_MISMATCH"'::jsonb; end if;
   if v_semantics_missing<>0 then v_blockers:=v_blockers||'"ROW_SEMANTICS_INCOMPLETE"'::jsonb; end if;
   if v_mapping_unapproved<>0 or v_approved=0 then v_blockers:=v_blockers||'"ACCOUNT_MAPPING_UNAPPROVED"'::jsonb; end if;
   if v_pl_source<>71 or v_bs_source<>67 then v_blockers:=v_blockers||'"SOURCE_SCOPE_COUNT_MISMATCH"'::jsonb; end if;
+  if v_pl_aggregate_source<>71 or v_pl_store_detail_source<>781 or v_bs_null_store_source<>67
+    or v_pl_scope_invalid<>0 or v_bs_scope_invalid<>0 then v_blockers:=v_blockers||'"SOURCE_ROW_SCOPE_INVALID"'::jsonb; end if;
   if v_duplicate<>0 then v_blockers:=v_blockers||'"DUPLICATE_CANONICAL_ACCOUNT"'::jsonb; end if;
   if (v_total_sales,v_technical_sales,v_product_sales,v_ec_sales,v_ordinary_profit,v_assets,v_liabilities,v_equity)
     is distinct from (88066258::numeric,72040100::numeric,14776957::numeric,1249201::numeric,5704265::numeric,570155249::numeric,213188431::numeric,356966818::numeric)
     or coalesce(v_assets-v_liabilities-v_equity,1)<>0 then v_blockers:=v_blockers||'"CONTROL_TOTAL_MISMATCH"'::jsonb; end if;
   if v_existing_approval=0 then v_blockers:=v_blockers||'"APPROVAL_RECEIPT_MISSING"'::jsonb; end if;
   if v_existing_promotion<>0 then v_blockers:=v_blockers||'"ALREADY_PROMOTED"'::jsonb; end if;
+  if v_baseline_pl_detail<>0 or v_baseline_pl_aggregate<>0 or v_baseline_bs<>0
+    or v_baseline_budget<>0 or v_baseline_store_metrics<>0 then v_blockers:=v_blockers||'"CANONICAL_BASELINE_NOT_ZERO"'::jsonb; end if;
   v_allowed:=jsonb_array_length(v_blockers)=0;
   return jsonb_build_object(
     'scope','CORPORATE_ACCOUNTING_ACTUAL_V1','fiscalMonth','2026-06','companyId','e4059116-bdb3-4e13-9763-bbc77bdfe062',
-    'review',jsonb_build_object('total',v_total,'reviewed',v_total-v_unreviewed,'unreviewed',v_unreviewed,'needsReview',v_needs,'approved',v_approved,'excluded',v_excluded,'auditCount',v_audit),
+    'review',jsonb_build_object('total',v_total,'reviewed',v_total-v_unreviewed,'unreviewed',v_unreviewed,'needsReview',v_needs,'approved',v_approved,'excluded',v_excluded,'auditCount',v_audit,'auditMismatchCount',v_audit_mismatch),
     'mappingVersion',v_mapping_version,'mappingDigest',v_mapping_digest,'rowSemanticsDigest',v_semantics_digest,'selectedRowDigest',v_selected_digest,
-    'sourceRows',jsonb_build_object('pl',v_pl_source,'bs',v_bs_source),
+    'sourceRows',jsonb_build_object('pl',v_pl_source,'plAggregate',v_pl_aggregate_source,'plStoreDetail',v_pl_store_detail_source,'bs',v_bs_source,'bsNullStore',v_bs_null_store_source),
     'canonicalCandidates',jsonb_build_object('plDetail',case when v_allowed then v_pl_detail else 0 end,'plAggregate',case when v_allowed then v_pl_control else 0 end,'bs',case when v_allowed then v_bs_candidate else 0 end,'budget',0,'storeMetrics',0),
     'excludedSubtotalCount',v_derived,'excludedDisplayOnlyCount',v_display,'duplicateGrainCount',greatest(v_duplicate,0),
     'controlTotals',jsonb_build_object('status',case when v_allowed then 'READY_FOR_EXACT_RECONCILIATION' else 'BLOCKED' end,
       'pl',jsonb_build_object('totalSales',88066258,'technicalSales',72040100,'productSales',14776957,'ecSales',1249201,'ordinaryProfit',5704265),
       'bs',jsonb_build_object('assets',570155249,'liabilities',213188431,'equity',356966818,'difference',0)),
-    'canonicalBaseline',jsonb_build_object('plDetail',0,'plAggregate',0,'bs',0,'budget',0,'storeMetrics',0),
+    'canonicalBaseline',v_canonical_baseline,
     'existingApprovalReceipt',v_existing_approval,'existingPromotionReceipt',v_existing_promotion,
     'idempotencyStatus',case when v_existing_promotion=0 then 'UNUSED' else 'USED' end,
     'promotionAllowed',v_allowed,'blockingReasons',v_blockers);
@@ -201,7 +251,7 @@ create function public.dbf_import_promote_corporate_accounting_v1(
   p_approval_scope_digest text,p_transaction_plan_digest text,p_expected_pl_candidate_count integer,
   p_expected_bs_candidate_count integer,p_expected_canonical_baseline jsonb,p_expected_post_state jsonb
 ) returns jsonb language plpgsql security definer
-set search_path = pg_catalog, public, dbf_ingest, accounting, extensions as $fn$
+set search_path = pg_catalog, dbf_ingest, accounting as $fn$
 declare v_preflight jsonb; v_receipt uuid; v_pl_detail integer; v_pl_aggregate integer; v_bs integer;
 begin
   perform pg_advisory_xact_lock(hashtextextended('CORPORATE_ACCOUNTING_ACTUAL_V1|2026-06|e4059116-bdb3-4e13-9763-bbc77bdfe062',0));
@@ -214,6 +264,7 @@ begin
     or p_mapping_digest !~ '^[0-9a-f]{64}$' or p_row_semantics_digest !~ '^[0-9a-f]{64}$'
     or p_preview_digest !~ '^[0-9a-f]{64}$' or p_control_total_digest !~ '^[0-9a-f]{64}$'
     or p_approval_scope_digest !~ '^[0-9a-f]{64}$' or p_transaction_plan_digest !~ '^[0-9a-f]{64}$' then raise exception 'DBF_DIGEST_REJECTED'; end if;
+  if exists(select 1 from dbf_ingest.corporate_accounting_promotion_receipts where idempotency_key=p_idempotency_key) then raise exception 'DBF_IDEMPOTENCY_REPLAY'; end if;
   if p_source_file_ids <> '["4b113b1b-db39-4fbf-908f-67f83f712dce","c27acc17-fdd0-4113-90c2-73b646913f99"]'::jsonb
     or p_source_file_digests <> '["997e89c54b12334d3aa477a78aff9487d46042822a5ff9ab0cd9fe0f86f073d1","f18c9464a9a070ff641140178b19532dbd8dd319e739eb2e2bcef325adfda54c"]'::jsonb then raise exception 'DBF_SOURCE_DIGEST_REJECTED'; end if;
   if (select count(*) from dbf_ingest.source_files where (id,sha256) in (
@@ -221,37 +272,66 @@ begin
       ('c27acc17-fdd0-4113-90c2-73b646913f99'::uuid,'f18c9464a9a070ff641140178b19532dbd8dd319e739eb2e2bcef325adfda54c')))<>2
     or not exists(select 1 from dbf_ingest.import_batches where id=p_pl_batch_id and source_file_id='c27acc17-fdd0-4113-90c2-73b646913f99'::uuid and fact_kind='pl' and fiscal_month=date '2026-06-01')
     or not exists(select 1 from dbf_ingest.import_batches where id=p_bs_batch_id and source_file_id='c27acc17-fdd0-4113-90c2-73b646913f99'::uuid and fact_kind='bs' and fiscal_month=date '2026-06-01') then raise exception 'DBF_SOURCE_DB_EVIDENCE_REJECTED'; end if;
-  if exists(select 1 from dbf_ingest.staging_rows where batch_id in(p_pl_batch_id,p_bs_batch_id)
-      and (company_id is distinct from p_company_id or store_id is not null or mapping_status<>'resolved'
+  if exists(select 1 from dbf_ingest.staging_rows where batch_id=p_pl_batch_id
+      and (source_row_category not in('aggregate','detail')
+        or (source_row_category='aggregate' and store_id is not null)
+        or (source_row_category='detail' and store_id is null)
+        or company_id is distinct from p_company_id or mapping_status<>'resolved'
         or validation_status not in('valid','warning') or coalesce(normalized_payload->>'confirmationStatus','')<>'confirmed'
-        or coalesce(normalized_payload->>'taxBasis','TAX_EXCLUSIVE')<>'TAX_EXCLUSIVE'))
+        or coalesce(normalized_payload->>'taxBasis','')<>'TAX_EXCLUSIVE'))
+    or exists(select 1 from dbf_ingest.staging_rows where batch_id=p_bs_batch_id
+      and (store_id is not null or company_id is distinct from p_company_id or mapping_status<>'resolved'
+        or validation_status not in('valid','warning') or coalesce(normalized_payload->>'confirmationStatus','')<>'confirmed'
+        or coalesce(normalized_payload->>'taxBasis','')<>'TAX_EXCLUSIVE'))
     or (select count(*) from dbf_ingest.staging_rows where batch_id=p_pl_batch_id and source_row_category='aggregate' and store_id is null)<>71
+    or (select count(*) from dbf_ingest.staging_rows where batch_id=p_pl_batch_id and source_row_category='detail' and store_id is not null)<>781
     or (select count(*) from dbf_ingest.staging_rows where batch_id=p_bs_batch_id and store_id is null)<>67
     then raise exception 'DBF_SCOPE_LEAKAGE_REJECTED'; end if;
-  if p_expected_canonical_baseline<>jsonb_build_object('plDetail',0,'plAggregate',0,'bs',0,'budget',0,'storeMetrics',0) then raise exception 'DBF_CANONICAL_BASELINE_REJECTED'; end if;
   v_preflight:=public.dbf_corporate_accounting_promotion_preflight_v1();
+  if coalesce((v_preflight->'canonicalBaseline'->>'plDetail')::integer,0)<>0
+    or coalesce((v_preflight->'canonicalBaseline'->>'plAggregate')::integer,0)<>0
+    or coalesce((v_preflight->'canonicalBaseline'->>'bs')::integer,0)<>0
+    or coalesce((v_preflight->'canonicalBaseline'->>'budget')::integer,0)<>0
+    or coalesce((v_preflight->'canonicalBaseline'->>'storeMetrics')::integer,0)<>0
+    then raise exception 'CANONICAL_BASELINE_NOT_ZERO'; end if;
+  if p_expected_canonical_baseline is distinct from v_preflight->'canonicalBaseline' then raise exception 'DBF_CANONICAL_BASELINE_REJECTED'; end if;
+  if v_preflight->'blockingReasons' ? 'REVIEW_AUDIT_STATE_MISMATCH' then raise exception 'REVIEW_AUDIT_STATE_MISMATCH'; end if;
   if coalesce((v_preflight->>'promotionAllowed')::boolean,false) is not true then raise exception 'DBF_PREFLIGHT_REJECTED'; end if;
   if v_preflight->>'selectedRowDigest'<>p_selected_row_digest or v_preflight->>'mappingVersion'<>p_mapping_version
     or v_preflight->>'mappingDigest'<>p_mapping_digest or v_preflight->>'rowSemanticsDigest'<>p_row_semantics_digest then raise exception 'DBF_STALE_MANIFEST_REJECTED'; end if;
   if not exists(select 1 from dbf_ingest.corporate_accounting_approval_receipts where approval_scope_digest=p_approval_scope_digest
     and mapping_digest=p_mapping_digest and row_semantics_digest=p_row_semantics_digest) then raise exception 'DBF_APPROVAL_SCOPE_REJECTED'; end if;
-  if exists(select 1 from dbf_ingest.corporate_accounting_promotion_receipts where idempotency_key=p_idempotency_key) then raise exception 'DBF_IDEMPOTENCY_REPLAY'; end if;
   perform set_config('dbf.corporate_accounting_scope','CORPORATE_ACCOUNTING_ACTUAL_V1',true);
 
   insert into public.dbf_pl_detail_facts(fiscal_month,company_id,store_id,account_code,account_name,amount,source_type,source_file_id,batch_id,imported_by_employee_id,version,status,row_semantics,is_additive)
-  select date '2026-06-01',c.company_id,null,c.proposed_account_code,c.proposed_account_name,s.amount,b.source_type,b.source_file_id,b.id,p_actor_employee_id,1,'confirmed','POSTABLE_DETAIL',true
-  from dbf_ingest.account_mapping_review_candidates c join dbf_ingest.staging_rows s on s.batch_id=c.source_batch_id and s.account_code=c.source_account_code
-  join dbf_ingest.import_batches b on b.id=s.batch_id where c.statement_type='pl' and c.decision in('APPROVE','EDIT_AND_APPROVE') and c.row_semantics='POSTABLE_DETAIL' and s.store_id is null;
+  select p_fiscal_month,c.company_id,null,c.proposed_account_code,c.proposed_account_name,s.amount,b.source_type,b.source_file_id,b.id,p_actor_employee_id,1,'confirmed','POSTABLE_DETAIL',true
+  from dbf_ingest.account_mapping_review_candidates c
+  join dbf_ingest.staging_rows s on s.batch_id=c.source_batch_id and s.account_code=c.source_account_code and s.company_id=c.company_id
+  join dbf_ingest.import_batches b on b.id=s.batch_id
+  where c.fiscal_month=p_fiscal_month and c.company_id=p_company_id and c.source_batch_id=p_pl_batch_id
+    and s.batch_id=p_pl_batch_id and s.source_row_category='aggregate' and s.store_id is null
+    and b.id=p_pl_batch_id and c.statement_type='pl' and c.decision in('APPROVE','EDIT_AND_APPROVE')
+    and c.row_semantics='POSTABLE_DETAIL';
   get diagnostics v_pl_detail=row_count;
   insert into public.dbf_pl_aggregate_facts(fiscal_month,company_id,aggregate_scope,account_code,account_name,amount,source_type,source_file_id,batch_id,imported_by_employee_id,version,status,row_semantics,is_additive)
-  select date '2026-06-01',c.company_id,'company_total',c.proposed_account_code,c.proposed_account_name,s.amount,b.source_type,b.source_file_id,b.id,p_actor_employee_id,1,'confirmed','CONTROL_TOTAL',false
-  from dbf_ingest.account_mapping_review_candidates c join dbf_ingest.staging_rows s on s.batch_id=c.source_batch_id and s.account_code=c.source_account_code
-  join dbf_ingest.import_batches b on b.id=s.batch_id where c.statement_type='pl' and c.decision in('APPROVE','EDIT_AND_APPROVE') and c.row_semantics='CONTROL_TOTAL' and s.store_id is null;
+  select p_fiscal_month,c.company_id,'company_total',c.proposed_account_code,c.proposed_account_name,s.amount,b.source_type,b.source_file_id,b.id,p_actor_employee_id,1,'confirmed','CONTROL_TOTAL',false
+  from dbf_ingest.account_mapping_review_candidates c
+  join dbf_ingest.staging_rows s on s.batch_id=c.source_batch_id and s.account_code=c.source_account_code and s.company_id=c.company_id
+  join dbf_ingest.import_batches b on b.id=s.batch_id
+  where c.fiscal_month=p_fiscal_month and c.company_id=p_company_id and c.source_batch_id=p_pl_batch_id
+    and s.batch_id=p_pl_batch_id and s.source_row_category='aggregate' and s.store_id is null
+    and b.id=p_pl_batch_id and c.statement_type='pl' and c.decision in('APPROVE','EDIT_AND_APPROVE')
+    and c.row_semantics='CONTROL_TOTAL';
   get diagnostics v_pl_aggregate=row_count;
   insert into public.dbf_bs_facts(fiscal_month,company_id,account_code,account_name,amount,classification,source_file_id,batch_id,imported_by_employee_id,version,status,row_semantics,is_additive)
-  select date '2026-06-01',c.company_id,c.proposed_account_code,c.proposed_account_name,s.amount,s.normalized_payload->>'classification',b.source_file_id,b.id,p_actor_employee_id,1,'confirmed',c.row_semantics,c.row_semantics='POSTABLE_DETAIL'
-  from dbf_ingest.account_mapping_review_candidates c join dbf_ingest.staging_rows s on s.batch_id=c.source_batch_id and s.account_code=c.source_account_code
-  join dbf_ingest.import_batches b on b.id=s.batch_id where c.statement_type='bs' and c.decision in('APPROVE','EDIT_AND_APPROVE') and c.row_semantics in('POSTABLE_DETAIL','CONTROL_TOTAL') and s.store_id is null;
+  select p_fiscal_month,c.company_id,c.proposed_account_code,c.proposed_account_name,s.amount,s.normalized_payload->>'classification',b.source_file_id,b.id,p_actor_employee_id,1,'confirmed',c.row_semantics,c.row_semantics='POSTABLE_DETAIL'
+  from dbf_ingest.account_mapping_review_candidates c
+  join dbf_ingest.staging_rows s on s.batch_id=c.source_batch_id and s.account_code=c.source_account_code and s.company_id=c.company_id
+  join dbf_ingest.import_batches b on b.id=s.batch_id
+  where c.fiscal_month=p_fiscal_month and c.company_id=p_company_id and c.source_batch_id=p_bs_batch_id
+    and s.batch_id=p_bs_batch_id and s.store_id is null and b.id=p_bs_batch_id
+    and c.statement_type='bs' and c.decision in('APPROVE','EDIT_AND_APPROVE')
+    and c.row_semantics in('POSTABLE_DETAIL','CONTROL_TOTAL');
   get diagnostics v_bs=row_count;
   if v_pl_detail+v_pl_aggregate<>p_expected_pl_candidate_count or v_bs<>p_expected_bs_candidate_count
     or p_expected_post_state<>jsonb_build_object('plDetail',v_pl_detail,'plAggregate',v_pl_aggregate,'bs',v_bs,'budget',0,'storeMetrics',0) then raise exception 'DBF_POST_STATE_REJECTED'; end if;

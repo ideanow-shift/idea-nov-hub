@@ -22,7 +22,7 @@ test("receipt and audit relations are private, forced-RLS, append-only", () => {
   assert.doesNotMatch(migration, /grant\s+(insert|update|delete|all).*authenticated/iu);
 });
 
-test("scope, source, control totals and canonical zero baseline are fixed", () => {
+test("scope, source and control totals are fixed while canonical baseline is read live", () => {
   for (const evidence of [
     "CORPORATE_ACCOUNTING_ACTUAL_V1", "2026-06-01", "e4059116-bdb3-4e13-9763-bbc77bdfe062",
     "13cb25de-0b76-475a-b718-5f588be447fd", "0ffccfd2-1a39-404a-a41d-b16127ea9008",
@@ -31,7 +31,12 @@ test("scope, source, control totals and canonical zero baseline are fixed", () =
     "88066258", "72040100", "14776957", "1249201", "5704265",
     "570155249", "213188431", "356966818",
   ]) assert.match(migration, new RegExp(evidence, "u"));
-  assert.match(migration, /'plDetail',0,'plAggregate',0,'bs',0,'budget',0,'storeMetrics',0/u);
+  for (const table of ["dbf_pl_detail_facts", "dbf_pl_aggregate_facts", "dbf_bs_facts", "dbf_budget_facts", "dbf_store_monthly_metric_facts"]) {
+    assert.match(migration, new RegExp(`select count\\(\\*\\) from public\\.${table} where fiscal_month=date '2026-06-01' and company_id=`, "u"));
+  }
+  assert.match(migration, /'canonicalBaseline',v_canonical_baseline/u);
+  assert.match(migration, /CANONICAL_BASELINE_NOT_ZERO/u);
+  assert.match(migration, /p_expected_canonical_baseline is distinct from v_preflight->'canonicalBaseline'/u);
 });
 
 test("current incomplete review is fail-close and generic RPC rejects Pilot batches", () => {
@@ -50,4 +55,34 @@ test("server-side selection excludes non-approved and non-promotable semantics",
   assert.match(migration, /row_semantics='CONTROL_TOTAL'/u);
   assert.match(migration, /row_semantics in\('POSTABLE_DETAIL','CONTROL_TOTAL'\)/u);
   assert.doesNotMatch(migration, /insert into public\.dbf_(budget|store_monthly_metric)_facts/iu);
+});
+
+test("real Staging 71 aggregate plus 781 store-detail plus 67 BS shape is explicit", () => {
+  assert.match(migration, /source_row_category='aggregate' and store_id is null\)<>71/u);
+  assert.match(migration, /source_row_category='detail' and store_id is not null\)<>781/u);
+  assert.match(migration, /batch_id=p_bs_batch_id and store_id is null\)<>67/u);
+  assert.match(migration, /\(source_row_category='aggregate' and store_id is not null\)/u);
+  assert.match(migration, /\(source_row_category='detail' and store_id is null\)/u);
+  assert.match(migration, /coalesce\(normalized_payload->>'taxBasis',''\)<>'TAX_EXCLUSIVE'/u);
+});
+
+test("all three fact inserts are pinned to fiscal month, company, batch and selected source shape", () => {
+  assert.equal((migration.match(/c\.fiscal_month=p_fiscal_month and c\.company_id=p_company_id and c\.source_batch_id=p_pl_batch_id/gu) || []).length, 2);
+  assert.equal((migration.match(/s\.batch_id=p_pl_batch_id and s\.source_row_category='aggregate' and s\.store_id is null/gu) || []).length, 2);
+  assert.match(migration, /c\.fiscal_month=p_fiscal_month and c\.company_id=p_company_id and c\.source_batch_id=p_bs_batch_id/u);
+  assert.match(migration, /s\.batch_id=p_bs_batch_id and s\.store_id is null/u);
+  assert.equal((migration.match(/c\.statement_type='pl'/gu) || []).length >= 2, true);
+  assert.match(migration, /c\.statement_type='bs'/u);
+});
+
+test("review completion requires latest non-initialize audit decision parity", () => {
+  assert.match(migration, /latest\.decision is distinct from c\.decision/u);
+  assert.match(migration, /REVIEW_AUDIT_STATE_MISMATCH/u);
+  assert.match(migration, /'auditMismatchCount',v_audit_mismatch/u);
+});
+
+test("security-definer RPCs exclude public from hardened search_path", () => {
+  assert.equal((migration.match(/set search_path = pg_catalog, dbf_ingest, accounting as \$fn\$/gu) || []).length, 2);
+  assert.doesNotMatch(migration, /set search_path = [^\n]*public[^\n]*as \$fn\$/u);
+  assert.match(migration, /extensions\.digest/u);
 });

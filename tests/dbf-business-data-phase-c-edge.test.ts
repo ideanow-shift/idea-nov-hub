@@ -3,6 +3,8 @@ import { handleDbfBusinessDataRequest } from "../supabase/functions/dbf-business
 
 const TOKEN = `x.${"a".repeat(40)}.${"b".repeat(40)}`;
 const ACTOR = "11111111-1111-4111-8111-111111111111";
+const MANIFEST_REF = "a".repeat(64);
+const TRUSTED_MANIFEST = JSON.stringify({ manifestRef: MANIFEST_REF, scopeCode: "CORPORATE_ACCOUNTING_ACTUAL_V1" });
 
 function runtime(fetchImpl: typeof fetch, overrides = {}) {
   return {
@@ -215,4 +217,87 @@ Deno.test("Pilot 2026-06 read route composes validated RPC previews without a bu
   assertEquals(calls.filter((call) => call.url.includes("/rpc/dbf_import_preview_v1")).length, 5);
   assertEquals(maxPreviewInFlight, 1);
   assertEquals(calls.some((call) => /approve|promote/u.test(call.url)), false);
+});
+
+Deno.test("Corporate Accounting preflight is authorized and calls only the dedicated read RPC", async () => {
+  const calls: Array<{ url: string; body: any }> = [];
+  const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input); const body = init?.body ? JSON.parse(String(init.body)) : null;
+    calls.push({ url, body });
+    if (url.startsWith("https://hub.example")) return Response.json({ ok: true, data: {
+      actorEmployeeId: ACTOR, capability: { businessDataAdmin: true }, scope: "all",
+    }});
+    return Response.json({ promotionAllowed: false, blockingReasons: [
+      "OWNER_REVIEW_INCOMPLETE", "ROW_SEMANTICS_INCOMPLETE", "ACCOUNT_MAPPING_UNAPPROVED",
+    ] });
+  };
+  const result = await handleDbfBusinessDataRequest(
+    request("dbfCorporateAccountingPromotionPreflightV1", {}), runtime(fetchImpl, {
+      corporateAccountingExecution: "ENABLED", corporatePromotionManifestJson: TRUSTED_MANIFEST,
+    }));
+  assertEquals(result.status, 200);
+  assertEquals(calls.length, 2);
+  assertEquals(calls[1].url.endsWith("/rpc/dbf_corporate_accounting_promotion_preflight_v1"), true);
+  assertEquals(calls[1].body.p_manifest_ref, MANIFEST_REF);
+});
+
+Deno.test("Corporate Accounting execution defaults OFF and makes no approval or promotion RPC call", async () => {
+  let dbCalls = 0;
+  const fetchImpl = async (input: RequestInfo | URL) => {
+    if (String(input).startsWith("https://hub.example")) return Response.json({ ok: true, data: {
+      actorEmployeeId: ACTOR, capability: { businessDataAdmin: true }, scope: "all",
+    }});
+    dbCalls += 1; return Response.json({});
+  };
+  for (const [action, payload] of [
+    ["dbfCorporateAccountingApproveV1", { manifestRef: MANIFEST_REF, requestId: ACTOR, ownerConfirmation: true }],
+    ["dbfCorporateAccountingPromoteV1", { manifestRef: MANIFEST_REF }],
+  ] as const) {
+    const result = await handleDbfBusinessDataRequest(request(action, payload), runtime(fetchImpl));
+    assertEquals(result.status, 503);
+  }
+  assertEquals(dbCalls, 0);
+});
+
+Deno.test("Corporate Accounting approval trusts HUB actor and server manifest, then calls dedicated RPC once", async () => {
+  const calls: Array<{ url: string; body: any }> = [];
+  const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input); const body = init?.body ? JSON.parse(String(init.body)) : null;
+    calls.push({ url, body });
+    if (url.startsWith("https://hub.example")) return Response.json({ ok: true, data: {
+      actorEmployeeId: ACTOR, capability: { businessDataAdmin: true }, scope: "all",
+    }});
+    return Response.json({ status: "approved", receiptId: ACTOR });
+  };
+  const result = await handleDbfBusinessDataRequest(request("dbfCorporateAccountingApproveV1", {
+    manifestRef: MANIFEST_REF, requestId: "22222222-2222-4222-8222-222222222222", ownerConfirmation: true,
+  }), runtime(fetchImpl, {
+    corporateAccountingExecution: "ENABLED", corporatePromotionManifestJson: TRUSTED_MANIFEST,
+  }));
+  assertEquals(result.status, 200);
+  assertEquals(calls.length, 2);
+  assertEquals(calls[1].url.endsWith("/rpc/dbf_corporate_accounting_approve_v1"), true);
+  assertEquals(calls[1].body, {
+    p_actor_employee_id: ACTOR,
+    p_request_id: "22222222-2222-4222-8222-222222222222",
+    p_manifest_ref: MANIFEST_REF,
+    p_owner_confirmation: true,
+  });
+});
+
+Deno.test("Corporate Accounting approval rejects untrusted manifest before RPC", async () => {
+  let dbCalls = 0;
+  const fetchImpl = async (input: RequestInfo | URL) => {
+    if (String(input).startsWith("https://hub.example")) return Response.json({ ok: true, data: {
+      actorEmployeeId: ACTOR, capability: { businessDataAdmin: true }, scope: "all",
+    }});
+    dbCalls += 1; return Response.json({});
+  };
+  const result = await handleDbfBusinessDataRequest(request("dbfCorporateAccountingApproveV1", {
+    manifestRef: "b".repeat(64), requestId: ACTOR, ownerConfirmation: true,
+  }), runtime(fetchImpl, {
+    corporateAccountingExecution: "ENABLED", corporatePromotionManifestJson: TRUSTED_MANIFEST,
+  }));
+  assertEquals(result.status, 409);
+  assertEquals(dbCalls, 0);
 });

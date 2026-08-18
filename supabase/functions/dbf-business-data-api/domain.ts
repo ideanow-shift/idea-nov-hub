@@ -342,6 +342,24 @@ export function normalizeActionPayload(action: DbfImportAction, value: unknown) 
     if (rowSemantics !== null && !new Set(["POSTABLE_DETAIL", "DERIVED_SUBTOTAL", "CONTROL_TOTAL", "DISPLAY_ONLY", "NEEDS_OWNER_REVIEW"]).has(rowSemantics)) throw new DbfRuntimeError("ROW_SEMANTICS_INVALID");
     const hierarchyLevel = payload.hierarchyLevel === null ? null : Number(payload.hierarchyLevel);
     if (hierarchyLevel !== null && (!Number.isInteger(hierarchyLevel) || hierarchyLevel < 0 || hierarchyLevel > 32)) throw new DbfRuntimeError("HIERARCHY_LEVEL_INVALID");
+    const isPostable = typeof payload.isPostable === "boolean" ? payload.isPostable : null;
+    const isControlTotal = typeof payload.isControlTotal === "boolean" ? payload.isControlTotal : null;
+    if (decision === "APPROVE" || decision === "EDIT_AND_APPROVE") {
+      if (!String(payload.proposedAccountCode || "").trim() || !String(payload.proposedAccountName || "").trim() ||
+          !String(payload.accountCategory || "").trim() ||
+          !new Set(["debit", "credit"]).has(String(payload.normalBalance || "")) ||
+          !new Set(["POSTABLE_DETAIL", "DERIVED_SUBTOTAL", "CONTROL_TOTAL", "DISPLAY_ONLY"]).has(rowSemantics || "")) {
+        throw new DbfRuntimeError("APPROVAL_FIELDS_REQUIRED");
+      }
+      const expectedFlags: Record<string, readonly [boolean, boolean]> = {
+        POSTABLE_DETAIL: [true, false], DERIVED_SUBTOTAL: [false, false],
+        CONTROL_TOTAL: [false, true], DISPLAY_ONLY: [false, false],
+      };
+      const expected = expectedFlags[rowSemantics!];
+      if (isPostable !== expected[0] || isControlTotal !== expected[1]) {
+        throw new DbfRuntimeError("ROW_SEMANTICS_FLAGS_MISMATCH");
+      }
+    }
     return {
       candidateId: uuid(payload.candidateId, "CANDIDATE_ID_INVALID"), requestId: uuid(payload.requestId, "REQUEST_ID_INVALID"), decision,
       proposedAccountCode: optionalSafeText(payload.proposedAccountCode, "ACCOUNT_CODE_INVALID", 64),
@@ -349,8 +367,7 @@ export function normalizeActionPayload(action: DbfImportAction, value: unknown) 
       accountCategory: optionalSafeText(payload.accountCategory, "ACCOUNT_CATEGORY_INVALID", 64),
       normalBalance: optionalSafeText(payload.normalBalance, "NORMAL_BALANCE_INVALID", 16),
       parentCandidateId: optionalUuid(payload.parentCandidateId, "PARENT_CANDIDATE_ID_INVALID"), hierarchyLevel, rowSemantics,
-      isPostable: typeof payload.isPostable === "boolean" ? payload.isPostable : null,
-      isControlTotal: typeof payload.isControlTotal === "boolean" ? payload.isControlTotal : null,
+      isPostable, isControlTotal,
     };
   }
   exactKeys(payload, ["fiscalMonth", "factKind", "limit"]);

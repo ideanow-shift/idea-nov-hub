@@ -150,3 +150,34 @@ Deno.test("Account review list rejects a non-Pilot company or month", async () =
     fiscalMonth: "2026-07",
   }), DbfRuntimeError, "COMPANY_SCOPE_REJECTED");
 });
+
+Deno.test("account review derives an exact fail-closed semantics contract", async () => {
+  const base = {
+    candidateId: "77777777-7777-4777-8777-777777777777",
+    requestId: "88888888-8888-4888-8888-888888888888",
+    decision: "APPROVE",
+    proposedAccountCode: "PL.TEST",
+    proposedAccountName: "Test account",
+    accountCategory: "revenue",
+    normalBalance: "credit",
+    parentCandidateId: null,
+    hierarchyLevel: 1,
+    rowSemantics: "DERIVED_SUBTOTAL",
+    isPostable: false,
+    isControlTotal: false,
+  };
+  const valid: any = normalizeActionPayload("dbfAccountReviewDecideV1", base);
+  assertEquals(valid.rowSemantics, "DERIVED_SUBTOTAL");
+  assertEquals(valid.isPostable, false);
+  assertEquals(valid.isControlTotal, false);
+
+  await assertRejects(async () => normalizeActionPayload("dbfAccountReviewDecideV1", {
+    ...base,
+    isPostable: true,
+  }), DbfRuntimeError, "ROW_SEMANTICS_FLAGS_MISMATCH");
+
+  await assertRejects(async () => normalizeActionPayload("dbfAccountReviewDecideV1", {
+    ...base,
+    rowSemantics: "NEEDS_OWNER_REVIEW",
+  }), DbfRuntimeError, "APPROVAL_FIELDS_REQUIRED");
+});

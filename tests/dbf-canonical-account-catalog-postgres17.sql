@@ -36,6 +36,15 @@ begin
     'public.dbf_account_review_decide_v1(uuid,uuid,uuid,text,text,text,text,text,uuid,integer,text,boolean,boolean)',
     'execute'
   ) then raise exception 'DBF_ACCOUNT_REVIEW_RPC_GRANT_MISSING'; end if;
+  if has_function_privilege(
+       'anon',
+       'public.dbf_account_review_decide_v1(uuid,uuid,uuid,text,text,text,text,text,uuid,integer,text,boolean,boolean)',
+       'execute'
+     ) or has_function_privilege(
+       'authenticated',
+       'public.dbf_account_review_decide_v1(uuid,uuid,uuid,text,text,text,text,text,uuid,integer,text,boolean,boolean)',
+       'execute'
+     ) then raise exception 'DBF_ACCOUNT_REVIEW_RPC_BROWSER_GRANT_LEAK'; end if;
 end
 $test$;
 
@@ -66,6 +75,12 @@ insert into dbf_ingest.account_mapping_review_candidates(
    'dbf-pilot-202606-account-owner-review-v1',repeat('a',64),'2026-06-01'),
   ('66666666-6666-4666-8666-666666666666','2026-06-01','e4059116-bdb3-4e13-9763-bbc77bdfe062',
    'pl','fixture','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','YAYOI_PL_R003','fixture three',1,
+   'dbf-pilot-202606-account-owner-review-v1',repeat('a',64),'2026-06-01'),
+  ('77777777-7777-4777-8777-777777777777','2026-06-01','e4059116-bdb3-4e13-9763-bbc77bdfe062',
+   'pl','fixture','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','YAYOI_PL_R004','fixture exclude',1,
+   'dbf-pilot-202606-account-owner-review-v1',repeat('a',64),'2026-06-01'),
+  ('88888888-8888-4888-8888-888888888888','2026-06-01','e4059116-bdb3-4e13-9763-bbc77bdfe062',
+   'pl','fixture','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','YAYOI_PL_R005','fixture needs review',1,
    'dbf-pilot-202606-account-owner-review-v1',repeat('a',64),'2026-06-01');
 
 set role service_role;
@@ -75,6 +90,29 @@ select public.dbf_account_review_decide_v1(
   'credit',null,1,'POSTABLE_DETAIL',true,false
 );
 reset role;
+
+do $test$
+declare
+  v_error text;
+begin
+  begin
+    perform public.dbf_account_review_decide_v1(
+      '11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','APPROVE','PL.TEST','Test account','revenue',
+      'credit',null,1,'POSTABLE_DETAIL',true,false
+    );
+    raise exception 'DBF_EXPECTED_DUPLICATE_REQUEST_REJECTION';
+  exception when others then
+    get stacked diagnostics v_error = message_text;
+    if v_error <> 'DBF_DUPLICATE_REVIEW_REQUEST' then raise; end if;
+  end;
+
+  if (select count(*) from dbf_ingest.account_mapping_review_audit
+      where candidate_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') <> 1 then
+    raise exception 'DBF_DUPLICATE_REQUEST_AUDIT_APPENDED';
+  end if;
+end
+$test$;
 
 do $test$
 declare
@@ -97,6 +135,90 @@ begin
      or (select count(*) from accounting.account_statement_mappings) <> 1 then
     raise exception 'DBF_DUPLICATE_CANONICAL_ACCOUNT_CREATED';
   end if;
+end
+$test$;
+
+-- EXCLUDE is a successful terminal owner decision and must not create canonical objects.
+select public.dbf_account_review_decide_v1(
+  '11111111-1111-4111-8111-111111111111','77777777-1111-4777-8777-111111111111',
+  '77777777-7777-4777-8777-777777777777','EXCLUDE',null,null,null,
+  null,null,null,null,null,null
+);
+
+do $test$
+declare
+  v_error text;
+  v_audit_count bigint;
+begin
+  if (select decision from dbf_ingest.account_mapping_review_candidates
+      where candidate_id='77777777-7777-4777-8777-777777777777') <> 'EXCLUDE' then
+    raise exception 'DBF_EXCLUDE_DECISION_NOT_PERSISTED';
+  end if;
+
+  select count(*) into v_audit_count
+  from dbf_ingest.account_mapping_review_audit
+  where candidate_id='77777777-7777-4777-8777-777777777777';
+  if v_audit_count <> 1 then raise exception 'DBF_EXCLUDE_AUDIT_COUNT_INVALID'; end if;
+
+  if exists(
+    select 1 from dbf_ingest.account_mapping_review_candidates
+    where candidate_id='77777777-7777-4777-8777-777777777777'
+      and (canonical_account_id is not null
+        or canonical_account_version_id is not null
+        or statement_mapping_version_id is not null)
+  ) then raise exception 'DBF_EXCLUDE_CANONICAL_OBJECT_CREATED'; end if;
+
+  begin
+    perform public.dbf_account_review_decide_v1(
+      '11111111-1111-4111-8111-111111111111','77777777-2222-4777-8777-222222222222',
+      '77777777-7777-4777-8777-777777777777','APPROVE','PL.TEST.EXCLUDED','Must stay excluded',
+      'revenue','credit',null,1,'POSTABLE_DETAIL',true,false
+    );
+    raise exception 'DBF_EXPECTED_EXCLUDE_FINAL_REJECTION';
+  exception when others then
+    get stacked diagnostics v_error = message_text;
+    if v_error <> 'DBF_ACCOUNT_REVIEW_ALREADY_FINAL' then raise; end if;
+  end;
+
+  if (select decision from dbf_ingest.account_mapping_review_candidates
+      where candidate_id='77777777-7777-4777-8777-777777777777') <> 'EXCLUDE'
+     or (select count(*) from dbf_ingest.account_mapping_review_audit
+         where candidate_id='77777777-7777-4777-8777-777777777777') <> 1
+     or exists(
+       select 1 from dbf_ingest.account_mapping_review_candidates
+       where candidate_id='77777777-7777-4777-8777-777777777777'
+         and (canonical_account_id is not null
+           or canonical_account_version_id is not null
+           or statement_mapping_version_id is not null)
+     ) then raise exception 'DBF_EXCLUDE_REDECISION_PARTIAL_WRITE'; end if;
+end
+$test$;
+
+-- NEEDS_REVIEW remains non-terminal and can be finalized later.
+select public.dbf_account_review_decide_v1(
+  '11111111-1111-4111-8111-111111111111','88888888-1111-4888-8888-111111111111',
+  '88888888-8888-4888-8888-888888888888','NEEDS_REVIEW',null,null,null,
+  null,null,null,null,null,null
+);
+select public.dbf_account_review_decide_v1(
+  '11111111-1111-4111-8111-111111111111','88888888-2222-4888-8888-222222222222',
+  '88888888-8888-4888-8888-888888888888','APPROVE','PL.TEST.REVIEWED','Reviewed account',
+  'revenue','credit',null,1,'POSTABLE_DETAIL',true,false
+);
+
+do $test$
+begin
+  if (select decision from dbf_ingest.account_mapping_review_candidates
+      where candidate_id='88888888-8888-4888-8888-888888888888') <> 'APPROVE'
+     or (select count(*) from dbf_ingest.account_mapping_review_audit
+         where candidate_id='88888888-8888-4888-8888-888888888888') <> 2
+     or not exists(
+       select 1 from dbf_ingest.account_mapping_review_candidates
+       where candidate_id='88888888-8888-4888-8888-888888888888'
+         and canonical_account_id is not null
+         and canonical_account_version_id is not null
+         and statement_mapping_version_id is not null
+     ) then raise exception 'DBF_NEEDS_REVIEW_FINALIZATION_FAILED'; end if;
 end
 $test$;
 

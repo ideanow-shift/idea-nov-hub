@@ -46,6 +46,8 @@ test("backend and database reject inconsistent semantics and repeated final appr
   assert.match(domain, /APPROVAL_FIELDS_REQUIRED/);
   assert.match(corrective, /DBF_ROW_SEMANTICS_FLAGS_MISMATCH/);
   assert.match(corrective, /DBF_ACCOUNT_REVIEW_ALREADY_FINAL/);
+  assert.match(corrective, /v_old\.decision in \('APPROVE','EDIT_AND_APPROVE','EXCLUDE'\)/);
+  assert.doesNotMatch(corrective, /v_old\.decision in \([^\n]*'NEEDS_REVIEW'/);
   assert.match(corrective, /DERIVED_SUBTOTAL' and p_is_postable is false and p_is_control_total is false/);
   assert.match(corrective, /set search_path = pg_catalog, accounting, dbf_ingest/);
   assert.doesNotMatch(corrective, /set search_path = [^\n]*public/);

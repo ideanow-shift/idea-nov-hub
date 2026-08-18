@@ -40,7 +40,7 @@ begin
     raise exception 'DBF_DUPLICATE_REVIEW_REQUEST';
   end if;
 
-  if v_old.decision in ('APPROVE','EDIT_AND_APPROVE')
+  if v_old.decision in ('APPROVE','EDIT_AND_APPROVE','EXCLUDE')
      or v_old.canonical_account_id is not null
      or v_old.canonical_account_version_id is not null
      or v_old.statement_mapping_version_id is not null then

@@ -181,3 +181,30 @@ Deno.test("account review derives an exact fail-closed semantics contract", asyn
     rowSemantics: "NEEDS_OWNER_REVIEW",
   }), DbfRuntimeError, "APPROVAL_FIELDS_REQUIRED");
 });
+
+Deno.test("generic promotion rejects both Corporate Accounting Pilot batches", async () => {
+  for (const batchId of [
+    "13cb25de-0b76-475a-b718-5f588be447fd",
+    "0ffccfd2-1a39-404a-a41d-b16127ea9008",
+  ]) {
+    await assertRejects(async () => normalizeActionPayload("dbfImportPromoteV1", { batchId }),
+      DbfRuntimeError, "CORPORATE_SCOPE_REQUIRES_SCOPED_PROMOTION");
+  }
+});
+
+Deno.test("Corporate Accounting actions accept no browser scope or financial rows", async () => {
+  assertEquals(normalizeActionPayload("dbfCorporateAccountingPromotionPreflightV1", {}), {});
+  assertEquals(normalizeActionPayload("dbfCorporateAccountingPromoteV1", { manifestRef: "a".repeat(64) }),
+    { manifestRef: "a".repeat(64) });
+  for (const payload of [
+    { companyId: "e4059116-bdb3-4e13-9763-bbc77bdfe062" },
+    { manifestRef: "a".repeat(64), actor: COMPANY },
+    { manifestRef: "a".repeat(64), rowIds: [COMPANY] },
+    { manifestRef: "a".repeat(64), amount: 1 },
+  ]) {
+    await assertRejects(async () => normalizeActionPayload(
+      Object.hasOwn(payload, "manifestRef") ? "dbfCorporateAccountingPromoteV1" : "dbfCorporateAccountingPromotionPreflightV1",
+      payload,
+    ), DbfRuntimeError, "UNEXPECTED_FIELD");
+  }
+});

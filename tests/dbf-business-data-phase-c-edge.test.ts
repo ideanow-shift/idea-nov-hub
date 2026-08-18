@@ -216,3 +216,36 @@ Deno.test("Pilot 2026-06 read route composes validated RPC previews without a bu
   assertEquals(maxPreviewInFlight, 1);
   assertEquals(calls.some((call) => /approve|promote/u.test(call.url)), false);
 });
+
+Deno.test("Corporate Accounting preflight is authorized and calls only the dedicated read RPC", async () => {
+  const calls: Array<{ url: string; body: any }> = [];
+  const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input); const body = init?.body ? JSON.parse(String(init.body)) : null;
+    calls.push({ url, body });
+    if (url.startsWith("https://hub.example")) return Response.json({ ok: true, data: {
+      actorEmployeeId: ACTOR, capability: { businessDataAdmin: true }, scope: "all",
+    }});
+    return Response.json({ promotionAllowed: false, blockingReasons: [
+      "OWNER_REVIEW_INCOMPLETE", "ROW_SEMANTICS_INCOMPLETE", "ACCOUNT_MAPPING_UNAPPROVED",
+    ] });
+  };
+  const result = await handleDbfBusinessDataRequest(
+    request("dbfCorporateAccountingPromotionPreflightV1", {}), runtime(fetchImpl));
+  assertEquals(result.status, 200);
+  assertEquals(calls.length, 2);
+  assertEquals(calls[1].url.endsWith("/rpc/dbf_corporate_accounting_promotion_preflight_v1"), true);
+});
+
+Deno.test("Corporate Accounting execution defaults OFF and makes no promotion RPC call", async () => {
+  let dbCalls = 0;
+  const fetchImpl = async (input: RequestInfo | URL) => {
+    if (String(input).startsWith("https://hub.example")) return Response.json({ ok: true, data: {
+      actorEmployeeId: ACTOR, capability: { businessDataAdmin: true }, scope: "all",
+    }});
+    dbCalls += 1; return Response.json({});
+  };
+  const result = await handleDbfBusinessDataRequest(
+    request("dbfCorporateAccountingPromoteV1", { manifestRef: "a".repeat(64) }), runtime(fetchImpl));
+  assertEquals(result.status, 503);
+  assertEquals(dbCalls, 0);
+});

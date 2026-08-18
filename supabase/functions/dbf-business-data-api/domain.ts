@@ -13,6 +13,8 @@ export const DBF_IMPORT_ACTIONS = Object.freeze([
   "dbfAccountReviewInitializeV1",
   "dbfAccountReviewListV1",
   "dbfAccountReviewDecideV1",
+  "dbfCorporateAccountingPromotionPreflightV1",
+  "dbfCorporateAccountingPromoteV1",
 ] as const);
 
 export type DbfImportAction = typeof DBF_IMPORT_ACTIONS[number];
@@ -302,7 +304,22 @@ export function normalizeActionPayload(action: DbfImportAction, value: unknown) 
   }
   if (action === "dbfImportPromoteV1") {
     exactKeys(payload, ["batchId"]);
-    return { batchId: uuid(payload.batchId, "BATCH_ID_INVALID") };
+    const batchId = uuid(payload.batchId, "BATCH_ID_INVALID");
+    if (new Set([
+      "13cb25de-0b76-475a-b718-5f588be447fd",
+      "0ffccfd2-1a39-404a-a41d-b16127ea9008",
+    ]).has(batchId)) throw new DbfRuntimeError("CORPORATE_SCOPE_REQUIRES_SCOPED_PROMOTION");
+    return { batchId };
+  }
+  if (action === "dbfCorporateAccountingPromotionPreflightV1") {
+    exactKeys(payload, []);
+    return {};
+  }
+  if (action === "dbfCorporateAccountingPromoteV1") {
+    exactKeys(payload, ["manifestRef"]);
+    const manifestRef = String(payload.manifestRef || "").toLowerCase();
+    if (!SHA256.test(manifestRef)) throw new DbfRuntimeError("MANIFEST_REFERENCE_INVALID");
+    return { manifestRef };
   }
   if (action === "dbfImportPreviewV1") {
     exactKeys(payload, ["batchId"]);

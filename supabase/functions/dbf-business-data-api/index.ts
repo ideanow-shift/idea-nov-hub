@@ -9,6 +9,8 @@ type Runtime = {
   expectedProjectRef: string;
   runtimeImport: string;
   productionWrite: string;
+  corporateAccountingExecution?: string;
+  corporatePromotionManifestJson?: string;
   fetchImpl: typeof fetch;
 };
 
@@ -172,6 +174,9 @@ async function readPilotMonthPreview(runtime: Runtime, payload: any) {
 }
 
 function rpcRequest(action: string, payload: any, actorEmployeeId: string) {
+  if (action === "dbfCorporateAccountingPromotionPreflightV1") {
+    return ["dbf_corporate_accounting_promotion_preflight_v1", {}] as const;
+  }
   if (action === "dbfAccountReviewInitializeV1") return ["dbf_account_review_initialize_v1", {
     p_actor_employee_id: actorEmployeeId, p_request_id: crypto.randomUUID(), p_company_id: payload.companyId,
     p_mapping_version: payload.mappingVersion, p_mapping_digest: payload.mappingDigest,
@@ -229,6 +234,51 @@ function rpcRequest(action: string, payload: any, actorEmployeeId: string) {
   }] as const;
 }
 
+function trustedCorporateManifest(runtime: Runtime, manifestRef: string, actorEmployeeId: string) {
+  if (runtime.corporateAccountingExecution !== "ENABLED") {
+    throw new DbfRuntimeError("CORPORATE_ACCOUNTING_EXECUTION_DISABLED", 503);
+  }
+  let value: Record<string, unknown>;
+  try {
+    value = JSON.parse(runtime.corporatePromotionManifestJson || "") as Record<string, unknown>;
+  } catch {
+    throw new DbfRuntimeError("TRUSTED_MANIFEST_UNAVAILABLE", 503);
+  }
+  if (value.manifestRef !== manifestRef || value.scopeCode !== "CORPORATE_ACCOUNTING_ACTUAL_V1") {
+    throw new DbfRuntimeError("TRUSTED_MANIFEST_MISMATCH", 409);
+  }
+  const allowed = new Set([
+    "manifestRef", "scopeCode", "idempotencyKey", "fiscalMonth", "companyId", "plBatchId", "bsBatchId",
+    "sourceFileIds", "sourceFileDigests", "selectedRowDigest", "mappingVersion", "mappingDigest",
+    "rowSemanticsDigest", "previewDigest", "controlTotalDigest", "approvalScopeDigest", "transactionPlanDigest",
+    "expectedPlCandidateCount", "expectedBsCandidateCount", "expectedCanonicalBaseline", "expectedPostState",
+  ]);
+  if (Object.keys(value).some((key) => !allowed.has(key))) throw new DbfRuntimeError("TRUSTED_MANIFEST_INVALID", 503);
+  return {
+    p_actor_employee_id: actorEmployeeId,
+    p_promotion_scope_id: value.scopeCode,
+    p_idempotency_key: value.idempotencyKey,
+    p_fiscal_month: value.fiscalMonth,
+    p_company_id: value.companyId,
+    p_pl_batch_id: value.plBatchId,
+    p_bs_batch_id: value.bsBatchId,
+    p_source_file_ids: value.sourceFileIds,
+    p_source_file_digests: value.sourceFileDigests,
+    p_selected_row_digest: value.selectedRowDigest,
+    p_mapping_version: value.mappingVersion,
+    p_mapping_digest: value.mappingDigest,
+    p_row_semantics_digest: value.rowSemanticsDigest,
+    p_preview_digest: value.previewDigest,
+    p_control_total_digest: value.controlTotalDigest,
+    p_approval_scope_digest: value.approvalScopeDigest,
+    p_transaction_plan_digest: value.transactionPlanDigest,
+    p_expected_pl_candidate_count: value.expectedPlCandidateCount,
+    p_expected_bs_candidate_count: value.expectedBsCandidateCount,
+    p_expected_canonical_baseline: value.expectedCanonicalBaseline,
+    p_expected_post_state: value.expectedPostState,
+  };
+}
+
 export async function handleDbfBusinessDataRequest(request: Request, runtime: Runtime) {
   if (request.method !== "POST") return fail(405, "METHOD_NOT_ALLOWED");
   try {
@@ -239,6 +289,14 @@ export async function handleDbfBusinessDataRequest(request: Request, runtime: Ru
     if (Object.keys(body).some((key) => !new Set(["action", "payload"]).has(key))) throw new DbfRuntimeError("UNEXPECTED_FIELD");
     const payload = normalizeActionPayload(action, body.payload);
     const auth = await authorize(runtime, token);
+    if (action === "dbfCorporateAccountingPromoteV1") {
+      const data = await rpc(runtime, "dbf_import_promote_corporate_accounting_v1",
+        trustedCorporateManifest(runtime, String(payload.manifestRef), auth.actorEmployeeId));
+      return response(200, {
+        ok: true, schemaVersion: "dbf-corporate-accounting-scoped-promotion-v1", action,
+        runtimeImport: "ENABLED", productionWrite: "DISABLED", data,
+      });
+    }
     if (action === "dbfImportMasterOptionsV1") {
       const data = await readCanonicalMasterOptions(runtime, token);
       return response(200, {
@@ -295,6 +353,8 @@ function runtimeFromEnvironment(): Runtime {
     expectedProjectRef: Deno.env.get("DBF_EXPECTED_PROJECT_REF") || "",
     runtimeImport: Deno.env.get("DBF_RUNTIME_IMPORT") || "DISABLED",
     productionWrite: Deno.env.get("DBF_PRODUCTION_WRITE") || "DISABLED",
+    corporateAccountingExecution: Deno.env.get("DBF_CORPORATE_ACCOUNTING_EXECUTION") || "DISABLED",
+    corporatePromotionManifestJson: Deno.env.get("DBF_CORPORATE_ACCOUNTING_MANIFEST_JSON") || "",
     fetchImpl: fetch,
   };
 }

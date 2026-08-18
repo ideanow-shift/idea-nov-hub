@@ -1,0 +1,67 @@
+name: DBF Corporate Accounting Scoped Promotion Validation
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/dbf-business-data-api/**"
+      - "supabase/migrations/**dbf_corporate_accounting_scoped_promotion_v1.sql"
+      - "tests/dbf-corporate-accounting-scoped-promotion*"
+      - ".github/workflows/dbf-corporate-accounting-scoped-promotion-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-17-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17.6-bookworm
+        env: { POSTGRES_DB: dbf_scoped_promotion, POSTGRES_PASSWORD: postgres, POSTGRES_USER: postgres }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dbf_scoped_promotion"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env: { PGDATABASE: dbf_scoped_promotion, PGHOST: 127.0.0.1, PGPASSWORD: postgres, PGPORT: 5432, PGUSER: postgres }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "24" }
+      - uses: denoland/setup-deno@v2
+        with: { deno-version: v2.x }
+      - name: Source and Edge contract tests
+        run: |
+          node --test tests/dbf-canonical-account-catalog-owner-review.test.mjs tests/dbf-canonical-account-catalog-fresh-postgres.test.mjs
+          node --test tests/dbf-corporate-accounting-scoped-promotion-contract.test.mjs
+          deno test --allow-env tests/dbf-business-data-phase-c-domain.test.ts tests/dbf-business-data-phase-c-edge.test.ts
+          deno check supabase/functions/dbf-business-data-api/index.ts
+      - name: Seed roles and Canonical Account test boundary
+        run: |
+          psql --set=ON_ERROR_STOP=1 <<'SQL'
+          create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
+          create schema extensions; create extension pgcrypto with schema extensions; create schema accounting;
+          create table accounting.account_identities(account_id uuid primary key default gen_random_uuid(),created_by text not null);
+          create table accounting.accounts(account_version_id uuid primary key default gen_random_uuid(),account_id uuid not null references accounting.account_identities,
+            version_no bigint not null,account_code text not null,account_name text not null,account_type text not null,statement_type text not null,
+            account_category text not null,normal_balance text not null,sign_policy text not null,measure_type text,parent_account_id uuid references accounting.account_identities,
+            display_order integer not null,effective_from date not null,effective_to date,effective_period daterange generated always as (daterange(effective_from,effective_to,'[)')) stored,
+            status text not null,source_version text not null,mapping_contract_version text not null,content_digest text not null,recorded_by text not null);
+          create table accounting.account_statement_mappings(statement_mapping_version_id uuid primary key default gen_random_uuid(),account_id uuid not null references accounting.account_identities,
+            account_version_id uuid not null references accounting.accounts,version_no bigint not null,statement_type text not null,statement_section text not null,
+            statement_line text not null,display_order integer not null,aggregation_behavior text not null,contribution_sign smallint not null,effective_from date not null,effective_to date,
+            effective_period daterange generated always as (daterange(effective_from,effective_to,'[)')) stored,status text not null,mapping_contract_version text not null,content_digest text not null,recorded_by text not null);
+          SQL
+      - name: Apply additive dependency chain
+        run: |
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814140109_dbf_business_data_phase1_foundation.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814204346_dbf_business_data_phase1_service_role_acl_corrective.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814213224_dbf_business_data_phase_c_runtime.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260815090000_dbf_canonical_account_catalog_owner_review.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260815123655_dbf_account_review_contract_corrective.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260818045351_dbf_corporate_accounting_scoped_promotion_v1.sql
+      - name: PostgreSQL 17 current-state, RLS and rollback gates
+        run: |
+          psql --set=ON_ERROR_STOP=1 --file tests/dbf-canonical-account-catalog-postgres17.sql
+          psql --set=ON_ERROR_STOP=1 --file tests/dbf-corporate-accounting-scoped-promotion-postgres17.sql

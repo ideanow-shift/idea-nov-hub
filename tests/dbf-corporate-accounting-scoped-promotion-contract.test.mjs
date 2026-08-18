@@ -19,7 +19,13 @@ test("receipt and audit relations are private, forced-RLS, append-only", () => {
     assert.match(migration, new RegExp(`revoke all on dbf_ingest\\.${table} from public,anon,authenticated,service_role`, "u"));
   }
   assert.match(migration, /DBF_CORPORATE_ACCOUNTING_RECEIPT_APPEND_ONLY/u);
+  for (const column of [
+    "manifest_ref", "selected_row_digest", "mapping_version", "mapping_digest",
+    "row_semantics_digest", "control_total_digest", "canonical_baseline",
+    "approved_by_employee_id", "request_id", "owner_confirmation", "approved_at",
+  ]) assert.match(migration, new RegExp(`\\b${column}\\b`, "u"));
   assert.doesNotMatch(migration, /grant\s+(insert|update|delete|all).*authenticated/iu);
+  assert.match(migration, /revoke all on dbf_ingest\.corporate_accounting_approval_receipts from public,anon,authenticated,service_role/u);
 });
 
 test("scope, source and control totals are fixed while canonical baseline is read live", () => {
@@ -57,6 +63,53 @@ test("server-side selection excludes non-approved and non-promotable semantics",
   assert.doesNotMatch(migration, /insert into public\.dbf_(budget|store_monthly_metric)_facts/iu);
 });
 
+test("approval receipt is minted by a dedicated service-role RPC from current DB truth", () => {
+  assert.match(migration, /create function public\.dbf_corporate_accounting_approve_v1\(/u);
+  assert.match(migration, /p_actor_employee_id uuid,p_request_id uuid,p_manifest_ref text,p_owner_confirmation boolean/u);
+  assert.match(migration, /DBF_OWNER_CONFIRMATION_REQUIRED/u);
+  assert.match(migration, /DBF_APPROVAL_REQUEST_REUSED/u);
+  assert.match(migration, /v_preflight:=public\.dbf_corporate_accounting_promotion_preflight_v1\(p_manifest_ref\)/u);
+  assert.match(migration, /v_preflight->>'approvalScopeDigest'/u);
+  assert.match(migration, /revoke all on function public\.dbf_corporate_accounting_approve_v1\(uuid,uuid,text,boolean\) from public,anon,authenticated/u);
+  assert.match(migration, /grant execute on function public\.dbf_corporate_accounting_approve_v1\(uuid,uuid,text,boolean\) to service_role/u);
+  assert.match(domain, /dbfCorporateAccountingApproveV1/u);
+  assert.match(domain, /exactKeys\(payload, \["manifestRef", "requestId", "ownerConfirmation"\]\)/u);
+});
+
+test("selected-row digest binds exact corporate row content including amount", () => {
+  for (const token of [
+    "statement_type", "fiscal_month", "company_id", "source_batch_id", "raw_row_id",
+    "payload_sha256", "source_account_code", "source_account_name", "amount::text",
+    "bs_classification", "source_row_category", "confirmation_status", "tax_basis",
+    "candidate_id", "decision", "canonical_account_id", "canonical_account_version_id",
+    "statement_mapping_version_id", "row_semantics", "is_postable", "is_control_total",
+  ]) assert.match(migration, new RegExp(token.replace("::", "::"), "u"));
+  assert.match(migration, /s\.store_id is null/u);
+  assert.match(migration, /s\.source_row_category='aggregate'/u);
+  assert.match(migration, /order by statement_type,source_batch_id,source_account_code,candidate_id,raw_row_id/u);
+});
+
+test("control totals are exact-scope and ambiguous source rows fail closed", () => {
+  assert.match(migration, /CONTROL_TOTAL_SOURCE_AMBIGUOUS/u);
+  assert.match(migration, /v_control_total_row_count<>8 or v_control_total_code_count<>8/u);
+  assert.match(migration, /c\.source_batch_id='13cb25de-0b76-475a-b718-5f588be447fd'/u);
+  assert.match(migration, /s\.source_row_category='aggregate' and s\.store_id is null/u);
+  assert.match(migration, /c\.source_batch_id='0ffccfd2-1a39-404a-a41d-b16127ea9008'/u);
+  assert.match(migration, /v_control_total_digest/u);
+  assert.match(migration, /'totalSales',v_total_sales/u);
+});
+
+test("stale approval is rejected consistently by preflight and promotion", () => {
+  assert.match(migration, /APPROVAL_RECEIPT_STALE/u);
+  assert.match(migration, /APPROVAL_SCOPE_STALE/u);
+  for (const field of [
+    "manifest_ref=p_manifest_ref", "selected_row_digest=v_selected_digest",
+    "mapping_digest=v_mapping_digest", "row_semantics_digest=v_semantics_digest",
+    "control_total_digest=v_control_total_digest", "canonical_baseline=v_canonical_baseline",
+    "approval_scope_digest=v_approval_scope_digest",
+  ]) assert.match(migration, new RegExp(field, "u"));
+});
+
 test("real Staging 71 aggregate plus 781 store-detail plus 67 BS shape is explicit", () => {
   assert.match(migration, /source_row_category='aggregate' and store_id is null\)<>71/u);
   assert.match(migration, /source_row_category='detail' and store_id is not null\)<>781/u);
@@ -82,7 +135,7 @@ test("review completion requires latest non-initialize audit decision parity", (
 });
 
 test("security-definer RPCs exclude public from hardened search_path", () => {
-  assert.equal((migration.match(/set search_path = pg_catalog, dbf_ingest, accounting as \$fn\$/gu) || []).length, 2);
+  assert.equal((migration.match(/set search_path = pg_catalog, dbf_ingest, accounting as \$fn\$/gu) || []).length, 3);
   assert.doesNotMatch(migration, /set search_path = [^\n]*public[^\n]*as \$fn\$/u);
   assert.match(migration, /extensions\.digest/u);
 });

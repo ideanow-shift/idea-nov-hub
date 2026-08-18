@@ -26,7 +26,9 @@ from dbf_ingest.raw_rows r
 where r.batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and r.source_row_number between 1 and 71;
 insert into dbf_ingest.staging_rows(batch_id,raw_row_id,company_mapping_id,company_id,store_id,account_code,account_name,amount,source_row_category,mapping_status,validation_status,normalized_payload)
 select r.batch_id,r.id,'22222222-2222-4222-8222-222222222222','e4059116-bdb3-4e13-9763-bbc77bdfe062',
-  '33333333-3333-4333-8333-333333333333','PL_STORE_'||lpad((r.source_row_number-71)::text,3,'0'),'PL store fixture',r.source_row_number,
+  md5('store-'||(1+((r.source_row_number-72)/71))::text)::uuid,
+  'PL_'||lpad((1+((r.source_row_number-72)%71))::text,3,'0'),'PL store fixture',
+  case when r.source_row_number=138 then 999999999 else r.source_row_number end,
   'detail','resolved','valid','{"confirmationStatus":"confirmed","taxBasis":"TAX_EXCLUSIVE"}'::jsonb
 from dbf_ingest.raw_rows r
 where r.batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and r.source_row_number between 72 and 852;
@@ -63,7 +65,7 @@ values('2026-07-01','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','pl','foreign_scope_f
 do $$
 declare p jsonb;
 begin
-  p:=public.dbf_corporate_accounting_promotion_preflight_v1();
+  p:=public.dbf_corporate_accounting_promotion_preflight_v1(repeat('6',64));
   if (p#>>'{review,total}')::int<>138 or (p#>>'{review,unreviewed}')::int<>138 then raise exception 'CURRENT_REVIEW_TRUTH_MISMATCH'; end if;
   if (p#>>'{sourceRows,plAggregate}')::int<>71 or (p#>>'{sourceRows,plStoreDetail}')::int<>781
     or (p#>>'{sourceRows,bsNullStore}')::int<>67 then raise exception 'REAL_STAGING_SOURCE_SHAPE_MISMATCH'; end if;
@@ -77,16 +79,19 @@ begin
   if (p->'canonicalBaseline') is distinct from '{"plDetail":0,"plAggregate":0,"bs":0,"budget":0,"storeMetrics":0}'::jsonb then raise exception 'LIVE_BASELINE_ZERO_MISMATCH'; end if;
   if exists(
     select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-    where n.nspname='public' and p.proname in('dbf_corporate_accounting_promotion_preflight_v1','dbf_import_promote_corporate_accounting_v1')
+    where n.nspname='public' and p.proname in('dbf_corporate_accounting_promotion_preflight_v1','dbf_corporate_accounting_approve_v1','dbf_import_promote_corporate_accounting_v1')
       and (array_to_string(p.proconfig,',') not like '%search_path=pg_catalog, dbf_ingest, accounting%'
         or array_to_string(p.proconfig,',') like '%public%')
   ) then raise exception 'HARDENED_SEARCH_PATH_MISSING'; end if;
   if exists(
     select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-    where n.nspname='public' and p.proname in('dbf_corporate_accounting_promotion_preflight_v1','dbf_import_promote_corporate_accounting_v1')
+    where n.nspname='public' and p.proname in('dbf_corporate_accounting_promotion_preflight_v1','dbf_corporate_accounting_approve_v1','dbf_import_promote_corporate_accounting_v1')
       and (has_function_privilege('anon',p.oid,'execute') or has_function_privilege('authenticated',p.oid,'execute')
         or not has_function_privilege('service_role',p.oid,'execute'))
   ) then raise exception 'SCOPED_RPC_GRANT_MISMATCH'; end if;
+  if has_table_privilege('service_role','dbf_ingest.corporate_accounting_approval_receipts','insert') then
+    raise exception 'SERVICE_ROLE_DIRECT_APPROVAL_INSERT_ALLOWED';
+  end if;
 end $$;
 
 begin;
@@ -116,8 +121,16 @@ end $$;
 rollback;
 
 begin;
-insert into dbf_ingest.corporate_accounting_approval_receipts(scope_code,fiscal_month,company_id,approval_scope_digest,mapping_digest,row_semantics_digest,approved_by_employee_id)
-values('CORPORATE_ACCOUNTING_ACTUAL_V1','2026-06-01','e4059116-bdb3-4e13-9763-bbc77bdfe062',repeat('d',64),repeat('e',64),repeat('f',64),'11111111-1111-4111-8111-111111111111');
+insert into dbf_ingest.corporate_accounting_approval_receipts(
+  scope_code,fiscal_month,company_id,manifest_ref,selected_row_digest,mapping_version,
+  approval_scope_digest,mapping_digest,row_semantics_digest,control_total_digest,canonical_baseline,
+  approved_by_employee_id,request_id,owner_confirmation
+) values(
+  'CORPORATE_ACCOUNTING_ACTUAL_V1','2026-06-01','e4059116-bdb3-4e13-9763-bbc77bdfe062',
+  repeat('6',64),repeat('7',64),'fixture',repeat('d',64),repeat('e',64),repeat('f',64),repeat('8',64),
+  '{"plDetail":0,"plAggregate":0,"bs":0,"budget":0,"storeMetrics":0}',
+  '11111111-1111-4111-8111-111111111111','aaaaaaaa-1111-4111-8111-111111111111',true
+);
 savepoint mutation_guard;
 do $$ begin
   begin update dbf_ingest.corporate_accounting_approval_receipts set approval_scope_digest=repeat('0',64); raise exception 'APPEND_ONLY_UPDATE_ALLOWED';
@@ -146,7 +159,8 @@ update dbf_ingest.staging_rows set amount=case account_code
   when 'PL_067' then 88066258 when 'PL_068' then 72040100 when 'PL_069' then 14776957 when 'PL_070' then 1249201 when 'PL_071' then 5704265
   when 'BS_065' then 570155249 when 'BS_066' then 213188431 when 'BS_067' then 356966818 else amount end,
   normalized_payload=case account_code when 'BS_066' then normalized_payload||'{"classification":"liability"}'::jsonb
-    when 'BS_067' then normalized_payload||'{"classification":"equity"}'::jsonb else normalized_payload end;
+    when 'BS_067' then normalized_payload||'{"classification":"equity"}'::jsonb else normalized_payload end
+where store_id is null;
 
 do $$
 declare c record; aid uuid; avid uuid; mid uuid;
@@ -179,14 +193,14 @@ begin
     (select count(*) from dbf_ingest.corporate_accounting_promotion_receipts),
     (select count(*) from dbf_ingest.corporate_accounting_promotion_audit)
   into v_before_pl_detail,v_before_pl_aggregate,v_before_bs,v_before_receipts,v_before_audit;
-  p:=public.dbf_corporate_accounting_promotion_preflight_v1();
+  p:=public.dbf_corporate_accounting_promotion_preflight_v1(repeat('6',64));
   begin
     perform public.dbf_import_promote_corporate_accounting_v1(
-      '11111111-1111-4111-8111-111111111111','CORPORATE_ACCOUNTING_ACTUAL_V1',repeat('8',64),'2026-06-01','e4059116-bdb3-4e13-9763-bbc77bdfe062',
+      '11111111-1111-4111-8111-111111111111','CORPORATE_ACCOUNTING_ACTUAL_V1',repeat('8',64),repeat('6',64),'2026-06-01','e4059116-bdb3-4e13-9763-bbc77bdfe062',
       '13cb25de-0b76-475a-b718-5f588be447fd','0ffccfd2-1a39-404a-a41d-b16127ea9008',
       '["4b113b1b-db39-4fbf-908f-67f83f712dce","c27acc17-fdd0-4113-90c2-73b646913f99"]',
       '["997e89c54b12334d3aa477a78aff9487d46042822a5ff9ab0cd9fe0f86f073d1","f18c9464a9a070ff641140178b19532dbd8dd319e739eb2e2bcef325adfda54c"]',
-      p->>'selectedRowDigest',p->>'mappingVersion',p->>'mappingDigest',p->>'rowSemanticsDigest',repeat('2',64),repeat('3',64),repeat('d',64),repeat('4',64),
+      p->>'selectedRowDigest',p->>'mappingVersion',p->>'mappingDigest',p->>'rowSemanticsDigest',repeat('2',64),p->>'controlTotalDigest',p->>'approvalScopeDigest',repeat('4',64),
       71,67,p_expected_baseline,
       '{"plDetail":66,"plAggregate":5,"bs":67,"budget":0,"storeMetrics":0}'
     );
@@ -211,7 +225,7 @@ from dbf_ingest.account_mapping_review_candidates
 where fiscal_month='2026-06-01' and company_id='e4059116-bdb3-4e13-9763-bbc77bdfe062'
 order by candidate_id limit 1;
 do $$ declare p jsonb; begin
-  p:=public.dbf_corporate_accounting_promotion_preflight_v1();
+  p:=public.dbf_corporate_accounting_promotion_preflight_v1(repeat('6',64));
   if (p#>>'{review,auditMismatchCount}')::int<>1 or not (p->'blockingReasons' ? 'REVIEW_AUDIT_STATE_MISMATCH') then
     raise exception 'REVIEW_AUDIT_MISMATCH_GATE_MISSING';
   end if;
@@ -227,31 +241,36 @@ rollback to aggregate_store_scope;
 
 savepoint detail_store_scope;
 update dbf_ingest.staging_rows set store_id=null
-where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and account_code='PL_STORE_001';
+where id=(select min(id) from dbf_ingest.staging_rows
+  where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and source_row_category='detail');
 select pg_temp.assert_corporate_promotion_error('DBF_SCOPE_LEAKAGE_REJECTED');
 rollback to detail_store_scope;
 
 savepoint company_scope;
 update dbf_ingest.staging_rows set company_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
-where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and account_code='PL_STORE_001';
+where id=(select min(id) from dbf_ingest.staging_rows
+  where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and source_row_category='detail');
 select pg_temp.assert_corporate_promotion_error('DBF_SCOPE_LEAKAGE_REJECTED');
 rollback to company_scope;
 
 savepoint status_scope;
 update dbf_ingest.staging_rows set mapping_status='unresolved',validation_status='pending'
-where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and account_code='PL_STORE_001';
+where id=(select min(id) from dbf_ingest.staging_rows
+  where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and source_row_category='detail');
 select pg_temp.assert_corporate_promotion_error('DBF_SCOPE_LEAKAGE_REJECTED');
 rollback to status_scope;
 
 savepoint confirmation_scope;
 update dbf_ingest.staging_rows set normalized_payload=jsonb_set(normalized_payload,'{confirmationStatus}','"pending"')
-where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and account_code='PL_STORE_001';
+where id=(select min(id) from dbf_ingest.staging_rows
+  where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and source_row_category='detail');
 select pg_temp.assert_corporate_promotion_error('DBF_SCOPE_LEAKAGE_REJECTED');
 rollback to confirmation_scope;
 
 savepoint tax_scope;
 update dbf_ingest.staging_rows set normalized_payload=jsonb_set(normalized_payload,'{taxBasis}','"TAX_INCLUSIVE"')
-where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and account_code='PL_STORE_001';
+where id=(select min(id) from dbf_ingest.staging_rows
+  where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and source_row_category='detail');
 select pg_temp.assert_corporate_promotion_error('DBF_SCOPE_LEAKAGE_REJECTED');
 rollback to tax_scope;
 
@@ -264,10 +283,93 @@ rollback to bs_store_scope;
 do $$ declare v_rejected boolean:=false; begin
   begin
     update dbf_ingest.staging_rows set source_row_category='unexpected'
-    where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and account_code='PL_STORE_001';
+    where id=(select min(id) from dbf_ingest.staging_rows
+      where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and source_row_category='detail');
   exception when check_violation then v_rejected:=true; end;
   if not v_rejected then raise exception 'UNKNOWN_SOURCE_CATEGORY_ALLOWED'; end if;
 end $$;
+
+do $$
+declare
+  p_before jsonb; p_after jsonb; v_amount numeric; v_classification text; v_detail_id bigint;
+begin
+  p_before:=public.dbf_corporate_accounting_promotion_preflight_v1(repeat('6',64));
+  if (p_before#>>'{controlTotals,pl,totalSales}')::numeric<>88066258
+    or (p_before#>>'{controlTotals,pl,technicalSales}')::numeric<>72040100
+    or (select max(amount) from dbf_ingest.staging_rows
+        where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and source_row_category='detail'
+          and account_code='PL_067')<=88066258 then
+    raise exception 'CONTROL_TOTAL_EXACT_SCOPE_FIXTURE_FAILED';
+  end if;
+
+  select amount into v_amount from dbf_ingest.staging_rows
+  where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and source_row_category='aggregate'
+    and store_id is null and account_code='PL_001';
+  update dbf_ingest.staging_rows set amount=v_amount+1
+  where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and source_row_category='aggregate'
+    and store_id is null and account_code='PL_001';
+  p_after:=public.dbf_corporate_accounting_promotion_preflight_v1(repeat('6',64));
+  if p_after->>'selectedRowDigest'=p_before->>'selectedRowDigest' then raise exception 'PL_AMOUNT_NOT_DIGEST_BOUND'; end if;
+  update dbf_ingest.staging_rows set amount=v_amount
+  where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and source_row_category='aggregate'
+    and store_id is null and account_code='PL_001';
+
+  p_before:=public.dbf_corporate_accounting_promotion_preflight_v1(repeat('6',64));
+  select amount,normalized_payload->>'classification' into v_amount,v_classification
+  from dbf_ingest.staging_rows
+  where batch_id='0ffccfd2-1a39-404a-a41d-b16127ea9008' and store_id is null and account_code='BS_001';
+  update dbf_ingest.staging_rows set amount=v_amount+1,
+    normalized_payload=jsonb_set(normalized_payload,'{classification}','"liability"')
+  where batch_id='0ffccfd2-1a39-404a-a41d-b16127ea9008' and store_id is null and account_code='BS_001';
+  p_after:=public.dbf_corporate_accounting_promotion_preflight_v1(repeat('6',64));
+  if p_after->>'selectedRowDigest'=p_before->>'selectedRowDigest' then raise exception 'BS_AMOUNT_CLASSIFICATION_NOT_DIGEST_BOUND'; end if;
+  update dbf_ingest.staging_rows set amount=v_amount,
+    normalized_payload=jsonb_set(normalized_payload,'{classification}',to_jsonb(v_classification))
+  where batch_id='0ffccfd2-1a39-404a-a41d-b16127ea9008' and store_id is null and account_code='BS_001';
+
+  p_before:=public.dbf_corporate_accounting_promotion_preflight_v1(repeat('6',64));
+  select id,amount into v_detail_id,v_amount from dbf_ingest.staging_rows
+  where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and source_row_category='detail'
+  order by id limit 1;
+  update dbf_ingest.staging_rows set amount=v_amount+1 where id=v_detail_id;
+  p_after:=public.dbf_corporate_accounting_promotion_preflight_v1(repeat('6',64));
+  if p_after->>'selectedRowDigest'<>p_before->>'selectedRowDigest' then raise exception 'STORE_DETAIL_AMOUNT_CHANGED_CORPORATE_DIGEST'; end if;
+  update dbf_ingest.staging_rows set amount=v_amount where id=v_detail_id;
+end $$;
+
+savepoint control_total_duplicate;
+insert into dbf_ingest.raw_rows(batch_id,source_row_number,payload,payload_sha256)
+values('13cb25de-0b76-475a-b718-5f588be447fd',9001,'{"statement":"PL","duplicateControl":true}',repeat('e',64));
+insert into dbf_ingest.staging_rows(
+  batch_id,raw_row_id,company_mapping_id,company_id,account_code,account_name,amount,
+  source_row_category,mapping_status,validation_status,normalized_payload
+)
+select batch_id,id,'22222222-2222-4222-8222-222222222222','e4059116-bdb3-4e13-9763-bbc77bdfe062',
+  'PL_067','Duplicate total sales',88066258,'aggregate','resolved','valid',
+  '{"confirmationStatus":"confirmed","taxBasis":"TAX_EXCLUSIVE","aggregateScope":"company_total"}'::jsonb
+from dbf_ingest.raw_rows
+where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and source_row_number=9001;
+do $$ declare p jsonb; begin
+  p:=public.dbf_corporate_accounting_promotion_preflight_v1(repeat('6',64));
+  if not (p->'blockingReasons' ? 'CONTROL_TOTAL_SOURCE_AMBIGUOUS') then
+    raise exception 'DUPLICATE_CONTROL_TOTAL_NOT_REJECTED';
+  end if;
+  perform pg_temp.assert_corporate_promotion_error('CONTROL_TOTAL_SOURCE_AMBIGUOUS');
+end $$;
+rollback to control_total_duplicate;
+
+savepoint control_total_missing;
+delete from dbf_ingest.staging_rows
+where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and source_row_category='aggregate'
+  and store_id is null and account_code='PL_067';
+do $$ declare p jsonb; begin
+  p:=public.dbf_corporate_accounting_promotion_preflight_v1(repeat('6',64));
+  if not (p->'blockingReasons' ? 'CONTROL_TOTAL_SOURCE_AMBIGUOUS') then
+    raise exception 'MISSING_CONTROL_TOTAL_NOT_REJECTED';
+  end if;
+  perform pg_temp.assert_corporate_promotion_error('CONTROL_TOTAL_SOURCE_AMBIGUOUS');
+end $$;
+rollback to control_total_missing;
 
 savepoint canonical_baseline;
 insert into public.dbf_pl_aggregate_facts(
@@ -279,7 +381,7 @@ insert into public.dbf_pl_aggregate_facts(
   '11111111-1111-4111-8111-111111111111',1,'confirmed'
 );
 do $$ declare p jsonb; begin
-  p:=public.dbf_corporate_accounting_promotion_preflight_v1();
+  p:=public.dbf_corporate_accounting_promotion_preflight_v1(repeat('6',64));
   if (p#>>'{canonicalBaseline,plAggregate}')::int<>1 or not (p->'blockingReasons' ? 'CANONICAL_BASELINE_NOT_ZERO') then
     raise exception 'LIVE_CANONICAL_BASELINE_GATE_MISSING';
   end if;
@@ -293,21 +395,72 @@ select pg_temp.assert_corporate_promotion_error(
 );
 
 do $$
-declare p jsonb; promoted jsonb;
+declare p jsonb; approved jsonb; approved_replay jsonb; promoted jsonb; v_error text; v_amount numeric;
 begin
-  p:=public.dbf_corporate_accounting_promotion_preflight_v1();
+  p:=public.dbf_corporate_accounting_promotion_preflight_v1(repeat('6',64));
   if not (p->'blockingReasons' ? 'APPROVAL_RECEIPT_MISSING') then raise exception 'APPROVAL_BLOCKER_MISSING'; end if;
   if p->'blockingReasons' ?| array['OWNER_REVIEW_INCOMPLETE','REVIEW_AUDIT_STATE_MISMATCH','ROW_SEMANTICS_INCOMPLETE','ACCOUNT_MAPPING_UNAPPROVED','SOURCE_ROW_SCOPE_INVALID','CANONICAL_BASELINE_NOT_ZERO','CONTROL_TOTAL_MISMATCH'] then raise exception 'COMPLETE_FIXTURE_PREFLIGHT_FAILED: %',p; end if;
-  insert into dbf_ingest.corporate_accounting_approval_receipts(scope_code,fiscal_month,company_id,approval_scope_digest,mapping_digest,row_semantics_digest,approved_by_employee_id)
-  values('CORPORATE_ACCOUNTING_ACTUAL_V1','2026-06-01','e4059116-bdb3-4e13-9763-bbc77bdfe062',repeat('d',64),p->>'mappingDigest',p->>'rowSemanticsDigest','11111111-1111-4111-8111-111111111111');
-  p:=public.dbf_corporate_accounting_promotion_preflight_v1();
+  if coalesce((p->>'approvalReady')::boolean,false) is not true then raise exception 'APPROVAL_NOT_READY'; end if;
+
+  approved:=public.dbf_corporate_accounting_approve_v1(
+    '11111111-1111-4111-8111-111111111111','aaaaaaaa-2222-4222-8222-222222222222',repeat('6',64),true);
+  approved_replay:=public.dbf_corporate_accounting_approve_v1(
+    '11111111-1111-4111-8111-111111111111','aaaaaaaa-2222-4222-8222-222222222222',repeat('6',64),true);
+  if approved->>'status'<>'approved' or (approved->>'idempotent')::boolean
+    or coalesce((approved_replay->>'idempotent')::boolean,false) is not true
+    or approved_replay->>'receiptId'<>approved->>'receiptId'
+    or (select count(*) from dbf_ingest.corporate_accounting_approval_receipts)<>1 then
+    raise exception 'APPROVAL_IDEMPOTENCY_FAILED';
+  end if;
+  begin
+    perform public.dbf_corporate_accounting_approve_v1(
+      '11111111-1111-4111-8111-111111111111','aaaaaaaa-2222-4222-8222-222222222222',repeat('7',64),true);
+    raise exception 'APPROVAL_REQUEST_REUSE_ALLOWED';
+  exception when others then
+    get stacked diagnostics v_error=message_text;
+    if v_error<>'DBF_APPROVAL_REQUEST_REUSED' then raise; end if;
+  end;
+
+  p:=public.dbf_corporate_accounting_promotion_preflight_v1(repeat('6',64));
   if not (p->>'promotionAllowed')::boolean then raise exception 'COMPLETE_FIXTURE_NOT_ALLOWED: %',p; end if;
+
+  select amount into v_amount from dbf_ingest.staging_rows
+  where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and source_row_category='aggregate'
+    and store_id is null and account_code='PL_001';
+  update dbf_ingest.staging_rows set amount=v_amount+1
+  where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and source_row_category='aggregate'
+    and store_id is null and account_code='PL_001';
+  if not (public.dbf_corporate_accounting_promotion_preflight_v1(repeat('6',64))->'blockingReasons' ? 'APPROVAL_RECEIPT_STALE') then
+    raise exception 'STALE_APPROVAL_NOT_REJECTED_BY_PREFLIGHT';
+  end if;
+  begin
+    perform public.dbf_import_promote_corporate_accounting_v1(
+      '11111111-1111-4111-8111-111111111111','CORPORATE_ACCOUNTING_ACTUAL_V1',repeat('9',64),repeat('6',64),'2026-06-01','e4059116-bdb3-4e13-9763-bbc77bdfe062',
+      '13cb25de-0b76-475a-b718-5f588be447fd','0ffccfd2-1a39-404a-a41d-b16127ea9008',
+      '["4b113b1b-db39-4fbf-908f-67f83f712dce","c27acc17-fdd0-4113-90c2-73b646913f99"]',
+      '["997e89c54b12334d3aa477a78aff9487d46042822a5ff9ab0cd9fe0f86f073d1","f18c9464a9a070ff641140178b19532dbd8dd319e739eb2e2bcef325adfda54c"]',
+      p->>'selectedRowDigest',p->>'mappingVersion',p->>'mappingDigest',p->>'rowSemanticsDigest',repeat('2',64),p->>'controlTotalDigest',p->>'approvalScopeDigest',repeat('4',64),
+      71,67,'{"plDetail":0,"plAggregate":0,"bs":0,"budget":0,"storeMetrics":0}',
+      '{"plDetail":66,"plAggregate":5,"bs":67,"budget":0,"storeMetrics":0}');
+    raise exception 'STALE_APPROVAL_PROMOTION_ALLOWED';
+  exception when others then
+    get stacked diagnostics v_error=message_text;
+    if v_error<>'APPROVAL_SCOPE_STALE' then raise; end if;
+  end;
+  if (select count(*) from public.dbf_pl_detail_facts)+(select count(*) from public.dbf_pl_aggregate_facts)
+    +(select count(*) from public.dbf_bs_facts)<>0 then raise exception 'STALE_APPROVAL_PARTIAL_WRITE'; end if;
+  update dbf_ingest.staging_rows set amount=v_amount
+  where batch_id='13cb25de-0b76-475a-b718-5f588be447fd' and source_row_category='aggregate'
+    and store_id is null and account_code='PL_001';
+
+  p:=public.dbf_corporate_accounting_promotion_preflight_v1(repeat('6',64));
+  if not (p->>'promotionAllowed')::boolean then raise exception 'RESTORED_APPROVAL_NOT_ALLOWED: %',p; end if;
   promoted:=public.dbf_import_promote_corporate_accounting_v1(
-    '11111111-1111-4111-8111-111111111111','CORPORATE_ACCOUNTING_ACTUAL_V1',repeat('1',64),'2026-06-01','e4059116-bdb3-4e13-9763-bbc77bdfe062',
+    '11111111-1111-4111-8111-111111111111','CORPORATE_ACCOUNTING_ACTUAL_V1',repeat('1',64),repeat('6',64),'2026-06-01','e4059116-bdb3-4e13-9763-bbc77bdfe062',
     '13cb25de-0b76-475a-b718-5f588be447fd','0ffccfd2-1a39-404a-a41d-b16127ea9008',
     '["4b113b1b-db39-4fbf-908f-67f83f712dce","c27acc17-fdd0-4113-90c2-73b646913f99"]',
     '["997e89c54b12334d3aa477a78aff9487d46042822a5ff9ab0cd9fe0f86f073d1","f18c9464a9a070ff641140178b19532dbd8dd319e739eb2e2bcef325adfda54c"]',
-    p->>'selectedRowDigest',p->>'mappingVersion',p->>'mappingDigest',p->>'rowSemanticsDigest',repeat('2',64),repeat('3',64),repeat('d',64),repeat('4',64),
+    p->>'selectedRowDigest',p->>'mappingVersion',p->>'mappingDigest',p->>'rowSemanticsDigest',repeat('2',64),p->>'controlTotalDigest',p->>'approvalScopeDigest',repeat('4',64),
     71,67,'{"plDetail":0,"plAggregate":0,"bs":0,"budget":0,"storeMetrics":0}',
     '{"plDetail":66,"plAggregate":5,"bs":67,"budget":0,"storeMetrics":0}');
   if (promoted->>'status')<>'promoted' or (select count(*) from public.dbf_pl_detail_facts)<>66
@@ -321,11 +474,11 @@ begin
     or (select count(*) from dbf_ingest.corporate_accounting_promotion_audit)<>1 then raise exception 'ATOMIC_POST_STATE_MISMATCH'; end if;
   begin
     perform public.dbf_import_promote_corporate_accounting_v1(
-      '11111111-1111-4111-8111-111111111111','CORPORATE_ACCOUNTING_ACTUAL_V1',repeat('1',64),'2026-06-01','e4059116-bdb3-4e13-9763-bbc77bdfe062',
+      '11111111-1111-4111-8111-111111111111','CORPORATE_ACCOUNTING_ACTUAL_V1',repeat('1',64),repeat('6',64),'2026-06-01','e4059116-bdb3-4e13-9763-bbc77bdfe062',
       '13cb25de-0b76-475a-b718-5f588be447fd','0ffccfd2-1a39-404a-a41d-b16127ea9008',
       '["4b113b1b-db39-4fbf-908f-67f83f712dce","c27acc17-fdd0-4113-90c2-73b646913f99"]',
       '["997e89c54b12334d3aa477a78aff9487d46042822a5ff9ab0cd9fe0f86f073d1","f18c9464a9a070ff641140178b19532dbd8dd319e739eb2e2bcef325adfda54c"]',
-      p->>'selectedRowDigest',p->>'mappingVersion',p->>'mappingDigest',p->>'rowSemanticsDigest',repeat('2',64),repeat('3',64),repeat('d',64),repeat('4',64),
+      p->>'selectedRowDigest',p->>'mappingVersion',p->>'mappingDigest',p->>'rowSemanticsDigest',repeat('2',64),p->>'controlTotalDigest',p->>'approvalScopeDigest',repeat('4',64),
       71,67,'{"plDetail":0,"plAggregate":0,"bs":0,"budget":0,"storeMetrics":0}',
       '{"plDetail":66,"plAggregate":5,"bs":67,"budget":0,"storeMetrics":0}'
     );
@@ -345,7 +498,8 @@ rollback;
 
 do $$ begin
   if (select count(*) from public.dbf_pl_detail_facts)<>0 or (select count(*) from public.dbf_pl_aggregate_facts)<>0
-    or (select count(*) from public.dbf_bs_facts)<>0 or (select count(*) from dbf_ingest.corporate_accounting_promotion_receipts)<>0
+    or (select count(*) from public.dbf_bs_facts)<>0 or (select count(*) from dbf_ingest.corporate_accounting_approval_receipts)<>0
+    or (select count(*) from dbf_ingest.corporate_accounting_promotion_receipts)<>0
     or (select count(*) from dbf_ingest.corporate_accounting_promotion_audit)<>0 then raise exception 'TEST_TRANSACTION_ROLLBACK_FAILED'; end if;
 end $$;
 

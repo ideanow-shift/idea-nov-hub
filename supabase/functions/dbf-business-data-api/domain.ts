@@ -14,6 +14,7 @@ export const DBF_IMPORT_ACTIONS = Object.freeze([
   "dbfAccountReviewListV1",
   "dbfAccountReviewDecideV1",
   "dbfCorporateAccountingPromotionPreflightV1",
+  "dbfCorporateAccountingApproveV1",
   "dbfCorporateAccountingPromoteV1",
 ] as const);
 
@@ -314,6 +315,13 @@ export function normalizeActionPayload(action: DbfImportAction, value: unknown) 
   if (action === "dbfCorporateAccountingPromotionPreflightV1") {
     exactKeys(payload, []);
     return {};
+  }
+  if (action === "dbfCorporateAccountingApproveV1") {
+    exactKeys(payload, ["manifestRef", "requestId", "ownerConfirmation"]);
+    const manifestRef = String(payload.manifestRef || "").toLowerCase();
+    if (!SHA256.test(manifestRef)) throw new DbfRuntimeError("MANIFEST_REFERENCE_INVALID");
+    if (payload.ownerConfirmation !== true) throw new DbfRuntimeError("OWNER_CONFIRMATION_REQUIRED");
+    return { manifestRef, requestId: uuid(payload.requestId, "REQUEST_ID_INVALID"), ownerConfirmation: true };
   }
   if (action === "dbfCorporateAccountingPromoteV1") {
     exactKeys(payload, ["manifestRef"]);

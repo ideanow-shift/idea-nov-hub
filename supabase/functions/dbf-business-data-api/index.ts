@@ -234,7 +234,7 @@ function rpcRequest(action: string, payload: any, actorEmployeeId: string) {
   }] as const;
 }
 
-function trustedCorporateManifest(runtime: Runtime, manifestRef: string, actorEmployeeId: string) {
+function trustedCorporateManifest(runtime: Runtime, manifestRef: string | null, actorEmployeeId: string) {
   if (runtime.corporateAccountingExecution !== "ENABLED") {
     throw new DbfRuntimeError("CORPORATE_ACCOUNTING_EXECUTION_DISABLED", 503);
   }
@@ -244,7 +244,9 @@ function trustedCorporateManifest(runtime: Runtime, manifestRef: string, actorEm
   } catch {
     throw new DbfRuntimeError("TRUSTED_MANIFEST_UNAVAILABLE", 503);
   }
-  if (value.manifestRef !== manifestRef || value.scopeCode !== "CORPORATE_ACCOUNTING_ACTUAL_V1") {
+  const trustedManifestRef = String(value.manifestRef || "").toLowerCase();
+  if (!/^[0-9a-f]{64}$/u.test(trustedManifestRef) || (manifestRef !== null && trustedManifestRef !== manifestRef) ||
+      value.scopeCode !== "CORPORATE_ACCOUNTING_ACTUAL_V1") {
     throw new DbfRuntimeError("TRUSTED_MANIFEST_MISMATCH", 409);
   }
   const allowed = new Set([
@@ -258,6 +260,7 @@ function trustedCorporateManifest(runtime: Runtime, manifestRef: string, actorEm
     p_actor_employee_id: actorEmployeeId,
     p_promotion_scope_id: value.scopeCode,
     p_idempotency_key: value.idempotencyKey,
+    p_manifest_ref: trustedManifestRef,
     p_fiscal_month: value.fiscalMonth,
     p_company_id: value.companyId,
     p_pl_batch_id: value.plBatchId,
@@ -289,6 +292,29 @@ export async function handleDbfBusinessDataRequest(request: Request, runtime: Ru
     if (Object.keys(body).some((key) => !new Set(["action", "payload"]).has(key))) throw new DbfRuntimeError("UNEXPECTED_FIELD");
     const payload = normalizeActionPayload(action, body.payload);
     const auth = await authorize(runtime, token);
+    if (action === "dbfCorporateAccountingPromotionPreflightV1") {
+      const manifest = trustedCorporateManifest(runtime, null, auth.actorEmployeeId);
+      const data = await rpc(runtime, "dbf_corporate_accounting_promotion_preflight_v1", {
+        p_manifest_ref: manifest.p_manifest_ref,
+      });
+      return response(200, {
+        ok: true, schemaVersion: "dbf-corporate-accounting-scoped-promotion-v1", action,
+        runtimeImport: "ENABLED", productionWrite: "DISABLED", data,
+      });
+    }
+    if (action === "dbfCorporateAccountingApproveV1") {
+      const manifest = trustedCorporateManifest(runtime, String(payload.manifestRef), auth.actorEmployeeId);
+      const data = await rpc(runtime, "dbf_corporate_accounting_approve_v1", {
+        p_actor_employee_id: auth.actorEmployeeId,
+        p_request_id: payload.requestId,
+        p_manifest_ref: manifest.p_manifest_ref,
+        p_owner_confirmation: payload.ownerConfirmation,
+      });
+      return response(200, {
+        ok: true, schemaVersion: "dbf-corporate-accounting-scoped-promotion-v1", action,
+        runtimeImport: "ENABLED", productionWrite: "DISABLED", data,
+      });
+    }
     if (action === "dbfCorporateAccountingPromoteV1") {
       const data = await rpc(runtime, "dbf_import_promote_corporate_accounting_v1",
         trustedCorporateManifest(runtime, String(payload.manifestRef), auth.actorEmployeeId));

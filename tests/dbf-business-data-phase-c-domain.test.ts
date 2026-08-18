@@ -194,8 +194,14 @@ Deno.test("generic promotion rejects both Corporate Accounting Pilot batches", a
 
 Deno.test("Corporate Accounting actions accept no browser scope or financial rows", async () => {
   assertEquals(normalizeActionPayload("dbfCorporateAccountingPromotionPreflightV1", {}), {});
+  assertEquals(normalizeActionPayload("dbfCorporateAccountingApproveV1", {
+    manifestRef: "a".repeat(64), requestId: COMPANY, ownerConfirmation: true,
+  }), { manifestRef: "a".repeat(64), requestId: COMPANY, ownerConfirmation: true });
   assertEquals(normalizeActionPayload("dbfCorporateAccountingPromoteV1", { manifestRef: "a".repeat(64) }),
     { manifestRef: "a".repeat(64) });
+  await assertRejects(async () => normalizeActionPayload("dbfCorporateAccountingApproveV1", {
+    manifestRef: "a".repeat(64), requestId: COMPANY, ownerConfirmation: false,
+  }), DbfRuntimeError, "OWNER_CONFIRMATION_REQUIRED");
   for (const payload of [
     { companyId: "e4059116-bdb3-4e13-9763-bbc77bdfe062" },
     { manifestRef: "a".repeat(64), actor: COMPANY },
@@ -206,5 +212,10 @@ Deno.test("Corporate Accounting actions accept no browser scope or financial row
       Object.hasOwn(payload, "manifestRef") ? "dbfCorporateAccountingPromoteV1" : "dbfCorporateAccountingPromotionPreflightV1",
       payload,
     ), DbfRuntimeError, "UNEXPECTED_FIELD");
+  }
+  for (const unexpected of ["actorEmployeeId", "companyId", "fiscalMonth", "plBatchId", "amount", "rawRows", "mappingDigest", "rowSemanticsDigest", "approvalScopeDigest"]) {
+    await assertRejects(async () => normalizeActionPayload("dbfCorporateAccountingApproveV1", {
+      manifestRef: "a".repeat(64), requestId: COMPANY, ownerConfirmation: true, [unexpected]: "forged",
+    }), DbfRuntimeError, "UNEXPECTED_FIELD");
   }
 });

@@ -73,3 +73,37 @@ docs/cto/PORTFOLIO_PRIORITY_LOCK.md
 - `docs/dbf-cloud-run-ready-endpoint-corrective-20260814.md`: DBF Phase A correctiveの局所contract。Portfolio全体のACTIVE Priorityではない。
 
 これらは技術情報または履歴として正本Lockと両立するため変更しない。
+
+## 2026-08-19 — Owner Phase Transition to DBF Management UI Completion
+
+DECISION_ID: OWNER-PHASE-TRANSITION-2026-08-19-PHASE-2
+
+LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-18-V2
+
+DECIDED_BY: IDEA NOVグループ代表取締役社長
+
+STATUS: ACTIVE
+
+### Transition
+
+- Previous Phase: `PHASE_1_DBF_BACKEND_COMPLETION` — COMPLETE.
+- Current Phase: `PHASE_2_DBF_MANAGEMENT_UI_COMPLETION` — ACTIVE.
+- Transition Date: 2026-08-19.
+- Phase 1 Final main HEAD: `d48f863f2bcaef87f2e1145b775bad329ae90a3b`.
+- Staging Backend Smoke: PASS.
+- Store Monthly Authenticated Smoke: PASS.
+- Corporate Accounting Authenticated Smoke: PASS.
+- Business Data Write: 0.
+- Production Change: 0.
+- Phase 1 Blocking: 0.
+
+### Owner Approval
+
+OwnerはPhase 1 Exit Criteriaの完了を確認し、Phase 2 DBF Management UI Completionの有効化を明示承認した。
+
+固定実行順序は変更しない。
+
+1. `PHASE_1_DBF_BACKEND_COMPLETION` — COMPLETE
+2. `PHASE_2_DBF_MANAGEMENT_UI_COMPLETION` — CURRENT
+3. `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1`
+4. `PHASE_4_CORPORATE_MANAGEMENT`

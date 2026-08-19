@@ -6,14 +6,14 @@ STATUS: ACTIVE
 
 OWNER: IDEA NOVグループ代表取締役社長
 
-CURRENT_PHASE: PHASE_1_DBF_BACKEND_COMPLETION
+CURRENT_PHASE: PHASE_2_DBF_MANAGEMENT_UI_COMPLETION
 
 GitHub上のこの文書をPortfolio実行順序の唯一の正本とする。Supabase設定またはチャットのメモを正本にしてはならない。
 
 ## 固定実行順序
 
-1. `PHASE_1_DBF_BACKEND_COMPLETION` — DBF完成
-2. `PHASE_2_DBF_MANAGEMENT_UI_COMPLETION` — DBF管理UI完成
+1. `PHASE_1_DBF_BACKEND_COMPLETION` — DBF完成 — COMPLETE
+2. `PHASE_2_DBF_MANAGEMENT_UI_COMPLETION` — DBF管理UI完成 — CURRENT
 3. `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1` — Store Operations Management V1（店舗営業管理の構築・実働）
 4. `PHASE_4_CORPORATE_MANAGEMENT` — Corporate Management（法人経営管理の構築・実働）
 
@@ -29,7 +29,20 @@ GitHub上のこの文書をPortfolio実行順序の唯一の正本とする。Su
 
 PHASE_ID: PHASE_1_DBF_BACKEND_COMPLETION
 
-現在進める対象はDBF Backend／Control Planeだけである。
+PHASE_STATUS: COMPLETE
+
+本PhaseのDBF Backend／Control Planeは完了している。
+
+### Phase 1 Completion Record
+
+- Transition approved by Owner on 2026-08-19.
+- Final main HEAD: `d48f863f2bcaef87f2e1145b775bad329ae90a3b`.
+- Staging Backend Smoke: PASS.
+- Store Monthly authenticated smoke: PASS.
+- Corporate Accounting authenticated smoke: PASS.
+- Business Data Write: 0.
+- Production Change: 0.
+- Phase 1 Blocking: 0.
 
 ### Phase 1に含むもの
 
@@ -97,6 +110,8 @@ DBF Account Review BackendはPhase 1の内部工程である。
 ## Phase 2: DBF Management UI Completion
 
 PHASE_ID: PHASE_2_DBF_MANAGEMENT_UI_COMPLETION
+
+PHASE_STATUS: CURRENT
 
 目的は、本部担当者がSQL、CODEX、Supabase Dashboardの直接操作なしでDBFを月次運用できるようにすることである。
 

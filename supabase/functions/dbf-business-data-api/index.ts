@@ -1,5 +1,12 @@
 import { DbfRuntimeError, normalizeActionPayload, parseAction, toStagingRows } from "./domain.ts";
 import { buildDbfPilotMonthPreview, DBF_PILOT_202606_CONTRACT } from "./pilot-preview.ts";
+import {
+  buildCorporateAccountingActualProjection,
+  buildStoreMonthlyActualProjection,
+  ConsumerReadError,
+  resolveCorporateCompany,
+  resolveOfficialOperatingStores,
+} from "./consumer-read.ts";
 
 type Json = Record<string, unknown>;
 type Runtime = {
@@ -123,6 +130,49 @@ async function readCanonicalMasterOptions(runtime: Runtime, token: string) {
     throw new DbfRuntimeError("CANONICAL_MASTER_OPTIONS_UNAVAILABLE", 503);
   }
   return envelope.data;
+}
+
+async function readStoreMonthlyActualProjection(
+  runtime: Runtime,
+  token: string,
+  selectedMonth: string,
+) {
+  const [master, officialEnvelope] = await Promise.all([
+    readCanonicalMasterOptions(runtime, token),
+    callHub(runtime, token, "storeMonthlyActualProjectionV1", {
+      selectedMonth,
+      scopeMode: "all",
+    }),
+  ]);
+  if (officialEnvelope?.ok !== true || !officialEnvelope?.data) {
+    throw new DbfRuntimeError("OFFICIAL_STORE_PROJECTION_UNAVAILABLE", 503);
+  }
+  const stores = resolveOfficialOperatingStores(master, officialEnvelope.data);
+  const companyIds = [...new Set(stores.map((store) => store.companyId))];
+  const factGroups = await Promise.all(companyIds.map((companyId) => rpc(
+    runtime,
+    "dbf_store_monthly_actual_read_v1",
+    {
+      p_fiscal_month: `${selectedMonth}-01`,
+      p_company_id: companyId,
+      p_store_ids: stores.filter((store) => store.companyId === companyId).map((store) => store.rawId),
+    },
+  )));
+  return buildStoreMonthlyActualProjection(selectedMonth, stores, factGroups.flat());
+}
+
+async function readCorporateAccountingActualProjection(
+  runtime: Runtime,
+  token: string,
+  selectedMonth: string,
+) {
+  const master = await readCanonicalMasterOptions(runtime, token);
+  const company = resolveCorporateCompany(master);
+  const facts = await rpc(runtime, "dbf_corporate_accounting_actual_read_v1", {
+    p_fiscal_month: `${selectedMonth}-01`,
+    p_company_id: company.id,
+  });
+  return buildCorporateAccountingActualProjection(selectedMonth, company, facts);
 }
 
 async function rpc(runtime: Runtime, name: string, payload: Json) {
@@ -323,6 +373,20 @@ export async function handleDbfBusinessDataRequest(request: Request, runtime: Ru
     if (Object.keys(body).some((key) => !new Set(["action", "payload"]).has(key))) throw new DbfRuntimeError("UNEXPECTED_FIELD");
     const payload = normalizeActionPayload(action, body.payload);
     const auth = await authorize(runtime, token);
+    if (action === "storeMonthlyActualProjectionV1") {
+      const data = await readStoreMonthlyActualProjection(runtime, token, String(payload.selectedMonth));
+      return response(200, {
+        ok: true, schemaVersion: "dbf-phase1-consumer-read-projections-v1", action,
+        runtimeImport: "ENABLED", productionWrite: "DISABLED", data,
+      });
+    }
+    if (action === "dbfCorporateAccountingActualProjectionV1") {
+      const data = await readCorporateAccountingActualProjection(runtime, token, String(payload.selectedMonth));
+      return response(200, {
+        ok: true, schemaVersion: "dbf-phase1-consumer-read-projections-v1", action,
+        runtimeImport: "ENABLED", productionWrite: "DISABLED", data,
+      });
+    }
     if (action === "dbfCorporateAccountingPromotionPreflightV1") {
       const data = await rpc(runtime, "dbf_corporate_accounting_promotion_preflight_v1", {
         p_manifest_ref: readOptionalCorporateManifestRef(runtime),
@@ -397,6 +461,7 @@ export async function handleDbfBusinessDataRequest(request: Request, runtime: Ru
     });
   } catch (error) {
     if (error instanceof DbfRuntimeError) return fail(error.status, error.code);
+    if (error instanceof ConsumerReadError) return fail(error.status, error.code);
     return fail(500, "INTERNAL_ERROR");
   }
 }

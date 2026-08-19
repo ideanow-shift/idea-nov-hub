@@ -16,6 +16,8 @@ export const DBF_IMPORT_ACTIONS = Object.freeze([
   "dbfCorporateAccountingPromotionPreflightV1",
   "dbfCorporateAccountingApproveV1",
   "dbfCorporateAccountingPromoteV1",
+  "dbfCorporateAccountingActualProjectionV1",
+  "storeMonthlyActualProjectionV1",
 ] as const);
 
 export type DbfImportAction = typeof DBF_IMPORT_ACTIONS[number];
@@ -328,6 +330,12 @@ export function normalizeActionPayload(action: DbfImportAction, value: unknown) 
     const manifestRef = String(payload.manifestRef || "").toLowerCase();
     if (!SHA256.test(manifestRef)) throw new DbfRuntimeError("MANIFEST_REFERENCE_INVALID");
     return { manifestRef };
+  }
+  if (action === "dbfCorporateAccountingActualProjectionV1" || action === "storeMonthlyActualProjectionV1") {
+    exactKeys(payload, ["selectedMonth"]);
+    const selectedMonth = String(payload.selectedMonth || "");
+    if (!MONTH.test(selectedMonth)) throw new DbfRuntimeError("INVALID_FISCAL_MONTH");
+    return { selectedMonth };
   }
   if (action === "dbfImportPreviewV1") {
     exactKeys(payload, ["batchId"]);

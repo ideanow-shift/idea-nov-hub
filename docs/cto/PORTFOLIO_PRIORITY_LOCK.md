@@ -137,6 +137,15 @@ PHASE_STATUS: CURRENT
 
 `fix/dbf-account-review-ui-safe-states` の成果はPhase 2へ分類する。削除してはならない。Phase 1完成までは追加開発、Merge、Deployを進めず、Phase 2開始時に最新mainへ統合して再開する。
 
+### DBF Single Ingestion Governance
+
+- 経営データのWrite入口はDBFのみとする。
+- ConsumerはDBF Canonical FactをRead-onlyで利用する。
+- Consumerに独自CSV/POS取込や同一Factの複製保存を原則として追加しない。
+- Phase 2の単一取込入口はP/L、B/S、予算、店舗月次実績の既存Backend Contractのみを扱う。
+- Cash FlowとPOS顧客明細の保持は本Phaseの対象外とし、別途のContractとプライバシーReviewなしに実装しない。
+- このGovernanceはPortfolio Lockの実行順序やPhaseを変更しない。
+
 ### Phase 2 Exit Criteria
 
 - 本部担当者が画面だけで取込からPromotionまで実行できる。

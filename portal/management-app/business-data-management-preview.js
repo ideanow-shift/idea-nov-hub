@@ -177,34 +177,13 @@ function updateDashboardCards(cards, items) {
     const card = cards.get(fact.key);
     const matching = items.filter((item) => item.factKind === fact.runtimeKey);
     const active = matching.find((item) => item.status === "promoted") || matching[0];
-    card.querySelector("[data-dbf-status]").textContent = active ? (({ promoted: "反映済み", approved: "承認済み", validated: "検証済み", quarantined: "要確認" })[active.status] || active.status) : "未登録";
+    const needsAttention = Number(active?.errorCount || 0) > 0 || Number(active?.quarantinedCount || 0) > 0 || active?.status === "quarantined";
+    const status = needsAttention ? "要確認" : active ? (({ promoted: "登録済み", approved: "承認済み", validated: "確認済み", previewed: "確認中" })[active.status] || "取込中") : "未登録";
+    card.dataset.dbfState = needsAttention ? "attention" : active ? "registered" : "missing";
+    card.querySelector("[data-dbf-status]").textContent = status;
     card.querySelector("[data-dbf-count]").textContent = active ? `${active.rowCount}行を登録済み` : "まだデータが登録されていません";
-    card.querySelector("[data-dbf-errors]").textContent = active?.errorCount ? `修正が必要：${active.errorCount}件` : "確認事項なし";
+    card.querySelector("[data-dbf-errors]").textContent = needsAttention ? `確認が必要：${Number(active?.errorCount || active?.quarantinedCount || 0)}件` : "確認事項なし";
   }
-}
-
-function createFirstUseGuide(doc, activateImport) {
-  const guide = node(doc, "section", "dbf-first-use-guide");
-  guide.setAttribute("aria-labelledby", "dbf-first-use-title");
-  const title = node(doc, "h3", "", "はじめに：DBFの月次処理");
-  title.id = "dbf-first-use-title";
-  guide.append(title, node(doc, "p", "", "DBFでは、毎月の経営データを確認し、承認後に正式データとして登録します。"));
-  const steps = node(doc, "ol", "dbf-first-use-steps");
-  ["ファイルを登録", "確認が必要なデータを修正", "承認後、正式データへ反映"].forEach((label) => steps.append(node(doc, "li", "", label)));
-  const actions = node(doc, "div", "dbf-first-use-actions");
-  const begin = node(doc, "button", "business-data-action", "月次処理を始める");
-  begin.type = "button";
-  begin.addEventListener("click", () => { guide.hidden = true; activateImport(); });
-  const dismiss = node(doc, "button", "business-data-secondary-action", "次回から表示しない");
-  dismiss.type = "button";
-  dismiss.addEventListener("click", () => {
-    try { globalThis.localStorage?.setItem("dbf-owner-guide-dismissed-v1", "true"); } catch { /* storage is optional */ }
-    guide.hidden = true;
-  });
-  actions.append(begin, dismiss);
-  guide.append(steps, actions);
-  try { guide.hidden = globalThis.localStorage?.getItem("dbf-owner-guide-dismissed-v1") === "true"; } catch { guide.hidden = false; }
-  return guide;
 }
 
 function formatCount(value) {
@@ -402,11 +381,15 @@ function renderMappingRows(doc, state, container, refresh) {
   }
 }
 
-function renderImportPanel(doc, fact, enabled, onHistoryChanged) {
+function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
   const panel = node(doc, "section", "business-data-preview-panel");
   panel.dataset.businessDataPanel = fact.view;
   panel.hidden = true;
-  panel.append(node(doc, "p", "eyebrow", "月次データ管理 / データ取込"), node(doc, "h3", "", `${fact.label}を登録`));
+  panel.append(node(doc, "p", "eyebrow", "ファイルを追加"), node(doc, "h3", "", `${fact.label}を登録`));
+  const back = node(doc, "button", "business-data-secondary-action", "← データ種別を選び直す");
+  back.type = "button";
+  back.addEventListener("click", onBack);
+  panel.append(back);
   appendScreenGuide(doc, panel, `${fact.label}の登録`, fact.purpose, "ファイルの検証エラーと未確認の紐付けが0件になること", "下の5ステップに沿ってファイルを登録してください");
   const sourceGuide = node(doc, "section", "dbf-file-guide");
   sourceGuide.append(node(doc, "h4", "", "使用するデータ"), node(doc, "p", "", fact.source), node(doc, "p", "", `用途：${fact.purpose}`));
@@ -416,7 +399,6 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged) {
   [["データの取得元", fact.source], ["対象月", "画面で選択した1か月"], ["対応ファイル形式", "DBF標準CSV（UTF-8）"], ["必須項目", fact.required], ["よくある間違い", fact.caution], ["取込前の確認", "ファイル名・対象月・法人／店舗コード・行数を確認してください"]].forEach(([label, value]) => appendDefinition(doc, helpList, label, value));
   sourceHelp.append(helpList);
   sourceGuide.append(sourceHelp);
-  panel.append(sourceGuide);
   const guard = node(doc, "p", "business-data-runtime-guard", enabled
     ? "Stagingに接続済みです。承認と正式データへの反映は、内容確認後に別途実行します。"
     : "現在は登録操作を利用できません。表示内容のみ確認できます。");
@@ -435,7 +417,9 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged) {
   month.setAttribute("aria-label", `${fact.label}の対象月`);
   step2.append(month);
   const step3 = node(doc, "section", "dbf-import-wizard-step");
-  step3.append(node(doc, "span", "dbf-import-step-number", "STEP 3"), node(doc, "h4", "", "ファイルを選択"), node(doc, "p", "", "対応形式：DBF標準CSV（UTF-8）"));
+  step3.append(node(doc, "span", "dbf-import-step-number", "STEP 3"), node(doc, "h4", "", "使用するファイルを確認"), sourceGuide);
+  const step4 = node(doc, "section", "dbf-import-wizard-step");
+  step4.append(node(doc, "span", "dbf-import-step-number", "STEP 4"), node(doc, "h4", "", "ファイルを選択"), node(doc, "p", "", "対応形式：DBF標準CSV（UTF-8）"));
   const file = node(doc, "input", "business-data-file");
   file.type = "file";
   file.accept = ".csv,text/csv";
@@ -452,9 +436,9 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged) {
     anchor.click();
     URL.revokeObjectURL(url);
   });
-  step3.append(file, template);
-  const step4 = node(doc, "section", "dbf-import-wizard-step");
-  step4.append(node(doc, "span", "dbf-import-step-number", "STEP 4"), node(doc, "h4", "", "取込前確認"));
+  step4.append(file, template);
+  const step5 = node(doc, "section", "dbf-import-wizard-step");
+  step5.append(node(doc, "span", "dbf-import-step-number", "STEP 5"), node(doc, "h4", "", "取込前確認"));
   const confirmation = node(doc, "dl", "dbf-import-confirmation");
   let selectedRowCount = "ファイル選択後に確認します";
   const updateConfirmation = () => {
@@ -472,9 +456,9 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged) {
     updateConfirmation();
   });
   updateConfirmation();
-  step4.append(confirmation);
-  const step5 = node(doc, "section", "dbf-import-wizard-step is-action");
-  step5.append(node(doc, "span", "dbf-import-step-number", "STEP 5"), node(doc, "h4", "", "内容を確認して取込開始"));
+  step5.append(confirmation);
+  const step6 = node(doc, "section", "dbf-import-wizard-step is-action");
+  step6.append(node(doc, "span", "dbf-import-step-number", "STEP 6"), node(doc, "h4", "", "内容を確認して取込開始"));
   const start = node(doc, "button", "business-data-action", "この内容で取り込む");
   start.type = "button";
   const updateStartAvailability = () => {
@@ -503,8 +487,8 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged) {
   });
   const correction = node(doc, "details", "dbf-correction-details");
   correction.append(node(doc, "summary", "", "訂正データとして登録する場合"), correctionLabel, correctionBatch, correctionReason);
-  step5.append(correction, start);
-  controls.append(step1, step2, step3, step4, step5);
+  step6.append(correction, start);
+  controls.append(step1, step2, step3, step4, step5, step6);
   panel.append(controls);
 
   const status = createStatus(doc);
@@ -640,14 +624,12 @@ export function renderBusinessDataManagementPreview(container, options = {}) {
   container.dataset.productionWrite = "DISABLED";
 
   const header = node(doc, "div", "business-data-preview-heading");
-  header.append(node(doc, "p", "eyebrow", "本部担当者向け / 管理者専用"), node(doc, "h2", "", "DBF 月次データ管理"), node(doc, "p", "", "法人P/L・法人B/S・店舗月次実績・予算を、確認しながら正式データとして登録します。"));
-  const tabs = node(doc, "nav", "business-data-tabs");
-  tabs.setAttribute("aria-label", "経営データ管理メニュー");
+  header.append(node(doc, "p", "eyebrow", "本部担当者向け / 管理者専用"), node(doc, "h2", "", "経営データ管理"), node(doc, "p", "", "今月の経営データを、この画面からまとめて登録・確認します。"));
 
   const shell = node(doc, "section", "dbf-management-shell");
   shell.setAttribute("aria-labelledby", "dbf-management-shell-title");
   const shellHeader = node(doc, "div", "dbf-management-shell-header");
-  const shellTitle = node(doc, "h3", "", "今月の進捗");
+  const shellTitle = node(doc, "h3", "", "今月のデータ");
   shellTitle.id = "dbf-management-shell-title";
   const shellMonthLabel = node(doc, "label", "dbf-management-shell-month-label", "対象月");
   const shellMonth = node(doc, "input", "business-data-month dbf-management-shell-month");
@@ -655,116 +637,100 @@ export function renderBusinessDataManagementPreview(container, options = {}) {
   shellMonth.value = fixture.fiscalMonth;
   shellMonthLabel.append(shellMonth);
   shellHeader.append(shellTitle, shellMonthLabel);
-  const workflow = node(doc, "ol", "dbf-management-workflow");
+  const statusGrid = node(doc, "div", "dbf-single-entry-status-list");
+  const cards = new Map();
+  FACTS.forEach((fact) => {
+    const card = node(doc, "article", "dbf-single-entry-status");
+    card.dataset.dbfState = "missing";
+    const detail = node(doc, "div", "dbf-single-entry-status-detail");
+    const count = node(doc, "span", "", "まだデータが登録されていません"); count.dataset.dbfCount = "true";
+    const errors = node(doc, "span", "", "確認事項なし"); errors.dataset.dbfErrors = "true";
+    const status = node(doc, "strong", "dbf-single-entry-status-badge", "未登録"); status.dataset.dbfStatus = "true";
+    detail.append(count, errors);
+    card.append(node(doc, "h4", "", fact.label), detail, status);
+    cards.set(fact.key, card);
+    statusGrid.append(card);
+  });
   const next = node(doc, "div", "dbf-management-next");
   next.setAttribute("role", "status");
   next.setAttribute("aria-live", "polite");
   const nextHeading = node(doc, "strong", "dbf-management-next-title", "次にやること");
   const nextText = node(doc, "p", "", "履歴を確認しています…");
-  const nextButton = node(doc, "button", "business-data-action", "案内された操作へ進む");
-  nextButton.type = "button";
-  nextButton.disabled = true;
+  const nextReview = node(doc, "button", "business-data-action", "確認する");
+  nextReview.type = "button";
+  nextReview.hidden = true;
+  const addFile = node(doc, "button", "business-data-action dbf-single-entry-primary", "＋ ファイルを追加");
+  addFile.type = "button";
   const shellAlert = node(doc, "div", "dbf-management-alert");
   shellAlert.setAttribute("role", "alert");
   shellAlert.hidden = true;
-  const historyLink = node(doc, "button", "business-data-secondary-action", "取込履歴を開く");
+  const historyLink = node(doc, "button", "business-data-secondary-action", "取込履歴を見る");
   historyLink.type = "button";
-  next.append(nextHeading, nextText, nextButton);
-  next.append(historyLink);
-  const completion = node(doc, "section", "dbf-management-completion");
-  completion.hidden = true;
-  completion.append(node(doc, "h3", "", `${fixture.fiscalMonth}のデータ処理が完了しました`));
-  const completionList = node(doc, "ul", "");
-  ["法人P/L", "法人B/S", "店舗月次実績", "予算", "データ検証", "法人・店舗の紐付け", "勘定科目確認", "承認", "正式データへ反映"].forEach((label) => completionList.append(node(doc, "li", "", `✓ ${label}`)));
-  completion.append(completionList, node(doc, "p", "", "次回の対象月を選び、同じ手順で月次処理を開始してください。"));
-  shell.append(shellHeader, workflow, next, completion, shellAlert);
+  const nextCopy = node(doc, "div", "dbf-management-next-copy");
+  nextCopy.append(nextHeading, nextText);
+  const nextActions = node(doc, "div", "dbf-single-entry-actions");
+  nextActions.append(nextReview, addFile, historyLink);
+  next.append(nextCopy, nextActions);
+  shell.append(shellHeader, statusGrid, next, shellAlert);
 
   const dashboard = node(doc, "section", "business-data-preview-panel");
   dashboard.dataset.businessDataPanel = "dashboard";
-  appendScreenGuide(doc, dashboard, "今月の処理状況", "対象月の登録状況、現在工程、要確認件数、次の操作を確認します。経営分析を行う画面ではありません。", "7工程の状態と次の操作が表示されること", "画面上部の『次にやること』から進んでください");
-  const dashboardTitle = node(doc, "h3", "", `${fixture.fiscalMonth} データ状況`);
-  const dashboardMonth = node(doc, "input", "business-data-month");
-  dashboardMonth.type = "month";
-  dashboardMonth.value = fixture.fiscalMonth;
-  const grid = node(doc, "div", "business-data-coverage-grid");
-  const cards = new Map();
-  FACTS.forEach((fact) => {
-    const card = node(doc, "article", "business-data-coverage-card");
-    card.append(node(doc, "h4", "", fact.label));
-    const count = node(doc, "p", "", "まだデータが登録されていません"); count.dataset.dbfCount = "true";
-    const errors = node(doc, "p", "", "確認事項なし"); errors.dataset.dbfErrors = "true";
-    const status = node(doc, "strong", "", "未登録"); status.dataset.dbfStatus = "true";
-    const cardAction = node(doc, "button", "business-data-secondary-action", `${fact.label}を登録`);
-    cardAction.type = "button";
-    cardAction.addEventListener("click", () => activateView(fact.view));
-    card.append(count, errors, status, cardAction);
-    cards.set(fact.key, card);
-    grid.append(card);
-  });
-  dashboard.append(dashboardTitle, dashboardMonth, grid);
+  const workflowDetails = node(doc, "details", "dbf-operational-details");
+  workflowDetails.append(node(doc, "summary", "", "月次処理の詳細を見る"));
+  const workflow = node(doc, "ol", "dbf-operational-workflow");
+  workflowDetails.append(workflow);
   const pilotPreview = node(doc, "details", "business-data-pilot-preview");
   pilotPreview.hidden = true;
-  dashboard.append(pilotPreview);
+  dashboard.append(workflowDetails, pilotPreview);
 
   const history = node(doc, "section", "business-data-preview-panel");
   history.dataset.businessDataPanel = "history";
   history.hidden = true;
   history.append(node(doc, "h3", "", "取込履歴"));
-  appendScreenGuide(doc, history, "取込履歴", "誰が、いつ、どの月のデータを登録したかを確認します。訂正時は元の処理もここで確認します。", "確認したい処理が一覧に表示されること", "必要な履歴を確認し、次の工程へ戻ってください");
+  appendScreenGuide(doc, history, "取込履歴", "誰が、いつ、どの月のデータを登録したかを確認します。訂正時は元の処理もここで確認します。", "確認したい処理が一覧に表示されること", "必要な履歴を確認し、今月のデータへ戻ってください");
   const historyList = node(doc, "ul", "business-data-history");
-  const historyNext = node(doc, "aside", "dbf-panel-next-action");
-  historyNext.append(node(doc, "strong", "", "次にやること"), node(doc, "p", "", "履歴の確認後は、画面上部の『今月の進捗』に表示された工程へ進んでください。"));
-  history.append(historyList, historyNext);
+  const historyBack = node(doc, "button", "business-data-secondary-action", "今月のデータへ戻る");
+  historyBack.type = "button";
+  history.append(historyBack, historyList);
   renderHistoryItems(historyList, fixture.history || []);
 
   let workflowState = deriveDbfWorkflowState([]);
+  let panels = [];
   const activateView = (key) => {
-    const button = [...tabs.children].find((item) => item.dataset.businessDataView === key);
-    if (button) button.click();
+    container.dataset.dbfCurrentView = key;
+    panels.forEach((panel) => { panel.hidden = panel.dataset.businessDataPanel !== key; });
   };
-  const renderWorkflow = () => {
+  const renderOperationalState = () => {
     workflow.replaceChildren();
     workflowState.steps.forEach((step, index) => {
-      const item = node(doc, "li", `dbf-management-workflow-step is-${step.state}`);
-      const button = node(doc, "button", "dbf-management-workflow-button");
-      button.type = "button";
-      button.dataset.workflowStep = step.key;
       const stateLabel = WORKFLOW_STATUS_LABEL[step.state] || "未開始";
-      button.setAttribute("aria-label", `${index + 1}. ${step.label}: ${stateLabel}`);
-      button.append(node(doc, "span", "dbf-management-workflow-number", String(index + 1)), node(doc, "span", "", step.label), node(doc, "strong", "", stateLabel));
-      button.addEventListener("click", () => activateView(step.target));
-      item.append(button);
-      workflow.append(item);
+      workflow.append(node(doc, "li", `is-${step.state}`, `${index + 1}. ${step.label} — ${stateLabel}`));
     });
     nextText.textContent = workflowState.nextAction;
-    nextButton.textContent = workflowState.nextTarget === "pl" ? "法人P/Lファイルを登録する" : `${workflowState.steps.find((step) => step.target === workflowState.nextTarget && step.state !== "complete")?.label || "次の工程"}へ進む`;
-    nextButton.disabled = !workflowState.nextTarget;
     const allComplete = workflowState.steps.length > 0 && workflowState.steps.every((step) => step.state === "complete");
-    completion.hidden = !allComplete;
-    completion.querySelector("h3").textContent = `${shellMonth.value}のデータ処理が完了しました`;
-    next.hidden = allComplete;
+    if (allComplete) nextText.textContent = `${shellMonth.value}のデータ登録は完了しました。`;
+    const fileRegistration = /ファイルを登録/u.test(workflowState.nextAction);
+    nextReview.hidden = fileRegistration || allComplete || !["pl", "bs", "stores", "budget", "account-review"].includes(workflowState.nextTarget);
   };
-  renderWorkflow();
+  renderOperationalState();
 
-  const refreshHistory = async (monthValue = dashboardMonth.value) => {
-    dashboardMonth.value = monthValue || dashboardMonth.value;
-    shellMonth.value = dashboardMonth.value;
-    dashboardTitle.textContent = `${dashboardMonth.value} データ状況`;
+  const refreshHistory = async (monthValue = shellMonth.value) => {
+    shellMonth.value = monthValue || shellMonth.value;
     shellAlert.hidden = true;
     if (!enabled) {
       updateDashboardCards(cards, []);
       renderPilotMonthPreview(pilotPreview, null);
       workflowState = deriveDbfWorkflowState([]);
-      renderWorkflow();
+      renderOperationalState();
       return;
     }
     try {
       // Keep the two authenticated read-only requests deterministic. Both
       // paths begin with the same bounded history RPC and the Staging gateway
       // can reject one of two simultaneous calls even though each is valid.
-      const result = await DBF_IMPORT_RUNTIME.history({ fiscalMonth: dashboardMonth.value, limit: 100 });
-      const pilot = dashboardMonth.value === "2026-06"
-        ? await DBF_IMPORT_RUNTIME.pilotPreview({ fiscalMonth: dashboardMonth.value, section: "all" })
+      const result = await DBF_IMPORT_RUNTIME.history({ fiscalMonth: shellMonth.value, limit: 100 });
+      const pilot = shellMonth.value === "2026-06"
+        ? await DBF_IMPORT_RUNTIME.pilotPreview({ fiscalMonth: shellMonth.value, section: "all" })
         : null;
       const items = result?.items || [];
       renderHistoryItems(historyList, items);
@@ -772,9 +738,9 @@ export function renderBusinessDataManagementPreview(container, options = {}) {
       renderPilotMonthPreview(pilotPreview, pilot);
       let reviewComplete = false;
       let preflightReady = false;
-      if (dashboardMonth.value === "2026-06") {
+      if (shellMonth.value === "2026-06") {
         const [review, preflight] = await Promise.allSettled([
-          DBF_IMPORT_RUNTIME.accountReviewList({ companyId: "e4059116-bdb3-4e13-9763-bbc77bdfe062", fiscalMonth: dashboardMonth.value }),
+          DBF_IMPORT_RUNTIME.accountReviewList({ companyId: "e4059116-bdb3-4e13-9763-bbc77bdfe062", fiscalMonth: shellMonth.value }),
           DBF_IMPORT_RUNTIME.corporatePromotionPreflight(),
         ]);
         if (review.status === "fulfilled") {
@@ -784,67 +750,70 @@ export function renderBusinessDataManagementPreview(container, options = {}) {
         preflightReady = preflight.status === "fulfilled" && preflight.value?.promotionAllowed === true;
       }
       workflowState = deriveDbfWorkflowState(items, { reviewComplete, preflightReady });
-      renderWorkflow();
+      renderOperationalState();
     } catch (error) {
       renderHistoryItems(historyList, []);
       updateDashboardCards(cards, []);
       pilotPreview.hidden = false;
       pilotPreview.replaceChildren(node(doc, "p", "business-data-runtime-status", "Pilot Previewを読み込めませんでした。再取込はせず、接続状態を確認してください。"));
       workflowState = deriveDbfWorkflowState([]);
-      renderWorkflow();
-      const safe = safeDbfManagementError(error);
+      renderOperationalState();
       shellAlert.hidden = false;
       renderSafeError(doc, shellAlert, error, "接続状態を確認して再読込してください");
     }
   };
-  dashboardMonth.addEventListener("change", () => void refreshHistory());
-  shellMonth.addEventListener("change", () => void refreshHistory(shellMonth.value));
-  nextButton.addEventListener("click", () => activateView(workflowState.nextTarget));
-  historyLink.addEventListener("click", () => activateView("history"));
 
   const accountReview = createDbfAccountMappingReview(doc);
   appendScreenGuide(doc, accountReview, "勘定科目確認", "取り込んだP/L・B/Sの勘定科目をIDEA NOVの正式な勘定科目へ紐付けます。確認が必要な候補だけ判断してください。", "未確認と要再確認が0件になること", "各候補を確認し、判断を保存してください");
   const accountReviewNext = node(doc, "aside", "dbf-panel-next-action");
-  accountReviewNext.append(node(doc, "strong", "", "次にやること"), node(doc, "p", "", "未確認と要再確認を0件にした後、今月の進捗から承認へ進んでください。"));
+  accountReviewNext.append(node(doc, "strong", "", "次にやること"), node(doc, "p", "", "未確認と要再確認を0件にした後、今月のデータに戻ってください。"));
   accountReview.append(accountReviewNext);
-  const panels = [dashboard, accountReview, ...FACTS.map((fact) => renderImportPanel(doc, fact, enabled, refreshHistory)), history];
-  const definitions = [
-    ["dashboard", "ホーム", "ホーム"],
-    ["pl", "データ取込", "月次データ管理"],
-    ["account-review", "勘定科目確認", "月次データ管理"],
-    ["bs", "法人B/S", "データ確認・登録"],
-    ["stores", "店舗月次実績", "データ確認・登録"],
-    ["budget", "予算", "データ確認・登録"],
-    ["history", "取込履歴", "履歴"],
-  ];
-  let previousGroup = "";
-  definitions.forEach(([key, label, group], index) => {
-    if (group !== previousGroup) {
-      const groupLabel = node(doc, "span", "business-data-nav-group", group);
-      groupLabel.setAttribute("aria-hidden", "true");
-      tabs.append(groupLabel);
-      previousGroup = group;
-    }
-    const button = node(doc, "button", `business-data-tab${index === 0 ? " is-active" : ""}`, label);
-    button.type = "button";
-    button.dataset.businessDataView = key;
-    button.addEventListener("click", () => {
-      [...tabs.children].forEach((item) => item.classList.toggle("is-active", item === button));
-      panels.forEach((panel) => { panel.hidden = panel.dataset.businessDataPanel !== key; });
-      if (key === "account-review") void accountReview.loadAccountReview().catch((error) => {
-        const status = accountReview.querySelector(".business-data-runtime-status");
-        if (status) renderSafeError(doc, status, error, "対象月と法人を確認して再読込してください");
-      });
+  accountReview.dataset.businessDataPanel = "account-review";
+
+  const entry = node(doc, "section", "business-data-preview-panel dbf-single-ingestion-entry");
+  entry.dataset.businessDataPanel = "entry";
+  entry.hidden = true;
+  entry.append(node(doc, "p", "eyebrow", "単一取込入口"), node(doc, "h3", "", "ファイルを追加"), node(doc, "p", "", "何のデータを登録しますか？"));
+  const typeGrid = node(doc, "div", "dbf-single-entry-type-grid");
+  const factPanels = new Map();
+  const returnToEntry = () => activateView("entry");
+  FACTS.forEach((fact) => {
+    const choice = node(doc, "button", "dbf-single-entry-type");
+    choice.type = "button";
+    choice.append(node(doc, "strong", "", fact.label), node(doc, "span", "", fact.purpose), node(doc, "small", "", fact.source));
+    choice.addEventListener("click", () => {
+      const panel = factPanels.get(fact.view);
+      const month = panel?.querySelector(".business-data-month");
+      if (month) {
+        month.value = shellMonth.value;
+        const EventConstructor = doc.defaultView?.Event || globalThis.Event;
+        if (typeof EventConstructor === "function") month.dispatchEvent(new EventConstructor("change"));
+      }
+      activateView(fact.view);
     });
-    tabs.append(button);
+    typeGrid.append(choice);
+  });
+  entry.append(typeGrid);
+  FACTS.forEach((fact) => factPanels.set(fact.view, renderImportPanel(doc, fact, enabled, refreshHistory, returnToEntry)));
+  panels = [dashboard, entry, accountReview, ...factPanels.values(), history];
+
+  shellMonth.addEventListener("change", () => void refreshHistory(shellMonth.value));
+  addFile.addEventListener("click", () => activateView("entry"));
+  historyLink.addEventListener("click", () => activateView("history"));
+  historyBack.addEventListener("click", () => activateView("dashboard"));
+  nextReview.addEventListener("click", () => {
+    activateView(workflowState.nextTarget);
+    if (workflowState.nextTarget === "account-review") void accountReview.loadAccountReview().catch((error) => {
+      const status = accountReview.querySelector(".business-data-runtime-status");
+      if (status) renderSafeError(doc, status, error, "対象月と法人を確認して再読込してください");
+    });
   });
 
-  const firstUseGuide = createFirstUseGuide(doc, () => activateView("pl"));
-  const workspace = node(doc, "div", "business-data-workspace");
+  const workspace = node(doc, "div", "business-data-workspace business-data-workspace-single-entry");
   const workspaceMain = node(doc, "div", "business-data-workspace-main");
   workspaceMain.append(...panels);
-  workspace.append(tabs, workspaceMain);
-  container.append(header, firstUseGuide, shell, workspace);
+  workspace.append(workspaceMain);
+  container.append(header, shell, workspace);
   void refreshHistory();
   return true;
 }

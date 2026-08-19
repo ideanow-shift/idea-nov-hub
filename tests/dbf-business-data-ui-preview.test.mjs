@@ -8,11 +8,16 @@ import { resolveDbfStagingBusinessDataLanding } from "../portal/management-app/d
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-test("management UI contains only the four Phase 1 facts and the real import flow", () => {
+test("management UI exposes one ingestion entry for only the four Phase 2 facts", () => {
   assert.deepEqual(BUSINESS_DATA_PREVIEW_FIXTURE.sections.map((item) => item.key), ["PL", "BS", "STORE_OPERATING_RESULT", "BUDGET"]);
   const source = fs.readFileSync(path.join(root, "portal/management-app/business-data-management-preview.js"), "utf8");
-  for (const label of ["ホーム", "データ取込", "法人B/S", "店舗月次実績", "予算", "取込履歴"]) assert.match(source, new RegExp(label, "u"));
-  for (const label of ["今月の進捗", "データ検証", "法人・店舗の紐付け", "勘定科目確認", "承認", "正式データへ反映", "完了", "次にやること"]) assert.match(source, new RegExp(label, "u"));
+  for (const label of ["今月のデータ", "法人P/L", "法人B/S", "店舗月次実績", "予算", "次にやること", "取込履歴を見る"]) assert.match(source, new RegExp(label, "u"));
+  assert.equal((source.match(/＋ ファイルを追加/gu) || []).length, 1);
+  assert.match(source, /何のデータを登録しますか？/u);
+  for (const step of ["STEP 1", "STEP 2", "STEP 3", "STEP 4", "STEP 5", "STEP 6"]) assert.match(source, new RegExp(step, "u"));
+  assert.doesNotMatch(source, /node\(doc, "nav", "business-data-tabs"\)/u);
+  assert.doesNotMatch(source, /dataset\.businessDataView/u);
+  for (const excluded of ["キャッシュフロー", "顧客売上明細一覧"]) assert.doesNotMatch(source, new RegExp(excluded, "u"));
   for (const action of ["start", "resolveMappings", "quarantineMappings", "confirmMapping", "validate", "preview", "approve", "promote", "history"]) {
     assert.match(source, new RegExp(`DBF_IMPORT_RUNTIME\\.${action}`, "u"));
   }
@@ -33,8 +38,18 @@ test("management UI contains only the four Phase 1 facts and the real import flo
   assert.doesNotMatch(source, /const \[result, pilot\] = await Promise\.all/u);
   assert.match(
     source,
-    /const result = await DBF_IMPORT_RUNTIME\.history[\s\S]*?const pilot = dashboardMonth\.value === "2026-06"[\s\S]*?await DBF_IMPORT_RUNTIME\.pilotPreview/u,
+    /const result = await DBF_IMPORT_RUNTIME\.history[\s\S]*?const pilot = shellMonth\.value === "2026-06"[\s\S]*?await DBF_IMPORT_RUNTIME\.pilotPreview/u,
   );
+});
+
+test("single-ingestion governance keeps DBF as the only write entry without changing the portfolio order", () => {
+  const governance = fs.readFileSync(path.join(root, "docs/cto/PORTFOLIO_PRIORITY_LOCK.md"), "utf8");
+  assert.match(governance, /経営データのWrite入口はDBFのみ/u);
+  assert.match(governance, /ConsumerはDBF Canonical FactをRead-onlyで利用/u);
+  assert.match(governance, /独自CSV\/POS取込や同一Factの複製保存を原則として追加しない/u);
+  assert.match(governance, /P\/L、B\/S、予算、店舗月次実績/u);
+  assert.match(governance, /Cash FlowとPOS顧客明細の保持は本Phaseの対象外/u);
+  assert.match(governance, /Portfolio Lockの実行順序やPhaseを変更しない/u);
 });
 
 test("management navigation remains backend/session gated", () => {
@@ -75,22 +90,24 @@ test("Staging requires exact target, enabled import, disabled production write, 
   assert.equal(resolveDbfStagingBusinessDataLanding({ environment: "production" }, session), null);
 });
 
-test("Pilot coverage cards stay within the 390px Hosted Staging viewport", () => {
+test("single-entry status and actions stay within the 390px Hosted Staging viewport", () => {
   const styles = fs.readFileSync(path.join(root, "portal/management-app/styles.css"), "utf8");
-  assert.match(styles, /@media\(max-width:600px\)[\s\S]*?\.business-data-coverage-grid\{grid-template-columns:1fr\}/u);
+  assert.match(styles, /@media\(max-width:600px\)[\s\S]*?\.dbf-single-entry-status\{grid-template-columns:1fr auto\}/u);
+  assert.match(styles, /\.dbf-single-entry-actions\{display:grid;grid-template-columns:1fr;width:100%\}/u);
 });
 
-test("Owner UAT guidance, wizard, safe errors and completion state are explicit", () => {
+test("Owner UAT single entry, conditional specialist route, and safe errors are explicit", () => {
   const source = fs.readFileSync(path.join(root, "portal/management-app/business-data-management-preview.js"), "utf8");
   const accountReview = fs.readFileSync(path.join(root, "portal/management-app/dbf-account-mapping-review.js"), "utf8");
   const styles = fs.readFileSync(path.join(root, "portal/management-app/styles.css"), "utf8");
   for (const label of [
-    "はじめに：DBFの月次処理", "月次処理を始める", "次回から表示しない", "この画面は何をするところ？",
-    "使用するデータ", "ファイルの準備方法を見る", "この内容で取り込む", "まだデータが登録されていません",
-    "のデータ処理が完了しました", "技術情報を表示",
+    "対象月", "登録済み", "未登録", "要確認", "確認する",
+    "使用するファイルを確認", "ファイルの準備方法を見る", "この内容で取り込む", "まだデータが登録されていません",
+    "技術情報を表示", "月次処理の詳細を見る",
   ]) assert.match(source, new RegExp(label, "u"));
   for (const label of ["勘定科目確認", "承認", "修正して承認", "対象外", "要再確認", "判断を保存"]) assert.match(accountReview, new RegExp(label, "u"));
-  assert.match(styles, /business-data-workspace/u);
+  assert.match(styles, /business-data-workspace-single-entry/u);
+  assert.match(styles, /dbf-single-entry-type-grid/u);
   assert.match(styles, /focus-visible/u);
   assert.doesNotMatch(source, /accept\s*=\s*["'][^"']*(xlsx|pdf)/iu);
 });

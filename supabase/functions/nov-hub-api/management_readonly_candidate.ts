@@ -9,6 +9,7 @@ export type ManagementAction =
   | "managementFinanceSummary"
   | "managementStoresSummary"
   | "storeSalesProjection"
+  | "storeMonthlyActualProjectionV1"
   | "managementDataopsStatus"
   | "managementBusinessDataCapability";
 
@@ -16,6 +17,7 @@ export type ManagementEndpoint =
   | "finance.summary"
   | "stores.summary"
   | "store-sales.projection"
+  | "store-monthly-actual.projection"
   | "dataops.status"
   | "business-data.capability";
 
@@ -32,6 +34,7 @@ export type ReadQuery = Record<string, string | number | boolean | undefined>;
 export interface ReadOnlyGateway {
   select(table: string, query: ReadQuery): Promise<JsonRecord[]>;
   count(table: string, query: ReadQuery): Promise<number>;
+  rpc?(name: string, args: JsonRecord): Promise<JsonRecord[]>;
 }
 
 export interface VerifiedAuth {
@@ -91,6 +94,7 @@ const ACTION_PRODUCTION_ENABLED: Record<ManagementAction, boolean> = {
   managementFinanceSummary: true,
   managementStoresSummary: true,
   storeSalesProjection: true,
+  storeMonthlyActualProjectionV1: true,
   managementDataopsStatus: true,
   managementBusinessDataCapability: true,
 };
@@ -128,6 +132,10 @@ const ACTION_DEFINITIONS: Record<ManagementAction, {
   },
   storeSalesProjection: {
     endpoint: "store-sales.projection",
+    permission: "stores.view",
+  },
+  storeMonthlyActualProjectionV1: {
+    endpoint: "store-monthly-actual.projection",
     permission: "stores.view",
   },
   managementDataopsStatus: {
@@ -435,6 +443,71 @@ function endpointForAction(action: ManagementAction): ManagementEndpoint {
 function validMonth(value: unknown): string {
   const month = text(value);
   return /^\d{4}-\d{2}$/.test(month) ? `${month}-01` : "";
+}
+
+type OfficialOperatingStore = {
+  rawId: string;
+  publicKey: string;
+  storeName: string;
+  corporationId: string;
+  corporationName: string;
+  ownership: "DIRECT" | "FC";
+};
+
+const STORE_MONTHLY_ACTUAL_CONTRACT = "STORE_MONTHLY_ACTUAL_V1";
+const OFFICIAL_OPERATING_STORE_BASELINE = Object.freeze({ total: 20, direct: 13, fc: 7 });
+
+function normalizeOwnership(value: unknown): "DIRECT" | "FC" | null {
+  const normalized = text(value).normalize("NFKC").toUpperCase();
+  if (["DIRECT", "直営", "直営店"].includes(normalized)) return "DIRECT";
+  if (["FC", "FRANCHISE", "FC店"].includes(normalized)) return "FC";
+  return null;
+}
+
+async function loadOfficialOperatingStores(
+  deps: ManagementDependencies,
+  access: AccessContext,
+): Promise<OfficialOperatingStore[]> {
+  const storeRows = await deps.db.select("stores", {
+    select: "id,store_no,store_id,store_name,corporation_id,store_type,is_active",
+    is_active: "eq.true",
+    order: "store_no.asc",
+    limit: 500,
+  });
+  const officialRows = storeRows
+    .map((row) => ({ row, ownership: normalizeOwnership(row.store_type) }))
+    .filter((value): value is { row: JsonRecord; ownership: "DIRECT" | "FC" } => value.ownership !== null);
+  const directCount = officialRows.filter((value) => value.ownership === "DIRECT").length;
+  const fcCount = officialRows.filter((value) => value.ownership === "FC").length;
+  if (officialRows.length !== OFFICIAL_OPERATING_STORE_BASELINE.total
+    || directCount !== OFFICIAL_OPERATING_STORE_BASELINE.direct
+    || fcCount !== OFFICIAL_OPERATING_STORE_BASELINE.fc) safe404();
+
+  const corporationIds = unique(officialRows.map(({ row }) => text(row.corporation_id)).filter(Boolean));
+  const corporationRows = corporationIds.length
+    ? await deps.db.select("corporations", {
+      select: "id,corporation_name,is_active",
+      id: inFilter(corporationIds),
+      is_active: "eq.true",
+      limit: 100,
+    })
+    : [];
+  const corporationsById = new Map(corporationRows
+    .filter((row) => row.is_active === true)
+    .map((row) => [text(row.id), text(row.corporation_name)]));
+  const allowedIds = access.scope.mode === "all" ? null : new Set(access.scope.storeIds);
+
+  return officialRows
+    .filter(({ row }) => allowedIds === null || allowedIds.has(text(row.id)))
+    .map(({ row, ownership }) => {
+      const corporationId = text(row.corporation_id);
+      const rawId = text(row.id);
+      const publicKey = text(row.store_id) || text(row.store_no);
+      const storeName = text(row.store_name);
+      const corporationName = corporationsById.get(corporationId) || "";
+      if (!rawId || !publicKey || !storeName || !corporationId || !corporationName) safe404();
+      return { rawId, publicKey, storeName, corporationId, corporationName, ownership };
+    });
 }
 
 async function assertBusinessDataAdminCanonicalContext(
@@ -840,6 +913,103 @@ async function buildStoreSalesProjectionResponse(
   return buildStoreSalesProjection(inputs);
 }
 
+async function buildStoreMonthlyActualProjection(
+  deps: ManagementDependencies,
+  access: AccessContext,
+  request: ManagementRequest,
+): Promise<JsonRecord> {
+  const fiscalMonth = validMonth(request.payload?.selectedMonth);
+  if (!fiscalMonth) {
+    throw new ManagementSafeError(400, "INVALID_REQUEST", "selectedMonth must use YYYY-MM format.");
+  }
+  if (!deps.db.rpc) safe404();
+
+  const stores = await loadOfficialOperatingStores(deps, access);
+  if (!stores.length) safe403("SCOPE_DENIED");
+  const storeByRawId = new Map(stores.map((store) => [store.rawId, store]));
+  const corporationIds = unique(stores.map((store) => store.corporationId));
+  const factGroups = await Promise.all(corporationIds.map(async (corporationId) => {
+    const scopedStoreIds = stores
+      .filter((store) => store.corporationId === corporationId)
+      .map((store) => store.rawId);
+    return await deps.db.rpc!("dbf_store_monthly_actual_read_v1", {
+      p_fiscal_month: fiscalMonth,
+      p_company_id: corporationId,
+      p_store_ids: scopedStoreIds,
+    });
+  }));
+  const facts = factGroups.flat();
+  const factsByStore = new Map<string, JsonRecord[]>();
+  for (const fact of facts) {
+    const rawStoreId = text(fact.store_id);
+    const scopedStore = storeByRawId.get(rawStoreId);
+    const metricValue = text(fact.metric_value);
+    if (!scopedStore
+      || text(fact.company_id) !== scopedStore.corporationId
+      || text(fact.fiscal_month) !== fiscalMonth
+      || !text(fact.metric_code)
+      || !["amount", "quantity", "rate"].includes(text(fact.value_kind))
+      || !metricValue
+      || !/^-?\d+(?:\.\d+)?$/u.test(metricValue)
+      || !/^[0-9a-f]{64}$/u.test(text(fact.source_file_sha256))) safe404();
+    const current = factsByStore.get(rawStoreId) || [];
+    if (current.some((value) => text(value.metric_code) === text(fact.metric_code))) safe404();
+    current.push(fact);
+    factsByStore.set(rawStoreId, current);
+  }
+
+  const projectedStores = stores.map((store) => {
+    const storeFacts = (factsByStore.get(store.rawId) || [])
+      .sort((left, right) => text(left.metric_code).localeCompare(text(right.metric_code), "en"));
+    return {
+      storeKey: store.publicKey,
+      storeName: store.storeName,
+      corporationName: store.corporationName,
+      ownership: store.ownership,
+      fiscalMonth: fiscalMonth.slice(0, 7),
+      dataState: storeFacts.length ? "confirmed" : "preparing",
+      metrics: storeFacts.map((fact) => ({
+        metricCode: text(fact.metric_code),
+        valueKind: text(fact.value_kind),
+        value: text(fact.metric_value),
+        definitionVersion: text(fact.definition_version),
+        displayName: text(fact.display_name),
+        description: text(fact.description),
+        sourceEvidence: {
+          sourceType: text(fact.source_type),
+          sourceFileSha256: text(fact.source_file_sha256),
+          importedAt: text(fact.imported_at),
+          factVersion: numberValue(fact.fact_version),
+        },
+      })),
+    };
+  });
+
+  return {
+    contractVersion: STORE_MONTHLY_ACTUAL_CONTRACT,
+    fiscalMonth: fiscalMonth.slice(0, 7),
+    scope: {
+      mode: access.scope.mode,
+      serverResolved: true,
+      rawStoreIdsReturned: false,
+      operatingStoreBaseline: { ...OFFICIAL_OPERATING_STORE_BASELINE },
+      visibleStoreCount: projectedStores.length,
+    },
+    readiness: {
+      confirmedStoreCount: projectedStores.filter((store) => store.dataState === "confirmed").length,
+      missingStoreCount: projectedStores.filter((store) => store.dataState === "preparing").length,
+      factRowCount: facts.length,
+      missingDataPolicy: "preparing-not-zero",
+    },
+    responsibility: {
+      operatingMetrics: "public.dbf_store_monthly_metric_facts",
+      corporateFinancialLineItems: "public.dbf_pl_detail_facts",
+      corporateFinancialLineItemsIncluded: false,
+    },
+    stores: projectedStores,
+  };
+}
+
 async function buildDataopsStatus(deps: ManagementDependencies): Promise<JsonRecord> {
   const [documents, rawCount, draftCount, reviewCount] = await Promise.all([
     deps.db.select("finance_source_documents", {
@@ -1031,6 +1201,9 @@ export async function handleManagementReadOnlyAction(
     }
     if (request.action === "storeSalesProjection") {
       return success(endpoint, await buildStoreSalesProjectionResponse(deps, access, request), productionEnabled);
+    }
+    if (request.action === "storeMonthlyActualProjectionV1") {
+      return success(endpoint, await buildStoreMonthlyActualProjection(deps, access, request), productionEnabled);
     }
     if (request.action === "managementBusinessDataCapability") {
       return success(endpoint, await buildBusinessDataCapability(deps, access), productionEnabled);

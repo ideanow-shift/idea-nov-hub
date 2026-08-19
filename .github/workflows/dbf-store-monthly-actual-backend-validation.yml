@@ -1,0 +1,77 @@
+name: DBF Store Monthly Actual Backend Validation
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/nov-hub-api/**"
+      - "supabase/migrations/**dbf_store_monthly_actual_backend_contract_v1.sql"
+      - "tests/dbf-store-monthly-actual-backend-*"
+      - ".github/workflows/dbf-store-monthly-actual-backend-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dbf-store-monthly-actual-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract-and-postgres-17:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17.6-bookworm
+        env:
+          POSTGRES_DB: dbf_store_monthly
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dbf_store_monthly"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGDATABASE: dbf_store_monthly
+      PGHOST: 127.0.0.1
+      PGPASSWORD: postgres
+      PGPORT: 5432
+      PGUSER: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Validate source and Edge contracts
+        run: |
+          node --test tests/dbf-store-monthly-actual-backend-contract.test.mjs
+          deno test --allow-env tests/dbf-store-monthly-actual-backend-edge.test.ts
+          deno check supabase/functions/nov-hub-api/index.ts
+      - name: Seed Supabase roles and pgcrypto
+        run: |
+          psql --set=ON_ERROR_STOP=1 --command "create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;"
+          psql --set=ON_ERROR_STOP=1 --command "create schema extensions; create extension pgcrypto with schema extensions;"
+      - name: Apply DBF canonical fact and Store Monthly contract chain
+        run: |
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814140109_dbf_business_data_phase1_foundation.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814204346_dbf_business_data_phase1_service_role_acl_corrective.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814213224_dbf_business_data_phase_c_runtime.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260819002309_dbf_store_monthly_actual_backend_contract_v1.sql
+      - name: Run PostgreSQL 17.6 projection and rollback smoke
+        run: psql --set=ON_ERROR_STOP=1 --file tests/dbf-store-monthly-actual-backend-postgres17.sql
+      - name: Reject secrets and Production references
+        shell: bash
+        run: |
+          if grep -R -E -i 'nkmxevmioczcmnldreyo|idea-nov-core|sbp_|sb_secret_|BEGIN (RSA|OPENSSH) PRIVATE KEY|oauth_client_secret[[:space:]]*=[[:space:]]*[^$]|github_token[[:space:]]*=[[:space:]]*[^$]' \
+            supabase/functions/nov-hub-api \
+            supabase/migrations/20260819002309_dbf_store_monthly_actual_backend_contract_v1.sql \
+            tests/dbf-store-monthly-actual-backend-*; then
+            echo "Forbidden Production reference or secret-like value detected."
+            exit 1
+          fi

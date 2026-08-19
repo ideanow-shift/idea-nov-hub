@@ -391,6 +391,7 @@ function createManualEditor(doc, fact, enabled) {
   let masters = { companies: [], stores: [] };
   let activeGroup = STORE_METRIC_GROUPS[0];
   const storeDraft = new Map();
+  let confirmationStatus = "";
 
   const input = (field, type = "text") => { const control = node(doc, "input", "dbf-manual-input"); control.type = type; control.dataset.field = field; control.disabled = !enabled; return control; };
   const select = (field, values) => { const control = node(doc, "select", "dbf-manual-input"); control.dataset.field = field; control.disabled = !enabled; values.forEach(([value, label]) => control.append(option(doc, value, label))); return control; };
@@ -401,6 +402,25 @@ function createManualEditor(doc, fact, enabled) {
     const companyValues = masters.companies || [];
     const storeValues = (masters.stores || []).filter((item) => item.code !== "honbu" && item.name !== "本部");
     if (fact.runtimeKey === "store_operating_result") {
+      const statusField = node(doc, "fieldset", "dbf-confirmation-status");
+      statusField.append(node(doc, "legend", "", "データ状態（必須）"));
+      [
+        ["confirmed", "確定値", "Store Operationsの正式データとして利用します"],
+        ["provisional", "暫定値", "DBFには保存されますが、Store Operationsの正式実績にはまだ表示されません"],
+      ].forEach(([value, label, description]) => {
+        const choice = node(doc, "label", "dbf-confirmation-choice");
+        const control = node(doc, "input");
+        control.type = "radio";
+        control.name = "store-operating-result-confirmation-status";
+        control.value = value;
+        control.checked = confirmationStatus === value;
+        control.disabled = !enabled;
+        control.addEventListener("change", () => { confirmationStatus = value; });
+        const copy = node(doc, "span");
+        copy.append(node(doc, "strong", "", label), node(doc, "small", "", description));
+        choice.append(control, copy);
+        statusField.append(choice);
+      });
       const tabs = node(doc, "div", "dbf-manual-tabs");
       STORE_METRIC_GROUPS.forEach((group) => { const button = node(doc, "button", `dbf-manual-tab${group.key === activeGroup.key ? " is-active" : ""}`, group.label); button.type = "button"; button.addEventListener("click", () => { activeGroup = group; render(); }); tabs.append(button); });
       const help = node(doc, "p", "dbf-manual-rate-help", "率は「71%」の場合は71と入力してください（0〜100）。");
@@ -410,7 +430,7 @@ function createManualEditor(doc, fact, enabled) {
       storeValues.forEach((store) => { const row = node(doc, "tr"); row.dataset.storeKey = store.code; row.dataset.companyKey = companyValues.find((item) => item.id === store.companyId)?.code || store.companyCode || ""; row.append(node(doc, "th", "", store.name)); activeGroup.metrics.forEach((metric) => { const cell = node(doc, "td"); const control = input(metric, "number"); control.dataset.metricCode = metric; control.step = "any"; control.value = storeDraft.get(`${store.code}:${metric}`) || ""; control.addEventListener("input", () => storeDraft.set(`${store.code}:${metric}`, control.value)); cell.append(control); row.append(cell); }); tbody.append(row); });
       table.append(thead, tbody);
       table.addEventListener("paste", (event) => { event.preventDefault(); try { const grid = parseClipboardGrid(event.clipboardData?.getData("text/plain"), storeValues.length, activeGroup.metrics.length); if (!globalThis.confirm?.(`${grid.length}行 × ${grid[0].length}列を貼り付けますか？`)) return; const InputEvent = doc.defaultView?.Event || globalThis.Event; [...tbody.rows].forEach((row, rowIndex) => [...row.querySelectorAll("input")].forEach((control, columnIndex) => { control.value = grid[rowIndex][columnIndex]; storeDraft.set(`${row.dataset.storeKey}:${control.dataset.metricCode}`, control.value); if (InputEvent) control.dispatchEvent(new InputEvent("input", { bubbles: true })); })); } catch { globalThis.alert?.("行数または列数が一致しないため貼り付けませんでした。"); } });
-      body.append(tabs, help, table);
+      body.append(statusField, tabs, help, table);
       return;
     }
     const table = node(doc, "table", "dbf-manual-grid"); const thead = node(doc, "thead"); const head = node(doc, "tr");
@@ -427,8 +447,9 @@ function createManualEditor(doc, fact, enabled) {
   return {
     root,
     setMasterOptions(value) { masters = value || masters; render(); },
+    confirmationStatus() { return confirmationStatus; },
     rows() {
-      if (fact.runtimeKey === "store_operating_result") return (masters.stores || []).filter((store) => store.code !== "honbu" && store.name !== "本部").flatMap((store) => Object.keys(STORE_METRIC_LABELS).filter((metric) => String(storeDraft.get(`${store.code}:${metric}`) || "").trim() !== "").map((metric) => ({ companyKey: (masters.companies || []).find((item) => item.id === store.companyId)?.code || store.companyCode || "", storeKey: store.code, metricCode: metric, value: storeDraft.get(`${store.code}:${metric}`), definitionVersion: "v1", confirmationStatus: "provisional" })));
+      if (fact.runtimeKey === "store_operating_result") return (masters.stores || []).filter((store) => store.code !== "honbu" && store.name !== "本部").flatMap((store) => Object.keys(STORE_METRIC_LABELS).filter((metric) => String(storeDraft.get(`${store.code}:${metric}`) || "").trim() !== "").map((metric) => ({ companyKey: (masters.companies || []).find((item) => item.id === store.companyId)?.code || store.companyCode || "", storeKey: store.code, metricCode: metric, value: storeDraft.get(`${store.code}:${metric}`), definitionVersion: "v1", confirmationStatus })));
       return [...body.querySelectorAll("tbody tr")].map((row) => Object.fromEntries([...row.querySelectorAll("[data-field]")].map((control) => [control.dataset.field, control.value]))).filter((row) => Object.values(row).some(Boolean));
     },
   };
@@ -504,7 +525,12 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
   const updateConfirmation = () => {
     confirmation.replaceChildren();
     const manualRows = sourceType === "manual_entry" ? manualEditor.rows() : [];
-    [["データ種類", fact.label], ["対象月", month.value || "未選択"], ["入力方法", sourceType === "manual_entry" ? "画面で直接入力" : "CSVから取り込む"], ["ファイル名", sourceType === "manual_entry" ? "監査用Source Artifactを自動生成" : file.files?.[0]?.name || "未選択"], ["行数", sourceType === "manual_entry" ? `${manualRows.length}行` : selectedRowCount], ["対象店舗数", sourceType === "manual_entry" ? `${new Set(manualRows.map((row) => row.storeKey).filter(Boolean)).size}店舗` : "CSV検証時に確認"], ["未入力セル", sourceType === "manual_entry" && manualRows.length === 0 ? "入力が必要です" : "取込前検証で確認"], ["Error / Warning", "取込前検証で確認"], ["注意事項", fact.caution]].forEach(([label, value]) => appendDefinition(doc, confirmation, label, value));
+    const confirmationLabel = fact.runtimeKey !== "store_operating_result"
+      ? null
+      : sourceType === "manual_entry"
+        ? ({ confirmed: "確定値 — Store Operationsの正式表示対象", provisional: "暫定値 — Store Operationsの正式表示対象外" })[manualEditor.confirmationStatus()] || "未選択（選択が必要です）"
+        : "CSV内のconfirmation_statusを取込前検証で確認";
+    [["データ種類", fact.label], ["対象月", month.value || "未選択"], ["入力方法", sourceType === "manual_entry" ? "画面で直接入力" : "CSVから取り込む"], ["ファイル名", sourceType === "manual_entry" ? "監査用Source Artifactを自動生成" : file.files?.[0]?.name || "未選択"], ["行数", sourceType === "manual_entry" ? `${manualRows.length}行` : selectedRowCount], ["対象店舗数", sourceType === "manual_entry" ? `${new Set(manualRows.map((row) => row.storeKey).filter(Boolean)).size}店舗` : "CSV検証時に確認"], ...(confirmationLabel ? [["データ状態", confirmationLabel]] : []), ["未入力セル", sourceType === "manual_entry" && manualRows.length === 0 ? "入力が必要です" : "取込前検証で確認"], ["Error / Warning", "取込前検証で確認"], ["注意事項", fact.caution]].forEach(([label, value]) => appendDefinition(doc, confirmation, label, value));
   };
   month.addEventListener("change", updateConfirmation);
   file.addEventListener("change", async () => {
@@ -523,8 +549,9 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
   const start = node(doc, "button", "business-data-action", "この内容で取り込む");
   start.type = "button";
   const updateStartAvailability = () => {
-    start.disabled = !enabled || !month.value || (sourceType === "csv_upload" ? !file.files?.[0] : manualEditor.rows().length === 0);
-    start.title = start.disabled ? "対象月と入力内容を確認すると取込を開始できます" : "";
+    const confirmationMissing = fact.runtimeKey === "store_operating_result" && sourceType === "manual_entry" && !manualEditor.confirmationStatus();
+    start.disabled = !enabled || !month.value || confirmationMissing || (sourceType === "csv_upload" ? !file.files?.[0] : manualEditor.rows().length === 0);
+    start.title = confirmationMissing ? "確定値または暫定値を明示的に選択してください" : start.disabled ? "対象月と入力内容を確認すると取込を開始できます" : "";
   };
   month.addEventListener("change", updateStartAvailability);
   file.addEventListener("change", updateStartAvailability);
@@ -676,7 +703,9 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
   });
 
   promote.addEventListener("click", async () => {
-    if (!globalThis.confirm?.(`${fact.label} ${month.value} を正式データへ反映しますか？`)) return;
+    const provisional = fact.runtimeKey === "store_operating_result" && state.parsed?.rows?.some((row) => row.confirmationStatus === "provisional");
+    const confirmationNotice = provisional ? "\n\nデータ状態: 暫定値\nStore Operationsの正式実績には表示されません。" : "";
+    if (!globalThis.confirm?.(`${fact.label} ${month.value} を正式データへ反映しますか？${confirmationNotice}`)) return;
     promote.disabled = true;
     try {
       const promoted = await DBF_IMPORT_RUNTIME.promote(state.batchId);

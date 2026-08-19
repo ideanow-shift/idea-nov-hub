@@ -15,6 +15,14 @@ const edge = readFileSync(new URL(
   import.meta.url,
 ), "utf8");
 
+function edgeFunctionBody(name, nextName) {
+  const start = edge.indexOf(`async function ${name}`);
+  const end = edge.indexOf(`function ${nextName}`, start + 1);
+  assert.notEqual(start, -1, `${name} must exist`);
+  assert.notEqual(end, -1, `${nextName} must exist after ${name}`);
+  return edge.slice(start, end);
+}
+
 test("store monthly actual RPC is confirmed, active, company/store/month scoped", () => {
   assert.match(migration, /fact\.fiscal_month = p_fiscal_month/u);
   assert.match(migration, /fact\.company_id = p_company_id/u);
@@ -47,6 +55,17 @@ test("HUB Edge exposes only server-resolved monthly projection action", () => {
   assert.match(candidate, /rawStoreIdsReturned: false/u);
   assert.match(candidate, /OFFICIAL_OPERATING_STORE_BASELINE = Object\.freeze\(\{ total: 20, direct: 13, fc: 7 \}\)/u);
   assert.match(candidate, /dbf_store_monthly_actual_read_v1/u);
+});
+
+test("Store Operations enables assigned scope while DBF admin handoff remains disabled", () => {
+  const managementRuntime = edgeFunctionBody("handleManagementFromDeployedBaseline", "resolveDbfHandoffBusinessDataAdmin");
+  const adminHandoff = edgeFunctionBody("resolveDbfHandoffBusinessDataAdmin", "createDbfHandoffDependencies");
+  assert.match(managementRuntime, /assignedScopeEnabled:\s*true/u);
+  assert.doesNotMatch(managementRuntime, /assignedScopeEnabled:\s*false/u);
+  assert.match(adminHandoff, /assignedScopeEnabled:\s*false/u);
+  assert.doesNotMatch(adminHandoff, /assignedScopeEnabled:\s*true/u);
+  assert.equal((edge.match(/assignedScopeEnabled:\s*true/gu) || []).length, 1);
+  assert.equal((edge.match(/assignedScopeEnabled:\s*false/gu) || []).length, 1);
 });
 
 test("migration contains no business data population or write projection", () => {

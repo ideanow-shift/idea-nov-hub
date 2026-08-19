@@ -34,6 +34,8 @@ const STORE_ROWS = [
 function dependencies(options: {
   roleKey?: string;
   employeeStoreId?: string | null;
+  assignments?: JsonRecord[];
+  assignedScopeEnabled?: boolean;
   factRows?: JsonRecord[];
   captureRpc?: (name: string, args: JsonRecord) => void;
   includeRpc?: boolean;
@@ -76,6 +78,9 @@ function dependencies(options: {
       if (table === "roles") {
         return [{ id: "role-1", role_key: roleKey, is_active: true }];
       }
+      if (table === "employee_store_assignments") {
+        return options.assignments || [];
+      }
       if (table === "stores") {
         const scopedIds =
           String(query.id || "").match(/^in\.\((.*)\)$/u)?.[1]?.split(",") ||
@@ -107,6 +112,8 @@ function dependencies(options: {
     verifyHubSession: async () => ({ subject: "verified" }),
     resolveEmployee: async () => ({ id: EMPLOYEE_ID }),
     db,
+    today: () => "2026-08-19",
+    assignedScopeEnabled: options.assignedScopeEnabled === true,
   };
 }
 
@@ -190,6 +197,80 @@ Deno.test("store-manager projection derives one store from server-side identity"
   assertEquals(stores[0].storeKey, STORE_ROWS[1].store_id);
   assertEquals(calls.length, 1);
   assertEquals(calls[0].p_store_ids, [ownStoreId]);
+});
+
+Deno.test("area-manager projection derives only active assigned stores from server-side identity", async () => {
+  const assignedStoreIds = [String(STORE_ROWS[2].id), String(STORE_ROWS[4].id)];
+  const result = await handleManagementReadOnlyAction(
+    {
+      action: "storeMonthlyActualProjectionV1",
+      token: "hub-session",
+      payload: {
+        selectedMonth: "2026-06",
+        scopeMode: "assigned",
+        role: "executive",
+        actorEmployeeId: "spoofed",
+        storeIds: [String(STORE_ROWS[1].id)],
+      } as never,
+    },
+    dependencies({
+      roleKey: "area_manager",
+      assignedScopeEnabled: true,
+      assignments: [
+        { store_id: assignedStoreIds[0], assignment_type: "primary", assignment_order: 1, effective_from: "2026-01-01", effective_to: null, is_active: true },
+        { store_id: assignedStoreIds[1], assignment_type: "secondary", assignment_order: 2, effective_from: "2026-08-01", effective_to: "2026-12-31", is_active: true },
+        { store_id: String(STORE_ROWS[6].id), assignment_type: "primary", assignment_order: 3, effective_from: "2025-01-01", effective_to: "2026-08-18", is_active: true },
+        { store_id: String(STORE_ROWS[7].id), assignment_type: "primary", assignment_order: 4, effective_from: "2026-01-01", effective_to: null, is_active: false },
+      ],
+    }),
+  );
+
+  assertEquals(result.status, 200);
+  const data = result.body.data as JsonRecord;
+  assertEquals((data.scope as JsonRecord).mode, "assigned");
+  assertEquals(((data.stores as JsonRecord[]).map((row) => row.storeKey)), [STORE_ROWS[2].store_id, STORE_ROWS[4].store_id]);
+});
+
+Deno.test("area-manager cannot expand assigned scope to all stores", async () => {
+  const result = await handleManagementReadOnlyAction(
+    {
+      action: "storeMonthlyActualProjectionV1",
+      token: "hub-session",
+      payload: { selectedMonth: "2026-06", scopeMode: "all" },
+    },
+    dependencies({
+      roleKey: "area_manager",
+      assignedScopeEnabled: true,
+      assignments: [{ store_id: String(STORE_ROWS[2].id), assignment_type: "primary", assignment_order: 1, effective_from: "2026-01-01", effective_to: null, is_active: true }],
+    }),
+  );
+
+  assertEquals(result.status, 403);
+  assertEquals((result.body.error as JsonRecord).code, "SCOPE_DENIED");
+});
+
+Deno.test("area-manager with only inactive or expired assignments is scope denied", async () => {
+  for (const assignment of [
+    { store_id: String(STORE_ROWS[2].id), assignment_type: "primary", assignment_order: 1, effective_from: "2026-01-01", effective_to: null, is_active: false },
+    { store_id: String(STORE_ROWS[2].id), assignment_type: "primary", assignment_order: 1, effective_from: "2026-01-01", effective_to: "2026-08-18", is_active: true },
+  ]) {
+    const result = await handleManagementReadOnlyAction(
+      { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-06", scopeMode: "assigned" } },
+      dependencies({ roleKey: "area_manager", assignedScopeEnabled: true, assignments: [assignment] }),
+    );
+    assertEquals(result.status, 403);
+    assertEquals((result.body.error as JsonRecord).code, "SCOPE_DENIED");
+  }
+});
+
+Deno.test("authorized global role retains all-store scope when assigned scope is enabled", async () => {
+  const result = await handleManagementReadOnlyAction(
+    { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-06", scopeMode: "all" } },
+    dependencies({ roleKey: "executive", assignedScopeEnabled: true }),
+  );
+  assertEquals(result.status, 200);
+  assertEquals(((result.body.data as JsonRecord).scope as JsonRecord).mode, "all");
+  assertEquals(((result.body.data as JsonRecord).stores as JsonRecord[]).length, 20);
 });
 
 Deno.test("invalid month and absent canonical RPC fail closed before facts are returned", async () => {

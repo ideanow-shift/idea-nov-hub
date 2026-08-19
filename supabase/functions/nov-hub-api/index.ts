@@ -461,7 +461,7 @@ async function handleManagementFromDeployedBaseline(
         return Array.isArray(result) ? result as JsonRecord[] : [];
       },
     },
-    assignedScopeEnabled: false,
+    assignedScopeEnabled: true,
   };
   return await handleManagementReadOnlyAction({
     action,

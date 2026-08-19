@@ -1,6 +1,7 @@
 import { STORE_MONTHLY_METRICS } from "./dbf-business-data-contract.js";
-import { DBF_IMPORT_RUNTIME, buildDbfRawRows, buildDbfSourceFile } from "./dbf-business-data-runtime.js";
+import { DBF_IMPORT_RUNTIME, buildDbfRawRows, buildDbfSourceArtifact, buildDbfSourceFile } from "./dbf-business-data-runtime.js";
 import { bindDbfCanonicalMappings, dbfNormalizedCsvTemplate, parseDbfNormalizedCsv } from "./dbf-business-data-normalized-csv.js";
+import { parseClipboardGrid, prepareDbfInput, STORE_METRIC_GROUPS, STORE_METRIC_LABELS, validateOfficialStoreBaseline } from "./dbf-business-data-input-adapter.js";
 import { createDbfAccountMappingReview } from "./dbf-account-mapping-review.js";
 
 const FACTS = Object.freeze([
@@ -381,6 +382,58 @@ function renderMappingRows(doc, state, container, refresh) {
   }
 }
 
+function createManualEditor(doc, fact, enabled) {
+  const root = node(doc, "section", "dbf-manual-editor");
+  root.hidden = true;
+  const note = node(doc, "p", "dbf-manual-note", "入力途中の値はこのページ内だけに保持されます。ブラウザには保存しません。");
+  const body = node(doc, "div", "dbf-manual-body");
+  root.append(note, body);
+  let masters = { companies: [], stores: [] };
+  let activeGroup = STORE_METRIC_GROUPS[0];
+  const storeDraft = new Map();
+
+  const input = (field, type = "text") => { const control = node(doc, "input", "dbf-manual-input"); control.type = type; control.dataset.field = field; control.disabled = !enabled; return control; };
+  const select = (field, values) => { const control = node(doc, "select", "dbf-manual-input"); control.dataset.field = field; control.disabled = !enabled; values.forEach(([value, label]) => control.append(option(doc, value, label))); return control; };
+  const masterSelect = (field, values, optionalValue = false) => select(field, [["", optionalValue ? "指定なし" : "選択してください"], ...values.map((item) => [item.code, item.name])]);
+
+  const render = () => {
+    body.replaceChildren();
+    const companyValues = masters.companies || [];
+    const storeValues = (masters.stores || []).filter((item) => item.code !== "honbu" && item.name !== "本部");
+    if (fact.runtimeKey === "store_operating_result") {
+      const tabs = node(doc, "div", "dbf-manual-tabs");
+      STORE_METRIC_GROUPS.forEach((group) => { const button = node(doc, "button", `dbf-manual-tab${group.key === activeGroup.key ? " is-active" : ""}`, group.label); button.type = "button"; button.addEventListener("click", () => { activeGroup = group; render(); }); tabs.append(button); });
+      const help = node(doc, "p", "dbf-manual-rate-help", "率は「71%」の場合は71と入力してください（0〜100）。");
+      const table = node(doc, "table", "dbf-manual-grid");
+      const head = node(doc, "tr"); head.append(node(doc, "th", "", "店舗"), ...activeGroup.metrics.map((metric) => node(doc, "th", "", STORE_METRIC_LABELS[metric])));
+      const thead = node(doc, "thead"); thead.append(head); const tbody = node(doc, "tbody");
+      storeValues.forEach((store) => { const row = node(doc, "tr"); row.dataset.storeKey = store.code; row.dataset.companyKey = companyValues.find((item) => item.id === store.companyId)?.code || store.companyCode || ""; row.append(node(doc, "th", "", store.name)); activeGroup.metrics.forEach((metric) => { const cell = node(doc, "td"); const control = input(metric, "number"); control.dataset.metricCode = metric; control.step = "any"; control.value = storeDraft.get(`${store.code}:${metric}`) || ""; control.addEventListener("input", () => storeDraft.set(`${store.code}:${metric}`, control.value)); cell.append(control); row.append(cell); }); tbody.append(row); });
+      table.append(thead, tbody);
+      table.addEventListener("paste", (event) => { event.preventDefault(); try { const grid = parseClipboardGrid(event.clipboardData?.getData("text/plain"), storeValues.length, activeGroup.metrics.length); if (!globalThis.confirm?.(`${grid.length}行 × ${grid[0].length}列を貼り付けますか？`)) return; const InputEvent = doc.defaultView?.Event || globalThis.Event; [...tbody.rows].forEach((row, rowIndex) => [...row.querySelectorAll("input")].forEach((control, columnIndex) => { control.value = grid[rowIndex][columnIndex]; storeDraft.set(`${row.dataset.storeKey}:${control.dataset.metricCode}`, control.value); if (InputEvent) control.dispatchEvent(new InputEvent("input", { bubbles: true })); })); } catch { globalThis.alert?.("行数または列数が一致しないため貼り付けませんでした。"); } });
+      body.append(tabs, help, table);
+      return;
+    }
+    const table = node(doc, "table", "dbf-manual-grid"); const thead = node(doc, "thead"); const head = node(doc, "tr");
+    const fields = fact.runtimeKey === "budget" ? ["法人", "店舗", "scenario", "勘定科目コード", "指標", "金額"] : fact.runtimeKey === "bs" ? ["法人", "勘定科目コード", "勘定科目名", "金額", "区分"] : ["法人", "店舗", "勘定科目コード", "勘定科目名", "金額", "detail / aggregate", "aggregate scope"];
+    fields.forEach((label) => head.append(node(doc, "th", "", label))); thead.append(head); const tbody = node(doc, "tbody"); table.append(thead, tbody);
+    const addRow = () => { const row = node(doc, "tr"); row.append((() => { const td=node(doc,"td"); td.append(masterSelect("companyKey", companyValues)); return td; })()); if (fact.runtimeKey !== "bs") { const td=node(doc,"td"); td.append(masterSelect("storeKey", storeValues, true)); row.append(td); }
+      const specs = fact.runtimeKey === "budget" ? [["scenarioCode"],["accountCode"],["metricCode"],["amount","number"]] : fact.runtimeKey === "bs" ? [["accountCode"],["accountName"],["amount","number"],["classification","select"]] : [["accountCode"],["accountName"],["amount","number"],["sourceRowCategory","category"],["aggregateScope"]];
+      specs.forEach(([field,type]) => { const td=node(doc,"td"); const control = type === "select" ? select(field, [["asset","資産"],["liability","負債"],["equity","純資産"]]) : type === "category" ? select(field, [["detail","明細"],["aggregate","集計"]]) : input(field,type); td.append(control); row.append(td); }); tbody.append(row); };
+    addRow();
+    if (fact.runtimeKey === "budget") table.addEventListener("paste", (event) => { event.preventDefault(); try { const controls = [...tbody.rows].map((row) => [...row.querySelectorAll("[data-field]")]); const grid = parseClipboardGrid(event.clipboardData?.getData("text/plain"), controls.length, fields.length); if (!globalThis.confirm?.(`${grid.length}行 × ${grid[0].length}列を貼り付けますか？`)) return; controls.forEach((row, rowIndex) => row.forEach((control, columnIndex) => { control.value = grid[rowIndex][columnIndex]; })); } catch { globalThis.alert?.("行数または列数が一致しないため貼り付けませんでした。"); } });
+    const add = node(doc, "button", "business-data-secondary-action", "＋ 行を追加"); add.type = "button"; add.addEventListener("click", addRow); body.append(table, add);
+  };
+  render();
+  return {
+    root,
+    setMasterOptions(value) { masters = value || masters; render(); },
+    rows() {
+      if (fact.runtimeKey === "store_operating_result") return (masters.stores || []).filter((store) => store.code !== "honbu" && store.name !== "本部").flatMap((store) => Object.keys(STORE_METRIC_LABELS).filter((metric) => String(storeDraft.get(`${store.code}:${metric}`) || "").trim() !== "").map((metric) => ({ companyKey: (masters.companies || []).find((item) => item.id === store.companyId)?.code || store.companyCode || "", storeKey: store.code, metricCode: metric, value: storeDraft.get(`${store.code}:${metric}`), definitionVersion: "v1", confirmationStatus: "provisional" })));
+      return [...body.querySelectorAll("tbody tr")].map((row) => Object.fromEntries([...row.querySelectorAll("[data-field]")].map((control) => [control.dataset.field, control.value]))).filter((row) => Object.values(row).some(Boolean));
+    },
+  };
+}
+
 function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
   const panel = node(doc, "section", "business-data-preview-panel");
   panel.dataset.businessDataPanel = fact.view;
@@ -417,7 +470,11 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
   month.setAttribute("aria-label", `${fact.label}の対象月`);
   step2.append(month);
   const step3 = node(doc, "section", "dbf-import-wizard-step");
-  step3.append(node(doc, "span", "dbf-import-step-number", "STEP 3"), node(doc, "h4", "", "使用するファイルを確認"), sourceGuide);
+  step3.append(node(doc, "span", "dbf-import-step-number", "STEP 3"), node(doc, "h4", "", "入力方法を選択してください"));
+  const method = node(doc, "div", "dbf-input-methods");
+  const csvMethod = node(doc, "button", "business-data-action is-selected", "CSVから取り込む"); csvMethod.type = "button";
+  const manualMethod = node(doc, "button", "business-data-secondary-action", "画面で直接入力"); manualMethod.type = "button";
+  method.append(csvMethod, manualMethod); step3.append(method, node(doc, "p", "", "CSVの場合は使用するファイルを確認してください。"), sourceGuide);
   const step4 = node(doc, "section", "dbf-import-wizard-step");
   step4.append(node(doc, "span", "dbf-import-step-number", "STEP 4"), node(doc, "h4", "", "ファイルを選択"), node(doc, "p", "", "対応形式：DBF標準CSV（UTF-8）"));
   const file = node(doc, "input", "business-data-file");
@@ -437,13 +494,17 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
     URL.revokeObjectURL(url);
   });
   step4.append(file, template);
+  const manualEditor = createManualEditor(doc, fact, enabled);
+  step4.append(manualEditor.root);
   const step5 = node(doc, "section", "dbf-import-wizard-step");
   step5.append(node(doc, "span", "dbf-import-step-number", "STEP 5"), node(doc, "h4", "", "取込前確認"));
   const confirmation = node(doc, "dl", "dbf-import-confirmation");
   let selectedRowCount = "ファイル選択後に確認します";
+  let sourceType = "csv_upload";
   const updateConfirmation = () => {
     confirmation.replaceChildren();
-    [["データ種類", fact.label], ["対象月", month.value || "未選択"], ["ファイル名", file.files?.[0]?.name || "未選択"], ["ファイル形式", file.files?.[0]?.type || "CSV"], ["行数", selectedRowCount], ["想定対象", fact.purpose], ["注意事項", fact.caution]].forEach(([label, value]) => appendDefinition(doc, confirmation, label, value));
+    const manualRows = sourceType === "manual_entry" ? manualEditor.rows() : [];
+    [["データ種類", fact.label], ["対象月", month.value || "未選択"], ["入力方法", sourceType === "manual_entry" ? "画面で直接入力" : "CSVから取り込む"], ["ファイル名", sourceType === "manual_entry" ? "監査用Source Artifactを自動生成" : file.files?.[0]?.name || "未選択"], ["行数", sourceType === "manual_entry" ? `${manualRows.length}行` : selectedRowCount], ["対象店舗数", sourceType === "manual_entry" ? `${new Set(manualRows.map((row) => row.storeKey).filter(Boolean)).size}店舗` : "CSV検証時に確認"], ["未入力セル", sourceType === "manual_entry" && manualRows.length === 0 ? "入力が必要です" : "取込前検証で確認"], ["Error / Warning", "取込前検証で確認"], ["注意事項", fact.caution]].forEach(([label, value]) => appendDefinition(doc, confirmation, label, value));
   };
   month.addEventListener("change", updateConfirmation);
   file.addEventListener("change", async () => {
@@ -462,11 +523,27 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
   const start = node(doc, "button", "business-data-action", "この内容で取り込む");
   start.type = "button";
   const updateStartAvailability = () => {
-    start.disabled = !enabled || !month.value || !file.files?.[0];
-    start.title = start.disabled ? "対象月とCSVファイルを選択すると取込を開始できます" : "";
+    start.disabled = !enabled || !month.value || (sourceType === "csv_upload" ? !file.files?.[0] : manualEditor.rows().length === 0);
+    start.title = start.disabled ? "対象月と入力内容を確認すると取込を開始できます" : "";
   };
   month.addEventListener("change", updateStartAvailability);
   file.addEventListener("change", updateStartAvailability);
+  const selectMethod = async (next) => {
+    sourceType = next;
+    csvMethod.className = next === "csv_upload" ? "business-data-action is-selected" : "business-data-secondary-action";
+    manualMethod.className = next === "manual_entry" ? "business-data-action is-selected" : "business-data-secondary-action";
+    file.hidden = template.hidden = sourceGuide.hidden = next === "manual_entry";
+    manualEditor.root.hidden = next !== "manual_entry";
+    if (next === "manual_entry" && enabled) {
+      const masterOptions = await DBF_IMPORT_RUNTIME.masterOptions();
+      if (fact.runtimeKey === "store_operating_result") validateOfficialStoreBaseline(masterOptions);
+      manualEditor.setMasterOptions(masterOptions);
+    }
+    updateConfirmation(); updateStartAvailability();
+  };
+  csvMethod.addEventListener("click", () => void selectMethod("csv_upload").catch((error) => renderSafeError(doc, status, error, "正式マスタを確認してください")));
+  manualMethod.addEventListener("click", () => void selectMethod("manual_entry").catch((error) => renderSafeError(doc, status, error, "正式マスタを確認してください")));
+  manualEditor.root.addEventListener("input", () => { updateConfirmation(); updateStartAvailability(); });
   updateStartAvailability();
   const correctionToggle = node(doc, "input");
   correctionToggle.type = "checkbox";
@@ -519,15 +596,19 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
   };
 
   start.addEventListener("click", async () => {
-    if (!file.files?.[0] || !month.value) return;
+    if (!month.value || (sourceType === "csv_upload" && !file.files?.[0])) return;
     start.disabled = true;
     validate.disabled = approve.disabled = promote.disabled = true;
     preview.textContent = "";
     try {
-      state.file = file.files[0];
-      state.parsed = parseDbfNormalizedCsv(await state.file.text(), fact.runtimeKey, month.value);
+      state.file = sourceType === "csv_upload" ? file.files[0] : null;
+      const prepared = prepareDbfInput(sourceType === "csv_upload"
+        ? { sourceType, text: await state.file.text(), file: state.file, factKind: fact.runtimeKey, fiscalMonth: month.value }
+        : { sourceType, rows: manualEditor.rows(), factKind: fact.runtimeKey, fiscalMonth: month.value });
+      state.sourceSystem = prepared.sourceSystem;
+      state.parsed = { factKind: prepared.factKind, fiscalMonth: prepared.fiscalMonth, rows: prepared.normalizedRows, mappingRequests: prepared.mappingRequests };
       const [fileReceipt, rawRows, masterOptions] = await Promise.all([
-        buildDbfSourceFile(state.file),
+        sourceType === "csv_upload" ? buildDbfSourceFile(state.file) : buildDbfSourceArtifact(prepared.sourceArtifact),
         buildDbfRawRows(state.parsed.rows),
         DBF_IMPORT_RUNTIME.masterOptions(),
       ]);
@@ -541,7 +622,7 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
         file: fileReceipt,
         factKind: fact.runtimeKey,
         fiscalMonth: month.value,
-        sourceType: "csv_upload",
+        sourceType,
         sourceSystem: state.sourceSystem,
         rawRows,
         correctionOfBatchId,

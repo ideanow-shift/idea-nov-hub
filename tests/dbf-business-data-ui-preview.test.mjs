@@ -12,6 +12,7 @@ test("management UI contains only the four Phase 1 facts and the real import flo
   assert.deepEqual(BUSINESS_DATA_PREVIEW_FIXTURE.sections.map((item) => item.key), ["PL", "BS", "STORE_OPERATING_RESULT", "BUDGET"]);
   const source = fs.readFileSync(path.join(root, "portal/management-app/business-data-management-preview.js"), "utf8");
   for (const label of ["Dashboard", "月次P/L", "B/S", "営業実績", "予算", "取込履歴"]) assert.match(source, new RegExp(label, "u"));
+  for (const label of ["DBF Management Workflow", "Validation", "Mapping", "Account Review", "Approval", "Promotion", "完了", "次の操作へ"]) assert.match(source, new RegExp(label, "u"));
   for (const action of ["start", "resolveMappings", "quarantineMappings", "confirmMapping", "validate", "preview", "approve", "promote", "history"]) {
     assert.match(source, new RegExp(`DBF_IMPORT_RUNTIME\\.${action}`, "u"));
   }
@@ -19,6 +20,8 @@ test("management UI contains only the four Phase 1 facts and the real import flo
   assert.match(source, /runtimeImport = enabled \? "ENABLED" : "DISABLED"/u);
   assert.match(source, /productionWrite = "DISABLED"/u);
   assert.match(source, /DBF_IMPORT_RUNTIME\.pilotPreview/u);
+  assert.match(source, /DBF_IMPORT_RUNTIME\.corporatePromotionPreflight/u);
+  assert.match(source, /deriveDbfWorkflowState/u);
   for (const label of [
     "Pilot Month", "Source owner", "Accounting Status", "Promotion candidates", "Canonical Fact writes",
     "P\/L Preview", "B\/S Preview", "Budget Preview", "Mapping \/ Audit", "Warnings",

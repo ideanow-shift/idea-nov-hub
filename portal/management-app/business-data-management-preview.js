@@ -36,6 +36,60 @@ function errorCode(error) {
   return String(error?.message || error || "DBF_RUNTIME_REQUEST_FAILED").replace(/[^A-Z0-9_:-]/gu, "").slice(0, 120);
 }
 
+const WORKFLOW_STEPS = Object.freeze([
+  Object.freeze({ key: "import", label: "取込", target: "pl" }),
+  Object.freeze({ key: "validation", label: "Validation", target: "pl" }),
+  Object.freeze({ key: "mapping", label: "Mapping", target: "pl" }),
+  Object.freeze({ key: "account-review", label: "Account Review", target: "account-review" }),
+  Object.freeze({ key: "approval", label: "Approval", target: "dashboard" }),
+  Object.freeze({ key: "promotion", label: "Promotion", target: "dashboard" }),
+  Object.freeze({ key: "complete", label: "完了", target: "history" }),
+]);
+
+const STATUS_ORDER = Object.freeze({ uploaded: 1, parsed: 1, raw: 1, mapping: 2, quarantined: 2, staged: 3, validated: 3, previewed: 3, approved: 5, promoted: 6, superseded: 6 });
+
+export function deriveDbfWorkflowState(items = [], options = {}) {
+  const rows = Array.isArray(items) ? items : [];
+  const max = rows.reduce((value, item) => Math.max(value, STATUS_ORDER[String(item?.status || "").toLowerCase()] || 0), 0);
+  const hasErrors = rows.some((item) => Number(item?.errorCount || 0) > 0);
+  const hasQuarantine = rows.some((item) => Number(item?.quarantinedCount || 0) > 0 || String(item?.status || "").toLowerCase() === "quarantined");
+  const reviewComplete = options.reviewComplete === true;
+  const preflightReady = options.preflightReady === true;
+  const steps = WORKFLOW_STEPS.map((step, index) => {
+    let state = "pending";
+    if (index === 0 && rows.length) state = "complete";
+    if (index === 1 && max >= 3 && !hasErrors) state = "complete";
+    if (index === 2 && max >= 3 && !hasQuarantine) state = "complete";
+    if (index === 3 && reviewComplete) state = "complete";
+    if (index === 4 && max >= 5) state = "complete";
+    if (index === 5 && max >= 6) state = "complete";
+    if (index === 6 && max >= 6) state = "complete";
+    return { ...step, state };
+  });
+  const firstPending = steps.find((step) => step.state !== "complete");
+  const blocked = hasErrors || hasQuarantine || (firstPending?.key === "approval" && !preflightReady);
+  return {
+    steps,
+    blocked,
+    nextAction: hasErrors ? "Validation Errorを解消してください" : hasQuarantine ? "未解決Mappingを確認してください" : firstPending ? `${firstPending.label}へ進む` : "取込フロー完了",
+    nextTarget: firstPending?.target || "history",
+  };
+}
+
+export function safeDbfManagementError(error) {
+  const code = errorCode(error);
+  const messages = {
+    DBF_STAGING_SESSION_REQUIRED: "Staging Sessionを確認してください。NOV HUBの正式Launcherから開き直せます。",
+    UNAUTHORIZED: "認証を確認できませんでした。NOV HUBから再度開いてください。",
+    FORBIDDEN: "経営データ管理権限がありません。",
+    COMPANY_SCOPE_REJECTED: "対象法人のScopeが許可されていません。選択条件を確認してください。",
+    DBF_ACCOUNT_REVIEW_ALREADY_FINAL: "この候補は既に最終判断済みです。再読込して最新状態を確認してください。",
+    DBF_IMPORT_REQUEST_DUPLICATE: "同じ操作は既に受け付け済みです。履歴から結果を確認してください。",
+    DBF_DUPLICATE_REVIEW_REQUEST: "同じOwner Decisionは既に受け付け済みです。最新状態を再読込してください。",
+  };
+  return { code, message: messages[code] || `処理を完了できませんでした（${code}）`, retryable: !new Set(["FORBIDDEN", "COMPANY_SCOPE_REJECTED"]).has(code) };
+}
+
 function runtimeEnabled(options) {
   const runtime = options.runtime || globalThis.window?.__DBF_RUNTIME__ || {};
   return runtime.environment === "staging"
@@ -462,6 +516,34 @@ export function renderBusinessDataManagementPreview(container, options = {}) {
   const tabs = node(doc, "nav", "business-data-tabs");
   tabs.setAttribute("aria-label", "経営データ管理メニュー");
 
+  const shell = node(doc, "section", "dbf-management-shell");
+  shell.setAttribute("aria-labelledby", "dbf-management-shell-title");
+  const shellHeader = node(doc, "div", "dbf-management-shell-header");
+  const shellTitle = node(doc, "h3", "", "DBF Management Workflow");
+  shellTitle.id = "dbf-management-shell-title";
+  const shellMonthLabel = node(doc, "label", "dbf-management-shell-month-label", "対象月");
+  const shellMonth = node(doc, "input", "business-data-month dbf-management-shell-month");
+  shellMonth.type = "month";
+  shellMonth.value = fixture.fiscalMonth;
+  shellMonthLabel.append(shellMonth);
+  shellHeader.append(shellTitle, shellMonthLabel);
+  const workflow = node(doc, "ol", "dbf-management-workflow");
+  const next = node(doc, "div", "dbf-management-next");
+  next.setAttribute("role", "status");
+  next.setAttribute("aria-live", "polite");
+  const nextText = node(doc, "p", "", "履歴を確認しています…");
+  const nextButton = node(doc, "button", "business-data-action", "次の操作へ");
+  nextButton.type = "button";
+  nextButton.disabled = true;
+  const shellAlert = node(doc, "div", "dbf-management-alert");
+  shellAlert.setAttribute("role", "alert");
+  shellAlert.hidden = true;
+  const historyLink = node(doc, "button", "business-data-secondary-action", "取込履歴を開く");
+  historyLink.type = "button";
+  next.append(nextText, nextButton);
+  next.append(historyLink);
+  shell.append(shellHeader, workflow, next, shellAlert);
+
   const dashboard = node(doc, "section", "business-data-preview-panel");
   dashboard.dataset.businessDataPanel = "dashboard";
   const dashboardTitle = node(doc, "h3", "", `${fixture.fiscalMonth} データ状況`);
@@ -493,12 +575,39 @@ export function renderBusinessDataManagementPreview(container, options = {}) {
   history.append(historyList);
   renderHistoryItems(historyList, fixture.history || []);
 
+  let workflowState = deriveDbfWorkflowState([]);
+  const activateView = (key) => {
+    const button = [...tabs.children].find((item) => item.dataset.businessDataView === key);
+    if (button) button.click();
+  };
+  const renderWorkflow = () => {
+    workflow.replaceChildren();
+    workflowState.steps.forEach((step, index) => {
+      const item = node(doc, "li", `dbf-management-workflow-step is-${step.state}`);
+      const button = node(doc, "button", "dbf-management-workflow-button");
+      button.type = "button";
+      button.dataset.workflowStep = step.key;
+      button.setAttribute("aria-label", `${index + 1}. ${step.label}: ${step.state === "complete" ? "完了" : "未完了"}`);
+      button.append(node(doc, "span", "dbf-management-workflow-number", String(index + 1)), node(doc, "span", "", step.label), node(doc, "strong", "", step.state === "complete" ? "完了" : "未完了"));
+      button.addEventListener("click", () => activateView(step.target));
+      item.append(button);
+      workflow.append(item);
+    });
+    nextText.textContent = workflowState.nextAction;
+    nextButton.disabled = !workflowState.nextTarget;
+  };
+  renderWorkflow();
+
   const refreshHistory = async (monthValue = dashboardMonth.value) => {
     dashboardMonth.value = monthValue || dashboardMonth.value;
+    shellMonth.value = dashboardMonth.value;
     dashboardTitle.textContent = `${dashboardMonth.value} データ状況`;
+    shellAlert.hidden = true;
     if (!enabled) {
       updateDashboardCards(cards, []);
       renderPilotMonthPreview(pilotPreview, null);
+      workflowState = deriveDbfWorkflowState([]);
+      renderWorkflow();
       return;
     }
     try {
@@ -513,14 +622,37 @@ export function renderBusinessDataManagementPreview(container, options = {}) {
       renderHistoryItems(historyList, items);
       updateDashboardCards(cards, items);
       renderPilotMonthPreview(pilotPreview, pilot);
-    } catch (_error) {
+      let reviewComplete = false;
+      let preflightReady = false;
+      if (dashboardMonth.value === "2026-06") {
+        const [review, preflight] = await Promise.allSettled([
+          DBF_IMPORT_RUNTIME.accountReviewList({ companyId: "e4059116-bdb3-4e13-9763-bbc77bdfe062", fiscalMonth: dashboardMonth.value }),
+          DBF_IMPORT_RUNTIME.corporatePromotionPreflight(),
+        ]);
+        if (review.status === "fulfilled") {
+          const candidates = Array.isArray(review.value?.items) ? review.value.items : [];
+          reviewComplete = candidates.length > 0 && candidates.every((item) => !new Set(["UNREVIEWED", "NEEDS_REVIEW"]).has(String(item.mappingStatus || item.decision || "UNREVIEWED")));
+        }
+        preflightReady = preflight.status === "fulfilled" && preflight.value?.promotionAllowed === true;
+      }
+      workflowState = deriveDbfWorkflowState(items, { reviewComplete, preflightReady });
+      renderWorkflow();
+    } catch (error) {
       renderHistoryItems(historyList, []);
       updateDashboardCards(cards, []);
       pilotPreview.hidden = false;
       pilotPreview.replaceChildren(node(doc, "p", "business-data-runtime-status", "Pilot Previewを読み込めませんでした。再取込はせず、接続状態を確認してください。"));
+      workflowState = deriveDbfWorkflowState([]);
+      renderWorkflow();
+      const safe = safeDbfManagementError(error);
+      shellAlert.hidden = false;
+      shellAlert.textContent = safe.message;
     }
   };
   dashboardMonth.addEventListener("change", () => void refreshHistory());
+  shellMonth.addEventListener("change", () => void refreshHistory(shellMonth.value));
+  nextButton.addEventListener("click", () => activateView(workflowState.nextTarget));
+  historyLink.addEventListener("click", () => activateView("history"));
 
   const accountReview = createDbfAccountMappingReview(doc);
   const panels = [dashboard, accountReview, ...FACTS.map((fact) => renderImportPanel(doc, fact, enabled, refreshHistory)), history];
@@ -540,7 +672,7 @@ export function renderBusinessDataManagementPreview(container, options = {}) {
     tabs.append(button);
   });
 
-  container.append(header, tabs, ...panels);
+  container.append(header, shell, tabs, ...panels);
   void refreshHistory();
   return true;
 }

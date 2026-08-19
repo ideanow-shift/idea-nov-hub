@@ -397,6 +397,7 @@ const MANAGEMENT_READ_ONLY_ACTIONS = new Set<string>([
   "managementFinanceSummary",
   "managementStoresSummary",
   "storeSalesProjection",
+  "storeMonthlyActualProjectionV1",
   "managementDataopsStatus",
   "managementBusinessDataCapability",
 ]);
@@ -455,6 +456,10 @@ async function handleManagementFromDeployedBaseline(
     db: {
       select: async (table, query) => await readRows(table, { query }),
       count: readManagementExactCount,
+      rpc: async (name, args) => {
+        const result = await callSupabaseRpc(name, args);
+        return Array.isArray(result) ? result as JsonRecord[] : [];
+      },
     },
     assignedScopeEnabled: false,
   };

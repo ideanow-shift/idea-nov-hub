@@ -6,15 +6,15 @@ STATUS: ACTIVE
 
 OWNER: IDEA NOVグループ代表取締役社長
 
-CURRENT_PHASE: PHASE_2_DBF_MANAGEMENT_UI_COMPLETION
+CURRENT_PHASE: PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1
 
 GitHub上のこの文書をPortfolio実行順序の唯一の正本とする。Supabase設定またはチャットのメモを正本にしてはならない。
 
 ## 固定実行順序
 
 1. `PHASE_1_DBF_BACKEND_COMPLETION` — DBF完成 — COMPLETE
-2. `PHASE_2_DBF_MANAGEMENT_UI_COMPLETION` — DBF管理UI完成 — CURRENT
-3. `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1` — Store Operations Management V1（店舗営業管理の構築・実働）
+2. `PHASE_2_DBF_MANAGEMENT_UI_COMPLETION` — DBF管理UI完成 — COMPLETE
+3. `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1` — Store Operations Management V1（店舗営業管理の構築・実働）— CURRENT
 4. `PHASE_4_CORPORATE_MANAGEMENT` — Corporate Management（法人経営管理の構築・実働）
 
 この順序は固定である。AI、CTO、CODEX、開発担当者は、技術判断だけを理由に順序を変更してはならない。
@@ -111,9 +111,21 @@ DBF Account Review BackendはPhase 1の内部工程である。
 
 PHASE_ID: PHASE_2_DBF_MANAGEMENT_UI_COMPLETION
 
-PHASE_STATUS: CURRENT
+PHASE_STATUS: COMPLETE
 
 目的は、本部担当者がSQL、CODEX、Supabase Dashboardの直接操作なしでDBFを月次運用できるようにすることである。
+
+### Phase 2 Completion Record
+
+- Transition approved by Owner on 2026-08-19.
+- Final main HEAD: `21c3fbaa83fb744e2fb03635036bc109ead39989`.
+- DBF Management UI Progress: 100%.
+- Single Ingestion Entry: ADOPTED.
+- Hosted Staging: PASS.
+- Owner UAT: PASS.
+- Phase 2 Exit Criteria: COMPLETE.
+- Business Data Write: 0.
+- Production Change: 0.
 
 ### Phase 2に含むもの
 
@@ -161,6 +173,8 @@ PHASE_STATUS: CURRENT
 ## Phase 3: Store Operations Management V1
 
 PHASE_ID: PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1
+
+PHASE_STATUS: CURRENT
 
 目的は、店舗営業管理を実データで構築し、月次会議・店舗訪問判断で実働させることである。
 

@@ -8,7 +8,7 @@ const lockPath = path.join(root, 'docs', 'cto', 'PORTFOLIO_PRIORITY_LOCK.md');
 const logPath = path.join(root, 'docs', 'cto', 'PRIORITY_DECISION_LOG.md');
 const agentsPath = path.join(root, 'AGENTS.md');
 const expectedLockId = 'CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-18-V2';
-const expectedPhase = 'PHASE_2_DBF_MANAGEMENT_UI_COMPLETION';
+const expectedPhase = 'PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1';
 const failures = [];
 
 const read = (file) => readFile(file, 'utf8');

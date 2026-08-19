@@ -219,7 +219,7 @@ Deno.test("Pilot 2026-06 read route composes validated RPC previews without a bu
   assertEquals(calls.some((call) => /approve|promote/u.test(call.url)), false);
 });
 
-Deno.test("Corporate Accounting preflight is authorized and calls only the dedicated read RPC", async () => {
+Deno.test("Corporate Accounting preflight stays read-only with execution disabled and no manifest", async () => {
   const calls: Array<{ url: string; body: any }> = [];
   const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input); const body = init?.body ? JSON.parse(String(init.body)) : null;
@@ -227,18 +227,66 @@ Deno.test("Corporate Accounting preflight is authorized and calls only the dedic
     if (url.startsWith("https://hub.example")) return Response.json({ ok: true, data: {
       actorEmployeeId: ACTOR, capability: { businessDataAdmin: true }, scope: "all",
     }});
-    return Response.json({ promotionAllowed: false, blockingReasons: [
-      "OWNER_REVIEW_INCOMPLETE", "ROW_SEMANTICS_INCOMPLETE", "ACCOUNT_MAPPING_UNAPPROVED",
-    ] });
+    return Response.json({ promotionAllowed: false, review: { total: 138, unreviewed: 138 },
+      canonicalBaseline: { plDetail: 0, plAggregate: 0, bs: 0, budget: 0, storeMetrics: 0 },
+      blockingReasons: [
+        "OWNER_REVIEW_INCOMPLETE", "ROW_SEMANTICS_INCOMPLETE", "ACCOUNT_MAPPING_UNAPPROVED",
+        "MANIFEST_REFERENCE_REQUIRED",
+      ] });
+  };
+  const result = await handleDbfBusinessDataRequest(
+    request("dbfCorporateAccountingPromotionPreflightV1", {}), runtime(fetchImpl));
+  assertEquals(result.status, 200);
+  assertEquals(calls.length, 2);
+  assertEquals(calls[1].url.endsWith("/rpc/dbf_corporate_accounting_promotion_preflight_v1"), true);
+  assertEquals(calls[1].body.p_manifest_ref, null);
+  const responseBody = await result.json();
+  assertEquals(responseBody.ok, true);
+  assertEquals(responseBody.data.promotionAllowed, false);
+  assertEquals(responseBody.data.blockingReasons.includes("MANIFEST_REFERENCE_REQUIRED"), true);
+  assertEquals(calls.some((call) => /approve|promote/u.test(call.url)), false);
+});
+
+Deno.test("Corporate Accounting preflight accepts an optional trusted manifest while execution is disabled", async () => {
+  const calls: Array<{ url: string; body: any }> = [];
+  const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input); const body = init?.body ? JSON.parse(String(init.body)) : null;
+    calls.push({ url, body });
+    if (url.startsWith("https://hub.example")) return Response.json({ ok: true, data: {
+      actorEmployeeId: ACTOR, capability: { businessDataAdmin: true }, scope: "all",
+    }});
+    return Response.json({ promotionAllowed: false });
   };
   const result = await handleDbfBusinessDataRequest(
     request("dbfCorporateAccountingPromotionPreflightV1", {}), runtime(fetchImpl, {
-      corporateAccountingExecution: "ENABLED", corporatePromotionManifestJson: TRUSTED_MANIFEST,
+      corporatePromotionManifestJson: TRUSTED_MANIFEST,
     }));
   assertEquals(result.status, 200);
   assertEquals(calls.length, 2);
   assertEquals(calls[1].url.endsWith("/rpc/dbf_corporate_accounting_promotion_preflight_v1"), true);
   assertEquals(calls[1].body.p_manifest_ref, MANIFEST_REF);
+  assertEquals(calls.some((call) => /approve|promote/u.test(call.url)), false);
+});
+
+Deno.test("Corporate Accounting preflight rejects invalid optional manifest before DB RPC", async () => {
+  const calls: string[] = [];
+  const rawInvalidManifest = '{"manifestRef":';
+  const fetchImpl = async (input: RequestInfo | URL) => {
+    const url = String(input); calls.push(url);
+    if (url.startsWith("https://hub.example")) return Response.json({ ok: true, data: {
+      actorEmployeeId: ACTOR, capability: { businessDataAdmin: true }, scope: "all",
+    }});
+    return Response.json({});
+  };
+  const result = await handleDbfBusinessDataRequest(
+    request("dbfCorporateAccountingPromotionPreflightV1", {}), runtime(fetchImpl, {
+      corporatePromotionManifestJson: rawInvalidManifest,
+    }));
+  assertEquals(result.status, 503);
+  assertEquals(calls.length, 1);
+  const responseText = await result.text();
+  assertEquals(JSON.parse(responseText).code, "TRUSTED_MANIFEST_INVALID");
+  assertEquals(responseText.includes(rawInvalidManifest), false);
 });
 
 Deno.test("Corporate Accounting execution defaults OFF and makes no approval or promotion RPC call", async () => {
@@ -255,6 +303,7 @@ Deno.test("Corporate Accounting execution defaults OFF and makes no approval or 
   ] as const) {
     const result = await handleDbfBusinessDataRequest(request(action, payload), runtime(fetchImpl));
     assertEquals(result.status, 503);
+    assertEquals((await result.json()).code, "CORPORATE_ACCOUNTING_EXECUTION_DISABLED");
   }
   assertEquals(dbCalls, 0);
 });
@@ -283,6 +332,27 @@ Deno.test("Corporate Accounting approval trusts HUB actor and server manifest, t
     p_manifest_ref: MANIFEST_REF,
     p_owner_confirmation: true,
   });
+});
+
+Deno.test("Corporate Accounting promotion keeps the execution and required manifest gates", async () => {
+  const calls: Array<{ url: string; body: any }> = [];
+  const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input); const body = init?.body ? JSON.parse(String(init.body)) : null;
+    calls.push({ url, body });
+    if (url.startsWith("https://hub.example")) return Response.json({ ok: true, data: {
+      actorEmployeeId: ACTOR, capability: { businessDataAdmin: true }, scope: "all",
+    }});
+    return Response.json({ status: "promoted", receiptId: ACTOR });
+  };
+  const result = await handleDbfBusinessDataRequest(
+    request("dbfCorporateAccountingPromoteV1", { manifestRef: MANIFEST_REF }), runtime(fetchImpl, {
+      corporateAccountingExecution: "ENABLED", corporatePromotionManifestJson: TRUSTED_MANIFEST,
+    }));
+  assertEquals(result.status, 200);
+  assertEquals(calls.length, 2);
+  assertEquals(calls[1].url.endsWith("/rpc/dbf_import_promote_corporate_accounting_v1"), true);
+  assertEquals(calls[1].body.p_actor_employee_id, ACTOR);
+  assertEquals(calls[1].body.p_manifest_ref, MANIFEST_REF);
 });
 
 Deno.test("Corporate Accounting approval rejects untrusted manifest before RPC", async () => {

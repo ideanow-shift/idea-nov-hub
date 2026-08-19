@@ -5,7 +5,9 @@ on:
     paths:
       - "supabase/functions/nov-hub-api/**"
       - "supabase/migrations/**dbf_store_monthly_actual_backend_contract_v1.sql"
+      - "supabase/migrations/**dbf_store_monthly_comparison_read_v1.sql"
       - "tests/dbf-store-monthly-actual-backend-*"
+      - "tests/dbf-store-monthly-comparison-*"
       - ".github/workflows/dbf-store-monthly-actual-backend-validation.yml"
   workflow_dispatch:
 
@@ -51,6 +53,7 @@ jobs:
       - name: Validate source and Edge contracts
         run: |
           node --test tests/dbf-store-monthly-actual-backend-contract.test.mjs
+          node --test tests/dbf-store-monthly-comparison-contract.test.mjs
           deno test --allow-env tests/dbf-store-monthly-actual-backend-edge.test.ts
           deno check supabase/functions/nov-hub-api/index.ts
       - name: Seed Supabase roles and pgcrypto
@@ -63,6 +66,7 @@ jobs:
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814204346_dbf_business_data_phase1_service_role_acl_corrective.sql
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814213224_dbf_business_data_phase_c_runtime.sql
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260819002309_dbf_store_monthly_actual_backend_contract_v1.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260819123648_dbf_store_monthly_comparison_read_v1.sql
       - name: Run PostgreSQL 17.6 projection and rollback smoke
         run: psql --set=ON_ERROR_STOP=1 --file tests/dbf-store-monthly-actual-backend-postgres17.sql
       - name: Reject secrets and Production references
@@ -71,7 +75,9 @@ jobs:
           if grep -R -E -i 'nkmxevmioczcmnldreyo|idea-nov-core|sbp_|sb_secret_|BEGIN (RSA|OPENSSH) PRIVATE KEY|oauth_client_secret[[:space:]]*=[[:space:]]*[^$]|github_token[[:space:]]*=[[:space:]]*[^$]' \
             supabase/functions/nov-hub-api \
             supabase/migrations/20260819002309_dbf_store_monthly_actual_backend_contract_v1.sql \
-            tests/dbf-store-monthly-actual-backend-*; then
+            supabase/migrations/20260819123648_dbf_store_monthly_comparison_read_v1.sql \
+            tests/dbf-store-monthly-actual-backend-* \
+            tests/dbf-store-monthly-comparison-*; then
             echo "Forbidden Production reference or secret-like value detected."
             exit 1
           fi

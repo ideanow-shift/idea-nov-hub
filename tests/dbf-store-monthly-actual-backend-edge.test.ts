@@ -37,6 +37,7 @@ function dependencies(options: {
   assignments?: JsonRecord[];
   assignedScopeEnabled?: boolean;
   factRows?: JsonRecord[];
+  budgetRows?: JsonRecord[];
   captureRpc?: (name: string, args: JsonRecord) => void;
   includeRpc?: boolean;
 } = {}): ManagementDependencies {
@@ -95,13 +96,22 @@ function dependencies(options: {
           { id: COMPANY_FC, corporation_name: "UNO", is_active: true },
         ];
       }
+      if (table === "corporation_business_profiles") {
+        return [
+          { corporation_id: COMPANY_DIRECT, fiscal_year_end_month: 3 },
+          { corporation_id: COMPANY_FC, fiscal_year_end_month: 3 },
+        ];
+      }
       return [];
     },
   };
   if (includeRpc) {
     db.rpc = async (name, args) => {
       options.captureRpc?.(name, args);
-      return (options.factRows || []).filter((row) =>
+      const rows = name === "dbf_store_monthly_budget_range_read_v1"
+        ? options.budgetRows || []
+        : options.factRows || [];
+      return rows.filter((row) =>
         row.company_id === args.p_company_id &&
         Array.isArray(args.p_store_ids) &&
         args.p_store_ids.includes(row.store_id)
@@ -135,6 +145,24 @@ function factForStore(rawStoreId: string): JsonRecord {
   };
 }
 
+function comparisonFact(rawStoreId: string, fiscalMonth: string, metricCode: string, value: number): JsonRecord {
+  return {
+    ...factForStore(rawStoreId),
+    fiscal_month: `${fiscalMonth}-01`,
+    metric_code: metricCode,
+    value_kind: metricCode === "TOTAL_CUSTOMERS" ? "quantity" : "amount",
+    metric_value: String(value),
+  };
+}
+
+function budgetFact(rawStoreId: string, fiscalMonth: string, value: number): JsonRecord {
+  return {
+    fiscal_month: `${fiscalMonth}-01`, company_id: COMPANY_DIRECT, store_id: rawStoreId,
+    metric_code: "TOTAL_SALES", scenario_code: "APPROVED", budget_amount: String(value),
+    source_file_sha256: FACT_SHA,
+  };
+}
+
 Deno.test("all-scope projection returns the formal 20 stores and never fabricates missing facts", async () => {
   const directStore = STORE_ROWS[1];
   const calls: JsonRecord[] = [];
@@ -165,7 +193,7 @@ Deno.test("all-scope projection returns the formal 20 stores and never fabricate
     (data.responsibility as JsonRecord).corporateFinancialLineItemsIncluded,
     false,
   );
-  assertEquals(calls.length, 2);
+  assertEquals(calls.length, 4);
   assert(calls.every((call) => Array.isArray(call.p_store_ids)));
 });
 
@@ -195,7 +223,7 @@ Deno.test("store-manager projection derives one store from server-side identity"
   const stores = (result.body.data as JsonRecord).stores as JsonRecord[];
   assertEquals(stores.length, 1);
   assertEquals(stores[0].storeKey, STORE_ROWS[1].store_id);
-  assertEquals(calls.length, 1);
+  assertEquals(calls.length, 2);
   assertEquals(calls[0].p_store_ids, [ownStoreId]);
 });
 
@@ -289,4 +317,55 @@ Deno.test("invalid month and absent canonical RPC fail closed before facts are r
   }, dependencies({ includeRpc: false }));
   assertEquals(missingRpc.status, 404);
   assertEquals((missingRpc.body.error as JsonRecord).code, "DATA_NOT_READY");
+});
+
+Deno.test("formal comparisons use canonical budget, prior year, fiscal YTD and six-signal history", async () => {
+  const ownStoreId = String(STORE_ROWS[1].id);
+  const fiscalMonths = ["2026-04", "2026-05", "2026-06", "2026-07"];
+  const actualRows = [
+    comparisonFact(ownStoreId, "2025-07", "TOTAL_SALES", 100),
+    ...fiscalMonths.flatMap((month, index) => [
+      comparisonFact(ownStoreId, month, "TOTAL_SALES", 120 + index),
+      comparisonFact(ownStoreId, month, "OPERATING_PROFIT", 12 + index),
+      comparisonFact(ownStoreId, month, "TOTAL_CUSTOMERS", 10 + index),
+      comparisonFact(ownStoreId, month, "TOTAL_UNIT_PRICE", 11 + index),
+      comparisonFact(ownStoreId, month, "RETAIL_SALES", 8 + index),
+      comparisonFact(ownStoreId, month, "EC_ALLOCATED_SALES", 4 + index),
+    ]),
+  ];
+  const budgetRows = fiscalMonths.map((month) => budgetFact(ownStoreId, month, 100));
+  const result = await handleManagementReadOnlyAction(
+    { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-07" } },
+    dependencies({ roleKey: "store_manager", employeeStoreId: ownStoreId, factRows: actualRows, budgetRows }),
+  );
+
+  assertEquals(result.status, 200);
+  const projected = ((result.body.data as JsonRecord).stores as JsonRecord[])[0];
+  const comparisons = projected.comparisons as JsonRecord;
+  assertEquals((comparisons.budgetRatio as JsonRecord).value, "123");
+  assertEquals((comparisons.yearOverYearRatio as JsonRecord).value, "123");
+  const fiscalYear = comparisons.fiscalYear as JsonRecord;
+  assertEquals(fiscalYear.startMonth, "2026-04");
+  assertEquals(((fiscalYear.metrics as JsonRecord).TOTAL_SALES as JsonRecord).value, "486");
+  assertEquals((fiscalYear.budgetAchievement as JsonRecord).value, "121.5");
+  const trend = comparisons.monthlyTrend as JsonRecord[];
+  const july = trend.find((point) => point.fiscalMonth === "2026-07")!;
+  assertEquals((july.metrics as JsonRecord[]).length, 6);
+});
+
+Deno.test("comparison denominators and incomplete fiscal periods remain preparing, never zero", async () => {
+  const ownStoreId = String(STORE_ROWS[1].id);
+  const current = comparisonFact(ownStoreId, "2026-07", "TOTAL_SALES", 123);
+  const result = await handleManagementReadOnlyAction(
+    { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-07" } },
+    dependencies({
+      roleKey: "store_manager", employeeStoreId: ownStoreId,
+      factRows: [current, comparisonFact(ownStoreId, "2025-07", "TOTAL_SALES", 0)],
+      budgetRows: [budgetFact(ownStoreId, "2026-07", 0)],
+    }),
+  );
+  const comparisons = (((result.body.data as JsonRecord).stores as JsonRecord[])[0].comparisons) as JsonRecord;
+  assertEquals(comparisons.budgetRatio, { dataState: "preparing", value: null });
+  assertEquals(comparisons.yearOverYearRatio, { dataState: "preparing", value: null });
+  assertEquals(((comparisons.fiscalYear as JsonRecord).metrics as JsonRecord).TOTAL_SALES, { dataState: "preparing", value: null });
 });

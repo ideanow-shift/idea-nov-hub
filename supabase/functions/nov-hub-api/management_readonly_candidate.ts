@@ -455,7 +455,36 @@ type OfficialOperatingStore = {
 };
 
 const STORE_MONTHLY_ACTUAL_CONTRACT = "STORE_MONTHLY_ACTUAL_V1";
+const STORE_MONTHLY_COMPARISON_CONTRACT = "STORE_MONTHLY_COMPARISON_V1";
 const OFFICIAL_OPERATING_STORE_BASELINE = Object.freeze({ total: 20, direct: 13, fc: 7 });
+
+function shiftMonth(month: string, offset: number): string {
+  const [year, monthNumber] = month.slice(0, 7).split("-").map(Number);
+  const date = new Date(Date.UTC(year, monthNumber - 1 + offset, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function monthsBetween(start: string, end: string): string[] {
+  const months: string[] = [];
+  for (let current = start; current <= end && months.length < 24; current = shiftMonth(current, 1)) months.push(current);
+  return months;
+}
+
+function fiscalStartMonth(selectedMonth: string, fiscalYearEndMonth: number): string {
+  const selectedYear = Number(selectedMonth.slice(0, 4));
+  const selectedMonthNumber = Number(selectedMonth.slice(5, 7));
+  const startMonthNumber = fiscalYearEndMonth % 12 + 1;
+  const startYear = selectedMonthNumber >= startMonthNumber ? selectedYear : selectedYear - 1;
+  return `${startYear}-${String(startMonthNumber).padStart(2, "0")}-01`;
+}
+
+function comparisonValue(numerator: number | null, denominator: number | null): JsonRecord {
+  if (numerator === null || denominator === null || denominator === 0) {
+    return { dataState: "preparing", value: null };
+  }
+  const percentage = Math.round((numerator / denominator * 100) * 1e10) / 1e10;
+  return { dataState: "confirmed", value: String(percentage) };
+}
 
 function normalizeOwnership(value: unknown): "DIRECT" | "FC" | null {
   const normalized = text(value).normalize("NFKC").toUpperCase();
@@ -928,39 +957,116 @@ async function buildStoreMonthlyActualProjection(
   if (!stores.length) safe403("SCOPE_DENIED");
   const storeByRawId = new Map(stores.map((store) => [store.rawId, store]));
   const corporationIds = unique(stores.map((store) => store.corporationId));
-  const factGroups = await Promise.all(corporationIds.map(async (corporationId) => {
+  const rangeStart = shiftMonth(fiscalMonth, -23);
+  const profileRows = await deps.db.select("corporation_business_profiles", {
+    select: "corporation_id,fiscal_year_end_month",
+    corporation_id: inFilter(corporationIds),
+    limit: 100,
+  });
+  const fiscalYearEndByCorporation = new Map(profileRows.map((row) => [
+    text(row.corporation_id), numberValue(row.fiscal_year_end_month),
+  ]));
+  const rangeGroups = await Promise.all(corporationIds.map(async (corporationId) => {
     const scopedStoreIds = stores
       .filter((store) => store.corporationId === corporationId)
       .map((store) => store.rawId);
-    return await deps.db.rpc!("dbf_store_monthly_actual_read_v1", {
-      p_fiscal_month: fiscalMonth,
-      p_company_id: corporationId,
-      p_store_ids: scopedStoreIds,
-    });
+    const [actuals, budgets] = await Promise.all([
+      deps.db.rpc!("dbf_store_monthly_actual_range_read_v1", {
+        p_start_month: rangeStart, p_end_month: fiscalMonth,
+        p_company_id: corporationId, p_store_ids: scopedStoreIds,
+      }),
+      deps.db.rpc!("dbf_store_monthly_budget_range_read_v1", {
+        p_start_month: rangeStart, p_end_month: fiscalMonth,
+        p_company_id: corporationId, p_store_ids: scopedStoreIds,
+      }),
+    ]);
+    return { actuals, budgets };
   }));
-  const facts = factGroups.flat();
-  const factsByStore = new Map<string, JsonRecord[]>();
+  const facts = rangeGroups.flatMap((group) => group.actuals);
+  const budgets = rangeGroups.flatMap((group) => group.budgets);
+  const factsByStoreMonth = new Map<string, JsonRecord[]>();
   for (const fact of facts) {
     const rawStoreId = text(fact.store_id);
     const scopedStore = storeByRawId.get(rawStoreId);
     const metricValue = text(fact.metric_value);
     if (!scopedStore
       || text(fact.company_id) !== scopedStore.corporationId
-      || text(fact.fiscal_month) !== fiscalMonth
+      || text(fact.fiscal_month) < rangeStart || text(fact.fiscal_month) > fiscalMonth
       || !text(fact.metric_code)
       || !["amount", "quantity", "rate"].includes(text(fact.value_kind))
       || !metricValue
       || !/^-?\d+(?:\.\d+)?$/u.test(metricValue)
       || !/^[0-9a-f]{64}$/u.test(text(fact.source_file_sha256))) safe404();
-    const current = factsByStore.get(rawStoreId) || [];
+    const grain = `${rawStoreId}|${text(fact.fiscal_month)}`;
+    const current = factsByStoreMonth.get(grain) || [];
     if (current.some((value) => text(value.metric_code) === text(fact.metric_code))) safe404();
     current.push(fact);
-    factsByStore.set(rawStoreId, current);
+    factsByStoreMonth.set(grain, current);
   }
 
+  const budgetsByStoreMonthMetric = new Map<string, JsonRecord[]>();
+  for (const budget of budgets) {
+    const rawStoreId = text(budget.store_id);
+    const scopedStore = storeByRawId.get(rawStoreId);
+    const amount = text(budget.budget_amount);
+    if (!scopedStore || text(budget.company_id) !== scopedStore.corporationId
+      || text(budget.fiscal_month) < rangeStart || text(budget.fiscal_month) > fiscalMonth
+      || !text(budget.metric_code) || !text(budget.scenario_code)
+      || !/^-?\d+(?:\.\d+)?$/u.test(amount)
+      || !/^[0-9a-f]{64}$/u.test(text(budget.source_file_sha256))) safe404();
+    const grain = `${rawStoreId}|${text(budget.fiscal_month)}|${text(budget.metric_code)}`;
+    const current = budgetsByStoreMonthMetric.get(grain) || [];
+    current.push(budget);
+    budgetsByStoreMonthMetric.set(grain, current);
+  }
+
+  const actualNumber = (storeId: string, month: string, metricCode: string): number | null => {
+    const fact = (factsByStoreMonth.get(`${storeId}|${month}`) || [])
+      .find((value) => text(value.metric_code) === metricCode);
+    const value = text(fact?.metric_value);
+    return /^-?\d+(?:\.\d+)?$/u.test(value) ? Number(value) : null;
+  };
+  const budgetNumber = (storeId: string, month: string, metricCode: string): number | null => {
+    const candidates = budgetsByStoreMonthMetric.get(`${storeId}|${month}|${metricCode}`) || [];
+    if (candidates.length !== 1) return null;
+    const value = text(candidates[0].budget_amount);
+    return /^-?\d+(?:\.\d+)?$/u.test(value) ? Number(value) : null;
+  };
+
   const projectedStores = stores.map((store) => {
-    const storeFacts = (factsByStore.get(store.rawId) || [])
+    const storeFacts = (factsByStoreMonth.get(`${store.rawId}|${fiscalMonth}`) || [])
       .sort((left, right) => text(left.metric_code).localeCompare(text(right.metric_code), "en"));
+    const currentSales = actualNumber(store.rawId, fiscalMonth, "TOTAL_SALES");
+    const budgetSales = budgetNumber(store.rawId, fiscalMonth, "TOTAL_SALES");
+    const priorYearSales = actualNumber(store.rawId, shiftMonth(fiscalMonth, -12), "TOTAL_SALES");
+    const fiscalYearEnd = fiscalYearEndByCorporation.get(store.corporationId) || 0;
+    const validFiscalYear = Number.isInteger(fiscalYearEnd) && fiscalYearEnd >= 1 && fiscalYearEnd <= 12;
+    const ytdMonths = validFiscalYear ? monthsBetween(fiscalStartMonth(fiscalMonth, fiscalYearEnd), fiscalMonth) : [];
+    const ytdMetric = (metricCode: string): JsonRecord => {
+      const values = ytdMonths.map((month) => actualNumber(store.rawId, month, metricCode));
+      if (!ytdMonths.length || values.some((value) => value === null)) return { dataState: "preparing", value: null };
+      return { dataState: "confirmed", value: String((values as number[]).reduce((sum, value) => sum + value, 0)) };
+    };
+    const ytdSales = ytdMetric("TOTAL_SALES");
+    const ytdBudgets = ytdMonths.map((month) => budgetNumber(store.rawId, month, "TOTAL_SALES"));
+    const ytdBudgetAchievement = ytdSales.dataState === "confirmed" && ytdBudgets.length
+      && ytdBudgets.every((value) => value !== null && value !== 0)
+      ? comparisonValue(Number(ytdSales.value), (ytdBudgets as number[]).reduce((sum, value) => sum + value, 0))
+      : { dataState: "preparing", value: null };
+    const monthlyTrend = monthsBetween(rangeStart, fiscalMonth).map((month) => {
+      const metrics = [
+        "TOTAL_SALES",
+        "OPERATING_PROFIT",
+        "TOTAL_CUSTOMERS",
+        "TOTAL_UNIT_PRICE",
+        "RETAIL_SALES",
+        "EC_ALLOCATED_SALES",
+      ]
+        .map((metricCode) => ({ metricCode, value: actualNumber(store.rawId, month, metricCode) }))
+        .filter((metric) => metric.value !== null)
+        .map((metric) => ({ metricCode: metric.metricCode, value: String(metric.value) }));
+      return { fiscalMonth: month.slice(0, 7), dataState: metrics.length ? "confirmed" : "preparing", metrics };
+    });
     return {
       storeKey: store.publicKey,
       storeName: store.storeName,
@@ -982,11 +1088,29 @@ async function buildStoreMonthlyActualProjection(
           factVersion: numberValue(fact.fact_version),
         },
       })),
+      comparisons: {
+        contractVersion: STORE_MONTHLY_COMPARISON_CONTRACT,
+        budgetRatio: comparisonValue(currentSales, budgetSales),
+        yearOverYearRatio: comparisonValue(currentSales, priorYearSales),
+        fiscalYear: {
+          dataState: validFiscalYear ? "confirmed" : "preparing",
+          startMonth: validFiscalYear ? fiscalStartMonth(fiscalMonth, fiscalYearEnd).slice(0, 7) : null,
+          endMonth: fiscalMonth.slice(0, 7),
+          metrics: {
+            TOTAL_SALES: ytdSales,
+            OPERATING_PROFIT: ytdMetric("OPERATING_PROFIT"),
+            TOTAL_CUSTOMERS: ytdMetric("TOTAL_CUSTOMERS"),
+          },
+          budgetAchievement: ytdBudgetAchievement,
+        },
+        monthlyTrend,
+      },
     };
   });
 
   return {
     contractVersion: STORE_MONTHLY_ACTUAL_CONTRACT,
+    comparisonContractVersion: STORE_MONTHLY_COMPARISON_CONTRACT,
     fiscalMonth: fiscalMonth.slice(0, 7),
     scope: {
       mode: access.scope.mode,
@@ -999,6 +1123,7 @@ async function buildStoreMonthlyActualProjection(
       confirmedStoreCount: projectedStores.filter((store) => store.dataState === "confirmed").length,
       missingStoreCount: projectedStores.filter((store) => store.dataState === "preparing").length,
       factRowCount: facts.length,
+      budgetFactRowCount: budgets.length,
       missingDataPolicy: "preparing-not-zero",
     },
     responsibility: {

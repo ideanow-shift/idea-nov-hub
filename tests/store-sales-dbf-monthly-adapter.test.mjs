@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createDbfStoreMonthlyAdapter,
+  DBF_STORE_MONTHLY_COMPARISON_CONTRACT,
   DBF_STORE_MONTHLY_CONTRACT,
   validateDbfStoreMonthlyProjection
 } from "../portal/store-sales/adapters/dbf-store-monthly.js";
@@ -19,7 +20,7 @@ const fact = (metricCode, value = "100") => ({
   sourceEvidence: { sourceType: "dbf", sourceFileSha256: "a".repeat(64), importedAt: "2026-08-19T00:00:00Z", factVersion: 1 }
 });
 
-function payload({ facts = false, count = 20 } = {}) {
+function payload({ facts = false, comparisons = false, count = 20 } = {}) {
   const stores = Array.from({ length: count }, (_, index) => ({
     storeKey: `store-${String(index + 1).padStart(2, "0")}`,
     storeName: `正式店舗${index + 1}`,
@@ -27,10 +28,33 @@ function payload({ facts = false, count = 20 } = {}) {
     ownership: index < 13 ? "DIRECT" : "FC",
     fiscalMonth: "2026-07",
     dataState: facts ? "confirmed" : "preparing",
-    metrics: facts ? codes.map((code) => fact(code)) : []
+    metrics: facts ? codes.map((code) => fact(code)) : [],
+    ...(comparisons ? { comparisons: {
+      contractVersion: DBF_STORE_MONTHLY_COMPARISON_CONTRACT,
+      budgetRatio: { dataState: "confirmed", value: "104" },
+      yearOverYearRatio: { dataState: "confirmed", value: "106.8" },
+      fiscalYear: {
+        dataState: "confirmed", startMonth: "2026-04", endMonth: "2026-07",
+        metrics: {
+          TOTAL_SALES: { dataState: "confirmed", value: "400" },
+          OPERATING_PROFIT: { dataState: "confirmed", value: "40" },
+          TOTAL_CUSTOMERS: { dataState: "confirmed", value: "80" }
+        },
+        budgetAchievement: { dataState: "confirmed", value: "102" }
+      },
+      monthlyTrend: ["2025-07", "2026-06", "2026-07"].map((month, monthIndex) => ({
+        fiscalMonth: month, dataState: "confirmed",
+        metrics: [
+          ["TOTAL_SALES", 100 + monthIndex], ["OPERATING_PROFIT", 10 + monthIndex],
+          ["TOTAL_CUSTOMERS", 20 + monthIndex], ["TOTAL_UNIT_PRICE", 5 + monthIndex],
+          ["RETAIL_SALES", 8 + monthIndex], ["EC_ALLOCATED_SALES", 3 + monthIndex]
+        ].map(([metricCode, value]) => ({ metricCode, value: String(value) }))
+      }))
+    }} : {})
   }));
   return {
     contractVersion: DBF_STORE_MONTHLY_CONTRACT,
+    ...(comparisons ? { comparisonContractVersion: DBF_STORE_MONTHLY_COMPARISON_CONTRACT } : {}),
     fiscalMonth: "2026-07",
     scope: { mode: "all", serverResolved: true, rawStoreIdsReturned: false, operatingStoreBaseline: { total: 20, direct: 13, fc: 7 }, visibleStoreCount: stores.length },
     readiness: { confirmedStoreCount: facts ? count : 0, missingStoreCount: facts ? 0 : count, factRowCount: facts ? count * 19 : 0, missingDataPolicy: "preparing-not-zero" },
@@ -64,6 +88,29 @@ test("19 canonical metrics map to UI metrics without inventing comparison values
   assert.equal(store.metrics.yearOverYearRatio.dataState, "preparing");
   assert.equal(store.status, "Preparing");
   assert.equal(result.priorityActions.length, 0);
+});
+
+test("formal comparison contract maps budget, prior year, fiscal YTD and all six trends", () => {
+  const result = validateDbfStoreMonthlyProjection(payload({ facts: true, comparisons: true }));
+  const store = result.stores[0];
+  assert.equal(store.metrics.budgetRatio.rawValue, 104);
+  assert.equal(store.metrics.yearOverYearRatio.rawValue, 106.8);
+  assert.equal(store.yearly.startMonth, "2026-04");
+  assert.equal(store.yearly.metrics.sales.rawValue, 400);
+  assert.deepEqual(Object.keys(result.monthlyTrend).sort(), ["customers", "ec", "profit", "retail", "sales", "ticket"]);
+  assert.equal(result.monthlyTrend.sales.at(-1).value, 2040);
+  assert.equal(result.monthlyTrend.ticket.at(-1).value, 7);
+});
+
+test("missing and zero comparison denominators remain preparing rather than fabricated zero", () => {
+  const source = payload({ facts: true, comparisons: true });
+  source.stores[0].comparisons.budgetRatio = { dataState: "preparing", value: null };
+  source.stores[0].comparisons.yearOverYearRatio = { dataState: "preparing", value: null };
+  source.stores[0].comparisons.fiscalYear.metrics.TOTAL_SALES = { dataState: "preparing", value: null };
+  const result = validateDbfStoreMonthlyProjection(source);
+  assert.equal(result.stores[0].metrics.budgetRatio.value, null);
+  assert.equal(result.stores[0].metrics.yearOverYearRatio.value, null);
+  assert.equal(result.stores[0].yearly.metrics.sales.value, null);
 });
 
 test("unsafe scope, raw UUID, duplicate and unofficial metric are rejected", () => {

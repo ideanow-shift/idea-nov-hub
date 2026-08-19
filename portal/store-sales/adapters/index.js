@@ -1,13 +1,16 @@
 import { resolveAdapterConfig } from "./config.js";
 import { createMockAdapter } from "./mock.js";
 import { createProjectionAdapter } from "./projection.js";
+import { createDbfStoreMonthlyAdapter, DBF_STORE_MONTHLY_CONTRACT } from "./dbf-store-monthly.js";
 
 export function createStoreSalesAdapter(options) {
   const config = resolveAdapterConfig(options);
   if (config.mode === "mock") return { config, adapter: createMockAdapter(config, options.dependencies) };
   if (config.mode === "integration") return {
     config,
-    adapter: createProjectionAdapter(config, options.dependencies)
+    adapter: config.contractVersion === DBF_STORE_MONTHLY_CONTRACT
+      ? createDbfStoreMonthlyAdapter(config, options.dependencies)
+      : createProjectionAdapter(config, options.dependencies)
   };
   throw new Error("Production adapter is blocked.");
 }

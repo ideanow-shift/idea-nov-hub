@@ -27,8 +27,8 @@ const labels = {
   loyal: "固定リピート率", newCustomerCount: "新規客数", existingCustomerCount: "既存客数",
   technicalTicket: "技術単価", retailSales: "店販売上", retailPurchaseRate: "店販購買率", staffCount: "稼働スタッフ数"
 };
-const statusOrder = { "Needs Attention": 0, Improving: 1, Stable: 2, Good: 3 };
-const statusNames = { "Needs Attention": "要対応", Improving: "改善中", Stable: "安定", Good: "好調" };
+const statusOrder = { "Needs Attention": 0, Preparing: 1, Improving: 2, Stable: 3, Good: 4 };
+const statusNames = { "Needs Attention": "要対応", Preparing: "準備中", Improving: "改善中", Stable: "安定", Good: "好調" };
 const selectStoreView = createStoreViewSelector();
 const hubLaunchContext = restoreStoreSalesPreviewContext();
 const hubLaunchSessionAvailable = getNovHubSessionStatus() === "available";
@@ -107,7 +107,9 @@ function renderRuntimeSnapshot(snapshot) {
     return;
   }
   state.projection = snapshot.projection;
-  $("preview-banner").hidden = !["mock", "preview", "staging"].includes(snapshot.featureFlag);
+  if (state.projection?.stores?.length && state.projection.stores.every((store) => store.status === "Preparing")) state.statusFilter = "All";
+  const syntheticProjection = ["mock", "preview"].includes(snapshot.featureFlag) || (snapshot.featureFlag === "staging" && snapshot.projection?.contractVersion !== "STORE_MONTHLY_ACTUAL_V1");
+  $("preview-banner").hidden = !syntheticProjection;
   renderAll();
   document.querySelector("main").hidden = false;
 }
@@ -124,6 +126,7 @@ function renderAll() {
     state.statusFilter = role === "representative" ? "All" : "Needs Attention";
     state.initializedRole = role;
   }
+  if (projection.stores.length && projection.stores.every((store) => store.status === "Preparing")) state.statusFilter = "All";
   state.effectiveRole = role;
   configureScopeControls(role);
   $("direction-message").textContent = projection.directionMessage || "";
@@ -188,18 +191,22 @@ function renderSummary(projection, stores, scopeLabel) {
     $("summary-narrative").textContent = message;
     $("status-counts").replaceChildren(); return;
   }
-  const total = stores.reduce((sum, store) => sum + metricNumber(store.metrics.sales), 0);
+  const salesReady = stores.every((store) => store.metrics.sales?.dataState === "available");
+  const total = salesReady ? stores.reduce((sum, store) => sum + metricNumber(store.metrics.sales), 0) : null;
   const profit = summaryProfitMetric(stores);
+  const statusReady = stores.every((store) => store.status !== "Preparing");
   const attention = stores.filter((store) => store.status === "Needs Attention").length;
   const salesPeriodNote = state.periodMode === "cumulative"
     ? `${formatMonth(elements.period.value)}までの累計`
     : formatMonth(elements.period.value);
-  $("summary-narrative").textContent = state.runtimeFeatureFlag === "staging" ? "現在は営業部レビュー用のサンプルデータです。実績値ではありません。" :
+  const salesSummaryMetric = { label: "総売上（税抜）", displayValue: formatYen(total), dataState: "available", reason: salesPeriodNote };
+  if (!salesReady) Object.assign(salesSummaryMetric, { displayValue: null, dataState: "preparing", reason: "未登録値をゼロとして表示しません" });
+  $("summary-narrative").textContent = state.runtimeFeatureFlag === "staging" && projection.contractVersion !== "STORE_MONTHLY_ACTUAL_V1" ? "現在は営業部レビュー用のサンプルデータです。実績値ではありません。" :
     state.scope === "All" ? (projection.executiveSummary?.narrative || "") :
-    `${scopeLabel}の売上状況です。現在、${attention}店舗に対応が必要です。`;
+    statusReady ? `${scopeLabel}の売上状況です。現在、${attention}店舗に対応が必要です。` : `${scopeLabel}の店舗状態を準備しています。`;
   elements.summary.replaceChildren(
-    metricCard({ label: "総売上（税抜）", displayValue: formatYen(total), dataState: "available", reason: salesPeriodNote }),
-    metricCard(profit), metricCard({ label: "要対応店舗", displayValue: `${attention}店舗`, dataState: "available" })
+    metricCard(salesSummaryMetric),
+    metricCard(profit), metricCard({ label: "要対応店舗", displayValue: statusReady ? `${attention}店舗` : null, dataState: statusReady ? "available" : "preparing", reason: statusReady ? "" : "比較指標の接続後に判定します" })
   );
   $("status-counts").replaceChildren(...Object.keys(statusOrder).reverse().map((status) => {
     const box = node("span", "status-count");
@@ -207,12 +214,15 @@ function renderSummary(projection, stores, scopeLabel) {
     return box;
   }));
   const accounting = projection.accounting || {};
-  $("coverage-note").textContent = state.runtimeFeatureFlag === "staging" ? "すべて画面確認用のSynthetic確定値です。実績値ではありません。" : accounting.reflectedStoreCount < accounting.totalStoreCount
+  $("coverage-note").textContent = state.runtimeFeatureFlag === "staging" && projection.contractVersion !== "STORE_MONTHLY_ACTUAL_V1" ? "すべて画面確認用のSynthetic確定値です。実績値ではありません。" : accounting.reflectedStoreCount < accounting.totalStoreCount
     ? `${accounting.reflectedStoreCount}店舗のデータで表示しています。${accounting.totalStoreCount - accounting.reflectedStoreCount}店舗は集計中です。` : `${stores.length}店舗のデータを表示しています。`;
 }
 
 function renderActions(actions) {
-  if (!actions.length) return elements.actions.replaceChildren(empty("現在、優先して確認することはありません"));
+  if (!actions.length) {
+    const preparing = (state.projection?.stores || []).some((store) => store.status === "Preparing");
+    return elements.actions.replaceChildren(empty(preparing ? "店舗月次実績または比較指標を準備しています。データが揃うまで優先順位は生成しません。" : "現在、優先して確認することはありません"));
+  }
   elements.actions.replaceChildren(...actions.slice(0, 3).map((action) => {
     const card = node("article", "action-card"); card.tabIndex = 0;
     card.append(node("h3", "action-theme", action.theme || action.recommendation), node("div", "action-store", action.storeName),
@@ -322,7 +332,7 @@ function createTrendChart(selected) {
 }
 
 function renderStatusFilters(stores) {
-  const order = ["Needs Attention", "Improving", "Stable", "Good", "All"];
+  const order = ["Needs Attention", "Preparing", "Improving", "Stable", "Good", "All"];
   $("status-filters").replaceChildren(...order.map((status) => {
     const count = status === "All" ? stores.length : stores.filter((store) => store.status === status).length;
     const button = node("button", "status-filter", `${status === "All" ? "すべて" : statusNames[status]} ${count}`);

@@ -1,4 +1,4 @@
-const STATUS_ORDER = Object.freeze({ "Needs Attention": 0, Improving: 1, Stable: 2, Good: 3 });
+const STATUS_ORDER = Object.freeze({ "Needs Attention": 0, Preparing: 1, Improving: 2, Stable: 3, Good: 4 });
 
 function comparator(sort) {
   const value = (store, key) => store.metrics[key]?.rawValue ?? store.metrics[key]?.value ?? -Infinity;
@@ -6,7 +6,7 @@ function comparator(sort) {
   if (sort === "profit-desc") return (a, b) => value(b, "operatingProfit") - value(a, "operatingProfit");
   if (sort === "repeat-desc") return (a, b) => value(b, "totalRepeat") - value(a, "totalRepeat");
   if (sort === "productivity-desc") return (a, b) => value(b, "productivity") - value(a, "productivity");
-  return (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+  return (a, b) => (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
 }
 
 export function createStoreViewSelector() {

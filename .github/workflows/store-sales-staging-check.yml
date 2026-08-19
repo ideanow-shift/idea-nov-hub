@@ -25,7 +25,7 @@ jobs:
         with:
           deno-version: v2.x
       - name: Unit, contract, security and regression
-        run: node --test tests/store-sales-staging*.test.mjs tests/store-sales-runtime.test.mjs tests/store-sales-adapters.test.mjs tests/store-sales-ui.test.mjs
+        run: node --test tests/store-sales-staging*.test.mjs tests/store-sales-runtime.test.mjs tests/store-sales-adapters.test.mjs tests/store-sales-dbf-monthly-adapter.test.mjs tests/store-sales-ui.test.mjs
       - name: Type check Edge Function
         run: deno check supabase/functions/store-sales-projection/index.ts
       - name: Secret and fixture scan

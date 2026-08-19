@@ -37,6 +37,17 @@ export async function buildDbfSourceFile(file, cryptoImpl = globalThis.crypto) {
   };
 }
 
+export async function buildDbfSourceArtifact(artifact, cryptoImpl = globalThis.crypto) {
+  const content = String(artifact?.content || "");
+  const bytes = new TextEncoder().encode(content);
+  return {
+    sha256: await sha256Bytes(bytes, cryptoImpl),
+    byteSize: bytes.byteLength,
+    originalFileName: String(artifact?.name || "dbf-manual-input.csv"),
+    mediaType: String(artifact?.mediaType || "text/csv;charset=utf-8"),
+  };
+}
+
 export async function callDbfImportRuntime(action, payload, options = {}) {
   const session = options.session || restoreDbfStagingSession();
   if (!session?.sessionToken || session?.capability?.businessDataAdmin !== true) {

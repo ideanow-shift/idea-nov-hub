@@ -139,16 +139,23 @@ async function readStoreMonthlyActualProjection(
 ) {
   const master = await readCanonicalMasterOptions(runtime, token);
   const stores = resolveOfficialOperatingStores(master);
-  const companyIds = [...new Set(stores.map((store) => store.companyId))];
-  const factGroups = await Promise.all(companyIds.map((companyId) => rpc(
-    runtime,
-    "dbf_store_monthly_actual_read_v1",
-    {
-      p_fiscal_month: `${selectedMonth}-01`,
-      p_company_id: companyId,
-      p_store_ids: stores.filter((store) => store.companyId === companyId).map((store) => store.rawId),
-    },
-  )));
+  const companyIds = [...new Set(stores.map((store) => store.companyId))]
+    .sort((left, right) => left.localeCompare(right, "en"));
+  const factGroups = [];
+  // Keep the company-scoped reads deterministic. The Staging PostgREST
+  // gateway can reject one request from a concurrent burst even though every
+  // individual read is valid and independently authorized.
+  for (const companyId of companyIds) {
+    factGroups.push(await rpc(
+      runtime,
+      "dbf_store_monthly_actual_read_v1",
+      {
+        p_fiscal_month: `${selectedMonth}-01`,
+        p_company_id: companyId,
+        p_store_ids: stores.filter((store) => store.companyId === companyId).map((store) => store.rawId),
+      },
+    ));
+  }
   return buildStoreMonthlyActualProjection(selectedMonth, stores, factGroups.flat());
 }
 

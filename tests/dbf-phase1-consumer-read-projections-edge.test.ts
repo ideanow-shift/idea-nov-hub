@@ -182,6 +182,8 @@ function request(action: string) {
 
 function runtime() {
   const calls: Array<{ target: string; action?: string; rpc?: string }> = [];
+  let activeRpcCalls = 0;
+  let maxConcurrentRpcCalls = 0;
   const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const body = JSON.parse(String(init?.body || "{}"));
@@ -203,10 +205,17 @@ function runtime() {
     }
     const rpc = url.split("/rest/v1/rpc/")[1] || "";
     calls.push({ target: "staging", rpc });
+    activeRpcCalls += 1;
+    maxConcurrentRpcCalls = Math.max(maxConcurrentRpcCalls, activeRpcCalls);
+    await Promise.resolve();
+    activeRpcCalls -= 1;
     return Response.json([]);
   };
   return {
     calls,
+    get maxConcurrentRpcCalls() {
+      return maxConcurrentRpcCalls;
+    },
     value: {
       hubApiUrl: "https://hub.example/api",
       supabaseUrl: "https://zgkoofphhivesclehrom.supabase.co",
@@ -248,6 +257,7 @@ Deno.test("staging Store Monthly route uses server master and Staging fact RPC o
     ).length,
     2,
   );
+  assertEquals(fixture.maxConcurrentRpcCalls, 1);
 });
 
 Deno.test("corporate read remains available while Approval and Promotion execution are disabled", async () => {

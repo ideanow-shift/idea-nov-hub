@@ -28,6 +28,13 @@ test("Manual store monthly supports every existing metric and converts percent i
   assert.equal(result.normalizedRows[0].value, 0.71);
 });
 
+test("Manual store monthly preserves the explicitly selected confirmation status", () => {
+  for (const confirmationStatus of ["provisional", "confirmed"]) {
+    const result = prepareManualDbfInput({ factKind: "store_operating_result", fiscalMonth: month, rows: [{ companyKey, storeKey, metricCode: "TOTAL_SALES", value: 100, confirmationStatus }] });
+    assert.equal(result.normalizedRows[0].confirmationStatus, confirmationStatus);
+  }
+});
+
 test("Manual rate bounds, required fields, B/S scope and budget ambiguity fail closed", () => {
   for (const value of [-1, 101]) assert.throws(() => prepareManualDbfInput({ factKind: "store_operating_result", fiscalMonth: month, rows: [{ companyKey, storeKey, metricCode: "TOTAL_REPEAT_RATE", value }] }), /STORE_METRIC_RATE_INVALID/u);
   assert.throws(() => prepareManualDbfInput({ factKind: "pl", fiscalMonth: month, rows: [{ companyKey, accountCode: "", accountName: "売上", amount: 1 }] }), /ACCOUNT_CODE_REQUIRED/u);
@@ -53,6 +60,9 @@ test("management UI exposes manual entry without a second write pipeline", () =>
   const source = fs.readFileSync(new URL("../portal/management-app/business-data-management-preview.js", import.meta.url), "utf8");
   const adapter = fs.readFileSync(new URL("../portal/management-app/dbf-business-data-input-adapter.js", import.meta.url), "utf8");
   for (const label of ["CSVから取り込む", "画面で直接入力", "71%", "＋ 行を追加", "この内容で取り込む"]) assert.match(source, new RegExp(label, "u"));
+  for (const label of ["データ状態（必須）", "確定値", "Store Operationsの正式データとして利用します", "暫定値", "Store Operationsの正式実績にはまだ表示されません"]) assert.match(source, new RegExp(label, "u"));
+  assert.match(source, /confirmationMissing/u);
+  assert.doesNotMatch(source, /confirmationStatus: "provisional"/u);
   for (const label of ["売上", "顧客", "単価", "リピート", "生産性"]) assert.match(adapter, new RegExp(label, "u"));
   assert.match(source, /prepareDbfInput/u);
   assert.match(source, /sourceType,/u);

@@ -11,8 +11,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 test("management UI contains only the four Phase 1 facts and the real import flow", () => {
   assert.deepEqual(BUSINESS_DATA_PREVIEW_FIXTURE.sections.map((item) => item.key), ["PL", "BS", "STORE_OPERATING_RESULT", "BUDGET"]);
   const source = fs.readFileSync(path.join(root, "portal/management-app/business-data-management-preview.js"), "utf8");
-  for (const label of ["Dashboard", "月次P/L", "B/S", "営業実績", "予算", "取込履歴"]) assert.match(source, new RegExp(label, "u"));
-  for (const label of ["DBF Management Workflow", "Validation", "Mapping", "Account Review", "Approval", "Promotion", "完了", "次の操作へ"]) assert.match(source, new RegExp(label, "u"));
+  for (const label of ["ホーム", "データ取込", "法人B/S", "店舗月次実績", "予算", "取込履歴"]) assert.match(source, new RegExp(label, "u"));
+  for (const label of ["今月の進捗", "データ検証", "法人・店舗の紐付け", "勘定科目確認", "承認", "正式データへ反映", "完了", "次にやること"]) assert.match(source, new RegExp(label, "u"));
   for (const action of ["start", "resolveMappings", "quarantineMappings", "confirmMapping", "validate", "preview", "approve", "promote", "history"]) {
     assert.match(source, new RegExp(`DBF_IMPORT_RUNTIME\\.${action}`, "u"));
   }
@@ -23,9 +23,9 @@ test("management UI contains only the four Phase 1 facts and the real import flo
   assert.match(source, /DBF_IMPORT_RUNTIME\.corporatePromotionPreflight/u);
   assert.match(source, /deriveDbfWorkflowState/u);
   for (const label of [
-    "Pilot Month", "Source owner", "Accounting Status", "Promotion candidates", "Canonical Fact writes",
-    "P\/L Preview", "B\/S Preview", "Budget Preview", "Mapping \/ Audit", "Warnings",
-    "Source Precedence Gate", "Tax Basis Gate", "Promotion disabled",
+    "対象月", "データ提供責任者", "会計確定状態", "正式反映候補", "正式データ書込",
+    "P\/L取込内容", "B\/S取込内容", "予算取込内容", "紐付け・監査", "警告",
+    "データ提供元の優先順位確認", "税区分確認", "正式データへの反映は無効",
   ]) assert.match(source, new RegExp(label, "u"));
   assert.match(source, /data\.sourcePrecedence\?\.duplicatePromotionCount/u);
   assert.match(source, /data\.taxBasis\?\.status/u);
@@ -77,8 +77,20 @@ test("Staging requires exact target, enabled import, disabled production write, 
 
 test("Pilot coverage cards stay within the 390px Hosted Staging viewport", () => {
   const styles = fs.readFileSync(path.join(root, "portal/management-app/styles.css"), "utf8");
-  assert.match(
-    styles,
-    /@media \(max-width: 480px\) \{[\s\S]*?\.business-data-coverage-grid \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/u,
-  );
+  assert.match(styles, /@media\(max-width:600px\)[\s\S]*?\.business-data-coverage-grid\{grid-template-columns:1fr\}/u);
+});
+
+test("Owner UAT guidance, wizard, safe errors and completion state are explicit", () => {
+  const source = fs.readFileSync(path.join(root, "portal/management-app/business-data-management-preview.js"), "utf8");
+  const accountReview = fs.readFileSync(path.join(root, "portal/management-app/dbf-account-mapping-review.js"), "utf8");
+  const styles = fs.readFileSync(path.join(root, "portal/management-app/styles.css"), "utf8");
+  for (const label of [
+    "はじめに：DBFの月次処理", "月次処理を始める", "次回から表示しない", "この画面は何をするところ？",
+    "使用するデータ", "ファイルの準備方法を見る", "この内容で取り込む", "まだデータが登録されていません",
+    "のデータ処理が完了しました", "技術情報を表示",
+  ]) assert.match(source, new RegExp(label, "u"));
+  for (const label of ["勘定科目確認", "承認", "修正して承認", "対象外", "要再確認", "判断を保存"]) assert.match(accountReview, new RegExp(label, "u"));
+  assert.match(styles, /business-data-workspace/u);
+  assert.match(styles, /focus-visible/u);
+  assert.doesNotMatch(source, /accept\s*=\s*["'][^"']*(xlsx|pdf)/iu);
 });

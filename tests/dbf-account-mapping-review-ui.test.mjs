@@ -40,11 +40,11 @@ test("missing decision and approval fields stop before the API call", async () =
   const fakeRuntime = { accountReviewDecide: async () => { calls += 1; } };
   const missingDecision = await submitAccountReviewDraft({ draft: { ...validDraft, decision: "" }, runtime: fakeRuntime, requestId, reload: async () => ({}) });
   assert.equal(missingDecision.kind, "validation");
-  assert.equal(missingDecision.validation.errors.decision, "Decisionを選択してください。");
+  assert.equal(missingDecision.validation.errors.decision, "判断を選択してください。");
   const missingApprove = await submitAccountReviewDraft({ draft: { ...validDraft, proposedAccountCode: "" }, runtime: fakeRuntime, requestId, reload: async () => ({}) });
-  assert.equal(missingApprove.validation.errors.proposedAccountCode, "Canonical account codeは必須です。");
+  assert.equal(missingApprove.validation.errors.proposedAccountCode, "正式な勘定科目コードは必須です。");
   const missingEdit = await submitAccountReviewDraft({ draft: { ...validDraft, decision: "EDIT_AND_APPROVE", proposedAccountName: "" }, runtime: fakeRuntime, requestId, reload: async () => ({}) });
-  assert.equal(missingEdit.validation.errors.proposedAccountName, "Canonical account nameは必須です。");
+  assert.equal(missingEdit.validation.errors.proposedAccountName, "正式な勘定科目名は必須です。");
   assert.equal(calls, 0);
 });
 
@@ -118,7 +118,7 @@ test("filters operate locally and return a dedicated zero-result state", () => {
 
 test("source contains loading, error, empty, retry, labels, focus and row-scoped pending states", () => {
   for (const contract of [/aria-busy/u, /aria-live/u, /role", "alert/u, /対象データはありません/u, /条件に一致する候補はありません/u,
-    /再読込/u, /Statement Type/u, /Decision \/ Mapping Status/u, /Filterを解除/u, /aria-invalid/u, /aria-describedby/u,
+    /再読込/u, /財務諸表/u, /確認状況/u, /絞り込みを解除/u, /aria-invalid/u, /aria-describedby/u,
     /\.focus\(\)/u, /pending\.has\(item\.candidateId\)/u, /crypto\.randomUUID/u]) assert.match(ui, contract);
   assert.doesNotMatch(ui, /拒否:\s*\$\{error\.message\}/u);
 });

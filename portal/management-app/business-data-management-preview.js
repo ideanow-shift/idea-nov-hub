@@ -155,7 +155,7 @@ function parserReceipt(fact) {
   };
 }
 
-function renderHistoryItems(list, items) {
+function renderHistoryItems(list, items, onCorrection = null) {
   list.replaceChildren();
   if (!items.length) {
     list.append(node(list.ownerDocument, "li", "", "未登録（0件は正常状態です）"));
@@ -169,6 +169,15 @@ function renderHistoryItems(list, items) {
     const detail = node(list.ownerDocument, "details", "dbf-technical-detail");
     detail.append(node(list.ownerDocument, "summary", "", "管理情報を表示"), node(list.ownerDocument, "code", "", `revision=${item.revision} / batch=${item.batchId}`));
     entry.append(detail);
+    if (typeof onCorrection === "function" && item.status === "promoted" && item.factKind === "store_operating_result") {
+      const correction = node(list.ownerDocument, "button", "business-data-secondary-action", "訂正として登録");
+      correction.type = "button";
+      correction.addEventListener("click", async () => {
+        correction.disabled = true;
+        try { await onCorrection(item); } finally { correction.disabled = false; }
+      });
+      entry.append(correction);
+    }
     list.append(entry);
   });
 }
@@ -447,6 +456,12 @@ function createManualEditor(doc, fact, enabled) {
   return {
     root,
     setMasterOptions(value) { masters = value || masters; render(); },
+    prefillStoreRows(rows) {
+      storeDraft.clear();
+      confirmationStatus = "";
+      (Array.isArray(rows) ? rows : []).forEach((row) => storeDraft.set(`${row.storeKey}:${row.metricCode}`, String(row.value)));
+      render();
+    },
     confirmationStatus() { return confirmationStatus; },
     rows() {
       if (fact.runtimeKey === "store_operating_result") return (masters.stores || []).filter((store) => store.code !== "honbu" && store.name !== "本部").flatMap((store) => Object.keys(STORE_METRIC_LABELS).filter((metric) => String(storeDraft.get(`${store.code}:${metric}`) || "").trim() !== "").map((metric) => ({ companyKey: (masters.companies || []).find((item) => item.id === store.companyId)?.code || store.companyCode || "", storeKey: store.code, metricCode: metric, value: storeDraft.get(`${store.code}:${metric}`), definitionVersion: "v1", confirmationStatus })));
@@ -548,21 +563,22 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
   step6.append(node(doc, "span", "dbf-import-step-number", "STEP 6"), node(doc, "h4", "", "内容を確認して取込開始"));
   const start = node(doc, "button", "business-data-action", "この内容で取り込む");
   start.type = "button";
+  let correctionReady = true;
   const updateStartAvailability = () => {
     const confirmationMissing = fact.runtimeKey === "store_operating_result" && sourceType === "manual_entry" && !manualEditor.confirmationStatus();
-    start.disabled = !enabled || !month.value || confirmationMissing || (sourceType === "csv_upload" ? !file.files?.[0] : manualEditor.rows().length === 0);
-    start.title = confirmationMissing ? "確定値または暫定値を明示的に選択してください" : start.disabled ? "対象月と入力内容を確認すると取込を開始できます" : "";
+    start.disabled = !enabled || !month.value || confirmationMissing || !correctionReady || (sourceType === "csv_upload" ? !file.files?.[0] : manualEditor.rows().length === 0);
+    start.title = confirmationMissing ? "確定値または暫定値を明示的に選択してください" : !correctionReady ? "訂正元Batchと訂正理由を確認してください" : start.disabled ? "対象月と入力内容を確認すると取込を開始できます" : "";
   };
   month.addEventListener("change", updateStartAvailability);
   file.addEventListener("change", updateStartAvailability);
-  const selectMethod = async (next) => {
+  const selectMethod = async (next, suppliedMasterOptions = null) => {
     sourceType = next;
     csvMethod.className = next === "csv_upload" ? "business-data-action is-selected" : "business-data-secondary-action";
     manualMethod.className = next === "manual_entry" ? "business-data-action is-selected" : "business-data-secondary-action";
     file.hidden = template.hidden = sourceGuide.hidden = next === "manual_entry";
     manualEditor.root.hidden = next !== "manual_entry";
     if (next === "manual_entry" && enabled) {
-      const masterOptions = await DBF_IMPORT_RUNTIME.masterOptions();
+      const masterOptions = suppliedMasterOptions || await DBF_IMPORT_RUNTIME.masterOptions();
       if (fact.runtimeKey === "store_operating_result") validateOfficialStoreBaseline(masterOptions);
       manualEditor.setMasterOptions(masterOptions);
     }
@@ -586,9 +602,14 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
   correctionReason.maxLength = 500;
   correctionReason.placeholder = "訂正理由";
   correctionReason.disabled = true;
-  correctionToggle.addEventListener("change", () => {
+  const syncCorrectionAvailability = () => {
     correctionBatch.disabled = correctionReason.disabled = !correctionToggle.checked;
-  });
+    correctionReady = !correctionToggle.checked || (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(correctionBatch.value.trim().toLowerCase()) && Boolean(correctionReason.value.trim()));
+    updateStartAvailability();
+  };
+  correctionToggle.addEventListener("change", syncCorrectionAvailability);
+  correctionBatch.addEventListener("input", syncCorrectionAvailability);
+  correctionReason.addEventListener("input", syncCorrectionAvailability);
   const correction = node(doc, "details", "dbf-correction-details");
   correction.append(node(doc, "summary", "", "訂正データとして登録する場合"), correctionLabel, correctionBatch, correctionReason);
   step6.append(correction, start);
@@ -721,6 +742,34 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
   panelNext.append(node(doc, "strong", "", "次にやること"), node(doc, "p", "", "まず対象月とCSVファイルを選び、取込前確認の内容を確認してください。"));
   panel.append(panelNext);
 
+  panel.beginCorrection = async (item, previewData, masterOptions) => {
+    if (fact.runtimeKey !== "store_operating_result" || item?.status !== "promoted" || previewData?.batchId !== item.batchId) throw new Error("CORRECTION_SOURCE_INVALID");
+    const sourceRows = Array.isArray(previewData?.correctionRows) ? previewData.correctionRows : [];
+    if (!sourceRows.length || sourceRows.length !== Number(item.rowCount)) throw new Error("CORRECTION_SOURCE_ROWS_INVALID");
+    validateOfficialStoreBaseline(masterOptions);
+    const companies = new Map((masterOptions.companies || []).map((company) => [String(company.id).toLowerCase(), company]));
+    const stores = new Map((masterOptions.stores || []).map((store) => [String(store.id).toLowerCase(), store]));
+    const rows = sourceRows.map((row) => {
+      const company = companies.get(String(row.companyId || "").toLowerCase());
+      const store = stores.get(String(row.storeId || "").toLowerCase());
+      if (!company?.code || !store?.code || !STORE_MONTHLY_METRICS[row.metricCode]) throw new Error("CORRECTION_SOURCE_MAPPING_INVALID");
+      const numeric = Number(row.value);
+      if (!Number.isFinite(numeric)) throw new Error("CORRECTION_SOURCE_VALUE_INVALID");
+      return { companyKey: company.code, storeKey: store.code, metricCode: row.metricCode, value: STORE_MONTHLY_METRICS[row.metricCode] === "rate" ? numeric * 100 : numeric };
+    });
+    month.value = item.fiscalMonth;
+    await selectMethod("manual_entry", masterOptions);
+    manualEditor.prefillStoreRows(rows);
+    correctionToggle.checked = true;
+    correctionBatch.disabled = correctionReason.disabled = false;
+    correctionBatch.value = item.batchId;
+    correctionReason.value = "";
+    correction.open = true;
+    updateConfirmation();
+    syncCorrectionAvailability();
+    status.textContent = `${item.fiscalMonth} 店舗月次実績 ${rows.length}件を引き継ぎました。データ状態で「確定値」を選び、訂正理由を入力してください。`;
+  };
+
   return panel;
 }
 
@@ -843,7 +892,7 @@ export function renderBusinessDataManagementPreview(container, options = {}) {
         ? await DBF_IMPORT_RUNTIME.pilotPreview({ fiscalMonth: shellMonth.value, section: "all" })
         : null;
       const items = result?.items || [];
-      renderHistoryItems(historyList, items);
+      renderHistoryItems(historyList, items, startCorrectionFromHistory);
       updateDashboardCards(cards, items);
       renderPilotMonthPreview(pilotPreview, pilot);
       let reviewComplete = false;
@@ -905,6 +954,17 @@ export function renderBusinessDataManagementPreview(container, options = {}) {
   });
   entry.append(typeGrid);
   FACTS.forEach((fact) => factPanels.set(fact.view, renderImportPanel(doc, fact, enabled, refreshHistory, returnToEntry)));
+  const startCorrectionFromHistory = async (item) => {
+    try {
+      const [preview, masterOptions] = await Promise.all([DBF_IMPORT_RUNTIME.preview(item.batchId), DBF_IMPORT_RUNTIME.masterOptions()]);
+      const panel = factPanels.get("stores");
+      await panel.beginCorrection(item, preview, masterOptions);
+      activateView("stores");
+    } catch (error) {
+      shellAlert.hidden = false;
+      renderSafeError(doc, shellAlert, error, "元データを再入力せず、履歴からもう一度訂正を開始してください");
+    }
+  };
   panels = [dashboard, entry, accountReview, ...factPanels.values(), history];
 
   shellMonth.addEventListener("change", () => void refreshHistory(shellMonth.value));

@@ -107,3 +107,39 @@ OwnerはPhase 1 Exit Criteriaの完了を確認し、Phase 2 DBF Management UI C
 2. `PHASE_2_DBF_MANAGEMENT_UI_COMPLETION` — CURRENT
 3. `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1`
 4. `PHASE_4_CORPORATE_MANAGEMENT`
+
+## 2026-08-19 — Owner Phase Transition to Store Operations Management V1
+
+DECISION_ID: OWNER-PHASE-TRANSITION-2026-08-19-PHASE-3
+
+LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-18-V2
+
+DECIDED_BY: IDEA NOVグループ代表取締役社長
+
+STATUS: ACTIVE
+
+### Transition
+
+- Previous Phase: `PHASE_2_DBF_MANAGEMENT_UI_COMPLETION` — COMPLETE.
+- Current Phase: `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1` — ACTIVE.
+- Transition Date: 2026-08-19.
+- Phase 2 Final main HEAD: `21c3fbaa83fb744e2fb03635036bc109ead39989`.
+- DBF Management UI Progress: 100%.
+- Single Ingestion Entry: ADOPTED.
+- Hosted Staging: PASS.
+- Owner UAT: PASS.
+- Phase 2 Exit Criteria: COMPLETE.
+- Business Data Write: 0.
+- Production Change: 0.
+- Phase 3 Implementation in Transition PR: 0.
+
+### Owner Approval
+
+OwnerはPhase 2 Exit Criteriaの完了を確認し、Phase 3 Store Operations Management V1の有効化を明示承認した。
+
+固定Portfolio順序そのものは変更しない。
+
+1. `PHASE_1_DBF_BACKEND_COMPLETION` — COMPLETE
+2. `PHASE_2_DBF_MANAGEMENT_UI_COMPLETION` — COMPLETE
+3. `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1` — CURRENT
+4. `PHASE_4_CORPORATE_MANAGEMENT`

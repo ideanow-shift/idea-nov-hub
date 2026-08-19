@@ -37,7 +37,11 @@ test("staging Edge exposes only server-scoped read actions", () => {
     assert.match(edge, new RegExp(`action === "${action}"`, "u"));
   }
   assert.match(edge, /dbfCanonicalMasterOptionsV1/iu);
-  assert.match(edge, /storeMonthlyActualProjectionV1[\s\S]*scopeMode: "all"/iu);
+  assert.doesNotMatch(
+    edge,
+    /callHub\(runtime, token, "storeMonthlyActualProjectionV1"/iu,
+  );
+  assert.doesNotMatch(edge, /scopeMode: "all"/iu);
   assert.match(edge, /dbf_store_monthly_actual_read_v1/iu);
   assert.match(edge, /dbf_corporate_accounting_actual_read_v1/iu);
   assert.doesNotMatch(consumer, /storeKey:\s*store\.rawId/iu);

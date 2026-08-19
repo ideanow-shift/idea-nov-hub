@@ -191,13 +191,15 @@ function renderSummary(projection, stores, scopeLabel) {
     $("summary-narrative").textContent = message;
     $("status-counts").replaceChildren(); return;
   }
-  const salesReady = stores.every((store) => store.metrics.sales?.dataState === "available");
-  const total = salesReady ? stores.reduce((sum, store) => sum + metricNumber(store.metrics.sales), 0) : null;
+  const salesMetric = (store) => state.periodMode === "cumulative" ? store.yearly?.metrics?.sales : store.metrics.sales;
+  const salesReady = stores.every((store) => salesMetric(store)?.dataState === "available");
+  const total = salesReady ? stores.reduce((sum, store) => sum + metricNumber(salesMetric(store)), 0) : null;
   const profit = summaryProfitMetric(stores);
   const statusReady = stores.every((store) => store.status !== "Preparing");
   const attention = stores.filter((store) => store.status === "Needs Attention").length;
+  const fiscalStart = stores.map((store) => store.yearly?.startMonth).filter(Boolean);
   const salesPeriodNote = state.periodMode === "cumulative"
-    ? `${formatMonth(elements.period.value)}までの累計`
+    ? fiscalStart.length ? `${formatMonth(fiscalStart.sort()[0])}〜${formatMonth(elements.period.value)}の累計` : `${formatMonth(elements.period.value)}までの累計`
     : formatMonth(elements.period.value);
   const salesSummaryMetric = { label: "総売上（税抜）", displayValue: formatYen(total), dataState: "available", reason: salesPeriodNote };
   if (!salesReady) Object.assign(salesSummaryMetric, { displayValue: null, dataState: "preparing", reason: "未登録値をゼロとして表示しません" });
@@ -314,21 +316,42 @@ function segmentedControls(label, options, selected, onSelect) {
 
 function createTrendChart(selected) {
   const wrap = node("div", "trend-chart");
-  const isDemo = ["mock", "preview", "staging"].includes(state.runtimeFeatureFlag);
-  if (!isDemo || selected.value === null) { wrap.append(empty("推移データを準備しています")); return wrap; }
+  const isDbfProjection = state.projection?.contractVersion === "STORE_MONTHLY_ACTUAL_V1";
+  const isDemo = ["mock", "preview"].includes(state.runtimeFeatureFlag)
+    || (state.runtimeFeatureFlag === "staging" && !isDbfProjection);
   const count = state.trendPeriod === "year_compare" ? 2 : state.trendPeriod === "twelve_months" ? 12 : 6;
-  const factors = Array.from({ length: count }, (_, index) => .91 + index * (.09 / Math.max(1, count - 1)) + Math.sin(index * 1.7) * .012);
-  const currentValues = factors.map((factor) => selected.value * factor);
-  const comparisonRate = Number(selected.comparison || 0) / 100;
-  const previousValues = currentValues.map((value, index) => value / Math.max(.1, 1 + comparisonRate) * (.995 + Math.cos(index * 1.3) * .008));
+  const formal = state.projection?.monthlyTrend?.[selected.key] || [];
+  let currentValues; let previousValues;
+  if (formal.length >= 2) {
+    const selectedMonth = String(elements.period.value || "");
+    const eligible = formal.filter((point) => point.fiscalMonth <= selectedMonth);
+    const currentPoints = state.trendPeriod === "year_compare" ? eligible.slice(-1) : eligible.slice(-count);
+    const byMonth = new Map(formal.map((point) => [point.fiscalMonth, point.value]));
+    const priorFor = (month) => `${Number(month.slice(0, 4)) - 1}${month.slice(4)}`;
+    const prior = currentPoints.map((point) => byMonth.get(priorFor(point.fiscalMonth)));
+    if (currentPoints.length < (state.trendPeriod === "year_compare" ? 1 : 2)) { wrap.append(empty("推移データを準備しています")); return wrap; }
+    currentValues = currentPoints.map((point) => point.value);
+    previousValues = prior.every((value) => Number.isFinite(value)) ? prior : [];
+    if (state.trendPeriod === "year_compare" && previousValues.length) {
+      currentValues = [previousValues[0], currentValues[0]];
+      previousValues = [];
+    }
+  } else if (isDemo && selected.value !== null) {
+    const factors = Array.from({ length: count }, (_, index) => .91 + index * (.09 / Math.max(1, count - 1)) + Math.sin(index * 1.7) * .012);
+    currentValues = factors.map((factor) => selected.value * factor);
+    const comparisonRate = Number(selected.comparison || 0) / 100;
+    previousValues = currentValues.map((value, index) => value / Math.max(.1, 1 + comparisonRate) * (.995 + Math.cos(index * 1.3) * .008));
+  } else { wrap.append(empty("DBFの確定履歴が2か月以上揃うまで数値は表示しません")); return wrap; }
   const allValues = [...currentValues, ...previousValues]; const min = Math.min(...allValues) * .98; const max = Math.max(...allValues) * 1.02; const range = Math.max(1, max - min);
-  const points = (values) => values.map((value, index) => `${40 + index * (560 / Math.max(1, count - 1))},${145 - (value - min) / range * 105}`).join(" ");
+  const points = (values) => values.map((value, index) => `${40 + index * (560 / Math.max(1, values.length - 1))},${145 - (value - min) / range * 105}`).join(" ");
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("viewBox", "0 0 640 180"); svg.setAttribute("role", "img"); svg.setAttribute("aria-label", `${selected.label}の${state.trendPeriod === "six_months" ? "直近6か月" : state.trendPeriod === "twelve_months" ? "12か月" : "前年対比"}推移`);
   const baseline = document.createElementNS(svg.namespaceURI, "line"); baseline.setAttribute("x1", "40"); baseline.setAttribute("x2", "600"); baseline.setAttribute("y1", "145"); baseline.setAttribute("y2", "145"); baseline.setAttribute("class", "trend-baseline");
   const currentLine = document.createElementNS(svg.namespaceURI, "polyline"); currentLine.setAttribute("points", points(currentValues)); currentLine.setAttribute("class", "trend-line trend-line-current");
   const previousLine = document.createElementNS(svg.namespaceURI, "polyline"); previousLine.setAttribute("points", points(previousValues)); previousLine.setAttribute("class", "trend-line trend-line-previous");
-  const legend = node("div", "trend-legend"); legend.append(node("span", "trend-legend-current", "今年"), node("span", "trend-legend-previous", "前年"));
-  svg.append(baseline, previousLine, currentLine); wrap.append(legend, svg, node("p", "trend-summary", `${selected.label}: ${formatTrendValue(selected.key, currentValues.at(-1))}（今年） ／ ${formatTrendValue(selected.key, previousValues.at(-1))}（前年）`)); return wrap;
+  const legend = node("div", "trend-legend"); legend.append(node("span", "trend-legend-current", state.trendPeriod === "year_compare" ? "実績" : "今年")); if (previousValues.length) legend.append(node("span", "trend-legend-previous", "前年"));
+  svg.append(baseline); if (previousValues.length) svg.append(previousLine); svg.append(currentLine);
+  const priorText = previousValues.length ? ` ／ ${formatTrendValue(selected.key, previousValues.at(-1))}（前年）` : "";
+  wrap.append(legend, svg, node("p", "trend-summary", `${selected.label}: ${formatTrendValue(selected.key, currentValues.at(-1))}${priorText}`)); return wrap;
 }
 
 function renderStatusFilters(stores) {

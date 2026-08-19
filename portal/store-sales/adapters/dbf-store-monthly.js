@@ -1,6 +1,7 @@
 import { ProjectionRequestError } from "./projection.js";
 
 export const DBF_STORE_MONTHLY_CONTRACT = "STORE_MONTHLY_ACTUAL_V1";
+export const DBF_STORE_MONTHLY_COMPARISON_CONTRACT = "STORE_MONTHLY_COMPARISON_V1";
 
 const METRICS = Object.freeze({
   TOTAL_SALES: ["sales", "総売上（税抜）", "yen"],
@@ -74,10 +75,38 @@ function normalizeMetric(fact, definition) {
   })];
 }
 
+function normalizeComparison(source, label, unit = "percent") {
+  const raw = source?.value;
+  if (source?.dataState !== "confirmed" || raw === null || raw === undefined || !/^-?\d+(?:\.\d+)?$/u.test(String(raw))) {
+    return preparingMetric(label, unit, "正式比較データを準備しています");
+  }
+  const value = Number(raw);
+  return Object.freeze({ label, value, rawValue: value, displayValue: format(value, unit), unit, dataState: "available", reason: "DBF正式比較値" });
+}
+
+function normalizeTrend(source) {
+  if (!Array.isArray(source)) fail("INVALID_MONTHLY_TREND");
+  const seen = new Set();
+  return Object.freeze(source.map((point) => {
+    const fiscalMonth = String(point?.fiscalMonth || "");
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/u.test(fiscalMonth) || seen.has(fiscalMonth) || !["confirmed", "preparing"].includes(point?.dataState)) fail("INVALID_TREND_POINT");
+    seen.add(fiscalMonth);
+    if (!Array.isArray(point.metrics)) fail("INVALID_TREND_METRICS");
+    const metrics = {};
+    point.metrics.forEach((metric) => {
+      const definition = METRICS[String(metric?.metricCode || "")];
+      if (!definition || !["TOTAL_SALES", "OPERATING_PROFIT", "TOTAL_CUSTOMERS", "TOTAL_UNIT_PRICE", "RETAIL_SALES", "EC_ALLOCATED_SALES"].includes(String(metric.metricCode)) || !/^-?\d+(?:\.\d+)?$/u.test(String(metric.value ?? ""))) fail("INVALID_TREND_METRIC");
+      metrics[definition[0]] = Number(metric.value);
+    });
+    return Object.freeze({ fiscalMonth, dataState: point.dataState, metrics: Object.freeze(metrics) });
+  }));
+}
+
 export function validateDbfStoreMonthlyProjection(payload) {
   if (!payload || typeof payload !== "object") fail("INVALID_PROJECTION");
   assertNoPrivateIdentifiers(payload);
   if (payload.contractVersion !== DBF_STORE_MONTHLY_CONTRACT) fail("INVALID_CONTRACT_VERSION");
+  const comparisonEnabled = payload.comparisonContractVersion === DBF_STORE_MONTHLY_COMPARISON_CONTRACT;
   if (!/^\d{4}-(0[1-9]|1[0-2])$/u.test(String(payload.fiscalMonth || ""))) fail("INVALID_FISCAL_MONTH");
   const scope = payload.scope;
   if (!scope || scope.serverResolved !== true || scope.rawStoreIdsReturned !== false) fail("UNSAFE_SCOPE");
@@ -108,25 +137,58 @@ export function validateDbfStoreMonthlyProjection(payload) {
     ["grossProfit", "operatingProfitMargin", "ordinaryProfit", "yearOverYearRatio", "budgetRatio", "profitYearOverYear", "customerYearOverYear", "ticketYearOverYear", "retailYearOverYear", "ecTargetRatio", "ecYearOverYear", "staffCount"].forEach((key) => {
       metrics[key] = preparingMetric(key, key.includes("Ratio") || key.includes("Year") ? "percent" : "yen", "比較Contract未提供");
     });
+    const comparisons = comparisonEnabled ? source.comparisons : null;
+    if (comparisonEnabled && comparisons?.contractVersion !== DBF_STORE_MONTHLY_COMPARISON_CONTRACT) fail("INVALID_COMPARISON_CONTRACT");
+    if (comparisonEnabled) {
+      metrics.budgetRatio = normalizeComparison(comparisons.budgetRatio, "予算比");
+      metrics.yearOverYearRatio = normalizeComparison(comparisons.yearOverYearRatio, "前年同月比");
+    }
+    const fiscalYear = comparisons?.fiscalYear || {};
+    const yearly = Object.freeze({
+      dataState: fiscalYear.dataState === "confirmed" ? "confirmed" : "preparing",
+      startMonth: fiscalYear.startMonth || null,
+      endMonth: fiscalYear.endMonth || payload.fiscalMonth,
+      metrics: Object.freeze({
+        sales: normalizeComparison(fiscalYear.metrics?.TOTAL_SALES, "年間累計売上", "yen"),
+        operatingProfit: normalizeComparison(fiscalYear.metrics?.OPERATING_PROFIT, "年間累計営業利益", "yen"),
+        customerCount: normalizeComparison(fiscalYear.metrics?.TOTAL_CUSTOMERS, "年間累計客数", "count"),
+        budgetAchievement: normalizeComparison(fiscalYear.budgetAchievement, "年間累計予算比")
+      })
+    });
+    const monthlyTrend = comparisonEnabled ? normalizeTrend(comparisons.monthlyTrend) : Object.freeze([]);
     return Object.freeze({
       storeKey, storeName: String(source.storeName), corporationName: String(source.corporationName || ""),
       ownership: source.ownership === "DIRECT" ? "Direct" : "FC", status: "Preparing",
       statusReason: source.dataState === "preparing" ? "正式データを準備しています。" : "比較指標が準備中のため、店舗状態はまだ判定しません。",
       conclusion: source.dataState === "preparing" ? "正式データを準備しています。" : "当月確定値を表示しています。店舗状態は比較指標の接続後に判定します。",
       focus: source.dataState === "preparing" ? "データ準備完了後に確認してください。" : "当月実績を確認しましょう。",
-      metrics: Object.freeze(metrics), actions: Object.freeze([])
+      metrics: Object.freeze(metrics), yearly, monthlyTrend, actions: Object.freeze([])
     });
   });
   if (scope.mode === "all" && (stores.filter((store) => store.ownership === "Direct").length !== baseline.direct || stores.filter((store) => store.ownership === "FC").length !== baseline.fc)) fail("INVALID_OWNERSHIP_BASELINE");
   const confirmed = payload.stores.filter((store) => store.dataState === "confirmed").length;
+  const trendKeys = ["sales", "operatingProfit", "customerCount", "totalTicket", "retailSales", "ecSales"];
+  const monthlyTrend = Object.fromEntries(trendKeys.map((metricKey) => {
+    const months = [...new Set(stores.flatMap((store) => store.monthlyTrend.map((point) => point.fiscalMonth)))].sort();
+    const points = months.flatMap((month) => {
+      const values = stores.map((store) => store.monthlyTrend.find((point) => point.fiscalMonth === month)?.metrics?.[metricKey]);
+      if (values.some((value) => !Number.isFinite(value))) return [];
+      const value = metricKey === "totalTicket"
+        ? values.reduce((sum, item) => sum + item, 0) / values.length
+        : values.reduce((sum, item) => sum + item, 0);
+      return [{ fiscalMonth: month, value }];
+    });
+    const projectionKey = ({ operatingProfit: "profit", customerCount: "customers", totalTicket: "ticket", retailSales: "retail", ecSales: "ec" })[metricKey] || "sales";
+    return [projectionKey, Object.freeze(points)];
+  }));
   return Object.freeze({
-    contractVersion: DBF_STORE_MONTHLY_CONTRACT, taxBasis: "net", fiscalMonth: payload.fiscalMonth,
+    contractVersion: DBF_STORE_MONTHLY_CONTRACT, comparisonContractVersion: comparisonEnabled ? DBF_STORE_MONTHLY_COMPARISON_CONTRACT : null, taxBasis: "net", fiscalMonth: payload.fiscalMonth,
     role: scope.mode === "own" ? "store_manager" : scope.mode === "assigned" ? "area_manager" : "representative",
     audience: scope.mode === "own" ? "store_manager" : "executive", scopeLabel: `${stores.length}店舗`,
     stores: Object.freeze(stores), priorityActions: Object.freeze([]), businessDrivers: Object.freeze({}),
     executiveSummary: Object.freeze({ narrative: confirmed ? `${confirmed}店舗のDBF月次確定値を表示しています。` : "正式データを準備しています。", metrics: Object.freeze([]) }),
     accounting: Object.freeze({ confirmationState: confirmed === stores.length ? "confirmed" : "preparing", confirmedThroughPeriod: confirmed ? payload.fiscalMonth : null, reflectedStoreCount: confirmed, totalStoreCount: stores.length, lastUpdatedAt: null }),
-    readiness: Object.freeze({ ...payload.readiness })
+    readiness: Object.freeze({ ...payload.readiness }), monthlyTrend: Object.freeze(monthlyTrend)
   });
 }
 

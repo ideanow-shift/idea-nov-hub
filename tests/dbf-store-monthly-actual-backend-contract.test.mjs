@@ -54,7 +54,7 @@ test("HUB Edge exposes only server-resolved monthly projection action", () => {
   assert.match(candidate, /serverResolved: true/u);
   assert.match(candidate, /rawStoreIdsReturned: false/u);
   assert.match(candidate, /OFFICIAL_OPERATING_STORE_BASELINE = Object\.freeze\(\{ total: 20, direct: 13, fc: 7 \}\)/u);
-  assert.match(candidate, /dbf_store_monthly_actual_read_v1/u);
+  assert.match(candidate, /dbf_store_monthly_actual_range_read_v1/u);
 });
 
 test("Store Operations enables assigned scope while DBF admin handoff remains disabled", () => {

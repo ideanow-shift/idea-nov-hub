@@ -27,32 +27,22 @@ function master() {
     { id: COMPANY, code: "IDEA_NOV", name: "IDEA NOV" },
     { id: OTHER_COMPANY, code: "UNO", name: "UNO" },
   ];
-  const stores = Array.from({ length: 20 }, (_, index) => ({
+  const stores = [{
+    id: "30000000-0000-4000-8999-000000000001",
+    code: "honbu",
+    name: "本部",
+    companyId: COMPANY,
+  }, ...Array.from({ length: 20 }, (_, index) => ({
     id: `30000000-0000-4000-8${String(index).padStart(3, "0")}-000000000001`,
     code: `store-${String(index + 1).padStart(2, "0")}`,
     name: `Store ${index + 1}`,
     companyId: index < 13 ? COMPANY : OTHER_COMPANY,
-  }));
+  }))];
   return { companies, stores };
 }
 
-function officialProjection() {
-  const canonical = master();
-  return {
-    contractVersion: "STORE_MONTHLY_ACTUAL_V1",
-    stores: canonical.stores.map((store, index) => ({
-      storeKey: store.code,
-      storeName: store.name,
-      corporationName: index < 13 ? "IDEA NOV" : "UNO",
-      ownership: index < 13 ? "DIRECT" : "FC",
-      dataState: "confirmed",
-      metrics: [{ metricCode: "SHOULD_NOT_BE_REUSED", value: "999" }],
-    })),
-  };
-}
-
-Deno.test("trusted master resolves the exact 20-store baseline and never reuses Production metrics", () => {
-  const stores = resolveOfficialOperatingStores(master(), officialProjection());
+Deno.test("trusted master resolves the exact 20-store baseline without a Production projection", () => {
+  const stores = resolveOfficialOperatingStores(master());
   const projection = buildStoreMonthlyActualProjection("2026-06", stores, []);
   assertEquals(projection.stores.length, 20);
   assertEquals(
@@ -74,9 +64,65 @@ Deno.test("trusted master resolves the exact 20-store baseline and never reuses 
     !JSON.stringify(projection).includes("30000000-"),
     "raw store UUID leaked",
   );
-  assert(
-    !JSON.stringify(projection).includes("SHOULD_NOT_BE_REUSED"),
-    "Production metric leaked",
+});
+
+function expectStoreResolutionFailure(
+  mutate: (value: ReturnType<typeof master>) => void,
+  expectedCode: string,
+) {
+  const value = master();
+  mutate(value);
+  try {
+    resolveOfficialOperatingStores(value);
+    throw new Error("expected store resolution to fail");
+  } catch (error) {
+    assertEquals((error as { code?: string }).code, expectedCode);
+  }
+}
+
+Deno.test("official store resolution rejects missing or malformed headquarters", () => {
+  expectStoreResolutionFailure(
+    (value) => value.stores.splice(0, 1),
+    "OFFICIAL_STORE_HEADQUARTERS_REJECTED",
+  );
+  expectStoreResolutionFailure(
+    (value) => value.stores[0].name = "Head Office",
+    "OFFICIAL_STORE_HEADQUARTERS_REJECTED",
+  );
+  expectStoreResolutionFailure(
+    (value) => value.stores[0].code = "head-office",
+    "OFFICIAL_STORE_HEADQUARTERS_REJECTED",
+  );
+  expectStoreResolutionFailure(
+    (value) => value.stores[0].companyId = OTHER_COMPANY,
+    "OFFICIAL_STORE_HEADQUARTERS_REJECTED",
+  );
+});
+
+Deno.test("official store resolution rejects count and ownership drift", () => {
+  expectStoreResolutionFailure(
+    (value) => value.stores.push({
+      id: "30000000-0000-4000-8998-000000000001",
+      code: "store-21",
+      name: "Store 21",
+      companyId: OTHER_COMPANY,
+    }),
+    "OFFICIAL_STORE_BASELINE_REJECTED",
+  );
+  expectStoreResolutionFailure(
+    (value) => value.stores[1].companyId = OTHER_COMPANY,
+    "OFFICIAL_STORE_BASELINE_REJECTED",
+  );
+});
+
+Deno.test("official store resolution rejects duplicate code and id", () => {
+  expectStoreResolutionFailure(
+    (value) => value.stores[2].code = value.stores[1].code,
+    "CANONICAL_STORE_SET_INVALID",
+  );
+  expectStoreResolutionFailure(
+    (value) => value.stores[2].id = value.stores[1].id,
+    "CANONICAL_STORE_SET_INVALID",
   );
 });
 
@@ -154,9 +200,6 @@ function runtime() {
       if (body.action === "dbfCanonicalMasterOptionsV1") {
         return Response.json({ ok: true, data: master() });
       }
-      if (body.action === "storeMonthlyActualProjectionV1") {
-        return Response.json({ ok: true, data: officialProjection() });
-      }
     }
     const rpc = url.split("/rest/v1/rpc/")[1] || "";
     calls.push({ target: "staging", rpc });
@@ -189,9 +232,15 @@ Deno.test("staging Store Monthly route uses server master and Staging fact RPC o
   assertEquals(body.data.readiness.missingStoreCount, 20);
   assertEquals(
     fixture.calls.filter((call) =>
-      call.action === "storeMonthlyActualProjectionV1"
+      call.action === "dbfCanonicalMasterOptionsV1"
     ).length,
     1,
+  );
+  assertEquals(
+    fixture.calls.filter((call) =>
+      call.action === "storeMonthlyActualProjectionV1"
+    ).length,
+    0,
   );
   assertEquals(
     fixture.calls.filter((call) =>

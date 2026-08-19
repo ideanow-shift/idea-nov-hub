@@ -71,23 +71,12 @@ export function resolveCorporateCompany(
 
 export function resolveOfficialOperatingStores(
   masterValue: unknown,
-  projectionValue: unknown,
 ): OfficialStore[] {
   const master = object(masterValue, "CANONICAL_MASTER_OPTIONS_UNAVAILABLE");
-  const projection = object(
-    projectionValue,
-    "OFFICIAL_STORE_PROJECTION_UNAVAILABLE",
-  );
   const masterCompanies = Array.isArray(master.companies)
     ? master.companies
     : [];
   const masterStores = Array.isArray(master.stores) ? master.stores : [];
-  const projectedStores = Array.isArray(projection.stores)
-    ? projection.stores
-    : [];
-  if (projectedStores.length !== OFFICIAL_STORE_BASELINE.total) {
-    throw new ConsumerReadError("OFFICIAL_STORE_BASELINE_REJECTED");
-  }
 
   const companyById = new Map<string, CanonicalCompany>();
   for (const value of masterCompanies) {
@@ -101,53 +90,54 @@ export function resolveOfficialOperatingStores(
     companyById.set(id, { id, code, name });
   }
 
-  const storeByCode = new Map<string, JsonRecord>();
+  const seenStoreIds = new Set<string>();
+  const seenStoreCodes = new Set<string>();
+  const stores: OfficialStore[] = [];
+  let headquartersCount = 0;
   for (const value of masterStores) {
     const row = object(value, "CANONICAL_MASTER_OPTIONS_INVALID");
+    const rawId = text(row.id).toLowerCase();
     const code = text(row.code);
-    if (!code || storeByCode.has(code)) {
-      throw new ConsumerReadError("CANONICAL_STORE_SET_INVALID");
-    }
-    storeByCode.set(code, row);
-  }
-
-  const seen = new Set<string>();
-  const stores = projectedStores.map((value) => {
-    const row = object(value, "OFFICIAL_STORE_PROJECTION_INVALID");
-    const storeKey = text(row.storeKey);
-    const storeName = text(row.storeName);
-    const corporationName = text(row.corporationName);
-    const ownership = text(row.ownership).toUpperCase();
-    if (
-      !storeKey || !storeName || !corporationName ||
-      !["DIRECT", "FC"].includes(ownership) || seen.has(storeKey)
-    ) {
-      throw new ConsumerReadError("OFFICIAL_STORE_PROJECTION_INVALID");
-    }
-    seen.add(storeKey);
-    const canonical = storeByCode.get(storeKey);
-    if (!canonical) {
-      throw new ConsumerReadError("OFFICIAL_STORE_CANONICAL_BINDING_REJECTED");
-    }
-    const rawId = text(canonical.id).toLowerCase();
-    const companyId = text(canonical.companyId).toLowerCase();
-    const canonicalName = text(canonical.name);
+    const storeName = text(row.name);
+    const companyId = text(row.companyId).toLowerCase();
     const company = companyById.get(companyId);
     if (
-      !UUID.test(rawId) || !UUID.test(companyId) ||
-      canonicalName !== storeName || company?.name !== corporationName
+      !UUID.test(rawId) || !code || !storeName || !UUID.test(companyId) ||
+      !company || seenStoreIds.has(rawId) || seenStoreCodes.has(code)
     ) {
-      throw new ConsumerReadError("OFFICIAL_STORE_CANONICAL_BINDING_REJECTED");
+      throw new ConsumerReadError("CANONICAL_STORE_SET_INVALID");
     }
-    return {
+    seenStoreIds.add(rawId);
+    seenStoreCodes.add(code);
+
+    const hasHeadquartersCode = code === "honbu";
+    const hasHeadquartersName = storeName === "本部";
+    if (hasHeadquartersCode || hasHeadquartersName) {
+      if (
+        !hasHeadquartersCode || !hasHeadquartersName ||
+        companyId !== CORPORATE_ACCOUNTING_COMPANY_ID
+      ) {
+        throw new ConsumerReadError("OFFICIAL_STORE_HEADQUARTERS_REJECTED");
+      }
+      headquartersCount += 1;
+      continue;
+    }
+
+    stores.push({
       rawId,
       companyId,
-      storeKey,
+      storeKey: code,
       storeName,
-      corporationName,
-      ownership: ownership as "DIRECT" | "FC",
-    };
-  });
+      corporationName: company.name,
+      ownership: companyId === CORPORATE_ACCOUNTING_COMPANY_ID
+        ? "DIRECT"
+        : "FC",
+    });
+  }
+
+  if (headquartersCount !== 1) {
+    throw new ConsumerReadError("OFFICIAL_STORE_HEADQUARTERS_REJECTED");
+  }
 
   const direct = stores.filter((store) => store.ownership === "DIRECT").length;
   const fc = stores.filter((store) => store.ownership === "FC").length;

@@ -137,17 +137,8 @@ async function readStoreMonthlyActualProjection(
   token: string,
   selectedMonth: string,
 ) {
-  const [master, officialEnvelope] = await Promise.all([
-    readCanonicalMasterOptions(runtime, token),
-    callHub(runtime, token, "storeMonthlyActualProjectionV1", {
-      selectedMonth,
-      scopeMode: "all",
-    }),
-  ]);
-  if (officialEnvelope?.ok !== true || !officialEnvelope?.data) {
-    throw new DbfRuntimeError("OFFICIAL_STORE_PROJECTION_UNAVAILABLE", 503);
-  }
-  const stores = resolveOfficialOperatingStores(master, officialEnvelope.data);
+  const master = await readCanonicalMasterOptions(runtime, token);
+  const stores = resolveOfficialOperatingStores(master);
   const companyIds = [...new Set(stores.map((store) => store.companyId))];
   const factGroups = await Promise.all(companyIds.map((companyId) => rpc(
     runtime,

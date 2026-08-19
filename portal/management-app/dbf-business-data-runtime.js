@@ -78,4 +78,7 @@ export const DBF_IMPORT_RUNTIME = Object.freeze({
   accountReviewInitialize: (payload, options) => callDbfImportRuntime("dbfAccountReviewInitializeV1", payload, options),
   accountReviewList: (payload, options) => callDbfImportRuntime("dbfAccountReviewListV1", payload, options),
   accountReviewDecide: (payload, options) => callDbfImportRuntime("dbfAccountReviewDecideV1", payload, options),
+  corporatePromotionPreflight: (options) => callDbfImportRuntime("dbfCorporateAccountingPromotionPreflightV1", {}, options),
+  corporateActualProjection: (selectedMonth, options) => callDbfImportRuntime("dbfCorporateAccountingActualProjectionV1", { selectedMonth }, options),
+  storeMonthlyActualProjection: (selectedMonth, options) => callDbfImportRuntime("storeMonthlyActualProjectionV1", { selectedMonth }, options),
 });

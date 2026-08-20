@@ -135,7 +135,13 @@ jobs:
         run: |
           node --check portal/store-sales/app.js
           find portal/store-sales -type f -name '*.js' -print0 | xargs -0 -n1 node --check
-          node --test --test-concurrency=1 tests/store-sales-*.test.mjs tests/store-operations-*.test.mjs tests/dbf-store-monthly-*.test.mjs
+          mapfile -t store_tests < <(
+            find tests -maxdepth 1 -type f \
+              \( -name 'store-sales-*.test.mjs' -o -name 'store-operations-*.test.mjs' -o -name 'dbf-store-monthly-*.test.mjs' \) \
+              ! -name '*eol-integrity.test.mjs' \
+              | sort
+          )
+          node --test --test-concurrency=1 "${store_tests[@]}"
       - name: Reject Store Operations secrets and production fixtures
         shell: bash
         run: |

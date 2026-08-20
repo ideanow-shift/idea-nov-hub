@@ -54,3 +54,11 @@ test("existing validation contracts remain fail-closed", () => {
   assert.match(ui, /correctionReason: requestedCorrectionReason/u);
   assert.doesNotMatch(ui, /beginCorrection[\s\S]{0,4500}DBF_IMPORT_RUNTIME\.(start|validate|approve|promote)/u);
 });
+
+test("shared promotion completion uses the response revision and never renders undefined", () => {
+  assert.match(ui, /const revision = Number\(promoted\?\.revision\)/u);
+  assert.match(ui, /Revision \$\{revision\}/u);
+  assert.doesNotMatch(ui, /promoted\.version/u);
+  assert.doesNotMatch(ui, /version \$\{promoted/u);
+  assert.equal((ui.match(/DBF_IMPORT_RUNTIME\.promote\(state\.batchId\)/gu) || []).length, 1);
+});

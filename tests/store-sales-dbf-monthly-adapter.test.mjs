@@ -90,6 +90,33 @@ test("19 canonical metrics map to UI metrics without inventing comparison values
   assert.equal(result.priorityActions.length, 0);
 });
 
+test("Saginomiya pilot maps only three confirmed Revision 2 metrics and keeps all missing values preparing", () => {
+  const source = payload({ count: 20 });
+  const saginomiya = source.stores[13];
+  saginomiya.storeName = "鷺ノ宮店";
+  saginomiya.dataState = "confirmed";
+  saginomiya.metrics = [
+    fact("TOTAL_SALES", "5499278"),
+    fact("TECHNICAL_SALES", "4484581"),
+    fact("RETAIL_SALES", "1023792")
+  ].map((metric) => ({ ...metric, sourceEvidence: { ...metric.sourceEvidence, factVersion: 2 } }));
+  source.readiness = { confirmedStoreCount: 1, missingStoreCount: 19, factRowCount: 3, budgetFactRowCount: 0, missingDataPolicy: "preparing-not-zero" };
+
+  const result = validateDbfStoreMonthlyProjection(source);
+  const store = result.stores.find((item) => item.storeName === "鷺ノ宮店");
+  assert.equal(store.metrics.sales.rawValue, 5499278);
+  assert.equal(store.metrics.technicalSales.rawValue, 4484581);
+  assert.equal(store.metrics.retailSales.rawValue, 1023792);
+  assert.equal(store.metrics.sales.displayValue, "¥5,499,278");
+  for (const key of ["customerCount", "totalTicket", "totalRepeat", "productivity", "operatingProfit"]) {
+    assert.equal(store.metrics[key].dataState, "preparing");
+    assert.equal(store.metrics[key].rawValue, null);
+    assert.equal(store.metrics[key].displayValue, null);
+  }
+  assert.deepEqual(result.priorityActions, []);
+  assert.equal(result.readiness.factRowCount, 3);
+});
+
 test("formal comparison contract maps budget, prior year, fiscal YTD and all six trends", () => {
   const result = validateDbfStoreMonthlyProjection(payload({ facts: true, comparisons: true }));
   const store = result.stores[0];

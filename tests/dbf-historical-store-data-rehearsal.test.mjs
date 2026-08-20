@@ -12,6 +12,19 @@ test("splits a valid historical source into the fixed 24 monthly batches", () =>
   assert.equal(result.monthlyFiles.length, 24);
   assert.equal(result.matrix.length, 480);
   assert.deepEqual(result.matrix[0].missingMetricCodes.includes("TECHNICAL_SALES"), true);
+  assert.equal(result.matrix[0].confirmedCount, 1);
+  assert.equal(result.matrix[0].provisionalCount, 0);
+  assert.equal(result.matrix[0].missingCount, 18);
+  assert.equal(result.matrix[0].budgetAvailable, false);
+  assert.equal(result.matrix[0].yoyReady, false);
+  assert.equal(result.matrix[0].ytdReady, false);
+  assert.equal(result.matrix[0].trendReady, false);
+});
+
+test("reports budget availability without treating it as an actual metric", () => {
+  const result = prepareHistoricalStoreData({ csvText: csv(row("2024-07", stores[0], "TOTAL_SALES", 100)), officialStores: stores, budgetScopes: [`2024-07\u0000${stores[0]}`] });
+  assert.equal(result.matrix[0].budgetAvailable, true);
+  assert.equal(result.matrix[0].presentMetricCount, 1);
 });
 
 test("never fills missing metrics with zero", () => {

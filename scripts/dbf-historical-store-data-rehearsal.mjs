@@ -43,7 +43,7 @@ function csvCell(value) {
 
 function grain(row) { return `${row.fiscal_month}\u0000${row.company_key}\u0000${row.store_key}\u0000${row.metric_code}`; }
 
-export function prepareHistoricalStoreData({ csvText, officialStores, protectedGrains = [] }) {
+export function prepareHistoricalStoreData({ csvText, officialStores, protectedGrains = [], budgetScopes = [] }) {
   const records = parseCsv(csvText);
   if (!records.length || records[0].length !== HISTORICAL_HEADER.length || !records[0].every((value, index) => value.trim() === HISTORICAL_HEADER[index])) throw new Error("CSV_HEADER_INVALID");
   const storeKeys = new Set((officialStores || []).map(String));
@@ -51,6 +51,7 @@ export function prepareHistoricalStoreData({ csvText, officialStores, protectedG
   const metrics = new Set(Object.keys(STORE_MONTHLY_METRICS));
   const allowedMonths = new Set(HISTORICAL_MONTHS);
   const protectedSet = new Set(protectedGrains);
+  const budgetSet = new Set(budgetScopes);
   const seen = new Set(); const rows = []; const issues = [];
   for (const [offset, cells] of records.slice(1).entries()) {
     const line = offset + 2;
@@ -90,7 +91,23 @@ export function prepareHistoricalStoreData({ csvText, officialStores, protectedG
 
   const matrix = HISTORICAL_MONTHS.flatMap((fiscalMonth) => [...storeKeys].map((storeKey) => {
     const present = byScope.get(`${fiscalMonth}\u0000${storeKey}`) || new Map();
-    return { fiscalMonth, storeKey, presentMetricCount: present.size, missingMetricCodes: [...metrics].filter((code) => !present.has(code)) };
+    const scopeRows = rows.filter((row) => row.fiscal_month === fiscalMonth && row.store_key === storeKey);
+    const previousYearMonth = `${Number(fiscalMonth.slice(0, 4)) - 1}${fiscalMonth.slice(4)}`;
+    const fiscalYearStart = `${Number(fiscalMonth.slice(0, 4)) - (Number(fiscalMonth.slice(5)) < 9 ? 1 : 0)}-09`;
+    const ytdMonths = monthRange(fiscalYearStart, fiscalMonth).filter((month) => allowedMonths.has(month));
+    const trailingMonths = HISTORICAL_MONTHS.filter((month) => month <= fiscalMonth).slice(-6);
+    const complete = (month) => (byScope.get(`${month}\u0000${storeKey}`) || new Map()).size === metrics.size;
+    return {
+      fiscalMonth, storeKey, presentMetricCount: present.size,
+      confirmedCount: scopeRows.filter((row) => row.confirmation_status === "confirmed").length,
+      provisionalCount: scopeRows.filter((row) => row.confirmation_status === "provisional").length,
+      missingCount: metrics.size - present.size,
+      missingMetricCodes: [...metrics].filter((code) => !present.has(code)),
+      budgetAvailable: budgetSet.has(`${fiscalMonth}\u0000${storeKey}`),
+      yoyReady: allowedMonths.has(previousYearMonth) && complete(fiscalMonth) && complete(previousYearMonth),
+      ytdReady: ytdMonths.length > 0 && ytdMonths.every(complete),
+      trendReady: trailingMonths.length === 6 && trailingMonths.every(complete),
+    };
   }));
   const errors = issues.filter((item) => item.severity === "error");
   const monthlyFiles = errors.length ? [] : HISTORICAL_MONTHS.map((fiscalMonth) => {
@@ -102,9 +119,9 @@ export function prepareHistoricalStoreData({ csvText, officialStores, protectedG
 
 async function main() {
   const args = Object.fromEntries(process.argv.slice(2).map((value) => value.split("=", 2)));
-  if (!args["--input"] || !args["--stores"] || !args["--output"]) throw new Error("USAGE: --input=history.csv --stores=official-store-keys.json --output=directory [--protected=active-grains.json]");
-  const [csvText, storesText, protectedText] = await Promise.all([readFile(resolve(args["--input"]), "utf8"), readFile(resolve(args["--stores"]), "utf8"), args["--protected"] ? readFile(resolve(args["--protected"]), "utf8") : "[]"]);
-  const result = prepareHistoricalStoreData({ csvText, officialStores: JSON.parse(storesText), protectedGrains: JSON.parse(protectedText) });
+  if (!args["--input"] || !args["--stores"] || !args["--output"]) throw new Error("USAGE: --input=history.csv --stores=official-store-keys.json --output=directory [--protected=active-grains.json] [--budgets=budget-scopes.json]");
+  const [csvText, storesText, protectedText, budgetText] = await Promise.all([readFile(resolve(args["--input"]), "utf8"), readFile(resolve(args["--stores"]), "utf8"), args["--protected"] ? readFile(resolve(args["--protected"]), "utf8") : "[]", args["--budgets"] ? readFile(resolve(args["--budgets"]), "utf8") : "[]"]);
+  const result = prepareHistoricalStoreData({ csvText, officialStores: JSON.parse(storesText), protectedGrains: JSON.parse(protectedText), budgetScopes: JSON.parse(budgetText) });
   const output = resolve(args["--output"]); await mkdir(output, { recursive: true });
   await writeFile(resolve(output, "rehearsal-report.json"), `${JSON.stringify({ ready: result.ready, rows: result.rows, issues: result.issues, matrix: result.matrix }, null, 2)}\n`, "utf8");
   if (!result.ready) throw new Error("HISTORICAL_REHEARSAL_BLOCKED");

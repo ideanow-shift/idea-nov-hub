@@ -105,6 +105,7 @@ export function safeDbfManagementError(error) {
     DBF_ACCOUNT_REVIEW_ALREADY_FINAL: "この候補は既に最終判断済みです。再読込して最新状態を確認してください。",
     DBF_IMPORT_REQUEST_DUPLICATE: "同じ操作は既に受け付け済みです。履歴から結果を確認してください。",
     DBF_DUPLICATE_REVIEW_REQUEST: "同じ判断は既に受け付け済みです。最新状態を再読込してください。",
+    CORRECTION_NO_CHANGES: "変更内容がありません。訂正する値またはデータ状態を確認してください。",
   };
   return { code, message: messages[code] || "処理を完了できませんでした。時間をおいて再度お試しください。", retryable: !new Set(["FORBIDDEN", "COMPANY_SCOPE_REJECTED"]).has(code) };
 }
@@ -155,6 +156,10 @@ function parserReceipt(fact) {
   };
 }
 
+function correctionSignature(rows) {
+  return (Array.isArray(rows) ? rows : []).map(({ sourceRowNumber: _sourceRowNumber, ...row }) => JSON.stringify(row, Object.keys(row).sort())).sort().join("\n");
+}
+
 function renderHistoryItems(list, items, onCorrection = null) {
   list.replaceChildren();
   if (!items.length) {
@@ -163,13 +168,13 @@ function renderHistoryItems(list, items, onCorrection = null) {
   }
   items.forEach((item) => {
     const fact = FACTS.find((entry) => entry.runtimeKey === item.factKind);
-    const statusLabel = ({ promoted: "正式データへ反映済み", approved: "承認済み", validated: "検証済み", quarantined: "要確認" })[item.status] || item.status;
+    const statusLabel = ({ promoted: "現在の正式データ", superseded: "訂正前データ", approved: "承認済み", validated: "検証済み", quarantined: "要確認" })[item.status] || item.status;
     const entry = node(list.ownerDocument, "li", "business-data-history-item");
     entry.append(node(list.ownerDocument, "strong", "", `${item.fiscalMonth} / ${fact?.label || item.factKind}`), node(list.ownerDocument, "span", "", `${statusLabel}・${item.rowCount}行${item.errorCount ? `・修正が必要 ${item.errorCount}件` : ""}`));
     const detail = node(list.ownerDocument, "details", "dbf-technical-detail");
-    detail.append(node(list.ownerDocument, "summary", "", "管理情報を表示"), node(list.ownerDocument, "code", "", `revision=${item.revision} / batch=${item.batchId}`));
+    detail.append(node(list.ownerDocument, "summary", "", "内容を見る"), node(list.ownerDocument, "p", "", `${item.fiscalMonth} ${fact?.label || item.factKind} / Revision ${item.revision}`), node(list.ownerDocument, "code", "", `batch=${item.batchId}`));
     entry.append(detail);
-    if (typeof onCorrection === "function" && item.status === "promoted" && item.factKind === "store_operating_result") {
+    if (typeof onCorrection === "function" && item.status === "promoted" && FACTS.some((entry) => entry.runtimeKey === item.factKind)) {
       const correction = node(list.ownerDocument, "button", "business-data-secondary-action", "訂正として登録");
       correction.type = "button";
       correction.addEventListener("click", async () => {
@@ -401,6 +406,7 @@ function createManualEditor(doc, fact, enabled) {
   let activeGroup = STORE_METRIC_GROUPS[0];
   const storeDraft = new Map();
   let confirmationStatus = "";
+  let tabularDraft = [];
 
   const input = (field, type = "text") => { const control = node(doc, "input", "dbf-manual-input"); control.type = type; control.dataset.field = field; control.disabled = !enabled; return control; };
   const select = (field, values) => { const control = node(doc, "select", "dbf-manual-input"); control.dataset.field = field; control.disabled = !enabled; values.forEach(([value, label]) => control.append(option(doc, value, label))); return control; };
@@ -443,12 +449,12 @@ function createManualEditor(doc, fact, enabled) {
       return;
     }
     const table = node(doc, "table", "dbf-manual-grid"); const thead = node(doc, "thead"); const head = node(doc, "tr");
-    const fields = fact.runtimeKey === "budget" ? ["法人", "店舗", "scenario", "勘定科目コード", "指標", "金額"] : fact.runtimeKey === "bs" ? ["法人", "勘定科目コード", "勘定科目名", "金額", "区分"] : ["法人", "店舗", "勘定科目コード", "勘定科目名", "金額", "detail / aggregate", "aggregate scope"];
+    const fields = fact.runtimeKey === "budget" ? ["法人", "店舗", "scenario", "勘定科目コード", "指標", "金額", "データ状態"] : fact.runtimeKey === "bs" ? ["法人", "勘定科目コード", "勘定科目名", "金額", "区分", "データ状態"] : ["法人", "店舗", "勘定科目コード", "勘定科目名", "金額", "detail / aggregate", "aggregate scope", "データ状態"];
     fields.forEach((label) => head.append(node(doc, "th", "", label))); thead.append(head); const tbody = node(doc, "tbody"); table.append(thead, tbody);
-    const addRow = () => { const row = node(doc, "tr"); row.append((() => { const td=node(doc,"td"); td.append(masterSelect("companyKey", companyValues)); return td; })()); if (fact.runtimeKey !== "bs") { const td=node(doc,"td"); td.append(masterSelect("storeKey", storeValues, true)); row.append(td); }
-      const specs = fact.runtimeKey === "budget" ? [["scenarioCode"],["accountCode"],["metricCode"],["amount","number"]] : fact.runtimeKey === "bs" ? [["accountCode"],["accountName"],["amount","number"],["classification","select"]] : [["accountCode"],["accountName"],["amount","number"],["sourceRowCategory","category"],["aggregateScope"]];
-      specs.forEach(([field,type]) => { const td=node(doc,"td"); const control = type === "select" ? select(field, [["asset","資産"],["liability","負債"],["equity","純資産"]]) : type === "category" ? select(field, [["detail","明細"],["aggregate","集計"]]) : input(field,type); td.append(control); row.append(td); }); tbody.append(row); };
-    addRow();
+    const addRow = (source = {}) => { const row = node(doc, "tr"); row.append((() => { const td=node(doc,"td"); const control=masterSelect("companyKey", companyValues); control.value=source.companyKey || ""; td.append(control); return td; })()); if (fact.runtimeKey !== "bs") { const td=node(doc,"td"); const control=masterSelect("storeKey", storeValues, true); control.value=source.storeKey || ""; td.append(control); row.append(td); }
+      const specs = fact.runtimeKey === "budget" ? [["scenarioCode"],["accountCode"],["metricCode"],["amount","number"],["confirmationStatus","confirmation"]] : fact.runtimeKey === "bs" ? [["accountCode"],["accountName"],["amount","number"],["classification","select"],["confirmationStatus","confirmation"]] : [["accountCode"],["accountName"],["amount","number"],["sourceRowCategory","category"],["aggregateScope"],["confirmationStatus","confirmation"]];
+      specs.forEach(([field,type]) => { const td=node(doc,"td"); const control = type === "select" ? select(field, [["asset","資産"],["liability","負債"],["equity","純資産"]]) : type === "category" ? select(field, [["detail","明細"],["aggregate","集計"]]) : type === "confirmation" ? select(field, [["confirmed","確定値"],["provisional","暫定値"]]) : input(field,type); control.value=source[field] ?? (field === "confirmationStatus" ? "confirmed" : ""); td.append(control); row.append(td); }); tbody.append(row); };
+    (tabularDraft.length ? tabularDraft : [{}]).forEach(addRow);
     if (fact.runtimeKey === "budget") table.addEventListener("paste", (event) => { event.preventDefault(); try { const controls = [...tbody.rows].map((row) => [...row.querySelectorAll("[data-field]")]); const grid = parseClipboardGrid(event.clipboardData?.getData("text/plain"), controls.length, fields.length); if (!globalThis.confirm?.(`${grid.length}行 × ${grid[0].length}列を貼り付けますか？`)) return; controls.forEach((row, rowIndex) => row.forEach((control, columnIndex) => { control.value = grid[rowIndex][columnIndex]; })); } catch { globalThis.alert?.("行数または列数が一致しないため貼り付けませんでした。"); } });
     const add = node(doc, "button", "business-data-secondary-action", "＋ 行を追加"); add.type = "button"; add.addEventListener("click", addRow); body.append(table, add);
   };
@@ -460,6 +466,10 @@ function createManualEditor(doc, fact, enabled) {
       storeDraft.clear();
       confirmationStatus = "";
       (Array.isArray(rows) ? rows : []).forEach((row) => storeDraft.set(`${row.storeKey}:${row.metricCode}`, String(row.value)));
+      render();
+    },
+    prefillRows(rows) {
+      tabularDraft = Array.isArray(rows) ? rows.map((row) => ({ ...row })) : [];
       render();
     },
     confirmationStatus() { return confirmationStatus; },
@@ -537,6 +547,8 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
   const confirmation = node(doc, "dl", "dbf-import-confirmation");
   let selectedRowCount = "ファイル選択後に確認します";
   let sourceType = "csv_upload";
+  let correctionBaseline = null;
+  const correctionPreview = node(doc, "div", "dbf-correction-preview");
   const updateConfirmation = () => {
     confirmation.replaceChildren();
     const manualRows = sourceType === "manual_entry" ? manualEditor.rows() : [];
@@ -546,6 +558,14 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
         ? ({ confirmed: "確定値 — Store Operationsの正式表示対象", provisional: "暫定値 — Store Operationsの正式表示対象外" })[manualEditor.confirmationStatus()] || "未選択（選択が必要です）"
         : "CSV内のconfirmation_statusを取込前検証で確認";
     [["データ種類", fact.label], ["対象月", month.value || "未選択"], ["入力方法", sourceType === "manual_entry" ? "画面で直接入力" : "CSVから取り込む"], ["ファイル名", sourceType === "manual_entry" ? "監査用Source Artifactを自動生成" : file.files?.[0]?.name || "未選択"], ["行数", sourceType === "manual_entry" ? `${manualRows.length}行` : selectedRowCount], ["対象店舗数", sourceType === "manual_entry" ? `${new Set(manualRows.map((row) => row.storeKey).filter(Boolean)).size}店舗` : "CSV検証時に確認"], ...(confirmationLabel ? [["データ状態", confirmationLabel]] : []), ["未入力セル", sourceType === "manual_entry" && manualRows.length === 0 ? "入力が必要です" : "取込前検証で確認"], ["Error / Warning", "取込前検証で確認"], ["注意事項", fact.caution]].forEach(([label, value]) => appendDefinition(doc, confirmation, label, value));
+    correctionPreview.replaceChildren();
+    if (correctionBaseline) {
+      correctionPreview.append(node(doc, "strong", "", "変更内容を確認"));
+      try {
+        const current = prepareDbfInput({ sourceType: "manual_entry", rows: manualRows, factKind: fact.runtimeKey, fiscalMonth: month.value }).normalizedRows;
+        correctionPreview.append(node(doc, "p", "", correctionSignature(current) === correctionSignature(correctionBaseline) ? "変更前と変更後に差がありません。" : `変更前 ${correctionBaseline.length}行 → 変更後 ${current.length}行`));
+      } catch { correctionPreview.append(node(doc, "p", "", "入力を完了すると変更前・変更後を確認できます。")); }
+    }
   };
   month.addEventListener("change", updateConfirmation);
   file.addEventListener("change", async () => {
@@ -558,7 +578,7 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
     updateConfirmation();
   });
   updateConfirmation();
-  step5.append(confirmation);
+  step5.append(confirmation, correctionPreview);
   const step6 = node(doc, "section", "dbf-import-wizard-step is-action");
   step6.append(node(doc, "span", "dbf-import-step-number", "STEP 6"), node(doc, "h4", "", "内容を確認して取込開始"));
   const start = node(doc, "button", "business-data-action", "この内容で取り込む");
@@ -597,21 +617,26 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
   correctionBatch.type = "text";
   correctionBatch.placeholder = "訂正元Batch UUID";
   correctionBatch.disabled = true;
+  const correctionContext = node(doc, "p", "business-data-correction-context");
+  const correctionReasonType = node(doc, "select", "business-data-correction-reason-type");
+  [["", "訂正理由を選択"], ["入力ミス", "入力ミス"], ["金額訂正", "金額訂正"], ["勘定科目訂正", "勘定科目訂正"], ["店舗選択誤り", "店舗選択誤り"], ["確定値への変更", "確定値への変更"], ["会計確定値反映", "会計確定値反映"], ["その他", "その他"]].forEach(([value, label]) => correctionReasonType.append(option(doc, value, label)));
+  correctionReasonType.disabled = true;
   const correctionReason = node(doc, "input", "business-data-correction-reason");
   correctionReason.type = "text";
   correctionReason.maxLength = 500;
   correctionReason.placeholder = "訂正理由";
   correctionReason.disabled = true;
   const syncCorrectionAvailability = () => {
-    correctionBatch.disabled = correctionReason.disabled = !correctionToggle.checked;
-    correctionReady = !correctionToggle.checked || (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(correctionBatch.value.trim().toLowerCase()) && Boolean(correctionReason.value.trim()));
+    correctionBatch.disabled = correctionReasonType.disabled = correctionReason.disabled = !correctionToggle.checked;
+    correctionReady = !correctionToggle.checked || (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(correctionBatch.value.trim().toLowerCase()) && Boolean(correctionReasonType.value) && (correctionReasonType.value !== "その他" || Boolean(correctionReason.value.trim())));
     updateStartAvailability();
   };
   correctionToggle.addEventListener("change", syncCorrectionAvailability);
   correctionBatch.addEventListener("input", syncCorrectionAvailability);
+  correctionReasonType.addEventListener("change", syncCorrectionAvailability);
   correctionReason.addEventListener("input", syncCorrectionAvailability);
   const correction = node(doc, "details", "dbf-correction-details");
-  correction.append(node(doc, "summary", "", "訂正データとして登録する場合"), correctionLabel, correctionBatch, correctionReason);
+  correction.append(node(doc, "summary", "", "訂正データとして登録する場合"), correctionContext, correctionLabel, correctionBatch, correctionReasonType, correctionReason);
   step6.append(correction, start);
   controls.append(step1, step2, step3, step4, step5, step6);
   panel.append(controls);
@@ -662,10 +687,11 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
       ]);
       state.masterOptions = masterOptions;
       const correctionOfBatchId = correctionToggle.checked ? correctionBatch.value.trim().toLowerCase() : null;
-      const requestedCorrectionReason = correctionToggle.checked ? correctionReason.value.trim() : null;
+      const requestedCorrectionReason = correctionToggle.checked ? [correctionReasonType.value, correctionReason.value.trim()].filter(Boolean).join("：") : null;
       if (correctionToggle.checked && (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(correctionOfBatchId) || !requestedCorrectionReason)) {
         throw new Error("CORRECTION_LINEAGE_INVALID");
       }
+      if (correctionToggle.checked && correctionBaseline && correctionSignature(prepared.normalizedRows) === correctionSignature(correctionBaseline)) throw new Error("CORRECTION_NO_CHANGES");
       const started = await DBF_IMPORT_RUNTIME.start({
         file: fileReceipt,
         factKind: fact.runtimeKey,
@@ -743,31 +769,42 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
   panel.append(panelNext);
 
   panel.beginCorrection = async (item, previewData, masterOptions) => {
-    if (fact.runtimeKey !== "store_operating_result" || item?.status !== "promoted" || previewData?.batchId !== item.batchId) throw new Error("CORRECTION_SOURCE_INVALID");
+    if (item?.factKind !== fact.runtimeKey || item?.status !== "promoted" || previewData?.batchId !== item.batchId) throw new Error("CORRECTION_SOURCE_INVALID");
     const sourceRows = Array.isArray(previewData?.correctionRows) ? previewData.correctionRows : [];
     if (!sourceRows.length || sourceRows.length !== Number(item.rowCount)) throw new Error("CORRECTION_SOURCE_ROWS_INVALID");
-    validateOfficialStoreBaseline(masterOptions);
     const companies = new Map((masterOptions.companies || []).map((company) => [String(company.id).toLowerCase(), company]));
     const stores = new Map((masterOptions.stores || []).map((store) => [String(store.id).toLowerCase(), store]));
     const rows = sourceRows.map((row) => {
       const company = companies.get(String(row.companyId || "").toLowerCase());
-      const store = stores.get(String(row.storeId || "").toLowerCase());
-      if (!company?.code || !store?.code || !STORE_MONTHLY_METRICS[row.metricCode]) throw new Error("CORRECTION_SOURCE_MAPPING_INVALID");
-      const numeric = Number(row.value);
-      if (!Number.isFinite(numeric)) throw new Error("CORRECTION_SOURCE_VALUE_INVALID");
-      return { companyKey: company.code, storeKey: store.code, metricCode: row.metricCode, value: STORE_MONTHLY_METRICS[row.metricCode] === "rate" ? numeric * 100 : numeric };
+      const store = row.storeId ? stores.get(String(row.storeId).toLowerCase()) : null;
+      if (!company?.code || (row.storeId && !store?.code)) throw new Error("CORRECTION_SOURCE_MAPPING_INVALID");
+      const base = { companyKey: company.code, storeKey: store?.code || "", confirmationStatus: row.confirmationStatus };
+      if (fact.runtimeKey === "store_operating_result") {
+        if (!STORE_MONTHLY_METRICS[row.metricCode]) throw new Error("CORRECTION_SOURCE_MAPPING_INVALID");
+        const numeric = Number(row.value); if (!Number.isFinite(numeric)) throw new Error("CORRECTION_SOURCE_VALUE_INVALID");
+        return { ...base, metricCode: row.metricCode, value: STORE_MONTHLY_METRICS[row.metricCode] === "rate" ? numeric * 100 : numeric, definitionVersion: row.definitionVersion || "v1" };
+      }
+      if (fact.runtimeKey === "budget") return { ...base, scenarioCode: row.scenarioCode, accountCode: row.accountCode || "", metricCode: row.metricCode || "", amount: row.amount };
+      if (fact.runtimeKey === "bs") return { ...base, accountCode: row.accountCode, accountName: row.accountName, amount: row.amount, classification: row.classification };
+      return { ...base, accountCode: row.accountCode, accountName: row.accountName, amount: row.amount, sourceRowCategory: row.sourceRowCategory, aggregateScope: row.aggregateScope || "" };
     });
     month.value = item.fiscalMonth;
     await selectMethod("manual_entry", masterOptions);
-    manualEditor.prefillStoreRows(rows);
+    if (fact.runtimeKey === "store_operating_result") { validateOfficialStoreBaseline(masterOptions); manualEditor.prefillStoreRows(rows); } else manualEditor.prefillRows(rows);
+    correctionBaseline = prepareDbfInput({ sourceType: "manual_entry", rows, factKind: fact.runtimeKey, fiscalMonth: item.fiscalMonth }).normalizedRows;
     correctionToggle.checked = true;
-    correctionBatch.disabled = correctionReason.disabled = false;
+    correctionBatch.disabled = correctionReasonType.disabled = correctionReason.disabled = false;
     correctionBatch.value = item.batchId;
+    correctionBatch.hidden = true;
     correctionReason.value = "";
+    correctionReasonType.value = "";
+    correctionContext.textContent = `${item.fiscalMonth.replace("-", "年")}月 ${fact.label}を訂正しています / 元Revision: ${item.revision}`;
     correction.open = true;
     updateConfirmation();
     syncCorrectionAvailability();
-    status.textContent = `${item.fiscalMonth} 店舗月次実績 ${rows.length}件を引き継ぎました。データ状態で「確定値」を選び、訂正理由を入力してください。`;
+    status.textContent = fact.runtimeKey === "store_operating_result"
+      ? `${item.fiscalMonth} 店舗月次実績 ${rows.length}件を引き継ぎました。データ状態で「確定値」を選び、訂正理由を入力してください。`
+      : `${item.fiscalMonth} ${fact.label} ${rows.length}件を引き継ぎました。変更箇所と訂正理由を確認してください。`;
   };
 
   return panel;

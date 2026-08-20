@@ -208,7 +208,7 @@ export function buildStoreSalesProjection(
     },
     executiveSummary: {
       metrics: [
-        executiveMetric("sales", "全社売上（税込）"),
+        executiveMetric("sales", "全社売上（税抜）"),
         executiveMetric("operatingProfit", "営業利益"),
         executiveMetric("ordinaryProfit", "経常利益"),
         executiveMetric("grossProfitMargin", "売上総利益率"),

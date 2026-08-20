@@ -63,3 +63,9 @@ Deno.test("missing metrics remain preparing and are never converted to zero", ()
   assert(customer.dataState === "preparing", "missing metric must be preparing");
 });
 
+Deno.test("executive total sales uses the frozen net-of-tax label", () => {
+  const projection = buildStoreSalesProjection([input()]);
+  const sales = projection.executiveSummary.metrics[0];
+  assert(sales.label === "全社売上（税抜）", "TOTAL_SALES must be labeled net of tax");
+  assert(sales.displayValue === null, "the label corrective must not synthesize a value");
+});

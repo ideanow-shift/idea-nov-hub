@@ -9,6 +9,7 @@ const main = readFileSync(new URL("../portal/js/main.js", import.meta.url), "utf
 const navi = readFileSync(new URL("../portal/js/nov-navi-dashboard.js", import.meta.url), "utf8");
 const app = readFileSync(new URL("../portal/store-sales/app.js", import.meta.url), "utf8");
 const runtimeConfig = readFileSync(new URL("../portal/store-sales/runtime-config.js", import.meta.url), "utf8");
+const productionRuntimeConfig = readFileSync(new URL("../portal/store-sales/runtime-config.production.js", import.meta.url), "utf8");
 const adapterConfig = readFileSync(new URL("../portal/store-sales/adapters/config.js", import.meta.url), "utf8");
 const storeSales = DEMO_APPS.find((item) => item.appId === "store-sales-management");
 const employee = (email) => DEMO_EMPLOYEES.find((item) => item.email === email);
@@ -56,4 +57,8 @@ test("direct preview URL cannot mint Mock Identity without a HUB launch context"
 test("production remains fail-closed and no integration boundary is changed", () => {
   assert.match(adapterConfig, /PRODUCTION_NOT_APPROVED/);
   assert.doesNotMatch(runtimeConfig, /featureFlag:\s*"production"/);
+  assert.match(productionRuntimeConfig, /featureFlag:\s*"production"/);
+  assert.match(productionRuntimeConfig, /preview:\s*false/);
+  assert.match(productionRuntimeConfig, /contractVersion:\s*"STORE_MONTHLY_ACTUAL_V1"/);
+  assert.doesNotMatch(productionRuntimeConfig, /mock|synthetic/iu);
 });

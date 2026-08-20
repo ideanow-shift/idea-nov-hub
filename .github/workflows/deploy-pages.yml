@@ -9,7 +9,12 @@ on:
       - "portal/index.html"
       - "portal/js/**"
       - "portal/talent/**"
+      - "portal/store-sales/**"
+      - "docs/store_operations_management/production_release/**"
       - "tests/**talent**"
+      - "tests/store-sales-*.test.mjs"
+      - "tests/store-operations-*.test.mjs"
+      - "tests/dbf-store-monthly-*.test.mjs"
       - "tests/nov-navi-dashboard-boundary.test.mjs"
       - "tests/management-store-csv-requirements.test.mjs"
       - "scripts/generate-nov-talent-workspace-contract.mjs"
@@ -23,6 +28,15 @@ on:
         required: true
         type: boolean
         default: false
+      store_operations_release_approved:
+        description: "Explicit Store Operations production release approval"
+        required: true
+        type: boolean
+        default: false
+      store_operations_main_sha:
+        description: "Approved main SHA for Store Operations release"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -96,6 +110,41 @@ jobs:
             exit 1
           fi
 
+  store-operations-release-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify approved source and target
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.store_operations_release_approved }}" == "true" ]]; then
+            test -n "${{ inputs.store_operations_main_sha }}"
+            test "$(git rev-parse HEAD)" = "${{ inputs.store_operations_main_sha }}"
+          fi
+          grep -q 'expectedProjectRef: "nkmxevmioczcmnldreyo"' portal/store-sales/runtime-config.production.js
+          grep -q 'STORE_MONTHLY_ACTUAL_V1' portal/store-sales/runtime-config.production.js
+      - name: Run Store Operations release regressions
+        shell: bash
+        run: |
+          node --check portal/store-sales/app.js
+          find portal/store-sales -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+          node --test tests/store-sales-*.test.mjs tests/store-operations-*.test.mjs tests/dbf-store-monthly-*.test.mjs
+      - name: Reject Store Operations secrets and production fixtures
+        shell: bash
+        run: |
+          ! grep -R -E 'sb_secret_|SUPABASE_SERVICE_ROLE_KEY=.+|BEGIN (RSA|OPENSSH) PRIVATE KEY' portal/store-sales
+          ! grep -Ei 'mock|synthetic' portal/store-sales/runtime-config.production.js
+      - name: Check patch whitespace
+        shell: bash
+        run: git diff --check origin/main...HEAD
+
       - name: Reject Production Mock Identity
         shell: bash
         run: |
@@ -106,7 +155,7 @@ jobs:
 
   deploy:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.production_approved == true }}
-    needs: talent-release-checks
+    needs: [talent-release-checks, store-operations-release-checks]
     permissions:
       contents: read
       pages: write
@@ -121,6 +170,11 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+
+      - name: Activate approved Store Operations production config
+        if: ${{ inputs.store_operations_release_approved == true }}
+        shell: bash
+        run: cp portal/store-sales/runtime-config.production.js portal/store-sales/runtime-config.js
 
       - name: Upload portal
         uses: actions/upload-pages-artifact@v3

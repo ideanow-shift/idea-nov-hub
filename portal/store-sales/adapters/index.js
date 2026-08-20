@@ -12,5 +12,8 @@ export function createStoreSalesAdapter(options) {
       ? createDbfStoreMonthlyAdapter(config, options.dependencies)
       : createProjectionAdapter(config, options.dependencies)
   };
-  throw new Error("Production adapter is blocked.");
+  if (config.mode === "production" && config.contractVersion === DBF_STORE_MONTHLY_CONTRACT) {
+    return { config, adapter: createDbfStoreMonthlyAdapter(config, options.dependencies) };
+  }
+  throw new Error("Production adapter requires the approved DBF Store Monthly contract.");
 }

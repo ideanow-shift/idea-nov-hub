@@ -197,7 +197,7 @@ export function createDbfStoreMonthlyAdapter(config, dependencies = {}) {
   const getSessionToken = dependencies.getSessionToken || (() => "");
   let controller = null;
   return Object.freeze({
-    mode: "integration",
+    mode: config.mode,
     async loadDashboard({ period }) {
       if (!/^\d{4}-(0[1-9]|1[0-2])$/u.test(String(period || ""))) throw new ProjectionRequestError("INVALID_PERIOD", "営業対象月を確認してください。", 422);
       const token = String(await getSessionToken() || "").trim();

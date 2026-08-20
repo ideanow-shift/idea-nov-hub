@@ -15,16 +15,27 @@ export function resolveAdapterConfig({ location, runtimeConfig = {} }) {
   const requestedMode = String(runtimeConfig.mode || (local ? "mock" : "production"));
   if (!MODES.has(requestedMode)) throw new AdapterConfigurationError("INVALID_ADAPTER_MODE", "Store Sales adapter mode is invalid.");
   if (requestedMode === "production") {
-    throw new AdapterConfigurationError("PRODUCTION_NOT_APPROVED", "本番接続はまだ承認されていません。");
+    if (runtimeConfig.productionApproved !== true || runtimeConfig.preview !== false || runtimeConfig.featureFlag !== "production") {
+      throw new AdapterConfigurationError("PRODUCTION_NOT_APPROVED", "本番接続はまだ承認されていません。");
+    }
   }
   if (requestedMode === "mock" && !local) {
     throw new AdapterConfigurationError("MOCK_NOT_ALLOWED", "この環境ではmock modeを使用できません。");
   }
   const query = new URLSearchParams(String(location?.search || ""));
   const fixture = requestedMode === "mock" && local ? query.get("fixture") || "executive" : null;
-  const endpoint = requestedMode === "integration" ? String(runtimeConfig.integrationEndpoint || "") : "";
+  const endpoint = requestedMode === "integration"
+    ? String(runtimeConfig.integrationEndpoint || "")
+    : requestedMode === "production" ? String(runtimeConfig.productionEndpoint || "") : "";
   if (requestedMode === "integration" && (!endpoint || !/^https:\/\/|^http:\/\/(127\.0\.0\.1|localhost)/.test(endpoint))) {
     throw new AdapterConfigurationError("INTEGRATION_ENDPOINT_REQUIRED", "隔離されたintegration endpointが必要です。");
+  }
+  if (requestedMode === "production") {
+    const expectedProjectRef = String(runtimeConfig.expectedProjectRef || "");
+    const expectedEndpoint = `https://${expectedProjectRef}.supabase.co/functions/v1/nov-hub-api`;
+    if (!/^[a-z0-9]{20}$/u.test(expectedProjectRef) || endpoint !== expectedEndpoint) {
+      throw new AdapterConfigurationError("PRODUCTION_TARGET_MISMATCH", "本番接続先を確認できません。");
+    }
   }
   return Object.freeze({
     mode: requestedMode,

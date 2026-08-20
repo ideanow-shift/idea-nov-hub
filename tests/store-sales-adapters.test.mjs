@@ -44,6 +44,23 @@ test("production mode is blocked until approval", () => {
   assert.throws(() => resolveAdapterConfig({ location: { hostname: "example.com", search: "" }, runtimeConfig: { mode: "production" } }), /承認/);
 });
 
+test("production mode accepts only the approved exact project endpoint", () => {
+  const runtimeConfig = {
+    mode: "production", featureFlag: "production", preview: false, productionApproved: true,
+    expectedProjectRef: "nkmxevmioczcmnldreyo",
+    productionEndpoint: "https://nkmxevmioczcmnldreyo.supabase.co/functions/v1/nov-hub-api",
+    contractVersion: "STORE_MONTHLY_ACTUAL_V1"
+  };
+  const config = resolveAdapterConfig({ location: { hostname: "ideanow-shift.github.io", search: "" }, runtimeConfig });
+  assert.equal(config.mode, "production");
+  assert.equal(config.endpoint, runtimeConfig.productionEndpoint);
+  assert.equal(config.cacheEnabled, false);
+  assert.throws(() => resolveAdapterConfig({
+    location: { hostname: "ideanow-shift.github.io", search: "" },
+    runtimeConfig: { ...runtimeConfig, productionEndpoint: "https://example.com/functions/v1/nov-hub-api" }
+  }), /接続先/);
+});
+
 test("non-local mock mode is rejected even with a fixture query", () => {
   assert.throws(() => resolveAdapterConfig({ location: { hostname: "example.com", search: "?fixture=executive" }, runtimeConfig: { mode: "mock" } }), /mock mode/);
 });

@@ -17,7 +17,7 @@ The source is a normalized CSV with this exact header:
 Run the local preflight with an approved 20-key Store Master snapshot and a read-only export of active canonical grains:
 
 ```powershell
-node scripts/dbf-historical-store-data-rehearsal.mjs --input=history.csv --stores=official-store-keys.json --protected=active-grains.json --output=work/historical-rehearsal
+node scripts/dbf-historical-store-data-rehearsal.mjs --input=history.csv --stores=official-store-keys.json --protected=active-grains.json --budgets=budget-scopes.json --output=work/historical-rehearsal
 ```
 
 The tool emits 24 monthly CSVs only when all blocking validations pass. Those files preserve the existing one-batch/one-fiscal-month contract and are uploaded through DBF Management UI. The Owner performs validation, approval, and promotion. No tool output writes business facts.
@@ -31,7 +31,7 @@ The tool emits 24 monthly CSVs only when all blocking validations pass. Those fi
 - Rate values use the canonical 0–1 representation; quantities are non-negative integers.
 - Confirmation status is explicitly `provisional` or `confirmed`.
 - When all components exist, sales and customer totals are compared and warnings are reported without changing values.
-- Every month/store cell reports present metric count and missing metric codes. Blanks remain missing.
+- Every month/store cell reports present, confirmed, provisional, and missing counts; missing metric codes; Budget availability; and YoY, September-start Fiscal YTD, and six-month Trend readiness. Blanks remain missing.
 - A collision with an active fact blocks generation and requires the existing correction lineage flow.
 
 ## Protected pilot

@@ -8,10 +8,12 @@ on:
       - "supabase/migrations/**dbf_business_data_phase_c_runtime.sql"
       - "supabase/migrations/**dbf_canonical_account_catalog_owner_review.sql"
       - "supabase/migrations/**dbf_account_review_contract_corrective.sql"
+      - "supabase/migrations/**dbf_standard_correction_prefill.sql"
       - "portal/management-app/**"
       - "deploy/dbf-cloud-run-staging-bff-candidate/**"
       - "deploy/dbf-staging/runtime.js"
       - "tests/dbf-business-data-phase-c*"
+      - "tests/dbf-standard-correction*"
       - "tests/dbf-canonical-account-catalog-*"
       - ".github/workflows/dbf-phase-c-import-runtime-validation.yml"
   workflow_dispatch:
@@ -88,10 +90,12 @@ jobs:
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814213224_dbf_business_data_phase_c_runtime.sql
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260815090000_dbf_canonical_account_catalog_owner_review.sql
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260815123655_dbf_account_review_contract_corrective.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260820000048_dbf_standard_correction_prefill.sql
       - name: Run PostgreSQL 17 runtime and rollback smoke
         run: |
           psql --set=ON_ERROR_STOP=1 --file tests/dbf-business-data-phase-c-postgres17.sql
           psql --set=ON_ERROR_STOP=1 --file tests/dbf-canonical-account-catalog-postgres17.sql
+          psql --set=ON_ERROR_STOP=1 --file tests/dbf-standard-correction-postgres17.sql
       - name: Reject Production refs and secrets in hosted artifact
         shell: bash
         run: |

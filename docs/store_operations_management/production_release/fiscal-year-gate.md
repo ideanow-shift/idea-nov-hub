@@ -1,5 +1,5 @@
 # Fiscal Year Definition Gate
 
-Production read-back found six active corporations. Configured: `ALBERO`, `IDEA_NOV`, `UNO`. Missing: `BIOEL`, `FILM`, `LUA`.
+The Owner decision on 2026-08-20 fixes the fiscal year-end month at August (`8`) for all six active corporations: `IDEA_NOV`, `ALBERO`, `UNO`, `BIOEL`, `FILM`, and `LUA`. Their fiscal year is September through August.
 
-The release infrastructure may proceed while these three are unset, but Fiscal YTD for them must remain `準備中`. The Owner must provide each corporation's authoritative fiscal year-end month before Phase 3 can reach 100%. No month may be inferred from names, past data or another corporation.
+This is the Store Operations contract source of truth. Production DB configuration remains a separate release-gated operation; this document does not authorize or perform a Production write. Fiscal YTD must remain `準備中` wherever the authoritative runtime configuration has not yet been populated.

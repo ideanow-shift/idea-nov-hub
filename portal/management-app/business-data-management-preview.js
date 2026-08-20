@@ -757,7 +757,10 @@ function renderImportPanel(doc, fact, enabled, onHistoryChanged, onBack) {
     try {
       const promoted = await DBF_IMPORT_RUNTIME.promote(state.batchId);
       preview.textContent = JSON.stringify(promoted, null, 2);
-      status.textContent = `正式データへの反映が完了しました / version ${promoted.version}`;
+      const revision = Number(promoted?.revision);
+      status.textContent = Number.isInteger(revision) && revision > 0
+        ? `正式データへの反映が完了しました / Revision ${revision}`
+        : "正式データへの反映が完了しました";
       await onHistoryChanged(month.value);
     } catch (error) {
       renderSafeError(doc, status, error, "承認状態と事前確認結果を確認してください");

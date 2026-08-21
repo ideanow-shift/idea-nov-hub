@@ -8,7 +8,7 @@
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./style.css?v=20260811-planning-admin-v1">
   <script src="./runtime-config.candidate.js?v=20260811-planning-admin-v1"></script>
-  <script type="module" src="./app.mjs?v=20260811-planning-admin-v1"></script>
+  <script type="module" src="./app.mjs?v=20260822-operational-editing-v1"></script>
 </head>
 <body>
   <main class="dashboard-shell" aria-labelledby="dashboard-title">
@@ -582,7 +582,7 @@
             <label><span>メール</span><input id="profile-email" name="email" maxlength="254" type="email"></label>
             <label><span>LINE表示名・識別情報</span><input id="profile-line" name="lineIdentifier" maxlength="160"></label>
             <label><span>きっかけ</span><input id="profile-source" name="acquisitionSource" maxlength="180"></label>
-            <label><span>担当者</span><input id="profile-assignee" name="assignedTo" maxlength="120"></label>
+            <label><span>担当者</span><select id="profile-assignee" name="assignedEmployeeId"><option value="">未設定</option></select><small>HUBの正式な担当者一覧から選択します。</small></label>
             <label><span>現在の状態（参照用）</span>
               <select id="profile-status" name="currentStatus">
                 <option value="">未登録（選考履歴から自動反映）</option>
@@ -601,6 +601,7 @@
                 <option value="REJECTED">不採用</option>
               </select>
               <small>現在の状態は参照用です。選考の更新は「選考履歴を追加」から記録します。</small>
+              <button id="profile-selection-open" class="secondary-command compact-command" type="button">選考結果を登録</button>
             </label>
             <label class="profile-wide"><span>備考</span><textarea id="profile-notes" name="notes" maxlength="4000" rows="3"></textarea></label>
             <label class="profile-wide"><span>更新理由 *</span><input id="profile-change-reason" name="changeReason" maxlength="500" required></label>

@@ -44,6 +44,7 @@ let activeHistoricalReviewStudent = null;
 let profileDialogStudent = null;
 let auditDialogStudent = null;
 let activityDialogContext = null;
+let profileSaveInFlight = false;
 let activityConfirmationController = null;
 let pendingSelectedApplicationNo = null;
 let selectedGraduationYear = "ALL";
@@ -535,6 +536,11 @@ export function initializeTalentStudentWorkspace({
   documentObject.getElementById("student-profile-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     saveStudentProfile({ globalObject, documentObject });
+  });
+  documentObject.getElementById("profile-selection-open")?.addEventListener("click", () => {
+    if (!profileDialogStudent?.recordId || !studentWorkspaceData?.canWrite) return;
+    documentObject.getElementById("student-profile-dialog")?.close?.();
+    openCandidateActivityDialog({ documentObject, entityType: "SELECTION" });
   });
   documentObject.getElementById("profile-school-id")?.addEventListener("change", (event) => {
     const master = (studentWorkspaceData?.schoolMasters || []).find((row) => row.school_id === event.target?.value);
@@ -3404,7 +3410,6 @@ function openStudentProfileDialog({ documentObject, student, focusField = "profi
     "profile-faculty": student?.faculty || "",
     "profile-line": student?.lineIdentifier || "",
     "profile-source": student?.acquisitionSource || "",
-    "profile-assignee": student?.assignee || "",
     "profile-notes": student?.notes || "",
     "profile-status": student?.statusCode || "",
     "profile-change-reason": "",
@@ -3415,6 +3420,9 @@ function openStudentProfileDialog({ documentObject, student, focusField = "profi
   });
   const projectionStatus = documentObject.getElementById("profile-status");
   if (projectionStatus) projectionStatus.disabled = true;
+  populateProfileAssigneeOptions(documentObject, student?.assignee || "");
+  const selectionButton = documentObject.getElementById("profile-selection-open");
+  if (selectionButton) selectionButton.hidden = !student?.recordId;
   populateCandidateMasterOptions(documentObject, student);
   const status = documentObject.getElementById("student-profile-status");
   if (status) {
@@ -3429,9 +3437,43 @@ function openStudentProfileDialog({ documentObject, student, focusField = "profi
   documentObject.getElementById(focusField)?.focus?.();
 }
 
+function populateProfileAssigneeOptions(documentObject, currentAssignee) {
+  const select = documentObject.getElementById("profile-assignee");
+  if (!select) return;
+  const assignees = dailyWorkflowData?.sourceCoverageState === "COMPLETE"
+    ? dailyWorkflowData.assignees || [] : [];
+  const options = [Object.assign(documentObject.createElement("option"), { value: "", textContent: "未設定" })];
+  for (const item of assignees) {
+    options.push(Object.assign(documentObject.createElement("option"), {
+      value: item.employeeId, textContent: item.displayName
+    }));
+  }
+  const matched = assignees.find((item) => item.displayName === currentAssignee);
+  if (currentAssignee && !matched) {
+    options.push(Object.assign(documentObject.createElement("option"), {
+      value: "__unregistered__", textContent: `現在：${currentAssignee}（正式候補外・再選択してください）`, disabled: true
+    }));
+  }
+  if (dailyWorkflowData?.sourceCoverageState !== "COMPLETE") {
+    options.push(Object.assign(documentObject.createElement("option"), {
+      value: "__unavailable__", textContent: "担当者一覧を取得できません", disabled: true
+    }));
+  }
+  select.replaceChildren(...options);
+  if (matched) select.value = matched.employeeId;
+  else if (currentAssignee) select.value = "__unregistered__";
+  else select.value = dailyWorkflowData?.sourceCoverageState === "COMPLETE" ? "" : "__unavailable__";
+}
+
 async function saveStudentProfile({ globalObject, documentObject }) {
+  if (profileSaveInFlight) return;
   const form = documentObject.getElementById("student-profile-form");
   if (!form?.reportValidity?.()) return;
+  const assignedEmployeeId = documentObject.getElementById("profile-assignee")?.value || null;
+  if (["__unregistered__", "__unavailable__"].includes(assignedEmployeeId)) {
+    setProfileStatus(documentObject, "担当者をHUBの正式な候補から選択してください", "stopped");
+    return;
+  }
   const payload = {
     expectedVersion: profileDialogStudent?.profileVersion || undefined,
     graduationYear: Number(documentObject.getElementById("profile-graduation-year")?.value),
@@ -3444,7 +3486,7 @@ async function saveStudentProfile({ globalObject, documentObject }) {
     lineIdentifier: documentObject.getElementById("profile-line")?.value || "",
     currentStatus: documentObject.getElementById("profile-status")?.value || "",
     acquisitionSource: documentObject.getElementById("profile-source")?.value || "",
-    assignedTo: documentObject.getElementById("profile-assignee")?.value || "",
+    assignedEmployeeId,
     notes: documentObject.getElementById("profile-notes")?.value || "",
     changeReason: documentObject.getElementById("profile-change-reason")?.value || "",
   };
@@ -3452,6 +3494,7 @@ async function saveStudentProfile({ globalObject, documentObject }) {
   if (!globalObject.confirm?.(stagingEdit
     ? "入力内容で学生情報を更新します。よろしいですか？"
     : "入力内容で学生を登録します。よろしいですか？")) return;
+  profileSaveInFlight = true;
   const saveButton = documentObject.getElementById("student-profile-save");
   const status = documentObject.getElementById("student-profile-status");
   if (saveButton) {
@@ -3461,6 +3504,7 @@ async function saveStudentProfile({ globalObject, documentObject }) {
   const client = createStagingCandidateClient({ globalObject });
   const duplicateResult = await client?.checkDuplicates({ ...payload, candidateId: profileDialogStudent?.recordId || null });
   if (!duplicateResult?.ok) {
+    profileSaveInFlight = false;
     if (saveButton) {
       saveButton.disabled = false;
       saveButton.setAttribute("aria-busy", "false");
@@ -3473,6 +3517,7 @@ async function saveStudentProfile({ globalObject, documentObject }) {
   }
   const duplicateCount = Number(duplicateResult.data?.matchCount || 0);
   if (duplicateCount > 0 && !globalObject.confirm?.(`重複候補が${duplicateCount}件あります。自動統合せず、別の学生として保存しますか？`)) {
+    profileSaveInFlight = false;
     if (saveButton) {
       saveButton.disabled = false;
       saveButton.setAttribute("aria-busy", "false");
@@ -3493,6 +3538,7 @@ async function saveStudentProfile({ globalObject, documentObject }) {
     saveButton.setAttribute("aria-busy", "false");
   }
   if (!result?.ok) {
+    profileSaveInFlight = false;
     if (status) {
       status.dataset.state = "stopped";
       status.textContent = result.category === "auth_required"
@@ -3510,6 +3556,7 @@ async function saveStudentProfile({ globalObject, documentObject }) {
     fairId: documentObject.getElementById("profile-fair-id")?.value || null, reason: payload.changeReason
   }) : { ok: true };
   if (!masterResult?.ok) {
+    profileSaveInFlight = false;
     if (status) { status.dataset.state = "stopped"; status.textContent = "学生情報は保存しましたが、学校・フェアの紐付けに失敗しました。再読み込みして編集してください。"; }
     studentWorkspaceData = null; await loadTalentStudentWorkspace({ globalObject, documentObject, force: true }); return;
   }
@@ -3519,6 +3566,7 @@ async function saveStudentProfile({ globalObject, documentObject }) {
     status.textContent = stagingEdit ? "学生情報を更新しました" : "学生を追加しました";
   }
   documentObject.getElementById("student-profile-dialog")?.close?.();
+  profileSaveInFlight = false;
   profileDialogStudent = null;
   studentWorkspaceData = null;
   await loadTalentStudentWorkspace({ globalObject, documentObject, force: true });

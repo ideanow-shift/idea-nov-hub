@@ -30,8 +30,11 @@ export function cleanCandidate(input: unknown) {
   const status = rawStatus || null;
   const expectedVersion = value.expectedVersion === undefined ? null : Number(value.expectedVersion);
   const reason = clean(value.changeReason, 500);
+  const assignedEmployeeId = value.assignedEmployeeId == null || value.assignedEmployeeId === ""
+    ? null : clean(value.assignedEmployeeId, 40);
   if (!Number.isInteger(graduationYear) || graduationYear < 2026 || graduationYear > 2035 || !studentName
     || (status !== null && !STATUS_LABELS[status]) || !reason
+    || (assignedEmployeeId !== null && !UUID.test(assignedEmployeeId))
     || (expectedVersion !== null && (!Number.isInteger(expectedVersion) || expectedVersion < 1))) return null;
   const email = clean(value.email, 254)?.toLowerCase() || null;
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(email)) return null;
@@ -39,7 +42,8 @@ export function cleanCandidate(input: unknown) {
     graduationYear, studentName, studentNameKana: clean(value.kana, 120), schoolName: clean(value.school, 180),
     facultyName: clean(value.faculty, 180), phone: clean(value.phone, 40), email,
     lineIdentifier: clean(value.lineIdentifier, 160), currentStatus: status,
-    acquisitionSource: clean(value.acquisitionSource, 180), assignedTo: clean(value.assignedTo, 120),
+    acquisitionSource: clean(value.acquisitionSource, 180), assignedEmployeeId,
+    assignedTo: null,
     notes: clean(value.notes, 4000), expectedVersion, reason
   });
 }

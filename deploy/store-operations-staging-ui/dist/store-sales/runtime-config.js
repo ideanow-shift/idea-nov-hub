@@ -1,1 +1,0 @@
-globalThis.STORE_SALES_RUNTIME_CONFIG=Object.freeze({mode:"integration",featureFlag:"staging",preview:false,requireHubSession:true,integrationEndpoint:"https://zgkoofphhivesclehrom.supabase.co/functions/v1/nov-hub-api",contractVersion:"STORE_MONTHLY_ACTUAL_V1",timeoutMs:12000});

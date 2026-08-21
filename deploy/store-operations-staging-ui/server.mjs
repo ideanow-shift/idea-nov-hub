@@ -24,7 +24,8 @@ createServer(async (request, response) => {
   if (!file.startsWith(root)) { response.writeHead(404, headers); return response.end(); }
   try {
     if (!(await stat(file)).isFile()) throw new Error("NOT_FILE");
-    response.writeHead(200, { ...headers, "Content-Type": types[extname(file)] || "application/octet-stream" });
+    const contentType = pathname === "/auth/callback" ? types[".html"] : types[extname(file)] || "application/octet-stream";
+    response.writeHead(200, { ...headers, "Content-Type": contentType });
     createReadStream(file).pipe(response);
   } catch { response.writeHead(404, headers); response.end(); }
 }).listen(port, "0.0.0.0");

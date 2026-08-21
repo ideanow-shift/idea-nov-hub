@@ -24,6 +24,7 @@ test("browser build is Staging-only and strips Production configuration", () => 
 test("Cloud Run shell blocks caching, framing and non-fixed callback routing", () => {
   assert.match(server, /Cache-Control\": \"no-store/);
   assert.match(server, /frame-ancestors 'none'/);
+  assert.match(server, /pathname === "\/auth\/callback" \? types\["\.html"\]/);
   assert.match(server, /pathname === \"\/auth\/callback\"/);
   assert.match(server, /Location:\"\/store-sales\/\"/);
 });

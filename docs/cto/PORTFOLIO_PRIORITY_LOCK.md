@@ -1,6 +1,6 @@
 # CTO Portfolio Execution Order Lock
 
-LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-18-V2
+LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-21-V3
 
 STATUS: ACTIVE
 
@@ -205,6 +205,89 @@ PHASE_STATUS: CURRENT
 - 実際の月次会議で利用開始。
 
 Phase 3へ入った後は、店舗営業管理が実働するまでPhase 4へ移ってはならない。
+
+## NOV Talent Bounded Operational Maintenance Exception
+
+STATUS: OWNER_APPROVED
+
+この例外はPhase Transitionではない。`CURRENT_PHASE`は
+`PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1`のままとし、Store Operations Management V1を
+常に最優先とする。
+
+目的は、Phase 3進行中でも、総務人事部が現在存在するNOV Talentの求人データを正しい情報へ
+修正・追加できる状態を維持するための限定メンテナンスだけを許可することである。
+
+### ALLOWED
+
+NOV Talentについて、次だけをPhase 3と並行して実施できる。
+
+1. Candidate既存情報の修正機能。
+2. Selection Historyの正式追加。
+3. Current Status Projectionの既存contract修正。
+4. Communication Historyの正式追加。
+5. Next Actionの設定・変更。
+6. Assigneeの設定・変更。
+7. 上記操作に必要なUI／UX修正。
+8. 上記既存contractのbug fix。
+9. authorization、audit、stale update、duplicate防止修正。
+10. regression test。
+11. Staging Hosted Smoke。
+12. 上記限定機能に必要なStaging deploy。
+
+許可目的は「総務人事部が現在存在する求人データを正しい情報へ修正・追加できること」に
+限定する。
+
+### PROHIBITED
+
+NOV Talentについて、次を禁止する。
+
+- 新機能開発。
+- 新しいRecruiting Intelligence機能。
+- AI採用戦略機能。
+- 28卒CSV正式Import新規実装。
+- 新しいPlanning機能。
+- 新しい分析機能。
+- `SALON_VISIT`拡張。
+- Fair Attribution再設計。
+- 新規DB schema。
+- 新規business domain。
+- 不要なMigration。
+- 大規模Backfill。
+- Portfolio Phase変更。
+- Store Operations変更。
+- DBF変更。
+- Corporate Management着手。
+- Production business dataの直接手作業による書換え。
+
+### 優先順位
+
+Store Operations Management V1を常に優先する。NOV Talent bounded maintenanceが
+Store Operationsと競合した場合は、NOV Talent側を停止する。
+
+固定順序は次のままであり、変更しない。
+
+1. DBF Backend — COMPLETE
+2. DBF Management UI — COMPLETE
+3. Store Operations — CURRENT
+4. Corporate Management
+
+### 並行作業ルール
+
+- NOV Talent bounded maintenanceは最大1 active implementation PRとする。
+- 1つを完成・検証してから次へ進む。
+- 最初の対象は`NOV Talent Operational Editing Baseline V1`とする。
+- 最初の対象範囲はCandidate edit、Selection result registration、Communication History、
+  Next Action、Assigneeだけとする。
+- 本Priority Change PRがmainへMergeされるまでNOV Talent実装を再開しない。
+
+### Production
+
+実装とStaging検証までは本例外で許可する。Productionへの次の操作には別のOwner承認が必要である。
+
+- deploy。
+- write flag ON。
+- migration。
+- business write enablement。
 
 ## Phase 4: Corporate Management
 

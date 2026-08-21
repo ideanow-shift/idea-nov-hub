@@ -1,5 +1,30 @@
 # Portfolio Priority Decision Log
 
+## 2026-08-21 — NOV Talent Bounded Operational Maintenance Exception
+
+DECISION_ID: OWNER-PRIORITY-CHANGE-2026-08-21-NOV-TALENT-BOUNDED-MAINTENANCE
+
+LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-21-V3
+
+DECIDED_BY: IDEA NOVグループ代表取締役社長
+
+STATUS: ACTIVE
+
+### Owner Approval
+
+Ownerは、Phase 3進行中に総務人事部が既存NOV Talent求人データを正しい情報へ修正・追加する
+ためのbounded operational maintenanceを明示承認した。
+
+- `CURRENT_PHASE`は`PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1`のまま。
+- 固定Portfolio順序の変更は0。
+- Store Operations Management V1を常に優先する。
+- NOV Talentの新機能開発は引き続き禁止する。
+- 最大1 active implementation PRとし、最初はOperational Editing Baseline V1に限定する。
+- Production deploy、write flag ON、migration、business write enablementは別Owner承認を必要とする。
+- 本Priority Change PRがmainへMergeされるまでNOV Talent実装を再開しない。
+
+これはPhase Transitionではない。
+
 ## 2026-08-18 — Owner Portfolio Execution Order V2
 
 DECISION_ID: OWNER-PORTFOLIO-ORDER-2026-08-18-V2

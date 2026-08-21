@@ -7,7 +7,7 @@ const root = process.cwd();
 const lockPath = path.join(root, 'docs', 'cto', 'PORTFOLIO_PRIORITY_LOCK.md');
 const logPath = path.join(root, 'docs', 'cto', 'PRIORITY_DECISION_LOG.md');
 const agentsPath = path.join(root, 'AGENTS.md');
-const expectedLockId = 'CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-18-V2';
+const expectedLockId = 'CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-21-V3';
 const expectedPhase = 'PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1';
 const failures = [];
 
@@ -46,6 +46,11 @@ requireText(lock, /PHASE_ID:\s*PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1/, 'Store O
 requireText(lock, /PHASE_ID:\s*PHASE_4_CORPORATE_MANAGEMENT/, 'Corporate Management is not Phase 4');
 requireText(lock, /Owner以外はPhaseまたはPortfolio Priorityを変更できない/, 'Owner-only change clause missing');
 requireText(lock, /\[OWNER PHASE TRANSITION\][\s\S]*\[OWNER PRIORITY CHANGE\]/, 'Owner change mechanisms missing');
+requireText(lock, /## NOV Talent Bounded Operational Maintenance Exception[\s\S]*STATUS:\s*OWNER_APPROVED/, 'Owner-approved NOV Talent exception missing');
+requireText(lock, /NOV Talent bounded maintenanceは最大1 active implementation PR/, 'NOV Talent one-active-PR limit missing');
+requireText(lock, /Store Operations Management V1を常に優先/, 'Store Operations priority clause missing');
+requireText(lock, /新機能開発。[\s\S]*新規DB schema。[\s\S]*Corporate Management着手。/, 'NOV Talent prohibited scope incomplete');
+requireText(lock, /Productionへの次の操作には別のOwner承認が必要/, 'Production separate approval clause missing');
 
 const phaseCriteria = {
   'Phase 1': ['法人会計ActualのBackend Contract', '店舗月次営業実績のBackend Contract', 'Canonical Factの保存先', 'PostgreSQL 17 CI', 'Staging Backend Smoke', 'Production writeが0'],
@@ -62,7 +67,9 @@ for (const [phase, criteria] of Object.entries(phaseCriteria)) {
 requireText(agents, /docs\/cto\/PORTFOLIO_PRIORITY_LOCK\.md/, 'AGENTS.md read instruction missing');
 requireText(agents, /PORTFOLIO LOCK ID:[\s\S]*CURRENT PHASE:[\s\S]*REQUESTED WORK PHASE:[\s\S]*WORK ALLOWED: YES \/ NO/, 'AGENTS.md required report format missing');
 requireText(agents, /Owner以外はPhaseを変更できない/, 'AGENTS.md Owner-only Phase rule missing');
+requireText(agents, /Owner承認済みの明示例外[\s\S]*ALLOWED範囲内[\s\S]*PROHIBITED範囲/, 'AGENTS.md bounded exception rule missing');
 requireText(decisionLog, /DECISION_ID:\s*OWNER-PORTFOLIO-ORDER-2026-08-18-V2/, 'Decision ID missing');
+requireText(decisionLog, /DECISION_ID:\s*OWNER-PRIORITY-CHANGE-2026-08-21-NOV-TALENT-BOUNDED-MAINTENANCE/, 'V3 decision record missing');
 requireText(decisionLog, /### SUPERSEDED対象文書\s+なし。/, 'SUPERSEDED disposition missing');
 requireText(decisionLog, /STATUS: SUPERSEDED[\s\S]*最新の唯一の正本[\s\S]*docs\/cto\/PORTFOLIO_PRIORITY_LOCK\.md[\s\S]*旧Priorityを現在値として使用してはいけません/, 'SUPERSEDED banner template missing');
 
@@ -121,3 +128,5 @@ console.log('DBF UI before Store Operations: PASS');
 console.log('Store Operations before Corporate Management: PASS');
 console.log('Autonomous reprioritization prohibited: PASS');
 console.log('Old active priority disposition: PASS');
+console.log('NOV Talent bounded operational maintenance exception: PASS');
+console.log('Phase order unchanged: PASS');

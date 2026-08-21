@@ -3,7 +3,7 @@
   createDashboardSummaryExecutor,
   createSelectionCoverageExecutor,
   createTalentWorkspaceExecutor
-} from "./runtime.mjs?v=20260811-planning-admin-v1";
+} from "./runtime.mjs?v=20260822-operational-editing-v1";
 import { buildSchoolFactRow, buildTalentAnalytics, buildTalentAnalyticsActionGuide, buildTalentAnalyticsQueueHandoff } from "./analytics.mjs?v=20260811-ui-simplification-v1";
 import { initializeTalent28CsvPreflight } from "./csv-import-preflight.mjs?v=20260731-sprint1-mock-2";
 import { installNovTalentAuthGuard } from "./hub-auth.mjs";

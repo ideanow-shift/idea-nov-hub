@@ -16,9 +16,13 @@ test("callback uses native Staging Supabase session and a fixed destination", ()
   assert.doesNotMatch(callback, /URLSearchParams|access_token\s*=|service_role|nkmxevmioczcmnldreyo/);
 });
 
-test("hosted app restores and verifies the persisted Staging Auth session", () => {
-  assert.match(sessionRefresh, /detectSessionInUrl: false/);
+test("hosted app adopts direct invite returns and replaces any previous HUB actor", () => {
+  assert.match(sessionRefresh, /detectSessionInUrl: true/);
   assert.match(sessionRefresh, /persistSession: true/);
+  assert.match(sessionRefresh, /if \(authReturn\) clearNovHubSession\(\)/);
+  assert.match(sessionRefresh, /if \(authReturnFailed\)/);
+  assert.match(sessionRefresh, /signOut\(\{ scope: "local" \}\)/);
+  assert.match(sessionRefresh, /history\.replaceState\(\{\}, "", FIXED_DESTINATION\)/);
   assert.match(sessionRefresh, /supabase\.auth\.getSession\(\)/);
   assert.match(sessionRefresh, /supabase\.auth\.getUser\(session\.access_token\)/);
   assert.match(sessionRefresh, /STORE_SALES_SESSION_REFRESHER/);

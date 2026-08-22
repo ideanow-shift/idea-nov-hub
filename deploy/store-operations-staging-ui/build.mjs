@@ -1,6 +1,5 @@
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { build } from "esbuild";
 
 const here = resolve(import.meta.dirname);
 const repository = resolve(here, "../..");
@@ -16,30 +15,10 @@ await cp(join(repository, "portal/store-sales"), join(output, "store-sales"), {
 });
 await mkdir(join(output, "css"), { recursive: true });
 await mkdir(join(output, "js"), { recursive: true });
-await mkdir(join(output, "auth"), { recursive: true });
 await cp(join(repository, "portal/css/design-system.css"), join(output, "css/design-system.css"));
 await cp(join(repository, "portal/js/nov-hub-session-candidate.js"), join(output, "js/nov-hub-session-candidate.js"));
-await cp(join(here, "auth-callback.html"), join(output, "auth/callback"));
-await build({
-  entryPoints: [join(here, "auth-callback-entry.js")],
-  outfile: join(output, "auth/auth-callback.js"), bundle: true, format: "esm", platform: "browser",
-  minify: true, sourcemap: false, legalComments: "none"
-});
-await build({
-  entryPoints: [join(here, "staging-session-refresh-entry.js")],
-  outfile: join(output, "store-sales/staging-session-refresh.js"), bundle: true, format: "iife", platform: "browser",
-  minify: true, sourcemap: false, legalComments: "none"
-});
-const storeSalesIndex = join(output, "store-sales/index.html");
-await writeFile(
-  storeSalesIndex,
-  (await readFile(storeSalesIndex, "utf8")).replace(
-    '<script type="module" src="./app.js"></script>',
-    '<script src="./staging-session-refresh.js"></script>\n  <script type="module" src="./app.js"></script>'
-  )
-);
 await writeFile(join(output, "store-sales/runtime-config.js"), `globalThis.STORE_SALES_RUNTIME_CONFIG=Object.freeze({mode:"integration",featureFlag:"staging",preview:false,requireHubSession:true,integrationEndpoint:"https://zgkoofphhivesclehrom.supabase.co/functions/v1/nov-hub-api",contractVersion:"STORE_MONTHLY_ACTUAL_V1",timeoutMs:12000});\n`);
 const forbidden = "nkmxevmioczcmnldreyo";
-for (const file of ["auth/auth-callback.js", "store-sales/staging-session-refresh.js", "store-sales/runtime-config.js"]) {
+for (const file of ["store-sales/runtime-config.js"]) {
   if ((await readFile(join(output, file), "utf8")).includes(forbidden)) throw new Error("PRODUCTION_REF_IN_BROWSER_BUILD");
 }

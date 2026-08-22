@@ -17,14 +17,14 @@ createServer(async (request, response) => {
   const url = new URL(request.url || "/", "https://staging.invalid");
   if (url.pathname === "/ready") { response.writeHead(200, { ...headers, "Content-Type":"application/json" }); return response.end('{"ok":true}'); }
   if (url.pathname === "/") { response.writeHead(302, { ...headers, Location:"/store-sales/" }); return response.end(); }
-  const pathname = url.pathname === "/auth/callback" ? "/auth/callback" : url.pathname;
+  const pathname = url.pathname;
   const relative = normalize(decodeURIComponent(pathname)).replace(/^([/\\])+/, "");
   let file = join(root, relative);
   if (pathname.endsWith("/")) file = join(file, "index.html");
   if (!file.startsWith(root)) { response.writeHead(404, headers); return response.end(); }
   try {
     if (!(await stat(file)).isFile()) throw new Error("NOT_FILE");
-    const contentType = pathname === "/auth/callback" ? types[".html"] : types[extname(file)] || "application/octet-stream";
+    const contentType = types[extname(file)] || "application/octet-stream";
     response.writeHead(200, { ...headers, "Content-Type": contentType });
     createReadStream(file).pipe(response);
   } catch { response.writeHead(404, headers); response.end(); }

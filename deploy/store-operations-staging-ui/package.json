@@ -6,11 +6,5 @@
   "scripts": {
     "build": "node build.mjs",
     "start": "node server.mjs"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "2.57.4"
-  },
-  "devDependencies": {
-    "esbuild": "0.25.10"
   }
 }

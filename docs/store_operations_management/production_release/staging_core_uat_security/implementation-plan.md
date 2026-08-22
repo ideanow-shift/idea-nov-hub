@@ -1,23 +1,17 @@
-# Staging Core UAT Security Implementation Plan
+# Staging Core UAT Authentication Correction Plan
 
-## Release units
+## Current corrective
 
-1. Implement and test the deterministic artifact validator, dry-run receipt, transactional population executor, and sealed rollback executor.
-2. Add a Staging-only private AUTH-01 binding and append-only HUB Role attestation contract. Keep the schemas outside browser-exposed Data API access.
-3. Add the server-only Supabase Admin onboarding command and native PKCE/token-hash callback with encrypted server session storage and opaque cookies.
-4. Connect `handleManagementFromDeployedBaseline` to one AUTH-01 resolver that rechecks canonical Employee, attestation, M019 assignment/access, and official Store Scope.
-5. Run local contract/regression tests, database tests, advisors, and `git diff --check`.
-6. In a separately approved execution, apply only the Staging migration, deploy the Staging runtime, dry-run and apply the sealed artifact, onboard the three users, and execute Hosted Role Smoke.
+1. Remove the Store Operations-specific Magic Link callback, browser Supabase session bootstrap, onboarding endpoint, and dependency.
+2. Retain fail-closed `requireHubSession` behavior and the existing same-origin NOV HUB launch contract.
+3. Keep the sealed Core population and server-side Role/scope evidence; do not treat independent Supabase Auth subjects as the canonical login.
+4. Verify unauthenticated denial, browser-private-RPC denial, no raw token URL, and zero write boundaries.
+5. Update PR #180 only. Do not merge it in this work unit.
 
-## Expected implementation changes
+## Blocked implementation unit
 
-- One generated migration for private binding/attestation tables, constraints, RLS/ACL, append-only guards, server resolver, audit, and rollback.
-- One Staging-only population/onboarding runner with no embedded people, UUIDs, emails, tokens, or service keys.
-- Minimal `nov-hub-api` AUTH-01 adapter wiring and tests.
-- No frontend authorization source, no legacy `public` master fallback, and no Store Operations write endpoint.
+Hosted cross-origin launch needs an approved Store Operations application-session handoff. The existing DBF and IDEA LINK handoffs are target-, origin-, audience-, and permission-specific and cannot be reused unchanged. Creating or widening a handoff requires separate Owner approval because it changes the authentication contract and server exchange boundary.
 
-## Gates
+Until then, 脇田 hosted browser UAT is blocked. 戸田 and 桝本 server Role/scope checks remain mandatory, while their real hosted UAT status is `DEFERRED_UNTIL_NORMAL_NOV_HUB_LOGIN`.
 
-Implementation may start after Security Owner approves this contract and confirms the server session store/TTL, OTP delivery configuration and redirect allowlist, the sealed artifact signer/keeper, and the one-time Staging execution window. Data population, Auth creation, migration apply, deployment, and Hosted Smoke remain separate explicitly approved operations.
-
-Production migration, deploy, Auth change, Business write, and data copy remain zero.
+No migration, deployment, Auth change, Business write, or Production change is authorized by this plan.

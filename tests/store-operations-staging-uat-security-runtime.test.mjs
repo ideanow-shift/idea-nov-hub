@@ -10,11 +10,11 @@ const businessDate = readFileSync('supabase/migrations/20260820225000_store_oper
 const serverRoleCorrective = readFileSync('supabase/migrations/20260822084829_store_operations_uat_server_role_corrective.sql', 'utf8');
 const generator = readFileSync('scripts/store-operations-staging-uat-artifact.mjs', 'utf8');
 
-test('AUTH-01 is exact-staging, native-subject, server-only and fail-close', () => {
-  assert.match(index, /zgkoofphhivesclehrom/);
-  assert.match(index, /\/auth\/v1\/user/);
-  assert.match(index, /store_operations_uat_resolve_access_v2/);
-  assert.match(index, /STORE_OPERATIONS_UAT_ONBOARDING_SECRET/);
+test('management runtime accepts only the formal HUB session path', () => {
+  assert.match(index, /authType: requestedAuthType/);
+  assert.match(index, /String\(authUser\.authType \|\| ""\) !== requestedAuthType/);
+  assert.doesNotMatch(index, /\/auth\/v1\/(user|otp|admin\/users)/);
+  assert.doesNotMatch(index, /STORE_OPERATIONS_UAT_ONBOARDING_SECRET|verifyNativeStagingAuthSubject/);
   assert.doesNotMatch(index, /password\s*:/i);
   assert.match(management, /resolveCanonicalAccess/);
   assert.match(management, /SCOPE_DENIED/);

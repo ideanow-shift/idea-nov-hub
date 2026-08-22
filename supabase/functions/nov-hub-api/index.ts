@@ -1,6 +1,5 @@
 import {
   handleManagementReadOnlyAction,
-  type CanonicalAccessContext,
   type ManagementAction,
   type ManagementDependencies,
   type ReadQuery,
@@ -37,9 +36,6 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "
 const PIN_HASH_PEPPER = Deno.env.get("PIN_HASH_PEPPER") || "";
 const FIREBASE_API_KEY = Deno.env.get("FIREBASE_API_KEY") || FIREBASE_API_KEY_FALLBACK;
 const HUB_APP_SESSION_SIGNING_SECRET = Deno.env.get("HUB_APP_SESSION_SIGNING_SECRET") || "";
-const STORE_OPERATIONS_AUTH01_ENABLED = Deno.env.get("STORE_OPERATIONS_AUTH01_ENABLED") === "true";
-const STORE_OPERATIONS_UAT_ONBOARDING_SECRET = Deno.env.get("STORE_OPERATIONS_UAT_ONBOARDING_SECRET") || "";
-const STORE_OPERATIONS_STAGING_PROJECT_REF = "zgkoofphhivesclehrom";
 const HUB_SESSION_AUDIENCE = "nov_hub";
 const DBF_STAGING_SESSION_AUDIENCE = "dbf_staging_session_v1";
 const IDEA_LINK_HANDOFF_AUDIENCE = "idea_link";
@@ -435,107 +431,17 @@ function managementScopeMode(value: unknown): ScopeMode | undefined {
   return ["all", "own", "assigned", "none"].includes(mode) ? mode as ScopeMode : undefined;
 }
 
-function storeOperationsAuth01Active(): boolean {
-  try {
-    return STORE_OPERATIONS_AUTH01_ENABLED
-      && new URL(SUPABASE_URL).hostname === `${STORE_OPERATIONS_STAGING_PROJECT_REF}.supabase.co`;
-  } catch (_error) {
-    return false;
-  }
-}
-
-async function verifyNativeStagingAuthSubject(token: string): Promise<string | null> {
-  if (!storeOperationsAuth01Active() || !token) return null;
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: {
-      apikey: SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  if (!response.ok) return null;
-  const user = await response.json() as JsonRecord;
-  const subject = String(user.id || "");
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(subject)
-    ? subject
-    : null;
-}
-
-async function onboardStoreOperationsUatUser(request: Request, payload: JsonRecord) {
-  if (!storeOperationsAuth01Active() || !STORE_OPERATIONS_UAT_ONBOARDING_SECRET
-    || request.headers.get("x-store-operations-uat-approval") !== STORE_OPERATIONS_UAT_ONBOARDING_SECRET) {
-    throw new PortalError("ACCESS_DENIED", "Store Operations UAT onboarding is unavailable.", 403);
-  }
-  const identityKey = String(payload.identityKey || "");
-  const email = String(payload.email || "").trim().toLowerCase();
-  if (!new Set(["uat-executive", "uat-area-manager", "uat-store-manager"]).has(identityKey)
-    || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new PortalError("INVALID_REQUEST", "Invalid Store Operations UAT onboarding request.", 400);
-  }
-  const deliveryDigest = await sha256Hex(email);
-  const created = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ email, email_confirm: true }),
-  });
-  if (!created.ok) throw new PortalError("SUPABASE_REQUEST_FAILED", `Auth onboarding HTTP ${created.status}`, 502);
-  const user = await created.json() as JsonRecord;
-  const subject = String(user.id || "");
-  if (!isUuid(subject)) throw new PortalError("SUPABASE_REQUEST_FAILED", "Auth onboarding response invalid.", 502);
-  const artifactDigest = "24bd1a96513865ac0d68f5e6781cca2dff49c7bc17bb98c76cfdb14861c52fc1";
-  await callSupabaseRpc("store_operations_uat_register_auth_v3", {
-    p_artifact_digest: artifactDigest,
-    p_identity_key: identityKey,
-    p_delivery_digest: deliveryDigest,
-    p_auth_subject: subject,
-  });
-  const otp = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
-    method: "POST",
-    headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ email, create_user: false }),
-  });
-  if (!otp.ok) throw new PortalError("SUPABASE_REQUEST_FAILED", `OTP delivery HTTP ${otp.status}`, 502);
-  return { created: true, identityKey, otpRequested: true };
-}
-
-function canonicalAccessContext(value: unknown): CanonicalAccessContext | null {
-  const row = value && typeof value === "object" ? value as JsonRecord : {};
-  const scope = row.scope && typeof row.scope === "object" ? row.scope as JsonRecord : {};
-  const mode = managementScopeMode(scope.mode);
-  const storeIds = Array.isArray(scope.storeIds) ? scope.storeIds.map(String) : [];
-  const roleKeys = Array.isArray(row.roleKeys) ? row.roleKeys.map(String) : [];
-  const employeeId = String(row.employeeId || "");
-  return employeeId && mode && roleKeys.length ? { employeeId, roleKeys, scope: { mode, storeIds } } : null;
-}
-
-async function readStoreOperationsUatMasterRows(table: string): Promise<JsonRecord[] | null> {
-  if (!storeOperationsAuth01Active()) return null;
-  const result = await callSupabaseRpc("store_operations_uat_master_read_v1");
-  const payload = Array.isArray(result) ? result[0] : result;
-  const root = payload && typeof payload === "object" ? payload as JsonRecord : {};
-  const rows = root[table];
-  return Array.isArray(rows) ? rows as JsonRecord[] : [];
-}
-
 async function handleManagementFromDeployedBaseline(
   action: ManagementAction,
   token: string,
   payload: JsonRecord,
 ) {
   let verifiedHubAuth: JsonRecord | null = null;
-  const auth01Enabled = storeOperationsAuth01Active() && action === "storeMonthlyActualProjectionV1";
   const requestedAuthType = String(payload.authType || "hub_session") === "dbf_staging_session"
     ? "dbf_staging_session"
     : "hub_session";
   const deps: ManagementDependencies = {
     async verifyHubSession(inputToken) {
-      if (auth01Enabled) {
-        const subject = await verifyNativeStagingAuthSubject(inputToken);
-        return subject ? { subject } : null;
-      }
       const authUser = await authenticate(inputToken, { ...payload, authType: requestedAuthType }, action);
       if (!authUser || String(authUser.authType || "") !== requestedAuthType) return null;
       const authRecord = authUser as JsonRecord;
@@ -547,21 +453,8 @@ async function handleManagementFromDeployedBaseline(
       const employee = await findEmployeeForAuth(verifiedHubAuth);
       return employee?.id ? { id: String(employee.id) } : null;
     },
-    resolveCanonicalAccess: auth01Enabled
-      ? async (auth, request) => {
-        const result = await callSupabaseRpc("store_operations_uat_resolve_access_v2", {
-          p_auth_subject: auth.subject,
-        });
-        return canonicalAccessContext(Array.isArray(result) ? result[0] : result);
-      }
-      : undefined,
     db: {
-      select: async (table, query) => {
-        if (auth01Enabled && ["stores", "corporations", "corporation_business_profiles"].includes(table)) {
-          return await readStoreOperationsUatMasterRows(table) || [];
-        }
-        return await readRows(table, { query });
-      },
+      select: async (table, query) => await readRows(table, { query }),
       count: readManagementExactCount,
       rpc: async (name, args) => {
         const result = await callSupabaseRpc(name, args);
@@ -6011,9 +5904,6 @@ Deno.serve(async (request) => {
       return handleHubHrAuthorizedDisplayReadDisabled(payload);
     }
     if (action === "health") return await handleHealth();
-    if (action === "storeOperationsUatOnboardV1") {
-      return jsonResponse({ ok: true, data: await onboardStoreOperationsUatUser(request, payload) });
-    }
     if (action === "dbfStagingHandoffIssueV1" || action === "dbfStagingHandoffExchangeV1") {
       try {
         const result = await handleDbfHandoffAction({

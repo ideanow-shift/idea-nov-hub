@@ -21,6 +21,8 @@ test('AUTH-01 is exact-staging, native-subject, server-only and fail-close', () 
 
 test('Hosted Store Operations request headers pass the Edge CORS preflight', () => {
   assert.match(index, /Access-Control-Allow-Headers[^\n]*x-contract-version[^\n]*x-request-id/i);
+  assert.match(index, /request\.headers\.get\(["']authorization["']\)[\s\S]*\^Bearer\\s\+/i);
+  assert.match(index, /token:\s*bearerToken\s*\|\|\s*String\(data\.token/);
 });
 
 test('private tables and AUTH-01 RPCs deny browser roles', () => {

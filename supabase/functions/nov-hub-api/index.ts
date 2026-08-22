@@ -5875,17 +5875,23 @@ async function dispatchThanksCoinAnalytics(
   });
 }
 
+function readBearerToken(request: Request): string {
+  const match = String(request.headers.get("authorization") || "").match(/^Bearer\s+([^\s]+)$/i);
+  return match?.[1] || "";
+}
+
 async function parseRequest(request: Request) {
   const url = new URL(request.url);
+  const bearerToken = readBearerToken(request);
   if (request.method === "GET") {
-    return { action: url.searchParams.get("action") || "", token: "", payload: {} as JsonRecord };
+    return { action: url.searchParams.get("action") || "", token: bearerToken, payload: {} as JsonRecord };
   }
   const contentType = request.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
     const data = await request.json().catch(() => ({}));
     return {
       action: String(data.action || ""),
-      token: String(data.token || ""),
+      token: bearerToken || String(data.token || ""),
       payload: (data.payload && typeof data.payload === "object" ? data.payload : {}) as JsonRecord,
     };
   }
@@ -5899,7 +5905,7 @@ async function parseRequest(request: Request) {
   }
   return {
     action: String(form.get("action") || ""),
-    token: String(form.get("token") || ""),
+    token: bearerToken || String(form.get("token") || ""),
     payload,
   };
 }

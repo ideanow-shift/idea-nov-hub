@@ -3834,6 +3834,7 @@ function renderEmployeeDetail(employee) {
     ${createdPanel}
     ${issuePanel}
     <form class="employee-detail-form" id="detail-form">
+    <input type="hidden" name="expected_updated_at" value="${escapeHtml(employee.updated_at || "")}">
     <details class="employee-detail-section" id="employee-section-basic" open>
       <summary>
         <span>
@@ -3843,6 +3844,7 @@ function renderEmployeeDetail(employee) {
         ${renderSectionStatusBadge(basicIssueCount ? `${basicIssueCount}件確認` : "OK", basicIssueCount ? "warning" : "success")}
       </summary>
       <div class="form-grid employee-detail-section-body">
+      ${fieldInput("full_name", "氏名", employee.full_name || "", { required: true, placeholder: "例: 山田 太郎" })}
       ${fieldInput("birth_date", "誕生日", employee.birth_date || "", "date")}
       ${fieldInput("joined_on", "入社日", employee.joined_on || "", "date")}
       ${fieldInput("retired_on", "退職日", employee.retired_on || "", "date")}
@@ -5123,10 +5125,15 @@ async function saveEmployee(event) {
     setSaveStatus(status, "");
     const payload = collectEmployeePayload();
     payload.id = state.selectedId;
+    payload.full_name = String(payload.full_name || "").trim();
     payload.email = normalizeEmployeeEmailInput(payload.email);
     if (getFormSnapshot("employee") === state.formSnapshot) {
       setSaveStatus(status, "変更なし・保存済みです", "success");
       showToast("変更はありません。");
+      return;
+    }
+    if (!payload.full_name) {
+      showToast("氏名を入力してください。");
       return;
     }
     if (payload.email && !isValidEmployeeEmail(payload.email)) {

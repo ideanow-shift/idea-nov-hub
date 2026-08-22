@@ -27,3 +27,8 @@ AI、CTO、CODEX、開発担当者は、技術判断、過去文書、新しい�
 
 Owner承認済み例外はPhase Transitionではない。例外がStore Operationsと競合する場合は
 例外側を停止し、CURRENT_PHASEを優先する。
+
+HUB Core社員マスタのOwner承認済み限定保守は、既存社員の姓、名、表示名の変更と、そのために
+必要なMaster Admin UI／API、authorization、audit、stale update、duplicate防止、test、
+Staging検証だけを許可する。氏名以外へ拡張せず、Production deployおよび社員実データwriteは
+別のOwner承認を必要とする。

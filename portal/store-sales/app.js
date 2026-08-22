@@ -43,6 +43,9 @@ async function initialize() {
     location, runtimeConfig,
     dependencies: {
       isOnline: () => navigator.onLine,
+      refreshSession: typeof globalThis.STORE_SALES_SESSION_REFRESHER === "function"
+        ? globalThis.STORE_SALES_SESSION_REFRESHER
+        : undefined,
       getDevelopmentState: () => state.development,
       getMockIdentity: () => hubLaunchContext?.mockRole && hubLaunchSessionAvailable ? createStoreSalesMockIdentity(state.development.role) : null
     }

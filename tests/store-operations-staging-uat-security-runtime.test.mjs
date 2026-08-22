@@ -7,6 +7,7 @@ const management = readFileSync('supabase/functions/nov-hub-api/management_reado
 const foundation = readFileSync('supabase/migrations/20260820215852_store_operations_staging_uat_security_runtime.sql', 'utf8');
 const binding = readFileSync('supabase/migrations/20260820223000_store_operations_uat_auth_delivery_binding.sql', 'utf8');
 const businessDate = readFileSync('supabase/migrations/20260820225000_store_operations_uat_business_date_wrappers.sql', 'utf8');
+const serverRoleCorrective = readFileSync('supabase/migrations/20260822084829_store_operations_uat_server_role_corrective.sql', 'utf8');
 const generator = readFileSync('scripts/store-operations-staging-uat-artifact.mjs', 'utf8');
 
 test('AUTH-01 is exact-staging, native-subject, server-only and fail-close', () => {
@@ -33,6 +34,18 @@ test('private tables and AUTH-01 RPCs deny browser roles', () => {
   }
   assert.match(binding, /delivery_digest=p_delivery_digest/);
   assert.match(binding, /STORE_OPERATIONS_UAT_BINDING_ALREADY_EXISTS/);
+});
+
+test('server-only RPCs use the active PostgREST role and retain browser denial', () => {
+  assert.doesNotMatch(serverRoleCorrective, /request\.jwt\.claim\.role/);
+  assert.match(serverRoleCorrective, /current_setting\('role',true\)[\s\S]*<>\s*'service_role'/);
+  assert.equal((serverRoleCorrective.match(/STORE_OPERATIONS_UAT_SERVER_ONLY/g) || []).length, 2);
+  assert.match(serverRoleCorrective, /revoke all on function public\.store_operations_uat_resolve_access_v1\(uuid,date\)[\s\S]*from public,anon,authenticated/);
+  assert.match(serverRoleCorrective, /revoke all on function public\.store_operations_uat_resolve_access_v2\(uuid\)[\s\S]*from public,anon,authenticated/);
+  assert.match(serverRoleCorrective, /revoke all on function public\.store_operations_uat_master_read_v1\(\)[\s\S]*from public,anon,authenticated/);
+  assert.match(serverRoleCorrective, /grant execute on function public\.store_operations_uat_resolve_access_v1\(uuid,date\) to service_role/);
+  assert.match(serverRoleCorrective, /grant execute on function public\.store_operations_uat_master_read_v1\(\) to service_role/);
+  assert.doesNotMatch(serverRoleCorrective, /idea-nov-dbf-prod|production/i);
 });
 
 test('sealed runner fixes exact UAT counts and remains dry-run first', () => {

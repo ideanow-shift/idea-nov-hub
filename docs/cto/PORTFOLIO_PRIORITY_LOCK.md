@@ -1,6 +1,6 @@
 # CTO Portfolio Execution Order Lock
 
-LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-21-V3
+LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-22-V4
 
 STATUS: ACTIVE
 
@@ -288,6 +288,76 @@ Store Operationsと競合した場合は、NOV Talent側を停止する。
 - write flag ON。
 - migration。
 - business write enablement。
+
+## HUB Core Employee Master Bounded Operational Maintenance Exception
+
+STATUS: OWNER_APPROVED
+
+この例外はPhase Transitionではない。`CURRENT_PHASE`は
+`PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1`のままとし、Store Operations Management V1を
+常に最優先とする。
+
+目的は、Phase 3進行中でも、既存社員の改姓、氏名訂正その他の通常運用上必要な氏名変更を、
+権限と監査を備えたMaster Admin経由で安全に実施できる状態を維持するための限定保守だけを
+許可することである。
+
+### ALLOWED
+
+HUB Core社員マスタについて、次だけをPhase 3と並行して実施できる。
+
+1. 既存社員の姓、名、表示名の訂正・変更機能。
+2. 上記操作に必要なMaster Admin UI／APIの既存contract修正。
+3. authorization、audit、stale update、duplicate防止修正。
+4. regression test。
+5. Staging Hosted Smoke。
+6. 上記限定機能に必要なStaging deploy。
+
+許可目的は「既存社員の正しい氏名をMaster Adminから安全に管理できること」に限定する。
+
+### PROHIBITED
+
+HUB Core社員マスタについて、次を禁止する。
+
+- 新規business domain。
+- Role／Permission体系の再設計。
+- 新規DB schema。
+- 不要なMigration。
+- 大規模Backfill。
+- 社員番号、Firebase UID、login credentialの変更機能への拡張。
+- 氏名以外の社員実データ変更への拡張。
+- Portfolio Phase変更。
+- Store Operations変更。
+- DBF変更。
+- Corporate Management着手。
+- Production business dataの直接手作業による書換え。
+
+### 優先順位
+
+Store Operations Management V1を常に優先する。HUB Core employee master bounded maintenanceが
+Store Operationsと競合した場合は、HUB Core側を停止する。
+
+固定順序は次のままであり、変更しない。
+
+1. DBF Backend — COMPLETE
+2. DBF Management UI — COMPLETE
+3. Store Operations — CURRENT
+4. Corporate Management
+
+### 並行作業ルール
+
+- HUB Core employee master bounded maintenanceは最大1 active implementation PRとする。
+- 1つを完成・検証してから次へ進む。
+- 最初の対象は、Master Adminから既存社員の姓、名、表示名を安全に変更できることとする。
+- 本Priority Change PRがmainへMergeされるまでHUB Core実装および社員データ変更を開始しない。
+
+### Production
+
+実装とStaging検証までは本例外で許可する。Productionへの次の操作には別のOwner承認が必要である。
+
+- deploy。
+- migration。
+- write flag ON。
+- employee business data write。
 
 ## Phase 4: Corporate Management
 

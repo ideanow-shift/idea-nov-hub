@@ -11,6 +11,7 @@ on:
       - "supabase/migrations/20260814090000_employee_emergency_contact_foundation.sql"
       - "scripts/verify-master-admin-personal-phone-migration.mjs"
       - "tests/master-admin-emergency-contact-contract.test.mjs"
+      - "tests/master-admin-employee-name-edit-contract.test.mjs"
       - "tests/fixtures/master-admin-emergency-contact-visual.html"
       - "tests/sql/master-admin-personal-phone-fresh-db.psql"
       - "work/local-nonproduction-sql-lane-20260715/employee-emergency-contact-v1/**"
@@ -46,6 +47,7 @@ jobs:
         run: |
           node --check portal/master-admin/master-admin.js
           node tests/master-admin-emergency-contact-contract.test.mjs
+          node tests/master-admin-employee-name-edit-contract.test.mjs
           node tests/core-master-audit.test.mjs
           deno check supabase/functions/nov-hub-api/index.ts
 

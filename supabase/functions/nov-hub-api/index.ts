@@ -4682,19 +4682,35 @@ async function updateCoreEmployee(payload: JsonRecord, actor: JsonRecord) {
   if (!id) throw new PortalError("INVALID_REQUEST", "Employee id is required.", 400);
   const before = await getCoreEmployeeById(id);
   if (!before?.id) throw new PortalError("NOT_FOUND", "Employee was not found.", 404);
+  const expectedUpdatedAt = String(payload.expected_updated_at || "").trim();
+  if (expectedUpdatedAt && String(before.updated_at || "") !== expectedUpdatedAt) {
+    throw new PortalError("STALE_EMPLOYEE", "社員情報が別の操作で更新されています。再読み込みしてから変更してください。", 409);
+  }
   await assertAllowedEmployeePosition(Object.prototype.hasOwnProperty.call(payload, "position_id") ? payload.position_id : before.position_id);
   const updates = buildEmployeeRow(payload, new Date().toISOString());
   delete updates.employee_id;
-  delete updates.full_name;
+  if (Object.prototype.hasOwnProperty.call(payload, "full_name")) {
+    updates.full_name = String(payload.full_name || "").trim();
+    if (!updates.full_name) throw new PortalError("INVALID_REQUEST", "Full name is required.", 400);
+  } else {
+    delete updates.full_name;
+  }
   const changedUpdates = getChangedFields(before, updates);
   let after = before;
   if (Object.keys(changedUpdates).length) {
     const rows = await readRows("employees", {
       method: "PATCH",
-      query: { id: `eq.${id}`, select: "*" },
+      query: {
+        id: `eq.${id}`,
+        ...(expectedUpdatedAt ? { updated_at: `eq.${expectedUpdatedAt}` } : {}),
+        select: "*",
+      },
       payload: changedUpdates,
       prefer: "return=representation",
     });
+    if (expectedUpdatedAt && !rows.length) {
+      throw new PortalError("STALE_EMPLOYEE", "社員情報が別の操作で更新されています。再読み込みしてから変更してください。", 409);
+    }
     after = rows[0] || before;
     await appendMasterChangeLog("employees", id, changedUpdates, actor, {
       actionType: "update",

@@ -168,3 +168,37 @@ OwnerはPhase 2 Exit Criteriaの完了を確認し、Phase 3 Store Operations Ma
 2. `PHASE_2_DBF_MANAGEMENT_UI_COMPLETION` — COMPLETE
 3. `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1` — CURRENT
 4. `PHASE_4_CORPORATE_MANAGEMENT`
+
+## 2026-08-22 — Owner Priority Change: HUB Core Employee Master Bounded Maintenance
+
+DECISION_ID: OWNER-PRIORITY-CHANGE-2026-08-22-HUB-EMPLOYEE-MASTER-BOUNDED-MAINTENANCE
+
+LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-22-V4
+
+DECIDED_BY: IDEA NOVグループ代表取締役社長
+
+STATUS: ACTIVE
+
+### Owner Approval
+
+Ownerは、Phase 3進行中の限定例外として、既存社員の改姓、氏名訂正その他の通常運用上必要な
+氏名変更をMaster Adminから安全に実施できる状態を維持するためのHUB Core社員マスタ限定保守を
+明示承認した。
+
+許可範囲は、既存社員の姓、名、表示名の変更、そのために必要なMaster Admin UI／API、
+authorization、audit、stale update、duplicate防止、regression test、Staging Hosted Smoke、
+限定機能のStaging deployだけとする。
+
+新規business domain、Role／Permission体系の再設計、新規DB schema、不要なMigration、
+大規模Backfill、氏名以外の社員実データ変更への拡張、およびProduction business dataの
+直接手作業による書換えは禁止する。
+
+Production deploy、migration、write flag ON、employee business data writeには別のOwner承認を
+必要とする。
+
+この例外はPhase Transitionではない。固定順序およびCURRENT_PHASEは変更しない。
+
+1. `PHASE_1_DBF_BACKEND_COMPLETION` — COMPLETE
+2. `PHASE_2_DBF_MANAGEMENT_UI_COMPLETION` — COMPLETE
+3. `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1` — CURRENT
+4. `PHASE_4_CORPORATE_MANAGEMENT`

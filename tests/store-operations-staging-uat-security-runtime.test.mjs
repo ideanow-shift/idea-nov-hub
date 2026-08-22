@@ -11,6 +11,7 @@ const generator = readFileSync('scripts/store-operations-staging-uat-artifact.mj
 
 test('AUTH-01 is exact-staging, native-subject, server-only and fail-close', () => {
   assert.match(index, /zgkoofphhivesclehrom/);
+  assert.match(index, /STORE_OPERATIONS_AUTH01_ENABLED[^\n]*!==\s*["']false["']/);
   assert.match(index, /\/auth\/v1\/user/);
   assert.match(index, /store_operations_uat_resolve_access_v2/);
   assert.match(index, /STORE_OPERATIONS_UAT_ONBOARDING_SECRET/);

@@ -37,7 +37,9 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "
 const PIN_HASH_PEPPER = Deno.env.get("PIN_HASH_PEPPER") || "";
 const FIREBASE_API_KEY = Deno.env.get("FIREBASE_API_KEY") || FIREBASE_API_KEY_FALLBACK;
 const HUB_APP_SESSION_SIGNING_SECRET = Deno.env.get("HUB_APP_SESSION_SIGNING_SECRET") || "";
-const STORE_OPERATIONS_AUTH01_ENABLED = Deno.env.get("STORE_OPERATIONS_AUTH01_ENABLED") === "true";
+// The exact Staging project is the only allowed runtime target. An explicit
+// false remains the operator-controlled rollback kill switch.
+const STORE_OPERATIONS_AUTH01_ENABLED = Deno.env.get("STORE_OPERATIONS_AUTH01_ENABLED") !== "false";
 const STORE_OPERATIONS_UAT_ONBOARDING_SECRET = Deno.env.get("STORE_OPERATIONS_UAT_ONBOARDING_SECRET") || "";
 const STORE_OPERATIONS_STAGING_PROJECT_REF = "zgkoofphhivesclehrom";
 const HUB_SESSION_AUDIENCE = "nov_hub";

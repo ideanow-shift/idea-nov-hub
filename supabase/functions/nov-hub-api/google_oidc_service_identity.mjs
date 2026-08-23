@@ -8,7 +8,6 @@ function fail(status, code, message) {
   error.code = code;
   throw error;
 }
-
 function decodePart(value) {
   const normalized = String(value).replaceAll("-", "+").replaceAll("_", "/");
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
@@ -51,4 +50,3 @@ export async function verifyGoogleCloudRunIdentity(token, options) {
   }
   return { subject: String(claims.sub), email: String(claims.email), expiresAt: new Date(claims.exp * 1000).toISOString() };
 }
-

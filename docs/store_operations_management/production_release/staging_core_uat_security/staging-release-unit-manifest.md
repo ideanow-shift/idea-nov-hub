@@ -1,7 +1,9 @@
 # Store Operations Staging Handoff Release Unit
 
-Status: **INCOMPLETE — NO DEPLOY**  
-Contract: `STORE_OPERATIONS_STAGING_SESSION_HANDOFF_V1`  
+Status: **INCOMPLETE — NO DEPLOY**
+
+Contract: `STORE_OPERATIONS_STAGING_SESSION_HANDOFF_V1`
+
 Portfolio Lock: `CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-21-V3`
 
 ## Supabase Staging

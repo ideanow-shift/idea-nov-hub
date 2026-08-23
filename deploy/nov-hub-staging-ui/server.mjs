@@ -9,7 +9,7 @@ const port = Number(process.env.PORT || 8080);
 const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8" };
 const headers = {
   "Cache-Control": "no-store",
-  "Content-Security-Policy": "default-src 'self'; connect-src 'self' https://zgkoofphhivesclehrom.supabase.co https://www.googleapis.com https://securetoken.googleapis.com; script-src 'self' https://www.gstatic.com; style-src 'self'; img-src 'self' data: https:; frame-src https://*.firebaseapp.com https://accounts.google.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+  "Content-Security-Policy": "default-src 'self'; connect-src 'self' https://zgkoofphhivesclehrom.supabase.co https://www.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; script-src 'self' https://www.gstatic.com; style-src 'self'; img-src 'self' data: https:; frame-src https://*.firebaseapp.com https://accounts.google.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
   "Referrer-Policy": "no-referrer",
   "X-Content-Type-Options": "nosniff",

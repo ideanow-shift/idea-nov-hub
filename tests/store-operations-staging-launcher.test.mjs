@@ -60,6 +60,7 @@ test("launcher server is static, no-store, framed off and has a readiness endpoi
     assert.equal(ready.status, 200);
     assert.equal(ready.headers.get("cache-control"), "no-store");
     assert.equal(ready.headers.get("x-frame-options"), "DENY");
+    assert.match(ready.headers.get("content-security-policy"), /https:\/\/identitytoolkit\.googleapis\.com/u);
     assert.deepEqual(await ready.json(), { ok: true });
     assert.equal((await fetch(`${origin}/unknown`)).status, 404);
     assert.equal((await fetch(origin, { method: "POST" })).status, 405);

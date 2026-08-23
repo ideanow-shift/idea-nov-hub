@@ -17,8 +17,9 @@ test("authentication contract is NOV HUB Session only and fails closed", () => {
   for (const term of ["active NOV HUB session", "one-time", "single-use", "audience", "replay-denied", "fail-closed", "M019", "SCOPE_DENIED"]) {
     assert.match(doc, new RegExp(term, "iu"));
   }
-  assert.match(doc, /DBF-specific/iu);
-  assert.match(doc, /contract can authorize Store Operations/iu);
+  assert.match(doc, /separate from DBF and IDEA LINK/iu);
+  assert.match(doc, /store_operations_staging_handoff_v1/iu);
+  assert.match(doc, /Secure, HttpOnly, SameSite/iu);
   assert.doesNotMatch(doc, /Security Review PASS for implementation/iu);
 });
 

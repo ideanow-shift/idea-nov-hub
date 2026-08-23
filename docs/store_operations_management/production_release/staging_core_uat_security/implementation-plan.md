@@ -1,17 +1,19 @@
 # Staging Core UAT Authentication Correction Plan
 
-## Current corrective
+## Approved implementation unit
 
-1. Remove the Store Operations-specific Magic Link callback, browser Supabase session bootstrap, onboarding endpoint, and dependency.
-2. Retain fail-closed `requireHubSession` behavior and the existing same-origin NOV HUB launch contract.
-3. Keep the sealed Core population and server-side Role/scope evidence; do not treat independent Supabase Auth subjects as the canonical login.
-4. Verify unauthenticated denial, browser-private-RPC denial, no raw token URL, and zero write boundaries.
-5. Update PR #180 only. Do not merge it in this work unit.
+1. Keep the Store Operations-specific Magic Link callback, browser Supabase Auth bootstrap, and onboarding endpoint absent.
+2. Add a Store Operations-only, 60-second one-time code issued from an active NOV HUB session.
+3. Exchange the code only through the Cloud Run BFF server boundary and store the application session in an HttpOnly cookie.
+4. Re-resolve canonical Employee, active Identity, Role attestation, M019 Assignment, and Store Scope at issue and exchange.
+5. Proxy only the allowlisted read-only projection action; ignore browser authority fields.
+6. Verify replay denial, exact origin/audience binding, no raw token exposure, browser-private-RPC denial, and zero-write boundaries.
+7. Update PR #180 only. Do not merge it in this work unit.
 
-## Blocked implementation unit
+## Deployment gate
 
-Hosted cross-origin launch needs an approved Store Operations application-session handoff. The existing DBF and IDEA LINK handoffs are target-, origin-, audience-, and permission-specific and cannot be reused unchanged. Creating or widening a handoff requires separate Owner approval because it changes the authentication contract and server exchange boundary.
+Apply the private migration to Staging only, bind one shared exchange secret separately to the Staging Edge Function and Cloud Run service, deploy both from the reviewed PR head, and enable the launcher only in the formal Staging HUB configuration. Never place the secret in Git, an image, browser configuration, URL, HTML, or logs.
 
-Until then, 脇田 hosted browser UAT is blocked. 戸田 and 桝本 server Role/scope checks remain mandatory, while their real hosted UAT status is `DEFERRED_UNTIL_NORMAL_NOV_HUB_LOGIN`.
+脇田 hosted browser UAT may be executed only through normal NOV HUB login after these gates pass. 戸田 and 桝本 server Role/scope checks remain mandatory, while their real hosted UAT status is `DEFERRED_UNTIL_NORMAL_NOV_HUB_LOGIN`.
 
-No migration, deployment, Auth change, Business write, or Production change is authorized by this plan.
+The Owner authorized the Staging-only migration and deployment for this contract. Auth mutation, Business write, DBF Canonical write, Production migration, and Production deployment remain prohibited.

@@ -11,7 +11,12 @@
 | AUTH-07 | Browser service-role exposure | zero |
 | HANDOFF-01 | Existing DBF handoff used for Store Operations | denied; target contract mismatch |
 | HANDOFF-02 | Existing IDEA LINK handoff used for Store Operations | denied; audience/path mismatch |
-| HANDOFF-03 | Approved Store Operations handoff unavailable | hosted UI remains fail closed |
+| HANDOFF-03 | Store Operations code lifetime | at most 60 seconds |
+| HANDOFF-04 | First valid server-side exchange | short-lived Store Operations audience session issued |
+| HANDOFF-05 | Second exchange of the same code | rejected atomically |
+| HANDOFF-06 | Wrong origin, audience, state, nonce, expired code, or expired source session | rejected |
+| HANDOFF-07 | Browser calls exchange without BFF boundary proof | rejected |
+| HANDOFF-08 | Application session transport | Secure HttpOnly SameSite cookie; token absent from browser response |
 | ROLE-01 | 脇田 Executive server contract | exactly 20 official stores; HQ excluded |
 | ROLE-02 | 戸田 Area Manager server contract | active effective assigned stores only |
 | ROLE-03 | 桝本 Store Manager server contract | 上石神井店 only |
@@ -21,4 +26,4 @@
 | WRITE-01 | Store Operations request suite | Business write 0; DBF Canonical write 0 |
 | ENV-01 | Production project or endpoint | rejected; Production change 0 |
 
-Browser Hosted UAT cannot be marked PASS until the formal NOV HUB application-session handoff exists and the normal user login path is exercised.
+Browser Hosted UAT cannot be marked PASS until the reviewed migration and runtime are deployed to Staging and the normal NOV HUB login/launch path is exercised. 戸田 and 桝本 remain `DEFERRED_UNTIL_NORMAL_NOV_HUB_LOGIN` until their normal NOV HUB accounts are available.

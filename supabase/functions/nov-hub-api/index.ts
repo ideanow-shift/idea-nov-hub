@@ -18,6 +18,8 @@ import { exchangeStoreOperationsHandoff, issueStoreOperationsHandoff, STORE_OPER
 import { createStoreOperationsHandoffRpcStore } from "./store_operations_handoff_store_rpc.mjs";
 // @ts-ignore Google OIDC verification is isolated in a source module covered by contract tests.
 import { verifyGoogleCloudRunIdentity } from "./google_oidc_service_identity.mjs";
+// @ts-ignore Staging-only Firebase/AUTH-01 bridge is isolated and contract-tested.
+import { bridgeFirebaseAuth01, FIREBASE_AUTH01_BRIDGE } from "./firebase_auth01_external_bridge.mjs";
 import { createThanksCoinAnalyticsApiAdapter } from "./analytics-api-adapter.ts";
 import {
   buildIdeaLinkReadablePostOr,
@@ -46,6 +48,7 @@ const HUB_APP_SESSION_SIGNING_SECRET = Deno.env.get("HUB_APP_SESSION_SIGNING_SEC
 const STORE_OPERATIONS_HANDOFF_EXCHANGE_SECRET = Deno.env.get("STORE_OPERATIONS_HANDOFF_EXCHANGE_SECRET") || "";
 const STORE_OPERATIONS_HANDOFF_AUTHORIZED_SERVICE_ACCOUNT = Deno.env.get("STORE_OPERATIONS_HANDOFF_AUTHORIZED_SERVICE_ACCOUNT") || "";
 const STORE_OPERATIONS_HANDOFF_AUTHORIZED_SUBJECT = Deno.env.get("STORE_OPERATIONS_HANDOFF_AUTHORIZED_SUBJECT") || "";
+const NOV_HUB_STAGING_EXTERNAL_SUBJECT_HMAC_SECRET = Deno.env.get("NOV_HUB_STAGING_EXTERNAL_SUBJECT_HMAC_SECRET") || "";
 const STORE_OPERATIONS_HANDOFF_OIDC_AUDIENCE = "https://zgkoofphhivesclehrom.supabase.co/functions/v1/nov-hub-api";
 const HUB_SESSION_AUDIENCE = "nov_hub";
 const DBF_STAGING_SESSION_AUDIENCE = "dbf_staging_session_v1";
@@ -2065,6 +2068,51 @@ async function verifyFirebaseToken(idToken: string) {
     uid: String(user.localId || ""),
     employeeIdClaim: String(customClaims.employee_id || customClaims.employeeId || ""),
   };
+}
+
+async function lookupFirebaseBridgeToken(idToken: string) {
+  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(FIREBASE_API_KEY)}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken }),
+  });
+  const text = await response.text();
+  if (!response.ok) throw new PortalError("TOKEN_VERIFICATION_FAILED", "Firebase token verification failed.", 401, text);
+  const data = asRecord(JSON.parse(text || "{}"));
+  const users = Array.isArray(data.users) ? data.users : [];
+  const user = asRecord(users[0]);
+  return { localId: String(user.localId || ""), email: String(user.email || ""), emailVerified: user.emailVerified === true, disabled: user.disabled === true };
+}
+
+async function handleFirebaseAuth01Bridge(token: string, payload: JsonRecord) {
+  try {
+    return await bridgeFirebaseAuth01({ token, payload }, {
+      now: () => Date.now(), randomUuid: () => crypto.randomUUID(),
+      fingerprintSecret: NOV_HUB_STAGING_EXTERNAL_SUBJECT_HMAC_SECRET,
+      lookup: lookupFirebaseBridgeToken,
+      consumeEnrollment: async ({ challenge, fingerprint, requestId }: JsonRecord) => {
+        const challengeHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(challenge || "")));
+        const hash = Array.from(new Uint8Array(challengeHash), (byte) => byte.toString(16).padStart(2, "0")).join("");
+        const result = await callSupabaseRpc("store_operations_external_enrollment_consume_v1", {
+          p_challenge_hash: hash, p_provider: FIREBASE_AUTH01_BRIDGE.provider, p_issuer: FIREBASE_AUTH01_BRIDGE.issuer,
+          p_audience: FIREBASE_AUTH01_BRIDGE.projectId, p_subject_fingerprint: fingerprint,
+          p_fingerprint_key_version: FIREBASE_AUTH01_BRIDGE.fingerprintKeyVersion, p_request_id: requestId,
+          p_effective_to: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+        return Array.isArray(result) ? result[0] : result;
+      },
+      resolveBinding: async ({ fingerprint }: JsonRecord) => {
+        const result = await callSupabaseRpc("store_operations_external_subject_resolve_v1", {
+          p_provider: FIREBASE_AUTH01_BRIDGE.provider, p_issuer: FIREBASE_AUTH01_BRIDGE.issuer,
+          p_audience: FIREBASE_AUTH01_BRIDGE.projectId, p_subject_fingerprint: fingerprint,
+          p_as_of: new Date().toISOString(),
+        });
+        return Array.isArray(result) ? result[0] : result;
+      },
+      signSession: async (claims: JsonRecord) => await signHubAppSession(claims),
+    });
+  } catch (error) {
+    const candidate = error as { status?: number; code?: string; message?: string };
+    throw new PortalError(String(candidate.code || "ACCESS_DENIED"), String(candidate.message || "Firebase AUTH-01 bridge denied."), Number(candidate.status || 403));
+  }
 }
 
 async function hashPin(pin: string) {
@@ -6044,6 +6092,9 @@ Deno.serve(async (request) => {
     if (action === "health") return await handleHealth();
     if (action === "storeOperationsHandoffIssueV1") {
       return jsonResponse({ ok: true, handoff: await handleStoreOperationsHandoffIssue(token, payload) });
+    }
+    if (action === "novHubStagingAuth01SubjectBridgeV1") {
+      return jsonResponse({ ok: true, ...(await handleFirebaseAuth01Bridge(token, payload)) });
     }
     if (action === "storeOperationsHandoffExchangeV1") {
       return jsonResponse({ ok: true, session: await handleStoreOperationsHandoffExchange(request, payload) });

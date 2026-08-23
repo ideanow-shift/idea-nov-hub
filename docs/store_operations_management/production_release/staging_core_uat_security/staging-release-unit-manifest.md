@@ -1,8 +1,12 @@
 # Store Operations Staging Handoff Release Unit
 
-Status: **INCOMPLETE — NO DEPLOY**
+Status: **INCOMPLETE — EXTERNAL SUBJECT BRIDGE CANDIDATE／NO DEPLOY UNTIL GATES PASS**
 
 Contract: `STORE_OPERATIONS_STAGING_SESSION_HANDOFF_V1`
+
+External binding: `NOV_HUB_STAGING_EXTERNAL_SUBJECT_BINDING_V1`
+
+Firebase bridge: `NOV_HUB_STAGING_FIREBASE_AUTH01_BRIDGE_V1`
 
 Portfolio Lock: `CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-21-V3`
 
@@ -24,6 +28,9 @@ Portfolio Lock: `CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-21-V3`
 | Deploy source | Final PR #180 HEAD; must be read back immediately before release |
 | Rollback revision | Edge version `10` |
 | Required secrets | `STORE_OPERATIONS_HANDOFF_AUTHORIZED_SERVICE_ACCOUNT`, optional exact `STORE_OPERATIONS_HANDOFF_AUTHORIZED_SUBJECT`, `STORE_OPERATIONS_HANDOFF_EXCHANGE_SECRET` |
+| External subject migration | `20260823223102_store_operations_external_subject_binding.sql` |
+| External subject secret | `NOV_HUB_STAGING_EXTERNAL_SUBJECT_HMAC_SECRET`; Staging-only, at least 32 random bytes, never in browser/image/log/repository |
+| External subject persistence | HMAC-SHA256 fingerprint only; raw Firebase UID/token/email persistence 0 |
 
 No migration or Edge deployment has been executed.
 
@@ -60,7 +67,7 @@ Therefore:
 - planned service: `idea-nov-hub-staging-ui`
 - Staging launcher URL: unresolved until Cloud Run creates the authoritative service URL
 - deploy artifact: `deploy/nov-hub-staging-ui/Dockerfile`
-- access: public static shell; Google/PIN authentication is verified by Staging `nov-hub-api`, and handoff issue remains backend Owner/Executive fail-close
+- access: public static shell; Google redirect authentication only. PIN, Magic Link and OTP routes are absent. Firebase→AUTH-01 convergence remains backend Owner/Executive fail-close
 - service account: a Staging-only, no-secret, no-database, no-Production-access runtime identity must be created or selected at release preflight
 - readiness: `GET /ready` returns `200 {"ok":true}`
 - disable/rollback: remove Store Operations launcher traffic or route to the captured previous launcher revision; Store Operations `/auth/start` stays fail-closed without its exact launcher URL
@@ -71,7 +78,7 @@ No Production Pages, Production API, Production session or Production flag chang
 ## Release order and rollback boundary
 
 1. Read back Cloud Run service account/current revision and final PR HEAD.
-2. Execute PostgreSQL migration dry-run and record the receipt.
+2. Execute both PostgreSQL migration dry-runs and rollback, including append-only/replay/ACL assertions, and record the receipt.
 3. Apply the Staging migration.
 4. Bind Edge authorized service identity, optional subject, and defense secret; deploy Edge.
 5. Bind Cloud Run signing/defense secrets, exact launcher URL, and expected metadata service account; deploy a zero-traffic revision.

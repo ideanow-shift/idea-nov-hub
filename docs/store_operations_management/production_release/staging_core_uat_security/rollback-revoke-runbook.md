@@ -16,6 +16,16 @@ If a previously issued Store Operations Magic Link arrives, do not use it. It is
 
 The database objects may remain dormant. Dropping the private schema or public RPCs is a Staging migration and requires a separately reviewed rollback migration; never improvise DDL in Production.
 
+## External Firebase subject bridge revoke
+
+1. Disable `novHubStagingAuth01SubjectBridgeV1` and the Launcher enrollment route.
+2. Revoke service-role EXECUTE on the three external-subject RPCs if immediate fail-close is required.
+3. Add an append-only `revoke` decision for an active external subject binding. Never UPDATE or DELETE its grant/audit history.
+4. Rotate `NOV_HUB_STAGING_EXTERNAL_SUBJECT_HMAC_SECRET` only through the Staging secret incident procedure. Rotation invalidates resolution until a separately approved key-version enrollment is completed.
+5. Roll the Launcher and Edge Function back to their captured pre-bridge revisions. Existing Staging sessions expire in at most 15 minutes.
+
+The external ledger stores only an HMAC fingerprint and canonical employee relation. Raw Firebase UID, token, email, AUTH-01 subject, Role, Scope and Store ID are never persisted there.
+
 ## Verification
 
 Verify independent login route zero, Auth onboarding action zero, browser service-role zero, private RPC execution denied, Store Operations Business write zero, DBF Canonical write zero, and Production change zero. Database/Auth cleanup of previously created Staging UAT records requires a separate Owner-approved action.

@@ -24,8 +24,20 @@ async function post(action, token, payload) {
   return data;
 }
 
-export const bootstrapWithFirebase = (firebaseIdToken) => post("bootstrap", firebaseIdToken, { authType: "firebase" });
-export const bootstrapWithPin = (email, pin) => post("bootstrap", "", { authType: "pin", email: String(email || "").trim(), pin: String(pin || "").trim() });
+export async function bridgeWithFirebase(firebaseIdToken, enrollmentChallenge = "") {
+  const response = await fetch(STAGING_ENDPOINT, {
+    method: "POST", cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer",
+    headers: { "Authorization": `Bearer ${String(firebaseIdToken || "")}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "novHubStagingAuth01SubjectBridgeV1", payload: enrollmentChallenge ? { enrollmentChallenge } : {} })
+  });
+  const data = await response.json().catch(() => ({ ok: false, code: "INVALID_RESPONSE" }));
+  if (!response.ok || data?.ok !== true) {
+    const error = new Error(String(data?.message || "NOV HUB Stagingへ接続できませんでした。"));
+    error.code = String(data?.code || "STAGING_API_ERROR");
+    throw error;
+  }
+  return data;
+}
 
 export async function issueStoreOperationsHandoff(sessionToken, request) {
   const token = String(sessionToken || "").trim();

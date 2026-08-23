@@ -1,5 +1,5 @@
-import { getIdToken, signInWithGoogle, signOutUser } from "./auth.js";
-import { bootstrapWithFirebase, bootstrapWithPin, issueStoreOperationsHandoff } from "./api-client.js";
+import { beginGoogleRedirect, completeGoogleRedirect, signOutUser } from "./auth-staging.js";
+import { bridgeWithFirebase, issueStoreOperationsHandoff } from "./api-client.js";
 
 const STORE_OPERATIONS_ORIGIN = "https://idea-nov-store-operations-staging-ui-787968950888.asia-northeast1.run.app";
 const state = { hubSession: null };
@@ -23,6 +23,13 @@ function launchRequest() {
 
 function setStatus(message) {
   status.textContent = message;
+}
+
+function takeEnrollmentChallenge() {
+  const fragment = new URLSearchParams(location.hash.replace(/^#/u, ""));
+  const challenge = String(fragment.get("enrollment") || "");
+  if (location.hash) history.replaceState(null, "", `${location.pathname}${location.search}`);
+  return /^[A-Za-z0-9_-]{43}$/u.test(challenge) ? challenge : "";
 }
 
 function acceptBootstrap(data) {
@@ -51,23 +58,10 @@ async function launchStoreOperations() {
 
 document.querySelector("#google-login").addEventListener("click", async () => {
   try {
-    setStatus("Googleアカウントを確認しています。");
-    await signInWithGoogle();
-    acceptBootstrap(await bootstrapWithFirebase(await getIdToken()));
+    setStatus("Googleログインへ移動します。");
+    await beginGoogleRedirect();
   } catch (error) {
     await signOutUser().catch(() => {});
-    setStatus(error.message || "ログインできませんでした。");
-  }
-});
-
-document.querySelector("#pin-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  try {
-    setStatus("社員情報を確認しています。");
-    acceptBootstrap(await bootstrapWithPin(document.querySelector("#email").value, document.querySelector("#pin").value));
-    document.querySelector("#pin").value = "";
-  } catch (error) {
-    document.querySelector("#pin").value = "";
     setStatus(error.message || "ログインできませんでした。");
   }
 });
@@ -84,4 +78,16 @@ document.querySelector("#logout").addEventListener("click", async () => {
 if (!launchRequest()) {
   for (const control of document.querySelectorAll("button,input")) control.disabled = true;
   setStatus("Store Operationsの正式起動導線から開いてください。");
+}
+
+if (launchRequest()) {
+  const enrollmentChallenge = takeEnrollmentChallenge();
+  completeGoogleRedirect().then(async (token) => {
+    if (!token) return;
+    setStatus("社員情報を確認しています。");
+    acceptBootstrap(await bridgeWithFirebase(token, enrollmentChallenge));
+  }).catch(async (error) => {
+    if (error.code !== "STORE_OPERATIONS_EXTERNAL_SUBJECT_DENIED") await signOutUser().catch(() => {});
+    setStatus(error.message || "ログインできませんでした。");
+  });
 }

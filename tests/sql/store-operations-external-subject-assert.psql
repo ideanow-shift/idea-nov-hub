@@ -1,0 +1,29 @@
+\set ON_ERROR_STOP on
+set role service_role;
+select public.store_operations_external_enrollment_issue_v1(repeat('b',64),repeat('a',64),'uat-executive',statement_timestamp()+interval '5 minutes');
+select public.store_operations_external_enrollment_consume_v1(repeat('b',64),'google.com',
+  'https://securetoken.google.com/idea-nov-group-portal','idea-nov-group-portal',repeat('c',64),1,
+  gen_random_uuid(),statement_timestamp()+interval '14 days');
+do $$begin
+  begin
+    perform public.store_operations_external_enrollment_consume_v1(repeat('b',64),'google.com',
+      'https://securetoken.google.com/idea-nov-group-portal','idea-nov-group-portal',repeat('c',64),1,
+      gen_random_uuid(),statement_timestamp()+interval '14 days');
+    raise exception 'REPLAY_ACCEPTED';
+  exception when others then
+    if sqlerrm='REPLAY_ACCEPTED' then raise; end if;
+  end;
+  begin
+    update store_operations_uat_private.external_subject_binding_decisions set decision='revoke';
+    raise exception 'UPDATE_ACCEPTED';
+  exception when others then
+    if sqlerrm='UPDATE_ACCEPTED' then raise; end if;
+  end;
+end$$;
+reset role;
+do $$begin
+  if has_table_privilege('anon','store_operations_uat_private.external_subject_binding_decisions','select')
+    or has_table_privilege('authenticated','store_operations_uat_private.external_subject_binding_decisions','select')
+    or has_function_privilege('anon','public.store_operations_external_subject_resolve_v1(text,text,text,text,timestamptz)','execute')
+  then raise exception 'BROWSER_ACL_EXPOSED'; end if;
+end$$;

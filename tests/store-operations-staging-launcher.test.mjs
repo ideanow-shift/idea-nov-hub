@@ -20,16 +20,18 @@ test("Production Portal contains no Store Operations Staging launcher dependency
   ]) assert.equal(production.includes(forbidden), false, forbidden);
 });
 
-test("isolated Staging launcher reuses formal login and issues only a HUB-session handoff", async () => {
+test("isolated Staging launcher uses Google redirect bridge and issues only a HUB-session handoff", async () => {
   const app = await read("deploy/nov-hub-staging-ui/app.js");
   const api = await read("deploy/nov-hub-staging-ui/api-client.js");
   const html = await read("deploy/nov-hub-staging-ui/index.html");
-  assert.match(app, /signInWithGoogle/);
-  assert.match(api, /bootstrapWithPin/);
+  assert.match(app, /beginGoogleRedirect/);
+  assert.match(api, /novHubStagingAuth01SubjectBridgeV1/);
+  assert.match(api, /Authorization.*Bearer/su);
   assert.match(api, /storeOperationsHandoffIssueV1/);
   assert.match(api, /authType:\s*"hub_session"/);
   assert.match(html, /店舗営業管理/);
   assert.doesNotMatch(html, /Magic Link|OTP/iu);
+  assert.doesNotMatch(`${html}\n${app}\n${api}`, /pin-form|bootstrapWithPin|authType:\s*["']pin["']/iu);
   assert.doesNotMatch(`${app}\n${api}`, /service_role|HUB_APP_SESSION_SIGNING_SECRET/iu);
 });
 
@@ -42,11 +44,18 @@ test("launcher transports only opaque code and state in the callback fragment", 
 
 test("launcher build rejects Production project references", async () => {
   await exec(process.execPath, ["build.mjs"], { cwd: resolve(root, "deploy/nov-hub-staging-ui") });
-  const files = ["index.html", "app.js", "api-client.js", "firebase-config.js", "auth.js"];
+  const files = ["index.html", "app.js", "api-client.js", "firebase-config.js", "auth-staging.js"];
   for (const file of files) {
     const source = await read(`deploy/nov-hub-staging-ui/dist/${file}`);
     assert.equal(source.includes("nkmxevmioczcmnldreyo"), false, file);
   }
+});
+
+test("enrollment fragment is removed before the challenge is used and never persisted", async () => {
+  const app=await read("deploy/nov-hub-staging-ui/app.js");
+  assert.match(app,/history\.replaceState/);
+  assert.match(app,/fragment\.get\("enrollment"\)/);
+  assert.doesNotMatch(app,/localStorage|sessionStorage|console\./u);
 });
 
 test("launcher server is static, no-store, framed off and has a readiness endpoint", async () => {

@@ -945,21 +945,23 @@ function canPreviewStoreSales(employee) {
   return getEmployeeRoleKeys(employee).some((role) => STORE_SALES_ALLOWED_ROLE_KEYS.has(role));
 }
 
-function randomStoreOperationsLaunchState() {
-  const bytes = crypto.getRandomValues(new Uint8Array(24));
-  return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+function readStoreOperationsLaunchRequest() {
+  const params = new URLSearchParams(location.search);
+  const request = { state: String(params.get("store_operations_state") || ""), codeChallenge: String(params.get("code_challenge") || ""), codeChallengeMethod: String(params.get("code_challenge_method") || ""), callbackPath: String(params.get("callback_path") || "") };
+  return /^[A-Za-z0-9_-]{22,128}$/u.test(request.state) && /^[A-Za-z0-9_-]{43}$/u.test(request.codeChallenge) && request.codeChallengeMethod === "S256" && request.callbackPath === "/auth/callback" ? request : null;
 }
 
 async function buildStoreOperationsStagingLaunchUrl(session) {
   if (PORTAL_CONFIG.storeOperationsStagingUatEnabled !== true) return "";
-  const stateValue = randomStoreOperationsLaunchState();
+  const launchRequest = readStoreOperationsLaunchRequest();
+  if (!launchRequest) return `${STORE_OPERATIONS_STAGING_ORIGIN}/auth/start`;
   const result = await createStoreOperationsStagingHandoff({
-    hubSessionToken: String(session?.sessionToken || ""), state: stateValue, endpoint: STORE_OPERATIONS_STAGING_EDGE
+    hubSessionToken: String(session?.sessionToken || ""), state: launchRequest.state, codeChallenge: launchRequest.codeChallenge, codeChallengeMethod: launchRequest.codeChallengeMethod, endpoint: STORE_OPERATIONS_STAGING_EDGE
   });
   const handoff = result?.handoff || {};
   if (!/^[A-Za-z0-9_-]{43}$/u.test(String(handoff.handoffCode || ""))) throw new Error("STORE_OPERATIONS_HANDOFF_ISSUE_FAILED");
-  const url = new URL("/store-sales/", STORE_OPERATIONS_STAGING_ORIGIN);
-  url.hash = new URLSearchParams({ handoff_code: handoff.handoffCode, state: stateValue }).toString();
+  const url = new URL(launchRequest.callbackPath, STORE_OPERATIONS_STAGING_ORIGIN);
+  url.hash = new URLSearchParams({ handoff_code: handoff.handoffCode, state: launchRequest.state }).toString();
   return url.toString();
 }
 

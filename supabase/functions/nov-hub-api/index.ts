@@ -16,6 +16,8 @@ import { validateDbfIapAssertion } from "./dbf_iap_assertion_validator_candidate
 import { exchangeStoreOperationsHandoff, issueStoreOperationsHandoff, STORE_OPERATIONS_HANDOFF } from "./store_operations_session_handoff.mjs";
 // @ts-ignore See source-only note above.
 import { createStoreOperationsHandoffRpcStore } from "./store_operations_handoff_store_rpc.mjs";
+// @ts-ignore Google OIDC verification is isolated in a source module covered by contract tests.
+import { verifyGoogleCloudRunIdentity } from "./google_oidc_service_identity.mjs";
 import { createThanksCoinAnalyticsApiAdapter } from "./analytics-api-adapter.ts";
 import {
   buildIdeaLinkReadablePostOr,
@@ -42,9 +44,12 @@ const PIN_HASH_PEPPER = Deno.env.get("PIN_HASH_PEPPER") || "";
 const FIREBASE_API_KEY = Deno.env.get("FIREBASE_API_KEY") || FIREBASE_API_KEY_FALLBACK;
 const HUB_APP_SESSION_SIGNING_SECRET = Deno.env.get("HUB_APP_SESSION_SIGNING_SECRET") || "";
 const STORE_OPERATIONS_HANDOFF_EXCHANGE_SECRET = Deno.env.get("STORE_OPERATIONS_HANDOFF_EXCHANGE_SECRET") || "";
+const STORE_OPERATIONS_HANDOFF_AUTHORIZED_SERVICE_ACCOUNT = Deno.env.get("STORE_OPERATIONS_HANDOFF_AUTHORIZED_SERVICE_ACCOUNT") || "";
+const STORE_OPERATIONS_HANDOFF_AUTHORIZED_SUBJECT = Deno.env.get("STORE_OPERATIONS_HANDOFF_AUTHORIZED_SUBJECT") || "";
+const STORE_OPERATIONS_HANDOFF_OIDC_AUDIENCE = "https://zgkoofphhivesclehrom.supabase.co/functions/v1/nov-hub-api";
 const HUB_SESSION_AUDIENCE = "nov_hub";
 const DBF_STAGING_SESSION_AUDIENCE = "dbf_staging_session_v1";
-const STORE_OPERATIONS_STAGING_SESSION_AUDIENCE = "store_operations_staging_v1";
+const STORE_OPERATIONS_STAGING_SESSION_AUDIENCE = "store_operations_staging_session_v1";
 const IDEA_LINK_HANDOFF_AUDIENCE = "idea_link";
 const IDEA_LINK_HANDOFF_TTL_SECONDS = 60;
 const IDEA_LINK_SESSION_TTL_SECONDS = 15 * 60;
@@ -603,13 +608,20 @@ function createStoreOperationsHandoffDependencies() {
     randomUuid: () => crypto.randomUUID(),
     store: createStoreOperationsHandoffRpcStore(async (name: string, payload: JsonRecord) => await callSupabaseRpc(name, payload)),
     verifyExchangeBoundary: verifyStoreOperationsExchangeBoundary,
+    verifyServerIdentity: async (token: string) => await verifyGoogleCloudRunIdentity(token, {
+      audience: STORE_OPERATIONS_HANDOFF_OIDC_AUDIENCE,
+      authorizedServiceAccount: STORE_OPERATIONS_HANDOFF_AUTHORIZED_SERVICE_ACCOUNT,
+      authorizedSubject: STORE_OPERATIONS_HANDOFF_AUTHORIZED_SUBJECT,
+      now: () => Date.now(),
+      fetchJwks: async (url: string) => await fetch(url, { headers: { accept: "application/json" }, cache: "no-store" }),
+    }),
     resolveAccess: async (input: { employeeId?: string }) => await resolveStoreOperationsHubEmployeeAccess(String(input.employeeId || "")),
     signSession: async (claims: JsonRecord) => await signHubAppSession(claims),
   };
 }
 
 async function handleStoreOperationsHandoffIssue(token: string, payload: JsonRecord) {
-  if (Object.keys(payload).some((key) => !new Set(["state", "authType"]).has(key))) {
+  if (Object.keys(payload).some((key) => !new Set(["state", "codeChallenge", "codeChallengeMethod", "authType"]).has(key))) {
     throw new PortalError("INVALID_REQUEST", "Store Operations handoff issue payload is invalid.", 400);
   }
   if (String(payload.authType || "hub_session") !== "hub_session") {
@@ -619,19 +631,24 @@ async function handleStoreOperationsHandoffIssue(token: string, payload: JsonRec
   return await issueStoreOperationsHandoff({
     hubIdentity,
     state: String(payload.state || ""),
+    codeChallenge: String(payload.codeChallenge || ""),
+    codeChallengeMethod: String(payload.codeChallengeMethod || ""),
     target: STORE_OPERATIONS_HANDOFF.target,
     targetOrigin: STORE_OPERATIONS_HANDOFF.targetOrigin,
+    callbackPath: STORE_OPERATIONS_HANDOFF.callbackPath,
   }, createStoreOperationsHandoffDependencies());
 }
 
 async function handleStoreOperationsHandoffExchange(request: Request, payload: JsonRecord) {
-  if (Object.keys(payload).some((key) => !new Set(["handoffCode", "state", "origin"]).has(key))) {
+  if (Object.keys(payload).some((key) => !new Set(["handoffCode", "state", "codeVerifier", "origin"]).has(key))) {
     throw new PortalError("INVALID_REQUEST", "Store Operations handoff exchange payload is invalid.", 400);
   }
   return await exchangeStoreOperationsHandoff({
     handoffCode: String(payload.handoffCode || ""),
     state: String(payload.state || ""),
+    codeVerifier: String(payload.codeVerifier || ""),
     origin: String(payload.origin || ""),
+    oidcToken: String(request.headers.get("x-cloud-run-identity") || "").replace(/^Bearer\s+/iu, ""),
     exchangeProof: request.headers.get("x-store-operations-exchange-secret") || "",
   }, createStoreOperationsHandoffDependencies());
 }

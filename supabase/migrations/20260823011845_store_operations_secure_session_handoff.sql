@@ -9,11 +9,14 @@ create table store_operations_handoff.codes (
   employee_id uuid not null,
   hub_session_id uuid not null,
   hub_session_expires_at timestamptz not null,
+  contract text not null check (contract='STORE_OPERATIONS_STAGING_SESSION_HANDOFF_V1'),
   target text not null check (target='STORE_OPERATIONS_STAGING'),
   target_origin text not null check (target_origin='https://idea-nov-store-operations-staging-ui-787968950888.asia-northeast1.run.app'),
-  audience text not null check (audience='store_operations_staging_handoff_v1'),
+  callback_path text not null check (callback_path='/auth/callback'),
+  audience text not null check (audience='store_operations_staging_handoff_exchange_v1'),
   state_hash text not null check (state_hash ~ '^[A-Za-z0-9_-]{43}$'),
   nonce_hash text not null check (nonce_hash ~ '^[A-Za-z0-9_-]{43}$'),
+  code_challenge text not null check (code_challenge ~ '^[A-Za-z0-9_-]{43}$'),
   request_id uuid not null unique,
   issued_at timestamptz not null,
   expires_at timestamptz not null,
@@ -44,7 +47,7 @@ revoke all on all sequences in schema store_operations_handoff from public,anon,
 
 create function public.store_operations_handoff_issue_v1(
   p_code_hash text,p_employee_id uuid,p_hub_session_id uuid,p_hub_session_expires_at timestamptz,
-  p_target text,p_target_origin text,p_audience text,p_state_hash text,p_nonce_hash text,
+  p_contract text,p_target text,p_target_origin text,p_callback_path text,p_audience text,p_state_hash text,p_nonce_hash text,p_code_challenge text,
   p_request_id uuid,p_issued_at timestamptz,p_expires_at timestamptz
 ) returns table(handoff_id uuid,expires_at timestamptz)
 language plpgsql security invoker set search_path=pg_catalog,public
@@ -55,11 +58,11 @@ begin
   if p_expires_at<=p_issued_at or p_expires_at>p_issued_at+interval '60 seconds'
     or p_hub_session_expires_at<=p_expires_at then raise exception 'STORE_OPERATIONS_HANDOFF_INVALID_LIFETIME'; end if;
   insert into store_operations_handoff.codes(
-    code_hash,employee_id,hub_session_id,hub_session_expires_at,target,target_origin,audience,
-    state_hash,nonce_hash,request_id,issued_at,expires_at
+    code_hash,employee_id,hub_session_id,hub_session_expires_at,contract,target,target_origin,callback_path,audience,
+    state_hash,nonce_hash,code_challenge,request_id,issued_at,expires_at
   ) values(
-    p_code_hash,p_employee_id,p_hub_session_id,p_hub_session_expires_at,p_target,p_target_origin,p_audience,
-    p_state_hash,p_nonce_hash,p_request_id,p_issued_at,p_expires_at
+    p_code_hash,p_employee_id,p_hub_session_id,p_hub_session_expires_at,p_contract,p_target,p_target_origin,p_callback_path,p_audience,
+    p_state_hash,p_nonce_hash,p_code_challenge,p_request_id,p_issued_at,p_expires_at
   ) returning codes.handoff_id into v_id;
   insert into store_operations_handoff.audit_events(handoff_id,request_id,employee_id,event_type,occurred_at,detail)
   values(v_id,p_request_id,p_employee_id,'ISSUED',p_issued_at,jsonb_build_object('target',p_target,'audience',p_audience));
@@ -68,7 +71,7 @@ end
 $function$;
 
 create function public.store_operations_handoff_consume_v1(
-  p_code_hash text,p_state_hash text,p_nonce_hash text,p_target text,p_target_origin text,p_audience text,
+  p_code_hash text,p_state_hash text,p_nonce_hash text,p_code_challenge text,p_contract text,p_target text,p_target_origin text,p_callback_path text,p_audience text,
   p_consumed_at timestamptz,p_exchange_request_id uuid
 ) returns table(employee_id uuid,hub_session_id uuid,hub_session_expires_at timestamptz,expires_at timestamptz)
 language plpgsql security invoker set search_path=pg_catalog,public
@@ -77,8 +80,8 @@ declare v_row store_operations_handoff.codes%rowtype;
 begin
   if current_setting('role',true)<>'service_role' then raise exception 'STORE_OPERATIONS_HANDOFF_SERVER_ONLY'; end if;
   update store_operations_handoff.codes c set consumed_at=p_consumed_at,exchange_request_id=p_exchange_request_id
-   where c.code_hash=p_code_hash and c.state_hash=p_state_hash and c.nonce_hash=p_nonce_hash
-     and c.target=p_target and c.target_origin=p_target_origin and c.audience=p_audience
+   where c.code_hash=p_code_hash and c.state_hash=p_state_hash and c.nonce_hash=p_nonce_hash and c.code_challenge=p_code_challenge
+     and c.contract=p_contract and c.target=p_target and c.target_origin=p_target_origin and c.callback_path=p_callback_path and c.audience=p_audience
      and c.consumed_at is null and c.expires_at>p_consumed_at and c.hub_session_expires_at>p_consumed_at
    returning c.* into v_row;
   if not found then return; end if;
@@ -143,13 +146,13 @@ begin
 end
 $function$;
 
-revoke all on function public.store_operations_handoff_issue_v1(text,uuid,uuid,timestamptz,text,text,text,text,text,uuid,timestamptz,timestamptz) from public,anon,authenticated;
-revoke all on function public.store_operations_handoff_consume_v1(text,text,text,text,text,text,timestamptz,uuid) from public,anon,authenticated;
+revoke all on function public.store_operations_handoff_issue_v1(text,uuid,uuid,timestamptz,text,text,text,text,text,text,text,text,uuid,timestamptz,timestamptz) from public,anon,authenticated;
+revoke all on function public.store_operations_handoff_consume_v1(text,text,text,text,text,text,text,text,text,timestamptz,uuid) from public,anon,authenticated;
 revoke all on function public.store_operations_uat_resolve_hub_employee_access_v1(uuid,date) from public,anon,authenticated;
 grant usage on schema store_operations_handoff to service_role;
 grant select,insert,update on all tables in schema store_operations_handoff to service_role;
-grant execute on function public.store_operations_handoff_issue_v1(text,uuid,uuid,timestamptz,text,text,text,text,text,uuid,timestamptz,timestamptz) to service_role;
-grant execute on function public.store_operations_handoff_consume_v1(text,text,text,text,text,text,timestamptz,uuid) to service_role;
+grant execute on function public.store_operations_handoff_issue_v1(text,uuid,uuid,timestamptz,text,text,text,text,text,text,text,text,uuid,timestamptz,timestamptz) to service_role;
+grant execute on function public.store_operations_handoff_consume_v1(text,text,text,text,text,text,text,text,text,timestamptz,uuid) to service_role;
 grant execute on function public.store_operations_uat_resolve_hub_employee_access_v1(uuid,date) to service_role;
 
 comment on schema store_operations_handoff is 'Private Staging-only NOV HUB to Store Operations one-time handoff boundary.';

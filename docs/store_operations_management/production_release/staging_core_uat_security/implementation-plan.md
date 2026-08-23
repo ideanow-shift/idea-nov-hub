@@ -3,12 +3,13 @@
 ## Approved implementation unit
 
 1. Keep the Store Operations-specific Magic Link callback, browser Supabase Auth bootstrap, and onboarding endpoint absent.
-2. Add a Store Operations-only, 60-second one-time code issued from an active NOV HUB session.
-3. Exchange the code only through the Cloud Run BFF server boundary and store the application session in an HttpOnly cookie.
-4. Re-resolve canonical Employee, active Identity, Role attestation, M019 Assignment, and Store Scope at issue and exchange.
-5. Proxy only the allowlisted read-only projection action; ignore browser authority fields.
-6. Verify replay denial, exact origin/audience binding, no raw token exposure, browser-private-RPC denial, and zero-write boundaries.
-7. Update PR #180 only. Do not merge it in this work unit.
+2. Start at Cloud Run `/auth/start`, retain signed state and a PKCE verifier in a 120-second Secure HttpOnly cookie, and send only the S256 challenge to NOV HUB.
+3. Add a Store Operations-only, 60-second one-time code issued from an active NOV HUB session and return it only to `/auth/callback`.
+4. Exchange the code only through the Cloud Run BFF with a metadata-server Google OIDC identity token plus defense-in-depth secret, and store the application session in an HttpOnly cookie.
+5. Re-resolve canonical Employee, active Identity, Role attestation, M019 Assignment, and Store Scope at issue and exchange.
+6. Proxy only the allowlisted read-only projection action; ignore browser authority fields.
+7. Verify OIDC signature/claims/service account, PKCE, replay denial, exact contract/origin/callback/audience binding, no raw token exposure, browser-private-RPC denial, and zero-write boundaries.
+8. Update PR #180 only. Do not merge it in this work unit.
 
 ## Deployment gate
 

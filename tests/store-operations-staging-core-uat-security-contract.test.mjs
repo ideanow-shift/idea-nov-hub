@@ -18,7 +18,11 @@ test("authentication contract is NOV HUB Session only and fails closed", () => {
     assert.match(doc, new RegExp(term, "iu"));
   }
   assert.match(doc, /separate from DBF and IDEA LINK/iu);
-  assert.match(doc, /store_operations_staging_handoff_v1/iu);
+  assert.match(doc, /STORE_OPERATIONS_STAGING_SESSION_HANDOFF_V1/u);
+  assert.match(doc, /store_operations_staging_handoff_exchange_v1/u);
+  assert.match(doc, /store_operations_staging_session_v1/u);
+  assert.match(doc, /PKCE/iu);
+  assert.match(doc, /Google RS256/iu);
   assert.match(doc, /Secure, HttpOnly, SameSite/iu);
   assert.doesNotMatch(doc, /Security Review PASS for implementation/iu);
 });
@@ -29,4 +33,14 @@ test("runbooks retire Magic Link and preserve zero-write gates", () => {
     assert.match(combined, new RegExp(term, "iu"));
   }
   assert.match(combined, /DEFERRED_UNTIL_NORMAL_NOV_HUB_LOGIN/u);
+});
+
+test("release unit remains Staging-only, ordered, rollbackable and undeployed", () => {
+  const manifest = read("staging-release-unit-manifest.md");
+  const rollback = read("staging-release-unit-rollback.sql");
+  for (const term of ["zgkoofphhivesclehrom", "version `10`", "idea-nov-dbf-staging", "787968950888", "asia-northeast1", "INCOMPLETE", "NO DEPLOY", "Production Pages change required", "Partial deployment is prohibited"]) {
+    assert.match(manifest, new RegExp(term, "iu"));
+  }
+  assert.match(rollback, /drop schema if exists store_operations_handoff cascade/iu);
+  assert.doesNotMatch(manifest, /migration applied:\s*yes|Production change:\s*[1-9]/iu);
 });

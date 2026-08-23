@@ -22,6 +22,12 @@
 | OIDC-03 | Valid Google token for another service account or subject | `403` |
 | OIDC-04 | Valid OIDC with absent/wrong defense secret | fail closed |
 | PKCE-01 | `/auth/start` | signed HttpOnly state/verifier cookie; S256 challenge only |
+| LAUNCHER-01 | Production Portal build/source | Staging ref, URL, flag and handoff action are absent |
+| LAUNCHER-02 | isolated NOV HUB Staging build | Staging Edge only; Production project ref rejected |
+| LAUNCHER-03 | Google or PIN bootstrap | Staging `nov-hub-api` returns a Staging NOV HUB Session |
+| LAUNCHER-04 | Store Operations launch | only opaque handoff code and state enter the callback fragment |
+| PG17-01 | disposable PostgreSQL 17 | migration applies, ACL and atomic consume pass, replay returns zero rows |
+| PG17-02 | rollback in the same disposable database | rollback passes and residual handoff objects equal zero |
 | PKCE-02 | Correct verifier | exchange succeeds |
 | PKCE-03 | Missing/wrong verifier, state or method | rejected |
 | ROLE-01 | 脇田 Executive server contract | exactly 20 official stores; HQ excluded |

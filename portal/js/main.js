@@ -1,6 +1,6 @@
 import { PORTAL_CONFIG } from "./firebase-config.js?v=shift-session-contract-20260712-1";
 import { authIsConfigured, getIdToken, signInWithGoogle, signOutUser } from "./auth.js";
-import { callApiAction, clearApiAuth, createIdeaLinkHandoff, createStoreOperationsStagingHandoff, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js?v=store-operations-handoff-20260823-1";
+import { callApiAction, clearApiAuth, createIdeaLinkHandoff, fetchPortalData, setFirebaseAuth, setPinAuth, writeAccessLog } from "./api.js?v=idea-link-handoff-launch-20260712-6";
 import {
   IDEA_LINK_ACCESS_LOG_CATEGORIES,
   IDEA_LINK_CLEANUP_CATEGORIES,
@@ -62,8 +62,6 @@ const TALENT_APP_IDS = new Set([
 ]);
 const STORE_SALES_APP_IDS = new Set(["store-sales-preview", "store-sales-management"]);
 const STORE_SALES_PREVIEW_URL = "./store-sales/index.html";
-const STORE_OPERATIONS_STAGING_ORIGIN = "https://idea-nov-store-operations-staging-ui-787968950888.asia-northeast1.run.app";
-const STORE_OPERATIONS_STAGING_EDGE = "https://zgkoofphhivesclehrom.supabase.co/functions/v1/nov-hub-api";
 const STORE_SALES_ALLOWED_ROLE_KEYS = new Set(["super_admin", "executive", "representative", "department_manager", "sales_manager", "area_manager", "store_manager"]);
 const TALENT_APP_URL = "./talent/";
 const TALENT_LEGACY_ORIGIN = "https://ideanow-shift.github.io";
@@ -945,26 +943,6 @@ function canPreviewStoreSales(employee) {
   return getEmployeeRoleKeys(employee).some((role) => STORE_SALES_ALLOWED_ROLE_KEYS.has(role));
 }
 
-function readStoreOperationsLaunchRequest() {
-  const params = new URLSearchParams(location.search);
-  const request = { state: String(params.get("store_operations_state") || ""), codeChallenge: String(params.get("code_challenge") || ""), codeChallengeMethod: String(params.get("code_challenge_method") || ""), callbackPath: String(params.get("callback_path") || "") };
-  return /^[A-Za-z0-9_-]{22,128}$/u.test(request.state) && /^[A-Za-z0-9_-]{43}$/u.test(request.codeChallenge) && request.codeChallengeMethod === "S256" && request.callbackPath === "/auth/callback" ? request : null;
-}
-
-async function buildStoreOperationsStagingLaunchUrl(session) {
-  if (PORTAL_CONFIG.storeOperationsStagingUatEnabled !== true) return "";
-  const launchRequest = readStoreOperationsLaunchRequest();
-  if (!launchRequest) return `${STORE_OPERATIONS_STAGING_ORIGIN}/auth/start`;
-  const result = await createStoreOperationsStagingHandoff({
-    hubSessionToken: String(session?.sessionToken || ""), state: launchRequest.state, codeChallenge: launchRequest.codeChallenge, codeChallengeMethod: launchRequest.codeChallengeMethod, endpoint: STORE_OPERATIONS_STAGING_EDGE
-  });
-  const handoff = result?.handoff || {};
-  if (!/^[A-Za-z0-9_-]{43}$/u.test(String(handoff.handoffCode || ""))) throw new Error("STORE_OPERATIONS_HANDOFF_ISSUE_FAILED");
-  const url = new URL(launchRequest.callbackPath, STORE_OPERATIONS_STAGING_ORIGIN);
-  url.hash = new URLSearchParams({ handoff_code: handoff.handoffCode, state: launchRequest.state }).toString();
-  return url.toString();
-}
-
 function selectReleasedAppsForEmployee(employee, apps) {
   const roleKeys = new Set([
     ...(Array.isArray(employee?.roleKeys) ? employee.roleKeys : []),
@@ -1021,8 +999,7 @@ async function openApp(app) {
         await ensureManagementWebHubSession();
       }
       saveStoreSalesPreviewContext({ roleKeys: getEmployeeRoleKeys(state.employee) });
-      const hostedLaunchUrl = state.authType === "demo" ? "" : await buildStoreOperationsStagingLaunchUrl(state.hubSession);
-      window.location.assign(hostedLaunchUrl || launchUrl);
+      window.location.assign(launchUrl);
     } catch {
       showToast("HUB接続を確認できません。再ログインしてお試しください。");
     }

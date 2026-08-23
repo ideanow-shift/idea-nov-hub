@@ -328,20 +328,6 @@ export async function exchangeIdeaLinkHandoff(handoffCode) {
   }));
 }
 
-export async function createStoreOperationsStagingHandoff({ hubSessionToken = "", state = "", codeChallenge = "", codeChallengeMethod = "", endpoint = "" } = {}) {
-  const token = String(hubSessionToken || "").trim();
-  const launchState = String(state || "").trim();
-  const allowedEndpoint = "https://zgkoofphhivesclehrom.supabase.co/functions/v1/nov-hub-api";
-  if (!token || !/^[A-Za-z0-9_-]{22,128}$/u.test(launchState) || !/^[A-Za-z0-9_-]{43}$/u.test(String(codeChallenge || "")) || codeChallengeMethod !== "S256" || String(endpoint || "") !== allowedEndpoint) {
-    throw new Error("Store Operations Staging handoff request is invalid.");
-  }
-  return await postToEndpoint(allowedEndpoint, new URLSearchParams({
-    action: "storeOperationsHandoffIssueV1",
-    token,
-    payload: JSON.stringify({ authType: "hub_session", state: launchState, codeChallenge, codeChallengeMethod })
-  }));
-}
-
 export function writeAccessLog(action, details = {}) {
   return postToApi("log", { action, ...details });
 }

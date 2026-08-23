@@ -20,5 +20,9 @@ portal/js/firebase-config.js
 !deploy/store-operations-staging-ui/**
 deploy/store-operations-staging-ui/node_modules/
 deploy/store-operations-staging-ui/dist/
+!deploy/nov-hub-staging-ui/
+!deploy/nov-hub-staging-ui/**
+deploy/nov-hub-staging-ui/node_modules/
+deploy/nov-hub-staging-ui/dist/
 !tools/
 !tools/build-dbf-staging-pages.mjs

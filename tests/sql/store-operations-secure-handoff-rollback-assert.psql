@@ -1,0 +1,10 @@
+\set ON_ERROR_STOP on
+do $$
+begin
+  if to_regnamespace('store_operations_handoff') is not null then raise exception 'ROLLBACK_SCHEMA_REMAINS'; end if;
+  if to_regprocedure('public.store_operations_handoff_issue_v1(text,uuid,uuid,timestamptz,text,text,text,text,text,text,text,text,uuid,timestamptz,timestamptz)') is not null
+    or to_regprocedure('public.store_operations_handoff_consume_v1(text,text,text,text,text,text,text,text,text,timestamptz,uuid)') is not null
+    or to_regprocedure('public.store_operations_uat_resolve_hub_employee_access_v1(uuid,date)') is not null then
+    raise exception 'ROLLBACK_FUNCTION_REMAINS';
+  end if;
+end $$;

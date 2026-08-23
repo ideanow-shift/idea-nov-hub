@@ -1,0 +1,59 @@
+\set ON_ERROR_STOP on
+create role anon nologin;
+create role authenticated nologin;
+create role service_role nologin bypassrls;
+create schema core;
+create schema projection;
+create schema accounting;
+create schema store_operations_uat_private;
+
+create table core.employees (
+  employee_id uuid primary key,
+  status text not null,
+  effective_from date not null,
+  effective_to date
+);
+create table core.employee_identities (
+  employee_id uuid not null references core.employees,
+  identity_status text not null
+);
+create table core.employee_store_assignments (
+  employee_id uuid not null references core.employees,
+  store_id uuid not null,
+  status text not null,
+  assignment_kind text not null,
+  effective_from date not null,
+  effective_to date
+);
+create table core.corporation_store_relationships (
+  store_id uuid not null,
+  corporation_id uuid not null,
+  relationship_type text not null
+);
+create table projection.store_master_v1 (
+  store_id uuid primary key,
+  store_code text not null,
+  in_official_population boolean not null,
+  is_active boolean not null
+);
+create table store_operations_uat_private.auth_identity_binding_decisions (
+  binding_key text not null,
+  employee_id uuid not null,
+  auth_subject_id uuid not null,
+  effective_at timestamptz not null,
+  decision_sequence bigint not null,
+  decision text not null
+);
+create table store_operations_uat_private.role_attestation_decisions (
+  attestation_key text not null,
+  employee_id uuid not null,
+  audience text not null,
+  role_key text not null,
+  effective_at timestamptz not null,
+  decision_sequence bigint not null,
+  decision text not null
+);
+create function accounting.current_consumer_access_contracts(uuid,uuid,date,text)
+returns table(contract_id uuid)
+language sql stable
+as $$ select gen_random_uuid() $$;

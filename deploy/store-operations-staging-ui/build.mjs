@@ -20,7 +20,7 @@ await cp(join(repository, "portal/js/nov-hub-session-candidate.js"), join(output
 await cp(join(here, "staging-handoff-entry.js"), join(output, "store-sales/staging-handoff-entry.js"));
 await mkdir(join(output, "auth/callback"), { recursive: true });
 await cp(join(here, "staging-handoff-entry.js"), join(output, "auth/callback/staging-handoff-entry.js"));
-await writeFile(join(output, "auth/callback/index.html"), '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width,initial-scale=1"><title>店舗営業管理 | Stagingログイン</title></head><body><p>NOV HUBセッションを確認しています。</p><script src="./staging-handoff-entry.js"></script></body></html>\n');
+await writeFile(join(output, "auth/callback/index.html"), '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width,initial-scale=1"><title>店舗営業管理 | Stagingログイン</title></head><body><p>NOV HUBセッションを確認しています。</p><script src="/auth/callback/staging-handoff-entry.js"></script></body></html>\n');
 const storeSalesIndex = join(output, "store-sales/index.html");
 await writeFile(storeSalesIndex,(await readFile(storeSalesIndex,"utf8")).replace(
   '<script type="module" src="./app.js"></script>',

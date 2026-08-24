@@ -67,7 +67,7 @@ export function createStoreOperationsStagingServer(options={}){
     if(pathname==="/api/store-operations"){
       if(req.method!=="POST")return json(res,405,{ok:false,code:"METHOD_NOT_ALLOWED"});const token=readCookie(req,sessionCookie);if(!token)return json(res,401,{ok:false,code:"HUB_AUTH_REQUIRED"});
       const input=await readJson(req);const action=String(input.action||"");const payload=input.payload&&typeof input.payload==="object"?input.payload:{};if(action!=="storeMonthlyActualProjectionV1")return json(res,403,{ok:false,code:"ACCESS_DENIED"});
-      const safePayload={selectedMonth:String(payload.selectedMonth||""),authType:"store_operations_staging_session",responseProfile:String(payload.responseProfile||"")};const result=await edge(action,safePayload,{token,request,url:runtimeEdgeUrl});return json(res,result.status,result.body);
+      const safePayload={selectedMonth:String(payload.selectedMonth||""),authType:"store_operations_staging_session"};const result=await edge(action,safePayload,{token,request,url:runtimeEdgeUrl});return json(res,result.status,result.body);
     }
     if(req.method!=="GET"&&req.method!=="HEAD")return json(res,405,{ok:false,code:"METHOD_NOT_ALLOWED"});if(pathname==="/"){res.writeHead(302,{...headers,Location:"/auth/start"});return res.end();}
     const relative=normalize(decodeURIComponent(pathname)).replace(/^([/\\])+/u,"");let file=join(root,relative);if(pathname.endsWith("/")||pathname===callbackPath)file=join(file,"index.html");if(!file.startsWith(root))return json(res,404,{ok:false,code:"NOT_FOUND"});

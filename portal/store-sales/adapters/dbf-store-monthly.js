@@ -207,7 +207,7 @@ export function createDbfStoreMonthlyAdapter(config, dependencies = {}) {
       let response;
       try {
         response = await fetchImpl(config.endpoint, {
-          method: "POST", credentials: "omit", cache: "no-store", signal: controller.signal,
+          method: "POST", credentials: /^\/(?!\/)/u.test(config.endpoint) ? "same-origin" : "omit", cache: "no-store", signal: controller.signal,
           headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json", "X-Contract-Version": DBF_STORE_MONTHLY_CONTRACT },
           body: JSON.stringify({ action: "storeMonthlyActualProjectionV1", payload: { selectedMonth: period } })
         });

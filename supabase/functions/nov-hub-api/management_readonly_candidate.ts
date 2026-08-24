@@ -48,9 +48,22 @@ export interface EmployeeReference {
 export interface ManagementDependencies {
   verifyHubSession(token: string): Promise<VerifiedAuth | null>;
   resolveEmployee(auth: VerifiedAuth): Promise<EmployeeReference | null>;
+  resolveCanonicalAccess?(
+    auth: VerifiedAuth,
+    request: ManagementRequest,
+  ): Promise<CanonicalAccessContext | null>;
   db: ReadOnlyGateway;
   today?: () => string;
   assignedScopeEnabled?: boolean;
+}
+
+export interface CanonicalAccessContext {
+  employeeId: string;
+  roleKeys: string[];
+  scope: {
+    mode: ScopeMode;
+    storeIds: string[];
+  };
 }
 
 export interface ManagementRequest {
@@ -414,6 +427,33 @@ async function resolveAccess(
     safe401();
   }
   if (!auth) safe401();
+
+  if (deps.resolveCanonicalAccess) {
+    const canonical = await deps.resolveCanonicalAccess(auth, request);
+    if (!canonical?.employeeId) safe401();
+    const roleKeys = unique(canonical.roleKeys.map(text).filter(Boolean));
+    const permissions = permissionsForRoles(roleKeys);
+    if (!permissions.includes(requiredPermission)) safe403("FORBIDDEN");
+    const scope: InternalScope = {
+      mode: canonical.scope.mode,
+      storeIds: unique(canonical.scope.storeIds.map(text).filter(Boolean)),
+    };
+    if (requiredPermission === "stores.view" && scope.mode === "none") safe403("SCOPE_DENIED");
+    if (requiredPermission === "stores.view"
+      && requestedScopeExceedsResolved(request.payload?.scopeMode, scope.mode)) safe403("SCOPE_DENIED");
+    return {
+      employee: {
+        id: canonical.employeeId,
+        storeId: scope.mode === "own" ? scope.storeIds[0] || null : null,
+        corporationId: null,
+        departmentId: null,
+        positionId: null,
+      },
+      roleKeys,
+      permissions,
+      scope,
+    };
+  }
 
   const reference = await deps.resolveEmployee(auth);
   if (!reference?.id) safe401();

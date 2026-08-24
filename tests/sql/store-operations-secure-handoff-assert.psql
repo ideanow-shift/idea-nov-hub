@@ -1,0 +1,49 @@
+\set ON_ERROR_STOP on
+do $$
+begin
+  if to_regclass('store_operations_handoff.codes') is null
+    or to_regclass('store_operations_handoff.audit_events') is null then
+    raise exception 'HANDOFF_OBJECTS_MISSING';
+  end if;
+  if has_function_privilege('anon','public.store_operations_handoff_issue_v1(text,uuid,uuid,timestamptz,text,text,text,text,text,text,text,text,uuid,timestamptz,timestamptz)','execute')
+    or has_function_privilege('authenticated','public.store_operations_handoff_consume_v1(text,text,text,text,text,text,text,text,text,timestamptz,uuid)','execute') then
+    raise exception 'BROWSER_EXECUTE_EXPOSED';
+  end if;
+  if not has_function_privilege('service_role','public.store_operations_handoff_issue_v1(text,uuid,uuid,timestamptz,text,text,text,text,text,text,text,text,uuid,timestamptz,timestamptz)','execute')
+    or not has_function_privilege('service_role','public.store_operations_handoff_consume_v1(text,text,text,text,text,text,text,text,text,timestamptz,uuid)','execute') then
+    raise exception 'SERVICE_ROLE_EXECUTE_MISSING';
+  end if;
+end $$;
+
+set role service_role;
+select * from public.store_operations_handoff_issue_v1(
+  repeat('a',43),gen_random_uuid(),gen_random_uuid(),statement_timestamp()+interval '10 minutes',
+  'STORE_OPERATIONS_STAGING_SESSION_HANDOFF_V1','STORE_OPERATIONS_STAGING',
+  'https://idea-nov-store-operations-staging-ui-787968950888.asia-northeast1.run.app','/auth/callback',
+  'store_operations_staging_handoff_exchange_v1',repeat('b',43),repeat('c',43),repeat('d',43),
+  gen_random_uuid(),statement_timestamp(),statement_timestamp()+interval '60 seconds'
+);
+
+create temporary table first_consume as
+select * from public.store_operations_handoff_consume_v1(
+  repeat('a',43),repeat('b',43),repeat('c',43),repeat('d',43),
+  'STORE_OPERATIONS_STAGING_SESSION_HANDOFF_V1','STORE_OPERATIONS_STAGING',
+  'https://idea-nov-store-operations-staging-ui-787968950888.asia-northeast1.run.app','/auth/callback',
+  'store_operations_staging_handoff_exchange_v1',statement_timestamp(),gen_random_uuid()
+);
+create temporary table replay_consume as
+select * from public.store_operations_handoff_consume_v1(
+  repeat('a',43),repeat('b',43),repeat('c',43),repeat('d',43),
+  'STORE_OPERATIONS_STAGING_SESSION_HANDOFF_V1','STORE_OPERATIONS_STAGING',
+  'https://idea-nov-store-operations-staging-ui-787968950888.asia-northeast1.run.app','/auth/callback',
+  'store_operations_staging_handoff_exchange_v1',statement_timestamp(),gen_random_uuid()
+);
+reset role;
+
+do $$
+begin
+  if (select count(*) from first_consume) <> 1 then raise exception 'ATOMIC_CONSUME_FAILED'; end if;
+  if (select count(*) from replay_consume) <> 0 then raise exception 'REPLAY_ACCEPTED'; end if;
+  if (select count(*) from store_operations_handoff.codes) <> 1 then raise exception 'UNEXPECTED_CODE_COUNT'; end if;
+  if (select count(*) from store_operations_handoff.audit_events where event_type='CONSUMED') <> 1 then raise exception 'UNEXPECTED_AUDIT_COUNT'; end if;
+end $$;

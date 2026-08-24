@@ -1,0 +1,64 @@
+name: Store Operations Staging Release Validation
+
+on:
+  pull_request:
+    paths:
+      - "deploy/nov-hub-staging-ui/**"
+      - "deploy/store-operations-staging-ui/**"
+      - "portal/js/api.js"
+      - "portal/js/main.js"
+      - "supabase/migrations/20260823011845_store_operations_secure_session_handoff.sql"
+      - "supabase/migrations/20260823223102_store_operations_external_subject_binding.sql"
+      - "tests/store-operations-staging-launcher.test.mjs"
+      - "tests/sql/store-operations-secure-handoff-*.psql"
+      - ".github/workflows/store-operations-staging-release-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-17-and-launcher:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.6-bookworm
+        env: { POSTGRES_DB: store_operations_handoff, POSTGRES_PASSWORD: postgres, POSTGRES_USER: postgres }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d store_operations_handoff"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env: { PGDATABASE: store_operations_handoff, PGHOST: 127.0.0.1, PGPASSWORD: postgres, PGPORT: 5432, PGUSER: postgres }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "24" }
+      - name: Verify PostgreSQL 17 and migration checksum
+        shell: bash
+        run: |
+          psql --version
+          test "$(psql -X -Atqc 'show server_version_num')" -ge 170000
+          sha256sum supabase/migrations/20260823011845_store_operations_secure_session_handoff.sql
+          sha256sum supabase/migrations/20260823223102_store_operations_external_subject_binding.sql
+      - name: Apply handoff migration in disposable database
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f tests/sql/store-operations-secure-handoff-fixture.psql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20260823011845_store_operations_secure_session_handoff.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20260823223102_store_operations_external_subject_binding.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/sql/store-operations-secure-handoff-assert.psql
+          psql -X -v ON_ERROR_STOP=1 -f tests/sql/store-operations-external-subject-assert.psql
+      - name: Roll back and prove zero residual handoff objects
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f docs/store_operations_management/production_release/staging_core_uat_security/staging-release-unit-rollback.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/sql/store-operations-secure-handoff-rollback-assert.psql
+      - name: Build isolated NOV HUB Staging Launcher
+        run: npm ci --prefix deploy/nov-hub-staging-ui && npm run build --prefix deploy/nov-hub-staging-ui
+      - name: Build Store Operations Staging UI
+        run: npm ci --prefix deploy/store-operations-staging-ui && npm run build --prefix deploy/store-operations-staging-ui
+      - name: Validate isolated launcher and Production Portal boundary
+        run: node --test tests/store-operations-staging-launcher.test.mjs tests/store-operations-secure-handoff.test.mjs tests/store-operations-firebase-auth01-bridge.test.mjs tests/store-operations-staging-handoff-bff.test.mjs tests/store-operations-google-oidc-identity.test.mjs
+      - name: Build both Cloud Run images
+        run: |
+          docker build --file deploy/nov-hub-staging-ui/Dockerfile --tag nov-hub-staging-ui-ci:${{ github.sha }} .
+          docker build --file deploy/store-operations-staging-ui/Dockerfile --tag store-operations-staging-ui-ci:${{ github.sha }} .

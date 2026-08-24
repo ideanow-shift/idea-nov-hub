@@ -165,9 +165,23 @@ test("adapter sends only action and selected month with HUB bearer session", asy
   const result = await adapter.loadDashboard({ period: "2026-07", role: "executive", storeId: "spoof" });
   assert.equal(result.stores.length, 20);
   assert.equal(request.options.method, "POST");
+  assert.equal(request.options.credentials, "omit");
   assert.equal(request.options.headers.Authorization, "Bearer hub-session");
   assert.deepEqual(JSON.parse(request.options.body), { action: "storeMonthlyActualProjectionV1", payload: { selectedMonth: "2026-07" } });
   assert.doesNotMatch(request.options.body, /role|scope|storeId|uuid|service/iu);
+});
+
+test("same-origin staging BFF receives its HttpOnly session cookie", async () => {
+  let credentials;
+  const adapter = createDbfStoreMonthlyAdapter({ mode: "integration", endpoint: "/api/store-operations", timeoutMs: 1000 }, {
+    getSessionToken: () => "server-managed-store-operations-session",
+    fetchImpl: async (_url, options) => {
+      credentials = options.credentials;
+      return { ok: true, status: 200, json: async () => ({ ok: true, data: payload() }) };
+    }
+  });
+  await adapter.loadDashboard({ period: "2026-07" });
+  assert.equal(credentials, "same-origin");
 });
 
 test("missing HUB session rejects before network access", async () => {

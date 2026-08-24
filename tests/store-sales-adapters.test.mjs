@@ -38,6 +38,8 @@ test("projection rejects any tax basis other than the v1.1 net freeze", () => {
 test("adapter config supports mock and integration modes", () => {
   assert.equal(resolveAdapterConfig({ location: localLocation, runtimeConfig: { mode: "mock" } }).mode, "mock");
   assert.equal(resolveAdapterConfig({ location: localLocation, runtimeConfig: { mode: "integration", integrationEndpoint: integrationConfig.endpoint } }).mode, "integration");
+  assert.equal(resolveAdapterConfig({ location: { hostname: "staging.invalid", search: "" }, runtimeConfig: { mode: "integration", integrationEndpoint: "/api/store-operations" } }).endpoint, "/api/store-operations");
+  assert.throws(() => resolveAdapterConfig({ location: { hostname: "staging.invalid", search: "" }, runtimeConfig: { mode: "integration", integrationEndpoint: "//outside.invalid/api" } }));
 });
 
 test("production mode is blocked until approval", () => {

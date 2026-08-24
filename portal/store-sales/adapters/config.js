@@ -27,7 +27,8 @@ export function resolveAdapterConfig({ location, runtimeConfig = {} }) {
   const endpoint = requestedMode === "integration"
     ? String(runtimeConfig.integrationEndpoint || "")
     : requestedMode === "production" ? String(runtimeConfig.productionEndpoint || "") : "";
-  if (requestedMode === "integration" && (!endpoint || !/^https:\/\/|^http:\/\/(127\.0\.0\.1|localhost)/.test(endpoint))) {
+  const sameOriginPath = /^\/(?!\/)/u.test(endpoint);
+  if (requestedMode === "integration" && (!endpoint || (!sameOriginPath && !/^https:\/\/|^http:\/\/(127\.0\.0\.1|localhost)/.test(endpoint)))) {
     throw new AdapterConfigurationError("INTEGRATION_ENDPOINT_REQUIRED", "隔離されたintegration endpointが必要です。");
   }
   if (requestedMode === "production") {

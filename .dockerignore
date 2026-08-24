@@ -5,6 +5,10 @@
 !portal/js/
 !portal/js/**
 portal/js/firebase-config.js
+!portal/css/
+!portal/css/design-system.css
+!portal/store-sales/
+!portal/store-sales/**
 !deploy/
 !deploy/dbf-staging/
 !deploy/dbf-staging/**
@@ -12,5 +16,13 @@ portal/js/firebase-config.js
 !deploy/dbf-cloud-run-staging-bff-candidate/Dockerfile
 !deploy/dbf-cloud-run-staging-bff-candidate/*.mjs
 !deploy/dbf-cloud-run-staging-bff-candidate/canonical-navigation.js
+!deploy/store-operations-staging-ui/
+!deploy/store-operations-staging-ui/**
+deploy/store-operations-staging-ui/node_modules/
+deploy/store-operations-staging-ui/dist/
+!deploy/nov-hub-staging-ui/
+!deploy/nov-hub-staging-ui/**
+deploy/nov-hub-staging-ui/node_modules/
+deploy/nov-hub-staging-ui/dist/
 !tools/
 !tools/build-dbf-staging-pages.mjs

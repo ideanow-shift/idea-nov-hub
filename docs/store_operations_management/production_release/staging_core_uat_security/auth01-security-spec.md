@@ -1,43 +1,42 @@
-# AUTH-01 Staging Authentication Security Specification
+# Store Operations Staging Authentication Security Specification
 
-Status: Security Review PASS for implementation. Target: `idea-nov-staging` only. No Auth user is created by this document.
+Status: **Owner-approved Store Operations handoff implemented; deployment and hosted verification gated**. Target: Staging only.
 
-## Adopted Auth method
+## Canonical authentication
 
-Use **Admin-created Staging Supabase Auth users followed by user-initiated Email OTP/Magic Link**. Admin creation is server-only and uses the sealed private delivery address; it sets no shared or fixed password. Subsequent sign-in uses `signInWithOtp` with `shouldCreateUser: false`.
+Store Operations has no independent login. The only accepted source identity is an active NOV HUB session. Store Operations must not create Supabase Auth users, send Email OTP or Magic Links, expose a login/callback route, accept a native Supabase access token as a HUB session, or trust browser-supplied employee, Role, scope, Store ID, or Store UUID values.
 
-The callback uses Supabase's native PKCE/token-hash verification on the server. The server stores the resulting Supabase session in the approved encrypted server session store and gives the browser only an opaque `Secure`, `HttpOnly`, `SameSite=Lax` cookie. The service-role key, OTP token, access token, refresh token, canonical UUIDs, and source identifiers never enter browser application state, URLs after callback cleanup, logs, or responses.
-
-Email is only a delivery attribute. Authorization binding is created during sealed onboarding from the exact approved source record digest, canonical Employee UUID, and newly returned Staging `auth.users.id`. Email equality can never create, repair, or select a binding.
-
-## Server-only chain
+The formal chain remains:
 
 ```text
-native Staging Auth subject
-  -> private AUTH-01 one-to-one temporal binding
-  -> active canonical Employee identity/version
-  -> append-only HUB Role attestation
-  -> M019 current effective assignment/access contract
+NOV HUB authenticated session
+  -> approved one-time application-session handoff
+  -> canonical Employee
+  -> active Identity
+  -> HUB Role attestation
+  -> M019 effective Assignment
   -> server-resolved Store Scope
   -> storeMonthlyActualProjectionV1
 ```
 
-The request may contain UI filters, but `employeeId`, Role, scope, `storeId`, and Store UUID are ignored as authority. Role and scope are always recomputed server-side for each request and accounting period.
+The handoff must be short-lived, one-time, single-use, destination/origin/audience bound, replay-denied, auditable, and fail-closed. Access tokens, refresh tokens, service credentials, employee identifiers, Role, scope, and raw Store UUIDs must not appear in a URL, HTML, browser log, referrer, or public response.
 
-## Role and scope
+Any requested scope wider than the server-resolved scope returns `SCOPE_DENIED`; it is never represented as Empty.
 
-- 脇田: attested Executive; corporation scope resolves to exactly the 20 official non-HQ stores.
-- 戸田: attested Area Manager; resolves only active, effective M019-backed assigned stores.
-- 桝本: attested Store Manager; resolves only the active 上石神井店 assignment.
+## Dedicated handoff contract
 
-## Fail-close and revocation
+The Store Operations contract is `STORE_OPERATIONS_STAGING_SESSION_HANDOFF_V1` and is separate from DBF and IDEA LINK. It fixes the target to `STORE_OPERATIONS_STAGING`, callback path to `/auth/callback`, destination origin to the approved Store Operations Cloud Run service, handoff audience to `store_operations_staging_handoff_exchange_v1`, and application-session audience to `store_operations_staging_session_v1`.
 
-Reject unknown/revoked Auth subject, expired or replayed browser session, project/audience mismatch, inactive binding, inactive identity/employee, inactive or expired assignment, missing/mismatched Role attestation, M019 denial, and source/canonical/Auth subject mismatch. A requested scope wider than the resolved scope returns `SCOPE_DENIED`, never Empty.
+`/auth/start` generates a signed HttpOnly state cookie and a PKCE verifier, and sends only the S256 challenge to NOV HUB. NOV HUB issues a random opaque code with a 60-second maximum lifetime. Only the code digest and PKCE challenge are stored; the verifier is never stored in the database. `/auth/callback` receives only the opaque code and state. The Cloud Run BFF exchanges it once with its cookie-held verifier over a Google-signed OIDC service-identity boundary, stores the resulting application session for at most 900 seconds in a Secure, HttpOnly, SameSite cookie, and proxies read-only projection requests. The browser never receives either server token. Consumption is atomic; contract, target, origin, callback, audience, state, nonce, PKCE challenge, expiry, and unused status must all match. Replays fail closed.
 
-Revocation order is: invalidate server session and Supabase Auth sessions, disable the Staging Auth user, append AUTH-01 binding revoke, append Role attestation revoke, append M019 revoke. Sensitive reads recheck the server session identifier and current binding/assignment rather than trusting stale JWT metadata.
+The Edge verifies the Google RS256 signature from the Google JWKS, issuer, exact Staging Edge audience, `iat`, `exp`, verified service-account email, and optional subject. The runtime service account is read from the Cloud Run metadata server and must equal the separately configured preflight value. The shared exchange secret is defense in depth only and can never replace Google OIDC.
 
-## Database/API boundary
+Issue and exchange both resolve the canonical employee, active identity, Role attestation, M019 effective assignment, and Store Scope on the server. Exchange also rechecks the source HUB session expiry. No browser-provided Role, employee, scope, Store ID, or Store UUID participates in authorization.
 
-AUTH-01 bindings and Role attestations live in a private, non-exposed schema with FORCE RLS and no direct `anon`/`authenticated` grants. The Edge/BFF calls an explicit server-only resolver. No browser direct database execution is permitted. Any narrowly required `SECURITY DEFINER` resolver must be outside `public`, pin `search_path`, validate the caller and Staging project/audience, revoke `PUBLIC`, and grant only the server runtime role.
+## UAT gate
 
-Store Operations remains read-only. Business Fact, DBF Canonical Fact, Permission Model, and Production are unchanged.
+- 脇田 Executive browser UAT: eligible only after migration, secret binding, Edge/Cloud Run deployment, and normal NOV HUB launch smoke pass.
+- 戸田 Area Manager: server-side Role/scope contract required; real hosted UAT is `DEFERRED_UNTIL_NORMAL_NOV_HUB_LOGIN`.
+- 桝本 Store Manager: server-side Role/scope contract required; real hosted UAT is `DEFERRED_UNTIL_NORMAL_NOV_HUB_LOGIN`.
+
+Store Operations, DBF Canonical Fact, and Production writes remain zero.

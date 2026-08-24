@@ -1,5 +1,6 @@
 import {
   handleManagementReadOnlyAction,
+  type CanonicalAccessContext,
   type ManagementAction,
   type ManagementDependencies,
   type ReadQuery,
@@ -11,6 +12,14 @@ import { handleDbfHandoffAction } from "./dbf_handoff_actions_candidate.mjs";
 import { createDbfHandoffRpcStore } from "./dbf_handoff_store_rpc_candidate.mjs";
 // @ts-ignore See source-only note above.
 import { validateDbfIapAssertion } from "./dbf_iap_assertion_validator_candidate.mjs";
+// @ts-ignore Staging-only Store Operations handoff modules are covered by Node contract tests.
+import { exchangeStoreOperationsHandoff, issueStoreOperationsHandoff, STORE_OPERATIONS_HANDOFF } from "./store_operations_session_handoff.mjs";
+// @ts-ignore See source-only note above.
+import { createStoreOperationsHandoffRpcStore } from "./store_operations_handoff_store_rpc.mjs";
+// @ts-ignore Google OIDC verification is isolated in a source module covered by contract tests.
+import { verifyGoogleCloudRunIdentity } from "./google_oidc_service_identity.mjs";
+// @ts-ignore Staging-only Firebase/AUTH-01 bridge is isolated and contract-tested.
+import { bridgeFirebaseAuth01, FIREBASE_AUTH01_BRIDGE } from "./firebase_auth01_external_bridge.mjs";
 import { createThanksCoinAnalyticsApiAdapter } from "./analytics-api-adapter.ts";
 import {
   buildIdeaLinkReadablePostOr,
@@ -26,7 +35,7 @@ import { createHash } from "node:crypto";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-contract-version, x-request-id",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
@@ -36,8 +45,14 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "
 const PIN_HASH_PEPPER = Deno.env.get("PIN_HASH_PEPPER") || "";
 const FIREBASE_API_KEY = Deno.env.get("FIREBASE_API_KEY") || FIREBASE_API_KEY_FALLBACK;
 const HUB_APP_SESSION_SIGNING_SECRET = Deno.env.get("HUB_APP_SESSION_SIGNING_SECRET") || "";
+const STORE_OPERATIONS_HANDOFF_EXCHANGE_SECRET = Deno.env.get("STORE_OPERATIONS_HANDOFF_EXCHANGE_SECRET") || "";
+const STORE_OPERATIONS_HANDOFF_AUTHORIZED_SERVICE_ACCOUNT = Deno.env.get("STORE_OPERATIONS_HANDOFF_AUTHORIZED_SERVICE_ACCOUNT") || "";
+const STORE_OPERATIONS_HANDOFF_AUTHORIZED_SUBJECT = Deno.env.get("STORE_OPERATIONS_HANDOFF_AUTHORIZED_SUBJECT") || "";
+const NOV_HUB_STAGING_EXTERNAL_SUBJECT_HMAC_SECRET = Deno.env.get("NOV_HUB_STAGING_EXTERNAL_SUBJECT_HMAC_SECRET") || "";
+const STORE_OPERATIONS_HANDOFF_OIDC_AUDIENCE = "https://zgkoofphhivesclehrom.supabase.co/functions/v1/nov-hub-api";
 const HUB_SESSION_AUDIENCE = "nov_hub";
 const DBF_STAGING_SESSION_AUDIENCE = "dbf_staging_session_v1";
+const STORE_OPERATIONS_STAGING_SESSION_AUDIENCE = "store_operations_staging_session_v1";
 const IDEA_LINK_HANDOFF_AUDIENCE = "idea_link";
 const IDEA_LINK_HANDOFF_TTL_SECONDS = 60;
 const IDEA_LINK_SESSION_TTL_SECONDS = 15 * 60;
@@ -431,6 +446,23 @@ function managementScopeMode(value: unknown): ScopeMode | undefined {
   return ["all", "own", "assigned", "none"].includes(mode) ? mode as ScopeMode : undefined;
 }
 
+function canonicalAccessContext(value: unknown): CanonicalAccessContext | null {
+  const row = value && typeof value === "object" ? value as JsonRecord : {};
+  const scope = row.scope && typeof row.scope === "object" ? row.scope as JsonRecord : {};
+  const mode = managementScopeMode(scope.mode);
+  const storeIds = Array.isArray(scope.storeIds) ? scope.storeIds.map(String) : [];
+  const roleKeys = Array.isArray(row.roleKeys) ? row.roleKeys.map(String) : [];
+  const employeeId = String(row.employeeId || "");
+  return employeeId && mode && roleKeys.length ? { employeeId, roleKeys, scope: { mode, storeIds } } : null;
+}
+
+async function readStoreOperationsUatMasterRows(table: string): Promise<JsonRecord[]> {
+  const result = await callSupabaseRpc("store_operations_uat_master_read_v1");
+  const payload = Array.isArray(result) ? result[0] : result;
+  const root = payload && typeof payload === "object" ? payload as JsonRecord : {};
+  return Array.isArray(root[table]) ? root[table] as JsonRecord[] : [];
+}
+
 async function handleManagementFromDeployedBaseline(
   action: ManagementAction,
   token: string,
@@ -439,7 +471,11 @@ async function handleManagementFromDeployedBaseline(
   let verifiedHubAuth: JsonRecord | null = null;
   const requestedAuthType = String(payload.authType || "hub_session") === "dbf_staging_session"
     ? "dbf_staging_session"
-    : "hub_session";
+    : String(payload.authType || "hub_session") === "store_operations_staging_session"
+      ? "store_operations_staging_session"
+      : "hub_session";
+  const storeOperationsSession = requestedAuthType === "store_operations_staging_session"
+    && action === "storeMonthlyActualProjectionV1";
   const deps: ManagementDependencies = {
     async verifyHubSession(inputToken) {
       const authUser = await authenticate(inputToken, { ...payload, authType: requestedAuthType }, action);
@@ -449,12 +485,29 @@ async function handleManagementFromDeployedBaseline(
       return { subject: String(authRecord.employeeId || "verified-hub-session") };
     },
     async resolveEmployee() {
+      if (storeOperationsSession && verifiedHubAuth?.employeeId) {
+        return { id: String(verifiedHubAuth.employeeId) };
+      }
       if (!verifiedHubAuth) return null;
       const employee = await findEmployeeForAuth(verifiedHubAuth);
       return employee?.id ? { id: String(employee.id) } : null;
     },
+    resolveCanonicalAccess: storeOperationsSession
+      ? async (auth) => {
+        const result = await callSupabaseRpc("store_operations_uat_resolve_hub_employee_access_v1", {
+          p_employee_id: auth.subject,
+          p_as_of: new Date().toISOString().slice(0, 10),
+        });
+        return canonicalAccessContext(Array.isArray(result) ? result[0] : result);
+      }
+      : undefined,
     db: {
-      select: async (table, query) => await readRows(table, { query }),
+      select: async (table, query) => {
+        if (storeOperationsSession && ["stores", "corporations", "corporation_business_profiles"].includes(table)) {
+          return await readStoreOperationsUatMasterRows(table);
+        }
+        return await readRows(table, { query });
+      },
       count: readManagementExactCount,
       rpc: async (name, args) => {
         const result = await callSupabaseRpc(name, args);
@@ -536,6 +589,84 @@ function createDbfHandoffDependencies() {
       return await signHubAppSession({ ...claims, v: 1, auth_source: "nov_hub_handoff" });
     },
   };
+}
+
+async function resolveStoreOperationsHubEmployeeAccess(employeeId: string) {
+  const result = await callSupabaseRpc("store_operations_uat_resolve_hub_employee_access_v1", {
+    p_employee_id: employeeId,
+    p_as_of: new Date().toISOString().slice(0, 10),
+  });
+  return canonicalAccessContext(Array.isArray(result) ? result[0] : result);
+}
+
+function verifyStoreOperationsExchangeBoundary(proof: unknown) {
+  const expected = STORE_OPERATIONS_HANDOFF_EXCHANGE_SECRET.trim();
+  const supplied = String(proof || "");
+  return expected.length >= 32 && supplied.length === expected.length && constantTimeEquals(supplied, expected);
+}
+
+function createStoreOperationsHandoffDependencies() {
+  return {
+    now: () => Date.now(),
+    randomUuid: () => crypto.randomUUID(),
+    store: createStoreOperationsHandoffRpcStore(async (name: string, payload: JsonRecord) => await callSupabaseRpc(name, payload)),
+    verifyExchangeBoundary: verifyStoreOperationsExchangeBoundary,
+    verifyServerIdentity: async (token: string) => await verifyGoogleCloudRunIdentity(token, {
+      audience: STORE_OPERATIONS_HANDOFF_OIDC_AUDIENCE,
+      authorizedServiceAccount: STORE_OPERATIONS_HANDOFF_AUTHORIZED_SERVICE_ACCOUNT,
+      authorizedSubject: STORE_OPERATIONS_HANDOFF_AUTHORIZED_SUBJECT,
+      now: () => Date.now(),
+      fetchJwks: async (url: string) => await fetch(url, { headers: { accept: "application/json" }, cache: "no-store" }),
+    }),
+    resolveAccess: async (input: { employeeId?: string }) => await resolveStoreOperationsHubEmployeeAccess(String(input.employeeId || "")),
+    signSession: async (claims: JsonRecord) => await signHubAppSession(claims),
+  };
+}
+
+async function handleStoreOperationsHandoffIssue(token: string, payload: JsonRecord) {
+  if (Object.keys(payload).some((key) => !new Set(["state", "codeChallenge", "codeChallengeMethod", "authType"]).has(key))) {
+    throw new PortalError("INVALID_REQUEST", "Store Operations handoff issue payload is invalid.", 400);
+  }
+  if (String(payload.authType || "hub_session") !== "hub_session") {
+    throw new PortalError("ACCESS_DENIED", "NOV HUB session is required.", 403);
+  }
+  const hubIdentity = await verifyHubAppSession(token, HUB_SESSION_AUDIENCE, "hub_session");
+  return await issueStoreOperationsHandoff({
+    hubIdentity,
+    state: String(payload.state || ""),
+    codeChallenge: String(payload.codeChallenge || ""),
+    codeChallengeMethod: String(payload.codeChallengeMethod || ""),
+    target: STORE_OPERATIONS_HANDOFF.target,
+    targetOrigin: STORE_OPERATIONS_HANDOFF.targetOrigin,
+    callbackPath: STORE_OPERATIONS_HANDOFF.callbackPath,
+  }, createStoreOperationsHandoffDependencies());
+}
+
+async function handleStoreOperationsHandoffExchange(request: Request, payload: JsonRecord) {
+  if (Object.keys(payload).some((key) => !new Set(["handoffCode", "state", "codeVerifier", "origin"]).has(key))) {
+    throw new PortalError("INVALID_REQUEST", "Store Operations handoff exchange payload is invalid.", 400);
+  }
+  return await exchangeStoreOperationsHandoff({
+    handoffCode: String(payload.handoffCode || ""),
+    state: String(payload.state || ""),
+    codeVerifier: String(payload.codeVerifier || ""),
+    origin: String(payload.origin || ""),
+    oidcToken: String(request.headers.get("x-cloud-run-identity") || "").replace(/^Bearer\s+/iu, ""),
+    exchangeProof: request.headers.get("x-store-operations-exchange-secret") || "",
+  }, createStoreOperationsHandoffDependencies());
+}
+
+async function handleStoreOperationsSessionStatus(token: string, payload: JsonRecord) {
+  if (Object.keys(payload).some((key) => key !== "authType")) {
+    throw new PortalError("INVALID_REQUEST", "Store Operations session status payload is invalid.", 400);
+  }
+  const auth = await authenticate(token, { authType: "store_operations_staging_session" }, "storeOperationsSessionStatusV1");
+  if (!("employeeId" in auth) || !("expiresAt" in auth) || auth.authType !== "store_operations_staging_session") {
+    throw new PortalError("ACCESS_DENIED", "Store Operations session is invalid.", 403);
+  }
+  const access = await resolveStoreOperationsHubEmployeeAccess(String(auth.employeeId || ""));
+  if (!access) throw new PortalError("ACCESS_DENIED", "Store Operations access is unavailable.", 403);
+  return { audience: STORE_OPERATIONS_STAGING_SESSION_AUDIENCE, expiresAt: String(auth.expiresAt || ""), visibleStoreCount: access.scope.storeIds.length };
 }
 
 function clampNumber(value: unknown, fallback: number, min: number, max: number) {
@@ -1939,6 +2070,51 @@ async function verifyFirebaseToken(idToken: string) {
   };
 }
 
+async function lookupFirebaseBridgeToken(idToken: string) {
+  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(FIREBASE_API_KEY)}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken }),
+  });
+  const text = await response.text();
+  if (!response.ok) throw new PortalError("TOKEN_VERIFICATION_FAILED", "Firebase token verification failed.", 401, text);
+  const data = asRecord(JSON.parse(text || "{}"));
+  const users = Array.isArray(data.users) ? data.users : [];
+  const user = asRecord(users[0]);
+  return { localId: String(user.localId || ""), email: String(user.email || ""), emailVerified: user.emailVerified === true, disabled: user.disabled === true };
+}
+
+async function handleFirebaseAuth01Bridge(token: string, payload: JsonRecord) {
+  try {
+    return await bridgeFirebaseAuth01({ token, payload }, {
+      now: () => Date.now(), randomUuid: () => crypto.randomUUID(),
+      fingerprintSecret: NOV_HUB_STAGING_EXTERNAL_SUBJECT_HMAC_SECRET,
+      lookup: lookupFirebaseBridgeToken,
+      consumeEnrollment: async ({ challenge, fingerprint, requestId }: JsonRecord) => {
+        const challengeHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(challenge || "")));
+        const hash = Array.from(new Uint8Array(challengeHash), (byte) => byte.toString(16).padStart(2, "0")).join("");
+        const result = await callSupabaseRpc("store_operations_external_enrollment_consume_v1", {
+          p_challenge_hash: hash, p_provider: FIREBASE_AUTH01_BRIDGE.provider, p_issuer: FIREBASE_AUTH01_BRIDGE.issuer,
+          p_audience: FIREBASE_AUTH01_BRIDGE.projectId, p_subject_fingerprint: fingerprint,
+          p_fingerprint_key_version: FIREBASE_AUTH01_BRIDGE.fingerprintKeyVersion, p_request_id: requestId,
+          p_effective_to: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+        return Array.isArray(result) ? result[0] : result;
+      },
+      resolveBinding: async ({ fingerprint }: JsonRecord) => {
+        const result = await callSupabaseRpc("store_operations_external_subject_resolve_v1", {
+          p_provider: FIREBASE_AUTH01_BRIDGE.provider, p_issuer: FIREBASE_AUTH01_BRIDGE.issuer,
+          p_audience: FIREBASE_AUTH01_BRIDGE.projectId, p_subject_fingerprint: fingerprint,
+          p_as_of: new Date().toISOString(),
+        });
+        return Array.isArray(result) ? result[0] : result;
+      },
+      signSession: async (claims: JsonRecord) => await signHubAppSession(claims),
+    });
+  } catch (error) {
+    const candidate = error as { status?: number; code?: string; message?: string };
+    throw new PortalError(String(candidate.code || "ACCESS_DENIED"), String(candidate.message || "Firebase AUTH-01 bridge denied."), Number(candidate.status || 403));
+  }
+}
+
 async function hashPin(pin: string) {
   if (!PIN_HASH_PEPPER) throw new PortalError("SETUP_MISSING", "PIN_HASH_PEPPER is missing.", 500);
   const encoder = new TextEncoder();
@@ -2030,7 +2206,7 @@ async function signHubAppSession(payload: JsonRecord) {
 async function verifyHubAppSession(
   token: string,
   expectedAudience: string,
-  verifiedAuthType: "hub_session" | "idea_link_session" | "dbf_staging_session",
+  verifiedAuthType: "hub_session" | "idea_link_session" | "dbf_staging_session" | "store_operations_staging_session",
 ) {
   const parts = String(token || "").split(".");
   if (parts.length !== 3) throw new PortalError("TOKEN_VERIFICATION_FAILED", "IDEA LINK session is invalid.", 401);
@@ -2326,6 +2502,16 @@ async function authenticate(token: string, payload: JsonRecord, action: string) 
       "dbf_staging_session",
     );
   }
+  if (authType === "store_operations_staging_session") {
+    if (!isManagementReadOnlyAction(action) && action !== "storeOperationsSessionStatusV1") {
+      throw new PortalError("ACCESS_DENIED", "Store Operations session cannot access this action.", 403);
+    }
+    return await verifyHubAppSession(
+      token || String(payload.sessionToken || ""),
+      STORE_OPERATIONS_STAGING_SESSION_AUDIENCE,
+      "store_operations_staging_session",
+    );
+  }
   if (authType === "pin") {
     const email = normalizeEmail(payload.email);
     const pin = String(payload.pin || "").trim();
@@ -2358,7 +2544,7 @@ async function getEmployeeById(id: string) {
 
 async function findEmployeeForAuth(authUser: JsonRecord) {
   const email = normalizeEmail(authUser.email);
-  if (authUser.authType === "idea_link_session" || authUser.authType === "hub_session" || authUser.authType === "dbf_staging_session") {
+  if (authUser.authType === "idea_link_session" || authUser.authType === "hub_session" || authUser.authType === "dbf_staging_session" || authUser.authType === "store_operations_staging_session") {
     const employee = await getEmployeeById(String(authUser.employeeId || ""));
     if (!isEmployeeActive(employee)) return null;
     return normalizeEmployee(employee, await getCredentialByEmployeeId(String(employee?.id || "")));
@@ -5784,17 +5970,23 @@ async function dispatchThanksCoinAnalytics(
   });
 }
 
+function readBearerToken(request: Request): string {
+  const match = String(request.headers.get("authorization") || "").match(/^Bearer\s+([^\s]+)$/i);
+  return match?.[1] || "";
+}
+
 async function parseRequest(request: Request) {
   const url = new URL(request.url);
+  const bearerToken = readBearerToken(request);
   if (request.method === "GET") {
-    return { action: url.searchParams.get("action") || "", token: "", payload: {} as JsonRecord };
+    return { action: url.searchParams.get("action") || "", token: bearerToken, payload: {} as JsonRecord };
   }
   const contentType = request.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
     const data = await request.json().catch(() => ({}));
     return {
       action: String(data.action || ""),
-      token: String(data.token || ""),
+      token: bearerToken || String(data.token || ""),
       payload: (data.payload && typeof data.payload === "object" ? data.payload : {}) as JsonRecord,
     };
   }
@@ -5808,7 +6000,7 @@ async function parseRequest(request: Request) {
   }
   return {
     action: String(form.get("action") || ""),
-    token: String(form.get("token") || ""),
+    token: bearerToken || String(form.get("token") || ""),
     payload,
   };
 }
@@ -5898,6 +6090,18 @@ Deno.serve(async (request) => {
       return handleHubHrAuthorizedDisplayReadDisabled(payload);
     }
     if (action === "health") return await handleHealth();
+    if (action === "storeOperationsHandoffIssueV1") {
+      return jsonResponse({ ok: true, handoff: await handleStoreOperationsHandoffIssue(token, payload) });
+    }
+    if (action === "novHubStagingAuth01SubjectBridgeV1") {
+      return jsonResponse({ ok: true, ...(await handleFirebaseAuth01Bridge(token, payload)) });
+    }
+    if (action === "storeOperationsHandoffExchangeV1") {
+      return jsonResponse({ ok: true, session: await handleStoreOperationsHandoffExchange(request, payload) });
+    }
+    if (action === "storeOperationsSessionStatusV1") {
+      return jsonResponse({ ok: true, session: await handleStoreOperationsSessionStatus(token, payload) });
+    }
     if (action === "dbfStagingHandoffIssueV1" || action === "dbfStagingHandoffExchangeV1") {
       try {
         const result = await handleDbfHandoffAction({

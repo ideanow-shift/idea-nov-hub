@@ -2088,11 +2088,12 @@ async function handleFirebaseAuth01Bridge(token: string, payload: JsonRecord) {
       now: () => Date.now(), randomUuid: () => crypto.randomUUID(),
       fingerprintSecret: NOV_HUB_STAGING_EXTERNAL_SUBJECT_HMAC_SECRET,
       lookup: lookupFirebaseBridgeToken,
-      consumeEnrollment: async ({ challenge, fingerprint, requestId }: JsonRecord) => {
+      consumeEnrollment: async ({ challenge, fingerprint, requestId, expectedIdentityKey }: JsonRecord) => {
         const challengeHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(challenge || "")));
         const hash = Array.from(new Uint8Array(challengeHash), (byte) => byte.toString(16).padStart(2, "0")).join("");
-        const result = await callSupabaseRpc("store_operations_external_enrollment_consume_v1", {
-          p_challenge_hash: hash, p_provider: FIREBASE_AUTH01_BRIDGE.provider, p_issuer: FIREBASE_AUTH01_BRIDGE.issuer,
+        const result = await callSupabaseRpc("store_operations_external_enrollment_consume_v2", {
+          p_challenge_hash: hash, p_expected_identity_key: expectedIdentityKey,
+          p_provider: FIREBASE_AUTH01_BRIDGE.provider, p_issuer: FIREBASE_AUTH01_BRIDGE.issuer,
           p_audience: FIREBASE_AUTH01_BRIDGE.projectId, p_subject_fingerprint: fingerprint,
           p_fingerprint_key_version: FIREBASE_AUTH01_BRIDGE.fingerprintKeyVersion, p_request_id: requestId,
           p_effective_to: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),

@@ -48,7 +48,7 @@ create table store_operations_uat_private.auth_identity_binding_decisions (
 create table auth.users (id uuid primary key,deleted_at timestamptz,banned_until timestamptz);
 create table store_operations_uat_private.approved_identities (
   artifact_digest text not null,identity_key text not null,employee_id uuid not null,
-  role_key text not null,status text not null,effective_from date not null,effective_to date,
+  role_key text not null,expected_store_id uuid,status text not null,effective_from date not null,effective_to date,
   primary key(artifact_digest,identity_key)
 );
 create table store_operations_uat_private.role_attestation_decisions (
@@ -65,20 +65,41 @@ returns table(contract_id uuid)
 language sql stable
 as $$ select gen_random_uuid() $$;
 
-insert into core.employees values('10000000-0000-4000-8000-000000000001','active',current_date-1,null);
-insert into core.employee_identities values('10000000-0000-4000-8000-000000000001','active');
-insert into auth.users values('20000000-0000-4000-8000-000000000001',null,null);
+insert into core.employees values
+  ('10000000-0000-4000-8000-000000000001','active',current_date-1,null),
+  ('10000000-0000-4000-8000-000000000002','active',current_date-1,null),
+  ('10000000-0000-4000-8000-000000000003','active',current_date-1,null);
+insert into core.employee_identities values
+  ('10000000-0000-4000-8000-000000000001','active'),
+  ('10000000-0000-4000-8000-000000000002','active'),
+  ('10000000-0000-4000-8000-000000000003','active');
+insert into auth.users values
+  ('20000000-0000-4000-8000-000000000001',null,null),
+  ('20000000-0000-4000-8000-000000000002',null,null),
+  ('20000000-0000-4000-8000-000000000003',null,null);
 insert into core.employee_store_assignments
 select '10000000-0000-4000-8000-000000000001',('30000000-0000-4000-8000-'||lpad(i::text,12,'0'))::uuid,
   'active','primary',current_date-1,null from generate_series(1,20)i;
+insert into core.employee_store_assignments values
+  ('10000000-0000-4000-8000-000000000002','30000000-0000-4000-8000-000000000001','active','primary',current_date-1,null),
+  ('10000000-0000-4000-8000-000000000003','30000000-0000-4000-8000-000000000002','active','primary',current_date-1,null);
 insert into core.corporation_store_relationships
 select ('30000000-0000-4000-8000-'||lpad(i::text,12,'0'))::uuid,'40000000-0000-4000-8000-000000000001','accounting'
 from generate_series(1,20)i;
 insert into projection.store_master_v1
 select ('30000000-0000-4000-8000-'||lpad(i::text,12,'0'))::uuid,lpad(i::text,2,'0'),true,true from generate_series(1,20)i;
 insert into store_operations_uat_private.auth_identity_binding_decisions
-values('binding','10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001',statement_timestamp(),1,'grant');
+values
+  ('binding-executive','10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001',statement_timestamp(),1,'grant'),
+  ('binding-area','10000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000002',statement_timestamp(),1,'grant'),
+  ('binding-store','10000000-0000-4000-8000-000000000003','20000000-0000-4000-8000-000000000003',statement_timestamp(),1,'grant');
 insert into store_operations_uat_private.role_attestation_decisions
-values('role','10000000-0000-4000-8000-000000000001','store_operations_staging_v1','executive',statement_timestamp(),1,'grant');
+values
+  ('role-executive','10000000-0000-4000-8000-000000000001','store_operations_staging_v1','executive',statement_timestamp(),1,'grant'),
+  ('role-area','10000000-0000-4000-8000-000000000002','store_operations_staging_v1','area_manager',statement_timestamp(),1,'grant'),
+  ('role-store','10000000-0000-4000-8000-000000000003','store_operations_staging_v1','store_manager',statement_timestamp(),1,'grant');
 insert into store_operations_uat_private.approved_identities
-values(repeat('a',64),'uat-executive','10000000-0000-4000-8000-000000000001','executive','approved',current_date-1,null);
+values
+  (repeat('a',64),'uat-executive','10000000-0000-4000-8000-000000000001','executive',null,'approved',current_date-1,null),
+  (repeat('a',64),'uat-area-manager','10000000-0000-4000-8000-000000000002','area_manager','30000000-0000-4000-8000-000000000001','approved',current_date-1,null),
+  (repeat('a',64),'uat-store-manager','10000000-0000-4000-8000-000000000003','store_manager','30000000-0000-4000-8000-000000000002','approved',current_date-1,null);

@@ -9,7 +9,13 @@ on:
       - "portal/js/main.js"
       - "supabase/migrations/20260823011845_store_operations_secure_session_handoff.sql"
       - "supabase/migrations/20260823223102_store_operations_external_subject_binding.sql"
+      - "supabase/migrations/20260824232711_store_operations_uat_test_principals_v1.sql"
+      - "supabase/rollback/20260824232711_store_operations_uat_test_principals_v1.rollback.sql"
+      - "supabase/functions/nov-hub-api/firebase_auth01_external_bridge.mjs"
+      - "supabase/functions/nov-hub-api/index.ts"
       - "tests/store-operations-staging-launcher.test.mjs"
+      - "tests/store-operations-firebase-auth01-bridge.test.mjs"
+      - "tests/store-operations-uat-test-principals-contract.test.mjs"
       - "tests/sql/store-operations-secure-handoff-*.psql"
       - ".github/workflows/store-operations-staging-release-validation.yml"
   workflow_dispatch:
@@ -41,15 +47,18 @@ jobs:
           test "$(psql -X -Atqc 'show server_version_num')" -ge 170000
           sha256sum supabase/migrations/20260823011845_store_operations_secure_session_handoff.sql
           sha256sum supabase/migrations/20260823223102_store_operations_external_subject_binding.sql
+          sha256sum supabase/migrations/20260824232711_store_operations_uat_test_principals_v1.sql
       - name: Apply handoff migration in disposable database
         run: |
           psql -X -v ON_ERROR_STOP=1 -f tests/sql/store-operations-secure-handoff-fixture.psql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20260823011845_store_operations_secure_session_handoff.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20260823223102_store_operations_external_subject_binding.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20260824232711_store_operations_uat_test_principals_v1.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/sql/store-operations-secure-handoff-assert.psql
           psql -X -v ON_ERROR_STOP=1 -f tests/sql/store-operations-external-subject-assert.psql
       - name: Roll back and prove zero residual handoff objects
         run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/rollback/20260824232711_store_operations_uat_test_principals_v1.rollback.sql
           psql -X -v ON_ERROR_STOP=1 -f docs/store_operations_management/production_release/staging_core_uat_security/staging-release-unit-rollback.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/sql/store-operations-secure-handoff-rollback-assert.psql
       - name: Build isolated NOV HUB Staging Launcher
@@ -57,7 +66,7 @@ jobs:
       - name: Build Store Operations Staging UI
         run: npm ci --prefix deploy/store-operations-staging-ui && npm run build --prefix deploy/store-operations-staging-ui
       - name: Validate isolated launcher and Production Portal boundary
-        run: node --test tests/store-operations-staging-launcher.test.mjs tests/store-operations-secure-handoff.test.mjs tests/store-operations-firebase-auth01-bridge.test.mjs tests/store-operations-staging-handoff-bff.test.mjs tests/store-operations-google-oidc-identity.test.mjs
+        run: node --test tests/store-operations-staging-launcher.test.mjs tests/store-operations-secure-handoff.test.mjs tests/store-operations-firebase-auth01-bridge.test.mjs tests/store-operations-uat-test-principals-contract.test.mjs tests/store-operations-staging-handoff-bff.test.mjs tests/store-operations-google-oidc-identity.test.mjs
       - name: Build both Cloud Run images
         run: |
           docker build --file deploy/nov-hub-staging-ui/Dockerfile --tag nov-hub-staging-ui-ci:${{ github.sha }} .

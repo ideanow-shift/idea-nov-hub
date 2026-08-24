@@ -4,7 +4,11 @@ export const FIREBASE_AUTH01_BRIDGE = Object.freeze({
   projectId: "idea-nov-group-portal",
   issuer: "https://securetoken.google.com/idea-nov-group-portal",
   provider: "google.com",
-  ownerEmail: "m.wakita@idea-nov.com",
+  principals: Object.freeze({
+    "m.wakita@idea-nov.com": Object.freeze({ identityKey: "uat-executive", roleKey: "executive", scopeMode: "all", storeCount: 20 }),
+    "uat-area-manager@idea-nov.com": Object.freeze({ identityKey: "uat-area-manager", roleKey: "area_manager", scopeMode: "assigned", storeCount: 1 }),
+    "uat-store-manager@idea-nov.com": Object.freeze({ identityKey: "uat-store-manager", roleKey: "store_manager", scopeMode: "own", storeCount: 1 }),
+  }),
   maxSessionSeconds: 15 * 60,
   fingerprintKeyVersion: 1,
 });
@@ -39,13 +43,16 @@ export async function verifyFirebaseBridgeToken(token, deps) {
   if (!Number.isFinite(claims.auth_time) || claims.auth_time > now + 30) fail(401, "TOKEN_AUTH_TIME_INVALID", "Firebase auth time is invalid.");
   if (claims.firebase?.sign_in_provider !== FIREBASE_AUTH01_BRIDGE.provider) fail(403, "FIREBASE_PROVIDER_DENIED", "Google sign-in is required.");
   if (claims.email_verified !== true) fail(403, "FIREBASE_EMAIL_UNVERIFIED", "Verified Google email is required.");
-  if (String(claims.email || "").toLowerCase() !== FIREBASE_AUTH01_BRIDGE.ownerEmail) fail(403, "FIREBASE_ACCOUNT_DENIED", "The approved Google account is required.");
+  const email = String(claims.email || "").toLowerCase();
+  if (!Object.hasOwn(FIREBASE_AUTH01_BRIDGE.principals, email)) fail(403, "FIREBASE_ACCOUNT_DENIED", "The approved Google account is required.");
+  const principal = FIREBASE_AUTH01_BRIDGE.principals[email];
   const lookup = await deps.lookup(token);
   if (!lookup || lookup.disabled === true || lookup.localId !== claims.sub || lookup.emailVerified !== true
-    || String(lookup.email || "").toLowerCase() !== FIREBASE_AUTH01_BRIDGE.ownerEmail) {
+    || String(lookup.email || "").toLowerCase() !== email) {
     fail(401, "TOKEN_VERIFICATION_FAILED", "Firebase token lookup failed.");
   }
-  return { subject: claims.sub, expiresAt: claims.exp, issuedAt: claims.iat };
+  return { subject: claims.sub, expiresAt: claims.exp, issuedAt: claims.iat, identityKey: principal.identityKey,
+    expectedRole: principal.roleKey, expectedScopeMode: principal.scopeMode, expectedStoreCount: principal.storeCount };
 }
 
 export async function subjectFingerprint(verified, secret) {
@@ -66,12 +73,13 @@ export async function bridgeFirebaseAuth01(input, deps) {
   const fingerprint = await subjectFingerprint(verified, deps.fingerprintSecret);
   const challenge = String(input.payload?.enrollmentChallenge || "");
   const resolved = challenge
-    ? await deps.consumeEnrollment({ challenge, fingerprint, requestId: deps.randomUuid() })
+    ? await deps.consumeEnrollment({ challenge, fingerprint, requestId: deps.randomUuid(), expectedIdentityKey: verified.identityKey })
     : await deps.resolveBinding({ fingerprint });
   const employeeId = String(resolved?.employeeId || "");
   const access = resolved?.access || {};
-  if (!employeeId || access.employeeId !== employeeId || access.scope?.mode !== "all"
-    || access.scope?.storeIds?.length !== 20 || access.roleKeys?.length !== 1 || access.roleKeys[0] !== "executive") {
+  if (!employeeId || access.employeeId !== employeeId || access.scope?.mode !== verified.expectedScopeMode
+    || access.scope?.storeIds?.length !== verified.expectedStoreCount || access.roleKeys?.length !== 1
+    || access.roleKeys[0] !== verified.expectedRole) {
     fail(403, "AUTH01_CONVERGENCE_DENIED", "AUTH-01 convergence failed.");
   }
   const now = Math.floor(deps.now() / 1000);

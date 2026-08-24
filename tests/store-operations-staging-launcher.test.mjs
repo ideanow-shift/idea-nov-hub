@@ -20,11 +20,14 @@ test("Production Portal contains no Store Operations Staging launcher dependency
   ]) assert.equal(production.includes(forbidden), false, forbidden);
 });
 
-test("isolated Staging launcher uses Google redirect bridge and issues only a HUB-session handoff", async () => {
+test("isolated Staging launcher uses Google popup bridge and issues only a HUB-session handoff", async () => {
   const app = await read("deploy/nov-hub-staging-ui/app.js");
+  const auth = await read("deploy/nov-hub-staging-ui/auth-staging.js");
   const api = await read("deploy/nov-hub-staging-ui/api-client.js");
   const html = await read("deploy/nov-hub-staging-ui/index.html");
-  assert.match(app, /beginGoogleRedirect/);
+  assert.match(app, /beginGoogleLogin/);
+  assert.match(auth, /signInWithPopup/);
+  assert.doesNotMatch(auth, /signInWithRedirect/);
   assert.match(api, /novHubStagingAuth01SubjectBridgeV1/);
   assert.match(api, /Authorization.*Bearer/su);
   assert.match(api, /storeOperationsHandoffIssueV1/);

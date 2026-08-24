@@ -21,10 +21,12 @@ function provider(sdk) {
   return value;
 }
 
-export async function beginGoogleRedirect() {
+export async function beginGoogleLogin() {
   if (!isFirebaseConfigured()) throw new Error("Firebase設定が未完了です。");
   const sdk = await loadFirebase();
-  await sdk.signInWithRedirect(firebaseAuth, provider(sdk));
+  const result = await sdk.signInWithPopup(firebaseAuth, provider(sdk));
+  if (!result?.user) throw new Error("Googleログインを確認できませんでした。");
+  return result.user.getIdToken(true);
 }
 
 export async function completeGoogleRedirect() {

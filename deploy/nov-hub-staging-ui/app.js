@@ -1,4 +1,4 @@
-import { beginGoogleRedirect, completeGoogleRedirect, signOutUser } from "./auth-staging.js";
+import { beginGoogleLogin, completeGoogleRedirect, signOutUser } from "./auth-staging.js";
 import { bridgeWithFirebase, issueStoreOperationsHandoff } from "./api-client.js";
 
 const STORE_OPERATIONS_ORIGIN = "https://idea-nov-store-operations-staging-ui-787968950888.asia-northeast1.run.app";
@@ -58,8 +58,10 @@ async function launchStoreOperations() {
 
 document.querySelector("#google-login").addEventListener("click", async () => {
   try {
-    setStatus("Googleログインへ移動します。");
-    await beginGoogleRedirect();
+    setStatus("Googleログインを確認しています。");
+    const token = await beginGoogleLogin();
+    setStatus("社員情報を確認しています。");
+    acceptBootstrap(await bridgeWithFirebase(token, enrollmentChallenge));
   } catch (error) {
     await signOutUser().catch(() => {});
     setStatus(error.message || "ログインできませんでした。");
@@ -75,13 +77,15 @@ document.querySelector("#logout").addEventListener("click", async () => {
   setStatus("ログアウトしました。");
 });
 
-if (!launchRequest()) {
+const request = launchRequest();
+const enrollmentChallenge = request ? takeEnrollmentChallenge() : "";
+
+if (!request) {
   for (const control of document.querySelectorAll("button,input")) control.disabled = true;
   setStatus("Store Operationsの正式起動導線から開いてください。");
 }
 
-if (launchRequest()) {
-  const enrollmentChallenge = takeEnrollmentChallenge();
+if (request) {
   completeGoogleRedirect().then(async (token) => {
     if (!token) return;
     setStatus("社員情報を確認しています。");

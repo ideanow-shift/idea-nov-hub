@@ -4,6 +4,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { runInNewContext } from "node:vm";
 
 const exec = promisify(execFile);
 const root = resolve(import.meta.dirname, "..");
@@ -47,7 +48,7 @@ test("launcher transports only opaque code and state in the callback fragment", 
 
 test("launcher build rejects Production project references", async () => {
   await exec(process.execPath, ["build.mjs"], { cwd: resolve(root, "deploy/nov-hub-staging-ui") });
-  const files = ["index.html", "app.js", "api-client.js", "firebase-config.js", "auth-staging.js"];
+  const files = ["index.html", "enrollment-bootstrap.js", "app.js", "api-client.js", "firebase-config.js", "auth-staging.js"];
   for (const file of files) {
     const source = await read(`deploy/nov-hub-staging-ui/dist/${file}`);
     assert.equal(source.includes("nkmxevmioczcmnldreyo"), false, file);
@@ -55,10 +56,28 @@ test("launcher build rejects Production project references", async () => {
 });
 
 test("enrollment fragment is removed before the challenge is used and never persisted", async () => {
+  const html=await read("deploy/nov-hub-staging-ui/index.html");
+  const bootstrap=await read("deploy/nov-hub-staging-ui/enrollment-bootstrap.js");
   const app=await read("deploy/nov-hub-staging-ui/app.js");
-  assert.match(app,/history\.replaceState/);
-  assert.match(app,/fragment\.get\("enrollment"\)/);
-  assert.doesNotMatch(app,/localStorage|sessionStorage|console\./u);
+  assert.ok(html.indexOf("enrollment-bootstrap.js")<html.indexOf('type="module" src="./app.js"'));
+  assert.match(bootstrap,/history\.replaceState/);
+  assert.match(bootstrap,/fragment\.get\("enrollment"\)/);
+  assert.match(app,/delete globalThis\.__NOV_HUB_STAGING_ENROLLMENT__/);
+  assert.doesNotMatch(`${bootstrap}\n${app}`,/localStorage|sessionStorage|console\./u);
+});
+
+test("synchronous enrollment bootstrap scrubs the URL before module initialization", async () => {
+  const bootstrap=await read("deploy/nov-hub-staging-ui/enrollment-bootstrap.js");
+  const challenge="a".repeat(43);
+  let replacement="";
+  const context={
+    URLSearchParams,
+    location:{hash:`#enrollment=${challenge}`,pathname:"/",search:"?store_operations_state=state"},
+    history:{replaceState(_state,_title,url){replacement=url;}}
+  };
+  runInNewContext(bootstrap,context);
+  assert.equal(replacement,"/?store_operations_state=state");
+  assert.equal(context.__NOV_HUB_STAGING_ENROLLMENT__,challenge);
 });
 
 test("launcher server is static, no-store, framed off and has a readiness endpoint", async () => {

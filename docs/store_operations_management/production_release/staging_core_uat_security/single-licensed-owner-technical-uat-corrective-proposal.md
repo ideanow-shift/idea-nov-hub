@@ -101,4 +101,3 @@ explicitly approves this exact contract. Approval must confirm:
 3. Staging-only append-only assumption/audit storage is allowed.
 4. Maximum assumption lifetime is 15 minutes and sequential revoke is mandatory.
 5. Production remains fail-closed with zero change.
-

@@ -180,7 +180,11 @@ jobs:
       - name: Activate approved Store Operations production config
         if: ${{ inputs.store_operations_release_approved == true }}
         shell: bash
-        run: cp portal/store-sales/runtime-config.production.js portal/store-sales/runtime-config.js
+        run: |
+          cp portal/store-sales/runtime-config.production.js portal/store-sales/runtime-config.js
+          rm -f portal/store-sales/staging.html
+          rm -f portal/store-sales/staging-config.js
+          rm -f portal/store-sales/staging-session-bootstrap.js
 
       - name: Upload portal
         uses: actions/upload-pages-artifact@v3

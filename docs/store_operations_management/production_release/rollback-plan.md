@@ -1,11 +1,23 @@
 # Production Rollback Plan
 
-Rollback preserves all Canonical Facts. No business row may be deleted or rewritten.
+## Triggers
 
-- Database: capture any pre-existing function definition before release. These three RPCs are currently absent, so rollback is `REVOKE EXECUTE` followed by dropping only the exact newly introduced signatures. Foundation tables remain in place and inaccessible; table/data deletion is prohibited.
-- API: redeploy the captured `nov-hub-api v126` source/hash. Verify Store Operations actions fail closed after rollback.
-- Frontend: redeploy the captured previous Pages artifact or commit. The prior `runtime-config.js` remains Preview and Production-blocked.
-- NOV HUB launch: keep the existing card and route. If the consumer is unavailable, use the existing unavailable/permission state; do not create a replacement route.
-- Trigger: authorization/scope leakage, raw UUID response, synthetic Production data, missing-to-zero conversion, write activity, incorrect target, or unrecoverable hosted failure.
+Login failure, repeated 5xx, store-count mismatch, role/scope leakage, unauthorized visibility, AUTH-01 resolution failure, migration inconsistency, Edge health failure, raw token/UUID exposure, synthetic data or any unexpected write.
 
-Database object removal occurs only after API and frontend rollback, and only with separate Owner approval. Facts are never a rollback target.
+## Frozen rollback point
+
+- Current API: `nov-hub-api v127` / `3d7f46c34c6a2d11318bed859973127fdb2047f53f7b0f8de37ea3df341ccf69`.
+- Capture the active Pages deployment ID and Production catalog immediately before release.
+
+## Order
+
+1. Set the separately approved server rollout gate to `DISABLED` and verify all Store Operations access is denied.
+2. Restore the captured frontend artifact.
+3. Restore API v127 and verify fail-close.
+4. Revoke execute on the three new read RPCs.
+5. If separately approved, drop only the exact three RPC signatures.
+6. Preserve foundation tables and Canonical Facts; never delete or rewrite business rows.
+7. Read back access denial, API version, Pages source, ACLs and zero writes.
+8. Preserve incident evidence without secrets, raw tokens or personal data.
+
+Config, Secret, IAM and database changes each require explicit Owner approval. No automatic fail-open rollback is allowed.

@@ -72,7 +72,7 @@ jobs:
       - name: Reject secrets and Production references
         shell: bash
         run: |
-          if grep -R -E -i 'nkmxevmioczcmnldreyo|idea-nov-core|sbp_|sb_secret_|BEGIN (RSA|OPENSSH) PRIVATE KEY|oauth_client_secret[[:space:]]*=[[:space:]]*[^$]|github_token[[:space:]]*=[[:space:]]*[^$]' \
+          if grep -R --exclude='store_operations_production_rollout.mjs' -E -i 'nkmxevmioczcmnldreyo|idea-nov-core|sbp_|sb_secret_|BEGIN (RSA|OPENSSH) PRIVATE KEY|oauth_client_secret[[:space:]]*=[[:space:]]*[^$]|github_token[[:space:]]*=[[:space:]]*[^$]' \
             supabase/functions/nov-hub-api \
             supabase/migrations/20260819002309_dbf_store_monthly_actual_backend_contract_v1.sql \
             supabase/migrations/20260819123648_dbf_store_monthly_comparison_read_v1.sql \

@@ -1,6 +1,6 @@
 # Controlled UAT Test Principals V1 Release Manifest
 
-Status: **SOURCE COMPLETE / WAITING_FOR_UAT_GOOGLE_ACCOUNTS / NO DEPLOY**
+Status: **SUPERSEDED BY NO-ADDITIONAL-LICENSE CORRECTIVE / OWNER APPROVAL REQUIRED / NO FURTHER DEPLOY**
 
 - Approval: `approval:OWNER-STORE-OPS-UAT-TEST-PRINCIPALS-2026-08-25-V1`
 - Portfolio Lock: `CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-22-V4`
@@ -48,6 +48,9 @@ remain zero.
 
 ## Current hold
 
-The repository cannot prove Google/Firebase account existence or subject uniqueness without a real Google login.
-Until that read-back succeeds, the release state is `WAITING_FOR_UAT_GOOGLE_ACCOUNTS`; no Staging migration,
-Edge deploy, enrollment, external binding or Hosted UAT may be performed.
+The two proposed independent UAT Google Workspace users are not available without additional paid licenses.
+Do not create or enroll them. The replacement proposal is
+`single-licensed-owner-technical-uat-corrective-proposal.md`, which uses the existing licensed Wakita Google
+identity with sequential, explicit, Staging-only technical assumption. No implementation, further Migration,
+assumption issuance, external binding, or Hosted UAT may be performed until that replacement contract receives
+explicit Owner approval.

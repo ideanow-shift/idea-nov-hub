@@ -40,10 +40,10 @@ test("v2 issue and atomic consume validate principal role scope and expected sto
   assert.match(migration,/grant execute on function public\.store_operations_external_enrollment_consume_v2[\s\S]*to service_role/);
 });
 
-test("rollback removes v2 and restores V1 constraints and service-only grants",()=>{
+test("rollback removes v2, preserves append-only audit compatibility and restores V1 service grants",()=>{
   assert.match(rollback,/drop function public\.store_operations_external_enrollment_consume_v2/);
   assert.match(rollback,/drop function public\.store_operations_external_enrollment_issue_v2/);
-  assert.match(rollback,/check \(identity_key='uat-executive'\)/);
-  assert.match(rollback,/OWNER-STORE-OPS-UAT-WAKITA-FIREBASE-BINDING-2026-08-24-V1/);
+  assert.doesNotMatch(rollback,/delete from|update\s+store_operations_uat_private/i);
+  assert.match(rollback,/append-only UAT audit rows stay valid/);
   assert.match(rollback,/grant execute on function public\.store_operations_external_enrollment_consume_v1[\s\S]*to service_role/);
 });

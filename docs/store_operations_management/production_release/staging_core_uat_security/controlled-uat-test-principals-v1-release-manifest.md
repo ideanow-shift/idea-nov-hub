@@ -35,6 +35,8 @@ employee identities of Toda or Masumoto.
 - ACL: v2 RPCs are `service_role` only; `anon` and `authenticated` execute remain denied
 - Binding lifetime: at most 14 days
 - Binding history: append-only grant/revoke; UPDATE/DELETE prohibited
+- Rollback behavior: revoke/drop v2 RPCs and restore v1 service-only execution; expanded CHECK domains remain so
+  append-only audit rows are never deleted or rewritten
 
 ## Release gates
 

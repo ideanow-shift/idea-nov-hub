@@ -55,29 +55,37 @@ test("launcher build rejects Production project references", async () => {
   }
 });
 
-test("enrollment fragment is removed before the challenge is used and never persisted", async () => {
+test("enrollment fragment is scrubbed and held only in session storage across Google redirect", async () => {
   const html=await read("deploy/nov-hub-staging-ui/index.html");
   const bootstrap=await read("deploy/nov-hub-staging-ui/enrollment-bootstrap.js");
   const app=await read("deploy/nov-hub-staging-ui/app.js");
   assert.ok(html.indexOf("enrollment-bootstrap.js")<html.indexOf('type="module" src="./app.js"'));
   assert.match(bootstrap,/history\.replaceState/);
   assert.match(bootstrap,/fragment\.get\("enrollment"\)/);
+  assert.match(bootstrap,/sessionStorage\.setItem/);
   assert.match(app,/delete globalThis\.__NOV_HUB_STAGING_ENROLLMENT__/);
-  assert.doesNotMatch(`${bootstrap}\n${app}`,/localStorage|sessionStorage|console\./u);
+  assert.match(app,/sessionStorage\.removeItem/);
+  assert.doesNotMatch(`${bootstrap}\n${app}`,/localStorage|console\./u);
 });
 
 test("synchronous enrollment bootstrap scrubs the URL before module initialization", async () => {
   const bootstrap=await read("deploy/nov-hub-staging-ui/enrollment-bootstrap.js");
   const challenge="a".repeat(43);
   let replacement="";
+  const values=new Map();
   const context={
     URLSearchParams,
     location:{hash:`#enrollment=${challenge}`,pathname:"/",search:"?store_operations_state=state"},
-    history:{replaceState(_state,_title,url){replacement=url;}}
+    history:{replaceState(_state,_title,url){replacement=url;}},
+    sessionStorage:{
+      getItem(key){return values.get(key)??null;},
+      setItem(key,value){values.set(key,value);}
+    }
   };
   runInNewContext(bootstrap,context);
   assert.equal(replacement,"/?store_operations_state=state");
   assert.equal(context.__NOV_HUB_STAGING_ENROLLMENT__,challenge);
+  assert.equal(values.get("ideaNov.storeOperations.technicalAssumptionChallenge"),challenge);
 });
 
 test("launcher server is static, no-store, framed off and has a readiness endpoint", async () => {

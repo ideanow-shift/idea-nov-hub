@@ -32,6 +32,13 @@ import {
   saveIdeaLinkActivityFollowup,
 } from "./organization_health_monitoring_candidate.ts";
 import { createHash } from "node:crypto";
+// @ts-ignore Production rollout policy is isolated and covered by Node contract tests.
+import {
+  evaluateStoreOperationsProductionRollout,
+  hasStoreOperationsUatMarker,
+  projectRefFromSupabaseUrl,
+  STORE_OPERATIONS_PRODUCTION_PROJECT_REF,
+} from "./store_operations_production_rollout.mjs";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -49,6 +56,8 @@ const STORE_OPERATIONS_HANDOFF_EXCHANGE_SECRET = Deno.env.get("STORE_OPERATIONS_
 const STORE_OPERATIONS_HANDOFF_AUTHORIZED_SERVICE_ACCOUNT = Deno.env.get("STORE_OPERATIONS_HANDOFF_AUTHORIZED_SERVICE_ACCOUNT") || "";
 const STORE_OPERATIONS_HANDOFF_AUTHORIZED_SUBJECT = Deno.env.get("STORE_OPERATIONS_HANDOFF_AUTHORIZED_SUBJECT") || "";
 const NOV_HUB_STAGING_EXTERNAL_SUBJECT_HMAC_SECRET = Deno.env.get("NOV_HUB_STAGING_EXTERNAL_SUBJECT_HMAC_SECRET") || "";
+const STORE_OPERATIONS_PRODUCTION_ROLLOUT_STATE = Deno.env.get("STORE_OPERATIONS_PRODUCTION_ROLLOUT_STATE") || "";
+const STORE_OPERATIONS_OWNER_PILOT_EMPLOYEE_ID = Deno.env.get("STORE_OPERATIONS_OWNER_PILOT_EMPLOYEE_ID") || "";
 const STORE_OPERATIONS_HANDOFF_OIDC_AUDIENCE = "https://zgkoofphhivesclehrom.supabase.co/functions/v1/nov-hub-api";
 const HUB_SESSION_AUDIENCE = "nov_hub";
 const DBF_STAGING_SESSION_AUDIENCE = "dbf_staging_session_v1";
@@ -417,6 +426,13 @@ const MANAGEMENT_READ_ONLY_ACTIONS = new Set<string>([
   "managementBusinessDataCapability",
 ]);
 
+const STORE_OPERATIONS_STAGING_ONLY_ACTIONS = new Set([
+  "novHubStagingAuth01SubjectBridgeV1",
+  "storeOperationsHandoffIssueV1",
+  "storeOperationsHandoffExchangeV1",
+  "storeOperationsSessionStatusV1",
+]);
+
 function isManagementReadOnlyAction(action: string): action is ManagementAction {
   return MANAGEMENT_READ_ONLY_ACTIONS.has(action);
 }
@@ -476,6 +492,11 @@ async function handleManagementFromDeployedBaseline(
       : "hub_session";
   const storeOperationsSession = requestedAuthType === "store_operations_staging_session"
     && action === "storeMonthlyActualProjectionV1";
+  const storeOperationsProductionRequest = action === "storeMonthlyActualProjectionV1"
+    && projectRefFromSupabaseUrl(SUPABASE_URL) === STORE_OPERATIONS_PRODUCTION_PROJECT_REF;
+  if (storeOperationsProductionRequest && (requestedAuthType !== "hub_session" || hasStoreOperationsUatMarker(payload))) {
+    throw new PortalError("PRODUCTION_UAT_SESSION_DENIED", "Production Store Operations requires a formal NOV HUB session.", 403);
+  }
   const deps: ManagementDependencies = {
     async verifyHubSession(inputToken) {
       const authUser = await authenticate(inputToken, { ...payload, authType: requestedAuthType }, action);
@@ -490,6 +511,18 @@ async function handleManagementFromDeployedBaseline(
       }
       if (!verifiedHubAuth) return null;
       const employee = await findEmployeeForAuth(verifiedHubAuth);
+      if (storeOperationsProductionRequest) {
+        const rollout = evaluateStoreOperationsProductionRollout({
+          projectRef: projectRefFromSupabaseUrl(SUPABASE_URL),
+          state: STORE_OPERATIONS_PRODUCTION_ROLLOUT_STATE,
+          employeeId: String(employee?.id || ""),
+          ownerEmployeeId: STORE_OPERATIONS_OWNER_PILOT_EMPLOYEE_ID,
+          session: verifiedHubAuth,
+        });
+        if (!rollout.allowed) {
+          throw new PortalError(rollout.code, "Production Store Operations access is not enabled for this session.", 403);
+        }
+      }
       return employee?.id ? { id: String(employee.id) } : null;
     },
     resolveCanonicalAccess: storeOperationsSession
@@ -6104,6 +6137,10 @@ Deno.serve(async (request) => {
     if (routedPathname !== EDGE_FUNCTION_PATH) return fixedNotFoundResponse();
     const { action, token, payload } = await parseRequest(request);
     if (!action) return fixedNotFoundResponse();
+    if (projectRefFromSupabaseUrl(SUPABASE_URL) === STORE_OPERATIONS_PRODUCTION_PROJECT_REF
+      && (STORE_OPERATIONS_STAGING_ONLY_ACTIONS.has(action) || hasStoreOperationsUatMarker(payload))) {
+      throw new PortalError("PRODUCTION_UAT_RUNTIME_DENIED", "Staging and UAT runtime is unavailable in Production.", 404);
+    }
     if (action === HUB_HR_AUTHORIZED_DISPLAY_ACTION) {
       return handleHubHrAuthorizedDisplayReadDisabled(payload);
     }

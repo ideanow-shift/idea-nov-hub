@@ -1,16 +1,32 @@
-# Hosted Smoke Plan
+# Production Hosted Smoke Plan
 
-Use existing Production identities selected by the Owner. Do not create, modify or reveal identities in evidence.
+Execute only after Production release approval.
 
-1. NOV HUB card opens Store Operations without a second login.
-2. Executive sees exactly 20 active operating stores: 13 direct and 7 FC.
-3. Area Manager sees only active, in-term `employee_store_assignments` stores.
-4. Store Manager sees only the own store.
-5. Requests attempting role, employee, store UUID or `scopeMode=all` expansion are rejected.
-6. Missing facts and missing fiscal-year definitions render `準備中`; no missing value becomes zero.
-7. Synthetic/fixture values and fake priority actions are absent.
-8. Browser payloads contain no raw store UUID.
-9. Store Operations write count remains zero and Production Business Data write count remains zero.
-10. Console error/warning count is zero and Dashboard, Store List and Store Detail remain usable with partial data.
+## Deployment identity
 
-Candidate inventory can be selected without exposing personal data: Production currently has eligible Executive, Area Manager and Store Manager accounts, including active Area Manager assignments. Owner selects the actual accounts; this package changes no role.
+- Migration ledger and four checksums match.
+- Edge version/source SHA and Pages source SHA match the approval.
+- Runtime project ref is `nkmxevmioczcmnldreyo`; Staging endpoint references are zero.
+
+## Security
+
+- Unauthenticated request is denied.
+- Invalid/expired NOV HUB session is denied.
+- Browser role, scope, employee and store assertions are non-authoritative.
+- Private RPC browser execution is denied.
+- UAT/staging session markers and staging-only actions are denied.
+- Raw tokens, raw Store UUIDs and secrets are absent from public responses/log evidence.
+
+## Rollout
+
+- Missing, unknown and `DISABLED` rollout states deny.
+- `OWNER_PILOT` denies every employee except the one server-configured canonical Owner ID.
+- Owner sees exactly 20 official stores and unauthorized stores zero.
+- `GENERAL` is not enabled during Owner Pilot.
+
+## Data/UI
+
+- ACTUAL and COMPARISON contracts respond through the formal read path.
+- Missing metrics/Budget display `準備中`, never zero or synthetic.
+- Dashboard, Store List and Store Detail remain usable with partial data.
+- Store Operations business write, DBF write and Production business write remain zero.

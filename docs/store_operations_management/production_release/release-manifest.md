@@ -1,26 +1,48 @@
 # Store Operations V1 Production Release Manifest
 
-Status: release package only; no Production operation is authorized by this document.
+Status: `PRODUCTION_READINESS_CORRECTIVE / NO DEPLOY`
 
 | Field | Frozen value |
 |---|---|
-| Portfolio lock | `CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-18-V2` |
-| Source main SHA | `9ee960946896f79372c170880ba15520a0b55c36` |
+| Portfolio Lock | `CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-22-V4` |
+| Current Phase | `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1` |
+| Source main SHA | `237ff704aef71f28ad79972d4e4724a4229729c6` |
 | Production project | `idea-nov-core` / `nkmxevmioczcmnldreyo` |
-| Current API | `nov-hub-api v126` |
-| Target API source tree SHA | `6868342e45c2b63830c86867fb50caedd0366a0c` from source main |
-| Frontend target | GitHub Pages `portal`, with `runtime-config.production.js` activated only by the approved workflow input |
-| NOV HUB launch | Already deployed; reuse `store-sales-management` and `./store-sales/index.html` |
+| Production current API | `nov-hub-api v127` |
+| API rollback SHA | `3d7f46c34c6a2d11318bed859973127fdb2047f53f7b0f8de37ea3df341ccf69` |
+| Target API tree | `282c408c834c37a5ff130e8d9e30a07f319a8ae8` plus this corrective PR |
+| Target frontend tree | `14a5c872ef845b26d9fc61d7a039a545df3ee0f7` plus this corrective PR |
+| Technical UAT | `COMPLETE` |
+| Real User UAT | `DEFERRED` |
+| UAT runtime | `PRODUCTION EXCLUDED` |
+| Production GA | `BLOCKED` |
 | Business Data write | 0 |
 | Data copy | 0 |
-| Approval | Owner approval and exact main SHA are mandatory |
 
-## Required release units
+## Release units
 
-1. Database: four migrations listed in `database-preflight.md`, in the frozen order.
-2. API: deploy `nov-hub-api` only after DB verification succeeds.
-3. Frontend: invoke the existing Pages workflow with both approval booleans and the exact approved main SHA.
-4. Launch: no new registration; read back the existing card, route and role visibility.
-5. Hosted smoke: execute `hosted-smoke-plan.md`; rollback immediately on a blocking failure.
+1. Apply only the four checksum-frozen migrations in `database-preflight.md` after separate Owner approval.
+2. Deploy `nov-hub-api` from the approved release SHA only after DB and Secret/IAM preflight.
+3. Configure server-only `STORE_OPERATIONS_PRODUCTION_ROLLOUT_STATE=DISABLED` before deploy. Missing or unknown configuration denies access.
+4. Configure `STORE_OPERATIONS_OWNER_PILOT_EMPLOYEE_ID` only for a separately approved `OWNER_PILOT`; it must be one canonical employee UUID, never an email.
+5. Publish `portal/store-sales` through the exact-SHA Pages workflow; Staging entry assets are removed before upload.
+6. Use the existing `store-sales-management` card and route; no duplicate app registration.
 
-Staging facts, including the 鷺ノ宮店 pilot, must never be copied. Production facts enter only through the Production DBF Single Ingestion Entry after separate Owner action.
+## Required API secret/config names
+
+- Default platform environment: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (or separately approved migration to `SUPABASE_SECRET_KEYS`).
+- Existing NOV HUB contract: `HUB_APP_SESSION_SIGNING_SECRET`.
+- Rollout: `STORE_OPERATIONS_PRODUCTION_ROLLOUT_STATE`.
+- Owner pilot only: `STORE_OPERATIONS_OWNER_PILOT_EMPLOYEE_ID`.
+
+Secret values are never committed, displayed or supplied by the browser.
+
+Read-only secret-name inventory confirms `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_SECRET_KEYS`, `FIREBASE_API_KEY` and `HUB_APP_SESSION_SIGNING_SECRET` exist. Both rollout settings are absent and therefore require `NEEDS_OWNER_APPROVED_CONFIGURATION`. Supabase Edge is the API runtime; Production Cloud Run is not required for Store Operations.
+
+## Production exclusion
+
+UAT principals, technical assumption, UAT enrollment/external binding/audit, Staging launcher, Staging Firebase bridge, Staging secrets and Staging project fallbacks are not Production authorities. Production runtime rejects Staging/UAT sessions and routes before Store Operations authorization.
+
+## Current gate
+
+The rollout code is promotion-ready. Production remains blocked until the four DB migrations, exact Secret/IAM bindings, formal AUTH-01/M019 identity/role/assignment population and separate Owner release approval are read back successfully.

@@ -1,0 +1,82 @@
+name: Store Operations Production Readiness
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/store-operations-production-readiness.yml"
+      - ".github/workflows/deploy-pages.yml"
+      - "portal/store-sales/**"
+      - "supabase/functions/nov-hub-api/**"
+      - "supabase/migrations/20260814140109_dbf_business_data_phase1_foundation.sql"
+      - "supabase/migrations/20260814204346_dbf_business_data_phase1_service_role_acl_corrective.sql"
+      - "supabase/migrations/20260819002309_dbf_store_monthly_actual_backend_contract_v1.sql"
+      - "supabase/migrations/20260819123648_dbf_store_monthly_comparison_read_v1.sql"
+      - "tests/store-operations-production-*.test.mjs"
+      - "tests/store-operations-production-readiness-rollback.sql"
+      - "docs/store_operations_management/production_release/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-contract:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6-bookworm
+        env:
+          POSTGRES_DB: store_operations_release
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d store_operations_release"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGDATABASE: store_operations_release
+      PGHOST: 127.0.0.1
+      PGPASSWORD: postgres
+      PGPORT: 5432
+      PGUSER: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Production rollout, API and scope contracts
+        run: |
+          node --test tests/store-operations-production-rollout.test.mjs tests/store-operations-production-release-package.test.mjs
+          node --test tests/dbf-store-monthly-actual-backend-contract.test.mjs tests/dbf-store-monthly-comparison-contract.test.mjs
+          deno test --allow-env tests/dbf-store-monthly-actual-backend-edge.test.ts
+          deno check supabase/functions/nov-hub-api/index.ts
+      - name: Apply the frozen PostgreSQL 17 release chain
+        run: |
+          psql --set=ON_ERROR_STOP=1 --command "create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;"
+          psql --set=ON_ERROR_STOP=1 --command "create schema extensions; create extension pgcrypto with schema extensions;"
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814140109_dbf_business_data_phase1_foundation.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814204346_dbf_business_data_phase1_service_role_acl_corrective.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260819002309_dbf_store_monthly_actual_backend_contract_v1.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260819123648_dbf_store_monthly_comparison_read_v1.sql
+          psql --set=ON_ERROR_STOP=1 --file tests/dbf-store-monthly-actual-backend-postgres17.sql
+          psql --set=ON_ERROR_STOP=1 --file tests/store-operations-production-readiness-rollback.sql
+      - name: Production configuration and UAT exclusion
+        shell: bash
+        run: |
+          grep -q 'expectedProjectRef: "nkmxevmioczcmnldreyo"' portal/store-sales/runtime-config.production.js
+          grep -q 'STORE_MONTHLY_ACTUAL_V1' portal/store-sales/runtime-config.production.js
+          ! grep -Ei 'zgkoofphhivesclehrom|staging|uat-|technical.assumption|mock|synthetic' portal/store-sales/runtime-config.production.js
+          ! grep -R -E 'sb_secret_|SUPABASE_SERVICE_ROLE_KEY=.+|BEGIN (RSA|OPENSSH) PRIVATE KEY' portal/store-sales supabase/functions/nov-hub-api
+          grep -q 'STORE_OPERATIONS_STAGING_ONLY_ACTIONS.has(action)' supabase/functions/nov-hub-api/index.ts
+          grep -q 'PRODUCTION_UAT_RUNTIME_DENIED' supabase/functions/nov-hub-api/index.ts
+      - name: Patch quality
+        shell: bash
+        run: git diff --check origin/main...HEAD

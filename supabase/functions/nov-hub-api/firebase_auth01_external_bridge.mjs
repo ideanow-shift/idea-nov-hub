@@ -1,10 +1,12 @@
 export const FIREBASE_AUTH01_BRIDGE = Object.freeze({
-  contract: "NOV_HUB_STAGING_FIREBASE_AUTH01_BRIDGE_V1",
+  contract: "SINGLE_LICENSED_OWNER_TECHNICAL_UAT_V1",
   bindingContract: "NOV_HUB_STAGING_EXTERNAL_SUBJECT_BINDING_V1",
   projectId: "idea-nov-group-portal",
   issuer: "https://securetoken.google.com/idea-nov-group-portal",
   provider: "google.com",
-  ownerEmail: "m.wakita@idea-nov.com",
+  principals: Object.freeze({
+    "m.wakita@idea-nov.com": Object.freeze({ identityKey: "uat-executive", roleKey: "executive", scopeMode: "all", storeCount: 20 }),
+  }),
   maxSessionSeconds: 15 * 60,
   fingerprintKeyVersion: 1,
 });
@@ -39,13 +41,16 @@ export async function verifyFirebaseBridgeToken(token, deps) {
   if (!Number.isFinite(claims.auth_time) || claims.auth_time > now + 30) fail(401, "TOKEN_AUTH_TIME_INVALID", "Firebase auth time is invalid.");
   if (claims.firebase?.sign_in_provider !== FIREBASE_AUTH01_BRIDGE.provider) fail(403, "FIREBASE_PROVIDER_DENIED", "Google sign-in is required.");
   if (claims.email_verified !== true) fail(403, "FIREBASE_EMAIL_UNVERIFIED", "Verified Google email is required.");
-  if (String(claims.email || "").toLowerCase() !== FIREBASE_AUTH01_BRIDGE.ownerEmail) fail(403, "FIREBASE_ACCOUNT_DENIED", "The approved Google account is required.");
+  const email = String(claims.email || "").toLowerCase();
+  if (!Object.hasOwn(FIREBASE_AUTH01_BRIDGE.principals, email)) fail(403, "FIREBASE_ACCOUNT_DENIED", "The approved Google account is required.");
+  const principal = FIREBASE_AUTH01_BRIDGE.principals[email];
   const lookup = await deps.lookup(token);
   if (!lookup || lookup.disabled === true || lookup.localId !== claims.sub || lookup.emailVerified !== true
-    || String(lookup.email || "").toLowerCase() !== FIREBASE_AUTH01_BRIDGE.ownerEmail) {
+    || String(lookup.email || "").toLowerCase() !== email) {
     fail(401, "TOKEN_VERIFICATION_FAILED", "Firebase token lookup failed.");
   }
-  return { subject: claims.sub, expiresAt: claims.exp, issuedAt: claims.iat };
+  return { subject: claims.sub, expiresAt: claims.exp, issuedAt: claims.iat, identityKey: principal.identityKey,
+    expectedRole: principal.roleKey, expectedScopeMode: principal.scopeMode, expectedStoreCount: principal.storeCount };
 }
 
 export async function subjectFingerprint(verified, secret) {
@@ -58,7 +63,7 @@ export async function subjectFingerprint(verified, secret) {
 }
 
 export async function bridgeFirebaseAuth01(input, deps) {
-  const acceptedBrowserKeys = new Set(["enrollmentChallenge","employeeId","email","firebaseUid","authSubject","role","scope","storeId"]);
+  const acceptedBrowserKeys = new Set(["enrollmentChallenge"]);
   if (Object.keys(input.payload || {}).some((key) => !acceptedBrowserKeys.has(key))) {
     fail(400, "INVALID_REQUEST", "Bridge payload is invalid.");
   }
@@ -66,12 +71,25 @@ export async function bridgeFirebaseAuth01(input, deps) {
   const fingerprint = await subjectFingerprint(verified, deps.fingerprintSecret);
   const challenge = String(input.payload?.enrollmentChallenge || "");
   const resolved = challenge
-    ? await deps.consumeEnrollment({ challenge, fingerprint, requestId: deps.randomUuid() })
+    ? await deps.consumeTechnicalAssumption({ challenge, fingerprint, requestId: deps.randomUuid() })
     : await deps.resolveBinding({ fingerprint });
   const employeeId = String(resolved?.employeeId || "");
   const access = resolved?.access || {};
-  if (!employeeId || access.employeeId !== employeeId || access.scope?.mode !== "all"
-    || access.scope?.storeIds?.length !== 20 || access.roleKeys?.length !== 1 || access.roleKeys[0] !== "executive") {
+  const technicalScenario = String(resolved?.uatScenario || "");
+  if (technicalScenario && !new Set(["area_manager", "store_manager"]).has(technicalScenario)) {
+    fail(403, "AUTH01_CONVERGENCE_DENIED", "AUTH-01 convergence failed.");
+  }
+  const expected = technicalScenario === "area_manager"
+    ? { role: "area_manager", mode: "assigned", count: 1 }
+    : technicalScenario === "store_manager"
+      ? { role: "store_manager", mode: "own", count: 1 }
+      : { role: verified.expectedRole, mode: verified.expectedScopeMode, count: verified.expectedStoreCount };
+  if (!employeeId || access.employeeId !== employeeId || access.scope?.mode !== expected.mode
+    || access.scope?.storeIds?.length !== expected.count || access.roleKeys?.length !== 1
+    || access.roleKeys[0] !== expected.role) {
+    fail(403, "AUTH01_CONVERGENCE_DENIED", "AUTH-01 convergence failed.");
+  }
+  if (technicalScenario && !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(String(resolved?.assumptionKey || ""))) {
     fail(403, "AUTH01_CONVERGENCE_DENIED", "AUTH-01 convergence failed.");
   }
   const now = Math.floor(deps.now() / 1000);
@@ -81,7 +99,10 @@ export async function bridgeFirebaseAuth01(input, deps) {
     hubSession: {
       sessionToken: await deps.signSession({
         iss: "nov_hub_staging", aud: "nov_hub", sub: employeeId, sid: deps.randomUuid(),
-        auth_source: "firebase_auth01_external_binding_v1", bridge_contract: FIREBASE_AUTH01_BRIDGE.contract,
+        auth_source: technicalScenario ? "owner_controlled_technical_assumption" : "firebase_auth01_external_binding_v1",
+        bridge_contract: FIREBASE_AUTH01_BRIDGE.contract,
+        ...(technicalScenario ? { uat_actor: "owner_controlled_technical_principal", uat_scenario: technicalScenario,
+          uat_assumption_key: String(resolved.assumptionKey || "") } : {}),
         iat: now, exp: expiresAt,
       }),
       expiresAt: new Date(expiresAt * 1000).toISOString(),

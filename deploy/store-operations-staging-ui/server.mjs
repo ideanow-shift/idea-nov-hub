@@ -18,6 +18,7 @@ const targetOrigin="https://idea-nov-store-operations-staging-ui-787968950888.as
 const callbackPath="/auth/callback";
 const types={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".svg":"image/svg+xml"};
 const headers={"Content-Security-Policy":"default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'","Referrer-Policy":"no-referrer","X-Content-Type-Options":"nosniff","X-Frame-Options":"DENY","Permissions-Policy":"camera=(), microphone=(), geolocation=()","Cache-Control":"no-store"};
+const authStartRedirectScript=`(()=>{const value=document.querySelector('meta[name="nov-hub-launch"]')?.content||"";try{const padded=value.replace(/-/g,"+").replace(/_/g,"/").padEnd(Math.ceil(value.length/4)*4,"=");const target=atob(padded);if(!target.startsWith("https://"))throw new Error("INVALID_TARGET");location.replace(target+location.hash);}catch{document.body.textContent="NOV HUB Stagingを開けませんでした。";}})();\n`;
 const b64url=(value)=>Buffer.from(value).toString("base64url");
 const pkce=(value)=>createHash("sha256").update(value).digest("base64url");
 function json(res,status,body,extra={}){res.writeHead(status,{...headers,"Content-Type":"application/json; charset=utf-8",...extra});res.end(JSON.stringify(body));}
@@ -46,8 +47,10 @@ export function createStoreOperationsStagingServer(options={}){
       if(signingSecret.length<32||!hubLauncher.startsWith("https://"))return json(res,503,{ok:false,code:"HANDOFF_START_UNAVAILABLE"});
       const state=b64url(randomBytes(24));const verifier=b64url(randomBytes(32));const expiresAt=now()+120000;
       const launch=new URL(hubLauncher);launch.searchParams.set("store_operations_state",state);launch.searchParams.set("code_challenge",pkce(verifier));launch.searchParams.set("code_challenge_method","S256");launch.searchParams.set("callback_path",callbackPath);
-      res.writeHead(302,{...headers,Location:launch.toString(),"Set-Cookie":`${startCookie}=${encodeURIComponent(signStartState({state,verifier,expiresAt},signingSecret))}; Path=/; Max-Age=120; Secure; HttpOnly; SameSite=Lax`});return res.end();
+      const document=`<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="nov-hub-launch" content="${b64url(launch.toString())}"><title>店舗営業管理 | Staging接続</title></head><body><p>NOV HUB Stagingへ接続しています。</p><script src="/auth-start.js"></script></body></html>\n`;
+      res.writeHead(200,{...headers,"Content-Type":"text/html; charset=utf-8","Set-Cookie":`${startCookie}=${encodeURIComponent(signStartState({state,verifier,expiresAt},signingSecret))}; Path=/; Max-Age=120; Secure; HttpOnly; SameSite=Lax`});return res.end(document);
     }
+    if(pathname==="/auth-start.js"&&req.method==="GET"){res.writeHead(200,{...headers,"Content-Type":"text/javascript; charset=utf-8"});return res.end(authStartRedirectScript);}
     if(pathname==="/session/handoff/exchange"){
       if(req.method!=="POST")return json(res,405,{ok:false,code:"METHOD_NOT_ALLOWED"});
       if(boundarySecret.length<32||signingSecret.length<32)return json(res,503,{ok:false,code:"EXCHANGE_BOUNDARY_UNAVAILABLE"});

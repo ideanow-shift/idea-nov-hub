@@ -1,0 +1,54 @@
+\set ON_ERROR_STOP on
+set role service_role;
+
+select public.store_operations_technical_assumption_issue_v1(
+  repeat('4',64),'area_manager',statement_timestamp()+interval '5 minutes'
+);
+create temporary table area_assumption as
+select public.store_operations_technical_assumption_consume_v1(
+  repeat('4',64),'google.com','https://securetoken.google.com/idea-nov-group-portal',
+  'idea-nov-group-portal',repeat('5',64),1,gen_random_uuid()
+) result;
+
+do $$declare result jsonb; assumption uuid; employee uuid;
+begin
+  select a.result into result from area_assumption a;
+  assumption:=(result->>'assumptionKey')::uuid;
+  employee:=(result->>'employeeId')::uuid;
+  if result->>'uatScenario'<>'area_manager'
+    or result#>>'{access,scope,mode}'<>'assigned'
+    or jsonb_array_length(result#>'{access,scope,storeIds}')<>1
+  then raise exception 'AREA_SCOPE_INVALID'; end if;
+  if not (public.store_operations_technical_assumption_validate_v1(
+    assumption,employee,'area_manager',statement_timestamp()
+  )->>'active')::boolean then raise exception 'ASSUMPTION_NOT_ACTIVE'; end if;
+  begin
+    perform public.store_operations_technical_assumption_issue_v1(
+      repeat('6',64),'store_manager',statement_timestamp()+interval '5 minutes');
+    perform public.store_operations_technical_assumption_consume_v1(
+      repeat('6',64),'google.com','https://securetoken.google.com/idea-nov-group-portal',
+      'idea-nov-group-portal',repeat('5',64),1,gen_random_uuid());
+    raise exception 'OVERLAP_ACCEPTED';
+  exception when others then if sqlerrm='OVERLAP_ACCEPTED' then raise; end if; end;
+  perform public.store_operations_technical_assumption_revoke_v1(assumption,'Hosted smoke completed');
+  if (public.store_operations_technical_assumption_validate_v1(
+    assumption,employee,'area_manager',statement_timestamp()
+  )->>'active')::boolean then raise exception 'REVOKE_FAILED'; end if;
+  begin
+    perform public.store_operations_technical_assumption_consume_v1(
+      repeat('4',64),'google.com','https://securetoken.google.com/idea-nov-group-portal',
+      'idea-nov-group-portal',repeat('5',64),1,gen_random_uuid());
+    raise exception 'REPLAY_ACCEPTED';
+  exception when others then if sqlerrm='REPLAY_ACCEPTED' then raise; end if; end;
+end$$;
+
+reset role;
+do $$begin
+  if has_function_privilege('anon','public.store_operations_technical_assumption_issue_v1(text,text,timestamptz)','execute')
+    or has_function_privilege('authenticated','public.store_operations_technical_assumption_consume_v1(text,text,text,text,text,integer,uuid)','execute')
+    or has_function_privilege('anon','public.store_operations_technical_assumption_validate_v1(uuid,uuid,text,timestamptz)','execute')
+    or has_function_privilege('authenticated','public.store_operations_technical_assumption_revoke_v1(uuid,text)','execute')
+    or has_function_privilege('service_role','public.store_operations_external_enrollment_issue_v2(text,text,text,timestamptz)','execute')
+    or has_function_privilege('service_role','public.store_operations_external_enrollment_consume_v2(text,text,text,text,text,text,integer,uuid,timestamptz)','execute')
+  then raise exception 'TECHNICAL_ASSUMPTION_ACL_EXPOSED'; end if;
+end$$;

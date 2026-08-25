@@ -2088,14 +2088,14 @@ async function handleFirebaseAuth01Bridge(token: string, payload: JsonRecord) {
       now: () => Date.now(), randomUuid: () => crypto.randomUUID(),
       fingerprintSecret: NOV_HUB_STAGING_EXTERNAL_SUBJECT_HMAC_SECRET,
       lookup: lookupFirebaseBridgeToken,
-      consumeEnrollment: async ({ challenge, fingerprint, requestId }: JsonRecord) => {
+      consumeTechnicalAssumption: async ({ challenge, fingerprint, requestId }: JsonRecord) => {
         const challengeHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(challenge || "")));
         const hash = Array.from(new Uint8Array(challengeHash), (byte) => byte.toString(16).padStart(2, "0")).join("");
-        const result = await callSupabaseRpc("store_operations_external_enrollment_consume_v1", {
-          p_challenge_hash: hash, p_provider: FIREBASE_AUTH01_BRIDGE.provider, p_issuer: FIREBASE_AUTH01_BRIDGE.issuer,
+        const result = await callSupabaseRpc("store_operations_technical_assumption_consume_v1", {
+          p_challenge_hash: hash,
+          p_provider: FIREBASE_AUTH01_BRIDGE.provider, p_issuer: FIREBASE_AUTH01_BRIDGE.issuer,
           p_audience: FIREBASE_AUTH01_BRIDGE.projectId, p_subject_fingerprint: fingerprint,
           p_fingerprint_key_version: FIREBASE_AUTH01_BRIDGE.fingerprintKeyVersion, p_request_id: requestId,
-          p_effective_to: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
         });
         return Array.isArray(result) ? result[0] : result;
       },
@@ -2226,6 +2226,21 @@ async function verifyHubAppSession(
   if (!isUuid(payload.sub) || Number(payload.exp || 0) <= now || Number(payload.iat || 0) > now + 30) {
     throw new PortalError("TOKEN_VERIFICATION_FAILED", "IDEA LINK session has expired or is invalid.", 401);
   }
+  if (payload.uat_actor || payload.uat_scenario || payload.uat_assumption_key) {
+    if (payload.uat_actor !== "owner_controlled_technical_principal"
+      || !new Set(["area_manager", "store_manager"]).has(String(payload.uat_scenario || ""))
+      || !isUuid(payload.uat_assumption_key)) {
+      throw new PortalError("ACCESS_DENIED", "Technical UAT session is invalid.", 403);
+    }
+    const active = await callSupabaseRpc("store_operations_technical_assumption_validate_v1", {
+      p_assumption_key: String(payload.uat_assumption_key),
+      p_employee_id: String(payload.sub),
+      p_scenario: String(payload.uat_scenario),
+      p_as_of: new Date().toISOString(),
+    });
+    const row = Array.isArray(active) ? active[0] : active;
+    if (!row?.active) throw new PortalError("ACCESS_DENIED", "Technical UAT assumption is no longer active.", 403);
+  }
   return {
     authType: verifiedAuthType,
     email: "",
@@ -2234,6 +2249,9 @@ async function verifyHubAppSession(
     sessionId: String(payload.sid || ""),
     audience: String(payload.aud || ""),
     expiresAt: new Date(Number(payload.exp || 0) * 1000).toISOString(),
+    uatActor: String(payload.uat_actor || ""),
+    uatScenario: String(payload.uat_scenario || ""),
+    uatAssumptionKey: String(payload.uat_assumption_key || ""),
   };
 }
 

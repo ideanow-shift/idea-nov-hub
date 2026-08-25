@@ -2,6 +2,7 @@ import { beginGoogleLogin, completeGoogleRedirect, signOutUser } from "./auth-st
 import { bridgeWithFirebase, issueStoreOperationsHandoff } from "./api-client.js";
 
 const STORE_OPERATIONS_ORIGIN = "https://idea-nov-store-operations-staging-ui-787968950888.asia-northeast1.run.app";
+const TECHNICAL_ASSUMPTION_STORAGE_KEY = "ideaNov.storeOperations.technicalAssumptionChallenge";
 const state = { hubSession: null };
 const login = document.querySelector("#login");
 const portal = document.querySelector("#portal");
@@ -26,8 +27,9 @@ function setStatus(message) {
 }
 
 function takeEnrollmentChallenge() {
-  const challenge = String(globalThis.__NOV_HUB_STAGING_ENROLLMENT__ || "");
+  const challenge = String(globalThis.__NOV_HUB_STAGING_ENROLLMENT__ || sessionStorage.getItem(TECHNICAL_ASSUMPTION_STORAGE_KEY) || "");
   delete globalThis.__NOV_HUB_STAGING_ENROLLMENT__;
+  sessionStorage.removeItem(TECHNICAL_ASSUMPTION_STORAGE_KEY);
   return /^[A-Za-z0-9_-]{43}$/u.test(challenge) ? challenge : "";
 }
 
@@ -60,7 +62,7 @@ document.querySelector("#google-login").addEventListener("click", async () => {
     setStatus("Googleログインを確認しています。");
     const token = await beginGoogleLogin();
     setStatus("社員情報を確認しています。");
-    acceptBootstrap(await bridgeWithFirebase(token, enrollmentChallenge));
+    acceptBootstrap(await bridgeWithFirebase(token, takeEnrollmentChallenge()));
   } catch (error) {
     await signOutUser().catch(() => {});
     setStatus(error.message || "ログインできませんでした。");
@@ -77,7 +79,6 @@ document.querySelector("#logout").addEventListener("click", async () => {
 });
 
 const request = launchRequest();
-const enrollmentChallenge = request ? takeEnrollmentChallenge() : "";
 
 if (!request) {
   for (const control of document.querySelectorAll("button,input")) control.disabled = true;
@@ -88,7 +89,7 @@ if (request) {
   completeGoogleRedirect().then(async (token) => {
     if (!token) return;
     setStatus("社員情報を確認しています。");
-    acceptBootstrap(await bridgeWithFirebase(token, enrollmentChallenge));
+    acceptBootstrap(await bridgeWithFirebase(token, takeEnrollmentChallenge()));
   }).catch(async (error) => {
     if (error.code !== "STORE_OPERATIONS_EXTERNAL_SUBJECT_DENIED") await signOutUser().catch(() => {});
     setStatus(error.message || "ログインできませんでした。");

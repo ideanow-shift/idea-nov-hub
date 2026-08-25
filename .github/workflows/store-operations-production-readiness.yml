@@ -13,6 +13,7 @@ on:
       - "supabase/migrations/20260819123648_dbf_store_monthly_comparison_read_v1.sql"
       - "tests/store-operations-production-*.test.mjs"
       - "tests/store-operations-production-readiness-rollback.sql"
+      - "tests/store-operations-production-readiness-postgres17.sql"
       - "docs/store_operations_management/production_release/**"
   workflow_dispatch:
 
@@ -66,7 +67,7 @@ jobs:
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814204346_dbf_business_data_phase1_service_role_acl_corrective.sql
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260819002309_dbf_store_monthly_actual_backend_contract_v1.sql
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260819123648_dbf_store_monthly_comparison_read_v1.sql
-          psql --set=ON_ERROR_STOP=1 --file tests/dbf-store-monthly-actual-backend-postgres17.sql
+          psql --set=ON_ERROR_STOP=1 --file tests/store-operations-production-readiness-postgres17.sql
           psql --set=ON_ERROR_STOP=1 --file tests/store-operations-production-readiness-rollback.sql
       - name: Production configuration and UAT exclusion
         shell: bash

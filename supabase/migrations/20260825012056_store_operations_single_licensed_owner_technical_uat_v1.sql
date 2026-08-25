@@ -127,7 +127,7 @@ begin
   access:=public.store_operations_uat_resolve_hub_employee_access_v1(challenge.employee_id,current_date);
   if access->>'employeeId'<>challenge.employee_id::text or access#>>'{roleKeys,0}'<>challenge.scenario
     or jsonb_array_length(access->'roleKeys')<>1 or jsonb_array_length(access#>'{scope,storeIds}')<>1
-    or access#>>'{scope,mode}'<>case challenge.scenario when 'area_manager' then 'assigned' else 'own' end
+    or access#>>'{scope,mode}'<>(case challenge.scenario when 'area_manager' then 'assigned' else 'own' end)
   then raise exception 'STORE_OPERATIONS_UAT_SCOPE_DENIED'; end if;
   insert into store_operations_uat_private.technical_assumption_decisions(
     assumption_key,decision_sequence,provider,issuer,audience,subject_fingerprint,fingerprint_key_version,

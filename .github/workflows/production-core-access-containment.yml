@@ -49,7 +49,7 @@ jobs:
         run: |
           node --test tests/production-core-access-containment-contract.test.mjs
           node --test tests/store-operations-production-rollout.test.mjs tests/store-operations-production-release-package.test.mjs
-          node --test tests/store-operations-assigned-scope-runtime-contract.test.mjs tests/store-sales-permission-scope.test.mjs
+          node --test tests/store-sales-runtime.test.mjs tests/store-operations-staging-uat-security-runtime.test.mjs
           node --test tests/store-operations-firebase-auth01-bridge.test.mjs tests/store-operations-google-oidc-identity.test.mjs
           node --test tests/store-operations-secure-handoff.test.mjs tests/store-operations-hub-integration.test.mjs
           node --test tests/dbf-hub-session-handoff.test.mjs tests/store-operations-staging-core-uat-security-contract.test.mjs

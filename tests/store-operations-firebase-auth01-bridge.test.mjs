@@ -24,18 +24,14 @@ test("strict Firebase verifier accepts only the approved Google token",async()=>
     (error)=>error.status===401);
 });
 
-test("three explicit principals resolve only their expected identity, role and scope contracts",async()=>{
-  const cases=[
-    ["m.wakita@idea-nov.com","subject-executive","uat-executive","executive","all",20],
-    ["uat-area-manager@idea-nov.com","subject-area","uat-area-manager","area_manager","assigned",1],
-    ["uat-store-manager@idea-nov.com","subject-store","uat-store-manager","store_manager","own",1],
-  ];
-  for(const [email,subjectValue,identityKey,roleKey,scopeMode,storeCount] of cases){
-    const verified=await verifyFirebaseBridgeToken(principalToken(email,subjectValue),principalDeps(email,subjectValue));
-    assert.deepEqual([verified.identityKey,verified.expectedRole,verified.expectedScopeMode,verified.expectedStoreCount],
-      [identityKey,roleKey,scopeMode,storeCount]);
+test("only the licensed Wakita Google principal is accepted",async()=>{
+  const verified=await verifyFirebaseBridgeToken(principalToken("m.wakita@idea-nov.com","subject-executive"),principalDeps("m.wakita@idea-nov.com","subject-executive"));
+  assert.deepEqual([verified.identityKey,verified.expectedRole,verified.expectedScopeMode,verified.expectedStoreCount],
+    ["uat-executive","executive","all",20]);
+  for(const email of ["uat-area-manager@idea-nov.com","uat-store-manager@idea-nov.com"]){
+    await assert.rejects(()=>verifyFirebaseBridgeToken(principalToken(email,`old-${email}`),principalDeps(email,`old-${email}`)),
+      (error)=>error.code==="FIREBASE_ACCOUNT_DENIED");
   }
-  assert.notEqual(cases[1][1],cases[2][1]);
 });
 
 test("HMAC fingerprint is deterministic and never equals the raw Firebase subject",async()=>{
@@ -44,54 +40,60 @@ test("HMAC fingerprint is deterministic and never equals the raw Firebase subjec
   assert.equal(first,await subjectFingerprint({subject},"s".repeat(32)));
 });
 
-test("bridge ignores browser identity claims, converges AUTH-01 and caps session at Firebase expiry",async()=>{
+test("bridge converges technical AUTH-01 and caps session at Firebase expiry",async()=>{
   const signed=[]; const consumed=[];
-  const result=await bridgeFirebaseAuth01({token:token(),payload:{enrollmentChallenge:"A".repeat(43),employeeId:"spoof",role:"executive"}},
+  const result=await bridgeFirebaseAuth01({token:token(),payload:{enrollmentChallenge:"A".repeat(43)}},
     {...deps(),fingerprintSecret:"s".repeat(32),randomUuid:()=>"50000000-0000-4000-8000-000000000001",
-      consumeEnrollment:async(value)=>{consumed.push(value);return {employeeId:"10000000-0000-4000-8000-000000000001",access:{employeeId:"10000000-0000-4000-8000-000000000001",roleKeys:["executive"],scope:{mode:"all",storeIds:Array(20).fill("store")}}};},
+      consumeTechnicalAssumption:async(value)=>{consumed.push(value);return {assumptionKey:"50000000-0000-4000-8000-000000000002",uatScenario:"area_manager",employeeId:"10000000-0000-4000-8000-000000000001",access:{employeeId:"10000000-0000-4000-8000-000000000001",roleKeys:["area_manager"],scope:{mode:"assigned",storeIds:["store"]}}};},
       resolveBinding:async()=>assert.fail("existing binding must not be used during enrollment"),
       signSession:async(value)=>{signed.push(value);return "signed-session";}});
   assert.equal(result.hubSession.sessionToken,"signed-session"); assert.equal(consumed.length,1);
-  assert.equal(signed[0].auth_source,"firebase_auth01_external_binding_v1");
+  assert.equal(signed[0].auth_source,"owner_controlled_technical_assumption");
   assert.equal(signed[0].bridge_contract,FIREBASE_AUTH01_BRIDGE.contract);
+  assert.equal(signed[0].uat_actor,"owner_controlled_technical_principal");
+  assert.equal(signed[0].uat_scenario,"area_manager");
   assert.ok(signed[0].exp-signed[0].iat<=900);
   for(const forbidden of ["email","uid","firebase_uid","auth_subject","role","scope"]) assert.equal(forbidden in signed[0],false);
 });
 
-test("bridge ignores client-declared identity fields and rejects failed AUTH-01 convergence",async()=>{
+test("bridge rejects client-declared authority and failed AUTH-01 convergence",async()=>{
+  for(const key of ["employeeId","role","scope","storeId","identityKey","targetPrincipal"]){
+    await assert.rejects(()=>bridgeFirebaseAuth01({token:token(),payload:{[key]:"spoof"}},deps()),
+      (error)=>error.code==="INVALID_REQUEST");
+  }
   await assert.rejects(()=>bridgeFirebaseAuth01({token:token(),payload:{}},{...deps(),fingerprintSecret:"s".repeat(32),randomUuid:()=>crypto.randomUUID(),
-    resolveBinding:async()=>({employeeId:"one",access:{employeeId:"two"}}),consumeEnrollment:async()=>null,signSession:async()=>"never"}),
+    resolveBinding:async()=>({employeeId:"one",access:{employeeId:"two"}}),consumeTechnicalAssumption:async()=>null,signSession:async()=>"never"}),
     (error)=>error.status===403);
 });
 
-test("principal and enrollment identity mismatch is passed to atomic consume before any session is signed",async()=>{
-  const email="uat-area-manager@idea-nov.com"; const subjectValue="subject-area"; let signed=false;
-  await assert.rejects(()=>bridgeFirebaseAuth01({token:principalToken(email,subjectValue),payload:{enrollmentChallenge:"A".repeat(43),role:"executive",scope:"all"}},
-    {...principalDeps(email,subjectValue),fingerprintSecret:"s".repeat(32),randomUuid:()=>crypto.randomUUID(),
-      consumeEnrollment:async({expectedIdentityKey})=>{assert.equal(expectedIdentityKey,"uat-area-manager");const error=new Error("mismatch");error.status=403;throw error;},
+test("failed technical assumption consume never signs a session",async()=>{
+  let signed=false;
+  await assert.rejects(()=>bridgeFirebaseAuth01({token:token(),payload:{enrollmentChallenge:"A".repeat(43)}},
+    {...deps(),fingerprintSecret:"s".repeat(32),randomUuid:()=>crypto.randomUUID(),
+      consumeTechnicalAssumption:async()=>{const error=new Error("mismatch");error.status=403;throw error;},
       resolveBinding:async()=>null,signSession:async()=>{signed=true;return "never";}}),(error)=>error.status===403);
   assert.equal(signed,false);
 });
 
-test("Area and Store principals accept only their canonical server-resolved role and scope",async()=>{
+test("Wakita technical assumptions accept only canonical Area and Store role/scope",async()=>{
   const cases=[
-    ["uat-area-manager@idea-nov.com","subject-area","uat-area-manager","area_manager","assigned"],
-    ["uat-store-manager@idea-nov.com","subject-store","uat-store-manager","store_manager","own"],
+    ["area_manager","assigned"],
+    ["store_manager","own"],
   ];
-  for(const [email,subjectValue,identityKey,roleKey,scopeMode] of cases){
-    const base={...principalDeps(email,subjectValue),fingerprintSecret:"s".repeat(32),randomUuid:()=>crypto.randomUUID(),
+  for(const [roleKey,scopeMode] of cases){
+    const base={...deps(),fingerprintSecret:"s".repeat(32),randomUuid:()=>crypto.randomUUID(),
       resolveBinding:async()=>assert.fail("enrollment required"),signSession:async()=>"signed"};
-    const good=()=>({employeeId:`employee-${identityKey}`,access:{employeeId:`employee-${identityKey}`,
+    const good=()=>({assumptionKey:"50000000-0000-4000-8000-000000000002",uatScenario:roleKey,employeeId:`employee-${roleKey}`,access:{employeeId:`employee-${roleKey}`,
       roleKeys:[roleKey],scope:{mode:scopeMode,storeIds:["canonical-store"]}}});
-    const result=await bridgeFirebaseAuth01({token:principalToken(email,subjectValue),payload:{enrollmentChallenge:"A".repeat(43),employeeId:"spoof",role:"executive",scope:"all",storeId:"spoof"}},
-      {...base,consumeEnrollment:async({expectedIdentityKey})=>{assert.equal(expectedIdentityKey,identityKey);return good();}});
+    const result=await bridgeFirebaseAuth01({token:token(),payload:{enrollmentChallenge:"A".repeat(43)}},
+      {...base,consumeTechnicalAssumption:async()=>good()});
     assert.equal(result.hubSession.sessionToken,"signed");
     for(const badAccess of [
       {...good(),access:{...good().access,roleKeys:["executive"]}},
       {...good(),access:{...good().access,scope:{mode:"all",storeIds:["canonical-store"]}}},
       {...good(),access:{...good().access,scope:{mode:scopeMode,storeIds:["one","two"]}}},
-    ]) await assert.rejects(()=>bridgeFirebaseAuth01({token:principalToken(email,subjectValue),payload:{enrollmentChallenge:"A".repeat(43)}},
-      {...base,consumeEnrollment:async()=>badAccess}),(error)=>error.code==="AUTH01_CONVERGENCE_DENIED");
+    ]) await assert.rejects(()=>bridgeFirebaseAuth01({token:token(),payload:{enrollmentChallenge:"A".repeat(43)}},
+      {...base,consumeTechnicalAssumption:async()=>badAccess}),(error)=>error.code==="AUTH01_CONVERGENCE_DENIED");
   }
 });
 

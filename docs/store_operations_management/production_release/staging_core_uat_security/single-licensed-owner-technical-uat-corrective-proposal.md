@@ -1,6 +1,6 @@
 # Single Licensed Owner Technical UAT Corrective Proposal
 
-Status: **PROPOSED / OWNER APPROVAL REQUIRED / NO DEPLOY**
+Status: **OWNER APPROVED / IMPLEMENTED IN PR #185 / STAGING ONLY**
 
 - Portfolio Lock: `CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-22-V4`
 - Phase: `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1`
@@ -27,7 +27,7 @@ performed UAT.
 
 ## Server-side contract
 
-Create a Staging-private, append-only assumption decision contract in a later implementation PR unit. The
+Use the Staging-private, append-only assumption decision contract implemented in PR #185. The
 contract must satisfy all of the following:
 
 1. The verified Firebase token must belong to the already approved Wakita Google subject.
@@ -91,10 +91,9 @@ Area and Store assumptions must never overlap. A failed step stops the sequence.
 - Simultaneous Area and Store assumptions
 - Production fallback or Production deployment
 
-## Owner approval gate
+## Owner approval
 
-Implementation, Migration, deployment, assumption issuance, and Hosted UAT remain prohibited until Owner
-explicitly approves this exact contract. Approval must confirm:
+Owner approved this exact contract as `SINGLE_LICENSED_OWNER_TECHNICAL_UAT_V1` on 2026-08-25. The approval confirms:
 
 1. Wakita-controlled technical role assumption is accepted for development completion.
 2. It is not real-user UAT and does not replace the deferred Toda/Masumoto acceptance gate.

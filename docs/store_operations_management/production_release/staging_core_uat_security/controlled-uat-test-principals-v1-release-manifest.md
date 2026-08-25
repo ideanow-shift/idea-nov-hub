@@ -1,5 +1,9 @@
 # Controlled UAT Test Principals V1 Release Manifest
 
+> Independent Google UAT accounts: **SUPERSEDED / NOT USED**
+>
+> Single Licensed Owner Technical UAT: **OWNER_APPROVED**
+
 Status: **SUPERSEDED BY NO-ADDITIONAL-LICENSE CORRECTIVE / OWNER APPROVAL REQUIRED / NO FURTHER DEPLOY**
 
 - Approval: `approval:OWNER-STORE-OPS-UAT-TEST-PRINCIPALS-2026-08-25-V1`

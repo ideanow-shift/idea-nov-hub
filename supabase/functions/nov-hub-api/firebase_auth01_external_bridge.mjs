@@ -1,13 +1,11 @@
 export const FIREBASE_AUTH01_BRIDGE = Object.freeze({
-  contract: "NOV_HUB_STAGING_FIREBASE_AUTH01_BRIDGE_V1",
+  contract: "SINGLE_LICENSED_OWNER_TECHNICAL_UAT_V1",
   bindingContract: "NOV_HUB_STAGING_EXTERNAL_SUBJECT_BINDING_V1",
   projectId: "idea-nov-group-portal",
   issuer: "https://securetoken.google.com/idea-nov-group-portal",
   provider: "google.com",
   principals: Object.freeze({
     "m.wakita@idea-nov.com": Object.freeze({ identityKey: "uat-executive", roleKey: "executive", scopeMode: "all", storeCount: 20 }),
-    "uat-area-manager@idea-nov.com": Object.freeze({ identityKey: "uat-area-manager", roleKey: "area_manager", scopeMode: "assigned", storeCount: 1 }),
-    "uat-store-manager@idea-nov.com": Object.freeze({ identityKey: "uat-store-manager", roleKey: "store_manager", scopeMode: "own", storeCount: 1 }),
   }),
   maxSessionSeconds: 15 * 60,
   fingerprintKeyVersion: 1,
@@ -65,7 +63,7 @@ export async function subjectFingerprint(verified, secret) {
 }
 
 export async function bridgeFirebaseAuth01(input, deps) {
-  const acceptedBrowserKeys = new Set(["enrollmentChallenge","employeeId","email","firebaseUid","authSubject","role","scope","storeId"]);
+  const acceptedBrowserKeys = new Set(["enrollmentChallenge"]);
   if (Object.keys(input.payload || {}).some((key) => !acceptedBrowserKeys.has(key))) {
     fail(400, "INVALID_REQUEST", "Bridge payload is invalid.");
   }
@@ -73,13 +71,25 @@ export async function bridgeFirebaseAuth01(input, deps) {
   const fingerprint = await subjectFingerprint(verified, deps.fingerprintSecret);
   const challenge = String(input.payload?.enrollmentChallenge || "");
   const resolved = challenge
-    ? await deps.consumeEnrollment({ challenge, fingerprint, requestId: deps.randomUuid(), expectedIdentityKey: verified.identityKey })
+    ? await deps.consumeTechnicalAssumption({ challenge, fingerprint, requestId: deps.randomUuid() })
     : await deps.resolveBinding({ fingerprint });
   const employeeId = String(resolved?.employeeId || "");
   const access = resolved?.access || {};
-  if (!employeeId || access.employeeId !== employeeId || access.scope?.mode !== verified.expectedScopeMode
-    || access.scope?.storeIds?.length !== verified.expectedStoreCount || access.roleKeys?.length !== 1
-    || access.roleKeys[0] !== verified.expectedRole) {
+  const technicalScenario = String(resolved?.uatScenario || "");
+  if (technicalScenario && !new Set(["area_manager", "store_manager"]).has(technicalScenario)) {
+    fail(403, "AUTH01_CONVERGENCE_DENIED", "AUTH-01 convergence failed.");
+  }
+  const expected = technicalScenario === "area_manager"
+    ? { role: "area_manager", mode: "assigned", count: 1 }
+    : technicalScenario === "store_manager"
+      ? { role: "store_manager", mode: "own", count: 1 }
+      : { role: verified.expectedRole, mode: verified.expectedScopeMode, count: verified.expectedStoreCount };
+  if (!employeeId || access.employeeId !== employeeId || access.scope?.mode !== expected.mode
+    || access.scope?.storeIds?.length !== expected.count || access.roleKeys?.length !== 1
+    || access.roleKeys[0] !== expected.role) {
+    fail(403, "AUTH01_CONVERGENCE_DENIED", "AUTH-01 convergence failed.");
+  }
+  if (technicalScenario && !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(String(resolved?.assumptionKey || ""))) {
     fail(403, "AUTH01_CONVERGENCE_DENIED", "AUTH-01 convergence failed.");
   }
   const now = Math.floor(deps.now() / 1000);
@@ -89,7 +99,10 @@ export async function bridgeFirebaseAuth01(input, deps) {
     hubSession: {
       sessionToken: await deps.signSession({
         iss: "nov_hub_staging", aud: "nov_hub", sub: employeeId, sid: deps.randomUuid(),
-        auth_source: "firebase_auth01_external_binding_v1", bridge_contract: FIREBASE_AUTH01_BRIDGE.contract,
+        auth_source: technicalScenario ? "owner_controlled_technical_assumption" : "firebase_auth01_external_binding_v1",
+        bridge_contract: FIREBASE_AUTH01_BRIDGE.contract,
+        ...(technicalScenario ? { uat_actor: "owner_controlled_technical_principal", uat_scenario: technicalScenario,
+          uat_assumption_key: String(resolved.assumptionKey || "") } : {}),
         iat: now, exp: expiresAt,
       }),
       expiresAt: new Date(expiresAt * 1000).toISOString(),

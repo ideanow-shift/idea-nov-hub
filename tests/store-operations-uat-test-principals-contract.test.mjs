@@ -2,48 +2,49 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const migration=readFileSync("supabase/migrations/20260824232711_store_operations_uat_test_principals_v1.sql","utf8");
-const rollback=readFileSync("supabase/rollback/20260824232711_store_operations_uat_test_principals_v1.rollback.sql","utf8");
+const migration=readFileSync("supabase/migrations/20260825012056_store_operations_single_licensed_owner_technical_uat_v1.sql","utf8");
 const bridge=readFileSync("supabase/functions/nov-hub-api/firebase_auth01_external_bridge.mjs","utf8");
 const runtime=readFileSync("supabase/functions/nov-hub-api/index.ts","utf8");
-const original=readFileSync("supabase/migrations/20260823223102_store_operations_external_subject_binding.sql","utf8");
 
-test("principal allowlist is exact and cannot derive authorization from browser claims",()=>{
-  for(const value of ["m.wakita@idea-nov.com","uat-area-manager@idea-nov.com","uat-store-manager@idea-nov.com",
-    "uat-executive","uat-area-manager","uat-store-manager","executive","area_manager","store_manager","all","assigned","own"]){
-    assert.match(bridge,new RegExp(value.replaceAll(".","\\.")));
+test("independent Google-account runtime is disabled and Wakita is the sole browser principal",()=>{
+  assert.match(bridge,/"m\.wakita@idea-nov\.com"/);
+  assert.doesNotMatch(bridge,/"uat-area-manager@idea-nov\.com"\s*:/);
+  assert.doesNotMatch(bridge,/"uat-store-manager@idea-nov\.com"\s*:/);
+  assert.match(migration,/revoke all on function public\.store_operations_external_enrollment_issue_v2[\s\S]*service_role/);
+  assert.match(migration,/revoke all on function public\.store_operations_external_enrollment_consume_v2[\s\S]*service_role/);
+});
+
+test("technical challenge fixes scenario server-side and rejects browser target authority",()=>{
+  assert.match(migration,/scenario in \('area_manager','store_manager'\)/);
+  assert.match(migration,/identity_key in \('uat-area-manager','uat-store-manager'\)/);
+  for(const forbidden of ["identityKey","targetPrincipal","targetScenario"]){
+    assert.doesNotMatch(bridge,new RegExp(`acceptedBrowserKeys[^\\n]+${forbidden}`));
   }
-  assert.match(bridge,/Object\.hasOwn\(FIREBASE_AUTH01_BRIDGE\.principals, email\)/);
-  assert.match(bridge,/expectedIdentityKey: verified\.identityKey/);
-  assert.doesNotMatch(bridge,/employeeId:\s*principal\./);
-  assert.match(runtime,/store_operations_external_enrollment_consume_v2/);
-  assert.match(runtime,/p_expected_identity_key: expectedIdentityKey/);
+  assert.match(runtime,/store_operations_technical_assumption_consume_v1/);
+  assert.doesNotMatch(runtime,/p_expected_identity_key/);
 });
 
-test("corrective migration uses read-back constraint names and only three identity keys",()=>{
-  assert.match(migration,/drop constraint external_subject_enrollment_challenges_identity_key_check/);
-  assert.match(migration,/drop constraint external_subject_enrollment_challenges_approval_reference_check/);
-  assert.match(migration,/drop constraint external_subject_binding_decisions_evidence_reference_check/);
-  assert.match(migration,/identity_key in \('uat-executive','uat-area-manager','uat-store-manager'\)/);
-  assert.match(migration,/approval:OWNER-STORE-OPS-UAT-TEST-PRINCIPALS-2026-08-25-V1/g);
-  assert.doesNotMatch(migration,/idea-nov-dbf-prod|production/i);
-  assert.match(original,/identity_key='uat-executive'/);
+test("assumption decisions are append-only, short-lived and non-overlapping",()=>{
+  assert.match(migration,/before update or delete on store_operations_uat_private\.technical_assumption_decisions/);
+  assert.match(migration,/STORE_OPERATIONS_TECHNICAL_ASSUMPTION_OVERLAP/);
+  assert.match(migration,/interval '15 minutes'/);
+  assert.match(migration,/decision in \('grant','revoke'\)/);
+  assert.match(migration,/store_operations_technical_assumption_revoke_v1/);
+  assert.match(migration,/store_operations_technical_assumption_validate_v1/);
 });
 
-test("v2 issue and atomic consume validate principal role scope and expected store",()=>{
-  for(const value of ["store_operations_external_enrollment_issue_v2","store_operations_external_enrollment_consume_v2",
-    "STORE_OPERATIONS_EXTERNAL_CHALLENGE_DENIED","STORE_OPERATIONS_UAT_SCOPE_DENIED","approved.expected_store_id",
-    "jsonb_array_length(access#>'{scope,storeIds}')<>expected_count"]){assert.match(migration,new RegExp(value.replaceAll("(","\\(" ).replaceAll(")","\\)")));}
-  assert.match(migration,/where challenge_hash=p_challenge_hash and identity_key=p_expected_identity_key and consumed_at is null/);
-  assert.match(migration,/p_effective_to>consumed_at_value\+interval '14 days'/);
-  assert.match(migration,/revoke all on function public\.store_operations_external_enrollment_issue_v1[\s\S]*service_role/);
-  assert.match(migration,/grant execute on function public\.store_operations_external_enrollment_consume_v2[\s\S]*to service_role/);
+test("browser roles cannot execute private assumption RPCs",()=>{
+  for(const fn of ["issue","consume","validate","revoke"]){
+    assert.match(migration,new RegExp(`revoke all on function public\\.store_operations_technical_assumption_${fn}_v1[\\s\\S]*from public,anon,authenticated`));
+  }
+  assert.match(migration,/grant execute on function public\.store_operations_technical_assumption_consume_v1[\s\S]*to service_role/);
+  assert.doesNotMatch(migration,/idea-nov-dbf-prod|nkmxevmioczcmnldreyo|production endpoint/i);
 });
 
-test("rollback removes v2, preserves append-only audit compatibility and restores V1 service grants",()=>{
-  assert.match(rollback,/drop function public\.store_operations_external_enrollment_consume_v2/);
-  assert.match(rollback,/drop function public\.store_operations_external_enrollment_issue_v2/);
-  assert.doesNotMatch(rollback,/delete from|update\s+store_operations_uat_private/i);
-  assert.match(rollback,/append-only UAT audit rows stay valid/);
-  assert.match(rollback,/grant execute on function public\.store_operations_external_enrollment_consume_v1[\s\S]*to service_role/);
+test("technical sessions are auditable without real employee names or raw identity",()=>{
+  assert.match(bridge,/uat_actor: "owner_controlled_technical_principal"/);
+  assert.match(bridge,/uat_scenario: technicalScenario/);
+  assert.match(runtime,/Technical UAT assumption is no longer active/);
+  assert.doesNotMatch(bridge,/Toda|Masumoto|\u6238\u7530|\u685d\u672c/);
+  assert.doesNotMatch(bridge,/firebase_token|service_role/);
 });

@@ -1,0 +1,57 @@
+name: Production Core Access Containment
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/production-core-access-containment.yml"
+      - "supabase/migrations/20260825083612_production_core_access_containment_v1.sql"
+      - "supabase/rollback/production_core_access_containment_v1.rollback.sql"
+      - "tests/production-core-access-containment-*.sql"
+      - "tests/production-core-access-containment-contract.test.mjs"
+      - "docs/store_operations_management/production_security/**"
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-17-security:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6-bookworm
+        env:
+          POSTGRES_DB: core_access_test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d core_access_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      PGDATABASE: core_access_test
+      PGHOST: 127.0.0.1
+      PGPASSWORD: postgres
+      PGPORT: 5432
+      PGUSER: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: PostgreSQL 17 containment and rollback
+        run: |
+          psql --file tests/production-core-access-containment-fixture.sql
+          psql --file supabase/migrations/20260825083612_production_core_access_containment_v1.sql
+          psql --file tests/production-core-access-containment-postgres17.sql
+          psql --file tests/production-core-access-containment-rollback.sql
+      - name: Repository contracts and regressions
+        run: |
+          node --test tests/production-core-access-containment-contract.test.mjs
+          node --test tests/store-operations-production-rollout.test.mjs tests/store-operations-production-release-package.test.mjs
+          node --test tests/store-operations-assigned-scope-runtime-contract.test.mjs tests/store-sales-permission-scope.test.mjs
+          node --test tests/store-operations-firebase-auth01-bridge.test.mjs tests/store-operations-google-oidc-identity.test.mjs
+          node --test tests/store-operations-secure-handoff.test.mjs tests/store-operations-hub-integration.test.mjs
+          node --test tests/dbf-hub-session-handoff.test.mjs tests/store-operations-staging-core-uat-security-contract.test.mjs
+      - name: Patch quality
+        run: git diff --check origin/main...HEAD

@@ -3,6 +3,7 @@ export const STORE_OPERATIONS_PRODUCTION_PROJECT_REF = "nkmxevmioczcmnldreyo";
 export const STORE_OPERATIONS_PRODUCTION_ROLLOUT = Object.freeze({
   DISABLED: "DISABLED",
   OWNER_PILOT: "OWNER_PILOT",
+  LIMITED_REAL_USER_PILOT: "LIMITED_REAL_USER_PILOT",
   GENERAL: "GENERAL",
 });
 
@@ -30,8 +31,10 @@ export function hasStoreOperationsUatMarker(value) {
 export function evaluateStoreOperationsProductionRollout(input = {}) {
   const projectRef = String(input.projectRef || "");
   const state = String(input.state || "").trim().toUpperCase();
-  const employeeId = String(input.employeeId || "").trim();
-  const ownerEmployeeId = String(input.ownerEmployeeId || "").trim();
+  const employeeId = String(input.employeeId || "").trim().toLowerCase();
+  const ownerEmployeeId = String(input.ownerEmployeeId || "").trim().toLowerCase();
+  const realUserPilotEmployeeId1 = String(input.realUserPilotEmployeeId1 || "").trim().toLowerCase();
+  const realUserPilotEmployeeId2 = String(input.realUserPilotEmployeeId2 || "").trim().toLowerCase();
 
   if (projectRef !== STORE_OPERATIONS_PRODUCTION_PROJECT_REF) {
     return { allowed: false, code: "PRODUCTION_PROJECT_MISMATCH" };
@@ -51,6 +54,13 @@ export function evaluateStoreOperationsProductionRollout(input = {}) {
   if (state === STORE_OPERATIONS_PRODUCTION_ROLLOUT.OWNER_PILOT) {
     if (!UUID_PATTERN.test(ownerEmployeeId) || employeeId !== ownerEmployeeId) {
       return { allowed: false, code: "PRODUCTION_OWNER_PILOT_DENIED" };
+    }
+  }
+  if (state === STORE_OPERATIONS_PRODUCTION_ROLLOUT.LIMITED_REAL_USER_PILOT) {
+    const configuredIds = [ownerEmployeeId, realUserPilotEmployeeId1, realUserPilotEmployeeId2];
+    if (configuredIds.some((id) => !UUID_PATTERN.test(id)) || new Set(configuredIds).size !== 3
+      || !configuredIds.includes(employeeId)) {
+      return { allowed: false, code: "PRODUCTION_LIMITED_REAL_USER_PILOT_DENIED" };
     }
   }
   return { allowed: true, code: "PRODUCTION_ROLLOUT_ALLOWED", state };

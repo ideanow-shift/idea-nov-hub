@@ -25,7 +25,8 @@ export function assertProductionReadPayload(payload = {}) {
 
 // session must be the result of the existing server HMAC/audience/expiry verifier, not JSON from the client.
 // Only a digest of that verified native HUB subject is sent to the private database contract.
-export async function resolveProductionCanonicalAccess({ session, projectRef, rolloutState, ownerEmployeeId, rpc, now = Date.now() }) {
+export async function resolveProductionCanonicalAccess({ session, projectRef, rolloutState, ownerEmployeeId,
+  realUserPilotEmployeeId1 = '', realUserPilotEmployeeId2 = '', rpc, now = Date.now() }) {
   if (projectRef !== STORE_OPERATIONS_PRODUCTION_PROJECT_REF || hasStoreOperationsUatMarker(session)
     || session?.authType !== 'hub_session' || session.audience !== 'nov_hub'
     || !uuid.test(session.employeeId || '') || !uuid.test(session.sessionId || '')
@@ -50,9 +51,11 @@ export async function resolveProductionCanonicalAccess({ session, projectRef, ro
     || ids.some(id => !stores.some(s => s.id === id))
     || !Array.isArray(result.masters.corporations) || !Array.isArray(result.masters.corporation_business_profiles)) denied();
   const rollout = evaluateStoreOperationsProductionRollout({ projectRef, state: rolloutState,
-    ownerEmployeeId, employeeId: result.employeeId, session });
+    ownerEmployeeId, realUserPilotEmployeeId1, realUserPilotEmployeeId2,
+    employeeId: result.employeeId, session });
   if (!rollout.allowed) {
-    if (rollout.code === 'PRODUCTION_ROLLOUT_DISABLED' || rollout.code === 'PRODUCTION_OWNER_PILOT_DENIED') {
+    if (rollout.code === 'PRODUCTION_ROLLOUT_DISABLED' || rollout.code === 'PRODUCTION_OWNER_PILOT_DENIED'
+      || rollout.code === 'PRODUCTION_LIMITED_REAL_USER_PILOT_DENIED') {
       throw new StoreOperationsProductionRolloutDenied();
     }
     denied();

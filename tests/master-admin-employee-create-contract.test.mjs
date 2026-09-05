@@ -3,6 +3,12 @@ import { readFileSync } from "node:fs";
 
 const frontend = readFileSync(new URL("../portal/master-admin/master-admin.js", import.meta.url), "utf8");
 const api = readFileSync(new URL("../supabase/functions/nov-hub-api/index.ts", import.meta.url), "utf8");
+const standardHtml = readFileSync(new URL("../portal/master-admin/index.html", import.meta.url), "utf8");
+const stableHtml = readFileSync(new URL("../portal/master-admin-stable/index.html", import.meta.url), "utf8");
+
+const employeeCreateVersion = "master-admin-employee-create-20260905-1";
+assert.match(standardHtml, new RegExp(`master-admin\\.js\\?v=${employeeCreateVersion}`));
+assert.match(stableHtml, new RegExp(`master-admin\\.js\\?v=${employeeCreateVersion}`));
 
 const safeSelectionStart = frontend.indexOf("function getSafeSelectedRow");
 const safeSelectionEnd = frontend.indexOf("\nfunction getSafeRowsForCurrentView", safeSelectionStart);

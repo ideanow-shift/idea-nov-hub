@@ -39,6 +39,12 @@ test('expired signed session denied',async()=>{const input=fixtureInput();input.
 test('database errors never disclose raw credentials',async()=>{
  await assert.rejects(()=>resolveProductionCanonicalAccess(fixtureInput({rpc:async()=>{throw Error('secret-token subject-uuid');}})),e=>e.message==='PRODUCTION_CANONICAL_ACCESS_DENIED');
 });
+test('UUID-looking public store keys denied regardless of case or UUID version',async()=>{
+ for(const storeKey of ['ABCDEFAB-ABCD-4000-8000-ABCDEFABCDEF','abcdefab-abcd-7000-8000-abcdefabcdef']){
+  const result=fixtureResult();result.masters.stores[0].store_id=storeKey;
+  await assert.rejects(()=>resolveProductionCanonicalAccess(fixtureInput({rpc:async()=>result})),/DENIED/);
+ }
+});
 for(const mutate of [r=>r.employeeId=fixtureId(102),r=>r.scope.storeIds.push(fixtureId(800)),r=>r.roleKeys.push('area_manager'),r=>r.scope.mode='own',r=>r.masters.stores.pop(),r=>r.masters.stores[0].store_id=r.masters.stores[0].id]){
  test('malformed/ambiguous canonical response denied',async()=>{const result=fixtureResult();mutate(result);await assert.rejects(()=>resolveProductionCanonicalAccess(fixtureInput({rpc:async()=>result})),/DENIED/);});
 }

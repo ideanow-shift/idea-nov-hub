@@ -2,6 +2,7 @@ import { evaluateStoreOperationsProductionRollout, hasStoreOperationsUatMarker,
   STORE_OPERATIONS_PRODUCTION_PROJECT_REF } from './store_operations_production_rollout.mjs';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 const modes = { executive: 'all', area_manager: 'assigned', store_manager: 'own' };
 const payloadKeys = new Set(['authType', 'selectedMonth', 'scopeMode', 'responseProfile']);
 function denied() { throw new Error('PRODUCTION_CANONICAL_ACCESS_DENIED'); }
@@ -34,7 +35,7 @@ export async function resolveProductionCanonicalAccess({ session, projectRef, ro
     || !Array.isArray(stores) || stores.length !== 20 || new Set(stores.map(s => s.id)).size !== 20
     || new Set(stores.map(s => s.store_id)).size !== 20
     || stores.filter(s => s.store_type === 'DIRECT').length !== 13 || stores.filter(s => s.store_type === 'FC').length !== 7
-    || stores.some(s => !uuid.test(s.id) || s.is_active !== true || !s.store_name || !s.store_id || uuid.test(s.store_id))
+    || stores.some(s => !uuid.test(s.id) || s.is_active !== true || !s.store_name || !s.store_id || uuidLike.test(s.store_id))
     || ids.some(id => !stores.some(s => s.id === id))
     || !Array.isArray(result.masters.corporations) || !Array.isArray(result.masters.corporation_business_profiles)) denied();
   const rollout = evaluateStoreOperationsProductionRollout({ projectRef, state: rolloutState,

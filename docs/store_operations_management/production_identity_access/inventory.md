@@ -6,9 +6,11 @@ No database mutation, Auth onboarding or deployment was performed. Counts are th
 not permission to use them without a fresh preflight. Private UUIDs/subjects/credentials are omitted.
 
 Pre-PR refetch found main advanced to `483d6d5fa6a1cbf722c1d66a49788a31ed3db638` through
-PRs #188–#190 (Master Admin frontend/employee-create contract only). No overlapping SQL/API or
-Portfolio Lock changes. This branch retains its approved `406e3e9` base; CI tests the latest main
-merge candidate without rewriting that base or unrelated changes.
+PRs #188–#190. The 2026-09-05 follow-up incorporated latest main
+`95474f11252016d63c77fcd5225cacf10e561e7e` through a normal merge (including PRs #192–#193).
+All intervening changes are Master Admin frontend/employee-create contracts only; no overlapping
+identity-access SQL/API or Portfolio Lock change was found. This branch retains its approved
+`406e3e9` ancestry and now contains the full latest-main history without rebase or force push.
 
 | Contract | main / Staging | Production before this PR | Alignment |
 | --- | --- | --- | --- |

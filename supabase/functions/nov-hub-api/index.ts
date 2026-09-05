@@ -1,4 +1,5 @@
 import {
+  denyManagementAccess,
   handleManagementReadOnlyAction,
   type CanonicalAccessContext,
   type ManagementAction,
@@ -39,7 +40,11 @@ import {
   STORE_OPERATIONS_PRODUCTION_PROJECT_REF,
 } from "./store_operations_production_rollout.mjs";
 // @ts-ignore Production server-only resolver is covered by Node and PostgreSQL contract tests.
-import { assertProductionReadPayload, resolveProductionCanonicalAccess } from "./store_operations_production_access.mjs";
+import {
+  assertProductionReadPayload,
+  isStoreOperationsProductionRolloutDenied,
+  resolveProductionCanonicalAccess,
+} from "./store_operations_production_access.mjs";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -533,8 +538,9 @@ async function handleManagementFromDeployedBaseline(
           });
           productionMasters = access.masters;
           return canonicalAccessContext(access);
-        } catch {
-          throw new PortalError("ACCESS_DENIED", "Production canonical access is unavailable.", 403);
+        } catch (error) {
+          if (isStoreOperationsProductionRolloutDenied(error)) denyManagementAccess();
+          throw error;
         }
       }
       : storeOperationsSession

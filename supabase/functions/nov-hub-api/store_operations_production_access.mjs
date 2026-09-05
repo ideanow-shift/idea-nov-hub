@@ -7,6 +7,17 @@ const modes = { executive: 'all', area_manager: 'assigned', store_manager: 'own'
 const payloadKeys = new Set(['authType', 'selectedMonth', 'scopeMode', 'responseProfile']);
 function denied() { throw new Error('PRODUCTION_CANONICAL_ACCESS_DENIED'); }
 
+export class StoreOperationsProductionRolloutDenied extends Error {
+  constructor() {
+    super('PRODUCTION_ROLLOUT_ACCESS_DENIED');
+    this.name = 'StoreOperationsProductionRolloutDenied';
+  }
+}
+
+export function isStoreOperationsProductionRolloutDenied(error) {
+  return error instanceof StoreOperationsProductionRolloutDenied;
+}
+
 export function assertProductionReadPayload(payload = {}) {
   if (hasStoreOperationsUatMarker(payload) || Object.keys(payload).some(k => !payloadKeys.has(k))) denied();
   if (payload.authType !== undefined && payload.authType !== 'hub_session') denied();
@@ -40,7 +51,12 @@ export async function resolveProductionCanonicalAccess({ session, projectRef, ro
     || !Array.isArray(result.masters.corporations) || !Array.isArray(result.masters.corporation_business_profiles)) denied();
   const rollout = evaluateStoreOperationsProductionRollout({ projectRef, state: rolloutState,
     ownerEmployeeId, employeeId: result.employeeId, session });
-  if (!rollout.allowed) denied();
+  if (!rollout.allowed) {
+    if (rollout.code === 'PRODUCTION_ROLLOUT_DISABLED' || rollout.code === 'PRODUCTION_OWNER_PILOT_DENIED') {
+      throw new StoreOperationsProductionRolloutDenied();
+    }
+    denied();
+  }
   // Internal only; the management projection is the only public serializer.
   return { employeeId: result.employeeId, roleKeys: [role], scope: { mode: modes[role], storeIds: ids }, masters: result.masters };
 }

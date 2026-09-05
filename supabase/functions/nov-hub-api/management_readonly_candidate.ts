@@ -164,11 +164,15 @@ const ACTION_DEFINITIONS: Record<ManagementAction, {
 class ManagementSafeError extends Error {
   constructor(
     readonly status: 400 | 401 | 403 | 404,
-    readonly code: "INVALID_REQUEST" | "UNAUTHORIZED" | "FORBIDDEN" | "SCOPE_DENIED" | "DATA_NOT_READY" | "NOT_APPROVED",
+    readonly code: "INVALID_REQUEST" | "UNAUTHORIZED" | "ACCESS_DENIED" | "FORBIDDEN" | "SCOPE_DENIED" | "DATA_NOT_READY" | "NOT_APPROVED",
     message: string,
   ) {
     super(message);
   }
+}
+
+export function denyManagementAccess(): never {
+  throw new ManagementSafeError(403, "ACCESS_DENIED", "Access denied.");
 }
 
 const DIAGNOSTIC_RESPONSE_PROFILE = "diagnostic-sanitized-v1";

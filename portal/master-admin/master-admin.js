@@ -743,6 +743,7 @@ function getSafeRowsForCurrentView() {
 }
 
 function getSafeSelectedRow(rows) {
+  if (state.view === "employees" && state.selectedId === NEW_EMPLOYEE_ID) return null;
   return rows.find((row) => row?.id === state.selectedId) || rows[0] || null;
 }
 
@@ -1698,12 +1699,23 @@ function renderSafeMasterAdminView() {
   titleNote.textContent = getSafeViewNote();
   title.append(titleStrong, titleNote);
 
+  const headerActions = document.createElement("div");
+  headerActions.className = "toolbar-actions";
+  if (state.view === "employees" && state.permissions.canEdit) {
+    const addEmployeeButton = document.createElement("button");
+    addEmployeeButton.type = "button";
+    addEmployeeButton.className = "button button-primary";
+    addEmployeeButton.textContent = "社員追加";
+    addEmployeeButton.addEventListener("click", startCreateEmployee);
+    headerActions.append(addEmployeeButton);
+  }
   const refreshButton = document.createElement("button");
   refreshButton.type = "button";
   refreshButton.className = "button button-secondary";
   refreshButton.textContent = "再読み込み";
   refreshButton.addEventListener("click", () => elements.refresh?.click());
-  header.append(title, refreshButton);
+  headerActions.append(refreshButton);
+  header.append(title, headerActions);
 
   const controls = document.createElement("div");
   controls.className = "safe-master-controls";
@@ -3643,6 +3655,7 @@ function startCreateEmployee() {
     showToast("編集権限がありません。", "error");
     return;
   }
+  removeSafeMasterAdminView();
   state.view = "employees";
   state.recentlyCreatedEmployeeId = "";
   state.selectedId = NEW_EMPLOYEE_ID;
@@ -3651,14 +3664,13 @@ function startCreateEmployee() {
 }
 
 function renderNewEmployeeDetail() {
-  const activeEmployeeCount = state.employees.filter((employee) => isActiveEmployee(employee)).length + 1;
   elements.detailPanel.innerHTML = `
     <form class="detail-form" id="detail-form" data-form-kind="employee">
       <h2>新規社員追加</h2>
       <p class="form-note">社員番号と氏名は必須です。メールは任意です。Firebase Auth / OAuth / 外部連携が必要な社員から段階的に登録します。社員番号なし退職者は LEGACY-0001 形式で登録します。</p>
       ${fieldInput("employee_id", "社員番号", "", { required: true, placeholder: "例: 9999 / LEGACY-0001" })}
       ${fieldInput("full_name", "氏名", "", { required: true, placeholder: "例: 山田 太郎" })}
-      ${fieldInput("email", "メール（任意）", "", "email")}
+      ${fieldInput("email", "メール（任意）", "", { type: "text", inputMode: "email", placeholder: "未入力でも登録できます" })}
       ${fieldInput("birth_date", "誕生日", "", "date")}
       ${fieldInput("joined_on", "入社日", "", "date")}
       ${fieldInput("retired_on", "退職日", "", "date")}
@@ -3722,6 +3734,11 @@ async function saveNewEmployee(event) {
   const payload = collectEmployeePayload();
   payload.employee_id = String(payload.employee_id || "").trim();
   payload.full_name = String(payload.full_name || "").trim();
+  payload.email = normalizeEmployeeEmailInput(payload.email);
+  if (payload.email && !isValidEmployeeEmail(payload.email)) {
+    showToast("メールアドレスの形式を確認してください。未登録の場合は空欄にしてください。", "error");
+    return;
+  }
 
   const invalidField = getInvalidDateField(payload, [
     ["birth_date", "誕生日"],
@@ -3734,7 +3751,8 @@ async function saveNewEmployee(event) {
     showToast(`${invalidField}は 1993-08-01 の形式で入力してください。`, "error");
     return;
   }
-  if (!isValidStoreSelection(form)) {
+  const selectedStores = [payload.store_id, payload.store_assignment_2, payload.store_assignment_3].filter(Boolean);
+  if (new Set(selectedStores).size !== selectedStores.length) {
     showToast("主店舗・サブ店舗・第3店舗は重複しないように選択してください。", "error");
     return;
   }
@@ -4810,6 +4828,7 @@ function setReadonlyState(readonly) {
 function fieldInput(name, label, value, type = "text") {
   const options = typeof type === "object" && type ? type : { type };
   const inputType = options.type || "text";
+  const inputMode = options.inputMode ? ` inputmode="${escapeHtml(options.inputMode)}"` : "";
   const required = options.required ? " required" : "";
   const disabled = options.disabled ? " disabled" : "";
   const placeholder = options.placeholder ? ` placeholder="${escapeHtml(options.placeholder)}"` : "";
@@ -4819,7 +4838,7 @@ function fieldInput(name, label, value, type = "text") {
   return `
     <div class="form-field">
       <label for="${escapeHtml(name)}">${escapeHtml(label)}</label>
-      <input class="form-input" id="${escapeHtml(name)}" name="${escapeHtml(name)}" type="${escapeHtml(inputType)}" value="${escapeHtml(value ?? "")}"${placeholder}${step}${min}${max}${required}${disabled}>
+      <input class="form-input" id="${escapeHtml(name)}" name="${escapeHtml(name)}" type="${escapeHtml(inputType)}" value="${escapeHtml(value ?? "")}"${inputMode}${placeholder}${step}${min}${max}${required}${disabled}>
     </div>`;
 }
 

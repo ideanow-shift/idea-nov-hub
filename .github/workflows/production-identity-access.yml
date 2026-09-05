@@ -28,6 +28,8 @@ jobs:
           --health-retries 12
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -46,4 +48,4 @@ jobs:
         run: |
           node --test tests/production-core-access-containment-contract.test.mjs tests/store-operations-production-release-package.test.mjs tests/store-sales-runtime.test.mjs tests/store-operations-staging-uat-security-runtime.test.mjs tests/store-operations-firebase-auth01-bridge.test.mjs tests/store-operations-google-oidc-identity.test.mjs tests/store-operations-secure-handoff.test.mjs tests/store-operations-hub-integration.test.mjs tests/dbf-hub-session-handoff.test.mjs tests/store-operations-staging-core-uat-security-contract.test.mjs tests/dbf-store-monthly-actual-backend-contract.test.mjs tests/dbf-store-monthly-comparison-contract.test.mjs
       - name: Patch quality
-        run: git diff --check HEAD^ HEAD
+        run: git diff --check origin/main...HEAD

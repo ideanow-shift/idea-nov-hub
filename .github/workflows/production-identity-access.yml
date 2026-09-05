@@ -4,8 +4,8 @@ on:
     paths:
       - '.github/workflows/production-identity-access.yml'
       - 'supabase/functions/nov-hub-api/**'
-      - 'supabase/migrations/20260905020641_production_identity_access_auth01_m019_v1.sql'
-      - 'supabase/rollback/production_identity_access_auth01_m019_v1.rollback.sql'
+      - 'supabase/migrations/*production_identity_access*.sql'
+      - 'supabase/rollback/production_identity_access*.rollback.sql'
       - 'tests/production-identity-access*'
       - 'docs/store_operations_management/production_identity_access/**'
 permissions:

@@ -7,7 +7,7 @@ const api = readFileSync(new URL("../supabase/functions/nov-hub-api/index.ts", i
 const standardHtml = readFileSync(new URL("../portal/master-admin/index.html", import.meta.url), "utf8");
 const stableHtml = readFileSync(new URL("../portal/master-admin-stable/index.html", import.meta.url), "utf8");
 
-const employeeCreateVersion = "master-admin-employee-create-20260905-2";
+const employeeCreateVersion = "master-admin-employee-create-20260905-3";
 assert.match(standardHtml, new RegExp(`master-admin\\.js\\?v=${employeeCreateVersion}`));
 assert.match(stableHtml, new RegExp(`master-admin\\.js\\?v=${employeeCreateVersion}`));
 
@@ -59,19 +59,22 @@ for (const scenario of [
   { email: "", employee_id: "", rejected: true },
   { email: "", full_name: "", rejected: true },
   { email: "", duplicate: true, rejected: true },
+  { email: "", stores: ["store-a", "store-a", ""], rejected: true },
+  { email: "", stores: ["store-a", "", "store-a"], rejected: true },
+  { email: "", stores: ["store-a", "store-b", "store-c"], expected: "" },
 ]) {
   const calls = [];
   const messages = [];
   const payload = { employee_id: "TEST-ONLY", full_name: "Fixture Employee", email: scenario.email };
   if (scenario.employee_id !== undefined) payload.employee_id = scenario.employee_id;
   if (scenario.full_name !== undefined) payload.full_name = scenario.full_name;
+  if (scenario.stores) [payload.store_id, payload.store_assignment_2, payload.store_assignment_3] = scenario.stores;
   const button = {};
   const sandbox = {
     state: { employees: scenario.duplicate ? [{ employee_id: "TEST-ONLY" }] : [] },
     document: { querySelector: () => ({}) },
     collectEmployeePayload: () => ({ ...payload }),
     getInvalidDateField: () => null,
-    isValidStoreSelection: () => true,
     showToast: (message) => messages.push(message),
     setSaveStatus: () => {},
     callApiAction: async (action, data) => { calls.push({ action, data }); return { employee: { id: "fixture-only" } }; },

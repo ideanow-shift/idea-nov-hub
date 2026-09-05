@@ -3751,7 +3751,8 @@ async function saveNewEmployee(event) {
     showToast(`${invalidField}は 1993-08-01 の形式で入力してください。`, "error");
     return;
   }
-  if (!isValidStoreSelection(form)) {
+  const selectedStores = [payload.store_id, payload.store_assignment_2, payload.store_assignment_3].filter(Boolean);
+  if (new Set(selectedStores).size !== selectedStores.length) {
     showToast("主店舗・サブ店舗・第3店舗は重複しないように選択してください。", "error");
     return;
   }

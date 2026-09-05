@@ -3,6 +3,7 @@ import { readFile, mkdtemp, rm } from 'node:fs/promises';
 import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, resolve, relative } from 'node:path';
+import { resolveProductionCanonicalAccess } from '../supabase/functions/nov-hub-api/store_operations_production_access.mjs';
 
 // This harness cannot accept a database URL or remote host. Never run against Supabase.
 const bin = process.env.BDF_PG_BIN || '';
@@ -21,6 +22,7 @@ function command(n,args,input,fail=false) {
 const args=['-X','-qAt','-v','ON_ERROR_STOP=1'];
 const sql=(s,fail=false)=>command('psql',args,s,fail);
 function check(name,fn){fn();passed++;process.stdout.write(`PASS ${name}\n`);}
+async function asyncCheck(name,fn){await fn();passed++;process.stdout.write(`PASS ${name}\n`);}
 const id=(n)=>`fixture_id(${n})`;
 const digest=(n)=>`encode(sha256(convert_to(${id(n)}::text,'UTF8')),'hex')`;
 const rpc=(n)=>`public.store_operations_production_access_v1(${digest(n)})`;
@@ -60,6 +62,24 @@ try {
  (fixture_id(2003),1,'grant',fixture_id(103),'primary','own',fixture_id(3),null,current_date,'approval:fixture');
  insert into identity_access.consumer_access_decisions(decision_key,decision_sequence,decision,employee_id,consumer_key,effective_from,evidence_reference)
  select fixture_id(3000+n),1,'grant',fixture_id(100+n),'store_operations_v1',current_date,'approval:fixture' from generate_series(1,3) n;`);
+ check('Production ACL fixture removes service_role auth.users SELECT',()=>{
+  sql('revoke select on auth.users from service_role;');
+  assert.equal(sql("select has_table_privilege('service_role','auth.users','select');").stdout.trim(),'f');
+ });
+ check('pre-corrective resolver reproduces Production permission failure',()=>{
+  const r=sql(`set role service_role; select ${rpc(101)};`,true);
+  assert.notEqual(r.status,0);assert.match(r.stderr,/permission denied for table users/);
+ });
+ sql(await readFile(new URL('../supabase/migrations/20260905104735_production_identity_access_auth_users_acl_corrective_v1.sql',import.meta.url),'utf8'));
+ check('helper is trusted-owner SECURITY DEFINER with empty search_path',()=>assert.equal(sql(`select count(*) from pg_proc p join pg_roles r on r.oid=p.proowner
+   where p.oid='identity_access.auth_user_active_v1(uuid)'::regprocedure and p.prosecdef and r.rolname='postgres'
+   and p.proconfig @> array['search_path=""'];`).stdout.trim(),'1'));
+ check('helper ACL is service_role only',()=>assert.equal(sql(`select
+   has_function_privilege('service_role','identity_access.auth_user_active_v1(uuid)','execute')::int+
+   has_function_privilege('anon','identity_access.auth_user_active_v1(uuid)','execute')::int*10+
+   has_function_privilege('authenticated','identity_access.auth_user_active_v1(uuid)','execute')::int*100;`).stdout.trim(),'1'));
+ check('helper returns boolean only and valid anchor PASS',()=>assert.equal(sql(`set role service_role; select identity_access.auth_user_active_v1(${id(201)});`).stdout.trim(),'t'));
+ check('missing auth anchor denied by helper',()=>assert.equal(sql(`set role service_role; select identity_access.auth_user_active_v1(${id(999)});`).stdout.trim(),'f'));
  for(const [n,role,mode,count] of [[101,'executive','all',20],[102,'area_manager','assigned',1],[103,'store_manager','own',1]]){
   check(`${role} canonical resolution and exact scope`,()=>{const data=JSON.parse(sql(`set role service_role; select ${rpc(n)};`).stdout.trim());
    assert.equal(data.roleKeys[0],role);assert.equal(data.scope.mode,mode);assert.equal(data.scope.storeIds.length,count);
@@ -70,12 +90,14 @@ try {
  }
  check('resolver works in READ ONLY transaction',()=>assert.equal(sql(`begin read only; set local role service_role; select ${rpc(101)}; rollback;`).status,0));
  check('audit records are stamped with server database role',()=>assert.equal(sql("select count(*) from identity_access.auth01_binding_decisions where recorded_by='service_role';").stdout.trim(),'3'));
- check('fixed search_path and security invoker routines',()=>assert.equal(sql("select count(*) from pg_proc where (pronamespace='identity_access'::regnamespace or oid='public.store_operations_production_access_v1(text)'::regprocedure) and not prosecdef and proconfig @> array['search_path=\"\"'];").stdout.trim(),'2'));
+ check('resolver and guard remain SECURITY INVOKER with empty search_path',()=>assert.equal(sql("select count(*) from pg_proc where oid in ('identity_access.guard_decision_v1()'::regprocedure,'public.store_operations_production_access_v1(text)'::regprocedure) and not prosecdef and proconfig @> array['search_path=\"\"'];").stdout.trim(),'2'));
  check('new lookup indexes present',()=>assert.equal(sql("select count(*) from pg_indexes where schemaname='identity_access' and indexname in ('auth01_subject_lookup','auth01_employee_lookup','auth01_auth_user_lookup','m019_employee_lookup','m019_source_assignment_lookup','m019_store_lookup','consumer_employee_lookup','store_alias_source_lookup','store_alias_canonical_lookup');").stdout.trim(),'9'));
  denied('unknown subject','',rpc(104));
  denied('inactive employee','update public.employees set is_active=false where id=fixture_id(101);');
  denied('retired employee','update public.employees set retired_on=current_date where id=fixture_id(101);');
  denied('deleted auth user','update auth.users set deleted_at=now() where id=fixture_id(201);');
+ denied('anonymous auth user','update auth.users set is_anonymous=true where id=fixture_id(201);');
+ denied('unconfirmed auth user','update auth.users set email_confirmed_at=null where id=fixture_id(201);');
  denied('banned auth user','update auth.users set banned_until=now()+interval \'1 day\' where id=fixture_id(201);');
  denied('missing role','delete from public.employee_roles where employee_id=fixture_id(101);');
  denied('inactive roles','update public.roles set is_active=false;');
@@ -96,6 +118,7 @@ try {
  denied('duplicate store code',"update public.stores set store_id='S1' where id=fixture_id(2);");
  check('duplicate active subject/employee denied',()=>assert.match(sql(`set role service_role; ${authGrant(101,1011,204)}`,true).stderr,/DUPLICATE/));
  check('duplicate auth anchor denied',()=>assert.match(sql(`set role service_role; ${authGrant(104,1014,201)}`,true).stderr,/DUPLICATE/));
+ check('guard denies inactive auth anchor without auth.users SELECT',()=>assert.match(sql(`begin; update auth.users set is_anonymous=true where id=fixture_id(204); set local role service_role; ${authGrant(104,1014,204)} rollback;`,true).stderr,/AUTH01_AUTH_USER_INACTIVE/));
  check('missing employee FK/active guard denied',()=>assert.match(sql(`set role service_role; ${authGrant(999,1014,204)}`,true).stderr,/INACTIVE|foreign key/));
  check('M019 scope overlap denied',()=>assert.match(sql(`begin; set role service_role;
  insert into identity_access.m019_scope_decisions select (jsonb_populate_record(null::identity_access.m019_scope_decisions,
@@ -128,6 +151,15 @@ try {
  const second=asynchronous(`set role service_role; ${authGrant(104,1015,204)}`);
  const concurrent=await Promise.all([first,second]);
  check('concurrent unique active binding',()=>{assert.equal(concurrent.filter(x=>x.code===0).length,1);assert.match(concurrent.find(x=>x.code!==0).out,/DUPLICATE/);});
+ const ownerResult=JSON.parse(sql(`set role service_role; select ${rpc(101)};`).stdout.trim());
+ await asyncCheck('Hosted Smoke ACL recovery reaches DISABLED denial, not database permission failure',async()=>{
+  let called=0;
+  await assert.rejects(()=>resolveProductionCanonicalAccess({projectRef:'nkmxevmioczcmnldreyo',rolloutState:'DISABLED',ownerEmployeeId:null,
+   session:{authType:'hub_session',employeeId:'10000000-0000-4000-8000-000000000101',sessionId:'10000000-0000-4000-8000-000000000901',audience:'nov_hub',expiresAt:'2099-01-01T00:00:00Z'},
+   rpc:async()=>{called++;return ownerResult;}}),/PRODUCTION_CANONICAL_ACCESS_DENIED/);
+  assert.equal(called,1);
+ });
+ sql(await readFile(new URL('../supabase/rollback/production_identity_access_auth_users_acl_corrective_v1.rollback.sql',import.meta.url),'utf8'));
  sql(await readFile(new URL('../supabase/rollback/production_identity_access_auth01_m019_v1.rollback.sql',import.meta.url),'utf8'));
  check('containment rollback denies server resolver',()=>assert.match(sql(`set role service_role; select ${rpc(101)};`,true).stderr,/permission denied/));
  check('rollback preserves audit ledgers',()=>assert.equal(sql('select count(*) from identity_access.auth01_binding_decisions;').stdout.trim(),'4'));

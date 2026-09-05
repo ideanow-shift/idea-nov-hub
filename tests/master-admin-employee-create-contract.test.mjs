@@ -20,6 +20,7 @@ assert.match(safeView, /addEmployeeButton\.addEventListener\("click", startCreat
 const createUiStart = frontend.indexOf("function renderNewEmployeeDetail");
 const createUiEnd = frontend.indexOf("\nfunction validateEmployeeFormPayload", createUiStart);
 const createUi = frontend.slice(createUiStart, createUiEnd);
+assert.doesNotMatch(createUi, /isActiveEmployee/);
 assert.match(createUi, /fieldInput\("employee_id", "社員番号"/);
 assert.match(createUi, /fieldInput\("full_name", "氏名"/);
 assert.match(createUi, /fieldInput\("joined_on", "入社日"/);

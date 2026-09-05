@@ -3664,7 +3664,6 @@ function startCreateEmployee() {
 }
 
 function renderNewEmployeeDetail() {
-  const activeEmployeeCount = state.employees.filter((employee) => isActiveEmployee(employee)).length + 1;
   elements.detailPanel.innerHTML = `
     <form class="detail-form" id="detail-form" data-form-kind="employee">
       <h2>新規社員追加</h2>

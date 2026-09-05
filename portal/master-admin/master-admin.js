@@ -743,6 +743,7 @@ function getSafeRowsForCurrentView() {
 }
 
 function getSafeSelectedRow(rows) {
+  if (state.view === "employees" && state.selectedId === NEW_EMPLOYEE_ID) return null;
   return rows.find((row) => row?.id === state.selectedId) || rows[0] || null;
 }
 
@@ -1698,12 +1699,23 @@ function renderSafeMasterAdminView() {
   titleNote.textContent = getSafeViewNote();
   title.append(titleStrong, titleNote);
 
+  const headerActions = document.createElement("div");
+  headerActions.className = "toolbar-actions";
+  if (state.view === "employees" && state.permissions.canEdit) {
+    const addEmployeeButton = document.createElement("button");
+    addEmployeeButton.type = "button";
+    addEmployeeButton.className = "button button-primary";
+    addEmployeeButton.textContent = "社員追加";
+    addEmployeeButton.addEventListener("click", startCreateEmployee);
+    headerActions.append(addEmployeeButton);
+  }
   const refreshButton = document.createElement("button");
   refreshButton.type = "button";
   refreshButton.className = "button button-secondary";
   refreshButton.textContent = "再読み込み";
   refreshButton.addEventListener("click", () => elements.refresh?.click());
-  header.append(title, refreshButton);
+  headerActions.append(refreshButton);
+  header.append(title, headerActions);
 
   const controls = document.createElement("div");
   controls.className = "safe-master-controls";
@@ -3643,6 +3655,7 @@ function startCreateEmployee() {
     showToast("編集権限がありません。", "error");
     return;
   }
+  removeSafeMasterAdminView();
   state.view = "employees";
   state.recentlyCreatedEmployeeId = "";
   state.selectedId = NEW_EMPLOYEE_ID;

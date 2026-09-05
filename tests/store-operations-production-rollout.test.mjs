@@ -51,6 +51,8 @@ test("Production management wiring reads rollout authority from server env only"
   assert.match(edge, /Deno\.env\.get\("STORE_OPERATIONS_OWNER_PILOT_EMPLOYEE_ID"\)/u);
   assert.doesNotMatch(edge, /payload\.(?:rolloutState|ownerEmployeeId|targetEmployeeId)/u);
   assert.match(edge, /requestedAuthType !== "hub_session"/u);
+  assert.match(edge, /isStoreOperationsProductionRolloutDenied\(error\)\) denyManagementAccess\(\)/u);
+  assert.match(edge, /if \(isStoreOperationsProductionRolloutDenied\(error\)\) denyManagementAccess\(\);\s*throw error;/u);
   assert.match(edge, /STORE_OPERATIONS_STAGING_ONLY_ACTIONS\.has\(action\)/u);
   assert.match(edge, /PRODUCTION_UAT_RUNTIME_DENIED/u);
 });

@@ -3,7 +3,10 @@ import { readFile, mkdtemp, rm } from 'node:fs/promises';
 import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, resolve, relative } from 'node:path';
-import { resolveProductionCanonicalAccess } from '../supabase/functions/nov-hub-api/store_operations_production_access.mjs';
+import {
+ isStoreOperationsProductionRolloutDenied,
+ resolveProductionCanonicalAccess,
+} from '../supabase/functions/nov-hub-api/store_operations_production_access.mjs';
 
 // This harness cannot accept a database URL or remote host. Never run against Supabase.
 const bin = process.env.BDF_PG_BIN || '';
@@ -156,7 +159,7 @@ try {
   let called=0;
   await assert.rejects(()=>resolveProductionCanonicalAccess({projectRef:'nkmxevmioczcmnldreyo',rolloutState:'DISABLED',ownerEmployeeId:null,
    session:{authType:'hub_session',employeeId:'10000000-0000-4000-8000-000000000101',sessionId:'10000000-0000-4000-8000-000000000901',audience:'nov_hub',expiresAt:'2099-01-01T00:00:00Z'},
-   rpc:async()=>{called++;return ownerResult;}}),/PRODUCTION_CANONICAL_ACCESS_DENIED/);
+   rpc:async()=>{called++;return ownerResult;}}),isStoreOperationsProductionRolloutDenied);
   assert.equal(called,1);
  });
  sql(await readFile(new URL('../supabase/rollback/production_identity_access_auth_users_acl_corrective_v1.rollback.sql',import.meta.url),'utf8'));

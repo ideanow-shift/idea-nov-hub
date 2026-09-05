@@ -34,11 +34,12 @@ import {
 import { createHash } from "node:crypto";
 // @ts-ignore Production rollout policy is isolated and covered by Node contract tests.
 import {
-  evaluateStoreOperationsProductionRollout,
   hasStoreOperationsUatMarker,
   projectRefFromSupabaseUrl,
   STORE_OPERATIONS_PRODUCTION_PROJECT_REF,
 } from "./store_operations_production_rollout.mjs";
+// @ts-ignore Production server-only resolver is covered by Node and PostgreSQL contract tests.
+import { assertProductionReadPayload, resolveProductionCanonicalAccess } from "./store_operations_production_access.mjs";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -485,6 +486,7 @@ async function handleManagementFromDeployedBaseline(
   payload: JsonRecord,
 ) {
   let verifiedHubAuth: JsonRecord | null = null;
+  let productionMasters: Record<string, JsonRecord[]> | null = null;
   const requestedAuthType = String(payload.authType || "hub_session") === "dbf_staging_session"
     ? "dbf_staging_session"
     : String(payload.authType || "hub_session") === "store_operations_staging_session"
@@ -496,6 +498,10 @@ async function handleManagementFromDeployedBaseline(
     && projectRefFromSupabaseUrl(SUPABASE_URL) === STORE_OPERATIONS_PRODUCTION_PROJECT_REF;
   if (storeOperationsProductionRequest && (requestedAuthType !== "hub_session" || hasStoreOperationsUatMarker(payload))) {
     throw new PortalError("PRODUCTION_UAT_SESSION_DENIED", "Production Store Operations requires a formal NOV HUB session.", 403);
+  }
+  if (storeOperationsProductionRequest) {
+    try { assertProductionReadPayload(payload); }
+    catch { throw new PortalError("ACCESS_DENIED", "Production Store Operations request contains unsupported claims.", 403); }
   }
   const deps: ManagementDependencies = {
     async verifyHubSession(inputToken) {
@@ -510,22 +516,28 @@ async function handleManagementFromDeployedBaseline(
         return { id: String(verifiedHubAuth.employeeId) };
       }
       if (!verifiedHubAuth) return null;
+      // Production must never fall back to legacy employee/email/role resolution.
+      if (storeOperationsProductionRequest) return null;
       const employee = await findEmployeeForAuth(verifiedHubAuth);
-      if (storeOperationsProductionRequest) {
-        const rollout = evaluateStoreOperationsProductionRollout({
-          projectRef: projectRefFromSupabaseUrl(SUPABASE_URL),
-          state: STORE_OPERATIONS_PRODUCTION_ROLLOUT_STATE,
-          employeeId: String(employee?.id || ""),
-          ownerEmployeeId: STORE_OPERATIONS_OWNER_PILOT_EMPLOYEE_ID,
-          session: verifiedHubAuth,
-        });
-        if (!rollout.allowed) {
-          throw new PortalError(rollout.code, "Production Store Operations access is not enabled for this session.", 403);
-        }
-      }
       return employee?.id ? { id: String(employee.id) } : null;
     },
-    resolveCanonicalAccess: storeOperationsSession
+    resolveCanonicalAccess: storeOperationsProductionRequest
+      ? async () => {
+        try {
+          const access = await resolveProductionCanonicalAccess({
+            session: verifiedHubAuth,
+            projectRef: projectRefFromSupabaseUrl(SUPABASE_URL),
+            rolloutState: STORE_OPERATIONS_PRODUCTION_ROLLOUT_STATE,
+            ownerEmployeeId: STORE_OPERATIONS_OWNER_PILOT_EMPLOYEE_ID,
+            rpc: callSupabaseRpc,
+          });
+          productionMasters = access.masters;
+          return canonicalAccessContext(access);
+        } catch {
+          throw new PortalError("ACCESS_DENIED", "Production canonical access is unavailable.", 403);
+        }
+      }
+      : storeOperationsSession
       ? async (auth) => {
         const result = await callSupabaseRpc("store_operations_uat_resolve_hub_employee_access_v1", {
           p_employee_id: auth.subject,
@@ -536,6 +548,10 @@ async function handleManagementFromDeployedBaseline(
       : undefined,
     db: {
       select: async (table, query) => {
+        if (storeOperationsProductionRequest && ["stores", "corporations", "corporation_business_profiles"].includes(table)) {
+          if (!productionMasters) throw new PortalError("ACCESS_DENIED", "Canonical master is unavailable.", 403);
+          return productionMasters[table] || [];
+        }
         if (storeOperationsSession && ["stores", "corporations", "corporation_business_profiles"].includes(table)) {
           return await readStoreOperationsUatMasterRows(table);
         }
@@ -2258,6 +2274,9 @@ async function verifyHubAppSession(
   }
   if (!isUuid(payload.sub) || Number(payload.exp || 0) <= now || Number(payload.iat || 0) > now + 30) {
     throw new PortalError("TOKEN_VERIFICATION_FAILED", "IDEA LINK session has expired or is invalid.", 401);
+  }
+  if (projectRefFromSupabaseUrl(SUPABASE_URL) === STORE_OPERATIONS_PRODUCTION_PROJECT_REF && hasStoreOperationsUatMarker(payload)) {
+    throw new PortalError("ACCESS_DENIED", "Technical UAT sessions are not accepted in Production.", 403);
   }
   if (payload.uat_actor || payload.uat_scenario || payload.uat_assumption_key) {
     if (payload.uat_actor !== "owner_controlled_technical_principal"

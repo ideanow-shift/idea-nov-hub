@@ -20,6 +20,9 @@ export function hasStoreOperationsUatMarker(value) {
     || Boolean(record.uat_actor)
     || Boolean(record.uat_scenario)
     || Boolean(record.uat_assumption_key)
+    || Boolean(record.uatActor)
+    || Boolean(record.uatScenario)
+    || Boolean(record.uatAssumptionKey)
     || Boolean(record.technical_assumption)
     || Boolean(record.technicalAssumption);
 }

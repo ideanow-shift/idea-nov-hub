@@ -1,0 +1,49 @@
+name: Production Identity Access Contract
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/production-identity-access.yml'
+      - 'supabase/functions/nov-hub-api/**'
+      - 'supabase/migrations/20260905020641_production_identity_access_auth01_m019_v1.sql'
+      - 'supabase/rollback/production_identity_access_auth01_m019_v1.rollback.sql'
+      - 'tests/production-identity-access*'
+      - 'docs/store_operations_management/production_identity_access/**'
+permissions:
+  contents: read
+jobs:
+  postgres17-and-contract:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6-bookworm
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd 'pg_isready -U postgres'
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Disposable database apply, ACL, scope, concurrency and rollback
+        run: node tests/production-identity-access-postgres.test.mjs
+      - name: Server resolver and rollout regression
+        run: node --test tests/production-identity-access.test.mjs tests/store-operations-production-rollout.test.mjs
+      - name: Formal DBF projection and public scope integration
+        run: |
+          deno test --allow-env tests/production-identity-access-edge.test.ts tests/dbf-store-monthly-actual-backend-edge.test.ts
+          deno check supabase/functions/nov-hub-api/index.ts
+      - name: Existing HUB, auth, Store Operations, Finance and OS boundaries
+        run: |
+          node --test tests/production-core-access-containment-contract.test.mjs tests/store-operations-production-release-package.test.mjs tests/store-sales-runtime.test.mjs tests/store-operations-staging-uat-security-runtime.test.mjs tests/store-operations-firebase-auth01-bridge.test.mjs tests/store-operations-google-oidc-identity.test.mjs tests/store-operations-secure-handoff.test.mjs tests/store-operations-hub-integration.test.mjs tests/dbf-hub-session-handoff.test.mjs tests/store-operations-staging-core-uat-security-contract.test.mjs tests/dbf-store-monthly-actual-backend-contract.test.mjs tests/dbf-store-monthly-comparison-contract.test.mjs
+      - name: Patch quality
+        run: git diff --check HEAD^ HEAD

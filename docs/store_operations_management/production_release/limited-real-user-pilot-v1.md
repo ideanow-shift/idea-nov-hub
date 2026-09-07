@@ -10,25 +10,29 @@ The required configuration is the existing `STORE_OPERATIONS_OWNER_PILOT_EMPLOYE
 
 The Production display version is `v132 / ACTIVE`, while its entrypoint provenance remains `_130`. The downloaded deployed Function source matches the approved main Store Operations runtime; the only main-only file is an unreferenced candidate artifact that was not bundled. The typed HTTP 403 corrective from PR #195 is present. The result is `APPROVED_SOURCE_MATCH / METADATA_VERSION_DRIFT`; no Production rollback is required.
 
-## Auth anchor plan
+## Verified Production identity state
 
-Production read-only evidence finds one active canonical employee and one enabled, unlocked NOV HUB login credential for each approved real user. Candidate identity values are unique, active `auth.users` candidates are absent, duplicate candidates are zero, and collision with the Owner anchor is zero. The authentication authority is the existing signed NOV HUB session and canonical employee identity; an Auth anchor email is never identity proof or binding authority.
+The two server-managed internal Supabase Auth anchors are `CREATED_VERIFIED`: 戸田 and 桝本 each have exactly one unique active anchor. These anchors support the Production AUTH-01 contract only and are not user-facing login accounts. Authentication authority remains the existing signed NOV HUB session and canonical employee identity; an anchor email must not be used as proof of identity or authorization authority. The operational contract is to send no email or invitation, configure no user password, and require no Supabase login, Google Workspace license, or user operation. Any Supabase-generated opaque internal credential remains an undisclosed implementation detail and is never a user password or authentication authority.
 
-With separate Owner approval, create exactly one server-managed internal Supabase Auth anchor for each canonical identity through the server-only Admin API. Fix the one-to-one mapping from existing employee identity and server-side evidence. The anchor exists only to support the Production AUTH-01 contract; it is not a user-facing login account and its email must not be used as proof of identity. Create no interactive session, send no email or invitation, require no confirmation action, configure no user password, and require no Supabase login. Expose no password, token, email, or UUID in logs or artifacts. This anchor does not replace or modify normal NOV HUB login and requires no Google Workspace license or new user action. Immediately read back exactly one active, nonanonymous, nondeleted, nonbanned anchor for each candidate before any AUTH-01 decision. Any ambiguity, collision, notification, or newly required user authentication step is a stop condition.
+The six append-only identity metadata grants are `APPLIED_VERIFIED`: two AUTH-01 grants, two M019 grants, and two `store_operations_v1` Consumer Access grants. The total Production identity metadata write count is `EXACTLY_6`. Employee, Role, Store, and business-data writes remain zero.
 
-## Bounded future writes
+Server-side resolver read-back is complete:
 
-The identity-access apply is exactly six append-only metadata grants: one AUTH-01, one M019, and one `store_operations_v1` Consumer Access grant per real user. The Area Manager M019 grant is `assigned` to the single current active `employee_store_assignments` row and must preserve its `source_assignment_id`. The Store Manager M019 grant is `own` and must match the canonical own Store, BASSA上石神井店. Employee, Role, and Store master writes are zero. Auth anchor creates are separately counted as exactly two.
+- Owner: `EXECUTIVE_ALL_20`.
+- 戸田: `AREA_MANAGER_ASSIGNED_1`.
+- 桝本: `STORE_MANAGER_OWN_上石神井店`.
 
-## Approved future execution order
+No UUID, Auth ID, internal email, password, credential, token, or secret is recorded in this document.
 
-1. Keep rollout at `OWNER_PILOT`.
-2. Create and read back exactly two Auth anchors.
-3. Apply and read back exactly six identity metadata grants.
-4. Resolve the Area Manager as `AREA_MANAGER / ASSIGNED_1` and the Store Manager as `STORE_MANAGER / OWN_上石神井店`.
-5. Merge this code under separate approval and deploy only `nov-hub-api` under another approval.
-6. Keep rollout at `OWNER_PILOT`; configure the two distinct pilot IDs and read them back without exposing values.
-7. Under separate approval, change rollout to `LIMITED_REAL_USER_PILOT`.
-8. Run Owner smoke, both real-user UATs, and non-pilot denial, then stop.
+## Current rollout and pending activation
 
-This contract does not authorize Production Auth creation, identity metadata writes, configuration changes, deployment, migration, business writes, `GENERAL`, or a Portfolio phase transition.
+The current Production rollout remains `OWNER_PILOT`. Owner Hosted access remains HTTP 200. 戸田 and 桝本 remain HTTP 403 as expected, and `GENERAL` is `NOT_ACTIVE`.
+
+The following actions are not yet activated and each remains separately Owner-gated:
+
+1. Merge this code and deploy only `nov-hub-api` from the approved source.
+2. Configure the two distinct server-only real-user pilot employee IDs and read back only their presence and validity.
+3. Change the rollout state to `LIMITED_REAL_USER_PILOT`.
+4. Run Owner smoke, both real-user UATs, and non-pilot denial, then stop.
+
+This contract does not authorize Production configuration changes, deployment, migration, business writes, `GENERAL`, or a Portfolio phase transition. The completed Auth anchor and identity metadata operations are recorded as verified prior state and are not repeated by this PR.

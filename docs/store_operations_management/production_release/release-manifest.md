@@ -25,8 +25,9 @@ Status: `PRODUCTION_READINESS_CORRECTIVE / NO DEPLOY`
 2. Deploy `nov-hub-api` from the approved release SHA only after DB and Secret/IAM preflight.
 3. Configure server-only `STORE_OPERATIONS_PRODUCTION_ROLLOUT_STATE=DISABLED` before deploy. Missing or unknown configuration denies access.
 4. Configure `STORE_OPERATIONS_OWNER_PILOT_EMPLOYEE_ID` only for a separately approved `OWNER_PILOT`; it must be one canonical employee UUID, never an email.
-5. Publish `portal/store-sales` through the exact-SHA Pages workflow; Staging entry assets are removed before upload.
-6. Use the existing `store-sales-management` card and route; no duplicate app registration.
+5. `LIMITED_REAL_USER_PILOT` requires the Owner ID plus exactly two distinct server-only canonical employee IDs in `STORE_OPERATIONS_REAL_USER_PILOT_EMPLOYEE_ID_1` and `_2`. Missing, malformed, duplicate, or Owner-reused values fail closed. The allowlist never supplies Role, Scope, or Store IDs; the Production resolver remains authoritative.
+6. Publish `portal/store-sales` through the exact-SHA Pages workflow; Staging entry assets are removed before upload.
+7. Use the existing `store-sales-management` card and route; no duplicate app registration.
 
 ## Required API secret/config names
 
@@ -34,10 +35,11 @@ Status: `PRODUCTION_READINESS_CORRECTIVE / NO DEPLOY`
 - Existing NOV HUB contract: `HUB_APP_SESSION_SIGNING_SECRET`.
 - Rollout: `STORE_OPERATIONS_PRODUCTION_ROLLOUT_STATE`.
 - Owner pilot only: `STORE_OPERATIONS_OWNER_PILOT_EMPLOYEE_ID`.
+- Limited real-user pilot only: `STORE_OPERATIONS_REAL_USER_PILOT_EMPLOYEE_ID_1` and `STORE_OPERATIONS_REAL_USER_PILOT_EMPLOYEE_ID_2`.
 
 Secret values are never committed, displayed or supplied by the browser.
 
-Read-only secret-name inventory confirms `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_SECRET_KEYS`, `FIREBASE_API_KEY` and `HUB_APP_SESSION_SIGNING_SECRET` exist. Both rollout settings are absent and therefore require `NEEDS_OWNER_APPROVED_CONFIGURATION`. Supabase Edge is the API runtime; Production Cloud Run is not required for Store Operations.
+Read-only secret-name inventory confirms `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_SECRET_KEYS`, `FIREBASE_API_KEY` and `HUB_APP_SESSION_SIGNING_SECRET` exist. Rollout values are environment-owned, are never frozen in Git, and require separate Owner approval for each Production change. Supabase Edge is the API runtime; Production Cloud Run is not required for Store Operations.
 
 ## Production exclusion
 

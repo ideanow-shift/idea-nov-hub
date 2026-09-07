@@ -36,6 +36,16 @@ test("release package freezes no-write, no-copy and approval boundaries", () => 
   assert.match(workflow, /runtime-config\.production\.js/u);
 });
 
+test("limited pilot Auth anchors are internal AUTH-01 records, never user login authority", () => {
+  const contract = read("docs/store_operations_management/production_release/limited-real-user-pilot-v1.md");
+  assert.match(contract, /server-managed internal Supabase Auth anchor/u);
+  assert.match(contract, /existing signed NOV HUB session and canonical employee identity/u);
+  assert.match(contract, /email must not be used as proof of identity/u);
+  assert.match(contract, /send no email or invitation/u);
+  assert.match(contract, /configure no user password/u);
+  assert.match(contract, /require no Supabase login/u);
+});
+
 test("release production config contains no mock, synthetic or secret material", () => {
   const source = read("portal/store-sales/runtime-config.production.js");
   assert.doesNotMatch(source, /mock|synthetic|sb_secret_|service_role|eyJ[A-Za-z0-9_-]{20,}\./iu);

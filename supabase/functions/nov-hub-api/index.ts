@@ -64,6 +64,8 @@ const STORE_OPERATIONS_HANDOFF_AUTHORIZED_SUBJECT = Deno.env.get("STORE_OPERATIO
 const NOV_HUB_STAGING_EXTERNAL_SUBJECT_HMAC_SECRET = Deno.env.get("NOV_HUB_STAGING_EXTERNAL_SUBJECT_HMAC_SECRET") || "";
 const STORE_OPERATIONS_PRODUCTION_ROLLOUT_STATE = Deno.env.get("STORE_OPERATIONS_PRODUCTION_ROLLOUT_STATE") || "";
 const STORE_OPERATIONS_OWNER_PILOT_EMPLOYEE_ID = Deno.env.get("STORE_OPERATIONS_OWNER_PILOT_EMPLOYEE_ID") || "";
+const STORE_OPERATIONS_REAL_USER_PILOT_EMPLOYEE_ID_1 = Deno.env.get("STORE_OPERATIONS_REAL_USER_PILOT_EMPLOYEE_ID_1") || "";
+const STORE_OPERATIONS_REAL_USER_PILOT_EMPLOYEE_ID_2 = Deno.env.get("STORE_OPERATIONS_REAL_USER_PILOT_EMPLOYEE_ID_2") || "";
 const STORE_OPERATIONS_HANDOFF_OIDC_AUDIENCE = "https://zgkoofphhivesclehrom.supabase.co/functions/v1/nov-hub-api";
 const HUB_SESSION_AUDIENCE = "nov_hub";
 const DBF_STAGING_SESSION_AUDIENCE = "dbf_staging_session_v1";
@@ -534,6 +536,8 @@ async function handleManagementFromDeployedBaseline(
             projectRef: projectRefFromSupabaseUrl(SUPABASE_URL),
             rolloutState: STORE_OPERATIONS_PRODUCTION_ROLLOUT_STATE,
             ownerEmployeeId: STORE_OPERATIONS_OWNER_PILOT_EMPLOYEE_ID,
+            realUserPilotEmployeeId1: STORE_OPERATIONS_REAL_USER_PILOT_EMPLOYEE_ID_1,
+            realUserPilotEmployeeId2: STORE_OPERATIONS_REAL_USER_PILOT_EMPLOYEE_ID_2,
             rpc: callSupabaseRpc,
           });
           productionMasters = access.masters;

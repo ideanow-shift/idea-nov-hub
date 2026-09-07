@@ -9,11 +9,15 @@ import {
 
 const owner = "10000000-0000-4000-8000-000000000001";
 const other = "20000000-0000-4000-8000-000000000002";
+const toda = "30000000-0000-4000-8000-000000000003";
+const masumoto = "40000000-0000-4000-8000-000000000004";
 const evaluate = (override = {}) => evaluateStoreOperationsProductionRollout({
   projectRef: STORE_OPERATIONS_PRODUCTION_PROJECT_REF,
   state: "DISABLED",
   employeeId: owner,
   ownerEmployeeId: owner,
+  realUserPilotEmployeeId1: toda,
+  realUserPilotEmployeeId2: masumoto,
   session: { authType: "hub_session" },
   ...override,
 });
@@ -25,14 +29,41 @@ test("Production project reference is exact and parsed without browser input", (
 
 test("missing, unknown, disabled and Staging project rollout fail closed", () => {
   for (const state of ["", "UNKNOWN", "DISABLED"]) assert.equal(evaluate({ state }).allowed, false);
+  for (const employeeId of [owner, toda, masumoto, other]) assert.equal(evaluate({ state: "DISABLED", employeeId }).allowed, false);
   assert.equal(evaluate({ state: "GENERAL", projectRef: "zgkoofphhivesclehrom" }).allowed, false);
 });
 
 test("OWNER_PILOT permits only the server-configured canonical employee", () => {
   assert.equal(evaluate({ state: "OWNER_PILOT" }).allowed, true);
-  assert.equal(evaluate({ state: "OWNER_PILOT", employeeId: other }).allowed, false);
+  for (const employeeId of [toda, masumoto, other]) assert.equal(evaluate({ state: "OWNER_PILOT", employeeId }).allowed, false);
   assert.equal(evaluate({ state: "OWNER_PILOT", ownerEmployeeId: "" }).allowed, false);
   assert.equal(evaluate({ state: "OWNER_PILOT", employeeId: "browser-value" }).allowed, false);
+});
+
+test("LIMITED_REAL_USER_PILOT permits only Owner and exactly two server-configured employees", () => {
+  for (const employeeId of [owner, toda, masumoto]) {
+    assert.equal(evaluate({ state: "LIMITED_REAL_USER_PILOT", employeeId }).allowed, true);
+  }
+  assert.equal(evaluate({ state: "LIMITED_REAL_USER_PILOT", employeeId: other }).allowed, false);
+});
+
+test("LIMITED_REAL_USER_PILOT fails closed on missing, malformed, or duplicate configuration", () => {
+  for (const override of [
+    { realUserPilotEmployeeId1: "" },
+    { realUserPilotEmployeeId2: "not-a-uuid" },
+    { realUserPilotEmployeeId2: toda },
+    { realUserPilotEmployeeId2: toda.toUpperCase() },
+    { realUserPilotEmployeeId1: owner },
+    { ownerEmployeeId: masumoto },
+  ]) assert.equal(evaluate({ state: "LIMITED_REAL_USER_PILOT", ...override }).allowed, false);
+});
+
+test("LIMITED_REAL_USER_PILOT never accepts UAT or technical markers", () => {
+  for (const session of [
+    { authType: "store_operations_staging_session" },
+    { authType: "hub_session", uat_actor: "owner_controlled_technical_principal" },
+    { authType: "hub_session", technicalAssumption: true },
+  ]) assert.equal(evaluate({ state: "LIMITED_REAL_USER_PILOT", session }).allowed, false);
 });
 
 test("GENERAL permits a resolved canonical employee and never accepts UAT markers", () => {
@@ -49,7 +80,9 @@ test("Production management wiring reads rollout authority from server env only"
   const edge = readFileSync(new URL("../supabase/functions/nov-hub-api/index.ts", import.meta.url), "utf8");
   assert.match(edge, /Deno\.env\.get\("STORE_OPERATIONS_PRODUCTION_ROLLOUT_STATE"\)/u);
   assert.match(edge, /Deno\.env\.get\("STORE_OPERATIONS_OWNER_PILOT_EMPLOYEE_ID"\)/u);
-  assert.doesNotMatch(edge, /payload\.(?:rolloutState|ownerEmployeeId|targetEmployeeId)/u);
+  assert.match(edge, /Deno\.env\.get\("STORE_OPERATIONS_REAL_USER_PILOT_EMPLOYEE_ID_1"\)/u);
+  assert.match(edge, /Deno\.env\.get\("STORE_OPERATIONS_REAL_USER_PILOT_EMPLOYEE_ID_2"\)/u);
+  assert.doesNotMatch(edge, /payload\.(?:rolloutState|ownerEmployeeId|realUserPilotEmployeeId|targetEmployeeId)/u);
   assert.match(edge, /requestedAuthType !== "hub_session"/u);
   assert.match(edge, /isStoreOperationsProductionRolloutDenied\(error\)\) denyManagementAccess\(\)/u);
   assert.match(edge, /if \(isStoreOperationsProductionRolloutDenied\(error\)\) denyManagementAccess\(\);\s*throw error;/u);

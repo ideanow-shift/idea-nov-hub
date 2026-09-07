@@ -49,12 +49,17 @@ for (const [role, mode, count] of [["executive","all",20],["area_manager","assig
   });
 }
 
-function denialDependencies(options: { rolloutState?: string; ownerEmployeeId?: string; rpc?: () => unknown } = {}): ManagementDependencies {
-  const response = { contract: "production_identity_access_v1", employeeId: uuid(101), roleKeys: ["executive"],
-    scope: { mode: "all", storeIds: stores.map((store) => store.id) },
+function denialDependencies(options: { rolloutState?: string; employeeId?: string; role?: "executive" | "area_manager" | "store_manager";
+  ownerEmployeeId?: string; realUserPilotEmployeeId1?: string; realUserPilotEmployeeId2?: string; rpc?: () => unknown } = {}): ManagementDependencies {
+  const employeeId = options.employeeId || uuid(101);
+  const role = options.role || "executive";
+  const mode = role === "executive" ? "all" : role === "area_manager" ? "assigned" : "own";
+  const visibleStores = role === "executive" ? stores : stores.slice(0,1);
+  const response = { contract: "production_identity_access_v1", employeeId, roleKeys: [role],
+    scope: { mode, storeIds: visibleStores.map((store) => store.id) },
     masters: { stores, corporations: [{ id: uuid(501), corporation_name: "Fixture", is_active: true }],
       corporation_business_profiles: [{ corporation_id: uuid(501), fiscal_year_end_month: 8 }] } };
-  const session = { authType: "hub_session", employeeId: uuid(101), sessionId: uuid(900), audience: "nov_hub", expiresAt: "2099-01-01T00:00:00Z" };
+  const session = { authType: "hub_session", employeeId, sessionId: uuid(900), audience: "nov_hub", expiresAt: "2099-01-01T00:00:00Z" };
   return {
     verifyHubSession: async (token) => token ? { subject: uuid(101) } : null,
     resolveEmployee: async () => null,
@@ -64,6 +69,8 @@ function denialDependencies(options: { rolloutState?: string; ownerEmployeeId?: 
           projectRef: "nkmxevmioczcmnldreyo",
           rolloutState: options.rolloutState || "OWNER_PILOT",
           ownerEmployeeId: options.ownerEmployeeId ?? uuid(101),
+          realUserPilotEmployeeId1: options.realUserPilotEmployeeId1 ?? uuid(102),
+          realUserPilotEmployeeId2: options.realUserPilotEmployeeId2 ?? uuid(103),
           session,
           rpc: options.rpc || (async () => response),
         });
@@ -94,6 +101,39 @@ Deno.test("OWNER_PILOT non-owner maps to the same generic HTTP 403", async () =>
   const result = await handleManagementReadOnlyAction(denialRequest(), denialDependencies({ ownerEmployeeId: uuid(999) }));
   assertEquals(result.status, 403);
   assertEquals((result.body.error as { code: string }).code, "ACCESS_DENIED");
+});
+
+Deno.test("LIMITED_REAL_USER_PILOT allows Owner, Area Manager, and Store Manager without widening resolver scope", async () => {
+  for (const [employeeId, role, expectedCount] of [[uuid(101), "executive", 20], [uuid(102), "area_manager", 1],
+    [uuid(103), "store_manager", 1]] as const) {
+    const mode = role === "executive" ? "all" : role === "area_manager" ? "assigned" : "own";
+    const access = await resolveProductionCanonicalAccess({
+      projectRef: "nkmxevmioczcmnldreyo", rolloutState: "LIMITED_REAL_USER_PILOT",
+      ownerEmployeeId: uuid(101), realUserPilotEmployeeId1: uuid(102), realUserPilotEmployeeId2: uuid(103),
+      session: { authType: "hub_session", employeeId, sessionId: uuid(900), audience: "nov_hub", expiresAt: "2099-01-01T00:00:00Z" },
+      rpc: async () => ({ contract: "production_identity_access_v1", employeeId, roleKeys: [role],
+        scope: { mode, storeIds: stores.slice(0, expectedCount).map((store) => store.id) },
+        masters: { stores, corporations: [{ id: uuid(501), corporation_name: "Fixture", is_active: true }],
+          corporation_business_profiles: [{ corporation_id: uuid(501), fiscal_year_end_month: 8 }] } }),
+    });
+    assertEquals(access.roleKeys, [role]);
+    assertEquals(access.scope.mode, mode);
+    assertEquals(access.scope.storeIds.length, expectedCount);
+  }
+});
+
+Deno.test("LIMITED_REAL_USER_PILOT outsider and invalid configuration map to HTTP 403", async () => {
+  for (const dependencies of [
+    denialDependencies({ rolloutState: "LIMITED_REAL_USER_PILOT", employeeId: uuid(104), role: "area_manager" }),
+    denialDependencies({ rolloutState: "LIMITED_REAL_USER_PILOT", realUserPilotEmployeeId1: "" }),
+    denialDependencies({ rolloutState: "LIMITED_REAL_USER_PILOT", realUserPilotEmployeeId1: "malformed" }),
+    denialDependencies({ rolloutState: "LIMITED_REAL_USER_PILOT", realUserPilotEmployeeId2: uuid(102) }),
+    denialDependencies({ rolloutState: "LIMITED_REAL_USER_PILOT", realUserPilotEmployeeId1: uuid(101) }),
+  ]) {
+    const result = await handleManagementReadOnlyAction(denialRequest(), dependencies);
+    assertEquals(result.status, 403);
+    assertEquals((result.body.error as { code: string }).code, "ACCESS_DENIED");
+  }
 });
 
 Deno.test("unauthenticated Production Store Operations remains HTTP 401", async () => {

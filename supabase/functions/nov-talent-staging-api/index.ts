@@ -1046,7 +1046,11 @@ export function createHandler(runtime: Runtime) {
       // A new Candidate starts with an explicitly unregistered display state.
       // Official Selection state can only be projected by the atomic Selection RPC.
       if (!c || c.expectedVersion !== null || c.currentStatus !== null) return fail(400, "INVALID_REQUEST", origin);
-      const result = await rpc(runtime, "nov_talent_create_candidate_v1", rpcPayload(actor, c));
+      const assignees = c.assignedEmployeeId ? await canonicalAssignees(runtime, actor.hubToken) : [];
+      const assignee = c.assignedEmployeeId ? assignees?.find((row) => row.employeeId === c.assignedEmployeeId) : null;
+      if (c.assignedEmployeeId && !assignees) return fail(503, "ASSIGNEE_DIRECTORY_UNAVAILABLE", origin);
+      if (c.assignedEmployeeId && !assignee) return fail(400, "INVALID_ASSIGNEE", origin);
+      const result = await rpc(runtime, "nov_talent_create_candidate_v1", rpcPayload(actor, { ...c, assignedTo: assignee?.displayName || null }));
       return result.ok ? out(201, { ok: true, data: result.data }, origin) : fail(result.status || 400, "WRITE_FAILED", origin);
     }
     if (request.method === "POST" && path.endsWith("/api/talent/v1/activities")) {
@@ -1163,7 +1167,11 @@ export function createHandler(runtime: Runtime) {
     const edit = /^\/api\/talent\/v1\/candidates\/([0-9a-f-]+)$/iu.exec(path);
     if (request.method === "PATCH" && edit && UUID.test(edit[1])) {
       const c = cleanCandidate(body); if (!c || c.expectedVersion === null) return fail(400, "INVALID_REQUEST", origin);
-      const result = await rpc(runtime, "nov_talent_update_candidate_v1", { ...rpcPayload(actor, c), p_candidate_id: edit[1], p_expected_version: c.expectedVersion });
+      const assignees = c.assignedEmployeeId ? await canonicalAssignees(runtime, actor.hubToken) : [];
+      const assignee = c.assignedEmployeeId ? assignees?.find((row) => row.employeeId === c.assignedEmployeeId) : null;
+      if (c.assignedEmployeeId && !assignees) return fail(503, "ASSIGNEE_DIRECTORY_UNAVAILABLE", origin);
+      if (c.assignedEmployeeId && !assignee) return fail(400, "INVALID_ASSIGNEE", origin);
+      const result = await rpc(runtime, "nov_talent_update_candidate_v1", { ...rpcPayload(actor, { ...c, assignedTo: assignee?.displayName || null }), p_candidate_id: edit[1], p_expected_version: c.expectedVersion });
       return result.ok ? out(200, { ok: true, data: result.data }, origin) : fail(result.status || 400, result.status === 409 ? "VERSION_CONFLICT" : "WRITE_FAILED", origin);
     }
     const active = /^\/api\/talent\/v1\/candidates\/([0-9a-f-]+)\/active$/iu.exec(path);

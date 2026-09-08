@@ -3,8 +3,12 @@ import { evaluateStoreOperationsProductionRollout, hasStoreOperationsUatMarker,
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+const isoDate = /^\d{4}-\d{2}-\d{2}$/u;
 const modes = { executive: 'all', area_manager: 'assigned', store_manager: 'own' };
+const activeEmploymentStatuses = new Set(['現職', '在籍', 'active', 'Active']);
 const payloadKeys = new Set(['authType', 'selectedMonth', 'scopeMode', 'responseProfile']);
+/** @type {((ids: string[]) => Promise<unknown>) | undefined} */
+const optionalCanonicalPilotLoader = undefined;
 function denied() { throw new Error('PRODUCTION_CANONICAL_ACCESS_DENIED'); }
 
 export class StoreOperationsProductionRolloutDenied extends Error {
@@ -23,10 +27,37 @@ export function assertProductionReadPayload(payload = {}) {
   if (payload.authType !== undefined && payload.authType !== 'hub_session') denied();
 }
 
+function canonicalPilotConfigurationState(rows, configuredIds, asOfDate) {
+  if (!Array.isArray(rows)) return 'malformed';
+  if (rows.length > configuredIds.length) return 'malformed';
+  const byId = new Map();
+  for (const value of rows) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+      || !uuid.test(value.id || '') || typeof value.is_active !== 'boolean'
+      || typeof value.employment_status !== 'string'
+      || (value.joined_on !== null && typeof value.joined_on !== 'string')
+      || (value.retired_on !== null && typeof value.retired_on !== 'string')
+      || (typeof value.joined_on === 'string' && !isoDate.test(value.joined_on))
+      || (typeof value.retired_on === 'string' && !isoDate.test(value.retired_on))) return 'malformed';
+    const id = String(value.id).toLowerCase();
+    if (byId.has(id)) return 'malformed';
+    byId.set(id, value);
+  }
+  for (const id of configuredIds) {
+    const employee = byId.get(id);
+    if (!employee || employee.is_active !== true || !activeEmploymentStatuses.has(employee.employment_status)
+      || (employee.joined_on !== null && employee.joined_on > asOfDate)
+      || (employee.retired_on !== null && employee.retired_on <= asOfDate)) return 'invalid';
+  }
+  return 'valid';
+}
+
 // session must be the result of the existing server HMAC/audience/expiry verifier, not JSON from the client.
 // Only a digest of that verified native HUB subject is sent to the private database contract.
 export async function resolveProductionCanonicalAccess({ session, projectRef, rolloutState, ownerEmployeeId,
-  realUserPilotEmployeeId1 = '', realUserPilotEmployeeId2 = '', rpc, now = Date.now() }) {
+  realUserPilotEmployeeId1 = '', realUserPilotEmployeeId2 = '', rpc,
+  loadCanonicalPilotEmployees = optionalCanonicalPilotLoader,
+  now = Date.now() }) {
   if (projectRef !== STORE_OPERATIONS_PRODUCTION_PROJECT_REF || hasStoreOperationsUatMarker(session)
     || session?.authType !== 'hub_session' || session.audience !== 'nov_hub'
     || !uuid.test(session.employeeId || '') || !uuid.test(session.sessionId || '')
@@ -59,6 +90,17 @@ export async function resolveProductionCanonicalAccess({ session, projectRef, ro
       throw new StoreOperationsProductionRolloutDenied();
     }
     denied();
+  }
+  if (rollout.state === 'LIMITED_REAL_USER_PILOT') {
+    if (typeof loadCanonicalPilotEmployees !== 'function') denied();
+    const configuredIds = [realUserPilotEmployeeId1, realUserPilotEmployeeId2]
+      .map((id) => String(id).trim().toLowerCase());
+    let rows;
+    try { rows = await loadCanonicalPilotEmployees(configuredIds); }
+    catch { denied(); }
+    const state = canonicalPilotConfigurationState(rows, configuredIds, new Date(now).toISOString().slice(0, 10));
+    if (state === 'invalid') throw new StoreOperationsProductionRolloutDenied();
+    if (state !== 'valid') denied();
   }
   // Internal only; the management projection is the only public serializer.
   return { employeeId: result.employeeId, roleKeys: [role], scope: { mode: modes[role], storeIds: ids }, masters: result.masters };

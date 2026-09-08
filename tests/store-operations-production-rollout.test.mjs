@@ -82,6 +82,8 @@ test("Production management wiring reads rollout authority from server env only"
   assert.match(edge, /Deno\.env\.get\("STORE_OPERATIONS_OWNER_PILOT_EMPLOYEE_ID"\)/u);
   assert.match(edge, /Deno\.env\.get\("STORE_OPERATIONS_REAL_USER_PILOT_EMPLOYEE_ID_1"\)/u);
   assert.match(edge, /Deno\.env\.get\("STORE_OPERATIONS_REAL_USER_PILOT_EMPLOYEE_ID_2"\)/u);
+  assert.match(edge, /readProductionCanonicalPilotEmployees/u);
+  assert.match(edge, /select: 'id,is_active,employment_status,joined_on,retired_on'/u);
   assert.doesNotMatch(edge, /payload\.(?:rolloutState|ownerEmployeeId|realUserPilotEmployeeId|targetEmployeeId)/u);
   assert.match(edge, /requestedAuthType !== "hub_session"/u);
   assert.match(edge, /isStoreOperationsProductionRolloutDenied\(error\)\) denyManagementAccess\(\)/u);

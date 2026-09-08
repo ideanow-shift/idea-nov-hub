@@ -425,6 +425,15 @@ async function readRows(path: string, options: Parameters<typeof supabaseRequest
   return Array.isArray(data) ? data as JsonRecord[] : [];
 }
 
+async function readProductionCanonicalPilotEmployees(employeeIds: string[]) {
+  return await readRows('employees', {
+    query: {
+      select: 'id,is_active,employment_status,joined_on,retired_on',
+      id: `in.(${employeeIds.join(',')})`,
+    },
+  });
+}
+
 const MANAGEMENT_READ_ONLY_ACTIONS = new Set<string>([
   "managementFinanceSummary",
   "managementStoresSummary",
@@ -539,6 +548,7 @@ async function handleManagementFromDeployedBaseline(
             realUserPilotEmployeeId1: STORE_OPERATIONS_REAL_USER_PILOT_EMPLOYEE_ID_1,
             realUserPilotEmployeeId2: STORE_OPERATIONS_REAL_USER_PILOT_EMPLOYEE_ID_2,
             rpc: callSupabaseRpc,
+            loadCanonicalPilotEmployees: readProductionCanonicalPilotEmployees,
           });
           productionMasters = access.masters;
           return canonicalAccessContext(access);

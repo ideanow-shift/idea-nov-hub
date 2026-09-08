@@ -50,7 +50,8 @@ for (const [role, mode, count] of [["executive","all",20],["area_manager","assig
 }
 
 function denialDependencies(options: { rolloutState?: string; employeeId?: string; role?: "executive" | "area_manager" | "store_manager";
-  ownerEmployeeId?: string; realUserPilotEmployeeId1?: string; realUserPilotEmployeeId2?: string; rpc?: () => unknown } = {}): ManagementDependencies {
+  ownerEmployeeId?: string; realUserPilotEmployeeId1?: string; realUserPilotEmployeeId2?: string; rpc?: () => unknown;
+  loadCanonicalPilotEmployees?: (ids: string[]) => Promise<unknown> } = {}): ManagementDependencies {
   const employeeId = options.employeeId || uuid(101);
   const role = options.role || "executive";
   const mode = role === "executive" ? "all" : role === "area_manager" ? "assigned" : "own";
@@ -71,6 +72,9 @@ function denialDependencies(options: { rolloutState?: string; employeeId?: strin
           ownerEmployeeId: options.ownerEmployeeId ?? uuid(101),
           realUserPilotEmployeeId1: options.realUserPilotEmployeeId1 ?? uuid(102),
           realUserPilotEmployeeId2: options.realUserPilotEmployeeId2 ?? uuid(103),
+          loadCanonicalPilotEmployees: options.loadCanonicalPilotEmployees || (async (ids: string[]) => ids.map((id) => ({
+            id, is_active: true, employment_status: "active", joined_on: null, retired_on: null,
+          }))),
           session,
           rpc: options.rpc || (async () => response),
         });
@@ -110,6 +114,9 @@ Deno.test("LIMITED_REAL_USER_PILOT allows Owner, Area Manager, and Store Manager
     const access = await resolveProductionCanonicalAccess({
       projectRef: "nkmxevmioczcmnldreyo", rolloutState: "LIMITED_REAL_USER_PILOT",
       ownerEmployeeId: uuid(101), realUserPilotEmployeeId1: uuid(102), realUserPilotEmployeeId2: uuid(103),
+      loadCanonicalPilotEmployees: async (ids: string[]) => ids.map((id) => ({
+        id, is_active: true, employment_status: "active", joined_on: null, retired_on: null,
+      })),
       session: { authType: "hub_session", employeeId, sessionId: uuid(900), audience: "nov_hub", expiresAt: "2099-01-01T00:00:00Z" },
       rpc: async () => ({ contract: "production_identity_access_v1", employeeId, roleKeys: [role],
         scope: { mode, storeIds: stores.slice(0, expectedCount).map((store) => store.id) },
@@ -134,6 +141,30 @@ Deno.test("LIMITED_REAL_USER_PILOT outsider and invalid configuration map to HTT
     assertEquals(result.status, 403);
     assertEquals((result.body.error as { code: string }).code, "ACCESS_DENIED");
   }
+});
+
+Deno.test("LIMITED_REAL_USER_PILOT non-canonical or inactive configured employees map to HTTP 403", async () => {
+  for (const loadCanonicalPilotEmployees of [
+    async (ids: string[]) => ids.slice(1).map((id) => ({ id, is_active: true, employment_status: "active", joined_on: null, retired_on: null })),
+    async (ids: string[]) => [{ id: ids[0], is_active: false, employment_status: "active", joined_on: null, retired_on: null },
+      { id: ids[1], is_active: true, employment_status: "active", joined_on: null, retired_on: null }],
+  ]) {
+    const result = await handleManagementReadOnlyAction(denialRequest(), denialDependencies({
+      rolloutState: "LIMITED_REAL_USER_PILOT", loadCanonicalPilotEmployees,
+    }));
+    assertEquals(result.status, 403);
+    assertEquals((result.body.error as { code: string }).code, "ACCESS_DENIED");
+  }
+});
+
+Deno.test("canonical pilot lookup failure remains a safe HTTP 500", async () => {
+  const result = await handleManagementReadOnlyAction(denialRequest(), denialDependencies({
+    rolloutState: "LIMITED_REAL_USER_PILOT",
+    loadCanonicalPilotEmployees: async () => { throw new Error("secret lookup failure"); },
+  }));
+  assertEquals(result.status, 500);
+  assertEquals(result.body.error, { code: "UNKNOWN", message: "Management summary could not be loaded.", retryable: true });
+  assert(!JSON.stringify(result.body).includes("secret lookup failure"));
 });
 
 Deno.test("unauthenticated Production Store Operations remains HTTP 401", async () => {

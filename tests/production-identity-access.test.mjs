@@ -58,6 +58,10 @@ const limitedInput=(overrides={})=>fixtureInput({rolloutState:'LIMITED_REAL_USER
 test('valid canonical pilot configuration passes server-side validation',async()=>{
  const result=await resolveProductionCanonicalAccess(limitedInput());assert.equal(result.roleKeys[0],'executive');
 });
+test('NON_CANONICAL_PILOT_CONFIG_FAIL_CLOSE = PASS',async()=>{
+ await assert.rejects(()=>resolveProductionCanonicalAccess(limitedInput({loadCanonicalPilotEmployees:async()=>[]})),
+  e=>e.name==='StoreOperationsProductionRolloutDenied');
+});
 for(const [name,missingIds] of [['ID1 non-canonical',[fixtureId(102)]],['ID2 non-canonical',[fixtureId(103)]],
  ['both non-canonical',[fixtureId(102),fixtureId(103)]]])test(`${name} configuration is denied`,async()=>{
  await assert.rejects(()=>resolveProductionCanonicalAccess(limitedInput({loadCanonicalPilotEmployees:async ids=>ids

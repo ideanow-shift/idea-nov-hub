@@ -11,7 +11,8 @@ export function fixtureResult(role='executive') {
 }
 export function fixtureInput(overrides={}) {
  return {session:{authType:'hub_session',employeeId:fixtureId(101),sessionId:fixtureId(901),audience:'nov_hub',expiresAt:'2099-01-01T00:00:00Z'},
-  projectRef:'nkmxevmioczcmnldreyo',rolloutState:'OWNER_PILOT',ownerEmployeeId:fixtureId(101),rpc:async()=>fixtureResult(),...overrides};
+  projectRef:'nkmxevmioczcmnldreyo',rolloutState:'OWNER_PILOT',ownerEmployeeId:fixtureId(101),rpc:async()=>fixtureResult(),
+  loadCanonicalPilotEmployees:async ids=>ids.map(id=>({id,is_active:true,employment_status:'active',joined_on:null,retired_on:null})),...overrides};
 }
 for(const role of ['executive','area_manager','store_manager'])test(`server resolves ${role}`,async()=>{
  const result=await resolveProductionCanonicalAccess(fixtureInput({rpc:async()=>fixtureResult(role)}));
@@ -50,4 +51,35 @@ for(const mutate of [r=>r.employeeId=fixtureId(102),r=>r.scope.storeIds.push(fix
 }
 for(const overrides of [{rolloutState:'DISABLED'},{ownerEmployeeId:fixtureId(999)},{projectRef:'wrong-project'}])test('rollout remains fail-closed',async()=>{
  await assert.rejects(()=>resolveProductionCanonicalAccess(fixtureInput(overrides)),/DENIED/);
+});
+
+const limitedInput=(overrides={})=>fixtureInput({rolloutState:'LIMITED_REAL_USER_PILOT',realUserPilotEmployeeId1:fixtureId(102),
+ realUserPilotEmployeeId2:fixtureId(103),...overrides});
+test('valid canonical pilot configuration passes server-side validation',async()=>{
+ const result=await resolveProductionCanonicalAccess(limitedInput());assert.equal(result.roleKeys[0],'executive');
+});
+test('NON_CANONICAL_PILOT_CONFIG_FAIL_CLOSE = PASS',async()=>{
+ await assert.rejects(()=>resolveProductionCanonicalAccess(limitedInput({loadCanonicalPilotEmployees:async()=>[]})),
+  e=>e.name==='StoreOperationsProductionRolloutDenied');
+});
+for(const [name,missingIds] of [['ID1 non-canonical',[fixtureId(102)]],['ID2 non-canonical',[fixtureId(103)]],
+ ['both non-canonical',[fixtureId(102),fixtureId(103)]]])test(`${name} configuration is denied`,async()=>{
+ await assert.rejects(()=>resolveProductionCanonicalAccess(limitedInput({loadCanonicalPilotEmployees:async ids=>ids
+  .filter(id=>!missingIds.includes(id)).map(id=>({id,is_active:true,employment_status:'active',joined_on:null,retired_on:null}))})),
+  e=>e.name==='StoreOperationsProductionRolloutDenied');
+});
+for(const row of [{is_active:false,employment_status:'active',joined_on:null,retired_on:null},
+ {is_active:true,employment_status:'退職',joined_on:null,retired_on:null},
+ {is_active:true,employment_status:'active',joined_on:null,retired_on:'2000-01-01'}])test('inactive or deleted canonical pilot configuration is denied',async()=>{
+ await assert.rejects(()=>resolveProductionCanonicalAccess(limitedInput({loadCanonicalPilotEmployees:async ids=>[
+  {id:ids[0],...row},{id:ids[1],is_active:true,employment_status:'active',joined_on:null,retired_on:null}]})),
+  e=>e.name==='StoreOperationsProductionRolloutDenied');
+});
+test('canonical validation backend failure remains a server error',async()=>{
+ await assert.rejects(()=>resolveProductionCanonicalAccess(limitedInput({loadCanonicalPilotEmployees:async()=>{throw Error('backend timeout secret');}})),
+  e=>e.message==='PRODUCTION_CANONICAL_ACCESS_DENIED');
+});
+test('malformed canonical validation result remains a safe server error',async()=>{
+ await assert.rejects(()=>resolveProductionCanonicalAccess(limitedInput({loadCanonicalPilotEmployees:async()=>({})})),
+  e=>e.message==='PRODUCTION_CANONICAL_ACCESS_DENIED');
 });

@@ -16,13 +16,13 @@ import {
   validateIdeaLinkLaunchResult
 } from "./idea-link-launch-contract.js?v=idea-link-handoff-result-20260722-1";
 import { DEMO_EMPLOYEES, getDemoEmployee } from "./employees.js";
-import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, resolveAppIcon } from "./apps.js?v=nov-talent-hub-launch-20260801-1";
+import { CATEGORY_ORDER, DEMO_APPS, getVisibleApps, loadAppIconRegistry, normalizeStoreOperationsLaunchTarget, resolveAppIcon } from "./apps.js?v=store-operations-hub-access-20260909-1";
 import { clearHubEmployeeContext, encodeHubContextForUrl, getHubEmployeeContextSummary, saveHubEmployeeContext } from "./hub-context.js";
 import {
   renderNovNaviDashboard,
   shouldEnableLocalNovNaviDemo,
   shouldEnableNovNaviDashboard
-} from "./nov-navi-dashboard.js?v=nov-talent-hub-launch-20260801-1";
+} from "./nov-navi-dashboard.js?v=store-operations-hub-access-20260909-1";
 import {
   NOV_HUB_SESSION_CONTRACT,
   clearNovHubSession,
@@ -505,7 +505,7 @@ function dedupePortalApps(apps = []) {
 }
 
 function sortPortalApps(apps = []) {
-  return dedupePortalApps(normalizeManagementPlatformApps(apps))
+  return dedupePortalApps(normalizeManagementPlatformApps(apps).map(normalizeStoreOperationsLaunchTarget))
     .filter((app) => app && app.isActive !== false)
     .sort((a, b) => Number(a.priority || 999) - Number(b.priority || 999));
 }

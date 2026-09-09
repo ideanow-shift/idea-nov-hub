@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { canAccessApp, DEMO_APPS } from "../portal/js/apps.js";
+import { canAccessApp, DEMO_APPS, normalizeStoreOperationsLaunchTarget } from "../portal/js/apps.js";
 import { DEMO_EMPLOYEES } from "../portal/js/employees.js";
 import { resolvePreviewFixture, restoreStoreSalesPreviewContext, saveStoreSalesPreviewContext } from "../portal/store-sales/preview-context.js";
 
 const main = readFileSync(new URL("../portal/js/main.js", import.meta.url), "utf8");
 const navi = readFileSync(new URL("../portal/js/nov-navi-dashboard.js", import.meta.url), "utf8");
+const portalIndex = readFileSync(new URL("../portal/index.html", import.meta.url), "utf8");
 const app = readFileSync(new URL("../portal/store-sales/app.js", import.meta.url), "utf8");
 const runtimeConfig = readFileSync(new URL("../portal/store-sales/runtime-config.js", import.meta.url), "utf8");
 const productionRuntimeConfig = readFileSync(new URL("../portal/store-sales/runtime-config.production.js", import.meta.url), "utf8");
@@ -21,6 +22,23 @@ test("HUB registry exposes the approved card copy and same-origin route", () => 
   assert.match(main, /window\.location\.assign\(launchUrl\)/);
   assert.match(navi, /title: "店舗営業管理"/);
   assert.match(navi, /aliases: \["store-sales-management", "store-sales-preview"\]/);
+});
+
+test("Production HUB restores the approved same-origin target when the app registry omits its URL", () => {
+  const normalized = normalizeStoreOperationsLaunchTarget({
+    appId: "store-sales-management",
+    appName: "店舗営業管理",
+    url: ""
+  });
+  assert.equal(normalized.url, "./store-sales/index.html");
+  assert.equal(
+    normalizeStoreOperationsLaunchTarget({ appId: "unrelated", appName: "別アプリ", url: "./other/" }).url,
+    "./other/"
+  );
+  assert.match(main, /normalizeManagementPlatformApps\(apps\)\.map\(normalizeStoreOperationsLaunchTarget\)/);
+  assert.match(navi, /title: "店舗営業管理"[\s\S]*?status: "available"/);
+  assert.match(portalIndex, /main\.js\?v=store-operations-hub-access-20260909-1/);
+  assert.match(main, /nov-navi-dashboard\.js\?v=store-operations-hub-access-20260909-1/);
 });
 
 test("general employees cannot see the card while approved HUB roles can", () => {

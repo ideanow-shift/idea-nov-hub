@@ -5,12 +5,23 @@ const STORE_OPERATIONS_APP_IDS = new Set(["store-sales-management", "store-sales
 const STORE_OPERATIONS_APP_NAME = "店舗営業管理";
 const STORE_OPERATIONS_HUB_URL = "./store-sales/index.html";
 
+function isStoreOperationsApp(app) {
+  return Boolean(app) && (
+    STORE_OPERATIONS_APP_IDS.has(String(app.appId || "").trim().toLowerCase())
+    || String(app.appName || "").trim() === STORE_OPERATIONS_APP_NAME
+  );
+}
+
 export function normalizeStoreOperationsLaunchTarget(app) {
-  if (!app || (
-    !STORE_OPERATIONS_APP_IDS.has(String(app.appId || "").trim().toLowerCase())
-    && String(app.appName || "").trim() !== STORE_OPERATIONS_APP_NAME
-  )) return app;
+  if (!isStoreOperationsApp(app)) return app;
   return { ...app, url: STORE_OPERATIONS_HUB_URL };
+}
+
+export function ensureStoreOperationsLaunchTarget(apps = []) {
+  const normalizedApps = apps.map(normalizeStoreOperationsLaunchTarget);
+  if (normalizedApps.some(isStoreOperationsApp)) return normalizedApps;
+  const fallback = DEMO_APPS.find(isStoreOperationsApp);
+  return fallback ? [...normalizedApps, { ...fallback }] : normalizedApps;
 }
 
 export const DEMO_APPS = [

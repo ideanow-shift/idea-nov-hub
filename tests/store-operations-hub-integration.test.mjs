@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { canAccessApp, DEMO_APPS, normalizeStoreOperationsLaunchTarget } from "../portal/js/apps.js";
+import { canAccessApp, DEMO_APPS, ensureStoreOperationsLaunchTarget, normalizeStoreOperationsLaunchTarget } from "../portal/js/apps.js";
 import { DEMO_EMPLOYEES } from "../portal/js/employees.js";
 import { resolvePreviewFixture, restoreStoreSalesPreviewContext, saveStoreSalesPreviewContext } from "../portal/store-sales/preview-context.js";
 
@@ -35,10 +35,20 @@ test("Production HUB restores the approved same-origin target when the app regis
     normalizeStoreOperationsLaunchTarget({ appId: "unrelated", appName: "別アプリ", url: "./other/" }).url,
     "./other/"
   );
-  assert.match(main, /normalizeManagementPlatformApps\(apps\)\.map\(normalizeStoreOperationsLaunchTarget\)/);
+  assert.match(main, /ensureStoreOperationsLaunchTarget\(normalizeManagementPlatformApps\(apps\)\)/);
   assert.match(navi, /title: "店舗営業管理"[\s\S]*?status: "available"/);
-  assert.match(portalIndex, /main\.js\?v=store-operations-hub-access-20260909-1/);
-  assert.match(main, /nov-navi-dashboard\.js\?v=store-operations-hub-access-20260909-1/);
+  assert.match(portalIndex, /main\.js\?v=store-operations-hub-access-20260909-2/);
+  assert.match(main, /nov-navi-dashboard\.js\?v=store-operations-hub-access-20260909-2/);
+});
+
+test("Store Operations launch target is supplied when the HUB bootstrap app list omits it", () => {
+  const apps = ensureStoreOperationsLaunchTarget([
+    { appId: "task", appName: "タスク管理", url: "./task/" },
+  ]);
+
+  const storeOperations = apps.filter((app) => app.appId === "store-sales-management");
+  assert.equal(storeOperations.length, 1);
+  assert.equal(storeOperations[0].url, "./store-sales/index.html");
 });
 
 test("general employees cannot see the card while approved HUB roles can", () => {

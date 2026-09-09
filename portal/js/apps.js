@@ -1,6 +1,17 @@
 export const CATEGORY_ORDER = ["称賛", "全般", "管理", "Finance Module", "コンピテンシー", "経営", "人財", "勤怠・シフト", "教育"];
 
 const appBase = { allowedTags: [], targetDepartment: [], targetPosition: [], isActive: true };
+const STORE_OPERATIONS_APP_IDS = new Set(["store-sales-management", "store-sales-preview"]);
+const STORE_OPERATIONS_APP_NAME = "店舗営業管理";
+const STORE_OPERATIONS_HUB_URL = "./store-sales/index.html";
+
+export function normalizeStoreOperationsLaunchTarget(app) {
+  if (!app || (
+    !STORE_OPERATIONS_APP_IDS.has(String(app.appId || "").trim().toLowerCase())
+    && String(app.appName || "").trim() !== STORE_OPERATIONS_APP_NAME
+  )) return app;
+  return { ...app, url: STORE_OPERATIONS_HUB_URL };
+}
 
 export const DEMO_APPS = [
   { ...appBase, appId: "nov-hub", appName: "NOV HUB", description: "社内アプリをまとめて探せるポータル", url: "#demo-hub", category: "全般", icon: "nov-hub", requiredLevel: 1, isFeatured: true, priority: 5 },

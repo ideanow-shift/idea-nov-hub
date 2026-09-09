@@ -14,7 +14,7 @@ const codes = [
   "TOTAL_PRODUCTIVITY", "TECHNICAL_PRODUCTIVITY", "RETAIL_PURCHASE_RATE", "OPERATING_PROFIT"
 ];
 
-const fact = (metricCode, value = "100") => ({
+const fact = (metricCode, value = metricCode.includes("RATE") ? "0.5" : "100") => ({
   metricCode, valueKind: metricCode.includes("CUSTOMERS") ? "quantity" : metricCode.includes("RATE") ? "rate" : "amount",
   value, definitionVersion: "v1.1", displayName: metricCode, description: "canonical",
   sourceEvidence: { sourceType: "dbf", sourceFileSha256: "a".repeat(64), importedAt: "2026-08-19T00:00:00Z", factVersion: 1 }
@@ -80,14 +80,32 @@ test("fact zero keeps 20 stores and every metric preparing, never zero", () => {
 });
 
 test("19 canonical metrics map to UI metrics without inventing comparison values", () => {
-  const result = validateDbfStoreMonthlyProjection(payload({ facts: true }));
+  const source = payload({ facts: true });
+  for (const store of source.stores) {
+    for (const metric of store.metrics) {
+      if (metric.valueKind === "rate") metric.value = "0.35";
+    }
+  }
+  const result = validateDbfStoreMonthlyProjection(source);
   const store = result.stores[0];
   assert.equal(store.metrics.sales.rawValue, 100);
   assert.equal(store.metrics.operatingProfit.rawValue, 100);
+  assert.equal(store.metrics.new.rawValue, 35);
+  assert.equal(store.metrics.new.displayValue, "35.0%");
+  assert.equal(store.metrics.retailPurchaseRate.rawValue, 35);
   assert.equal(store.metrics.budgetRatio.dataState, "preparing");
   assert.equal(store.metrics.yearOverYearRatio.dataState, "preparing");
   assert.equal(store.status, "Preparing");
   assert.equal(result.priorityActions.length, 0);
+});
+
+test("canonical rates outside the 0..1 DBF contract fail closed", () => {
+  const source = payload({ facts: true });
+  source.stores[0].metrics.find((metric) => metric.metricCode === "NEW_REPEAT_RATE").value = "35";
+  assert.throws(
+    () => validateDbfStoreMonthlyProjection(source),
+    (error) => error.code === "VALIDATION_ERROR" && error.message === "INVALID_CANONICAL_RATE"
+  );
 });
 
 test("Saginomiya pilot maps only three confirmed Revision 2 metrics and keeps all missing values preparing", () => {

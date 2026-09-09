@@ -7,6 +7,16 @@ import {
   resolveCorporateCompany,
   resolveOfficialOperatingStores,
 } from "./consumer-read.ts";
+import {
+  assertProductionPilotMappingAction,
+  assertProductionPilotStart,
+  batchFromPilotPreflight,
+  buildProductionPilotContract,
+  PRODUCTION_PILOT_GATE,
+  PRODUCTION_PROJECT_REF,
+  productionPilotRpcContract,
+  resolveProductionPilotCanonicalContext,
+} from "./production-pilot.ts";
 
 type Json = Record<string, unknown>;
 type Runtime = {
@@ -40,13 +50,46 @@ function fail(status: number, code: string) {
   return response(status, { ok: false, code, requestId: crypto.randomUUID() });
 }
 
-function assertRuntimeBoundary(runtime: Runtime) {
+type RuntimeTarget = "staging" | "production";
+
+const PRODUCTION_PILOT_ACTIONS = new Set([
+  "dbfImportStartV1",
+  "dbfImportResolveMappingsV1",
+  "dbfImportQuarantineMappingsV1",
+  "dbfImportConfirmMappingV1",
+  "dbfImportValidateV1",
+  "dbfImportPreviewV1",
+  "dbfImportApproveV1",
+  "dbfImportPromoteV1",
+  "dbfImportHistoryV1",
+  "dbfImportMasterOptionsV1",
+  "storeMonthlyActualProjectionV1",
+]);
+
+const PRODUCTION_PILOT_WRITE_ACTIONS = new Set([
+  "dbfImportStartV1",
+  "dbfImportQuarantineMappingsV1",
+  "dbfImportConfirmMappingV1",
+  "dbfImportValidateV1",
+  "dbfImportApproveV1",
+  "dbfImportPromoteV1",
+]);
+
+function assertRuntimeBoundary(runtime: Runtime): RuntimeTarget {
   const hostname = new URL(runtime.supabaseUrl).hostname;
-  if (runtime.expectedProjectRef !== DEFAULT_STAGING_REF || hostname !== `${DEFAULT_STAGING_REF}.supabase.co`) {
-    throw new DbfRuntimeError("STAGING_TARGET_MISMATCH", 503);
+  if (runtime.expectedProjectRef === DEFAULT_STAGING_REF && hostname === `${DEFAULT_STAGING_REF}.supabase.co`) {
+    if (runtime.productionWrite !== "DISABLED") throw new DbfRuntimeError("PRODUCTION_WRITE_GATE_FAILED", 503);
+    if (runtime.runtimeImport !== "ENABLED") throw new DbfRuntimeError("RUNTIME_IMPORT_DISABLED", 503);
+    return "staging";
   }
-  if (runtime.productionWrite !== "DISABLED") throw new DbfRuntimeError("PRODUCTION_WRITE_GATE_FAILED", 503);
+  if (runtime.expectedProjectRef !== PRODUCTION_PROJECT_REF || hostname !== `${PRODUCTION_PROJECT_REF}.supabase.co`) {
+    throw new DbfRuntimeError("DBF_TARGET_MISMATCH", 503);
+  }
+  if (!["DISABLED", PRODUCTION_PILOT_GATE].includes(runtime.productionWrite)) {
+    throw new DbfRuntimeError("PRODUCTION_WRITE_GATE_FAILED", 503);
+  }
   if (runtime.runtimeImport !== "ENABLED") throw new DbfRuntimeError("RUNTIME_IMPORT_DISABLED", 503);
+  return "production";
 }
 
 async function readBody(request: Request) {
@@ -68,6 +111,7 @@ function bearer(request: Request) {
 }
 
 async function callHub(runtime: Runtime, token: string, action: string, payload: Json) {
+  const target = assertRuntimeBoundary(runtime);
   const result = await runtime.fetchImpl(runtime.hubApiUrl, {
     method: "POST",
     redirect: "error",
@@ -75,7 +119,7 @@ async function callHub(runtime: Runtime, token: string, action: string, payload:
     body: JSON.stringify({
       action,
       token,
-      payload: { authType: "dbf_staging_session", ...payload },
+      payload: { authType: target === "production" ? "hub_session" : "dbf_staging_session", ...payload },
     }),
   });
   if (result.status === 401) throw new DbfRuntimeError("AUTH_REQUIRED", 401);
@@ -83,6 +127,39 @@ async function callHub(runtime: Runtime, token: string, action: string, payload:
   if (result.status === 400) throw new DbfRuntimeError("CANONICAL_MASTER_REJECTED", 400);
   if (!result.ok) throw new DbfRuntimeError("AUTH_BACKEND_UNAVAILABLE", 503);
   return await result.json().catch(() => null);
+}
+
+async function readProductionPilotBatchContract(
+  runtime: Runtime,
+  token: string,
+  batchId: string,
+) {
+  const preflight = await rpc(runtime, "dbf_import_store_monthly_pilot_preflight_v1", {
+    p_batch_id: batchId,
+  });
+  const batch = batchFromPilotPreflight(preflight);
+  const canonical = resolveProductionPilotCanonicalContext(await readCanonicalMasterOptions(runtime, token));
+  return { batch, contract: productionPilotRpcContract(batch, canonical) };
+}
+
+function assertProductionPilotAction(target: RuntimeTarget, action: string) {
+  if (target !== "production") return;
+  if (!PRODUCTION_PILOT_ACTIONS.has(action)) {
+    throw new DbfRuntimeError("PRODUCTION_PILOT_ACTION_REJECTED", 403);
+  }
+}
+
+function assertProductionPilotWriteGate(runtime: Runtime, target: RuntimeTarget, action: string) {
+  if (target === "production" && PRODUCTION_PILOT_WRITE_ACTIONS.has(action) &&
+    runtime.productionWrite !== PRODUCTION_PILOT_GATE) {
+    throw new DbfRuntimeError("PRODUCTION_WRITE_DISABLED", 503);
+  }
+}
+
+function runtimeWriteDisposition(runtime: Runtime, target: RuntimeTarget) {
+  return target === "production" && runtime.productionWrite === PRODUCTION_PILOT_GATE
+    ? "PILOT_SCOPE_ENABLED"
+    : "DISABLED";
 }
 
 async function authorize(runtime: Runtime, token: string) {
@@ -364,10 +441,13 @@ function readRequiredTrustedCorporateManifest(runtime: Runtime, manifestRef: str
 export async function handleDbfBusinessDataRequest(request: Request, runtime: Runtime) {
   if (request.method !== "POST") return fail(405, "METHOD_NOT_ALLOWED");
   try {
-    assertRuntimeBoundary(runtime);
+    const target = assertRuntimeBoundary(runtime);
     const token = bearer(request);
     const body = await readBody(request);
     const action = parseAction(body.action);
+    assertProductionPilotAction(target, action);
+    assertProductionPilotWriteGate(runtime, target, action);
+    const productionWrite = runtimeWriteDisposition(runtime, target);
     if (Object.keys(body).some((key) => !new Set(["action", "payload"]).has(key))) throw new DbfRuntimeError("UNEXPECTED_FIELD");
     const payload = normalizeActionPayload(action, body.payload);
     const auth = await authorize(runtime, token);
@@ -375,14 +455,14 @@ export async function handleDbfBusinessDataRequest(request: Request, runtime: Ru
       const data = await readStoreMonthlyActualProjection(runtime, token, String(payload.selectedMonth));
       return response(200, {
         ok: true, schemaVersion: "dbf-phase1-consumer-read-projections-v1", action,
-        runtimeImport: "ENABLED", productionWrite: "DISABLED", data,
+        runtimeImport: "ENABLED", productionWrite, data,
       });
     }
     if (action === "dbfCorporateAccountingActualProjectionV1") {
       const data = await readCorporateAccountingActualProjection(runtime, token, String(payload.selectedMonth));
       return response(200, {
         ok: true, schemaVersion: "dbf-phase1-consumer-read-projections-v1", action,
-        runtimeImport: "ENABLED", productionWrite: "DISABLED", data,
+        runtimeImport: "ENABLED", productionWrite, data,
       });
     }
     if (action === "dbfCorporateAccountingPromotionPreflightV1") {
@@ -391,7 +471,7 @@ export async function handleDbfBusinessDataRequest(request: Request, runtime: Ru
       });
       return response(200, {
         ok: true, schemaVersion: "dbf-corporate-accounting-scoped-promotion-v1", action,
-        runtimeImport: "ENABLED", productionWrite: "DISABLED", data,
+        runtimeImport: "ENABLED", productionWrite, data,
       });
     }
     if (action === "dbfCorporateAccountingApproveV1") {
@@ -404,7 +484,7 @@ export async function handleDbfBusinessDataRequest(request: Request, runtime: Ru
       });
       return response(200, {
         ok: true, schemaVersion: "dbf-corporate-accounting-scoped-promotion-v1", action,
-        runtimeImport: "ENABLED", productionWrite: "DISABLED", data,
+        runtimeImport: "ENABLED", productionWrite, data,
       });
     }
     if (action === "dbfCorporateAccountingPromoteV1") {
@@ -412,7 +492,7 @@ export async function handleDbfBusinessDataRequest(request: Request, runtime: Ru
         readRequiredTrustedCorporateManifest(runtime, String(payload.manifestRef), auth.actorEmployeeId));
       return response(200, {
         ok: true, schemaVersion: "dbf-corporate-accounting-scoped-promotion-v1", action,
-        runtimeImport: "ENABLED", productionWrite: "DISABLED", data,
+        runtimeImport: "ENABLED", productionWrite, data,
       });
     }
     if (action === "dbfImportMasterOptionsV1") {
@@ -422,7 +502,7 @@ export async function handleDbfBusinessDataRequest(request: Request, runtime: Ru
         schemaVersion: "dbf-business-data-import-runtime-v1",
         action,
         runtimeImport: "ENABLED",
-        productionWrite: "DISABLED",
+        productionWrite,
         data,
       });
     }
@@ -433,11 +513,37 @@ export async function handleDbfBusinessDataRequest(request: Request, runtime: Ru
         schemaVersion: "dbf-pilot-month-preview-v1",
         action,
         runtimeImport: "ENABLED",
-        productionWrite: "DISABLED",
+        productionWrite,
         data,
       });
     }
     let trustedPayload: any = payload;
+    if (target === "production" && action === "dbfImportStartV1") {
+      const batch = await assertProductionPilotStart(payload);
+      const canonical = resolveProductionPilotCanonicalContext(await readCanonicalMasterOptions(runtime, token));
+      const data = await rpc(runtime, "dbf_import_store_monthly_pilot_start_v1", {
+        p_actor_employee_id: auth.actorEmployeeId,
+        p_file: payload.file,
+        p_fact_kind: payload.factKind,
+        p_fiscal_month: payload.fiscalMonth,
+        p_source_type: payload.sourceType,
+        p_source_system: payload.sourceSystem,
+        p_raw_rows: payload.rawRows,
+        p_contract: productionPilotRpcContract(batch, canonical),
+      });
+      return response(200, {
+        ok: true, schemaVersion: "dbf-production-store-monthly-pilot-v1", action,
+        runtimeImport: "ENABLED", productionWrite, data,
+      });
+    }
+    if (target === "production" && new Set([
+      "dbfImportResolveMappingsV1", "dbfImportQuarantineMappingsV1", "dbfImportConfirmMappingV1",
+    ]).has(action)) {
+      assertProductionPilotMappingAction(action, payload);
+      if (action !== "dbfImportResolveMappingsV1") {
+        await readProductionPilotBatchContract(runtime, token, String(payload.batchId));
+      }
+    }
     if (action === "dbfImportConfirmMappingV1") {
       trustedPayload = {
         ...payload,
@@ -446,6 +552,44 @@ export async function handleDbfBusinessDataRequest(request: Request, runtime: Ru
     }
     if (action === "dbfImportValidateV1") {
       await verifyCanonicalBindings(runtime, token, payload.rows as Array<Record<string, unknown>>);
+      if (target === "production") {
+        await readProductionPilotBatchContract(runtime, token, String(payload.batchId));
+        const contract = await buildProductionPilotContract(
+          payload,
+          await readCanonicalMasterOptions(runtime, token),
+        );
+        const data = await rpc(runtime, "dbf_import_store_monthly_pilot_stage_v1", {
+          p_actor_employee_id: auth.actorEmployeeId,
+          p_batch_id: payload.batchId,
+          p_fact_kind: payload.factKind,
+          p_fiscal_month: payload.fiscalMonth,
+          p_parser_receipt: payload.parserReceipt,
+          p_rows: toStagingRows(payload.rows as Array<Record<string, unknown>>),
+          p_warning_codes: payload.warnings,
+          p_contract: contract,
+        });
+        return response(200, {
+          ok: true, schemaVersion: "dbf-production-store-monthly-pilot-v1", action,
+          runtimeImport: "ENABLED", productionWrite, data,
+        });
+      }
+    }
+    if (target === "production" && action === "dbfImportPreviewV1") {
+      await readProductionPilotBatchContract(runtime, token, String(payload.batchId));
+    }
+    if (target === "production" && (action === "dbfImportApproveV1" || action === "dbfImportPromoteV1")) {
+      const { contract } = await readProductionPilotBatchContract(runtime, token, String(payload.batchId));
+      const rpcName = action === "dbfImportApproveV1"
+        ? "dbf_import_store_monthly_pilot_approve_v1"
+        : "dbf_import_store_monthly_pilot_promote_v1";
+      const rpcPayload = action === "dbfImportApproveV1"
+        ? { p_actor_employee_id: auth.actorEmployeeId, p_batch_id: payload.batchId, p_owner_confirmation: true, p_contract: contract }
+        : { p_actor_employee_id: auth.actorEmployeeId, p_batch_id: payload.batchId, p_contract: contract };
+      const data = await rpc(runtime, rpcName, rpcPayload);
+      return response(200, {
+        ok: true, schemaVersion: "dbf-production-store-monthly-pilot-v1", action,
+        runtimeImport: "ENABLED", productionWrite, data,
+      });
     }
     const [rpcName, rpcPayload] = rpcRequest(action, trustedPayload, auth.actorEmployeeId);
     const data = await rpc(runtime, rpcName, rpcPayload);
@@ -454,7 +598,7 @@ export async function handleDbfBusinessDataRequest(request: Request, runtime: Ru
       schemaVersion: "dbf-business-data-import-runtime-v1",
       action,
       runtimeImport: "ENABLED",
-      productionWrite: "DISABLED",
+      productionWrite,
       data,
     });
   } catch (error) {

@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "dbf-production-store-monthly-pilot-v1",
+  "sourcePackage": "monthly-data-pilot-20260909",
+  "targetProjectRef": "nkmxevmioczcmnldreyo",
+  "company": {
+    "id": "e4059116-bdb3-4e13-9763-bbc77bdfe062",
+    "sourceKey": "0001"
+  },
+  "stores": [
+    {
+      "id": "1bcba30a-d063-4cdb-be74-425e250aeb25",
+      "sourceKey": "kamishakujii",
+      "name": "BASSA上石神井店"
+    },
+    {
+      "id": "36c222de-0554-4265-b177-3b68285cc4a4",
+      "sourceKey": "ikebukuro",
+      "name": "BASSA池袋店"
+    }
+  ],
+  "normalization": {
+    "rateSourceUnit": "percent",
+    "rateCanonicalUnit": "fraction",
+    "rateTransform": "divide-by-100",
+    "syntheticZeroAllowed": false
+  },
+  "batches": [
+    {
+      "fileName": "2025-06-pilot-store-actual.csv",
+      "fileSha256": "72bff469bf2d027e054176661445661fbb860a740cf30d1a937f38fb7f1946f9",
+      "byteSize": 1430,
+      "factKind": "store_operating_result",
+      "fiscalMonth": "2025-06",
+      "sourceType": "store_monthly_previous_year_actual",
+      "rowCount": 22,
+      "rawRowsDigest": "28a30c5ce0259cb70e42ad216eeec5c95562cba75c8c2e5b5d23171588d85bff",
+      "validatedRowsDigest": "85168a82142e150a545be7ded1473ae3a8c73dce449c283d9fc037a8f7833f0d"
+    },
+    {
+      "fileName": "2026-06-pilot-store-actual.csv",
+      "fileSha256": "b30972436958601e69580e07a3a3ff969c7781c5997d87dde3cef47b8a9655f9",
+      "byteSize": 1422,
+      "factKind": "store_operating_result",
+      "fiscalMonth": "2026-06",
+      "sourceType": "store_monthly_actual",
+      "rowCount": 22,
+      "rawRowsDigest": "278df4fe2709879ab2cae8d5589b0c39d894d718e60f63b3d89118aab0734667",
+      "validatedRowsDigest": "6d7e4aae6e2dbd3c4a2f159bdf8618fea4301496f2c912e38318702d6b36ae8c"
+    },
+    {
+      "fileName": "2026-06-pilot-store-budget.csv",
+      "fileSha256": "bef80ca154226012ad44c59ce500cf91593425ed0289e5b1ef8dd16507acbac1",
+      "byteSize": 474,
+      "factKind": "budget",
+      "fiscalMonth": "2026-06",
+      "sourceType": "store_monthly_budget",
+      "rowCount": 6,
+      "rawRowsDigest": "2eeadc686fbae814d2a44c6f85813a88326cfd6d761f92292c8b6233834c69c5",
+      "validatedRowsDigest": "b2e1e7440d737c68b8c32283cb78023aecc0d5b924396946a0e882e3a6828d9e"
+    }
+  ]
+}

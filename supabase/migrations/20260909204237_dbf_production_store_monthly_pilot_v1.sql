@@ -112,7 +112,7 @@ begin
   select count(*), count(distinct concat(r.value->'payload'->>'store_key', ':', r.value->'payload'->>'metric_code'))
   into v_invalid, v_distinct
   from jsonb_array_elements(p_raw_rows) r
-  where (r.value - array['sourceRowNumber','payload','payloadSha256']) <> '{}'::jsonb
+  where (r.value - array['sourceRowNumber','payload','payloadSha256']::text[]) <> '{}'::jsonb
     or jsonb_typeof(r.value->'payload') <> 'object'
     or (r.value->>'sourceRowNumber')::integer < 1
     or r.value->'payload'->>'fiscal_month' <> to_char(p_fiscal_month, 'YYYY-MM')
@@ -122,7 +122,7 @@ begin
     or case when p_fact_kind = 'store_operating_result' then
       (r.value->'payload' - array[
         'fiscal_month','company_key','store_key','metric_code','value','definition_version','confirmation_status'
-      ]) <> '{}'::jsonb
+      ]::text[]) <> '{}'::jsonb
       or r.value->'payload'->>'metric_code' not in (
         'NEW_CUSTOMERS','NEW_REPEAT_RATE','RETAIL_PURCHASE_RATE','RETAIL_SALES',
         'TECHNICAL_PRODUCTIVITY','TECHNICAL_SALES','TECHNICAL_UNIT_PRICE',
@@ -133,7 +133,7 @@ begin
     else
       (r.value->'payload' - array[
         'fiscal_month','company_key','store_key','scenario_code','account_code','metric_code','amount','confirmation_status'
-      ]) <> '{}'::jsonb
+      ]::text[]) <> '{}'::jsonb
       or r.value->'payload'->>'metric_code' not in ('RETAIL_SALES','TECHNICAL_SALES','TOTAL_SALES')
       or r.value->'payload'->>'scenario_code' <> 'BASE'
       or coalesce(r.value->'payload'->>'account_code','') <> ''

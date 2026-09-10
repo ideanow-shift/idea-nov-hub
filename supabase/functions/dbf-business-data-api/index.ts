@@ -31,8 +31,26 @@ type Runtime = {
 };
 
 const DEFAULT_STAGING_REF = "zgkoofphhivesclehrom";
+const NOV_HUB_PRODUCTION_ORIGIN = "https://ideanow-shift.github.io";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const MAX_BODY_BYTES = 8_000_000;
+
+function corsHeaders(origin: string) {
+  const headers = new Headers({ "vary": "Origin" });
+  if (origin === NOV_HUB_PRODUCTION_ORIGIN) {
+    headers.set("access-control-allow-origin", NOV_HUB_PRODUCTION_ORIGIN);
+    headers.set("access-control-allow-methods", "POST, OPTIONS");
+    headers.set("access-control-allow-headers", "authorization, content-type");
+    headers.set("access-control-max-age", "600");
+  }
+  return headers;
+}
+
+function withCorsHeaders(result: Response, origin: string) {
+  const headers = new Headers(result.headers);
+  corsHeaders(origin).forEach((value, name) => headers.set(name, value));
+  return new Response(result.body, { status: result.status, statusText: result.statusText, headers });
+}
 
 function response(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -438,7 +456,7 @@ function readRequiredTrustedCorporateManifest(runtime: Runtime, manifestRef: str
   };
 }
 
-export async function handleDbfBusinessDataRequest(request: Request, runtime: Runtime) {
+async function handleDbfBusinessDataPostRequest(request: Request, runtime: Runtime) {
   if (request.method !== "POST") return fail(405, "METHOD_NOT_ALLOWED");
   try {
     const target = assertRuntimeBoundary(runtime);
@@ -606,6 +624,17 @@ export async function handleDbfBusinessDataRequest(request: Request, runtime: Ru
     if (error instanceof ConsumerReadError) return fail(error.status, error.code);
     return fail(500, "INTERNAL_ERROR");
   }
+}
+
+export async function handleDbfBusinessDataRequest(request: Request, runtime: Runtime) {
+  const origin = String(request.headers.get("origin") || "");
+  if (request.method === "OPTIONS") {
+    if (origin !== NOV_HUB_PRODUCTION_ORIGIN) {
+      return fail(403, "CORS_ORIGIN_REJECTED");
+    }
+    return new Response(null, { status: 204, headers: corsHeaders(origin) });
+  }
+  return withCorsHeaders(await handleDbfBusinessDataPostRequest(request, runtime), origin);
 }
 
 function runtimeFromEnvironment(): Runtime {

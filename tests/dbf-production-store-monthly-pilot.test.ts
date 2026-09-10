@@ -39,6 +39,52 @@ function request(action: string, payload: unknown) {
   });
 }
 
+Deno.test("Production NOV HUB receives an exact-origin CORS preflight", async () => {
+  const response = await handleDbfBusinessDataRequest(
+    new Request("https://edge.example.test", {
+      method: "OPTIONS",
+      headers: {
+        origin: "https://ideanow-shift.github.io",
+        "access-control-request-method": "POST",
+        "access-control-request-headers": "authorization,content-type",
+      },
+    }),
+    productionRuntime() as never,
+  );
+  assertEquals(response.status, 204);
+  assertEquals(response.headers.get("access-control-allow-origin"), "https://ideanow-shift.github.io");
+  assertEquals(response.headers.get("access-control-allow-methods"), "POST, OPTIONS");
+  assertEquals(response.headers.get("access-control-allow-headers"), "authorization, content-type");
+  assertEquals(response.headers.get("vary"), "Origin");
+});
+
+Deno.test("CORS rejects every origin outside Production NOV HUB", async () => {
+  const response = await handleDbfBusinessDataRequest(
+    new Request("https://edge.example.test", {
+      method: "OPTIONS",
+      headers: { origin: "https://evil.invalid" },
+    }),
+    productionRuntime() as never,
+  );
+  assertEquals(response.status, 403);
+  assertEquals(response.headers.get("access-control-allow-origin"), null);
+  assertEquals((await response.json()).code, "CORS_ORIGIN_REJECTED");
+});
+
+Deno.test("CORS headers remain on authenticated POST failures", async () => {
+  const response = await handleDbfBusinessDataRequest(
+    new Request("https://edge.example.test", {
+      method: "POST",
+      headers: { origin: "https://ideanow-shift.github.io", "content-type": "application/json" },
+      body: JSON.stringify({ action: "dbfImportHistoryV1", payload: {} }),
+    }),
+    productionRuntime() as never,
+  );
+  assertEquals(response.status, 401);
+  assertEquals(response.headers.get("access-control-allow-origin"), "https://ideanow-shift.github.io");
+  assertEquals((await response.json()).code, "AUTH_REQUIRED");
+});
+
 Deno.test("Production write actions fail closed unless the one-time pilot gate is exact", async () => {
   const response = await handleDbfBusinessDataRequest(
     request("dbfImportApproveV1", {

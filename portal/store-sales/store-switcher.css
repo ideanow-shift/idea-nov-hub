@@ -1,0 +1,15 @@
+.sticky-filters select {
+  min-height: 40px;
+  max-width: min(320px, 42vw);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  padding: 6px 9px;
+}
+
+@media (max-width: 620px) {
+  .sticky-filters select {
+    width: 100%;
+    max-width: none;
+  }
+}

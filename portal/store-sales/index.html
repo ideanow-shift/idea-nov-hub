@@ -7,6 +7,7 @@
   <title>店舗営業管理 | IDEA NOV OS</title>
   <link rel="stylesheet" href="../css/design-system.css">
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./store-switcher.css">
 </head>
 <body>
   <div class="shell">
@@ -50,6 +51,7 @@
     </section>
 
     <div id="sticky-filters" class="sticky-filters">
+      <label id="store-switcher-label">店舗<select id="store-selector" aria-label="表示する店舗"></select></label>
       <label>対象月<input id="period" type="month" value="2026-06"></label>
       <fieldset><legend class="sr-only">店舗範囲</legend><div id="scope-filters" class="segmented">
         <button type="button" data-scope="All" aria-pressed="true">全店</button><button type="button" data-scope="Direct" aria-pressed="false">直営</button><button type="button" data-scope="FC" aria-pressed="false">FC</button>

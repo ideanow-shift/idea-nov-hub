@@ -20,7 +20,7 @@ const fact = (metricCode, value = metricCode.includes("RATE") ? "0.5" : "100") =
   sourceEvidence: { sourceType: "dbf", sourceFileSha256: "a".repeat(64), importedAt: "2026-08-19T00:00:00Z", factVersion: 1 }
 });
 
-function payload({ facts = false, comparisons = false, count = 20 } = {}) {
+function payload({ facts = false, comparisons = false, count = 20, selectedStoreKey = null } = {}) {
   const stores = Array.from({ length: count }, (_, index) => ({
     storeKey: `store-${String(index + 1).padStart(2, "0")}`,
     storeName: `正式店舗${index + 1}`,
@@ -52,13 +52,21 @@ function payload({ facts = false, comparisons = false, count = 20 } = {}) {
       }))
     }} : {})
   }));
+  const visibleStores = selectedStoreKey ? stores.filter((store) => store.storeKey === selectedStoreKey) : stores;
   return {
     contractVersion: DBF_STORE_MONTHLY_CONTRACT,
     ...(comparisons ? { comparisonContractVersion: DBF_STORE_MONTHLY_COMPARISON_CONTRACT } : {}),
     fiscalMonth: "2026-07",
-    scope: { mode: "all", serverResolved: true, rawStoreIdsReturned: false, operatingStoreBaseline: { total: 20, direct: 13, fc: 7 }, visibleStoreCount: stores.length },
+    scope: {
+      mode: "all", serverResolved: true, rawStoreIdsReturned: false,
+      operatingStoreBaseline: { total: 20, direct: 13, fc: 7 },
+      authorizedStoreCount: stores.length,
+      selectedStoreKey,
+      selectableStores: stores.map(({ storeKey, storeName }) => ({ storeKey, storeName })),
+      visibleStoreCount: visibleStores.length
+    },
     readiness: { confirmedStoreCount: facts ? count : 0, missingStoreCount: facts ? 0 : count, factRowCount: facts ? count * 19 : 0, missingDataPolicy: "preparing-not-zero" },
-    stores
+    stores: visibleStores
   };
 }
 
@@ -187,6 +195,26 @@ test("adapter sends only action and selected month with HUB bearer session", asy
   assert.equal(request.options.headers.Authorization, "Bearer hub-session");
   assert.deepEqual(JSON.parse(request.options.body), { action: "storeMonthlyActualProjectionV1", payload: { selectedMonth: "2026-07" } });
   assert.doesNotMatch(request.options.body, /role|scope|storeId|uuid|service/iu);
+});
+
+test("adapter sends a safe public store key and validates the selected single-store projection", async () => {
+  let request;
+  const selectedStoreKey = "store-03";
+  const adapter = createDbfStoreMonthlyAdapter({ mode: "integration", endpoint: "https://staging.invalid/nov-hub-api", timeoutMs: 1000 }, {
+    getSessionToken: () => "hub-session",
+    fetchImpl: async (_url, options) => {
+      request = options;
+      return { ok: true, status: 200, json: async () => ({ ok: true, data: payload({ selectedStoreKey }) }) };
+    }
+  });
+  const result = await adapter.loadDashboard({ period: "2026-07", storeKey: selectedStoreKey });
+  assert.equal(result.selectedStoreKey, selectedStoreKey);
+  assert.equal(result.stores.length, 1);
+  assert.equal(result.storeOptions.length, 20);
+  assert.deepEqual(JSON.parse(request.body), {
+    action: "storeMonthlyActualProjectionV1",
+    payload: { selectedMonth: "2026-07", selectedStoreKey }
+  });
 });
 
 test("same-origin staging BFF receives its HttpOnly session cookie", async () => {

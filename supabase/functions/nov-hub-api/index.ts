@@ -590,6 +590,7 @@ async function handleManagementFromDeployedBaseline(
     token,
     payload: {
       selectedMonth: String(payload.selectedMonth || "") || undefined,
+      selectedStoreKey: String(payload.selectedStoreKey || "") || undefined,
       scopeMode: managementScopeMode(payload.scopeMode),
       contractPhase: "phase2-select-only-contract",
       responseProfile: payload.responseProfile as string | undefined,

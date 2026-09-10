@@ -49,6 +49,65 @@ for (const [role, mode, count] of [["executive","all",20],["area_manager","assig
   });
 }
 
+for (const [role, mode, requestedStoreKey, expectedStatus] of [
+  ["executive", "all", "s-20", 200],
+  ["area_manager", "assigned", "s-1", 200],
+  ["area_manager", "assigned", "s-2", 403],
+  ["store_manager", "own", "s-1", 200],
+  ["store_manager", "own", "s-2", 403],
+] as const) Deno.test(`store selector is enforced by resolved scope: ${role} ${requestedStoreKey}`, async () => {
+  const count = role === "executive" ? 20 : 1;
+  const response = { contract: "production_identity_access_v1", employeeId: uuid(101), roleKeys: [role],
+    scope: { mode, storeIds: stores.slice(0,count).map((store) => store.id) },
+    masters: { stores, corporations: [{ id: uuid(501), corporation_name: "Fixture", is_active: true }],
+      corporation_business_profiles: [{ corporation_id: uuid(501), fiscal_year_end_month: 8 }] } };
+  const access = await resolveProductionCanonicalAccess({ projectRef: "nkmxevmioczcmnldreyo", rolloutState: "GENERAL", ownerEmployeeId: uuid(101),
+    session: { authType: "hub_session", employeeId: uuid(101), sessionId: uuid(900), audience: "nov_hub", expiresAt: "2099-01-01T00:00:00Z" },
+    rpc: async () => response });
+  const calls: unknown[][] = [];
+  const deps: ManagementDependencies = {
+    verifyHubSession: async () => ({ subject: uuid(101) }), resolveCanonicalAccess: async () => access,
+    resolveEmployee: async () => { throw new Error("Legacy employee fallback forbidden"); }, assignedScopeEnabled: true,
+    db: {
+      count: async () => 0,
+      select: async (table) => access.masters[table],
+      rpc: async (name, args) => { calls.push([name,args]); return []; },
+    },
+  };
+  const result = await handleManagementReadOnlyAction({ action: "storeMonthlyActualProjectionV1", token: "fixture-only",
+    payload: { selectedMonth: "2026-06", selectedStoreKey: requestedStoreKey } }, deps);
+  assertEquals(result.status, expectedStatus);
+  if (expectedStatus === 403) {
+    assertEquals(calls.length, 0);
+    return;
+  }
+  const data = result.body.data as { stores: { storeKey: string }[]; scope: { selectedStoreKey: string; selectableStores: unknown[] } };
+  assertEquals(data.stores.map((store) => store.storeKey), [requestedStoreKey]);
+  assertEquals(data.scope.selectedStoreKey, requestedStoreKey);
+  assertEquals(data.scope.selectableStores.length, count);
+  for (const [,args] of calls) assertEquals((args as {p_store_ids:string[]}).p_store_ids.length, 1);
+  assert(!JSON.stringify(result.body).match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i));
+});
+
+Deno.test("malformed or UUID-like store selector fails closed before DBF", async () => {
+  const response = { contract: "production_identity_access_v1", employeeId: uuid(101), roleKeys: ["executive"],
+    scope: { mode: "all", storeIds: stores.map((store) => store.id) },
+    masters: { stores, corporations: [{ id: uuid(501), corporation_name: "Fixture", is_active: true }],
+      corporation_business_profiles: [{ corporation_id: uuid(501), fiscal_year_end_month: 8 }] } };
+  const access = await resolveProductionCanonicalAccess({ projectRef: "nkmxevmioczcmnldreyo", rolloutState: "GENERAL", ownerEmployeeId: uuid(101),
+    session: { authType: "hub_session", employeeId: uuid(101), sessionId: uuid(900), audience: "nov_hub", expiresAt: "2099-01-01T00:00:00Z" },
+    rpc: async () => response });
+  const deps: ManagementDependencies = {
+    verifyHubSession: async () => ({ subject: uuid(101) }), resolveCanonicalAccess: async () => access,
+    resolveEmployee: async () => null, assignedScopeEnabled: true,
+    db: { count: async () => 0, select: async (table) => access.masters[table], rpc: async () => { assert(false, "DBF must not be called"); return []; } },
+  };
+  for (const selectedStoreKey of ["../s-1", uuid(1)]) {
+    const result = await handleManagementReadOnlyAction({ ...denialRequest(), payload: { selectedMonth: "2026-06", selectedStoreKey } }, deps);
+    assertEquals(result.status, 403);
+  }
+});
+
 function denialDependencies(options: { rolloutState?: string; employeeId?: string; role?: "executive" | "area_manager" | "store_manager";
   ownerEmployeeId?: string; realUserPilotEmployeeId1?: string; realUserPilotEmployeeId2?: string; rpc?: () => unknown;
   loadCanonicalPilotEmployees?: (ids: string[]) => Promise<unknown> } = {}): ManagementDependencies {

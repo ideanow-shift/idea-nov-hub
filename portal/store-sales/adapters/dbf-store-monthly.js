@@ -67,8 +67,10 @@ function normalizeMetric(fact, definition) {
   if (!fact) return [key, preparingMetric(fallbackLabel, unit)];
   const raw = String(fact.value ?? "");
   if (!/^-?\d+(?:\.\d+)?$/u.test(raw)) fail("INVALID_METRIC_VALUE");
-  const value = Number(raw);
-  if (!Number.isFinite(value)) fail("INVALID_METRIC_VALUE");
+  const canonicalValue = Number(raw);
+  if (!Number.isFinite(canonicalValue)) fail("INVALID_METRIC_VALUE");
+  if (unit === "percent" && (canonicalValue < 0 || canonicalValue > 1)) fail("INVALID_CANONICAL_RATE");
+  const value = unit === "percent" ? canonicalValue * 100 : canonicalValue;
   return [key, Object.freeze({
     label: String(fact.displayName || fallbackLabel), value, rawValue: value,
     displayValue: format(value, unit), unit, dataState: "available", reason: "DBF月次確定値"

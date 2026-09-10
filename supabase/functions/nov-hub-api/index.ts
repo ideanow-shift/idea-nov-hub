@@ -3845,11 +3845,12 @@ async function sha256Hex(value: string) {
   return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-async function requireDbfStagingBusinessDataAdmin(token: string, payload: JsonRecord, action: string) {
+async function requireDbfBusinessDataAdmin(token: string, payload: JsonRecord, action: string) {
   const authUser = await authenticate(token, payload, action);
   const employee = await findEmployeeForAuth(authUser);
-  if (!employee?.id || String(authUser.authType || "") !== "dbf_staging_session") {
-    throw new PortalError("ACCESS_DENIED", "A valid DBF Staging employee session is required.", 403);
+  const authType = String(authUser.authType || "");
+  if (!employee?.id || !new Set(["dbf_staging_session", "hub_session"]).has(authType)) {
+    throw new PortalError("ACCESS_DENIED", "A valid DBF employee session is required.", 403);
   }
   const authorization = await resolveDbfHandoffBusinessDataAdmin(String(employee.id));
   if (!authorization.businessDataAdmin) {
@@ -6216,7 +6217,7 @@ Deno.serve(async (request) => {
       }
     }
     if (action === "dbfBusinessDataAdminAuthorizeV1") {
-      const { employee, authorization } = await requireDbfStagingBusinessDataAdmin(token, payload, action);
+      const { employee, authorization } = await requireDbfBusinessDataAdmin(token, payload, action);
       return jsonResponse({
         ok: true,
         data: {
@@ -6228,15 +6229,15 @@ Deno.serve(async (request) => {
       });
     }
     if (action === "dbfCanonicalMasterVerifyV1") {
-      await requireDbfStagingBusinessDataAdmin(token, payload, action);
+      await requireDbfBusinessDataAdmin(token, payload, action);
       return jsonResponse({ ok: true, data: await verifyDbfCanonicalMasterMapping(payload) });
     }
     if (action === "dbfCanonicalMasterOptionsV1") {
-      await requireDbfStagingBusinessDataAdmin(token, payload, action);
+      await requireDbfBusinessDataAdmin(token, payload, action);
       return jsonResponse({ ok: true, data: await listDbfCanonicalMasterOptions(payload) });
     }
     if (action === "dbfCanonicalMasterValidateBindingsV1") {
-      await requireDbfStagingBusinessDataAdmin(token, payload, action);
+      await requireDbfBusinessDataAdmin(token, payload, action);
       return jsonResponse({ ok: true, data: await validateDbfCanonicalMasterBindings(payload) });
     }
     if (action === "exchangeIdeaLinkHandoff") {

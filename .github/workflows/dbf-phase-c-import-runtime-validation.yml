@@ -9,11 +9,13 @@ on:
       - "supabase/migrations/**dbf_canonical_account_catalog_owner_review.sql"
       - "supabase/migrations/**dbf_account_review_contract_corrective.sql"
       - "supabase/migrations/**dbf_standard_correction_prefill.sql"
+      - "supabase/migrations/**dbf_production_store_monthly_pilot_v1.sql"
       - "portal/management-app/**"
       - "deploy/dbf-cloud-run-staging-bff-candidate/**"
       - "deploy/dbf-staging/runtime.js"
       - "tests/dbf-business-data-phase-c*"
       - "tests/dbf-standard-correction*"
+      - "tests/dbf-production-store-monthly-pilot*"
       - "tests/dbf-canonical-account-catalog-*"
       - ".github/workflows/dbf-phase-c-import-runtime-validation.yml"
   workflow_dispatch:
@@ -63,6 +65,7 @@ jobs:
           tests/dbf-business-data-normalized-csv.test.mjs
           tests/dbf-business-data-phase-c-bff.test.mjs
           tests/dbf-business-data-phase-c-migration.test.mjs
+          tests/dbf-production-store-monthly-pilot-contract.test.mjs
           tests/dbf-business-data-ui-preview.test.mjs
           tests/dbf-canonical-account-catalog-owner-review.test.mjs
           tests/dbf-canonical-account-catalog-fresh-postgres.test.mjs
@@ -71,6 +74,7 @@ jobs:
           deno test --allow-env
           tests/dbf-business-data-phase-c-domain.test.ts
           tests/dbf-business-data-phase-c-edge.test.ts
+          tests/dbf-production-store-monthly-pilot.test.ts
       - name: Type-check Edge adapters
         run: |
           deno check supabase/functions/dbf-business-data-api/index.ts
@@ -91,11 +95,13 @@ jobs:
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260815090000_dbf_canonical_account_catalog_owner_review.sql
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260815123655_dbf_account_review_contract_corrective.sql
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260820000048_dbf_standard_correction_prefill.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260909204237_dbf_production_store_monthly_pilot_v1.sql
       - name: Run PostgreSQL 17 runtime and rollback smoke
         run: |
           psql --set=ON_ERROR_STOP=1 --file tests/dbf-business-data-phase-c-postgres17.sql
           psql --set=ON_ERROR_STOP=1 --file tests/dbf-canonical-account-catalog-postgres17.sql
           psql --set=ON_ERROR_STOP=1 --file tests/dbf-standard-correction-postgres17.sql
+          psql --set=ON_ERROR_STOP=1 --file tests/dbf-production-store-monthly-pilot-postgres17.sql
       - name: Reject Production refs and secrets in hosted artifact
         shell: bash
         run: |

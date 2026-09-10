@@ -120,7 +120,7 @@ begin
     or r.value->'payload'->>'store_key' not in ('ikebukuro','kamishakujii')
     or r.value->'payload'->>'confirmation_status' <> 'confirmed'
     or case when p_fact_kind = 'store_operating_result' then
-      (r.value->'payload' - array[
+      ((r.value->'payload') - array[
         'fiscal_month','company_key','store_key','metric_code','value','definition_version','confirmation_status'
       ]::text[]) <> '{}'::jsonb
       or r.value->'payload'->>'metric_code' not in (
@@ -131,7 +131,7 @@ begin
       or r.value->'payload'->>'definition_version' <> 'v1'
       or (r.value->'payload'->>'value')::numeric = 0
     else
-      (r.value->'payload' - array[
+      ((r.value->'payload') - array[
         'fiscal_month','company_key','store_key','scenario_code','account_code','metric_code','amount','confirmation_status'
       ]::text[]) <> '{}'::jsonb
       or r.value->'payload'->>'metric_code' not in ('RETAIL_SALES','TECHNICAL_SALES','TOTAL_SALES')

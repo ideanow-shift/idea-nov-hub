@@ -205,11 +205,12 @@ test("renderer emits sanitized local receipt callback for Management finance bri
   assert.equal(receipts.at(-1), null);
 });
 
-test("active Management app integrates display only", () => {
-  assert.match(html, /id="csv-requirements"/);
+test("Management app no longer mounts the duplicate Store Operations display", () => {
+  assert.doesNotMatch(html, /id="csv-requirements"|id="stores-view"|data-section="stores"/);
   assert.match(html, /app-v2\.js\?v=[A-F0-9]{16}/);
   assert.match(html, /styles\.css\?v=[A-F0-9]{16}/);
   assert.match(app, /store-csv-requirements\.js\?v=9d6bb401afd343fb/);
+  assert.match(app, /if \(!elements\.storeScope \|\| !elements\.storePlQuickIntake/);
   assert.match(app, /renderCsvRequirements\(elements\.csvRequirements, data\.requiredCsvFiles, \{/);
   assert.match(app, /localStoreCsvReceipt/);
   const storeRenderer = app.match(/function renderStores\(\)[\s\S]*?function localPlStoreMatchSummary/);

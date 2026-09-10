@@ -1096,14 +1096,6 @@ export function buildFinancialReflectionSummary(result) {
         href: "#overview",
       },
       {
-        key: "STORE_OPERATIONS",
-        label: "店舗営業管理",
-        category: stores,
-        enabled: stores === "LOCAL_PREVIEW_ACTIVE",
-        detail: stores === "LOCAL_PREVIEW_ACTIVE" ? "店舗候補P/Lを確認表示" : "店舗候補P/L・CSV待ち",
-        href: "#stores",
-      },
-      {
         key: "PRODUCTION_IMPORT",
         label: "本番投入",
         category: production,
@@ -2336,7 +2328,6 @@ function financialReflectionSummary(doc, reflection) {
   const summary = el(doc, "div", "financial-reflection-summary");
   const routes = Array.isArray(reflection.screenRoutes) ? reflection.screenRoutes : [
     { label: "法人管理", category: reflection.corporate, enabled: reflection.corporate === "LOCAL_PREVIEW_ACTIVE", detail: reflection.corporate === "LOCAL_PREVIEW_ACTIVE" ? "確認表示あり" : "資料待ち", href: "#overview" },
-    { label: "店舗営業管理", category: reflection.stores, enabled: reflection.stores === "LOCAL_PREVIEW_ACTIVE", detail: reflection.stores === "LOCAL_PREVIEW_ACTIVE" ? "確認表示あり" : "資料待ち", href: "#stores" },
     { label: "本番投入", category: reflection.production, enabled: false, detail: "disabled", href: "" },
   ];
   summary.append(...routes.map((route) => {

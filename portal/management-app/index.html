@@ -17,7 +17,7 @@
     .app-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .hub-link { color: var(--muted); font-size: 11px; text-decoration: none; }
     h1 { margin: 0; font-size: 16px; line-height: 1.35; }
-    .section-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+    .section-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
     .view-tabs, .corporation-tabs { display: flex; gap: 6px; overflow-x: auto; }
     .section-tab, .tab, .corp-tab, .dept-tab, .icon-button { min-height: 36px; padding: 8px 12px; background: var(--soft); border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; }
     .section-tab.is-active, .corp-tab.is-active, .dept-tab.is-active { background: var(--bassa); color: #fff; }
@@ -48,8 +48,7 @@
 
   <nav class="section-tabs" aria-label="経営管理メニュー">
     <button type="button" class="section-tab is-active" data-section="corporate" data-view="overview" aria-selected="true"><span>① 法人経営管理</span><span class="section-tab-status" data-section-status="corporate">未反映</span></button>
-    <button type="button" class="section-tab" data-section="stores" data-view="stores" data-href="../store-sales/" aria-selected="false"><span>② 店舗営業管理</span><span class="section-tab-status" data-section-status="stores">Phase 5</span></button>
-    <button id="business-data-navigation" type="button" class="section-tab" data-section="businessdata" data-view="businessdata" aria-selected="false" hidden><span>③ 経営データ管理</span><span class="section-tab-status">管理者専用</span></button>
+    <button id="business-data-navigation" type="button" class="section-tab" data-section="businessdata" data-view="businessdata" aria-selected="false" hidden><span>② 経営データ管理</span><span class="section-tab-status">管理者専用</span></button>
   </nav>
 
   <nav id="corporate-view-tabs" class="view-tabs" aria-label="法人経営管理画面">
@@ -127,18 +126,6 @@
       <section class="dashboard-card method-flow"><h3>意思決定の順番</h3><ol><li>赤字・資金減少の原因を特定</li><li>固定費と人件費の耐性を確認</li><li>生産性改善の打ち手を決定</li><li>投資・出店・撤退を判断</li><li>組織・教育・管理方法へ反映</li></ol></section>
     </section>
 
-    <section id="stores-view" class="view-panel" hidden>
-      <div class="section-heading"><div><p class="eyebrow">店舗営業管理</p><h2>店舗別状況</h2></div><span id="store-scope" class="scope-label"></span></div>
-      <div id="store-pl-quick-intake"></div>
-      <div id="financial-local-preview-stores"></div>
-      <div id="workforce-evidence-status"></div>
-      <div id="store-kpis" class="metric-grid"></div>
-      <div class="table-wrap">
-        <table><thead><tr><th>店舗</th><th>法人</th><th>スタッフ</th><th>売上</th><th>目標達成率</th><th>データ状態</th></tr></thead><tbody id="store-rows"></tbody></table>
-      </div>
-      <div id="csv-requirements" class="status-band"></div>
-    </section>
-
     <section id="dataops-view" class="view-panel" hidden>
       <div class="section-heading"><div><p class="eyebrow">データ状況</p><h2>取込・分類ステータス</h2></div></div>
       <div id="data-guide"></div>
@@ -154,6 +141,6 @@
   </main>
   </div>
 
-  <script type="module" src="./app-v2.js?v=1D4245FF1D2FFB37"></script>
+  <script type="module" src="./app-v2.js?v=443FC407657C5C57"></script>
 </body>
 </html>

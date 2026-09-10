@@ -3,7 +3,7 @@ import { mountManagementProductionReadiness } from "../js/management-production-
 import { clearNovHubSession, handleNovHubSessionAuthFailure, restoreNovHubSession } from "../js/nov-hub-session-candidate.js";
 import { clearDbfStagingSession, exchangeDbfStagingHandoffViaBff, initializeDbfStagingSession } from "../js/dbf-staging-session-handoff-candidate.js";
 import { canDisplayWorkforceAggregates, localWorkforceAggregateMetric, mountWorkforceEvidenceStatus } from "../js/management-workforce-evidence-status.js?v=98059284370E87B7";
-import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=06AD1D86CD8B66B5";
+import { buildFinancialCompletionItems, renderFinancialDataIntake } from "./financial-data-intake.js?v=B867D2FA54E7B3F2";
 import { BUSINESS_DATA_EMPTY_FIXTURE, renderBusinessDataManagementPreview } from "./business-data-management-preview.js";
 import { resolveDbfStagingBusinessDataLanding } from "./dbf-staging-business-data-landing.js";
 import { renderCsvRequirements } from "./store-csv-requirements.js?v=9d6bb401afd343fb";
@@ -12,7 +12,7 @@ import { renderStorePlQuickIntake } from "./store-pl-quick-intake.js?v=1B5686012
 
 const FINANCE_VIEWS = new Set(["overview", "four-axis", "departments", "method"]);
 const CORPORATE_VIEWS = new Set([...FINANCE_VIEWS, "dataops"]);
-const VIEWS = new Set([...CORPORATE_VIEWS, "stores"]);
+const VIEWS = new Set(CORPORATE_VIEWS);
 const state = { view: "overview", corporation: "", department: "", finance: null, stores: null, dataops: null, financialPreviews: { PL: null, BS: null, BUDGET: null }, storeRepeatPreview: null, storeCustomerPreview: null, storeVisitCohortPreview: null, storeWorkforceMonthlyPreview: null, storeMonthlyBudgetPreview: null, storeMenuPreview: null, storeAnalysisPeriod: "", storeAnalysisStoreKey: "", storeComparisonMetric: "salesAchievementRatePercent", localEvidence: { storeCsvReceipt: null, storeNameReceipt: null, workforceAllocationReceipt: null }, charts: {} };
 const number = new Intl.NumberFormat("ja-JP");
 const yen = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
@@ -163,7 +163,7 @@ function removeLegacyHubContextFromUrl() {
 }
 
 function readHashView() { const value = location.hash.replace(/^#\/?/, ""); return VIEWS.has(value) ? value : "overview"; }
-function viewSection(view) { return view === "stores" ? "stores" : view === "businessdata" ? "businessdata" : "corporate"; }
+function viewSection(view) { return view === "businessdata" ? "businessdata" : "corporate"; }
 function selectView(view, updateHash = true) {
   state.view = VIEWS.has(view) ? view : "overview";
   document.querySelectorAll(".tab").forEach((button) => button.classList.toggle("is-active", button.dataset.view === state.view));
@@ -202,17 +202,11 @@ function updateSectionDataBadges() {
   const bsReady = Boolean(state.financialPreviews.BS);
   const pendingCount = financialPendingCount();
   const corporate = document.querySelector('[data-section-status="corporate"]');
-  const stores = document.querySelector('[data-section-status="stores"]');
   if (corporate) {
     const label = plReady || bsReady ? `ローカル反映 / 残${number.format(pendingCount)}` : "未反映";
     corporate.textContent = label;
     corporate.dataset.sectionStatusCategory = plReady || bsReady ? "LOCAL_PREVIEW_ACTIVE" : "LOCAL_PREVIEW_EMPTY";
     corporate.title = plReady || bsReady ? "確認表示だけです。本番投入はdisabledです。" : "財務データ未選択";
-  }
-  if (stores) {
-    stores.textContent = plReady ? `ローカル反映 / 残${number.format(pendingCount)}` : "未反映";
-    stores.dataset.sectionStatusCategory = plReady ? "LOCAL_PREVIEW_ACTIVE" : "LOCAL_PREVIEW_EMPTY";
-    stores.title = plReady ? "店舗候補P/Lの確認表示だけです。本番投入はdisabledです。" : "店舗P/L未選択";
   }
 }
 
@@ -223,7 +217,6 @@ function financialPendingCount() {
 function loadCurrentView(force) {
   if (state.view === "businessdata") return;
   if (FINANCE_VIEWS.has(state.view)) { if (force) state.finance = null; loadFinance(); return; }
-  if (state.view === "stores") { if (force) state.stores = null; loadStores(); return; }
   if (force) state.dataops = null; loadDataops();
 }
 
@@ -320,6 +313,7 @@ async function loadStores() {
   try { const response = await callApiAction("managementStoresSummary", {}); state.stores = response.data || {}; renderStores(); setReady("権限に応じた店舗を表示しています"); } catch (error) { renderError(error); }
 }
 function renderStores() {
+  if (!elements.storeScope || !elements.storePlQuickIntake || !elements.storeKpis || !elements.storeRows || !elements.csvRequirements) return;
   const data = state.stores || {}; const stores = Array.isArray(data.stores) ? data.stores : [];
   renderStorePlQuickIntake(elements.storePlQuickIntake, { hasLocalPl: Boolean(state.financialPreviews.PL) });
   const localPl = localPlStoreSummary();
@@ -457,19 +451,12 @@ function renderDataGuide() {
   const section = document.createElement("section");
   section.className = "data-guide";
   const corporateReady = Boolean(state.financialPreviews.PL && state.financialPreviews.BS);
-  const storeReady = Boolean(state.financialPreviews.PL && state.storeWorkforceMonthlyPreview && state.storeVisitCohortPreview && state.storeMenuPreview);
   const cards = [
     {
       title: "法人経営管理",
       status: corporateReady ? "ローカル確認可能" : "まずはここから",
       description: "法人ごとの売上・利益・資産負債を確認します。",
       items: ["P/L 月次CSV（売上・利益）", "B/S 月次CSV（資産・負債・純資産）", "予実CSV（任意：目標との差）"],
-    },
-    {
-      title: "店舗営業管理",
-      status: storeReady ? "ローカル分析可能" : "必要データを確認",
-      description: "店舗ごとの売上・利益・生産性・単価・リピート・メニューを確認します。",
-      items: ["店舗月次P/L CSV（売上・利益）", "店舗別月次人数CSV（生産性）", "来店区分CSV（客数・単価・リピート）", "メニュー月次CSV（メニュー分析）", "予実CSV（任意：達成率）"],
     },
   ];
   const grid = document.createElement("div");
@@ -489,7 +476,7 @@ function renderDataGuide() {
   const note = document.createElement("p");
   note.className = "data-guide-note";
   note.textContent = "ここでのファイル選択は端末内の確認用です。現在は本番保存・承認・再計算を実行しません。";
-  section.append(heading("最初に必要なデータ"), paragraph("法人と店舗で使うデータを分けています。先にP/Lを選ぶと、売上・利益の確認から始められます。"), grid, note);
+  section.append(heading("最初に必要なデータ"), paragraph("法人経営管理で使うP/L・B/Sを選ぶと、売上・利益・資産負債の確認から始められます。"), grid, note);
   elements.dataGuide.replaceChildren(section);
 }
 

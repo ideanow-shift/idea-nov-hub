@@ -39,8 +39,9 @@ test("store statuses are not calculated in UI", () => {
   assert.doesNotMatch(app, /operatingProfitMarginDisplay|ordinaryProfitNegative|salesTargetAchievementDisplay/);
 });
 
-test("existing management app links to the Phase 5 surface", () => {
-  assert.match(management, /data-href="\.\.\/store-sales\/"/);
+test("Store Operations is an independent app and is not duplicated inside Management", () => {
+  assert.doesNotMatch(management, /data-href="\.\.\/store-sales\/"|data-section="stores"|id="stores-view"/);
+  assert.match(html, /店舗営業管理/);
 });
 
 test("review fixtures cover all requested non-production states", () => {

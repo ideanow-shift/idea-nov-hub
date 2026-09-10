@@ -27,6 +27,7 @@ const METRICS = Object.freeze({
 
 const EXPECTED_CODES = Object.freeze(Object.keys(METRICS));
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const PUBLIC_STORE_KEY = /^[a-z0-9][a-z0-9_-]{0,63}$/iu;
 const FORBIDDEN_KEYS = new Set(["storeId", "store_id", "rawStoreId", "raw_store_id", "employeeId", "employee_id", "companyId", "company_id"]);
 const STATUS_ERRORS = Object.freeze({
   400: ["VALIDATION_ERROR", "対象月を確認してください。", false],
@@ -114,8 +115,21 @@ export function validateDbfStoreMonthlyProjection(payload) {
   if (!scope || scope.serverResolved !== true || scope.rawStoreIdsReturned !== false) fail("UNSAFE_SCOPE");
   const baseline = scope.operatingStoreBaseline;
   if (!baseline || baseline.total !== 20 || baseline.direct !== 13 || baseline.fc !== 7) fail("INVALID_STORE_BASELINE");
+  if (!Array.isArray(scope.selectableStores) || Number(scope.authorizedStoreCount) !== scope.selectableStores.length) fail("INVALID_SELECTABLE_STORES");
+  const optionKeys = new Set();
+  const storeOptions = scope.selectableStores.map((source) => {
+    const storeKey = String(source?.storeKey || "");
+    const storeName = String(source?.storeName || "");
+    if (!PUBLIC_STORE_KEY.test(storeKey) || UUID.test(storeKey) || !storeName || optionKeys.has(storeKey)) fail("UNSAFE_SELECTABLE_STORE");
+    optionKeys.add(storeKey);
+    return Object.freeze({ storeKey, storeName });
+  });
+  const selectedStoreKey = scope.selectedStoreKey === null || scope.selectedStoreKey === undefined ? null : String(scope.selectedStoreKey);
+  if (selectedStoreKey !== null && (!PUBLIC_STORE_KEY.test(selectedStoreKey) || !optionKeys.has(selectedStoreKey))) fail("INVALID_SELECTED_STORE");
   if (!Array.isArray(payload.stores) || payload.stores.length !== Number(scope.visibleStoreCount)) fail("INVALID_STORE_COUNT");
-  if (scope.mode === "all" && payload.stores.length !== baseline.total) fail("INVALID_ALL_SCOPE_COUNT");
+  if (scope.mode === "all" && storeOptions.length !== baseline.total) fail("INVALID_ALL_SCOPE_OPTIONS");
+  if (selectedStoreKey === null && scope.mode === "all" && payload.stores.length !== baseline.total) fail("INVALID_ALL_SCOPE_COUNT");
+  if (selectedStoreKey !== null && payload.stores.length !== 1) fail("INVALID_SELECTED_STORE_COUNT");
   if (scope.mode === "own" && payload.stores.length > 1) fail("INVALID_OWN_SCOPE_COUNT");
   if (!payload.readiness || payload.readiness.missingDataPolicy !== "preparing-not-zero") fail("INVALID_MISSING_DATA_POLICY");
   const seen = new Set();
@@ -167,7 +181,8 @@ export function validateDbfStoreMonthlyProjection(payload) {
       metrics: Object.freeze(metrics), yearly, monthlyTrend, actions: Object.freeze([])
     });
   });
-  if (scope.mode === "all" && (stores.filter((store) => store.ownership === "Direct").length !== baseline.direct || stores.filter((store) => store.ownership === "FC").length !== baseline.fc)) fail("INVALID_OWNERSHIP_BASELINE");
+  if (selectedStoreKey !== null && stores[0]?.storeKey !== selectedStoreKey) fail("SELECTED_STORE_MISMATCH");
+  if (selectedStoreKey === null && scope.mode === "all" && (stores.filter((store) => store.ownership === "Direct").length !== baseline.direct || stores.filter((store) => store.ownership === "FC").length !== baseline.fc)) fail("INVALID_OWNERSHIP_BASELINE");
   const confirmed = payload.stores.filter((store) => store.dataState === "confirmed").length;
   const trendKeys = ["sales", "operatingProfit", "customerCount", "totalTicket", "retailSales", "ecSales"];
   const monthlyTrend = Object.fromEntries(trendKeys.map((metricKey) => {
@@ -187,7 +202,7 @@ export function validateDbfStoreMonthlyProjection(payload) {
     contractVersion: DBF_STORE_MONTHLY_CONTRACT, comparisonContractVersion: comparisonEnabled ? DBF_STORE_MONTHLY_COMPARISON_CONTRACT : null, taxBasis: "net", fiscalMonth: payload.fiscalMonth,
     role: scope.mode === "own" ? "store_manager" : scope.mode === "assigned" ? "area_manager" : "representative",
     audience: scope.mode === "own" ? "store_manager" : "executive", scopeLabel: `${stores.length}店舗`,
-    stores: Object.freeze(stores), priorityActions: Object.freeze([]), businessDrivers: Object.freeze({}),
+    stores: Object.freeze(stores), storeOptions: Object.freeze(storeOptions), selectedStoreKey, priorityActions: Object.freeze([]), businessDrivers: Object.freeze({}),
     executiveSummary: Object.freeze({ narrative: confirmed ? `${confirmed}店舗のDBF月次確定値を表示しています。` : "正式データを準備しています。", metrics: Object.freeze([]) }),
     accounting: Object.freeze({ confirmationState: confirmed === stores.length ? "confirmed" : "preparing", confirmedThroughPeriod: confirmed ? payload.fiscalMonth : null, reflectedStoreCount: confirmed, totalStoreCount: stores.length, lastUpdatedAt: null }),
     readiness: Object.freeze({ ...payload.readiness }), monthlyTrend: Object.freeze(monthlyTrend)
@@ -200,8 +215,9 @@ export function createDbfStoreMonthlyAdapter(config, dependencies = {}) {
   let controller = null;
   return Object.freeze({
     mode: config.mode,
-    async loadDashboard({ period }) {
+    async loadDashboard({ period, storeKey = null }) {
       if (!/^\d{4}-(0[1-9]|1[0-2])$/u.test(String(period || ""))) throw new ProjectionRequestError("INVALID_PERIOD", "営業対象月を確認してください。", 422);
+      if (storeKey !== null && storeKey !== "" && !PUBLIC_STORE_KEY.test(String(storeKey))) throw new ProjectionRequestError("INVALID_STORE", "店舗を確認してください。", 422);
       const token = String(await getSessionToken() || "").trim();
       if (!token) throw new ProjectionRequestError("UNAUTHORIZED", "セッションの有効期限が切れました。", 401);
       controller?.abort(); controller = new AbortController();
@@ -211,7 +227,10 @@ export function createDbfStoreMonthlyAdapter(config, dependencies = {}) {
         response = await fetchImpl(config.endpoint, {
           method: "POST", credentials: /^\/(?!\/)/u.test(config.endpoint) ? "same-origin" : "omit", cache: "no-store", signal: controller.signal,
           headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json", "X-Contract-Version": DBF_STORE_MONTHLY_CONTRACT },
-          body: JSON.stringify({ action: "storeMonthlyActualProjectionV1", payload: { selectedMonth: period } })
+          body: JSON.stringify({ action: "storeMonthlyActualProjectionV1", payload: {
+            selectedMonth: period,
+            ...(storeKey ? { selectedStoreKey: String(storeKey) } : {})
+          } })
         });
       } catch (cause) {
         if (cause?.name === "AbortError") throw new ProjectionRequestError("TIMEOUT", "通信に時間がかかっています。", 408, true);

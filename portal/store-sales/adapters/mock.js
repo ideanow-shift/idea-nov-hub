@@ -27,11 +27,16 @@ export function createMockAdapter(config, dependencies = {}) {
       }
       const development = dependencies.getDevelopmentState?.() || {};
       const selectedFixture = runtimeState === "empty" ? "empty" : development.role || fixture;
-      return getReviewFixture(selectedFixture, {
+      const projection = getReviewFixture(selectedFixture, {
         period: request.period,
         profitMode: development.profitMode,
         missingData: development.missingData
       });
+      const storeOptions = projection.stores.map(({ storeKey, storeName }) => ({ storeKey, storeName }));
+      if (!request.storeKey) return { ...projection, storeOptions, selectedStoreKey: null };
+      const selectedStore = projection.stores.find((store) => store.storeKey === request.storeKey);
+      if (!selectedStore) throw Object.assign(new Error("Mock store is outside resolved scope."), { code: "FORBIDDEN", status: 403 });
+      return { ...projection, storeOptions, selectedStoreKey: request.storeKey, stores: [selectedStore] };
     },
     clear() {}
   });

@@ -6,7 +6,7 @@ const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
 const isoDate = /^\d{4}-\d{2}-\d{2}$/u;
 const modes = { executive: 'all', area_manager: 'assigned', store_manager: 'own' };
 const activeEmploymentStatuses = new Set(['現職', '在籍', 'active', 'Active']);
-const payloadKeys = new Set(['authType', 'selectedMonth', 'scopeMode', 'responseProfile']);
+const payloadKeys = new Set(['authType', 'selectedMonth', 'selectedStoreKey', 'scopeMode', 'responseProfile']);
 /** @type {((ids: string[]) => Promise<unknown>) | undefined} */
 const optionalCanonicalPilotLoader = undefined;
 function denied() { throw new Error('PRODUCTION_CANONICAL_ACCESS_DENIED'); }

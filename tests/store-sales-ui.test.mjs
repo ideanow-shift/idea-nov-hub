@@ -70,6 +70,14 @@ test("store manager audience bypasses executive UI", () => {
   assert.match(app, /showDetail\(ownStore\.storeKey, true\)/);
 });
 
+test("store switcher uses server-provided safe keys and preserves selection across month loads", () => {
+  assert.match(html, /id="store-selector"/);
+  assert.match(app, /projection\.storeOptions/);
+  assert.match(app, /SAFE_STORE_KEY/);
+  assert.match(app, /storeKey: state\.selectedStoreKey/);
+  assert.doesNotMatch(app, /storeNames\s*=|BASSA上石神井店|BASSA所沢店/);
+});
+
 test("all data states have distinct Japanese labels", () => {
   for (const label of ["集計中", "準備中", "データ確認が必要", "取得できません"]) assert.match(app, new RegExp(label));
   assert.match(app, /metricAriaLabel/);

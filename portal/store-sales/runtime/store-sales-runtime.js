@@ -37,6 +37,7 @@ export function createStoreSalesRuntime(options = {}) {
   let mockIdentity = null;
   let featureFlag = null;
   let lastPeriod = null;
+  let lastStoreKey = null;
   let retryCount = 0;
   let retryInFlight = null;
   let loadStartedAt = null;
@@ -51,6 +52,7 @@ export function createStoreSalesRuntime(options = {}) {
       errorCode: next.errorCode ?? null,
       presentation: next.presentation || runtimePresentation(next.status),
       period: lastPeriod,
+      storeKey: lastStoreKey,
       retryCount,
       canRetry: ["maintenance", "timeout", "offline"].includes(next.status),
       diagnostics: diagnostics.snapshot()
@@ -113,27 +115,29 @@ export function createStoreSalesRuntime(options = {}) {
     adapter = created.adapter;
   }
 
-  async function initialize({ period } = {}) {
+  async function initialize({ period, storeKey } = {}) {
     lastPeriod = period || lastPeriod;
+    if (storeKey !== undefined) lastStoreKey = storeKey || null;
     publish({ status: "initializing", presentation: runtimePresentation("initializing") });
     try {
       await configureAdapter();
-      return await load({ period: lastPeriod });
+      return await load({ period: lastPeriod, storeKey: lastStoreKey });
     } catch (error) {
       return handleError(error);
     }
   }
 
-  async function load({ period } = {}) {
+  async function load({ period, storeKey } = {}) {
     if (period) lastPeriod = period;
-    if (!adapter) return initialize({ period: lastPeriod });
+    if (storeKey !== undefined) lastStoreKey = storeKey || null;
+    if (!adapter) return initialize({ period: lastPeriod, storeKey: lastStoreKey });
     const sequence = ++loadSequence;
     publish({
       status: "loading",
       presentation: runtimePresentation("loading")
     });
     try {
-      const projection = await adapter.loadDashboard({ period: lastPeriod });
+      const projection = await adapter.loadDashboard({ period: lastPeriod, storeKey: lastStoreKey });
       if (sequence !== loadSequence) return snapshot;
       const status = Array.isArray(projection?.stores) && projection.stores.length === 0 ? "empty" : "ready";
       return publish({
@@ -168,7 +172,7 @@ export function createStoreSalesRuntime(options = {}) {
     if (retryInFlight) return retryInFlight;
     if (!snapshot.canRetry) return snapshot;
     retryCount += 1;
-    retryInFlight = load({ period: lastPeriod }).finally(() => { retryInFlight = null; });
+    retryInFlight = load({ period: lastPeriod, storeKey: lastStoreKey }).finally(() => { retryInFlight = null; });
     return retryInFlight;
   }
 
@@ -177,7 +181,7 @@ export function createStoreSalesRuntime(options = {}) {
     adapter?.clear?.();
     adapter = null;
     if (!setNovHubSession(nextSession)) clearNovHubSession();
-    return initialize({ period: lastPeriod });
+    return initialize({ period: lastPeriod, storeKey: lastStoreKey });
   }
 
   async function switchProjection(nextFeatureFlag, configOverride = {}) {
@@ -185,7 +189,7 @@ export function createStoreSalesRuntime(options = {}) {
     adapter?.clear?.();
     adapter = null;
     runtimeConfig = { ...runtimeConfig, ...configOverride, featureFlag: nextFeatureFlag, mode: nextFeatureFlag };
-    return initialize({ period: lastPeriod });
+    return initialize({ period: lastPeriod, storeKey: lastStoreKey });
   }
 
   return Object.freeze({

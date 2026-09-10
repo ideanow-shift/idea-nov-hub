@@ -44,6 +44,28 @@ test("initializing transitions through loading to ready", async () => {
   assert.deepEqual(states, ["initializing", "initializing", "loading", "ready"]);
 });
 
+test("store selection persists across month changes and retry", async () => {
+  const calls = [];
+  let attempt = 0;
+  const runtime = runtimeWithAdapter({
+    async loadDashboard(request) {
+      calls.push(request);
+      attempt += 1;
+      if (attempt === 2) throw Object.assign(new Error("timeout"), { code: "TIMEOUT", status: 408 });
+      return projection();
+    },
+    clear() {}
+  });
+  await runtime.initialize({ period: "2026-06", storeKey: "store-03" });
+  await runtime.load({ period: "2026-07" });
+  await runtime.retry();
+  assert.deepEqual(calls, [
+    { period: "2026-06", storeKey: "store-03" },
+    { period: "2026-07", storeKey: "store-03" },
+    { period: "2026-07", storeKey: "store-03" }
+  ]);
+});
+
 test("zero stores transitions to empty", async () => {
   const runtime = runtimeWithAdapter({ loadDashboard: async () => projection([]), clear() {} });
   assert.equal((await runtime.initialize({ period: "2026-07" })).status, "empty");

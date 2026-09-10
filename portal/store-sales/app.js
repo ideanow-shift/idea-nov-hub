@@ -4,15 +4,16 @@ import { createStoreViewSelector } from "./store-view-selector.js";
 import { restoreStoreSalesPreviewContext } from "./preview-context.js";
 import { getNovHubSessionStatus } from "../js/nov-hub-session-candidate.js";
 
+const SAFE_STORE_KEY = /^[a-z0-9][a-z0-9_-]{0,63}$/iu;
 const state = {
   projection: null, runtime: null, runtimeStatus: "initializing", runtimeFeatureFlag: null, effectiveRole: "sales_manager", initializedRole: null, selectedStore: null, tab: "summary", audience: "executive",
-  statusFilter: "Needs Attention", sort: "status", scope: "All", periodMode: "monthly", listScroll: 0, trendMetric: "sales", trendPeriod: "six_months",
+  statusFilter: "Needs Attention", sort: "status", scope: "All", periodMode: "monthly", listScroll: 0, trendMetric: "sales", trendPeriod: "six_months", selectedStoreKey: null,
   development: { role: "sales_manager", runtimeState: "ready", profitMode: "collecting", missingData: true }
 };
 const $ = (id) => document.getElementById(id);
 const elements = {
   notice: $("notice"), noticeTitle: $("notice-title"), noticeBody: $("notice-body"), retry: $("retry-button"),
-  period: $("period"), executive: $("executive-view"), detail: $("detail-view"), summary: $("summary-metrics"),
+  period: $("period"), storeSelector: $("store-selector"), executive: $("executive-view"), detail: $("detail-view"), summary: $("summary-metrics"),
   actions: $("priority-actions"), drivers: $("business-drivers"), rows: $("store-rows"), cards: $("store-cards"),
   detailPanel: $("detail-panel"), devControls: $("dev-controls"), executiveSignals: $("executive-signals"), executiveSignalLinks: $("executive-signal-links")
 };
@@ -51,11 +52,16 @@ async function initialize() {
     }
   });
   state.runtime.subscribe(renderRuntimeSnapshot);
-  await state.runtime.initialize({ period: elements.period.value });
+  await state.runtime.initialize({ period: elements.period.value, storeKey: state.selectedStoreKey });
 }
 
 function bindControls() {
-  elements.period.addEventListener("change", reload);
+  elements.period.addEventListener("change", () => reload());
+  elements.storeSelector.addEventListener("change", () => {
+    const candidate = elements.storeSelector.value;
+    state.selectedStoreKey = candidate && SAFE_STORE_KEY.test(candidate) ? candidate : null;
+    reload();
+  });
   elements.retry.addEventListener("click", () => state.runtime?.retry());
   $("back-to-list").addEventListener("click", showList);
   $("store-sort").addEventListener("change", (event) => { state.sort = event.target.value; renderStores(); });
@@ -90,7 +96,30 @@ function applyRoleDefaults() {
 
 function reload() {
   if (state.development.runtimeState === "loading") return renderRuntimeSnapshot({ status: "loading", presentation: { title: "読み込んでいます", body: "Mock Runtimeから店舗データを取得しています。" } });
-  return state.runtime?.load({ period: elements.period.value });
+  return state.runtime?.load({ period: elements.period.value, storeKey: state.selectedStoreKey });
+}
+
+function configureStoreSwitcher(projection, role) {
+  const label = $("store-switcher-label");
+  if (role === "store_manager") {
+    label.hidden = true;
+    return;
+  }
+  const source = Array.isArray(projection.storeOptions) ? projection.storeOptions : projection.stores || [];
+  const options = source.filter((store) => SAFE_STORE_KEY.test(String(store?.storeKey || "")) && String(store?.storeName || ""));
+  const aggregate = document.createElement("option");
+  aggregate.value = "";
+  aggregate.textContent = role === "representative" ? "全店舗" : "担当店舗全体";
+  const nodes = [aggregate, ...options.map((store) => {
+    const option = document.createElement("option");
+    option.value = store.storeKey;
+    option.textContent = store.storeName;
+    return option;
+  })];
+  elements.storeSelector.replaceChildren(...nodes);
+  state.selectedStoreKey = projection.selectedStoreKey || null;
+  elements.storeSelector.value = state.selectedStoreKey || "";
+  label.hidden = options.length === 0;
 }
 
 function renderRuntimeSnapshot(snapshot) {
@@ -110,6 +139,7 @@ function renderRuntimeSnapshot(snapshot) {
     return;
   }
   state.projection = snapshot.projection;
+  state.selectedStoreKey = snapshot.projection?.selectedStoreKey || null;
   if (state.projection?.stores?.length && state.projection.stores.every((store) => store.status === "Preparing")) state.statusFilter = "All";
   const syntheticProjection = ["mock", "preview"].includes(snapshot.featureFlag) || (snapshot.featureFlag === "staging" && snapshot.projection?.contractVersion !== "STORE_MONTHLY_ACTUAL_V1");
   $("preview-banner").hidden = !syntheticProjection;
@@ -132,6 +162,7 @@ function renderAll() {
   if (projection.stores.length && projection.stores.every((store) => store.status === "Preparing")) state.statusFilter = "All";
   state.effectiveRole = role;
   configureScopeControls(role);
+  configureStoreSwitcher(projection, role);
   $("direction-message").textContent = projection.directionMessage || "";
   $("meta-sales-period").textContent = formatMonth(elements.period.value);
   $("meta-accounting-period").textContent = formatMonth(projection.accounting?.confirmedThroughPeriod); // 確定値の対象月
@@ -145,6 +176,12 @@ function renderAll() {
     $("sticky-filters").hidden = true;
     if (ownStore) showDetail(ownStore.storeKey, true);
     else renderManagerEmpty();
+    return;
+  }
+  if (state.selectedStoreKey && projection.stores.length === 1) {
+    elements.executiveSignals.hidden = true;
+    $("sticky-filters").hidden = false;
+    showDetail(state.selectedStoreKey, false);
     return;
   }
   $("sticky-filters").hidden = false;
@@ -409,6 +446,11 @@ function showDetail(storeKey, managerHome = false, targetTab = null) {
 
 function showList() {
   if (state.effectiveRole === "store_manager") return;
+  if (state.selectedStoreKey) {
+    state.selectedStoreKey = null;
+    reload();
+    return;
+  }
   elements.detail.hidden = true; elements.executive.hidden = false; state.selectedStore = null;
   $("page-title").textContent = scopeHeading(state.effectiveRole, state.scope);
   requestAnimationFrame(() => window.scrollTo({ top: state.listScroll }));

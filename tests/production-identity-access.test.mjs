@@ -27,6 +27,7 @@ for(const key of ['employeeId','role','scope','storeId','email','subject','ident
  test(`browser ${key} assertion denied`,()=>assert.throws(()=>assertProductionReadPayload({[key]:'injected'}),/DENIED/));
 }
 test('ordinary projection options accepted (scope ceiling enforced downstream)',()=>assert.doesNotThrow(()=>assertProductionReadPayload({authType:'hub_session',selectedMonth:'2026-06',scopeMode:'own'})));
+test('safe public store selector is accepted',()=>assert.doesNotThrow(()=>assertProductionReadPayload({selectedMonth:'2026-06',selectedStoreKey:'s-20'})));
 for(const key of ['uat_actor','uat_scenario','uat_assumption_key','uatActor','uatScenario','uatAssumptionKey','technicalAssumption']){
  test(`signed ${key} denied before RPC`,async()=>{
   const input=fixtureInput();input.session[key]='not-allowed';input.rpc=()=>assert.fail('must not call RPC');

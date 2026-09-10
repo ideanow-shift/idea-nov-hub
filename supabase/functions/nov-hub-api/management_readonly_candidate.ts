@@ -71,6 +71,7 @@ export interface ManagementRequest {
   token: string;
   payload?: {
     selectedMonth?: string;
+    selectedStoreKey?: string;
     scopeMode?: ScopeMode;
     contractPhase?: string;
     responseProfile?: string;
@@ -501,6 +502,7 @@ type OfficialOperatingStore = {
 const STORE_MONTHLY_ACTUAL_CONTRACT = "STORE_MONTHLY_ACTUAL_V1";
 const STORE_MONTHLY_COMPARISON_CONTRACT = "STORE_MONTHLY_COMPARISON_V1";
 const OFFICIAL_OPERATING_STORE_BASELINE = Object.freeze({ total: 20, direct: 13, fc: 7 });
+const PUBLIC_STORE_KEY = /^[a-z0-9][a-z0-9_-]{0,63}$/iu;
 
 function shiftMonth(month: string, offset: number): string {
   const [year, monthNumber] = month.slice(0, 7).split("-").map(Number);
@@ -997,8 +999,15 @@ async function buildStoreMonthlyActualProjection(
   }
   if (!deps.db.rpc) safe404();
 
-  const stores = await loadOfficialOperatingStores(deps, access);
-  if (!stores.length) safe403("SCOPE_DENIED");
+  const selectableStores = await loadOfficialOperatingStores(deps, access);
+  if (!selectableStores.length) safe403("SCOPE_DENIED");
+  const requestedStoreKey = text(request.payload?.selectedStoreKey);
+  if (requestedStoreKey && !PUBLIC_STORE_KEY.test(requestedStoreKey)) safe403("SCOPE_DENIED");
+  const selectedStore = requestedStoreKey
+    ? selectableStores.find((store) => store.publicKey === requestedStoreKey)
+    : null;
+  if (requestedStoreKey && !selectedStore) safe403("SCOPE_DENIED");
+  const stores = selectedStore ? [selectedStore] : selectableStores;
   const storeByRawId = new Map(stores.map((store) => [store.rawId, store]));
   const corporationIds = unique(stores.map((store) => store.corporationId));
   const rangeStart = shiftMonth(fiscalMonth, -23);
@@ -1161,7 +1170,13 @@ async function buildStoreMonthlyActualProjection(
       serverResolved: true,
       rawStoreIdsReturned: false,
       operatingStoreBaseline: { ...OFFICIAL_OPERATING_STORE_BASELINE },
+      authorizedStoreCount: selectableStores.length,
       visibleStoreCount: projectedStores.length,
+      selectedStoreKey: selectedStore?.publicKey || null,
+      selectableStores: selectableStores.map((store) => ({
+        storeKey: store.publicKey,
+        storeName: store.storeName,
+      })),
     },
     readiness: {
       confirmedStoreCount: projectedStores.filter((store) => store.dataState === "confirmed").length,

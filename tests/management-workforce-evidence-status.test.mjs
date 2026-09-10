@@ -115,8 +115,8 @@ test("mount changes only the dedicated element", () => {
   assert.equal(mountWorkforceEvidenceStatus(null), false);
 });
 
-test("store and classification preparation views share the same closed status", () => {
-  assert.match(managementIndex, /id="workforce-evidence-status"/);
+test("Management removes the duplicate store workforce mount while classification stays closed", () => {
+  assert.doesNotMatch(managementIndex, /id="workforce-evidence-status"|id="stores-view"/);
   assert.match(managementApp, /mountWorkforceEvidenceStatus\(elements\.workforceEvidence, undefined, \{/);
   assert.match(managementApp, /workforceAllocationReceipt/);
   assert.match(managementApp, /配賦確認済み（人数未投入）/);

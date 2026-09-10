@@ -224,16 +224,16 @@ begin
     or p_source_system <> v_expected->>'sourceSystem' then
     raise exception using errcode = '22023', message = 'DBF_PRODUCTION_PILOT_SOURCE_REJECTED';
   end if;
-  if (p_file->>'byteSize')::integer <> case lower(p_file->>'sha256')
+  if (p_file->>'byteSize')::integer <> (case lower(p_file->>'sha256')
     when '72bff469bf2d027e054176661445661fbb860a740cf30d1a937f38fb7f1946f9' then 1430
     when 'b30972436958601e69580e07a3a3ff969c7781c5997d87dde3cef47b8a9655f9' then 1422
     when 'bef80ca154226012ad44c59ce500cf91593425ed0289e5b1ef8dd16507acbac1' then 474
-    else -1 end
-    or p_file->>'originalFileName' <> case lower(p_file->>'sha256')
+    else -1 end)
+    or p_file->>'originalFileName' <> (case lower(p_file->>'sha256')
     when '72bff469bf2d027e054176661445661fbb860a740cf30d1a937f38fb7f1946f9' then '2025-06-pilot-store-actual.csv'
     when 'b30972436958601e69580e07a3a3ff969c7781c5997d87dde3cef47b8a9655f9' then '2026-06-pilot-store-actual.csv'
     when 'bef80ca154226012ad44c59ce500cf91593425ed0289e5b1ef8dd16507acbac1' then '2026-06-pilot-store-budget.csv'
-    else '' end then
+    else '' end) then
     raise exception using errcode = '22023', message = 'DBF_PRODUCTION_PILOT_SOURCE_REJECTED';
   end if;
 

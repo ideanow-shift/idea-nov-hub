@@ -4,12 +4,12 @@ import {
   batchFromPilotPreflight,
   PRODUCTION_PILOT_GATE,
   PRODUCTION_PILOT_MANIFEST_REF,
-  PRODUCTION_PROJECT_REF,
   resolveProductionPilotCanonicalContext,
 } from "../supabase/functions/dbf-business-data-api/production-pilot.ts";
 
 const TOKEN = "x".repeat(32);
 const ACTOR_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const PRODUCTION_PROJECT_REF = "production-pilot-project";
 
 function productionRuntime(overrides: Record<string, unknown> = {}) {
   return {

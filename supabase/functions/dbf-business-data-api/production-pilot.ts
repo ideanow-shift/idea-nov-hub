@@ -2,7 +2,6 @@ import { DbfRuntimeError } from "./domain.ts";
 
 type Json = Record<string, unknown>;
 
-export const PRODUCTION_PROJECT_REF = "nkmxevmioczcmnldreyo";
 export const PRODUCTION_PILOT_GATE = "OWNER_APPROVED_STORE_MONTHLY_PILOT_V1";
 export const PRODUCTION_PILOT_MANIFEST_REF =
   "db6c78fdf791a7cbf35921eefb8367bca73eff4b07f00110b5741fb874487019";

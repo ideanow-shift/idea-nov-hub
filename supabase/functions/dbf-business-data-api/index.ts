@@ -13,7 +13,6 @@ import {
   batchFromPilotPreflight,
   buildProductionPilotContract,
   PRODUCTION_PILOT_GATE,
-  PRODUCTION_PROJECT_REF,
   productionPilotRpcContract,
   resolveProductionPilotCanonicalContext,
 } from "./production-pilot.ts";
@@ -82,7 +81,8 @@ function assertRuntimeBoundary(runtime: Runtime): RuntimeTarget {
     if (runtime.runtimeImport !== "ENABLED") throw new DbfRuntimeError("RUNTIME_IMPORT_DISABLED", 503);
     return "staging";
   }
-  if (runtime.expectedProjectRef !== PRODUCTION_PROJECT_REF || hostname !== `${PRODUCTION_PROJECT_REF}.supabase.co`) {
+  if (!runtime.expectedProjectRef || runtime.expectedProjectRef === DEFAULT_STAGING_REF ||
+    hostname !== `${runtime.expectedProjectRef}.supabase.co`) {
     throw new DbfRuntimeError("DBF_TARGET_MISMATCH", 503);
   }
   if (!["DISABLED", PRODUCTION_PILOT_GATE].includes(runtime.productionWrite)) {

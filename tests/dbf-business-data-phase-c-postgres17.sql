@@ -17,7 +17,17 @@ begin
     select count(*)
       from pg_proc p
      where p.pronamespace = 'public'::regnamespace
-       and p.proname like 'dbf_import_%_v1'
+       and p.proname = any(array[
+         'dbf_import_start_v1',
+         'dbf_import_resolve_mappings_v1',
+         'dbf_import_quarantine_mappings_v1',
+         'dbf_import_confirm_mapping_v1',
+         'dbf_import_stage_v1',
+         'dbf_import_preview_v1',
+         'dbf_import_approve_v1',
+         'dbf_import_promote_v1',
+         'dbf_import_history_v1'
+       ])
        and p.prosecdef
   ) <> 9 then
     raise exception 'Phase C SECURITY DEFINER runtime function count is not 9';

@@ -1,0 +1,10 @@
+{
+  "environment": "staging",
+  "endpointPath": "/v1/store-sales",
+  "sessionVerifier": "hub-server-session-verifier",
+  "storeMasterAccessPort": "public-stores-read-only",
+  "accountingAccessPort": "accounting-projection-read-only",
+  "browserDatabaseAccess": false,
+  "syntheticFallback": false,
+  "productionTarget": false
+}

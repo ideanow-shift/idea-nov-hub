@@ -2,10 +2,10 @@
 import {
   validateWorkspaceResponse,
   WORKSPACE_CONTRACT_VERSION
-} from "./generated/workspace-contract-v1.mjs?v=20260811-planning-admin-v1";
+} from "./generated/workspace-contract-v1.mjs?v=20260822-operational-editing-v1";
 import {
   validateSelectionCoverageResponse
-} from "./generated/selection-coverage-contract-v1.mjs?v=20260811-planning-admin-v1";
+} from "./generated/selection-coverage-contract-v1.mjs?v=20260822-operational-editing-v1";
 
 const REQUIRED_AUDIENCE = "nov_hub";
 const SUMMARY_FIELDS = Object.freeze([

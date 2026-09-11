@@ -4,7 +4,7 @@ import {
   createDashboardSummaryExact1Executor,
   createSelectionCoverageExact1Executor,
   createTalentWorkspaceExact1Executor
-} from "./exact1.mjs?v=20260811-planning-admin-v1";
+} from "./exact1.mjs?v=20260822-operational-editing-v1";
 
 const METRIC_LABELS = Object.freeze({
   contacts: "接触数",

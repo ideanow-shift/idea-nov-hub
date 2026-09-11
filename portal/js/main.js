@@ -22,7 +22,7 @@ import {
   renderNovNaviDashboard,
   shouldEnableLocalNovNaviDemo,
   shouldEnableNovNaviDashboard
-} from "./nov-navi-dashboard.js?v=executive-employee-directory-20260911-1";
+} from "./nov-navi-dashboard.js?v=hr-viewer-employee-directory-20260911-1";
 import {
   NOV_HUB_SESSION_CONTRACT,
   clearNovHubSession,

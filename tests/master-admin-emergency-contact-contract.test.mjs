@@ -44,6 +44,12 @@ assert.match(api, /Actor employee id is invalid/);
 assert.match(api, /async function updateEmployeeEmergencyContact[\s\S]{0,180}assertNoClientActorOverride\(payload\)/);
 assert.match(api, /masterReadEmployeeEmergencyContact[\s\S]{0,160}assertMasterViewer\(employee\)/);
 assert.match(api, /masterUpdateEmployeeEmergencyContact[\s\S]{0,180}assertMasterEditor\(employee\)/);
+assert.match(api, /function canViewMasterAdmin[\s\S]{0,300}"hr\.viewer"/);
+assert.doesNotMatch(
+  api.match(/function canEditMasterAdmin[\s\S]*?\n}/)?.[0] || "",
+  /hr\.viewer/,
+  "HR viewers must remain read-only"
+);
 assert.match(api, /async function readEmployeeEmergencyContactRows[\s\S]{0,500}EMPLOYEE_EMERGENCY_CONTACT_UNAVAILABLE/);
 assert.doesNotMatch(api.slice(api.indexOf("async function readEmployeeEmergencyContactRows"), api.indexOf("const TALENT_WORKFLOW_ROLE_KEYS")), /console\.(?:log|warn|error)/);
 assert.doesNotMatch(api, /appendMasterChangeLog\([\s\S]{0,400}employee_phone_number/);

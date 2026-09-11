@@ -117,6 +117,11 @@ assert.equal(
   "executives must receive the employee directory launcher backed by their existing view permission"
 );
 assert.equal(
+  getVisibleNaviSystemTitles({ roleLevel: 1, roleKeys: ["hr.viewer"] }).includes("社員名簿"),
+  true,
+  "explicit HR viewers must receive the employee directory launcher"
+);
+assert.equal(
   getVisibleNaviSystemTitles({ roleLevel: 1, roleKeys: ["staff"] }).includes("社員名簿"),
   false,
   "general employees must not receive the employee directory launcher"

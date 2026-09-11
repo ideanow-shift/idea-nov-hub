@@ -37,8 +37,8 @@ test("Production HUB restores the approved same-origin target when the app regis
   );
   assert.match(main, /ensureStoreOperationsLaunchTarget\(normalizeManagementPlatformApps\(apps\)\)/);
   assert.match(navi, /title: "店舗営業管理"[\s\S]*?status: "available"/);
-  assert.match(portalIndex, /main\.js\?v=executive-employee-directory-20260911-1/);
-  assert.match(main, /nov-navi-dashboard\.js\?v=executive-employee-directory-20260911-1/);
+  assert.match(portalIndex, /main\.js\?v=hr-viewer-employee-directory-20260911-1/);
+  assert.match(main, /nov-navi-dashboard\.js\?v=hr-viewer-employee-directory-20260911-1/);
 });
 
 test("Store Operations launch target is supplied when the HUB bootstrap app list omits it", () => {

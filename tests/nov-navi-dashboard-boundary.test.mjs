@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
   getVisibleNaviCategories,
+  getVisibleNaviSystemTitles,
   getVisibleNaviNotices,
   getNaviTodaySnapshot,
   getNaviCategoryId,
@@ -109,6 +110,21 @@ assert.deepEqual(
   getVisibleNaviCategories({ roleLevel: 1, roleKeys: ["super_admin"] }),
   ["運営管理", "成長", "キャリア", "経営管理", "システム管理"],
   "system administrator sees all NOV NAVI categories"
+);
+assert.equal(
+  getVisibleNaviSystemTitles({ roleLevel: 5, roleKeys: ["executive"] }).includes("社員名簿"),
+  true,
+  "executives must receive the employee directory launcher backed by their existing view permission"
+);
+assert.equal(
+  getVisibleNaviSystemTitles({ roleLevel: 1, roleKeys: ["staff"] }).includes("社員名簿"),
+  false,
+  "general employees must not receive the employee directory launcher"
+);
+assert.equal(
+  getVisibleNaviSystemTitles({ roleLevel: 1, roleKeys: ["super_admin"] }).includes("社員名簿"),
+  false,
+  "system administrators must keep the full system administration launcher without a duplicate directory card"
 );
 
 const dashboardSource = await readFile(new URL("../portal/js/nov-navi-dashboard.js", import.meta.url), "utf8");

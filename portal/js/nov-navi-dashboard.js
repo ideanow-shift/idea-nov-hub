@@ -41,6 +41,7 @@ const SYSTEMS = [
   { category: "経営管理", title: "経営管理システム", status: "in_progress", aliases: ["keiei", "management-system"], shortcuts: ["法人管理", "店舗営業管理", "データ状況"], minLevel: 3, audience: "店長以上／管轄範囲" },
   { category: "経営管理", title: "店舗営業管理", subtitle: "売上・利益・KPI・店舗運営を確認", status: "available", aliases: ["store-sales-management", "store-sales-preview"], shortcuts: ["全店の状況", "要対応店舗", "店舗詳細"], minLevel: 3, allowedTags: ["executive", "representative", "department_manager", "sales_manager", "area_manager", "store_manager"], audience: "営業管理の許可範囲" },
   { category: "経営管理", title: "求人管理", subtitle: "NOV Talent", description: "学生・選考・イベント・次回対応を管理", status: "trial", aliases: ["nov-talent", "jinnjibu", "human-capital-investment"], shortcuts: ["学生", "選考", "イベント", "次回対応"], talentOnly: true, audience: "代表取締役・総務人事部・採用担当" },
+  { category: "経営管理", title: "社員名簿", subtitle: "社員情報を閲覧", status: "available", aliases: ["core-master-admin", "master-admin"], shortcuts: ["社員一覧", "所属情報"], allowedRoles: ["executive"], hideForAdmin: true, audience: "執行役員" },
   { category: "システム管理", title: "システム管理", status: "available", aliases: ["core-master-admin", "master-admin"], shortcuts: ["社員情報", "店舗情報", "法人情報", "アプリ管理", "権限管理", "変更履歴", "データ入力"], adminOnly: true }
 ];
 
@@ -104,9 +105,17 @@ function roleProfile(employee) {
 }
 
 function visibleSystem(system, employee) {
+  if (system.hideForAdmin && isAdmin(employee)) return false;
   if (isAdmin(employee)) return true;
   if (system.talentOnly) return resolveNovTalentAccess(employee).allowed;
   if (system.adminOnly) return isAdmin(employee);
+  if (system.allowedRoles?.length) {
+    const roles = new Set([
+      ...(employee?.roleKeys || []),
+      ...((employee?.roles || []).map((role) => role?.roleKey || role?.role_key))
+    ].map(appKey));
+    if (!system.allowedRoles.some((role) => roles.has(appKey(role)))) return false;
+  }
   const capabilities = new Set((employee?.capabilities || []).map(appKey));
   if ((system.anyCapabilities || []).some((capability) => capabilities.has(appKey(capability)))) return true;
   if (system.allowedTags?.length) {
@@ -118,6 +127,10 @@ function visibleSystem(system, employee) {
     if (!system.allowedTags.some((tag) => tags.has(appKey(tag)))) return false;
   }
   return Number(employee?.roleLevel || 1) >= Number(system.minLevel || 1);
+}
+
+export function getVisibleNaviSystemTitles(employee) {
+  return SYSTEMS.filter((system) => visibleSystem(system, employee)).map((system) => system.title);
 }
 
 export function getVisibleNaviCategories(employee) {

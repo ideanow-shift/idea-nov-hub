@@ -6,7 +6,7 @@ import {
 } from "../supabase/functions/nov-hub-api/management_readonly_candidate.ts";
 
 const EMPLOYEE_ID = "10000000-0000-4000-8000-000000000001";
-const COMPANY_DIRECT = "20000000-0000-4000-8000-000000000001";
+const COMPANY_DIRECT = "e4059116-bdb3-4e13-9763-bbc77bdfe062";
 const COMPANY_FC = "20000000-0000-4000-8000-000000000002";
 const FACT_SHA = "a".repeat(64);
 
@@ -38,6 +38,7 @@ function dependencies(options: {
   assignedScopeEnabled?: boolean;
   factRows?: JsonRecord[];
   budgetRows?: JsonRecord[];
+  operatorRows?: JsonRecord[];
   captureRpc?: (name: string, args: JsonRecord) => void;
   includeRpc?: boolean;
 } = {}): ManagementDependencies {
@@ -108,6 +109,26 @@ function dependencies(options: {
   if (includeRpc) {
     db.rpc = async (name, args) => {
       options.captureRpc?.(name, args);
+      if (name === "store_corporation_effective_operator_range_read_v1") {
+        if (options.operatorRows) return options.operatorRows;
+        const rows: JsonRecord[] = [];
+        for (let month = String(args.p_start_month); month <= String(args.p_end_month);) {
+          for (const row of STORE_ROWS.filter((value) => value.store_type !== "本部")) {
+            if ((args.p_store_ids as string[]).includes(String(row.id))) {
+              rows.push({
+                fiscal_month: month,
+                store_id: row.id,
+                corporation_id: row.corporation_id,
+                corporation_no: row.corporation_id === COMPANY_DIRECT ? "0001" : "0002",
+              });
+            }
+          }
+          const date = new Date(`${month}T00:00:00Z`);
+          date.setUTCMonth(date.getUTCMonth() + 1);
+          month = date.toISOString().slice(0, 10);
+        }
+        return rows;
+      }
       const rows = name === "dbf_store_monthly_budget_range_read_v1"
         ? options.budgetRows || []
         : options.factRows || [];
@@ -193,7 +214,7 @@ Deno.test("all-scope projection returns the formal 20 stores and never fabricate
     (data.responsibility as JsonRecord).corporateFinancialLineItemsIncluded,
     false,
   );
-  assertEquals(calls.length, 4);
+  assertEquals(calls.length, 5);
   assert(calls.every((call) => Array.isArray(call.p_store_ids)));
 });
 
@@ -223,8 +244,42 @@ Deno.test("store-manager projection derives one store from server-side identity"
   const stores = (result.body.data as JsonRecord).stores as JsonRecord[];
   assertEquals(stores.length, 1);
   assertEquals(stores[0].storeKey, STORE_ROWS[1].store_id);
-  assertEquals(calls.length, 2);
+  assertEquals(calls.length, 3);
   assertEquals(calls[0].p_store_ids, [ownStoreId]);
+});
+
+Deno.test("historical company change is resolved by fiscal month and current ownership is not backcast", async () => {
+  const rawStoreId = String(STORE_ROWS[1].id);
+  const operatorRows = [
+    { fiscal_month: "2026-05-01", store_id: rawStoreId, corporation_id: COMPANY_FC, corporation_no: "0002" },
+    { fiscal_month: "2026-06-01", store_id: rawStoreId, corporation_id: COMPANY_DIRECT, corporation_no: "0001" },
+  ];
+  const oldFact = { ...factForStore(rawStoreId), fiscal_month: "2026-05-01", company_id: COMPANY_FC };
+  const currentFact = factForStore(rawStoreId);
+  const wrongBackcast = { ...oldFact, company_id: COMPANY_DIRECT, metric_code: "TECHNICAL_SALES" };
+  const result = await handleManagementReadOnlyAction(
+    {
+      action: "storeMonthlyActualProjectionV1",
+      token: "hub-session",
+      payload: { selectedMonth: "2026-06", scopeMode: "own" },
+    },
+    dependencies({
+      roleKey: "store_manager",
+      employeeStoreId: rawStoreId,
+      operatorRows,
+      factRows: [oldFact, currentFact, wrongBackcast],
+    }),
+  );
+
+  assertEquals(result.status, 200);
+  const data = result.body.data as JsonRecord;
+  const projected = (data.stores as JsonRecord[])[0];
+  assertEquals(projected.corporationName, "IDEA NOV");
+  assertEquals(projected.operatorDataState, "confirmed");
+  assertEquals((data.readiness as JsonRecord).ownershipMismatchExcludedCount, 1);
+  const may = ((projected.comparisons as JsonRecord).monthlyTrend as JsonRecord[])
+    .find((row) => row.fiscalMonth === "2026-05");
+  assertEquals((may?.metrics as JsonRecord[]).length, 1);
 });
 
 Deno.test("area-manager projection derives only active assigned stores from server-side identity", async () => {

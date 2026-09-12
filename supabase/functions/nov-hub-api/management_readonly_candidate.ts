@@ -499,10 +499,20 @@ type OfficialOperatingStore = {
   ownership: "DIRECT" | "FC";
 };
 
+type EffectiveStoreOperator = {
+  fiscalMonth: string;
+  storeId: string;
+  corporationId: string;
+  corporationNo: string;
+  corporationName: string;
+  ownership: "DIRECT" | "FC";
+};
+
 const STORE_MONTHLY_ACTUAL_CONTRACT = "STORE_MONTHLY_ACTUAL_V1";
 const STORE_MONTHLY_COMPARISON_CONTRACT = "STORE_MONTHLY_COMPARISON_V1";
 const OFFICIAL_OPERATING_STORE_BASELINE = Object.freeze({ total: 20, direct: 13, fc: 7 });
 const PUBLIC_STORE_KEY = /^[a-z0-9][a-z0-9_-]{0,63}$/iu;
+const CORPORATE_ACCOUNTING_COMPANY_ID = "e4059116-bdb3-4e13-9763-bbc77bdfe062";
 
 function shiftMonth(month: string, offset: number): string {
   const [year, monthNumber] = month.slice(0, 7).split("-").map(Number);
@@ -1009,8 +1019,56 @@ async function buildStoreMonthlyActualProjection(
   if (requestedStoreKey && !selectedStore) safe403("SCOPE_DENIED");
   const stores = selectedStore ? [selectedStore] : selectableStores;
   const storeByRawId = new Map(stores.map((store) => [store.rawId, store]));
-  const corporationIds = unique(stores.map((store) => store.corporationId));
   const rangeStart = shiftMonth(fiscalMonth, -23);
+  const effectiveOperatorRows = await deps.db.rpc!("store_corporation_effective_operator_range_read_v1", {
+    p_start_month: rangeStart,
+    p_end_month: fiscalMonth,
+    p_store_ids: stores.map((store) => store.rawId),
+  });
+  const effectiveOperatorSeeds = new Map<string, {
+    fiscalMonth: string;
+    storeId: string;
+    corporationId: string;
+    corporationNo: string;
+  }>();
+  for (const row of effectiveOperatorRows) {
+    const month = text(row.fiscal_month);
+    const storeId = text(row.store_id).toLowerCase();
+    const corporationId = text(row.corporation_id).toLowerCase();
+    const corporationNo = text(row.corporation_no);
+    const grain = `${storeId}|${month}`;
+    if (!storeByRawId.has(storeId)
+      || month < rangeStart || month > fiscalMonth
+      || !UUID_PATTERN.test(storeId) || !UUID_PATTERN.test(corporationId)
+      || !/^\d{4}$/u.test(corporationNo)
+      || effectiveOperatorSeeds.has(grain)) safe404();
+    effectiveOperatorSeeds.set(grain, { fiscalMonth: month, storeId, corporationId, corporationNo });
+  }
+
+  const corporationIds = unique([...effectiveOperatorSeeds.values()].map((operator) => operator.corporationId));
+  const corporationRows = corporationIds.length
+    ? await deps.db.select("corporations", {
+      select: "id,corporation_name,is_active",
+      id: inFilter(corporationIds),
+      is_active: "eq.true",
+      limit: 100,
+    })
+    : [];
+  const corporationNamesById = new Map(corporationRows
+    .filter((row) => row.is_active === true && UUID_PATTERN.test(text(row.id)))
+    .map((row) => [text(row.id).toLowerCase(), text(row.corporation_name)]));
+  if (corporationIds.some((corporationId) => !corporationNamesById.get(corporationId))) safe404();
+  const effectiveOperatorByStoreMonth = new Map<string, EffectiveStoreOperator>();
+  for (const [grain, seed] of effectiveOperatorSeeds) {
+    const corporationName = corporationNamesById.get(seed.corporationId) || "";
+    if (!corporationName) safe404();
+    effectiveOperatorByStoreMonth.set(grain, {
+      ...seed,
+      corporationName,
+      ownership: seed.corporationId === CORPORATE_ACCOUNTING_COMPANY_ID ? "DIRECT" : "FC",
+    });
+  }
+
   const profileRows = await deps.db.select("corporation_business_profiles", {
     select: "corporation_id,fiscal_year_end_month",
     corporation_id: inFilter(corporationIds),
@@ -1020,9 +1078,9 @@ async function buildStoreMonthlyActualProjection(
     text(row.corporation_id), numberValue(row.fiscal_year_end_month),
   ]));
   const rangeGroups = await Promise.all(corporationIds.map(async (corporationId) => {
-    const scopedStoreIds = stores
-      .filter((store) => store.corporationId === corporationId)
-      .map((store) => store.rawId);
+    const scopedStoreIds = unique([...effectiveOperatorSeeds.values()]
+      .filter((operator) => operator.corporationId === corporationId)
+      .map((operator) => operator.storeId));
     const [actuals, budgets] = await Promise.all([
       deps.db.rpc!("dbf_store_monthly_actual_range_read_v1", {
         p_start_month: rangeStart, p_end_month: fiscalMonth,
@@ -1038,18 +1096,23 @@ async function buildStoreMonthlyActualProjection(
   const facts = rangeGroups.flatMap((group) => group.actuals);
   const budgets = rangeGroups.flatMap((group) => group.budgets);
   const factsByStoreMonth = new Map<string, JsonRecord[]>();
+  let ownershipMismatchExcludedCount = 0;
   for (const fact of facts) {
     const rawStoreId = text(fact.store_id);
     const scopedStore = storeByRawId.get(rawStoreId);
+    const operator = effectiveOperatorByStoreMonth.get(`${rawStoreId}|${text(fact.fiscal_month)}`);
     const metricValue = text(fact.metric_value);
     if (!scopedStore
-      || text(fact.company_id) !== scopedStore.corporationId
       || text(fact.fiscal_month) < rangeStart || text(fact.fiscal_month) > fiscalMonth
       || !text(fact.metric_code)
       || !["amount", "quantity", "rate"].includes(text(fact.value_kind))
       || !metricValue
       || !/^-?\d+(?:\.\d+)?$/u.test(metricValue)
       || !/^[0-9a-f]{64}$/u.test(text(fact.source_file_sha256))) safe404();
+    if (!operator || text(fact.company_id).toLowerCase() !== operator.corporationId) {
+      ownershipMismatchExcludedCount += 1;
+      continue;
+    }
     const grain = `${rawStoreId}|${text(fact.fiscal_month)}`;
     const current = factsByStoreMonth.get(grain) || [];
     if (current.some((value) => text(value.metric_code) === text(fact.metric_code))) safe404();
@@ -1061,12 +1124,17 @@ async function buildStoreMonthlyActualProjection(
   for (const budget of budgets) {
     const rawStoreId = text(budget.store_id);
     const scopedStore = storeByRawId.get(rawStoreId);
+    const operator = effectiveOperatorByStoreMonth.get(`${rawStoreId}|${text(budget.fiscal_month)}`);
     const amount = text(budget.budget_amount);
-    if (!scopedStore || text(budget.company_id) !== scopedStore.corporationId
+    if (!scopedStore
       || text(budget.fiscal_month) < rangeStart || text(budget.fiscal_month) > fiscalMonth
       || !text(budget.metric_code) || !text(budget.scenario_code)
       || !/^-?\d+(?:\.\d+)?$/u.test(amount)
       || !/^[0-9a-f]{64}$/u.test(text(budget.source_file_sha256))) safe404();
+    if (!operator || text(budget.company_id).toLowerCase() !== operator.corporationId) {
+      ownershipMismatchExcludedCount += 1;
+      continue;
+    }
     const grain = `${rawStoreId}|${text(budget.fiscal_month)}|${text(budget.metric_code)}`;
     const current = budgetsByStoreMonthMetric.get(grain) || [];
     current.push(budget);
@@ -1087,12 +1155,15 @@ async function buildStoreMonthlyActualProjection(
   };
 
   const projectedStores = stores.map((store) => {
+    const selectedOperator = effectiveOperatorByStoreMonth.get(`${store.rawId}|${fiscalMonth}`);
     const storeFacts = (factsByStoreMonth.get(`${store.rawId}|${fiscalMonth}`) || [])
       .sort((left, right) => text(left.metric_code).localeCompare(text(right.metric_code), "en"));
     const currentSales = actualNumber(store.rawId, fiscalMonth, "TOTAL_SALES");
     const budgetSales = budgetNumber(store.rawId, fiscalMonth, "TOTAL_SALES");
     const priorYearSales = actualNumber(store.rawId, shiftMonth(fiscalMonth, -12), "TOTAL_SALES");
-    const fiscalYearEnd = fiscalYearEndByCorporation.get(store.corporationId) || 0;
+    const fiscalYearEnd = selectedOperator
+      ? fiscalYearEndByCorporation.get(selectedOperator.corporationId) || 0
+      : 0;
     const validFiscalYear = Number.isInteger(fiscalYearEnd) && fiscalYearEnd >= 1 && fiscalYearEnd <= 12;
     const ytdMonths = validFiscalYear ? monthsBetween(fiscalStartMonth(fiscalMonth, fiscalYearEnd), fiscalMonth) : [];
     const ytdMetric = (metricCode: string): JsonRecord => {
@@ -1123,10 +1194,11 @@ async function buildStoreMonthlyActualProjection(
     return {
       storeKey: store.publicKey,
       storeName: store.storeName,
-      corporationName: store.corporationName,
-      ownership: store.ownership,
+      corporationName: selectedOperator?.corporationName || "未確定",
+      ownership: selectedOperator?.ownership || null,
+      operatorDataState: selectedOperator ? "confirmed" : "unresolved",
       fiscalMonth: fiscalMonth.slice(0, 7),
-      dataState: storeFacts.length ? "confirmed" : "preparing",
+      dataState: selectedOperator && storeFacts.length ? "confirmed" : "preparing",
       metrics: storeFacts.map((fact) => ({
         metricCode: text(fact.metric_code),
         valueKind: text(fact.value_kind),
@@ -1183,6 +1255,9 @@ async function buildStoreMonthlyActualProjection(
       missingStoreCount: projectedStores.filter((store) => store.dataState === "preparing").length,
       factRowCount: facts.length,
       budgetFactRowCount: budgets.length,
+      effectiveOperatorRowCount: effectiveOperatorByStoreMonth.size,
+      ownershipMismatchExcludedCount,
+      ownershipResolutionPolicy: "history-unresolved-not-backcast",
       missingDataPolicy: "preparing-not-zero",
     },
     responsibility: {

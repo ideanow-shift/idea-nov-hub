@@ -137,9 +137,12 @@ export function validateDbfStoreMonthlyProjection(payload) {
     const storeKey = String(source?.storeKey || "");
     if (!storeKey || UUID.test(storeKey) || seen.has(storeKey)) fail("UNSAFE_STORE_KEY");
     seen.add(storeKey);
-    if (!String(source.storeName || "") || !["DIRECT", "FC"].includes(source.ownership)) fail("INVALID_STORE");
+    if (!String(source.storeName || "") || !["DIRECT", "FC", null].includes(source.ownership)) fail("INVALID_STORE");
     if (source.fiscalMonth !== payload.fiscalMonth || !["confirmed", "preparing"].includes(source.dataState)) fail("INVALID_DATA_STATE");
     if (!Array.isArray(source.metrics)) fail("INVALID_METRICS");
+    if (source.operatorDataState !== undefined && !["confirmed", "unresolved"].includes(source.operatorDataState)) fail("INVALID_OPERATOR_DATA_STATE");
+    if (source.operatorDataState === "confirmed" && (!["DIRECT", "FC"].includes(source.ownership) || !String(source.corporationName || ""))) fail("INVALID_EFFECTIVE_OPERATOR");
+    if (source.operatorDataState === "unresolved" && (source.ownership !== null || source.dataState !== "preparing" || source.metrics.length)) fail("UNRESOLVED_OPERATOR_MUST_BE_EXCLUDED");
     const byCode = new Map();
     source.metrics.forEach((fact) => {
       const code = String(fact?.metricCode || "");
@@ -174,7 +177,7 @@ export function validateDbfStoreMonthlyProjection(payload) {
     const monthlyTrend = comparisonEnabled ? normalizeTrend(comparisons.monthlyTrend) : Object.freeze([]);
     return Object.freeze({
       storeKey, storeName: String(source.storeName), corporationName: String(source.corporationName || ""),
-      ownership: source.ownership === "DIRECT" ? "Direct" : "FC", status: "Preparing",
+      ownership: source.ownership === "DIRECT" ? "Direct" : source.ownership === "FC" ? "FC" : null, status: "Preparing",
       statusReason: source.dataState === "preparing" ? "正式データを準備しています。" : "比較指標が準備中のため、店舗状態はまだ判定しません。",
       conclusion: source.dataState === "preparing" ? "正式データを準備しています。" : "当月確定値を表示しています。店舗状態は比較指標の接続後に判定します。",
       focus: source.dataState === "preparing" ? "データ準備完了後に確認してください。" : "当月実績を確認しましょう。",
@@ -182,7 +185,6 @@ export function validateDbfStoreMonthlyProjection(payload) {
     });
   });
   if (selectedStoreKey !== null && stores[0]?.storeKey !== selectedStoreKey) fail("SELECTED_STORE_MISMATCH");
-  if (selectedStoreKey === null && scope.mode === "all" && (stores.filter((store) => store.ownership === "Direct").length !== baseline.direct || stores.filter((store) => store.ownership === "FC").length !== baseline.fc)) fail("INVALID_OWNERSHIP_BASELINE");
   const confirmed = payload.stores.filter((store) => store.dataState === "confirmed").length;
   const trendKeys = ["sales", "operatingProfit", "customerCount", "totalTicket", "retailSales", "ecSales"];
   const monthlyTrend = Object.fromEntries(trendKeys.map((metricKey) => {

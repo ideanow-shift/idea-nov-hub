@@ -5762,7 +5762,9 @@ async function getMasterBootstrap(employee: JsonRecord) {
 
 function canAccessApp(employee: JsonRecord, app: ReturnType<typeof normalizeApp>) {
   if (!employee || employee.status !== "active" || !app.isActive) return false;
-  if (Number(employee.roleLevel || 0) < Number(app.requiredLevel || 1)) return false;
+  const explicitDirectoryViewer = ["core-master-admin", "master-admin"].includes(app.appId)
+    && normalizeList(employee.roleKeys).includes("hr.viewer");
+  if (!explicitDirectoryViewer && Number(employee.roleLevel || 0) < Number(app.requiredLevel || 1)) return false;
   const tags = normalizeList(employee.tags);
   if (app.allowedTags.length && !app.allowedTags.some((tag) => tags.includes(tag))) return false;
   if (app.targetDepartment.length && !app.targetDepartment.includes(String(employee.department || ""))) return false;

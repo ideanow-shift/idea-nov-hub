@@ -950,12 +950,18 @@ function selectReleasedAppsForEmployee(employee, apps) {
     ...(Array.isArray(employee?.tags) ? employee.tags : [])
   ].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean));
   const talentAccess = resolveNovTalentAccess(employee);
+  const canLaunchEmployeeDirectory = [
+    ...(Array.isArray(employee?.roleKeys) ? employee.roleKeys : []),
+    ...(Array.isArray(employee?.roles) ? employee.roles.map((role) => role?.roleKey || role?.role_key) : [])
+  ].some((role) => String(role || "").trim().toLowerCase() === "hr.viewer");
   const allowedApps = apps.filter((app) => !isTalentApp(app) || talentAccess.allowed);
   if ([...DEVELOPMENT_APP_VIEWER_ROLE_KEYS].some((roleKey) => roleKeys.has(roleKey))) return allowedApps;
   if ([...HR_RELEASED_APP_VIEWER_ROLE_KEYS].some((roleKey) => roleKeys.has(roleKey))) {
     return allowedApps.filter((app) => isIdeaLinkApp(app) || isBackofficeReleasedApp(app) || isTalentApp(app) || (isStoreSalesPreviewApp(app) && canPreviewStoreSales(employee)));
   }
-  return allowedApps.filter((app) => isIdeaLinkApp(app) || (isStoreSalesPreviewApp(app) && canPreviewStoreSales(employee)));
+  return allowedApps.filter((app) => isIdeaLinkApp(app)
+    || (canLaunchEmployeeDirectory && isCoreMasterAdminApp(app))
+    || (isStoreSalesPreviewApp(app) && canPreviewStoreSales(employee)));
 }
 
 async function openApp(app) {

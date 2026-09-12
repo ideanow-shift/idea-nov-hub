@@ -26,6 +26,7 @@ function payload({ facts = false, comparisons = false, count = 20, selectedStore
     storeName: `正式店舗${index + 1}`,
     corporationName: index < 13 ? "株式会社BASSA" : "FC法人",
     ownership: index < 13 ? "DIRECT" : "FC",
+    operatorDataState: "confirmed",
     fiscalMonth: "2026-07",
     dataState: facts ? "confirmed" : "preparing",
     metrics: facts ? codes.map((code) => fact(code)) : [],
@@ -166,7 +167,7 @@ test("missing and zero comparison denominators remain preparing rather than fabr
   assert.equal(result.stores[0].yearly.metrics.sales.value, null);
 });
 
-test("unsafe scope, raw UUID, duplicate and unofficial metric are rejected", () => {
+test("unsafe scope, raw UUID, duplicate, invalid operator and unofficial metric are rejected", () => {
   const unsafe = payload(); unsafe.scope.serverResolved = false;
   assert.throws(() => validateDbfStoreMonthlyProjection(unsafe), (error) => error.code === "VALIDATION_ERROR");
   const uuid = payload(); uuid.stores[0].storeKey = "d9428888-122b-11e1-b85c-61cd3cbb3210";
@@ -175,8 +176,21 @@ test("unsafe scope, raw UUID, duplicate and unofficial metric are rejected", () 
   assert.throws(() => validateDbfStoreMonthlyProjection(unknown), (error) => error.code === "VALIDATION_ERROR");
   const rawIdentifier = payload(); rawIdentifier.stores[0].rawStoreId = "internal";
   assert.throws(() => validateDbfStoreMonthlyProjection(rawIdentifier), (error) => error.code === "VALIDATION_ERROR");
-  const wrongOwnership = payload(); wrongOwnership.stores[0].ownership = "FC";
+  const wrongOwnership = payload(); wrongOwnership.stores[0].ownership = "UNKNOWN";
   assert.throws(() => validateDbfStoreMonthlyProjection(wrongOwnership), (error) => error.code === "VALIDATION_ERROR");
+});
+
+test("unresolved effective operator remains preparing without current ownership backcast", () => {
+  const source = payload();
+  source.stores[0].corporationName = "未確定";
+  source.stores[0].ownership = null;
+  source.stores[0].operatorDataState = "unresolved";
+  const result = validateDbfStoreMonthlyProjection(source);
+  assert.equal(result.stores[0].ownership, null);
+  assert.equal(result.stores[0].status, "Preparing");
+
+  source.stores[0].metrics = [fact("TOTAL_SALES")];
+  assert.throws(() => validateDbfStoreMonthlyProjection(source), (error) => error.code === "VALIDATION_ERROR");
 });
 
 test("adapter sends only action and selected month with HUB bearer session", async () => {

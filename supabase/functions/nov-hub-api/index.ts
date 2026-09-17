@@ -45,6 +45,11 @@ import {
   isStoreOperationsProductionRolloutDenied,
   resolveProductionCanonicalAccess,
 } from "./store_operations_production_access.mjs";
+// @ts-ignore Store Operations RPC pagination is isolated and covered by Node contract tests.
+import {
+  readAllStoreMonthlyActualRpcPages,
+  STORE_MONTHLY_ACTUAL_RANGE_RPC,
+} from "./store_operations_rpc_pagination.mjs";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -579,6 +584,26 @@ async function handleManagementFromDeployedBaseline(
       },
       count: readManagementExactCount,
       rpc: async (name, args) => {
+        if (name === STORE_MONTHLY_ACTUAL_RANGE_RPC) {
+          return await readAllStoreMonthlyActualRpcPages({
+            rpcName: name,
+            payload: args,
+            requestPage: async ({ rpcName, payload: pagePayload, limit, offset }: {
+              rpcName: string;
+              payload: JsonRecord;
+              limit: number;
+              offset: number;
+            }) => {
+              const page = await supabaseRequest(`rpc/${encodeURIComponent(rpcName)}`, {
+                method: "POST",
+                payload: pagePayload,
+                schema: "public",
+                query: { limit, offset },
+              });
+              return Array.isArray(page) ? page as JsonRecord[] : page;
+            },
+          });
+        }
         const result = await callSupabaseRpc(name, args);
         return Array.isArray(result) ? result as JsonRecord[] : [];
       },

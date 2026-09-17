@@ -115,8 +115,12 @@ test("status and budget Staging Edge bundle preserves pagination and pins the co
   const input = sorted.map((file) => `${file.path}\t${file.sha256}\t${file.bytes}`).join("\n");
   assert.equal(createHash("sha256").update(input).digest("hex"), bundleManifest.bundle_content_sha256);
   for (const file of sorted) {
-    const content = readFileSync(new URL(`../${file.path}`, import.meta.url));
-    assert.equal(content.byteLength, file.bytes, file.path);
-    assert.equal(createHash("sha256").update(content).digest("hex"), file.sha256, file.path);
+    const content = readFileSync(new URL(`../${file.path}`, import.meta.url), "utf8");
+    const approvedWindowsBytes = Buffer.from(
+      content.replace(/\r?\n/gu, "\n").replace(/\n/gu, "\r\n"),
+      "utf8",
+    );
+    assert.equal(approvedWindowsBytes.byteLength, file.bytes, file.path);
+    assert.equal(createHash("sha256").update(approvedWindowsBytes).digest("hex"), file.sha256, file.path);
   }
 });

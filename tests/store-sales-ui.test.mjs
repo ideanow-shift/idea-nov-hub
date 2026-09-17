@@ -39,6 +39,13 @@ test("store statuses are not calculated in UI", () => {
   assert.doesNotMatch(app, /operatingProfitMarginDisplay|ordinaryProfitNegative|salesTargetAchievementDisplay/);
 });
 
+test("store detail exposes server-provided budget and year-over-year comparisons", () => {
+  assert.match(app, /summary: \["sales", "budgetRatio", "yearOverYearRatio"/);
+  assert.match(app, /budgetRatio: "予算比"/);
+  assert.match(app, /yearOverYearRatio: "前年同月比"/);
+});
+
+
 test("Store Operations is an independent app and is not duplicated inside Management", () => {
   assert.doesNotMatch(management, /data-href="\.\.\/store-sales\/"|data-section="stores"|id="stores-view"/);
   assert.match(html, /店舗営業管理/);

@@ -28,6 +28,7 @@ const METRICS = Object.freeze({
 const EXPECTED_CODES = Object.freeze(Object.keys(METRICS));
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const PUBLIC_STORE_KEY = /^[a-z0-9][a-z0-9_-]{0,63}$/iu;
+const STORE_STATUSES = new Set(["Good", "Stable", "Improving", "Needs Attention", "Preparing"]);
 const FORBIDDEN_KEYS = new Set(["storeId", "store_id", "rawStoreId", "raw_store_id", "employeeId", "employee_id", "companyId", "company_id"]);
 const STATUS_ERRORS = Object.freeze({
   400: ["VALIDATION_ERROR", "対象月を確認してください。", false],
@@ -162,6 +163,12 @@ export function validateDbfStoreMonthlyProjection(payload) {
       metrics.budgetRatio = normalizeComparison(comparisons.budgetRatio, "予算比");
       metrics.yearOverYearRatio = normalizeComparison(comparisons.yearOverYearRatio, "前年同月比");
     }
+    const serverStatus = source.status === undefined ? "Preparing" : String(source.status);
+    if (!STORE_STATUSES.has(serverStatus)) fail("INVALID_STORE_STATUS");
+    const statusReason = String(source.statusReason || "").trim();
+    if (serverStatus !== "Preparing" && (!comparisonEnabled || !statusReason)) fail("INVALID_STORE_STATUS_EVIDENCE");
+    if (serverStatus !== "Preparing" && [metrics.budgetRatio, metrics.yearOverYearRatio]
+      .some((metric) => metric.dataState !== "available")) fail("STATUS_REQUIRES_COMPARISONS");
     const fiscalYear = comparisons?.fiscalYear || {};
     const yearly = Object.freeze({
       dataState: fiscalYear.dataState === "confirmed" ? "confirmed" : "preparing",
@@ -177,10 +184,10 @@ export function validateDbfStoreMonthlyProjection(payload) {
     const monthlyTrend = comparisonEnabled ? normalizeTrend(comparisons.monthlyTrend) : Object.freeze([]);
     return Object.freeze({
       storeKey, storeName: String(source.storeName), corporationName: String(source.corporationName || ""),
-      ownership: source.ownership === "DIRECT" ? "Direct" : source.ownership === "FC" ? "FC" : null, status: "Preparing",
-      statusReason: source.dataState === "preparing" ? "正式データを準備しています。" : "比較指標が準備中のため、店舗状態はまだ判定しません。",
-      conclusion: source.dataState === "preparing" ? "正式データを準備しています。" : "当月確定値を表示しています。店舗状態は比較指標の接続後に判定します。",
-      focus: source.dataState === "preparing" ? "データ準備完了後に確認してください。" : "当月実績を確認しましょう。",
+      ownership: source.ownership === "DIRECT" ? "Direct" : source.ownership === "FC" ? "FC" : null, status: serverStatus,
+      statusReason: source.dataState === "preparing" ? "正式データを準備しています。" : statusReason || "比較指標が準備中のため、店舗状態はまだ判定しません。",
+      conclusion: source.dataState === "preparing" ? "正式データを準備しています。" : statusReason || "当月確定値を表示しています。店舗状態は比較指標の接続後に判定します。",
+      focus: source.dataState === "preparing" ? "データ準備完了後に確認してください。" : statusReason || "当月実績を確認しましょう。",
       metrics: Object.freeze(metrics), yearly, monthlyTrend, actions: Object.freeze([])
     });
   });

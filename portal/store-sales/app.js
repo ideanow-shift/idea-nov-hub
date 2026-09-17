@@ -18,12 +18,13 @@ const elements = {
   detailPanel: $("detail-panel"), devControls: $("dev-controls"), executiveSignals: $("executive-signals"), executiveSignalLinks: $("executive-signal-links")
 };
 const metricLabels = {
-  summary: ["sales", "operatingProfit", "customerCount", "totalTicket", "totalRepeat", "productivity"],
+  summary: ["sales", "budgetRatio", "yearOverYearRatio", "operatingProfit", "customerCount", "totalTicket", "totalRepeat", "productivity"],
   customer: ["totalRepeat", "new", "returning", "loyal", "customerCount", "newCustomerCount", "existingCustomerCount"],
   value: ["totalTicket", "productivity", "technicalTicket", "retailSales", "retailPurchaseRate", "staffCount"]
 };
 const labels = {
   sales: "総売上（税抜）", operatingProfit: "営業利益", customerCount: "総客数", totalTicket: "総単価（税抜）",
+  budgetRatio: "予算比", yearOverYearRatio: "前年同月比",
   totalRepeat: "総リピート率", productivity: "総生産性", new: "新規リピート率", returning: "再来リピート率",
   loyal: "固定リピート率", newCustomerCount: "新規客数", existingCustomerCount: "既存客数",
   technicalTicket: "技術単価", retailSales: "店販売上", retailPurchaseRate: "店販購買率", staffCount: "稼働スタッフ数"

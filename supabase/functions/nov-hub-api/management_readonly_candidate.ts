@@ -1,5 +1,6 @@
 import {
   buildStoreSalesProjection,
+  evaluateStoreStatus,
   type StoreSalesProjectionInput,
 } from "./store_sales_projection.ts";
 
@@ -1161,6 +1162,45 @@ async function buildStoreMonthlyActualProjection(
     const currentSales = actualNumber(store.rawId, fiscalMonth, "TOTAL_SALES");
     const budgetSales = budgetNumber(store.rawId, fiscalMonth, "TOTAL_SALES");
     const priorYearSales = actualNumber(store.rawId, shiftMonth(fiscalMonth, -12), "TOTAL_SALES");
+    const currentOperatingProfit = actualNumber(store.rawId, fiscalMonth, "OPERATING_PROFIT");
+    const budgetRatio = comparisonValue(currentSales, budgetSales);
+    const yearOverYearRatio = comparisonValue(currentSales, priorYearSales);
+    const comparisonReady = budgetRatio.dataState === "confirmed"
+      && yearOverYearRatio.dataState === "confirmed";
+    const priorMonth = shiftMonth(fiscalMonth, -1);
+    const improvingMetricCount = [
+      "TOTAL_SALES",
+      "OPERATING_PROFIT",
+      "TOTAL_CUSTOMERS",
+      "TOTAL_UNIT_PRICE",
+      "RETAIL_SALES",
+      "EC_ALLOCATED_SALES",
+    ].filter((metricCode) => {
+      if (metricCode === "OPERATING_PROFIT" && selectedOperator?.ownership !== "DIRECT") return false;
+      const current = actualNumber(store.rawId, fiscalMonth, metricCode);
+      const previous = actualNumber(store.rawId, priorMonth, metricCode);
+      return current !== null && previous !== null && current > previous;
+    }).length;
+    const evaluatedStatus = comparisonReady
+      ? evaluateStoreStatus({
+        storeKey: store.publicKey,
+        storeName: store.storeName,
+        ownership: selectedOperator?.ownership === "DIRECT" ? "Direct"
+          : selectedOperator?.ownership === "FC" ? "FC" : null,
+        period: fiscalMonth.slice(0, 7),
+        accountingState: "confirmed",
+        lastUpdatedAt: null,
+        metrics: {},
+        signals: {
+          operatingProfitMarginDisplay: selectedOperator?.ownership === "DIRECT" && currentSales !== null && currentSales !== 0 && currentOperatingProfit !== null
+            ? currentOperatingProfit / currentSales * 100
+            : null,
+          salesTargetAchievementDisplay: Number(budgetRatio.value),
+          salesYearOverYearDisplay: Number(yearOverYearRatio.value),
+          improvingMetricCount,
+        },
+      })
+      : null;
     const fiscalYearEnd = selectedOperator
       ? fiscalYearEndByCorporation.get(selectedOperator.corporationId) || 0
       : 0;
@@ -1199,6 +1239,9 @@ async function buildStoreMonthlyActualProjection(
       operatorDataState: selectedOperator ? "confirmed" : "unresolved",
       fiscalMonth: fiscalMonth.slice(0, 7),
       dataState: selectedOperator && storeFacts.length ? "confirmed" : "preparing",
+      status: evaluatedStatus?.status || "Preparing",
+      statusReason: evaluatedStatus?.reason || "予算比または前年同月比を準備しています",
+      statusRuleId: evaluatedStatus?.ruleId || "comparison-data-preparing",
       metrics: storeFacts.map((fact) => ({
         metricCode: text(fact.metric_code),
         valueKind: text(fact.value_kind),
@@ -1215,8 +1258,8 @@ async function buildStoreMonthlyActualProjection(
       })),
       comparisons: {
         contractVersion: STORE_MONTHLY_COMPARISON_CONTRACT,
-        budgetRatio: comparisonValue(currentSales, budgetSales),
-        yearOverYearRatio: comparisonValue(currentSales, priorYearSales),
+        budgetRatio,
+        yearOverYearRatio,
         fiscalYear: {
           dataState: validFiscalYear ? "confirmed" : "preparing",
           startMonth: validFiscalYear ? fiscalStartMonth(fiscalMonth, fiscalYearEnd).slice(0, 7) : null,

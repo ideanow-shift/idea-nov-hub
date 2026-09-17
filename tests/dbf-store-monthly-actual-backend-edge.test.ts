@@ -399,6 +399,8 @@ Deno.test("formal comparisons use canonical budget, prior year, fiscal YTD and s
   const comparisons = projected.comparisons as JsonRecord;
   assertEquals((comparisons.budgetRatio as JsonRecord).value, "123");
   assertEquals((comparisons.yearOverYearRatio as JsonRecord).value, "123");
+  assertEquals(projected.status, "Needs Attention");
+  assertEquals(projected.statusRuleId, "operating-margin-below-15");
   const fiscalYear = comparisons.fiscalYear as JsonRecord;
   assertEquals(fiscalYear.startMonth, "2026-04");
   assertEquals(((fiscalYear.metrics as JsonRecord).TOTAL_SALES as JsonRecord).value, "486");
@@ -422,5 +424,8 @@ Deno.test("comparison denominators and incomplete fiscal periods remain preparin
   const comparisons = (((result.body.data as JsonRecord).stores as JsonRecord[])[0].comparisons) as JsonRecord;
   assertEquals(comparisons.budgetRatio, { dataState: "preparing", value: null });
   assertEquals(comparisons.yearOverYearRatio, { dataState: "preparing", value: null });
+  const projected = ((result.body.data as JsonRecord).stores as JsonRecord[])[0];
+  assertEquals(projected.status, "Preparing");
+  assertEquals(projected.statusRuleId, "comparison-data-preparing");
   assertEquals(((comparisons.fiscalYear as JsonRecord).metrics as JsonRecord).TOTAL_SALES, { dataState: "preparing", value: null });
 });

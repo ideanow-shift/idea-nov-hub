@@ -53,6 +53,13 @@ function payload({ facts = false, comparisons = false, count = 20, selectedStore
       }))
     }} : {})
   }));
+  if (comparisons) {
+    stores.forEach((store) => Object.assign(store, {
+      status: "Stable",
+      statusReason: "確認可能な指標は安定範囲です",
+      statusRuleId: "stable-default"
+    }));
+  }
   const visibleStores = selectedStoreKey ? stores.filter((store) => store.storeKey === selectedStoreKey) : stores;
   return {
     contractVersion: DBF_STORE_MONTHLY_CONTRACT,
@@ -149,6 +156,8 @@ test("formal comparison contract maps budget, prior year, fiscal YTD and all six
   const store = result.stores[0];
   assert.equal(store.metrics.budgetRatio.rawValue, 104);
   assert.equal(store.metrics.yearOverYearRatio.rawValue, 106.8);
+  assert.equal(store.status, "Stable");
+  assert.equal(store.statusReason, "確認可能な指標は安定範囲です");
   assert.equal(store.yearly.startMonth, "2026-04");
   assert.equal(store.yearly.metrics.sales.rawValue, 400);
   assert.deepEqual(Object.keys(result.monthlyTrend).sort(), ["customers", "ec", "profit", "retail", "sales", "ticket"]);
@@ -161,11 +170,25 @@ test("missing and zero comparison denominators remain preparing rather than fabr
   source.stores[0].comparisons.budgetRatio = { dataState: "preparing", value: null };
   source.stores[0].comparisons.yearOverYearRatio = { dataState: "preparing", value: null };
   source.stores[0].comparisons.fiscalYear.metrics.TOTAL_SALES = { dataState: "preparing", value: null };
+  source.stores[0].status = "Preparing";
+  source.stores[0].statusReason = "予算比または前年同月比を準備しています";
+  source.stores[0].statusRuleId = "comparison-data-preparing";
   const result = validateDbfStoreMonthlyProjection(source);
   assert.equal(result.stores[0].metrics.budgetRatio.value, null);
   assert.equal(result.stores[0].metrics.yearOverYearRatio.value, null);
   assert.equal(result.stores[0].yearly.metrics.sales.value, null);
+  assert.equal(result.stores[0].status, "Preparing");
 });
+
+test("server status fails closed without both formal comparisons", () => {
+  const source = payload({ facts: true, comparisons: true });
+  source.stores[0].comparisons.budgetRatio = { dataState: "preparing", value: null };
+  assert.throws(
+    () => validateDbfStoreMonthlyProjection(source),
+    (error) => error.code === "VALIDATION_ERROR" && error.message === "STATUS_REQUIRES_COMPARISONS"
+  );
+});
+
 
 test("unsafe scope, raw UUID, duplicate, invalid operator and unofficial metric are rejected", () => {
   const unsafe = payload(); unsafe.scope.serverResolved = false;

@@ -21,6 +21,15 @@ test("business drivers contain exactly the six decision questions", () => {
   assert.match(app, /signal\("ec"/);
 });
 
+test("customer, ticket and retail decisions use canonical comparison fields", () => {
+  for (const key of ["customerYearOverYear", "ticketYearOverYear", "retailYearOverYear", "retailBudgetRatio"]) {
+    assert.match(app, new RegExp(key));
+  }
+  assert.match(app, /店販売上 予算比/);
+  assert.match(app, /店販売上前年比/);
+  assert.doesNotMatch(app, /店販購買率 前年比/);
+});
+
 test("one shared trend supports six metrics and three periods", () => {
   assert.match(app, /trendMetric: "sales", trendPeriod: "six_months"/);
   for (const label of ["前年対比", "直近6か月", "12か月"]) assert.match(app, new RegExp(label));

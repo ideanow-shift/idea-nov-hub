@@ -47,3 +47,18 @@ Gate 5 candidate adds a server-only function,
 - The current 20-store directory remains the authorization baseline. Historical inactive-store discovery is not added by this candidate and remains a separate contract decision.
 
 Production migration, Edge deployment, and static-app publication remain separate Owner gates.
+
+## Store decision comparison extension
+
+`STORE_MONTHLY_COMPARISON_V1` may return four additional read-only comparison
+fields without changing the canonical fact tables:
+
+- `customerYearOverYear`: total-customer year-over-year percentage change.
+- `ticketYearOverYear`: total-unit-price year-over-year percentage change.
+- `retailYearOverYear`: retail-sales year-over-year percentage change.
+- `retailBudgetRatio`: retail-sales budget achievement ratio.
+
+Every value is calculated server-side from canonical current, prior-year, or
+approved-budget facts after effective operator validation. A missing numerator,
+missing denominator, duplicate budget candidate, or zero denominator returns
+`{ dataState: "preparing", value: null }`; no zero or estimate is synthesized.

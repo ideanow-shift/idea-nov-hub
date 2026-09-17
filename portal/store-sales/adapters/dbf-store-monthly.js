@@ -154,7 +154,7 @@ export function validateDbfStoreMonthlyProjection(payload) {
     const metrics = Object.fromEntries(EXPECTED_CODES.map((code) => normalizeMetric(byCode.get(code), METRICS[code])));
     metrics.storeSales = preparingMetric("店舗売上（税抜）", "yen", "正式Contract未提供");
     metrics.regularRetail = metrics.retailSales;
-    ["grossProfit", "operatingProfitMargin", "ordinaryProfit", "yearOverYearRatio", "budgetRatio", "profitYearOverYear", "customerYearOverYear", "ticketYearOverYear", "retailYearOverYear", "ecTargetRatio", "ecYearOverYear", "staffCount"].forEach((key) => {
+    ["grossProfit", "operatingProfitMargin", "ordinaryProfit", "yearOverYearRatio", "budgetRatio", "profitYearOverYear", "customerYearOverYear", "ticketYearOverYear", "retailYearOverYear", "retailBudgetRatio", "ecTargetRatio", "ecYearOverYear", "staffCount"].forEach((key) => {
       metrics[key] = preparingMetric(key, key.includes("Ratio") || key.includes("Year") ? "percent" : "yen", "比較Contract未提供");
     });
     const comparisons = comparisonEnabled ? source.comparisons : null;
@@ -162,6 +162,10 @@ export function validateDbfStoreMonthlyProjection(payload) {
     if (comparisonEnabled) {
       metrics.budgetRatio = normalizeComparison(comparisons.budgetRatio, "予算比");
       metrics.yearOverYearRatio = normalizeComparison(comparisons.yearOverYearRatio, "前年同月比");
+      metrics.customerYearOverYear = normalizeComparison(comparisons.customerYearOverYear, "客数前年同月比");
+      metrics.ticketYearOverYear = normalizeComparison(comparisons.ticketYearOverYear, "単価前年同月比");
+      metrics.retailYearOverYear = normalizeComparison(comparisons.retailYearOverYear, "店販売上前年同月比");
+      metrics.retailBudgetRatio = normalizeComparison(comparisons.retailBudgetRatio, "店販売上予算比");
     }
     const serverStatus = source.status === undefined ? "Preparing" : String(source.status);
     if (!STORE_STATUSES.has(serverStatus)) fail("INVALID_STORE_STATUS");

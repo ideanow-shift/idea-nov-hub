@@ -543,6 +543,13 @@ function comparisonValue(numerator: number | null, denominator: number | null): 
   return { dataState: "confirmed", value: String(percentage) };
 }
 
+function comparisonDeltaValue(current: number | null, prior: number | null): JsonRecord {
+  const ratio = comparisonValue(current, prior);
+  if (ratio.dataState !== "confirmed") return ratio;
+  const delta = Math.round((Number(ratio.value) - 100) * 1e10) / 1e10;
+  return { dataState: "confirmed", value: String(delta) };
+}
+
 function normalizeOwnership(value: unknown): "DIRECT" | "FC" | null {
   const normalized = text(value).normalize("NFKC").toUpperCase();
   if (["DIRECT", "直営", "直営店"].includes(normalized)) return "DIRECT";
@@ -1162,9 +1169,20 @@ async function buildStoreMonthlyActualProjection(
     const currentSales = actualNumber(store.rawId, fiscalMonth, "TOTAL_SALES");
     const budgetSales = budgetNumber(store.rawId, fiscalMonth, "TOTAL_SALES");
     const priorYearSales = actualNumber(store.rawId, shiftMonth(fiscalMonth, -12), "TOTAL_SALES");
+    const currentCustomers = actualNumber(store.rawId, fiscalMonth, "TOTAL_CUSTOMERS");
+    const priorYearCustomers = actualNumber(store.rawId, shiftMonth(fiscalMonth, -12), "TOTAL_CUSTOMERS");
+    const currentTicket = actualNumber(store.rawId, fiscalMonth, "TOTAL_UNIT_PRICE");
+    const priorYearTicket = actualNumber(store.rawId, shiftMonth(fiscalMonth, -12), "TOTAL_UNIT_PRICE");
+    const currentRetailSales = actualNumber(store.rawId, fiscalMonth, "RETAIL_SALES");
+    const priorYearRetailSales = actualNumber(store.rawId, shiftMonth(fiscalMonth, -12), "RETAIL_SALES");
+    const budgetRetailSales = budgetNumber(store.rawId, fiscalMonth, "RETAIL_SALES");
     const currentOperatingProfit = actualNumber(store.rawId, fiscalMonth, "OPERATING_PROFIT");
     const budgetRatio = comparisonValue(currentSales, budgetSales);
     const yearOverYearRatio = comparisonValue(currentSales, priorYearSales);
+    const customerYearOverYear = comparisonDeltaValue(currentCustomers, priorYearCustomers);
+    const ticketYearOverYear = comparisonDeltaValue(currentTicket, priorYearTicket);
+    const retailYearOverYear = comparisonDeltaValue(currentRetailSales, priorYearRetailSales);
+    const retailBudgetRatio = comparisonValue(currentRetailSales, budgetRetailSales);
     const comparisonReady = budgetRatio.dataState === "confirmed"
       && yearOverYearRatio.dataState === "confirmed";
     const priorMonth = shiftMonth(fiscalMonth, -1);
@@ -1260,6 +1278,10 @@ async function buildStoreMonthlyActualProjection(
         contractVersion: STORE_MONTHLY_COMPARISON_CONTRACT,
         budgetRatio,
         yearOverYearRatio,
+        customerYearOverYear,
+        ticketYearOverYear,
+        retailYearOverYear,
+        retailBudgetRatio,
         fiscalYear: {
           dataState: validFiscalYear ? "confirmed" : "preparing",
           startMonth: validFiscalYear ? fiscalStartMonth(fiscalMonth, fiscalYearEnd).slice(0, 7) : null,

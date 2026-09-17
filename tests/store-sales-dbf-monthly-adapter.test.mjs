@@ -34,6 +34,10 @@ function payload({ facts = false, comparisons = false, count = 20, selectedStore
       contractVersion: DBF_STORE_MONTHLY_COMPARISON_CONTRACT,
       budgetRatio: { dataState: "confirmed", value: "104" },
       yearOverYearRatio: { dataState: "confirmed", value: "106.8" },
+      customerYearOverYear: { dataState: "confirmed", value: "4.2" },
+      ticketYearOverYear: { dataState: "confirmed", value: "3.1" },
+      retailYearOverYear: { dataState: "confirmed", value: "2.5" },
+      retailBudgetRatio: { dataState: "confirmed", value: "101.4" },
       fiscalYear: {
         dataState: "confirmed", startMonth: "2026-04", endMonth: "2026-07",
         metrics: {
@@ -156,6 +160,10 @@ test("formal comparison contract maps budget, prior year, fiscal YTD and all six
   const store = result.stores[0];
   assert.equal(store.metrics.budgetRatio.rawValue, 104);
   assert.equal(store.metrics.yearOverYearRatio.rawValue, 106.8);
+  assert.equal(store.metrics.customerYearOverYear.rawValue, 4.2);
+  assert.equal(store.metrics.ticketYearOverYear.rawValue, 3.1);
+  assert.equal(store.metrics.retailYearOverYear.rawValue, 2.5);
+  assert.equal(store.metrics.retailBudgetRatio.rawValue, 101.4);
   assert.equal(store.status, "Stable");
   assert.equal(store.statusReason, "確認可能な指標は安定範囲です");
   assert.equal(store.yearly.startMonth, "2026-04");

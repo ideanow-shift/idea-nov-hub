@@ -176,10 +176,10 @@ function comparisonFact(rawStoreId: string, fiscalMonth: string, metricCode: str
   };
 }
 
-function budgetFact(rawStoreId: string, fiscalMonth: string, value: number): JsonRecord {
+function budgetFact(rawStoreId: string, fiscalMonth: string, value: number, metricCode = "TOTAL_SALES"): JsonRecord {
   return {
     fiscal_month: `${fiscalMonth}-01`, company_id: COMPANY_DIRECT, store_id: rawStoreId,
-    metric_code: "TOTAL_SALES", scenario_code: "APPROVED", budget_amount: String(value),
+    metric_code: metricCode, scenario_code: "APPROVED", budget_amount: String(value),
     source_file_sha256: FACT_SHA,
   };
 }
@@ -374,11 +374,14 @@ Deno.test("invalid month and absent canonical RPC fail closed before facts are r
   assertEquals((missingRpc.body.error as JsonRecord).code, "DATA_NOT_READY");
 });
 
-Deno.test("formal comparisons use canonical budget, prior year, fiscal YTD and six-signal history", async () => {
+Deno.test("formal comparisons use canonical sales, customer, ticket and retail baselines", async () => {
   const ownStoreId = String(STORE_ROWS[1].id);
   const fiscalMonths = ["2026-04", "2026-05", "2026-06", "2026-07"];
   const actualRows = [
     comparisonFact(ownStoreId, "2025-07", "TOTAL_SALES", 100),
+    comparisonFact(ownStoreId, "2025-07", "TOTAL_CUSTOMERS", 10),
+    comparisonFact(ownStoreId, "2025-07", "TOTAL_UNIT_PRICE", 10),
+    comparisonFact(ownStoreId, "2025-07", "RETAIL_SALES", 10),
     ...fiscalMonths.flatMap((month, index) => [
       comparisonFact(ownStoreId, month, "TOTAL_SALES", 120 + index),
       comparisonFact(ownStoreId, month, "OPERATING_PROFIT", 12 + index),
@@ -388,7 +391,10 @@ Deno.test("formal comparisons use canonical budget, prior year, fiscal YTD and s
       comparisonFact(ownStoreId, month, "EC_ALLOCATED_SALES", 4 + index),
     ]),
   ];
-  const budgetRows = fiscalMonths.map((month) => budgetFact(ownStoreId, month, 100));
+  const budgetRows = [
+    ...fiscalMonths.map((month) => budgetFact(ownStoreId, month, 100)),
+    budgetFact(ownStoreId, "2026-07", 10, "RETAIL_SALES"),
+  ];
   const result = await handleManagementReadOnlyAction(
     { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-07" } },
     dependencies({ roleKey: "store_manager", employeeStoreId: ownStoreId, factRows: actualRows, budgetRows }),
@@ -399,6 +405,10 @@ Deno.test("formal comparisons use canonical budget, prior year, fiscal YTD and s
   const comparisons = projected.comparisons as JsonRecord;
   assertEquals((comparisons.budgetRatio as JsonRecord).value, "123");
   assertEquals((comparisons.yearOverYearRatio as JsonRecord).value, "123");
+  assertEquals((comparisons.customerYearOverYear as JsonRecord).value, "30");
+  assertEquals((comparisons.ticketYearOverYear as JsonRecord).value, "40");
+  assertEquals((comparisons.retailYearOverYear as JsonRecord).value, "10");
+  assertEquals((comparisons.retailBudgetRatio as JsonRecord).value, "110");
   assertEquals(projected.status, "Needs Attention");
   assertEquals(projected.statusRuleId, "operating-margin-below-15");
   const fiscalYear = comparisons.fiscalYear as JsonRecord;
@@ -413,12 +423,24 @@ Deno.test("formal comparisons use canonical budget, prior year, fiscal YTD and s
 Deno.test("comparison denominators and incomplete fiscal periods remain preparing, never zero", async () => {
   const ownStoreId = String(STORE_ROWS[1].id);
   const current = comparisonFact(ownStoreId, "2026-07", "TOTAL_SALES", 123);
+  const currentCustomers = comparisonFact(ownStoreId, "2026-07", "TOTAL_CUSTOMERS", 123);
+  const currentTicket = comparisonFact(ownStoreId, "2026-07", "TOTAL_UNIT_PRICE", 123);
+  const currentRetail = comparisonFact(ownStoreId, "2026-07", "RETAIL_SALES", 123);
   const result = await handleManagementReadOnlyAction(
     { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-07" } },
     dependencies({
       roleKey: "store_manager", employeeStoreId: ownStoreId,
-      factRows: [current, comparisonFact(ownStoreId, "2025-07", "TOTAL_SALES", 0)],
-      budgetRows: [budgetFact(ownStoreId, "2026-07", 0)],
+      factRows: [
+        current, currentCustomers, currentTicket, currentRetail,
+        comparisonFact(ownStoreId, "2025-07", "TOTAL_SALES", 0),
+        comparisonFact(ownStoreId, "2025-07", "TOTAL_CUSTOMERS", 0),
+        comparisonFact(ownStoreId, "2025-07", "TOTAL_UNIT_PRICE", 0),
+        comparisonFact(ownStoreId, "2025-07", "RETAIL_SALES", 0),
+      ],
+      budgetRows: [
+        budgetFact(ownStoreId, "2026-07", 0),
+        budgetFact(ownStoreId, "2026-07", 0, "RETAIL_SALES"),
+      ],
     }),
   );
   const comparisons = (((result.body.data as JsonRecord).stores as JsonRecord[])[0].comparisons) as JsonRecord;
@@ -427,5 +449,9 @@ Deno.test("comparison denominators and incomplete fiscal periods remain preparin
   const projected = ((result.body.data as JsonRecord).stores as JsonRecord[])[0];
   assertEquals(projected.status, "Preparing");
   assertEquals(projected.statusRuleId, "comparison-data-preparing");
+  assertEquals(comparisons.customerYearOverYear, { dataState: "preparing", value: null });
+  assertEquals(comparisons.ticketYearOverYear, { dataState: "preparing", value: null });
+  assertEquals(comparisons.retailYearOverYear, { dataState: "preparing", value: null });
+  assertEquals(comparisons.retailBudgetRatio, { dataState: "preparing", value: null });
   assertEquals(((comparisons.fiscalYear as JsonRecord).metrics as JsonRecord).TOTAL_SALES, { dataState: "preparing", value: null });
 });

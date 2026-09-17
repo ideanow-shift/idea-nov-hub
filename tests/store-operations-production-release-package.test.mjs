@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { resolveAdapterConfig } from "../portal/store-sales/adapters/config.js";
 import { createStoreSalesAdapter } from "../portal/store-sales/adapters/index.js";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+const comparisonUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-comparison-ui-bundle-v1.json"));
 const productionConfig = {
   mode: "production", featureFlag: "production", preview: false, productionApproved: true,
   expectedProjectRef: "nkmxevmioczcmnldreyo",
@@ -49,4 +51,21 @@ test("limited pilot Auth anchors are internal AUTH-01 records, never user login 
 test("release production config contains no mock, synthetic or secret material", () => {
   const source = read("portal/store-sales/runtime-config.production.js");
   assert.doesNotMatch(source, /mock|synthetic|sb_secret_|service_role|eyJ[A-Za-z0-9_-]{20,}\./iu);
+});
+
+test("comparison UI bundle pins the two changed production assets", () => {
+  assert.equal(comparisonUiManifest.deployment_status, "NOT_DEPLOYED");
+  assert.equal(comparisonUiManifest.bundle_file_count, 2);
+  const sorted = [...comparisonUiManifest.files].sort((left, right) => left.path.localeCompare(right.path));
+  const input = sorted.map((file) => file.path + "\t" + file.sha256 + "\t" + file.bytes).join("\n");
+  assert.equal(createHash("sha256").update(input).digest("hex"), comparisonUiManifest.bundle_content_sha256);
+  for (const file of sorted) {
+    const content = read(file.path);
+    const approvedWindowsBytes = Buffer.from(
+      content.replace(/\r?\n/gu, "\n").replace(/\n/gu, "\r\n"),
+      "utf8",
+    );
+    assert.equal(approvedWindowsBytes.byteLength, file.bytes, file.path);
+    assert.equal(createHash("sha256").update(approvedWindowsBytes).digest("hex"), file.sha256, file.path);
+  }
 });

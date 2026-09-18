@@ -211,11 +211,23 @@ export function validateDbfStoreMonthlyProjection(payload) {
     const projectionKey = ({ operatingProfit: "profit", customerCount: "customers", totalTicket: "ticket", retailSales: "retail", ecSales: "ec" })[metricKey] || "sales";
     return [projectionKey, Object.freeze(points)];
   }));
+  const priorityActions = stores
+    .filter((store) => store.status === "Needs Attention")
+    .slice(0, 3)
+    .map((store) => Object.freeze({
+      ruleId: "confirmed_store_status",
+      theme: "要対応店舗",
+      storeKey: store.storeKey,
+      storeName: store.storeName,
+      reason: store.statusReason,
+      impact: "確定済みの比較指標を確認し、改善対応へつなげる",
+      targetTab: "summary"
+    }));
   return Object.freeze({
     contractVersion: DBF_STORE_MONTHLY_CONTRACT, comparisonContractVersion: comparisonEnabled ? DBF_STORE_MONTHLY_COMPARISON_CONTRACT : null, taxBasis: "net", fiscalMonth: payload.fiscalMonth,
     role: scope.mode === "own" ? "store_manager" : scope.mode === "assigned" ? "area_manager" : "representative",
     audience: scope.mode === "own" ? "store_manager" : "executive", scopeLabel: `${stores.length}店舗`,
-    stores: Object.freeze(stores), storeOptions: Object.freeze(storeOptions), selectedStoreKey, priorityActions: Object.freeze([]), businessDrivers: Object.freeze({}),
+    stores: Object.freeze(stores), storeOptions: Object.freeze(storeOptions), selectedStoreKey, priorityActions: Object.freeze(priorityActions), businessDrivers: Object.freeze({}),
     executiveSummary: Object.freeze({ narrative: confirmed ? `${confirmed}店舗のDBF月次確定値を表示しています。` : "正式データを準備しています。", metrics: Object.freeze([]) }),
     accounting: Object.freeze({ confirmationState: confirmed === stores.length ? "confirmed" : "preparing", confirmedThroughPeriod: confirmed ? payload.fiscalMonth : null, reflectedStoreCount: confirmed, totalStoreCount: stores.length, lastUpdatedAt: null }),
     readiness: Object.freeze({ ...payload.readiness }), monthlyTrend: Object.freeze(monthlyTrend)

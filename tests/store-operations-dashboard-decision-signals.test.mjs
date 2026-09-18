@@ -37,6 +37,14 @@ test("one shared trend supports six metrics and three periods", () => {
   assert.match(app, /カードまたは指標を選ぶと、このグラフだけが切り替わります/);
 });
 
+test("confirmed attention count remains visible when only part of the store scope is preparing", () => {
+  assert.match(app, /const evaluatedStatusCount = stores\.length - preparingStatusCount/);
+  assert.match(app, /const statusReady = evaluatedStatusCount > 0/);
+  assert.match(app, /判定済み\$\{evaluatedStatusCount\}店舗のうち\$\{attention\}店舗に対応が必要/);
+  assert.match(app, /\$\{preparingStatusCount\}店舗は判定準備中です/);
+  assert.doesNotMatch(app, /const statusReady = stores\.every\(\(store\) => store\.status !== "Preparing"\)/);
+});
+
 test("EC dashboard signal is explicitly company-wide", () => {
   assert.match(app, /全社EC売上/);
   assert.match(app, /全社EC 目標比/);

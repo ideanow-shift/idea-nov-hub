@@ -173,6 +173,21 @@ test("formal comparison contract maps budget, prior year, fiscal YTD and all six
   assert.equal(result.monthlyTrend.ticket.at(-1).value, 7);
 });
 
+test("confirmed needs-attention stores produce at most three evidence-backed priority actions", () => {
+  const source = payload({ facts: true, comparisons: true });
+  source.stores.slice(0, 5).forEach((store, index) => Object.assign(store, {
+    status: "Needs Attention",
+    statusReason: `比較指標で要確認${index + 1}`,
+    statusRuleId: "sales-comparison-attention"
+  }));
+  const result = validateDbfStoreMonthlyProjection(source);
+  assert.equal(result.priorityActions.length, 3);
+  assert.deepEqual(result.priorityActions.map((action) => action.storeKey), ["store-01", "store-02", "store-03"]);
+  assert.equal(result.priorityActions[0].reason, "比較指標で要確認1");
+  assert.equal(result.priorityActions[0].targetTab, "summary");
+  assert.equal(result.priorityActions[0].ruleId, "confirmed_store_status");
+});
+
 test("missing and zero comparison denominators remain preparing rather than fabricated zero", () => {
   const source = payload({ facts: true, comparisons: true });
   source.stores[0].comparisons.budgetRatio = { dataState: "preparing", value: null };

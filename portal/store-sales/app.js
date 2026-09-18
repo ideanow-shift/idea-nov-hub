@@ -236,7 +236,9 @@ function renderSummary(projection, stores, scopeLabel) {
   const salesReady = stores.every((store) => salesMetric(store)?.dataState === "available");
   const total = salesReady ? stores.reduce((sum, store) => sum + metricNumber(salesMetric(store)), 0) : null;
   const profit = summaryProfitMetric(stores);
-  const statusReady = stores.every((store) => store.status !== "Preparing");
+  const preparingStatusCount = stores.filter((store) => store.status === "Preparing").length;
+  const evaluatedStatusCount = stores.length - preparingStatusCount;
+  const statusReady = evaluatedStatusCount > 0;
   const attention = stores.filter((store) => store.status === "Needs Attention").length;
   const fiscalStart = stores.map((store) => store.yearly?.startMonth).filter(Boolean);
   const salesPeriodNote = state.periodMode === "cumulative"
@@ -246,10 +248,14 @@ function renderSummary(projection, stores, scopeLabel) {
   if (!salesReady) Object.assign(salesSummaryMetric, { displayValue: null, dataState: "preparing", reason: "未登録値をゼロとして表示しません" });
   $("summary-narrative").textContent = state.runtimeFeatureFlag === "staging" && projection.contractVersion !== "STORE_MONTHLY_ACTUAL_V1" ? "現在は営業部レビュー用のサンプルデータです。実績値ではありません。" :
     state.scope === "All" ? (projection.executiveSummary?.narrative || "") :
-    statusReady ? `${scopeLabel}の売上状況です。現在、${attention}店舗に対応が必要です。` : `${scopeLabel}の店舗状態を準備しています。`;
+    statusReady ? `${scopeLabel}の売上状況です。現在、判定済み${evaluatedStatusCount}店舗のうち${attention}店舗に対応が必要です。` : `${scopeLabel}の店舗状態を準備しています。`;
   elements.summary.replaceChildren(
     metricCard(salesSummaryMetric),
-    metricCard(profit), metricCard({ label: "要対応店舗", displayValue: statusReady ? `${attention}店舗` : null, dataState: statusReady ? "available" : "preparing", reason: statusReady ? "" : "比較指標の接続後に判定します" })
+    metricCard(profit), metricCard({
+      label: "要対応店舗", displayValue: statusReady ? `${attention}店舗` : null,
+      dataState: statusReady ? "available" : "preparing",
+      reason: !statusReady ? "比較指標の接続後に判定します" : preparingStatusCount ? `${preparingStatusCount}店舗は判定準備中です` : ""
+    })
   );
   $("status-counts").replaceChildren(...Object.keys(statusOrder).reverse().map((status) => {
     const box = node("span", "status-count");

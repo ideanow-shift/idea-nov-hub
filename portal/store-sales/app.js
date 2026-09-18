@@ -236,7 +236,9 @@ function renderSummary(projection, stores, scopeLabel) {
   const salesReady = stores.every((store) => salesMetric(store)?.dataState === "available");
   const total = salesReady ? stores.reduce((sum, store) => sum + metricNumber(salesMetric(store)), 0) : null;
   const profit = summaryProfitMetric(stores);
-  const statusReady = stores.every((store) => store.status !== "Preparing");
+  const preparingStatusCount = stores.filter((store) => store.status === "Preparing").length;
+  const evaluatedStatusCount = stores.length - preparingStatusCount;
+  const statusReady = evaluatedStatusCount > 0;
   const attention = stores.filter((store) => store.status === "Needs Attention").length;
   const fiscalStart = stores.map((store) => store.yearly?.startMonth).filter(Boolean);
   const salesPeriodNote = state.periodMode === "cumulative"
@@ -246,10 +248,14 @@ function renderSummary(projection, stores, scopeLabel) {
   if (!salesReady) Object.assign(salesSummaryMetric, { displayValue: null, dataState: "preparing", reason: "未登録値をゼロとして表示しません" });
   $("summary-narrative").textContent = state.runtimeFeatureFlag === "staging" && projection.contractVersion !== "STORE_MONTHLY_ACTUAL_V1" ? "現在は営業部レビュー用のサンプルデータです。実績値ではありません。" :
     state.scope === "All" ? (projection.executiveSummary?.narrative || "") :
-    statusReady ? `${scopeLabel}の売上状況です。現在、${attention}店舗に対応が必要です。` : `${scopeLabel}の店舗状態を準備しています。`;
+    statusReady ? `${scopeLabel}の売上状況です。現在、判定済み${evaluatedStatusCount}店舗のうち${attention}店舗に対応が必要です。` : `${scopeLabel}の店舗状態を準備しています。`;
   elements.summary.replaceChildren(
     metricCard(salesSummaryMetric),
-    metricCard(profit), metricCard({ label: "要対応店舗", displayValue: statusReady ? `${attention}店舗` : null, dataState: statusReady ? "available" : "preparing", reason: statusReady ? "" : "比較指標の接続後に判定します" })
+    metricCard(profit), metricCard({
+      label: "要対応店舗", displayValue: statusReady ? `${attention}店舗` : null,
+      dataState: statusReady ? "available" : "preparing",
+      reason: !statusReady ? "比較指標の接続後に判定します" : preparingStatusCount ? `${preparingStatusCount}店舗は判定準備中です` : ""
+    })
   );
   $("status-counts").replaceChildren(...Object.keys(statusOrder).reverse().map((status) => {
     const box = node("span", "status-count");
@@ -313,7 +319,7 @@ function buildDecisionSignals(projection, stores) {
   const ticket = average("totalTicket"); const retail = sum("retailSales"); const mid = sum("mid"); const ec = sum("ecSales");
   const salesYoy = ratioDelta(average("yearOverYearRatio")); const budget = average("budgetRatio");
   const profitYoy = average("profitYearOverYear"); const customerYoy = average("customerYearOverYear");
-  const ticketYoy = average("ticketYearOverYear"); const retailYoy = average("retailYearOverYear");
+  const ticketYoy = average("ticketYearOverYear"); const retailYoy = average("retailYearOverYear"); const retailBudget = average("retailBudgetRatio");
   const ecTarget = average("ecTargetRatio"); const ecYoy = average("ecYearOverYear");
   const profitOutOfScope = profitStores.length === 0;
   const profitReady = !profitOutOfScope && profitStores.every((store) => store.metrics.operatingProfit?.dataState === "available");
@@ -322,7 +328,7 @@ function buildDecisionSignals(projection, stores) {
     signal("profit", "利益", "利益は出ているか", profitOutOfScope ? "V1対象外" : profitReady ? "確定" : "集計中", profitOutOfScope ? "FC利益はV1では表示しません" : profitReady ? `営業利益 ${formatYen(profit)} ／ 利益率 ${percent(sales ? profit / sales * 100 : null)}` : "利益データを集計しています", [["営業利益", profitOutOfScope ? "V1対象外" : profitReady ? formatYen(profit) : "集計中"], ["営業利益率", profitOutOfScope ? "V1対象外" : profitReady ? percent(sales ? profit / sales * 100 : null) : "集計中"], ["前年比", profitOutOfScope ? "V1対象外" : profitReady ? signed(profitYoy, "%") : "集計中"]], profitReady ? profit : null, profitYoy),
     signal("customers", "集客", "集客できているか", signedConclusion(customerYoy, "改善", "要確認"), `客数 前年比 ${signed(customerYoy, "%")}`, [["総客数", count(customerCount)], ["新規客数", count(sum("newCustomerCount"))], ["既存客数", count(sum("existingCustomerCount"))], ["前年比", signed(customerYoy, "%")]], customerCount, customerYoy),
     signal("ticket", "単価", "単価は上がっているか", signedConclusion(ticketYoy), `総単価 前年比 ${signed(ticketYoy, "%")}`, [["総単価", yen(ticket)], ["技術単価", yen(average("technicalTicket"))], ["前年比", signed(ticketYoy, "%")]], ticket, ticketYoy),
-    signal("retail", "商品", "商品は売れているか", Math.abs(retailYoy || 0) < .5 ? "横ばい" : signedConclusion(retailYoy), `店販購買率 前年比 ${signed(retailYoy, "pt")}`, [["店販売上", formatYen(retail)], ["店販購買率", percent(average("retailPurchaseRate"))], ["MID（参考値）", formatYen(mid)], ["EC売上（参考値）", formatYen(ec)], ["前年比", signed(retailYoy, "pt")]], retail, retailYoy),
+    signal("retail", "商品", "商品は売れているか", Math.abs(retailYoy || 0) < .5 ? "横ばい" : signedConclusion(retailYoy), `店販売上 予算比 ${percent(retailBudget)} ／ 前年比 ${signed(retailYoy, "%")}`, [["店販売上", formatYen(retail)], ["店販売上予算比", percent(retailBudget)], ["店販購買率", percent(average("retailPurchaseRate"))], ["MID（参考値）", formatYen(mid)], ["EC売上（参考値）", formatYen(ec)], ["店販売上前年比", signed(retailYoy, "%")]], retail, retailYoy),
     signal("ec", "EC", "ECは動かせているか", ecTarget !== null && ecTarget < 80 ? "要対応" : "順調", `全社EC 目標比 ${percent(ecTarget)}`, [["全社EC売上", formatYen(ec)], ["目標比", percent(ecTarget)], ["前年比", signed(ecYoy, "%")], ["稼働店舗数", `${stores.filter((store) => metricNullableNumber(store.metrics.ecSales) !== null).length}店舗`]], ec, ecYoy)
   ];
 }

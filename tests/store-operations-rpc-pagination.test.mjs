@@ -13,7 +13,7 @@ const edge = readFileSync(new URL(
   import.meta.url,
 ), "utf8");
 const bundleManifest = JSON.parse(readFileSync(new URL(
-  "../docs/store_operations_management/production_integration/store-operations-status-budget-staging-edge-bundle-v1.json",
+  "../docs/store_operations_management/production_integration/store-operations-comparison-staging-edge-bundle-v1.json",
   import.meta.url,
 ), "utf8"));
 
@@ -106,7 +106,7 @@ test("Edge adapter pages only the approved actual RPC with limit and offset", ()
   assert.equal((edge.match(/name === STORE_MONTHLY_ACTUAL_RANGE_RPC/gu) || []).length, 1);
 });
 
-test("status and budget Staging Edge bundle preserves pagination and pins the complete Deno dependency graph", () => {
+test("comparison Staging Edge bundle preserves pagination and pins the complete Deno dependency graph", () => {
   assert.equal(bundleManifest.deployment_status, "NOT_DEPLOYED");
   assert.equal(bundleManifest.project_ref, "zgkoofphhivesclehrom");
   assert.equal(bundleManifest.bundle_file_count, 17);

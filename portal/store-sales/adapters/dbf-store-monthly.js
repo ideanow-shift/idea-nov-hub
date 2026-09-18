@@ -154,7 +154,7 @@ export function validateDbfStoreMonthlyProjection(payload) {
     const metrics = Object.fromEntries(EXPECTED_CODES.map((code) => normalizeMetric(byCode.get(code), METRICS[code])));
     metrics.storeSales = preparingMetric("店舗売上（税抜）", "yen", "正式Contract未提供");
     metrics.regularRetail = metrics.retailSales;
-    ["grossProfit", "operatingProfitMargin", "ordinaryProfit", "yearOverYearRatio", "budgetRatio", "profitYearOverYear", "customerYearOverYear", "ticketYearOverYear", "retailYearOverYear", "ecTargetRatio", "ecYearOverYear", "staffCount"].forEach((key) => {
+    ["grossProfit", "operatingProfitMargin", "ordinaryProfit", "yearOverYearRatio", "budgetRatio", "profitYearOverYear", "customerYearOverYear", "ticketYearOverYear", "retailYearOverYear", "retailBudgetRatio", "ecTargetRatio", "ecYearOverYear", "staffCount"].forEach((key) => {
       metrics[key] = preparingMetric(key, key.includes("Ratio") || key.includes("Year") ? "percent" : "yen", "比較Contract未提供");
     });
     const comparisons = comparisonEnabled ? source.comparisons : null;
@@ -162,6 +162,10 @@ export function validateDbfStoreMonthlyProjection(payload) {
     if (comparisonEnabled) {
       metrics.budgetRatio = normalizeComparison(comparisons.budgetRatio, "予算比");
       metrics.yearOverYearRatio = normalizeComparison(comparisons.yearOverYearRatio, "前年同月比");
+      metrics.customerYearOverYear = normalizeComparison(comparisons.customerYearOverYear, "客数前年同月比");
+      metrics.ticketYearOverYear = normalizeComparison(comparisons.ticketYearOverYear, "単価前年同月比");
+      metrics.retailYearOverYear = normalizeComparison(comparisons.retailYearOverYear, "店販売上前年同月比");
+      metrics.retailBudgetRatio = normalizeComparison(comparisons.retailBudgetRatio, "店販売上予算比");
     }
     const serverStatus = source.status === undefined ? "Preparing" : String(source.status);
     if (!STORE_STATUSES.has(serverStatus)) fail("INVALID_STORE_STATUS");
@@ -207,11 +211,23 @@ export function validateDbfStoreMonthlyProjection(payload) {
     const projectionKey = ({ operatingProfit: "profit", customerCount: "customers", totalTicket: "ticket", retailSales: "retail", ecSales: "ec" })[metricKey] || "sales";
     return [projectionKey, Object.freeze(points)];
   }));
+  const priorityActions = stores
+    .filter((store) => store.status === "Needs Attention")
+    .slice(0, 3)
+    .map((store) => Object.freeze({
+      ruleId: "confirmed_store_status",
+      theme: "要対応店舗",
+      storeKey: store.storeKey,
+      storeName: store.storeName,
+      reason: store.statusReason,
+      impact: "確定済みの比較指標を確認し、改善対応へつなげる",
+      targetTab: "summary"
+    }));
   return Object.freeze({
     contractVersion: DBF_STORE_MONTHLY_CONTRACT, comparisonContractVersion: comparisonEnabled ? DBF_STORE_MONTHLY_COMPARISON_CONTRACT : null, taxBasis: "net", fiscalMonth: payload.fiscalMonth,
     role: scope.mode === "own" ? "store_manager" : scope.mode === "assigned" ? "area_manager" : "representative",
     audience: scope.mode === "own" ? "store_manager" : "executive", scopeLabel: `${stores.length}店舗`,
-    stores: Object.freeze(stores), storeOptions: Object.freeze(storeOptions), selectedStoreKey, priorityActions: Object.freeze([]), businessDrivers: Object.freeze({}),
+    stores: Object.freeze(stores), storeOptions: Object.freeze(storeOptions), selectedStoreKey, priorityActions: Object.freeze(priorityActions), businessDrivers: Object.freeze({}),
     executiveSummary: Object.freeze({ narrative: confirmed ? `${confirmed}店舗のDBF月次確定値を表示しています。` : "正式データを準備しています。", metrics: Object.freeze([]) }),
     accounting: Object.freeze({ confirmationState: confirmed === stores.length ? "confirmed" : "preparing", confirmedThroughPeriod: confirmed ? payload.fiscalMonth : null, reflectedStoreCount: confirmed, totalStoreCount: stores.length, lastUpdatedAt: null }),
     readiness: Object.freeze({ ...payload.readiness }), monthlyTrend: Object.freeze(monthlyTrend)

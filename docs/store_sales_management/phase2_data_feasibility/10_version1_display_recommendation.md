@@ -1,0 +1,115 @@
+# Version1 Display Recommendation
+
+## 実データで表示
+
+- 法人別月次損益表 (`corporation_monthly_pl`)
+- 売上総利益 (`corporation_gross_profit`)
+- 法人営業利益 (`corporation_operating_profit`)
+- 在籍社員数 (`resident_headcount`)
+- 休職 (`leave_period`)
+- 月中入社 (`mid_month_join`)
+- 月中退職 (`mid_month_retirement`)
+- store_id (`store_id`)
+- corporation_id (`corporation_id`)
+- 店舗名 (`store_name`)
+- 営業中・閉店 (`store_active_status`)
+- 対象月 (`target_month`)
+- validation error (`action_validation_error`)
+
+## 計算して表示
+
+前提sourceが提供され、validationに合格した時だけ表示する。
+
+- 前年同月売上 (`prior_year_same_month_sales`)
+- 年間累計売上 (`sales_ytd`)
+- 前年年間累計売上 (`prior_year_sales_ytd`)
+- 店舗別利益率 (`store_profit_rate`)
+- 前年同月利益 (`prior_year_same_month_profit`)
+- 年間累計利益 (`profit_ytd`)
+- 総単価 (`average_spend`)
+- 技術単価 (`technical_average_spend`)
+- 月平均社員数 (`average_monthly_headcount`)
+- 月中異動 (`mid_month_transfer`)
+- 兼務 (`concurrent_assignment`)
+- 月中の所属変更 (`assignment_change_in_month`)
+- 入力済み店舗数 (`submitted_store_count`)
+- 未入力店舗数 (`missing_store_count`)
+- 検証済み店舗数 (`validated_store_count`)
+- エラー店舗数 (`error_store_count`)
+- 予算達成率が基準以下 (`action_budget_underperformance`)
+- 前年同月比が基準以下 (`action_yoy_underperformance`)
+- 3か月連続低下 (`action_three_month_decline`)
+- 総単価低下 (`action_average_spend_decline`)
+- データ未入力 (`action_missing_data`)
+
+## 暫定値として表示
+
+- 総リピート率 (`total_repeat_rate`)
+- 応援勤務 (`support_assignment`)
+- 検証済み (`validated_status`)
+- 店舗状態 (`store_performance_state`)
+
+## 集計中/準備中
+
+利益は翌月15日前後まで集計中、source/mapping未整備は準備中とする。
+
+- 店舗別利益 (`store_profit`)
+- 店舗営業利益 (`store_operating_profit`)
+- 確定 (`confirmed_status`)
+- 総売上 (`gross_sales_tax_inclusive`)
+- 技術売上 (`technical_sales_tax_inclusive`)
+- 通常店販売上 (`retail_sales_excluding_mid`)
+- MID売上 (`mid_sales`)
+- EC売上 (`ec_sales_allocated`)
+- 売上予算 (`approved_sales_budget`)
+- 店舗別月次損益表 (`store_monthly_pl`)
+- 利益予算 (`approved_profit_budget`)
+- 店舗直接費 (`store_direct_cost`)
+- 人件費 (`store_labor_cost`)
+- 材料費 (`store_material_cost`)
+- 商品原価 (`retail_cost_of_goods`)
+- 家賃 (`store_rent`)
+- 水道光熱費 (`store_utilities`)
+- 広告費 (`store_advertising_cost`)
+- 決済手数料 (`payment_processing_fee`)
+- 本部配賦 (`head_office_allocation`)
+- 減価償却 (`depreciation`)
+- 総客数 (`total_customer_count`)
+- 技術客数 (`technical_customer_count`)
+- 新規客数 (`new_customer_count`)
+- 再来客数 (`returning_customer_count`)
+- 固定客数 (`fixed_customer_count`)
+- 時短勤務 (`short_time_work`)
+- 直営・FC (`store_ownership_type`)
+- エリア (`area_id`)
+- 最終更新日時 (`last_updated_at`)
+- 締め済み (`closed_status`)
+- 利益率低下 (`action_profit_rate_decline`)
+
+## Version1から除外
+
+- 店舗貢献利益 (`store_contribution_profit`)
+- 店販購入客数 (`retail_purchasing_customer_count`)
+- 顧客ID (`customer_id`)
+- 来店履歴 (`visit_history`)
+- 初回来店日・次回来店日 (`customer_visit_dates`)
+- 店舗間顧客重複 (`cross_store_customer_duplicate`)
+- 新規リピート率 (`new_customer_repeat_rate`)
+- 再来リピート率 (`returning_customer_repeat_rate`)
+- 固定リピート率 (`fixed_customer_repeat_rate`)
+- 店販単価 (`retail_average_spend`)
+- 勤務時間 (`actual_labor_hours`)
+- 所定労働時間 (`standard_labor_hours`)
+- FTE (`fte`)
+- 総生産性 (`total_productivity_fte`)
+- 技術生産性 (`technical_productivity_fte`)
+- 担当営業 (`sales_owner_employee_id`)
+- FCオーナー (`fc_owner_principal_id`)
+- 速報 (`flash_status`)
+- 暫定 (`provisional_status`)
+- 再修正 (`revised_status`)
+- 新規リピート率低下 (`action_new_repeat_decline`)
+- 技術生産性低下 (`action_technical_productivity_decline`)
+- 店販購買率低下 (`action_retail_purchase_decline`)
+
+準備中表示に価値があるのは、経営上重要でsource整備予定が明確な売上、予算、店舗利益、主要費用、総客数、FTEである。顧客個票/cohort詳細、店販単価、貢献利益、担当営業/FC owner、FTE依存alertは初期画面から出さない。

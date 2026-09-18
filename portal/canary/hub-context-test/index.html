@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>NOV HUB Handoff Canary</title>
+</head>
+<body>
+  <main hidden>
+    <h1>NOV HUB Handoff Canary</h1>
+    <p>Feature flagが有効なdevelopment環境でのみ使用するsynthetic read-only診断画面です。</p>
+    <dl id="result"></dl>
+  </main>
+  <script type="module">
+    const flags = globalThis.__NOV_HUB_CANARY_FLAGS__ ?? {};
+    const visible = flags.globalEnabled === true
+      && flags.appEnabled === true
+      && flags.environmentEnabled === true
+      && flags.environment === "development"
+      && flags.killSwitch === false;
+    if (!visible) {
+      document.body.replaceChildren();
+      throw new Error("canary_disabled");
+    }
+    const allowed = new Set(["status", "app_id", "principal_type", "synthetic_actor_id", "session_expiry", "audience", "deny_reason", "correlation_id", "audit_status"]);
+    const params = new URLSearchParams(location.search);
+    const output = document.querySelector("#result");
+    for (const [key, value] of params) {
+      if (!allowed.has(key)) continue;
+      const term = document.createElement("dt");
+      const detail = document.createElement("dd");
+      term.textContent = key;
+      detail.textContent = value;
+      output.append(term, detail);
+    }
+    history.replaceState(null, "", location.pathname);
+    document.querySelector("main").hidden = false;
+  </script>
+</body>
+</html>

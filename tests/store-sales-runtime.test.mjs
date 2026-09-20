@@ -23,7 +23,7 @@ function runtimeWithAdapter(adapter, runtimeConfig = {}) {
 }
 
 test("Runtime exposes the CTO state registry", () => {
-  assert.deepEqual(STORE_SALES_RUNTIME_STATES, ["initializing", "loading", "ready", "empty", "unauthorized", "forbidden", "validation_error", "maintenance", "timeout", "offline"]);
+  assert.deepEqual(STORE_SALES_RUNTIME_STATES, ["initializing", "loading", "ready", "empty", "unauthorized", "forbidden", "validation_error", "maintenance", "timeout", "unavailable", "offline"]);
 });
 
 test("Runtime exposes all feature flags", () => {
@@ -89,9 +89,12 @@ test("timeout exposes retry and retry reaches ready", async () => {
   assert.equal(ready.retryCount, 1);
 });
 
-test("network and server failures map to offline", () => {
+test("only network failures map to offline and server failures map to unavailable", () => {
   assert.equal(mapRuntimeError({ code: "NETWORK_ERROR", status: 503 }, { online: true }).status, "offline");
-  assert.equal(mapRuntimeError({ code: "SERVER_ERROR", status: 500 }, { online: true }).status, "offline");
+  const server = mapRuntimeError({ code: "SERVER_ERROR", status: 500 }, { online: true });
+  assert.equal(server.status, "unavailable");
+  assert.equal(server.presentation.title, "現在取得できないデータがあります");
+  assert.equal(server.presentation.retryable, true);
 });
 
 test("maintenance is a distinct retryable Runtime state", async () => {

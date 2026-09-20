@@ -158,6 +158,8 @@ test("Saginomiya pilot maps only three confirmed Revision 2 metrics and keeps al
 test("formal comparison contract maps budget, prior year, fiscal YTD and all six trends", () => {
   const result = validateDbfStoreMonthlyProjection(payload({ facts: true, comparisons: true }));
   const store = result.stores[0];
+  assert.equal(result.accounting.confirmationState, "confirmed");
+  assert.equal(result.accounting.confirmedThroughPeriod, "2026-07");
   assert.equal(store.metrics.budgetRatio.rawValue, 104);
   assert.equal(store.metrics.yearOverYearRatio.rawValue, 106.8);
   assert.equal(store.metrics.customerYearOverYear.rawValue, 4.2);
@@ -171,6 +173,24 @@ test("formal comparison contract maps budget, prior year, fiscal YTD and all six
   assert.deepEqual(Object.keys(result.monthlyTrend).sort(), ["customers", "ec", "profit", "retail", "sales", "ticket"]);
   assert.equal(result.monthlyTrend.sales.at(-1).value, 2040);
   assert.equal(result.monthlyTrend.ticket.at(-1).value, 7);
+});
+
+test("profit accounting state stays preparing when current sales exist but direct-store profit is not confirmed", () => {
+  const source = payload({ facts: true, comparisons: true });
+  source.stores.forEach((store) => {
+    store.metrics = store.metrics.filter((metric) => metric.metricCode !== "OPERATING_PROFIT");
+    const selectedTrend = store.comparisons.monthlyTrend.find((point) => point.fiscalMonth === "2026-07");
+    selectedTrend.metrics = selectedTrend.metrics.filter((metric) => metric.metricCode !== "OPERATING_PROFIT");
+  });
+
+  const result = validateDbfStoreMonthlyProjection(source);
+
+  assert.equal(result.accounting.reflectedStoreCount, 20);
+  assert.equal(result.accounting.confirmationState, "preparing");
+  assert.equal(result.accounting.confirmedThroughPeriod, "2026-06");
+  assert.equal(result.stores.filter((store) => store.ownership === "Direct").length, 13);
+  assert.ok(result.stores.filter((store) => store.ownership === "Direct")
+    .every((store) => store.metrics.operatingProfit.dataState === "preparing"));
 });
 
 test("confirmed needs-attention stores produce at most three evidence-backed priority actions", () => {

@@ -4,6 +4,7 @@ import {extname,join,normalize} from "node:path";
 import {createServer} from "node:http";
 import {fileURLToPath} from "node:url";
 import {createHmac,createHash,randomBytes,timingSafeEqual} from "node:crypto";
+import {createStoreOperationsStagingFixture} from "./staging-fixture.mjs";
 
 const root=fileURLToPath(new URL("./dist/",import.meta.url));
 const port=Number(process.env.PORT||8080);
@@ -71,6 +72,11 @@ export function createStoreOperationsStagingServer(options={}){
       if(req.method!=="POST")return json(res,405,{ok:false,code:"METHOD_NOT_ALLOWED"});const token=readCookie(req,sessionCookie);if(!token)return json(res,401,{ok:false,code:"HUB_AUTH_REQUIRED"});
       const input=await readJson(req);const action=String(input.action||"");const payload=input.payload&&typeof input.payload==="object"?input.payload:{};if(action!=="storeMonthlyActualProjectionV1")return json(res,403,{ok:false,code:"ACCESS_DENIED"});
       const safePayload={selectedMonth:String(payload.selectedMonth||""),authType:"store_operations_staging_session"};const result=await edge(action,safePayload,{token,request,url:runtimeEdgeUrl});return json(res,result.status,result.body);
+    }
+    if(pathname==="/api/store-operations-uat-fixture"){
+      if(req.method!=="POST")return json(res,405,{ok:false,code:"METHOD_NOT_ALLOWED"});const token=readCookie(req,sessionCookie);if(!token)return json(res,401,{ok:false,code:"HUB_AUTH_REQUIRED"});
+      const input=await readJson(req);const action=String(input.action||"");const payload=input.payload&&typeof input.payload==="object"?input.payload:{};if(action!=="storeMonthlyActualProjectionV1")return json(res,403,{ok:false,code:"ACCESS_DENIED"});
+      const projection=createStoreOperationsStagingFixture({selectedMonth:String(payload.selectedMonth||""),selectedStoreKey:payload.selectedStoreKey});return json(res,200,{ok:true,data:projection});
     }
     if(req.method!=="GET"&&req.method!=="HEAD")return json(res,405,{ok:false,code:"METHOD_NOT_ALLOWED"});if(pathname==="/"){res.writeHead(302,{...headers,Location:"/auth/start"});return res.end();}
     const relative=normalize(decodeURIComponent(pathname)).replace(/^([/\\])+/u,"");let file=join(root,relative);if(pathname.endsWith("/")||pathname===callbackPath)file=join(file,"index.html");if(!file.startsWith(root))return json(res,404,{ok:false,code:"NOT_FOUND"});

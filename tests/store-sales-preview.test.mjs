@@ -36,7 +36,9 @@ test("existing sales icon is reused", () => {
 test("Preview banner is semantic and initially hidden", () => {
   assert.match(storeHtml, /id="preview-banner"[\s\S]*role="status"[\s\S]*hidden/);
   assert.match(storeApp, /\["mock", "preview"\]\.includes\(snapshot\.featureFlag\)/);
-  assert.match(storeApp, /snapshot\.featureFlag === "staging" && snapshot\.projection\?\.contractVersion !== "STORE_MONTHLY_ACTUAL_V1"/);
+  assert.match(storeApp, /snapshot\.featureFlag === "staging"/);
+  assert.match(storeApp, /snapshot\.projection\?\.contractVersion !== "STORE_MONTHLY_ACTUAL_V1"/);
+  assert.match(storeApp, /snapshot\.projection\?\.readiness\?\.fixtureData === true/);
 });
 test("Preview banner identifies synthetic non-production data", () => {
   assert.match(storeHtml, /サンプルデータ/);

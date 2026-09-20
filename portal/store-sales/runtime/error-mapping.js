@@ -21,7 +21,7 @@ export function runtimePresentation(status, overrides = {}) {
     title: overrides.title || title,
     body: overrides.body || body,
     blocking: ["unauthorized", "forbidden"].includes(status),
-    retryable: ["maintenance", "timeout", "offline"].includes(status)
+    retryable: ["maintenance", "timeout", "offline", "unavailable"].includes(status)
   });
 }
 
@@ -46,8 +46,11 @@ export function mapRuntimeError(error, options = {}) {
   if (["PRODUCTION_NOT_APPROVED", "INVALID_FEATURE_FLAG", "INVALID_ADAPTER_MODE", "INTEGRATION_ENDPOINT_REQUIRED", "MOCK_NOT_ALLOWED"].includes(code)) {
     return { status: "validation_error", code, presentation: runtimePresentation("validation_error") };
   }
-  if (code === "NETWORK_ERROR" || options.online === false || statusCode >= 500) {
+  if (code === "NETWORK_ERROR" || options.online === false) {
     return { status: "offline", code: code || "OFFLINE", presentation: runtimePresentation("offline") };
+  }
+  if (code === "SERVER_ERROR" || statusCode >= 500) {
+    return { status: "unavailable", code: code || "SERVER_ERROR", presentation: runtimePresentation("unavailable") };
   }
   if (statusCode === 404 || code === "NOT_FOUND") {
     return { status: "empty", code: code || "NOT_FOUND", presentation: runtimePresentation("empty") };

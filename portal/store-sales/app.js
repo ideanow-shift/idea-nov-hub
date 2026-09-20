@@ -142,7 +142,7 @@ function renderRuntimeSnapshot(snapshot) {
   state.projection = snapshot.projection;
   state.selectedStoreKey = snapshot.projection?.selectedStoreKey || null;
   if (state.projection?.stores?.length && state.projection.stores.every((store) => store.status === "Preparing")) state.statusFilter = "All";
-  const syntheticProjection = ["mock", "preview"].includes(snapshot.featureFlag) || (snapshot.featureFlag === "staging" && snapshot.projection?.contractVersion !== "STORE_MONTHLY_ACTUAL_V1");
+  const syntheticProjection = ["mock", "preview"].includes(snapshot.featureFlag) || (snapshot.featureFlag === "staging" && (snapshot.projection?.contractVersion !== "STORE_MONTHLY_ACTUAL_V1" || snapshot.projection?.readiness?.fixtureData === true));
   $("preview-banner").hidden = !syntheticProjection;
   renderAll();
   document.querySelector("main").hidden = false;
@@ -246,7 +246,8 @@ function renderSummary(projection, stores, scopeLabel) {
     : formatMonth(elements.period.value);
   const salesSummaryMetric = { label: "総売上（税抜）", displayValue: formatYen(total), dataState: "available", reason: salesPeriodNote };
   if (!salesReady) Object.assign(salesSummaryMetric, { displayValue: null, dataState: "preparing", reason: "未登録値をゼロとして表示しません" });
-  $("summary-narrative").textContent = state.runtimeFeatureFlag === "staging" && projection.contractVersion !== "STORE_MONTHLY_ACTUAL_V1" ? "現在は営業部レビュー用のサンプルデータです。実績値ではありません。" :
+  const stagingFixture = state.runtimeFeatureFlag === "staging" && (projection.contractVersion !== "STORE_MONTHLY_ACTUAL_V1" || projection.readiness?.fixtureData === true);
+  $("summary-narrative").textContent = stagingFixture ? "現在は営業部レビュー用の架空20店舗サンプルです。実績値ではありません。" :
     state.scope === "All" ? (projection.executiveSummary?.narrative || "") :
     statusReady ? `${scopeLabel}の売上状況です。現在、判定済み${evaluatedStatusCount}店舗のうち${attention}店舗に対応が必要です。` : `${scopeLabel}の店舗状態を準備しています。`;
   elements.summary.replaceChildren(
@@ -263,7 +264,7 @@ function renderSummary(projection, stores, scopeLabel) {
     return box;
   }));
   const accounting = projection.accounting || {};
-  $("coverage-note").textContent = state.runtimeFeatureFlag === "staging" && projection.contractVersion !== "STORE_MONTHLY_ACTUAL_V1" ? "すべて画面確認用のSynthetic確定値です。実績値ではありません。" : accounting.reflectedStoreCount < accounting.totalStoreCount
+  $("coverage-note").textContent = stagingFixture ? "すべて画面確認用の架空20店舗fixtureです。実績値ではありません。" : accounting.reflectedStoreCount < accounting.totalStoreCount
     ? `${accounting.reflectedStoreCount}店舗のデータで表示しています。${accounting.totalStoreCount - accounting.reflectedStoreCount}店舗は集計中です。` : `${stores.length}店舗のデータを表示しています。`;
 }
 

@@ -6,7 +6,8 @@ import { resolveAdapterConfig } from "../portal/store-sales/adapters/config.js";
 import { createStoreSalesAdapter } from "../portal/store-sales/adapters/index.js";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
-const comparisonUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-comparison-ui-bundle-v1.json"));
+const priorComparisonUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-comparison-ui-bundle-v1.json"));
+const comparisonUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-profit-state-staging-fix-ui-bundle-v1.json"));
 const productionConfig = {
   mode: "production", featureFlag: "production", preview: false, productionApproved: true,
   expectedProjectRef: "nkmxevmioczcmnldreyo",
@@ -53,9 +54,16 @@ test("release production config contains no mock, synthetic or secret material",
   assert.doesNotMatch(source, /mock|synthetic|sb_secret_|service_role|eyJ[A-Za-z0-9_-]{20,}\./iu);
 });
 
-test("comparison UI bundle pins the two changed production assets", () => {
-  assert.equal(comparisonUiManifest.deployment_status, "NOT_DEPLOYED");
-  assert.equal(comparisonUiManifest.bundle_file_count, 2);
+test("prior comparison UI bundle remains immutable", () => {
+  assert.equal(priorComparisonUiManifest.bundle_content_sha256, "4c965387773288dd85fa7262568e64ac703ed7ff1cd2bcff1a539f1ee105d38e");
+  assert.equal(priorComparisonUiManifest.deployment_status, "NOT_DEPLOYED");
+});
+
+test("Staging UAT candidate pins all shared assets and keeps Production prohibited", () => {
+  assert.equal(comparisonUiManifest.deployment_status, "STAGING_UAT_PASSED_PRODUCTION_NOT_APPROVED");
+  assert.equal(comparisonUiManifest.production_release_status, "REQUIRES_SEPARATE_OWNER_APPROVAL");
+  assert.equal(comparisonUiManifest.bundle_file_count, 4);
+  assert.ok(Object.values(comparisonUiManifest.gates).every((gate) => gate === "PROHIBITED"));
   const sorted = [...comparisonUiManifest.files].sort((left, right) => left.path.localeCompare(right.path));
   const input = sorted.map((file) => file.path + "\t" + file.sha256 + "\t" + file.bytes).join("\n");
   assert.equal(createHash("sha256").update(input).digest("hex"), comparisonUiManifest.bundle_content_sha256);

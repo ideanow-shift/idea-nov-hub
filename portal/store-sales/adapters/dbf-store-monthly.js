@@ -197,6 +197,16 @@ export function validateDbfStoreMonthlyProjection(payload) {
   });
   if (selectedStoreKey !== null && stores[0]?.storeKey !== selectedStoreKey) fail("SELECTED_STORE_MISMATCH");
   const confirmed = payload.stores.filter((store) => store.dataState === "confirmed").length;
+  const directStores = stores.filter((store) => store.ownership === "Direct");
+  const selectedProfitConfirmed = directStores.length > 0
+    && directStores.every((store) => store.metrics.operatingProfit?.dataState === "available");
+  const profitTrendMonths = [...new Set(directStores.flatMap((store) => store.monthlyTrend.map((point) => point.fiscalMonth)))].sort().reverse();
+  const confirmedProfitMonth = selectedProfitConfirmed
+    ? payload.fiscalMonth
+    : profitTrendMonths.find((month) => directStores.every((store) => {
+      const point = store.monthlyTrend.find((candidate) => candidate.fiscalMonth === month);
+      return Number.isFinite(point?.metrics?.operatingProfit);
+    })) || null;
   const trendKeys = ["sales", "operatingProfit", "customerCount", "totalTicket", "retailSales", "ecSales"];
   const monthlyTrend = Object.fromEntries(trendKeys.map((metricKey) => {
     const months = [...new Set(stores.flatMap((store) => store.monthlyTrend.map((point) => point.fiscalMonth)))].sort();
@@ -229,7 +239,7 @@ export function validateDbfStoreMonthlyProjection(payload) {
     audience: scope.mode === "own" ? "store_manager" : "executive", scopeLabel: `${stores.length}店舗`,
     stores: Object.freeze(stores), storeOptions: Object.freeze(storeOptions), selectedStoreKey, priorityActions: Object.freeze(priorityActions), businessDrivers: Object.freeze({}),
     executiveSummary: Object.freeze({ narrative: confirmed ? `${confirmed}店舗のDBF月次確定値を表示しています。` : "正式データを準備しています。", metrics: Object.freeze([]) }),
-    accounting: Object.freeze({ confirmationState: confirmed === stores.length ? "confirmed" : "preparing", confirmedThroughPeriod: confirmed ? payload.fiscalMonth : null, reflectedStoreCount: confirmed, totalStoreCount: stores.length, lastUpdatedAt: null }),
+    accounting: Object.freeze({ confirmationState: selectedProfitConfirmed ? "confirmed" : "preparing", confirmedThroughPeriod: confirmedProfitMonth, reflectedStoreCount: confirmed, totalStoreCount: stores.length, lastUpdatedAt: null }),
     readiness: Object.freeze({ ...payload.readiness }), monthlyTrend: Object.freeze(monthlyTrend)
   });
 }

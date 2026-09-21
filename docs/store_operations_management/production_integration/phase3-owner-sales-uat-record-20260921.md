@@ -1,19 +1,17 @@
 # Phase 3 Owner / Sales UAT Record
 
 Date prepared: 2026-09-21
-Portfolio lock: `CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-22-V4`
+Portfolio lock: `CTO-PORTFOLIO-EXECUTION-ORDER-2026-09-21-V5`
 Phase: `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1`
-Environment: Owner correction verification on Staging; separate Sales Department review waived by Owner
-Record status: `OWNER_PASS_SALES_WAIVER_PENDING_PRIORITY_CHANGE`
+Environment: Owner correction verification on Staging; separate Sales Department review not required under V5
+Record status: `PASS`
 
 ## Boundary
 
 - UAT is read-only. It does not authorize Production DDL, DML, deployment, or
   business-data mutation.
-- Under the active Portfolio Lock, a case satisfies the locked Exit Criterion
-  only after both Owner and Sales Department results are recorded. The Owner has
-  waived a separate Sales Department review, so no review request is sent; formal
-  removal of the locked requirement remains pending a Priority Change.
+- Under the active Portfolio Lock V5, Owner confirmation is the Phase 3 UAT Exit
+  Criterion. A separate Sales Department review is not required.
 - Do not record employee IDs, store UUIDs, credentials, tokens, or personal data.
 - Repeat rate and retail purchase rate remain `準備中` while their formal
   sources are pending. A substituted value, inferred value, or zero is a failure.
@@ -26,11 +24,10 @@ On 2026-09-21, the Owner explicitly directed that a separate Sales Department
 review is not required. No Sales Department review request should be sent while
 this disposition remains current.
 
-The active Portfolio Lock still lists `Owner／営業部UAT PASS` as a Phase 3 Exit
-Criterion. Therefore this disposition is recorded but does not alter the locked
-Exit Criterion by itself. Removing the Sales Department requirement becomes
-effective only after a dedicated `[OWNER PRIORITY CHANGE]` PR updates the
-Portfolio Lock and is merged.
+The Owner decision became effective when `[OWNER PRIORITY CHANGE]` PR #216 was
+merged to `main` as `fddf5beec305c38e308116efc236e888c5e3f3da`. Portfolio
+Lock V5 now requires `Owner UAT PASS` and explicitly excludes a separate Sales
+Department UAT from the Phase 3 Exit Criteria.
 
 ## Business UAT matrix
 
@@ -57,14 +54,12 @@ Record `PASS`, `FAIL`, or `NOT_RUN` in each result column.
 | Approval | Result | Date | Evidence reference |
 | --- | --- | --- | --- |
 | Owner | `PASS` | 2026-09-21 | Owner results for UAT-P3-01 through UAT-P3-13 are all `PASS` |
-| Sales Department | `NOT_REQUIRED_BY_OWNER_PENDING_PRIORITY_CHANGE` | 2026-09-21 | Owner directed that separate Sales Department confirmation is unnecessary; the locked Exit Criterion is unchanged until a dedicated Priority Change PR is merged |
-| Blocking defects | `0_RECORDED` | 2026-09-21 | Owner correction verification is complete; the remaining gate is governance alignment, not an application defect |
+| Sales Department | `NOT_REQUIRED` | 2026-09-21 | Portfolio Lock V5 excludes a separate Sales Department UAT from the Phase 3 Exit Criteria |
+| Blocking defects | `0_RECORDED` | 2026-09-21 | Owner correction verification is complete with no open UAT defect |
 
-Final UAT status: `PENDING_PRIORITY_CHANGE`
+Final UAT status: `PASS`
 
 The Owner acceptance is complete with all 13 cases at `PASS` and zero recorded
-blocking defects. No Sales Department review request is required by the Owner.
-The record remains `PENDING_PRIORITY_CHANGE`, rather than Phase 3 `PASS`, until a
-dedicated `[OWNER PRIORITY CHANGE]` PR removes or replaces the locked Sales
-Department UAT requirement and is merged. Actual use in a monthly meeting is a
-separate Phase 3 Exit Criterion and is not closed by this record.
+blocking defects. No Sales Department review request is required. This record
+closes the Phase 3 `Owner UAT PASS` criterion only. Actual use in a monthly
+meeting is a separate Phase 3 Exit Criterion and is not closed by this record.

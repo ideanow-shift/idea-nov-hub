@@ -1,16 +1,17 @@
 # Phase 3 Owner UAT Profit-State Evidence
 
 Date: 2026-09-21
-Portfolio lock: `CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-22-V4`
+Portfolio lock: `CTO-PORTFOLIO-EXECUTION-ORDER-2026-09-21-V5`
 Phase: `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1`
 Environment: Production read-only Store Operations application
-Evidence status: `OWNER_PASS_UAT_P3_09_ONLY`
+Evidence status: `OWNER_PASS_UAT_P3_09`
 
 ## Scope
 
 This record captures Owner acceptance evidence for only the profit-state portion of
-`UAT-P3-09`. It does not record Sales Department acceptance, close the complete
-13-item UAT, authorize a Phase transition, or authorize any database or application
+`UAT-P3-09`. Portfolio Lock V5 does not require separate Sales Department
+acceptance. Completion of the full 13-item UAT is recorded separately; this
+evidence does not authorize a Phase transition or any database or application
 change.
 
 ## Released source
@@ -56,8 +57,9 @@ not collapsed into one another.
 
 | UAT case | Owner result | Sales Department result | Final case status |
 | --- | --- | --- | --- |
-| `UAT-P3-09` Profit state | `PASS` | `NOT_RUN` | `PENDING_SALES_ACCEPTANCE` |
+| `UAT-P3-09` Profit state | `PASS` | `NOT_REQUIRED` | `PASS` |
 
-The overall Phase 3 Owner / Sales UAT remains `PENDING`. The remaining 12 business
-cases and Sales Department acceptance must be recorded separately. Repeat rate and
-retail purchase rate remain `準備中` until their formal sources are approved.
+The complete 13-item Owner UAT is `PASS` in
+`phase3-owner-sales-uat-record-20260921.md`; a separate Sales Department review is
+not required under Portfolio Lock V5. Repeat rate and retail purchase rate remain
+`準備中` until their formal sources are approved.

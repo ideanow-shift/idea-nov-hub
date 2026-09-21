@@ -1,7 +1,7 @@
 # Phase 3 Monthly Meeting Activation Record
 
 Date prepared: 2026-09-21
-Portfolio lock: `CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-22-V4`
+Portfolio lock: `CTO-PORTFOLIO-EXECUTION-ORDER-2026-09-21-V5`
 Phase: `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1`
 Environment: Production read-only Store Operations application
 Activation status: `PENDING_ACTUAL_BUSINESS_USE`
@@ -44,9 +44,9 @@ Record participant functions only; do not record personal data.
 | Approval | Result | Date | Non-PII evidence reference |
 | --- | --- | --- | --- |
 | Owner | `PENDING` | | |
-| Sales Department | `PENDING` | | |
+| Sales Department | `NOT_REQUIRED` | 2026-09-21 | Portfolio Lock V5 excludes separate Sales Department UAT/acceptance |
 
 Activation status remains `PENDING_ACTUAL_BUSINESS_USE` until the meeting table is
-complete, blocking defects are zero, and both approval rows are `PASS`. This record
-does not authorize a Phase transition; that requires the separate Portfolio Lock
-transition process.
+complete, blocking defects are zero, and the Owner approval row is `PASS`. A
+separate Sales Department approval is not required. This record does not authorize
+a Phase transition; that requires the separate Portfolio Lock transition process.

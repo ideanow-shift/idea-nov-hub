@@ -89,11 +89,16 @@ test("deployed sales UAT corrections bundle remains immutable", () => {
   assert.equal(createHash("sha256").update(input).digest("hex"), salesUatCorrectionsUiManifest.bundle_content_sha256);
 });
 
-test("sales UAT fixture corrections candidate pins current assets and requires separate Staging approval", () => {
-  assert.equal(salesUatFixtureCorrectionsUiManifest.deployment_status, "STAGING_DEPLOY_REQUIRES_SEPARATE_OWNER_APPROVAL");
+test("sales UAT fixture corrections deployment pins current assets and remains Production prohibited", () => {
+  assert.equal(salesUatFixtureCorrectionsUiManifest.deployment_status, "STAGING_DEPLOYED_AWAITING_OWNER_SALES_RETEST");
   assert.equal(salesUatFixtureCorrectionsUiManifest.production_release_status, "REQUIRES_SEPARATE_OWNER_APPROVAL");
   assert.equal(salesUatFixtureCorrectionsUiManifest.bundle_file_count, 2);
-  assert.equal(salesUatFixtureCorrectionsUiManifest.gates.staging_ui_deploy, "REQUIRES_SEPARATE_OWNER_APPROVAL");
+  assert.equal(salesUatFixtureCorrectionsUiManifest.gates.staging_ui_deploy, "COMPLETED_ONCE");
+  assert.equal(salesUatFixtureCorrectionsUiManifest.staging_deployment.source_head_sha, "e18d2e4df32a64645d495e39578ef1fd3e8c928b");
+  assert.equal(salesUatFixtureCorrectionsUiManifest.staging_deployment.cloud_build_id, "8c38eb74-e71e-4cf6-9de6-8ed77374cc6d");
+  assert.equal(salesUatFixtureCorrectionsUiManifest.staging_deployment.revision, "idea-nov-store-operations-staging-ui-salesfix-e18d2e4d");
+  assert.equal(salesUatFixtureCorrectionsUiManifest.staging_deployment.image_digest, "sha256:dc2a5e9b5b55af9a79a47da27eab5e47f12eacf8288a7e4f01ce6e9b979be468");
+  assert.equal(salesUatFixtureCorrectionsUiManifest.staging_deployment.traffic_percent, 100);
   for (const gate of ["github_pages_publish", "production_edge_deploy", "production_dml", "production_ddl", "real_data_change", "pr_merge"]) {
     assert.equal(salesUatFixtureCorrectionsUiManifest.gates[gate], "PROHIBITED");
   }

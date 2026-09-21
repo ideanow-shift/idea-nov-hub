@@ -47,7 +47,7 @@ Read-back:
 - ACL: postgres only
 - security advisor: the expected informational `rls_enabled_no_policy` finding is present; this is intentional because the tables are private and all API-role privileges are revoked.
 
-## DML checkpoint
+## DML execution
 
 The first two bootstrap attempts failed inside their transactions and fully rolled back:
 
@@ -56,21 +56,60 @@ The first two bootstrap attempts failed inside their transactions and fully roll
 
 Both generator defects were fixed and the full 18-test suite passed after each correction.
 
-The refreshed bootstrap was then stopped by the automated approval gate before execution. Read-back after the stop:
+The refreshed bootstrap was initially stopped by the automated approval gate. Owner then supplied the explicit
+`[OWNER REPEAT RETAIL CORE DB STAGING DML APPROVAL]` authorization naming this project, package, planned counts,
+and Production prohibition. Execution resumed with the refreshed fixed SQL.
 
-- repeat import batches for the fixed package: 0
-- retail source files for the fixed package: 0
-- company repeat facts: 0
-- company retail-purchase facts: 0
-- store retail-purchase facts: 0
+Bootstrap result:
 
-Therefore no package metadata or business facts have been written. The Staging schema objects and metric definition are the only remote changes at this checkpoint.
+- repeat import batch: 1
+- repeat source-file evidence rows: 1,496
+- retail package source file: 1
+- retail monthly batches: 92
 
-## Required resume authorization
+Staging result:
 
-Resume only after explicit authorization that names:
+- store repeat rows: 6,600, all resolved / valid
+- company repeat rows: 440, all resolved / valid
+- retail raw rows: 2,476
+- retail normalized staging rows: 2,476
+- SALON promotion candidates: 1,492, all exact-mapped / valid
+- COMPANY_TOTAL promotion candidates: 92, resolved / valid
+- EC staging-only: 784, quarantined from canonical promotion
+- HQ staging-only: 46, quarantined from canonical promotion
+- outside canonical operation period: 62, quarantined
 
-- Staging project `zgkoofphhivesclehrom`;
-- Staging DML for this fixed repeat / retail package;
-- the planned insert / unchanged / quarantine counts above;
-- Production write remains prohibited.
+Canonical result:
+
+- active store repeat: 7,040 (6,600 inserted + 440 existing unchanged)
+- active company repeat: 440
+- active store retail-purchase customer visits: 1,492
+- active company retail-purchase customer visits: 92
+- duplicate active grains: 0 for all four Fact contracts
+- repeat calculation mismatches: 0
+- retail negative quantities: 0
+- retail quantity-over-denominator rows: 0
+- retail rate mismatches: 0
+- promotion misses: 0
+
+Idempotency read-back:
+
+- every staged repeat key has an active canonical key;
+- every promotable retail key has an active canonical key;
+- the active-grain unique indexes therefore leave zero missing inserts for the same package.
+
+Batch status:
+
+- repeat batch: `promoted`
+- retail monthly batches: 92 / 92 `promoted`
+
+## Security and Production isolation
+
+- The three new tables remain `RLS=true` and `FORCE RLS=true`.
+- Policy count remains 0 and ACL remains postgres-only.
+- No `anon`, `authenticated`, or `service_role` privilege was granted.
+- Production read-only verification found no company repeat table, no company retail table,
+  no retail-purchase-customer metric definition, and zero retail-purchase-customer Fact rows.
+- Production DDL / DML: 0.
+- Deploy: 0.
+- PR merge: 0.

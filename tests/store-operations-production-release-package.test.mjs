@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
@@ -6,6 +7,7 @@ import { resolveAdapterConfig } from "../portal/store-sales/adapters/config.js";
 import { createStoreSalesAdapter } from "../portal/store-sales/adapters/index.js";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+const readAtCommit = (commit, path) => execFileSync("git", ["show", `${commit}:${path}`], { encoding: "utf8" });
 const priorComparisonUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-comparison-ui-bundle-v1.json"));
 const priorProfitStateUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-profit-state-staging-fix-ui-bundle-v1.json"));
 const fcProfitSignalUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-fc-profit-signal-ui-bundle-v1.json"));
@@ -89,7 +91,7 @@ test("deployed sales UAT corrections bundle remains immutable", () => {
   assert.equal(createHash("sha256").update(input).digest("hex"), salesUatCorrectionsUiManifest.bundle_content_sha256);
 });
 
-test("sales UAT fixture corrections deployment pins current assets and remains Production prohibited", () => {
+test("sales UAT fixture corrections deployment pins its deployed commit and remains Production prohibited", () => {
   assert.equal(salesUatFixtureCorrectionsUiManifest.deployment_status, "STAGING_DEPLOYED_AWAITING_OWNER_SALES_RETEST");
   assert.equal(salesUatFixtureCorrectionsUiManifest.production_release_status, "REQUIRES_SEPARATE_OWNER_APPROVAL");
   assert.equal(salesUatFixtureCorrectionsUiManifest.bundle_file_count, 2);
@@ -106,7 +108,7 @@ test("sales UAT fixture corrections deployment pins current assets and remains P
   const input = sorted.map((file) => file.path + "\t" + file.sha256 + "\t" + file.bytes).join("\n");
   assert.equal(createHash("sha256").update(input).digest("hex"), salesUatFixtureCorrectionsUiManifest.bundle_content_sha256);
   for (const file of sorted) {
-    const content = read(file.path);
+    const content = readAtCommit(salesUatFixtureCorrectionsUiManifest.staging_deployment.source_head_sha, file.path);
     const approvedWindowsBytes = Buffer.from(
       content.replace(/\r?\n/gu, "\n").replace(/\n/gu, "\r\n"),
       "utf8",

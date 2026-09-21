@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
@@ -16,6 +17,7 @@ const bundleManifest = JSON.parse(readFileSync(new URL(
   "../docs/store_operations_management/production_integration/store-operations-comparison-staging-edge-bundle-v1.json",
   import.meta.url,
 ), "utf8"));
+const COMPARISON_BUNDLE_SOURCE_HEAD = "afc23915cffc924a144623184fa5dbfb1d37284f";
 
 function rows(count) {
   return Array.from({ length: count }, (_, index) => ({
@@ -106,7 +108,7 @@ test("Edge adapter pages only the approved actual RPC with limit and offset", ()
   assert.equal((edge.match(/name === STORE_MONTHLY_ACTUAL_RANGE_RPC/gu) || []).length, 1);
 });
 
-test("comparison Staging Edge bundle preserves pagination and pins the complete Deno dependency graph", () => {
+test("comparison Staging Edge bundle preserves pagination and pins its source commit dependency graph", () => {
   assert.equal(bundleManifest.deployment_status, "NOT_DEPLOYED");
   assert.equal(bundleManifest.project_ref, "zgkoofphhivesclehrom");
   assert.equal(bundleManifest.bundle_file_count, 17);
@@ -115,7 +117,7 @@ test("comparison Staging Edge bundle preserves pagination and pins the complete 
   const input = sorted.map((file) => `${file.path}\t${file.sha256}\t${file.bytes}`).join("\n");
   assert.equal(createHash("sha256").update(input).digest("hex"), bundleManifest.bundle_content_sha256);
   for (const file of sorted) {
-    const content = readFileSync(new URL(`../${file.path}`, import.meta.url), "utf8");
+    const content = execFileSync("git", ["show", `${COMPARISON_BUNDLE_SOURCE_HEAD}:${file.path}`], { encoding: "utf8" });
     const approvedWindowsBytes = Buffer.from(
       content.replace(/\r?\n/gu, "\n").replace(/\n/gu, "\r\n"),
       "utf8",

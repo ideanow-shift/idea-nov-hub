@@ -224,4 +224,5 @@ Ownerは、Phase 3 Store Operations Management V1の業務UATについて、Owne
 - Ownerの13項目PASS記録は引き続き有効とする。
 - 固定Portfolio順序および`CURRENT_PHASE`は変更しない。
 - この変更はPhase Transitionではない。
-- Production deploy、DB DDL／DML、実データ変更、PR mergeの追加承認を意味しない。
+- このPriority Change PR自身のMergeを除き、Production deploy、DB DDL／DML、
+  実データ変更、他PRのMergeに対する追加承認を意味しない。

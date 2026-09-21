@@ -20,14 +20,14 @@ const elements = {
 const metricLabels = {
   summary: ["sales", "budgetRatio", "yearOverYearRatio", "operatingProfit", "customerCount", "totalTicket", "totalRepeat", "productivity"],
   customer: ["totalRepeat", "new", "returning", "loyal", "customerCount", "newCustomerCount", "existingCustomerCount"],
-  value: ["totalTicket", "productivity", "technicalTicket", "retailSales", "retailPurchaseRate", "staffCount"]
+  value: ["totalTicket", "productivity", "technicalTicket", "technicalProductivity", "retailSales", "retailPurchaseRate", "staffCount"]
 };
 const labels = {
   sales: "総売上（税抜）", operatingProfit: "営業利益", customerCount: "総客数", totalTicket: "総単価（税抜）",
   budgetRatio: "予算比", yearOverYearRatio: "前年同月比",
   totalRepeat: "総リピート率", productivity: "総生産性", new: "新規リピート率", returning: "再来リピート率",
   loyal: "固定リピート率", newCustomerCount: "新規客数", existingCustomerCount: "既存客数",
-  technicalTicket: "技術単価", retailSales: "店販売上", retailPurchaseRate: "店販購買率", staffCount: "稼働スタッフ数"
+  technicalTicket: "技術単価", technicalProductivity: "技術生産性", retailSales: "店販売上", retailPurchaseRate: "店販購買率", staffCount: "稼働スタッフ数"
 };
 const statusOrder = { "Needs Attention": 0, Preparing: 1, Improving: 2, Stable: 3, Good: 4 };
 const statusNames = { "Needs Attention": "要対応", Preparing: "準備中", Improving: "改善中", Stable: "安定", Good: "好調" };
@@ -40,6 +40,7 @@ initialize();
 
 async function initialize() {
   bindControls();
+  installViewHistory();
   const runtimeConfig = globalThis.STORE_SALES_RUNTIME_CONFIG || {};
   state.runtime = createStoreSalesRuntime({
     location, runtimeConfig,
@@ -54,6 +55,19 @@ async function initialize() {
   });
   state.runtime.subscribe(renderRuntimeSnapshot);
   await state.runtime.initialize({ period: elements.period.value, storeKey: state.selectedStoreKey });
+}
+
+function installViewHistory() {
+  window.history.replaceState({ ...(window.history.state || {}), storeSalesView: "list" }, document.title);
+  window.addEventListener("popstate", (event) => {
+    const view = event.state?.storeSalesView;
+    const storeKey = String(event.state?.storeKey || "");
+    if (view === "detail" && storeKey && state.projection?.stores?.some((store) => store.storeKey === storeKey)) {
+      showDetail(storeKey, false, null, { fromHistory: true });
+      return;
+    }
+    showList({ fromHistory: true });
+  });
 }
 
 function bindControls() {
@@ -235,7 +249,7 @@ function renderSummary(projection, stores, scopeLabel) {
   const salesMetric = (store) => state.periodMode === "cumulative" ? store.yearly?.metrics?.sales : store.metrics.sales;
   const salesReady = stores.every((store) => salesMetric(store)?.dataState === "available");
   const total = salesReady ? stores.reduce((sum, store) => sum + metricNumber(salesMetric(store)), 0) : null;
-  const profit = summaryProfitMetric(stores);
+  const profit = summaryProfitMetric(stores, state.scope);
   const preparingStatusCount = stores.filter((store) => store.status === "Preparing").length;
   const evaluatedStatusCount = stores.length - preparingStatusCount;
   const statusReady = evaluatedStatusCount > 0;
@@ -244,7 +258,10 @@ function renderSummary(projection, stores, scopeLabel) {
   const salesPeriodNote = state.periodMode === "cumulative"
     ? fiscalStart.length ? `${formatMonth(fiscalStart.sort()[0])}〜${formatMonth(elements.period.value)}の累計` : `${formatMonth(elements.period.value)}までの累計`
     : formatMonth(elements.period.value);
-  const salesSummaryMetric = { label: "総売上（税抜）", displayValue: formatYen(total), dataState: "available", reason: salesPeriodNote };
+  const salesSummaryMetric = {
+    label: `総売上（税抜・${state.periodMode === "cumulative" ? "累計" : "月次"}）`,
+    displayValue: formatYen(total), dataState: "available", reason: salesPeriodNote
+  };
   if (!salesReady) Object.assign(salesSummaryMetric, { displayValue: null, dataState: "preparing", reason: "未登録値をゼロとして表示しません" });
   const stagingFixture = state.runtimeFeatureFlag === "staging" && (projection.contractVersion !== "STORE_MONTHLY_ACTUAL_V1" || projection.readiness?.fixtureData === true);
   $("summary-narrative").textContent = stagingFixture ? "現在は営業部レビュー用の架空20店舗サンプルです。実績値ではありません。" :
@@ -276,7 +293,8 @@ function renderActions(actions) {
   elements.actions.replaceChildren(...actions.slice(0, 3).map((action) => {
     const card = node("article", "action-card"); card.tabIndex = 0;
     card.append(node("h3", "action-theme", action.theme || action.recommendation), node("div", "action-store", action.storeName),
-      paragraph(action.reason), node("p", "impact", `期待効果: ${action.impact || actionImpact(action.ruleId)}`));
+      paragraph(action.reason), node("p", "action-advice", `次に確認: ${actionAdvice(action)}`),
+      node("p", "impact", `期待効果: ${action.impact || actionImpact(action.ruleId)}`));
     const link = node("button", "action-link", "店舗詳細を確認 →"); link.type = "button";
     link.addEventListener("click", () => showDetail(action.storeKey, false, action.targetTab));
     card.addEventListener("keydown", (event) => { if (event.key === "Enter") link.click(); });
@@ -433,10 +451,13 @@ function renderStores() {
   elements.cards.replaceChildren(...stores.map(storeCard));
 }
 
-function showDetail(storeKey, managerHome = false, targetTab = null) {
+function showDetail(storeKey, managerHome = false, targetTab = null, { fromHistory = false } = {}) {
   state.listScroll = window.scrollY;
   state.selectedStore = state.projection?.stores?.find((store) => store.storeKey === storeKey);
   if (!state.selectedStore) return;
+  if (!managerHome && !fromHistory && (window.history.state?.storeSalesView !== "detail" || window.history.state?.storeKey !== storeKey)) {
+    window.history.pushState({ ...(window.history.state || {}), storeSalesView: "detail", storeKey }, document.title);
+  }
   elements.executive.hidden = true; elements.detail.hidden = false;
   $("back-to-list").hidden = managerHome || state.effectiveRole === "store_manager";
   $("page-title").textContent = state.effectiveRole === "store_manager"
@@ -454,8 +475,12 @@ function showDetail(storeKey, managerHome = false, targetTab = null) {
   setTab(targetTab || state.tab || "summary"); window.scrollTo({ top: 0 });
 }
 
-function showList() {
+function showList({ fromHistory = false } = {}) {
   if (state.effectiveRole === "store_manager") return;
+  if (!fromHistory && window.history.state?.storeSalesView === "detail") {
+    window.history.back();
+    return;
+  }
   if (state.selectedStoreKey) {
     state.selectedStoreKey = null;
     reload();
@@ -523,13 +548,15 @@ function detailMetric(label, metric) {
 function metricCard(metric) { const item = node("article", "metric"); item.append(node("div", "metric-label", metric.label), node("div", "metric-value", metricText(metric))); if (metric.reason) item.append(node("div", "metric-note", metric.reason)); return item; }
 function metricCell(store, key) { return cell(metricText(store.metrics[key])); }
 function profitText(store) { return store?.ownership === "FC" ? "V1対象外" : metricText(store?.metrics?.operatingProfit); }
-function summaryProfitMetric(stores) {
+function summaryProfitMetric(stores, scope) {
   const directStores = stores.filter((store) => store.ownership !== "FC");
   if (!directStores.length) return { label: "利益", displayValue: null, dataState: "out_of_scope_v1", reason: "FC利益はV1対象外" };
   const confirmed = directStores.every((store) => store.metrics.operatingProfit?.dataState === "available");
-  const label = `直営店利益（対象${directStores.length}店舗）`;
+  const fcCount = stores.length - directStores.length;
+  const label = scope === "All" ? `利益（直営${directStores.length}店舗のみ）` : "直営店利益";
+  const reason = fcCount ? `FC${fcCount}店舗の利益はV1対象外です` : "税抜売上を基礎とした店舗営業利益";
   if (!confirmed) return { label, displayValue: null, dataState: directStores.some((store) => store.metrics.operatingProfit?.dataState === "preparing") ? "preparing" : "collecting", reason: "未確定利益は表示しません" };
-  return { label, displayValue: formatYen(directStores.reduce((sum, store) => sum + metricNumber(store.metrics.operatingProfit), 0)), dataState: "available", reason: "税抜売上を基礎とした店舗営業利益" };
+  return { label, displayValue: formatYen(directStores.reduce((sum, store) => sum + metricNumber(store.metrics.operatingProfit), 0)), dataState: "available", reason };
 }
 function metricText(metric) { return metric?.dataState === "available" && metric.displayValue !== null ? String(metric.displayValue) : stateText(metric?.dataState); }
 function stateText(value) { return ({ confirmed: "確定", available: "確定", collecting: "集計中", pending: "集計中", preparing: "準備中", unavailable: "取得できません", validation_error: "データ確認が必要です", out_of_scope_v1: "V1対象外" })[value] || "準備中"; }
@@ -548,8 +575,21 @@ function count(value) { return value === null ? "準備中" : `${Math.round(valu
 function signedConclusion(value, positive = "上昇", negative = "低下") { return value === null ? "準備中" : value >= .5 ? positive : value <= -.5 ? negative : "横ばい"; }
 function formatTrendValue(key, value) { return ["sales", "profit", "retail", "ec"].includes(key) ? formatYen(value) : key === "customers" ? count(value) : yen(value); }
 function actionImpact(ruleId) { return ruleId === "new_repeat" ? "既存客数の増加" : ruleId === "ticket_and_repeat" ? "売上と利益の安定" : "改善の定着"; }
+function actionAdvice(action) {
+  if (action?.recommendation) return String(action.recommendation);
+  const reason = String(action?.reason || "");
+  if (/営業利益率/u.test(reason)) return "店舗詳細で売上・客数・単価を確認し、人件費・材料費・販促費の前年差を確認する";
+  if (/予算/u.test(reason)) return "予算差を売上・客数・単価に分け、差が大きい項目から確認する";
+  if (/前年/u.test(reason)) return "前年同月との差を客数と単価に分け、変化した要因を店舗へ確認する";
+  if (/準備|未確定|データ/u.test(reason)) return "未提出・未承認のデータと確定予定日を確認する";
+  return "店舗詳細で関連指標と前月・前年の変化を確認し、担当者と次の対応を決める";
+}
 function storeFocus(store) { return store?.focus || store?.statusReason || "今月の重点をチームで確認しましょう。"; }
-function storeAm(store) { if (store?.area) return `${store.area}AM`; const number = Number(String(store?.storeKey || "").match(/(\d{2})$/)?.[1] || 1); return ["西東京AM", "埼玉AM", "都心AM"][(number - 1) % 3]; }
+function storeAm(store) {
+  const assigned = String(store?.assignedAm || store?.areaManager || store?.area || "").trim();
+  if (!assigned) return "準備中";
+  return /AM$/u.test(assigned) ? assigned : `${assigned}AM`;
+}
 function setNotice(title, body) { elements.noticeTitle.textContent = title; elements.noticeBody.textContent = body; }
 function setPressed(selector, current) { document.querySelectorAll(selector).forEach((button) => button.setAttribute("aria-pressed", String(button === current))); }
 function cell(value, className = "") { const td = node("td", className); value instanceof Node ? td.append(value) : td.textContent = String(value ?? "—"); return td; }

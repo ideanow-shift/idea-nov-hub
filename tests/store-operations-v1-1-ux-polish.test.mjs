@@ -38,6 +38,28 @@ test("店舗一覧はPCとモバイルの両方で担当AMを表示する", () =
   assert.match(app, /cell\(storeAm\(store\)\)/);
   assert.match(app, /node\("dt", "", "担当AM"\)/);
   assert.match(app, /function storeAm\(store\)/);
+  assert.match(app, /if \(!assigned\) return "準備中"/);
+  assert.doesNotMatch(app, /\["西東京AM", "埼玉AM", "都心AM"\]/);
+});
+
+test("価値・生産性詳細は技術単価と技術生産性を区別して表示する", () => {
+  assert.match(app, /value: \["totalTicket", "productivity", "technicalTicket", "technicalProductivity"/);
+  assert.match(app, /technicalTicket: "技術単価", technicalProductivity: "技術生産性"/);
+});
+
+test("月次と累計は要約ラベルでも選択状態を明示する", () => {
+  assert.match(app, /総売上（税抜・\$\{state\.periodMode === "cumulative" \? "累計" : "月次"\}）/);
+});
+
+test("店舗詳細はブラウザ履歴を1段追加し、モバイルの戻る操作で一覧へ戻る", () => {
+  assert.match(app, /window\.history\.pushState/);
+  assert.match(app, /window\.addEventListener\("popstate"/);
+  assert.match(app, /showList\(\{ fromHistory: true \}\)/);
+});
+
+test("優先対応カードは理由に対応した次の確認行動を表示する", () => {
+  assert.match(app, /次に確認: \$\{actionAdvice\(action\)\}/);
+  assert.match(app, /店舗詳細で売上・客数・単価を確認/);
 });
 
 test("既存のダッシュボード情報設計を維持する", () => {

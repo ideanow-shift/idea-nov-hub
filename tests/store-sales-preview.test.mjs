@@ -77,7 +77,11 @@ test("employee fixture is access denied", async () => {
   assert.match(storeApp, /document\.querySelector\("main"\)\.hidden = true/);
 });
 test("HUB return link is relative", () => assert.match(storeHtml, /href="\.\.\/">← NOV HUBへ戻る/));
-test("browser Back remains native history", () => assert.doesNotMatch(storeApp, /history\.(replaceState|pushState)|location\.replace/));
+test("browser Back returns from detail to the in-app list before leaving for NOV HUB", () => {
+  assert.match(storeApp, /history\.pushState/);
+  assert.match(storeApp, /addEventListener\("popstate"/);
+  assert.doesNotMatch(storeApp, /location\.replace/);
+});
 test("320px CSS remains card based", () => {
   assert.match(storeCss, /@media \(max-width: 620px\)/);
   assert.match(storeCss, /\.table-scroll \{ display: none; \}/);

@@ -1,0 +1,62 @@
+{
+  "captured_at": "2026-09-21T00:00:00+09:00",
+  "mode": "PRODUCTION_READ_ONLY_PREFLIGHT",
+  "portfolio_lock_id": "CTO-PORTFOLIO-EXECUTION-ORDER-2026-09-21-V5",
+  "current_phase": "PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1",
+  "projects": { "staging": "zgkoofphhivesclehrom", "production": "nkmxevmioczcmnldreyo" },
+  "production": {
+    "store_repeat": {
+      "row_count": 7040,
+      "active_row_count": 7040,
+      "source_unit_count": 20,
+      "definition_version": "POS_REPEAT_COHORT_4M_CUMULATIVE_V1",
+      "package_source_sha256": "72C9C0559D8C5C99C190CDDC87AB2FBAECABDE25AD47E5099EB24B158B8B7D61",
+      "workbook_sha256": "6582558BBB482C3B90DE2C4C1CA16047CD806F3FD1FF1D39A9B7C11287C63A0C",
+      "key_set_md5": "BDE1AF1467D49ED7CEA25C4FB2E08B6C",
+      "count_set_md5": "365568121616BA452C0A26799A2A35EE",
+      "full_set_md5": "EE85FD88B8E7B850D49BBD5353BDAC6C",
+      "fixed_input_full_set_md5": "EE85FD88B8E7B850D49BBD5353BDAC6C",
+      "fingerprint_status": "EXACT_MATCH"
+    },
+    "retail": {
+      "retail_purchase_customer_visits_definition_count": 0,
+      "retail_purchase_customer_visits_fact_count": 0,
+      "existing_rate_rows": 4,
+      "existing_rate_definition_version": "v1",
+      "existing_total_customer_rows": 491,
+      "rate_comparison": "EXACT_CANDIDATES_MATCH_EXISTING_DISPLAY_VALUES_AT_SOURCE_PRECISION; DEFINITION_VERSION_REVIEW_REQUIRED"
+    },
+    "active_store_corporation_history": {
+      "history_set_id": "02c2c8a9-a1b8-4192-afe6-13922c9dadf2",
+      "batch_fingerprint": "A6B94ACF606A565F9F5055D5652C3737E776831C4CE39BCE2329E5DC447A916B",
+      "source_excel_sha256": "F824BB964A9F61A62B17786AFBF9D9A3E0AD53543DB2E7027419219FB6E2C309",
+      "source_manifest_sha256": "E36B39D091F238EF6B038A6FE93CDC2636E43FCE2537B7929E9B31DE9E2B0FEB",
+      "source_row_count": 29
+    }
+  },
+  "staging": {
+    "store_repeat_canonical_rows": 440,
+    "store_repeat_staging_rows": 440,
+    "store_repeat_unit_count": 1,
+    "store_repeat_unit_key": "SALON:久米川",
+    "retail_purchase_customer_visits_definition_count": 0
+  },
+  "mapping": {
+    "retail_ready_salon_rows": 1492,
+    "matched": 1492,
+    "unmatched": 0,
+    "ambiguous": 0,
+    "package_salon_unit_count": 20,
+    "exact_unit_key_match_count": 20,
+    "temporal_store_split_count": 1,
+    "temporal_store_split_unit": "SALON:KYARAHALF",
+    "company_effective_period_mismatch_count": 0,
+    "outside_operation_period_rows": 62,
+    "company_no_count": 1,
+    "company_row_count": 532,
+    "company_matched": 1,
+    "company_unmatched": 0,
+    "company_ambiguous": 0
+  },
+  "write_count": 0
+}

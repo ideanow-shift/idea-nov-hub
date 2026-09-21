@@ -20,14 +20,14 @@ const elements = {
 const metricLabels = {
   summary: ["sales", "budgetRatio", "yearOverYearRatio", "operatingProfit", "customerCount", "totalTicket", "totalRepeat", "productivity"],
   customer: ["totalRepeat", "new", "returning", "loyal", "customerCount", "newCustomerCount", "existingCustomerCount"],
-  value: ["totalTicket", "productivity", "technicalTicket", "technicalProductivity", "retailSales", "retailPurchaseRate", "staffCount"]
+  value: ["totalTicket", "productivity", "technicalTicket", "technicalProductivity", "retailSales", "retailPurchaseCustomerVisits", "retailPurchaseRate", "staffCount"]
 };
 const labels = {
   sales: "総売上（税抜）", operatingProfit: "営業利益", customerCount: "総客数", totalTicket: "総単価（税抜）",
   budgetRatio: "予算比", yearOverYearRatio: "前年同月比",
   totalRepeat: "総リピート率", productivity: "総生産性", new: "新規リピート率", returning: "再来リピート率",
   loyal: "固定リピート率", newCustomerCount: "新規客数", existingCustomerCount: "既存客数",
-  technicalTicket: "技術単価", technicalProductivity: "技術生産性", retailSales: "店販売上", retailPurchaseRate: "店販購買率", staffCount: "稼働スタッフ数"
+  technicalTicket: "技術単価", technicalProductivity: "技術生産性", retailSales: "店販売上", retailPurchaseCustomerVisits: "店販購買客数", retailPurchaseRate: "店販購買率", staffCount: "稼働スタッフ数"
 };
 const statusOrder = { "Needs Attention": 0, Preparing: 1, Improving: 2, Stable: 3, Good: 4 };
 const statusNames = { "Needs Attention": "要対応", Preparing: "準備中", Improving: "改善中", Stable: "安定", Good: "好調" };

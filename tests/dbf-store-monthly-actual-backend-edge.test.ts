@@ -38,6 +38,7 @@ function dependencies(options: {
   assignedScopeEnabled?: boolean;
   factRows?: JsonRecord[];
   budgetRows?: JsonRecord[];
+  repeatRows?: JsonRecord[];
   operatorRows?: JsonRecord[];
   captureRpc?: (name: string, args: JsonRecord) => void;
   includeRpc?: boolean;
@@ -131,6 +132,8 @@ function dependencies(options: {
       }
       const rows = name === "dbf_store_monthly_budget_range_read_v1"
         ? options.budgetRows || []
+        : name === "dbf_store_repeat_rate_read_v1"
+        ? options.repeatRows || []
         : options.factRows || [];
       return rows.filter((row) =>
         row.company_id === args.p_company_id &&
@@ -184,6 +187,18 @@ function budgetFact(rawStoreId: string, fiscalMonth: string, value: number, metr
   };
 }
 
+function repeatFact(rawStoreId: string, customerSegment = "TOTAL", metricCode = "TOTAL_REPEAT_RATE"): JsonRecord {
+  return {
+    visit_month: "2026-03-01", calculation_month: "2026-07-01",
+    company_id: COMPANY_DIRECT, store_id: rawStoreId, horizon_months: 4,
+    customer_segment: customerSegment, metric_code: metricCode,
+    denominator_visit_count: 100, numerator_cumulative_repeat_count: 42,
+    pos_display_rate: "0.420", exact_rate: "0.42",
+    definition_version: "POS_REPEAT_COHORT_4M_CUMULATIVE_V1",
+    source_file_sha256: FACT_SHA, imported_at: "2026-09-21T00:00:00Z", fact_version: 1,
+  };
+}
+
 Deno.test("all-scope projection returns the formal 20 stores and never fabricates missing facts", async () => {
   const directStore = STORE_ROWS[1];
   const calls: JsonRecord[] = [];
@@ -214,7 +229,7 @@ Deno.test("all-scope projection returns the formal 20 stores and never fabricate
     (data.responsibility as JsonRecord).corporateFinancialLineItemsIncluded,
     false,
   );
-  assertEquals(calls.length, 5);
+  assertEquals(calls.length, 7);
   assert(calls.every((call) => Array.isArray(call.p_store_ids)));
 });
 
@@ -244,8 +259,89 @@ Deno.test("store-manager projection derives one store from server-side identity"
   const stores = (result.body.data as JsonRecord).stores as JsonRecord[];
   assertEquals(stores.length, 1);
   assertEquals(stores[0].storeKey, STORE_ROWS[1].store_id);
-  assertEquals(calls.length, 3);
+  assertEquals(calls.length, 4);
   assertEquals(calls[0].p_store_ids, [ownStoreId]);
+});
+
+Deno.test("formal Total Repeat and retail purchase count are read-only projected without overwriting the existing rate", async () => {
+  const ownStoreId = String(STORE_ROWS[1].id);
+  const rpcNames: string[] = [];
+  const totalCustomers = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "TOTAL_CUSTOMERS", value_kind: "quantity", metric_value: "100",
+  };
+  const retailPurchaseCustomers = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "RETAIL_PURCHASE_CUSTOMER_VISITS", value_kind: "quantity", metric_value: "20",
+    definition_version: "POS_RETAIL_PURCHASE_CUSTOMER_COUNT_V1",
+  };
+  const existingRetailPurchaseRate = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "RETAIL_PURCHASE_RATE", value_kind: "rate", metric_value: "0.25",
+  };
+  const legacyTotalRepeat = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "TOTAL_REPEAT_RATE", value_kind: "rate", metric_value: "0.99",
+  };
+  const result = await handleManagementReadOnlyAction(
+    { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-07" } },
+    dependencies({
+      roleKey: "store_manager",
+      employeeStoreId: ownStoreId,
+      factRows: [totalCustomers, retailPurchaseCustomers, existingRetailPurchaseRate, legacyTotalRepeat],
+      repeatRows: [repeatFact(ownStoreId), repeatFact(ownStoreId, "RETURNING", "RETURNING_REPEAT_RATE")],
+      captureRpc: (name) => rpcNames.push(name),
+    }),
+  );
+
+  assertEquals(result.status, 200);
+  assert(rpcNames.includes("dbf_store_repeat_rate_read_v1"));
+  const data = result.body.data as JsonRecord;
+  const projected = (data.stores as JsonRecord[])[0];
+  const metrics = projected.metrics as JsonRecord[];
+  const totalRepeat = metrics.find((metric) => metric.metricCode === "TOTAL_REPEAT_RATE")!;
+  assertEquals(totalRepeat.value, "0.42");
+  assertEquals(totalRepeat.definitionVersion, "POS_REPEAT_COHORT_4M_CUMULATIVE_V1");
+  assertEquals(metrics.some((metric) => metric.metricCode === "RETURNING_REPEAT_RATE"), false);
+  assertEquals(metrics.find((metric) => metric.metricCode === "RETAIL_PURCHASE_CUSTOMER_VISITS")?.value, "20");
+  assertEquals(projected.retailPurchaseRateReconciliation, {
+    dataState: "confirmed",
+    policy: "retain-existing-rate-no-overwrite",
+    existingMetricCode: "RETAIL_PURCHASE_RATE",
+    candidateNumeratorMetricCode: "RETAIL_PURCHASE_CUSTOMER_VISITS",
+    denominatorMetricCode: "TOTAL_CUSTOMERS",
+    existingRate: "0.25",
+    derivedRate: "0.2",
+    difference: "0.05",
+    matches: false,
+  });
+  const readiness = data.readiness as JsonRecord;
+  assertEquals(readiness.formalRepeatFactRowCount, 1);
+  assertEquals(readiness.retailPurchaseRateMismatchCount, 1);
+});
+
+Deno.test("formal Total Repeat with a zero denominator remains preparing rather than failing or becoming zero", async () => {
+  const ownStoreId = String(STORE_ROWS[1].id);
+  const zeroDenominatorRepeat = {
+    ...repeatFact(ownStoreId),
+    denominator_visit_count: 0,
+    numerator_cumulative_repeat_count: 0,
+    pos_display_rate: "0",
+    exact_rate: null,
+  };
+  const result = await handleManagementReadOnlyAction(
+    { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-07" } },
+    dependencies({
+      roleKey: "store_manager",
+      employeeStoreId: ownStoreId,
+      repeatRows: [zeroDenominatorRepeat],
+    }),
+  );
+
+  assertEquals(result.status, 200);
+  const projected = ((result.body.data as JsonRecord).stores as JsonRecord[])[0];
+  assertEquals((projected.metrics as JsonRecord[]).some((metric) => metric.metricCode === "TOTAL_REPEAT_RATE"), false);
+  assertEquals(((result.body.data as JsonRecord).readiness as JsonRecord).formalRepeatMissingStoreCount, 1);
 });
 
 Deno.test("historical company change is resolved by fiscal month and current ownership is not backcast", async () => {

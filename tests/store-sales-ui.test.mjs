@@ -45,6 +45,13 @@ test("store detail exposes server-provided budget and year-over-year comparisons
   assert.match(app, /yearOverYearRatio: "前年同月比"/);
 });
 
+test("store detail exposes the retail purchase customer quantity separately from the rate", () => {
+  assert.match(app, /retailPurchaseCustomerVisits/);
+  assert.match(app, /店販購買客数/);
+  assert.match(app, /retailPurchaseRate/);
+  assert.match(app, /店販購買率/);
+});
+
 
 test("Store Operations is an independent app and is not duplicated inside Management", () => {
   assert.doesNotMatch(management, /data-href="\.\.\/store-sales\/"|data-section="stores"|id="stores-view"/);

@@ -258,7 +258,10 @@ function renderSummary(projection, stores, scopeLabel) {
   const salesPeriodNote = state.periodMode === "cumulative"
     ? fiscalStart.length ? `${formatMonth(fiscalStart.sort()[0])}〜${formatMonth(elements.period.value)}の累計` : `${formatMonth(elements.period.value)}までの累計`
     : formatMonth(elements.period.value);
-  const salesSummaryMetric = { label: "総売上（税抜）", displayValue: formatYen(total), dataState: "available", reason: salesPeriodNote };
+  const salesSummaryMetric = {
+    label: `総売上（税抜・${state.periodMode === "cumulative" ? "累計" : "月次"}）`,
+    displayValue: formatYen(total), dataState: "available", reason: salesPeriodNote
+  };
   if (!salesReady) Object.assign(salesSummaryMetric, { displayValue: null, dataState: "preparing", reason: "未登録値をゼロとして表示しません" });
   const stagingFixture = state.runtimeFeatureFlag === "staging" && (projection.contractVersion !== "STORE_MONTHLY_ACTUAL_V1" || projection.readiness?.fixtureData === true);
   $("summary-narrative").textContent = stagingFixture ? "現在は営業部レビュー用の架空20店舗サンプルです。実績値ではありません。" :

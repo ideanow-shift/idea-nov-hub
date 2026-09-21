@@ -32,18 +32,50 @@ function valueKind(code) {
   return "amount";
 }
 
+function parseMonth(period) {
+  const [year, month] = String(period).split("-").map(Number);
+  return { year, month };
+}
+
+function shiftMonth(period, offset) {
+  const { year, month } = parseMonth(period);
+  const date = new Date(Date.UTC(year, month - 1 + offset, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthsEnding(period, count) {
+  return Object.freeze(Array.from({ length: count }, (_, index) => shiftMonth(period, index - count + 1)));
+}
+
+function fiscalMonths(period) {
+  const result = [];
+  for (let month = "2026-04"; month <= period; month = shiftMonth(month, 1)) result.push(month);
+  return Object.freeze(result);
+}
+
+function periodOffset(period) {
+  const { year, month } = parseMonth(period);
+  return ((year - 2025) * 12 + month) * 25;
+}
+
 function metricValue(code, index, period) {
-  const monthOffset = period === "2026-07" ? 700 : 600;
+  const monthOffset = periodOffset(period);
   if (code.includes("RATE")) return String((32 + ((index + code.length) % 25)) / 100);
   if (code.includes("CUSTOMERS")) return String(310 + index * 17 + monthOffset / 10);
-  if (code.includes("UNIT_PRICE")) return String(8200 + index * 145 + monthOffset);
-  if (code.includes("PRODUCTIVITY")) return String(560000 + index * 8700 + monthOffset * 10);
+  if (code === "TOTAL_UNIT_PRICE") return String(8200 + index * 145 + monthOffset);
+  if (code === "TECHNICAL_UNIT_PRICE") return String(7600 + index * 120 + monthOffset * 0.8);
+  if (code === "TOTAL_PRODUCTIVITY") return String(560000 + index * 8700 + monthOffset * 10);
+  if (code === "TECHNICAL_PRODUCTIVITY") return String(520000 + index * 7300 + monthOffset * 8);
   if (code === "OPERATING_PROFIT") return String(430000 + index * 19000 + monthOffset * 10);
   if (code === "TOTAL_SALES") return String(6100000 + index * 225000 + monthOffset * 100);
   if (code === "TECHNICAL_SALES") return String(5100000 + index * 180000 + monthOffset * 80);
   if (code === "RETAIL_SALES") return String(720000 + index * 31000 + monthOffset * 15);
   if (code === "MID_SALES") return String(170000 + index * 9000 + monthOffset * 5);
   return String(110000 + index * 7000 + monthOffset * 4);
+}
+
+function sumMetric(code, index, months) {
+  return String(months.reduce((total, month) => total + Number(metricValue(code, index, month)), 0));
 }
 
 function fact(code, index, period) {
@@ -67,8 +99,8 @@ function trendPoint(month, index, omitProfit = false) {
 
 function comparison(period, index) {
   const july = period === "2026-07";
-  const priorYear = july ? "2025-07" : "2025-06";
-  const priorMonth = july ? "2026-06" : "2026-05";
+  const yearMonths = fiscalMonths(period);
+  const profitMonths = yearMonths.filter((month) => month <= "2026-06");
   return Object.freeze({
     contractVersion: COMPARISON_CONTRACT_VERSION,
     budgetRatio: Object.freeze({ dataState: "confirmed", value: String(98 + (index % 8)) }),
@@ -82,17 +114,38 @@ function comparison(period, index) {
       startMonth: "2026-04",
       endMonth: period,
       metrics: Object.freeze({
-        TOTAL_SALES: Object.freeze({ dataState: "confirmed", value: String(Number(metricValue("TOTAL_SALES", index, period)) * (july ? 4 : 3)) }),
-        OPERATING_PROFIT: Object.freeze({ dataState: "confirmed", value: String(Number(metricValue("OPERATING_PROFIT", index, "2026-06")) * (july ? 3 : 3)) }),
-        TOTAL_CUSTOMERS: Object.freeze({ dataState: "confirmed", value: String(Number(metricValue("TOTAL_CUSTOMERS", index, period)) * (july ? 4 : 3)) })
+        TOTAL_SALES: Object.freeze({ dataState: "confirmed", value: sumMetric("TOTAL_SALES", index, yearMonths) }),
+        OPERATING_PROFIT: Object.freeze({ dataState: "confirmed", value: sumMetric("OPERATING_PROFIT", index, profitMonths) }),
+        TOTAL_CUSTOMERS: Object.freeze({ dataState: "confirmed", value: sumMetric("TOTAL_CUSTOMERS", index, yearMonths) })
       }),
       budgetAchievement: Object.freeze({ dataState: "confirmed", value: String(99 + (index % 6)) })
     }),
-    monthlyTrend: Object.freeze([
-      trendPoint(priorYear, index),
-      trendPoint(priorMonth, index),
-      trendPoint(period, index, july)
-    ])
+    monthlyTrend: Object.freeze(monthsEnding(period, 13).map((month) => trendPoint(month, index, july && month === period)))
+  });
+}
+
+function fixtureStatus(index) {
+  const budgetRatio = 98 + (index % 8);
+  const yearOverYearRatio = 96 + (index % 12);
+  if (index < 3) return Object.freeze({
+    status: "Needs Attention",
+    statusReason: `予算比${budgetRatio}.0%、前年同月比${yearOverYearRatio}.0%です。客数と単価を分けて確認し、次月の改善担当と期限を決めてください。`,
+    statusRuleId: "staging-fixture-attention"
+  });
+  if (index < 8) return Object.freeze({
+    status: "Improving",
+    statusReason: `前年同月比${yearOverYearRatio}.0%です。改善が継続するか、客数・単価・店販の順に確認してください。`,
+    statusRuleId: "staging-fixture-improving"
+  });
+  if (index < 18) return Object.freeze({
+    status: "Stable",
+    statusReason: `予算比${budgetRatio}.0%、前年同月比${yearOverYearRatio}.0%で、架空比較指標は安定範囲です。`,
+    statusRuleId: "staging-fixture-stable"
+  });
+  return Object.freeze({
+    status: "Good",
+    statusReason: `予算比${budgetRatio}.0%、前年同月比${yearOverYearRatio}.0%です。良好要因を確認し、他店舗へ共有してください。`,
+    statusRuleId: "staging-fixture-good"
   });
 }
 
@@ -109,6 +162,7 @@ export function createStoreOperationsStagingFixture({ selectedMonth, selectedSto
   const visible = safeStoreKey ? stores.filter((store) => store.storeKey === safeStoreKey) : stores;
   const projectedStores = visible.map((store) => {
     const index = stores.findIndex((candidate) => candidate.storeKey === store.storeKey);
+    const status = fixtureStatus(index);
     const metrics = METRIC_CODES
       .filter((code) => !(july && code === "OPERATING_PROFIT"))
       .map((code) => fact(code, index, fiscalMonth));
@@ -119,9 +173,7 @@ export function createStoreOperationsStagingFixture({ selectedMonth, selectedSto
       dataState: "confirmed",
       metrics: Object.freeze(metrics),
       comparisons: comparison(fiscalMonth, index),
-      status: "Stable",
-      statusReason: "架空比較指標は安定範囲です",
-      statusRuleId: "staging-fixture-stable"
+      ...status
     });
   });
   return Object.freeze({

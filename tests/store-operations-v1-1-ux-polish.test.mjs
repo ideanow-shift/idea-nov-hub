@@ -47,6 +47,10 @@ test("価値・生産性詳細は技術単価と技術生産性を区別して�
   assert.match(app, /technicalTicket: "技術単価", technicalProductivity: "技術生産性"/);
 });
 
+test("月次と累計は要約ラベルでも選択状態を明示する", () => {
+  assert.match(app, /総売上（税抜・\$\{state\.periodMode === "cumulative" \? "累計" : "月次"\}）/);
+});
+
 test("店舗詳細はブラウザ履歴を1段追加し、モバイルの戻る操作で一覧へ戻る", () => {
   assert.match(app, /window\.history\.pushState/);
   assert.match(app, /window\.addEventListener\("popstate"/);

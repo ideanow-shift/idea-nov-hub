@@ -10,6 +10,7 @@ const priorComparisonUiManifest = JSON.parse(read("docs/store_operations_managem
 const priorProfitStateUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-profit-state-staging-fix-ui-bundle-v1.json"));
 const fcProfitSignalUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-fc-profit-signal-ui-bundle-v1.json"));
 const salesUatCorrectionsUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-sales-uat-corrections-ui-bundle-v1.json"));
+const salesUatFixtureCorrectionsUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-sales-uat-fixture-corrections-ui-bundle-v2.json"));
 const productionConfig = {
   mode: "production", featureFlag: "production", preview: false, productionApproved: true,
   expectedProjectRef: "nkmxevmioczcmnldreyo",
@@ -77,14 +78,28 @@ test("prior FC profit signal candidate remains internally sealed and Production 
   assert.equal(createHash("sha256").update(input).digest("hex"), fcProfitSignalUiManifest.bundle_content_sha256);
 });
 
-test("sales UAT corrections candidate pins current changed assets and keeps Production prohibited", () => {
+test("deployed sales UAT corrections bundle remains immutable", () => {
   assert.equal(salesUatCorrectionsUiManifest.deployment_status, "STAGING_DEPLOYED_AWAITING_OWNER_SALES_UAT");
   assert.equal(salesUatCorrectionsUiManifest.production_release_status, "REQUIRES_SEPARATE_OWNER_APPROVAL");
   assert.equal(salesUatCorrectionsUiManifest.bundle_file_count, 2);
+  assert.equal(salesUatCorrectionsUiManifest.bundle_content_sha256, "1499b5ecae7f44add23dd4830085e383db6d8c6dcf622651acf92f937fdbdc1d");
   assert.ok(Object.values(salesUatCorrectionsUiManifest.gates).every((gate) => gate === "PROHIBITED"));
   const sorted = [...salesUatCorrectionsUiManifest.files].sort((left, right) => left.path.localeCompare(right.path));
   const input = sorted.map((file) => file.path + "\t" + file.sha256 + "\t" + file.bytes).join("\n");
   assert.equal(createHash("sha256").update(input).digest("hex"), salesUatCorrectionsUiManifest.bundle_content_sha256);
+});
+
+test("sales UAT fixture corrections candidate pins current assets and requires separate Staging approval", () => {
+  assert.equal(salesUatFixtureCorrectionsUiManifest.deployment_status, "STAGING_DEPLOY_REQUIRES_SEPARATE_OWNER_APPROVAL");
+  assert.equal(salesUatFixtureCorrectionsUiManifest.production_release_status, "REQUIRES_SEPARATE_OWNER_APPROVAL");
+  assert.equal(salesUatFixtureCorrectionsUiManifest.bundle_file_count, 2);
+  assert.equal(salesUatFixtureCorrectionsUiManifest.gates.staging_ui_deploy, "REQUIRES_SEPARATE_OWNER_APPROVAL");
+  for (const gate of ["github_pages_publish", "production_edge_deploy", "production_dml", "production_ddl", "real_data_change", "pr_merge"]) {
+    assert.equal(salesUatFixtureCorrectionsUiManifest.gates[gate], "PROHIBITED");
+  }
+  const sorted = [...salesUatFixtureCorrectionsUiManifest.files].sort((left, right) => left.path.localeCompare(right.path));
+  const input = sorted.map((file) => file.path + "\t" + file.sha256 + "\t" + file.bytes).join("\n");
+  assert.equal(createHash("sha256").update(input).digest("hex"), salesUatFixtureCorrectionsUiManifest.bundle_content_sha256);
   for (const file of sorted) {
     const content = read(file.path);
     const approvedWindowsBytes = Buffer.from(

@@ -21,6 +21,7 @@ const METRICS = Object.freeze({
   FIXED_REPEAT_RATE: ["loyal", "固定リピート率", "percent"],
   TOTAL_PRODUCTIVITY: ["productivity", "総生産性", "yen"],
   TECHNICAL_PRODUCTIVITY: ["technicalProductivity", "技術生産性", "yen"],
+  RETAIL_PURCHASE_CUSTOMER_VISITS: ["retailPurchaseCustomerVisits", "店販購買客数", "count"],
   RETAIL_PURCHASE_RATE: ["retailPurchaseRate", "店販購買率", "percent"],
   OPERATING_PROFIT: ["operatingProfit", "店舗営業利益", "yen"]
 });
@@ -88,6 +89,30 @@ function normalizeComparison(source, label, unit = "percent") {
   return Object.freeze({ label, value, rawValue: value, displayValue: format(value, unit), unit, dataState: "available", reason: "DBF正式比較値" });
 }
 
+function normalizeRetailPurchaseRateReconciliation(source) {
+  if (!source || source.dataState === "preparing") {
+    return Object.freeze({ dataState: "preparing", matches: null, existingRate: null, derivedRate: null, difference: null });
+  }
+  if (source.dataState !== "confirmed" || source.policy !== "retain-existing-rate-no-overwrite"
+    || source.existingMetricCode !== "RETAIL_PURCHASE_RATE"
+    || source.candidateNumeratorMetricCode !== "RETAIL_PURCHASE_CUSTOMER_VISITS"
+    || source.denominatorMetricCode !== "TOTAL_CUSTOMERS") fail("INVALID_RETAIL_PURCHASE_RECONCILIATION");
+  const values = [source.existingRate, source.derivedRate, source.difference];
+  if (values.some((value) => !/^-?\d+(?:\.\d+)?$/u.test(String(value ?? "")))) fail("INVALID_RETAIL_PURCHASE_RECONCILIATION");
+  const [existingRate, derivedRate, difference] = values.map(Number);
+  if (![existingRate, derivedRate, difference].every(Number.isFinite)
+    || existingRate < 0 || existingRate > 1 || derivedRate < 0 || derivedRate > 1
+    || Math.abs((existingRate - derivedRate) - difference) > 1e-10
+    || source.matches !== (Math.abs(difference) <= 0.0000005)) fail("INVALID_RETAIL_PURCHASE_RECONCILIATION");
+  return Object.freeze({
+    dataState: "confirmed",
+    matches: source.matches,
+    existingRate: existingRate * 100,
+    derivedRate: derivedRate * 100,
+    difference: difference * 100
+  });
+}
+
 function normalizeTrend(source) {
   if (!Array.isArray(source)) fail("INVALID_MONTHLY_TREND");
   const seen = new Set();
@@ -152,6 +177,19 @@ export function validateDbfStoreMonthlyProjection(payload) {
       byCode.set(code, fact);
     });
     const metrics = Object.fromEntries(EXPECTED_CODES.map((code) => normalizeMetric(byCode.get(code), METRICS[code])));
+    const retailPurchaseRateReconciliation = normalizeRetailPurchaseRateReconciliation(source.retailPurchaseRateReconciliation);
+    if (metrics.retailPurchaseCustomerVisits.dataState === "available") {
+      metrics.retailPurchaseCustomerVisits = Object.freeze({
+        ...metrics.retailPurchaseCustomerVisits,
+        reason: "POS店販客数（技術施術と同時購入を含む）"
+      });
+    }
+    if (metrics.retailPurchaseRate.dataState === "available" && retailPurchaseRateReconciliation.dataState === "confirmed") {
+      const reason = retailPurchaseRateReconciliation.matches
+        ? "店販購買客数÷総客数の精密候補と一致"
+        : `既存率を維持（精密候補との差 ${retailPurchaseRateReconciliation.difference >= 0 ? "+" : ""}${retailPurchaseRateReconciliation.difference.toFixed(1)}ポイント）`;
+      metrics.retailPurchaseRate = Object.freeze({ ...metrics.retailPurchaseRate, reason });
+    }
     metrics.storeSales = preparingMetric("店舗売上（税抜）", "yen", "正式Contract未提供");
     metrics.regularRetail = metrics.retailSales;
     ["grossProfit", "operatingProfitMargin", "ordinaryProfit", "yearOverYearRatio", "budgetRatio", "profitYearOverYear", "customerYearOverYear", "ticketYearOverYear", "retailYearOverYear", "retailBudgetRatio", "ecTargetRatio", "ecYearOverYear", "staffCount"].forEach((key) => {
@@ -192,7 +230,7 @@ export function validateDbfStoreMonthlyProjection(payload) {
       statusReason: source.dataState === "preparing" ? "正式データを準備しています。" : statusReason || "比較指標が準備中のため、店舗状態はまだ判定しません。",
       conclusion: source.dataState === "preparing" ? "正式データを準備しています。" : statusReason || "当月確定値を表示しています。店舗状態は比較指標の接続後に判定します。",
       focus: source.dataState === "preparing" ? "データ準備完了後に確認してください。" : statusReason || "当月実績を確認しましょう。",
-      metrics: Object.freeze(metrics), yearly, monthlyTrend, actions: Object.freeze([])
+      metrics: Object.freeze(metrics), retailPurchaseRateReconciliation, yearly, monthlyTrend, actions: Object.freeze([])
     });
   });
   if (selectedStoreKey !== null && stores[0]?.storeKey !== selectedStoreKey) fail("SELECTED_STORE_MISMATCH");

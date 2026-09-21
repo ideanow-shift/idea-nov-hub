@@ -514,6 +514,15 @@ const STORE_MONTHLY_COMPARISON_CONTRACT = "STORE_MONTHLY_COMPARISON_V1";
 const OFFICIAL_OPERATING_STORE_BASELINE = Object.freeze({ total: 20, direct: 13, fc: 7 });
 const PUBLIC_STORE_KEY = /^[a-z0-9][a-z0-9_-]{0,63}$/iu;
 const CORPORATE_ACCOUNTING_COMPANY_ID = "e4059116-bdb3-4e13-9763-bbc77bdfe062";
+const REPEAT_DEFINITION_VERSION = "POS_REPEAT_COHORT_4M_CUMULATIVE_V1";
+const RETAIL_PURCHASE_COUNT_DEFINITION_VERSION = "POS_RETAIL_PURCHASE_CUSTOMER_COUNT_V1";
+const REPEAT_METRIC_BY_SEGMENT = Object.freeze({
+  TOTAL: "TOTAL_REPEAT_RATE",
+  NEW: "NEW_REPEAT_RATE",
+  RETURNING: "RETURNING_REPEAT_RATE",
+  SEMI_FIXED: "SEMI_FIXED_REPEAT_RATE",
+  FIXED: "FIXED_REPEAT_RATE",
+} as const);
 
 function shiftMonth(month: string, offset: number): string {
   const [year, monthNumber] = month.slice(0, 7).split("-").map(Number);
@@ -1085,11 +1094,12 @@ async function buildStoreMonthlyActualProjection(
   const fiscalYearEndByCorporation = new Map(profileRows.map((row) => [
     text(row.corporation_id), numberValue(row.fiscal_year_end_month),
   ]));
+  const repeatVisitMonth = shiftMonth(fiscalMonth, -4);
   const rangeGroups = await Promise.all(corporationIds.map(async (corporationId) => {
     const scopedStoreIds = unique([...effectiveOperatorSeeds.values()]
       .filter((operator) => operator.corporationId === corporationId)
       .map((operator) => operator.storeId));
-    const [actuals, budgets] = await Promise.all([
+    const [actuals, budgets, repeatRates] = await Promise.all([
       deps.db.rpc!("dbf_store_monthly_actual_range_read_v1", {
         p_start_month: rangeStart, p_end_month: fiscalMonth,
         p_company_id: corporationId, p_store_ids: scopedStoreIds,
@@ -1098,11 +1108,16 @@ async function buildStoreMonthlyActualProjection(
         p_start_month: rangeStart, p_end_month: fiscalMonth,
         p_company_id: corporationId, p_store_ids: scopedStoreIds,
       }),
+      deps.db.rpc!("dbf_store_repeat_rate_read_v1", {
+        p_visit_month: repeatVisitMonth,
+        p_company_id: corporationId, p_store_ids: scopedStoreIds,
+      }),
     ]);
-    return { actuals, budgets };
+    return { actuals, budgets, repeatRates };
   }));
   const facts = rangeGroups.flatMap((group) => group.actuals);
   const budgets = rangeGroups.flatMap((group) => group.budgets);
+  const repeatRates = rangeGroups.flatMap((group) => group.repeatRates);
   const factsByStoreMonth = new Map<string, JsonRecord[]>();
   let ownershipMismatchExcludedCount = 0;
   for (const fact of facts) {
@@ -1117,6 +1132,11 @@ async function buildStoreMonthlyActualProjection(
       || !metricValue
       || !/^-?\d+(?:\.\d+)?$/u.test(metricValue)
       || !/^[0-9a-f]{64}$/u.test(text(fact.source_file_sha256))) safe404();
+    if (text(fact.metric_code) === "RETAIL_PURCHASE_CUSTOMER_VISITS"
+      && (text(fact.value_kind) !== "quantity"
+        || !Number.isInteger(Number(metricValue))
+        || Number(metricValue) < 0
+        || text(fact.definition_version) !== RETAIL_PURCHASE_COUNT_DEFINITION_VERSION)) safe404();
     if (!operator || text(fact.company_id).toLowerCase() !== operator.corporationId) {
       ownershipMismatchExcludedCount += 1;
       continue;
@@ -1126,6 +1146,49 @@ async function buildStoreMonthlyActualProjection(
     if (current.some((value) => text(value.metric_code) === text(fact.metric_code))) safe404();
     current.push(fact);
     factsByStoreMonth.set(grain, current);
+  }
+
+  const repeatRateByStoreCalculationMonth = new Map<string, JsonRecord>();
+  let repeatOwnershipMismatchExcludedCount = 0;
+  for (const repeat of repeatRates) {
+    const rawStoreId = text(repeat.store_id).toLowerCase();
+    const visitMonth = text(repeat.visit_month);
+    const calculationMonth = text(repeat.calculation_month);
+    const customerSegment = text(repeat.customer_segment) as keyof typeof REPEAT_METRIC_BY_SEGMENT;
+    const expectedMetricCode = REPEAT_METRIC_BY_SEGMENT[customerSegment];
+    const exactRate = text(repeat.exact_rate);
+    const denominator = Number(repeat.denominator_visit_count);
+    const numerator = Number(repeat.numerator_cumulative_repeat_count);
+    const posDisplayRate = Number(text(repeat.pos_display_rate));
+    const rate = exactRate === "" ? null : Number(exactRate);
+    const zeroDenominator = denominator === 0;
+    const operator = effectiveOperatorByStoreMonth.get(`${rawStoreId}|${calculationMonth}`);
+    if (!storeByRawId.has(rawStoreId)
+      || visitMonth !== repeatVisitMonth
+      || calculationMonth !== fiscalMonth
+      || calculationMonth < rangeStart || calculationMonth > fiscalMonth
+      || numberValue(repeat.horizon_months) !== 4
+      || !expectedMetricCode || text(repeat.metric_code) !== expectedMetricCode
+      || text(repeat.definition_version) !== REPEAT_DEFINITION_VERSION
+      || !Number.isInteger(denominator) || denominator < 0
+      || !Number.isInteger(numerator) || numerator < 0 || numerator > denominator
+      || !Number.isFinite(posDisplayRate) || posDisplayRate < 0 || posDisplayRate > 1
+      || (zeroDenominator
+        ? numerator !== 0 || rate !== null || posDisplayRate !== 0
+        : rate === null || !/^\d+(?:\.\d+)?$/u.test(exactRate) || !Number.isFinite(rate)
+          || rate < 0 || rate > 1 || Math.abs(rate - numerator / denominator) > 0.000000000001)
+      || !/^[0-9a-f]{64}$/u.test(text(repeat.source_file_sha256))
+      || !Number.isInteger(Number(repeat.fact_version)) || Number(repeat.fact_version) < 1) safe404();
+    if (!operator || text(repeat.company_id).toLowerCase() !== operator.corporationId) {
+      repeatOwnershipMismatchExcludedCount += 1;
+      continue;
+    }
+    // RETURNING and SEMI_FIXED are validated but never mapped to the legacy
+    // SECOND/THIRD metrics. Store Operations V1 consumes TOTAL only.
+    if (customerSegment !== "TOTAL" || zeroDenominator) continue;
+    const grain = `${rawStoreId}|${calculationMonth}`;
+    if (repeatRateByStoreCalculationMonth.has(grain)) safe404();
+    repeatRateByStoreCalculationMonth.set(grain, repeat);
   }
 
   const budgetsByStoreMonthMetric = new Map<string, JsonRecord[]>();
@@ -1164,7 +1227,9 @@ async function buildStoreMonthlyActualProjection(
 
   const projectedStores = stores.map((store) => {
     const selectedOperator = effectiveOperatorByStoreMonth.get(`${store.rawId}|${fiscalMonth}`);
+    const formalRepeat = repeatRateByStoreCalculationMonth.get(`${store.rawId}|${fiscalMonth}`);
     const storeFacts = (factsByStoreMonth.get(`${store.rawId}|${fiscalMonth}`) || [])
+      .filter((fact) => text(fact.metric_code) !== "TOTAL_REPEAT_RATE")
       .sort((left, right) => text(left.metric_code).localeCompare(text(right.metric_code), "en"));
     const currentSales = actualNumber(store.rawId, fiscalMonth, "TOTAL_SALES");
     const budgetSales = budgetNumber(store.rawId, fiscalMonth, "TOTAL_SALES");
@@ -1177,6 +1242,18 @@ async function buildStoreMonthlyActualProjection(
     const priorYearRetailSales = actualNumber(store.rawId, shiftMonth(fiscalMonth, -12), "RETAIL_SALES");
     const budgetRetailSales = budgetNumber(store.rawId, fiscalMonth, "RETAIL_SALES");
     const currentOperatingProfit = actualNumber(store.rawId, fiscalMonth, "OPERATING_PROFIT");
+    const currentRetailPurchaseCustomers = actualNumber(store.rawId, fiscalMonth, "RETAIL_PURCHASE_CUSTOMER_VISITS");
+    const currentRetailPurchaseRate = actualNumber(store.rawId, fiscalMonth, "RETAIL_PURCHASE_RATE");
+    if (currentRetailPurchaseCustomers !== null
+      && (!Number.isInteger(currentRetailPurchaseCustomers) || currentRetailPurchaseCustomers < 0
+        || (currentCustomers !== null && currentRetailPurchaseCustomers > currentCustomers))) safe404();
+    const derivedRetailPurchaseRate = currentRetailPurchaseCustomers !== null
+        && currentCustomers !== null && currentCustomers > 0
+      ? Math.round((currentRetailPurchaseCustomers / currentCustomers) * 1e12) / 1e12
+      : null;
+    const retailPurchaseRateDifference = currentRetailPurchaseRate !== null && derivedRetailPurchaseRate !== null
+      ? Math.round((currentRetailPurchaseRate - derivedRetailPurchaseRate) * 1e12) / 1e12
+      : null;
     const budgetRatio = comparisonValue(currentSales, budgetSales);
     const yearOverYearRatio = comparisonValue(currentSales, priorYearSales);
     const customerYearOverYear = comparisonDeltaValue(currentCustomers, priorYearCustomers);
@@ -1260,7 +1337,21 @@ async function buildStoreMonthlyActualProjection(
       status: evaluatedStatus?.status || "Preparing",
       statusReason: evaluatedStatus?.reason || "予算比または前年同月比を準備しています",
       statusRuleId: evaluatedStatus?.ruleId || "comparison-data-preparing",
-      metrics: storeFacts.map((fact) => ({
+      metrics: [
+        ...storeFacts,
+        ...(formalRepeat ? [{
+          metric_code: "TOTAL_REPEAT_RATE",
+          value_kind: "rate",
+          metric_value: text(formalRepeat.exact_rate),
+          definition_version: text(formalRepeat.definition_version),
+          display_name: "総リピート率",
+          description: `${text(formalRepeat.visit_month).slice(0, 7)}来店コホートの4か月累積リピート率（${fiscalMonth.slice(0, 7)}算出）`,
+          source_type: "pos_repeat_cohort_4m_cumulative_v1",
+          source_file_sha256: text(formalRepeat.source_file_sha256),
+          imported_at: text(formalRepeat.imported_at),
+          fact_version: formalRepeat.fact_version,
+        }] : []),
+      ].sort((left, right) => text(left.metric_code).localeCompare(text(right.metric_code), "en")).map((fact) => ({
         metricCode: text(fact.metric_code),
         valueKind: text(fact.value_kind),
         value: text(fact.metric_value),
@@ -1274,6 +1365,17 @@ async function buildStoreMonthlyActualProjection(
           factVersion: numberValue(fact.fact_version),
         },
       })),
+      retailPurchaseRateReconciliation: {
+        dataState: currentRetailPurchaseRate !== null && derivedRetailPurchaseRate !== null ? "confirmed" : "preparing",
+        policy: "retain-existing-rate-no-overwrite",
+        existingMetricCode: "RETAIL_PURCHASE_RATE",
+        candidateNumeratorMetricCode: "RETAIL_PURCHASE_CUSTOMER_VISITS",
+        denominatorMetricCode: "TOTAL_CUSTOMERS",
+        existingRate: currentRetailPurchaseRate === null ? null : String(currentRetailPurchaseRate),
+        derivedRate: derivedRetailPurchaseRate === null ? null : String(derivedRetailPurchaseRate),
+        difference: retailPurchaseRateDifference === null ? null : String(retailPurchaseRateDifference),
+        matches: retailPurchaseRateDifference === null ? null : Math.abs(retailPurchaseRateDifference) <= 0.0000005,
+      },
       comparisons: {
         contractVersion: STORE_MONTHLY_COMPARISON_CONTRACT,
         budgetRatio,
@@ -1322,11 +1424,25 @@ async function buildStoreMonthlyActualProjection(
       budgetFactRowCount: budgets.length,
       effectiveOperatorRowCount: effectiveOperatorByStoreMonth.size,
       ownershipMismatchExcludedCount,
+      repeatOwnershipMismatchExcludedCount,
+      formalRepeatFactRowCount: repeatRateByStoreCalculationMonth.size,
+      formalRepeatMissingStoreCount: projectedStores.filter((store) =>
+        !(store.metrics as JsonRecord[]).some((metric) => text(metric.metricCode) === "TOTAL_REPEAT_RATE")
+      ).length,
+      retailPurchaseRateReconciliationCount: projectedStores.filter((store) =>
+        (store.retailPurchaseRateReconciliation as JsonRecord).dataState === "confirmed"
+      ).length,
+      retailPurchaseRateMismatchCount: projectedStores.filter((store) =>
+        (store.retailPurchaseRateReconciliation as JsonRecord).matches === false
+      ).length,
       ownershipResolutionPolicy: "history-unresolved-not-backcast",
       missingDataPolicy: "preparing-not-zero",
     },
     responsibility: {
       operatingMetrics: "public.dbf_store_monthly_metric_facts",
+      repeatMetrics: "public.dbf_store_monthly_repeat_rate_facts",
+      repeatScopePolicy: "TOTAL-only; RETURNING/SEMI_FIXED are not mapped to SECOND/THIRD",
+      retailPurchaseRatePolicy: "retain-existing-rate-no-overwrite",
       corporateFinancialLineItems: "public.dbf_pl_detail_facts",
       corporateFinancialLineItemsIncluded: false,
     },

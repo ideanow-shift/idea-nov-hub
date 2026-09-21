@@ -11,11 +11,11 @@ const codes = [
   "TOTAL_SALES", "TECHNICAL_SALES", "RETAIL_SALES", "MID_SALES", "EC_ALLOCATED_SALES",
   "TOTAL_CUSTOMERS", "NEW_CUSTOMERS", "EXISTING_CUSTOMERS", "TOTAL_UNIT_PRICE", "TECHNICAL_UNIT_PRICE",
   "TOTAL_REPEAT_RATE", "NEW_REPEAT_RATE", "SECOND_REPEAT_RATE", "THIRD_REPEAT_RATE", "FIXED_REPEAT_RATE",
-  "TOTAL_PRODUCTIVITY", "TECHNICAL_PRODUCTIVITY", "RETAIL_PURCHASE_RATE", "OPERATING_PROFIT"
+  "TOTAL_PRODUCTIVITY", "TECHNICAL_PRODUCTIVITY", "RETAIL_PURCHASE_CUSTOMER_VISITS", "RETAIL_PURCHASE_RATE", "OPERATING_PROFIT"
 ];
 
 const fact = (metricCode, value = metricCode.includes("RATE") ? "0.5" : "100") => ({
-  metricCode, valueKind: metricCode.includes("CUSTOMERS") ? "quantity" : metricCode.includes("RATE") ? "rate" : "amount",
+  metricCode, valueKind: metricCode.includes("CUSTOMERS") || metricCode.endsWith("_VISITS") ? "quantity" : metricCode.includes("RATE") ? "rate" : "amount",
   value, definitionVersion: "v1.1", displayName: metricCode, description: "canonical",
   sourceEvidence: { sourceType: "dbf", sourceFileSha256: "a".repeat(64), importedAt: "2026-08-19T00:00:00Z", factVersion: 1 }
 });
@@ -77,7 +77,7 @@ function payload({ facts = false, comparisons = false, count = 20, selectedStore
       selectableStores: stores.map(({ storeKey, storeName }) => ({ storeKey, storeName })),
       visibleStoreCount: visibleStores.length
     },
-    readiness: { confirmedStoreCount: facts ? count : 0, missingStoreCount: facts ? 0 : count, factRowCount: facts ? count * 19 : 0, missingDataPolicy: "preparing-not-zero" },
+    readiness: { confirmedStoreCount: facts ? count : 0, missingStoreCount: facts ? 0 : count, factRowCount: facts ? count * 20 : 0, missingDataPolicy: "preparing-not-zero" },
     stores: visibleStores
   };
 }
@@ -99,7 +99,7 @@ test("fact zero keeps 20 stores and every metric preparing, never zero", () => {
   assert.deepEqual(result.priorityActions, []);
 });
 
-test("19 canonical metrics map to UI metrics without inventing comparison values", () => {
+test("20 canonical metrics map to UI metrics without inventing comparison values", () => {
   const source = payload({ facts: true });
   for (const store of source.stores) {
     for (const metric of store.metrics) {
@@ -113,10 +113,38 @@ test("19 canonical metrics map to UI metrics without inventing comparison values
   assert.equal(store.metrics.new.rawValue, 35);
   assert.equal(store.metrics.new.displayValue, "35.0%");
   assert.equal(store.metrics.retailPurchaseRate.rawValue, 35);
+  assert.equal(store.metrics.retailPurchaseCustomerVisits.rawValue, 100);
+  assert.equal(store.metrics.retailPurchaseCustomerVisits.displayValue, "100人");
   assert.equal(store.metrics.budgetRatio.dataState, "preparing");
   assert.equal(store.metrics.yearOverYearRatio.dataState, "preparing");
   assert.equal(store.status, "Preparing");
   assert.equal(result.priorityActions.length, 0);
+});
+
+test("retail purchase reconciliation keeps the existing rate and reports the candidate difference", () => {
+  const source = payload({ facts: true });
+  const store = source.stores[0];
+  store.metrics.find((metric) => metric.metricCode === "RETAIL_PURCHASE_RATE").value = "0.25";
+  store.metrics.find((metric) => metric.metricCode === "RETAIL_PURCHASE_CUSTOMER_VISITS").value = "20";
+  store.metrics.find((metric) => metric.metricCode === "TOTAL_CUSTOMERS").value = "100";
+  store.retailPurchaseRateReconciliation = {
+    dataState: "confirmed",
+    policy: "retain-existing-rate-no-overwrite",
+    existingMetricCode: "RETAIL_PURCHASE_RATE",
+    candidateNumeratorMetricCode: "RETAIL_PURCHASE_CUSTOMER_VISITS",
+    denominatorMetricCode: "TOTAL_CUSTOMERS",
+    existingRate: "0.25",
+    derivedRate: "0.2",
+    difference: "0.05",
+    matches: false
+  };
+  const result = validateDbfStoreMonthlyProjection(source);
+  const projected = result.stores[0];
+  assert.equal(projected.metrics.retailPurchaseRate.rawValue, 25);
+  assert.match(projected.metrics.retailPurchaseRate.reason, /既存率を維持/u);
+  assert.equal(projected.retailPurchaseRateReconciliation.derivedRate, 20);
+  assert.equal(projected.retailPurchaseRateReconciliation.difference, 5);
+  assert.equal(projected.retailPurchaseRateReconciliation.matches, false);
 });
 
 test("canonical rates outside the 0..1 DBF contract fail closed", () => {

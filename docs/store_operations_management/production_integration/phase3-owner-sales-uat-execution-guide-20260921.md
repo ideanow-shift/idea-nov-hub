@@ -1,17 +1,17 @@
 # Phase 3 Owner / Sales UAT Execution Guide
 
 Date prepared: 2026-09-21
-Portfolio lock: `CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-22-V4`
+Portfolio lock: `CTO-PORTFOLIO-EXECUTION-ORDER-2026-09-21-V5`
 Phase: `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1`
 Environment: Production read-only Store Operations application
 
 ## Purpose
 
 This guide is the fixed walkthrough for the 13 business checks in
-`phase3-owner-sales-uat-record-20260921.md`. Owner completes the remaining Owner
-checks, and a Sales Department representative completes all Sales checks. The
-walkthrough does not authorize a deployment, database write, source substitution,
-or Phase transition.
+`phase3-owner-sales-uat-record-20260921.md`. The Owner completes all 13 checks.
+Portfolio Lock V5 does not require a separate Sales Department walkthrough or
+acceptance. The walkthrough does not authorize a deployment, database write,
+source substitution, or Phase transition.
 
 ## Before starting
 
@@ -36,7 +36,7 @@ or Phase transition.
 | UAT-P3-06 | Open one direct-store detail for 2026-06 and 2026-07. Review Summary, Sales/Profit, Customer/Repeat, and Value/Productivity. | Available facts retain their intended business meaning; unavailable facts remain explicit states instead of zero or an invented value. |
 | UAT-P3-07 | Review budget ratio on the all-store summary and one store detail in both months. | A ratio appears only when the confirmed budget fact exists. Missing budget never appears as zero or 0%. |
 | UAT-P3-08 | Review year-on-year, cumulative, and trend controls. Switch at least two metrics and two periods. | The selected comparison period is clear, the graph follows the selected metric, and missing periods do not become zero. |
-| UAT-P3-09 | Review 2026-06 all-store profit, 2026-07 all-store profit, and 2026-06 FC profit. | June confirmed profit, July preparing state, and FC `V1対象外` are distinct. Sales repeats the Owner-verified check. |
+| UAT-P3-09 | Review 2026-06 all-store profit, 2026-07 all-store profit, and 2026-06 FC profit. | June confirmed profit, July preparing state, and FC `V1対象外` are distinct. |
 | UAT-P3-10 | Review repeat rate and retail purchase rate in summary and detail. | Both remain `準備中` wherever the formal source is absent. A percentage or zero in place of `準備中` is a failure. |
 | UAT-P3-11 | Navigate between all, direct, FC, list, and detail using only visible controls and links. | The operator remains inside the approved business scope; raw UUIDs, hidden stores, or an expanded scope are not exposed. |
 | UAT-P3-12 | On the normal mobile device, open summary, list, one store detail, and the FC scope. | Text and values are readable, controls are operable, and no horizontal overflow blocks the business content. |
@@ -49,23 +49,24 @@ or incorrect value, and whether the issue blocks business use. Do not include th
 signed-in person's name, email, employee ID, access token, session value, or URL
 query parameters. Do not retry a write or alter Production data.
 
-The overall UAT remains `PENDING` if any case fails, either party has a `NOT_RUN`
+The overall UAT remains `PENDING` if any Owner case fails or has a `NOT_RUN`
 result, or blocking defects have not been evaluated.
 
 ## Acceptance text
 
-After completing the walkthrough, each party can provide the following concise
+After completing the walkthrough, the Owner can provide the following concise
 record without personal data:
 
 ```text
 Phase 3 Store Operations UAT
-Role: Owner / Sales Department
+Role: Owner
 Date: YYYY-MM-DD
 UAT-P3-01 through UAT-P3-13: PASS / FAIL / NOT_RUN
 Blocking defects: 0 / count
 Business acceptance: PASS / PENDING
 ```
 
-Owner or Sales acceptance closes only the corresponding result column. Both
-columns, zero blocking defects, and the final acceptance rows are required before
-the complete UAT can become `PASS`.
+All 13 Owner results, zero blocking defects, and Owner acceptance are required
+before the complete UAT can become `PASS`. The Sales result column remains in the
+record as historical structure and may stay `NOT_RUN`; it is not an Exit Criterion
+under Portfolio Lock V5.

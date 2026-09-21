@@ -7,7 +7,7 @@ const root = process.cwd();
 const lockPath = path.join(root, 'docs', 'cto', 'PORTFOLIO_PRIORITY_LOCK.md');
 const logPath = path.join(root, 'docs', 'cto', 'PRIORITY_DECISION_LOG.md');
 const agentsPath = path.join(root, 'AGENTS.md');
-const expectedLockId = 'CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-22-V4';
+const expectedLockId = 'CTO-PORTFOLIO-EXECUTION-ORDER-2026-09-21-V5';
 const expectedPhase = 'PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1';
 const failures = [];
 
@@ -24,7 +24,7 @@ const [lock, decisionLog, agents] = await Promise.all([
 
 const activeLocks = [...lock.matchAll(/^STATUS:\s*ACTIVE\s*$/gm)].length;
 if (activeLocks !== 1) failures.push(`ACTIVE Lock must be exactly 1; found ${activeLocks}`);
-requireText(lock, new RegExp(`^LOCK_ID:\\s*${expectedLockId}$`, 'm'), 'LOCK_ID is not V4');
+requireText(lock, new RegExp(`^LOCK_ID:\\s*${expectedLockId}$`, 'm'), 'LOCK_ID is not V5');
 requireText(lock, new RegExp(`^CURRENT_PHASE:\\s*${expectedPhase}$`, 'm'), 'CURRENT_PHASE mismatch');
 
 const expectedOrder = [
@@ -60,7 +60,7 @@ requireText(lock, /employee business data write。/, 'HUB Core Production employ
 const phaseCriteria = {
   'Phase 1': ['法人会計ActualのBackend Contract', '店舗月次営業実績のBackend Contract', 'Canonical Factの保存先', 'PostgreSQL 17 CI', 'Staging Backend Smoke', 'Production writeが0'],
   'Phase 2': ['画面だけで取込からPromotion', 'DeveloperによるSQL操作が不要', '2026-06法人会計Pilot', '店舗月次データPilot', 'Canonical Factをread-back'],
-  'Phase 3': ['正式20店舗', '直営13／FC7', '実月次データ', 'Executive Summary', '店舗ポートフォリオ', 'Owner／営業部UAT PASS', '実際の月次会議で利用開始'],
+  'Phase 3': ['正式20店舗', '直営13／FC7', '実月次データ', 'Executive Summary', '店舗ポートフォリオ', 'Owner UAT PASS', '営業部の別途UAT確認は不要', '実際の月次会議で利用開始'],
   'Phase 4': ['法人P/L', '法人B/S', '6法人比較', '経営者向けDashboard', '月次経営判断で実働開始'],
 };
 for (const [phase, criteria] of Object.entries(phaseCriteria)) {
@@ -76,6 +76,7 @@ requireText(agents, /Owner承認済みの明示例外[\s\S]*ALLOWED範囲内[\s\
 requireText(decisionLog, /DECISION_ID:\s*OWNER-PORTFOLIO-ORDER-2026-08-18-V2/, 'Decision ID missing');
 requireText(decisionLog, /DECISION_ID:\s*OWNER-PRIORITY-CHANGE-2026-08-21-NOV-TALENT-BOUNDED-MAINTENANCE/, 'V3 decision record missing');
 requireText(decisionLog, /DECISION_ID:\s*OWNER-PRIORITY-CHANGE-2026-08-22-HUB-EMPLOYEE-MASTER-BOUNDED-MAINTENANCE/, 'V4 decision record missing');
+requireText(decisionLog, /DECISION_ID:\s*OWNER-PRIORITY-CHANGE-2026-09-21-PHASE-3-SALES-UAT-WAIVER/, 'V5 decision record missing');
 requireText(decisionLog, /### SUPERSEDED対象文書\s+なし。/, 'SUPERSEDED disposition missing');
 requireText(decisionLog, /STATUS: SUPERSEDED[\s\S]*最新の唯一の正本[\s\S]*docs\/cto\/PORTFOLIO_PRIORITY_LOCK\.md[\s\S]*旧Priorityを現在値として使用してはいけません/, 'SUPERSEDED banner template missing');
 

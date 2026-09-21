@@ -7,7 +7,8 @@ import { createStoreSalesAdapter } from "../portal/store-sales/adapters/index.js
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const priorComparisonUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-comparison-ui-bundle-v1.json"));
-const comparisonUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-profit-state-staging-fix-ui-bundle-v1.json"));
+const priorProfitStateUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-profit-state-staging-fix-ui-bundle-v1.json"));
+const fcProfitSignalUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-fc-profit-signal-ui-bundle-v1.json"));
 const productionConfig = {
   mode: "production", featureFlag: "production", preview: false, productionApproved: true,
   expectedProjectRef: "nkmxevmioczcmnldreyo",
@@ -59,14 +60,19 @@ test("prior comparison UI bundle remains immutable", () => {
   assert.equal(priorComparisonUiManifest.deployment_status, "NOT_DEPLOYED");
 });
 
-test("Staging UAT candidate pins all shared assets and keeps Production prohibited", () => {
-  assert.equal(comparisonUiManifest.deployment_status, "STAGING_UAT_PASSED_PRODUCTION_NOT_APPROVED");
-  assert.equal(comparisonUiManifest.production_release_status, "REQUIRES_SEPARATE_OWNER_APPROVAL");
-  assert.equal(comparisonUiManifest.bundle_file_count, 4);
-  assert.ok(Object.values(comparisonUiManifest.gates).every((gate) => gate === "PROHIBITED"));
-  const sorted = [...comparisonUiManifest.files].sort((left, right) => left.path.localeCompare(right.path));
+test("prior profit-state UAT bundle remains immutable", () => {
+  assert.equal(priorProfitStateUiManifest.bundle_content_sha256, "cf19a5f4b3497fbe8bc43cbd2c9e0fcf4902250a02dbd2c196927871d8d46d73");
+  assert.equal(priorProfitStateUiManifest.deployment_status, "STAGING_UAT_PASSED_PRODUCTION_NOT_APPROVED");
+});
+
+test("FC profit signal candidate pins the changed asset and keeps Production prohibited", () => {
+  assert.equal(fcProfitSignalUiManifest.deployment_status, "NOT_DEPLOYED");
+  assert.equal(fcProfitSignalUiManifest.production_release_status, "REQUIRES_SEPARATE_OWNER_APPROVAL");
+  assert.equal(fcProfitSignalUiManifest.bundle_file_count, 1);
+  assert.ok(Object.values(fcProfitSignalUiManifest.gates).every((gate) => gate === "PROHIBITED"));
+  const sorted = [...fcProfitSignalUiManifest.files].sort((left, right) => left.path.localeCompare(right.path));
   const input = sorted.map((file) => file.path + "\t" + file.sha256 + "\t" + file.bytes).join("\n");
-  assert.equal(createHash("sha256").update(input).digest("hex"), comparisonUiManifest.bundle_content_sha256);
+  assert.equal(createHash("sha256").update(input).digest("hex"), fcProfitSignalUiManifest.bundle_content_sha256);
   for (const file of sorted) {
     const content = read(file.path);
     const approvedWindowsBytes = Buffer.from(

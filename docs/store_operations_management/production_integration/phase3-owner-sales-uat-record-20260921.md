@@ -15,6 +15,8 @@ Record status: `IN_PROGRESS`
 - Do not record employee IDs, store UUIDs, credentials, tokens, or personal data.
 - Repeat rate and retail purchase rate remain `準備中` while their formal
   sources are pending. A substituted value, inferred value, or zero is a failure.
+- Execute the checks using
+  `phase3-owner-sales-uat-execution-guide-20260921.md`.
 
 ## Business UAT matrix
 

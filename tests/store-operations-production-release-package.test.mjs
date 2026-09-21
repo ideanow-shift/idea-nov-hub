@@ -78,7 +78,7 @@ test("prior FC profit signal candidate remains internally sealed and Production 
 });
 
 test("sales UAT corrections candidate pins current changed assets and keeps Production prohibited", () => {
-  assert.equal(salesUatCorrectionsUiManifest.deployment_status, "STAGING_DEPLOY_APPROVED_NOT_DEPLOYED");
+  assert.equal(salesUatCorrectionsUiManifest.deployment_status, "STAGING_DEPLOYED_AWAITING_OWNER_SALES_UAT");
   assert.equal(salesUatCorrectionsUiManifest.production_release_status, "REQUIRES_SEPARATE_OWNER_APPROVAL");
   assert.equal(salesUatCorrectionsUiManifest.bundle_file_count, 2);
   assert.ok(Object.values(salesUatCorrectionsUiManifest.gates).every((gate) => gate === "PROHIBITED"));

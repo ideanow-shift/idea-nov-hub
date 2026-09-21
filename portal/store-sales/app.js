@@ -337,7 +337,9 @@ function buildDecisionSignals(projection, stores) {
 function signal(key, label, question, conclusion, lead, details, value, comparison) { return { key, label, question, conclusion, lead, details, value, comparison }; }
 
 function renderExecutiveSignalSummary(signals) {
-  const labels = { sales: "良好", profit: signals.find((item) => item.key === "profit")?.conclusion === "確定" ? "良好" : "集計中", customers: "改善中", ticket: "良好", retail: "横ばい", ec: "要対応" };
+  const profitConclusion = signals.find((item) => item.key === "profit")?.conclusion;
+  const profitLabel = profitConclusion === "確定" ? "良好" : profitConclusion === "V1対象外" ? "V1対象外" : "集計中";
+  const labels = { sales: "良好", profit: profitLabel, customers: "改善中", ticket: "良好", retail: "横ばい", ec: "要対応" };
   const levels = { sales: "good", profit: labels.profit === "良好" ? "good" : "watch", customers: "watch", ticket: "good", retail: "watch", ec: "attention" };
   elements.executiveSignalLinks.replaceChildren(...signals.map((signal) => {
     const button = node("button", `executive-signal executive-signal-${levels[signal.key]}`, `${signal.label}　${labels[signal.key]}`); button.type = "button";

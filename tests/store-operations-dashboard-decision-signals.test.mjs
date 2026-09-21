@@ -56,6 +56,12 @@ test("signal conclusions do not depend on color alone", () => {
   for (const conclusion of ["確定", "集計中", "改善", "横ばい", "要対応"]) assert.match(app, new RegExp(conclusion));
 });
 
+test("FC profit summary preserves the V1 out-of-scope conclusion", () => {
+  assert.match(app, /const profitConclusion = signals\.find\(\(item\) => item\.key === "profit"\)\?\.conclusion/);
+  assert.match(app, /profitConclusion === "V1対象外" \? "V1対象外" : "集計中"/);
+  assert.doesNotMatch(app, /profit: signals\.find\([^\n]+\? "良好" : "集計中"/);
+});
+
 test("signal grid is readable at desktop, tablet and mobile widths", () => {
   assert.match(css, /decision-signal-grid\{[^}]*repeat\(3/);
   assert.match(css, /max-width:1023px[^\n]*decision-signal-grid\{[^}]*repeat\(2/);

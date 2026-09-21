@@ -1,7 +1,7 @@
 {
   "captured_at": "2026-09-21T00:00:00+09:00",
   "mode": "PRODUCTION_READ_ONLY_PREFLIGHT",
-  "portfolio_lock_id": "CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-22-V4",
+  "portfolio_lock_id": "CTO-PORTFOLIO-EXECUTION-ORDER-2026-09-21-V5",
   "current_phase": "PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1",
   "projects": { "staging": "zgkoofphhivesclehrom", "production": "nkmxevmioczcmnldreyo" },
   "production": {

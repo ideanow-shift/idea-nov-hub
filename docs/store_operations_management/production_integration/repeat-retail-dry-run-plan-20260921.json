@@ -1,0 +1,43 @@
+{
+  "status": "READY_FOR_REVIEW_ONLY_EXECUTION_APPROVAL",
+  "productionWriteCount": 0,
+  "stagingPlan": {
+    "repeatStoreCanonical": { "insert": 6600, "reject": 0, "unchanged": 440 },
+    "repeatCompanyCanonical": { "insert": 440, "reject": 0, "unchanged": 0 },
+    "retailStoreCanonical": { "insert": 1492, "reject": 62, "unchanged": 0 },
+    "retailCompanyCanonical": { "insert": 92, "reject": 0, "unchanged": 0 },
+    "retailStagingOnlyNonSalon": { "insert": 830, "reject": 0, "unchanged": 0 }
+  },
+  "productionPlan": {
+    "repeatStoreCanonical": { "insert": 0, "supersede": 0, "unchanged": 7040 },
+    "repeatCompanyCanonical": { "insert": 440, "supersede": 0, "unchanged": 0 },
+    "retailStoreCanonical": { "insert": 1492, "supersede": 0, "unchanged": 0 },
+    "retailCompanyCanonical": { "insert": 92, "supersede": 0, "unchanged": 0 },
+    "excludedOrStagingOnly": { "excludedOutsideOperationPeriod": 62, "stagingOnlyNonSalon": 830 },
+    "retailPurchaseRateV1": { "insert": 0, "supersede": 0, "unchanged": 4, "status": "DEFINITION_REVIEW_REQUIRED" }
+  },
+  "mapping": {
+    "retail_ready_salon_rows": 1492,
+    "matched": 1492,
+    "unmatched": 0,
+    "ambiguous": 0,
+    "package_salon_unit_count": 20,
+    "exact_unit_key_match_count": 20,
+    "temporal_store_split_count": 1,
+    "temporal_store_split_unit": "SALON:KYARAHALF",
+    "company_effective_period_mismatch_count": 0,
+    "outside_operation_period_rows": 62,
+    "company_no_count": 1,
+    "company_row_count": 532,
+    "company_matched": 1,
+    "company_unmatched": 0,
+    "company_ambiguous": 0
+  },
+  "unresolved": [
+    "OWNER_APPROVAL_REQUIRED_FOR_STAGING_DDL_DML",
+    "OWNER_APPROVAL_REQUIRED_FOR_PRODUCTION_DDL_DML",
+    "RETAIL_PURCHASE_RATE_DEFINITION_VERSION_REVIEW_REQUIRED",
+    "LOCAL_POSTGRESQL_RUNTIME_UNAVAILABLE",
+    "PRODUCTION_REPEAT_SCHEMA_MIGRATIONS_MISSING_FROM_ORIGIN_MAIN"
+  ]
+}

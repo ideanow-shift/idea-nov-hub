@@ -1,6 +1,6 @@
 # CTO Portfolio Execution Order Lock
 
-LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-22-V4
+LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-09-21-V5
 
 STATUS: ACTIVE
 
@@ -201,8 +201,12 @@ PHASE_STATUS: CURRENT
 - 利益または利益状態。
 - NOV HUBから起動。
 - Hosted Smoke PASS。
-- Owner／営業部UAT PASS。
+- Owner UAT PASS。営業部の別途UAT確認は不要とし、Phase 3 Exit Criteriaには含めない
+  （Owner明示承認: 2026-09-21）。
 - 実際の月次会議で利用開始。
+
+この変更は営業部UAT要件だけを変更するOwner承認済みPriority Changeであり、
+Phase Transitionではない。`CURRENT_PHASE`と固定実行順序は変更しない。
 
 Phase 3へ入った後は、店舗営業管理が実働するまでPhase 4へ移ってはならない。
 

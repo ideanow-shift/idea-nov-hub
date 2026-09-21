@@ -202,3 +202,26 @@ Production deploy、migration、write flag ON、employee business data writeに�
 2. `PHASE_2_DBF_MANAGEMENT_UI_COMPLETION` — COMPLETE
 3. `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1` — CURRENT
 4. `PHASE_4_CORPORATE_MANAGEMENT`
+
+## 2026-09-21 — Owner Priority Change: Phase 3 Sales Department UAT Waiver
+
+DECISION_ID: OWNER-PRIORITY-CHANGE-2026-09-21-PHASE-3-SALES-UAT-WAIVER
+
+LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-09-21-V5
+
+DECIDED_BY: IDEA NOVグループ代表取締役社長
+
+STATUS: ACTIVE
+
+### Owner Approval
+
+Ownerは、Phase 3 Store Operations Management V1の業務UATについて、Owner自身の
+13項目確認を正式な受入確認とし、営業部担当者による別途の確認を不要とすることを
+2026-09-21に明示承認した。
+
+- Phase 3 Exit Criteriaの`Owner／営業部UAT PASS`を`Owner UAT PASS`へ変更する。
+- 営業部担当者への別途UAT依頼および承認取得は行わない。
+- Ownerの13項目PASS記録は引き続き有効とする。
+- 固定Portfolio順序および`CURRENT_PHASE`は変更しない。
+- この変更はPhase Transitionではない。
+- Production deploy、DB DDL／DML、実データ変更、PR mergeの追加承認を意味しない。

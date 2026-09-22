@@ -26,7 +26,7 @@ await writeFile(storeSalesIndex,(await readFile(storeSalesIndex,"utf8")).replace
   '<script type="module" src="./app.js"></script>',
   '<script src="./staging-handoff-entry.js"></script>\n  <script type="module" src="./app.js"></script>'
 ));
-await writeFile(join(output, "store-sales/runtime-config.js"), `globalThis.STORE_SALES_RUNTIME_CONFIG=Object.freeze({mode:"integration",featureFlag:"staging",preview:false,requireHubSession:true,integrationEndpoint:"/api/store-operations-uat-fixture",contractVersion:"STORE_MONTHLY_ACTUAL_V1",timeoutMs:12000});\n`);
+await writeFile(join(output, "store-sales/runtime-config.js"), `globalThis.STORE_SALES_RUNTIME_CONFIG=Object.freeze({mode:"integration",featureFlag:"staging",preview:false,requireHubSession:true,integrationEndpoint:"/api/store-operations",contractVersion:"STORE_MONTHLY_ACTUAL_V1",timeoutMs:12000});\n`);
 const forbidden = "nkmxevmioczcmnldreyo";
 for (const file of ["store-sales/runtime-config.js", "store-sales/staging-handoff-entry.js", "auth/callback/staging-handoff-entry.js", "auth/callback/index.html"]) {
   if ((await readFile(join(output, file), "utf8")).includes(forbidden)) throw new Error("PRODUCTION_REF_IN_BROWSER_BUILD");

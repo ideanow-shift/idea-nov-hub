@@ -1372,7 +1372,9 @@ async function buildStoreMonthlyActualProjection(
         },
       })),
       retailPurchaseRateReconciliation: {
-        dataState: currentRetailPurchaseRate !== null && derivedRetailPurchaseRate !== null ? "confirmed" : "preparing",
+        dataState: currentRetailPurchaseRate !== null && derivedRetailPurchaseRate !== null
+          ? "confirmed"
+          : derivedRetailPurchaseRate !== null ? "derived_only" : "preparing",
         policy: "retain-existing-rate-no-overwrite",
         existingMetricCode: "RETAIL_PURCHASE_RATE",
         candidateNumeratorMetricCode: "RETAIL_PURCHASE_CUSTOMER_VISITS",
@@ -1437,6 +1439,9 @@ async function buildStoreMonthlyActualProjection(
       ).length,
       retailPurchaseRateReconciliationCount: projectedStores.filter((store) =>
         (store.retailPurchaseRateReconciliation as JsonRecord).dataState === "confirmed"
+      ).length,
+      retailPurchaseRateDerivedOnlyCount: projectedStores.filter((store) =>
+        (store.retailPurchaseRateReconciliation as JsonRecord).dataState === "derived_only"
       ).length,
       retailPurchaseRateMismatchCount: projectedStores.filter((store) =>
         (store.retailPurchaseRateReconciliation as JsonRecord).matches === false

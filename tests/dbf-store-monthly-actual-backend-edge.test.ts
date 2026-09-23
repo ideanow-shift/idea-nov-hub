@@ -38,6 +38,7 @@ function dependencies(options: {
   assignedScopeEnabled?: boolean;
   factRows?: JsonRecord[];
   budgetRows?: JsonRecord[];
+  repeatRows?: JsonRecord[];
   operatorRows?: JsonRecord[];
   captureRpc?: (name: string, args: JsonRecord) => void;
   includeRpc?: boolean;
@@ -131,6 +132,8 @@ function dependencies(options: {
       }
       const rows = name === "dbf_store_monthly_budget_range_read_v1"
         ? options.budgetRows || []
+        : name === "dbf_store_repeat_rate_read_v1"
+        ? options.repeatRows || []
         : options.factRows || [];
       return rows.filter((row) =>
         row.company_id === args.p_company_id &&
@@ -176,11 +179,23 @@ function comparisonFact(rawStoreId: string, fiscalMonth: string, metricCode: str
   };
 }
 
-function budgetFact(rawStoreId: string, fiscalMonth: string, value: number): JsonRecord {
+function budgetFact(rawStoreId: string, fiscalMonth: string, value: number, metricCode = "TOTAL_SALES"): JsonRecord {
   return {
     fiscal_month: `${fiscalMonth}-01`, company_id: COMPANY_DIRECT, store_id: rawStoreId,
-    metric_code: "TOTAL_SALES", scenario_code: "APPROVED", budget_amount: String(value),
+    metric_code: metricCode, scenario_code: "APPROVED", budget_amount: String(value),
     source_file_sha256: FACT_SHA,
+  };
+}
+
+function repeatFact(rawStoreId: string, customerSegment = "TOTAL", metricCode = "TOTAL_REPEAT_RATE"): JsonRecord {
+  return {
+    visit_month: "2026-03-01", calculation_month: "2026-07-01",
+    company_id: COMPANY_DIRECT, store_id: rawStoreId, horizon_months: 4,
+    customer_segment: customerSegment, metric_code: metricCode,
+    denominator_visit_count: 100, numerator_cumulative_repeat_count: 42,
+    pos_display_rate: "0.420", exact_rate: "0.42",
+    definition_version: "POS_REPEAT_COHORT_4M_CUMULATIVE_V1",
+    source_file_sha256: FACT_SHA, imported_at: "2026-09-21T00:00:00Z", fact_version: 1,
   };
 }
 
@@ -214,7 +229,7 @@ Deno.test("all-scope projection returns the formal 20 stores and never fabricate
     (data.responsibility as JsonRecord).corporateFinancialLineItemsIncluded,
     false,
   );
-  assertEquals(calls.length, 5);
+  assertEquals(calls.length, 7);
   assert(calls.every((call) => Array.isArray(call.p_store_ids)));
 });
 
@@ -244,8 +259,119 @@ Deno.test("store-manager projection derives one store from server-side identity"
   const stores = (result.body.data as JsonRecord).stores as JsonRecord[];
   assertEquals(stores.length, 1);
   assertEquals(stores[0].storeKey, STORE_ROWS[1].store_id);
-  assertEquals(calls.length, 3);
+  assertEquals(calls.length, 4);
   assertEquals(calls[0].p_store_ids, [ownStoreId]);
+});
+
+Deno.test("formal Total Repeat and retail purchase count are read-only projected without overwriting the existing rate", async () => {
+  const ownStoreId = String(STORE_ROWS[1].id);
+  const rpcNames: string[] = [];
+  const totalCustomers = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "TOTAL_CUSTOMERS", value_kind: "quantity", metric_value: "100",
+  };
+  const retailPurchaseCustomers = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "RETAIL_PURCHASE_CUSTOMER_VISITS", value_kind: "quantity", metric_value: "20",
+    definition_version: "POS_RETAIL_PURCHASE_CUSTOMER_COUNT_V1",
+  };
+  const existingRetailPurchaseRate = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "RETAIL_PURCHASE_RATE", value_kind: "rate", metric_value: "0.25",
+  };
+  const legacyTotalRepeat = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "TOTAL_REPEAT_RATE", value_kind: "rate", metric_value: "0.99",
+  };
+  const result = await handleManagementReadOnlyAction(
+    { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-07" } },
+    dependencies({
+      roleKey: "store_manager",
+      employeeStoreId: ownStoreId,
+      factRows: [totalCustomers, retailPurchaseCustomers, existingRetailPurchaseRate, legacyTotalRepeat],
+      repeatRows: [repeatFact(ownStoreId), repeatFact(ownStoreId, "RETURNING", "RETURNING_REPEAT_RATE")],
+      captureRpc: (name) => rpcNames.push(name),
+    }),
+  );
+
+  assertEquals(result.status, 200);
+  assert(rpcNames.includes("dbf_store_repeat_rate_read_v1"));
+  const data = result.body.data as JsonRecord;
+  const projected = (data.stores as JsonRecord[])[0];
+  const metrics = projected.metrics as JsonRecord[];
+  const totalRepeat = metrics.find((metric) => metric.metricCode === "TOTAL_REPEAT_RATE")!;
+  assertEquals(totalRepeat.value, "0.42");
+  assertEquals(totalRepeat.definitionVersion, "POS_REPEAT_COHORT_4M_CUMULATIVE_V1");
+  assertEquals(metrics.some((metric) => metric.metricCode === "RETURNING_REPEAT_RATE"), false);
+  assertEquals(metrics.find((metric) => metric.metricCode === "RETAIL_PURCHASE_CUSTOMER_VISITS")?.value, "20");
+  assertEquals(projected.retailPurchaseRateReconciliation, {
+    dataState: "confirmed",
+    policy: "retain-existing-rate-no-overwrite",
+    existingMetricCode: "RETAIL_PURCHASE_RATE",
+    candidateNumeratorMetricCode: "RETAIL_PURCHASE_CUSTOMER_VISITS",
+    denominatorMetricCode: "TOTAL_CUSTOMERS",
+    existingRate: "0.25",
+    derivedRate: "0.2",
+    difference: "0.05",
+    matches: false,
+  });
+  const readiness = data.readiness as JsonRecord;
+  assertEquals(readiness.formalRepeatFactRowCount, 1);
+  assertEquals(readiness.retailPurchaseRateMismatchCount, 1);
+});
+
+Deno.test("retail purchase reconciliation serializes sub-micro differences without exponent notation", async () => {
+  const ownStoreId = String(STORE_ROWS[1].id);
+  const totalCustomers = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "TOTAL_CUSTOMERS", value_kind: "quantity", metric_value: "100",
+  };
+  const retailPurchaseCustomers = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "RETAIL_PURCHASE_CUSTOMER_VISITS", value_kind: "quantity", metric_value: "20",
+    definition_version: "POS_RETAIL_PURCHASE_CUSTOMER_COUNT_V1",
+  };
+  const existingRetailPurchaseRate = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "RETAIL_PURCHASE_RATE", value_kind: "rate", metric_value: "0.200000004941",
+  };
+  const result = await handleManagementReadOnlyAction(
+    { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-07" } },
+    dependencies({
+      roleKey: "store_manager",
+      employeeStoreId: ownStoreId,
+      factRows: [totalCustomers, retailPurchaseCustomers, existingRetailPurchaseRate],
+    }),
+  );
+
+  assertEquals(result.status, 200);
+  const projected = ((result.body.data as JsonRecord).stores as JsonRecord[])[0];
+  assertEquals((projected.retailPurchaseRateReconciliation as JsonRecord).difference, "0.000000004941");
+  assertEquals((projected.retailPurchaseRateReconciliation as JsonRecord).matches, true);
+});
+
+Deno.test("formal Total Repeat with a zero denominator remains preparing rather than failing or becoming zero", async () => {
+  const ownStoreId = String(STORE_ROWS[1].id);
+  const zeroDenominatorRepeat = {
+    ...repeatFact(ownStoreId),
+    denominator_visit_count: 0,
+    numerator_cumulative_repeat_count: 0,
+    pos_display_rate: "0",
+    exact_rate: null,
+  };
+  const result = await handleManagementReadOnlyAction(
+    { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-07" } },
+    dependencies({
+      roleKey: "store_manager",
+      employeeStoreId: ownStoreId,
+      repeatRows: [zeroDenominatorRepeat],
+    }),
+  );
+
+  assertEquals(result.status, 200);
+  const projected = ((result.body.data as JsonRecord).stores as JsonRecord[])[0];
+  assertEquals((projected.metrics as JsonRecord[]).some((metric) => metric.metricCode === "TOTAL_REPEAT_RATE"), false);
+  assertEquals(((result.body.data as JsonRecord).readiness as JsonRecord).formalRepeatMissingStoreCount, 1);
 });
 
 Deno.test("historical company change is resolved by fiscal month and current ownership is not backcast", async () => {
@@ -374,11 +500,14 @@ Deno.test("invalid month and absent canonical RPC fail closed before facts are r
   assertEquals((missingRpc.body.error as JsonRecord).code, "DATA_NOT_READY");
 });
 
-Deno.test("formal comparisons use canonical budget, prior year, fiscal YTD and six-signal history", async () => {
+Deno.test("formal comparisons use canonical sales, customer, ticket and retail baselines", async () => {
   const ownStoreId = String(STORE_ROWS[1].id);
   const fiscalMonths = ["2026-04", "2026-05", "2026-06", "2026-07"];
   const actualRows = [
     comparisonFact(ownStoreId, "2025-07", "TOTAL_SALES", 100),
+    comparisonFact(ownStoreId, "2025-07", "TOTAL_CUSTOMERS", 10),
+    comparisonFact(ownStoreId, "2025-07", "TOTAL_UNIT_PRICE", 10),
+    comparisonFact(ownStoreId, "2025-07", "RETAIL_SALES", 10),
     ...fiscalMonths.flatMap((month, index) => [
       comparisonFact(ownStoreId, month, "TOTAL_SALES", 120 + index),
       comparisonFact(ownStoreId, month, "OPERATING_PROFIT", 12 + index),
@@ -388,7 +517,10 @@ Deno.test("formal comparisons use canonical budget, prior year, fiscal YTD and s
       comparisonFact(ownStoreId, month, "EC_ALLOCATED_SALES", 4 + index),
     ]),
   ];
-  const budgetRows = fiscalMonths.map((month) => budgetFact(ownStoreId, month, 100));
+  const budgetRows = [
+    ...fiscalMonths.map((month) => budgetFact(ownStoreId, month, 100)),
+    budgetFact(ownStoreId, "2026-07", 10, "RETAIL_SALES"),
+  ];
   const result = await handleManagementReadOnlyAction(
     { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-07" } },
     dependencies({ roleKey: "store_manager", employeeStoreId: ownStoreId, factRows: actualRows, budgetRows }),
@@ -399,6 +531,12 @@ Deno.test("formal comparisons use canonical budget, prior year, fiscal YTD and s
   const comparisons = projected.comparisons as JsonRecord;
   assertEquals((comparisons.budgetRatio as JsonRecord).value, "123");
   assertEquals((comparisons.yearOverYearRatio as JsonRecord).value, "123");
+  assertEquals((comparisons.customerYearOverYear as JsonRecord).value, "30");
+  assertEquals((comparisons.ticketYearOverYear as JsonRecord).value, "40");
+  assertEquals((comparisons.retailYearOverYear as JsonRecord).value, "10");
+  assertEquals((comparisons.retailBudgetRatio as JsonRecord).value, "110");
+  assertEquals(projected.status, "Needs Attention");
+  assertEquals(projected.statusRuleId, "operating-margin-below-15");
   const fiscalYear = comparisons.fiscalYear as JsonRecord;
   assertEquals(fiscalYear.startMonth, "2026-04");
   assertEquals(((fiscalYear.metrics as JsonRecord).TOTAL_SALES as JsonRecord).value, "486");
@@ -411,16 +549,35 @@ Deno.test("formal comparisons use canonical budget, prior year, fiscal YTD and s
 Deno.test("comparison denominators and incomplete fiscal periods remain preparing, never zero", async () => {
   const ownStoreId = String(STORE_ROWS[1].id);
   const current = comparisonFact(ownStoreId, "2026-07", "TOTAL_SALES", 123);
+  const currentCustomers = comparisonFact(ownStoreId, "2026-07", "TOTAL_CUSTOMERS", 123);
+  const currentTicket = comparisonFact(ownStoreId, "2026-07", "TOTAL_UNIT_PRICE", 123);
+  const currentRetail = comparisonFact(ownStoreId, "2026-07", "RETAIL_SALES", 123);
   const result = await handleManagementReadOnlyAction(
     { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-07" } },
     dependencies({
       roleKey: "store_manager", employeeStoreId: ownStoreId,
-      factRows: [current, comparisonFact(ownStoreId, "2025-07", "TOTAL_SALES", 0)],
-      budgetRows: [budgetFact(ownStoreId, "2026-07", 0)],
+      factRows: [
+        current, currentCustomers, currentTicket, currentRetail,
+        comparisonFact(ownStoreId, "2025-07", "TOTAL_SALES", 0),
+        comparisonFact(ownStoreId, "2025-07", "TOTAL_CUSTOMERS", 0),
+        comparisonFact(ownStoreId, "2025-07", "TOTAL_UNIT_PRICE", 0),
+        comparisonFact(ownStoreId, "2025-07", "RETAIL_SALES", 0),
+      ],
+      budgetRows: [
+        budgetFact(ownStoreId, "2026-07", 0),
+        budgetFact(ownStoreId, "2026-07", 0, "RETAIL_SALES"),
+      ],
     }),
   );
   const comparisons = (((result.body.data as JsonRecord).stores as JsonRecord[])[0].comparisons) as JsonRecord;
   assertEquals(comparisons.budgetRatio, { dataState: "preparing", value: null });
   assertEquals(comparisons.yearOverYearRatio, { dataState: "preparing", value: null });
+  const projected = ((result.body.data as JsonRecord).stores as JsonRecord[])[0];
+  assertEquals(projected.status, "Preparing");
+  assertEquals(projected.statusRuleId, "comparison-data-preparing");
+  assertEquals(comparisons.customerYearOverYear, { dataState: "preparing", value: null });
+  assertEquals(comparisons.ticketYearOverYear, { dataState: "preparing", value: null });
+  assertEquals(comparisons.retailYearOverYear, { dataState: "preparing", value: null });
+  assertEquals(comparisons.retailBudgetRatio, { dataState: "preparing", value: null });
   assertEquals(((comparisons.fiscalYear as JsonRecord).metrics as JsonRecord).TOTAL_SALES, { dataState: "preparing", value: null });
 });

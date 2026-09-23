@@ -21,6 +21,7 @@ export const STORE_SALES_RUNTIME_STATES = Object.freeze([
   "validation_error",
   "maintenance",
   "timeout",
+  "unavailable",
   "offline"
 ]);
 
@@ -54,7 +55,7 @@ export function createStoreSalesRuntime(options = {}) {
       period: lastPeriod,
       storeKey: lastStoreKey,
       retryCount,
-      canRetry: ["maintenance", "timeout", "offline"].includes(next.status),
+      canRetry: ["maintenance", "timeout", "offline", "unavailable"].includes(next.status),
       diagnostics: diagnostics.snapshot()
     });
   }

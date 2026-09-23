@@ -1,0 +1,36 @@
+{
+  "status": "PASS",
+  "productionWriteCount": 0,
+  "repeatPackageSha256": "EC6446D0FED94CC0494E8AA47320309EE931DE65F52A54157172D3BB8852EB9A",
+  "retailPackageSha256": "EF2C56108BACED3F1999F6903C681B8D7BE963A50707388DC84BEA2BBFA68942",
+  "repeat": {
+    "status": "PASS",
+    "factRows": 7480,
+    "uniqueKeys": 7480,
+    "scopeCounts": { "COMPANY_TOTAL": 440, "STORE": 7040 },
+    "storeUnitCount": 20,
+    "firstVisitMonth": "2019-01",
+    "lastVisitMonth": "2026-04",
+    "zeroDenominatorRows": 3,
+    "metricCodePolicy": "SOURCE_CANDIDATE_VALIDATED_BUT_NOT_USED_FOR_CANONICAL_MAPPING",
+    "orderedRowRootSha256": "89326B4CB55245E7AF3DE80A2446427569FDBFD91D3C969694866965EE8D5E21"
+  },
+  "retail": {
+    "status": "PASS",
+    "factRows": 2476,
+    "uniqueKeys": 2476,
+    "scopeCounts": { "COMPANY_TOTAL": 92, "EC": 784, "HQ": 46, "SALON": 1554 },
+    "promotionCounts": {
+      "EXCLUDED_OUTSIDE_CANONICAL_OPERATION_PERIOD": 62,
+      "READY_AFTER_CORE_DB_STORE_ID_EXACT_MATCH": 1492,
+      "SEPARATE_COMPANY_SCOPE_DESIGN_REQUIRED": 92,
+      "STAGING_ONLY_NON_SALON_SCOPE": 830
+    },
+    "unitCount": 37,
+    "firstFiscalMonth": "2019-01",
+    "lastFiscalMonth": "2026-08",
+    "nullQuantityRows": 0,
+    "nullRateRows": 893,
+    "orderedRowRootSha256": "47670CA0065DA8D3489DF0DDD379ADFA164809D4FCE2A27EB299481E9071BC1A"
+  }
+}

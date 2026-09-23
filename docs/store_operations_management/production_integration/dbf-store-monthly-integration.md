@@ -10,7 +10,17 @@
 - Missing facts: stores and metrics remain `preparing`; zero or Synthetic fallback is prohibited
 - Browser writes: none
 
-The adapter validates the DBF contract, preserves missing values as `null`, and maps only the 19 approved monthly metrics. Store status and priority actions remain preparing/empty until their required comparison inputs are formally available.
+The adapter validates the DBF contract, preserves missing values as `null`, and maps only the 20 approved monthly metrics, including `RETAIL_PURCHASE_CUSTOMER_VISITS` as a quantity metric. Store status and priority actions remain preparing/empty until their required comparison inputs are formally available.
+
+## Repeat and retail-purchase read projection
+
+- `TOTAL_REPEAT_RATE` is projected from `public.dbf_store_monthly_repeat_rate_facts`, using the visit cohort four months before the selected calculation month.
+- Only the formal `TOTAL` segment is exposed to Store Operations. `RETURNING` and `SEMI_FIXED` are validated but are never converted to legacy `SECOND_REPEAT_RATE` or `THIRD_REPEAT_RATE`.
+- If a formal Total Repeat row is absent for a store and calculation month, the metric remains `preparing`; an older generic Total Repeat fact is not substituted.
+- `RETAIL_PURCHASE_CUSTOMER_VISITS` is exposed as the POS quantity metric and remains distinct from `RETAIL_PURCHASE_RATE`.
+- The precise rate candidate is calculated read-only as `RETAIL_PURCHASE_CUSTOMER_VISITS / TOTAL_CUSTOMERS` when both quantities exist and the denominator is positive.
+- Existing `RETAIL_PURCHASE_RATE` remains the displayed canonical rate. The candidate, difference, and match result are attached as reconciliation evidence under policy `retain-existing-rate-no-overwrite`; no Fact is updated or superseded.
+- The browser receives neither raw Store UUIDs nor Company UUIDs. All repeat reads retain the server-resolved Store and effective-operator scope.
 
 ## Comparison contract status
 
@@ -47,3 +57,18 @@ Gate 5 candidate adds a server-only function,
 - The current 20-store directory remains the authorization baseline. Historical inactive-store discovery is not added by this candidate and remains a separate contract decision.
 
 Production migration, Edge deployment, and static-app publication remain separate Owner gates.
+
+## Store decision comparison extension
+
+`STORE_MONTHLY_COMPARISON_V1` may return four additional read-only comparison
+fields without changing the canonical fact tables:
+
+- `customerYearOverYear`: total-customer year-over-year percentage change.
+- `ticketYearOverYear`: total-unit-price year-over-year percentage change.
+- `retailYearOverYear`: retail-sales year-over-year percentage change.
+- `retailBudgetRatio`: retail-sales budget achievement ratio.
+
+Every value is calculated server-side from canonical current, prior-year, or
+approved-budget facts after effective operator validation. A missing numerator,
+missing denominator, duplicate budget candidate, or zero denominator returns
+`{ dataState: "preparing", value: null }`; no zero or estimate is synthesized.

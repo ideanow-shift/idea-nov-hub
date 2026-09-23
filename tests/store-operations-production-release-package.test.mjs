@@ -1,10 +1,18 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { resolveAdapterConfig } from "../portal/store-sales/adapters/config.js";
 import { createStoreSalesAdapter } from "../portal/store-sales/adapters/index.js";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+const readAtCommit = (commit, path) => execFileSync("git", ["show", `${commit}:${path}`], { encoding: "utf8" });
+const priorComparisonUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-comparison-ui-bundle-v1.json"));
+const priorProfitStateUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-profit-state-staging-fix-ui-bundle-v1.json"));
+const fcProfitSignalUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-fc-profit-signal-ui-bundle-v1.json"));
+const salesUatCorrectionsUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-sales-uat-corrections-ui-bundle-v1.json"));
+const salesUatFixtureCorrectionsUiManifest = JSON.parse(read("docs/store_operations_management/production_integration/store-operations-sales-uat-fixture-corrections-ui-bundle-v2.json"));
 const productionConfig = {
   mode: "production", featureFlag: "production", preview: false, productionApproved: true,
   expectedProjectRef: "nkmxevmioczcmnldreyo",
@@ -49,4 +57,63 @@ test("limited pilot Auth anchors are internal AUTH-01 records, never user login 
 test("release production config contains no mock, synthetic or secret material", () => {
   const source = read("portal/store-sales/runtime-config.production.js");
   assert.doesNotMatch(source, /mock|synthetic|sb_secret_|service_role|eyJ[A-Za-z0-9_-]{20,}\./iu);
+});
+
+test("prior comparison UI bundle remains immutable", () => {
+  assert.equal(priorComparisonUiManifest.bundle_content_sha256, "4c965387773288dd85fa7262568e64ac703ed7ff1cd2bcff1a539f1ee105d38e");
+  assert.equal(priorComparisonUiManifest.deployment_status, "NOT_DEPLOYED");
+});
+
+test("prior profit-state UAT bundle remains immutable", () => {
+  assert.equal(priorProfitStateUiManifest.bundle_content_sha256, "cf19a5f4b3497fbe8bc43cbd2c9e0fcf4902250a02dbd2c196927871d8d46d73");
+  assert.equal(priorProfitStateUiManifest.deployment_status, "STAGING_UAT_PASSED_PRODUCTION_NOT_APPROVED");
+});
+
+test("prior FC profit signal candidate remains internally sealed and Production prohibited", () => {
+  assert.equal(fcProfitSignalUiManifest.deployment_status, "NOT_DEPLOYED");
+  assert.equal(fcProfitSignalUiManifest.production_release_status, "REQUIRES_SEPARATE_OWNER_APPROVAL");
+  assert.equal(fcProfitSignalUiManifest.bundle_file_count, 1);
+  assert.equal(fcProfitSignalUiManifest.bundle_content_sha256, "6eed773c5e1a78adb00f32556eb068188d09d73257d43ffeb92a8b6f567cfd40");
+  assert.ok(Object.values(fcProfitSignalUiManifest.gates).every((gate) => gate === "PROHIBITED"));
+  const sorted = [...fcProfitSignalUiManifest.files].sort((left, right) => left.path.localeCompare(right.path));
+  const input = sorted.map((file) => file.path + "\t" + file.sha256 + "\t" + file.bytes).join("\n");
+  assert.equal(createHash("sha256").update(input).digest("hex"), fcProfitSignalUiManifest.bundle_content_sha256);
+});
+
+test("deployed sales UAT corrections bundle remains immutable", () => {
+  assert.equal(salesUatCorrectionsUiManifest.deployment_status, "STAGING_DEPLOYED_AWAITING_OWNER_SALES_UAT");
+  assert.equal(salesUatCorrectionsUiManifest.production_release_status, "REQUIRES_SEPARATE_OWNER_APPROVAL");
+  assert.equal(salesUatCorrectionsUiManifest.bundle_file_count, 2);
+  assert.equal(salesUatCorrectionsUiManifest.bundle_content_sha256, "1499b5ecae7f44add23dd4830085e383db6d8c6dcf622651acf92f937fdbdc1d");
+  assert.ok(Object.values(salesUatCorrectionsUiManifest.gates).every((gate) => gate === "PROHIBITED"));
+  const sorted = [...salesUatCorrectionsUiManifest.files].sort((left, right) => left.path.localeCompare(right.path));
+  const input = sorted.map((file) => file.path + "\t" + file.sha256 + "\t" + file.bytes).join("\n");
+  assert.equal(createHash("sha256").update(input).digest("hex"), salesUatCorrectionsUiManifest.bundle_content_sha256);
+});
+
+test("sales UAT fixture corrections deployment pins its deployed commit and remains Production prohibited", () => {
+  assert.equal(salesUatFixtureCorrectionsUiManifest.deployment_status, "STAGING_DEPLOYED_AWAITING_OWNER_SALES_RETEST");
+  assert.equal(salesUatFixtureCorrectionsUiManifest.production_release_status, "REQUIRES_SEPARATE_OWNER_APPROVAL");
+  assert.equal(salesUatFixtureCorrectionsUiManifest.bundle_file_count, 2);
+  assert.equal(salesUatFixtureCorrectionsUiManifest.gates.staging_ui_deploy, "COMPLETED_ONCE");
+  assert.equal(salesUatFixtureCorrectionsUiManifest.staging_deployment.source_head_sha, "e18d2e4df32a64645d495e39578ef1fd3e8c928b");
+  assert.equal(salesUatFixtureCorrectionsUiManifest.staging_deployment.cloud_build_id, "8c38eb74-e71e-4cf6-9de6-8ed77374cc6d");
+  assert.equal(salesUatFixtureCorrectionsUiManifest.staging_deployment.revision, "idea-nov-store-operations-staging-ui-salesfix-e18d2e4d");
+  assert.equal(salesUatFixtureCorrectionsUiManifest.staging_deployment.image_digest, "sha256:dc2a5e9b5b55af9a79a47da27eab5e47f12eacf8288a7e4f01ce6e9b979be468");
+  assert.equal(salesUatFixtureCorrectionsUiManifest.staging_deployment.traffic_percent, 100);
+  for (const gate of ["github_pages_publish", "production_edge_deploy", "production_dml", "production_ddl", "real_data_change", "pr_merge"]) {
+    assert.equal(salesUatFixtureCorrectionsUiManifest.gates[gate], "PROHIBITED");
+  }
+  const sorted = [...salesUatFixtureCorrectionsUiManifest.files].sort((left, right) => left.path.localeCompare(right.path));
+  const input = sorted.map((file) => file.path + "\t" + file.sha256 + "\t" + file.bytes).join("\n");
+  assert.equal(createHash("sha256").update(input).digest("hex"), salesUatFixtureCorrectionsUiManifest.bundle_content_sha256);
+  for (const file of sorted) {
+    const content = readAtCommit(salesUatFixtureCorrectionsUiManifest.staging_deployment.source_head_sha, file.path);
+    const approvedWindowsBytes = Buffer.from(
+      content.replace(/\r?\n/gu, "\n").replace(/\n/gu, "\r\n"),
+      "utf8",
+    );
+    assert.equal(approvedWindowsBytes.byteLength, file.bytes, file.path);
+    assert.equal(createHash("sha256").update(approvedWindowsBytes).digest("hex"), file.sha256, file.path);
+  }
 });

@@ -21,11 +21,28 @@ test("business drivers contain exactly the six decision questions", () => {
   assert.match(app, /signal\("ec"/);
 });
 
+test("customer, ticket and retail decisions use canonical comparison fields", () => {
+  for (const key of ["customerYearOverYear", "ticketYearOverYear", "retailYearOverYear", "retailBudgetRatio"]) {
+    assert.match(app, new RegExp(key));
+  }
+  assert.match(app, /店販売上 予算比/);
+  assert.match(app, /店販売上前年比/);
+  assert.doesNotMatch(app, /店販購買率 前年比/);
+});
+
 test("one shared trend supports six metrics and three periods", () => {
   assert.match(app, /trendMetric: "sales", trendPeriod: "six_months"/);
   for (const label of ["前年対比", "直近6か月", "12か月"]) assert.match(app, new RegExp(label));
   assert.equal((app.match(/createElementNS\([^\n]*"svg"/g) || []).length, 1);
   assert.match(app, /カードまたは指標を選ぶと、このグラフだけが切り替わります/);
+});
+
+test("confirmed attention count remains visible when only part of the store scope is preparing", () => {
+  assert.match(app, /const evaluatedStatusCount = stores\.length - preparingStatusCount/);
+  assert.match(app, /const statusReady = evaluatedStatusCount > 0/);
+  assert.match(app, /判定済み\$\{evaluatedStatusCount\}店舗のうち\$\{attention\}店舗に対応が必要/);
+  assert.match(app, /\$\{preparingStatusCount\}店舗は判定準備中です/);
+  assert.doesNotMatch(app, /const statusReady = stores\.every\(\(store\) => store\.status !== "Preparing"\)/);
 });
 
 test("EC dashboard signal is explicitly company-wide", () => {
@@ -37,6 +54,12 @@ test("EC dashboard signal is explicitly company-wide", () => {
 test("signal conclusions do not depend on color alone", () => {
   assert.match(app, /signal-conclusion/);
   for (const conclusion of ["確定", "集計中", "改善", "横ばい", "要対応"]) assert.match(app, new RegExp(conclusion));
+});
+
+test("FC profit summary preserves the V1 out-of-scope conclusion", () => {
+  assert.match(app, /const profitConclusion = signals\.find\(\(item\) => item\.key === "profit"\)\?\.conclusion/);
+  assert.match(app, /profitConclusion === "V1対象外" \? "V1対象外" : "集計中"/);
+  assert.doesNotMatch(app, /profit: signals\.find\([^\n]+\? "良好" : "集計中"/);
 });
 
 test("signal grid is readable at desktop, tablet and mobile widths", () => {

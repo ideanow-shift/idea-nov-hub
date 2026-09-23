@@ -12,6 +12,7 @@ FROM node:24.15.0-alpine
 WORKDIR /app
 USER node
 COPY --chown=node:node deploy/store-operations-staging-ui/server.mjs /app/server.mjs
+COPY --chown=node:node deploy/store-operations-staging-ui/staging-fixture.mjs /app/staging-fixture.mjs
 COPY --chown=node:node --from=build /src/deploy/store-operations-staging-ui/dist /app/dist
 ENV PORT=8080
 EXPOSE 8080

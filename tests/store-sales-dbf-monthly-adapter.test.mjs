@@ -11,11 +11,11 @@ const codes = [
   "TOTAL_SALES", "TECHNICAL_SALES", "RETAIL_SALES", "MID_SALES", "EC_ALLOCATED_SALES",
   "TOTAL_CUSTOMERS", "NEW_CUSTOMERS", "EXISTING_CUSTOMERS", "TOTAL_UNIT_PRICE", "TECHNICAL_UNIT_PRICE",
   "TOTAL_REPEAT_RATE", "NEW_REPEAT_RATE", "SECOND_REPEAT_RATE", "THIRD_REPEAT_RATE", "FIXED_REPEAT_RATE",
-  "TOTAL_PRODUCTIVITY", "TECHNICAL_PRODUCTIVITY", "RETAIL_PURCHASE_RATE", "OPERATING_PROFIT"
+  "TOTAL_PRODUCTIVITY", "TECHNICAL_PRODUCTIVITY", "RETAIL_PURCHASE_CUSTOMER_VISITS", "RETAIL_PURCHASE_RATE", "OPERATING_PROFIT"
 ];
 
 const fact = (metricCode, value = metricCode.includes("RATE") ? "0.5" : "100") => ({
-  metricCode, valueKind: metricCode.includes("CUSTOMERS") ? "quantity" : metricCode.includes("RATE") ? "rate" : "amount",
+  metricCode, valueKind: metricCode.includes("CUSTOMERS") || metricCode.endsWith("_VISITS") ? "quantity" : metricCode.includes("RATE") ? "rate" : "amount",
   value, definitionVersion: "v1.1", displayName: metricCode, description: "canonical",
   sourceEvidence: { sourceType: "dbf", sourceFileSha256: "a".repeat(64), importedAt: "2026-08-19T00:00:00Z", factVersion: 1 }
 });
@@ -34,6 +34,10 @@ function payload({ facts = false, comparisons = false, count = 20, selectedStore
       contractVersion: DBF_STORE_MONTHLY_COMPARISON_CONTRACT,
       budgetRatio: { dataState: "confirmed", value: "104" },
       yearOverYearRatio: { dataState: "confirmed", value: "106.8" },
+      customerYearOverYear: { dataState: "confirmed", value: "4.2" },
+      ticketYearOverYear: { dataState: "confirmed", value: "3.1" },
+      retailYearOverYear: { dataState: "confirmed", value: "2.5" },
+      retailBudgetRatio: { dataState: "confirmed", value: "101.4" },
       fiscalYear: {
         dataState: "confirmed", startMonth: "2026-04", endMonth: "2026-07",
         metrics: {
@@ -53,6 +57,13 @@ function payload({ facts = false, comparisons = false, count = 20, selectedStore
       }))
     }} : {})
   }));
+  if (comparisons) {
+    stores.forEach((store) => Object.assign(store, {
+      status: "Stable",
+      statusReason: "確認可能な指標は安定範囲です",
+      statusRuleId: "stable-default"
+    }));
+  }
   const visibleStores = selectedStoreKey ? stores.filter((store) => store.storeKey === selectedStoreKey) : stores;
   return {
     contractVersion: DBF_STORE_MONTHLY_CONTRACT,
@@ -66,7 +77,7 @@ function payload({ facts = false, comparisons = false, count = 20, selectedStore
       selectableStores: stores.map(({ storeKey, storeName }) => ({ storeKey, storeName })),
       visibleStoreCount: visibleStores.length
     },
-    readiness: { confirmedStoreCount: facts ? count : 0, missingStoreCount: facts ? 0 : count, factRowCount: facts ? count * 19 : 0, missingDataPolicy: "preparing-not-zero" },
+    readiness: { confirmedStoreCount: facts ? count : 0, missingStoreCount: facts ? 0 : count, factRowCount: facts ? count * 20 : 0, missingDataPolicy: "preparing-not-zero" },
     stores: visibleStores
   };
 }
@@ -88,7 +99,7 @@ test("fact zero keeps 20 stores and every metric preparing, never zero", () => {
   assert.deepEqual(result.priorityActions, []);
 });
 
-test("19 canonical metrics map to UI metrics without inventing comparison values", () => {
+test("20 canonical metrics map to UI metrics without inventing comparison values", () => {
   const source = payload({ facts: true });
   for (const store of source.stores) {
     for (const metric of store.metrics) {
@@ -102,10 +113,58 @@ test("19 canonical metrics map to UI metrics without inventing comparison values
   assert.equal(store.metrics.new.rawValue, 35);
   assert.equal(store.metrics.new.displayValue, "35.0%");
   assert.equal(store.metrics.retailPurchaseRate.rawValue, 35);
+  assert.equal(store.metrics.retailPurchaseCustomerVisits.rawValue, 100);
+  assert.equal(store.metrics.retailPurchaseCustomerVisits.displayValue, "100人");
   assert.equal(store.metrics.budgetRatio.dataState, "preparing");
   assert.equal(store.metrics.yearOverYearRatio.dataState, "preparing");
   assert.equal(store.status, "Preparing");
   assert.equal(result.priorityActions.length, 0);
+});
+
+test("retail purchase reconciliation keeps the existing rate and reports the candidate difference", () => {
+  const source = payload({ facts: true });
+  const store = source.stores[0];
+  store.metrics.find((metric) => metric.metricCode === "RETAIL_PURCHASE_RATE").value = "0.25";
+  store.metrics.find((metric) => metric.metricCode === "RETAIL_PURCHASE_CUSTOMER_VISITS").value = "20";
+  store.metrics.find((metric) => metric.metricCode === "TOTAL_CUSTOMERS").value = "100";
+  store.retailPurchaseRateReconciliation = {
+    dataState: "confirmed",
+    policy: "retain-existing-rate-no-overwrite",
+    existingMetricCode: "RETAIL_PURCHASE_RATE",
+    candidateNumeratorMetricCode: "RETAIL_PURCHASE_CUSTOMER_VISITS",
+    denominatorMetricCode: "TOTAL_CUSTOMERS",
+    existingRate: "0.25",
+    derivedRate: "0.2",
+    difference: "0.05",
+    matches: false
+  };
+  const result = validateDbfStoreMonthlyProjection(source);
+  const projected = result.stores[0];
+  assert.equal(projected.metrics.retailPurchaseRate.rawValue, 25);
+  assert.match(projected.metrics.retailPurchaseRate.reason, /既存率を維持/u);
+  assert.equal(projected.retailPurchaseRateReconciliation.derivedRate, 20);
+  assert.equal(projected.retailPurchaseRateReconciliation.difference, 5);
+  assert.equal(projected.retailPurchaseRateReconciliation.matches, false);
+});
+
+test("retail purchase reconciliation accepts fixed-point sub-micro differences", () => {
+  const source = payload({ facts: true });
+  const store = source.stores[0];
+  store.retailPurchaseRateReconciliation = {
+    dataState: "confirmed",
+    policy: "retain-existing-rate-no-overwrite",
+    existingMetricCode: "RETAIL_PURCHASE_RATE",
+    candidateNumeratorMetricCode: "RETAIL_PURCHASE_CUSTOMER_VISITS",
+    denominatorMetricCode: "TOTAL_CUSTOMERS",
+    existingRate: "0.200000004941",
+    derivedRate: "0.2",
+    difference: "0.000000004941",
+    matches: true
+  };
+
+  const result = validateDbfStoreMonthlyProjection(source);
+  assert.ok(Math.abs(result.stores[0].retailPurchaseRateReconciliation.difference - 4.941e-7) < 1e-18);
+  assert.equal(result.stores[0].retailPurchaseRateReconciliation.matches, true);
 });
 
 test("canonical rates outside the 0..1 DBF contract fail closed", () => {
@@ -147,8 +206,16 @@ test("Saginomiya pilot maps only three confirmed Revision 2 metrics and keeps al
 test("formal comparison contract maps budget, prior year, fiscal YTD and all six trends", () => {
   const result = validateDbfStoreMonthlyProjection(payload({ facts: true, comparisons: true }));
   const store = result.stores[0];
+  assert.equal(result.accounting.confirmationState, "confirmed");
+  assert.equal(result.accounting.confirmedThroughPeriod, "2026-07");
   assert.equal(store.metrics.budgetRatio.rawValue, 104);
   assert.equal(store.metrics.yearOverYearRatio.rawValue, 106.8);
+  assert.equal(store.metrics.customerYearOverYear.rawValue, 4.2);
+  assert.equal(store.metrics.ticketYearOverYear.rawValue, 3.1);
+  assert.equal(store.metrics.retailYearOverYear.rawValue, 2.5);
+  assert.equal(store.metrics.retailBudgetRatio.rawValue, 101.4);
+  assert.equal(store.status, "Stable");
+  assert.equal(store.statusReason, "確認可能な指標は安定範囲です");
   assert.equal(store.yearly.startMonth, "2026-04");
   assert.equal(store.yearly.metrics.sales.rawValue, 400);
   assert.deepEqual(Object.keys(result.monthlyTrend).sort(), ["customers", "ec", "profit", "retail", "sales", "ticket"]);
@@ -156,16 +223,63 @@ test("formal comparison contract maps budget, prior year, fiscal YTD and all six
   assert.equal(result.monthlyTrend.ticket.at(-1).value, 7);
 });
 
+test("profit accounting state stays preparing when current sales exist but direct-store profit is not confirmed", () => {
+  const source = payload({ facts: true, comparisons: true });
+  source.stores.forEach((store) => {
+    store.metrics = store.metrics.filter((metric) => metric.metricCode !== "OPERATING_PROFIT");
+    const selectedTrend = store.comparisons.monthlyTrend.find((point) => point.fiscalMonth === "2026-07");
+    selectedTrend.metrics = selectedTrend.metrics.filter((metric) => metric.metricCode !== "OPERATING_PROFIT");
+  });
+
+  const result = validateDbfStoreMonthlyProjection(source);
+
+  assert.equal(result.accounting.reflectedStoreCount, 20);
+  assert.equal(result.accounting.confirmationState, "preparing");
+  assert.equal(result.accounting.confirmedThroughPeriod, "2026-06");
+  assert.equal(result.stores.filter((store) => store.ownership === "Direct").length, 13);
+  assert.ok(result.stores.filter((store) => store.ownership === "Direct")
+    .every((store) => store.metrics.operatingProfit.dataState === "preparing"));
+});
+
+test("confirmed needs-attention stores produce at most three evidence-backed priority actions", () => {
+  const source = payload({ facts: true, comparisons: true });
+  source.stores.slice(0, 5).forEach((store, index) => Object.assign(store, {
+    status: "Needs Attention",
+    statusReason: `比較指標で要確認${index + 1}`,
+    statusRuleId: "sales-comparison-attention"
+  }));
+  const result = validateDbfStoreMonthlyProjection(source);
+  assert.equal(result.priorityActions.length, 3);
+  assert.deepEqual(result.priorityActions.map((action) => action.storeKey), ["store-01", "store-02", "store-03"]);
+  assert.equal(result.priorityActions[0].reason, "比較指標で要確認1");
+  assert.equal(result.priorityActions[0].targetTab, "summary");
+  assert.equal(result.priorityActions[0].ruleId, "confirmed_store_status");
+});
+
 test("missing and zero comparison denominators remain preparing rather than fabricated zero", () => {
   const source = payload({ facts: true, comparisons: true });
   source.stores[0].comparisons.budgetRatio = { dataState: "preparing", value: null };
   source.stores[0].comparisons.yearOverYearRatio = { dataState: "preparing", value: null };
   source.stores[0].comparisons.fiscalYear.metrics.TOTAL_SALES = { dataState: "preparing", value: null };
+  source.stores[0].status = "Preparing";
+  source.stores[0].statusReason = "予算比または前年同月比を準備しています";
+  source.stores[0].statusRuleId = "comparison-data-preparing";
   const result = validateDbfStoreMonthlyProjection(source);
   assert.equal(result.stores[0].metrics.budgetRatio.value, null);
   assert.equal(result.stores[0].metrics.yearOverYearRatio.value, null);
   assert.equal(result.stores[0].yearly.metrics.sales.value, null);
+  assert.equal(result.stores[0].status, "Preparing");
 });
+
+test("server status fails closed without both formal comparisons", () => {
+  const source = payload({ facts: true, comparisons: true });
+  source.stores[0].comparisons.budgetRatio = { dataState: "preparing", value: null };
+  assert.throws(
+    () => validateDbfStoreMonthlyProjection(source),
+    (error) => error.code === "VALIDATION_ERROR" && error.message === "STATUS_REQUIRES_COMPARISONS"
+  );
+});
+
 
 test("unsafe scope, raw UUID, duplicate, invalid operator and unofficial metric are rejected", () => {
   const unsafe = payload(); unsafe.scope.serverResolved = false;

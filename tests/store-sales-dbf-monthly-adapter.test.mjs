@@ -147,6 +147,26 @@ test("retail purchase reconciliation keeps the existing rate and reports the can
   assert.equal(projected.retailPurchaseRateReconciliation.matches, false);
 });
 
+test("retail purchase reconciliation accepts fixed-point sub-micro differences", () => {
+  const source = payload({ facts: true });
+  const store = source.stores[0];
+  store.retailPurchaseRateReconciliation = {
+    dataState: "confirmed",
+    policy: "retain-existing-rate-no-overwrite",
+    existingMetricCode: "RETAIL_PURCHASE_RATE",
+    candidateNumeratorMetricCode: "RETAIL_PURCHASE_CUSTOMER_VISITS",
+    denominatorMetricCode: "TOTAL_CUSTOMERS",
+    existingRate: "0.200000004941",
+    derivedRate: "0.2",
+    difference: "0.000000004941",
+    matches: true
+  };
+
+  const result = validateDbfStoreMonthlyProjection(source);
+  assert.ok(Math.abs(result.stores[0].retailPurchaseRateReconciliation.difference - 4.941e-7) < 1e-18);
+  assert.equal(result.stores[0].retailPurchaseRateReconciliation.matches, true);
+});
+
 test("canonical rates outside the 0..1 DBF contract fail closed", () => {
   const source = payload({ facts: true });
   source.stores[0].metrics.find((metric) => metric.metricCode === "NEW_REPEAT_RATE").value = "35";

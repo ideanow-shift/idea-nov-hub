@@ -320,6 +320,36 @@ Deno.test("formal Total Repeat and retail purchase count are read-only projected
   assertEquals(readiness.retailPurchaseRateMismatchCount, 1);
 });
 
+Deno.test("retail purchase reconciliation serializes sub-micro differences without exponent notation", async () => {
+  const ownStoreId = String(STORE_ROWS[1].id);
+  const totalCustomers = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "TOTAL_CUSTOMERS", value_kind: "quantity", metric_value: "100",
+  };
+  const retailPurchaseCustomers = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "RETAIL_PURCHASE_CUSTOMER_VISITS", value_kind: "quantity", metric_value: "20",
+    definition_version: "POS_RETAIL_PURCHASE_CUSTOMER_COUNT_V1",
+  };
+  const existingRetailPurchaseRate = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "RETAIL_PURCHASE_RATE", value_kind: "rate", metric_value: "0.200000004941",
+  };
+  const result = await handleManagementReadOnlyAction(
+    { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-07" } },
+    dependencies({
+      roleKey: "store_manager",
+      employeeStoreId: ownStoreId,
+      factRows: [totalCustomers, retailPurchaseCustomers, existingRetailPurchaseRate],
+    }),
+  );
+
+  assertEquals(result.status, 200);
+  const projected = ((result.body.data as JsonRecord).stores as JsonRecord[])[0];
+  assertEquals((projected.retailPurchaseRateReconciliation as JsonRecord).difference, "0.000000004941");
+  assertEquals((projected.retailPurchaseRateReconciliation as JsonRecord).matches, true);
+});
+
 Deno.test("formal Total Repeat with a zero denominator remains preparing rather than failing or becoming zero", async () => {
   const ownStoreId = String(STORE_ROWS[1].id);
   const zeroDenominatorRepeat = {

@@ -203,6 +203,12 @@ function nullableNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function fixedDecimalText(value: number, scale = 12): string {
+  const fixed = value.toFixed(scale);
+  const trimmed = fixed.replace(/(?:\.0+|(\.\d+?)0+)$/u, "$1");
+  return trimmed === "-0" ? "0" : trimmed;
+}
+
 function staffCountValue(value: unknown): number | null {
   const parsed = nullableNumber(value);
   return parsed !== null && Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
@@ -1373,7 +1379,7 @@ async function buildStoreMonthlyActualProjection(
         denominatorMetricCode: "TOTAL_CUSTOMERS",
         existingRate: currentRetailPurchaseRate === null ? null : String(currentRetailPurchaseRate),
         derivedRate: derivedRetailPurchaseRate === null ? null : String(derivedRetailPurchaseRate),
-        difference: retailPurchaseRateDifference === null ? null : String(retailPurchaseRateDifference),
+        difference: retailPurchaseRateDifference === null ? null : fixedDecimalText(retailPurchaseRateDifference),
         matches: retailPurchaseRateDifference === null ? null : Math.abs(retailPurchaseRateDifference) <= 0.0000005,
       },
       comparisons: {

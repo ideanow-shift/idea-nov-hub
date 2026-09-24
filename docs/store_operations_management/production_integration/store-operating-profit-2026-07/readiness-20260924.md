@@ -2,7 +2,7 @@
 
 ## Portfolio gate
 
-- `LOCK_ID`: `CTO-PORTFOLIO-EXECUTION-ORDER-2026-08-22-V4`
+- `LOCK_ID`: `CTO-PORTFOLIO-EXECUTION-ORDER-2026-09-21-V5`
 - `CURRENT_PHASE`: `PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1`
 - Store Operations: 実装・検証可
 - Corporate Management: Phase 4開始前のため、新規DB/UI実装は行わない

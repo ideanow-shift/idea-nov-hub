@@ -1,0 +1,62 @@
+[
+  {
+    "fiscal_month": "2023-09",
+    "unit_key": "SALON:KYARAHALF",
+    "store_name": "KYARAHALF",
+    "store_id": "ac20934d-ef15-4363-8c2f-759193c7fcc7",
+    "value_quantity": "6.843730816451812",
+    "allocated_actual_work_minutes": "71350.0",
+    "allocated_actual_work_hours": "1189.1666666666667",
+    "reference_hours": "173.76",
+    "source_workbook_sha256": "7E04D2107876FCA9902D07F9CB548403B51529591CB431239399912A77BC3E16",
+    "fingerprint_sha256": "cccefa4984a3410e6ce9dd8e7b15416d258c0b35408b06bd3c6bd8cc037d569c"
+  },
+  {
+    "fiscal_month": "2023-10",
+    "unit_key": "SALON:KYARAHALF",
+    "store_name": "KYARAHALF",
+    "store_id": "ac20934d-ef15-4363-8c2f-759193c7fcc7",
+    "value_quantity": "6.751525092081032",
+    "allocated_actual_work_minutes": "70388.7",
+    "allocated_actual_work_hours": "1173.145",
+    "reference_hours": "173.76",
+    "source_workbook_sha256": "7E04D2107876FCA9902D07F9CB548403B51529591CB431239399912A77BC3E16",
+    "fingerprint_sha256": "a40211a55d3a417485482a21b98feb6be3c56c293f999582c481fdb570ee76e3"
+  },
+  {
+    "fiscal_month": "2023-11",
+    "unit_key": "SALON:KYARAHALF",
+    "store_name": "KYARAHALF",
+    "store_id": "ac20934d-ef15-4363-8c2f-759193c7fcc7",
+    "value_quantity": "5.447791973603438",
+    "allocated_actual_work_minutes": "56796.5",
+    "allocated_actual_work_hours": "946.6083333333333",
+    "reference_hours": "173.76",
+    "source_workbook_sha256": "7E04D2107876FCA9902D07F9CB548403B51529591CB431239399912A77BC3E16",
+    "fingerprint_sha256": "39c11c15c427df31e411f840604f94ff0143ee824920c377b862e4396bb37414"
+  },
+  {
+    "fiscal_month": "2023-12",
+    "unit_key": "SALON:KYARAHALF",
+    "store_name": "KYARAHALF",
+    "store_id": "ac20934d-ef15-4363-8c2f-759193c7fcc7",
+    "value_quantity": "6.096301411909147",
+    "allocated_actual_work_minutes": "63557.6",
+    "allocated_actual_work_hours": "1059.2933333333333",
+    "reference_hours": "173.76",
+    "source_workbook_sha256": "7E04D2107876FCA9902D07F9CB548403B51529591CB431239399912A77BC3E16",
+    "fingerprint_sha256": "009486921123f460cedb1b8160cb7122a55987e8a3cbacb2c62395832f7953f4"
+  },
+  {
+    "fiscal_month": "2024-01",
+    "unit_key": "SALON:KYARAHALF",
+    "store_name": "KYARAHALF",
+    "store_id": "ac20934d-ef15-4363-8c2f-759193c7fcc7",
+    "value_quantity": "5.481219306322897",
+    "allocated_actual_work_minutes": "57145.0",
+    "allocated_actual_work_hours": "952.4166666666666",
+    "reference_hours": "173.76",
+    "source_workbook_sha256": "7E04D2107876FCA9902D07F9CB548403B51529591CB431239399912A77BC3E16",
+    "fingerprint_sha256": "3c99f5f2e00e4edff2f7c63373b5f8f3c6b0ff42dd50e895a4b5db800f287aa3"
+  }
+]

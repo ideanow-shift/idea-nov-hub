@@ -1,0 +1,90 @@
+{
+  "status": "AWAITING_SEPARATE_PRODUCTION_DB_EXECUTION_APPROVAL",
+  "productionExecuted": false,
+  "projectRef": "nkmxevmioczcmnldreyo",
+  "portfolioLockId": "CTO-PORTFOLIO-EXECUTION-ORDER-2026-09-21-V5",
+  "currentPhase": "PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1",
+  "sourceMainSha": "d83600fe64bcef2d6d000a27777cfe4889d7142c",
+  "fixedInput": {
+    "sha256": "3D456AF80CFC2D60873A34E82F4A370CDE491884C604C3EB4ADBDC4777AF4157",
+    "byteSize": 689484,
+    "sourceWorkbookSha256": "7E04D2107876FCA9902D07F9CB548403B51529591CB431239399912A77BC3E16"
+  },
+  "sanitizedCanonicalSource": {
+    "sha256": "ED36524E26E78A5758B6A7CF82FF772BC546595197AED57DEE7ED1863084FF01",
+    "byteSize": 316433,
+    "containsEmployeeIdentifiers": false
+  },
+  "metric": {
+    "metricCode": "ACTUAL_LABOR_FTE",
+    "definitionVersion": "ACTUAL_LABOR_FTE_173_76_V1",
+    "valueKind": "quantity",
+    "displayName": "実労働FTE（換算人数）",
+    "referenceHours": "173.76"
+  },
+  "executionApprovalGate": {
+    "setting": "app.store_operations_actual_labor_fte_execution_approval",
+    "requiredValue": "OWNER_APPROVAL_REQUIRED_AFTER_FIXED_SHA_REVIEW"
+  },
+  "planned": {
+    "metricDefinitionsInsert": 1,
+    "sourceFilesInsert": 1,
+    "importBatchesInsert": 41,
+    "rawRowsInsert": 671,
+    "stagingRowsInsert": 671,
+    "canonicalFactsInsert": 666,
+    "importEventsInsert": 154,
+    "storeMappingsInsert": 0,
+    "companyMappingsInsert": 0,
+    "factUpdates": 0,
+    "factDeletes": 0,
+    "unallocatedEmployeeMonthsPromoted": 0,
+    "operatorUnresolvedRowsPromoted": 0,
+    "operatorUnresolvedStagingRowsInsert": 5
+  },
+  "validation": {
+    "canonicalRows": 671,
+    "canonicalPromotableRows": 666,
+    "operatorUnresolvedRowsRetainedOutsideCanonical": 5,
+    "uniqueGrains": 671,
+    "duplicateGrains": 0,
+    "months": 36,
+    "stores": 20,
+    "unallocatedEmployeeMonthsRetainedOutsideCanonical": 445,
+    "nullToZeroConversions": 0,
+    "fuzzyMappings": 0,
+    "productionReadOnlyDryRun": {
+      "executed": true,
+      "expected_rows": 671,
+      "unresolved_store_mapping": 0,
+      "unresolved_company_operator": 5,
+      "planned_insert": 666,
+      "unchanged": 0,
+      "conflict": 0,
+      "existing_definition_count": 0,
+      "existing_source_count": 0
+    }
+  },
+  "artifacts": {
+    "actual-labor-fte-canonical-20260924.json": {
+      "sha256": "ED36524E26E78A5758B6A7CF82FF772BC546595197AED57DEE7ED1863084FF01",
+      "byteSize": 316433
+    },
+    "actual-labor-fte-operator-unresolved-20260924.json": {
+      "sha256": "1017AF474472EF85C413CF1FD09CBB190973D00561861FC536BB9DB531C9EAC0",
+      "byteSize": 2661
+    },
+    "actual-labor-fte-production-dry-run.sql": {
+      "sha256": "072FB89C4276EE79252A17159DDA9D797C1FB02B77145ED0840DEB5746425CA7",
+      "byteSize": 320817
+    },
+    "actual-labor-fte-production.execution.sql": {
+      "sha256": "F36C9B02E64C3F8C8EC560EF5F99A1BC9C8861B2B49853C592CA38E1F8DC964F",
+      "byteSize": 342186
+    },
+    "actual-labor-fte-production-dry-run-result.json": {
+      "sha256": "54A198CC40C7DECD5EB126D627E8F19CA3F28374167E87A7A8AB8DB3863E4FB8",
+      "byteSize": 240
+    }
+  }
+}

@@ -11,11 +11,11 @@ const codes = [
   "TOTAL_SALES", "TECHNICAL_SALES", "RETAIL_SALES", "MID_SALES", "EC_ALLOCATED_SALES",
   "TOTAL_CUSTOMERS", "NEW_CUSTOMERS", "EXISTING_CUSTOMERS", "TOTAL_UNIT_PRICE", "TECHNICAL_UNIT_PRICE",
   "TOTAL_REPEAT_RATE", "NEW_REPEAT_RATE", "SECOND_REPEAT_RATE", "THIRD_REPEAT_RATE", "FIXED_REPEAT_RATE",
-  "TOTAL_PRODUCTIVITY", "TECHNICAL_PRODUCTIVITY", "RETAIL_PURCHASE_CUSTOMER_VISITS", "RETAIL_PURCHASE_RATE", "OPERATING_PROFIT"
+  "TOTAL_PRODUCTIVITY", "TECHNICAL_PRODUCTIVITY", "RETAIL_PURCHASE_CUSTOMER_VISITS", "RETAIL_PURCHASE_RATE", "ACTUAL_LABOR_FTE", "OPERATING_PROFIT"
 ];
 
 const fact = (metricCode, value = metricCode.includes("RATE") ? "0.5" : "100") => ({
-  metricCode, valueKind: metricCode.includes("CUSTOMERS") || metricCode.endsWith("_VISITS") ? "quantity" : metricCode.includes("RATE") ? "rate" : "amount",
+  metricCode, valueKind: metricCode.includes("CUSTOMERS") || metricCode.endsWith("_VISITS") || metricCode === "ACTUAL_LABOR_FTE" ? "quantity" : metricCode.includes("RATE") ? "rate" : "amount",
   value, definitionVersion: "v1.1", displayName: metricCode, description: "canonical",
   sourceEvidence: { sourceType: "dbf", sourceFileSha256: "a".repeat(64), importedAt: "2026-08-19T00:00:00Z", factVersion: 1 }
 });
@@ -77,7 +77,7 @@ function payload({ facts = false, comparisons = false, count = 20, selectedStore
       selectableStores: stores.map(({ storeKey, storeName }) => ({ storeKey, storeName })),
       visibleStoreCount: visibleStores.length
     },
-    readiness: { confirmedStoreCount: facts ? count : 0, missingStoreCount: facts ? 0 : count, factRowCount: facts ? count * 20 : 0, missingDataPolicy: "preparing-not-zero" },
+    readiness: { confirmedStoreCount: facts ? count : 0, missingStoreCount: facts ? 0 : count, factRowCount: facts ? count * 21 : 0, missingDataPolicy: "preparing-not-zero" },
     stores: visibleStores
   };
 }
@@ -99,7 +99,7 @@ test("fact zero keeps 20 stores and every metric preparing, never zero", () => {
   assert.deepEqual(result.priorityActions, []);
 });
 
-test("20 canonical metrics map to UI metrics without inventing comparison values", () => {
+test("21 canonical metrics map to UI metrics without inventing comparison values", () => {
   const source = payload({ facts: true });
   for (const store of source.stores) {
     for (const metric of store.metrics) {
@@ -115,10 +115,29 @@ test("20 canonical metrics map to UI metrics without inventing comparison values
   assert.equal(store.metrics.retailPurchaseRate.rawValue, 35);
   assert.equal(store.metrics.retailPurchaseCustomerVisits.rawValue, 100);
   assert.equal(store.metrics.retailPurchaseCustomerVisits.displayValue, "100人");
+  assert.equal(store.metrics.actualLaborFte.rawValue, 100);
+  assert.equal(store.metrics.actualLaborFte.displayValue, "100.00人相当");
   assert.equal(store.metrics.budgetRatio.dataState, "preparing");
   assert.equal(store.metrics.yearOverYearRatio.dataState, "preparing");
   assert.equal(store.status, "Preparing");
   assert.equal(result.priorityActions.length, 0);
+});
+
+test("actual labor FTE preserves decimals, formal zero, and missing as distinct states", () => {
+  const source = payload();
+  source.stores[0].dataState = "confirmed";
+  source.stores[0].metrics = [fact("ACTUAL_LABOR_FTE", "12.345678")];
+  source.stores[1].dataState = "confirmed";
+  source.stores[1].metrics = [fact("ACTUAL_LABOR_FTE", "0")];
+  source.readiness = { confirmedStoreCount: 2, missingStoreCount: 18, factRowCount: 2, missingDataPolicy: "preparing-not-zero" };
+
+  const result = validateDbfStoreMonthlyProjection(source);
+  assert.equal(result.stores[0].metrics.actualLaborFte.rawValue, 12.345678);
+  assert.equal(result.stores[0].metrics.actualLaborFte.displayValue, "12.35人相当");
+  assert.equal(result.stores[1].metrics.actualLaborFte.rawValue, 0);
+  assert.equal(result.stores[1].metrics.actualLaborFte.displayValue, "0.00人相当");
+  assert.equal(result.stores[2].metrics.actualLaborFte.dataState, "preparing");
+  assert.equal(result.stores[2].metrics.actualLaborFte.rawValue, null);
 });
 
 test("retail purchase reconciliation keeps the existing rate and reports the candidate difference", () => {

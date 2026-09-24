@@ -20,14 +20,14 @@ const elements = {
 const metricLabels = {
   summary: ["sales", "budgetRatio", "yearOverYearRatio", "operatingProfit", "customerCount", "totalTicket", "totalRepeat", "productivity"],
   customer: ["totalRepeat", "new", "returning", "loyal", "customerCount", "newCustomerCount", "existingCustomerCount"],
-  value: ["totalTicket", "productivity", "technicalTicket", "technicalProductivity", "retailSales", "retailPurchaseCustomerVisits", "retailPurchaseRate", "staffCount"]
+  value: ["totalTicket", "productivity", "technicalTicket", "technicalProductivity", "retailSales", "retailPurchaseCustomerVisits", "retailPurchaseRate", "actualLaborFte"]
 };
 const labels = {
   sales: "総売上（税抜）", operatingProfit: "営業利益", customerCount: "総客数", totalTicket: "総単価（税抜）",
   budgetRatio: "予算比", yearOverYearRatio: "前年同月比",
   totalRepeat: "総リピート率", productivity: "総生産性", new: "新規リピート率", returning: "再来リピート率",
   loyal: "固定リピート率", newCustomerCount: "新規客数", existingCustomerCount: "既存客数",
-  technicalTicket: "技術単価", technicalProductivity: "技術生産性", retailSales: "店販売上", retailPurchaseCustomerVisits: "店販購買客数", retailPurchaseRate: "店販購買率", staffCount: "稼働スタッフ数"
+  technicalTicket: "技術単価", technicalProductivity: "技術生産性", retailSales: "店販売上", retailPurchaseCustomerVisits: "店販購買客数", retailPurchaseRate: "店販購買率", actualLaborFte: "実労働FTE（換算人数）"
 };
 const statusOrder = { "Needs Attention": 0, Preparing: 1, Improving: 2, Stable: 3, Good: 4 };
 const statusNames = { "Needs Attention": "要対応", Preparing: "準備中", Improving: "改善中", Stable: "安定", Good: "好調" };
@@ -499,7 +499,7 @@ function setTab(tab) {
   const grid = node("div", "detail-metrics");
   (metricLabels[tab] || metricLabels.summary).forEach((key) => grid.append(detailMetric(labels[key] || key, store.metrics[key])));
   if (tab === "value") {
-    const note = node("p", "accounting-note", "ⓘ 稼働スタッフ数は、勤務日数、勤務比率、月中異動、応援実績を考慮した換算人数です。");
+    const note = node("p", "accounting-note", "ⓘ 実労働FTEは、タイムカード実労働時間を同月の正式な店舗配置FTE比率で配賦し、173.76時間を1.0FTEとして算出します。実際の打刻店舗・応援先を示す値ではなく、実勤怠がない月は準備中です。");
     elements.detailPanel.replaceChildren(grid, note);
   } else elements.detailPanel.replaceChildren(grid);
 }

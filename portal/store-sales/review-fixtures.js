@@ -55,7 +55,7 @@ function metrics(index, profitMode = "collecting") {
     technicalTicket: available("技術単価（税抜）", `${Math.round(sales * .82 / customers).toLocaleString("ja-JP")}円`),
     retailTicket: available("店販単価（税抜）", `${Math.round(sales * .15 / customers).toLocaleString("ja-JP")}円`),
     productivity: available("総生産性", `${(productivity / 10_000).toFixed(1)}万円`, productivity),
-    staffCount: available("稼働スタッフ数", `${(12.4 + (index % 6) * .6).toFixed(1)}人相当`),
+    actualLaborFte: available("実労働FTE（換算人数）", `${(12.4 + (index % 6) * .6).toFixed(2)}人相当`),
     retailPurchaseRate: available("店販購買率", `${(16.8 + index % 8).toFixed(1)}%`)
   };
 }

@@ -23,6 +23,7 @@ const METRICS = Object.freeze({
   TECHNICAL_PRODUCTIVITY: ["technicalProductivity", "技術生産性", "yen"],
   RETAIL_PURCHASE_CUSTOMER_VISITS: ["retailPurchaseCustomerVisits", "店販購買客数", "count"],
   RETAIL_PURCHASE_RATE: ["retailPurchaseRate", "店販購買率", "percent"],
+  ACTUAL_LABOR_FTE: ["actualLaborFte", "実労働FTE（換算人数）", "fte"],
   OPERATING_PROFIT: ["operatingProfit", "店舗営業利益", "yen"]
 });
 
@@ -58,6 +59,7 @@ function assertNoPrivateIdentifiers(value) {
 function format(value, unit) {
   if (unit === "yen") return `¥${Math.round(value).toLocaleString("ja-JP")}`;
   if (unit === "count") return `${Math.round(value).toLocaleString("ja-JP")}人`;
+  if (unit === "fte") return `${Number(value).toFixed(2)}人相当`;
   return `${Number(value).toFixed(1)}%`;
 }
 
@@ -216,7 +218,7 @@ export function validateDbfStoreMonthlyProjection(payload) {
     }
     metrics.storeSales = preparingMetric("店舗売上（税抜）", "yen", "正式Contract未提供");
     metrics.regularRetail = metrics.retailSales;
-    ["grossProfit", "operatingProfitMargin", "ordinaryProfit", "yearOverYearRatio", "budgetRatio", "profitYearOverYear", "customerYearOverYear", "ticketYearOverYear", "retailYearOverYear", "retailBudgetRatio", "ecTargetRatio", "ecYearOverYear", "staffCount"].forEach((key) => {
+    ["grossProfit", "operatingProfitMargin", "ordinaryProfit", "yearOverYearRatio", "budgetRatio", "profitYearOverYear", "customerYearOverYear", "ticketYearOverYear", "retailYearOverYear", "retailBudgetRatio", "ecTargetRatio", "ecYearOverYear"].forEach((key) => {
       metrics[key] = preparingMetric(key, key.includes("Ratio") || key.includes("Year") ? "percent" : "yen", "比較Contract未提供");
     });
     const comparisons = comparisonEnabled ? source.comparisons : null;

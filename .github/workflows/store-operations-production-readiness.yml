@@ -12,6 +12,9 @@ on:
       - "supabase/migrations/20260819002309_dbf_store_monthly_actual_backend_contract_v1.sql"
       - "supabase/migrations/20260819123648_dbf_store_monthly_comparison_read_v1.sql"
       - "tests/store-operations-production-*.test.mjs"
+      - "tests/store-operations-preparing-metrics-production-*"
+      - "tools/store_repeat_retail_handoff/**"
+      - "docs/store_operations_management/production_integration/store-operations-preparing-metrics-production-v1.*"
       - "tests/store-operations-production-readiness-rollback.sql"
       - "tests/store-operations-production-readiness-postgres17.sql"
       - "docs/store_operations_management/production_release/**"
@@ -57,6 +60,7 @@ jobs:
         run: |
           node --test tests/store-operations-production-rollout.test.mjs tests/store-operations-production-release-package.test.mjs
           node --test tests/dbf-store-monthly-actual-backend-contract.test.mjs tests/dbf-store-monthly-comparison-contract.test.mjs
+          node --test tests/store-operations-preparing-metrics-production-execution.test.mjs
           deno test --allow-env tests/dbf-store-monthly-actual-backend-edge.test.ts
           deno check supabase/functions/nov-hub-api/index.ts
       - name: Apply the frozen PostgreSQL 17 release chain
@@ -69,6 +73,13 @@ jobs:
           psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260819123648_dbf_store_monthly_comparison_read_v1.sql
           psql --set=ON_ERROR_STOP=1 --file tests/store-operations-production-readiness-postgres17.sql
           psql --set=ON_ERROR_STOP=1 --file tests/store-operations-production-readiness-rollback.sql
+          psql --set=ON_ERROR_STOP=1 --file tests/store-operations-preparing-metrics-production-fixture.sql
+          if psql --set=ON_ERROR_STOP=1 --file docs/store_operations_management/production_integration/store-operations-preparing-metrics-production-v1.execution.sql; then
+            echo "Execution SQL must fail closed without the external Owner approval setting."
+            exit 1
+          fi
+          PGOPTIONS="-c app.store_operations_retail_execution_approval=OWNER_APPROVAL_REQUIRED_AFTER_FIXED_SHA_REVIEW" psql --set=ON_ERROR_STOP=1 --file docs/store_operations_management/production_integration/store-operations-preparing-metrics-production-v1.execution.sql
+          psql --set=ON_ERROR_STOP=1 --file tests/store-operations-preparing-metrics-production-assert.sql
       - name: Production configuration and UAT exclusion
         shell: bash
         run: |

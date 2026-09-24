@@ -1,0 +1,32 @@
+{
+  "status": "AWAITING_SEPARATE_OWNER_PRODUCTION_EXECUTION_APPROVAL",
+  "productionProjectRef": "nkmxevmioczcmnldreyo",
+  "sourceMainSha": "d77e0213b354c39d855993cd6fd5a93e8da10bf0",
+  "fixedInputSha256": "EF2C56108BACED3F1999F6903C681B8D7BE963A50707388DC84BEA2BBFA68942",
+  "packageRootSha256": "94CA104E062E3BCB2CB47910AA47F95F578C1BF9463196A2A4D9304E5A4ABBBA",
+  "sqlSha256": "34B3D54588C051EC037AD1963B4FA5DE409B5146F4FC62F78EB4CF1829AC4523",
+  "sqlByteSize": 1518864,
+  "candidateRootSha256": "3D71C4A6195BC9264C454C9C666952D2A266C44F45A7637E860EF09762E62060",
+  "planned": {
+    "metricDefinitions": 1,
+    "companyMappings": 6,
+    "storeMappings": 21,
+    "sourceFiles": 1,
+    "importBatches": 92,
+    "rawRows": 1492,
+    "stagingRows": 1492,
+    "canonicalInserts": 1492,
+    "existingRateUnchanged": 4,
+    "rateInsert": 0,
+    "rateUpdate": 0,
+    "companyFactInsert": 0,
+    "nonSalonInsert": 0
+  },
+  "approvalGate": {
+    "setting": "app.store_operations_retail_execution_approval",
+    "requiredValue": "OWNER_APPROVAL_REQUIRED_AFTER_FIXED_SHA_REVIEW",
+    "suppliedByArtifact": false
+  },
+  "productionWriteExecuted": false,
+  "deployExecuted": false
+}

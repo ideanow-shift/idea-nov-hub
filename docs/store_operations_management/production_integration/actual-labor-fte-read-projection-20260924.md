@@ -18,6 +18,20 @@
 
 The earlier timecard-store override is not canonical. All 56 override rows (6,903.33 hours) are excluded and retained only in the unallocated audit as `NO_FTE_PLACEMENT` or `FTE_ZERO`.
 
+## Owner-confirmed KYARA HALF affiliation
+
+- Decision ID: `OWNER_CONFIRMED_KYARA_HALF_IDEA_NOV_20260924`
+- Authority: IDEA NOV Group Owner
+- Confirmed: 2026-09-24
+- Canonical store: `KYARA HALF` / store code `0019` / `ac20934d-ef15-4363-8c2f-759193c7fcc7`
+- Corporate affiliation: corporation no `0001` / `e4059116-bdb3-4e13-9763-bbc77bdfe062`
+- Store type: `直営`
+- Effective period: every month from 2023-09 through 2026-08
+- Canonical rows: 36
+- The five formerly staging-only months from 2023-09 through 2024-01 are canonical under this Owner decision.
+
+The fixed total of 671 canonical candidates already includes these five rows. They must not be added a second time.
+
 ## Read-only Production preflight
 
 - Project: `nkmxevmioczcmnldreyo`

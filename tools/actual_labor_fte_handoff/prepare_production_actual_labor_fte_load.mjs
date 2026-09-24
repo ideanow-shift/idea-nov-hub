@@ -56,6 +56,43 @@ const COMPANY_IDS = Object.freeze({
   "0006": "34afa056-2d7c-413a-b6ea-80e2620e003c",
 });
 
+export const PRODUCTION_STORE_MASTER_RESOLUTION = Object.freeze({
+  evidenceId: "PRODUCTION_STORES_READ_ONLY_RECHECK_20260924",
+  projectRef: PRODUCTION_ACTUAL_LABOR_FTE_PROFILE.projectRef,
+  baseMainSha: "4f81fd455dead5911b1c63cbf8bf8c17c0550bbe",
+  resolvedDate: "2026-09-24",
+  stableKey: "store_no+corporation_id",
+  activeRequired: true,
+  expectedStores: 20,
+  exactMatches: 20,
+  missingMatches: 0,
+  ambiguousMatches: 0,
+  correctedUuidCount: 18,
+  unchangedUuidCount: 2,
+  storeIdsByStableKey: Object.freeze({
+    "0001|0003": "1285ac70-9181-44db-9443-cbd043ab908b",
+    "0001|0005": "887da14c-2c0d-46b3-8953-962c7c8dd590",
+    "0001|0006": "1bcba30a-d063-4cdb-be74-425e250aeb25",
+    "0001|0007": "73ee82b5-86fa-42e7-ab03-0e075d218dc3",
+    "0001|0008": "e7bab6a5-9a8c-4f46-abde-e839ce5bf5e6",
+    "0001|0009": "fec1e181-ca5b-482d-a865-3f488f19128f",
+    "0001|0011": "ad931406-22de-4ba7-a6eb-4502d5c50a91",
+    "0001|0012": "4e5526cc-9ec7-42aa-ac60-579b6c438c88",
+    "0001|0016": "2980442d-294c-4aae-a9bb-78f530a3a20a",
+    "0001|0017": "36c222de-0554-4265-b177-3b68285cc4a4",
+    "0001|0018": "b898c63f-1cc1-42c5-be4f-916f24f49cb6",
+    "0001|0019": "ac20934d-ef15-4363-8c2f-759193c7fcc7",
+    "0001|0020": "5f66193f-d360-4967-b9c7-a100c8ee5e94",
+    "0002|0002": "acc91785-3bb5-49f0-a2f6-0be6e5d511eb",
+    "0002|0015": "b5a206dc-4a1f-4eb4-9b14-a6f3e5cb2b2c",
+    "0002|0021": "62070a3c-c484-4a9b-bc06-c3904b27f2c0",
+    "0003|0001": "3ba5e54d-5f39-4bcd-b917-7daaea34a8e9",
+    "0004|0004": "71551fcf-853f-4cad-ac94-82b93e75de82",
+    "0005|0014": "e7ecb022-6b19-4952-bf4b-fbf5f4c53895",
+    "0006|0010": "02d29285-6df0-44b2-bca8-4d61bfe1f5a8",
+  }),
+});
+
 const STORES = Object.freeze({
   "SALON:KYARAHALF": Object.freeze({
     storeId: KYARA_HALF_OWNER_DECISION.storeId,
@@ -65,25 +102,25 @@ const STORES = Object.freeze({
     storeType: KYARA_HALF_OWNER_DECISION.storeType,
     ownerDecisionId: KYARA_HALF_OWNER_DECISION.decisionId,
   }),
-  "SALON:アネックス": Object.freeze({ storeId: "2980442d-95d9-4cee-8326-c43d077e9977", companyNo: "0001", storeCode: "0016", canonicalName: "アネックス" }),
-  "SALON:上石神井": Object.freeze({ storeId: "1bcba30a-fc56-44a6-b96f-061d5f41a605", companyNo: "0001", storeCode: "0006", canonicalName: "上石神井" }),
-  "SALON:下井草": Object.freeze({ storeId: "fec1e181-a59b-41b0-921d-6f999df9a3a6", companyNo: "0001", storeCode: "0009", canonicalName: "下井草" }),
+  "SALON:アネックス": Object.freeze({ storeId: "2980442d-294c-4aae-a9bb-78f530a3a20a", companyNo: "0001", storeCode: "0016", canonicalName: "アネックス" }),
+  "SALON:上石神井": Object.freeze({ storeId: "1bcba30a-d063-4cdb-be74-425e250aeb25", companyNo: "0001", storeCode: "0006", canonicalName: "上石神井" }),
+  "SALON:下井草": Object.freeze({ storeId: "fec1e181-ca5b-482d-a865-3f488f19128f", companyNo: "0001", storeCode: "0009", canonicalName: "下井草" }),
   "SALON:久米川": Object.freeze({ storeId: "3ba5e54d-5f39-4bcd-b917-7daaea34a8e9", companyNo: "0003", storeCode: "0001", canonicalName: "久米川" }),
-  "SALON:保谷": Object.freeze({ storeId: "73ee82b5-0e17-4035-afb4-85daf84656c5", companyNo: "0001", storeCode: "0007", canonicalName: "保谷" }),
-  "SALON:国分寺": Object.freeze({ storeId: "71551fcf-d29d-4f26-8cd2-ad31016dce61", companyNo: "0004", storeCode: "0004", canonicalName: "国分寺" }),
-  "SALON:所沢": Object.freeze({ storeId: "1285ac70-bd67-46ae-8ad8-77ab83ce3962", companyNo: "0001", storeCode: "0003", canonicalName: "所沢" }),
-  "SALON:新所沢": Object.freeze({ storeId: "acc91785-d94e-46ec-84f2-28be7c9f1f4a", companyNo: "0002", storeCode: "0002", canonicalName: "新所沢" }),
-  "SALON:東久留米": Object.freeze({ storeId: "02d29285-863f-483a-94b2-73633c17500e", companyNo: "0006", storeCode: "0010", canonicalName: "東久留米" }),
-  "SALON:東大和": Object.freeze({ storeId: "e7bab6a5-28f1-4d69-9749-105a960a2af4", companyNo: "0001", storeCode: "0008", canonicalName: "東大和" }),
-  "SALON:江古田": Object.freeze({ storeId: "4e5526cc-dd5f-470d-8086-7c3809d00e10", companyNo: "0001", storeCode: "0012", canonicalName: "江古田" }),
-  "SALON:池袋": Object.freeze({ storeId: "36c222de-7f6e-42f2-8b99-c40ca9cbfc0d", companyNo: "0001", storeCode: "0017", canonicalName: "池袋" }),
-  "SALON:石神井公園": Object.freeze({ storeId: "ad931406-f1cc-4bc2-b8e0-d3b1a8df07df", companyNo: "0001", storeCode: "0011", canonicalName: "石神井公園" }),
-  "SALON:花小金井": Object.freeze({ storeId: "e7ecb022-d929-4324-9880-f8f1bbb93a26", companyNo: "0005", storeCode: "0014", canonicalName: "花小金井" }),
-  "SALON:野方": Object.freeze({ storeId: "b898c63f-ea47-4b9b-91b4-11c8d92c19f7", companyNo: "0001", storeCode: "0018", canonicalName: "野方" }),
-  "SALON:高田馬場": Object.freeze({ storeId: "887da14c-b145-4c87-9c4a-f36ea4b1b54b", companyNo: "0001", storeCode: "0005", canonicalName: "高田馬場" }),
-  "SALON:鷺ノ宮": Object.freeze({ storeId: "b5a206dc-f46a-4fe6-bab7-e6f4bb492872", companyNo: "0002", storeCode: "0015", canonicalName: "鷺ノ宮" }),
-  "SALON:立川": Object.freeze({ storeId: "5f66193f-bf37-4452-af2d-ae8c132de85f", companyNo: "0001", storeCode: "0020", canonicalName: "立川" }),
-  "SALON:RoanebyBASSA": Object.freeze({ storeId: "62070a3c-c60f-4c8d-aaba-5f0fd24df795", companyNo: "0002", storeCode: "0021", canonicalName: "Roane" }),
+  "SALON:保谷": Object.freeze({ storeId: "73ee82b5-86fa-42e7-ab03-0e075d218dc3", companyNo: "0001", storeCode: "0007", canonicalName: "保谷" }),
+  "SALON:国分寺": Object.freeze({ storeId: "71551fcf-853f-4cad-ac94-82b93e75de82", companyNo: "0004", storeCode: "0004", canonicalName: "国分寺" }),
+  "SALON:所沢": Object.freeze({ storeId: "1285ac70-9181-44db-9443-cbd043ab908b", companyNo: "0001", storeCode: "0003", canonicalName: "所沢" }),
+  "SALON:新所沢": Object.freeze({ storeId: "acc91785-3bb5-49f0-a2f6-0be6e5d511eb", companyNo: "0002", storeCode: "0002", canonicalName: "新所沢" }),
+  "SALON:東久留米": Object.freeze({ storeId: "02d29285-6df0-44b2-bca8-4d61bfe1f5a8", companyNo: "0006", storeCode: "0010", canonicalName: "東久留米" }),
+  "SALON:東大和": Object.freeze({ storeId: "e7bab6a5-9a8c-4f46-abde-e839ce5bf5e6", companyNo: "0001", storeCode: "0008", canonicalName: "東大和" }),
+  "SALON:江古田": Object.freeze({ storeId: "4e5526cc-9ec7-42aa-ac60-579b6c438c88", companyNo: "0001", storeCode: "0012", canonicalName: "江古田" }),
+  "SALON:池袋": Object.freeze({ storeId: "36c222de-0554-4265-b177-3b68285cc4a4", companyNo: "0001", storeCode: "0017", canonicalName: "池袋" }),
+  "SALON:石神井公園": Object.freeze({ storeId: "ad931406-22de-4ba7-a6eb-4502d5c50a91", companyNo: "0001", storeCode: "0011", canonicalName: "石神井公園" }),
+  "SALON:花小金井": Object.freeze({ storeId: "e7ecb022-6b19-4952-bf4b-fbf5f4c53895", companyNo: "0005", storeCode: "0014", canonicalName: "花小金井" }),
+  "SALON:野方": Object.freeze({ storeId: "b898c63f-1cc1-42c5-be4f-916f24f49cb6", companyNo: "0001", storeCode: "0018", canonicalName: "野方" }),
+  "SALON:高田馬場": Object.freeze({ storeId: "887da14c-2c0d-46b3-8953-962c7c8dd590", companyNo: "0001", storeCode: "0005", canonicalName: "高田馬場" }),
+  "SALON:鷺ノ宮": Object.freeze({ storeId: "b5a206dc-4a1f-4eb4-9b14-a6f3e5cb2b2c", companyNo: "0002", storeCode: "0015", canonicalName: "鷺ノ宮" }),
+  "SALON:立川": Object.freeze({ storeId: "5f66193f-d360-4967-b9c7-a100c8ee5e94", companyNo: "0001", storeCode: "0020", canonicalName: "立川" }),
+  "SALON:RoanebyBASSA": Object.freeze({ storeId: "62070a3c-c484-4a9b-bc06-c3904b27f2c0", companyNo: "0002", storeCode: "0021", canonicalName: "Roane" }),
 });
 
 function assert(condition, code) {
@@ -190,6 +227,38 @@ export function validateKyaraHalfOwnerDecision(candidates, decision = KYARA_HALF
   });
 }
 
+export function validateProductionStoreMasterResolution(candidates, resolution = PRODUCTION_STORE_MASTER_RESOLUTION) {
+  const uniqueStores = new Map();
+  for (const row of candidates) {
+    const fact = row?.candidate ?? row;
+    const stableKey = `${fact.source_company_no}|${fact.source_store_code}`;
+    const prior = uniqueStores.get(stableKey);
+    assert(!prior || prior === fact.store_id, "PRODUCTION_STORE_MASTER_CANDIDATE_CONFLICT");
+    uniqueStores.set(stableKey, fact.store_id);
+  }
+  assert(uniqueStores.size === resolution.expectedStores, "PRODUCTION_STORE_MASTER_COUNT_MISMATCH");
+  assert(Object.keys(resolution.storeIdsByStableKey).length === resolution.expectedStores,
+    "PRODUCTION_STORE_MASTER_SNAPSHOT_COUNT_MISMATCH");
+  for (const [stableKey, storeId] of uniqueStores) {
+    assert(resolution.storeIdsByStableKey[stableKey], "PRODUCTION_STORE_MASTER_STABLE_KEY_MISSING");
+    assert(resolution.storeIdsByStableKey[stableKey] === storeId, "PRODUCTION_STORE_MASTER_UUID_MISMATCH");
+  }
+  return Object.freeze({
+    evidenceId: resolution.evidenceId,
+    projectRef: resolution.projectRef,
+    baseMainSha: resolution.baseMainSha,
+    resolvedDate: resolution.resolvedDate,
+    stableKey: resolution.stableKey,
+    activeRequired: resolution.activeRequired,
+    exactMatches: resolution.exactMatches,
+    missingMatches: resolution.missingMatches,
+    ambiguousMatches: resolution.ambiguousMatches,
+    correctedUuidCount: resolution.correctedUuidCount,
+    unchangedUuidCount: resolution.unchangedUuidCount,
+    stores: Object.freeze([...uniqueStores.entries()].sort().map(([stableKey, storeId]) => Object.freeze({ stableKey, storeId }))),
+  });
+}
+
 export function buildProductionActualLaborFteLoadPlan(pkg, profile = PRODUCTION_ACTUAL_LABOR_FTE_PROFILE) {
   assert(pkg?.package_type === "STORE_OPERATIONS_ACTUAL_LABOR_FTE_CANONICAL_HANDOFF", "ACTUAL_LABOR_FTE_PACKAGE_TYPE_INVALID");
   assert(pkg.package_version === "2026-09-24.2", "ACTUAL_LABOR_FTE_PACKAGE_VERSION_INVALID");
@@ -220,6 +289,7 @@ export function buildProductionActualLaborFteLoadPlan(pkg, profile = PRODUCTION_
 
   const prepared = pkg.canonical_store_month_facts.map(prepareActualLaborFteCandidate);
   const kyaraHalfOwnerDecision = validateKyaraHalfOwnerDecision(prepared);
+  const productionStoreMasterResolution = validateProductionStoreMasterResolution(prepared);
   const grains = new Set();
   const fingerprints = new Set();
   const months = new Set();
@@ -254,6 +324,7 @@ export function buildProductionActualLaborFteLoadPlan(pkg, profile = PRODUCTION_
     packageRootSha256: profile.packageRootSha256,
     sourceWorkbookSha256: profile.sourceWorkbookSha256,
     ownerDecisions: Object.freeze({ kyaraHalfCorporateAffiliation: kyaraHalfOwnerDecision }),
+    productionStoreMasterResolution,
     mapping: Object.freeze({ matched: prepared.length, unmatched: 0, ambiguous: 0, hq: 0 }),
     productionPlan: Object.freeze({
       actualLaborFte: Object.freeze({ insert: prepared.length, supersede: 0, unchanged: 0 }),

@@ -11,8 +11,8 @@ import {
 
 export const EXECUTION_PROFILE = Object.freeze({
   approvalGateSetting: "app.store_operations_actual_labor_fte_execution_approval",
-  approvalGateValue: "OWNER_APPROVAL_REQUIRED_AFTER_FIXED_SHA_REVIEW",
-  mappingSourceSystem: "store_ops_actual_labor_fte_20260924_v1",
+  approvalGateValue: "OWNER_APPROVAL_REQUIRED_AFTER_CORRECTED_FIXED_SHA_REVIEW",
+  mappingSourceSystem: "store_ops_actual_labor_fte_20260924_v2",
   sourceSystem: "actual_labor_fte_handoff_v1",
   sourceType: "actual_labor_fte_handoff_v1",
   sourceFileName: "01_実労働FTE_CORE_DB引継ぎパッケージ.json",
@@ -20,6 +20,7 @@ export const EXECUTION_PROFILE = Object.freeze({
   expectedStoreMappings: 20,
   expectedMonths: 36,
   expectedCandidates: 671,
+  supersededExecutedFailedSqlSha256: "76CD092C7D3CBE3756FBA6DC2D97C044652052623D59EDFB3BF1911DA8BDB7E6",
 });
 
 function assert(condition, code) {
@@ -63,6 +64,13 @@ export function buildProductionActualLaborFteExecutionSql(plan, profile = EXECUT
   assert(kyaraDecision?.decisionId === KYARA_HALF_OWNER_DECISION.decisionId
     && kyaraDecision.canonicalRows === 36
     && kyaraDecision.promotedLegacyStagingOnlyRows === 5, "EXECUTION_KYARA_HALF_OWNER_DECISION_MISSING");
+  const storeMasterResolution = plan.productionStoreMasterResolution;
+  assert(storeMasterResolution?.stableKey === "store_no+corporation_id"
+    && storeMasterResolution.exactMatches === 20
+    && storeMasterResolution.missingMatches === 0
+    && storeMasterResolution.ambiguousMatches === 0
+    && storeMasterResolution.correctedUuidCount === 18,
+  "EXECUTION_PRODUCTION_STORE_MASTER_RESOLUTION_INVALID");
 
   const companies = new Map();
   const stores = new Map();
@@ -107,13 +115,17 @@ export function buildProductionActualLaborFteExecutionSql(plan, profile = EXECUT
     .map((value) => `(${sql(value.companyNo)},${sql(value.companyId)}::uuid)`).join(",\n      ");
   const storeBaselineValues = [...stores.values()].sort((a, b) => a.storeCode.localeCompare(b.storeCode))
     .map((value) => `(${sql(value.storeId)}::uuid,${sql(value.storeCode)},${sql(value.companyId)}::uuid)`).join(",\n      ");
+  const storeKeyBaselineValues = [...stores.values()].sort((a, b) => a.storeCode.localeCompare(b.storeCode))
+    .map((value) => `(${sql(value.storeCode)},${sql(value.companyId)}::uuid)`).join(",\n      ");
   const batchValues = [...monthOrdinals.keys()].sort().map((month) =>
     `(${sql(month)}::date,${sql(actor)}::uuid,${sql(actor)}::uuid)`).join(",\n    ");
   const rawValues = rows.map(({ candidate, ordinal }) =>
     `(${sql(candidate.fiscal_month)}::date,${ordinal},${jsonSql(candidate)},${sql(sha256(Buffer.from(JSON.stringify(candidate), "utf8")).toLowerCase())})`
   ).join(",\n    ");
 
-  return `-- EXECUTION PACKAGE. DO NOT RUN WITHOUT A SEPARATE OWNER APPROVAL FOR THIS FILE SHA.
+  return `-- CORRECTED EXECUTION PACKAGE V2. DO NOT RUN WITHOUT A SEPARATE OWNER APPROVAL FOR THIS FILE SHA.
+-- Supersedes executed-failed SQL SHA-256: ${profile.supersededExecutedFailedSqlSha256}
+-- Prior attempt stopped at PRODUCTION_BASELINE_GATE_FAILED and rolled back atomically; Production write rows: 0.
 -- Production project: ${PRODUCTION_ACTUAL_LABOR_FTE_PROFILE.projectRef}
 -- Fixed aggregate handoff SHA-256: ${PRODUCTION_ACTUAL_LABOR_FTE_PROFILE.handoffPackageSha256}
 -- Fixed source workbook SHA-256: ${PRODUCTION_ACTUAL_LABOR_FTE_PROFILE.sourceWorkbookSha256}
@@ -121,12 +133,14 @@ export function buildProductionActualLaborFteExecutionSql(plan, profile = EXECUT
 -- Owner decision: ${kyaraDecision.decisionId}; confirmed ${kyaraDecision.confirmedDate}.
 -- KYARA HALF is an IDEA NOV directly managed store for all 36 months from 2023-09 through 2026-08.
 -- The five months 2023-09 through 2024-01 are canonical under this Owner-confirmed affiliation.
+-- Store UUIDs were resolved read-only from active Production master rows by store_no + corporation_id; names were not used.
+-- Resolution: exact=20 missing=0 ambiguous=0 corrected_uuid=18 unchanged_uuid=2.
 -- This file is atomic. Any failed gate rolls the entire transaction back.
 
 begin;
 set local lock_timeout = '5s';
 set local statement_timeout = '120s';
-select pg_advisory_xact_lock(hashtextextended('store-operations-actual-labor-fte-20260924-v1', 0));
+select pg_advisory_xact_lock(hashtextextended('store-operations-actual-labor-fte-20260924-v2', 0));
 
 do $approval$
 begin
@@ -144,6 +158,7 @@ declare
   source_count integer;
   mapping_count integer;
   company_count integer;
+  store_key_count integer;
   store_count integer;
   kyara_master_count integer;
 begin
@@ -169,6 +184,17 @@ begin
   ) v(id,store_no,corporation_id)
     on s.id=v.id and s.store_no=v.store_no and s.corporation_id=v.corporation_id
   where s.is_active and s.store_no<>'0000';
+  select count(*) into store_key_count
+  from (
+    select v.store_no,v.corporation_id,count(s.id) as active_match_count
+    from (values
+      ${storeKeyBaselineValues}
+    ) v(store_no,corporation_id)
+    left join public.stores s
+      on s.store_no=v.store_no and s.corporation_id=v.corporation_id and s.is_active
+    group by v.store_no,v.corporation_id
+    having count(s.id)=1
+  ) exact_stable_keys;
   select count(*) into kyara_master_count from public.stores
     where id=${sql(kyaraDecision.storeId)}::uuid
       and store_no=${sql(kyaraDecision.storeCode)}
@@ -177,10 +203,11 @@ begin
       and is_active;
   if actor_count<>1 or definition_count<>0 or fact_count<>0
      or source_count<>0 or mapping_count<>0
-     or company_count<>${profile.expectedCompanyMappings} or store_count<>${profile.expectedStoreMappings}
+     or company_count<>${profile.expectedCompanyMappings}
+     or store_key_count<>${profile.expectedStoreMappings} or store_count<>${profile.expectedStoreMappings}
      or kyara_master_count<>1 then
-    raise exception 'PRODUCTION_BASELINE_GATE_FAILED actor=% definition=% fact=% source=% mapping=% company=% store=% kyara_master=%',
-      actor_count,definition_count,fact_count,source_count,mapping_count,company_count,store_count,kyara_master_count;
+    raise exception 'PRODUCTION_BASELINE_GATE_FAILED actor=% definition=% fact=% source=% mapping=% company=% store_key=% store=% kyara_master=%',
+      actor_count,definition_count,fact_count,source_count,mapping_count,company_count,store_key_count,store_count,kyara_master_count;
   end if;
 end
 $baseline$;
@@ -439,7 +466,7 @@ export function generateProductionActualLaborFteExecution({ sourcePath, sqlPath,
   const manifest = {
     status: "AWAITING_SEPARATE_OWNER_PRODUCTION_EXECUTION_APPROVAL",
     productionProjectRef: PRODUCTION_ACTUAL_LABOR_FTE_PROFILE.projectRef,
-    sourceMainSha: "d83600fe64bcef2d6d000a27777cfe4889d7142c",
+    sourceMainSha: "4f81fd455dead5911b1c63cbf8bf8c17c0550bbe",
     fixedInputSha256: PRODUCTION_ACTUAL_LABOR_FTE_PROFILE.handoffPackageSha256,
     fixedInputByteSize: PRODUCTION_ACTUAL_LABOR_FTE_PROFILE.handoffPackageByteSize,
     sourceWorkbookSha256: PRODUCTION_ACTUAL_LABOR_FTE_PROFILE.sourceWorkbookSha256,
@@ -449,6 +476,17 @@ export function generateProductionActualLaborFteExecution({ sourcePath, sqlPath,
     sqlByteSize: Buffer.byteLength(executionSql, "utf8"),
     candidateRootSha256,
     ownerDecision: plan.ownerDecisions.kyaraHalfCorporateAffiliation,
+    productionStoreMasterResolution: plan.productionStoreMasterResolution,
+    correction: {
+      version: 2,
+      supersedesExecutedFailedSqlSha256: EXECUTION_PROFILE.supersededExecutedFailedSqlSha256,
+      priorExecution: {
+        result: "PRODUCTION_BASELINE_GATE_FAILED",
+        observedCounts: { actor: 1, definition: 0, fact: 0, source: 0, mapping: 0, company: 6, store: 2, kyaraMaster: 1 },
+        transactionOutcome: "ATOMIC_ROLLBACK",
+        productionWriteRows: 0,
+      },
+    },
     planned: {
       metricDefinitions: 1,
       companyMappings: EXECUTION_PROFILE.expectedCompanyMappings,

@@ -1,0 +1,33 @@
+{
+  "status": "PASS",
+  "productionExecuted": false,
+  "sourceSha256": "97E5F6E360DFCD00CE6E69F974C1E9F19BC8EFFE8B89684FD290946D8872485D",
+  "packageSha256": "10F012FDFA51303B3C68DDC7ACB9B854A85630DCC2DA423B16557966B4E0B7B3",
+  "requestFingerprint": "4DDE38C734D36C60E20B4D70D847DB13BB6B229F4B05C050506853CC3E0F88E8",
+  "executionApprovalGate": {
+    "setting": "app.store_operations_july_profit_execution_approval",
+    "requiredValue": "OWNER_APPROVAL_REQUIRED_AFTER_FIXED_SHA_REVIEW"
+  },
+  "artifacts": {
+    "store-operating-profit-2026-07.package.json": "8823AEFD8AE78867F96B56C7C32CF720BB26BF71A4A61645C37B943248045BA7",
+    "store-operating-profit-2026-07.execution.sql": "0EC148BBB4477563B5F1ACC33FDA1D56EC70B0F9121165F01D6B5BF5776BCB8E"
+  },
+  "planned": {
+    "sourceFilesInsert": 1,
+    "importBatchesInsert": 1,
+    "rawRowsInsert": 13,
+    "stagingRowsInsert": 13,
+    "importEventsInsert": 4,
+    "canonicalFactsInsert": 13,
+    "batchStatusUpdates": 2,
+    "entityMappingsInsert": 0,
+    "ddl": 0
+  },
+  "validation": {
+    "julyDetailRows": 3382,
+    "directStoreRows": 13,
+    "excludedFcZeroRows": 5,
+    "fuzzyMappings": 0,
+    "existingMappingsReused": 14
+  }
+}

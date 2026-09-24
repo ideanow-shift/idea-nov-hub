@@ -1,0 +1,371 @@
+{
+  "contractVersion": "store-operating-profit-2026-07-v1",
+  "fiscalMonth": "2026-07",
+  "metricCode": "OPERATING_PROFIT",
+  "definitionVersion": "v1",
+  "confirmationStatus": "confirmed",
+  "source": {
+    "sha256": "97E5F6E360DFCD00CE6E69F974C1E9F19BC8EFFE8B89684FD290946D8872485D",
+    "byteSize": 4012486,
+    "fileName": "会計_法人管理正本.xlsx",
+    "sourceSystem": "accounting_store_operating_profit_v1",
+    "sheetName": "13_PL_ENTITY_SUMMARY",
+    "detailSheetName": "12_PL_ENTITY_MONTHLY",
+    "julyDetailRows": 3382
+  },
+  "company": {
+    "sourceKey": "0001",
+    "companyId": "e4059116-bdb3-4e13-9763-bbc77bdfe062",
+    "mappingId": "c9214c45-a309-53ac-a073-8f55464d66fe"
+  },
+  "rows": [
+    {
+      "mappingSourceKey": "BASSA所沢店",
+      "mappingId": "d944170a-46f8-54a8-a4df-9db4321b71ec",
+      "storeId": "1285ac70-9181-44db-9443-cbd043ab908b",
+      "storeName": "BASSA所沢店",
+      "sourceRowNumber": 22,
+      "sourceLabel": "所沢",
+      "amount": "1514582.00",
+      "rawPayload": {
+        "fiscalMonth": "2026-07",
+        "companyKey": "0001",
+        "sourceLabel": "所沢",
+        "mappingSourceKey": "BASSA所沢店",
+        "metricCode": "OPERATING_PROFIT",
+        "amount": "1514582.00",
+        "taxBasis": "net",
+        "verificationStatus": "PASS_CURRENT_ONLY",
+        "sourceWorkbook": "イディアノブ　年次・部門　残高試算表8月まで.xlsx",
+        "sourceSheet": "13_PL_ENTITY_SUMMARY",
+        "sourceRowNumber": 22
+      },
+      "rawPayloadSha256": "744bdd6bebf62f53fc0b40691df2eaea1b98d3875df4403677aa14010d9a2436"
+    },
+    {
+      "mappingSourceKey": "BASSA上石神井店",
+      "mappingId": "a14822f2-661a-5d6f-a585-25a03b96925d",
+      "storeId": "1bcba30a-d063-4cdb-be74-425e250aeb25",
+      "storeName": "BASSA上石神井店",
+      "sourceRowNumber": 15,
+      "sourceLabel": "上石神井",
+      "amount": "1501426.00",
+      "rawPayload": {
+        "fiscalMonth": "2026-07",
+        "companyKey": "0001",
+        "sourceLabel": "上石神井",
+        "mappingSourceKey": "BASSA上石神井店",
+        "metricCode": "OPERATING_PROFIT",
+        "amount": "1501426.00",
+        "taxBasis": "net",
+        "verificationStatus": "PASS_CURRENT_ONLY",
+        "sourceWorkbook": "イディアノブ　年次・部門　残高試算表8月まで.xlsx",
+        "sourceSheet": "13_PL_ENTITY_SUMMARY",
+        "sourceRowNumber": 15
+      },
+      "rawPayloadSha256": "c2b008d78a58130917ada79c80ca6cc151d6a703541e1d0d00d62399ffb86646"
+    },
+    {
+      "mappingSourceKey": "BASSA ANNEX店",
+      "mappingId": "69363eba-a099-5a75-80fe-3bc34fce54a6",
+      "storeId": "2980442d-294c-4aae-a9bb-78f530a3a20a",
+      "storeName": "BASSAANNEX店",
+      "sourceRowNumber": 14,
+      "sourceLabel": "アネックス",
+      "amount": "1069433.00",
+      "rawPayload": {
+        "fiscalMonth": "2026-07",
+        "companyKey": "0001",
+        "sourceLabel": "アネックス",
+        "mappingSourceKey": "BASSA ANNEX店",
+        "metricCode": "OPERATING_PROFIT",
+        "amount": "1069433.00",
+        "taxBasis": "net",
+        "verificationStatus": "PASS_CURRENT_ONLY",
+        "sourceWorkbook": "イディアノブ　年次・部門　残高試算表8月まで.xlsx",
+        "sourceSheet": "13_PL_ENTITY_SUMMARY",
+        "sourceRowNumber": 14
+      },
+      "rawPayloadSha256": "169e8839f959a7fc88ca16016e0335fa4075cba2aef31370b6d9db60d86825c3"
+    },
+    {
+      "mappingSourceKey": "BASSA池袋店",
+      "mappingId": "60853a08-5e79-587a-842f-42a115d6e3a0",
+      "storeId": "36c222de-0554-4265-b177-3b68285cc4a4",
+      "storeName": "BASSA池袋店",
+      "sourceRowNumber": 34,
+      "sourceLabel": "池袋",
+      "amount": "591234.00",
+      "rawPayload": {
+        "fiscalMonth": "2026-07",
+        "companyKey": "0001",
+        "sourceLabel": "池袋",
+        "mappingSourceKey": "BASSA池袋店",
+        "metricCode": "OPERATING_PROFIT",
+        "amount": "591234.00",
+        "taxBasis": "net",
+        "verificationStatus": "PASS_CURRENT_ONLY",
+        "sourceWorkbook": "イディアノブ　年次・部門　残高試算表8月まで.xlsx",
+        "sourceSheet": "13_PL_ENTITY_SUMMARY",
+        "sourceRowNumber": 34
+      },
+      "rawPayloadSha256": "6979870c745348bc7370645dc1ddf8ed317678298c4aad9831434e6872f669e6"
+    },
+    {
+      "mappingSourceKey": "BASSA江古田店",
+      "mappingId": "07628f9d-bfb2-5db0-bc2e-e95b30dd6cf2",
+      "storeId": "4e5526cc-9ec7-42aa-ac60-579b6c438c88",
+      "storeName": "BASSA江古田店",
+      "sourceRowNumber": 33,
+      "sourceLabel": "江古田",
+      "amount": "1700381.00",
+      "rawPayload": {
+        "fiscalMonth": "2026-07",
+        "companyKey": "0001",
+        "sourceLabel": "江古田",
+        "mappingSourceKey": "BASSA江古田店",
+        "metricCode": "OPERATING_PROFIT",
+        "amount": "1700381.00",
+        "taxBasis": "net",
+        "verificationStatus": "PASS_CURRENT_ONLY",
+        "sourceWorkbook": "イディアノブ　年次・部門　残高試算表8月まで.xlsx",
+        "sourceSheet": "13_PL_ENTITY_SUMMARY",
+        "sourceRowNumber": 33
+      },
+      "rawPayloadSha256": "063a5205114996b15b8470b86f6d60d825c37551da1aa7f5118ebf8346dfcc2f"
+    },
+    {
+      "mappingSourceKey": "BASSA立川店",
+      "mappingId": "f798a0d9-4ba2-5010-9232-ca1884afe36b",
+      "storeId": "5f66193f-d360-4967-b9c7-a100c8ee5e94",
+      "storeName": "BASSA立川店",
+      "sourceRowNumber": 36,
+      "sourceLabel": "立川",
+      "amount": "-318450.00",
+      "rawPayload": {
+        "fiscalMonth": "2026-07",
+        "companyKey": "0001",
+        "sourceLabel": "立川",
+        "mappingSourceKey": "BASSA立川店",
+        "metricCode": "OPERATING_PROFIT",
+        "amount": "-318450.00",
+        "taxBasis": "net",
+        "verificationStatus": "PASS_CURRENT_ONLY",
+        "sourceWorkbook": "イディアノブ　年次・部門　残高試算表8月まで.xlsx",
+        "sourceSheet": "13_PL_ENTITY_SUMMARY",
+        "sourceRowNumber": 36
+      },
+      "rawPayloadSha256": "f1c56479c80c9c5388dcdfaae8853c35c3f9b2db4633850529f89d3d5f8d0e0b"
+    },
+    {
+      "mappingSourceKey": "BASSA保谷店",
+      "mappingId": "b882a116-f383-57df-97b7-fa1cce042a49",
+      "storeId": "73ee82b5-86fa-42e7-ab03-0e075d218dc3",
+      "storeName": "BASSA保谷店",
+      "sourceRowNumber": 18,
+      "sourceLabel": "保谷",
+      "amount": "390488.00",
+      "rawPayload": {
+        "fiscalMonth": "2026-07",
+        "companyKey": "0001",
+        "sourceLabel": "保谷",
+        "mappingSourceKey": "BASSA保谷店",
+        "metricCode": "OPERATING_PROFIT",
+        "amount": "390488.00",
+        "taxBasis": "net",
+        "verificationStatus": "PASS_CURRENT_ONLY",
+        "sourceWorkbook": "イディアノブ　年次・部門　残高試算表8月まで.xlsx",
+        "sourceSheet": "13_PL_ENTITY_SUMMARY",
+        "sourceRowNumber": 18
+      },
+      "rawPayloadSha256": "3b96eb786d62773c3a9877a185092beee9b924d5f9ede428821b7a6331e05d63"
+    },
+    {
+      "mappingSourceKey": "BASSA高田馬場店",
+      "mappingId": "bbb0d75d-3fd7-51e5-8f5b-8e04654a3eb5",
+      "storeId": "887da14c-2c0d-46b3-8953-962c7c8dd590",
+      "storeName": "BASSA高田馬場店",
+      "sourceRowNumber": 39,
+      "sourceLabel": "高田馬場",
+      "amount": "737932.00",
+      "rawPayload": {
+        "fiscalMonth": "2026-07",
+        "companyKey": "0001",
+        "sourceLabel": "高田馬場",
+        "mappingSourceKey": "BASSA高田馬場店",
+        "metricCode": "OPERATING_PROFIT",
+        "amount": "737932.00",
+        "taxBasis": "net",
+        "verificationStatus": "PASS_CURRENT_ONLY",
+        "sourceWorkbook": "イディアノブ　年次・部門　残高試算表8月まで.xlsx",
+        "sourceSheet": "13_PL_ENTITY_SUMMARY",
+        "sourceRowNumber": 39
+      },
+      "rawPayloadSha256": "3470e59a05b78f0a974423cb0c57f92e1b0ca9e7b8e6ede32a481c849bf0a8e8"
+    },
+    {
+      "mappingSourceKey": "KYARA HALF",
+      "mappingId": "1c1271b7-a93b-5c2a-8592-a9e071da32c2",
+      "storeId": "ac20934d-ef15-4363-8c2f-759193c7fcc7",
+      "storeName": "KYARA HALF池袋",
+      "sourceRowNumber": 13,
+      "sourceLabel": "KYARA HALF",
+      "amount": "-438050.00",
+      "rawPayload": {
+        "fiscalMonth": "2026-07",
+        "companyKey": "0001",
+        "sourceLabel": "KYARA HALF",
+        "mappingSourceKey": "KYARA HALF",
+        "metricCode": "OPERATING_PROFIT",
+        "amount": "-438050.00",
+        "taxBasis": "net",
+        "verificationStatus": "PASS_CURRENT_ONLY",
+        "sourceWorkbook": "イディアノブ　年次・部門　残高試算表8月まで.xlsx",
+        "sourceSheet": "13_PL_ENTITY_SUMMARY",
+        "sourceRowNumber": 13
+      },
+      "rawPayloadSha256": "127d9c5c6c66fb59ffba03f772a424cc07f8ebc043db5a403740e60c41849df8"
+    },
+    {
+      "mappingSourceKey": "BASSA石神井公園店",
+      "mappingId": "634e6e8e-ef7e-5dac-bafc-1872bc62b304",
+      "storeId": "ad931406-22de-4ba7-a6eb-4502d5c50a91",
+      "storeName": "BASSA石神井公園店",
+      "sourceRowNumber": 35,
+      "sourceLabel": "石神井公園",
+      "amount": "1292788.00",
+      "rawPayload": {
+        "fiscalMonth": "2026-07",
+        "companyKey": "0001",
+        "sourceLabel": "石神井公園",
+        "mappingSourceKey": "BASSA石神井公園店",
+        "metricCode": "OPERATING_PROFIT",
+        "amount": "1292788.00",
+        "taxBasis": "net",
+        "verificationStatus": "PASS_CURRENT_ONLY",
+        "sourceWorkbook": "イディアノブ　年次・部門　残高試算表8月まで.xlsx",
+        "sourceSheet": "13_PL_ENTITY_SUMMARY",
+        "sourceRowNumber": 35
+      },
+      "rawPayloadSha256": "0ce1cb8affcaafc9ca6466041f847a2b566080e3447a1cf53dbda28e8653ecdd"
+    },
+    {
+      "mappingSourceKey": "BASSA野方店",
+      "mappingId": "9cef2bf0-1a22-5c57-91a7-47b183256f73",
+      "storeId": "b898c63f-1cc1-42c5-be4f-916f24f49cb6",
+      "storeName": "BASSA野方店",
+      "sourceRowNumber": 38,
+      "sourceLabel": "野方",
+      "amount": "-85667.00",
+      "rawPayload": {
+        "fiscalMonth": "2026-07",
+        "companyKey": "0001",
+        "sourceLabel": "野方",
+        "mappingSourceKey": "BASSA野方店",
+        "metricCode": "OPERATING_PROFIT",
+        "amount": "-85667.00",
+        "taxBasis": "net",
+        "verificationStatus": "PASS_CURRENT_ONLY",
+        "sourceWorkbook": "イディアノブ　年次・部門　残高試算表8月まで.xlsx",
+        "sourceSheet": "13_PL_ENTITY_SUMMARY",
+        "sourceRowNumber": 38
+      },
+      "rawPayloadSha256": "4202c4b70167a2d144aa461440284d71981a80e7f03126942366aa0815317a53"
+    },
+    {
+      "mappingSourceKey": "BASSA東大和店",
+      "mappingId": "df163a99-8426-59f0-9ce5-61600b4bd8aa",
+      "storeId": "e7bab6a5-9a8c-4f46-abde-e839ce5bf5e6",
+      "storeName": "BASSA東大和店",
+      "sourceRowNumber": 32,
+      "sourceLabel": "東大和",
+      "amount": "1708374.00",
+      "rawPayload": {
+        "fiscalMonth": "2026-07",
+        "companyKey": "0001",
+        "sourceLabel": "東大和",
+        "mappingSourceKey": "BASSA東大和店",
+        "metricCode": "OPERATING_PROFIT",
+        "amount": "1708374.00",
+        "taxBasis": "net",
+        "verificationStatus": "PASS_CURRENT_ONLY",
+        "sourceWorkbook": "イディアノブ　年次・部門　残高試算表8月まで.xlsx",
+        "sourceSheet": "13_PL_ENTITY_SUMMARY",
+        "sourceRowNumber": 32
+      },
+      "rawPayloadSha256": "bdff6525a8e4d861d662d368c0f4be0e874239cdff48633715e45dde02c407ac"
+    },
+    {
+      "mappingSourceKey": "BASSA下井草店",
+      "mappingId": "bc64d0dc-7e9f-5e67-8136-09c00b33c2cb",
+      "storeId": "fec1e181-ca5b-482d-a865-3f488f19128f",
+      "storeName": "BASSA下井草店",
+      "sourceRowNumber": 16,
+      "sourceLabel": "下井草",
+      "amount": "1412776.00",
+      "rawPayload": {
+        "fiscalMonth": "2026-07",
+        "companyKey": "0001",
+        "sourceLabel": "下井草",
+        "mappingSourceKey": "BASSA下井草店",
+        "metricCode": "OPERATING_PROFIT",
+        "amount": "1412776.00",
+        "taxBasis": "net",
+        "verificationStatus": "PASS_CURRENT_ONLY",
+        "sourceWorkbook": "イディアノブ　年次・部門　残高試算表8月まで.xlsx",
+        "sourceSheet": "13_PL_ENTITY_SUMMARY",
+        "sourceRowNumber": 16
+      },
+      "rawPayloadSha256": "dd4f27a8ef210521647fd999148874e3b7cf95adc87de9c4ae98060268876afc"
+    }
+  ],
+  "excludedFcRows": [
+    {
+      "sourceRowNumber": 17,
+      "sourceLabel": "久米川",
+      "amount": "0.00",
+      "reason": "FC_OPERATOR_RECORDED_IN_FORMAL_MASTER"
+    },
+    {
+      "sourceRowNumber": 21,
+      "sourceLabel": "国分寺",
+      "amount": "0.00",
+      "reason": "FC_OPERATOR_RECORDED_IN_FORMAL_MASTER"
+    },
+    {
+      "sourceRowNumber": 24,
+      "sourceLabel": "新所沢",
+      "amount": "0.00",
+      "reason": "FC_OPERATOR_RECORDED_IN_FORMAL_MASTER"
+    },
+    {
+      "sourceRowNumber": 31,
+      "sourceLabel": "東久留米",
+      "amount": "0.00",
+      "reason": "FC_OPERATOR_RECORDED_IN_FORMAL_MASTER"
+    },
+    {
+      "sourceRowNumber": 37,
+      "sourceLabel": "花小金井",
+      "amount": "0.00",
+      "reason": "FC_OPERATOR_RECORDED_IN_FORMAL_MASTER"
+    }
+  ],
+  "planned": {
+    "sourceFilesInsert": 1,
+    "importBatchesInsert": 1,
+    "rawRowsInsert": 13,
+    "stagingRowsInsert": 13,
+    "importEventsInsert": 4,
+    "canonicalFactsInsert": 13,
+    "batchStatusUpdates": 2,
+    "entityMappingsInsert": 0,
+    "ddl": 0
+  },
+  "identity": {
+    "packageSha256": "10F012FDFA51303B3C68DDC7ACB9B854A85630DCC2DA423B16557966B4E0B7B3",
+    "requestFingerprint": "4DDE38C734D36C60E20B4D70D847DB13BB6B229F4B05C050506853CC3E0F88E8",
+    "sourceFileId": "757739f8-dd68-54ad-8cd2-000fe49fcbab",
+    "batchId": "8bc9f51e-e574-5343-b6cf-880859d799ea"
+  }
+}

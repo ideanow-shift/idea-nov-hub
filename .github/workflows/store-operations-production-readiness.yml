@@ -13,8 +13,12 @@ on:
       - "supabase/migrations/20260819123648_dbf_store_monthly_comparison_read_v1.sql"
       - "tests/store-operations-production-*.test.mjs"
       - "tests/store-operations-preparing-metrics-production-*"
+      - "tests/test_store_operating_profit_july_2026.py"
+      - "tests/store-operating-profit-2026-07-*"
       - "tools/store_repeat_retail_handoff/**"
+      - "tools/store_operating_profit/**"
       - "docs/store_operations_management/production_integration/store-operations-preparing-metrics-production-v1.*"
+      - "docs/store_operations_management/production_integration/store-operating-profit-2026-07/**"
       - "tests/store-operations-production-readiness-rollback.sql"
       - "tests/store-operations-production-readiness-postgres17.sql"
       - "docs/store_operations_management/production_release/**"
@@ -53,6 +57,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
@@ -63,6 +70,8 @@ jobs:
           node --test tests/store-operations-preparing-metrics-production-execution.test.mjs
           deno test --allow-env tests/dbf-store-monthly-actual-backend-edge.test.ts
           deno check supabase/functions/nov-hub-api/index.ts
+      - name: July operating profit package contracts
+        run: python -m unittest tests/test_store_operating_profit_july_2026.py -v
       - name: Apply the frozen PostgreSQL 17 release chain
         run: |
           psql --set=ON_ERROR_STOP=1 --command "create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;"
@@ -80,6 +89,13 @@ jobs:
           fi
           PGOPTIONS="-c app.store_operations_retail_execution_approval=OWNER_APPROVAL_REQUIRED_AFTER_FIXED_SHA_REVIEW" psql --set=ON_ERROR_STOP=1 --file docs/store_operations_management/production_integration/store-operations-preparing-metrics-production-v1.execution.sql
           psql --set=ON_ERROR_STOP=1 --file tests/store-operations-preparing-metrics-production-assert.sql
+          psql --set=ON_ERROR_STOP=1 --file tests/store-operating-profit-2026-07-fixture.sql
+          if psql --set=ON_ERROR_STOP=1 --file docs/store_operations_management/production_integration/store-operating-profit-2026-07/store-operating-profit-2026-07.execution.sql; then
+            echo "July operating profit SQL must fail closed without the external Owner approval setting."
+            exit 1
+          fi
+          PGOPTIONS="-c app.store_operations_july_profit_execution_approval=OWNER_APPROVAL_REQUIRED_AFTER_FIXED_SHA_REVIEW" psql --set=ON_ERROR_STOP=1 --file docs/store_operations_management/production_integration/store-operating-profit-2026-07/store-operating-profit-2026-07.execution.sql
+          psql --set=ON_ERROR_STOP=1 --file tests/store-operating-profit-2026-07-assert.sql
       - name: Production configuration and UAT exclusion
         shell: bash
         run: |

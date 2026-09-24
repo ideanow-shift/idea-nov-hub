@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
+  KYARA_HALF_OWNER_DECISION,
   PRODUCTION_ACTUAL_LABOR_FTE_PROFILE,
   buildProductionActualLaborFteLoadPlan,
 } from "./prepare_production_actual_labor_fte_load.mjs";
@@ -58,6 +59,10 @@ export function buildProductionActualLaborFteExecutionSql(plan, profile = EXECUT
   assert(plan?.databaseWriteCapability === false, "REVIEWED_WRITE_INCAPABLE_PLAN_REQUIRED");
   const candidates = sortedRows(plan);
   assert(candidates.length === profile.expectedCandidates, "EXECUTION_CANDIDATE_COUNT_MISMATCH");
+  const kyaraDecision = plan.ownerDecisions?.kyaraHalfCorporateAffiliation;
+  assert(kyaraDecision?.decisionId === KYARA_HALF_OWNER_DECISION.decisionId
+    && kyaraDecision.canonicalRows === 36
+    && kyaraDecision.promotedLegacyStagingOnlyRows === 5, "EXECUTION_KYARA_HALF_OWNER_DECISION_MISSING");
 
   const companies = new Map();
   const stores = new Map();
@@ -113,6 +118,9 @@ export function buildProductionActualLaborFteExecutionSql(plan, profile = EXECUT
 -- Fixed aggregate handoff SHA-256: ${PRODUCTION_ACTUAL_LABOR_FTE_PROFILE.handoffPackageSha256}
 -- Fixed source workbook SHA-256: ${PRODUCTION_ACTUAL_LABOR_FTE_PROFILE.sourceWorkbookSha256}
 -- Planned ACTUAL_LABOR_FTE inserts: ${profile.expectedCandidates}; employee audit rows included: 0.
+-- Owner decision: ${kyaraDecision.decisionId}; confirmed ${kyaraDecision.confirmedDate}.
+-- KYARA HALF is an IDEA NOV directly managed store for all 36 months from 2023-09 through 2026-08.
+-- The five months 2023-09 through 2024-01 are canonical under this Owner-confirmed affiliation.
 -- This file is atomic. Any failed gate rolls the entire transaction back.
 
 begin;
@@ -137,6 +145,7 @@ declare
   mapping_count integer;
   company_count integer;
   store_count integer;
+  kyara_master_count integer;
 begin
   select count(*) into actor_count from public.employees
     where id=${sql(actor)}::uuid and is_active;
@@ -157,14 +166,21 @@ begin
   from public.stores s
   join (values
       ${storeBaselineValues}
-  ) v(id,store_code,corporation_id)
-    on s.id=v.id and s.store_code=v.store_code and s.corporation_id=v.corporation_id
-  where s.is_active and s.store_code<>'0000';
+  ) v(id,store_no,corporation_id)
+    on s.id=v.id and s.store_no=v.store_no and s.corporation_id=v.corporation_id
+  where s.is_active and s.store_no<>'0000';
+  select count(*) into kyara_master_count from public.stores
+    where id=${sql(kyaraDecision.storeId)}::uuid
+      and store_no=${sql(kyaraDecision.storeCode)}
+      and corporation_id=${sql(kyaraDecision.companyId)}::uuid
+      and store_type=${sql(kyaraDecision.storeType)}
+      and is_active;
   if actor_count<>1 or definition_count<>0 or fact_count<>0
      or source_count<>0 or mapping_count<>0
-     or company_count<>${profile.expectedCompanyMappings} or store_count<>${profile.expectedStoreMappings} then
-    raise exception 'PRODUCTION_BASELINE_GATE_FAILED actor=% definition=% fact=% source=% mapping=% company=% store=%',
-      actor_count,definition_count,fact_count,source_count,mapping_count,company_count,store_count;
+     or company_count<>${profile.expectedCompanyMappings} or store_count<>${profile.expectedStoreMappings}
+     or kyara_master_count<>1 then
+    raise exception 'PRODUCTION_BASELINE_GATE_FAILED actor=% definition=% fact=% source=% mapping=% company=% store=% kyara_master=%',
+      actor_count,definition_count,fact_count,source_count,mapping_count,company_count,store_count,kyara_master_count;
   end if;
 end
 $baseline$;
@@ -255,6 +271,8 @@ declare
   invalid_count integer;
   duplicate_count integer;
   hq_count integer;
+  kyara_count integer;
+  kyara_promoted_count integer;
 begin
   select count(*) into raw_count from dbf_ingest.raw_rows rr
     join dbf_ingest.import_batches b on b.id=rr.batch_id
@@ -293,11 +311,26 @@ begin
     join dbf_ingest.import_batches b on b.id=s.batch_id
     join dbf_ingest.source_files f on f.id=b.source_file_id
     where f.source_system=${sql(profile.sourceSystem)} and f.sha256=${sql(packageSha)}
-      and st.store_code='0000';
+      and st.store_no='0000';
+  select count(*),count(*) filter (where b.fiscal_month in (
+      '2023-09-01'::date,'2023-10-01'::date,'2023-11-01'::date,'2023-12-01'::date,'2024-01-01'::date
+    )) into kyara_count,kyara_promoted_count
+  from dbf_ingest.staging_rows s
+  join dbf_ingest.import_batches b on b.id=s.batch_id
+  join dbf_ingest.source_files f on f.id=b.source_file_id
+  where f.source_system=${sql(profile.sourceSystem)} and f.sha256=${sql(packageSha)}
+    and s.normalized_payload->>'source_unit_key'=${sql(kyaraDecision.unitKey)}
+    and s.normalized_payload->>'source_company_no'=${sql(kyaraDecision.companyNo)}
+    and s.normalized_payload->>'company_id'=${sql(kyaraDecision.companyId)}
+    and s.normalized_payload->>'store_id'=${sql(kyaraDecision.storeId)}
+    and s.normalized_payload->>'canonical_store_type'=${sql(kyaraDecision.storeType)}
+    and s.normalized_payload->>'corporate_affiliation_basis'=${sql(kyaraDecision.decisionId)};
   if raw_count<>${profile.expectedCandidates} or stage_count<>${profile.expectedCandidates}
-     or invalid_count<>0 or duplicate_count<>0 or hq_count<>0 then
-    raise exception 'PRODUCTION_PROMOTION_GATE_FAILED raw=% stage=% invalid=% duplicate=% hq=%',
-      raw_count,stage_count,invalid_count,duplicate_count,hq_count;
+     or invalid_count<>0 or duplicate_count<>0 or hq_count<>0
+     or kyara_count<>${kyaraDecision.expectedCanonicalRows}
+     or kyara_promoted_count<>${kyaraDecision.promotedLegacyStagingOnlyRows} then
+    raise exception 'PRODUCTION_PROMOTION_GATE_FAILED raw=% stage=% invalid=% duplicate=% hq=% kyara=% kyara_promoted=%',
+      raw_count,stage_count,invalid_count,duplicate_count,hq_count,kyara_count,kyara_promoted_count;
   end if;
 end
 $promotion_gate$;
@@ -415,6 +448,7 @@ export function generateProductionActualLaborFteExecution({ sourcePath, sqlPath,
     sqlSha256: sha256(Buffer.from(executionSql, "utf8")),
     sqlByteSize: Buffer.byteLength(executionSql, "utf8"),
     candidateRootSha256,
+    ownerDecision: plan.ownerDecisions.kyaraHalfCorporateAffiliation,
     planned: {
       metricDefinitions: 1,
       companyMappings: EXECUTION_PROFILE.expectedCompanyMappings,

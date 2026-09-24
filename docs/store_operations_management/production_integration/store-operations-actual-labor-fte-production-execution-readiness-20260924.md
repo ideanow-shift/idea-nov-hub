@@ -21,9 +21,9 @@ This package prepares the already-reviewed `ACTUAL_LABOR_FTE` aggregate for a la
 - Source workbook SHA-256: `7E04D2107876FCA9902D07F9CB548403B51529591CB431239399912A77BC3E16`
 - Corrected handoff workbook SHA-256: `679ACF51066B12398E2DB5016A7A91EC1552B9C0F80A1FA7CE2518E5445F4303`
 - Corrected package root SHA-256: `F1E69E596C10E381B7AD333C3E1E7B06598976B12965ED6EF685E821A56A3787`
-- Candidate root SHA-256: `77D561C62C9BBFB38AF85E2B60A13CA16D29F09F5440582D310FFB2EEE991D05`
-- Generated SQL SHA-256: `B6D0AFD0FA443E7DA6B4A2D7F15E5E4F569CACB24B9F8B2A9224F607256CB980`
-- Generated SQL byte size: `860791`
+- Candidate root SHA-256: `991FC1E7766699D84F43DB6CF41BD5D6F988C0D74FFFC0DB56C6488DAC5FB23F`
+- Generated SQL SHA-256: `76CD092C7D3CBE3756FBA6DC2D97C044652052623D59EDFB3BF1911DA8BDB7E6`
+- Generated SQL byte size: `866465`
 
 The generated SQL and manifest are:
 
@@ -50,6 +50,12 @@ The generated SQL and manifest are:
 
 July 2026 is fixed at 20 stores, 1,700,849 allocated minutes, 28,347.483333 hours, source FTE 163.1415937692, and stored `numeric(20,4)` FTE 163.1415.
 
+## Owner-confirmed KYARA HALF affiliation
+
+Owner decision `OWNER_CONFIRMED_KYARA_HALF_IDEA_NOV_20260924`, confirmed on 2026-09-24, fixes KYARA HALF as an IDEA NOV directly managed store for every month from 2023-09 through 2026-08. The canonical identities are store code `0019`, store UUID `ac20934d-ef15-4363-8c2f-759193c7fcc7`, corporation no `0001`, and corporation UUID `e4059116-bdb3-4e13-9763-bbc77bdfe062`.
+
+All 36 KYARA HALF store-month rows are canonical. The five months from 2023-09 through 2024-01 that were formerly staging-only are included within, not added on top of, the fixed 671 canonical candidates.
+
 ## Fail-closed controls
 
 The SQL:
@@ -57,7 +63,7 @@ The SQL:
 1. starts one transaction and acquires a dedicated advisory transaction lock;
 2. requires `app.store_operations_actual_labor_fte_execution_approval=OWNER_APPROVAL_REQUIRED_AFTER_FIXED_SHA_REVIEW` before any schema or business write;
 3. verifies the exact Production baseline: one active actor, zero prior metric definitions, zero active `ACTUAL_LABOR_FTE` facts, zero fixed source files, zero dedicated mappings, six companies, and twenty active non-HQ stores;
-4. validates metric/version, positive quantity, workbook SHA, actual-hours/minutes consistency, the 173.76-hour formula, `actual_punch_store=false`, `shift_backfill=false`, unique store-month grain, and zero HQ rows;
+4. validates metric/version, positive quantity, workbook SHA, actual-hours/minutes consistency, the 173.76-hour formula, `actual_punch_store=false`, `shift_backfill=false`, unique store-month grain, zero HQ rows, and the exact 36/5 KYARA HALF Owner-decision counts;
 5. performs exact-count readback before commit; and
 6. rolls the entire transaction back on any mismatch.
 

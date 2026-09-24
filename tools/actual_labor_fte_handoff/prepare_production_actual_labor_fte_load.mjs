@@ -23,6 +23,30 @@ export const PRODUCTION_ACTUAL_LABOR_FTE_PROFILE = Object.freeze({
   expectedJuly2026FteSource: 163.1415937692,
 });
 
+export const KYARA_HALF_OWNER_DECISION = Object.freeze({
+  decisionId: "OWNER_CONFIRMED_KYARA_HALF_IDEA_NOV_20260924",
+  authority: "IDEA_NOV_GROUP_OWNER",
+  confirmedDate: "2026-09-24",
+  evidence: "OWNER_CLARIFICATION_RECORDED_FOR_PR_232",
+  unitKey: "SALON:KYARAHALF",
+  canonicalName: "KYARA HALF",
+  storeType: "直営",
+  storeCode: "0019",
+  storeId: "ac20934d-ef15-4363-8c2f-759193c7fcc7",
+  companyNo: "0001",
+  companyId: "e4059116-bdb3-4e13-9763-bbc77bdfe062",
+  periodFrom: "2023-09-01",
+  periodThrough: "2026-08-01",
+  expectedCanonicalRows: 36,
+  legacyStagingOnlyMonthsPromotedToCanonical: Object.freeze([
+    "2023-09-01",
+    "2023-10-01",
+    "2023-11-01",
+    "2023-12-01",
+    "2024-01-01",
+  ]),
+});
+
 const COMPANY_IDS = Object.freeze({
   "0001": "e4059116-bdb3-4e13-9763-bbc77bdfe062",
   "0002": "f0d56e0d-62e1-4eba-a37a-17e396ab0b61",
@@ -33,7 +57,14 @@ const COMPANY_IDS = Object.freeze({
 });
 
 const STORES = Object.freeze({
-  "SALON:KYARAHALF": Object.freeze({ storeId: "ac20934d-ef15-4363-8c2f-759193c7fcc7", companyNo: "0001", storeCode: "0019", canonicalName: "KYARA HALF" }),
+  "SALON:KYARAHALF": Object.freeze({
+    storeId: KYARA_HALF_OWNER_DECISION.storeId,
+    companyNo: KYARA_HALF_OWNER_DECISION.companyNo,
+    storeCode: KYARA_HALF_OWNER_DECISION.storeCode,
+    canonicalName: KYARA_HALF_OWNER_DECISION.canonicalName,
+    storeType: KYARA_HALF_OWNER_DECISION.storeType,
+    ownerDecisionId: KYARA_HALF_OWNER_DECISION.decisionId,
+  }),
   "SALON:アネックス": Object.freeze({ storeId: "2980442d-95d9-4cee-8326-c43d077e9977", companyNo: "0001", storeCode: "0016", canonicalName: "アネックス" }),
   "SALON:上石神井": Object.freeze({ storeId: "1bcba30a-fc56-44a6-b96f-061d5f41a605", companyNo: "0001", storeCode: "0006", canonicalName: "上石神井" }),
   "SALON:下井草": Object.freeze({ storeId: "fec1e181-a59b-41b0-921d-6f999df9a3a6", companyNo: "0001", storeCode: "0009", canonicalName: "下井草" }),
@@ -120,6 +151,10 @@ export function prepareActualLaborFteCandidate(fact) {
     definition_version: fact.definition_version,
     source_type: "actual_labor_fte_handoff_v1",
     source_workbook_sha256: fact.source_workbook_sha256,
+    ...(mapping.ownerDecisionId ? {
+      canonical_store_type: mapping.storeType,
+      corporate_affiliation_basis: mapping.ownerDecisionId,
+    } : {}),
     raw_record_id: `ALFTE:${fingerprint({
       fiscal_month: fact.fiscal_month,
       unit_key: fact.unit_key,
@@ -129,6 +164,30 @@ export function prepareActualLaborFteCandidate(fact) {
     }).toLowerCase()}`,
   });
   return Object.freeze({ candidate, fingerprintSha256: fingerprint(candidate) });
+}
+
+export function validateKyaraHalfOwnerDecision(candidates, decision = KYARA_HALF_OWNER_DECISION) {
+  const facts = candidates
+    .map((row) => row?.candidate ?? row)
+    .filter((fact) => fact?.source_unit_key === decision.unitKey)
+    .sort((left, right) => left.fiscal_month.localeCompare(right.fiscal_month));
+  assert(facts.length === decision.expectedCanonicalRows, "KYARA_HALF_OWNER_CANONICAL_ROW_COUNT_MISMATCH");
+  assert(facts[0]?.fiscal_month === decision.periodFrom
+    && facts.at(-1)?.fiscal_month === decision.periodThrough, "KYARA_HALF_OWNER_PERIOD_MISMATCH");
+  assert(facts.every((fact) => fact.source_company_no === decision.companyNo
+    && fact.company_id === decision.companyId
+    && fact.store_id === decision.storeId
+    && fact.source_store_code === decision.storeCode
+    && fact.canonical_store_type === decision.storeType
+    && fact.corporate_affiliation_basis === decision.decisionId), "KYARA_HALF_OWNER_AFFILIATION_MISMATCH");
+  for (const month of decision.legacyStagingOnlyMonthsPromotedToCanonical) {
+    assert(facts.filter((fact) => fact.fiscal_month === month).length === 1, "KYARA_HALF_OWNER_PROMOTED_MONTH_MISSING");
+  }
+  return Object.freeze({
+    ...decision,
+    canonicalRows: facts.length,
+    promotedLegacyStagingOnlyRows: decision.legacyStagingOnlyMonthsPromotedToCanonical.length,
+  });
 }
 
 export function buildProductionActualLaborFteLoadPlan(pkg, profile = PRODUCTION_ACTUAL_LABOR_FTE_PROFILE) {
@@ -160,6 +219,7 @@ export function buildProductionActualLaborFteLoadPlan(pkg, profile = PRODUCTION_
     && pkg.expected_counts?.excluded_legacy_timecard_store_override_rows === 56, "ACTUAL_LABOR_FTE_EXPECTED_COUNTS_INVALID");
 
   const prepared = pkg.canonical_store_month_facts.map(prepareActualLaborFteCandidate);
+  const kyaraHalfOwnerDecision = validateKyaraHalfOwnerDecision(prepared);
   const grains = new Set();
   const fingerprints = new Set();
   const months = new Set();
@@ -193,6 +253,7 @@ export function buildProductionActualLaborFteLoadPlan(pkg, profile = PRODUCTION_
     packageSha256: profile.handoffPackageSha256,
     packageRootSha256: profile.packageRootSha256,
     sourceWorkbookSha256: profile.sourceWorkbookSha256,
+    ownerDecisions: Object.freeze({ kyaraHalfCorporateAffiliation: kyaraHalfOwnerDecision }),
     mapping: Object.freeze({ matched: prepared.length, unmatched: 0, ambiguous: 0, hq: 0 }),
     productionPlan: Object.freeze({
       actualLaborFte: Object.freeze({ insert: prepared.length, supersede: 0, unchanged: 0 }),

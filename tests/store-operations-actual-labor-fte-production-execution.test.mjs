@@ -4,7 +4,11 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { buildProductionActualLaborFteExecutionSql } from "../tools/actual_labor_fte_handoff/generate_production_actual_labor_fte_execution.mjs";
-import { prepareActualLaborFteCandidate } from "../tools/actual_labor_fte_handoff/prepare_production_actual_labor_fte_load.mjs";
+import {
+  KYARA_HALF_OWNER_DECISION,
+  prepareActualLaborFteCandidate,
+  validateKyaraHalfOwnerDecision,
+} from "../tools/actual_labor_fte_handoff/prepare_production_actual_labor_fte_load.mjs";
 
 const SQL_PATH = new URL(
   "../docs/store_operations_management/production_integration/store-operations-actual-labor-fte-v1.execution.sql",
@@ -30,6 +34,9 @@ test("execution SQL is fixed by manifest and still awaits separate Owner approva
   assert.equal(MANIFEST.planned.canonicalInserts, 671);
   assert.equal(MANIFEST.planned.employeeAuditRows, 0);
   assert.equal(MANIFEST.planned.headquartersRows, 0);
+  assert.equal(MANIFEST.ownerDecision.decisionId, "OWNER_CONFIRMED_KYARA_HALF_IDEA_NOV_20260924");
+  assert.equal(MANIFEST.ownerDecision.canonicalRows, 36);
+  assert.equal(MANIFEST.ownerDecision.promotedLegacyStagingOnlyRows, 5);
 });
 
 test("approval and exact Production baseline gates precede every schema or business write", () => {
@@ -51,6 +58,12 @@ test("execution SQL promotes only validated store quantity facts", () => {
   assert.match(EXECUTION_SQL, /actual_punch_store'\)::boolean=false/u);
   assert.match(EXECUTION_SQL, /shift_backfill'\)::boolean=false/u);
   assert.match(EXECUTION_SQL, /hq_count<>0/u);
+  assert.match(EXECUTION_SQL, /KYARA HALF is an IDEA NOV directly managed store for all 36 months/u);
+  assert.match(EXECUTION_SQL, /kyara_count<>36/u);
+  assert.match(EXECUTION_SQL, /kyara_promoted_count<>5/u);
+  assert.match(EXECUTION_SQL, /s\.store_no=v\.store_no/u);
+  assert.match(EXECUTION_SQL, /and store_no='0019'/u);
+  assert.doesNotMatch(EXECUTION_SQL, /(?:s|st)\.store_code/u);
   assert.doesNotMatch(EXECUTION_SQL, /on conflict[\s\S]+do nothing/iu);
   assert.doesNotMatch(EXECUTION_SQL, /delete\s+from\s+public\.dbf_store_monthly_metric_facts/iu);
   assert.doesNotMatch(EXECUTION_SQL, /security\s+definer/iu);
@@ -95,8 +108,34 @@ test("candidate preparation rejects prohibited semantics and preserves missing-a
   assert.equal(prepared.company_id, "becb6f4b-2222-406d-8315-1eed48717327");
   assert.equal(prepared.store_id, "3ba5e54d-5f39-4bcd-b917-7daaea34a8e9");
   assert.equal(prepared.null_semantics, "NO_CANONICAL_FACT_ROW_MEANS_MISSING_NULL");
+  const kyara = prepareActualLaborFteCandidate({ ...fact, unit_key: "SALON:KYARAHALF", store_name: "KYARAHALF" }).candidate;
+  assert.equal(kyara.canonical_store_type, "直営");
+  assert.equal(kyara.corporate_affiliation_basis, KYARA_HALF_OWNER_DECISION.decisionId);
   assert.throws(() => prepareActualLaborFteCandidate({ ...fact, shift_backfill: true }), /PROHIBITED_INTERPRETATION/u);
   assert.throws(() => prepareActualLaborFteCandidate({ ...fact, unit_key: "SALON:本部" }), /STORE_MAPPING_MISSING/u);
+});
+
+test("Owner-confirmed KYARA HALF affiliation fixes all 36 months and promotes the five legacy months", () => {
+  const months = Array.from({ length: 36 }, (_, index) => {
+    const date = new Date(Date.UTC(2023, 8 + index, 1));
+    return date.toISOString().slice(0, 10);
+  });
+  const candidates = months.map((fiscal_month) => ({
+    source_unit_key: KYARA_HALF_OWNER_DECISION.unitKey,
+    fiscal_month,
+    source_company_no: KYARA_HALF_OWNER_DECISION.companyNo,
+    company_id: KYARA_HALF_OWNER_DECISION.companyId,
+    store_id: KYARA_HALF_OWNER_DECISION.storeId,
+    source_store_code: KYARA_HALF_OWNER_DECISION.storeCode,
+    canonical_store_type: KYARA_HALF_OWNER_DECISION.storeType,
+    corporate_affiliation_basis: KYARA_HALF_OWNER_DECISION.decisionId,
+  }));
+  const result = validateKyaraHalfOwnerDecision(candidates);
+  assert.equal(result.canonicalRows, 36);
+  assert.equal(result.promotedLegacyStagingOnlyRows, 5);
+  assert.throws(() => validateKyaraHalfOwnerDecision(candidates.map((row, index) => (
+    index === 0 ? { ...row, company_id: "00000000-0000-0000-0000-000000000000" } : row
+  ))), /AFFILIATION_MISMATCH/u);
 });
 
 test("SQL builder rejects a write-capable or incorrectly counted plan", () => {

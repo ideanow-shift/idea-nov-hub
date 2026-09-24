@@ -13,12 +13,14 @@ test("dashboard first-level information order remains unchanged", () => {
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);
 });
 
-test("business drivers contain exactly the six decision questions", () => {
-  for (const question of ["売上は上がっているか", "利益は出ているか", "集客できているか", "単価は上がっているか", "商品は売れているか", "ECは動かせているか"]) {
+test("business drivers contain the seven decision questions", () => {
+  for (const question of ["売上は上がっているか", "利益は出ているか", "集客できているか", "単価は上がっているか", "人と時間を活かせているか", "商品は売れているか", "ECは動かせているか"]) {
     assert.match(app, new RegExp(question));
   }
   assert.match(app, /signal\("sales"/);
+  assert.match(app, /signal\("productivity"/);
   assert.match(app, /signal\("ec"/);
+  assert.match(app, /aria-label", "7つの経営シグナル"/);
 });
 
 test("customer, ticket and retail decisions use canonical comparison fields", () => {
@@ -30,11 +32,40 @@ test("customer, ticket and retail decisions use canonical comparison fields", ()
   assert.doesNotMatch(app, /店販購買率 前年比/);
 });
 
-test("one shared trend supports six metrics and three periods", () => {
+test("one shared trend supports seven metrics and three periods", () => {
   assert.match(app, /trendMetric: "sales", trendPeriod: "six_months"/);
   for (const label of ["前年対比", "直近6か月", "12か月"]) assert.match(app, new RegExp(label));
   assert.equal((app.match(/createElementNS\([^\n]*"svg"/g) || []).length, 1);
   assert.match(app, /カードまたは指標を選ぶと、このグラフだけが切り替わります/);
+});
+
+test("shared trend exposes numeric and month axis graduations", () => {
+  assert.match(app, /Array\.from\(\{ length: 5 \}/);
+  assert.match(app, /trend-gridline/);
+  assert.match(app, /trend-axis-label trend-axis-label-y/);
+  assert.match(app, /trend-axis-label trend-axis-label-x/);
+  assert.match(app, /trendAxisUnit/);
+  assert.match(css, /\.trend-gridline\{[^}]*stroke:/);
+  assert.match(css, /\.trend-axis-label\{[^}]*font-size:/);
+});
+
+test("every signal opens a metric-specific analysis with store comparison", () => {
+  assert.match(app, /renderSignalAnalysis\(selected, stores\)/);
+  assert.match(app, /data-analysis-signal/);
+  assert.match(app, /分解して確認するポイント/);
+  assert.match(app, /上位店舗/);
+  assert.match(app, /要確認店舗/);
+  for (const key of ["sales", "profit", "customers", "ticket", "productivity", "retail", "ec"]) {
+    assert.match(app, new RegExp(`\\n    ${key}: \\{`));
+  }
+  assert.match(css, /\.signal-analysis-kpis\{[^}]*grid-template-columns:repeat\(4/);
+});
+
+test("productivity drill-down separates outcome, labor and coverage", () => {
+  for (const label of ["総生産性（店舗平均）", "技術生産性（店舗平均）", "実労働FTE合計", "FTE当たり売上", "FTE未反映店舗"]) {
+    assert.match(app, new RegExp(label));
+  }
+  assert.match(app, /rankKey: "productivity", rankLabel: "総生産性", targetTab: "value"/);
 });
 
 test("confirmed attention count remains visible when only part of the store scope is preparing", () => {

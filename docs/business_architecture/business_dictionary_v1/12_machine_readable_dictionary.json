@@ -1,0 +1,4693 @@
+{
+  "dictionary_version": "1.0-draft",
+  "generated_from": "IDEA NOV Business Dictionary v1 canonical term set",
+  "status_counts": {
+    "Confirmed": 4,
+    "Proposed": 27,
+    "Needs Business Decision": 102,
+    "Unknown": 7,
+    "Deprecated": 0,
+    "Legacy": 0
+  },
+  "terms": [
+    {
+      "term_id": "organization.company",
+      "technical_key": "company",
+      "japanese_name": "会社",
+      "display_name": "会社",
+      "category": "organization",
+      "definition": "日常語として用いられる事業体。法人との同義扱い可否は未承認。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "organization"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.corporations, public.stores",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "企業"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "会社と法人を同義にするか決定",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "organization.corporation",
+      "technical_key": "corporation",
+      "japanese_name": "法人",
+      "display_name": "法人",
+      "category": "organization",
+      "definition": "Core corporation IDで一意に識別する法人格または経営集計主体。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "corporation"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.corporations",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Confirmed",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "organization.store",
+      "technical_key": "store",
+      "japanese_name": "店舗",
+      "display_name": "店舗",
+      "category": "organization",
+      "definition": "Core store IDで一意に識別する営業・管理拠点。名称は識別子にしない。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "store"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.stores",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Confirmed",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "organization.operating_store",
+      "technical_key": "operating_store",
+      "japanese_name": "営業店舗",
+      "display_name": "営業店舗",
+      "category": "organization",
+      "definition": "対象営業日に営業対象として有効な店舗。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "store",
+        "effective_date"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.corporations, public.stores",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [
+        "閉店後期間"
+      ],
+      "edge_cases": [],
+      "decision_required": "休業・開店準備中を含めるか",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "organization.closed_store",
+      "technical_key": "closed_store",
+      "japanese_name": "閉店店舗",
+      "display_name": "閉店店舗",
+      "category": "organization",
+      "definition": "閉店effective date以降は新規営業実績を受け付けないが、過去実績参照を維持する店舗。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "store",
+        "effective_date"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.corporations, public.stores",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "閉店日当日の扱い",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "organization.directly_managed_store",
+      "technical_key": "directly_managed_store",
+      "japanese_name": "直営店舗",
+      "display_name": "直営店舗",
+      "category": "organization",
+      "definition": "承認済みownership ruleで直営と判定された店舗。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "organization"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.corporations, public.stores",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "直営店"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "判定属性と集計法人を承認",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "organization.franchise_store",
+      "technical_key": "franchise_store",
+      "japanese_name": "FC店舗",
+      "display_name": "FC店舗",
+      "category": "organization",
+      "definition": "承認済みfranchise ruleでFCと判定された店舗。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "organization"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.corporations, public.stores",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "FC店"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "所有法人・運営法人・集計法人の関係を承認",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "organization.department",
+      "technical_key": "department",
+      "japanese_name": "部署",
+      "display_name": "部署",
+      "category": "organization",
+      "definition": "Core department IDで識別する組織部門。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "department"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.departments",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Proposed",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "organization.area",
+      "technical_key": "area",
+      "japanese_name": "エリア",
+      "display_name": "エリア",
+      "category": "organization",
+      "definition": "複数店舗を営業管理上まとめるeffective-dated管理単位。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "area",
+        "effective_period"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.corporations, public.stores",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "area masterと店舗所属期間を承認",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "organization.affiliation",
+      "technical_key": "affiliation",
+      "japanese_name": "所属",
+      "display_name": "所属",
+      "category": "organization",
+      "definition": "employeeと法人・部署・店舗等の有効期間付き関係。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "organization",
+        "effective_period"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "業務ownerの定義承認が必要",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "organization.primary_affiliation",
+      "technical_key": "primary_affiliation",
+      "japanese_name": "主所属",
+      "display_name": "主所属",
+      "category": "organization",
+      "definition": "同一時点の複数所属のうち基準となる一つの所属。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "organization"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.corporations, public.stores",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "主所属選択規則を承認",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "organization.concurrent_assignment",
+      "technical_key": "concurrent_assignment",
+      "japanese_name": "兼務",
+      "display_name": "兼務",
+      "category": "organization",
+      "definition": "同一期間に主所属以外の有効な所属を持つ状態。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "organization"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.corporations, public.stores",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "実績・人員の按分規則を承認",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "organization.support_store",
+      "technical_key": "support_store",
+      "japanese_name": "応援店舗",
+      "display_name": "応援店舗",
+      "category": "organization",
+      "definition": "主所属以外で一時的に勤務・売上計上対象となる店舗。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "organization"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.corporations, public.stores",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "勤務・売上・人件費の計上先を承認",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "organization.owning_corporation",
+      "technical_key": "owning_corporation",
+      "japanese_name": "所有法人",
+      "display_name": "所有法人",
+      "category": "organization",
+      "definition": "店舗資産または契約上の所有主体となる法人。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "organization"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.corporations, public.stores",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "直営/FCでの正式属性を承認",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "organization.operating_corporation",
+      "technical_key": "operating_corporation",
+      "japanese_name": "運営法人",
+      "display_name": "運営法人",
+      "category": "organization",
+      "definition": "店舗の日常運営責任を負う法人。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "organization"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.corporations, public.stores",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "所有法人と異なる場合の権限を承認",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "organization.aggregation_corporation",
+      "technical_key": "aggregation_corporation",
+      "japanese_name": "集計法人",
+      "display_name": "集計法人",
+      "category": "organization",
+      "definition": "KPI・財務報告で実績を帰属させる法人。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "organization"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.corporations, public.stores",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "FC・共同運営時の集計規則を承認",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "organization.store_core_id",
+      "technical_key": "store_core_id",
+      "japanese_name": "店舗Core ID",
+      "display_name": "店舗Core ID",
+      "category": "organization",
+      "definition": "店舗名称・外部コードから分離したpublic.stores.id。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "store"
+      ],
+      "unit": "UUID",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "public.stores.id",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "認可されたcorporation/store scope",
+      "status": "Proposed",
+      "aliases": [
+        "store_id"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.employee",
+      "technical_key": "employee",
+      "japanese_name": "社員",
+      "display_name": "社員",
+      "category": "people",
+      "definition": "public.employees.idで一意に識別するcanonical person record。雇用状態とは分離する。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "UUID",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Confirmed",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.active_employee",
+      "technical_key": "active_employee",
+      "japanese_name": "現職者",
+      "display_name": "現職者",
+      "category": "people",
+      "definition": "基準日時点で現職者管理の対象となるemployee。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "現職社員"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "休職者・入社予定者を含めるか",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.employed_person",
+      "technical_key": "employed_person",
+      "japanese_name": "在籍者",
+      "display_name": "在籍者",
+      "category": "people",
+      "definition": "基準日時点で雇用関係が有効なemployee。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "休職者を在籍人数に含めるか",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.leave_of_absence_employee",
+      "technical_key": "leave_of_absence_employee",
+      "japanese_name": "休職者",
+      "display_name": "休職者",
+      "category": "people",
+      "definition": "承認済み休職期間内にあるemployee。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "KPI分母ごとの除外規則を承認",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.retired_employee",
+      "technical_key": "retired_employee",
+      "japanese_name": "退職者",
+      "display_name": "退職者",
+      "category": "people",
+      "definition": "退職effective dateを経過したemployee。過去実績の帰属は保持する。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "退職日当日の権限・稼働扱い",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.working_person",
+      "technical_key": "working_person",
+      "japanese_name": "稼働者",
+      "display_name": "稼働者",
+      "category": "people",
+      "definition": "対象期間に承認済み稼働条件を満たすperson。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "出勤・売上・労働時間のどれを条件にするか",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.non_working_person",
+      "technical_key": "non_working_person",
+      "japanese_name": "非稼働者",
+      "display_name": "非稼働者",
+      "category": "people",
+      "definition": "在籍しているが対象期間の稼働条件を満たさないperson。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "欠勤・研修・本部勤務の扱い",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.technician",
+      "technical_key": "technician",
+      "japanese_name": "技術者",
+      "display_name": "技術者",
+      "category": "people",
+      "definition": "技術施術売上の担当資格を持つperson。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "職位・資格・実績のいずれで判定するか",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.stylist",
+      "technical_key": "stylist",
+      "japanese_name": "スタイリスト",
+      "display_name": "スタイリスト",
+      "category": "people",
+      "definition": "承認済み職種masterでstylistに分類されるperson。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "技術者との包含関係",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.assistant",
+      "technical_key": "assistant",
+      "japanese_name": "アシスタント",
+      "display_name": "アシスタント",
+      "category": "people",
+      "definition": "承認済み職種masterでassistantに分類されるperson。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "技術売上担当可否",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.store_manager",
+      "technical_key": "store_manager",
+      "japanese_name": "店長",
+      "display_name": "店長",
+      "category": "people",
+      "definition": "有効期間付きroleとstore scopeを持つ店舗責任者。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "複数店兼任時の権限",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.area_manager",
+      "technical_key": "area_manager",
+      "japanese_name": "エリアマネージャー",
+      "display_name": "エリアマネージャー",
+      "category": "people",
+      "definition": "有効期間付きroleとarea/store scopeを持つ責任者。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "area assignmentの物理正本",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.franchise_owner",
+      "technical_key": "franchise_owner",
+      "japanese_name": "FCオーナー",
+      "display_name": "FCオーナー",
+      "category": "people",
+      "definition": "特定FC法人・店舗scopeを持つprincipal。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "employee/外部principalの区分",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.support_staff",
+      "technical_key": "support_staff",
+      "japanese_name": "応援スタッフ",
+      "display_name": "応援スタッフ",
+      "category": "people",
+      "definition": "対象期間に主所属外店舗で有効な応援assignmentを持つperson。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "売上と人時の計上先",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.mid_month_transfer_employee",
+      "technical_key": "mid_month_transfer_employee",
+      "japanese_name": "月中異動者",
+      "display_name": "月中異動者",
+      "category": "people",
+      "definition": "月内に有効な所属が変更されたemployee。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "月次人数・売上の按分/実績日帰属",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.joined_date",
+      "technical_key": "joined_date",
+      "japanese_name": "入社日",
+      "display_name": "入社日",
+      "category": "people",
+      "definition": "雇用開始を表すeffective date。実列名joined_onはAdapterで吸収する。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "date",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees.joined_on",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Proposed",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.retired_date",
+      "technical_key": "retired_date",
+      "japanese_name": "退職日",
+      "display_name": "退職日",
+      "category": "people",
+      "definition": "雇用終了を表すeffective date。実列名retired_onはAdapterで吸収する。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "date",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees.retired_on",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Proposed",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.assignment_period",
+      "technical_key": "assignment_period",
+      "japanese_name": "配属期間",
+      "display_name": "配属期間",
+      "category": "people",
+      "definition": "employeeと組織の関係が有効な開始日から終了日までの期間。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "period",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "employee_assignment_histories / employee_store_assignments",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Proposed",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.headcount",
+      "technical_key": "headcount",
+      "japanese_name": "在籍人数",
+      "display_name": "在籍人数",
+      "category": "people",
+      "definition": "指定as-ofまたは期間ルールで在籍者を重複排除した人数。",
+      "formula": "COUNT(DISTINCT employee_id meeting employed rule)",
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "as-of日・休職・月中異動の扱い",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.working_headcount",
+      "technical_key": "working_headcount",
+      "japanese_name": "稼働人数",
+      "display_name": "稼働人数",
+      "category": "people",
+      "definition": "対象期間に稼働条件を満たしたpersonの重複排除人数。",
+      "formula": "COUNT(DISTINCT employee_id meeting working rule)",
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "稼働条件と応援者の帰属",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.fte",
+      "technical_key": "fte",
+      "japanese_name": "FTE",
+      "display_name": "FTE",
+      "category": "people",
+      "definition": "対象期間の標準労働量に対する実労働量の換算人数。",
+      "formula": "confirmed_labor_hours / standard_labor_hours",
+      "numerator": "confirmed_labor_hours",
+      "denominator": "standard_labor_hours",
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "FTE",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "標準労働時間と休暇扱い",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.labor_hours",
+      "technical_key": "labor_hours",
+      "japanese_name": "労働時間",
+      "display_name": "労働時間",
+      "category": "people",
+      "definition": "承認済み勤怠から得る対象期間の時間量。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "hour",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（勤怠正本候補）",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "実労働/所定/残業/休憩の包含",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.staff_count",
+      "technical_key": "staff_count",
+      "japanese_name": "スタッフ数",
+      "display_name": "スタッフ数",
+      "category": "people",
+      "definition": "現行表記。正式には在籍人数・稼働人数・FTEのいずれかへ分解する。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Read Adapter / public.employees, assignment history",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "社員数"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "利用画面ごとに正式分母へ置換",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.manager_relationship",
+      "technical_key": "manager_relationship",
+      "japanese_name": "上長関係",
+      "display_name": "上長関係",
+      "category": "people",
+      "definition": "employeeと直属上長の有効期間付き関係。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（Core拡張候補）",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Proposed",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "people.employee_external_id",
+      "technical_key": "employee_external_id",
+      "japanese_name": "社員外部ID",
+      "display_name": "社員外部ID",
+      "category": "people",
+      "definition": "source system内のstaff ID。Core IDへmappingして利用する。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "employee",
+        "effective_period"
+      ],
+      "unit": "identifier",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "source system",
+      "update_frequency": "随時（effective-dated）",
+      "owner": "人事 / Core Master owner",
+      "consumers": [
+        "店舗営業管理",
+        "NOV Talent",
+        "現職者管理"
+      ],
+      "access_level": "本人・管理scope。個人情報はHR権限",
+      "status": "Proposed",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.gross_sales",
+      "technical_key": "gross_sales",
+      "japanese_name": "総売上",
+      "display_name": "総売上",
+      "category": "sales",
+      "definition": "指定税・値引・取消・返品ルールに基づく売上集計。現時点では式未承認。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "売上",
+        "総売上高"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "税込/税抜、調整前後、構成項目を承認",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.tax_inclusive_sales",
+      "technical_key": "tax_inclusive_sales",
+      "japanese_name": "税込売上",
+      "display_name": "税込売上",
+      "category": "sales",
+      "definition": "消費税を含む売上額。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "内税/外税と端数規則",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.tax_exclusive_sales",
+      "technical_key": "tax_exclusive_sales",
+      "japanese_name": "税抜売上",
+      "display_name": "税抜売上",
+      "category": "sales",
+      "definition": "消費税を含まない売上額。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "税計算・端数・軽減税率",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.technical_sales",
+      "technical_key": "technical_sales",
+      "japanese_name": "技術売上",
+      "display_name": "技術売上",
+      "category": "sales",
+      "definition": "承認済みservice categoryに分類された売上。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "施術売上"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "純売上かgrossか、category owner、セット按分",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.retail_sales",
+      "technical_key": "retail_sales",
+      "japanese_name": "店販売上",
+      "display_name": "店販売上",
+      "category": "sales",
+      "definition": "承認済みretail product categoryに分類された売上。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "商品売上",
+        "物販売上"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "MID/EC/返品/セット按分の扱い",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.mid_sales",
+      "technical_key": "mid_sales",
+      "japanese_name": "MID売上",
+      "display_name": "MID売上",
+      "category": "sales",
+      "definition": "現行表記のMIDに該当する売上。MIDの正式意味とsource項目は未確認。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Unknown",
+      "aliases": [
+        "ミルボンID売上"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "MIDの正式名称、重複関係、sourceを確認",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.retail_sales_excluding_mid",
+      "technical_key": "retail_sales_excluding_mid",
+      "japanese_name": "MID除外店販売上",
+      "display_name": "MID除外店販売上",
+      "category": "sales",
+      "definition": "店販売上からMIDとして定義された金額を除いた候補値。",
+      "formula": "retail_sales - mid_sales（候補）",
+      "numerator": "retail_sales - mid_sales",
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Unknown",
+      "aliases": [
+        "商品売上（MID抜き）"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "MIDが店販売上に内包されるか確認",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.nominated_sales",
+      "technical_key": "nominated_sales",
+      "japanese_name": "指名売上",
+      "display_name": "指名売上",
+      "category": "sales",
+      "definition": "指名区分が承認条件を満たす売上。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "指名判定時点と複数担当按分",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.non_nominated_sales",
+      "technical_key": "non_nominated_sales",
+      "japanese_name": "指名外売上",
+      "display_name": "指名外売上",
+      "category": "sales",
+      "definition": "指名売上に該当しない対象技術売上。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "フリー売上"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "対象売上と除外区分",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.new_customer_sales",
+      "technical_key": "new_customer_sales",
+      "japanese_name": "新規売上",
+      "display_name": "新規売上",
+      "category": "sales",
+      "definition": "承認済み新規客定義に該当する来店の売上。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "新規客定義と顧客ID欠損",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.existing_customer_sales",
+      "technical_key": "existing_customer_sales",
+      "japanese_name": "既存売上",
+      "display_name": "既存売上",
+      "category": "sales",
+      "definition": "承認済み既存客定義に該当する来店の売上。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "再来/固定/失客復帰の包含",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.discount",
+      "technical_key": "discount",
+      "japanese_name": "値引き",
+      "display_name": "値引き",
+      "category": "sales",
+      "definition": "原取引に関連付く価格減額。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "売上区分への按分と税",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.return_amount",
+      "technical_key": "return_amount",
+      "japanese_name": "返品",
+      "display_name": "返品",
+      "category": "sales",
+      "definition": "商品またはサービスの返却に関連する調整イベントまたは金額。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "返品額"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "返品日/原売上日の計上",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.refund_amount",
+      "technical_key": "refund_amount",
+      "japanese_name": "返金",
+      "display_name": "返金",
+      "category": "sales",
+      "definition": "顧客へ返した金額。返品・取消と別イベントで保持する。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "現金/決済返金と売上減額の関係",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.cancellation_amount",
+      "technical_key": "cancellation_amount",
+      "japanese_name": "キャンセル",
+      "display_name": "キャンセル",
+      "category": "sales",
+      "definition": "成立済み取引または予約の取消。売上イベントと予約イベントを区別する。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "売上計上済み取消のみ金額対象とするか",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.net_sales",
+      "technical_key": "net_sales",
+      "japanese_name": "純売上",
+      "display_name": "純売上",
+      "category": "sales",
+      "definition": "承認済み税基準の売上から値引・取消・返品等を適用した売上。",
+      "formula": "approved_sales - discounts - cancellations - returns（候補）",
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "approved_salesの税基準と返金・訂正の扱い",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.sales_recognition_date",
+      "technical_key": "sales_recognition_date",
+      "japanese_name": "売上計上日",
+      "display_name": "売上計上日",
+      "category": "sales",
+      "definition": "売上を報告期間へ帰属させる承認済み日付。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "date",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "施術日/決済日/締め日/訂正日の優先",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.sales_month",
+      "technical_key": "sales_month",
+      "japanese_name": "売上月",
+      "display_name": "売上月",
+      "category": "sales",
+      "definition": "売上計上日または営業日から導出するYYYY-MMの月次期間。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "monthly",
+        "store"
+      ],
+      "unit": "month",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Proposed",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.provisional_sales",
+      "technical_key": "provisional_sales",
+      "japanese_name": "仮売上",
+      "display_name": "仮売上",
+      "category": "sales",
+      "definition": "close前または検証未完了の売上version。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "仮売上をランキングに含めるか",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.confirmed_sales",
+      "technical_key": "confirmed_sales",
+      "japanese_name": "確定売上",
+      "display_name": "確定売上",
+      "category": "sales",
+      "definition": "source検証・close・承認条件を満たしたimmutable versionの売上。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "承認者と確定条件",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "sales.corrected_sales",
+      "technical_key": "corrected_sales",
+      "japanese_name": "修正売上",
+      "display_name": "修正売上",
+      "category": "sales",
+      "definition": "確定後の訂正を新versionとして反映した売上。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "transaction",
+        "daily",
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（店舗売上原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "再open、承認、原version参照",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "customer.total_customer_count",
+      "technical_key": "total_customer_count",
+      "japanese_name": "総客数",
+      "display_name": "総客数",
+      "category": "customer",
+      "definition": "対象期間の承認済みvisit/customer重複排除規則による客数。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "visit",
+        "customer",
+        "daily",
+        "monthly",
+        "store"
+      ],
+      "unit": "count",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（POS/予約/顧客原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部",
+      "consumers": [
+        "店舗営業管理"
+      ],
+      "access_level": "集計はstore scope。個票は高感度権限",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "総来店数"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "会計数/visit数/customer数の採用",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "customer.technical_customer_count",
+      "technical_key": "technical_customer_count",
+      "japanese_name": "技術客数",
+      "display_name": "技術客数",
+      "category": "customer",
+      "definition": "技術serviceを受けたvisit/customerの承認済み客数。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "visit",
+        "customer",
+        "daily",
+        "monthly",
+        "store"
+      ],
+      "unit": "count",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（POS/予約/顧客原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部",
+      "consumers": [
+        "店舗営業管理"
+      ],
+      "access_level": "集計はstore scope。個票は高感度権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "複数技術・同日再来の重複排除",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "customer.retail_purchasing_customer_count",
+      "technical_key": "retail_purchasing_customer_count",
+      "japanese_name": "店販購入客数",
+      "display_name": "店販購入客数",
+      "category": "customer",
+      "definition": "対象期間に店販購入条件を満たしたvisit/customer数。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "visit",
+        "customer",
+        "daily",
+        "monthly",
+        "store"
+      ],
+      "unit": "count",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（POS/予約/顧客原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部",
+      "consumers": [
+        "店舗営業管理"
+      ],
+      "access_level": "集計はstore scope。個票は高感度権限",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "商品購買客数",
+        "店販購買客数"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "顧客/会計単位と技術来店なし購入",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "customer.new_customer",
+      "technical_key": "new_customer",
+      "japanese_name": "新規客",
+      "display_name": "新規客",
+      "category": "customer",
+      "definition": "承認済みlookback範囲内で初回来店と判定された顧客。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "visit",
+        "customer",
+        "daily",
+        "monthly",
+        "store"
+      ],
+      "unit": "count",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（POS/予約/顧客原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部",
+      "consumers": [
+        "店舗営業管理"
+      ],
+      "access_level": "集計はstore scope。個票は高感度権限",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "新規"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "全社/店舗初回、lookback、顧客ID欠損",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "customer.existing_customer",
+      "technical_key": "existing_customer",
+      "japanese_name": "既存客",
+      "display_name": "既存客",
+      "category": "customer",
+      "definition": "新規客以外で有効な来店履歴を持つ顧客。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "visit",
+        "customer",
+        "daily",
+        "monthly",
+        "store"
+      ],
+      "unit": "count",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（POS/予約/顧客原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部",
+      "consumers": [
+        "店舗営業管理"
+      ],
+      "access_level": "集計はstore scope。個票は高感度権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "失客復帰の扱い",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "customer.returning_customer",
+      "technical_key": "returning_customer",
+      "japanese_name": "再来客",
+      "display_name": "再来客",
+      "category": "customer",
+      "definition": "初回来店後に再度来店した顧客。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "visit",
+        "customer",
+        "daily",
+        "monthly",
+        "store"
+      ],
+      "unit": "count",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（POS/予約/顧客原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部",
+      "consumers": [
+        "店舗営業管理"
+      ],
+      "access_level": "集計はstore scope。個票は高感度権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "対象期間と店舗跨ぎ",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "customer.repeat_customer",
+      "technical_key": "repeat_customer",
+      "japanese_name": "リピート客",
+      "display_name": "リピート客",
+      "category": "customer",
+      "definition": "承認済み回数・期間条件を満たす再来客。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "visit",
+        "customer",
+        "daily",
+        "monthly",
+        "store"
+      ],
+      "unit": "count",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（POS/予約/顧客原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部",
+      "consumers": [
+        "店舗営業管理"
+      ],
+      "access_level": "集計はstore scope。個票は高感度権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "2回目/3回目/固定の包含と期間",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "customer.nominated_customer",
+      "technical_key": "nominated_customer",
+      "japanese_name": "指名客",
+      "display_name": "指名客",
+      "category": "customer",
+      "definition": "対象来店で指名条件を満たす顧客。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "visit",
+        "customer",
+        "daily",
+        "monthly",
+        "store"
+      ],
+      "unit": "count",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（POS/予約/顧客原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部",
+      "consumers": [
+        "店舗営業管理"
+      ],
+      "access_level": "集計はstore scope。個票は高感度権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "一部指名・複数担当",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "customer.non_nominated_customer",
+      "technical_key": "non_nominated_customer",
+      "japanese_name": "指名外客",
+      "display_name": "指名外客",
+      "category": "customer",
+      "definition": "対象来店で指名条件を満たさない顧客。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "visit",
+        "customer",
+        "daily",
+        "monthly",
+        "store"
+      ],
+      "unit": "count",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（POS/予約/顧客原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部",
+      "consumers": [
+        "店舗営業管理"
+      ],
+      "access_level": "集計はstore scope。個票は高感度権限",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "フリー客"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "技術客のみを対象とするか",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "customer.lost_customer",
+      "technical_key": "lost_customer",
+      "japanese_name": "失客",
+      "display_name": "失客",
+      "category": "customer",
+      "definition": "承認済み無来店期間を超えた顧客。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "visit",
+        "customer",
+        "daily",
+        "monthly",
+        "store"
+      ],
+      "unit": "count",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（POS/予約/顧客原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部",
+      "consumers": [
+        "店舗営業管理"
+      ],
+      "access_level": "集計はstore scope。個票は高感度権限",
+      "status": "Unknown",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "lookback期間と再来時の復帰",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "customer.visit_count",
+      "technical_key": "visit_count",
+      "japanese_name": "来店回数",
+      "display_name": "来店回数",
+      "category": "customer",
+      "definition": "承認済みvisit keyで重複排除した来店event数。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "visit",
+        "customer",
+        "daily",
+        "monthly",
+        "store"
+      ],
+      "unit": "visit",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（POS/予約/顧客原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部",
+      "consumers": [
+        "店舗営業管理"
+      ],
+      "access_level": "集計はstore scope。個票は高感度権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "同日複数会計・施術の統合",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "customer.duplicate_customer_count",
+      "technical_key": "duplicate_customer_count",
+      "japanese_name": "重複客数",
+      "display_name": "重複客数",
+      "category": "customer",
+      "definition": "同一人物の重複customer record数または重複除外数。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "visit",
+        "customer",
+        "daily",
+        "monthly",
+        "store"
+      ],
+      "unit": "count",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（POS/予約/顧客原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部",
+      "consumers": [
+        "店舗営業管理"
+      ],
+      "access_level": "集計はstore scope。個票は高感度権限",
+      "status": "Unknown",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "意味、matching rule、PII利用を確認",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "customer.cancelled_customer",
+      "technical_key": "cancelled_customer",
+      "japanese_name": "キャンセル客",
+      "display_name": "キャンセル客",
+      "category": "customer",
+      "definition": "予約を取消した顧客/予約件数。売上客数には含めない候補。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "visit",
+        "customer",
+        "daily",
+        "monthly",
+        "store"
+      ],
+      "unit": "count",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（POS/予約/顧客原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部",
+      "consumers": [
+        "店舗営業管理"
+      ],
+      "access_level": "集計はstore scope。個票は高感度権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "当日/事前、顧客数/予約数の単位",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "customer.no_show_customer",
+      "technical_key": "no_show_customer",
+      "japanese_name": "無断キャンセル",
+      "display_name": "無断キャンセル",
+      "category": "customer",
+      "definition": "来店せず、承認済みno-show条件を満たす予約。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "visit",
+        "customer",
+        "daily",
+        "monthly",
+        "store"
+      ],
+      "unit": "count",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（POS/予約/顧客原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部",
+      "consumers": [
+        "店舗営業管理"
+      ],
+      "access_level": "集計はstore scope。個票は高感度権限",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "ノーショー"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "連絡有無と期限",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "customer.referred_customer",
+      "technical_key": "referred_customer",
+      "japanese_name": "紹介客",
+      "display_name": "紹介客",
+      "category": "customer",
+      "definition": "承認済み紹介sourceを持つ新規または既存顧客。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "visit",
+        "customer",
+        "daily",
+        "monthly",
+        "store"
+      ],
+      "unit": "count",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Unknown（POS/予約/顧客原本候補）",
+      "update_frequency": "日次・月次close後",
+      "owner": "営業部",
+      "consumers": [
+        "店舗営業管理"
+      ],
+      "access_level": "集計はstore scope。個票は高感度権限",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "紹介者・媒体・初回来店限定",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.budget",
+      "technical_key": "budget",
+      "japanese_name": "予算",
+      "display_name": "予算",
+      "category": "kpi",
+      "definition": "対象期間・scope・versionを持つ計画値の総称。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "正式versionと正本",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.initial_budget",
+      "technical_key": "initial_budget",
+      "japanese_name": "当初予算",
+      "display_name": "当初予算",
+      "category": "kpi",
+      "definition": "対象年度・月の開始前に最初に承認された予算version。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "最初の承認時点",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.revised_budget",
+      "technical_key": "revised_budget",
+      "japanese_name": "修正予算",
+      "display_name": "修正予算",
+      "category": "kpi",
+      "definition": "当初予算の後に承認された新version。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "改定権限・適用月・遡及",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.approved_budget",
+      "technical_key": "approved_budget",
+      "japanese_name": "承認予算",
+      "display_name": "承認予算",
+      "category": "kpi",
+      "definition": "指定as-ofで有効な承認済み予算version。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "承認workflowと複数version選択",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.budget_achievement_rate",
+      "technical_key": "budget_achievement_rate",
+      "japanese_name": "予算達成率",
+      "display_name": "予算達成率",
+      "category": "kpi",
+      "definition": "実績値を承認予算で除した比率。",
+      "formula": "actual_sales / approved_budget * 100",
+      "numerator": "actual_sales",
+      "denominator": "approved_budget",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "percent",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "予算比",
+        "目標達成率"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "actual_salesの正式定義",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.prior_year_sales",
+      "technical_key": "prior_year_sales",
+      "japanese_name": "前年売上",
+      "display_name": "前年売上",
+      "category": "kpi",
+      "definition": "比較可能な前年同期間の承認済み売上。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "閉店・移転・統合店舗の比較",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.year_over_year_rate",
+      "technical_key": "year_over_year_rate",
+      "japanese_name": "前年比",
+      "display_name": "前年比",
+      "category": "kpi",
+      "definition": "当期値を比較可能な前年同期間値で除した比率。",
+      "formula": "current_period_value / prior_year_comparable_value * 100",
+      "numerator": "current_period_value",
+      "denominator": "prior_year_comparable_value",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "percent",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "前年同月比"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "比較可能店と0分母",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.month_over_month_rate",
+      "technical_key": "month_over_month_rate",
+      "japanese_name": "前月比",
+      "display_name": "前月比",
+      "category": "kpi",
+      "definition": "当月値を前月の比較可能値で除した比率。",
+      "formula": "current_month_value / previous_month_value * 100",
+      "numerator": "current_month_value",
+      "denominator": "previous_month_value",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "percent",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "速報/確定混在と0分母",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.average_spend",
+      "technical_key": "average_spend",
+      "japanese_name": "客単価",
+      "display_name": "客単価",
+      "category": "kpi",
+      "definition": "承認済み対象売上を承認済み総客数で除した値。",
+      "formula": "approved_sales / total_customer_count",
+      "numerator": "approved_sales",
+      "denominator": "total_customer_count",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY/customer",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "総単価"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "売上と客数の正式組合せ",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.technical_average_spend",
+      "technical_key": "technical_average_spend",
+      "japanese_name": "技術単価",
+      "display_name": "技術単価",
+      "category": "kpi",
+      "definition": "技術売上を技術客数で除した値。",
+      "formula": "technical_sales / technical_customer_count",
+      "numerator": "technical_sales",
+      "denominator": "technical_customer_count",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY/customer",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "税込/純売上と技術客の重複排除",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.retail_average_spend",
+      "technical_key": "retail_average_spend",
+      "japanese_name": "店販単価",
+      "display_name": "店販単価",
+      "category": "kpi",
+      "definition": "店販売上を承認済み分母で除した値。",
+      "formula": "retail_sales / denominator_to_be_approved",
+      "numerator": "retail_sales",
+      "denominator": "Needs Business Decision",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY/customer",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "総客数か店販購入客数か",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.retail_purchase_rate",
+      "technical_key": "retail_purchase_rate",
+      "japanese_name": "店販購買率",
+      "display_name": "店販購買率",
+      "category": "kpi",
+      "definition": "店販購入客数を承認済み対象客数で除した比率。",
+      "formula": "retail_purchasing_customer_count / denominator_to_be_approved * 100",
+      "numerator": "retail_purchasing_customer_count",
+      "denominator": "Needs Business Decision",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "percent",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "購買率"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "総客数/技術客数/来店数のどれを分母にするか",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.new_customer_count",
+      "technical_key": "new_customer_count",
+      "japanese_name": "新規客数",
+      "display_name": "新規客数",
+      "category": "kpi",
+      "definition": "承認済み新規客定義に該当する顧客の重複排除数。",
+      "formula": "COUNT(DISTINCT customer_id meeting new_customer rule)",
+      "numerator": "new_customer",
+      "denominator": null,
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "customer",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "全社/店舗初回、lookback、顧客ID欠損",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.new_customer_rate",
+      "technical_key": "new_customer_rate",
+      "japanese_name": "新規比率",
+      "display_name": "新規比率",
+      "category": "kpi",
+      "definition": "新規客数を承認済み対象客数で除した比率。",
+      "formula": "new_customer_count / denominator_to_be_approved * 100",
+      "numerator": "new_customer_count",
+      "denominator": "Needs Business Decision",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "percent",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "新規客定義と分母",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.nomination_rate",
+      "technical_key": "nomination_rate",
+      "japanese_name": "指名比率",
+      "display_name": "指名比率",
+      "category": "kpi",
+      "definition": "指名客数または指名売上を承認済み分母で除した比率。",
+      "formula": "nominated_metric / denominator_to_be_approved * 100",
+      "numerator": "Needs Business Decision",
+      "denominator": "Needs Business Decision",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "percent",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "客数/売上、総数/技術数の組合せ",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.repeat_rate",
+      "technical_key": "repeat_rate",
+      "japanese_name": "リピート率",
+      "display_name": "リピート率",
+      "category": "kpi",
+      "definition": "承認済みrepeat cohortの再来数を対象母数で除した比率。",
+      "formula": "repeat_customer_count / eligible_cohort_count * 100",
+      "numerator": "repeat_customer_count",
+      "denominator": "eligible_cohort_count",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "percent",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "cohort、期間、固定客、顧客ID欠損",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.total_productivity",
+      "technical_key": "total_productivity",
+      "japanese_name": "総生産性",
+      "display_name": "総生産性",
+      "category": "kpi",
+      "definition": "承認済み総売上系分子を承認済み人員系分母で除したKPI。",
+      "formula": "approved_total_sales / approved_workforce_denominator",
+      "numerator": "Needs Business Decision",
+      "denominator": "Needs Business Decision",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY/person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "分子、在籍/稼働/FTE/時間の選択",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.technical_productivity",
+      "technical_key": "technical_productivity",
+      "japanese_name": "技術生産性",
+      "display_name": "技術生産性",
+      "category": "kpi",
+      "definition": "技術売上を承認済み人員系分母で除したKPI。",
+      "formula": "technical_sales / approved_workforce_denominator",
+      "numerator": "technical_sales",
+      "denominator": "Needs Business Decision",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY/person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "稼働人数/FTE/時間の選択",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.sales_per_labor_hour",
+      "technical_key": "sales_per_labor_hour",
+      "japanese_name": "人時売上高",
+      "display_name": "人時売上高",
+      "category": "kpi",
+      "definition": "承認済み売上を承認済み総労働時間で除した値。",
+      "formula": "approved_sales / approved_labor_hours",
+      "numerator": "approved_sales",
+      "denominator": "approved_labor_hours",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY/hour",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "売上基準と所定/実/休憩時間",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.actual_labor_sales_per_hour",
+      "technical_key": "actual_labor_sales_per_hour",
+      "japanese_name": "実労働売上高",
+      "display_name": "実労働売上高",
+      "category": "kpi",
+      "definition": "承認済み売上を確定実労働時間で除した値。",
+      "formula": "approved_sales / confirmed_actual_labor_hours",
+      "numerator": "approved_sales",
+      "denominator": "confirmed_actual_labor_hours",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY/hour",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "人時売上高との差と実労働時間source",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.utilization_rate",
+      "technical_key": "utilization_rate",
+      "japanese_name": "稼働率",
+      "display_name": "稼働率",
+      "category": "kpi",
+      "definition": "承認済み実稼働量を承認済み利用可能量で除した比率。",
+      "formula": "actual_utilized_amount / available_amount * 100",
+      "numerator": "Needs Business Decision",
+      "denominator": "Needs Business Decision",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "percent",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "人員・時間・予約枠のどれを測るか",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.headcount_productivity",
+      "technical_key": "headcount_productivity",
+      "japanese_name": "稼働人員生産性",
+      "display_name": "稼働人員生産性",
+      "category": "kpi",
+      "definition": "承認済み売上を稼働人数で除した値。",
+      "formula": "approved_sales / working_headcount",
+      "numerator": "approved_sales",
+      "denominator": "working_headcount",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY/person",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "売上基準と稼働人数定義",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.fte_productivity",
+      "technical_key": "fte_productivity",
+      "japanese_name": "FTE生産性",
+      "display_name": "FTE生産性",
+      "category": "kpi",
+      "definition": "純売上をFTEで除した値。",
+      "formula": "net_sales / fte",
+      "numerator": "net_sales",
+      "denominator": "fte",
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "JPY/FTE",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "FTE標準時間と純売上",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.store_ranking",
+      "technical_key": "store_ranking",
+      "japanese_name": "店舗ランキング",
+      "display_name": "店舗ランキング",
+      "category": "kpi",
+      "definition": "同一period・metric version・scopeで店舗を順位付けした派生値。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "rank",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "採用KPI、同順位、欠損、速報を含むか",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "kpi.staff_ranking",
+      "technical_key": "staff_ranking",
+      "japanese_name": "スタッフランキング",
+      "display_name": "スタッフランキング",
+      "category": "kpi",
+      "definition": "同一period・metric version・eligible populationでemployeeを順位付けした派生値。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "monthly",
+        "store",
+        "employee"
+      ],
+      "unit": "rank",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "承認済みsnapshot候補",
+      "update_frequency": "月次close後",
+      "owner": "営業部 / 経営者",
+      "consumers": [
+        "店舗営業管理",
+        "法人経営管理"
+      ],
+      "access_level": "role × corporation/store scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "職種・所属・応援・最低稼働条件",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.business_day",
+      "technical_key": "business_day",
+      "japanese_name": "営業日",
+      "display_name": "営業日",
+      "category": "period",
+      "definition": "店舗timezoneと承認済み境界時刻で決まる業務日。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "date",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "深夜跨ぎ・店舗別境界・休業日",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.calendar_day",
+      "technical_key": "calendar_day",
+      "japanese_name": "暦日",
+      "display_name": "暦日",
+      "category": "period",
+      "definition": "Asia/Tokyoの00:00から24:00までの日付。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "date",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Proposed",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.monthly_period",
+      "technical_key": "monthly_period",
+      "japanese_name": "月次",
+      "display_name": "月次",
+      "category": "period",
+      "definition": "承認済み営業日規則でまとめたYYYY-MM期間。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "month",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "締め境界と遡及修正",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.current_month",
+      "technical_key": "current_month",
+      "japanese_name": "当月",
+      "display_name": "当月",
+      "category": "period",
+      "definition": "指定as-ofが属する月次期間。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "month",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "as-ofとtimezone",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.previous_month",
+      "technical_key": "previous_month",
+      "japanese_name": "前月",
+      "display_name": "前月",
+      "category": "period",
+      "definition": "当月の直前の月次期間。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "month",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "比較version",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.prior_year_same_month",
+      "technical_key": "prior_year_same_month",
+      "japanese_name": "前年同月",
+      "display_name": "前年同月",
+      "category": "period",
+      "definition": "当月の12か月前に対応する比較可能な月次期間。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "month",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "店舗改廃時の比較",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.flash",
+      "technical_key": "flash",
+      "japanese_name": "速報",
+      "display_name": "速報",
+      "category": "period",
+      "definition": "完全性・承認前であることを明示した早期集計。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "period",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Proposed",
+      "aliases": [
+        "速報値"
+      ],
+      "exclusions": [
+        "確定値扱い"
+      ],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.preliminary",
+      "technical_key": "preliminary",
+      "japanese_name": "暫定",
+      "display_name": "暫定",
+      "category": "period",
+      "definition": "source収集は進んでいるが検証または承認が未完了の状態。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "period",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "速報との差と利用可能画面",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.verified",
+      "technical_key": "verified",
+      "japanese_name": "検証済み",
+      "display_name": "検証済み",
+      "category": "period",
+      "definition": "定義済みvalidationを通過したが、業務承認とは別の状態。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "period",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "validation checklistと実行者",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.approved",
+      "technical_key": "approved",
+      "japanese_name": "承認済み",
+      "display_name": "承認済み",
+      "category": "period",
+      "definition": "権限を持つ業務ownerが特定versionを承認した状態。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "period",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "承認者・代理・取消",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.closed",
+      "technical_key": "closed",
+      "japanese_name": "締め済み",
+      "display_name": "締め済み",
+      "category": "period",
+      "definition": "対象periodへの通常writeを停止した状態。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "period",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "daily/monthly closeと例外権限",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.reopened",
+      "technical_key": "reopened",
+      "japanese_name": "再オープン",
+      "display_name": "再オープン",
+      "category": "period",
+      "definition": "承認を受けて締め済みperiodを訂正可能にした状態。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "period",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "実行権限、理由、再締め",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.retroactive_correction",
+      "technical_key": "retroactive_correction",
+      "japanese_name": "遡及修正",
+      "display_name": "遡及修正",
+      "category": "period",
+      "definition": "過去periodの確定値を上書きせず新versionで訂正すること。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "period",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "会計連携と表示期間",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.snapshot",
+      "technical_key": "snapshot",
+      "japanese_name": "スナップショット",
+      "display_name": "スナップショット",
+      "category": "period",
+      "definition": "指定as-of・定義version・source versionで固定した派生集計。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "period",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "snapshot"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "生成時点と再生成規則",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.version",
+      "technical_key": "version",
+      "japanese_name": "バージョン",
+      "display_name": "バージョン",
+      "category": "period",
+      "definition": "定義・source・集計・承認の変更を識別するimmutable番号。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "identifier",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Needs Business Decision",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "採番と互換性",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.effective_date",
+      "technical_key": "effective_date",
+      "japanese_name": "適用日",
+      "display_name": "適用日",
+      "category": "period",
+      "definition": "定義またはmaster relationが業務上有効になる日。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "date",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Needs Business Decision",
+      "aliases": [
+        "effective date"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "時刻精度と終了境界",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "period.as_of",
+      "technical_key": "as_of",
+      "japanese_name": "基準時点",
+      "display_name": "基準時点",
+      "category": "period",
+      "definition": "状態・scope・versionを評価する明示的な日時。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "period",
+        "store"
+      ],
+      "unit": "timestamp",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "店舗営業Business Contract候補",
+      "update_frequency": "随時",
+      "owner": "営業部 / 経理",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "業務scope",
+      "status": "Proposed",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.original_record",
+      "technical_key": "original_record",
+      "japanese_name": "原本",
+      "display_name": "原本",
+      "category": "data_governance",
+      "definition": "変更前の一次資料またはsource system記録。正本採用とは別概念。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Proposed",
+      "aliases": [
+        "原資料"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.sales_source_of_truth",
+      "technical_key": "sales_source_of_truth",
+      "japanese_name": "正本",
+      "display_name": "正本",
+      "category": "data_governance",
+      "definition": "指定業務事実について競合時に優先する、owner承認済みの唯一のsource。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Unknown",
+      "aliases": [
+        "source of truth"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "店舗売上の正式正本を選定",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.source_system",
+      "technical_key": "source_system",
+      "japanese_name": "ソースシステム",
+      "display_name": "ソースシステム",
+      "category": "data_governance",
+      "definition": "データを生成・管理する外部または内部system。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Unknown",
+      "aliases": [
+        "source system"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "店舗売上source systemを特定",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.source_file",
+      "technical_key": "source_file",
+      "japanese_name": "ソースファイル",
+      "display_name": "ソースファイル",
+      "category": "data_governance",
+      "definition": "import batchの入力となるimmutable fileとそのmetadata。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Unknown",
+      "aliases": [
+        "source file"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": "公式export formatと保管範囲",
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.import_batch",
+      "technical_key": "import_batch",
+      "japanese_name": "取込バッチ",
+      "display_name": "取込バッチ",
+      "category": "data_governance",
+      "definition": "同一source、受領時点、checksum、処理結果を束ねる取込単位。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Proposed",
+      "aliases": [
+        "import batch"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.source_row",
+      "technical_key": "source_row",
+      "japanese_name": "ソース行",
+      "display_name": "ソース行",
+      "category": "data_governance",
+      "definition": "source file内の位置と原値digestで追跡可能な最小入力行。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Proposed",
+      "aliases": [
+        "source row"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.external_id",
+      "technical_key": "external_id",
+      "japanese_name": "外部ID",
+      "display_name": "外部ID",
+      "category": "data_governance",
+      "definition": "source system内で対象を識別するID。Core IDとは分離する。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Proposed",
+      "aliases": [
+        "external ID"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.core_id",
+      "technical_key": "core_id",
+      "japanese_name": "Core ID",
+      "display_name": "Core ID",
+      "category": "data_governance",
+      "definition": "IDEA NOV OSのcanonical master recordを識別するimmutable ID。名称をIDとして使わない。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "UUID",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Core Master",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Confirmed",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.mapping",
+      "technical_key": "mapping",
+      "japanese_name": "マッピング",
+      "display_name": "マッピング",
+      "category": "data_governance",
+      "definition": "external IDまたはsource valueをCore ID・canonical categoryへ対応付けるversion付き関係。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Proposed",
+      "aliases": [
+        "mapping"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.mapping_pending",
+      "technical_key": "mapping_pending",
+      "japanese_name": "マッピング保留",
+      "display_name": "マッピング保留",
+      "category": "data_governance",
+      "definition": "一意なmappingが確定しておらずcanonical集計へ反映できない状態。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Proposed",
+      "aliases": [
+        "mapping pending"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.ambiguous",
+      "technical_key": "ambiguous",
+      "japanese_name": "曖昧",
+      "display_name": "曖昧",
+      "category": "data_governance",
+      "definition": "複数候補があり自動で一意解決できない状態。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Proposed",
+      "aliases": [
+        "ambiguous"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.quarantine",
+      "technical_key": "quarantine",
+      "japanese_name": "隔離",
+      "display_name": "隔離",
+      "category": "data_governance",
+      "definition": "validationまたはmapping不合格のdataを本集計から分離した状態・領域。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Proposed",
+      "aliases": [
+        "quarantine"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.validation_error",
+      "technical_key": "validation_error",
+      "japanese_name": "検証エラー",
+      "display_name": "検証エラー",
+      "category": "data_governance",
+      "definition": "取込または契約を拒否する重大なvalidation違反。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Proposed",
+      "aliases": [
+        "validation error"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.warning",
+      "technical_key": "warning",
+      "japanese_name": "警告",
+      "display_name": "警告",
+      "category": "data_governance",
+      "definition": "処理継続は可能だが確認を要する非blocking事象。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Proposed",
+      "aliases": [
+        "warning"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.duplicate",
+      "technical_key": "duplicate",
+      "japanese_name": "重複",
+      "display_name": "重複",
+      "category": "data_governance",
+      "definition": "同一business keyまたはsource identityが複数回現れる状態。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Proposed",
+      "aliases": [
+        "duplicate"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.checksum",
+      "technical_key": "checksum",
+      "japanese_name": "チェックサム",
+      "display_name": "チェックサム",
+      "category": "data_governance",
+      "definition": "source bytesまたはcanonical payloadの同一性を検証するdigest。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "digest",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Proposed",
+      "aliases": [
+        "checksum"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.audit",
+      "technical_key": "audit",
+      "japanese_name": "監査記録",
+      "display_name": "監査記録",
+      "category": "data_governance",
+      "definition": "actor、action、resource、result、timestamp、correlationを追跡するimmutable記録。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "監査・system管理者に限定",
+      "status": "Proposed",
+      "aliases": [
+        "audit"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.correction_reason",
+      "technical_key": "correction_reason",
+      "japanese_name": "修正理由",
+      "display_name": "修正理由",
+      "category": "data_governance",
+      "definition": "訂正を必要とした業務理由の承認済みcodeと補足。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Proposed",
+      "aliases": [
+        "correction reason"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.approved_by",
+      "technical_key": "approved_by",
+      "japanese_name": "承認者",
+      "display_name": "承認者",
+      "category": "data_governance",
+      "definition": "特定versionを承認したcanonical principal ID。表示名のみを保存しない。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "principal_id",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Proposed",
+      "aliases": [
+        "approved by"
+      ],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    },
+    {
+      "term_id": "data_governance.data_owner",
+      "technical_key": "data_owner",
+      "japanese_name": "データオーナー",
+      "display_name": "データオーナー",
+      "category": "data_governance",
+      "definition": "定義・品質・access・変更承認に最終責任を持つ業務role。",
+      "formula": null,
+      "numerator": null,
+      "denominator": null,
+      "grain": [
+        "data_object"
+      ],
+      "unit": "record",
+      "timezone": "Asia/Tokyo",
+      "source_of_truth": "Data Governance Contract",
+      "update_frequency": "随時",
+      "owner": "Data owner / System owner",
+      "consumers": [
+        "全IDEA NOV OSアプリ"
+      ],
+      "access_level": "操作別権限。auditは限定参照",
+      "status": "Proposed",
+      "aliases": [],
+      "exclusions": [],
+      "edge_cases": [],
+      "decision_required": null,
+      "effective_from": null,
+      "version": "1.0-draft"
+    }
+  ]
+}

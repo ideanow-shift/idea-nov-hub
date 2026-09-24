@@ -320,6 +320,35 @@ Deno.test("formal Total Repeat and retail purchase count are read-only projected
   assertEquals(readiness.retailPurchaseRateMismatchCount, 1);
 });
 
+Deno.test("actual labor FTE accepts only the formal quantity definition and non-negative values", async () => {
+  const ownStoreId = String(STORE_ROWS[1].id);
+  const formalFte = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "ACTUAL_LABOR_FTE", value_kind: "quantity", metric_value: "12.3456",
+    definition_version: "ACTUAL_LABOR_FTE_173_76_V1",
+    display_name: "実労働FTE（換算人数）",
+  };
+  const accepted = await handleManagementReadOnlyAction(
+    { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-07" } },
+    dependencies({ roleKey: "store_manager", employeeStoreId: ownStoreId, factRows: [formalFte] }),
+  );
+  assertEquals(accepted.status, 200);
+  const acceptedMetrics = (((accepted.body.data as JsonRecord).stores as JsonRecord[])[0].metrics as JsonRecord[]);
+  assertEquals(acceptedMetrics.find((metric) => metric.metricCode === "ACTUAL_LABOR_FTE")?.value, "12.3456");
+
+  for (const invalidFte of [
+    { ...formalFte, value_kind: "amount" },
+    { ...formalFte, definition_version: "legacy" },
+    { ...formalFte, metric_value: "-0.01" },
+  ]) {
+    const rejected = await handleManagementReadOnlyAction(
+      { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-07" } },
+      dependencies({ roleKey: "store_manager", employeeStoreId: ownStoreId, factRows: [invalidFte] }),
+    );
+    assertEquals(rejected.status, 404);
+  }
+});
+
 Deno.test("retail purchase reconciliation serializes sub-micro differences without exponent notation", async () => {
   const ownStoreId = String(STORE_ROWS[1].id);
   const totalCustomers = {

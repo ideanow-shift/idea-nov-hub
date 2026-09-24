@@ -522,6 +522,7 @@ const PUBLIC_STORE_KEY = /^[a-z0-9][a-z0-9_-]{0,63}$/iu;
 const CORPORATE_ACCOUNTING_COMPANY_ID = "e4059116-bdb3-4e13-9763-bbc77bdfe062";
 const REPEAT_DEFINITION_VERSION = "POS_REPEAT_COHORT_4M_CUMULATIVE_V1";
 const RETAIL_PURCHASE_COUNT_DEFINITION_VERSION = "POS_RETAIL_PURCHASE_CUSTOMER_COUNT_V1";
+const ACTUAL_LABOR_FTE_DEFINITION_VERSION = "ACTUAL_LABOR_FTE_173_76_V1";
 const REPEAT_METRIC_BY_SEGMENT = Object.freeze({
   TOTAL: "TOTAL_REPEAT_RATE",
   NEW: "NEW_REPEAT_RATE",
@@ -1143,6 +1144,11 @@ async function buildStoreMonthlyActualProjection(
         || !Number.isInteger(Number(metricValue))
         || Number(metricValue) < 0
         || text(fact.definition_version) !== RETAIL_PURCHASE_COUNT_DEFINITION_VERSION)) safe404();
+    if (text(fact.metric_code) === "ACTUAL_LABOR_FTE"
+      && (text(fact.value_kind) !== "quantity"
+        || !Number.isFinite(Number(metricValue))
+        || Number(metricValue) < 0
+        || text(fact.definition_version) !== ACTUAL_LABOR_FTE_DEFINITION_VERSION)) safe404();
     if (!operator || text(fact.company_id).toLowerCase() !== operator.corporationId) {
       ownershipMismatchExcludedCount += 1;
       continue;

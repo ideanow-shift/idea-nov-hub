@@ -350,6 +350,43 @@ Deno.test("retail purchase reconciliation serializes sub-micro differences witho
   assertEquals((projected.retailPurchaseRateReconciliation as JsonRecord).matches, true);
 });
 
+Deno.test("retail purchase count derives a display-only precise rate when no canonical rate exists", async () => {
+  const ownStoreId = String(STORE_ROWS[1].id);
+  const totalCustomers = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "TOTAL_CUSTOMERS", value_kind: "quantity", metric_value: "100",
+  };
+  const retailPurchaseCustomers = {
+    ...factForStore(ownStoreId), fiscal_month: "2026-07-01",
+    metric_code: "RETAIL_PURCHASE_CUSTOMER_VISITS", value_kind: "quantity", metric_value: "20",
+    definition_version: "POS_RETAIL_PURCHASE_CUSTOMER_COUNT_V1",
+  };
+  const result = await handleManagementReadOnlyAction(
+    { action: "storeMonthlyActualProjectionV1", token: "hub-session", payload: { selectedMonth: "2026-07" } },
+    dependencies({
+      roleKey: "store_manager",
+      employeeStoreId: ownStoreId,
+      factRows: [totalCustomers, retailPurchaseCustomers],
+    }),
+  );
+  assertEquals(result.status, 200);
+  const data = result.body.data as JsonRecord;
+  const projected = (data.stores as JsonRecord[])[0];
+  assertEquals(projected.retailPurchaseRateReconciliation, {
+    dataState: "derived_only",
+    policy: "retain-existing-rate-no-overwrite",
+    existingMetricCode: "RETAIL_PURCHASE_RATE",
+    candidateNumeratorMetricCode: "RETAIL_PURCHASE_CUSTOMER_VISITS",
+    denominatorMetricCode: "TOTAL_CUSTOMERS",
+    existingRate: null,
+    derivedRate: "0.2",
+    difference: null,
+    matches: null,
+  });
+  assertEquals((data.readiness as JsonRecord).retailPurchaseRateDerivedOnlyCount, 1);
+  assertEquals((data.readiness as JsonRecord).retailPurchaseRateMismatchCount, 0);
+});
+
 Deno.test("formal Total Repeat with a zero denominator remains preparing rather than failing or becoming zero", async () => {
   const ownStoreId = String(STORE_ROWS[1].id);
   const zeroDenominatorRepeat = {

@@ -1,0 +1,45 @@
+{
+  "captured_at": "2026-09-24T00:00:00+09:00",
+  "mode": "PRODUCTION_REVIEW_ONLY_DRY_RUN",
+  "portfolio_lock_id": "CTO-PORTFOLIO-EXECUTION-ORDER-2026-09-21-V5",
+  "current_phase": "PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1",
+  "production_project_ref": "nkmxevmioczcmnldreyo",
+  "database_write_capability": false,
+  "retail_package_sha256": "EF2C56108BACED3F1999F6903C681B8D7BE963A50707388DC84BEA2BBFA68942",
+  "package_root_sha256": "94CA104E062E3BCB2CB47910AA47F95F578C1BF9463196A2A4D9304E5A4ABBBA",
+  "validation": {
+    "status": "PASS",
+    "fact_rows": 2476,
+    "unique_keys": 2476,
+    "duplicate_keys": 0,
+    "negative_quantity_rows": 0,
+    "quantity_exceeds_total_rows": 0,
+    "null_to_zero_conversions": 0,
+    "first_fiscal_month": "2019-01",
+    "last_fiscal_month": "2026-08",
+    "ordered_row_root_sha256": "47670CA0065DA8D3489DF0DDD379ADFA164809D4FCE2A27EB299481E9071BC1A"
+  },
+  "mapping": {
+    "matched": 1492,
+    "unmatched": 0,
+    "ambiguous": 0
+  },
+  "production_plan": {
+    "retail_purchase_customer_visits": { "insert": 1492, "supersede": 0, "unchanged": 0 },
+    "existing_retail_purchase_rate_v1": { "insert": 0, "supersede": 0, "unchanged": 4 },
+    "company_total": { "insert": 0, "excluded": 92 },
+    "ec_hq": { "insert": 0, "staging_only": 830 },
+    "outside_operation_period": { "insert": 0, "quarantined": 62 }
+  },
+  "display_policy": {
+    "existing_rate": "RETAIN_NO_OVERWRITE",
+    "missing_existing_rate": "DISPLAY_DERIVED_ONLY_FROM_RETAIL_PURCHASE_CUSTOMER_VISITS_DIV_TOTAL_CUSTOMERS",
+    "difference": "DISPLAY_ONLY_WHEN_EXISTING_AND_DERIVED_ARE_BOTH_AVAILABLE"
+  },
+  "generated_artifacts": {
+    "production_retail_load_plan_sha256": "4E892E8D1B644EDB1B775BFEEC5D7596F00AD69C2107BBAECB830E490074E6FA",
+    "production_retail_load_candidates_sha256": "E3F78042DF3E1AB0D6FAC7E3B6C44D86CAE6E3A9C2EF98BC3730382DA85BC0EC"
+  },
+  "production_write_count": 0,
+  "production_deploy_count": 0
+}

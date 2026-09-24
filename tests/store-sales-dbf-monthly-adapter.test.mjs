@@ -147,6 +147,52 @@ test("retail purchase reconciliation keeps the existing rate and reports the can
   assert.equal(projected.retailPurchaseRateReconciliation.matches, false);
 });
 
+test("retail purchase reconciliation displays a precise derived rate without overwriting a missing canonical rate", () => {
+  const source = payload({ facts: true });
+  const store = source.stores[0];
+  store.metrics = store.metrics.filter((metric) => metric.metricCode !== "RETAIL_PURCHASE_RATE");
+  store.metrics.find((metric) => metric.metricCode === "RETAIL_PURCHASE_CUSTOMER_VISITS").value = "20";
+  store.metrics.find((metric) => metric.metricCode === "TOTAL_CUSTOMERS").value = "100";
+  store.retailPurchaseRateReconciliation = {
+    dataState: "derived_only",
+    policy: "retain-existing-rate-no-overwrite",
+    existingMetricCode: "RETAIL_PURCHASE_RATE",
+    candidateNumeratorMetricCode: "RETAIL_PURCHASE_CUSTOMER_VISITS",
+    denominatorMetricCode: "TOTAL_CUSTOMERS",
+    existingRate: null,
+    derivedRate: "0.2",
+    difference: null,
+    matches: null
+  };
+  const result = validateDbfStoreMonthlyProjection(source);
+  const projected = result.stores[0];
+  assert.equal(projected.metrics.retailPurchaseRate.rawValue, 20);
+  assert.equal(projected.metrics.retailPurchaseRate.displayValue, "20.0%");
+  assert.equal(projected.metrics.retailPurchaseRate.label, "店販購買率（精密計算）");
+  assert.match(projected.metrics.retailPurchaseRate.reason, /上書きなし/u);
+  assert.equal(projected.retailPurchaseRateReconciliation.existingRate, null);
+  assert.equal(projected.retailPurchaseRateReconciliation.difference, null);
+});
+
+test("derived-only retail purchase reconciliation rejects an existing canonical rate", () => {
+  const source = payload({ facts: true });
+  source.stores[0].retailPurchaseRateReconciliation = {
+    dataState: "derived_only",
+    policy: "retain-existing-rate-no-overwrite",
+    existingMetricCode: "RETAIL_PURCHASE_RATE",
+    candidateNumeratorMetricCode: "RETAIL_PURCHASE_CUSTOMER_VISITS",
+    denominatorMetricCode: "TOTAL_CUSTOMERS",
+    existingRate: "0.2",
+    derivedRate: "0.2",
+    difference: null,
+    matches: null
+  };
+  assert.throws(
+    () => validateDbfStoreMonthlyProjection(source),
+    (error) => error.code === "VALIDATION_ERROR" && error.message === "INVALID_RETAIL_PURCHASE_RECONCILIATION"
+  );
+});
+
 test("retail purchase reconciliation accepts fixed-point sub-micro differences", () => {
   const source = payload({ facts: true });
   const store = source.stores[0];

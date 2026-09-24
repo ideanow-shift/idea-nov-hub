@@ -20,6 +20,7 @@ The adapter validates the DBF contract, preserves missing values as `null`, and 
 - `RETAIL_PURCHASE_CUSTOMER_VISITS` is exposed as the POS quantity metric and remains distinct from `RETAIL_PURCHASE_RATE`.
 - The precise rate candidate is calculated read-only as `RETAIL_PURCHASE_CUSTOMER_VISITS / TOTAL_CUSTOMERS` when both quantities exist and the denominator is positive.
 - Existing `RETAIL_PURCHASE_RATE` remains the displayed canonical rate. The candidate, difference, and match result are attached as reconciliation evidence under policy `retain-existing-rate-no-overwrite`; no Fact is updated or superseded.
+- When no canonical `RETAIL_PURCHASE_RATE` exists, the same candidate is displayed as `店販購買率（精密計算）` with reconciliation state `derived_only`. This display-only fallback never creates or backfills a rate Fact; absent numerator or denominator stays preparing.
 - The browser receives neither raw Store UUIDs nor Company UUIDs. All repeat reads retain the server-resolved Store and effective-operator scope.
 
 ## Comparison contract status

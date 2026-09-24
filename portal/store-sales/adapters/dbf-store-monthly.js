@@ -93,10 +93,23 @@ function normalizeRetailPurchaseRateReconciliation(source) {
   if (!source || source.dataState === "preparing") {
     return Object.freeze({ dataState: "preparing", matches: null, existingRate: null, derivedRate: null, difference: null });
   }
-  if (source.dataState !== "confirmed" || source.policy !== "retain-existing-rate-no-overwrite"
+  if (!["confirmed", "derived_only"].includes(source.dataState) || source.policy !== "retain-existing-rate-no-overwrite"
     || source.existingMetricCode !== "RETAIL_PURCHASE_RATE"
     || source.candidateNumeratorMetricCode !== "RETAIL_PURCHASE_CUSTOMER_VISITS"
     || source.denominatorMetricCode !== "TOTAL_CUSTOMERS") fail("INVALID_RETAIL_PURCHASE_RECONCILIATION");
+  if (source.dataState === "derived_only") {
+    if (source.existingRate !== null || source.difference !== null || source.matches !== null
+      || !/^\d+(?:\.\d+)?$/u.test(String(source.derivedRate ?? ""))) fail("INVALID_RETAIL_PURCHASE_RECONCILIATION");
+    const derivedRate = Number(source.derivedRate);
+    if (!Number.isFinite(derivedRate) || derivedRate < 0 || derivedRate > 1) fail("INVALID_RETAIL_PURCHASE_RECONCILIATION");
+    return Object.freeze({
+      dataState: "derived_only",
+      matches: null,
+      existingRate: null,
+      derivedRate: derivedRate * 100,
+      difference: null
+    });
+  }
   const values = [source.existingRate, source.derivedRate, source.difference];
   if (values.some((value) => !/^-?\d+(?:\.\d+)?$/u.test(String(value ?? "")))) fail("INVALID_RETAIL_PURCHASE_RECONCILIATION");
   const [existingRate, derivedRate, difference] = values.map(Number);
@@ -189,6 +202,17 @@ export function validateDbfStoreMonthlyProjection(payload) {
         ? "店販購買客数÷総客数の精密候補と一致"
         : `既存率を維持（精密候補との差 ${retailPurchaseRateReconciliation.difference >= 0 ? "+" : ""}${retailPurchaseRateReconciliation.difference.toFixed(1)}ポイント）`;
       metrics.retailPurchaseRate = Object.freeze({ ...metrics.retailPurchaseRate, reason });
+    } else if (metrics.retailPurchaseRate.dataState !== "available" && retailPurchaseRateReconciliation.dataState === "derived_only") {
+      const value = retailPurchaseRateReconciliation.derivedRate;
+      metrics.retailPurchaseRate = Object.freeze({
+        label: "店販購買率（精密計算）",
+        value,
+        rawValue: value,
+        displayValue: format(value, "percent"),
+        unit: "percent",
+        dataState: "available",
+        reason: "店販購買客数÷総客数（既存率は未登録・上書きなし）"
+      });
     }
     metrics.storeSales = preparingMetric("店舗売上（税抜）", "yen", "正式Contract未提供");
     metrics.regularRetail = metrics.retailSales;

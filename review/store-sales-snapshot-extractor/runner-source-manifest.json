@@ -1,0 +1,24 @@
+{
+  "format": "store-sales-snapshot-extractor-source-v1",
+  "execution": "SOURCE_ONLY_NOT_AUTHORIZED_FOR_PRODUCTION",
+  "runner": {
+    "path": "review/store-sales-snapshot-extractor/runner.ts",
+    "sha256": "C53347E61E21F54F747AD4026AD08D08BA350979ED9E5FC3721B832948C0DE0A"
+  },
+  "types": {
+    "path": "review/store-sales-snapshot-extractor/types.ts",
+    "sha256": "D729F53D0751F460B6C795A49F63768DD9765F9F7CC3E46972476D305CB8E849"
+  },
+  "fixtures": {
+    "path": "review/store-sales-snapshot-extractor/runner.test.ts",
+    "sha256": "D1BD44AA36F36769A111753D671BAE0D277C264F84CBD58910B8CF5B81128796"
+  },
+  "fixedQueryCount": 8,
+  "productionConnection": false,
+  "productionSelectCount": 0,
+  "databaseWriteCount": 0,
+  "migrationCount": 0,
+  "rpcCount": 0,
+  "sandboxUploadCount": 0,
+  "functionDeployCount": 0
+}

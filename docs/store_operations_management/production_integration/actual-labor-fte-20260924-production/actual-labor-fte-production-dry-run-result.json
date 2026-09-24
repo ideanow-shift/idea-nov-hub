@@ -1,0 +1,11 @@
+{
+  "executed": true,
+  "expected_rows": 671,
+  "unresolved_store_mapping": 0,
+  "unresolved_company_operator": 5,
+  "planned_insert": 666,
+  "unchanged": 0,
+  "conflict": 0,
+  "existing_definition_count": 0,
+  "existing_source_count": 0
+}

@@ -47,10 +47,14 @@ export function prepareRetailProductionCandidate(fact) {
   assert(companyId, "PRODUCTION_RETAIL_COMPANY_MAPPING_MISSING");
   const [storeId, storeMappingSourceKey] = resolveStore(fact.unit_key, fact.fiscal_month);
   const candidate = Object.freeze({
+    source_scope_type: fact.scope_type,
+    promotion_status: fact.promotion_status,
     fiscal_month: `${fact.fiscal_month}-01`,
     company_id: companyId,
+    source_company_no: fact.company_no_at_month,
     store_id: storeId,
     store_mapping_source_key: storeMappingSourceKey,
+    store_mapping_entity_key: `store:${storeId}`,
     source_unit_key: fact.unit_key,
     metric_code: "RETAIL_PURCHASE_CUSTOMER_VISITS",
     quantity: fact.quantity,

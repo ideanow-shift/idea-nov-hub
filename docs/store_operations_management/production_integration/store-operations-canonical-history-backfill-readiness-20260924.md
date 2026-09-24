@@ -4,6 +4,12 @@
 
 The fixed package is ready for review and a separate Production execution approval. No Production write or deploy was performed while preparing it.
 
+The first approved Production execution attempt was fully rolled back before any
+package row was persisted because Production constrains
+`dbf_ingest.source_files.received_via` to `nov_hub_secure_session`. The generator
+now emits that canonical ingest provenance value. The previous SQL SHA is retired;
+the regenerated SQL requires a new fixed-SHA Owner execution approval.
+
 The package fills the missing historical part of the nine existing Store Fact metrics and reconciles existing facts to the latest fixed canonical source. Corrections are append-only: the prior row is retained, marked inactive, and referenced by the replacement row.
 
 ## Portfolio boundary

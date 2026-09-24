@@ -16,7 +16,7 @@ const codes = [
 
 const fact = (metricCode, value = metricCode.includes("RATE") ? "0.5" : "100") => ({
   metricCode, valueKind: metricCode.includes("CUSTOMERS") || metricCode.endsWith("_VISITS") || metricCode === "ACTUAL_LABOR_FTE" ? "quantity" : metricCode.includes("RATE") ? "rate" : "amount",
-  value, definitionVersion: "v1.1", displayName: metricCode, description: "canonical",
+  value, definitionVersion: metricCode === "ACTUAL_LABOR_FTE" ? "ACTUAL_LABOR_FTE_173_76_V1" : "v1.1", displayName: metricCode, description: "canonical",
   sourceEvidence: { sourceType: "dbf", sourceFileSha256: "a".repeat(64), importedAt: "2026-08-19T00:00:00Z", factVersion: 1 }
 });
 
@@ -138,6 +138,24 @@ test("actual labor FTE preserves decimals, formal zero, and missing as distinct 
   assert.equal(result.stores[1].metrics.actualLaborFte.displayValue, "0.00人相当");
   assert.equal(result.stores[2].metrics.actualLaborFte.dataState, "preparing");
   assert.equal(result.stores[2].metrics.actualLaborFte.rawValue, null);
+});
+
+test("actual labor FTE fails closed for wrong kind, definition, or negative values", () => {
+  const invalidFacts = [
+    { ...fact("ACTUAL_LABOR_FTE", "12.5"), valueKind: "amount" },
+    { ...fact("ACTUAL_LABOR_FTE", "12.5"), definitionVersion: "legacy" },
+    fact("ACTUAL_LABOR_FTE", "-0.01")
+  ];
+  for (const invalidFact of invalidFacts) {
+    const source = payload();
+    source.stores[0].dataState = "confirmed";
+    source.stores[0].metrics = [invalidFact];
+    source.readiness = { confirmedStoreCount: 1, missingStoreCount: 19, factRowCount: 1, missingDataPolicy: "preparing-not-zero" };
+    assert.throws(
+      () => validateDbfStoreMonthlyProjection(source),
+      (error) => error.code === "VALIDATION_ERROR" && error.message === "INVALID_ACTUAL_LABOR_FTE"
+    );
+  }
 });
 
 test("retail purchase reconciliation keeps the existing rate and reports the candidate difference", () => {

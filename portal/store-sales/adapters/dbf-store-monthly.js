@@ -2,6 +2,7 @@ import { ProjectionRequestError } from "./projection.js";
 
 export const DBF_STORE_MONTHLY_CONTRACT = "STORE_MONTHLY_ACTUAL_V1";
 export const DBF_STORE_MONTHLY_COMPARISON_CONTRACT = "STORE_MONTHLY_COMPARISON_V1";
+const ACTUAL_LABOR_FTE_DEFINITION_VERSION = "ACTUAL_LABOR_FTE_173_76_V1";
 
 const METRICS = Object.freeze({
   TOTAL_SALES: ["sales", "総売上（税抜）", "yen"],
@@ -75,6 +76,9 @@ function normalizeMetric(fact, definition) {
   const canonicalValue = Number(raw);
   if (!Number.isFinite(canonicalValue)) fail("INVALID_METRIC_VALUE");
   if (unit === "percent" && (canonicalValue < 0 || canonicalValue > 1)) fail("INVALID_CANONICAL_RATE");
+  if (key === "actualLaborFte" && (fact.valueKind !== "quantity"
+    || fact.definitionVersion !== ACTUAL_LABOR_FTE_DEFINITION_VERSION
+    || canonicalValue < 0)) fail("INVALID_ACTUAL_LABOR_FTE");
   const value = unit === "percent" ? canonicalValue * 100 : canonicalValue;
   return [key, Object.freeze({
     label: String(fact.displayName || fallbackLabel), value, rawValue: value,

@@ -1,0 +1,182 @@
+{
+  "status": "AWAITING_SEPARATE_OWNER_PRODUCTION_EXECUTION_APPROVAL",
+  "productionProjectRef": "nkmxevmioczcmnldreyo",
+  "sourceMainSha": "4f81fd455dead5911b1c63cbf8bf8c17c0550bbe",
+  "fixedInputSha256": "3D456AF80CFC2D60873A34E82F4A370CDE491884C604C3EB4ADBDC4777AF4157",
+  "fixedInputByteSize": 689484,
+  "sourceWorkbookSha256": "7E04D2107876FCA9902D07F9CB548403B51529591CB431239399912A77BC3E16",
+  "correctedWorkbookSha256": "679ACF51066B12398E2DB5016A7A91EC1552B9C0F80A1FA7CE2518E5445F4303",
+  "packageRootSha256": "F1E69E596C10E381B7AD333C3E1E7B06598976B12965ED6EF685E821A56A3787",
+  "sqlSha256": "F3CF815799BE8D739596C42A3697DB7999F4DB493A4A282E588F8C221D5B02A6",
+  "sqlByteSize": 868594,
+  "candidateRootSha256": "DBCE3BFE5859408EB6062E1026CD9713D46CD428278DCAC1E225CA978233C3C3",
+  "ownerDecision": {
+    "decisionId": "OWNER_CONFIRMED_KYARA_HALF_IDEA_NOV_20260924",
+    "authority": "IDEA_NOV_GROUP_OWNER",
+    "confirmedDate": "2026-09-24",
+    "evidence": "OWNER_CLARIFICATION_RECORDED_FOR_PR_232",
+    "unitKey": "SALON:KYARAHALF",
+    "canonicalName": "KYARA HALF",
+    "storeType": "直営",
+    "storeCode": "0019",
+    "storeId": "ac20934d-ef15-4363-8c2f-759193c7fcc7",
+    "companyNo": "0001",
+    "companyId": "e4059116-bdb3-4e13-9763-bbc77bdfe062",
+    "periodFrom": "2023-09-01",
+    "periodThrough": "2026-08-01",
+    "expectedCanonicalRows": 36,
+    "legacyStagingOnlyMonthsPromotedToCanonical": [
+      "2023-09-01",
+      "2023-10-01",
+      "2023-11-01",
+      "2023-12-01",
+      "2024-01-01"
+    ],
+    "canonicalRows": 36,
+    "promotedLegacyStagingOnlyRows": 5
+  },
+  "productionStoreMasterResolution": {
+    "evidenceId": "PRODUCTION_STORES_READ_ONLY_RECHECK_20260924",
+    "projectRef": "nkmxevmioczcmnldreyo",
+    "baseMainSha": "4f81fd455dead5911b1c63cbf8bf8c17c0550bbe",
+    "resolvedDate": "2026-09-24",
+    "stableKey": "store_no+corporation_id",
+    "activeRequired": true,
+    "exactMatches": 20,
+    "missingMatches": 0,
+    "ambiguousMatches": 0,
+    "correctedUuidCount": 18,
+    "unchangedUuidCount": 2,
+    "stores": [
+      {
+        "stableKey": "0001|0003",
+        "storeId": "1285ac70-9181-44db-9443-cbd043ab908b"
+      },
+      {
+        "stableKey": "0001|0005",
+        "storeId": "887da14c-2c0d-46b3-8953-962c7c8dd590"
+      },
+      {
+        "stableKey": "0001|0006",
+        "storeId": "1bcba30a-d063-4cdb-be74-425e250aeb25"
+      },
+      {
+        "stableKey": "0001|0007",
+        "storeId": "73ee82b5-86fa-42e7-ab03-0e075d218dc3"
+      },
+      {
+        "stableKey": "0001|0008",
+        "storeId": "e7bab6a5-9a8c-4f46-abde-e839ce5bf5e6"
+      },
+      {
+        "stableKey": "0001|0009",
+        "storeId": "fec1e181-ca5b-482d-a865-3f488f19128f"
+      },
+      {
+        "stableKey": "0001|0011",
+        "storeId": "ad931406-22de-4ba7-a6eb-4502d5c50a91"
+      },
+      {
+        "stableKey": "0001|0012",
+        "storeId": "4e5526cc-9ec7-42aa-ac60-579b6c438c88"
+      },
+      {
+        "stableKey": "0001|0016",
+        "storeId": "2980442d-294c-4aae-a9bb-78f530a3a20a"
+      },
+      {
+        "stableKey": "0001|0017",
+        "storeId": "36c222de-0554-4265-b177-3b68285cc4a4"
+      },
+      {
+        "stableKey": "0001|0018",
+        "storeId": "b898c63f-1cc1-42c5-be4f-916f24f49cb6"
+      },
+      {
+        "stableKey": "0001|0019",
+        "storeId": "ac20934d-ef15-4363-8c2f-759193c7fcc7"
+      },
+      {
+        "stableKey": "0001|0020",
+        "storeId": "5f66193f-d360-4967-b9c7-a100c8ee5e94"
+      },
+      {
+        "stableKey": "0002|0002",
+        "storeId": "acc91785-3bb5-49f0-a2f6-0be6e5d511eb"
+      },
+      {
+        "stableKey": "0002|0015",
+        "storeId": "b5a206dc-4a1f-4eb4-9b14-a6f3e5cb2b2c"
+      },
+      {
+        "stableKey": "0002|0021",
+        "storeId": "62070a3c-c484-4a9b-bc06-c3904b27f2c0"
+      },
+      {
+        "stableKey": "0003|0001",
+        "storeId": "3ba5e54d-5f39-4bcd-b917-7daaea34a8e9"
+      },
+      {
+        "stableKey": "0004|0004",
+        "storeId": "71551fcf-853f-4cad-ac94-82b93e75de82"
+      },
+      {
+        "stableKey": "0005|0014",
+        "storeId": "e7ecb022-6b19-4952-bf4b-fbf5f4c53895"
+      },
+      {
+        "stableKey": "0006|0010",
+        "storeId": "02d29285-6df0-44b2-bca8-4d61bfe1f5a8"
+      }
+    ]
+  },
+  "correction": {
+    "version": 2,
+    "supersedesExecutedFailedSqlSha256": "76CD092C7D3CBE3756FBA6DC2D97C044652052623D59EDFB3BF1911DA8BDB7E6",
+    "priorExecution": {
+      "result": "PRODUCTION_BASELINE_GATE_FAILED",
+      "observedCounts": {
+        "actor": 1,
+        "definition": 0,
+        "fact": 0,
+        "source": 0,
+        "mapping": 0,
+        "company": 6,
+        "store": 2,
+        "kyaraMaster": 1
+      },
+      "transactionOutcome": "ATOMIC_ROLLBACK",
+      "productionWriteRows": 0
+    }
+  },
+  "planned": {
+    "metricDefinitions": 1,
+    "companyMappings": 6,
+    "storeMappings": 20,
+    "sourceFiles": 1,
+    "importBatches": 36,
+    "rawRows": 671,
+    "stagingRows": 671,
+    "canonicalInserts": 671,
+    "canonicalSupersedes": 0,
+    "canonicalUnchanged": 0,
+    "employeeAuditRows": 0,
+    "headquartersRows": 0,
+    "unmatchedRows": 0,
+    "ambiguousRows": 0
+  },
+  "july2026": {
+    "stores": 20,
+    "sourceMinutes": 1700849,
+    "sourceHours": 28347.483333333334,
+    "sourceFte": 163.1415937692,
+    "storedFteAfterNumeric20_4Rounding": 163.1415
+  },
+  "approvalGate": {
+    "setting": "app.store_operations_actual_labor_fte_execution_approval",
+    "requiredValue": "OWNER_APPROVAL_REQUIRED_AFTER_CORRECTED_FIXED_SHA_REVIEW",
+    "suppliedByArtifact": false
+  },
+  "productionWriteExecuted": false,
+  "deployExecuted": false
+}

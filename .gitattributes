@@ -12,4 +12,4 @@ review/store-operations-sealed-snapshot-v1-3-3/** text eol=lf
 review/store-operations-sealed-snapshot-v1-3-3/.gitattributes text eol=lf
 
 # Fixed-SHA execution artifacts must preserve filesystem bytes on Windows.
-docs/store_operations_management/production_integration/store-operations-actual-labor-fte-v1.execution.sql text eol=lf
+docs/store_operations_management/production_integration/store-operations-actual-labor-fte-v*.execution.sql text eol=lf

@@ -6,26 +6,33 @@ import test from "node:test";
 import { buildProductionActualLaborFteExecutionSql } from "../tools/actual_labor_fte_handoff/generate_production_actual_labor_fte_execution.mjs";
 import {
   KYARA_HALF_OWNER_DECISION,
+  PRODUCTION_STORE_MASTER_RESOLUTION,
   prepareActualLaborFteCandidate,
   validateKyaraHalfOwnerDecision,
+  validateProductionStoreMasterResolution,
 } from "../tools/actual_labor_fte_handoff/prepare_production_actual_labor_fte_load.mjs";
 
 const SQL_PATH = new URL(
-  "../docs/store_operations_management/production_integration/store-operations-actual-labor-fte-v1.execution.sql",
+  "../docs/store_operations_management/production_integration/store-operations-actual-labor-fte-v2.execution.sql",
   import.meta.url,
 );
 const MANIFEST_PATH = new URL(
-  "../docs/store_operations_management/production_integration/store-operations-actual-labor-fte-v1.execution-manifest.json",
+  "../docs/store_operations_management/production_integration/store-operations-actual-labor-fte-v2.execution-manifest.json",
+  import.meta.url,
+);
+const SUPERSEDED_SQL_PATH = new URL(
+  "../docs/store_operations_management/production_integration/store-operations-actual-labor-fte-v1.execution.sql",
   import.meta.url,
 );
 const EXECUTION_SQL = readFileSync(SQL_PATH, "utf8");
 const MANIFEST = JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
+const SUPERSEDED_SQL = readFileSync(SUPERSEDED_SQL_PATH, "utf8");
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex").toUpperCase();
 }
 
-test("execution SQL is fixed by manifest and still awaits separate Owner approval", () => {
+test("corrected execution SQL is fixed by manifest and still awaits separate Owner approval", () => {
   assert.equal(sha256(Buffer.from(EXECUTION_SQL, "utf8")), MANIFEST.sqlSha256);
   assert.equal(Buffer.byteLength(EXECUTION_SQL, "utf8"), MANIFEST.sqlByteSize);
   assert.equal(MANIFEST.status, "AWAITING_SEPARATE_OWNER_PRODUCTION_EXECUTION_APPROVAL");
@@ -37,11 +44,24 @@ test("execution SQL is fixed by manifest and still awaits separate Owner approva
   assert.equal(MANIFEST.ownerDecision.decisionId, "OWNER_CONFIRMED_KYARA_HALF_IDEA_NOV_20260924");
   assert.equal(MANIFEST.ownerDecision.canonicalRows, 36);
   assert.equal(MANIFEST.ownerDecision.promotedLegacyStagingOnlyRows, 5);
+  assert.equal(MANIFEST.correction.version, 2);
+  assert.equal(MANIFEST.correction.supersedesExecutedFailedSqlSha256,
+    "76CD092C7D3CBE3756FBA6DC2D97C044652052623D59EDFB3BF1911DA8BDB7E6");
+  assert.equal(MANIFEST.correction.priorExecution.transactionOutcome, "ATOMIC_ROLLBACK");
+  assert.equal(MANIFEST.correction.priorExecution.productionWriteRows, 0);
+  assert.equal(MANIFEST.productionStoreMasterResolution.correctedUuidCount, 18);
+  assert.equal(MANIFEST.productionStoreMasterResolution.missingMatches, 0);
+  assert.equal(MANIFEST.productionStoreMasterResolution.ambiguousMatches, 0);
+});
+
+test("executed-failed v1 SQL remains immutable historical evidence", () => {
+  assert.equal(sha256(Buffer.from(SUPERSEDED_SQL, "utf8")),
+    "76CD092C7D3CBE3756FBA6DC2D97C044652052623D59EDFB3BF1911DA8BDB7E6");
 });
 
 test("approval and exact Production baseline gates precede every schema or business write", () => {
   const approvalGate = EXECUTION_SQL.indexOf("OWNER_APPROVAL_SETTING_REQUIRED_FOR_FIXED_EXECUTION_SHA");
-  const baselineGate = EXECUTION_SQL.indexOf("PRODUCTION_BASELINE_GATE_FAILED");
+  const baselineGate = EXECUTION_SQL.indexOf("raise exception 'PRODUCTION_BASELINE_GATE_FAILED");
   const firstSchemaWrite = EXECUTION_SQL.indexOf("alter table dbf_ingest.metric_definitions");
   const canonicalWrite = EXECUTION_SQL.indexOf("insert into public.dbf_store_monthly_metric_facts");
   assert.ok(approvalGate > 0 && approvalGate < baselineGate && baselineGate < firstSchemaWrite && firstSchemaWrite < canonicalWrite);
@@ -49,6 +69,9 @@ test("approval and exact Production baseline gates precede every schema or busin
   assert.match(EXECUTION_SQL, /begin;[\s\S]+commit;/u);
   assert.match(EXECUTION_SQL, /definition_count<>0 or fact_count<>0/u);
   assert.match(EXECUTION_SQL, /store_count<>20/u);
+  assert.match(EXECUTION_SQL, /store_key_count<>20/u);
+  assert.match(EXECUTION_SQL, /having count\(s\.id\)=1/u);
+  assert.match(EXECUTION_SQL, /OWNER_APPROVAL_REQUIRED_AFTER_CORRECTED_FIXED_SHA_REVIEW/u);
 });
 
 test("execution SQL promotes only validated store quantity facts", () => {
@@ -63,6 +86,7 @@ test("execution SQL promotes only validated store quantity facts", () => {
   assert.match(EXECUTION_SQL, /kyara_promoted_count<>5/u);
   assert.match(EXECUTION_SQL, /s\.store_no=v\.store_no/u);
   assert.match(EXECUTION_SQL, /and store_no='0019'/u);
+  assert.match(EXECUTION_SQL, /Store UUIDs were resolved read-only from active Production master rows by store_no \+ corporation_id/u);
   assert.doesNotMatch(EXECUTION_SQL, /(?:s|st)\.store_code/u);
   assert.doesNotMatch(EXECUTION_SQL, /on conflict[\s\S]+do nothing/iu);
   assert.doesNotMatch(EXECUTION_SQL, /delete\s+from\s+public\.dbf_store_monthly_metric_facts/iu);
@@ -81,7 +105,26 @@ test("manifest fixes exact candidate, mapping, month, and July boundaries", () =
   assert.equal(MANIFEST.july2026.storedFteAfterNumeric20_4Rounding, 163.1415);
   assert.equal((EXECUTION_SQL.match(/ALFTE:[0-9a-f]{64}/gu) || []).length, 671);
   assert.match(EXECUTION_SQL, /ac20934d-ef15-4363-8c2f-759193c7fcc7/u);
-  assert.match(EXECUTION_SQL, /62070a3c-c60f-4c8d-aaba-5f0fd24df795/u);
+  assert.match(EXECUTION_SQL, /62070a3c-c484-4a9b-bc06-c3904b27f2c0/u);
+  assert.match(EXECUTION_SQL, /1285ac70-9181-44db-9443-cbd043ab908b/u);
+  assert.doesNotMatch(EXECUTION_SQL, /1285ac70-bd67-46ae-8ad8-77ab83ce3962/u);
+});
+
+test("Production store master resolution is exact by stable key and fails closed", () => {
+  const candidates = MANIFEST.productionStoreMasterResolution.stores.map(({ stableKey, storeId }) => {
+    const [source_company_no, source_store_code] = stableKey.split("|");
+    return { source_company_no, source_store_code, store_id: storeId };
+  });
+  const result = validateProductionStoreMasterResolution(candidates);
+  assert.equal(result.exactMatches, 20);
+  assert.equal(result.correctedUuidCount, 18);
+  assert.equal(result.unchangedUuidCount, 2);
+  assert.deepEqual(PRODUCTION_STORE_MASTER_RESOLUTION.storeIdsByStableKey["0001|0019"],
+    "ac20934d-ef15-4363-8c2f-759193c7fcc7");
+  assert.throws(() => validateProductionStoreMasterResolution(candidates.map((row, index) => (
+    index === 0 ? { ...row, store_id: "00000000-0000-0000-0000-000000000000" } : row
+  ))), /UUID_MISMATCH/u);
+  assert.throws(() => validateProductionStoreMasterResolution(candidates.slice(1)), /COUNT_MISMATCH/u);
 });
 
 test("candidate preparation rejects prohibited semantics and preserves missing-as-null contract", () => {

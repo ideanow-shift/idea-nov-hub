@@ -1,0 +1,68 @@
+{
+  "status": "AWAITING_SEPARATE_OWNER_PRODUCTION_EXECUTION_APPROVAL",
+  "productionProjectRef": "nkmxevmioczcmnldreyo",
+  "sourceMainSha": "d83600fe64bcef2d6d000a27777cfe4889d7142c",
+  "fixedInputSha256": "3D456AF80CFC2D60873A34E82F4A370CDE491884C604C3EB4ADBDC4777AF4157",
+  "fixedInputByteSize": 689484,
+  "sourceWorkbookSha256": "7E04D2107876FCA9902D07F9CB548403B51529591CB431239399912A77BC3E16",
+  "correctedWorkbookSha256": "679ACF51066B12398E2DB5016A7A91EC1552B9C0F80A1FA7CE2518E5445F4303",
+  "packageRootSha256": "F1E69E596C10E381B7AD333C3E1E7B06598976B12965ED6EF685E821A56A3787",
+  "sqlSha256": "76CD092C7D3CBE3756FBA6DC2D97C044652052623D59EDFB3BF1911DA8BDB7E6",
+  "sqlByteSize": 866465,
+  "candidateRootSha256": "991FC1E7766699D84F43DB6CF41BD5D6F988C0D74FFFC0DB56C6488DAC5FB23F",
+  "ownerDecision": {
+    "decisionId": "OWNER_CONFIRMED_KYARA_HALF_IDEA_NOV_20260924",
+    "authority": "IDEA_NOV_GROUP_OWNER",
+    "confirmedDate": "2026-09-24",
+    "evidence": "OWNER_CLARIFICATION_RECORDED_FOR_PR_232",
+    "unitKey": "SALON:KYARAHALF",
+    "canonicalName": "KYARA HALF",
+    "storeType": "直営",
+    "storeCode": "0019",
+    "storeId": "ac20934d-ef15-4363-8c2f-759193c7fcc7",
+    "companyNo": "0001",
+    "companyId": "e4059116-bdb3-4e13-9763-bbc77bdfe062",
+    "periodFrom": "2023-09-01",
+    "periodThrough": "2026-08-01",
+    "expectedCanonicalRows": 36,
+    "legacyStagingOnlyMonthsPromotedToCanonical": [
+      "2023-09-01",
+      "2023-10-01",
+      "2023-11-01",
+      "2023-12-01",
+      "2024-01-01"
+    ],
+    "canonicalRows": 36,
+    "promotedLegacyStagingOnlyRows": 5
+  },
+  "planned": {
+    "metricDefinitions": 1,
+    "companyMappings": 6,
+    "storeMappings": 20,
+    "sourceFiles": 1,
+    "importBatches": 36,
+    "rawRows": 671,
+    "stagingRows": 671,
+    "canonicalInserts": 671,
+    "canonicalSupersedes": 0,
+    "canonicalUnchanged": 0,
+    "employeeAuditRows": 0,
+    "headquartersRows": 0,
+    "unmatchedRows": 0,
+    "ambiguousRows": 0
+  },
+  "july2026": {
+    "stores": 20,
+    "sourceMinutes": 1700849,
+    "sourceHours": 28347.483333333334,
+    "sourceFte": 163.1415937692,
+    "storedFteAfterNumeric20_4Rounding": 163.1415
+  },
+  "approvalGate": {
+    "setting": "app.store_operations_actual_labor_fte_execution_approval",
+    "requiredValue": "OWNER_APPROVAL_REQUIRED_AFTER_FIXED_SHA_REVIEW",
+    "suppliedByArtifact": false
+  },
+  "productionWriteExecuted": false,
+  "deployExecuted": false
+}

@@ -6,7 +6,7 @@ const app = readFileSync(new URL("../portal/store-sales/app.js", import.meta.url
 const html = readFileSync(new URL("../portal/store-sales/index.html", import.meta.url), "utf8");
 const css = readFileSync(new URL("../portal/store-sales/styles.css", import.meta.url), "utf8");
 
-test("経営シグナルは6項目を要約し対応カードへ移動できる", () => {
+test("経営シグナルは7項目を要約し対応カードへ移動できる", () => {
   assert.match(html, /id="executive-signals"/);
   assert.match(html, /id="executive-signal-links"/);
   assert.match(app, /renderExecutiveSignalSummary\(signalValues\)/);

@@ -306,20 +306,30 @@ function renderDecisionSignals(projection, stores) {
   if (!stores.length) return elements.drivers.replaceChildren(emptyState());
   const signalValues = buildDecisionSignals(projection, stores);
   const signalGrid = node("div", "decision-signal-grid");
-  signalGrid.setAttribute("aria-label", "6つの経営シグナル");
+  signalGrid.setAttribute("aria-label", "7つの経営シグナル");
   signalValues.forEach((signal) => {
     const card = node("button", "decision-signal-card"); card.type = "button"; card.dataset.signal = signal.key;
     card.setAttribute("aria-pressed", String(state.trendMetric === signal.key));
-    card.setAttribute("aria-label", `${signal.label}、${signal.conclusion}。推移グラフを${signal.label}へ切り替える`);
+    card.setAttribute("aria-label", `${signal.label}、${signal.conclusion}。${signal.label}の詳細分析を開く`);
     const details = document.createElement("dl");
     signal.details.forEach(([label, value]) => { const group = node("div"); group.append(node("dt", "", label), node("dd", "", value)); details.append(group); });
     card.append(node("span", "signal-question", signal.question), node("h3", "", signal.label), node("strong", "signal-conclusion", signal.conclusion), node("p", "signal-lead", signal.lead), details);
-    card.addEventListener("click", () => { state.trendMetric = signal.key; renderDecisionSignals(projection, stores); });
+    card.addEventListener("click", () => {
+      state.trendMetric = signal.key;
+      renderDecisionSignals(projection, stores);
+      requestAnimationFrame(() => {
+        const target = document.querySelector(`[data-analysis-signal="${signal.key}"]`);
+        target?.scrollIntoView({ behavior: "smooth", block: "start" });
+        target?.focus({ preventScroll: true });
+      });
+    });
     signalGrid.append(card);
   });
   renderExecutiveSignalSummary(signalValues);
   const trend = renderSharedTrend(signalValues);
-  elements.drivers.replaceChildren(signalGrid, trend);
+  const selected = signalValues.find((item) => item.key === state.trendMetric) || signalValues[0];
+  const analysis = renderSignalAnalysis(selected, stores);
+  elements.drivers.replaceChildren(signalGrid, trend, analysis);
 }
 
 function buildDecisionSignals(projection, stores) {
@@ -335,7 +345,8 @@ function buildDecisionSignals(projection, stores) {
   const profitValues = profitStores.map((store) => metricNullableNumber(store.metrics.operatingProfit)).filter((value) => value !== null);
   const profit = profitValues.length ? profitValues.reduce((total, value) => total + value, 0) : null;
   const customerCount = sum("customerCount");
-  const ticket = average("totalTicket"); const retail = sum("retailSales"); const mid = sum("mid"); const ec = sum("ecSales");
+  const ticket = average("totalTicket"); const productivity = average("productivity"); const technicalProductivity = average("technicalProductivity");
+  const laborFte = sum("actualLaborFte"); const retail = sum("retailSales"); const mid = sum("mid"); const ec = sum("ecSales");
   const salesYoy = ratioDelta(average("yearOverYearRatio")); const budget = average("budgetRatio");
   const profitYoy = average("profitYearOverYear"); const customerYoy = average("customerYearOverYear");
   const ticketYoy = average("ticketYearOverYear"); const retailYoy = average("retailYearOverYear"); const retailBudget = average("retailBudgetRatio");
@@ -347,6 +358,7 @@ function buildDecisionSignals(projection, stores) {
     signal("profit", "利益", "利益は出ているか", profitOutOfScope ? "V1対象外" : profitReady ? "確定" : "集計中", profitOutOfScope ? "FC利益はV1では表示しません" : profitReady ? `営業利益 ${formatYen(profit)} ／ 利益率 ${percent(sales ? profit / sales * 100 : null)}` : "利益データを集計しています", [["営業利益", profitOutOfScope ? "V1対象外" : profitReady ? formatYen(profit) : "集計中"], ["営業利益率", profitOutOfScope ? "V1対象外" : profitReady ? percent(sales ? profit / sales * 100 : null) : "集計中"], ["前年比", profitOutOfScope ? "V1対象外" : profitReady ? signed(profitYoy, "%") : "集計中"]], profitReady ? profit : null, profitYoy),
     signal("customers", "集客", "集客できているか", signedConclusion(customerYoy, "改善", "要確認"), `客数 前年比 ${signed(customerYoy, "%")}`, [["総客数", count(customerCount)], ["新規客数", count(sum("newCustomerCount"))], ["既存客数", count(sum("existingCustomerCount"))], ["前年比", signed(customerYoy, "%")]], customerCount, customerYoy),
     signal("ticket", "単価", "単価は上がっているか", signedConclusion(ticketYoy), `総単価 前年比 ${signed(ticketYoy, "%")}`, [["総単価", yen(ticket)], ["技術単価", yen(average("technicalTicket"))], ["前年比", signed(ticketYoy, "%")]], ticket, ticketYoy),
+    signal("productivity", "生産性", "人と時間を活かせているか", productivity === null ? "準備中" : "分析可能", `総生産性 ${yen(productivity)} ／ 技術生産性 ${yen(technicalProductivity)}`, [["総生産性", yen(productivity)], ["技術生産性", yen(technicalProductivity)], ["実労働FTE", fte(laborFte)], ["FTE当たり売上", laborFte ? yen(sales / laborFte) : "準備中"]], productivity, null),
     signal("retail", "商品", "商品は売れているか", Math.abs(retailYoy || 0) < .5 ? "横ばい" : signedConclusion(retailYoy), `店販売上 予算比 ${percent(retailBudget)} ／ 前年比 ${signed(retailYoy, "%")}`, [["店販売上", formatYen(retail)], ["店販売上予算比", percent(retailBudget)], ["店販購買率", percent(average("retailPurchaseRate"))], ["MID（参考値）", formatYen(mid)], ["EC売上（参考値）", formatYen(ec)], ["店販売上前年比", signed(retailYoy, "%")]], retail, retailYoy),
     signal("ec", "EC", "ECは動かせているか", ecTarget !== null && ecTarget < 80 ? "要対応" : "順調", `全社EC 目標比 ${percent(ecTarget)}`, [["全社EC売上", formatYen(ec)], ["目標比", percent(ecTarget)], ["前年比", signed(ecYoy, "%")], ["稼働店舗数", `${stores.filter((store) => metricNullableNumber(store.metrics.ecSales) !== null).length}店舗`]], ec, ecYoy)
   ];
@@ -354,11 +366,136 @@ function buildDecisionSignals(projection, stores) {
 
 function signal(key, label, question, conclusion, lead, details, value, comparison) { return { key, label, question, conclusion, lead, details, value, comparison }; }
 
+function renderSignalAnalysis(selected, stores) {
+  const model = buildSignalAnalysis(selected, stores);
+  const section = node("section", "signal-analysis");
+  section.dataset.analysisSignal = selected.key; section.tabIndex = -1;
+  section.setAttribute("aria-labelledby", "signal-analysis-heading");
+  const header = node("div", "signal-analysis-header");
+  const headingGroup = node("div");
+  const badge = node("span", "signal-analysis-badge", `${selected.label}・詳細`);
+  const title = node("h3", "", `${selected.label}の詳細分析`); title.id = "signal-analysis-heading";
+  headingGroup.append(badge, title, node("p", "", model.description));
+  header.append(headingGroup, node("strong", "signal-analysis-status", selected.conclusion));
+
+  const kpis = node("div", "signal-analysis-kpis");
+  model.kpis.forEach(([label, value, note]) => {
+    const item = node("article", "signal-analysis-kpi");
+    item.append(node("span", "", label), node("strong", "", value));
+    if (note) item.append(node("small", "", note));
+    kpis.append(item);
+  });
+
+  const body = node("div", "signal-analysis-body");
+  const checks = node("section", "signal-analysis-checks");
+  checks.append(node("h4", "", "分解して確認するポイント"));
+  const checkList = node("dl");
+  model.checks.forEach(([label, value]) => { const row = node("div"); row.append(node("dt", "", label), node("dd", "", value)); checkList.append(row); });
+  checks.append(checkList);
+
+  const ranking = node("section", "signal-analysis-ranking");
+  ranking.append(node("h4", "", `${model.rankLabel}の店舗比較`));
+  if (!model.rankedStores.length) {
+    ranking.append(empty("比較できる確定データを準備しています"));
+  } else {
+    const comparison = node("div", "signal-ranking-columns");
+    if (model.rankedStores.length <= 3) comparison.append(renderSignalRanking("対象店舗", model.rankedStores, model));
+    else comparison.append(
+      renderSignalRanking("上位店舗", model.rankedStores.slice(0, 3), model),
+      renderSignalRanking("要確認店舗", [...model.rankedStores].reverse().slice(0, 3), model)
+    );
+    ranking.append(comparison);
+  }
+  body.append(checks, ranking);
+  section.append(header, kpis, body);
+  return section;
+}
+
+function renderSignalRanking(title, stores, model) {
+  const group = node("div", "signal-ranking-group"); group.append(node("h5", "", title));
+  const list = node("ol", "signal-ranking-list");
+  stores.forEach((store) => {
+    const item = node("li");
+    const button = node("button", "signal-ranking-link"); button.type = "button";
+    button.setAttribute("aria-label", `${store.storeName}の${model.rankLabel}詳細を開く`);
+    button.append(node("span", "", store.storeName), node("strong", "", formatAnalysisValue(model.rankKey, metricNullableNumber(store.metrics[model.rankKey]))));
+    button.addEventListener("click", () => showDetail(store.storeKey, false, model.targetTab));
+    item.append(button); list.append(item);
+  });
+  group.append(list); return group;
+}
+
+function buildSignalAnalysis(selected, stores) {
+  const directStores = stores.filter((store) => store.ownership !== "FC");
+  const values = (scope, key) => scope.map((store) => metricNullableNumber(store.metrics[key])).filter((value) => value !== null);
+  const sum = (key, scope = stores) => { const found = values(scope, key); return found.length ? found.reduce((total, value) => total + value, 0) : null; };
+  const average = (key, scope = stores) => { const found = values(scope, key); return found.length ? found.reduce((total, value) => total + value, 0) / found.length : null; };
+  const available = (key, scope = stores) => values(scope, key).length;
+  const sales = sum("sales"); const directSales = sum("sales", directStores); const directProfit = sum("operatingProfit", directStores);
+  const totalTicket = average("totalTicket"); const technicalTicket = average("technicalTicket"); const laborFte = sum("actualLaborFte");
+  const models = {
+    sales: {
+      description: "総売上を技術・商品・MID・ECに分け、店舗差と予算／前年の弱点を確認します。",
+      kpis: [["総売上（税抜）", formatYen(sales)], ["技術売上", formatYen(sum("technicalSales"))], ["店販売上", formatYen(sum("retailSales"))], ["EC按分売上", formatYen(sum("ecSales"))]],
+      checks: [["予算未達店舗", `${stores.filter((store) => { const value = metricNullableNumber(store.metrics.budgetRatio); return value !== null && value < 100; }).length}店舗`], ["前年割れ店舗", `${stores.filter((store) => { const value = metricNullableNumber(store.metrics.yearOverYearRatio); return value !== null && value < 100; }).length}店舗`], ["MID売上", formatYen(sum("mid"))], ["確定店舗", `${available("sales")}/${stores.length}店舗`]],
+      rankKey: "sales", rankLabel: "総売上", targetTab: "sales", rankScope: stores
+    },
+    profit: {
+      description: "直営店の確定利益だけを使い、利益額・利益率・店舗差を確認します。FC利益はV1対象外です。",
+      kpis: [["営業利益", formatYen(directProfit)], ["売上総利益", formatYen(sum("grossProfit", directStores))], ["経常利益", formatYen(sum("ordinaryProfit", directStores))], ["営業利益率", percent(directSales && directProfit !== null ? directProfit / directSales * 100 : null)]],
+      checks: [["直営店", `${directStores.length}店舗`], ["利益確定店舗", `${available("operatingProfit", directStores)}/${directStores.length}店舗`], ["FC対象外", `${stores.length - directStores.length}店舗`], ["利益前年割れ", `${directStores.filter((store) => { const value = metricNullableNumber(store.metrics.profitYearOverYear); return value !== null && value < 0; }).length}店舗`]],
+      rankKey: "operatingProfit", rankLabel: "営業利益", targetTab: "sales", rankScope: directStores
+    },
+    customers: {
+      description: "総客数を新規・既存・リピートに分け、どの顧客層が店舗差を生んでいるか確認します。",
+      kpis: [["総客数", count(sum("customerCount"))], ["新規客数", count(sum("newCustomerCount"))], ["既存客数", count(sum("existingCustomerCount"))], ["総リピート率", percent(average("totalRepeat"))]],
+      checks: [["新規リピート率", percent(average("new"))], ["再来リピート率", percent(average("returning"))], ["固定リピート率", percent(average("loyal"))], ["客数前年割れ", `${stores.filter((store) => { const value = metricNullableNumber(store.metrics.customerYearOverYear); return value !== null && value < 0; }).length}店舗`]],
+      rankKey: "customerCount", rankLabel: "総客数", targetTab: "customer", rankScope: stores
+    },
+    ticket: {
+      description: "総単価を技術単価と商品購買に分け、単価差の要因を店舗ごとに確認します。",
+      kpis: [["総単価", yen(totalTicket)], ["技術単価", yen(technicalTicket)], ["店販購買率", percent(average("retailPurchaseRate"))], ["店販購買客数", count(sum("retailPurchaseCustomerVisits"))]],
+      checks: [["総単価と技術単価の差", yen(totalTicket !== null && technicalTicket !== null ? totalTicket - technicalTicket : null)], ["単価前年割れ", `${stores.filter((store) => { const value = metricNullableNumber(store.metrics.ticketYearOverYear); return value !== null && value < 0; }).length}店舗`], ["総単価確定店舗", `${available("totalTicket")}/${stores.length}店舗`], ["購買率確定店舗", `${available("retailPurchaseRate")}/${stores.length}店舗`]],
+      rankKey: "totalTicket", rankLabel: "総単価", targetTab: "value", rankScope: stores
+    },
+    productivity: {
+      description: "生産性を売上・技術生産性・実労働FTEへ分解し、人数だけでは見えない時間当たりの成果を確認します。",
+      kpis: [["総生産性（店舗平均）", yen(average("productivity"))], ["技術生産性（店舗平均）", yen(average("technicalProductivity"))], ["実労働FTE合計", fte(laborFte)], ["FTE当たり売上", laborFte && sales !== null ? yen(sales / laborFte) : "準備中"]],
+      checks: [["総生産性確定店舗", `${available("productivity")}/${stores.length}店舗`], ["技術生産性確定店舗", `${available("technicalProductivity")}/${stores.length}店舗`], ["FTE反映店舗", `${available("actualLaborFte")}/${stores.length}店舗`], ["FTE未反映店舗", `${stores.length - available("actualLaborFte")}店舗`]],
+      rankKey: "productivity", rankLabel: "総生産性", targetTab: "value", rankScope: stores
+    },
+    retail: {
+      description: "店販売上を購買客数・購買率・MIDに分け、商品提案が成果につながっている店舗を比較します。",
+      kpis: [["店販売上", formatYen(sum("retailSales"))], ["店販購買率", percent(average("retailPurchaseRate"))], ["店販購買客数", count(sum("retailPurchaseCustomerVisits"))], ["MID売上", formatYen(sum("mid"))]],
+      checks: [["店販予算未達", `${stores.filter((store) => { const value = metricNullableNumber(store.metrics.retailBudgetRatio); return value !== null && value < 100; }).length}店舗`], ["店販前年割れ", `${stores.filter((store) => { const value = metricNullableNumber(store.metrics.retailYearOverYear); return value !== null && value < 0; }).length}店舗`], ["購買率確定店舗", `${available("retailPurchaseRate")}/${stores.length}店舗`], ["売上確定店舗", `${available("retailSales")}/${stores.length}店舗`]],
+      rankKey: "retailSales", rankLabel: "店販売上", targetTab: "value", rankScope: stores
+    },
+    ec: {
+      description: "全社EC売上を目標比・前年比・店舗按分で確認します。ECは選択店舗の単純合計ではなく全社判断の補助指標です。",
+      kpis: [["全社EC売上", formatYen(sum("ecSales"))], ["目標比（店舗平均）", percent(average("ecTargetRatio"))], ["前年比（店舗平均）", signed(average("ecYearOverYear"), "%")], ["稼働店舗", `${available("ecSales")}/${stores.length}店舗`]],
+      checks: [["目標比80%未満", `${stores.filter((store) => { const value = metricNullableNumber(store.metrics.ecTargetRatio); return value !== null && value < 80; }).length}店舗`], ["前年割れ店舗", `${stores.filter((store) => { const value = metricNullableNumber(store.metrics.ecYearOverYear); return value !== null && value < 0; }).length}店舗`], ["EC未反映店舗", `${stores.length - available("ecSales")}店舗`], ["確認単位", "全社＋店舗按分"]],
+      rankKey: "ecSales", rankLabel: "EC按分売上", targetTab: "sales", rankScope: stores
+    }
+  };
+  const model = models[selected.key] || models.sales;
+  model.rankedStores = model.rankScope
+    .filter((store) => metricNullableNumber(store.metrics[model.rankKey]) !== null)
+    .sort((left, right) => metricNullableNumber(right.metrics[model.rankKey]) - metricNullableNumber(left.metrics[model.rankKey]));
+  return model;
+}
+
+function formatAnalysisValue(key, value) {
+  if (["sales", "operatingProfit", "retailSales", "ecSales"].includes(key)) return formatYen(value);
+  if (key === "customerCount") return count(value);
+  return yen(value);
+}
+
 function renderExecutiveSignalSummary(signals) {
   const profitConclusion = signals.find((item) => item.key === "profit")?.conclusion;
   const profitLabel = profitConclusion === "確定" ? "良好" : profitConclusion === "V1対象外" ? "V1対象外" : "集計中";
-  const labels = { sales: "良好", profit: profitLabel, customers: "改善中", ticket: "良好", retail: "横ばい", ec: "要対応" };
-  const levels = { sales: "good", profit: labels.profit === "良好" ? "good" : "watch", customers: "watch", ticket: "good", retail: "watch", ec: "attention" };
+  const productivityConclusion = signals.find((item) => item.key === "productivity")?.conclusion;
+  const labels = { sales: "良好", profit: profitLabel, customers: "改善中", ticket: "良好", productivity: productivityConclusion || "準備中", retail: "横ばい", ec: "要対応" };
+  const levels = { sales: "good", profit: labels.profit === "良好" ? "good" : "watch", customers: "watch", ticket: "good", productivity: labels.productivity === "分析可能" ? "good" : "watch", retail: "watch", ec: "attention" };
   elements.executiveSignalLinks.replaceChildren(...signals.map((signal) => {
     const button = node("button", `executive-signal executive-signal-${levels[signal.key]}`, `${signal.label}　${labels[signal.key]}`); button.type = "button";
     button.addEventListener("click", () => { const target = document.querySelector(`[data-signal="${signal.key}"]`); target?.scrollIntoView({ behavior: "smooth", block: "center" }); target?.focus({ preventScroll: true }); });
@@ -389,7 +526,7 @@ function createTrendChart(selected) {
     || (state.runtimeFeatureFlag === "staging" && !isDbfProjection);
   const count = state.trendPeriod === "year_compare" ? 2 : state.trendPeriod === "twelve_months" ? 12 : 6;
   const formal = state.projection?.monthlyTrend?.[selected.key] || [];
-  let currentValues; let previousValues;
+  let currentValues; let previousValues; let currentLabels;
   if (formal.length >= 2) {
     const selectedMonth = String(elements.period.value || "");
     const eligible = formal.filter((point) => point.fiscalMonth <= selectedMonth);
@@ -399,27 +536,79 @@ function createTrendChart(selected) {
     const prior = currentPoints.map((point) => byMonth.get(priorFor(point.fiscalMonth)));
     if (currentPoints.length < (state.trendPeriod === "year_compare" ? 1 : 2)) { wrap.append(empty("推移データを準備しています")); return wrap; }
     currentValues = currentPoints.map((point) => point.value);
+    currentLabels = currentPoints.map((point) => formatTrendMonthLabel(point.fiscalMonth));
     previousValues = prior.every((value) => Number.isFinite(value)) ? prior : [];
     if (state.trendPeriod === "year_compare" && previousValues.length) {
       currentValues = [previousValues[0], currentValues[0]];
+      currentLabels = [`前年${currentLabels[0]}`, `当年${currentLabels[0]}`];
       previousValues = [];
     }
   } else if (isDemo && selected.value !== null) {
-    const factors = Array.from({ length: count }, (_, index) => .91 + index * (.09 / Math.max(1, count - 1)) + Math.sin(index * 1.7) * .012);
-    currentValues = factors.map((factor) => selected.value * factor);
     const comparisonRate = Number(selected.comparison || 0) / 100;
-    previousValues = currentValues.map((value, index) => value / Math.max(.1, 1 + comparisonRate) * (.995 + Math.cos(index * 1.3) * .008));
+    if (state.trendPeriod === "year_compare") {
+      currentValues = [selected.value / Math.max(.1, 1 + comparisonRate), selected.value];
+      previousValues = []; currentLabels = ["前年", "当年"];
+    } else {
+      const factors = Array.from({ length: count }, (_, index) => .91 + index * (.09 / Math.max(1, count - 1)) + Math.sin(index * 1.7) * .012);
+      currentValues = factors.map((factor) => selected.value * factor);
+      previousValues = currentValues.map((value, index) => value / Math.max(.1, 1 + comparisonRate) * (.995 + Math.cos(index * 1.3) * .008));
+      currentLabels = trendMonthLabels(count, elements.period.value);
+    }
   } else { wrap.append(empty("DBFの確定履歴が2か月以上揃うまで数値は表示しません")); return wrap; }
-  const allValues = [...currentValues, ...previousValues]; const min = Math.min(...allValues) * .98; const max = Math.max(...allValues) * 1.02; const range = Math.max(1, max - min);
-  const points = (values) => values.map((value, index) => `${40 + index * (560 / Math.max(1, values.length - 1))},${145 - (value - min) / range * 105}`).join(" ");
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("viewBox", "0 0 640 180"); svg.setAttribute("role", "img"); svg.setAttribute("aria-label", `${selected.label}の${state.trendPeriod === "six_months" ? "直近6か月" : state.trendPeriod === "twelve_months" ? "12か月" : "前年対比"}推移`);
-  const baseline = document.createElementNS(svg.namespaceURI, "line"); baseline.setAttribute("x1", "40"); baseline.setAttribute("x2", "600"); baseline.setAttribute("y1", "145"); baseline.setAttribute("y2", "145"); baseline.setAttribute("class", "trend-baseline");
+  const allValues = [...currentValues, ...previousValues];
+  const rawMin = Math.min(...allValues); const rawMax = Math.max(...allValues);
+  const padding = Math.max(1, (rawMax - rawMin) * .12, Math.abs(rawMax) * .02);
+  const min = rawMin - padding; const max = rawMax + padding; const range = Math.max(1, max - min);
+  const left = 82; const right = 620; const top = 20; const bottom = 168;
+  const xAt = (index, length) => left + index * ((right - left) / Math.max(1, length - 1));
+  const yAt = (value) => bottom - (value - min) / range * (bottom - top);
+  const points = (values) => values.map((value, index) => `${xAt(index, values.length)},${yAt(value)}`).join(" ");
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("viewBox", "0 0 660 220"); svg.setAttribute("role", "img"); svg.setAttribute("aria-label", `${selected.label}の${state.trendPeriod === "six_months" ? "直近6か月" : state.trendPeriod === "twelve_months" ? "12か月" : "前年対比"}推移。縦軸は${trendAxisUnit(selected.key)}、横軸は期間`);
+  const axisLayer = document.createElementNS(svg.namespaceURI, "g"); axisLayer.setAttribute("class", "trend-axes");
+  Array.from({ length: 5 }, (_, index) => max - range * (index / 4)).forEach((value) => {
+    const y = yAt(value);
+    const line = document.createElementNS(svg.namespaceURI, "line"); line.setAttribute("x1", String(left)); line.setAttribute("x2", String(right)); line.setAttribute("y1", String(y)); line.setAttribute("y2", String(y)); line.setAttribute("class", "trend-gridline");
+    const label = document.createElementNS(svg.namespaceURI, "text"); label.setAttribute("x", String(left - 10)); label.setAttribute("y", String(y + 4)); label.setAttribute("text-anchor", "end"); label.setAttribute("class", "trend-axis-label trend-axis-label-y"); label.textContent = formatTrendAxisTick(selected.key, value);
+    axisLayer.append(line, label);
+  });
+  currentLabels.forEach((labelText, index) => {
+    if (currentLabels.length > 7 && index % 2 !== 0 && index !== currentLabels.length - 1) return;
+    const x = xAt(index, currentLabels.length);
+    const tick = document.createElementNS(svg.namespaceURI, "line"); tick.setAttribute("x1", String(x)); tick.setAttribute("x2", String(x)); tick.setAttribute("y1", String(bottom)); tick.setAttribute("y2", String(bottom + 5)); tick.setAttribute("class", "trend-axis-tick");
+    const label = document.createElementNS(svg.namespaceURI, "text"); label.setAttribute("x", String(x)); label.setAttribute("y", String(bottom + 22)); label.setAttribute("text-anchor", "middle"); label.setAttribute("class", "trend-axis-label trend-axis-label-x"); label.textContent = labelText;
+    axisLayer.append(tick, label);
+  });
+  const unit = document.createElementNS(svg.namespaceURI, "text"); unit.setAttribute("x", String(left)); unit.setAttribute("y", "12"); unit.setAttribute("class", "trend-axis-title"); unit.textContent = trendAxisUnit(selected.key); axisLayer.append(unit);
+  const baseline = document.createElementNS(svg.namespaceURI, "line"); baseline.setAttribute("x1", String(left)); baseline.setAttribute("x2", String(right)); baseline.setAttribute("y1", String(bottom)); baseline.setAttribute("y2", String(bottom)); baseline.setAttribute("class", "trend-baseline");
   const currentLine = document.createElementNS(svg.namespaceURI, "polyline"); currentLine.setAttribute("points", points(currentValues)); currentLine.setAttribute("class", "trend-line trend-line-current");
   const previousLine = document.createElementNS(svg.namespaceURI, "polyline"); previousLine.setAttribute("points", points(previousValues)); previousLine.setAttribute("class", "trend-line trend-line-previous");
   const legend = node("div", "trend-legend"); legend.append(node("span", "trend-legend-current", state.trendPeriod === "year_compare" ? "実績" : "今年")); if (previousValues.length) legend.append(node("span", "trend-legend-previous", "前年"));
-  svg.append(baseline); if (previousValues.length) svg.append(previousLine); svg.append(currentLine);
+  svg.append(axisLayer, baseline); if (previousValues.length) svg.append(previousLine); svg.append(currentLine);
   const priorText = previousValues.length ? ` ／ ${formatTrendValue(selected.key, previousValues.at(-1))}（前年）` : "";
   wrap.append(legend, svg, node("p", "trend-summary", `${selected.label}: ${formatTrendValue(selected.key, currentValues.at(-1))}${priorText}`)); return wrap;
+}
+
+function trendMonthLabels(count, selectedMonth) {
+  const matched = String(selectedMonth || "").match(/^(\d{4})-(\d{2})$/u);
+  const end = matched ? new Date(Date.UTC(Number(matched[1]), Number(matched[2]) - 1, 1)) : new Date();
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - (count - 1 - index), 1));
+    return `${date.getUTCMonth() + 1}月`;
+  });
+}
+
+function formatTrendMonthLabel(value) {
+  const digits = String(value || "").replace(/[^\d]/gu, "");
+  return digits.length >= 6 ? `${Number(digits.slice(4, 6))}月` : String(value || "—");
+}
+
+function trendAxisUnit(key) { return key === "customers" ? "人" : "円"; }
+function formatTrendAxisTick(key, value) {
+  if (key === "customers") return Math.round(value).toLocaleString("ja-JP");
+  const absolute = Math.abs(value);
+  if (absolute >= 100_000_000) return `${(value / 100_000_000).toFixed(1)}億`;
+  if (absolute >= 10_000) return `${Math.round(value / 10_000).toLocaleString("ja-JP")}万`;
+  return Math.round(value).toLocaleString("ja-JP");
 }
 
 function renderStatusFilters(stores) {
@@ -572,6 +761,7 @@ function signed(value, suffix) { return value === null ? "準備中" : `${value 
 function percent(value) { return value === null ? "準備中" : `${value.toFixed(1)}%`; }
 function yen(value) { return value === null ? "準備中" : `¥${Math.round(value).toLocaleString("ja-JP")}`; }
 function count(value) { return value === null ? "準備中" : `${Math.round(value).toLocaleString("ja-JP")}人`; }
+function fte(value) { return value === null ? "準備中" : `${value.toFixed(2)} FTE`; }
 function signedConclusion(value, positive = "上昇", negative = "低下") { return value === null ? "準備中" : value >= .5 ? positive : value <= -.5 ? negative : "横ばい"; }
 function formatTrendValue(key, value) { return ["sales", "profit", "retail", "ec"].includes(key) ? formatYen(value) : key === "customers" ? count(value) : yen(value); }
 function actionImpact(ruleId) { return ruleId === "new_repeat" ? "既存客数の増加" : ruleId === "ticket_and_repeat" ? "売上と利益の安定" : "改善の定着"; }

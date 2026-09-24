@@ -13546,7 +13546,7 @@ $write_plan_gate$;
 insert into dbf_ingest.source_files
   (sha256,byte_size,original_file_name,media_type,source_system,received_by_employee_id,received_via)
 values ('a87bf388b5b5f7349ede6a65df37fdf3689039e947cdbd30ca67b6c952b64cc9',37665586,'POS_Canonical_Store_Monthly_Actual.csv',
-  'text/csv','pos_canonical_store_actual_backfill_v1','369d9cd5-f6ba-4e53-9428-f631f0893469'::uuid,'owner_fixed_sha_package');
+  'text/csv','pos_canonical_store_actual_backfill_v1','369d9cd5-f6ba-4e53-9428-f631f0893469'::uuid,'nov_hub_secure_session');
 
 with source as (
   select id from dbf_ingest.source_files where source_system='pos_canonical_store_actual_backfill_v1' and sha256='a87bf388b5b5f7349ede6a65df37fdf3689039e947cdbd30ca67b6c952b64cc9'

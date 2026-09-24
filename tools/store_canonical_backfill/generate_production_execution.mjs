@@ -15,6 +15,7 @@ export const EXECUTION_PROFILE = Object.freeze({
   sourceSystem: "pos_canonical_store_actual_backfill_v1",
   sourceType: "pos_canonical_historical_backfill_v1",
   sourceFileName: "POS_Canonical_Store_Monthly_Actual.csv",
+  receivedVia: "nov_hub_secure_session",
   expectedCompanyMappings: 6,
   expectedStoreMappings: 21,
   expectedMappings: 27,
@@ -204,7 +205,7 @@ $write_plan_gate$;
 insert into dbf_ingest.source_files
   (sha256,byte_size,original_file_name,media_type,source_system,received_by_employee_id,received_via)
 values (${sql(csvSha)},${CANONICAL_BACKFILL_PROFILE.canonicalCsvByteSize},${sql(profile.sourceFileName)},
-  'text/csv',${sql(profile.sourceSystem)},${sql(actor)}::uuid,'owner_fixed_sha_package');
+  'text/csv',${sql(profile.sourceSystem)},${sql(actor)}::uuid,${sql(profile.receivedVia)});
 
 with source as (
   select id from dbf_ingest.source_files where source_system=${sql(profile.sourceSystem)} and sha256=${sql(csvSha)}

@@ -115,6 +115,8 @@ test("execution fails closed and applies corrections through append-only lineage
   assert.match(SQL, /existing_mismatch_count<>227/u);
   assert.match(SQL, /insert_collision_count<>0/u);
   assert.match(SQL, /all_match_count<>13422/u);
+  assert.match(SQL, /'nov_hub_secure_session'\);/u);
+  assert.doesNotMatch(SQL, /owner_fixed_sha_package/u);
   assert.match(SQL, /update\s+public\.dbf_store_monthly_metric_facts old\s+set is_active=false,superseded_at=statement_timestamp\(\)/iu);
   assert.match(SQL, /correction_of_fact_id,correction_reason/iu);
   assert.doesNotMatch(SQL, /update\s+public\.dbf_store_monthly_metric_facts[\s\S]{0,240}\b(?:amount|quantity|rate)\s*=/iu);

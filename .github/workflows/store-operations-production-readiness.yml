@@ -9,6 +9,7 @@ on:
       - "supabase/functions/nov-hub-api/**"
       - "supabase/migrations/20260814140109_dbf_business_data_phase1_foundation.sql"
       - "supabase/migrations/20260814204346_dbf_business_data_phase1_service_role_acl_corrective.sql"
+      - "supabase/migrations/20260814213224_dbf_business_data_phase_c_runtime.sql"
       - "supabase/migrations/20260819002309_dbf_store_monthly_actual_backend_contract_v1.sql"
       - "supabase/migrations/20260819123648_dbf_store_monthly_comparison_read_v1.sql"
       - "tests/store-operations-production-*.test.mjs"
@@ -89,6 +90,7 @@ jobs:
           fi
           PGOPTIONS="-c app.store_operations_retail_execution_approval=OWNER_APPROVAL_REQUIRED_AFTER_FIXED_SHA_REVIEW" psql --set=ON_ERROR_STOP=1 --file docs/store_operations_management/production_integration/store-operations-preparing-metrics-production-v1.execution.sql
           psql --set=ON_ERROR_STOP=1 --file tests/store-operations-preparing-metrics-production-assert.sql
+          psql --set=ON_ERROR_STOP=1 --file supabase/migrations/20260814213224_dbf_business_data_phase_c_runtime.sql
           psql --set=ON_ERROR_STOP=1 --file tests/store-operating-profit-2026-07-fixture.sql
           if psql --set=ON_ERROR_STOP=1 --file docs/store_operations_management/production_integration/store-operating-profit-2026-07/store-operating-profit-2026-07.execution.sql; then
             echo "July operating profit SQL must fail closed without the external Owner approval setting."

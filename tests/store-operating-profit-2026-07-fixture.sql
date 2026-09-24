@@ -1,10 +1,5 @@
 \set ON_ERROR_STOP on
 
-insert into dbf_ingest.metric_definitions
-  (metric_code,definition_version,value_kind,display_name,description,is_active)
-values ('OPERATING_PROFIT','v1','amount','営業利益',
-  '税抜売上を基礎とした店舗営業利益の月次確定値。',true);
-
 insert into dbf_ingest.entity_mappings
   (id,source_system,entity_type,source_key,source_label,company_id,store_id,
    canonical_evidence_sha256,status,confirmed_by_employee_id,confirmed_at)

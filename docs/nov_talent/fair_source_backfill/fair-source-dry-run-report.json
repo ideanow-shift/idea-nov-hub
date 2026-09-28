@@ -1,0 +1,47 @@
+{
+  "snapshot_id": "nov-talent-fair-source-20260805-readonly-03",
+  "generated_at": "2026-08-05T13:35:00+09:00",
+  "source_hash_algorithm": "SHA-256",
+  "source_hash_scope": "ガイダンス/フェア結果!A2:R50 (UNFORMATTED_VALUE)",
+  "source_hash": "045991d466c3f8f6c9e27a34526f7f697bca60bc8e259d72e097bb0c297975c0",
+  "source_rows_observed": 48,
+  "rows_counted_as_business_by_previous_dry_run": 44,
+  "identity_ready_rows": 37,
+  "identity_key_missing_rows": 2,
+  "number_only_template_rows": 5,
+  "empty_template_rows": 4,
+  "exact_duplicate_groups": 0,
+  "numeric_review_rows": 1,
+  "human_review_rows": 3,
+  "approved_target_count": 37,
+  "review_excluded_identity_ready_rows": 1,
+  "write_ready_rows_after_review_exclusion": 36,
+  "field_presence": {
+    "participation_fee": 32,
+    "contact_count": 39,
+    "line_registration_count": 32,
+    "salon_tour_count": 33
+  },
+  "staging_preflight": {
+    "status": "BLOCKED",
+    "expected_write_count": 37,
+    "safe_identity_record_count": 36,
+    "exact_existing_match_count": 0,
+    "insert_only_count": 36,
+    "write_count": 0,
+    "existing_update_count": 0,
+    "reason_codes": [
+      "APPROVED_COUNT_CONTRADICTS_REVIEW_EXCLUSION",
+      "SOURCE_IDENTITY_KEY_MISSING",
+      "SOURCE_NUMERIC_VALUE_REVIEW_EXCLUDED"
+    ]
+  },
+  "safety": {
+    "spreadsheet_write_count": 0,
+    "staging_write_count": 0,
+    "production_write_count": 0,
+    "automatic_merge_count": 0,
+    "automatic_delete_count": 0,
+    "personal_values_in_artifact": false
+  }
+}

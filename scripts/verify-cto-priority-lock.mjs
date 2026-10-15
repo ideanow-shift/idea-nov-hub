@@ -7,7 +7,7 @@ const root = process.cwd();
 const lockPath = path.join(root, 'docs', 'cto', 'PORTFOLIO_PRIORITY_LOCK.md');
 const logPath = path.join(root, 'docs', 'cto', 'PRIORITY_DECISION_LOG.md');
 const agentsPath = path.join(root, 'AGENTS.md');
-const expectedLockId = 'CTO-PORTFOLIO-EXECUTION-ORDER-2026-09-21-V5';
+const expectedLockId = 'CTO-PORTFOLIO-EXECUTION-ORDER-2026-10-15-V6';
 const expectedPhase = 'PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1';
 const failures = [];
 
@@ -24,7 +24,7 @@ const [lock, decisionLog, agents] = await Promise.all([
 
 const activeLocks = [...lock.matchAll(/^STATUS:\s*ACTIVE\s*$/gm)].length;
 if (activeLocks !== 1) failures.push(`ACTIVE Lock must be exactly 1; found ${activeLocks}`);
-requireText(lock, new RegExp(`^LOCK_ID:\\s*${expectedLockId}$`, 'm'), 'LOCK_ID is not V5');
+requireText(lock, new RegExp(`^LOCK_ID:\\s*${expectedLockId}$`, 'm'), 'LOCK_ID is not V6');
 requireText(lock, new RegExp(`^CURRENT_PHASE:\\s*${expectedPhase}$`, 'm'), 'CURRENT_PHASE mismatch');
 
 const expectedOrder = [
@@ -56,6 +56,12 @@ requireText(lock, /HUB Core employee master bounded maintenanceは最大1 active
 requireText(lock, /既存社員の姓、名、表示名の訂正・変更機能/, 'HUB Core employee name edit scope missing');
 requireText(lock, /社員番号、Firebase UID、login credentialの変更機能への拡張。[\s\S]*氏名以外の社員実データ変更への拡張。/, 'HUB Core employee master prohibited scope incomplete');
 requireText(lock, /employee business data write。/, 'HUB Core Production employee write separate approval missing');
+requireText(lock, /## NOV HUB LINE WORKS Personal Message Bounded Implementation Exception[\s\S]*STATUS:\s*OWNER_APPROVED/, 'Owner-approved NOV HUB LINE WORKS personal message exception missing');
+requireText(lock, /既存`master editor`権限を再確認するAPI/, 'NOV HUB LINE WORKS master editor boundary missing');
+requireText(lock, /送信前の原子的claim[\s\S]*結果不明時の自動再送禁止/, 'NOV HUB LINE WORKS at-most-once boundary missing');
+requireText(lock, /共有channel、store channel、default targetへの個人メッセージfallback。/, 'NOV HUB LINE WORKS fallback prohibition missing');
+requireText(lock, /DB変更なしで原子的claimとat-most-once境界を証明できない場合[\s\S]*有効化せず/, 'NOV HUB LINE WORKS safe stop clause missing');
+requireText(lock, /実装コードのpush、PR作成、Merge。これらは別のOwner承認を必要とする。/, 'NOV HUB LINE WORKS implementation publication boundary missing');
 
 const phaseCriteria = {
   'Phase 1': ['法人会計ActualのBackend Contract', '店舗月次営業実績のBackend Contract', 'Canonical Factの保存先', 'PostgreSQL 17 CI', 'Staging Backend Smoke', 'Production writeが0'],
@@ -77,6 +83,7 @@ requireText(decisionLog, /DECISION_ID:\s*OWNER-PORTFOLIO-ORDER-2026-08-18-V2/, '
 requireText(decisionLog, /DECISION_ID:\s*OWNER-PRIORITY-CHANGE-2026-08-21-NOV-TALENT-BOUNDED-MAINTENANCE/, 'V3 decision record missing');
 requireText(decisionLog, /DECISION_ID:\s*OWNER-PRIORITY-CHANGE-2026-08-22-HUB-EMPLOYEE-MASTER-BOUNDED-MAINTENANCE/, 'V4 decision record missing');
 requireText(decisionLog, /DECISION_ID:\s*OWNER-PRIORITY-CHANGE-2026-09-21-PHASE-3-SALES-UAT-WAIVER/, 'V5 decision record missing');
+requireText(decisionLog, /DECISION_ID:\s*OWNER-PRIORITY-CHANGE-2026-10-15-NOV-HUB-LINE-WORKS-PERSONAL-MESSAGE/, 'V6 decision record missing');
 requireText(decisionLog, /### SUPERSEDED対象文書\s+なし。/, 'SUPERSEDED disposition missing');
 requireText(decisionLog, /STATUS: SUPERSEDED[\s\S]*最新の唯一の正本[\s\S]*docs\/cto\/PORTFOLIO_PRIORITY_LOCK\.md[\s\S]*旧Priorityを現在値として使用してはいけません/, 'SUPERSEDED banner template missing');
 
@@ -137,4 +144,5 @@ console.log('Autonomous reprioritization prohibited: PASS');
 console.log('Old active priority disposition: PASS');
 console.log('NOV Talent bounded operational maintenance exception: PASS');
 console.log('HUB Core employee master bounded operational maintenance exception: PASS');
+console.log('NOV HUB LINE WORKS personal message bounded implementation exception: PASS');
 console.log('Phase order unchanged: PASS');

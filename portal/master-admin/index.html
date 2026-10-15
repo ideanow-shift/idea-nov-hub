@@ -89,6 +89,7 @@
           <button class="segmented primary-tab" data-view="permissions" type="button">権限</button>
         </nav>
         <div class="secondary-navigation">
+          <button class="button button-secondary" id="line-works-personal-message-open" type="button" hidden>LINE WORKS 個人送信</button>
           <div class="management-tools">
             <button class="button button-secondary management-tools-trigger" id="management-tools-trigger" type="button" aria-expanded="false" aria-controls="management-tools-menu">
               管理ツール
@@ -155,6 +156,37 @@
       </div>
     </section>
   </main>
+
+  <dialog class="line-works-message-dialog" id="line-works-personal-message-dialog" aria-labelledby="line-works-personal-message-title">
+    <form method="dialog" class="line-works-message-form" id="line-works-personal-message-form">
+      <header>
+        <div>
+          <p class="kicker">送信前確認必須</p>
+          <h2 id="line-works-personal-message-title">LINE WORKS 個人メッセージ</h2>
+        </div>
+        <button class="button button-secondary" value="cancel" type="submit" formnovalidate>閉じる</button>
+      </header>
+      <label>送信先社員
+        <select id="line-works-personal-message-recipient" required></select>
+      </label>
+      <label>件名
+        <input id="line-works-personal-message-subject" maxlength="120" required value="【接続テスト】">
+      </label>
+      <label>本文
+        <textarea id="line-works-personal-message-body" maxlength="2000" rows="7" required>脇田AI秘書からLINE WORKSへの送信テストです。返信・対応は不要です。</textarea>
+      </label>
+      <div class="line-works-message-actions">
+        <button class="button button-primary" id="line-works-personal-message-preview" type="button">送信前プレビュー</button>
+      </div>
+      <section class="line-works-message-preview" id="line-works-personal-message-preview-panel" hidden aria-live="polite"></section>
+      <label class="line-works-message-confirm" id="line-works-personal-message-confirm-wrap" hidden>
+        <input id="line-works-personal-message-confirm" type="checkbox">
+        上記の送信先・件名・本文を確認しました
+      </label>
+      <button class="button button-primary" id="line-works-personal-message-send" type="button" disabled>1通だけ送信</button>
+      <p class="line-works-message-result" id="line-works-personal-message-result" role="status"></p>
+    </form>
+  </dialog>
 
   <div class="toast" id="toast" role="status" hidden></div>
   <script type="module" src="./master-admin.js?v=master-admin-employee-create-20260905-3"></script>

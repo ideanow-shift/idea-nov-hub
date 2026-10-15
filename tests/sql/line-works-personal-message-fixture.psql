@@ -1,0 +1,47 @@
+\set ON_ERROR_STOP on
+
+create role anon nologin;
+create role authenticated nologin;
+create role service_role nologin bypassrls;
+
+create schema os;
+
+create table public.employees (
+  id uuid primary key,
+  full_name text not null,
+  is_active boolean not null default true
+);
+
+create table os.notification_destinations (
+  id uuid primary key,
+  provider text not null,
+  target_type text not null,
+  target_id uuid,
+  channel_id text not null,
+  purpose text not null,
+  is_active boolean not null default true
+);
+
+create table os.notifications (
+  id uuid primary key,
+  status text not null
+);
+
+insert into public.employees (id, full_name, is_active) values
+  ('10000000-0000-4000-8000-000000000001', 'Master Editor', true),
+  ('20000000-0000-4000-8000-000000000002', '脇田 将樹', true);
+
+insert into os.notification_destinations (
+  id, provider, target_type, target_id, channel_id, purpose, is_active
+) values (
+  '30000000-0000-4000-8000-000000000003',
+  'line_works',
+  'employee',
+  '20000000-0000-4000-8000-000000000002',
+  'wakita.personal@example.invalid',
+  'primary',
+  true
+);
+
+insert into os.notifications (id, status)
+values ('40000000-0000-4000-8000-000000000004', 'queued');

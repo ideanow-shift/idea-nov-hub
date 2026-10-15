@@ -1,0 +1,78 @@
+\set ON_ERROR_STOP on
+
+do $$
+declare
+  v_claim record;
+  v_duplicate record;
+  v_started record;
+  v_finished record;
+  v_count integer;
+begin
+  if has_table_privilege('anon', 'os.line_works_personal_message_deliveries', 'select')
+     or has_table_privilege('authenticated', 'os.line_works_personal_message_deliveries', 'select') then
+    raise exception 'personal delivery audit table is exposed to an end-user role';
+  end if;
+  if has_function_privilege('anon', 'os.claim_line_works_personal_message_v1(uuid,uuid,uuid,text,text,timestamptz)', 'execute')
+     or has_function_privilege('authenticated', 'os.claim_line_works_personal_message_v1(uuid,uuid,uuid,text,text,timestamptz)', 'execute') then
+    raise exception 'personal delivery claim is exposed to an end-user role';
+  end if;
+
+  select * into strict v_claim
+    from os.claim_line_works_personal_message_v1(
+      '50000000-0000-4000-8000-000000000005',
+      '10000000-0000-4000-8000-000000000001',
+      '20000000-0000-4000-8000-000000000002',
+      repeat('a', 64),
+      '【接続テスト】脇田AI秘書からLINE WORKSへの送信テストです。返信・対応は不要です。',
+      clock_timestamp() + interval '5 minutes'
+    );
+  if v_claim.claim_id <> '50000000-0000-4000-8000-000000000005'::uuid
+     or v_claim.claim_status <> 'claimed'
+     or v_claim.duplicate then
+    raise exception 'first claim result is invalid';
+  end if;
+
+  select * into strict v_duplicate
+    from os.claim_line_works_personal_message_v1(
+      '60000000-0000-4000-8000-000000000006',
+      '10000000-0000-4000-8000-000000000001',
+      '20000000-0000-4000-8000-000000000002',
+      repeat('a', 64),
+      '【接続テスト】脇田AI秘書からLINE WORKSへの送信テストです。返信・対応は不要です。',
+      clock_timestamp() + interval '5 minutes'
+    );
+  if v_duplicate.claim_id <> v_claim.claim_id or not v_duplicate.duplicate then
+    raise exception 'duplicate content did not resolve to the original claim';
+  end if;
+
+  select * into strict v_started
+    from os.begin_line_works_personal_message_delivery_v1(v_claim.claim_id);
+  if v_started.claim_status <> 'delivery_started' then
+    raise exception 'delivery did not enter delivery_started';
+  end if;
+  select count(*) into v_count
+    from os.begin_line_works_personal_message_delivery_v1(v_claim.claim_id);
+  if v_count <> 0 then
+    raise exception 'the same claim was acquired twice';
+  end if;
+
+  select * into strict v_finished
+    from os.finish_line_works_personal_message_delivery_v1(
+      v_claim.claim_id, 'delivery_unknown', null, 'AMBIGUOUS_PROVIDER_RESULT'
+    );
+  if v_finished.claim_status <> 'delivery_unknown' then
+    raise exception 'ambiguous result was not made terminal';
+  end if;
+  select count(*) into v_count
+    from os.begin_line_works_personal_message_delivery_v1(v_claim.claim_id);
+  if v_count <> 0 then
+    raise exception 'delivery_unknown claim became sendable again';
+  end if;
+
+  select count(*) into v_count from os.notifications
+   where id = '40000000-0000-4000-8000-000000000004' and status = 'queued';
+  if v_count <> 1 then
+    raise exception 'existing notification queue state changed';
+  end if;
+end
+$$;

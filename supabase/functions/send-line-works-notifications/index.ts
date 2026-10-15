@@ -25,6 +25,14 @@ type SendResult = {
   error?: string;
 };
 
+type PersonalClaimRow = {
+  id: string;
+  status: string;
+  recipient_employee_id: string;
+  destination_id: string;
+  message_text: string;
+};
+
 const MONTHLY_MVP_ENTITY_TYPE = "monthly_thanks_mvp:all_store";
 
 const corsHeaders = {
@@ -43,6 +51,8 @@ Deno.serve(async (req) => {
     const requestBody = await readJsonBody(req);
     const requestedNotificationId = String(requestBody.notificationId ?? requestBody.id ?? "").trim();
     const expectedEntityType = String(requestBody.expectedEntityType ?? "").trim();
+    const personalMessageClaimId = String(requestBody.personalMessageClaimId ?? "").trim();
+    const expectedRecipientEmployeeId = String(requestBody.expectedRecipientEmployeeId ?? "").trim();
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const batchSize = Number(Deno.env.get("LINE_WORKS_BATCH_SIZE") ?? "20");
@@ -52,6 +62,9 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, serviceKey);
+    if (personalMessageClaimId) {
+      return await handlePersonalMessageClaim(supabase, personalMessageClaimId, expectedRecipientEmployeeId);
+    }
     let query = supabase
       .schema("os")
       .from("line_works_notification_queue")
@@ -121,63 +134,161 @@ async function readJsonBody(req: Request): Promise<Record<string, unknown>> {
 async function assertAuthorizedInvocation(req: Request) {
   const triggerSecret = Deno.env.get("LINE_WORKS_TRIGGER_SECRET") ?? "";
   const providedSecret = req.headers.get("x-trigger-secret") ?? "";
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const authorization = req.headers.get("Authorization") ?? "";
   const bearerToken = authorization.toLowerCase().startsWith("bearer ")
     ? authorization.replace(/^bearer\s+/i, "").trim()
     : "";
 
-  if (serviceKey && bearerToken === serviceKey) {
+  if (serviceKey && constantTimeEquals(bearerToken, serviceKey)) {
     return;
   }
-  if (bearerToken && isVerifiedServiceRoleJwt(bearerToken)) {
+  if (triggerSecret && constantTimeEquals(providedSecret, triggerSecret)) {
     return;
   }
-
-  if (triggerSecret) {
-    if (providedSecret !== triggerSecret) {
-      throw new Error("invalid trigger secret");
-    }
-    return;
-  }
-
-  if (!supabaseUrl || !authorization.toLowerCase().startsWith("bearer ")) {
-    throw new Error("LINE_WORKS_TRIGGER_SECRET is not configured and bearer authorization is missing");
-  }
-
-  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: {
-      Authorization: authorization,
-      apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error("invalid authorization");
-  }
+  throw new Error("invalid internal invocation authorization");
 }
 
-function isVerifiedServiceRoleJwt(token: string): boolean {
-  const payload = decodeJwtPayload(token);
-  const role = String(payload?.role ?? "").trim();
-  return role === "service_role" || role === "supabase_admin";
+function constantTimeEquals(left: string, right: string): boolean {
+  const a = new TextEncoder().encode(String(left || ""));
+  const b = new TextEncoder().encode(String(right || ""));
+  const length = Math.max(a.length, b.length);
+  let difference = a.length ^ b.length;
+  for (let index = 0; index < length; index += 1) {
+    difference |= (a[index] || 0) ^ (b[index] || 0);
+  }
+  return difference === 0;
 }
 
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
+async function handlePersonalMessageClaim(
+  supabase: SupabaseClientAny,
+  claimId: string,
+  expectedRecipientEmployeeId: string,
+) {
+  if (!isUuid(claimId) || !isUuid(expectedRecipientEmployeeId)) {
+    return json({ ok: false, status: "failed_pre_delivery", providerCode: "INVALID_PERSONAL_CLAIM" }, 400);
+  }
+
+  const { data: claimData, error: claimError } = await supabase
+    .schema("os")
+    .from("line_works_personal_message_deliveries")
+    .select("id,status,recipient_employee_id,destination_id,message_text")
+    .eq("id", claimId)
+    .limit(1);
+  if (claimError) throw claimError;
+  const claim = (claimData?.[0] || null) as PersonalClaimRow | null;
+  if (!claim || claim.recipient_employee_id !== expectedRecipientEmployeeId) {
+    return json({ ok: false, status: "failed_pre_delivery", providerCode: "PERSONAL_CLAIM_NOT_FOUND" }, 404);
+  }
+  if (claim.status !== "claimed") {
+    return json({ ok: claim.status === "sent", status: claim.status, duplicate: true, providerCode: "NO_RETRY" });
+  }
+
+  const { data: destinationData, error: destinationError } = await supabase
+    .schema("os")
+    .from("notification_destinations")
+    .select("id,provider,target_type,target_id,channel_id,purpose,is_active")
+    .eq("id", claim.destination_id)
+    .eq("provider", "line_works")
+    .eq("target_type", "employee")
+    .eq("target_id", expectedRecipientEmployeeId)
+    .eq("purpose", "primary")
+    .eq("is_active", true)
+    .limit(1);
+  const destination = destinationData?.[0] as Record<string, unknown> | undefined;
+  const targetId = String(destination?.channel_id || "").trim();
+  if (destinationError || !destination || !isSafeLineWorksUserTargetId(targetId)) {
+    await finishPersonalMessageClaim(supabase, claimId, "failed_pre_delivery", "", "PERSONAL_DESTINATION_INVALID");
+    return json({ ok: false, status: "failed_pre_delivery", providerCode: "PERSONAL_DESTINATION_INVALID" }, 409);
+  }
+
+  const preflightError = personalProviderPreflightError();
+  if (preflightError) {
+    await finishPersonalMessageClaim(supabase, claimId, "failed_pre_delivery", "", preflightError);
+    return json({ ok: false, status: "failed_pre_delivery", providerCode: preflightError }, 503);
+  }
+
+  const { data: beginData, error: beginError } = await supabase
+    .schema("os")
+    .rpc("begin_line_works_personal_message_delivery_v1", { p_claim_id: claimId });
+  if (beginError) throw beginError;
+  if (!Array.isArray(beginData) || beginData.length !== 1) {
+    return json({ ok: false, status: "delivery_unknown", duplicate: true, providerCode: "CLAIM_NOT_SENDABLE" }, 409);
+  }
+
+  const row: QueueRow = {
+    id: claimId,
+    entity_type: "line_works_personal_message:v1",
+    entity_id: claimId,
+    recipient_employee_id: expectedRecipientEmployeeId,
+    recipient_email: null,
+    recipient_name: "脇田 将樹",
+    title: claim.message_text,
+    body: "",
+  };
+  const target: LineWorksTarget = { type: "user", id: targetId, source: "os.notification_destinations:employee/primary" };
+
   try {
-    const parts = token.split(".");
-    if (parts.length < 2) return null;
-    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-    const json = atob(padded);
-    const payload = JSON.parse(json);
-    return payload && typeof payload === "object" && !Array.isArray(payload)
-      ? payload as Record<string, unknown>
-      : null;
-  } catch (_error) {
-    return null;
+    const provider = Deno.env.get("LINE_WORKS_PROVIDER") ?? "bot_secret";
+    const result = provider === "bot_secret"
+      ? await sendWithBotSecretProvider(row, target)
+      : await sendWithServerApiProvider(row, target);
+    if (result.ok) {
+      await finishPersonalMessageClaim(supabase, claimId, "sent", "", "");
+      return json({ ok: true, status: "sent", claimId, providerCode: "OK", retried: false });
+    }
+    const providerCode = sanitizeProviderCode(result.error || "DELIVERY_RESULT_UNKNOWN");
+    await finishPersonalMessageClaim(supabase, claimId, "delivery_unknown", "", providerCode);
+    return json({ ok: false, status: "delivery_unknown", claimId, providerCode, retried: false }, 502);
+  } catch (error) {
+    const providerCode = sanitizeProviderCode(formatError(error));
+    await finishPersonalMessageClaim(supabase, claimId, "delivery_unknown", "", providerCode);
+    return json({ ok: false, status: "delivery_unknown", claimId, providerCode, retried: false }, 502);
   }
+}
+
+async function finishPersonalMessageClaim(
+  supabase: SupabaseClientAny,
+  claimId: string,
+  status: "sent" | "failed_pre_delivery" | "delivery_unknown",
+  providerMessageId: string,
+  errorCode: string,
+) {
+  const { data, error } = await supabase.schema("os").rpc("finish_line_works_personal_message_delivery_v1", {
+    p_claim_id: claimId,
+    p_terminal_status: status,
+    p_provider_message_id: providerMessageId || null,
+    p_error_code: errorCode || null,
+  });
+  if (error) throw error;
+  if (!Array.isArray(data) || data.length !== 1) throw new Error("personal-message terminal transition rejected");
+}
+
+function personalProviderPreflightError(): string {
+  const provider = Deno.env.get("LINE_WORKS_PROVIDER") ?? "bot_secret";
+  if (provider === "bot_secret") {
+    if (!Deno.env.get("LINE_WORKS_BOT_ID") || !Deno.env.get("LINE_WORKS_BOT_SECRET") || !Deno.env.get("LINE_WORKS_BOT_SECRET_RELAY_URL")) {
+      return "PERSONAL_PROVIDER_NOT_CONFIGURED";
+    }
+    return "";
+  }
+  if (provider === "server_api") {
+    if (!Deno.env.get("LINE_WORKS_BOT_ID") || !Deno.env.get("LINE_WORKS_CLIENT_ID")
+      || !Deno.env.get("LINE_WORKS_CLIENT_SECRET") || !Deno.env.get("LINE_WORKS_SERVICE_ACCOUNT")
+      || !Deno.env.get("LINE_WORKS_PRIVATE_KEY")) {
+      return "PERSONAL_PROVIDER_NOT_CONFIGURED";
+    }
+    return "";
+  }
+  return "PERSONAL_PROVIDER_UNSUPPORTED";
+}
+
+function sanitizeProviderCode(value: string): string {
+  return String(value || "DELIVERY_RESULT_UNKNOWN").replace(/[^A-Z0-9_:-]/gi, "_").slice(0, 160);
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 async function sendLineWorksNotification(

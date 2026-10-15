@@ -256,3 +256,31 @@ Ownerは、Phase 3 Store Operations Management V1の業務UATについて、Owne
 - この変更はPhase Transitionではない。
 - このPriority Change PR自身のMergeを除き、Production deploy、DB DDL／DML、
   実データ変更、他PRのMergeに対する追加承認を意味しない。
+## 2026-10-15 — Owner Priority Change: NOV HUB LINE WORKS Personal Message Production Rollout
+
+DECISION_ID: OWNER-PRIORITY-CHANGE-2026-10-15-NOV-HUB-LINE-WORKS-PRODUCTION-ROLLOUT
+
+LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-10-15-V7
+
+DECIDED_BY: IDEA NOV Group Owner
+
+STATUS: ACTIVE
+
+### Owner Approval
+
+Owner explicitly approved the bounded implementation and production rollout of
+the NOV HUB LINE WORKS personal-message path: isolated atomic-claim DB/RPC,
+sender authentication correction, employee-only routing, implementation
+push/PR/merge, staging validation, production migration/deploy, and exactly one
+live connection-test message to the uniquely resolved active `employee / primary`
+destination for `脇田 将樹`.
+
+The exact approved message is:
+
+`【接続テスト】脇田AI秘書からLINE WORKSへの送信テストです。返信・対応は不要です。`
+
+Existing notification rows must not be changed or replayed. Shared/store/channel/
+default fallback, other recipients, automatic retries, broad enablement, secret
+operations, new paid services, OpenAI API, and MCP tunnel usage remain prohibited.
+This is a bounded Priority Change, not a Phase Transition; `CURRENT_PHASE` remains
+`PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1`.

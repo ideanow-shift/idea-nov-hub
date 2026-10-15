@@ -1,6 +1,6 @@
 # CTO Portfolio Execution Order Lock
 
-LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-10-15-V6
+LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-10-15-V7
 
 STATUS: ACTIVE
 
@@ -422,6 +422,62 @@ Store Operations Management V1を常に優先する。本例外の作業がStore
 
 本例外が許可するのはlocal source implementationと非送信テストまでである。Production deploy、
 DB変更、実送信、destination write、実装コードのpush／PR／Mergeにはそれぞれ別のOwner承認が必要である。
+
+## NOV HUB LINE WORKS Personal Message Production Rollout Authorization
+
+STATUS: OWNER_APPROVED
+
+This authorization is a bounded expansion of the preceding NOV HUB LINE WORKS
+Personal Message exception. It does not change `CURRENT_PHASE` or the fixed
+portfolio order. Where this section conflicts with the preceding exception's
+publication, migration, deployment, and one-message-send prohibitions, this
+newer explicit Owner approval controls only for the scope below.
+
+### ALLOWED
+
+1. Add an isolated personal-message delivery table and service-role-only RPCs
+   that provide an atomic claim, conditional terminal transitions, audit data,
+   and permanent no-auto-retry behavior for `delivery_unknown`.
+2. Fix the existing LINE WORKS sender authentication boundary so unverified JWT
+   claims and general authenticated-user fallback cannot invoke delivery.
+3. Add an employee-only personal routing path that requires an active
+   `employee / primary` destination and refuses explicit, store, channel, and
+   default fallback targets.
+4. Push the implementation branch, create and merge a reviewed implementation
+   PR after independent diff review, CI, concurrency, authorization, routing,
+   and non-send regression tests pass.
+5. Apply the approved migration and deploy to the existing staging environment,
+   validate there without a real provider send, then apply the approved
+   production migration and deploy with general or batch personal sending OFF.
+6. Resolve exactly one active employee record for `脇田 将樹`, show its masked
+   personal destination in authenticated preview, and send exactly one message
+   with the exact text below after the destination is uniquely resolved:
+
+   `【接続テスト】脇田AI秘書からLINE WORKSへの送信テストです。返信・対応は不要です。`
+
+7. Record the single intent/claim identifier and sanitized provider API result.
+   If the result is unknown, query status only and never retry automatically.
+
+### PROHIBITED
+
+- Mutation, replay, or retry of existing notification queue rows.
+- Any recipient other than the uniquely resolved active personal destination
+  for `脇田 将樹` in the first live test.
+- Store, channel, shared, explicit-target, or default-target fallback.
+- Any wording other than the exact approved connection-test text above.
+- General, batch, scheduled, or automatic personal-message enablement after the
+  one-message test.
+- Secret discovery, display, creation, rotation, or configuration changes.
+- New credentials, new paid environments, additional purchases, OpenAI API, or
+  MCP tunnel usage.
+- Automatic retry from `processing`, `claimed`, or `delivery_unknown`.
+- Changes outside the isolated LINE WORKS personal-message rollout scope.
+
+### APPROVAL EVIDENCE
+
+Owner explicitly approved the database/RPC addition, authentication correction,
+GitHub push/PR/merge, staging and production rollout, and one personal test
+message on 2026-10-15. The subsequent instruction was `脇田宛に送ってください。`
 
 ## Phase 4: Corporate Management
 

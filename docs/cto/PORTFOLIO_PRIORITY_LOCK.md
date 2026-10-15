@@ -1,6 +1,6 @@
 # CTO Portfolio Execution Order Lock
 
-LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-09-21-V5
+LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-10-15-V6
 
 STATUS: ACTIVE
 
@@ -362,6 +362,66 @@ Store Operationsと競合した場合は、HUB Core側を停止する。
 - migration。
 - write flag ON。
 - employee business data write。
+
+## NOV HUB LINE WORKS Personal Message Bounded Implementation Exception
+
+STATUS: OWNER_APPROVED
+
+この例外はPhase Transitionではない。`CURRENT_PHASE`は
+`PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1`のままとし、Store Operations Management V1を
+常に最優先とする。
+
+目的は、既存NOV HUBと既存LINE WORKS送信基盤を利用し、Master Admin権限者が社員1名への
+個人宛メッセージを、宛先と本文の送信前確認および二重送信防止を伴って安全に送れる
+source-only実装候補を作成・検証することに限定する。
+
+### ALLOWED
+
+NOV HUB LINE WORKS個人宛メッセージについて、次だけをPhase 3と並行して実施できる。
+
+1. 既存社員から1名を選択するMaster Admin UI。
+2. 件名・本文入力、masked宛先表示、送信前preview、明示確認、1件送信結果表示。
+3. HUB backendで認証済みactorを解決し、既存`master editor`権限を再確認するAPI。
+4. 承認後の宛先・件名・本文の変更を拒否する短時間approval contract。
+5. 既存`employee / primary` LINE WORKS宛先だけを利用し、共有channelやdefault宛先へ
+   fallbackしない個人配送。
+6. 送信前の原子的claim、同一request／intentの重複拒否、結果不明時の自動再送禁止。
+7. 既存送信基盤へのsource-only接続候補。
+8. 実送信しないfixture、authorization・approval・duplicate・concurrency regression test。
+9. 最新`origin/main`から分離した最大1つのlocal implementation worktree。
+
+### PROHIBITED
+
+NOV HUB LINE WORKS個人宛メッセージについて、次を禁止する。
+
+- Production deploy、GitHub Pages publish、Edge Function deploy。
+- DB schema、migration、RLS、RPC、GRANTの変更。
+- LINE WORKS実送信、destination DML、production business data write。
+- Secretの探索、表示、作成、変更、再設定。
+- Role／Permission体系の変更または既存`master editor`以外への権限拡張。
+- 共有channel、store channel、default targetへの個人メッセージfallback。
+- 結果不明、`processing`、`delivery_unknown`の自動再送。
+- 新規有料API、新規有料サービス、OpenAI API、MCP Tunnelの利用。
+- 実装コードのpush、PR作成、Merge。これらは別のOwner承認を必要とする。
+- Portfolio Phase変更、Store Operations変更、DBF変更、Corporate Management着手。
+
+### 優先順位と停止条件
+
+Store Operations Management V1を常に優先する。本例外の作業がStore Operationsと競合した場合は
+本例外側を停止する。DB変更なしで原子的claimとat-most-once境界を証明できない場合は、送信機能を
+有効化せず、安全側で停止してOwnerへ報告する。
+
+固定順序は次のままであり、変更しない。
+
+1. DBF Backend — COMPLETE
+2. DBF Management UI — COMPLETE
+3. Store Operations — CURRENT
+4. Corporate Management
+
+### Production
+
+本例外が許可するのはlocal source implementationと非送信テストまでである。Production deploy、
+DB変更、実送信、destination write、実装コードのpush／PR／Mergeにはそれぞれ別のOwner承認が必要である。
 
 ## Phase 4: Corporate Management
 

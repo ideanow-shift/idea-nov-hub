@@ -1,5 +1,35 @@
 # Portfolio Priority Decision Log
 
+## 2026-10-15 — NOV HUB LINE WORKS Personal Message Bounded Implementation Exception
+
+DECISION_ID: OWNER-PRIORITY-CHANGE-2026-10-15-NOV-HUB-LINE-WORKS-PERSONAL-MESSAGE
+
+LOCK_ID: CTO-PORTFOLIO-EXECUTION-ORDER-2026-10-15-V6
+
+DECIDED_BY: IDEA NOVグループ代表取締役社長
+
+STATUS: ACTIVE
+
+### Owner Approval
+
+Ownerは、Phase 3進行中に、既存NOV HUBと既存LINE WORKS送信基盤を利用した社員1名への
+個人宛メッセージについて、限定的なsource implementationと非送信テストを明示承認した。
+
+- `CURRENT_PHASE`は`PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1`のまま。
+- 固定Portfolio順序の変更は0。
+- Store Operations Management V1を常に優先する。
+- 操作者は既存`master editor`に限定し、権限を拡張しない。
+- 宛先選択、本文入力、masked宛先preview、送信前確認、1件送信コード、結果表示に限定する。
+- 個人宛は既存`employee / primary`宛先だけを利用し、共有／default宛先へfallbackしない。
+- 原子的claim、二重送信防止、結果不明時の自動再送禁止を必須とする。
+- DB変更なしで安全境界を実現できない場合は送信不可として停止する。
+- 最大1 local implementation worktreeとする。
+- Production deploy、DB変更、実送信、Secret操作、課金操作は承認しない。
+- 実装コードのpush、PR作成、Mergeは別Owner承認を必要とする。
+- 本Priority Change PRの作成、push、mainへのMergeはOwnerが別途明示承認した。
+
+これはPhase Transitionではない。
+
 ## 2026-08-21 — NOV Talent Bounded Operational Maintenance Exception
 
 DECISION_ID: OWNER-PRIORITY-CHANGE-2026-08-21-NOV-TALENT-BOUNDED-MAINTENANCE

@@ -79,6 +79,10 @@ const IDEA_LINK_HANDOFF_AUDIENCE = "idea_link";
 const IDEA_LINK_HANDOFF_TTL_SECONDS = 60;
 const IDEA_LINK_SESSION_TTL_SECONDS = 15 * 60;
 const HUB_SESSION_TTL_SECONDS = 15 * 60;
+const LINE_WORKS_PERSONAL_MESSAGE_APPROVAL_AUDIENCE = "line_works_personal_message_approval_v1";
+const LINE_WORKS_PERSONAL_MESSAGE_APPROVAL_TTL_SECONDS = 5 * 60;
+// Fail closed until an owner-approved DB/RPC change provides a real atomic claim.
+const LINE_WORKS_PERSONAL_MESSAGE_SEND_ENABLED = false;
 const HUB_APP_AUTH_HANDOFF_TABLE = "hub_app_auth_handoffs";
 const IDEA_LINK_TARGET_PATH = "/idea-link-app/";
 const IDEA_LINK_TARGET_VIEWS = new Set(["home", "send", "timeline", "my-page"]);
@@ -2296,6 +2300,29 @@ async function signHubAppSession(payload: JsonRecord) {
     new TextEncoder().encode(signingInput),
   );
   return `${signingInput}.${bytesToBase64Url(new Uint8Array(signature))}`;
+}
+
+async function verifyLineWorksPersonalMessageApproval(token: string): Promise<JsonRecord> {
+  const parts = String(token || "").split(".");
+  if (parts.length !== 3) throw new PortalError("TOKEN_VERIFICATION_FAILED", "Send approval is invalid.", 401);
+  const signingInput = `${parts[0]}.${parts[1]}`;
+  const signatureValid = await crypto.subtle.verify(
+    "HMAC",
+    await importHubAppSessionSigningKey(),
+    base64UrlToBytes(parts[2]),
+    new TextEncoder().encode(signingInput),
+  );
+  if (!signatureValid) throw new PortalError("TOKEN_VERIFICATION_FAILED", "Send approval is invalid.", 401);
+  const payload = decodeJsonBase64Url(parts[1]);
+  const now = Math.floor(Date.now() / 1000);
+  if (String(payload.aud || "") !== LINE_WORKS_PERSONAL_MESSAGE_APPROVAL_AUDIENCE
+    || !isUuid(payload.sub)
+    || !isUuid(payload.jti)
+    || Number(payload.exp || 0) <= now
+    || Number(payload.iat || 0) > now + 30) {
+    throw new PortalError("TOKEN_VERIFICATION_FAILED", "Send approval has expired or is invalid.", 401);
+  }
+  return payload;
 }
 
 async function verifyHubAppSession(
@@ -5104,6 +5131,93 @@ async function getEmployeeLineWorksDestination(employeeId: string, purpose = "pr
   return sanitizeEmployeeLineWorksDestination(list[0] || null, employeeId, normalizeLineWorksPurpose(purpose));
 }
 
+function normalizeLineWorksPersonalMessage(payload: JsonRecord) {
+  assertNoClientActorOverride(payload);
+  const recipientEmployeeId = String(payload.recipientEmployeeId || payload.employeeId || "").trim();
+  const title = String(payload.title || "").trim();
+  const body = String(payload.body || "").trim();
+  if (!isUuid(recipientEmployeeId)) throw new PortalError("INVALID_REQUEST", "Recipient employee id is invalid.", 400);
+  if (!title || title.length > 120) throw new PortalError("INVALID_REQUEST", "Title must be 1-120 characters.", 400);
+  if (!body || body.length > 2000) throw new PortalError("INVALID_REQUEST", "Body must be 1-2000 characters.", 400);
+  return { recipientEmployeeId, title, body };
+}
+
+function fingerprintLineWorksPersonalMessage(input: { recipientEmployeeId: string; title: string; body: string }) {
+  return createHash("sha256")
+    .update(JSON.stringify([input.recipientEmployeeId, input.title, input.body]), "utf8")
+    .digest("hex");
+}
+
+async function previewLineWorksPersonalMessage(payload: JsonRecord, actor: JsonRecord) {
+  const input = normalizeLineWorksPersonalMessage(payload);
+  const actorEmployeeId = getActorEmployeeId(actor);
+  if (!isUuid(actorEmployeeId)) throw new PortalError("ACCESS_DENIED", "Authenticated employee is required.", 403);
+  const recipient = await getEmployeeById(input.recipientEmployeeId);
+  if (!recipient?.id || recipient.is_active === false) {
+    throw new PortalError("LINE_WORKS_RECIPIENT_UNAVAILABLE", "The selected employee is not active.", 409);
+  }
+  const destination = await getEmployeeLineWorksDestination(input.recipientEmployeeId, "primary");
+  if (!destination.configured || destination.isActive === false || !destination.lineWorksTargetIdMasked) {
+    throw new PortalError("LINE_WORKS_DESTINATION_UNAVAILABLE", "The selected employee has no active personal LINE WORKS destination.", 409);
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const expiresAt = now + LINE_WORKS_PERSONAL_MESSAGE_APPROVAL_TTL_SECONDS;
+  const fingerprint = fingerprintLineWorksPersonalMessage(input);
+  const destinationMasked = String(destination.lineWorksTargetIdMasked || "");
+  return {
+    recipient: {
+      employeeId: input.recipientEmployeeId,
+      employeeNumber: String(recipient.employee_id || ""),
+      name: String(recipient.full_name || ""),
+      destinationMasked,
+    },
+    title: input.title,
+    body: input.body,
+    approvalToken: await signHubAppSession({
+      v: 1,
+      jti: crypto.randomUUID(),
+      sub: actorEmployeeId,
+      aud: LINE_WORKS_PERSONAL_MESSAGE_APPROVAL_AUDIENCE,
+      auth_source: "master_admin_preview",
+      recipient_employee_id: input.recipientEmployeeId,
+      destination_masked: destinationMasked,
+      fingerprint,
+      iat: now,
+      exp: expiresAt,
+    }),
+    expiresAt: new Date(expiresAt * 1000).toISOString(),
+    sendAvailable: LINE_WORKS_PERSONAL_MESSAGE_SEND_ENABLED,
+    sendBlocker: LINE_WORKS_PERSONAL_MESSAGE_SEND_ENABLED ? "" : "ATOMIC_CLAIM_UNAVAILABLE",
+  };
+}
+
+async function sendLineWorksPersonalMessage(payload: JsonRecord, actor: JsonRecord) {
+  const input = normalizeLineWorksPersonalMessage(payload);
+  const actorEmployeeId = getActorEmployeeId(actor);
+  const approvalToken = String(payload.approvalToken || "").trim();
+  if (!approvalToken) throw new PortalError("APPROVAL_REQUIRED", "A fresh send preview approval is required.", 409);
+  const approval = await verifyLineWorksPersonalMessageApproval(approvalToken);
+  const fingerprint = fingerprintLineWorksPersonalMessage(input);
+  if (String(approval.sub || "") !== actorEmployeeId
+    || String(approval.recipient_employee_id || "") !== input.recipientEmployeeId
+    || String(approval.fingerprint || "") !== fingerprint) {
+    throw new PortalError("APPROVAL_MISMATCH", "Recipient, title, or body changed after preview.", 409);
+  }
+  const destination = await getEmployeeLineWorksDestination(input.recipientEmployeeId, "primary");
+  if (!destination.configured || destination.isActive === false
+    || String(destination.lineWorksTargetIdMasked || "") !== String(approval.destination_masked || "")) {
+    throw new PortalError("APPROVAL_MISMATCH", "The personal LINE WORKS destination changed after preview.", 409);
+  }
+  if (!LINE_WORKS_PERSONAL_MESSAGE_SEND_ENABLED) {
+    throw new PortalError(
+      "ATOMIC_CLAIM_UNAVAILABLE",
+      "Sending is disabled until an atomic database claim is available and separately approved.",
+      503,
+    );
+  }
+  throw new PortalError("ATOMIC_CLAIM_UNAVAILABLE", "No safe send path is configured.", 503);
+}
+
 async function upsertEmployeeLineWorksDestination(payload: JsonRecord, actor: JsonRecord) {
   assertNoClientActorOverride(payload);
   const employeeId = String(payload.employeeId || payload.employee_id || "").trim();
@@ -6452,6 +6566,16 @@ Deno.serve(async (request) => {
     if (action === "masterUpsertEmployeeLineWorksDestination") {
       assertMasterEditor(employee);
       return jsonResponse({ ok: true, destination: await upsertEmployeeLineWorksDestination(payload, employee) });
+    }
+
+    if (action === "masterPreviewLineWorksPersonalMessage") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, preview: await previewLineWorksPersonalMessage(payload, employee) });
+    }
+
+    if (action === "masterSendLineWorksPersonalMessage") {
+      assertMasterEditor(employee);
+      return jsonResponse({ ok: true, result: await sendLineWorksPersonalMessage(payload, employee) });
     }
 
     if (action === "masterDisableEmployeeLineWorksDestination") {

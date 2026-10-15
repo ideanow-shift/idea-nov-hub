@@ -124,6 +124,7 @@ const state = {
   portalApps: [],
   logs: [],
   logsLoaded: false,
+  lineWorksPersonalMessagePreview: null,
   employeeEmergencyContacts: {},
   permissions: {
     canView: false,
@@ -145,7 +146,12 @@ let safeSearchRenderTimer = 0;
 const elements = Object.fromEntries([
   "auth-panel", "loading-panel", "admin-app", "sign-in", "sign-out", "open-dbf-staging", "add-employee", "add-corporation", "add-portal-app", "refresh",
   "view-title", "view-description", "management-tools-trigger", "management-tools-menu", "management-warning-dot", "search", "employee-csv-tools", "export-employees-csv", "import-employees-csv", "quality-summary", "result-count", "table-head", "table-body",
-  "detail-panel", "employee-status-filter", "corporation-status-filter", "store-status-filter", "app-status-filter", "toast"
+  "detail-panel", "employee-status-filter", "corporation-status-filter", "store-status-filter", "app-status-filter", "toast",
+  "line-works-personal-message-open", "line-works-personal-message-dialog", "line-works-personal-message-form",
+  "line-works-personal-message-recipient", "line-works-personal-message-subject", "line-works-personal-message-body",
+  "line-works-personal-message-preview", "line-works-personal-message-preview-panel",
+  "line-works-personal-message-confirm-wrap", "line-works-personal-message-confirm",
+  "line-works-personal-message-send", "line-works-personal-message-result"
 ].map((id) => [id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), document.querySelector(`#${id}`)]));
 
 const ROLE_LABELS = {
@@ -2600,6 +2606,7 @@ function render() {
   }
   try {
     elements.addEmployee.hidden = state.view !== "employees" || !state.permissions.canEdit;
+    elements.lineWorksPersonalMessageOpen.hidden = !state.permissions.canEdit;
     elements.addCorporation.hidden = state.view !== "corporations" || !state.permissions.canEdit;
     elements.employeeCsvTools.hidden = state.view !== "employees";
     elements.addPortalApp.hidden = state.view !== "apps" || !state.permissions.canEdit;
@@ -6014,6 +6021,100 @@ async function handleOpenDbfStaging() {
   }
 }
 
+function resetLineWorksPersonalMessagePreview() {
+  state.lineWorksPersonalMessagePreview = null;
+  elements.lineWorksPersonalMessagePreviewPanel.hidden = true;
+  elements.lineWorksPersonalMessagePreviewPanel.replaceChildren();
+  elements.lineWorksPersonalMessageConfirmWrap.hidden = true;
+  elements.lineWorksPersonalMessageConfirm.checked = false;
+  elements.lineWorksPersonalMessageSend.disabled = true;
+  elements.lineWorksPersonalMessageResult.textContent = "";
+}
+
+function openLineWorksPersonalMessageDialog() {
+  if (!state.permissions.canEdit) {
+    showToast("Master Admin の編集権限が必要です。");
+    return;
+  }
+  const activeEmployees = (state.employees || [])
+    .filter((employee) => employee?.id && employee.is_active !== false)
+    .sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || ""), "ja"));
+  elements.lineWorksPersonalMessageRecipient.replaceChildren();
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "社員を選択してください";
+  elements.lineWorksPersonalMessageRecipient.append(placeholder);
+  activeEmployees.forEach((employee) => {
+    const option = document.createElement("option");
+    option.value = employee.id;
+    option.textContent = `${employee.employee_id || ""} ${employee.full_name || ""}`.trim();
+    elements.lineWorksPersonalMessageRecipient.append(option);
+  });
+  resetLineWorksPersonalMessagePreview();
+  elements.lineWorksPersonalMessageDialog.showModal();
+}
+
+function appendLineWorksPreviewRow(list, label, value) {
+  const term = document.createElement("dt");
+  term.textContent = label;
+  const detail = document.createElement("dd");
+  detail.textContent = value;
+  list.append(term, detail);
+}
+
+async function previewLineWorksPersonalMessage() {
+  resetLineWorksPersonalMessagePreview();
+  const recipientEmployeeId = elements.lineWorksPersonalMessageRecipient.value;
+  const title = elements.lineWorksPersonalMessageSubject.value.trim();
+  const body = elements.lineWorksPersonalMessageBody.value.trim();
+  if (!recipientEmployeeId || !title || !body) {
+    elements.lineWorksPersonalMessageResult.textContent = "送信先・件名・本文を入力してください。";
+    return;
+  }
+  elements.lineWorksPersonalMessagePreview.disabled = true;
+  try {
+    const response = await callApiAction("masterPreviewLineWorksPersonalMessage", { recipientEmployeeId, title, body });
+    const preview = response.preview;
+    state.lineWorksPersonalMessagePreview = preview;
+    const list = document.createElement("dl");
+    appendLineWorksPreviewRow(list, "送信先", `${preview.recipient.name}（${preview.recipient.employeeNumber || "社員番号なし"}）`);
+    appendLineWorksPreviewRow(list, "宛先", preview.recipient.destinationMasked);
+    appendLineWorksPreviewRow(list, "件名", preview.title);
+    appendLineWorksPreviewRow(list, "本文", preview.body);
+    appendLineWorksPreviewRow(list, "承認期限", new Date(preview.expiresAt).toLocaleString("ja-JP"));
+    const status = document.createElement("strong");
+    status.textContent = preview.sendAvailable
+      ? "内容を確認してから1通だけ送信できます。"
+      : "安全停止中: 原子的 claim が未整備のため送信できません。";
+    elements.lineWorksPersonalMessagePreviewPanel.append(list, status);
+    elements.lineWorksPersonalMessagePreviewPanel.hidden = false;
+    elements.lineWorksPersonalMessageConfirmWrap.hidden = !preview.sendAvailable;
+    elements.lineWorksPersonalMessageResult.textContent = preview.sendAvailable ? "" : "DB/RPC の別承認が完了するまで送信は無効です。";
+  } catch (error) {
+    elements.lineWorksPersonalMessageResult.textContent = error?.message || "プレビューを作成できませんでした。";
+  } finally {
+    elements.lineWorksPersonalMessagePreview.disabled = false;
+  }
+}
+
+async function sendLineWorksPersonalMessage() {
+  const preview = state.lineWorksPersonalMessagePreview;
+  if (!preview?.sendAvailable || !elements.lineWorksPersonalMessageConfirm.checked) return;
+  elements.lineWorksPersonalMessageSend.disabled = true;
+  try {
+    const response = await callApiAction("masterSendLineWorksPersonalMessage", {
+      recipientEmployeeId: elements.lineWorksPersonalMessageRecipient.value,
+      title: elements.lineWorksPersonalMessageSubject.value.trim(),
+      body: elements.lineWorksPersonalMessageBody.value.trim(),
+      approvalToken: preview.approvalToken
+    });
+    elements.lineWorksPersonalMessageResult.textContent = response.result?.message || "1通の送信が完了しました。";
+    resetLineWorksPersonalMessagePreview();
+  } catch (error) {
+    elements.lineWorksPersonalMessageResult.textContent = error?.message || "送信は完了していません。";
+  }
+}
+
 async function initializeMasterAdmin() {
   if (!restoreLaunchAuth()) {
     if (await restoreFirebaseBrowserSession()) {
@@ -6040,6 +6141,15 @@ async function initializeMasterAdmin() {
 elements.signIn.addEventListener("click", handleSignIn);
 elements.signOut.addEventListener("click", handleSignOut);
 elements.openDbfStaging?.addEventListener("click", handleOpenDbfStaging);
+elements.lineWorksPersonalMessageOpen?.addEventListener("click", openLineWorksPersonalMessageDialog);
+elements.lineWorksPersonalMessagePreview?.addEventListener("click", previewLineWorksPersonalMessage);
+elements.lineWorksPersonalMessageSend?.addEventListener("click", sendLineWorksPersonalMessage);
+elements.lineWorksPersonalMessageConfirm?.addEventListener("change", () => {
+  elements.lineWorksPersonalMessageSend.disabled = !state.lineWorksPersonalMessagePreview?.sendAvailable
+    || !elements.lineWorksPersonalMessageConfirm.checked;
+});
+[elements.lineWorksPersonalMessageRecipient, elements.lineWorksPersonalMessageSubject, elements.lineWorksPersonalMessageBody]
+  .forEach((input) => input?.addEventListener("input", resetLineWorksPersonalMessagePreview));
 elements.managementToolsTrigger?.addEventListener("click", () => {
   const open = elements.managementToolsTrigger.getAttribute("aria-expanded") !== "true";
   setManagementToolsOpen(open, { focusFirst: open });

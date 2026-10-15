@@ -58,6 +58,8 @@ const EDGE_ACTIONS = new Set([
   "masterUpdateEmployeeEmergencyContact",
   "masterUploadEmployeeProfileImage",
   "masterUpsertEmployeeLineWorksDestination",
+  "masterPreviewLineWorksPersonalMessage",
+  "masterSendLineWorksPersonalMessage",
   "masterCreateCorporation",
   "masterUpdateCorporation",
   "masterUpdateStore",

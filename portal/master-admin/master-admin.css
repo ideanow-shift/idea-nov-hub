@@ -2592,3 +2592,28 @@ body {
     white-space: nowrap;
   }
 }
+/* LINE WORKS personal message: preview is available; sending stays fail-closed
+   until a separately approved atomic database claim exists. */
+.line-works-message-dialog {
+  width: min(680px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  border: 0;
+  border-radius: 16px;
+  padding: 0;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .28);
+}
+.line-works-message-dialog::backdrop { background: rgba(15, 23, 42, .52); }
+.line-works-message-form { display: grid; gap: 14px; padding: 20px; }
+.line-works-message-form header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.line-works-message-form header h2 { margin: 2px 0 0; }
+.line-works-message-form label { display: grid; gap: 6px; font-weight: 700; }
+.line-works-message-form input,
+.line-works-message-form select,
+.line-works-message-form textarea { width: 100%; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 12px; font: inherit; }
+.line-works-message-preview { display: grid; gap: 8px; border: 1px solid #dbeafe; border-radius: 12px; background: #eff6ff; padding: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.line-works-message-preview dl { display: grid; grid-template-columns: 100px 1fr; gap: 6px 10px; margin: 0; }
+.line-works-message-preview dt { font-weight: 700; }
+.line-works-message-preview dd { margin: 0; }
+.line-works-message-confirm { grid-template-columns: auto 1fr !important; align-items: center; }
+.line-works-message-confirm input { width: auto; }
+.line-works-message-result { min-height: 1.5em; margin: 0; color: #9f1239; }

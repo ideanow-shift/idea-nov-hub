@@ -7,7 +7,7 @@ const root = process.cwd();
 const lockPath = path.join(root, 'docs', 'cto', 'PORTFOLIO_PRIORITY_LOCK.md');
 const logPath = path.join(root, 'docs', 'cto', 'PRIORITY_DECISION_LOG.md');
 const agentsPath = path.join(root, 'AGENTS.md');
-const expectedLockId = 'CTO-PORTFOLIO-EXECUTION-ORDER-2026-10-15-V6';
+const expectedLockId = 'CTO-PORTFOLIO-EXECUTION-ORDER-2026-10-15-V7';
 const expectedPhase = 'PHASE_3_STORE_OPERATIONS_MANAGEMENT_V1';
 const failures = [];
 
@@ -24,7 +24,7 @@ const [lock, decisionLog, agents] = await Promise.all([
 
 const activeLocks = [...lock.matchAll(/^STATUS:\s*ACTIVE\s*$/gm)].length;
 if (activeLocks !== 1) failures.push(`ACTIVE Lock must be exactly 1; found ${activeLocks}`);
-requireText(lock, new RegExp(`^LOCK_ID:\\s*${expectedLockId}$`, 'm'), 'LOCK_ID is not V6');
+requireText(lock, new RegExp(`^LOCK_ID:\\s*${expectedLockId}$`, 'm'), 'LOCK_ID is not V7');
 requireText(lock, new RegExp(`^CURRENT_PHASE:\\s*${expectedPhase}$`, 'm'), 'CURRENT_PHASE mismatch');
 
 const expectedOrder = [
@@ -63,6 +63,13 @@ requireText(lock, /共有channel、store channel、default targetへの個人メ
 requireText(lock, /DB変更なしで原子的claimとat-most-once境界を証明できない場合[\s\S]*有効化せず/, 'NOV HUB LINE WORKS safe stop clause missing');
 requireText(lock, /実装コードのpush、PR作成、Merge。これらは別のOwner承認を必要とする。/, 'NOV HUB LINE WORKS implementation publication boundary missing');
 
+requireText(lock, /## NOV HUB LINE WORKS Personal Message Production Rollout Authorization[\s\S]*STATUS:\s*OWNER_APPROVED/, 'Owner-approved NOV HUB LINE WORKS production rollout missing');
+requireText(lock, /isolated personal-message delivery table[\s\S]*atomic claim/, 'NOV HUB LINE WORKS production atomic claim scope missing');
+requireText(lock, /unverified JWT[\s\S]*general authenticated-user fallback/, 'NOV HUB LINE WORKS sender authentication correction missing');
+requireText(lock, /employee-only personal routing path[\s\S]*refuses explicit, store, channel, and[\s\S]*default fallback targets/, 'NOV HUB LINE WORKS employee-only routing missing');
+requireText(lock, /脇田 将樹[\s\S]*exactly one message[\s\S]*【接続テスト】脇田AI秘書からLINE WORKSへの送信テストです。返信・対応は不要です。/, 'NOV HUB LINE WORKS one-message approval missing');
+requireText(lock, /result is unknown[\s\S]*never retry automatically/, 'NOV HUB LINE WORKS delivery_unknown safety missing');
+
 const phaseCriteria = {
   'Phase 1': ['法人会計ActualのBackend Contract', '店舗月次営業実績のBackend Contract', 'Canonical Factの保存先', 'PostgreSQL 17 CI', 'Staging Backend Smoke', 'Production writeが0'],
   'Phase 2': ['画面だけで取込からPromotion', 'DeveloperによるSQL操作が不要', '2026-06法人会計Pilot', '店舗月次データPilot', 'Canonical Factをread-back'],
@@ -84,6 +91,7 @@ requireText(decisionLog, /DECISION_ID:\s*OWNER-PRIORITY-CHANGE-2026-08-21-NOV-TA
 requireText(decisionLog, /DECISION_ID:\s*OWNER-PRIORITY-CHANGE-2026-08-22-HUB-EMPLOYEE-MASTER-BOUNDED-MAINTENANCE/, 'V4 decision record missing');
 requireText(decisionLog, /DECISION_ID:\s*OWNER-PRIORITY-CHANGE-2026-09-21-PHASE-3-SALES-UAT-WAIVER/, 'V5 decision record missing');
 requireText(decisionLog, /DECISION_ID:\s*OWNER-PRIORITY-CHANGE-2026-10-15-NOV-HUB-LINE-WORKS-PERSONAL-MESSAGE/, 'V6 decision record missing');
+requireText(decisionLog, /DECISION_ID:\s*OWNER-PRIORITY-CHANGE-2026-10-15-NOV-HUB-LINE-WORKS-PRODUCTION-ROLLOUT/, 'V7 decision record missing');
 requireText(decisionLog, /### SUPERSEDED対象文書\s+なし。/, 'SUPERSEDED disposition missing');
 requireText(decisionLog, /STATUS: SUPERSEDED[\s\S]*最新の唯一の正本[\s\S]*docs\/cto\/PORTFOLIO_PRIORITY_LOCK\.md[\s\S]*旧Priorityを現在値として使用してはいけません/, 'SUPERSEDED banner template missing');
 
@@ -145,4 +153,5 @@ console.log('Old active priority disposition: PASS');
 console.log('NOV Talent bounded operational maintenance exception: PASS');
 console.log('HUB Core employee master bounded operational maintenance exception: PASS');
 console.log('NOV HUB LINE WORKS personal message bounded implementation exception: PASS');
+console.log('NOV HUB LINE WORKS personal message production rollout authorization: PASS');
 console.log('Phase order unchanged: PASS');

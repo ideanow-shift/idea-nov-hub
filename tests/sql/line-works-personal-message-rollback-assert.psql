@@ -1,0 +1,14 @@
+\set ON_ERROR_STOP on
+
+do $$
+begin
+  if to_regprocedure('os.claim_line_works_personal_message_v1(uuid,uuid,uuid,text,text,timestamptz)') is not null
+     or to_regprocedure('os.begin_line_works_personal_message_delivery_v1(uuid)') is not null
+     or to_regprocedure('os.finish_line_works_personal_message_delivery_v1(uuid,text,text,text)') is not null then
+    raise exception 'rollback left an executable personal-message function';
+  end if;
+  if to_regclass('os.line_works_personal_message_deliveries') is null then
+    raise exception 'rollback unexpectedly removed retained audit rows';
+  end if;
+end
+$$;

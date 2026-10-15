@@ -6108,8 +6108,12 @@ async function sendLineWorksPersonalMessage() {
       body: elements.lineWorksPersonalMessageBody.value.trim(),
       approvalToken: preview.approvalToken
     });
-    elements.lineWorksPersonalMessageResult.textContent = response.result?.message || "1通の送信が完了しました。";
+    const result = response.result || {};
+    const resultText = result.sent === true
+      ? `1通の送信が完了しました。claim: ${result.claimId || "-"}`
+      : `送信は完了していません。status: ${result.status || "unknown"} / claim: ${result.claimId || "-"}`;
     resetLineWorksPersonalMessagePreview();
+    elements.lineWorksPersonalMessageResult.textContent = resultText;
   } catch (error) {
     elements.lineWorksPersonalMessageResult.textContent = error?.message || "送信は完了していません。";
   }

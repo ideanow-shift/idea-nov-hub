@@ -81,8 +81,10 @@ const IDEA_LINK_SESSION_TTL_SECONDS = 15 * 60;
 const HUB_SESSION_TTL_SECONDS = 15 * 60;
 const LINE_WORKS_PERSONAL_MESSAGE_APPROVAL_AUDIENCE = "line_works_personal_message_approval_v1";
 const LINE_WORKS_PERSONAL_MESSAGE_APPROVAL_TTL_SECONDS = 5 * 60;
-// Fail closed until an owner-approved DB/RPC change provides a real atomic claim.
-const LINE_WORKS_PERSONAL_MESSAGE_SEND_ENABLED = false;
+const LINE_WORKS_PERSONAL_MESSAGE_RECIPIENT_NAME = "脇田 将樹";
+const LINE_WORKS_PERSONAL_MESSAGE_TITLE = "【接続テスト】";
+const LINE_WORKS_PERSONAL_MESSAGE_BODY = "脇田AI秘書からLINE WORKSへの送信テストです。返信・対応は不要です。";
+const LINE_WORKS_PERSONAL_MESSAGE_TEXT = `${LINE_WORKS_PERSONAL_MESSAGE_TITLE}${LINE_WORKS_PERSONAL_MESSAGE_BODY}`;
 const HUB_APP_AUTH_HANDOFF_TABLE = "hub_app_auth_handoffs";
 const IDEA_LINK_TARGET_PATH = "/idea-link-app/";
 const IDEA_LINK_TARGET_VIEWS = new Set(["home", "send", "timeline", "my-page"]);
@@ -5139,6 +5141,9 @@ function normalizeLineWorksPersonalMessage(payload: JsonRecord) {
   if (!isUuid(recipientEmployeeId)) throw new PortalError("INVALID_REQUEST", "Recipient employee id is invalid.", 400);
   if (!title || title.length > 120) throw new PortalError("INVALID_REQUEST", "Title must be 1-120 characters.", 400);
   if (!body || body.length > 2000) throw new PortalError("INVALID_REQUEST", "Body must be 1-2000 characters.", 400);
+  if (title !== LINE_WORKS_PERSONAL_MESSAGE_TITLE || body !== LINE_WORKS_PERSONAL_MESSAGE_BODY) {
+    throw new PortalError("MESSAGE_OUTSIDE_APPROVAL", "Message text is outside the approved one-message gate.", 409);
+  }
   return { recipientEmployeeId, title, body };
 }
 
@@ -5152,10 +5157,18 @@ async function previewLineWorksPersonalMessage(payload: JsonRecord, actor: JsonR
   const input = normalizeLineWorksPersonalMessage(payload);
   const actorEmployeeId = getActorEmployeeId(actor);
   if (!isUuid(actorEmployeeId)) throw new PortalError("ACCESS_DENIED", "Authenticated employee is required.", 403);
-  const recipient = await getEmployeeById(input.recipientEmployeeId);
-  if (!recipient?.id || recipient.is_active === false) {
-    throw new PortalError("LINE_WORKS_RECIPIENT_UNAVAILABLE", "The selected employee is not active.", 409);
+  const recipientMatches = await readRows("employees", {
+    query: {
+      select: "id,employee_id,full_name,is_active",
+      full_name: `eq.${LINE_WORKS_PERSONAL_MESSAGE_RECIPIENT_NAME}`,
+      is_active: "eq.true",
+      limit: "2",
+    },
+  });
+  if (recipientMatches.length !== 1 || String(recipientMatches[0].id || "") !== input.recipientEmployeeId) {
+    throw new PortalError("LINE_WORKS_RECIPIENT_AMBIGUOUS", "The approved recipient is not uniquely resolved.", 409);
   }
+  const recipient = recipientMatches[0];
   const destination = await getEmployeeLineWorksDestination(input.recipientEmployeeId, "primary");
   if (!destination.configured || destination.isActive === false || !destination.lineWorksTargetIdMasked) {
     throw new PortalError("LINE_WORKS_DESTINATION_UNAVAILABLE", "The selected employee has no active personal LINE WORKS destination.", 409);
@@ -5173,6 +5186,7 @@ async function previewLineWorksPersonalMessage(payload: JsonRecord, actor: JsonR
     },
     title: input.title,
     body: input.body,
+    messageText: LINE_WORKS_PERSONAL_MESSAGE_TEXT,
     approvalToken: await signHubAppSession({
       v: 1,
       jti: crypto.randomUUID(),
@@ -5186,8 +5200,8 @@ async function previewLineWorksPersonalMessage(payload: JsonRecord, actor: JsonR
       exp: expiresAt,
     }),
     expiresAt: new Date(expiresAt * 1000).toISOString(),
-    sendAvailable: LINE_WORKS_PERSONAL_MESSAGE_SEND_ENABLED,
-    sendBlocker: LINE_WORKS_PERSONAL_MESSAGE_SEND_ENABLED ? "" : "ATOMIC_CLAIM_UNAVAILABLE",
+    sendAvailable: true,
+    sendBlocker: "",
   };
 }
 
@@ -5208,14 +5222,76 @@ async function sendLineWorksPersonalMessage(payload: JsonRecord, actor: JsonReco
     || String(destination.lineWorksTargetIdMasked || "") !== String(approval.destination_masked || "")) {
     throw new PortalError("APPROVAL_MISMATCH", "The personal LINE WORKS destination changed after preview.", 409);
   }
-  if (!LINE_WORKS_PERSONAL_MESSAGE_SEND_ENABLED) {
-    throw new PortalError(
-      "ATOMIC_CLAIM_UNAVAILABLE",
-      "Sending is disabled until an atomic database claim is available and separately approved.",
-      503,
-    );
+  const recipientMatches = await readRows("employees", {
+    query: {
+      select: "id,full_name,is_active",
+      full_name: `eq.${LINE_WORKS_PERSONAL_MESSAGE_RECIPIENT_NAME}`,
+      is_active: "eq.true",
+      limit: "2",
+    },
+  });
+  if (recipientMatches.length !== 1 || String(recipientMatches[0].id || "") !== input.recipientEmployeeId) {
+    throw new PortalError("LINE_WORKS_RECIPIENT_AMBIGUOUS", "The approved recipient is not uniquely resolved.", 409);
   }
-  throw new PortalError("ATOMIC_CLAIM_UNAVAILABLE", "No safe send path is configured.", 503);
+
+  const claimRows = await callSupabaseRpc("claim_line_works_personal_message_v1", {
+    p_intent_id: String(approval.jti || ""),
+    p_actor_employee_id: actorEmployeeId,
+    p_recipient_employee_id: input.recipientEmployeeId,
+    p_content_fingerprint: fingerprint,
+    p_message_text: LINE_WORKS_PERSONAL_MESSAGE_TEXT,
+    p_approval_expires_at: new Date(Number(approval.exp || 0) * 1000).toISOString(),
+  }, "os");
+  const claim = asRecord(Array.isArray(claimRows) ? claimRows[0] : claimRows);
+  const claimId = String(claim.claim_id || "");
+  const claimStatus = String(claim.claim_status || "");
+  if (!isUuid(claimId)) throw new PortalError("ATOMIC_CLAIM_UNAVAILABLE", "Personal-message claim was not created.", 503);
+  if (claim.duplicate === true || claimStatus !== "claimed") {
+    return { claimId, status: claimStatus, duplicate: true, sent: claimStatus === "sent", retried: false };
+  }
+
+  let deliveryResponse: Response;
+  try {
+    deliveryResponse = await fetch(`${SUPABASE_URL}/functions/v1/send-line-works-notifications`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        personalMessageClaimId: claimId,
+        expectedRecipientEmployeeId: input.recipientEmployeeId,
+      }),
+    });
+  } catch (_error) {
+    return { claimId, status: "delivery_unknown", duplicate: false, sent: false, retried: false };
+  }
+  const deliveryText = await deliveryResponse.text();
+  let deliveryBody: JsonRecord = {};
+  try {
+    deliveryBody = deliveryText ? asRecord(JSON.parse(deliveryText)) : {};
+  } catch (_error) {
+    deliveryBody = {};
+  }
+  if (!deliveryResponse.ok || deliveryBody.ok !== true) {
+    return {
+      claimId,
+      status: String(deliveryBody.status || "delivery_unknown"),
+      duplicate: false,
+      sent: false,
+      retried: false,
+      providerCode: String(deliveryBody.providerCode || "DELIVERY_RESULT_UNKNOWN"),
+    };
+  }
+  return {
+    claimId,
+    status: String(deliveryBody.status || "sent"),
+    duplicate: false,
+    sent: String(deliveryBody.status || "sent") === "sent",
+    retried: false,
+    providerCode: String(deliveryBody.providerCode || "OK"),
+  };
 }
 
 async function upsertEmployeeLineWorksDestination(payload: JsonRecord, actor: JsonRecord) {

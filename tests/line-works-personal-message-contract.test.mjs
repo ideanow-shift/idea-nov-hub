@@ -5,6 +5,8 @@ import test from "node:test";
 const apiSource = await readFile(new URL("../supabase/functions/nov-hub-api/index.ts", import.meta.url), "utf8");
 const uiSource = await readFile(new URL("../portal/master-admin/master-admin.js", import.meta.url), "utf8");
 const htmlSource = await readFile(new URL("../portal/master-admin/index.html", import.meta.url), "utf8");
+const senderSource = await readFile(new URL("../supabase/functions/send-line-works-notifications/index.ts", import.meta.url), "utf8");
+const migrationSource = await readFile(new URL("../supabase/migrations/20261015083908_line_works_personal_message_delivery_v1.sql", import.meta.url), "utf8");
 
 test("personal message actions require the existing master editor authorization", () => {
   for (const action of ["masterPreviewLineWorksPersonalMessage", "masterSendLineWorksPersonalMessage"]) {
@@ -18,10 +20,33 @@ test("preview approval is short-lived and bound to recipient/title/body fingerpr
   assert.match(apiSource, /APPROVAL_MISMATCH/);
 });
 
-test("live send remains fail-closed without an atomic database claim", () => {
-  assert.match(apiSource, /LINE_WORKS_PERSONAL_MESSAGE_SEND_ENABLED = false/);
-  assert.match(apiSource, /ATOMIC_CLAIM_UNAVAILABLE/);
-  assert.doesNotMatch(apiSource, /masterSendLineWorksPersonalMessage[\s\S]{0,2000}sendIdeaLinkNotificationById/);
+test("bounded live send requires the isolated atomic database claim", () => {
+  assert.match(apiSource, /claim_line_works_personal_message_v1/);
+  assert.match(apiSource, /personalMessageClaimId: claimId/);
+  assert.match(apiSource, /LINE_WORKS_PERSONAL_MESSAGE_RECIPIENT_NAME = "脇田 将樹"/);
+  assert.match(apiSource, /MESSAGE_OUTSIDE_APPROVAL/);
+});
+
+test("sender accepts only cryptographically established internal invocation", () => {
+  assert.match(senderSource, /constantTimeEquals\(bearerToken, serviceKey\)/);
+  assert.match(senderSource, /constantTimeEquals\(providedSecret, triggerSecret\)/);
+  assert.doesNotMatch(senderSource, /isVerifiedServiceRoleJwt|decodeJwtPayload|\/auth\/v1\/user/);
+});
+
+test("personal delivery is employee-only and isolated from the existing queue", () => {
+  assert.match(senderSource, /line_works_personal_message_deliveries/);
+  assert.match(senderSource, /\.eq\("target_type", "employee"\)/);
+  assert.match(senderSource, /\.eq\("purpose", "primary"\)/);
+  assert.match(senderSource, /type: "user"/);
+  assert.doesNotMatch(migrationSource, /(?:update|delete\s+from|insert\s+into)\s+os\.notifications\b/i);
+});
+
+test("migration provides atomic claim and permanent unknown-result stop", () => {
+  assert.match(migrationSource, /insert into os\.line_works_personal_message_deliveries[\s\S]*on conflict do nothing[\s\S]*returning/);
+  assert.match(migrationSource, /unique index[\s\S]*recipient_employee_id, content_fingerprint/);
+  assert.match(migrationSource, /delivery_unknown/);
+  assert.match(migrationSource, /revoke all on function[\s\S]*from public, anon, authenticated/);
+  assert.match(migrationSource, /grant execute on function[\s\S]*to service_role/);
 });
 
 test("master UI provides exact preview, masked destination, and confirmation controls", () => {

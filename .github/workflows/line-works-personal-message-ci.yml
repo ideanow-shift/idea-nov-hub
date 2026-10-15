@@ -1,0 +1,64 @@
+name: LINE WORKS Personal Message Gate
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/line-works-personal-message-ci.yml"
+      - "portal/master-admin/**"
+      - "supabase/functions/nov-hub-api/**"
+      - "supabase/functions/send-line-works-notifications/**"
+      - "supabase/migrations/20261015083908_line_works_personal_message_delivery_v1.sql"
+      - "supabase/rollback/line_works_personal_message_delivery_v1.rollback.sql"
+      - "tests/line-works-personal-message-*"
+      - "tests/sql/line-works-personal-message-*"
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-and-edge-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17.6-bookworm
+        env:
+          POSTGRES_DB: line_works_personal_message
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d line_works_personal_message"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      PGDATABASE: line_works_personal_message
+      PGHOST: 127.0.0.1
+      PGPASSWORD: postgres
+      PGPORT: 5432
+      PGUSER: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Apply isolated migration and verify one-way claim
+        run: |
+          psql -X -f tests/sql/line-works-personal-message-fixture.psql
+          psql -X -f supabase/migrations/20261015083908_line_works_personal_message_delivery_v1.sql
+          psql -X -f tests/sql/line-works-personal-message-assert.psql
+      - name: Verify Edge, UI and sender contracts
+        run: |
+          node --test tests/line-works-personal-message-contract.test.mjs
+          deno test tests/line-works-personal-message-sender.test.ts
+          deno check supabase/functions/nov-hub-api/index.ts supabase/functions/send-line-works-notifications/index.ts supabase/functions/send-line-works-notifications/personal-message-sender.ts
+      - name: Rollback disables execution and retains audit rows
+        run: |
+          psql -X -f supabase/rollback/line_works_personal_message_delivery_v1.rollback.sql
+          psql -X -f tests/sql/line-works-personal-message-rollback-assert.psql
+      - name: Patch quality
+        run: git diff --check origin/main...HEAD
